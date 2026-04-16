@@ -10,18 +10,24 @@ export function formatCurrency(amount: number | null | undefined, currency = 'QA
 }
 
 export function formatDate(date: string | Date | null | undefined): string {
-  if (!date) return '—'
-  return format(new Date(date), 'dd MMM yyyy')
+  if (date == null) return '—'
+  const d = new Date(date)
+  if (isNaN(d.getTime())) return '—'
+  return format(d, 'dd MMM yyyy')
 }
 
 export function formatDateTime(date: string | Date | null | undefined): string {
-  if (!date) return '—'
-  return format(new Date(date), 'dd MMM yyyy, HH:mm')
+  if (date == null) return '—'
+  const d = new Date(date)
+  if (isNaN(d.getTime())) return '—'
+  return format(d, 'dd MMM yyyy, HH:mm')
 }
 
 export function formatRelative(date: string | Date | null | undefined): string {
-  if (!date) return '—'
-  return formatDistanceToNow(new Date(date), { addSuffix: true })
+  if (date == null) return '—'
+  const d = new Date(date)
+  if (isNaN(d.getTime())) return '—'
+  return formatDistanceToNow(d, { addSuffix: true })
 }
 
 export function formatNumber(value: number | null | undefined): string {
