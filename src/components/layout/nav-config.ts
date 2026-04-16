@@ -1,13 +1,3 @@
-import {
-  Database,
-  ShoppingCart,
-  FileText,
-  Receipt,
-  ShoppingBag,
-  Users,
-  type LucideIcon,
-} from 'lucide-react'
-
 export type NavItem = {
   label: string
   href: string
@@ -21,7 +11,7 @@ export type NavGroup = {
 
 export type NavEntry = {
   label: string
-  icon: LucideIcon
+  icon: string   // icon name string — resolved to component in NavDropdown (client)
   comingSoon?: boolean
   groups: NavGroup[]
 }
@@ -29,7 +19,7 @@ export type NavEntry = {
 export const NAV_ITEMS: NavEntry[] = [
   {
     label: 'Master Data',
-    icon: Database,
+    icon: 'Database',
     groups: [
       {
         items: [
@@ -55,25 +45,25 @@ export const NAV_ITEMS: NavEntry[] = [
   },
   {
     label: 'Orders',
-    icon: ShoppingCart,
+    icon: 'ShoppingCart',
     comingSoon: true,
     groups: [],
   },
   {
     label: 'Contracts',
-    icon: FileText,
+    icon: 'FileText',
     comingSoon: true,
     groups: [],
   },
   {
     label: 'Invoices',
-    icon: Receipt,
+    icon: 'Receipt',
     comingSoon: true,
     groups: [],
   },
   {
     label: 'Purchase & Sales',
-    icon: ShoppingBag,
+    icon: 'ShoppingBag',
     groups: [
       {
         label: 'PURCHASE',
@@ -98,7 +88,7 @@ export const NAV_ITEMS: NavEntry[] = [
   },
   {
     label: 'Teams',
-    icon: Users,
+    icon: 'Users',
     comingSoon: true,
     groups: [],
   },

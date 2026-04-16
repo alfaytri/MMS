@@ -11,9 +11,28 @@ import {
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu'
 import { Badge } from '@/components/ui/badge'
-import { ChevronDown, Lock } from 'lucide-react'
+import {
+  ChevronDown,
+  Lock,
+  Database,
+  ShoppingCart,
+  FileText,
+  Receipt,
+  ShoppingBag,
+  Users,
+  type LucideIcon,
+} from 'lucide-react'
 import { cn } from '@/lib/utils'
 import type { NavEntry } from './nav-config'
+
+const ICON_MAP: Record<string, LucideIcon> = {
+  Database,
+  ShoppingCart,
+  FileText,
+  Receipt,
+  ShoppingBag,
+  Users,
+}
 
 interface NavDropdownProps {
   entry: NavEntry
@@ -21,6 +40,7 @@ interface NavDropdownProps {
 
 export function NavDropdown({ entry }: NavDropdownProps) {
   const pathname = usePathname()
+  const Icon = ICON_MAP[entry.icon]
 
   const isActive = entry.groups.some((group) =>
     group.items.some((item) => pathname.startsWith(item.href))
@@ -36,7 +56,7 @@ export function NavDropdown({ entry }: NavDropdownProps) {
             : 'text-foreground hover:text-primary'
         )}
       >
-        <entry.icon className="h-4 w-4" />
+        {Icon && <Icon className="h-4 w-4" />}
         {entry.label}
         <ChevronDown className="h-3 w-3 opacity-50" />
       </DropdownMenuTrigger>
