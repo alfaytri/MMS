@@ -4,6 +4,7 @@ import { useRouter } from 'next/navigation'
 import {
   DropdownMenu,
   DropdownMenuContent,
+  DropdownMenuGroup,
   DropdownMenuItem,
   DropdownMenuLabel,
   DropdownMenuSeparator,
@@ -43,25 +44,31 @@ export function UserMenu({ email, name }: UserMenuProps) {
         </Avatar>
       </DropdownMenuTrigger>
       <DropdownMenuContent align="end" className="w-48">
-        <DropdownMenuLabel className="font-normal">
-          <div className="flex flex-col space-y-1">
-            {name && <p className="text-sm font-medium">{name}</p>}
-            <p className="text-xs text-muted-foreground truncate">{email}</p>
-          </div>
-        </DropdownMenuLabel>
+        <DropdownMenuGroup>
+          <DropdownMenuLabel className="font-normal">
+            <div className="flex flex-col space-y-1">
+              {name && <p className="text-sm font-medium">{name}</p>}
+              <p className="text-xs text-muted-foreground truncate">{email}</p>
+            </div>
+          </DropdownMenuLabel>
+        </DropdownMenuGroup>
         <DropdownMenuSeparator />
-        <DropdownMenuItem className="gap-2">
-          <User className="h-4 w-4" />
-          Profile
-        </DropdownMenuItem>
+        <DropdownMenuGroup>
+          <DropdownMenuItem className="gap-2">
+            <User className="h-4 w-4" />
+            Profile
+          </DropdownMenuItem>
+        </DropdownMenuGroup>
         <DropdownMenuSeparator />
-        <DropdownMenuItem
-          className="gap-2 text-destructive focus:text-destructive"
-          onClick={handleSignOut}
-        >
-          <LogOut className="h-4 w-4" />
-          Sign Out
-        </DropdownMenuItem>
+        <DropdownMenuGroup>
+          <DropdownMenuItem
+            className="gap-2 text-destructive focus:text-destructive"
+            onClick={handleSignOut}
+          >
+            <LogOut className="h-4 w-4" />
+            Sign Out
+          </DropdownMenuItem>
+        </DropdownMenuGroup>
       </DropdownMenuContent>
     </DropdownMenu>
   )

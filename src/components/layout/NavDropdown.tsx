@@ -1,10 +1,12 @@
 'use client'
 
+import React from 'react'
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
 import {
   DropdownMenu,
   DropdownMenuContent,
+  DropdownMenuGroup,
   DropdownMenuItem,
   DropdownMenuLabel,
   DropdownMenuSeparator,
@@ -70,38 +72,40 @@ export function NavDropdown({ entry }: NavDropdownProps) {
           </DropdownMenuItem>
         ) : (
           entry.groups.map((group, groupIndex) => (
-            <div key={groupIndex}>
+            <React.Fragment key={groupIndex}>
               {groupIndex > 0 && <DropdownMenuSeparator />}
-              {group.label && (
-                <DropdownMenuLabel className="text-xs text-muted-foreground uppercase tracking-wider py-1">
-                  {group.label}
-                </DropdownMenuLabel>
-              )}
-              {group.items.map((item) =>
-                item.comingSoon ? (
-                  <DropdownMenuItem
-                    key={item.href}
-                    disabled
-                    className="flex items-center justify-between text-muted-foreground"
-                  >
-                    <span>{item.label}</span>
-                    <Badge variant="outline" className="text-xs h-4 font-normal">Soon</Badge>
-                  </DropdownMenuItem>
-                ) : (
-                  <DropdownMenuItem key={item.href}>
-                    <Link
-                      href={item.href}
-                      className={cn(
-                        'w-full cursor-pointer',
-                        pathname.startsWith(item.href) && 'text-primary font-medium'
-                      )}
+              <DropdownMenuGroup>
+                {group.label && (
+                  <DropdownMenuLabel className="text-xs text-muted-foreground uppercase tracking-wider py-1">
+                    {group.label}
+                  </DropdownMenuLabel>
+                )}
+                {group.items.map((item) =>
+                  item.comingSoon ? (
+                    <DropdownMenuItem
+                      key={item.href}
+                      disabled
+                      className="flex items-center justify-between text-muted-foreground"
                     >
-                      {item.label}
-                    </Link>
-                  </DropdownMenuItem>
-                )
-              )}
-            </div>
+                      <span>{item.label}</span>
+                      <Badge variant="outline" className="text-xs h-4 font-normal">Soon</Badge>
+                    </DropdownMenuItem>
+                  ) : (
+                    <DropdownMenuItem key={item.href}>
+                      <Link
+                        href={item.href}
+                        className={cn(
+                          'w-full cursor-pointer',
+                          pathname.startsWith(item.href) && 'text-primary font-medium'
+                        )}
+                      >
+                        {item.label}
+                      </Link>
+                    </DropdownMenuItem>
+                  )
+                )}
+              </DropdownMenuGroup>
+            </React.Fragment>
           ))
         )}
       </DropdownMenuContent>

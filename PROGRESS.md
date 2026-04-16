@@ -154,6 +154,11 @@ Contact Center (never outsource — too complex)
   - Login page, middleware, TanStack Query provider
   - Full navigation: Master Data + Purchase & Sales dropdowns, Coming Soon for Orders/Contracts/Invoices/Teams
   - Dashboard with DivisionFilter + 4 stat cards
+- [2026-04-16] **Bug fixes** — Base UI dropdown context errors resolved
+  - `NavDropdown.tsx`: wrapped each group in `<DropdownMenuGroup>` so `DropdownMenuLabel` has required `MenuGroupRootContext`
+  - `UserMenu.tsx`: same fix — label and menu items wrapped in `<DropdownMenuGroup>`
+  - All nav dropdowns (Purchase & Sales, Master Data) and avatar menu now work correctly
+- [2026-04-16] **Git setup** — remote connected to `https://github.com/alfaytri/MMS.git`, foundation pushed to `main`, active development on branch `develop`
 
 ## 🔄 In Progress
 
@@ -191,6 +196,8 @@ Contact Center (never outsource — too complex)
 ## HOW TO RESUME IN A NEW SESSION
 
 Paste this file and say:
-> "I'm continuing MMS development. Read PROGRESS.md and resume from where we left off. The next step is to execute `docs/superpowers/plans/2026-04-16-mms-foundation.md` using subagent-driven-development."
+> "I'm continuing MMS development. Read PROGRESS.md and resume from where we left off."
 
-Claude will read the plan and dispatch subagents task by task.
+Claude will read the plan file for the current In Progress item and dispatch subagents task by task.
+
+**Active branch:** `develop` (all Phase 1 feature work goes here — never commit directly to `main`)
