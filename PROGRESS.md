@@ -137,7 +137,7 @@ Contact Center (never outsource — too complex)
 | Plan file | Status | Description |
 |---|---|---|
 | `docs/superpowers/plans/2026-04-16-mms-foundation.md` | **DONE** | Scaffold, auth, design system, TopNav, dashboard |
-| `docs/superpowers/plans/2026-04-16-mms-master-data.md` | **In Progress (Task 5 of 13)** | Companies, Warehouses, Inventory, Suppliers, Users, Audit |
+| `docs/superpowers/plans/2026-04-16-mms-master-data.md` | **In Progress (Task 6 of 13)** | Companies, Warehouses, Inventory, Suppliers, Users, Audit |
 | `docs/superpowers/plans/2026-04-16-mms-purchase.md` | Not written yet | Full Purchase module |
 | `docs/superpowers/plans/2026-04-16-mms-sales.md` | Not written yet | Full Sales module |
 | `docs/superpowers/plans/2026-04-16-mms-csv-import.md` | Not written yet | CSV import tool (5 entity types) |
@@ -164,14 +164,15 @@ Contact Center (never outsource — too complex)
 - [2026-04-16] **Master Data Task 2: DataTable Shared Component** — created DataTableColumnHeader (sortable headers with aria), DataTablePagination (responsive mobile-first with aria-labels), DataTable (sorting, filtering, pagination, loading skeleton, empty state)
 - [2026-04-16] **Master Data Task 3: Shared UI Components** — PageHeader (customizable icon), SearchInput (debounced with aria-labels), StatusBadge (6 semantic variants), ConfirmDialog (with pending state)
 - [2026-04-16] **Master Data Task 4: Suppliers Module** — useSuppliers hook (query + create/update mutations), SupplierFormDialog (7-field form with zod validation), Suppliers page with DataTable. Key findings: Base UI uses `render` prop not `asChild`, zod v4 needs `.optional()` not `.default('')` with zodResolver.
+- [2026-04-16] **Master Data Task 5: Companies & Divisions** — useCompanies hook, expanded useDivisions (full type + mutations + useDivisionsByCompany), CompanyFormDialog (8 fields), DivisionFormDialog (14 fields, scrollable), Card-per-company page with nested division table
 
 ## 🔄 In Progress
 
-- Master Data Task 5: Companies & Divisions Module (hooks + forms + page)
+- Master Data Task 6: Warehouses Module (hook + form dialog + page)
 
 ## ⏳ Not Started
 
-- Master Data Tasks 6–13 (Warehouses, Inventory, Users, Audit, Admin)
+- Master Data Tasks 7–13 (Inventory, Users, Audit, Admin)
 - Purchase module (full)
 - Sales module (full)
 - CSV Import tool
