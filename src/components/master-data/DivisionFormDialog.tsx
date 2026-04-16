@@ -228,6 +228,73 @@ export function DivisionFormDialog({ open, onOpenChange, division, companyId }: 
                 )}
               />
             </div>
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+              <FormField
+                control={form.control}
+                name="company_name_en"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Company Name (English)</FormLabel>
+                    <FormControl>
+                      <Input {...field} />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+              <FormField
+                control={form.control}
+                name="company_name_ar"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Company Name (Arabic)</FormLabel>
+                    <FormControl>
+                      <Input dir="rtl" {...field} />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+            </div>
+            <FormField
+              control={form.control}
+              name="address_en"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel>Address (English)</FormLabel>
+                  <FormControl>
+                    <Input {...field} />
+                  </FormControl>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
+            <FormField
+              control={form.control}
+              name="address_ar"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel>Address (Arabic)</FormLabel>
+                  <FormControl>
+                    <Input dir="rtl" {...field} />
+                  </FormControl>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
+            <FormField
+              control={form.control}
+              name="footer_motto"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel>Footer Motto</FormLabel>
+                  <FormControl>
+                    <Input {...field} />
+                  </FormControl>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
             <FormField
               control={form.control}
               name="logo_url"
