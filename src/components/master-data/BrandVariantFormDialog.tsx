@@ -13,21 +13,15 @@ import {
 } from '@/components/ui/form'
 import { Input } from '@/components/ui/input'
 import { Button } from '@/components/ui/button'
-import { useCreateBrandVariant, useUpdateBrandVariant, type BrandVariant, type BrandVariantInsert, type BrandVariantUpdate } from '@/hooks/useInventory'
+import { useCreateBrandVariant, useUpdateBrandVariant, type BrandVariant } from '@/hooks/useInventory'
 
 const variantSchema = z.object({
-  brand: z.string().min(1, 'Brand is required'),
-  code: z.string().default(''),
-  cost_price: z.coerce.number().min(0),
-  selling_price: z.coerce.number().min(0),
+  code: z.string().optional().default(''),
+  cost_price: z.coerce.number().min(0).default(0),
+  selling_price: z.coerce.number().min(0).default(0),
 })
 
-type VariantFormValues = {
-  brand: string
-  code: string
-  cost_price: number
-  selling_price: number
-}
+type VariantFormValues = z.infer<typeof variantSchema>
 
 interface BrandVariantFormDialogProps {
   open: boolean
@@ -42,35 +36,38 @@ export function BrandVariantFormDialog({ open, onOpenChange, variant, itemId }: 
   const update = useUpdateBrandVariant()
   const isPending = create.isPending || update.isPending
 
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const form = useForm<VariantFormValues>({ resolver: zodResolver(variantSchema) as any, defaultValues: { brand: '', code: '', cost_price: 0, selling_price: 0 } })
+  const form = useForm<VariantFormValues>({
+    resolver: zodResolver(variantSchema) as never,
+    defaultValues: { code: '', cost_price: 0, selling_price: 0 },
+  })
 
   useEffect(() => {
     if (open && variant) {
       form.reset({
-        brand: variant.brand ?? '',
         code: variant.code ?? '',
         cost_price: Number(variant.cost_price ?? 0),
         selling_price: Number(variant.selling_price ?? 0),
       })
     } else if (open) {
-      form.reset({ brand: '', code: '', cost_price: 0, selling_price: 0 })
+      form.reset({ code: '', cost_price: 0, selling_price: 0 })
     }
   }, [open, variant, form])
 
   function onSubmit(values: VariantFormValues) {
-    const base = { ...values, item_id: itemId, code: values.code || null }
-    if (isEditing) {
-      const payload: BrandVariantUpdate & { id: string } = { id: variant!.id, ...base }
-      update.mutateAsync(payload)
-        .then(() => { toast.success('Variant updated'); onOpenChange(false) })
-        .catch((err: Error) => toast.error(err.message))
-    } else {
-      const payload: BrandVariantInsert = { ...base, brand: values.brand }
-      create.mutateAsync(payload)
-        .then(() => { toast.success('Variant created'); onOpenChange(false) })
-        .catch((err: Error) => toast.error(err.message))
+    const payload = {
+      item_id: itemId,
+      code: values.code || null,
+      cost_price: values.cost_price,
+      selling_price: values.selling_price,
     }
+
+    const mutation = isEditing
+      ? () => update.mutateAsync({ id: variant!.id, ...payload })
+      : () => create.mutateAsync(payload)
+
+    mutation()
+      .then(() => { toast.success(`Variant ${isEditing ? 'updated' : 'created'}`); onOpenChange(false) })
+      .catch((err: Error) => toast.error(err.message))
   }
 
   return (
@@ -80,19 +77,28 @@ export function BrandVariantFormDialog({ open, onOpenChange, variant, itemId }: 
           <DialogTitle>{isEditing ? 'Edit' : 'Add'} Brand Variant</DialogTitle>
         </DialogHeader>
         <Form {...form}>
-          <form onSubmit={form.handleSubmit(onSubmit as any)} className="space-y-4">
-            <FormField control={form.control as any} name="brand" render={({ field }: any) => (
-              <FormItem><FormLabel>Brand *</FormLabel><FormControl><Input placeholder="e.g. Samsung" {...field} /></FormControl><FormMessage /></FormItem>
-            )} />
-            <FormField control={form.control as any} name="code" render={({ field }: any) => (
-              <FormItem><FormLabel>Variant Code</FormLabel><FormControl><Input placeholder="e.g. BV-001" {...field} /></FormControl><FormMessage /></FormItem>
+          <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
+            <FormField control={form.control} name="code" render={({ field }) => (
+              <FormItem>
+                <FormLabel>Variant Code</FormLabel>
+                <FormControl><Input placeholder="e.g. BV-001" {...field} /></FormControl>
+                <FormMessage />
+              </FormItem>
             )} />
             <div className="grid grid-cols-2 gap-4">
-              <FormField control={form.control as any} name="cost_price" render={({ field }: any) => (
-                <FormItem><FormLabel>Cost Price</FormLabel><FormControl><Input type="number" step="0.01" {...field} /></FormControl><FormMessage /></FormItem>
+              <FormField control={form.control} name="cost_price" render={({ field }) => (
+                <FormItem>
+                  <FormLabel>Cost Price</FormLabel>
+                  <FormControl><Input type="number" step="0.01" {...field} /></FormControl>
+                  <FormMessage />
+                </FormItem>
               )} />
-              <FormField control={form.control as any} name="selling_price" render={({ field }: any) => (
-                <FormItem><FormLabel>Selling Price</FormLabel><FormControl><Input type="number" step="0.01" {...field} /></FormControl><FormMessage /></FormItem>
+              <FormField control={form.control} name="selling_price" render={({ field }) => (
+                <FormItem>
+                  <FormLabel>Selling Price</FormLabel>
+                  <FormControl><Input type="number" step="0.01" {...field} /></FormControl>
+                  <FormMessage />
+                </FormItem>
               )} />
             </div>
             <DialogFooter>
