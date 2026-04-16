@@ -136,7 +136,7 @@ Contact Center (never outsource — too complex)
 
 | Plan file | Status | Description |
 |---|---|---|
-| `docs/superpowers/plans/2026-04-16-mms-foundation.md` | **NEXT TO EXECUTE** | Scaffold, auth, design system, TopNav, dashboard |
+| `docs/superpowers/plans/2026-04-16-mms-foundation.md` | **DONE** | Scaffold, auth, design system, TopNav, dashboard |
 | `docs/superpowers/plans/2026-04-16-mms-master-data.md` | Not written yet | Companies, Warehouses, Inventory, Suppliers, Users, Audit |
 | `docs/superpowers/plans/2026-04-16-mms-purchase.md` | Not written yet | Full Purchase module |
 | `docs/superpowers/plans/2026-04-16-mms-sales.md` | Not written yet | Full Sales module |
@@ -149,14 +149,22 @@ Contact Center (never outsource — too complex)
 - [2026-04-16] Full brainstorming & design session
 - [2026-04-16] Design spec: `docs/superpowers/specs/2026-04-16-mms-phase1-design.md`
 - [2026-04-16] Foundation plan written: `docs/superpowers/plans/2026-04-16-mms-foundation.md` (18 tasks)
+- [2026-04-16] **Foundation complete** — scaffold, auth, design system, TopNav, dashboard (Tasks 1–18)
+  - 87-table schema applied to Supabase + TypeScript types generated
+  - Login page, middleware, TanStack Query provider
+  - Full navigation: Master Data + Purchase & Sales dropdowns, Coming Soon for Orders/Contracts/Invoices/Teams
+  - Dashboard with DivisionFilter + 4 stat cards
 
 ## 🔄 In Progress
 
-- Executing Foundation plan (Task 1 of 18) via subagent-driven development
+- Writing Master Data plan (`docs/superpowers/plans/2026-04-16-mms-master-data.md`)
 
 ## ⏳ Not Started
 
-- All module implementation
+- Master Data module (Companies, Warehouses, Inventory, Suppliers, Users, Audit Trail, Admin)
+- Purchase module (full)
+- Sales module (full)
+- CSV Import tool
 
 ---
 
