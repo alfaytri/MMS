@@ -17,7 +17,7 @@ export function DataTableColumnHeader<TData, TValue>({
   className,
 }: DataTableColumnHeaderProps<TData, TValue>) {
   if (!column.getCanSort()) {
-    return <div className={cn(className)}>{title}</div>
+    return <span className={cn(className)}>{title}</span>
   }
 
   return (
@@ -25,6 +25,10 @@ export function DataTableColumnHeader<TData, TValue>({
       variant="ghost"
       size="sm"
       className={cn('-ml-3 h-8 data-[state=open]:bg-accent', className)}
+      aria-label={`Sort by ${title}${
+        column.getIsSorted() === 'asc' ? ', sorted ascending' :
+        column.getIsSorted() === 'desc' ? ', sorted descending' : ''
+      }`}
       onClick={() => column.toggleSorting(column.getIsSorted() === 'asc')}
     >
       {title}

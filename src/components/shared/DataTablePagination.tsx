@@ -10,7 +10,7 @@ interface DataTablePaginationProps<TData> {
 
 export function DataTablePagination<TData>({ table }: DataTablePaginationProps<TData>) {
   return (
-    <div className="flex items-center justify-between px-2 py-4">
+    <div className="flex flex-col gap-2 px-2 py-4 sm:flex-row sm:items-center sm:justify-between">
       <div className="text-sm text-muted-foreground">
         {table.getFilteredRowModel().rows.length} row(s) total
       </div>
@@ -22,7 +22,8 @@ export function DataTablePagination<TData>({ table }: DataTablePaginationProps<T
           <Button
             variant="outline"
             size="icon"
-            className="h-8 w-8"
+            className="h-11 w-11 sm:h-8 sm:w-8"
+            aria-label="Go to first page"
             onClick={() => table.setPageIndex(0)}
             disabled={!table.getCanPreviousPage()}
           >
@@ -31,7 +32,8 @@ export function DataTablePagination<TData>({ table }: DataTablePaginationProps<T
           <Button
             variant="outline"
             size="icon"
-            className="h-8 w-8"
+            className="h-11 w-11 sm:h-8 sm:w-8"
+            aria-label="Go to previous page"
             onClick={() => table.previousPage()}
             disabled={!table.getCanPreviousPage()}
           >
@@ -40,7 +42,8 @@ export function DataTablePagination<TData>({ table }: DataTablePaginationProps<T
           <Button
             variant="outline"
             size="icon"
-            className="h-8 w-8"
+            className="h-11 w-11 sm:h-8 sm:w-8"
+            aria-label="Go to next page"
             onClick={() => table.nextPage()}
             disabled={!table.getCanNextPage()}
           >
@@ -49,7 +52,8 @@ export function DataTablePagination<TData>({ table }: DataTablePaginationProps<T
           <Button
             variant="outline"
             size="icon"
-            className="h-8 w-8"
+            className="h-11 w-11 sm:h-8 sm:w-8"
+            aria-label="Go to last page"
             onClick={() => table.setPageIndex(table.getPageCount() - 1)}
             disabled={!table.getCanNextPage()}
           >

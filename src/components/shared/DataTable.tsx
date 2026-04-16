@@ -1,6 +1,6 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import {
   type ColumnDef,
   type SortingState,
@@ -53,6 +53,10 @@ export function DataTable<TData, TValue>({
     getPaginationRowModel: getPaginationRowModel(),
     initialState: { pagination: { pageSize } },
   })
+
+  useEffect(() => {
+    table.setPageSize(pageSize)
+  }, [pageSize, table])
 
   if (isLoading) {
     return (
@@ -121,7 +125,7 @@ export function DataTable<TData, TValue>({
           </TableBody>
         </Table>
       </div>
-      {table.getFilteredRowModel().rows.length > pageSize && (
+      {table.getPageCount() > 1 && (
         <DataTablePagination table={table} />
       )}
     </div>
