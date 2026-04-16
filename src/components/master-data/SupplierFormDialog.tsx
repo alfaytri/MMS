@@ -89,9 +89,9 @@ export function SupplierFormDialog({ open, onOpenChange, supplier }: SupplierFor
       notes: values.notes || null,
     }
 
-    if (isEditing) {
+    if (isEditing && supplier) {
       update.mutate(
-        { id: supplier!.id, ...cleanValues },
+        { id: supplier.id, ...cleanValues },
         {
           onSuccess: () => {
             toast.success('Supplier updated')

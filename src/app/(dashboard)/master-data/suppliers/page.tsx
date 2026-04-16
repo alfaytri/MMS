@@ -48,9 +48,12 @@ export default function SuppliersPage() {
       },
       {
         accessorKey: 'email',
-        header: 'Email',
-        cell: ({ row }) => row.getValue('email') || <span className="text-muted-foreground">—</span>,
-        meta: { hideBelow: 'lg' },
+        header: ({ column }) => <DataTableColumnHeader column={column} title="Email" className="hidden lg:flex" />,
+        cell: ({ row }) => (
+          <span className="hidden lg:inline">
+            {row.getValue('email') || <span className="text-muted-foreground">—</span>}
+          </span>
+        ),
       },
       {
         accessorKey: 'is_active',
@@ -66,7 +69,7 @@ export default function SuppliersPage() {
         cell: ({ row }) => (
           <DropdownMenu>
             <DropdownMenuTrigger
-              render={<Button variant="ghost" size="icon" className="h-8 w-8" />}
+              render={<Button variant="ghost" size="icon" className="h-8 w-8" aria-label="Open actions" />}
             >
               <MoreHorizontal className="h-4 w-4" />
             </DropdownMenuTrigger>
