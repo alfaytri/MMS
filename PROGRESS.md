@@ -137,7 +137,7 @@ Contact Center (never outsource — too complex)
 | Plan file | Status | Description |
 |---|---|---|
 | `docs/superpowers/plans/2026-04-16-mms-foundation.md` | **DONE** | Scaffold, auth, design system, TopNav, dashboard |
-| `docs/superpowers/plans/2026-04-16-mms-master-data.md` | **In Progress (Task 9 of 13)** | Companies, Warehouses, Inventory, Suppliers, Users, Audit |
+| `docs/superpowers/plans/2026-04-16-mms-master-data.md` | **DONE** | Companies, Warehouses, Inventory, Suppliers, Users, Audit |
 | `docs/superpowers/plans/2026-04-16-mms-purchase.md` | Not written yet | Full Purchase module |
 | `docs/superpowers/plans/2026-04-16-mms-sales.md` | Not written yet | Full Sales module |
 | `docs/superpowers/plans/2026-04-16-mms-csv-import.md` | Not written yet | CSV import tool (5 entity types) |
@@ -168,14 +168,19 @@ Contact Center (never outsource — too complex)
 - [2026-04-16] **Master Data Task 6: Warehouses Module** — useWarehouses hook (query + create/update), WarehouseFormDialog (name/location/type), Warehouses page with DataTable + type badge + item count
 
 - [2026-04-16] **Master Data Tasks 7–8: Inventory Module** — useInventory hook (categories, items, brand variants, all CRUD), InventoryItemFormDialog (9 fields, bilingual), BrandVariantFormDialog (code + prices), Inventory page with 3 tabs (Products/Spare Parts/Consumables), expandable brand variants panel
+- [2026-04-16] **Master Data Tasks 9–10: Users & Roles** — useRoles hook (custom_roles CRUD), useProfiles hook (profiles + nested user_custom_roles + user_divisions), lib/permissions.ts (8 modules, ~48 permission keys), RoleFormDialog (scrollable permission checkboxes by group), UserRoleDialog (toggle-based roles + divisions), Users & Roles page (3 tabs: Permissions/Roles/Users)
+- [2026-04-17] **Master Data Task 11: Audit Trail** — useActivityLog hook (30s auto-refresh, module/severity/search filters, debounced search, escaped PostgREST queries), AuditDetailDialog (JSON diff view for old/new data), Audit Trail page with filters + DataTable
+- [2026-04-17] **Master Data Task 12: Admin Settings** — AdminSidebar (3 sections, active state, "Soon" badges), Admin layout (responsive sidebar + content), Admin landing page (redirects to brand-groups), Brand Groups page (CRUD), Reason Lists page (CRUD)
+- [2026-04-17] **Master Data Task 13: Integration Test** — Build passes cleanly (all 9 routes), 21/21 tests pass, resolved stale database.types.ts cast issues (brand_variants, inventory_categories, inventory_items)
+- [2026-04-17] **Master Data plan: COMPLETE** — All 13 tasks done. 9 pages, 7+ hooks, 10+ form dialogs, all responsive.
 
 ## 🔄 In Progress
 
-- Master Data Task 9: Users & Roles Hooks + Forms
+- Purchase module plan (not written yet)
 
 ## ⏳ Not Started
 
-- Master Data Tasks 10–13 (Users & Roles Page, Audit Trail, Admin)
+- Sales module plan (not written yet)
 - Purchase module (full)
 - Sales module (full)
 - CSV Import tool
