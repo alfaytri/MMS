@@ -40,13 +40,16 @@ export function useActivityLog(filters: ActivityLogFilters = {}) {
         query = query.eq('severity', filters.severity)
       }
       if (filters.search) {
-        query = query.or(`action.ilike.%${filters.search}%,details.ilike.%${filters.search}%,performer_name.ilike.%${filters.search}%`)
+        // Escape % and special PostgREST characters to prevent filter injection
+        const safe = filters.search.replace(/%/g, '\\%').replace(/,/g, '\\,').replace(/\./g, '\\.')
+        query = query.or(`action.ilike.%${safe}%,details.ilike.%${safe}%,performer_name.ilike.%${safe}%`)
       }
 
       const { data, error } = await query
       if (error) throw error
       return data as ActivityLog[]
     },
+    staleTime: 30 * 1000,
     refetchInterval: 30 * 1000,
   })
 }

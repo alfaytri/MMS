@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useMemo } from 'react'
+import { useState, useMemo, useEffect } from 'react'
 import { type ColumnDef } from '@tanstack/react-table'
 import { Eye } from 'lucide-react'
 import { PageHeader } from '@/components/shared/PageHeader'
@@ -15,11 +15,16 @@ import { Button } from '@/components/ui/button'
 
 export default function AuditTrailPage() {
   const [search, setSearch] = useState('')
+  const [debouncedSearch, setDebouncedSearch] = useState('')
+  useEffect(() => {
+    const t = setTimeout(() => setDebouncedSearch(search), 300)
+    return () => clearTimeout(t)
+  }, [search])
   const [module, setModule] = useState('')
   const [severity, setSeverity] = useState('')
   const [detail, setDetail] = useState<ActivityLog | null>(null)
 
-  const { data: logs, isLoading } = useActivityLog({ search, module: module || undefined, severity: severity || undefined })
+  const { data: logs, isLoading } = useActivityLog({ search: debouncedSearch, module: module || undefined, severity: severity || undefined })
 
   const columns = useMemo<ColumnDef<ActivityLog>[]>(() => [
     {
