@@ -47,7 +47,7 @@ export function InventoryItemFormDialog({ open, onOpenChange, item, defaultCateg
   const isPending = create.isPending || update.isPending
 
   const form = useForm<ItemFormValues>({
-    resolver: zodResolver(itemSchema),
+    resolver: zodResolver(itemSchema) as never,
     defaultValues: {
       category_id: defaultCategoryId ?? '', name_en: '', name_ar: '', sku: '', unit: 'pcs',
       cost_price: 0, markup_percent: undefined, warranty_months: undefined, sort_order: 0,
@@ -56,11 +56,13 @@ export function InventoryItemFormDialog({ open, onOpenChange, item, defaultCateg
 
   useEffect(() => {
     if (open && item) {
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const i = item as any
       form.reset({
-        category_id: item.category_id, name_en: item.name_en, name_ar: item.name_ar ?? '',
-        sku: item.sku, unit: item.unit, cost_price: Number(item.cost_price ?? 0),
-        markup_percent: item.markup_percent ? Number(item.markup_percent) : undefined,
-        warranty_months: item.warranty_months ?? undefined, sort_order: item.sort_order,
+        category_id: i.category_id, name_en: i.name_en, name_ar: i.name_ar ?? '',
+        sku: i.sku, unit: i.unit, cost_price: Number(i.cost_price ?? 0),
+        markup_percent: i.markup_percent ? Number(i.markup_percent) : undefined,
+        warranty_months: i.warranty_months ?? undefined, sort_order: i.sort_order,
       })
     } else if (open) {
       form.reset({ category_id: defaultCategoryId ?? '', name_en: '', name_ar: '', sku: '', unit: 'pcs', cost_price: 0, markup_percent: undefined, warranty_months: undefined, sort_order: 0 })

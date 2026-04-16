@@ -1,7 +1,7 @@
 'use client'
 
 import {
-  Dialog, DialogContent, DialogClose, DialogHeader, DialogTitle, DialogFooter,
+  Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter,
 } from '@/components/ui/dialog'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
@@ -82,7 +82,7 @@ export function AuditDetailDialog({ open, onOpenChange, entry }: AuditDetailDial
         </div>
 
         <DialogFooter>
-          <DialogClose asChild><Button>Close</Button></DialogClose>
+          <Button onClick={() => onOpenChange(false)}>Close</Button>
         </DialogFooter>
       </DialogContent>
     </Dialog>

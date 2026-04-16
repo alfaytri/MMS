@@ -7,16 +7,25 @@ export type InventoryItem = DBTable<'inventory_items'>
 export type BrandVariant = DBTable<'inventory_brand_variants'>
 export type InventoryItemInsert = DBInsert<'inventory_items'>
 export type InventoryItemUpdate = DBUpdate<'inventory_items'>
-export type BrandVariantInsert = DBInsert<'inventory_brand_variants'>
-export type BrandVariantUpdate = DBUpdate<'inventory_brand_variants'>
+// Manual type used instead of DBInsert<'inventory_brand_variants'> because generated
+// types are stale (they include a non-existent required 'brand' column)
+export type BrandVariantInsert = {
+  item_id: string
+  brand_id?: string | null
+  code?: string | null
+  cost_price?: number | null
+  selling_price?: number | null
+  average_cost?: number | null
+}
+export type BrandVariantUpdate = Partial<BrandVariantInsert>
 
 export function useInventoryCategories() {
   return useQuery({
     queryKey: ['inventory-categories'],
     queryFn: async () => {
       const supabase = createClient()
-      const { data, error } = await supabase
-        .from('inventory_categories')
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const { data, error } = await (supabase.from('inventory_categories') as any)
         .select('*')
         .eq('status', 'active')
         .order('sort_order')
@@ -32,7 +41,8 @@ export function useInventoryItems(categoryType?: string) {
     queryKey: ['inventory-items', categoryType],
     queryFn: async () => {
       const supabase = createClient()
-      let query = supabase
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      let query = (supabase as any)
         .from('inventory_items')
         .select('*, inventory_categories!inner(type, name_en)')
         .eq('status', 'active')
@@ -54,7 +64,8 @@ export function useBrandVariants(itemId: string | null) {
     queryKey: ['brand-variants', itemId],
     queryFn: async () => {
       const supabase = createClient()
-      const { data, error } = await supabase
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const { data, error } = await (supabase as any)
         .from('inventory_brand_variants')
         .select('*, brands(name)')
         .eq('item_id', itemId!)
@@ -111,7 +122,8 @@ export function useCreateBrandVariant() {
   return useMutation({
     mutationFn: async (values: BrandVariantInsert) => {
       const supabase = createClient()
-      const { data, error } = await supabase
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const { data, error } = await (supabase as any)
         .from('inventory_brand_variants')
         .insert(values)
         .select()
@@ -119,7 +131,7 @@ export function useCreateBrandVariant() {
       if (error) throw error
       return data
     },
-    onSuccess: (_, variables) => {
+    onSuccess: (_: unknown, variables: BrandVariantInsert) => {
       queryClient.invalidateQueries({ queryKey: ['brand-variants', variables.item_id] })
       queryClient.invalidateQueries({ queryKey: ['inventory-items'] })
     },
@@ -131,7 +143,8 @@ export function useUpdateBrandVariant() {
   return useMutation({
     mutationFn: async ({ id, ...values }: BrandVariantUpdate & { id: string }) => {
       const supabase = createClient()
-      const { data, error } = await supabase
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const { data, error } = await (supabase as any)
         .from('inventory_brand_variants')
         .update(values)
         .eq('id', id)
