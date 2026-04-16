@@ -1,0 +1,308 @@
+Contact Center Module
+Overview
+The Contact Center is a persistent sidebar (w-72) that lives across all pages. It's the unified hub for live phone calls (3CX), WhatsApp messaging (dual-provider: Whapi + WATI), customer CRM, address management, agent resources, and task queues.
+
+1. Layout & Navigation
+File: ContactCenterSidebar.tsx
+
+The sidebar has 3 states:
+
+State	Width	Content
+Collapsed	w-10	Mini icon bar (Phone, User, MapPin, Package, History, Chat icons). Click ChevronRight to expand.
+Chat List	w-72	Dialer + conversation list + tabs. Default view.
+Customer Detail	w-72	Dialer + CRM header + scrollable CRM/Address/Products + Thread + Orders + Chat Input (pinned bottom).
+State is managed by view: "chat-list" | "customer-detail" and collapsed: boolean.
+
+2. Dialer Section
+File: DialerSection.tsx
+
+A Collapsible panel at the top of the sidebar.
+
+Elements:
+
+Active Line Selector: Dropdown listing all phone_lines rows where is_active = true. If line has is_emergency = true, a red 🚨 EMERGENCY LINE banner shows.
+Country Code Picker: Defaults to +974, sources from COUNTRY_CODES constant (~195 entries).
+Number Input: Mono font, ⌫ backspace button, Enter triggers call.
+Numpad: 3×4 grid (1-9, *, 0, #) with letter sub-labels.
+Action Buttons: Context-dependent:
+Call State	Buttons
+idle	Call (green) + WhatsApp (outline)
+incoming	Answer (green) + Reject (red)
+calling	Hang Up (red)
+connected	Hang Up (red)
+Header Bar changes color by state:
+
+idle → green bg-success/90
+incoming → orange bg-warning/90 with animate-pulse + animate-bounce phone icon
+calling → orange bg-warning/80 with animate-pulse
+connected → green bg-success/90 with live duration badge (font-mono) + pulsing dot
+Simulate Incoming: Dev-only button at bottom generates a fake incoming call on a random phone line.
+
+3. Chat List View
+File: ChatListView.tsx
+
+Header:
+
+Search bar (filters by name or phone, text-[11px])
+Collapse button (ChevronLeft)
+Tabs (4-tab TabsList):
+
+Tab	Content	Badge
+All	All customer conversations (merged live DB + offline customers)	—
+Unanswered	Conversations with unread > 0	Red count badge
+Tasks	Embedded TaskQueuePanel	Red count badge (polled every 30s)
+Teams	Team WhatsApp conversations from chat_conversations where conversation_type = 'team'	Count badge
+Chat Row (button):
+
+Pulsing green phone indicator if activeCallsMap[customer_id] exists
+Customer name (green if active call)
+Last message preview or "{agent_name} on call"
+Relative time
+Unread count badge
+Team Row:
+
+Users icon avatar
+Team name, last message, time, unread badge
+4. Customer Detail View (Sidebar)
+File: ContactCenterSidebar.tsx (main layout)
+
+Header bar (h-8):
+
+Back arrow → returns to chat list
+Customer name (truncated)
+Type badge: BIZ or IND (7px, rounded border)
+Edit button (User icon) → opens CRM editing mode
+Collapse button
+Layout (flex-col):
+
+┌── Dialer (collapsible) ──────────────────┐
+├── Header Bar (h-8) ─────────────────────-─┤
+├── ScrollArea (max-h-[28%]) ──────────────┤
+│   ├── CRM Section                         │
+│   ├── Address Section                     │
+│   └── Products Section                    │
+├── Chat Section (flex-1, scrollable) ──────┤
+├── Order History (h-[88px] fixed) ─────────┤
+└── Chat Input Bar (pinned bottom) ─────────┘
+5. CRM Section
+File: CrmSection.tsx
+
+3 modes:
+
+a) No Customer Selected → Unknown Caller Flow
+Shows when unknownCallerMode is set:
+
+Mode	UI
+prompt	Orange "Unknown Caller" card + dialerInput + two buttons: "Attach to Existing" / "New Customer"
+attach	Back arrow + search input filtering dbCustomers by name/phone + scrollable list → clicking attaches phone to existing customer
+create	Back arrow + phone (disabled) + customer name input + "Create & Open" button → creates customers + customer_phones rows
+b) Editing Mode
+Name input + Type select (individual/business)
+Multi-phone editor: List of phone inputs with + Add Phone / ✕ Remove buttons
+Auto Messages collapsible: StopAll switch toggles all reminders. Individual per-reminder toggles (On/Off pills) from useReminders() data
+Block Customer link → inline block form with reason (required), notes, image uploads
+Save/Cancel buttons
+c) Detail View (Read-Only)
+Phone numbers row with phone icons
+Pending payment badge (DollarSign icon, QAR formatted, warning colors)
+Blocked banner (if blocked) with "Unblock" button + block reason
+Block dialog (inline form, not modal): reason + notes + image uploads + Block/Cancel
+6. Address Section
+File: AddressSection.tsx
+
+Wrapped in SidebarSection (collapsible).
+
+Address Cards (draggable with dataTransfer):
+
+Label + type badge (BP = Blue Plate, GC = Google Coords) + Drag → badge
+Address line + country + coordinates
+Delete button (trash icon)
+Add Address flow (2-step):
+
+Choose type: "Blue Plate" or "Google Coordinates"
+Form:
+Blue Plate: Unit (optional), Building*, Street*, Zone*, Country select (6 GCC countries). Auto-generates label U _, B _, S _, Z _. Auto-fetches coordinates on save (shows loading spinner + result: ✓ success or ⚠ not found).
+Google Coords: Coordinate input (mono font), Address*, Country select.
+DB: Writes to customer_addresses with type: 'blue-plate' | 'google-coords', coords_lat/lng, local_address (JSONB for blue plate fields).
+
+7. Products Section
+File: ContactCenterSidebar.tsx (inline ProductsList)
+
+Wrapped in SidebarSection.
+
+Uses useCustomerProducts(customerId) hook
+Each product card shows:
+Name + status badge (Active/Under Warranty/Expired)
+Model + install date
+Warranty indicator: Shield icon color-coded (green >90d, warning >30d, red <30d, AlertTriangle if expired)
+Address label (from address lookup map) or "Unknown address" italic
+8. Chat Thread Section
+File: ChatSection.tsx
+
+Header: "Thread" label with MessageSquare icon.
+
+Active Call Banner: If activeAgentCall exists → pulsing red dot + phone icon + "{agentName} is on a {channel} call · {time}"
+
+Messages: Scrollable list, auto-scrolls to bottom on new messages.
+
+Message Type	Rendering
+Call	CallCard component (phone icon, direction arrow, duration, recording status)
+Text	Bubble aligned left (customer) or right (agent). Shows: agent name or sender phone, source badge, text (RTL-aware dir="auto"), timestamp, delivery status ticks (✓/✓✓/✗)
+Attachments	AttachmentRenderer — images (thumbnail), video, PDF, files. Supports location attachments with "Add as Address" action.
+Hover Actions (on messages with externalId):
+
+Reply button → sets replyTo state
+Reaction button → popover with 6 emojis (👍❤️😂😮🙏👎). Disabled for WATI source (whatsapp_api)
+Reaction Pills: Aggregated emoji badges below message bubble with count.
+
+Lightbox Dialog: Full-screen media viewer for images/video/PDF with download button. Resolves Whapi media URLs via resolveWhapiMediaUrl().
+
+9. Chat Input Bar
+File: ChatInputBar.tsx
+
+Pinned at bottom of sidebar.
+
+Elements (top to bottom):
+
+Reply-to preview (if replyTo set): Shows quoted message with Reply icon + close button
+Read-only banner (if emergency-only agent): 🔒 Read Only — Emergency Agent (Chat disabled)
+WhatsApp Window Banner (WATI channel only):
+Open: Green "Window open · Xh Xm remaining"
+Expiring (<6h): Warning color
+Closed: Red "24h window closed · Use a template to re-engage"
+Template Quick Buttons (when window closed): Shows first 3 templates, "More" expands all. Clicking sends template with customer name param substitution.
+Attachment previews: Image thumbnails or file badges with ✕ remove
+Input row:
+Textarea (rows=3, auto-resize up to 5 rows, Enter sends, Shift+Enter newlines, RTL dir="auto")
+Channel selector dropdown: WhatsApp / WA API / SMS (disabled) / Email (disabled)
+Agent Resources button (📖) → opens AgentResourcePanel sheet
+Attach button (📎) → file input
+Send button (blue arrow)
+10. Agent Resource Panel
+File: AgentResourcePanel.tsx
+
+Opens as a Sheet (left side, w-[360px]).
+
+2 tabs:
+
+Tab	Source	Actions
+Resources	agent_resources table	Preview (opens URL) + Send to customer (queues as chat attachment)
+Q&A	agent_qa table	"Use EN" / "Use AR" buttons → inserts answer text into chat input
+Both tabs have unified search filtering by title/question/answer/category. Entries show category badges.
+
+11. Task Queue Panel
+File: TaskQueuePanel.tsx
+
+Embedded in Chat List's "Tasks" tab.
+
+Task Types (color-coded):
+
+Type	Label	Icon	Color
+cancel_request	Cancel Request	XCircle	destructive
+reschedule_request	Reschedule Request	CalendarClock	primary
+follow_up_work	Follow-Up Work	Wrench	warning
+customer_unavailable	Customer Unavailable	UserX	destructive
+Task Card:
+
+Type icon + label + creation time
+Customer name + order display ID + scheduled date
+Notes (italic, 2-line clamp)
+Actions: Resolve / Dismiss / Open Order (external link)
+DB: Reads from contact_center_tasks joined with visits(scheduled_date, source_id) + customers(name). Status transitions: open/in_progress → resolved or dismissed. All actions logged to activity_log.
+
+Polls every 30 seconds.
+
+12. Order History Section
+File: OrderHistorySection.tsx
+
+Fixed h-[88px] scrollable section at bottom.
+
+Fetches last 20 orders for customer from orders joined with order_details(name)
+Each row: Order ID, service name, date, status badge (color from getStatusColor)
+Completed orders show RotateCcw backwork button → navigates to /orders/create-backwork
++ New button → navigates to /orders/create-visit
+13. State Management Architecture
+File: useContactCenterState.ts (Orchestrator, 332 lines)
+
+Composes 8 sub-hooks:
+
+Sub-Hook	File	Responsibility
+useDialerState	useDialerState.ts	Call state machine (idle→calling→connected→idle), duration timer, WA mini-chat
+useCustomerData	useCustomerData.ts	Customer lookup (phone→customer), CRM editing, unknown caller flow, pending payments
+useChatMessages	useChatMessages.ts	Chat input, attachments, source selection, reaction sending, file upload to chat-media bucket
+useAddressState	useAddressState.ts	Blue Plate / Google Coords CRUD, coordinate auto-fetching
+useBlockAutoMessages	useBlockAutoMessages.ts	Block/unblock customer, auto-message stop toggles
+useWhatsAppWindow	useWhatsAppWindow.ts	24h window status calculation from last inbound message time
+useLiveConversations	useLiveConversations.ts	Real-time conversation list from chat_conversations with Supabase Realtime subscription
+useLiveThread	useLiveThread.ts	Real-time message thread for selected conversation + active_agent_calls tracking
+Extracted Action Modules:
+
+Module	File	Actions
+ccCallActions	ccCallActions.ts	handleCallAction (dial via 3CX API, create active_agent_calls row, insert local call message), handleHangupAction, handleAnswerAction, handleRejectAction
+ccMessageActions	ccMessageActions.ts	handleSendChatMessageAction (dual-provider send: Whapi for whatsapp, WATI for whatsapp_api, with attachment upload, reply quoting, delivery status tracking)
+14. 3CX Integration
+Files: use3cx.ts, use3cxCallPoller.ts, use3cxWebSocket.ts, useCurrentUserExtension.ts, usePhoneLines.ts
+
+Hook	Purpose
+use3cx	Wraps api-3cx edge function calls: makeCall(dn, dest), callAction(dn, pid, action), getParticipants(dn)
+use3cxCallPoller	Polls participant status every 2s during calls. Detects phase transitions: ringing → connected → disconnected
+useCurrentUserExtension	Resolves current user's 3CX extension from app_settings (key: 3cx_extensions, maps profile_id → extension)
+usePhoneLines	Fetches phone_lines table rows ordered by sort_order
+Background Polling: Every 3 seconds when idle, checks for incoming calls via getParticipants. If a ringing participant is found → triggers incoming call UI.
+
+Call Lifecycle:
+
+Agent clicks Call → cx_makeCall(extension, destination) → state = calling
+Poller detects connected → state = connected, start duration timer
+Creates active_agent_calls row (agent_id, customer_id, direction, started_at)
+Inserts local chat_messages row with external_id: '3cx_local_{timestamp}'
+Hangup → cx_callAction(dn, pid, 'drop') → updates active_agent_calls.ended_at
+cx_call_journal trigger fires → enriches/replaces local message with real duration, recording info
+15. WhatsApp Dual-Provider Architecture
+Message Sending:
+
+Source	Provider	Edge Function	Reply Support	Reactions
+whatsapp	Whapi	api-whapi	✅ (quoted message ID)	✅
+whatsapp_api	WATI	api-wati	❌	❌
+External ID Prefixes: whapi_{id}, wati_{id}, 3cx_local_{ts}, 3cx_journal_{uuid}, agent_{ts}_{random}
+
+24h Window: Only enforced for WATI (whatsapp_api). Calculated from last inbound message timestamp in useWhatsAppWindow. When closed, free-text input is disabled and only template buttons are shown.
+
+16. Contact Center Context
+File: ContactCenterContext.tsx
+
+A React Context that publishes:
+
+selectedCustomer (id, name, phone) — consumed by other modules (e.g., Create Visit pre-fills customer)
+selectedAddresses — consumed for address auto-fill
+phoneLookupHandler — allows external modules to trigger customer lookup by phone
+customerLookupHandler — allows external modules to open customer detail by ID
+17. Database Tables
+Table	Purpose
+chat_conversations	Conversation metadata: customer_id, channel, last_message, unread_count, team_id
+chat_messages	Individual messages: text, from_type, source, attachments (JSONB), call_metadata (JSONB), external_id, delivery_status, reactions
+active_agent_calls	Live call tracking: agent_id, customer_id, direction, started_at, ended_at
+cx_call_journal	3CX CDR records: external_number, agent_name, duration, timestamps. Trigger process_cx_call_journal auto-creates/enriches chat messages
+contact_center_tasks	Agent task queue: visit_id, customer_id, task_type, status, notes
+phone_lines	Division phone lines: label, number, cx_dn, is_emergency, sort_order
+agent_resources	Knowledge base files: title, type, file_url, category
+agent_qa	Q&A entries: question_en/ar, answer_en/ar, category
+customer_addresses	Address storage: label, line, type, coords, local_address (JSONB)
+customer_phones	Multi-phone: phone, is_primary, customer_id
+18. Key Features Summary
+Feature	Implementation
+Live 3CX Dialer	Full softphone: dial, answer, reject, hangup via API. Background polling for incoming calls
+Dual WhatsApp	Whapi (personal numbers, reactions, replies) + WATI (business API, templates, 24h window)
+Unified Thread	Calls + WhatsApp + SMS merged chronologically per customer
+Unknown Caller	3-step flow: Prompt → Attach to existing OR Create new
+Customer CRM	Inline editing of name, type, multi-phone, block/unblock with evidence images
+Address Management	Blue Plate (Qatar format) + Google Coords with auto-geocoding, draggable to other modules
+Agent Resources	Searchable Q&A + file library with insert-to-chat and send-to-customer
+Task Queue	Real-time task cards (cancel/reschedule/follow-up/unavailable) with resolve/dismiss
+Products & Warranty	Live warranty countdown with color-coded indicators
+Order History	Last 20 orders with status badges + quick backwork/new order actions
+Delivery Status	Per-message tick marks (✓ sent, ✓✓ delivered/read, ✗ failed)
+Reactions	Emoji reactions on Whapi messages with aggregated display pills
+Reply Quoting	Reply-to preview bar with quoted message context
+Auto-Message Control	Per-customer toggle to stop all reminders or disable individual ones
+Permission Gating	Emergency-only agents get read-only chat (cannot send messages)

@@ -1,0 +1,360 @@
+Orders Module — Complete Breakdown
+1. View Orders (/orders)
+File: ViewOrders.tsx — 360 lines
+
+Header
+Page title: "Orders"
+Counter Chips (clickable, filter the list)
+Chip	What it filters
+Scheduled	Orders with status = scheduled
+Pending Approval	Status = pending-approval
+No Confirmation	Status = pending-confirmation OR confirmation = no_response
+No Address	Orders with empty/missing address
+Past Due · No Invoice	Past scheduled date + no invoice generated
+Filter Panel (collapsible, toggled by Filter button)
+Filter	Input Type
+Booking Date From	Date picker
+Booking Date To	Date picker
+Visit Date From	Date picker
+Visit Date To	Date picker
+Customer Name	Text input (partial match)
+Customer Phone	Text input (partial match)
+Agent	Dropdown (auto-populated from order data)
+Team	Dropdown (auto-populated from order data)
+Order Number	Text input (partial match)
+Invoice Number	Text input (partial match)
+Buttons
+Filter — toggles the filter panel, shows active filter count badge
+Reset — clears all filters
+Sort Toggle — switches between Date ↑↓ and Amount ↑↓
+Order List
+Scrollable list of order cards. Each card shows:
+
+Order ID (e.g., ORD-00123)
+Customer name + phone
+Status badge (color-coded: Tentative, Scheduled, Confirmed, In Progress, Completed, Pending Approval, Cancelled, Waitlist, Pending Confirmation)
+Confirmation status badge (Not Sent, Msg Sent, Customer Confirmed, No Response, Agent Confirmed)
+Division badge
+Services summary text
+Scheduled date
+Total amount in QAR
+Click → opens Order Detail Dialog
+Actions (on the page level)
+Manual Confirm — updates order to confirmed + manually_confirmed, validates via state machine, writes audit log
+Rollback Confirmation — resets to scheduled + not_sent, validates via state machine, writes audit log
+Cancel Order — opens Cancel Dialog, writes audit log with old/new status + reason
+2. Order Detail Dialog
+File: OrderDetailDialog.tsx — 327 lines
+Opens when: you click an order card in View Orders
+
+Dialog Header
+Order ID (bold)
+Status Badge (color-coded)
+Multi-Day Badge (only if scheduledEndDate exists, shows "Multi-Day: date → date")
+Customer Name • Phone (small text)
+Confirmation Banner (always visible)
+Shows the current WhatsApp confirmation state:
+
+Not Sent — neutral border
+Msg Sent — primary/blue border
+Customer Confirmed or Agent Confirmed — green border
+No Response — red border
+Subtext: "48hr auto-confirmation via WhatsApp before scheduled date"
+If sent, shows timestamp
+Action Buttons (conditional, right side of banner)
+Button	Icon	Visible When	What It Does
+Confirm Manually	✅ CheckCircle	Status = scheduled	Sets status → confirmed, confirmation → manually_confirmed
+Rollback	↩ RotateCcw	Confirmation = confirmed or manually_confirmed	Resets status → scheduled, confirmation → not_sent
+Edit Order	✏️ Edit	Status = scheduled	Navigates to /orders/create-visit?edit={orderId}
+Cancel Order	❌ XCircle	canTransition(status, "cancelled") returns true	Opens the Cancel Dialog
+Tab 1: Booked Services
+Lists each team assignment as a card:
+Team name
+Scheduled date + time slot + duration
+Service badges (e.g., "2× AC Cleaning", "1× Plumbing Fix")
+Order Summary Grid (3 columns):
+Services count
+Teams count
+Total amount (QAR)
+Notes section (if order has notes)
+Tab 2: Invoiced & Report
+If invoice exists: shows invoice number + placeholder for detailed breakdown (photos, on-site discounts, team reports)
+If no invoice: "No invoice generated yet"
+Tab 3: Follow-up & Backwork
++ Follow-up button → navigates to /orders/create-follow-up?from={orderId}
++ Backwork button → navigates to /orders/create-backwork?from={orderId} (red-tinted)
+Lists linked follow-up and backwork orders (if any) with:
+Order ID
+Type badge (follow-up = accent, backwork = red)
+Date
+If a follow-up was initiated by the team (not contact center), shows info banner
+Tab 4: Logs
+Reverse-chronological timeline with:
+Dot + vertical line connector
+Action name (bold)
+"by {userName}"
+Details text (if any)
+Timestamp formatted as "MMM d, yyyy HH:mm"
+3. Order Cancel Dialog
+File: OrderDetailDialog.tsx (bottom of file, OrderCancelDialog component)
+
+Header
+Red icon + "Cancel Order" title
+Content
+Order ID + Customer Name (info text)
+Cancellation Reason (required) — dropdown populated from reason_lists table where type = cancellation, only active reasons shown
+Notes — free-text textarea
+Waitlist Warning
+If there are orders with status waitlist on the same date and division as the order being cancelled, shows a yellow warning box listing them (order ID, customer, services)
+Purpose: alert the agent that cancelling may free a slot for waitlisted orders
+Buttons
+Keep Order — closes dialog, no action
+Confirm Cancellation — disabled until reason selected, executes cancel + audit log
+4. Create Visit (/orders/create-visit)
+File: CreateVisit.tsx — 123 lines (orchestrator)
+
+Mode Toggle Bar (top)
+Manual Assign button (grid icon) — active = filled style
+Mobile Booking button (phone icon) — active = filled style, shows "Auto-assign engine" badge
+Customer name display on the right (from Contact Center context)
+4A. Manual Mode (left + right panels)
+Left Panel: OrderForm (OrderForm.tsx, ~525 lines)
+Order Type Tabs:
+
+Order — full service selection enabled
+Site Visit — disables service selection, shows sub-type selector (Single Order / Contract)
+Service Selector (ServiceSelector.tsx, ~290 lines):
+
+Division filter badges at the top (e.g., Maintenance, Cleaning, Kitchen)
+N-level cascading dropdowns: select Level 1 → Level 2 → Level 3 → ... → leaf service
+When leaf selected:
+Standard service: shows qty input + "Add Service" button
+Configurable service: opens ServiceConfigurator inline (qty/select/boolean component pickers)
+Linked Products (if service has inventory links):
+select_one: single picker, user chooses ONE brand/variant
+install_all: one picker per group label, all items required
+Selected Service Cards (SelectedServiceCard.tsx):
+
+Each added service shown as a draggable card
+Shows: service name, qty, price, promotion badge (if discount applies)
+Drag → sets draggingRootId for calendar skill matching
+Remove button (X) → removes from list
+Date Range Picker:
+
+Single date or multi-day range
+Multi-day creates "Day X of Y" badge on calendar
+Address Drop Zone:
+
+Empty box with "Drop address here" text
+Accepts drag from Contact Center address panel
+Drop format: { id, label, line, type, coords }
+Phone on Arrival:
+
+Toggle switch
+When enabled, shows phone number input
+Notes:
+
+Textarea with attachment support
+Voucher Code:
+
+Text input + Validate button
+On valid: applies discount to selected services
+Promotion Display:
+
+Campaign promotion results (from promotionEngine.ts)
+Subscription discount results (from subscriptionEngine.ts)
+Shows per-line discounts and total discount
+Right Panel: TeamCalendar (TeamCalendar.tsx, ~323 lines)
+Date Navigation:
+
+← → arrows to change date
+If multi-day order: shows "Day X of Y" badge, navigation constrained to date range
+Mode Toggle:
+
+Normal — standard scheduling
+Emergency — emergency slots
+Waitlist — bypasses team/time, creates order with status waitlist
+Filters:
+
+Division dropdown — filter teams by division
+Site-visit toggle — show only teams with site_visit_order = true employees
+Team Grid:
+
+Rows = teams
+Columns = hours (from day_start to day_end in schedule config)
+Overnight support: if day_end > 24 (e.g., 26 = 2 AM next day), appends hours with "→" marker
+Team Rows (TeamRow.tsx):
+
+Hour cells (droppable)
+Existing order overlays (OrderCard.tsx) showing booked slots
+Skill Highlighting (during drag):
+
+While dragging a service card, the draggingRootId (service's root ID) is compared against each team's skills[] array
+Match → team row glows green
+No match → team row dims/fades
+Drop Behavior:
+
+Drop service onto a team's time slot
+If qty > 1: opens AllocateQuantityDialog — lets agent split qty across multiple drops
+If qty = 1: allocates directly
+Updates the service's allocations[] array with { teamId, qty, timeSlot }
+4B. Mobile Booking Mode (MobileBookingPanel.tsx, ~394 lines)
+Service catalog — food-delivery style grid (categories + items)
+Address drop zone — same as manual mode
+Cart summary — selected services with qty +/−
+Find Slots button → runs findAvailableSlots() from bookingEngine.ts:
+Collects selected services with skill roots
+Iterates teams checking skill match + schedule availability
+Checks against existing orders for time conflicts
+Returns ranked BookingSlot[] with team assignments
+Slot Picker — list of available slots to choose from
+Calendar Preview — visual preview of selected slot on team timeline
+Confirm Booking — confirmation dialog with summary
+5. View Quotations (/orders/quotations)
+File: ViewQuotations.tsx — 403 lines
+
+Counter Chips
+Chip	Status
+Draft	draft
+Pending Approval	pending_approval
+Sent	sent
+Customer Approved	customer_approved
+Expired	expired
+Filters
+Created Date From/To
+Customer Name
+Customer Phone
+Agent
+Quotation Number
+Status Lifecycle
+draft → sent → pending_approval → approved → customer_approved → converted
+                                                               → cancelled
+                                → rejected
+         → expired
+Quotation Edit Rules
+Status	Can Edit?	Why
+draft	✅ Yes	Still drafting
+pending_approval	✅ Yes	Awaiting manager
+approved (manager only)	❌ No	Must remove approval first
+customer_approved	❌ No	Can only cancel
+converted	❌ No	Already became an order
+cancelled	❌ No	Terminal state
+Actions per Quotation
+Edit → navigates to Create Quotation page with data loaded
+Remove Approval → reverts manager approval so it can be edited
+Cancel → sets status to cancelled
+Convert to Order → creates an order from the quotation
+6. Create Quotation (/orders/create-quotation)
+File: CreateOrderQuotation.tsx — 530 lines
+
+Header Bar
+← Back button — returns to quotations list
+Status Badge (Draft / Pending / Approved / Rejected)
+Save Draft button — saves without submitting
+Submit for Approval button — sends to manager
+Sections (top to bottom)
+Customer Info:
+
+Auto-filled from Contact Center context (name, phone)
+Address:
+
+Drop zone — drag address from Contact Center panel
+Shows selected address label + line
+Visit Date Range:
+
+Calendar picker, single or multi-day
+Service Selector:
+
+Same tree browser as Create Visit
+Division filter + N-level cascading dropdowns
+Search functionality
+Configurable services open ServiceConfigurator inline
+Spare Part Picker (dialog, opened via button):
+
+Browse spare parts catalog (from inventory_items where type = spare-parts)
+Select item + qty → adds to line items
+Custom Service (dialog, opened via button):
+
+Manually enter: name, qty, unit price
+For one-off items not in the service catalog
+Line Items List:
+
+Each line shows: name, path, qty (editable), unit price (editable), line total
+Delete button per line
+CompactLineItem component for dense display
+Summary:
+
+Subtotal
+Tax (from division config)
+Total
+7. Create Backwork (/orders/create-backwork?from={orderId})
+File: CreateBackwork.tsx — 320 lines
+
+How it works
+Opened from Order Detail Dialog → "Follow-up & Backwork" tab → "+ Backwork" button
+URL param ?from={orderId} loads source order data via useBackworkSource hook
+Source Order Banner
+Order ID, customer name, phone, address, completion date
+Service List (from completed order)
+Each service from the source order shown with:
+Checkbox — select for backwork
+Service name + path
+Original qty + price
+Division badge
+When selected, expands to show:
+Reason dropdown — why backwork is needed
+Team Notes — internal notes
+Customer Notes — what the customer reported
+Qty adjustment — can change qty for backwork
+Right Panel
+Full TeamCalendar component (same as Create Visit)
+Selected backwork services become draggable cards
+Drag onto calendar to schedule the backwork visit
+8. Create Follow-Up (/orders/create-follow-up?from={orderId})
+File: CreateFollowUp.tsx — 381 lines
+
+How it works
+Opened from Order Detail Dialog → "Follow-up & Backwork" tab → "+ Follow-up" button
+URL param ?from={orderId} loads source order data via useFollowUpSource hook
+Source Order Banner
+Source order ID + customer info
+Previous Services List
+Each service from the source order shown with:
+
+Follow-up Toggle (on/off) — marks service as needing follow-up
+Auto-initialized: services the team already flagged for follow-up are toggled ON and expanded
+When toggled ON, expands to show:
+Follow-up Reason dropdown
+Follow-up Notes textarea
+Customer Reason textarea
+Qty adjustment
+Follow-up Counter
+Badge showing count of services marked for follow-up (e.g., "3 services selected")
+Add New Services
+Full ServiceSelector component (same tree browser as Create Visit)
+Allows adding services that were NOT in the original order
+Right Panel
+Full TeamCalendar component
+All selected services (follow-up + new) become draggable cards
+Drag onto calendar to schedule
+Core Logic Files
+File	Lines	What It Does
+orderStateMachine.ts	23	Defines valid status transitions. canTransition("scheduled", "confirmed") → true. Terminal states: completed, cancelled
+useOrders.ts	~164	Hook that fetches all orders with joins to customers, phones, order_details, visits, teams
+useQuotations.ts	—	Hook that fetches quotations + provides removeApproval(), cancelQuotation(), convertToOrder() actions
+useFollowUpSource.ts	—	Hook that loads a source order's services with follow-up flags for the Create Follow-Up page
+useDeductOrderStock.ts	41	FIFO stock deduction mutation — when an order is confirmed, deducts inventory from oldest stock layers first
+promotionEngine.ts	—	Calculates campaign + voucher discounts (per-line and total)
+subscriptionEngine.ts	—	Calculates subscription package discounts
+bookingEngine.ts	—	Auto-assign algorithm: finds available team+time slots matching service skills
+Status Transitions (State Machine)
+tentative       → scheduled, cancelled
+scheduled       → confirmed, cancelled, waitlist, pending-confirmation
+pending-confirm → confirmed, scheduled, cancelled
+confirmed       → in-progress, cancelled, scheduled
+in-progress     → completed, cancelled
+completed       → (terminal — no transitions)
+cancelled       → (terminal — no transitions)
+waitlist         → scheduled, cancelled
+pending-approval → confirmed, cancelled
+That's everything — every page, dialog, tab, button, filter, input, and action in the entire Orders module.

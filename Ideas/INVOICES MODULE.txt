@@ -1,0 +1,288 @@
+📄 INVOICES MODULE — Complete Breakdown
+The module has 3 pages, 4 components, 3 hooks, and 2 dialogs.
+
+PAGE 1: View Invoices (/invoices)
+File: src/domains/invoices/pages/ViewInvoices.tsx
+
+Header Bar
+Element	Type	Details
+"Invoices"	H1 title	Bold, small text
+Overdue chip	Counter button	Red, AlertTriangle icon, shows count, toggles filter
+Sent chip	Counter button	Blue, Send icon
+Partial chip	Counter button	Yellow/warning, CreditCard icon
+Draft chip	Counter button	Muted, FileText icon
+Paid chip	Counter button	Green, CheckCircle2 icon
+Outstanding: XXK	Badge	Shows total outstanding in thousands (filtered sum of totalAmount - paidAmount)
+Filters button	Toggle	Opens/closes filter panel, shows active filter count badge
+Reset button	Ghost icon	RotateCcw icon, appears only when filters are active
+Due ↑↓	Sort toggle	Sorts by due date asc/desc
+Amt ↑↓	Sort toggle	Sorts by amount asc/desc
+Active filter badge	Badge	Shows which counter is active, click ✕ to clear
+"X results"	Text	Filtered count
+QB Transfer Bar (conditional — appears when items selected)
+Element	Type	Details
+Select All checkbox	Checkbox	Toggles all selectable (not QB-synced, not void/cancelled)
+"X selected"	Text	Count of selected invoices
+Transfer to QuickBooks	Button	BookOpen icon, opens QB confirmation dialog
+Clear	Ghost button	Deselects all
+Filter Panel (collapsible, 8-column grid)
+Filter	Type	Details
+Issued From	DatePicker	Filters by issuedDate >=
+Issued To	DatePicker	Filters by issuedDate <=
+Due From	DatePicker	Filters by dueDate >=
+Due To	DatePicker	Filters by dueDate <=
+Invoice #	Text input	Case-insensitive contains on invoiceId
+Customer	Text input	Case-insensitive contains on customerName
+Source	Select dropdown	Options: All, Orders, Contracts, Sales, Purchase
+Agent	Select dropdown	Dynamically populated from data, unique agent names
+All text filters use useDebounce(250ms).
+
+Invoice List (ScrollArea)
+Each invoice renders as an InvoiceCard component (see below). Empty state shows Receipt icon + "No invoices found".
+
+Dialogs
+VoidInvoiceDialog — void confirmation
+CreditNoteDialog — credit note creation
+QB Transfer AlertDialog — QuickBooks confirmation
+Actions (from ViewInvoices)
+Action	What it does
+Void Invoice	Updates invoices.status = 'void', writes void notes, audit trail with severity: critical, refetches
+Issue Credit Note	Inserts into credit_notes table (full or partial), auto-generates CN-{uuid} ID, audit trail with severity: critical
+QB Transfer	Bulk updates qb_synced = true on selected invoices, audit trail with severity: info
+COMPONENT: InvoiceCard
+File: src/domains/invoices/components/InvoiceCard.tsx
+
+Collapsed Row (single click to expand)
+Element	Position	Details
+Checkbox	Left	Only if not QB-synced and not cancelled/void
+QB badge	Left	Green "QB" badge if already synced
+Status icon	Left	9×9 colored square with status icon
+Invoice ID	Main	e.g. "INV-0042"
+Status badge	Main	Draft/Sent/Partial/Paid/Overdue/Cancelled/Void
+Source badge	Main	Order (blue) / Contract (green) / Sale (yellow) / Purchase (accent)
+Division badge	Main	Division short name with color
+Overdue badge	Main	"Xd overdue" if overdue
+Customer name	Sub-row	With User icon
+Source label	Sub-row	With Receipt icon
+Phone	Sub-row	With Phone icon
+Payment progress bar	Right	Shows paid %, 1.5px height, destructive color if overdue
+Remaining amount	Right	"X remaining" text
+Total amount	Far right	"X,XXX QAR"
+Issued date	Far right	Below total
+Due date / status text	Far right	"Paid in full" (green) / "Due YYYY-MM-DD (Xd)" / overdue (red)
+Chevron	Far right	Rotates 180° when expanded
+Expanded Detail (3-column grid)
+Column 1 — Line Items:
+
+List of all line items: description, qty × unitPrice, total QAR
+Total row at bottom
+Column 2 — Payment History:
+
+Each payment: date badge, amount QAR, method, reference
+"No payments recorded" if empty
+Balance warning box (yellow) if balance > 0
+Column 3 — Details & Actions:
+
+Source: sourceLabel or sourceId
+Agent name
+Notes box (if any)
+Void button — red, Ban icon, triggers VoidInvoiceDialog
+Credit Note button — yellow, Undo2 icon, triggers CreditNoteDialog
+Both buttons hidden if invoice is already cancelled/void
+Status Config
+Status	Color	Icon
+draft	muted	FileText
+sent	primary/blue	Send
+partially_paid	warning/yellow	CreditCard
+paid	success/green	CheckCircle2
+overdue	destructive/red	AlertTriangle
+cancelled	muted	XCircle
+void	muted	Ban
+DIALOG: VoidInvoiceDialog
+File: src/domains/invoices/components/VoidInvoiceDialog.tsx
+
+Element	Type	Details
+Title	Header	"Void Invoice" with Ban icon in red
+Description	Text	"Voiding INV-XXX for CustomerName. A notification will be sent to accounting."
+Reason	Select dropdown	Required, populated from reason_lists table where type = invoice_cancel
+Notes	Textarea	Optional, "Additional details..." placeholder
+Cancel	Button	Outline, closes dialog
+Void Invoice	Button	Destructive, disabled until reason selected
+DIALOG: CreditNoteDialog
+File: src/domains/invoices/components/CreditNoteDialog.tsx
+
+Element	Type	Details
+Title	Header	"Issue Credit Note" with Undo2 icon
+Description	Text	"Against INV-XXX (X,XXX QAR) for CustomerName"
+Type	RadioGroup	Two options: "Full Refund" / "Partial Refund"
+Amount	Number input	Only visible when "Partial" selected, max = invoice total
+Reason	Select dropdown	Required, populated from reason_lists where type = refund
+Cancel	Button	Outline
+Issue Credit Note	Button	Disabled if no reason or (partial + no/zero amount)
+Full refund logic: Copies all invoice line items into credit note. Partial refund logic: Creates single line item: "Partial refund — {reason}" with entered amount.
+
+PAGE 2: View Payments (/payments)
+File: src/domains/invoices/pages/ViewPayments.tsx
+
+Header Bar
+Element	Type	Details
+"Payments"	H1 title	
+Completed chip	Counter	Green, CheckCircle2 icon
+Pending chip	Counter	Yellow, Clock icon
+Processing chip	Counter	Blue, Clock icon
+Failed chip	Counter	Red, XCircle icon
+Collected: XXK	Badge	Sum of completed payments in view
+Filters button	Toggle	Active filter count badge
+Reset button	Ghost	RotateCcw icon
+Date ↑↓	Sort toggle	
+Amt ↑↓	Sort toggle	
+Method Breakdown Bar (always visible if payments exist)
+A horizontal scrollable row of clickable method chips showing:
+
+Method icon + label + total in thousands (e.g. "Cash 45.2K")
+Click to filter by that method (toggles)
+Active method gets colored ring
+QB Transfer Bar (same pattern as Invoices)
+Filter Panel (7-column grid)
+Filter	Type	Details
+Date From	DatePicker	
+Date To	DatePicker	
+Invoice #	Text input	Contains search
+Customer	Text input	Contains search
+Reference / Txn	Text input	Searches across reference, transactionId, chequeNumber
+Method	Select dropdown	All 8 payment methods
+Agent	Select dropdown	Dynamic
+Payment List
+Each payment renders as a PaymentCard. Empty state: Receipt icon + "No payments found".
+
+Dialog
+QB Transfer AlertDialog — same pattern as invoices
+COMPONENT: PaymentCard
+File: src/domains/invoices/components/PaymentCard.tsx
+
+Collapsed Row
+Element	Position	Details
+Checkbox	Left	If not QB-synced and not failed
+QB badge	Left	If synced
+Status icon	Left	Colored 9×9 square
+Payment ID	Main	e.g. "PAY-1234"
+Status badge	Main	Completed/Pending/Processing/Failed/Refunded
+Method badge	Main	Icon + label (Cash, Bank Transfer, PDC, CDC, Online, Fawran, POS, Pay Later)
+Source badge	Main	Order/Contract/Sale/Purchase
+Customer	Sub-row	With User icon
+Invoice ID	Sub-row	With Receipt icon
+Reference	Sub-row	"Ref: XXX" if exists
+Transaction ID	Sub-row	"Txn: XXX" if exists
+Cheque Number	Sub-row	"Chq: XXX" if exists
+Invoice total	Right block	With "Bal: X" warning or "Fully paid" green
+Payment amount	Far right	Bold, strikethrough + red if failed
+Date	Far right	Formatted "MMM d, yyyy"
+Expanded Detail (3-column grid)
+Column 1 — Payment Details: Method badge, amount, date, reference, transaction ID, bank name
+
+Column 2 — Conditional:
+
+If PDC/CDC: Cheque Info — cheque number, cheque date, bank
+Otherwise: Invoice Context — invoice ID, source, invoice total, paid so far, remaining balance warning
+Column 3 — Customer & Notes: Customer name, phone, agent, notes box
+
+Method Config (8 methods)
+Method	Icon	Color
+cash	Banknote	Green
+bank_transfer	Building2	Blue
+pdc	FileText	Accent
+cdc	FileText	Accent
+online	Smartphone	Blue
+fawran	QrCode	Green
+pos	CreditCard	Yellow
+pay_later	Clock	Yellow
+PAGE 3: Pending Payments (/pending-payments)
+File: src/domains/invoices/pages/PendingPayments.tsx
+
+Header
+Element	Type	Details
+"Pending Payments"	H1 title	Large, bold
+Subtitle	Text	"X customers · QAR X,XXX outstanding"
+Division toggle buttons	Button group	Dynamic from data, click to filter by division
+Clear	Ghost button	Clears division filter
+"Sorted by amount ↓"	Badge	Static indicator
+Customer Cards Grid (responsive: 1/2/3/4 columns)
+Each card shows:
+
+Element	Details
+Red top bar	0.5px bg-destructive strip if any invoice is overdue
+Customer name	Truncated, bold
+Phone	Below name
+Total pending	Large bold number + "QAR" label
+Invoice count badge	"X invoice(s)"
+Overdue badge	Red, "X overdue" if any
+View link	Opens invoice detail dialog
+Cards are sorted by total pending descending (highest first). Cards with overdue invoices have border-destructive/40.
+
+Invoice Detail Dialog (per customer)
+Opens when clicking "View" on a customer card.
+
+Element	Details
+Title	"CustomerName – Pending Invoices" with User icon
+ScrollArea	Max height 60vh
+Each invoice row shows:
+
+Invoice number + division badge
+Source badge (e.g. "order · ORD-123")
+Issued date + due date (red if overdue with "(overdue)" text)
+Paid X / Total with "QAR X due" on right
+Progress bar — blue fill showing paidAmount / totalAmount percentage
+HOOKS
+useInvoices() → ["invoices"]
+Calls mark_overdue_invoices RPC first (ensures statuses are current)
+Fetches from invoices with joins: customers!inner → customer_phones, payments (filtered by deleted_at IS NULL), invoice_line_items
+Maps DB snake_case to UI camelCase
+Limit: 500 records
+usePayments() → ["payments"]
+Fetches payments (limit 500, soft-delete filtered)
+Collects unique invoice_ids → batch fetches invoices
+Collects unique customer_ids → parallel fetches customers + customer_phones (primary only)
+Builds lookup maps for O(1) resolution
+usePendingPayments() → ["pending-payments"]
+Fetches invoices where status NOT IN (void, paid, cancelled) with nested customer/phone
+Filters out invoices where remaining ≤ 0
+Groups by customer_id into CustomerPending[]
+No limit (fetches all pending)
+DATABASE TABLES USED
+Table	Usage
+invoices	Main invoice data, status updates, void
+invoice_line_items	Line items per invoice
+payments	Payment records linked to invoices
+payment_sessions	Online payment sessions (Dibsy)
+credit_notes	Credit note records
+customers	Customer name resolution
+customer_phones	Primary phone lookup
+reason_lists	Void/refund reason options (types: invoice_cancel, refund)
+activity_log	Audit trail for all actions
+divisions	Division config for color/short labels
+CUSTOMER PORTAL: Invoices Page
+File: src/domains/customer-portal/pages/InvoicesPage.tsx
+
+A simplified read-only view for customers showing their invoices with a "Pay" button.
+
+Element	Details
+Invoice ID	Mono font
+Status badge	Color-coded
+Total	QAR formatted
+Paid	Green, only if > 0
+Balance	Red, only if > 0
+Due date	Formatted
+Pay button	Full width, shows "Pay QAR X.XX", invokes customer-booking edge function to create payment link, redirects to Dibsy checkout
+Payable statuses: sent, partially_paid, overdue (and balance > 0).
+
+ONLINE PAYMENT FLOW (Dibsy)
+File: supabase/functions/_shared/finalizePayment.ts
+
+When an online payment completes:
+
+Checks payment_sessions.receipt_sent (idempotent guard)
+Loops through invoice_allocations in the session
+For each allocation: inserts payments record with auto-generated PAY-{timestamp}-{uuid} ID
+Calls apply_payment RPC (atomic paid_amount update on invoice — prevents race conditions)
+Marks receipt_sent = true on session
+Writes audit log entry

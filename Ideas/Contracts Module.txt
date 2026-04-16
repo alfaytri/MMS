@@ -1,0 +1,380 @@
+Contracts Module — Complete Breakdown
+Overview
+The Contracts module has 4 pages and 2 distinct workflows:
+
+Contract Quotations — creating and approving new contract proposals
+Live Contracts — managing active contracts with visit scheduling and payment tracking
+1. View Contract Quotations (/contracts/quotations)
+File: ViewContractQuotations.tsx — 360 lines
+
+Header
+Page title: "Contracts"
+Pipeline Value Badge — shows total value of filtered contracts in QAR (e.g., "Pipeline: 450K QAR")
+"+ New Contract" button — navigates to /contracts/create-quotation
+Counter Chips (clickable filters)
+Chip	Status	Color
+Drafts	draft	Gray/muted
+Review	manager_review	Warning/yellow
+Awaiting	customer_pending	Warning/orange
+Active	active	Success/green
+Expired	expired	Destructive/red
+Filter Panel (collapsible)
+Filter	Type
+Created From	Date picker
+Created To	Date picker
+Contract #	Text input
+Customer	Text input
+Phone	Text input
+Site Name	Text input
+Agent	Dropdown (auto-populated)
+Sort Toggles
+Date ↑↓ — by created date
+Value ↑↓ — by total contract value
+Contract Quotation Cards
+Each card shows:
+
+Status icon (color-coded square)
+Contract ID (e.g., CTR-2026-001)
+Status badge (Draft, Manager Review, Sent to Customer, Awaiting Signature, Approved, Rejected, Expired, Active)
+Division badges (color-coded short names)
+"Signed" badge (if hasSignedDoc = true, green with checkmark)
+Customer name + Site name + Phone + Agent
+Services summary text
+Right side: Total value (QAR) + duration (e.g., "1yr"), monthly value, payment schedule, area count badge, visit count badge, date range
+Click → navigates to /contracts/detail/{id}
+
+Contract Quotation Status Lifecycle
+draft → manager_review → sent → customer_pending → approved → active
+                       → rejected
+                                                  → rejected
+         → expired
+Status Config (8 states)
+Status	Label	Color
+draft	Draft	Muted gray
+manager_review	Manager Review	Warning yellow
+sent	Sent to Customer	Primary blue
+customer_pending	Awaiting Signature	Warning orange
+approved	Approved	Success green
+rejected	Rejected	Destructive red
+expired	Expired	Muted gray
+active	Active	Success bold green
+2. Create Contract Quotation (/contracts/create-quotation)
+File: CreateContractQuotation.tsx — 386 lines
+Sub-components: ContractBuildingTree, ServiceScheduleSection, ContractTermsSection, PaymentScheduleSection, AddContractServiceDialog, ContractQuotationShared
+
+Header Bar (compact, single row)
+← Back button
+Title: "Create Contract Quotation" (or "View" if not editable)
+"Contract" badge (primary)
+Source badge: "Site Visit" or "Direct"
+Division selector: clickable division badges to toggle divisions on/off
+Workflow Progress Bar: 4 steps shown as pill badges:
+Draft → Manager Review → Customer Review → Approved
+Completed steps show ✓ green, active step shows primary, future steps show muted
+If rejected, shows red "Rejected" badge
+Status badge (right side, color-coded)
+Header Action Buttons (conditional by status)
+Status	Buttons Available
+draft or rejected	Save (outline) + Send (triggers confirmation dialog → sets to pending_manager)
+pending_manager	Reject (red) + Approve (green) — manager actions
+pending_customer	Rejected (red) + Approved (green) — customer response
+rejected	Edit — reverts to draft
+customer_approved	Signed contract upload banner appears
+Send Confirmation Dialog
+AlertDialog: "Send for Manager Approval?"
+Description: "This quotation will be sent to the contract manager for review."
+Buttons: Cancel / Send
+Signed Contract Upload Banner
+Only appears when status = customer_approved
+Green background with FileCheck icon
+Text: "Contract Approved — Upload signed contract to complete"
+File input: accepts .pdf, .doc, .docx, .png, .jpg
+Shows uploaded filename when selected
+Section 1: Customer Information
+SectionCard with "Edit" button
+2-column grid:
+Customer name
+Phone
+Address (spans 2 columns)
+Section 2: Contract Details
+2-column grid:
+Start Date (with calendar icon)
+End Date (with calendar icon)
+Duration (computed, e.g., "12 months")
+Discount (QAR) — editable number input
+Section 3: Building Structure & Services
+"Edit Structure" button in header
+BuildingTree component — recursive tree renderer:
+Hierarchical structure: Complex → Building → Floor → Area
+Each level has a type icon (Building2, Layers, MapPinned) and color-coded left border
+Each node shows: name, type badge, services count badge
+"+ Add Service" button on each node → opens AddContractServiceDialog
+Expandable/collapsible via click
+AreaServiceCard (per service in the tree)
+Each service card shows:
+
+Service path (e.g., "Maintenance > AC > Split Unit Cleaning")
+Brand badge (if set)
+Division badges (color-coded)
+Condition badge: good (green) / fair (yellow) / poor (red)
+Frequency badge (e.g., "Monthly", "Weekly")
+Media count button (opens ServiceMediaDialog)
+Qty × Unit Price = Total (QAR) (bold primary)
+Edit button
+ServiceMediaDialog
+Split layout: left sidebar + right preview
+Left: list of media items (Image, Text, Voice) with timestamps and author
+Right preview:
+Image: rendered <img> tag
+Text: formatted text with timestamp
+Voice: waveform visualizer + play button
+Section 4: General Services
+Same ServiceCard component as area services but not nested in building tree
+Shows: path, division, condition, frequency, media, qty, price
+Section 5: Terms & Conditions (ContractTermsSection)
+"Expand All" / "Collapse All" buttons
+Division Terms: collapsible items per selected division, shows division-level T&C text
+Service Terms: auto-collected from the service tree — walks the entire contract tree, finds all used services, and pulls their termsAndConditions field
+Indented by tree level (L0 = bold primary border, L1 = lighter, L2 = lightest)
+Shows breadcrumb path
+Expandable to show full terms text
+Section 6: Service Schedule (ServiceScheduleSection — 482 lines)
+This is the most complex section — a mini calendar + drag-and-drop time-slot assignment grid.
+
+Warning Banner (if not approved):
+
+"Tentative dates. Assign teams now — they'll be pushed to the calendar upon approval."
+Left Panel: Mini Calendar (260px wide)
+
+Month navigation (← →)
+7-column day grid with color-coded dots:
+🔵 Blue dot = has visits
+🟡 Yellow dot = partially assigned
+🟢 Green dot = all assigned
+Click a day → loads services for that day in the right panel
+Below calendar: scrollable date list (first 20 dates) with service count + ✓ if all assigned
+Legend at bottom
+Right Panel: Schedule Time Slot View (drag & drop)
+
+Header: Selected date (e.g., "Wednesday, March 15, 2026") + service count + assigned count + "Push to Team Calendar" button
+Unassigned Services Pool: draggable service chips at the top
+Each chip shows: service path, location, division badge
+Color-coded (5 rotating colors)
+Drag to assign
+Team Grid: horizontal timeline (7 AM to 7 PM)
+Rows = teams (from useTeams())
+Columns = hour slots
+Each cell is droppable — drag a service chip onto a team+hour to assign
+Assigned services appear as colored blocks on the grid
+Remove button (X) on each assigned block to unassign
+Date Generation Logic:
+
+Based on each service's frequency (Daily, Weekly, Bi-Weekly, Monthly, Quarterly, Semi-Annual, Annual)
+Uses date-fns: addDays, addWeeks, addMonths, addQuarters
+Generates dates from contract start to end
+Section 7: General Notes
+Free-text textarea (no border, muted background)
+Section 8: Payment Schedule (PaymentScheduleSection — 198 lines)
+Payment Mode Selector:
+
+Mode	Description
+fixed	Fixed schedule payments at regular intervals
+milestone	Milestone-based payments with percentage splits
+completion	Full payment on contract completion
+Payment Frequency (for fixed mode):
+
+Monthly / Quarterly / Semi-Annual / Annual
+Fields:
+
+Contract Start Date, End Date, Duration
+General Discount (QAR) — editable
+Fixed Mode Display:
+
+Blue card showing payment amount per frequency + total duration
+e.g., "Payment Amount (monthly): 12,500 QAR"
+Milestone Mode Display:
+
+"+ Add Milestone" button
+Progress bar — visual stacked bar showing milestone percentages with alternating colors
+Validation: "Total: X% — Must equal 100%" (red if ≠ 100%, green ✓ if = 100%)
+Milestone Table:
+Columns: #, Milestone Name (editable), % (editable), Amount (computed), Due Date (editable date picker), Remove button
+Amount auto-computed: totalValue × percentage / 100
+Completion Mode Display:
+
+Yellow card: "Full payment due upon contract completion"
+Shows total value and due date (= contract end date)
+Section 9: Pricing Summary
+Right-aligned:
+Subtotal
+Total per monthly
+AddContractServiceDialog (412 lines)
+Two-step dialog:
+
+Step 1: Pick Service
+
+N-level cascading dropdowns (same pattern as order services)
+Labels: Service Type → Category → Sub-Category → Service
+Each option shows: name, price (QAR), contract type badge
+Breadcrumb path shown below selections
+Selected leaf shows: name, price, contract type
+"Configure →" button (enabled only when leaf selected)
+Step 2: Configure Service
+
+Selected service summary card (name + path)
+6-field grid:
+Frequency: Daily / Weekly / Bi-Weekly / Monthly / Quarterly / Semi-Annual / Annual
+Brand: dropdown of brands linked to the L1 parent service (from useServiceBrands)
+Shows reliability badge: "✓ Reliable" (green) or "⚠ Unreliable" (red) with factor multiplier
+Condition: from pricing factors table (Good / Fair / Poor) with factor multiplier
+Quantity: number input
+Unit Price (QAR): auto-filled based on: basePrice × reliabilityFactor × conditionFactor
+Division: multi-select
+Price Breakdown Panel (appears when brand or condition selected):
+
+Shows calculation: Base Price → × Reliability Factor → × Condition Factor → Final Price
+
+Total display: qty × unitPrice = total QAR
+
+Note field (optional)
+
+"Add Service" button (green checkmark)
+
+3. View Live Contracts (/contracts)
+File: ViewContracts.tsx — 256 lines
+
+Header
+Page title: "Contracts"
+Outstanding Badge — total outstanding payments across filtered contracts (e.g., "Outstanding: 120K QAR")
+Counter Chips
+Chip	Status	Color
+Active	active	Success green
+Expiring	expiring_soon	Warning yellow
+Overdue	overdue_payment	Destructive red
+Completed	completed	Primary blue
+Cancelled	cancelled	Muted gray
+Filter Panel
+Filter	Type
+Contract #	Text input
+Customer	Text input
+Site	Text input
+Agent	Dropdown
+Sort Toggles
+End ↑↓ — by contract end date
+Balance ↑↓ — by remaining payment balance
+Visits ↑↓ — by remaining visits
+ContractCard (expandable cards — 220 lines)
+Collapsed State (main row):
+
+Column	Content
+Status Icon	Color-coded 9×9 rounded square
+Info	Contract ID + status badge + customer + site + division badges
+Visits Progress	Progress bar + "X/Y" count + remaining + next visit date
+Payments Progress	Progress bar + "XK/YK" amounts + remaining + overdue count (red)
+End Info	Monthly value + days remaining + date range
+Chevron	↓ expand indicator
+Expanded State (3-column grid):
+
+Column 1: Upcoming Visits	Column 2: Payment Status	Column 3: Contract Details
+List of next 6 visits: date badge + service name + team badge (green=assigned, yellow=unassigned)	Payment entries: date + amount + status badge (Paid=green, Overdue=red, Pending=yellow)	Total Value, Schedule, Areas, Agent, Phone
+"+X more" link if >6		Cancel reason box (if cancelled)
+"View Full" button → /contracts/detail/{id}
+"Cancel" button → opens CancelContractDialog
+CancelContractDialog
+AlertDialog with destructive styling
+Title: "Cancel Contract {contractId}?"
+Warning: "This will cancel the contract for {customerName} at {siteName}. All upcoming visits will be removed. This action cannot be undone."
+Cancellation Reason — textarea (required, button disabled if empty)
+Buttons: "Keep Contract" / "Cancel Contract" (destructive)
+On confirm: updates contract status to cancelled, sets cancelled_date and cancel_reason, writes audit log with severity critical
+4. Contract Detail (/contracts/detail/{contractId})
+File: ContractDetail.tsx — 403 lines
+
+Header
+← Back button → returns to quotations list
+Contract ID (bold) + Status badge + Division badges
+Info row: Customer (User icon), Site (Building2), Value (DollarSign), Date range (Calendar), Area count (Layers)
+Split Layout
+Left Panel: Visit Generator (272px wide)
+Service Name Input:
+
+Text input, defaults to contract's servicesSummary
+Frequency Selector:
+
+Option	Description
+Weekly	Every 7 days
+Bi-weekly	Every 14 days
+Monthly	Every month
+Quarterly	Every 3 months
+Auto-Generate Visits Button (Wand2 icon):
+
+Calls generateVisitDates(startDate, endDate, frequency)
+Creates PendingVisit[] with: tempId, scheduledDate, serviceName, teamId (null), notes
+Add Single Visit Button:
+
+Adds one visit starting from contract start date
+Pending Visits Count:
+
+Shows "{N} pending visits"
+"Create Tentative Orders" button (green, Save icon):
+Creates orders records with order_type: "contract-visit", status: "scheduled", source_contract_id: contractId
+Creates visits records linked to orders with visit_type: "contract_visit", source_type: "contract"
+Updates contract's total_visits count and status to active
+Order IDs follow pattern: CV-{contractId}-001, CV-{contractId}-002, etc.
+Existing Visits Summary:
+
+Badge: "{N} existing visits"
+Text: "{X} completed · {Y} scheduled"
+Right Panel: Visit List (scrollable)
+Header: "All Visits ({count})"
+
+Each visit row:
+
+Element	Details
+Visit number	Circular badge (1, 2, 3...) — color varies: primary=pending, success=completed, muted=scheduled
+Date	Editable date input for pending visits, formatted text for existing
+Service name	Text
+Team assignment	Dropdown for pending (all teams from useTeams()), badge for existing, italic "Unassigned" if none
+Status badge	"New" (primary, for pending), "Done" (green, for completed), "Tentative" (yellow, for scheduled)
+Remove button	Trash icon (only for pending visits)
+Contract Types (TypeScript)
+
+type ContractLiveStatus = "active" | "expiring_soon" | "overdue_payment" | "cancelled" | "completed";
+
+interface LiveContract {
+  id, contractId, customerName, phone, address, siteName,
+  divisions: string[],
+  servicesSummary, agentName,
+  startDate, endDate,
+  status: ContractLiveStatus,
+  monthlyValue, totalValue,
+  totalVisits, completedVisits,
+  upcomingVisits: { date, serviceName, teamName? }[],
+  totalPayments, paidAmount,
+  payments: { dueDate, amount, status: "paid"|"pending"|"overdue" }[],
+  paymentSchedule, hasSignedDoc, areaCount,
+  cancelledDate?, cancelReason?
+}
+Hooks
+Hook	File	Purpose
+useContracts	hooks/useContracts.ts	Fetches all live contracts with visits, payments, status
+useContractDetail	hooks/useContractDetail.ts	Fetches single contract + visits for detail page, provides generateVisitDates()
+useContractQuotations	hooks/useContractQuotations.ts	Fetches contract quotation list
+All Files in the Module
+File	Lines	Purpose
+pages/ViewContractQuotations.tsx	360	Quotation list page
+pages/CreateContractQuotation.tsx	386	Quotation creation/editing page
+pages/ViewContracts.tsx	256	Live contracts list page
+pages/ContractDetail.tsx	403	Single contract detail + visit generator
+components/ContractCard.tsx	220	Expandable contract card with progress bars
+components/CancelContractDialog.tsx	49	Cancellation confirmation dialog
+components/ContractBuildingTree.tsx	248	Building tree renderer + service cards + media dialog
+components/ServiceScheduleSection.tsx	482	Mini calendar + drag-and-drop time slot grid
+components/PaymentScheduleSection.tsx	198	Fixed/milestone/completion payment modes
+components/ContractTermsSection.tsx	221	Auto-collected T&C from services + divisions
+components/AddContractServiceDialog.tsx	412	2-step service picker with brand/condition pricing
+components/ContractQuotationShared.tsx	—	Shared UI primitives (SectionCard, EditButton, InfoRow, FieldDisplay)
+hooks/useContracts.ts	—	Live contracts data hook
+hooks/useContractDetail.ts	—	Contract detail + visit generation
+hooks/useContractQuotations.ts	—	Quotation list data hook
+That's everything in the Contracts module — every page, section, dialog, button, field, and interaction.

@@ -1,0 +1,293 @@
+Teams Module — Complete Technical Breakdown
+1. PAGES
+1A. Team & Employee Management (/teams → TeamsEmployees.tsx)
+Header Bar:
+
+Title: "Team & Employee" with 3 summary badges: {n} teams, {n} employees, {n} vehicles
+Buttons (right):
+Logs ({count}) → opens ActivityLogPanel (Sheet sidebar, 380–420px)
+Schedules → opens ScheduleDialog
+Add Vehicle → opens VehicleEditDialog (create mode)
+Add Employee → opens EmployeeEditDialog (create mode)
+Add Team → opens TeamEditDialog (create mode)
+Filter Bar (below header):
+
+Search input: filters teams by name, Arabic name, or member names/IDs
+Division dropdown: populated from useDivisionConfig() entries
+View toggle: Card view (LayoutGrid) vs Compact/list view (List)
+Main Layout: 2-Panel Split
+
+Left Panel — Team Grid:
+
+Card view: responsive grid 1→2→3→4 cols (lg/xl/2xl breakpoints)
+Compact view: vertical list of single-row entries
+Each team rendered via TeamCard
+Right Panel — Employee Pool Sidebar (EmployeePoolSidebar, 264px):
+
+Vehicle Pool (VehiclePool): shows unassigned vehicles; drag target to return vehicles to pool
+Employee Tab Buttons (5 tabs, each is a drop target):
+Unassigned (UserX icon) — employees with no team, status unassigned
+Vacation (Palmtree) — status vacation
+On Task (Briefcase) — status on-task
+Archive (Archive) — status archived
+All (Users) — all employees without a team
+Each tab shows a count badge
+Dragging an employee onto a tab changes their status
+Search Input: filters employees by name or phone
+Employee List: each rendered via EmployeeRow — draggable, shows avatar, name, tool count
+Click → onEditEmployee (opens EmployeeEditDialog)
+View Log button → opens EntityActivityLogDialog
+Data Hooks:
+
+useTeams() — fetches teams table (soft-delete filtered)
+useEmployees() — fetches employees + employee_services junction for skills
+useVehicles() — fetches vehicles table
+useSchedules() — fetches schedules table
+useScheduleAssignments() — fetches team_schedule_assignments
+useActivityLog() — last 200 entries from activity_log
+useTraccarDevices() — GPS device records
+useToolAssetCounts() — tool/asset inventory counts per team and employee
+Schedule Resolution Logic (in useEffect):
+
+On load, for each team, finds the active team_schedule_assignment where startDate ≤ today ≤ endDate
+If the resolved schedule_id differs from the team's stored schedule_id, auto-updates the DB
+Uses a resolvedTeamIds ref Set to prevent re-processing
+Handlers (from useTeamHandlers hook):
+
+handleRemoveEmployee(empId, teamId) — unassigns employee from team
+handleDropEmployee(empId, teamId) — assigns employee to team via drag
+handleDropLeader(empId, teamId) — sets employee as team leader
+handleRemoveLeader(teamId) — removes leader assignment
+handleDropVehicleToTeam(vehId, teamId) — assigns vehicle to team
+handleRemoveVehicle(teamId) — unassigns vehicle
+handleDropVehicleToPool(vehId) — returns vehicle to pool
+handleDropToStatus(empId, status) — changes employee status
+handleCreateSchedule / handleEditSchedule / handleDeleteSchedule
+handleAttachSchedule / handleDetachSchedule
+handleArchiveEmployee / handleArchiveTeam / handleArchiveVehicle — soft-delete
+1B. Team Leader Interface (/team-leader → TeamLeader.tsx)
+Identity Resolution:
+
+useTeamLeaderIdentity() — links the logged-in user's profile_id to an employee record, then resolves that employee's team_id
+If no team found → shows "No Team Assigned" error screen
+If user has team-leader.admin permission → shows an Admin badge + a team selector dropdown to view any team's orders
+Header:
+
+Team name, current date
+Admin override: Select dropdown of all teams (fetched via useAllTeams)
+Tabs: "Today" vs "All Upcoming" — with count badges
+Order Cards List (ScrollArea):
+
+Orders grouped by date (DateGroup[])
+Each date group has a sticky header: day label + date + order count badge
+Order Card — color-coded header per type:
+Type	Color	Label
+order	bg-primary	Normal Order
+site-visit-single	bg-warning	Site Visit - Single
+site-visit-contract	bg-[hsl(270,80%,60%)]	Site Visit - Contract
+contract	bg-success	Contract Visit
+backwork	bg-destructive	Backwork
+follow-up	bg-[hsl(270,80%,60%)]	Follow-up
+qc	bg-secondary	QC Visit
+Card Content:
+Order ID + type label + time display
+Customer name + address
+Services list (max 3 shown, "+N more" overflow)
+Multi-Team badge if otherTeams present
+4 action buttons (2×2 grid):
+Navigate — copies Google Maps directions link to clipboard
+Customer — tel: link to customer phone
+On Arrival — tel: link to location phone
+Start / In Progress — toggles order started state (local)
+Customer Not Answering button — appears only after "Start", opens CustomerUnavailableDialog
+Order Detail Dialog (OrderDetailDispatch): Routes to type-specific dialogs:
+
+NormalOrderDialog — for order type
+BackworkDialog — for backwork type
+FollowUpDialog — for follow-up type
+SiteVisitSingleDialog — for site-visit-single
+SiteVisitContractDialog — for site-visit-contract
+ContractVisitDialog — for contract
+QcDialog — for qc
+On Completion Flow:
+
+If completionData.inventoryUsage exists → calls useDeductOrderStock mutation to deduct FIFO stock
+If type is qc → closes dialog (no invoice)
+Otherwise → opens TlInvoiceDialog for invoice generation
+2. COMPONENTS
+2A. TeamCard.tsx (392 lines)
+Two render modes:
+
+Card Mode (default):
+
+Header row 1: Team name + capability badges (NRM/EMR/QC/SVO/SVC) + division badge (colored)
+Header row 2: Phone icon (tooltip), Calendar icon (clickable → manage schedule), Tool count popover, History button, Edit button
+Vehicle + Leader row:
+Vehicle: draggable, shows plate + Traccar radio icon if GPS linked. Hover: History + Remove buttons
+Leader: draggable, crown icon, avatar, name, tool count. Hover: History + Edit + Remove buttons
+Members area: drag-drop target. Shows avatar circles (max 6 + overflow count). Click avatar → edit employee
+Expand toggle: shows/hides full member list when >3 members
+Compact Mode:
+
+Single row: Name (w-24) → Tags → Phone → Schedule → Vehicle (w-20) → Leader (w-32) → Members (flex) → Tools → Actions (hover-reveal)
+Entire row is a drop target for employees and vehicles
+Capability Badges Logic:
+
+QC team → only "QC" badge
+Non-QC → "NRM" or "EMR" + optionally "SVO" (if any member has siteVisitOrder) + "SVC" (if any member has siteVisitQuotation)
+Drag & Drop:
+
+Employees: text/employee-id data transfer
+Vehicles: text/vehicle-id data transfer
+Separate drop zones for: member area, leader slot, vehicle slot
+2B. TeamEditDialog.tsx
+Fields:
+
+Team Name (EN) — text input
+Team Name (AR) — text input, RTL
+Division — Select from useDivisionConfig() entries
+Team Type section (border box):
+QC Team toggle — if ON, disables Normal/Emergency/SVO/SVC
+Normal toggle
+Emergency toggle
+Mutual exclusion: at least one of Normal/Emergency must be ON
+Site Visit Capability (read-only, auto-derived from members):
+Site Visit — Orders (disabled switch)
+Site Visit — Contracts (disabled switch)
+Team Skillset (edit mode only, collapsible):
+Shows combined skills from all team members
+Uses ServiceSkillTree in readonly mode
+Grouped by Normal/Contract/Mobile service sections
+Auto-expands parent nodes that contain team skills
+Phone (required): Country code select + local number input
+Actions:
+
+Archive Team (destructive, edit mode only)
+Cancel / Save Changes (or Add Team)
+Audit: Logs team-created or team-edited with old/new data diff
+
+2C. EmployeeEditDialog.tsx
+Fields:
+
+Avatar: Upload button (camera icon), preview circle, remove button. Max 5MB. Uploads to employee-avatars storage bucket with signed URL (1-year expiry)
+Name (required)
+Phone: Country code + local number
+Nationality: free text
+Join Date: date picker
+Site Visit Authorization (border box):
+Site Visit — Orders (toggle)
+Site Visit — Quotations (toggle)
+Skillset (Services): Full service tree with checkboxes
+3 accordion sections: Normal / Contract / Mobile
+Selecting a parent auto-selects all descendants
+Deselecting a parent auto-deselects all descendants
+Count badge per section
+Total selected count shown below
+Save Logic:
+
+Creates/updates employees table row
+Calls syncEmployeeServices() — deletes all existing employee_services rows, inserts new ones
+Uploads avatar if changed
+Audit: Logs employee-created or employee-edited
+
+2D. VehicleEditDialog.tsx
+Fields:
+
+Type: Select from VEHICLE_TYPES constant (car, van, truck, pickup, motorcycle)
+Plate Number: text input, auto-uppercased
+Actions: Archive Vehicle (edit mode) / Cancel / Save
+
+Audit: Logs vehicle-created or vehicle-edited
+
+2E. ScheduleDialog.tsx
+3 tabs:
+
+Create Tab:
+
+Renders ScheduleForm component
+Create new schedule or edit existing ones
+Schedule structure: 7 days (Sun–Sat), each with enabled/disabled, start/end times, breaks
+Delete schedule option
+Attach Tab:
+
+Team select dropdown
+Schedule select dropdown
+Start date picker
+List of active assignments (with "End" button to detach)
+"Attach Schedule" button
+Pre-selects team if opened from TeamCard's calendar icon
+Team History Tab:
+
+Team select dropdown
+Shows 3 sections:
+Current Schedule (green label) — active assignment
+Future Schedules (primary label) — upcoming, with detach button
+Past Schedules (muted label) — historical
+Each assignment rendered via ScheduleAssignmentCard
+
+2F. ActivityLogPanel.tsx
+Sheet sidebar (380–420px)
+Scrollable list of activity log entries (last 200)
+Each entry: icon (by entity type), details text, performer name, timestamp, action badge
+Expandable ChangeDiff component showing old/new data comparison
+Color-coded by action type via ACTION_COLORS constant
+2G. NormalOrderDialog.tsx (Team Leader — Order Completion)
+Sections:
+
+Service Tree (NormalOrderServiceTree): hierarchical display of order services
+Per-service: quantity adjustment, before/after photo capture, inventory usage tracking
+Remove service (×) button
+Add services via ServiceCatalogPicker
+Photos: general order photos via PhotoCapture
+Spare Parts: manual add with name + qty
+Damage Reports: via DamageReportDialog
+Follow-Up Note: optional text area
+Team Notes: free-form text
+Contract Discount: displayed if applicable
+On Complete: Assembles OrderCompletionData with all photos, inventory usage, quantities, notes, and damage reports
+
+2H. Other Team Leader Dialogs
+Dialog	Purpose
+BackworkDialog	Handles backwork order completion — customer/team reason fields
+FollowUpDialog	Follow-up order completion
+SiteVisitSingleDialog	Single site visit completion
+SiteVisitContractDialog	Contract site visit completion
+ContractVisitDialog	Contract visit completion
+QcDialog	QC inspection completion — no invoice generated
+CustomerUnavailableDialog	15-minute timer workflow for unreachable customers
+TlInvoiceDialog	Post-completion invoice generation
+DamageReportDialog	Photo + notes for property damage documentation
+PhotoCapture	Camera/file input for capturing before/after photos
+ServiceCatalogPicker	Full service tree picker for adding services in-field
+3. HOOKS
+Hook	Source	Purpose
+useTeams	useTeams.ts	Fetches teams table with soft-delete filter
+useEmployees	useTeams.ts	Fetches employees + employee_services junction for skills
+useVehicles	useTeams.ts	Fetches vehicles table
+useSchedules	useTeams.ts	Fetches schedules table
+useScheduleAssignments	useTeams.ts	Fetches team_schedule_assignments
+useActivityLog	useTeams.ts	Last 200 activity_log entries
+useTraccarDevices	useTeams.ts	GPS device records, with refetch()
+useTeamHandlers	useTeamHandlers.ts	All CRUD + drag-drop handlers for teams/employees/vehicles/schedules
+useTeamLeaderIdentity	useTeamLeaderIdentity.ts	Resolves logged-in user → employee → team
+useTeamLeaderOrders	useTeamLeaderOrders.ts	Fetches orders assigned to a specific team
+useTeamLocations	useTeamLocations.ts	GPS location data for teams
+useOrderLocations	useOrderLocations.ts	Order location data
+4. DATABASE TABLES
+Table	Key Columns
+teams	id, name, name_ar, division_id, vehicle_id, schedule_id, leader_id, phone, traccar_device_id, is_emergency, is_qc, deleted_at
+employees	id, name, phone, nationality, status (enum), team_id, avatar, join_date, site_visit_order, site_visit_quotation, profile_id, deleted_at
+employee_services	employee_id, service_id (junction table with unique constraint)
+vehicles	id, type (enum), plate (unique), team_id, traccar_device_id, deleted_at
+schedules	id, name, days (JSONB: 0-6 keys, each with enabled/start/end/breaks), deleted_at
+team_schedule_assignments	team_id, schedule_id, start_date, end_date
+traccar_devices	id, name, traccar_device_id, device_type (phone/vehicle), notes
+team_live_locations	visit_id, team_id, lat, lng, accuracy, heading, speed
+visit_timeline_events	visit_id, team_id, event_type, event_time, lat, lng, notes
+activity_log	action, details, entity_type, entity_id, performer_name, old_data, new_data
+5. KEY PATTERNS
+Drag & Drop: HTML5 native drag via dataTransfer.setData("text/employee-id", id). Separate data keys for employees vs vehicles. Drop zones on: team cards, leader slots, vehicle slots, status tabs, vehicle pool.
+Soft Deletes: All entities use deleted_at timestamp. Queries filter .is("deleted_at", null).
+Audit Trail: Every create/edit/archive/assign/remove action calls audit() with entity info + old/new data diff.
+Skill Resolution: Employee skills stored in employee_services junction table, loaded in useEmployees() with a second query + Map-based merge. Team skillset is aggregated from all members at display time.
+Schedule Resolution: Active schedule determined by date-range overlap on team_schedule_assignments, auto-synced to teams.schedule_id

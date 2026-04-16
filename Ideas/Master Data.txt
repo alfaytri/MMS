@@ -1,0 +1,46 @@
+Here's the full Master Data breakdown — every page, sub-page, tab, button, header, popup, and filter:
+
+Summary of all 9 Master Data Pages:
+1. /master-data/services — Service List (7 tabs)
+
+Normal Services — N-level tree table (Category→Service→Sub-service). Buttons: +Add, Edit, Archive, Reorder. Filters: Division, Inventory, Reminders, Instructions, QC, Parts. Popup: ServiceEditDialog (name, price, division, QC items, duration matrix, doc preview)
+Contract Services — Same tree but for contracts. Sub-filters: Preventive, Area-Based, General. Extra fields: contract_type, brand links, reliability matrix
+Mobile App Services — Customer-facing catalog, separate tree_type
+Notifications — 2 sub-tabs: Fixed Notifications (templates table) + Service Reminders (categories with intervals). Popups: ReminderEditDialog, SamplePreviewDialog
+Instructions — 2 sub-tabs: Materials (CRUD for text/video/pdf/image instructions) + Service Links (junction manager linking instructions↔services)
+Inventory — Full inventory panel with sub-tabs: Products, Spare Parts, Consumables, Tools & Assets, Service-Inventory Links. Popups: InventoryEditDialog, BrandVariantEditDialog, AdjustItemDialog
+Promotions — Embedded promotions view (same as standalone page)
+2. /master-data/teams — Teams & Employees
+
+Header: Division filter, Search, +New Team, +New Employee, Schedule, Activity Log, Grid/List toggle
+Team Cards Grid: team name, division, members, vehicle, Traccar device, tool count
+Employee Pool Sidebar: tabs for Unassigned/Vacation/On-Task/Archived/All
+Popups: TeamEditDialog, EmployeeEditDialog, ScheduleDialog, VehicleEditDialog, ActivityLogPanel
+3. /master-data/users — Users & Roles (3 tabs)
+
+Permissions — Read-only registry of 79 permission keys grouped by module
+Roles — CRUD table of custom roles with permission checkboxes
+Users — All profiles with role/division assignment popup
+4. /master-data/subscriptions — Subscription Packages
+
+Single table: Name, Price, Duration, Priority (None/24-48HR/<24HR), Status. Buttons: +Create, Edit, Archive, Show Archived. Popup: PackageEditDialog
+5. /master-data/promotions — Promotions (3 tabs)
+
+Campaigns — Name, rules, divisions, dates, discount_target. Popup: CampaignEditDialog
+Vouchers — Generated codes from campaigns, usage tracking
+Business Discounts — Entity discounts with Work ID requirements. Popup: BusinessDiscountDialog
+6. /master-data/audit-trail — Audit Trail
+
+Real-time log with live subscription. Filters: Search, Module (19 modules), Severity (Info/Warning/Critical), Sort, Download. Click row → Detail Dialog with old/new JSON diff, IP address
+7. /master-data/notification-trail — Notification Trail
+
+History of all sent WhatsApp/SMS. Filters: Search, Category, Status (Delivered/Failed), Channel, Trigger (System/Scheduled/Manual). Click row → full message detail
+8. /master-data/admin — Admin Settings (sidebar with 11 sub-pages)
+
+Organization: Divisions (name, logo, stamp, tax, currency), Warehouses, Work Schedule
+Catalog & Pricing: Brand Groups, Pricing Factors, Credit Categories
+Operations: Reason Lists, Document T&C (per-division, bilingual)
+Integrations: Call Center (3CX), Traccar Devices (GPS), Agent Resources (training materials)
+9. /master-data/quickbooks — QuickBooks Connections
+
+Per-division accounting mappings: Sales/Discount/COGS/Landed Cost accounts, Payment method→deposit account mappings (8 methods), Service→QB Item mappings. Buttons: Save, Sync, Refresh
