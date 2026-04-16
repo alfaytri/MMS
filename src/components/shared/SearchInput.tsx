@@ -37,6 +37,7 @@ export function SearchInput({
     <div className="relative w-full sm:max-w-xs">
       <Search className="absolute left-2.5 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
       <Input
+        aria-label="Search"
         placeholder={placeholder}
         value={localValue}
         onChange={(e) => setLocalValue(e.target.value)}
@@ -46,7 +47,8 @@ export function SearchInput({
         <Button
           variant="ghost"
           size="icon"
-          className="absolute right-0.5 top-1/2 -translate-y-1/2 h-7 w-7"
+          aria-label="Clear search"
+          className="absolute right-0 top-1/2 -translate-y-1/2 h-9 w-9"
           onClick={() => {
             setLocalValue('')
             onChange('')
