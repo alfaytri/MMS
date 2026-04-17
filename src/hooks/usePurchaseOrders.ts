@@ -235,6 +235,7 @@ export function usePOPayments(poId: string | null) {
       return data as POPayment[]
     },
     enabled: !!poId,
+    staleTime: 30 * 1000,
   })
 }
 
@@ -252,6 +253,7 @@ export function usePOReceivalsByPO(poId: string | null) {
       return data as POReceival[]
     },
     enabled: !!poId,
+    staleTime: 30 * 1000,
   })
 }
 

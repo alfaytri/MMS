@@ -32,11 +32,11 @@ interface PoDetailDialogProps {
 
 export function PoDetailDialog({ open, onOpenChange, po, onEdit }: PoDetailDialogProps) {
   const [paymentOpen, setPaymentOpen] = useState(false)
-  const { data: fullPO, isLoading } = usePurchaseOrder(open ? (po?.id ?? null) : null)
+  const { data: fullPO, isLoading, isError } = usePurchaseOrder(open ? (po?.id ?? null) : null)
   const { data: payments } = usePOPayments(open ? (po?.id ?? null) : null)
   const { data: receivals } = usePOReceivalsByPO(open ? (po?.id ?? null) : null)
   const { data: activityLogs } = useActivityLog(
-    open && po?.id ? { module: 'purchase_orders' } : {}
+    open && po?.id ? { module: 'purchase_orders', entity_id: po.id } : {}
   )
 
   const current = fullPO ?? po
@@ -65,9 +65,11 @@ export function PoDetailDialog({ open, onOpenChange, po, onEdit }: PoDetailDialo
               <Skeleton className="h-6 w-1/3" />
               <Skeleton className="h-32 w-full" />
             </div>
+          ) : isError ? (
+            <div className="p-4 text-sm text-destructive">Failed to load purchase order details.</div>
           ) : (
             <Tabs defaultValue="items" className="flex-1 overflow-hidden flex flex-col min-h-0">
-              <TabsList className="shrink-0 mx-0">
+              <TabsList className="shrink-0 mx-0 overflow-x-auto">
                 <TabsTrigger value="items">Line Items</TabsTrigger>
                 <TabsTrigger value="receivals">Receivals</TabsTrigger>
                 <TabsTrigger value="payments">Payments</TabsTrigger>
@@ -144,7 +146,7 @@ export function PoDetailDialog({ open, onOpenChange, po, onEdit }: PoDetailDialo
                                 <TableRow key={ri.id}>
                                   <TableCell className="text-xs">{ri.item_name}{ri.is_free && <Badge variant="outline" className="ml-1 text-[10px] h-4">Free</Badge>}</TableCell>
                                   <TableCell className="text-xs text-right">{ri.qty_received}</TableCell>
-                                  <TableCell className="text-xs text-right">{formatCurrency(ri.unit_cost)}</TableCell>
+                                  <TableCell className="text-xs text-right">{formatCurrency(ri.unit_cost, current?.currency)}</TableCell>
                                 </TableRow>
                               ))}
                             </TableBody>
@@ -237,7 +239,7 @@ export function PoDetailDialog({ open, onOpenChange, po, onEdit }: PoDetailDialo
           {current && !isLoading && (
             <div className="shrink-0 flex flex-wrap gap-2 pt-2 border-t">
               {current.status === 'draft' && onEdit && (
-                <Button variant="outline" size="sm" onClick={() => { onEdit(current); onOpenChange(false) }}>
+                <Button variant="outline" size="sm" disabled={isLoading} onClick={() => { onEdit(current); onOpenChange(false) }}>
                   Edit PO
                 </Button>
               )}

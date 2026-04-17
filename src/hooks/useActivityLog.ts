@@ -20,6 +20,7 @@ interface ActivityLogFilters {
   search?: string
   module?: string
   severity?: string
+  entity_id?: string
 }
 
 export function useActivityLog(filters: ActivityLogFilters = {}) {
@@ -36,6 +37,9 @@ export function useActivityLog(filters: ActivityLogFilters = {}) {
       if (filters.module) {
         query = query.eq('module', filters.module)
       }
+      if (filters.entity_id) {
+        query = query.eq('entity_id', filters.entity_id)
+      }
       if (filters.severity) {
         query = query.eq('severity', filters.severity)
       }
@@ -49,6 +53,7 @@ export function useActivityLog(filters: ActivityLogFilters = {}) {
       if (error) throw error
       return data as ActivityLog[]
     },
+    enabled: !!(filters.module || filters.entity_id || filters.search),
     staleTime: 30 * 1000,
     refetchInterval: 30 * 1000,
   })
