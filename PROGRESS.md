@@ -138,7 +138,7 @@ Contact Center (never outsource — too complex)
 |---|---|---|
 | `docs/superpowers/plans/2026-04-16-mms-foundation.md` | **DONE** | Scaffold, auth, design system, TopNav, dashboard |
 | `docs/superpowers/plans/2026-04-16-mms-master-data.md` | **DONE** | Companies, Warehouses, Inventory, Suppliers, Users, Audit |
-| `docs/superpowers/plans/2026-04-17-mms-purchase-core.md` | **IN PROGRESS** (5/7 tasks done) | PO hooks, shared components, detail dialog, list page, create PO, approvals |
+| `docs/superpowers/plans/2026-04-17-mms-purchase-core.md` | **DONE** | PO hooks, shared components, detail dialog, list page, create PO, approvals |
 | `docs/superpowers/plans/2026-04-16-mms-sales.md` | Not written yet | Full Sales module |
 | `docs/superpowers/plans/2026-04-16-mms-csv-import.md` | Not written yet | CSV import tool (5 entity types) |
 
@@ -179,15 +179,15 @@ Contact Center (never outsource — too complex)
 - [2026-04-17] **Purchase Core Task 3: PO Detail Dialog** — 4-tab dialog (line items, receivals, payments, activity), entity_id filter, staleTime, currency format
 - [2026-04-17] **Purchase Core Task 4: PO List Page** — Status chip filters, date range, debounced search, DataTable with 9 columns, PoDetailDialog integration
 - [2026-04-17] **Purchase Core Task 5: Create/Edit PO Page** — PoLineItemsEditor (line type tabs, inventory lookup per row, qty/price/total calc, add/remove rows), PoTermsSection (payment/delivery term presets, vendor notes), Create PO page (supplier search+quick-add, currency/exchange rate, line items, terms, discount, approval level preview, save draft/submit), Edit PO stub page
+- [2026-04-17] **Purchase Core Task 6: Approvals Page** — Pending approvals queue (card per PO, click to approve/reject), completed approvals table, approve/reject dialog with line items preview + approval chain + comment, full rejection vs send-back-to-draft modes, real Supabase auth user recorded
+- [2026-04-17] **Purchase Core plan: COMPLETE** — All 7 tasks done. 4 pages, 9 hooks, 7+ components, full PO lifecycle (create → approve → receive → pay).
 
 ## 🔄 In Progress
 
-- Purchase Core Task 6: Approvals Page
+- Writing Sales module plan
 
 ## ⏳ Not Started
 
-- Purchase Core Task 7: Integration Test
-- Sales module plan (not written yet)
 - Sales module (full)
 - CSV Import tool
 
