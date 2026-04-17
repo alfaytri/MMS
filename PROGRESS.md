@@ -197,13 +197,14 @@ Contact Center (never outsource — too complex)
 - [2026-04-17] **Purchase Operations Task 5: Transfers + Receivals Tabs** — WhTransfersTab (list with approve/reject for pending_approval), WhTransferDialog (from/to warehouse, date, dynamic item rows), WhReceivalsTab (all-warehouse receival list with PO context)
 - [2026-04-17] **Purchase Operations Task 6: Adjustments + Inventory Checks Tabs** — WhAdjustmentsTab (list with approve action), WhAdjustmentDialog (warehouse/variant/type/qty/reason), WhInventoryChecksTab (list with Create+View), WhInventoryCheckDialog (dual-mode: create or count items with variance display + submit/review)
 
+- [2026-04-17] **Purchase Operations Task 7: Dead Stock Report** — 4-category summary cards (Active/Slow/At-Risk/Dead) with click-to-filter, sort by days idle or value, full table with last movement date and ∞ for never-moved items
+
 ## 🔄 In Progress
 
-- Purchase Operations Task 7: Dead Stock Report
+- Purchase Operations Task 8: Integration test
 
 ## ⏳ Not Started
 
-- Purchase Operations Task 8: Integration test + PROGRESS.md final
 - CSV Import tool
 
 ---
