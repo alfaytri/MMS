@@ -141,7 +141,7 @@ Contact Center (never outsource — too complex)
 | `docs/superpowers/plans/2026-04-17-mms-purchase-core.md` | **DONE** | PO hooks, shared components, detail dialog, list page, create PO, approvals |
 | `docs/superpowers/plans/2026-04-17-mms-sales-core.md` | **DONE** | SO hooks, shared components, detail dialog, list page, create SO, returns |
 | `docs/superpowers/plans/2026-04-17-mms-purchase-operations.md` | **DONE** | Shipments, Landed Costs, Warehouses Hub (7 tabs), Dead Stock Report |
-| `docs/superpowers/plans/2026-04-16-mms-csv-import.md` | Not written yet | CSV import tool (5 entity types) |
+| `docs/superpowers/plans/2026-04-17-mms-csv-import.md` | **DONE** | CSV import tool (5 entity types) |
 
 ---
 
@@ -201,13 +201,16 @@ Contact Center (never outsource — too complex)
 - [2026-04-17] **Purchase Operations Task 7: Dead Stock Report** — 4-category summary cards (Active/Slow/At-Risk/Dead) with click-to-filter, sort by days idle or value, full table with last movement date and ∞ for never-moved items
 - [2026-04-17] **Purchase Operations plan: COMPLETE** — All 8 tasks done. 4 pages, 4 hooks, 11 warehouse tab/dialog components, full operations coverage (shipments, landed costs, stock overview, movements, transfers, receivals, adjustments, inventory checks, dead stock).
 
+- [2026-04-17] **CSV Import plan written** — `docs/superpowers/plans/2026-04-17-mms-csv-import.md` (3 tasks: utilities+hooks, import page UI, integration test)
+
 ## 🔄 In Progress
 
-- Writing CSV Import plan (bulk import for suppliers, inventory items, customers, purchase orders, sale orders)
+- CSV Import Task 1: Install PapaParse + create `src/lib/csv/config.ts`, `src/lib/csv/validate.ts`, `src/hooks/useCSVImport.ts`
 
 ## ⏳ Not Started
 
-- CSV Import tool (5 entity types)
+- CSV Import Task 2: Import page UI (`src/app/(dashboard)/master-data/import/page.tsx`)
+- CSV Import Task 3: Integration test + PROGRESS.md final update
 
 ---
 
