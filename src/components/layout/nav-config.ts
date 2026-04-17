@@ -79,7 +79,7 @@ export const NAV_ITEMS: NavEntry[] = [
       {
         label: 'SALES',
         items: [
-          { label: 'Create Sale Order', href: '/sales/create' },
+          { label: 'Create Sale Order', href: '/sales/create-so' },
           { label: 'Sale Orders', href: '/sales/orders' },
           { label: 'Returns', href: '/sales/returns' },
         ],
