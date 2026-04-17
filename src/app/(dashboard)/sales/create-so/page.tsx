@@ -7,10 +7,10 @@ import { toast } from 'sonner'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
-import { Textarea } from '@/components/ui/textarea'
 import { Badge } from '@/components/ui/badge'
 import { Separator } from '@/components/ui/separator'
 import { SoLineItemsEditor, type SOLineItemRow } from '@/components/sales/SoLineItemsEditor'
+import { SoTermsSection, type SoTermsValues } from '@/components/sales/SoTermsSection'
 import {
   useCreateSO,
   useConfirmSO,
@@ -31,10 +31,51 @@ import { useForm } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { z } from 'zod'
 
+const CURRENCIES = ['QAR', 'USD', 'EUR', 'GBP', 'AED', 'SAR', 'KWD'] as const
+
 const customerSchema = z.object({
   name: z.string().min(1, 'Name is required'),
   email: z.string().email().optional().or(z.literal('')),
 })
+
+// Pack SO Settings + Terms into the notes column since the sale_orders table
+// does not yet have dedicated columns for these fields.
+function buildNotesPayload(
+  userNotes: string,
+  settings: {
+    currency: string
+    exchangeRate: number
+    expectedDelivery: string
+  },
+  terms: SoTermsValues
+): string | null {
+  const preface: string[] = []
+  if (settings.currency && settings.currency !== 'QAR') {
+    preface.push(`Currency: ${settings.currency} @ ${settings.exchangeRate}`)
+  }
+  if (settings.expectedDelivery) preface.push(`Expected Delivery: ${settings.expectedDelivery}`)
+  if (terms.payment_terms) {
+    preface.push(
+      `Payment Terms: ${terms.payment_terms}${
+        terms.payment_terms === 'Custom' && terms.payment_terms_notes
+          ? ` — ${terms.payment_terms_notes}`
+          : ''
+      }`
+    )
+  }
+  if (terms.delivery_terms) {
+    preface.push(
+      `Delivery Terms: ${terms.delivery_terms}${
+        terms.delivery_terms_notes ? ` — ${terms.delivery_terms_notes}` : ''
+      }`
+    )
+  }
+  if (terms.customer_notes) preface.push(`Customer Notes: ${terms.customer_notes}`)
+
+  const packed = preface.length ? `--- SO Details ---\n${preface.join('\n')}\n---` : ''
+  const combined = [packed, userNotes.trim()].filter(Boolean).join('\n\n')
+  return combined || null
+}
 
 export default function CreateSOPage() {
   const router = useRouter()
@@ -45,11 +86,29 @@ export default function CreateSOPage() {
   const [customerSearch, setCustomerSearch] = useState('')
   const [customerId, setCustomerId] = useState('')
   const [customerName, setCustomerName] = useState('')
+
+  // SO Settings (mirrors PO Settings)
+  const [currency, setCurrency] = useState<string>('QAR')
+  const [exchangeRate, setExchangeRate] = useState(1)
+  const [expectedDelivery, setExpectedDelivery] = useState('')
+
   const [lineItems, setLineItems] = useState<SOLineItemRow[]>([])
-  const [discountType, setDiscountType] = useState<'fixed' | 'percentage'>('fixed')
+
+  // Terms (mirrors PoTermsSection)
+  const [terms, setTerms] = useState<SoTermsValues>({
+    payment_terms: '',
+    payment_terms_notes: '',
+    delivery_terms: '',
+    delivery_terms_notes: '',
+    customer_notes: '',
+  })
+
   const [discountAmount, setDiscountAmount] = useState(0)
   const [discountLabel, setDiscountLabel] = useState('')
+  const [discountType, setDiscountType] = useState<'fixed' | 'percentage'>('fixed')
+
   const [notes, setNotes] = useState('')
+
   const [addCustomerOpen, setAddCustomerOpen] = useState(false)
 
   const { data: customers } = useCustomers(customerSearch || undefined)
@@ -61,6 +120,7 @@ export default function CreateSOPage() {
 
   const subtotal = calcSOSubtotal(lineItems)
   const total = calcSOTotal(subtotal, discountAmount, discountType)
+  const totalQar = total * exchangeRate
   const negativeMargin = hasNegativeMargin(lineItems)
 
   function handleSelectCustomer(c: { id: string; name: string }) {
@@ -95,7 +155,11 @@ export default function CreateSOPage() {
     return {
       customer_id: customerId,
       customer_name: customerName,
-      notes: notes || null,
+      notes: buildNotesPayload(
+        notes,
+        { currency, exchangeRate, expectedDelivery },
+        terms
+      ),
       discount_amount: discountAmount,
       discount_label: discountLabel || null,
       discount_type: discountType,
@@ -145,9 +209,10 @@ export default function CreateSOPage() {
         <div className="flex flex-col sm:flex-row gap-2">
           <div className="relative flex-1">
             <Input
-              placeholder="Search customers…"
+              placeholder="Search customers..."
               value={customerSearch}
               onChange={(e) => { setCustomerSearch(e.target.value); setCustomerId(''); setCustomerName('') }}
+              className="w-full"
             />
             {customerSearch && !customerId && (customers ?? []).length > 0 && (
               <div className="absolute z-10 mt-1 w-full max-h-48 overflow-y-auto rounded-md border bg-popover shadow-md">
@@ -171,8 +236,47 @@ export default function CreateSOPage() {
           </Button>
         </div>
         {customerId && (
-          <Badge variant="outline" className="text-success border-success">✓ {customerName}</Badge>
+          <div className="flex items-center gap-2">
+            <Badge variant="outline" className="text-success border-success">{customerName}</Badge>
+          </div>
         )}
+      </section>
+
+      {/* SO Settings */}
+      <section className="rounded-lg border p-4 space-y-4">
+        <h2 className="font-semibold">SO Settings</h2>
+        <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+          <div className="space-y-1">
+            <Label>Currency</Label>
+            <select
+              value={currency}
+              onChange={(e) => setCurrency(e.target.value)}
+              className="flex h-9 w-full rounded-md border border-input bg-background px-3 py-1 text-sm"
+            >
+              {CURRENCIES.map((c) => <option key={c} value={c}>{c}</option>)}
+            </select>
+          </div>
+          {currency !== 'QAR' && (
+            <div className="space-y-1">
+              <Label>Exchange Rate (to QAR)</Label>
+              <Input
+                type="number"
+                min="0.01"
+                step="0.0001"
+                value={exchangeRate}
+                onChange={(e) => setExchangeRate(Number(e.target.value))}
+              />
+            </div>
+          )}
+          <div className="space-y-1">
+            <Label>Expected Delivery</Label>
+            <Input
+              type="date"
+              value={expectedDelivery}
+              onChange={(e) => setExpectedDelivery(e.target.value)}
+            />
+          </div>
+        </div>
       </section>
 
       {/* Line Items */}
@@ -187,13 +291,23 @@ export default function CreateSOPage() {
         <SoLineItemsEditor value={lineItems} onChange={setLineItems} />
       </section>
 
+      {/* Terms */}
+      <section className="rounded-lg border p-4">
+        <h2 className="font-semibold mb-4">Terms</h2>
+        <SoTermsSection value={terms} onChange={setTerms} />
+      </section>
+
       {/* Discount */}
       <section className="rounded-lg border p-4 space-y-3">
         <h2 className="font-semibold">Discount</h2>
         <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
           <div className="space-y-1">
             <Label>Discount Label</Label>
-            <Input placeholder="e.g. Loyalty discount" value={discountLabel} onChange={(e) => setDiscountLabel(e.target.value)} />
+            <Input
+              placeholder="e.g. Loyalty discount"
+              value={discountLabel}
+              onChange={(e) => setDiscountLabel(e.target.value)}
+            />
           </div>
           <div className="space-y-1">
             <Label>Type</Label>
@@ -205,42 +319,64 @@ export default function CreateSOPage() {
                   onClick={() => setDiscountType(t)}
                   className={`flex-1 rounded-md border px-3 py-1.5 text-xs font-medium transition-colors ${discountType === t ? 'bg-primary text-primary-foreground border-primary' : 'hover:bg-muted'}`}
                 >
-                  {t === 'fixed' ? 'Fixed (QAR)' : 'Percentage (%)'}
+                  {t === 'fixed' ? `Fixed (${currency})` : 'Percentage (%)'}
                 </button>
               ))}
             </div>
           </div>
           <div className="space-y-1">
-            <Label>Amount {discountType === 'percentage' ? '(%)' : '(QAR)'}</Label>
-            <Input type="number" min="0" step="0.01" value={discountAmount} onChange={(e) => setDiscountAmount(Number(e.target.value))} />
+            <Label>Amount {discountType === 'percentage' ? '(%)' : `(${currency})`}</Label>
+            <Input
+              type="number"
+              min="0"
+              step="0.01"
+              value={discountAmount}
+              onChange={(e) => setDiscountAmount(Number(e.target.value))}
+            />
           </div>
         </div>
       </section>
 
-      {/* Notes */}
+      {/* Internal Notes */}
       <section className="rounded-lg border p-4 space-y-2">
-        <h2 className="font-semibold">Notes</h2>
-        <Textarea placeholder="Internal notes…" value={notes} onChange={(e) => setNotes(e.target.value)} rows={3} />
+        <h2 className="font-semibold">Internal Notes</h2>
+        <Input
+          placeholder="Notes visible to staff only..."
+          value={notes}
+          onChange={(e) => setNotes(e.target.value)}
+        />
       </section>
 
-      {/* Footer */}
+      {/* Totals + Actions */}
       <section className="rounded-lg border p-4 space-y-3">
         <div className="space-y-1 text-sm text-right">
-          <div className="text-muted-foreground">Subtotal: <span className="text-foreground">{formatCurrency(subtotal, 'QAR')}</span></div>
+          <div className="text-muted-foreground">
+            Subtotal: <span className="text-foreground">{formatCurrency(subtotal, currency)}</span>
+          </div>
           {discountAmount > 0 && (
             <div className="text-muted-foreground">
-              Discount: <span className="text-destructive">-{formatCurrency(discountType === 'percentage' ? (subtotal * discountAmount / 100) : discountAmount, 'QAR')}</span>
+              Discount:{' '}
+              <span className="text-destructive">
+                -{formatCurrency(discountType === 'percentage' ? (subtotal * discountAmount / 100) : discountAmount, currency)}
+              </span>
             </div>
           )}
-          <div className="font-semibold text-base">Total: {formatCurrency(total, 'QAR')}</div>
+          <div className="font-semibold text-base">
+            Total ({currency}): {formatCurrency(total, currency)}
+          </div>
+          {currency !== 'QAR' && (
+            <div className="text-xs text-muted-foreground">
+              ≈ {formatCurrency(totalQar, 'QAR')}
+            </div>
+          )}
         </div>
         <Separator />
         <div className="flex flex-col sm:flex-row gap-2 justify-end">
           <Button variant="outline" onClick={saveQuotation} disabled={isPending}>
-            {createSO.isPending ? 'Saving…' : 'Save as Quotation'}
+            {createSO.isPending ? 'Saving...' : 'Save as Quotation'}
           </Button>
           <Button onClick={confirmOrder} disabled={isPending}>
-            {isPending ? 'Confirming…' : 'Confirm Order'}
+            {isPending ? 'Confirming...' : 'Confirm Order'}
           </Button>
         </div>
       </section>
@@ -259,7 +395,7 @@ export default function CreateSOPage() {
               )} />
               <DialogFooter>
                 <Button type="button" variant="outline" onClick={() => setAddCustomerOpen(false)}>Cancel</Button>
-                <Button type="submit" disabled={createCustomer.isPending}>{createCustomer.isPending ? 'Adding…' : 'Add Customer'}</Button>
+                <Button type="submit" disabled={createCustomer.isPending}>{createCustomer.isPending ? 'Adding...' : 'Add Customer'}</Button>
               </DialogFooter>
             </form>
           </Form>
