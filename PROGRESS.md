@@ -139,7 +139,7 @@ Contact Center (never outsource — too complex)
 | `docs/superpowers/plans/2026-04-16-mms-foundation.md` | **DONE** | Scaffold, auth, design system, TopNav, dashboard |
 | `docs/superpowers/plans/2026-04-16-mms-master-data.md` | **DONE** | Companies, Warehouses, Inventory, Suppliers, Users, Audit |
 | `docs/superpowers/plans/2026-04-17-mms-purchase-core.md` | **DONE** | PO hooks, shared components, detail dialog, list page, create PO, approvals |
-| `docs/superpowers/plans/2026-04-16-mms-sales.md` | Not written yet | Full Sales module |
+| `docs/superpowers/plans/2026-04-17-mms-sales-core.md` | **IN PROGRESS** (0/7 tasks done) | SO hooks, shared components, detail dialog, list page, create SO, returns |
 | `docs/superpowers/plans/2026-04-16-mms-csv-import.md` | Not written yet | CSV import tool (5 entity types) |
 
 ---
@@ -184,7 +184,7 @@ Contact Center (never outsource — too complex)
 
 ## 🔄 In Progress
 
-- Writing Sales module plan
+- Sales Core Task 1: Sale Hooks (useSaleOrders.ts + useSaleReturns.ts)
 
 ## ⏳ Not Started
 
