@@ -139,7 +139,7 @@ Contact Center (never outsource — too complex)
 | `docs/superpowers/plans/2026-04-16-mms-foundation.md` | **DONE** | Scaffold, auth, design system, TopNav, dashboard |
 | `docs/superpowers/plans/2026-04-16-mms-master-data.md` | **DONE** | Companies, Warehouses, Inventory, Suppliers, Users, Audit |
 | `docs/superpowers/plans/2026-04-17-mms-purchase-core.md` | **DONE** | PO hooks, shared components, detail dialog, list page, create PO, approvals |
-| `docs/superpowers/plans/2026-04-17-mms-sales-core.md` | **IN PROGRESS** (2/7 tasks done) | SO hooks, shared components, detail dialog, list page, create SO, returns |
+| `docs/superpowers/plans/2026-04-17-mms-sales-core.md` | **DONE** | SO hooks, shared components, detail dialog, list page, create SO, returns |
 | `docs/superpowers/plans/2026-04-16-mms-csv-import.md` | Not written yet | CSV import tool (5 entity types) |
 
 ---
@@ -187,14 +187,15 @@ Contact Center (never outsource — too complex)
 - [2026-04-17] **Sales Core Task 4: Sale Orders List Page** — status chip filters (8 statuses with counts), debounced search, date range, DataTable with 7 columns, SoDetailDialog integration with confirm/edit actions
 - [2026-04-17] **Sales Core Task 5: Create/Edit SO Page** — SoLineItemsEditor (inventory lookup per row, qty/price/total calc, negative margin warning icon), Create SO page (customer search+quick-add, line items, fixed/percentage discount, notes, save-as-quotation + confirm-order), Edit SO stub page
 - [2026-04-17] **Sales Core Task 6: Sale Returns Page** — returns list with status chips, create return dialog (SO selector, per-item qty + condition toggle, restock warehouse), return detail dialog, advance-status pipeline (pending → received → restocked → closed)
+- [2026-04-17] **Sales Core plan: COMPLETE** — All 7 tasks done. 4 pages, 3 hooks, 5+ components, full SO lifecycle (quotation → confirm → deliver → pay → return).
 
 ## 🔄 In Progress
 
-- Sales Core Task 7: Integration Test
+- Writing Purchase Operations plan (Shipments, Landed Costs, Warehouses hub, Dead Stock Report)
 
 ## ⏳ Not Started
 
-- Sales module (full)
+- Purchase Operations module (Shipments, Landed Costs, Warehouses hub, Dead Stock Report)
 - CSV Import tool
 
 ---
