@@ -190,13 +190,15 @@ Contact Center (never outsource — too complex)
 - [2026-04-17] **Sales Core plan: COMPLETE** — All 7 tasks done. 4 pages, 3 hooks, 5+ components, full SO lifecycle (quotation → confirm → deliver → pay → return).
 - [2026-04-17] **Purchase Operations plan written** — `docs/superpowers/plans/2026-04-17-mms-purchase-operations.md` (8 tasks: hooks, Shipments, Landed Costs, Warehouses Hub 7-tab, Dead Stock Report, integration test)
 
+- [2026-04-17] **Purchase Operations Task 1: Hooks** — useShipments (CRUD + event tracking + archive), useLandedCosts (CRUD + void), useWarehouseOperations (stock movements, transfers, adjustments, inventory checks), useDeadStock (2-query classify + filter)
+
 ## 🔄 In Progress
 
-- Purchase Operations Task 1: Hooks (useShipments, useLandedCosts, useWarehouseOperations, useDeadStock)
+- Purchase Operations Task 2: Shipments Page
 
 ## ⏳ Not Started
 
-- Purchase Operations Tasks 2–8 (pages + components)
+- Purchase Operations Tasks 3–8 (Landed Costs, Warehouses Hub, Dead Stock, integration test)
 - CSV Import tool
 
 ---
