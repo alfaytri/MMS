@@ -23,3 +23,21 @@ Every UI component and page MUST be fully responsive across all four breakpoints
 - Font sizes, padding, and spacing must scale — avoid fixed `px` values that look wrong on 4K
 - Touch targets must be at least `44px` tall on mobile (use `min-h-11` or `h-11`)
 - Test mentally at each breakpoint before marking any UI task complete
+
+---
+
+# PROGRESS.md — Mandatory Update Rule
+
+**After every task is committed, update `PROGRESS.md` immediately in the same session.**
+
+Rules:
+- Add a dated bullet to `## ✅ Completed` describing what was built (one line, include key files/components)
+- Update `## 🔄 In Progress` to reflect the next task
+- Update the plan table status if all tasks in a plan are done
+- Commit `PROGRESS.md` in a separate commit right after the task commit: `git commit -m "docs: update PROGRESS.md — [Task Name] complete"`
+- Never batch multiple task updates — update after **each** task, not at the end
+
+Format for completed entries:
+```
+- [YYYY-MM-DD] **[Plan Name] Task N: [Task Name]** — [brief description of what was built]
+```
