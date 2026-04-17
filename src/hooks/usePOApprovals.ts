@@ -45,24 +45,25 @@ export function useApproveStep() {
     mutationFn: async ({
       stepId,
       poId,
-      approvedBy,
       comment,
       allStepsWillBeApproved,
     }: {
       stepId: string
       poId: string
-      approvedBy: string
       comment: string
       allStepsWillBeApproved: boolean
     }) => {
       const supabase = createClient()
+
+      const { data: { user } } = await supabase.auth.getUser()
+      const actorName = user?.email ?? user?.id ?? 'Unknown'
 
       // Approve this step
       const { error: stepErr } = await (supabase as any)
         .from('po_approvals')
         .update({
           status: 'approved',
-          approved_by: approvedBy,
+          approved_by: actorName,
           date: new Date().toISOString().split('T')[0],
           comment: comment || null,
         })
@@ -92,24 +93,25 @@ export function useRejectPO() {
     mutationFn: async ({
       poId,
       stepId,
-      rejectedBy,
       comment,
       mode,
     }: {
       poId: string
       stepId: string
-      rejectedBy: string
       comment: string
       mode: 'full_rejection' | 'send_back_to_rfq'
     }) => {
       const supabase = createClient()
+
+      const { data: { user } } = await supabase.auth.getUser()
+      const actorName = user?.email ?? user?.id ?? 'Unknown'
 
       // Reject this step
       const { error: stepErr } = await (supabase as any)
         .from('po_approvals')
         .update({
           status: 'rejected',
-          approved_by: rejectedBy,
+          approved_by: actorName,
           date: new Date().toISOString().split('T')[0],
           comment: comment || null,
         })

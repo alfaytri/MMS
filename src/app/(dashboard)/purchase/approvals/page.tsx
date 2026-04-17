@@ -36,8 +36,8 @@ export default function ApprovalsPage() {
   const [rejectMode, setRejectMode] = useState<'full_rejection' | 'send_back_to_rfq'>('full_rejection')
   const [showRejectOptions, setShowRejectOptions] = useState(false)
 
-  const { data: pending, isLoading: pendingLoading } = usePendingApprovals()
-  const { data: completed, isLoading: completedLoading } = useCompletedApprovals()
+  const { data: pending, isLoading: pendingLoading, isError: pendingError } = usePendingApprovals()
+  const { data: completed, isLoading: completedLoading, isError: completedError } = useCompletedApprovals()
   const approveStep = useApproveStep()
   const rejectPO = useRejectPO()
 
@@ -61,7 +61,6 @@ export default function ApprovalsPage() {
       {
         stepId: step.id,
         poId: po.id,
-        approvedBy: 'Current User',
         comment,
         allStepsWillBeApproved,
       },
@@ -82,7 +81,6 @@ export default function ApprovalsPage() {
       {
         poId: po.id,
         stepId: step.id,
-        rejectedBy: 'Current User',
         comment,
         mode: rejectMode,
       },
@@ -105,7 +103,11 @@ export default function ApprovalsPage() {
       {/* Pending Approvals */}
       <section className="space-y-3">
         <h2 className="text-lg font-semibold">Pending Approvals</h2>
-        {pendingLoading ? (
+        {pendingError ? (
+          <div className="rounded-lg border border-destructive p-4 text-sm text-destructive">
+            Failed to load pending approvals. Please refresh.
+          </div>
+        ) : pendingLoading ? (
           <div className="space-y-3">
             {Array.from({ length: 3 }).map((_, i) => (
               <Skeleton key={i} className="h-24 w-full rounded-lg" />
@@ -120,9 +122,10 @@ export default function ApprovalsPage() {
             {(pending ?? []).map((po) => {
               const pendingStep = (po.po_approvals ?? []).find((s) => s.status === 'pending')
               return (
-                <div
+                <button
                   key={po.id}
-                  className="rounded-lg border p-4 space-y-3 cursor-pointer hover:bg-muted/50 transition-colors"
+                  type="button"
+                  className="w-full text-left rounded-lg border p-4 space-y-3 hover:bg-muted/50 transition-colors"
                   onClick={() => openDialog(po)}
                 >
                   <div className="flex flex-wrap items-center justify-between gap-2">
@@ -146,7 +149,7 @@ export default function ApprovalsPage() {
                       </span>
                     </div>
                   )}
-                </div>
+                </button>
               )
             })}
           </div>
@@ -156,7 +159,9 @@ export default function ApprovalsPage() {
       {/* Completed Approvals */}
       <section className="space-y-3">
         <h2 className="text-lg font-semibold">Completed Approvals</h2>
-        {completedLoading ? (
+        {completedError ? (
+          <div className="text-sm text-destructive p-4">Failed to load completed approvals.</div>
+        ) : completedLoading ? (
           <Skeleton className="h-40 w-full" />
         ) : (
           <div className="rounded-md border overflow-x-auto">
@@ -259,8 +264,9 @@ export default function ApprovalsPage() {
 
                 {/* Comment */}
                 <div className="space-y-1">
-                  <label className="text-sm font-medium">Comment</label>
+                  <label htmlFor="approval-comment" className="text-sm font-medium">Comment</label>
                   <Textarea
+                    id="approval-comment"
                     value={comment}
                     onChange={(e) => setComment(e.target.value)}
                     placeholder="Optional comment…"
@@ -279,8 +285,9 @@ export default function ApprovalsPage() {
                       <button
                         key={opt.value}
                         type="button"
+                        aria-pressed={rejectMode === opt.value}
                         onClick={() => setRejectMode(opt.value)}
-                        className={`flex w-full items-start gap-3 rounded-md border p-2 text-left transition-colors ${
+                        className={`flex w-full min-h-11 items-start gap-3 rounded-md border p-2 text-left transition-colors ${
                           rejectMode === opt.value
                             ? 'border-destructive bg-destructive/5'
                             : 'hover:bg-muted'
