@@ -147,6 +147,15 @@ export function getApprovalRoles(level: number): string[] {
   return ['purchase_manager', 'accountant', 'owner']
 }
 
+export const PAYMENT_METHODS = [
+  'cash', 'bank_transfer', 'cheque', 'credit_card', 'debit_card', 'online', 'other',
+] as const
+export type PaymentMethod = typeof PAYMENT_METHODS[number]
+
+// NOTE: count+1 approach is race-prone under concurrent creates.
+// The DB has a UNIQUE constraint on po_number, so concurrent collisions
+// will produce a DB error rather than a silent duplicate.
+// TODO: replace with a server-side DB sequence when types are regenerated.
 async function generatePONumber(supabase: ReturnType<typeof createClient>): Promise<string> {
   const { count } = await (supabase as any)
     .from('purchase_orders')
@@ -372,7 +381,7 @@ export function useCreatePOPayment() {
       po_id: string
       supplier_id: string
       amount: number
-      method: string
+      method: PaymentMethod
       date: string
       reference: string | null
       notes: string | null
@@ -385,7 +394,7 @@ export function useCreatePOPayment() {
         source_id: payment.po_id,
         supplier_id: payment.supplier_id,
         amount: payment.amount,
-        method: payment.method as any,
+        method: payment.method as any, // DB enum — cast needed due to stale generated types
         date: payment.date,
         reference: payment.reference,
         notes: payment.notes,

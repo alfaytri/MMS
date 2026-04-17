@@ -78,9 +78,10 @@ export function useApproveStep() {
         if (poErr) throw poErr
       }
     },
-    onSuccess: () => {
+    onSuccess: (_data, variables) => {
       queryClient.invalidateQueries({ queryKey: ['po-approvals'] })
       queryClient.invalidateQueries({ queryKey: ['purchase-orders'] })
+      queryClient.invalidateQueries({ queryKey: ['purchase-order', variables.poId] })
     },
   })
 }
@@ -125,15 +126,17 @@ export function useRejectPO() {
 
       // If send back to RFQ, delete all approval steps so they can be recreated
       if (mode === 'send_back_to_rfq') {
-        await (supabase as any)
+        const { error: delErr } = await (supabase as any)
           .from('po_approvals')
           .delete()
           .eq('po_id', poId)
+        if (delErr) throw delErr
       }
     },
-    onSuccess: () => {
+    onSuccess: (_data, variables) => {
       queryClient.invalidateQueries({ queryKey: ['po-approvals'] })
       queryClient.invalidateQueries({ queryKey: ['purchase-orders'] })
+      queryClient.invalidateQueries({ queryKey: ['purchase-order', variables.poId] })
     },
   })
 }
