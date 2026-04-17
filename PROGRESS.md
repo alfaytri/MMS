@@ -140,6 +140,7 @@ Contact Center (never outsource — too complex)
 | `docs/superpowers/plans/2026-04-16-mms-master-data.md` | **DONE** | Companies, Warehouses, Inventory, Suppliers, Users, Audit |
 | `docs/superpowers/plans/2026-04-17-mms-purchase-core.md` | **DONE** | PO hooks, shared components, detail dialog, list page, create PO, approvals |
 | `docs/superpowers/plans/2026-04-17-mms-sales-core.md` | **DONE** | SO hooks, shared components, detail dialog, list page, create SO, returns |
+| `docs/superpowers/plans/2026-04-17-mms-purchase-operations.md` | **DONE** | Shipments, Landed Costs, Warehouses Hub (7 tabs), Dead Stock Report |
 | `docs/superpowers/plans/2026-04-16-mms-csv-import.md` | Not written yet | CSV import tool (5 entity types) |
 
 ---
@@ -198,14 +199,15 @@ Contact Center (never outsource — too complex)
 - [2026-04-17] **Purchase Operations Task 6: Adjustments + Inventory Checks Tabs** — WhAdjustmentsTab (list with approve action), WhAdjustmentDialog (warehouse/variant/type/qty/reason), WhInventoryChecksTab (list with Create+View), WhInventoryCheckDialog (dual-mode: create or count items with variance display + submit/review)
 
 - [2026-04-17] **Purchase Operations Task 7: Dead Stock Report** — 4-category summary cards (Active/Slow/At-Risk/Dead) with click-to-filter, sort by days idle or value, full table with last movement date and ∞ for never-moved items
+- [2026-04-17] **Purchase Operations plan: COMPLETE** — All 8 tasks done. 4 pages, 4 hooks, 11 warehouse tab/dialog components, full operations coverage (shipments, landed costs, stock overview, movements, transfers, receivals, adjustments, inventory checks, dead stock).
 
 ## 🔄 In Progress
 
-- Purchase Operations Task 8: Integration test
+- Writing CSV Import plan (bulk import for suppliers, inventory items, customers, purchase orders, sale orders)
 
 ## ⏳ Not Started
 
-- CSV Import tool
+- CSV Import tool (5 entity types)
 
 ---
 
