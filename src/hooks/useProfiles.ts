@@ -20,6 +20,82 @@ export function useProfiles() {
   })
 }
 
+// Returns the profile row linked to the currently-authenticated user, or null
+// if none exists (user needs to create one). Uses maybeSingle so zero rows is
+// not an error.
+export function useCurrentUserProfile() {
+  return useQuery({
+    queryKey: ['my-profile'],
+    queryFn: async () => {
+      const supabase = createClient()
+      const { data: { user } } = await supabase.auth.getUser()
+      if (!user) return null
+      const { data, error } = await supabase
+        .from('profiles')
+        .select('*')
+        .eq('auth_user_id', user.id)
+        .maybeSingle()
+      if (error) throw error
+      return data as Profile | null
+    },
+  })
+}
+
+// One-click self-provision — creates a profile row for the current auth user.
+// Relies on the `Users can create own profile` INSERT policy.
+export function useCreateMyProfile() {
+  const queryClient = useQueryClient()
+  return useMutation({
+    mutationFn: async (values: { full_name: string; user_type?: 'internal' | 'external' }) => {
+      const supabase = createClient()
+      const { data: { user } } = await supabase.auth.getUser()
+      if (!user) throw new Error('Not authenticated')
+      const { data, error } = await (supabase as any)
+        .from('profiles')
+        .insert({
+          auth_user_id: user.id,
+          email: user.email ?? null,
+          full_name: values.full_name,
+          user_type: values.user_type ?? 'internal',
+          is_active: true,
+        })
+        .select()
+        .single()
+      if (error) throw error
+      return data as Profile
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['profiles'] })
+      queryClient.invalidateQueries({ queryKey: ['my-profile'] })
+    },
+  })
+}
+
+// Invite a new user via the /api/users/invite Route Handler.
+// The handler uses the service_role admin key server-side.
+export function useInviteUser() {
+  const queryClient = useQueryClient()
+  return useMutation({
+    mutationFn: async (payload: {
+      email: string
+      full_name: string
+      user_type?: 'internal' | 'external'
+    }) => {
+      const res = await fetch('/api/users/invite', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload),
+      })
+      const json = await res.json()
+      if (!res.ok) throw new Error(json.error ?? 'Invite failed')
+      return json
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['profiles'] })
+    },
+  })
+}
+
 export function useUpdateProfile() {
   const queryClient = useQueryClient()
   return useMutation({

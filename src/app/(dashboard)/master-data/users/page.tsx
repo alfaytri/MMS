@@ -2,7 +2,8 @@
 
 import { useState, useMemo } from 'react'
 import { type ColumnDef } from '@tanstack/react-table'
-import { MoreHorizontal, Shield } from 'lucide-react'
+import { MoreHorizontal, Shield, UserPlus, AlertCircle } from 'lucide-react'
+import { toast } from 'sonner'
 import { PageHeader } from '@/components/shared/PageHeader'
 import { SearchInput } from '@/components/shared/SearchInput'
 import { DataTable } from '@/components/shared/DataTable'
@@ -10,12 +11,19 @@ import { DataTableColumnHeader } from '@/components/shared/DataTableColumnHeader
 import { StatusBadge } from '@/components/shared/StatusBadge'
 import { RoleFormDialog } from '@/components/master-data/RoleFormDialog'
 import { UserRoleDialog } from '@/components/master-data/UserRoleDialog'
+import { InviteUserDialog } from '@/components/master-data/InviteUserDialog'
 import { useRoles, type CustomRole } from '@/hooks/useRoles'
-import { useProfiles, type Profile } from '@/hooks/useProfiles'
+import {
+  useProfiles,
+  useCurrentUserProfile,
+  useCreateMyProfile,
+  type Profile,
+} from '@/hooks/useProfiles'
 import { PERMISSION_GROUPS } from '@/lib/permissions'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
+import { Input } from '@/components/ui/input'
 import {
   DropdownMenu, DropdownMenuContent, DropdownMenuGroup, DropdownMenuItem, DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu'
@@ -26,9 +34,31 @@ export default function UsersRolesPage() {
   const [userSearch, setUserSearch] = useState('')
   const [roleDialog, setRoleDialog] = useState<{ open: boolean; role: CustomRole | null }>({ open: false, role: null })
   const [userRoleDialog, setUserRoleDialog] = useState<{ open: boolean; profile: Profile | null }>({ open: false, profile: null })
+  const [inviteOpen, setInviteOpen] = useState(false)
+  const [myName, setMyName] = useState('')
 
   const { data: roles, isLoading: loadingRoles } = useRoles()
   const { data: profiles, isLoading: loadingProfiles } = useProfiles()
+  const { data: myProfile, isLoading: loadingMyProfile } = useCurrentUserProfile()
+  const createMyProfile = useCreateMyProfile()
+
+  function handleCreateMyProfile() {
+    const name = myName.trim()
+    if (!name) {
+      toast.error('Please enter your full name')
+      return
+    }
+    createMyProfile.mutate(
+      { full_name: name },
+      {
+        onSuccess: () => {
+          toast.success('Profile created')
+          setMyName('')
+        },
+        onError: (err) => toast.error(err.message),
+      }
+    )
+  }
 
   const roleColumns = useMemo<ColumnDef<CustomRole>[]>(() => [
     {
@@ -178,7 +208,40 @@ export default function UsersRolesPage() {
 
         <TabsContent value="users">
           <div className="space-y-4 mt-4">
-            <SearchInput value={userSearch} onChange={setUserSearch} placeholder="Search users…" />
+            {/* Self-provision banner — shown when the signed-in auth user has no profile row */}
+            {!loadingMyProfile && !myProfile && (
+              <div className="rounded-md border border-warning bg-warning/5 p-4 space-y-3">
+                <div className="flex items-start gap-2">
+                  <AlertCircle className="h-5 w-5 text-warning shrink-0 mt-0.5" />
+                  <div>
+                    <p className="text-sm font-semibold">You don&apos;t have a profile yet</p>
+                    <p className="text-xs text-muted-foreground mt-0.5">
+                      Create your profile so you appear in the user list and can be assigned roles.
+                    </p>
+                  </div>
+                </div>
+                <div className="flex flex-col sm:flex-row gap-2 sm:pl-7">
+                  <Input
+                    placeholder="Your full name"
+                    value={myName}
+                    onChange={(e) => setMyName(e.target.value)}
+                    className="flex-1"
+                  />
+                  <Button onClick={handleCreateMyProfile} disabled={createMyProfile.isPending}>
+                    {createMyProfile.isPending ? 'Creating…' : 'Create My Profile'}
+                  </Button>
+                </div>
+              </div>
+            )}
+
+            <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+              <SearchInput value={userSearch} onChange={setUserSearch} placeholder="Search users…" />
+              <Button onClick={() => setInviteOpen(true)}>
+                <UserPlus className="h-4 w-4 mr-2" />
+                Invite User
+              </Button>
+            </div>
+
             <DataTable columns={userColumns} data={(profiles as Profile[] | undefined) ?? []} isLoading={loadingProfiles} globalFilter={userSearch} />
           </div>
         </TabsContent>
@@ -186,6 +249,7 @@ export default function UsersRolesPage() {
 
       <RoleFormDialog open={roleDialog.open} onOpenChange={(open) => setRoleDialog((s) => ({ ...s, open }))} role={roleDialog.role} />
       <UserRoleDialog open={userRoleDialog.open} onOpenChange={(open) => setUserRoleDialog((s) => ({ ...s, open }))} profile={userRoleDialog.profile} />
+      <InviteUserDialog open={inviteOpen} onOpenChange={setInviteOpen} />
     </div>
   )
 }
