@@ -188,14 +188,15 @@ Contact Center (never outsource — too complex)
 - [2026-04-17] **Sales Core Task 5: Create/Edit SO Page** — SoLineItemsEditor (inventory lookup per row, qty/price/total calc, negative margin warning icon), Create SO page (customer search+quick-add, line items, fixed/percentage discount, notes, save-as-quotation + confirm-order), Edit SO stub page
 - [2026-04-17] **Sales Core Task 6: Sale Returns Page** — returns list with status chips, create return dialog (SO selector, per-item qty + condition toggle, restock warehouse), return detail dialog, advance-status pipeline (pending → received → restocked → closed)
 - [2026-04-17] **Sales Core plan: COMPLETE** — All 7 tasks done. 4 pages, 3 hooks, 5+ components, full SO lifecycle (quotation → confirm → deliver → pay → return).
+- [2026-04-17] **Purchase Operations plan written** — `docs/superpowers/plans/2026-04-17-mms-purchase-operations.md` (8 tasks: hooks, Shipments, Landed Costs, Warehouses Hub 7-tab, Dead Stock Report, integration test)
 
 ## 🔄 In Progress
 
-- Writing Purchase Operations plan (Shipments, Landed Costs, Warehouses hub, Dead Stock Report)
+- Purchase Operations Task 1: Hooks (useShipments, useLandedCosts, useWarehouseOperations, useDeadStock)
 
 ## ⏳ Not Started
 
-- Purchase Operations module (Shipments, Landed Costs, Warehouses hub, Dead Stock Report)
+- Purchase Operations Tasks 2–8 (pages + components)
 - CSV Import tool
 
 ---
