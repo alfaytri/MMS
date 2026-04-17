@@ -203,14 +203,15 @@ Contact Center (never outsource — too complex)
 
 - [2026-04-17] **CSV Import plan written** — `docs/superpowers/plans/2026-04-17-mms-csv-import.md` (3 tasks: utilities+hooks, import page UI, integration test)
 - [2026-04-17] **CSV Import Task 1: Utilities + Hooks** — ENTITY_CONFIGS (5 entity column defs + example rows + template download), validateRows (per-type validation, number coercion, required checks), useImportSuppliers/InventoryItems/Customers/PurchaseOrders/SaleOrders (batch insert, grouping by PO/SO number for multi-line entities)
+- [2026-04-17] **CSV Import Task 2: Import Page** — Tabbed entity selector, drag-and-drop CSV upload (PapaParse), column legend with required/optional badges, preview DataTable with per-cell error highlighting, show-errors-only toggle, download error rows, import valid rows with progress, ResultSummary with success/fail counts
 
 ## 🔄 In Progress
 
-- CSV Import Task 2: Import page UI (`src/app/(dashboard)/master-data/import/page.tsx`)
+- CSV Import Task 3: Integration test + PROGRESS.md final update
 
 ## ⏳ Not Started
 
-- CSV Import Task 3: Integration test + PROGRESS.md final update
+(none)
 
 ---
 
