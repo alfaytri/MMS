@@ -184,10 +184,11 @@ Contact Center (never outsource — too complex)
 - [2026-04-17] **Sales Core Task 1: Sale Hooks** — useSaleOrders (types, customer hooks, SO CRUD, confirm with reserve-stock, delivery with deduct-sale-stock, payments), useSaleReturns (CRUD + status transitions)
 - [2026-04-17] **Sales Core Task 2: Shared Components** — SoStatusBadge (8 status colors), SoPaymentDialog (record payment form), SoDeliveryDialog (warehouse + per-item qty, calls deduct-sale-stock edge function)
 - [2026-04-17] **Sales Core Task 3: SO Detail Dialog** — 4-tab dialog (items with subtotal/discount/total, deliveries with item breakdown, payments with progress bar, activity log); action buttons for confirm/deliver/edit per status
+- [2026-04-17] **Sales Core Task 4: Sale Orders List Page** — status chip filters (8 statuses with counts), debounced search, date range, DataTable with 7 columns, SoDetailDialog integration with confirm/edit actions
 
 ## 🔄 In Progress
 
-- Sales Core Task 4: Sale Orders List Page
+- Sales Core Task 5: Create/Edit SO Page
 
 ## ⏳ Not Started
 
