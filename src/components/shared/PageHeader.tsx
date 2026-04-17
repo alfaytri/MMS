@@ -10,9 +10,10 @@ interface PageHeaderProps {
     onClick: () => void
     icon?: ReactNode
   }
+  actions?: ReactNode
 }
 
-export function PageHeader({ title, description, action }: PageHeaderProps) {
+export function PageHeader({ title, description, action, actions }: PageHeaderProps) {
   return (
     <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
       <div>
@@ -27,6 +28,7 @@ export function PageHeader({ title, description, action }: PageHeaderProps) {
           {action.label}
         </Button>
       )}
+      {actions && <div className="flex items-center gap-2">{actions}</div>}
     </div>
   )
 }
