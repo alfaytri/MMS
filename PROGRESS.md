@@ -191,14 +191,19 @@ Contact Center (never outsource — too complex)
 - [2026-04-17] **Purchase Operations plan written** — `docs/superpowers/plans/2026-04-17-mms-purchase-operations.md` (8 tasks: hooks, Shipments, Landed Costs, Warehouses Hub 7-tab, Dead Stock Report, integration test)
 
 - [2026-04-17] **Purchase Operations Task 1: Hooks** — useShipments (CRUD + event tracking + archive), useLandedCosts (CRUD + void), useWarehouseOperations (stock movements, transfers, adjustments, inventory checks), useDeadStock (2-query classify + filter)
+- [2026-04-17] **Purchase Operations Task 2: Shipments Page** — Shipments tracking page with status chip filter (Active/Archived), DataTable (9 columns), CreateShipmentDialog (PO/mode/carrier/dates), ShipmentDetailDialog (timeline events + add event form + update status dropdown + archive)
+- [2026-04-17] **Purchase Operations Task 3: Landed Costs Page** — LC list with DataTable, CreateLcDialog (description/date/cost lines/receival checkboxes), LcDetailDialog (cost lines + item allocations + void action with reason)
+- [2026-04-17] **Purchase Operations Task 4: Warehouses Hub Shell** — 7-tab hub page, WhWarehousesTab (card grid with type badge/item count/value), WhStockOverviewTab (warehouse selector + stock table), WhMovementsTab (movement log with type badges + qty colors)
+- [2026-04-17] **Purchase Operations Task 5: Transfers + Receivals Tabs** — WhTransfersTab (list with approve/reject for pending_approval), WhTransferDialog (from/to warehouse, date, dynamic item rows), WhReceivalsTab (all-warehouse receival list with PO context)
+- [2026-04-17] **Purchase Operations Task 6: Adjustments + Inventory Checks Tabs** — WhAdjustmentsTab (list with approve action), WhAdjustmentDialog (warehouse/variant/type/qty/reason), WhInventoryChecksTab (list with Create+View), WhInventoryCheckDialog (dual-mode: create or count items with variance display + submit/review)
 
 ## 🔄 In Progress
 
-- Purchase Operations Task 2: Shipments Page
+- Purchase Operations Task 7: Dead Stock Report
 
 ## ⏳ Not Started
 
-- Purchase Operations Tasks 3–8 (Landed Costs, Warehouses Hub, Dead Stock, integration test)
+- Purchase Operations Task 8: Integration test + PROGRESS.md final
 - CSV Import tool
 
 ---
