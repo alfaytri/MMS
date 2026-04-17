@@ -22,13 +22,17 @@ export function PageHeader({ title, description, action, actions }: PageHeaderPr
           <p className="text-sm text-muted-foreground mt-1">{description}</p>
         )}
       </div>
-      {action && (
-        <Button onClick={action.onClick} className="w-full sm:w-auto">
-          {action.icon ?? <Plus className="h-4 w-4 mr-1" />}
-          {action.label}
-        </Button>
+      {(action || actions) && (
+        <div className="flex items-center gap-2">
+          {actions}
+          {action && (
+            <Button onClick={action.onClick} className="w-full sm:w-auto">
+              {action.icon ?? <Plus className="h-4 w-4 mr-1" />}
+              {action.label}
+            </Button>
+          )}
+        </div>
       )}
-      {actions && <div className="flex items-center gap-2">{actions}</div>}
     </div>
   )
 }

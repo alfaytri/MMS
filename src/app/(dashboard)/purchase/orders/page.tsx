@@ -30,22 +30,13 @@ const STATUSES: { value: POStatus | ''; label: string }[] = [
 export default function PurchaseOrdersPage() {
   const router = useRouter()
   const [search, setSearch] = useState('')
-  const [debouncedSearch, setDebouncedSearch] = useState('')
   const [statusFilter, setStatusFilter] = useState<POStatus | ''>('')
   const [dateFrom, setDateFrom] = useState('')
   const [dateTo, setDateTo] = useState('')
   const [detailPO, setDetailPO] = useState<PurchaseOrder | null>(null)
 
-  // Debounce search
-  const searchRef = useState<ReturnType<typeof setTimeout> | null>(null)
-  function handleSearch(val: string) {
-    setSearch(val)
-    if (searchRef[0]) clearTimeout(searchRef[0])
-    searchRef[1](setTimeout(() => setDebouncedSearch(val), 300))
-  }
-
   const { data: orders, isLoading } = usePurchaseOrders({
-    search: debouncedSearch,
+    search: search,
     status: statusFilter,
     dateFrom: dateFrom || undefined,
     dateTo: dateTo || undefined,
@@ -168,21 +159,21 @@ export default function PurchaseOrdersPage() {
 
       {/* Filters */}
       <div className="flex flex-col gap-3 sm:flex-row sm:items-center">
-        <SearchInput value={search} onChange={handleSearch} placeholder="Search PO number or supplier…" />
+        <SearchInput value={search} onChange={setSearch} placeholder="Search PO number or supplier…" />
         <div className="flex gap-2 flex-wrap">
           <input
             type="date"
             value={dateFrom}
             onChange={(e) => setDateFrom(e.target.value)}
             className="h-9 rounded-md border border-input bg-background px-3 text-sm w-36"
-            title="From date"
+            aria-label="From date"
           />
           <input
             type="date"
             value={dateTo}
             onChange={(e) => setDateTo(e.target.value)}
             className="h-9 rounded-md border border-input bg-background px-3 text-sm w-36"
-            title="To date"
+            aria-label="To date"
           />
           {(dateFrom || dateTo) && (
             <Button variant="ghost" size="sm" onClick={() => { setDateFrom(''); setDateTo('') }}>
