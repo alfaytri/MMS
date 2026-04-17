@@ -139,7 +139,7 @@ Contact Center (never outsource — too complex)
 | `docs/superpowers/plans/2026-04-16-mms-foundation.md` | **DONE** | Scaffold, auth, design system, TopNav, dashboard |
 | `docs/superpowers/plans/2026-04-16-mms-master-data.md` | **DONE** | Companies, Warehouses, Inventory, Suppliers, Users, Audit |
 | `docs/superpowers/plans/2026-04-17-mms-purchase-core.md` | **DONE** | PO hooks, shared components, detail dialog, list page, create PO, approvals |
-| `docs/superpowers/plans/2026-04-17-mms-sales-core.md` | **IN PROGRESS** (0/7 tasks done) | SO hooks, shared components, detail dialog, list page, create SO, returns |
+| `docs/superpowers/plans/2026-04-17-mms-sales-core.md` | **IN PROGRESS** (1/7 tasks done) | SO hooks, shared components, detail dialog, list page, create SO, returns |
 | `docs/superpowers/plans/2026-04-16-mms-csv-import.md` | Not written yet | CSV import tool (5 entity types) |
 
 ---
@@ -181,10 +181,11 @@ Contact Center (never outsource — too complex)
 - [2026-04-17] **Purchase Core Task 5: Create/Edit PO Page** — PoLineItemsEditor (line type tabs, inventory lookup per row, qty/price/total calc, add/remove rows), PoTermsSection (payment/delivery term presets, vendor notes), Create PO page (supplier search+quick-add, currency/exchange rate, line items, terms, discount, approval level preview, save draft/submit), Edit PO stub page
 - [2026-04-17] **Purchase Core Task 6: Approvals Page** — Pending approvals queue (card per PO, click to approve/reject), completed approvals table, approve/reject dialog with line items preview + approval chain + comment, full rejection vs send-back-to-draft modes, real Supabase auth user recorded
 - [2026-04-17] **Purchase Core plan: COMPLETE** — All 7 tasks done. 4 pages, 9 hooks, 7+ components, full PO lifecycle (create → approve → receive → pay).
+- [2026-04-17] **Sales Core Task 1: Sale Hooks** — useSaleOrders (types, customer hooks, SO CRUD, confirm with reserve-stock, delivery with deduct-sale-stock, payments), useSaleReturns (CRUD + status transitions)
 
 ## 🔄 In Progress
 
-- Sales Core Task 1: Sale Hooks (useSaleOrders.ts + useSaleReturns.ts)
+- Sales Core Task 2: Shared Sale Components
 
 ## ⏳ Not Started
 
