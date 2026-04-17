@@ -174,14 +174,20 @@ Contact Center (never outsource — too complex)
 - [2026-04-17] **Master Data Task 13: Integration Test** — Build passes cleanly (all 9 routes), 21/21 tests pass, resolved stale database.types.ts cast issues (brand_variants, inventory_categories, inventory_items)
 - [2026-04-17] **Master Data plan: COMPLETE** — All 13 tasks done. 9 pages, 7+ hooks, 10+ form dialogs, all responsive.
 
+- [2026-04-17] **Purchase Core Task 1: Hooks** — usePurchaseOrders (PO CRUD, filters, approval calc, payment methods), usePOApprovals (approval workflow hooks)
+- [2026-04-17] **Purchase Core Task 2: Shared Components** — PoStatusBadge (color-coded), PoApprovalChain (compact icon row), InventoryItemLookup (typeahead search), PaymentDialog (record payments)
+- [2026-04-17] **Purchase Core Task 3: PO Detail Dialog** — 4-tab dialog (line items, receivals, payments, activity), entity_id filter, staleTime, currency format
+- [2026-04-17] **Purchase Core Task 4: PO List Page** — Status chip filters, date range, debounced search, DataTable with 9 columns, PoDetailDialog integration
+- [2026-04-17] **Purchase Core Task 5: Create/Edit PO Page** — PoLineItemsEditor (line type tabs, inventory lookup per row, qty/price/total calc, add/remove rows), PoTermsSection (payment/delivery term presets, vendor notes), Create PO page (supplier search+quick-add, currency/exchange rate, line items, terms, discount, approval level preview, save draft/submit), Edit PO stub page
+
 ## 🔄 In Progress
 
-- Purchase module plan (not written yet)
+- Purchase Core Task 6: Approvals Page
 
 ## ⏳ Not Started
 
+- Purchase Core Task 7: Integration Test
 - Sales module plan (not written yet)
-- Purchase module (full)
 - Sales module (full)
 - CSV Import tool
 
