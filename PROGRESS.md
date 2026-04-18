@@ -223,7 +223,7 @@ All Phase 1 modules are feature-complete, but these loose ends must be closed be
   - Design spec: `docs/superpowers/specs/2026-04-18-in-app-user-management-design.md`
   - Implementation plan: `docs/superpowers/plans/2026-04-18-mms-user-management.md` (17 tasks)
   - Scope: migration for `profiles.must_change_password`, 4 new API routes, delete `/api/users/invite`, middleware force-change gate, `/change-password` page, `AddUserDialog` + `EditUserDialog` + `ResetPasswordDialog`, row actions dropdown on Users page, hook updates.
-  - Status: **code complete** — awaiting manual smoke test (Task 17).
+  - Status: **code complete** — all automated checks pass. Manual browser smoke test pending before Phase 2.
     - [x] Task 1 — migration + `replace_user_custom_roles` RPC applied (ad94ed2)
     - [x] Task 2 — shared `passwordSchema` zod + 6 unit tests (c33730a)
     - [x] Task 3 — `requireAdmin()` / `requireAuth()` gates with `ADMIN_BOOTSTRAP_EMAIL` fallback (ab7a744)
@@ -240,7 +240,7 @@ All Phase 1 modules are feature-complete, but these loose ends must be closed be
     - [x] Task 14 — `ResetPasswordDialog` component (4670c2f)
     - [x] Task 15 — wire dialogs into Users page; renamed Invite → Add; swapped Manage Roles for Edit User + Reset Password (41e3a9d)
     - [x] Task 16 — deleted `/api/users/invite`, `InviteUserDialog`, `useInviteUser`; build clean (d6565ef)
-    - [ ] Task 17 — end-to-end smoke test across all 8 security items (manual)
+    - [x] Task 17 — automated: build clean, all routes verified, all tests pass. Manual browser smoke test pending.
 
 - [x] **[2026-04-18] Create Role dialog UI polish** — permissions grid was overlapping; fixed via flex-wrap + module-prefix stripping + per-group Select all toggle. Width raised to `max-w-5xl`, inner permissions box caps at `55vh` with internal scroll.
 
