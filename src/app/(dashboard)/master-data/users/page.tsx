@@ -10,8 +10,9 @@ import { DataTable } from '@/components/shared/DataTable'
 import { DataTableColumnHeader } from '@/components/shared/DataTableColumnHeader'
 import { StatusBadge } from '@/components/shared/StatusBadge'
 import { RoleFormDialog } from '@/components/master-data/RoleFormDialog'
-import { UserRoleDialog } from '@/components/master-data/UserRoleDialog'
-import { InviteUserDialog } from '@/components/master-data/InviteUserDialog'
+import { AddUserDialog } from '@/components/master-data/AddUserDialog'
+import { EditUserDialog } from '@/components/master-data/EditUserDialog'
+import { ResetPasswordDialog } from '@/components/master-data/ResetPasswordDialog'
 import { useRoles, type CustomRole } from '@/hooks/useRoles'
 import {
   useProfiles,
@@ -33,8 +34,9 @@ export default function UsersRolesPage() {
   const [roleSearch, setRoleSearch] = useState('')
   const [userSearch, setUserSearch] = useState('')
   const [roleDialog, setRoleDialog] = useState<{ open: boolean; role: CustomRole | null }>({ open: false, role: null })
-  const [userRoleDialog, setUserRoleDialog] = useState<{ open: boolean; profile: Profile | null }>({ open: false, profile: null })
-  const [inviteOpen, setInviteOpen] = useState(false)
+  const [addOpen, setAddOpen] = useState(false)
+  const [editDialog, setEditDialog] = useState<{ open: boolean; profile: Profile | null }>({ open: false, profile: null })
+  const [resetDialog, setResetDialog] = useState<{ open: boolean; profile: Profile | null }>({ open: false, profile: null })
   const [myName, setMyName] = useState('')
 
   const { data: roles, isLoading: loadingRoles } = useRoles()
@@ -160,8 +162,11 @@ export default function UsersRolesPage() {
           </DropdownMenuTrigger>
           <DropdownMenuContent align="end">
             <DropdownMenuGroup>
-              <DropdownMenuItem onClick={() => setUserRoleDialog({ open: true, profile: row.original })}>
-                <Shield className="h-4 w-4 mr-2" />Manage Roles
+              <DropdownMenuItem onClick={() => setEditDialog({ open: true, profile: row.original })}>
+                <Shield className="h-4 w-4 mr-2" />Edit User
+              </DropdownMenuItem>
+              <DropdownMenuItem onClick={() => setResetDialog({ open: true, profile: row.original })}>
+                <Shield className="h-4 w-4 mr-2" />Reset Password
               </DropdownMenuItem>
             </DropdownMenuGroup>
           </DropdownMenuContent>
@@ -236,9 +241,9 @@ export default function UsersRolesPage() {
 
             <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
               <SearchInput value={userSearch} onChange={setUserSearch} placeholder="Search users…" />
-              <Button onClick={() => setInviteOpen(true)}>
+              <Button onClick={() => setAddOpen(true)}>
                 <UserPlus className="h-4 w-4 mr-2" />
-                Invite User
+                Add User
               </Button>
             </div>
 
@@ -248,8 +253,17 @@ export default function UsersRolesPage() {
       </Tabs>
 
       <RoleFormDialog open={roleDialog.open} onOpenChange={(open) => setRoleDialog((s) => ({ ...s, open }))} role={roleDialog.role} />
-      <UserRoleDialog open={userRoleDialog.open} onOpenChange={(open) => setUserRoleDialog((s) => ({ ...s, open }))} profile={userRoleDialog.profile} />
-      <InviteUserDialog open={inviteOpen} onOpenChange={setInviteOpen} />
+      <AddUserDialog open={addOpen} onOpenChange={setAddOpen} />
+      <EditUserDialog
+        open={editDialog.open}
+        onOpenChange={(open) => setEditDialog((s) => ({ ...s, open }))}
+        profile={editDialog.profile as (Profile & { user_custom_roles?: Array<{ role_id: string }> }) | null}
+      />
+      <ResetPasswordDialog
+        open={resetDialog.open}
+        onOpenChange={(open) => setResetDialog((s) => ({ ...s, open }))}
+        profile={resetDialog.profile}
+      />
     </div>
   )
 }
