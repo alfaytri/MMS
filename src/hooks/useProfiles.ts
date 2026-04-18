@@ -9,13 +9,13 @@ export function useProfiles() {
   return useQuery({
     queryKey: ['profiles'],
     queryFn: async () => {
-      const supabase = createClient()
-      const { data, error } = await supabase
-        .from('profiles')
-        .select('*, user_custom_roles(role_id, custom_roles(name, color)), user_divisions(division_id, divisions(name, short_name, color))')
-        .order('full_name')
-      if (error) throw error
-      return data
+      // Use the admin API route so RLS doesn't filter results for the calling user.
+      const res = await fetch('/api/users')
+      if (!res.ok) {
+        const json = await res.json().catch(() => ({}))
+        throw new Error(json.error ?? `Failed to fetch users (${res.status})`)
+      }
+      return res.json() as Promise<Profile[]>
     },
   })
 }
