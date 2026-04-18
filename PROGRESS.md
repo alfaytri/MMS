@@ -221,6 +221,7 @@ Contact Center (never outsource — too complex)
 - [2026-04-18] **Admin UI Restructure Task 1: DB Migrations** — divisions.name_ar column migration, division-assets Storage bucket migration created; database.types.ts updated with name_ar on divisions Row/Insert/Update
 - [2026-04-18] **Admin UI Restructure Task 2: Route Migration** — Companies & Warehouses pages moved to admin/companies and admin/warehouses; nav-config.ts + AdminSidebar.tsx links updated
 - [2026-04-18] **Admin UI Restructure Task 3: useDivisions** — useAllDivisions (fetches all including inactive) + useDeleteDivision mutation added
+- [2026-04-18] **Admin UI Restructure Task 4: permissions.ts** — PERMISSION_GROUPS rewritten with icons/labels/descriptions per key; roleColor util added; ALL_PERMISSIONS derived from new structure; 5 vitest tests pass
 
 ## 🔄 In Progress
 
