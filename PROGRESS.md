@@ -220,6 +220,7 @@ Contact Center (never outsource — too complex)
 - [2026-04-18] **Fix: create brands/brand_groups/brand_group_members tables** — migration `20260418170000_create_brands_and_brand_groups.sql`; tables existed in old DB but were missing from migrations causing schema cache errors (b89c4cb)
 - [2026-04-18] **Admin UI Restructure Task 1: DB Migrations** — divisions.name_ar column migration, division-assets Storage bucket migration created; database.types.ts updated with name_ar on divisions Row/Insert/Update
 - [2026-04-18] **Admin UI Restructure Task 2: Route Migration** — Companies & Warehouses pages moved to admin/companies and admin/warehouses; nav-config.ts + AdminSidebar.tsx links updated
+- [2026-04-18] **Admin UI Restructure Task 3: useDivisions** — useAllDivisions (fetches all including inactive) + useDeleteDivision mutation added
 
 ## 🔄 In Progress
 
