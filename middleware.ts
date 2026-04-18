@@ -52,6 +52,9 @@ export async function middleware(request: NextRequest) {
 
   // ─── Force-change-password gate ──────────────────────────────────────
   if (user) {
+    // DEBUG — remove after confirming gate works
+    console.log('[middleware] path:', request.nextUrl.pathname, '| user_metadata:', JSON.stringify(user.user_metadata))
+
     // Primary: JWT user_metadata — no DB roundtrip.
     let mustChange = Boolean(user.user_metadata?.must_change_password)
 
