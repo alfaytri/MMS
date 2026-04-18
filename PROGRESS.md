@@ -223,6 +223,10 @@ Contact Center (never outsource — too complex)
 - [2026-04-18] **Admin UI Restructure Task 3: useDivisions** — useAllDivisions (fetches all including inactive) + useDeleteDivision mutation added
 - [2026-04-18] **Admin UI Restructure Task 4: permissions.ts** — PERMISSION_GROUPS rewritten with icons/labels/descriptions per key; roleColor util added; ALL_PERMISSIONS derived from new structure; 5 vitest tests pass
 - [2026-04-18] **Admin UI Restructure Task 5: DivisionFormDialog Overhaul** — redesigned form with company dropdown, color swatches, name_ar field, logo/stamp upload to Supabase Storage
+- [2026-04-18] **Admin UI Restructure Task 6: Companies page** — division card grid with colored left border, logo/address/stamp indicators, edit/delete actions, per-company sections (0539df5)
+- [2026-04-18] **Admin UI Restructure Task 7: RoleFormDialog** — accordion permissions by module with indeterminate checkboxes, Select/Clear All, live count, Base UI indeterminate prop adapted (0447262)
+- [2026-04-18] **Admin UI Restructure Task 8: Users & Roles page** — Shield header + dynamic counts, tab badges, Permissions accordion with Expand/Collapse All, Role cards grid (3-col) with coverage chips via `roleColor()`, Users DataTable with row actions, `useDeleteRole` hook added (972299d)
+- [2026-04-18] **Admin UI Restructure Task 9: Integration** — full `next build` passes (31 routes), all 33 vitest tests pass, old `master-data/companies` and `master-data/warehouses` routes confirmed removed
 
 ## 🔄 In Progress
 
