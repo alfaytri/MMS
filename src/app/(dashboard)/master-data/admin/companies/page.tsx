@@ -180,6 +180,7 @@ export default function CompaniesPage() {
         onOpenChange={(open) => setDivisionDialog((s) => ({ ...s, open }))}
         division={divisionDialog.division}
         companyId={divisionDialog.companyId}
+        companies={companies ?? []}
       />
     </div>
   )
