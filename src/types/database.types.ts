@@ -713,6 +713,7 @@ export type Database = {
           is_active: boolean
           logo_url: string | null
           name: string
+          name_ar: string | null
           short_name: string | null
           slug: string
           sort_order: number
@@ -736,6 +737,7 @@ export type Database = {
           is_active?: boolean
           logo_url?: string | null
           name: string
+          name_ar?: string | null
           short_name?: string | null
           slug: string
           sort_order?: number
@@ -759,6 +761,7 @@ export type Database = {
           is_active?: boolean
           logo_url?: string | null
           name?: string
+          name_ar?: string | null
           short_name?: string | null
           slug?: string
           sort_order?: number
