@@ -33,6 +33,7 @@ import { Input } from '@/components/ui/input'
 import { Button } from '@/components/ui/button'
 import { createClient } from '@/lib/supabase/client'
 import { useCreateDivision, useUpdateDivision, type Division } from '@/hooks/useDivisions'
+import { useCompanies } from '@/hooks/useCompanies'
 
 // ─── Colour palette ────────────────────────────────────────────────────────────
 
@@ -73,7 +74,7 @@ interface DivisionFormDialogProps {
   onOpenChange: (open: boolean) => void
   division?: Division | null
   companyId?: string
-  companies: { id: string; name_en: string }[]
+  companies?: { id: string; name_en: string }[]
 }
 
 // ─── Component ─────────────────────────────────────────────────────────────────
@@ -83,11 +84,13 @@ export function DivisionFormDialog({
   onOpenChange,
   division,
   companyId,
-  companies,
+  companies: companiesProp,
 }: DivisionFormDialogProps) {
   const isEditing = !!division
   const create = useCreateDivision()
   const update = useUpdateDivision()
+  const { data: fetchedCompanies } = useCompanies()
+  const companies = companiesProp ?? fetchedCompanies ?? []
   const isPending = create.isPending || update.isPending
 
   const [isUploadingLogo, setIsUploadingLogo] = useState(false)
