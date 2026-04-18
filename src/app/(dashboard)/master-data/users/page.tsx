@@ -246,22 +246,42 @@ export default function UsersRolesPage() {
         </div>
       </div>
 
-      <Tabs value={activeTab} onValueChange={setActiveTab}>
-        <TabsList>
-          <TabsTrigger value="permissions" className="gap-1.5">
-            Permissions <Badge variant="secondary" className="text-xs px-1.5 py-0">{permCount}</Badge>
-          </TabsTrigger>
-          <TabsTrigger value="roles" className="gap-1.5">
-            Roles <Badge variant="secondary" className="text-xs px-1.5 py-0">{rolesCount}</Badge>
-          </TabsTrigger>
-          <TabsTrigger value="users" className="gap-1.5">
-            Users <Badge variant="secondary" className="text-xs px-1.5 py-0">{usersCount}</Badge>
-          </TabsTrigger>
-        </TabsList>
+      <Tabs value={activeTab} onValueChange={setActiveTab} className="flex flex-col gap-6">
+        <div className="flex justify-center">
+          <TabsList className="h-10 bg-muted p-1 gap-1">
+            <TabsTrigger
+              value="permissions"
+              className="gap-2 px-4 py-1.5 data-active:bg-primary data-active:text-primary-foreground data-active:shadow-sm"
+            >
+              Permissions
+              <span className="inline-flex h-4 min-w-5 items-center justify-center rounded-full border border-border bg-white px-1.5 text-[10px] font-semibold text-foreground tabular-nums">
+                {permCount}
+              </span>
+            </TabsTrigger>
+            <TabsTrigger
+              value="roles"
+              className="gap-2 px-4 py-1.5 data-active:bg-primary data-active:text-primary-foreground data-active:shadow-sm"
+            >
+              Roles
+              <span className="inline-flex h-4 min-w-5 items-center justify-center rounded-full border border-border bg-white px-1.5 text-[10px] font-semibold text-foreground tabular-nums">
+                {rolesCount}
+              </span>
+            </TabsTrigger>
+            <TabsTrigger
+              value="users"
+              className="gap-2 px-4 py-1.5 data-active:bg-primary data-active:text-primary-foreground data-active:shadow-sm"
+            >
+              Users
+              <span className="inline-flex h-4 min-w-5 items-center justify-center rounded-full border border-border bg-white px-1.5 text-[10px] font-semibold text-foreground tabular-nums">
+                {usersCount}
+              </span>
+            </TabsTrigger>
+          </TabsList>
+        </div>
 
         {/* ── Permissions tab ── */}
         <TabsContent value="permissions">
-          <div className="space-y-3 mt-4">
+          <div className="space-y-3">
             <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
               <p className="text-sm text-muted-foreground">
                 {permCount} permissions across {moduleCount} modules. Permissions are assigned to roles, not directly to users.
@@ -336,7 +356,7 @@ export default function UsersRolesPage() {
 
         {/* ── Roles tab ── */}
         <TabsContent value="roles">
-          <div className="space-y-4 mt-4">
+          <div className="space-y-4">
             <div className="flex justify-end">
               <Button onClick={() => setRoleDialog({ open: true, role: null })}>
                 + New Role
@@ -366,7 +386,7 @@ export default function UsersRolesPage() {
 
         {/* ── Users tab ── */}
         <TabsContent value="users">
-          <div className="space-y-4 mt-4">
+          <div className="space-y-4">
             {!loadingMyProfile && !myProfile && (
               <div className="rounded-md border border-warning bg-warning/5 p-4 space-y-3">
                 <div className="flex items-start gap-2">
