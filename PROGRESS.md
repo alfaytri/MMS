@@ -214,6 +214,11 @@ Contact Center (never outsource — too complex)
 - [2026-04-18] **User Management Task 16: cleanup** — deleted /api/users/invite, InviteUserDialog, useInviteUser; full build confirmed clean; all 5 new routes present
 - [2026-04-18] **Bug fixes (smoke test)** — fixed requireAdmin bootstrap-first ordering (403 on Add User), fixed replace_user_custom_roles RPC column name (user_id→profile_id), fixed useProfiles to route through GET /api/users bypassing RLS, fixed PostgREST FK ambiguity (user_custom_roles + user_divisions dual-FK hints), reduced password min to 8 chars
 - [2026-04-18] **Built-in Admin role** — migration `20260418150000_seed_admin_role.sql` seeds is_system Admin role with all 53 permission keys; auto-assigns to m.ismail@alfaytri.com; pushed + committed (26f6f1e)
+- [2026-04-18] **Fix: warehouses RLS** — migration `20260418160000_fix_warehouses_rls.sql` adds SELECT/INSERT/UPDATE/DELETE policies; warehouses table had RLS enabled with zero policies (every write was blocked) (887f575)
+- [2026-04-18] **Admin Settings redesign** — AdminSidebar restructured into 4 sections (ORGANIZATION: Divisions/Warehouses/Work Schedule; CATALOG & PRICING: Brand Groups/Pricing Factors/Credit Categories; OPERATIONS: Reason Lists/Document T&C; INTEGRATIONS: Call Center/Traccar Devices/Agent Resources); title moved into sidebar; layout heading removed (b093dd4)
+- [2026-04-18] **Brand Groups: card layout** — page replaced DataTable with responsive card grid; scope filter dropdown; coloured scope badges; brand chips per card; Manage Brands dialog (checkbox list to add/remove brands from group); inline edit + soft-delete (b093dd4)
+- [2026-04-18] **Fix: create brands/brand_groups/brand_group_members tables** — migration `20260418170000_create_brands_and_brand_groups.sql`; tables existed in old DB but were missing from migrations causing schema cache errors (b89c4cb)
+- [2026-04-18] **Admin UI Restructure Task 1: DB Migrations** — divisions.name_ar column migration, division-assets Storage bucket migration created; database.types.ts updated with name_ar on divisions Row/Insert/Update
 
 ## 🔄 In Progress
 
