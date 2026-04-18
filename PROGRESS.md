@@ -212,6 +212,8 @@ Contact Center (never outsource — too complex)
 - [2026-04-18] **User Management Tasks 9-11: infrastructure** — middleware force-change-password gate (JWT→DB fallback + explicit allowlist), 4 new useProfiles hooks, /change-password page
 - [2026-04-18] **User Management Tasks 12-15: dialogs + wiring** — AddUserDialog, EditUserDialog, ResetPasswordDialog; wired into Users page; "Invite User" renamed to "Add User"; "Manage Roles" replaced with Edit/Reset actions
 - [2026-04-18] **User Management Task 16: cleanup** — deleted /api/users/invite, InviteUserDialog, useInviteUser; full build confirmed clean; all 5 new routes present
+- [2026-04-18] **Bug fixes (smoke test)** — fixed requireAdmin bootstrap-first ordering (403 on Add User), fixed replace_user_custom_roles RPC column name (user_id→profile_id), fixed useProfiles to route through GET /api/users bypassing RLS, fixed PostgREST FK ambiguity (user_custom_roles + user_divisions dual-FK hints), reduced password min to 8 chars
+- [2026-04-18] **Built-in Admin role** — migration `20260418150000_seed_admin_role.sql` seeds is_system Admin role with all 53 permission keys; auto-assigns to m.ismail@alfaytri.com; pushed + committed (26f6f1e)
 
 ## 🔄 In Progress
 
