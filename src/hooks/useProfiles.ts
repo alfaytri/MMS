@@ -156,3 +156,92 @@ export function useRemoveDivision() {
     },
   })
 }
+
+// ─── Admin-driven user management ──────────────────────────────────────
+
+export function useCreateUser() {
+  const queryClient = useQueryClient()
+  return useMutation({
+    mutationFn: async (payload: {
+      full_name: string
+      email: string
+      password: string
+      user_type?: 'internal' | 'external'
+      role_ids?: string[]
+    }) => {
+      const res = await fetch('/api/users/create', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload),
+      })
+      const json = await res.json()
+      if (!res.ok) throw new Error(json.error ?? 'Create failed')
+      return json as { profile: Profile; assigned_role_ids: string[]; warning?: string }
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['profiles'] })
+    },
+  })
+}
+
+export function useUpdateUser() {
+  const queryClient = useQueryClient()
+  return useMutation({
+    mutationFn: async (payload: {
+      auth_user_id: string
+      full_name?: string
+      email?: string
+      user_type?: 'internal' | 'external'
+      is_active?: boolean
+      role_ids?: string[]
+    }) => {
+      const { auth_user_id, ...body } = payload
+      const res = await fetch(`/api/users/${auth_user_id}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(body),
+      })
+      const json = await res.json()
+      if (!res.ok) throw new Error(json.error ?? 'Update failed')
+      return json
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['profiles'] })
+      queryClient.invalidateQueries({ queryKey: ['my-profile'] })
+    },
+  })
+}
+
+export function useResetUserPassword() {
+  return useMutation({
+    mutationFn: async (payload: { user_id: string; password: string }) => {
+      const res = await fetch('/api/users/reset-password', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload),
+      })
+      const json = await res.json()
+      if (!res.ok) throw new Error(json.error ?? 'Reset failed')
+      return json
+    },
+  })
+}
+
+export function useCompleteMyPasswordChange() {
+  return useMutation({
+    mutationFn: async (payload: { new_password: string }) => {
+      const res = await fetch('/api/users/me/change-password', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload),
+      })
+      const json = await res.json()
+      if (!res.ok) throw new Error(json.error ?? 'Change failed')
+      // CRITICAL: refresh the client session so the middleware sees
+      // must_change_password: false on the very next navigation.
+      const supabase = createClient()
+      await supabase.auth.refreshSession()
+      return json
+    },
+  })
+}
