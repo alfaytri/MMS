@@ -35,8 +35,8 @@ const ADMIN_SECTIONS: SidebarSection[] = [
   {
     label: 'Organization',
     items: [
-      { label: 'Divisions', href: '/master-data/companies', icon: Users },
-      { label: 'Warehouses', href: '/master-data/warehouses', icon: Warehouse },
+      { label: 'Companies & Divisions', href: '/master-data/admin/companies', icon: Users },
+      { label: 'Warehouses', href: '/master-data/admin/warehouses', icon: Warehouse },
       { label: 'Work Schedule', href: '/master-data/admin/work-schedule', icon: Clock, comingSoon: true },
     ],
   },
