@@ -222,10 +222,10 @@ All Phase 1 modules are feature-complete, but these loose ends must be closed be
     - [x] Task 2 — shared `passwordSchema` zod + 6 unit tests (c33730a)
     - [x] Task 3 — `requireAdmin()` / `requireAuth()` gates with `ADMIN_BOOTSTRAP_EMAIL` fallback (ab7a744)
     - [x] Task 4 — `isRateLimited()` + `logUserEvent()` helpers over `activity_log` (7f9753c)
-    - [ ] Task 5 — `POST /api/users/create`
-    - [ ] Task 6 — `PATCH /api/users/[id]`
-    - [ ] Task 7 — `POST /api/users/reset-password`
-    - [ ] Task 8 — `POST /api/users/me/change-password`
+    - [x] Task 5 — `POST /api/users/create` — admin-driven user creation with rate limit + roles + audit
+    - [x] Task 6 — `PATCH /api/users/[id]` — update profile + optional role replace + self-deactivation guard (ef16d2d)
+    - [x] Task 7 — `POST /api/users/reset-password` — admin reset with JWT+DB dual-write (4540ac4)
+    - [x] Task 8 — `POST /api/users/me/change-password` — self-change clears flag (e7fdbdf)
     - [ ] Task 9 — middleware force-change-password gate (explicit allowlist + JWT→DB fallback)
     - [ ] Task 10 — `useCreateUser` / `useUpdateUser` / `useResetUserPassword` / `useCompleteMyPasswordChange` hooks
     - [ ] Task 11 — `/change-password` page
