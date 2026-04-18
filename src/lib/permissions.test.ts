@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { PERMISSION_GROUPS, ALL_PERMISSIONS, roleColor } from './permissions'
+import { PERMISSION_GROUPS, ALL_PERMISSIONS, roleColor, ROLE_COLORS } from './permissions'
 
 describe('PERMISSION_GROUPS structure', () => {
   it('every group has module, icon, and permissions array', () => {
@@ -40,12 +40,10 @@ describe('PERMISSION_GROUPS structure', () => {
 })
 
 describe('roleColor', () => {
-  const VALID_COLORS = ['blue', 'green', 'orange', 'purple', 'teal', 'rose', 'amber', 'indigo']
-
   it('returns a valid color string', () => {
-    expect(VALID_COLORS).toContain(roleColor('Admin'))
-    expect(VALID_COLORS).toContain(roleColor('Accountant'))
-    expect(VALID_COLORS).toContain(roleColor(''))
+    expect(ROLE_COLORS).toContain(roleColor('Admin'))
+    expect(ROLE_COLORS).toContain(roleColor('Accountant'))
+    expect(ROLE_COLORS).toContain(roleColor(''))
   })
 
   it('is deterministic — same name always returns same color', () => {
