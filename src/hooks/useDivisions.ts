@@ -6,6 +6,7 @@ export type Division = DBTable<'divisions'>
 export type DivisionInsert = DBInsert<'divisions'>
 export type DivisionUpdate = DBUpdate<'divisions'>
 
+/** Active divisions only — used across the app for DivisionFilter, selectors, etc. */
 export function useDivisions() {
   return useQuery({
     queryKey: ['divisions'],
@@ -20,6 +21,22 @@ export function useDivisions() {
       return data as Division[]
     },
     staleTime: 10 * 60 * 1000,
+  })
+}
+
+/** All divisions including inactive — used by admin Companies page. */
+export function useAllDivisions() {
+  return useQuery({
+    queryKey: ['divisions', 'all'],
+    queryFn: async () => {
+      const supabase = createClient()
+      const { data, error } = await supabase
+        .from('divisions')
+        .select('*')
+        .order('sort_order')
+      if (error) throw error
+      return data as Division[]
+    },
   })
 }
 
@@ -72,6 +89,23 @@ export function useUpdateDivision() {
         .single()
       if (error) throw error
       return data
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['divisions'] })
+    },
+  })
+}
+
+export function useDeleteDivision() {
+  const queryClient = useQueryClient()
+  return useMutation({
+    mutationFn: async (id: string) => {
+      const supabase = createClient()
+      const { error } = await supabase
+        .from('divisions')
+        .delete()
+        .eq('id', id)
+      if (error) throw error
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['divisions'] })
