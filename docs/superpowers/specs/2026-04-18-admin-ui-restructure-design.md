@@ -121,11 +121,41 @@ Redesign the dialog UI to match the mockup — company selector inside the dialo
 7. **Logo + Stamp** — 2-column row, each column is an upload area:
    - Dashed border box, centered icon + "Upload Logo" / "Upload Stamp" label
    - On click: opens file picker (`accept="image/*"`)
-   - On file select: upload to Supabase Storage bucket `division-assets` at path `{Date.now()}-{filename}` → store returned public URL in `logo_url` / `stamp_url`
+   - On file select: upload to Supabase Storage bucket `division-assets` at path `` `${crypto.randomUUID()}-${filename.replace(/[^a-zA-Z0-9.]/g, '_')}` `` → store returned public URL in `logo_url` / `stamp_url`
    - If URL exists: show thumbnail preview instead of the upload placeholder
    - Supabase Storage bucket `division-assets` must be created (public read, authenticated write)
 
 8. **Footer:** Cancel + "Add Division" / "Update Division" button (orange primary)
+
+### Zod schema update
+
+The existing `divisionSchema` must be updated to reflect these changes:
+
+```ts
+const divisionSchema = z.object({
+  company_id:       z.string().uuid('Company is required'),   // NEW — moved from prop to form field
+  name:             z.string().min(1, 'Name is required'),
+  short_name:       z.string().optional(),
+  slug:             z.string().min(1, 'Slug is required'),
+  color:            z.string().regex(/^#[0-9a-fA-F]{6}$/, 'Must be a valid hex color'),  // tightened
+  company_name_en:  z.string().optional(),
+  company_name_ar:  z.string().optional(),
+  address_en:       z.string().optional(),
+  address_ar:       z.string().optional(),
+  footer_motto:     z.string().max(120, 'Max 120 characters').optional(),  // NEW — length cap
+  logo_url:         z.string().url().optional().or(z.literal('')),         // NEW — must be URL or empty
+  stamp_url:        z.string().url().optional().or(z.literal('')),         // NEW — must be URL or empty
+  default_currency: z.string().min(1),
+  default_tax_rate: z.string(),
+  sort_order:       z.string(),
+})
+```
+
+Key changes from the existing schema:
+- `company_id` added as a required UUID field (was a prop, not a form field)
+- `color` tightened from `z.string().min(1)` to a hex-color regex
+- `footer_motto` gains a `max(120)` length cap
+- `logo_url` and `stamp_url` changed from plain `z.string().optional()` to `z.string().url().optional().or(z.literal(''))` so a stored URL is validated but an empty string (cleared field) is also accepted
 
 ### Props change
 `DivisionFormDialog` props: remove required `companyId: string`, make it optional `companyId?: string` (pre-selects company if provided, otherwise user picks from dropdown).
