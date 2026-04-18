@@ -12,6 +12,31 @@ export type Database = {
   __InternalSupabase: {
     PostgrestVersion: "14.5"
   }
+  graphql_public: {
+    Tables: {
+      [_ in never]: never
+    }
+    Views: {
+      [_ in never]: never
+    }
+    Functions: {
+      graphql: {
+        Args: {
+          extensions?: Json
+          operationName?: string
+          query?: string
+          variables?: Json
+        }
+        Returns: Json
+      }
+    }
+    Enums: {
+      [_ in never]: never
+    }
+    CompositeTypes: {
+      [_ in never]: never
+    }
+  }
   public: {
     Tables: {
       activity_log: {
@@ -2266,6 +2291,7 @@ export type Database = {
           full_name_ar: string | null
           id: string
           is_active: boolean | null
+          must_change_password: boolean
           phone: string | null
           updated_at: string
           user_type: Database["public"]["Enums"]["user_type"]
@@ -2282,6 +2308,7 @@ export type Database = {
           full_name_ar?: string | null
           id?: string
           is_active?: boolean | null
+          must_change_password?: boolean
           phone?: string | null
           updated_at?: string
           user_type?: Database["public"]["Enums"]["user_type"]
@@ -2298,6 +2325,7 @@ export type Database = {
           full_name_ar?: string | null
           id?: string
           is_active?: boolean | null
+          must_change_password?: boolean
           phone?: string | null
           updated_at?: string
           user_type?: Database["public"]["Enums"]["user_type"]
@@ -4613,7 +4641,10 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
-      [_ in never]: never
+      replace_user_custom_roles: {
+        Args: { p_role_ids: string[]; p_user_id: string }
+        Returns: undefined
+      }
     }
     Enums: {
       address_type: "blue-plate" | "google-coords"
@@ -4891,6 +4922,9 @@ export type CompositeTypes<
     : never
 
 export const Constants = {
+  graphql_public: {
+    Enums: {},
+  },
   public: {
     Enums: {
       address_type: ["blue-plate", "google-coords"],
