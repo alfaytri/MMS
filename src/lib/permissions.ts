@@ -131,7 +131,7 @@ export const PERMISSION_GROUPS: PermissionGroup[] = [
 
 export const ALL_PERMISSIONS = PERMISSION_GROUPS.flatMap((g) => g.permissions.map((p) => p.key))
 
-const ROLE_COLORS = ['blue', 'green', 'orange', 'purple', 'teal', 'rose', 'amber', 'indigo'] as const
+export const ROLE_COLORS = ['blue', 'green', 'orange', 'purple', 'teal', 'rose', 'amber', 'indigo'] as const
 export type RoleColor = (typeof ROLE_COLORS)[number]
 
 /** Deterministic color derived from role name — no DB column needed. */
