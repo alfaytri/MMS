@@ -12,6 +12,7 @@ import {
   Form, FormControl, FormField, FormItem, FormLabel, FormMessage,
 } from '@/components/ui/form'
 import { Input } from '@/components/ui/input'
+import { Label } from '@/components/ui/label'
 import { Textarea } from '@/components/ui/textarea'
 import { Checkbox } from '@/components/ui/checkbox'
 import { Button } from '@/components/ui/button'
@@ -65,7 +66,7 @@ export function RoleFormDialog({ open, onOpenChange, role }: RoleFormDialogProps
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="w-full max-w-2xl max-h-[90vh] overflow-y-auto">
+      <DialogContent className="w-full max-w-5xl max-h-[90vh] overflow-y-auto">
         <DialogHeader>
           <DialogTitle>{isEditing ? 'Edit' : 'Create'} Role</DialogTitle>
         </DialogHeader>
@@ -80,27 +81,59 @@ export function RoleFormDialog({ open, onOpenChange, role }: RoleFormDialogProps
               )} />
             </div>
             <div>
-              <FormLabel>Permissions</FormLabel>
-              <div className="mt-2 space-y-4 max-h-80 overflow-y-auto border rounded-md p-3">
-                {PERMISSION_GROUPS.map((group) => (
+              <Label>Permissions</Label>
+              <div className="mt-2 space-y-3 border rounded-md p-3 max-h-[55vh] overflow-y-auto">
+                {PERMISSION_GROUPS.map((group) => {
+                  const groupKeys = group.keys as readonly string[]
+                  const modulePrefix = group.module.toLowerCase().replace(/ /g, '_') + '.'
+                  const formatKey = (k: string) =>
+                    (k.startsWith(modulePrefix) ? k.slice(modulePrefix.length) : k)
+                      .replace(/[._]/g, ' ')
+                  const allSelected = groupKeys.every((k) => selectedPermissions.includes(k))
+                  const toggleGroup = () => {
+                    const current = form.getValues('permissions')
+                    if (allSelected) {
+                      form.setValue('permissions', current.filter((k) => !groupKeys.includes(k)))
+                    } else {
+                      const merged = Array.from(new Set([...current, ...groupKeys]))
+                      form.setValue('permissions', merged)
+                    }
+                  }
+                  return (
                   <div key={group.module}>
-                    <h4 className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-2">{group.module}</h4>
-                    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-1">
+                    <div className="flex items-center justify-between mb-2">
+                      <h4 className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">{group.module}</h4>
+                      <Button
+                        type="button"
+                        variant="ghost"
+                        size="sm"
+                        className="h-6 px-2 text-xs"
+                        onClick={toggleGroup}
+                      >
+                        {allSelected ? 'Deselect all' : 'Select all'}
+                      </Button>
+                    </div>
+                    <div className="flex flex-wrap gap-x-4 gap-y-1">
                       {group.keys.map((key) => (
-                        <label key={key} className="flex items-center gap-2 text-sm py-1 px-1 rounded hover:bg-muted cursor-pointer min-h-[44px] sm:min-h-0">
+                        <label
+                          key={key}
+                          className="flex items-center gap-2 py-0.5 px-2 rounded hover:bg-muted cursor-pointer min-w-[170px]"
+                        >
                           <Checkbox
+                            className="shrink-0"
                             checked={selectedPermissions.includes(key)}
                             onCheckedChange={(checked) => {
                               const current = form.getValues('permissions')
                               form.setValue('permissions', checked ? [...current, key] : current.filter((k) => k !== key))
                             }}
                           />
-                          <span className="text-xs">{key.replace(/_/g, ' ')}</span>
+                          <span className="text-xs whitespace-nowrap capitalize">{formatKey(key)}</span>
                         </label>
                       ))}
                     </div>
                   </div>
-                ))}
+                  )
+                })}
               </div>
             </div>
             <DialogFooter>
