@@ -227,6 +227,7 @@ Contact Center (never outsource — too complex)
 - [2026-04-18] **Admin UI Restructure Task 7: RoleFormDialog** — accordion permissions by module with indeterminate checkboxes, Select/Clear All, live count, Base UI indeterminate prop adapted (0447262)
 - [2026-04-18] **Admin UI Restructure Task 8: Users & Roles page** — Shield header + dynamic counts, tab badges, Permissions accordion with Expand/Collapse All, Role cards grid (3-col) with coverage chips via `roleColor()`, Users DataTable with row actions, `useDeleteRole` hook added (972299d)
 - [2026-04-18] **Admin UI Restructure Task 9: Integration** — full `next build` passes (31 routes), all 33 vitest tests pass, old `master-data/companies` and `master-data/warehouses` routes confirmed removed
+- [2026-04-18] **Auth gate fix** — `middleware.ts` now redirects signed-in users off `/login` to `/`, removed leftover debug `console.log`, dropped dead `!startsWith('/auth')` check (the `(auth)` route group is stripped from URLs so the clause never fired). Unauthenticated users hitting `/` are correctly redirected to `/login`; authenticated users hitting `/login` are redirected to the dashboard.
 
 ## 🔄 In Progress
 

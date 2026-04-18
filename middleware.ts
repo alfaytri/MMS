@@ -39,22 +39,28 @@ export async function middleware(request: NextRequest) {
   )
 
   const { data: { user } } = await supabase.auth.getUser()
+  const pathname = request.nextUrl.pathname
 
-  if (
-    !user &&
-    !request.nextUrl.pathname.startsWith('/login') &&
-    !request.nextUrl.pathname.startsWith('/auth')
-  ) {
+  // ─── Unauthenticated gate ────────────────────────────────────────────
+  // Anyone without a session is sent to /login, except for /login itself
+  // (and non-page assets, which are already excluded by the matcher).
+  if (!user && pathname !== '/login') {
     const url = request.nextUrl.clone()
     url.pathname = '/login'
     return NextResponse.redirect(url)
   }
 
+  // ─── Authenticated-at-/login redirect ────────────────────────────────
+  // If a signed-in user hits /login, send them to the dashboard instead
+  // of rendering the login form over an active session.
+  if (user && pathname === '/login') {
+    const url = request.nextUrl.clone()
+    url.pathname = '/'
+    return NextResponse.redirect(url)
+  }
+
   // ─── Force-change-password gate ──────────────────────────────────────
   if (user) {
-    // DEBUG — remove after confirming gate works
-    console.log('[middleware] path:', request.nextUrl.pathname, '| user_metadata:', JSON.stringify(user.user_metadata))
-
     // Primary: JWT user_metadata — no DB roundtrip.
     let mustChange = Boolean(user.user_metadata?.must_change_password)
 
@@ -70,7 +76,7 @@ export async function middleware(request: NextRequest) {
       mustChange = Boolean(profile?.must_change_password)
     }
 
-    if (mustChange && !isAllowedPath(request.nextUrl.pathname)) {
+    if (mustChange && !isAllowedPath(pathname)) {
       const url = request.nextUrl.clone()
       url.pathname = '/change-password'
       return NextResponse.redirect(url)
