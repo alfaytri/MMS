@@ -16,3 +16,8 @@ create policy "Authenticated users can update division assets"
   on storage.objects for update
   to authenticated
   using (bucket_id = 'division-assets');
+
+create policy "Authenticated users can delete division assets"
+  on storage.objects for delete
+  to authenticated
+  using (bucket_id = 'division-assets');
