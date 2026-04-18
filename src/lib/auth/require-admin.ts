@@ -30,7 +30,21 @@ export async function requireAdmin(): Promise<AdminGateSuccess | AdminGateFailur
   const bootstrapEmail = process.env.ADMIN_BOOTSTRAP_EMAIL?.trim().toLowerCase()
   const callerEmail = user.email?.trim().toLowerCase() ?? null
 
-  // Fetch profile + permissions via nested select.
+  // Bootstrap shortcut: check email FIRST, before any DB round-trip.
+  // This lets the first admin use all routes even with no profile row yet,
+  // and survives any RLS / relationship query failures.
+  if (bootstrapEmail && callerEmail === bootstrapEmail) {
+    // Still try to fetch profile.id for audit purposes, but don't block on failure.
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const { data: bp } = await (supabase as any)
+      .from('profiles')
+      .select('id')
+      .eq('auth_user_id', user.id)
+      .maybeSingle()
+    return { ok: true, authUserId: user.id, email: callerEmail, profileId: bp?.id ?? '' }
+  }
+
+  // Non-bootstrap: require profile + master_data.users.manage permission.
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const { data: profile } = await (supabase as any)
     .from('profiles')
@@ -39,11 +53,6 @@ export async function requireAdmin(): Promise<AdminGateSuccess | AdminGateFailur
     .maybeSingle()
 
   if (!profile) {
-    // No profile row yet — only bootstrap email can proceed (so first admin
-    // can still create users before anyone has a profile).
-    if (bootstrapEmail && callerEmail === bootstrapEmail) {
-      return { ok: true, authUserId: user.id, email: callerEmail, profileId: '' }
-    }
     return { ok: false, status: 403, message: 'Forbidden — no profile linked to this user' }
   }
 
@@ -53,11 +62,6 @@ export async function requireAdmin(): Promise<AdminGateSuccess | AdminGateFailur
     )
 
   if (perms.includes(REQUIRED_PERMISSION)) {
-    return { ok: true, authUserId: user.id, email: callerEmail, profileId: profile.id }
-  }
-
-  // Bootstrap fallback.
-  if (bootstrapEmail && callerEmail === bootstrapEmail) {
     return { ok: true, authUserId: user.id, email: callerEmail, profileId: profile.id }
   }
 
