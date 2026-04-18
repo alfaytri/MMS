@@ -207,6 +207,12 @@ Contact Center (never outsource — too complex)
 - [2026-04-17] **CSV Import Task 3: Integration Test** — TypeScript clean, all tests pass, build succeeds, route /master-data/import confirmed
 - [2026-04-17] **CSV Import plan: COMPLETE** — All 3 tasks done. 1 page, 3 utility/hook files, 5 entity importers, full workflow (template → upload → validate → import → results).
 
+- [2026-04-18] **User Management Task 5: POST /api/users/create** — admin-driven user creation with rate limit + dual-write profile + atomic role assignment + audit log
+- [2026-04-18] **User Management Tasks 6-8: remaining API routes** — PATCH /api/users/[id] (profile update + self-deactivation guard), POST /api/users/reset-password (JWT+DB dual-write), POST /api/users/me/change-password (self-change clears flag + session refresh)
+- [2026-04-18] **User Management Tasks 9-11: infrastructure** — middleware force-change-password gate (JWT→DB fallback + explicit allowlist), 4 new useProfiles hooks, /change-password page
+- [2026-04-18] **User Management Tasks 12-15: dialogs + wiring** — AddUserDialog, EditUserDialog, ResetPasswordDialog; wired into Users page; "Invite User" renamed to "Add User"; "Manage Roles" replaced with Edit/Reset actions
+- [2026-04-18] **User Management Task 16: cleanup** — deleted /api/users/invite, InviteUserDialog, useInviteUser; full build confirmed clean; all 5 new routes present
+
 ## 🔄 In Progress
 
 ### Phase 1 Cleanup — MUST CLEAR BEFORE PHASE 2
@@ -217,7 +223,7 @@ All Phase 1 modules are feature-complete, but these loose ends must be closed be
   - Design spec: `docs/superpowers/specs/2026-04-18-in-app-user-management-design.md`
   - Implementation plan: `docs/superpowers/plans/2026-04-18-mms-user-management.md` (17 tasks)
   - Scope: migration for `profiles.must_change_password`, 4 new API routes, delete `/api/users/invite`, middleware force-change gate, `/change-password` page, `AddUserDialog` + `EditUserDialog` + `ResetPasswordDialog`, row actions dropdown on Users page, hook updates.
-  - Status: **in progress** — executing via subagent-driven-development.
+  - Status: **code complete** — awaiting manual smoke test (Task 17).
     - [x] Task 1 — migration + `replace_user_custom_roles` RPC applied (ad94ed2)
     - [x] Task 2 — shared `passwordSchema` zod + 6 unit tests (c33730a)
     - [x] Task 3 — `requireAdmin()` / `requireAuth()` gates with `ADMIN_BOOTSTRAP_EMAIL` fallback (ab7a744)
@@ -233,8 +239,8 @@ All Phase 1 modules are feature-complete, but these loose ends must be closed be
     - [x] Task 13 — `EditUserDialog` component (d1a59b8)
     - [x] Task 14 — `ResetPasswordDialog` component (4670c2f)
     - [x] Task 15 — wire dialogs into Users page; renamed Invite → Add; swapped Manage Roles for Edit User + Reset Password (41e3a9d)
-    - [ ] Task 16 — delete `/api/users/invite`, `InviteUserDialog`, `useInviteUser`
-    - [ ] Task 17 — end-to-end smoke test across all 8 security items
+    - [x] Task 16 — deleted `/api/users/invite`, `InviteUserDialog`, `useInviteUser`; build clean (d6565ef)
+    - [ ] Task 17 — end-to-end smoke test across all 8 security items (manual)
 
 - [x] **[2026-04-18] Create Role dialog UI polish** — permissions grid was overlapping; fixed via flex-wrap + module-prefix stripping + per-group Select all toggle. Width raised to `max-w-5xl`, inner permissions box caps at `55vh` with internal scroll.
 
