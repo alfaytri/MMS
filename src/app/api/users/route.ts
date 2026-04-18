@@ -16,7 +16,7 @@ export async function GET() {
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const { data, error } = await (admin as any)
       .from('profiles')
-      .select('*, user_custom_roles(role_id, custom_roles(name, color)), user_divisions(division_id, divisions(name, short_name, color))')
+      .select('*, user_custom_roles!user_custom_roles_profile_id_fkey(role_id, custom_roles(name, color)), user_divisions(division_id, divisions(name, short_name, color))')
       .order('full_name')
 
     if (error) {

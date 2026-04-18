@@ -48,7 +48,7 @@ export async function requireAdmin(): Promise<AdminGateSuccess | AdminGateFailur
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const { data: profile } = await (supabase as any)
     .from('profiles')
-    .select('id, user_custom_roles(custom_roles(permissions))')
+    .select('id, user_custom_roles!user_custom_roles_profile_id_fkey(custom_roles(permissions))')
     .eq('auth_user_id', user.id)
     .maybeSingle()
 
