@@ -68,7 +68,7 @@ export function ResetPasswordDialog({ open, onOpenChange, profile }: Props) {
                 <FormItem>
                   <FormLabel>New Password *</FormLabel>
                   <FormControl><Input type="password" autoComplete="new-password" {...field} /></FormControl>
-                  <p className="text-xs text-muted-foreground">10+ chars, uppercase, lowercase, digit, symbol.</p>
+                  <p className="text-xs text-muted-foreground">8+ chars, uppercase, lowercase, digit, symbol.</p>
                   <FormMessage />
                 </FormItem>
               )}

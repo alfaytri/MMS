@@ -55,7 +55,7 @@ export default function ChangePasswordPage() {
             <Input id="new_password" type="password" autoComplete="new-password" {...register('new_password')} />
             {errors.new_password && <p className="text-xs text-destructive">{errors.new_password.message}</p>}
             <p className="text-xs text-muted-foreground">
-              At least 10 characters, with uppercase, lowercase, digit, and symbol.
+              At least 8 characters, with uppercase, lowercase, digit, and symbol.
             </p>
           </div>
 

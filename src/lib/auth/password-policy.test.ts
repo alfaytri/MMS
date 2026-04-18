@@ -6,10 +6,10 @@ describe('passwordSchema', () => {
     expect(passwordSchema.safeParse('Str0ng!Pass').success).toBe(true)
   })
 
-  it('rejects a password shorter than 10 characters', () => {
-    const r = passwordSchema.safeParse('Sh0rt!A')
+  it('rejects a password shorter than 8 characters', () => {
+    const r = passwordSchema.safeParse('Sh0!A')
     expect(r.success).toBe(false)
-    if (!r.success) expect(r.error.issues[0].message).toMatch(/10/)
+    if (!r.success) expect(r.error.issues[0].message).toMatch(/8/)
   })
 
   it('rejects a password with no uppercase', () => {

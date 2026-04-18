@@ -6,7 +6,7 @@ import { z } from 'zod'
  */
 export const passwordSchema = z
   .string()
-  .min(10, 'Password must be at least 10 characters')
+  .min(8, 'Password must be at least 8 characters')
   .refine((v) => /[A-Z]/.test(v), { message: 'Must contain an uppercase letter' })
   .refine((v) => /[a-z]/.test(v), { message: 'Must contain a lowercase letter' })
   .refine((v) => /\d/.test(v), { message: 'Must contain a digit' })
