@@ -215,9 +215,26 @@ All Phase 1 modules are feature-complete, but these loose ends must be closed be
 
 - [ ] **[2026-04-18] In-app user management rework** — replace invite-email flow with admin-driven create / edit / reset password.
   - Design spec: `docs/superpowers/specs/2026-04-18-in-app-user-management-design.md`
-  - Implementation plan: *(pending — next step)*
+  - Implementation plan: `docs/superpowers/plans/2026-04-18-mms-user-management.md` (17 tasks)
   - Scope: migration for `profiles.must_change_password`, 4 new API routes, delete `/api/users/invite`, middleware force-change gate, `/change-password` page, `AddUserDialog` + `EditUserDialog` + `ResetPasswordDialog`, row actions dropdown on Users page, hook updates.
-  - Status: design approved, awaiting implementation plan.
+  - Status: **in progress** — executing via subagent-driven-development.
+    - [x] Task 1 — migration + `replace_user_custom_roles` RPC applied (ad94ed2)
+    - [x] Task 2 — shared `passwordSchema` zod + 6 unit tests (c33730a)
+    - [x] Task 3 — `requireAdmin()` / `requireAuth()` gates with `ADMIN_BOOTSTRAP_EMAIL` fallback (ab7a744)
+    - [x] Task 4 — `isRateLimited()` + `logUserEvent()` helpers over `activity_log` (7f9753c)
+    - [ ] Task 5 — `POST /api/users/create`
+    - [ ] Task 6 — `PATCH /api/users/[id]`
+    - [ ] Task 7 — `POST /api/users/reset-password`
+    - [ ] Task 8 — `POST /api/users/me/change-password`
+    - [ ] Task 9 — middleware force-change-password gate (explicit allowlist + JWT→DB fallback)
+    - [ ] Task 10 — `useCreateUser` / `useUpdateUser` / `useResetUserPassword` / `useCompleteMyPasswordChange` hooks
+    - [ ] Task 11 — `/change-password` page
+    - [ ] Task 12 — `AddUserDialog` component
+    - [ ] Task 13 — `EditUserDialog` component
+    - [ ] Task 14 — `ResetPasswordDialog` component
+    - [ ] Task 15 — wire dialogs into Users page; rename Invite → Add; swap Manage Roles for Edit User + Reset Password
+    - [ ] Task 16 — delete `/api/users/invite`, `InviteUserDialog`, `useInviteUser`
+    - [ ] Task 17 — end-to-end smoke test across all 8 security items
 
 - [x] **[2026-04-18] Create Role dialog UI polish** — permissions grid was overlapping; fixed via flex-wrap + module-prefix stripping + per-group Select all toggle. Width raised to `max-w-5xl`, inner permissions box caps at `55vh` with internal scroll.
 
