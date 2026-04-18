@@ -71,30 +71,6 @@ export function useCreateMyProfile() {
   })
 }
 
-// Invite a new user via the /api/users/invite Route Handler.
-// The handler uses the service_role admin key server-side.
-export function useInviteUser() {
-  const queryClient = useQueryClient()
-  return useMutation({
-    mutationFn: async (payload: {
-      email: string
-      full_name: string
-      user_type?: 'internal' | 'external'
-    }) => {
-      const res = await fetch('/api/users/invite', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(payload),
-      })
-      const json = await res.json()
-      if (!res.ok) throw new Error(json.error ?? 'Invite failed')
-      return json
-    },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['profiles'] })
-    },
-  })
-}
 
 export function useUpdateProfile() {
   const queryClient = useQueryClient()

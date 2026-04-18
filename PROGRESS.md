@@ -226,13 +226,13 @@ All Phase 1 modules are feature-complete, but these loose ends must be closed be
     - [x] Task 6 — `PATCH /api/users/[id]` — update profile + optional role replace + self-deactivation guard (ef16d2d)
     - [x] Task 7 — `POST /api/users/reset-password` — admin reset with JWT+DB dual-write (4540ac4)
     - [x] Task 8 — `POST /api/users/me/change-password` — self-change clears flag (e7fdbdf)
-    - [ ] Task 9 — middleware force-change-password gate (explicit allowlist + JWT→DB fallback)
-    - [ ] Task 10 — `useCreateUser` / `useUpdateUser` / `useResetUserPassword` / `useCompleteMyPasswordChange` hooks
-    - [ ] Task 11 — `/change-password` page
-    - [ ] Task 12 — `AddUserDialog` component
-    - [ ] Task 13 — `EditUserDialog` component
-    - [ ] Task 14 — `ResetPasswordDialog` component
-    - [ ] Task 15 — wire dialogs into Users page; rename Invite → Add; swap Manage Roles for Edit User + Reset Password
+    - [x] Task 9 — middleware force-change-password gate (explicit allowlist + JWT→DB fallback) (69a5369)
+    - [x] Task 10 — `useCreateUser` / `useUpdateUser` / `useResetUserPassword` / `useCompleteMyPasswordChange` hooks (2945735)
+    - [x] Task 11 — `/change-password` page (035a271)
+    - [x] Task 12 — `AddUserDialog` component (7ac00dc)
+    - [x] Task 13 — `EditUserDialog` component (d1a59b8)
+    - [x] Task 14 — `ResetPasswordDialog` component (4670c2f)
+    - [x] Task 15 — wire dialogs into Users page; renamed Invite → Add; swapped Manage Roles for Edit User + Reset Password (41e3a9d)
     - [ ] Task 16 — delete `/api/users/invite`, `InviteUserDialog`, `useInviteUser`
     - [ ] Task 17 — end-to-end smoke test across all 8 security items
 
