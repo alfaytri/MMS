@@ -44,6 +44,18 @@ export function useUpdateRole() {
   })
 }
 
+export function useDeleteRole() {
+  const queryClient = useQueryClient()
+  return useMutation({
+    mutationFn: async (id: string) => {
+      const supabase = createClient()
+      const { error } = await supabase.from('custom_roles').delete().eq('id', id)
+      if (error) throw error
+    },
+    onSuccess: () => { queryClient.invalidateQueries({ queryKey: ['custom-roles'] }) },
+  })
+}
+
 export function useUserRoles(profileId: string | null) {
   return useQuery({
     queryKey: ['user-roles', profileId],
