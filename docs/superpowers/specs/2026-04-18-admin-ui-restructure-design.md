@@ -112,7 +112,7 @@ Redesign the dialog UI to match the mockup — company selector inside the dialo
    ```
    Clicking a swatch sets the color. Also allow typing the hex directly.
 
-4. **Company Name (EN) + Company Name (AR)** — 2-column row. AR field has `dir="rtl"` and RTL placeholder.
+4. **Division Name (AR)** — single full-width input with `dir="rtl"` and a RTL placeholder (e.g. `"e.g. صيانة الفايتري"`), optional. This is the Arabic display name for the division, distinct from the already-selected company. The `company_name_en` and `company_name_ar` fields are **not shown in this form** — the company identity comes from the Step 1 dropdown.
 
 5. **Address (EN) + Address (AR)** — 2-column row. AR field has `dir="rtl"`.
 
@@ -135,16 +135,16 @@ The existing `divisionSchema` must be updated to reflect these changes:
 const divisionSchema = z.object({
   company_id:       z.string().uuid('Company is required'),   // NEW — moved from prop to form field
   name:             z.string().min(1, 'Name is required'),
+  name_ar:          z.string().optional(),                    // NEW — Arabic division name (Step 4)
   short_name:       z.string().optional(),
   slug:             z.string().min(1, 'Slug is required'),
   color:            z.string().regex(/^#[0-9a-fA-F]{6}$/, 'Must be a valid hex color'),  // tightened
-  company_name_en:  z.string().optional(),
-  company_name_ar:  z.string().optional(),
+  // company_name_en and company_name_ar REMOVED from form — company identity comes from the dropdown
   address_en:       z.string().optional(),
   address_ar:       z.string().optional(),
   footer_motto:     z.string().max(120, 'Max 120 characters').optional(),  // NEW — length cap
-  logo_url:         z.string().url().optional().or(z.literal('')),         // NEW — must be URL or empty
-  stamp_url:        z.string().url().optional().or(z.literal('')),         // NEW — must be URL or empty
+  logo_url:         z.string().url().optional().or(z.literal('')),         // must be URL or empty
+  stamp_url:        z.string().url().optional().or(z.literal('')),         // must be URL or empty
   default_currency: z.string().min(1),
   default_tax_rate: z.string(),
   sort_order:       z.string(),
@@ -153,6 +153,8 @@ const divisionSchema = z.object({
 
 Key changes from the existing schema:
 - `company_id` added as a required UUID field (was a prop, not a form field)
+- `name_ar` added for the Arabic division name (new DB column — requires migration)
+- `company_name_en` and `company_name_ar` **removed from form** (fields remain in DB but are not edited here — company identity is resolved from the dropdown selection)
 - `color` tightened from `z.string().min(1)` to a hex-color regex
 - `footer_motto` gains a `max(120)` length cap
 - `logo_url` and `stamp_url` changed from plain `z.string().optional()` to `z.string().url().optional().or(z.literal(''))` so a stored URL is validated but an empty string (cleared field) is also accepted
@@ -300,6 +302,7 @@ Clicking module checkbox toggles all permissions in that module.
 - `src/app/(dashboard)/master-data/admin/companies/page.tsx`
 - `src/app/(dashboard)/master-data/admin/warehouses/page.tsx`
 - `supabase/migrations/20260418160000_division_assets_bucket.sql`
+- `supabase/migrations/20260418160001_divisions_name_ar.sql` — adds `name_ar text` column to `divisions` table
 
 ### Modified files
 - `src/components/master-data/AdminSidebar.tsx` — update hrefs + label
