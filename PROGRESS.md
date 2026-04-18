@@ -209,9 +209,21 @@ Contact Center (never outsource — too complex)
 
 ## 🔄 In Progress
 
-- Phase 1 complete — considering Phase 2 (Invoices & Payments, Orders, Contracts)
+### Phase 1 Cleanup — MUST CLEAR BEFORE PHASE 2
 
-## ⏳ Not Started
+All Phase 1 modules are feature-complete, but these loose ends must be closed before starting Phase 2 work.
+
+- [ ] **[2026-04-18] In-app user management rework** — replace invite-email flow with admin-driven create / edit / reset password.
+  - Design spec: `docs/superpowers/specs/2026-04-18-in-app-user-management-design.md`
+  - Implementation plan: *(pending — next step)*
+  - Scope: migration for `profiles.must_change_password`, 4 new API routes, delete `/api/users/invite`, middleware force-change gate, `/change-password` page, `AddUserDialog` + `EditUserDialog` + `ResetPasswordDialog`, row actions dropdown on Users page, hook updates.
+  - Status: design approved, awaiting implementation plan.
+
+- [x] **[2026-04-18] Create Role dialog UI polish** — permissions grid was overlapping; fixed via flex-wrap + module-prefix stripping + per-group Select all toggle. Width raised to `max-w-5xl`, inner permissions box caps at `55vh` with internal scroll.
+
+- [ ] **Verify** self-provision banner flow (Create My Profile) on a fresh auth user with no profile row — unverified by user since it was added.
+
+## ⏳ Not Started (Phase 2, gated on cleanup above)
 
 - Phase 2: Invoices & Payments module
 - Phase 2: Orders module
