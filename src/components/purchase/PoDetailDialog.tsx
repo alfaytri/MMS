@@ -92,8 +92,12 @@ export function PoDetailDialog({ open, onOpenChange, po, onEdit, onCreateBill }:
                       size="sm"
                       disabled={submitPO.isPending}
                       onClick={async () => {
-                        await submitPO.mutateAsync(current.id)
-                        toast.success('PO submitted for approval')
+                        try {
+                          await submitPO.mutateAsync(current.id)
+                          toast.success('PO submitted for approval')
+                        } catch {
+                          toast.error('Failed to submit PO')
+                        }
                       }}
                     >
                       <Send className="h-3.5 w-3.5 mr-1.5" />
@@ -115,9 +119,13 @@ export function PoDetailDialog({ open, onOpenChange, po, onEdit, onCreateBill }:
                       disabled={cancelPO.isPending}
                       onClick={async () => {
                         if (!confirm('Cancel this purchase order?')) return
-                        await cancelPO.mutateAsync(current.id)
-                        toast.success('PO cancelled')
-                        onOpenChange(false)
+                        try {
+                          await cancelPO.mutateAsync(current.id)
+                          toast.success('PO cancelled')
+                          onOpenChange(false)
+                        } catch {
+                          toast.error('Failed to cancel PO')
+                        }
                       }}
                     >
                       <XCircle className="h-3.5 w-3.5 mr-1.5" />
