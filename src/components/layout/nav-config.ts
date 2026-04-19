@@ -64,10 +64,8 @@ export const NAV_ITEMS: NavEntry[] = [
       {
         label: 'PURCHASE',
         items: [
-          { label: 'RFQ', href: '/purchase/rfq' },
           { label: 'Purchase Orders', href: '/purchase/orders' },
           { label: 'Receivals', href: '/purchase/receivals' },
-          { label: 'Bills', href: '/purchase/bills' },
           { label: 'Purchase Payments', href: '/purchase/payments' },
         ],
       },
