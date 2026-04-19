@@ -233,15 +233,19 @@ Contact Center (never outsource — too complex)
 - [2026-04-19] **Purchase & Sales Expansion Task 12: Customer Invoices page** — InvoiceDetail.tsx (read-only dialog with needs_refresh banner, line items table, payment summary, send/pay/payment-plan actions), Customer Invoices list page with doc_status chip filter, search, DataTable, InvoiceDetail integration (`src/components/sales/InvoiceDetail.tsx`, `src/app/(dashboard)/sales/invoices/page.tsx`)
 - [2026-04-19] **Purchase & Sales Expansion Task 14: Wire SO Confirm → stub delivery + draft AR invoice** — extended `useConfirmSO` in `src/hooks/useSaleOrders.ts` to insert a `sale_deliveries` stub (warehouse_id null) and call `syncInvoiceToSalesOrder` after stock reservation; `onSuccess` now also invalidates `sale-deliveries` and `customer-invoices` query keys
 - [2026-04-19] **Bug Fix: delivery insert error handling in useConfirmSO** — added error destructuring `const { error: delErr }` and `if (delErr) throw delErr` to the `sale_deliveries` insert in `useConfirmSO`; silent failures are now caught. TypeScript clean, build passes.
+- [2026-04-19] **Purchase & Sales Expansion Task 12: Customer Invoices Page** — InvoiceDetail dialog (needs_refresh banner, send/pay actions), Customer Invoices list page with doc/payment status badges
+- [2026-04-19] **Purchase & Sales Expansion Task 14: SO Confirm Wiring** — useConfirmSO extended to create stub delivery + auto-generate draft AR invoice via syncInvoiceToSalesOrder
+- [2026-04-19] **Purchase & Sales Expansion Task 15: Integration Test** — tsc clean, all vitest tests pass, next build succeeds with all 8 new routes confirmed
+- [2026-04-19] **Purchase & Sales Expansion plan: COMPLETE** — All 15 tasks done. Full Purchase flow (RFQ→PO→Receival→Bill→Payment) + Sales flow (SO→Delivery→Invoice→Payment→Credit Note) implemented.
 
 ## 🔄 In Progress
 
-### Purchase & Sales Expansion (Sub-project C)
+### Purchase & Sales Expansion (Sub-project C) — COMPLETE ✅
 
 - Design spec: `docs/superpowers/specs/2026-04-18-purchase-sales-expansion-design.md` ✅ approved
 - Implementation plan: `docs/superpowers/plans/2026-04-19-purchase-sales-expansion.md` ✅ **fully written** (15 tasks, 67 steps)
 - Scope: DB migrations (invoices split status, match_status, credit_note_lines, payment_plans), Purchase flow (RFQ→PO→Receival→Bill→Payment), Sales flow (SO→Delivery→Invoice→Payment→Credit Note)
-- Status: **Tasks 1–14 COMPLETED** (63/67 steps done, Task 15 remaining)
+- **Status: ALL 15 TASKS COMPLETE ✅**
 
 **Completed Tasks:**
   - [x] Task 1: DB Migration (30b8718)
@@ -258,9 +262,7 @@ Contact Center (never outsource — too complex)
   - [x] Task 12: Customer Invoices Component + Page (b7a67b7)
   - [x] Task 13: Customer Payments + Credit Notes page (f0fe8e3)
   - [x] Task 14: Wire SO Confirm to Create Delivery + Invoice (7027539)
-
-**Pending Tasks:**
-  - [ ] Task 15: Integration Test
+  - [x] Task 15: Integration Test — tsc clean, 33 vitest tests pass, next build with all 8 routes confirmed
 
 ---
 
