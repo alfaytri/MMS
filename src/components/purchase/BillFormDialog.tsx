@@ -16,9 +16,10 @@ import { formatCurrency } from '@/lib/utils/formatters'
 type Props = {
   open: boolean
   onOpenChange: (v: boolean) => void
+  initialPoId?: string
 }
 
-export function BillFormDialog({ open, onOpenChange }: Props) {
+export function BillFormDialog({ open, onOpenChange, initialPoId }: Props) {
   const createBill = useCreateBill()
   const { data: orders } = usePurchaseOrders({})
   const { data: allReceivals } = useReceivals({ status: 'approved' })
@@ -32,6 +33,12 @@ export function BillFormDialog({ open, onOpenChange }: Props) {
 
   const selectedPO = (orders ?? []).find((o) => o.id === selectedPoId)
   const poReceivals = (allReceivals ?? []).filter((r) => r.po_id === selectedPoId)
+
+  useEffect(() => {
+    if (open && initialPoId) {
+      setSelectedPoId(initialPoId)
+    }
+  }, [open, initialPoId])
 
   // eslint-disable-next-line react-hooks/exhaustive-deps
   useEffect(() => {
@@ -71,7 +78,10 @@ export function BillFormDialog({ open, onOpenChange }: Props) {
   )
 
   const close = () => {
-    setSelectedPoId(''); setSelectedReceivalId(''); setNotes(''); setLines([])
+    if (!initialPoId) setSelectedPoId('')
+    setSelectedReceivalId('')
+    setNotes('')
+    setLines([])
     onOpenChange(false)
   }
 
@@ -118,17 +128,28 @@ export function BillFormDialog({ open, onOpenChange }: Props) {
         </DialogHeader>
         <div className="space-y-4">
           <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-            <div className="space-y-1">
-              <Label>Purchase Order *</Label>
-              <Select value={selectedPoId} onValueChange={(v) => { setSelectedPoId(v ?? ''); setSelectedReceivalId('') }}>
-                <SelectTrigger><SelectValue placeholder="Select PO" /></SelectTrigger>
-                <SelectContent>
-                  {(orders ?? []).filter((o) => o.status === 'approved' || o.status === 'received' || o.status === 'partially_received').map((po) => (
-                    <SelectItem key={po.id} value={po.id}>{po.po_number}</SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
+            {!initialPoId ? (
+              <div className="space-y-1">
+                <Label>Purchase Order *</Label>
+                <Select value={selectedPoId} onValueChange={(v) => { setSelectedPoId(v ?? ''); setSelectedReceivalId('') }}>
+                  <SelectTrigger><SelectValue placeholder="Select PO" /></SelectTrigger>
+                  <SelectContent>
+                    {(orders ?? []).filter((o) => o.status === 'approved' || o.status === 'received' || o.status === 'partially_received').map((po) => (
+                      <SelectItem key={po.id} value={po.id}>{po.po_number}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+            ) : (
+              selectedPO && (
+                <div className="space-y-1">
+                  <Label>Purchase Order</Label>
+                  <p className="text-sm font-medium border rounded-md px-3 py-2 bg-muted">
+                    {selectedPO.po_number} — {selectedPO.supplier_name}
+                  </p>
+                </div>
+              )
+            )}
             <div className="space-y-1">
               <Label>Approved Receival</Label>
               <Select value={selectedReceivalId} onValueChange={(v) => setSelectedReceivalId(v ?? '')} disabled={!selectedPoId}>
