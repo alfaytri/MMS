@@ -23,14 +23,15 @@ import {
   Table, TableBody, TableCell, TableHead, TableHeader, TableRow,
 } from '@/components/ui/table'
 
-interface PoDetailDialogProps {
+type Props = {
   open: boolean
   onOpenChange: (open: boolean) => void
   po: PurchaseOrder | null
   onEdit?: (po: PurchaseOrder) => void
+  onCreateBill?: (poId: string) => void
 }
 
-export function PoDetailDialog({ open, onOpenChange, po, onEdit }: PoDetailDialogProps) {
+export function PoDetailDialog({ open, onOpenChange, po, onEdit, onCreateBill }: Props) {
   const [paymentOpen, setPaymentOpen] = useState(false)
   const { data: fullPO, isLoading, isError } = usePurchaseOrder(open ? (po?.id ?? null) : null)
   const { data: payments } = usePOPayments(open ? (po?.id ?? null) : null)
@@ -241,6 +242,11 @@ export function PoDetailDialog({ open, onOpenChange, po, onEdit }: PoDetailDialo
               {current.status === 'draft' && onEdit && (
                 <Button variant="outline" size="sm" disabled={isLoading} onClick={() => { onEdit(current); onOpenChange(false) }}>
                   Edit PO
+                </Button>
+              )}
+              {onCreateBill && (
+                <Button variant="outline" size="sm" onClick={() => { onCreateBill(current.id); onOpenChange(false) }}>
+                  Create Bill
                 </Button>
               )}
               <Button variant="outline" size="sm" onClick={() => onOpenChange(false)}>

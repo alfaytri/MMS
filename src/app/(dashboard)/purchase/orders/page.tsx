@@ -217,6 +217,7 @@ export default function PurchaseOrdersPage() {
         onOpenChange={(open) => { if (!open) setDetailPO(null) }}
         po={detailPO}
         onEdit={(po) => router.push(`/purchase/edit-po/${po.id}`)}
+        onCreateBill={(poId) => { setDetailPO(null); setBillPoId(poId) }}
       />
 
       <RfqFormDialog
