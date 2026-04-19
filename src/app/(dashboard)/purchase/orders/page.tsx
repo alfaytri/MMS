@@ -3,7 +3,15 @@
 import { useState, useMemo } from 'react'
 import { useRouter } from 'next/navigation'
 import { type ColumnDef } from '@tanstack/react-table'
-import { Eye } from 'lucide-react'
+import { MoreHorizontal } from 'lucide-react'
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from '@/components/ui/dropdown-menu'
+import { RfqFormDialog } from '@/components/purchase/RfqFormDialog'
+import { BillFormDialog } from '@/components/purchase/BillFormDialog'
 import { PageHeader } from '@/components/shared/PageHeader'
 import { SearchInput } from '@/components/shared/SearchInput'
 import { DataTable } from '@/components/shared/DataTable'
@@ -34,6 +42,8 @@ export default function PurchaseOrdersPage() {
   const [dateFrom, setDateFrom] = useState('')
   const [dateTo, setDateTo] = useState('')
   const [detailPO, setDetailPO] = useState<PurchaseOrder | null>(null)
+  const [rfqOpen, setRfqOpen] = useState(false)
+  const [billPoId, setBillPoId] = useState<string | null>(null)
 
   const { data: orders, isLoading } = usePurchaseOrders({
     search: search,
@@ -105,17 +115,29 @@ export default function PurchaseOrdersPage() {
     },
     {
       id: 'actions',
-      cell: ({ row }) => (
-        <Button
-          variant="ghost"
-          size="icon"
-          className="h-8 w-8"
-          aria-label="View details"
-          onClick={() => setDetailPO(row.original)}
-        >
-          <Eye className="h-4 w-4" />
-        </Button>
-      ),
+      cell: ({ row }) => {
+        const po = row.original
+        return (
+          <DropdownMenu>
+            <DropdownMenuTrigger className="inline-flex h-8 w-8 items-center justify-center rounded-md hover:bg-accent" aria-label="Row actions">
+              <MoreHorizontal className="h-4 w-4" />
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="end">
+              <DropdownMenuItem onClick={() => setDetailPO(po)}>
+                View
+              </DropdownMenuItem>
+              {po.status === 'draft' && (
+                <DropdownMenuItem onClick={() => router.push(`/purchase/edit-po/${po.id}`)}>
+                  Edit
+                </DropdownMenuItem>
+              )}
+              <DropdownMenuItem onClick={() => setBillPoId(po.id)}>
+                Create Bill
+              </DropdownMenuItem>
+            </DropdownMenuContent>
+          </DropdownMenu>
+        )
+      },
     },
   ], [])
 
@@ -125,9 +147,14 @@ export default function PurchaseOrdersPage() {
         title="Purchase Orders"
         description="Manage POs, payments, deliveries and approvals"
         actions={
-          <Button onClick={() => router.push('/purchase/create-po')}>
-            + Create PO
-          </Button>
+          <div className="flex gap-2">
+            <Button variant="outline" onClick={() => setRfqOpen(true)}>
+              RFQ
+            </Button>
+            <Button onClick={() => router.push('/purchase/create-po')}>
+              + Create PO
+            </Button>
+          </div>
         }
       />
 
@@ -191,6 +218,19 @@ export default function PurchaseOrdersPage() {
         po={detailPO}
         onEdit={(po) => router.push(`/purchase/edit-po/${po.id}`)}
       />
+
+      <RfqFormDialog
+        open={rfqOpen}
+        onOpenChange={setRfqOpen}
+      />
+
+      {billPoId && (
+        <BillFormDialog
+          open={!!billPoId}
+          onOpenChange={(v) => { if (!v) setBillPoId(null) }}
+          initialPoId={billPoId}
+        />
+      )}
     </div>
   )
 }
