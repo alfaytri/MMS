@@ -13,6 +13,7 @@ import { toast } from 'sonner'
 import { PoStatusBadge } from './PoStatusBadge'
 import { PoApprovalChain } from './PoApprovalChain'
 import { PoPaymentDialog } from './PoPaymentDialog'
+import { PoReceiveTab } from './PoReceiveTab'
 import {
   usePurchaseOrder,
   usePOPayments,
@@ -157,6 +158,9 @@ export function PoDetailDialog({ open, onOpenChange, po, onEdit, onCreateBill }:
               <TabsList className="shrink-0 mx-0 overflow-x-auto">
                 <TabsTrigger value="items">Line Items</TabsTrigger>
                 <TabsTrigger value="receivals">Receivals</TabsTrigger>
+                {current && ['approved', 'partially_received'].includes(current.status) && (
+                  <TabsTrigger value="receive">Receive</TabsTrigger>
+                )}
                 <TabsTrigger value="payments">Payments</TabsTrigger>
                 <TabsTrigger value="activity">Activity</TabsTrigger>
               </TabsList>
@@ -242,6 +246,13 @@ export function PoDetailDialog({ open, onOpenChange, po, onEdit, onCreateBill }:
                   ))
                 )}
               </TabsContent>
+
+              {/* ── Receive ──────────────────────────────────────── */}
+              {current && ['approved', 'partially_received'].includes(current.status) && (
+                <TabsContent value="receive" className="flex-1 overflow-y-auto">
+                  <PoReceiveTab po={current} />
+                </TabsContent>
+              )}
 
               {/* ── Payments ─────────────────────────────────────── */}
               <TabsContent value="payments" className="flex-1 overflow-y-auto space-y-4">
