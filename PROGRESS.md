@@ -237,18 +237,19 @@ Contact Center (never outsource — too complex)
 - [2026-04-19] **Purchase & Sales Expansion Task 14: SO Confirm Wiring** — useConfirmSO extended to create stub delivery + auto-generate draft AR invoice via syncInvoiceToSalesOrder
 - [2026-04-19] **Purchase & Sales Expansion Task 15: Integration Test** — tsc clean, all vitest tests pass, next build succeeds with all 8 new routes confirmed
 - [2026-04-19] **Purchase & Sales Expansion plan: COMPLETE** — All 15 tasks done. Full Purchase flow (RFQ→PO→Receival→Bill→Payment) + Sales flow (SO→Delivery→Invoice→Payment→Credit Note) implemented.
+- [2026-04-19] **PO Restructure Task 4: PoDetailDialog "Create Bill" button** — added `onCreateBill` prop to `PoDetailDialog`, footer button wired in `orders/page.tsx` to close dialog and open `BillFormDialog` pre-filled with the PO id (`src/components/purchase/PoDetailDialog.tsx`, `src/app/(dashboard)/purchase/orders/page.tsx`)
 
 ## 🔄 In Progress
 
-### PO Restructure (Sub-project D)
+### PO Restructure (Sub-project D) — COMPLETE ✅
 
 - Implementation plan: `docs/superpowers/plans/2026-04-19-po-restructure.md` ✅ written (4 tasks)
 - Scope: Remove RFQ & Bills from nav, add RFQ button + three-dot row actions on PO list, BillFormDialog `initialPoId` prop, PoDetailDialog "Create Bill" button
-- **Status: IN PROGRESS — Task 4 started**
+- **Status: ALL 4 TASKS COMPLETE ✅**
   - [x] Task 1: Remove RFQ & Bills from nav
   - [x] Task 2: RFQ button + three-dot row actions on PO list
   - [x] Task 3: BillFormDialog `initialPoId` prop
-  - [ ] Task 4: PoDetailDialog "Create Bill" button
+  - [x] Task 4: PoDetailDialog "Create Bill" button
 
 ---
 
