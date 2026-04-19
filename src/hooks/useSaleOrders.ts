@@ -388,7 +388,7 @@ export function useConfirmSO() {
         .from('sale_deliveries')
         .select('*', { count: 'exact', head: true })
       const delivery_number = `DEL-${String((delCount ?? 0) + 1).padStart(5, '0')}`
-      await (supabase as any).from('sale_deliveries').insert({
+      const { error: delErr } = await (supabase as any).from('sale_deliveries').insert({
         delivery_number,
         sale_order_id: id,
         warehouse_id: null,
@@ -401,6 +401,7 @@ export function useConfirmSO() {
         })),
         status: 'pending',
       })
+      if (delErr) throw delErr
 
       // 4. Create draft AR invoice via syncInvoiceToSalesOrder
       const { syncInvoiceToSalesOrder } = await import('@/lib/invoiceSync')
