@@ -15,6 +15,10 @@ import { Badge } from '@/components/ui/badge'
 import { AlertTriangle } from 'lucide-react'
 import { cn } from '@/lib/utils'
 
+function formatEnumLabel(s: string): string {
+  return s.replaceAll('_', ' ').replace(/^\w/, (c) => c.toUpperCase())
+}
+
 const DOC_STATUSES = [
   { value: '' as const, label: 'All' },
   { value: 'draft' as const, label: 'Draft' },
@@ -82,7 +86,7 @@ export default function CustomerInvoicesPage() {
         const s = row.getValue('doc_status') as string
         return (
           <Badge className={cn('text-xs hidden sm:inline-flex', DOC_STATUS_CONFIG[s] ?? '')}>
-            {s.replace('_', ' ')}
+            {formatEnumLabel(s)}
           </Badge>
         )
       },
@@ -94,7 +98,7 @@ export default function CustomerInvoicesPage() {
         const s = row.getValue('payment_status') as string
         return (
           <Badge className={cn('text-xs', PAY_STATUS_CONFIG[s] ?? '')}>
-            {s.replace('_', ' ')}
+            {formatEnumLabel(s)}
           </Badge>
         )
       },
@@ -124,7 +128,7 @@ export default function CustomerInvoicesPage() {
             key={s.value}
             onClick={() => setDocFilter(s.value)}
             className={cn(
-              'px-3 py-1 rounded-full text-sm border transition-colors min-h-9',
+              'px-3 py-1 rounded-full text-sm border transition-colors min-h-11 md:min-h-9',
               docFilter === s.value
                 ? 'bg-primary text-primary-foreground border-primary'
                 : 'border-border hover:bg-accent'

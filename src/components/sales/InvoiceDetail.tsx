@@ -82,8 +82,10 @@ export function InvoiceDetail({ open, onOpenChange, invoice }: Props) {
                   size="icon"
                   className="h-6 w-6 shrink-0"
                   onClick={() => {
-                    dismissRefresh.mutate(invoice.id)
-                    toast.success('Refresh flag cleared')
+                    dismissRefresh.mutate(invoice.id, {
+                      onSuccess: () => toast.success('Refresh flag cleared'),
+                      onError: () => toast.error('Failed to clear refresh flag'),
+                    })
                   }}
                 >
                   <X className="w-3 h-3" />
@@ -136,8 +138,10 @@ export function InvoiceDetail({ open, onOpenChange, invoice }: Props) {
                 <Button
                   className="min-h-11"
                   onClick={() => {
-                    sendInvoice.mutate(invoice.id)
-                    toast.success('Invoice marked as sent')
+                    sendInvoice.mutate(invoice.id, {
+                      onSuccess: () => toast.success('Invoice marked as sent'),
+                      onError: () => toast.error('Failed to mark invoice as sent'),
+                    })
                   }}
                 >
                   <Send className="w-4 h-4 mr-2" /> Send to Customer
