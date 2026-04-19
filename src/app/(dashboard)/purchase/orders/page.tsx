@@ -301,7 +301,13 @@ export default function PurchaseOrdersPage() {
                 Array.from({ length: 5 }).map((_, i) => (
                   <TableRow key={i}>
                     {Array.from({ length: 8 }).map((_, j) => (
-                      <TableCell key={j}>
+                      <TableCell
+                        key={j}
+                        className={cn(
+                          j === 3 ? 'hidden md:table-cell' : '',
+                          j === 6 ? 'hidden lg:table-cell' : ''
+                        )}
+                      >
                         <div className="h-4 bg-muted animate-pulse rounded" />
                       </TableCell>
                     ))}
@@ -343,7 +349,7 @@ export default function PurchaseOrdersPage() {
                         <Badge variant="secondary">{lineCount}</Badge>
                       </TableCell>
                       <TableCell className="text-right">
-                        <span className="font-mono">{formatCurrency(po.total_qar, 'QAR')}</span>
+                        <span className="font-mono">{formatCurrency(po.total_qar ?? 0, 'QAR')}</span>
                       </TableCell>
                       <TableCell className="text-center">
                         <span className={cn(
