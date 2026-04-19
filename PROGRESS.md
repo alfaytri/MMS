@@ -244,9 +244,9 @@ Contact Center (never outsource — too complex)
 
 - Implementation plan: `docs/superpowers/plans/2026-04-19-po-restructure.md` ✅ written (4 tasks)
 - Scope: Remove RFQ & Bills from nav, add RFQ button + three-dot row actions on PO list, BillFormDialog `initialPoId` prop, PoDetailDialog "Create Bill" button
-- **Status: IN PROGRESS — Task 2 started**
+- **Status: IN PROGRESS — Task 3 started**
   - [x] Task 1: Remove RFQ & Bills from nav
-  - [ ] Task 2: RFQ button + three-dot row actions on PO list
+  - [x] Task 2: RFQ button + three-dot row actions on PO list
   - [ ] Task 3: BillFormDialog `initialPoId` prop
   - [ ] Task 4: PoDetailDialog "Create Bill" button
 
