@@ -8,6 +8,8 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { Skeleton } from '@/components/ui/skeleton'
+import { Printer, Send, XCircle } from 'lucide-react'
+import { toast } from 'sonner'
 import { PoStatusBadge } from './PoStatusBadge'
 import { PoApprovalChain } from './PoApprovalChain'
 import { PoPaymentDialog } from './PoPaymentDialog'
@@ -15,10 +17,13 @@ import {
   usePurchaseOrder,
   usePOPayments,
   usePOReceivalsByPO,
+  useSubmitPO,
+  useCancelPO,
   type PurchaseOrder,
 } from '@/hooks/usePurchaseOrders'
 import { useActivityLog } from '@/hooks/useActivityLog'
 import { formatCurrency, formatDate, formatRelative } from '@/lib/utils/formatters'
+import { cn } from '@/lib/utils'
 import {
   Table, TableBody, TableCell, TableHead, TableHeader, TableRow,
 } from '@/components/ui/table'
@@ -39,6 +44,8 @@ export function PoDetailDialog({ open, onOpenChange, po, onEdit, onCreateBill }:
   const { data: activityLogs } = useActivityLog(
     open && po?.id ? { module: 'purchase_orders', entity_id: po.id } : {}
   )
+  const submitPO = useSubmitPO()
+  const cancelPO = useCancelPO()
 
   const current = fullPO ?? po
 
@@ -46,18 +53,87 @@ export function PoDetailDialog({ open, onOpenChange, po, onEdit, onCreateBill }:
     <>
       <Dialog open={open} onOpenChange={onOpenChange}>
         <DialogContent className="w-full max-w-full rounded-none sm:max-w-4xl sm:rounded-lg max-h-[95vh] flex flex-col">
-          <DialogHeader className="shrink-0">
-            <div className="flex flex-wrap items-center gap-3">
-              <DialogTitle>{current?.po_number}</DialogTitle>
-              {current && <PoStatusBadge status={current.status} />}
-              {current?.po_approvals && current.po_approvals.length > 0 && (
-                <PoApprovalChain steps={current.po_approvals} />
+          <DialogHeader className="shrink-0 pb-3 border-b">
+            <div className="flex flex-wrap items-start justify-between gap-3">
+              <div>
+                <div className="flex items-center gap-2">
+                  <DialogTitle className="font-mono text-lg">{current?.po_number}</DialogTitle>
+                  {current && (
+                    <span className={cn(
+                      'inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium',
+                      {
+                        draft: 'bg-slate-100 text-slate-700',
+                        pending_approval: 'bg-amber-100 text-amber-700',
+                        approved: 'bg-blue-100 text-blue-700',
+                        partially_received: 'bg-purple-100 text-purple-700',
+                        received: 'bg-green-100 text-green-700',
+                        cancelled: 'bg-red-100 text-red-700',
+                      }[current.status] ?? 'bg-slate-100 text-slate-700'
+                    )}>
+                      {current.status.replace(/_/g, ' ')}
+                    </span>
+                  )}
+                </div>
+                {current && (
+                  <p className="text-sm text-muted-foreground mt-0.5">
+                    {current.supplier_name} · {current.currency} · {formatDate(current.created_date)}
+                  </p>
+                )}
+              </div>
+              {current && !isLoading && (
+                <div className="flex flex-wrap gap-2">
+                  {current.status === 'draft' && onEdit && (
+                    <Button variant="outline" size="sm" onClick={() => { onEdit(current); onOpenChange(false) }}>
+                      Edit PO
+                    </Button>
+                  )}
+                  {current.status === 'draft' && (
+                    <Button
+                      size="sm"
+                      disabled={submitPO.isPending}
+                      onClick={async () => {
+                        await submitPO.mutateAsync(current.id)
+                        toast.success('PO submitted for approval')
+                      }}
+                    >
+                      <Send className="h-3.5 w-3.5 mr-1.5" />
+                      Submit for Approval
+                    </Button>
+                  )}
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => { toast.info('Print functionality coming soon') }}
+                  >
+                    <Printer className="h-3.5 w-3.5 mr-1.5" />
+                    Print
+                  </Button>
+                  {!['received', 'cancelled'].includes(current.status) && (
+                    <Button
+                      variant="destructive"
+                      size="sm"
+                      disabled={cancelPO.isPending}
+                      onClick={async () => {
+                        if (!confirm('Cancel this purchase order?')) return
+                        await cancelPO.mutateAsync(current.id)
+                        toast.success('PO cancelled')
+                        onOpenChange(false)
+                      }}
+                    >
+                      <XCircle className="h-3.5 w-3.5 mr-1.5" />
+                      Cancel PO
+                    </Button>
+                  )}
+                  {onCreateBill && (
+                    <Button variant="outline" size="sm" onClick={() => { onCreateBill(current.id); onOpenChange(false) }}>
+                      Create Bill
+                    </Button>
+                  )}
+                </div>
               )}
             </div>
-            {current && (
-              <div className="text-sm text-muted-foreground">
-                {current.supplier_name} · {current.currency} · {formatDate(current.created_date)}
-              </div>
+            {current?.po_approvals && current.po_approvals.length > 0 && (
+              <PoApprovalChain steps={current.po_approvals} />
             )}
           </DialogHeader>
 
@@ -236,24 +312,6 @@ export function PoDetailDialog({ open, onOpenChange, po, onEdit, onCreateBill }:
             </Tabs>
           )}
 
-          {/* Action buttons */}
-          {current && !isLoading && (
-            <div className="shrink-0 flex flex-wrap gap-2 pt-2 border-t">
-              {current.status === 'draft' && onEdit && (
-                <Button variant="outline" size="sm" disabled={isLoading} onClick={() => { onEdit(current); onOpenChange(false) }}>
-                  Edit PO
-                </Button>
-              )}
-              {onCreateBill && (
-                <Button variant="outline" size="sm" onClick={() => { onCreateBill(current.id); onOpenChange(false) }}>
-                  Create Bill
-                </Button>
-              )}
-              <Button variant="outline" size="sm" onClick={() => onOpenChange(false)}>
-                Close
-              </Button>
-            </div>
-          )}
         </DialogContent>
       </Dialog>
 
