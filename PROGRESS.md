@@ -230,8 +230,37 @@ Contact Center (never outsource — too complex)
 - [2026-04-18] **Auth gate fix** — `middleware.ts` now redirects signed-in users off `/login` to `/`, removed leftover debug `console.log`, dropped dead `!startsWith('/auth')` check (the `(auth)` route group is stripped from URLs so the clause never fired). Unauthenticated users hitting `/` are correctly redirected to `/login`; authenticated users hitting `/login` are redirected to the dashboard.
 - [2026-04-18] **Users & Roles tabs UI polish** — tab row (Permissions/Roles/Users) moved to the top and centered via `justify-center`, Tabs root forced to `flex-col` so TabsList and TabsContent stack (the base component's `data-horizontal:flex-col` variant wasn't firing). Active tab now highlights with `data-active:bg-primary` (orange) + `text-primary-foreground` (white). Count badges rewritten as compact `<span>` — `h-4 min-w-5 rounded-full bg-white border text-[10px] text-foreground tabular-nums`, giving the white-pill / rounded / black-text look requested. Removed redundant `mt-4` from each TabsContent inner div since the Tabs root now owns the vertical gap.
 - [2026-04-18] **Session cookies are now session-scoped** — stripped `Max-Age`/`Expires` from all three places Supabase auth cookies get written (`middleware.ts`, `src/lib/supabase/server.ts`, `src/lib/supabase/client.ts`). Browser now drops `sb-*-auth-token*` cookies on window/process close instead of persisting them for days, so closing the browser forces the next visit through `/login`. Caveat: Chrome's "Continue where you left off" setting and keeping other tabs on the same origin open will preserve session cookies until the browser process actually exits.
+- [2026-04-19] **Purchase & Sales Expansion Task 12: Customer Invoices page** — InvoiceDetail.tsx (read-only dialog with needs_refresh banner, line items table, payment summary, send/pay/payment-plan actions), Customer Invoices list page with doc_status chip filter, search, DataTable, InvoiceDetail integration (`src/components/sales/InvoiceDetail.tsx`, `src/app/(dashboard)/sales/invoices/page.tsx`)
 
 ## 🔄 In Progress
+
+### Purchase & Sales Expansion (Sub-project C)
+
+- Design spec: `docs/superpowers/specs/2026-04-18-purchase-sales-expansion-design.md` ✅ approved
+- Implementation plan: `docs/superpowers/plans/2026-04-19-purchase-sales-expansion.md` ✅ **fully written** (15 tasks, 67 steps)
+- Scope: DB migrations (invoices split status, match_status, credit_note_lines, payment_plans), Purchase flow (RFQ→PO→Receival→Bill→Payment), Sales flow (SO→Delivery→Invoice→Payment→Credit Note)
+- Status: **12 of 15 tasks + Task 13 COMPLETED** (62/67 steps done)
+
+**Completed Tasks:**
+  - [x] Task 1: DB Migration (30b8718)
+  - [x] Task 2: TypeScript Invoice Types + Invoice Sync (b7c806f)
+  - [x] Task 3: Nav Config Update (d3f615c)
+  - [x] Task 4: useRfqs + useReceivals hooks (a52c7dc)
+  - [x] Task 5: useSupplierBills + useSupplierPayments + usePaymentPlans hooks (c110663)
+  - [x] Task 6: Sales hooks (useSaleDeliveries, useCustomerInvoices, useCustomerPayments, useCreditNotes) (d69592c)
+  - [x] Task 7: RFQ Components + Page (e869201)
+  - [x] Task 8: Receivals Components + Page (657580b)
+  - [x] Task 9: Bills Components + Page (87cd241)
+  - [x] Task 10: Purchase Payments Components + Page (df15d44)
+  - [x] Task 11: Sale Deliveries Component + Page (0b90fe4)
+  - [x] Task 12: Customer Invoices Component + Page (b7a67b7)
+  - [x] Task 13: Customer Payments + Credit Notes page (f0fe8e3)
+
+**Pending Tasks:**
+  - [ ] Task 14: Wire SO Confirm to Create Delivery + Invoice
+  - [ ] Task 15: Integration Test
+
+---
 
 ### Phase 1 Cleanup — MUST CLEAR BEFORE PHASE 2
 
