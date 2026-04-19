@@ -413,3 +413,39 @@ export function useCreatePOPayment() {
     },
   })
 }
+
+export function useSubmitPO() {
+  const queryClient = useQueryClient()
+  return useMutation({
+    mutationFn: async (id: string) => {
+      const supabase = createClient()
+      const { error } = await (supabase as any)
+        .from('purchase_orders')
+        .update({ status: 'pending_approval' })
+        .eq('id', id)
+      if (error) throw error
+    },
+    onSuccess: (_, id) => {
+      queryClient.invalidateQueries({ queryKey: ['purchase-orders'] })
+      queryClient.invalidateQueries({ queryKey: ['purchase-order', id] })
+    },
+  })
+}
+
+export function useCancelPO() {
+  const queryClient = useQueryClient()
+  return useMutation({
+    mutationFn: async (id: string) => {
+      const supabase = createClient()
+      const { error } = await (supabase as any)
+        .from('purchase_orders')
+        .update({ status: 'cancelled' })
+        .eq('id', id)
+      if (error) throw error
+    },
+    onSuccess: (_, id) => {
+      queryClient.invalidateQueries({ queryKey: ['purchase-orders'] })
+      queryClient.invalidateQueries({ queryKey: ['purchase-order', id] })
+    },
+  })
+}
