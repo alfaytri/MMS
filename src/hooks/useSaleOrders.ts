@@ -362,14 +362,14 @@ export function useConfirmSO() {
     mutationFn: async ({ id, lineItems }: { id: string; lineItems: SOLineItem[] }) => {
       const supabase = createClient()
 
-      // Update SO status
+      // 1. Update SO status
       const { error: soErr } = await (supabase as any)
         .from('sale_orders')
         .update({ status: 'confirmed' })
         .eq('id', id)
       if (soErr) throw soErr
 
-      // Call reserve-stock edge function (best-effort; warns if insufficient stock)
+      // 2. Reserve stock (best-effort)
       try {
         await supabase.functions.invoke('reserve-stock', {
           body: {
@@ -380,13 +380,37 @@ export function useConfirmSO() {
           },
         })
       } catch {
-        // Non-blocking: log warning but don't fail the confirmation
         console.warn('reserve-stock edge function failed — stock not reserved')
       }
+
+      // 3. Create stub delivery (warehouse_id nullable after migration)
+      const { count: delCount } = await (supabase as any)
+        .from('sale_deliveries')
+        .select('*', { count: 'exact', head: true })
+      const delivery_number = `DEL-${String((delCount ?? 0) + 1).padStart(5, '0')}`
+      await (supabase as any).from('sale_deliveries').insert({
+        delivery_number,
+        sale_order_id: id,
+        warehouse_id: null,
+        date: new Date().toISOString().split('T')[0],
+        items: lineItems.map((l) => ({
+          item_name: l.item_name,
+          sku: l.sku,
+          qty_delivered: l.qty,
+          brand_variant_id: l.brand_variant_id,
+        })),
+        status: 'pending',
+      })
+
+      // 4. Create draft AR invoice via syncInvoiceToSalesOrder
+      const { syncInvoiceToSalesOrder } = await import('@/lib/invoiceSync')
+      await syncInvoiceToSalesOrder(id)
     },
     onSuccess: (_data, variables) => {
       queryClient.invalidateQueries({ queryKey: ['sale-orders'] })
       queryClient.invalidateQueries({ queryKey: ['sale-order', variables.id] })
+      queryClient.invalidateQueries({ queryKey: ['sale-deliveries'] })
+      queryClient.invalidateQueries({ queryKey: ['customer-invoices'] })
     },
   })
 }
