@@ -303,15 +303,23 @@ export function PoDetailDialog({ open, onOpenChange, po, onEdit, onCreateBill }:
                 {(activityLogs ?? []).length === 0 ? (
                   <p className="text-sm text-muted-foreground text-center py-4">No activity yet</p>
                 ) : (
-                  <div className="space-y-2">
-                    {(activityLogs ?? []).map((log) => (
-                      <div key={log.id} className="flex gap-3 text-sm">
-                        <span className="text-muted-foreground shrink-0 text-xs pt-0.5">{formatRelative(log.created_at)}</span>
-                        <div>
+                  <div className="relative pl-6 space-y-0">
+                    {(activityLogs ?? []).map((log, idx) => (
+                      <div key={log.id} className="relative pb-4">
+                        {idx < (activityLogs ?? []).length - 1 && (
+                          <span className="absolute left-[-16px] top-3 bottom-0 w-px bg-border" />
+                        )}
+                        <span className="absolute left-[-20px] top-1.5 h-3 w-3 rounded-full border-2 border-primary bg-background" />
+                        <div className="text-sm">
                           <span className="font-medium">{log.action}</span>
-                          {log.performer_name && <span className="text-muted-foreground"> · {log.performer_name}</span>}
-                          {log.details && <p className="text-xs text-muted-foreground mt-0.5">{log.details}</p>}
+                          {log.performer_name && (
+                            <span className="text-muted-foreground"> · {log.performer_name}</span>
+                          )}
                         </div>
+                        <p className="text-xs text-muted-foreground mt-0.5">{formatDate(log.created_at)}</p>
+                        {log.details && (
+                          <p className="text-xs text-muted-foreground mt-0.5">{log.details}</p>
+                        )}
                       </div>
                     ))}
                   </div>
