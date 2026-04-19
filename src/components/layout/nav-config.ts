@@ -1,3 +1,4 @@
+// src/components/layout/nav-config.ts
 export type NavItem = {
   label: string
   href: string
@@ -11,7 +12,7 @@ export type NavGroup = {
 
 export type NavEntry = {
   label: string
-  icon: string   // icon name string — resolved to component in NavDropdown (client)
+  icon: string
   comingSoon?: boolean
   groups: NavGroup[]
 }
@@ -55,12 +56,7 @@ export const NAV_ITEMS: NavEntry[] = [
     comingSoon: true,
     groups: [],
   },
-  {
-    label: 'Invoices',
-    icon: 'Receipt',
-    comingSoon: true,
-    groups: [],
-  },
+  // 'Invoices' top-level coming-soon removed — now under Purchase & Sales
   {
     label: 'Purchase & Sales',
     icon: 'ShoppingBag',
@@ -68,7 +64,16 @@ export const NAV_ITEMS: NavEntry[] = [
       {
         label: 'PURCHASE',
         items: [
+          { label: 'RFQ', href: '/purchase/rfq' },
           { label: 'Purchase Orders', href: '/purchase/orders' },
+          { label: 'Receivals', href: '/purchase/receivals' },
+          { label: 'Bills', href: '/purchase/bills' },
+          { label: 'Purchase Payments', href: '/purchase/payments' },
+        ],
+      },
+      {
+        // separator group — rendered as a thin HR by NavDropdown
+        items: [
           { label: 'Approvals', href: '/purchase/approvals' },
           { label: 'Shipments', href: '/purchase/shipments' },
           { label: 'Landed Costs', href: '/purchase/landed-costs' },
@@ -79,8 +84,11 @@ export const NAV_ITEMS: NavEntry[] = [
       {
         label: 'SALES',
         items: [
-          { label: 'Create Sale Order', href: '/sales/create-so' },
           { label: 'Sale Orders', href: '/sales/orders' },
+          { label: 'Deliveries', href: '/sales/deliveries' },
+          { label: 'Invoices', href: '/sales/invoices' },
+          { label: 'Payments', href: '/sales/payments' },
+          { label: 'Credit Notes', href: '/sales/credit-notes' },
           { label: 'Returns', href: '/sales/returns' },
         ],
       },
