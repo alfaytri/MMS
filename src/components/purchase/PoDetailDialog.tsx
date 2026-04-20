@@ -1,6 +1,6 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import {
   Dialog, DialogContent, DialogHeader, DialogTitle,
 } from '@/components/ui/dialog'
@@ -10,20 +10,21 @@ import { Button } from '@/components/ui/button'
 import { Skeleton } from '@/components/ui/skeleton'
 import { Printer, Send, XCircle } from 'lucide-react'
 import { toast } from 'sonner'
-import { PoStatusBadge } from './PoStatusBadge'
 import { PoApprovalChain } from './PoApprovalChain'
 import { PoPaymentDialog } from './PoPaymentDialog'
 import { PoReceiveTab } from './PoReceiveTab'
+import { PoVersionTabs } from './PoVersionTabs'
 import {
   usePurchaseOrder,
   usePOPayments,
   usePOReceivalsByPO,
+  usePoVersions,
   useSubmitPO,
   useCancelPO,
   type PurchaseOrder,
 } from '@/hooks/usePurchaseOrders'
 import { useActivityLog } from '@/hooks/useActivityLog'
-import { formatCurrency, formatDate, formatRelative } from '@/lib/utils/formatters'
+import { formatCurrency, formatDate } from '@/lib/utils/formatters'
 import { cn } from '@/lib/utils'
 import {
   Table, TableBody, TableCell, TableHead, TableHeader, TableRow,
@@ -42,6 +43,7 @@ export function PoDetailDialog({ open, onOpenChange, po, onEdit, onCreateBill }:
   const { data: fullPO, isLoading, isError } = usePurchaseOrder(open ? (po?.id ?? null) : null)
   const { data: payments } = usePOPayments(open ? (po?.id ?? null) : null)
   const { data: receivals } = usePOReceivalsByPO(open ? (po?.id ?? null) : null)
+  const { data: versions = [] } = usePoVersions(open ? (po?.id ?? null) : null)
   const { data: activityLogs } = useActivityLog(
     open && po?.id ? { module: 'purchase_orders', entity_id: po.id } : {}
   )
@@ -49,6 +51,16 @@ export function PoDetailDialog({ open, onOpenChange, po, onEdit, onCreateBill }:
   const cancelPO = useCancelPO()
 
   const current = fullPO ?? po
+  const currentVersionNumber = current?.version_number ?? 1
+  const [activeVersionTab, setActiveVersionTab] = useState(currentVersionNumber)
+
+  // Reset to current version whenever the dialog opens or the PO changes
+  useEffect(() => {
+    if (open) setActiveVersionTab(currentVersionNumber)
+  }, [open, currentVersionNumber])
+
+  const isViewingSnapshot = activeVersionTab !== currentVersionNumber
+  const snapshotVersion = versions.find((v) => v.version_number === activeVersionTab) ?? null
 
   return (
     <>
@@ -83,12 +95,12 @@ export function PoDetailDialog({ open, onOpenChange, po, onEdit, onCreateBill }:
               </div>
               {current && !isLoading && (
                 <div className="flex flex-wrap gap-2">
-                  {current.status === 'draft' && onEdit && (
+                  {!isViewingSnapshot && current.status === 'draft' && onEdit && (
                     <Button variant="outline" size="sm" onClick={() => { onEdit(current); onOpenChange(false) }}>
                       Edit PO
                     </Button>
                   )}
-                  {current.status === 'draft' && (
+                  {!isViewingSnapshot && current.status === 'draft' && (
                     <Button
                       size="sm"
                       disabled={submitPO.isPending}
@@ -113,7 +125,7 @@ export function PoDetailDialog({ open, onOpenChange, po, onEdit, onCreateBill }:
                     <Printer className="h-3.5 w-3.5 mr-1.5" />
                     Print
                   </Button>
-                  {!['received', 'cancelled'].includes(current.status) && (
+                  {!isViewingSnapshot && !['received', 'cancelled'].includes(current.status) && (
                     <Button
                       variant="destructive"
                       size="sm"
@@ -133,7 +145,7 @@ export function PoDetailDialog({ open, onOpenChange, po, onEdit, onCreateBill }:
                       Cancel PO
                     </Button>
                   )}
-                  {onCreateBill && (
+                  {!isViewingSnapshot && onCreateBill && (
                     <Button variant="outline" size="sm" onClick={() => { onCreateBill(current.id); onOpenChange(false) }}>
                       Create Bill
                     </Button>
@@ -146,6 +158,17 @@ export function PoDetailDialog({ open, onOpenChange, po, onEdit, onCreateBill }:
             )}
           </DialogHeader>
 
+          {versions.length > 0 && current && (
+            <div className="-mx-4">
+              <PoVersionTabs
+                versions={versions}
+                currentVersionNumber={currentVersionNumber}
+                activeTab={activeVersionTab}
+                onTabChange={setActiveVersionTab}
+              />
+            </div>
+          )}
+
           {isLoading ? (
             <div className="space-y-3 p-4">
               <Skeleton className="h-6 w-1/3" />
@@ -157,54 +180,97 @@ export function PoDetailDialog({ open, onOpenChange, po, onEdit, onCreateBill }:
             <Tabs defaultValue="items" className="flex-1 overflow-hidden flex flex-col min-h-0">
               <TabsList className="shrink-0 mx-0 overflow-x-auto">
                 <TabsTrigger value="items">Line Items</TabsTrigger>
-                <TabsTrigger value="receivals">Receivals</TabsTrigger>
-                {current && ['approved', 'partially_received'].includes(current.status) && (
+                {!isViewingSnapshot && <TabsTrigger value="receivals">Receivals</TabsTrigger>}
+                {!isViewingSnapshot && current && ['approved', 'partially_received'].includes(current.status) && (
                   <TabsTrigger value="receive">Receive</TabsTrigger>
                 )}
-                <TabsTrigger value="payments">Payments</TabsTrigger>
+                {!isViewingSnapshot && <TabsTrigger value="payments">Payments</TabsTrigger>}
                 <TabsTrigger value="activity">Activity</TabsTrigger>
               </TabsList>
 
               {/* ── Line Items ───────────────────────────────────── */}
               <TabsContent value="items" className="flex-1 overflow-y-auto">
-                <div className="rounded-md border overflow-x-auto">
-                  <Table>
-                    <TableHeader>
-                      <TableRow>
-                        <TableHead>Item</TableHead>
-                        <TableHead className="hidden sm:table-cell">SKU</TableHead>
-                        <TableHead className="text-right">Qty</TableHead>
-                        <TableHead className="hidden md:table-cell text-right">Free</TableHead>
-                        <TableHead className="hidden md:table-cell text-right">Received</TableHead>
-                        <TableHead className="text-right">Unit Price</TableHead>
-                        <TableHead className="text-right">Total</TableHead>
-                      </TableRow>
-                    </TableHeader>
-                    <TableBody>
-                      {(fullPO?.po_line_items ?? []).map((li) => (
-                        <TableRow key={li.id}>
-                          <TableCell className="font-medium">{li.item_name}</TableCell>
-                          <TableCell className="hidden sm:table-cell text-muted-foreground text-xs">{li.sku ?? '—'}</TableCell>
-                          <TableCell className="text-right">{li.qty}</TableCell>
-                          <TableCell className="hidden md:table-cell text-right text-muted-foreground">{li.free_qty || '—'}</TableCell>
-                          <TableCell className="hidden md:table-cell text-right">{li.received_qty}</TableCell>
-                          <TableCell className="text-right">{formatCurrency(li.unit_price, current?.currency)}</TableCell>
-                          <TableCell className="text-right font-medium">{formatCurrency(li.total_price, current?.currency)}</TableCell>
-                        </TableRow>
-                      ))}
-                    </TableBody>
-                  </Table>
-                </div>
-                {current && (
-                  <div className="mt-4 space-y-1 text-sm text-right pr-2">
-                    <div className="text-muted-foreground">Subtotal: <span className="text-foreground font-medium">{formatCurrency(current.subtotal, current.currency)}</span></div>
-                    {current.discount_amount > 0 && (
+                {isViewingSnapshot && snapshotVersion ? (
+                  <>
+                    <div className="rounded-md border overflow-x-auto">
+                      <Table>
+                        <TableHeader>
+                          <TableRow>
+                            <TableHead>Item</TableHead>
+                            <TableHead className="hidden sm:table-cell">SKU</TableHead>
+                            <TableHead className="text-right">Qty</TableHead>
+                            <TableHead className="hidden md:table-cell text-right">Free</TableHead>
+                            <TableHead className="text-right">Unit Price</TableHead>
+                            <TableHead className="text-right">Total</TableHead>
+                          </TableRow>
+                        </TableHeader>
+                        <TableBody>
+                          {snapshotVersion.line_items.map((li, idx) => (
+                            <TableRow key={idx}>
+                              <TableCell className="font-medium">{li.item_name}</TableCell>
+                              <TableCell className="hidden sm:table-cell text-muted-foreground text-xs">{li.sku || '—'}</TableCell>
+                              <TableCell className="text-right">{li.qty}</TableCell>
+                              <TableCell className="hidden md:table-cell text-right text-muted-foreground">{li.free_qty || '—'}</TableCell>
+                              <TableCell className="text-right">{formatCurrency(li.unit_price, snapshotVersion.currency)}</TableCell>
+                              <TableCell className="text-right font-medium">{formatCurrency(li.total_price, snapshotVersion.currency)}</TableCell>
+                            </TableRow>
+                          ))}
+                        </TableBody>
+                      </Table>
+                    </div>
+                    <div className="mt-4 space-y-1 text-sm text-right pr-2">
                       <div className="text-muted-foreground">
-                        Discount{current.discount_label ? ` (${current.discount_label})` : ''}: <span className="text-destructive">-{formatCurrency(current.discount_amount, current.currency)}</span>
+                        Subtotal: <span className="text-foreground font-medium">{formatCurrency(snapshotVersion.subtotal, snapshotVersion.currency)}</span>
+                      </div>
+                      {snapshotVersion.discount_amount > 0 && (
+                        <div className="text-muted-foreground">
+                          Discount{snapshotVersion.discount_label ? ` (${snapshotVersion.discount_label})` : ''}: <span className="text-destructive">-{formatCurrency(snapshotVersion.discount_amount, snapshotVersion.currency)}</span>
+                        </div>
+                      )}
+                    </div>
+                  </>
+                ) : (
+                  <>
+                    <div className="rounded-md border overflow-x-auto">
+                      <Table>
+                        <TableHeader>
+                          <TableRow>
+                            <TableHead>Item</TableHead>
+                            <TableHead className="hidden sm:table-cell">SKU</TableHead>
+                            <TableHead className="text-right">Qty</TableHead>
+                            <TableHead className="hidden md:table-cell text-right">Free</TableHead>
+                            <TableHead className="hidden md:table-cell text-right">Received</TableHead>
+                            <TableHead className="text-right">Unit Price</TableHead>
+                            <TableHead className="text-right">Total</TableHead>
+                          </TableRow>
+                        </TableHeader>
+                        <TableBody>
+                          {(fullPO?.po_line_items ?? []).map((li) => (
+                            <TableRow key={li.id}>
+                              <TableCell className="font-medium">{li.item_name}</TableCell>
+                              <TableCell className="hidden sm:table-cell text-muted-foreground text-xs">{li.sku ?? '—'}</TableCell>
+                              <TableCell className="text-right">{li.qty}</TableCell>
+                              <TableCell className="hidden md:table-cell text-right text-muted-foreground">{li.free_qty || '—'}</TableCell>
+                              <TableCell className="hidden md:table-cell text-right">{li.received_qty}</TableCell>
+                              <TableCell className="text-right">{formatCurrency(li.unit_price, current?.currency)}</TableCell>
+                              <TableCell className="text-right font-medium">{formatCurrency(li.total_price, current?.currency)}</TableCell>
+                            </TableRow>
+                          ))}
+                        </TableBody>
+                      </Table>
+                    </div>
+                    {current && (
+                      <div className="mt-4 space-y-1 text-sm text-right pr-2">
+                        <div className="text-muted-foreground">Subtotal: <span className="text-foreground font-medium">{formatCurrency(current.subtotal, current.currency)}</span></div>
+                        {current.discount_amount > 0 && (
+                          <div className="text-muted-foreground">
+                            Discount{current.discount_label ? ` (${current.discount_label})` : ''}: <span className="text-destructive">-{formatCurrency(current.discount_amount, current.currency)}</span>
+                          </div>
+                        )}
+                        <div className="font-semibold">Total (QAR): {formatCurrency(current.total_qar, 'QAR')}</div>
                       </div>
                     )}
-                    <div className="font-semibold">Total (QAR): {formatCurrency(current.total_qar, 'QAR')}</div>
-                  </div>
+                  </>
                 )}
               </TabsContent>
 
