@@ -388,7 +388,7 @@ export default function PurchaseOrdersPage() {
                           </DropdownMenuTrigger>
                           <DropdownMenuContent align="end">
                             <DropdownMenuItem onClick={() => setDetailPO(po)}>View</DropdownMenuItem>
-                            {po.status === 'draft' && (
+                            {po.status !== 'cancelled' && (
                               <DropdownMenuItem onClick={() => router.push(`/purchase/edit-po/${po.id}`)}>Edit</DropdownMenuItem>
                             )}
                             <DropdownMenuItem onClick={() => setBillPoId(po.id)}>Create Bill</DropdownMenuItem>
