@@ -224,7 +224,11 @@ export default function PurchaseOrdersPage() {
               />
             </div>
             <Select value={statusFilter || 'all'} onValueChange={(v) => setStatusFilter(!v || v === 'all' ? '' : v as POStatus)}>
-              <SelectTrigger className="w-[160px]"><SelectValue placeholder="Status" /></SelectTrigger>
+              <SelectTrigger className="w-[160px]">
+                <SelectValue>
+                  {(v: string) => STATUS_OPTIONS.find((s) => (s.value || 'all') === v)?.label ?? 'All Statuses'}
+                </SelectValue>
+              </SelectTrigger>
               <SelectContent>
                 {STATUS_OPTIONS.map((s) => (
                   <SelectItem key={s.value || 'all'} value={s.value || 'all'}>{s.label}</SelectItem>
@@ -232,7 +236,11 @@ export default function PurchaseOrdersPage() {
               </SelectContent>
             </Select>
             <Select value={supplierFilter || 'all'} onValueChange={(v) => setSupplierFilter(!v || v === 'all' ? '' : v)}>
-              <SelectTrigger className="w-[180px]"><SelectValue placeholder="Supplier" /></SelectTrigger>
+              <SelectTrigger className="w-[180px]">
+                <SelectValue>
+                  {(v: string) => v === 'all' ? 'All Suppliers' : ((suppliers ?? []).find((s) => s.id === v)?.name ?? v)}
+                </SelectValue>
+              </SelectTrigger>
               <SelectContent>
                 <SelectItem value="all">All Suppliers</SelectItem>
                 {(suppliers ?? []).map((s) => (
@@ -255,7 +263,11 @@ export default function PurchaseOrdersPage() {
               aria-label="To date"
             />
             <Select value={receivalFilter || 'all'} onValueChange={(v) => setReceivalFilter(!v || v === 'all' ? '' : v)}>
-              <SelectTrigger className="w-[160px]"><SelectValue placeholder="Receival" /></SelectTrigger>
+              <SelectTrigger className="w-[160px]">
+                <SelectValue>
+                  {(v: string) => RECEIVAL_STATUS_OPTIONS.find((s) => (s.value || 'all') === v)?.label ?? 'All Receival'}
+                </SelectValue>
+              </SelectTrigger>
               <SelectContent>
                 {RECEIVAL_STATUS_OPTIONS.map((s) => (
                   <SelectItem key={s.value || 'all'} value={s.value || 'all'}>{s.label}</SelectItem>
@@ -263,7 +275,11 @@ export default function PurchaseOrdersPage() {
               </SelectContent>
             </Select>
             <Select value={paymentFilter || 'all'} onValueChange={(v) => setPaymentFilter(!v || v === 'all' ? '' : v)}>
-              <SelectTrigger className="w-[160px]"><SelectValue placeholder="Payment" /></SelectTrigger>
+              <SelectTrigger className="w-[160px]">
+                <SelectValue>
+                  {(v: string) => PAYMENT_STATUS_OPTIONS.find((s) => (s.value || 'all') === v)?.label ?? 'All Payment'}
+                </SelectValue>
+              </SelectTrigger>
               <SelectContent>
                 {PAYMENT_STATUS_OPTIONS.map((s) => (
                   <SelectItem key={s.value || 'all'} value={s.value || 'all'}>{s.label}</SelectItem>
