@@ -62,9 +62,10 @@ const DELIVERY_PRESETS = ['EXW', 'FOB', 'CIF', 'DDP', 'DAP', 'Custom']
 interface PoTermsSectionProps {
   value: PoTermsValues
   onChange: (values: PoTermsValues) => void
+  readOnly?: boolean
 }
 
-export function PoTermsSection({ value, onChange }: PoTermsSectionProps) {
+export function PoTermsSection({ value, onChange, readOnly = false }: PoTermsSectionProps) {
   function set<K extends keyof PoTermsValues>(key: K, val: PoTermsValues[K]) {
     onChange({ ...value, [key]: val })
   }
@@ -105,23 +106,28 @@ export function PoTermsSection({ value, onChange }: PoTermsSectionProps) {
         </h2>
 
         {/* Preset pills */}
-        <div className="flex flex-wrap gap-1.5">
-          {PAYMENT_PRESETS.map((p) => (
-            <button
-              key={p.label}
-              type="button"
-              onClick={() => selectPaymentPreset(p.label)}
-              className={cn(
-                'px-2.5 py-1 rounded-md text-xs border transition-colors',
-                value.payment_terms === p.label
-                  ? 'bg-primary text-primary-foreground border-primary'
-                  : 'bg-muted/50 hover:bg-muted border-border'
-              )}
-            >
-              {p.label}
-            </button>
-          ))}
-        </div>
+        {!readOnly && (
+          <div className="flex flex-wrap gap-1.5">
+            {PAYMENT_PRESETS.map((p) => (
+              <button
+                key={p.label}
+                type="button"
+                onClick={() => selectPaymentPreset(p.label)}
+                className={cn(
+                  'px-2.5 py-1 rounded-md text-xs border transition-colors',
+                  value.payment_terms === p.label
+                    ? 'bg-primary text-primary-foreground border-primary'
+                    : 'bg-muted/50 hover:bg-muted border-border'
+                )}
+              >
+                {p.label}
+              </button>
+            ))}
+          </div>
+        )}
+        {readOnly && value.payment_terms && (
+          <div className="text-xs font-medium text-foreground">{value.payment_terms}</div>
+        )}
 
         {/* Milestones */}
         {value.payment_milestones.length > 0 && (
@@ -132,7 +138,7 @@ export function PoTermsSection({ value, onChange }: PoTermsSectionProps) {
                   className="flex-1 h-8 text-xs"
                   placeholder="Milestone label"
                   value={m.label}
-                  readOnly={!isCustomPayment}
+                  readOnly={readOnly || !isCustomPayment}
                   onChange={(e) => updateMilestone(idx, { label: e.target.value })}
                 />
                 <div className="flex items-center gap-0.5">
@@ -142,12 +148,12 @@ export function PoTermsSection({ value, onChange }: PoTermsSectionProps) {
                     max="100"
                     className="w-16 h-8 text-xs text-center"
                     value={m.percent}
-                    readOnly={!isCustomPayment}
+                    readOnly={readOnly || !isCustomPayment}
                     onChange={(e) => updateMilestone(idx, { percent: Number(e.target.value) })}
                   />
                   <span className="text-xs text-muted-foreground">%</span>
                 </div>
-                {isCustomPayment && (
+                {!readOnly && isCustomPayment && (
                   <Button
                     type="button"
                     variant="ghost"
@@ -161,7 +167,7 @@ export function PoTermsSection({ value, onChange }: PoTermsSectionProps) {
               </div>
             ))}
 
-            {isCustomPayment && (
+            {!readOnly && isCustomPayment && (
               <Button
                 type="button"
                 variant="link"
@@ -174,7 +180,7 @@ export function PoTermsSection({ value, onChange }: PoTermsSectionProps) {
               </Button>
             )}
 
-            {isCustomPayment && !milestoneValid && (
+            {!readOnly && isCustomPayment && !milestoneValid && (
               <p className="text-xs text-destructive">
                 Total is {milestoneSum}% — must equal 100%
               </p>
@@ -186,6 +192,7 @@ export function PoTermsSection({ value, onChange }: PoTermsSectionProps) {
           className="min-h-[50px] text-xs resize-none"
           placeholder="Additional payment notes…"
           value={value.payment_terms_notes}
+          readOnly={readOnly}
           onChange={(e) => set('payment_terms_notes', e.target.value)}
         />
       </div>
@@ -206,7 +213,8 @@ export function PoTermsSection({ value, onChange }: PoTermsSectionProps) {
             <select
               value={value.delivery_terms}
               onChange={(e) => set('delivery_terms', e.target.value)}
-              className="flex h-9 w-full rounded-md border border-input bg-background px-3 py-1 text-sm focus:outline-none focus:ring-1 focus:ring-ring"
+              disabled={readOnly}
+              className="flex h-9 w-full rounded-md border border-input bg-background px-3 py-1 text-sm focus:outline-none focus:ring-1 focus:ring-ring disabled:opacity-70 disabled:cursor-not-allowed"
             >
               <option value="">Select…</option>
               {DELIVERY_PRESETS.map((p) => (
@@ -224,6 +232,7 @@ export function PoTermsSection({ value, onChange }: PoTermsSectionProps) {
               type="date"
               className="h-9"
               value={value.expected_delivery}
+              readOnly={readOnly}
               onChange={(e) => set('expected_delivery', e.target.value)}
             />
           </div>
@@ -233,6 +242,7 @@ export function PoTermsSection({ value, onChange }: PoTermsSectionProps) {
           className="min-h-[50px] text-xs resize-none"
           placeholder="Additional delivery notes…"
           value={value.delivery_terms_notes}
+          readOnly={readOnly}
           onChange={(e) => set('delivery_terms_notes', e.target.value)}
         />
       </div>

@@ -73,9 +73,10 @@ interface PoLineItemsEditorProps {
   value: LineItemRow[]
   onChange: (rows: LineItemRow[]) => void
   currency: string
+  readOnly?: boolean
 }
 
-export function PoLineItemsEditor({ value, onChange, currency }: PoLineItemsEditorProps) {
+export function PoLineItemsEditor({ value, onChange, currency, readOnly = false }: PoLineItemsEditorProps) {
   function addRow(line_type: LineType) {
     onChange([...value, makeRow(line_type)])
   }
@@ -130,28 +131,30 @@ export function PoLineItemsEditor({ value, onChange, currency }: PoLineItemsEdit
   return (
     <div className="space-y-4">
       {/* Toolbar */}
-      <div className="flex flex-wrap items-center gap-2">
-        <span className="text-[10px] font-medium text-muted-foreground uppercase tracking-wider">
-          ADD ITEM:
-        </span>
-        {ALL_TYPES.map((t) => {
-          const cfg = TYPE_CONFIG[t]
-          const Icon = cfg.icon
-          return (
-            <Button
-              key={t}
-              type="button"
-              variant="outline"
-              size="sm"
-              className={`h-7 text-xs gap-1.5 ${cfg.buttonClass}`}
-              onClick={() => addRow(t)}
-            >
-              <Icon className="h-3.5 w-3.5" />
-              {cfg.label}
-            </Button>
-          )
-        })}
-      </div>
+      {!readOnly && (
+        <div className="flex flex-wrap items-center gap-2">
+          <span className="text-[10px] font-medium text-muted-foreground uppercase tracking-wider">
+            ADD ITEM:
+          </span>
+          {ALL_TYPES.map((t) => {
+            const cfg = TYPE_CONFIG[t]
+            const Icon = cfg.icon
+            return (
+              <Button
+                key={t}
+                type="button"
+                variant="outline"
+                size="sm"
+                className={`h-7 text-xs gap-1.5 ${cfg.buttonClass}`}
+                onClick={() => addRow(t)}
+              >
+                <Icon className="h-3.5 w-3.5" />
+                {cfg.label}
+              </Button>
+            )
+          })}
+        </div>
+      )}
 
       {/* Empty state */}
       {value.length === 0 && (
@@ -178,15 +181,17 @@ export function PoLineItemsEditor({ value, onChange, currency }: PoLineItemsEdit
                 <Badge variant="outline" className="text-[9px] py-0 px-1.5">
                   {rows.length} item{rows.length !== 1 ? 's' : ''}
                 </Badge>
-                <Button
-                  type="button"
-                  variant="ghost"
-                  size="icon"
-                  className="h-6 w-6"
-                  onClick={() => addRow(lineType)}
-                >
-                  <Plus className="h-3.5 w-3.5" />
-                </Button>
+                {!readOnly && (
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    size="icon"
+                    className="h-6 w-6"
+                    onClick={() => addRow(lineType)}
+                  >
+                    <Plus className="h-3.5 w-3.5" />
+                  </Button>
+                )}
               </div>
             </div>
 
@@ -209,7 +214,11 @@ export function PoLineItemsEditor({ value, onChange, currency }: PoLineItemsEdit
                     {/* Row A: lookup + delete */}
                     <div className="flex items-center gap-2">
                       <div className="flex-1">
-                        {isInventory ? (
+                        {readOnly ? (
+                          <div className="h-8 px-2 flex items-center rounded-md border bg-muted/30 text-sm font-medium truncate">
+                            {row.item_name || '—'}
+                          </div>
+                        ) : isInventory ? (
                           <InventoryItemLookup
                             value={
                               row.brand_variant_id
@@ -241,15 +250,17 @@ export function PoLineItemsEditor({ value, onChange, currency }: PoLineItemsEdit
                           />
                         )}
                       </div>
-                      <Button
-                        type="button"
-                        variant="ghost"
-                        size="icon"
-                        className="h-7 w-7 text-destructive/60 hover:text-destructive shrink-0"
-                        onClick={() => removeRow(row._key)}
-                      >
-                        <Trash2 className="h-3.5 w-3.5" />
-                      </Button>
+                      {!readOnly && (
+                        <Button
+                          type="button"
+                          variant="ghost"
+                          size="icon"
+                          className="h-7 w-7 text-destructive/60 hover:text-destructive shrink-0"
+                          onClick={() => removeRow(row._key)}
+                        >
+                          <Trash2 className="h-3.5 w-3.5" />
+                        </Button>
+                      )}
                     </div>
 
                     {/* Row B: editable fields */}
