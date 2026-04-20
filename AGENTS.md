@@ -26,18 +26,52 @@ Every UI component and page MUST be fully responsive across all four breakpoints
 
 ---
 
-# PROGRESS.md — Mandatory Update Rule
+📜 PROGRESS.md Mandatory Update Protocol
+Objective: Maintain a real-time, high-integrity record of development. This rule is a Hard Constraint — it applies on both task START and task COMPLETION.
 
-**After every task is committed, update `PROGRESS.md` immediately in the same session.**
+1. Trigger & Sequence — ON START
+When you begin a task, before writing any code:
 
-Rules:
-- Add a dated bullet to `## ✅ Completed` describing what was built (one line, include key files/components)
-- Update `## 🔄 In Progress` to reflect the next task
-- Update the plan table status if all tasks in a plan are done
-- Commit `PROGRESS.md` in a separate commit right after the task commit: `git commit -m "docs: update PROGRESS.md — [Task Name] complete"`
-- Never batch multiple task updates — update after **each** task, not at the end
+Update ## 🔄 In Progress with the task you are starting.
 
-Format for completed entries:
-```
-- [YYYY-MM-DD] **[Plan Name] Task N: [Task Name]** — [brief description of what was built]
-```
+Format: `🚀 Starting: **[Plan Name] Task N: [Task Name]**`
+
+Perform a git commit: `docs: update PROGRESS.md — starting [Task Name]`
+
+This commit must contain ONLY the PROGRESS.md change.
+
+2. Trigger & Sequence — ON COMPLETION
+You must update PROGRESS.md after every task before proceeding to the next one.
+
+Complete the task (code, fix, or feature).
+
+Perform a git commit for the task code.
+
+Immediately update PROGRESS.md in the same turn.
+
+Perform a separate git commit for the docs update.
+
+3. File Update Requirements
+## ✅ Completed: Add a bullet at the top of the list.
+
+Format: - [YYYY-MM-DD] **[Plan Name] Task N: [Task Name]** — [Files modified/created] — [Brief summary of functionality]
+
+## 🔄 In Progress: Remove the task you just finished. Add the very next task from your plan.
+
+Plan Table: Update the Status column for the relevant task (e.g., change [ ] to [x] or Pending to Done).
+
+3. Git Commit Standards
+Message: docs: update PROGRESS.md — [Task Name] complete
+
+Isolation: Never include code changes in this commit. It must only contain the PROGRESS.md file.
+
+4. Constraints (Negative Rules)
+No Batching: Do not wait until the end of the session to update multiple tasks.
+
+No Generalizations: Avoid vague summaries. If you built a login form, name the specific component (e.g., LoginForm.tsx).
+
+No Context Switching: Do not ask the user for the "next task" until PROGRESS.md is updated and committed.
+
+5. Expected Format Example
+Markdown
+- 2024-05-20 **Authentication Plan Task 2: JWT Implementation** — `auth_service.py`,

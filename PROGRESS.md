@@ -1,18 +1,20 @@
-# MMS — Session Resumption File
+# MMS — Development Progress & Session Resumption
 
-> **HOW TO USE THIS FILE:**
-> When context window is getting full (>70%), start a fresh conversation and paste this file.
-> Say: "Continue MMS development from PROGRESS.md" and paste the contents.
-> Claude will resume exactly where you left off.
+> **HOW TO RESUME:** When context window is getting full (>70%), start a fresh conversation, paste this file, and say:
+> *"I'm continuing MMS development. Read PROGRESS.md and resume from where we left off."*
+> Claude will read the active plan and dispatch subagents task by task.
 
 ---
 
 ## Project Identity
 
-**Project:** MMS — Maintenance Management System
-**Owner:** Mohamed Ismail
-**Working dir:** `D:/MMS`
-**Goal:** Web ERP for a Qatar maintenance company (Alfaytri Maintenance, RSH Cleaning and Pest Control)
+| Field | Value |
+|---|---|
+| **Project** | MMS — Maintenance Management System |
+| **Owner** | Mohamed Ismail |
+| **Working dir** | `D:/MMS` |
+| **Active branch** | `develop` — all Phase 1 feature work here, never commit directly to `main` |
+| **Goal** | Web ERP for a Qatar maintenance company (Alfaytri Maintenance, RSH Cleaning and Pest Control) |
 
 ---
 
@@ -82,7 +84,7 @@ D:/MMS/
 ├── middleware.ts                 ← session refresh + route protection
 ├── Old Schema/                   ← reference only, DO NOT modify
 ├── Ideas/                        ← UI specs, DO NOT modify
-├── docs/superpowers/specs/       ← design doc
+├── docs/superpowers/specs/       ← design docs
 └── docs/superpowers/plans/       ← implementation plans
 ```
 
@@ -93,7 +95,7 @@ D:/MMS/
 ```
 Top Nav: Logo | Master Data▾ | Orders▾ | Contracts▾ | Invoices▾ | Purchase & Sales▾ | Teams▾ | [User▾]
 
-Master Data▾ (active items):
+Master Data▾:
   Companies & Divisions → /master-data/companies
   Warehouses            → /master-data/warehouses
   Inventory Items       → /master-data/inventory
@@ -101,14 +103,6 @@ Master Data▾ (active items):
   Users & Roles         → /master-data/users
   Audit Trail           → /master-data/audit-trail
   Admin                 → /master-data/admin
-  --- separator ---
-  Service List          [Coming Soon]
-  Team & Employee       [Coming Soon]
-  Subscription Packages [Coming Soon]
-  QuickBooks            [Coming Soon]
-  Notification Trail    [Coming Soon]
-
-Orders / Contracts / Invoices / Teams → single "Coming Soon" row, no sub-items
 
 Purchase & Sales▾:
   PURCHASE: Purchase Orders | Approvals | Shipments | Landed Costs | Dead Stock Report | Warehouses
@@ -119,16 +113,11 @@ Purchase & Sales▾:
 
 ## Phase Plan
 
-### Phase 1 — Target: 1–1.5 months (CURRENT)
-**Modules:** Master Data (partial) + Purchase (full) + Sales (full)
-**Everything else:** Coming Soon
-
-### Phase 2 — after Phase 1
-Orders, Contracts, Invoices & Payments, Teams
-(Outsource candidates: Orders, Contracts, Invoices, Teams — all fully specced in `Ideas/`)
-
-### Phase 3
-Contact Center (never outsource — too complex)
+| Phase | Scope | Status |
+|---|---|---|
+| **Phase 1** | Master Data (partial) + Purchase (full) + Sales (full) | **CURRENT** |
+| **Phase 2** | Orders, Contracts, Invoices & Payments, Teams | Gated on Phase 1 cleanup |
+| **Phase 3** | Contact Center (never outsource — too complex) | Future |
 
 ---
 
@@ -136,197 +125,183 @@ Contact Center (never outsource — too complex)
 
 | Plan file | Status | Description |
 |---|---|---|
-| `docs/superpowers/plans/2026-04-16-mms-foundation.md` | **DONE** | Scaffold, auth, design system, TopNav, dashboard |
-| `docs/superpowers/plans/2026-04-16-mms-master-data.md` | **DONE** | Companies, Warehouses, Inventory, Suppliers, Users, Audit |
-| `docs/superpowers/plans/2026-04-17-mms-purchase-core.md` | **DONE** | PO hooks, shared components, detail dialog, list page, create PO, approvals |
-| `docs/superpowers/plans/2026-04-17-mms-sales-core.md` | **DONE** | SO hooks, shared components, detail dialog, list page, create SO, returns |
-| `docs/superpowers/plans/2026-04-17-mms-purchase-operations.md` | **DONE** | Shipments, Landed Costs, Warehouses Hub (7 tabs), Dead Stock Report |
-| `docs/superpowers/plans/2026-04-17-mms-csv-import.md` | **DONE** | CSV import tool (5 entity types) |
+| `docs/superpowers/plans/2026-04-16-mms-foundation.md` | ✅ DONE | Scaffold, auth, design system, TopNav, dashboard |
+| `docs/superpowers/plans/2026-04-16-mms-master-data.md` | ✅ DONE | Companies, Warehouses, Inventory, Suppliers, Users, Audit |
+| `docs/superpowers/plans/2026-04-17-mms-purchase-core.md` | ✅ DONE | PO hooks, shared components, detail dialog, list page, create PO, approvals |
+| `docs/superpowers/plans/2026-04-17-mms-sales-core.md` | ✅ DONE | SO hooks, shared components, detail dialog, list page, create SO, returns |
+| `docs/superpowers/plans/2026-04-17-mms-purchase-operations.md` | ✅ DONE | Shipments, Landed Costs, Warehouses Hub (7 tabs), Dead Stock Report |
+| `docs/superpowers/plans/2026-04-17-mms-csv-import.md` | ✅ DONE | CSV import tool (5 entity types) |
+| `docs/superpowers/plans/2026-04-18-mms-user-management.md` | ✅ DONE | Admin-driven user create/edit/reset, force-change gate, change-password page |
+| `docs/superpowers/plans/2026-04-19-purchase-sales-expansion.md` | ✅ DONE | RFQ→PO→Bill→Payment + SO→Delivery→Invoice→Payment→Credit Note |
+| `docs/superpowers/plans/2026-04-19-po-page-redesign.md` | ✅ DONE | PO list stat cards, rich filters, progress-bar table, PoDetailDialog redesign |
+| `docs/superpowers/plans/2026-04-20-create-po-redesign.md` | 🔄 **IN PROGRESS** | Create PO full spec redesign — sticky header, grouped items, approval chain |
+
+---
+
+## 🔄 In Progress
+
+### Create PO Page Redesign
+- **Plan:** `docs/superpowers/plans/2026-04-20-create-po-redesign.md`
+- **Scope:** Sticky header + scrollable body, supplier combobox, 4-type grouped line items, milestone payment terms, delivery date in terms, vendor notes section, approval chain preview
+- **Tasks:**
+  - [ ] Task 1: Add `tool_asset_item_id` to `POLineItemDraft`
+  - [ ] Task 2: `AddSupplierDialog` standalone component
+  - [ ] Task 3: `ToolAssetLookup` component
+  - [ ] Task 4: Rewrite `PoLineItemsEditor` — 4 grouped types, colored headers
+  - [ ] Task 5: Rewrite `PoTermsSection` — milestones, delivery date, updated presets
+  - [ ] Task 6: Rewrite `create-po/page.tsx` — full spec layout
+
+---
+
+### Phase 1 Cleanup — Must Clear Before Phase 2
+
+- [ ] **Manual smoke test** — in-app user management (all 17 tasks code-complete; browser smoke test pending before Phase 2)
+- [ ] **Verify** self-provision banner flow (Create My Profile) on a fresh auth user with no profile row
 
 ---
 
 ## ✅ Completed
 
+### Foundation & Infrastructure
+
 - [2026-04-16] Full brainstorming & design session
 - [2026-04-16] Design spec: `docs/superpowers/specs/2026-04-16-mms-phase1-design.md`
-- [2026-04-16] Foundation plan written: `docs/superpowers/plans/2026-04-16-mms-foundation.md` (18 tasks)
-- [2026-04-16] **Foundation complete** — scaffold, auth, design system, TopNav, dashboard (Tasks 1–18)
-  - 87-table schema applied to Supabase + TypeScript types generated
-  - Login page, middleware, TanStack Query provider
-  - Full navigation: Master Data + Purchase & Sales dropdowns, Coming Soon for Orders/Contracts/Invoices/Teams
-  - Dashboard with DivisionFilter + 4 stat cards
-- [2026-04-16] **Bug fixes** — Base UI dropdown context errors resolved
-  - `NavDropdown.tsx`: wrapped each group in `<DropdownMenuGroup>` so `DropdownMenuLabel` has required `MenuGroupRootContext`
-  - `UserMenu.tsx`: same fix — label and menu items wrapped in `<DropdownMenuGroup>`
-  - All nav dropdowns (Purchase & Sales, Master Data) and avatar menu now work correctly
-- [2026-04-16] **Git setup** — remote connected to `https://github.com/alfaytri/MMS.git`, foundation pushed to `main`, active development on branch `develop`
-- [2026-04-16] **Master Data plan written** — `docs/superpowers/plans/2026-04-16-mms-master-data.md` (13 tasks)
-- [2026-04-16] **Master Data Task 1: Dependencies + Formatters + Toaster** — installed @tanstack/react-table, sonner; created formatters.ts with 5 formatting helpers + 17 tests; added Toaster to root layout
-- [2026-04-16] **Master Data Task 2: DataTable Shared Component** — created DataTableColumnHeader (sortable headers with aria), DataTablePagination (responsive mobile-first with aria-labels), DataTable (sorting, filtering, pagination, loading skeleton, empty state)
-- [2026-04-16] **Master Data Task 3: Shared UI Components** — PageHeader (customizable icon), SearchInput (debounced with aria-labels), StatusBadge (6 semantic variants), ConfirmDialog (with pending state)
-- [2026-04-16] **Master Data Task 4: Suppliers Module** — useSuppliers hook (query + create/update mutations), SupplierFormDialog (7-field form with zod validation), Suppliers page with DataTable. Key findings: Base UI uses `render` prop not `asChild`, zod v4 needs `.optional()` not `.default('')` with zodResolver.
-- [2026-04-16] **Master Data Task 5: Companies & Divisions** — useCompanies hook, expanded useDivisions (full type + mutations + useDivisionsByCompany), CompanyFormDialog (8 fields), DivisionFormDialog (14 fields, scrollable), Card-per-company page with nested division table
-- [2026-04-16] **Master Data Task 6: Warehouses Module** — useWarehouses hook (query + create/update), WarehouseFormDialog (name/location/type), Warehouses page with DataTable + type badge + item count
-
-- [2026-04-16] **Master Data Tasks 7–8: Inventory Module** — useInventory hook (categories, items, brand variants, all CRUD), InventoryItemFormDialog (9 fields, bilingual), BrandVariantFormDialog (code + prices), Inventory page with 3 tabs (Products/Spare Parts/Consumables), expandable brand variants panel
-- [2026-04-16] **Master Data Tasks 9–10: Users & Roles** — useRoles hook (custom_roles CRUD), useProfiles hook (profiles + nested user_custom_roles + user_divisions), lib/permissions.ts (8 modules, ~48 permission keys), RoleFormDialog (scrollable permission checkboxes by group), UserRoleDialog (toggle-based roles + divisions), Users & Roles page (3 tabs: Permissions/Roles/Users)
-- [2026-04-17] **Master Data Task 11: Audit Trail** — useActivityLog hook (30s auto-refresh, module/severity/search filters, debounced search, escaped PostgREST queries), AuditDetailDialog (JSON diff view for old/new data), Audit Trail page with filters + DataTable
-- [2026-04-17] **Master Data Task 12: Admin Settings** — AdminSidebar (3 sections, active state, "Soon" badges), Admin layout (responsive sidebar + content), Admin landing page (redirects to brand-groups), Brand Groups page (CRUD), Reason Lists page (CRUD)
-- [2026-04-17] **Master Data Task 13: Integration Test** — Build passes cleanly (all 9 routes), 21/21 tests pass, resolved stale database.types.ts cast issues (brand_variants, inventory_categories, inventory_items)
-- [2026-04-17] **Master Data plan: COMPLETE** — All 13 tasks done. 9 pages, 7+ hooks, 10+ form dialogs, all responsive.
-
-- [2026-04-17] **Purchase Core Task 1: Hooks** — usePurchaseOrders (PO CRUD, filters, approval calc, payment methods), usePOApprovals (approval workflow hooks)
-- [2026-04-17] **Purchase Core Task 2: Shared Components** — PoStatusBadge (color-coded), PoApprovalChain (compact icon row), InventoryItemLookup (typeahead search), PaymentDialog (record payments)
-- [2026-04-17] **Purchase Core Task 3: PO Detail Dialog** — 4-tab dialog (line items, receivals, payments, activity), entity_id filter, staleTime, currency format
-- [2026-04-17] **Purchase Core Task 4: PO List Page** — Status chip filters, date range, debounced search, DataTable with 9 columns, PoDetailDialog integration
-- [2026-04-17] **Purchase Core Task 5: Create/Edit PO Page** — PoLineItemsEditor (line type tabs, inventory lookup per row, qty/price/total calc, add/remove rows), PoTermsSection (payment/delivery term presets, vendor notes), Create PO page (supplier search+quick-add, currency/exchange rate, line items, terms, discount, approval level preview, save draft/submit), Edit PO stub page
-- [2026-04-17] **Purchase Core Task 6: Approvals Page** — Pending approvals queue (card per PO, click to approve/reject), completed approvals table, approve/reject dialog with line items preview + approval chain + comment, full rejection vs send-back-to-draft modes, real Supabase auth user recorded
-- [2026-04-17] **Purchase Core plan: COMPLETE** — All 7 tasks done. 4 pages, 9 hooks, 7+ components, full PO lifecycle (create → approve → receive → pay).
-- [2026-04-17] **Sales Core Task 1: Sale Hooks** — useSaleOrders (types, customer hooks, SO CRUD, confirm with reserve-stock, delivery with deduct-sale-stock, payments), useSaleReturns (CRUD + status transitions)
-- [2026-04-17] **Sales Core Task 2: Shared Components** — SoStatusBadge (8 status colors), SoPaymentDialog (record payment form), SoDeliveryDialog (warehouse + per-item qty, calls deduct-sale-stock edge function)
-- [2026-04-17] **Sales Core Task 3: SO Detail Dialog** — 4-tab dialog (items with subtotal/discount/total, deliveries with item breakdown, payments with progress bar, activity log); action buttons for confirm/deliver/edit per status
-- [2026-04-17] **Sales Core Task 4: Sale Orders List Page** — status chip filters (8 statuses with counts), debounced search, date range, DataTable with 7 columns, SoDetailDialog integration with confirm/edit actions
-- [2026-04-17] **Sales Core Task 5: Create/Edit SO Page** — SoLineItemsEditor (inventory lookup per row, qty/price/total calc, negative margin warning icon), Create SO page (customer search+quick-add, line items, fixed/percentage discount, notes, save-as-quotation + confirm-order), Edit SO stub page
-- [2026-04-17] **Sales Core Task 6: Sale Returns Page** — returns list with status chips, create return dialog (SO selector, per-item qty + condition toggle, restock warehouse), return detail dialog, advance-status pipeline (pending → received → restocked → closed)
-- [2026-04-17] **Sales Core plan: COMPLETE** — All 7 tasks done. 4 pages, 3 hooks, 5+ components, full SO lifecycle (quotation → confirm → deliver → pay → return).
-- [2026-04-17] **Purchase Operations plan written** — `docs/superpowers/plans/2026-04-17-mms-purchase-operations.md` (8 tasks: hooks, Shipments, Landed Costs, Warehouses Hub 7-tab, Dead Stock Report, integration test)
-
-- [2026-04-17] **Purchase Operations Task 1: Hooks** — useShipments (CRUD + event tracking + archive), useLandedCosts (CRUD + void), useWarehouseOperations (stock movements, transfers, adjustments, inventory checks), useDeadStock (2-query classify + filter)
-- [2026-04-17] **Purchase Operations Task 2: Shipments Page** — Shipments tracking page with status chip filter (Active/Archived), DataTable (9 columns), CreateShipmentDialog (PO/mode/carrier/dates), ShipmentDetailDialog (timeline events + add event form + update status dropdown + archive)
-- [2026-04-17] **Purchase Operations Task 3: Landed Costs Page** — LC list with DataTable, CreateLcDialog (description/date/cost lines/receival checkboxes), LcDetailDialog (cost lines + item allocations + void action with reason)
-- [2026-04-17] **Purchase Operations Task 4: Warehouses Hub Shell** — 7-tab hub page, WhWarehousesTab (card grid with type badge/item count/value), WhStockOverviewTab (warehouse selector + stock table), WhMovementsTab (movement log with type badges + qty colors)
-- [2026-04-17] **Purchase Operations Task 5: Transfers + Receivals Tabs** — WhTransfersTab (list with approve/reject for pending_approval), WhTransferDialog (from/to warehouse, date, dynamic item rows), WhReceivalsTab (all-warehouse receival list with PO context)
-- [2026-04-17] **Purchase Operations Task 6: Adjustments + Inventory Checks Tabs** — WhAdjustmentsTab (list with approve action), WhAdjustmentDialog (warehouse/variant/type/qty/reason), WhInventoryChecksTab (list with Create+View), WhInventoryCheckDialog (dual-mode: create or count items with variance display + submit/review)
-
-- [2026-04-17] **Purchase Operations Task 7: Dead Stock Report** — 4-category summary cards (Active/Slow/At-Risk/Dead) with click-to-filter, sort by days idle or value, full table with last movement date and ∞ for never-moved items
-- [2026-04-17] **Purchase Operations plan: COMPLETE** — All 8 tasks done. 4 pages, 4 hooks, 11 warehouse tab/dialog components, full operations coverage (shipments, landed costs, stock overview, movements, transfers, receivals, adjustments, inventory checks, dead stock).
-
-- [2026-04-17] **CSV Import plan written** — `docs/superpowers/plans/2026-04-17-mms-csv-import.md` (3 tasks: utilities+hooks, import page UI, integration test)
-- [2026-04-17] **CSV Import Task 1: Utilities + Hooks** — ENTITY_CONFIGS (5 entity column defs + example rows + template download), validateRows (per-type validation, number coercion, required checks), useImportSuppliers/InventoryItems/Customers/PurchaseOrders/SaleOrders (batch insert, grouping by PO/SO number for multi-line entities)
-- [2026-04-17] **CSV Import Task 2: Import Page** — Tabbed entity selector, drag-and-drop CSV upload (PapaParse), column legend with required/optional badges, preview DataTable with per-cell error highlighting, show-errors-only toggle, download error rows, import valid rows with progress, ResultSummary with success/fail counts
-- [2026-04-17] **CSV Import Task 3: Integration Test** — TypeScript clean, all tests pass, build succeeds, route /master-data/import confirmed
-- [2026-04-17] **CSV Import plan: COMPLETE** — All 3 tasks done. 1 page, 3 utility/hook files, 5 entity importers, full workflow (template → upload → validate → import → results).
-
-- [2026-04-18] **User Management Task 5: POST /api/users/create** — admin-driven user creation with rate limit + dual-write profile + atomic role assignment + audit log
-- [2026-04-18] **User Management Tasks 6-8: remaining API routes** — PATCH /api/users/[id] (profile update + self-deactivation guard), POST /api/users/reset-password (JWT+DB dual-write), POST /api/users/me/change-password (self-change clears flag + session refresh)
-- [2026-04-18] **User Management Tasks 9-11: infrastructure** — middleware force-change-password gate (JWT→DB fallback + explicit allowlist), 4 new useProfiles hooks, /change-password page
-- [2026-04-18] **User Management Tasks 12-15: dialogs + wiring** — AddUserDialog, EditUserDialog, ResetPasswordDialog; wired into Users page; "Invite User" renamed to "Add User"; "Manage Roles" replaced with Edit/Reset actions
-- [2026-04-18] **User Management Task 16: cleanup** — deleted /api/users/invite, InviteUserDialog, useInviteUser; full build confirmed clean; all 5 new routes present
-- [2026-04-18] **Bug fixes (smoke test)** — fixed requireAdmin bootstrap-first ordering (403 on Add User), fixed replace_user_custom_roles RPC column name (user_id→profile_id), fixed useProfiles to route through GET /api/users bypassing RLS, fixed PostgREST FK ambiguity (user_custom_roles + user_divisions dual-FK hints), reduced password min to 8 chars
-- [2026-04-18] **Built-in Admin role** — migration `20260418150000_seed_admin_role.sql` seeds is_system Admin role with all 53 permission keys; auto-assigns to m.ismail@alfaytri.com; pushed + committed (26f6f1e)
-- [2026-04-18] **Fix: warehouses RLS** — migration `20260418160000_fix_warehouses_rls.sql` adds SELECT/INSERT/UPDATE/DELETE policies; warehouses table had RLS enabled with zero policies (every write was blocked) (887f575)
-- [2026-04-18] **Admin Settings redesign** — AdminSidebar restructured into 4 sections (ORGANIZATION: Divisions/Warehouses/Work Schedule; CATALOG & PRICING: Brand Groups/Pricing Factors/Credit Categories; OPERATIONS: Reason Lists/Document T&C; INTEGRATIONS: Call Center/Traccar Devices/Agent Resources); title moved into sidebar; layout heading removed (b093dd4)
-- [2026-04-18] **Brand Groups: card layout** — page replaced DataTable with responsive card grid; scope filter dropdown; coloured scope badges; brand chips per card; Manage Brands dialog (checkbox list to add/remove brands from group); inline edit + soft-delete (b093dd4)
-- [2026-04-18] **Fix: create brands/brand_groups/brand_group_members tables** — migration `20260418170000_create_brands_and_brand_groups.sql`; tables existed in old DB but were missing from migrations causing schema cache errors (b89c4cb)
-- [2026-04-18] **Admin UI Restructure Task 1: DB Migrations** — divisions.name_ar column migration, division-assets Storage bucket migration created; database.types.ts updated with name_ar on divisions Row/Insert/Update
-- [2026-04-18] **Admin UI Restructure Task 2: Route Migration** — Companies & Warehouses pages moved to admin/companies and admin/warehouses; nav-config.ts + AdminSidebar.tsx links updated
-- [2026-04-18] **Admin UI Restructure Task 3: useDivisions** — useAllDivisions (fetches all including inactive) + useDeleteDivision mutation added
-- [2026-04-18] **Admin UI Restructure Task 4: permissions.ts** — PERMISSION_GROUPS rewritten with icons/labels/descriptions per key; roleColor util added; ALL_PERMISSIONS derived from new structure; 5 vitest tests pass
-- [2026-04-18] **Admin UI Restructure Task 5: DivisionFormDialog Overhaul** — redesigned form with company dropdown, color swatches, name_ar field, logo/stamp upload to Supabase Storage
-- [2026-04-18] **Admin UI Restructure Task 6: Companies page** — division card grid with colored left border, logo/address/stamp indicators, edit/delete actions, per-company sections (0539df5)
-- [2026-04-18] **Admin UI Restructure Task 7: RoleFormDialog** — accordion permissions by module with indeterminate checkboxes, Select/Clear All, live count, Base UI indeterminate prop adapted (0447262)
-- [2026-04-18] **Admin UI Restructure Task 8: Users & Roles page** — Shield header + dynamic counts, tab badges, Permissions accordion with Expand/Collapse All, Role cards grid (3-col) with coverage chips via `roleColor()`, Users DataTable with row actions, `useDeleteRole` hook added (972299d)
-- [2026-04-18] **Admin UI Restructure Task 9: Integration** — full `next build` passes (31 routes), all 33 vitest tests pass, old `master-data/companies` and `master-data/warehouses` routes confirmed removed
-- [2026-04-18] **Auth gate fix** — `middleware.ts` now redirects signed-in users off `/login` to `/`, removed leftover debug `console.log`, dropped dead `!startsWith('/auth')` check (the `(auth)` route group is stripped from URLs so the clause never fired). Unauthenticated users hitting `/` are correctly redirected to `/login`; authenticated users hitting `/login` are redirected to the dashboard.
-- [2026-04-18] **Users & Roles tabs UI polish** — tab row (Permissions/Roles/Users) moved to the top and centered via `justify-center`, Tabs root forced to `flex-col` so TabsList and TabsContent stack (the base component's `data-horizontal:flex-col` variant wasn't firing). Active tab now highlights with `data-active:bg-primary` (orange) + `text-primary-foreground` (white). Count badges rewritten as compact `<span>` — `h-4 min-w-5 rounded-full bg-white border text-[10px] text-foreground tabular-nums`, giving the white-pill / rounded / black-text look requested. Removed redundant `mt-4` from each TabsContent inner div since the Tabs root now owns the vertical gap.
-- [2026-04-18] **Session cookies are now session-scoped** — stripped `Max-Age`/`Expires` from all three places Supabase auth cookies get written (`middleware.ts`, `src/lib/supabase/server.ts`, `src/lib/supabase/client.ts`). Browser now drops `sb-*-auth-token*` cookies on window/process close instead of persisting them for days, so closing the browser forces the next visit through `/login`. Caveat: Chrome's "Continue where you left off" setting and keeping other tabs on the same origin open will preserve session cookies until the browser process actually exits.
-- [2026-04-19] **Purchase & Sales Expansion Task 12: Customer Invoices page** — InvoiceDetail.tsx (read-only dialog with needs_refresh banner, line items table, payment summary, send/pay/payment-plan actions), Customer Invoices list page with doc_status chip filter, search, DataTable, InvoiceDetail integration (`src/components/sales/InvoiceDetail.tsx`, `src/app/(dashboard)/sales/invoices/page.tsx`)
-- [2026-04-19] **Purchase & Sales Expansion Task 14: Wire SO Confirm → stub delivery + draft AR invoice** — extended `useConfirmSO` in `src/hooks/useSaleOrders.ts` to insert a `sale_deliveries` stub (warehouse_id null) and call `syncInvoiceToSalesOrder` after stock reservation; `onSuccess` now also invalidates `sale-deliveries` and `customer-invoices` query keys
-- [2026-04-19] **Bug Fix: delivery insert error handling in useConfirmSO** — added error destructuring `const { error: delErr }` and `if (delErr) throw delErr` to the `sale_deliveries` insert in `useConfirmSO`; silent failures are now caught. TypeScript clean, build passes.
-- [2026-04-19] **Purchase & Sales Expansion Task 12: Customer Invoices Page** — InvoiceDetail dialog (needs_refresh banner, send/pay actions), Customer Invoices list page with doc/payment status badges
-- [2026-04-19] **Purchase & Sales Expansion Task 14: SO Confirm Wiring** — useConfirmSO extended to create stub delivery + auto-generate draft AR invoice via syncInvoiceToSalesOrder
-- [2026-04-19] **Purchase & Sales Expansion Task 15: Integration Test** — tsc clean, all vitest tests pass, next build succeeds with all 8 new routes confirmed
-- [2026-04-19] **Purchase & Sales Expansion plan: COMPLETE** — All 15 tasks done. Full Purchase flow (RFQ→PO→Receival→Bill→Payment) + Sales flow (SO→Delivery→Invoice→Payment→Credit Note) implemented.
-- [2026-04-19] **PO Restructure Task 4: PoDetailDialog "Create Bill" button** — added `onCreateBill` prop to `PoDetailDialog`, footer button wired in `orders/page.tsx` to close dialog and open `BillFormDialog` pre-filled with the PO id (`src/components/purchase/PoDetailDialog.tsx`, `src/app/(dashboard)/purchase/orders/page.tsx`)
-- [2026-04-19] **PO Page Redesign: Complete** — Stat cards (4 KPIs), rich filters bar (search/status/supplier/date/receival/payment), progress-bar table, PoDetailDialog with Submit/Cancel/Print actions + inline Receive tab + timeline activity log. New components: PoReceiveTab, PoShipmentDialog. Hooks: useSubmitPO, useCancelPO.
-
-## 🔄 In Progress
-
-### PO Page Redesign — IN PROGRESS 🔄
-
-- Implementation plan: `docs/superpowers/plans/2026-04-19-po-page-redesign.md` ✅ written (7 tasks)
-- Scope: Stat cards, rich filters bar, progress-bar table, PoDetailDialog action buttons + Receive tab + timeline activity log + PoShipmentDialog
-- **Status: ALL 7 TASKS COMPLETE ✅**
-  - [x] Task 1: Install progress component + useSubmitPO + useCancelPO ✅
-  - [x] Task 2: Page header + stat cards + filters + table (rewrite) ✅
-  - [x] Task 3: PoDetailDialog redesigned header + action buttons ✅
-  - [x] Task 4: PoDetailDialog activity log timeline ✅
-  - [x] Task 5: PoReceiveTab (inline receival) + wire 5th tab ✅
-  - [x] Task 6: PoShipmentDialog ✅
-  - [x] Task 7: Integration test + PROGRESS.md update ✅
+- [2026-04-16] **Foundation (Tasks 1–18)** — scaffold, auth, design system, TopNav, dashboard; 87-table schema applied; login page, middleware, TanStack Query provider; full navigation
+- [2026-04-16] **Bug fixes** — NavDropdown.tsx + UserMenu.tsx: wrapped groups in `<DropdownMenuGroup>` to fix context errors
+- [2026-04-16] **Git setup** — remote connected to `https://github.com/alfaytri/MMS.git`; foundation pushed to `main`; development on `develop`
 
 ---
 
-### PO Restructure (Sub-project D) — COMPLETE ✅
+### Master Data (Plan: 2026-04-16-mms-master-data.md) — COMPLETE ✅
 
-- Implementation plan: `docs/superpowers/plans/2026-04-19-po-restructure.md` ✅ written (4 tasks)
-- Scope: Remove RFQ & Bills from nav, add RFQ button + three-dot row actions on PO list, BillFormDialog `initialPoId` prop, PoDetailDialog "Create Bill" button
-- **Status: ALL 4 TASKS COMPLETE ✅**
-  - [x] Task 1: Remove RFQ & Bills from nav
-  - [x] Task 2: RFQ button + three-dot row actions on PO list
-  - [x] Task 3: BillFormDialog `initialPoId` prop
-  - [x] Task 4: PoDetailDialog "Create Bill" button
-
----
-
-### Purchase & Sales Expansion (Sub-project C) — COMPLETE ✅
-
-- Design spec: `docs/superpowers/specs/2026-04-18-purchase-sales-expansion-design.md` ✅ approved
-- Implementation plan: `docs/superpowers/plans/2026-04-19-purchase-sales-expansion.md` ✅ **fully written** (15 tasks, 67 steps)
-- Scope: DB migrations (invoices split status, match_status, credit_note_lines, payment_plans), Purchase flow (RFQ→PO→Receival→Bill→Payment), Sales flow (SO→Delivery→Invoice→Payment→Credit Note)
-- **Status: ALL 15 TASKS COMPLETE ✅**
-
-**Completed Tasks:**
-  - [x] Task 1: DB Migration (30b8718)
-  - [x] Task 2: TypeScript Invoice Types + Invoice Sync (b7c806f)
-  - [x] Task 3: Nav Config Update (d3f615c)
-  - [x] Task 4: useRfqs + useReceivals hooks (a52c7dc)
-  - [x] Task 5: useSupplierBills + useSupplierPayments + usePaymentPlans hooks (c110663)
-  - [x] Task 6: Sales hooks (useSaleDeliveries, useCustomerInvoices, useCustomerPayments, useCreditNotes) (d69592c)
-  - [x] Task 7: RFQ Components + Page (e869201)
-  - [x] Task 8: Receivals Components + Page (657580b)
-  - [x] Task 9: Bills Components + Page (87cd241)
-  - [x] Task 10: Purchase Payments Components + Page (df15d44)
-  - [x] Task 11: Sale Deliveries Component + Page (0b90fe4)
-  - [x] Task 12: Customer Invoices Component + Page (b7a67b7)
-  - [x] Task 13: Customer Payments + Credit Notes page (f0fe8e3)
-  - [x] Task 14: Wire SO Confirm to Create Delivery + Invoice (7027539)
-  - [x] Task 15: Integration Test — tsc clean, 33 vitest tests pass, next build with all 8 routes confirmed
+- [2026-04-16] **Task 1** — Dependencies + Formatters + Toaster (`formatters.ts` with 5 helpers + 17 tests)
+- [2026-04-16] **Task 2** — DataTable shared component (sortable headers, pagination, skeleton, empty state)
+- [2026-04-16] **Task 3** — Shared UI components (PageHeader, SearchInput, StatusBadge, ConfirmDialog)
+- [2026-04-16] **Task 4** — Suppliers module (useSuppliers hook, SupplierFormDialog, Suppliers page)
+- [2026-04-16] **Task 5** — Companies & Divisions (useCompanies, useDivisions, CompanyFormDialog, DivisionFormDialog)
+- [2026-04-16] **Task 6** — Warehouses module (useWarehouses, WarehouseFormDialog, Warehouses page)
+- [2026-04-16] **Tasks 7–8** — Inventory module (useInventory, 3 tabs: Products/Spare Parts/Consumables, brand variants panel)
+- [2026-04-16] **Tasks 9–10** — Users & Roles (useRoles, useProfiles, permissions.ts, RoleFormDialog, UserRoleDialog, 3-tab page)
+- [2026-04-17] **Task 11** — Audit Trail (useActivityLog with 30s refresh, AuditDetailDialog, filters + DataTable)
+- [2026-04-17] **Task 12** — Admin Settings (AdminSidebar 4 sections, Brand Groups CRUD, Reason Lists CRUD)
+- [2026-04-17] **Task 13** — Integration test: build clean (9 routes), 21/21 tests pass
 
 ---
 
-### Phase 1 Cleanup — MUST CLEAR BEFORE PHASE 2
+### Purchase Core (Plan: 2026-04-17-mms-purchase-core.md) — COMPLETE ✅
 
-All Phase 1 modules are feature-complete, but these loose ends must be closed before starting Phase 2 work.
+- [2026-04-17] **Task 1** — Hooks (usePurchaseOrders, usePOApprovals, approval calc)
+- [2026-04-17] **Task 2** — Shared components (PoStatusBadge, PoApprovalChain, InventoryItemLookup, PaymentDialog)
+- [2026-04-17] **Task 3** — PoDetailDialog (4-tab: line items, receivals, payments, activity)
+- [2026-04-17] **Task 4** — PO List Page (status chip filters, date range, debounced search, DataTable)
+- [2026-04-17] **Task 5** — Create/Edit PO Page (PoLineItemsEditor, PoTermsSection, supplier quick-add, approval preview)
+- [2026-04-17] **Task 6** — Approvals Page (pending queue, approve/reject dialog, full rejection vs send-back)
+- [2026-04-17] **Task 7** — Integration test: build clean, all routes confirmed
 
-- [ ] **[2026-04-18] In-app user management rework** — replace invite-email flow with admin-driven create / edit / reset password.
-  - Design spec: `docs/superpowers/specs/2026-04-18-in-app-user-management-design.md`
-  - Implementation plan: `docs/superpowers/plans/2026-04-18-mms-user-management.md` (17 tasks)
-  - Scope: migration for `profiles.must_change_password`, 4 new API routes, delete `/api/users/invite`, middleware force-change gate, `/change-password` page, `AddUserDialog` + `EditUserDialog` + `ResetPasswordDialog`, row actions dropdown on Users page, hook updates.
-  - Status: **code complete** — all automated checks pass. Manual browser smoke test pending before Phase 2.
-    - [x] Task 1 — migration + `replace_user_custom_roles` RPC applied (ad94ed2)
-    - [x] Task 2 — shared `passwordSchema` zod + 6 unit tests (c33730a)
-    - [x] Task 3 — `requireAdmin()` / `requireAuth()` gates with `ADMIN_BOOTSTRAP_EMAIL` fallback (ab7a744)
-    - [x] Task 4 — `isRateLimited()` + `logUserEvent()` helpers over `activity_log` (7f9753c)
-    - [x] Task 5 — `POST /api/users/create` — admin-driven user creation with rate limit + roles + audit
-    - [x] Task 6 — `PATCH /api/users/[id]` — update profile + optional role replace + self-deactivation guard (ef16d2d)
-    - [x] Task 7 — `POST /api/users/reset-password` — admin reset with JWT+DB dual-write (4540ac4)
-    - [x] Task 8 — `POST /api/users/me/change-password` — self-change clears flag (e7fdbdf)
-    - [x] Task 9 — middleware force-change-password gate (explicit allowlist + JWT→DB fallback) (69a5369)
-    - [x] Task 10 — `useCreateUser` / `useUpdateUser` / `useResetUserPassword` / `useCompleteMyPasswordChange` hooks (2945735)
-    - [x] Task 11 — `/change-password` page (035a271)
-    - [x] Task 12 — `AddUserDialog` component (7ac00dc)
-    - [x] Task 13 — `EditUserDialog` component (d1a59b8)
-    - [x] Task 14 — `ResetPasswordDialog` component (4670c2f)
-    - [x] Task 15 — wire dialogs into Users page; renamed Invite → Add; swapped Manage Roles for Edit User + Reset Password (41e3a9d)
-    - [x] Task 16 — deleted `/api/users/invite`, `InviteUserDialog`, `useInviteUser`; build clean (d6565ef)
-    - [x] Task 17 — automated: build clean, all routes verified, all tests pass. Manual browser smoke test pending.
+---
 
-- [x] **[2026-04-18] Create Role dialog UI polish** — permissions grid was overlapping; fixed via flex-wrap + module-prefix stripping + per-group Select all toggle. Width raised to `max-w-5xl`, inner permissions box caps at `55vh` with internal scroll.
+### Sales Core (Plan: 2026-04-17-mms-sales-core.md) — COMPLETE ✅
 
-- [ ] **Verify** self-provision banner flow (Create My Profile) on a fresh auth user with no profile row — unverified by user since it was added.
+- [2026-04-17] **Task 1** — Hooks (useSaleOrders, useSaleReturns, customer hooks, confirm + stock-reserve, delivery + deduct-stock)
+- [2026-04-17] **Task 2** — Shared components (SoStatusBadge, SoPaymentDialog, SoDeliveryDialog)
+- [2026-04-17] **Task 3** — SoDetailDialog (4-tab: items, deliveries, payments, activity)
+- [2026-04-17] **Task 4** — Sale Orders List Page (8 status chips, debounced search, date range, DataTable)
+- [2026-04-17] **Task 5** — Create/Edit SO Page (SoLineItemsEditor, negative margin warning, save-as-quotation + confirm)
+- [2026-04-17] **Task 6** — Sale Returns Page (create return dialog, return detail, advance-status pipeline)
+- [2026-04-17] **Task 7** — Integration test: build clean, all routes confirmed
 
-## ⏳ Not Started (Phase 2, gated on cleanup above)
+---
+
+### Purchase Operations (Plan: 2026-04-17-mms-purchase-operations.md) — COMPLETE ✅
+
+- [2026-04-17] **Task 1** — Hooks (useShipments, useLandedCosts, useWarehouseOperations, useDeadStock)
+- [2026-04-17] **Task 2** — Shipments Page (status chip filter, DataTable, CreateShipmentDialog, ShipmentDetailDialog with timeline)
+- [2026-04-17] **Task 3** — Landed Costs Page (CreateLcDialog with cost lines, LcDetailDialog with allocations + void)
+- [2026-04-17] **Task 4** — Warehouses Hub Shell (7-tab hub, Warehouses/Stock Overview/Movements tabs)
+- [2026-04-17] **Task 5** — Transfers + Receivals Tabs (WhTransferDialog, approve/reject for pending_approval)
+- [2026-04-17] **Task 6** — Adjustments + Inventory Checks Tabs (WhAdjustmentDialog, WhInventoryCheckDialog dual-mode)
+- [2026-04-17] **Task 7** — Dead Stock Report (4-category cards, sort by idle days/value, ∞ for never-moved)
+- [2026-04-17] **Task 8** — Integration test: build clean, all routes confirmed
+
+---
+
+### CSV Import (Plan: 2026-04-17-mms-csv-import.md) — COMPLETE ✅
+
+- [2026-04-17] **Task 1** — Utilities + Hooks (ENTITY_CONFIGS, validateRows, 5 entity importers, template download)
+- [2026-04-17] **Task 2** — Import Page (tabbed entity selector, drag-and-drop PapaParse, error highlighting, download error rows)
+- [2026-04-17] **Task 3** — Integration test: TypeScript clean, tests pass, build succeeds
+
+---
+
+### User Management (Plan: 2026-04-18-mms-user-management.md) — COMPLETE ✅
+
+- [2026-04-18] **Task 1** — Migration + `replace_user_custom_roles` RPC (ad94ed2)
+- [2026-04-18] **Task 2** — Shared `passwordSchema` zod + 6 unit tests (c33730a)
+- [2026-04-18] **Task 3** — `requireAdmin()` / `requireAuth()` gates with `ADMIN_BOOTSTRAP_EMAIL` fallback (ab7a744)
+- [2026-04-18] **Task 4** — `isRateLimited()` + `logUserEvent()` helpers (7f9753c)
+- [2026-04-18] **Tasks 5–8** — 4 API routes: POST /api/users/create, PATCH /api/users/[id], POST /api/users/reset-password, POST /api/users/me/change-password
+- [2026-04-18] **Tasks 9–11** — Middleware force-change gate, 4 new useProfiles hooks, /change-password page
+- [2026-04-18] **Tasks 12–15** — AddUserDialog, EditUserDialog, ResetPasswordDialog; wired into Users page
+- [2026-04-18] **Task 16** — Deleted /api/users/invite, InviteUserDialog, useInviteUser; build clean
+- [2026-04-18] **Task 17** — Automated checks pass; manual browser smoke test pending
+- [2026-04-18] **Bug fixes** — requireAdmin bootstrap ordering, replace_user_custom_roles column name, useProfiles RLS bypass, PostgREST FK ambiguity, password min 8 chars
+- [2026-04-18] **Admin role seed** — migration seeds is_system Admin role with all 53 permission keys; auto-assigns to m.ismail@alfaytri.com (26f6f1e)
+- [2026-04-18] **Fix: warehouses RLS** — migration adds SELECT/INSERT/UPDATE/DELETE policies (887f575)
+
+---
+
+### Admin UI Restructure — COMPLETE ✅
+
+- [2026-04-18] **Task 1** — DB migrations (divisions.name_ar, Storage bucket for division assets)
+- [2026-04-18] **Task 2** — Route migration (Companies & Warehouses → /admin/companies, /admin/warehouses)
+- [2026-04-18] **Task 3** — useDivisions: useAllDivisions + useDeleteDivision added
+- [2026-04-18] **Task 4** — permissions.ts rewritten (icons/labels/descriptions per key, roleColor util, 5 tests)
+- [2026-04-18] **Task 5** — DivisionFormDialog overhaul (company dropdown, color swatches, name_ar, logo/stamp upload)
+- [2026-04-18] **Task 6** — Companies page (division card grid, colored left border, logo/address/stamp indicators)
+- [2026-04-18] **Task 7** — RoleFormDialog (accordion permissions by module, indeterminate checkboxes, Select/Clear All)
+- [2026-04-18] **Task 8** — Users & Roles page (Shield header, tab badges, Role cards grid, roleColor() coverage chips)
+- [2026-04-18] **Task 9** — Integration: build clean (31 routes), 33 tests pass
+- [2026-04-18] **Auth gate fix** — middleware redirects signed-in users off /login; unauthenticated users redirected to /login
+- [2026-04-18] **Users & Roles UI polish** — tab row centered, active tab orange, count badges white-pill style
+- [2026-04-18] **Session cookies** — stripped Max-Age/Expires so browser drops cookies on window close
+- [2026-04-18] **Fix: brands/brand_groups tables** — migration for tables missing from migrations (b89c4cb)
+
+---
+
+### Purchase & Sales Expansion (Plan: 2026-04-19-purchase-sales-expansion.md) — COMPLETE ✅
+
+- [2026-04-19] **Task 1** — DB Migration (invoices split status, match_status, credit_note_lines, payment_plans) (30b8718)
+- [2026-04-19] **Task 2** — TypeScript Invoice Types + Invoice Sync (b7c806f)
+- [2026-04-19] **Task 3** — Nav Config Update (d3f615c)
+- [2026-04-19] **Task 4** — useRfqs + useReceivals hooks (a52c7dc)
+- [2026-04-19] **Task 5** — useSupplierBills + useSupplierPayments + usePaymentPlans hooks (c110663)
+- [2026-04-19] **Task 6** — Sales hooks (useSaleDeliveries, useCustomerInvoices, useCustomerPayments, useCreditNotes) (d69592c)
+- [2026-04-19] **Task 7** — RFQ Components + Page (e869201)
+- [2026-04-19] **Task 8** — Receivals Components + Page (657580b)
+- [2026-04-19] **Task 9** — Bills Components + Page (87cd241)
+- [2026-04-19] **Task 10** — Purchase Payments Components + Page (df15d44)
+- [2026-04-19] **Task 11** — Sale Deliveries Component + Page (0b90fe4)
+- [2026-04-19] **Task 12** — Customer Invoices Component + Page (b7a67b7)
+- [2026-04-19] **Task 13** — Customer Payments + Credit Notes page (f0fe8e3)
+- [2026-04-19] **Task 14** — Wire SO Confirm → stub delivery + draft AR invoice (7027539)
+- [2026-04-19] **Task 15** — Integration test: tsc clean, 33 tests pass, next build all 8 routes confirmed
+
+---
+
+### PO Page Redesign (Plan: 2026-04-19-po-page-redesign.md) — COMPLETE ✅
+
+- [2026-04-19] **Task 1** — Install progress component + useSubmitPO + useCancelPO
+- [2026-04-19] **Task 2** — Page header + stat cards (4 KPIs) + rich filters bar + progress-bar table
+- [2026-04-19] **Task 3** — PoDetailDialog redesigned header + action buttons (Submit/Cancel/Print)
+- [2026-04-19] **Task 4** — PoDetailDialog activity log as vertical timeline
+- [2026-04-19] **Task 5** — PoReceiveTab (inline receival with warehouse selector + per-item qty) wired as 5th tab
+- [2026-04-19] **Task 6** — PoShipmentDialog (mode, tracking, carrier, ETD/ETA)
+- [2026-04-19] **Task 7** — Integration test + PROGRESS.md update
+- [2026-04-19] **PO Restructure** — BillFormDialog initialPoId, PoDetailDialog "Create Bill" button, RFQ button + three-dot row actions
+
+---
+
+## ⏳ Not Started (Phase 2, gated on Phase 1 cleanup)
 
 - Phase 2: Invoices & Payments module
 - Phase 2: Orders module
@@ -352,14 +327,3 @@ All Phase 1 modules are feature-complete, but these loose ends must be closed be
 | `Ideas/INVOICES MODULE.txt` | Full UI spec for Invoices |
 | `Ideas/Teams Module.txt` | Full UI spec for Teams |
 | `Ideas/Contact Center Module.txt` | Full UI spec for Contact Center |
-
----
-
-## HOW TO RESUME IN A NEW SESSION
-
-Paste this file and say:
-> "I'm continuing MMS development. Read PROGRESS.md and resume from where we left off."
-
-Claude will read the plan file for the current In Progress item and dispatch subagents task by task.
-
-**Active branch:** `develop` (all Phase 1 feature work goes here — never commit directly to `main`)
