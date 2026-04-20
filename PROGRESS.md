@@ -289,6 +289,18 @@ Purchase & Sales▾:
 
 ---
 
+### Edit PO Versioning (Plan: 2026-04-20-edit-po-versioning.md) — COMPLETE ✅
+
+- [2026-04-20] **Task 1** — Migration `20260420000001_po_versions.sql`: `version_number` column on `purchase_orders` + `po_versions` snapshot table with RLS (126f323)
+- [2026-04-20] **Task 2** — `PoVersion` type + `usePoVersions`, `useSubmitPoVersion`, `useSavePoAsDraft` hooks in `usePurchaseOrders.ts` (c65a825)
+- [2026-04-20] **Task 3** — `PoVersionTabs` component: tab strip showing past versions with dates + current version (pencil icon) (3318b6f)
+- [2026-04-20] **Task 4** — `PoVersionBanner` component: amber read-only banner + "Restore to this version" button (74a9985)
+- [2026-04-20] **Task 5** — Full rewrite of `edit-po/[id]/page.tsx`: pre-filled form, version tab navigation, old-version read-only view, restore handler; `readOnly` prop added to `PoLineItemsEditor` and `PoTermsSection` (114a81e)
+- [2026-04-20] **Fix** — Edit action button in PO list now shows for all non-cancelled statuses (previously draft-only) (86eebb0)
+- [2026-04-20] **Fix: RLS blanket fix** — Migration `20260420000002_fix_rls_all_tables.sql`: enabled RLS + permissive authenticated policy on 52 tables that were missing coverage (initial schema had 50 tables with no RLS at all); fixes `po_versions` insert error and prevents similar errors across inventory, payments, orders, and all other modules (a7f5914)
+
+---
+
 ### Create PO Redesign (Plan: 2026-04-20-create-po-redesign.md) — IN PROGRESS 🔄
 
 - [2026-04-20] **Create PO Redesign Task 1: Add tool_asset_item_id** — `src/hooks/usePurchaseOrders.ts` — Added tool_asset_item_id: string | null to POLineItemDraft type
