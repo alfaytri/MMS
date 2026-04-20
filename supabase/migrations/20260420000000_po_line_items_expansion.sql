@@ -17,3 +17,17 @@ ALTER TABLE po_line_items
   ADD COLUMN IF NOT EXISTS tool_asset_item_id UUID REFERENCES tool_asset_items(id) ON DELETE SET NULL,
   ADD COLUMN IF NOT EXISTS free_qty           INT NOT NULL DEFAULT 0,
   ADD COLUMN IF NOT EXISTS brand_id           UUID;
+
+-- Enable RLS and grant full access to authenticated users (matches project-wide pattern).
+ALTER TABLE purchase_orders  ENABLE ROW LEVEL SECURITY;
+ALTER TABLE po_line_items    ENABLE ROW LEVEL SECURITY;
+ALTER TABLE po_approvals     ENABLE ROW LEVEL SECURITY;
+
+CREATE POLICY "Internal users can manage purchase_orders"
+  ON purchase_orders FOR ALL TO authenticated USING (true) WITH CHECK (true);
+
+CREATE POLICY "Internal users can manage po_line_items"
+  ON po_line_items FOR ALL TO authenticated USING (true) WITH CHECK (true);
+
+CREATE POLICY "Internal users can manage po_approvals"
+  ON po_approvals FOR ALL TO authenticated USING (true) WITH CHECK (true);
