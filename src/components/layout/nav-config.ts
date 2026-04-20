@@ -24,8 +24,6 @@ export const NAV_ITEMS: NavEntry[] = [
     groups: [
       {
         items: [
-          { label: 'Companies & Divisions', href: '/master-data/admin/companies' },
-          { label: 'Warehouses', href: '/master-data/admin/warehouses' },
           { label: 'Inventory Items', href: '/master-data/inventory' },
           { label: 'Suppliers', href: '/master-data/suppliers' },
           { label: 'Users & Roles', href: '/master-data/users' },
