@@ -37,11 +37,16 @@ export function ToolAssetLookup({
       setLoading(true)
       const supabase = createClient()
       const safe = query.replace(/%/g, '\\%')
-      const { data } = await (supabase as any)
+      const { data, error } = await (supabase as any)
         .from('tool_asset_items')
         .select('id, name_en')
         .ilike('name_en', `%${safe}%`)
         .limit(20)
+      if (error) {
+        console.error('ToolAssetLookup query error:', error.message)
+        setLoading(false)
+        return
+      }
       setResults(
         (data ?? []).map((r: any) => ({
           tool_asset_item_id: r.id,
