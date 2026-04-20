@@ -112,7 +112,17 @@ export default function EditPOPage() {
       vendor_notes: po.vendor_notes ?? '',
     })
     setLineItems(draftToLineItemRows(
-      (po.po_line_items ?? []).map((li) => ({ ...li, sku: li.sku ?? '' }))
+      (po.po_line_items ?? []).map((li) => ({
+        item_name: li.item_name,
+        sku: li.sku ?? '',
+        qty: li.qty,
+        unit: li.unit,
+        unit_price: li.unit_price,
+        total_price: li.total_price,
+        brand_variant_id: li.brand_variant_id,
+        tool_asset_item_id: li.tool_asset_item_id,
+        free_qty: li.free_qty,
+      }))
     ))
     setActiveTab(po.version_number ?? 1)
   // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -191,7 +201,17 @@ export default function EditPOPage() {
       delivery_terms_notes: po.delivery_terms_notes ?? null,
       expected_delivery: po.expected_delivery ?? null,
       vendor_notes: po.vendor_notes ?? null,
-      line_items: (po.po_line_items ?? []).map(({ _key, line_type, ...li }: any) => li),
+      line_items: (po.po_line_items ?? []).map((li) => ({
+        item_name: li.item_name,
+        sku: li.sku ?? '',
+        qty: li.qty,
+        unit: li.unit,
+        unit_price: li.unit_price,
+        total_price: li.total_price,
+        brand_variant_id: li.brand_variant_id,
+        tool_asset_item_id: li.tool_asset_item_id,
+        free_qty: li.free_qty,
+      })),
     }
     submitPoVersion.mutate(
       {
