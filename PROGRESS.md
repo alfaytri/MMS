@@ -141,12 +141,12 @@ Purchase & Sales▾:
 ## 🔄 In Progress
 
 ### Create PO Page Redesign
-🚀 Starting: **Create PO Redesign Task 1: Add tool_asset_item_id to POLineItemDraft**
+🚀 Starting: **Create PO Redesign Task 2: AddSupplierDialog**
 - **Plan:** `docs/superpowers/plans/2026-04-20-create-po-redesign.md`
 - **Scope:** Sticky header + scrollable body, supplier combobox, 4-type grouped line items, milestone payment terms, delivery date in terms, vendor notes section, approval chain preview
 - **Tasks:**
   - [x] Task 1: Add `tool_asset_item_id` to `POLineItemDraft`
-  - [ ] Task 2: `AddSupplierDialog` standalone component
+  - [x] Task 2: `AddSupplierDialog` standalone component
   - [ ] Task 3: `ToolAssetLookup` component
   - [ ] Task 4: Rewrite `PoLineItemsEditor` — 4 grouped types, colored headers
   - [ ] Task 5: Rewrite `PoTermsSection` — milestones, delivery date, updated presets
@@ -292,6 +292,7 @@ Purchase & Sales▾:
 ### Create PO Redesign (Plan: 2026-04-20-create-po-redesign.md) — IN PROGRESS 🔄
 
 - [2026-04-20] **Create PO Redesign Task 1: Add tool_asset_item_id** — `src/hooks/usePurchaseOrders.ts` — Added tool_asset_item_id: string | null to POLineItemDraft type
+- [2026-04-20] **Create PO Redesign Task 2: AddSupplierDialog** — `src/components/purchase/AddSupplierDialog.tsx` — Standalone supplier creation dialog with Name/ContactName/Phone/Email fields, calls useCreateSupplier, exposes onCreated callback
 
 ---
 
