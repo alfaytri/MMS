@@ -30,12 +30,14 @@ import {
   usePoVersions,
   useSubmitPoVersion,
   useSavePoAsDraft,
+  useDeletePoVersion,
   calcApprovalLevel,
   getApprovalRoles,
   type PoVersion,
   type POLineItemDraft,
 } from '@/hooks/usePurchaseOrders'
 import { useSuppliers } from '@/hooks/useSuppliers'
+import { useIsAdmin } from '@/hooks/useProfiles'
 
 const CURRENCIES = ['QAR', 'USD', 'EUR', 'GBP', 'AED', 'SAR', 'KWD'] as const
 
@@ -74,8 +76,10 @@ export default function EditPOPage() {
   const { data: po, isLoading: poLoading } = usePurchaseOrder(id)
   const { data: versions = [], isLoading: versionsLoading } = usePoVersions(id)
   const { data: suppliers } = useSuppliers()
+  const { data: isAdmin } = useIsAdmin()
   const submitPoVersion = useSubmitPoVersion()
   const savePoAsDraft = useSavePoAsDraft()
+  const deletePoVersion = useDeletePoVersion()
 
   // ── Form state ────────────────────────────────────────────────────────────
   const [supplierId, setSupplierId] = useState('')
@@ -427,6 +431,19 @@ export default function EditPOPage() {
             <PoVersionBanner
               version={activeVersion}
               onRestore={() => handleRestore(activeVersion)}
+              onDelete={isAdmin ? () => {
+                deletePoVersion.mutate(
+                  { versionId: activeVersion.id, poId: id },
+                  {
+                    onSuccess: () => {
+                      setActiveTab(currentVersion)
+                      toast.success(`V${activeVersion.version_number} deleted`)
+                    },
+                    onError: (err) => toast.error(err.message),
+                  }
+                )
+              } : undefined}
+              isDeleting={deletePoVersion.isPending}
             />
           </div>
           {renderReadOnlyForm(activeVersion)}
