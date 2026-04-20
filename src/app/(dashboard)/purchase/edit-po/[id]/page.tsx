@@ -159,7 +159,9 @@ export default function EditPOPage() {
       vendor_notes: terms.vendor_notes || null,
       discount_amount: discountAmount,
       discount_label: discountLabel || null,
-      line_items: lineItems.map(({ _key, line_type, ...li }) => li),
+      line_items: lineItems.map(({ item_name, sku, qty, unit, unit_price, total_price, brand_variant_id, tool_asset_item_id, free_qty }) => ({
+        item_name, sku, qty, unit, unit_price, total_price, brand_variant_id, tool_asset_item_id, free_qty,
+      })),
     }
   }
 
