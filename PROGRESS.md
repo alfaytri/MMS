@@ -141,10 +141,11 @@ Purchase & Sales▾:
 ## 🔄 In Progress
 
 ### Create PO Page Redesign
+🚀 Starting: **Create PO Redesign Task 1: Add tool_asset_item_id to POLineItemDraft**
 - **Plan:** `docs/superpowers/plans/2026-04-20-create-po-redesign.md`
 - **Scope:** Sticky header + scrollable body, supplier combobox, 4-type grouped line items, milestone payment terms, delivery date in terms, vendor notes section, approval chain preview
 - **Tasks:**
-  - [ ] Task 1: Add `tool_asset_item_id` to `POLineItemDraft`
+  - [x] Task 1: Add `tool_asset_item_id` to `POLineItemDraft`
   - [ ] Task 2: `AddSupplierDialog` standalone component
   - [ ] Task 3: `ToolAssetLookup` component
   - [ ] Task 4: Rewrite `PoLineItemsEditor` — 4 grouped types, colored headers
@@ -285,6 +286,12 @@ Purchase & Sales▾:
 - [2026-04-19] **Task 13** — Customer Payments + Credit Notes page (f0fe8e3)
 - [2026-04-19] **Task 14** — Wire SO Confirm → stub delivery + draft AR invoice (7027539)
 - [2026-04-19] **Task 15** — Integration test: tsc clean, 33 tests pass, next build all 8 routes confirmed
+
+---
+
+### Create PO Redesign (Plan: 2026-04-20-create-po-redesign.md) — IN PROGRESS 🔄
+
+- [2026-04-20] **Create PO Redesign Task 1: Add tool_asset_item_id** — `src/hooks/usePurchaseOrders.ts` — Added tool_asset_item_id: string | null to POLineItemDraft type
 
 ---
 
