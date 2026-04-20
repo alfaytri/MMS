@@ -33,15 +33,35 @@ flex flex-col h-full
 
 | State | Type | Purpose |
 |-------|------|---------|
-| `activeTab` | `string` | Which tab is shown (default `"warehouses"`) |
-| `transferOpen` | `boolean` | Transfer dialog open state |
-| `adjustmentOpen` | `boolean` | Stock Adjustment dialog open state |
-| `checkOpen` | `boolean` | Inventory Check dialog open state |
-| `selectedReceival` | `ReceivalDelivery \| null` | Opens Receival Detail dialog |
-| `currentProfile` | from `useCurrentProfile()` | Permission checks |
+| `activeTab` | URL search param `?tab=` | Which tab is shown (default `"warehouses"`) — see URL State section |
+| `currentProfile` | from `useCurrentProfile()` | Permission checks passed as prop |
 | `warehouses` | from `useWarehouses()` | Shared across all tabs via prop |
 | `pendingTransferCount` | `number` | Transfer tab badge |
 | `pendingReceivalCount` | `number` | Receivals tab badge |
+
+Dialog open state is **co-located inside each dialog component** — each dialog owns its own `open` boolean via an imperative ref or a trigger prop pattern. `page.tsx` passes an `onOpenChange` prop only where needed (e.g., header buttons → `WhAdjustmentDialog`, `WhInventoryCheckDialog`, `WhTransferDialog`). `WhReceivalDetailDialog` receives `selectedReceival: ReceivalDelivery | null` + `onClose` from `ReceivalsDeliveriesTab`.
+
+### URL-Based Tab State
+
+`activeTab` is driven by `?tab=<value>` search param, not `useState`. This makes tabs linkable, refresh-safe, and back-button aware.
+
+```tsx
+// page.tsx pattern (Next.js App Router)
+// Wrap page export in <Suspense> boundary to allow useSearchParams
+const searchParams = useSearchParams()
+const router = useRouter()
+const activeTab = searchParams.get('tab') ?? 'warehouses'
+const setActiveTab = (val: string) =>
+  router.replace(`/purchase/warehouses?tab=${val}`, { scroll: false })
+```
+
+Page component must be wrapped in `<Suspense fallback={null}>` at the route level (or in the parent layout) to satisfy Next.js App Router requirements for `useSearchParams`.
+
+### Performance: Preventing Re-render Cascades
+
+- Each tab component (`WhWarehousesTab`, `WhStockOverviewTab`, etc.) is wrapped in `React.memo` — badge count updates in `page.tsx` won't cascade into mounted tab content
+- Shadcn `<Tabs>` already skips rendering non-active `TabsContent` children, so unmounted tabs don't run
+- Dialog hooks use `enabled: open` guard — no fetches fire until the dialog is actually open
 
 ### Permission Logic
 
@@ -127,7 +147,7 @@ flex justify-between gap-2 px-4 md:px-6 py-4 border-b border-border
 
 ## Tab Bar
 
-`<TabsList>` h-8, all triggers text-xs gap-1, icons h-3 w-3
+`<TabsList>` h-8 `overflow-x-auto whitespace-nowrap scrollbar-hide`, all triggers text-xs gap-1, icons h-3 w-3
 
 | # | Value | Icon | Label | Badge |
 |---|-------|------|-------|-------|
@@ -336,6 +356,8 @@ Cols: Direction | Doc # | Reference | Warehouse | Counterparty | Date | Items (c
    - Add tile: 16×16 dashed border + `<Camera h-4>` → hidden `<input type="file" accept="image/*">`
 7. Footer: Cancel | **Submit for Approval** (disabled until warehouse + item + type + qty + reason filled)
 
+**Dialog fetch gating:** All internal queries use `enabled: open` so nothing fires until the dialog is open.
+
 **Flow:** Upload files → `adjustment-photos` storage bucket → get 1-yr signed URLs → insert `stock_adjustments` row → `audit()` → toast success
 
 ---
@@ -356,6 +378,8 @@ Cols: Item | Brand | SKU | System Qty | Counted (`<Input w-20 h-7>`) | Variance 
 
 **Footer:** Cancel | **Submit for Approval**
 
+**Dialog fetch gating:** Stock data query uses `enabled: !!selectedWarehouseId && open`.
+
 **Flow:** Generate `IC-YYYY-####` → insert `inventory_checks` + `inventory_check_items` rows → `audit()` → toast
 
 ---
@@ -370,6 +394,8 @@ Cols: Item | Brand | SKU | System Qty | Counted (`<Input w-20 h-7>`) | Variance 
 4. Ghost "+ Add Item" button
 5. Notes textarea
 6. Footer: Cancel | **Create Transfer**
+
+**Dialog fetch gating:** Manager name lookup uses `enabled: !!toWarehouseId && open`.
 
 **Flow:** Generate `WT-YYYY-###` → insert `warehouse_transfers` row with `status: 'pending_approval'` → `audit()` → toast "Awaiting approval from {managerName}"
 
