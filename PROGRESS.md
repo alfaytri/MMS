@@ -141,7 +141,7 @@ Purchase & Sales▾:
 ## 🔄 In Progress
 
 ### Create PO Page Redesign
-🚀 Starting: **Create PO Redesign Task 4: Rewrite PoLineItemsEditor**
+🚀 Starting: **Create PO Redesign Task 5: Rewrite PoTermsSection**
 - **Plan:** `docs/superpowers/plans/2026-04-20-create-po-redesign.md`
 - **Scope:** Sticky header + scrollable body, supplier combobox, 4-type grouped line items, milestone payment terms, delivery date in terms, vendor notes section, approval chain preview
 - **Tasks:**
@@ -149,7 +149,7 @@ Purchase & Sales▾:
   - [x] Task 2: `AddSupplierDialog` standalone component
   - [x] Task 3: `ToolAssetLookup` component
   - [x] Task 4: Rewrite `PoLineItemsEditor` — 4 grouped types, colored headers
-  - [ ] Task 5: Rewrite `PoTermsSection` — milestones, delivery date, updated presets
+  - [x] Task 5: Rewrite `PoTermsSection` — milestones, delivery date, updated presets
   - [ ] Task 6: Rewrite `create-po/page.tsx` — full spec layout
 
 ---
@@ -295,6 +295,7 @@ Purchase & Sales▾:
 - [2026-04-20] **Create PO Redesign Task 2: AddSupplierDialog** — `src/components/purchase/AddSupplierDialog.tsx` — Standalone supplier creation dialog with Name/ContactName/Phone/Email fields, calls useCreateSupplier, exposes onCreated callback
 - [2026-04-20] **Create PO Redesign Task 3: ToolAssetLookup** — `src/components/purchase/ToolAssetLookup.tsx` — Searchable dropdown querying tool_asset_items table, debounced 250ms, mirrors InventoryItemLookup UX
 - [2026-04-20] **Create PO Redesign Task 4: PoLineItemsEditor rewrite** — `src/components/purchase/PoLineItemsEditor.tsx` — 4 grouped types (Products/Spare Parts/Consumables/Tools), colored headers, 6-col grid layout, InventoryItemLookup + ToolAssetLookup per type
+- [2026-04-20] **Create PO Redesign Task 5: PoTermsSection rewrite** — `src/components/purchase/PoTermsSection.tsx` — Payment milestone pills (read-only for presets, editable for Custom with sum validation), expected_delivery date field in delivery section, updated preset labels, DEFAULT_TERMS export
 
 ---
 
