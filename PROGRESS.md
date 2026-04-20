@@ -298,6 +298,9 @@ Purchase & Sales▾:
 - [2026-04-20] **Task 5** — Full rewrite of `edit-po/[id]/page.tsx`: pre-filled form, version tab navigation, old-version read-only view, restore handler; `readOnly` prop added to `PoLineItemsEditor` and `PoTermsSection` (114a81e)
 - [2026-04-20] **Fix** — Edit action button in PO list now shows for all non-cancelled statuses (previously draft-only) (86eebb0)
 - [2026-04-20] **Fix: RLS blanket fix** — Migration `20260420000002_fix_rls_all_tables.sql`: enabled RLS + permissive authenticated policy on 52 tables that were missing coverage (initial schema had 50 tables with no RLS at all); fixes `po_versions` insert error and prevents similar errors across inventory, payments, orders, and all other modules (a7f5914)
+- [2026-04-20] **Fix: null id on po_line_items** — Migration `20260420000003_po_line_items_id_default.sql` adds `DEFAULT gen_random_uuid()` on `po_line_items.id`; edit-po page and create-po page both updated to explicitly pick only 9 `POLineItemDraft` fields (no DB-owned fields bleed through into INSERT payloads) (0b4c936)
+- [2026-04-20] **Admin delete version** — `useIsAdmin()` hook added to `useProfiles.ts`; `useDeletePoVersion()` hook added to `usePurchaseOrders.ts`; `PoVersionBanner` extended with optional `onDelete` + `ConfirmDialog`; edit-po page wires `onDelete` (admin-only) and `isDeleting` prop (7f3dc78)
+- [2026-04-20] **View dialog versioning** — `PoDetailDialog` updated: version tabs strip shown when past snapshots exist; old version tabs display snapshot line items (read-only); Receivals/Receive/Payments tabs hidden for snapshots; Cancel PO/Create Bill/Edit PO hidden for snapshots; Print always available on any version (adef737)
 
 ---
 
