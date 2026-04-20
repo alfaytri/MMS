@@ -144,7 +144,7 @@ export default function CreatePOPage() {
         <div className="flex items-center gap-2">
           <Button variant="outline" size="sm" className="gap-1.5" onClick={saveDraft} disabled={isPending}>
             <Save className="h-3.5 w-3.5" />
-            {createPO.isPending ? 'Saving…' : 'Save as RFQ / Draft'}
+            {isPending ? 'Please wait…' : 'Save as RFQ / Draft'}
           </Button>
           <Button size="sm" className="gap-1.5" onClick={submitApproval} disabled={isPending}>
             <CheckCircle2 className="h-3.5 w-3.5" />
@@ -291,6 +291,8 @@ export default function CreatePOPage() {
           </div>
           <PoLineItemsEditor value={lineItems} onChange={setLineItems} currency={currency} />
         </section>
+
+        <Separator />
 
         {/* ③ Discount */}
         <section className="space-y-3">
