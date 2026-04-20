@@ -1,22 +1,73 @@
 'use client'
 
-import { useState } from 'react'
-import { Trash2, Plus } from 'lucide-react'
+import { Trash2, Plus, ShoppingBag, Cog, Droplets, Wrench } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
+import { Badge } from '@/components/ui/badge'
 import { InventoryItemLookup, type InventoryLookupResult } from './InventoryItemLookup'
+import { ToolAssetLookup, type ToolAssetLookupResult } from './ToolAssetLookup'
 import { formatCurrency } from '@/lib/utils/formatters'
 import type { POLineItemDraft } from '@/hooks/usePurchaseOrders'
+import type { ElementType } from 'react'
+
+export type LineType = 'products' | 'spare-parts' | 'consumables' | 'tools'
 
 export type LineItemRow = POLineItemDraft & {
-  _key: string // client-only stable key
+  _key: string
+  line_type: LineType
 }
 
-const LINE_TYPES = [
-  { value: 'inventory', label: 'Products', emoji: '📦' },
-  { value: 'spare_parts', label: 'Spare Parts', emoji: '⚙️' },
-  { value: 'consumable', label: 'Consumables', emoji: '💧' },
-] as const
+interface TypeConfig {
+  label: string
+  icon: ElementType
+  headerClass: string
+  buttonClass: string
+}
+
+const TYPE_CONFIG: Record<LineType, TypeConfig> = {
+  products: {
+    label: 'Products',
+    icon: ShoppingBag,
+    headerClass: 'bg-blue-500/10 text-blue-700 border-b border-blue-200',
+    buttonClass: 'border-blue-300 bg-blue-500/10 text-blue-700 hover:bg-blue-500/20',
+  },
+  'spare-parts': {
+    label: 'Spare Parts',
+    icon: Cog,
+    headerClass: 'bg-amber-500/10 text-amber-700 border-b border-amber-200',
+    buttonClass: 'border-amber-300 bg-amber-500/10 text-amber-700 hover:bg-amber-500/20',
+  },
+  consumables: {
+    label: 'Consumables',
+    icon: Droplets,
+    headerClass: 'bg-green-500/10 text-green-700 border-b border-green-200',
+    buttonClass: 'border-green-300 bg-green-500/10 text-green-700 hover:bg-green-500/20',
+  },
+  tools: {
+    label: 'Tools & Assets',
+    icon: Wrench,
+    headerClass: 'bg-purple-500/10 text-purple-700 border-b border-purple-200',
+    buttonClass: 'border-purple-300 bg-purple-500/10 text-purple-700 hover:bg-purple-500/20',
+  },
+}
+
+const ALL_TYPES: LineType[] = ['products', 'spare-parts', 'consumables', 'tools']
+
+function makeRow(line_type: LineType): LineItemRow {
+  return {
+    _key: crypto.randomUUID(),
+    line_type,
+    item_name: '',
+    sku: '',
+    qty: 1,
+    unit: 'pcs',
+    unit_price: 0,
+    total_price: 0,
+    brand_variant_id: null,
+    tool_asset_item_id: null,
+    free_qty: 0,
+  }
+}
 
 interface PoLineItemsEditorProps {
   value: LineItemRow[]
@@ -25,23 +76,8 @@ interface PoLineItemsEditorProps {
 }
 
 export function PoLineItemsEditor({ value, onChange, currency }: PoLineItemsEditorProps) {
-  const [lineType, setLineType] = useState<string>('inventory')
-
-  function addRow() {
-    onChange([
-      ...value,
-      {
-        _key: crypto.randomUUID(),
-        item_name: '',
-        sku: '',
-        qty: 1,
-        unit: 'pcs',
-        unit_price: 0,
-        total_price: 0,
-        brand_variant_id: null,
-        free_qty: 0,
-      },
-    ])
+  function addRow(line_type: LineType) {
+    onChange([...value, makeRow(line_type)])
   }
 
   function removeRow(key: string) {
@@ -61,7 +97,7 @@ export function PoLineItemsEditor({ value, onChange, currency }: PoLineItemsEdit
     )
   }
 
-  function handleItemSelected(key: string, item: InventoryLookupResult | null) {
+  function handleInventorySelect(key: string, item: InventoryLookupResult | null) {
     if (!item) {
       updateRow(key, { item_name: '', sku: '', unit: 'pcs', unit_price: 0, total_price: 0, brand_variant_id: null })
       return
@@ -73,74 +109,203 @@ export function PoLineItemsEditor({ value, onChange, currency }: PoLineItemsEdit
       unit_price: item.cost_price,
       total_price: item.cost_price,
       brand_variant_id: item.brand_variant_id,
+      tool_asset_item_id: null,
     })
   }
 
-  const grandTotal = value.reduce((s, r) => s + r.total_price, 0)
+  function handleToolSelect(key: string, item: ToolAssetLookupResult | null) {
+    if (!item) {
+      updateRow(key, { item_name: '', sku: '', unit: 'pcs', unit_price: 0, total_price: 0, tool_asset_item_id: null })
+      return
+    }
+    updateRow(key, {
+      item_name: item.item_name,
+      tool_asset_item_id: item.tool_asset_item_id,
+      brand_variant_id: null,
+    })
+  }
+
+  const validCount = value.filter((r) => r.item_name.trim() !== '').length
+  const groupedTypes = ALL_TYPES.filter((t) => value.some((r) => r.line_type === t))
 
   return (
-    <div className="space-y-3">
-      <div className="flex flex-wrap gap-2">
-        {LINE_TYPES.map((t) => (
-          <button
-            key={t.value}
-            type="button"
-            onClick={() => setLineType(t.value)}
-            className={`inline-flex items-center gap-1 rounded-md border px-3 py-1.5 text-xs font-medium transition-colors ${
-              lineType === t.value ? 'bg-primary text-primary-foreground border-primary' : 'hover:bg-muted'
-            }`}
-          >
-            {t.emoji} {t.label}
-          </button>
-        ))}
+    <div className="space-y-4">
+      {/* Toolbar */}
+      <div className="flex flex-wrap items-center gap-2">
+        <span className="text-[10px] font-medium text-muted-foreground uppercase tracking-wider">
+          ADD ITEM:
+        </span>
+        {ALL_TYPES.map((t) => {
+          const cfg = TYPE_CONFIG[t]
+          const Icon = cfg.icon
+          return (
+            <Button
+              key={t}
+              type="button"
+              variant="outline"
+              size="sm"
+              className={`h-7 text-xs gap-1.5 ${cfg.buttonClass}`}
+              onClick={() => addRow(t)}
+            >
+              <Icon className="h-3.5 w-3.5" />
+              {cfg.label}
+            </Button>
+          )
+        })}
       </div>
 
-      <div className="space-y-2">
-        {value.map((row, idx) => (
-          <div key={row._key} className="grid grid-cols-12 gap-2 items-start rounded-md border p-2">
-            <div className="col-span-12 sm:col-span-5">
-              <InventoryItemLookup
-                value={row.brand_variant_id ? {
-                  brand_variant_id: row.brand_variant_id,
-                  item_name: row.item_name,
-                  item_name_ar: null,
-                  sku: row.sku,
-                  unit: row.unit,
-                  cost_price: row.unit_price,
-                  selling_price: 0,
-                } : null}
-                onChange={(item) => handleItemSelected(row._key, item)}
-                placeholder={`Item ${idx + 1}…`}
-              />
+      {/* Empty state */}
+      {value.length === 0 && (
+        <div className="rounded-md border border-dashed py-8 text-center text-sm text-muted-foreground">
+          Click one of the buttons above to add a line item
+        </div>
+      )}
+
+      {/* Grouped cards */}
+      {groupedTypes.map((lineType) => {
+        const cfg = TYPE_CONFIG[lineType]
+        const Icon = cfg.icon
+        const rows = value.filter((r) => r.line_type === lineType)
+
+        return (
+          <div key={lineType} className="border rounded-lg overflow-hidden">
+            {/* Group header */}
+            <div className={`flex items-center justify-between px-3 py-2 ${cfg.headerClass}`}>
+              <div className="flex items-center gap-1.5">
+                <Icon className="h-3.5 w-3.5" />
+                <span className="text-xs font-semibold">{cfg.label}</span>
+              </div>
+              <div className="flex items-center gap-2">
+                <Badge variant="outline" className="text-[9px] py-0 px-1.5">
+                  {rows.length} item{rows.length !== 1 ? 's' : ''}
+                </Badge>
+                <Button
+                  type="button"
+                  variant="ghost"
+                  size="icon"
+                  className="h-6 w-6"
+                  onClick={() => addRow(lineType)}
+                >
+                  <Plus className="h-3.5 w-3.5" />
+                </Button>
+              </div>
             </div>
-            <div className="col-span-4 sm:col-span-2">
-              <Input placeholder="SKU" value={row.sku} onChange={(e) => updateRow(row._key, { sku: e.target.value })} className="text-xs" />
+
+            {/* Column headers */}
+            <div className="grid grid-cols-[minmax(0,2fr)_80px_65px_60px_85px_70px] gap-2 px-3 py-1.5 bg-muted/30 text-[10px] font-medium text-muted-foreground uppercase tracking-wider">
+              <span>Vendor Item Name</span>
+              <span>SKU</span>
+              <span>Qty *</span>
+              <span>Unit</span>
+              <span>Unit Price *</span>
+              <span>Total</span>
             </div>
-            <div className="col-span-3 sm:col-span-1">
-              <Input type="number" min="1" value={row.qty} onChange={(e) => updateRow(row._key, { qty: Math.max(1, Number(e.target.value)) })} placeholder="Qty" className="text-xs" />
-            </div>
-            <div className="col-span-3 sm:col-span-1">
-              <Input value={row.unit} onChange={(e) => updateRow(row._key, { unit: e.target.value })} placeholder="Unit" className="text-xs" />
-            </div>
-            <div className="col-span-5 sm:col-span-2">
-              <Input type="number" min="0" step="0.01" value={row.unit_price} onChange={(e) => updateRow(row._key, { unit_price: Number(e.target.value) })} placeholder="Price" className="text-xs" />
-            </div>
-            <div className="col-span-7 sm:col-span-1 flex items-center justify-between gap-1">
-              <span className="text-xs font-medium">{formatCurrency(row.total_price, currency)}</span>
-              <Button type="button" variant="ghost" size="icon" className="h-7 w-7 text-muted-foreground hover:text-destructive shrink-0" onClick={() => removeRow(row._key)}>
-                <Trash2 className="h-3 w-3" />
-              </Button>
+
+            {/* Rows */}
+            <div className="divide-y">
+              {rows.map((row) => {
+                const isInventory = lineType !== 'tools'
+                return (
+                  <div key={row._key} className="px-3 py-2 space-y-1.5">
+                    {/* Row A: lookup + delete */}
+                    <div className="flex items-center gap-2">
+                      <div className="flex-1">
+                        {isInventory ? (
+                          <InventoryItemLookup
+                            value={
+                              row.brand_variant_id
+                                ? {
+                                    brand_variant_id: row.brand_variant_id,
+                                    item_name: row.item_name,
+                                    item_name_ar: null,
+                                    sku: row.sku,
+                                    unit: row.unit,
+                                    cost_price: row.unit_price,
+                                    selling_price: 0,
+                                  }
+                                : null
+                            }
+                            onChange={(item) => handleInventorySelect(row._key, item)}
+                            placeholder={`Search ${cfg.label.toLowerCase()}…`}
+                          />
+                        ) : (
+                          <ToolAssetLookup
+                            value={
+                              row.tool_asset_item_id
+                                ? {
+                                    tool_asset_item_id: row.tool_asset_item_id,
+                                    item_name: row.item_name,
+                                  }
+                                : null
+                            }
+                            onChange={(item) => handleToolSelect(row._key, item)}
+                          />
+                        )}
+                      </div>
+                      <Button
+                        type="button"
+                        variant="ghost"
+                        size="icon"
+                        className="h-7 w-7 text-destructive/60 hover:text-destructive shrink-0"
+                        disabled={rows.length === 1}
+                        onClick={() => removeRow(row._key)}
+                      >
+                        <Trash2 className="h-3.5 w-3.5" />
+                      </Button>
+                    </div>
+
+                    {/* Row B: editable fields */}
+                    <div className="grid grid-cols-[minmax(0,2fr)_80px_65px_60px_85px_70px] gap-2 items-center">
+                      <Input
+                        className="h-7 text-xs"
+                        placeholder="Vendor's name for this item"
+                        value={row.item_name}
+                        onChange={(e) => updateRow(row._key, { item_name: e.target.value })}
+                      />
+                      <span className="h-7 px-2 flex items-center rounded-md bg-muted/40 border text-xs text-muted-foreground truncate">
+                        {row.sku || '—'}
+                      </span>
+                      <Input
+                        type="number"
+                        min="0.001"
+                        step="any"
+                        className="h-7 text-xs"
+                        value={row.qty}
+                        onChange={(e) => updateRow(row._key, { qty: Math.max(0.001, Number(e.target.value)) })}
+                      />
+                      <span className="h-7 px-2 flex items-center rounded-md bg-muted/40 border text-xs text-muted-foreground">
+                        {row.unit || '—'}
+                      </span>
+                      <Input
+                        type="number"
+                        min="0"
+                        step="0.01"
+                        className="h-7 text-xs"
+                        value={row.unit_price}
+                        onChange={(e) => updateRow(row._key, { unit_price: Number(e.target.value) })}
+                      />
+                      <span className="text-xs font-medium">
+                        {row.qty > 0 && row.unit_price > 0
+                          ? formatCurrency(row.total_price, currency)
+                          : '—'}
+                      </span>
+                    </div>
+                  </div>
+                )
+              })}
             </div>
           </div>
-        ))}
-      </div>
+        )
+      })}
 
-      <div className="flex items-center justify-between">
-        <Button type="button" variant="outline" size="sm" onClick={addRow}>
-          <Plus className="h-4 w-4 mr-1" /> Add Line
-        </Button>
-        <div className="text-sm font-semibold">Total: {formatCurrency(grandTotal, currency)}</div>
-      </div>
+      {/* Valid count badge */}
+      {value.length > 0 && (
+        <div className="flex justify-end">
+          <Badge variant="outline" className="text-[9px]">
+            {validCount} valid
+          </Badge>
+        </div>
+      )}
     </div>
   )
 }
