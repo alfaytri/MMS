@@ -112,6 +112,7 @@ export type POLineItemDraft = {
   unit_price: number
   total_price: number
   brand_variant_id: string | null
+  tool_asset_item_id: string | null
   free_qty: number
 }
 
