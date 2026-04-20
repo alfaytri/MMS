@@ -62,6 +62,7 @@ export type PurchaseOrder = {
   created_at: string
   updated_at: string
   created_by: string | null
+  version_number: number
   // joined
   po_line_items?: POLineItem[]
   po_approvals?: POApprovalStep[]
@@ -134,6 +135,29 @@ export type CreatePOPayload = {
 }
 
 export type UpdatePOPayload = Partial<CreatePOPayload> & { id: string }
+
+export type PoVersion = {
+  id: string
+  po_id: string
+  version_number: number
+  submitted_at: string
+  submitted_by: string | null
+  supplier_id: string
+  supplier_name: string
+  currency: string
+  exchange_rate: number
+  subtotal: number
+  discount_amount: number
+  discount_label: string | null
+  payment_terms: string | null
+  payment_terms_notes: string | null
+  payment_milestones: { label: string; percent: number }[] | null
+  delivery_terms: string | null
+  delivery_terms_notes: string | null
+  expected_delivery: string | null
+  vendor_notes: string | null
+  line_items: POLineItemDraft[]
+}
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
@@ -449,6 +473,169 @@ export function useCancelPO() {
     onSuccess: (_, id) => {
       queryClient.invalidateQueries({ queryKey: ['purchase-orders'] })
       queryClient.invalidateQueries({ queryKey: ['purchase-order', id] })
+    },
+  })
+}
+
+export function usePoVersions(poId: string | null) {
+  return useQuery({
+    queryKey: ['po-versions', poId],
+    queryFn: async () => {
+      const supabase = createClient()
+      const { data, error } = await (supabase as any)
+        .from('po_versions')
+        .select('*')
+        .eq('po_id', poId!)
+        .order('version_number', { ascending: true })
+      if (error) throw error
+      return data as PoVersion[]
+    },
+    enabled: !!poId,
+    staleTime: 30 * 1000,
+  })
+}
+
+export function useSubmitPoVersion() {
+  const queryClient = useQueryClient()
+  return useMutation({
+    mutationFn: async ({
+      id,
+      currentVersionNumber,
+      currentSnapshot,
+      payload,
+    }: {
+      id: string
+      currentVersionNumber: number
+      currentSnapshot: Omit<PoVersion, 'id' | 'po_id' | 'submitted_at' | 'submitted_by'>
+      payload: CreatePOPayload
+    }) => {
+      const supabase = createClient()
+
+      // 1. Snapshot current state into po_versions
+      const { error: snapErr } = await (supabase as any)
+        .from('po_versions')
+        .insert({
+          po_id: id,
+          version_number: currentVersionNumber,
+          supplier_id: currentSnapshot.supplier_id,
+          supplier_name: currentSnapshot.supplier_name,
+          currency: currentSnapshot.currency,
+          exchange_rate: currentSnapshot.exchange_rate,
+          subtotal: currentSnapshot.subtotal,
+          discount_amount: currentSnapshot.discount_amount,
+          discount_label: currentSnapshot.discount_label,
+          payment_terms: currentSnapshot.payment_terms,
+          payment_terms_notes: currentSnapshot.payment_terms_notes,
+          payment_milestones: currentSnapshot.payment_milestones,
+          delivery_terms: currentSnapshot.delivery_terms,
+          delivery_terms_notes: currentSnapshot.delivery_terms_notes,
+          expected_delivery: currentSnapshot.expected_delivery,
+          vendor_notes: currentSnapshot.vendor_notes,
+          line_items: currentSnapshot.line_items,
+        })
+      if (snapErr) throw snapErr
+
+      // 2. Recalculate totals
+      const subtotal = payload.line_items.reduce((s, li) => s + li.total_price, 0)
+      const total_qar = (subtotal - payload.discount_amount) * payload.exchange_rate
+      const approval_level = calcApprovalLevel(total_qar)
+      const newVersion = currentVersionNumber + 1
+
+      // 3. Update main PO record + increment version
+      const { error: poErr } = await (supabase as any)
+        .from('purchase_orders')
+        .update({
+          supplier_id: payload.supplier_id,
+          supplier_name: payload.supplier_name,
+          currency: payload.currency,
+          exchange_rate: payload.exchange_rate,
+          subtotal,
+          total_qar,
+          approval_level,
+          version_number: newVersion,
+          status: 'pending_approval',
+          expected_delivery: payload.expected_delivery,
+          payment_terms: payload.payment_terms,
+          payment_terms_notes: payload.payment_terms_notes,
+          payment_milestones: payload.payment_milestones ?? null,
+          delivery_terms: payload.delivery_terms,
+          delivery_terms_notes: payload.delivery_terms_notes,
+          vendor_notes: payload.vendor_notes,
+          discount_amount: payload.discount_amount,
+          discount_label: payload.discount_label,
+        })
+        .eq('id', id)
+      if (poErr) throw poErr
+
+      // 4. Replace line items
+      await (supabase as any).from('po_line_items').delete().eq('po_id', id)
+      if (payload.line_items.length > 0) {
+        const { error: liErr } = await (supabase as any)
+          .from('po_line_items')
+          .insert(payload.line_items.map((li) => ({ ...li, po_id: id })))
+        if (liErr) throw liErr
+      }
+
+      // 5. Reset approvals — delete old, insert fresh
+      await (supabase as any).from('po_approvals').delete().eq('po_id', id)
+      const roles = getApprovalRoles(approval_level)
+      const { error: approvalErr } = await (supabase as any)
+        .from('po_approvals')
+        .insert(roles.map((role) => ({ po_id: id, role, status: 'pending' })))
+      if (approvalErr) throw approvalErr
+    },
+    onSuccess: (_data, variables) => {
+      queryClient.invalidateQueries({ queryKey: ['purchase-orders'] })
+      queryClient.invalidateQueries({ queryKey: ['purchase-order', variables.id] })
+      queryClient.invalidateQueries({ queryKey: ['po-versions', variables.id] })
+    },
+  })
+}
+
+export function useSavePoAsDraft() {
+  const queryClient = useQueryClient()
+  return useMutation({
+    mutationFn: async ({ id, payload }: { id: string; payload: CreatePOPayload }) => {
+      const supabase = createClient()
+
+      const subtotal = payload.line_items.reduce((s, li) => s + li.total_price, 0)
+      const total_qar = (subtotal - payload.discount_amount) * payload.exchange_rate
+      const approval_level = calcApprovalLevel(total_qar)
+
+      const { error: poErr } = await (supabase as any)
+        .from('purchase_orders')
+        .update({
+          supplier_id: payload.supplier_id,
+          supplier_name: payload.supplier_name,
+          currency: payload.currency,
+          exchange_rate: payload.exchange_rate,
+          subtotal,
+          total_qar,
+          approval_level,
+          expected_delivery: payload.expected_delivery,
+          payment_terms: payload.payment_terms,
+          payment_terms_notes: payload.payment_terms_notes,
+          payment_milestones: payload.payment_milestones ?? null,
+          delivery_terms: payload.delivery_terms,
+          delivery_terms_notes: payload.delivery_terms_notes,
+          vendor_notes: payload.vendor_notes,
+          discount_amount: payload.discount_amount,
+          discount_label: payload.discount_label,
+        })
+        .eq('id', id)
+      if (poErr) throw poErr
+
+      await (supabase as any).from('po_line_items').delete().eq('po_id', id)
+      if (payload.line_items.length > 0) {
+        const { error: liErr } = await (supabase as any)
+          .from('po_line_items')
+          .insert(payload.line_items.map((li) => ({ ...li, po_id: id })))
+        if (liErr) throw liErr
+      }
+    },
+    onSuccess: (_data, variables) => {
+      queryClient.invalidateQueries({ queryKey: ['purchase-orders'] })
+      queryClient.invalidateQueries({ queryKey: ['purchase-order', variables.id] })
     },
   })
 }
