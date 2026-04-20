@@ -10,6 +10,7 @@ import { cn } from '@/lib/utils'
 export type ToolAssetLookupResult = {
   tool_asset_item_id: string
   item_name: string
+  item_name_ar?: string | null
 }
 
 interface ToolAssetLookupProps {
@@ -39,8 +40,8 @@ export function ToolAssetLookup({
       const safe = query.replace(/%/g, '\\%')
       const { data, error } = await (supabase as any)
         .from('tool_asset_items')
-        .select('id, name_en')
-        .ilike('name_en', `%${safe}%`)
+        .select('id, name_en, name_ar')
+        .or(`name_en.ilike.%${safe}%,name_ar.ilike.%${safe}%`)
         .limit(20)
       if (error) {
         console.error('ToolAssetLookup query error:', error.message)
@@ -51,6 +52,7 @@ export function ToolAssetLookup({
         (data ?? []).map((r: any) => ({
           tool_asset_item_id: r.id,
           item_name: r.name_en,
+          item_name_ar: r.name_ar ?? null,
         }))
       )
       setLoading(false)
@@ -113,6 +115,9 @@ export function ToolAssetLookup({
               onClick={() => { onChange(item); setQuery(''); setOpen(false) }}
             >
               <span className="font-medium">{item.item_name}</span>
+              {item.item_name_ar && (
+                <span className="ml-2 text-xs text-muted-foreground">{item.item_name_ar}</span>
+              )}
             </button>
           ))}
         </div>

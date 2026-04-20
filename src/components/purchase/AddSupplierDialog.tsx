@@ -18,7 +18,7 @@ const schema = z.object({
   name: z.string().min(1, 'Name is required'),
   contact_name: z.string().optional().default(''),
   phone: z.string().optional().default(''),
-  email: z.string().optional().default(''),
+  email: z.union([z.string().email('Invalid email address'), z.literal('')]).optional().default(''),
 })
 
 type FormValues = z.infer<typeof schema>

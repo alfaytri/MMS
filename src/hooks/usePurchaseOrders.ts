@@ -124,6 +124,7 @@ export type CreatePOPayload = {
   expected_delivery: string | null
   payment_terms: string | null
   payment_terms_notes: string | null
+  payment_milestones: { label: string; percent: number }[] | null
   delivery_terms: string | null
   delivery_terms_notes: string | null
   vendor_notes: string | null
@@ -285,6 +286,7 @@ export function useCreatePO() {
           expected_delivery: payload.expected_delivery,
           payment_terms: payload.payment_terms,
           payment_terms_notes: payload.payment_terms_notes,
+          payment_milestones: payload.payment_milestones ?? null,
           delivery_terms: payload.delivery_terms,
           delivery_terms_notes: payload.delivery_terms_notes,
           vendor_notes: payload.vendor_notes,

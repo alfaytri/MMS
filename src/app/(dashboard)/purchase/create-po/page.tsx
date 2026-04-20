@@ -10,6 +10,7 @@ import { Check, ChevronsUpDown } from 'lucide-react'
 import { toast } from 'sonner'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
+import { Textarea } from '@/components/ui/textarea'
 import { Badge } from '@/components/ui/badge'
 import { Separator } from '@/components/ui/separator'
 import {
@@ -85,6 +86,9 @@ export default function CreatePOPage() {
       expected_delivery: terms.expected_delivery || null,
       payment_terms: terms.payment_terms || null,
       payment_terms_notes: terms.payment_terms_notes || null,
+      payment_milestones: terms.payment_milestones.length > 0
+        ? terms.payment_milestones.map(({ label, percent }) => ({ label, percent }))
+        : null,
       delivery_terms: terms.delivery_terms || null,
       delivery_terms_notes: terms.delivery_terms_notes || null,
       vendor_notes: terms.vendor_notes || null,
@@ -98,6 +102,7 @@ export default function CreatePOPage() {
     if (!supplierId) { toast.error('Please select a supplier'); return false }
     if (lineItems.length === 0) { toast.error('Add at least one line item'); return false }
     if (lineItems.some((li) => !li.item_name.trim())) { toast.error('All line items need an item name'); return false }
+    if (discountAmount > subtotal) { toast.error('Discount cannot exceed subtotal'); return false }
     return true
   }
 
@@ -316,6 +321,7 @@ export default function CreatePOPage() {
               <Input
                 type="number"
                 min="0"
+                max={subtotal}
                 step="0.01"
                 className="h-9 text-sm"
                 value={discountAmount}
@@ -339,8 +345,8 @@ export default function CreatePOPage() {
             Vendor Notes
             <span className="text-xs text-muted-foreground font-normal">(shown on printed PO)</span>
           </h2>
-          <textarea
-            className="flex w-full rounded-md border border-input bg-background px-3 py-2 text-xs focus:outline-none focus:ring-1 focus:ring-ring resize-none min-h-[60px]"
+          <Textarea
+            className="min-h-[60px] text-xs resize-none"
             placeholder="Notes visible to the vendor…"
             value={terms.vendor_notes}
             onChange={(e) => setTerms({ ...terms, vendor_notes: e.target.value })}

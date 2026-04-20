@@ -125,7 +125,6 @@ export function PoLineItemsEditor({ value, onChange, currency }: PoLineItemsEdit
     })
   }
 
-  const validCount = value.filter((r) => r.item_name.trim() !== '').length
   const groupedTypes = ALL_TYPES.filter((t) => value.some((r) => r.line_type === t))
 
   return (
@@ -247,7 +246,6 @@ export function PoLineItemsEditor({ value, onChange, currency }: PoLineItemsEdit
                         variant="ghost"
                         size="icon"
                         className="h-7 w-7 text-destructive/60 hover:text-destructive shrink-0"
-                        disabled={rows.length === 1}
                         onClick={() => removeRow(row._key)}
                       >
                         <Trash2 className="h-3.5 w-3.5" />
@@ -298,14 +296,6 @@ export function PoLineItemsEditor({ value, onChange, currency }: PoLineItemsEdit
         )
       })}
 
-      {/* Valid count badge */}
-      {value.length > 0 && (
-        <div className="flex justify-end">
-          <Badge variant="outline" className="text-[9px]">
-            {validCount} valid
-          </Badge>
-        </div>
-      )}
     </div>
   )
 }
