@@ -6,7 +6,7 @@ import { Button } from '@/components/ui/button'
 import { DollarSign, Truck, Plus, X } from 'lucide-react'
 import { cn } from '@/lib/utils'
 
-export type PaymentMilestone = { label: string; percent: number }
+export type PaymentMilestone = { _key?: string; label: string; percent: number }
 
 export interface PoTermsValues {
   payment_terms: string
@@ -74,7 +74,7 @@ export function PoTermsSection({ value, onChange }: PoTermsSectionProps) {
     onChange({
       ...value,
       payment_terms: label,
-      payment_milestones: preset ? [...preset.milestones.map((m) => ({ ...m }))] : [],
+      payment_milestones: preset ? preset.milestones.map((m) => ({ ...m, _key: crypto.randomUUID() })) : [],
     })
   }
 
@@ -84,7 +84,7 @@ export function PoTermsSection({ value, onChange }: PoTermsSectionProps) {
   }
 
   function addMilestone() {
-    set('payment_milestones', [...value.payment_milestones, { label: '', percent: 0 }])
+    set('payment_milestones', [...value.payment_milestones, { _key: crypto.randomUUID(), label: '', percent: 0 }])
   }
 
   function removeMilestone(idx: number) {
@@ -127,7 +127,7 @@ export function PoTermsSection({ value, onChange }: PoTermsSectionProps) {
         {value.payment_milestones.length > 0 && (
           <div className="space-y-1.5">
             {value.payment_milestones.map((m, idx) => (
-              <div key={idx} className="flex items-center gap-2">
+              <div key={m._key ?? idx} className="flex items-center gap-2">
                 <Input
                   className="flex-1 h-8 text-xs"
                   placeholder="Milestone label"
