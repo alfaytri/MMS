@@ -2,86 +2,78 @@
 
 import { useState } from 'react'
 import { useRouter } from 'next/navigation'
-import { ChevronLeft, AlertCircle } from 'lucide-react'
+import {
+  ArrowLeft, Plus, Save, CheckCircle2, Building2,
+  Package, StickyNote, Clock, ArrowRight,
+} from 'lucide-react'
+import { Check, ChevronsUpDown } from 'lucide-react'
 import { toast } from 'sonner'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
-import { Label } from '@/components/ui/label'
 import { Badge } from '@/components/ui/badge'
 import { Separator } from '@/components/ui/separator'
+import {
+  Popover, PopoverContent, PopoverTrigger,
+} from '@/components/ui/popover'
+import {
+  Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList,
+} from '@/components/ui/command'
 import { PoLineItemsEditor, type LineItemRow } from '@/components/purchase/PoLineItemsEditor'
-import { PoTermsSection, type PoTermsValues } from '@/components/purchase/PoTermsSection'
-import { useCreatePO, useSubmitPOForApproval, calcApprovalLevel } from '@/hooks/usePurchaseOrders'
-import { useSuppliers, useCreateSupplier } from '@/hooks/useSuppliers'
-import { formatCurrency } from '@/lib/utils/formatters'
-import {
-  Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter,
-} from '@/components/ui/dialog'
-import {
-  Form, FormControl, FormField, FormItem, FormLabel, FormMessage,
-} from '@/components/ui/form'
-import { useForm } from 'react-hook-form'
-import { zodResolver } from '@hookform/resolvers/zod'
-import { z } from 'zod'
+import { PoTermsSection, DEFAULT_TERMS, type PoTermsValues } from '@/components/purchase/PoTermsSection'
+import { AddSupplierDialog } from '@/components/purchase/AddSupplierDialog'
+import { useCreatePO, useSubmitPOForApproval, calcApprovalLevel, getApprovalRoles } from '@/hooks/usePurchaseOrders'
+import { useSuppliers } from '@/hooks/useSuppliers'
 
 const CURRENCIES = ['QAR', 'USD', 'EUR', 'GBP', 'AED', 'SAR', 'KWD'] as const
 
-const supplierSchema = z.object({
-  name: z.string().min(1, 'Name is required'),
-  contact_name: z.string().optional().default(''),
-  phone: z.string().optional().default(''),
-  email: z.string().optional().default(''),
-})
+const CURRENCY_SYMBOLS: Record<string, string> = {
+  QAR: 'QAR ', USD: '$', EUR: '€', GBP: '£', AED: 'AED ', SAR: 'SAR ', KWD: 'KWD ',
+}
+
+const CURRENCY_NAMES: Record<string, string> = {
+  QAR: 'Qatari Riyal', USD: 'US Dollar', EUR: 'Euro',
+  GBP: 'British Pound', AED: 'UAE Dirham', SAR: 'Saudi Riyal', KWD: 'Kuwaiti Dinar',
+}
+
+function sym(currency: string) {
+  return CURRENCY_SYMBOLS[currency] ?? `${currency} `
+}
+
+function formatAmt(amount: number, currency: string) {
+  return `${sym(currency)}${amount.toLocaleString('en-QA', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`
+}
+
+function roleLabel(role: string) {
+  return role.replace(/_/g, ' ').replace(/\b\w/g, (c) => c.toUpperCase())
+}
 
 export default function CreatePOPage() {
   const router = useRouter()
   const createPO = useCreatePO()
   const submitForApproval = useSubmitPOForApproval()
   const { data: suppliers } = useSuppliers()
-  const createSupplier = useCreateSupplier()
 
   const [supplierId, setSupplierId] = useState('')
   const [supplierName, setSupplierName] = useState('')
-  const [supplierSearch, setSupplierSearch] = useState('')
+  const [supplierOpen, setSupplierOpen] = useState(false)
+  const [addSupplierOpen, setAddSupplierOpen] = useState(false)
   const [currency, setCurrency] = useState<string>('QAR')
   const [exchangeRate, setExchangeRate] = useState(1)
-  const [expectedDelivery, setExpectedDelivery] = useState('')
   const [lineItems, setLineItems] = useState<LineItemRow[]>([])
-  const [terms, setTerms] = useState<PoTermsValues>({
-    payment_terms: '', payment_terms_notes: '', delivery_terms: '', delivery_terms_notes: '', vendor_notes: '',
-  })
+  const [terms, setTerms] = useState<PoTermsValues>(DEFAULT_TERMS)
   const [discountAmount, setDiscountAmount] = useState(0)
   const [discountLabel, setDiscountLabel] = useState('')
-  const [addSupplierOpen, setAddSupplierOpen] = useState(false)
 
   const subtotal = lineItems.reduce((s, li) => s + li.total_price, 0)
-  const totalQar = (subtotal - discountAmount) * exchangeRate
+  const grandTotal = subtotal - discountAmount
+  const totalQar = grandTotal * exchangeRate
   const approvalLevel = calcApprovalLevel(totalQar)
-
-  const supplierForm = useForm<z.infer<typeof supplierSchema>>({
-    resolver: zodResolver(supplierSchema) as never,
-    defaultValues: { name: '', contact_name: '', phone: '', email: '' },
-  })
+  const approvalRoles = getApprovalRoles(approvalLevel)
 
   function handleSelectSupplier(s: { id: string; name: string }) {
     setSupplierId(s.id)
     setSupplierName(s.name)
-    setSupplierSearch(s.name)
-  }
-
-  function handleAddSupplier(values: z.infer<typeof supplierSchema>) {
-    createSupplier.mutate(
-      { name: values.name, contact_name: values.contact_name || null, phone: values.phone || null, email: values.email || null },
-      {
-        onSuccess: (data) => {
-          toast.success('Supplier added')
-          handleSelectSupplier({ id: data.id, name: data.name })
-          setAddSupplierOpen(false)
-          supplierForm.reset()
-        },
-        onError: (err) => toast.error(err.message),
-      }
-    )
+    setSupplierOpen(false)
   }
 
   function buildPayload() {
@@ -90,7 +82,7 @@ export default function CreatePOPage() {
       supplier_name: supplierName,
       currency,
       exchange_rate: exchangeRate,
-      expected_delivery: expectedDelivery || null,
+      expected_delivery: terms.expected_delivery || null,
       payment_terms: terms.payment_terms || null,
       payment_terms_notes: terms.payment_terms_notes || null,
       delivery_terms: terms.delivery_terms || null,
@@ -98,14 +90,14 @@ export default function CreatePOPage() {
       vendor_notes: terms.vendor_notes || null,
       discount_amount: discountAmount,
       discount_label: discountLabel || null,
-      line_items: lineItems.map(({ _key, ...li }) => li),
+      line_items: lineItems.map(({ _key, line_type, ...li }) => li),
     }
   }
 
   function validate() {
     if (!supplierId) { toast.error('Please select a supplier'); return false }
     if (lineItems.length === 0) { toast.error('Add at least one line item'); return false }
-    if (lineItems.some((li) => !li.item_name)) { toast.error('All line items need an item name'); return false }
+    if (lineItems.some((li) => !li.item_name.trim())) { toast.error('All line items need an item name'); return false }
     return true
   }
 
@@ -134,160 +126,256 @@ export default function CreatePOPage() {
   }
 
   const isPending = createPO.isPending || submitForApproval.isPending
-
-  const filteredSuppliers = (suppliers ?? []).filter((s) =>
-    s.name.toLowerCase().includes(supplierSearch.toLowerCase())
-  )
+  const validCount = lineItems.filter((li) => li.item_name.trim() !== '').length
 
   return (
-    <div className="max-w-4xl mx-auto space-y-6 pb-12">
-      <div className="flex items-center gap-3">
-        <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => router.back()}>
-          <ChevronLeft className="h-4 w-4" />
-        </Button>
-        <h1 className="text-2xl font-bold">Create Purchase Order</h1>
+    <div className="flex flex-col h-full">
+      {/* ── Sticky Header ── */}
+      <div className="shrink-0 flex items-center justify-between px-4 md:px-6 py-4 border-b bg-background">
+        <div className="flex items-center gap-3">
+          <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => router.push('/purchase/orders')}>
+            <ArrowLeft className="h-4 w-4" />
+          </Button>
+          <div>
+            <h1 className="text-lg font-semibold">Create Purchase Order</h1>
+            <p className="text-xs text-muted-foreground">Direct PO to supplier with multi-currency support</p>
+          </div>
+        </div>
+        <div className="flex items-center gap-2">
+          <Button variant="outline" size="sm" className="gap-1.5" onClick={saveDraft} disabled={isPending}>
+            <Save className="h-3.5 w-3.5" />
+            {createPO.isPending ? 'Saving…' : 'Save as RFQ / Draft'}
+          </Button>
+          <Button size="sm" className="gap-1.5" onClick={submitApproval} disabled={isPending}>
+            <CheckCircle2 className="h-3.5 w-3.5" />
+            {isPending ? 'Submitting…' : 'Submit for Approval'}
+          </Button>
+        </div>
       </div>
 
-      <section className="rounded-lg border p-4 space-y-3">
-        <h2 className="font-semibold">Supplier</h2>
-        <div className="flex flex-col sm:flex-row gap-2">
-          <div className="relative flex-1">
-            <Input
-              placeholder="Search suppliers..."
-              value={supplierSearch}
-              onChange={(e) => { setSupplierSearch(e.target.value); setSupplierId(''); setSupplierName('') }}
-              className="w-full"
-            />
-            {supplierSearch && !supplierId && filteredSuppliers.length > 0 && (
-              <div className="absolute z-10 mt-1 w-full max-h-48 overflow-y-auto rounded-md border bg-popover shadow-md">
-                {filteredSuppliers.map((s) => (
-                  <button
-                    key={s.id}
-                    type="button"
-                    className="flex w-full items-center px-3 py-2 text-sm hover:bg-accent"
-                    onClick={() => handleSelectSupplier(s)}
+      {/* ── Scrollable Body ── */}
+      <div className="flex-1 overflow-auto px-4 md:px-6 py-6 space-y-6">
+
+        {/* ① Supplier & Details */}
+        <section className="space-y-3">
+          <h2 className="text-sm font-semibold flex items-center gap-1.5">
+            <Building2 className="h-4 w-4 text-primary" />
+            Supplier &amp; Details
+          </h2>
+          <div className="grid grid-cols-1 md:grid-cols-[1fr_auto_auto_auto] gap-3 items-end">
+            {/* Supplier combobox */}
+            <div className="space-y-1">
+              <label className="text-[10px] font-medium text-muted-foreground uppercase tracking-wider">
+                SUPPLIER *
+              </label>
+              <div className="flex gap-2">
+                <Popover open={supplierOpen} onOpenChange={setSupplierOpen}>
+                  <PopoverTrigger
+                    className="h-9 flex-1 inline-flex items-center justify-between rounded-md border border-input bg-background px-3 py-2 text-sm font-normal shadow-xs hover:bg-accent hover:text-accent-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
+                    render={(props) => <button type="button" {...props} />}
                   >
-                    <span className="font-medium">{s.name}</span>
-                    {s.category && <span className="ml-2 text-xs text-muted-foreground">{s.category}</span>}
-                  </button>
+                    <span className={supplierName ? '' : 'text-muted-foreground'}>
+                      {supplierName || 'Search suppliers…'}
+                    </span>
+                    <ChevronsUpDown className="h-4 w-4 opacity-50" />
+                  </PopoverTrigger>
+                  <PopoverContent className="w-[400px] p-0">
+                    <Command>
+                      <CommandInput placeholder="Search suppliers..." />
+                      <CommandList>
+                        <CommandEmpty>No suppliers found.</CommandEmpty>
+                        <CommandGroup>
+                          {(suppliers ?? []).map((s) => (
+                            <CommandItem
+                              key={s.id}
+                              value={s.name}
+                              onSelect={() => handleSelectSupplier(s)}
+                            >
+                              <Check
+                                className={`mr-2 h-4 w-4 ${supplierId === s.id ? 'opacity-100' : 'opacity-0'}`}
+                              />
+                              <span>{s.name}</span>
+                              {s.category && (
+                                <span className="ml-2 text-xs text-muted-foreground">({s.category})</span>
+                              )}
+                            </CommandItem>
+                          ))}
+                        </CommandGroup>
+                      </CommandList>
+                    </Command>
+                  </PopoverContent>
+                </Popover>
+                <Button
+                  variant="outline"
+                  size="icon"
+                  className="h-9 w-9 shrink-0"
+                  title="Add new supplier"
+                  onClick={() => setAddSupplierOpen(true)}
+                >
+                  <Plus className="h-4 w-4" />
+                </Button>
+              </div>
+            </div>
+
+            {/* Currency */}
+            <div className="space-y-1">
+              <label className="text-[10px] font-medium text-muted-foreground uppercase tracking-wider">
+                CURRENCY
+              </label>
+              <select
+                value={currency}
+                onChange={(e) => setCurrency(e.target.value)}
+                className="flex h-9 min-w-[130px] rounded-md border border-input bg-background px-3 py-1 text-sm focus:outline-none focus:ring-1 focus:ring-ring"
+              >
+                {CURRENCIES.map((c) => (
+                  <option key={c} value={c}>
+                    {sym(c)}{c} — {CURRENCY_NAMES[c]}
+                  </option>
                 ))}
+              </select>
+            </div>
+
+            {/* Subtotal display */}
+            <div className="space-y-1">
+              <label className="text-[10px] font-medium text-muted-foreground uppercase tracking-wider">
+                SUBTOTAL ({currency})
+              </label>
+              <div className="h-9 px-3 flex items-center rounded-md border bg-muted/30 text-sm font-semibold min-w-[120px]">
+                {formatAmt(subtotal, currency)}
+              </div>
+            </div>
+
+            {/* Grand total (only when discount > 0) */}
+            {discountAmount > 0 && (
+              <div className="space-y-1">
+                <label className="text-[10px] font-medium text-muted-foreground uppercase tracking-wider">
+                  GRAND TOTAL ({currency})
+                </label>
+                <div className="h-9 px-3 flex items-center rounded-md border border-primary/30 bg-primary/5 text-primary font-bold min-w-[120px]">
+                  {formatAmt(grandTotal, currency)}
+                </div>
               </div>
             )}
           </div>
-          <Button type="button" variant="outline" onClick={() => setAddSupplierOpen(true)}>
-            + Add Supplier
-          </Button>
-        </div>
-        {supplierId && (
-          <div className="flex items-center gap-2">
-            <Badge variant="outline" className="text-success border-success">{supplierName}</Badge>
-          </div>
-        )}
-      </section>
 
-      <section className="rounded-lg border p-4 space-y-4">
-        <h2 className="font-semibold">PO Settings</h2>
-        <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-          <div className="space-y-1">
-            <Label>Currency</Label>
-            <select
-              value={currency}
-              onChange={(e) => setCurrency(e.target.value)}
-              className="flex h-9 w-full rounded-md border border-input bg-background px-3 py-1 text-sm"
-            >
-              {CURRENCIES.map((c) => <option key={c} value={c}>{c}</option>)}
-            </select>
-          </div>
+          {/* Exchange rate (non-QAR) */}
           {currency !== 'QAR' && (
-            <div className="space-y-1">
-              <Label>Exchange Rate (to QAR)</Label>
-              <Input type="number" min="0.01" step="0.0001" value={exchangeRate} onChange={(e) => setExchangeRate(Number(e.target.value))} />
+            <div className="flex items-center gap-3">
+              <label className="text-[10px] font-medium text-muted-foreground uppercase tracking-wider whitespace-nowrap">
+                Exchange Rate (to QAR)
+              </label>
+              <Input
+                type="number"
+                min="0.0001"
+                step="0.0001"
+                className="h-8 w-32 text-sm"
+                value={exchangeRate}
+                onChange={(e) => setExchangeRate(Number(e.target.value))}
+              />
             </div>
           )}
-          <div className="space-y-1">
-            <Label>Expected Delivery</Label>
-            <Input type="date" value={expectedDelivery} onChange={(e) => setExpectedDelivery(e.target.value)} />
-          </div>
-        </div>
-      </section>
+        </section>
 
-      <section className="rounded-lg border p-4 space-y-3">
-        <h2 className="font-semibold">Line Items</h2>
-        <PoLineItemsEditor value={lineItems} onChange={setLineItems} currency={currency} />
-      </section>
-
-      <section className="rounded-lg border p-4">
-        <h2 className="font-semibold mb-4">Terms</h2>
-        <PoTermsSection value={terms} onChange={setTerms} />
-      </section>
-
-      <section className="rounded-lg border p-4 space-y-3">
-        <h2 className="font-semibold">Discount</h2>
-        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-          <div className="space-y-1">
-            <Label>Discount Label</Label>
-            <Input placeholder="e.g. Loyalty discount" value={discountLabel} onChange={(e) => setDiscountLabel(e.target.value)} />
-          </div>
-          <div className="space-y-1">
-            <Label>Discount Amount ({currency})</Label>
-            <Input type="number" min="0" step="0.01" value={discountAmount} onChange={(e) => setDiscountAmount(Number(e.target.value))} />
-          </div>
-        </div>
-      </section>
-
-      <section className="rounded-lg border p-4 space-y-3">
-        <div className="space-y-1 text-sm text-right">
-          <div className="text-muted-foreground">Subtotal: <span className="text-foreground">{formatCurrency(subtotal, currency)}</span></div>
-          {discountAmount > 0 && (
-            <div className="text-muted-foreground">Discount: <span className="text-destructive">-{formatCurrency(discountAmount, currency)}</span></div>
-          )}
-          <div className="font-semibold text-base">Total (QAR): {formatCurrency(totalQar, 'QAR')}</div>
-        </div>
-        <div className="flex items-center gap-2 text-sm">
-          <AlertCircle className="h-4 w-4 text-muted-foreground shrink-0" />
-          <span className="text-muted-foreground">
-            Approval level: <span className="font-semibold text-foreground">Level {approvalLevel}</span>
-            {' '}({approvalLevel === 1 ? 'Purchase Manager' : approvalLevel === 2 ? 'PM + Accountant' : 'PM + Accountant + Owner'})
-          </span>
-        </div>
         <Separator />
-        <div className="flex flex-col sm:flex-row gap-2 justify-end">
-          <Button variant="outline" onClick={saveDraft} disabled={isPending}>
-            {createPO.isPending ? 'Saving...' : 'Save as Draft'}
-          </Button>
-          <Button onClick={submitApproval} disabled={isPending}>
-            {isPending ? 'Submitting...' : 'Submit for Approval'}
-          </Button>
-        </div>
-      </section>
 
-      <Dialog open={addSupplierOpen} onOpenChange={setAddSupplierOpen}>
-        <DialogContent className="w-full max-w-full rounded-none sm:max-w-md sm:rounded-lg">
-          <DialogHeader><DialogTitle>Add Supplier</DialogTitle></DialogHeader>
-          <Form {...supplierForm}>
-            <form onSubmit={supplierForm.handleSubmit(handleAddSupplier)} className="space-y-4">
-              <FormField control={supplierForm.control} name="name" render={({ field }) => (
-                <FormItem><FormLabel>Name *</FormLabel><FormControl><Input {...field} /></FormControl><FormMessage /></FormItem>
-              )} />
-              <FormField control={supplierForm.control} name="contact_name" render={({ field }) => (
-                <FormItem><FormLabel>Contact Name</FormLabel><FormControl><Input {...field} /></FormControl><FormMessage /></FormItem>
-              )} />
-              <div className="grid grid-cols-2 gap-3">
-                <FormField control={supplierForm.control} name="phone" render={({ field }) => (
-                  <FormItem><FormLabel>Phone</FormLabel><FormControl><Input {...field} /></FormControl><FormMessage /></FormItem>
-                )} />
-                <FormField control={supplierForm.control} name="email" render={({ field }) => (
-                  <FormItem><FormLabel>Email</FormLabel><FormControl><Input {...field} /></FormControl><FormMessage /></FormItem>
-                )} />
+        {/* ② Line Items */}
+        <section className="space-y-3">
+          <div className="flex items-center gap-2">
+            <h2 className="text-sm font-semibold flex items-center gap-1.5">
+              <Package className="h-4 w-4 text-primary" />
+              Line Items
+            </h2>
+            <Badge variant="outline" className="text-[9px]">
+              {validCount} valid
+            </Badge>
+          </div>
+          <PoLineItemsEditor value={lineItems} onChange={setLineItems} currency={currency} />
+        </section>
+
+        {/* ③ Discount */}
+        <section className="space-y-3">
+          <h2 className="text-sm font-semibold">Discount</h2>
+          <div className="grid grid-cols-2 gap-3">
+            <div className="space-y-1">
+              <label className="text-[10px] font-medium text-muted-foreground uppercase tracking-wider">
+                Label
+              </label>
+              <Input
+                className="h-9 text-sm"
+                placeholder="e.g. Volume Discount"
+                value={discountLabel}
+                onChange={(e) => setDiscountLabel(e.target.value)}
+              />
+            </div>
+            <div className="space-y-1">
+              <label className="text-[10px] font-medium text-muted-foreground uppercase tracking-wider">
+                Amount ({currency})
+              </label>
+              <Input
+                type="number"
+                min="0"
+                step="0.01"
+                className="h-9 text-sm"
+                value={discountAmount}
+                onChange={(e) => setDiscountAmount(Number(e.target.value))}
+              />
+            </div>
+          </div>
+        </section>
+
+        <Separator />
+
+        {/* ④⑤ Payment & Delivery Terms */}
+        <PoTermsSection value={terms} onChange={setTerms} />
+
+        <Separator />
+
+        {/* ⑥ Vendor Notes */}
+        <section className="space-y-2">
+          <h2 className="text-sm font-semibold flex items-center gap-1.5">
+            <StickyNote className="h-4 w-4 text-primary" />
+            Vendor Notes
+            <span className="text-xs text-muted-foreground font-normal">(shown on printed PO)</span>
+          </h2>
+          <textarea
+            className="flex w-full rounded-md border border-input bg-background px-3 py-2 text-xs focus:outline-none focus:ring-1 focus:ring-ring resize-none min-h-[60px]"
+            placeholder="Notes visible to the vendor…"
+            value={terms.vendor_notes}
+            onChange={(e) => setTerms({ ...terms, vendor_notes: e.target.value })}
+          />
+        </section>
+
+        <Separator />
+
+        {/* ⑦ Approval Chain Preview */}
+        <section className="space-y-3">
+          <h2 className="text-sm font-semibold">
+            Approval Chain Preview{' '}
+            <span className="text-xs text-muted-foreground font-normal">
+              (Level {approvalLevel} — &lt; QAR 5K / 5K–50K / ≥ 50K)
+            </span>
+          </h2>
+          <div className="flex flex-wrap items-center gap-2">
+            {approvalRoles.map((role, idx) => (
+              <div key={role} className="flex items-center gap-2">
+                {idx > 0 && <ArrowRight className="h-3 w-3 text-muted-foreground" />}
+                <div className="flex items-center gap-1.5 border rounded-md px-3 py-2">
+                  <Clock className="h-3.5 w-3.5 text-muted-foreground" />
+                  <span className="text-xs">{roleLabel(role)}</span>
+                </div>
               </div>
-              <DialogFooter>
-                <Button type="button" variant="outline" onClick={() => setAddSupplierOpen(false)}>Cancel</Button>
-                <Button type="submit" disabled={createSupplier.isPending}>{createSupplier.isPending ? 'Adding...' : 'Add Supplier'}</Button>
-              </DialogFooter>
-            </form>
-          </Form>
-        </DialogContent>
-      </Dialog>
+            ))}
+          </div>
+        </section>
+
+      </div>
+
+      {/* Add Supplier Dialog */}
+      <AddSupplierDialog
+        open={addSupplierOpen}
+        onOpenChange={setAddSupplierOpen}
+        onCreated={handleSelectSupplier}
+      />
     </div>
   )
 }
