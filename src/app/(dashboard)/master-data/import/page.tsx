@@ -358,122 +358,122 @@ export default function CSVImportPage() {
   return (
     <PageWrapper>
       <div className="max-w-5xl mx-auto pb-12">
-      <PageHeader
-        title="CSV Import"
-        description="Bulk import data from spreadsheets — download a template, fill it in, then upload"
-      />
+        <PageHeader
+          title="CSV Import"
+          description="Bulk import data from spreadsheets — download a template, fill it in, then upload"
+        />
 
-      {/* Entity Tabs */}
-      <div className="overflow-x-auto -mx-4 px-4 sm:mx-0 sm:px-0">
-        <div className="flex border-b min-w-max">
-          {ENTITY_TYPES.map((type) => (
-            <EntityTab
-              key={type}
-              type={type}
-              active={entityType === type}
-              onClick={() => handleEntityChange(type)}
-            />
-          ))}
-        </div>
-      </div>
-
-      {/* Entity info + template download */}
-      <div className="rounded-lg border p-4 space-y-3">
-        <div className="flex flex-col sm:flex-row sm:items-start justify-between gap-3">
-          <div>
-            <h2 className="font-semibold">{currentConfig.label}</h2>
-            <p className="text-sm text-muted-foreground mt-0.5">{currentConfig.description}</p>
-          </div>
-          <Button
-            variant="outline"
-            size="sm"
-            onClick={() => downloadCSVTemplate(entityType)}
-            className="shrink-0"
-          >
-            <Download className="h-4 w-4 mr-1.5" />
-            Download Template
-          </Button>
-        </div>
-
-        {/* Column definitions */}
-        <div className="flex flex-wrap gap-2">
-          {currentConfig.columns.map((col) => (
-            <span
-              key={col.key}
-              className={cn(
-                'inline-flex items-center rounded-md px-2 py-1 text-xs font-medium',
-                col.required ? 'bg-primary/10 text-primary' : 'bg-muted text-muted-foreground'
-              )}
-              title={col.hint}
-            >
-              {col.label}
-              {col.required && <span className="ml-0.5 text-primary">*</span>}
-            </span>
-          ))}
-        </div>
-
-        {/* Notes */}
-        {currentConfig.notes && (
-          <div className="space-y-1">
-            {currentConfig.notes.map((note, i) => (
-              <div key={i} className="flex items-start gap-1.5 text-xs text-muted-foreground">
-                <AlertCircle className="h-3.5 w-3.5 shrink-0 mt-0.5" />
-                {note}
-              </div>
+        {/* Entity Tabs */}
+        <div className="overflow-x-auto -mx-4 px-4 sm:mx-0 sm:px-0">
+          <div className="flex border-b min-w-max">
+            {ENTITY_TYPES.map((type) => (
+              <EntityTab
+                key={type}
+                type={type}
+                active={entityType === type}
+                onClick={() => handleEntityChange(type)}
+              />
             ))}
           </div>
-        )}
-      </div>
+        </div>
 
-      {/* If import result is shown */}
-      {importResult ? (
-        <ResultSummary result={importResult} onReset={handleReset} />
-      ) : (
-        <>
-          {/* Upload zone */}
-          <DropZone
-            onFile={handleFile}
-            isDragging={isDragging}
-            setIsDragging={setIsDragging}
-            fileName={fileName}
-          />
-
-          {/* Parsing skeleton */}
-          {isParsing && (
-            <div className="space-y-2">
-              <Skeleton className="h-8 w-48" />
-              <Skeleton className="h-40 w-full" />
+        {/* Entity info + template download */}
+        <div className="rounded-lg border p-4 space-y-3">
+          <div className="flex flex-col sm:flex-row sm:items-start justify-between gap-3">
+            <div>
+              <h2 className="font-semibold">{currentConfig.label}</h2>
+              <p className="text-sm text-muted-foreground mt-0.5">{currentConfig.description}</p>
             </div>
-          )}
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => downloadCSVTemplate(entityType)}
+              className="shrink-0"
+            >
+              <Download className="h-4 w-4 mr-1.5" />
+              Download Template
+            </Button>
+          </div>
 
-          {/* Preview */}
-          {rows && !isParsing && (
-            <div className="space-y-4">
-              <ValidationSummary rows={rows} entityType={entityType} />
-              <PreviewTable rows={rows} entityType={entityType} />
+          {/* Column definitions */}
+          <div className="flex flex-wrap gap-2">
+            {currentConfig.columns.map((col) => (
+              <span
+                key={col.key}
+                className={cn(
+                  'inline-flex items-center rounded-md px-2 py-1 text-xs font-medium',
+                  col.required ? 'bg-primary/10 text-primary' : 'bg-muted text-muted-foreground'
+                )}
+                title={col.hint}
+              >
+                {col.label}
+                {col.required && <span className="ml-0.5 text-primary">*</span>}
+              </span>
+            ))}
+          </div>
 
-              <Separator />
-
-              <div className="flex flex-col sm:flex-row gap-3 items-start sm:items-center justify-between">
-                <div className="text-sm text-muted-foreground">
-                  {validCount > 0
-                    ? `Ready to import ${validCount} valid row${validCount !== 1 ? 's' : ''}${errorCount > 0 ? ` (${errorCount} will be skipped)` : ''}`
-                    : 'No valid rows — fix errors and re-upload'}
+          {/* Notes */}
+          {currentConfig.notes && (
+            <div className="space-y-1">
+              {currentConfig.notes.map((note, i) => (
+                <div key={i} className="flex items-start gap-1.5 text-xs text-muted-foreground">
+                  <AlertCircle className="h-3.5 w-3.5 shrink-0 mt-0.5" />
+                  {note}
                 </div>
-                <Button
-                  onClick={handleImport}
-                  disabled={validCount === 0 || isImporting}
-                  className="min-w-32"
-                >
-                  {isImporting
-                    ? 'Importing…'
-                    : `Import ${validCount} Row${validCount !== 1 ? 's' : ''}`}
-                </Button>
-              </div>
+              ))}
             </div>
           )}
-        </>
-      )}
+        </div>
+
+        {/* If import result is shown */}
+        {importResult ? (
+          <ResultSummary result={importResult} onReset={handleReset} />
+        ) : (
+          <>
+            {/* Upload zone */}
+            <DropZone
+              onFile={handleFile}
+              isDragging={isDragging}
+              setIsDragging={setIsDragging}
+              fileName={fileName}
+            />
+
+            {/* Parsing skeleton */}
+            {isParsing && (
+              <div className="space-y-2">
+                <Skeleton className="h-8 w-48" />
+                <Skeleton className="h-40 w-full" />
+              </div>
+            )}
+
+            {/* Preview */}
+            {rows && !isParsing && (
+              <div className="space-y-4">
+                <ValidationSummary rows={rows} entityType={entityType} />
+                <PreviewTable rows={rows} entityType={entityType} />
+
+                <Separator />
+
+                <div className="flex flex-col sm:flex-row gap-3 items-start sm:items-center justify-between">
+                  <div className="text-sm text-muted-foreground">
+                    {validCount > 0
+                      ? `Ready to import ${validCount} valid row${validCount !== 1 ? 's' : ''}${errorCount > 0 ? ` (${errorCount} will be skipped)` : ''}`
+                      : 'No valid rows — fix errors and re-upload'}
+                  </div>
+                  <Button
+                    onClick={handleImport}
+                    disabled={validCount === 0 || isImporting}
+                    className="min-w-32"
+                  >
+                    {isImporting
+                      ? 'Importing…'
+                      : `Import ${validCount} Row${validCount !== 1 ? 's' : ''}`}
+                  </Button>
+                </div>
+              </div>
+            )}
+          </>
+        )}
       </div>
     </PageWrapper>
   )
