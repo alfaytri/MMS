@@ -17,7 +17,7 @@ export default async function DashboardLayout({
   return (
     <div className="min-h-screen bg-muted/30 flex flex-col">
       <TopNav />
-      <main className="flex-1 p-6">
+      <main className="flex-1 overflow-hidden flex flex-col">
         {children}
       </main>
     </div>
