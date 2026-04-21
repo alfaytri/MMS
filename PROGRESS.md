@@ -148,7 +148,7 @@ Purchase & Sales▾:
 
 ## 🔄 In Progress
 
-⏳ Next: **Services Hub — Notifications & Instructions** (`docs/superpowers/plans/2026-04-21-services-hub-notifications-instructions.md`)
+🚀 Starting: **Services Hub Tree & Dialog Redesign Task 1: DB Migration + Storage Bucket + Types**
 
 ---
 
