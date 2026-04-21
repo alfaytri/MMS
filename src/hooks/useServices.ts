@@ -78,6 +78,7 @@ export function useCreateService() {
       return { ...data, treeType }
     },
     onSuccess: (data) => {
+      // Prefix match — invalidates all divisionSlug variants for this treeType
       queryClient.invalidateQueries({ queryKey: ['services', data.treeType] })
     },
   })
@@ -109,6 +110,7 @@ export function useUpdateService() {
       return { ...data, treeType }
     },
     onSuccess: (data) => {
+      // Prefix match — invalidates all divisionSlug variants for this treeType
       queryClient.invalidateQueries({ queryKey: ['services', data.treeType] })
     },
   })
@@ -143,16 +145,20 @@ export function useReorderServices() {
       const { data: siblings, error: fetchErr } = await siblingsQuery
       if (fetchErr) throw fetchErr
 
-      const idx = (siblings as { id: string; sort_order: number }[]).findIndex(
-        (s) => s.id === movedId,
-      )
+      // Filter rows with null sort_order — they can't participate in a swap safely
+      const sortedSiblings = (siblings as { id: string; sort_order: number | null }[])
+        .filter((s): s is { id: string; sort_order: number } => s.sort_order !== null)
+
+      const idx = sortedSiblings.findIndex((s) => s.id === movedId)
       if (idx === -1) throw new Error('Service not found in siblings')
       const targetIdx = direction === 'up' ? idx - 1 : idx + 1
-      if (targetIdx < 0 || targetIdx >= siblings.length) return null // boundary
+      if (targetIdx < 0 || targetIdx >= sortedSiblings.length) return null // boundary
 
-      const moved = siblings[idx] as { id: string; sort_order: number }
-      const sibling = siblings[targetIdx] as { id: string; sort_order: number }
+      const moved = sortedSiblings[idx]
+      const sibling = sortedSiblings[targetIdx]
 
+      // Two-write swap — not atomic. If a UNIQUE constraint is ever added to
+      // (tree_type, parent_id, sort_order), replace with an RPC in a single transaction.
       await Promise.all([
         supabase.from('services').update({ sort_order: sibling.sort_order }).eq('id', moved.id),
         supabase.from('services').update({ sort_order: moved.sort_order }).eq('id', sibling.id),
@@ -176,6 +182,7 @@ export function useReorderServices() {
     },
     onSuccess: (result) => {
       if (result) {
+        // Prefix match — invalidates all divisionSlug variants for this treeType
         queryClient.invalidateQueries({ queryKey: ['services', result.treeType] })
       }
     },
