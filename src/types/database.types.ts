@@ -1539,6 +1539,7 @@ export type Database = {
       }
       notification_templates: {
         Row: {
+          body_text: string | null
           button_type: string | null
           button_url_suffix_param: string | null
           created_at: string
@@ -1555,6 +1556,7 @@ export type Database = {
           wati_template_name: string
         }
         Insert: {
+          body_text?: string | null
           button_type?: string | null
           button_url_suffix_param?: string | null
           created_at?: string
@@ -1571,6 +1573,7 @@ export type Database = {
           wati_template_name?: string
         }
         Update: {
+          body_text?: string | null
           button_type?: string | null
           button_url_suffix_param?: string | null
           created_at?: string
