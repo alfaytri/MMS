@@ -55,7 +55,6 @@ export const NAV_ITEMS: NavEntry[] = [
     comingSoon: true,
     groups: [],
   },
-  // 'Invoices' top-level coming-soon removed — now under Purchase & Sales
   {
     label: 'Purchase & Sales',
     icon: 'ShoppingBag',
