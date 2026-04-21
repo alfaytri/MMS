@@ -3,12 +3,12 @@
 
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { createClient } from '@/lib/supabase/client'
-import type { Database } from '@/types/database.types'
+import type { DBTable, DBInsert } from '@/types/database.types'
 
-type NotificationTemplate = Database['public']['Tables']['notification_templates']['Row']
-type ReminderCategory = Database['public']['Tables']['reminder_categories']['Row']
-type Reminder = Database['public']['Tables']['reminders']['Row']
-type ReminderInsert = Omit<Database['public']['Tables']['reminders']['Insert'], 'id' | 'created_at' | 'updated_at'>
+type NotificationTemplate = DBTable<'notification_templates'>
+type ReminderCategory = DBTable<'reminder_categories'>
+type Reminder = DBTable<'reminders'>
+type ReminderInsert = Omit<DBInsert<'reminders'>, 'id' | 'created_at' | 'updated_at'>
 type ReminderUpdate = Partial<ReminderInsert>
 
 export type { NotificationTemplate, ReminderCategory, Reminder }
@@ -25,7 +25,7 @@ export function useNotificationTemplates() {
       if (error) throw error
       return (data ?? []) as NotificationTemplate[]
     },
-    staleTime: 5 * 60_000,
+    staleTime: 5 * 60 * 1000,
   })
 }
 
@@ -41,7 +41,7 @@ export function useReminderCategories() {
       if (error) throw error
       return (data ?? []) as ReminderCategory[]
     },
-    staleTime: 5 * 60_000,
+    staleTime: 5 * 60 * 1000,
   })
 }
 
@@ -58,7 +58,7 @@ export function useReminders() {
       if (error) throw error
       return (data ?? []) as Reminder[]
     },
-    staleTime: 5 * 60_000,
+    staleTime: 5 * 60 * 1000,
   })
 }
 
@@ -67,8 +67,7 @@ export function useCreateReminder() {
   return useMutation({
     mutationFn: async (values: ReminderInsert) => {
       const supabase = createClient()
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      const { data, error } = await (supabase.from('reminders') as any)
+      const { data, error } = await supabase.from('reminders')
         .insert(values)
         .select()
         .single()
@@ -84,8 +83,7 @@ export function useUpdateReminder() {
   return useMutation({
     mutationFn: async ({ id, ...values }: ReminderUpdate & { id: string }) => {
       const supabase = createClient()
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      const { data, error } = await (supabase.from('reminders') as any)
+      const { data, error } = await supabase.from('reminders')
         .update(values)
         .eq('id', id)
         .select()
