@@ -194,7 +194,6 @@ export default function ServicesPage() {
           <ServiceTableView
             serviceType="normal"
             divisionFilter={divisionFilter}
-            featureFilters={featureFilters}
             enabled={visitedTabs.has('normal')}
             onEdit={openEdit}
             onAddChild={openAddChild}
@@ -213,7 +212,6 @@ export default function ServicesPage() {
           <ServiceTableView
             serviceType="mobile"
             divisionFilter={divisionFilter}
-            featureFilters={featureFilters}
             enabled={visitedTabs.has('mobile')}
             onEdit={openEdit}
             onAddChild={openAddChild}

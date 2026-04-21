@@ -6,7 +6,6 @@ import { useServiceTree, useReorderServices, type Service } from '@/hooks/useSer
 interface ServiceTableViewProps {
   serviceType: 'normal' | 'mobile'
   divisionFilter: string[]
-  featureFilters: Set<string>
   enabled: boolean
   onEdit: (node: Service) => void
   onAddChild: (parentId: string) => void
@@ -15,7 +14,6 @@ interface ServiceTableViewProps {
 export function ServiceTableView({
   serviceType,
   divisionFilter,
-  featureFilters,
   enabled,
   onEdit,
   onAddChild,
@@ -28,7 +26,6 @@ export function ServiceTableView({
       data={data}
       isLoading={isLoading}
       error={error ?? null}
-      featureFilters={featureFilters}
       treeType={serviceType}
       onEdit={onEdit}
       onAddChild={onAddChild}
