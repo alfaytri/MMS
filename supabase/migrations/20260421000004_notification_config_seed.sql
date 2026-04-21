@@ -186,14 +186,22 @@ BEGIN
        'Sent 3 days before invoice due date',
        'invoice_due_reminder',
        true, 70,
-       'Scheduled daily job for invoices due in 3 days'),
+       'Scheduled daily job for invoices due in 3 days')
+    ON CONFLICT (slug) DO NOTHING;
+  END IF;
+
+  IF EXISTS (SELECT 1 FROM notification_templates WHERE slug = 'payment_overdue') THEN
+    INSERT INTO notification_config
+      (slug, label, label_ar, category, trigger_type, timing_description,
+       template_slug, is_active, sort_order, notes)
+    VALUES
       ('payment_invoice_overdue',
        'Invoice Overdue Alert',
        'تنبيه الفاتورة المتأخرة',
        'payment',
        'scheduled',
        'Sent on the day the invoice becomes overdue',
-       'invoice_due_reminder',
+       'payment_overdue',
        true, 75,
        'Sent on due-date+1 if still unpaid')
     ON CONFLICT (slug) DO NOTHING;
