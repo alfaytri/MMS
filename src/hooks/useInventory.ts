@@ -159,3 +159,50 @@ export function useUpdateBrandVariant() {
     },
   })
 }
+
+export type ServiceWithInventory = {
+  id: string
+  name_en: string
+  tree_type: string | null
+  inventory_items: unknown
+}
+
+export function useInventoryItemsAll(enabled = true) {
+  return useQuery({
+    queryKey: ['inventory_items_all'],
+    enabled,
+    queryFn: async () => {
+      const supabase = createClient()
+      const { data, error } = await supabase
+        .from('inventory_items')
+        .select('*')
+        .order('name_en')
+      if (error) throw error
+      return (data ?? []) as InventoryItem[]
+    },
+    staleTime: 5 * 60 * 1000,
+  })
+}
+
+export function useServicesWithInventory(enabled = true) {
+  return useQuery({
+    queryKey: ['services_with_inventory'],
+    enabled,
+    queryFn: async () => {
+      const supabase = createClient()
+      const { data, error } = await supabase
+        .from('services')
+        .select('id, name_en, tree_type, inventory_items')
+        .not('inventory_items', 'is', null)
+        .order('name_en')
+      if (error) throw error
+      return (data ?? []).map((row) => ({
+        id: row.id,
+        name_en: row.name_en,
+        tree_type: row.tree_type ?? null,
+        inventory_items: row.inventory_items,
+      })) as ServiceWithInventory[]
+    },
+    staleTime: 5 * 60 * 1000,
+  })
+}
