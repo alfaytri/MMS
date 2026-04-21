@@ -33,21 +33,21 @@ export const WhWarehousesTab = React.memo(function WhWarehousesTab({ warehouses 
           <CardContent className="space-y-2">
             <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
               <MapPin className="h-3 w-3 flex-shrink-0" />
-              {(wh as any).location ?? 'No location set'}
+              {wh.location ?? 'No location set'}
             </div>
             <div className="flex items-center gap-1.5 text-xs">
               <User className="h-3 w-3 flex-shrink-0" />
               <span className="text-muted-foreground">Manager:</span>
-              <span className="font-medium">{(wh as any).manager_name ?? 'Unassigned'}</span>
+              <span className="font-medium text-foreground">{(wh as any).manager_name ?? 'Unassigned'}</span>
             </div>
             <div className="pt-2 border-t flex justify-between items-center">
               <div className="flex items-center gap-1 text-xs">
                 <Package className="h-3.5 w-3.5 text-primary" />
-                {((wh as any).item_count ?? 0).toLocaleString()} items
+                {(wh.item_count ?? 0).toLocaleString()} items
               </div>
               <div className="flex items-center gap-1 text-xs">
                 <DollarSign className="h-3.5 w-3.5 text-success" />
-                QR {((wh as any).total_value ?? 0).toLocaleString()}
+                QR {(wh.total_value ?? 0).toLocaleString()}
               </div>
             </div>
           </CardContent>
