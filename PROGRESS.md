@@ -148,7 +148,7 @@ Purchase & Sales▾:
 
 ## 🔄 In Progress
 
-🚀 Starting: **Services Hub Tree & Dialog Redesign Task 5: ServiceTableView + ContractTableView Cleanup**
+🚀 Starting: **Services Hub Tree & Dialog Redesign Task 6** (next task in plan)
 
 ---
 
@@ -161,6 +161,7 @@ Purchase & Sales▾:
 
 ## ✅ Completed
 
+- [2026-04-21] **Services Hub Tree & Dialog Redesign — Task 5: ServiceTableView + ContractTableView Cleanup** — `src/components/services/ServiceTableView.tsx`, `src/components/services/ContractTableView.tsx` — Removed featureFilters prop; both files matched target content (already applied in Task 4); tsc --noEmit clean
 - [2026-04-21] **Services Hub Tree & Dialog Redesign — Task 4: ServiceTree Rewrite** — `src/components/services/ServiceTree.tsx` — Rewritten with sticky 7-column header, delegates to ServiceTreeRow, exports ReorderArgs/buildTreeMap/collectDescendantIds, removes featureFilters
 - [2026-04-21] **Services Hub Tree & Dialog Redesign — Task 3: ServiceTreeRow Component** — `src/components/services/ServiceTreeRow.tsx` — 7-column row anatomy with level badges, pricing, details, reminders cells + archive AlertDialog
 - [2026-04-21] **Services Hub Tree & Dialog Redesign — Task 2: useServices Hook Updates** — `src/hooks/useServices.ts` — Added deleted_at filter to useServiceTree, added useArchiveService mutation
