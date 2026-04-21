@@ -12,6 +12,8 @@ import { DivisionMultiSelect } from '@/components/shared/DivisionMultiSelect'
 import { ServiceTableView } from '@/components/services/ServiceTableView'
 import { ContractTableView } from '@/components/services/ContractTableView'
 import { ServiceEditDialog } from '@/components/services/ServiceEditDialog'
+import { NotificationsTab } from '@/components/services/NotificationsTab'
+import { InstructionsTab } from '@/components/services/InstructionsTab'
 import type { Service } from '@/hooks/useServices'
 
 type TabKey = 'normal' | 'contract' | 'mobile' | 'reminders' | 'instructions' | 'inventory' | 'promotions'
@@ -161,7 +163,13 @@ export default function ServicesPage() {
             onAddChild={openAddChild}
           />
         )}
-        {(activeTab === 'reminders' || activeTab === 'instructions' || activeTab === 'inventory' || activeTab === 'promotions') && (
+        {activeTab === 'reminders' && (
+          <NotificationsTab enabled={visitedTabs.has('reminders')} />
+        )}
+        {activeTab === 'instructions' && (
+          <InstructionsTab enabled={visitedTabs.has('instructions')} />
+        )}
+        {(activeTab === 'inventory' || activeTab === 'promotions') && (
           <div className="p-8 text-sm text-muted-foreground text-center">
             Coming in next plan
           </div>
