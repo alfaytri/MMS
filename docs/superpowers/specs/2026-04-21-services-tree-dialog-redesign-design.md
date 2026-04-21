@@ -159,7 +159,7 @@ All section components receive `form: UseFormReturn<ServiceFormValues>` + releva
 **A. CoreSection**
 2-col grid: Name EN (required, red border on invalid) + Name AR (RTL, required).
 
-**B. CatalogImageSection**
+**B. CatalogImageSection** *(placed immediately after Names — gives admin instant visual confirmation they are editing the right service)*
 - Empty state: dashed border drop zone, `<Upload h-4>` + "Click to upload image (max 5 MB)"
 - Populated state: 16×16 thumbnail + outline "Remove" button (`<X h-3>`)
 - File held in component state as `File | null` — uploaded on submit, not on pick
