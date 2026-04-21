@@ -477,6 +477,23 @@ export function useCancelPO() {
   })
 }
 
+export function useDeletePoVersion() {
+  const queryClient = useQueryClient()
+  return useMutation({
+    mutationFn: async ({ versionId, poId }: { versionId: string; poId: string }) => {
+      const supabase = createClient()
+      const { error } = await (supabase as any)
+        .from('po_versions')
+        .delete()
+        .eq('id', versionId)
+      if (error) throw error
+    },
+    onSuccess: (_data, variables) => {
+      queryClient.invalidateQueries({ queryKey: ['po-versions', variables.poId] })
+    },
+  })
+}
+
 export function usePoVersions(poId: string | null) {
   return useQuery({
     queryKey: ['po-versions', poId],

@@ -41,6 +41,29 @@ export function useCurrentUserProfile() {
   })
 }
 
+export function useIsAdmin() {
+  return useQuery({
+    queryKey: ['is-admin'],
+    queryFn: async () => {
+      const supabase = createClient()
+      const { data: { user } } = await supabase.auth.getUser()
+      if (!user) return false
+      const { data } = await (supabase as any)
+        .from('profiles')
+        .select('user_custom_roles(custom_roles(is_system, permissions))')
+        .eq('auth_user_id', user.id)
+        .maybeSingle()
+      if (!data) return false
+      const roles = (data.user_custom_roles ?? []) as { custom_roles: { is_system: boolean; permissions: string[] } | null }[]
+      return roles.some(
+        (r) => r.custom_roles?.is_system === true ||
+               (r.custom_roles?.permissions ?? []).includes('master_data.users.manage')
+      )
+    },
+    staleTime: 5 * 60 * 1000,
+  })
+}
+
 // One-click self-provision — creates a profile row for the current auth user.
 // Relies on the `Users can create own profile` INSERT policy.
 export function useCreateMyProfile() {
