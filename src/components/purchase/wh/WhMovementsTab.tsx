@@ -6,7 +6,7 @@ import { Badge } from '@/components/ui/badge'
 import { Input } from '@/components/ui/input'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table'
-import { useStockMovements } from '@/hooks/useWarehouseOperations'
+import { useStockMovements, StockMovement } from '@/hooks/useWarehouseOperations'
 import { Warehouse } from '@/hooks/useWarehouses'
 import { format } from 'date-fns'
 
@@ -25,7 +25,7 @@ const MOVEMENT_STYLES: Record<string, string> = {
 
 const MOVEMENT_TYPES = [
   'purchase_receival', 'sale_delivery', 'adjustment_in', 'adjustment_out',
-  'transfer_in', 'transfer_out', 'damage', 'adjustment', 'return', 'sale_return',
+  'transfer_in', 'transfer_out', 'adjustment', 'return', 'sale_return',
 ]
 
 interface Props {
@@ -39,8 +39,10 @@ export const WhMovementsTab = React.memo(function WhMovementsTab({ warehouses }:
 
   const { data: movements = [] } = useStockMovements({ limit: 200 })
 
+  const warehouseMap = useMemo(() => new Map(warehouses.map(w => [w.id, w.name])), [warehouses])
+
   const filtered = useMemo(() => {
-    return movements.filter((m: any) => {
+    return movements.filter((m: StockMovement) => {
       const q = search.toLowerCase()
       const matchSearch = !q ||
         m.item_name?.toLowerCase().includes(q) ||
@@ -112,7 +114,7 @@ export const WhMovementsTab = React.memo(function WhMovementsTab({ warehouses }:
                 </TableCell>
               </TableRow>
             ) : (
-              filtered.map((m: any) => (
+              filtered.map((m: StockMovement) => (
                 <TableRow key={m.id}>
                   <TableCell className="text-xs whitespace-nowrap">
                     {m.created_at ? format(new Date(m.created_at), 'dd MMM yy') : '—'}
@@ -129,7 +131,7 @@ export const WhMovementsTab = React.memo(function WhMovementsTab({ warehouses }:
                   <TableCell className="text-xs text-right">
                     {m.unit_cost != null && m.qty != null ? (m.unit_cost * m.qty).toFixed(2) : '—'}
                   </TableCell>
-                  <TableCell className="text-xs">{m.warehouse_id ?? '—'}</TableCell>
+                  <TableCell className="text-xs">{warehouseMap.get(m.warehouse_id) ?? '—'}</TableCell>
                   <TableCell className="text-xs text-muted-foreground truncate max-w-[80px]">
                     {m.reference_type ?? '—'}
                   </TableCell>
