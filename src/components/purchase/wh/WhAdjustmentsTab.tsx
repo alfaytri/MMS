@@ -1,100 +1,182 @@
 'use client'
 
-import { useState } from 'react'
-import { toast } from 'sonner'
+import React, { useState } from 'react'
+import { Eye } from 'lucide-react'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
-import { Skeleton } from '@/components/ui/skeleton'
-import { WhAdjustmentDialog } from './WhAdjustmentDialog'
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog'
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table'
 import { useStockAdjustments, useApproveStockAdjustment } from '@/hooks/useWarehouseOperations'
-import { useWarehouses } from '@/hooks/useWarehouses'
-import { formatDate } from '@/lib/utils/formatters'
-import { cn } from '@/lib/utils'
+import { useMutation, useQueryClient } from '@tanstack/react-query'
+import type { Warehouse } from '@/hooks/useWarehouses'
+import type { Profile } from '@/hooks/useProfiles'
+import { createClient } from '@/lib/supabase/client'
+import { format } from 'date-fns'
+import { toast } from 'sonner'
 
-export function WhAdjustmentsTab() {
-  const [warehouseId, setWarehouseId] = useState('')
-  const [createOpen, setCreateOpen] = useState(false)
-  const { data: warehouses } = useWarehouses()
-  const { data: adjustments, isLoading } = useStockAdjustments({ warehouseId: warehouseId || undefined })
+const TYPE_STYLES: Record<string, string> = {
+  increase:  'bg-success/10 text-success',
+  decrease:  'bg-warning/10 text-warning',
+  damage:    'bg-destructive/10 text-destructive',
+  write_off: 'bg-destructive/10 text-destructive',
+}
+const STATUS_STYLES: Record<string, string> = {
+  pending_approval: 'bg-warning/10 text-warning',
+  approved:         'bg-success/10 text-success',
+  rejected:         'bg-destructive/10 text-destructive',
+}
+
+interface Props {
+  warehouses: Warehouse[]
+  currentProfile: Profile | null
+}
+
+export const WhAdjustmentsTab = React.memo(function WhAdjustmentsTab({ warehouses, currentProfile }: Props) {
+  const { data: adjustments = [] } = useStockAdjustments()
   const approve = useApproveStockAdjustment()
+  const qc = useQueryClient()
+  const [photoUrls, setPhotoUrls] = useState<string[] | null>(null)
 
-  function handleApprove(id: string) {
-    approve.mutate(
-      { id, approvedByName: 'Manager' },
-      {
-        onSuccess: () => toast.success('Adjustment approved'),
-        onError: (err) => toast.error(err.message),
-      }
+  const reject = useMutation({
+    mutationFn: async (id: string) => {
+      const supabase = createClient()
+      const { error } = await (supabase as any)
+        .from('stock_adjustments')
+        .update({ status: 'rejected' })
+        .eq('id', id)
+      if (error) throw error
+    },
+    onSuccess: () => qc.invalidateQueries({ queryKey: ['stock_adjustments'] }),
+  })
+
+  function canApprove(adj: any) {
+    const wh = warehouses.find(w => w.id === adj.warehouse_id)
+    return currentProfile?.id === (wh as any)?.manager_id
+  }
+
+  if (adjustments.length === 0) {
+    return (
+      <div className="p-4 md:p-6 flex items-center justify-center h-40">
+        <p className="text-xs text-muted-foreground">No stock adjustments yet.</p>
+      </div>
     )
   }
 
   return (
-    <div className="space-y-4 pt-4">
-      <div className="flex items-center justify-between gap-3 flex-wrap">
-        <select
-          value={warehouseId}
-          onChange={(e) => setWarehouseId(e.target.value)}
-          className="h-9 rounded-md border border-input bg-background px-3 text-sm w-full sm:w-56"
-        >
-          <option value="">All warehouses</option>
-          {(warehouses ?? []).map((w: any) => (
-            <option key={w.id} value={w.id}>{w.name}</option>
-          ))}
-        </select>
-        <Button size="sm" onClick={() => setCreateOpen(true)}>+ New Adjustment</Button>
+    <div className="p-4 md:p-6">
+      <div className="rounded-md border overflow-x-auto">
+        <Table>
+          <TableHeader>
+            <TableRow>
+              <TableHead className="text-xs">Date</TableHead>
+              <TableHead className="text-xs">Warehouse</TableHead>
+              <TableHead className="text-xs">Item</TableHead>
+              <TableHead className="text-xs">Type</TableHead>
+              <TableHead className="text-xs text-right">Qty</TableHead>
+              <TableHead className="text-xs">Reason</TableHead>
+              <TableHead className="text-xs">Requested By</TableHead>
+              <TableHead className="text-xs">Status</TableHead>
+              <TableHead className="text-xs">Photos</TableHead>
+              <TableHead className="text-xs text-right">Actions</TableHead>
+            </TableRow>
+          </TableHeader>
+          <TableBody>
+            {adjustments.map((adj) => (
+              <TableRow key={adj.id}>
+                <TableCell className="text-xs whitespace-nowrap">
+                  {adj.created_at ? format(new Date(adj.created_at), 'dd MMM') : '—'}
+                </TableCell>
+                <TableCell className="text-xs">{(adj as any).warehouse_name ?? '—'}</TableCell>
+                <TableCell className="text-xs">
+                  {(adj as any).item_name ?? '—'}
+                  {(adj as any).brand && (
+                    <span className="text-muted-foreground ml-1">({(adj as any).brand})</span>
+                  )}
+                </TableCell>
+                <TableCell>
+                  <Badge className={`text-[10px] px-1.5 py-0 capitalize ${TYPE_STYLES[adj.adjustment_type] ?? ''}`}>
+                    {adj.adjustment_type?.replace(/_/g, ' ')}
+                  </Badge>
+                </TableCell>
+                <TableCell className="text-xs text-right">{adj.qty}</TableCell>
+                <TableCell className="text-xs max-w-[120px] truncate">{adj.reason}</TableCell>
+                <TableCell className="text-xs">{adj.requested_by_name ?? '—'}</TableCell>
+                <TableCell>
+                  <Badge className={`text-[10px] px-1.5 py-0 ${STATUS_STYLES[adj.status] ?? 'bg-muted text-muted-foreground'}`}>
+                    {adj.status?.replace(/_/g, ' ')}
+                  </Badge>
+                </TableCell>
+                <TableCell>
+                  {((adj as any).photo_urls?.length ?? 0) > 0 && (
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      className="h-6 px-1.5 gap-1 text-[10px]"
+                      onClick={() => setPhotoUrls((adj as any).photo_urls)}
+                    >
+                      <Eye className="h-3 w-3" />
+                      {(adj as any).photo_urls.length}
+                    </Button>
+                  )}
+                </TableCell>
+                <TableCell className="text-right">
+                  {adj.status === 'pending_approval' && canApprove(adj) ? (
+                    <div className="flex items-center justify-end gap-1">
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        className="h-6 text-[10px] text-success border-success/30 hover:bg-success/10"
+                        onClick={() => approve.mutate(
+                          { id: adj.id, approvedByName: currentProfile?.full_name ?? 'Manager' },
+                          { onSuccess: () => toast.success('Approved'), onError: (e) => toast.error(e.message) }
+                        )}
+                        disabled={approve.isPending}
+                      >
+                        Approve
+                      </Button>
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        className="h-6 text-[10px] text-destructive border-destructive/30 hover:bg-destructive/10"
+                        onClick={() => reject.mutate(adj.id, {
+                          onSuccess: () => toast.success('Rejected'),
+                          onError: (e) => toast.error(e.message),
+                        })}
+                        disabled={reject.isPending}
+                      >
+                        Reject
+                      </Button>
+                    </div>
+                  ) : (
+                    <span className="text-[10px] text-muted-foreground">
+                      {adj.status === 'pending_approval' ? 'Awaiting approval' : adj.approved_by_name ?? '—'}
+                    </span>
+                  )}
+                </TableCell>
+              </TableRow>
+            ))}
+          </TableBody>
+        </Table>
       </div>
 
-      {isLoading ? (
-        <div className="space-y-2">
-          {Array.from({ length: 4 }).map((_, i) => <Skeleton key={i} className="h-20 w-full rounded-lg" />)}
-        </div>
-      ) : (adjustments ?? []).length === 0 ? (
-        <div className="rounded-lg border border-dashed p-8 text-center text-muted-foreground text-sm">
-          No adjustments found
-        </div>
-      ) : (
-        <div className="space-y-3">
-          {(adjustments ?? []).map((adj) => (
-            <div key={adj.id} className="rounded-lg border p-4 space-y-2">
-              <div className="flex flex-wrap items-center justify-between gap-2">
-                <div className="flex items-center gap-2">
-                  <span className="text-sm font-medium capitalize">{adj.adjustment_type}</span>
-                  <Badge
-                    variant="outline"
-                    className={cn(
-                      'text-xs',
-                      adj.status === 'approved'
-                        ? 'border-success text-success'
-                        : adj.status === 'rejected'
-                        ? 'border-destructive text-destructive'
-                        : 'border-warning text-warning'
-                    )}
-                  >
-                    {adj.status}
-                  </Badge>
-                </div>
-                {adj.status === 'pending_approval' && (
-                  <Button size="sm" onClick={() => handleApprove(adj.id)} disabled={approve.isPending}>
-                    Approve
-                  </Button>
-                )}
-              </div>
-              <div className="text-sm">
-                Qty:{' '}
-                <span className={cn('font-semibold', adj.qty > 0 ? 'text-success' : 'text-destructive')}>
-                  {adj.qty > 0 ? '+' : ''}{adj.qty}
-                </span>
-              </div>
-              <div className="text-xs text-muted-foreground">
-                {formatDate(adj.created_at)} · {adj.reason}
-                {adj.requested_by_name && ` · requested by ${adj.requested_by_name}`}
-              </div>
-            </div>
-          ))}
-        </div>
-      )}
-
-      <WhAdjustmentDialog open={createOpen} onOpenChange={setCreateOpen} />
+      {/* Inline photo preview dialog */}
+      <Dialog open={!!photoUrls} onOpenChange={() => setPhotoUrls(null)}>
+        <DialogContent className="max-w-lg">
+          <DialogHeader>
+            <DialogTitle className="text-sm">Evidence Photos</DialogTitle>
+          </DialogHeader>
+          <div className="grid grid-cols-2 gap-2">
+            {(photoUrls ?? []).map((url, i) => (
+              <img
+                key={i}
+                src={url}
+                alt={`Evidence ${i + 1}`}
+                className="aspect-square w-full object-cover rounded-md border"
+              />
+            ))}
+          </div>
+        </DialogContent>
+      </Dialog>
     </div>
   )
-}
+})
