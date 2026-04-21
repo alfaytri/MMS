@@ -138,7 +138,7 @@ Purchase & Sales▾:
 | `docs/superpowers/plans/2026-04-21-services-hub-shell-tree-tabs.md` | ✅ DONE | Services Hub — page shell, DivisionMultiSelect, Normal/Contract/Mobile tree tabs, ServiceEditDialog |
 | `docs/superpowers/plans/2026-04-21-services-tree-dialog-redesign.md` | ✅ DONE | Services Hub — 7-column tree, sticky header, ServiceTreeRow, archive soft-delete, full ServiceEditDialog with image upload |
 | `docs/superpowers/plans/2026-04-21-services-hub-notifications-instructions.md` | ✅ DONE | Services Hub — Notifications tab (fixed + reminders sub-tabs), Instructions tab (materials + links sub-tabs) |
-| `docs/superpowers/plans/2026-04-21-services-hub-inventory-promotions.md` | ⏳ UPCOMING | Services Hub — Inventory tab (linked items tree), Promotions tab (campaigns + vouchers) |
+| `docs/superpowers/plans/2026-04-21-services-hub-inventory-promotions.md` | ✅ DONE | Services Hub — Inventory tab (linked items tree), Promotions tab (campaigns + vouchers) |
 | `docs/superpowers/plans/2026-04-18-mms-user-management.md` | ✅ DONE | Admin-driven user create/edit/reset, force-change gate, change-password page |
 | `docs/superpowers/plans/2026-04-19-purchase-sales-expansion.md` | ✅ DONE | RFQ→PO→Bill→Payment + SO→Delivery→Invoice→Payment→Credit Note |
 | `docs/superpowers/plans/2026-04-19-po-page-redesign.md` | ✅ DONE | PO list stat cards, rich filters, progress-bar table, PoDetailDialog redesign |
@@ -149,13 +149,7 @@ Purchase & Sales▾:
 
 ## 🔄 In Progress
 
-Next: Services Hub — Inventory & Promotions tab (plan: `docs/superpowers/plans/2026-04-21-services-hub-inventory-promotions.md`)
-
-### Services Hub — Inventory & Promotions (Plan: 2026-04-21-services-hub-inventory-promotions.md) — IN PROGRESS 🔄
-
-**Completed tasks:**
-- [2026-04-21] **Task 5: Wire InventoryTab + PromotionsTab** — `src/app/(dashboard)/master-data/services/page.tsx` — Added InventoryTab + PromotionsTab imports; updated FILTER_BAR_HIDDEN_TABS to include 'promotions'; removed redundant promotions guard on DivisionMultiSelect; replaced "Coming in next plan" placeholder with InventoryTab + PromotionsTab conditionals; tsc --noEmit clean; commit: afe45c7
-- [2026-04-21] **Task 4: PromotionsTab** — `src/components/services/PromotionsTab.tsx` — Two-tab component (Campaigns + Vouchers), Campaigns tab with expandable rules detail, Vouchers tab with usage tracking, full search/filter, responsive tables; tsc --noEmit clean
+Next: Review Phase 1 cleanup backlog and determine next plan
 
 ---
 
