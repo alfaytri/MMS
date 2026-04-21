@@ -137,7 +137,7 @@ Purchase & Sales▾:
 | `docs/superpowers/plans/2026-04-17-mms-csv-import.md` | ✅ DONE | CSV import tool (5 entity types) |
 | `docs/superpowers/plans/2026-04-21-services-hub-shell-tree-tabs.md` | ✅ DONE | Services Hub — page shell, DivisionMultiSelect, Normal/Contract/Mobile tree tabs, ServiceEditDialog |
 | `docs/superpowers/plans/2026-04-21-services-tree-dialog-redesign.md` | ✅ DONE | Services Hub — 7-column tree, sticky header, ServiceTreeRow, archive soft-delete, full ServiceEditDialog with image upload |
-| `docs/superpowers/plans/2026-04-21-services-hub-notifications-instructions.md` | ⏳ UPCOMING | Services Hub — Notifications tab (fixed + reminders sub-tabs), Instructions tab (materials + links sub-tabs) |
+| `docs/superpowers/plans/2026-04-21-services-hub-notifications-instructions.md` | ✅ DONE | Services Hub — Notifications tab (fixed + reminders sub-tabs), Instructions tab (materials + links sub-tabs) |
 | `docs/superpowers/plans/2026-04-21-services-hub-inventory-promotions.md` | ⏳ UPCOMING | Services Hub — Inventory tab (linked items tree), Promotions tab (campaigns + vouchers) |
 | `docs/superpowers/plans/2026-04-18-mms-user-management.md` | ✅ DONE | Admin-driven user create/edit/reset, force-change gate, change-password page |
 | `docs/superpowers/plans/2026-04-19-purchase-sales-expansion.md` | ✅ DONE | RFQ→PO→Bill→Payment + SO→Delivery→Invoice→Payment→Credit Note |
@@ -149,7 +149,7 @@ Purchase & Sales▾:
 
 ## 🔄 In Progress
 
-Next: Services Hub — Notifications & Instructions tab (plan: `docs/superpowers/plans/2026-04-21-services-hub-notifications-instructions.md`)
+Next: Services Hub — Inventory & Promotions tab (plan: `docs/superpowers/plans/2026-04-21-services-hub-inventory-promotions.md`)
 
 ---
 
