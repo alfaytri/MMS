@@ -148,7 +148,7 @@ Purchase & Sales▾:
 
 ## 🔄 In Progress
 
-🚀 Starting: **Services Hub Tree & Dialog Redesign Task 2: useServices Hook Updates**
+🚀 Starting: **Services Hub Tree & Dialog Redesign Task 3: ServiceTreeRow Component**
 
 ---
 
@@ -161,6 +161,7 @@ Purchase & Sales▾:
 
 ## ✅ Completed
 
+- [2026-04-21] **Services Hub Tree & Dialog Redesign — Task 2: useServices Hook Updates** — `src/hooks/useServices.ts` — Added deleted_at filter to useServiceTree, added useArchiveService mutation
 - [2026-04-21] **Services Hub Tree & Dialog Redesign — Task 1: DB Migration** — `supabase/migrations/20260421000001_services_additions.sql`, `src/types/database.types.ts` — Added deleted_at, catalog_image_url, legacy_service_id, qc_items columns + service-photos storage bucket
 
 ### Services Hub — Shell, Tree Tabs & Edit Dialog (Plan: 2026-04-21-services-hub-shell-tree-tabs.md) — COMPLETE ✅
