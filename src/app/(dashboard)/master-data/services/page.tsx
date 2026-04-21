@@ -14,6 +14,8 @@ import { ContractTableView } from '@/components/services/ContractTableView'
 import { ServiceEditDialog } from '@/components/services/ServiceEditDialog'
 import { NotificationsTab } from '@/components/services/NotificationsTab'
 import { InstructionsTab } from '@/components/services/InstructionsTab'
+import { InventoryTab } from '@/components/services/InventoryTab'
+import { PromotionsTab } from '@/components/services/PromotionsTab'
 import type { Service } from '@/hooks/useServices'
 
 type TabKey = 'normal' | 'contract' | 'mobile' | 'reminders' | 'instructions' | 'inventory' | 'promotions'
@@ -34,7 +36,7 @@ const CONTRACT_TYPES = [
   { key: 'general', label: 'General', icon: Percent },
 ]
 
-const FILTER_BAR_HIDDEN_TABS: TabKey[] = ['reminders', 'instructions', 'inventory']
+const FILTER_BAR_HIDDEN_TABS: TabKey[] = ['reminders', 'instructions', 'inventory', 'promotions']
 
 export default function ServicesPage() {
   const [activeTab, setActiveTab] = useState<TabKey>('normal')
@@ -121,9 +123,7 @@ export default function ServicesPage() {
           ))}
 
           <div className="ml-auto flex items-center gap-2 shrink-0">
-            {activeTab !== 'promotions' && (
-              <DivisionMultiSelect value={divisionFilter} onChange={setDivisionFilter} />
-            )}
+            <DivisionMultiSelect value={divisionFilter} onChange={setDivisionFilter} />
             {isTreeTab && (
               <Button size="sm" className="h-7 text-[11px] gap-1" onClick={openNew}>
                 <Plus className="h-3.5 w-3.5" />
@@ -169,10 +169,11 @@ export default function ServicesPage() {
         {activeTab === 'instructions' && (
           <InstructionsTab enabled={visitedTabs.has('instructions')} />
         )}
-        {(activeTab === 'inventory' || activeTab === 'promotions') && (
-          <div className="p-8 text-sm text-muted-foreground text-center">
-            Coming in next plan
-          </div>
+        {activeTab === 'inventory' && (
+          <InventoryTab enabled={visitedTabs.has('inventory')} />
+        )}
+        {activeTab === 'promotions' && (
+          <PromotionsTab enabled={visitedTabs.has('promotions')} />
         )}
       </div>
 
