@@ -131,6 +131,20 @@ export type InventoryCheckItem = {
   notes: string | null
 }
 
+export type ReceivalDelivery = {
+  id: string
+  direction: 'inbound' | 'outbound'
+  docNumber: string
+  reference: string // po_id (inbound) | sale_order_id (outbound)
+  warehouseId: string
+  warehouseName: string
+  counterparty: string // supplier name (inbound) | customer name (outbound)
+  date: string
+  items: { name: string; sku: string; qty: number }[]
+  itemCount: number
+  status: string
+}
+
 // ─── Hooks ────────────────────────────────────────────────────────────────────
 
 export function useStockMovements({
@@ -427,5 +441,57 @@ export function useReviewInventoryCheck() {
       if (error) throw error
     },
     onSuccess: () => qc.invalidateQueries({ queryKey: ['inventory_checks'] }),
+  })
+}
+
+export function useReceivalsAndDeliveries() {
+  return useQuery({
+    queryKey: ['receivals_deliveries'],
+    queryFn: async () => {
+      const supabase = createClient()
+
+      const [receivalsRes, deliveriesRes] = await Promise.all([
+        (supabase as any)
+          .from('receivals')
+          .select('id, receival_number, po_id, warehouse_id, date, status, items, received_by_name')
+          .order('date', { ascending: false }),
+        (supabase as any)
+          .from('sale_deliveries')
+          .select('id, delivery_number, sale_order_id, warehouse_id, warehouse_name, date, items, status')
+          .order('date', { ascending: false }),
+      ])
+
+      const inbound: ReceivalDelivery[] = (receivalsRes.data ?? []).map((r: any) => ({
+        id: r.id,
+        direction: 'inbound' as const,
+        docNumber: r.receival_number ?? '',
+        reference: r.po_id ?? '',
+        warehouseId: r.warehouse_id ?? '',
+        warehouseName: '', // warehouse_name not available in receivals, would need join
+        counterparty: r.received_by_name ?? '', // supplier name not directly available
+        date: r.date ?? '',
+        items: Array.isArray(r.items) ? r.items : [],
+        itemCount: Array.isArray(r.items) ? r.items.length : 0,
+        status: r.status ?? 'pending',
+      }))
+
+      const outbound: ReceivalDelivery[] = (deliveriesRes.data ?? []).map((d: any) => ({
+        id: d.id,
+        direction: 'outbound' as const,
+        docNumber: d.delivery_number ?? '',
+        reference: d.sale_order_id ?? '',
+        warehouseId: d.warehouse_id ?? '',
+        warehouseName: d.warehouse_name ?? '',
+        counterparty: '', // customer name not directly available, would need join with sale_orders
+        date: d.date ?? '',
+        items: Array.isArray(d.items) ? d.items : [],
+        itemCount: Array.isArray(d.items) ? d.items.length : 0,
+        status: d.status ?? 'pending',
+      }))
+
+      return [...inbound, ...outbound].sort(
+        (a, b) => new Date(b.date).getTime() - new Date(a.date).getTime()
+      )
+    },
   })
 }
