@@ -24,7 +24,7 @@ const instructionSchema = z.object({
   name_en: z.string().min(1, 'Name (EN) is required'),
   name_ar: z.string().nullable(),
   type: z.enum(['pre-service', 'post-service']),
-  content_type: z.enum(['text', 'pdf', 'image']),
+  content_type: z.enum(['text', 'pdf']),
   content_preview: z.string().nullable(),
   full_content: z.string().nullable(),
   pdf_file_name: z.string().nullable().or(z.literal('')),
@@ -84,7 +84,7 @@ export function InstructionEditDialog({
         content_type: values.content_type as any,
         content_preview: values.content_preview || null,
         full_content: contentType === 'text' ? values.full_content || null : null,
-        pdf_file_name: (contentType === 'pdf' || contentType === 'image') ? values.pdf_file_name || null : null,
+        pdf_file_name: contentType === 'pdf' ? values.pdf_file_name || null : null,
         // eslint-disable-next-line @typescript-eslint/no-explicit-any
         status: values.status as any,
       }
@@ -148,7 +148,6 @@ export function InstructionEditDialog({
                     <SelectContent>
                       <SelectItem value="text">Text</SelectItem>
                       <SelectItem value="pdf">PDF</SelectItem>
-                      <SelectItem value="image">Image</SelectItem>
                     </SelectContent>
                   </Select>
                 </FormItem>
@@ -171,10 +170,10 @@ export function InstructionEditDialog({
               )} />
             )}
 
-            {(contentType === 'pdf' || contentType === 'image') && (
+            {contentType === 'pdf' && (
               <FormField control={form.control} name="pdf_file_name" render={({ field }) => (
                 <FormItem>
-                  <FormLabel>File Name ({contentType === 'pdf' ? 'PDF' : 'Image'})</FormLabel>
+                  <FormLabel>PDF File Name</FormLabel>
                   <FormControl><Input placeholder="document.pdf" {...field} value={field.value ?? ''} /></FormControl>
                   <FormMessage />
                 </FormItem>
