@@ -79,7 +79,7 @@ Supabase join: `notification_config` → `notification_templates` on `template_s
 
 Grouping done once after fetch via `reduce` — no per-render work in components.
 
-Category order derived from minimum `sort_order` within each group.
+Category order derived from minimum `sort_order` within each group, with alphabetical-by-category-name as the tie-breaker when two groups share the same minimum `sort_order` (prevents newly seeded categories with default `sort_order: 0` from jumping to the top unpredictably).
 
 ### `toggleActive` mutation
 
@@ -87,7 +87,7 @@ Category order derived from minimum `sort_order` within each group.
 |------|--------|
 | `onMutate` | Snapshot current cache; flip `is_active` in cached row; stash `slug` from snapshot for logging |
 | Supabase call | `UPDATE notification_config SET is_active = newValue WHERE id = id` |
-| `onSuccess` | Best-effort insert into `activity_log`: `{ action: 'services/notification-toggled', module: 'services', entity_type: 'notification_config', entity_id: id, details: JSON.stringify({ slug, is_active: newValue }) }`. Silent fail — log error does not surface to user. |
+| `onSuccess` | Wrapped in `try/catch`: insert into `activity_log` `{ action: 'services/notification-toggled', module: 'services', entity_type: 'notification_config', entity_id: id, details: JSON.stringify({ slug, is_active: newValue }) }`. Log failure is silently swallowed — it must NOT re-throw, as that would bubble into `onError` and trigger an accidental optimistic revert of a toggle that already succeeded. |
 | `onError` | Restore snapshot; return `false` |
 | `onSettled` | Invalidate `['notification_config']` query |
 | Returns | `true` on success, `false` on Supabase error |
@@ -103,6 +103,7 @@ Each toggle is an independent mutation cycle — no batching, no debounce.
 **Location:** `src/components/services/NotificationsTableView.tsx`
 
 Entry point. Owns:
+- Outer wrapper: `w-full overflow-x-auto` — allows the fixed-width column grid (total 930px) to scroll horizontally on narrow viewports without being clipped by the parent's `overflow-hidden`
 - Notifications header strip: `flex items-center gap-2 px-4 py-3 border-b border-border bg-card` with `<Bell h-4 w-4 text-muted-foreground/>` + `<h2 text-sm font-semibold>Notifications</h2>`
 - Sub-tab strip: `<Tabs defaultValue="fixed">` with `h-8 bg-transparent p-0 gap-0` TabsList
 - Two sub-tab triggers (Fixed Notifications / Service Reminders) with `MessageSquare` / `Clock` icons, `text-xs rounded-none border-b-2 border-transparent px-4 py-1.5 gap-1.5` classes, active state adds `border-primary`
@@ -161,10 +162,11 @@ Same fixed-width column header and category/chevron group pattern as `FixedNotif
 **Data row differences:**
 - Notification cell: `name` + `name_ar` (no notes field)
 - Template cell: `reminder.template` free-text, no media badge
+  - `useReminders()` already uses `select('*')` — `template` field is fetched
 - Trigger cell: static `'scheduled'` badge
 - Timing cell: `reminder.timing || '—'`
 - Active cell: `<Switch>` bound to `status === 'active'`, on change calls `useUpdateReminder` mutating `{ status: 'active' | 'inactive' }` with optimistic update; same toast pattern
-- View cell: Eye button calls `onPreview` with a `ReminderPreviewItem` shaped from the reminder row
+- View cell: Eye button calls `onPreview` with an explicit mapping: `{ label: r.name, labelAr: r.name_ar, category: cat.name, triggerType: 'scheduled', timingDescription: r.timing, bodyText: r.template, mediaType: undefined }` — maps `reminder.template → bodyText` so `TemplatePreviewDialog` receives a uniform `PreviewItem` shape
 
 **No add/edit controls** — read-only. `ReminderEditDialog` is not imported.
 
@@ -230,3 +232,5 @@ export function NotificationsTab({ enabled }: { enabled: boolean }) {
 - Template body text population (manual via Supabase after seeding)
 - `notification_trail` integration (separate feature)
 - RTL layout for the full page (existing global RTL handles Arabic text inline)
+- Global layout changes (`layout.tsx`, `p-6` wrappers across other pages) — **explicitly not part of this spec**
+- "Last Sent" column on `notification_config` — deferred; derivable later from `notification_trail` via `MAX(created_at) WHERE notification_label = slug AND status = 'sent'` if needed
