@@ -77,7 +77,7 @@ type UseNotificationConfigReturn = {
 
 Supabase join: `notification_config` → `notification_templates` on `template_slug = slug`, selecting all needed columns. `staleTime: 5min`.
 
-Grouping done once after fetch via `reduce` — no per-render work in components.
+Grouping done once via `useMemo([data])` wrapping a `reduce` — recomputes only when the query data reference changes, not on every toggle-triggered re-render. Keeps the O(N) sort+group off the hot path.
 
 Category order derived from minimum `sort_order` within each group, with alphabetical-by-category-name as the tie-breaker when two groups share the same minimum `sort_order` (prevents newly seeded categories with default `sort_order: 0` from jumping to the top unpredictably).
 
