@@ -26,6 +26,7 @@ export const NAV_ITEMS: NavEntry[] = [
         items: [
           { label: 'Inventory Items', href: '/master-data/inventory' },
           { label: 'Suppliers', href: '/master-data/suppliers' },
+          { label: 'Warehouses', href: '/purchase/warehouses' },
           { label: 'Users & Roles', href: '/master-data/users' },
           { label: 'Audit Trail', href: '/master-data/audit-trail' },
           { label: 'Admin', href: '/master-data/admin' },
@@ -74,7 +75,6 @@ export const NAV_ITEMS: NavEntry[] = [
           { label: 'Shipments', href: '/purchase/shipments' },
           { label: 'Landed Costs', href: '/purchase/landed-costs' },
           { label: 'Dead Stock Report', href: '/purchase/dead-stock' },
-          { label: 'Warehouses', href: '/purchase/warehouses' },
         ],
       },
       {
