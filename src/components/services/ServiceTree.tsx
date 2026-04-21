@@ -51,6 +51,7 @@ export function collectDescendantIds(
 ): Set<string> {
   const result = new Set<string>()
   function recurse(id: string) {
+    if (result.has(id)) return // cycle guard
     const children = treeMap.get(id) ?? []
     for (const child of children) {
       result.add(child.id)
