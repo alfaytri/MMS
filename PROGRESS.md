@@ -138,30 +138,13 @@ Purchase & Sales▾:
 | `docs/superpowers/plans/2026-04-19-purchase-sales-expansion.md` | ✅ DONE | RFQ→PO→Bill→Payment + SO→Delivery→Invoice→Payment→Credit Note |
 | `docs/superpowers/plans/2026-04-19-po-page-redesign.md` | ✅ DONE | PO list stat cards, rich filters, progress-bar table, PoDetailDialog redesign |
 | `docs/superpowers/plans/2026-04-20-create-po-redesign.md` | ✅ DONE | Create PO full spec redesign — sticky header, grouped items, approval chain |
-| `docs/superpowers/plans/2026-04-20-warehouses-hub-redesign.md` | 🔄 **IN PROGRESS** | Warehouses operational hub — 7-tab redesign, URL state, React.memo, unified receivals+deliveries |
+| `docs/superpowers/plans/2026-04-20-warehouses-hub-redesign.md` | ✅ DONE | Warehouses operational hub — 7-tab redesign, URL state, React.memo, unified receivals+deliveries |
 
 ---
 
 ## 🔄 In Progress
 
-### Warehouses Hub Redesign (Plan: 2026-04-20-warehouses-hub-redesign.md)
-
-- **Design spec:** `docs/superpowers/specs/2026-04-20-warehouses-redesign-design.md`
-- **Scope:** Full 7-tab hub redesign — URL-based tab state (`?tab=`), React.memo tab isolation, compact density, semantic color tokens, unified Receivals & Deliveries tab (Tab 7 merges `receivals` + `sale_deliveries`). Nav entry moved from Purchase & Sales → Master Data dropdown (route stays `/purchase/warehouses`).
-- **Tasks:**
-  - [x] Task 1: nav-config.ts + delete WhReceivalsTab
-  - [x] Task 2: `ReceivalDelivery` type + `useReceivalsAndDeliveries()` hook
-  - [x] Task 3: `page.tsx` — Suspense, URL tab state, sticky header, dialog triggers
-  - [x] Task 4: `WhWarehousesTab` — React.memo, props-driven card grid
-  - [x] Task 5: `WhStockOverviewTab` — summary cards, company total table
-  - [x] Task 6: `WhTransfersTab` — approve/reject cards, amber highlight
-  - [x] Task 7: `WhAdjustmentsTab` — table, photo preview, approve/reject
-  - [x] Task 8: `WhInventoryChecksTab` — check list, detail dialog, reviewer panel
-  - [ ] Task 9: `WhMovementsTab` — movements table + filters
-  - [ ] Task 10: `ReceivalsDeliveriesTab` + `WhReceivalDetailDialog`
-  - [ ] Task 11: `WhAdjustmentDialog` — stock adjustment + photo upload
-  - [ ] Task 12: `WhInventoryCheckDialog` — inventory check creation
-  - [ ] Task 13: `WhTransferDialog` — transfer creation + approval banner
+*(nothing in progress — all Phase 1 tasks complete)*
 
 ---
 
@@ -342,12 +325,14 @@ Purchase & Sales▾:
 - [2026-04-21] **Task 7** — `WhAdjustmentsTab` — React.memo, full table with type/status badges, photo preview inline Dialog, `useApproveStockAdjustment` + inline reject mutation
 - [2026-04-21] **Task 8** — `WhInventoryChecksTab` — React.memo, clickable check list, detail Dialog with items variance table + reviewer panel (`status: 'approved'/'rejected'` inline mutations), audit footer
 
-**Remaining tasks:**
-- [ ] Task 9: `WhMovementsTab` — movements table + search/warehouse/type filters
-- [ ] Task 10: `ReceivalsDeliveriesTab` + `WhReceivalDetailDialog` — new unified inbound/outbound tab
-- [ ] Task 11: `WhAdjustmentDialog` — stock adjustment + photo upload to `adjustment-photos` bucket
-- [ ] Task 12: `WhInventoryCheckDialog` — inventory check creation
-- [ ] Task 13: `WhTransferDialog` — transfer creation + approval banner
+**All tasks complete.**
+
+- [2026-04-21] **Task 9** — `WhMovementsTab` rewrite — React.memo, props-driven, 3 filters (search/warehouse/type), `StockMovement` typed, warehouse name resolution
+- [2026-04-21] **Task 10** — `ReceivalsDeliveriesTab` + `WhReceivalDetailDialog` — unified inbound/outbound table, direction/warehouse/search filters, click-to-detail dialog
+- [2026-04-21] **Task 11** — `WhAdjustmentDialog` rewrite — children trigger, `InventoryItemLookup` integration, photo upload to `adjustment-photos` bucket, `status: 'pending_approval'`
+- [2026-04-21] **Task 12** — `WhInventoryCheckDialog` rewrite — `CheckItemsTable` sub-component (conditional hook), live variance badges, 3-step submit (create → insert items → set submitted)
+- [2026-04-21] **Task 13** — `WhTransferDialog` rewrite — from/to warehouse selects, approval banner with manager name, free-text item rows, direct Supabase insert
+- [2026-04-21] **Fix** — `page.tsx` null-coalesces `currentProfile ?? null` to satisfy tab component types; `tsc --noEmit` clean
 
 ---
 
