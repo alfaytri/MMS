@@ -25,7 +25,7 @@ import {
 import { cn } from '@/lib/utils'
 import { useDivisions } from '@/hooks/useDivisions'
 import {
-  useServiceTree, useCreateService, useUpdateService, useInstructions,
+  useServiceTree, useCreateService, useUpdateService,
   type Service,
 } from '@/hooks/useServices'
 import { collectDescendantIds, buildTreeMap } from './ServiceTree'
@@ -51,7 +51,6 @@ const serviceSchema = z.object({
   has_reminders: z.boolean(),
   reminder_days: z.coerce.number().nullable(),
   has_instructions: z.boolean(),
-  linked_instruction_ids: z.array(z.string()),
   qc_checklist: z.boolean(),
   spare_parts: z.boolean(),
   // Invoice text
@@ -92,7 +91,6 @@ function toDefaults(node: Service | null, type: string, parentId: string | null)
     has_reminders: s?.reminder_days != null,
     reminder_days: s?.reminder_days ?? null,
     has_instructions: s?.instructions ?? false,
-    linked_instruction_ids: [],
     qc_checklist: s?.qc_checklist ?? false,
     spare_parts: s?.spare_parts ?? false,
     invoice_text_en: s?.invoice_text_en ?? null,
@@ -114,7 +112,6 @@ export function ServiceEditDialog({
   const updateService = useUpdateService()
 
   const { data: treeData = [] } = useServiceTree(type, [], open)
-  const { data: allInstructions = [] } = useInstructions(open)
   const { data: divisions = [] } = useDivisions()
 
   const form = useForm<ServiceFormValues>({
@@ -511,31 +508,9 @@ export function ServiceEditDialog({
                     )} />
                     {hasInstructions && (
                       <div className="ml-4 border-l-2 border-border pl-3">
-                        <FormField control={form.control} name="linked_instruction_ids" render={({ field }) => (
-                          <FormItem>
-                            <FormLabel className="text-xs">Link instructions</FormLabel>
-                            <div className="space-y-1 max-h-32 overflow-y-auto">
-                              {allInstructions.map((instr) => (
-                                <label key={instr.id} className="flex items-center gap-2 text-xs cursor-pointer">
-                                  <input
-                                    type="checkbox"
-                                    checked={field.value.includes(instr.id)}
-                                    onChange={(e) => {
-                                      if (e.target.checked) {
-                                        field.onChange([...field.value, instr.id])
-                                      } else {
-                                        field.onChange(field.value.filter((id) => id !== instr.id))
-                                      }
-                                    }}
-                                    className="h-3 w-3"
-                                  />
-                                  {instr.name_en}
-                                  {instr.name_ar && <span className="text-muted-foreground">{instr.name_ar}</span>}
-                                </label>
-                              ))}
-                            </div>
-                          </FormItem>
-                        )} />
+                        <p className="text-xs text-muted-foreground">
+                          Instruction linking available in the Notifications & Instructions plan.
+                        </p>
                       </div>
                     )}
                   </div>
