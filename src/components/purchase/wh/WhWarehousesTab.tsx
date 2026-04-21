@@ -1,55 +1,58 @@
 'use client'
 
-import { useWarehouses } from '@/hooks/useWarehouses'
-import { Badge } from '@/components/ui/badge'
-import { Skeleton } from '@/components/ui/skeleton'
-import { formatCurrency } from '@/lib/utils/formatters'
-import { cn } from '@/lib/utils'
+import React from 'react'
+import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/card'
+import { WarehouseIcon, MapPin, User, Package, DollarSign } from 'lucide-react'
+import { Warehouse } from '@/hooks/useWarehouses'
 
-const TYPE_CONFIG: Record<string, { label: string; className: string }> = {
-  central:      { label: 'Central',  className: 'border-blue-500 text-blue-500' },
-  local:        { label: 'Local',    className: 'border-orange-500 text-orange-500' },
-  team_vehicle: { label: 'Vehicle',  className: 'border-success text-success' },
+interface Props {
+  warehouses: Warehouse[]
 }
 
-export function WhWarehousesTab() {
-  const { data: warehouses, isLoading } = useWarehouses()
-
-  if (isLoading) {
+export const WhWarehousesTab = React.memo(function WhWarehousesTab({ warehouses }: Props) {
+  if (warehouses.length === 0) {
     return (
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 pt-4">
-        {Array.from({ length: 3 }).map((_, i) => <Skeleton key={i} className="h-36 rounded-lg" />)}
+      <div className="flex items-center justify-center h-40">
+        <p className="text-xs text-muted-foreground text-center">
+          No warehouses configured. Add warehouses in Admin Settings.
+        </p>
       </div>
     )
   }
 
   return (
-    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 pt-4">
-      {(warehouses ?? []).map((wh: any) => {
-        const cfg = TYPE_CONFIG[wh.warehouse_type] ?? { label: wh.warehouse_type, className: '' }
-        return (
-          <div key={wh.id} className="rounded-lg border p-4 space-y-3">
-            <div className="flex items-center justify-between">
-              <h3 className="font-semibold text-sm">{wh.name}</h3>
-              <Badge variant="outline" className={cn('text-xs', cfg.className)}>{cfg.label}</Badge>
+    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+      {warehouses.map((wh) => (
+        <Card key={wh.id} className="hover:shadow-md transition-shadow">
+          <CardHeader className="pb-2">
+            <CardTitle className="text-sm flex items-center gap-2">
+              <WarehouseIcon className="h-4 w-4 text-primary" />
+              {wh.name}
+            </CardTitle>
+          </CardHeader>
+          <CardContent className="space-y-2">
+            <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
+              <MapPin className="h-3 w-3 flex-shrink-0" />
+              {(wh as any).location ?? 'No location set'}
             </div>
-            {wh.location && <p className="text-xs text-muted-foreground">{wh.location}</p>}
-            <div className="grid grid-cols-2 gap-2 text-sm">
-              <div>
-                <div className="text-muted-foreground text-xs">Items</div>
-                <div className="font-medium">{wh.item_count ?? 0}</div>
+            <div className="flex items-center gap-1.5 text-xs">
+              <User className="h-3 w-3 flex-shrink-0" />
+              <span className="text-muted-foreground">Manager:</span>
+              <span className="font-medium">{(wh as any).manager_name ?? 'Unassigned'}</span>
+            </div>
+            <div className="pt-2 border-t flex justify-between items-center">
+              <div className="flex items-center gap-1 text-xs">
+                <Package className="h-3.5 w-3.5 text-primary" />
+                {((wh as any).item_count ?? 0).toLocaleString()} items
               </div>
-              <div>
-                <div className="text-muted-foreground text-xs">Value (QAR)</div>
-                <div className="font-medium">{formatCurrency(wh.total_value ?? 0, 'QAR')}</div>
+              <div className="flex items-center gap-1 text-xs">
+                <DollarSign className="h-3.5 w-3.5 text-success" />
+                QR {((wh as any).total_value ?? 0).toLocaleString()}
               </div>
             </div>
-          </div>
-        )
-      })}
-      {(warehouses ?? []).length === 0 && (
-        <div className="col-span-full text-center text-muted-foreground text-sm py-8">No warehouses found</div>
-      )}
+          </CardContent>
+        </Card>
+      ))}
     </div>
   )
-}
+})
