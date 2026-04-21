@@ -201,10 +201,11 @@ export function useArchiveService() {
       treeType: string
     }) => {
       const supabase = createClient()
+      const archivedAt = new Date().toISOString()
       const { error } = await supabase
         .from('services')
         .update({
-          deleted_at: new Date().toISOString(),
+          deleted_at: archivedAt,
           status: 'inactive',
         })
         .eq('id', id)
@@ -215,7 +216,7 @@ export function useArchiveService() {
         module: 'services',
         entity_type: 'service',
         entity_id: id,
-        details: JSON.stringify({ archived_at: new Date().toISOString() }),
+        details: JSON.stringify({ archived_at: archivedAt }),
       })
       return { treeType }
     },
