@@ -4,11 +4,10 @@
 import { useState } from 'react'
 import {
   ListTree, FileText, Smartphone, Bell, Package, Tag,
-  Filter, Plus, Ruler, Percent, ClipboardCheck, Wrench,
+  Filter, Plus, Ruler, Percent,
 } from 'lucide-react'
 import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { Button } from '@/components/ui/button'
-import { Badge } from '@/components/ui/badge'
 import { DivisionMultiSelect } from '@/components/shared/DivisionMultiSelect'
 import { ServiceTableView } from '@/components/services/ServiceTableView'
 import { ContractTableView } from '@/components/services/ContractTableView'
@@ -27,14 +26,6 @@ const TABS: { key: TabKey; label: string; icon: React.ElementType }[] = [
   { key: 'promotions', label: 'Promotions', icon: Tag },
 ]
 
-const FEATURE_FILTERS = [
-  { key: 'inventory', label: 'Inventory', icon: Package },
-  { key: 'reminders', label: 'Reminders', icon: Bell },
-  { key: 'instructions', label: 'Instr', icon: FileText },
-  { key: 'qc', label: 'QC', icon: ClipboardCheck },
-  { key: 'parts', label: 'Parts', icon: Wrench },
-]
-
 const CONTRACT_TYPES = [
   { key: 'preventive', label: 'Preventive', icon: FileText },
   { key: 'area', label: 'Area-Based', icon: Ruler },
@@ -47,7 +38,6 @@ export default function ServicesPage() {
   const [activeTab, setActiveTab] = useState<TabKey>('normal')
   const [visitedTabs, setVisitedTabs] = useState<Set<TabKey>>(new Set(['normal']))
   const [divisionFilter, setDivisionFilter] = useState<string[]>([])
-  const [featureFilters, setFeatureFilters] = useState<Set<string>>(new Set())
   const [contractTypeFilter, setContractTypeFilter] = useState<'all' | 'preventive' | 'area' | 'general'>('all')
   const [editDialog, setEditDialog] = useState<{
     open: boolean
@@ -61,18 +51,8 @@ export default function ServicesPage() {
     const t = tab as TabKey
     setActiveTab(t)
     setDivisionFilter([])
-    setFeatureFilters(new Set())
     setContractTypeFilter('all')
     setVisitedTabs((prev) => new Set([...prev, t]))
-  }
-
-  function toggleFeatureFilter(key: string) {
-    setFeatureFilters((prev) => {
-      const next = new Set(prev)
-      if (next.has(key)) next.delete(key)
-      else next.add(key)
-      return next
-    })
   }
 
   function openNew() {
@@ -92,7 +72,6 @@ export default function ServicesPage() {
 
   const showFilterBar = !FILTER_BAR_HIDDEN_TABS.includes(activeTab)
   const isTreeTab = ['normal', 'contract', 'mobile'].includes(activeTab)
-
   const newButtonLabel =
     activeTab === 'contract' ? 'New Contract Service' :
     activeTab === 'mobile' ? 'New Mobile Service' :
@@ -124,40 +103,6 @@ export default function ServicesPage() {
           <Filter className="h-3.5 w-3.5 text-muted-foreground shrink-0" />
           <span className="text-xs text-muted-foreground shrink-0">Filter by:</span>
 
-          {/* Normal + Mobile: feature toggles */}
-          {(activeTab === 'normal' || activeTab === 'mobile') && (
-            <>
-              {FEATURE_FILTERS.map(({ key, label, icon: Icon }) => (
-                <Button
-                  key={key}
-                  variant={featureFilters.has(key) ? 'default' : 'outline'}
-                  size="sm"
-                  className="h-7 text-[11px] gap-1 shrink-0"
-                  onClick={() => toggleFeatureFilter(key)}
-                >
-                  <Icon className="h-3 w-3" />
-                  {label}
-                </Button>
-              ))}
-              {/* Active filter chips */}
-              {featureFilters.size > 0 && Array.from(featureFilters).map((key) => {
-                const f = FEATURE_FILTERS.find((ff) => ff.key === key)
-                if (!f) return null
-                return (
-                  <Badge
-                    key={key}
-                    variant="secondary"
-                    className="text-[10px] gap-1 cursor-pointer shrink-0"
-                    onClick={() => toggleFeatureFilter(key)}
-                  >
-                    ✓ {f.label} ✕
-                  </Badge>
-                )
-              })}
-            </>
-          )}
-
-          {/* Contract: type filter */}
           {activeTab === 'contract' && CONTRACT_TYPES.map(({ key, label, icon: Icon }) => (
             <Button
               key={key}
@@ -173,7 +118,6 @@ export default function ServicesPage() {
             </Button>
           ))}
 
-          {/* Right cluster */}
           <div className="ml-auto flex items-center gap-2 shrink-0">
             {activeTab !== 'promotions' && (
               <DivisionMultiSelect value={divisionFilter} onChange={setDivisionFilter} />
@@ -224,7 +168,6 @@ export default function ServicesPage() {
         )}
       </div>
 
-      {/* EDIT DIALOG — shared by all tree tabs */}
       <ServiceEditDialog
         open={editDialog.open}
         onOpenChange={(open) => setEditDialog((s) => ({ ...s, open }))}
