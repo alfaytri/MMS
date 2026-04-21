@@ -1,108 +1,128 @@
 'use client'
 
-import { useState } from 'react'
-import { toast } from 'sonner'
+import React from 'react'
+import { ArrowRight, CheckCircle2, XCircle } from 'lucide-react'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
-import { Skeleton } from '@/components/ui/skeleton'
-import { WhTransferDialog } from './WhTransferDialog'
 import { useWarehouseTransfers, useApproveTransfer, useRejectTransfer } from '@/hooks/useWarehouseOperations'
-import { formatDate } from '@/lib/utils/formatters'
-import { cn } from '@/lib/utils'
+import type { Warehouse } from '@/hooks/useWarehouses'
+import type { Profile } from '@/hooks/useProfiles'
+import { format } from 'date-fns'
+import { toast } from 'sonner'
 
-const STATUS_CONFIG: Record<string, { label: string; className: string }> = {
-  pending:          { label: 'Pending',          className: 'border-muted-foreground/40 text-muted-foreground' },
-  in_transit:       { label: 'In Transit',        className: 'border-blue-500 text-blue-500' },
-  pending_approval: { label: 'Pending Approval',  className: 'border-warning text-warning' },
-  approved:         { label: 'Approved',           className: 'border-success text-success' },
-  rejected:         { label: 'Rejected',           className: 'border-destructive text-destructive' },
+const STATUS_STYLES: Record<string, string> = {
+  pending:          'bg-muted text-muted-foreground',
+  in_transit:       'bg-primary/10 text-primary',
+  pending_approval: 'bg-warning/10 text-warning',
+  approved:         'bg-success/10 text-success',
+  rejected:         'bg-destructive/10 text-destructive',
 }
 
-export function WhTransfersTab() {
-  const [createOpen, setCreateOpen] = useState(false)
-  const { data: transfers, isLoading } = useWarehouseTransfers()
+interface Props {
+  warehouses: Warehouse[]
+  currentProfile: Profile | null
+}
+
+export const WhTransfersTab = React.memo(function WhTransfersTab({ warehouses, currentProfile }: Props) {
+  const { data: transfers = [] } = useWarehouseTransfers()
   const approve = useApproveTransfer()
   const reject = useRejectTransfer()
 
-  function handleApprove(id: string) {
+  function canApprove(transfer: any) {
+    const toWh = warehouses.find(w => w.id === transfer.to_warehouse_id)
+    return (toWh as any)?.manager_id === currentProfile?.id
+  }
+
+  function handleApprove(transfer: any) {
     approve.mutate(
-      { id, approvedByName: 'Manager' },
-      {
-        onSuccess: () => toast.success('Transfer approved'),
-        onError: (err) => toast.error(err.message),
-      }
+      { id: transfer.id, approvedByName: currentProfile?.full_name ?? 'Manager' },
+      { onSuccess: () => toast.success('Transfer approved'), onError: (e) => toast.error(e.message) }
     )
   }
 
   function handleReject(id: string) {
     reject.mutate(id, {
       onSuccess: () => toast.success('Transfer rejected'),
-      onError: (err) => toast.error(err.message),
+      onError: (e) => toast.error(e.message),
     })
   }
 
-  return (
-    <div className="space-y-4 pt-4">
-      <div className="flex justify-end">
-        <Button size="sm" onClick={() => setCreateOpen(true)}>+ Create Transfer</Button>
+  if (transfers.length === 0) {
+    return (
+      <div className="p-4 md:p-6 flex items-center justify-center h-40">
+        <p className="text-xs text-muted-foreground">No transfers yet.</p>
       </div>
+    )
+  }
 
-      {isLoading ? (
-        <div className="space-y-3">
-          {Array.from({ length: 3 }).map((_, i) => <Skeleton key={i} className="h-20 w-full rounded-lg" />)}
-        </div>
-      ) : (transfers ?? []).length === 0 ? (
-        <div className="rounded-lg border border-dashed p-8 text-center text-muted-foreground text-sm">
-          No transfers found
-        </div>
-      ) : (
-        <div className="space-y-3">
-          {(transfers ?? []).map((t) => {
-            const cfg = STATUS_CONFIG[t.status] ?? { label: t.status, className: '' }
-            return (
-              <div key={t.id} className="rounded-lg border p-4 space-y-2">
-                <div className="flex flex-wrap items-center justify-between gap-2">
-                  <div className="flex items-center gap-2">
-                    <span className="font-mono font-semibold text-sm">{t.transfer_number}</span>
-                    <Badge variant="outline" className={cn('text-xs', cfg.className)}>{cfg.label}</Badge>
-                  </div>
-                  {t.status === 'pending_approval' && (
-                    <div className="flex gap-2">
-                      <Button
-                        size="sm"
-                        variant="outline"
-                        className="text-destructive border-destructive/50 hover:bg-destructive/5"
-                        onClick={() => handleReject(t.id)}
-                        disabled={reject.isPending}
-                      >
-                        Reject
-                      </Button>
-                      <Button size="sm" onClick={() => handleApprove(t.id)} disabled={approve.isPending}>
-                        Approve
-                      </Button>
-                    </div>
-                  )}
-                </div>
-                <div className="text-sm">
-                  {t.from_warehouse?.name ?? 'Unknown'} → {t.to_warehouse?.name ?? 'Unknown'}
-                </div>
-                <div className="text-xs text-muted-foreground">
-                  {formatDate(t.date)} · {t.items.length} item(s)
-                  {t.created_by_name && ` · by ${t.created_by_name}`}
-                </div>
-                {t.items.length > 0 && (
-                  <div className="text-xs text-muted-foreground truncate">
-                    Items: {t.items.slice(0, 3).map((i) => i.item_name).join(', ')}
-                    {t.items.length > 3 ? `… +${t.items.length - 3} more` : ''}
-                  </div>
-                )}
+  return (
+    <div className="p-4 md:p-6 space-y-3">
+      {transfers.map((t) => (
+        <div
+          key={t.id}
+          className={`rounded-lg border p-4 ${t.status === 'pending_approval' ? 'border-warning/30 bg-warning/5' : ''}`}
+        >
+          {/* Header row */}
+          <div className="flex items-start justify-between mb-2">
+            <div className="flex items-center gap-2 flex-wrap">
+              <span className="text-xs font-semibold text-primary">{t.transfer_number}</span>
+              <Badge className={`text-[10px] px-1.5 py-0 ${STATUS_STYLES[t.status] ?? 'bg-muted text-muted-foreground'}`}>
+                {t.status.replace(/_/g, ' ')}
+              </Badge>
+              <span className="text-[10px] text-muted-foreground">
+                {t.date ? format(new Date(t.date), 'dd MMM yyyy') : ''}
+              </span>
+            </div>
+            {t.status === 'pending_approval' && canApprove(t) && (
+              <div className="flex items-center gap-1 flex-shrink-0">
+                <Button
+                  size="sm"
+                  variant="outline"
+                  className="h-7 text-[10px] gap-1 text-success border-success/30 hover:bg-success/10"
+                  onClick={() => handleApprove(t)}
+                  disabled={approve.isPending}
+                >
+                  <CheckCircle2 className="h-3 w-3" /> Approve
+                </Button>
+                <Button
+                  size="sm"
+                  variant="outline"
+                  className="h-7 text-[10px] gap-1 text-destructive border-destructive/30 hover:bg-destructive/10"
+                  onClick={() => handleReject(t.id)}
+                  disabled={reject.isPending}
+                >
+                  <XCircle className="h-3 w-3" /> Reject
+                </Button>
               </div>
-            )
-          })}
-        </div>
-      )}
+            )}
+          </div>
 
-      <WhTransferDialog open={createOpen} onOpenChange={setCreateOpen} />
+          {/* Route */}
+          <div className="text-xs mb-2 flex items-center gap-1.5 flex-wrap text-muted-foreground">
+            <span className="text-foreground font-medium">{t.from_warehouse?.name ?? 'Unknown'}</span>
+            <ArrowRight className="h-3 w-3" />
+            <span className="text-foreground font-medium">{t.to_warehouse?.name ?? 'Unknown'}</span>
+            {t.created_by_name && <span>· by {t.created_by_name}</span>}
+            {t.status === 'approved' && t.approved_by_name && (
+              <span className="text-[10px] text-success">• Approved by {t.approved_by_name}</span>
+            )}
+          </div>
+
+          {/* Items */}
+          <div className="flex flex-wrap gap-1.5">
+            {(t.items ?? []).map((item, i) => (
+              <Badge key={i} variant="outline" className="text-[10px]">
+                {item.qty}× {item.item_name}
+              </Badge>
+            ))}
+          </div>
+
+          {/* Notes */}
+          {t.notes && (
+            <p className="text-[10px] text-muted-foreground mt-1.5">{t.notes}</p>
+          )}
+        </div>
+      ))}
     </div>
   )
-}
+})
