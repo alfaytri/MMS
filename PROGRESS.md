@@ -93,20 +93,23 @@ D:/MMS/
 ## Navigation (LOCKED)
 
 ```
-Top Nav: Logo | Master Data▾ | Orders▾ | Contracts▾ | Invoices▾ | Purchase & Sales▾ | Teams▾ | [User▾]
+Top Nav: Logo | Master Data▾ | Orders▾ | Contracts▾ | Purchase & Sales▾ | Teams▾ | [User▾]
 
 Master Data▾:
-  Companies & Divisions → /master-data/companies
-  Warehouses            → /master-data/warehouses
-  Inventory Items       → /master-data/inventory
-  Suppliers             → /master-data/suppliers
-  Users & Roles         → /master-data/users
-  Audit Trail           → /master-data/audit-trail
-  Admin                 → /master-data/admin
+  Inventory Items → /master-data/inventory
+  Suppliers       → /master-data/suppliers
+  Warehouses      → /purchase/warehouses      ← operational hub (route stays, nav entry here)
+  Users & Roles   → /master-data/users
+  Audit Trail     → /master-data/audit-trail
+  Admin           → /master-data/admin
+  ---
+  Service List (Coming Soon) | Team & Employee (Coming Soon)
+  Subscription Packages (Coming Soon) | QuickBooks (Coming Soon) | Notification Trail (Coming Soon)
 
 Purchase & Sales▾:
-  PURCHASE: Purchase Orders | Approvals | Shipments | Landed Costs | Dead Stock Report | Warehouses
-  SALES:    Create Sale Order | Sale Orders | Returns
+  PURCHASE: Purchase Orders | Receivals | Purchase Payments
+  (separator): Approvals | Shipments | Landed Costs | Dead Stock Report
+  SALES: Sale Orders | Deliveries | Invoices | Payments | Credit Notes | Returns
 ```
 
 ---
@@ -134,7 +137,8 @@ Purchase & Sales▾:
 | `docs/superpowers/plans/2026-04-18-mms-user-management.md` | ✅ DONE | Admin-driven user create/edit/reset, force-change gate, change-password page |
 | `docs/superpowers/plans/2026-04-19-purchase-sales-expansion.md` | ✅ DONE | RFQ→PO→Bill→Payment + SO→Delivery→Invoice→Payment→Credit Note |
 | `docs/superpowers/plans/2026-04-19-po-page-redesign.md` | ✅ DONE | PO list stat cards, rich filters, progress-bar table, PoDetailDialog redesign |
-| `docs/superpowers/plans/2026-04-20-create-po-redesign.md` | 🔄 **IN PROGRESS** | Create PO full spec redesign — sticky header, grouped items, approval chain |
+| `docs/superpowers/plans/2026-04-20-create-po-redesign.md` | ✅ DONE | Create PO full spec redesign — sticky header, grouped items, approval chain |
+| `docs/superpowers/plans/2026-04-20-warehouses-hub-redesign.md` | 🔄 **IN PROGRESS** | Warehouses operational hub — 7-tab redesign, URL state, React.memo, unified receivals+deliveries |
 
 ---
 
@@ -304,14 +308,39 @@ Purchase & Sales▾:
 
 ---
 
-### Create PO Redesign (Plan: 2026-04-20-create-po-redesign.md) — IN PROGRESS 🔄
+### Create PO Redesign (Plan: 2026-04-20-create-po-redesign.md) — COMPLETE ✅
 
-- [2026-04-20] **Create PO Redesign Task 1: Add tool_asset_item_id** — `src/hooks/usePurchaseOrders.ts` — Added tool_asset_item_id: string | null to POLineItemDraft type
-- [2026-04-20] **Create PO Redesign Task 2: AddSupplierDialog** — `src/components/purchase/AddSupplierDialog.tsx` — Standalone supplier creation dialog with Name/ContactName/Phone/Email fields, calls useCreateSupplier, exposes onCreated callback
-- [2026-04-20] **Create PO Redesign Task 3: ToolAssetLookup** — `src/components/purchase/ToolAssetLookup.tsx` — Searchable dropdown querying tool_asset_items table, debounced 250ms, mirrors InventoryItemLookup UX
-- [2026-04-20] **Create PO Redesign Task 4: PoLineItemsEditor rewrite** — `src/components/purchase/PoLineItemsEditor.tsx` — 4 grouped types (Products/Spare Parts/Consumables/Tools), colored headers, 6-col grid layout, InventoryItemLookup + ToolAssetLookup per type
-- [2026-04-20] **Create PO Redesign Task 5: PoTermsSection rewrite** — `src/components/purchase/PoTermsSection.tsx` — Payment milestone pills (read-only for presets, editable for Custom with sum validation), expected_delivery date field in delivery section, updated preset labels, DEFAULT_TERMS export
-- [2026-04-20] **Create PO Redesign Task 6: create-po/page.tsx rewrite** — `src/app/(dashboard)/purchase/create-po/page.tsx` — Sticky header + scrollable body, Popover/Command supplier combobox, AddSupplierDialog, currency selector, subtotal/grand-total displays, PoLineItemsEditor, discount section, PoTermsSection, vendor notes section, approval chain preview pills
+- [2026-04-20] **Task 1** — `POLineItemDraft` — added `tool_asset_item_id: string | null`
+- [2026-04-20] **Task 2** — `AddSupplierDialog` — standalone supplier creation with onCreated callback
+- [2026-04-20] **Task 3** — `ToolAssetLookup` — searchable dropdown for tool_asset_items table (debounced 250ms)
+- [2026-04-20] **Task 4** — `PoLineItemsEditor` rewrite — 4 grouped item types with colored headers, InventoryItemLookup + ToolAssetLookup
+- [2026-04-20] **Task 5** — `PoTermsSection` rewrite — milestone payment pills, expected_delivery date, DEFAULT_TERMS export
+- [2026-04-20] **Task 6** — `create-po/page.tsx` rewrite — sticky header, Popover/Command supplier combobox, discount section, vendor notes, approval chain preview
+
+---
+
+### Warehouses Hub Redesign (Plan: 2026-04-20-warehouses-hub-redesign.md) — IN PROGRESS 🔄
+
+- **Design spec:** `docs/superpowers/specs/2026-04-20-warehouses-redesign-design.md`
+- **Scope:** Full 7-tab hub redesign — URL-based tab state (`?tab=`), React.memo tab isolation, compact density, semantic color tokens, unified Receivals & Deliveries tab (Tab 7 merges `receivals` + `sale_deliveries`). Nav entry moved from Purchase & Sales → Master Data dropdown (route stays `/purchase/warehouses`).
+- **Architecture:** Page orchestrator owns shared data + dialog triggers. Tab components are pure props-driven React.memo. Dialogs gated with `enabled: open`.
+
+**Completed tasks:**
+- [2026-04-21] **Task 1** — nav-config.ts: Warehouses moved to Master Data; `WhReceivalsTab.tsx` deleted
+- [2026-04-21] **Task 2** — `useWarehouseOperations.ts`: `ReceivalDelivery` type + `useReceivalsAndDeliveries()` hook (Promise.all merge of `receivals` + `sale_deliveries`, sorted by date desc)
+- [2026-04-21] **Task 3** — `page.tsx` rewrite — Suspense + `useSearchParams` URL tab state, sticky header with 3 dialog trigger buttons, React.memo tab components, badge counts for pending transfers + pending receivals
+- [2026-04-21] **Task 4** — `WhWarehousesTab` — React.memo, props-driven, responsive card grid (`grid-cols-1 md:2 lg:3`), typed DB fields, `(wh as any).manager_name` only cast
+- [2026-04-21] **Task 5** — `WhStockOverviewTab` — React.memo, props-driven, 3 summary mini-cards, search + company/warehouse toggle, company total table with typed stock fields
+- [2026-04-21] **Task 6** — `WhTransfersTab` — React.memo, props-driven, approve (`{ id, approvedByName }`) + reject (id only), amber highlight for pending_approval, `from_warehouse?.name` / `to_warehouse?.name`
+- [2026-04-21] **Task 7** — `WhAdjustmentsTab` — React.memo, full table with type/status badges, photo preview inline Dialog, `useApproveStockAdjustment` + inline reject mutation
+- [2026-04-21] **Task 8** — `WhInventoryChecksTab` — React.memo, clickable check list, detail Dialog with items variance table + reviewer panel (`status: 'approved'/'rejected'` inline mutations), audit footer
+
+**Remaining tasks:**
+- [ ] Task 9: `WhMovementsTab` — movements table + search/warehouse/type filters
+- [ ] Task 10: `ReceivalsDeliveriesTab` + `WhReceivalDetailDialog` — new unified inbound/outbound tab
+- [ ] Task 11: `WhAdjustmentDialog` — stock adjustment + photo upload to `adjustment-photos` bucket
+- [ ] Task 12: `WhInventoryCheckDialog` — inventory check creation
+- [ ] Task 13: `WhTransferDialog` — transfer creation + approval banner
 
 ---
 
