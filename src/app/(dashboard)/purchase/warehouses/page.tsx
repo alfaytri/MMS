@@ -51,7 +51,7 @@ function WarehousesPageInner() {
           </p>
         </div>
         <div className="flex items-center gap-1.5 flex-shrink-0">
-          <WhAdjustmentDialog warehouses={warehouses} currentProfile={currentProfile}>
+          <WhAdjustmentDialog warehouses={warehouses} currentProfile={currentProfile ?? null}>
             <Button size="sm" variant="outline" className="gap-1.5">
               <ClipboardList className="h-3.5 w-3.5" />
               Stock Adjustment
@@ -63,7 +63,7 @@ function WarehousesPageInner() {
               Inventory Check
             </Button>
           </WhInventoryCheckDialog>
-          <WhTransferDialog warehouses={warehouses} currentProfile={currentProfile}>
+          <WhTransferDialog warehouses={warehouses} currentProfile={currentProfile ?? null}>
             <Button size="sm" variant="outline" className="gap-1.5">
               <ArrowRightLeft className="h-3.5 w-3.5" />
               Transfer Stock
@@ -123,19 +123,19 @@ function WarehousesPageInner() {
             <WhStockOverviewTab warehouses={warehouses} />
           </TabsContent>
           <TabsContent value="transfers" className="mt-0">
-            <WhTransfersTab warehouses={warehouses} currentProfile={currentProfile} />
+            <WhTransfersTab warehouses={warehouses} currentProfile={currentProfile ?? null} />
           </TabsContent>
           <TabsContent value="adjustments" className="mt-0">
-            <WhAdjustmentsTab warehouses={warehouses} currentProfile={currentProfile} />
+            <WhAdjustmentsTab warehouses={warehouses} currentProfile={currentProfile ?? null} />
           </TabsContent>
           <TabsContent value="checks" className="mt-0">
-            <WhInventoryChecksTab warehouses={warehouses} currentProfile={currentProfile} />
+            <WhInventoryChecksTab warehouses={warehouses} currentProfile={currentProfile ?? null} />
           </TabsContent>
           <TabsContent value="movements" className="mt-0">
             <WhMovementsTab warehouses={warehouses} />
           </TabsContent>
           <TabsContent value="receivals" className="mt-0">
-            <ReceivalsDeliveriesTab warehouses={warehouses} currentProfile={currentProfile} />
+            <ReceivalsDeliveriesTab warehouses={warehouses} currentProfile={currentProfile ?? null} />
           </TabsContent>
         </div>
       </Tabs>
