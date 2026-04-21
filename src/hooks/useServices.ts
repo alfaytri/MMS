@@ -22,6 +22,7 @@ export function useServiceTree(
         .select('*')
         .eq('tree_type', treeType)
         .order('sort_order', { ascending: true })
+      query = query.is('deleted_at', null)
       if (divisionSlugs.length > 0) {
         query = query.in('division', divisionSlugs)
       }
@@ -185,6 +186,41 @@ export function useReorderServices() {
         // Prefix match — invalidates all divisionSlug variants for this treeType
         queryClient.invalidateQueries({ queryKey: ['services', result.treeType] })
       }
+    },
+  })
+}
+
+export function useArchiveService() {
+  const queryClient = useQueryClient()
+  return useMutation({
+    mutationFn: async ({
+      id,
+      treeType,
+    }: {
+      id: string
+      treeType: string
+    }) => {
+      const supabase = createClient()
+      const { error } = await supabase
+        .from('services')
+        .update({
+          deleted_at: new Date().toISOString(),
+          status: 'inactive',
+        })
+        .eq('id', id)
+      if (error) throw error
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      await (supabase.from('activity_log') as any).insert({
+        action: 'services/service-archived',
+        module: 'services',
+        entity_type: 'service',
+        entity_id: id,
+        details: JSON.stringify({ archived_at: new Date().toISOString() }),
+      })
+      return { treeType }
+    },
+    onSuccess: (data) => {
+      queryClient.invalidateQueries({ queryKey: ['services', data.treeType] })
     },
   })
 }
