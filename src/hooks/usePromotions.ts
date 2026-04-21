@@ -1,6 +1,4 @@
 // src/hooks/usePromotions.ts
-'use client'
-
 import { useQuery } from '@tanstack/react-query'
 import { createClient } from '@/lib/supabase/client'
 import type { DBTable } from '@/types/database.types'
