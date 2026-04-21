@@ -3,7 +3,6 @@
 import { useState } from 'react'
 import { Check, ChevronDown } from 'lucide-react'
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover'
-import { Button } from '@/components/ui/button'
 import { cn } from '@/lib/utils'
 import { useDivisions } from '@/hooks/useDivisions'
 
@@ -28,15 +27,15 @@ export function DivisionMultiSelect({ value, onChange, className }: DivisionMult
 
   return (
     <Popover open={open} onOpenChange={setOpen}>
-      <PopoverTrigger>
-        <Button
-          variant="outline"
-          size="sm"
-          className={cn('h-7 w-[200px] text-[11px] justify-between font-normal', className)}
-        >
-          <span className="truncate">{label}</span>
-          <ChevronDown className="h-3 w-3 ml-1 shrink-0 text-muted-foreground" />
-        </Button>
+      <PopoverTrigger
+        className={cn(
+          'h-7 w-[200px] text-[11px] font-normal inline-flex items-center justify-between rounded-md border border-input bg-background px-3 shadow-xs hover:bg-accent hover:text-accent-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring',
+          className,
+        )}
+        render={(props) => <button type="button" {...props} />}
+      >
+        <span className="truncate">{label}</span>
+        <ChevronDown className="h-3 w-3 ml-1 shrink-0 text-muted-foreground" />
       </PopoverTrigger>
       <PopoverContent className="w-[200px] p-1" align="start">
         <div className="max-h-48 overflow-y-auto">
