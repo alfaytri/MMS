@@ -135,7 +135,7 @@ Purchase & Sales▾:
 | `docs/superpowers/plans/2026-04-17-mms-sales-core.md` | ✅ DONE | SO hooks, shared components, detail dialog, list page, create SO, returns |
 | `docs/superpowers/plans/2026-04-17-mms-purchase-operations.md` | ✅ DONE | Shipments, Landed Costs, Warehouses Hub (7 tabs), Dead Stock Report |
 | `docs/superpowers/plans/2026-04-17-mms-csv-import.md` | ✅ DONE | CSV import tool (5 entity types) |
-| `docs/superpowers/plans/2026-04-21-services-hub-shell-tree-tabs.md` | ⏳ UPCOMING | Services Hub — page shell, DivisionMultiSelect, Normal/Contract/Mobile tree tabs, ServiceEditDialog |
+| `docs/superpowers/plans/2026-04-21-services-hub-shell-tree-tabs.md` | 🔄 IN PROGRESS | Services Hub — page shell, DivisionMultiSelect, Normal/Contract/Mobile tree tabs, ServiceEditDialog |
 | `docs/superpowers/plans/2026-04-21-services-hub-notifications-instructions.md` | ⏳ UPCOMING | Services Hub — Notifications tab (fixed + reminders sub-tabs), Instructions tab (materials + links sub-tabs) |
 | `docs/superpowers/plans/2026-04-21-services-hub-inventory-promotions.md` | ⏳ UPCOMING | Services Hub — Inventory tab (linked items tree), Promotions tab (campaigns + vouchers) |
 | `docs/superpowers/plans/2026-04-18-mms-user-management.md` | ✅ DONE | Admin-driven user create/edit/reset, force-change gate, change-password page |
@@ -148,7 +148,18 @@ Purchase & Sales▾:
 
 ## 🔄 In Progress
 
-🚀 Starting: **Services Hub — Shell, Tree Tabs & Edit Dialog** (brainstorming + spec phase)
+🚀 **Services Hub — Shell, Tree Tabs & Edit Dialog** (`docs/superpowers/plans/2026-04-21-services-hub-shell-tree-tabs.md`) — execution via subagent-driven-development
+- Task 1: DB Migration — indexes
+- Task 2: PageWrapper + layout change
+- Task 3: Wrap all standard pages
+- Task 4: useServices hook
+- Task 5: DivisionMultiSelect
+- Task 6: ServiceTree component
+- Task 7: ServiceTableView + ContractTableView
+- Task 8: ServiceEditDialog
+- Task 9: Services page shell
+- Task 10: Navigation wire-up
+- Task 11: Integration test
 
 ---
 
