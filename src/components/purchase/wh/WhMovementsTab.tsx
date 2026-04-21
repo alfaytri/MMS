@@ -1,76 +1,144 @@
 'use client'
 
-import { useState } from 'react'
-import { useWarehouses } from '@/hooks/useWarehouses'
-import { useStockMovements } from '@/hooks/useWarehouseOperations'
+import React, { useState, useMemo } from 'react'
+import { Search } from 'lucide-react'
 import { Badge } from '@/components/ui/badge'
-import { Skeleton } from '@/components/ui/skeleton'
-import { formatCurrency } from '@/lib/utils/formatters'
-import { cn } from '@/lib/utils'
+import { Input } from '@/components/ui/input'
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table'
+import { useStockMovements } from '@/hooks/useWarehouseOperations'
+import { Warehouse } from '@/hooks/useWarehouses'
+import { format } from 'date-fns'
 
-const MOVEMENT_CONFIG: Record<string, { label: string; colorClass: string }> = {
-  purchase_receival: { label: 'Purchase Receival', colorClass: 'text-success' },
-  sale_delivery:     { label: 'Sale Delivery',     colorClass: 'text-destructive' },
-  transfer_in:       { label: 'Transfer In',        colorClass: 'text-success' },
-  transfer_out:      { label: 'Transfer Out',       colorClass: 'text-destructive' },
-  adjustment:        { label: 'Adjustment',         colorClass: 'text-orange-500' },
-  return:            { label: 'Return',             colorClass: 'text-blue-500' },
-  sale_return:       { label: 'Sale Return',        colorClass: 'text-blue-500' },
+const MOVEMENT_STYLES: Record<string, string> = {
+  purchase_receival:  'bg-success/10 text-success',
+  sale_delivery:      'bg-destructive/10 text-destructive',
+  adjustment_in:      'bg-primary/10 text-primary',
+  adjustment_out:     'bg-warning/10 text-warning',
+  transfer_in:        'bg-accent/10 text-accent-foreground',
+  transfer_out:       'bg-secondary text-secondary-foreground',
+  damage:             'bg-destructive/10 text-destructive',
+  adjustment:         'bg-primary/10 text-primary',
+  return:             'bg-primary/10 text-primary',
+  sale_return:        'bg-primary/10 text-primary',
 }
 
-export function WhMovementsTab() {
-  const [warehouseId, setWarehouseId] = useState('')
-  const { data: warehouses } = useWarehouses()
-  const { data: movements, isLoading } = useStockMovements({ warehouseId: warehouseId || undefined, limit: 200 })
+const MOVEMENT_TYPES = [
+  'purchase_receival', 'sale_delivery', 'adjustment_in', 'adjustment_out',
+  'transfer_in', 'transfer_out', 'damage', 'adjustment', 'return', 'sale_return',
+]
 
-  const fmtDt = (ts: string) => new Date(ts).toLocaleString('en-GB', { dateStyle: 'short', timeStyle: 'short' })
+interface Props {
+  warehouses: Warehouse[]
+}
+
+export const WhMovementsTab = React.memo(function WhMovementsTab({ warehouses }: Props) {
+  const [search, setSearch] = useState('')
+  const [warehouseFilter, setWarehouseFilter] = useState('all')
+  const [typeFilter, setTypeFilter] = useState('all')
+
+  const { data: movements = [] } = useStockMovements({ limit: 200 })
+
+  const filtered = useMemo(() => {
+    return movements.filter((m: any) => {
+      const q = search.toLowerCase()
+      const matchSearch = !q ||
+        m.item_name?.toLowerCase().includes(q) ||
+        m.sku?.toLowerCase().includes(q)
+      const matchWh = warehouseFilter === 'all' || m.warehouse_id === warehouseFilter
+      const matchType = typeFilter === 'all' || m.movement_type === typeFilter
+      return matchSearch && matchWh && matchType
+    })
+  }, [movements, search, warehouseFilter, typeFilter])
 
   return (
-    <div className="space-y-4 pt-4">
-      <select
-        value={warehouseId}
-        onChange={(e) => setWarehouseId(e.target.value)}
-        className="h-9 rounded-md border border-input bg-background px-3 text-sm w-full sm:w-56"
-      >
-        <option value="">All warehouses</option>
-        {(warehouses ?? []).map((w: any) => (
-          <option key={w.id} value={w.id}>{w.name}</option>
-        ))}
-      </select>
-
-      {isLoading ? (
-        <div className="space-y-2">{Array.from({ length: 8 }).map((_, i) => <Skeleton key={i} className="h-10 w-full" />)}</div>
-      ) : (movements ?? []).length === 0 ? (
-        <p className="text-sm text-muted-foreground text-center py-8">No movements found</p>
-      ) : (
-        <div className="space-y-1">
-          {(movements ?? []).map((m) => {
-            const cfg = MOVEMENT_CONFIG[m.movement_type] ?? { label: m.movement_type, colorClass: '' }
-            return (
-              <div key={m.id} className="flex items-center gap-3 rounded-md border px-3 py-2 text-sm">
-                <div className="flex-1 min-w-0">
-                  <div className="font-medium truncate">{m.item_name}</div>
-                  {m.sku && <div className="text-xs text-muted-foreground">{m.sku}</div>}
-                </div>
-                <Badge variant="outline" className={cn('text-xs shrink-0', cfg.colorClass)}>
-                  {cfg.label}
-                </Badge>
-                <span className={cn('font-semibold shrink-0 tabular-nums', m.qty > 0 ? 'text-success' : 'text-destructive')}>
-                  {m.qty > 0 ? '+' : ''}{m.qty}
-                </span>
-                {m.unit_cost > 0 && (
-                  <span className="text-xs text-muted-foreground hidden md:block shrink-0">
-                    @ {formatCurrency(m.unit_cost, 'QAR')}
-                  </span>
-                )}
-                <span className="text-xs text-muted-foreground hidden sm:block shrink-0">
-                  {fmtDt(m.created_at)}
-                </span>
-              </div>
-            )
-          })}
+    <div className="p-4 md:p-6 space-y-4">
+      {/* Filters */}
+      <div className="flex flex-wrap gap-3">
+        <div className="relative max-w-xs">
+          <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-muted-foreground" />
+          <Input
+            className="h-8 text-xs pl-8"
+            placeholder="Search item / SKU…"
+            value={search}
+            onChange={e => setSearch(e.target.value)}
+          />
         </div>
-      )}
+        <Select value={warehouseFilter} onValueChange={v => setWarehouseFilter(v ?? 'all')}>
+          <SelectTrigger className="w-[160px] h-8 text-xs">
+            <SelectValue placeholder="All Warehouses" />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="all" className="text-xs">All Warehouses</SelectItem>
+            {warehouses.map(wh => (
+              <SelectItem key={wh.id} value={wh.id} className="text-xs">{wh.name}</SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
+        <Select value={typeFilter} onValueChange={v => setTypeFilter(v ?? 'all')}>
+          <SelectTrigger className="w-[160px] h-8 text-xs">
+            <SelectValue placeholder="All Types" />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="all" className="text-xs">All Types</SelectItem>
+            {MOVEMENT_TYPES.map(t => (
+              <SelectItem key={t} value={t} className="text-xs capitalize">{t.replace(/_/g, ' ')}</SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
+      </div>
+
+      {/* Table */}
+      <div className="rounded-md border">
+        <Table>
+          <TableHeader>
+            <TableRow>
+              <TableHead className="text-xs">Date</TableHead>
+              <TableHead className="text-xs">Item</TableHead>
+              <TableHead className="text-xs">SKU</TableHead>
+              <TableHead className="text-xs">Type</TableHead>
+              <TableHead className="text-xs text-right">Qty</TableHead>
+              <TableHead className="text-xs text-right">Unit Cost</TableHead>
+              <TableHead className="text-xs text-right">Total</TableHead>
+              <TableHead className="text-xs">Warehouse</TableHead>
+              <TableHead className="text-xs">Ref</TableHead>
+            </TableRow>
+          </TableHeader>
+          <TableBody>
+            {filtered.length === 0 ? (
+              <TableRow>
+                <TableCell colSpan={9} className="text-center text-xs text-muted-foreground py-8">
+                  No movements found
+                </TableCell>
+              </TableRow>
+            ) : (
+              filtered.map((m: any) => (
+                <TableRow key={m.id}>
+                  <TableCell className="text-xs whitespace-nowrap">
+                    {m.created_at ? format(new Date(m.created_at), 'dd MMM yy') : '—'}
+                  </TableCell>
+                  <TableCell className="text-xs">{m.item_name}</TableCell>
+                  <TableCell className="text-xs text-primary">{m.sku ?? '—'}</TableCell>
+                  <TableCell>
+                    <Badge className={`text-[10px] px-1.5 py-0 capitalize ${MOVEMENT_STYLES[m.movement_type] ?? 'bg-muted text-muted-foreground'}`}>
+                      {m.movement_type?.replace(/_/g, ' ')}
+                    </Badge>
+                  </TableCell>
+                  <TableCell className="text-xs text-right">{m.qty}</TableCell>
+                  <TableCell className="text-xs text-right">{m.unit_cost?.toFixed(2) ?? '—'}</TableCell>
+                  <TableCell className="text-xs text-right">
+                    {m.unit_cost != null && m.qty != null ? (m.unit_cost * m.qty).toFixed(2) : '—'}
+                  </TableCell>
+                  <TableCell className="text-xs">{m.warehouse_id ?? '—'}</TableCell>
+                  <TableCell className="text-xs text-muted-foreground truncate max-w-[80px]">
+                    {m.reference_type ?? '—'}
+                  </TableCell>
+                </TableRow>
+              ))
+            )}
+          </TableBody>
+        </Table>
+      </div>
     </div>
   )
-}
+})
