@@ -461,6 +461,9 @@ export function useReceivalsAndDeliveries() {
           .order('date', { ascending: false }),
       ])
 
+      if (receivalsRes.error) throw receivalsRes.error
+      if (deliveriesRes.error) throw deliveriesRes.error
+
       const inbound: ReceivalDelivery[] = (receivalsRes.data ?? []).map((r: any) => ({
         id: r.id,
         direction: 'inbound' as const,
@@ -493,5 +496,6 @@ export function useReceivalsAndDeliveries() {
         (a, b) => new Date(b.date).getTime() - new Date(a.date).getTime()
       )
     },
+    staleTime: 5 * 60 * 1000,
   })
 }
