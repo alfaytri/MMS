@@ -151,6 +151,11 @@ Purchase & Sales▾:
 
 Next: Services Hub — Inventory & Promotions tab (plan: `docs/superpowers/plans/2026-04-21-services-hub-inventory-promotions.md`)
 
+### Services Hub — Inventory & Promotions (Plan: 2026-04-21-services-hub-inventory-promotions.md) — IN PROGRESS 🔄
+
+**Completed tasks:**
+- [2026-04-21] **Task 4: PromotionsTab** — `src/components/services/PromotionsTab.tsx` — Two-tab component (Campaigns + Vouchers), Campaigns tab with expandable rules detail, Vouchers tab with usage tracking, full search/filter, responsive tables; tsc --noEmit clean
+
 ---
 
 ### Phase 1 Cleanup — Must Clear Before Phase 2
