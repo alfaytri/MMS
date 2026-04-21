@@ -92,7 +92,7 @@ function ItemsSubTab({ enabled }: { enabled: boolean }) {
                   </TableCell>
                 </TableRow>
               )}
-              {filtered.map((item: InventoryItem) => (
+              {filtered.map((item) => (
                 <TableRow key={item.id} className="text-xs">
                   <TableCell>
                     <div className="font-medium">{item.name_en}</div>
@@ -181,10 +181,10 @@ function ServiceItemsSubTab({ enabled }: { enabled: boolean }) {
                   </TableCell>
                 </TableRow>
               )}
-              {filtered.map((service: ServiceWithInventory) => {
+              {filtered.map((service) => {
                 const itemCount = Array.isArray(service.inventory_items)
                   ? service.inventory_items.length
-                  : 1
+                  : 0
                 return (
                   <TableRow key={service.id} className="text-xs">
                     <TableCell className="font-medium">{service.name_en}</TableCell>

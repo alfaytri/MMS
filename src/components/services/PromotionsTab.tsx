@@ -95,7 +95,7 @@ function CampaignsSubTab({ enabled }: { enabled: boolean }) {
         <Input
           placeholder="Search campaigns…"
           value={search}
-          onChange={(e) => setSearch(e.target.value)}
+          onChange={(e) => { setSearch(e.target.value); setSelectedId(null) }}
           className="h-7 text-xs w-64"
         />
         <span className="ml-auto text-xs text-muted-foreground">{filtered.length} campaigns</span>
@@ -122,7 +122,7 @@ function CampaignsSubTab({ enabled }: { enabled: boolean }) {
                   </TableCell>
                 </TableRow>
               )}
-              {filtered.map((campaign: CampaignWithRules) => (
+              {filtered.map((campaign) => (
                 <TableRow
                   key={campaign.id}
                   className={`text-xs cursor-pointer transition-colors ${selectedId === campaign.id ? 'bg-muted/40' : 'hover:bg-muted/20'}`}
@@ -140,10 +140,10 @@ function CampaignsSubTab({ enabled }: { enabled: boolean }) {
                     </Badge>
                   </TableCell>
                   <TableCell className="text-muted-foreground">
-                    {new Date(campaign.start_date).toLocaleDateString()}
+                    {campaign.start_date ? new Date(campaign.start_date).toLocaleDateString() : '—'}
                   </TableCell>
                   <TableCell className="text-muted-foreground">
-                    {new Date(campaign.end_date).toLocaleDateString()}
+                    {campaign.end_date ? new Date(campaign.end_date).toLocaleDateString() : '—'}
                   </TableCell>
                   <TableCell className="text-muted-foreground">{campaign.applicable_to ?? '—'}</TableCell>
                   <TableCell className="text-right">{campaign.promotion_rules.length}</TableCell>
@@ -203,7 +203,7 @@ function VouchersSubTab({ enabled }: { enabled: boolean }) {
 
   const filtered = vouchers.filter((v) =>
     v.code.toLowerCase().includes(search.toLowerCase()) ||
-    ((v.promotion_campaigns as { name?: string } | null)?.name ?? '').toLowerCase().includes(search.toLowerCase()),
+    (v.promotion_campaigns?.name ?? '').toLowerCase().includes(search.toLowerCase()),
   )
 
   if (isLoading) {
@@ -256,8 +256,8 @@ function VouchersSubTab({ enabled }: { enabled: boolean }) {
                   </TableCell>
                 </TableRow>
               )}
-              {filtered.map((voucher: VoucherWithCampaign) => {
-                const campaignName = (voucher.promotion_campaigns as { name?: string } | null)?.name ?? '—'
+              {filtered.map((voucher) => {
+                const campaignName = voucher.promotion_campaigns?.name ?? '—'
                 const usageDisplay = voucher.usage_limit != null
                   ? `${voucher.usage_count ?? 0} / ${voucher.usage_limit}`
                   : `${voucher.usage_count ?? 0}`
