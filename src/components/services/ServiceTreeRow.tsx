@@ -4,9 +4,8 @@
 import { useState } from 'react'
 import {
   ChevronRight, ChevronDown, ArrowUp, ArrowDown,
-  Plus, Pencil, Settings2, Bell, Shield, Clock, Archive,
+  Plus, Pencil, Settings2, Bell, Shield, Clock, Archive, Wrench,
 } from 'lucide-react'
-import { Wrench } from 'lucide-react'
 import { toast } from 'sonner'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
@@ -54,12 +53,9 @@ export function ServiceTreeRow({
 }: ServiceTreeRowProps) {
   const [archiveOpen, setArchiveOpen] = useState(false)
   const archiveService = useArchiveService()
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const svc = service as any
   const isBranch = hasChildren
-  const level = depth
-  const levelLabel = `L${level + 1}`
-  const levelColor = LEVEL_COLORS[Math.min(level, 2)] ?? 'bg-slate-100 text-slate-700'
+  const levelLabel = `L${depth + 1}`
+  const levelColor = LEVEL_COLORS[Math.min(depth, 2)] ?? 'bg-slate-100 text-slate-700'
 
   function handleRowClick() {
     if (isBranch) {
@@ -73,11 +69,16 @@ export function ServiceTreeRow({
     archiveService.mutate(
       { id: service.id, treeType },
       {
-        onSuccess: () => toast.success(`"${service.name_en}" archived`),
-        onError: () => toast.error('Failed to archive service'),
+        onSuccess: () => {
+          toast.success(`"${service.name_en}" archived`)
+          setArchiveOpen(false)
+        },
+        onError: () => {
+          toast.error('Failed to archive service')
+          setArchiveOpen(false)
+        },
       },
     )
-    setArchiveOpen(false)
   }
 
   return (
@@ -100,6 +101,7 @@ export function ServiceTreeRow({
                 size="icon"
                 className="h-4 w-4 p-0 disabled:opacity-30"
                 disabled={isFirst}
+                aria-label="Move up"
                 onClick={(e) => {
                   e.stopPropagation()
                   onReorder({ movedId: service.id, parentId: service.parent_id ?? null, direction: 'up', treeType })
@@ -112,6 +114,7 @@ export function ServiceTreeRow({
                 size="icon"
                 className="h-4 w-4 p-0 disabled:opacity-30"
                 disabled={isLast}
+                aria-label="Move down"
                 onClick={(e) => {
                   e.stopPropagation()
                   onReorder({ movedId: service.id, parentId: service.parent_id ?? null, direction: 'down', treeType })
@@ -138,7 +141,7 @@ export function ServiceTreeRow({
           <Badge className={cn('text-[9px] px-1 py-0 h-4 shrink-0 border-0', levelColor)}>
             {levelLabel}
           </Badge>
-          {svc.service_type === 'configurable' && (
+          {service.service_type === 'configurable' && (
             <Badge
               variant="outline"
               className="text-[9px] px-1 py-0 h-4 gap-0.5 text-primary border-primary shrink-0"
@@ -158,10 +161,10 @@ export function ServiceTreeRow({
 
         {/* 3. Invoice Text — w-[200px] */}
         <div className="w-[200px] shrink-0 px-2">
-          {!isBranch && (svc.invoice_text_en || svc.invoice_text_ar) ? (
+          {!isBranch && (service.invoice_text_en || service.invoice_text_ar) ? (
             <>
-              <div className="text-[11px] truncate text-foreground">{svc.invoice_text_en ?? '—'}</div>
-              <div className="text-[10px] truncate text-muted-foreground">{svc.invoice_text_ar ?? ''}</div>
+              <div className="text-[11px] truncate text-foreground">{service.invoice_text_en ?? '—'}</div>
+              <div className="text-[10px] truncate text-muted-foreground">{service.invoice_text_ar ?? ''}</div>
             </>
           ) : !isBranch ? (
             <span className="text-[11px] text-muted-foreground/40">—</span>
@@ -171,7 +174,7 @@ export function ServiceTreeRow({
         {/* 4. Pricing / Unit — w-[160px] */}
         <div className="w-[160px] shrink-0 px-2">
           {!isBranch && (
-            svc.service_type === 'configurable' ? (
+            service.service_type === 'configurable' ? (
               <div className="flex items-center gap-1 text-[11px] text-primary">
                 <Settings2 className="h-3 w-3" />Configurable
               </div>
@@ -213,18 +216,18 @@ export function ServiceTreeRow({
             <>
               <div className={cn(
                 'flex items-center gap-0.5 text-[10px]',
-                svc.warranty ? 'text-foreground' : 'text-muted-foreground/40',
+                service.warranty ? 'text-foreground' : 'text-muted-foreground/40',
               )}>
-                <Shield className="h-3 w-3" />{svc.warranty ?? 0}m
+                <Shield className="h-3 w-3" />{service.warranty ?? 0}m
               </div>
               <div className="flex items-center gap-0.5 text-[10px] text-muted-foreground w-[38px]">
-                <Clock className="h-3 w-3" />{svc.duration ?? 0}m
+                <Clock className="h-3 w-3" />{service.duration ?? 0}m
               </div>
               <Badge
                 variant="outline"
                 className={cn(
                   'text-[9px] px-1 py-0 h-3.5 gap-0.5',
-                  svc.spare_parts
+                  service.spare_parts
                     ? 'border-green-500 text-green-600'
                     : 'border-muted text-muted-foreground/40',
                 )}
@@ -241,6 +244,7 @@ export function ServiceTreeRow({
             variant="ghost"
             size="icon"
             className="h-5 w-5"
+            aria-label="Add child service"
             onClick={(e) => { e.stopPropagation(); onAddChild(service.id) }}
           >
             <Plus className="h-3.5 w-3.5 text-primary" />
@@ -249,6 +253,7 @@ export function ServiceTreeRow({
             variant="ghost"
             size="icon"
             className="h-5 w-5"
+            aria-label="Edit service"
             onClick={(e) => { e.stopPropagation(); onEdit(service) }}
           >
             <Pencil className="h-3.5 w-3.5 text-muted-foreground" />
@@ -257,6 +262,8 @@ export function ServiceTreeRow({
             variant="ghost"
             size="icon"
             className="h-5 w-5"
+            aria-label="Archive service"
+            disabled={archiveService.isPending}
             onClick={(e) => { e.stopPropagation(); setArchiveOpen(true) }}
           >
             <Archive className="h-3.5 w-3.5 text-muted-foreground" />
