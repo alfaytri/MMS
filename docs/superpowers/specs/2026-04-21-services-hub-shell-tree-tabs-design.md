@@ -28,12 +28,22 @@ Next.js 15 App Router · TypeScript · Supabase (browser client) · TanStack Que
 ALTER TABLE services
   ADD COLUMN has_qc    BOOLEAN NOT NULL DEFAULT false,
   ADD COLUMN has_parts BOOLEAN NOT NULL DEFAULT false;
+
+-- Performance: tree lookups filter by tree_type + parent_id on every tab load
+CREATE INDEX IF NOT EXISTS idx_services_tree_type_parent
+  ON services (tree_type, parent_id);
+
+-- Performance: division filter used across all tree tabs
+CREATE INDEX IF NOT EXISTS idx_services_division
+  ON services (division);
 ```
 
 Existing columns already cover the other feature flags:
 - `instructions` (boolean) → Instructions toggle
 - `reminder_days` (int, non-null = enabled) → Reminders toggle
 - `inventory_items` (JSONB, non-empty = enabled) → Inventory toggle
+
+> **Why these indexes:** As the service catalog grows to hundreds/thousands of rows, the client-side division pruning logic fires on every filter change. Without the composite index on `(tree_type, parent_id)`, every tab load does a full table scan. The `division` index covers the `.in('division', divisionIds)` filter clause.
 
 ---
 
@@ -43,12 +53,15 @@ Existing columns already cover the other feature flags:
 
 Change `<main className="flex-1 p-6">` → `<main className="flex-1 overflow-hidden flex flex-col">`.
 
-All existing pages that previously relied on this padding must add their own root wrapper:
+**New shared component:** `src/components/shared/PageWrapper.tsx`
 ```tsx
-<div className="p-6 space-y-6">
-  {/* existing page content */}
-</div>
+export function PageWrapper({ children }: { children: React.ReactNode }) {
+  return <div className="p-6 space-y-6">{children}</div>
+}
 ```
+All existing standard pages wrap their root in `<PageWrapper>` instead of a raw div. If padding ever needs changing (e.g. 4K screens), one edit covers all pages.
+
+Hub pages (Services, Warehouses) do **not** use `<PageWrapper>` — they manage their own full-height layout.
 
 **Affected pages (~15 files):**
 - `src/app/(dashboard)/page.tsx` (dashboard)
@@ -103,9 +116,11 @@ Fetches all rows from `instructions` table ordered by `name_en`. Used by `Servic
 
 ### `useReorderServices()`
 
-Mutation accepts `{ movedId, movedSortOrder, siblingId, siblingNewSortOrder, direction, treeType }`:
-1. `Promise.all([update movedId sort_order, update siblingId sort_order])`
-2. Write to `activity_log`:
+Mutation accepts `{ movedId, parentId, direction, treeType }`:
+
+1. **Fetch current siblings** — query `services` where `parent_id = parentId AND tree_type = treeType` ordered by `sort_order ASC`. This re-reads live DB values, so concurrent inserts by another user (which create gaps like 1, 2, 4, 5) are handled correctly.
+2. **Re-sequence relative positions** — find `movedId` in the fetched list, swap it with the adjacent sibling in the desired direction. Then `Promise.all` updates only those two rows with their new sort_order values from the live list (not stale client values). This ensures correctness even with non-sequential gaps.
+3. Write to `activity_log`:
 ```json
 {
   "action": "services/service-reordered",
@@ -335,10 +350,15 @@ Division filter applied as recursive pruning: a parent node is included if it or
 Rendered recursively starting from `map.get(null)`:
 
 ```
-[indent][chevron or spacer][name_en] [name_ar muted]   [feature badges]   [hover actions]
+[outer div — full width, group, hover bg]
+  [inner name wrapper — indent only]
+    [chevron or spacer][name_en] [name_ar muted]
+  [feature badges — ml-auto]
+  [hover actions — absolute right]
 ```
 
-- **Indent:** `style={{ paddingLeft: depth * 20 }}` on the row
+- **Outer div:** `group relative flex items-center px-4 py-1.5 hover:bg-accent` — full width, no indent. This ensures the hover highlight spans the entire row.
+- **Inner name wrapper:** `style={{ paddingInlineStart: depth * 20 }}` — logical CSS property that automatically flips to `padding-right` in RTL mode (Arabic). The indent applies only to the name content, not the hover background.
 - **Chevron:** `<ChevronRight h-3.5>` rotates 90° when expanded; replaced by `<span className="w-3.5">` spacer for leaf nodes
 - **Expand state:** local `Set<string>` of expanded node IDs — nodes with children start collapsed
 - **name_en:** `text-xs font-medium`
@@ -349,7 +369,7 @@ Rendered recursively starting from `map.get(null)`:
   - Instructions: `<FileText h-3>` badge if `service.instructions === true`
   - QC: `<ClipboardCheck h-3>` badge if `service.has_qc === true`
   - Parts: `<Wrench h-3>` badge if `service.has_parts === true`
-- **Hover actions** (`opacity-0 group-hover:opacity-100 flex items-center gap-1 ml-auto`):
+- **Hover actions** (`opacity-0 group-hover:opacity-100 absolute right-4 flex items-center gap-1 z-10`): positioned `absolute right-4` inside the `relative` outer div, with `z-10` to clear above the sticky TabBar/FilterBar. Using absolute positioning keeps them right-aligned regardless of name length.
   - ↑ button — hidden if first sibling
   - ↓ button — hidden if last sibling
   - `+` button — calls `onAddChild(service.id)`
@@ -408,7 +428,7 @@ interface ServiceEditDialogProps {
 | Code | `<Input>` | optional |
 | Status | `<Switch>` | active / inactive |
 | Division | `<Select>` from `useDivisions()` | required |
-| Parent Service | Indented combobox (Popover + Command) | pre-order traversal of same tree_type, shows `name_en` with depth indent + `name_ar` muted; pre-filled from `parentId` prop |
+| Parent Service | Indented combobox (Popover + Command) | pre-order traversal of same tree_type; **excludes `node.id` and all its descendants** (circular reference guard — compute excluded set before rendering list); shows `name_en` with `paddingInlineStart` depth indent + `name_ar` muted; in search results, also renders a breadcrumb line above the name: `text-[10px] text-muted-foreground` showing `"Parent > GrandParent"` so duplicate names are distinguishable; pre-filled from `parentId` prop |
 
 **Section: Pricing** (normal + mobile + contract)
 | Field | Input | Condition |
@@ -456,6 +476,22 @@ Shapes form values into a `ServiceInsert` / `ServiceUpdate`:
 - Sets `parent_id` from the parent combobox (or `parentId` prop for add-child)
 - `sort_order` defaults to `siblings.length` (end of list) on create
 
+### Unsaved Changes Guard
+
+`onOpenChange` intercepts the close attempt:
+```ts
+function handleOpenChange(open: boolean) {
+  if (!open && formState.isDirty) {
+    setConfirmDiscardOpen(true)  // opens a shadcn AlertDialog
+    return
+  }
+  onOpenChange(open)
+}
+```
+`AlertDialog` copy: **"Discard changes?"** / "You have unsaved changes. They will be lost if you close now." / Actions: **Keep Editing** (default) | **Discard**.
+
+This fires on backdrop click, Escape key, and any explicit close button.
+
 ### On Save
 1. `buildServicePayload()` → `useCreateService()` or `useUpdateService()`
 2. Toast: "Service saved" (success) / "Failed to save service" (error)
@@ -495,6 +531,7 @@ src/hooks/
 
 src/components/shared/
   DivisionMultiSelect.tsx                          NEW
+  PageWrapper.tsx                                  NEW — replaces raw p-6 div across ~15 pages
 
 src/components/services/                           NEW FOLDER
   ServiceTree.tsx
