@@ -4,6 +4,7 @@ import { useState } from 'react'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { DivisionFilter } from '@/components/layout/DivisionFilter'
 import { ShoppingCart, Package, Receipt, AlertTriangle } from 'lucide-react'
+import { PageWrapper } from '@/components/shared/PageWrapper'
 
 const STAT_CARDS = [
   {
@@ -36,7 +37,7 @@ export default function DashboardPage() {
   const [selectedDivision, setSelectedDivision] = useState<string | null>(null)
 
   return (
-    <div className="space-y-6">
+    <PageWrapper>
       <div className="flex items-center justify-between">
         <h1 className="text-2xl font-bold text-foreground">Dashboard</h1>
       </div>
@@ -64,6 +65,6 @@ export default function DashboardPage() {
           </Card>
         ))}
       </div>
-    </div>
+    </PageWrapper>
   )
 }

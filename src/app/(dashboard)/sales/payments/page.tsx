@@ -4,6 +4,7 @@
 import { useMemo } from 'react'
 import { type ColumnDef } from '@tanstack/react-table'
 import { PageHeader } from '@/components/shared/PageHeader'
+import { PageWrapper } from '@/components/shared/PageWrapper'
 import { DataTable } from '@/components/shared/DataTable'
 import { DataTableColumnHeader } from '@/components/shared/DataTableColumnHeader'
 import { useCustomerPayments, type CustomerPayment } from '@/hooks/useCustomerPayments'
@@ -59,9 +60,9 @@ export default function CustomerPaymentsPage() {
   ], [])
 
   return (
-    <div className="p-4 md:p-6 space-y-4">
+    <PageWrapper>
       <PageHeader title="Customer Payments" description="Incoming payments from customers" />
       <DataTable columns={columns} data={payments ?? []} isLoading={isLoading} />
-    </div>
+    </PageWrapper>
   )
 }

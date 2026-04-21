@@ -11,6 +11,7 @@ import { MoreHorizontal, Pencil } from 'lucide-react'
 import { createClient } from '@/lib/supabase/client'
 import type { DBTable } from '@/types/database.types'
 import { SearchInput } from '@/components/shared/SearchInput'
+import { PageWrapper } from '@/components/shared/PageWrapper'
 import { DataTable } from '@/components/shared/DataTable'
 import { DataTableColumnHeader } from '@/components/shared/DataTableColumnHeader'
 import { StatusBadge } from '@/components/shared/StatusBadge'
@@ -159,7 +160,7 @@ export default function ReasonListsPage() {
   ], [])
 
   return (
-    <>
+    <PageWrapper>
       <div className="space-y-4">
         <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
           <h2 className="text-lg font-semibold">Reason Lists</h2>
@@ -200,6 +201,6 @@ export default function ReasonListsPage() {
           </Form>
         </DialogContent>
       </Dialog>
-    </>
+    </PageWrapper>
   )
 }

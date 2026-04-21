@@ -3,6 +3,7 @@
 import { useState } from 'react'
 import { toast } from 'sonner'
 import { PageHeader } from '@/components/shared/PageHeader'
+import { PageWrapper } from '@/components/shared/PageWrapper'
 import { PoStatusBadge } from '@/components/purchase/PoStatusBadge'
 import { PoApprovalChain } from '@/components/purchase/PoApprovalChain'
 import { usePendingApprovals, useCompletedApprovals, useApproveStep, useRejectPO } from '@/hooks/usePOApprovals'
@@ -97,7 +98,7 @@ export default function ApprovalsPage() {
   const isMutating = approveStep.isPending || rejectPO.isPending
 
   return (
-    <div className="space-y-8">
+    <PageWrapper>
       <PageHeader title="PO Approvals" description="Review and action pending purchase order approvals" />
 
       {/* Pending Approvals */}
@@ -346,6 +347,6 @@ export default function ApprovalsPage() {
           )}
         </DialogContent>
       </Dialog>
-    </div>
+    </PageWrapper>
   )
 }

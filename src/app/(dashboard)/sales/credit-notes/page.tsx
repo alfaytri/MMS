@@ -6,6 +6,7 @@ import { type ColumnDef } from '@tanstack/react-table'
 import { Plus } from 'lucide-react'
 import { toast } from 'sonner'
 import { PageHeader } from '@/components/shared/PageHeader'
+import { PageWrapper } from '@/components/shared/PageWrapper'
 import { DataTable } from '@/components/shared/DataTable'
 import { DataTableColumnHeader } from '@/components/shared/DataTableColumnHeader'
 import { ConfirmDialog } from '@/components/shared/ConfirmDialog'
@@ -81,7 +82,7 @@ export default function CreditNotesPage() {
   ], [])
 
   return (
-    <div className="p-4 md:p-6 space-y-4">
+    <PageWrapper>
       <PageHeader
         title="Credit Notes"
         description="Manually issued credits against customer invoices"
@@ -109,6 +110,6 @@ export default function CreditNotesPage() {
           onOpenChange={(v) => { if (!v) setApplyTarget(null) }}
         />
       )}
-    </div>
+    </PageWrapper>
   )
 }

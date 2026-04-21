@@ -5,6 +5,7 @@ import { type ColumnDef } from '@tanstack/react-table'
 import { ChevronDown, ChevronRight, Lock, MoreHorizontal, Shield, UserPlus, AlertCircle, Pencil, Trash2 } from 'lucide-react'
 import { toast } from 'sonner'
 import { SearchInput } from '@/components/shared/SearchInput'
+import { PageWrapper } from '@/components/shared/PageWrapper'
 import { DataTable } from '@/components/shared/DataTable'
 import { DataTableColumnHeader } from '@/components/shared/DataTableColumnHeader'
 import { StatusBadge } from '@/components/shared/StatusBadge'
@@ -227,7 +228,7 @@ export default function UsersRolesPage() {
   const usersCount  = (profiles as Profile[] | undefined)?.length ?? 0
 
   return (
-    <div className="space-y-6">
+    <PageWrapper>
       {/* Custom header */}
       <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
         <div className="flex items-start gap-3">
@@ -456,6 +457,6 @@ export default function UsersRolesPage() {
         onOpenChange={(open) => setResetDialog((s) => ({ ...s, open }))}
         profile={resetDialog.profile}
       />
-    </div>
+    </PageWrapper>
   )
 }

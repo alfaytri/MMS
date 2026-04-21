@@ -22,6 +22,7 @@ import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
 import { Checkbox } from '@/components/ui/checkbox'
 import { ConfirmDialog } from '@/components/shared/ConfirmDialog'
+import { PageWrapper } from '@/components/shared/PageWrapper'
 
 // ─── Types ───────────────────────────────────────────────────────────────────
 
@@ -458,9 +459,9 @@ export default function BrandGroupsPage() {
   )
 
   return (
-    <>
+    <PageWrapper>
       {/* Toolbar */}
-      <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between mb-6">
+      <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
         <div className="flex items-center gap-2">
           <span className="text-sm text-muted-foreground whitespace-nowrap">Filter by scope:</span>
           <Select value={scopeFilter} onValueChange={(v) => setScopeFilter(v ?? 'all')}>
@@ -531,6 +532,6 @@ export default function BrandGroupsPage() {
         onConfirm={() => deleteTarget && deleteMutation.mutate(deleteTarget.id)}
         onOpenChange={(o) => { if (!o) setDeleteTarget(null) }}
       />
-    </>
+    </PageWrapper>
   )
 }

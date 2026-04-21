@@ -5,6 +5,7 @@ import { type ColumnDef } from '@tanstack/react-table'
 import { Plus, CheckCircle, XCircle } from 'lucide-react'
 import { toast } from 'sonner'
 import { PageHeader } from '@/components/shared/PageHeader'
+import { PageWrapper } from '@/components/shared/PageWrapper'
 import { DataTable } from '@/components/shared/DataTable'
 import { DataTableColumnHeader } from '@/components/shared/DataTableColumnHeader'
 import { ReceivalFormDialog } from '@/components/purchase/ReceivalFormDialog'
@@ -98,7 +99,7 @@ export default function ReceivalsPage() {
   ], [])
 
   return (
-    <div className="p-4 md:p-6 space-y-4">
+    <PageWrapper>
       <PageHeader
         title="Receivals"
         description="Goods received from Purchase Orders"
@@ -149,6 +150,6 @@ export default function ReceivalsPage() {
           }}
         />
       )}
-    </div>
+    </PageWrapper>
   )
 }

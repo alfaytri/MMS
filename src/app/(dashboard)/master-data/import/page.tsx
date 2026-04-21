@@ -5,6 +5,7 @@ import Papa from 'papaparse'
 import { Upload, Download, CheckCircle, XCircle, AlertCircle } from 'lucide-react'
 import { toast } from 'sonner'
 import { PageHeader } from '@/components/shared/PageHeader'
+import { PageWrapper } from '@/components/shared/PageWrapper'
 import { Button } from '@/components/ui/button'
 import { Skeleton } from '@/components/ui/skeleton'
 import { Separator } from '@/components/ui/separator'
@@ -355,7 +356,8 @@ export default function CSVImportPage() {
   const errorCount = rows ? countErrors(rows) : 0
 
   return (
-    <div className="space-y-6 max-w-5xl mx-auto pb-12">
+    <PageWrapper>
+      <div className="max-w-5xl mx-auto pb-12">
       <PageHeader
         title="CSV Import"
         description="Bulk import data from spreadsheets — download a template, fill it in, then upload"
@@ -472,6 +474,7 @@ export default function CSVImportPage() {
           )}
         </>
       )}
-    </div>
+      </div>
+    </PageWrapper>
   )
 }

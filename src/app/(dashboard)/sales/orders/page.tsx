@@ -6,6 +6,7 @@ import { type ColumnDef } from '@tanstack/react-table'
 import { Eye } from 'lucide-react'
 import { toast } from 'sonner'
 import { PageHeader } from '@/components/shared/PageHeader'
+import { PageWrapper } from '@/components/shared/PageWrapper'
 import { SearchInput } from '@/components/shared/SearchInput'
 import { DataTable } from '@/components/shared/DataTable'
 import { DataTableColumnHeader } from '@/components/shared/DataTableColumnHeader'
@@ -125,7 +126,7 @@ export default function SaleOrdersPage() {
   ], [])
 
   return (
-    <div className="space-y-6">
+    <PageWrapper>
       <PageHeader
         title="Sale Orders"
         description="Create and manage customer sale orders"
@@ -197,6 +198,6 @@ export default function SaleOrdersPage() {
         onEdit={(so) => router.push(`/sales/edit-so/${so.id}`)}
         onConfirm={handleConfirm}
       />
-    </div>
+    </PageWrapper>
   )
 }

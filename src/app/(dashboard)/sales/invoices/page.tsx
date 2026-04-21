@@ -3,6 +3,7 @@
 import { useState, useMemo } from 'react'
 import { type ColumnDef } from '@tanstack/react-table'
 import { PageHeader } from '@/components/shared/PageHeader'
+import { PageWrapper } from '@/components/shared/PageWrapper'
 import { SearchInput } from '@/components/shared/SearchInput'
 import { DataTable } from '@/components/shared/DataTable'
 import { DataTableColumnHeader } from '@/components/shared/DataTableColumnHeader'
@@ -119,7 +120,7 @@ export default function CustomerInvoicesPage() {
   ], [])
 
   return (
-    <div className="p-4 md:p-6 space-y-4">
+    <PageWrapper>
       <PageHeader title="Customer Invoices" description="AR invoices auto-generated from Sale Orders" />
 
       <div className="flex flex-wrap gap-2">
@@ -149,6 +150,6 @@ export default function CustomerInvoicesPage() {
           invoice={selected}
         />
       )}
-    </div>
+    </PageWrapper>
   )
 }

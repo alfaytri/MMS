@@ -4,6 +4,7 @@ import { useState } from 'react'
 import { toast } from 'sonner'
 import { Plane, Ship, Truck, PenLine, Eye, Archive, Plus } from 'lucide-react'
 import { PageHeader } from '@/components/shared/PageHeader'
+import { PageWrapper } from '@/components/shared/PageWrapper'
 import { SearchInput } from '@/components/shared/SearchInput'
 import { DataTable } from '@/components/shared/DataTable'
 import { Button } from '@/components/ui/button'
@@ -401,7 +402,7 @@ export default function ShipmentsPage() {
   ]
 
   return (
-    <div className="space-y-6">
+    <PageWrapper>
       <PageHeader
         title="Shipments"
         description="Track shipments linked to purchase orders"
@@ -435,6 +436,6 @@ export default function ShipmentsPage() {
 
       <CreateShipmentDialog open={createOpen} onOpenChange={setCreateOpen} />
       <ShipmentDetailDialog shipment={selected} onClose={() => setSelected(null)} />
-    </div>
+    </PageWrapper>
   )
 }

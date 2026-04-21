@@ -4,6 +4,7 @@ import { useState, useMemo } from 'react'
 import { type ColumnDef } from '@tanstack/react-table'
 import { MoreHorizontal, Pencil, Plus, Package } from 'lucide-react'
 import { PageHeader } from '@/components/shared/PageHeader'
+import { PageWrapper } from '@/components/shared/PageWrapper'
 import { SearchInput } from '@/components/shared/SearchInput'
 import { DataTable } from '@/components/shared/DataTable'
 import { DataTableColumnHeader } from '@/components/shared/DataTableColumnHeader'
@@ -94,7 +95,7 @@ export default function InventoryPage() {
   ], [expandedItem])
 
   return (
-    <div className="space-y-6">
+    <PageWrapper>
       <PageHeader
         title="Inventory Items"
         description="Manage products, spare parts, and consumables"
@@ -183,6 +184,6 @@ export default function InventoryPage() {
         variant={variantDialog.variant}
         itemId={variantDialog.itemId}
       />
-    </div>
+    </PageWrapper>
   )
 }

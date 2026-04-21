@@ -6,6 +6,7 @@ import { type ColumnDef } from '@tanstack/react-table'
 import { Plus, ExternalLink } from 'lucide-react'
 import { toast } from 'sonner'
 import { PageHeader } from '@/components/shared/PageHeader'
+import { PageWrapper } from '@/components/shared/PageWrapper'
 import { SearchInput } from '@/components/shared/SearchInput'
 import { DataTable } from '@/components/shared/DataTable'
 import { DataTableColumnHeader } from '@/components/shared/DataTableColumnHeader'
@@ -126,7 +127,7 @@ export default function RfqPage() {
   ], [router, updateRfq])
 
   return (
-    <div className="p-4 md:p-6 space-y-4">
+    <PageWrapper>
       <PageHeader
         title="RFQ"
         description="Request for Quotation"
@@ -166,6 +167,6 @@ export default function RfqPage() {
           rfq={editRfq}
         />
       )}
-    </div>
+    </PageWrapper>
   )
 }

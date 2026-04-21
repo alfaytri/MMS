@@ -3,6 +3,7 @@
 import { useState } from 'react'
 import { toast } from 'sonner'
 import { PageHeader } from '@/components/shared/PageHeader'
+import { PageWrapper } from '@/components/shared/PageWrapper'
 import { SearchInput } from '@/components/shared/SearchInput'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
@@ -116,7 +117,7 @@ export default function SaleReturnsPage() {
   }
 
   return (
-    <div className="space-y-6">
+    <PageWrapper>
       <PageHeader
         title="Sale Returns"
         description="Manage customer returns and restocking"
@@ -342,6 +343,6 @@ export default function SaleReturnsPage() {
           </DialogFooter>
         </DialogContent>
       </Dialog>
-    </div>
+    </PageWrapper>
   )
 }

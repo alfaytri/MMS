@@ -2,6 +2,7 @@
 
 import { useState } from 'react'
 import { PageHeader } from '@/components/shared/PageHeader'
+import { PageWrapper } from '@/components/shared/PageWrapper'
 import { SearchInput } from '@/components/shared/SearchInput'
 import { Skeleton } from '@/components/ui/skeleton'
 import { Badge } from '@/components/ui/badge'
@@ -45,7 +46,7 @@ export default function DeadStockPage() {
   })
 
   return (
-    <div className="space-y-6">
+    <PageWrapper>
       <PageHeader
         title="Dead Stock Report"
         description="Identify slow-moving and stagnant inventory to take action before value is lost"
@@ -149,6 +150,6 @@ export default function DeadStockPage() {
           </Table>
         </div>
       )}
-    </div>
+    </PageWrapper>
   )
 }

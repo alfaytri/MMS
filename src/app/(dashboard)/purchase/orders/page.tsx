@@ -23,6 +23,7 @@ import { usePurchaseOrders, type PurchaseOrder, type POStatus } from '@/hooks/us
 import { useSuppliers } from '@/hooks/useSuppliers'
 import { formatCurrency, formatDate } from '@/lib/utils/formatters'
 import { cn } from '@/lib/utils'
+import { PageWrapper } from '@/components/shared/PageWrapper'
 
 const STATUS_OPTIONS: { value: POStatus | ''; label: string }[] = [
   { value: '', label: 'All Statuses' },
@@ -137,7 +138,7 @@ export default function PurchaseOrdersPage() {
   }
 
   return (
-    <div className="p-4 md:p-6 space-y-6">
+    <PageWrapper>
       {/* ── Header ─────────────────────────────────────────────────────────── */}
       <div className="flex items-center justify-between">
         <div>
@@ -420,6 +421,6 @@ export default function PurchaseOrdersPage() {
           initialPoId={billPoId}
         />
       )}
-    </div>
+    </PageWrapper>
   )
 }

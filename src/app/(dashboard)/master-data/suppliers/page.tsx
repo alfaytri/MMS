@@ -4,6 +4,7 @@ import { useState, useMemo } from 'react'
 import { type ColumnDef } from '@tanstack/react-table'
 import { MoreHorizontal, Pencil } from 'lucide-react'
 import { PageHeader } from '@/components/shared/PageHeader'
+import { PageWrapper } from '@/components/shared/PageWrapper'
 import { SearchInput } from '@/components/shared/SearchInput'
 import { DataTable } from '@/components/shared/DataTable'
 import { DataTableColumnHeader } from '@/components/shared/DataTableColumnHeader'
@@ -92,7 +93,7 @@ export default function SuppliersPage() {
   )
 
   return (
-    <div className="space-y-6">
+    <PageWrapper>
       <PageHeader
         title="Suppliers"
         description="Manage your supplier directory"
@@ -120,6 +121,6 @@ export default function SuppliersPage() {
         }}
         supplier={editing}
       />
-    </div>
+    </PageWrapper>
   )
 }

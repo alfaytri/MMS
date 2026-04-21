@@ -6,6 +6,7 @@ import { toast } from 'sonner'
 import { Eye, Plus, Trash2 } from 'lucide-react'
 import { createClient } from '@/lib/supabase/client'
 import { PageHeader } from '@/components/shared/PageHeader'
+import { PageWrapper } from '@/components/shared/PageWrapper'
 import { SearchInput } from '@/components/shared/SearchInput'
 import { DataTable } from '@/components/shared/DataTable'
 import { Button } from '@/components/ui/button'
@@ -394,7 +395,7 @@ export default function LandedCostsPage() {
   ]
 
   return (
-    <div className="space-y-6">
+    <PageWrapper>
       <PageHeader
         title="Landed Costs"
         description="Allocate freight, customs and other costs to received goods"
@@ -411,6 +412,6 @@ export default function LandedCostsPage() {
 
       <CreateLcDialog open={createOpen} onOpenChange={setCreateOpen} />
       <LcDetailDialog lc={selected} onClose={() => setSelected(null)} />
-    </div>
+    </PageWrapper>
   )
 }

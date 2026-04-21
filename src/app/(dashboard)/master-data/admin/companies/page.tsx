@@ -4,6 +4,7 @@ import { useState } from 'react'
 import { Building2, MapPin, Pencil, Plus, Trash2 } from 'lucide-react'
 import { toast } from 'sonner'
 import { PageHeader } from '@/components/shared/PageHeader'
+import { PageWrapper } from '@/components/shared/PageWrapper'
 import { StatusBadge } from '@/components/shared/StatusBadge'
 import { CompanyFormDialog } from '@/components/master-data/CompanyFormDialog'
 import { DivisionFormDialog } from '@/components/master-data/DivisionFormDialog'
@@ -111,17 +112,17 @@ export default function CompaniesPage() {
 
   if (loadingCompanies || loadingDivisions) {
     return (
-      <div className="space-y-6">
+      <PageWrapper>
         <Skeleton className="h-10 w-64" />
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
           {[1, 2, 3, 4].map((i) => <Skeleton key={i} className="h-24 rounded-lg" />)}
         </div>
-      </div>
+      </PageWrapper>
     )
   }
 
   return (
-    <div className="space-y-8">
+    <PageWrapper>
       <PageHeader
         title="Companies & Divisions"
         description="Manage company entities and their divisions"
@@ -208,6 +209,6 @@ export default function CompaniesPage() {
         }}
         onOpenChange={(open) => { if (!open) setDeleteTarget(null) }}
       />
-    </div>
+    </PageWrapper>
   )
 }

@@ -4,6 +4,7 @@ import { useState, useMemo, useEffect } from 'react'
 import { type ColumnDef } from '@tanstack/react-table'
 import { Eye } from 'lucide-react'
 import { PageHeader } from '@/components/shared/PageHeader'
+import { PageWrapper } from '@/components/shared/PageWrapper'
 import { SearchInput } from '@/components/shared/SearchInput'
 import { DataTable } from '@/components/shared/DataTable'
 import { DataTableColumnHeader } from '@/components/shared/DataTableColumnHeader'
@@ -68,7 +69,7 @@ export default function AuditTrailPage() {
   ], [])
 
   return (
-    <div className="space-y-6">
+    <PageWrapper>
       <PageHeader title="Audit Trail" description="Activity log across all modules" />
 
       <div className="flex flex-col gap-3 sm:flex-row sm:items-center">
@@ -98,6 +99,6 @@ export default function AuditTrailPage() {
         onOpenChange={(open) => { if (!open) setDetail(null) }}
         entry={detail}
       />
-    </div>
+    </PageWrapper>
   )
 }
