@@ -1,218 +1,269 @@
 'use client'
 
-import { useState } from 'react'
-import { toast } from 'sonner'
-import {
-  Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter,
-} from '@/components/ui/dialog'
+import { useState, useMemo } from 'react'
+import { ClipboardCheck, Search } from 'lucide-react'
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
+import { Textarea } from '@/components/ui/textarea'
 import { Badge } from '@/components/ui/badge'
-import { Skeleton } from '@/components/ui/skeleton'
-import { useWarehouses } from '@/hooks/useWarehouses'
-import {
-  useInventoryCheck,
-  useCreateInventoryCheck,
-  useUpdateInventoryCheckItem,
-  useSubmitInventoryCheck,
-  useReviewInventoryCheck,
-} from '@/hooks/useWarehouseOperations'
-import { cn } from '@/lib/utils'
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table'
+import { Warehouse } from '@/hooks/useWarehouses'
+import { useWarehouseStock, useCreateInventoryCheck } from '@/hooks/useWarehouseOperations'
+import { createClient } from '@/lib/supabase/client'
+import { toast } from 'sonner'
+import { useQueryClient } from '@tanstack/react-query'
 
-interface Props {
-  open: boolean
-  onOpenChange: (open: boolean) => void
-  checkId: string | null // null = create mode
+interface CheckItemsTableProps {
+  warehouseId: string
+  search: string
+  counts: Record<string, string>
+  onCountChange: (variantId: string, value: string) => void
 }
 
-export function WhInventoryCheckDialog({ open, onOpenChange, checkId }: Props) {
-  const { data: warehouses } = useWarehouses()
-  const createCheck = useCreateInventoryCheck()
-  const updateItem = useUpdateInventoryCheckItem()
-  const submitCheck = useSubmitInventoryCheck()
-  const reviewCheck = useReviewInventoryCheck()
-  const { data: check, isLoading: checkLoading } = useInventoryCheck(checkId ?? '')
+function CheckItemsTable({ warehouseId, search, counts, onCountChange }: CheckItemsTableProps) {
+  const { data: stock = [] } = useWarehouseStock(warehouseId)
 
-  const [warehouseId, setWarehouseId] = useState('')
-  const [notes, setNotes] = useState('')
-
-  const isCreateMode = !checkId
-
-  function handleCreate() {
-    const wh = (warehouses ?? []).find((w: any) => w.id === warehouseId) as any
-    if (!wh) { toast.error('Select a warehouse'); return }
-    createCheck.mutate(
-      { warehouseId, warehouseName: wh.name, notes: notes || null },
-      {
-        onSuccess: () => {
-          toast.success('Inventory check created')
-          onOpenChange(false)
-          setWarehouseId(''); setNotes('')
-        },
-        onError: (err) => toast.error(err.message),
-      }
+  const filtered = useMemo(() => {
+    if (!search) return stock
+    const q = search.toLowerCase()
+    return stock.filter(s =>
+      s.item_name?.toLowerCase().includes(q) ||
+      s.brand?.toLowerCase().includes(q) ||
+      s.sku?.toLowerCase().includes(q)
     )
-  }
+  }, [stock, search])
 
-  function handleUpdateItem(itemId: string, countedQty: number) {
-    updateItem.mutate(
-      { id: itemId, countedQty },
-      { onError: (err) => toast.error(err.message) }
-    )
-  }
-
-  function handleSubmit() {
-    if (!checkId) return
-    submitCheck.mutate(
-      { id: checkId, submittedByName: 'Warehouse Staff' },
-      {
-        onSuccess: () => { toast.success('Check submitted for review'); onOpenChange(false) },
-        onError: (err) => toast.error(err.message),
-      }
-    )
-  }
-
-  function handleReview() {
-    if (!checkId) return
-    reviewCheck.mutate(
-      { id: checkId, reviewedByName: 'Manager' },
-      {
-        onSuccess: () => { toast.success('Check reviewed'); onOpenChange(false) },
-        onError: (err) => toast.error(err.message),
-      }
+  if (stock.length === 0) {
+    return (
+      <div className="flex items-center justify-center py-8 text-xs text-muted-foreground">
+        No stock in this warehouse
+      </div>
     )
   }
 
   return (
-    <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="w-full max-w-full rounded-none sm:max-w-2xl sm:rounded-lg max-h-[90vh] flex flex-col">
-        <DialogHeader className="shrink-0">
-          <DialogTitle>
-            {isCreateMode ? 'New Inventory Check' : `Check ${check?.check_number ?? '…'}`}
-          </DialogTitle>
-        </DialogHeader>
+    <div className="rounded-md border">
+      <Table>
+        <TableHeader>
+          <TableRow>
+            <TableHead className="text-xs">Item</TableHead>
+            <TableHead className="text-xs">Brand</TableHead>
+            <TableHead className="text-xs">SKU</TableHead>
+            <TableHead className="text-xs text-right">System Qty</TableHead>
+            <TableHead className="text-xs text-right">Counted</TableHead>
+            <TableHead className="text-xs text-right">Variance</TableHead>
+            <TableHead className="text-xs">Status</TableHead>
+          </TableRow>
+        </TableHeader>
+        <TableBody>
+          {filtered.length === 0 ? (
+            <TableRow>
+              <TableCell colSpan={7} className="text-center text-xs text-muted-foreground py-8">
+                No items match search
+              </TableCell>
+            </TableRow>
+          ) : (
+            filtered.map(s => {
+              const countedStr = counts[s.brand_variant_id]
+              const isCounted = countedStr !== undefined && countedStr !== ''
+              const counted = isCounted ? parseFloat(countedStr) : null
+              const systemQty = s.stock_level ?? 0
+              const variance = counted !== null ? counted - systemQty : null
+              const rowBg = !isCounted ? 'bg-muted/30' : variance === 0 ? 'bg-success/5' : 'bg-warning/5'
+              return (
+                <TableRow key={s.brand_variant_id} className={rowBg}>
+                  <TableCell className="text-xs">{s.item_name}</TableCell>
+                  <TableCell className="text-xs">{s.brand ?? '—'}</TableCell>
+                  <TableCell className="text-xs text-primary">{s.sku ?? '—'}</TableCell>
+                  <TableCell className="text-xs text-right">{systemQty}</TableCell>
+                  <TableCell className="text-right">
+                    <Input
+                      type="number"
+                      className="w-20 h-7 text-xs text-right"
+                      min="0"
+                      step="0.01"
+                      value={counts[s.brand_variant_id] ?? ''}
+                      onChange={e => onCountChange(s.brand_variant_id, e.target.value)}
+                    />
+                  </TableCell>
+                  <TableCell className="text-xs text-right">
+                    {variance !== null ? (
+                      <span className={variance > 0 ? 'text-success' : variance < 0 ? 'text-destructive' : ''}>
+                        {variance > 0 ? `+${variance}` : variance}
+                      </span>
+                    ) : '—'}
+                  </TableCell>
+                  <TableCell>
+                    {!isCounted ? (
+                      <Badge variant="outline" className="text-[10px]">Not counted</Badge>
+                    ) : variance === 0 ? (
+                      <Badge className="text-[10px] bg-success/10 text-success">Match</Badge>
+                    ) : (
+                      <Badge className="text-[10px] bg-warning/10 text-warning">Variance</Badge>
+                    )}
+                  </TableCell>
+                </TableRow>
+              )
+            })
+          )}
+        </TableBody>
+      </Table>
+    </div>
+  )
+}
 
-        {isCreateMode ? (
-          <>
-            <div className="space-y-4 py-2">
-              <div className="space-y-1">
-                <Label htmlFor="chk-wh">Warehouse *</Label>
-                <select
-                  id="chk-wh"
-                  value={warehouseId}
-                  onChange={(e) => setWarehouseId(e.target.value)}
-                  className="flex h-9 w-full rounded-md border border-input bg-background px-3 py-1 text-sm"
-                >
-                  <option value="">Select warehouse…</option>
-                  {(warehouses ?? []).map((w: any) => (
-                    <option key={w.id} value={w.id}>{w.name}</option>
-                  ))}
-                </select>
-              </div>
-              <div className="space-y-1">
-                <Label htmlFor="chk-notes">Notes</Label>
+interface Props {
+  warehouses: Warehouse[]
+  children: React.ReactNode
+}
+
+export function WhInventoryCheckDialog({ warehouses, children }: Props) {
+  const [open, setOpen] = useState(false)
+  const [warehouseId, setWarehouseId] = useState('')
+  const [search, setSearch] = useState('')
+  const [counts, setCounts] = useState<Record<string, string>>({})
+  const [notes, setNotes] = useState('')
+  const [submitting, setSubmitting] = useState(false)
+  const createCheck = useCreateInventoryCheck()
+  const qc = useQueryClient()
+
+  function handleClose() {
+    setOpen(false)
+    setWarehouseId(''); setSearch(''); setCounts({}); setNotes('')
+  }
+
+  function handleCountChange(variantId: string, value: string) {
+    setCounts(prev => ({ ...prev, [variantId]: value }))
+  }
+
+  async function handleSubmit() {
+    if (!warehouseId) return
+    setSubmitting(true)
+    try {
+      const supabase = createClient()
+      const wh = warehouses.find(w => w.id === warehouseId)
+
+      // Step 1: Create the check record
+      const check = await createCheck.mutateAsync({
+        warehouseId,
+        warehouseName: wh?.name ?? '',
+        notes: notes || null,
+      })
+
+      // Step 2: Build item rows from counts
+      const itemRows = Object.entries(counts)
+        .filter(([, v]) => v !== '')
+        .map(([variantId, countedStr]) => ({
+          check_id: check.id,
+          brand_variant_id: variantId,
+          counted_qty: parseFloat(countedStr),
+          is_counted: true,
+        }))
+
+      if (itemRows.length > 0) {
+        const { error } = await (supabase as any)
+          .from('inventory_check_items')
+          .insert(itemRows)
+        if (error) throw error
+      }
+
+      // Step 3: Submit the check
+      await (supabase as any)
+        .from('inventory_checks')
+        .update({ status: 'submitted' })
+        .eq('id', check.id)
+
+      qc.invalidateQueries({ queryKey: ['inventory_checks'] })
+      toast.success(`Inventory check submitted for approval`)
+      handleClose()
+    } catch (e: any) {
+      toast.error(e.message ?? 'Something went wrong')
+    } finally {
+      setSubmitting(false)
+    }
+  }
+
+  return (
+    <>
+      <span onClick={() => setOpen(true)}>{children}</span>
+      <Dialog open={open} onOpenChange={handleClose}>
+        <DialogContent className="max-w-3xl max-h-[90vh] flex flex-col">
+          <DialogHeader>
+            <DialogTitle className="text-sm flex items-center gap-2">
+              <ClipboardCheck className="h-4 w-4" />
+              Inventory Check
+            </DialogTitle>
+          </DialogHeader>
+
+          {/* Top controls */}
+          <div className="flex flex-wrap items-center gap-3 flex-shrink-0">
+            <Select value={warehouseId} onValueChange={v => { setWarehouseId(v ?? ''); setCounts({}) }}>
+              <SelectTrigger className="w-[200px] h-8 text-xs">
+                <SelectValue placeholder="Select warehouse…" />
+              </SelectTrigger>
+              <SelectContent>
+                {warehouses.map(wh => (
+                  <SelectItem key={wh.id} value={wh.id} className="text-xs">{wh.name}</SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+            {warehouseId && (
+              <div className="relative max-w-xs">
+                <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-muted-foreground" />
                 <Input
-                  id="chk-notes"
-                  value={notes}
-                  onChange={(e) => setNotes(e.target.value)}
-                  placeholder="Optional notes…"
+                  className="h-8 text-xs pl-8"
+                  placeholder="Search items…"
+                  value={search}
+                  onChange={e => setSearch(e.target.value)}
                 />
               </div>
-            </div>
-            <DialogFooter>
-              <Button variant="outline" onClick={() => onOpenChange(false)}>Cancel</Button>
-              <Button onClick={handleCreate} disabled={createCheck.isPending}>
-                {createCheck.isPending ? 'Creating…' : 'Create Check'}
-              </Button>
-            </DialogFooter>
-          </>
-        ) : checkLoading ? (
-          <div className="space-y-2 py-4">
-            {Array.from({ length: 5 }).map((_, i) => <Skeleton key={i} className="h-10 w-full" />)}
+            )}
+            {Object.values(counts).filter(v => v !== '').length > 0 && (
+              <Badge variant="outline" className="text-[10px]">
+                {Object.values(counts).filter(v => v !== '').length} counted
+              </Badge>
+            )}
           </div>
-        ) : check ? (
-          <>
-            <div className="flex-1 overflow-y-auto space-y-3 py-2">
-              <div className="flex items-center gap-3">
-                <Badge variant="outline">{check.status}</Badge>
-                <span className="text-sm text-muted-foreground">{check.warehouse_name}</span>
+
+          {/* Items table */}
+          <div className="flex-1 min-h-0 overflow-y-auto">
+            {warehouseId && (
+              <CheckItemsTable
+                warehouseId={warehouseId}
+                search={search}
+                counts={counts}
+                onCountChange={handleCountChange}
+              />
+            )}
+            {!warehouseId && (
+              <div className="flex items-center justify-center py-12 text-xs text-muted-foreground">
+                Select a warehouse to begin counting
               </div>
-              {(check.items ?? []).length === 0 ? (
-                <p className="text-sm text-muted-foreground text-center py-4">
-                  No items in this check — items are added automatically based on current stock
-                </p>
-              ) : (
-                <div className="space-y-2">
-                  <div className="grid grid-cols-12 gap-2 text-xs font-medium text-muted-foreground px-3">
-                    <div className="col-span-5">Item</div>
-                    <div className="col-span-2 text-right">System</div>
-                    <div className="col-span-3 text-right">Counted</div>
-                    <div className="col-span-2 text-right">Variance</div>
-                  </div>
-                  {(check.items ?? []).map((item) => (
-                    <div
-                      key={item.id}
-                      className={cn(
-                        'grid grid-cols-12 gap-2 items-center rounded-md border px-3 py-2',
-                        item.variance !== null && item.variance !== 0 && 'border-warning/50 bg-warning/5'
-                      )}
-                    >
-                      <div className="col-span-5 min-w-0">
-                        <div className="text-sm font-medium truncate">{item.item_name}</div>
-                        {item.sku && <div className="text-xs text-muted-foreground">{item.sku}</div>}
-                      </div>
-                      <div className="col-span-2 text-right text-sm font-medium">{item.system_qty}</div>
-                      <div className="col-span-3">
-                        <Input
-                          type="number"
-                          min="0"
-                          defaultValue={item.counted_qty ?? ''}
-                          onBlur={(e) => {
-                            const val = Number(e.target.value)
-                            if (val !== item.counted_qty) handleUpdateItem(item.id, val)
-                          }}
-                          className="h-8 text-right text-sm"
-                          disabled={check.status !== 'draft'}
-                          placeholder="—"
-                        />
-                      </div>
-                      <div className={cn(
-                        'col-span-2 text-right text-sm font-semibold',
-                        item.variance === null ? 'text-muted-foreground' :
-                        item.variance === 0 ? 'text-muted-foreground' :
-                        item.variance > 0 ? 'text-success' : 'text-destructive'
-                      )}>
-                        {item.variance === null ? '—' : item.variance > 0 ? `+${item.variance}` : item.variance}
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              )}
-              {check.review_notes && (
-                <div className="rounded-md border border-blue-200 bg-blue-50 p-3 text-sm text-blue-800">
-                  Review notes: {check.review_notes}
-                </div>
-              )}
-            </div>
-            <DialogFooter className="shrink-0">
-              <Button variant="outline" onClick={() => onOpenChange(false)}>Close</Button>
-              {check.status === 'draft' && (
-                <Button onClick={handleSubmit} disabled={submitCheck.isPending}>
-                  {submitCheck.isPending ? 'Submitting…' : 'Submit for Review'}
-                </Button>
-              )}
-              {check.status === 'submitted' && (
-                <Button onClick={handleReview} disabled={reviewCheck.isPending}>
-                  {reviewCheck.isPending ? 'Reviewing…' : 'Mark as Reviewed'}
-                </Button>
-              )}
-            </DialogFooter>
-          </>
-        ) : (
-          <div className="py-8 text-center text-muted-foreground text-sm">Inventory check not found</div>
-        )}
-      </DialogContent>
-    </Dialog>
+            )}
+          </div>
+
+          {/* Notes */}
+          <div className="space-y-1.5 flex-shrink-0">
+            <Label className="text-xs">Notes</Label>
+            <Textarea
+              className="text-xs min-h-[60px]"
+              placeholder="Optional notes…"
+              value={notes}
+              onChange={e => setNotes(e.target.value)}
+            />
+          </div>
+
+          <DialogFooter>
+            <Button variant="outline" size="sm" className="text-xs" onClick={handleClose}>Cancel</Button>
+            <Button size="sm" className="text-xs" disabled={!warehouseId || submitting} onClick={handleSubmit}>
+              {submitting ? 'Submitting…' : 'Submit for Approval'}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+    </>
   )
 }
