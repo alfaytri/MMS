@@ -3692,6 +3692,10 @@ export type Database = {
           includes_notes: boolean | null
           instructions: boolean | null
           inventory_items: Json | null
+          catalog_image_url: string | null
+          deleted_at: string | null
+          legacy_service_id: string | null
+          qc_items: Json | null
           invoice_text_ar: string | null
           invoice_text_en: string | null
           name_ar: string | null
@@ -3725,6 +3729,10 @@ export type Database = {
           includes_notes?: boolean | null
           instructions?: boolean | null
           inventory_items?: Json | null
+          catalog_image_url?: string | null
+          deleted_at?: string | null
+          legacy_service_id?: string | null
+          qc_items?: Json | null
           invoice_text_ar?: string | null
           invoice_text_en?: string | null
           name_ar?: string | null
@@ -3758,6 +3766,10 @@ export type Database = {
           includes_notes?: boolean | null
           instructions?: boolean | null
           inventory_items?: Json | null
+          catalog_image_url?: string | null
+          deleted_at?: string | null
+          legacy_service_id?: string | null
+          qc_items?: Json | null
           invoice_text_ar?: string | null
           invoice_text_en?: string | null
           name_ar?: string | null
