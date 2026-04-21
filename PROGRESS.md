@@ -154,6 +154,7 @@ Next: Services Hub — Inventory & Promotions tab (plan: `docs/superpowers/plans
 ### Services Hub — Inventory & Promotions (Plan: 2026-04-21-services-hub-inventory-promotions.md) — IN PROGRESS 🔄
 
 **Completed tasks:**
+- [2026-04-21] **Task 5: Wire InventoryTab + PromotionsTab** — `src/app/(dashboard)/master-data/services/page.tsx` — Added InventoryTab + PromotionsTab imports; updated FILTER_BAR_HIDDEN_TABS to include 'promotions'; removed redundant promotions guard on DivisionMultiSelect; replaced "Coming in next plan" placeholder with InventoryTab + PromotionsTab conditionals; tsc --noEmit clean; commit: afe45c7
 - [2026-04-21] **Task 4: PromotionsTab** — `src/components/services/PromotionsTab.tsx` — Two-tab component (Campaigns + Vouchers), Campaigns tab with expandable rules detail, Vouchers tab with usage tracking, full search/filter, responsive tables; tsc --noEmit clean
 
 ---
