@@ -7,6 +7,7 @@ export type Service = DBTable<'services'>
 export type ServiceInsert = DBInsert<'services'>
 export type ServiceUpdate = DBUpdate<'services'>
 export type Instruction = DBTable<'instructions'>
+export type InstructionFull = DBTable<'instructions'>
 
 export function useServiceTree(
   treeType: string,
@@ -49,6 +50,24 @@ export function useInstructions(enabled = true) {
     },
     enabled,
     staleTime: 10 * 60 * 1000,
+  })
+}
+
+export function useInstructionsFull(enabled = true) {
+  return useQuery({
+    queryKey: ['instructions', 'full'],
+    enabled,
+    queryFn: async () => {
+      const supabase = createClient()
+      const { data, error } = await supabase
+        .from('instructions')
+        .select('*')
+        .is('deleted_at', null)
+        .order('created_at', { ascending: false })
+      if (error) throw error
+      return (data ?? []) as InstructionFull[]
+    },
+    staleTime: 5 * 60 * 1000,
   })
 }
 
@@ -222,6 +241,144 @@ export function useArchiveService() {
     },
     onSuccess: (data) => {
       queryClient.invalidateQueries({ queryKey: ['services', data.treeType] })
+    },
+  })
+}
+
+export function useCreateInstruction() {
+  const queryClient = useQueryClient()
+  return useMutation({
+    mutationFn: async (values: Omit<DBInsert<'instructions'>, 'id' | 'created_at' | 'updated_at'>) => {
+      const supabase = createClient()
+      const { data, error } = await supabase
+        .from('instructions')
+        .insert(values)
+        .select()
+        .single()
+      if (error) throw error
+      return data
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['instructions'] })
+    },
+  })
+}
+
+export function useUpdateInstruction() {
+  const queryClient = useQueryClient()
+  return useMutation({
+    mutationFn: async ({ id, ...values }: Partial<DBUpdate<'instructions'>> & { id: string }) => {
+      const supabase = createClient()
+      const { data, error } = await supabase
+        .from('instructions')
+        .update(values)
+        .eq('id', id)
+        .select()
+        .single()
+      if (error) throw error
+      return data
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['instructions'] })
+    },
+  })
+}
+
+export function useArchiveInstruction() {
+  const queryClient = useQueryClient()
+  return useMutation({
+    mutationFn: async (id: string) => {
+      const supabase = createClient()
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const { error } = await (supabase.from('instructions') as any)
+        .update({ deleted_at: new Date().toISOString(), status: 'inactive' })
+        .eq('id', id)
+      if (error) throw error
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['instructions'] })
+    },
+  })
+}
+
+export type ServiceInstructionLink = {
+  service_id: string
+  instruction_id: string
+  created_at: string
+  instructions: { id: string; name_en: string; type: string; content_type: string | null } | null
+  services: { id: string; name_en: string; tree_type: string | null } | null
+}
+
+export function useServiceInstructions(serviceId: string | null, enabled = true) {
+  return useQuery({
+    queryKey: ['service_instructions', serviceId],
+    enabled: enabled && !!serviceId,
+    queryFn: async () => {
+      const supabase = createClient()
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const { data, error } = await (supabase as any).from('service_instructions')
+        .select('service_id, instruction_id, created_at, instructions(id, name_en, type, content_type)')
+        .eq('service_id', serviceId)
+      if (error) throw error
+      return (data ?? []) as ServiceInstructionLink[]
+    },
+    staleTime: 2 * 60 * 1000,
+  })
+}
+
+export function useAllServiceInstructionLinks(enabled = true) {
+  return useQuery({
+    queryKey: ['service_instructions', 'all'],
+    enabled,
+    queryFn: async () => {
+      const supabase = createClient()
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const { data, error } = await (supabase as any).from('service_instructions')
+        .select(`
+          service_id,
+          instruction_id,
+          created_at,
+          instructions(id, name_en, type, content_type),
+          services(id, name_en, tree_type)
+        `)
+        .order('created_at', { ascending: false })
+      if (error) throw error
+      return (data ?? []) as ServiceInstructionLink[]
+    },
+    staleTime: 2 * 60 * 1000,
+  })
+}
+
+export function useLinkInstruction() {
+  const queryClient = useQueryClient()
+  return useMutation({
+    mutationFn: async ({ serviceId, instructionId }: { serviceId: string; instructionId: string }) => {
+      const supabase = createClient()
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const { error } = await (supabase as any).from('service_instructions')
+        .insert({ service_id: serviceId, instruction_id: instructionId })
+      if (error && error.code !== '23505') throw error // 23505 = duplicate key, ignore
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['service_instructions'] })
+    },
+  })
+}
+
+export function useUnlinkInstruction() {
+  const queryClient = useQueryClient()
+  return useMutation({
+    mutationFn: async ({ serviceId, instructionId }: { serviceId: string; instructionId: string }) => {
+      const supabase = createClient()
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const { error } = await (supabase as any).from('service_instructions')
+        .delete()
+        .eq('service_id', serviceId)
+        .eq('instruction_id', instructionId)
+      if (error) throw error
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['service_instructions'] })
     },
   })
 }
