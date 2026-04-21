@@ -144,17 +144,24 @@ Purchase & Sales▾:
 
 ## 🔄 In Progress
 
-### Create PO Page Redesign
-🚀 Starting: **Create PO Redesign Task 6: Rewrite create-po page**
-- **Plan:** `docs/superpowers/plans/2026-04-20-create-po-redesign.md`
-- **Scope:** Sticky header + scrollable body, supplier combobox, 4-type grouped line items, milestone payment terms, delivery date in terms, vendor notes section, approval chain preview
+### Warehouses Hub Redesign (Plan: 2026-04-20-warehouses-hub-redesign.md)
+
+- **Design spec:** `docs/superpowers/specs/2026-04-20-warehouses-redesign-design.md`
+- **Scope:** Full 7-tab hub redesign — URL-based tab state (`?tab=`), React.memo tab isolation, compact density, semantic color tokens, unified Receivals & Deliveries tab (Tab 7 merges `receivals` + `sale_deliveries`). Nav entry moved from Purchase & Sales → Master Data dropdown (route stays `/purchase/warehouses`).
 - **Tasks:**
-  - [x] Task 1: Add `tool_asset_item_id` to `POLineItemDraft`
-  - [x] Task 2: `AddSupplierDialog` standalone component
-  - [x] Task 3: `ToolAssetLookup` component
-  - [x] Task 4: Rewrite `PoLineItemsEditor` — 4 grouped types, colored headers
-  - [x] Task 5: Rewrite `PoTermsSection` — milestones, delivery date, updated presets
-  - [x] Task 6: Rewrite `create-po/page.tsx` — full spec layout
+  - [x] Task 1: nav-config.ts + delete WhReceivalsTab
+  - [x] Task 2: `ReceivalDelivery` type + `useReceivalsAndDeliveries()` hook
+  - [x] Task 3: `page.tsx` — Suspense, URL tab state, sticky header, dialog triggers
+  - [x] Task 4: `WhWarehousesTab` — React.memo, props-driven card grid
+  - [x] Task 5: `WhStockOverviewTab` — summary cards, company total table
+  - [x] Task 6: `WhTransfersTab` — approve/reject cards, amber highlight
+  - [x] Task 7: `WhAdjustmentsTab` — table, photo preview, approve/reject
+  - [x] Task 8: `WhInventoryChecksTab` — check list, detail dialog, reviewer panel
+  - [ ] Task 9: `WhMovementsTab` — movements table + filters
+  - [ ] Task 10: `ReceivalsDeliveriesTab` + `WhReceivalDetailDialog`
+  - [ ] Task 11: `WhAdjustmentDialog` — stock adjustment + photo upload
+  - [ ] Task 12: `WhInventoryCheckDialog` — inventory check creation
+  - [ ] Task 13: `WhTransferDialog` — transfer creation + approval banner
 
 ---
 
