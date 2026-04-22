@@ -95,21 +95,20 @@ export function useApproveStep() {
       if (!me) throw new Error('Not authenticated')
 
       // Four-eyes check: has this user already approved a different role in the same tier+iteration?
-      const { data: thisStep } = await (supabase as any)
+      const { data: thisStep, error: stepFetchErr } = await (supabase as any)
         .from('po_approvals').select('tier_rank, iteration').eq('id', stepId).single()
-      if (thisStep) {
-        const { data: sameUserApprovals } = await (supabase as any)
-          .from('po_approvals')
-          .select('id')
-          .eq('po_id', poId)
-          .eq('tier_rank', thisStep.tier_rank)
-          .eq('iteration', thisStep.iteration)
-          .eq('status', 'approved')
-          .eq('approved_by', me.email)
-          .neq('id', stepId)
-        if ((sameUserApprovals ?? []).length > 0) {
-          throw new Error('You have already approved another role in this tier. A second approval from the same person violates the four-eyes requirement.')
-        }
+      if (stepFetchErr || !thisStep) throw new Error('Approval step not found.')
+      const { data: sameUserApprovals } = await (supabase as any)
+        .from('po_approvals')
+        .select('id')
+        .eq('po_id', poId)
+        .eq('tier_rank', thisStep.tier_rank)
+        .eq('iteration', thisStep.iteration)
+        .eq('status', 'approved')
+        .eq('approved_by', me.email)
+        .neq('id', stepId)
+      if ((sameUserApprovals ?? []).length > 0) {
+        throw new Error('You have already approved another role in this tier. A second approval from the same person violates the four-eyes requirement.')
       }
 
       // Approve the step
@@ -228,6 +227,40 @@ export function useForceApproveStep() {
       // Advance state machine
       const { error: rpcErr } = await (supabase as any).rpc('advance_po_approval_tier', { p_po_id: poId })
       if (rpcErr) throw rpcErr
+
+      // Check if next tier was activated — fire notifications
+      const { data: forcedStep } = await (supabase as any)
+        .from('po_approvals').select('tier_rank, iteration').eq('id', stepId).single()
+      const { data: newlyActive } = await (supabase as any)
+        .from('po_approvals')
+        .select('tier_rank')
+        .eq('po_id', poId)
+        .eq('is_active', true)
+        .eq('status', 'pending')
+        .order('tier_rank', { ascending: true })
+        .limit(1)
+      if (newlyActive?.[0] && newlyActive[0].tier_rank !== forcedStep?.tier_rank) {
+        const { data: allSteps } = await (supabase as any)
+          .from('po_approvals').select('tier_rank, role, is_active').eq('po_id', poId).eq('iteration', forcedStep?.iteration ?? 1)
+        const { data: assignments } = await (supabase as any)
+          .from('approval_role_assignments').select('*').is('deleted_at', null)
+        const activeTierRank = newlyActive[0].tier_rank
+        const uniqueTiers = [...new Map((allSteps ?? []).map((s: any) => [s.tier_rank, { rank: s.tier_rank, required_roles: [] as string[], id: '', chain_id: '', min_amount: 0, max_amount: null, deleted_at: null }])).values()]
+        ;(allSteps ?? []).forEach((s: any) => { const t = uniqueTiers.find((u: any) => u.rank === s.tier_rank); if (t) (t as any).required_roles.push(s.role) })
+        const recipientIds = getNotificationRecipients(activeTierRank, uniqueTiers as any, assignments ?? [], me.profileId ?? '')
+        if (recipientIds.length > 0) {
+          const { data: po } = await (supabase as any).from('purchase_orders').select('po_number, total_qar').eq('id', poId).single()
+          const notifs = recipientIds.map((profileId: string) => ({
+            profile_id: profileId,
+            type: 'po_approval_requested',
+            title: `PO ${po?.po_number ?? poId} requires your approval`,
+            body: `Total: ${po?.total_qar} QAR`,
+            related_id: poId,
+            related_type: 'purchase_order',
+          }))
+          await (supabase as any).from('notifications').insert(notifs)
+        }
+      }
     },
     onSuccess: (_data: unknown, variables: { stepId: string; poId: string; forceComment: string }) => {
       queryClient.invalidateQueries({ queryKey: ['po-approvals'] })
@@ -271,12 +304,13 @@ export function useRejectPO() {
         }).eq('id', stepId)
       if (stepErr) throw stepErr
 
-      // Cancel all other pending steps in this iteration
+      // Cancel all other active pending steps in this iteration (not dormant future-tier steps)
       await (supabase as any)
         .from('po_approvals').update({ status: 'cancelled' })
         .eq('po_id', poId)
         .eq('iteration', currentIteration)
         .eq('status', 'pending')
+        .eq('is_active', true)
         .neq('id', stepId)
 
       // Ghost notification cleanup
