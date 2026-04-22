@@ -100,6 +100,7 @@ export function FixedNotificationsSection({ onPreview }: FixedNotificationsSecti
                 <Switch
                   checked={item.isActive}
                   onCheckedChange={(val) => toggleActive(item.id, val)}
+                  aria-label={`Toggle ${item.label}`}
                 />
               </div>
 
@@ -126,6 +127,12 @@ export function FixedNotificationsSection({ onPreview }: FixedNotificationsSecti
           ))}
         </div>
       ))}
+
+      {Object.keys(grouped).length === 0 && (
+        <div className="flex h-32 items-center justify-center text-xs text-muted-foreground">
+          No notifications configured
+        </div>
+      )}
     </div>
   )
 }

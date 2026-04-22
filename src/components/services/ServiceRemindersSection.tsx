@@ -107,6 +107,7 @@ export function ServiceRemindersSection({ onPreview }: ServiceRemindersSectionPr
                   <Switch
                     checked={r.status === 'active'}
                     onCheckedChange={(val) => handleToggle(r, val)}
+                    aria-label={`Toggle ${r.name}`}
                   />
                 </div>
 
