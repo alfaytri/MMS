@@ -19,7 +19,9 @@ CREATE TABLE approval_chain_tiers (
   max_amount     NUMERIC,
   required_roles approval_role[] NOT NULL,
   deleted_at     TIMESTAMPTZ,
-  UNIQUE (chain_id, rank)
+  UNIQUE (chain_id, rank),
+  CONSTRAINT chk_amount_range CHECK (max_amount IS NULL OR max_amount > min_amount),
+  CONSTRAINT chk_required_roles_nonempty CHECK (cardinality(required_roles) > 0)
 );
 
 CREATE TABLE approval_role_assignments (
@@ -61,6 +63,20 @@ CREATE INDEX idx_notifications_profile_read        ON notifications(profile_id, 
 CREATE INDEX idx_po_approvals_po_iteration         ON po_approvals(po_id, iteration);
 CREATE INDEX idx_po_approvals_active_pending       ON po_approvals(po_id, is_active, status);
 
+-- I1: ensure only one global (division_id IS NULL) approval chain
+CREATE UNIQUE INDEX idx_approval_chains_single_global
+  ON approval_chains ((true))
+  WHERE division_id IS NULL;
+
+-- I2: ensure uniqueness of role assignments in global scope (division_id IS NULL)
+CREATE UNIQUE INDEX idx_role_assignments_global
+  ON approval_role_assignments (profile_id, role)
+  WHERE division_id IS NULL;
+
+-- I4: lookup indexes
+CREATE INDEX idx_approval_chains_division         ON approval_chains(division_id);
+CREATE INDEX idx_role_assignments_division_role   ON approval_role_assignments(division_id, role);
+
 -- ── RLS (permissive — matches existing pattern) ───────────────────────────────
 
 ALTER TABLE approval_chains           ENABLE ROW LEVEL SECURITY;
@@ -79,12 +95,31 @@ CREATE OR REPLACE FUNCTION advance_po_approval_tier(p_po_id UUID)
 RETURNS void
 LANGUAGE plpgsql
 SECURITY DEFINER
+SET search_path = public
 AS $$
 DECLARE
   v_iteration  INT;
   v_next_rank  INT;
   v_all_done   BOOLEAN;
 BEGIN
+  -- C1: advisory lock to prevent concurrent execution for the same PO
+  PERFORM pg_advisory_xact_lock(hashtext(p_po_id::text));
+
+  -- C2: existence guard — bail if no approval rows exist for this PO
+  IF NOT EXISTS (SELECT 1 FROM po_approvals WHERE po_id = p_po_id AND iteration = (
+    SELECT COALESCE(MAX(iteration), 1) FROM po_approvals WHERE po_id = p_po_id
+  )) THEN
+    RETURN;
+  END IF;
+
+  -- I3: do not advance if PO is in a terminal non-pending state
+  IF NOT EXISTS (
+    SELECT 1 FROM purchase_orders
+    WHERE id = p_po_id AND status = 'pending_approval'
+  ) THEN
+    RETURN;
+  END IF;
+
   SELECT COALESCE(MAX(iteration), 1) INTO v_iteration
   FROM po_approvals WHERE po_id = p_po_id;
 
