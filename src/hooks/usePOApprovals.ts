@@ -30,14 +30,17 @@ export function usePendingApprovals() {
       const roles = (myRoles ?? []).map((r: { role: string }) => r.role) as string[]
       if (roles.length === 0) return [] as PurchaseOrder[]
 
-      // Get max iteration per PO for filtering
-      const { data, error } = await (supabase as any)
+      // Get POs pending approval — self-approval guard uses profile UUID (created_by is UUID FK)
+      const query = (supabase as any)
         .from('purchase_orders')
         .select('*, po_line_items(*), po_approvals(*)')
         .eq('status', 'pending_approval')
         .is('deleted_at', null)
-        .neq('created_by', me.email)          // self-approval guard
         .order('created_at', { ascending: false })
+      // Only exclude creator's own POs if we have their profile UUID
+      const { data, error } = me.profileId
+        ? await query.neq('created_by', me.profileId)
+        : await query
       if (error) throw error
 
       const pos = (data ?? []) as PurchaseOrder[]
