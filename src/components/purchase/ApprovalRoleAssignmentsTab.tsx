@@ -63,7 +63,7 @@ export function ApprovalRoleAssignmentsTab() {
           <div className="flex flex-wrap gap-2 items-end">
             <div className="space-y-1">
               <label className="text-xs text-muted-foreground">User</label>
-              <Select value={form.profile_id} onValueChange={(v) => setForm((f) => ({ ...f, profile_id: v }))}>
+              <Select value={form.profile_id} onValueChange={(v) => setForm((f) => ({ ...f, profile_id: v ?? '' }))}>
                 <SelectTrigger className="w-52">
                   <SelectValue placeholder="Select user…" />
                 </SelectTrigger>
