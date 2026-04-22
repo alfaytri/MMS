@@ -2,6 +2,7 @@ import Link from 'next/link'
 import { createClient } from '@/lib/supabase/server'
 import { NavDropdown } from './NavDropdown'
 import { UserMenu } from './UserMenu'
+import { NotificationBell } from './NotificationBell'
 import { NAV_ITEMS } from './nav-config'
 import { Wrench } from 'lucide-react'
 
@@ -33,6 +34,7 @@ export async function TopNav() {
         ))}
       </nav>
 
+      {user && <NotificationBell />}
       {user && (
         <UserMenu
           email={user.email ?? ''}
