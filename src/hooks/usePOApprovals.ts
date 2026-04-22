@@ -31,16 +31,16 @@ export function usePendingApprovals() {
       if (roles.length === 0) return [] as PurchaseOrder[]
 
       // Get POs pending approval — self-approval guard uses profile UUID (created_by is UUID FK)
-      const query = (supabase as any)
+      // Use or() so POs with created_by = NULL are still included (neq alone excludes NULLs in SQL)
+      const baseQuery = (supabase as any)
         .from('purchase_orders')
         .select('*, po_line_items(*), po_approvals(*)')
         .eq('status', 'pending_approval')
         .is('deleted_at', null)
         .order('created_at', { ascending: false })
-      // Only exclude creator's own POs if we have their profile UUID
       const { data, error } = me.profileId
-        ? await query.neq('created_by', me.profileId)
-        : await query
+        ? await baseQuery.or(`created_by.is.null,created_by.neq.${me.profileId}`)
+        : await baseQuery
       if (error) throw error
 
       const pos = (data ?? []) as PurchaseOrder[]

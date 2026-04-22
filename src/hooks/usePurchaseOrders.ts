@@ -298,6 +298,12 @@ export function useCreatePO() {
       const supabase = createClient()
       const po_number = await generatePONumber(supabase)
 
+      // Resolve creator's profile UUID (used for self-approval guard)
+      const { data: { user } } = await supabase.auth.getUser()
+      const { data: creatorProfile } = user
+        ? await (supabase as any).from('profiles').select('id').eq('auth_user_id', user.id).maybeSingle()
+        : { data: null }
+
       const subtotal = payload.line_items.reduce((s, li) => s + li.total_price, 0)
       const total_qar = (subtotal - payload.discount_amount) * payload.exchange_rate
       const approval_level = calcApprovalLevel(total_qar)
@@ -324,6 +330,7 @@ export function useCreatePO() {
           vendor_notes: payload.vendor_notes,
           discount_amount: payload.discount_amount,
           discount_label: payload.discount_label,
+          created_by: creatorProfile?.id ?? null,
         })
         .select()
         .single()
