@@ -14,7 +14,10 @@ The existing `po_approvals` table and approval page exist but the system has no 
 - Rejection short-circuits immediately — all pending steps cancelled
 - In-app notification bell for approvers
 - Creator cannot approve their own PO (audit compliance)
+- Four-eyes principle — one person cannot approve two roles in the same tier
 - Ghost notifications auto-cleared when a step is fulfilled
+- Iteration tracking — resubmission cycles keep full history without confusion
+- Admin force-approve with mandatory comment for deadlock recovery
 
 ---
 
@@ -75,15 +78,25 @@ notifications (
 
 ### Modified: `po_approvals`
 
-Remove `assigned_to`. Add `tier_rank` and `is_active` flag.
+Remove `assigned_to`. Add `tier_rank`, `is_active`, `iteration`, and `force_approved` flag.
 
 ```sql
 ALTER TABLE po_approvals
   DROP COLUMN IF EXISTS assigned_to,
-  ADD COLUMN tier_rank   INT NOT NULL DEFAULT 1,
-  ADD COLUMN is_active   BOOLEAN DEFAULT false;
+  ADD COLUMN tier_rank      INT NOT NULL DEFAULT 1,
+  ADD COLUMN is_active      BOOLEAN DEFAULT false,
+  ADD COLUMN iteration      INT NOT NULL DEFAULT 1,  -- increments on each resubmission
+  ADD COLUMN force_approved BOOLEAN DEFAULT false,   -- true if bypassed by admin
+  ADD COLUMN force_comment  TEXT;                    -- mandatory when force_approved = true
   -- approved_by already exists (TEXT). Keep as profile email.
   -- status already exists: pending | approved | rejected | cancelled
+```
+
+### Indexes
+
+```sql
+CREATE INDEX idx_notifications_related_id ON notifications(related_id);
+CREATE INDEX idx_po_approvals_po_id_iteration ON po_approvals(po_id, iteration);
 ```
 
 ---
@@ -96,23 +109,27 @@ When a PO is submitted (`status → pending_approval`):
 
 2. **Find applicable tiers** — select all tiers from that chain where `total_qar >= min_amount`, ordered by `rank` ascending. These are the cumulative tiers the PO must pass through. *Recommended tier design: each tier should introduce a new role (e.g., Tier 1 = PM, Tier 2 = Accountant, Tier 3 = Owner) rather than repeating roles across tiers.*
 
-3. **Create steps** — for each tier, for each role in `required_roles`, create one `po_approval` row:
+3. **Iteration** — determine the current `iteration` for this PO:
+   `iteration = MAX(iteration) + 1` from existing `po_approvals` for this po_id (or 1 if first submission). Previous iteration rows are left untouched for history.
+
+4. **Create steps** — for each tier, for each role in `required_roles`, create one `po_approval` row:
    - `tier_rank = tier.rank`
    - `role = role`
    - `status = 'pending'`
+   - `iteration = current iteration`
    - `is_active = true` only for the **lowest rank** tier; higher tiers start as `is_active = false`
 
-4. **Validation** — before creating steps, verify:
+5. **Validation** — before creating steps, verify:
    - At least one user (other than the PO creator) holds each required role in the division or company-wide. If any role has no eligible assignee → block with error: *"No [role] assigned for this division (excluding you). Please assign an additional approver."*
    - Admin UI must also warn when a tier has zero assignees so dead-end configs are caught before submission.
 
-5. **Self-approval guard** — the PO creator is excluded from being an eligible approver at any tier. This is enforced at two points:
+6. **Self-approval guard** — the PO creator is excluded from being an eligible approver at any tier. This is enforced at two points:
    - Submission validation (step 4 above)
    - Queue query: `AND po.created_by != current_user_profile_id`
 
-6. **Deduplication** — notifications use `DISTINCT ON profile_id` per PO. If a user holds 3 roles that all require approval on the same PO, they receive **one** notification, not three.
+7. **Deduplication** — notifications use `DISTINCT ON profile_id` per PO. If a user holds 3 roles that all require approval on the same PO, they receive **one** notification, not three.
 
-7. **Notifications** — for each newly activated step, collect the set of distinct users with `required_role` in that division (excluding PO creator), fire one `notification` row per user.
+8. **Notifications** — for each newly activated step, collect the set of distinct users with `required_role` in that division (excluding PO creator), fire one `notification` row per user.
 
 ---
 
@@ -129,13 +146,27 @@ po_approvals WHERE status = 'pending'
 
 ### Approving a step
 1. Current user clicks Approve on a PO step (their role's row)
-2. Set `status = 'approved'`, `approved_by = current user email`, `date = now()`
-3. **Ghost notification cleanup** — mark all `notifications` for this PO as read:
+2. **Four-eyes check** — query: has this user already approved a *different* role in the same `tier_rank` and `iteration` for this PO?
+   - If yes → block with error: *"You have already approved another role in this tier. A second approval from the same person violates the four-eyes requirement."*
+   - Exception: only skip this check if they are the *only eligible approver* for the second role AND the admin has explicitly enabled single-approver override for this chain (future config flag, out of scope for now — block by default).
+3. Set `status = 'approved'`, `approved_by = current user email`, `date = now()`
+4. **Ghost notification cleanup** — mark all `notifications` for this PO as read:
    `UPDATE notifications SET read_at = now() WHERE related_id = po_id AND type = 'po_approval_requested' AND read_at IS NULL`
-4. Check if all `is_active` steps for this PO are `approved`
-5. If yes → check if there is a next tier (lowest rank where `is_active = false`)
+5. Check if all `is_active` steps for this PO (current iteration) are `approved`
+6. If yes → check if there is a next tier (lowest rank where `is_active = false`)
    - If next tier exists → set its steps to `is_active = true`, fire new notifications to those role holders
    - If no next tier → flip PO `status = 'approved'`, notify PO creator
+
+### State machine reliability
+The tier advancement logic (steps 5–6 above) is implemented as a Postgres function called by the application after each approval. This ensures the state machine advances correctly even if multiple API paths trigger approvals (background jobs, future webhooks, etc.), rather than relying solely on application code.
+
+### Force-approve (admin override)
+For deadlocked POs (e.g., only assignee for a role has left the company):
+1. User with `can_bypass_approvals` permission sees a "Force Approve" button on stuck steps
+2. A mandatory comment is required before proceeding
+3. Sets `status = 'approved'`, `force_approved = true`, `force_comment = comment`, `approved_by = admin email`
+4. Proceeds through the same tier-advancement logic as a normal approval
+5. Force-approve actions are visually flagged in the approval history UI with a warning badge
 
 ### Rejecting a step
 1. Set the rejecting step to `status = 'rejected'`
@@ -189,12 +220,15 @@ Location: **Settings → Approvals** (admin-only, gated by existing permission s
 | Required role has no eligible assignees (excluding creator) | Block submission with named error. |
 | PO creator holds the only approver role in a tier | Block submission: *"You are the only assigned [role] for this division."* |
 | Creator tries to approve their own PO | Filtered from queue — button never appears to them. |
-| Same user holds multiple required roles in a tier | One notification only (DISTINCT); separate step rows per role still created for audit trail. |
+| Same user approves two roles in the same tier | Blocked with four-eyes error. Separate step rows preserved for audit trail. |
+| Same user holds multiple required roles in a tier | One notification only (DISTINCT); step rows per role still created. |
 | Step claimed/approved/rejected | Auto-mark all `po_approval_requested` notifications for that PO as read (ghost cleanup). |
-| User removed from role mid-approval | Soft delete only — their existing steps are unaffected. New POs no longer route to them. |
+| PO rejected → sent back to draft → resubmitted | New rows created with `iteration + 1`. History tab shows all cycles. |
+| Only assignee for a role has left the company mid-approval | Admin with `can_bypass_approvals` can force-approve with mandatory comment. |
+| User removed from role mid-approval | Soft delete only — their existing steps unaffected. New POs no longer route to them. |
 | Admin tries to delete a tier with in-flight POs | Block deletion: *"Active POs are pending approval on this tier."* |
 | PO amount changes after submission | Not allowed — edit requires send-back-to-draft first (existing versioning behavior). |
-| One rejection at any tier | All remaining pending/inactive steps cancelled immediately; PO rejected. |
+| One rejection at any tier | All remaining pending/inactive steps (current iteration) cancelled immediately; PO rejected. |
 
 ---
 
