@@ -6,22 +6,9 @@ import { PageHeader } from '@/components/shared/PageHeader'
 import { PageWrapper } from '@/components/shared/PageWrapper'
 import { ApprovalChainsTab } from '@/components/purchase/ApprovalChainsTab'
 import { ApprovalRoleAssignmentsTab } from '@/components/purchase/ApprovalRoleAssignmentsTab'
-import { useIsAdmin } from '@/hooks/useProfiles'
 
 export default function ApprovalSettingsPage() {
   const [activeTab, setActiveTab] = useState<'chains' | 'assignments'>('chains')
-  const { data: isAdmin } = useIsAdmin()
-
-  if (isAdmin === false) {
-    return (
-      <PageWrapper>
-        <PageHeader title="Approval Settings" description="Configure approval chains and role assignments" />
-        <div className="rounded-lg border border-destructive p-4 text-sm text-destructive">
-          You do not have permission to manage approval settings.
-        </div>
-      </PageWrapper>
-    )
-  }
 
   return (
     <PageWrapper>
