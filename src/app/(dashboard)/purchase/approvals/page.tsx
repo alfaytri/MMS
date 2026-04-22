@@ -34,7 +34,7 @@ const ROLE_LABELS: Record<string, string> = {
 export default function ApprovalsPage() {
   const [dialogState, setDialogState] = useState<ApprovalDialogState | null>(null)
   const [comment, setComment] = useState('')
-  const [rejectMode, setRejectMode] = useState<'full_rejection' | 'send_back_to_rfq'>('full_rejection')
+  const [rejectMode, setRejectMode] = useState<'full_rejection' | 'send_back_to_draft'>('full_rejection')
   const [showRejectOptions, setShowRejectOptions] = useState(false)
 
   const { data: pending, isLoading: pendingLoading, isError: pendingError } = usePendingApprovals()
@@ -54,20 +54,16 @@ export default function ApprovalsPage() {
   function handleApprove() {
     if (!dialogState) return
     const { po, step } = dialogState
-    const allSteps = po.po_approvals ?? []
-    const remainingPending = allSteps.filter((s) => s.status === 'pending' && s.id !== step.id)
-    const allStepsWillBeApproved = remainingPending.length === 0
 
     approveStep.mutate(
       {
         stepId: step.id,
         poId: po.id,
         comment,
-        allStepsWillBeApproved,
       },
       {
         onSuccess: () => {
-          toast.success(allStepsWillBeApproved ? 'PO approved!' : 'Step approved, next approver notified')
+          toast.success('Step approved')
           setDialogState(null)
         },
         onError: (err) => toast.error(err.message),
@@ -281,7 +277,7 @@ export default function ApprovalsPage() {
                     <p className="text-sm font-medium">Rejection type:</p>
                     {[
                       { value: 'full_rejection' as const, label: 'Full Rejection', desc: 'Cancel the PO entirely' },
-                      { value: 'send_back_to_rfq' as const, label: 'Send Back to Draft', desc: 'Reset to draft for revision' },
+                      { value: 'send_back_to_draft' as const, label: 'Send Back to Draft', desc: 'Reset to draft for revision' },
                     ].map((opt) => (
                       <button
                         key={opt.value}
@@ -338,7 +334,8 @@ export default function ApprovalsPage() {
                     <Button variant="destructive" onClick={handleReject} disabled={isMutating}>
                       {rejectPO.isPending
                         ? 'Rejecting…'
-                        : `Confirm — ${rejectMode === 'full_rejection' ? 'Cancel PO' : 'Send to Draft'}`}
+                        : `Confirm — ${rejectMode === 'full_rejection' ? 'Cancel PO' : 'Send to Draft'}`
+                      }
                     </Button>
                   </>
                 )}
