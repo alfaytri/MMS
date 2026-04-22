@@ -75,3 +75,15 @@ No Context Switching: Do not ask the user for the "next task" until PROGRESS.md 
 5. Expected Format Example
 Markdown
 - 2024-05-20 **Authentication Plan Task 2: JWT Implementation** — `auth_service.py`,
+
+---
+
+# Code Review — Mandatory Rule
+
+After completing any task (code, feature, fix, or refactor), your work will be reviewed by **Codex**. Write code as if Codex will scrutinize every line — because it will.
+
+**Rules:**
+- Do not consider a task done until it is ready for external review
+- Do not cut corners, skip edge cases, or leave TODOs in delivered code
+- Every change must be self-contained, correct, and match the requirements exactly
+- If Codex finds a mistake, it reflects on the quality of your work — aim for zero findings
