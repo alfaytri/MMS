@@ -94,3 +94,101 @@ export function useUpdateReminder() {
     onSuccess: () => queryClient.invalidateQueries({ queryKey: ['reminders'] }),
   })
 }
+
+// ---------------------------------------------------------------------------
+// In-app notification inbox (approval-chain notifications table)
+// ---------------------------------------------------------------------------
+
+export type NotificationRow = {
+  id: string
+  profile_id: string
+  type: string
+  title: string
+  body: string | null
+  related_id: string | null
+  related_type: string | null
+  read_at: string | null
+  created_at: string
+}
+
+async function getMyProfileId(): Promise<string | null> {
+  const supabase = createClient()
+  const { data: { user } } = await supabase.auth.getUser()
+  if (!user) return null
+  const { data } = await (supabase as any)
+    .from('profiles').select('id').eq('auth_user_id', user.id).maybeSingle()
+  return data?.id ?? null
+}
+
+export function useUnreadNotificationCount() {
+  return useQuery({
+    queryKey: ['notifications', 'unread-count'],
+    queryFn: async () => {
+      const profileId = await getMyProfileId()
+      if (!profileId) return 0
+      const supabase = createClient()
+      const { count, error } = await (supabase as any)
+        .from('notifications')
+        .select('*', { count: 'exact', head: true })
+        .eq('profile_id', profileId)
+        .is('read_at', null)
+      if (error) throw error
+      return count ?? 0
+    },
+    staleTime: 30 * 1000,
+    refetchInterval: 60 * 1000,
+  })
+}
+
+export function useRecentNotifications() {
+  return useQuery({
+    queryKey: ['notifications', 'recent'],
+    queryFn: async () => {
+      const profileId = await getMyProfileId()
+      if (!profileId) return [] as NotificationRow[]
+      const supabase = createClient()
+      const { data, error } = await (supabase as any)
+        .from('notifications')
+        .select('*')
+        .eq('profile_id', profileId)
+        .order('created_at', { ascending: false })
+        .limit(10)
+      if (error) throw error
+      return data as NotificationRow[]
+    },
+    staleTime: 30 * 1000,
+  })
+}
+
+export function useMarkNotificationRead() {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: async (id: string) => {
+      const supabase = createClient()
+      const { error } = await (supabase as any)
+        .from('notifications').update({ read_at: new Date().toISOString() }).eq('id', id)
+      if (error) throw error
+    },
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ['notifications'] })
+    },
+  })
+}
+
+export function useMarkAllNotificationsRead() {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: async () => {
+      const profileId = await getMyProfileId()
+      if (!profileId) return
+      const supabase = createClient()
+      const { error } = await (supabase as any)
+        .from('notifications')
+        .update({ read_at: new Date().toISOString() })
+        .eq('profile_id', profileId)
+        .is('read_at', null)
+      if (error) throw error
+    },
+    onSuccess: () => qc.invalidateQueries({ queryKey: ['notifications'] }),
+  })
+}
