@@ -36,12 +36,13 @@ export function useChainForDivision(divisionId: string | null | undefined) {
       const supabase = createClient()
       // Try division-specific chain first
       if (divisionId) {
-        const { data } = await (supabase as any)
+        const { data, error } = await (supabase as any)
           .from('approval_chains')
           .select('*, approval_chain_tiers(*)')
           .eq('division_id', divisionId)
           .eq('is_active', true)
           .maybeSingle()
+        if (error) throw error
         if (data) return data as ApprovalChain
       }
       // Fall back to company default
@@ -75,7 +76,10 @@ export function useUpsertApprovalChain() {
       if (error) throw error
       return data as ApprovalChain
     },
-    onSuccess: () => qc.invalidateQueries({ queryKey: ['approval-chains'] }),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ['approval-chains'] })
+      qc.invalidateQueries({ queryKey: ['approval-chain-for-division'] })
+    },
   })
 }
 
@@ -113,7 +117,10 @@ export function useUpsertApprovalChainTier() {
       if (error) throw error
       return data
     },
-    onSuccess: () => qc.invalidateQueries({ queryKey: ['approval-chains'] }),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ['approval-chains'] })
+      qc.invalidateQueries({ queryKey: ['approval-chain-for-division'] })
+    },
   })
 }
 
@@ -137,6 +144,9 @@ export function useSoftDeleteApprovalChainTier() {
         .eq('id', tierId)
       if (error) throw error
     },
-    onSuccess: () => qc.invalidateQueries({ queryKey: ['approval-chains'] }),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ['approval-chains'] })
+      qc.invalidateQueries({ queryKey: ['approval-chain-for-division'] })
+    },
   })
 }

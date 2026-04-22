@@ -157,6 +157,7 @@ export function useRecentNotifications() {
       return data as NotificationRow[]
     },
     staleTime: 30 * 1000,
+    refetchInterval: 60 * 1000,
   })
 }
 
@@ -180,7 +181,7 @@ export function useMarkAllNotificationsRead() {
   return useMutation({
     mutationFn: async () => {
       const profileId = await getMyProfileId()
-      if (!profileId) return
+      if (!profileId) throw new Error('Not authenticated')
       const supabase = createClient()
       const { error } = await (supabase as any)
         .from('notifications')
