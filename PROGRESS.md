@@ -144,16 +144,13 @@ Purchase & Sales▾:
 | `docs/superpowers/plans/2026-04-19-po-page-redesign.md` | ✅ DONE | PO list stat cards, rich filters, progress-bar table, PoDetailDialog redesign |
 | `docs/superpowers/plans/2026-04-20-create-po-redesign.md` | ✅ DONE | Create PO full spec redesign — sticky header, grouped items, approval chain |
 | `docs/superpowers/plans/2026-04-20-warehouses-hub-redesign.md` | ✅ DONE | Warehouses operational hub — 7-tab redesign, URL state, React.memo, unified receivals+deliveries |
-| `docs/superpowers/plans/2026-04-22-po-approval-chain.md` | 🔄 IN PROGRESS | PO approval chain — configurable division-based chains, cumulative tiers, notifications, admin force-approve |
+| `docs/superpowers/plans/2026-04-22-po-approval-chain.md` | ✅ DONE | PO approval chain — configurable division-based chains, cumulative tiers, notifications, admin force-approve |
 
 ---
 
 ## 🔄 In Progress
 
-Active plan: `docs/superpowers/plans/2026-04-22-po-approval-chain.md`
-
-- [2026-04-22] **Migration hardening** — `supabase/migrations/20260422000001_approval_chains.sql` — Applied all code-review fixes: advisory lock (C1), existence guard (C2), `SET search_path = public` (C3), single-global partial unique index (I1), global role-assignment partial unique index (I2), rejected-PO guard (I3), division lookup indexes (I4), `chk_amount_range` CHECK (M1), `chk_required_roles_nonempty` CHECK (M2); db reset blocked (Docker not running on this machine)
-- [2026-04-22] **PO Approval Chain — Task 6: useNotifications hook** — `src/hooks/useNotifications.ts` — Appended `NotificationRow` type, `getMyProfileId` helper, `useUnreadNotificationCount`, `useRecentNotifications`, `useMarkNotificationRead`, `useMarkAllNotificationsRead` to existing hook file; tsc --noEmit clean
+No active plan. All Phase 1 implementation plans are complete. Pending Phase 1 cleanup items below before Phase 2.
 
 ---
 
@@ -165,6 +162,23 @@ Active plan: `docs/superpowers/plans/2026-04-22-po-approval-chain.md`
 ---
 
 ## ✅ Completed
+
+### PO Approval Chain (Plan: 2026-04-22-po-approval-chain.md) — COMPLETE ✅
+
+- [2026-04-22] **Task 12** — `src/components/purchase/PoApprovalChain.tsx`, `src/app/(dashboard)/purchase/approvals/page.tsx` — PoApprovalChain rewritten with tier grouping, cancelled state, active-pulse animation, force-approved badge; approvals page rewritten with force-approve button (admin-only), iteration history, force-approve dialog with mandatory comment, reject options (full rejection / send back to draft); tsc --noEmit clean
+- [2026-04-22] **Task 11** — `src/components/purchase/ApprovalRoleAssignmentsTab.tsx`, `src/components/layout/nav-config.ts` — Role assignments tab (user+role select, soft-delete); Approval Settings added to Purchase & Sales nav
+- [2026-04-22] **Task 10** — `src/components/purchase/ApprovalChainsTab.tsx`, `src/app/(dashboard)/purchase/approval-settings/page.tsx` — Chains tab with tier CRUD, role toggle buttons, missing-assignee warning; 2-tab settings page with admin gate
+- [2026-04-22] **Task 9** — `src/components/layout/NotificationBell.tsx`, `src/components/layout/TopNav.tsx` — Bell icon with unread badge, dropdown with recent notifications, mark-read/mark-all-read, routes to approvals page on click
+- [2026-04-22] **Task 8** — `src/hooks/usePOApprovals.ts` — role-filtering `usePendingApprovals`, `useCompletedApprovals`, `useApproveStep` (four-eyes, RPC state machine, tier-advance notifications, PO-approved notification), `useForceApproveStep` (admin bypass, mandatory comment), `useRejectPO` (sibling cancel, ghost cleanup, creator notification); tsc --noEmit clean
+- [2026-04-22] **Task 7** — `src/hooks/usePurchaseOrders.ts` — `useSubmitPOForApproval` rewritten with chain-based logic (division→company fallback, `findApplicableTiers`, `validateRoles`, `buildApprovalSteps`, notifications to first-tier approvers)
+- [2026-04-22] **Task 6** — `src/hooks/useNotifications.ts` — `NotificationRow` type, `getMyProfileId`, `useUnreadNotificationCount`, `useRecentNotifications`, `useMarkNotificationRead`, `useMarkAllNotificationsRead`
+- [2026-04-22] **Task 5** — `src/hooks/useApprovalRoleAssignments.ts` — `useApprovalRoleAssignments`, `useApprovalRoleAssignmentsForDivision`, `useCurrentUserApprovalRoles`, `useAddApprovalRoleAssignment`, `useSoftDeleteApprovalRoleAssignment`
+- [2026-04-22] **Task 4** — `src/hooks/useApprovalChains.ts` — `useApprovalChains`, `useChainForDivision`, `useUpsertApprovalChain`, `useUpsertApprovalChainTier`, `useSoftDeleteApprovalChainTier`
+- [2026-04-22] **Task 3** — `src/lib/permissions.ts` — added `purchase.approvals.chain.manage` and `purchase.approvals.bypass` permissions; tests pass
+- [2026-04-22] **Task 2** — `src/lib/approvalChainResolution.ts`, `src/lib/approvalChainResolution.test.ts` — pure functions: `findApplicableTiers`, `validateRoles`, `buildApprovalSteps`, `getNotificationRecipients`; 18 tests pass
+- [2026-04-22] **Task 1** — `supabase/migrations/20260422000001_approval_chains.sql` — `approval_chains`, `approval_chain_tiers`, `approval_role_assignments`, `notifications` tables; `advance_po_approval_tier` RPC; `po_approvals` columns: `tier_rank`, `is_active`, `iteration`, `force_approved`, `force_comment`
+
+---
 
 - [2026-04-21] **Services Hub Tree & Dialog Redesign — Task 9: Integration Test** — `tsc --noEmit` 0 errors, 33/33 tests pass, build succeeds, `/master-data/services` (14 kB) confirmed in route list; plan complete
 - [2026-04-21] **Services Hub Tree & Dialog Redesign — Task 8: ServicesPage Cleanup** — `src/app/(dashboard)/master-data/services/page.tsx` — Removed featureFilters state, FEATURE_FILTERS array, Badge/ClipboardCheck/Wrench imports; filter bar now only shows contract type buttons; tsc --noEmit clean
