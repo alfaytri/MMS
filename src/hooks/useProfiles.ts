@@ -244,3 +244,30 @@ export function useCompleteMyPasswordChange() {
     },
   })
 }
+
+/**
+ * Lightweight profile list for dropdowns/selects — queries Supabase directly
+ * so it works for ALL authenticated users (not just admins).
+ * Returns id, full_name, email only.
+ */
+export function useAllProfiles() {
+  return useQuery({
+    queryKey: ['all-profiles-select'],
+    queryFn: async () => {
+      const supabase = createClient()
+      const { data, error } = await (supabase as any)
+        .from('profiles')
+        .select('id, full_name, email')
+        .eq('is_active', true)
+        .order('full_name', { ascending: true })
+      if (error) throw error
+      return (data ?? []) as { id: string; full_name: string | null; email: string | null }[]
+    },
+    staleTime: 60 * 1000,
+  })
+}
+
+/** Returns display name for a profile — falls back to email then id. */
+export function profileDisplayName(p: { full_name?: string | null; email?: string | null; id: string }): string {
+  return p.full_name?.trim() || p.email?.trim() || p.id
+}

@@ -17,7 +17,7 @@ import {
   useAddApprovalRoleAssignment,
   useSoftDeleteApprovalRoleAssignment,
 } from '@/hooks/useApprovalRoleAssignments'
-import { useProfiles } from '@/hooks/useProfiles'
+import { useAllProfiles, profileDisplayName } from '@/hooks/useProfiles'
 import type { ApprovalRole } from '@/lib/approvalChainResolution'
 
 const APPROVAL_ROLES: ApprovalRole[] = ['purchase_manager', 'accountant', 'owner']
@@ -29,7 +29,7 @@ const ROLE_LABELS: Record<ApprovalRole, string> = {
 
 export function ApprovalRoleAssignmentsTab() {
   const { data: assignments = [], isLoading } = useApprovalRoleAssignments()
-  const { data: profiles = [] } = useProfiles()
+  const { data: profiles = [] } = useAllProfiles()
   const addAssignment = useAddApprovalRoleAssignment()
   const removeAssignment = useSoftDeleteApprovalRoleAssignment()
 
@@ -69,7 +69,7 @@ export function ApprovalRoleAssignmentsTab() {
                 </SelectTrigger>
                 <SelectContent>
                   {profiles.map((p) => (
-                    <SelectItem key={p.id} value={p.id}>{p.full_name}</SelectItem>
+                    <SelectItem key={p.id} value={p.id}>{profileDisplayName(p)}</SelectItem>
                   ))}
                 </SelectContent>
               </Select>
@@ -113,7 +113,7 @@ export function ApprovalRoleAssignmentsTab() {
             ) : (
               assignments.map((a) => (
                 <TableRow key={a.id}>
-                  <TableCell className="font-medium">{a.profiles?.full_name ?? '—'}</TableCell>
+                  <TableCell className="font-medium">{a.profiles ? profileDisplayName(a.profiles) : '—'}</TableCell>
                   <TableCell>
                     <Badge variant="outline">{ROLE_LABELS[a.role as ApprovalRole] ?? a.role}</Badge>
                   </TableCell>
