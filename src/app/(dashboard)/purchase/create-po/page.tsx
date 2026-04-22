@@ -4,7 +4,7 @@ import { useState } from 'react'
 import { useRouter } from 'next/navigation'
 import {
   ArrowLeft, Plus, Save, CheckCircle2, Building2,
-  Package, StickyNote, Clock, ArrowRight,
+  Package, StickyNote,
 } from 'lucide-react'
 import { Check, ChevronsUpDown } from 'lucide-react'
 import { toast } from 'sonner'
@@ -22,7 +22,7 @@ import {
 import { PoLineItemsEditor, type LineItemRow } from '@/components/purchase/PoLineItemsEditor'
 import { PoTermsSection, DEFAULT_TERMS, type PoTermsValues } from '@/components/purchase/PoTermsSection'
 import { AddSupplierDialog } from '@/components/purchase/AddSupplierDialog'
-import { useCreatePO, useSubmitPOForApproval, calcApprovalLevel, getApprovalRoles } from '@/hooks/usePurchaseOrders'
+import { useCreatePO, useSubmitPOForApproval } from '@/hooks/usePurchaseOrders'
 import { useSuppliers } from '@/hooks/useSuppliers'
 
 const CURRENCIES = ['QAR', 'USD', 'EUR', 'GBP', 'AED', 'SAR', 'KWD'] as const
@@ -44,10 +44,6 @@ function formatAmt(amount: number, currency: string) {
   return `${sym(currency)}${amount.toLocaleString('en-QA', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`
 }
 
-function roleLabel(role: string) {
-  return role.replace(/_/g, ' ').replace(/\b\w/g, (c) => c.toUpperCase())
-}
-
 export default function CreatePOPage() {
   const router = useRouter()
   const createPO = useCreatePO()
@@ -67,9 +63,6 @@ export default function CreatePOPage() {
 
   const subtotal = lineItems.reduce((s, li) => s + li.total_price, 0)
   const grandTotal = subtotal - discountAmount
-  const totalQar = grandTotal * exchangeRate
-  const approvalLevel = calcApprovalLevel(totalQar)
-  const approvalRoles = getApprovalRoles(approvalLevel)
 
   function handleSelectSupplier(s: { id: string; name: string }) {
     setSupplierId(s.id)
@@ -121,7 +114,7 @@ export default function CreatePOPage() {
     createPO.mutate(buildPayload(), {
       onSuccess: (po) => {
         submitForApproval.mutate(
-          { id: po.id, approval_level: approvalLevel },
+          { id: po.id },
           {
             onSuccess: () => { toast.success('Submitted for approval'); router.push('/purchase/orders') },
             onError: (err) => toast.error(err.message),
@@ -355,28 +348,6 @@ export default function CreatePOPage() {
           />
         </section>
 
-        <Separator />
-
-        {/* ⑦ Approval Chain Preview */}
-        <section className="space-y-3">
-          <h2 className="text-sm font-semibold">
-            Approval Chain Preview{' '}
-            <span className="text-xs text-muted-foreground font-normal">
-              (Level {approvalLevel} — &lt; QAR 5K / 5K–50K / ≥ 50K)
-            </span>
-          </h2>
-          <div className="flex flex-wrap items-center gap-2">
-            {approvalRoles.map((role, idx) => (
-              <div key={role} className="flex items-center gap-2">
-                {idx > 0 && <ArrowRight className="h-3 w-3 text-muted-foreground" />}
-                <div className="flex items-center gap-1.5 border rounded-md px-3 py-2">
-                  <Clock className="h-3.5 w-3.5 text-muted-foreground" />
-                  <span className="text-xs">{roleLabel(role)}</span>
-                </div>
-              </div>
-            ))}
-          </div>
-        </section>
 
       </div>
 

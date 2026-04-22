@@ -4,7 +4,7 @@ import { useState, useEffect } from 'react'
 import { useParams, useRouter } from 'next/navigation'
 import {
   ArrowLeft, Save, CheckCircle2, Building2,
-  Package, StickyNote, Clock, ArrowRight, Plus,
+  Package, StickyNote, Plus,
 } from 'lucide-react'
 import { Check, ChevronsUpDown } from 'lucide-react'
 import { toast } from 'sonner'
@@ -31,8 +31,6 @@ import {
   useSubmitPoVersion,
   useSavePoAsDraft,
   useDeletePoVersion,
-  calcApprovalLevel,
-  getApprovalRoles,
   type PoVersion,
   type POLineItemDraft,
 } from '@/hooks/usePurchaseOrders'
@@ -56,10 +54,6 @@ function sym(currency: string) {
 
 function formatAmt(amount: number, currency: string) {
   return `${sym(currency)}${amount.toLocaleString('en-QA', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`
-}
-
-function roleLabel(role: string) {
-  return role.replace(/_/g, ' ').replace(/\b\w/g, (c) => c.toUpperCase())
 }
 
 function draftToLineItemRows(items: POLineItemDraft[]): LineItemRow[] {
@@ -135,9 +129,6 @@ export default function EditPOPage() {
   // ── Computed ──────────────────────────────────────────────────────────────
   const subtotal = lineItems.reduce((s, li) => s + li.total_price, 0)
   const grandTotal = subtotal - discountAmount
-  const totalQar = grandTotal * exchangeRate
-  const approvalLevel = calcApprovalLevel(totalQar)
-  const approvalRoles = getApprovalRoles(approvalLevel)
   const validCount = lineItems.filter((li) => li.item_name.trim() !== '').length
 
   function handleSelectSupplier(s: { id: string; name: string }) {
@@ -585,28 +576,6 @@ export default function EditPOPage() {
             />
           </section>
 
-          <Separator />
-
-          {/* ⑦ Approval Chain Preview */}
-          <section className="space-y-3">
-            <h2 className="text-sm font-semibold">
-              Approval Chain Preview{' '}
-              <span className="text-xs text-muted-foreground font-normal">
-                (Level {approvalLevel} — &lt; QAR 5K / 5K–50K / ≥ 50K)
-              </span>
-            </h2>
-            <div className="flex flex-wrap items-center gap-2">
-              {approvalRoles.map((role, idx) => (
-                <div key={role} className="flex items-center gap-2">
-                  {idx > 0 && <ArrowRight className="h-3 w-3 text-muted-foreground" />}
-                  <div className="flex items-center gap-1.5 border rounded-md px-3 py-2">
-                    <Clock className="h-3.5 w-3.5 text-muted-foreground" />
-                    <span className="text-xs">{roleLabel(role)}</span>
-                  </div>
-                </div>
-              ))}
-            </div>
-          </section>
 
         </div>
       )}

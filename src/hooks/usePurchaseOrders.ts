@@ -1,5 +1,6 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { createClient } from '@/lib/supabase/client'
+import { findApplicableTiers, validateRoles, buildApprovalSteps, getNotificationRecipients } from '@/lib/approvalChainResolution'
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -33,10 +34,15 @@ export type POApprovalStep = {
   id: string
   po_id: string
   role: string
-  status: 'pending' | 'approved' | 'rejected'
+  status: 'pending' | 'approved' | 'rejected' | 'cancelled'
   approved_by: string | null
   date: string | null
   comment: string | null
+  tier_rank: number
+  is_active: boolean
+  iteration: number
+  force_approved: boolean
+  force_comment: string | null
 }
 
 export type PurchaseOrder = {
@@ -161,13 +167,15 @@ export type PoVersion = {
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
-export function calcApprovalLevel(totalQar: number): number {
+// Legacy helpers used by useCreatePO, useUpdatePO, useSubmitPoVersion, useSavePoAsDraft.
+// Not exported — useSubmitPOForApproval now uses the chain-based resolution instead.
+function calcApprovalLevel(totalQar: number): number {
   if (totalQar < 5000) return 1
   if (totalQar < 50000) return 2
   return 3
 }
 
-export function getApprovalRoles(level: number): string[] {
+function getApprovalRoles(level: number): string[] {
   if (level === 1) return ['purchase_manager']
   if (level === 2) return ['purchase_manager', 'accountant']
   return ['purchase_manager', 'accountant', 'owner']
@@ -379,26 +387,98 @@ export function useUpdatePO() {
 export function useSubmitPOForApproval() {
   const queryClient = useQueryClient()
   return useMutation({
-    mutationFn: async ({ id, approval_level }: { id: string; approval_level: number }) => {
+    mutationFn: async ({ id }: { id: string }) => {
       const supabase = createClient()
-      const roles = getApprovalRoles(approval_level)
+      const { data: { user } } = await supabase.auth.getUser()
+      if (!user) throw new Error('Not authenticated')
+
+      // Get current user's profile
+      const { data: myProfile } = await (supabase as any)
+        .from('profiles').select('id, division_id').eq('auth_user_id', user.id).single()
+      if (!myProfile) throw new Error('Profile not found')
+
+      const divisionId: string | null = myProfile.division_id ?? null
+
+      // Get PO details
+      const { data: po } = await (supabase as any)
+        .from('purchase_orders').select('id, total_qar, created_by').eq('id', id).single()
+      if (!po) throw new Error('PO not found')
+
+      // Find chain (division-specific → company default)
+      let chain: { id: string; approval_chain_tiers: any[] } | null = null
+      if (divisionId) {
+        const { data } = await (supabase as any)
+          .from('approval_chains')
+          .select('id, approval_chain_tiers(*)')
+          .eq('division_id', divisionId)
+          .eq('is_active', true)
+          .maybeSingle()
+        chain = data
+      }
+      if (!chain) {
+        const { data } = await (supabase as any)
+          .from('approval_chains')
+          .select('id, approval_chain_tiers(*)')
+          .is('division_id', null)
+          .eq('is_active', true)
+          .maybeSingle()
+        chain = data
+      }
+      if (!chain) throw new Error('No approval chain configured. Contact your administrator.')
+
+      // Find applicable tiers
+      const tiers = findApplicableTiers(po.total_qar, chain.approval_chain_tiers ?? [])
+      if (tiers.length === 0) throw new Error('No approval tiers match this PO amount. Check approval chain configuration.')
+
+      // Fetch role assignments for this division (including company-wide)
+      const { data: assignments } = await (supabase as any)
+        .from('approval_role_assignments')
+        .select('*')
+        .is('deleted_at', null)
+        .or(divisionId ? `division_id.eq.${divisionId},division_id.is.null` : 'division_id.is.null')
+      const roleAssignments = assignments ?? []
+
+      // Validate roles (exclude creator)
+      const validationError = validateRoles(tiers, roleAssignments, myProfile.id)
+      if (validationError) throw new Error(validationError)
+
+      // Determine iteration
+      const { data: existingSteps } = await (supabase as any)
+        .from('po_approvals').select('iteration').eq('po_id', id).order('iteration', { ascending: false }).limit(1)
+      const iteration = existingSteps?.[0]?.iteration ? existingSteps[0].iteration + 1 : 1
 
       // Create approval steps
-      const { error: approvalErr } = await (supabase as any)
-        .from('po_approvals')
-        .insert(roles.map((role) => ({ po_id: id, role, status: 'pending' })))
-      if (approvalErr) throw approvalErr
+      const steps = buildApprovalSteps(id, tiers, iteration)
+      const { error: stepsErr } = await (supabase as any).from('po_approvals').insert(steps)
+      if (stepsErr) throw stepsErr
 
       // Update PO status
       const { error: poErr } = await (supabase as any)
-        .from('purchase_orders')
-        .update({ status: 'pending_approval' })
-        .eq('id', id)
+        .from('purchase_orders').update({ status: 'pending_approval' }).eq('id', id)
       if (poErr) throw poErr
+
+      // Fire notifications (distinct per user for lowest-rank tier)
+      const lowestRank = tiers[0].rank
+      const recipientIds = getNotificationRecipients(lowestRank, tiers, roleAssignments, myProfile.id)
+      if (recipientIds.length > 0) {
+        const { data: poFull } = await (supabase as any)
+          .from('purchase_orders').select('po_number').eq('id', id).single()
+        const notifs = recipientIds.map((profileId: string) => ({
+          profile_id: profileId,
+          type: 'po_approval_requested',
+          title: `PO ${poFull?.po_number ?? id} requires your approval`,
+          body: `Total: ${po.total_qar} QAR`,
+          related_id: id,
+          related_type: 'purchase_order',
+        }))
+        await (supabase as any).from('notifications').insert(notifs)
+      }
     },
-    onSuccess: (_data, variables) => {
+    onSuccess: (_data: unknown, variables: { id: string }) => {
       queryClient.invalidateQueries({ queryKey: ['purchase-orders'] })
       queryClient.invalidateQueries({ queryKey: ['purchase-order', variables.id] })
+      queryClient.invalidateQueries({ queryKey: ['po-approvals'] })
+      queryClient.invalidateQueries({ queryKey: ['notifications'] })
     },
   })
 }
