@@ -71,6 +71,7 @@ export const NAV_ITEMS: NavEntry[] = [
         // separator group — rendered as a thin HR by NavDropdown
         items: [
           { label: 'Approvals', href: '/purchase/approvals' },
+          { label: 'Approval Settings', href: '/purchase/approval-settings' },
           { label: 'Shipments', href: '/purchase/shipments' },
           { label: 'Landed Costs', href: '/purchase/landed-costs' },
           { label: 'Dead Stock Report', href: '/purchase/dead-stock' },
