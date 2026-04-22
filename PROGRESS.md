@@ -144,19 +144,23 @@ Purchase & Sales▾:
 | `docs/superpowers/plans/2026-04-19-po-page-redesign.md` | ✅ DONE | PO list stat cards, rich filters, progress-bar table, PoDetailDialog redesign |
 | `docs/superpowers/plans/2026-04-20-create-po-redesign.md` | ✅ DONE | Create PO full spec redesign — sticky header, grouped items, approval chain |
 | `docs/superpowers/plans/2026-04-20-warehouses-hub-redesign.md` | ✅ DONE | Warehouses operational hub — 7-tab redesign, URL state, React.memo, unified receivals+deliveries |
+| `docs/superpowers/plans/2026-04-22-po-approval-chain.md` | 🔄 IN PROGRESS | PO approval chain — configurable division-based chains, cumulative tiers, notifications, admin force-approve |
 
 ---
 
 ## 🔄 In Progress
 
-Next: Review Phase 1 cleanup backlog and determine next plan
+Active plan: `docs/superpowers/plans/2026-04-22-po-approval-chain.md`
+
+- [2026-04-22] **Migration hardening** — `supabase/migrations/20260422000001_approval_chains.sql` — Applied all code-review fixes: advisory lock (C1), existence guard (C2), `SET search_path = public` (C3), single-global partial unique index (I1), global role-assignment partial unique index (I2), rejected-PO guard (I3), division lookup indexes (I4), `chk_amount_range` CHECK (M1), `chk_required_roles_nonempty` CHECK (M2); db reset blocked (Docker not running on this machine)
+- [2026-04-22] **PO Approval Chain — Task 6: useNotifications hook** — `src/hooks/useNotifications.ts` — Appended `NotificationRow` type, `getMyProfileId` helper, `useUnreadNotificationCount`, `useRecentNotifications`, `useMarkNotificationRead`, `useMarkAllNotificationsRead` to existing hook file; tsc --noEmit clean
 
 ---
 
 ### Phase 1 Cleanup — Must Clear Before Phase 2
 
 - [ ] **Manual smoke test** — in-app user management (all 17 tasks code-complete; browser smoke test pending before Phase 2)
-- [ ] **Verify** self-provision banner flow (Create My Profile) on a fresh auth user with no profile row
+- [ ] **Verify** self-provision banner flow (Create My Profile) on a fresh auth user with no profile row ← **LAST TEST — complete only when manually instructed**
 
 ---
 
@@ -330,7 +334,7 @@ Next: Review Phase 1 cleanup backlog and determine next plan
 
 ---
 
-### Warehouses Hub Redesign (Plan: 2026-04-20-warehouses-hub-redesign.md) — IN PROGRESS 🔄
+### Warehouses Hub Redesign (Plan: 2026-04-20-warehouses-hub-redesign.md) — COMPLETE ✅
 
 - **Design spec:** `docs/superpowers/specs/2026-04-20-warehouses-redesign-design.md`
 - **Scope:** Full 7-tab hub redesign — URL-based tab state (`?tab=`), React.memo tab isolation, compact density, semantic color tokens, unified Receivals & Deliveries tab (Tab 7 merges `receivals` + `sale_deliveries`). Nav entry moved from Purchase & Sales → Master Data dropdown (route stays `/purchase/warehouses`).
