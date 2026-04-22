@@ -17,6 +17,18 @@ import {
 } from '@/components/ui/form'
 import { useUpdateUser, type Profile } from '@/hooks/useProfiles'
 import { useRoles } from '@/hooks/useRoles'
+import {
+  useApprovalRoleAssignments,
+  useAddApprovalRoleAssignment,
+  useSoftDeleteApprovalRoleAssignment,
+} from '@/hooks/useApprovalRoleAssignments'
+import type { ApprovalRole } from '@/lib/approvalChainResolution'
+
+const APPROVAL_ROLES: { role: ApprovalRole; label: string }[] = [
+  { role: 'purchase_manager', label: 'Purchase Manager' },
+  { role: 'accountant',       label: 'Accountant' },
+  { role: 'owner',            label: 'Owner' },
+]
 
 const schema = z.object({
   full_name: z.string().min(1, 'Name is required'),
@@ -37,6 +49,39 @@ interface Props {
 export function EditUserDialog({ open, onOpenChange, profile }: Props) {
   const updateUser = useUpdateUser()
   const { data: roles } = useRoles()
+  const { data: allAssignments = [] } = useApprovalRoleAssignments()
+  const addApprovalRole = useAddApprovalRoleAssignment()
+  const removeApprovalRole = useSoftDeleteApprovalRoleAssignment()
+
+  // Find this user's current approval role assignment (if any)
+  const myAssignment = profile
+    ? allAssignments.find((a) => a.profile_id === profile.id)
+    : undefined
+
+  function handleApprovalRoleToggle(role: ApprovalRole) {
+    if (!profile) return
+    if (myAssignment?.role === role) {
+      // Clicking the active role → remove it
+      removeApprovalRole.mutate(myAssignment.id, {
+        onError: (e) => toast.error(e.message),
+      })
+    } else {
+      // Switch to a different role: remove existing first (if any), then add new
+      const doAdd = () =>
+        addApprovalRole.mutate(
+          { profile_id: profile.id, role, division_id: null },
+          { onError: (e) => toast.error(e.message) }
+        )
+      if (myAssignment) {
+        removeApprovalRole.mutate(myAssignment.id, {
+          onSuccess: doAdd,
+          onError: (e) => toast.error(e.message),
+        })
+      } else {
+        doAdd()
+      }
+    }
+  }
 
   const form = useForm<Values>({
     resolver: zodResolver(schema) as never,
@@ -154,6 +199,36 @@ export function EditUserDialog({ open, onOpenChange, profile }: Props) {
                     <span className="text-xs whitespace-nowrap">{role.name}</span>
                   </label>
                 ))}
+              </div>
+            </div>
+
+            <div>
+              <Label>Approval Role</Label>
+              <p className="text-xs text-muted-foreground mb-2">Determines who this user can act as in the PO approval chain.</p>
+              <div className="flex flex-wrap gap-2">
+                {APPROVAL_ROLES.map(({ role, label }) => {
+                  const isActive = myAssignment?.role === role
+                  return (
+                    <button
+                      key={role}
+                      type="button"
+                      onClick={() => handleApprovalRoleToggle(role)}
+                      disabled={addApprovalRole.isPending || removeApprovalRole.isPending}
+                      className={`rounded-md border px-4 py-1.5 text-sm font-medium transition-colors ${
+                        isActive
+                          ? 'border-primary bg-primary/10 text-primary'
+                          : 'border-muted-foreground/30 text-muted-foreground hover:bg-muted'
+                      }`}
+                    >
+                      {label}
+                    </button>
+                  )
+                })}
+                {myAssignment && (
+                  <span className="self-center text-xs text-muted-foreground">
+                    Click active role to remove
+                  </span>
+                )}
               </div>
             </div>
 
