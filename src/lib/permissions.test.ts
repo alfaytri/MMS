@@ -51,3 +51,11 @@ describe('roleColor', () => {
     expect(roleColor('Viewer')).toBe(roleColor('Viewer'))
   })
 })
+
+it('includes purchase.approvals.chain.manage permission', () => {
+  expect(ALL_PERMISSIONS).toContain('purchase.approvals.chain.manage')
+})
+
+it('includes purchase.approvals.bypass permission', () => {
+  expect(ALL_PERMISSIONS).toContain('purchase.approvals.bypass')
+})

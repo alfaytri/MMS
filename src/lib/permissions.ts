@@ -56,6 +56,8 @@ export const PERMISSION_GROUPS: PermissionGroup[] = [
       { key: 'purchase.orders.edit',          label: 'Edit Purchase Orders',       description: 'Edit existing purchase order details and line items' },
       { key: 'purchase.approvals.view',       label: 'View Approvals Queue',       description: 'Access the purchase order approvals queue' },
       { key: 'purchase.approvals.manage',     label: 'Approve / Reject Orders',    description: 'Approve or reject pending purchase orders' },
+      { key: 'purchase.approvals.chain.manage', label: 'Manage Approval Chains', description: 'Configure approval chains, tiers, and role assignments' },
+      { key: 'purchase.approvals.bypass',       label: 'Bypass Approvals',        description: 'Force-approve stuck purchase order approval steps' },
       { key: 'purchase.shipments.view',       label: 'View Shipments',             description: 'Track shipment status and events' },
       { key: 'purchase.shipments.manage',     label: 'Manage Shipments',           description: 'Create shipments and update their tracking events' },
       { key: 'purchase.landed_costs.view',    label: 'View Landed Costs',          description: 'View landed cost records and allocations' },
