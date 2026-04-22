@@ -4,16 +4,17 @@ import {
   validateRoles,
   buildApprovalSteps,
   getNotificationRecipients,
+  type ApprovalRole,
   type ApprovalChainTier,
   type ApprovalRoleAssignmentRow,
 } from './approvalChainResolution'
 
-function tier(rank: number, minAmount: number, roles: string[]): ApprovalChainTier {
-  return { id: `t${rank}`, chain_id: 'c1', rank, min_amount: minAmount, max_amount: null, required_roles: roles as any, deleted_at: null }
+function tier(rank: number, minAmount: number, roles: ApprovalRole[]): ApprovalChainTier {
+  return { id: `t${rank}`, chain_id: 'c1', rank, min_amount: minAmount, max_amount: null, required_roles: roles, deleted_at: null }
 }
 
-function assign(profileId: string, role: string, divisionId: string | null = null): ApprovalRoleAssignmentRow {
-  return { id: `a-${profileId}-${role}`, profile_id: profileId, role: role as any, division_id: divisionId, deleted_at: null, created_at: '' }
+function assign(profileId: string, role: ApprovalRole, divisionId: string | null = null): ApprovalRoleAssignmentRow {
+  return { id: `a-${profileId}-${role}`, profile_id: profileId, role, division_id: divisionId, deleted_at: null, created_at: '' }
 }
 
 describe('findApplicableTiers', () => {
@@ -38,6 +39,10 @@ describe('findApplicableTiers', () => {
 
   it('sorts by rank ascending regardless of input order', () => {
     expect(findApplicableTiers(100000, [tiers[2], tiers[0], tiers[1]]).map((t) => t.rank)).toEqual([1, 2, 3])
+  })
+
+  it('includes tier when amount equals min_amount exactly', () => {
+    expect(findApplicableTiers(5000, tiers).map((t) => t.rank)).toEqual([1, 2])
   })
 })
 
@@ -81,6 +86,10 @@ describe('buildApprovalSteps', () => {
     const steps = buildApprovalSteps('po1', [tier(1, 0, ['purchase_manager'])], 3)
     expect(steps.every((s) => s.iteration === 3)).toBe(true)
   })
+
+  it('returns empty array for empty tiers', () => {
+    expect(buildApprovalSteps('po1', [], 1)).toEqual([])
+  })
 })
 
 describe('getNotificationRecipients', () => {
@@ -99,6 +108,16 @@ describe('getNotificationRecipients', () => {
 
   it('excludes the creator', () => {
     const result = getNotificationRecipients(1, tiers, [assign('creator', 'purchase_manager')], 'creator')
+    expect(result).toEqual([])
+  })
+
+  it('excludes soft-deleted assignments', () => {
+    const result = getNotificationRecipients(
+      1,
+      tiers,
+      [{ ...assign('pm', 'purchase_manager'), deleted_at: '2026-01-01' }],
+      'creator'
+    )
     expect(result).toEqual([])
   })
 })

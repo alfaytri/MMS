@@ -35,11 +35,17 @@ const ROLE_LABELS: Record<ApprovalRole, string> = {
 }
 
 export function findApplicableTiers(amount: number, tiers: ApprovalChainTier[]): ApprovalChainTier[] {
+  // max_amount is intentionally not checked: the model is cumulative —
+  // all tiers whose min_amount is <= the PO amount apply, regardless of max_amount.
   return tiers
     .filter((t) => !t.deleted_at && amount >= t.min_amount)
     .sort((a, b) => a.rank - b.rank)
 }
 
+/**
+ * Caller must pre-filter assignments to the relevant division.
+ * Division scoping is the caller's responsibility.
+ */
 export function validateRoles(
   tiers: ApprovalChainTier[],
   assignments: ApprovalRoleAssignmentRow[],
@@ -77,6 +83,10 @@ export function buildApprovalSteps(
   return steps
 }
 
+/**
+ * Caller must pre-filter assignments to the relevant division.
+ * Division scoping is the caller's responsibility.
+ */
 export function getNotificationRecipients(
   activeTierRank: number,
   tiers: ApprovalChainTier[],
