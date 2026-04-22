@@ -71,6 +71,31 @@ export function useAddApprovalRoleAssignment() {
   return useMutation({
     mutationFn: async (payload: { profile_id: string; role: ApprovalRole; division_id: string | null }) => {
       const supabase = createClient()
+
+      // Check if a row already exists (including soft-deleted) to avoid unique index violation
+      const existingQuery = (supabase as any)
+        .from('approval_role_assignments')
+        .select('id')
+        .eq('profile_id', payload.profile_id)
+        .eq('role', payload.role)
+      const { data: existing } = await (
+        payload.division_id
+          ? existingQuery.eq('division_id', payload.division_id)
+          : existingQuery.is('division_id', null)
+      ).maybeSingle()
+
+      if (existing) {
+        // Restore soft-deleted row instead of inserting a duplicate
+        const { data, error } = await (supabase as any)
+          .from('approval_role_assignments')
+          .update({ deleted_at: null })
+          .eq('id', existing.id)
+          .select()
+          .single()
+        if (error) throw error
+        return data
+      }
+
       const { data, error } = await (supabase as any)
         .from('approval_role_assignments')
         .insert(payload)
