@@ -13,6 +13,8 @@ The existing `po_approvals` table and approval page exist but the system has no 
 - Role-based queue — PO appears to anyone currently holding the required role (no pinning at submit time)
 - Rejection short-circuits immediately — all pending steps cancelled
 - In-app notification bell for approvers
+- Creator cannot approve their own PO (audit compliance)
+- Ghost notifications auto-cleared when a step is fulfilled
 
 ---
 
@@ -33,6 +35,7 @@ approval_chains (
 
 -- Each tier: a ranked threshold band with required roles.
 -- Tiers are cumulative: all tiers where total_qar >= min_amount apply.
+-- Soft-deleted (deleted_at) — never hard-deleted while POs are in flight.
 approval_chain_tiers (
   id              UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   chain_id        UUID NOT NULL REFERENCES approval_chains(id) ON DELETE CASCADE,
@@ -40,16 +43,19 @@ approval_chain_tiers (
   min_amount      NUMERIC NOT NULL,
   max_amount      NUMERIC,             -- NULL = no upper limit
   required_roles  approval_role[] NOT NULL,
+  deleted_at      TIMESTAMPTZ,         -- soft delete
   UNIQUE(chain_id, rank)
 )
 
 -- Maps users to approval roles, scoped to a division or company-wide.
+-- Soft-deleted (deleted_at) — removal does not break in-flight approvals.
 approval_role_assignments (
   id           UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   profile_id   UUID NOT NULL REFERENCES profiles(id) ON DELETE CASCADE,
   role         approval_role NOT NULL,
   division_id  UUID REFERENCES divisions(id),  -- NULL = company-wide
   created_at   TIMESTAMPTZ DEFAULT now(),
+  deleted_at   TIMESTAMPTZ,                    -- soft delete
   UNIQUE(profile_id, role, division_id)
 )
 
@@ -96,11 +102,17 @@ When a PO is submitted (`status → pending_approval`):
    - `status = 'pending'`
    - `is_active = true` only for the **lowest rank** tier; higher tiers start as `is_active = false`
 
-4. **Validation** — before creating steps, verify at least one user holds each required role in the division (or company-wide). If any role has no assignee → block with error: *"No [role] assigned for this division. Contact your administrator."*
+4. **Validation** — before creating steps, verify:
+   - At least one user (other than the PO creator) holds each required role in the division or company-wide. If any role has no eligible assignee → block with error: *"No [role] assigned for this division (excluding you). Please assign an additional approver."*
+   - Admin UI must also warn when a tier has zero assignees so dead-end configs are caught before submission.
 
-5. **Deduplication** — if the same user holds multiple required roles within a single tier, they still only get one notification (but separate step rows remain per role so the audit trail is correct).
+5. **Self-approval guard** — the PO creator is excluded from being an eligible approver at any tier. This is enforced at two points:
+   - Submission validation (step 4 above)
+   - Queue query: `AND po.created_by != current_user_profile_id`
 
-6. **Notifications** — for each active step, look up all users with `required_role` in that division, fire one `notification` row per user.
+6. **Deduplication** — notifications use `DISTINCT ON profile_id` per PO. If a user holds 3 roles that all require approval on the same PO, they receive **one** notification, not three.
+
+7. **Notifications** — for each newly activated step, collect the set of distinct users with `required_role` in that division (excluding PO creator), fire one `notification` row per user.
 
 ---
 
@@ -112,20 +124,24 @@ When a PO is submitted (`status → pending_approval`):
 po_approvals WHERE status = 'pending'
   AND is_active = true
   AND role IN (current user's approval_role_assignments for their division)
+  AND po.created_by != current_user_profile_id   -- self-approval guard
 ```
 
 ### Approving a step
 1. Current user clicks Approve on a PO step (their role's row)
 2. Set `status = 'approved'`, `approved_by = current user email`, `date = now()`
-3. Check if all `is_active` steps for this PO are `approved`
-4. If yes → check if there is a next tier (lowest rank where `is_active = false`)
-   - If next tier exists → set its steps to `is_active = true`, fire notifications to those role holders
-   - If no next tier → flip PO `status = 'approved'`
+3. **Ghost notification cleanup** — mark all `notifications` for this PO as read:
+   `UPDATE notifications SET read_at = now() WHERE related_id = po_id AND type = 'po_approval_requested' AND read_at IS NULL`
+4. Check if all `is_active` steps for this PO are `approved`
+5. If yes → check if there is a next tier (lowest rank where `is_active = false`)
+   - If next tier exists → set its steps to `is_active = true`, fire new notifications to those role holders
+   - If no next tier → flip PO `status = 'approved'`, notify PO creator
 
 ### Rejecting a step
 1. Set the rejecting step to `status = 'rejected'`
 2. Set all other `po_approval` rows for this PO to `status = 'cancelled'`
-3. Flip PO status per rejection mode:
+3. **Ghost notification cleanup** — mark all `po_approval_requested` notifications for this PO as read
+4. Flip PO status per rejection mode:
    - `full_rejection` → `status = 'cancelled'`
    - `send_back_to_draft` → `status = 'draft'`
 
@@ -145,7 +161,8 @@ Location: **Settings → Approvals** (admin-only, gated by existing permission s
 - Table: User | Role | Division | Actions
 - "Assign Role" → pick user from profiles, pick role, pick division (or company-wide)
 - A user can hold multiple roles across multiple divisions
-- Removing an assignment does not retroactively affect in-flight approvals
+- Removing an assignment uses soft delete — does not retroactively affect in-flight approvals
+- Warning shown on chains/tiers where a required role has zero active (non-soft-deleted) assignees
 
 ---
 
@@ -169,11 +186,15 @@ Location: **Settings → Approvals** (admin-only, gated by existing permission s
 | Scenario | Behavior |
 |----------|----------|
 | No chain for division | Fall back to company default. If none, block submission. |
-| Required role has no users | Block submission with named error. |
-| Same user holds multiple required roles in a tier | One notification only; separate step rows per role still created. |
-| User removed from role mid-approval | Their existing approved/pending steps are unaffected. New POs no longer route to them. |
+| Required role has no eligible assignees (excluding creator) | Block submission with named error. |
+| PO creator holds the only approver role in a tier | Block submission: *"You are the only assigned [role] for this division."* |
+| Creator tries to approve their own PO | Filtered from queue — button never appears to them. |
+| Same user holds multiple required roles in a tier | One notification only (DISTINCT); separate step rows per role still created for audit trail. |
+| Step claimed/approved/rejected | Auto-mark all `po_approval_requested` notifications for that PO as read (ghost cleanup). |
+| User removed from role mid-approval | Soft delete only — their existing steps are unaffected. New POs no longer route to them. |
+| Admin tries to delete a tier with in-flight POs | Block deletion: *"Active POs are pending approval on this tier."* |
 | PO amount changes after submission | Not allowed — edit requires send-back-to-draft first (existing versioning behavior). |
-| One rejection in a multi-role tier | All other pending steps on the PO are immediately cancelled. |
+| One rejection at any tier | All remaining pending/inactive steps cancelled immediately; PO rejected. |
 
 ---
 
