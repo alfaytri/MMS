@@ -11,6 +11,9 @@ export type ShipmentEvent = {
   location: string
   status: string
   notes?: string
+  // 17track auto-sync fields (optional — absent on manual events)
+  normalizedTimestamp?: string
+  hash?: string
 }
 
 export type Shipment = {
@@ -27,6 +30,10 @@ export type Shipment = {
   eta: string | null
   events: ShipmentEvent[]
   archived: boolean
+  carrier_code: string | null
+  is_syncing: boolean
+  last_synced_at: string | null
+  sync_error: string | null
   created_at: string
   updated_at: string
   purchase_orders?: { po_number: string; supplier_name: string } | null

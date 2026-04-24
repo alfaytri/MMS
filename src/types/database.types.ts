@@ -3804,51 +3804,63 @@ export type Database = {
         Row: {
           archived: boolean | null
           carrier: string
+          carrier_code: string | null
           created_at: string | null
           destination: string | null
           eta: string | null
           etd: string | null
           events: Json | null
           id: string
+          is_syncing: boolean
+          last_synced_at: string | null
           mode: Database["public"]["Enums"]["shipment_mode"]
           origin: string | null
           po_id: string
           receival_id: string | null
           status: Database["public"]["Enums"]["shipment_status"] | null
+          sync_error: string | null
           tracking_number: string
           updated_at: string | null
         }
         Insert: {
           archived?: boolean | null
           carrier: string
+          carrier_code?: string | null
           created_at?: string | null
           destination?: string | null
           eta?: string | null
           etd?: string | null
           events?: Json | null
           id?: string
+          is_syncing?: boolean
+          last_synced_at?: string | null
           mode: Database["public"]["Enums"]["shipment_mode"]
           origin?: string | null
           po_id: string
           receival_id?: string | null
           status?: Database["public"]["Enums"]["shipment_status"] | null
+          sync_error?: string | null
           tracking_number: string
           updated_at?: string | null
         }
         Update: {
           archived?: boolean | null
           carrier?: string
+          carrier_code?: string | null
           created_at?: string | null
           destination?: string | null
           eta?: string | null
           etd?: string | null
           events?: Json | null
           id?: string
+          is_syncing?: boolean
+          last_synced_at?: string | null
           mode?: Database["public"]["Enums"]["shipment_mode"]
           origin?: string | null
           po_id?: string
           receival_id?: string | null
           status?: Database["public"]["Enums"]["shipment_status"] | null
+          sync_error?: string | null
           tracking_number?: string
           updated_at?: string | null
         }
