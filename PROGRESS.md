@@ -154,6 +154,21 @@ No active plan. All Phase 1 implementation plans are complete. Pending Phase 1 c
 
 ---
 
+### Bill Detail Page (Plan: 2026-04-24-bill-detail-page.md) — COMPLETE ✅
+
+- [2026-04-24] **Bill Detail Page Task 1: Install qrcode.react** — `package.json`, `package-lock.json`
+- [2026-04-24] **Bill Detail Page Task 2: Database Migration — divisions.address** — `supabase/migrations/20260424163555_divisions_address.sql`
+- [2026-04-24] **Bill Detail Page Task 3: Add useBillViewModel Hook** — `src/hooks/useSupplierBills.ts` — added `BillPayment`, `BillReceival`, `BillViewModel` types and `useBillViewModel` hook with `Promise.all` parallel fetching
+- [2026-04-24] **Bill Detail Page Task 4: Create BillDetailSection** — `src/components/purchase/BillDetailSection.tsx` — reusable section wrapper with `break-inside-avoid`
+- [2026-04-24] **Bill Detail Page Task 5: Create BillDetailSidebar** — `src/components/purchase/BillDetailSidebar.tsx` — company selector, always-on section list, 4 toggle switches, print button
+- [2026-04-24] **Bill Detail Page Task 6: Create BillDetailDocument** — `src/components/purchase/BillDetailDocument.tsx` — full A4 document with header, meta row, supplier block, line items, totals, payment history, receival info, payment plan, notes, QR code, footer; status watermark; SSR-safe QR origin
+- [2026-04-24] **Bill Detail Page Task 7: Create Bill Detail Page** — `src/app/(dashboard)/purchase/bills/[id]/page.tsx` — two-column layout, URL-persisted toggle state, responsive mobile sidebar with overlay
+- [2026-04-24] **Bill Detail Page Task 8: Print Styles** — `src/app/globals.css` — `print-color-adjust: exact`, hide `.bill-sidebar`, `page-break-inside: avoid` on `tr`
+- [2026-04-24] **Bill Detail Page Task 9: Clickable Bills List** — `src/components/shared/DataTable.tsx` (add `onRowClick` prop), `src/app/(dashboard)/purchase/bills/page.tsx` (navigate to `/purchase/bills/[id]`)
+- [2026-04-24] **Bill Detail Page Task 10: Fix PoDetailDialog View Bill URL** — `src/components/purchase/PoDetailDialog.tsx` — "View Bill" now navigates to `/purchase/bills/${existingBills[0].id}`
+
+---
+
 ### Phase 1 Cleanup — Must Clear Before Phase 2
 
 - [ ] **Manual smoke test** — in-app user management (all 17 tasks code-complete; browser smoke test pending before Phase 2)
