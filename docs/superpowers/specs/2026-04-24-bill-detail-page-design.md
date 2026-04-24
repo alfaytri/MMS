@@ -144,8 +144,9 @@ Implemented via absolute-positioned `<div>` with `opacity-10 rotate-[-30deg] tex
 - Skipped entirely if notes is null
 
 **10. QR Code / Stamp (toggleable, default ON)**
-- QR code box encoding bill ID + bill number
-- Rendered using `qrcode.react` library
+- QR code encodes the full URL: `https://[app-domain]/purchase/bills/[id]`
+- Allows warehouse staff to scan a physical printout and open the live digital record immediately
+- Rendered using `qrcode.react` library (`npm install qrcode.react`)
 
 **11. Related Bills Alert (shown when PO has multiple bills)**
 - If `useBillsByPO(po_id)` returns more than one bill, show an info alert:
@@ -162,8 +163,14 @@ Implemented via absolute-positioned `<div>` with `opacity-10 rotate-[-30deg] tex
 
 ### Migration
 ```sql
+-- TEXT (not VARCHAR) to accommodate long multi-line addresses
 ALTER TABLE divisions ADD COLUMN IF NOT EXISTS address TEXT;
 -- Note: TRN/VAT registration number deferred to multi-country expansion phase
+```
+
+### New Dependency
+```bash
+npm install qrcode.react
 ```
 
 ### Single ViewModel Hook: `useBillViewModel(id)`
