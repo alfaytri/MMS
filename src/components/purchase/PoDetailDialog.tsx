@@ -19,7 +19,7 @@ import {
   usePOPayments,
   usePOReceivalsByPO,
   usePoVersions,
-  useSubmitPO,
+  useSubmitPOForApproval,
   useCancelPO,
   type PurchaseOrder,
 } from '@/hooks/usePurchaseOrders'
@@ -47,7 +47,7 @@ export function PoDetailDialog({ open, onOpenChange, po, onEdit, onCreateBill }:
   const { data: activityLogs } = useActivityLog(
     open && po?.id ? { module: 'purchase_orders', entity_id: po.id } : {}
   )
-  const submitPO = useSubmitPO()
+  const submitPO = useSubmitPOForApproval()
   const cancelPO = useCancelPO()
 
   const current = fullPO ?? po
@@ -106,10 +106,10 @@ export function PoDetailDialog({ open, onOpenChange, po, onEdit, onCreateBill }:
                       disabled={submitPO.isPending}
                       onClick={async () => {
                         try {
-                          await submitPO.mutateAsync(current.id)
+                          await submitPO.mutateAsync({ id: current.id })
                           toast.success('PO submitted for approval')
-                        } catch {
-                          toast.error('Failed to submit PO')
+                        } catch (err: unknown) {
+                          toast.error((err as Error)?.message ?? 'Failed to submit PO')
                         }
                       }}
                     >
