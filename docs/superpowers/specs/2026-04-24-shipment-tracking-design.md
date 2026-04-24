@@ -14,51 +14,65 @@ Auto-sync real carrier tracking events into the existing shipment timeline using
 
 1. User creates a shipment with a tracking number (existing form, unchanged)
 2. App calls `/api/shipments/register-tracking` immediately after creation
-3. That endpoint calls 17track `POST /track/v2.2/register` (auto-detects carrier)
-   - If 17track returns an **ambiguity error** (multiple carriers matched), the response includes the candidate carriers; the UI prompts the user to pick one and re-submits with the specific `carrier_code`
-   - If 17track returns a **quota exceeded** error, the shipment's `sync_error` field is set to `"quota_exceeded"`
-4. Immediately after successful registration, the endpoint also calls `POST /track/v2.2/gettrackinfo` to fetch current tracking data and returns it synchronously — the UI updates instantly
-5. Going forward, 17track pushes `POST /api/webhooks/17track` on every status change
-6. Webhook handler appends new events and updates status atomically in the DB
-7. The existing shipment detail timeline renders events — no UI redesign needed
+3. That endpoint calls 17track `POST /track/v2.2/register`
+   - **Ambiguity:** If 17track returns multiple carrier candidates, returns `{ ambiguous: true, candidates: [...] }` — UI prompts user to pick one and re-submits with `carrier_code`; chosen `carrier_code` is persisted to `shipments.carrier_code`
+   - **Quota exceeded:** Sets `shipments.sync_error = 'quota_exceeded'`; UI shows warning
+4. After successful registration, waits **2–3 seconds** (or retries with exponential backoff) before calling `POST /track/v2.2/gettrackinfo` — avoids the initialization lag window where 17track returns "Not Found" immediately after registration
+5. The `gettrackinfo` response (full event history) is ingested as a **bulk array** via the `append_shipment_events` RPC — UI updates instantly with all history
+6. Going forward, 17track pushes `POST /api/webhooks/17track` on every status change (may contain multiple events per payload)
+7. Webhook handler ingests events as a bulk array via the same RPC, atomically updating status
+8. The existing shipment detail timeline renders events sorted by timestamp descending — no UI redesign needed
 
 ## Components
 
 ### 1. `/api/webhooks/17track/route.ts`
 - Verifies 17track webhook signature (rejects with 401 if invalid)
-- Deduplicates events using a **composite event hash**: `sha256(status + timestamp + location)` stored on each event object. Skips append if hash already exists in the array.
+- Normalizes all incoming timestamps to **UTC ISO-8601** before processing (carrier formatting and offsets vary)
+- Generates a **composite event hash** per event: `sha256(status + normalizedTimestamp + location)` stored on each event object; skips events whose hash already exists in the array
 - Maps 17track status codes → our `shipment_status` enum:
   - `InTransit` → `in_transit`
   - `Delivered` → `delivered`
   - `Exception` / `Undelivered` → `delayed`
   - `Customs` → `customs`
-  - `InfoReceived` / `Pickup` / `NotFound` → keep current status (no downgrade)
-- **Status weight hierarchy** — only updates `status` if the new status outranks the current one:
-  ```
-  booked(1) < in_transit(2) < customs(3) < delayed(3) < delivered(4)
-  ```
-  A webhook can never revert a `delivered` shipment to `in_transit`.
-- **Atomic DB update** via a Postgres RPC (`append_shipment_event`) that uses `jsonb_insert` / `||` to append to the events array and conditionally update status in a single transaction — no read-modify-write race conditions in application code.
-- Updates `last_synced_at` on every processed webhook.
+  - `InfoReceived` / `Pickup` / `NotFound` → keep current (no downgrade)
+- Passes the full **array of new events** to `append_shipment_events` RPC in a single call
 
 ### 2. `/api/shipments/register-tracking/route.ts`
 - Accepts `{ tracking_number, shipment_id, carrier_code? }`
 - Calls 17track `POST /track/v2.2/register`
-- **Quota exceeded:** If 17track returns quota error code, sets `shipments.sync_error = 'quota_exceeded'`; returns error to client so UI can show "Auto-sync unavailable (limit reached)"
-- **Carrier ambiguity:** If 17track returns ambiguity error, returns `{ ambiguous: true, candidates: [...] }` to the client — no DB write yet
-- **Success:** Immediately calls `POST /track/v2.2/gettrackinfo`, maps current events, writes them to DB via the same RPC, clears `sync_error`, returns the fetched events to the client for instant UI update
-- **"Sync Now" button** calls this same endpoint — user sees instant results rather than waiting for a webhook
+- **Quota exceeded:** Sets `shipments.sync_error = 'quota_exceeded'`; returns error to client
+- **Ambiguity:** Returns `{ ambiguous: true, candidates: [...] }` — no DB write yet
+- **Success:** Waits 2–3 seconds (or retries up to 3× with exponential backoff: 1s, 2s, 4s), then calls `POST /track/v2.2/gettrackinfo`; normalizes timestamps; passes full event array to `append_shipment_events` RPC; clears `sync_error`; returns events to client
+- If `carrier_code` is provided (user resolved ambiguity), persists it to `shipments.carrier_code`
+- **"Sync Now"** calls this same endpoint using the stored `carrier_code` if present — no re-triggering of the ambiguity prompt
 
-### 3. DB Migration
+### 3. `append_shipment_events` Postgres RPC
+Replaces the single-event `append_shipment_event`. Signature:
+```sql
+append_shipment_events(
+  p_shipment_id UUID,
+  p_events      JSONB,   -- array of event objects
+  p_status_map  JSONB    -- { "booked":1, "in_transit":2, "customs":3, "delayed":3, "delivered":4 }
+)
+```
+- Iterates over `p_events`, skips any whose `hash` already exists in `shipments.events`
+- Appends all new events in one `||` operation
+- Determines the **highest-weight status** across the entire new-events array (not just the last event)
+- Updates `shipments.status` only if that highest weight exceeds the current status weight
+- Updates `shipments.last_synced_at = now()`
+- Single transaction — no partial updates
+
+### 4. DB Migration
 - Add `last_synced_at TIMESTAMPTZ` to `shipments`
-- Add `sync_error TEXT` to `shipments` (values: `null` | `'quota_exceeded'`)
-- Add `append_shipment_event(shipment_id, event_jsonb, new_status, status_weight)` Postgres RPC that atomically appends and conditionally updates status
+- Add `sync_error TEXT` to `shipments` (`null` | `'quota_exceeded'`)
+- Add `carrier_code TEXT` to `shipments` — persists user-resolved carrier for future syncs
 
-### 4. UI Tweaks (shipment detail dialog)
-- Show "Last synced X mins ago" (null = never synced)
-- Show "Auto-sync unavailable (limit reached)" warning banner when `sync_error = 'quota_exceeded'`
-- **"Sync Now"** button calls register-tracking and immediately reflects returned events — no empty-click loop
-- **Carrier picker:** If registration returns `ambiguous: true`, show an inline dropdown of candidate carriers from 17track with a "Confirm Carrier" button; on confirm, re-submits with `carrier_code`
+### 5. UI Tweaks (shipment detail dialog)
+- Show "Last synced X mins ago" (`null` = never synced)
+- Show warning banner when `sync_error = 'quota_exceeded'`
+- **"Sync Now"** returns current events immediately (no empty-click loop); uses stored `carrier_code` if present
+- **Carrier picker:** If registration returns `ambiguous: true`, show inline dropdown of candidate carriers; on confirm, re-submits with `carrier_code`
+- **Timeline rendering:** Explicitly sort `events` array by normalized timestamp descending before rendering — does not rely on array index order
 
 ## Error Handling
 
@@ -66,21 +80,25 @@ Auto-sync real carrier tracking events into the existing shipment timeline using
 |---|---|
 | Carrier not recognized yet | Silently ignored — webhook fires once carrier scans package |
 | Invalid webhook signature | Reject 401 |
-| Duplicate event (same hash) | Skip append |
+| Duplicate event (same hash) | Skip — hash checked per event before append |
+| Hash collision from raw timestamp variance | Timestamps normalized to UTC ISO-8601 before hashing |
 | Out-of-order webhook (status regression) | Status weight check — lower-weight status never overwrites higher |
+| Bulk payload with mixed statuses | RPC picks highest-weight status from entire array |
 | Race condition on events JSONB | Atomic Postgres RPC — no app-level read-modify-write |
+| Initialization lag after registration | 2–3s delay + exponential backoff before `gettrackinfo` |
 | Quota exceeded | Set `sync_error`, show warning in UI |
-| Carrier ambiguity on registration | Return candidates to UI, user selects carrier, re-register with `carrier_code` |
-| Manual events by user | Coexist in same `events` array, unaffected |
+| Carrier ambiguity on registration | Return candidates to UI; user selects; `carrier_code` persisted to DB |
+| Subsequent "Sync Now" after ambiguity resolved | Uses stored `carrier_code` — no re-prompt |
+| Manual events by user | Coexist in `events` array, unaffected |
 
 ## Configuration
 
 - `SEVENTEEN_TRACK_API_KEY` in `.env.local`
-- `SEVENTEEN_TRACK_WEBHOOK_SECRET` in `.env.local` for signature verification
+- `SEVENTEEN_TRACK_WEBHOOK_SECRET` in `.env.local`
 - Set webhook URL in 17track dashboard: `https://<your-domain>/api/webhooks/17track`
 
 ## Out of Scope
 
 - Changes to the create shipment form
-- Changes to the events timeline UI
+- Changes to the events timeline base UI
 - Paid 17track features
