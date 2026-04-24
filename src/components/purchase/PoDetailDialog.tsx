@@ -285,7 +285,11 @@ export function PoDetailDialog({ open, onOpenChange, po, onEdit, onCreateBill }:
                         <span className="font-medium text-sm">{r.receival_number}</span>
                         <Badge variant="outline" className="text-xs">{r.status}</Badge>
                       </div>
-                      <div className="text-xs text-muted-foreground">{formatDate(r.date)} · {r.received_by_name ?? 'Unknown'}</div>
+                      <div className="text-xs text-muted-foreground">
+                        {formatDate(r.date)}
+                        {r.warehouse_name && <span> · {r.warehouse_name}</span>}
+                        {r.received_by_name && <span> · {r.received_by_name}</span>}
+                      </div>
                       {r.receival_items && r.receival_items.length > 0 && (
                         <div className="rounded border overflow-x-auto">
                           <Table>

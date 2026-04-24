@@ -44,6 +44,7 @@ export type CreateReceivalPayload = {
     sku: string | null
     qty_received: number
     unit_cost: number
+    is_free?: boolean
   }[]
 }
 
@@ -59,7 +60,7 @@ export function useReceivals(filters?: { status?: ReceivalStatus | '' }) {
         .select(`
           *,
           receival_items(*),
-          purchase_orders!receivals_po_id_fkey(po_number, suppliers(name))
+          purchase_orders!receivals_po_id_fkey(po_number, supplier_name)
         `)
         .order('created_at', { ascending: false })
       if (filters?.status) q = q.eq('status', filters.status)
@@ -68,7 +69,7 @@ export function useReceivals(filters?: { status?: ReceivalStatus | '' }) {
       return (data ?? []).map((r: any) => ({
         ...r,
         po_number: r.purchase_orders?.po_number ?? null,
-        supplier_name: r.purchase_orders?.suppliers?.name ?? null,
+        supplier_name: r.purchase_orders?.supplier_name ?? null,
       })) as Receival[]
     },
   })
@@ -85,7 +86,7 @@ export function useReceival(id: string | null) {
         .select(`
           *,
           receival_items(*),
-          purchase_orders!receivals_po_id_fkey(po_number, po_line_items(*), suppliers(name))
+          purchase_orders!receivals_po_id_fkey(po_number, supplier_name, po_line_items(*))
         `)
         .eq('id', id)
         .single()
@@ -108,6 +109,16 @@ export function useCreateReceival() {
   return useMutation({
     mutationFn: async (payload: CreateReceivalPayload) => {
       const supabase = createClient()
+
+      // Resolve current user's name for audit trail
+      const { data: { user } } = await supabase.auth.getUser()
+      let receivedByName: string | null = null
+      if (user) {
+        const { data: profile } = await (supabase as any)
+          .from('profiles').select('full_name').eq('auth_user_id', user.id).maybeSingle()
+        receivedByName = profile?.full_name ?? user.email ?? null
+      }
+
       const { count } = await (supabase as any)
         .from('receivals')
         .select('*', { count: 'exact', head: true })
@@ -122,6 +133,7 @@ export function useCreateReceival() {
           date: payload.date,
           notes: payload.notes || null,
           status: 'pending_approval',
+          received_by_name: receivedByName,
         })
         .select()
         .single()
@@ -138,13 +150,32 @@ export function useCreateReceival() {
               sku: it.sku,
               qty_received: it.qty_received,
               unit_cost: it.unit_cost,
+              is_free: it.is_free ?? false,
             }))
           )
         if (iErr) throw iErr
+
+        // Update received_qty on each PO line item (non-free items only)
+        for (const it of payload.items) {
+          if (!it.po_line_item_id || it.is_free) continue
+          const { data: li } = await (supabase as any)
+            .from('po_line_items').select('received_qty').eq('id', it.po_line_item_id).single()
+          if (li != null) {
+            await (supabase as any)
+              .from('po_line_items')
+              .update({ received_qty: (li.received_qty ?? 0) + it.qty_received })
+              .eq('id', it.po_line_item_id)
+          }
+        }
       }
       return receival as Receival
     },
-    onSuccess: () => queryClient.invalidateQueries({ queryKey: ['receivals'] }),
+    onSuccess: (_data, variables) => {
+      queryClient.invalidateQueries({ queryKey: ['receivals'] })
+      queryClient.invalidateQueries({ queryKey: ['po-receivals', variables.po_id] })
+      queryClient.invalidateQueries({ queryKey: ['purchase-order', variables.po_id] })
+      queryClient.invalidateQueries({ queryKey: ['purchase-orders'] })
+    },
   })
 }
 
@@ -153,12 +184,21 @@ export function useApproveReceival() {
   return useMutation({
     mutationFn: async ({ id, action }: { id: string; action: 'approved' | 'rejected' }) => {
       const supabase = createClient()
+      // Get the receival's po_id before updating
+      const { data: receival } = await (supabase as any)
+        .from('receivals').select('po_id').eq('id', id).single()
       const { error } = await (supabase as any)
-        .from('receivals')
-        .update({ status: action })
-        .eq('id', id)
+        .from('receivals').update({ status: action }).eq('id', id)
       if (error) throw error
+      return receival?.po_id as string | null
     },
-    onSuccess: () => queryClient.invalidateQueries({ queryKey: ['receivals'] }),
+    onSuccess: (poId) => {
+      queryClient.invalidateQueries({ queryKey: ['receivals'] })
+      if (poId) {
+        queryClient.invalidateQueries({ queryKey: ['po-receivals', poId] })
+        queryClient.invalidateQueries({ queryKey: ['purchase-order', poId] })
+        queryClient.invalidateQueries({ queryKey: ['purchase-orders'] })
+      }
+    },
   })
 }
