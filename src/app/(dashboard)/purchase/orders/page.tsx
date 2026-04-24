@@ -2,7 +2,7 @@
 
 import { useState, useMemo } from 'react'
 import { useRouter } from 'next/navigation'
-import { Plus, FileText, Clock, Package, DollarSign, Search, X, MoreVertical } from 'lucide-react'
+import { Plus, FileText, Clock, Package, DollarSign, Search, X, MoreVertical, ChevronDown, Check } from 'lucide-react'
 import { Card, CardContent } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
@@ -13,13 +13,14 @@ import {
 } from '@/components/ui/select'
 import {
   DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger,
+  DropdownMenuCheckboxItem, DropdownMenuSeparator,
 } from '@/components/ui/dropdown-menu'
 import {
   Table, TableBody, TableCell, TableHead, TableHeader, TableRow,
 } from '@/components/ui/table'
 import { PoDetailDialog } from '@/components/purchase/PoDetailDialog'
 import { BillFormDialog } from '@/components/purchase/BillFormDialog'
-import { usePurchaseOrders, useSoftDeletePO, type PurchaseOrder, type POStatus } from '@/hooks/usePurchaseOrders'
+import { usePurchaseOrders, useCancelPO, type PurchaseOrder, type POStatus } from '@/hooks/usePurchaseOrders'
 import { useSuppliers } from '@/hooks/useSuppliers'
 import { formatCurrency, formatDate } from '@/lib/utils/formatters'
 import { cn } from '@/lib/utils'
@@ -87,7 +88,7 @@ function getReceivalText(po: PurchaseOrder): string {
 export default function PurchaseOrdersPage() {
   const router = useRouter()
   const [search, setSearch] = useState('')
-  const [statusFilter, setStatusFilter] = useState<POStatus | ''>('')
+  const [statusFilter, setStatusFilter] = useState<Set<POStatus>>(new Set())
   const [supplierFilter, setSupplierFilter] = useState('')
   const [dateFrom, setDateFrom] = useState('')
   const [dateTo, setDateTo] = useState('')
@@ -96,11 +97,10 @@ export default function PurchaseOrdersPage() {
   const [detailPO, setDetailPO] = useState<PurchaseOrder | null>(null)
   const [billPoId, setBillPoId] = useState<string | null>(null)
 
-  const softDelete = useSoftDeletePO()
+  const cancelPO = useCancelPO()
 
   const { data: orders, isLoading } = usePurchaseOrders({
     search,
-    status: statusFilter,
     dateFrom: dateFrom || undefined,
     dateTo: dateTo || undefined,
   })
@@ -120,6 +120,7 @@ export default function PurchaseOrdersPage() {
   // ── Client-side filtering ─────────────────────────────────────────────────
   const filtered = useMemo(() => {
     let result = orders ?? []
+    if (statusFilter.size > 0) result = result.filter((o) => statusFilter.has(o.status))
     if (supplierFilter) result = result.filter((o) => o.supplier_id === supplierFilter)
     if (receivalFilter) result = result.filter((o) => getReceivalStatus(o) === receivalFilter)
     if (paymentFilter) {
@@ -131,13 +132,22 @@ export default function PurchaseOrdersPage() {
       })
     }
     return result
-  }, [orders, supplierFilter, receivalFilter, paymentFilter])
+  }, [orders, statusFilter, supplierFilter, receivalFilter, paymentFilter])
 
-  const hasActiveFilters = !!(search || statusFilter || supplierFilter || dateFrom || dateTo || receivalFilter || paymentFilter)
+  const hasActiveFilters = !!(search || statusFilter.size > 0 || supplierFilter || dateFrom || dateTo || receivalFilter || paymentFilter)
 
   function clearFilters() {
-    setSearch(''); setStatusFilter(''); setSupplierFilter('')
+    setSearch(''); setStatusFilter(new Set()); setSupplierFilter('')
     setDateFrom(''); setDateTo(''); setReceivalFilter(''); setPaymentFilter('')
+  }
+
+  function toggleStatus(s: POStatus) {
+    setStatusFilter((prev) => {
+      const next = new Set(prev)
+      if (next.has(s)) next.delete(s)
+      else next.add(s)
+      return next
+    })
   }
 
   return (
@@ -227,18 +237,45 @@ export default function PurchaseOrdersPage() {
                 className="pl-9"
               />
             </div>
-            <Select value={statusFilter || 'all'} onValueChange={(v) => setStatusFilter(!v || v === 'all' ? '' : v as POStatus)}>
-              <SelectTrigger className="w-[160px]">
-                <SelectValue>
-                  {(v: string) => STATUS_OPTIONS.find((s) => (s.value || 'all') === v)?.label ?? 'All Statuses'}
-                </SelectValue>
-              </SelectTrigger>
-              <SelectContent>
-                {STATUS_OPTIONS.map((s) => (
-                  <SelectItem key={s.value || 'all'} value={s.value || 'all'}>{s.label}</SelectItem>
+            <DropdownMenu>
+              <DropdownMenuTrigger className="inline-flex h-9 items-center justify-between gap-1.5 rounded-md border border-input bg-background px-3 text-sm min-w-[140px] hover:bg-accent hover:text-accent-foreground">
+                <span className="truncate">
+                  {statusFilter.size === 0
+                    ? 'All Statuses'
+                    : statusFilter.size === 1
+                      ? (STATUS_OPTIONS.find((s) => s.value && statusFilter.has(s.value as POStatus))?.label ?? 'Status')
+                      : `${statusFilter.size} statuses`}
+                </span>
+                <ChevronDown className="h-3.5 w-3.5 shrink-0 opacity-60" />
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="start" className="w-[190px]">
+                {STATUS_OPTIONS.filter((s) => s.value).map((s) => (
+                  <DropdownMenuCheckboxItem
+                    key={s.value}
+                    checked={statusFilter.has(s.value as POStatus)}
+                    onCheckedChange={() => toggleStatus(s.value as POStatus)}
+                  >
+                    <span className={cn(
+                      'inline-flex items-center px-1.5 py-0.5 rounded text-xs font-medium mr-1',
+                      STATUS_COLORS[s.value as POStatus] ?? ''
+                    )}>
+                      {s.label}
+                    </span>
+                  </DropdownMenuCheckboxItem>
                 ))}
-              </SelectContent>
-            </Select>
+                {statusFilter.size > 0 && (
+                  <>
+                    <DropdownMenuSeparator />
+                    <DropdownMenuItem
+                      className="text-xs text-muted-foreground justify-center"
+                      onClick={() => setStatusFilter(new Set())}
+                    >
+                      Clear selection
+                    </DropdownMenuItem>
+                  </>
+                )}
+              </DropdownMenuContent>
+            </DropdownMenu>
             <Select value={supplierFilter || 'all'} onValueChange={(v) => setSupplierFilter(!v || v === 'all' ? '' : v)}>
               <SelectTrigger className="w-[180px]">
                 <SelectValue>
@@ -396,18 +433,20 @@ export default function PurchaseOrdersPage() {
                               <DropdownMenuItem onClick={() => router.push(`/purchase/edit-po/${po.id}`)}>Edit</DropdownMenuItem>
                             )}
                             <DropdownMenuItem onClick={() => setBillPoId(po.id)}>Create Bill</DropdownMenuItem>
-                            <DropdownMenuItem
-                              className="text-destructive focus:text-destructive"
-                              onClick={() => {
-                                if (!confirm(`Delete ${po.po_number}? This cannot be undone.`)) return
-                                softDelete.mutate(po.id, {
-                                  onSuccess: () => toast.success(`${po.po_number} deleted`),
-                                  onError: (e) => toast.error(e.message),
-                                })
-                              }}
-                            >
-                              Delete
-                            </DropdownMenuItem>
+                            {po.status !== 'cancelled' && (
+                              <DropdownMenuItem
+                                className="text-destructive focus:text-destructive"
+                                onClick={() => {
+                                  if (!confirm(`Cancel ${po.po_number}? The PO will remain visible with Cancelled status.`)) return
+                                  cancelPO.mutate(po.id, {
+                                    onSuccess: () => toast.success(`${po.po_number} cancelled`),
+                                    onError: (e) => toast.error(e.message),
+                                  })
+                                }}
+                              >
+                                Cancel PO
+                              </DropdownMenuItem>
+                            )}
                           </DropdownMenuContent>
                         </DropdownMenu>
                       </TableCell>
