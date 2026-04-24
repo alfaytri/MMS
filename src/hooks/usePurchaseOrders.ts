@@ -1,6 +1,7 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { createClient } from '@/lib/supabase/client'
 import { findApplicableTiers, validateRoles, buildApprovalSteps, getNotificationRecipients } from '@/lib/approvalChainResolution'
+import { logPOActivity, resolveMyName } from '@/lib/poActivityLogger'
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -343,6 +344,14 @@ export function useCreatePO() {
         if (liErr) throw liErr
       }
 
+      const performerName = await resolveMyName()
+      await logPOActivity({
+        poId: po.id,
+        action: 'PO Created',
+        details: `Supplier: ${payload.supplier_name} · ${payload.line_items.length} line item(s) · Total: ${total_qar.toLocaleString()} QAR`,
+        performerName,
+      })
+
       return po as PurchaseOrder
     },
     onSuccess: () => {
@@ -481,6 +490,14 @@ export function useSubmitPOForApproval() {
         .from('purchase_orders').update({ status: 'pending_approval' }).eq('id', id)
       if (poErr) throw poErr
 
+      const submitPerformer = await resolveMyName()
+      await logPOActivity({
+        poId: id,
+        action: 'Submitted for Approval',
+        details: `${tiers.length} approval tier(s)`,
+        performerName: submitPerformer,
+      })
+
       // Fire notifications to all approvers (parallel approval)
       const recipientIds = getNotificationRecipients(tiers, roleAssignments)
       if (recipientIds.length > 0) {
@@ -534,6 +551,14 @@ export function useCreatePOPayment() {
         status: 'pending' as any,
       })
       if (error) throw error
+
+      const payPerformer = await resolveMyName()
+      await logPOActivity({
+        poId: payment.po_id,
+        action: 'Payment Recorded',
+        details: `${payment.amount.toLocaleString()} ${payment.currency} via ${payment.method}${payment.reference ? ` · Ref: ${payment.reference}` : ''}`,
+        performerName: payPerformer,
+      })
     },
     onSuccess: (_data, variables) => {
       queryClient.invalidateQueries({ queryKey: ['po-payments', variables.po_id] })
@@ -570,6 +595,9 @@ export function useCancelPO() {
         .update({ status: 'cancelled' })
         .eq('id', id)
       if (error) throw error
+
+      const cancelPerformer = await resolveMyName()
+      await logPOActivity({ poId: id, action: 'PO Cancelled', performerName: cancelPerformer, severity: 'warning' })
     },
     onSuccess: (_, id) => {
       queryClient.invalidateQueries({ queryKey: ['purchase-orders'] })
@@ -766,6 +794,16 @@ export function useSubmitPoVersion() {
         }))
         await (supabase as any).from('notifications').insert(notifs)
       }
+
+      const versionPerformer = myProfile
+        ? ((await (supabase as any).from('profiles').select('full_name').eq('id', myProfile.id).maybeSingle())?.data?.full_name ?? null)
+        : null
+      await logPOActivity({
+        poId: id,
+        action: `PO Amended — Version ${newVersion}`,
+        details: `${payload.line_items.length} line item(s) · New total: ${total_qar.toLocaleString()} QAR`,
+        performerName: versionPerformer,
+      })
     },
     onSuccess: (_data, variables) => {
       queryClient.invalidateQueries({ queryKey: ['purchase-orders'] })
@@ -816,6 +854,14 @@ export function useSavePoAsDraft() {
           .insert(payload.line_items.map((li) => ({ ...li, po_id: id })))
         if (liErr) throw liErr
       }
+
+      const draftPerformer = await resolveMyName()
+      await logPOActivity({
+        poId: id,
+        action: 'Draft Saved',
+        details: `${payload.line_items.length} line item(s) · Supplier: ${payload.supplier_name}`,
+        performerName: draftPerformer,
+      })
     },
     onSuccess: (_data, variables) => {
       queryClient.invalidateQueries({ queryKey: ['purchase-orders'] })

@@ -385,24 +385,44 @@ export function PoDetailDialog({ open, onOpenChange, po, onEdit, onCreateBill }:
                   <p className="text-sm text-muted-foreground text-center py-4">No activity yet</p>
                 ) : (
                   <div className="relative pl-6 space-y-0">
-                    {(activityLogs ?? []).map((log, idx) => (
-                      <div key={log.id} className="relative pb-4">
-                        {idx < (activityLogs ?? []).length - 1 && (
-                          <span className="absolute left-[-16px] top-3 bottom-0 w-px bg-border" />
-                        )}
-                        <span className="absolute left-[-20px] top-1.5 h-3 w-3 rounded-full border-2 border-primary bg-background" />
-                        <div className="text-sm">
-                          <span className="font-medium">{log.action}</span>
-                          {log.performer_name && (
-                            <span className="text-muted-foreground"> · {log.performer_name}</span>
+                    {(activityLogs ?? []).map((log, idx) => {
+                      const a = log.action ?? ''
+                      const dotClass = a.includes('Cancelled') || a.includes('Rejected')
+                        ? 'bg-destructive border-destructive'
+                        : a.includes('Force Approved') || a.includes('Force)')
+                          ? 'bg-orange-500 border-orange-500'
+                          : a.includes('Approved') || a.includes('Received')
+                            ? 'bg-green-500 border-green-500'
+                            : a.includes('Payment')
+                              ? 'bg-purple-500 border-purple-500'
+                              : a.includes('Receival')
+                                ? 'bg-teal-500 border-teal-500'
+                                : 'bg-primary border-primary'
+                      return (
+                        <div key={log.id} className="relative pb-4">
+                          {idx < (activityLogs ?? []).length - 1 && (
+                            <span className="absolute left-[-16px] top-3 bottom-0 w-px bg-border" />
+                          )}
+                          <span className={cn('absolute left-[-20px] top-1.5 h-3 w-3 rounded-full border-2', dotClass)} />
+                          <div className="text-sm flex flex-wrap items-center gap-1.5">
+                            <span className="font-medium">{log.action}</span>
+                            {log.severity === 'warning' && (
+                              <span className="text-xs text-yellow-700 bg-yellow-100 px-1.5 py-0.5 rounded">Warning</span>
+                            )}
+                            {log.severity === 'critical' && (
+                              <span className="text-xs text-red-700 bg-red-100 px-1.5 py-0.5 rounded">Critical</span>
+                            )}
+                            {log.performer_name && (
+                              <span className="text-muted-foreground text-xs">· {log.performer_name}</span>
+                            )}
+                          </div>
+                          <p className="text-xs text-muted-foreground mt-0.5">{formatDate(log.created_at)}</p>
+                          {log.details && (
+                            <p className="text-xs text-muted-foreground mt-0.5">{log.details}</p>
                           )}
                         </div>
-                        <p className="text-xs text-muted-foreground mt-0.5">{formatDate(log.created_at)}</p>
-                        {log.details && (
-                          <p className="text-xs text-muted-foreground mt-0.5">{log.details}</p>
-                        )}
-                      </div>
-                    ))}
+                      )
+                    })}
                   </div>
                 )}
               </TabsContent>

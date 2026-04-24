@@ -1,6 +1,7 @@
 // src/hooks/useReceivals.ts
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { createClient } from '@/lib/supabase/client'
+import { logPOActivity, resolveMyName } from '@/lib/poActivityLogger'
 
 export type ReceivalStatus = 'pending_approval' | 'approved' | 'rejected'
 
@@ -168,6 +169,22 @@ export function useCreateReceival() {
           }
         }
       }
+
+      const regularCount = payload.items.filter((i) => !i.is_free).length
+      const freeCount = payload.items.filter((i) => i.is_free).length
+      const details = [
+        `${receival.receival_number}`,
+        regularCount > 0 ? `${regularCount} item(s) received` : null,
+        freeCount > 0 ? `${freeCount} free item(s)` : null,
+        payload.notes ? `Note: ${payload.notes}` : null,
+      ].filter(Boolean).join(' · ')
+      await logPOActivity({
+        poId: payload.po_id,
+        action: 'Receival Recorded',
+        details,
+        performerName: receivedByName,
+      })
+
       return receival as Receival
     },
     onSuccess: (_data, variables) => {
@@ -186,12 +203,21 @@ export function useApproveReceival() {
       const supabase = createClient()
       const { data: receival } = await (supabase as any)
         .from('receivals')
-        .select('po_id, receival_items(po_line_item_id, qty_received, is_free)')
+        .select('po_id, receival_number, receival_items(po_line_item_id, qty_received, is_free)')
         .eq('id', id)
         .single()
       const { error } = await (supabase as any)
         .from('receivals').update({ status: action }).eq('id', id)
       if (error) throw error
+
+      const approvalPerformer = await resolveMyName()
+      await logPOActivity({
+        poId: receival?.po_id,
+        action: action === 'approved' ? 'Receival Approved' : 'Receival Rejected',
+        details: receival?.receival_number ?? id,
+        performerName: approvalPerformer,
+        severity: action === 'rejected' ? 'warning' : 'info',
+      })
 
       // Roll back received_qty on po_line_items when rejected
       if (action === 'rejected') {
