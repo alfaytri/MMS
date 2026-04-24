@@ -13,11 +13,11 @@ import { cn } from '@/lib/utils'
 import type { BillViewModel } from '@/hooks/useSupplierBills'
 import type { Division } from '@/hooks/useDivisions'
 
-type DivisionWithAddress = Division & { address?: string | null }
+const FALLBACK_COMPANY = 'Alfaytri Maintenance'
 
 type Props = {
   viewModel: BillViewModel
-  division: DivisionWithAddress | null
+  division: Division | null
   showReceival: boolean
   showPaymentPlan: boolean
   showNotes: boolean
@@ -92,11 +92,11 @@ export function BillDetailDocument({
         <div className="flex items-start justify-between gap-4">
           <div>
             <h1 className="text-xl font-bold leading-tight">
-              {division?.name ?? 'Alfaytri Maintenance'}
+              {division?.name ?? FALLBACK_COMPANY}
             </h1>
-            {division?.address && (
+            {division?.address_en && (
               <p className="text-sm text-muted-foreground mt-1 whitespace-pre-line">
-                {division.address}
+                {division.address_en}
               </p>
             )}
           </div>
@@ -370,7 +370,7 @@ export function BillDetailDocument({
       {/* 11. Footer */}
       <div className="border-t pt-4 flex items-start justify-between text-xs text-muted-foreground gap-4">
         <p>
-          {division?.name ?? 'Alfaytri Maintenance'}
+          {division?.name ?? FALLBACK_COMPANY}
           {' · '}
           <span dir="rtl">هذا المستند تم إنشاؤه تلقائياً</span>
         </p>
