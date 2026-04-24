@@ -2,12 +2,13 @@
 
 import { useState, useEffect, Suspense } from 'react'
 import { useParams, useRouter, usePathname, useSearchParams } from 'next/navigation'
-import { ArrowLeft } from 'lucide-react'
+import { ArrowLeft, Settings2 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { useBillViewModel, useBillsByPO } from '@/hooks/useSupplierBills'
 import { useDivisions } from '@/hooks/useDivisions'
 import { BillDetailSidebar } from '@/components/purchase/BillDetailSidebar'
 import { BillDetailDocument } from '@/components/purchase/BillDetailDocument'
+import { cn } from '@/lib/utils'
 
 type ToggleKey = 'showReceival' | 'showPaymentPlan' | 'showNotes' | 'showQR'
 
@@ -28,6 +29,7 @@ function BillDetailContent() {
   const [showNotes, setShowNotes] = useState(() => getParam('showNotes'))
   const [showQR, setShowQR] = useState(() => getParam('showQR'))
   const [selectedDivisionId, setSelectedDivisionId] = useState('')
+  const [sidebarOpen, setSidebarOpen] = useState(false)
 
   function handleToggle(key: ToggleKey, value: boolean) {
     const setters: Record<ToggleKey, (v: boolean) => void> = {
@@ -57,7 +59,7 @@ function BillDetailContent() {
     if (divisions.length > 0 && !selectedDivisionId) {
       setSelectedDivisionId(divisions[0].id)
     }
-  }, [divisions, selectedDivisionId])
+  }, [divisions]) // eslint-disable-line react-hooks/exhaustive-deps
 
   const selectedDivision = divisions.find((d) => d.id === selectedDivisionId) ?? null
 
@@ -84,29 +86,55 @@ function BillDetailContent() {
 
   return (
     <div className="flex min-h-screen">
-      <BillDetailSidebar
-        divisions={divisions}
-        selectedDivisionId={selectedDivisionId}
-        onDivisionChange={setSelectedDivisionId}
-        showReceival={showReceival}
-        showPaymentPlan={showPaymentPlan}
-        showNotes={showNotes}
-        showQR={showQR}
-        onToggle={handleToggle}
-        hasReceival={!!receival}
-        hasPaymentPlan={!!paymentPlan}
-        hasNotes={!!bill.notes}
-      />
-      <div className="flex-1 overflow-auto bg-muted/30 p-8">
-        <Button
-          variant="ghost"
-          size="sm"
-          className="mb-6 print:hidden"
-          onClick={() => router.push('/purchase/bills')}
-        >
-          <ArrowLeft className="h-4 w-4 mr-1.5" />
-          Back to Bills
-        </Button>
+      {/* Sidebar: always visible on lg+, overlay on mobile */}
+      <>
+        {/* Mobile overlay backdrop */}
+        {sidebarOpen && (
+          <div
+            className="fixed inset-0 z-40 bg-black/40 lg:hidden"
+            onClick={() => setSidebarOpen(false)}
+          />
+        )}
+        {/* Sidebar */}
+        <div className={cn(
+          'fixed inset-y-0 left-0 z-50 lg:static lg:z-auto transition-transform lg:transform-none',
+          sidebarOpen ? 'translate-x-0' : '-translate-x-full lg:translate-x-0'
+        )}>
+          <BillDetailSidebar
+            divisions={divisions}
+            selectedDivisionId={selectedDivisionId}
+            onDivisionChange={setSelectedDivisionId}
+            showReceival={showReceival}
+            showPaymentPlan={showPaymentPlan}
+            showNotes={showNotes}
+            showQR={showQR}
+            onToggle={handleToggle}
+            hasReceival={!!receival}
+            hasPaymentPlan={!!paymentPlan}
+            hasNotes={!!bill.notes}
+          />
+        </div>
+      </>
+      <div className="flex-1 overflow-auto bg-muted/30 p-4 lg:p-8">
+        <div className="flex items-center gap-3 mb-4 lg:mb-6 print:hidden">
+          <Button
+            variant="ghost"
+            size="sm"
+            className="lg:hidden"
+            onClick={() => setSidebarOpen(true)}
+          >
+            <Settings2 className="h-4 w-4 mr-1.5" />
+            Options
+          </Button>
+          <Button
+            variant="ghost"
+            size="sm"
+            onClick={() => router.push('/purchase/bills')}
+          >
+            <ArrowLeft className="h-4 w-4 mr-1.5" />
+            Back to Bills
+          </Button>
+        </div>
         <BillDetailDocument
           viewModel={viewModel}
           division={selectedDivision}
