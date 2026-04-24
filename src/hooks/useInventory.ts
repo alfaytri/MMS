@@ -27,8 +27,7 @@ export function useInventoryCategories() {
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       const { data, error } = await (supabase.from('inventory_categories') as any)
         .select('*')
-        .eq('status', 'active')
-        .order('sort_order')
+        .order('name_en')
       if (error) throw error
       return data as InventoryCategory[]
     },
