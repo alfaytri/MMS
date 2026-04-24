@@ -150,7 +150,15 @@ Purchase & Sales▾:
 
 ## 🔄 In Progress
 
-No active plan. All Phase 1 implementation plans are complete. Pending Phase 1 cleanup items below before Phase 2.
+### Shipment Tracking Integration (Plan: 2026-04-24-shipment-tracking.md) — IN PROGRESS
+
+- [2026-04-24] **Task 3: Tracking Utilities** — `src/lib/tracking/normalize.ts`, `src/lib/tracking/normalize.test.ts` — TDD: `normalizeTimestamp()` converts UTC/offset strings to ISO-8601, handles unparseable input gracefully; `computeEventHash()` produces sha256 digest; 8 tests pass
+- [2026-04-24] **Task 3: Status Map Utilities** — `src/lib/tracking/statusMap.ts`, `src/lib/tracking/statusMap.test.ts` — TDD: `map17trackTag()` maps 17track status tags (InTransit→in_transit, Delivered→delivered, Exception/Undelivered→delayed, Customs→customs, null for non-status tags); `STATUS_WEIGHTS` defines precedence (delivered>delayed>customs>in_transit>booked); 13 tests pass
+- [2026-04-24] **Task 4: 17track API Client** — `src/lib/tracking/client17track.ts` — TypeScript interfaces (`Track17Event`, `Track17TrackInfo`, `Track17RegisterResult`, `Track17RegisterRejection`); functions: `registerTracking()`, `getTrackInfo()`, `stopTracking()`; error codes (ERR_QUOTA_EXCEEDED=4031, ERR_AMBIGUOUS_CARRIER=4013); `.env.local` updated with `SEVENTEEN_TRACK_API_KEY` and `SEVENTEEN_TRACK_WEBHOOK_SECRET` placeholders
+
+---
+
+**Previous:** No active plan. All Phase 1 implementation plans are complete. Pending Phase 1 cleanup items below before Phase 2.
 
 ---
 
