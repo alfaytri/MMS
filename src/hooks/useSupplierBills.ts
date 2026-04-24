@@ -1,7 +1,7 @@
 // src/hooks/useSupplierBills.ts
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { createClient } from '@/lib/supabase/client'
-import type { ApInvoice, InvoiceLineItem } from '@/types/invoice'
+import type { ApInvoice, InvoiceLineItem, PaymentPlan } from '@/types/invoice'
 
 export type { ApInvoice }
 
@@ -176,6 +176,109 @@ export function useApproveBill() {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['supplier-bills'] })
+    },
+  })
+}
+
+export type BillPayment = {
+  id: string
+  payment_id: string
+  amount: number
+  method: string
+  date: string
+  reference: string | null
+  notes: string | null
+  status: string
+}
+
+export type BillReceival = {
+  id: string
+  receival_number: string
+  date: string
+  status: string
+  receival_items: {
+    id: string
+    item_name: string
+    sku: string | null
+    qty_received: number
+    is_free: boolean
+  }[]
+}
+
+export type BillViewModel = {
+  bill: ApInvoice & {
+    paid_amount: number | null
+    suppliers: {
+      name: string
+      contact_name: string | null
+      phone: string | null
+      email: string | null
+      address: string | null
+    } | null
+    purchase_orders: {
+      po_number: string
+      created_date: string
+      currency: string
+    } | null
+  }
+  payments: BillPayment[]
+  paymentPlan: PaymentPlan | null
+  receival: BillReceival | null
+}
+
+export function useBillViewModel(id: string | null) {
+  return useQuery({
+    queryKey: ['bill-view-model', id],
+    enabled: !!id,
+    queryFn: async (): Promise<BillViewModel> => {
+      const supabase = createClient()
+
+      const [billResult, paymentsResult, planResult] = await Promise.all([
+        (supabase as any)
+          .from('invoices')
+          .select(`
+            *,
+            invoice_line_items(*),
+            suppliers(name, contact_name, phone, email, address),
+            purchase_orders(po_number, created_date, currency)
+          `)
+          .eq('id', id)
+          .eq('direction', 'ap')
+          .single(),
+        (supabase as any)
+          .from('payments')
+          .select('id, payment_id, amount, method, date, reference, notes, status')
+          .eq('invoice_id', id)
+          .eq('direction', 'outgoing')
+          .order('date', { ascending: false }),
+        (supabase as any)
+          .from('payment_plans')
+          .select('*, payment_installments(*)')
+          .eq('invoice_id', id)
+          .order('created_at', { ascending: false })
+          .limit(1)
+          .maybeSingle(),
+      ])
+
+      if (billResult.error) throw billResult.error
+      if (paymentsResult.error) throw paymentsResult.error
+
+      let receival: BillReceival | null = null
+      if (billResult.data?.receival_id) {
+        const { data } = await (supabase as any)
+          .from('receivals')
+          .select('id, receival_number, date, status, receival_items(id, item_name, sku, qty_received, is_free)')
+          .eq('id', billResult.data.receival_id)
+          .single()
+        receival = data ?? null
+      }
+
+      return {
+        bill: billResult.data as BillViewModel['bill'],
+        payments: (paymentsResult.data ?? []) as BillPayment[],
+        paymentPlan: planResult.data ?? null,
+        receival,
+      }
     },
   })
 }
