@@ -101,6 +101,7 @@ export type POReceival = {
   notes: string | null
   created_at: string
   // joined
+  warehouse_name?: string | null
   receival_items?: {
     id: string
     item_name: string
@@ -216,7 +217,7 @@ export function usePurchaseOrders(filters: POFilters = {}) {
       const supabase = createClient()
       let query = (supabase as any)
         .from('purchase_orders')
-        .select('*, po_approvals(*)')
+        .select('*, po_approvals(*), po_line_items(*)')
         .is('deleted_at', null)
         .order('created_at', { ascending: false })
 
@@ -265,7 +266,7 @@ export function usePOPayments(poId: string | null) {
         .eq('source_id', poId!)
         .is('deleted_at', null)
         .order('date', { ascending: false })
-      if (error) throw error
+      if (error) return [] as POPayment[] // columns may not exist until migration 20260422000002 is applied
       return data as POPayment[]
     },
     enabled: !!poId,
@@ -280,11 +281,14 @@ export function usePOReceivalsByPO(poId: string | null) {
       const supabase = createClient()
       const { data, error } = await (supabase as any)
         .from('receivals')
-        .select('*, receival_items(*)')
+        .select('*, receival_items(*), warehouses(name)')
         .eq('po_id', poId!)
         .order('date', { ascending: false })
       if (error) throw error
-      return data as POReceival[]
+      return (data ?? []).map((r: any) => ({
+        ...r,
+        warehouse_name: r.warehouses?.name ?? null,
+      })) as POReceival[]
     },
     enabled: !!poId,
     staleTime: 30 * 1000,
@@ -298,11 +302,7 @@ export function useCreatePO() {
       const supabase = createClient()
       const po_number = await generatePONumber(supabase)
 
-      // Resolve creator's profile UUID (used for self-approval guard)
       const { data: { user } } = await supabase.auth.getUser()
-      const { data: creatorProfile } = user
-        ? await (supabase as any).from('profiles').select('id').eq('auth_user_id', user.id).maybeSingle()
-        : { data: null }
 
       const subtotal = payload.line_items.reduce((s, li) => s + li.total_price, 0)
       const total_qar = (subtotal - payload.discount_amount) * payload.exchange_rate
@@ -330,7 +330,7 @@ export function useCreatePO() {
           vendor_notes: payload.vendor_notes,
           discount_amount: payload.discount_amount,
           discount_label: payload.discount_label,
-          created_by: creatorProfile?.id ?? null,
+          created_by: user?.id ?? null,
         })
         .select()
         .single()
@@ -344,6 +344,23 @@ export function useCreatePO() {
       }
 
       return po as PurchaseOrder
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['purchase-orders'] })
+    },
+  })
+}
+
+export function useSoftDeletePO() {
+  const queryClient = useQueryClient()
+  return useMutation({
+    mutationFn: async (id: string) => {
+      const supabase = createClient()
+      const { error } = await (supabase as any)
+        .from('purchase_orders')
+        .update({ deleted_at: new Date().toISOString() })
+        .eq('id', id)
+      if (error) throw error
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['purchase-orders'] })
@@ -445,8 +462,7 @@ export function useSubmitPOForApproval() {
         .or(divisionId ? `division_id.eq.${divisionId},division_id.is.null` : 'division_id.is.null')
       const roleAssignments = assignments ?? []
 
-      // Validate roles (exclude creator)
-      const validationError = validateRoles(tiers, roleAssignments, myProfile.id)
+      const validationError = validateRoles(tiers, roleAssignments)
       if (validationError) throw new Error(validationError)
 
       // Determine iteration
@@ -465,9 +481,8 @@ export function useSubmitPOForApproval() {
         .from('purchase_orders').update({ status: 'pending_approval' }).eq('id', id)
       if (poErr) throw poErr
 
-      // Fire notifications (distinct per user for lowest-rank tier)
-      const lowestRank = tiers[0].rank
-      const recipientIds = getNotificationRecipients(lowestRank, tiers, roleAssignments, myProfile.id)
+      // Fire notifications to all approvers (parallel approval)
+      const recipientIds = getNotificationRecipients(tiers, roleAssignments)
       if (recipientIds.length > 0) {
         const notifs = recipientIds.map((profileId: string) => ({
           profile_id: profileId,
@@ -723,7 +738,7 @@ export function useSubmitPoVersion() {
         .or(divisionId ? `division_id.eq.${divisionId},division_id.is.null` : 'division_id.is.null')
       const roleAssignments = assignments ?? []
 
-      const validationError = validateRoles(tiers, roleAssignments, myProfile.id)
+      const validationError = validateRoles(tiers, roleAssignments)
       if (validationError) throw new Error(validationError)
 
       // Determine iteration number
@@ -736,9 +751,8 @@ export function useSubmitPoVersion() {
       const { error: approvalErr } = await (supabase as any).from('po_approvals').insert(steps)
       if (approvalErr) throw approvalErr
 
-      // Fire notifications to first tier recipients
-      const lowestRank = tiers[0].rank
-      const recipientIds = getNotificationRecipients(lowestRank, tiers, roleAssignments, myProfile.id)
+      // Fire notifications to all approvers (parallel approval)
+      const recipientIds = getNotificationRecipients(tiers, roleAssignments)
       if (recipientIds.length > 0) {
         const { data: poData } = await (supabase as any)
           .from('purchase_orders').select('po_number').eq('id', id).single()

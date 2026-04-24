@@ -49,32 +49,31 @@ describe('findApplicableTiers', () => {
 describe('validateRoles', () => {
   const tiers = [tier(1, 0, ['purchase_manager']), tier(2, 5000, ['accountant'])]
 
-  it('returns null when all roles have eligible assignees', () => {
-    expect(validateRoles(tiers, [assign('pm', 'purchase_manager'), assign('ac', 'accountant')], 'creator')).toBeNull()
+  it('returns null when all roles have assignees', () => {
+    expect(validateRoles(tiers, [assign('pm', 'purchase_manager'), assign('ac', 'accountant')])).toBeNull()
   })
 
   it('returns error message naming the missing role', () => {
-    const result = validateRoles(tiers, [assign('pm', 'purchase_manager')], 'creator')
+    const result = validateRoles(tiers, [assign('pm', 'purchase_manager')])
     expect(result).toContain('Accountant')
   })
 
-  it('excludes the creator from eligible assignees', () => {
-    const result = validateRoles(tiers, [assign('pm', 'purchase_manager'), assign('creator', 'accountant')], 'creator')
-    expect(result).toContain('Accountant')
+  it('allows creator to be an approver', () => {
+    const result = validateRoles(tiers, [assign('pm', 'purchase_manager'), assign('creator', 'accountant')])
+    expect(result).toBeNull()
   })
 
   it('excludes soft-deleted assignments', () => {
-    const result = validateRoles(tiers, [assign('pm', 'purchase_manager'), { ...assign('ac', 'accountant'), deleted_at: '2026-01-01' }], 'creator')
+    const result = validateRoles(tiers, [assign('pm', 'purchase_manager'), { ...assign('ac', 'accountant'), deleted_at: '2026-01-01' }])
     expect(result).toContain('Accountant')
   })
 })
 
 describe('buildApprovalSteps', () => {
-  it('first tier is active, others dormant', () => {
+  it('all steps are active from the start (parallel approval)', () => {
     const tiers = [tier(1, 0, ['purchase_manager']), tier(2, 5000, ['accountant'])]
     const steps = buildApprovalSteps('po1', tiers, 1)
-    expect(steps.filter((s) => s.tier_rank === 1).every((s) => s.is_active)).toBe(true)
-    expect(steps.filter((s) => s.tier_rank === 2).every((s) => !s.is_active)).toBe(true)
+    expect(steps.every((s) => s.is_active)).toBe(true)
   })
 
   it('creates one step per role per tier', () => {
@@ -95,28 +94,28 @@ describe('buildApprovalSteps', () => {
 describe('getNotificationRecipients', () => {
   const tiers = [tier(1, 0, ['purchase_manager']), tier(2, 5000, ['accountant'])]
 
-  it('returns users holding the active tier role', () => {
-    const result = getNotificationRecipients(1, tiers, [assign('pm', 'purchase_manager'), assign('ac', 'accountant')], 'creator')
-    expect(result).toEqual(['pm'])
+  it('returns all users across all tiers', () => {
+    const result = getNotificationRecipients(tiers, [assign('pm', 'purchase_manager'), assign('ac', 'accountant')])
+    expect(result).toContain('pm')
+    expect(result).toContain('ac')
+    expect(result).toHaveLength(2)
   })
 
-  it('deduplicates user holding multiple roles in same tier', () => {
+  it('deduplicates user holding multiple roles', () => {
     const multiTier = [tier(1, 0, ['purchase_manager', 'accountant'])]
-    const result = getNotificationRecipients(1, multiTier, [assign('multi', 'purchase_manager'), assign('multi', 'accountant')], 'creator')
+    const result = getNotificationRecipients(multiTier, [assign('multi', 'purchase_manager'), assign('multi', 'accountant')])
     expect(result).toEqual(['multi'])
   })
 
-  it('excludes the creator', () => {
-    const result = getNotificationRecipients(1, tiers, [assign('creator', 'purchase_manager')], 'creator')
-    expect(result).toEqual([])
+  it('includes creator as notification recipient', () => {
+    const result = getNotificationRecipients(tiers, [assign('creator', 'purchase_manager')])
+    expect(result).toEqual(['creator'])
   })
 
   it('excludes soft-deleted assignments', () => {
     const result = getNotificationRecipients(
-      1,
       tiers,
       [{ ...assign('pm', 'purchase_manager'), deleted_at: '2026-01-01' }],
-      'creator'
     )
     expect(result).toEqual([])
   })

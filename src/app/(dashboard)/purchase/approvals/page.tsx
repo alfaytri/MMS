@@ -9,7 +9,7 @@ import { PoStatusBadge } from '@/components/purchase/PoStatusBadge'
 import { PoApprovalChain } from '@/components/purchase/PoApprovalChain'
 import {
   usePendingApprovals, useCompletedApprovals,
-  useApproveStep, useRejectPO, useForceApproveStep,
+  useApproveStep, useRejectPO, useForceApproveStep, useMyApprovalRoles,
 } from '@/hooks/usePOApprovals'
 import { useIsAdmin } from '@/hooks/useProfiles'
 import { type PurchaseOrder, type POApprovalStep } from '@/hooks/usePurchaseOrders'
@@ -47,6 +47,7 @@ export default function ApprovalsPage() {
   const { data: pending, isLoading: pendingLoading } = usePendingApprovals()
   const { data: completed, isLoading: completedLoading } = useCompletedApprovals()
   const { data: isAdmin } = useIsAdmin()
+  const { data: myRoles = [] } = useMyApprovalRoles()
   const approveStep = useApproveStep()
   const rejectPO = useRejectPO()
   const forceApprove = useForceApproveStep()
@@ -54,7 +55,10 @@ export default function ApprovalsPage() {
   function openDialog(po: PurchaseOrder, mode: 'approve' | 'force' = 'approve') {
     const allSteps = po.po_approvals ?? []
     const maxIteration = Math.max(...allSteps.map((s: any) => s.iteration ?? 1), 1)
-    const step = allSteps.find((s: any) => s.status === 'pending' && s.is_active && (s.iteration ?? 1) === maxIteration)
+    const activePending = (s: any) => s.status === 'pending' && s.is_active && (s.iteration ?? 1) === maxIteration
+    const step = mode === 'approve'
+      ? (allSteps.find((s: any) => activePending(s) && myRoles.includes(s.role)) ?? allSteps.find(activePending))
+      : allSteps.find(activePending)
     if (!step) return
     setDialogState({ po, step, mode })
     setComment('')
@@ -106,7 +110,7 @@ export default function ApprovalsPage() {
               const allSteps = po.po_approvals ?? []
               const maxIteration = Math.max(...allSteps.map((s: any) => s.iteration ?? 1), 1)
               const currentSteps = allSteps.filter((s: any) => (s.iteration ?? 1) === maxIteration)
-              const pendingStep = currentSteps.find((s: any) => s.status === 'pending' && s.is_active)
+              const pendingSteps = currentSteps.filter((s: any) => s.status === 'pending' && s.is_active)
               const showPrev = showPrevIterations[po.id]
               return (
                 <div key={po.id} className="rounded-lg border p-4 space-y-3">
@@ -124,14 +128,14 @@ export default function ApprovalsPage() {
                     <span className="text-sm text-muted-foreground">{po.supplier_name} · {formatDate(po.created_date)}</span>
                     <PoApprovalChain steps={allSteps} showIteration={maxIteration} />
                   </div>
-                  {pendingStep && (
+                  {pendingSteps.length > 0 && (
                     <div className="text-xs text-muted-foreground">
-                      Waiting for: <span className="font-medium text-foreground">{ROLE_LABELS[pendingStep.role] ?? pendingStep.role}</span>
+                      Waiting for: <span className="font-medium text-foreground">{pendingSteps.map((s: any) => ROLE_LABELS[s.role] ?? s.role).join(', ')}</span>
                     </div>
                   )}
                   <div className="flex gap-2 flex-wrap">
                     <Button size="sm" onClick={() => openDialog(po)}>Review</Button>
-                    {isAdmin && pendingStep && (
+                    {isAdmin && pendingSteps.length > 0 && (
                       <Button size="sm" variant="outline" onClick={() => openDialog(po, 'force')} className="gap-1 text-amber-600 border-amber-300">
                         <ShieldAlert className="h-3.5 w-3.5" /> Force Approve
                       </Button>

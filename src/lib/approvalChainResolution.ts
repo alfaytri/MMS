@@ -35,27 +35,20 @@ const ROLE_LABELS: Record<ApprovalRole, string> = {
 }
 
 export function findApplicableTiers(amount: number, tiers: ApprovalChainTier[]): ApprovalChainTier[] {
-  // max_amount is intentionally not checked: the model is cumulative —
-  // all tiers whose min_amount is <= the PO amount apply, regardless of max_amount.
   return tiers
     .filter((t) => !t.deleted_at && amount >= t.min_amount)
     .sort((a, b) => a.rank - b.rank)
 }
 
-/**
- * Caller must pre-filter assignments to the relevant division.
- * Division scoping is the caller's responsibility.
- */
 export function validateRoles(
   tiers: ApprovalChainTier[],
   assignments: ApprovalRoleAssignmentRow[],
-  creatorProfileId: string,
 ): string | null {
-  const eligibleAssignments = assignments.filter((a) => !a.deleted_at && a.profile_id !== creatorProfileId)
+  const activeAssignments = assignments.filter((a) => !a.deleted_at)
   const allRoles = new Set(tiers.flatMap((t) => t.required_roles))
   for (const role of allRoles) {
-    if (!eligibleAssignments.some((a) => a.role === role)) {
-      return `No eligible approver found for role: ${ROLE_LABELS[role] ?? role}. Assign someone to this role or ensure the approver is not the PO creator.`
+    if (!activeAssignments.some((a) => a.role === role)) {
+      return `No approver assigned for role: ${ROLE_LABELS[role] ?? role}. Go to Approval Settings → Role Assignments to add one.`
     }
   }
   return null
@@ -67,7 +60,6 @@ export function buildApprovalSteps(
   iteration: number,
 ): ApprovalStepInsert[] {
   const steps: ApprovalStepInsert[] = []
-  const lowestRank = tiers.length > 0 ? Math.min(...tiers.map((t) => t.rank)) : null
   for (const tier of tiers) {
     for (const role of tier.required_roles) {
       steps.push({
@@ -75,7 +67,7 @@ export function buildApprovalSteps(
         role,
         tier_rank: tier.rank,
         status: 'pending',
-        is_active: tier.rank === lowestRank,
+        is_active: true,
         iteration,
       })
     }
@@ -83,22 +75,14 @@ export function buildApprovalSteps(
   return steps
 }
 
-/**
- * Caller must pre-filter assignments to the relevant division.
- * Division scoping is the caller's responsibility.
- */
 export function getNotificationRecipients(
-  activeTierRank: number,
   tiers: ApprovalChainTier[],
   assignments: ApprovalRoleAssignmentRow[],
-  creatorProfileId: string,
 ): string[] {
-  const activeTier = tiers.find((t) => t.rank === activeTierRank)
-  if (!activeTier) return []
-  const activeRoles = new Set(activeTier.required_roles)
+  const allRoles = new Set(tiers.flatMap((t) => t.required_roles))
   const seen = new Set<string>()
   for (const a of assignments) {
-    if (!a.deleted_at && activeRoles.has(a.role) && a.profile_id !== creatorProfileId) {
+    if (!a.deleted_at && allRoles.has(a.role)) {
       seen.add(a.profile_id)
     }
   }

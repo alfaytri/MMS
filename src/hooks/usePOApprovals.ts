@@ -1,7 +1,6 @@
 // src/hooks/usePOApprovals.ts
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { createClient } from '@/lib/supabase/client'
-import { getNotificationRecipients } from '@/lib/approvalChainResolution'
 import type { PurchaseOrder } from './usePurchaseOrders'
 
 async function getMyIdentity() {
@@ -30,17 +29,12 @@ export function usePendingApprovals() {
       const roles = (myRoles ?? []).map((r: { role: string }) => r.role) as string[]
       if (roles.length === 0) return [] as PurchaseOrder[]
 
-      // Get POs pending approval — self-approval guard uses profile UUID (created_by is UUID FK)
-      // Use or() so POs with created_by = NULL are still included (neq alone excludes NULLs in SQL)
-      const baseQuery = (supabase as any)
+      const { data, error } = await (supabase as any)
         .from('purchase_orders')
         .select('*, po_line_items(*), po_approvals(*)')
         .eq('status', 'pending_approval')
         .is('deleted_at', null)
         .order('created_at', { ascending: false })
-      const { data, error } = me.profileId
-        ? await baseQuery.or(`created_by.is.null,created_by.neq.${me.profileId}`)
-        : await baseQuery
       if (error) throw error
 
       const pos = (data ?? []) as PurchaseOrder[]
@@ -136,45 +130,12 @@ export function useApproveStep() {
       const { error: rpcErr } = await (supabase as any).rpc('advance_po_approval_tier', { p_po_id: poId })
       if (rpcErr) throw rpcErr
 
-      // Check if next tier was activated — fire notifications for it
-      const { data: newlyActive } = await (supabase as any)
-        .from('po_approvals')
-        .select('tier_rank')
-        .eq('po_id', poId)
-        .eq('is_active', true)
-        .eq('status', 'pending')
-        .order('tier_rank', { ascending: true })
-        .limit(1)
-      if (newlyActive?.[0] && newlyActive[0].tier_rank !== thisStep?.tier_rank) {
-        // New tier activated — fetch tiers + assignments + fire notifications
-        const { data: allSteps } = await (supabase as any)
-          .from('po_approvals').select('tier_rank, role, is_active').eq('po_id', poId).eq('iteration', thisStep?.iteration ?? 1)
-        const { data: assignments } = await (supabase as any)
-          .from('approval_role_assignments').select('*').is('deleted_at', null)
-        const activeTierRank = newlyActive[0].tier_rank
-        const uniqueTiers = [...new Map((allSteps ?? []).map((s: any) => [s.tier_rank, { rank: s.tier_rank, required_roles: [] as string[], id: '', chain_id: '', min_amount: 0, max_amount: null, deleted_at: null }])).values()]
-        ;(allSteps ?? []).forEach((s: any) => { const t = uniqueTiers.find((u: any) => u.rank === s.tier_rank); if (t) (t as any).required_roles.push(s.role) })
-        const recipientIds = getNotificationRecipients(activeTierRank, uniqueTiers as any, assignments ?? [], me.profileId ?? '')
-        if (recipientIds.length > 0) {
-          const { data: po } = await (supabase as any).from('purchase_orders').select('po_number, total_qar').eq('id', poId).single()
-          const notifs = recipientIds.map((profileId: string) => ({
-            profile_id: profileId,
-            type: 'po_approval_requested',
-            title: `PO ${po?.po_number ?? poId} requires your approval`,
-            body: `Total: ${po?.total_qar} QAR`,
-            related_id: poId,
-            related_type: 'purchase_order',
-          }))
-          await (supabase as any).from('notifications').insert(notifs)
-        }
-      }
-
-      // Check if PO is now fully approved — notify creator
+      // Check if PO is now fully approved — notify creator (created_by stores auth.users.id)
       const { data: poStatus } = await (supabase as any)
         .from('purchase_orders').select('status, created_by, po_number').eq('id', poId).single()
       if (poStatus?.status === 'approved' && poStatus.created_by) {
         const { data: creatorProfile } = await (supabase as any)
-          .from('profiles').select('id').eq('email', poStatus.created_by).maybeSingle()
+          .from('profiles').select('id').eq('auth_user_id', poStatus.created_by).maybeSingle()
         if (creatorProfile) {
           await (supabase as any).from('notifications').insert({
             profile_id: creatorProfile.id,
@@ -231,39 +192,6 @@ export function useForceApproveStep() {
       const { error: rpcErr } = await (supabase as any).rpc('advance_po_approval_tier', { p_po_id: poId })
       if (rpcErr) throw rpcErr
 
-      // Check if next tier was activated — fire notifications
-      const { data: forcedStep } = await (supabase as any)
-        .from('po_approvals').select('tier_rank, iteration').eq('id', stepId).single()
-      const { data: newlyActive } = await (supabase as any)
-        .from('po_approvals')
-        .select('tier_rank')
-        .eq('po_id', poId)
-        .eq('is_active', true)
-        .eq('status', 'pending')
-        .order('tier_rank', { ascending: true })
-        .limit(1)
-      if (newlyActive?.[0] && newlyActive[0].tier_rank !== forcedStep?.tier_rank) {
-        const { data: allSteps } = await (supabase as any)
-          .from('po_approvals').select('tier_rank, role, is_active').eq('po_id', poId).eq('iteration', forcedStep?.iteration ?? 1)
-        const { data: assignments } = await (supabase as any)
-          .from('approval_role_assignments').select('*').is('deleted_at', null)
-        const activeTierRank = newlyActive[0].tier_rank
-        const uniqueTiers = [...new Map((allSteps ?? []).map((s: any) => [s.tier_rank, { rank: s.tier_rank, required_roles: [] as string[], id: '', chain_id: '', min_amount: 0, max_amount: null, deleted_at: null }])).values()]
-        ;(allSteps ?? []).forEach((s: any) => { const t = uniqueTiers.find((u: any) => u.rank === s.tier_rank); if (t) (t as any).required_roles.push(s.role) })
-        const recipientIds = getNotificationRecipients(activeTierRank, uniqueTiers as any, assignments ?? [], me.profileId ?? '')
-        if (recipientIds.length > 0) {
-          const { data: po } = await (supabase as any).from('purchase_orders').select('po_number, total_qar').eq('id', poId).single()
-          const notifs = recipientIds.map((profileId: string) => ({
-            profile_id: profileId,
-            type: 'po_approval_requested',
-            title: `PO ${po?.po_number ?? poId} requires your approval`,
-            body: `Total: ${po?.total_qar} QAR`,
-            related_id: poId,
-            related_type: 'purchase_order',
-          }))
-          await (supabase as any).from('notifications').insert(notifs)
-        }
-      }
     },
     onSuccess: (_data: unknown, variables: { stepId: string; poId: string; forceComment: string }) => {
       queryClient.invalidateQueries({ queryKey: ['po-approvals'] })
@@ -331,7 +259,7 @@ export function useRejectPO() {
         .from('purchase_orders').select('created_by, po_number').eq('id', poId).single()
       if (po?.created_by) {
         const { data: creatorProfile } = await (supabase as any)
-          .from('profiles').select('id').eq('email', po.created_by).maybeSingle()
+          .from('profiles').select('id').eq('auth_user_id', po.created_by).maybeSingle()
         if (creatorProfile) {
           await (supabase as any).from('notifications').insert({
             profile_id: creatorProfile.id,
@@ -349,5 +277,23 @@ export function useRejectPO() {
       queryClient.invalidateQueries({ queryKey: ['purchase-order', variables.poId] })
       queryClient.invalidateQueries({ queryKey: ['notifications'] })
     },
+  })
+}
+
+export function useMyApprovalRoles() {
+  return useQuery({
+    queryKey: ['my-approval-roles'],
+    queryFn: async () => {
+      const me = await getMyIdentity()
+      if (!me?.profileId) return [] as string[]
+      const supabase = createClient()
+      const { data } = await (supabase as any)
+        .from('approval_role_assignments')
+        .select('role')
+        .eq('profile_id', me.profileId)
+        .is('deleted_at', null)
+      return (data ?? []).map((r: { role: string }) => r.role) as string[]
+    },
+    staleTime: 60 * 1000,
   })
 }
