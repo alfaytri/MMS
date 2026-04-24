@@ -99,7 +99,7 @@ BEGIN
 
     FOR j IN 0 .. jsonb_array_length(v_existing_events) - 1 LOOP
       v_existing_evt := v_existing_events->j;
-      IF v_existing_evt->>'normalizedTimestamp' = v_ts
+      IF (v_existing_evt->>'normalizedTimestamp')::TIMESTAMPTZ = v_ts::TIMESTAMPTZ
          AND v_existing_evt->>'location' = v_loc THEN
         IF v_existing_evt->>'hash' = v_hash THEN
           v_match_found := TRUE;
@@ -581,7 +581,8 @@ import {
 import { normalizeTimestamp, computeEventHash } from '@/lib/tracking/normalize'
 import { map17trackTag, STATUS_MAP_JSON } from '@/lib/tracking/statusMap'
 
-const BACKOFF_DELAYS_MS = [1000, 2000, 4000]
+// Kept short to stay within Vercel Hobby 10s limit (total delay ≤ 5s + API call time)
+const BACKOFF_DELAYS_MS = [500, 1500, 3000]
 
 async function fetchWithBackoff(trackingNumber: string, carrierCode?: number) {
   for (const delay of BACKOFF_DELAYS_MS) {
@@ -619,22 +620,26 @@ export async function POST(request: Request) {
 
   const supabase = createAdminClient()
 
-  const { data: shipment } = await (supabase as any)
+  // Atomic semaphore: only acquires the lock if is_syncing is currently false.
+  // Prevents race conditions in serverless environments where two requests can
+  // both read is_syncing: false before either sets it to true.
+  const { data: lockedShipment, error: lockError } = await (supabase as any)
     .from('shipments')
-    .select('is_syncing, carrier_code')
+    .update({ is_syncing: true })
     .eq('id', shipment_id)
-    .single()
+    .eq('is_syncing', false)
+    .select('carrier_code')
+    .maybeSingle()
 
-  if (!shipment) return NextResponse.json({ error: 'Not found' }, { status: 404 })
-  if (shipment.is_syncing) return NextResponse.json({ error: 'Sync already in progress' }, { status: 409 })
-
-  await (supabase as any).from('shipments').update({ is_syncing: true }).eq('id', shipment_id)
+  if (lockError || !lockedShipment) {
+    return NextResponse.json({ error: 'Sync already in progress' }, { status: 409 })
+  }
 
   const resolvedCarrierCode: number | undefined =
     carrier_code !== undefined
       ? Number(carrier_code)
-      : shipment.carrier_code != null
-        ? Number(shipment.carrier_code)
+      : lockedShipment.carrier_code != null
+        ? Number(lockedShipment.carrier_code)
         : undefined
 
   try {
@@ -767,8 +772,7 @@ import { createAdminClient } from '@/lib/supabase/admin'
 import { normalizeTimestamp, computeEventHash } from '@/lib/tracking/normalize'
 import { map17trackTag, STATUS_MAP_JSON } from '@/lib/tracking/statusMap'
 
-// Verify HMAC-SHA256 signature. Header name: confirm in 17track's webhook docs
-// (https://api.17track.net/api-docs) before deploying — may differ from x-17track-signature.
+// 17track sends the HMAC-SHA256 signature in the `17track-signature` header.
 function verifySignature(rawBody: string, signature: string): boolean {
   const secret = process.env.SEVENTEEN_TRACK_WEBHOOK_SECRET
   if (!secret) return false
@@ -778,7 +782,7 @@ function verifySignature(rawBody: string, signature: string): boolean {
 
 export async function POST(request: Request) {
   const rawBody = await request.text()
-  const signature = request.headers.get('x-17track-signature') ?? ''
+  const signature = request.headers.get('17track-signature') ?? ''
 
   if (!verifySignature(rawBody, signature)) {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
@@ -888,9 +892,11 @@ onSuccess: (newShipment) => {
   toast.success('Shipment created')
   onOpenChange(false)
   setForm({ po_id: '', mode: 'air', carrier: '', tracking_number: '', origin: '', destination: '', etd: '', eta: '' })
-  // Fire-and-forget: register with 17track (backoff runs server-side)
+  // Fire-and-forget: keepalive ensures the request completes even if the user
+  // navigates away immediately after the toast.
   fetch('/api/shipments/register-tracking', {
     method: 'POST',
+    keepalive: true,
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({
       tracking_number: newShipment.tracking_number,
@@ -916,6 +922,7 @@ to:
     toast.success('Archived')
     fetch('/api/shipments/deregister-tracking', {
       method: 'POST',
+      keepalive: true,
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ tracking_number: shipment.tracking_number }),
     }).catch(err => console.error('[deregister]', err))
@@ -1165,4 +1172,4 @@ API Management → Create API key → paste into `SEVENTEEN_TRACK_API_KEY` in `.
 
 Webhook settings → set callback URL to `https://<your-domain>/api/webhooks/17track` → copy the webhook secret into `SEVENTEEN_TRACK_WEBHOOK_SECRET` in `.env.local`.
 
-**Important:** Verify the exact signature header name in 17track's webhook documentation and update the `request.headers.get(...)` call in `src/app/api/webhooks/17track/route.ts` if it differs from `x-17track-signature`.
+**Note:** The webhook handler uses the `17track-signature` header as documented by 17track. If your account's dashboard shows a different header name, update `request.headers.get(...)` in `src/app/api/webhooks/17track/route.ts`.
