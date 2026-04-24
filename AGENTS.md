@@ -78,6 +78,24 @@ Markdown
 
 ---
 
+# Dropdown UUID Guard — Mandatory Rule
+
+Whenever you create or modify a `<Select>` / dropdown component, you **must** verify that displayed values are human-readable labels — never raw UUIDs or database IDs.
+
+**Checklist (run before marking the task done):**
+1. Identify what value the dropdown `<SelectItem>` or `<option>` renders as its visible text
+2. If the value comes from a database record (e.g. a foreign-key lookup), confirm that a `name`, `label`, or equivalent human-readable field is used for display — not `id` or any UUID
+3. If the data arrives as a list of objects, the display text must be mapped explicitly: e.g. `item.name`, `profile.full_name`, `supplier.name` — never `item.id`
+4. If a selected value cannot be resolved to a label (e.g. data not yet loaded), render a placeholder such as `"Select…"` or `"Loading…"` — never fall back to showing the raw UUID
+5. When using controlled selects with UUID `value` props (standard pattern), ensure the *trigger display* uses a lookup or `.find()` to resolve the label from the loaded data
+
+**Common failure patterns to catch:**
+- `<SelectValue>` showing a UUID because the display map is missing or the data hasn't loaded yet
+- `value={item.id}` passed without a matching `{item.name}` in the label slot
+- Stale / empty data causing the resolved label to be `undefined`, which React renders as nothing or falls back to the raw value
+
+---
+
 # Code Review — Mandatory Rule
 
 After completing any task (code, feature, fix, or refactor), your work will be reviewed by **Codex**. Write code as if Codex will scrutinize every line — because it will.
