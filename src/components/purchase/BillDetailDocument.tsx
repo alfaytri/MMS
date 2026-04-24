@@ -226,8 +226,8 @@ export function BillDetailDocument({
               <TableRow>
                 <TableHead>Date</TableHead>
                 <TableHead>Method</TableHead>
-                <TableHead>Reference</TableHead>
                 <TableHead className="text-right">Amount</TableHead>
+                <TableHead>Reference</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
@@ -235,11 +235,11 @@ export function BillDetailDocument({
                 <TableRow key={p.id}>
                   <TableCell>{formatDate(p.date)}</TableCell>
                   <TableCell className="capitalize">{p.method.replace(/_/g, ' ')}</TableCell>
-                  <TableCell className="text-muted-foreground font-mono text-xs">
-                    {p.reference ?? '—'}
-                  </TableCell>
                   <TableCell className="text-right font-medium">
                     {formatCurrency(p.amount, currency)}
+                  </TableCell>
+                  <TableCell className="text-muted-foreground font-mono text-xs">
+                    {p.reference ?? '—'}
                   </TableCell>
                 </TableRow>
               ))}
@@ -256,7 +256,10 @@ export function BillDetailDocument({
               <span>Total Paid:</span>
               <span>{formatCurrency(bill.paid_amount ?? 0, 'QAR')}</span>
             </div>
-            <div className="flex justify-between font-bold text-red-600">
+            <div className={cn(
+              'flex justify-between font-bold',
+              balance > 0 ? 'text-red-600' : balance < 0 ? 'text-amber-600' : 'text-green-600'
+            )}>
               <span>Balance:</span>
               <span>{formatCurrency(balance, 'QAR')}</span>
             </div>
