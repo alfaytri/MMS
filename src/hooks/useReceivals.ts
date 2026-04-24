@@ -184,12 +184,32 @@ export function useApproveReceival() {
   return useMutation({
     mutationFn: async ({ id, action }: { id: string; action: 'approved' | 'rejected' }) => {
       const supabase = createClient()
-      // Get the receival's po_id before updating
       const { data: receival } = await (supabase as any)
-        .from('receivals').select('po_id').eq('id', id).single()
+        .from('receivals')
+        .select('po_id, receival_items(po_line_item_id, qty_received, is_free)')
+        .eq('id', id)
+        .single()
       const { error } = await (supabase as any)
         .from('receivals').update({ status: action }).eq('id', id)
       if (error) throw error
+
+      // Roll back received_qty on po_line_items when rejected
+      if (action === 'rejected') {
+        const items: { po_line_item_id: string | null; qty_received: number; is_free: boolean | null }[] =
+          receival?.receival_items ?? []
+        for (const it of items) {
+          if (!it.po_line_item_id || it.is_free) continue
+          const { data: li } = await (supabase as any)
+            .from('po_line_items').select('received_qty').eq('id', it.po_line_item_id).single()
+          if (li != null) {
+            await (supabase as any)
+              .from('po_line_items')
+              .update({ received_qty: Math.max(0, (li.received_qty ?? 0) - it.qty_received) })
+              .eq('id', it.po_line_item_id)
+          }
+        }
+      }
+
       return receival?.po_id as string | null
     },
     onSuccess: (poId) => {
