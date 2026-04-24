@@ -159,6 +159,10 @@ No active plan. All Phase 1 implementation plans are complete. Pending Phase 1 c
 - [ ] **Manual smoke test** — in-app user management (all 17 tasks code-complete; browser smoke test pending before Phase 2)
 - [ ] **Verify** self-provision banner flow (Create My Profile) on a fresh auth user with no profile row ← **LAST TEST — complete only when manually instructed**
 
+### Bug Fixes & Features Applied [2026-04-24] (continued)
+
+- [2026-04-24] **Create Bill full page + FK fix** — `supabase/migrations/20260424000003_invoices_customer_id_nullable.sql` (DROP NOT NULL on customer_id), `src/hooks/useSupplierBills.ts` (remove customer_id, add source_label), `src/app/(dashboard)/purchase/create-bill/page.tsx` (new full-page form), `src/components/purchase/PoDetailDialog.tsx` + `src/app/(dashboard)/purchase/orders/page.tsx` (navigate to full page instead of popup)
+
 ### Bug Fixes & Features Applied [2026-04-24]
 
 - [2026-04-24] **UUID display in dropdowns** — `src/components/ui/select.tsx` rewritten with label registry mechanism: `SelectItemsRegistry` context (stable `Map<string,string>`), `Select` root provides `itemToStringLabel` callback, `SelectItem` populates registry via `useLayoutEffect`, `SelectValue` subscribes to `selectedIndex` store to re-render when items mount. Fixes UUIDs showing in all dropdowns app-wide.
