@@ -150,7 +150,7 @@ export function PoDetailDialog({ open, onOpenChange, po, onEdit }: Props) {
                   )}
                   {!isViewingSnapshot && current.status !== 'cancelled' && (
                     existingBills.length > 0 ? (
-                      <Button variant="outline" size="sm" onClick={() => { onOpenChange(false); router.push(`/purchase/bills`) }}>
+                      <Button variant="outline" size="sm" onClick={() => { onOpenChange(false); router.push(`/purchase/bills/${existingBills[0].id}`) }}>
                         View Bill ({existingBills[0].invoice_id})
                       </Button>
                     ) : (
