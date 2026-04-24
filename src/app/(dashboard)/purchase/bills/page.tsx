@@ -1,6 +1,7 @@
 'use client'
 
 import { useState, useMemo } from 'react'
+import { useRouter } from 'next/navigation'
 import { type ColumnDef } from '@tanstack/react-table'
 import { Plus } from 'lucide-react'
 import { toast } from 'sonner'
@@ -31,6 +32,7 @@ const PAY_STATUS_CONFIG: Record<string, string> = {
 }
 
 export default function BillsPage() {
+  const router = useRouter()
   const [search, setSearch] = useState('')
   const [createOpen, setCreateOpen] = useState(false)
 
@@ -84,7 +86,8 @@ export default function BillsPage() {
               <Button
                 variant="outline"
                 size="sm"
-                onClick={async () => {
+                onClick={async (e) => {
+                  e.stopPropagation()
                   await approveBill.mutateAsync({ id: bill.id, action: 'pending_approval' })
                   toast.success('Bill submitted for approval')
                 }}
@@ -98,7 +101,8 @@ export default function BillsPage() {
                   variant="outline"
                   size="sm"
                   className="text-green-600 border-green-200 hover:bg-green-50"
-                  onClick={async () => {
+                  onClick={async (e) => {
+                    e.stopPropagation()
                     await approveBill.mutateAsync({ id: bill.id, action: 'approved' })
                     toast.success('Bill approved')
                   }}
@@ -109,7 +113,8 @@ export default function BillsPage() {
                   variant="outline"
                   size="sm"
                   className="text-destructive border-red-200 hover:bg-red-50"
-                  onClick={async () => {
+                  onClick={async (e) => {
+                    e.stopPropagation()
                     await approveBill.mutateAsync({ id: bill.id, action: 'rejected' })
                     toast.success('Bill rejected')
                   }}
@@ -136,7 +141,12 @@ export default function BillsPage() {
         }
       />
       <SearchInput value={search} onChange={setSearch} placeholder="Search bill # or supplier…" />
-      <DataTable columns={columns} data={bills ?? []} isLoading={isLoading} />
+      <DataTable
+        columns={columns}
+        data={bills ?? []}
+        isLoading={isLoading}
+        onRowClick={(row: ApInvoice) => router.push(`/purchase/bills/${row.id}`)}
+      />
       <BillFormDialog open={createOpen} onOpenChange={setCreateOpen} />
     </PageWrapper>
   )
