@@ -159,6 +159,18 @@ No active plan. All Phase 1 implementation plans are complete. Pending Phase 1 c
 - [ ] **Manual smoke test** — in-app user management (all 17 tasks code-complete; browser smoke test pending before Phase 2)
 - [ ] **Verify** self-provision banner flow (Create My Profile) on a fresh auth user with no profile row ← **LAST TEST — complete only when manually instructed**
 
+### Bug Fixes & Features Applied [2026-04-24]
+
+- [2026-04-24] **UUID display in dropdowns** — `src/components/ui/select.tsx` rewritten with label registry mechanism: `SelectItemsRegistry` context (stable `Map<string,string>`), `Select` root provides `itemToStringLabel` callback, `SelectItem` populates registry via `useLayoutEffect`, `SelectValue` subscribes to `selectedIndex` store to re-render when items mount. Fixes UUIDs showing in all dropdowns app-wide.
+- [2026-04-24] **Edit-mode select labels** — Added `SelectValue` render functions to `ReminderEditDialog` (category_id), `DivisionFormDialog` (company_id create mode), `ServiceEditSections` (DivisionSection) so the correct label shows on first render without requiring the user to open the dropdown.
+- [2026-04-24] **Self-approval guard** — Removed self-approval restriction from `src/lib/approvalChainResolution.ts` and `src/hooks/usePOApprovals.ts` (approval chain was blocking PO creator from approving their own PO).
+- [2026-04-24] **Approval settings fixes** — Fixed `created_by` UUID matching in self-approval guard; fixed `useAllProfiles` hook + `profileDisplayName` fallback; fixed Select UUID display; fixed upsert for approval role assignments; removed `isAdmin` gate from approval settings page.
+- [2026-04-24] **Parallel approvals** — All `po_approvals` steps set `is_active:true` from creation. All approvers notified simultaneously. `approvals/page.tsx` picks step matching current user's role. `advance_po_approval_tier` already handles the "all approved → PO approved" check. — `src/lib/approvalChainResolution.ts`, `src/hooks/usePOApprovals.ts`, `src/hooks/usePurchaseOrders.ts`, `src/app/(dashboard)/purchase/approvals/page.tsx`
+- [2026-04-24] **Receivals 400 fix + received_by_name + live Received count** — Fixed PostgREST join (supplier_name is a TEXT col on purchase_orders, not FK). `useCreateReceival` now resolves current user's profile full_name for `received_by_name` and updates `po_line_items.received_qty` for non-free items. PO caches invalidated on receival create/approve. — `src/hooks/useReceivals.ts`, `src/components/purchase/PoDetailDialog.tsx`
+- [2026-04-24] **Supabase Realtime sync** — New `RealtimeSync` component subscribes to postgres_changes on purchase_orders, po_approvals, receivals, notifications. Mounted in dashboard layout for live cache invalidation across all tabs. Migration enables Realtime publication. — `src/components/shared/RealtimeSync.tsx`, `src/app/(dashboard)/layout.tsx`, `supabase/migrations/20260424000002_enable_realtime.sql`
+- [2026-04-24] **PoReceiveTab redesign** — Table now shows Ordered/Free/Received/Remaining columns. Per-row 🎁 button sets free qty for same product. Top "+Free" button opens Category→Item→Brand picker for non-PO free goods. Free items use `is_free:true, unit_cost:0` and skip `received_qty` update. — `src/components/purchase/PoReceiveTab.tsx`
+- [2026-04-24] **Dropdown UUID Guard rule** — Added mandatory checklist to `AGENTS.md` requiring all dropdowns to display human-readable labels, never raw UUIDs.
+
 ---
 
 ## ✅ Completed
