@@ -24,6 +24,7 @@ import {
   useCancelPO,
   type PurchaseOrder,
 } from '@/hooks/usePurchaseOrders'
+import { useBillsByPO } from '@/hooks/useSupplierBills'
 import { useActivityLog } from '@/hooks/useActivityLog'
 import { formatCurrency, formatDate } from '@/lib/utils/formatters'
 import { cn } from '@/lib/utils'
@@ -48,6 +49,7 @@ export function PoDetailDialog({ open, onOpenChange, po, onEdit }: Props) {
   const { data: activityLogs } = useActivityLog(
     open && po?.id ? { module: 'purchase_orders', entity_id: po.id } : {}
   )
+  const { data: existingBills = [] } = useBillsByPO(open ? (po?.id ?? null) : null)
   const submitPO = useSubmitPOForApproval()
   const cancelPO = useCancelPO()
 
@@ -147,9 +149,15 @@ export function PoDetailDialog({ open, onOpenChange, po, onEdit }: Props) {
                     </Button>
                   )}
                   {!isViewingSnapshot && current.status !== 'cancelled' && (
-                    <Button variant="outline" size="sm" onClick={() => { onOpenChange(false); router.push(`/purchase/create-bill?po_id=${current.id}`) }}>
-                      Create Bill
-                    </Button>
+                    existingBills.length > 0 ? (
+                      <Button variant="outline" size="sm" onClick={() => { onOpenChange(false); router.push(`/purchase/bills`) }}>
+                        View Bill ({existingBills[0].invoice_id})
+                      </Button>
+                    ) : (
+                      <Button variant="outline" size="sm" onClick={() => { onOpenChange(false); router.push(`/purchase/create-bill?po_id=${current.id}`) }}>
+                        Create Bill
+                      </Button>
+                    )
                   )}
                 </div>
               )}

@@ -62,6 +62,24 @@ export function useSupplierBill(id: string | null) {
   })
 }
 
+export function useBillsByPO(poId: string | null) {
+  return useQuery({
+    queryKey: ['supplier-bills-by-po', poId],
+    enabled: !!poId,
+    queryFn: async () => {
+      const supabase = createClient()
+      const { data, error } = await (supabase as any)
+        .from('invoices')
+        .select('id, invoice_id, doc_status, payment_status, total_amount, created_at')
+        .eq('purchase_order_id', poId)
+        .eq('direction', 'ap')
+        .order('created_at', { ascending: false })
+      if (error) throw error
+      return (data ?? []) as { id: string; invoice_id: string; doc_status: string; payment_status: string; total_amount: number; created_at: string }[]
+    },
+  })
+}
+
 export function useCreateBill() {
   const queryClient = useQueryClient()
   return useMutation({
