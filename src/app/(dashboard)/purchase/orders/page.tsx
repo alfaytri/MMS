@@ -19,11 +19,12 @@ import {
 } from '@/components/ui/table'
 import { PoDetailDialog } from '@/components/purchase/PoDetailDialog'
 import { BillFormDialog } from '@/components/purchase/BillFormDialog'
-import { usePurchaseOrders, type PurchaseOrder, type POStatus } from '@/hooks/usePurchaseOrders'
+import { usePurchaseOrders, useSoftDeletePO, type PurchaseOrder, type POStatus } from '@/hooks/usePurchaseOrders'
 import { useSuppliers } from '@/hooks/useSuppliers'
 import { formatCurrency, formatDate } from '@/lib/utils/formatters'
 import { cn } from '@/lib/utils'
 import { PageWrapper } from '@/components/shared/PageWrapper'
+import { toast } from 'sonner'
 
 const STATUS_OPTIONS: { value: POStatus | ''; label: string }[] = [
   { value: '', label: 'All Statuses' },
@@ -94,6 +95,8 @@ export default function PurchaseOrdersPage() {
   const [paymentFilter, setPaymentFilter] = useState('')
   const [detailPO, setDetailPO] = useState<PurchaseOrder | null>(null)
   const [billPoId, setBillPoId] = useState<string | null>(null)
+
+  const softDelete = useSoftDeletePO()
 
   const { data: orders, isLoading } = usePurchaseOrders({
     search,
@@ -393,6 +396,18 @@ export default function PurchaseOrdersPage() {
                               <DropdownMenuItem onClick={() => router.push(`/purchase/edit-po/${po.id}`)}>Edit</DropdownMenuItem>
                             )}
                             <DropdownMenuItem onClick={() => setBillPoId(po.id)}>Create Bill</DropdownMenuItem>
+                            <DropdownMenuItem
+                              className="text-destructive focus:text-destructive"
+                              onClick={() => {
+                                if (!confirm(`Delete ${po.po_number}? This cannot be undone.`)) return
+                                softDelete.mutate(po.id, {
+                                  onSuccess: () => toast.success(`${po.po_number} deleted`),
+                                  onError: (e) => toast.error(e.message),
+                                })
+                              }}
+                            >
+                              Delete
+                            </DropdownMenuItem>
                           </DropdownMenuContent>
                         </DropdownMenu>
                       </TableCell>

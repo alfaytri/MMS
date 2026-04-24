@@ -245,7 +245,12 @@ export function DivisionFormDialog({
                     <Select value={field.value} onValueChange={field.onChange}>
                       <FormControl>
                         <SelectTrigger className="w-full">
-                          <SelectValue placeholder="Select company" />
+                          <SelectValue placeholder="Select company">
+                          {(v: unknown) => {
+                            const c = companies.find((co) => co.id === String(v ?? ''))
+                            return c ? c.name_en : (companies.length > 0 ? String(v) : undefined)
+                          }}
+                        </SelectValue>
                         </SelectTrigger>
                       </FormControl>
                       <SelectContent>

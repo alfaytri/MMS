@@ -22,12 +22,14 @@ export function PoVersionTabs({
   }
 
   const tabs = [
-    ...versions.map((v) => ({
-      versionNumber: v.version_number,
-      label: `V${v.version_number}`,
-      sub: formatDate(v.submitted_at),
-      isCurrent: false,
-    })),
+    ...versions
+      .filter((v) => v.version_number !== currentVersionNumber)
+      .map((v) => ({
+        versionNumber: v.version_number,
+        label: `V${v.version_number}`,
+        sub: formatDate(v.submitted_at),
+        isCurrent: false,
+      })),
     {
       versionNumber: currentVersionNumber,
       label: `V${currentVersionNumber}`,

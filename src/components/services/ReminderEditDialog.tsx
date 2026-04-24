@@ -110,7 +110,12 @@ export function ReminderEditDialog({
               <FormItem>
                 <FormLabel>Category <span className="text-destructive">*</span></FormLabel>
                 <Select onValueChange={field.onChange} value={field.value}>
-                  <FormControl><SelectTrigger><SelectValue placeholder="Select category" /></SelectTrigger></FormControl>
+                  <FormControl><SelectTrigger><SelectValue placeholder="Select category">
+                    {(v: unknown) => {
+                      const cat = categories.find((c: ReminderCategory) => c.id === String(v ?? ''))
+                      return cat ? cat.name : (categories.length > 0 ? String(v) : undefined)
+                    }}
+                  </SelectValue></SelectTrigger></FormControl>
                   <SelectContent>
                     {categories.map((c: ReminderCategory) => (
                       <SelectItem key={c.id} value={c.id}>{c.name}</SelectItem>

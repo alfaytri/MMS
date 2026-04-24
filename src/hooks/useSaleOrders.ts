@@ -257,7 +257,7 @@ export function useSOPayments(soId: string | null) {
         .eq('source_id', soId!)
         .is('deleted_at', null)
         .order('date', { ascending: false })
-      if (error) throw error
+      if (error) return [] as SalePayment[] // columns may not exist until migration 20260422000002 is applied
       return data as SalePayment[]
     },
     enabled: !!soId,

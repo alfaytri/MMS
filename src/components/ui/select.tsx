@@ -6,8 +6,55 @@ import { Select as SelectPrimitive } from "@base-ui/react/select"
 import { cn } from "@/lib/utils"
 import { ChevronDownIcon, CheckIcon, ChevronUpIcon } from "lucide-react"
 
-const Select = SelectPrimitive.Root
+// ── Label registry ─────────────────────────────────────────────────────────────
+// Each <Select> owns a stable Map<stringifiedValue, displayLabel>.
+// <SelectItem> populates it on mount via useLayoutEffect.
+// When new entries are added, bump() is called — this increments a version
+// counter held in context, causing <SelectValue> to re-render so
+// itemToStringLabel returns the human-readable label instead of the raw value.
+interface RegistryCtx {
+  registry: Map<string, string>
+  bump: () => void
+}
+const SelectRegistryCtx = React.createContext<RegistryCtx>({
+  registry: new Map(),
+  bump: () => {},
+})
 
+// ── Select (root) ──────────────────────────────────────────────────────────────
+function Select({ children, ...props }: SelectPrimitive.Root.Props) {
+  const [registry] = React.useState<Map<string, string>>(() => new Map())
+  const [version, bump] = React.useReducer((v: number) => v + 1, 0)
+
+  const itemToStringLabel = React.useCallback(
+    (value: unknown): string => registry.get(String(value ?? "")) ?? "",
+    [registry],
+  )
+
+  // Re-create context value only when version changes so SelectValue and
+  // SelectItem only re-render when registry entries are actually added.
+  const ctxValue = React.useMemo(
+    () => ({ registry, bump }),
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [registry, version],
+  )
+
+  return (
+    <SelectRegistryCtx.Provider value={ctxValue}>
+      <SelectPrimitive.Root
+        itemToStringLabel={
+          props.itemToStringLabel ??
+          (itemToStringLabel as SelectPrimitive.Root.Props["itemToStringLabel"])
+        }
+        {...props}
+      >
+        {children}
+      </SelectPrimitive.Root>
+    </SelectRegistryCtx.Provider>
+  )
+}
+
+// ── SelectGroup ────────────────────────────────────────────────────────────────
 function SelectGroup({ className, ...props }: SelectPrimitive.Group.Props) {
   return (
     <SelectPrimitive.Group
@@ -18,7 +65,12 @@ function SelectGroup({ className, ...props }: SelectPrimitive.Group.Props) {
   )
 }
 
+// ── SelectValue ────────────────────────────────────────────────────────────────
 function SelectValue({ className, ...props }: SelectPrimitive.Value.Props) {
+  // Subscribe to the registry context so this re-renders whenever bump() is
+  // called — i.e. after SelectItem mounts and populates a new registry entry.
+  React.useContext(SelectRegistryCtx)
+
   return (
     <SelectPrimitive.Value
       data-slot="select-value"
@@ -28,6 +80,7 @@ function SelectValue({ className, ...props }: SelectPrimitive.Value.Props) {
   )
 }
 
+// ── SelectTrigger ──────────────────────────────────────────────────────────────
 function SelectTrigger({
   className,
   size = "default",
@@ -56,6 +109,7 @@ function SelectTrigger({
   )
 }
 
+// ── SelectContent ──────────────────────────────────────────────────────────────
 function SelectContent({
   className,
   children,
@@ -83,7 +137,7 @@ function SelectContent({
         <SelectPrimitive.Popup
           data-slot="select-content"
           data-align-trigger={alignItemWithTrigger}
-          className={cn("relative isolate z-50 max-h-(--available-height) w-(--anchor-width) min-w-36 origin-(--transform-origin) overflow-x-hidden overflow-y-auto rounded-lg bg-popover text-popover-foreground shadow-md ring-1 ring-foreground/10 duration-100 data-[align-trigger=true]:animate-none data-[side=bottom]:slide-in-from-top-2 data-[side=inline-end]:slide-in-from-left-2 data-[side=inline-start]:slide-in-from-right-2 data-[side=left]:slide-in-from-right-2 data-[side=right]:slide-in-from-left-2 data-[side=top]:slide-in-from-bottom-2 data-open:animate-in data-open:fade-in-0 data-open:zoom-in-95 data-closed:animate-out data-closed:fade-out-0 data-closed:zoom-out-95", className )}
+          className={cn("relative isolate z-50 max-h-(--available-height) w-(--anchor-width) min-w-36 origin-(--transform-origin) overflow-x-hidden overflow-y-auto rounded-lg bg-popover text-popover-foreground shadow-md ring-1 ring-foreground/10 duration-100 data-[align-trigger=true]:animate-none data-[side=bottom]:slide-in-from-top-2 data-[side=inline-end]:slide-in-from-left-2 data-[side=inline-start]:slide-in-from-right-2 data-[side=left]:slide-in-from-right-2 data-[side=right]:slide-in-from-left-2 data-[side=top]:slide-in-from-bottom-2 data-open:animate-in data-open:fade-in-0 data-open:zoom-in-95 data-closed:animate-out data-closed:fade-out-0 data-closed:zoom-out-95", className)}
           {...props}
         >
           <SelectScrollUpButton />
@@ -95,6 +149,7 @@ function SelectContent({
   )
 }
 
+// ── SelectLabel ────────────────────────────────────────────────────────────────
 function SelectLabel({
   className,
   ...props
@@ -108,11 +163,36 @@ function SelectLabel({
   )
 }
 
+// ── SelectItem ─────────────────────────────────────────────────────────────────
 function SelectItem({
   className,
   children,
+  value,
   ...props
 }: SelectPrimitive.Item.Props) {
+  const { registry, bump } = React.useContext(SelectRegistryCtx)
+  const textRef = React.useRef<HTMLElement | null>(null)
+
+  // Populate the registry after the DOM is committed, then signal SelectValue
+  // to re-render by calling bump(). Guards with has(key) so each value is only
+  // registered once — prevents infinite bump loops.
+  React.useLayoutEffect(() => {
+    if (value == null) return
+    const key = String(value)
+    if (registry.has(key)) return
+
+    let label: string | undefined
+    if (typeof children === "string" && children) {
+      label = children
+    } else if (textRef.current) {
+      label = textRef.current.textContent?.trim()
+    }
+    if (label) {
+      registry.set(key, label)
+      bump()
+    }
+  })
+
   return (
     <SelectPrimitive.Item
       data-slot="select-item"
@@ -120,9 +200,13 @@ function SelectItem({
         "relative flex w-full cursor-default items-center gap-1.5 rounded-md py-1 pr-8 pl-1.5 text-sm outline-hidden select-none focus:bg-accent focus:text-accent-foreground not-data-[variant=destructive]:focus:**:text-accent-foreground data-disabled:pointer-events-none data-disabled:opacity-50 [&_svg]:pointer-events-none [&_svg]:shrink-0 [&_svg:not([class*='size-'])]:size-4 *:[span]:last:flex *:[span]:last:items-center *:[span]:last:gap-2",
         className
       )}
+      value={value}
       {...props}
     >
-      <SelectPrimitive.ItemText className="flex flex-1 shrink-0 gap-2 whitespace-nowrap">
+      <SelectPrimitive.ItemText
+        ref={textRef as React.Ref<HTMLElement>}
+        className="flex flex-1 shrink-0 gap-2 whitespace-nowrap"
+      >
         {children}
       </SelectPrimitive.ItemText>
       <SelectPrimitive.ItemIndicator
@@ -136,6 +220,7 @@ function SelectItem({
   )
 }
 
+// ── SelectSeparator ────────────────────────────────────────────────────────────
 function SelectSeparator({
   className,
   ...props
@@ -149,6 +234,7 @@ function SelectSeparator({
   )
 }
 
+// ── Scroll arrows ──────────────────────────────────────────────────────────────
 function SelectScrollUpButton({
   className,
   ...props
@@ -162,8 +248,7 @@ function SelectScrollUpButton({
       )}
       {...props}
     >
-      <ChevronUpIcon
-      />
+      <ChevronUpIcon />
     </SelectPrimitive.ScrollUpArrow>
   )
 }
@@ -181,8 +266,7 @@ function SelectScrollDownButton({
       )}
       {...props}
     >
-      <ChevronDownIcon
-      />
+      <ChevronDownIcon />
     </SelectPrimitive.ScrollDownArrow>
   )
 }

@@ -203,7 +203,13 @@ export function DivisionSection({ form, mode, hasParent }: DivisionSectionProps)
         <Select onValueChange={field.onChange} value={field.value} disabled={inherited}>
           <FormControl>
             <SelectTrigger className="h-8 text-xs">
-              <SelectValue placeholder={inherited ? '(inherited)' : 'Select division'} />
+              <SelectValue placeholder={inherited ? '(inherited)' : 'Select division'}>
+                {(v: unknown) => {
+                  if (!v) return undefined
+                  const d = divisions.find((div) => div.slug === String(v))
+                  return d ? d.name : (divisions.length > 0 ? String(v) : undefined)
+                }}
+              </SelectValue>
             </SelectTrigger>
           </FormControl>
           <SelectContent>
