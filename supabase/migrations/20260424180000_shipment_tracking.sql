@@ -38,10 +38,18 @@ DECLARE
   i                 INT;
   j                 INT;
 BEGIN
+  IF p_events IS NULL OR jsonb_typeof(p_events) <> 'array' THEN
+    RAISE EXCEPTION 'p_events must be a non-null JSON array';
+  END IF;
+  IF p_status_map IS NULL OR jsonb_typeof(p_status_map) <> 'object' THEN
+    RAISE EXCEPTION 'p_status_map must be a non-null JSON object';
+  END IF;
+
   SELECT status, events
   INTO v_current_status, v_existing_events
   FROM shipments
-  WHERE id = p_shipment_id;
+  WHERE id = p_shipment_id
+  FOR UPDATE;
 
   IF NOT FOUND THEN RETURN; END IF;
   IF v_existing_events IS NULL THEN v_existing_events := '[]'::JSONB; END IF;
@@ -59,7 +67,8 @@ BEGIN
 
     FOR j IN 0 .. jsonb_array_length(v_existing_events) - 1 LOOP
       v_existing_evt := v_existing_events->j;
-      IF (v_existing_evt->>'normalizedTimestamp')::TIMESTAMPTZ = v_ts::TIMESTAMPTZ
+      IF NULLIF(v_existing_evt->>'normalizedTimestamp', '')::TIMESTAMPTZ
+         = NULLIF(v_ts, '')::TIMESTAMPTZ
          AND v_existing_evt->>'location' = v_loc THEN
         IF v_existing_evt->>'hash' = v_hash THEN
           v_match_found := TRUE;
@@ -99,12 +108,16 @@ BEGIN
   UPDATE shipments
   SET
     events         = v_existing_events || v_events_to_add,
+    is_syncing     = false,
+    sync_error     = NULL,
     status         = CASE
                        WHEN v_best_new_status IS NOT NULL
                             AND v_max_new_weight > v_current_weight
+                            AND v_best_new_status IN ('booked','in_transit','customs','delayed','delivered')
                        THEN v_best_new_status::shipment_status
                        ELSE status
                      END,
+    updated_at     = NOW(),
     last_synced_at = NOW()
   WHERE id = p_shipment_id;
 END;
