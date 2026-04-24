@@ -70,6 +70,7 @@ export function useCreateBill() {
       purchase_order_id: string
       receival_id: string | null
       due_date: string
+      source_label?: string | null
       notes: string
       line_items: {
         description: string
@@ -102,9 +103,7 @@ export function useCreateBill() {
           needs_refresh: false,
           source: 'order',
           source_id: payload.purchase_order_id,
-          // invoices.customer_id is required — use a placeholder UUID for AP bills
-          // and store the real party via supplier_id
-          customer_id: '00000000-0000-0000-0000-000000000000',
+          source_label: payload.source_label ?? null,
           total_amount: totalAmount,
           subtotal: totalAmount,
           tax: 0,

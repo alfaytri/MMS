@@ -19,7 +19,6 @@ import {
   Table, TableBody, TableCell, TableHead, TableHeader, TableRow,
 } from '@/components/ui/table'
 import { PoDetailDialog } from '@/components/purchase/PoDetailDialog'
-import { BillFormDialog } from '@/components/purchase/BillFormDialog'
 import { usePurchaseOrders, useCancelPO, type PurchaseOrder, type POStatus } from '@/hooks/usePurchaseOrders'
 import { useSuppliers } from '@/hooks/useSuppliers'
 import { formatCurrency, formatDate } from '@/lib/utils/formatters'
@@ -95,7 +94,6 @@ export default function PurchaseOrdersPage() {
   const [receivalFilter, setReceivalFilter] = useState('')
   const [paymentFilter, setPaymentFilter] = useState('')
   const [detailPO, setDetailPO] = useState<PurchaseOrder | null>(null)
-  const [billPoId, setBillPoId] = useState<string | null>(null)
 
   const cancelPO = useCancelPO()
 
@@ -432,7 +430,7 @@ export default function PurchaseOrdersPage() {
                             {po.status !== 'cancelled' && (
                               <DropdownMenuItem onClick={() => router.push(`/purchase/edit-po/${po.id}`)}>Edit</DropdownMenuItem>
                             )}
-                            <DropdownMenuItem onClick={() => setBillPoId(po.id)}>Create Bill</DropdownMenuItem>
+                            <DropdownMenuItem onClick={() => router.push(`/purchase/create-bill?po_id=${po.id}`)}>Create Bill</DropdownMenuItem>
                             {po.status !== 'cancelled' && (
                               <DropdownMenuItem
                                 className="text-destructive focus:text-destructive"
@@ -465,16 +463,7 @@ export default function PurchaseOrdersPage() {
         onOpenChange={(open) => { if (!open) setDetailPO(null) }}
         po={detailPO}
         onEdit={(po) => router.push(`/purchase/edit-po/${po.id}`)}
-        onCreateBill={(poId) => { setDetailPO(null); setBillPoId(poId) }}
       />
-
-      {billPoId && (
-        <BillFormDialog
-          open={!!billPoId}
-          onOpenChange={(v) => { if (!v) setBillPoId(null) }}
-          initialPoId={billPoId}
-        />
-      )}
     </PageWrapper>
   )
 }

@@ -1,6 +1,7 @@
 'use client'
 
 import { useState, useEffect } from 'react'
+import { useRouter } from 'next/navigation'
 import {
   Dialog, DialogContent, DialogHeader, DialogTitle,
 } from '@/components/ui/dialog'
@@ -35,10 +36,10 @@ type Props = {
   onOpenChange: (open: boolean) => void
   po: PurchaseOrder | null
   onEdit?: (po: PurchaseOrder) => void
-  onCreateBill?: (poId: string) => void
 }
 
-export function PoDetailDialog({ open, onOpenChange, po, onEdit, onCreateBill }: Props) {
+export function PoDetailDialog({ open, onOpenChange, po, onEdit }: Props) {
+  const router = useRouter()
   const [paymentOpen, setPaymentOpen] = useState(false)
   const { data: fullPO, isLoading, isError } = usePurchaseOrder(open ? (po?.id ?? null) : null)
   const { data: payments } = usePOPayments(open ? (po?.id ?? null) : null)
@@ -145,8 +146,8 @@ export function PoDetailDialog({ open, onOpenChange, po, onEdit, onCreateBill }:
                       Cancel PO
                     </Button>
                   )}
-                  {!isViewingSnapshot && onCreateBill && (
-                    <Button variant="outline" size="sm" onClick={() => { onCreateBill(current.id); onOpenChange(false) }}>
+                  {!isViewingSnapshot && current.status !== 'cancelled' && (
+                    <Button variant="outline" size="sm" onClick={() => { onOpenChange(false); router.push(`/purchase/create-bill?po_id=${current.id}`) }}>
                       Create Bill
                     </Button>
                   )}
