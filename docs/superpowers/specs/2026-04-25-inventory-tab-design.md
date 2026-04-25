@@ -43,7 +43,9 @@ src/components/services/inventory/
 | Tools & Assets | `ToolsAssetsView` | `tool_asset_items` |
 | Service Links | `ServiceLinksView` | `service_inventory` join |
 
-Active tab gets **blue** bottom border — consistent with the Services Hub accent colour (the `inventory.txt` spec explicitly uses blue for the active inventory sub-tab). Tab switcher is local `useState` — no URL param (the services page already owns the outer tab URL param).
+Active tab gets **blue** bottom border — consistent with the Services Hub accent colour (the `inventory.txt` spec explicitly uses blue for the active inventory sub-tab).
+
+**Sub-tab URL sync ("soft" deep link):** The parent Services page already owns `?tab=inventory`. The inventory sub-tab syncs to a secondary param `?subtab=products|spare-parts|consumables|tools|service-links` using `useSearchParams` + `router.replace`. On mount, the active sub-tab is read from the URL and restored — a refresh or shared link lands the user exactly where they were. Defaults to `products` when param is absent. This does not conflict with the parent's `?tab=` param.
 
 ---
 
@@ -227,6 +229,7 @@ All existing hooks (`useInventoryCategories`, `useInventoryItems`, `useBrandVari
 | ATP = stock_level − reserved_qty in AVAILABLE column | Prevents staff promising stock already committed to sale orders |
 | Command/Combobox for service links | Flat checkbox list unusable at 500+ services |
 | Blue active tab border (not orange) | Matches Services Hub accent — `inventory.txt` spec explicitly uses blue for inventory sub-tabs |
+| `?subtab=` URL param for sub-tab state | Survives page refresh; shareable deep links; no conflict with parent `?tab=inventory` param |
 | Skeleton loader on FifoLayersTable | FIFO queries may take 200–400ms; prevents layout shift |
 
 ---
