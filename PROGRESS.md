@@ -151,6 +151,8 @@ Purchase & Sales▾:
 
 ## 🔄 In Progress
 
+🚀 Starting: **Inventory Tab Rebuild Task 2: New hooks for useInventory.ts**
+
 ---
 
 ### Shipment Tracking Integration (Plan: 2026-04-24-shipment-tracking.md) — IN PROGRESS
