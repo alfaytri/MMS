@@ -24,7 +24,7 @@ import {
 } from '@/components/ui/table'
 import { formatCurrency, formatDate } from '@/lib/utils/formatters'
 import {
-  useLandedCosts, useCreateLandedCost, useVoidLandedCost,
+  useLandedCosts, useCreateLandedCost, useVoidLandedCost, useApplyLandedCost,
   type LandedCost, type LandedCostLine,
 } from '@/hooks/useLandedCosts'
 import type { ColumnDef } from '@tanstack/react-table'
@@ -67,12 +67,21 @@ function LcDetailDialog({
   onClose: () => void
 }) {
   const voidLc = useVoidLandedCost()
+  const applyLc = useApplyLandedCost()
   const [voidOpen, setVoidOpen] = useState(false)
+  const [applyOpen, setApplyOpen] = useState(false)
   const [voidReason, setVoidReason] = useState('')
 
   if (!lc) return null
 
   const isVoided = !!lc.voided_at
+  const isApplied = !!lc.applied_at
+
+  const statusBadge = isVoided
+    ? <Badge variant="destructive">Voided</Badge>
+    : isApplied
+      ? <Badge className="bg-green-100 text-green-800 border-green-200">Applied</Badge>
+      : <Badge variant="outline">Active</Badge>
 
   return (
     <>
@@ -81,7 +90,7 @@ function LcDetailDialog({
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2 flex-wrap">
               {lc.lc_number}
-              <Badge variant={isVoided ? 'destructive' : 'outline'}>{isVoided ? 'Voided' : 'Active'}</Badge>
+              {statusBadge}
             </DialogTitle>
           </DialogHeader>
 
@@ -104,6 +113,24 @@ function LcDetailDialog({
                 <p className="text-muted-foreground text-xs">Receivals Attached</p>
                 <p className="font-medium">{lc.attached_receival_ids?.length ?? 0}</p>
               </div>
+              {isApplied && (
+                <div className="sm:col-span-2">
+                  <p className="text-muted-foreground text-xs">Applied At</p>
+                  <p className="font-medium text-green-700">{formatDate(lc.applied_at!)}</p>
+                </div>
+              )}
+              {isVoided && (
+                <>
+                  <div>
+                    <p className="text-muted-foreground text-xs">Voided At</p>
+                    <p className="font-medium text-destructive">{formatDate(lc.voided_at!)}</p>
+                  </div>
+                  <div className="sm:col-span-2">
+                    <p className="text-muted-foreground text-xs">Void Reason</p>
+                    <p className="font-medium">{lc.voided_reason}</p>
+                  </div>
+                </>
+              )}
             </div>
 
             <Separator />
@@ -143,10 +170,11 @@ function LcDetailDialog({
                       <TableRow>
                         <TableHead>Item</TableHead>
                         <TableHead>SKU</TableHead>
-                        <TableHead className="text-right">Qty</TableHead>
-                        <TableHead className="text-right">Original Cost</TableHead>
-                        <TableHead className="text-right">Allocated Cost</TableHead>
-                        <TableHead className="text-right">Updated Cost</TableHead>
+                        <TableHead className="text-right">Rcvd</TableHead>
+                        <TableHead className="text-right hidden sm:table-cell">Remaining</TableHead>
+                        <TableHead className="text-right">Original</TableHead>
+                        <TableHead className="text-right">LC/Unit</TableHead>
+                        <TableHead className="text-right">New Cost</TableHead>
                       </TableRow>
                     </TableHeader>
                     <TableBody>
@@ -155,8 +183,13 @@ function LcDetailDialog({
                           <TableCell className="text-sm">{alloc.item_name}</TableCell>
                           <TableCell className="text-sm font-mono">{alloc.sku ?? '—'}</TableCell>
                           <TableCell className="text-right text-sm">{alloc.qty_received}</TableCell>
+                          <TableCell className="text-right text-sm hidden sm:table-cell">
+                            {alloc.qty_remaining_at_lc ?? '—'}
+                          </TableCell>
                           <TableCell className="text-right text-sm">{formatCurrency(alloc.original_unit_cost, lc.currency)}</TableCell>
-                          <TableCell className="text-right text-sm">{formatCurrency(alloc.allocated_cost, lc.currency)}</TableCell>
+                          <TableCell className="text-right text-sm text-blue-600">
+                            +{formatCurrency(alloc.lc_per_unit ?? 0, lc.currency)}
+                          </TableCell>
                           <TableCell className="text-right text-sm font-medium">{formatCurrency(alloc.updated_unit_cost, lc.currency)}</TableCell>
                         </TableRow>
                       ))}
@@ -167,12 +200,54 @@ function LcDetailDialog({
             )}
           </div>
 
-          {!isVoided && (
-            <DialogFooter>
+          {!isVoided && !isApplied && (
+            <DialogFooter className="gap-2">
               <Button variant="destructive" size="sm" onClick={() => setVoidOpen(true)}>
                 Void LC
               </Button>
+              <Button
+                size="sm"
+                onClick={() => setApplyOpen(true)}
+                disabled={lc.attached_receival_ids.length === 0}
+              >
+                Apply to Inventory
+              </Button>
             </DialogFooter>
+          )}
+        </DialogContent>
+      </Dialog>
+
+      {/* Apply confirm */}
+      <Dialog open={applyOpen} onOpenChange={setApplyOpen}>
+        <DialogContent className="w-full max-w-full rounded-none sm:max-w-sm sm:rounded-lg">
+          {lc && (
+            <>
+              <DialogHeader><DialogTitle>Apply Landed Cost to Inventory</DialogTitle></DialogHeader>
+              <div className="space-y-3">
+                <p className="text-sm text-muted-foreground">
+                  This will distribute <strong>{formatCurrency(lc.total_amount, lc.currency)}</strong> across
+                  the FIFO layers of all items in the attached receivals. This action cannot be undone.
+                </p>
+              </div>
+              <DialogFooter>
+                <Button variant="outline" onClick={() => setApplyOpen(false)}>Cancel</Button>
+                <Button
+                  disabled={applyLc.isPending}
+                  onClick={() =>
+                    applyLc.mutate(lc.id, {
+                      onSuccess: () => {
+                        toast.success('Landed cost applied to inventory')
+                        setApplyOpen(false)
+                        onClose()
+                      },
+                      onError: (err) => toast.error(err.message),
+                    })
+                  }
+                >
+                  {applyLc.isPending ? 'Applying…' : 'Confirm Apply'}
+                </Button>
+              </DialogFooter>
+            </>
           )}
         </DialogContent>
       </Dialog>
@@ -215,19 +290,25 @@ function CreateLcDialog({ open, onOpenChange }: { open: boolean; onOpenChange: (
   const [description, setDescription] = useState('')
   const [date, setDate] = useState('')
   const [currency, setCurrency] = useState('QAR')
-  const [lines, setLines] = useState<LandedCostLine[]>([{ description: '', amount: 0, currency: 'QAR' }])
+  const [lines, setLines] = useState<LandedCostLine[]>([{ description: '', amount: 0, currency: 'QAR', exchange_rate: 1 }])
   const [selectedReceivalIds, setSelectedReceivalIds] = useState<string[]>([])
 
-  function addLine() { setLines((l) => [...l, { description: '', amount: 0, currency: 'QAR' }]) }
+  function addLine() { setLines((l) => [...l, { description: '', amount: 0, currency: 'QAR', exchange_rate: 1 }]) }
   function removeLine(i: number) { setLines((l) => l.filter((_, idx) => idx !== i)) }
   function updateLine(i: number, k: keyof LandedCostLine, v: string | number) {
-    setLines((l) => l.map((line, idx) => idx === i ? { ...line, [k]: v } : line))
+    setLines((l) => l.map((line, idx) => {
+      if (idx !== i) return line
+      const updated = { ...line, [k]: v }
+      // Reset exchange_rate to 1 when switching back to QAR
+      if (k === 'currency' && v === 'QAR') updated.exchange_rate = 1
+      return updated
+    }))
   }
   function toggleReceival(id: string) {
     setSelectedReceivalIds((ids) => ids.includes(id) ? ids.filter((x) => x !== id) : [...ids, id])
   }
 
-  const total = lines.reduce((s, l) => s + Number(l.amount), 0)
+  const total = lines.reduce((s, l) => s + Number(l.amount) * Number(l.exchange_rate || 1), 0)
 
   function handleSubmit(e: React.FormEvent) {
     e.preventDefault()
@@ -247,7 +328,7 @@ function CreateLcDialog({ open, onOpenChange }: { open: boolean; onOpenChange: (
           toast.success('Landed cost created')
           onOpenChange(false)
           setDescription(''); setDate(''); setCurrency('QAR')
-          setLines([{ description: '', amount: 0, currency: 'QAR' }])
+          setLines([{ description: '', amount: 0, currency: 'QAR', exchange_rate: 1 }])
           setSelectedReceivalIds([])
         },
         onError: (err) => toast.error(err.message),
@@ -275,21 +356,60 @@ function CreateLcDialog({ open, onOpenChange }: { open: boolean; onOpenChange: (
           <div className="space-y-2">
             <p className="text-sm font-medium">Cost Lines</p>
             {lines.map((line, i) => (
-              <div key={i} className="grid grid-cols-12 gap-2 items-center">
+              <div key={i} className="grid grid-cols-12 gap-2 items-start">
                 <div className="col-span-5">
-                  <Input placeholder="Description" value={line.description} onChange={(e) => updateLine(i, 'description', e.target.value)} className="text-sm" />
+                  <Input
+                    placeholder="Description (e.g. Air freight)"
+                    value={line.description}
+                    onChange={(e) => updateLine(i, 'description', e.target.value)}
+                  />
                 </div>
                 <div className="col-span-3">
-                  <Input type="number" min="0" step="0.01" placeholder="Amount" value={line.amount} onChange={(e) => updateLine(i, 'amount', Number(e.target.value))} className="text-sm" />
+                  <Input
+                    type="number" min={0} step="0.01"
+                    placeholder="Amount"
+                    value={line.amount}
+                    onChange={(e) => updateLine(i, 'amount', parseFloat(e.target.value) || 0)}
+                  />
                 </div>
-                <div className="col-span-3">
-                  <select value={line.currency} onChange={(e) => updateLine(i, 'currency', e.target.value)} className="flex h-9 w-full rounded-md border border-input bg-background px-2 py-1 text-sm">
-                    {['QAR', 'USD', 'EUR', 'GBP', 'AED'].map((c) => <option key={c} value={c}>{c}</option>)}
+                <div className="col-span-2">
+                  <select
+                    value={line.currency}
+                    onChange={(e) => updateLine(i, 'currency', e.target.value)}
+                    className="flex h-9 w-full rounded-md border border-input bg-background px-2 py-1 text-sm"
+                  >
+                    {['QAR', 'USD', 'EUR', 'GBP', 'AED', 'SAR', 'KWD'].map((c) => (
+                      <option key={c} value={c}>{c}</option>
+                    ))}
                   </select>
                 </div>
-                <div className="col-span-1 flex justify-center">
-                  <Button type="button" variant="ghost" size="icon" className="h-8 w-8 text-muted-foreground hover:text-destructive" onClick={() => removeLine(i)} disabled={lines.length === 1} aria-label="Remove line">
-                    <Trash2 className="h-3 w-3" />
+                {line.currency !== 'QAR' ? (
+                  <div className="col-span-1">
+                    <Input
+                      type="number" min={0} step="0.0001"
+                      placeholder="Rate"
+                      title="Exchange rate to QAR"
+                      value={line.exchange_rate || ''}
+                      onChange={(e) => updateLine(i, 'exchange_rate', parseFloat(e.target.value) || 1)}
+                    />
+                  </div>
+                ) : (
+                  <div className="col-span-1" />
+                )}
+                <div className="col-span-1 flex items-center gap-1">
+                  {line.currency !== 'QAR' && line.exchange_rate > 0 && (
+                    <span className="text-xs text-muted-foreground whitespace-nowrap">
+                      ={(Number(line.amount) * Number(line.exchange_rate)).toFixed(2)} QAR
+                    </span>
+                  )}
+                  <Button
+                    type="button" variant="ghost" size="icon"
+                    className="h-8 w-8 text-muted-foreground hover:text-destructive"
+                    onClick={() => removeLine(i)}
+                    disabled={lines.length === 1}
+                    aria-label="Remove line"
+                  >
+                    <Trash2 className="h-4 w-4" />
                   </Button>
                 </div>
               </div>
@@ -298,7 +418,7 @@ function CreateLcDialog({ open, onOpenChange }: { open: boolean; onOpenChange: (
               <Button type="button" variant="outline" size="sm" onClick={addLine}>
                 <Plus className="h-4 w-4 mr-1" /> Add Cost Line
               </Button>
-              <p className="text-sm font-semibold">Total: {formatCurrency(total, currency)}</p>
+              <p className="text-sm font-semibold">Total (QAR): {formatCurrency(total, 'QAR')}</p>
             </div>
           </div>
 
@@ -377,11 +497,12 @@ export default function LandedCostsPage() {
     {
       id: 'status',
       header: 'Status',
-      cell: ({ row }) => (
-        <Badge variant={row.original.voided_at ? 'destructive' : 'outline'}>
-          {row.original.voided_at ? 'Voided' : 'Active'}
-        </Badge>
-      ),
+      cell: ({ row }) => {
+        const lc = row.original
+        if (lc.voided_at) return <Badge variant="destructive">Voided</Badge>
+        if (lc.applied_at) return <Badge className="bg-green-100 text-green-800 border-green-200">Applied</Badge>
+        return <Badge variant="outline">Active</Badge>
+      },
     },
     {
       id: 'actions',

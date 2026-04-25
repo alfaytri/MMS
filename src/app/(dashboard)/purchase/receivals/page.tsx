@@ -1,41 +1,267 @@
 'use client'
 
-import { useState, useMemo } from 'react'
+import { useState, useMemo, useEffect } from 'react'
 import { type ColumnDef } from '@tanstack/react-table'
-import { Plus, CheckCircle, XCircle } from 'lucide-react'
+import { Plus } from 'lucide-react'
 import { toast } from 'sonner'
 import { PageHeader } from '@/components/shared/PageHeader'
 import { PageWrapper } from '@/components/shared/PageWrapper'
 import { DataTable } from '@/components/shared/DataTable'
 import { DataTableColumnHeader } from '@/components/shared/DataTableColumnHeader'
 import { ReceivalFormDialog } from '@/components/purchase/ReceivalFormDialog'
-import { ConfirmDialog } from '@/components/shared/ConfirmDialog'
-import { useReceivals, useApproveReceival, type Receival, type ReceivalStatus } from '@/hooks/useReceivals'
+import {
+  useReceivals,
+  useReceivalEditRequests,
+  useRequestReceivalEdit,
+  useApproveReceivalEdit,
+  useSaveReceivalEdit,
+  type Receival,
+  type ReceivalEditRequest,
+} from '@/hooks/useReceivals'
+import { useIsAdmin } from '@/hooks/useProfiles'
 import { formatDate } from '@/lib/utils/formatters'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
+import { Input } from '@/components/ui/input'
+import { Textarea } from '@/components/ui/textarea'
 import { cn } from '@/lib/utils'
+import {
+  Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter,
+} from '@/components/ui/dialog'
 
-const STATUS_CONFIG: Record<ReceivalStatus, { label: string; className: string }> = {
-  pending_approval: { label: 'Pending',  className: 'bg-amber-100 text-amber-700' },
-  approved:         { label: 'Approved', className: 'bg-green-100 text-green-700' },
-  rejected:         { label: 'Rejected', className: 'bg-red-100 text-red-700' },
+// ─── Status config ─────────────────────────────────────────────────────────────
+
+const STATUS_CONFIG: Record<string, { label: string; className: string }> = {
+  approved: { label: 'Approved', className: 'bg-green-100 text-green-700' },
+  rejected: { label: 'Rejected', className: 'bg-red-100 text-red-700' },
 }
 
-const STATUSES: { value: ReceivalStatus | ''; label: string }[] = [
+const STATUSES: { value: string; label: string }[] = [
   { value: '', label: 'All' },
-  { value: 'pending_approval', label: 'Pending' },
   { value: 'approved', label: 'Approved' },
   { value: 'rejected', label: 'Rejected' },
 ]
 
-export default function ReceivalsPage() {
-  const [statusFilter, setStatusFilter] = useState<ReceivalStatus | ''>('')
-  const [createOpen, setCreateOpen] = useState(false)
-  const [approving, setApproving] = useState<{ id: string; action: 'approved' | 'rejected' } | null>(null)
+// ─── ReceivalRowActions ────────────────────────────────────────────────────────
 
-  const { data: receivals, isLoading } = useReceivals({ status: statusFilter })
-  const approveReceival = useApproveReceival()
+function ReceivalRowActions({
+  receival,
+  onRequestEdit,
+}: {
+  receival: Receival
+  onRequestEdit: (r: Receival) => void
+}) {
+  const { data: editRequests = [] } = useReceivalEditRequests(receival.id)
+  const active = editRequests.find(r => r.status === 'pending' || r.status === 'approved')
+  return (
+    <Button
+      size="sm" variant="outline"
+      disabled={!!active}
+      onClick={() => onRequestEdit(receival)}
+    >
+      {active?.status === 'pending' ? 'Edit Pending…' :
+       active?.status === 'approved' ? 'Edit Approved' :
+       'Request Edit'}
+    </Button>
+  )
+}
+
+// ─── RequestEditDialog ────────────────────────────────────────────────────────
+
+function RequestEditDialog({
+  receival, onClose,
+}: { receival: Receival | null; onClose: () => void }) {
+  const requestEdit = useRequestReceivalEdit()
+  const [reason, setReason] = useState('')
+
+  if (!receival) return null
+  return (
+    <Dialog open={!!receival} onOpenChange={(o) => { if (!o) onClose() }}>
+      <DialogContent className="w-full max-w-full rounded-none sm:max-w-md sm:rounded-lg">
+        <DialogHeader>
+          <DialogTitle>Request Edit — {receival.receival_number}</DialogTitle>
+        </DialogHeader>
+        <p className="text-sm text-muted-foreground">
+          Describe what needs to be corrected. An admin will review and approve your request.
+        </p>
+        <Textarea
+          rows={3} placeholder="e.g. Qty for Item A should be 48, not 50"
+          value={reason} onChange={(e) => setReason(e.target.value)}
+        />
+        <DialogFooter>
+          <Button variant="outline" onClick={onClose}>Cancel</Button>
+          <Button
+            disabled={!reason.trim() || requestEdit.isPending}
+            onClick={() => requestEdit.mutate(
+              { receival_id: receival.id, reason },
+              {
+                onSuccess: () => { toast.success('Edit request sent to admin'); onClose() },
+                onError: (e) => toast.error(e.message),
+              }
+            )}
+          >
+            {requestEdit.isPending ? 'Sending…' : 'Send Request'}
+          </Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
+  )
+}
+
+// ─── AdminEditApprovalDialog ──────────────────────────────────────────────────
+
+function AdminEditApprovalDialog({
+  request, onClose, isAdmin,
+}: { request: ReceivalEditRequest | null; onClose: () => void; isAdmin: boolean }) {
+  const approveEdit = useApproveReceivalEdit()
+  const [rejectionNote, setRejectionNote] = useState('')
+
+  if (!request || !isAdmin) return null
+  return (
+    <Dialog open={!!request} onOpenChange={(o) => { if (!o) onClose() }}>
+      <DialogContent className="w-full max-w-full rounded-none sm:max-w-md sm:rounded-lg">
+        <DialogHeader><DialogTitle>Review Edit Request</DialogTitle></DialogHeader>
+        <p className="text-sm"><strong>Reason:</strong> {request.reason}</p>
+        <Textarea
+          rows={2} placeholder="Rejection note (required only to reject)"
+          value={rejectionNote} onChange={(e) => setRejectionNote(e.target.value)}
+        />
+        <DialogFooter className="gap-2">
+          <Button variant="outline" onClick={onClose}>Cancel</Button>
+          <Button variant="destructive"
+            disabled={!rejectionNote.trim() || approveEdit.isPending}
+            onClick={() => approveEdit.mutate(
+              { request_id: request.id, action: 'rejected', rejection_note: rejectionNote },
+              {
+                onSuccess: () => { toast.success('Edit request rejected'); onClose() },
+                onError: (e) => toast.error(e.message),
+              }
+            )}
+          >Reject</Button>
+          <Button
+            disabled={approveEdit.isPending}
+            onClick={() => approveEdit.mutate(
+              { request_id: request.id, action: 'approved' },
+              {
+                onSuccess: () => { toast.success('Edit approved — 48h window open'); onClose() },
+                onError: (e) => toast.error(e.message),
+              }
+            )}
+          >Approve Edit</Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
+  )
+}
+
+// ─── ReceivalEditDialog ───────────────────────────────────────────────────────
+
+function ReceivalEditDialog({
+  target, onClose,
+}: { target: { receival: Receival; request: ReceivalEditRequest } | null; onClose: () => void }) {
+  const saveEdit = useSaveReceivalEdit()
+  const [items, setItems] = useState<{ receival_item_id: string; new_qty: number; new_unit_cost: number }[]>([])
+
+  useEffect(() => {
+    if (target) {
+      setItems((target.receival.receival_items ?? []).map(ri => ({
+        receival_item_id: ri.id,
+        new_qty:          ri.qty_received,
+        new_unit_cost:    ri.unit_cost,
+      })))
+    }
+  }, [target])
+
+  if (!target) return null
+
+  const { receival, request } = target
+  const expiresAt = request.expires_at ? new Date(request.expires_at) : null
+  const expired = expiresAt ? expiresAt < new Date() : false
+  const hoursLeft = expiresAt
+    ? Math.max(0, Math.ceil((expiresAt.getTime() - Date.now()) / 3_600_000))
+    : null
+
+  return (
+    <Dialog open={!!target} onOpenChange={(o) => { if (!o) onClose() }}>
+      <DialogContent className="w-full max-w-full rounded-none sm:max-w-2xl sm:rounded-lg">
+        <DialogHeader>
+          <DialogTitle className="flex items-center gap-2">
+            Edit Receival — {receival.receival_number}
+            {expired
+              ? <Badge variant="destructive">Window Expired</Badge>
+              : <Badge className="bg-green-100 text-green-800">Approved — {hoursLeft}h left</Badge>}
+          </DialogTitle>
+        </DialogHeader>
+
+        {expired && (
+          <p className="text-sm text-destructive">
+            Your edit window has expired. Please request a new edit.
+          </p>
+        )}
+
+        <div className="space-y-2 max-h-[60vh] overflow-y-auto">
+          {items.map((item, idx) => {
+            const ri = (receival.receival_items ?? [])[idx]
+            return (
+              <div key={item.receival_item_id} className="grid grid-cols-12 gap-2 items-center border rounded p-2">
+                <div className="col-span-4 text-sm font-medium">{ri?.item_name}</div>
+                <div className="col-span-3">
+                  <label className="text-xs text-muted-foreground">Qty</label>
+                  <Input type="number" min={0} disabled={expired}
+                    value={item.new_qty}
+                    onChange={(e) => setItems(its => its.map((it, i) =>
+                      i === idx ? { ...it, new_qty: parseInt(e.target.value) || 0 } : it))} />
+                </div>
+                <div className="col-span-3">
+                  <label className="text-xs text-muted-foreground">Unit Cost</label>
+                  <Input type="number" min={0} step="0.0001" disabled={expired}
+                    value={item.new_unit_cost}
+                    onChange={(e) => setItems(its => its.map((it, i) =>
+                      i === idx ? { ...it, new_unit_cost: parseFloat(e.target.value) || 0 } : it))} />
+                </div>
+                <div className="col-span-2 text-xs text-muted-foreground pt-4">
+                  {ri && ri.qty_received !== item.new_qty && (
+                    <span className="text-amber-600">
+                      orig: {ri.qty_received}
+                    </span>
+                  )}
+                </div>
+              </div>
+            )
+          })}
+        </div>
+
+        <DialogFooter>
+          <Button variant="outline" onClick={onClose}>Cancel</Button>
+          <Button
+            disabled={expired || saveEdit.isPending}
+            onClick={() => saveEdit.mutate(
+              { edit_request_id: request.id, items },
+              {
+                onSuccess: () => { toast.success('Receival updated'); onClose() },
+                onError: (e) => toast.error(e.message),
+              }
+            )}
+          >
+            {saveEdit.isPending ? 'Saving…' : 'Save Changes'}
+          </Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
+  )
+}
+
+// ─── Page ─────────────────────────────────────────────────────────────────────
+
+export default function ReceivalsPage() {
+  const [statusFilter, setStatusFilter] = useState<string>('')
+  const [createOpen, setCreateOpen] = useState(false)
+  const [requestEditTarget, setRequestEditTarget] = useState<Receival | null>(null)
+  const [editTarget, setEditTarget] = useState<{ receival: Receival; request: ReceivalEditRequest } | null>(null)
+  const [adminApproveTarget, setAdminApproveTarget] = useState<ReceivalEditRequest | null>(null)
+
+  const { data: receivals, isLoading } = useReceivals({ status: statusFilter as any })
+  const { data: isAdmin } = useIsAdmin()
 
   const columns = useMemo<ColumnDef<Receival>[]>(() => [
     {
@@ -67,34 +293,19 @@ export default function ReceivalsPage() {
       accessorKey: 'status',
       header: 'Status',
       cell: ({ row }) => {
-        const s = row.getValue('status') as ReceivalStatus
-        const cfg = STATUS_CONFIG[s] ?? STATUS_CONFIG.pending_approval
+        const s = row.getValue('status') as string
+        const cfg = STATUS_CONFIG[s] ?? { label: s ?? 'Unknown', className: 'bg-gray-100 text-gray-700' }
         return <Badge className={cn('text-xs', cfg.className)}>{cfg.label}</Badge>
       },
     },
     {
       id: 'actions',
-      cell: ({ row }) =>
-        row.original.status === 'pending_approval' ? (
-          <div className="flex gap-1">
-            <Button
-              variant="ghost"
-              size="sm"
-              className="text-green-600 hover:text-green-700"
-              onClick={() => setApproving({ id: row.original.id, action: 'approved' })}
-            >
-              <CheckCircle className="w-4 h-4 mr-1" /> Approve
-            </Button>
-            <Button
-              variant="ghost"
-              size="sm"
-              className="text-destructive hover:text-destructive"
-              onClick={() => setApproving({ id: row.original.id, action: 'rejected' })}
-            >
-              <XCircle className="w-4 h-4 mr-1" /> Reject
-            </Button>
-          </div>
-        ) : null,
+      cell: ({ row }) => (
+        <ReceivalRowActions
+          receival={row.original}
+          onRequestEdit={setRequestEditTarget}
+        />
+      ),
     },
   ], [])
 
@@ -131,25 +342,21 @@ export default function ReceivalsPage() {
 
       <ReceivalFormDialog open={createOpen} onOpenChange={setCreateOpen} />
 
-      {approving && (
-        <ConfirmDialog
-          open
-          onOpenChange={(v) => { if (!v) setApproving(null) }}
-          title={approving.action === 'approved' ? 'Approve Receival?' : 'Reject Receival?'}
-          description={
-            approving.action === 'approved'
-              ? 'This will mark the receival as approved and allow bill creation against it.'
-              : 'This will reject the receival. It cannot be undone.'
-          }
-          confirmLabel={approving.action === 'approved' ? 'Approve' : 'Reject'}
-          variant={approving.action === 'rejected' ? 'destructive' : 'default'}
-          onConfirm={async () => {
-            await approveReceival.mutateAsync({ id: approving.id, action: approving.action })
-            toast.success(approving.action === 'approved' ? 'Receival approved' : 'Receival rejected')
-            setApproving(null)
-          }}
-        />
-      )}
+      <RequestEditDialog
+        receival={requestEditTarget}
+        onClose={() => setRequestEditTarget(null)}
+      />
+
+      <AdminEditApprovalDialog
+        request={adminApproveTarget}
+        onClose={() => setAdminApproveTarget(null)}
+        isAdmin={!!isAdmin}
+      />
+
+      <ReceivalEditDialog
+        target={editTarget}
+        onClose={() => setEditTarget(null)}
+      />
     </PageWrapper>
   )
 }

@@ -136,7 +136,7 @@ export function BillFormDialog({ open, onOpenChange, initialPoId }: Props) {
                 <Label>Purchase Order *</Label>
                 <Select
                   value={selectedPoId || 'none'}
-                  onValueChange={(v: string) => setSelectedPoId(v === 'none' ? '' : v)}
+                  onValueChange={(v) => setSelectedPoId(v === 'none' || v === null ? '' : v)}
                 >
                   <SelectTrigger><SelectValue placeholder="Select PO…" /></SelectTrigger>
                   <SelectContent>

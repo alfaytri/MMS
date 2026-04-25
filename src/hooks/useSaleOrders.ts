@@ -308,6 +308,18 @@ export function useCreateSO() {
         if (liErr) throw liErr
       }
 
+      // Reserve stock for all line items in a single RPC call
+      const lines: { brand_variant_id: string | null; qty: number }[] = payload.line_items ?? []
+      const reservations = lines
+        .filter(l => l.brand_variant_id && l.qty > 0)
+        .map(l => ({ bv_id: l.brand_variant_id!, delta: l.qty }))
+
+      if (reservations.length > 0) {
+        const { error: resErr } = await (supabase as any)
+          .rpc('batch_update_reserved_qty', { p_updates: reservations })
+        if (resErr) throw resErr
+      }
+
       return so as SaleOrder
     },
     onSuccess: () => {
@@ -505,6 +517,41 @@ export function useCreateDelivery() {
     onSuccess: (_data, variables) => {
       queryClient.invalidateQueries({ queryKey: ['sale-orders'] })
       queryClient.invalidateQueries({ queryKey: ['sale-order', variables.so_id] })
+    },
+  })
+}
+
+export function useCancelSO() {
+  const queryClient = useQueryClient()
+  return useMutation({
+    mutationFn: async (id: string) => {
+      const supabase = createClient()
+
+      // Fetch lines to release reserved stock before cancelling
+      const { data: lines } = await (supabase as any)
+        .from('sale_order_lines')
+        .select('brand_variant_id, qty')
+        .eq('sale_order_id', id)
+
+      const releases = (lines ?? [])
+        .filter((l: any) => l.brand_variant_id && l.qty > 0)
+        .map((l: any) => ({ bv_id: l.brand_variant_id, delta: -l.qty }))
+
+      if (releases.length > 0) {
+        const { error: relErr } = await (supabase as any).rpc('batch_update_reserved_qty', { p_updates: releases })
+        if (relErr) throw relErr
+      }
+
+      const { error } = await (supabase as any)
+        .from('sale_orders')
+        .update({ status: 'cancelled' })
+        .eq('id', id)
+      if (error) throw error
+    },
+    onSuccess: (_data, id) => {
+      queryClient.invalidateQueries({ queryKey: ['sale-orders'] })
+      queryClient.invalidateQueries({ queryKey: ['sale-order', id] })
+      queryClient.invalidateQueries({ queryKey: ['inventory-brand-variants'] })
     },
   })
 }

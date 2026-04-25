@@ -145,10 +145,15 @@ Purchase & Sales▾:
 | `docs/superpowers/plans/2026-04-20-create-po-redesign.md` | ✅ DONE | Create PO full spec redesign — sticky header, grouped items, approval chain |
 | `docs/superpowers/plans/2026-04-20-warehouses-hub-redesign.md` | ✅ DONE | Warehouses operational hub — 7-tab redesign, URL state, React.memo, unified receivals+deliveries |
 | `docs/superpowers/plans/2026-04-22-po-approval-chain.md` | ✅ DONE | PO approval chain — configurable division-based chains, cumulative tiers, notifications, admin force-approve |
+| `docs/superpowers/plans/2026-04-25-inventory-complete.md` | ✅ DONE | Inventory accounting — FIFO layers, atomic RPCs, reserved qty, COGS, stock movements, ledger hooks |
 
 ---
 
 ## 🔄 In Progress
+
+Next: **feature/purchase-module** — awaiting new plan
+
+---
 
 ### Shipment Tracking Integration (Plan: 2026-04-24-shipment-tracking.md) — IN PROGRESS
 
@@ -160,6 +165,16 @@ Purchase & Sales▾:
 ---
 
 **Previous:** No active plan. All Phase 1 implementation plans are complete. Pending Phase 1 cleanup items below before Phase 2.
+
+---
+
+### Inventory Module — Complete (Plan: 2026-04-25-inventory-complete.md) — COMPLETE ✅
+
+- [2026-04-25] **DB foundation** — `20260425000001_inventory_foundation.sql`: `inventory_stock_movements` (SELECT-only RLS), `cogs_entries` (SELECT-only RLS + composite index `idx_cogs_variant_date`), `service_inventory` (full CRUD RLS), `reserved_qty` on `inventory_brand_variants`, `warehouse_id` on `fifo_cost_layers`, `brand_variant_id` on `receival_items`
+- [2026-04-25] **Core RPCs** — `recalc_average_cost`, `deduct_fifo_layers` (deadlock-safe `ORDER BY date, created_at, id ASC FOR UPDATE`, `p_is_transfer` flag, stock guard RAISE EXCEPTION), `update_reserved_qty` (GREATEST guard), `batch_increment_received_qty`, `batch_update_reserved_qty`
+- [2026-04-25] **Atomic RPCs** — `approve_receival_inventory` (FOR UPDATE + status guard, FIFO layer + stock_level + movements), `complete_delivery_inventory` (FIFO deduction + COGS + movements; surfaces "Insufficient stock"), `approve_stock_adjustment_inventory` (increase: FIFO insert + recalc; decrease: weighted_unit_cost from deduct_fifo_layers), `approve_warehouse_transfer_inventory` (p_is_transfer=TRUE, global stock_level unchanged, two movements)
+- [2026-04-25] **Hook wiring** — `useReceivals.ts`: atomic approve/reject via RPC, batch received_qty update; `useSaleDeliveries.ts`: `complete_delivery_inventory` RPC, surfaces stock errors; `useSaleOrders.ts`: `batch_update_reserved_qty` on create (+delta) and cancel (-delta); `useWarehouseOperations.ts`: approve RPCs for adjustments and transfers with fifo-layers cache invalidation
+- [2026-04-25] **useInventoryLedger.ts** — new file: `useCogsEntries`, `useStockMovementsByVariant`, `useServiceInventoryLinks` query hooks (ready for LC allocation page)
 
 ---
 
@@ -207,6 +222,44 @@ Purchase & Sales▾:
 ---
 
 ## ✅ Completed
+
+### LC Multi-Currency + Receival Redesign (Plan: 2026-04-25-lc-multicurrency-receival-redesign.md) — COMPLETE ✅
+
+- [2026-04-25] **LC Multi-Currency + Receival Redesign Task 9: Receivals UI** — `src/app/(dashboard)/purchase/receivals/page.tsx` — Remove approve/reject, add Request Edit + AdminApproval + ReceivalEdit dialogs with expiry badge
+- [2026-04-25] **LC Multi-Currency + Receival Redesign Task 8: LC CreateDialog** — `src/app/(dashboard)/purchase/landed-costs/page.tsx` — Per-line exchange_rate input, live QAR preview, currency list expanded to 7
+- [2026-04-25] **LC Multi-Currency + Receival Redesign Task 7: useLandedCosts** — `src/hooks/useLandedCosts.ts` — exchange_rate field on LandedCostLine; useCreateLandedCost calls create_landed_cost RPC
+- [2026-04-25] **LC Multi-Currency + Receival Redesign Task 6: useReceivals** — `src/hooks/useReceivals.ts`, `src/components/purchase/PoReceiveTab.tsx`, `src/components/purchase/ReceivalFormDialog.tsx` — Atomic useCreateReceival via RPC; removed useApproveReceival; added useReceivalEditRequests, useRequestReceivalEdit, useApproveReceivalEdit, useSaveReceivalEdit
+- [2026-04-25] **LC Multi-Currency + Receival Redesign Tasks 1–5: DB Migrations** — 5 migrations: receival_edit_requests table, receival_edit movement type, create_and_approve_receival RPC, apply_receival_edit RPC (10 guards), create_landed_cost RPC (NUMERIC precision)
+
+---
+
+### LC Inventory Apply (Plan: 2026-04-25-lc-inventory-apply.md) — COMPLETE ✅
+
+- [2026-04-25] **LC Inventory Apply Task 4: Apply to Inventory UI** — `src/app/(dashboard)/purchase/landed-costs/page.tsx` — Apply button + confirm dialog + Applied badge in LcDetailDialog; status column shows Applied/Voided/Active; null-guard + footer gap fix
+- [2026-04-25] **LC Inventory Apply Task 3: useApplyLandedCost hook** — `src/hooks/useLandedCosts.ts` — applied_at type, qty_remaining_at_lc, lc_per_unit, allocated_lc_total, updated_unit_cost fields; useApplyLandedCost mutation calling allocate_landed_cost RPC
+- [2026-04-25] **LC Inventory Apply Task 2: allocate_landed_cost RPC** — `supabase/migrations/20260425000061_rpc_allocate_landed_cost.sql` — atomic FIFO layer landed_cost_per_unit update, recalc_average_cost, cost_adjustment stock movement insert, applied_at stamp
+- [2026-04-25] **LC Inventory Apply Task 1: DB Migration** — `supabase/migrations/20260425000060_lc_columns.sql` — voided_at, voided_reason, applied_at columns on landed_costs; cost_adjustment added to inventory_stock_movements CHECK constraint
+
+---
+
+### Inventory Tab Rebuild (Plan: 2026-04-25-inventory-tab-complete.md) — COMPLETE ✅
+
+- [2026-04-25] **Inventory Tab Rebuild Task 14: Integration Test** — `tsc --noEmit` 0 errors, 80/80 tests pass, build succeeds, `/master-data/services` route confirmed (368 kB), `/master-data/inventory` absent; also fixed pre-existing `select.tsx` generic type error that was blocking the build across all callers
+- [2026-04-25] **Inventory Tab Rebuild Task 13: InventoryTab shell** — `src/components/services/InventoryTab.tsx` — Full rewrite: 5-tab shell (Products/Spare Parts/Consumables/Tools & Assets/Service Links) with `?subtab=` URL deep-link sync using `useRouter`/`useSearchParams`; blue active border; lazy content per tab
+- [2026-04-25] **Inventory Tab Rebuild Task 12: ServiceLinksView** — `src/components/services/inventory/ServiceLinksView.tsx` — Brand-variant-level service linking: item → variant → ManageLinksDialog with Command/Combobox search, chips for linked services, diff-based upsert via `useUpdateServiceInventoryLinks`
+- [2026-04-25] **Inventory Tab Rebuild Task 11: ToolsAssetsView + ToolAssetEditDialog** — `src/components/services/inventory/ToolAssetEditDialog.tsx`, `ToolsAssetsView.tsx` — Two-level list (tool items → units), ToolAssetItemEditDialog (create/edit name EN/AR), ToolAssetUnitEditDialog (serial, brand, condition, status, assigned-to staff lookup, expiry), expandable unit sub-table with status color badges
+- [2026-04-25] **Inventory Tab Rebuild Task 10: ItemsListView** — `src/components/services/inventory/ItemsListView.tsx` — Tree shell for 3 product tabs: toolbar (search, show-archived switch, New Category button), plain `<table>` rendering CategoryRow per category; skeleton loader; empty state
+- [2026-04-25] **Inventory Tab Rebuild Task 9: CategoryRow** — `src/components/services/inventory/CategoryRow.tsx` — Level-1 row: expand/collapse items lazy per row, Package icon, inline sort-up/sort-down, plus (add item), edit, archive with cascade; renders ItemRow list on expand
+- [2026-04-25] **Inventory Tab Rebuild Task 8: ItemRow** — `src/components/services/inventory/ItemRow.tsx` — Level-2 row: expand/collapse brand variants, StockBadge (ATP = stock_level − reserved_qty), linked services badge, nested brand variants sub-table using shadcn Table + BrandVariantRow, Add Brand Variant inline button
+- [2026-04-25] **Inventory Tab Rebuild Task 7: ItemEditDialog** — `src/components/services/inventory/ItemEditDialog.tsx` — Create/edit item with name EN/AR, SKU, unit (select from 9 options), item type (read-only), attribute chips with Enter-to-add; `useUpsertInventoryItemAttributes` on save
+- [2026-04-25] **Inventory Tab Rebuild Task 5: BrandVariantRow** — `src/components/services/inventory/BrandVariantRow.tsx` — Level-3 row: ATP badge (green/amber/red) with native `title` tooltip showing On Hand + Reserved, FIFO expand/collapse, inline sort + edit + archive; renders FifoLayersTable on expand
+- [2026-04-25] **Inventory Tab Rebuild Task 4: BrandVariantEditDialog** — `src/components/services/inventory/BrandVariantEditDialog.tsx` — Create/edit brand variant (brand text, SKU code, selling price, reorder point); uses `useCreateBrandVariant`/`useUpdateBrandVariant`
+- [2026-04-25] **Inventory Tab Rebuild Task 6: CategoryEditDialog** — `src/components/services/inventory/CategoryEditDialog.tsx` — Create/edit category (name EN/AR, SKU prefix); uses `useCreateInventoryCategory`/`useUpdateInventoryCategory`
+- [2026-04-25] **Inventory Tab Rebuild Task 3: FifoLayersTable** — `src/components/services/inventory/FifoLayersTable.tsx` — Read-only table with 7 columns (receival #, date, qty in, remaining, unit cost, landed cost, total/unit), 3-row skeleton loader using `useFifoLayers`, currency formatting via `formatCurrency`/`formatDate` utilities, empty state, responsive layout with border and slate-50 bg
+- [2026-04-25] **Inventory Tab Plan Task 2: New hooks** — `src/hooks/useInventory.ts` — Appended: FifoLayer/ToolAssetItem/ToolAssetUnit/ServiceInventoryLink types; useInventoryCategoriesByType, useCreateInventoryCategory, useUpdateInventoryCategory, useInventoryItemsByCategory, useArchiveInventoryItem, useInventoryBrandVariants, useArchiveInventoryBrandVariant, useFifoLayers, useToolAssetItems, useToolAssetUnits, useCreateToolAssetItem, useUpdateToolAssetItem, useCreateToolAssetUnit, useUpdateToolAssetUnit, useServiceInventoryLinks, useUpdateServiceInventoryLinks, useAllServices, useInventoryItemsFlat, useArchiveInventoryCategory, useUpdateSortOrders, useUpsertInventoryItemAttributes, useStaffProfiles
+- [2026-04-25] **Inventory Tab Plan Task 1: DB Migration** — `supabase/migrations/20260425000100_inventory_tab_columns.sql` — Adds status/sort_order to inventory_categories, inventory_items, inventory_brand_variants; reorder_point to inventory_brand_variants
+
+---
 
 ### PO Approval Chain (Plan: 2026-04-22-po-approval-chain.md) — COMPLETE ✅
 

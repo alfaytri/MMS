@@ -16,6 +16,7 @@ import { Button } from '@/components/ui/button'
 import { useCreateBrandVariant, useUpdateBrandVariant, type BrandVariant } from '@/hooks/useInventory'
 
 const variantSchema = z.object({
+  brand: z.string().min(1, 'Brand is required'),
   code: z.string().optional().default(''),
   cost_price: z.coerce.number().min(0).default(0),
   selling_price: z.coerce.number().min(0).default(0),
@@ -38,24 +39,26 @@ export function BrandVariantFormDialog({ open, onOpenChange, variant, itemId }: 
 
   const form = useForm<VariantFormValues>({
     resolver: zodResolver(variantSchema) as never,
-    defaultValues: { code: '', cost_price: 0, selling_price: 0 },
+    defaultValues: { brand: '', code: '', cost_price: 0, selling_price: 0 },
   })
 
   useEffect(() => {
     if (open && variant) {
       form.reset({
-        code: variant.code ?? '',
-        cost_price: Number(variant.cost_price ?? 0),
-        selling_price: Number(variant.selling_price ?? 0),
+        brand: (variant as any).brand ?? '',
+        code: (variant as any).code ?? '',
+        cost_price: Number((variant as any).cost_price ?? 0),
+        selling_price: Number((variant as any).selling_price ?? 0),
       })
     } else if (open) {
-      form.reset({ code: '', cost_price: 0, selling_price: 0 })
+      form.reset({ brand: '', code: '', cost_price: 0, selling_price: 0 })
     }
   }, [open, variant, form])
 
   function onSubmit(values: VariantFormValues) {
     const payload = {
       item_id: itemId,
+      brand: values.brand,
       code: values.code || null,
       cost_price: values.cost_price,
       selling_price: values.selling_price,
@@ -78,6 +81,13 @@ export function BrandVariantFormDialog({ open, onOpenChange, variant, itemId }: 
         </DialogHeader>
         <Form {...form}>
           <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
+            <FormField control={form.control} name="brand" render={({ field }) => (
+              <FormItem>
+                <FormLabel>Brand *</FormLabel>
+                <FormControl><Input placeholder="e.g. LG, Alfacool" {...field} /></FormControl>
+                <FormMessage />
+              </FormItem>
+            )} />
             <FormField control={form.control} name="code" render={({ field }) => (
               <FormItem>
                 <FormLabel>Variant Code</FormLabel>

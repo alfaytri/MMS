@@ -24,7 +24,6 @@ export const NAV_ITEMS: NavEntry[] = [
     groups: [
       {
         items: [
-          { label: 'Inventory Items', href: '/master-data/inventory' },
           { label: 'Suppliers', href: '/master-data/suppliers' },
           { label: 'Warehouses', href: '/purchase/warehouses' },
           { label: 'Users & Roles', href: '/master-data/users' },
@@ -64,13 +63,6 @@ export const NAV_ITEMS: NavEntry[] = [
         label: 'PURCHASE',
         items: [
           { label: 'Purchase Orders', href: '/purchase/orders' },
-          { label: 'Receivals', href: '/purchase/receivals' },
-          { label: 'Purchase Payments', href: '/purchase/payments' },
-        ],
-      },
-      {
-        // separator group — rendered as a thin HR by NavDropdown
-        items: [
           { label: 'Approvals', href: '/purchase/approvals' },
           { label: 'Shipments', href: '/purchase/shipments' },
           { label: 'Landed Costs', href: '/purchase/landed-costs' },
@@ -81,11 +73,18 @@ export const NAV_ITEMS: NavEntry[] = [
         label: 'SALES',
         items: [
           { label: 'Sale Orders', href: '/sales/orders' },
-          { label: 'Deliveries', href: '/sales/deliveries' },
           { label: 'Invoices', href: '/sales/invoices' },
+          { label: 'Returns', href: '/sales/returns' },
+        ],
+      },
+      {
+        // common divider — shared purchase & sales transactions
+        items: [
+          { label: 'Receivals', href: '/purchase/receivals' },
+          { label: 'Purchase Payments', href: '/purchase/payments' },
+          { label: 'Deliveries', href: '/sales/deliveries' },
           { label: 'Payments', href: '/sales/payments' },
           { label: 'Credit Notes', href: '/sales/credit-notes' },
-          { label: 'Returns', href: '/sales/returns' },
         ],
       },
     ],

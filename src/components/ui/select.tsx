@@ -22,7 +22,7 @@ const SelectRegistryCtx = React.createContext<RegistryCtx>({
 })
 
 // ── Select (root) ──────────────────────────────────────────────────────────────
-function Select({ children, ...props }: SelectPrimitive.Root.Props) {
+function Select({ children, ...props }: SelectPrimitive.Root.Props<string>) {
   const [registry] = React.useState<Map<string, string>>(() => new Map())
   const [version, bump] = React.useReducer((v: number) => v + 1, 0)
 
@@ -44,7 +44,7 @@ function Select({ children, ...props }: SelectPrimitive.Root.Props) {
       <SelectPrimitive.Root
         itemToStringLabel={
           props.itemToStringLabel ??
-          (itemToStringLabel as SelectPrimitive.Root.Props["itemToStringLabel"])
+          (itemToStringLabel as SelectPrimitive.Root.Props<string>["itemToStringLabel"])
         }
         {...props}
       >
@@ -171,7 +171,7 @@ function SelectItem({
   ...props
 }: SelectPrimitive.Item.Props) {
   const { registry, bump } = React.useContext(SelectRegistryCtx)
-  const textRef = React.useRef<HTMLElement | null>(null)
+  const textRef = React.useRef<HTMLDivElement | null>(null)
 
   // Populate the registry after the DOM is committed, then signal SelectValue
   // to re-render by calling bump(). Guards with has(key) so each value is only
@@ -204,7 +204,7 @@ function SelectItem({
       {...props}
     >
       <SelectPrimitive.ItemText
-        ref={textRef as React.Ref<HTMLElement>}
+        ref={textRef}
         className="flex flex-1 shrink-0 gap-2 whitespace-nowrap"
       >
         {children}

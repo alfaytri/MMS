@@ -239,12 +239,18 @@ export function useApproveTransfer() {
     mutationFn: async ({ id, approvedByName }: { id: string; approvedByName: string }) => {
       const supabase = createClient()
       const { error } = await (supabase as any)
-        .from('warehouse_transfers')
-        .update({ status: 'approved', approved_by_name: approvedByName, approved_date: new Date().toISOString().split('T')[0] })
-        .eq('id', id)
-      if (error) throw error
+        .rpc('approve_warehouse_transfer_inventory', {
+          p_transfer_id: id,
+          p_approved_by: approvedByName,
+        })
+      if (error) throw new Error(error.message)
     },
-    onSuccess: () => qc.invalidateQueries({ queryKey: ['warehouse_transfers'] }),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ['warehouse_transfers'] })
+      qc.invalidateQueries({ queryKey: ['inventory-brand-variants'] })
+      qc.invalidateQueries({ queryKey: ['stock_movements'] })
+      qc.invalidateQueries({ queryKey: ['fifo-layers'] })
+    },
   })
 }
 
@@ -304,12 +310,18 @@ export function useApproveStockAdjustment() {
     mutationFn: async ({ id, approvedByName }: { id: string; approvedByName: string }) => {
       const supabase = createClient()
       const { error } = await (supabase as any)
-        .from('stock_adjustments')
-        .update({ status: 'approved', approved_by_name: approvedByName, approved_at: new Date().toISOString() })
-        .eq('id', id)
-      if (error) throw error
+        .rpc('approve_stock_adjustment_inventory', {
+          p_adjustment_id: id,
+          p_approved_by: approvedByName,
+        })
+      if (error) throw new Error(error.message)
     },
-    onSuccess: () => qc.invalidateQueries({ queryKey: ['stock_adjustments'] }),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ['stock_adjustments'] })
+      qc.invalidateQueries({ queryKey: ['inventory-brand-variants'] })
+      qc.invalidateQueries({ queryKey: ['stock_movements'] })
+      qc.invalidateQueries({ queryKey: ['fifo-layers'] })
+    },
   })
 }
 

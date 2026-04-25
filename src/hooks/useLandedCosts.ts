@@ -7,6 +7,7 @@ export type LandedCostLine = {
   description: string
   amount: number
   currency: string
+  exchange_rate: number   // default 1; used for non-QAR lines
 }
 
 export type LandedCostItemAllocation = {
@@ -14,7 +15,11 @@ export type LandedCostItemAllocation = {
   item_name: string
   sku: string | null
   qty_received: number
+  qty_remaining_at_lc: number
   original_unit_cost: number
+  lc_per_unit: number
+  allocated_lc_total: number
+  // Legacy alias returned by RPC (allocated LC per received unit)
   allocated_cost: number
   updated_unit_cost: number
 }
@@ -33,6 +38,7 @@ export type LandedCost = {
   item_allocations: LandedCostItemAllocation[] | null
   voided_at: string | null
   voided_reason: string | null
+  applied_at: string | null
   created_at: string
   updated_at: string
 }
@@ -91,12 +97,15 @@ export function useCreateLandedCost() {
   return useMutation({
     mutationFn: async (payload: CreateLandedCostPayload) => {
       const supabase = createClient()
-      const total_amount = payload.lines.reduce((s, l) => s + l.amount, 0)
-      const { data, error } = await (supabase as any)
-        .from('landed_costs')
-        .insert({ ...payload, total_amount, all_items_sold: false })
-        .select()
-        .single()
+      // total_amount computed in Postgres NUMERIC — no JS float rounding
+      const { data, error } = await (supabase as any).rpc('create_landed_cost', {
+        p_description:           payload.description ?? null,
+        p_date:                  payload.date,
+        p_currency:              payload.currency,
+        p_lines:                 payload.lines,
+        p_attached_receival_ids: payload.attached_receival_ids,
+        p_attached_po_ids:       payload.attached_po_ids,
+      })
       if (error) throw error
       return data as LandedCost
     },
@@ -114,6 +123,20 @@ export function useVoidLandedCost() {
         .update({ voided_at: new Date().toISOString(), voided_reason: reason })
         .eq('id', id)
       if (error) throw error
+    },
+    onSuccess: () => qc.invalidateQueries({ queryKey: ['landed_costs'] }),
+  })
+}
+
+export function useApplyLandedCost() {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: async (id: string) => {
+      const supabase = createClient()
+      const { data, error } = await (supabase as any)
+        .rpc('allocate_landed_cost', { p_lc_id: id })
+      if (error) throw error
+      return data as LandedCostItemAllocation[]
     },
     onSuccess: () => qc.invalidateQueries({ queryKey: ['landed_costs'] }),
   })
