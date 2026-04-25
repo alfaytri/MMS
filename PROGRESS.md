@@ -154,7 +154,7 @@ Purchase & Sales▾:
 **LC Page Enhancements Plan (2026-04-25-lc-page-enhancements.md)** — ACTIVE
 - [x] Task 0: Setup — merge develop
 - [x] Task 1: DB Migration — private `lc-bills` storage bucket
-- [ ] Task 2: DB Migration — `validate_lc_allocation` pre-flight RPC
+- 🚀 Starting: **LC Page Enhancements Plan Task 2: DB Migration — `validate_lc_allocation` pre-flight RPC**
 - [ ] Task 3: Install `decimal.js`
 - [ ] Task 4: Shared hooks — `useReceivalsForLcSelector` + `useReceivalItemsWithFifo`
 - [ ] Task 5: `useLandedCosts` — add `bill_path`, `useValidateLcAllocation`, `useBillSignedUrls`
