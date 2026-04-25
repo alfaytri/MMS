@@ -155,10 +155,10 @@ Purchase & Sales▾:
 - [x] Task 0: Setup — merge develop
 - [x] Task 1: DB Migration — private `lc-bills` storage bucket
 - [x] Task 2: DB Migration — `validate_lc_allocation` pre-flight RPC
-- [ ] Task 3: Install `decimal.js`
-- [ ] Task 4: Shared hooks — `useReceivalsForLcSelector` + `useReceivalItemsWithFifo`
-- [ ] Task 5: `useLandedCosts` — add `bill_path`, `useValidateLcAllocation`, `useBillSignedUrls`
-- [ ] Task 6: `CreateLcDialog` — bill upload, expandable items, decimal total, search
+- [x] Task 3: Install `decimal.js`
+- [x] Task 4: Shared hooks — `useReceivalsForLcSelector` + `useReceivalItemsWithFifo`
+- [x] Task 5: `useLandedCosts` — add `bill_path`, `useValidateLcAllocation`, `useBillSignedUrls`
+- 🚀 Starting: **Task 6: `CreateLcDialog` — bill upload, expandable items, decimal total, search**
 - [ ] Task 7: `LcDetailDialog` — bill links, all_items_sold badge, receivals breakdown, POs, apply pre-flight
 - [ ] Task 8: Build verification + PROGRESS.md
 
