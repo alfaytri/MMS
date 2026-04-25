@@ -23,6 +23,7 @@ export function BrandVariantEditDialog({ open, onOpenChange, itemId, variant }: 
   const [brand, setBrand] = useState('')
   const [code, setCode] = useState('')
   const [sellingPrice, setSellingPrice] = useState('')
+  const [marginPercent, setMarginPercent] = useState('0')
   const [reorderPoint, setReorderPoint] = useState('0')
 
   useEffect(() => {
@@ -30,6 +31,7 @@ export function BrandVariantEditDialog({ open, onOpenChange, itemId, variant }: 
       setBrand((variant as any)?.brand ?? '')
       setCode((variant as any)?.code ?? '')
       setSellingPrice((variant as any)?.selling_price != null ? String((variant as any).selling_price) : '')
+      setMarginPercent((variant as any)?.margin_percent != null ? String((variant as any).margin_percent) : '0')
       setReorderPoint(variant ? String((variant as any).reorder_point ?? 0) : '0')
     }
   }, [open, variant])
@@ -45,6 +47,7 @@ export function BrandVariantEditDialog({ open, onOpenChange, itemId, variant }: 
       brand: brand.trim(),
       code: code.trim() || null,
       selling_price: sellingPrice ? Number(sellingPrice) : 0,
+      margin_percent: Number(marginPercent) || 0,
       reorder_point: Number(reorderPoint),
     }
 
@@ -52,10 +55,7 @@ export function BrandVariantEditDialog({ open, onOpenChange, itemId, variant }: 
       update.mutate(
         { id: variant.id, ...payload },
         {
-          onSuccess: () => {
-            toast.success('Variant updated')
-            onOpenChange(false)
-          },
+          onSuccess: () => { toast.success('Variant updated'); onOpenChange(false) },
           onError: (err) => toast.error(err.message),
         },
       )
@@ -63,10 +63,7 @@ export function BrandVariantEditDialog({ open, onOpenChange, itemId, variant }: 
       create.mutate(
         { item_id: itemId, ...payload },
         {
-          onSuccess: () => {
-            toast.success('Variant added')
-            onOpenChange(false)
-          },
+          onSuccess: () => { toast.success('Variant added'); onOpenChange(false) },
           onError: (err) => toast.error(err.message),
         },
       )
@@ -103,24 +100,30 @@ export function BrandVariantEditDialog({ open, onOpenChange, itemId, variant }: 
             <div className="space-y-1">
               <Label>Selling Price (QAR)</Label>
               <Input
-                type="number"
-                min="0"
-                step="0.01"
+                type="number" min="0" step="0.01"
                 value={sellingPrice}
                 onChange={(e) => setSellingPrice(e.target.value)}
                 placeholder="0.00"
               />
             </div>
             <div className="space-y-1">
-              <Label>Reorder Point</Label>
+              <Label>Margin %</Label>
               <Input
-                type="number"
-                min="0"
-                step="1"
-                value={reorderPoint}
-                onChange={(e) => setReorderPoint(e.target.value)}
+                type="number" min="0" step="0.01"
+                value={marginPercent}
+                onChange={(e) => setMarginPercent(e.target.value)}
+                placeholder="0"
               />
+              <p className="text-xs text-muted-foreground">Used by LC price review</p>
             </div>
+          </div>
+          <div className="space-y-1">
+            <Label>Reorder Point</Label>
+            <Input
+              type="number" min="0" step="1"
+              value={reorderPoint}
+              onChange={(e) => setReorderPoint(e.target.value)}
+            />
           </div>
           <DialogFooter>
             <Button type="button" variant="outline" onClick={() => onOpenChange(false)}>
