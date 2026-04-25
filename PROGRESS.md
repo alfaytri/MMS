@@ -151,7 +151,7 @@ Purchase & Sales▾:
 
 ## 🔄 In Progress
 
-🚀 Starting: **Inventory Tab Rebuild Task 4: [Next task]**
+🚀 Starting: **Inventory Tab Rebuild Task 5: BrandVariantRow component**
 
 ---
 
