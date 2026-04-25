@@ -348,7 +348,10 @@ export function useArchiveInventoryItem() {
         .eq('id', id)
       if (error) throw error
     },
-    onSuccess: () => qc.invalidateQueries({ queryKey: ['inventory-items-by-category'] }),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ['inventory-items-by-category'] })
+      qc.invalidateQueries({ queryKey: ['brand-variants-v2'] })
+    },
   })
 }
 
@@ -680,12 +683,14 @@ export function useUpdateSortOrders(table: 'inventory_categories' | 'inventory_i
   return useMutation({
     mutationFn: async (updates: { id: string; sort_order: number }[]) => {
       const supabase = createClient()
-      await Promise.all(
+      const results = await Promise.all(
         updates.map(({ id, sort_order }) =>
           // eslint-disable-next-line @typescript-eslint/no-explicit-any
           (supabase as any).from(table).update({ sort_order }).eq('id', id)
         )
       )
+      const failed = results.find((r: { error: unknown }) => r.error)
+      if (failed) throw (failed as { error: unknown }).error
     },
     onSuccess: () => {
       if (table === 'inventory_categories') qc.invalidateQueries({ queryKey: ['inventory-categories'] })
