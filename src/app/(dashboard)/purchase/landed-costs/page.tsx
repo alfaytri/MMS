@@ -1,9 +1,11 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useRef } from 'react'
 import { useQuery } from '@tanstack/react-query'
+import Decimal from 'decimal.js'
+import Link from 'next/link'
 import { toast } from 'sonner'
-import { Eye, Plus, Trash2 } from 'lucide-react'
+import { Eye, Plus, Trash2, Paperclip, ChevronDown, ChevronRight, ExternalLink } from 'lucide-react'
 import { createClient } from '@/lib/supabase/client'
 import { PageHeader } from '@/components/shared/PageHeader'
 import { PageWrapper } from '@/components/shared/PageWrapper'
@@ -22,36 +24,55 @@ import {
 import {
   Table, TableBody, TableCell, TableHead, TableHeader, TableRow,
 } from '@/components/ui/table'
+import { cn } from '@/lib/utils'
 import { formatCurrency, formatDate } from '@/lib/utils/formatters'
 import {
   useLandedCosts, useCreateLandedCost, useVoidLandedCost, useApplyLandedCost,
+  useValidateLcAllocation, useBillSignedUrls,
   type LandedCost, type LandedCostLine,
 } from '@/hooks/useLandedCosts'
+import {
+  useReceivalsForLcSelector, useReceivalItemsWithFifo,
+} from '@/hooks/useReceivals'
 import type { ColumnDef } from '@tanstack/react-table'
 
-// ─── Local receival hook ───────────────────────────────────────────────────────
+// ─── Local hooks for detail dialog ───────────────────────────────────────────
 
-type ReceivalSummary = {
-  id: string
-  receival_number: string
-  po_id: string
-  date: string
-  status: string
-  purchase_orders: { po_number: string; supplier_name: string } | null
-}
-
-function useReceivals() {
+function useAttachedReceivals(receivalIds: string[]) {
   return useQuery({
-    queryKey: ['receivals_list'],
+    queryKey: ['lc-attached-receivals', receivalIds.slice().sort().join(',')],
+    enabled: receivalIds.length > 0,
     queryFn: async () => {
       const supabase = createClient()
       const { data, error } = await (supabase as any)
         .from('receivals')
-        .select('id, receival_number, po_id, date, status, purchase_orders(po_number, supplier_name)')
+        .select('id, receival_number, date, purchase_orders!receivals_po_id_fkey(supplier_name)')
+        .in('id', receivalIds)
         .order('date', { ascending: false })
-        .limit(100)
       if (error) throw error
-      return (data ?? []) as ReceivalSummary[]
+      return (data ?? []).map((r: any) => ({
+        id: r.id as string,
+        receival_number: r.receival_number as string,
+        date: r.date as string,
+        supplier_name: (r.purchase_orders?.supplier_name ?? 'Unknown') as string,
+      }))
+    },
+    staleTime: 2 * 60 * 1000,
+  })
+}
+
+function useAttachedPOs(poIds: string[]) {
+  return useQuery({
+    queryKey: ['lc-attached-pos', poIds.slice().sort().join(',')],
+    enabled: poIds.length > 0,
+    queryFn: async () => {
+      const supabase = createClient()
+      const { data, error } = await (supabase as any)
+        .from('purchase_orders')
+        .select('id, po_number, supplier_name')
+        .in('id', poIds)
+      if (error) throw error
+      return (data ?? []) as Array<{ id: string; po_number: string; supplier_name: string }>
     },
     staleTime: 5 * 60 * 1000,
   })
@@ -72,6 +93,24 @@ function LcDetailDialog({
   const [applyOpen, setApplyOpen] = useState(false)
   const [voidReason, setVoidReason] = useState('')
 
+  const billPaths = (lc?.lines ?? []).map((l) => l.bill_path)
+  const { data: signedUrls } = useBillSignedUrls(billPaths)
+
+  const { data: attachedReceivals, isLoading: loadingReceivals } = useAttachedReceivals(
+    lc?.attached_receival_ids ?? [],
+  )
+  const { data: attachedPOs } = useAttachedPOs(lc?.attached_po_ids ?? [])
+
+  const [detailExpandedReceivalId, setDetailExpandedReceivalId] = useState<string | null>(null)
+  const { data: detailExpandedItems, isLoading: loadingDetailItems } = useReceivalItemsWithFifo(
+    detailExpandedReceivalId,
+  )
+
+  const { data: validationItems, isLoading: validating } = useValidateLcAllocation(
+    lc?.id,
+    applyOpen,
+  )
+
   if (!lc) return null
 
   const isVoided = !!lc.voided_at
@@ -91,6 +130,11 @@ function LcDetailDialog({
             <DialogTitle className="flex items-center gap-2 flex-wrap">
               {lc.lc_number}
               {statusBadge}
+              {lc.all_items_sold && (
+                <Badge className="bg-slate-100 text-slate-700 border-slate-300 text-xs">
+                  All Items Sold
+                </Badge>
+              )}
             </DialogTitle>
           </DialogHeader>
 
@@ -145,20 +189,148 @@ function LcDetailDialog({
                       <TableHead>Description</TableHead>
                       <TableHead className="text-right">Amount</TableHead>
                       <TableHead>Currency</TableHead>
+                      <TableHead className="w-12 text-center">Bill</TableHead>
                     </TableRow>
                   </TableHeader>
                   <TableBody>
                     {(lc.lines ?? []).map((line, i) => (
                       <TableRow key={i}>
                         <TableCell className="text-sm">{line.description}</TableCell>
-                        <TableCell className="text-right text-sm font-medium">{formatCurrency(line.amount, line.currency)}</TableCell>
+                        <TableCell className="text-right text-sm font-medium">
+                          {formatCurrency(line.amount, line.currency)}
+                          {line.currency !== 'QAR' && line.exchange_rate && line.exchange_rate !== 1 && (
+                            <span className="block text-xs text-muted-foreground">
+                              ×{line.exchange_rate} = {formatCurrency(line.amount * line.exchange_rate, 'QAR')}
+                            </span>
+                          )}
+                        </TableCell>
                         <TableCell className="text-sm">{line.currency}</TableCell>
+                        <TableCell className="text-center">
+                          {line.bill_path && signedUrls?.[line.bill_path] ? (
+                            <a
+                              href={signedUrls[line.bill_path]}
+                              target="_blank"
+                              rel="noopener noreferrer"
+                              className="inline-flex items-center justify-center text-blue-600 hover:text-blue-800"
+                              title="View bill document"
+                            >
+                              <ExternalLink className="h-3.5 w-3.5" />
+                            </a>
+                          ) : (
+                            <span className="text-muted-foreground text-xs">—</span>
+                          )}
+                        </TableCell>
                       </TableRow>
                     ))}
                   </TableBody>
                 </Table>
               </div>
             </div>
+
+            {/* Attached Receivals Breakdown */}
+            {(lc.attached_receival_ids?.length ?? 0) > 0 && (
+              <div>
+                <h3 className="text-sm font-semibold mb-2">Attached Receivals</h3>
+                {loadingReceivals ? (
+                  <div className="space-y-1">
+                    {lc.attached_receival_ids.map((id) => (
+                      <div key={id} className="h-8 rounded-md bg-muted animate-pulse" />
+                    ))}
+                  </div>
+                ) : (
+                  <div className="rounded-md border divide-y">
+                    {(attachedReceivals ?? []).map((r: { id: string; receival_number: string; date: string; supplier_name: string }) => {
+                      const isExpanded = detailExpandedReceivalId === r.id
+                      return (
+                        <div key={r.id}>
+                          <button
+                            type="button"
+                            onClick={() => setDetailExpandedReceivalId(isExpanded ? null : r.id)}
+                            className="w-full flex items-center gap-2 px-3 py-2 text-sm hover:bg-muted/50 text-left"
+                          >
+                            <span className="text-muted-foreground w-4 shrink-0">
+                              {isExpanded
+                                ? <ChevronDown className="h-3.5 w-3.5" />
+                                : <ChevronRight className="h-3.5 w-3.5" />}
+                            </span>
+                            <Link
+                              href="/purchase/receivals"
+                              target="_blank"
+                              className="font-mono font-medium hover:underline text-blue-600"
+                              onClick={(e) => e.stopPropagation()}
+                            >
+                              {r.receival_number}
+                            </Link>
+                            <span className="text-muted-foreground">
+                              — {r.supplier_name} · {formatDate(r.date)}
+                            </span>
+                          </button>
+                          {isExpanded && (
+                            <div className="bg-muted/20 px-6 pb-3">
+                              {loadingDetailItems ? (
+                                <div className="space-y-1 pt-2">
+                                  {[1, 2].map((n) => <div key={n} className="h-5 rounded bg-muted animate-pulse" />)}
+                                </div>
+                              ) : (detailExpandedItems ?? []).length === 0 ? (
+                                <p className="text-xs text-muted-foreground pt-2">No billable items</p>
+                              ) : (
+                                <table className="w-full text-xs mt-2">
+                                  <thead>
+                                    <tr className="text-muted-foreground border-b">
+                                      <th className="text-left py-1 font-medium">Item</th>
+                                      <th className="text-right py-1 font-medium">Received</th>
+                                      <th className="text-right py-1 font-medium">Remaining</th>
+                                      <th className="text-right py-1 font-medium">Unit Cost</th>
+                                      <th className="text-right py-1 font-medium">Total</th>
+                                    </tr>
+                                  </thead>
+                                  <tbody>
+                                    {(detailExpandedItems ?? []).map((item) => (
+                                      <tr key={item.id} className="border-b last:border-0">
+                                        <td className="py-1 pr-2">{item.item_name}</td>
+                                        <td className="text-right py-1">{item.qty_received}</td>
+                                        <td className={cn('text-right py-1 font-medium', item.remaining_qty === 0 && 'text-amber-600')}>
+                                          {item.remaining_qty}
+                                        </td>
+                                        <td className="text-right py-1">{formatCurrency(item.unit_cost, 'QAR')}</td>
+                                        <td className="text-right py-1 font-medium">
+                                          {formatCurrency(item.qty_received * item.unit_cost, 'QAR')}
+                                        </td>
+                                      </tr>
+                                    ))}
+                                  </tbody>
+                                </table>
+                              )}
+                            </div>
+                          )}
+                        </div>
+                      )
+                    })}
+                  </div>
+                )}
+              </div>
+            )}
+
+            {/* Attached POs */}
+            {(lc.attached_po_ids?.length ?? 0) > 0 && (
+              <div>
+                <h3 className="text-sm font-semibold mb-2">Attached Purchase Orders</h3>
+                <div className="rounded-md border divide-y">
+                  {(attachedPOs ?? []).map((po) => (
+                    <div key={po.id} className="flex items-center gap-2 px-3 py-2 text-sm">
+                      <Link
+                        href="/purchase/orders"
+                        target="_blank"
+                        className="font-mono font-medium hover:underline text-blue-600"
+                      >
+                        {po.po_number}
+                      </Link>
+                      <span className="text-muted-foreground">— {po.supplier_name}</span>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
 
             {/* Item Allocations */}
             {(lc.item_allocations ?? []).length > 0 && (
@@ -217,22 +389,54 @@ function LcDetailDialog({
         </DialogContent>
       </Dialog>
 
-      {/* Apply confirm */}
+      {/* Apply confirm — shows pre-flight validation before destructive action */}
       <Dialog open={applyOpen} onOpenChange={setApplyOpen}>
-        <DialogContent className="w-full max-w-full rounded-none sm:max-w-sm sm:rounded-lg">
+        <DialogContent className="w-full max-w-full rounded-none sm:max-w-lg sm:rounded-lg">
           {lc && (
             <>
               <DialogHeader><DialogTitle>Apply Landed Cost to Inventory</DialogTitle></DialogHeader>
               <div className="space-y-3">
                 <p className="text-sm text-muted-foreground">
-                  This will distribute <strong>{formatCurrency(lc.total_amount, lc.currency)}</strong> across
-                  the FIFO layers of all items in the attached receivals. This action cannot be undone.
+                  This will distribute{' '}
+                  <strong>{formatCurrency(lc.total_amount, lc.currency)}</strong> across the FIFO
+                  layers of all items in the attached receivals. This action cannot be undone.
                 </p>
+                {validating ? (
+                  <Skeleton className="h-28 w-full" />
+                ) : (validationItems ?? []).length > 0 ? (
+                  <div className="rounded-md border overflow-x-auto">
+                    <Table>
+                      <TableHeader>
+                        <TableRow>
+                          <TableHead>Item</TableHead>
+                          <TableHead className="text-right">Received</TableHead>
+                          <TableHead className="text-right">Remaining</TableHead>
+                        </TableRow>
+                      </TableHeader>
+                      <TableBody>
+                        {(validationItems ?? []).map((item, idx) => (
+                          <TableRow key={idx} className={item.warning ? 'bg-amber-50' : ''}>
+                            <TableCell className="text-sm">
+                              {item.item_name}
+                              {item.warning && (
+                                <p className="text-xs text-amber-600 mt-0.5">{item.warning}</p>
+                              )}
+                            </TableCell>
+                            <TableCell className="text-right text-sm">{item.qty_received}</TableCell>
+                            <TableCell className={cn('text-right text-sm font-medium', item.qty_remaining_in_layers === 0 && 'text-amber-600')}>
+                              {item.qty_remaining_in_layers}
+                            </TableCell>
+                          </TableRow>
+                        ))}
+                      </TableBody>
+                    </Table>
+                  </div>
+                ) : null}
               </div>
               <DialogFooter>
                 <Button variant="outline" onClick={() => setApplyOpen(false)}>Cancel</Button>
                 <Button
-                  disabled={applyLc.isPending}
+                  disabled={applyLc.isPending || validating}
                   onClick={() =>
                     applyLc.mutate(lc.id, {
                       onSuccess: () => {
@@ -286,12 +490,18 @@ function LcDetailDialog({
 
 function CreateLcDialog({ open, onOpenChange }: { open: boolean; onOpenChange: (v: boolean) => void }) {
   const createLc = useCreateLandedCost()
-  const { data: receivals } = useReceivals()
   const [description, setDescription] = useState('')
   const [date, setDate] = useState('')
   const [currency, setCurrency] = useState('QAR')
   const [lines, setLines] = useState<LandedCostLine[]>([{ description: '', amount: 0, currency: 'QAR', exchange_rate: 1 }])
   const [selectedReceivalIds, setSelectedReceivalIds] = useState<string[]>([])
+  const [receivalSearch, setReceivalSearch] = useState('')
+  const [expandedReceivalId, setExpandedReceivalId] = useState<string | null>(null)
+  const [uploadingLines, setUploadingLines] = useState<Set<number>>(new Set())
+  const fileInputRefs = useRef<(HTMLInputElement | null)[]>([])
+
+  const { data: receivals } = useReceivalsForLcSelector({ search: receivalSearch })
+  const { data: expandedItems, isLoading: loadingExpanded } = useReceivalItemsWithFifo(expandedReceivalId)
 
   function addLine() { setLines((l) => [...l, { description: '', amount: 0, currency: 'QAR', exchange_rate: 1 }]) }
   function removeLine(i: number) { setLines((l) => l.filter((_, idx) => idx !== i)) }
@@ -299,7 +509,6 @@ function CreateLcDialog({ open, onOpenChange }: { open: boolean; onOpenChange: (
     setLines((l) => l.map((line, idx) => {
       if (idx !== i) return line
       const updated = { ...line, [k]: v }
-      // Reset exchange_rate to 1 when switching back to QAR
       if (k === 'currency' && v === 'QAR') updated.exchange_rate = 1
       return updated
     }))
@@ -308,12 +517,52 @@ function CreateLcDialog({ open, onOpenChange }: { open: boolean; onOpenChange: (
     setSelectedReceivalIds((ids) => ids.includes(id) ? ids.filter((x) => x !== id) : [...ids, id])
   }
 
-  const total = lines.reduce((s, l) => s + Number(l.amount) * Number(l.exchange_rate || 1), 0)
+  const total = lines
+    .reduce(
+      (s, l) => s.plus(new Decimal(l.amount || 0).times(l.exchange_rate || 1)),
+      new Decimal(0),
+    )
+    .toNumber()
+
+  async function handleBillUpload(lineIndex: number, file: File | undefined) {
+    if (!file) return
+    if (file.size > 5 * 1024 * 1024) {
+      toast.error('File too large — maximum 5 MB')
+      return
+    }
+    setUploadingLines((prev) => new Set(prev).add(lineIndex))
+    try {
+      const supabase = createClient()
+      const now = new Date()
+      const year = now.getFullYear()
+      const month = String(now.getMonth() + 1).padStart(2, '0')
+      const sanitized = file.name.replace(/[^a-zA-Z0-9._-]/g, '_')
+      const path = `${year}/${month}/${Date.now()}-${sanitized}`
+      const oldPath = lines[lineIndex]?.bill_path
+      if (oldPath) {
+        await supabase.storage.from('lc-bills').remove([oldPath])
+      }
+      const { error } = await supabase.storage.from('lc-bills').upload(path, file)
+      if (error) throw error
+      setLines((l) =>
+        l.map((line, idx) => (idx === lineIndex ? { ...line, bill_path: path } : line)),
+      )
+    } catch (err: unknown) {
+      toast.error(`Upload failed: ${(err as Error).message}`)
+    } finally {
+      setUploadingLines((prev) => {
+        const s = new Set(prev)
+        s.delete(lineIndex)
+        return s
+      })
+    }
+  }
 
   function handleSubmit(e: React.FormEvent) {
     e.preventDefault()
     if (!date) { toast.error('Date is required'); return }
     if (lines.some((l) => !l.description)) { toast.error('All cost lines need a description'); return }
+    if (uploadingLines.size > 0) { toast.error('Wait for all bill uploads to finish'); return }
     createLc.mutate(
       {
         description: description || null,
@@ -330,6 +579,9 @@ function CreateLcDialog({ open, onOpenChange }: { open: boolean; onOpenChange: (
           setDescription(''); setDate(''); setCurrency('QAR')
           setLines([{ description: '', amount: 0, currency: 'QAR', exchange_rate: 1 }])
           setSelectedReceivalIds([])
+          setReceivalSearch('')
+          setExpandedReceivalId(null)
+          setUploadingLines(new Set())
         },
         onError: (err) => toast.error(err.message),
       }
@@ -357,7 +609,7 @@ function CreateLcDialog({ open, onOpenChange }: { open: boolean; onOpenChange: (
             <p className="text-sm font-medium">Cost Lines</p>
             {lines.map((line, i) => (
               <div key={i} className="grid grid-cols-12 gap-2 items-start">
-                <div className="col-span-5">
+                <div className="col-span-4">
                   <Input
                     placeholder="Description (e.g. Air freight)"
                     value={line.description}
@@ -396,15 +648,40 @@ function CreateLcDialog({ open, onOpenChange }: { open: boolean; onOpenChange: (
                 ) : (
                   <div className="col-span-1" />
                 )}
-                <div className="col-span-1 flex items-center gap-1">
-                  {line.currency !== 'QAR' && line.exchange_rate > 0 && (
+                <div className="col-span-2 flex items-center gap-1 pt-0.5">
+                  {/* Hidden file input — accessed via ref */}
+                  <input
+                    ref={(el) => { fileInputRefs.current[i] = el }}
+                    type="file"
+                    accept="application/pdf,image/*"
+                    className="hidden"
+                    onChange={(e) => handleBillUpload(i, e.target.files?.[0])}
+                  />
+                  <button
+                    type="button"
+                    title={line.bill_path ? 'Bill attached — click to replace' : 'Attach bill document (PDF or image, max 5 MB)'}
+                    disabled={uploadingLines.has(i)}
+                    onClick={() => fileInputRefs.current[i]?.click()}
+                    className={cn(
+                      'flex items-center justify-center h-8 w-8 rounded border text-sm transition-colors shrink-0',
+                      line.bill_path
+                        ? 'border-green-400 text-green-600 bg-green-50 hover:bg-green-100'
+                        : 'border-input text-muted-foreground hover:text-foreground hover:bg-accent',
+                      uploadingLines.has(i) && 'opacity-50 cursor-not-allowed',
+                    )}
+                  >
+                    {uploadingLines.has(i)
+                      ? <span className="text-xs animate-pulse">…</span>
+                      : <Paperclip className="h-3.5 w-3.5" />}
+                  </button>
+                  {line.currency !== 'QAR' && (line.exchange_rate ?? 0) > 0 && (
                     <span className="text-xs text-muted-foreground whitespace-nowrap">
-                      ={(Number(line.amount) * Number(line.exchange_rate)).toFixed(2)} QAR
+                      ={new Decimal(line.amount || 0).times(line.exchange_rate || 1).toFixed(2)} QAR
                     </span>
                   )}
                   <Button
                     type="button" variant="ghost" size="icon"
-                    className="h-8 w-8 text-muted-foreground hover:text-destructive"
+                    className="h-8 w-8 text-muted-foreground hover:text-destructive shrink-0"
                     onClick={() => removeLine(i)}
                     disabled={lines.length === 1}
                     aria-label="Remove line"
@@ -427,30 +704,94 @@ function CreateLcDialog({ open, onOpenChange }: { open: boolean; onOpenChange: (
           {/* Receival Selector */}
           <div className="space-y-2">
             <p className="text-sm font-medium">Attach Receivals</p>
+            <Input
+              placeholder="Search by receival number…"
+              value={receivalSearch}
+              onChange={(e) => setReceivalSearch(e.target.value)}
+              className="h-8 text-sm"
+            />
             {(receivals ?? []).length === 0 ? (
-              <p className="text-sm text-muted-foreground">No receivals found</p>
+              <p className="text-sm text-muted-foreground">
+                {receivalSearch ? 'No receivals match your search' : 'No receivals found'}
+              </p>
             ) : (
-              <div className="max-h-40 overflow-y-auto space-y-1 rounded-md border p-2">
-                {(receivals ?? []).map((r) => (
-                  <label key={r.id} className="flex items-center gap-2 text-sm cursor-pointer hover:bg-muted rounded px-2 py-1">
-                    <input
-                      type="checkbox"
-                      checked={selectedReceivalIds.includes(r.id)}
-                      onChange={() => toggleReceival(r.id)}
-                      className="h-4 w-4"
-                    />
-                    <span className="font-mono">{r.receival_number}</span>
-                    <span className="text-muted-foreground">— {r.purchase_orders?.supplier_name ?? 'Unknown'} · {formatDate(r.date)}</span>
-                  </label>
-                ))}
+              <div className="max-h-64 overflow-y-auto rounded-md border divide-y">
+                {(receivals ?? []).map((r) => {
+                  const isExpanded = expandedReceivalId === r.id
+                  const isChecked = selectedReceivalIds.includes(r.id)
+                  return (
+                    <div key={r.id}>
+                      {/* Row header */}
+                      <div className="flex items-center gap-2 px-2 py-1.5 hover:bg-muted/50">
+                        <input
+                          type="checkbox"
+                          checked={isChecked}
+                          onChange={() => toggleReceival(r.id)}
+                          className="h-4 w-4 shrink-0"
+                        />
+                        <button
+                          type="button"
+                          onClick={() => setExpandedReceivalId(isExpanded ? null : r.id)}
+                          className="flex items-center gap-1.5 flex-1 text-left text-sm min-w-0"
+                        >
+                          <span className="text-muted-foreground w-4 shrink-0">
+                            {isExpanded
+                              ? <ChevronDown className="h-3.5 w-3.5" />
+                              : <ChevronRight className="h-3.5 w-3.5" />}
+                          </span>
+                          <span className="font-mono shrink-0">{r.receival_number}</span>
+                          <span className="text-muted-foreground truncate">
+                            — {r.supplier_name ?? 'Unknown'} · {formatDate(r.date)}
+                          </span>
+                        </button>
+                      </div>
+
+                      {/* Expanded items */}
+                      {isExpanded && (
+                        <div className="bg-muted/30 px-4 pb-2">
+                          {loadingExpanded ? (
+                            <div className="space-y-1 pt-2">
+                              {[1, 2].map((n) => <div key={n} className="h-5 rounded bg-muted animate-pulse" />)}
+                            </div>
+                          ) : (expandedItems ?? []).length === 0 ? (
+                            <p className="text-xs text-muted-foreground pt-2">No billable items</p>
+                          ) : (
+                            <table className="w-full text-xs mt-2">
+                              <thead>
+                                <tr className="text-muted-foreground border-b">
+                                  <th className="text-left py-1 font-medium">Item</th>
+                                  <th className="text-right py-1 font-medium">Received</th>
+                                  <th className="text-right py-1 font-medium">Remaining</th>
+                                  <th className="text-right py-1 font-medium">Unit Cost</th>
+                                </tr>
+                              </thead>
+                              <tbody>
+                                {(expandedItems ?? []).map((item) => (
+                                  <tr key={item.id} className="border-b last:border-0">
+                                    <td className="py-1 pr-2">{item.item_name}</td>
+                                    <td className="text-right py-1">{item.qty_received}</td>
+                                    <td className={cn('text-right py-1 font-medium', item.remaining_qty === 0 && 'text-amber-600')}>
+                                      {item.remaining_qty}
+                                    </td>
+                                    <td className="text-right py-1">{formatCurrency(item.unit_cost, 'QAR')}</td>
+                                  </tr>
+                                ))}
+                              </tbody>
+                            </table>
+                          )}
+                        </div>
+                      )}
+                    </div>
+                  )
+                })}
               </div>
             )}
           </div>
 
           <DialogFooter>
             <Button type="button" variant="outline" onClick={() => onOpenChange(false)}>Cancel</Button>
-            <Button type="submit" disabled={createLc.isPending}>
-              {createLc.isPending ? 'Creating…' : 'Create Landed Cost'}
+            <Button type="submit" disabled={createLc.isPending || uploadingLines.size > 0}>
+              {createLc.isPending ? 'Creating…' : uploadingLines.size > 0 ? 'Uploading…' : 'Create Landed Cost'}
             </Button>
           </DialogFooter>
         </form>
