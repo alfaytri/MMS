@@ -151,7 +151,7 @@ Purchase & Sales▾:
 
 ## 🔄 In Progress
 
-🚀 Starting: **LC Multi-Currency + Receival Redesign Tasks 6–11: Hooks + UI + Build**
+Next: **feature/purchase-module** — awaiting new plan
 
 ---
 
@@ -222,6 +222,16 @@ Purchase & Sales▾:
 ---
 
 ## ✅ Completed
+
+### LC Multi-Currency + Receival Redesign (Plan: 2026-04-25-lc-multicurrency-receival-redesign.md) — COMPLETE ✅
+
+- [2026-04-25] **LC Multi-Currency + Receival Redesign Task 9: Receivals UI** — `src/app/(dashboard)/purchase/receivals/page.tsx` — Remove approve/reject, add Request Edit + AdminApproval + ReceivalEdit dialogs with expiry badge
+- [2026-04-25] **LC Multi-Currency + Receival Redesign Task 8: LC CreateDialog** — `src/app/(dashboard)/purchase/landed-costs/page.tsx` — Per-line exchange_rate input, live QAR preview, currency list expanded to 7
+- [2026-04-25] **LC Multi-Currency + Receival Redesign Task 7: useLandedCosts** — `src/hooks/useLandedCosts.ts` — exchange_rate field on LandedCostLine; useCreateLandedCost calls create_landed_cost RPC
+- [2026-04-25] **LC Multi-Currency + Receival Redesign Task 6: useReceivals** — `src/hooks/useReceivals.ts`, `src/components/purchase/PoReceiveTab.tsx`, `src/components/purchase/ReceivalFormDialog.tsx` — Atomic useCreateReceival via RPC; removed useApproveReceival; added useReceivalEditRequests, useRequestReceivalEdit, useApproveReceivalEdit, useSaveReceivalEdit
+- [2026-04-25] **LC Multi-Currency + Receival Redesign Tasks 1–5: DB Migrations** — 5 migrations: receival_edit_requests table, receival_edit movement type, create_and_approve_receival RPC, apply_receival_edit RPC (10 guards), create_landed_cost RPC (NUMERIC precision)
+
+---
 
 ### LC Inventory Apply (Plan: 2026-04-25-lc-inventory-apply.md) — COMPLETE ✅
 
