@@ -1,4 +1,4 @@
--- supabase/migrations/20260425000060_lc_columns.sql
+BEGIN;
 
 -- Add lifecycle columns to landed_costs
 ALTER TABLE landed_costs
@@ -20,3 +20,5 @@ ALTER TABLE inventory_stock_movements
     'transfer_out',
     'cost_adjustment'
   ));
+
+COMMIT;
