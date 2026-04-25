@@ -151,6 +151,12 @@ Purchase & Sales▾:
 
 ## 🔄 In Progress
 
+### Inventory Tab Rebuild (Plan: 2026-04-25-inventory-tab-complete.md) — IN PROGRESS
+
+- 🚀 Starting: **Inventory Tab Plan Task 1: DB Migration — Add Missing Columns**
+
+---
+
 ### Shipment Tracking Integration (Plan: 2026-04-24-shipment-tracking.md) — IN PROGRESS
 
 - [2026-04-24] **Task 3: Tracking Utilities** — `src/lib/tracking/normalize.ts`, `src/lib/tracking/normalize.test.ts` — TDD: `normalizeTimestamp()` converts UTC/offset strings to ISO-8601, handles unparseable input gracefully; `computeEventHash()` produces sha256 digest; 8 tests pass
