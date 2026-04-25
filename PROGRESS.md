@@ -206,6 +206,7 @@ Purchase & Sales▾:
 
 - [ ] **Manual smoke test** — in-app user management (all 17 tasks code-complete; browser smoke test pending before Phase 2)
 - [ ] **Verify** self-provision banner flow (Create My Profile) on a fresh auth user with no profile row ← **LAST TEST — complete only when manually instructed**
+- [ ] **LC: all_items_sold — QuickBooks guidance** (spec §12) — When `all_items_sold = TRUE`, surface a banner/note in the LC detail dialog instructing the user to record the LC total as a period expense in QuickBooks ("Landed Cost Expense | [month] | [amount]"). No integration, UI message only. ← **DEFERRED: last task of Phase 1**
 
 ### Bug Fixes & Features Applied [2026-04-24] (continued)
 
