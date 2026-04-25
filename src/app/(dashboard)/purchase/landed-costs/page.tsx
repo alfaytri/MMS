@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useRef } from 'react'
+import { useState, useRef, useEffect } from 'react'
 import { useQuery } from '@tanstack/react-query'
 import Decimal from 'decimal.js'
 import Link from 'next/link'
@@ -28,12 +28,15 @@ import { cn } from '@/lib/utils'
 import { formatCurrency, formatDate } from '@/lib/utils/formatters'
 import {
   useLandedCosts, useCreateLandedCost, useVoidLandedCost, useApplyLandedCost,
-  useValidateLcAllocation, useBillSignedUrls,
-  type LandedCost, type LandedCostLine,
+  useRevertLandedCost, useValidateLcAllocation, useBillSignedUrls,
+  type LandedCost, type LandedCostLine, type LandedCostItemAllocation,
 } from '@/hooks/useLandedCosts'
 import {
   useReceivalsForLcSelector, useReceivalItemsWithFifo,
 } from '@/hooks/useReceivals'
+import {
+  useBrandVariantsByIds, useBatchUpdateSellingPrices,
+} from '@/hooks/useInventory'
 import type { ColumnDef } from '@tanstack/react-table'
 
 // ─── Local hooks for detail dialog ───────────────────────────────────────────
@@ -78,6 +81,186 @@ function useAttachedPOs(poIds: string[]) {
   })
 }
 
+// ─── Price Review Dialog ──────────────────────────────────────────────────────
+
+type PriceReviewRow = {
+  brand_variant_id: string
+  item_name: string
+  sku: string | null
+  original_unit_cost: number
+  updated_unit_cost: number
+  method: 'margin' | 'fixed'
+  margin_percent: number
+}
+
+function PriceReviewDialog({
+  open,
+  allocations,
+  onDone,
+}: {
+  open: boolean
+  allocations: LandedCostItemAllocation[]
+  onDone: () => void
+}) {
+  const bvIds = allocations.map((a) => a.brand_variant_id).filter(Boolean)
+  const { data: bvPrices, isLoading: loadingPrices } = useBrandVariantsByIds(bvIds)
+  const batchUpdate = useBatchUpdateSellingPrices()
+
+  const [rows, setRows] = useState<PriceReviewRow[]>([])
+
+  // Build rows once bvPrices loads
+  useEffect(() => {
+    if (!open || !bvPrices) return
+    setRows(
+      allocations
+        .filter((a) => a.qty_remaining_at_lc > 0)
+        .map((a) => {
+          const bv = bvPrices.find((b) => b.id === a.brand_variant_id)
+          return {
+            brand_variant_id: a.brand_variant_id,
+            item_name: a.item_name,
+            sku: a.sku,
+            original_unit_cost: a.original_unit_cost,
+            updated_unit_cost: a.updated_unit_cost,
+            method: 'margin' as const,
+            margin_percent: bv?.margin_percent ?? 0,
+          }
+        }),
+    )
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [open, bvPrices])
+
+  function updateRow(idx: number, patch: Partial<PriceReviewRow>) {
+    setRows((prev) => prev.map((r, i) => (i === idx ? { ...r, ...patch } : r)))
+  }
+
+  function handleUpdate() {
+    const updates = rows
+      .filter((r) => r.method === 'margin')
+      .map((r) => ({
+        id: r.brand_variant_id,
+        selling_price: parseFloat(
+          (r.updated_unit_cost * (1 + r.margin_percent / 100)).toFixed(2),
+        ),
+        margin_percent: r.margin_percent,
+      }))
+    if (updates.length === 0) { onDone(); return }
+    batchUpdate.mutate(updates, {
+      onSuccess: () => { toast.success('Selling prices updated'); onDone() },
+      onError: (err) => toast.error(err.message),
+    })
+  }
+
+  if (!open) return null
+
+  return (
+    <Dialog open={open} onOpenChange={() => onDone()}>
+      <DialogContent className="w-full max-w-full rounded-none sm:max-w-3xl sm:rounded-lg">
+        <DialogHeader>
+          <DialogTitle>Review Selling Prices</DialogTitle>
+        </DialogHeader>
+        <p className="text-sm text-muted-foreground">
+          The LC has been applied. Unit costs have changed — review each product&apos;s selling price.
+        </p>
+        {loadingPrices ? (
+          <Skeleton className="h-32 w-full" />
+        ) : rows.length === 0 ? (
+          <p className="text-sm text-muted-foreground">No items with remaining inventory to price.</p>
+        ) : (
+          <div className="rounded-md border overflow-x-auto max-h-[55vh] overflow-y-auto">
+            <Table>
+              <TableHeader>
+                <TableRow>
+                  <TableHead>Item</TableHead>
+                  <TableHead className="text-right">Old Cost</TableHead>
+                  <TableHead className="text-right">New Cost</TableHead>
+                  <TableHead>Method</TableHead>
+                  <TableHead className="text-right w-24">Margin %</TableHead>
+                  <TableHead className="text-right">New Price</TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {rows.map((row, idx) => {
+                  const suggestedPrice =
+                    row.method === 'margin'
+                      ? (row.updated_unit_cost * (1 + row.margin_percent / 100)).toFixed(2)
+                      : null
+                  return (
+                    <TableRow key={row.brand_variant_id}>
+                      <TableCell className="text-sm">
+                        <p className="font-medium">{row.item_name}</p>
+                        {row.sku && <p className="text-xs text-muted-foreground font-mono">{row.sku}</p>}
+                      </TableCell>
+                      <TableCell className="text-right text-sm text-muted-foreground">
+                        {formatCurrency(row.original_unit_cost, 'QAR')}
+                      </TableCell>
+                      <TableCell className="text-right text-sm font-medium text-blue-700">
+                        {formatCurrency(row.updated_unit_cost, 'QAR')}
+                      </TableCell>
+                      <TableCell>
+                        <div className="flex flex-col gap-1">
+                          <label className="flex items-center gap-1.5 text-xs cursor-pointer">
+                            <input
+                              type="radio"
+                              name={`method-${idx}`}
+                              checked={row.method === 'margin'}
+                              onChange={() => updateRow(idx, { method: 'margin' })}
+                            />
+                            Margin-based
+                          </label>
+                          <label className="flex items-center gap-1.5 text-xs cursor-pointer">
+                            <input
+                              type="radio"
+                              name={`method-${idx}`}
+                              checked={row.method === 'fixed'}
+                              onChange={() => updateRow(idx, { method: 'fixed' })}
+                            />
+                            Fixed (no change)
+                          </label>
+                        </div>
+                      </TableCell>
+                      <TableCell className="text-right">
+                        {row.method === 'margin' ? (
+                          <Input
+                            type="number" min="0" step="0.01"
+                            className="h-7 w-20 text-right text-sm"
+                            value={row.margin_percent}
+                            onChange={(e) =>
+                              updateRow(idx, { margin_percent: parseFloat(e.target.value) || 0 })
+                            }
+                          />
+                        ) : (
+                          <span className="text-xs text-muted-foreground">—</span>
+                        )}
+                      </TableCell>
+                      <TableCell className="text-right text-sm font-semibold">
+                        {suggestedPrice
+                          ? formatCurrency(parseFloat(suggestedPrice), 'QAR')
+                          : <span className="text-muted-foreground text-xs">unchanged</span>}
+                      </TableCell>
+                    </TableRow>
+                  )
+                })}
+              </TableBody>
+            </Table>
+          </div>
+        )}
+        <DialogFooter className="gap-2">
+          <Button variant="outline" onClick={onDone} disabled={batchUpdate.isPending}>
+            Skip
+          </Button>
+          <Button
+            onClick={handleUpdate}
+            disabled={batchUpdate.isPending || loadingPrices || rows.every((r) => r.method === 'fixed')}
+          >
+            {batchUpdate.isPending ? 'Updating…' : 'Update Prices'}
+          </Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
+  )
+}
+
 // ─── LC Detail Dialog ─────────────────────────────────────────────────────────
 
 function LcDetailDialog({
@@ -89,9 +272,14 @@ function LcDetailDialog({
 }) {
   const voidLc = useVoidLandedCost()
   const applyLc = useApplyLandedCost()
+  const revertLc = useRevertLandedCost()
   const [voidOpen, setVoidOpen] = useState(false)
   const [applyOpen, setApplyOpen] = useState(false)
   const [voidReason, setVoidReason] = useState('')
+  const [revertOpen, setRevertOpen] = useState(false)
+  const [revertConfirmText, setRevertConfirmText] = useState('')
+  const [priceReviewOpen, setPriceReviewOpen] = useState(false)
+  const [priceReviewAllocations, setPriceReviewAllocations] = useState<LandedCostItemAllocation[]>([])
 
   const billPaths = (lc?.lines ?? []).map((l) => l.bill_path)
   const { data: signedUrls } = useBillSignedUrls(billPaths)
@@ -386,6 +574,18 @@ function LcDetailDialog({
               </Button>
             </DialogFooter>
           )}
+          {isApplied && !isVoided && lc.revert_snapshot != null && (
+            <DialogFooter>
+              <Button
+                variant="outline"
+                size="sm"
+                className="text-destructive border-destructive hover:bg-destructive/10"
+                onClick={() => { setRevertConfirmText(''); setRevertOpen(true) }}
+              >
+                Revert Apply
+              </Button>
+            </DialogFooter>
+          )}
         </DialogContent>
       </Dialog>
 
@@ -439,10 +639,15 @@ function LcDetailDialog({
                   disabled={applyLc.isPending || validating}
                   onClick={() =>
                     applyLc.mutate(lc.id, {
-                      onSuccess: () => {
+                      onSuccess: (data) => {
                         toast.success('Landed cost applied to inventory')
                         setApplyOpen(false)
-                        onClose()
+                        if (Array.isArray(data) && data.length > 0) {
+                          setPriceReviewAllocations(data as LandedCostItemAllocation[])
+                          setPriceReviewOpen(true)
+                        } else {
+                          onClose()
+                        }
                       },
                       onError: (err) => toast.error(err.message),
                     })
@@ -482,6 +687,63 @@ function LcDetailDialog({
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      {/* Revert confirm */}
+      <Dialog open={revertOpen} onOpenChange={(v) => { if (!v) setRevertOpen(false) }}>
+        <DialogContent className="w-full max-w-full rounded-none sm:max-w-sm sm:rounded-lg">
+          <DialogHeader><DialogTitle>Revert Landed Cost Apply</DialogTitle></DialogHeader>
+          <div className="space-y-3">
+            <p className="text-sm text-muted-foreground">
+              This will <strong>undo</strong> the LC application for{' '}
+              <strong>{lc?.lc_number}</strong>:
+            </p>
+            <ul className="text-sm text-muted-foreground list-disc list-inside space-y-1">
+              <li>FIFO layer costs restored to pre-apply values</li>
+              <li>Average costs recalculated for all affected variants</li>
+              <li>Cost-adjustment stock movements deleted</li>
+              <li>LC returns to Active status (can be re-applied)</li>
+            </ul>
+            <p className="text-sm font-medium">
+              Selling price changes made after apply are <em>not</em> automatically reversed.
+            </p>
+            <div className="space-y-1">
+              <Label className="text-sm">Type REVERT to confirm</Label>
+              <Input
+                value={revertConfirmText}
+                onChange={(e) => setRevertConfirmText(e.target.value)}
+                placeholder="REVERT"
+                className="font-mono"
+              />
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setRevertOpen(false)}>Cancel</Button>
+            <Button
+              variant="destructive"
+              disabled={revertConfirmText !== 'REVERT' || revertLc.isPending}
+              onClick={() =>
+                revertLc.mutate(lc!.id, {
+                  onSuccess: () => {
+                    toast.success('LC reverted — FIFO costs restored')
+                    setRevertOpen(false)
+                    onClose()
+                  },
+                  onError: (err) => toast.error(err.message),
+                })
+              }
+            >
+              {revertLc.isPending ? 'Reverting…' : 'Confirm Revert'}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Post-apply price review */}
+      <PriceReviewDialog
+        open={priceReviewOpen}
+        allocations={priceReviewAllocations}
+        onDone={() => { setPriceReviewOpen(false); onClose() }}
+      />
     </>
   )
 }
