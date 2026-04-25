@@ -348,7 +348,7 @@ export function PoReceiveTab({ po }: { po: PurchaseOrder }) {
           <div className="space-y-3">
             <div className="grid grid-cols-3 gap-2">
               {/* Category */}
-              <Select value={nonPoCatId || 'all'} onValueChange={(v) => { setNonPoCatId(v === 'all' ? '' : v); setNonPoItemId(''); setNonPoVariantId('') }}>
+              <Select value={nonPoCatId || 'all'} onValueChange={(v) => { setNonPoCatId(v === 'all' || v === null ? '' : v); setNonPoItemId(''); setNonPoVariantId('') }}>
                 <SelectTrigger><SelectValue placeholder="Category" /></SelectTrigger>
                 <SelectContent>
                   <SelectItem value="all">All Categories</SelectItem>
@@ -361,7 +361,7 @@ export function PoReceiveTab({ po }: { po: PurchaseOrder }) {
               {/* Item */}
               <Select
                 value={nonPoItemId || 'none'}
-                onValueChange={(v) => { setNonPoItemId(v === 'none' ? '' : v); setNonPoVariantId('') }}
+                onValueChange={(v) => { setNonPoItemId(v === 'none' || v === null ? '' : v); setNonPoVariantId('') }}
                 disabled={filteredItems.length === 0}
               >
                 <SelectTrigger><SelectValue placeholder="Item" /></SelectTrigger>
@@ -375,7 +375,7 @@ export function PoReceiveTab({ po }: { po: PurchaseOrder }) {
               {/* Brand variant (optional) */}
               <Select
                 value={nonPoVariantId || 'none'}
-                onValueChange={(v) => setNonPoVariantId(v === 'none' ? '' : v)}
+                onValueChange={(v) => setNonPoVariantId(v === 'none' || v === null ? '' : v)}
                 disabled={!nonPoItemId || (variants as any[]).length === 0}
               >
                 <SelectTrigger><SelectValue placeholder="Brand" /></SelectTrigger>

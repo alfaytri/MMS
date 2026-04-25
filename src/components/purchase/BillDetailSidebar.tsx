@@ -53,7 +53,7 @@ export function BillDetailSidebar({
       {/* Company selector */}
       <div className="space-y-2">
         <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">Company</p>
-        <Select value={selectedDivisionId} onValueChange={onDivisionChange}>
+        <Select value={selectedDivisionId} onValueChange={(v) => { if (v !== null) onDivisionChange(v) }}>
           <SelectTrigger>
             <SelectValue placeholder="Select company…" />
           </SelectTrigger>

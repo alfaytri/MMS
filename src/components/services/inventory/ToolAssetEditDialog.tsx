@@ -147,14 +147,14 @@ export function ToolAssetUnitEditDialog({ open, onOpenChange, itemId, unit }: Un
           <div className="grid grid-cols-2 gap-3">
             <div className="space-y-1">
               <Label>Condition</Label>
-              <Select value={condition} onValueChange={setCondition}>
+              <Select value={condition} onValueChange={(v) => { if (v !== null) setCondition(v) }}>
                 <SelectTrigger><SelectValue /></SelectTrigger>
                 <SelectContent>{CONDITIONS.map((c) => <SelectItem key={c} value={c}>{c}</SelectItem>)}</SelectContent>
               </Select>
             </div>
             <div className="space-y-1">
               <Label>Status</Label>
-              <Select value={status} onValueChange={(v: string) => { setStatus(v); if (v !== 'assigned') setAssignedTo('') }}>
+              <Select value={status} onValueChange={(v) => { if (v !== null) { setStatus(v); if (v !== 'assigned') setAssignedTo('') } }}>
                 <SelectTrigger><SelectValue /></SelectTrigger>
                 <SelectContent>
                   <SelectItem value="available">Available</SelectItem>
@@ -168,7 +168,7 @@ export function ToolAssetUnitEditDialog({ open, onOpenChange, itemId, unit }: Un
           {status === 'assigned' && (
             <div className="space-y-1">
               <Label>Assigned To *</Label>
-              <Select value={assignedTo} onValueChange={setAssignedTo}>
+              <Select value={assignedTo} onValueChange={(v) => { if (v !== null) setAssignedTo(v) }}>
                 <SelectTrigger>
                   <SelectValue placeholder="Select staff member…">
                     {staffProfiles.find((p) => p.id === assignedTo)?.full_name ?? 'Select staff member…'}
