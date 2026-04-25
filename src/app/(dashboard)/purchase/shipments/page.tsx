@@ -234,6 +234,10 @@ function ShipmentDetailDialog({
         }),
       })
       const data = await res.json()
+      if (!res.ok && !data.ambiguous && !data.error) {
+        toast.error('Sync failed — try again')
+        return
+      }
       if (data.ambiguous) {
         setSyncAmbiguous({ candidates: data.candidates })
         return

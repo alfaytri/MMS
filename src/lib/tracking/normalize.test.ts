@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { normalizeTimestamp, computeEventHash } from './normalize'
+import { normalizeTimestamp, computeEventHash, mapRawEvents } from './normalize'
 
 describe('normalizeTimestamp', () => {
   it('converts UTC string to ISO-8601', () => {
@@ -36,5 +36,49 @@ describe('computeEventHash', () => {
   })
   it('returns a 64-character hex string', () => {
     expect(computeEventHash('ts', 'loc', 'desc')).toMatch(/^[a-f0-9]{64}$/)
+  })
+})
+
+describe('mapRawEvents', () => {
+  it('returns empty array for empty input', () => {
+    expect(mapRawEvents([])).toEqual([])
+  })
+
+  it('drops events with unmapped 17track tags', () => {
+    const events = mapRawEvents([
+      { a: '2024-01-15T10:30:00Z', b: 'Shanghai', c: 'Info received', z: 'InfoReceived' },
+      { a: '2024-01-15T11:00:00Z', b: 'Shanghai', c: 'Picked up', z: 'Pickup' },
+    ])
+    expect(events).toHaveLength(0)
+  })
+
+  it('maps InTransit events and sets status correctly', () => {
+    const events = mapRawEvents([
+      { a: '2024-01-15T10:30:00Z', b: 'Shanghai', c: 'In transit', z: 'InTransit' },
+    ])
+    expect(events).toHaveLength(1)
+    expect(events[0].status).toBe('in_transit')
+  })
+
+  it('aliases date to normalizedTimestamp for display compatibility', () => {
+    const events = mapRawEvents([
+      { a: '2024-01-15T13:30:00+03:00', b: 'Doha', c: 'Delivered', z: 'Delivered' },
+    ])
+    expect(events[0].date).toBe(events[0].normalizedTimestamp)
+    expect(events[0].date).toBe('2024-01-15T10:30:00.000Z')
+  })
+
+  it('computes a 64-character hash for each event', () => {
+    const events = mapRawEvents([
+      { a: '2024-01-15T10:30:00Z', b: 'Dubai', c: 'Customs cleared', z: 'Customs' },
+    ])
+    expect(events[0].hash).toMatch(/^[a-f0-9]{64}$/)
+  })
+
+  it('maps notes from description field', () => {
+    const events = mapRawEvents([
+      { a: '2024-01-15T10:30:00Z', b: 'Riyadh', c: 'Delivery delayed', z: 'Exception' },
+    ])
+    expect(events[0].notes).toBe('Delivery delayed')
   })
 })

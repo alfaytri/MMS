@@ -40,7 +40,9 @@ export async function POST(request: Request) {
     track?: { z0?: { a?: Raw17trackEvent[] } }
   }
 
-  await Promise.all(
+  // allSettled so a single-shipment failure doesn't reject the whole batch.
+  // 17track retries on non-200 responses — returning 200 with partial errors is correct.
+  const results = await Promise.allSettled(
     updates
       .filter((u): u is TrackUpdate => !!(u as TrackUpdate).number)
       .map(async u => {
@@ -62,6 +64,10 @@ export async function POST(request: Request) {
         }
       })
   )
+
+  results.forEach(r => {
+    if (r.status === 'rejected') console.error('[webhook/17track]', r.reason)
+  })
 
   return NextResponse.json({ ok: true })
 }
