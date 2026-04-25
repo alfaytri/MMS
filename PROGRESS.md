@@ -154,7 +154,7 @@ Purchase & Sales▾:
 **LC Page Enhancements Plan (2026-04-25-lc-page-enhancements.md)** — ACTIVE
 - [x] Task 0: Setup — merge develop
 - [x] Task 1: DB Migration — private `lc-bills` storage bucket
-- 🚀 Starting: **LC Page Enhancements Plan Task 2: DB Migration — `validate_lc_allocation` pre-flight RPC**
+- [x] Task 2: DB Migration — `validate_lc_allocation` pre-flight RPC
 - [ ] Task 3: Install `decimal.js`
 - [ ] Task 4: Shared hooks — `useReceivalsForLcSelector` + `useReceivalItemsWithFifo`
 - [ ] Task 5: `useLandedCosts` — add `bill_path`, `useValidateLcAllocation`, `useBillSignedUrls`
@@ -231,6 +231,8 @@ Purchase & Sales▾:
 ---
 
 ## ✅ Completed
+
+- [2026-04-25] **LC Page Enhancements Plan Task 2: DB Migration — `validate_lc_allocation` pre-flight RPC** — `supabase/migrations/20260425000201_rpc_validate_lc_allocation.sql` — Read-only function checks LC applicability (via `attached_receival_ids`), returns JSONB array of per-variant summaries with qty_received, qty_remaining_in_layers, and warning if sold-out; guards: not-found, already-applied, voided states; GRANT EXECUTE to authenticated
 
 ### LC Multi-Currency + Receival Redesign (Plan: 2026-04-25-lc-multicurrency-receival-redesign.md) — COMPLETE ✅
 
