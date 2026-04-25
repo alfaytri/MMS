@@ -14,6 +14,7 @@ export type ReceivalItem = {
   qty_received: number
   unit_cost: number
   is_free: boolean | null
+  brand_variant_id: string | null
   // UI-computed: ordered qty comes from po_line_items join
   ordered_qty?: number
 }
@@ -141,6 +142,22 @@ export function useCreateReceival() {
       if (error) throw error
 
       if (payload.items.length > 0) {
+        // Batch-fetch brand_variant_id for all po_line_item_ids in one round-trip
+        const poLineIds = payload.items
+          .map(it => it.po_line_item_id)
+          .filter((id): id is string => !!id)
+
+        let bvMap: Record<string, string | null> = {}
+        if (poLineIds.length > 0) {
+          const { data: poLines } = await (supabase as any)
+            .from('po_line_items')
+            .select('id, brand_variant_id')
+            .in('id', poLineIds)
+          for (const pl of poLines ?? []) {
+            bvMap[pl.id] = pl.brand_variant_id ?? null
+          }
+        }
+
         const { error: iErr } = await (supabase as any)
           .from('receival_items')
           .insert(
@@ -152,21 +169,20 @@ export function useCreateReceival() {
               qty_received: it.qty_received,
               unit_cost: it.unit_cost,
               is_free: it.is_free ?? false,
+              brand_variant_id: it.po_line_item_id ? (bvMap[it.po_line_item_id] ?? null) : null,
             }))
           )
         if (iErr) throw iErr
 
-        // Update received_qty on each PO line item (non-free items only)
-        for (const it of payload.items) {
-          if (!it.po_line_item_id || it.is_free) continue
-          const { data: li } = await (supabase as any)
-            .from('po_line_items').select('received_qty').eq('id', it.po_line_item_id).single()
-          if (li != null) {
-            await (supabase as any)
-              .from('po_line_items')
-              .update({ received_qty: (li.received_qty ?? 0) + it.qty_received })
-              .eq('id', it.po_line_item_id)
-          }
+        // Batch update received_qty — one RPC call instead of N×2 round trips
+        const updates = payload.items
+          .filter(it => it.po_line_item_id && !it.is_free)
+          .map(it => ({ id: it.po_line_item_id!, delta: it.qty_received }))
+
+        if (updates.length > 0) {
+          const { error: batchErr } = await (supabase as any)
+            .rpc('batch_increment_received_qty', { p_updates: updates })
+          if (batchErr) throw batchErr
         }
       }
 
@@ -201,13 +217,15 @@ export function useApproveReceival() {
   return useMutation({
     mutationFn: async ({ id, action }: { id: string; action: 'approved' | 'rejected' }) => {
       const supabase = createClient()
+
       const { data: receival } = await (supabase as any)
         .from('receivals')
-        .select('po_id, receival_number, receival_items(po_line_item_id, qty_received, is_free)')
+        .select('po_id, receival_number')
         .eq('id', id)
         .single()
+
       const { error } = await (supabase as any)
-        .from('receivals').update({ status: action }).eq('id', id)
+        .rpc('approve_receival_inventory', { p_receival_id: id, p_action: action })
       if (error) throw error
 
       const approvalPerformer = await resolveMyName()
@@ -219,27 +237,13 @@ export function useApproveReceival() {
         severity: action === 'rejected' ? 'warning' : 'info',
       })
 
-      // Roll back received_qty on po_line_items when rejected
-      if (action === 'rejected') {
-        const items: { po_line_item_id: string | null; qty_received: number; is_free: boolean | null }[] =
-          receival?.receival_items ?? []
-        for (const it of items) {
-          if (!it.po_line_item_id || it.is_free) continue
-          const { data: li } = await (supabase as any)
-            .from('po_line_items').select('received_qty').eq('id', it.po_line_item_id).single()
-          if (li != null) {
-            await (supabase as any)
-              .from('po_line_items')
-              .update({ received_qty: Math.max(0, (li.received_qty ?? 0) - it.qty_received) })
-              .eq('id', it.po_line_item_id)
-          }
-        }
-      }
-
       return receival?.po_id as string | null
     },
     onSuccess: (poId) => {
       queryClient.invalidateQueries({ queryKey: ['receivals'] })
+      queryClient.invalidateQueries({ queryKey: ['inventory-brand-variants'] })
+      queryClient.invalidateQueries({ queryKey: ['fifo-layers'] })
+      queryClient.invalidateQueries({ queryKey: ['stock_movements'] })
       if (poId) {
         queryClient.invalidateQueries({ queryKey: ['po-receivals', poId] })
         queryClient.invalidateQueries({ queryKey: ['purchase-order', poId] })

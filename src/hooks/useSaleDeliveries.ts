@@ -78,37 +78,35 @@ export function useCompleteDelivery() {
   return useMutation({
     mutationFn: async ({
       deliveryId,
+      soId,
       invoiceId,
       remainingItems,
     }: {
       deliveryId: string
       soId: string
-      invoiceId: string | null   // linked AR invoice, if any
-      remainingItems: DeliveryItem[]  // items with qty not yet delivered (for follow-up)
+      invoiceId: string | null
+      remainingItems: DeliveryItem[]
     }) => {
       const supabase = createClient()
-      // Mark delivery as delivered
-      const { error } = await (supabase as any)
-        .from('sale_deliveries')
-        .update({ status: 'delivered' })
-        .eq('id', deliveryId)
-      if (error) throw error
 
-      // Update linked invoice doc_status if not flagged for refresh
+      // Single atomic RPC: marks delivered + deducts FIFO + writes COGS + movements
+      const { error } = await (supabase as any)
+        .rpc('complete_delivery_inventory', { p_delivery_id: deliveryId, p_so_id: soId })
+      if (error) throw new Error(error.message)
+
+      // Invoice update (non-inventory concern)
       if (invoiceId) {
         const { data: inv } = await (supabase as any)
           .from('invoices')
           .select('needs_refresh, doc_status')
           .eq('id', invoiceId)
           .single()
-
         if (inv && !inv.needs_refresh && inv.doc_status === 'draft') {
           await (supabase as any)
             .from('invoices')
             .update({ doc_status: 'ready_to_send' })
             .eq('id', invoiceId)
         }
-        // If needs_refresh=true or already sent: do not change doc_status
       }
 
       // Create follow-up delivery stub for remaining items (partial delivery)
@@ -137,6 +135,10 @@ export function useCompleteDelivery() {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['sale-deliveries'] })
       queryClient.invalidateQueries({ queryKey: ['customer-invoices'] })
+      queryClient.invalidateQueries({ queryKey: ['inventory-brand-variants'] })
+      queryClient.invalidateQueries({ queryKey: ['fifo-layers'] })
+      queryClient.invalidateQueries({ queryKey: ['stock_movements'] })
+      queryClient.invalidateQueries({ queryKey: ['cogs-entries'] })
     },
   })
 }
