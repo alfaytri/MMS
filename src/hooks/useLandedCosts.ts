@@ -7,6 +7,7 @@ export type LandedCostLine = {
   description: string
   amount: number
   currency: string
+  exchange_rate: number   // default 1; used for non-QAR lines
 }
 
 export type LandedCostItemAllocation = {
@@ -96,12 +97,15 @@ export function useCreateLandedCost() {
   return useMutation({
     mutationFn: async (payload: CreateLandedCostPayload) => {
       const supabase = createClient()
-      const total_amount = payload.lines.reduce((s, l) => s + l.amount, 0)
-      const { data, error } = await (supabase as any)
-        .from('landed_costs')
-        .insert({ ...payload, total_amount, all_items_sold: false })
-        .select()
-        .single()
+      // total_amount computed in Postgres NUMERIC — no JS float rounding
+      const { data, error } = await (supabase as any).rpc('create_landed_cost', {
+        p_description:           payload.description ?? null,
+        p_date:                  payload.date,
+        p_currency:              payload.currency,
+        p_lines:                 payload.lines,
+        p_attached_receival_ids: payload.attached_receival_ids,
+        p_attached_po_ids:       payload.attached_po_ids,
+      })
       if (error) throw error
       return data as LandedCost
     },
