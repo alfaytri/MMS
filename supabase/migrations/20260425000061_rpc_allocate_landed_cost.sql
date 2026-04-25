@@ -8,11 +8,11 @@ AS $$
 DECLARE
   v_lc            RECORD;
   v_grand_total   NUMERIC := 0;
-  v_total_remaining INT := 0;
+  v_total_remaining BIGINT := 0;
   v_allocations   JSONB := '[]'::JSONB;
   v_bv            RECORD;
   v_bv_lc_share   NUMERIC;
-  v_bv_remaining  INT;
+  v_bv_remaining  BIGINT;
   v_per_unit_lc   NUMERIC;
 BEGIN
   -- Lock the row to prevent concurrent apply
@@ -27,10 +27,11 @@ BEGIN
     RAISE EXCEPTION 'Cannot apply voided landed cost %', v_lc.lc_number;
   END IF;
 
-  -- Sum total received value across all eligible receival items
+  -- Sum total received value across all eligible receival items (approved receivals only)
   SELECT COALESCE(SUM(ri.qty_received * ri.unit_cost), 0)
     INTO v_grand_total
     FROM receival_items ri
+    JOIN receivals rv ON rv.id = ri.receival_id AND rv.status = 'approved'
    WHERE ri.receival_id = ANY(v_lc.attached_receival_ids)
      AND ri.is_free = false
      AND ri.brand_variant_id IS NOT NULL
@@ -53,6 +54,7 @@ BEGIN
         ELSE 0
       END                                      AS avg_unit_cost
     FROM receival_items ri
+    JOIN receivals rv ON rv.id = ri.receival_id AND rv.status = 'approved'
    WHERE ri.receival_id = ANY(v_lc.attached_receival_ids)
      AND ri.is_free = false
      AND ri.brand_variant_id IS NOT NULL
@@ -62,12 +64,17 @@ BEGIN
     -- This brand_variant's proportional share of the total LC amount
     v_bv_lc_share := v_lc.total_amount * (v_bv.total_value / v_grand_total);
 
-    -- How many units are still in FIFO inventory right now
+    -- How many units are still in FIFO inventory right now (lock rows to prevent race with concurrent sales)
+    WITH locked_layers AS (
+      SELECT remaining_qty
+        FROM fifo_cost_layers
+       WHERE brand_variant_id = v_bv.brand_variant_id
+         AND remaining_qty > 0
+       FOR UPDATE
+    )
     SELECT COALESCE(SUM(remaining_qty), 0)
       INTO v_bv_remaining
-      FROM fifo_cost_layers
-     WHERE brand_variant_id = v_bv.brand_variant_id
-       AND remaining_qty > 0;
+      FROM locked_layers;
 
     -- Build allocation record (even if nothing remains — still record the cost event)
     v_allocations := v_allocations || jsonb_build_array(jsonb_build_object(
@@ -111,7 +118,7 @@ BEGIN
          'cost_adjustment', v_bv_remaining, v_per_unit_lc,
          'landed_cost', p_lc_id,
          'LC ' || v_lc.lc_number || ': '
-           || ROUND(v_bv_lc_share, 2) || ' QAR over '
+           || ROUND(v_bv_lc_share, 2) || ' ' || v_lc.currency || ' over '
            || v_bv_remaining || ' units');
 
       v_total_remaining := v_total_remaining + v_bv_remaining;
