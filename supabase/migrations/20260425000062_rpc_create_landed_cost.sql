@@ -1,15 +1,16 @@
 -- supabase/migrations/20260425000062_rpc_create_landed_cost.sql
 BEGIN;
 
+-- Sequence for race-condition-free lc_number generation
+CREATE SEQUENCE IF NOT EXISTS lc_number_seq START 1;
+
 -- Auto-generate lc_number if not supplied (idempotent trigger)
 CREATE OR REPLACE FUNCTION _set_lc_number()
 RETURNS TRIGGER LANGUAGE plpgsql AS $$
 BEGIN
   IF NEW.lc_number IS NULL OR NEW.lc_number = '' THEN
     NEW.lc_number := 'LC-' || TO_CHAR(NOW(), 'YYYY') || '-' ||
-      LPAD((SELECT COALESCE(MAX(SUBSTRING(lc_number FROM '\d+$')::INT), 0) + 1
-            FROM landed_costs
-            WHERE lc_number ~ '^LC-\d{4}-\d+$')::TEXT, 4, '0');
+      LPAD(nextval('lc_number_seq')::TEXT, 4, '0');
   END IF;
   RETURN NEW;
 END;
@@ -37,9 +38,13 @@ DECLARE
   v_total_amount NUMERIC;
   v_id           UUID;
 BEGIN
+  IF p_lines IS NULL THEN
+    RAISE EXCEPTION 'p_lines must not be null';
+  END IF;
+
   -- Sum in NUMERIC — no JavaScript float rounding (Fix #4)
   SELECT COALESCE(SUM(
-    (line->>'amount')::NUMERIC * COALESCE((line->>'exchange_rate')::NUMERIC, 1)
+    (line->>'amount')::NUMERIC * COALESCE(NULLIF((line->>'exchange_rate')::NUMERIC, 0), 1)
   ), 0)
   INTO v_total_amount
   FROM jsonb_array_elements(p_lines) AS line;
