@@ -8,16 +8,17 @@ export type BrandVariant = DBTable<'inventory_brand_variants'>
 export type InventoryItemInsert = DBInsert<'inventory_items'>
 export type InventoryItemUpdate = DBUpdate<'inventory_items'>
 // Manual type used instead of DBInsert<'inventory_brand_variants'> because generated
-// types are stale (they include a non-existent required 'brand' column)
+// types are stale. The actual schema uses brand TEXT, not brand_id FK.
 export type BrandVariantInsert = {
   item_id: string
-  brand_id?: string | null
+  brand: string
   code?: string | null
   cost_price?: number | null
   selling_price?: number | null
   average_cost?: number | null
+  reorder_point?: number
 }
-export type BrandVariantUpdate = Partial<BrandVariantInsert>
+export type BrandVariantUpdate = Partial<Omit<BrandVariantInsert, 'item_id'>> & { id?: string }
 
 export function useInventoryCategories() {
   return useQuery({
