@@ -1,7 +1,7 @@
 // src/hooks/useReceivals.ts
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { createClient } from '@/lib/supabase/client'
-import { logPOActivity, resolveMyName } from '@/lib/poActivityLogger'
+import { logPOActivity } from '@/lib/poActivityLogger'
 
 export type ReceivalStatus = 'pending_approval' | 'approved' | 'rejected'
 
@@ -35,6 +35,19 @@ export type Receival = {
   supplier_name?: string
 }
 
+export type ReceivalEditRequest = {
+  id: string
+  receival_id: string
+  requested_by: string
+  reason: string
+  status: 'pending' | 'approved' | 'rejected' | 'completed' | 'expired'
+  approved_by: string | null
+  rejection_note: string | null
+  expires_at: string | null
+  created_at: string
+  approved_at: string | null
+}
+
 export type CreateReceivalPayload = {
   po_id: string
   warehouse_id: string
@@ -42,6 +55,7 @@ export type CreateReceivalPayload = {
   notes: string
   items: {
     po_line_item_id: string | null
+    brand_variant_id: string | null
     item_name: string
     sku: string | null
     qty_received: number
@@ -112,7 +126,7 @@ export function useCreateReceival() {
     mutationFn: async (payload: CreateReceivalPayload) => {
       const supabase = createClient()
 
-      // Resolve current user's name for audit trail
+      // Resolve current user's display name for audit trail
       const { data: { user } } = await supabase.auth.getUser()
       let receivedByName: string | null = null
       if (user) {
@@ -121,134 +135,194 @@ export function useCreateReceival() {
         receivedByName = profile?.full_name ?? user.email ?? null
       }
 
+      // Generate receival_number (count-based, padded)
       const { count } = await (supabase as any)
         .from('receivals')
         .select('*', { count: 'exact', head: true })
       const receival_number = `RCV-${String((count ?? 0) + 1).padStart(5, '0')}`
 
-      const { data: receival, error } = await (supabase as any)
-        .from('receivals')
-        .insert({
-          receival_number,
-          po_id: payload.po_id,
-          warehouse_id: payload.warehouse_id,
-          date: payload.date,
-          notes: payload.notes || null,
-          status: 'pending_approval',
-          received_by_name: receivedByName,
-        })
-        .select()
-        .single()
+      // Single atomic RPC — insert + FIFO + stock_level all in one transaction
+      const { data, error } = await (supabase as any).rpc('create_and_approve_receival', {
+        p_po_id:            payload.po_id,
+        p_warehouse_id:     payload.warehouse_id,
+        p_date:             payload.date,
+        p_received_by_name: receivedByName,
+        p_receival_number:  receival_number,
+        p_notes:            payload.notes || null,
+        p_items:            payload.items.map(it => ({
+          po_line_item_id:  it.po_line_item_id,
+          brand_variant_id: it.brand_variant_id,
+          item_name:        it.item_name,
+          sku:              it.sku,
+          qty_received:     it.qty_received,
+          unit_cost:        it.unit_cost,
+          is_free:          it.is_free ?? false,
+        })),
+      })
       if (error) throw error
 
-      if (payload.items.length > 0) {
-        // Batch-fetch brand_variant_id for all po_line_item_ids in one round-trip
-        const poLineIds = payload.items
-          .map(it => it.po_line_item_id)
-          .filter((id): id is string => !!id)
-
-        let bvMap: Record<string, string | null> = {}
-        if (poLineIds.length > 0) {
-          const { data: poLines } = await (supabase as any)
-            .from('po_line_items')
-            .select('id, brand_variant_id')
-            .in('id', poLineIds)
-          for (const pl of poLines ?? []) {
-            bvMap[pl.id] = pl.brand_variant_id ?? null
-          }
-        }
-
-        const { error: iErr } = await (supabase as any)
-          .from('receival_items')
-          .insert(
-            payload.items.map((it) => ({
-              receival_id: receival.id,
-              po_line_item_id: it.po_line_item_id,
-              item_name: it.item_name,
-              sku: it.sku,
-              qty_received: it.qty_received,
-              unit_cost: it.unit_cost,
-              is_free: it.is_free ?? false,
-              brand_variant_id: it.po_line_item_id ? (bvMap[it.po_line_item_id] ?? null) : null,
-            }))
-          )
-        if (iErr) throw iErr
-
-        // Batch update received_qty — one RPC call instead of N×2 round trips
-        const updates = payload.items
-          .filter(it => it.po_line_item_id && !it.is_free)
-          .map(it => ({ id: it.po_line_item_id!, delta: it.qty_received }))
-
-        if (updates.length > 0) {
-          const { error: batchErr } = await (supabase as any)
-            .rpc('batch_increment_received_qty', { p_updates: updates })
-          if (batchErr) throw batchErr
-        }
-      }
-
-      const regularCount = payload.items.filter((i) => !i.is_free).length
-      const freeCount = payload.items.filter((i) => i.is_free).length
-      const details = [
-        `${receival.receival_number}`,
-        regularCount > 0 ? `${regularCount} item(s) received` : null,
-        freeCount > 0 ? `${freeCount} free item(s)` : null,
-        payload.notes ? `Note: ${payload.notes}` : null,
-      ].filter(Boolean).join(' · ')
+      const regularCount = payload.items.filter(i => !i.is_free).length
+      const freeCount    = payload.items.filter(i => i.is_free).length
       await logPOActivity({
         poId: payload.po_id,
         action: 'Receival Recorded',
-        details,
+        details: [
+          receival_number,
+          regularCount > 0 ? `${regularCount} item(s) received` : null,
+          freeCount > 0 ? `${freeCount} free item(s)` : null,
+          payload.notes ? `Note: ${payload.notes}` : null,
+        ].filter(Boolean).join(' · '),
         performerName: receivedByName,
       })
 
-      return receival as Receival
+      return data as { receival_id: string; receival_number: string }
     },
     onSuccess: (_data, variables) => {
       queryClient.invalidateQueries({ queryKey: ['receivals'] })
       queryClient.invalidateQueries({ queryKey: ['po-receivals', variables.po_id] })
       queryClient.invalidateQueries({ queryKey: ['purchase-order', variables.po_id] })
       queryClient.invalidateQueries({ queryKey: ['purchase-orders'] })
+      queryClient.invalidateQueries({ queryKey: ['inventory-brand-variants'] })
+      queryClient.invalidateQueries({ queryKey: ['fifo-layers'] })
     },
   })
 }
 
-export function useApproveReceival() {
-  const queryClient = useQueryClient()
-  return useMutation({
-    mutationFn: async ({ id, action }: { id: string; action: 'approved' | 'rejected' }) => {
+// ─── Edit Request Hooks ───────────────────────────────────────────────────────
+
+export function useReceivalEditRequests(receival_id: string | null) {
+  return useQuery({
+    queryKey: ['receival_edit_requests', receival_id],
+    enabled: !!receival_id,
+    queryFn: async () => {
       const supabase = createClient()
+      const { data, error } = await (supabase as any)
+        .from('receival_edit_requests')
+        .select('*')
+        .eq('receival_id', receival_id)
+        .order('created_at', { ascending: false })
+      if (error) throw error
+      return (data ?? []) as ReceivalEditRequest[]
+    },
+  })
+}
 
-      const { data: receival } = await (supabase as any)
-        .from('receivals')
-        .select('po_id, receival_number')
-        .eq('id', id)
-        .single()
+export function useRequestReceivalEdit() {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: async ({ receival_id, reason }: { receival_id: string; reason: string }) => {
+      const supabase = createClient()
+      const { data: { user } } = await supabase.auth.getUser()
+      const { data: profile } = await (supabase as any)
+        .from('profiles').select('id').eq('auth_user_id', user?.id).maybeSingle()
+      if (!profile?.id) throw new Error('Profile not found')
 
-      const { error } = await (supabase as any)
-        .rpc('approve_receival_inventory', { p_receival_id: id, p_action: action })
+      const { data, error } = await (supabase as any)
+        .from('receival_edit_requests')
+        .insert({ receival_id, requested_by: profile.id, reason, status: 'pending' })
+        .select().single()
       if (error) throw error
 
-      const approvalPerformer = await resolveMyName()
-      await logPOActivity({
-        poId: receival?.po_id,
-        action: action === 'approved' ? 'Receival Approved' : 'Receival Rejected',
-        details: receival?.receival_number ?? id,
-        performerName: approvalPerformer,
-        severity: action === 'rejected' ? 'warning' : 'info',
-      })
-
-      return receival?.po_id as string | null
-    },
-    onSuccess: (poId) => {
-      queryClient.invalidateQueries({ queryKey: ['receivals'] })
-      queryClient.invalidateQueries({ queryKey: ['inventory-brand-variants'] })
-      queryClient.invalidateQueries({ queryKey: ['fifo-layers'] })
-      queryClient.invalidateQueries({ queryKey: ['stock_movements'] })
-      if (poId) {
-        queryClient.invalidateQueries({ queryKey: ['po-receivals', poId] })
-        queryClient.invalidateQueries({ queryKey: ['purchase-order', poId] })
-        queryClient.invalidateQueries({ queryKey: ['purchase-orders'] })
+      // Notify all admin profiles
+      const { data: admins } = await (supabase as any)
+        .from('profiles').select('id').eq('role', 'admin')
+      const notifications = (admins ?? []).map((a: any) => ({
+        user_id: a.id,
+        title: 'Receival Edit Requested',
+        body: `A receival edit was requested: ${reason}`,
+        type: 'receival_edit_request',
+        reference_id: data.id,
+      }))
+      if (notifications.length > 0) {
+        await (supabase as any).from('notifications').insert(notifications)
       }
+
+      return data as ReceivalEditRequest
+    },
+    onSuccess: (_data, variables) => {
+      qc.invalidateQueries({ queryKey: ['receival_edit_requests', variables.receival_id] })
+    },
+  })
+}
+
+export function useApproveReceivalEdit() {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: async ({
+      request_id, action, rejection_note,
+    }: { request_id: string; action: 'approved' | 'rejected'; rejection_note?: string }) => {
+      const supabase = createClient()
+      const { data: { user } } = await supabase.auth.getUser()
+      const { data: profile } = await (supabase as any)
+        .from('profiles').select('id').eq('auth_user_id', user?.id).maybeSingle()
+
+      const patch: Record<string, unknown> = {
+        status: action,
+        approved_by: profile?.id ?? null,
+      }
+      if (action === 'approved') {
+        patch.approved_at = new Date().toISOString()
+        // 48-hour edit window
+        patch.expires_at = new Date(Date.now() + 48 * 60 * 60 * 1000).toISOString()
+      }
+      if (action === 'rejected' && rejection_note) {
+        patch.rejection_note = rejection_note
+      }
+
+      const { data, error } = await (supabase as any)
+        .from('receival_edit_requests')
+        .update(patch)
+        .eq('id', request_id)
+        .select('*, receival_id').single()
+      if (error) throw error
+
+      // Notify the requestor
+      const { data: req } = await (supabase as any)
+        .from('receival_edit_requests')
+        .select('requested_by').eq('id', request_id).single()
+      if (req?.requested_by) {
+        await (supabase as any).from('notifications').insert({
+          user_id: req.requested_by,
+          title: action === 'approved' ? 'Edit Request Approved' : 'Edit Request Rejected',
+          body: action === 'approved'
+            ? 'Your receival edit was approved. You have 48 hours to save your changes.'
+            : `Your receival edit was rejected. ${rejection_note ?? ''}`,
+          type: 'receival_edit_response',
+          reference_id: request_id,
+        })
+      }
+
+      return data as ReceivalEditRequest
+    },
+    onSuccess: (data) => {
+      qc.invalidateQueries({ queryKey: ['receival_edit_requests', data.receival_id] })
+      qc.invalidateQueries({ queryKey: ['receivals'] })
+    },
+  })
+}
+
+export function useSaveReceivalEdit() {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: async ({
+      edit_request_id,
+      items,
+    }: {
+      edit_request_id: string
+      items: { receival_item_id: string; new_qty: number; new_unit_cost: number }[]
+    }) => {
+      const supabase = createClient()
+      const { data, error } = await (supabase as any)
+        .rpc('apply_receival_edit', { p_edit_request_id: edit_request_id, p_items: items })
+      if (error) throw error
+      return data as { ok: boolean }
+    },
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ['receivals'] })
+      qc.invalidateQueries({ queryKey: ['receival_edit_requests'] })
+      qc.invalidateQueries({ queryKey: ['inventory-brand-variants'] })
+      qc.invalidateQueries({ queryKey: ['fifo-layers'] })
+      qc.invalidateQueries({ queryKey: ['stock_movements'] })
     },
   })
 }

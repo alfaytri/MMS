@@ -24,6 +24,7 @@ import type { PurchaseOrder } from '@/hooks/usePurchaseOrders'
 
 type ReceiveRow = {
   po_line_item_id: string
+  brand_variant_id: string | null
   item_name: string
   sku: string | null
   unit: string
@@ -52,6 +53,7 @@ export function PoReceiveTab({ po }: { po: PurchaseOrder }) {
   const [rows, setRows] = useState<ReceiveRow[]>(() =>
     (po.po_line_items ?? []).map((li) => ({
       po_line_item_id: li.id,
+      brand_variant_id: li.brand_variant_id ?? null,
       item_name: li.item_name,
       sku: li.sku ?? null,
       unit: li.unit ?? '',
@@ -142,11 +144,11 @@ export function PoReceiveTab({ po }: { po: PurchaseOrder }) {
 
     const items: NonNullable<Parameters<typeof createReceival.mutateAsync>[0]['items']> = []
     for (const r of rows) {
-      if (r.receiveNow > 0) items.push({ po_line_item_id: r.po_line_item_id, item_name: r.item_name, sku: r.sku, qty_received: r.receiveNow, unit_cost: r.unitCost, is_free: false })
-      if (r.freeQty > 0) items.push({ po_line_item_id: r.po_line_item_id, item_name: r.item_name, sku: r.sku, qty_received: r.freeQty, unit_cost: 0, is_free: true })
+      if (r.receiveNow > 0) items.push({ po_line_item_id: r.po_line_item_id, brand_variant_id: r.brand_variant_id, item_name: r.item_name, sku: r.sku, qty_received: r.receiveNow, unit_cost: r.unitCost, is_free: false })
+      if (r.freeQty > 0) items.push({ po_line_item_id: r.po_line_item_id, brand_variant_id: r.brand_variant_id, item_name: r.item_name, sku: r.sku, qty_received: r.freeQty, unit_cost: 0, is_free: true })
     }
     for (const fi of extraFreeItems) {
-      items.push({ po_line_item_id: null, item_name: fi.item_name, sku: fi.sku, qty_received: fi.qty, unit_cost: 0, is_free: true })
+      items.push({ po_line_item_id: null, brand_variant_id: null, item_name: fi.item_name, sku: fi.sku, qty_received: fi.qty, unit_cost: 0, is_free: true })
     }
 
     const regularItems = items.filter((i) => !i.is_free)

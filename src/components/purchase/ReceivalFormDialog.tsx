@@ -78,13 +78,14 @@ export function ReceivalFormDialog({ open, onOpenChange }: Props) {
         notes,
         items: lines.map((l) => ({
           po_line_item_id: l.po_line_item_id,
+          brand_variant_id: null,
           item_name: l.item_name,
           sku: l.sku,
           qty_received: l.qty_received,
           unit_cost: l.unit_cost,
         })),
       })
-      toast.success('Receival submitted for approval')
+      toast.success('Receival recorded and approved')
       close()
     } catch (err: unknown) {
       toast.error((err as Error).message)
@@ -206,7 +207,7 @@ export function ReceivalFormDialog({ open, onOpenChange }: Props) {
         <DialogFooter>
           <Button variant="outline" onClick={close}>Cancel</Button>
           <Button onClick={submit} disabled={saving || !selectedPoId || lines.length === 0}>
-            {saving ? 'Submitting…' : 'Submit for Approval'}
+            {saving ? 'Recording…' : 'Record Receival'}
           </Button>
         </DialogFooter>
       </DialogContent>
