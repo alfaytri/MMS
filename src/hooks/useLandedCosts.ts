@@ -149,8 +149,16 @@ export function useRevertLandedCost() {
   return useMutation({
     mutationFn: async (id: string) => {
       const supabase = createClient()
+      // Resolve performer name for the reversing stock movement audit trail
+      const { data: { user } } = await supabase.auth.getUser()
+      let performerName = 'System'
+      if (user) {
+        const { data: profile } = await (supabase as any)
+          .from('profiles').select('full_name').eq('auth_user_id', user.id).maybeSingle()
+        performerName = profile?.full_name ?? user.email ?? 'System'
+      }
       const { error } = await (supabase as any)
-        .rpc('revert_landed_cost', { p_lc_id: id })
+        .rpc('revert_landed_cost', { p_lc_id: id, p_performer_name: performerName })
       if (error) throw error
     },
     onSuccess: () => qc.invalidateQueries({ queryKey: ['landed_costs'] }),

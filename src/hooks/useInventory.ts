@@ -755,6 +755,7 @@ export type BrandVariantPriceSummary = {
   id: string
   selling_price: number | null
   margin_percent: number | null
+  average_cost: number | null
 }
 
 export function useBrandVariantsByIds(ids: string[]) {
@@ -766,7 +767,7 @@ export function useBrandVariantsByIds(ids: string[]) {
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       const { data, error } = await (supabase as any)
         .from('inventory_brand_variants')
-        .select('id, selling_price, margin_percent')
+        .select('id, selling_price, margin_percent, average_cost')
         .in('id', ids)
       if (error) throw error
       return (data ?? []) as BrandVariantPriceSummary[]
@@ -786,16 +787,11 @@ export function useBatchUpdateSellingPrices() {
   return useMutation({
     mutationFn: async (updates: SellingPriceUpdate[]) => {
       const supabase = createClient()
-      await Promise.all(
-        updates.map((u) =>
-          // eslint-disable-next-line @typescript-eslint/no-explicit-any
-          (supabase as any)
-            .from('inventory_brand_variants')
-            .update({ selling_price: u.selling_price, margin_percent: u.margin_percent })
-            .eq('id', u.id)
-            .throwOnError(),
-        ),
-      )
+      // Single Postgres transaction via RPC — avoids N parallel HTTP requests
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const { error } = await (supabase as any)
+        .rpc('batch_update_variant_prices', { p_updates: updates })
+      if (error) throw error
     },
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ['brand-variants'] })

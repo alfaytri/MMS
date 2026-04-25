@@ -107,14 +107,14 @@ export function BrandVariantEditDialog({ open, onOpenChange, itemId, variant }: 
               />
             </div>
             <div className="space-y-1">
-              <Label>Margin %</Label>
+              <Label>Markup %</Label>
               <Input
                 type="number" min="0" step="0.01"
                 value={marginPercent}
                 onChange={(e) => setMarginPercent(e.target.value)}
                 placeholder="0"
               />
-              <p className="text-xs text-muted-foreground">Used by LC price review</p>
+              <p className="text-xs text-muted-foreground">Used by LC price review: price = avg_cost × (1 + markup%)</p>
             </div>
           </div>
           <div className="space-y-1">

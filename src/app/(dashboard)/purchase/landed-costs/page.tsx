@@ -87,10 +87,10 @@ type PriceReviewRow = {
   brand_variant_id: string
   item_name: string
   sku: string | null
-  original_unit_cost: number
-  updated_unit_cost: number
-  method: 'margin' | 'fixed'
-  margin_percent: number
+  original_unit_cost: number  // receival-period weighted avg before LC (context display only)
+  new_avg_cost: number        // brand variant's true average cost after LC apply (pricing basis)
+  method: 'markup' | 'fixed'
+  markup_percent: number
 }
 
 function PriceReviewDialog({
@@ -121,9 +121,11 @@ function PriceReviewDialog({
             item_name: a.item_name,
             sku: a.sku,
             original_unit_cost: a.original_unit_cost,
-            updated_unit_cost: a.updated_unit_cost,
-            method: 'margin' as const,
-            margin_percent: bv?.margin_percent ?? 0,
+            // Use the brand variant's true post-LC average cost from the DB.
+            // This reflects ALL remaining inventory, not just the LC-specific layers.
+            new_avg_cost: bv?.average_cost ?? a.updated_unit_cost,
+            method: 'markup' as const,
+            markup_percent: bv?.margin_percent ?? 0,
           }
         }),
     )
@@ -136,13 +138,14 @@ function PriceReviewDialog({
 
   function handleUpdate() {
     const updates = rows
-      .filter((r) => r.method === 'margin')
+      .filter((r) => r.method === 'markup')
       .map((r) => ({
         id: r.brand_variant_id,
+        // Selling price = avg_cost × (1 + markup%) — based on true brand average cost
         selling_price: parseFloat(
-          (r.updated_unit_cost * (1 + r.margin_percent / 100)).toFixed(2),
+          (r.new_avg_cost * (1 + r.markup_percent / 100)).toFixed(2),
         ),
-        margin_percent: r.margin_percent,
+        margin_percent: r.markup_percent,
       }))
     if (updates.length === 0) { onDone(); return }
     batchUpdate.mutate(updates, {
@@ -172,18 +175,18 @@ function PriceReviewDialog({
               <TableHeader>
                 <TableRow>
                   <TableHead>Item</TableHead>
-                  <TableHead className="text-right">Old Cost</TableHead>
-                  <TableHead className="text-right">New Cost</TableHead>
+                  <TableHead className="text-right">Prev Avg</TableHead>
+                  <TableHead className="text-right">New Avg Cost</TableHead>
                   <TableHead>Method</TableHead>
-                  <TableHead className="text-right w-24">Margin %</TableHead>
+                  <TableHead className="text-right w-24">Markup %</TableHead>
                   <TableHead className="text-right">New Price</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
                 {rows.map((row, idx) => {
                   const suggestedPrice =
-                    row.method === 'margin'
-                      ? (row.updated_unit_cost * (1 + row.margin_percent / 100)).toFixed(2)
+                    row.method === 'markup'
+                      ? (row.new_avg_cost * (1 + row.markup_percent / 100)).toFixed(2)
                       : null
                   return (
                     <TableRow key={row.brand_variant_id}>
@@ -195,7 +198,7 @@ function PriceReviewDialog({
                         {formatCurrency(row.original_unit_cost, 'QAR')}
                       </TableCell>
                       <TableCell className="text-right text-sm font-medium text-blue-700">
-                        {formatCurrency(row.updated_unit_cost, 'QAR')}
+                        {formatCurrency(row.new_avg_cost, 'QAR')}
                       </TableCell>
                       <TableCell>
                         <div className="flex flex-col gap-1">
@@ -203,10 +206,10 @@ function PriceReviewDialog({
                             <input
                               type="radio"
                               name={`method-${idx}`}
-                              checked={row.method === 'margin'}
-                              onChange={() => updateRow(idx, { method: 'margin' })}
+                              checked={row.method === 'markup'}
+                              onChange={() => updateRow(idx, { method: 'markup' })}
                             />
-                            Margin-based
+                            Markup-based
                           </label>
                           <label className="flex items-center gap-1.5 text-xs cursor-pointer">
                             <input
@@ -220,13 +223,13 @@ function PriceReviewDialog({
                         </div>
                       </TableCell>
                       <TableCell className="text-right">
-                        {row.method === 'margin' ? (
+                        {row.method === 'markup' ? (
                           <Input
                             type="number" min="0" step="0.01"
                             className="h-7 w-20 text-right text-sm"
-                            value={row.margin_percent}
+                            value={row.markup_percent}
                             onChange={(e) =>
-                              updateRow(idx, { margin_percent: parseFloat(e.target.value) || 0 })
+                              updateRow(idx, { markup_percent: parseFloat(e.target.value) || 0 })
                             }
                           />
                         ) : (
@@ -707,11 +710,11 @@ function LcDetailDialog({
               Selling price changes made after apply are <em>not</em> automatically reversed.
             </p>
             <div className="space-y-1">
-              <Label className="text-sm">Type REVERT to confirm</Label>
+              <Label className="text-sm">Type &quot;revert&quot; to confirm</Label>
               <Input
                 value={revertConfirmText}
                 onChange={(e) => setRevertConfirmText(e.target.value)}
-                placeholder="REVERT"
+                placeholder="revert"
                 className="font-mono"
               />
             </div>
@@ -720,7 +723,7 @@ function LcDetailDialog({
             <Button variant="outline" onClick={() => setRevertOpen(false)}>Cancel</Button>
             <Button
               variant="destructive"
-              disabled={revertConfirmText !== 'REVERT' || revertLc.isPending}
+              disabled={revertConfirmText.toUpperCase() !== 'REVERT' || revertLc.isPending}
               onClick={() =>
                 revertLc.mutate(lc!.id, {
                   onSuccess: () => {
