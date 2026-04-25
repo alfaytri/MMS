@@ -326,3 +326,87 @@ export function useSaveReceivalEdit() {
     },
   })
 }
+
+// ─── LC Selector hooks ────────────────────────────────────────────────────────
+
+export type ReceivalForLcSelector = {
+  id: string
+  receival_number: string
+  po_id: string
+  date: string
+  status: string
+  po_number: string | null
+  supplier_name: string | null
+}
+
+export function useReceivalsForLcSelector({ search = '' }: { search?: string } = {}) {
+  return useQuery({
+    queryKey: ['receivals-lc-selector', { search }],
+    queryFn: async () => {
+      const supabase = createClient()
+      let q = (supabase as any)
+        .from('receivals')
+        .select('id, receival_number, po_id, date, status, purchase_orders!receivals_po_id_fkey(po_number, supplier_name)')
+        .order('date', { ascending: false })
+      if (search) {
+        q = q.or(`receival_number.ilike.%${search}%`)
+      }
+      const { data, error } = await q
+      if (error) throw error
+      return (data ?? []).map((r: any) => ({
+        id: r.id as string,
+        receival_number: r.receival_number as string,
+        po_id: r.po_id as string,
+        date: r.date as string,
+        status: r.status as string,
+        po_number: r.purchase_orders?.po_number ?? null,
+        supplier_name: r.purchase_orders?.supplier_name ?? null,
+      })) as ReceivalForLcSelector[]
+    },
+    staleTime: 5 * 60 * 1000,
+  })
+}
+
+export type ReceivalItemWithFifo = {
+  id: string
+  item_name: string
+  sku: string | null
+  qty_received: number
+  unit_cost: number
+  brand_variant_id: string | null
+  remaining_qty: number
+}
+
+export function useReceivalItemsWithFifo(receivalId: string | null) {
+  return useQuery({
+    queryKey: ['receival-items-fifo', receivalId],
+    enabled: !!receivalId,
+    queryFn: async () => {
+      const supabase = createClient()
+      const [{ data: items, error: iErr }, { data: layers, error: lErr }] = await Promise.all([
+        (supabase as any)
+          .from('receival_items')
+          .select('id, item_name, sku, qty_received, unit_cost, brand_variant_id')
+          .eq('receival_id', receivalId!)
+          .eq('is_free', false),
+        (supabase as any)
+          .from('fifo_cost_layers')
+          .select('brand_variant_id, remaining_qty')
+          .eq('receival_id', receivalId!)
+          .gt('remaining_qty', 0),
+      ])
+      if (iErr) throw iErr
+      if (lErr) throw lErr
+      // Sum remaining_qty across all layers for each brand_variant
+      const remainingMap = new Map<string, number>()
+      for (const l of layers ?? []) {
+        remainingMap.set(l.brand_variant_id, (remainingMap.get(l.brand_variant_id) ?? 0) + l.remaining_qty)
+      }
+      return (items ?? []).map((item: any) => ({
+        ...item,
+        remaining_qty: remainingMap.get(item.brand_variant_id) ?? 0,
+      })) as ReceivalItemWithFifo[]
+    },
+    staleTime: 2 * 60 * 1000,
+  })
+}
