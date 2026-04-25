@@ -201,7 +201,7 @@ function LcDetailDialog({
           </div>
 
           {!isVoided && !isApplied && (
-            <DialogFooter className="gap-2 sm:gap-0">
+            <DialogFooter className="gap-2">
               <Button variant="destructive" size="sm" onClick={() => setVoidOpen(true)}>
                 Void LC
               </Button>
@@ -220,31 +220,35 @@ function LcDetailDialog({
       {/* Apply confirm */}
       <Dialog open={applyOpen} onOpenChange={setApplyOpen}>
         <DialogContent className="w-full max-w-full rounded-none sm:max-w-sm sm:rounded-lg">
-          <DialogHeader><DialogTitle>Apply Landed Cost to Inventory</DialogTitle></DialogHeader>
-          <div className="space-y-3">
-            <p className="text-sm text-muted-foreground">
-              This will distribute <strong>{formatCurrency(lc.total_amount, lc.currency)}</strong> across
-              the FIFO layers of all items in the attached receivals. This action cannot be undone.
-            </p>
-          </div>
-          <DialogFooter>
-            <Button variant="outline" onClick={() => setApplyOpen(false)}>Cancel</Button>
-            <Button
-              disabled={applyLc.isPending}
-              onClick={() =>
-                applyLc.mutate(lc.id, {
-                  onSuccess: () => {
-                    toast.success('Landed cost applied to inventory')
-                    setApplyOpen(false)
-                    onClose()
-                  },
-                  onError: (err) => toast.error(err.message),
-                })
-              }
-            >
-              {applyLc.isPending ? 'Applying…' : 'Confirm Apply'}
-            </Button>
-          </DialogFooter>
+          {lc && (
+            <>
+              <DialogHeader><DialogTitle>Apply Landed Cost to Inventory</DialogTitle></DialogHeader>
+              <div className="space-y-3">
+                <p className="text-sm text-muted-foreground">
+                  This will distribute <strong>{formatCurrency(lc.total_amount, lc.currency)}</strong> across
+                  the FIFO layers of all items in the attached receivals. This action cannot be undone.
+                </p>
+              </div>
+              <DialogFooter>
+                <Button variant="outline" onClick={() => setApplyOpen(false)}>Cancel</Button>
+                <Button
+                  disabled={applyLc.isPending}
+                  onClick={() =>
+                    applyLc.mutate(lc.id, {
+                      onSuccess: () => {
+                        toast.success('Landed cost applied to inventory')
+                        setApplyOpen(false)
+                        onClose()
+                      },
+                      onError: (err) => toast.error(err.message),
+                    })
+                  }
+                >
+                  {applyLc.isPending ? 'Applying…' : 'Confirm Apply'}
+                </Button>
+              </DialogFooter>
+            </>
+          )}
         </DialogContent>
       </Dialog>
 
