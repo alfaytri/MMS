@@ -5,8 +5,8 @@ import {
   registerTracking, getTrackInfo,
   ERR_QUOTA_EXCEEDED, ERR_AMBIGUOUS_CARRIER,
 } from '@/lib/tracking/client17track'
-import { normalizeTimestamp, computeEventHash } from '@/lib/tracking/normalize'
-import { map17trackTag, STATUS_MAP_JSON } from '@/lib/tracking/statusMap'
+import { mapRawEvents } from '@/lib/tracking/normalize'
+import { STATUS_MAP_JSON } from '@/lib/tracking/statusMap'
 
 // Kept short to stay within Vercel Hobby 10s limit (total delay ≤ 5s + API call time)
 const BACKOFF_DELAYS_MS = [500, 1500, 3000]
@@ -20,20 +20,6 @@ async function fetchWithBackoff(trackingNumber: string, carrierCode?: number) {
   return null
 }
 
-function mapRawEvents(rawEvents: Array<{ a: string; b: string; c: string; z: string }>) {
-  return rawEvents
-    .map(e => {
-      const normalizedTimestamp = normalizeTimestamp(e.a)
-      const location = e.b ?? ''
-      const description = e.c ?? ''
-      const status = map17trackTag(e.z)
-      if (!status) return null
-      const hash = computeEventHash(normalizedTimestamp, location, description)
-      // `date` mirrors normalizedTimestamp so existing display code (ev.date) works
-      return { hash, normalizedTimestamp, date: normalizedTimestamp, location, notes: description, status }
-    })
-    .filter(Boolean)
-}
 
 export async function POST(request: Request) {
   const gate = await requireAdmin()
