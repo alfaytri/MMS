@@ -145,6 +145,7 @@ Purchase & Sales▾:
 | `docs/superpowers/plans/2026-04-20-create-po-redesign.md` | ✅ DONE | Create PO full spec redesign — sticky header, grouped items, approval chain |
 | `docs/superpowers/plans/2026-04-20-warehouses-hub-redesign.md` | ✅ DONE | Warehouses operational hub — 7-tab redesign, URL state, React.memo, unified receivals+deliveries |
 | `docs/superpowers/plans/2026-04-22-po-approval-chain.md` | ✅ DONE | PO approval chain — configurable division-based chains, cumulative tiers, notifications, admin force-approve |
+| `docs/superpowers/plans/2026-04-25-inventory-complete.md` | ✅ DONE | Inventory accounting — FIFO layers, atomic RPCs, reserved qty, COGS, stock movements, ledger hooks |
 
 ---
 
@@ -160,6 +161,16 @@ Purchase & Sales▾:
 ---
 
 **Previous:** No active plan. All Phase 1 implementation plans are complete. Pending Phase 1 cleanup items below before Phase 2.
+
+---
+
+### Inventory Module — Complete (Plan: 2026-04-25-inventory-complete.md) — COMPLETE ✅
+
+- [2026-04-25] **DB foundation** — `20260425000001_inventory_foundation.sql`: `inventory_stock_movements` (SELECT-only RLS), `cogs_entries` (SELECT-only RLS + composite index `idx_cogs_variant_date`), `service_inventory` (full CRUD RLS), `reserved_qty` on `inventory_brand_variants`, `warehouse_id` on `fifo_cost_layers`, `brand_variant_id` on `receival_items`
+- [2026-04-25] **Core RPCs** — `recalc_average_cost`, `deduct_fifo_layers` (deadlock-safe `ORDER BY date, created_at, id ASC FOR UPDATE`, `p_is_transfer` flag, stock guard RAISE EXCEPTION), `update_reserved_qty` (GREATEST guard), `batch_increment_received_qty`, `batch_update_reserved_qty`
+- [2026-04-25] **Atomic RPCs** — `approve_receival_inventory` (FOR UPDATE + status guard, FIFO layer + stock_level + movements), `complete_delivery_inventory` (FIFO deduction + COGS + movements; surfaces "Insufficient stock"), `approve_stock_adjustment_inventory` (increase: FIFO insert + recalc; decrease: weighted_unit_cost from deduct_fifo_layers), `approve_warehouse_transfer_inventory` (p_is_transfer=TRUE, global stock_level unchanged, two movements)
+- [2026-04-25] **Hook wiring** — `useReceivals.ts`: atomic approve/reject via RPC, batch received_qty update; `useSaleDeliveries.ts`: `complete_delivery_inventory` RPC, surfaces stock errors; `useSaleOrders.ts`: `batch_update_reserved_qty` on create (+delta) and cancel (-delta); `useWarehouseOperations.ts`: approve RPCs for adjustments and transfers with fifo-layers cache invalidation
+- [2026-04-25] **useInventoryLedger.ts** — new file: `useCogsEntries`, `useStockMovementsByVariant`, `useServiceInventoryLinks` query hooks (ready for LC allocation page)
 
 ---
 
