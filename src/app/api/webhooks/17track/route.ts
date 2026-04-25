@@ -1,5 +1,5 @@
 import { NextResponse } from 'next/server'
-import { createHmac } from 'crypto'
+import { createHmac, timingSafeEqual } from 'crypto'
 import { createAdminClient } from '@/lib/supabase/admin'
 import { normalizeTimestamp, computeEventHash } from '@/lib/tracking/normalize'
 import { map17trackTag, STATUS_MAP_JSON } from '@/lib/tracking/statusMap'
@@ -9,7 +9,12 @@ function verifySignature(rawBody: string, signature: string): boolean {
   const secret = process.env.SEVENTEEN_TRACK_WEBHOOK_SECRET
   if (!secret) return false
   const expected = createHmac('sha256', secret).update(rawBody).digest('hex')
-  return expected === signature
+  try {
+    // Constant-time comparison prevents timing-based signature oracle attacks
+    return timingSafeEqual(Buffer.from(expected, 'hex'), Buffer.from(signature, 'hex'))
+  } catch {
+    return false // length mismatch — timingSafeEqual throws if buffers differ in length
+  }
 }
 
 export async function POST(request: Request) {
@@ -20,8 +25,13 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
   }
 
-  const payload = JSON.parse(rawBody)
-  const updates: unknown[] = Array.isArray(payload.data) ? payload.data : [payload.data]
+  let payload: { data?: unknown }
+  try {
+    payload = JSON.parse(rawBody)
+  } catch {
+    return NextResponse.json({ error: 'Invalid JSON' }, { status: 400 })
+  }
+  const updates: unknown[] = Array.isArray(payload.data) ? payload.data : payload.data ? [payload.data] : []
 
   const supabase = createAdminClient()
 

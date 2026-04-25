@@ -77,14 +77,13 @@ export async function POST(request: Request) {
       if (rejected.error.code === ERR_QUOTA_EXCEEDED) {
         await (supabase as any)
           .from('shipments')
-          .update({ sync_error: 'quota_exceeded', is_syncing: false })
+          .update({ sync_error: 'quota_exceeded' })
           .eq('id', shipment_id)
         return NextResponse.json({ error: 'quota_exceeded' }, { status: 429 })
       }
       if (rejected.error.code === ERR_AMBIGUOUS_CARRIER) {
         // rejected.error.data contains candidate carrier code numbers per 17track API docs
         const candidates: number[] = rejected.error.data ?? []
-        await (supabase as any).from('shipments').update({ is_syncing: false }).eq('id', shipment_id)
         return NextResponse.json({ ambiguous: true, candidates })
       }
       // Other rejections (not found yet) are non-fatal — webhook fires when carrier scans
@@ -111,13 +110,15 @@ export async function POST(request: Request) {
 
     await (supabase as any)
       .from('shipments')
-      .update({ sync_error: null, is_syncing: false })
+      .update({ sync_error: null })
       .eq('id', shipment_id)
 
     return NextResponse.json({ events })
   } catch (err) {
     console.error('[register-tracking]', err)
-    await (supabase as any).from('shipments').update({ is_syncing: false }).eq('id', shipment_id)
     return NextResponse.json({ error: 'Internal server error' }, { status: 500 })
+  } finally {
+    // Always release the semaphore — runs on every exit path including early returns
+    await (supabase as any).from('shipments').update({ is_syncing: false }).eq('id', shipment_id)
   }
 }
