@@ -222,6 +222,7 @@ function ShipmentDetailDialog({
     if (!shipment || isSyncing) return
     setIsSyncing(true)
     setSyncAmbiguous(null)
+    setSelectedCarrierCode('')
     try {
       const res = await fetch('/api/shipments/register-tracking', {
         method: 'POST',
@@ -363,7 +364,7 @@ function ShipmentDetailDialog({
             ) : (
               <div className="space-y-2">
                 {sortedEvents.map((ev, i) => (
-                  <div key={i} className="flex gap-3 text-sm">
+                  <div key={ev.hash ?? `${ev.date}-${ev.location}-${i}`} className="flex gap-3 text-sm">
                     <div className="w-24 shrink-0 text-muted-foreground">
                       {ev.date ? new Date(ev.date).toLocaleDateString() : '—'}
                     </div>
