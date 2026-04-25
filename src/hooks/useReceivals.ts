@@ -348,8 +348,9 @@ export function useReceivalsForLcSelector({ search = '' }: { search?: string } =
         .from('receivals')
         .select('id, receival_number, po_id, date, status, purchase_orders!receivals_po_id_fkey(po_number, supplier_name)')
         .order('date', { ascending: false })
-      if (search) {
-        q = q.or(`receival_number.ilike.%${search}%`)
+      const safeSearch = search.replace(/%/g, '\\%').replace(/,/g, '\\,').replace(/\./g, '\\.')
+      if (safeSearch) {
+        q = q.or(`receival_number.ilike.%${safeSearch}%`)
       }
       const { data, error } = await q
       if (error) throw error
@@ -395,11 +396,11 @@ export function useReceivalItemsWithFifo(receivalId: string | null) {
           .eq('receival_id', receivalId!)
           .gt('remaining_qty', 0),
       ])
-      if (iErr) throw iErr
-      if (lErr) throw lErr
+      if (iErr || lErr) throw iErr ?? lErr
       // Sum remaining_qty across all layers for each brand_variant
       const remainingMap = new Map<string, number>()
       for (const l of layers ?? []) {
+        if (!l.brand_variant_id) continue
         remainingMap.set(l.brand_variant_id, (remainingMap.get(l.brand_variant_id) ?? 0) + l.remaining_qty)
       }
       return (items ?? []).map((item: any) => ({
