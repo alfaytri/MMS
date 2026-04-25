@@ -8,6 +8,7 @@ export type LandedCostLine = {
   amount: number
   currency: string
   exchange_rate: number   // default 1; used for non-QAR lines
+  bill_path?: string | null
 }
 
 export type LandedCostItemAllocation = {
@@ -139,5 +140,49 @@ export function useApplyLandedCost() {
       return data as LandedCostItemAllocation[]
     },
     onSuccess: () => qc.invalidateQueries({ queryKey: ['landed_costs'] }),
+  })
+}
+
+export type LcValidationItem = {
+  brand_variant_id: string
+  item_name: string
+  sku: string | null
+  qty_received: number
+  qty_remaining_in_layers: number
+  warning: string | null
+}
+
+export function useValidateLcAllocation(lcId: string | null | undefined, enabled: boolean) {
+  return useQuery({
+    queryKey: ['validate-lc-allocation', lcId],
+    enabled: !!lcId && enabled,
+    queryFn: async () => {
+      const supabase = createClient()
+      const { data, error } = await (supabase as any)
+        .rpc('validate_lc_allocation', { p_lc_id: lcId })
+      if (error) throw error
+      return (data ?? []) as LcValidationItem[]
+    },
+    staleTime: 0, // always fresh — called right before a destructive action
+  })
+}
+
+export function useBillSignedUrls(paths: (string | null | undefined)[]) {
+  const validPaths = (paths.filter(Boolean) as string[]).slice().sort()
+  return useQuery({
+    queryKey: ['bill-signed-urls', validPaths],
+    enabled: validPaths.length > 0,
+    queryFn: async () => {
+      const supabase = createClient()
+      const result: Record<string, string> = {}
+      await Promise.all(
+        validPaths.map(async (path) => {
+          const { data } = await supabase.storage.from('lc-bills').createSignedUrl(path, 3600)
+          if (data?.signedUrl) result[path] = data.signedUrl
+        })
+      )
+      return result
+    },
+    staleTime: 50 * 60 * 1000, // tokens last 60 min; refresh at 50 min
   })
 }
