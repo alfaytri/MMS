@@ -602,7 +602,8 @@ function LcDetailDialog({
                 <p className="text-sm text-muted-foreground">
                   This will distribute{' '}
                   <strong>{formatCurrency(lc.total_amount, lc.currency)}</strong> across the FIFO
-                  layers of all items in the attached receivals. This action cannot be undone.
+                  layers of all items in the attached receivals, and update average costs.
+                  You can revert this later using the Revert Apply button.
                 </p>
                 {validating ? (
                   <Skeleton className="h-28 w-full" />
