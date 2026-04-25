@@ -17,10 +17,10 @@ Replace the current flat two-sub-tab `InventoryTab.tsx` with a full 5-tab invent
 ```
 src/components/services/inventory/
 ├── ItemsListView.tsx           ← Products / Spare Parts / Consumables (type prop)
-├── CategoryRow.tsx             ← Level 1 expandable row
-├── ItemRow.tsx                 ← Level 2 expandable row
+├── CategoryRow.tsx             ← Level 1 expandable row (owns its own isExpanded state)
+├── ItemRow.tsx                 ← Level 2 expandable row (owns its own isExpanded state)
 ├── BrandVariantRow.tsx         ← Level 3 expandable row + FIFO expand toggle
-├── FifoLayersTable.tsx         ← Level 4 read-only FIFO panel
+├── FifoLayersTable.tsx         ← Level 4 read-only FIFO panel with skeleton loader
 ├── ToolsAssetsView.tsx         ← flat list from tool_asset_items
 ├── ServiceLinksView.tsx        ← item → service linking matrix
 ├── CategoryEditDialog.tsx      ← create / edit / archive category
@@ -43,14 +43,17 @@ src/components/services/inventory/
 | Tools & Assets | `ToolsAssetsView` | `tool_asset_items` |
 | Service Links | `ServiceLinksView` | `service_inventory` join |
 
-Active tab gets orange bottom border (matching app design system). Tab switcher is local `useState` — no URL param (the services page already owns the outer tab URL param).
+Active tab gets **blue** bottom border — consistent with the Services Hub accent colour (the `inventory.txt` spec explicitly uses blue for the active inventory sub-tab). Tab switcher is local `useState` — no URL param (the services page already owns the outer tab URL param).
 
 ---
 
 ## Tree View — Products / Spare Parts / Consumables
 
-### Expand State
-`ItemsListView` holds `expandedCategories: Set<string>` and `expandedItems: Set<string>` and `expandedVariants: Set<string>` in local state. Clicking a chevron toggles the relevant set.
+### Expand State — Per-Component (not lifted to parent)
+
+Each `CategoryRow` and `ItemRow` owns its own `isExpanded` state internally. `ItemsListView` does **not** hold `Set` objects for expansion. This prevents the "whole-list re-render on single chevron toggle" problem that would appear with 50+ categories.
+
+If "Expand All" is ever needed, it is implemented via a React Context provider with selective sub-rendering (not lifted state), so only toggled rows re-render.
 
 ### Level 1 — Category Row (`CategoryRow.tsx`)
 
@@ -71,10 +74,10 @@ Active tab gets orange bottom border (matching app design system). Tab switcher 
 | SKU | `sku` |
 | UNIT | `unit` |
 | PRICING | Avg Cost: `average_cost` averaged across brand variants (QAR) |
-| STOCK / SERVICES | stock badge (sum of `stock_level` across variants, colour-coded) + 🔗 service-link count badge |
+| STOCK / SERVICES | ATP badge (sum of `stock_level - reserved_qty` across variants, colour-coded) + 🔗 service-link count badge |
 | ACTIONS | ⇅ sort · ✏️ edit → `ItemEditDialog` · ↕ rearrange brands · 📦 archive |
 
-Stock badge colours: green if > 0, amber if ≤ `reorder_point`, red if 0.
+Stock badge colours: green if ATP > 0, amber if ATP ≤ `reorder_point`, red if ATP = 0.
 
 ### Level 3 — Brand Variant Sub-Table (`BrandVariantRow.tsx`)
 
@@ -86,9 +89,17 @@ Nested grey-header table rendered when item is expanded.
 | CODE | auto-generated SKU |
 | AVG COST | `average_cost` from `inventory_brand_variants` |
 | SELLING PRICE | `selling_price` |
-| STOCK LEVEL | `stock_level` (green / amber / red) |
+| AVAILABLE (ATP) | `stock_level - reserved_qty` with tooltip "X On Hand · Y Reserved" |
 | INCOMING | sum of open PO line items not yet received |
 | ACTIONS | ⇅ sort · ✏️ edit · 📦 archive |
+
+**ATP display rules:**
+- Green badge if ATP > 0
+- Amber badge if 0 < ATP ≤ `reorder_point`
+- Red badge if ATP = 0
+- Tooltip always shows the breakdown: `"{stock_level} On Hand · {reserved_qty} Reserved"`
+
+The column label is **AVAILABLE** (not "Stock Level") to make it clear this is the promise-safe quantity, not raw on-hand.
 
 Below the brand table: **"+ Add Brand Variant"** text button → opens `BrandVariantEditDialog` in create mode.
 
@@ -96,7 +107,9 @@ Clicking a brand variant row expands Level 4 (FIFO panel) below it.
 
 ### Level 4 — FIFO Layers Panel (`FifoLayersTable.tsx`)
 
-Read-only. Fetched lazily when variant row is first expanded (`enabled: variantExpanded`).
+Read-only. Fetched lazily when variant row is first expanded (`enabled: isExpanded`).
+
+While loading, render a **skeleton loader** (3 placeholder rows matching the table column widths) — FIFO queries may take 200–400ms due to row-level locking in concurrent transactions. No layout shift.
 
 | Column | Source field |
 |--------|-------------|
@@ -113,7 +126,7 @@ No edit actions. Layers are written exclusively by Postgres RPCs.
 ### Toolbar (shared across all 3 product tabs)
 - 🔍 Search (filters by `name_en`, `name_ar`, `sku` live)
 - Show archived toggle (OFF by default — hides `status = 'archived'` at all levels)
-- **+ New Category** button (top-right, orange) → `CategoryEditDialog` create mode
+- **+ New Category** button (top-right, primary orange) → `CategoryEditDialog` create mode
 
 ---
 
@@ -149,7 +162,12 @@ Items-first matrix. Shows all inventory items with their linked service count.
 | LINKED SERVICES | count badge |
 | ACTIONS | **Manage Links** button |
 
-**Manage Links** opens a dialog with all services as a checkbox list. Check = insert `service_inventory` row; uncheck = delete row. Filtered search inside the dialog.
+**Manage Links dialog — Command/Combobox pattern:**
+A `Command` component (shadcn/ui) inside the dialog. User types to search services — results appear as a filtered list. Clicking a result adds it as a chip to the "Linked" list. Clicking the × on a chip removes the link. This replaces the flat checkbox approach which becomes unusable at 500+ services.
+
+- Search is client-side filtered from a pre-fetched services list (loaded once when dialog opens)
+- Chips represent currently linked services
+- On save: diff old vs new chip list → batch insert new links + delete removed links in one go
 
 Toolbar: search by item name + filter by service dropdown.
 
@@ -201,6 +219,18 @@ All existing hooks (`useInventoryCategories`, `useInventoryItems`, `useBrandVari
 
 ---
 
+## Design Decisions Log
+
+| Decision | Reason |
+|----------|--------|
+| Expand state per-component, not lifted | Prevents full-list re-render on single chevron toggle with 50+ categories |
+| ATP = stock_level − reserved_qty in AVAILABLE column | Prevents staff promising stock already committed to sale orders |
+| Command/Combobox for service links | Flat checkbox list unusable at 500+ services |
+| Blue active tab border (not orange) | Matches Services Hub accent — `inventory.txt` spec explicitly uses blue for inventory sub-tabs |
+| Skeleton loader on FifoLayersTable | FIFO queries may take 200–400ms; prevents layout shift |
+
+---
+
 ## What Was Removed
 
 - `src/app/(dashboard)/master-data/inventory/page.tsx` — deleted ✅
@@ -213,4 +243,5 @@ All existing hooks (`useInventoryCategories`, `useInventoryItems`, `useBrandVari
 - `fifo_cost_layers.landed_cost_per_unit` — already exists (NUMERIC DEFAULT 0)
 - `fifo_cost_layers.total_unit_cost` — already exists
 - `inventory_items.item_type` — already exists
+- `inventory_brand_variants.reserved_qty` — added by inventory foundation migration ✅
 - All other tables referenced are existing schema
