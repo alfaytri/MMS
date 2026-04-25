@@ -25,6 +25,8 @@ DECLARE
   v_pli_id      UUID;
 BEGIN
   -- Insert receival as approved immediately (no pending_approval step)
+  -- NOTE: p_receival_number must be unique; the caller must not retry with the same
+  -- number on failure — generate a new number instead.
   INSERT INTO receivals (
     receival_number, po_id, warehouse_id, date,
     received_by_name, notes, status
@@ -35,6 +37,9 @@ BEGIN
 
   -- Process each item
   FOR v_item IN SELECT * FROM jsonb_array_elements(p_items) LOOP
+    -- Skip items with missing required numeric fields to avoid cast errors
+    CONTINUE WHEN (v_item->>'qty_received') IS NULL OR (v_item->>'unit_cost') IS NULL;
+
     v_bv_id  := NULLIF(v_item->>'brand_variant_id', '')::UUID;
     v_qty    := (v_item->>'qty_received')::INT;
     v_cost   := (v_item->>'unit_cost')::NUMERIC;
