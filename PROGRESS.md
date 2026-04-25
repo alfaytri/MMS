@@ -151,7 +151,7 @@ Purchase & Sales▾:
 
 ## 🔄 In Progress
 
-🚀 Starting: **LC Multi-Currency + Receival Redesign — Tasks 1–11**
+🚀 Starting: **LC Multi-Currency + Receival Redesign Tasks 6–11: Hooks + UI + Build**
 
 ---
 
