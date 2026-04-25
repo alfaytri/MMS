@@ -151,7 +151,7 @@ Purchase & Sales▾:
 
 ## 🔄 In Progress
 
-**LC Page Enhancements Plan (2026-04-25-lc-page-enhancements.md)** — ACTIVE
+**LC Page Enhancements Plan (2026-04-25-lc-page-enhancements.md)** — COMPLETE ✅
 - [x] Task 0: Setup — merge develop
 - [x] Task 1: DB Migration — private `lc-bills` storage bucket
 - [x] Task 2: DB Migration — `validate_lc_allocation` pre-flight RPC
@@ -160,7 +160,7 @@ Purchase & Sales▾:
 - [x] Task 5: `useLandedCosts` — add `bill_path`, `useValidateLcAllocation`, `useBillSignedUrls`
 - [x] Task 6: `CreateLcDialog` — bill upload, expandable items, decimal total, search
 - [x] Task 7: `LcDetailDialog` — bill links, all_items_sold badge, receivals breakdown, POs, apply pre-flight
-- 🚀 Starting: **Task 8: Build verification + PROGRESS.md**
+- [x] Task 8: Build verification + PROGRESS.md
 
 ---
 
@@ -232,6 +232,7 @@ Purchase & Sales▾:
 
 ## ✅ Completed
 
+- [2026-04-25] **LC Page Enhancements Tasks 0–8** — `supabase/migrations/20260425000200_lc_bills_bucket.sql`, `supabase/migrations/20260425000201_rpc_validate_lc_allocation.sql`, `src/hooks/useReceivals.ts`, `src/hooks/useLandedCosts.ts`, `src/app/(dashboard)/purchase/landed-costs/page.tsx` — Private lc-bills bucket with role-based RLS, validate_lc_allocation pre-flight RPC, decimal.js totals, useRef-based bill upload with 5 MB guard + date-structured paths, expandable receival items (remaining FIFO qty) in Create dialog, all_items_sold badge + bill signed-URL links + attached receivals/PO breakdown + apply pre-flight table in Detail dialog
 - [2026-04-25] **LC Page Enhancements Plan Task 2: DB Migration — `validate_lc_allocation` pre-flight RPC** — `supabase/migrations/20260425000201_rpc_validate_lc_allocation.sql` — Read-only function checks LC applicability (via `attached_receival_ids`), returns JSONB array of per-variant summaries with qty_received, qty_remaining_in_layers, and warning if sold-out; guards: not-found, already-applied, voided states; GRANT EXECUTE to authenticated
 
 ### LC Multi-Currency + Receival Redesign (Plan: 2026-04-25-lc-multicurrency-receival-redesign.md) — COMPLETE ✅
