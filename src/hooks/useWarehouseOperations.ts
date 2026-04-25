@@ -320,6 +320,7 @@ export function useApproveStockAdjustment() {
       qc.invalidateQueries({ queryKey: ['stock_adjustments'] })
       qc.invalidateQueries({ queryKey: ['inventory-brand-variants'] })
       qc.invalidateQueries({ queryKey: ['stock_movements'] })
+      qc.invalidateQueries({ queryKey: ['fifo-layers'] })
     },
   })
 }

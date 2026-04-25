@@ -538,7 +538,8 @@ export function useCancelSO() {
         .map((l: any) => ({ bv_id: l.brand_variant_id, delta: -l.qty }))
 
       if (releases.length > 0) {
-        await (supabase as any).rpc('batch_update_reserved_qty', { p_updates: releases })
+        const { error: relErr } = await (supabase as any).rpc('batch_update_reserved_qty', { p_updates: releases })
+        if (relErr) throw relErr
       }
 
       const { error } = await (supabase as any)
