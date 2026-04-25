@@ -40,6 +40,7 @@ export type LandedCost = {
   voided_at: string | null
   voided_reason: string | null
   applied_at: string | null
+  revert_snapshot: unknown | null   // opaque JSONB — only the RPC reads it
   created_at: string
   updated_at: string
 }
@@ -138,6 +139,19 @@ export function useApplyLandedCost() {
         .rpc('allocate_landed_cost', { p_lc_id: id })
       if (error) throw error
       return data as LandedCostItemAllocation[]
+    },
+    onSuccess: () => qc.invalidateQueries({ queryKey: ['landed_costs'] }),
+  })
+}
+
+export function useRevertLandedCost() {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: async (id: string) => {
+      const supabase = createClient()
+      const { error } = await (supabase as any)
+        .rpc('revert_landed_cost', { p_lc_id: id })
+      if (error) throw error
     },
     onSuccess: () => qc.invalidateQueries({ queryKey: ['landed_costs'] }),
   })

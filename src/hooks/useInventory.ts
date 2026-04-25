@@ -17,6 +17,7 @@ export type BrandVariantInsert = {
   selling_price?: number | null
   average_cost?: number | null
   reorder_point?: number
+  margin_percent?: number | null
 }
 export type BrandVariantUpdate = Partial<Omit<BrandVariantInsert, 'item_id'>> & { id?: string }
 
@@ -745,5 +746,61 @@ export function useStaffProfiles() {
       return (data ?? []) as { id: string; full_name: string }[]
     },
     staleTime: 10 * 60 * 1000,
+  })
+}
+
+// ─── LC Price Review helpers ───────────────────────────────────────────────────
+
+export type BrandVariantPriceSummary = {
+  id: string
+  selling_price: number | null
+  margin_percent: number | null
+}
+
+export function useBrandVariantsByIds(ids: string[]) {
+  return useQuery({
+    queryKey: ['brand-variants-price-summary', ids.slice().sort().join(',')],
+    enabled: ids.length > 0,
+    queryFn: async () => {
+      const supabase = createClient()
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const { data, error } = await (supabase as any)
+        .from('inventory_brand_variants')
+        .select('id, selling_price, margin_percent')
+        .in('id', ids)
+      if (error) throw error
+      return (data ?? []) as BrandVariantPriceSummary[]
+    },
+    staleTime: 0,
+  })
+}
+
+export type SellingPriceUpdate = {
+  id: string
+  selling_price: number
+  margin_percent: number
+}
+
+export function useBatchUpdateSellingPrices() {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: async (updates: SellingPriceUpdate[]) => {
+      const supabase = createClient()
+      await Promise.all(
+        updates.map((u) =>
+          // eslint-disable-next-line @typescript-eslint/no-explicit-any
+          (supabase as any)
+            .from('inventory_brand_variants')
+            .update({ selling_price: u.selling_price, margin_percent: u.margin_percent })
+            .eq('id', u.id)
+            .throwOnError(),
+        ),
+      )
+    },
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ['brand-variants'] })
+      qc.invalidateQueries({ queryKey: ['inventory-brand-variants'] })
+      qc.invalidateQueries({ queryKey: ['brand-variants-price-summary'] })
+    },
   })
 }
