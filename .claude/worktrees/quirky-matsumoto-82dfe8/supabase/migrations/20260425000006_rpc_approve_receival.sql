@@ -18,7 +18,7 @@ DECLARE
   v_bv_id      UUID;
 BEGIN
   -- Fetch receival header
-  SELECT id, po_id, receival_number, warehouse_id, date
+  SELECT id, po_id, receival_number, warehouse_id, date, status
   INTO v_receival
   FROM receivals
   WHERE id = p_receival_id
