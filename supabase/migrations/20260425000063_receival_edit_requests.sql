@@ -1,7 +1,7 @@
 -- supabase/migrations/20260425000063_receival_edit_requests.sql
 BEGIN;
 
-CREATE TABLE receival_edit_requests (
+CREATE TABLE IF NOT EXISTS receival_edit_requests (
   id              UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   receival_id     UUID NOT NULL REFERENCES receivals(id),
   requested_by    UUID NOT NULL REFERENCES profiles(id),
@@ -16,10 +16,11 @@ CREATE TABLE receival_edit_requests (
 );
 
 ALTER TABLE receival_edit_requests ENABLE ROW LEVEL SECURITY;
+DROP POLICY IF EXISTS "authenticated can manage receival_edit_requests" ON receival_edit_requests;
 CREATE POLICY "authenticated can manage receival_edit_requests"
   ON receival_edit_requests FOR ALL TO authenticated USING (true) WITH CHECK (true);
 
-CREATE INDEX idx_rer_receival ON receival_edit_requests(receival_id);
-CREATE INDEX idx_rer_status   ON receival_edit_requests(status);
+CREATE INDEX IF NOT EXISTS idx_rer_receival ON receival_edit_requests(receival_id);
+CREATE INDEX IF NOT EXISTS idx_rer_status   ON receival_edit_requests(status);
 
 COMMIT;
