@@ -21,10 +21,16 @@ BEGIN
   SELECT id, po_id, receival_number, warehouse_id, date
   INTO v_receival
   FROM receivals
-  WHERE id = p_receival_id;
+  WHERE id = p_receival_id
+  FOR UPDATE;
 
   IF NOT FOUND THEN
     RAISE EXCEPTION 'Receival % not found', p_receival_id;
+  END IF;
+
+  -- Guard against re-approving an already-processed receival
+  IF v_receival.status NOT IN ('pending', 'pending_approval', 'draft') THEN
+    RAISE EXCEPTION 'Receival % already processed with status %', p_receival_id, v_receival.status;
   END IF;
 
   -- Update status
