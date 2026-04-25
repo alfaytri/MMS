@@ -96,6 +96,12 @@ Whenever you create or modify a `<Select>` / dropdown component, you **must** ve
 
 ---
 
+# Visual Companion — Never Offer
+
+**Do NOT offer the brainstorming visual companion (browser mockups / local URL).** This project uses text-only brainstorming. Skip that offer entirely in every session.
+
+---
+
 # Code Review — Mandatory Rule
 
 After completing any task (code, feature, fix, or refactor), your work will be reviewed by **Codex**. Write code as if Codex will scrutinize every line — because it will.
