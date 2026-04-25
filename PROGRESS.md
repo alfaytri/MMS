@@ -151,7 +151,7 @@ Purchase & Sales▾:
 
 ## 🔄 In Progress
 
-Plan complete — all tasks shipped.
+LC Inventory Apply plan complete — all tasks shipped. Ready to move to next feature.
 
 ---
 
@@ -222,6 +222,15 @@ Plan complete — all tasks shipped.
 ---
 
 ## ✅ Completed
+
+### LC Inventory Apply (Plan: 2026-04-25-lc-inventory-apply.md) — COMPLETE ✅
+
+- [2026-04-25] **LC Inventory Apply Task 4: Apply to Inventory UI** — `src/app/(dashboard)/purchase/landed-costs/page.tsx` — Apply button + confirm dialog + Applied badge in LcDetailDialog; status column shows Applied/Voided/Active; null-guard + footer gap fix
+- [2026-04-25] **LC Inventory Apply Task 3: useApplyLandedCost hook** — `src/hooks/useLandedCosts.ts` — applied_at type, qty_remaining_at_lc, lc_per_unit, allocated_lc_total, updated_unit_cost fields; useApplyLandedCost mutation calling allocate_landed_cost RPC
+- [2026-04-25] **LC Inventory Apply Task 2: allocate_landed_cost RPC** — `supabase/migrations/20260425000061_rpc_allocate_landed_cost.sql` — atomic FIFO layer landed_cost_per_unit update, recalc_average_cost, cost_adjustment stock movement insert, applied_at stamp
+- [2026-04-25] **LC Inventory Apply Task 1: DB Migration** — `supabase/migrations/20260425000060_lc_columns.sql` — voided_at, voided_reason, applied_at columns on landed_costs; cost_adjustment added to inventory_stock_movements CHECK constraint
+
+---
 
 ### Inventory Tab Rebuild (Plan: 2026-04-25-inventory-tab-complete.md) — COMPLETE ✅
 
