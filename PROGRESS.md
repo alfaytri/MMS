@@ -151,6 +151,8 @@ Purchase & Sales▾:
 
 ## 🔄 In Progress
 
+🚀 Starting: **LC Revert & Price Review Task 1: DB Migration**
+
 **LC Page Enhancements Plan (2026-04-25-lc-page-enhancements.md)** — COMPLETE ✅
 - [x] Task 0: Setup — merge develop
 - [x] Task 1: DB Migration — private `lc-bills` storage bucket
