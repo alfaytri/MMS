@@ -151,7 +151,7 @@ Purchase & Sales▾:
 
 ## 🔄 In Progress
 
-🚀 Starting: **Inventory Tab Rebuild Task 5: BrandVariantRow component**
+Plan complete — all tasks shipped.
 
 ---
 
@@ -225,6 +225,17 @@ Purchase & Sales▾:
 
 ### Inventory Tab Rebuild (Plan: 2026-04-25-inventory-tab-complete.md) — COMPLETE ✅
 
+- [2026-04-25] **Inventory Tab Rebuild Task 14: Integration Test** — `tsc --noEmit` 0 errors, 80/80 tests pass, build succeeds, `/master-data/services` route confirmed (368 kB), `/master-data/inventory` absent; also fixed pre-existing `select.tsx` generic type error that was blocking the build across all callers
+- [2026-04-25] **Inventory Tab Rebuild Task 13: InventoryTab shell** — `src/components/services/InventoryTab.tsx` — Full rewrite: 5-tab shell (Products/Spare Parts/Consumables/Tools & Assets/Service Links) with `?subtab=` URL deep-link sync using `useRouter`/`useSearchParams`; blue active border; lazy content per tab
+- [2026-04-25] **Inventory Tab Rebuild Task 12: ServiceLinksView** — `src/components/services/inventory/ServiceLinksView.tsx` — Brand-variant-level service linking: item → variant → ManageLinksDialog with Command/Combobox search, chips for linked services, diff-based upsert via `useUpdateServiceInventoryLinks`
+- [2026-04-25] **Inventory Tab Rebuild Task 11: ToolsAssetsView + ToolAssetEditDialog** — `src/components/services/inventory/ToolAssetEditDialog.tsx`, `ToolsAssetsView.tsx` — Two-level list (tool items → units), ToolAssetItemEditDialog (create/edit name EN/AR), ToolAssetUnitEditDialog (serial, brand, condition, status, assigned-to staff lookup, expiry), expandable unit sub-table with status color badges
+- [2026-04-25] **Inventory Tab Rebuild Task 10: ItemsListView** — `src/components/services/inventory/ItemsListView.tsx` — Tree shell for 3 product tabs: toolbar (search, show-archived switch, New Category button), plain `<table>` rendering CategoryRow per category; skeleton loader; empty state
+- [2026-04-25] **Inventory Tab Rebuild Task 9: CategoryRow** — `src/components/services/inventory/CategoryRow.tsx` — Level-1 row: expand/collapse items lazy per row, Package icon, inline sort-up/sort-down, plus (add item), edit, archive with cascade; renders ItemRow list on expand
+- [2026-04-25] **Inventory Tab Rebuild Task 8: ItemRow** — `src/components/services/inventory/ItemRow.tsx` — Level-2 row: expand/collapse brand variants, StockBadge (ATP = stock_level − reserved_qty), linked services badge, nested brand variants sub-table using shadcn Table + BrandVariantRow, Add Brand Variant inline button
+- [2026-04-25] **Inventory Tab Rebuild Task 7: ItemEditDialog** — `src/components/services/inventory/ItemEditDialog.tsx` — Create/edit item with name EN/AR, SKU, unit (select from 9 options), item type (read-only), attribute chips with Enter-to-add; `useUpsertInventoryItemAttributes` on save
+- [2026-04-25] **Inventory Tab Rebuild Task 5: BrandVariantRow** — `src/components/services/inventory/BrandVariantRow.tsx` — Level-3 row: ATP badge (green/amber/red) with native `title` tooltip showing On Hand + Reserved, FIFO expand/collapse, inline sort + edit + archive; renders FifoLayersTable on expand
+- [2026-04-25] **Inventory Tab Rebuild Task 4: BrandVariantEditDialog** — `src/components/services/inventory/BrandVariantEditDialog.tsx` — Create/edit brand variant (brand text, SKU code, selling price, reorder point); uses `useCreateBrandVariant`/`useUpdateBrandVariant`
+- [2026-04-25] **Inventory Tab Rebuild Task 6: CategoryEditDialog** — `src/components/services/inventory/CategoryEditDialog.tsx` — Create/edit category (name EN/AR, SKU prefix); uses `useCreateInventoryCategory`/`useUpdateInventoryCategory`
 - [2026-04-25] **Inventory Tab Rebuild Task 3: FifoLayersTable** — `src/components/services/inventory/FifoLayersTable.tsx` — Read-only table with 7 columns (receival #, date, qty in, remaining, unit cost, landed cost, total/unit), 3-row skeleton loader using `useFifoLayers`, currency formatting via `formatCurrency`/`formatDate` utilities, empty state, responsive layout with border and slate-50 bg
 - [2026-04-25] **Inventory Tab Plan Task 2: New hooks** — `src/hooks/useInventory.ts` — Appended: FifoLayer/ToolAssetItem/ToolAssetUnit/ServiceInventoryLink types; useInventoryCategoriesByType, useCreateInventoryCategory, useUpdateInventoryCategory, useInventoryItemsByCategory, useArchiveInventoryItem, useInventoryBrandVariants, useArchiveInventoryBrandVariant, useFifoLayers, useToolAssetItems, useToolAssetUnits, useCreateToolAssetItem, useUpdateToolAssetItem, useCreateToolAssetUnit, useUpdateToolAssetUnit, useServiceInventoryLinks, useUpdateServiceInventoryLinks, useAllServices, useInventoryItemsFlat, useArchiveInventoryCategory, useUpdateSortOrders, useUpsertInventoryItemAttributes, useStaffProfiles
 - [2026-04-25] **Inventory Tab Plan Task 1: DB Migration** — `supabase/migrations/20260425000100_inventory_tab_columns.sql` — Adds status/sort_order to inventory_categories, inventory_items, inventory_brand_variants; reorder_point to inventory_brand_variants
