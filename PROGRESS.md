@@ -151,7 +151,7 @@ Purchase & Sales▾:
 
 ## 🔄 In Progress
 
-LC Inventory Apply plan complete — all tasks shipped. Ready to move to next feature.
+🚀 Starting: **LC Multi-Currency + Receival Redesign — Tasks 1–11**
 
 ---
 
