@@ -1,6 +1,7 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useMemo } from 'react'
+import { useQueryClient } from '@tanstack/react-query'
 import { toast } from 'sonner'
 import { Plane, Ship, Truck, PenLine, Eye, Archive, Plus } from 'lucide-react'
 import { PageHeader } from '@/components/shared/PageHeader'
@@ -94,7 +95,22 @@ function CreateShipmentDialog({ open, onOpenChange }: { open: boolean; onOpenCha
         eta: form.eta || null,
       },
       {
-        onSuccess: () => { toast.success('Shipment created'); onOpenChange(false); setForm({ po_id: '', mode: 'air', carrier: '', tracking_number: '', origin: '', destination: '', etd: '', eta: '' }) },
+        onSuccess: (newShipment) => {
+          toast.success('Shipment created')
+          onOpenChange(false)
+          setForm({ po_id: '', mode: 'air', carrier: '', tracking_number: '', origin: '', destination: '', etd: '', eta: '' })
+          // Fire-and-forget: keepalive ensures the request completes even if the user
+          // navigates away immediately after the toast.
+          fetch('/api/shipments/register-tracking', {
+            method: 'POST',
+            keepalive: true,
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              tracking_number: newShipment.tracking_number,
+              shipment_id: newShipment.id,
+            }),
+          }).catch(err => console.error('[auto-register]', err))
+        },
         onError: (err) => toast.error(err.message),
       }
     )
@@ -187,6 +203,53 @@ function ShipmentDetailDialog({
   const [showEventForm, setShowEventForm] = useState(false)
   const [eventForm, setEventForm] = useState({ date: '', location: '', status: '', notes: '' })
 
+  const queryClient = useQueryClient()
+  const [isSyncing, setIsSyncing] = useState(false)
+  const [syncAmbiguous, setSyncAmbiguous] = useState<{ candidates: number[] } | null>(null)
+  const [selectedCarrierCode, setSelectedCarrierCode] = useState<number | ''>('')
+
+  const sortedEvents = useMemo(
+    () =>
+      [...(shipment?.events ?? [])].sort((a, b) => {
+        const ta = new Date(a.normalizedTimestamp ?? a.date ?? 0).getTime()
+        const tb = new Date(b.normalizedTimestamp ?? b.date ?? 0).getTime()
+        return tb - ta
+      }),
+    [shipment?.events]
+  )
+
+  async function handleSyncNow(carrierCode?: number) {
+    if (!shipment || isSyncing) return
+    setIsSyncing(true)
+    setSyncAmbiguous(null)
+    try {
+      const res = await fetch('/api/shipments/register-tracking', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          tracking_number: shipment.tracking_number,
+          shipment_id: shipment.id,
+          carrier_code: carrierCode,
+        }),
+      })
+      const data = await res.json()
+      if (data.ambiguous) {
+        setSyncAmbiguous({ candidates: data.candidates })
+        return
+      }
+      if (data.error === 'quota_exceeded') {
+        toast.error('Auto-sync unavailable: monthly tracking limit reached')
+        return
+      }
+      await queryClient.invalidateQueries({ queryKey: ['shipments'] })
+      toast.success('Tracking synced')
+    } catch {
+      toast.error('Sync failed — try again')
+    } finally {
+      setIsSyncing(false)
+    }
+  }
+
   if (!shipment) return null
 
   function handleAddEvent(e: React.FormEvent) {
@@ -216,6 +279,60 @@ function ShipmentDetailDialog({
         </DialogHeader>
 
         <div className="space-y-4 max-h-[60vh] overflow-y-auto pr-1">
+          {/* Quota warning */}
+          {shipment.sync_error === 'quota_exceeded' && (
+            <div className="rounded-md bg-yellow-50 border border-yellow-200 px-3 py-2 text-sm text-yellow-800">
+              Auto-sync unavailable — monthly tracking limit reached
+            </div>
+          )}
+
+          {/* Sync controls */}
+          <div className="flex items-center gap-3 text-sm text-muted-foreground">
+            {shipment.last_synced_at ? (
+              <span>
+                Last synced{' '}
+                {Math.round((Date.now() - new Date(shipment.last_synced_at).getTime()) / 60000)} min ago
+              </span>
+            ) : (
+              <span>Never synced</span>
+            )}
+            <button
+              onClick={() => handleSyncNow()}
+              disabled={isSyncing}
+              className="text-primary underline underline-offset-2 disabled:opacity-50 disabled:cursor-not-allowed"
+            >
+              {isSyncing ? 'Syncing…' : 'Sync Now'}
+            </button>
+          </div>
+
+          {/* Carrier picker — shown when 17track returns ambiguous result */}
+          {syncAmbiguous && (
+            <div className="rounded-md border border-border p-3 space-y-2">
+              <p className="text-sm font-medium">Multiple carriers matched. Select the correct one:</p>
+              <div className="flex items-center gap-2">
+                <select
+                  className="flex h-9 rounded-md border border-input bg-background px-3 py-1 text-sm"
+                  value={selectedCarrierCode}
+                  onChange={e => setSelectedCarrierCode(e.target.value === '' ? '' : Number(e.target.value))}
+                >
+                  <option value="">Pick carrier…</option>
+                  {syncAmbiguous.candidates.map(code => (
+                    <option key={code} value={code}>Carrier #{code}</option>
+                  ))}
+                </select>
+                <Button
+                  size="sm"
+                  disabled={selectedCarrierCode === '' || isSyncing}
+                  onClick={() => {
+                    if (selectedCarrierCode !== '') handleSyncNow(selectedCarrierCode as number)
+                  }}
+                >
+                  Confirm
+                </Button>
+              </div>
+            </div>
+          )}
+
           {/* Summary */}
           <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 text-sm">
             <div>
@@ -241,16 +358,22 @@ function ShipmentDetailDialog({
           {/* Tracking Timeline */}
           <div>
             <h3 className="text-sm font-semibold mb-2">Tracking Timeline</h3>
-            {(shipment.events ?? []).length === 0 ? (
+            {sortedEvents.length === 0 ? (
               <p className="text-sm text-muted-foreground">No events yet</p>
             ) : (
               <div className="space-y-2">
-                {[...(shipment.events ?? [])].reverse().map((ev, i) => (
+                {sortedEvents.map((ev, i) => (
                   <div key={i} className="flex gap-3 text-sm">
-                    <div className="w-24 shrink-0 text-muted-foreground">{ev.date}</div>
+                    <div className="w-24 shrink-0 text-muted-foreground">
+                      {ev.date ? new Date(ev.date).toLocaleDateString() : '—'}
+                    </div>
                     <div>
                       <span className="font-medium">{ev.location}</span>
-                      {ev.status && <span className="ml-2 text-muted-foreground">· {ev.status}</span>}
+                      {ev.status && (
+                        <span className="ml-2 text-muted-foreground">
+                          · {STATUS_LABELS[ev.status as ShipmentStatus] ?? ev.status}
+                        </span>
+                      )}
                       {ev.notes && <p className="text-xs text-muted-foreground">{ev.notes}</p>}
                     </div>
                   </div>
@@ -320,7 +443,19 @@ function ShipmentDetailDialog({
               size="sm"
               onClick={() => archiveShipment.mutate(
                 shipment.id,
-                { onSuccess: () => { toast.success('Archived'); onClose() }, onError: (err) => toast.error(err.message) }
+                {
+                  onSuccess: () => {
+                    toast.success('Archived')
+                    fetch('/api/shipments/deregister-tracking', {
+                      method: 'POST',
+                      keepalive: true,
+                      headers: { 'Content-Type': 'application/json' },
+                      body: JSON.stringify({ tracking_number: shipment.tracking_number }),
+                    }).catch(err => console.error('[deregister]', err))
+                    onClose()
+                  },
+                  onError: (err) => toast.error(err.message),
+                }
               )}
             >
               <Archive className="h-4 w-4 mr-1" /> Archive
@@ -341,6 +476,10 @@ export default function ShipmentsPage() {
   const [selected, setSelected] = useState<Shipment | null>(null)
 
   const { data: shipments, isLoading } = useShipments({ archived, search })
+
+  const currentShipment = selected
+    ? (shipments ?? []).find(s => s.id === selected.id) ?? selected
+    : null
 
   const columns: ColumnDef<Shipment>[] = [
     {
@@ -435,7 +574,7 @@ export default function ShipmentsPage() {
       )}
 
       <CreateShipmentDialog open={createOpen} onOpenChange={setCreateOpen} />
-      <ShipmentDetailDialog shipment={selected} onClose={() => setSelected(null)} />
+      <ShipmentDetailDialog shipment={currentShipment} onClose={() => setSelected(null)} />
     </PageWrapper>
   )
 }
