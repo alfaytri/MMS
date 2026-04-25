@@ -151,10 +151,6 @@ Purchase & Sales▾:
 
 ## 🔄 In Progress
 
-### Inventory Tab Rebuild (Plan: 2026-04-25-inventory-tab-complete.md) — IN PROGRESS
-
-- 🚀 Starting: **Inventory Tab Plan Task 1: DB Migration — Add Missing Columns**
-
 ---
 
 ### Shipment Tracking Integration (Plan: 2026-04-24-shipment-tracking.md) — IN PROGRESS
@@ -224,6 +220,12 @@ Purchase & Sales▾:
 ---
 
 ## ✅ Completed
+
+### Inventory Tab Rebuild (Plan: 2026-04-25-inventory-tab-complete.md) — COMPLETE ✅
+
+- [2026-04-25] **Inventory Tab Plan Task 1: DB Migration** — `supabase/migrations/20260425000100_inventory_tab_columns.sql` — Adds status/sort_order to inventory_categories, inventory_items, inventory_brand_variants; reorder_point to inventory_brand_variants
+
+---
 
 ### PO Approval Chain (Plan: 2026-04-22-po-approval-chain.md) — COMPLETE ✅
 
