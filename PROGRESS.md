@@ -151,7 +151,7 @@ Purchase & Sales▾:
 
 ## 🔄 In Progress
 
-🚀 Starting: **Inventory Tab Rebuild Task 2: New hooks for useInventory.ts**
+🚀 Starting: **Inventory Tab Rebuild Task 3: [Next task]**
 
 ---
 
@@ -225,6 +225,7 @@ Purchase & Sales▾:
 
 ### Inventory Tab Rebuild (Plan: 2026-04-25-inventory-tab-complete.md) — COMPLETE ✅
 
+- [2026-04-25] **Inventory Tab Plan Task 2: New hooks** — `src/hooks/useInventory.ts` — Appended: FifoLayer/ToolAssetItem/ToolAssetUnit/ServiceInventoryLink types; useInventoryCategoriesByType, useCreateInventoryCategory, useUpdateInventoryCategory, useInventoryItemsByCategory, useArchiveInventoryItem, useInventoryBrandVariants, useArchiveInventoryBrandVariant, useFifoLayers, useToolAssetItems, useToolAssetUnits, useCreateToolAssetItem, useUpdateToolAssetItem, useCreateToolAssetUnit, useUpdateToolAssetUnit, useServiceInventoryLinks, useUpdateServiceInventoryLinks, useAllServices, useInventoryItemsFlat, useArchiveInventoryCategory, useUpdateSortOrders, useUpsertInventoryItemAttributes, useStaffProfiles
 - [2026-04-25] **Inventory Tab Plan Task 1: DB Migration** — `supabase/migrations/20260425000100_inventory_tab_columns.sql` — Adds status/sort_order to inventory_categories, inventory_items, inventory_brand_variants; reorder_point to inventory_brand_variants
 
 ---
