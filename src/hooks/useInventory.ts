@@ -18,6 +18,7 @@ export type BrandVariantInsert = {
   average_cost?: number | null
   reorder_point?: number
   margin_percent?: number | null
+  stock_level?: number | null
 }
 export type BrandVariantUpdate = Partial<Omit<BrandVariantInsert, 'item_id'>> & { id?: string }
 

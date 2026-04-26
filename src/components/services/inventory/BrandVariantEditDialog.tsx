@@ -25,6 +25,7 @@ export function BrandVariantEditDialog({ open, onOpenChange, itemId, variant }: 
   const [sellingPrice, setSellingPrice] = useState('')
   const [marginPercent, setMarginPercent] = useState('0')
   const [reorderPoint, setReorderPoint] = useState('0')
+  const [stockLevel, setStockLevel] = useState('0')
 
   useEffect(() => {
     if (open) {
@@ -33,6 +34,7 @@ export function BrandVariantEditDialog({ open, onOpenChange, itemId, variant }: 
       setSellingPrice((variant as any)?.selling_price != null ? String((variant as any).selling_price) : '')
       setMarginPercent((variant as any)?.margin_percent != null ? String((variant as any).margin_percent) : '0')
       setReorderPoint(variant ? String((variant as any).reorder_point ?? 0) : '0')
+      setStockLevel(variant ? String((variant as any).stock_level ?? 0) : '0')
     }
   }, [open, variant])
 
@@ -49,6 +51,7 @@ export function BrandVariantEditDialog({ open, onOpenChange, itemId, variant }: 
       selling_price: sellingPrice ? Number(sellingPrice) : 0,
       margin_percent: Number(marginPercent) || 0,
       reorder_point: Number(reorderPoint),
+      stock_level: Number(stockLevel) || 0,
     }
 
     if (isEdit && variant) {
@@ -117,13 +120,23 @@ export function BrandVariantEditDialog({ open, onOpenChange, itemId, variant }: 
               <p className="text-xs text-muted-foreground">Used by LC price review: price = avg_cost × (1 + markup%)</p>
             </div>
           </div>
-          <div className="space-y-1">
-            <Label>Reorder Point</Label>
-            <Input
-              type="number" min="0" step="1"
-              value={reorderPoint}
-              onChange={(e) => setReorderPoint(e.target.value)}
-            />
+          <div className="grid grid-cols-2 gap-3">
+            <div className="space-y-1">
+              <Label>Reorder Point</Label>
+              <Input
+                type="number" min="0" step="1"
+                value={reorderPoint}
+                onChange={(e) => setReorderPoint(e.target.value)}
+              />
+            </div>
+            <div className="space-y-1">
+              <Label>Stock on Hand</Label>
+              <Input
+                type="number" min="0" step="1"
+                value={stockLevel}
+                onChange={(e) => setStockLevel(e.target.value)}
+              />
+            </div>
           </div>
           <DialogFooter>
             <Button type="button" variant="outline" onClick={() => onOpenChange(false)}>
