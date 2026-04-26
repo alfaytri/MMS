@@ -2,12 +2,11 @@
 'use client'
 
 import { useState } from 'react'
-import { Plus, Pencil, Trash2, Check, X } from 'lucide-react'
+import { Plus, Pencil, Trash2 } from 'lucide-react'
 import { toast } from 'sonner'
 import { PageHeader } from '@/components/shared/PageHeader'
 import { PageWrapper } from '@/components/shared/PageWrapper'
 import { Button } from '@/components/ui/button'
-import { Input } from '@/components/ui/input'
 import { Skeleton } from '@/components/ui/skeleton'
 import {
   AlertDialog, AlertDialogAction, AlertDialogCancel,
@@ -19,7 +18,6 @@ import {
 } from '@/components/ui/table'
 import {
   useCreditGroups,
-  useUpdateCreditGroup,
   useDeleteCreditGroup,
   useCreditGroupCustomerCounts,
   PAYMENT_METHODS,
@@ -38,31 +36,20 @@ function resolveMethodLabels(keys: string[]): string {
 export default function CreditGroupsPage() {
   const { data: groups = [], isLoading } = useCreditGroups()
   const { data: counts = {} }            = useCreditGroupCustomerCounts()
-  const update = useUpdateCreditGroup()
   const remove = useDeleteCreditGroup()
 
   const [dialogOpen, setDialogOpen]     = useState(false)
-  const [editId, setEditId]             = useState<string | null>(null)
-  const [editName, setEditName]         = useState('')
-  const [editLimit, setEditLimit]       = useState('')
+  const [editTarget, setEditTarget]     = useState<CreditGroup | undefined>(undefined)
   const [deleteTarget, setDeleteTarget] = useState<CreditGroup | null>(null)
 
-  function startEdit(g: CreditGroup) {
-    setEditId(g.id); setEditName(g.name); setEditLimit(String(g.credit_limit))
+  function openAdd() {
+    setEditTarget(undefined)
+    setDialogOpen(true)
   }
-  function cancelEdit() { setEditId(null) }
 
-  function submitEdit() {
-    if (!editId) return
-    const limit = parseFloat(editLimit)
-    if (!editName.trim() || isNaN(limit) || limit < 0) { toast.error('Enter a valid name and credit limit'); return }
-    update.mutate(
-      { id: editId, name: editName.trim(), credit_limit: limit },
-      {
-        onSuccess: () => { toast.success('Updated'); setEditId(null) },
-        onError:   (err) => toast.error(err.message),
-      }
-    )
+  function openEdit(g: CreditGroup) {
+    setEditTarget(g)
+    setDialogOpen(true)
   }
 
   function handleDelete(g: CreditGroup) {
@@ -110,68 +97,42 @@ export default function CreditGroupsPage() {
                     <TableCell />
                   </TableRow>
                 ))
-              : groups.map((g) =>
-                  editId === g.id ? (
-                    <TableRow key={g.id}>
-                      <TableCell>
-                        <Input value={editName} onChange={(e) => setEditName(e.target.value)} className="h-8 text-sm" autoFocus
-                          onKeyDown={(e) => { if (e.key === 'Enter') submitEdit(); if (e.key === 'Escape') cancelEdit() }} />
-                      </TableCell>
-                      <TableCell>
-                        <Input type="number" min={0} value={editLimit} onChange={(e) => setEditLimit(e.target.value)} className="h-8 text-sm text-right"
-                          onKeyDown={(e) => { if (e.key === 'Enter') submitEdit(); if (e.key === 'Escape') cancelEdit() }} />
-                      </TableCell>
-                      <TableCell className="hidden md:table-cell text-xs text-muted-foreground">
-                        {resolveMethodLabels(g.payment_methods)}
-                      </TableCell>
-                      <TableCell className="hidden md:table-cell text-right text-sm text-muted-foreground">
-                        {g.max_days ?? '—'}
-                      </TableCell>
-                      <TableCell className="text-right text-sm text-muted-foreground">{counts[g.id] ?? 0}</TableCell>
-                      <TableCell>
-                        <div className="flex gap-1 justify-end">
-                          <Button size="icon" variant="ghost" className="h-7 w-7" onClick={submitEdit} disabled={update.isPending}>
-                            <Check className="h-3.5 w-3.5 text-success" />
-                          </Button>
-                          <Button size="icon" variant="ghost" className="h-7 w-7" onClick={cancelEdit}>
-                            <X className="h-3.5 w-3.5" />
-                          </Button>
-                        </div>
-                      </TableCell>
-                    </TableRow>
-                  ) : (
-                    <TableRow key={g.id}>
-                      <TableCell className="font-medium">{g.name}</TableCell>
-                      <TableCell className="text-right tabular-nums">{formatCurrency(g.credit_limit, 'QAR')}</TableCell>
-                      <TableCell className="hidden md:table-cell text-xs text-muted-foreground max-w-[200px] truncate">
-                        {resolveMethodLabels(g.payment_methods)}
-                      </TableCell>
-                      <TableCell className="hidden md:table-cell text-right text-sm text-muted-foreground">
-                        {g.max_days ?? '—'}
-                      </TableCell>
-                      <TableCell className="text-right text-sm text-muted-foreground">{counts[g.id] ?? 0}</TableCell>
-                      <TableCell>
-                        <div className="flex gap-1 justify-end">
-                          <Button size="icon" variant="ghost" className="h-7 w-7" onClick={() => startEdit(g)}>
-                            <Pencil className="h-3.5 w-3.5" />
-                          </Button>
-                          <Button size="icon" variant="ghost" className="h-7 w-7 text-destructive/60 hover:text-destructive" onClick={() => handleDelete(g)}>
-                            <Trash2 className="h-3.5 w-3.5" />
-                          </Button>
-                        </div>
-                      </TableCell>
-                    </TableRow>
-                  )
-                )}
+              : groups.map((g) => (
+                  <TableRow key={g.id}>
+                    <TableCell className="font-medium">{g.name}</TableCell>
+                    <TableCell className="text-right tabular-nums">{formatCurrency(g.credit_limit, 'QAR')}</TableCell>
+                    <TableCell className="hidden md:table-cell text-xs text-muted-foreground max-w-[200px] truncate">
+                      {resolveMethodLabels(g.payment_methods)}
+                    </TableCell>
+                    <TableCell className="hidden md:table-cell text-right text-sm text-muted-foreground">
+                      {g.max_days ?? '—'}
+                    </TableCell>
+                    <TableCell className="text-right text-sm text-muted-foreground">{counts[g.id] ?? 0}</TableCell>
+                    <TableCell>
+                      <div className="flex gap-1 justify-end">
+                        <Button size="icon" variant="ghost" className="h-7 w-7" onClick={() => openEdit(g)}>
+                          <Pencil className="h-3.5 w-3.5" />
+                        </Button>
+                        <Button size="icon" variant="ghost" className="h-7 w-7 text-destructive/60 hover:text-destructive" onClick={() => handleDelete(g)}>
+                          <Trash2 className="h-3.5 w-3.5" />
+                        </Button>
+                      </div>
+                    </TableCell>
+                  </TableRow>
+                ))}
           </TableBody>
         </Table>
       </div>
 
-      <Button variant="outline" size="sm" className="gap-1.5 self-start" onClick={() => setDialogOpen(true)}>
+      <Button variant="outline" size="sm" className="gap-1.5 self-start" onClick={openAdd}>
         <Plus className="h-4 w-4" /> Add Credit Group
       </Button>
 
-      <AddCreditGroupDialog open={dialogOpen} onOpenChange={setDialogOpen} />
+      <AddCreditGroupDialog
+        open={dialogOpen}
+        onOpenChange={setDialogOpen}
+        group={editTarget}
+      />
 
       <AlertDialog open={!!deleteTarget} onOpenChange={(o) => !o && setDeleteTarget(null)}>
         <AlertDialogContent>

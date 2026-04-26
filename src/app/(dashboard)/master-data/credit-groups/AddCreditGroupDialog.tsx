@@ -1,6 +1,6 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { toast } from 'sonner'
 import { Check } from 'lucide-react'
 import { Button } from '@/components/ui/button'
@@ -10,28 +10,38 @@ import {
 } from '@/components/ui/dialog'
 import {
   useCreateCreditGroup,
+  useUpdateCreditGroup,
   PAYMENT_METHODS,
+  type CreditGroup,
 } from '@/hooks/useCreditGroups'
 
-interface AddCreditGroupDialogProps {
+interface CreditGroupDialogProps {
   open:         boolean
   onOpenChange: (open: boolean) => void
+  group?:       CreditGroup  // provided → edit mode; omitted → add mode
 }
 
-export function AddCreditGroupDialog({ open, onOpenChange }: AddCreditGroupDialogProps) {
+export function AddCreditGroupDialog({ open, onOpenChange, group }: CreditGroupDialogProps) {
+  const isEdit = !!group
   const create = useCreateCreditGroup()
+  const update = useUpdateCreditGroup()
 
   const [name, setName]                       = useState('')
   const [selectedMethods, setSelectedMethods] = useState<string[]>([])
   const [maxAmount, setMaxAmount]             = useState('')
   const [maxDays, setMaxDays]                 = useState('')
 
-  function resetForm() {
-    setName(''); setSelectedMethods([]); setMaxAmount(''); setMaxDays('')
-  }
+  // Sync form whenever the dialog opens (or switches to a different group)
+  useEffect(() => {
+    if (open) {
+      setName(group?.name ?? '')
+      setSelectedMethods(group?.payment_methods ?? [])
+      setMaxAmount(group?.credit_limit != null ? String(group.credit_limit) : '')
+      setMaxDays(group?.max_days != null ? String(group.max_days) : '')
+    }
+  }, [open, group])
 
   function handleOpenChange(next: boolean) {
-    if (!next) resetForm()
     onOpenChange(next)
   }
 
@@ -48,21 +58,35 @@ export function AddCreditGroupDialog({ open, onOpenChange }: AddCreditGroupDialo
     const max_days = maxDays !== '' ? parseInt(maxDays, 10) : null
     if (max_days !== null && (isNaN(max_days) || max_days < 1)) { toast.error('Enter a valid number of days'); return }
 
-    create.mutate(
-      { name: name.trim(), credit_limit, payment_methods: selectedMethods, max_days },
-      {
-        onSuccess: () => { toast.success('Credit group added'); handleOpenChange(false) },
-        onError:   (err) => toast.error(err.message),
-      }
-    )
+    if (isEdit) {
+      update.mutate(
+        { id: group.id, name: name.trim(), credit_limit, payment_methods: selectedMethods, max_days },
+        {
+          onSuccess: () => { toast.success('Credit group updated'); handleOpenChange(false) },
+          onError:   (err) => toast.error(err.message),
+        }
+      )
+    } else {
+      create.mutate(
+        { name: name.trim(), credit_limit, payment_methods: selectedMethods, max_days },
+        {
+          onSuccess: () => { toast.success('Credit group added'); handleOpenChange(false) },
+          onError:   (err) => toast.error(err.message),
+        }
+      )
+    }
   }
+
+  const isPending = create.isPending || update.isPending
 
   return (
     <Dialog open={open} onOpenChange={handleOpenChange}>
       <DialogContent className="w-full max-w-full rounded-none sm:max-w-md sm:rounded-lg">
         <DialogHeader>
-          <DialogTitle>Add Credit Group</DialogTitle>
-          <p className="text-sm text-muted-foreground">Create a new credit group.</p>
+          <DialogTitle>{isEdit ? 'Edit Credit Group' : 'Add Credit Group'}</DialogTitle>
+          <p className="text-sm text-muted-foreground">
+            {isEdit ? 'Update this credit group.' : 'Create a new credit group.'}
+          </p>
         </DialogHeader>
 
         <div className="space-y-5 py-2">
@@ -130,8 +154,8 @@ export function AddCreditGroupDialog({ open, onOpenChange }: AddCreditGroupDialo
 
         <DialogFooter>
           <Button variant="outline" onClick={() => handleOpenChange(false)}>Cancel</Button>
-          <Button onClick={handleSubmit} disabled={create.isPending}>
-            {create.isPending ? 'Adding…' : 'Add Category'}
+          <Button onClick={handleSubmit} disabled={isPending}>
+            {isPending ? (isEdit ? 'Saving…' : 'Adding…') : (isEdit ? 'Save Changes' : 'Add Category')}
           </Button>
         </DialogFooter>
       </DialogContent>
