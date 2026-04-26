@@ -151,8 +151,9 @@ Purchase & Sales▾:
 
 ## 🔄 In Progress
 
-🚀 Starting: **[Cascade Inventory Selector Plan] Task 5: Disable submit while price is loading (create-po page)**
+🚀 Starting: **[Cascade Inventory Selector Plan] Task 6: ATP guard migration for apply_receival_edit**
 
+- [2026-04-26] **[Cascade Inventory Selector Plan] Task 5: Disable submit while price is loading** — `src/app/(dashboard)/purchase/create-po/page.tsx` — added isPriceLoading state, wired onPriceLoading to PoLineItemsEditor, both submit buttons disabled + label feedback during price fetch
 - [2026-04-26] **[Cascade Inventory Selector Plan] Task 4: Wire CascadeInventorySelector into PoLineItemsEditor + surface price-loading state** — `src/components/purchase/PoLineItemsEditor.tsx` — replaced InventoryItemLookup with CascadeInventorySelector; added onPriceLoading callback chain using useRef-backed Set to aggregate per-row loading state without extra re-renders
 
 **LC Page Enhancements Plan (2026-04-25-lc-page-enhancements.md)** — COMPLETE ✅
