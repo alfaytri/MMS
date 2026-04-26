@@ -160,6 +160,7 @@ export function useUpdateBrandVariant() {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['brand-variants'] })
+      queryClient.invalidateQueries({ queryKey: ['brand-variants-v2'] })
       queryClient.invalidateQueries({ queryKey: ['inventory-items'] })
     },
   })
