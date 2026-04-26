@@ -151,10 +151,12 @@ Purchase & Sales▾:
 
 ## 🔄 In Progress
 
-**[Cascade Inline Creation Plan] — ALL TASKS COMPLETE ✅**
+*(nothing active)*
 
 ## ✅ Completed
 
+- [2026-04-26] **[Service Links Redesign] Task 4: Rebuild ServiceLinksView** — `src/components/services/inventory/ServiceLinksView.tsx` — Full service-centric rebuild: counters (total/linked/unlinked), URL-synced filters (slSearch/slType/slStatus), collapsible a11y rows (role=button, aria-expanded, keyboard Enter/Space), inline link-type + warranty + qty editing with optimistic updates, AlertDialog delete confirmation, NewLinkDialog with 2-step service→variant flow; fixed Ark UI `onValueChange: string | null` signatures
+- [2026-04-26] **[Service Links Redesign] Tasks 1–3: DB migration + helpers + hooks** — `supabase/migrations/20260426000002_service_inventory_link_type.sql`, `src/components/services/inventory/serviceInventoryHelpers.ts`, `src/hooks/useInventory.ts` — added quantity/link_type/warranty_months/group_label columns; helpers with LINK_TYPE_CONFIG, WARRANTY_OPTIONS, collectLeaves, buildBreadcrumbMap; new hooks useServicesForLinks, useAllServiceLinks, useAddServiceInventoryLink, useDeleteServiceInventoryLink, useUpdateServiceInventoryLink with optimistic updates
 - [2026-04-26] **[Cascade Inline Creation Plan] Task 7: Editable Vendor SKU** — `src/components/purchase/PoLineItemsEditor.tsx` — replaced read-only SKU span with editable Input; pre-fill guard preserves user-typed SKU on cascade select
 - [2026-04-26] **[Cascade Inline Creation Plan] Task 6: Stock pill display** — `src/components/purchase/CascadeInventorySelector.tsx` — shows "N in stock" (green) or "Out of stock" (muted) on both fresh-select and ancestry (DB-reload) paths; null-safe math guards against NaN on new variants
 - [2026-04-26] **[Cascade Inline Creation Plan] Task 5: Wire inline forms** — `src/components/purchase/CascadeInventorySelector.tsx` — added isCatCreating/isItemCreating/isVarCreating states; "Add new…" buttons outside Command filter; auto-advance opens next popover on creation; loading skeletons in item/variant CommandGroups prevent empty-flash after inline creation
