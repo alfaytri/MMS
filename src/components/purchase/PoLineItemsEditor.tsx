@@ -9,7 +9,7 @@ import type { InventoryLookupResult } from '@/hooks/usePurchaseOrders'
 import { ToolAssetLookup, type ToolAssetLookupResult } from './ToolAssetLookup'
 import { formatCurrency } from '@/lib/utils/formatters'
 import type { POLineItemDraft } from '@/hooks/usePurchaseOrders'
-import { useState } from 'react'
+import { useRef } from 'react'
 import type { ElementType } from 'react'
 
 export type LineType = 'products' | 'spare-parts' | 'consumables' | 'tools'
@@ -80,15 +80,13 @@ interface PoLineItemsEditorProps {
 }
 
 export function PoLineItemsEditor({ value, onChange, currency, readOnly = false, onPriceLoading }: PoLineItemsEditorProps) {
-  const [priceLoadingKeys, setPriceLoadingKeys] = useState<Set<string>>(new Set())
+  const priceLoadingKeys = useRef(new Set<string>())
 
   function handleRowPriceLoading(key: string, loading: boolean) {
-    setPriceLoadingKeys((prev) => {
-      const next = new Set(prev)
-      loading ? next.add(key) : next.delete(key)
-      onPriceLoading?.(next.size > 0)
-      return next
-    })
+    loading
+      ? priceLoadingKeys.current.add(key)
+      : priceLoadingKeys.current.delete(key)
+    onPriceLoading?.(priceLoadingKeys.current.size > 0)
   }
 
   function addRow(line_type: LineType) {
