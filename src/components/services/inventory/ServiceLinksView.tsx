@@ -194,7 +194,7 @@ function NewLinkDialog({
               <p className="text-xs font-medium mb-1.5">Link type</p>
               <Select value={linkType} onValueChange={(v) => setLinkType(v as LinkType)}>
                 <SelectTrigger className="h-8 text-xs">
-                  <SelectValue />
+                  <SelectValue>{LINK_TYPE_CONFIG[linkType].letter} — {LINK_TYPE_CONFIG[linkType].label}</SelectValue>
                 </SelectTrigger>
                 <SelectContent>
                   {(Object.keys(LINK_TYPE_CONFIG) as LinkType[]).map((k) => (
@@ -224,7 +224,7 @@ function NewLinkDialog({
                   onValueChange={(v) => setWarrantyMonths(Number(v))}
                 >
                   <SelectTrigger className="h-8 text-xs">
-                    <SelectValue />
+                    <SelectValue>{warrantyMonths === 0 ? 'No warranty' : `${warrantyMonths} months`}</SelectValue>
                   </SelectTrigger>
                   <SelectContent>
                     {WARRANTY_OPTIONS.map((m) => (
@@ -365,7 +365,7 @@ function ServiceLinkSubRow({ link }: { link: ServiceInventoryLinkFull }) {
       <td className="py-2 px-2">
         <Select value={link.link_type} onValueChange={(v: string | null) => { if (v) handleTypeChange(v as LinkType) }}>
           <SelectTrigger className="h-6 text-[11px] w-28 px-2">
-            <SelectValue />
+            <SelectValue>{LINK_TYPE_CONFIG[link.link_type].letter} — {LINK_TYPE_CONFIG[link.link_type].label}</SelectValue>
           </SelectTrigger>
           <SelectContent>
             {(Object.keys(LINK_TYPE_CONFIG) as LinkType[]).map((k) => (
@@ -380,7 +380,7 @@ function ServiceLinkSubRow({ link }: { link: ServiceInventoryLinkFull }) {
       <td className="py-2 px-2">
         <Select value={String(link.warranty_months)} onValueChange={(v: string | null) => { if (v != null) handleWarrantyChange(v) }}>
           <SelectTrigger className="h-6 text-[11px] w-24 px-2">
-            <SelectValue />
+            <SelectValue>{link.warranty_months === 0 ? 'None' : `${link.warranty_months} mo`}</SelectValue>
           </SelectTrigger>
           <SelectContent>
             {WARRANTY_OPTIONS.map((m) => (
@@ -620,7 +620,7 @@ export function ServiceLinksView({ enabled }: { enabled: boolean }) {
         />
         <Select value={typeFilter} onValueChange={(v: string | null) => setParam('slType', v ?? 'all')}>
           <SelectTrigger className="h-7 text-xs w-32">
-            <SelectValue />
+            <SelectValue>{{ all: 'All Types', normal: 'Normal', contract: 'Contract', mobile: 'Mobile' }[typeFilter]}</SelectValue>
           </SelectTrigger>
           <SelectContent>
             <SelectItem value="all" className="text-xs">All Types</SelectItem>
@@ -631,7 +631,7 @@ export function ServiceLinksView({ enabled }: { enabled: boolean }) {
         </Select>
         <Select value={statusFilter} onValueChange={(v: string | null) => setParam('slStatus', v ?? 'all')}>
           <SelectTrigger className="h-7 text-xs w-32">
-            <SelectValue />
+            <SelectValue>{{ all: 'All Statuses', linked: 'Linked', unlinked: 'Unlinked' }[statusFilter]}</SelectValue>
           </SelectTrigger>
           <SelectContent>
             <SelectItem value="all" className="text-xs">All Statuses</SelectItem>
