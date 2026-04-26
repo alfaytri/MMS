@@ -151,7 +151,7 @@ Purchase & Sales▾:
 
 ## 🔄 In Progress
 
-🚀 Starting: **Cascade Inventory Selector Plan Task 1: Extend InventoryLookupResult type**
+🚀 Starting: **Cascade Inventory Selector Plan Task 2: Create useBrandVariantAncestry hook**
 
 **LC Page Enhancements Plan (2026-04-25-lc-page-enhancements.md)** — COMPLETE ✅
 - [x] Task 0: Setup — merge develop
