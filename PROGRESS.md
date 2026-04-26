@@ -151,6 +151,18 @@ Purchase & Sales▾:
 
 ## 🔄 In Progress
 
+**[Cascade Inline Creation Plan] — ALL TASKS COMPLETE ✅**
+
+## ✅ Completed
+
+- [2026-04-26] **[Cascade Inline Creation Plan] Task 7: Editable Vendor SKU** — `src/components/purchase/PoLineItemsEditor.tsx` — replaced read-only SKU span with editable Input; pre-fill guard preserves user-typed SKU on cascade select
+- [2026-04-26] **[Cascade Inline Creation Plan] Task 6: Stock pill display** — `src/components/purchase/CascadeInventorySelector.tsx` — shows "N in stock" (green) or "Out of stock" (muted) on both fresh-select and ancestry (DB-reload) paths; null-safe math guards against NaN on new variants
+- [2026-04-26] **[Cascade Inline Creation Plan] Task 5: Wire inline forms** — `src/components/purchase/CascadeInventorySelector.tsx` — added isCatCreating/isItemCreating/isVarCreating states; "Add new…" buttons outside Command filter; auto-advance opens next popover on creation; loading skeletons in item/variant CommandGroups prevent empty-flash after inline creation
+- [2026-04-26] **[Cascade Inline Creation Plan] Task 4: CascadeInlineForms** — `src/components/purchase/CascadeInlineForms.tsx` — three inline form components (Category, Item, Brand/Variant) with keyboard nav (Enter/Escape); brand autocomplete uses global useAllBrandNames hook across all variants
+- [2026-04-26] **[Cascade Inline Creation Plan] Task 3: Full-object state refactor** — `src/components/purchase/CascadeInventorySelector.tsx` — stores InventoryCategory/InventoryItem objects directly to eliminate .find() race condition on TanStack Query refetch after inline creation
+- [2026-04-26] **[Cascade Inline Creation Plan] Task 2: useBrandVariantAncestry stock fields** — `src/hooks/useBrandVariantAncestry.ts` — added stock_level + reserved_qty to type and query for ancestry (DB-reload) stock display path
+- [2026-04-26] **[Cascade Inline Creation Plan] Task 1: Query invalidations** — `src/hooks/useInventory.ts` — added inventory-items-by-category invalidation to useCreateInventoryItem; brand-variants-v2 + all-brand-names invalidation to useCreateBrandVariant; broad inventory-categories invalidation to useCreateInventoryCategory; new useAllBrandNames hook
+
 **[Cascade Inventory Selector Plan] — ALL TASKS COMPLETE ✅**
 
 - [2026-04-26] **[Cascade Inventory Selector Plan] Task 6: ATP guard migration** — `supabase/migrations/20260426000003_fix_apply_receival_edit_atp_guard.sql`, `20260426000004_fix_apply_receival_edit_atp_guard_v2.sql` — ATP guard on qty decrease in apply_receival_edit; v2 adds FOR UPDATE lock + COALESCE(stock_level,0) + variant ID in error message
