@@ -1,4 +1,3 @@
-// src/components/purchase/CascadeInventorySelector.tsx
 'use client'
 
 import { useState } from 'react'
@@ -18,6 +17,8 @@ import {
   useInventoryCategoriesByType,
   useInventoryItemsByCategory,
   useInventoryBrandVariants,
+  type InventoryCategory,
+  type InventoryItem,
 } from '@/hooks/useInventory'
 import { useBrandVariantAncestry } from '@/hooks/useBrandVariantAncestry'
 import type { InventoryLookupResult } from '@/hooks/usePurchaseOrders'
@@ -30,8 +31,6 @@ interface CascadeInventorySelectorProps {
   onPriceLoading?: (loading: boolean) => void
 }
 
-// Orders by date DESC, created_at DESC, id DESC to be deterministic when
-// multiple FIFO layers share the same date (e.g. two shipments in one day).
 async function fetchLastFifoCost(variantId: string): Promise<number> {
   const supabase = createClient()
   const { data } = await (supabase as any)
@@ -46,9 +45,6 @@ async function fetchLastFifoCost(variantId: string): Promise<number> {
   return (data as any)?.total_unit_cost ?? 0
 }
 
-// Shared className for the combobox trigger button rendered via PopoverTrigger.
-// Base UI's PopoverTrigger does not support asChild — styles are applied directly
-// and a <button> element is rendered via the render prop.
 const triggerCls =
   'h-8 w-full inline-flex items-center justify-between rounded-md border border-input bg-background px-3 text-xs font-normal shadow-xs hover:bg-accent hover:text-accent-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring disabled:pointer-events-none disabled:opacity-50'
 
@@ -58,32 +54,28 @@ export function CascadeInventorySelector({
   onChange,
   onPriceLoading,
 }: CascadeInventorySelectorProps) {
-  const [categoryId,         setCategoryId]         = useState<string | null>(null)
-  const [itemId,             setItemId]             = useState<string | null>(null)
-  const [catOpen,            setCatOpen]            = useState(false)
-  const [itemOpen,           setItemOpen]           = useState(false)
-  const [varOpen,            setVarOpen]            = useState(false)
-  const [isPriceLoading,     setIsPriceLoading]     = useState(false)
-  // Inventory-side data from the most recent cascade selection — kept separate
-  // from value.sku / value.item_name which reflect the vendor-editable row fields.
+  // Full objects stored directly — avoids .find() race with TanStack Query refetches
+  const [selectedCategory, setSelectedCategory] = useState<InventoryCategory | null>(null)
+  const [selectedItem,     setSelectedItem]     = useState<InventoryItem | null>(null)
+
+  const [catOpen,        setCatOpen]        = useState(false)
+  const [itemOpen,       setItemOpen]       = useState(false)
+  const [varOpen,        setVarOpen]        = useState(false)
+  const [isPriceLoading, setIsPriceLoading] = useState(false)
+
   const [selectedVariantCode,  setSelectedVariantCode]  = useState<string | null>(null)
   const [selectedVariantBrand, setSelectedVariantBrand] = useState<string | null>(null)
 
   const { data: categories = [], isLoading: catsLoading } =
     useInventoryCategoriesByType(lineType)
   const { data: items = [], isLoading: itemsLoading } =
-    useInventoryItemsByCategory(categoryId)
+    useInventoryItemsByCategory(selectedCategory?.id ?? null)
   const { data: variants = [], isLoading: varsLoading } =
-    useInventoryBrandVariants(itemId)
+    useInventoryBrandVariants(selectedItem?.id ?? null)
 
-  // Backward lookup: fires only when value exists but cascade state is absent
-  // (i.e. PO loaded from DB rather than freshly selected in this session).
   const { data: ancestry, isLoading: ancestryLoading } = useBrandVariantAncestry(
-    value && !categoryId ? value.brand_variant_id : null
+    value && !selectedCategory ? value.brand_variant_id : null
   )
-
-  const selectedCategory = categories.find((c) => c.id === categoryId) ?? null
-  const selectedItem     = items.find((i) => i.id === itemId) ?? null
 
   async function handleVariantSelect(variant: {
     id: string
@@ -95,8 +87,6 @@ export function CascadeInventorySelector({
     if (!selectedItem || !selectedCategory) return
     setVarOpen(false)
 
-    // Capture inventory-side display data before the async path so the pill
-    // always shows the real inventory name/brand/code, not the vendor-editable fields.
     setSelectedVariantCode(variant.code ?? null)
     setSelectedVariantBrand(variant.brand)
 
@@ -117,8 +107,6 @@ export function CascadeInventorySelector({
       return
     }
 
-    // cost_price is 0 or null — fetch last FIFO cost asynchronously.
-    // Signal the parent to block submission while the fetch is in flight.
     setIsPriceLoading(true)
     onPriceLoading?.(true)
     try {
@@ -143,8 +131,8 @@ export function CascadeInventorySelector({
 
   function handleClear() {
     onChange(null)
-    setCategoryId(null)
-    setItemId(null)
+    setSelectedCategory(null)
+    setSelectedItem(null)
     setSelectedVariantCode(null)
     setSelectedVariantBrand(null)
   }
@@ -161,8 +149,6 @@ export function CascadeInventorySelector({
       ancestry?.inventory_items?.inventory_categories?.name_ar ??
       value.category_name_ar ??
       null
-    // Pill always shows inventory-side data, never the vendor-editable row fields.
-    // Priority: fresh cascade selection state → ancestry lookup → nothing.
     const inventoryName   = selectedItem?.name_en ?? ancestry?.inventory_items?.name_en ?? null
     const inventoryNameAr = selectedItem?.name_ar ?? ancestry?.inventory_items?.name_ar ?? null
     const brand = selectedVariantBrand ?? ancestry?.brand ?? null
@@ -244,14 +230,14 @@ export function CascadeInventorySelector({
                   key={cat.id}
                   value={cat.name_en}
                   onSelect={() => {
-                    setCategoryId(cat.id)
-                    setItemId(null)
+                    setSelectedCategory(cat)
+                    setSelectedItem(null)
                     onChange(null)
                     setCatOpen(false)
                   }}
                   className="text-xs"
                 >
-                  <Check className={cn('mr-2 h-3 w-3 shrink-0', categoryId === cat.id ? 'opacity-100' : 'opacity-0')} />
+                  <Check className={cn('mr-2 h-3 w-3 shrink-0', selectedCategory?.id === cat.id ? 'opacity-100' : 'opacity-0')} />
                   <div>
                     <div>{cat.name_en}</div>
                     {cat.name_ar && <div className="text-muted-foreground">{cat.name_ar}</div>}
@@ -266,8 +252,8 @@ export function CascadeInventorySelector({
       {/* Step 2 — Item */}
       <Popover open={itemOpen} onOpenChange={setItemOpen}>
         <PopoverTrigger
-          className={cn(triggerCls, !categoryId && 'pointer-events-none opacity-50')}
-          render={(props) => <button type="button" disabled={!categoryId} {...props} />}
+          className={cn(triggerCls, !selectedCategory && 'pointer-events-none opacity-50')}
+          render={(props) => <button type="button" disabled={!selectedCategory} {...props} />}
         >
           <span className="truncate">
             {itemsLoading ? 'Loading…' : (selectedItem?.name_en ?? 'Item…')}
@@ -286,13 +272,13 @@ export function CascadeInventorySelector({
                   key={item.id}
                   value={item.name_en}
                   onSelect={() => {
-                    setItemId(item.id)
+                    setSelectedItem(item)
                     onChange(null)
                     setItemOpen(false)
                   }}
                   className="text-xs"
                 >
-                  <Check className={cn('mr-2 h-3 w-3 shrink-0', itemId === item.id ? 'opacity-100' : 'opacity-0')} />
+                  <Check className={cn('mr-2 h-3 w-3 shrink-0', selectedItem?.id === item.id ? 'opacity-100' : 'opacity-0')} />
                   <div>
                     <div>{item.name_en}</div>
                     {item.name_ar && <div className="text-muted-foreground">{item.name_ar}</div>}
@@ -307,8 +293,8 @@ export function CascadeInventorySelector({
       {/* Step 3 — Brand / Variant */}
       <Popover open={varOpen} onOpenChange={setVarOpen}>
         <PopoverTrigger
-          className={cn(triggerCls, !itemId && 'pointer-events-none opacity-50')}
-          render={(props) => <button type="button" disabled={!itemId} {...props} />}
+          className={cn(triggerCls, !selectedItem && 'pointer-events-none opacity-50')}
+          render={(props) => <button type="button" disabled={!selectedItem} {...props} />}
         >
           <span className="truncate">
             {varsLoading ? 'Loading…' : 'Brand / Variant…'}
