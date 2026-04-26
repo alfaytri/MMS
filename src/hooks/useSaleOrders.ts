@@ -293,7 +293,7 @@ export function useSaleOrder(id: string | null) {
       const supabase = createClient()
       const { data, error } = await (supabase as any)
         .from('sale_orders')
-        .select('*, sale_order_lines(*), sale_deliveries(*), customers(name, phone, email, customer_number)')
+        .select('*, sale_order_lines(*), sale_deliveries(*), customers(name, phone, email)')
         .eq('id', id!)
         .single()
       if (error) throw error
@@ -584,6 +584,25 @@ export function useCancelSO() {
       queryClient.invalidateQueries({ queryKey: ['sale-orders'] })
       queryClient.invalidateQueries({ queryKey: ['sale-order', id] })
       queryClient.invalidateQueries({ queryKey: ['inventory-brand-variants'] })
+    },
+  })
+}
+
+export function useApproveSO() {
+  const queryClient = useQueryClient()
+  return useMutation({
+    mutationFn: async (id: string) => {
+      const supabase = createClient()
+      const { error } = await (supabase as any)
+        .from('sale_orders')
+        .update({ status: 'confirmed' })
+        .eq('id', id)
+        .eq('status', 'pending_approval')
+      if (error) throw error
+    },
+    onSuccess: (_data, id) => {
+      queryClient.invalidateQueries({ queryKey: ['sale-orders'] })
+      queryClient.invalidateQueries({ queryKey: ['sale-order', id] })
     },
   })
 }

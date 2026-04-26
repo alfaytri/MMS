@@ -25,8 +25,10 @@ import { SoDeliveryDialog } from './SoDeliveryDialog'
 import {
   useSaleOrder,
   useSOPayments,
+  useApproveSO,
   type SaleOrder,
 } from '@/hooks/useSaleOrders'
+import { toast } from 'sonner'
 import { useActivityLog } from '@/hooks/useActivityLog'
 import { formatCurrency, formatDate, formatRelative } from '@/lib/utils/formatters'
 import {
@@ -45,6 +47,7 @@ export function SoDetailDialog({ open, onOpenChange, so, onEdit, onConfirm }: So
   const [paymentOpen, setPaymentOpen] = useState(false)
   const [deliveryOpen, setDeliveryOpen] = useState(false)
 
+  const approveSO = useApproveSO()
   const { data: fullSO, isLoading, isError } = useSaleOrder(open ? (so?.id ?? null) : null)
   const { data: payments } = useSOPayments(open ? (so?.id ?? null) : null)
   const { data: activityLogs } = useActivityLog(
@@ -57,6 +60,15 @@ export function SoDetailDialog({ open, onOpenChange, so, onEdit, onConfirm }: So
   const canDeliver = current && ['confirmed', 'partial_delivery'].includes(current.status)
   const canConfirm = current?.status === 'quotation'
   const canEdit = current?.status === 'quotation'
+  const canApprove = current?.status === 'pending_approval'
+
+  function handleApprove() {
+    if (!current) return
+    approveSO.mutate(current.id, {
+      onSuccess: () => toast.success('Order approved and confirmed'),
+      onError: (err) => toast.error((err as Error).message),
+    })
+  }
 
   const totalPaid = (payments ?? []).reduce((s, p) => s + (p.amount_qar ?? p.amount), 0)
   const payPct = current ? Math.min(100, (totalPaid / (current.total || 1)) * 100) : 0
@@ -79,6 +91,13 @@ export function SoDetailDialog({ open, onOpenChange, so, onEdit, onConfirm }: So
               </div>
             )}
           </DialogHeader>
+
+          {canApprove && (
+            <div className="shrink-0 rounded-md bg-yellow-50 border border-yellow-200 px-4 py-2.5 text-sm text-yellow-800 flex items-center gap-2">
+              <span className="font-medium">Pending Owner Approval</span>
+              <span className="text-yellow-700">— this order exceeded the customer's credit limit.</span>
+            </div>
+          )}
 
           {isLoading ? (
             <div className="space-y-3 p-4">
@@ -260,6 +279,16 @@ export function SoDetailDialog({ open, onOpenChange, so, onEdit, onConfirm }: So
           {/* Action buttons */}
           {current && !isLoading && (
             <div className="shrink-0 flex flex-wrap gap-2 pt-2 border-t justify-end">
+              {canApprove && (
+                <Button
+                  size="sm"
+                  className="bg-yellow-600 hover:bg-yellow-700 text-white"
+                  disabled={approveSO.isPending}
+                  onClick={handleApprove}
+                >
+                  {approveSO.isPending ? 'Approving…' : 'Approve Order'}
+                </Button>
+              )}
               {canConfirm && onConfirm && (
                 <Button size="sm" onClick={() => { onConfirm(current); onOpenChange(false) }}>
                   Confirm Order
