@@ -182,8 +182,8 @@ interface NewVariantFormProps {
 export function CascadeNewVariantForm({ itemId, onCreated, onCancel }: NewVariantFormProps) {
   const [brand,        setBrand]        = useState('')
   const [code,         setCode]         = useState('')
-  const [costPrice,    setCostPrice]    = useState('0')
-  const [sellingPrice, setSellingPrice] = useState('0')
+  const [costPrice,    setCostPrice]    = useState('')
+  const [sellingPrice, setSellingPrice] = useState('')
   const create = useCreateBrandVariant()
   const { data: allBrands = [] } = useAllBrandNames()
 
