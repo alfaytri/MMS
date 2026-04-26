@@ -83,13 +83,16 @@ export type SalePayment = {
 }
 
 export type Customer = {
-  id: string
-  name: string
-  email: string | null
-  customer_number: string | null
-  customer_type: string | null
-  is_blocked: boolean
-  credit_category_id: string | null
+  id:                  string
+  name:                string
+  phone:               string | null
+  email:               string | null
+  customer_number:     string | null
+  customer_type:       string | null
+  is_blocked:          boolean
+  credit_group_id:     string | null
+  credit_group_name?:  string | null
+  credit_group_limit?: number | null
 }
 
 export type SOLineItemDraft = {
@@ -158,8 +161,7 @@ export function useCustomers(search?: string) {
       const supabase = createClient()
       let q = (supabase as any)
         .from('customers')
-        .select('id, name, email, customer_number, customer_type, is_blocked, credit_category_id')
-        .is('deleted_at', null)
+        .select('id, name, phone, email, customer_number, customer_type, is_blocked, credit_group_id, credit_groups(name, credit_limit)')
         .order('name')
         .limit(50)
       if (search) {
@@ -168,10 +170,48 @@ export function useCustomers(search?: string) {
       }
       const { data, error } = await q
       if (error) throw error
-      return data as Customer[]
+      return (data ?? []).map((row: any) => ({
+        ...row,
+        credit_group_name:  row.credit_groups?.name         ?? null,
+        credit_group_limit: row.credit_groups?.credit_limit ?? null,
+      })) as Customer[]
     },
     staleTime: 30 * 1000,
     enabled: true,
+  })
+}
+
+const CUSTOMERS_PAGE_SIZE = 50
+
+export function useAllCustomers(search: string, page: number) {
+  return useQuery({
+    queryKey: ['all-customers', search, page],
+    queryFn:  async () => {
+      const supabase = createClient()
+      const from = page * CUSTOMERS_PAGE_SIZE
+      const to   = from + CUSTOMERS_PAGE_SIZE - 1
+      let q = (supabase as any)
+        .from('customers')
+        .select('id, name, phone, email, customer_type, is_blocked, credit_group_id, credit_groups(name, credit_limit)', { count: 'exact' })
+        .order('name')
+        .range(from, to)
+      if (search) {
+        const safe = search.replace(/%/g, '\\%')
+        q = q.ilike('name', `%${safe}%`)
+      }
+      const { data, count, error } = await q
+      if (error) throw error
+      return {
+        customers: (data ?? []).map((row: any) => ({
+          ...row,
+          credit_group_name:  row.credit_groups?.name         ?? null,
+          credit_group_limit: row.credit_groups?.credit_limit ?? null,
+        })) as Customer[],
+        total: count ?? 0,
+      }
+    },
+    staleTime: 30 * 1000,
+    placeholderData: (prev) => prev,
   })
 }
 
