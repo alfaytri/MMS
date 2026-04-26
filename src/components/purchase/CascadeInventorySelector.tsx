@@ -71,6 +71,7 @@ export function CascadeInventorySelector({
 
   const [selectedVariantCode,  setSelectedVariantCode]  = useState<string | null>(null)
   const [selectedVariantBrand, setSelectedVariantBrand] = useState<string | null>(null)
+  const [selectedVariantStock, setSelectedVariantStock] = useState<number | null>(null)
 
   const [isCatCreating,  setIsCatCreating]  = useState(false)
   const [isItemCreating, setIsItemCreating] = useState(false)
@@ -93,12 +94,17 @@ export function CascadeInventorySelector({
     code: string | null
     cost_price: number | null
     selling_price: number | null
+    stock_level?: number | null
+    reserved_qty?: number | null
   }) {
     if (!selectedItem || !selectedCategory) return
     setVarOpen(false)
 
     setSelectedVariantCode(variant.code ?? null)
     setSelectedVariantBrand(variant.brand)
+    setSelectedVariantStock(
+      Math.max(0, (variant.stock_level ?? 0) - (variant.reserved_qty ?? 0))
+    )
 
     const rawCost = variant.cost_price ?? 0
     if (rawCost > 0) {
@@ -145,6 +151,7 @@ export function CascadeInventorySelector({
     setSelectedItem(null)
     setSelectedVariantCode(null)
     setSelectedVariantBrand(null)
+    setSelectedVariantStock(null)
   }
 
   function handleCategoryCreated(cat: InventoryCategory) {
@@ -183,6 +190,11 @@ export function CascadeInventorySelector({
     const inventoryNameAr = selectedItem?.name_ar ?? ancestry?.inventory_items?.name_ar ?? null
     const brand = selectedVariantBrand ?? ancestry?.brand ?? null
     const code  = selectedVariantCode  ?? ancestry?.code  ?? null
+    const ancestryStock =
+      ancestry != null
+        ? Math.max(0, (ancestry.stock_level ?? 0) - (ancestry.reserved_qty ?? 0))
+        : null
+    const stockToShow = selectedVariantStock ?? ancestryStock
 
     return (
       <div className="flex items-center gap-2 rounded-md border border-input bg-background px-3 py-1.5 text-sm min-h-[32px]">
@@ -212,10 +224,20 @@ export function CascadeInventorySelector({
                 </span>
               )}
             </div>
-            {(categoryLabelAr || inventoryNameAr) && (
+            {(categoryLabelAr || inventoryNameAr || stockToShow != null) && (
               <div className="flex items-center gap-1 text-xs text-muted-foreground truncate">
-                {categoryLabelAr && <span>{categoryLabelAr} ›</span>}
-                {inventoryNameAr && <span>{inventoryNameAr}</span>}
+                {categoryLabelAr && <span className="shrink-0">{categoryLabelAr} ›</span>}
+                {inventoryNameAr && <span className="truncate">{inventoryNameAr}</span>}
+                {stockToShow != null && (
+                  <span
+                    className={cn(
+                      'ml-auto shrink-0 font-medium',
+                      stockToShow > 0 ? 'text-green-600' : 'text-muted-foreground'
+                    )}
+                  >
+                    {stockToShow > 0 ? `${stockToShow} in stock` : 'Out of stock'}
+                  </span>
+                )}
               </div>
             )}
           </div>
