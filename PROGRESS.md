@@ -151,7 +151,7 @@ Purchase & Sales▾:
 
 ## 🔄 In Progress
 
-*(nothing active)*
+🚀 Starting: **[SO Creation Rebuild] Task 7: Rewrite create-SO page**
 
 ## ✅ Completed
 
