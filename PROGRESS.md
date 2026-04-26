@@ -155,6 +155,7 @@ Purchase & Sales▾:
 
 ## ✅ Completed
 
+- [2026-04-26] **[Credit Groups Dialog] Tasks 1–4** — `supabase/migrations/20260428000001_credit_groups_payment_methods.sql`, `src/hooks/useCreditGroups.ts`, `src/app/(dashboard)/master-data/credit-groups/AddCreditGroupDialog.tsx`, `src/app/(dashboard)/master-data/credit-groups/page.tsx` — payment_methods + max_days migration; PAYMENT_METHODS constant; modal dialog with toggle grid; table shows Methods + Max Days columns
 - [2026-04-26] **[SO Creation Rebuild] Task 9: Add Download PDF button to SoDetailDialog** — `src/components/sales/SoDetailDialog.tsx`, `src/hooks/useSaleOrders.ts` — dynamic PDFDownloadLink + QuotationDocument imports (SSR-safe); useSaleOrder select now fetches phone; Download PDF button shown for quotation/pending_approval status
 - [2026-04-26] **[SO Creation Rebuild] Task 8: PDF Quotation component** — `src/components/sales/SoQuotationPdf.tsx` — QuotationDocument with Cairo font (Arabic/Latin), grouped line items by type, subtotal/discount/grand total, terms + validity, fixed footer
 - [2026-04-26] **[SO Creation Rebuild] Task 7: Rewrite create-SO page** — `src/app/(dashboard)/sales/create-so/page.tsx` — rebuilt with Popover/Command customer selector, credit group display + no-credit-group blocking, intent-based quotation/confirm flow calling atomic RPC, isPriceLoading gate, validity_days from terms
