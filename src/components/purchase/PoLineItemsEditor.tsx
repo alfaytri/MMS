@@ -4,10 +4,12 @@ import { Trash2, Plus, ShoppingBag, Cog, Droplets, Wrench } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Badge } from '@/components/ui/badge'
-import { InventoryItemLookup, type InventoryLookupResult } from './InventoryItemLookup'
+import { CascadeInventorySelector } from './CascadeInventorySelector'
+import type { InventoryLookupResult } from '@/hooks/usePurchaseOrders'
 import { ToolAssetLookup, type ToolAssetLookupResult } from './ToolAssetLookup'
 import { formatCurrency } from '@/lib/utils/formatters'
 import type { POLineItemDraft } from '@/hooks/usePurchaseOrders'
+import { useState } from 'react'
 import type { ElementType } from 'react'
 
 export type LineType = 'products' | 'spare-parts' | 'consumables' | 'tools'
@@ -74,9 +76,21 @@ interface PoLineItemsEditorProps {
   onChange: (rows: LineItemRow[]) => void
   currency: string
   readOnly?: boolean
+  onPriceLoading?: (loading: boolean) => void
 }
 
-export function PoLineItemsEditor({ value, onChange, currency, readOnly = false }: PoLineItemsEditorProps) {
+export function PoLineItemsEditor({ value, onChange, currency, readOnly = false, onPriceLoading }: PoLineItemsEditorProps) {
+  const [priceLoadingKeys, setPriceLoadingKeys] = useState<Set<string>>(new Set())
+
+  function handleRowPriceLoading(key: string, loading: boolean) {
+    setPriceLoadingKeys((prev) => {
+      const next = new Set(prev)
+      loading ? next.add(key) : next.delete(key)
+      onPriceLoading?.(next.size > 0)
+      return next
+    })
+  }
+
   function addRow(line_type: LineType) {
     onChange([...value, makeRow(line_type)])
   }
@@ -219,25 +233,26 @@ export function PoLineItemsEditor({ value, onChange, currency, readOnly = false 
                             {row.item_name || '—'}
                           </div>
                         ) : isInventory ? (
-                          <InventoryItemLookup
+                          <CascadeInventorySelector
+                            lineType={lineType}
                             value={
                               row.brand_variant_id
                                 ? {
                                     brand_variant_id: row.brand_variant_id,
-                                    item_name: row.item_name,
-                                    item_name_ar: null,
-                                    sku: row.sku,
-                                    unit: row.unit,
-                                    cost_price: row.unit_price,
-                                    selling_price: 0,
-                                    category_name: null,
+                                    item_name:        row.item_name,
+                                    item_name_ar:     null,
+                                    sku:              row.sku,
+                                    unit:             row.unit,
+                                    cost_price:       row.unit_price,
+                                    selling_price:    0,
+                                    category_name:    null,
                                     category_name_ar: null,
-                                    brand: null,
+                                    brand:            null,
                                   }
                                 : null
                             }
                             onChange={(item) => handleInventorySelect(row._key, item)}
-                            placeholder={`Search ${cfg.label.toLowerCase()}…`}
+                            onPriceLoading={(loading) => handleRowPriceLoading(row._key, loading)}
                           />
                         ) : (
                           <ToolAssetLookup
