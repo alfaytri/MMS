@@ -60,6 +60,7 @@ export default function CreatePOPage() {
   const [terms, setTerms] = useState<PoTermsValues>(DEFAULT_TERMS)
   const [discountAmount, setDiscountAmount] = useState(0)
   const [discountLabel, setDiscountLabel] = useState('')
+  const [isPriceLoading, setIsPriceLoading] = useState(false)
 
   const subtotal = lineItems.reduce((s, li) => s + li.total_price, 0)
   const grandTotal = subtotal - discountAmount
@@ -142,13 +143,13 @@ export default function CreatePOPage() {
           </div>
         </div>
         <div className="flex items-center gap-2">
-          <Button variant="outline" size="sm" className="gap-1.5" onClick={saveDraft} disabled={isPending}>
+          <Button variant="outline" size="sm" className="gap-1.5" onClick={saveDraft} disabled={isPending || isPriceLoading}>
             <Save className="h-3.5 w-3.5" />
             {isPending ? 'Please wait…' : 'Save as RFQ / Draft'}
           </Button>
-          <Button size="sm" className="gap-1.5" onClick={submitApproval} disabled={isPending}>
+          <Button size="sm" className="gap-1.5" onClick={submitApproval} disabled={isPending || isPriceLoading}>
             <CheckCircle2 className="h-3.5 w-3.5" />
-            {isPending ? 'Submitting…' : 'Submit for Approval'}
+            {isPending ? 'Submitting…' : isPriceLoading ? 'Fetching price…' : 'Submit for Approval'}
           </Button>
         </div>
       </div>
@@ -289,7 +290,7 @@ export default function CreatePOPage() {
               {validCount} valid
             </Badge>
           </div>
-          <PoLineItemsEditor value={lineItems} onChange={setLineItems} currency={currency} />
+          <PoLineItemsEditor value={lineItems} onChange={setLineItems} currency={currency} onPriceLoading={setIsPriceLoading} />
         </section>
 
         <Separator />
