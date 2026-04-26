@@ -2,136 +2,86 @@
 
 import { useState } from 'react'
 import { useRouter } from 'next/navigation'
-import { ChevronLeft, AlertTriangle } from 'lucide-react'
+import { ArrowLeft, Plus, Save, CheckCircle2, Users, Package, AlertTriangle } from 'lucide-react'
+import { Check, ChevronsUpDown } from 'lucide-react'
 import { toast } from 'sonner'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
-import { Label } from '@/components/ui/label'
-import { Badge } from '@/components/ui/badge'
 import { Separator } from '@/components/ui/separator'
+import { Badge } from '@/components/ui/badge'
+import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover'
+import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from '@/components/ui/command'
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog'
 import { SoLineItemsEditor, type SoLineItemRow } from '@/components/sales/SoLineItemsEditor'
 import { SoTermsSection, DEFAULT_TERMS, type SoTermsValues } from '@/components/sales/SoTermsSection'
 import {
-  useCreateSO,
-  useConfirmSO,
-  useCustomers,
-  useCreateCustomer,
-  calcSOSubtotal,
-  calcSOTotal,
-  hasNegativeMargin,
+  useCreateSO, useCustomers, useCreateCustomer,
+  calcSOSubtotal, calcSOTotal, hasNegativeMargin,
 } from '@/hooks/useSaleOrders'
-import { formatCurrency } from '@/lib/utils/formatters'
-import {
-  Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter,
-} from '@/components/ui/dialog'
-import {
-  Form, FormControl, FormField, FormItem, FormLabel, FormMessage,
-} from '@/components/ui/form'
-import { useForm } from 'react-hook-form'
-import { zodResolver } from '@hookform/resolvers/zod'
-import { z } from 'zod'
 
 const CURRENCIES = ['QAR', 'USD', 'EUR', 'GBP', 'AED', 'SAR', 'KWD'] as const
+const CURRENCY_SYMBOLS: Record<string, string> = { QAR: 'QAR ', USD: '$', EUR: '€', GBP: '£', AED: 'AED ', SAR: 'SAR ', KWD: 'KWD ' }
+const CURRENCY_NAMES: Record<string, string> = { QAR: 'Qatari Riyal', USD: 'US Dollar', EUR: 'Euro', GBP: 'British Pound', AED: 'UAE Dirham', SAR: 'Saudi Riyal', KWD: 'Kuwaiti Dinar' }
 
-const customerSchema = z.object({
-  name: z.string().min(1, 'Name is required'),
-  email: z.string().email().optional().or(z.literal('')),
-})
-
-// Pack SO Settings + Terms into the notes column since the sale_orders table
-// does not yet have dedicated columns for these fields.
-function buildNotesPayload(
-  userNotes: string,
-  settings: {
-    currency: string
-    exchangeRate: number
-    expectedDelivery: string
-  },
-  terms: SoTermsValues
-): string | null {
-  const preface: string[] = []
-  if (settings.currency && settings.currency !== 'QAR') {
-    preface.push(`Currency: ${settings.currency} @ ${settings.exchangeRate}`)
-  }
-  if (settings.expectedDelivery) preface.push(`Expected Delivery: ${settings.expectedDelivery}`)
-  if (terms.payment_terms) {
-    preface.push(
-      `Payment Terms: ${terms.payment_terms}${
-        terms.payment_terms === 'Custom' && terms.payment_terms_notes
-          ? ` — ${terms.payment_terms_notes}`
-          : ''
-      }`
-    )
-  }
-  if (terms.delivery_terms) {
-    preface.push(
-      `Delivery Terms: ${terms.delivery_terms}${
-        terms.delivery_terms_notes ? ` — ${terms.delivery_terms_notes}` : ''
-      }`
-    )
-  }
-  if (terms.customer_notes) preface.push(`Customer Notes: ${terms.customer_notes}`)
-
-  const packed = preface.length ? `--- SO Details ---\n${preface.join('\n')}\n---` : ''
-  const combined = [packed, userNotes.trim()].filter(Boolean).join('\n\n')
-  return combined || null
+function sym(c: string) { return CURRENCY_SYMBOLS[c] ?? `${c} ` }
+function fmtAmt(amount: number, currency: string) {
+  return `${sym(currency)}${amount.toLocaleString('en-QA', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`
 }
 
 export default function CreateSOPage() {
-  const router = useRouter()
-  const createSO = useCreateSO()
-  const confirmSO = useConfirmSO()
-  const createCustomer = useCreateCustomer()
+  const router     = useRouter()
+  const createSO   = useCreateSO()
+  const createCust = useCreateCustomer()
 
-  const [customerSearch, setCustomerSearch] = useState('')
-  const [customerId, setCustomerId] = useState('')
-  const [customerName, setCustomerName] = useState('')
+  const [customerSearch, setCustomerSearch]                   = useState('')
+  const [customerId, setCustomerId]                           = useState('')
+  const [customerName, setCustomerName]                       = useState('')
+  const [customerCreditGroupId, setCustomerCreditGroupId]     = useState<string | null>(null)
+  const [customerCreditGroupName, setCustomerCreditGroupName] = useState<string | null>(null)
+  const [customerCreditLimit, setCustomerCreditLimit]         = useState<number | null>(null)
+  const [customerOpen, setCustomerOpen]                       = useState(false)
+  const [addOpen, setAddOpen]                                 = useState(false)
+  const [newName, setNewName]                                 = useState('')
+  const [newPhone, setNewPhone]                               = useState('')
+  const [newEmail, setNewEmail]                               = useState('')
 
-  // SO Settings (mirrors PO Settings)
-  const [currency, setCurrency] = useState<string>('QAR')
+  const [currency, setCurrency]         = useState('QAR')
   const [exchangeRate, setExchangeRate] = useState(1)
-  const [expectedDelivery, setExpectedDelivery] = useState('')
-
-  const [lineItems, setLineItems] = useState<SoLineItemRow[]>([])
-
-  // Terms (mirrors PoTermsSection)
-  const [terms, setTerms] = useState<SoTermsValues>(DEFAULT_TERMS)
-
+  const [lineItems, setLineItems]       = useState<SoLineItemRow[]>([])
+  const [terms, setTerms]               = useState<SoTermsValues>(DEFAULT_TERMS)
   const [discountAmount, setDiscountAmount] = useState(0)
-  const [discountLabel, setDiscountLabel] = useState('')
-  const [discountType, setDiscountType] = useState<'fixed' | 'percentage'>('fixed')
-
-  const [notes, setNotes] = useState('')
-
-  const [addCustomerOpen, setAddCustomerOpen] = useState(false)
+  const [discountLabel, setDiscountLabel]   = useState('')
+  const [isPriceLoading, setIsPriceLoading] = useState(false)
 
   const { data: customers } = useCustomers(customerSearch || undefined)
 
-  const customerForm = useForm<z.infer<typeof customerSchema>>({
-    resolver: zodResolver(customerSchema) as never,
-    defaultValues: { name: '', email: '' },
-  })
-
-  const subtotal = calcSOSubtotal(lineItems)
-  const total = calcSOTotal(subtotal, discountAmount, discountType)
-  const totalQar = total * exchangeRate
+  const subtotal       = calcSOSubtotal(lineItems)
+  const total          = calcSOTotal(subtotal, discountAmount, 'fixed')
   const negativeMargin = hasNegativeMargin(lineItems)
+  const noCreditGroup  = customerId !== '' && customerCreditGroupId === null
 
-  function handleSelectCustomer(c: { id: string; name: string }) {
-    setCustomerId(c.id)
-    setCustomerName(c.name)
-    setCustomerSearch(c.name)
+  function handleSelectCustomer(c: {
+    id: string; name: string
+    credit_group_id: string | null
+    credit_group_name?: string | null
+    credit_group_limit?: number | null
+  }) {
+    setCustomerId(c.id); setCustomerName(c.name); setCustomerSearch(c.name)
+    setCustomerCreditGroupId(c.credit_group_id)
+    setCustomerCreditGroupName(c.credit_group_name ?? null)
+    setCustomerCreditLimit(c.credit_group_limit ?? null)
+    setCustomerOpen(false)
   }
 
-  function handleAddCustomer(values: z.infer<typeof customerSchema>) {
-    createCustomer.mutate(
-      { name: values.name, email: values.email || null },
+  function handleAddCustomer() {
+    if (!newName.trim() || !newPhone.trim()) { toast.error('Name and phone are required'); return }
+    createCust.mutate(
+      { name: newName.trim(), email: newEmail || null },
       {
         onSuccess: (data: any) => {
           toast.success('Customer added')
-          handleSelectCustomer({ id: data.id, name: data.name })
-          setAddCustomerOpen(false)
-          customerForm.reset()
+          handleSelectCustomer({ id: data.id, name: data.name, credit_group_id: data.credit_group_id ?? null })
+          setAddOpen(false); setNewName(''); setNewPhone(''); setNewEmail('')
         },
         onError: (err) => toast.error(err.message),
       }
@@ -139,9 +89,10 @@ export default function CreateSOPage() {
   }
 
   function validate() {
-    if (!customerId) { toast.error('Please select a customer'); return false }
+    if (!customerId)            { toast.error('Please select a customer'); return false }
+    if (noCreditGroup)          { toast.error('Customer has no credit group assigned'); return false }
     if (lineItems.length === 0) { toast.error('Add at least one line item'); return false }
-    if (lineItems.some((l) => !l.item_name)) { toast.error('All line items need an item name'); return false }
+    if (lineItems.some((li) => !li.item_name.trim())) { toast.error('All line items need an item name'); return false }
     return true
   }
 
@@ -151,17 +102,17 @@ export default function CreateSOPage() {
       intent,
       currency,
       exchange_rate:        exchangeRate,
-      expected_delivery:    expectedDelivery || null,
+      expected_delivery:    null,
       payment_terms:        terms.payment_terms || null,
       payment_terms_notes:  terms.payment_terms_notes || null,
       payment_milestones:   null,
       delivery_terms:       terms.delivery_terms || null,
       delivery_terms_notes: terms.delivery_terms_notes || null,
       customer_notes:       terms.customer_notes || null,
-      validity_days:        30,
+      validity_days:        terms.validity_days,
       discount_amount:      discountAmount,
       discount_label:       discountLabel || null,
-      discount_type:        discountType,
+      discount_type:        'fixed' as const,
       line_items:           lineItems.map(({ _key, ...li }) => li),
     }
   }
@@ -169,7 +120,14 @@ export default function CreateSOPage() {
   function saveQuotation() {
     if (!validate()) return
     createSO.mutate(buildPayload('quotation'), {
-      onSuccess: () => { toast.success('Saved as quotation'); router.push('/sales/orders') },
+      onSuccess: (result) => {
+        if (result.status === 'pending_approval') {
+          toast.warning(`Saved — exceeds credit limit (available: ${fmtAmt(result.available, 'QAR')}). Sent for owner approval.`)
+        } else {
+          toast.success('Saved as quotation')
+        }
+        router.push('/sales/orders')
+      },
       onError: (err) => toast.error(err.message),
     })
   }
@@ -178,218 +136,187 @@ export default function CreateSOPage() {
     if (!validate()) return
     createSO.mutate(buildPayload('confirm'), {
       onSuccess: () => { toast.success('Order confirmed'); router.push('/sales/orders') },
-      onError: (err) => toast.error(err.message),
+      onError: (err) => {
+        if (err.message?.includes('credit_exceeded')) {
+          toast.error('Cannot confirm — exceeds credit limit. Check available credit.')
+        } else {
+          toast.error(err.message)
+        }
+      },
     })
   }
 
-  const isPending = createSO.isPending || confirmSO.isPending
+  const isPending  = createSO.isPending
+  const validCount = lineItems.filter((li) => li.item_name.trim() !== '').length
 
   return (
-    <div className="max-w-4xl mx-auto space-y-6 pb-12">
-      {/* Header */}
-      <div className="flex items-center gap-3">
-        <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => router.back()}>
-          <ChevronLeft className="h-4 w-4" />
-        </Button>
-        <h1 className="text-2xl font-bold">Create Sale Order</h1>
+    <div className="flex flex-col h-full">
+      {/* ── Sticky Header ── */}
+      <div className="shrink-0 flex items-center justify-between px-4 md:px-6 py-4 border-b bg-background">
+        <div className="flex items-center gap-3">
+          <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => router.push('/sales/orders')}>
+            <ArrowLeft className="h-4 w-4" />
+          </Button>
+          <div>
+            <h1 className="text-lg font-semibold">New Sales Order</h1>
+            <p className="text-xs text-muted-foreground">Create a quotation or confirm an order</p>
+          </div>
+        </div>
+        <div className="flex items-center gap-2">
+          <Button variant="outline" size="sm" className="gap-1.5" onClick={saveQuotation} disabled={isPending || isPriceLoading || noCreditGroup}>
+            <Save className="h-3.5 w-3.5" />
+            <span className="hidden sm:inline">{isPending ? 'Saving…' : 'Save as Quotation'}</span>
+          </Button>
+          <Button size="sm" className="gap-1.5" onClick={confirmOrder} disabled={isPending || isPriceLoading || noCreditGroup}>
+            <CheckCircle2 className="h-3.5 w-3.5" />
+            <span className="hidden sm:inline">{isPending ? 'Confirming…' : 'Confirm Order'}</span>
+          </Button>
+        </div>
       </div>
 
-      {/* Customer */}
-      <section className="rounded-lg border p-4 space-y-3">
-        <h2 className="font-semibold">Customer</h2>
-        <div className="flex flex-col sm:flex-row gap-2">
-          <div className="relative flex-1">
-            <Input
-              placeholder="Search customers..."
-              value={customerSearch}
-              onChange={(e) => { setCustomerSearch(e.target.value); setCustomerId(''); setCustomerName('') }}
-              className="w-full"
-            />
-            {customerSearch && !customerId && (customers ?? []).length > 0 && (
-              <div className="absolute z-10 mt-1 w-full max-h-48 overflow-y-auto rounded-md border bg-popover shadow-md">
-                {(customers ?? []).map((c) => (
-                  <button
-                    key={c.id}
-                    type="button"
-                    className="flex w-full items-center gap-2 px-3 py-2 text-sm hover:bg-accent text-left"
-                    onClick={() => handleSelectCustomer(c)}
-                  >
-                    <span className="font-medium">{c.name}</span>
-                    {c.customer_number && <span className="text-xs text-muted-foreground">{c.customer_number}</span>}
-                    {c.is_blocked && <Badge variant="destructive" className="text-[10px] h-4">Blocked</Badge>}
-                  </button>
-                ))}
+      {/* ── Scrollable Body ── */}
+      <div className="flex-1 overflow-auto px-4 md:px-6 py-6 space-y-6">
+
+        {/* ① Customer */}
+        <section className="space-y-3">
+          <h2 className="text-sm font-semibold flex items-center gap-1.5"><Users className="h-4 w-4 text-primary" />Customer</h2>
+          <div className="flex gap-2 items-end">
+            <div className="flex-1 space-y-1">
+              <label className="text-[10px] font-medium text-muted-foreground uppercase tracking-wider">CUSTOMER *</label>
+              <Popover open={customerOpen} onOpenChange={setCustomerOpen}>
+                <PopoverTrigger
+                  className="h-9 w-full inline-flex items-center justify-between rounded-md border border-input bg-background px-3 py-2 text-sm font-normal shadow-xs hover:bg-accent hover:text-accent-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
+                >
+                  <span className={customerName ? '' : 'text-muted-foreground'}>{customerName || 'Search customers…'}</span>
+                  <ChevronsUpDown className="h-4 w-4 opacity-50" />
+                </PopoverTrigger>
+                <PopoverContent className="w-[min(400px,90vw)] p-0">
+                  <Command>
+                    <CommandInput placeholder="Search customers..." value={customerSearch} onValueChange={setCustomerSearch} />
+                    <CommandList>
+                      <CommandEmpty>No customers found.</CommandEmpty>
+                      <CommandGroup>
+                        {(customers ?? []).map((c) => (
+                          <CommandItem key={c.id} value={c.name} onSelect={() => handleSelectCustomer(c)}>
+                            <Check className={`mr-2 h-4 w-4 ${customerId === c.id ? 'opacity-100' : 'opacity-0'}`} />
+                            <div className="flex-1">
+                              <span>{c.name}</span>
+                              {!c.credit_group_id && <span className="ml-2 text-[10px] text-destructive">No credit group</span>}
+                            </div>
+                          </CommandItem>
+                        ))}
+                      </CommandGroup>
+                    </CommandList>
+                  </Command>
+                </PopoverContent>
+              </Popover>
+            </div>
+            <Button variant="outline" size="icon" className="h-9 w-9 shrink-0" title="Add new customer" onClick={() => setAddOpen(true)}>
+              <Plus className="h-4 w-4" />
+            </Button>
+          </div>
+          {customerId && (
+            noCreditGroup ? (
+              <div className="flex items-center gap-2 rounded-md border border-destructive/40 bg-destructive/5 px-3 py-2 text-sm text-destructive">
+                <AlertTriangle className="h-4 w-4 shrink-0" />
+                This customer has no credit group. Go to Master Data → Customers to assign one.
+              </div>
+            ) : (
+              <div className="flex items-center gap-3 text-xs text-muted-foreground">
+                <Badge variant="outline" className="text-xs">{customerCreditGroupName}</Badge>
+                <span>Limit: {fmtAmt(customerCreditLimit ?? 0, 'QAR')}</span>
+              </div>
+            )
+          )}
+        </section>
+
+        <Separator />
+
+        {/* ② Currency */}
+        <section className="space-y-3">
+          <div className="grid grid-cols-1 md:grid-cols-[1fr_auto_auto] gap-3 items-end">
+            <div className="space-y-1">
+              <label className="text-[10px] font-medium text-muted-foreground uppercase tracking-wider">CURRENCY</label>
+              <select value={currency} onChange={(e) => setCurrency(e.target.value)}
+                className="flex h-9 min-w-[130px] w-full rounded-md border border-input bg-background px-3 py-1 text-sm focus:outline-none focus:ring-1 focus:ring-ring">
+                {CURRENCIES.map((c) => <option key={c} value={c}>{sym(c)}{c} — {CURRENCY_NAMES[c]}</option>)}
+              </select>
+            </div>
+            <div className="space-y-1">
+              <label className="text-[10px] font-medium text-muted-foreground uppercase tracking-wider">SUBTOTAL ({currency})</label>
+              <div className="h-9 px-3 flex items-center rounded-md border bg-muted/30 text-sm font-semibold min-w-[120px]">{fmtAmt(subtotal, currency)}</div>
+            </div>
+            {discountAmount > 0 && (
+              <div className="space-y-1">
+                <label className="text-[10px] font-medium text-muted-foreground uppercase tracking-wider">GRAND TOTAL ({currency})</label>
+                <div className="h-9 px-3 flex items-center rounded-md border border-primary/30 bg-primary/5 text-primary font-bold min-w-[120px]">{fmtAmt(total, currency)}</div>
               </div>
             )}
           </div>
-          <Button type="button" variant="outline" onClick={() => setAddCustomerOpen(true)}>
-            + Add Customer
-          </Button>
-        </div>
-        {customerId && (
-          <div className="flex items-center gap-2">
-            <Badge variant="outline" className="text-success border-success">{customerName}</Badge>
-          </div>
-        )}
-      </section>
-
-      {/* SO Settings */}
-      <section className="rounded-lg border p-4 space-y-4">
-        <h2 className="font-semibold">SO Settings</h2>
-        <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-          <div className="space-y-1">
-            <Label>Currency</Label>
-            <select
-              value={currency}
-              onChange={(e) => setCurrency(e.target.value)}
-              className="flex h-9 w-full rounded-md border border-input bg-background px-3 py-1 text-sm"
-            >
-              {CURRENCIES.map((c) => <option key={c} value={c}>{c}</option>)}
-            </select>
-          </div>
           {currency !== 'QAR' && (
-            <div className="space-y-1">
-              <Label>Exchange Rate (to QAR)</Label>
-              <Input
-                type="number"
-                min="0.01"
-                step="0.0001"
-                value={exchangeRate}
-                onChange={(e) => setExchangeRate(Number(e.target.value))}
-              />
+            <div className="flex items-center gap-3">
+              <label className="text-[10px] font-medium text-muted-foreground uppercase tracking-wider whitespace-nowrap">Exchange Rate (to QAR)</label>
+              <Input type="number" min="0.0001" step="0.0001" className="h-8 w-32 text-sm" value={exchangeRate} onChange={(e) => setExchangeRate(Number(e.target.value))} />
             </div>
           )}
-          <div className="space-y-1">
-            <Label>Expected Delivery</Label>
-            <Input
-              type="date"
-              value={expectedDelivery}
-              onChange={(e) => setExpectedDelivery(e.target.value)}
-            />
-          </div>
-        </div>
-      </section>
+        </section>
 
-      {/* Line Items */}
-      <section className="rounded-lg border p-4 space-y-3">
-        <h2 className="font-semibold">Line Items</h2>
-        {negativeMargin && (
-          <div className="flex items-center gap-2 rounded-md border border-warning bg-warning/5 px-3 py-2 text-sm text-warning">
-            <AlertTriangle className="h-4 w-4 shrink-0" />
-            One or more items are priced below cost. A margin approval will be required.
-          </div>
-        )}
-        <SoLineItemsEditor value={lineItems} onChange={setLineItems} currency={currency} />
-      </section>
-
-      {/* Terms */}
-      <section className="rounded-lg border p-4">
-        <h2 className="font-semibold mb-4">Terms</h2>
-        <SoTermsSection value={terms} onChange={setTerms} />
-      </section>
-
-      {/* Discount */}
-      <section className="rounded-lg border p-4 space-y-3">
-        <h2 className="font-semibold">Discount</h2>
-        <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-          <div className="space-y-1">
-            <Label>Discount Label</Label>
-            <Input
-              placeholder="e.g. Loyalty discount"
-              value={discountLabel}
-              onChange={(e) => setDiscountLabel(e.target.value)}
-            />
-          </div>
-          <div className="space-y-1">
-            <Label>Type</Label>
-            <div className="flex gap-2">
-              {(['fixed', 'percentage'] as const).map((t) => (
-                <button
-                  key={t}
-                  type="button"
-                  onClick={() => setDiscountType(t)}
-                  className={`flex-1 rounded-md border px-3 py-1.5 text-xs font-medium transition-colors ${discountType === t ? 'bg-primary text-primary-foreground border-primary' : 'hover:bg-muted'}`}
-                >
-                  {t === 'fixed' ? `Fixed (${currency})` : 'Percentage (%)'}
-                </button>
-              ))}
-            </div>
-          </div>
-          <div className="space-y-1">
-            <Label>Amount {discountType === 'percentage' ? '(%)' : `(${currency})`}</Label>
-            <Input
-              type="number"
-              min="0"
-              step="0.01"
-              value={discountAmount}
-              onChange={(e) => setDiscountAmount(Number(e.target.value))}
-            />
-          </div>
-        </div>
-      </section>
-
-      {/* Internal Notes */}
-      <section className="rounded-lg border p-4 space-y-2">
-        <h2 className="font-semibold">Internal Notes</h2>
-        <Input
-          placeholder="Notes visible to staff only..."
-          value={notes}
-          onChange={(e) => setNotes(e.target.value)}
-        />
-      </section>
-
-      {/* Totals + Actions */}
-      <section className="rounded-lg border p-4 space-y-3">
-        <div className="space-y-1 text-sm text-right">
-          <div className="text-muted-foreground">
-            Subtotal: <span className="text-foreground">{formatCurrency(subtotal, currency)}</span>
-          </div>
-          {discountAmount > 0 && (
-            <div className="text-muted-foreground">
-              Discount:{' '}
-              <span className="text-destructive">
-                -{formatCurrency(discountType === 'percentage' ? (subtotal * discountAmount / 100) : discountAmount, currency)}
-              </span>
-            </div>
-          )}
-          <div className="font-semibold text-base">
-            Total ({currency}): {formatCurrency(total, currency)}
-          </div>
-          {currency !== 'QAR' && (
-            <div className="text-xs text-muted-foreground">
-              ≈ {formatCurrency(totalQar, 'QAR')}
-            </div>
-          )}
-        </div>
         <Separator />
-        <div className="flex flex-col sm:flex-row gap-2 justify-end">
-          <Button variant="outline" onClick={saveQuotation} disabled={isPending}>
-            {createSO.isPending ? 'Saving...' : 'Save as Quotation'}
-          </Button>
-          <Button onClick={confirmOrder} disabled={isPending}>
-            {isPending ? 'Confirming...' : 'Confirm Order'}
-          </Button>
-        </div>
-      </section>
+
+        {/* ③ Line Items */}
+        <section className="space-y-3">
+          <div className="flex items-center gap-2 flex-wrap">
+            <h2 className="text-sm font-semibold flex items-center gap-1.5"><Package className="h-4 w-4 text-primary" />Line Items</h2>
+            <Badge variant="outline" className="text-[9px]">{validCount} valid</Badge>
+            {negativeMargin && (
+              <Badge variant="outline" className="text-[9px] border-warning text-warning gap-1">
+                <AlertTriangle className="h-3 w-3" /> Negative margin
+              </Badge>
+            )}
+          </div>
+          <SoLineItemsEditor value={lineItems} onChange={setLineItems} currency={currency} onPriceLoading={setIsPriceLoading} />
+        </section>
+
+        <Separator />
+
+        {/* ④ Discount */}
+        <section className="space-y-3">
+          <h2 className="text-sm font-semibold">Discount</h2>
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+            <div className="space-y-1">
+              <label className="text-[10px] font-medium text-muted-foreground uppercase tracking-wider">Label</label>
+              <Input className="h-9 text-sm" placeholder="e.g. Volume Discount" value={discountLabel} onChange={(e) => setDiscountLabel(e.target.value)} />
+            </div>
+            <div className="space-y-1">
+              <label className="text-[10px] font-medium text-muted-foreground uppercase tracking-wider">Amount ({currency})</label>
+              <Input type="number" min="0" step="0.01" className="h-9 text-sm" value={discountAmount} onChange={(e) => setDiscountAmount(Math.max(0, Number(e.target.value)))} />
+            </div>
+          </div>
+        </section>
+
+        <Separator />
+
+        {/* ⑤ Terms */}
+        <section className="space-y-3">
+          <h2 className="text-sm font-semibold">Terms</h2>
+          <SoTermsSection value={terms} onChange={setTerms} />
+        </section>
+
+      </div>
 
       {/* Add Customer Dialog */}
-      <Dialog open={addCustomerOpen} onOpenChange={setAddCustomerOpen}>
+      <Dialog open={addOpen} onOpenChange={setAddOpen}>
         <DialogContent className="w-full max-w-full rounded-none sm:max-w-md sm:rounded-lg">
           <DialogHeader><DialogTitle>Add Customer</DialogTitle></DialogHeader>
-          <Form {...customerForm}>
-            <form onSubmit={customerForm.handleSubmit(handleAddCustomer)} className="space-y-4">
-              <FormField control={customerForm.control} name="name" render={({ field }) => (
-                <FormItem><FormLabel>Name *</FormLabel><FormControl><Input {...field} /></FormControl><FormMessage /></FormItem>
-              )} />
-              <FormField control={customerForm.control} name="email" render={({ field }) => (
-                <FormItem><FormLabel>Email</FormLabel><FormControl><Input type="email" {...field} /></FormControl><FormMessage /></FormItem>
-              )} />
-              <DialogFooter>
-                <Button type="button" variant="outline" onClick={() => setAddCustomerOpen(false)}>Cancel</Button>
-                <Button type="submit" disabled={createCustomer.isPending}>{createCustomer.isPending ? 'Adding...' : 'Add Customer'}</Button>
-              </DialogFooter>
-            </form>
-          </Form>
+          <div className="space-y-3">
+            <div className="space-y-1"><label className="text-xs font-medium">Name *</label><Input value={newName} onChange={(e) => setNewName(e.target.value)} placeholder="Customer name" /></div>
+            <div className="space-y-1"><label className="text-xs font-medium">Phone *</label><Input value={newPhone} onChange={(e) => setNewPhone(e.target.value)} placeholder="+974 XXXX XXXX" /></div>
+            <div className="space-y-1"><label className="text-xs font-medium">Email</label><Input type="email" value={newEmail} onChange={(e) => setNewEmail(e.target.value)} placeholder="optional" /></div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setAddOpen(false)}>Cancel</Button>
+            <Button onClick={handleAddCustomer} disabled={createCust.isPending}>{createCust.isPending ? 'Adding…' : 'Add Customer'}</Button>
+          </DialogFooter>
         </DialogContent>
       </Dialog>
     </div>
