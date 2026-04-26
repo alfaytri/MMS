@@ -18,7 +18,7 @@ import {
 import { useWarehouses } from '@/hooks/useWarehouses'
 import { useCreateReceival } from '@/hooks/useReceivals'
 import {
-  useInventoryCategories, useInventoryItemsAll, useBrandVariants,
+  useInventoryCategories, useInventoryItemsAll, useInventoryBrandVariants,
 } from '@/hooks/useInventory'
 import type { PurchaseOrder } from '@/hooks/usePurchaseOrders'
 
@@ -96,7 +96,7 @@ export function PoReceiveTab({ po }: { po: PurchaseOrder }) {
 
   const { data: categories = [] } = useInventoryCategories()
   const { data: allItems = [] } = useInventoryItemsAll()
-  const { data: variants = [] } = useBrandVariants(nonPoItemId || null)
+  const { data: variants = [] } = useInventoryBrandVariants(nonPoItemId || null)
 
   const filteredItems = (allItems as any[]).filter((i) => !nonPoCatId || i.category_id === nonPoCatId)
   const selectedItem = (allItems as any[]).find((i) => i.id === nonPoItemId)
@@ -113,7 +113,7 @@ export function PoReceiveTab({ po }: { po: PurchaseOrder }) {
       return
     }
     const brandLabel = selectedVariant
-      ? ` (${(selectedVariant as any).brands?.name ?? (selectedVariant as any).brand ?? ''})`
+      ? ` (${(selectedVariant as any).brand ?? ''})`
       : ''
     const name = `${selectedItem?.name_en ?? 'Free Item'}${brandLabel}`
     const sku = (selectedVariant as any)?.code ?? selectedItem?.sku ?? null
@@ -348,10 +348,11 @@ export function PoReceiveTab({ po }: { po: PurchaseOrder }) {
             <DialogTitle>Add Free Item (not on PO)</DialogTitle>
           </DialogHeader>
           <div className="space-y-3">
-            <div className="grid grid-cols-3 gap-2">
-              {/* Category */}
-              <Select value={nonPoCatId || 'all'} onValueChange={(v) => { setNonPoCatId(v === 'all' || v === null ? '' : v); setNonPoItemId(''); setNonPoVariantId('') }}>
-                <SelectTrigger><SelectValue placeholder="Category" /></SelectTrigger>
+            {/* Category */}
+            <div className="space-y-1">
+              <Label>Category</Label>
+              <Select value={nonPoCatId || 'all'} onValueChange={(v) => { setNonPoCatId((v ?? '') === 'all' ? '' : (v ?? '')); setNonPoItemId(''); setNonPoVariantId('') }}>
+                <SelectTrigger><SelectValue placeholder="All Categories" /></SelectTrigger>
                 <SelectContent>
                   <SelectItem value="all">All Categories</SelectItem>
                   {(categories as any[]).map((c) => (
@@ -359,41 +360,51 @@ export function PoReceiveTab({ po }: { po: PurchaseOrder }) {
                   ))}
                 </SelectContent>
               </Select>
+            </div>
 
-              {/* Item */}
+            {/* Item */}
+            <div className="space-y-1">
+              <Label>Item *</Label>
               <Select
                 value={nonPoItemId || 'none'}
-                onValueChange={(v) => { setNonPoItemId(v === 'none' || v === null ? '' : v); setNonPoVariantId('') }}
-                disabled={filteredItems.length === 0}
+                onValueChange={(v) => { setNonPoItemId((v ?? '') === 'none' ? '' : (v ?? '')); setNonPoVariantId('') }}
               >
-                <SelectTrigger><SelectValue placeholder="Item" /></SelectTrigger>
+                <SelectTrigger><SelectValue placeholder="Select item…" /></SelectTrigger>
                 <SelectContent>
-                  {filteredItems.map((i: any) => (
-                    <SelectItem key={i.id} value={i.id}>{i.name_en}</SelectItem>
-                  ))}
+                  {filteredItems.length === 0 ? (
+                    <SelectItem value="none" disabled>No items found</SelectItem>
+                  ) : (
+                    filteredItems.map((i: any) => (
+                      <SelectItem key={i.id} value={i.id}>{i.name_en}</SelectItem>
+                    ))
+                  )}
                 </SelectContent>
               </Select>
+            </div>
 
-              {/* Brand variant (optional) */}
+            {/* Brand / Variant */}
+            <div className="space-y-1">
+              <Label>Brand / Variant <span className="text-muted-foreground text-xs">(optional)</span></Label>
               <Select
                 value={nonPoVariantId || 'none'}
-                onValueChange={(v) => setNonPoVariantId(v === 'none' || v === null ? '' : v)}
-                disabled={!nonPoItemId || (variants as any[]).length === 0}
+                onValueChange={(v) => setNonPoVariantId((v ?? '') === 'none' ? '' : (v ?? ''))}
+                disabled={!nonPoItemId}
               >
-                <SelectTrigger><SelectValue placeholder="Brand" /></SelectTrigger>
+                <SelectTrigger><SelectValue placeholder={!nonPoItemId ? 'Select item first' : 'Any brand'} /></SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="none">Any</SelectItem>
+                  <SelectItem value="none">Any brand</SelectItem>
                   {(variants as any[]).map((v: any) => (
                     <SelectItem key={v.id} value={v.id}>
-                      {v.brands?.name ?? v.brand ?? v.code ?? v.id}
+                      {v.brand}{v.code ? ` — ${v.code}` : ''}
                     </SelectItem>
                   ))}
                 </SelectContent>
               </Select>
             </div>
 
+            {/* Qty */}
             <div className="space-y-1">
-              <Label>Free QTY</Label>
+              <Label>Free QTY *</Label>
               <Input
                 type="number" min={1}
                 value={nonPoQty}
