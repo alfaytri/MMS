@@ -104,7 +104,7 @@ export function CascadeNewItemForm({ categoryId, onCreated, onCancel }: NewItemF
         name_en:     nameEn.trim(),
         name_ar:     nameAr.trim() || null,
         unit:        unit.trim(),
-        sku:         sku.trim() || null,
+        sku:         sku.trim() || '',
         category_id: categoryId,
       } as any,
       {
