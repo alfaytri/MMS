@@ -23,10 +23,13 @@ export function SoLineItemsEditor({ value, onChange }: SoLineItemsEditorProps) {
         item_name: '',
         sku: '',
         qty: 1,
+        unit: 'pcs',
         unit_price: 0,
         total: 0,
+        line_type: 'product',
         brand_variant_id: null,
-        avg_cost: undefined,
+        tool_asset_item_id: null,
+        avg_cost: 0,
       },
     ])
   }
@@ -50,7 +53,7 @@ export function SoLineItemsEditor({ value, onChange }: SoLineItemsEditorProps) {
 
   function handleItemSelected(key: string, item: InventoryLookupResult | null) {
     if (!item) {
-      updateRow(key, { item_name: '', sku: '', unit_price: 0, total: 0, brand_variant_id: null, avg_cost: undefined })
+      updateRow(key, { item_name: '', sku: '', unit_price: 0, total: 0, brand_variant_id: null, avg_cost: 0 })
       return
     }
     updateRow(key, {
@@ -69,7 +72,7 @@ export function SoLineItemsEditor({ value, onChange }: SoLineItemsEditorProps) {
     <div className="space-y-3">
       <div className="space-y-2">
         {value.map((row, idx) => {
-          const hasNegativeMargin = row.avg_cost !== undefined && row.unit_price < row.avg_cost && row.unit_price > 0
+          const hasNegativeMargin = row.avg_cost > 0 && row.unit_price < row.avg_cost && row.unit_price > 0
           return (
             <div key={row._key} className="grid grid-cols-12 gap-2 items-start rounded-md border p-2">
               {/* Item lookup */}
@@ -81,7 +84,7 @@ export function SoLineItemsEditor({ value, onChange }: SoLineItemsEditorProps) {
                     item_name_ar: null,
                     sku: row.sku,
                     unit: 'pcs',
-                    cost_price: row.avg_cost ?? 0,
+                    cost_price: row.avg_cost,
                     selling_price: row.unit_price,
                     category_name: null,
                     category_name_ar: null,
@@ -132,7 +135,7 @@ export function SoLineItemsEditor({ value, onChange }: SoLineItemsEditorProps) {
                 <div className="flex items-center gap-1">
                   <span className="text-xs font-medium">{formatCurrency(row.total, 'QAR')}</span>
                   {hasNegativeMargin && (
-                    <span title={`Below cost (${formatCurrency(row.avg_cost!, 'QAR')})`}>
+                    <span title={`Below cost (${formatCurrency(row.avg_cost, 'QAR')})`}>
                       <AlertTriangle className="h-3 w-3 text-warning shrink-0" />
                     </span>
                   )}

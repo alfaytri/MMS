@@ -14,16 +14,20 @@ export type SOStatus =
   | 'cancelled'
 
 export type SOLineItem = {
-  id: string
-  sale_order_id: string
-  item_name: string
-  sku: string | null
-  qty: number
-  unit_price: number
-  total: number
-  delivered_qty: number
-  brand_variant_id: string | null
-  created_at: string
+  id:                  string
+  sale_order_id:       string
+  item_name:           string
+  sku:                 string | null
+  qty:                 number
+  unit:                string
+  unit_price:          number
+  total:               number
+  delivered_qty:       number
+  line_type:           string
+  brand_variant_id:    string | null
+  tool_asset_item_id:  string | null
+  avg_cost:            number
+  created_at:          string
 }
 
 export type SaleDelivery = {
@@ -45,28 +49,36 @@ export type SaleDelivery = {
 }
 
 export type SaleOrder = {
-  id: string
-  so_number: string
-  customer_id: string
-  status: SOStatus
-  subtotal: number
-  tax: number
-  total: number
-  discount_amount: number
-  discount_label: string | null
-  discount_type: string | null
+  id:                       string
+  so_number:                string
+  customer_id:              string
+  status:                   SOStatus
+  subtotal:                 number
+  tax:                      number
+  total:                    number
+  discount_amount:          number
+  discount_label:           string | null
+  discount_type:            string | null
   discount_amount_resolved: number
-  notes: string | null
-  created_by_name: string | null
-  created_at: string
-  updated_at: string
-  deleted_at: string | null
-  // joined
-  sale_order_lines?: SOLineItem[]
-  sale_deliveries?: SaleDelivery[]
-  // denormalised from customers join
-  customer_name?: string
-  customer_phone?: string
+  currency:                 string
+  exchange_rate:            number
+  expected_delivery:        string | null
+  payment_terms:            string | null
+  payment_terms_notes:      string | null
+  payment_milestones:       { label: string; percent: number }[] | null
+  delivery_terms:           string | null
+  delivery_terms_notes:     string | null
+  customer_notes:           string | null
+  validity_days:            number
+  notes:                    string | null
+  created_by_name:          string | null
+  created_at:               string
+  updated_at:               string
+  deleted_at:               string | null
+  sale_order_lines?:        SOLineItem[]
+  sale_deliveries?:         SaleDelivery[]
+  customer_name?:           string
+  customer_phone?:          string
 }
 
 export type SalePayment = {
@@ -96,23 +108,45 @@ export type Customer = {
 }
 
 export type SOLineItemDraft = {
-  item_name: string
-  sku: string
-  qty: number
-  unit_price: number
-  total: number
-  brand_variant_id: string | null
-  avg_cost?: number // for margin check
+  item_name:          string
+  sku:                string
+  qty:                number
+  unit:               string
+  unit_price:         number
+  total:              number
+  line_type:          string
+  brand_variant_id:   string | null
+  tool_asset_item_id: string | null
+  avg_cost:           number
 }
 
 export type CreateSOPayload = {
-  customer_id: string
-  customer_name: string
-  notes: string | null
-  discount_amount: number
-  discount_label: string | null
-  discount_type: 'fixed' | 'percentage'
-  line_items: SOLineItemDraft[]
+  customer_id:          string
+  intent:               'quotation' | 'confirm'
+  currency:             string
+  exchange_rate:        number
+  expected_delivery:    string | null
+  payment_terms:        string | null
+  payment_terms_notes:  string | null
+  payment_milestones:   { label: string; percent: number }[] | null
+  delivery_terms:       string | null
+  delivery_terms_notes: string | null
+  customer_notes:       string | null
+  validity_days:        number
+  discount_amount:      number
+  discount_label:       string | null
+  discount_type:        'fixed' | 'percentage'
+  line_items:           SOLineItemDraft[]
+}
+
+export type CreateSOResult = {
+  so_id:        string
+  so_number:    string
+  status:       SOStatus
+  credit_limit: number
+  group_name:   string
+  open_total:   number
+  available:    number
 }
 
 export type UpdateSOPayload = Partial<CreateSOPayload> & { id: string }
@@ -126,30 +160,17 @@ export interface SOFilters {
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
-async function generateSONumber(supabase: ReturnType<typeof createClient>): Promise<string> {
-  const { count } = await (supabase as any)
-    .from('sale_orders')
-    .select('*', { count: 'exact', head: true })
-  const seq = String((count ?? 0) + 1).padStart(5, '0')
-  return `SO-${seq}`
-  // TODO: replace with server-side sequence to avoid race conditions. Current
-  // implementation is prone to duplicates under concurrent load; the UNIQUE
-  // constraint on so_number is the safety net.
-}
-
-export function calcSOSubtotal(lines: SOLineItemDraft[]): number {
-  return lines.reduce((s, l) => s + l.total, 0)
+export function calcSOSubtotal(lineItems: { total: number }[]): number {
+  return lineItems.reduce((sum, li) => sum + li.total, 0)
 }
 
 export function calcSOTotal(subtotal: number, discountAmount: number, discountType: 'fixed' | 'percentage'): number {
-  if (discountType === 'percentage') {
-    return subtotal - (subtotal * discountAmount) / 100
-  }
-  return subtotal - discountAmount
+  const discount = discountType === 'percentage' ? (subtotal * discountAmount) / 100 : discountAmount
+  return subtotal - discount
 }
 
-export function hasNegativeMargin(lines: SOLineItemDraft[]): boolean {
-  return lines.some((l) => l.avg_cost !== undefined && l.unit_price < l.avg_cost)
+export function hasNegativeMargin(lineItems: { unit_price: number; avg_cost: number }[]): boolean {
+  return lineItems.some((li) => li.avg_cost > 0 && li.unit_price < li.avg_cost)
 }
 
 // ─── Hooks ────────────────────────────────────────────────────────────────────
@@ -218,18 +239,19 @@ export function useAllCustomers(search: string, page: number) {
 export function useCreateCustomer() {
   const queryClient = useQueryClient()
   return useMutation({
-    mutationFn: async (payload: { name: string; email?: string | null; customer_type?: string }) => {
+    mutationFn: async (payload: { name: string; email: string | null }) => {
       const supabase = createClient()
       const { data, error } = await (supabase as any)
         .from('customers')
-        .insert({ name: payload.name, email: payload.email ?? null, customer_type: payload.customer_type ?? 'individual' })
+        .insert(payload)
         .select()
         .single()
       if (error) throw error
-      return data as Customer
+      return data
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['customers'] })
+      queryClient.invalidateQueries({ queryKey: ['all-customers'] })
     },
   })
 }
@@ -308,59 +330,28 @@ export function useSOPayments(soId: string | null) {
 export function useCreateSO() {
   const queryClient = useQueryClient()
   return useMutation({
-    mutationFn: async (payload: CreateSOPayload) => {
+    mutationFn: async (payload: CreateSOPayload): Promise<CreateSOResult> => {
       const supabase = createClient()
-      const so_number = await generateSONumber(supabase)
-      const subtotal = calcSOSubtotal(payload.line_items)
-      const discountResolved = payload.discount_type === 'percentage'
-        ? (subtotal * payload.discount_amount) / 100
-        : payload.discount_amount
-      const total = subtotal - discountResolved
-
-      const { data: so, error: soErr } = await (supabase as any)
-        .from('sale_orders')
-        .insert({
-          so_number,
-          customer_id: payload.customer_id,
-          status: 'quotation',
-          subtotal,
-          tax: 0,
-          total,
-          discount_amount: payload.discount_amount,
-          discount_label: payload.discount_label,
-          discount_type: payload.discount_type,
-          discount_amount_resolved: discountResolved,
-          notes: payload.notes,
-        })
-        .select()
-        .single()
-      if (soErr) throw soErr
-
-      if (payload.line_items.length > 0) {
-        const { error: liErr } = await (supabase as any)
-          .from('sale_order_lines')
-          .insert(
-            payload.line_items.map(({ avg_cost: _unused, ...li }) => ({
-              ...li,
-              sale_order_id: so.id,
-            }))
-          )
-        if (liErr) throw liErr
-      }
-
-      // Reserve stock for all line items in a single RPC call
-      const lines: { brand_variant_id: string | null; qty: number }[] = payload.line_items ?? []
-      const reservations = lines
-        .filter(l => l.brand_variant_id && l.qty > 0)
-        .map(l => ({ bv_id: l.brand_variant_id!, delta: l.qty }))
-
-      if (reservations.length > 0) {
-        const { error: resErr } = await (supabase as any)
-          .rpc('batch_update_reserved_qty', { p_updates: reservations })
-        if (resErr) throw resErr
-      }
-
-      return so as SaleOrder
+      const { data, error } = await (supabase as any).rpc('create_sale_order', {
+        p_customer_id:          payload.customer_id,
+        p_intent:               payload.intent,
+        p_currency:             payload.currency,
+        p_exchange_rate:        payload.exchange_rate,
+        p_expected_delivery:    payload.expected_delivery,
+        p_payment_terms:        payload.payment_terms,
+        p_payment_terms_notes:  payload.payment_terms_notes,
+        p_payment_milestones:   payload.payment_milestones,
+        p_delivery_terms:       payload.delivery_terms,
+        p_delivery_terms_notes: payload.delivery_terms_notes,
+        p_customer_notes:       payload.customer_notes,
+        p_validity_days:        payload.validity_days,
+        p_discount_amount:      payload.discount_amount,
+        p_discount_label:       payload.discount_label,
+        p_discount_type:        payload.discount_type,
+        p_line_items:           payload.line_items,
+      })
+      if (error) throw error
+      return data as CreateSOResult
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['sale-orders'] })

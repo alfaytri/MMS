@@ -151,25 +151,30 @@ export default function CreateSOPage() {
     return true
   }
 
-  function buildPayload() {
+  function buildPayload(intent: 'quotation' | 'confirm') {
     return {
-      customer_id: customerId,
-      customer_name: customerName,
-      notes: buildNotesPayload(
-        notes,
-        { currency, exchangeRate, expectedDelivery },
-        terms
-      ),
-      discount_amount: discountAmount,
-      discount_label: discountLabel || null,
-      discount_type: discountType,
-      line_items: lineItems.map(({ _key, ...li }) => li),
+      customer_id:          customerId,
+      intent,
+      currency,
+      exchange_rate:        exchangeRate,
+      expected_delivery:    expectedDelivery || null,
+      payment_terms:        terms.payment_terms || null,
+      payment_terms_notes:  terms.payment_terms_notes || null,
+      payment_milestones:   null,
+      delivery_terms:       terms.delivery_terms || null,
+      delivery_terms_notes: terms.delivery_terms_notes || null,
+      customer_notes:       terms.customer_notes || null,
+      validity_days:        30,
+      discount_amount:      discountAmount,
+      discount_label:       discountLabel || null,
+      discount_type:        discountType,
+      line_items:           lineItems.map(({ _key, ...li }) => li),
     }
   }
 
   function saveQuotation() {
     if (!validate()) return
-    createSO.mutate(buildPayload(), {
+    createSO.mutate(buildPayload('quotation'), {
       onSuccess: () => { toast.success('Saved as quotation'); router.push('/sales/orders') },
       onError: (err) => toast.error(err.message),
     })
@@ -177,16 +182,8 @@ export default function CreateSOPage() {
 
   function confirmOrder() {
     if (!validate()) return
-    createSO.mutate(buildPayload(), {
-      onSuccess: (so: any) => {
-        confirmSO.mutate(
-          { id: so.id, lineItems: so.sale_order_lines ?? [] },
-          {
-            onSuccess: () => { toast.success('Order confirmed'); router.push('/sales/orders') },
-            onError: (err) => toast.error(err.message),
-          }
-        )
-      },
+    createSO.mutate(buildPayload('confirm'), {
+      onSuccess: () => { toast.success('Order confirmed'); router.push('/sales/orders') },
       onError: (err) => toast.error(err.message),
     })
   }
