@@ -58,12 +58,16 @@ export function CascadeInventorySelector({
   onChange,
   onPriceLoading,
 }: CascadeInventorySelectorProps) {
-  const [categoryId,    setCategoryId]    = useState<string | null>(null)
-  const [itemId,        setItemId]        = useState<string | null>(null)
-  const [catOpen,       setCatOpen]       = useState(false)
-  const [itemOpen,      setItemOpen]      = useState(false)
-  const [varOpen,       setVarOpen]       = useState(false)
-  const [isPriceLoading, setIsPriceLoading] = useState(false)
+  const [categoryId,         setCategoryId]         = useState<string | null>(null)
+  const [itemId,             setItemId]             = useState<string | null>(null)
+  const [catOpen,            setCatOpen]            = useState(false)
+  const [itemOpen,           setItemOpen]           = useState(false)
+  const [varOpen,            setVarOpen]            = useState(false)
+  const [isPriceLoading,     setIsPriceLoading]     = useState(false)
+  // Inventory-side data from the most recent cascade selection — kept separate
+  // from value.sku / value.item_name which reflect the vendor-editable row fields.
+  const [selectedVariantCode,  setSelectedVariantCode]  = useState<string | null>(null)
+  const [selectedVariantBrand, setSelectedVariantBrand] = useState<string | null>(null)
 
   const { data: categories = [], isLoading: catsLoading } =
     useInventoryCategoriesByType(lineType)
@@ -90,6 +94,11 @@ export function CascadeInventorySelector({
   }) {
     if (!selectedItem || !selectedCategory) return
     setVarOpen(false)
+
+    // Capture inventory-side display data before the async path so the pill
+    // always shows the real inventory name/brand/code, not the vendor-editable fields.
+    setSelectedVariantCode(variant.code ?? null)
+    setSelectedVariantBrand(variant.brand)
 
     const rawCost = variant.cost_price ?? 0
     if (rawCost > 0) {
@@ -136,6 +145,8 @@ export function CascadeInventorySelector({
     onChange(null)
     setCategoryId(null)
     setItemId(null)
+    setSelectedVariantCode(null)
+    setSelectedVariantBrand(null)
   }
 
   // ── PILL ───────────────────────────────────────────────────────────────────
@@ -150,8 +161,12 @@ export function CascadeInventorySelector({
       ancestry?.inventory_items?.inventory_categories?.name_ar ??
       value.category_name_ar ??
       null
-    const brand = value.brand ?? ancestry?.brand ?? null
-    const code  = value.sku   ?? ancestry?.code  ?? null
+    // Pill always shows inventory-side data, never the vendor-editable row fields.
+    // Priority: fresh cascade selection state → ancestry lookup → nothing.
+    const inventoryName   = selectedItem?.name_en ?? ancestry?.inventory_items?.name_en ?? null
+    const inventoryNameAr = selectedItem?.name_ar ?? ancestry?.inventory_items?.name_ar ?? null
+    const brand = selectedVariantBrand ?? ancestry?.brand ?? null
+    const code  = selectedVariantCode  ?? ancestry?.code  ?? null
 
     return (
       <div className="flex items-center gap-2 rounded-md border border-input bg-background px-3 py-1.5 text-sm min-h-[32px]">
@@ -169,7 +184,7 @@ export function CascadeInventorySelector({
                   {categoryLabel} ›
                 </span>
               )}
-              <span className="font-medium truncate">{value.item_name}</span>
+              <span className="font-medium truncate">{inventoryName ?? value.item_name}</span>
               {brand && (
                 <span className="text-muted-foreground text-xs shrink-0">
                   · {brand}
@@ -181,10 +196,10 @@ export function CascadeInventorySelector({
                 </span>
               )}
             </div>
-            {(categoryLabelAr || value.item_name_ar) && (
+            {(categoryLabelAr || inventoryNameAr) && (
               <div className="flex items-center gap-1 text-xs text-muted-foreground truncate">
                 {categoryLabelAr && <span>{categoryLabelAr} ›</span>}
-                {value.item_name_ar && <span>{value.item_name_ar}</span>}
+                {inventoryNameAr && <span>{inventoryNameAr}</span>}
               </div>
             )}
           </div>
