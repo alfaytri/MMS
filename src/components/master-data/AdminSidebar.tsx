@@ -45,7 +45,7 @@ const ADMIN_SECTIONS: SidebarSection[] = [
     items: [
       { label: 'Brand Groups', href: '/master-data/admin/brand-groups', icon: Tag },
       { label: 'Pricing Factors', href: '/master-data/admin/pricing-factors', icon: Percent, comingSoon: true },
-      { label: 'Credit Groups', href: '/master-data/credit-groups', icon: CreditCard },
+      { label: 'Credit Groups', href: '/master-data/admin/credit-groups', icon: CreditCard },
     ],
   },
   {
