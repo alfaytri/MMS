@@ -10,7 +10,7 @@ import { Label } from '@/components/ui/label'
 import { Badge } from '@/components/ui/badge'
 import { Separator } from '@/components/ui/separator'
 import { SoLineItemsEditor, type SoLineItemRow } from '@/components/sales/SoLineItemsEditor'
-import { SoTermsSection, type SoTermsValues } from '@/components/sales/SoTermsSection'
+import { SoTermsSection, DEFAULT_TERMS, type SoTermsValues } from '@/components/sales/SoTermsSection'
 import {
   useCreateSO,
   useConfirmSO,
@@ -95,13 +95,7 @@ export default function CreateSOPage() {
   const [lineItems, setLineItems] = useState<SoLineItemRow[]>([])
 
   // Terms (mirrors PoTermsSection)
-  const [terms, setTerms] = useState<SoTermsValues>({
-    payment_terms: '',
-    payment_terms_notes: '',
-    delivery_terms: '',
-    delivery_terms_notes: '',
-    customer_notes: '',
-  })
+  const [terms, setTerms] = useState<SoTermsValues>(DEFAULT_TERMS)
 
   const [discountAmount, setDiscountAmount] = useState(0)
   const [discountLabel, setDiscountLabel] = useState('')
