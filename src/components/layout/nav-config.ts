@@ -26,7 +26,6 @@ export const NAV_ITEMS: NavEntry[] = [
         items: [
           { label: 'Suppliers',         href: '/master-data/suppliers' },
           { label: 'Customers',         href: '/master-data/customers' },
-          { label: 'Credit Groups',     href: '/master-data/credit-groups' },
           { label: 'Warehouses',        href: '/purchase/warehouses' },
           { label: 'Users & Roles', href: '/master-data/users' },
           { label: 'Audit Trail', href: '/master-data/audit-trail' },
