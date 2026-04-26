@@ -26,14 +26,25 @@ A new `credit_groups` table stores named credit tiers with a credit limit. Custo
 CREATE TABLE credit_groups (
   id           UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   name         TEXT NOT NULL UNIQUE,          -- e.g. "Standard", "Premium", "VIP"
-  credit_limit NUMERIC NOT NULL DEFAULT 0,    -- maximum cumulative open-SO value
+  credit_limit NUMERIC NOT NULL DEFAULT 0,    -- maximum cumulative outstanding-SO value
   created_at   TIMESTAMPTZ NOT NULL DEFAULT now(),
   updated_at   TIMESTAMPTZ NOT NULL DEFAULT now()
 );
 
+-- Seed a default group so existing customers get assigned immediately (prevents day-one breakage)
+INSERT INTO credit_groups (name, credit_limit)
+VALUES ('Standard', 50000);
+
 ALTER TABLE customers
   ADD COLUMN credit_group_id UUID REFERENCES credit_groups(id);
+
+-- Assign every existing customer to the default group
+UPDATE customers
+SET    credit_group_id = (SELECT id FROM credit_groups WHERE name = 'Standard')
+WHERE  credit_group_id IS NULL;
 ```
+
+**Migration safety:** The seed + backfill runs in the same transaction as the schema change. No customer ever has a NULL `credit_group_id` after the migration completes, so the SO creation block never triggers unexpectedly on day one. The owner can then adjust limits per customer/group from the Master Data UI.
 
 ### UI: Master Data → Credit Groups page
 
@@ -64,7 +75,7 @@ ALTER TABLE sale_orders
   ADD COLUMN payment_milestones     JSONB,          -- [{label, percent}]
   ADD COLUMN delivery_terms         TEXT,
   ADD COLUMN delivery_terms_notes   TEXT,
-  ADD COLUMN vendor_notes           TEXT,           -- renamed from customer_notes for consistency
+  ADD COLUMN customer_notes         TEXT,           -- notes visible to the customer on the quotation/order
   ADD COLUMN validity_days          INTEGER DEFAULT 30;
 
 ALTER TABLE sale_order_lines
@@ -144,12 +155,14 @@ BEGIN
     RETURN jsonb_build_object('approved', false, 'reason', 'no_credit_group');
   END IF;
 
-  -- Sum open SO totals for this customer (exclude current SO when editing)
+  -- Sum ALL non-cancelled outstanding totals for this customer.
+  -- Includes 'delivered' so unpaid-but-fulfilled orders still consume credit.
+  -- Only 'cancelled' is excluded — payment clears credit via pending_balance separately.
   SELECT COALESCE(SUM(total), 0)
   INTO   v_open_total
   FROM   sale_orders
   WHERE  customer_id = p_customer_id
-    AND  status IN ('quotation', 'confirmed', 'processing')
+    AND  status NOT IN ('cancelled')
     AND  deleted_at IS NULL
     AND  (p_so_id IS NULL OR id != p_so_id);
 
