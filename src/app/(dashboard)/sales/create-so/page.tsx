@@ -82,7 +82,7 @@ export default function CreateSOPage() {
     if (!newCreditGroupId) { toast.error('Please select a credit group'); return }
     const groupId = newCreditGroupId || null
     createCust.mutate(
-      { name: newName.trim(), email: newEmail || null, credit_group_id: groupId },
+      { name: newName.trim(), phone: newPhone.trim(), email: newEmail || null, credit_group_id: groupId },
       {
         onSuccess: (data: any) => {
           toast.success('Customer added')

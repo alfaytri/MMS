@@ -239,7 +239,7 @@ export function useAllCustomers(search: string, page: number) {
 export function useCreateCustomer() {
   const queryClient = useQueryClient()
   return useMutation({
-    mutationFn: async (payload: { name: string; email: string | null; credit_group_id?: string | null }) => {
+    mutationFn: async (payload: { name: string; phone: string; email: string | null; credit_group_id?: string | null }) => {
       const supabase = createClient()
       const { data, error } = await (supabase as any)
         .from('customers')
