@@ -151,7 +151,7 @@ Purchase & Sales▾:
 
 ## 🔄 In Progress
 
-**Previous:** No active plan. All Phase 1 LC work complete.
+🚀 Starting: **Cascade Inventory Selector Plan Task 1: Extend InventoryLookupResult type**
 
 **LC Page Enhancements Plan (2026-04-25-lc-page-enhancements.md)** — COMPLETE ✅
 - [x] Task 0: Setup — merge develop
