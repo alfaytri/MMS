@@ -5,12 +5,27 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { createClient } from '@/lib/supabase/client'
 
 export type CreditGroup = {
-  id:           string
-  name:         string
-  credit_limit: number
-  created_at:   string
-  updated_at:   string
+  id:               string
+  name:             string
+  credit_limit:     number
+  payment_methods:  string[]
+  max_days:         number | null
+  created_at:       string
+  updated_at:       string
 }
+
+export const PAYMENT_METHODS = [
+  { key: 'cash',          label: 'Cash' },
+  { key: 'online',        label: 'Online' },
+  { key: 'pay_later',     label: 'Pay Later' },
+  { key: 'fawran',        label: 'Fawran' },
+  { key: 'bank_transfer', label: 'Bank Transfer' },
+  { key: 'cdc',           label: 'CDC (Current-Dated Cheque)' },
+  { key: 'pdc',           label: 'PDC (Post-Dated Cheque)' },
+  { key: 'pos',           label: 'POS' },
+] as const
+
+export type PaymentMethodKey = (typeof PAYMENT_METHODS)[number]['key']
 
 export function useCreditGroups() {
   return useQuery({
@@ -31,7 +46,12 @@ export function useCreditGroups() {
 export function useCreateCreditGroup() {
   const queryClient = useQueryClient()
   return useMutation({
-    mutationFn: async (payload: { name: string; credit_limit: number }) => {
+    mutationFn: async (payload: {
+      name:             string
+      credit_limit:     number
+      payment_methods:  string[]
+      max_days:         number | null
+    }) => {
       const supabase = createClient()
       const { data, error } = await (supabase as any)
         .from('credit_groups')
