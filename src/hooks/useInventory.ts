@@ -94,6 +94,7 @@ export function useCreateInventoryItem() {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['inventory-items'] })
+      queryClient.invalidateQueries({ queryKey: ['inventory-items-by-category'] })
     },
   })
 }
@@ -134,7 +135,9 @@ export function useCreateBrandVariant() {
     },
     onSuccess: (_: unknown, variables: BrandVariantInsert) => {
       queryClient.invalidateQueries({ queryKey: ['brand-variants', variables.item_id] })
+      queryClient.invalidateQueries({ queryKey: ['brand-variants-v2', variables.item_id] })
       queryClient.invalidateQueries({ queryKey: ['inventory-items'] })
+      queryClient.invalidateQueries({ queryKey: ['all-brand-names'] })
     },
   })
 }
@@ -291,6 +294,7 @@ export function useCreateInventoryCategory() {
     },
     onSuccess: (_, v) => {
       qc.invalidateQueries({ queryKey: ['inventory-categories', v.type] })
+      qc.invalidateQueries({ queryKey: ['inventory-categories'] })
     },
   })
 }
@@ -798,5 +802,23 @@ export function useBatchUpdateSellingPrices() {
       qc.invalidateQueries({ queryKey: ['inventory-brand-variants'] })
       qc.invalidateQueries({ queryKey: ['brand-variants-price-summary'] })
     },
+  })
+}
+
+export function useAllBrandNames() {
+  return useQuery({
+    queryKey: ['all-brand-names'],
+    queryFn: async () => {
+      const supabase = createClient()
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const { data, error } = await (supabase as any)
+        .from('inventory_brand_variants')
+        .select('brand')
+        .neq('status', 'archived')
+        .order('brand')
+      if (error) throw error
+      return [...new Set((data ?? []).map((r: { brand: string }) => r.brand))] as string[]
+    },
+    staleTime: 10 * 60 * 1000,
   })
 }
