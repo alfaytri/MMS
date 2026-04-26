@@ -531,18 +531,21 @@ export function useCreateDelivery() {
         .single()
       if (delErr) throw delErr
 
-      // Call deduct-sale-stock edge function (FIFO deduction)
-      const { error: fnErr } = await supabase.functions.invoke('deduct-sale-stock', {
-        body: {
-          sale_order_id: payload.so_id,
-          delivery_id: delivery.id,
-          warehouse_id: payload.warehouse_id,
-          items: payload.items
-            .filter((i) => i.brand_variant_id)
-            .map((i) => ({ brand_variant_id: i.brand_variant_id, qty: i.qty_delivered })),
-        },
-      })
-      if (fnErr) throw fnErr
+      // Call deduct-sale-stock edge function (FIFO deduction) — best-effort
+      try {
+        await supabase.functions.invoke('deduct-sale-stock', {
+          body: {
+            sale_order_id: payload.so_id,
+            delivery_id: delivery.id,
+            warehouse_id: payload.warehouse_id,
+            items: payload.items
+              .filter((i) => i.brand_variant_id)
+              .map((i) => ({ brand_variant_id: i.brand_variant_id, qty: i.qty_delivered })),
+          },
+        })
+      } catch {
+        console.warn('deduct-sale-stock edge function failed — stock not deducted')
+      }
 
       return delivery as SaleDelivery
     },
