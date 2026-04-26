@@ -5,6 +5,20 @@ import { logPOActivity, resolveMyName } from '@/lib/poActivityLogger'
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
+export type InventoryLookupResult = {
+  brand_variant_id: string
+  item_name:        string
+  item_name_ar:     string | null
+  sku:              string | null
+  unit:             string
+  cost_price:       number
+  selling_price:    number
+  // Populated on fresh cascade selection; null when rebuilt from a saved PO row.
+  category_name:    string | null
+  category_name_ar: string | null
+  brand:            string | null
+}
+
 export type POStatus =
   | 'draft'
   | 'pending_approval'

@@ -230,6 +230,9 @@ export function PoLineItemsEditor({ value, onChange, currency, readOnly = false 
                                     unit: row.unit,
                                     cost_price: row.unit_price,
                                     selling_price: 0,
+                                    category_name: null,
+                                    category_name_ar: null,
+                                    brand: null,
                                   }
                                 : null
                             }
@@ -271,9 +274,18 @@ export function PoLineItemsEditor({ value, onChange, currency, readOnly = false 
                         value={row.item_name}
                         onChange={(e) => updateRow(row._key, { item_name: e.target.value })}
                       />
-                      <span className="h-7 px-2 flex items-center rounded-md bg-muted/40 border text-xs text-muted-foreground truncate">
-                        {row.sku || '—'}
-                      </span>
+                      {readOnly ? (
+                        <span className="h-7 px-2 flex items-center rounded-md bg-muted/40 border text-xs text-muted-foreground truncate">
+                          {row.sku || '—'}
+                        </span>
+                      ) : (
+                        <Input
+                          className="h-7 text-xs"
+                          placeholder="SKU"
+                          value={row.sku}
+                          onChange={(e) => updateRow(row._key, { sku: e.target.value })}
+                        />
+                      )}
                       <Input
                         type="number"
                         min="0.001"
@@ -282,9 +294,18 @@ export function PoLineItemsEditor({ value, onChange, currency, readOnly = false 
                         value={row.qty}
                         onChange={(e) => updateRow(row._key, { qty: Math.max(0.001, Number(e.target.value)) })}
                       />
-                      <span className="h-7 px-2 flex items-center rounded-md bg-muted/40 border text-xs text-muted-foreground">
-                        {row.unit || '—'}
-                      </span>
+                      {readOnly ? (
+                        <span className="h-7 px-2 flex items-center rounded-md bg-muted/40 border text-xs text-muted-foreground">
+                          {row.unit || '—'}
+                        </span>
+                      ) : (
+                        <Input
+                          className="h-7 text-xs"
+                          placeholder="unit"
+                          value={row.unit}
+                          onChange={(e) => updateRow(row._key, { unit: e.target.value })}
+                        />
+                      )}
                       <Input
                         type="number"
                         min="0"

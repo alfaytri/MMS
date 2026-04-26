@@ -83,6 +83,9 @@ export function SoLineItemsEditor({ value, onChange }: SoLineItemsEditorProps) {
                     unit: 'pcs',
                     cost_price: row.avg_cost ?? 0,
                     selling_price: row.unit_price,
+                    category_name: null,
+                    category_name_ar: null,
+                    brand: null,
                   } : null}
                   onChange={(item) => handleItemSelected(row._key, item)}
                   placeholder={`Item ${idx + 1}…`}
