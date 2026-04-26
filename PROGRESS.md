@@ -151,7 +151,7 @@ Purchase & Sales▾:
 
 ## 🔄 In Progress
 
-(No active plan)
+🚀 Starting: **[Cascade Inventory Selector Plan] Task 4: Wire CascadeInventorySelector into PoLineItemsEditor + surface price-loading state**
 
 **LC Page Enhancements Plan (2026-04-25-lc-page-enhancements.md)** — COMPLETE ✅
 - [x] Task 0: Setup — merge develop
