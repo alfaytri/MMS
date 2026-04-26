@@ -37,6 +37,7 @@ type ReceiveRow = {
 
 type ExtraFreeItem = {
   _id: string
+  brand_variant_id: string | null
   item_name: string
   sku: string | null
   qty: number
@@ -119,7 +120,7 @@ export function PoReceiveTab({ po }: { po: PurchaseOrder }) {
     const sku = (selectedVariant as any)?.code ?? selectedItem?.sku ?? null
     setExtraFreeItems((prev) => [
       ...prev,
-      { _id: crypto.randomUUID(), item_name: name, sku, qty },
+      { _id: crypto.randomUUID(), brand_variant_id: (selectedVariant as any)?.id ?? null, item_name: name, sku, qty },
     ])
     resetNonPo()
     setNonPoOpen(false)
@@ -148,7 +149,7 @@ export function PoReceiveTab({ po }: { po: PurchaseOrder }) {
       if (r.freeQty > 0) items.push({ po_line_item_id: r.po_line_item_id, brand_variant_id: r.brand_variant_id, item_name: r.item_name, sku: r.sku, qty_received: r.freeQty, unit_cost: 0, is_free: true })
     }
     for (const fi of extraFreeItems) {
-      items.push({ po_line_item_id: null, brand_variant_id: null, item_name: fi.item_name, sku: fi.sku, qty_received: fi.qty, unit_cost: 0, is_free: true })
+      items.push({ po_line_item_id: null, brand_variant_id: fi.brand_variant_id, item_name: fi.item_name, sku: fi.sku, qty_received: fi.qty, unit_cost: 0, is_free: true })
     }
 
     const regularItems = items.filter((i) => !i.is_free)
