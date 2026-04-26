@@ -115,13 +115,14 @@ export function PoLineItemsEditor({ value, onChange, currency, readOnly = false,
       updateRow(key, { item_name: '', sku: '', unit: 'pcs', unit_price: 0, total_price: 0, brand_variant_id: null })
       return
     }
+    const existingRow = value.find((r) => r._key === key)
     updateRow(key, {
-      item_name: item.item_name,
-      sku: item.sku ?? '',
-      unit: item.unit,
-      unit_price: item.cost_price,
-      total_price: item.cost_price,
-      brand_variant_id: item.brand_variant_id,
+      item_name:          item.item_name,
+      sku:                existingRow?.sku?.trim() ? existingRow.sku : (item.sku ?? ''),
+      unit:               item.unit,
+      unit_price:         item.cost_price,
+      total_price:        item.cost_price,
+      brand_variant_id:   item.brand_variant_id,
       tool_asset_item_id: null,
     })
   }
@@ -287,9 +288,13 @@ export function PoLineItemsEditor({ value, onChange, currency, readOnly = false,
                         value={row.item_name}
                         onChange={(e) => updateRow(row._key, { item_name: e.target.value })}
                       />
-                      <span className="h-7 px-2 flex items-center rounded-md bg-muted/40 border text-xs text-muted-foreground truncate">
-                        {row.sku || '—'}
-                      </span>
+                      <Input
+                        className="h-7 text-xs"
+                        placeholder="Vendor SKU"
+                        value={row.sku ?? ''}
+                        onChange={(e) => updateRow(row._key, { sku: e.target.value })}
+                        readOnly={readOnly}
+                      />
                       <Input
                         type="number"
                         min="0.001"
