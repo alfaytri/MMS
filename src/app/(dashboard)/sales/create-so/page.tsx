@@ -18,6 +18,7 @@ import {
   useCreateSO, useCustomers, useCreateCustomer,
   calcSOSubtotal, calcSOTotal, hasNegativeMargin,
 } from '@/hooks/useSaleOrders'
+import { useCreditGroups } from '@/hooks/useCreditGroups'
 
 const CURRENCIES = ['QAR', 'USD', 'EUR', 'GBP', 'AED', 'SAR', 'KWD'] as const
 const CURRENCY_SYMBOLS: Record<string, string> = { QAR: 'QAR ', USD: '$', EUR: '€', GBP: '£', AED: 'AED ', SAR: 'SAR ', KWD: 'KWD ' }
@@ -44,6 +45,9 @@ export default function CreateSOPage() {
   const [newName, setNewName]                                 = useState('')
   const [newPhone, setNewPhone]                               = useState('')
   const [newEmail, setNewEmail]                               = useState('')
+  const [newCreditGroupId, setNewCreditGroupId]               = useState('')
+
+  const { data: creditGroups = [] } = useCreditGroups()
 
   const [currency, setCurrency]         = useState('QAR')
   const [exchangeRate, setExchangeRate] = useState(1)
@@ -75,13 +79,22 @@ export default function CreateSOPage() {
 
   function handleAddCustomer() {
     if (!newName.trim() || !newPhone.trim()) { toast.error('Name and phone are required'); return }
+    if (!newCreditGroupId) { toast.error('Please select a credit group'); return }
+    const groupId = newCreditGroupId || null
     createCust.mutate(
-      { name: newName.trim(), email: newEmail || null },
+      { name: newName.trim(), email: newEmail || null, credit_group_id: groupId },
       {
         onSuccess: (data: any) => {
           toast.success('Customer added')
-          handleSelectCustomer({ id: data.id, name: data.name, credit_group_id: data.credit_group_id ?? null })
-          setAddOpen(false); setNewName(''); setNewPhone(''); setNewEmail('')
+          const group = creditGroups.find((g) => g.id === groupId)
+          handleSelectCustomer({
+            id:                 data.id,
+            name:               data.name,
+            credit_group_id:    groupId,
+            credit_group_name:  group?.name  ?? null,
+            credit_group_limit: group?.credit_limit ?? null,
+          })
+          setAddOpen(false); setNewName(''); setNewPhone(''); setNewEmail(''); setNewCreditGroupId('')
         },
         onError: (err) => toast.error(err.message),
       }
@@ -312,6 +325,19 @@ export default function CreateSOPage() {
             <div className="space-y-1"><label className="text-xs font-medium">Name *</label><Input value={newName} onChange={(e) => setNewName(e.target.value)} placeholder="Customer name" /></div>
             <div className="space-y-1"><label className="text-xs font-medium">Phone *</label><Input value={newPhone} onChange={(e) => setNewPhone(e.target.value)} placeholder="+974 XXXX XXXX" /></div>
             <div className="space-y-1"><label className="text-xs font-medium">Email</label><Input type="email" value={newEmail} onChange={(e) => setNewEmail(e.target.value)} placeholder="optional" /></div>
+            <div className="space-y-1">
+              <label className="text-xs font-medium">Credit Group *</label>
+              <select
+                value={newCreditGroupId}
+                onChange={(e) => setNewCreditGroupId(e.target.value)}
+                className="flex h-9 w-full rounded-md border border-input bg-background px-3 py-1 text-sm focus:outline-none focus:ring-1 focus:ring-ring"
+              >
+                <option value="">Select a credit group…</option>
+                {creditGroups.map((g) => (
+                  <option key={g.id} value={g.id}>{g.name}</option>
+                ))}
+              </select>
+            </div>
           </div>
           <DialogFooter>
             <Button variant="outline" onClick={() => setAddOpen(false)}>Cancel</Button>
