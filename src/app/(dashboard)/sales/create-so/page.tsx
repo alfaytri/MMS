@@ -9,7 +9,7 @@ import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Badge } from '@/components/ui/badge'
 import { Separator } from '@/components/ui/separator'
-import { SoLineItemsEditor, type SOLineItemRow } from '@/components/sales/SoLineItemsEditor'
+import { SoLineItemsEditor, type SoLineItemRow } from '@/components/sales/SoLineItemsEditor'
 import { SoTermsSection, type SoTermsValues } from '@/components/sales/SoTermsSection'
 import {
   useCreateSO,
@@ -92,7 +92,7 @@ export default function CreateSOPage() {
   const [exchangeRate, setExchangeRate] = useState(1)
   const [expectedDelivery, setExpectedDelivery] = useState('')
 
-  const [lineItems, setLineItems] = useState<SOLineItemRow[]>([])
+  const [lineItems, setLineItems] = useState<SoLineItemRow[]>([])
 
   // Terms (mirrors PoTermsSection)
   const [terms, setTerms] = useState<SoTermsValues>({
@@ -285,7 +285,7 @@ export default function CreateSOPage() {
             One or more items are priced below cost. A margin approval will be required.
           </div>
         )}
-        <SoLineItemsEditor value={lineItems} onChange={setLineItems} />
+        <SoLineItemsEditor value={lineItems} onChange={setLineItems} currency={currency} />
       </section>
 
       {/* Terms */}
