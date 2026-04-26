@@ -151,10 +151,11 @@ Purchase & Sales▾:
 
 ## 🔄 In Progress
 
-🚀 Starting: **[SO Creation Rebuild] Task 8: PDF Quotation component**
+🚀 Starting: **[SO Creation Rebuild] Task 9: Add Download PDF button to SoDetailDialog**
 
 ## ✅ Completed
 
+- [2026-04-26] **[SO Creation Rebuild] Task 8: PDF Quotation component** — `src/components/sales/SoQuotationPdf.tsx` — QuotationDocument with Cairo font (Arabic/Latin), grouped line items by type, subtotal/discount/grand total, terms + validity, fixed footer
 - [2026-04-26] **[SO Creation Rebuild] Task 7: Rewrite create-SO page** — `src/app/(dashboard)/sales/create-so/page.tsx` — rebuilt with Popover/Command customer selector, credit group display + no-credit-group blocking, intent-based quotation/confirm flow calling atomic RPC, isPriceLoading gate, validity_days from terms
 - [2026-04-26] **[Service Links Redesign] Task 4: Rebuild ServiceLinksView** — `src/components/services/inventory/ServiceLinksView.tsx` — Full service-centric rebuild: counters (total/linked/unlinked), URL-synced filters (slSearch/slType/slStatus), collapsible a11y rows (role=button, aria-expanded, keyboard Enter/Space), inline link-type + warranty + qty editing with optimistic updates, AlertDialog delete confirmation, NewLinkDialog with 2-step service→variant flow; fixed Ark UI `onValueChange: string | null` signatures
 - [2026-04-26] **[Service Links Redesign] Tasks 1–3: DB migration + helpers + hooks** — `supabase/migrations/20260426000002_service_inventory_link_type.sql`, `src/components/services/inventory/serviceInventoryHelpers.ts`, `src/hooks/useInventory.ts` — added quantity/link_type/warranty_months/group_label columns; helpers with LINK_TYPE_CONFIG, WARRANTY_OPTIONS, collectLeaves, buildBreadcrumbMap; new hooks useServicesForLinks, useAllServiceLinks, useAddServiceInventoryLink, useDeleteServiceInventoryLink, useUpdateServiceInventoryLink with optimistic updates
