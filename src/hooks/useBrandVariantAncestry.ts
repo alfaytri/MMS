@@ -7,6 +7,8 @@ export type BrandVariantAncestry = {
   brand: string
   code: string | null
   cost_price: number | null
+  stock_level: number | null
+  reserved_qty: number | null
   inventory_items: {
     id: string
     name_en: string
@@ -30,7 +32,7 @@ export function useBrandVariantAncestry(variantId: string | null) {
       const { data, error } = await (supabase as any)
         .from('inventory_brand_variants')
         .select(`
-          id, brand, code, cost_price,
+          id, brand, code, cost_price, stock_level, reserved_qty,
           inventory_items!inner (
             id, name_en, name_ar, unit,
             inventory_categories!inner (
