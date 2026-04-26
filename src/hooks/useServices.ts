@@ -61,7 +61,7 @@ export function useInstructionsFull(enabled = true) {
       const supabase = createClient()
       const { data, error } = await supabase
         .from('instructions')
-        .select('*')
+        .select('id,name_en,name_ar,type,content_type,content_preview,status,created_at')
         .is('deleted_at', null)
         .order('created_at', { ascending: false })
       if (error) throw error

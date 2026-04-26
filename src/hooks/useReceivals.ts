@@ -74,9 +74,9 @@ export function useReceivals(filters?: { status?: ReceivalStatus | '' }) {
       let q = (supabase as any)
         .from('receivals')
         .select(`
-          *,
-          receival_items(*),
-          purchase_orders!receivals_po_id_fkey(po_number, supplier_name)
+          id,receival_number,po_id,warehouse_id,date,status,notes,received_by_name,created_at,
+          receival_items(id,receival_id,po_line_item_id,item_name,sku,qty_received,unit_cost,is_free,brand_variant_id),
+          purchase_orders!receivals_po_id_fkey(po_number,supplier_name)
         `)
         .order('created_at', { ascending: false })
       if (filters?.status) q = q.eq('status', filters.status)
@@ -100,9 +100,9 @@ export function useReceival(id: string | null) {
       const { data, error } = await (supabase as any)
         .from('receivals')
         .select(`
-          *,
-          receival_items(*),
-          purchase_orders!receivals_po_id_fkey(po_number, supplier_name, po_line_items(*))
+          id,receival_number,po_id,warehouse_id,date,status,notes,received_by_name,created_at,
+          receival_items(id,receival_id,po_line_item_id,item_name,sku,qty_received,unit_cost,is_free,brand_variant_id),
+          purchase_orders!receivals_po_id_fkey(po_number,supplier_name,po_line_items(id,qty))
         `)
         .eq('id', id)
         .single()
@@ -126,19 +126,17 @@ export function useCreateReceival() {
     mutationFn: async (payload: CreateReceivalPayload) => {
       const supabase = createClient()
 
-      // Resolve current user's display name for audit trail
-      const { data: { user } } = await supabase.auth.getUser()
+      // Resolve user display name and count in parallel (count has no user dependency)
+      const [{ data: { user } }, { count }] = await Promise.all([
+        supabase.auth.getUser(),
+        (supabase as any).from('receivals').select('*', { count: 'exact', head: true }),
+      ])
       let receivedByName: string | null = null
       if (user) {
         const { data: profile } = await (supabase as any)
           .from('profiles').select('full_name').eq('auth_user_id', user.id).maybeSingle()
         receivedByName = profile?.full_name ?? user.email ?? null
       }
-
-      // Generate receival_number (count-based, padded)
-      const { count } = await (supabase as any)
-        .from('receivals')
-        .select('*', { count: 'exact', head: true })
       const receival_number = `RCV-${String((count ?? 0) + 1).padStart(5, '0')}`
 
       // Single atomic RPC — insert + FIFO + stock_level all in one transaction
@@ -273,16 +271,13 @@ export function useApproveReceivalEdit() {
         .from('receival_edit_requests')
         .update(patch)
         .eq('id', request_id)
-        .select('*, receival_id').single()
+        .select('*, receival_id, requested_by').single()
       if (error) throw error
 
-      // Notify the requestor
-      const { data: req } = await (supabase as any)
-        .from('receival_edit_requests')
-        .select('requested_by').eq('id', request_id).single()
-      if (req?.requested_by) {
+      // Notify the requestor (requested_by comes from the update select above)
+      if (data?.requested_by) {
         await (supabase as any).from('notifications').insert({
-          user_id: req.requested_by,
+          user_id: data.requested_by,
           title: action === 'approved' ? 'Edit Request Approved' : 'Edit Request Rejected',
           body: action === 'approved'
             ? 'Your receival edit was approved. You have 48 hours to save your changes.'

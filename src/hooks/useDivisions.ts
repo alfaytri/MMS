@@ -14,7 +14,7 @@ export function useDivisions() {
       const supabase = createClient()
       const { data, error } = await supabase
         .from('divisions')
-        .select('*')
+        .select('id,slug,name,short_name')
         .eq('is_active', true)
         .order('sort_order')
       if (error) throw error

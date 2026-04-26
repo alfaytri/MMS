@@ -1,10 +1,7 @@
 import { createBrowserClient } from '@supabase/ssr'
 import type { Database } from '@/types/database.types'
+import type { SupabaseClient } from '@supabase/supabase-js'
 
-/**
- * Parse `document.cookie` into the shape `@supabase/ssr` expects.
- * Matches the library's default behavior.
- */
 function getAllCookies(): { name: string; value: string }[] {
   if (typeof document === 'undefined') return []
   return document.cookie
@@ -19,11 +16,6 @@ function getAllCookies(): { name: string; value: string }[] {
     })
 }
 
-/**
- * Write cookies as **session cookies** — no `Max-Age`, no `Expires` —
- * so the browser drops them when the window/process closes.
- * Everything else (path, domain, sameSite, secure) is preserved.
- */
 function setAllCookies(
   cookiesToSet: { name: string; value: string; options?: Record<string, unknown> }[],
 ) {
@@ -40,8 +32,11 @@ function setAllCookies(
   }
 }
 
-export function createClient() {
-  return createBrowserClient<Database>(
+let _client: SupabaseClient<Database> | null = null
+
+export function createClient(): SupabaseClient<Database> {
+  if (_client) return _client
+  _client = createBrowserClient<Database>(
     process.env.NEXT_PUBLIC_SUPABASE_URL!,
     process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
     {
@@ -51,4 +46,5 @@ export function createClient() {
       },
     },
   )
+  return _client
 }
