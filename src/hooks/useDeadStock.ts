@@ -17,7 +17,7 @@ export type DeadStockItem = {
   average_cost:         number
   total_value:          number
   last_movement_date:   string | null
-  last_movement_source: 'movement' | 'fifo' | null
+  last_movement_source: 'movement' | 'fifo' | 'created' | null
   days_idle:            number
   status:               DeadStockStatus
 }

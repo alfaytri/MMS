@@ -71,7 +71,8 @@ export default function DeadStockPage() {
 
   function lastMovementLabel(item: typeof rawItems[0]) {
     if (!item.last_movement_date) return 'Unknown'
-    if (item.last_movement_source === 'fifo') return `Received ${formatDate(item.last_movement_date)}`
+    if (item.last_movement_source === 'fifo')    return `Received ${formatDate(item.last_movement_date)}`
+    if (item.last_movement_source === 'created') return `Added ${formatDate(item.last_movement_date)}`
     return formatDate(item.last_movement_date)
   }
 
