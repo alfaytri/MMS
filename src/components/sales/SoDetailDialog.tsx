@@ -1,9 +1,20 @@
 'use client'
 
 import { useState } from 'react'
+import dynamic from 'next/dynamic'
 import {
   Dialog, DialogContent, DialogHeader, DialogTitle,
 } from '@/components/ui/dialog'
+
+const PDFDownloadLink = dynamic(
+  () => import('@react-pdf/renderer').then((m) => m.PDFDownloadLink),
+  { ssr: false, loading: () => <Button variant="outline" size="sm" disabled>Loading PDF…</Button> }
+)
+
+const QuotationDocument = dynamic(
+  () => import('./SoQuotationPdf').then((m) => m.QuotationDocument),
+  { ssr: false }
+) as any
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
@@ -263,6 +274,25 @@ export function SoDetailDialog({ open, onOpenChange, so, onEdit, onConfirm }: So
                 <Button variant="outline" size="sm" disabled={isLoading} onClick={() => { onEdit(current); onOpenChange(false) }}>
                   Edit SO
                 </Button>
+              )}
+              {(current?.status === 'quotation' || current?.status === 'pending_approval') && fullSO && (
+                <PDFDownloadLink
+                  document={
+                    <QuotationDocument
+                      so={fullSO}
+                      lines={fullSO.sale_order_lines ?? []}
+                      customerName={current.customer_name ?? ''}
+                      customerPhone={current.customer_phone ?? null}
+                    />
+                  }
+                  fileName={`Quotation-${current.so_number}.pdf`}
+                >
+                  {({ loading }: { loading: boolean }) => (
+                    <Button variant="outline" size="sm" disabled={loading}>
+                      {loading ? 'Preparing…' : 'Download PDF'}
+                    </Button>
+                  )}
+                </PDFDownloadLink>
               )}
               <Button variant="outline" size="sm" onClick={() => onOpenChange(false)}>
                 Close

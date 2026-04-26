@@ -293,13 +293,14 @@ export function useSaleOrder(id: string | null) {
       const supabase = createClient()
       const { data, error } = await (supabase as any)
         .from('sale_orders')
-        .select('*, sale_order_lines(*), sale_deliveries(*), customers(name, email, customer_number)')
+        .select('*, sale_order_lines(*), sale_deliveries(*), customers(name, phone, email, customer_number)')
         .eq('id', id!)
         .single()
       if (error) throw error
       return {
         ...data,
-        customer_name: data.customers?.name ?? null,
+        customer_name:  data.customers?.name  ?? null,
+        customer_phone: data.customers?.phone ?? null,
       } as SaleOrder
     },
     enabled: !!id,
