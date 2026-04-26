@@ -148,14 +148,15 @@ export default function CreateSOPage() {
   function confirmOrder() {
     if (!validate()) return
     createSO.mutate(buildPayload('confirm'), {
-      onSuccess: () => { toast.success('Order confirmed'); router.push('/sales/orders') },
-      onError: (err) => {
-        if (err.message?.includes('credit_exceeded')) {
-          toast.error('Cannot confirm — exceeds credit limit. Check available credit.')
+      onSuccess: (result) => {
+        if (result.status === 'pending_approval') {
+          toast.warning(`Submitted for approval — exceeds credit limit (available: ${fmtAmt(result.available, 'QAR')}). Owner must approve before order is confirmed.`)
         } else {
-          toast.error(err.message)
+          toast.success('Order confirmed')
         }
+        router.push('/sales/orders')
       },
+      onError: (err) => toast.error(err.message),
     })
   }
 
