@@ -151,7 +151,7 @@ Purchase & Sales▾:
 
 ## 🔄 In Progress
 
-🚀 Starting: **[Cascade Inventory Selector Plan] Task 4: Wire CascadeInventorySelector into PoLineItemsEditor + surface price-loading state**
+✅ **[Cascade Inventory Selector Plan] Task 4: Wire CascadeInventorySelector into PoLineItemsEditor + surface price-loading state** — COMPLETE
 
 **LC Page Enhancements Plan (2026-04-25-lc-page-enhancements.md)** — COMPLETE ✅
 - [x] Task 0: Setup — merge develop
@@ -235,6 +235,7 @@ Purchase & Sales▾:
 
 ## ✅ Completed
 
+- [2026-04-26] **Cascade Inventory Selector Plan Task 4: Wire CascadeInventorySelector into PoLineItemsEditor** — `src/components/purchase/PoLineItemsEditor.tsx` — Replaced InventoryItemLookup with CascadeInventorySelector; added onPriceLoading prop to interface + signature; added priceLoadingKeys Set state + handleRowPriceLoading aggregator; tsc --noEmit clean
 - [2026-04-26] **Cascade Inventory Selector Plan Task 2: Create useBrandVariantAncestry hook** — `src/hooks/useBrandVariantAncestry.ts` — TanStack Query reverse-lookup hook for brand variant ancestry (item + category) by variantId; nested FK select joins inventory_items and inventory_categories tables; 10-minute staleTime cache; tsc --noEmit clean
 - [2026-04-25] **LC Revert & Price Review Tasks 1–5** — `supabase/migrations/20260425000300_lc_revert_and_margin.sql`, `src/hooks/useLandedCosts.ts`, `src/hooks/useInventory.ts`, `src/components/services/inventory/BrandVariantEditDialog.tsx`, `src/app/(dashboard)/purchase/landed-costs/page.tsx` — revert_snapshot on landed_costs, margin_percent on brand_variants, revert_landed_cost RPC, Revert Apply button with REVERT-to-confirm guard, post-apply PriceReviewDialog with per-row margin/fixed choice and batch selling price update
 - [2026-04-25] **LC Page Enhancements Tasks 0–8** — `supabase/migrations/20260425000200_lc_bills_bucket.sql`, `supabase/migrations/20260425000201_rpc_validate_lc_allocation.sql`, `src/hooks/useReceivals.ts`, `src/hooks/useLandedCosts.ts`, `src/app/(dashboard)/purchase/landed-costs/page.tsx` — Private lc-bills bucket with role-based RLS, validate_lc_allocation pre-flight RPC, decimal.js totals, useRef-based bill upload with 5 MB guard + date-structured paths, expandable receival items (remaining FIFO qty) in Create dialog, all_items_sold badge + bill signed-URL links + attached receivals/PO breakdown + apply pre-flight table in Detail dialog
