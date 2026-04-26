@@ -19,10 +19,16 @@ import {
   useInventoryBrandVariants,
   type InventoryCategory,
   type InventoryItem,
+  type BrandVariant,
 } from '@/hooks/useInventory'
 import { useBrandVariantAncestry } from '@/hooks/useBrandVariantAncestry'
 import type { InventoryLookupResult } from '@/hooks/usePurchaseOrders'
 import type { LineType } from './PoLineItemsEditor'
+import {
+  CascadeNewCategoryForm,
+  CascadeNewItemForm,
+  CascadeNewVariantForm,
+} from './CascadeInlineForms'
 
 interface CascadeInventorySelectorProps {
   lineType: LineType
@@ -65,6 +71,10 @@ export function CascadeInventorySelector({
 
   const [selectedVariantCode,  setSelectedVariantCode]  = useState<string | null>(null)
   const [selectedVariantBrand, setSelectedVariantBrand] = useState<string | null>(null)
+
+  const [isCatCreating,  setIsCatCreating]  = useState(false)
+  const [isItemCreating, setIsItemCreating] = useState(false)
+  const [isVarCreating,  setIsVarCreating]  = useState(false)
 
   const { data: categories = [], isLoading: catsLoading } =
     useInventoryCategoriesByType(lineType)
@@ -135,6 +145,26 @@ export function CascadeInventorySelector({
     setSelectedItem(null)
     setSelectedVariantCode(null)
     setSelectedVariantBrand(null)
+  }
+
+  function handleCategoryCreated(cat: InventoryCategory) {
+    setSelectedCategory(cat)
+    setSelectedItem(null)
+    setIsCatCreating(false)
+    setCatOpen(false)
+    setItemOpen(true)
+  }
+
+  function handleItemCreated(item: InventoryItem) {
+    setSelectedItem(item)
+    setIsItemCreating(false)
+    setItemOpen(false)
+    setVarOpen(true)
+  }
+
+  function handleVariantCreated(variant: BrandVariant) {
+    handleVariantSelect(variant as any)
+    setIsVarCreating(false)
   }
 
   // ── PILL ───────────────────────────────────────────────────────────────────
@@ -208,7 +238,7 @@ export function CascadeInventorySelector({
   return (
     <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
       {/* Step 1 — Category */}
-      <Popover open={catOpen} onOpenChange={setCatOpen}>
+      <Popover open={catOpen} onOpenChange={(open) => { setCatOpen(open); if (!open) setIsCatCreating(false) }}>
         <PopoverTrigger
           className={triggerCls}
           render={(props) => <button type="button" {...props} />}
@@ -219,38 +249,57 @@ export function CascadeInventorySelector({
           <ChevronsUpDown className="ml-1 h-3 w-3 shrink-0 opacity-50" />
         </PopoverTrigger>
         <PopoverContent className="w-56 p-0" align="start">
-          <Command>
-            <CommandInput placeholder="Search category…" className="h-8 text-xs" />
-            <CommandEmpty className="py-2 text-xs text-center text-muted-foreground">
-              No categories found.
-            </CommandEmpty>
-            <CommandGroup>
-              {categories.map((cat) => (
-                <CommandItem
-                  key={cat.id}
-                  value={cat.name_en}
-                  onSelect={() => {
-                    setSelectedCategory(cat)
-                    setSelectedItem(null)
-                    onChange(null)
-                    setCatOpen(false)
-                  }}
-                  className="text-xs"
+          {isCatCreating ? (
+            <CascadeNewCategoryForm
+              lineType={lineType}
+              onCreated={handleCategoryCreated}
+              onCancel={() => setIsCatCreating(false)}
+            />
+          ) : (
+            <>
+              <Command>
+                <CommandInput placeholder="Search category…" className="h-8 text-xs" />
+                <CommandEmpty className="py-2 text-xs text-center text-muted-foreground">
+                  No categories found.
+                </CommandEmpty>
+                <CommandGroup>
+                  {categories.map((cat) => (
+                    <CommandItem
+                      key={cat.id}
+                      value={cat.name_en}
+                      onSelect={() => {
+                        setSelectedCategory(cat)
+                        setSelectedItem(null)
+                        onChange(null)
+                        setCatOpen(false)
+                      }}
+                      className="text-xs"
+                    >
+                      <Check className={cn('mr-2 h-3 w-3 shrink-0', selectedCategory?.id === cat.id ? 'opacity-100' : 'opacity-0')} />
+                      <div>
+                        <div>{cat.name_en}</div>
+                        {cat.name_ar && <div className="text-muted-foreground">{cat.name_ar}</div>}
+                      </div>
+                    </CommandItem>
+                  ))}
+                </CommandGroup>
+              </Command>
+              <div className="border-t px-2 py-1.5">
+                <button
+                  type="button"
+                  className="w-full text-left text-xs text-muted-foreground hover:text-foreground py-1 px-2 rounded hover:bg-accent"
+                  onClick={() => setIsCatCreating(true)}
                 >
-                  <Check className={cn('mr-2 h-3 w-3 shrink-0', selectedCategory?.id === cat.id ? 'opacity-100' : 'opacity-0')} />
-                  <div>
-                    <div>{cat.name_en}</div>
-                    {cat.name_ar && <div className="text-muted-foreground">{cat.name_ar}</div>}
-                  </div>
-                </CommandItem>
-              ))}
-            </CommandGroup>
-          </Command>
+                  + Add new category
+                </button>
+              </div>
+            </>
+          )}
         </PopoverContent>
       </Popover>
 
       {/* Step 2 — Item */}
-      <Popover open={itemOpen} onOpenChange={setItemOpen}>
+      <Popover open={itemOpen} onOpenChange={(open) => { setItemOpen(open); if (!open) setIsItemCreating(false) }}>
         <PopoverTrigger
           className={cn(triggerCls, !selectedCategory && 'pointer-events-none opacity-50')}
           render={(props) => <button type="button" disabled={!selectedCategory} {...props} />}
@@ -261,37 +310,64 @@ export function CascadeInventorySelector({
           <ChevronsUpDown className="ml-1 h-3 w-3 shrink-0 opacity-50" />
         </PopoverTrigger>
         <PopoverContent className="w-64 p-0" align="start">
-          <Command>
-            <CommandInput placeholder="Search item…" className="h-8 text-xs" />
-            <CommandEmpty className="py-2 text-xs text-center text-muted-foreground">
-              No items found.
-            </CommandEmpty>
-            <CommandGroup>
-              {items.map((item) => (
-                <CommandItem
-                  key={item.id}
-                  value={item.name_en}
-                  onSelect={() => {
-                    setSelectedItem(item)
-                    onChange(null)
-                    setItemOpen(false)
-                  }}
-                  className="text-xs"
+          {isItemCreating ? (
+            <CascadeNewItemForm
+              categoryId={selectedCategory!.id}
+              onCreated={handleItemCreated}
+              onCancel={() => setIsItemCreating(false)}
+            />
+          ) : (
+            <>
+              <Command>
+                <CommandInput placeholder="Search item…" className="h-8 text-xs" />
+                <CommandEmpty className="py-2 text-xs text-center text-muted-foreground">
+                  {itemsLoading ? 'Loading…' : 'No items found.'}
+                </CommandEmpty>
+                <CommandGroup>
+                  {itemsLoading ? (
+                    <div className="px-2 py-1.5 space-y-1">
+                      {[1, 2, 3].map((n) => (
+                        <div key={n} className="h-6 rounded bg-muted animate-pulse" />
+                      ))}
+                    </div>
+                  ) : (
+                    items.map((item) => (
+                      <CommandItem
+                        key={item.id}
+                        value={item.name_en}
+                        onSelect={() => {
+                          setSelectedItem(item)
+                          onChange(null)
+                          setItemOpen(false)
+                        }}
+                        className="text-xs"
+                      >
+                        <Check className={cn('mr-2 h-3 w-3 shrink-0', selectedItem?.id === item.id ? 'opacity-100' : 'opacity-0')} />
+                        <div>
+                          <div>{item.name_en}</div>
+                          {item.name_ar && <div className="text-muted-foreground">{item.name_ar}</div>}
+                        </div>
+                      </CommandItem>
+                    ))
+                  )}
+                </CommandGroup>
+              </Command>
+              <div className="border-t px-2 py-1.5">
+                <button
+                  type="button"
+                  className="w-full text-left text-xs text-muted-foreground hover:text-foreground py-1 px-2 rounded hover:bg-accent"
+                  onClick={() => setIsItemCreating(true)}
                 >
-                  <Check className={cn('mr-2 h-3 w-3 shrink-0', selectedItem?.id === item.id ? 'opacity-100' : 'opacity-0')} />
-                  <div>
-                    <div>{item.name_en}</div>
-                    {item.name_ar && <div className="text-muted-foreground">{item.name_ar}</div>}
-                  </div>
-                </CommandItem>
-              ))}
-            </CommandGroup>
-          </Command>
+                  + Add new item
+                </button>
+              </div>
+            </>
+          )}
         </PopoverContent>
       </Popover>
 
       {/* Step 3 — Brand / Variant */}
-      <Popover open={varOpen} onOpenChange={setVarOpen}>
+      <Popover open={varOpen} onOpenChange={(open) => { setVarOpen(open); if (!open) setIsVarCreating(false) }}>
         <PopoverTrigger
           className={cn(triggerCls, !selectedItem && 'pointer-events-none opacity-50')}
           render={(props) => <button type="button" disabled={!selectedItem} {...props} />}
@@ -302,27 +378,54 @@ export function CascadeInventorySelector({
           <ChevronsUpDown className="ml-1 h-3 w-3 shrink-0 opacity-50" />
         </PopoverTrigger>
         <PopoverContent className="w-56 p-0" align="start">
-          <Command>
-            <CommandInput placeholder="Search brand…" className="h-8 text-xs" />
-            <CommandEmpty className="py-2 text-xs text-center text-muted-foreground">
-              No variants found.
-            </CommandEmpty>
-            <CommandGroup>
-              {variants.map((v) => (
-                <CommandItem
-                  key={v.id}
-                  value={`${v.brand} ${v.code ?? ''}`}
-                  onSelect={() => handleVariantSelect(v)}
-                  className="text-xs"
+          {isVarCreating ? (
+            <CascadeNewVariantForm
+              itemId={selectedItem!.id}
+              onCreated={handleVariantCreated}
+              onCancel={() => setIsVarCreating(false)}
+            />
+          ) : (
+            <>
+              <Command>
+                <CommandInput placeholder="Search brand…" className="h-8 text-xs" />
+                <CommandEmpty className="py-2 text-xs text-center text-muted-foreground">
+                  {varsLoading ? 'Loading…' : 'No variants found.'}
+                </CommandEmpty>
+                <CommandGroup>
+                  {varsLoading ? (
+                    <div className="px-2 py-1.5 space-y-1">
+                      {[1, 2, 3].map((n) => (
+                        <div key={n} className="h-6 rounded bg-muted animate-pulse" />
+                      ))}
+                    </div>
+                  ) : (
+                    variants.map((v) => (
+                      <CommandItem
+                        key={v.id}
+                        value={`${v.brand} ${v.code ?? ''}`}
+                        onSelect={() => handleVariantSelect(v)}
+                        className="text-xs"
+                      >
+                        <div>
+                          <div className="font-medium">{v.brand}</div>
+                          {v.code && <div className="text-muted-foreground">{v.code}</div>}
+                        </div>
+                      </CommandItem>
+                    ))
+                  )}
+                </CommandGroup>
+              </Command>
+              <div className="border-t px-2 py-1.5">
+                <button
+                  type="button"
+                  className="w-full text-left text-xs text-muted-foreground hover:text-foreground py-1 px-2 rounded hover:bg-accent"
+                  onClick={() => setIsVarCreating(true)}
                 >
-                  <div>
-                    <div className="font-medium">{v.brand}</div>
-                    {v.code && <div className="text-muted-foreground">{v.code}</div>}
-                  </div>
-                </CommandItem>
-              ))}
-            </CommandGroup>
-          </Command>
+                  + Add new brand / variant
+                </button>
+              </div>
+            </>
+          )}
         </PopoverContent>
       </Popover>
     </div>
