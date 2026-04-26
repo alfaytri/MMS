@@ -2,11 +2,11 @@
 
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
-**Goal:** Replace the free-text `InventoryItemLookup` in PO line items with a cascading Category → Item → Brand/Variant selector that uses cached TanStack Query hooks, supports backward lookup on reload, and shows Arabic subtitles.
+**Goal:** Replace the free-text `InventoryItemLookup` in PO line items with a cascading Category → Item → Brand/Variant selector that uses cached TanStack Query hooks, supports backward lookup on reload, shows Arabic subtitles, and prevents saving while a price fetch is in flight.
 
-**Architecture:** One new hook (`useBrandVariantAncestry`) handles reverse lookup when loading a saved PO. One new component (`CascadeInventorySelector`) renders three chained shadcn Command/Popover comboboxes. `PoLineItemsEditor` swaps the old lookup for the new component with no change to the `handleInventorySelect` callback.
+**Architecture:** One new hook (`useBrandVariantAncestry`) handles reverse lookup when loading a saved PO. One new component (`CascadeInventorySelector`) renders three chained shadcn Command/Popover comboboxes and exposes an `onPriceLoading` callback so the parent page can block submission during async cost fetch. `PoLineItemsEditor` tracks per-row loading state and surfaces a single boolean upward. A companion migration adds an ATP guard to `apply_receival_edit`.
 
-**Tech Stack:** React, TanStack Query, shadcn/ui (`Command`, `Popover`, `Button`), Supabase JS client, TypeScript
+**Tech Stack:** React, TanStack Query, shadcn/ui (`Command`, `Popover`, `Button`), Supabase JS client, TypeScript, PostgreSQL
 
 ---
 
@@ -16,8 +16,10 @@
 |--------|------|---------|
 | Modify | `src/hooks/usePurchaseOrders.ts` | Extend `InventoryLookupResult` with `category_name`, `category_name_ar`, `brand` |
 | Create | `src/hooks/useBrandVariantAncestry.ts` | Reverse-lookup hook: variant id → item → category |
-| Create | `src/components/purchase/CascadeInventorySelector.tsx` | Three-step cascade component |
-| Modify | `src/components/purchase/PoLineItemsEditor.tsx` | Swap `InventoryItemLookup` → `CascadeInventorySelector` |
+| Create | `src/components/purchase/CascadeInventorySelector.tsx` | Three-step cascade component with price-loading callback |
+| Modify | `src/components/purchase/PoLineItemsEditor.tsx` | Swap lookup, track per-row price loading, surface `onPriceLoading` |
+| Modify | `src/app/(dashboard)/purchase/create-po/page.tsx` | Disable submit while any row price is loading |
+| Create | `supabase/migrations/20260426000003_fix_apply_receival_edit_atp_guard.sql` | Add ATP (available-to-promise) guard to apply_receival_edit RPC |
 
 ---
 
@@ -28,7 +30,7 @@
 
 - [ ] **Step 1: Locate and update the type**
 
-Open `src/hooks/usePurchaseOrders.ts`. Find the `InventoryLookupResult` export (used by `InventoryItemLookup` and `handleInventorySelect`). Add three optional fields:
+Open `src/hooks/usePurchaseOrders.ts`. Find the `InventoryLookupResult` export and add three ancestry fields:
 
 ```typescript
 export type InventoryLookupResult = {
@@ -39,23 +41,22 @@ export type InventoryLookupResult = {
   unit:             string
   cost_price:       number
   selling_price:    number
-  // Ancestry fields — populated by CascadeInventorySelector on fresh selection;
-  // null when reconstructed from a saved PO (backward lookup handles display).
+  // Populated on fresh cascade selection; null when rebuilt from a saved PO row.
+  // The backward lookup hook (useBrandVariantAncestry) resolves display at render time.
   category_name:    string | null
   category_name_ar: string | null
   brand:            string | null
 }
 ```
 
-- [ ] **Step 2: Verify the build compiles**
+- [ ] **Step 2: Fix any construction sites that now miss the new fields**
 
+Run:
 ```bash
 npx tsc --noEmit 2>&1 | head -30
 ```
 
-Expected: zero errors (the new fields are optional-compatible because existing callers that construct `InventoryLookupResult` literals will need the three new fields). If you see errors about missing fields in `InventoryItemLookup.tsx` or `PoLineItemsEditor.tsx`, add `category_name: null, category_name_ar: null, brand: null` to those sites.
-
-The one place that constructs this type in `PoLineItemsEditor.tsx` (the `value` prop built from `row.*`) will be updated in Task 4.
+If errors appear about object literals missing `category_name / category_name_ar / brand`, find those sites and add `category_name: null, category_name_ar: null, brand: null`. The one in `PoLineItemsEditor.tsx` is handled in Task 4.
 
 - [ ] **Step 3: Commit**
 
@@ -145,9 +146,13 @@ git commit -m "feat(hooks): add useBrandVariantAncestry for cascade pill backwar
 **Files:**
 - Create: `src/components/purchase/CascadeInventorySelector.tsx`
 
-The component has two render paths:
-1. **Pill** — when `value` is set; uses ancestry hook for display when loaded from a saved PO
+Two render paths:
+1. **Pill** — `value` is set; ancestry hook fills display when loaded from saved PO
 2. **Cascade** — three chained Command/Popover comboboxes
+
+Key behaviours addressed here:
+- `fetchLastFifoCost` orders by `date DESC, created_at DESC, id DESC` (deterministic even when multiple shipments share a date)
+- `handleVariantSelect` sets `isPriceLoading` around the async fetch and calls `onPriceLoading` to notify the parent
 
 - [ ] **Step 1: Create the component file**
 
@@ -181,15 +186,20 @@ interface CascadeInventorySelectorProps {
   lineType: LineType
   value: InventoryLookupResult | null
   onChange: (item: InventoryLookupResult | null) => void
+  onPriceLoading?: (loading: boolean) => void
 }
 
+// Orders by date DESC, created_at DESC, id DESC to be deterministic when
+// multiple FIFO layers share the same date (e.g. two shipments in one day).
 async function fetchLastFifoCost(variantId: string): Promise<number> {
   const supabase = createClient()
   const { data } = await (supabase as any)
     .from('fifo_cost_layers')
     .select('total_unit_cost')
     .eq('brand_variant_id', variantId)
-    .order('date', { ascending: false })
+    .order('date',       { ascending: false })
+    .order('created_at', { ascending: false })
+    .order('id',         { ascending: false })
     .limit(1)
     .maybeSingle()
   return (data as any)?.total_unit_cost ?? 0
@@ -199,12 +209,14 @@ export function CascadeInventorySelector({
   lineType,
   value,
   onChange,
+  onPriceLoading,
 }: CascadeInventorySelectorProps) {
-  const [categoryId, setCategoryId] = useState<string | null>(null)
-  const [itemId,     setItemId]     = useState<string | null>(null)
-  const [catOpen,    setCatOpen]    = useState(false)
-  const [itemOpen,   setItemOpen]   = useState(false)
-  const [varOpen,    setVarOpen]    = useState(false)
+  const [categoryId,    setCategoryId]    = useState<string | null>(null)
+  const [itemId,        setItemId]        = useState<string | null>(null)
+  const [catOpen,       setCatOpen]       = useState(false)
+  const [itemOpen,      setItemOpen]      = useState(false)
+  const [varOpen,       setVarOpen]       = useState(false)
+  const [isPriceLoading, setIsPriceLoading] = useState(false)
 
   const { data: categories = [], isLoading: catsLoading } =
     useInventoryCategoriesByType(lineType)
@@ -213,8 +225,8 @@ export function CascadeInventorySelector({
   const { data: variants = [], isLoading: varsLoading } =
     useInventoryBrandVariants(itemId)
 
-  // Backward lookup: fires only when value is set but we have no internal state
-  // (i.e. the PO was loaded from the database, not freshly selected this session).
+  // Backward lookup: fires only when value exists but cascade state is absent
+  // (i.e. PO loaded from DB rather than freshly selected in this session).
   const { data: ancestry, isLoading: ancestryLoading } = useBrandVariantAncestry(
     value && !categoryId ? value.brand_variant_id : null
   )
@@ -230,24 +242,47 @@ export function CascadeInventorySelector({
     selling_price: number | null
   }) {
     if (!selectedItem || !selectedCategory) return
+    setVarOpen(false)
 
     const rawCost = variant.cost_price ?? 0
-    const effectiveCost =
-      rawCost > 0 ? rawCost : await fetchLastFifoCost(variant.id)
+    if (rawCost > 0) {
+      onChange({
+        brand_variant_id: variant.id,
+        item_name:        selectedItem.name_en,
+        item_name_ar:     selectedItem.name_ar ?? null,
+        sku:              variant.code ?? '',
+        unit:             selectedItem.unit,
+        cost_price:       rawCost,
+        selling_price:    variant.selling_price ?? 0,
+        category_name:    selectedCategory.name_en,
+        category_name_ar: selectedCategory.name_ar ?? null,
+        brand:            variant.brand,
+      })
+      return
+    }
 
-    onChange({
-      brand_variant_id: variant.id,
-      item_name:        selectedItem.name_en,
-      item_name_ar:     selectedItem.name_ar ?? null,
-      sku:              variant.code ?? '',
-      unit:             selectedItem.unit,
-      cost_price:       effectiveCost,
-      selling_price:    variant.selling_price ?? 0,
-      category_name:    selectedCategory.name_en,
-      category_name_ar: selectedCategory.name_ar ?? null,
-      brand:            variant.brand,
-    })
-    setVarOpen(false)
+    // cost_price is 0 or null — fetch last FIFO cost asynchronously.
+    // Signal the parent to block submission while the fetch is in flight.
+    setIsPriceLoading(true)
+    onPriceLoading?.(true)
+    try {
+      const effectiveCost = await fetchLastFifoCost(variant.id)
+      onChange({
+        brand_variant_id: variant.id,
+        item_name:        selectedItem.name_en,
+        item_name_ar:     selectedItem.name_ar ?? null,
+        sku:              variant.code ?? '',
+        unit:             selectedItem.unit,
+        cost_price:       effectiveCost,
+        selling_price:    variant.selling_price ?? 0,
+        category_name:    selectedCategory.name_en,
+        category_name_ar: selectedCategory.name_ar ?? null,
+        brand:            variant.brand,
+      })
+    } finally {
+      setIsPriceLoading(false)
+      onPriceLoading?.(false)
+    }
   }
 
   function handleClear() {
@@ -258,8 +293,6 @@ export function CascadeInventorySelector({
 
   // ── PILL ───────────────────────────────────────────────────────────────────
   if (value) {
-    // Prefer internal cascade state; fall back to backward-lookup ancestry;
-    // fall back to fields stored on the value itself (set during fresh selection).
     const categoryLabel =
       selectedCategory?.name_en ??
       ancestry?.inventory_items?.inventory_categories?.name_en ??
@@ -275,7 +308,11 @@ export function CascadeInventorySelector({
 
     return (
       <div className="flex items-center gap-2 rounded-md border border-input bg-background px-3 py-1.5 text-sm min-h-[32px]">
-        {ancestryLoading && !categoryLabel ? (
+        {isPriceLoading ? (
+          <span className="flex-1 text-xs text-muted-foreground animate-pulse">
+            Fetching price…
+          </span>
+        ) : ancestryLoading && !categoryLabel ? (
           <span className="flex-1 h-4 rounded bg-muted animate-pulse" />
         ) : (
           <div className="flex-1 min-w-0">
@@ -311,6 +348,7 @@ export function CascadeInventorySelector({
           size="icon"
           className="h-5 w-5 shrink-0"
           onClick={handleClear}
+          disabled={isPriceLoading}
         >
           <X className="h-3 w-3" />
         </Button>
@@ -331,9 +369,7 @@ export function CascadeInventorySelector({
             className="h-8 justify-between text-xs font-normal w-full"
           >
             <span className="truncate">
-              {catsLoading
-                ? 'Loading…'
-                : (selectedCategory?.name_en ?? 'Category…')}
+              {catsLoading ? 'Loading…' : (selectedCategory?.name_en ?? 'Category…')}
             </span>
             <ChevronsUpDown className="ml-1 h-3 w-3 shrink-0 opacity-50" />
           </Button>
@@ -357,17 +393,10 @@ export function CascadeInventorySelector({
                   }}
                   className="text-xs"
                 >
-                  <Check
-                    className={cn(
-                      'mr-2 h-3 w-3 shrink-0',
-                      categoryId === cat.id ? 'opacity-100' : 'opacity-0'
-                    )}
-                  />
+                  <Check className={cn('mr-2 h-3 w-3 shrink-0', categoryId === cat.id ? 'opacity-100' : 'opacity-0')} />
                   <div>
                     <div>{cat.name_en}</div>
-                    {cat.name_ar && (
-                      <div className="text-muted-foreground">{cat.name_ar}</div>
-                    )}
+                    {cat.name_ar && <div className="text-muted-foreground">{cat.name_ar}</div>}
                   </div>
                 </CommandItem>
               ))}
@@ -387,9 +416,7 @@ export function CascadeInventorySelector({
             className="h-8 justify-between text-xs font-normal w-full"
           >
             <span className="truncate">
-              {itemsLoading
-                ? 'Loading…'
-                : (selectedItem?.name_en ?? 'Item…')}
+              {itemsLoading ? 'Loading…' : (selectedItem?.name_en ?? 'Item…')}
             </span>
             <ChevronsUpDown className="ml-1 h-3 w-3 shrink-0 opacity-50" />
           </Button>
@@ -412,17 +439,10 @@ export function CascadeInventorySelector({
                   }}
                   className="text-xs"
                 >
-                  <Check
-                    className={cn(
-                      'mr-2 h-3 w-3 shrink-0',
-                      itemId === item.id ? 'opacity-100' : 'opacity-0'
-                    )}
-                  />
+                  <Check className={cn('mr-2 h-3 w-3 shrink-0', itemId === item.id ? 'opacity-100' : 'opacity-0')} />
                   <div>
                     <div>{item.name_en}</div>
-                    {item.name_ar && (
-                      <div className="text-muted-foreground">{item.name_ar}</div>
-                    )}
+                    {item.name_ar && <div className="text-muted-foreground">{item.name_ar}</div>}
                   </div>
                 </CommandItem>
               ))}
@@ -463,9 +483,7 @@ export function CascadeInventorySelector({
                 >
                   <div>
                     <div className="font-medium">{v.brand}</div>
-                    {v.code && (
-                      <div className="text-muted-foreground">{v.code}</div>
-                    )}
+                    {v.code && <div className="text-muted-foreground">{v.code}</div>}
                   </div>
                 </CommandItem>
               ))}
@@ -485,9 +503,8 @@ npx tsc --noEmit 2>&1 | head -40
 ```
 
 Expected: no errors. Common issues:
-- `useInventoryItemsByCategory` not exported from `useInventory` — check the exact export name in `src/hooks/useInventory.ts`
-- `useInventoryBrandVariants` — same check
-- If `Command*` imports fail, check the exact shadcn import path in the project (may be `@/components/ui/command`)
+- `useInventoryItemsByCategory` / `useInventoryBrandVariants` — verify exact export names in `src/hooks/useInventory.ts`
+- `Command*` imports — path may be `@/components/ui/command`
 
 - [ ] **Step 3: Commit**
 
@@ -498,34 +515,51 @@ git commit -m "feat(purchase): add CascadeInventorySelector — Category > Item 
 
 ---
 
-## Task 4: Wire CascadeInventorySelector into PoLineItemsEditor
+## Task 4: Wire CascadeInventorySelector into PoLineItemsEditor + surface price-loading state
 
 **Files:**
 - Modify: `src/components/purchase/PoLineItemsEditor.tsx`
 
-- [ ] **Step 1: Swap the import**
+- [ ] **Step 1: Add `onPriceLoading` to the editor's props and state**
 
-At the top of `src/components/purchase/PoLineItemsEditor.tsx`, replace:
+In `src/components/purchase/PoLineItemsEditor.tsx`, add to the `PoLineItemsEditorProps` interface and the component signature:
 
+```typescript
+// Add to interface:
+interface PoLineItemsEditorProps {
+  value: LineItemRow[]
+  onChange: (rows: LineItemRow[]) => void
+  currency: string
+  readOnly?: boolean
+  onPriceLoading?: (loading: boolean) => void   // NEW
+}
+
+// Add inside the component body, before the return:
+const [priceLoadingKeys, setPriceLoadingKeys] = useState<Set<string>>(new Set())
+
+function handleRowPriceLoading(key: string, loading: boolean) {
+  setPriceLoadingKeys((prev) => {
+    const next = new Set(prev)
+    loading ? next.add(key) : next.delete(key)
+    onPriceLoading?.(next.size > 0)
+    return next
+  })
+}
+```
+
+- [ ] **Step 2: Swap the import and replace the JSX**
+
+Replace:
 ```typescript
 import { InventoryItemLookup, type InventoryLookupResult } from './InventoryItemLookup'
 ```
-
 with:
-
 ```typescript
 import { CascadeInventorySelector } from './CascadeInventorySelector'
-```
-
-The `InventoryLookupResult` type is now imported from `usePurchaseOrders` (already used elsewhere in the file, or add the import):
-
-```typescript
 import type { InventoryLookupResult } from '@/hooks/usePurchaseOrders'
 ```
 
-- [ ] **Step 2: Replace the lookup usage in the JSX**
-
-Find the `isInventory ? (` block (around line 221). Replace the `<InventoryItemLookup ... />` with `<CascadeInventorySelector ... />`, and add the three new ancestry fields as `null` (the backward lookup resolves them at render time):
+Find the `isInventory ? (` block and replace `<InventoryItemLookup ... />` with:
 
 ```tsx
 ) : isInventory ? (
@@ -548,6 +582,7 @@ Find the `isInventory ? (` block (around line 221). Replace the `<InventoryItemL
         : null
     }
     onChange={(item) => handleInventorySelect(row._key, item)}
+    onPriceLoading={(loading) => handleRowPriceLoading(row._key, loading)}
   />
 ) : (
   <ToolAssetLookup
@@ -561,49 +596,382 @@ npx tsc --noEmit 2>&1 | head -40
 
 Expected: no errors.
 
-- [ ] **Step 4: Manual smoke test**
-
-Open the app at `http://localhost:3000/purchase/create-po`.
-
-1. Click **+ Products** to add a row
-2. Verify Row A shows three disabled buttons: `Category… | Item… | Brand / Variant…`
-3. Click **Category…** → popover opens, type to filter, select a category
-4. **Item…** button becomes enabled → click it, select an item
-5. **Brand / Variant…** becomes enabled → click it, select a variant
-6. Row A collapses to a pill: `CategoryName › ItemName · Brand Code`
-7. Row B auto-fills: vendor name, SKU, unit, unit price
-8. Click × on the pill → cascade resets to three empty buttons
-9. Open a saved Draft PO that has an existing product line item
-10. Verify the pill renders correctly (backward lookup fires, shows category name)
-
-- [ ] **Step 5: Commit**
+- [ ] **Step 4: Commit**
 
 ```bash
 git add src/components/purchase/PoLineItemsEditor.tsx
-git commit -m "feat(purchase): wire CascadeInventorySelector into PoLineItemsEditor"
+git commit -m "feat(purchase): wire CascadeInventorySelector, surface onPriceLoading to parent"
+```
+
+---
+
+## Task 5: Disable submit while price is loading (create-po page)
+
+**Files:**
+- Modify: `src/app/(dashboard)/purchase/create-po/page.tsx`
+
+- [ ] **Step 1: Add `isPriceLoading` state**
+
+In the create-po page component, add:
+
+```typescript
+const [isPriceLoading, setIsPriceLoading] = useState(false)
+```
+
+- [ ] **Step 2: Pass `onPriceLoading` to `PoLineItemsEditor`**
+
+Find the `<PoLineItemsEditor` usage in the JSX and add the prop:
+
+```tsx
+<PoLineItemsEditor
+  value={lineItems}
+  onChange={setLineItems}
+  currency={currency}
+  onPriceLoading={setIsPriceLoading}
+/>
+```
+
+- [ ] **Step 3: Disable the submit buttons while loading**
+
+Find the "Save as RFQ / Draft" and "Submit for Approval" buttons. Add `disabled={isPriceLoading}` to both:
+
+```tsx
+<Button
+  variant="outline"
+  disabled={isSubmitting || isPriceLoading}
+  onClick={() => handleSubmit('rfq')}
+>
+  Save as RFQ / Draft
+</Button>
+<Button
+  disabled={isSubmitting || isPriceLoading}
+  onClick={() => handleSubmit('pending_approval')}
+>
+  {isPriceLoading ? 'Fetching price…' : 'Submit for Approval'}
+</Button>
+```
+
+- [ ] **Step 4: Verify TypeScript**
+
+```bash
+npx tsc --noEmit 2>&1 | head -40
+```
+
+Expected: no errors.
+
+- [ ] **Step 5: Manual smoke test**
+
+1. Open Create PO, add a Products line item
+2. Select a variant whose `cost_price` is 0 (or temporarily set one to 0 in the DB)
+3. Observe Row A shows "Fetching price…" and the submit buttons are disabled while the FIFO fetch runs
+4. Once the price resolves, buttons re-enable and Row B shows the fetched price
+
+- [ ] **Step 6: Commit**
+
+```bash
+git add src/app/(dashboard)/purchase/create-po/page.tsx
+git commit -m "feat(purchase): disable PO submit while cascade selector fetches fallback price"
+```
+
+---
+
+## Task 6: ATP guard migration for apply_receival_edit
+
+**Files:**
+- Create: `supabase/migrations/20260426000003_fix_apply_receival_edit_atp_guard.sql`
+
+When reducing a receival quantity, the RPC must verify that the resulting `stock_level` will not fall below `reserved_qty`. Without this, an edit could produce negative available-to-promise stock while appearing to succeed.
+
+- [ ] **Step 1: Create the migration**
+
+```sql
+-- supabase/migrations/20260426000003_fix_apply_receival_edit_atp_guard.sql
+--
+-- RISK: apply_receival_edit allows qty decreases that would drop stock_level
+-- below reserved_qty, producing negative available (ATP) stock.
+--
+-- FIX: after the FIFO layer remaining_qty guard, add a second check that
+-- (current stock_level - |delta|) >= reserved_qty before committing.
+
+BEGIN;
+
+CREATE OR REPLACE FUNCTION apply_receival_edit(
+  p_edit_request_id UUID,
+  p_items           JSONB
+)
+RETURNS JSONB
+LANGUAGE plpgsql
+SECURITY DEFINER
+AS $$
+DECLARE
+  v_req             RECORD;
+  v_receival        RECORD;
+  v_item_input      JSONB;
+  v_bv_id           UUID;
+  v_pli_id          UUID;
+  v_old_qty         INT;
+  v_new_qty         INT;
+  v_old_cost        NUMERIC;
+  v_new_cost        NUMERIC;
+  v_delta           INT;
+  v_layer_remaining BIGINT;
+  v_sold_qty        BIGINT;
+  v_has_applied_lc  BOOLEAN;
+  v_lc_rec          RECORD;
+  v_total_remaining BIGINT;
+  v_receival_date   DATE;
+  v_stock_level     INT;      -- NEW
+  v_reserved_qty    INT;      -- NEW
+BEGIN
+  -- ── 1. Lock and validate the edit request ──────────────────────────────────
+  SELECT * INTO v_req FROM receival_edit_requests WHERE id = p_edit_request_id FOR UPDATE;
+  IF NOT FOUND THEN
+    RAISE EXCEPTION 'Edit request % not found', p_edit_request_id;
+  END IF;
+  IF v_req.status <> 'approved' THEN
+    RAISE EXCEPTION 'Edit request % is not approved (status: %)', p_edit_request_id, v_req.status;
+  END IF;
+  IF v_req.expires_at IS NOT NULL AND v_req.expires_at < now() THEN
+    UPDATE receival_edit_requests SET status = 'expired' WHERE id = p_edit_request_id;
+    RAISE EXCEPTION 'Edit window expired. Please request a new edit.';
+  END IF;
+
+  -- ── 2. Lock the receival ────────────────────────────────────────────────────
+  SELECT id, date INTO v_receival FROM receivals WHERE id = v_req.receival_id FOR UPDATE;
+  IF NOT FOUND THEN
+    RAISE EXCEPTION 'Receival % not found', v_req.receival_id;
+  END IF;
+  v_receival_date := v_receival.date;
+
+  -- ── 3. Pre-flight LC check ──────────────────────────────────────────────────
+  PERFORM 1 FROM landed_costs
+  WHERE v_req.receival_id = ANY(attached_receival_ids)
+    AND applied_at IS NOT NULL AND voided_at IS NULL
+  FOR SHARE;
+
+  SELECT EXISTS(
+    SELECT 1 FROM landed_costs
+    WHERE v_req.receival_id = ANY(attached_receival_ids)
+      AND applied_at IS NOT NULL AND voided_at IS NULL
+  ) INTO v_has_applied_lc;
+
+  -- ── 4. Process each item ────────────────────────────────────────────────────
+  FOR v_item_input IN SELECT * FROM jsonb_array_elements(p_items) LOOP
+
+    SELECT ri.qty_received, ri.unit_cost, ri.brand_variant_id, ri.po_line_item_id
+    INTO v_old_qty, v_old_cost, v_bv_id, v_pli_id
+    FROM receival_items ri
+    WHERE ri.id = (v_item_input->>'receival_item_id')::UUID
+      AND ri.receival_id = v_req.receival_id;
+
+    IF NOT FOUND THEN
+      RAISE EXCEPTION 'receival_item % not found (or does not belong to receival %)',
+        v_item_input->>'receival_item_id', v_req.receival_id;
+    END IF;
+
+    v_new_qty  := (v_item_input->>'new_qty')::INT;
+    v_new_cost := (v_item_input->>'new_unit_cost')::NUMERIC;
+    v_delta    := v_new_qty - v_old_qty;
+
+    IF v_new_qty IS NULL OR v_new_qty <= 0 THEN
+      RAISE EXCEPTION 'new_qty must be a positive integer for item %', v_item_input->>'receival_item_id';
+    END IF;
+    IF v_new_cost IS NULL OR v_new_cost < 0 THEN
+      RAISE EXCEPTION 'new_unit_cost must be non-negative for item %', v_item_input->>'receival_item_id';
+    END IF;
+
+    -- Sync PO line item received_qty (always, regardless of inventory linkage)
+    IF v_delta <> 0 AND v_pli_id IS NOT NULL THEN
+      UPDATE po_line_items
+      SET received_qty = GREATEST(0, received_qty + v_delta)
+      WHERE id = v_pli_id;
+    END IF;
+
+    CONTINUE WHEN v_bv_id IS NULL;
+
+    -- ── QTY CHANGE ────────────────────────────────────────────────────────────
+    IF v_delta <> 0 THEN
+      IF v_has_applied_lc THEN
+        RAISE EXCEPTION 'Cannot change qty: an applied Landed Cost references this receival. Void the LC first.';
+      END IF;
+
+      IF v_delta > 0 THEN
+        UPDATE fifo_cost_layers
+        SET qty           = qty           + v_delta,
+            remaining_qty = remaining_qty + v_delta
+        WHERE receival_id = v_req.receival_id::TEXT AND brand_variant_id = v_bv_id;
+
+        UPDATE inventory_brand_variants
+        SET stock_level = stock_level + v_delta, updated_at = now()
+        WHERE id = v_bv_id;
+
+        INSERT INTO inventory_stock_movements
+          (brand_variant_id, item_name, sku, movement_type, qty, unit_cost,
+           reference_type, reference_id, notes)
+        SELECT v_bv_id, ibv.item_name, ibv.sku,
+               'receival_edit', v_delta, v_old_cost,
+               'receival_edit_request', p_edit_request_id,
+               'Qty increase edit on receival ' || v_req.receival_id
+        FROM inventory_brand_variants ibv WHERE ibv.id = v_bv_id;
+
+      ELSE  -- v_delta < 0
+        SELECT COALESCE(SUM(remaining_qty), 0) INTO v_layer_remaining
+        FROM (
+          SELECT remaining_qty FROM fifo_cost_layers
+          WHERE receival_id = v_req.receival_id::TEXT AND brand_variant_id = v_bv_id
+          ORDER BY id ASC FOR UPDATE
+        ) sub;
+
+        IF v_layer_remaining < ABS(v_delta) THEN
+          RAISE EXCEPTION
+            'Cannot reduce qty by %: only % units remain from this receival (% were sold)',
+            ABS(v_delta), v_layer_remaining, v_old_qty - v_layer_remaining;
+        END IF;
+
+        -- ATP guard: new stock_level must not fall below reserved_qty
+        SELECT stock_level, COALESCE(reserved_qty, 0)
+        INTO v_stock_level, v_reserved_qty
+        FROM inventory_brand_variants
+        WHERE id = v_bv_id;
+
+        IF (v_stock_level - ABS(v_delta)) < v_reserved_qty THEN
+          RAISE EXCEPTION
+            'Cannot reduce qty by %: new stock level (%) would be below reserved qty (%)',
+            ABS(v_delta),
+            v_stock_level - ABS(v_delta),
+            v_reserved_qty;
+        END IF;
+
+        UPDATE fifo_cost_layers
+        SET qty           = qty           - ABS(v_delta),
+            remaining_qty = remaining_qty - ABS(v_delta)
+        WHERE receival_id = v_req.receival_id::TEXT AND brand_variant_id = v_bv_id;
+
+        UPDATE inventory_brand_variants
+        SET stock_level = stock_level - ABS(v_delta), updated_at = now()
+        WHERE id = v_bv_id;
+
+        INSERT INTO inventory_stock_movements
+          (brand_variant_id, item_name, sku, movement_type, qty, unit_cost,
+           reference_type, reference_id, notes)
+        SELECT v_bv_id, ibv.item_name, ibv.sku,
+               'receival_edit', -ABS(v_delta), v_old_cost,
+               'receival_edit_request', p_edit_request_id,
+               'Qty decrease edit on receival ' || v_req.receival_id
+        FROM inventory_brand_variants ibv WHERE ibv.id = v_bv_id;
+      END IF;
+    END IF;
+
+    -- ── UNIT COST CHANGE ──────────────────────────────────────────────────────
+    IF v_new_cost <> v_old_cost THEN
+      IF v_has_applied_lc THEN
+        RAISE EXCEPTION 'Cannot change unit cost: an applied Landed Cost references this receival. Void the LC first.';
+      END IF;
+
+      SELECT COALESCE(SUM(qty - remaining_qty), 0) INTO v_sold_qty
+      FROM fifo_cost_layers
+      WHERE receival_id = v_req.receival_id::TEXT AND brand_variant_id = v_bv_id;
+
+      IF v_sold_qty > 0 THEN
+        UPDATE cogs_entries
+        SET unit_cost  = v_new_cost,
+            total_cost = v_new_cost * qty
+        WHERE id IN (
+          SELECT id FROM cogs_entries
+          WHERE brand_variant_id = v_bv_id
+            AND unit_cost = v_old_cost
+            AND date >= v_receival_date
+          ORDER BY date ASC
+          LIMIT v_sold_qty
+        );
+      END IF;
+
+      UPDATE fifo_cost_layers
+      SET unit_cost       = v_new_cost,
+          total_unit_cost = v_new_cost + landed_cost_per_unit
+      WHERE receival_id = v_req.receival_id::TEXT AND brand_variant_id = v_bv_id;
+    END IF;
+
+    PERFORM recalc_average_cost(v_bv_id);
+
+    IF v_delta < 0 THEN
+      FOR v_lc_rec IN
+        SELECT id, attached_receival_ids FROM landed_costs
+        WHERE v_req.receival_id = ANY(attached_receival_ids)
+          AND applied_at IS NULL AND voided_at IS NULL
+      LOOP
+        SELECT COALESCE(SUM(fcl.remaining_qty), 0) INTO v_total_remaining
+        FROM fifo_cost_layers fcl
+        WHERE fcl.receival_id = ANY(
+          SELECT unnest(v_lc_rec.attached_receival_ids)::TEXT
+        );
+        IF v_total_remaining = 0 THEN
+          UPDATE landed_costs SET all_items_sold = TRUE, updated_at = now()
+          WHERE id = v_lc_rec.id;
+        END IF;
+      END LOOP;
+    END IF;
+
+    UPDATE receival_items
+    SET qty_received = v_new_qty, unit_cost = v_new_cost
+    WHERE id = (v_item_input->>'receival_item_id')::UUID;
+
+  END LOOP;
+
+  UPDATE receival_edit_requests SET status = 'completed' WHERE id = p_edit_request_id;
+
+  RETURN jsonb_build_object('ok', true, 'edit_request_id', p_edit_request_id);
+END;
+$$;
+
+GRANT EXECUTE ON FUNCTION apply_receival_edit(UUID, JSONB) TO authenticated;
+
+COMMIT;
+```
+
+- [ ] **Step 2: Push to Supabase**
+
+```bash
+npx supabase db push
+```
+
+Expected output:
+```
+Applying migration 20260426000003_fix_apply_receival_edit_atp_guard.sql...
+Finished supabase db push.
+```
+
+- [ ] **Step 3: Commit**
+
+```bash
+git add supabase/migrations/20260426000003_fix_apply_receival_edit_atp_guard.sql
+git commit -m "fix(rpc): add ATP guard to apply_receival_edit — block qty decrease below reserved_qty"
 ```
 
 ---
 
 ## Self-Review
 
-**Spec coverage check:**
+**Spec + review coverage check:**
 
-| Spec requirement | Task |
+| Requirement | Task |
 |---|---|
-| Replace InventoryItemLookup with 3-step cascade | Task 3 + 4 |
-| Use TanStack Query hooks (no local createClient calls for lists) | Task 3 — uses `useInventoryCategoriesByType`, `useInventoryItemsByCategory`, `useInventoryBrandVariants` |
-| Backward lookup when loading saved PO | Task 2 (`useBrandVariantAncestry`) + Task 3 (pill render path) |
-| Command/Combobox pattern for scalable lists | Task 3 — uses shadcn `Command` + `Popover` |
-| Arabic subtitles in dropdowns and pill | Task 3 — `name_ar` shown as muted subtitle in each `CommandItem` and in pill |
-| FIFO cost fallback when `cost_price === 0` | Task 3 — `fetchLastFifoCost` called in `handleVariantSelect` |
+| Replace InventoryItemLookup with 3-step cascade | Tasks 3 + 4 |
+| TanStack Query hooks — no N+1 local fetches | Task 3 — uses `useInventoryCategoriesByType`, `useInventoryItemsByCategory`, `useInventoryBrandVariants` |
+| Backward lookup on PO reload | Task 2 (`useBrandVariantAncestry`) + Task 3 (pill path) |
+| Command/Combobox — scalable for 200+ items | Task 3 — shadcn `Command` + `Popover` |
+| Arabic subtitles in dropdowns and pill | Task 3 — `name_ar` in each `CommandItem` and pill |
+| FIFO cost fallback when `cost_price === 0` | Task 3 — `fetchLastFifoCost` with deterministic ordering |
+| Deterministic FIFO cost ordering | Task 3 — `ORDER BY date DESC, created_at DESC, id DESC` |
+| Block save during async price fetch | Tasks 3, 4, 5 — `onPriceLoading` callback chain |
 | Extend `InventoryLookupResult` type | Task 1 |
 | Category pre-filtered by `lineType` | Task 3 — `useInventoryCategoriesByType(lineType)` |
 | Cascade resets on parent change | Task 3 — `setItemId(null)` + `onChange(null)` on category change |
 | Responsive stacking on `< sm:` | Task 3 — `grid-cols-1 sm:grid-cols-3` |
 | Tools rows unchanged | Task 4 — `ToolAssetLookup` branch untouched |
 | Read-only mode unchanged | Task 4 — `readOnly` branch unchanged |
+| ATP guard on receival qty decrease | Task 6 — `(stock_level - delta) >= reserved_qty` check in RPC |
 
-**Placeholder scan:** No TBDs, TODOs, or vague steps found.
+**Placeholder scan:** No TBDs, TODOs, or vague steps.
 
-**Type consistency:** `InventoryLookupResult` defined in Task 1, used identically in Tasks 2, 3, and 4. `BrandVariantAncestry` defined and used within Task 2 only.
+**Type consistency:** `InventoryLookupResult` defined in Task 1, used identically in Tasks 3, 4, 5. `BrandVariantAncestry` defined in Task 2, used only in Task 3. `onPriceLoading: (loading: boolean) => void` signature is identical across Tasks 3, 4, 5.
