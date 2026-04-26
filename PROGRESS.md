@@ -151,8 +151,9 @@ Purchase & Sales▾:
 
 ## 🔄 In Progress
 
-🚀 Starting: **[Cascade Inventory Selector Plan] Task 6: ATP guard migration for apply_receival_edit**
+**[Cascade Inventory Selector Plan] — ALL TASKS COMPLETE ✅**
 
+- [2026-04-26] **[Cascade Inventory Selector Plan] Task 6: ATP guard migration** — `supabase/migrations/20260426000003_fix_apply_receival_edit_atp_guard.sql`, `20260426000004_fix_apply_receival_edit_atp_guard_v2.sql` — ATP guard on qty decrease in apply_receival_edit; v2 adds FOR UPDATE lock + COALESCE(stock_level,0) + variant ID in error message
 - [2026-04-26] **[Cascade Inventory Selector Plan] Task 5: Disable submit while price is loading** — `src/app/(dashboard)/purchase/create-po/page.tsx` — added isPriceLoading state, wired onPriceLoading to PoLineItemsEditor, both submit buttons disabled + label feedback during price fetch
 - [2026-04-26] **[Cascade Inventory Selector Plan] Task 4: Wire CascadeInventorySelector into PoLineItemsEditor + surface price-loading state** — `src/components/purchase/PoLineItemsEditor.tsx` — replaced InventoryItemLookup with CascadeInventorySelector; added onPriceLoading callback chain using useRef-backed Set to aggregate per-row loading state without extra re-renders
 
