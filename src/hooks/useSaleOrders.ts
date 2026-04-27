@@ -474,11 +474,20 @@ export function useCreateSOPayment() {
       exchange_rate: number
     }) => {
       const supabase = createClient()
+      // Generate a payment_id (CPAY-XXXXX) consistent with customer payments
+      const { count: pCount } = await (supabase as any)
+        .from('payments')
+        .select('*', { count: 'exact', head: true })
+        .eq('direction', 'incoming')
+      const payment_id = `CPAY-${String((pCount ?? 0) + 1).padStart(5, '0')}`
+
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       const { error } = await (supabase as any).from('payments').insert({
+        payment_id,
         source_type: 'sale_order',
         source_id: payment.so_id,
         supplier_id: null,
+        direction: 'incoming',
         amount: payment.amount,
         method: payment.method,
         date: payment.date,
