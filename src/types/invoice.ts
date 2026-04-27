@@ -36,6 +36,7 @@ export type ArInvoice = {
   customer_id: string
   sale_order_id: string | null
   sale_delivery_id: string | null
+  invoice_type: 'cash' | 'credit'  // set at generation time from customer_type
   doc_status: 'draft' | 'ready_to_send' | 'sent'
   payment_status: BillPaymentStatus
   needs_refresh: boolean
