@@ -155,6 +155,7 @@ Purchase & Sales▾:
 
 ## ✅ Completed
 
+- [2026-04-27] **[SO Module Polish]** — `src/hooks/useSaleOrders.ts`, `src/hooks/useSaleDeliveries.ts`, `src/components/sales/SoDetailDialog.tsx`, `src/app/(dashboard)/sales/orders/page.tsx` — activity log on delivery create; useCancelDelivery mutation with activity log; SoDetailDialog payment status badge (Paid/Partially Paid/Unpaid) + cancel delivery button on pending deliveries; SO # column now clickable to open detail dialog
 - [2026-04-26] **[Credit Groups Dialog] Tasks 1–4** — `supabase/migrations/20260428000001_credit_groups_payment_methods.sql`, `src/hooks/useCreditGroups.ts`, `src/app/(dashboard)/master-data/credit-groups/AddCreditGroupDialog.tsx`, `src/app/(dashboard)/master-data/credit-groups/page.tsx` — payment_methods + max_days migration; PAYMENT_METHODS constant; modal dialog with toggle grid; table shows Methods + Max Days columns
 - [2026-04-26] **[SO Creation Rebuild] Task 9: Add Download PDF button to SoDetailDialog** — `src/components/sales/SoDetailDialog.tsx`, `src/hooks/useSaleOrders.ts` — dynamic PDFDownloadLink + QuotationDocument imports (SSR-safe); useSaleOrder select now fetches phone; Download PDF button shown for quotation/pending_approval status
 - [2026-04-26] **[SO Creation Rebuild] Task 8: PDF Quotation component** — `src/components/sales/SoQuotationPdf.tsx` — QuotationDocument with Cairo font (Arabic/Latin), grouped line items by type, subtotal/discount/grand total, terms + validity, fixed footer
