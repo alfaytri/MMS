@@ -151,7 +151,7 @@ Purchase & Sales▾:
 
 ## 🔄 In Progress
 
-*(nothing active)*
+🚀 Starting: **[SO Invoice Cash/Credit Plan] Task 1: Migration 1 — customer_type CHECK + invoice_type column**
 
 ## ✅ Completed
 
