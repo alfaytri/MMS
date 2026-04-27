@@ -33,10 +33,10 @@ const s = StyleSheet.create({
   headerRow:   { flexDirection: 'row', justifyContent: 'space-between', marginBottom: 20 },
 
   // Left: company block
-  companyCol:  { flexDirection: 'column', gap: 3 },
-  logo:        { width: 90, height: 44, objectFit: 'contain', marginBottom: 6 },
-  companyName: { fontSize: 11, fontFamily: 'Cairo', fontWeight: 700, color: '#111827' },
-  companyMeta: { fontSize: 8, color: '#6b7280', marginTop: 1 },
+  companyCol:  { flexDirection: 'column' },
+  logo:        { width: 90, height: 44, objectFit: 'contain', marginBottom: 8 },
+  companyName: { fontSize: 11, fontFamily: 'Cairo', fontWeight: 700, color: '#111827', marginBottom: 3 },
+  companyMeta: { fontSize: 8, color: '#6b7280', marginBottom: 2 },
 
   // Right: quotation title block
   quotationCol: { alignItems: 'flex-end' },
