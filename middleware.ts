@@ -31,11 +31,10 @@ export async function middleware(request: NextRequest) {
           )
           supabaseResponse = NextResponse.next({ request })
           cookiesToSet.forEach(({ name, value, options }) => {
-            // Strip maxAge/expires so the browser treats these as session
-            // cookies — they die when the browser process closes instead of
-            // persisting across restarts.
             const sessionOptions = { ...options }
-            delete sessionOptions.maxAge
+            // Bounded 8-hour max-age — dies at wall-clock expiry even if
+            // the browser restores sessions on startup (Brave, Chrome, etc.)
+            sessionOptions.maxAge = value === '' ? 0 : 8 * 60 * 60
             delete sessionOptions.expires
             supabaseResponse.cookies.set(name, value, sessionOptions)
           })
