@@ -5,6 +5,13 @@ import {
 } from '@react-pdf/renderer'
 import type { ArInvoice } from '@/types/invoice'
 
+export type PdfCompanyInfo = {
+  name:       string
+  address:    string | null
+  vat_id:     string | null
+  cr_number:  string | null
+}
+
 Font.register({
   family: 'Cairo',
   fonts: [
@@ -86,9 +93,14 @@ interface Props {
   invoice:     ArInvoice
   amountPaid:  number
   outstanding: number
+  company?:    PdfCompanyInfo
 }
 
-export function InvoiceDocument({ invoice, amountPaid, outstanding }: Props) {
+export function InvoiceDocument({ invoice, amountPaid, outstanding, company }: Props) {
+  const companyName    = company?.name      ?? 'Al Faytri Group'
+  const companyAddress = company?.address   ?? 'Doha, Qatar'
+  const companyVat     = company?.vat_id    ?? null
+  const companyCr      = company?.cr_number ?? null
   const lines = invoice.invoice_line_items ?? []
 
   return (
@@ -100,10 +112,10 @@ export function InvoiceDocument({ invoice, amountPaid, outstanding }: Props) {
 
           {/* Left — company */}
           <View style={s.companyCol}>
-            <Text style={s.companyBrand}>Al Faytri Group</Text>
-            <Text style={s.companyLine}>Doha, Qatar</Text>
-            <Text style={s.companyLine}>Tel: +974 4444 5555</Text>
-            <Text style={s.companyLine}>info@alfaytri.com</Text>
+            <Text style={s.companyBrand}>{companyName}</Text>
+            {companyAddress && <Text style={s.companyLine}>{companyAddress}</Text>}
+            {companyCr      && <Text style={s.companyLine}>CR: {companyCr}</Text>}
+            {companyVat     && <Text style={s.companyLine}>VAT: {companyVat}</Text>}
           </View>
 
           {/* Right — invoice details */}

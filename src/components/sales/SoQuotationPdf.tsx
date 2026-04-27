@@ -4,6 +4,7 @@ import {
   Document, Page, Text, View, StyleSheet, Font,
 } from '@react-pdf/renderer'
 import type { SaleOrder, SOLineItem } from '@/hooks/useSaleOrders'
+import type { PdfCompanyInfo } from './InvoicePdf'
 
 Font.register({
   family: 'Cairo',
@@ -101,9 +102,14 @@ interface Props {
   lines:         SOLineItem[]
   customerName:  string
   customerPhone: string | null
+  company?:      PdfCompanyInfo
 }
 
-export function QuotationDocument({ so, lines, customerName, customerPhone }: Props) {
+export function QuotationDocument({ so, lines, customerName, customerPhone, company }: Props) {
+  const companyName    = company?.name      ?? 'Al Faytri Group'
+  const companyAddress = company?.address   ?? 'Doha, Qatar'
+  const companyVat     = company?.vat_id    ?? null
+  const companyCr      = company?.cr_number ?? null
   const currency     = so.currency ?? 'QAR'
   const validDays    = so.validity_days ?? 30
   const presentTypes = LINE_TYPES.filter((t) => lines.some((l) => l.line_type === t))
@@ -117,10 +123,10 @@ export function QuotationDocument({ so, lines, customerName, customerPhone }: Pr
 
           {/* Left — company */}
           <View style={s.companyCol}>
-            <Text style={s.companyBrand}>Al Faytri Group</Text>
-            <Text style={s.companyLine}>Doha, Qatar</Text>
-            <Text style={s.companyLine}>Tel: +974 4444 5555</Text>
-            <Text style={s.companyLine}>info@alfaytri.com</Text>
+            <Text style={s.companyBrand}>{companyName}</Text>
+            {companyAddress && <Text style={s.companyLine}>{companyAddress}</Text>}
+            {companyCr      && <Text style={s.companyLine}>CR: {companyCr}</Text>}
+            {companyVat     && <Text style={s.companyLine}>VAT: {companyVat}</Text>}
           </View>
 
           {/* Right — quotation details */}
