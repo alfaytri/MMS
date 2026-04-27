@@ -1,7 +1,7 @@
 'use client'
 
 import {
-  Document, Page, Text, View, StyleSheet, Image, Font,
+  Document, Page, Text, View, StyleSheet, Font,
 } from '@react-pdf/renderer'
 import type { ArInvoice } from '@/types/invoice'
 
@@ -18,71 +18,68 @@ function fmt(amount: number | null) {
   return `QAR ${n.toLocaleString('en-QA', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`
 }
 
-function formatDate(iso: string) {
+function fmtDate(iso: string) {
   return new Date(iso).toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' })
 }
 
 const s = StyleSheet.create({
-  page:        { fontFamily: 'Cairo', fontSize: 9, padding: 36, color: '#111827' },
+  page:         { fontFamily: 'Cairo', fontSize: 9, padding: 40, color: '#111827' },
 
-  // ── Top header row ──────────────────────────────────────────────────────────
-  headerRow:   { flexDirection: 'row', marginBottom: 20 },
+  // ── Header row ─────────────────────────────────────────────────────────────
+  headerRow:    { flexDirection: 'row', marginBottom: 24 },
+  companyCol:   { width: '50%' },
+  companyBrand: { fontSize: 16, fontFamily: 'Cairo', fontWeight: 700, color: '#1d4ed8', marginBottom: 6 },
+  companyLine:  { fontSize: 8, color: '#6b7280', marginBottom: 3 },
 
-  // Left: company block
-  companyCol:  { width: '50%', flexDirection: 'column' },
-  logo:        { width: 90, height: 44, marginBottom: 8 },
-  companyName: { fontSize: 11, fontFamily: 'Cairo', fontWeight: 700, color: '#111827', marginBottom: 3 },
-  companyMeta: { fontSize: 8, color: '#6b7280', marginBottom: 2 },
+  invoiceCol:   { width: '50%', alignItems: 'flex-end' },
+  docTitle:     { fontSize: 26, fontFamily: 'Cairo', fontWeight: 700, color: '#1d4ed8', marginBottom: 8 },
+  metaRow:      { flexDirection: 'row', marginBottom: 3 },
+  metaKey:      { width: 56, fontSize: 8, color: '#6b7280' },
+  metaVal:      { fontSize: 8, fontFamily: 'Cairo', fontWeight: 700, color: '#111827' },
+  typeBadge:    { marginTop: 8, paddingHorizontal: 8, paddingVertical: 3, borderRadius: 3,
+                  fontSize: 7, fontFamily: 'Cairo', fontWeight: 700 },
+  cashBadge:    { backgroundColor: '#fff7ed', color: '#c2410c' },
+  creditBadge:  { backgroundColor: '#f5f3ff', color: '#6d28d9' },
 
-  // Right: invoice title block
-  invoiceCol:  { width: '50%', alignItems: 'flex-end' },
-  docTitle:    { fontSize: 22, fontFamily: 'Cairo', fontWeight: 700, color: '#1d4ed8', marginBottom: 6 },
-  metaRow:     { flexDirection: 'row', marginBottom: 2 },
-  metaKey:     { fontSize: 8, color: '#6b7280', width: 52 },
-  metaVal:     { fontSize: 8, color: '#111827', fontFamily: 'Cairo', fontWeight: 700 },
-  typeBadge:   { fontSize: 7, fontFamily: 'Cairo', fontWeight: 700, marginTop: 6,
-                 paddingHorizontal: 7, paddingVertical: 3, borderRadius: 3, alignSelf: 'flex-end' },
-  cashBadge:   { backgroundColor: '#fff7ed', color: '#c2410c' },
-  creditBadge: { backgroundColor: '#f5f3ff', color: '#6d28d9' },
+  // ── Divider ─────────────────────────────────────────────────────────────────
+  divider:      { borderBottomWidth: 0.5, borderBottomColor: '#d1d5db', marginVertical: 14 },
 
-  divider:     { borderBottomWidth: 0.5, borderBottomColor: '#d1d5db', marginVertical: 12 },
+  // ── Bill To / Reference row ─────────────────────────────────────────────────
+  billRow:      { flexDirection: 'row', marginBottom: 18 },
+  billLeft:     { width: '50%' },
+  billRight:    { width: '50%', alignItems: 'flex-end' },
+  sectionLbl:   { fontSize: 7, fontFamily: 'Cairo', fontWeight: 700, color: '#6b7280',
+                  textTransform: 'uppercase', letterSpacing: 0.8, marginBottom: 5 },
+  billName:     { fontSize: 11, fontFamily: 'Cairo', fontWeight: 700, color: '#111827', marginBottom: 2 },
+  billSub:      { fontSize: 8, color: '#6b7280' },
 
-  // ── Customer + Order reference row ──────────────────────────────────────────
-  billRow:     { flexDirection: 'row', justifyContent: 'space-between', marginBottom: 16 },
-  billBox:     { flexDirection: 'column' },
-  sectionLbl:  { fontSize: 7, fontFamily: 'Cairo', fontWeight: 700, textTransform: 'uppercase',
-                 letterSpacing: 0.8, color: '#6b7280', marginBottom: 4 },
-  billName:    { fontSize: 10, fontFamily: 'Cairo', fontWeight: 700, color: '#111827' },
-  billMeta:    { fontSize: 8, color: '#6b7280', marginTop: 2 },
-
-  // ── Line items table ─────────────────────────────────────────────────────────
-  section:     { marginBottom: 14 },
-  tableRow:    { flexDirection: 'row', paddingVertical: 4, paddingHorizontal: 6,
-                 borderBottomWidth: 0.5, borderBottomColor: '#e5e7eb' },
-  tableHead:   { backgroundColor: '#f9fafb' },
-  c_num:       { width: '5%',  fontSize: 8, color: '#6b7280' },
-  c_desc:      { width: '50%', fontSize: 8 },
-  c_qty:       { width: '10%', fontSize: 8, textAlign: 'right' },
-  c_price:     { width: '17%', fontSize: 8, textAlign: 'right' },
-  c_total:     { width: '18%', fontSize: 8, textAlign: 'right', fontFamily: 'Cairo', fontWeight: 700 },
+  // ── Line items ───────────────────────────────────────────────────────────────
+  tableRow:     { flexDirection: 'row', paddingVertical: 5, paddingHorizontal: 6,
+                  borderBottomWidth: 0.5, borderBottomColor: '#e5e7eb' },
+  tableHead:    { backgroundColor: '#f3f4f6' },
+  c_num:        { width: '5%',  fontSize: 8, color: '#6b7280' },
+  c_desc:       { width: '50%', fontSize: 8 },
+  c_qty:        { width: '10%', fontSize: 8, textAlign: 'right' },
+  c_price:      { width: '18%', fontSize: 8, textAlign: 'right' },
+  c_total:      { width: '17%', fontSize: 8, textAlign: 'right', fontFamily: 'Cairo', fontWeight: 700 },
 
   // ── Totals ───────────────────────────────────────────────────────────────────
-  totRow:      { flexDirection: 'row', justifyContent: 'flex-end', marginBottom: 2 },
-  totLbl:      { width: 110, fontSize: 9, color: '#6b7280', textAlign: 'right', paddingRight: 8 },
-  totVal:      { width: 110, fontSize: 9, textAlign: 'right' },
-  paidLbl:     { width: 110, fontSize: 9, color: '#16a34a', textAlign: 'right', paddingRight: 8 },
-  paidVal:     { width: 110, fontSize: 9, color: '#16a34a', textAlign: 'right' },
-  outRow:      { flexDirection: 'row', justifyContent: 'flex-end', marginTop: 6,
-                 borderTopWidth: 0.5, borderTopColor: '#d1d5db', paddingTop: 4 },
-  outLbl:      { width: 110, fontSize: 11, fontFamily: 'Cairo', fontWeight: 700,
-                 textAlign: 'right', paddingRight: 8 },
-  outVal:      { width: 110, fontSize: 11, fontFamily: 'Cairo', fontWeight: 700, textAlign: 'right' },
+  totRow:       { flexDirection: 'row', justifyContent: 'flex-end', marginBottom: 3 },
+  totLbl:       { width: 100, fontSize: 9, color: '#6b7280', textAlign: 'right', paddingRight: 10 },
+  totVal:       { width: 110, fontSize: 9, textAlign: 'right' },
+  paidLbl:      { width: 100, fontSize: 9, color: '#16a34a', textAlign: 'right', paddingRight: 10 },
+  paidVal:      { width: 110, fontSize: 9, color: '#16a34a', textAlign: 'right' },
+  outRow:       { flexDirection: 'row', justifyContent: 'flex-end', paddingTop: 5,
+                  marginTop: 4, borderTopWidth: 0.5, borderTopColor: '#d1d5db' },
+  outLbl:       { width: 100, fontSize: 11, fontFamily: 'Cairo', fontWeight: 700,
+                  textAlign: 'right', paddingRight: 10 },
+  outVal:       { width: 110, fontSize: 11, fontFamily: 'Cairo', fontWeight: 700, textAlign: 'right' },
 
   // ── Footer ───────────────────────────────────────────────────────────────────
-  footer:      { position: 'absolute', bottom: 24, left: 36, right: 36,
-                 flexDirection: 'row', justifyContent: 'space-between',
-                 borderTopWidth: 0.5, borderTopColor: '#e5e7eb', paddingTop: 6 },
-  footerTxt:   { fontSize: 7, color: '#9ca3af' },
+  footer:       { position: 'absolute', bottom: 24, left: 40, right: 40,
+                  flexDirection: 'row', justifyContent: 'space-between',
+                  borderTopWidth: 0.5, borderTopColor: '#e5e7eb', paddingTop: 6 },
+  footerTxt:    { fontSize: 7, color: '#9ca3af' },
 })
 
 interface Props {
@@ -98,16 +95,15 @@ export function InvoiceDocument({ invoice, amountPaid, outstanding }: Props) {
     <Document>
       <Page size="A4" style={s.page}>
 
-        {/* ── Header: company left | invoice title right ── */}
+        {/* ── Header ── */}
         <View style={s.headerRow}>
 
           {/* Left — company */}
           <View style={s.companyCol}>
-            <Image style={s.logo} src="/logo.png" />
-            <Text style={s.companyName}>Al Faytri Group</Text>
-            <Text style={s.companyMeta}>Doha, Qatar</Text>
-            <Text style={s.companyMeta}>Tel: +974 4444 5555</Text>
-            <Text style={s.companyMeta}>info@alfaytri.com</Text>
+            <Text style={s.companyBrand}>Al Faytri Group</Text>
+            <Text style={s.companyLine}>Doha, Qatar</Text>
+            <Text style={s.companyLine}>Tel: +974 4444 5555</Text>
+            <Text style={s.companyLine}>info@alfaytri.com</Text>
           </View>
 
           {/* Right — invoice details */}
@@ -119,11 +115,11 @@ export function InvoiceDocument({ invoice, amountPaid, outstanding }: Props) {
             </View>
             <View style={s.metaRow}>
               <Text style={s.metaKey}>Issued</Text>
-              <Text style={s.metaVal}>{formatDate(invoice.issued_date)}</Text>
+              <Text style={s.metaVal}>{fmtDate(invoice.issued_date)}</Text>
             </View>
             <View style={s.metaRow}>
               <Text style={s.metaKey}>Due</Text>
-              <Text style={s.metaVal}>{formatDate(invoice.due_date)}</Text>
+              <Text style={s.metaVal}>{fmtDate(invoice.due_date)}</Text>
             </View>
             <Text style={[s.typeBadge, invoice.invoice_type === 'cash' ? s.cashBadge : s.creditBadge]}>
               {invoice.invoice_type === 'cash' ? 'Cash Invoice' : 'Credit Invoice'}
@@ -133,17 +129,17 @@ export function InvoiceDocument({ invoice, amountPaid, outstanding }: Props) {
 
         <View style={s.divider} />
 
-        {/* ── Customer + Order reference ── */}
+        {/* ── Bill To / Order Reference ── */}
         <View style={s.billRow}>
-          <View style={s.billBox}>
+          <View style={s.billLeft}>
             <Text style={s.sectionLbl}>Bill To</Text>
             <Text style={s.billName}>{invoice.customer_name ?? '—'}</Text>
           </View>
           {invoice.so_number && (
-            <View style={[s.billBox, { alignItems: 'flex-end' }]}>
+            <View style={s.billRight}>
               <Text style={s.sectionLbl}>Order Reference</Text>
               <Text style={s.billName}>{invoice.so_number}</Text>
-              <Text style={s.billMeta}>Sale Order</Text>
+              <Text style={s.billSub}>Sale Order</Text>
             </View>
           )}
         </View>
@@ -151,24 +147,22 @@ export function InvoiceDocument({ invoice, amountPaid, outstanding }: Props) {
         <View style={s.divider} />
 
         {/* ── Line items ── */}
-        <View style={s.section}>
-          <View style={[s.tableRow, s.tableHead]}>
-            <Text style={s.c_num}>#</Text>
-            <Text style={s.c_desc}>Description</Text>
-            <Text style={s.c_qty}>Qty</Text>
-            <Text style={s.c_price}>Unit Price</Text>
-            <Text style={s.c_total}>Total</Text>
-          </View>
-          {lines.map((li, idx) => (
-            <View key={li.id} style={s.tableRow}>
-              <Text style={s.c_num}>{idx + 1}</Text>
-              <Text style={s.c_desc}>{li.description}</Text>
-              <Text style={s.c_qty}>{li.qty ?? '—'}</Text>
-              <Text style={s.c_price}>{fmt(li.unit_price)}</Text>
-              <Text style={s.c_total}>{fmt(li.total)}</Text>
-            </View>
-          ))}
+        <View style={[s.tableRow, s.tableHead]}>
+          <Text style={s.c_num}>#</Text>
+          <Text style={s.c_desc}>Description</Text>
+          <Text style={s.c_qty}>Qty</Text>
+          <Text style={s.c_price}>Unit Price</Text>
+          <Text style={s.c_total}>Total</Text>
         </View>
+        {lines.map((li, idx) => (
+          <View key={li.id} style={s.tableRow}>
+            <Text style={s.c_num}>{idx + 1}</Text>
+            <Text style={s.c_desc}>{li.description}</Text>
+            <Text style={s.c_qty}>{li.qty ?? '—'}</Text>
+            <Text style={s.c_price}>{fmt(li.unit_price)}</Text>
+            <Text style={s.c_total}>{fmt(li.total)}</Text>
+          </View>
+        ))}
 
         <View style={s.divider} />
 
@@ -199,7 +193,7 @@ export function InvoiceDocument({ invoice, amountPaid, outstanding }: Props) {
         {/* ── Footer ── */}
         <View style={s.footer} fixed>
           <Text style={s.footerTxt}>Al Faytri Group — Doha, Qatar</Text>
-          <Text style={s.footerTxt}>{invoice.invoice_id} · {formatDate(invoice.issued_date)}</Text>
+          <Text style={s.footerTxt}>{invoice.invoice_id} · {fmtDate(invoice.issued_date)}</Text>
         </View>
 
       </Page>

@@ -1,7 +1,7 @@
 'use client'
 
 import {
-  Document, Page, Text, View, StyleSheet, Image, Font,
+  Document, Page, Text, View, StyleSheet, Font,
 } from '@react-pdf/renderer'
 import type { SaleOrder, SOLineItem } from '@/hooks/useSaleOrders'
 
@@ -22,74 +22,73 @@ function fmt(amount: number, currency = 'QAR') {
   return `${sym}${amount.toLocaleString('en-QA', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`
 }
 
-function formatDate(iso: string) {
+function fmtDate(iso: string) {
   return new Date(iso).toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' })
 }
 
 const s = StyleSheet.create({
-  page:        { fontFamily: 'Cairo', fontSize: 9, padding: 36, color: '#111827' },
+  page:         { fontFamily: 'Cairo', fontSize: 9, padding: 40, color: '#111827' },
 
-  // ── Top header row ──────────────────────────────────────────────────────────
-  headerRow:   { flexDirection: 'row', marginBottom: 20 },
+  // ── Header row ─────────────────────────────────────────────────────────────
+  headerRow:    { flexDirection: 'row', marginBottom: 24 },
+  companyCol:   { width: '50%' },
+  companyBrand: { fontSize: 16, fontFamily: 'Cairo', fontWeight: 700, color: '#1d4ed8', marginBottom: 6 },
+  companyLine:  { fontSize: 8, color: '#6b7280', marginBottom: 3 },
 
-  // Left: company block
-  companyCol:  { width: '50%', flexDirection: 'column' },
-  logo:        { width: 90, height: 44, marginBottom: 8 },
-  companyName: { fontSize: 11, fontFamily: 'Cairo', fontWeight: 700, color: '#111827', marginBottom: 3 },
-  companyMeta: { fontSize: 8, color: '#6b7280', marginBottom: 2 },
-
-  // Right: quotation title block
   quotationCol: { width: '50%', alignItems: 'flex-end' },
-  docTitle:    { fontSize: 22, fontFamily: 'Cairo', fontWeight: 700, color: '#1d4ed8', marginBottom: 6 },
-  metaRow:     { flexDirection: 'row', marginBottom: 2 },
-  metaKey:     { fontSize: 8, color: '#6b7280', width: 60 },
-  metaVal:     { fontSize: 8, color: '#111827', fontFamily: 'Cairo', fontWeight: 700 },
+  docTitle:     { fontSize: 26, fontFamily: 'Cairo', fontWeight: 700, color: '#1d4ed8', marginBottom: 8 },
+  metaRow:      { flexDirection: 'row', marginBottom: 3 },
+  metaKey:      { width: 60, fontSize: 8, color: '#6b7280' },
+  metaVal:      { fontSize: 8, fontFamily: 'Cairo', fontWeight: 700, color: '#111827' },
 
-  divider:     { borderBottomWidth: 0.5, borderBottomColor: '#d1d5db', marginVertical: 12 },
+  // ── Divider ─────────────────────────────────────────────────────────────────
+  divider:      { borderBottomWidth: 0.5, borderBottomColor: '#d1d5db', marginVertical: 14 },
 
-  // ── Customer + Reference row ────────────────────────────────────────────────
-  billRow:     { flexDirection: 'row', justifyContent: 'space-between', marginBottom: 16 },
-  billBox:     { flexDirection: 'column' },
-  sectionLbl:  { fontSize: 7, fontFamily: 'Cairo', fontWeight: 700, textTransform: 'uppercase',
-                 letterSpacing: 0.8, color: '#6b7280', marginBottom: 4 },
-  billName:    { fontSize: 10, fontFamily: 'Cairo', fontWeight: 700, color: '#111827' },
-  billMeta:    { fontSize: 8, color: '#6b7280', marginTop: 2 },
+  // ── Bill To / Reference row ─────────────────────────────────────────────────
+  billRow:      { flexDirection: 'row', marginBottom: 18 },
+  billLeft:     { width: '50%' },
+  billRight:    { width: '50%', alignItems: 'flex-end' },
+  sectionLbl:   { fontSize: 7, fontFamily: 'Cairo', fontWeight: 700, color: '#6b7280',
+                  textTransform: 'uppercase', letterSpacing: 0.8, marginBottom: 5 },
+  billName:     { fontSize: 11, fontFamily: 'Cairo', fontWeight: 700, color: '#111827', marginBottom: 2 },
+  billSub:      { fontSize: 8, color: '#6b7280' },
 
   // ── Line items table ─────────────────────────────────────────────────────────
-  section:     { marginBottom: 14 },
-  groupHeader: { backgroundColor: '#eff6ff', paddingVertical: 4, paddingHorizontal: 6, marginBottom: 2, borderRadius: 2 },
-  groupLabel:  { fontSize: 8, fontFamily: 'Cairo', fontWeight: 700, color: '#1d4ed8' },
-  tableRow:    { flexDirection: 'row', paddingVertical: 4, paddingHorizontal: 6,
-                 borderBottomWidth: 0.5, borderBottomColor: '#e5e7eb' },
-  tableHead:   { backgroundColor: '#f9fafb' },
-  c_num:       { width: '5%',  fontSize: 8, color: '#6b7280' },
-  c_item:      { width: '35%', fontSize: 8 },
-  c_sku:       { width: '15%', fontSize: 8, color: '#6b7280' },
-  c_qty:       { width: '8%',  fontSize: 8, textAlign: 'right' },
-  c_unit:      { width: '8%',  fontSize: 8, textAlign: 'center', color: '#6b7280' },
-  c_price:     { width: '14%', fontSize: 8, textAlign: 'right' },
-  c_total:     { width: '15%', fontSize: 8, textAlign: 'right', fontFamily: 'Cairo', fontWeight: 700 },
+  section:      { marginBottom: 14 },
+  groupHeader:  { backgroundColor: '#eff6ff', paddingVertical: 4, paddingHorizontal: 6,
+                  marginBottom: 2, borderRadius: 2 },
+  groupLabel:   { fontSize: 8, fontFamily: 'Cairo', fontWeight: 700, color: '#1d4ed8' },
+  tableRow:     { flexDirection: 'row', paddingVertical: 5, paddingHorizontal: 6,
+                  borderBottomWidth: 0.5, borderBottomColor: '#e5e7eb' },
+  tableHead:    { backgroundColor: '#f3f4f6' },
+  c_num:        { width: '5%',  fontSize: 8, color: '#6b7280' },
+  c_item:       { width: '35%', fontSize: 8 },
+  c_sku:        { width: '15%', fontSize: 8, color: '#6b7280' },
+  c_qty:        { width: '8%',  fontSize: 8, textAlign: 'right' },
+  c_unit:       { width: '8%',  fontSize: 8, textAlign: 'center', color: '#6b7280' },
+  c_price:      { width: '14%', fontSize: 8, textAlign: 'right' },
+  c_total:      { width: '15%', fontSize: 8, textAlign: 'right', fontFamily: 'Cairo', fontWeight: 700 },
 
   // ── Totals ───────────────────────────────────────────────────────────────────
-  totRow:      { flexDirection: 'row', justifyContent: 'flex-end', marginBottom: 2 },
-  totLbl:      { width: 110, fontSize: 9, color: '#6b7280', textAlign: 'right', paddingRight: 8 },
-  totVal:      { width: 110, fontSize: 9, textAlign: 'right' },
-  grandRow:    { flexDirection: 'row', justifyContent: 'flex-end', marginTop: 6,
-                 borderTopWidth: 0.5, borderTopColor: '#d1d5db', paddingTop: 4 },
-  grandLbl:    { width: 110, fontSize: 11, fontFamily: 'Cairo', fontWeight: 700,
-                 textAlign: 'right', paddingRight: 8 },
-  grandVal:    { width: 110, fontSize: 11, fontFamily: 'Cairo', fontWeight: 700, textAlign: 'right' },
+  totRow:       { flexDirection: 'row', justifyContent: 'flex-end', marginBottom: 3 },
+  totLbl:       { width: 100, fontSize: 9, color: '#6b7280', textAlign: 'right', paddingRight: 10 },
+  totVal:       { width: 110, fontSize: 9, textAlign: 'right' },
+  grandRow:     { flexDirection: 'row', justifyContent: 'flex-end', paddingTop: 5,
+                  marginTop: 4, borderTopWidth: 0.5, borderTopColor: '#d1d5db' },
+  grandLbl:     { width: 100, fontSize: 11, fontFamily: 'Cairo', fontWeight: 700,
+                  textAlign: 'right', paddingRight: 10 },
+  grandVal:     { width: 110, fontSize: 11, fontFamily: 'Cairo', fontWeight: 700, textAlign: 'right' },
 
   // ── Terms ────────────────────────────────────────────────────────────────────
-  termsRow:    { flexDirection: 'row', marginBottom: 3 },
-  termsKey:    { width: 120, fontSize: 8, fontFamily: 'Cairo', fontWeight: 700, color: '#374151' },
-  termsVal:    { flex: 1, fontSize: 8, color: '#6b7280' },
+  termsRow:     { flexDirection: 'row', marginBottom: 4 },
+  termsKey:     { width: 120, fontSize: 8, fontFamily: 'Cairo', fontWeight: 700, color: '#374151' },
+  termsVal:     { flex: 1, fontSize: 8, color: '#6b7280' },
 
   // ── Footer ───────────────────────────────────────────────────────────────────
-  footer:      { position: 'absolute', bottom: 24, left: 36, right: 36,
-                 flexDirection: 'row', justifyContent: 'space-between',
-                 borderTopWidth: 0.5, borderTopColor: '#e5e7eb', paddingTop: 6 },
-  footerTxt:   { fontSize: 7, color: '#9ca3af' },
+  footer:       { position: 'absolute', bottom: 24, left: 40, right: 40,
+                  flexDirection: 'row', justifyContent: 'space-between',
+                  borderTopWidth: 0.5, borderTopColor: '#e5e7eb', paddingTop: 6 },
+  footerTxt:    { fontSize: 7, color: '#9ca3af' },
 })
 
 const LINE_TYPES = ['products', 'spare-parts', 'consumables', 'tools'] as const
@@ -113,16 +112,15 @@ export function QuotationDocument({ so, lines, customerName, customerPhone }: Pr
     <Document>
       <Page size="A4" style={s.page}>
 
-        {/* ── Header: company left | quotation title right ── */}
+        {/* ── Header ── */}
         <View style={s.headerRow}>
 
           {/* Left — company */}
           <View style={s.companyCol}>
-            <Image style={s.logo} src="/logo.png" />
-            <Text style={s.companyName}>Al Faytri Group</Text>
-            <Text style={s.companyMeta}>Doha, Qatar</Text>
-            <Text style={s.companyMeta}>Tel: +974 4444 5555</Text>
-            <Text style={s.companyMeta}>info@alfaytri.com</Text>
+            <Text style={s.companyBrand}>Al Faytri Group</Text>
+            <Text style={s.companyLine}>Doha, Qatar</Text>
+            <Text style={s.companyLine}>Tel: +974 4444 5555</Text>
+            <Text style={s.companyLine}>info@alfaytri.com</Text>
           </View>
 
           {/* Right — quotation details */}
@@ -134,7 +132,7 @@ export function QuotationDocument({ so, lines, customerName, customerPhone }: Pr
             </View>
             <View style={s.metaRow}>
               <Text style={s.metaKey}>Date</Text>
-              <Text style={s.metaVal}>{formatDate(so.created_at)}</Text>
+              <Text style={s.metaVal}>{fmtDate(so.created_at)}</Text>
             </View>
             <View style={s.metaRow}>
               <Text style={s.metaKey}>Valid For</Text>
@@ -151,17 +149,17 @@ export function QuotationDocument({ so, lines, customerName, customerPhone }: Pr
 
         <View style={s.divider} />
 
-        {/* ── Customer + Reference ── */}
+        {/* ── Bill To / Reference ── */}
         <View style={s.billRow}>
-          <View style={s.billBox}>
+          <View style={s.billLeft}>
             <Text style={s.sectionLbl}>Bill To</Text>
             <Text style={s.billName}>{customerName}</Text>
-            {customerPhone && <Text style={s.billMeta}>{customerPhone}</Text>}
+            {customerPhone && <Text style={s.billSub}>{customerPhone}</Text>}
           </View>
-          <View style={[s.billBox, { alignItems: 'flex-end' }]}>
+          <View style={s.billRight}>
             <Text style={s.sectionLbl}>Reference</Text>
             <Text style={s.billName}>{so.so_number}</Text>
-            <Text style={s.billMeta}>Sale Order</Text>
+            <Text style={s.billSub}>Sale Order</Text>
           </View>
         </View>
 
@@ -256,7 +254,7 @@ export function QuotationDocument({ so, lines, customerName, customerPhone }: Pr
         {/* ── Footer ── */}
         <View style={s.footer} fixed>
           <Text style={s.footerTxt}>Al Faytri Group — Doha, Qatar</Text>
-          <Text style={s.footerTxt}>{so.so_number} · {formatDate(so.created_at)}</Text>
+          <Text style={s.footerTxt}>{so.so_number} · {fmtDate(so.created_at)}</Text>
         </View>
 
       </Page>
