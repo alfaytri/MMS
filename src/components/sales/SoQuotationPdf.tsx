@@ -5,8 +5,6 @@ import {
 } from '@react-pdf/renderer'
 import type { SaleOrder, SOLineItem } from '@/hooks/useSaleOrders'
 
-// Register Cairo for Arabic + Latin support.
-// Font files are in /public/fonts/ (downloaded in Task 3).
 Font.register({
   family: 'Cairo',
   fonts: [
@@ -30,16 +28,39 @@ function formatDate(iso: string) {
 
 const s = StyleSheet.create({
   page:        { fontFamily: 'Cairo', fontSize: 9, padding: 36, color: '#111827' },
-  header:      { flexDirection: 'row', justifyContent: 'space-between', marginBottom: 24 },
-  logo:        { width: 80, height: 40, objectFit: 'contain' },
-  docTitle:    { fontSize: 20, fontFamily: 'Cairo', fontWeight: 700, color: '#1d4ed8', marginBottom: 4 },
-  docMeta:     { fontSize: 8, color: '#6b7280', marginBottom: 2 },
+
+  // ── Top header row ──────────────────────────────────────────────────────────
+  headerRow:   { flexDirection: 'row', justifyContent: 'space-between', marginBottom: 20 },
+
+  // Left: company block
+  companyCol:  { flexDirection: 'column', gap: 3 },
+  logo:        { width: 90, height: 44, objectFit: 'contain', marginBottom: 6 },
+  companyName: { fontSize: 11, fontFamily: 'Cairo', fontWeight: 700, color: '#111827' },
+  companyMeta: { fontSize: 8, color: '#6b7280', marginTop: 1 },
+
+  // Right: quotation title block
+  quotationCol: { alignItems: 'flex-end' },
+  docTitle:    { fontSize: 22, fontFamily: 'Cairo', fontWeight: 700, color: '#1d4ed8', marginBottom: 6 },
+  metaRow:     { flexDirection: 'row', marginBottom: 2 },
+  metaKey:     { fontSize: 8, color: '#6b7280', width: 60 },
+  metaVal:     { fontSize: 8, color: '#111827', fontFamily: 'Cairo', fontWeight: 700 },
+
+  divider:     { borderBottomWidth: 0.5, borderBottomColor: '#d1d5db', marginVertical: 12 },
+
+  // ── Customer + Reference row ────────────────────────────────────────────────
+  billRow:     { flexDirection: 'row', justifyContent: 'space-between', marginBottom: 16 },
+  billBox:     { flexDirection: 'column' },
+  sectionLbl:  { fontSize: 7, fontFamily: 'Cairo', fontWeight: 700, textTransform: 'uppercase',
+                 letterSpacing: 0.8, color: '#6b7280', marginBottom: 4 },
+  billName:    { fontSize: 10, fontFamily: 'Cairo', fontWeight: 700, color: '#111827' },
+  billMeta:    { fontSize: 8, color: '#6b7280', marginTop: 2 },
+
+  // ── Line items table ─────────────────────────────────────────────────────────
   section:     { marginBottom: 14 },
-  sectionLbl:  { fontSize: 7, fontFamily: 'Cairo', fontWeight: 700, textTransform: 'uppercase', letterSpacing: 0.8, color: '#6b7280', marginBottom: 4 },
-  billTo:      { fontSize: 9, color: '#111827', lineHeight: 1.5 },
   groupHeader: { backgroundColor: '#eff6ff', paddingVertical: 4, paddingHorizontal: 6, marginBottom: 2, borderRadius: 2 },
   groupLabel:  { fontSize: 8, fontFamily: 'Cairo', fontWeight: 700, color: '#1d4ed8' },
-  tableRow:    { flexDirection: 'row', paddingVertical: 3, paddingHorizontal: 6, borderBottomWidth: 0.5, borderBottomColor: '#e5e7eb' },
+  tableRow:    { flexDirection: 'row', paddingVertical: 4, paddingHorizontal: 6,
+                 borderBottomWidth: 0.5, borderBottomColor: '#e5e7eb' },
   tableHead:   { backgroundColor: '#f9fafb' },
   c_num:       { width: '5%',  fontSize: 8, color: '#6b7280' },
   c_item:      { width: '35%', fontSize: 8 },
@@ -48,17 +69,26 @@ const s = StyleSheet.create({
   c_unit:      { width: '8%',  fontSize: 8, textAlign: 'center', color: '#6b7280' },
   c_price:     { width: '14%', fontSize: 8, textAlign: 'right' },
   c_total:     { width: '15%', fontSize: 8, textAlign: 'right', fontFamily: 'Cairo', fontWeight: 700 },
-  divider:     { borderBottomWidth: 0.5, borderBottomColor: '#d1d5db', marginVertical: 10 },
+
+  // ── Totals ───────────────────────────────────────────────────────────────────
   totRow:      { flexDirection: 'row', justifyContent: 'flex-end', marginBottom: 2 },
   totLbl:      { width: 110, fontSize: 9, color: '#6b7280', textAlign: 'right', paddingRight: 8 },
   totVal:      { width: 110, fontSize: 9, textAlign: 'right' },
-  grandRow:    { flexDirection: 'row', justifyContent: 'flex-end', marginTop: 4 },
-  grandLbl:    { width: 110, fontSize: 11, fontFamily: 'Cairo', fontWeight: 700, textAlign: 'right', paddingRight: 8 },
+  grandRow:    { flexDirection: 'row', justifyContent: 'flex-end', marginTop: 6,
+                 borderTopWidth: 0.5, borderTopColor: '#d1d5db', paddingTop: 4 },
+  grandLbl:    { width: 110, fontSize: 11, fontFamily: 'Cairo', fontWeight: 700,
+                 textAlign: 'right', paddingRight: 8 },
   grandVal:    { width: 110, fontSize: 11, fontFamily: 'Cairo', fontWeight: 700, textAlign: 'right' },
+
+  // ── Terms ────────────────────────────────────────────────────────────────────
   termsRow:    { flexDirection: 'row', marginBottom: 3 },
   termsKey:    { width: 120, fontSize: 8, fontFamily: 'Cairo', fontWeight: 700, color: '#374151' },
   termsVal:    { flex: 1, fontSize: 8, color: '#6b7280' },
-  footer:      { position: 'absolute', bottom: 24, left: 36, right: 36, flexDirection: 'row', justifyContent: 'space-between', borderTopWidth: 0.5, borderTopColor: '#e5e7eb', paddingTop: 6 },
+
+  // ── Footer ───────────────────────────────────────────────────────────────────
+  footer:      { position: 'absolute', bottom: 24, left: 36, right: 36,
+                 flexDirection: 'row', justifyContent: 'space-between',
+                 borderTopWidth: 0.5, borderTopColor: '#e5e7eb', paddingTop: 6 },
   footerTxt:   { fontSize: 7, color: '#9ca3af' },
 })
 
@@ -75,40 +105,83 @@ interface Props {
 }
 
 export function QuotationDocument({ so, lines, customerName, customerPhone }: Props) {
-  const currency    = so.currency ?? 'QAR'
-  const validDays   = so.validity_days ?? 30
+  const currency     = so.currency ?? 'QAR'
+  const validDays    = so.validity_days ?? 30
   const presentTypes = LINE_TYPES.filter((t) => lines.some((l) => l.line_type === t))
 
   return (
     <Document>
       <Page size="A4" style={s.page}>
 
-        <View style={s.header}>
-          <Image style={s.logo} src="/logo.png" />
-          <View style={{ alignItems: 'flex-end' }}>
+        {/* ── Header: company left | quotation title right ── */}
+        <View style={s.headerRow}>
+
+          {/* Left — company */}
+          <View style={s.companyCol}>
+            <Image style={s.logo} src="/logo.png" />
+            <Text style={s.companyName}>Al Faytri Group</Text>
+            <Text style={s.companyMeta}>Doha, Qatar</Text>
+            <Text style={s.companyMeta}>Tel: +974 4444 5555</Text>
+            <Text style={s.companyMeta}>info@alfaytri.com</Text>
+          </View>
+
+          {/* Right — quotation details */}
+          <View style={s.quotationCol}>
             <Text style={s.docTitle}>QUOTATION</Text>
-            <Text style={s.docMeta}>No: {so.so_number}</Text>
-            <Text style={s.docMeta}>Date: {formatDate(so.created_at)}</Text>
+            <View style={s.metaRow}>
+              <Text style={s.metaKey}>Quote #</Text>
+              <Text style={s.metaVal}>{so.so_number}</Text>
+            </View>
+            <View style={s.metaRow}>
+              <Text style={s.metaKey}>Date</Text>
+              <Text style={s.metaVal}>{formatDate(so.created_at)}</Text>
+            </View>
+            <View style={s.metaRow}>
+              <Text style={s.metaKey}>Valid For</Text>
+              <Text style={s.metaVal}>{validDays} days</Text>
+            </View>
+            {so.currency !== 'QAR' && (
+              <View style={s.metaRow}>
+                <Text style={s.metaKey}>Currency</Text>
+                <Text style={s.metaVal}>{so.currency}</Text>
+              </View>
+            )}
           </View>
         </View>
 
         <View style={s.divider} />
 
-        <View style={s.section}>
-          <Text style={s.sectionLbl}>Bill To</Text>
-          <Text style={s.billTo}>{customerName}</Text>
-          {customerPhone && <Text style={s.billTo}>{customerPhone}</Text>}
+        {/* ── Customer + Reference ── */}
+        <View style={s.billRow}>
+          <View style={s.billBox}>
+            <Text style={s.sectionLbl}>Bill To</Text>
+            <Text style={s.billName}>{customerName}</Text>
+            {customerPhone && <Text style={s.billMeta}>{customerPhone}</Text>}
+          </View>
+          <View style={[s.billBox, { alignItems: 'flex-end' }]}>
+            <Text style={s.sectionLbl}>Reference</Text>
+            <Text style={s.billName}>{so.so_number}</Text>
+            <Text style={s.billMeta}>Sale Order</Text>
+          </View>
         </View>
 
+        <View style={s.divider} />
+
+        {/* ── Line items grouped by type ── */}
         {presentTypes.map((lineType) => {
           const rows = lines.filter((l) => l.line_type === lineType)
           return (
             <View key={lineType} style={s.section} wrap={false}>
-              <View style={s.groupHeader}><Text style={s.groupLabel}>{TYPE_LABELS[lineType]}</Text></View>
+              <View style={s.groupHeader}>
+                <Text style={s.groupLabel}>{TYPE_LABELS[lineType]}</Text>
+              </View>
               <View style={[s.tableRow, s.tableHead]}>
-                <Text style={s.c_num}>#</Text><Text style={s.c_item}>Item Name</Text>
-                <Text style={s.c_sku}>SKU</Text><Text style={s.c_qty}>Qty</Text>
-                <Text style={s.c_unit}>Unit</Text><Text style={s.c_price}>Unit Price</Text>
+                <Text style={s.c_num}>#</Text>
+                <Text style={s.c_item}>Item Name</Text>
+                <Text style={s.c_sku}>SKU</Text>
+                <Text style={s.c_qty}>Qty</Text>
+                <Text style={s.c_unit}>Unit</Text>
+                <Text style={s.c_price}>Unit Price</Text>
                 <Text style={s.c_total}>Total</Text>
               </View>
               {rows.map((li, idx) => (
@@ -128,14 +201,19 @@ export function QuotationDocument({ so, lines, customerName, customerPhone }: Pr
 
         <View style={s.divider} />
 
+        {/* ── Totals ── */}
         <View style={s.totRow}>
           <Text style={s.totLbl}>Subtotal</Text>
           <Text style={s.totVal}>{fmt(so.subtotal, currency)}</Text>
         </View>
         {so.discount_amount_resolved > 0 && (
           <View style={s.totRow}>
-            <Text style={s.totLbl}>Discount{so.discount_label ? ` (${so.discount_label})` : ''}</Text>
-            <Text style={[s.totVal, { color: '#dc2626' }]}>-{fmt(so.discount_amount_resolved, currency)}</Text>
+            <Text style={s.totLbl}>
+              Discount{so.discount_label ? ` (${so.discount_label})` : ''}
+            </Text>
+            <Text style={[s.totVal, { color: '#dc2626' }]}>
+              -{fmt(so.discount_amount_resolved, currency)}
+            </Text>
           </View>
         )}
         <View style={s.grandRow}>
@@ -145,17 +223,22 @@ export function QuotationDocument({ so, lines, customerName, customerPhone }: Pr
 
         <View style={s.divider} />
 
+        {/* ── Terms ── */}
         <View style={s.section}>
           {so.payment_terms && (
             <View style={s.termsRow}>
               <Text style={s.termsKey}>Payment Terms:</Text>
-              <Text style={s.termsVal}>{so.payment_terms}{so.payment_terms_notes ? ` — ${so.payment_terms_notes}` : ''}</Text>
+              <Text style={s.termsVal}>
+                {so.payment_terms}{so.payment_terms_notes ? ` — ${so.payment_terms_notes}` : ''}
+              </Text>
             </View>
           )}
           {so.delivery_terms && (
             <View style={s.termsRow}>
               <Text style={s.termsKey}>Delivery Terms:</Text>
-              <Text style={s.termsVal}>{so.delivery_terms}{so.delivery_terms_notes ? ` — ${so.delivery_terms_notes}` : ''}</Text>
+              <Text style={s.termsVal}>
+                {so.delivery_terms}{so.delivery_terms_notes ? ` — ${so.delivery_terms_notes}` : ''}
+              </Text>
             </View>
           )}
           {so.customer_notes && (
@@ -170,9 +253,10 @@ export function QuotationDocument({ so, lines, customerName, customerPhone }: Pr
           </View>
         </View>
 
+        {/* ── Footer ── */}
         <View style={s.footer} fixed>
-          <Text style={s.footerTxt}>Al Faytri Group</Text>
-          <Text style={s.footerTxt}>{so.so_number} — {formatDate(so.created_at)}</Text>
+          <Text style={s.footerTxt}>Al Faytri Group — Doha, Qatar</Text>
+          <Text style={s.footerTxt}>{so.so_number} · {formatDate(so.created_at)}</Text>
         </View>
 
       </Page>
