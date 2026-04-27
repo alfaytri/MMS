@@ -151,10 +151,11 @@ Purchase & Sales▾:
 
 ## 🔄 In Progress
 
-🚀 Starting: **[SO Invoice Cash/Credit Plan] Task 1: Migration 1 — customer_type CHECK + invoice_type column**
+_(nothing active)_
 
 ## ✅ Completed
 
+- [2026-04-27] **[SO Invoice Cash/Credit Plan] ALL TASKS COMPLETE** — `supabase/migrations/20260428000005–00007`, `src/types/invoice.ts`, `src/hooks/useCustomerInvoices.ts`, `src/hooks/useSaleOrders.ts`, `src/components/sales/SoDetailDialog.tsx`, `src/components/sales/SoTermsSection.tsx`, `src/app/(dashboard)/sales/create-so/page.tsx` — Cash/credit customer type enforcement; atomic generate_invoice_from_so RPC; Invoice tab in SoDetailDialog with generate/send/pay/plan actions; cash UX on create-SO page
 - [2026-04-27] **[SO Module Polish]** — `src/hooks/useSaleOrders.ts`, `src/hooks/useSaleDeliveries.ts`, `src/components/sales/SoDetailDialog.tsx`, `src/app/(dashboard)/sales/orders/page.tsx` — activity log on delivery create; useCancelDelivery mutation with activity log; SoDetailDialog payment status badge (Paid/Partially Paid/Unpaid) + cancel delivery button on pending deliveries; SO # column now clickable to open detail dialog
 - [2026-04-26] **[Credit Groups Dialog] Tasks 1–4** — `supabase/migrations/20260428000001_credit_groups_payment_methods.sql`, `src/hooks/useCreditGroups.ts`, `src/app/(dashboard)/master-data/credit-groups/AddCreditGroupDialog.tsx`, `src/app/(dashboard)/master-data/credit-groups/page.tsx` — payment_methods + max_days migration; PAYMENT_METHODS constant; modal dialog with toggle grid; table shows Methods + Max Days columns
 - [2026-04-26] **[SO Creation Rebuild] Task 9: Add Download PDF button to SoDetailDialog** — `src/components/sales/SoDetailDialog.tsx`, `src/hooks/useSaleOrders.ts` — dynamic PDFDownloadLink + QuotationDocument imports (SSR-safe); useSaleOrder select now fetches phone; Download PDF button shown for quotation/pending_approval status
