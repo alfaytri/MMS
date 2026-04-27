@@ -23,6 +23,7 @@ import {
   useApproveSO,
   type SaleOrder,
 } from '@/hooks/useSaleOrders'
+import { useCancelDelivery } from '@/hooks/useSaleDeliveries'
 import { toast } from 'sonner'
 import { useActivityLog } from '@/hooks/useActivityLog'
 import { formatCurrency, formatDate, formatRelative } from '@/lib/utils/formatters'
@@ -43,6 +44,7 @@ export function SoDetailDialog({ open, onOpenChange, so, onEdit, onConfirm }: So
   const [deliveryOpen, setDeliveryOpen] = useState(false)
 
   const approveSO = useApproveSO()
+  const cancelDelivery = useCancelDelivery()
   const { data: fullSO, isLoading, isError } = useSaleOrder(open ? (so?.id ?? null) : null)
   const { data: payments } = useSOPayments(open ? (so?.id ?? null) : null)
   const { data: activityLogs } = useActivityLog(
@@ -68,6 +70,27 @@ export function SoDetailDialog({ open, onOpenChange, so, onEdit, onConfirm }: So
   const totalPaid = (payments ?? []).reduce((s, p) => s + (p.amount_qar ?? p.amount), 0)
   const payPct = current ? Math.min(100, (totalPaid / (current.total || 1)) * 100) : 0
 
+  // Payment status badge
+  const paymentStatus: 'paid' | 'partial' | 'unpaid' =
+    payments !== undefined && current
+      ? totalPaid >= current.total
+        ? 'paid'
+        : totalPaid > 0
+        ? 'partial'
+        : 'unpaid'
+      : 'unpaid'
+
+  function handleCancelDelivery(deliveryId: string) {
+    if (!current) return
+    cancelDelivery.mutate(
+      { id: deliveryId, soId: current.id },
+      {
+        onSuccess: () => toast.success('Delivery cancelled'),
+        onError: (err) => toast.error((err as Error).message),
+      }
+    )
+  }
+
   return (
     <>
       <Dialog open={open} onOpenChange={onOpenChange}>
@@ -76,6 +99,20 @@ export function SoDetailDialog({ open, onOpenChange, so, onEdit, onConfirm }: So
             <div className="flex flex-wrap items-center gap-3">
               <DialogTitle>{current?.so_number}</DialogTitle>
               {current && <SoStatusBadge status={current.status} />}
+              {payments !== undefined && current && (
+                <Badge
+                  variant="outline"
+                  className={
+                    paymentStatus === 'paid'
+                      ? 'border-green-500 text-green-700 bg-green-50'
+                      : paymentStatus === 'partial'
+                      ? 'border-amber-500 text-amber-700 bg-amber-50'
+                      : 'border-muted-foreground/40 text-muted-foreground'
+                  }
+                >
+                  {paymentStatus === 'paid' ? 'Paid' : paymentStatus === 'partial' ? 'Partially Paid' : 'Unpaid'}
+                </Badge>
+              )}
               {current?.customer_name && (
                 <span className="text-sm text-muted-foreground">{current.customer_name}</span>
               )}
@@ -163,7 +200,20 @@ export function SoDetailDialog({ open, onOpenChange, so, onEdit, onConfirm }: So
                     <div key={d.id} className="rounded-md border p-3 space-y-2">
                       <div className="flex items-center justify-between">
                         <span className="font-medium text-sm">{d.delivery_number}</span>
-                        <Badge variant="outline" className="text-xs">{d.status}</Badge>
+                        <div className="flex items-center gap-2">
+                          <Badge variant="outline" className="text-xs capitalize">{d.status}</Badge>
+                          {(d.status === 'pending' || d.status === 'in_progress') && (
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              className="h-6 px-2 text-xs text-destructive hover:text-destructive hover:bg-destructive/10"
+                              disabled={cancelDelivery.isPending}
+                              onClick={() => handleCancelDelivery(d.id)}
+                            >
+                              Cancel
+                            </Button>
+                          )}
+                        </div>
                       </div>
                       <div className="text-xs text-muted-foreground">
                         {formatDate(d.date)} · {d.warehouse_name ?? 'Unknown warehouse'}

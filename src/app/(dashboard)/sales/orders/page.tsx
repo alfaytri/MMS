@@ -81,7 +81,14 @@ export default function SaleOrdersPage() {
     {
       accessorKey: 'so_number',
       header: ({ column }) => <DataTableColumnHeader column={column} title="SO #" />,
-      cell: ({ row }) => <span className="font-mono text-sm font-medium">{row.getValue('so_number')}</span>,
+      cell: ({ row }) => (
+        <button
+          className="font-mono text-sm font-medium text-primary hover:underline"
+          onClick={() => setDetailSO(row.original)}
+        >
+          {row.getValue('so_number')}
+        </button>
+      ),
     },
     {
       accessorKey: 'customer_name',

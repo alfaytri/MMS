@@ -1,6 +1,7 @@
 // src/hooks/useSaleDeliveries.ts
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { createClient } from '@/lib/supabase/client'
+import { logActivity } from '@/lib/logActivity'
 
 export type DeliveryStatus = 'pending' | 'in_progress' | 'delivered' | 'cancelled'
 
@@ -140,6 +141,34 @@ export function useCompleteDelivery() {
       queryClient.invalidateQueries({ queryKey: ['fifo-layers'] })
       queryClient.invalidateQueries({ queryKey: ['stock_movements'] })
       queryClient.invalidateQueries({ queryKey: ['cogs-entries'] })
+      queryClient.invalidateQueries({ queryKey: ['activity-log'] })
+    },
+  })
+}
+
+export function useCancelDelivery() {
+  const queryClient = useQueryClient()
+  return useMutation({
+    mutationFn: async ({ id, soId }: { id: string; soId: string }) => {
+      const supabase = createClient()
+      const { error } = await (supabase as any)
+        .from('sale_deliveries')
+        .update({ status: 'cancelled' })
+        .eq('id', id)
+        .in('status', ['pending', 'in_progress'])
+      if (error) throw error
+    },
+    onSuccess: (_data, variables) => {
+      queryClient.invalidateQueries({ queryKey: ['sale-deliveries'] })
+      queryClient.invalidateQueries({ queryKey: ['sale-orders'] })
+      queryClient.invalidateQueries({ queryKey: ['sale-order', variables.soId] })
+      queryClient.invalidateQueries({ queryKey: ['activity-log'] })
+      logActivity({
+        action:    'Delivery Cancelled',
+        module:    'sale_orders',
+        entity_id: variables.soId,
+        severity:  'warning',
+      })
     },
   })
 }

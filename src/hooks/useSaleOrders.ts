@@ -1,5 +1,6 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { createClient } from '@/lib/supabase/client'
+import { logActivity } from '@/lib/logActivity'
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -354,8 +355,15 @@ export function useCreateSO() {
       if (error) throw error
       return data as CreateSOResult
     },
-    onSuccess: () => {
+    onSuccess: (data) => {
       queryClient.invalidateQueries({ queryKey: ['sale-orders'] })
+      logActivity({
+        action:    `Sale Order ${data.status === 'pending_approval' ? 'Submitted for Approval' : data.status === 'confirmed' ? 'Confirmed' : 'Created'}`,
+        module:    'sale_orders',
+        entity_id: data.so_id,
+        details:   `${data.so_number} · Total QAR ${data.open_total + 0}`,
+        severity:  'info',
+      })
     },
   })
 }
@@ -503,6 +511,13 @@ export function useCreateSOPayment() {
     onSuccess: (_data, variables) => {
       queryClient.invalidateQueries({ queryKey: ['so-payments', variables.so_id] })
       queryClient.invalidateQueries({ queryKey: ['sale-orders'] })
+      logActivity({
+        action:    'Payment Recorded',
+        module:    'sale_orders',
+        entity_id: variables.so_id,
+        details:   `QAR ${variables.amount.toLocaleString()} via ${variables.method}`,
+        severity:  'info',
+      })
     },
   })
 }
@@ -561,6 +576,15 @@ export function useCreateDelivery() {
     onSuccess: (_data, variables) => {
       queryClient.invalidateQueries({ queryKey: ['sale-orders'] })
       queryClient.invalidateQueries({ queryKey: ['sale-order', variables.so_id] })
+      queryClient.invalidateQueries({ queryKey: ['sale-deliveries'] })
+      queryClient.invalidateQueries({ queryKey: ['activity-log'] })
+      logActivity({
+        action:    'Delivery Created',
+        module:    'sale_orders',
+        entity_id: variables.so_id,
+        details:   `${variables.items.length} item(s) · ${variables.warehouse_name}`,
+        severity:  'info',
+      })
     },
   })
 }
@@ -596,6 +620,7 @@ export function useCancelSO() {
       queryClient.invalidateQueries({ queryKey: ['sale-orders'] })
       queryClient.invalidateQueries({ queryKey: ['sale-order', id] })
       queryClient.invalidateQueries({ queryKey: ['inventory-brand-variants'] })
+      logActivity({ action: 'Sale Order Cancelled', module: 'sale_orders', entity_id: id, severity: 'warning' })
     },
   })
 }
@@ -615,6 +640,7 @@ export function useApproveSO() {
     onSuccess: (_data, id) => {
       queryClient.invalidateQueries({ queryKey: ['sale-orders'] })
       queryClient.invalidateQueries({ queryKey: ['sale-order', id] })
+      logActivity({ action: 'Sale Order Approved', module: 'sale_orders', entity_id: id, severity: 'info' })
     },
   })
 }
