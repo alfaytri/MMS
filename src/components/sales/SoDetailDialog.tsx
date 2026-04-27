@@ -106,7 +106,7 @@ export function SoDetailDialog({ open, onOpenChange, so, onEdit, onConfirm }: So
   const canGenerateInvoice =
     current !== null &&
     soInvoice === null &&
-    ['partial_delivery', 'delivered'].includes(current?.status ?? '')
+    ['confirmed', 'partial_delivery', 'delivered'].includes(current?.status ?? '')
 
   function handleGenerateInvoice() {
     if (!current) return
@@ -115,7 +115,7 @@ export function SoDetailDialog({ open, onOpenChange, so, onEdit, onConfirm }: So
       onError: (err) => {
         const msg = (err as Error).message
         if (msg === 'invoice_exists') toast.error('An invoice already exists for this order')
-        else if (msg === 'so_not_deliverable') toast.error('Invoice can only be generated after delivery')
+        else if (msg === 'so_not_invoiceable') toast.error('Invoice can only be generated for confirmed or delivered orders')
         else toast.error(msg)
       },
     })
@@ -373,7 +373,7 @@ export function SoDetailDialog({ open, onOpenChange, so, onEdit, onConfirm }: So
               <TabsContent value="invoice" className="flex-1 overflow-y-auto space-y-4">
                 {soInvoice === null && !canGenerateInvoice && (
                   <p className="text-sm text-muted-foreground text-center py-6">
-                    Invoice will be available once items are delivered.
+                    Invoice will be available once the order is confirmed.
                   </p>
                 )}
 
