@@ -10,6 +10,11 @@ const SoPdfButton = dynamic(
   () => import('./SoPdfButton').then((m) => m.SoPdfButton),
   { ssr: false, loading: () => <Button variant="outline" size="sm" disabled>Loading PDF…</Button> }
 )
+
+const InvoicePdfButton = dynamic(
+  () => import('./InvoicePdfButton').then((m) => m.InvoicePdfButton),
+  { ssr: false, loading: () => <Button variant="outline" size="sm" disabled>Loading PDF…</Button> }
+)
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
@@ -481,6 +486,11 @@ export function SoDetailDialog({ open, onOpenChange, so, onEdit, onConfirm }: So
 
                     {/* Actions */}
                     <div className="flex flex-wrap gap-2">
+                      <InvoicePdfButton
+                        invoice={soInvoice}
+                        amountPaid={totalInvoicePaid}
+                        outstanding={invoiceOutstanding}
+                      />
                       {soInvoice.doc_status === 'ready_to_send' && (
                         <Button
                           size="sm"
