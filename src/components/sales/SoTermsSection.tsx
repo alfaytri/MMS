@@ -42,16 +42,17 @@ export const DEFAULT_TERMS: SoTermsValues = {
 interface SoTermsSectionProps {
   value: SoTermsValues
   onChange: (values: SoTermsValues) => void
+  hidePaymentTerms?: boolean
 }
 
-export function SoTermsSection({ value, onChange }: SoTermsSectionProps) {
+export function SoTermsSection({ value, onChange, hidePaymentTerms = false }: SoTermsSectionProps) {
   function set(key: keyof SoTermsValues, val: string) {
     onChange({ ...value, [key]: val })
   }
 
   return (
     <div className="space-y-4">
-      <div className="space-y-2">
+      {!hidePaymentTerms && <div className="space-y-2">
         <Label className="text-sm font-medium">Payment Terms</Label>
         <div className="flex flex-wrap gap-2">
           {PAYMENT_TERM_PRESETS.map((p) => (
@@ -77,7 +78,7 @@ export function SoTermsSection({ value, onChange }: SoTermsSectionProps) {
             onChange={(e) => set('payment_terms_notes', e.target.value)}
           />
         )}
-      </div>
+      </div>}
 
       <div className="space-y-2">
         <Label className="text-sm font-medium">Delivery Terms</Label>

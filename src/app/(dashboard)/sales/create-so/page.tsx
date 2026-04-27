@@ -40,12 +40,14 @@ export default function CreateSOPage() {
   const [customerCreditGroupId, setCustomerCreditGroupId]     = useState<string | null>(null)
   const [customerCreditGroupName, setCustomerCreditGroupName] = useState<string | null>(null)
   const [customerCreditLimit, setCustomerCreditLimit]         = useState<number | null>(null)
+  const [customerType, setCustomerType]                       = useState<'cash' | 'credit' | null>(null)
   const [customerOpen, setCustomerOpen]                       = useState(false)
   const [addOpen, setAddOpen]                                 = useState(false)
   const [newName, setNewName]                                 = useState('')
   const [newPhone, setNewPhone]                               = useState('')
   const [newEmail, setNewEmail]                               = useState('')
   const [newCreditGroupId, setNewCreditGroupId]               = useState('')
+  const [newCustomerType, setNewCustomerType]                 = useState<'cash' | 'credit'>('credit')
 
   const { data: creditGroups = [] } = useCreditGroups()
 
@@ -62,27 +64,29 @@ export default function CreateSOPage() {
   const subtotal       = calcSOSubtotal(lineItems)
   const total          = calcSOTotal(subtotal, discountAmount, 'fixed')
   const negativeMargin = hasNegativeMargin(lineItems)
-  const noCreditGroup  = customerId !== '' && customerCreditGroupId === null
+  const isCash         = customerType === 'cash'
 
   function handleSelectCustomer(c: {
     id: string; name: string
     credit_group_id: string | null
     credit_group_name?: string | null
     credit_group_limit?: number | null
+    customer_type?: string | null
   }) {
     setCustomerId(c.id); setCustomerName(c.name); setCustomerSearch(c.name)
     setCustomerCreditGroupId(c.credit_group_id)
     setCustomerCreditGroupName(c.credit_group_name ?? null)
     setCustomerCreditLimit(c.credit_group_limit ?? null)
+    setCustomerType((c.customer_type as 'cash' | 'credit') ?? 'credit')
     setCustomerOpen(false)
   }
 
   function handleAddCustomer() {
     if (!newName.trim() || !newPhone.trim()) { toast.error('Name and phone are required'); return }
-    if (!newCreditGroupId) { toast.error('Please select a credit group'); return }
-    const groupId = newCreditGroupId || null
+    if (newCustomerType === 'credit' && !newCreditGroupId) { toast.error('Please select a credit group'); return }
+    const groupId = newCustomerType === 'credit' ? (newCreditGroupId || null) : null
     createCust.mutate(
-      { name: newName.trim(), phone: newPhone.trim(), email: newEmail || null, credit_group_id: groupId },
+      { name: newName.trim(), phone: newPhone.trim(), email: newEmail || null, credit_group_id: groupId, customer_type: newCustomerType },
       {
         onSuccess: (data: any) => {
           toast.success('Customer added')
@@ -93,8 +97,9 @@ export default function CreateSOPage() {
             credit_group_id:    groupId,
             credit_group_name:  group?.name  ?? null,
             credit_group_limit: group?.credit_limit ?? null,
+            customer_type:      newCustomerType,
           })
-          setAddOpen(false); setNewName(''); setNewPhone(''); setNewEmail(''); setNewCreditGroupId('')
+          setAddOpen(false); setNewName(''); setNewPhone(''); setNewEmail(''); setNewCreditGroupId(''); setNewCustomerType('credit')
         },
         onError: (err) => toast.error(err.message),
       }
@@ -103,7 +108,6 @@ export default function CreateSOPage() {
 
   function validate() {
     if (!customerId)            { toast.error('Please select a customer'); return false }
-    if (noCreditGroup)          { toast.error('Customer has no credit group assigned'); return false }
     if (lineItems.length === 0) { toast.error('Add at least one line item'); return false }
     if (lineItems.some((li) => !li.item_name.trim())) { toast.error('All line items need an item name'); return false }
     return true
@@ -116,8 +120,8 @@ export default function CreateSOPage() {
       currency,
       exchange_rate:        exchangeRate,
       expected_delivery:    null,
-      payment_terms:        terms.payment_terms || null,
-      payment_terms_notes:  terms.payment_terms_notes || null,
+      payment_terms:        isCash ? null : (terms.payment_terms || null),
+      payment_terms_notes:  isCash ? null : (terms.payment_terms_notes || null),
       payment_milestones:   null,
       delivery_terms:       terms.delivery_terms || null,
       delivery_terms_notes: terms.delivery_terms_notes || null,
@@ -135,7 +139,7 @@ export default function CreateSOPage() {
     createSO.mutate(buildPayload('quotation'), {
       onSuccess: (result) => {
         if (result.status === 'pending_approval') {
-          toast.warning(`Saved — exceeds credit limit (available: ${fmtAmt(result.available, 'QAR')}). Sent for owner approval.`)
+          toast.warning(`Saved — exceeds credit limit (available: ${fmtAmt(result.available, 'QAR')}). Submitted for owner approval.`)
         } else {
           toast.success('Saved as quotation')
         }
@@ -177,11 +181,11 @@ export default function CreateSOPage() {
           </div>
         </div>
         <div className="flex items-center gap-2">
-          <Button variant="outline" size="sm" className="gap-1.5" onClick={saveQuotation} disabled={isPending || isPriceLoading || noCreditGroup}>
+          <Button variant="outline" size="sm" className="gap-1.5" onClick={saveQuotation} disabled={isPending || isPriceLoading}>
             <Save className="h-3.5 w-3.5" />
             <span className="hidden sm:inline">{isPending ? 'Saving…' : 'Save as Quotation'}</span>
           </Button>
-          <Button size="sm" className="gap-1.5" onClick={confirmOrder} disabled={isPending || isPriceLoading || noCreditGroup}>
+          <Button size="sm" className="gap-1.5" onClick={confirmOrder} disabled={isPending || isPriceLoading}>
             <CheckCircle2 className="h-3.5 w-3.5" />
             <span className="hidden sm:inline">{isPending ? 'Confirming…' : 'Confirm Order'}</span>
           </Button>
@@ -215,7 +219,9 @@ export default function CreateSOPage() {
                             <Check className={`mr-2 h-4 w-4 ${customerId === c.id ? 'opacity-100' : 'opacity-0'}`} />
                             <div className="flex-1">
                               <span>{c.name}</span>
-                              {!c.credit_group_id && <span className="ml-2 text-[10px] text-destructive">No credit group</span>}
+                              {c.customer_type === 'cash' && (
+                                <span className="ml-2 text-[10px] text-orange-600 font-medium">Cash</span>
+                              )}
                             </div>
                           </CommandItem>
                         ))}
@@ -229,18 +235,17 @@ export default function CreateSOPage() {
               <Plus className="h-4 w-4" />
             </Button>
           </div>
-          {customerId && (
-            noCreditGroup ? (
-              <div className="flex items-center gap-2 rounded-md border border-destructive/40 bg-destructive/5 px-3 py-2 text-sm text-destructive">
-                <AlertTriangle className="h-4 w-4 shrink-0" />
-                This customer has no credit group. Go to Master Data → Customers to assign one.
-              </div>
-            ) : (
-              <div className="flex items-center gap-3 text-xs text-muted-foreground">
-                <Badge variant="outline" className="text-xs">{customerCreditGroupName}</Badge>
-                <span>Limit: {fmtAmt(customerCreditLimit ?? 0, 'QAR')}</span>
-              </div>
-            )
+          {customerId && isCash && (
+            <div className="flex items-center gap-2 rounded-md border border-orange-200 bg-orange-50 px-3 py-2 text-sm text-orange-800">
+              <Badge className="bg-orange-500 text-white text-[10px]">Cash Sale</Badge>
+              <span>Payment due on delivery. No credit check applied.</span>
+            </div>
+          )}
+          {customerId && !isCash && customerCreditGroupName && (
+            <div className="flex items-center gap-3 text-xs text-muted-foreground">
+              <Badge variant="outline" className="text-xs">{customerCreditGroupName}</Badge>
+              <span>Limit: {fmtAmt(customerCreditLimit ?? 0, 'QAR')}</span>
+            </div>
           )}
         </section>
 
@@ -313,7 +318,16 @@ export default function CreateSOPage() {
         {/* ⑤ Terms */}
         <section className="space-y-3">
           <h2 className="text-sm font-semibold">Terms</h2>
-          <SoTermsSection value={terms} onChange={setTerms} />
+          {isCash ? (
+            <div className="space-y-3">
+              <p className="text-xs text-muted-foreground rounded-md border border-orange-100 bg-orange-50 px-3 py-2">
+                Cash sale — payment terms are not applicable. Delivery terms and notes are still available.
+              </p>
+              <SoTermsSection value={terms} onChange={setTerms} hidePaymentTerms />
+            </div>
+          ) : (
+            <SoTermsSection value={terms} onChange={setTerms} />
+          )}
         </section>
 
       </div>
@@ -323,22 +337,47 @@ export default function CreateSOPage() {
         <DialogContent className="w-full max-w-full rounded-none sm:max-w-md sm:rounded-lg">
           <DialogHeader><DialogTitle>Add Customer</DialogTitle></DialogHeader>
           <div className="space-y-3">
+            {/* Customer type */}
+            <div className="space-y-1">
+              <label className="text-xs font-medium">Customer Type *</label>
+              <div className="flex gap-2">
+                {(['credit', 'cash'] as const).map((t) => (
+                  <button
+                    key={t}
+                    type="button"
+                    onClick={() => { setNewCustomerType(t); if (t === 'cash') setNewCreditGroupId('') }}
+                    className={`flex-1 rounded-md border px-3 py-2 text-sm font-medium transition-colors ${
+                      newCustomerType === t
+                        ? 'bg-primary text-primary-foreground border-primary'
+                        : 'hover:bg-muted'
+                    }`}
+                  >
+                    {t === 'credit' ? 'Credit' : 'Cash'}
+                  </button>
+                ))}
+              </div>
+              {newCustomerType === 'cash' && (
+                <p className="text-[10px] text-muted-foreground">Cash customers pay on delivery. No credit limit applies.</p>
+              )}
+            </div>
             <div className="space-y-1"><label className="text-xs font-medium">Name *</label><Input value={newName} onChange={(e) => setNewName(e.target.value)} placeholder="Customer name" /></div>
             <div className="space-y-1"><label className="text-xs font-medium">Phone *</label><Input value={newPhone} onChange={(e) => setNewPhone(e.target.value)} placeholder="+974 XXXX XXXX" /></div>
             <div className="space-y-1"><label className="text-xs font-medium">Email</label><Input type="email" value={newEmail} onChange={(e) => setNewEmail(e.target.value)} placeholder="optional" /></div>
-            <div className="space-y-1">
-              <label className="text-xs font-medium">Credit Group *</label>
-              <select
-                value={newCreditGroupId}
-                onChange={(e) => setNewCreditGroupId(e.target.value)}
-                className="flex h-9 w-full rounded-md border border-input bg-background px-3 py-1 text-sm focus:outline-none focus:ring-1 focus:ring-ring"
-              >
-                <option value="">Select a credit group…</option>
-                {creditGroups.map((g) => (
-                  <option key={g.id} value={g.id}>{g.name}</option>
-                ))}
-              </select>
-            </div>
+            {newCustomerType === 'credit' && (
+              <div className="space-y-1">
+                <label className="text-xs font-medium">Credit Group *</label>
+                <select
+                  value={newCreditGroupId}
+                  onChange={(e) => setNewCreditGroupId(e.target.value)}
+                  className="flex h-9 w-full rounded-md border border-input bg-background px-3 py-1 text-sm focus:outline-none focus:ring-1 focus:ring-ring"
+                >
+                  <option value="">Select a credit group…</option>
+                  {creditGroups.map((g) => (
+                    <option key={g.id} value={g.id}>{g.name}</option>
+                  ))}
+                </select>
+              </div>
+            )}
           </div>
           <DialogFooter>
             <Button variant="outline" onClick={() => setAddOpen(false)}>Cancel</Button>
