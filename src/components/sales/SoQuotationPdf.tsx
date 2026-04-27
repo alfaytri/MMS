@@ -30,16 +30,16 @@ const s = StyleSheet.create({
   page:        { fontFamily: 'Cairo', fontSize: 9, padding: 36, color: '#111827' },
 
   // ── Top header row ──────────────────────────────────────────────────────────
-  headerRow:   { flexDirection: 'row', justifyContent: 'space-between', marginBottom: 20 },
+  headerRow:   { flexDirection: 'row', marginBottom: 20 },
 
   // Left: company block
-  companyCol:  { flexDirection: 'column' },
-  logo:        { width: 90, height: 44, objectFit: 'contain', marginBottom: 8 },
+  companyCol:  { width: '50%', flexDirection: 'column' },
+  logo:        { width: 90, height: 44, marginBottom: 8 },
   companyName: { fontSize: 11, fontFamily: 'Cairo', fontWeight: 700, color: '#111827', marginBottom: 3 },
   companyMeta: { fontSize: 8, color: '#6b7280', marginBottom: 2 },
 
   // Right: quotation title block
-  quotationCol: { alignItems: 'flex-end' },
+  quotationCol: { width: '50%', alignItems: 'flex-end' },
   docTitle:    { fontSize: 22, fontFamily: 'Cairo', fontWeight: 700, color: '#1d4ed8', marginBottom: 6 },
   metaRow:     { flexDirection: 'row', marginBottom: 2 },
   metaKey:     { fontSize: 8, color: '#6b7280', width: 60 },
