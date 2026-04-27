@@ -44,7 +44,14 @@ export async function middleware(request: NextRequest) {
     }
   )
 
-  const { data: { user } } = await supabase.auth.getUser()
+  let user = null
+  try {
+    const { data } = await supabase.auth.getUser()
+    user = data.user
+  } catch {
+    // Network or JWT failure — treat as unauthenticated (fail-closed)
+  }
+
   const pathname = request.nextUrl.pathname
 
   // ─── Unauthenticated gate ────────────────────────────────────────────
@@ -53,6 +60,8 @@ export async function middleware(request: NextRequest) {
   if (!user && pathname !== '/login') {
     const url = request.nextUrl.clone()
     url.pathname = '/login'
+    // Preserve the original destination so we can redirect back after login
+    if (pathname !== '/') url.searchParams.set('next', pathname)
     return NextResponse.redirect(url)
   }
 
