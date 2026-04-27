@@ -134,6 +134,7 @@ export function useCompleteDelivery() {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['sale-deliveries'] })
+      queryClient.invalidateQueries({ queryKey: ['sale-orders'] })
       queryClient.invalidateQueries({ queryKey: ['customer-invoices'] })
       queryClient.invalidateQueries({ queryKey: ['inventory-brand-variants'] })
       queryClient.invalidateQueries({ queryKey: ['fifo-layers'] })

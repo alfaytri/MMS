@@ -14,13 +14,23 @@ import { Input } from '@/components/ui/input'
 import { Button } from '@/components/ui/button'
 import { useCreateSOPayment, type SaleOrder } from '@/hooks/useSaleOrders'
 
+// Must match the payment_method DB enum exactly
 const PAYMENT_METHODS = [
-  'cash', 'bank_transfer', 'cheque', 'credit_card', 'debit_card', 'online', 'other',
+  { value: 'cash',            label: 'Cash' },
+  { value: 'bank_transfer',   label: 'Bank Transfer' },
+  { value: 'cheque',          label: 'Cheque' },
+  { value: 'online',          label: 'Online' },
+  { value: 'online_transfer', label: 'Online Transfer' },
+  { value: 'pay_later',       label: 'Pay Later' },
+  { value: 'fawran',          label: 'Fawran' },
+  { value: 'pos',             label: 'POS' },
 ] as const
+
+type PaymentMethodValue = typeof PAYMENT_METHODS[number]['value']
 
 const schema = z.object({
   amount: z.coerce.number().positive('Amount must be positive'),
-  method: z.enum(PAYMENT_METHODS),
+  method: z.string().min(1, 'Select a method'),
   date: z.string().min(1, 'Date is required'),
   reference: z.string().optional().default(''),
   notes: z.string().optional().default(''),
@@ -100,7 +110,7 @@ export function SoPaymentDialog({ open, onOpenChange, so }: SoPaymentDialogProps
                 <FormControl>
                   <select {...field} className="flex h-9 w-full rounded-md border border-input bg-background px-3 py-1 text-sm">
                     {PAYMENT_METHODS.map((m) => (
-                      <option key={m} value={m}>{m.replace(/_/g, ' ')}</option>
+                      <option key={m.value} value={m.value}>{m.label}</option>
                     ))}
                   </select>
                 </FormControl>
