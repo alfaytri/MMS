@@ -199,7 +199,9 @@ export default function PaymentsPage() {
       <div className="mb-4">
         <Select value={paymentType} onValueChange={(v) => { if (v === 'purchase' || v === 'invoice') setPaymentType(v) }}>
           <SelectTrigger className="w-full sm:w-56">
-            <SelectValue />
+            <SelectValue>
+            {paymentType === 'purchase' ? 'Purchase Payments' : 'Invoice Payments'}
+          </SelectValue>
           </SelectTrigger>
           <SelectContent>
             <SelectItem value="purchase">Purchase Payments</SelectItem>
