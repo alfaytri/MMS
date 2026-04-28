@@ -12,6 +12,9 @@ ALTER TABLE sale_orders
 
 -- ─── 2. Backfill from creator's primary division ───────────────────────────────
 -- created_by is a UUID FK → profiles(id), so join directly on profiles.id
+-- NOTE: This backfill is non-deterministic when a user has multiple user_divisions rows.
+-- Migration 20260428200002 re-runs the backfill deterministically for rows left NULL.
+-- Migration 20260428200003 re-runs deterministically for all rows (corrects arbitrary picks).
 UPDATE purchase_orders po
 SET    division_id = ud.division_id
 FROM   user_divisions ud
@@ -40,6 +43,9 @@ DECLARE
   v_division_ids UUID[];
   claims         JSONB;
 BEGIN
+  -- Priority: owner > accountant > purchase_manager > employee.
+  -- Having 'owner' in ANY division grants global super-viewer access.
+  -- If per-division role scoping is ever needed, this hook must be redesigned.
   SELECT
     CASE
       WHEN bool_or(ara.role = 'owner')            THEN 'owner'
