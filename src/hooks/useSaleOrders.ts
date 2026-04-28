@@ -552,8 +552,9 @@ export function useCreateDelivery() {
           p_items:          payload.items,
         })
         .single()
-      if (error) throw new Error(error.message)
+      if (error) throw error
 
+      if (!data) throw new Error('create_and_confirm_delivery returned no data')
       return data as { id: string; delivery_number: string }
     },
     onSuccess: (_data, variables) => {
