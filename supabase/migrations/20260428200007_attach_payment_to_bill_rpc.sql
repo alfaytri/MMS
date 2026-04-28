@@ -1,3 +1,5 @@
+BEGIN;
+
 -- Atomic RPC: links a payment to a bill and recalculates payment_status.
 -- Runs entirely in one transaction — partial state is impossible.
 -- Guards against reassignment and invalid IDs (Issues 1 & 2 fix).
@@ -5,7 +7,10 @@ CREATE OR REPLACE FUNCTION attach_payment_to_bill(
   p_payment_id uuid,
   p_bill_id    uuid
 ) RETURNS void
-LANGUAGE plpgsql SECURITY DEFINER AS $$
+LANGUAGE plpgsql
+SECURITY DEFINER
+SET search_path = public
+AS $$
 DECLARE
   v_existing_invoice_id uuid;
   v_bill_total          numeric;
@@ -25,6 +30,14 @@ BEGIN
       p_payment_id, v_existing_invoice_id;
   END IF;
 
+  -- Guard: verify bill exists before writing
+  SELECT total_amount INTO v_bill_total
+  FROM invoices WHERE id = p_bill_id;
+
+  IF NOT FOUND THEN
+    RAISE EXCEPTION 'Bill % does not exist', p_bill_id;
+  END IF;
+
   -- Link payment to bill
   UPDATE payments
   SET invoice_id = p_bill_id
@@ -36,14 +49,6 @@ BEGIN
     FROM payments
    WHERE invoice_id = p_bill_id
      AND direction = 'outgoing';
-
-  -- Guard: verify bill exists
-  SELECT total_amount INTO v_bill_total
-  FROM invoices WHERE id = p_bill_id;
-
-  IF NOT FOUND THEN
-    RAISE EXCEPTION 'Bill % does not exist', p_bill_id;
-  END IF;
 
   -- Derive correct status
   v_new_status := CASE
@@ -57,3 +62,7 @@ BEGIN
   WHERE id = p_bill_id;
 END;
 $$;
+
+GRANT EXECUTE ON FUNCTION attach_payment_to_bill(uuid, uuid) TO authenticated;
+
+COMMIT;
