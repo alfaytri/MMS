@@ -543,55 +543,33 @@ export function useCreateDelivery() {
     }) => {
       const supabase = createClient()
 
-      // Generate delivery number
-      const { count } = await (supabase as any)
-        .from('sale_deliveries')
-        .select('*', { count: 'exact', head: true })
-      const delivery_number = `DEL-${String((count ?? 0) + 1).padStart(5, '0')}`
-
-      const { data: delivery, error: delErr } = await (supabase as any)
-        .from('sale_deliveries')
-        .insert({
-          delivery_number,
-          sale_order_id: payload.so_id,
-          warehouse_id: payload.warehouse_id,
-          warehouse_name: payload.warehouse_name,
-          date: payload.date,
-          items: payload.items,
-          status: 'pending',
+      const { data, error } = await (supabase as any)
+        .rpc('create_and_confirm_delivery', {
+          p_so_id:          payload.so_id,
+          p_warehouse_id:   payload.warehouse_id,
+          p_warehouse_name: payload.warehouse_name,
+          p_date:           payload.date,
+          p_items:          payload.items,
         })
-        .select()
         .single()
-      if (delErr) throw delErr
+      if (error) throw new Error(error.message)
 
-      // Call deduct-sale-stock edge function (FIFO deduction) — best-effort
-      try {
-        await supabase.functions.invoke('deduct-sale-stock', {
-          body: {
-            sale_order_id: payload.so_id,
-            delivery_id: delivery.id,
-            warehouse_id: payload.warehouse_id,
-            items: payload.items
-              .filter((i) => i.brand_variant_id)
-              .map((i) => ({ brand_variant_id: i.brand_variant_id, qty: i.qty_delivered })),
-          },
-        })
-      } catch {
-        console.warn('deduct-sale-stock edge function failed — stock not deducted')
-      }
-
-      return delivery as SaleDelivery
+      return data as { id: string; delivery_number: string }
     },
     onSuccess: (_data, variables) => {
       queryClient.invalidateQueries({ queryKey: ['sale-orders'] })
       queryClient.invalidateQueries({ queryKey: ['sale-order', variables.so_id] })
       queryClient.invalidateQueries({ queryKey: ['sale-deliveries'] })
+      queryClient.invalidateQueries({ queryKey: ['inventory-brand-variants'] })
+      queryClient.invalidateQueries({ queryKey: ['fifo-layers'] })
+      queryClient.invalidateQueries({ queryKey: ['stock_movements'] })
+      queryClient.invalidateQueries({ queryKey: ['cogs-entries'] })
       queryClient.invalidateQueries({ queryKey: ['activity-log'] })
       logActivity({
         action:    'Delivery Created',
         module:    'sale_orders',
         entity_id: variables.so_id,
-        details:   `${variables.items.length} item(s) · ${variables.warehouse_name}`,
+        details:   `${variables.items.length} item(s) · ${variables.warehouse_name} · auto-confirmed`,
         severity:  'info',
       })
     },
