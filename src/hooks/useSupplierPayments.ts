@@ -27,56 +27,82 @@ export function useSupplierPayments(billId?: string) {
     queryKey: ['supplier-payments', billId],
     queryFn: async () => {
       const supabase = createClient()
+
+      // Step 1: plain payments fetch — no nested joins to avoid PostgREST ambiguity
       let q = (supabase as any)
         .from('payments')
-        .select(`
-          *,
-          invoices(invoice_id, purchase_order_id, purchase_orders(id, po_number), suppliers(name)),
-          suppliers(name)
-        `)
+        .select('*')
         .eq('direction', 'outgoing')
         .order('date', { ascending: false })
       if (billId) q = q.eq('invoice_id', billId)
       const { data, error } = await q
       if (error) throw error
+      const rows: any[] = data ?? []
 
-      // Batch-fetch POs for direct PO payments (source_type = 'purchase_order')
-      const poIds: string[] = (data ?? [])
-        .filter((p: any) => p.source_type === 'purchase_order' && p.source_id)
-        .map((p: any) => p.source_id as string)
-
-      const poMap: Record<string, { po_number: string; supplier_name: string | null }> = {}
-      if (poIds.length > 0) {
-        // purchase_orders.supplier_id is TEXT (no FK to suppliers), so we use
-        // the denormalized supplier_name column on purchase_orders directly.
-        const { data: pos, error: poError } = await (supabase as any)
-          .from('purchase_orders')
-          .select('id, po_number, supplier_name')
-          .in('id', poIds)
-        if (poError) throw poError
-        for (const po of pos ?? []) {
-          poMap[po.id] = {
-            po_number: po.po_number,
-            supplier_name: po.supplier_name ?? null,
-          }
+      // Step 2: batch-fetch AP invoices for payments that have invoice_id
+      const invoiceIds = [...new Set(rows.filter((p) => p.invoice_id).map((p) => p.invoice_id as string))]
+      const invoiceMap: Record<string, { invoice_id: string; purchase_order_id: string | null; supplier_id: string | null }> = {}
+      if (invoiceIds.length > 0) {
+        const { data: invoices, error: invErr } = await (supabase as any)
+          .from('invoices')
+          .select('id, invoice_id, purchase_order_id, supplier_id')
+          .in('id', invoiceIds)
+        if (invErr) throw invErr
+        for (const inv of invoices ?? []) {
+          invoiceMap[inv.id] = inv
         }
       }
 
-      return (data ?? []).map((p: any) => {
-        const poInfo = p.source_type === 'purchase_order' && p.source_id ? poMap[p.source_id] : null
+      // Step 3: batch-fetch POs (from invoice links + direct PO payments)
+      const poIdsFromInvoices = Object.values(invoiceMap)
+        .map((i) => i.purchase_order_id)
+        .filter(Boolean) as string[]
+      const poIdsFromDirect = rows
+        .filter((p) => p.source_type === 'purchase_order' && p.source_id)
+        .map((p) => p.source_id as string)
+      const poIds = [...new Set([...poIdsFromInvoices, ...poIdsFromDirect])]
+
+      const poMap: Record<string, { po_number: string; supplier_name: string | null }> = {}
+      if (poIds.length > 0) {
+        const { data: pos, error: poErr } = await (supabase as any)
+          .from('purchase_orders')
+          .select('id, po_number, supplier_name')
+          .in('id', poIds)
+        if (poErr) throw poErr
+        for (const po of pos ?? []) {
+          poMap[po.id] = { po_number: po.po_number, supplier_name: po.supplier_name ?? null }
+        }
+      }
+
+      // Step 4: batch-fetch supplier names for invoice-linked payments
+      const supplierIds = [...new Set(
+        Object.values(invoiceMap).map((i) => i.supplier_id).filter(Boolean) as string[]
+      )]
+      const supplierMap: Record<string, string> = {}
+      if (supplierIds.length > 0) {
+        const { data: suppliers, error: supErr } = await (supabase as any)
+          .from('suppliers')
+          .select('id, name')
+          .in('id', supplierIds)
+        if (supErr) throw supErr
+        for (const s of suppliers ?? []) supplierMap[s.id] = s.name
+      }
+
+      // Step 5: resolve each payment
+      return rows.map((p: any) => {
+        const inv     = p.invoice_id ? invoiceMap[p.invoice_id] : null
+        const poId    = inv?.purchase_order_id
+                        ?? (p.source_type === 'purchase_order' ? p.source_id : null)
+                        ?? null
+        const poInfo  = poId ? poMap[poId] : null
         return {
           ...p,
-          invoice_display:  p.invoices?.invoice_id ?? null,
-          supplier_name:    p.invoices?.suppliers?.name
-                            ?? p.suppliers?.name
-                            ?? poInfo?.supplier_name
-                            ?? null,
-          po_id:            p.invoices?.purchase_orders?.id
-                            ?? (p.source_type === 'purchase_order' ? p.source_id : null)
-                            ?? null,
-          po_number:        p.invoices?.purchase_orders?.po_number
-                            ?? poInfo?.po_number
-                            ?? null,
+          invoice_display: inv?.invoice_id ?? null,
+          supplier_name:   (inv?.supplier_id ? supplierMap[inv.supplier_id] : null)
+                           ?? poInfo?.supplier_name
+                           ?? null,
+          po_id:           poId,
+          po_number:       poInfo?.po_number ?? null,
         } as SupplierPayment
       })
     },
