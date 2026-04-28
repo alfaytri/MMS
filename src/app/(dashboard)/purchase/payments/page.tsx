@@ -38,14 +38,14 @@ export default function PaymentsPage() {
   const { data: customerPayments, isLoading: loadingCustomer } = useCustomerPayments()
 
   const [selectedSO, setSelectedSO] = useState<SaleOrder | null>(null)
-  const [detailOpen, setDetailOpen]   = useState(false)
+  const [detailOpen, setDetailOpen] = useState(false)
 
   const openSO = useCallback(function openSO(payment: CustomerPayment) {
     if (!payment.source_id || payment.source_type !== 'sale_order') return
     setSelectedSO({
       id:                       payment.source_id,
       so_number:                payment.so_number ?? '…',
-      customer_id:              '',
+      customer_id:              payment.source_id,
       status:                   'confirmed' as const,
       subtotal:                 payment.amount,
       tax:                      0,
@@ -78,7 +78,7 @@ export default function PaymentsPage() {
     {
       accessorKey: 'payment_id',
       header: ({ column }) => <DataTableColumnHeader column={column} title="Payment #" />,
-      cell: ({ row }) => <span className="font-mono text-sm font-medium">{row.getValue('payment_id')}</span>,
+      cell: ({ row }) => <span className="font-mono text-sm font-medium">{row.original.payment_id}</span>,
     },
     {
       id: 'supplier',
@@ -93,21 +93,21 @@ export default function PaymentsPage() {
     {
       accessorKey: 'amount',
       header: ({ column }) => <DataTableColumnHeader column={column} title="Amount" />,
-      cell: ({ row }) => formatCurrency(row.getValue('amount'), DEFAULT_CURRENCY),
+      cell: ({ row }) => formatCurrency(row.original.amount, DEFAULT_CURRENCY),
     },
     {
       accessorKey: 'method',
       header: 'Method',
       cell: ({ row }) => (
         <Badge variant="outline" className="text-xs">
-          {METHOD_LABELS[row.getValue('method') as string] ?? row.getValue('method')}
+          {METHOD_LABELS[row.original.method] ?? row.original.method}
         </Badge>
       ),
     },
     {
       accessorKey: 'date',
       header: ({ column }) => <DataTableColumnHeader column={column} title="Date" />,
-      cell: ({ row }) => formatDate(row.getValue('date')),
+      cell: ({ row }) => formatDate(row.original.date),
     },
   ], [])
 
@@ -117,7 +117,7 @@ export default function PaymentsPage() {
       header: ({ column }) => <DataTableColumnHeader column={column} title="Payment #" />,
       cell: ({ row }) => (
         <span className="font-mono text-sm font-medium">
-          {row.getValue('payment_id') ?? '—'}
+          {row.original.payment_id ?? '—'}
         </span>
       ),
     },
@@ -135,8 +135,9 @@ export default function PaymentsPage() {
         return (
           <button
             type="button"
+            aria-label={`View sale order ${so}`}
             onClick={() => openSO(row.original)}
-            className="font-mono text-sm text-primary hover:underline"
+            className="font-mono text-sm text-primary hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 rounded-sm"
           >
             {so}
           </button>
@@ -153,7 +154,7 @@ export default function PaymentsPage() {
       header: ({ column }) => <DataTableColumnHeader column={column} title="Amount" />,
       cell: ({ row }) => (
         <span className="font-medium tabular-nums">
-          {formatCurrency(row.getValue('amount'), DEFAULT_CURRENCY)}
+          {formatCurrency(row.original.amount, DEFAULT_CURRENCY)}
         </span>
       ),
     },
@@ -162,14 +163,14 @@ export default function PaymentsPage() {
       header: 'Method',
       cell: ({ row }) => (
         <Badge variant="outline" className="text-xs">
-          {METHOD_LABELS[row.getValue('method') as string] ?? row.getValue('method')}
+          {METHOD_LABELS[row.original.method] ?? row.original.method}
         </Badge>
       ),
     },
     {
       accessorKey: 'date',
       header: ({ column }) => <DataTableColumnHeader column={column} title="Date" />,
-      cell: ({ row }) => formatDate(row.getValue('date')),
+      cell: ({ row }) => formatDate(row.original.date),
     },
     {
       id: 'actions',
@@ -182,7 +183,7 @@ export default function PaymentsPage() {
             size="icon"
             variant="ghost"
             className="h-7 w-7"
-            title="View Sale Order"
+            aria-label="View sale order"
             onClick={() => openSO(p)}
           >
             <Eye className="h-3.5 w-3.5" />
@@ -196,7 +197,7 @@ export default function PaymentsPage() {
     <PageWrapper>
       <PageHeader title="Payments" description="Purchase and invoice payment records" />
       <div className="mb-4">
-        <Select value={paymentType} onValueChange={(v) => setPaymentType(v as PaymentType)}>
+        <Select value={paymentType} onValueChange={(v) => { if (v === 'purchase' || v === 'invoice') setPaymentType(v) }}>
           <SelectTrigger className="w-full sm:w-56">
             <SelectValue />
           </SelectTrigger>
