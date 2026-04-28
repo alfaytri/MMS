@@ -4,8 +4,9 @@ import { createClient } from '@/lib/supabase/client'
 
 export type SupplierPayment = {
   id: string
-  payment_id: string
-  invoice_id: string
+  payment_id: string | null
+  invoice_id: string | null       // null for PO-direct payments
+  supplier_id?: string | null     // set on PO-direct payments
   amount: number
   method: string
   date: string
@@ -14,9 +15,11 @@ export type SupplierPayment = {
   direction: 'outgoing'
   status: string | null
   created_at: string | null
-  // joined
-  invoice_display?: string   // invoice_id (display)
-  supplier_name?: string
+  // joined / resolved
+  invoice_display?: string | null
+  supplier_name?: string | null
+  po_id?: string | null
+  po_number?: string | null
 }
 
 export function useSupplierPayments(billId?: string) {
@@ -26,17 +29,53 @@ export function useSupplierPayments(billId?: string) {
       const supabase = createClient()
       let q = (supabase as any)
         .from('payments')
-        .select('*, invoices(invoice_id, suppliers(name))')
+        .select(`
+          *,
+          invoices(invoice_id, purchase_order_id, purchase_orders(id, po_number), suppliers(name)),
+          suppliers(name)
+        `)
         .eq('direction', 'outgoing')
         .order('date', { ascending: false })
       if (billId) q = q.eq('invoice_id', billId)
       const { data, error } = await q
       if (error) throw error
-      return (data ?? []).map((p: any) => ({
-        ...p,
-        invoice_display: p.invoices?.invoice_id ?? null,
-        supplier_name: p.invoices?.suppliers?.name ?? null,
-      })) as SupplierPayment[]
+
+      // Batch-fetch POs for direct PO payments (source_type = 'purchase_order')
+      const poIds: string[] = (data ?? [])
+        .filter((p: any) => p.source_type === 'purchase_order' && p.source_id)
+        .map((p: any) => p.source_id as string)
+
+      const poMap: Record<string, { po_number: string; supplier_name: string | null }> = {}
+      if (poIds.length > 0) {
+        const { data: pos } = await (supabase as any)
+          .from('purchase_orders')
+          .select('id, po_number, suppliers(name)')
+          .in('id', poIds)
+        for (const po of pos ?? []) {
+          poMap[po.id] = {
+            po_number: po.po_number,
+            supplier_name: po.suppliers?.name ?? null,
+          }
+        }
+      }
+
+      return (data ?? []).map((p: any) => {
+        const poInfo = p.source_type === 'purchase_order' && p.source_id ? poMap[p.source_id] : null
+        return {
+          ...p,
+          invoice_display:  p.invoices?.invoice_id ?? null,
+          supplier_name:    p.invoices?.suppliers?.name
+                            ?? p.suppliers?.name
+                            ?? poInfo?.supplier_name
+                            ?? null,
+          po_id:            p.invoices?.purchase_orders?.id
+                            ?? (p.source_type === 'purchase_order' ? p.source_id : null)
+                            ?? null,
+          po_number:        p.invoices?.purchase_orders?.po_number
+                            ?? poInfo?.po_number
+                            ?? null,
+        } as SupplierPayment
+      })
     },
   })
 }
@@ -106,6 +145,33 @@ export function useCreateSupplierPayment() {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['supplier-payments'] })
       queryClient.invalidateQueries({ queryKey: ['supplier-bills'] })
+    },
+  })
+}
+
+export type UnlinkedPayment = {
+  id: string
+  payment_id: string | null
+  amount: number
+  method: string
+  date: string
+}
+
+export function useUnlinkedOutgoingPayments(supplierId: string | null | undefined) {
+  return useQuery({
+    queryKey: ['unlinked-outgoing-payments', supplierId ?? null],
+    queryFn: async () => {
+      const supabase = createClient()
+      let q = (supabase as any)
+        .from('payments')
+        .select('id, payment_id, amount, method, date')
+        .eq('direction', 'outgoing')
+        .is('invoice_id', null)
+        .order('date', { ascending: false })
+      if (supplierId) q = q.eq('supplier_id', supplierId)
+      const { data, error } = await q
+      if (error) throw error
+      return (data ?? []) as UnlinkedPayment[]
     },
   })
 }

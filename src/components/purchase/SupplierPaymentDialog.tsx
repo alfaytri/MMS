@@ -22,7 +22,7 @@ type Props = {
 export function SupplierPaymentDialog({ open, onOpenChange, bill, onSetUpPlan }: Props) {
   const createPayment = useCreateSupplierPayment()
   const { data: existingPayments } = useSupplierPayments(bill.id)
-  const alreadyPaid = (existingPayments ?? []).reduce((s, p) => s + p.amount, 0)
+  const alreadyPaid = (existingPayments ?? []).reduce((s: number, p: { amount: number }) => s + p.amount, 0)
   const outstanding = (bill.total_amount ?? 0) - alreadyPaid
 
   const [amount, setAmount] = useState(String(outstanding > 0 ? outstanding.toFixed(2) : ''))
