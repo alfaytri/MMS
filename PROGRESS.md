@@ -152,7 +152,7 @@ Purchase & Sales▾:
 
 ## 🔄 In Progress
 
-_(none — all Division Isolation tasks complete)_
+🚀 Starting: **Inventory Module Task 1: Add Avg Cost field to BrandVariantEditDialog**
 
 ## ✅ Completed
 
