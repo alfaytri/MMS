@@ -152,10 +152,11 @@ Purchase & Sales▾:
 
 ## 🔄 In Progress
 
-🚀 Starting: **[Multi-Company Division Isolation] Task 1: DB Migration — Columns, JWT Hook, Helper, RLS**
+🚀 Starting: **[Multi-Company Division Isolation] Task 2: Update create_sale_order RPC to Accept division_id**
 
 ## ✅ Completed
 
+- [2026-04-28] **[Multi-Company Division Isolation] Task 1: DB Migration — Columns, JWT Hook, Helper, RLS** — `supabase/migrations/20260428200001_division_isolation.sql`, `20260428200002_fix_backfill_division_id.sql`, `20260428200003_division_isolation_hardening.sql` — Added division_id to PO/SO tables, backfilled from user_divisions, JWT auth hook reads approval_role_assignments for user_type claim, is_division_visible RLS helper, division_scope policies on both tables; also extended approval_role enum with 'employee'
 - [2026-04-27] **[SO Invoice Cash/Credit Plan] ALL TASKS COMPLETE** — `supabase/migrations/20260428000005–00007`, `src/types/invoice.ts`, `src/hooks/useCustomerInvoices.ts`, `src/hooks/useSaleOrders.ts`, `src/components/sales/SoDetailDialog.tsx`, `src/components/sales/SoTermsSection.tsx`, `src/app/(dashboard)/sales/create-so/page.tsx` — Cash/credit customer type enforcement; atomic generate_invoice_from_so RPC; Invoice tab in SoDetailDialog with generate/send/pay/plan actions; cash UX on create-SO page
 - [2026-04-27] **[SO Module Polish]** — `src/hooks/useSaleOrders.ts`, `src/hooks/useSaleDeliveries.ts`, `src/components/sales/SoDetailDialog.tsx`, `src/app/(dashboard)/sales/orders/page.tsx` — activity log on delivery create; useCancelDelivery mutation with activity log; SoDetailDialog payment status badge (Paid/Partially Paid/Unpaid) + cancel delivery button on pending deliveries; SO # column now clickable to open detail dialog
 - [2026-04-26] **[Credit Groups Dialog] Tasks 1–4** — `supabase/migrations/20260428000001_credit_groups_payment_methods.sql`, `src/hooks/useCreditGroups.ts`, `src/app/(dashboard)/master-data/credit-groups/AddCreditGroupDialog.tsx`, `src/app/(dashboard)/master-data/credit-groups/page.tsx` — payment_methods + max_days migration; PAYMENT_METHODS constant; modal dialog with toggle grid; table shows Methods + Max Days columns
