@@ -29,7 +29,8 @@ export function BrandVariantEditDialog({ open, onOpenChange, itemId, variant }: 
   const [avgCost, setAvgCost] = useState('')
 
   // True when the system manages avg cost (stock received via PO)
-  const avgCostLocked = isEdit && ((variant as any)?.stock_level ?? 0) > 0
+  // Reads persisted DB value (not editable stockLevel state) — manual edits to Stock on Hand cannot unlock this field
+  const avgCostLocked = isEdit && (variant?.stock_level ?? 0) > 0
 
   useEffect(() => {
     if (open) {
@@ -39,7 +40,7 @@ export function BrandVariantEditDialog({ open, onOpenChange, itemId, variant }: 
       setMarginPercent((variant as any)?.margin_percent != null ? String((variant as any).margin_percent) : '0')
       setReorderPoint(variant ? String((variant as any).reorder_point ?? 0) : '0')
       setStockLevel(variant ? String((variant as any).stock_level ?? 0) : '0')
-      setAvgCost((variant as any)?.average_cost != null ? String((variant as any).average_cost) : '')
+      setAvgCost(variant?.average_cost != null ? String(variant.average_cost) : '')
     }
   }, [open, variant])
 
