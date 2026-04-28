@@ -2,6 +2,8 @@
 'use client'
 
 import { useEffect, useState } from 'react'
+import { Button } from '@/components/ui/button'
+import { AttachBillDialog } from './AttachBillDialog'
 import { QRCodeSVG } from 'qrcode.react'
 import { Badge } from '@/components/ui/badge'
 import {
@@ -62,6 +64,7 @@ export function BillDetailDocument({
   const { bill, payments, paymentPlan, receival } = viewModel
   const watermark = getWatermark(bill)
   const [origin, setOrigin] = useState('')
+  const [attachOpen, setAttachOpen] = useState(false)
   const printTimestamp = new Date().toLocaleString('en-GB')
 
   useEffect(() => {
@@ -272,7 +275,40 @@ export function BillDetailDocument({
         </div>
       </BillDetailSection>
 
-      {/* 7. Receival Info (toggleable) */}
+      {/* 7. Link Payment (non-printable) */}
+      <BillDetailSection title="Payment" className="print:hidden">
+        {payments.length > 0 ? (
+          <div className="space-y-2">
+            {payments.map((p) => (
+              <div key={p.id} className="flex items-center justify-between text-sm border rounded-md px-3 py-2 bg-muted/40">
+                <span className="font-mono font-medium">{p.payment_id}</span>
+                <span>{formatCurrency(p.amount, currency)}</span>
+                <span className="text-muted-foreground">{formatDate(p.date)}</span>
+                <span className="capitalize text-muted-foreground">{p.method.replace(/_/g, ' ')}</span>
+              </div>
+            ))}
+          </div>
+        ) : (
+          <div className="flex items-center justify-between">
+            <p className="text-sm text-muted-foreground">No payment linked yet.</p>
+            {bill.payment_status !== 'paid' && (
+              <Button size="sm" variant="outline" onClick={() => setAttachOpen(true)}>
+                Link Payment
+              </Button>
+            )}
+          </div>
+        )}
+      </BillDetailSection>
+
+      <AttachBillDialog
+        open={attachOpen}
+        onOpenChange={setAttachOpen}
+        mode="link-payment"
+        billId={bill.id}
+        supplierId={bill.supplier_id ?? undefined}
+      />
+
+      {/* 8. Receival Info (toggleable) */}
       {showReceival && receival && (
         <BillDetailSection title="Receival Info">
           <p className="text-xs text-muted-foreground mb-2">
