@@ -138,6 +138,7 @@ export type CreateSOPayload = {
   discount_label:       string | null
   discount_type:        'fixed' | 'percentage'
   line_items:           SOLineItemDraft[]
+  division_id:          string | null
 }
 
 export type CreateSOResult = {
@@ -358,6 +359,7 @@ export function useCreateSO() {
         p_discount_label:       payload.discount_label,
         p_discount_type:        payload.discount_type,
         p_line_items:           payload.line_items,
+        p_division_id:          payload.division_id ?? null,
       })
       if (error) throw error
       return data as CreateSOResult

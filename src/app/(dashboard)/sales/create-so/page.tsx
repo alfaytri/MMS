@@ -1,6 +1,6 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useMemo } from 'react'
 import { useRouter } from 'next/navigation'
 import { ArrowLeft, Plus, Save, CheckCircle2, Users, Package, AlertTriangle } from 'lucide-react'
 import { Check, ChevronsUpDown } from 'lucide-react'
@@ -19,6 +19,11 @@ import {
   calcSOSubtotal, calcSOTotal, hasNegativeMargin,
 } from '@/hooks/useSaleOrders'
 import { useCreditGroups } from '@/hooks/useCreditGroups'
+import { useUserDivisionScope } from '@/hooks/useUserDivisionScope'
+import { useCompanies } from '@/hooks/useCompanies'
+import {
+  Select, SelectContent, SelectGroup, SelectItem, SelectLabel, SelectTrigger, SelectValue,
+} from '@/components/ui/select'
 
 const CURRENCIES = ['QAR', 'USD', 'EUR', 'GBP', 'AED', 'SAR', 'KWD'] as const
 const CURRENCY_SYMBOLS: Record<string, string> = { QAR: 'QAR ', USD: '$', EUR: '€', GBP: '£', AED: 'AED ', SAR: 'SAR ', KWD: 'KWD ' }
@@ -50,6 +55,25 @@ export default function CreateSOPage() {
   const [newCustomerType, setNewCustomerType]                 = useState<'cash' | 'credit'>('credit')
 
   const { data: creditGroups = [] } = useCreditGroups()
+
+  const { userDivisionIds, divisions } = useUserDivisionScope()
+  const { data: companies = [] } = useCompanies()
+  const isMultiDivision = userDivisionIds.length > 1
+  const [divisionId, setDivisionId] = useState<string>(
+    userDivisionIds.length === 1 ? userDivisionIds[0] : ''
+  )
+
+  const companiesWithDivisions = useMemo(() => {
+    const map = new Map<string, { companyName: string; items: typeof divisions }>()
+    for (const d of divisions) {
+      if (!map.has(d.company_id ?? '')) {
+        const co = companies.find((c) => c.id === d.company_id)
+        map.set(d.company_id ?? '', { companyName: co?.name_en ?? (d.company_id ?? ''), items: [] })
+      }
+      map.get(d.company_id ?? '')!.items.push(d)
+    }
+    return Array.from(map.values())
+  }, [divisions, companies])
 
   const [currency, setCurrency]         = useState('QAR')
   const [exchangeRate, setExchangeRate] = useState(1)
@@ -107,6 +131,7 @@ export default function CreateSOPage() {
   }
 
   function validate() {
+    if (isMultiDivision && !divisionId) { toast.error('Select a division before creating the order.'); return false }
     if (!customerId)            { toast.error('Please select a customer'); return false }
     if (lineItems.length === 0) { toast.error('Add at least one line item'); return false }
     if (lineItems.some((li) => !li.item_name.trim())) { toast.error('All line items need an item name'); return false }
@@ -131,6 +156,7 @@ export default function CreateSOPage() {
       discount_label:       discountLabel || null,
       discount_type:        'fixed' as const,
       line_items:           lineItems.map(({ _key, ...li }) => li),
+      division_id:          divisionId || null,
     }
   }
 
@@ -195,7 +221,35 @@ export default function CreateSOPage() {
       {/* ── Scrollable Body ── */}
       <div className="flex-1 overflow-auto px-4 md:px-6 py-6 space-y-6">
 
-        {/* ① Customer */}
+        {/* ① Division (multi-division users only) */}
+        {isMultiDivision && (
+          <section className="space-y-3">
+            <h2 className="text-sm font-semibold">Division</h2>
+            <div className="space-y-1.5">
+              <label className="text-sm font-medium">
+                Division <span className="text-destructive">*</span>
+              </label>
+              <Select value={divisionId} onValueChange={(v) => v && setDivisionId(v)}>
+                <SelectTrigger className="h-9 w-full">
+                  <SelectValue placeholder="Select division…" />
+                </SelectTrigger>
+                <SelectContent>
+                  {companiesWithDivisions.map((group) => (
+                    <SelectGroup key={group.companyName}>
+                      <SelectLabel>{group.companyName}</SelectLabel>
+                      {group.items.map((d) => (
+                        <SelectItem key={d.id} value={d.id}>{d.name ?? d.id}</SelectItem>
+                      ))}
+                    </SelectGroup>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+            <Separator />
+          </section>
+        )}
+
+        {/* ② Customer */}
         <section className="space-y-3">
           <h2 className="text-sm font-semibold flex items-center gap-1.5"><Users className="h-4 w-4 text-primary" />Customer</h2>
           <div className="flex gap-2 items-end">
