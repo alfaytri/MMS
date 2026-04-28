@@ -1,7 +1,7 @@
 'use client'
 
 import { useMemo, useState, useCallback } from 'react'
-import { Eye } from 'lucide-react'
+import { Eye, Paperclip } from 'lucide-react'
 import { type ColumnDef } from '@tanstack/react-table'
 import { PageHeader } from '@/components/shared/PageHeader'
 import { PageWrapper } from '@/components/shared/PageWrapper'
@@ -13,6 +13,8 @@ import { Button } from '@/components/ui/button'
 import { useSupplierPayments, type SupplierPayment } from '@/hooks/useSupplierPayments'
 import { useCustomerPayments, type CustomerPayment } from '@/hooks/useCustomerPayments'
 import { SoDetailDialog } from '@/components/sales/SoDetailDialog'
+import { PoDetailDialog } from '@/components/purchase/PoDetailDialog'
+import { AttachBillDialog } from '@/components/purchase/AttachBillDialog'
 import { formatCurrency, formatDate } from '@/lib/utils/formatters'
 import type { SaleOrder } from '@/hooks/useSaleOrders'
 
@@ -39,6 +41,11 @@ export default function PaymentsPage() {
 
   const [selectedSO, setSelectedSO] = useState<SaleOrder | null>(null)
   const [detailOpen, setDetailOpen] = useState(false)
+  const [poDetailOpen, setPoDetailOpen]         = useState(false)
+  const [selectedPoId, setSelectedPoId]         = useState<string | null>(null)
+  const [attachBillOpen, setAttachBillOpen]     = useState(false)
+  const [attachPaymentId, setAttachPaymentId]   = useState<string | null>(null)
+  const [attachSupplierId, setAttachSupplierId] = useState<string | null>(null)
 
   const openSO = useCallback(function openSO(payment: CustomerPayment) {
     if (!payment.source_id || payment.source_type !== 'sale_order') return
@@ -78,12 +85,35 @@ export default function PaymentsPage() {
     {
       accessorKey: 'payment_id',
       header: ({ column }) => <DataTableColumnHeader column={column} title="Payment #" />,
-      cell: ({ row }) => <span className="font-mono text-sm font-medium">{row.original.payment_id}</span>,
+      cell: ({ row }) => (
+        <span className="font-mono text-sm font-medium">
+          {row.original.payment_id ?? '—'}
+        </span>
+      ),
     },
     {
       id: 'supplier',
       header: 'Supplier',
       cell: ({ row }) => row.original.supplier_name ?? '—',
+    },
+    {
+      id: 'po_number',
+      header: 'PO #',
+      cell: ({ row }) => {
+        const po   = row.original.po_number
+        const poId = row.original.po_id
+        if (!po || !poId) return <span className="text-muted-foreground">—</span>
+        return (
+          <button
+            type="button"
+            aria-label={`View PO ${po}`}
+            onClick={() => { setSelectedPoId(poId); setPoDetailOpen(true) }}
+            className="font-mono text-sm text-primary hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 rounded-sm"
+          >
+            {po}
+          </button>
+        )
+      },
     },
     {
       id: 'bill',
@@ -108,6 +138,43 @@ export default function PaymentsPage() {
       accessorKey: 'date',
       header: ({ column }) => <DataTableColumnHeader column={column} title="Date" />,
       cell: ({ row }) => formatDate(row.original.date),
+    },
+    {
+      id: 'actions',
+      header: '',
+      cell: ({ row }) => {
+        const p = row.original
+        return (
+          <div className="flex items-center gap-1">
+            {p.po_id && (
+              <Button
+                size="icon"
+                variant="ghost"
+                className="h-7 w-7"
+                aria-label="View purchase order"
+                onClick={() => { setSelectedPoId(p.po_id!); setPoDetailOpen(true) }}
+              >
+                <Eye className="h-3.5 w-3.5" />
+              </Button>
+            )}
+            {!p.invoice_id && (
+              <Button
+                size="icon"
+                variant="ghost"
+                className="h-7 w-7"
+                aria-label="Attach bill"
+                onClick={() => {
+                  setAttachPaymentId(p.id)
+                  setAttachSupplierId(p.supplier_id ?? null)
+                  setAttachBillOpen(true)
+                }}
+              >
+                <Paperclip className="h-3.5 w-3.5" />
+              </Button>
+            )}
+          </div>
+        )
+      },
     },
   ], [])
 
@@ -226,6 +293,18 @@ export default function PaymentsPage() {
         open={detailOpen}
         onOpenChange={setDetailOpen}
         so={selectedSO}
+      />
+      <PoDetailDialog
+        open={poDetailOpen}
+        onOpenChange={setPoDetailOpen}
+        poId={selectedPoId ?? undefined}
+      />
+      <AttachBillDialog
+        open={attachBillOpen}
+        onOpenChange={setAttachBillOpen}
+        mode="attach-bill"
+        paymentId={attachPaymentId ?? undefined}
+        supplierId={attachSupplierId}
       />
     </PageWrapper>
   )
