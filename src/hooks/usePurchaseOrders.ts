@@ -154,6 +154,7 @@ export type CreatePOPayload = {
   discount_amount: number
   discount_label: string | null
   line_items: POLineItemDraft[]
+  division_id: string | null
 }
 
 export type UpdatePOPayload = Partial<CreatePOPayload> & { id: string }
@@ -353,6 +354,7 @@ export function useCreatePO() {
           discount_amount: payload.discount_amount,
           discount_label: payload.discount_label,
           created_by: user?.id ?? null,
+          division_id: payload.division_id ?? null,
         })
         .select()
         .single()

@@ -1,6 +1,6 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useMemo, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
 import {
   ArrowLeft, Plus, Save, CheckCircle2, Building2,
@@ -24,6 +24,11 @@ import { PoTermsSection, DEFAULT_TERMS, type PoTermsValues } from '@/components/
 import { AddSupplierDialog } from '@/components/purchase/AddSupplierDialog'
 import { useCreatePO, useSubmitPOForApproval } from '@/hooks/usePurchaseOrders'
 import { useSuppliers } from '@/hooks/useSuppliers'
+import { useUserDivisionScope } from '@/hooks/useUserDivisionScope'
+import { useCompanies } from '@/hooks/useCompanies'
+import {
+  Select, SelectContent, SelectGroup, SelectItem, SelectLabel, SelectTrigger, SelectValue,
+} from '@/components/ui/select'
 
 const CURRENCIES = ['QAR', 'USD', 'EUR', 'GBP', 'AED', 'SAR', 'KWD'] as const
 
@@ -50,6 +55,18 @@ export default function CreatePOPage() {
   const submitForApproval = useSubmitPOForApproval()
   const { data: suppliers } = useSuppliers()
 
+  const { userDivisionIds, divisions } = useUserDivisionScope()
+  const { data: companies = [] } = useCompanies()
+  const isMultiDivision = userDivisionIds.length > 1
+  const [divisionId, setDivisionId] = useState<string>('')
+
+  // Auto-select the only division once scope data loads
+  useEffect(() => {
+    if (userDivisionIds.length === 1 && !divisionId) {
+      setDivisionId(userDivisionIds[0])
+    }
+  }, [userDivisionIds, divisionId])
+
   const [supplierId, setSupplierId] = useState('')
   const [supplierName, setSupplierName] = useState('')
   const [supplierOpen, setSupplierOpen] = useState(false)
@@ -61,6 +78,19 @@ export default function CreatePOPage() {
   const [discountAmount, setDiscountAmount] = useState(0)
   const [discountLabel, setDiscountLabel] = useState('')
   const [isPriceLoading, setIsPriceLoading] = useState(false)
+
+  const companiesWithDivisions = useMemo(() => {
+    const map = new Map<string, { companyName: string; items: typeof divisions }>()
+    for (const d of divisions) {
+      const companyId = d.company_id ?? 'unknown'
+      if (!map.has(companyId)) {
+        const co = companies.find((c) => c.id === companyId)
+        map.set(companyId, { companyName: co?.name_en ?? companyId, items: [] })
+      }
+      map.get(companyId)!.items.push(d)
+    }
+    return Array.from(map.values())
+  }, [divisions, companies])
 
   const subtotal = lineItems.reduce((s, li) => s + li.total_price, 0)
   const grandTotal = subtotal - discountAmount
@@ -91,10 +121,12 @@ export default function CreatePOPage() {
       line_items: lineItems.map(({ item_name, sku, qty, unit, unit_price, total_price, brand_variant_id, tool_asset_item_id, free_qty }) => ({
         item_name, sku, qty, unit, unit_price, total_price, brand_variant_id, tool_asset_item_id, free_qty,
       })),
+      division_id: divisionId || null,
     }
   }
 
   function validate() {
+    if (isMultiDivision && !divisionId) { toast.error('Select a division before creating the order.'); return false }
     if (!supplierId) { toast.error('Please select a supplier'); return false }
     if (lineItems.length === 0) { toast.error('Add at least one line item'); return false }
     if (lineItems.some((li) => !li.item_name.trim())) { toast.error('All line items need an item name'); return false }
@@ -163,6 +195,29 @@ export default function CreatePOPage() {
             <Building2 className="h-4 w-4 text-primary" />
             Supplier &amp; Details
           </h2>
+          {isMultiDivision && (
+            <div className="space-y-1.5">
+              <label className="text-sm font-medium">
+                Division <span className="text-destructive">*</span>
+              </label>
+              <Select value={divisionId} onValueChange={(v) => { if (v) setDivisionId(v) }}>
+                <SelectTrigger className="h-9 w-full">
+                  <SelectValue placeholder="Select division…" />
+                </SelectTrigger>
+                <SelectContent>
+                  {companiesWithDivisions.map((group) => (
+                    <SelectGroup key={group.companyName}>
+                      <SelectLabel>{group.companyName}</SelectLabel>
+                      {group.items.map((d) => (
+                        <SelectItem key={d.id} value={d.id}>{d.name}</SelectItem>
+                      ))}
+                    </SelectGroup>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+          )}
+
           <div className="grid grid-cols-1 md:grid-cols-[1fr_auto_auto_auto] gap-3 items-end">
             {/* Supplier combobox */}
             <div className="space-y-1">

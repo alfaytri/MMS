@@ -157,6 +157,7 @@ export default function EditPOPage() {
       line_items: lineItems.map(({ item_name, sku, qty, unit, unit_price, total_price, brand_variant_id, tool_asset_item_id, free_qty }) => ({
         item_name, sku, qty, unit, unit_price, total_price, brand_variant_id, tool_asset_item_id, free_qty,
       })),
+      division_id: (po as any)?.division_id ?? null,
     }
   }
 
