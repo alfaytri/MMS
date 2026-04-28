@@ -53,9 +53,11 @@ export function BillDetailSidebar({
       {/* Company selector */}
       <div className="space-y-2">
         <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">Company</p>
-        <Select value={selectedDivisionId} onValueChange={(v) => { if (v !== null) onDivisionChange(v) }}>
+        <Select value={selectedDivisionId} onValueChange={(v) => { if (v) onDivisionChange(v) }}>
           <SelectTrigger>
-            <SelectValue placeholder="Select company…" />
+            <SelectValue placeholder="Select company…">
+              {divisions.find((d) => d.id === selectedDivisionId)?.name ?? 'Select company…'}
+            </SelectValue>
           </SelectTrigger>
           <SelectContent>
             {divisions.map((d) => (
