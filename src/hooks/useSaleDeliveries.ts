@@ -152,16 +152,20 @@ export function useCancelDelivery() {
     mutationFn: async ({ id, soId }: { id: string; soId: string }) => {
       const supabase = createClient()
       const { error } = await (supabase as any)
-        .from('sale_deliveries')
-        .update({ status: 'cancelled' })
-        .eq('id', id)
-        .in('status', ['pending', 'in_progress'])
+        .rpc('cancel_delivery_inventory', {
+          p_delivery_id: id,
+          p_so_id:       soId,
+        })
       if (error) throw error
     },
     onSuccess: (_data, variables) => {
       queryClient.invalidateQueries({ queryKey: ['sale-deliveries'] })
       queryClient.invalidateQueries({ queryKey: ['sale-orders'] })
       queryClient.invalidateQueries({ queryKey: ['sale-order', variables.soId] })
+      queryClient.invalidateQueries({ queryKey: ['inventory-brand-variants'] })
+      queryClient.invalidateQueries({ queryKey: ['fifo-layers'] })
+      queryClient.invalidateQueries({ queryKey: ['stock_movements'] })
+      queryClient.invalidateQueries({ queryKey: ['cogs-entries'] })
       queryClient.invalidateQueries({ queryKey: ['activity-log'] })
       logActivity({
         action:    'Delivery Cancelled',
