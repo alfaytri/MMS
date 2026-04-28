@@ -56,43 +56,71 @@ po_number?: string | null    // new
 | **Eye icon** (actions) | Rightmost | `h-7 w-7` ghost icon button, renders only when `po_id` is present. Opens `PoDetailDialog` |
 | **Paperclip** (attach) | In actions column, beside eye | Renders only when `invoice_id` is `null`. Opens Attach Bill dialog (Area 3) |
 
-**`PoDetailDialog` integration:**
-- Import `PoDetailDialog` from `@/components/purchase/PoDetailDialog`
-- Import `PurchaseOrder` type from `@/hooks/usePurchaseOrders`
-- State: `selectedPO: PurchaseOrder | null`, `poDetailOpen: boolean`
-- `openPO(payment)` callback — construct minimal stub:
-  ```ts
-  {
-    id: payment.po_id,
-    po_number: payment.po_number ?? '…',
-    supplier_id: '',
-    supplier_name: payment.supplier_name ?? '',
-    status: 'approved',
-    currency: 'QAR',
-    exchange_rate: 1,
-    subtotal: payment.amount,
-    total_qar: payment.amount,
-    created_date: payment.date,
-    expected_delivery: null,
-    approval_level: 0,
-    payment_terms: null,
-    payment_terms_notes: null,
-    delivery_terms: null,
-    delivery_terms_notes: null,
-    vendor_notes: null,
-    discount_amount: 0,
-    discount_label: null,
-    created_at: payment.date,
-    updated_at: payment.date,
-    created_by: null,
-    version_number: 1,
-  }
-  ```
-- `PoDetailDialog` fetches the full PO internally via `usePurchaseOrder(po.id)`, so stub is just a loading placeholder.
+**`PoDetailDialog` integration — accept `poId: string` directly (Issue 4 fix):**
+
+Modify `PoDetailDialog` props to accept either a full object or just an ID:
+```ts
+type Props = {
+  open: boolean
+  onOpenChange: (open: boolean) => void
+  po?: PurchaseOrder | null   // existing callers unaffected
+  poId?: string               // new: pass only an ID, dialog shows skeleton until loaded
+  onEdit?: (po: PurchaseOrder) => void
+}
+```
+Internal logic: `const resolvedId = po?.id ?? poId ?? null` — `usePurchaseOrder(resolvedId)` fetches the full record. While loading, render a `<Skeleton>` for the header area. This removes all stub construction from callers and is future-proof against type changes.
+
+**Purchase Payments page usage:**
+- State: `selectedPoId: string | null`, `poDetailOpen: boolean`
+- `openPO(poId: string)` — sets state, opens dialog
+- `<PoDetailDialog open={poDetailOpen} onOpenChange={setPoDetailOpen} poId={selectedPoId} />`
 
 ---
 
 ## Area 3 — Attach Bill Feature
+
+### New Supabase RPC: `attach_payment_to_bill`
+
+**File:** `supabase/migrations/20260428200007_attach_payment_to_bill_rpc.sql`
+
+All linking logic runs server-side in a single transaction — atomic, no partial state possible (Issues 1 & 2 fix):
+
+```sql
+CREATE OR REPLACE FUNCTION attach_payment_to_bill(
+  p_payment_id uuid,
+  p_bill_id    uuid
+) RETURNS void
+LANGUAGE plpgsql SECURITY DEFINER AS $$
+DECLARE
+  v_bill_total   numeric;
+  v_total_paid   numeric;
+  v_new_status   text;
+BEGIN
+  -- Link payment to bill
+  UPDATE payments SET invoice_id = p_bill_id WHERE id = p_payment_id;
+
+  -- Sum all outgoing payments now linked to this bill
+  SELECT COALESCE(SUM(amount), 0)
+    INTO v_total_paid
+    FROM payments
+   WHERE invoice_id = p_bill_id
+     AND direction = 'outgoing';
+
+  -- Get bill total
+  SELECT total_amount INTO v_bill_total
+    FROM invoices WHERE id = p_bill_id;
+
+  -- Derive correct status
+  v_new_status := CASE
+    WHEN v_total_paid >= v_bill_total THEN 'paid'
+    WHEN v_total_paid > 0             THEN 'partially_paid'
+    ELSE                                   'unpaid'
+  END;
+
+  UPDATE invoices SET payment_status = v_new_status WHERE id = p_bill_id;
+END;
+$$;
+```
 
 ### New hook: `useAttachPaymentToBill`
 
@@ -103,11 +131,8 @@ useAttachPaymentToBill(): UseMutationResult<void, Error, { paymentId: string; bi
 ```
 
 **Mutation logic:**
-1. `UPDATE payments SET invoice_id = billId WHERE id = paymentId`
-2. `UPDATE invoices SET payment_status = 'paid' WHERE id = billId`
-3. `invalidateQueries(['supplier-payments'])` + `invalidateQueries(['supplier-bills'])`
-
-Both updates run sequentially; if step 2 fails, log error and still invalidate caches (data is recoverable).
+1. Call RPC `attach_payment_to_bill(paymentId, billId)` — single round-trip, fully atomic
+2. `invalidateQueries(['supplier-payments'])` + `invalidateQueries(['supplier-bills'])`
 
 ### New component: `AttachBillDialog`
 
@@ -160,7 +185,7 @@ Add a **"Payment" section** at the bottom of the bill detail:
 WITH max_seq AS (
   SELECT COALESCE(MAX(CAST(SUBSTRING(payment_id FROM 6) AS integer)), 0) AS n
   FROM payments
-  WHERE payment_id LIKE 'SPAY-%'
+  WHERE payment_id ~ '^SPAY-\d+$'   -- regex: only clean numeric suffixes (Issue 3 fix)
 ),
 numbered AS (
   SELECT id,
@@ -184,8 +209,10 @@ Assigns sequential SPAY-XXXXX IDs starting after the highest existing SPAY- numb
 | File | Change |
 |---|---|
 | `src/hooks/useSupplierPayments.ts` | Fix supplier/PO resolution, add po_id/po_number fields |
-| `src/hooks/useAttachPaymentToBill.ts` | New mutation hook |
+| `src/hooks/useAttachPaymentToBill.ts` | New mutation hook (calls RPC) |
 | `src/components/purchase/AttachBillDialog.tsx` | New dialog component |
 | `src/components/purchase/BillDetailSection.tsx` | Add "Payment" section at the bottom — link button or read-only payment row |
-| `src/app/(dashboard)/purchase/payments/page.tsx` | PO # column, eye icon, paperclip action, PoDetailDialog |
+| `src/components/purchase/PoDetailDialog.tsx` | Accept `poId?: string` prop — remove stub requirement from callers |
+| `src/app/(dashboard)/purchase/payments/page.tsx` | PO # column, eye icon, paperclip action, PoDetailDialog via poId |
 | `supabase/migrations/20260428200006_assign_missing_spay_ids.sql` | Assign SPAY- IDs to null payment_id rows |
+| `supabase/migrations/20260428200007_attach_payment_to_bill_rpc.sql` | Atomic RPC for linking payment to bill |
