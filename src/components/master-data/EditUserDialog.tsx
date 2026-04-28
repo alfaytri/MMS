@@ -43,7 +43,6 @@ const APPROVAL_ROLES: { role: ApprovalRole; label: string }[] = [
 const schema = z.object({
   full_name: z.string().min(1, 'Name is required'),
   email: z.string().email('Enter a valid email'),
-  user_type: z.enum(['internal', 'external']),
   is_active: z.boolean(),
   role_ids: z.array(z.string().uuid()).default([]),
 })
@@ -144,7 +143,7 @@ export function EditUserDialog({ open, onOpenChange, profile }: Props) {
   const form = useForm<Values>({
     resolver: zodResolver(schema) as never,
     defaultValues: {
-      full_name: '', email: '', user_type: 'internal', is_active: true, role_ids: [],
+      full_name: '', email: '', is_active: true, role_ids: [],
     },
   })
 
@@ -153,7 +152,6 @@ export function EditUserDialog({ open, onOpenChange, profile }: Props) {
       form.reset({
         full_name: profile.full_name ?? '',
         email: profile.email ?? '',
-        user_type: (profile.user_type as 'internal' | 'external') ?? 'internal',
         is_active: profile.is_active ?? true,
         role_ids: (profile.user_custom_roles ?? []).map((r) => r.role_id),
       })
@@ -207,26 +205,6 @@ export function EditUserDialog({ open, onOpenChange, profile }: Props) {
                 </FormItem>
               )}
             />
-            <FormField
-              control={form.control}
-              name="user_type"
-              render={({ field }) => (
-                <FormItem>
-                  <FormLabel>User Type</FormLabel>
-                  <FormControl>
-                    <select
-                      {...field}
-                      className="flex h-9 w-full rounded-md border border-input bg-background px-3 py-1 text-sm"
-                    >
-                      <option value="internal">Internal (staff)</option>
-                      <option value="external">External (client)</option>
-                    </select>
-                  </FormControl>
-                  <FormMessage />
-                </FormItem>
-              )}
-            />
-
             <label className="flex items-center gap-2 cursor-pointer">
               <Checkbox
                 checked={isActive}
