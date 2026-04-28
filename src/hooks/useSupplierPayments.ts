@@ -47,15 +47,17 @@ export function useSupplierPayments(billId?: string) {
 
       const poMap: Record<string, { po_number: string; supplier_name: string | null }> = {}
       if (poIds.length > 0) {
+        // purchase_orders.supplier_id is TEXT (no FK to suppliers), so we use
+        // the denormalized supplier_name column on purchase_orders directly.
         const { data: pos, error: poError } = await (supabase as any)
           .from('purchase_orders')
-          .select('id, po_number, suppliers(name)')
+          .select('id, po_number, supplier_name')
           .in('id', poIds)
         if (poError) throw poError
         for (const po of pos ?? []) {
           poMap[po.id] = {
             po_number: po.po_number,
-            supplier_name: po.suppliers?.name ?? null,
+            supplier_name: po.supplier_name ?? null,
           }
         }
       }
