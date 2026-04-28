@@ -82,9 +82,8 @@ export const NAV_ITEMS: NavEntry[] = [
         // common divider — shared purchase & sales transactions
         items: [
           { label: 'Receivals', href: '/purchase/receivals' },
-          { label: 'Purchase Payments', href: '/purchase/payments' },
+          { label: 'Payments', href: '/purchase/payments' },
           { label: 'Deliveries', href: '/sales/deliveries' },
-          { label: 'Payments', href: '/sales/payments' },
           { label: 'Credit Notes', href: '/sales/credit-notes' },
         ],
       },
