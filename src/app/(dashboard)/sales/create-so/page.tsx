@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useMemo } from 'react'
+import { useState, useMemo, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
 import { ArrowLeft, Plus, Save, CheckCircle2, Users, Package, AlertTriangle } from 'lucide-react'
 import { Check, ChevronsUpDown } from 'lucide-react'
@@ -59,9 +59,14 @@ export default function CreateSOPage() {
   const { userDivisionIds, divisions } = useUserDivisionScope()
   const { data: companies = [] } = useCompanies()
   const isMultiDivision = userDivisionIds.length > 1
-  const [divisionId, setDivisionId] = useState<string>(
-    userDivisionIds.length === 1 ? userDivisionIds[0] : ''
-  )
+  const [divisionId, setDivisionId] = useState<string>('')
+
+  // Auto-select the only division once JWT scope data loads
+  useEffect(() => {
+    if (userDivisionIds.length === 1 && !divisionId) {
+      setDivisionId(userDivisionIds[0])
+    }
+  }, [userDivisionIds, divisionId])
 
   const companiesWithDivisions = useMemo(() => {
     const map = new Map<string, { companyName: string; items: typeof divisions }>()
