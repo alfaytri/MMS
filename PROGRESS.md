@@ -146,16 +146,20 @@ Purchase & Sales▾:
 | `docs/superpowers/plans/2026-04-20-warehouses-hub-redesign.md` | ✅ DONE | Warehouses operational hub — 7-tab redesign, URL state, React.memo, unified receivals+deliveries |
 | `docs/superpowers/plans/2026-04-22-po-approval-chain.md` | ✅ DONE | PO approval chain — configurable division-based chains, cumulative tiers, notifications, admin force-approve |
 | `docs/superpowers/plans/2026-04-25-inventory-complete.md` | ✅ DONE | Inventory accounting — FIFO layers, atomic RPCs, reserved qty, COGS, stock movements, ledger hooks |
-| `docs/superpowers/plans/2026-04-27-multi-company-division-isolation.md` | 🔄 IN PROGRESS | Division isolation — JWT hook, RLS, DivisionFilter, PO/SO create pickers, user division assignment |
+| `docs/superpowers/plans/2026-04-27-multi-company-division-isolation.md` | ✅ DONE | Division isolation — JWT hook, RLS, DivisionFilter, PO/SO create pickers, user division assignment |
 
 ---
 
 ## 🔄 In Progress
 
-🚀 Starting: **[Multi-Company Division Isolation] Tasks 7, 8 & 9: Division Pickers on Create Forms + User Management**
+_(none — all Division Isolation tasks complete)_
 
 ## ✅ Completed
 
+- [2026-04-28] **[Multi-Company Division Isolation] Task 10: Expandability verification + TypeScript build** — zero TypeScript errors; `is_division_visible()`, `useUserDivisionScope()`, `<DivisionFilter />`, division picker pattern all generic; `fix: SO create form useEffect auto-seed` patched
+- [2026-04-28] **[Multi-Company Division Isolation] Task 9: User Management — Division Assignment UI** — `src/components/master-data/EditUserDialog.tsx` — Division section with Badge+X removal, company-grouped Select picker, "Changes take effect on user's next login" toast; uses `useAllDivisions` + `useUserDivisions` + `useAssignDivision` + `useRemoveDivision`
+- [2026-04-28] **[Multi-Company Division Isolation] Task 8: SO Create Form — Division Picker** — `src/hooks/useSaleOrders.ts`, `src/app/(dashboard)/sales/create-so/page.tsx` — `division_id` in CreateSOPayload + RPC call; division picker for multi-division users; useEffect auto-seed; validation guard
+- [2026-04-28] **[Multi-Company Division Isolation] Task 7: PO Create Form — Division Picker** — `src/hooks/usePurchaseOrders.ts`, `src/app/(dashboard)/purchase/create-po/page.tsx`, `src/app/(dashboard)/purchase/edit-po/[id]/page.tsx` — `division_id` in CreatePOPayload + insert; division picker for multi-division users; useEffect auto-seed; validation guard
 - [2026-04-28] **[Multi-Company Division Isolation] Tasks 5 & 6: Wire DivisionFilter into PO & SO list pages** — `src/hooks/usePurchaseOrders.ts`, `src/hooks/useSaleOrders.ts`, `src/app/(dashboard)/purchase/orders/page.tsx`, `src/app/(dashboard)/sales/orders/page.tsx` — divisionId/divisionIds filter fields; DivisionFilter component wired; clearFilters resets division state; useRef fix for SO debounce
 - [2026-04-28] **[Multi-Company Division Isolation] Tasks 3 & 4: useUserDivisionScope + DivisionFilter** — `src/hooks/useUserDivisionScope.ts`, `src/components/shared/DivisionFilter.tsx`, `src/hooks/useDivisions.ts` — JWT claims hook (owner/accountant = super-viewer); DivisionFilter dropdowns (returns null for non-super-viewers); staleTime fix on useAllDivisions
 - [2026-04-28] **[Multi-Company Division Isolation] Task 2: Update create_sale_order RPC** — `supabase/migrations/20260428200004_so_rpc_add_division_id.sql` — Added `p_division_id UUID DEFAULT NULL` param + `division_id` column to INSERT; added `SET search_path = public`
