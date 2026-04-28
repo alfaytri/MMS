@@ -152,7 +152,7 @@ Purchase & Sales▾:
 
 ## 🔄 In Progress
 
-🚀 Starting: **[Purchase Payments Enhancement] Task 1: Data migration — backfill SPAY- IDs**
+🚀 Starting: **[Purchase Payments Enhancement] Task 7: Create AttachBillDialog component**
 
 ## ✅ Completed
 
