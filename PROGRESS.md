@@ -146,12 +146,13 @@ Purchase & Sales▾:
 | `docs/superpowers/plans/2026-04-20-warehouses-hub-redesign.md` | ✅ DONE | Warehouses operational hub — 7-tab redesign, URL state, React.memo, unified receivals+deliveries |
 | `docs/superpowers/plans/2026-04-22-po-approval-chain.md` | ✅ DONE | PO approval chain — configurable division-based chains, cumulative tiers, notifications, admin force-approve |
 | `docs/superpowers/plans/2026-04-25-inventory-complete.md` | ✅ DONE | Inventory accounting — FIFO layers, atomic RPCs, reserved qty, COGS, stock movements, ledger hooks |
+| `docs/superpowers/plans/2026-04-27-multi-company-division-isolation.md` | 🔄 IN PROGRESS | Division isolation — JWT hook, RLS, DivisionFilter, PO/SO create pickers, user division assignment |
 
 ---
 
 ## 🔄 In Progress
 
-_(nothing active)_
+🚀 Starting: **[Multi-Company Division Isolation] Task 1: DB Migration — Columns, JWT Hook, Helper, RLS**
 
 ## ✅ Completed
 
