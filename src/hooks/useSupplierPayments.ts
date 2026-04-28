@@ -47,10 +47,11 @@ export function useSupplierPayments(billId?: string) {
 
       const poMap: Record<string, { po_number: string; supplier_name: string | null }> = {}
       if (poIds.length > 0) {
-        const { data: pos } = await (supabase as any)
+        const { data: pos, error: poError } = await (supabase as any)
           .from('purchase_orders')
           .select('id, po_number, suppliers(name)')
           .in('id', poIds)
+        if (poError) throw poError
         for (const po of pos ?? []) {
           poMap[po.id] = {
             po_number: po.po_number,
