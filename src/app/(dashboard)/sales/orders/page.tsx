@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useMemo } from 'react'
+import { useState, useMemo, useRef } from 'react'
 import { useRouter } from 'next/navigation'
 import { type ColumnDef } from '@tanstack/react-table'
 import { Eye } from 'lucide-react'
@@ -50,11 +50,21 @@ export default function SaleOrdersPage() {
 
   const confirmSO = useConfirmSO()
 
-  const searchRef = useState<ReturnType<typeof setTimeout> | null>(null)
+  const searchRef = useRef<ReturnType<typeof setTimeout> | null>(null)
   function handleSearch(val: string) {
     setSearch(val)
-    if (searchRef[0]) clearTimeout(searchRef[0])
-    searchRef[1](setTimeout(() => setDebouncedSearch(val), 300))
+    if (searchRef.current) clearTimeout(searchRef.current)
+    searchRef.current = setTimeout(() => setDebouncedSearch(val), 300)
+  }
+
+  const hasActiveFilters = !!(statusFilter || dateFrom || dateTo || divisionFilter.companyId || divisionFilter.divisionId)
+  function clearFilters() {
+    setSearch('')
+    setDebouncedSearch('')
+    setStatusFilter('')
+    setDateFrom('')
+    setDateTo('')
+    setDivisionFilter({ companyId: null, divisionId: null })
   }
 
   const divisionQueryProps = useMemo(() => {
@@ -207,9 +217,9 @@ export default function SaleOrdersPage() {
             className="h-9 rounded-md border border-input bg-background px-3 text-sm w-36"
             aria-label="To date"
           />
-          {(dateFrom || dateTo) && (
-            <Button variant="ghost" size="sm" onClick={() => { setDateFrom(''); setDateTo('') }}>
-              Clear dates
+          {hasActiveFilters && (
+            <Button variant="ghost" size="sm" onClick={clearFilters}>
+              Clear filters
             </Button>
           )}
         </div>
