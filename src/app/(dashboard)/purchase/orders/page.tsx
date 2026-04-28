@@ -24,6 +24,8 @@ import { useSuppliers } from '@/hooks/useSuppliers'
 import { formatCurrency, formatDate } from '@/lib/utils/formatters'
 import { cn } from '@/lib/utils'
 import { PageWrapper } from '@/components/shared/PageWrapper'
+import { DivisionFilter, type DivisionFilterValue } from '@/components/shared/DivisionFilter'
+import { useUserDivisionScope } from '@/hooks/useUserDivisionScope'
 import { toast } from 'sonner'
 
 const STATUS_OPTIONS: { value: POStatus | ''; label: string }[] = [
@@ -95,12 +97,29 @@ export default function PurchaseOrdersPage() {
   const [paymentFilter, setPaymentFilter] = useState('')
   const [detailPO, setDetailPO] = useState<PurchaseOrder | null>(null)
 
+  const { isSuperViewer, divisions } = useUserDivisionScope()
+  const [divisionFilter, setDivisionFilter] = useState<DivisionFilterValue>({ companyId: null, divisionId: null })
+
+  const divisionQueryProps = useMemo(() => {
+    if (!isSuperViewer) return {}
+    if (divisionFilter.divisionId) return { divisionId: divisionFilter.divisionId }
+    if (divisionFilter.companyId) {
+      return {
+        divisionIds: divisions
+          .filter((d) => d.company_id === divisionFilter.companyId)
+          .map((d) => d.id),
+      }
+    }
+    return {}
+  }, [isSuperViewer, divisionFilter, divisions])
+
   const cancelPO = useCancelPO()
 
   const { data: orders, isLoading } = usePurchaseOrders({
     search,
     dateFrom: dateFrom || undefined,
     dateTo: dateTo || undefined,
+    ...divisionQueryProps,
   })
   const { data: suppliers } = useSuppliers()
 
@@ -132,11 +151,12 @@ export default function PurchaseOrdersPage() {
     return result
   }, [orders, statusFilter, supplierFilter, receivalFilter, paymentFilter])
 
-  const hasActiveFilters = !!(search || statusFilter.size > 0 || supplierFilter || dateFrom || dateTo || receivalFilter || paymentFilter)
+  const hasActiveFilters = !!(search || statusFilter.size > 0 || supplierFilter || dateFrom || dateTo || receivalFilter || paymentFilter || divisionFilter.companyId || divisionFilter.divisionId)
 
   function clearFilters() {
     setSearch(''); setStatusFilter(new Set()); setSupplierFilter('')
     setDateFrom(''); setDateTo(''); setReceivalFilter(''); setPaymentFilter('')
+    setDivisionFilter({ companyId: null, divisionId: null })
   }
 
   function toggleStatus(s: POStatus) {
@@ -325,6 +345,7 @@ export default function PurchaseOrdersPage() {
                 ))}
               </SelectContent>
             </Select>
+            <DivisionFilter value={divisionFilter} onChange={setDivisionFilter} />
             {hasActiveFilters && (
               <Button variant="ghost" size="sm" onClick={clearFilters}>
                 <X className="h-4 w-4 mr-1" />
