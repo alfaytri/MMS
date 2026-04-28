@@ -1,4 +1,4 @@
--- supabase/migrations/20260428000001_delivery_sequence_and_rpcs.sql
+-- supabase/migrations/20260428000008_delivery_sequence_and_rpcs.sql
 
 BEGIN;
 
@@ -137,6 +137,9 @@ BEGIN
     LOOP
       -- Restore FIFO layer using delivery date (preserves chronological queue order)
       -- total_unit_cost is per-unit in this schema (unit_cost + landed_cost_per_unit)
+      -- landed_cost_per_unit = 0: cogs_entries.unit_cost is already the blended weighted cost
+      -- (unit_cost + original landed cost), so total_unit_cost is correct for FIFO deductions.
+      -- Audit queries reading landed_cost_per_unit directly will see 0 on restored layers.
       INSERT INTO fifo_cost_layers (
         brand_variant_id, warehouse_id, date,
         qty, unit_cost, landed_cost_per_unit, total_unit_cost, remaining_qty
@@ -174,6 +177,9 @@ BEGIN
       SET    status = 'delivered', updated_at = now()
       WHERE  id = p_so_id
         AND  status NOT IN ('cancelled', 'invoiced', 'closed');
+    -- 'delivered' is intentionally absent from the exclusion list here: cancelling one delivery
+    -- on a fully-delivered SO should demote it back to partial_delivery. This differs from
+    -- complete_delivery_inventory which guards against 'delivered' to prevent re-delivering.
     ELSIF v_delivered > 0 THEN
       UPDATE sale_orders
       SET    status = 'partial_delivery', updated_at = now()
