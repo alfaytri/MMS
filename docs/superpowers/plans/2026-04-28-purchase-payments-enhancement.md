@@ -89,16 +89,31 @@ Write to `supabase/migrations/20260428200007_attach_payment_to_bill_rpc.sql`:
 ```sql
 -- Atomic RPC: links a payment to a bill and recalculates payment_status.
 -- Runs entirely in one transaction — partial state is impossible.
+-- Guards against reassignment and invalid IDs (Issues 1 & 2 fix).
 CREATE OR REPLACE FUNCTION attach_payment_to_bill(
   p_payment_id uuid,
   p_bill_id    uuid
 ) RETURNS void
 LANGUAGE plpgsql SECURITY DEFINER AS $$
 DECLARE
-  v_bill_total   numeric;
-  v_total_paid   numeric;
-  v_new_status   text;
+  v_existing_invoice_id uuid;
+  v_bill_total          numeric;
+  v_total_paid          numeric;
+  v_new_status          text;
 BEGIN
+  -- Guard: verify payment exists and is not already linked
+  SELECT invoice_id INTO v_existing_invoice_id
+  FROM payments WHERE id = p_payment_id;
+
+  IF NOT FOUND THEN
+    RAISE EXCEPTION 'Payment % does not exist', p_payment_id;
+  END IF;
+
+  IF v_existing_invoice_id IS NOT NULL THEN
+    RAISE EXCEPTION 'Payment % is already attached to invoice %',
+      p_payment_id, v_existing_invoice_id;
+  END IF;
+
   -- Link payment to bill
   UPDATE payments
   SET invoice_id = p_bill_id
@@ -111,11 +126,13 @@ BEGIN
    WHERE invoice_id = p_bill_id
      AND direction = 'outgoing';
 
-  -- Get bill total
-  SELECT total_amount
-    INTO v_bill_total
-    FROM invoices
-   WHERE id = p_bill_id;
+  -- Guard: verify bill exists
+  SELECT total_amount INTO v_bill_total
+  FROM invoices WHERE id = p_bill_id;
+
+  IF NOT FOUND THEN
+    RAISE EXCEPTION 'Bill % does not exist', p_bill_id;
+  END IF;
 
   -- Derive correct status
   v_new_status := CASE
@@ -372,7 +389,7 @@ git commit -m "feat(ui): PoDetailDialog accepts poId prop — no stub constructi
 
 ---
 
-## Task 5: Add supplier_id filter to useSupplierBills
+## Task 5: Add supplier_id filter and enabled option to useSupplierBills
 
 **Files:**
 - Modify: `src/hooks/useSupplierBills.ts`
@@ -390,26 +407,40 @@ export type BillFilters = {
 }
 ```
 
-- [ ] **Step 2: Apply the filter in the query**
+- [ ] **Step 2: Add enabled option to the hook signature**
 
-In `useSupplierBills`, after the existing `if (filters?.search)` block, add:
+Find the `useSupplierBills` function signature and add a second parameter:
+
+```ts
+export function useSupplierBills(filters?: BillFilters, options?: { enabled?: boolean }) {
+  return useQuery({
+    queryKey: ['supplier-bills', filters],
+    enabled: options?.enabled !== false,   // defaults to true; pass false to suppress the query
+    queryFn: async () => {
+```
+
+(Only the signature line and the `enabled:` line inside `useQuery` change — the rest of the function body stays identical.)
+
+- [ ] **Step 3: Apply the supplier_id filter in the query**
+
+In the `queryFn`, after the existing `if (filters?.search)` block, add:
 
 ```ts
 if (filters?.supplier_id) q = q.eq('supplier_id', filters.supplier_id)
 ```
 
-- [ ] **Step 3: Verify TypeScript**
+- [ ] **Step 4: Verify TypeScript**
 
 ```bash
 npx tsc --noEmit
 ```
-Expected: no errors.
+Expected: no errors. Existing callers that pass no `options` argument are unaffected (defaults to `enabled: true`).
 
-- [ ] **Step 4: Commit**
+- [ ] **Step 5: Commit**
 
 ```bash
 git add src/hooks/useSupplierBills.ts
-git commit -m "feat(hook): add supplier_id filter to useSupplierBills"
+git commit -m "feat(hook): add supplier_id filter and enabled option to useSupplierBills"
 ```
 
 ---
@@ -503,9 +534,11 @@ export function AttachBillDialog({ open, onOpenChange, mode, paymentId, billId, 
   const [selectedId, setSelectedId] = useState<string>('')
   const attach = useAttachPaymentToBill()
 
-  // attach-bill mode: fetch unpaid/partially_paid bills for this supplier
+  // attach-bill mode: fetch unpaid/partially_paid bills for this supplier.
+  // Query is suppressed when supplierId is absent — prevents pulling every bill in the DB (Issue 3 fix).
   const { data: bills = [], isLoading: loadingBills } = useSupplierBills(
-    mode === 'attach-bill' ? { supplier_id: supplierId ?? undefined } : undefined
+    { supplier_id: supplierId ?? undefined },
+    { enabled: mode === 'attach-bill' && !!supplierId }
   )
   const availableBills = bills.filter(
     (b) => b.payment_status === 'unpaid' || b.payment_status === 'partially_paid'
@@ -516,8 +549,9 @@ export function AttachBillDialog({ open, onOpenChange, mode, paymentId, billId, 
     mode === 'link-payment' ? supplierId : undefined
   )
 
-  const isLoading = mode === 'attach-bill' ? loadingBills : loadingPayments
-  const isEmpty   = mode === 'attach-bill' ? availableBills.length === 0 : payments.length === 0
+  const missingSupplier = mode === 'attach-bill' && !supplierId
+  const isLoading = !missingSupplier && (mode === 'attach-bill' ? loadingBills : loadingPayments)
+  const isEmpty   = !missingSupplier && (mode === 'attach-bill' ? availableBills.length === 0 : payments.length === 0)
 
   function handleOpenChange(v: boolean) {
     if (!v) setSelectedId('')
@@ -551,7 +585,9 @@ export function AttachBillDialog({ open, onOpenChange, mode, paymentId, billId, 
           <DialogTitle>{title}</DialogTitle>
         </DialogHeader>
 
-        {isLoading ? (
+        {missingSupplier ? (
+          <p className="text-sm text-destructive py-4">No supplier linked to this payment — cannot search for bills.</p>
+        ) : isLoading ? (
           <p className="text-sm text-muted-foreground py-4">Loading…</p>
         ) : isEmpty ? (
           <p className="text-sm text-muted-foreground py-4">{emptyMsg}</p>
@@ -582,7 +618,7 @@ export function AttachBillDialog({ open, onOpenChange, mode, paymentId, billId, 
             Cancel
           </Button>
           <Button
-            disabled={!selectedId || attach.isPending}
+            disabled={!selectedId || attach.isPending || missingSupplier}
             onClick={handleConfirm}
           >
             {attach.isPending ? 'Saving…' : 'Confirm'}
@@ -803,7 +839,15 @@ After the existing `const [origin, setOrigin] = useState('')` line, add:
 const [attachOpen, setAttachOpen] = useState(false)
 ```
 
-- [ ] **Step 3: Add Payment section to the JSX**
+- [ ] **Step 3: Confirm id is selected in the payments query**
+
+Open `src/hooks/useSupplierBills.ts` and confirm line ~250 reads:
+```ts
+.select('id, payment_id, amount, method, date, reference, notes, status')
+```
+`id` is explicitly selected — `key={p.id}` in the map will always resolve. No change needed.
+
+- [ ] **Step 4: Add Payment section to the JSX**
 
 Append the following section to the document's JSX, after the related bills section and before the closing `</div>`:
 
@@ -847,14 +891,14 @@ Also add `Button` to the imports if not already present:
 import { Button } from '@/components/ui/button'
 ```
 
-- [ ] **Step 4: Verify TypeScript**
+- [ ] **Step 5: Verify TypeScript**
 
 ```bash
 npx tsc --noEmit
 ```
 Expected: no errors.
 
-- [ ] **Step 5: Commit**
+- [ ] **Step 6: Commit**
 
 ```bash
 git add src/components/purchase/BillDetailDocument.tsx
