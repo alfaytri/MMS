@@ -257,7 +257,7 @@ export function SoDetailDialog({ open, onOpenChange, so, onEdit, onConfirm }: So
                         <span className="font-medium text-sm">{d.delivery_number}</span>
                         <div className="flex items-center gap-2">
                           <Badge variant="outline" className="text-xs capitalize">{d.status}</Badge>
-                          {(d.status === 'pending' || d.status === 'in_progress') && (
+                          {(d.status === 'pending' || d.status === 'in_progress' || d.status === 'delivered') && (
                             <Button
                               variant="ghost"
                               size="sm"
