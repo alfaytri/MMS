@@ -21,6 +21,8 @@ import {
 import { formatCurrency, formatDate } from '@/lib/utils/formatters'
 import { Button } from '@/components/ui/button'
 import { cn } from '@/lib/utils'
+import { DivisionFilter, type DivisionFilterValue } from '@/components/shared/DivisionFilter'
+import { useUserDivisionScope } from '@/hooks/useUserDivisionScope'
 
 const STATUSES: { value: SOStatus | ''; label: string }[] = [
   { value: '', label: 'All' },
@@ -42,6 +44,9 @@ export default function SaleOrdersPage() {
   const [dateFrom, setDateFrom] = useState('')
   const [dateTo, setDateTo] = useState('')
   const [detailSO, setDetailSO] = useState<SaleOrder | null>(null)
+  const [divisionFilter, setDivisionFilter] = useState<DivisionFilterValue>({ companyId: null, divisionId: null })
+
+  const { isSuperViewer, divisions } = useUserDivisionScope()
 
   const confirmSO = useConfirmSO()
 
@@ -52,11 +57,25 @@ export default function SaleOrdersPage() {
     searchRef[1](setTimeout(() => setDebouncedSearch(val), 300))
   }
 
+  const divisionQueryProps = useMemo(() => {
+    if (!isSuperViewer) return {}
+    if (divisionFilter.divisionId) return { divisionId: divisionFilter.divisionId }
+    if (divisionFilter.companyId) {
+      return {
+        divisionIds: divisions
+          .filter((d) => d.company_id === divisionFilter.companyId)
+          .map((d) => d.id),
+      }
+    }
+    return {}
+  }, [isSuperViewer, divisionFilter, divisions])
+
   const { data: orders, isLoading } = useSaleOrders({
     search: debouncedSearch,
     status: statusFilter,
     dateFrom: dateFrom || undefined,
     dateTo: dateTo || undefined,
+    ...divisionQueryProps,
   })
 
   const statusCounts = useMemo(() => {
@@ -171,7 +190,7 @@ export default function SaleOrdersPage() {
       </div>
 
       {/* Filters */}
-      <div className="flex flex-col gap-3 sm:flex-row sm:items-center">
+      <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:flex-wrap">
         <SearchInput value={search} onChange={handleSearch} placeholder="Search SO number or customer…" />
         <div className="flex gap-2 flex-wrap">
           <input
@@ -194,6 +213,7 @@ export default function SaleOrdersPage() {
             </Button>
           )}
         </div>
+        <DivisionFilter value={divisionFilter} onChange={setDivisionFilter} />
       </div>
 
       <DataTable columns={columns} data={orders ?? []} isLoading={isLoading} />

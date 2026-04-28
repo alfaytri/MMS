@@ -157,6 +157,8 @@ export interface SOFilters {
   status?: SOStatus | ''
   dateFrom?: string
   dateTo?: string
+  divisionId?:  string | null
+  divisionIds?: string[]
 }
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
@@ -274,6 +276,11 @@ export function useSaleOrders(filters: SOFilters = {}) {
       if (filters.search) {
         const safe = filters.search.replace(/%/g, '\\%')
         q = q.or(`so_number.ilike.%${safe}%,customers.name.ilike.%${safe}%`)
+      }
+      if (filters.divisionId) {
+        q = q.eq('division_id', filters.divisionId)
+      } else if (filters.divisionIds && filters.divisionIds.length > 0) {
+        q = q.in('division_id', filters.divisionIds)
       }
 
       const { data, error } = await q
