@@ -1,6 +1,6 @@
 'use client'
 
-import { useMemo, useState } from 'react'
+import { useMemo, useState, useCallback } from 'react'
 import { Eye } from 'lucide-react'
 import { type ColumnDef } from '@tanstack/react-table'
 import { PageHeader } from '@/components/shared/PageHeader'
@@ -17,6 +17,8 @@ import { formatCurrency, formatDate } from '@/lib/utils/formatters'
 import type { SaleOrder } from '@/hooks/useSaleOrders'
 
 type PaymentType = 'purchase' | 'invoice'
+
+const DEFAULT_CURRENCY = 'QAR'
 
 const METHOD_LABELS: Record<string, string> = {
   bank_transfer:   'Bank Transfer',
@@ -38,7 +40,7 @@ export default function PaymentsPage() {
   const [selectedSO, setSelectedSO] = useState<SaleOrder | null>(null)
   const [detailOpen, setDetailOpen]   = useState(false)
 
-  function openSO(payment: CustomerPayment) {
+  const openSO = useCallback(function openSO(payment: CustomerPayment) {
     if (!payment.source_id || payment.source_type !== 'sale_order') return
     setSelectedSO({
       id:                       payment.source_id,
@@ -52,7 +54,7 @@ export default function PaymentsPage() {
       discount_label:           null,
       discount_type:            null,
       discount_amount_resolved: 0,
-      currency:                 'QAR',
+      currency:                 DEFAULT_CURRENCY,
       exchange_rate:            1,
       expected_delivery:        null,
       payment_terms:            null,
@@ -70,7 +72,7 @@ export default function PaymentsPage() {
       customer_name:            payment.customer_name ?? undefined,
     })
     setDetailOpen(true)
-  }
+  }, [])
 
   const purchaseColumns = useMemo<ColumnDef<SupplierPayment>[]>(() => [
     {
@@ -91,7 +93,7 @@ export default function PaymentsPage() {
     {
       accessorKey: 'amount',
       header: ({ column }) => <DataTableColumnHeader column={column} title="Amount" />,
-      cell: ({ row }) => formatCurrency(row.getValue('amount'), 'QAR'),
+      cell: ({ row }) => formatCurrency(row.getValue('amount'), DEFAULT_CURRENCY),
     },
     {
       accessorKey: 'method',
@@ -132,6 +134,7 @@ export default function PaymentsPage() {
         if (!so) return <span className="text-muted-foreground">—</span>
         return (
           <button
+            type="button"
             onClick={() => openSO(row.original)}
             className="font-mono text-sm text-primary hover:underline"
           >
@@ -150,7 +153,7 @@ export default function PaymentsPage() {
       header: ({ column }) => <DataTableColumnHeader column={column} title="Amount" />,
       cell: ({ row }) => (
         <span className="font-medium tabular-nums">
-          {formatCurrency(row.getValue('amount'), 'QAR')}
+          {formatCurrency(row.getValue('amount'), DEFAULT_CURRENCY)}
         </span>
       ),
     },
@@ -187,14 +190,14 @@ export default function PaymentsPage() {
         )
       },
     },
-  ], [customerPayments]) // eslint-disable-line react-hooks/exhaustive-deps
+  ], [openSO])
 
   return (
     <PageWrapper>
       <PageHeader title="Payments" description="Purchase and invoice payment records" />
       <div className="mb-4">
         <Select value={paymentType} onValueChange={(v) => setPaymentType(v as PaymentType)}>
-          <SelectTrigger className="w-56">
+          <SelectTrigger className="w-full sm:w-56">
             <SelectValue />
           </SelectTrigger>
           <SelectContent>
@@ -210,19 +213,17 @@ export default function PaymentsPage() {
           isLoading={loadingSupplier}
         />
       ) : (
-        <>
-          <DataTable
-            columns={invoiceColumns}
-            data={customerPayments ?? []}
-            isLoading={loadingCustomer}
-          />
-          <SoDetailDialog
-            open={detailOpen}
-            onOpenChange={setDetailOpen}
-            so={selectedSO}
-          />
-        </>
+        <DataTable
+          columns={invoiceColumns}
+          data={customerPayments ?? []}
+          isLoading={loadingCustomer}
+        />
       )}
+      <SoDetailDialog
+        open={detailOpen}
+        onOpenChange={setDetailOpen}
+        so={selectedSO}
+      />
     </PageWrapper>
   )
 }
