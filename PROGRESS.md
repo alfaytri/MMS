@@ -152,10 +152,11 @@ Purchase & Sales▾:
 
 ## 🔄 In Progress
 
-🚀 Starting: **[Multi-Company Division Isolation] Tasks 5 & 6: Wire DivisionFilter into PO & SO List Pages**
+🚀 Starting: **[Multi-Company Division Isolation] Tasks 7, 8 & 9: Division Pickers on Create Forms + User Management**
 
 ## ✅ Completed
 
+- [2026-04-28] **[Multi-Company Division Isolation] Tasks 5 & 6: Wire DivisionFilter into PO & SO list pages** — `src/hooks/usePurchaseOrders.ts`, `src/hooks/useSaleOrders.ts`, `src/app/(dashboard)/purchase/orders/page.tsx`, `src/app/(dashboard)/sales/orders/page.tsx` — divisionId/divisionIds filter fields; DivisionFilter component wired; clearFilters resets division state; useRef fix for SO debounce
 - [2026-04-28] **[Multi-Company Division Isolation] Tasks 3 & 4: useUserDivisionScope + DivisionFilter** — `src/hooks/useUserDivisionScope.ts`, `src/components/shared/DivisionFilter.tsx`, `src/hooks/useDivisions.ts` — JWT claims hook (owner/accountant = super-viewer); DivisionFilter dropdowns (returns null for non-super-viewers); staleTime fix on useAllDivisions
 - [2026-04-28] **[Multi-Company Division Isolation] Task 2: Update create_sale_order RPC** — `supabase/migrations/20260428200004_so_rpc_add_division_id.sql` — Added `p_division_id UUID DEFAULT NULL` param + `division_id` column to INSERT; added `SET search_path = public`
 - [2026-04-28] **[Multi-Company Division Isolation] Task 1: DB Migration — Columns, JWT Hook, Helper, RLS** — `supabase/migrations/20260428200001_division_isolation.sql`, `20260428200002_fix_backfill_division_id.sql`, `20260428200003_division_isolation_hardening.sql` — Added division_id to PO/SO tables, backfilled from user_divisions, JWT auth hook reads approval_role_assignments for user_type claim, is_division_visible RLS helper, division_scope policies on both tables; also extended approval_role enum with 'employee'
