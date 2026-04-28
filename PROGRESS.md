@@ -152,7 +152,7 @@ Purchase & Sales▾:
 
 ## 🔄 In Progress
 
-_(none — Task 1 complete)_
+🚀 Starting: **Unified Payments Page Task 1: Rewrite unified payments page**
 
 ## ✅ Completed
 
