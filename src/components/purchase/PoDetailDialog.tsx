@@ -35,21 +35,25 @@ import {
 type Props = {
   open: boolean
   onOpenChange: (open: boolean) => void
-  po: PurchaseOrder | null
+  po?: PurchaseOrder | null
+  poId?: string
   onEdit?: (po: PurchaseOrder) => void
 }
 
-export function PoDetailDialog({ open, onOpenChange, po, onEdit }: Props) {
+export function PoDetailDialog({ open, onOpenChange, po, poId, onEdit }: Props) {
   const router = useRouter()
   const [paymentOpen, setPaymentOpen] = useState(false)
-  const { data: fullPO, isLoading, isError } = usePurchaseOrder(open ? (po?.id ?? null) : null)
-  const { data: payments } = usePOPayments(open ? (po?.id ?? null) : null)
-  const { data: receivals } = usePOReceivalsByPO(open ? (po?.id ?? null) : null)
-  const { data: versions = [] } = usePoVersions(open ? (po?.id ?? null) : null)
+
+  const resolvedId = po?.id ?? poId ?? null
+
+  const { data: fullPO, isLoading, isError } = usePurchaseOrder(open ? resolvedId : null)
+  const { data: payments } = usePOPayments(open ? resolvedId : null)
+  const { data: receivals } = usePOReceivalsByPO(open ? resolvedId : null)
+  const { data: versions = [] } = usePoVersions(open ? resolvedId : null)
   const { data: activityLogs } = useActivityLog(
-    open && po?.id ? { module: 'purchase_orders', entity_id: po.id } : {}
+    open && resolvedId ? { module: 'purchase_orders', entity_id: resolvedId } : {}
   )
-  const { data: existingBills = [] } = useBillsByPO(open ? (po?.id ?? null) : null)
+  const { data: existingBills = [] } = useBillsByPO(open ? resolvedId : null)
   const submitPO = useSubmitPOForApproval()
   const cancelPO = useCancelPO()
 
@@ -64,6 +68,21 @@ export function PoDetailDialog({ open, onOpenChange, po, onEdit }: Props) {
 
   const isViewingSnapshot = activeVersionTab !== currentVersionNumber
   const snapshotVersion = versions.find((v) => v.version_number === activeVersionTab) ?? null
+
+  // Show skeleton header while PO loads when only an ID was provided
+  if (open && !current && isLoading) {
+    return (
+      <Dialog open={open} onOpenChange={onOpenChange}>
+        <DialogContent className="w-full max-w-full rounded-none sm:max-w-4xl sm:rounded-lg max-h-[95vh] flex flex-col">
+          <div className="p-6 space-y-3">
+            <Skeleton className="h-6 w-48" />
+            <Skeleton className="h-4 w-32" />
+            <Skeleton className="h-4 w-64" />
+          </div>
+        </DialogContent>
+      </Dialog>
+    )
+  }
 
   return (
     <>
