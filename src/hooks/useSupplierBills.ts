@@ -9,11 +9,13 @@ export type BillFilters = {
   search?: string
   doc_status?: ApInvoice['doc_status'] | ''
   payment_status?: ApInvoice['payment_status'] | ''
+  supplier_id?: string
 }
 
-export function useSupplierBills(filters?: BillFilters) {
+export function useSupplierBills(filters?: BillFilters, options?: { enabled?: boolean }) {
   return useQuery({
     queryKey: ['supplier-bills', filters],
+    enabled: options?.enabled !== false,
     queryFn: async () => {
       const supabase = createClient()
       let q = (supabase as any)
@@ -30,6 +32,7 @@ export function useSupplierBills(filters?: BillFilters) {
       if (filters?.search) {
         q = q.or(`invoice_id.ilike.%${filters.search}%`)
       }
+      if (filters?.supplier_id) q = q.eq('supplier_id', filters.supplier_id)
       const { data, error } = await q
       if (error) throw error
       return (data ?? []).map((b: any) => ({
