@@ -1,0 +1,309 @@
+🧭 Inventory Page — Inch-by-Inch UI Walkthrough
+Route: /master-data/services → Inventory tab File: src/domains/services/components/InventoryTableView.tsx (+ ItemsListView, BrandVariantRow, FifoLayersTable)
+
+1️⃣ Top Black Bar — Global App Header
+The thin black strip at the very top is the global TopNav. Not part of Inventory itself — it's the app shell.
+
+2️⃣ Primary Navigation Row (white bar)
+Element	Type	Behavior
+📦 Master Data ▾	Active dropdown (blue highlight)	You're inside this section. Dropdown lists: Services, Inventory config, Promotions, etc.
+📋 Orders ▾	Dropdown	Service orders, follow-ups, quotations
+📄 Contracts ▾	Dropdown	Active contracts, quotations
+💲 Invoices ▾	Dropdown	Invoices, payments, pending
+🛒 Purchase & Sales ▾	Dropdown	POs, sale orders, returns, landed costs
+👥 Teams ▾	Dropdown	Teams, employees, team leader
+📊 Reports	Direct link	Analytics
+👤 Ismail (right)	User menu	Profile + logout
+3️⃣ Sub-Tabs Row (Master Data section tabs)
+These switch between catalog modules, all driven by services page tabs:
+
+Tab	Purpose
+〰️ Normal Services	Standard service catalog (Category → Service → Sub-service)
+📄 Contract Services	Services usable in contracts
+📱 Mobile App Services	Services exposed to customer app
+🔔 Notifications	Per-event notification configs
+📑 Instructions	Pre/post-service instructions library
+📦 Inventory ← (active, blue underline)	You are here
+🎁 Promotions	Campaigns, vouchers
+The active tab gets the blue bottom border + bold text.
+
+4️⃣ Inventory Type Tabs (the 5 sub-tabs)
+This is the inventory-internal switcher — each tab loads a different component:
+
+Tab	What it shows	Component
+Products (Installation) ← (active)	Installable products (e.g. water heaters, ACs)	ItemsListView type="products"
+Spare Parts (Sales)	Spare parts sold to customers	ItemsListView type="spare-parts"
+Consumables (Internal)	Used during jobs, not sold	ItemsListView type="consumables"
+Tools & Assets	Serialized/bulk tools — different schema	ToolsAssetsView
+Service Links	Matrix linking items to services	ServiceInventoryLinksView
+The blue underline marks the active one.
+
+5️⃣ Toolbar Row
+Element	Function
+🔍 Search products (installation)	Filters items + brand variants live by name (EN/AR) or SKU
+Show archived toggle	OFF = hide status='archived' rows. ON = show greyed-out archived items/categories
+📁 + New Category (top-right blue button)	Opens CategoryEditDialog to add a new top-level category for the active type
+6️⃣ Main Table — Header Row
+The header is grey with these columns:
+
+Column	What it holds
+ITEM	Hierarchy name + Arabic subtitle + expand chevron
+SKU	Auto-generated code (read-only)
+UNIT	Piece, Kg, Litre, etc.
+PRICING	Avg Cost (computed from FIFO)
+STOCK / SERVICES	Stock badge + linked-services badge
+ACTIONS	Row controls (sort, edit, archive)
+7️⃣ Hierarchy Levels — Reading the Tree
+The table is a 3-level expandable tree: Category → Item → Brand Variant, with a 4th nested panel for FIFO Layers.
+
+🔹 Level 1 — Category Row ("Water Heater")
+▸ 📦 Water Heater          PRD-###    -    -    -   ⇅ ✏️ 📦
+   سخان مياه
+▸ chevron — expand/collapse to reveal items
+📦 icon — category indicator
+Blue title "Water Heater" — clickable → opens CategoryEditDialog
+سخان مياه — Arabic name (smaller, muted)
+PRD-### — SKU prefix template (will become PRD-HT-... for items)
+Dashes = no aggregate values at category level
+Action icons (right):
+⇅ — reorder (move up/down via sortOrder)
+✏️ Edit — opens category edit dialog
+📦 Archive — soft-archives category (sets status='archived')
+🔹 Level 2 — Item Row ("Alfaheat")
+   ▸ 📦 Alfaheat           PRD-###-###   Piece   Avg Cost: QAR 0   [0 in stock] [🔗 1 Service]   ⇅ ✏️ ↕ 📦
+        🏷️ 80 Gallon
+Blue title "Alfaheat" — clickable → opens ItemEditDialog
+🏷️ 80 Gallon — product attribute chip (size/capacity tag stored in inventory_item_attributes)
+PRD-###-### — SKU pattern (will resolve per brand variant)
+Piece — unit of measure
+Avg Cost: QAR 0 — weighted average across all FIFO layers (recomputed via recalc_average_cost RPC)
+Stock badges (ItemStockBadges component):
+🟢 0 in stock — sum of all brand variants' stock_level
+🔵 🔗 1 Service — number of services linked via service_inventory table; clickable → jumps to Service Links tab filtered to this item
+Actions: sort, edit, ↕ rearrange brands, archive
+🔹 Level 3 — Brand Variant Sub-Table
+When you expand an item, a nested grey-header table drops down with columns:
+
+Column	Meaning
+SUPPLIER / BRAND	Brand name (clickable → BrandVariantEditDialog)
+CODE	Auto-generated SKU (PRD-HT-LG-001)
+AVG COST	This brand variant's weighted average from its FIFO layers
+SELLING PRICE	selling_price set in brand dialog
+STOCK LEVEL	Real on-hand qty for this brand (sum of remaining_qty across FIFO layers)
+INCOMING	Qty on open POs not yet received
+ACTIONS	sort ⇅ • ✏️ edit • ↕ rearrange • 📦 archive
+Two example rows in your screenshot:
+
+Alfacool   PRD-###-###-001   QAR 0.00   -          [20 in stock]   -   ⇅ ✏️ ↕ 📦
+LG         PRD-HT-LG-001     QAR 0.00   QAR 350.00 [15 in stock]   -   ⇅ ✏️ ↕ 📦
+Blue brand name → opens BrandVariantEditDialog (lets you edit selling price, status, manual cost override)
+Stock badge color rules:
+🟢 green if stock > 0
+🟡 amber if at/below reorder_point
+🔴 red if 0
+Incoming populated from purchase_order_items where status = pending/partial
++ Add Brand Variant (blue text button)
+Opens BrandVariantEditDialog in CREATE mode — adds a new brand under this item. Required: brand (from brands table), selling price.
+
+8️⃣ Level 4 — Purchase History (FIFO Layers Panel)
+Below the brand variants, when an item is expanded, the FifoLayersTable renders showing the cost-layer ledger for all brands of this item, combined:
+
+Column	Meaning
+RECEIVAL #	Receival doc id (e.g. RCV-2026-0001) — clickable → jumps to receival detail
+DATE	Date stock was received
+QTY IN	Original received qty for this layer
+REMAINING	Qty still un-consumed (green = >0, grey = exhausted). When this hits 0 the layer is "closed"
+UNIT COST	Raw purchase price per unit (from supplier invoice)
+LANDED	Landed-cost portion per unit (allocated from landed_costs pro-rata; "-" if none)
+TOTAL/UNIT	unit_cost + landed_cost_per_unit — the true cost used for COGS/avg cost
+In your screenshot:
+
+Receival	Date	Qty In	Remaining	Unit	Landed	Total/Unit
+RCV-2026-0001	2026-04-03	50	45	45.00	–	45.00
+–	2026-03-05	20	15	200.00	–	210.00
+–	2026-03-15	15	15	180.00	–	185.00
+The green numbers in REMAINING mean the layer is still active.
+Rows without a receival # are legacy/seed data entered before the receival workflow was attached.
+The Total/Unit difference (210 vs 200, 185 vs 180) reflects landed-cost allocation that was applied historically even though the LANDED column shows "–" (display gap on legacy rows).
+FIFO consumption — when an order/sale deducts stock, the oldest layer with remaining_qty > 0 is consumed first via the deduct_fifo_layers RPC, and the consumed cost flows into cogs_entries.
+
+9️⃣ Next Category Row (collapsed)
+▸ 📦 Water Tank Cooler     PRD-###    -    -    -    ⇅ ✏️ 📦
+     مبرد خزان المياه
+Same structure as Water Heater — collapsed because chevron points right.
+
+🔟 Action Icon Cheat-Sheet (used everywhere)
+Icon	Action	Affects
+▸ / ▾	Expand/collapse children	UI only
+⇅	Reorder up/down	Updates sort_order
+✏️	Open edit dialog	Category / Item / Brand depending on level
+↕	Rearrange children list	Bulk sort dialog
+📦 (archive box)	Soft-archive	Sets status='archived', hidden unless toggle is on
++ (in headers)	Create child	New item under category, new brand under item
+🧠 Quick Mental Model
+Category (Water Heater)
+  └─ Item (Alfaheat, 80 Gallon)
+       ├─ Brand Variant (Alfacool)  →  stock_level, selling_price
+       ├─ Brand Variant (LG)         →  stock_level, selling_price
+       └─ FIFO Layers (shared pool, oldest-first consumption)
+              ├─ Layer 1: 50 @ 45 → 45 left
+              ├─ Layer 2: 20 @ 210 → 15 left
+              └─ Layer 3: 15 @ 185 → 15 left
+Cost flow: PO Receival creates a FIFO layer → Landed Cost allocates extra → Sale/Order consumes oldest layer → COGS entry written → recalc_average_cost updates the brand's Avg Cost shown in the UI.
+
+I'll walk through every visible inch of the Inventory screen in your screenshot — top to bottom, left to right.
+
+🧭 Inventory Page — Inch-by-Inch UI Walkthrough
+Route: /master-data/services → Inventory tab File: src/domains/services/components/InventoryTableView.tsx (+ ItemsListView, BrandVariantRow, FifoLayersTable)
+
+1️⃣ Top Black Bar — Global App Header
+The thin black strip at the very top is the global TopNav. Not part of Inventory itself — it's the app shell.
+
+2️⃣ Primary Navigation Row (white bar)
+Element	Type	Behavior
+📦 Master Data ▾	Active dropdown (blue highlight)	You're inside this section. Dropdown lists: Services, Inventory config, Promotions, etc.
+📋 Orders ▾	Dropdown	Service orders, follow-ups, quotations
+📄 Contracts ▾	Dropdown	Active contracts, quotations
+💲 Invoices ▾	Dropdown	Invoices, payments, pending
+🛒 Purchase & Sales ▾	Dropdown	POs, sale orders, returns, landed costs
+👥 Teams ▾	Dropdown	Teams, employees, team leader
+📊 Reports	Direct link	Analytics
+👤 Ismail (right)	User menu	Profile + logout
+3️⃣ Sub-Tabs Row (Master Data section tabs)
+These switch between catalog modules, all driven by services page tabs:
+
+Tab	Purpose
+〰️ Normal Services	Standard service catalog (Category → Service → Sub-service)
+📄 Contract Services	Services usable in contracts
+📱 Mobile App Services	Services exposed to customer app
+🔔 Notifications	Per-event notification configs
+📑 Instructions	Pre/post-service instructions library
+📦 Inventory ← (active, blue underline)	You are here
+🎁 Promotions	Campaigns, vouchers
+The active tab gets the blue bottom border + bold text.
+
+4️⃣ Inventory Type Tabs (the 5 sub-tabs)
+This is the inventory-internal switcher — each tab loads a different component:
+
+Tab	What it shows	Component
+Products (Installation) ← (active)	Installable products (e.g. water heaters, ACs)	ItemsListView type="products"
+Spare Parts (Sales)	Spare parts sold to customers	ItemsListView type="spare-parts"
+Consumables (Internal)	Used during jobs, not sold	ItemsListView type="consumables"
+Tools & Assets	Serialized/bulk tools — different schema	ToolsAssetsView
+Service Links	Matrix linking items to services	ServiceInventoryLinksView
+The blue underline marks the active one.
+
+5️⃣ Toolbar Row
+Element	Function
+🔍 Search products (installation)	Filters items + brand variants live by name (EN/AR) or SKU
+Show archived toggle	OFF = hide status='archived' rows. ON = show greyed-out archived items/categories
+📁 + New Category (top-right blue button)	Opens CategoryEditDialog to add a new top-level category for the active type
+6️⃣ Main Table — Header Row
+The header is grey with these columns:
+
+Column	What it holds
+ITEM	Hierarchy name + Arabic subtitle + expand chevron
+SKU	Auto-generated code (read-only)
+UNIT	Piece, Kg, Litre, etc.
+PRICING	Avg Cost (computed from FIFO)
+STOCK / SERVICES	Stock badge + linked-services badge
+ACTIONS	Row controls (sort, edit, archive)
+7️⃣ Hierarchy Levels — Reading the Tree
+The table is a 3-level expandable tree: Category → Item → Brand Variant, with a 4th nested panel for FIFO Layers.
+
+🔹 Level 1 — Category Row ("Water Heater")
+▸ 📦 Water Heater          PRD-###    -    -    -   ⇅ ✏️ 📦
+   سخان مياه
+▸ chevron — expand/collapse to reveal items
+📦 icon — category indicator
+Blue title "Water Heater" — clickable → opens CategoryEditDialog
+سخان مياه — Arabic name (smaller, muted)
+PRD-### — SKU prefix template (will become PRD-HT-... for items)
+Dashes = no aggregate values at category level
+Action icons (right):
+⇅ — reorder (move up/down via sortOrder)
+✏️ Edit — opens category edit dialog
+📦 Archive — soft-archives category (sets status='archived')
+🔹 Level 2 — Item Row ("Alfaheat")
+   ▸ 📦 Alfaheat           PRD-###-###   Piece   Avg Cost: QAR 0   [0 in stock] [🔗 1 Service]   ⇅ ✏️ ↕ 📦
+        🏷️ 80 Gallon
+Blue title "Alfaheat" — clickable → opens ItemEditDialog
+🏷️ 80 Gallon — product attribute chip (size/capacity tag stored in inventory_item_attributes)
+PRD-###-### — SKU pattern (will resolve per brand variant)
+Piece — unit of measure
+Avg Cost: QAR 0 — weighted average across all FIFO layers (recomputed via recalc_average_cost RPC)
+Stock badges (ItemStockBadges component):
+🟢 0 in stock — sum of all brand variants' stock_level
+🔵 🔗 1 Service — number of services linked via service_inventory table; clickable → jumps to Service Links tab filtered to this item
+Actions: sort, edit, ↕ rearrange brands, archive
+🔹 Level 3 — Brand Variant Sub-Table
+When you expand an item, a nested grey-header table drops down with columns:
+
+Column	Meaning
+SUPPLIER / BRAND	Brand name (clickable → BrandVariantEditDialog)
+CODE	Auto-generated SKU (PRD-HT-LG-001)
+AVG COST	This brand variant's weighted average from its FIFO layers
+SELLING PRICE	selling_price set in brand dialog
+STOCK LEVEL	Real on-hand qty for this brand (sum of remaining_qty across FIFO layers)
+INCOMING	Qty on open POs not yet received
+ACTIONS	sort ⇅ • ✏️ edit • ↕ rearrange • 📦 archive
+Two example rows in your screenshot:
+
+Alfacool   PRD-###-###-001   QAR 0.00   -          [20 in stock]   -   ⇅ ✏️ ↕ 📦
+LG         PRD-HT-LG-001     QAR 0.00   QAR 350.00 [15 in stock]   -   ⇅ ✏️ ↕ 📦
+Blue brand name → opens BrandVariantEditDialog (lets you edit selling price, status, manual cost override)
+Stock badge color rules:
+🟢 green if stock > 0
+🟡 amber if at/below reorder_point
+🔴 red if 0
+Incoming populated from purchase_order_items where status = pending/partial
++ Add Brand Variant (blue text button)
+Opens BrandVariantEditDialog in CREATE mode — adds a new brand under this item. Required: brand (from brands table), selling price.
+
+8️⃣ Level 4 — Purchase History (FIFO Layers Panel)
+Below the brand variants, when an item is expanded, the FifoLayersTable renders showing the cost-layer ledger for all brands of this item, combined:
+
+Column	Meaning
+RECEIVAL #	Receival doc id (e.g. RCV-2026-0001) — clickable → jumps to receival detail
+DATE	Date stock was received
+QTY IN	Original received qty for this layer
+REMAINING	Qty still un-consumed (green = >0, grey = exhausted). When this hits 0 the layer is "closed"
+UNIT COST	Raw purchase price per unit (from supplier invoice)
+LANDED	Landed-cost portion per unit (allocated from landed_costs pro-rata; "-" if none)
+TOTAL/UNIT	unit_cost + landed_cost_per_unit — the true cost used for COGS/avg cost
+In your screenshot:
+
+Receival	Date	Qty In	Remaining	Unit	Landed	Total/Unit
+RCV-2026-0001	2026-04-03	50	45	45.00	–	45.00
+–	2026-03-05	20	15	200.00	–	210.00
+–	2026-03-15	15	15	180.00	–	185.00
+The green numbers in REMAINING mean the layer is still active.
+Rows without a receival # are legacy/seed data entered before the receival workflow was attached.
+The Total/Unit difference (210 vs 200, 185 vs 180) reflects landed-cost allocation that was applied historically even though the LANDED column shows "–" (display gap on legacy rows).
+FIFO consumption — when an order/sale deducts stock, the oldest layer with remaining_qty > 0 is consumed first via the deduct_fifo_layers RPC, and the consumed cost flows into cogs_entries.
+
+9️⃣ Next Category Row (collapsed)
+▸ 📦 Water Tank Cooler     PRD-###    -    -    -    ⇅ ✏️ 📦
+     مبرد خزان المياه
+Same structure as Water Heater — collapsed because chevron points right.
+
+🔟 Action Icon Cheat-Sheet (used everywhere)
+Icon	Action	Affects
+▸ / ▾	Expand/collapse children	UI only
+⇅	Reorder up/down	Updates sort_order
+✏️	Open edit dialog	Category / Item / Brand depending on level
+↕	Rearrange children list	Bulk sort dialog
+📦 (archive box)	Soft-archive	Sets status='archived', hidden unless toggle is on
++ (in headers)	Create child	New item under category, new brand under item
+🧠 Quick Mental Model
+Category (Water Heater)
+  └─ Item (Alfaheat, 80 Gallon)
+       ├─ Brand Variant (Alfacool)  →  stock_level, selling_price
+       ├─ Brand Variant (LG)         →  stock_level, selling_price
+       └─ FIFO Layers (shared pool, oldest-first consumption)
+              ├─ Layer 1: 50 @ 45 → 45 left
+              ├─ Layer 2: 20 @ 210 → 15 left
+              └─ Layer 3: 15 @ 185 → 15 left
+Cost flow: PO Receival creates a FIFO layer → Landed Cost allocates extra → Sale/Order consumes oldest layer → COGS entry written → recalc_average_cost updates the brand's Avg Cost shown in the UI.
+
+Walked the Inventory page top to bottom: app header, Master Data tabs, the 5 inventory sub-tabs, search/archive toggle/+New Category toolbar, the 6-column main table, and all 4 hierarchy levels (Category → Item → Brand Variant → FIFO Layers) with every column, badge, action icon, and the cost-flow logic behind them.

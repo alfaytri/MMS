@@ -5,8 +5,8 @@ import { useRouter } from 'next/navigation'
 import { toast } from 'sonner'
 import { createClient } from '@/lib/supabase/client'
 
-const TIMEOUT_MS  = 10 * 60 * 1000  // 10 minutes
-const WARNING_MS  =  9 * 60 * 1000  // warn at 9 minutes
+const TIMEOUT_MS  = 30 * 60 * 1000  // 30 minutes
+const WARNING_MS  = 29 * 60 * 1000  // warn at 29 minutes
 const TICK_MS     = 20 * 1000       // check every 20 seconds
 
 const ACTIVITY_EVENTS = [

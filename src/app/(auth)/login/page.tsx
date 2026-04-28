@@ -9,7 +9,7 @@ import { Label } from '@/components/ui/label'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 
 const REASON_MESSAGES: Record<string, string> = {
-  timeout:    'You were signed out due to 10 minutes of inactivity.',
+  timeout:    'You were signed out due to 30 minutes of inactivity.',
   signout:    'You have been signed out.',
 }
 
