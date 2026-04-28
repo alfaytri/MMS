@@ -156,7 +156,7 @@ _(none)_
 
 ## ✅ Completed
 
-- [2026-04-28] **Unified Payments Page Task 1: Rewrite unified payments page** — `src/app/(dashboard)/purchase/payments/page.tsx` — Replaced single-mode purchase payments page with unified page; Select dropdown switches between Purchase Payments (supplier) and Invoice Payments (customer); both hooks pre-fetched unconditionally; SO # cells open SoDetailDialog inline; Eye icon action button on SO-linked rows; all METHOD_LABELS expanded (fawran, pos, pay_later, online)
+- [2026-04-28] **Unified Payments Page (All Tasks)** — `src/app/(dashboard)/purchase/payments/page.tsx` (rewritten), `src/app/(dashboard)/sales/payments/page.tsx` (deleted), `src/components/layout/nav-config.ts` — Merged Purchase Payments and Customer Payments into single page with Purchase Payments / Invoice Payments dropdown selector; old sales payments page removed; nav consolidated to single Payments entry at /purchase/payments
 
 - [2026-04-28] **Inventory Module Task 1: Add Avg Cost field to BrandVariantEditDialog** — `src/components/services/inventory/BrandVariantEditDialog.tsx` — New avgCost state; lock condition on stock_level > 0; editable input with helper text when unlocked, read-only with "Auto-calculated from PO receivals" note when locked; spread average_cost into payload only if not locked
 
