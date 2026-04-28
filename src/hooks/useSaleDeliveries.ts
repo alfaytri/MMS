@@ -156,7 +156,7 @@ export function useCancelDelivery() {
           p_delivery_id: id,
           p_so_id:       soId,
         })
-      if (error) throw error
+      if (error) throw new Error(error.message)
     },
     onSuccess: (_data, variables) => {
       queryClient.invalidateQueries({ queryKey: ['sale-deliveries'] })
