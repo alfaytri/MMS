@@ -73,6 +73,11 @@
 }
 
 @media print {
+  @page {
+    size: A4 portrait;
+    margin: 12mm 15mm;
+  }
+
   * {
     -webkit-print-color-adjust: exact !important;
     print-color-adjust: exact !important;
@@ -96,5 +101,11 @@
 
   body {
     background: white !important;
+  }
+
+  /* Tighten table cell padding for print */
+  td, th {
+    padding-top: 4px !important;
+    padding-bottom: 4px !important;
   }
 }

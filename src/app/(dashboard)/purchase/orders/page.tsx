@@ -19,6 +19,7 @@ import {
   Table, TableBody, TableCell, TableHead, TableHeader, TableRow,
 } from '@/components/ui/table'
 import { PoDetailDialog } from '@/components/purchase/PoDetailDialog'
+import { CreateBillFromPODialog } from '@/components/purchase/CreateBillFromPODialog'
 import { usePurchaseOrders, useCancelPO, type PurchaseOrder, type POStatus } from '@/hooks/usePurchaseOrders'
 import { useSuppliers } from '@/hooks/useSuppliers'
 import { formatCurrency, formatDate } from '@/lib/utils/formatters'
@@ -98,6 +99,7 @@ export default function PurchaseOrdersPage() {
   const [receivalFilter, setReceivalFilter] = useState('')
   const [paymentFilter, setPaymentFilter] = useState('')
   const [detailPO, setDetailPO] = useState<PurchaseOrder | null>(null)
+  const [createBillPOId, setCreateBillPOId] = useState<string | null>(null)
 
   const { isSuperViewer, divisions } = useUserDivisionScope()
   const [divisionFilter, setDivisionFilter] = useState<DivisionFilterValue>({ companyId: null, divisionId: null })
@@ -453,7 +455,7 @@ export default function PurchaseOrdersPage() {
                             {po.status !== 'cancelled' && (
                               <DropdownMenuItem onClick={() => router.push(`/purchase/edit-po/${po.id}`)}>Edit</DropdownMenuItem>
                             )}
-                            <DropdownMenuItem onClick={() => router.push(`/purchase/create-bill?po_id=${po.id}`)}>Create Bill</DropdownMenuItem>
+                            <DropdownMenuItem onClick={() => setCreateBillPOId(po.id)}>Create Bill</DropdownMenuItem>
                             {po.status !== 'cancelled' && (
                               <DropdownMenuItem
                                 className="text-destructive focus:text-destructive"
@@ -486,6 +488,11 @@ export default function PurchaseOrdersPage() {
         onOpenChange={(open) => { if (!open) setDetailPO(null) }}
         po={detailPO}
         onEdit={(po) => router.push(`/purchase/edit-po/${po.id}`)}
+      />
+      <CreateBillFromPODialog
+        open={!!createBillPOId}
+        onOpenChange={(open) => { if (!open) setCreateBillPOId(null) }}
+        poId={createBillPOId ?? ''}
       />
     </PageWrapper>
   )

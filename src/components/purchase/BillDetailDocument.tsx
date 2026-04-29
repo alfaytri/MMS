@@ -12,13 +12,16 @@ import {
 import { BillDetailSection } from './BillDetailSection'
 import { formatCurrency, formatDate } from '@/lib/utils/formatters'
 import { cn } from '@/lib/utils'
+import { useMarkBillPaymentStatus } from '@/hooks/useSupplierBills'
 import type { BillViewModel } from '@/hooks/useSupplierBills'
 import type { Division } from '@/hooks/useDivisions'
+import type { Company } from '@/hooks/useCompanies'
 
 const FALLBACK_COMPANY = 'Alfaytri Maintenance'
 
 type Props = {
   viewModel: BillViewModel
+  company: Company | null
   division: Division | null
   showReceival: boolean
   showPaymentPlan: boolean
@@ -29,13 +32,6 @@ type Props = {
   onNavigate: (id: string) => void
 }
 
-const DOC_STATUS_COLORS: Record<string, string> = {
-  draft:            'bg-slate-100 text-slate-700',
-  pending_approval: 'bg-amber-100 text-amber-700',
-  approved:         'bg-green-100 text-green-700',
-  rejected:         'bg-red-100 text-red-700',
-}
-
 const PAY_STATUS_COLORS: Record<string, string> = {
   unpaid:         'bg-slate-100 text-slate-600',
   partially_paid: 'bg-amber-100 text-amber-700',
@@ -44,7 +40,6 @@ const PAY_STATUS_COLORS: Record<string, string> = {
 }
 
 function getWatermark(bill: BillViewModel['bill']): { text: string; colorClass: string } | null {
-  if (bill.doc_status === 'draft') return { text: 'DRAFT', colorClass: 'text-slate-400' }
   if (bill.payment_status === 'paid') return { text: 'PAID', colorClass: 'text-green-400' }
   if (bill.payment_status === 'overdue') return { text: 'OVERDUE', colorClass: 'text-red-400' }
   return null
@@ -52,6 +47,7 @@ function getWatermark(bill: BillViewModel['bill']): { text: string; colorClass: 
 
 export function BillDetailDocument({
   viewModel,
+  company,
   division,
   showReceival,
   showPaymentPlan,
@@ -65,7 +61,8 @@ export function BillDetailDocument({
   const watermark = getWatermark(bill)
   const [origin, setOrigin] = useState('')
   const [attachOpen, setAttachOpen] = useState(false)
-  const printTimestamp = new Date().toLocaleString('en-GB')
+  const markPaid = useMarkBillPaymentStatus()
+  const printTimestamp = new Date().toLocaleDateString('en-GB')
 
   useEffect(() => {
     setOrigin(window.location.origin)
@@ -77,7 +74,7 @@ export function BillDetailDocument({
   const balance = (bill.total_amount ?? 0) - (bill.paid_amount ?? 0)
 
   return (
-    <div className="relative bg-white rounded-lg shadow-lg border max-w-3xl mx-auto p-10 space-y-7 print:shadow-none print:border-none print:p-6 print:max-w-none print:rounded-none">
+    <div className="relative bg-white rounded-lg shadow-lg border max-w-3xl mx-auto p-10 space-y-7 print:shadow-none print:border-none print:p-0 print:max-w-none print:rounded-none print:space-y-3">
       {/* Watermark */}
       {watermark && (
         <div className="absolute inset-0 flex items-center justify-center pointer-events-none select-none overflow-hidden rounded-lg print:rounded-none">
@@ -95,8 +92,13 @@ export function BillDetailDocument({
         <div className="flex items-start justify-between gap-4">
           <div>
             <h1 className="text-xl font-bold leading-tight">
-              {division?.name ?? FALLBACK_COMPANY}
+              {company?.name_en ?? FALLBACK_COMPANY}
             </h1>
+            {division && (
+              <p className="text-sm font-medium text-muted-foreground mt-0.5">
+                {division.name}
+              </p>
+            )}
             {division?.address_en && (
               <p className="text-sm text-muted-foreground mt-1 whitespace-pre-line">
                 {division.address_en}
@@ -140,9 +142,6 @@ export function BillDetailDocument({
               </p>
             )}
             <div className="flex items-center gap-2 flex-wrap">
-              <Badge className={cn('text-xs', DOC_STATUS_COLORS[bill.doc_status] ?? '')}>
-                {bill.doc_status.replace(/_/g, ' ')}
-              </Badge>
               <Badge className={cn('text-xs', PAY_STATUS_COLORS[bill.payment_status] ?? '')}>
                 {bill.payment_status.replace(/_/g, ' ')}
               </Badge>
@@ -219,11 +218,7 @@ export function BillDetailDocument({
           )}
           <div className="flex justify-between font-bold text-base">
             <span>Grand Total:</span>
-            <span>{formatCurrency(bill.total_amount, currency)} {currency}</span>
-          </div>
-          <div className="flex justify-between text-muted-foreground">
-            <span>Total (QAR):</span>
-            <span>{formatCurrency(bill.total_amount, 'QAR')}</span>
+            <span>{formatCurrency(bill.total_amount, currency)}</span>
           </div>
         </div>
       </div>
@@ -286,6 +281,34 @@ export function BillDetailDocument({
 
       {/* 7. Link Payment (non-printable) */}
       <BillDetailSection title="Payment" className="print:hidden">
+        <div className="flex items-center justify-between gap-3 mb-3">
+          <div className="flex gap-2">
+            {bill.payment_status !== 'paid' ? (
+              <Button
+                size="sm"
+                variant="default"
+                onClick={() => markPaid.mutate({ billId: bill.id, status: 'paid' })}
+                disabled={markPaid.isPending}
+              >
+                {markPaid.isPending ? 'Marking…' : 'Mark as Paid'}
+              </Button>
+            ) : (
+              <Button
+                size="sm"
+                variant="outline"
+                onClick={() => markPaid.mutate({ billId: bill.id, status: 'unpaid' })}
+                disabled={markPaid.isPending}
+              >
+                {markPaid.isPending ? 'Updating…' : 'Mark as Unpaid'}
+              </Button>
+            )}
+          </div>
+          {bill.payment_status !== 'paid' && (
+            <Button size="sm" variant="outline" onClick={() => setAttachOpen(true)}>
+              Link Payment
+            </Button>
+          )}
+        </div>
         {payments.length > 0 ? (
           <div className="space-y-2">
             {payments.map((p) => (
@@ -298,14 +321,7 @@ export function BillDetailDocument({
             ))}
           </div>
         ) : (
-          <div className="flex items-center justify-between">
-            <p className="text-sm text-muted-foreground">No payment linked yet.</p>
-            {bill.payment_status !== 'paid' && (
-              <Button size="sm" variant="outline" onClick={() => setAttachOpen(true)}>
-                Link Payment
-              </Button>
-            )}
-          </div>
+          <p className="text-sm text-muted-foreground">No payment linked yet.</p>
         )}
       </BillDetailSection>
 
@@ -415,12 +431,13 @@ export function BillDetailDocument({
       {/* 11. Footer */}
       <div className="border-t pt-4 flex items-start justify-between text-xs text-muted-foreground gap-4">
         <p>
-          {division?.name ?? FALLBACK_COMPANY}
+          {company?.name_en ?? FALLBACK_COMPANY}
+          {division ? ` · ${division.name}` : ''}
           {' · '}
           <span dir="rtl">هذا المستند تم إنشاؤه تلقائياً</span>
         </p>
         <p className="shrink-0">
-          This document was automatically generated · {new Date().toISOString()}
+          This document was automatically generated · {new Date().toLocaleDateString('en-GB')}
         </p>
       </div>
     </div>

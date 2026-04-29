@@ -367,13 +367,13 @@ export function PoReceiveTab({ po }: { po: PurchaseOrder }) {
             <div className="space-y-1">
               <Label>Item *</Label>
               <Select
-                value={nonPoItemId || 'none'}
-                onValueChange={(v) => { setNonPoItemId((v ?? '') === 'none' ? '' : (v ?? '')); setNonPoVariantId('') }}
+                value={nonPoItemId || undefined}
+                onValueChange={(v) => { setNonPoItemId(v ?? ''); setNonPoVariantId('') }}
               >
-                <SelectTrigger><SelectValue placeholder="Select item…" /></SelectTrigger>
+                <SelectTrigger><SelectValue placeholder="— Select —" /></SelectTrigger>
                 <SelectContent>
                   {filteredItems.length === 0 ? (
-                    <SelectItem value="none" disabled>No items found</SelectItem>
+                    <SelectItem value="_empty" disabled>No items found</SelectItem>
                   ) : (
                     filteredItems.map((i: any) => (
                       <SelectItem key={i.id} value={i.id}>{i.name_en}</SelectItem>
@@ -387,13 +387,13 @@ export function PoReceiveTab({ po }: { po: PurchaseOrder }) {
             <div className="space-y-1">
               <Label>Brand / Variant <span className="text-muted-foreground text-xs">(optional)</span></Label>
               <Select
-                value={nonPoVariantId || 'none'}
-                onValueChange={(v) => setNonPoVariantId((v ?? '') === 'none' ? '' : (v ?? ''))}
+                value={nonPoVariantId || undefined}
+                onValueChange={(v) => setNonPoVariantId(v ?? '')}
                 disabled={!nonPoItemId}
               >
-                <SelectTrigger><SelectValue placeholder={!nonPoItemId ? 'Select item first' : 'Any brand'} /></SelectTrigger>
+                <SelectTrigger><SelectValue placeholder={!nonPoItemId ? 'Select item first…' : '— Select —'} /></SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="none">Any brand</SelectItem>
+                  <SelectItem value="_any">Any brand</SelectItem>
                   {(variants as any[]).map((v: any) => (
                     <SelectItem key={v.id} value={v.id}>
                       {v.brand}{v.code ? ` — ${v.code}` : ''}

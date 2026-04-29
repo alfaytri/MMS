@@ -13,7 +13,7 @@
 | **Project** | MMS — Maintenance Management System |
 | **Owner** | Mohamed Ismail |
 | **Working dir** | `D:/MMS` |
-| **Active branch** | `develop` — all Phase 1 feature work here, never commit directly to `main` |
+| **Active branch** | `feature/purchase-module` — current working branch for bill rework |
 | **Goal** | Web ERP for a Qatar maintenance company (Alfaytri Maintenance, RSH Cleaning and Pest Control) |
 
 ---
@@ -155,6 +155,24 @@ Purchase & Sales▾:
 _(nothing in progress)_
 
 ## ✅ Completed
+
+- [2026-04-29] **Fix PO payment direction bug** — `src/hooks/usePurchaseOrders.ts`, `supabase/migrations/20260429150000_fix_po_payment_direction.sql` — `useCreatePOPayment` was missing `direction: 'outgoing'` and `payment_id`, causing PO payments to default to `incoming` and appear on Invoice Payments page; migration backfills all affected rows and assigns SPAY- IDs
+
+- [2026-04-29] **Notification bell fix** — `src/hooks/useNotifications.ts` — Added `.is('read_at', null)` filter to `useRecentNotifications` so approved/read notifications are immediately removed from the bell dropdown
+
+- [2026-04-29] **Bill Rework Task 7: Update bill VM and AttachBillDialog for multi-allocation** — `src/hooks/useSupplierBills.ts`, `src/hooks/useAttachPaymentToBill.ts`, `src/components/purchase/AttachBillDialog.tsx` — `useBillViewModel` now queries `payment_bill_allocations` joined with `payments`; hook calls `allocate_payment_to_bill` with required `amount`; link-payment dialog shows payment cards with remaining balance and partial allocation amount input; attach-bill mode preserved
+
+- [2026-04-29] **Bill Rework Task 6: Multi-bill payment allocations migration** — `supabase/migrations/20260429140000_payment_bill_allocations.sql` — Created `payment_bill_allocations` table; backfilled existing 1:1 links; new `allocate_payment_to_bill` RPC with FOR UPDATE row lock and manually_paid guard; shim preserves `attach_payment_to_bill` for existing callers
+
+- [2026-04-29] **Bill Rework Task 5: Replace create-bill page with CreateBillFromPODialog** — `src/components/purchase/CreateBillFromPODialog.tsx` (new), `src/app/(dashboard)/purchase/orders/page.tsx`, `src/components/purchase/PoDetailDialog.tsx`, deleted `src/app/(dashboard)/purchase/create-bill/page.tsx` — Inline dialog replaces full-page route; fetches PO conditionally; shows discount row; on success redirects to new bill detail page
+
+- [2026-04-29] **Bill Rework Task 4: Manual Mark as Paid button** — `supabase/migrations/20260429130000_invoices_manually_paid.sql`, `src/hooks/useSupplierBills.ts`, `src/components/purchase/BillDetailDocument.tsx` — Added `manually_paid` column to invoices (prevents allocation RPC from overwriting manual status); `useMarkBillPaymentStatus` hook sets both `payment_status` and `manually_paid`; button toggles between Mark as Paid (default) / Mark as Unpaid (outline) with pending state
+
+- [2026-04-29] **Bill Rework Task 3: Two-level Company + Division sidebar selectors** — `src/components/purchase/BillDetailSidebar.tsx`, `src/components/purchase/BillDetailDocument.tsx`, `src/app/(dashboard)/purchase/bills/[id]/page.tsx` — Added Company selector above Division in sidebar; Division disabled until company chosen; print header shows company name_en on line 1, division name on line 2, address below; footer updated to show company · division
+
+- [2026-04-29] **Bill Rework Task 2: Remove approval-status-related code from bills UI** — `src/components/purchase/BillDetailDocument.tsx` — Deleted DOC_STATUS_COLORS constant; removed doc_status === 'draft' check from getWatermark function (keeping only paid/overdue watermarks); removed doc_status badge from meta section (kept only payment_status badge)
+
+- [2026-04-29] **Bill Rework Task 1: Fix Grand Total duplicate currency and print date** — `src/components/purchase/BillDetailDocument.tsx` — Removed trailing `{currency}` from Grand Total, deleted redundant "Total (QAR):" row, changed print timestamps from `toLocaleString`/`toISOString` to `toLocaleDateString('en-GB')`
 
 - [2026-04-29] **PO Status Auto-Progression (All Tasks)** — `supabase/migrations/20260429000002_po_auto_progress_status.sql`, `src/hooks/usePurchaseOrders.ts`, `src/app/(dashboard)/purchase/orders/page.tsx`, `src/components/purchase/PoDetailDialog.tsx`, `src/components/purchase/PoStatusBadge.tsx` — PO auto-advances from approved→partially_received→received→completed; new `refresh_po_status` DB function; backfill ran on all existing POs; teal badge for Completed status
 
