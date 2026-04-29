@@ -152,9 +152,11 @@ Purchase & Sales▾:
 
 ## 🔄 In Progress
 
-🚀 Starting: **Bill Rework Plan Task 6: Multi-bill payment allocations — database migration**
+🚀 Starting: **Bill Rework Plan Task 7: Update bill VM and AttachBillDialog for multi-allocation**
 
 ## ✅ Completed
+
+- [2026-04-29] **Bill Rework Task 6: Multi-bill payment allocations migration** — `supabase/migrations/20260429140000_payment_bill_allocations.sql` — Created `payment_bill_allocations` table; backfilled existing 1:1 links; new `allocate_payment_to_bill` RPC with FOR UPDATE row lock and manually_paid guard; shim preserves `attach_payment_to_bill` for existing callers
 
 - [2026-04-29] **Bill Rework Task 5: Replace create-bill page with CreateBillFromPODialog** — `src/components/purchase/CreateBillFromPODialog.tsx` (new), `src/app/(dashboard)/purchase/orders/page.tsx`, `src/components/purchase/PoDetailDialog.tsx`, deleted `src/app/(dashboard)/purchase/create-bill/page.tsx` — Inline dialog replaces full-page route; fetches PO conditionally; shows discount row; on success redirects to new bill detail page
 
