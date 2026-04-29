@@ -74,7 +74,7 @@ export function BillDetailDocument({
   const balance = (bill.total_amount ?? 0) - (bill.paid_amount ?? 0)
 
   return (
-    <div className="relative bg-white rounded-lg shadow-lg border max-w-3xl mx-auto p-10 space-y-7 print:shadow-none print:border-none print:p-6 print:max-w-none print:rounded-none">
+    <div className="relative bg-white rounded-lg shadow-lg border max-w-3xl mx-auto p-10 space-y-7 print:shadow-none print:border-none print:p-0 print:max-w-none print:rounded-none print:space-y-3">
       {/* Watermark */}
       {watermark && (
         <div className="absolute inset-0 flex items-center justify-center pointer-events-none select-none overflow-hidden rounded-lg print:rounded-none">

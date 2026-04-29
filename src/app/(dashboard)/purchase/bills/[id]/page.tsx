@@ -97,7 +97,7 @@ function BillDetailContent() {
   const { bill, receival, paymentPlan } = viewModel
 
   return (
-    <div className="flex min-h-screen">
+    <div className="flex min-h-screen print:block print:min-h-0">
       {/* Sidebar: always visible on lg+, overlay on mobile */}
       <>
         {/* Mobile overlay backdrop */}
@@ -130,7 +130,7 @@ function BillDetailContent() {
           />
         </div>
       </>
-      <div className="flex-1 overflow-auto bg-muted/30 p-4 lg:p-8">
+      <div className="flex-1 overflow-auto bg-muted/30 p-4 lg:p-8 print:p-0 print:bg-white print:overflow-visible">
         <div className="flex items-center gap-3 mb-4 lg:mb-6 print:hidden">
           <Button
             variant="ghost"
