@@ -131,11 +131,28 @@ export function useAssignCreditGroup() {
       const supabase = createClient()
       const { error } = await (supabase as any)
         .from('customers')
-        .update({ credit_group_id: groupId })
+        .update({ credit_group_id: groupId, customer_type: 'credit' })
         .eq('id', customerId)
       if (error) throw error
     },
-    onSuccess: () => {
+    onMutate: async ({ customerId, groupId }) => {
+      await queryClient.cancelQueries({ queryKey: ['all-customers'] })
+      const snapshots = queryClient.getQueriesData({ queryKey: ['all-customers'] })
+      queryClient.setQueriesData({ queryKey: ['all-customers'] }, (old: any) => {
+        if (!old?.customers) return old
+        return {
+          ...old,
+          customers: old.customers.map((c: any) =>
+            c.id === customerId ? { ...c, credit_group_id: groupId } : c
+          ),
+        }
+      })
+      return { snapshots }
+    },
+    onError: (_err, _vars, context) => {
+      context?.snapshots?.forEach(([key, data]) => queryClient.setQueryData(key, data))
+    },
+    onSettled: () => {
       queryClient.invalidateQueries({ queryKey: ['customers'] })
       queryClient.invalidateQueries({ queryKey: ['all-customers'] })
       queryClient.invalidateQueries({ queryKey: ['credit-group-counts'] })

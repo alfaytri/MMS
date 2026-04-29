@@ -186,7 +186,7 @@ export function useCustomers(search?: string) {
       const supabase = createClient()
       let q = (supabase as any)
         .from('customers')
-        .select('id, name, phone, email, customer_number, customer_type, is_blocked, credit_group_id, credit_groups(name, credit_limit)')
+        .select('id, name, phone, email, customer_type, is_blocked, credit_group_id, credit_groups(name, credit_limit)')
         .order('name')
         .limit(50)
       if (search) {
