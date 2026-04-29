@@ -16,9 +16,10 @@ export async function createClient() {
         setAll(cookiesToSet) {
           try {
             cookiesToSet.forEach(({ name, value, options }) => {
-              // Strip maxAge/expires → session cookies that die on browser close.
               const sessionOptions = { ...options }
-              delete sessionOptions.maxAge
+              // Bounded 8-hour max-age so sessions die even with browser session-restore.
+              // Empty value = Supabase clearing the cookie, honour that with maxAge 0.
+              sessionOptions.maxAge = value === '' ? 0 : 8 * 60 * 60
               delete sessionOptions.expires
               cookieStore.set(name, value, sessionOptions)
             })

@@ -37,6 +37,7 @@ export function useAllDivisions() {
       if (error) throw error
       return data as Division[]
     },
+    staleTime: 10 * 60 * 1000,
   })
 }
 

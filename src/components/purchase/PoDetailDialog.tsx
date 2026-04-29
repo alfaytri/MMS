@@ -12,6 +12,7 @@ import { Skeleton } from '@/components/ui/skeleton'
 import { Printer, Send, XCircle } from 'lucide-react'
 import { toast } from 'sonner'
 import { PoApprovalChain } from './PoApprovalChain'
+import { CreateBillFromPODialog } from './CreateBillFromPODialog'
 import { PoPaymentDialog } from './PoPaymentDialog'
 import { PoReceiveTab } from './PoReceiveTab'
 import { PoVersionTabs } from './PoVersionTabs'
@@ -35,21 +36,26 @@ import {
 type Props = {
   open: boolean
   onOpenChange: (open: boolean) => void
-  po: PurchaseOrder | null
+  po?: PurchaseOrder | null
+  poId?: string
   onEdit?: (po: PurchaseOrder) => void
 }
 
-export function PoDetailDialog({ open, onOpenChange, po, onEdit }: Props) {
+export function PoDetailDialog({ open, onOpenChange, po, poId, onEdit }: Props) {
   const router = useRouter()
   const [paymentOpen, setPaymentOpen] = useState(false)
-  const { data: fullPO, isLoading, isError } = usePurchaseOrder(open ? (po?.id ?? null) : null)
-  const { data: payments } = usePOPayments(open ? (po?.id ?? null) : null)
-  const { data: receivals } = usePOReceivalsByPO(open ? (po?.id ?? null) : null)
-  const { data: versions = [] } = usePoVersions(open ? (po?.id ?? null) : null)
+  const [createBillOpen, setCreateBillOpen] = useState(false)
+
+  const resolvedId = po?.id ?? poId ?? null
+
+  const { data: fullPO, isLoading, isError } = usePurchaseOrder(open ? resolvedId : null)
+  const { data: payments } = usePOPayments(open ? resolvedId : null)
+  const { data: receivals } = usePOReceivalsByPO(open ? resolvedId : null)
+  const { data: versions = [] } = usePoVersions(open ? resolvedId : null)
   const { data: activityLogs } = useActivityLog(
-    open && po?.id ? { module: 'purchase_orders', entity_id: po.id } : {}
+    open && resolvedId ? { module: 'purchase_orders', entity_id: resolvedId } : {}
   )
-  const { data: existingBills = [] } = useBillsByPO(open ? (po?.id ?? null) : null)
+  const { data: existingBills = [] } = useBillsByPO(open ? resolvedId : null)
   const submitPO = useSubmitPOForApproval()
   const cancelPO = useCancelPO()
 
@@ -64,6 +70,21 @@ export function PoDetailDialog({ open, onOpenChange, po, onEdit }: Props) {
 
   const isViewingSnapshot = activeVersionTab !== currentVersionNumber
   const snapshotVersion = versions.find((v) => v.version_number === activeVersionTab) ?? null
+
+  // Show skeleton header while PO loads when only an ID was provided
+  if (open && !current && isLoading) {
+    return (
+      <Dialog open={open} onOpenChange={onOpenChange}>
+        <DialogContent className="w-full max-w-full rounded-none sm:max-w-4xl sm:rounded-lg max-h-[95vh] flex flex-col">
+          <div className="p-6 space-y-3">
+            <Skeleton className="h-6 w-48" />
+            <Skeleton className="h-4 w-32" />
+            <Skeleton className="h-4 w-64" />
+          </div>
+        </DialogContent>
+      </Dialog>
+    )
+  }
 
   return (
     <>
@@ -83,6 +104,7 @@ export function PoDetailDialog({ open, onOpenChange, po, onEdit }: Props) {
                         approved: 'bg-blue-100 text-blue-700',
                         partially_received: 'bg-purple-100 text-purple-700',
                         received: 'bg-green-100 text-green-700',
+                        completed: 'bg-teal-100 text-teal-700',
                         cancelled: 'bg-red-100 text-red-700',
                       }[current.status] ?? 'bg-slate-100 text-slate-700'
                     )}>
@@ -97,7 +119,7 @@ export function PoDetailDialog({ open, onOpenChange, po, onEdit }: Props) {
                 )}
               </div>
               {current && !isLoading && (
-                <div className="flex flex-wrap gap-2">
+                <div className="flex flex-wrap gap-2 pr-6">
                   {!isViewingSnapshot && current.status === 'draft' && onEdit && (
                     <Button variant="outline" size="sm" onClick={() => { onEdit(current); onOpenChange(false) }}>
                       Edit PO
@@ -154,7 +176,7 @@ export function PoDetailDialog({ open, onOpenChange, po, onEdit }: Props) {
                         View Bill ({existingBills[0].invoice_id})
                       </Button>
                     ) : (
-                      <Button variant="outline" size="sm" onClick={() => { onOpenChange(false); router.push(`/purchase/create-bill?po_id=${current.id}`) }}>
+                      <Button variant="outline" size="sm" onClick={() => setCreateBillOpen(true)}>
                         Create Bill
                       </Button>
                     )
@@ -448,6 +470,11 @@ export function PoDetailDialog({ open, onOpenChange, po, onEdit }: Props) {
           po={current}
         />
       )}
+      <CreateBillFromPODialog
+        open={createBillOpen}
+        onOpenChange={setCreateBillOpen}
+        poId={current?.id ?? ''}
+      />
     </>
   )
 }

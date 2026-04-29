@@ -10,10 +10,14 @@ import {
 } from '@/components/ui/select'
 import { cn } from '@/lib/utils'
 import type { Division } from '@/hooks/useDivisions'
+import type { Company } from '@/hooks/useCompanies'
 
 type ToggleKey = 'showReceival' | 'showPaymentPlan' | 'showNotes' | 'showQR'
 
 type Props = {
+  companies: Company[]
+  selectedCompanyId: string
+  onCompanyChange: (id: string) => void
   divisions: Division[]
   selectedDivisionId: string
   onDivisionChange: (id: string) => void
@@ -36,6 +40,9 @@ const ALWAYS_ON_SECTIONS = [
 ]
 
 export function BillDetailSidebar({
+  companies,
+  selectedCompanyId,
+  onCompanyChange,
   divisions,
   selectedDivisionId,
   onDivisionChange,
@@ -53,9 +60,28 @@ export function BillDetailSidebar({
       {/* Company selector */}
       <div className="space-y-2">
         <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">Company</p>
-        <Select value={selectedDivisionId} onValueChange={(v) => { if (v !== null) onDivisionChange(v) }}>
+        <Select value={selectedCompanyId || undefined} onValueChange={(v) => { if (v) onCompanyChange(v) }}>
           <SelectTrigger>
-            <SelectValue placeholder="Select company…" />
+            <SelectValue placeholder="— Select —" />
+          </SelectTrigger>
+          <SelectContent>
+            {companies.map((c) => (
+              <SelectItem key={c.id} value={c.id}>{c.name_en}</SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
+      </div>
+
+      {/* Division selector */}
+      <div className="space-y-2">
+        <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">Division</p>
+        <Select
+          value={selectedDivisionId || undefined}
+          onValueChange={(v) => { if (v) onDivisionChange(v) }}
+          disabled={!selectedCompanyId}
+        >
+          <SelectTrigger>
+            <SelectValue placeholder={selectedCompanyId ? '— Select —' : 'Select company first…'} />
           </SelectTrigger>
           <SelectContent>
             {divisions.map((d) => (

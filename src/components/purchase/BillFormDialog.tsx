@@ -87,18 +87,21 @@ export function BillFormDialog({ open, onOpenChange, initialPoId }: Props) {
     setSaving(true)
     try {
       await createBill.mutateAsync({
-        supplier_id: (selectedPO as any).supplier_id,
+        supplier_id:       (selectedPO as any).supplier_id,
         purchase_order_id: selectedPoId,
-        receival_id: null,
-        due_date: dueDate,
+        po_number:         selectedPO.po_number,
+        discount_amount:   selectedPO.discount_amount ?? 0,
+        discount_label:    selectedPO.discount_label ?? null,
+        receival_id:       null,
+        due_date:          dueDate,
         notes,
         line_items: lines.filter((l) => l.bill_qty > 0).map((l) => ({
-          description: l.item_name,
-          qty: l.bill_qty,
-          unit_price: l.unit_price,
-          total: l.bill_qty * l.unit_price,
+          description:  l.item_name,
+          qty:          l.bill_qty,
+          unit_price:   l.unit_price,
+          total:        l.bill_qty * l.unit_price,
           match_status: 'matched' as const,
-          match_note: null,
+          match_note:   null,
         })),
       })
       toast.success('Bill created successfully')

@@ -170,9 +170,20 @@ export default function UsersRolesPage() {
       cell: ({ row }) => row.getValue('email') || <span className="text-muted-foreground">—</span>,
     },
     {
-      accessorKey: 'user_type',
-      header: 'Type',
-      cell: ({ row }) => <Badge variant="outline">{row.getValue('user_type') as string}</Badge>,
+      id: 'approval_role',
+      header: 'Approval Role',
+      cell: ({ row }) => {
+        const assignments = (row.original as any).approval_role_assignments as Array<{ role: string; deleted_at: string | null }> | undefined
+        const active = assignments?.find((a) => !a.deleted_at)
+        if (!active) return <span className="text-muted-foreground text-xs">—</span>
+        const label: Record<string, string> = {
+          owner: 'Owner',
+          accountant: 'Accountant',
+          purchase_manager: 'Purchase Manager',
+          employee: 'Employee',
+        }
+        return <Badge variant="outline" className="text-xs">{label[active.role] ?? active.role}</Badge>
+      },
     },
     {
       id: 'roles',

@@ -31,11 +31,10 @@ export async function middleware(request: NextRequest) {
           )
           supabaseResponse = NextResponse.next({ request })
           cookiesToSet.forEach(({ name, value, options }) => {
-            // Strip maxAge/expires so the browser treats these as session
-            // cookies — they die when the browser process closes instead of
-            // persisting across restarts.
             const sessionOptions = { ...options }
-            delete sessionOptions.maxAge
+            // Bounded 8-hour max-age — dies at wall-clock expiry even if
+            // the browser restores sessions on startup (Brave, Chrome, etc.)
+            sessionOptions.maxAge = value === '' ? 0 : 8 * 60 * 60
             delete sessionOptions.expires
             supabaseResponse.cookies.set(name, value, sessionOptions)
           })
@@ -44,7 +43,14 @@ export async function middleware(request: NextRequest) {
     }
   )
 
-  const { data: { user } } = await supabase.auth.getUser()
+  let user = null
+  try {
+    const { data } = await supabase.auth.getUser()
+    user = data.user
+  } catch {
+    // Network or JWT failure — treat as unauthenticated (fail-closed)
+  }
+
   const pathname = request.nextUrl.pathname
 
   // ─── Unauthenticated gate ────────────────────────────────────────────
@@ -53,6 +59,8 @@ export async function middleware(request: NextRequest) {
   if (!user && pathname !== '/login') {
     const url = request.nextUrl.clone()
     url.pathname = '/login'
+    // Preserve the original destination so we can redirect back after login
+    if (pathname !== '/') url.searchParams.set('next', pathname)
     return NextResponse.redirect(url)
   }
 

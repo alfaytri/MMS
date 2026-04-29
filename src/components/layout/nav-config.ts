@@ -24,8 +24,9 @@ export const NAV_ITEMS: NavEntry[] = [
     groups: [
       {
         items: [
-          { label: 'Suppliers', href: '/master-data/suppliers' },
-          { label: 'Warehouses', href: '/purchase/warehouses' },
+          { label: 'Suppliers',         href: '/master-data/suppliers' },
+          { label: 'Customers',         href: '/master-data/customers' },
+          { label: 'Warehouses',        href: '/purchase/warehouses' },
           { label: 'Users & Roles', href: '/master-data/users' },
           { label: 'Audit Trail', href: '/master-data/audit-trail' },
           { label: 'Admin', href: '/master-data/admin' },
@@ -81,9 +82,8 @@ export const NAV_ITEMS: NavEntry[] = [
         // common divider — shared purchase & sales transactions
         items: [
           { label: 'Receivals', href: '/purchase/receivals' },
-          { label: 'Purchase Payments', href: '/purchase/payments' },
+          { label: 'Payments', href: '/purchase/payments' },
           { label: 'Deliveries', href: '/sales/deliveries' },
-          { label: 'Payments', href: '/sales/payments' },
           { label: 'Credit Notes', href: '/sales/credit-notes' },
         ],
       },

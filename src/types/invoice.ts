@@ -36,6 +36,7 @@ export type ArInvoice = {
   customer_id: string
   sale_order_id: string | null
   sale_delivery_id: string | null
+  invoice_type: 'cash' | 'credit'  // set at generation time from customer_type
   doc_status: 'draft' | 'ready_to_send' | 'sent'
   payment_status: BillPaymentStatus
   needs_refresh: boolean
@@ -55,7 +56,7 @@ export type ArInvoice = {
 /** AP bill — supplier-facing, created against a PO */
 export type ApInvoice = {
   id: string
-  invoice_id: string               // display string e.g. "BILL-00001"
+  invoice_id: string               // display string e.g. "PO-00011-B1"
   direction: 'ap'
   supplier_id: string | null
   purchase_order_id: string | null
@@ -65,7 +66,10 @@ export type ApInvoice = {
   needs_refresh: false
   total_amount: number | null
   subtotal: number | null
+  discount_amount: number          // NOT NULL DEFAULT 0 in DB
+  discount_label: string | null
   tax: number | null
+  source_label: string | null      // supplier's own invoice reference
   issued_date: string
   due_date: string
   notes: string | null

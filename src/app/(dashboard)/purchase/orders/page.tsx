@@ -19,11 +19,14 @@ import {
   Table, TableBody, TableCell, TableHead, TableHeader, TableRow,
 } from '@/components/ui/table'
 import { PoDetailDialog } from '@/components/purchase/PoDetailDialog'
+import { CreateBillFromPODialog } from '@/components/purchase/CreateBillFromPODialog'
 import { usePurchaseOrders, useCancelPO, type PurchaseOrder, type POStatus } from '@/hooks/usePurchaseOrders'
 import { useSuppliers } from '@/hooks/useSuppliers'
 import { formatCurrency, formatDate } from '@/lib/utils/formatters'
 import { cn } from '@/lib/utils'
 import { PageWrapper } from '@/components/shared/PageWrapper'
+import { DivisionFilter, type DivisionFilterValue } from '@/components/shared/DivisionFilter'
+import { useUserDivisionScope } from '@/hooks/useUserDivisionScope'
 import { toast } from 'sonner'
 
 const STATUS_OPTIONS: { value: POStatus | ''; label: string }[] = [
@@ -33,6 +36,7 @@ const STATUS_OPTIONS: { value: POStatus | ''; label: string }[] = [
   { value: 'approved', label: 'Approved' },
   { value: 'partially_received', label: 'Partially Received' },
   { value: 'received', label: 'Received' },
+  { value: 'completed', label: 'Completed' },
   { value: 'cancelled', label: 'Cancelled' },
 ]
 
@@ -56,6 +60,7 @@ const STATUS_COLORS: Record<POStatus, string> = {
   approved: 'bg-blue-100 text-blue-700',
   partially_received: 'bg-purple-100 text-purple-700',
   received: 'bg-green-100 text-green-700',
+  completed: 'bg-teal-100 text-teal-700',
   cancelled: 'bg-red-100 text-red-700',
 }
 
@@ -94,6 +99,23 @@ export default function PurchaseOrdersPage() {
   const [receivalFilter, setReceivalFilter] = useState('')
   const [paymentFilter, setPaymentFilter] = useState('')
   const [detailPO, setDetailPO] = useState<PurchaseOrder | null>(null)
+  const [createBillPOId, setCreateBillPOId] = useState<string | null>(null)
+
+  const { isSuperViewer, divisions } = useUserDivisionScope()
+  const [divisionFilter, setDivisionFilter] = useState<DivisionFilterValue>({ companyId: null, divisionId: null })
+
+  const divisionQueryProps = useMemo(() => {
+    if (!isSuperViewer) return {}
+    if (divisionFilter.divisionId) return { divisionId: divisionFilter.divisionId }
+    if (divisionFilter.companyId) {
+      return {
+        divisionIds: divisions
+          .filter((d) => d.company_id === divisionFilter.companyId)
+          .map((d) => d.id),
+      }
+    }
+    return {}
+  }, [isSuperViewer, divisionFilter, divisions])
 
   const cancelPO = useCancelPO()
 
@@ -101,6 +123,7 @@ export default function PurchaseOrdersPage() {
     search,
     dateFrom: dateFrom || undefined,
     dateTo: dateTo || undefined,
+    ...divisionQueryProps,
   })
   const { data: suppliers } = useSuppliers()
 
@@ -123,7 +146,7 @@ export default function PurchaseOrdersPage() {
     if (receivalFilter) result = result.filter((o) => getReceivalStatus(o) === receivalFilter)
     if (paymentFilter) {
       result = result.filter((o) => {
-        if (paymentFilter === 'paid') return o.status === 'received'
+        if (paymentFilter === 'paid') return ['received', 'completed'].includes(o.status)
         if (paymentFilter === 'unpaid') return ['draft', 'pending_approval', 'approved'].includes(o.status)
         if (paymentFilter === 'partial') return o.status === 'partially_received'
         return true
@@ -132,11 +155,12 @@ export default function PurchaseOrdersPage() {
     return result
   }, [orders, statusFilter, supplierFilter, receivalFilter, paymentFilter])
 
-  const hasActiveFilters = !!(search || statusFilter.size > 0 || supplierFilter || dateFrom || dateTo || receivalFilter || paymentFilter)
+  const hasActiveFilters = !!(search || statusFilter.size > 0 || supplierFilter || dateFrom || dateTo || receivalFilter || paymentFilter || divisionFilter.companyId || divisionFilter.divisionId)
 
   function clearFilters() {
     setSearch(''); setStatusFilter(new Set()); setSupplierFilter('')
     setDateFrom(''); setDateTo(''); setReceivalFilter(''); setPaymentFilter('')
+    setDivisionFilter({ companyId: null, divisionId: null })
   }
 
   function toggleStatus(s: POStatus) {
@@ -325,6 +349,7 @@ export default function PurchaseOrdersPage() {
                 ))}
               </SelectContent>
             </Select>
+            <DivisionFilter value={divisionFilter} onChange={setDivisionFilter} />
             {hasActiveFilters && (
               <Button variant="ghost" size="sm" onClick={clearFilters}>
                 <X className="h-4 w-4 mr-1" />
@@ -430,7 +455,7 @@ export default function PurchaseOrdersPage() {
                             {po.status !== 'cancelled' && (
                               <DropdownMenuItem onClick={() => router.push(`/purchase/edit-po/${po.id}`)}>Edit</DropdownMenuItem>
                             )}
-                            <DropdownMenuItem onClick={() => router.push(`/purchase/create-bill?po_id=${po.id}`)}>Create Bill</DropdownMenuItem>
+                            <DropdownMenuItem onClick={() => setCreateBillPOId(po.id)}>Create Bill</DropdownMenuItem>
                             {po.status !== 'cancelled' && (
                               <DropdownMenuItem
                                 className="text-destructive focus:text-destructive"
@@ -463,6 +488,11 @@ export default function PurchaseOrdersPage() {
         onOpenChange={(open) => { if (!open) setDetailPO(null) }}
         po={detailPO}
         onEdit={(po) => router.push(`/purchase/edit-po/${po.id}`)}
+      />
+      <CreateBillFromPODialog
+        open={!!createBillPOId}
+        onOpenChange={(open) => { if (!open) setCreateBillPOId(null) }}
+        poId={createBillPOId ?? ''}
       />
     </PageWrapper>
   )

@@ -22,26 +22,37 @@ const DELIVERY_TERM_PRESETS = [
 ]
 
 export interface SoTermsValues {
-  payment_terms: string
-  payment_terms_notes: string
-  delivery_terms: string
+  payment_terms:        string
+  payment_terms_notes:  string
+  delivery_terms:       string
   delivery_terms_notes: string
-  customer_notes: string
+  customer_notes:       string
+  validity_days:        number
+}
+
+export const DEFAULT_TERMS: SoTermsValues = {
+  payment_terms:        '',
+  payment_terms_notes:  '',
+  delivery_terms:       '',
+  delivery_terms_notes: '',
+  customer_notes:       '',
+  validity_days:        30,
 }
 
 interface SoTermsSectionProps {
   value: SoTermsValues
   onChange: (values: SoTermsValues) => void
+  hidePaymentTerms?: boolean
 }
 
-export function SoTermsSection({ value, onChange }: SoTermsSectionProps) {
+export function SoTermsSection({ value, onChange, hidePaymentTerms = false }: SoTermsSectionProps) {
   function set(key: keyof SoTermsValues, val: string) {
     onChange({ ...value, [key]: val })
   }
 
   return (
     <div className="space-y-4">
-      <div className="space-y-2">
+      {!hidePaymentTerms && <div className="space-y-2">
         <Label className="text-sm font-medium">Payment Terms</Label>
         <div className="flex flex-wrap gap-2">
           {PAYMENT_TERM_PRESETS.map((p) => (
@@ -67,7 +78,7 @@ export function SoTermsSection({ value, onChange }: SoTermsSectionProps) {
             onChange={(e) => set('payment_terms_notes', e.target.value)}
           />
         )}
-      </div>
+      </div>}
 
       <div className="space-y-2">
         <Label className="text-sm font-medium">Delivery Terms</Label>
@@ -103,6 +114,18 @@ export function SoTermsSection({ value, onChange }: SoTermsSectionProps) {
           onChange={(e) => set('customer_notes', e.target.value)}
           rows={3}
         />
+      </div>
+
+      <div className="space-y-2">
+        <Label className="text-sm font-medium">Quotation Validity (days)</Label>
+        <Input
+          type="number"
+          min={1}
+          className="h-9 w-32 text-sm"
+          value={value.validity_days}
+          onChange={(e) => onChange({ ...value, validity_days: Math.max(1, Number(e.target.value)) })}
+        />
+        <p className="text-xs text-muted-foreground">How long this quotation remains valid from issue date</p>
       </div>
     </div>
   )

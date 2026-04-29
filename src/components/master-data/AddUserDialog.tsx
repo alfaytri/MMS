@@ -23,7 +23,6 @@ const schema = z.object({
   email: z.string().email('Enter a valid email'),
   password: passwordSchema,
   confirm: z.string(),
-  user_type: z.enum(['internal', 'external']),
   role_ids: z.array(z.string().uuid()).default([]),
 }).refine((v) => v.password === v.confirm, {
   message: 'Passwords do not match', path: ['confirm'],
@@ -44,7 +43,7 @@ export function AddUserDialog({ open, onOpenChange }: Props) {
     resolver: zodResolver(schema) as never,
     defaultValues: {
       full_name: '', email: '', password: '', confirm: '',
-      user_type: 'internal', role_ids: [],
+      role_ids: [],
     },
   })
 
@@ -56,7 +55,6 @@ export function AddUserDialog({ open, onOpenChange }: Props) {
         full_name: values.full_name,
         email: values.email,
         password: values.password,
-        user_type: values.user_type,
         role_ids: values.role_ids,
       },
       {
@@ -97,25 +95,6 @@ export function AddUserDialog({ open, onOpenChange }: Props) {
                 <FormItem>
                   <FormLabel>Email *</FormLabel>
                   <FormControl><Input type="email" placeholder="ahmed@example.com" {...field} /></FormControl>
-                  <FormMessage />
-                </FormItem>
-              )}
-            />
-            <FormField
-              control={form.control}
-              name="user_type"
-              render={({ field }) => (
-                <FormItem>
-                  <FormLabel>User Type</FormLabel>
-                  <FormControl>
-                    <select
-                      {...field}
-                      className="flex h-9 w-full rounded-md border border-input bg-background px-3 py-1 text-sm"
-                    >
-                      <option value="internal">Internal (staff)</option>
-                      <option value="external">External (client)</option>
-                    </select>
-                  </FormControl>
                   <FormMessage />
                 </FormItem>
               )}

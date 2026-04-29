@@ -6,10 +6,8 @@ import { PageHeader } from '@/components/shared/PageHeader'
 import { PageWrapper } from '@/components/shared/PageWrapper'
 import { DataTable } from '@/components/shared/DataTable'
 import { DataTableColumnHeader } from '@/components/shared/DataTableColumnHeader'
-import { DeliveryFormDialog } from '@/components/sales/DeliveryFormDialog'
 import { useSaleDeliveries, type SaleDelivery, type DeliveryStatus } from '@/hooks/useSaleDeliveries'
 import { formatDate } from '@/lib/utils/formatters'
-import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
 import { cn } from '@/lib/utils'
 
@@ -30,7 +28,6 @@ const STATUSES: { value: DeliveryStatus | ''; label: string }[] = [
 
 export default function DeliveriesPage() {
   const [statusFilter, setStatusFilter] = useState<DeliveryStatus | ''>('')
-  const [activeDelivery, setActiveDelivery] = useState<SaleDelivery | null>(null)
 
   const { data: deliveries, isLoading } = useSaleDeliveries({ status: statusFilter })
 
@@ -75,20 +72,6 @@ export default function DeliveriesPage() {
         return <Badge className={cn('text-xs', cfg.className)}>{cfg.label}</Badge>
       },
     },
-    {
-      id: 'actions',
-      cell: ({ row }) => {
-        const d = row.original
-        if (d.status === 'pending' || d.status === 'in_progress') {
-          return (
-            <Button variant="outline" size="sm" onClick={() => setActiveDelivery(d)}>
-              Complete
-            </Button>
-          )
-        }
-        return null
-      },
-    },
   ], [])
 
   return (
@@ -111,13 +94,6 @@ export default function DeliveriesPage() {
         ))}
       </div>
       <DataTable columns={columns} data={deliveries ?? []} isLoading={isLoading} />
-      {activeDelivery && (
-        <DeliveryFormDialog
-          open
-          onOpenChange={(v) => { if (!v) setActiveDelivery(null) }}
-          delivery={activeDelivery}
-        />
-      )}
     </PageWrapper>
   )
 }

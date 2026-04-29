@@ -1,6 +1,7 @@
 // src/hooks/useSaleDeliveries.ts
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { createClient } from '@/lib/supabase/client'
+import { logActivity } from '@/lib/logActivity'
 
 export type DeliveryStatus = 'pending' | 'in_progress' | 'delivered' | 'cancelled'
 
@@ -134,11 +135,44 @@ export function useCompleteDelivery() {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['sale-deliveries'] })
+      queryClient.invalidateQueries({ queryKey: ['sale-orders'] })
       queryClient.invalidateQueries({ queryKey: ['customer-invoices'] })
       queryClient.invalidateQueries({ queryKey: ['inventory-brand-variants'] })
       queryClient.invalidateQueries({ queryKey: ['fifo-layers'] })
       queryClient.invalidateQueries({ queryKey: ['stock_movements'] })
       queryClient.invalidateQueries({ queryKey: ['cogs-entries'] })
+      queryClient.invalidateQueries({ queryKey: ['activity-log'] })
+    },
+  })
+}
+
+export function useCancelDelivery() {
+  const queryClient = useQueryClient()
+  return useMutation({
+    mutationFn: async ({ id, soId }: { id: string; soId: string }) => {
+      const supabase = createClient()
+      const { error } = await (supabase as any)
+        .rpc('cancel_delivery_inventory', {
+          p_delivery_id: id,
+          p_so_id:       soId,
+        })
+      if (error) throw new Error(error.message)
+    },
+    onSuccess: (_data, variables) => {
+      queryClient.invalidateQueries({ queryKey: ['sale-deliveries'] })
+      queryClient.invalidateQueries({ queryKey: ['sale-orders'] })
+      queryClient.invalidateQueries({ queryKey: ['sale-order', variables.soId] })
+      queryClient.invalidateQueries({ queryKey: ['inventory-brand-variants'] })
+      queryClient.invalidateQueries({ queryKey: ['fifo-layers'] })
+      queryClient.invalidateQueries({ queryKey: ['stock_movements'] })
+      queryClient.invalidateQueries({ queryKey: ['cogs-entries'] })
+      queryClient.invalidateQueries({ queryKey: ['activity-log'] })
+      logActivity({
+        action:    'Delivery Cancelled',
+        module:    'sale_orders',
+        entity_id: variables.soId,
+        severity:  'warning',
+      })
     },
   })
 }

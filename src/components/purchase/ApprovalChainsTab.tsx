@@ -23,6 +23,7 @@ const ROLE_LABELS: Record<ApprovalRole, string> = {
   purchase_manager: 'Purchase Manager',
   accountant: 'Accountant',
   owner: 'Owner',
+  employee: 'Employee',
 }
 
 type TierForm = { rank: string; min_amount: string; max_amount: string; roles: ApprovalRole[] }
