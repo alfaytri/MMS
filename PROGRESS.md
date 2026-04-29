@@ -152,7 +152,7 @@ Purchase & Sales▾:
 
 ## 🔄 In Progress
 
-🚀 Starting: **Bill Rework Plan Task 2: Remove approval status from bills UI**
+🚀 Starting: **Bill Rework Plan Task 2: Remove approval-status-related code from bills UI**
 
 ## ✅ Completed
 
