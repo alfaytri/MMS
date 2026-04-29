@@ -100,7 +100,6 @@ export type Customer = {
   name:                string
   phone:               string | null
   email:               string | null
-  customer_number:     string | null
   customer_type:       string | null
   is_blocked:          boolean
   credit_group_id:     string | null
@@ -191,7 +190,7 @@ export function useCustomers(search?: string) {
         .limit(50)
       if (search) {
         const safe = search.replace(/%/g, '\\%')
-        q = q.ilike('name', `%${safe}%`)
+        q = q.or(`name.ilike.%${safe}%,phone.ilike.%${safe}%`)
       }
       const { data, error } = await q
       if (error) throw error
@@ -222,7 +221,7 @@ export function useAllCustomers(search: string, page: number) {
         .range(from, to)
       if (search) {
         const safe = search.replace(/%/g, '\\%')
-        q = q.ilike('name', `%${safe}%`)
+        q = q.or(`name.ilike.%${safe}%,phone.ilike.%${safe}%`)
       }
       const { data, count, error } = await q
       if (error) throw error
