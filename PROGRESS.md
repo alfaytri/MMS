@@ -156,7 +156,7 @@ _(nothing in progress)_
 
 ## ✅ Completed
 
-- [2026-04-29] **Sale Module Task 2: ApInvoice type fix** — `src/types/invoice.ts` — Added three new fields to ApInvoice: `discount_amount: number`, `discount_label: string | null`, `source_label: string | null`; updated invoice_id comment to reflect "PO-00011-B1" naming pattern; TypeScript clean
+- [2026-04-29] **Bill Discount Inheritance & PO Module Fixes (All Tasks)** — `supabase/migrations/20260429000001_bill_discount_columns.sql`, `src/types/invoice.ts`, `src/hooks/useSupplierBills.ts`, `src/components/purchase/BillFormDialog.tsx`, `src/app/(dashboard)/purchase/create-bill/page.tsx`, `src/components/purchase/BillDetailDocument.tsx` — Bills auto-inherit PO discount; bill IDs renamed to PO-XXXXX-Bn pattern; discount line shown in totals; Supplier Ref shown in meta row; ApInvoice type now exposes discount_amount, discount_label, source_label
 
 - [2026-04-28] **Purchase Payments Enhancement (All Tasks)** — `src/hooks/useSupplierPayments.ts`, `src/hooks/useSupplierBills.ts`, `src/hooks/useAttachPaymentToBill.ts` (new), `src/components/purchase/AttachBillDialog.tsx` (new), `src/components/purchase/PoDetailDialog.tsx`, `src/components/purchase/BillDetailDocument.tsx`, `src/app/(dashboard)/purchase/payments/page.tsx`, `supabase/migrations/20260428200006_assign_missing_spay_ids.sql`, `supabase/migrations/20260428200007_attach_payment_to_bill_rpc.sql` — Fixed supplier/PO resolution for PO-direct payments; PO # column + eye icon on Purchase Payments; one-time bill attachment via atomic RPC from both Payments page and Bill detail; backfilled null SPAY- IDs
 
