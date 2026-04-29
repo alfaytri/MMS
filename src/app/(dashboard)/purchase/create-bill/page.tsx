@@ -83,19 +83,22 @@ function CreateBillForm() {
     setSaving(true)
     try {
       await createBill.mutateAsync({
-        supplier_id: (po as any).supplier_id,
+        supplier_id:       (po as any).supplier_id,
         purchase_order_id: poId,
-        receival_id: null,
-        due_date: dueDate,
-        source_label: reference || null,
+        po_number:         po.po_number,
+        discount_amount:   po.discount_amount ?? 0,
+        discount_label:    po.discount_label ?? null,
+        receival_id:       null,
+        due_date:          dueDate,
+        source_label:      reference || null,
         notes,
         line_items: lines.filter((l) => l.bill_qty > 0).map((l) => ({
-          description: l.item_name,
-          qty: l.bill_qty,
-          unit_price: l.unit_price,
-          total: l.bill_qty * l.unit_price,
+          description:  l.item_name,
+          qty:          l.bill_qty,
+          unit_price:   l.unit_price,
+          total:        l.bill_qty * l.unit_price,
           match_status: 'matched' as const,
-          match_note: null,
+          match_note:   null,
         })),
       })
       toast.success('Bill created successfully')
