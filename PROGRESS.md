@@ -156,6 +156,8 @@ _(nothing in progress)_
 
 ## ✅ Completed
 
+- [2026-04-29] **Sale Module Task 2: ApInvoice type fix** — `src/types/invoice.ts` — Added three new fields to ApInvoice: `discount_amount: number`, `discount_label: string | null`, `source_label: string | null`; updated invoice_id comment to reflect "PO-00011-B1" naming pattern; TypeScript clean
+
 - [2026-04-28] **Purchase Payments Enhancement (All Tasks)** — `src/hooks/useSupplierPayments.ts`, `src/hooks/useSupplierBills.ts`, `src/hooks/useAttachPaymentToBill.ts` (new), `src/components/purchase/AttachBillDialog.tsx` (new), `src/components/purchase/PoDetailDialog.tsx`, `src/components/purchase/BillDetailDocument.tsx`, `src/app/(dashboard)/purchase/payments/page.tsx`, `supabase/migrations/20260428200006_assign_missing_spay_ids.sql`, `supabase/migrations/20260428200007_attach_payment_to_bill_rpc.sql` — Fixed supplier/PO resolution for PO-direct payments; PO # column + eye icon on Purchase Payments; one-time bill attachment via atomic RPC from both Payments page and Bill detail; backfilled null SPAY- IDs
 
 - [2026-04-28] **Unified Payments Page (All Tasks)** — `src/app/(dashboard)/purchase/payments/page.tsx` (rewritten), `src/app/(dashboard)/sales/payments/page.tsx` (deleted), `src/components/layout/nav-config.ts` — Merged Purchase Payments and Customer Payments into single page with Purchase Payments / Invoice Payments dropdown selector; old sales payments page removed; nav consolidated to single Payments entry at /purchase/payments
