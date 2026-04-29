@@ -156,6 +156,8 @@ _(nothing in progress)_
 
 ## ✅ Completed
 
+- [2026-04-29] **Fix PO payment direction bug** — `src/hooks/usePurchaseOrders.ts`, `supabase/migrations/20260429150000_fix_po_payment_direction.sql` — `useCreatePOPayment` was missing `direction: 'outgoing'` and `payment_id`, causing PO payments to default to `incoming` and appear on Invoice Payments page; migration backfills all affected rows and assigns SPAY- IDs
+
 - [2026-04-29] **Notification bell fix** — `src/hooks/useNotifications.ts` — Added `.is('read_at', null)` filter to `useRecentNotifications` so approved/read notifications are immediately removed from the bell dropdown
 
 - [2026-04-29] **Bill Rework Task 7: Update bill VM and AttachBillDialog for multi-allocation** — `src/hooks/useSupplierBills.ts`, `src/hooks/useAttachPaymentToBill.ts`, `src/components/purchase/AttachBillDialog.tsx` — `useBillViewModel` now queries `payment_bill_allocations` joined with `payments`; hook calls `allocate_payment_to_bill` with required `amount`; link-payment dialog shows payment cards with remaining balance and partial allocation amount input; attach-bill mode preserved
