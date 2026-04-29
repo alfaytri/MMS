@@ -156,6 +156,8 @@ _(nothing in progress)_
 
 ## ✅ Completed
 
+- [2026-04-29] **Sale Module UX: SO row click + Invoice document page** — `src/app/(dashboard)/sales/orders/page.tsx`, `src/app/(dashboard)/sales/invoices/page.tsx`, `src/app/(dashboard)/sales/invoices/[id]/page.tsx` (new), `src/components/sales/InvoiceDetailDocument.tsx` (new) — SO list: eye button removed, entire row clickable via onRowClick; Invoice list: row navigates to full document page; new /sales/invoices/[id] route shows printable invoice with company header, "فاتورة مبيعات", customer, line items, totals, payment history, balance, QR code, watermark, plus Print/Send/Pay toolbar
+
 - [2026-04-29] **Fix PO payment direction bug** — `src/hooks/usePurchaseOrders.ts`, `supabase/migrations/20260429150000_fix_po_payment_direction.sql` — `useCreatePOPayment` was missing `direction: 'outgoing'` and `payment_id`, causing PO payments to default to `incoming` and appear on Invoice Payments page; migration backfills all affected rows and assigns SPAY- IDs
 
 - [2026-04-29] **Notification bell fix** — `src/hooks/useNotifications.ts` — Added `.is('read_at', null)` filter to `useRecentNotifications` so approved/read notifications are immediately removed from the bell dropdown
