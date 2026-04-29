@@ -152,6 +152,8 @@ Purchase & Sales▾:
 
 ## 🔄 In Progress
 
+🚀 Starting: **Bill Rework Plan Task 3: Two-level Company + Division sidebar selectors**
+
 ## ✅ Completed
 
 - [2026-04-29] **Bill Rework Task 2: Remove approval-status-related code from bills UI** — `src/components/purchase/BillDetailDocument.tsx` — Deleted DOC_STATUS_COLORS constant; removed doc_status === 'draft' check from getWatermark function (keeping only paid/overdue watermarks); removed doc_status badge from meta section (kept only payment_status badge)
