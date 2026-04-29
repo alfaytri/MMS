@@ -102,6 +102,7 @@ export function PoDetailDialog({ open, onOpenChange, po, poId, onEdit }: Props) 
                         approved: 'bg-blue-100 text-blue-700',
                         partially_received: 'bg-purple-100 text-purple-700',
                         received: 'bg-green-100 text-green-700',
+                        completed: 'bg-teal-100 text-teal-700',
                         cancelled: 'bg-red-100 text-red-700',
                       }[current.status] ?? 'bg-slate-100 text-slate-700'
                     )}>

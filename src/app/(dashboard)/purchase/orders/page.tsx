@@ -35,6 +35,7 @@ const STATUS_OPTIONS: { value: POStatus | ''; label: string }[] = [
   { value: 'approved', label: 'Approved' },
   { value: 'partially_received', label: 'Partially Received' },
   { value: 'received', label: 'Received' },
+  { value: 'completed', label: 'Completed' },
   { value: 'cancelled', label: 'Cancelled' },
 ]
 
@@ -58,6 +59,7 @@ const STATUS_COLORS: Record<POStatus, string> = {
   approved: 'bg-blue-100 text-blue-700',
   partially_received: 'bg-purple-100 text-purple-700',
   received: 'bg-green-100 text-green-700',
+  completed: 'bg-teal-100 text-teal-700',
   cancelled: 'bg-red-100 text-red-700',
 }
 
@@ -142,7 +144,7 @@ export default function PurchaseOrdersPage() {
     if (receivalFilter) result = result.filter((o) => getReceivalStatus(o) === receivalFilter)
     if (paymentFilter) {
       result = result.filter((o) => {
-        if (paymentFilter === 'paid') return o.status === 'received'
+        if (paymentFilter === 'paid') return ['received', 'completed'].includes(o.status)
         if (paymentFilter === 'unpaid') return ['draft', 'pending_approval', 'approved'].includes(o.status)
         if (paymentFilter === 'partial') return o.status === 'partially_received'
         return true

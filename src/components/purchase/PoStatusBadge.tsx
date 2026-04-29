@@ -8,6 +8,7 @@ const STATUS_CONFIG: Record<POStatus, { label: string; className: string }> = {
   approved:            { label: 'Approved',            className: 'border-success text-success' },
   partially_received:  { label: 'Partially Received', className: 'border-blue-500 text-blue-500' },
   received:            { label: 'Received',            className: 'border-success text-success bg-success/10' },
+  completed:           { label: 'Completed',           className: 'border-teal-500 text-teal-500 bg-teal-500/10' },
   cancelled:           { label: 'Cancelled',           className: 'border-destructive text-destructive' },
 }
 
