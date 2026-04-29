@@ -74,10 +74,12 @@ export function useSupplierPayments(billId?: string) {
         }
       }
 
-      // Step 4: batch-fetch supplier names for invoice-linked payments
-      const supplierIds = [...new Set(
-        Object.values(invoiceMap).map((i) => i.supplier_id).filter(Boolean) as string[]
-      )]
+      // Step 4: batch-fetch supplier names — from invoice links AND direct supplier_id on payment
+      const supplierIdsFromInvoices = Object.values(invoiceMap)
+        .map((i) => i.supplier_id).filter(Boolean) as string[]
+      const supplierIdsFromPayments = rows
+        .filter((p) => p.supplier_id).map((p) => p.supplier_id as string)
+      const supplierIds = [...new Set([...supplierIdsFromInvoices, ...supplierIdsFromPayments])]
       const supplierMap: Record<string, string> = {}
       if (supplierIds.length > 0) {
         const { data: suppliers, error: supErr } = await (supabase as any)
@@ -100,6 +102,7 @@ export function useSupplierPayments(billId?: string) {
           invoice_display: inv?.invoice_id ?? null,
           supplier_name:   (inv?.supplier_id ? supplierMap[inv.supplier_id] : null)
                            ?? poInfo?.supplier_name
+                           ?? (p.supplier_id ? supplierMap[p.supplier_id] : null)
                            ?? null,
           po_id:           poId,
           po_number:       poInfo?.po_number ?? null,
