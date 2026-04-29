@@ -203,6 +203,7 @@ export type BillPayment = {
   reference: string | null
   notes: string | null
   status: string
+  full_amount?: number
 }
 
 export type BillReceival = {
@@ -260,11 +261,23 @@ export function useBillViewModel(id: string | null) {
           .eq('direction', 'ap')
           .single(),
         (supabase as any)
-          .from('payments')
-          .select('id, payment_id, amount, method, date, reference, notes, status')
-          .eq('invoice_id', id)
-          .eq('direction', 'outgoing')
-          .order('date', { ascending: false }),
+          .from('payment_bill_allocations')
+          .select(`
+            id,
+            amount,
+            payments (
+              id,
+              payment_id,
+              method,
+              date,
+              reference,
+              notes,
+              status,
+              amount
+            )
+          `)
+          .eq('bill_id', id)
+          .order('created_at', { ascending: false }),
         (supabase as any)
           .from('payment_plans')
           .select('*, payment_installments(*)')
@@ -289,7 +302,17 @@ export function useBillViewModel(id: string | null) {
 
       return {
         bill: billResult.data as BillViewModel['bill'],
-        payments: (paymentsResult.data ?? []) as BillPayment[],
+        payments: (paymentsResult.data ?? []).map((alloc: any) => ({
+          id:          alloc.id,
+          payment_id:  alloc.payments?.payment_id ?? '—',
+          amount:      alloc.amount,
+          method:      alloc.payments?.method ?? '',
+          date:        alloc.payments?.date ?? '',
+          reference:   alloc.payments?.reference ?? null,
+          notes:       alloc.payments?.notes ?? null,
+          status:      alloc.payments?.status ?? '',
+          full_amount: alloc.payments?.amount ?? 0,
+        })),
         paymentPlan: planResult.data ?? null,
         receival,
       }

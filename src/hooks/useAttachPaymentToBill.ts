@@ -4,11 +4,20 @@ import { createClient } from '@/lib/supabase/client'
 export function useAttachPaymentToBill() {
   const queryClient = useQueryClient()
   return useMutation({
-    mutationFn: async ({ paymentId, billId }: { paymentId: string; billId: string }) => {
+    mutationFn: async ({
+      paymentId,
+      billId,
+      amount,
+    }: {
+      paymentId: string
+      billId: string
+      amount: number
+    }) => {
       const supabase = createClient()
-      const { error } = await (supabase as any).rpc('attach_payment_to_bill', {
+      const { error } = await (supabase as any).rpc('allocate_payment_to_bill', {
         p_payment_id: paymentId,
-        p_bill_id: billId,
+        p_bill_id:    billId,
+        p_amount:     amount,
       })
       if (error) throw error
     },
