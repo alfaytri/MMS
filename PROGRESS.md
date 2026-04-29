@@ -152,9 +152,9 @@ Purchase & Sales▾:
 
 ## 🔄 In Progress
 
-🚀 Starting: **Bill Rework Plan Task 2: Remove approval-status-related code from bills UI**
-
 ## ✅ Completed
+
+- [2026-04-29] **Bill Rework Task 2: Remove approval-status-related code from bills UI** — `src/components/purchase/BillDetailDocument.tsx` — Deleted DOC_STATUS_COLORS constant; removed doc_status === 'draft' check from getWatermark function (keeping only paid/overdue watermarks); removed doc_status badge from meta section (kept only payment_status badge)
 
 - [2026-04-29] **Bill Rework Task 1: Fix Grand Total duplicate currency and print date** — `src/components/purchase/BillDetailDocument.tsx` — Removed trailing `{currency}` from Grand Total, deleted redundant "Total (QAR):" row, changed print timestamps from `toLocaleString`/`toISOString` to `toLocaleDateString('en-GB')`
 
