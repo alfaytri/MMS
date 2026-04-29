@@ -152,9 +152,11 @@ Purchase & Sales▾:
 
 ## 🔄 In Progress
 
-🚀 Starting: **Bill Rework Plan Task 4: Manual Mark as Paid button (with manually_paid flag)**
+🚀 Starting: **Bill Rework Plan Task 5: Replace create-bill page with CreateBillFromPODialog**
 
 ## ✅ Completed
+
+- [2026-04-29] **Bill Rework Task 4: Manual Mark as Paid button** — `supabase/migrations/20260429130000_invoices_manually_paid.sql`, `src/hooks/useSupplierBills.ts`, `src/components/purchase/BillDetailDocument.tsx` — Added `manually_paid` column to invoices (prevents allocation RPC from overwriting manual status); `useMarkBillPaymentStatus` hook sets both `payment_status` and `manually_paid`; button toggles between Mark as Paid (default) / Mark as Unpaid (outline) with pending state
 
 - [2026-04-29] **Bill Rework Task 3: Two-level Company + Division sidebar selectors** — `src/components/purchase/BillDetailSidebar.tsx`, `src/components/purchase/BillDetailDocument.tsx`, `src/app/(dashboard)/purchase/bills/[id]/page.tsx` — Added Company selector above Division in sidebar; Division disabled until company chosen; print header shows company name_en on line 1, division name on line 2, address below; footer updated to show company · division
 
