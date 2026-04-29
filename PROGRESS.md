@@ -13,7 +13,7 @@
 | **Project** | MMS — Maintenance Management System |
 | **Owner** | Mohamed Ismail |
 | **Working dir** | `D:/MMS` |
-| **Active branch** | `develop` — all Phase 1 feature work here, never commit directly to `main` |
+| **Active branch** | `feature/purchase-module` — current working branch for bill rework |
 | **Goal** | Web ERP for a Qatar maintenance company (Alfaytri Maintenance, RSH Cleaning and Pest Control) |
 
 ---
@@ -152,7 +152,7 @@ Purchase & Sales▾:
 
 ## 🔄 In Progress
 
-_(nothing in progress)_
+🚀 Starting: **Bill Rework Plan Task 1: Fix Grand Total duplicate currency and print date**
 
 ## ✅ Completed
 
