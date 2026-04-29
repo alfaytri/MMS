@@ -102,6 +102,48 @@ Whenever you create or modify a `<Select>` / dropdown component, you **must** ve
 
 ---
 
+# Database Migrations — Mandatory Rule
+
+**Always use the Supabase CLI to apply migrations. Never ask the user to run SQL manually.**
+
+**Project ref:** `wkmvjxxmzstsvahuiwsz`  
+**Config:** `supabase/config.toml` (committed to repo — CLI reads it automatically)  
+**Auth token:** stored in `supabase/.temp/` (gitignored, machine-local)
+
+## Workflow for every migration
+
+1. Create the SQL file in `supabase/migrations/YYYYMMDDHHMMSS_description.sql`
+2. Run `npx supabase db push` to apply it to the remote database immediately
+3. Commit the migration file to git
+
+```bash
+npx supabase db push
+git add supabase/migrations/<file>.sql
+git commit -m "feat(db): ..."
+```
+
+## If the CLI is not linked (fresh clone / new machine)
+
+Run once:
+```bash
+npx supabase link --project-ref wkmvjxxmzstsvahuiwsz
+```
+No password needed when logged in via `npx supabase login`.
+
+## Finding credentials
+
+| What | Where |
+|---|---|
+| Project ref | `supabase/config.toml` → `project_id` field, or Supabase dashboard URL: `supabase.com/dashboard/project/<ref>` |
+| DB connection string | Supabase dashboard → Project Settings → Database → Connection string |
+| Service role / anon key | Supabase dashboard → Project Settings → API |
+
+## If migrations get out of sync (manual SQL was run)
+
+Use `npx supabase migration repair --status applied <version>` for each manually-applied migration, then verify with `npx supabase db push --dry-run` — it must show "Remote database is up to date."
+
+---
+
 # Code Review — Mandatory Rule
 
 After completing any task (code, feature, fix, or refactor), your work will be reviewed by **Codex**. Write code as if Codex will scrutinize every line — because it will.
