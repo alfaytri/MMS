@@ -29,13 +29,6 @@ type Props = {
   onNavigate: (id: string) => void
 }
 
-const DOC_STATUS_COLORS: Record<string, string> = {
-  draft:            'bg-slate-100 text-slate-700',
-  pending_approval: 'bg-amber-100 text-amber-700',
-  approved:         'bg-green-100 text-green-700',
-  rejected:         'bg-red-100 text-red-700',
-}
-
 const PAY_STATUS_COLORS: Record<string, string> = {
   unpaid:         'bg-slate-100 text-slate-600',
   partially_paid: 'bg-amber-100 text-amber-700',
@@ -44,7 +37,6 @@ const PAY_STATUS_COLORS: Record<string, string> = {
 }
 
 function getWatermark(bill: BillViewModel['bill']): { text: string; colorClass: string } | null {
-  if (bill.doc_status === 'draft') return { text: 'DRAFT', colorClass: 'text-slate-400' }
   if (bill.payment_status === 'paid') return { text: 'PAID', colorClass: 'text-green-400' }
   if (bill.payment_status === 'overdue') return { text: 'OVERDUE', colorClass: 'text-red-400' }
   return null
@@ -140,9 +132,6 @@ export function BillDetailDocument({
               </p>
             )}
             <div className="flex items-center gap-2 flex-wrap">
-              <Badge className={cn('text-xs', DOC_STATUS_COLORS[bill.doc_status] ?? '')}>
-                {bill.doc_status.replace(/_/g, ' ')}
-              </Badge>
               <Badge className={cn('text-xs', PAY_STATUS_COLORS[bill.payment_status] ?? '')}>
                 {bill.payment_status.replace(/_/g, ' ')}
               </Badge>
