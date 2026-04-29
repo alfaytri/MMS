@@ -268,7 +268,7 @@ export default function CreateSOPage() {
                   <ChevronsUpDown className="h-4 w-4 opacity-50" />
                 </PopoverTrigger>
                 <PopoverContent className="w-[min(400px,90vw)] p-0">
-                  <Command>
+                  <Command shouldFilter={false}>
                     <CommandInput placeholder="Search customers..." value={customerSearch} onValueChange={setCustomerSearch} />
                     <CommandList>
                       <CommandEmpty>No customers found.</CommandEmpty>
