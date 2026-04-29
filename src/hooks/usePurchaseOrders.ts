@@ -560,7 +560,16 @@ export function useCreatePOPayment() {
       exchange_rate: number
     }) => {
       const supabase = createClient()
+
+      // Generate SPAY- sequence number (count all outgoing payments)
+      const { count: outgoingCount } = await (supabase as any)
+        .from('payments')
+        .select('*', { count: 'exact', head: true })
+        .eq('direction', 'outgoing')
+      const payment_id = `SPAY-${String((outgoingCount ?? 0) + 1).padStart(5, '0')}`
+
       const { error } = await (supabase as any).from('payments').insert({
+        payment_id,
         source_type: 'purchase_order',
         source_id: payment.po_id,
         supplier_id: payment.supplier_id,
@@ -572,6 +581,7 @@ export function useCreatePOPayment() {
         currency: payment.currency,
         exchange_rate: payment.exchange_rate,
         amount_qar: payment.amount * payment.exchange_rate,
+        direction: 'outgoing',
         status: 'pending' as any,
       })
       if (error) throw error
