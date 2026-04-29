@@ -89,6 +89,9 @@ export function useCreateBill() {
     mutationFn: async (payload: {
       supplier_id: string
       purchase_order_id: string
+      po_number: string
+      discount_amount: number
+      discount_label: string | null
       receival_id: string | null
       due_date: string
       source_label?: string | null
@@ -103,35 +106,43 @@ export function useCreateBill() {
       }[]
     }) => {
       const supabase = createClient()
-      const { count } = await (supabase as any)
+
+      // Count existing AP bills for this PO to generate PO-XXXXX-Bn ID
+      const { count: billCount } = await (supabase as any)
         .from('invoices')
         .select('*', { count: 'exact', head: true })
+        .eq('purchase_order_id', payload.purchase_order_id)
         .eq('direction', 'ap')
-      const invoiceIdDisplay = `BILL-${String((count ?? 0) + 1).padStart(5, '0')}`
+      const invoiceIdDisplay = `${payload.po_number}-B${(billCount ?? 0) + 1}`
+
       const today = new Date().toISOString().split('T')[0]
-      const totalAmount = payload.line_items.reduce((s, l) => s + l.total, 0)
+      const subtotal = payload.line_items.reduce((s, l) => s + l.total, 0)
+      const discount = payload.discount_amount ?? 0
+      const totalAmount = subtotal - discount
 
       const { data: bill, error } = await (supabase as any)
         .from('invoices')
         .insert({
-          invoice_id: invoiceIdDisplay,
-          direction: 'ap',
-          supplier_id: payload.supplier_id,
+          invoice_id:        invoiceIdDisplay,
+          direction:         'ap',
+          supplier_id:       payload.supplier_id,
           purchase_order_id: payload.purchase_order_id,
-          receival_id: payload.receival_id,
-          doc_status: 'draft',
-          payment_status: 'unpaid',
-          needs_refresh: false,
-          source: 'order',
-          source_id: payload.purchase_order_id,
-          source_label: payload.source_label ?? null,
-          total_amount: totalAmount,
-          subtotal: totalAmount,
-          tax: 0,
-          issued_date: today,
-          due_date: payload.due_date,
-          notes: payload.notes || null,
-          status: 'draft',
+          receival_id:       payload.receival_id,
+          doc_status:        'draft',
+          payment_status:    'unpaid',
+          needs_refresh:     false,
+          source:            'order',
+          source_id:         payload.purchase_order_id,
+          source_label:      payload.source_label ?? null,
+          subtotal:          subtotal,
+          discount_amount:   discount,
+          discount_label:    payload.discount_label ?? null,
+          total_amount:      totalAmount,
+          tax:               0,
+          issued_date:       today,
+          due_date:          payload.due_date,
+          notes:             payload.notes || null,
+          status:            'draft',
         })
         .select()
         .single()
