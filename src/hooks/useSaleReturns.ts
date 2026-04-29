@@ -89,6 +89,7 @@ export function useCreateSaleReturn() {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['sale-returns'] })
+      queryClient.invalidateQueries({ queryKey: ['sale-returns-by-so'] })
     },
   })
 }
@@ -106,6 +107,27 @@ export function useUpdateReturnStatus() {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['sale-returns'] })
+      queryClient.invalidateQueries({ queryKey: ['sale-returns-by-so'] })
     },
+  })
+}
+
+export function useReturnsBySO(soId: string | null) {
+  return useQuery({
+    queryKey: ['sale-returns-by-so', soId],
+    queryFn: async () => {
+      const supabase = createClient()
+      const { data, error } = await (supabase as any)
+        .from('returns')
+        .select('*')
+        .eq('source_type', 'sale_order')
+        .eq('source_id', soId)
+        .is('deleted_at', null)
+        .order('created_at', { ascending: false })
+      if (error) throw error
+      return data as SaleReturn[]
+    },
+    enabled: !!soId,
+    staleTime: 30 * 1000,
   })
 }

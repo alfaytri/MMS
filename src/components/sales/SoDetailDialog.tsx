@@ -35,6 +35,8 @@ import {
   useSendInvoice,
 } from '@/hooks/useCustomerInvoices'
 import { useCustomerPayments } from '@/hooks/useCustomerPayments'
+import { useReturnsBySO, useCreateSaleReturn, type SaleReturn } from '@/hooks/useSaleReturns'
+import { useWarehouses } from '@/hooks/useWarehouses'
 import { usePaymentPlans } from '@/hooks/usePaymentPlans'
 import { CustomerPaymentDialog } from './CustomerPaymentDialog'
 import { PaymentPlanDialog } from '@/components/purchase/PaymentPlanDialog'
@@ -59,9 +61,16 @@ export function SoDetailDialog({ open, onOpenChange, so, onEdit, onConfirm }: So
   const [deliveryOpen, setDeliveryOpen] = useState(false)
   const [invoicePayOpen, setInvoicePayOpen] = useState(false)
   const [invoicePlanOpen, setInvoicePlanOpen] = useState(false)
+  const [returnOpen, setReturnOpen] = useState(false)
+  const [returnDate, setReturnDate] = useState(new Date().toISOString().slice(0, 10))
+  const [returnReason, setReturnReason] = useState('')
+  const [returnWarehouseId, setReturnWarehouseId] = useState('')
+  const [returnNotes, setReturnNotes] = useState('')
+  const [returnItems, setReturnItems] = useState<{ item_name: string; sku: string | null; qty: number; condition: 'good' | 'damaged'; brand_variant_id: string | null }[]>([])
 
   const approveSO = useApproveSO()
   const cancelDelivery = useCancelDelivery()
+  const createReturn = useCreateSaleReturn()
   const generateInvoice = useGenerateInvoice()
   const sendInvoice = useSendInvoice()
   const { data: fullSO, isLoading, isError } = useSaleOrder(open ? (so?.id ?? null) : null)
@@ -72,6 +81,8 @@ export function SoDetailDialog({ open, onOpenChange, so, onEdit, onConfirm }: So
   const { data: activityLogs } = useActivityLog(
     open && so?.id ? { module: 'sale_orders', entity_id: so.id } : {}
   )
+  const { data: soReturns = [] } = useReturnsBySO(open ? (so?.id ?? null) : null)
+  const { data: warehouses = [] } = useWarehouses()
 
   const current = fullSO ?? so
 
@@ -198,6 +209,7 @@ export function SoDetailDialog({ open, onOpenChange, so, onEdit, onConfirm }: So
                 <TabsTrigger value="items">Items</TabsTrigger>
                 <TabsTrigger value="deliveries">Deliveries</TabsTrigger>
                 <TabsTrigger value="payments">Payments</TabsTrigger>
+                <TabsTrigger value="returns">Returns {soReturns.length > 0 && `(${soReturns.length})`}</TabsTrigger>
                 <TabsTrigger value="activity">Activity</TabsTrigger>
                 <TabsTrigger value="invoice">Invoice</TabsTrigger>
               </TabsList>
@@ -351,6 +363,69 @@ export function SoDetailDialog({ open, onOpenChange, so, onEdit, onConfirm }: So
                       </div>
                     )}
                   </>
+                )}
+              </TabsContent>
+
+              {/* ── Returns ──────────────────────────────────────── */}
+              <TabsContent value="returns" className="flex-1 overflow-y-auto space-y-3">
+                {current && ['delivered', 'invoiced', 'closed'].includes(current.status) && (
+                  <div className="flex justify-end">
+                    <Button size="sm" variant="outline" onClick={() => {
+                      setReturnItems((fullSO?.sale_order_lines ?? []).map((li) => ({
+                        item_name: li.item_name,
+                        sku: li.sku ?? null,
+                        qty: li.qty,
+                        condition: 'good' as const,
+                        brand_variant_id: li.brand_variant_id ?? null,
+                      })))
+                      setReturnOpen(true)
+                    }}>
+                      + Create Return
+                    </Button>
+                  </div>
+                )}
+                {soReturns.length === 0 ? (
+                  <p className="text-sm text-muted-foreground text-center py-6">No returns for this order</p>
+                ) : (
+                  soReturns.map((ret) => (
+                    <div key={ret.id} className="rounded-md border p-3 space-y-2">
+                      <div className="flex items-center justify-between">
+                        <span className="font-mono text-sm font-medium">{ret.return_number}</span>
+                        <span className={`text-xs px-2 py-0.5 rounded-full font-medium capitalize ${
+                          ret.status === 'restocked' ? 'bg-green-100 text-green-700' :
+                          ret.status === 'received'  ? 'bg-blue-100 text-blue-700' :
+                          ret.status === 'closed'    ? 'bg-slate-100 text-slate-600' :
+                                                       'bg-amber-100 text-amber-700'
+                        }`}>{ret.status}</span>
+                      </div>
+                      <p className="text-xs text-muted-foreground">{formatDate(ret.date)} · {ret.reason}</p>
+                      <div className="rounded border overflow-x-auto">
+                        <Table>
+                          <TableHeader>
+                            <TableRow>
+                              <TableHead className="text-xs">Item</TableHead>
+                              <TableHead className="text-xs text-right">Qty</TableHead>
+                              <TableHead className="text-xs">Condition</TableHead>
+                            </TableRow>
+                          </TableHeader>
+                          <TableBody>
+                            {ret.items.map((item, i) => (
+                              <TableRow key={i}>
+                                <TableCell className="text-xs">{item.item_name}</TableCell>
+                                <TableCell className="text-xs text-right">{item.qty}</TableCell>
+                                <TableCell className="text-xs">
+                                  <span className={`px-1.5 py-0.5 rounded text-[10px] font-medium ${
+                                    item.condition === 'good' ? 'bg-green-100 text-green-700' : 'bg-red-100 text-red-700'
+                                  }`}>{item.condition}</span>
+                                </TableCell>
+                              </TableRow>
+                            ))}
+                          </TableBody>
+                        </Table>
+                      </div>
+                      {ret.notes && <p className="text-xs text-muted-foreground italic">{ret.notes}</p>}
+                    </div>
+                  ))
                 )}
               </TabsContent>
 
@@ -580,6 +655,124 @@ export function SoDetailDialog({ open, onOpenChange, so, onEdit, onConfirm }: So
           invoiceId={soInvoice.id}
           outstanding={invoiceOutstanding}
         />
+      )}
+
+      {/* Create Return Dialog */}
+      {returnOpen && current && (
+        <Dialog open onOpenChange={(o) => { if (!o) { setReturnOpen(false); setReturnReason(''); setReturnNotes(''); setReturnWarehouseId('') } }}>
+          <DialogContent className="w-full max-w-full rounded-none sm:max-w-lg sm:rounded-lg max-h-[90vh] flex flex-col">
+            <DialogHeader>
+              <DialogTitle>Create Return — {current.so_number}</DialogTitle>
+            </DialogHeader>
+            <div className="flex-1 overflow-y-auto space-y-4 py-2">
+              <div className="grid grid-cols-2 gap-3">
+                <div className="space-y-1">
+                  <label className="text-xs font-medium text-muted-foreground uppercase tracking-wider">Return Date</label>
+                  <input
+                    type="date"
+                    className="flex h-9 w-full rounded-md border border-input bg-background px-3 py-1 text-sm focus:outline-none focus:ring-1 focus:ring-ring"
+                    value={returnDate}
+                    onChange={(e) => setReturnDate(e.target.value)}
+                  />
+                </div>
+                <div className="space-y-1">
+                  <label className="text-xs font-medium text-muted-foreground uppercase tracking-wider">Restock Warehouse</label>
+                  <select
+                    className="flex h-9 w-full rounded-md border border-input bg-background px-3 py-1 text-sm focus:outline-none focus:ring-1 focus:ring-ring"
+                    value={returnWarehouseId}
+                    onChange={(e) => setReturnWarehouseId(e.target.value)}
+                  >
+                    <option value="">None / Inspect first</option>
+                    {warehouses.map((w: any) => <option key={w.id} value={w.id}>{w.name}</option>)}
+                  </select>
+                </div>
+              </div>
+              <div className="space-y-1">
+                <label className="text-xs font-medium text-muted-foreground uppercase tracking-wider">Reason <span className="text-destructive">*</span></label>
+                <input
+                  className="flex h-9 w-full rounded-md border border-input bg-background px-3 py-1 text-sm focus:outline-none focus:ring-1 focus:ring-ring"
+                  placeholder="e.g. Wrong item, damaged on arrival…"
+                  value={returnReason}
+                  onChange={(e) => setReturnReason(e.target.value)}
+                />
+              </div>
+              <div className="space-y-2">
+                <label className="text-xs font-medium text-muted-foreground uppercase tracking-wider">Items</label>
+                <div className="rounded-md border overflow-x-auto">
+                  <Table>
+                    <TableHeader>
+                      <TableRow>
+                        <TableHead className="text-xs">Item</TableHead>
+                        <TableHead className="text-xs text-right w-20">Qty</TableHead>
+                        <TableHead className="text-xs w-28">Condition</TableHead>
+                      </TableRow>
+                    </TableHeader>
+                    <TableBody>
+                      {returnItems.map((item, i) => (
+                        <TableRow key={i}>
+                          <TableCell className="text-xs font-medium">{item.item_name}</TableCell>
+                          <TableCell className="text-right">
+                            <input
+                              type="number" min={0}
+                              className="w-16 h-7 text-xs text-right rounded border border-input bg-background px-2 focus:outline-none focus:ring-1 focus:ring-ring"
+                              value={item.qty}
+                              onChange={(e) => setReturnItems((prev) => prev.map((it, j) => j === i ? { ...it, qty: Number(e.target.value) } : it))}
+                            />
+                          </TableCell>
+                          <TableCell>
+                            <select
+                              className="h-7 text-xs rounded border border-input bg-background px-1 focus:outline-none focus:ring-1 focus:ring-ring"
+                              value={item.condition}
+                              onChange={(e) => setReturnItems((prev) => prev.map((it, j) => j === i ? { ...it, condition: e.target.value as 'good' | 'damaged' } : it))}
+                            >
+                              <option value="good">Good</option>
+                              <option value="damaged">Damaged</option>
+                            </select>
+                          </TableCell>
+                        </TableRow>
+                      ))}
+                    </TableBody>
+                  </Table>
+                </div>
+              </div>
+              <div className="space-y-1">
+                <label className="text-xs font-medium text-muted-foreground uppercase tracking-wider">Notes</label>
+                <textarea
+                  rows={2}
+                  className="flex w-full rounded-md border border-input bg-background px-3 py-2 text-sm resize-none focus:outline-none focus:ring-1 focus:ring-ring"
+                  placeholder="Optional notes…"
+                  value={returnNotes}
+                  onChange={(e) => setReturnNotes(e.target.value)}
+                />
+              </div>
+            </div>
+            <div className="flex justify-end gap-2 pt-2 border-t">
+              <Button variant="outline" size="sm" onClick={() => setReturnOpen(false)}>Cancel</Button>
+              <Button
+                size="sm"
+                disabled={!returnReason.trim() || createReturn.isPending || returnItems.every((it) => it.qty === 0)}
+                onClick={() => {
+                  createReturn.mutate(
+                    {
+                      source_id: current.id,
+                      date: returnDate,
+                      reason: returnReason,
+                      items: returnItems.filter((it) => it.qty > 0),
+                      restock_warehouse_id: returnWarehouseId || null,
+                      notes: returnNotes || null,
+                    },
+                    {
+                      onSuccess: () => { toast.success('Return created'); setReturnOpen(false); setReturnReason(''); setReturnNotes(''); setReturnWarehouseId('') },
+                      onError: (err) => toast.error((err as Error).message),
+                    }
+                  )
+                }}
+              >
+                {createReturn.isPending ? 'Creating…' : 'Create Return'}
+              </Button>
+            </div>
+          </DialogContent>
+        </Dialog>
       )}
     </>
   )
