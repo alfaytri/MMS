@@ -152,7 +152,7 @@ Purchase & Sales▾:
 
 ## 🔄 In Progress
 
-🚀 Starting: **Bill Rework Plan Task 4: [Next task]**
+🚀 Starting: **Bill Rework Plan Task 4: Manual Mark as Paid button (with manually_paid flag)**
 
 ## ✅ Completed
 
