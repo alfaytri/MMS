@@ -150,6 +150,9 @@ export function BillDetailDocument({
           </div>
           <div className="text-right space-y-1 text-muted-foreground shrink-0">
             <p className="font-medium text-foreground font-mono">{bill.invoice_id}</p>
+            {bill.source_label && (
+              <p>Supplier Ref: <span className="text-foreground font-mono">{bill.source_label}</span></p>
+            )}
             <p>Due: <span className="text-foreground">{formatDate(bill.due_date)}</span></p>
             <p>Print Date: {printTimestamp}</p>
           </div>
@@ -208,6 +211,12 @@ export function BillDetailDocument({
             <span className="text-muted-foreground">Subtotal:</span>
             <span>{formatCurrency(bill.subtotal, currency)}</span>
           </div>
+          {(bill.discount_amount ?? 0) > 0 && (
+            <div className="flex justify-between text-destructive">
+              <span>{bill.discount_label ? `Discount (${bill.discount_label})` : 'Discount'}:</span>
+              <span>−{formatCurrency(bill.discount_amount, currency)}</span>
+            </div>
+          )}
           <div className="flex justify-between font-bold text-base">
             <span>Grand Total:</span>
             <span>{formatCurrency(bill.total_amount, currency)} {currency}</span>
