@@ -117,7 +117,7 @@ export function PoDetailDialog({ open, onOpenChange, po, poId, onEdit }: Props) 
                 )}
               </div>
               {current && !isLoading && (
-                <div className="flex flex-wrap gap-2">
+                <div className="flex flex-wrap gap-2 pr-6">
                   {!isViewingSnapshot && current.status === 'draft' && onEdit && (
                     <Button variant="outline" size="sm" onClick={() => { onEdit(current); onOpenChange(false) }}>
                       Edit PO
