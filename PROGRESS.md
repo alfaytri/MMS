@@ -152,9 +152,11 @@ Purchase & Sales▾:
 
 ## 🔄 In Progress
 
-🚀 Starting: **Bill Rework Plan Task 5: Replace create-bill page with CreateBillFromPODialog**
+🚀 Starting: **Bill Rework Plan Task 6: Multi-bill payment allocations — database migration**
 
 ## ✅ Completed
+
+- [2026-04-29] **Bill Rework Task 5: Replace create-bill page with CreateBillFromPODialog** — `src/components/purchase/CreateBillFromPODialog.tsx` (new), `src/app/(dashboard)/purchase/orders/page.tsx`, `src/components/purchase/PoDetailDialog.tsx`, deleted `src/app/(dashboard)/purchase/create-bill/page.tsx` — Inline dialog replaces full-page route; fetches PO conditionally; shows discount row; on success redirects to new bill detail page
 
 - [2026-04-29] **Bill Rework Task 4: Manual Mark as Paid button** — `supabase/migrations/20260429130000_invoices_manually_paid.sql`, `src/hooks/useSupplierBills.ts`, `src/components/purchase/BillDetailDocument.tsx` — Added `manually_paid` column to invoices (prevents allocation RPC from overwriting manual status); `useMarkBillPaymentStatus` hook sets both `payment_status` and `manually_paid`; button toggles between Mark as Paid (default) / Mark as Unpaid (outline) with pending state
 
