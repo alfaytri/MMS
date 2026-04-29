@@ -152,9 +152,11 @@ Purchase & Sales▾:
 
 ## 🔄 In Progress
 
-🚀 Starting: **Bill Rework Plan Task 3: Two-level Company + Division sidebar selectors**
+🚀 Starting: **Bill Rework Plan Task 4: [Next task]**
 
 ## ✅ Completed
+
+- [2026-04-29] **Bill Rework Task 3: Two-level Company + Division sidebar selectors** — `src/components/purchase/BillDetailSidebar.tsx`, `src/components/purchase/BillDetailDocument.tsx`, `src/app/(dashboard)/purchase/bills/[id]/page.tsx` — Added Company selector above Division in sidebar; Division disabled until company chosen; print header shows company name_en on line 1, division name on line 2, address below; footer updated to show company · division
 
 - [2026-04-29] **Bill Rework Task 2: Remove approval-status-related code from bills UI** — `src/components/purchase/BillDetailDocument.tsx` — Deleted DOC_STATUS_COLORS constant; removed doc_status === 'draft' check from getWatermark function (keeping only paid/overdue watermarks); removed doc_status badge from meta section (kept only payment_status badge)
 
