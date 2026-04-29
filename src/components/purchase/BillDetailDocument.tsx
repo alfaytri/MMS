@@ -12,6 +12,7 @@ import {
 import { BillDetailSection } from './BillDetailSection'
 import { formatCurrency, formatDate } from '@/lib/utils/formatters'
 import { cn } from '@/lib/utils'
+import { useMarkBillPaymentStatus } from '@/hooks/useSupplierBills'
 import type { BillViewModel } from '@/hooks/useSupplierBills'
 import type { Division } from '@/hooks/useDivisions'
 import type { Company } from '@/hooks/useCompanies'
@@ -60,6 +61,7 @@ export function BillDetailDocument({
   const watermark = getWatermark(bill)
   const [origin, setOrigin] = useState('')
   const [attachOpen, setAttachOpen] = useState(false)
+  const markPaid = useMarkBillPaymentStatus()
   const printTimestamp = new Date().toLocaleDateString('en-GB')
 
   useEffect(() => {
@@ -279,6 +281,34 @@ export function BillDetailDocument({
 
       {/* 7. Link Payment (non-printable) */}
       <BillDetailSection title="Payment" className="print:hidden">
+        <div className="flex items-center justify-between gap-3 mb-3">
+          <div className="flex gap-2">
+            {bill.payment_status !== 'paid' ? (
+              <Button
+                size="sm"
+                variant="default"
+                onClick={() => markPaid.mutate({ billId: bill.id, status: 'paid' })}
+                disabled={markPaid.isPending}
+              >
+                {markPaid.isPending ? 'Marking…' : 'Mark as Paid'}
+              </Button>
+            ) : (
+              <Button
+                size="sm"
+                variant="outline"
+                onClick={() => markPaid.mutate({ billId: bill.id, status: 'unpaid' })}
+                disabled={markPaid.isPending}
+              >
+                {markPaid.isPending ? 'Updating…' : 'Mark as Unpaid'}
+              </Button>
+            )}
+          </div>
+          {bill.payment_status !== 'paid' && (
+            <Button size="sm" variant="outline" onClick={() => setAttachOpen(true)}>
+              Link Payment
+            </Button>
+          )}
+        </div>
         {payments.length > 0 ? (
           <div className="space-y-2">
             {payments.map((p) => (
@@ -291,14 +321,7 @@ export function BillDetailDocument({
             ))}
           </div>
         ) : (
-          <div className="flex items-center justify-between">
-            <p className="text-sm text-muted-foreground">No payment linked yet.</p>
-            {bill.payment_status !== 'paid' && (
-              <Button size="sm" variant="outline" onClick={() => setAttachOpen(true)}>
-                Link Payment
-              </Button>
-            )}
-          </div>
+          <p className="text-sm text-muted-foreground">No payment linked yet.</p>
         )}
       </BillDetailSection>
 

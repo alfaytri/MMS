@@ -296,3 +296,24 @@ export function useBillViewModel(id: string | null) {
     },
   })
 }
+
+export function useMarkBillPaymentStatus() {
+  const queryClient = useQueryClient()
+  return useMutation({
+    mutationFn: async ({ billId, status }: { billId: string; status: 'paid' | 'unpaid' }) => {
+      const supabase = createClient()
+      const { error } = await (supabase as any)
+        .from('invoices')
+        .update({
+          payment_status: status,
+          manually_paid: status === 'paid',
+        })
+        .eq('id', billId)
+      if (error) throw error
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['supplier-bills'] })
+      queryClient.invalidateQueries({ queryKey: ['bill-view-model'] })
+    },
+  })
+}
