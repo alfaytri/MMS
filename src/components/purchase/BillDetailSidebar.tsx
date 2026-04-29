@@ -60,9 +60,9 @@ export function BillDetailSidebar({
       {/* Company selector */}
       <div className="space-y-2">
         <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">Company</p>
-        <Select value={selectedCompanyId} onValueChange={(v) => { if (v) onCompanyChange(v) }}>
+        <Select value={selectedCompanyId || undefined} onValueChange={(v) => { if (v) onCompanyChange(v) }}>
           <SelectTrigger>
-            <SelectValue placeholder="Select company…" />
+            <SelectValue placeholder="— Select —" />
           </SelectTrigger>
           <SelectContent>
             {companies.map((c) => (
@@ -76,12 +76,12 @@ export function BillDetailSidebar({
       <div className="space-y-2">
         <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">Division</p>
         <Select
-          value={selectedDivisionId}
+          value={selectedDivisionId || undefined}
           onValueChange={(v) => { if (v) onDivisionChange(v) }}
           disabled={!selectedCompanyId}
         >
           <SelectTrigger>
-            <SelectValue placeholder={selectedCompanyId ? 'Select division…' : 'Select company first…'} />
+            <SelectValue placeholder={selectedCompanyId ? '— Select —' : 'Select company first…'} />
           </SelectTrigger>
           <SelectContent>
             {divisions.map((d) => (
