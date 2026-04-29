@@ -14,11 +14,13 @@ import { formatCurrency, formatDate } from '@/lib/utils/formatters'
 import { cn } from '@/lib/utils'
 import type { BillViewModel } from '@/hooks/useSupplierBills'
 import type { Division } from '@/hooks/useDivisions'
+import type { Company } from '@/hooks/useCompanies'
 
 const FALLBACK_COMPANY = 'Alfaytri Maintenance'
 
 type Props = {
   viewModel: BillViewModel
+  company: Company | null
   division: Division | null
   showReceival: boolean
   showPaymentPlan: boolean
@@ -44,6 +46,7 @@ function getWatermark(bill: BillViewModel['bill']): { text: string; colorClass: 
 
 export function BillDetailDocument({
   viewModel,
+  company,
   division,
   showReceival,
   showPaymentPlan,
@@ -87,8 +90,13 @@ export function BillDetailDocument({
         <div className="flex items-start justify-between gap-4">
           <div>
             <h1 className="text-xl font-bold leading-tight">
-              {division?.name ?? FALLBACK_COMPANY}
+              {company?.name_en ?? FALLBACK_COMPANY}
             </h1>
+            {division && (
+              <p className="text-sm font-medium text-muted-foreground mt-0.5">
+                {division.name}
+              </p>
+            )}
             {division?.address_en && (
               <p className="text-sm text-muted-foreground mt-1 whitespace-pre-line">
                 {division.address_en}
@@ -400,7 +408,8 @@ export function BillDetailDocument({
       {/* 11. Footer */}
       <div className="border-t pt-4 flex items-start justify-between text-xs text-muted-foreground gap-4">
         <p>
-          {division?.name ?? FALLBACK_COMPANY}
+          {company?.name_en ?? FALLBACK_COMPANY}
+          {division ? ` · ${division.name}` : ''}
           {' · '}
           <span dir="rtl">هذا المستند تم إنشاؤه تلقائياً</span>
         </p>

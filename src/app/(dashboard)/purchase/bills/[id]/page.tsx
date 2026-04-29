@@ -5,7 +5,8 @@ import { useParams, useRouter, usePathname, useSearchParams } from 'next/navigat
 import { ArrowLeft, Settings2 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { useBillViewModel, useBillsByPO } from '@/hooks/useSupplierBills'
-import { useDivisions } from '@/hooks/useDivisions'
+import { useDivisionsByCompany } from '@/hooks/useDivisions'
+import { useCompanies } from '@/hooks/useCompanies'
 import { BillDetailSidebar } from '@/components/purchase/BillDetailSidebar'
 import { BillDetailDocument } from '@/components/purchase/BillDetailDocument'
 import { cn } from '@/lib/utils'
@@ -28,6 +29,7 @@ function BillDetailContent() {
   const [showPaymentPlan, setShowPaymentPlan] = useState(() => getParam('showPaymentPlan'))
   const [showNotes, setShowNotes] = useState(() => getParam('showNotes'))
   const [showQR, setShowQR] = useState(() => getParam('showQR'))
+  const [selectedCompanyId, setSelectedCompanyId] = useState('')
   const [selectedDivisionId, setSelectedDivisionId] = useState('')
   const [sidebarOpen, setSidebarOpen] = useState(false)
 
@@ -50,18 +52,28 @@ function BillDetailContent() {
   }
 
   const { data: viewModel, isLoading, isError } = useBillViewModel(id)
-  const { data: divisions = [] } = useDivisions()
+  const { data: companies = [] } = useCompanies()
+  const { data: divisionsByCompany = [] } = useDivisionsByCompany(selectedCompanyId || null)
   const { data: relatedBills = [] } = useBillsByPO(
     viewModel?.bill.purchase_order_id ?? null
   )
 
   useEffect(() => {
-    if (divisions.length > 0 && !selectedDivisionId) {
-      setSelectedDivisionId(divisions[0].id)
+    if (companies.length > 0 && !selectedCompanyId) {
+      setSelectedCompanyId(companies[0].id)
     }
-  }, [divisions]) // eslint-disable-line react-hooks/exhaustive-deps
+  }, [companies]) // eslint-disable-line react-hooks/exhaustive-deps
 
-  const selectedDivision = divisions.find((d) => d.id === selectedDivisionId) ?? null
+  useEffect(() => {
+    if (divisionsByCompany.length > 0 && selectedCompanyId) {
+      setSelectedDivisionId(divisionsByCompany[0].id)
+    } else {
+      setSelectedDivisionId('')
+    }
+  }, [divisionsByCompany, selectedCompanyId]) // eslint-disable-line react-hooks/exhaustive-deps
+
+  const selectedCompany = companies.find((c) => c.id === selectedCompanyId) ?? null
+  const selectedDivision = divisionsByCompany.find((d) => d.id === selectedDivisionId) ?? null
 
   if (isLoading) {
     return (
@@ -101,7 +113,10 @@ function BillDetailContent() {
           sidebarOpen ? 'translate-x-0' : '-translate-x-full lg:translate-x-0'
         )}>
           <BillDetailSidebar
-            divisions={divisions}
+            companies={companies}
+            selectedCompanyId={selectedCompanyId}
+            onCompanyChange={setSelectedCompanyId}
+            divisions={divisionsByCompany}
             selectedDivisionId={selectedDivisionId}
             onDivisionChange={setSelectedDivisionId}
             showReceival={showReceival}
@@ -137,6 +152,7 @@ function BillDetailContent() {
         </div>
         <BillDetailDocument
           viewModel={viewModel}
+          company={selectedCompany}
           division={selectedDivision}
           showReceival={showReceival}
           showPaymentPlan={showPaymentPlan}
