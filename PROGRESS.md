@@ -152,9 +152,11 @@ Purchase & Sales▾:
 
 ## 🔄 In Progress
 
-🚀 Starting: **Bill Rework Plan Task 7: Update bill VM and AttachBillDialog for multi-allocation**
+_(nothing in progress)_
 
 ## ✅ Completed
+
+- [2026-04-29] **Bill Rework Task 7: Update bill VM and AttachBillDialog for multi-allocation** — `src/hooks/useSupplierBills.ts`, `src/hooks/useAttachPaymentToBill.ts`, `src/components/purchase/AttachBillDialog.tsx` — `useBillViewModel` now queries `payment_bill_allocations` joined with `payments`; hook calls `allocate_payment_to_bill` with required `amount`; link-payment dialog shows payment cards with remaining balance and partial allocation amount input; attach-bill mode preserved
 
 - [2026-04-29] **Bill Rework Task 6: Multi-bill payment allocations migration** — `supabase/migrations/20260429140000_payment_bill_allocations.sql` — Created `payment_bill_allocations` table; backfilled existing 1:1 links; new `allocate_payment_to_bill` RPC with FOR UPDATE row lock and manually_paid guard; shim preserves `attach_payment_to_bill` for existing callers
 
