@@ -26,6 +26,7 @@ export type POStatus =
   | 'partially_received'
   | 'received'
   | 'cancelled'
+  | 'completed'
 
 export type POLineItem = {
   id: string
@@ -574,6 +575,8 @@ export function useCreatePOPayment() {
         status: 'pending' as any,
       })
       if (error) throw error
+
+      await (supabase as any).rpc('refresh_po_status', { p_po_id: payment.po_id })
 
       const payPerformer = await resolveMyName()
       await logPOActivity({
