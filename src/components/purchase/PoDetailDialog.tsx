@@ -12,6 +12,7 @@ import { Skeleton } from '@/components/ui/skeleton'
 import { Printer, Send, XCircle } from 'lucide-react'
 import { toast } from 'sonner'
 import { PoApprovalChain } from './PoApprovalChain'
+import { CreateBillFromPODialog } from './CreateBillFromPODialog'
 import { PoPaymentDialog } from './PoPaymentDialog'
 import { PoReceiveTab } from './PoReceiveTab'
 import { PoVersionTabs } from './PoVersionTabs'
@@ -43,6 +44,7 @@ type Props = {
 export function PoDetailDialog({ open, onOpenChange, po, poId, onEdit }: Props) {
   const router = useRouter()
   const [paymentOpen, setPaymentOpen] = useState(false)
+  const [createBillOpen, setCreateBillOpen] = useState(false)
 
   const resolvedId = po?.id ?? poId ?? null
 
@@ -174,7 +176,7 @@ export function PoDetailDialog({ open, onOpenChange, po, poId, onEdit }: Props) 
                         View Bill ({existingBills[0].invoice_id})
                       </Button>
                     ) : (
-                      <Button variant="outline" size="sm" onClick={() => { onOpenChange(false); router.push(`/purchase/create-bill?po_id=${current.id}`) }}>
+                      <Button variant="outline" size="sm" onClick={() => setCreateBillOpen(true)}>
                         Create Bill
                       </Button>
                     )
@@ -468,6 +470,11 @@ export function PoDetailDialog({ open, onOpenChange, po, poId, onEdit }: Props) 
           po={current}
         />
       )}
+      <CreateBillFromPODialog
+        open={createBillOpen}
+        onOpenChange={setCreateBillOpen}
+        poId={current?.id ?? ''}
+      />
     </>
   )
 }

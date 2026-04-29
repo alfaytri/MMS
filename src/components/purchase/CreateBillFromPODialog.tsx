@@ -1,22 +1,23 @@
 'use client'
 
-import { useState, useEffect, Suspense } from 'react'
-import { useRouter, useSearchParams } from 'next/navigation'
-import { ArrowLeft, Eye, EyeOff, Package } from 'lucide-react'
+import { useState, useEffect } from 'react'
+import { useRouter } from 'next/navigation'
+import { Eye, EyeOff, Package } from 'lucide-react'
 import { toast } from 'sonner'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Badge } from '@/components/ui/badge'
 import {
+  Dialog, DialogContent, DialogHeader, DialogTitle,
+} from '@/components/ui/dialog'
+import {
   Table, TableBody, TableCell, TableHead, TableHeader, TableRow,
 } from '@/components/ui/table'
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { useCreateBill } from '@/hooks/useSupplierBills'
 import { usePurchaseOrder, usePOReceivalsByPO } from '@/hooks/usePurchaseOrders'
 import { formatCurrency, formatDate } from '@/lib/utils/formatters'
 import { cn } from '@/lib/utils'
-import { PageWrapper } from '@/components/shared/PageWrapper'
 
 type BillLine = {
   po_line_item_id: string
@@ -28,14 +29,17 @@ type BillLine = {
   unit_price: number
 }
 
-function CreateBillForm() {
-  const router = useRouter()
-  const searchParams = useSearchParams()
-  const poId = searchParams.get('po_id') ?? ''
+type Props = {
+  open: boolean
+  onOpenChange: (open: boolean) => void
+  poId: string
+}
 
+export function CreateBillFromPODialog({ open, onOpenChange, poId }: Props) {
+  const router = useRouter()
   const createBill = useCreateBill()
-  const { data: po, isLoading: poLoading } = usePurchaseOrder(poId || null)
-  const { data: receivals } = usePOReceivalsByPO(poId || null)
+  const { data: po, isLoading: poLoading } = usePurchaseOrder(open ? poId : null)
+  const { data: receivals } = usePOReceivalsByPO(open ? poId : null)
 
   const [dueDate, setDueDate] = useState('')
   const [reference, setReference] = useState('')
@@ -45,6 +49,14 @@ function CreateBillForm() {
   const [saving, setSaving] = useState(false)
 
   useEffect(() => {
+    if (!open) {
+      setDueDate('')
+      setReference('')
+      setNotes('')
+      setLines([])
+      setShowReceival(false)
+      return
+    }
     if (!po) { setLines([]); return }
     setLines((po.po_line_items ?? []).map((li) => ({
       po_line_item_id: li.id,
@@ -55,14 +67,10 @@ function CreateBillForm() {
       bill_qty: li.qty,
       unit_price: li.unit_price,
     })))
-  }, [po])
+  }, [po, open])
 
   function updateLine(idx: number, patch: Partial<BillLine>) {
     setLines((prev) => prev.map((l, i) => i === idx ? { ...l, ...patch } : l))
-  }
-
-  function fillFromReceived() {
-    setLines((prev) => prev.map((l) => ({ ...l, bill_qty: receivedMap.get(l.po_line_item_id) ?? l.received_qty })))
   }
 
   // Sum approved received qty per PO line item
@@ -75,18 +83,24 @@ function CreateBillForm() {
     }
   }
 
+  function fillFromReceived() {
+    setLines((prev) => prev.map((l) => ({ ...l, bill_qty: receivedMap.get(l.po_line_item_id) ?? l.received_qty })))
+  }
+
   const subtotal = lines.reduce((s, l) => s + l.bill_qty * l.unit_price, 0)
+  const discount = po?.discount_amount ?? 0
+  const grandTotal = subtotal - discount
   const canSubmit = !!poId && !!dueDate && lines.length > 0 && lines.every((l) => l.bill_qty >= 0)
 
   async function submit() {
     if (!po || !canSubmit) return
     setSaving(true)
     try {
-      await createBill.mutateAsync({
+      const newBill = await createBill.mutateAsync({
         supplier_id:       (po as any).supplier_id,
         purchase_order_id: poId,
         po_number:         po.po_number,
-        discount_amount:   po.discount_amount ?? 0,
+        discount_amount:   discount,
         discount_label:    po.discount_label ?? null,
         receival_id:       null,
         due_date:          dueDate,
@@ -101,8 +115,9 @@ function CreateBillForm() {
           match_note:   null,
         })),
       })
-      toast.success('Bill created successfully')
-      router.push('/purchase/bills')
+      toast.success('Bill created')
+      onOpenChange(false)
+      router.push(`/purchase/bills/${newBill.id}`)
     } catch (err: unknown) {
       toast.error((err as Error).message ?? 'Failed to create bill')
     } finally {
@@ -111,46 +126,31 @@ function CreateBillForm() {
   }
 
   return (
-    <PageWrapper>
-      {/* ── Header ──────────────────────────────────────────────────────────── */}
-      <div className="flex items-center gap-4">
-        <Button variant="ghost" size="sm" onClick={() => router.push('/purchase/orders')}>
-          <ArrowLeft className="h-4 w-4 mr-1.5" />
-          Back to Orders
-        </Button>
-        <div>
-          <h1 className="text-2xl font-bold">Create Supplier Bill</h1>
-          {po && (
-            <p className="text-sm text-muted-foreground mt-0.5">
-              {po.po_number} · {po.supplier_name}
-            </p>
-          )}
-        </div>
-      </div>
+    <Dialog open={open} onOpenChange={onOpenChange}>
+      <DialogContent className="w-full max-w-full rounded-none sm:max-w-4xl sm:rounded-lg max-h-[90vh] overflow-y-auto">
+        <DialogHeader>
+          <DialogTitle>
+            Create Supplier Bill
+            {po && (
+              <span className="text-sm font-normal text-muted-foreground ml-2">
+                {po.po_number} · {po.supplier_name}
+              </span>
+            )}
+          </DialogTitle>
+        </DialogHeader>
 
-      {poLoading ? (
-        <div className="flex items-center justify-center py-20 text-muted-foreground text-sm">
-          Loading PO…
-        </div>
-      ) : !po ? (
-        <div className="flex flex-col items-center justify-center py-20 gap-3 text-muted-foreground">
-          <p className="font-medium">Purchase order not found.</p>
-          <Button variant="outline" size="sm" onClick={() => router.push('/purchase/orders')}>
-            Back to Orders
-          </Button>
-        </div>
-      ) : (
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-          {/* ── Left: PO info + form fields ─────────────────────────────────── */}
-          <div className="lg:col-span-1 space-y-4">
-            {/* PO Summary */}
-            <Card>
-              <CardHeader className="pb-2">
-                <CardTitle className="text-sm font-medium text-muted-foreground uppercase tracking-wide">
+        {poLoading ? (
+          <div className="py-12 text-center text-sm text-muted-foreground">Loading PO…</div>
+        ) : !po ? (
+          <div className="py-12 text-center text-sm text-muted-foreground">Purchase order not found.</div>
+        ) : (
+          <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 pt-2">
+            {/* Left: PO summary + bill fields */}
+            <div className="lg:col-span-1 space-y-4">
+              <div className="rounded-lg border p-4 text-sm space-y-2">
+                <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-2">
                   Purchase Order
-                </CardTitle>
-              </CardHeader>
-              <CardContent className="space-y-2 text-sm">
+                </p>
                 <div className="flex justify-between">
                   <span className="text-muted-foreground">PO Number</span>
                   <span className="font-mono font-medium">{po.po_number}</span>
@@ -165,7 +165,9 @@ function CreateBillForm() {
                 </div>
                 <div className="flex justify-between">
                   <span className="text-muted-foreground">PO Total</span>
-                  <span className="font-semibold">{formatCurrency(po.total_qar ?? 0, po.currency ?? 'QAR')}</span>
+                  <span className="font-semibold">
+                    {formatCurrency(po.total_qar ?? 0, po.currency ?? 'QAR')}
+                  </span>
                 </div>
                 <div className="flex justify-between">
                   <span className="text-muted-foreground">Status</span>
@@ -173,20 +175,19 @@ function CreateBillForm() {
                     {po.status.replace(/_/g, ' ')}
                   </Badge>
                 </div>
-              </CardContent>
-            </Card>
+              </div>
 
-            {/* Bill fields */}
-            <Card>
-              <CardHeader className="pb-2">
-                <CardTitle className="text-sm font-medium text-muted-foreground uppercase tracking-wide">
+              <div className="rounded-lg border p-4 space-y-3">
+                <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">
                   Bill Details
-                </CardTitle>
-              </CardHeader>
-              <CardContent className="space-y-3">
+                </p>
                 <div className="space-y-1">
                   <Label>Due Date *</Label>
-                  <Input type="date" value={dueDate} onChange={(e) => setDueDate(e.target.value)} />
+                  <Input
+                    type="date"
+                    value={dueDate}
+                    onChange={(e) => setDueDate(e.target.value)}
+                  />
                 </div>
                 <div className="space-y-1">
                   <Label>Supplier Invoice # (Reference)</Label>
@@ -204,22 +205,22 @@ function CreateBillForm() {
                     placeholder="Internal notes…"
                   />
                 </div>
-              </CardContent>
-            </Card>
-          </div>
+              </div>
+            </div>
 
-          {/* ── Right: Line items ─────────────────────────────────────────────── */}
-          <div className="lg:col-span-2 space-y-4">
-            <Card>
-              <CardHeader className="pb-2">
-                <div className="flex items-center justify-between">
-                  <CardTitle className="text-sm font-medium text-muted-foreground uppercase tracking-wide">
+            {/* Right: Line items */}
+            <div className="lg:col-span-2 space-y-4">
+              <div className="rounded-lg border overflow-hidden">
+                <div className="flex items-center justify-between px-4 py-2 border-b bg-muted/30">
+                  <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">
                     Line Items
-                  </CardTitle>
+                  </p>
                   <div className="flex items-center gap-2">
                     {showReceival && (
                       <Button
-                        type="button" variant="ghost" size="sm"
+                        type="button"
+                        variant="ghost"
+                        size="sm"
                         className="h-7 text-xs gap-1 text-muted-foreground"
                         onClick={fillFromReceived}
                       >
@@ -228,7 +229,9 @@ function CreateBillForm() {
                       </Button>
                     )}
                     <Button
-                      type="button" variant="outline" size="sm"
+                      type="button"
+                      variant="outline"
+                      size="sm"
                       className={cn('h-7 text-xs gap-1.5', showReceival && 'bg-blue-50 border-blue-200 text-blue-700')}
                       onClick={() => setShowReceival((v) => !v)}
                     >
@@ -237,8 +240,7 @@ function CreateBillForm() {
                     </Button>
                   </div>
                 </div>
-              </CardHeader>
-              <CardContent className="p-0">
+
                 <div className="overflow-x-auto">
                   <Table>
                     <TableHeader>
@@ -276,7 +278,8 @@ function CreateBillForm() {
                             )}
                             <TableCell className="text-right">
                               <Input
-                                type="number" min={0}
+                                type="number"
+                                min={0}
                                 value={line.bill_qty}
                                 onChange={(e) => updateLine(idx, { bill_qty: Math.max(0, Number(e.target.value)) })}
                                 className="h-7 w-20 text-right ml-auto"
@@ -284,7 +287,9 @@ function CreateBillForm() {
                             </TableCell>
                             <TableCell className="text-right">
                               <Input
-                                type="number" min={0} step="0.01"
+                                type="number"
+                                min={0}
+                                step="0.01"
                                 value={line.unit_price}
                                 onChange={(e) => updateLine(idx, { unit_price: Math.max(0, Number(e.target.value)) })}
                                 className="h-7 w-28 text-right ml-auto"
@@ -300,36 +305,45 @@ function CreateBillForm() {
                   </Table>
                 </div>
 
-                {/* Subtotal */}
-                <div className="flex justify-end gap-8 text-sm px-4 py-3 border-t bg-muted/30">
-                  <span className="text-muted-foreground">Subtotal</span>
-                  <span className="font-semibold min-w-[120px] text-right">
-                    {formatCurrency(subtotal, 'QAR')}
-                  </span>
+                {/* Totals */}
+                <div className="flex flex-col items-end gap-1 text-sm px-4 py-3 border-t bg-muted/30">
+                  <div className="flex gap-8">
+                    <span className="text-muted-foreground">Subtotal</span>
+                    <span className="font-semibold min-w-[120px] text-right">
+                      {formatCurrency(subtotal, 'QAR')}
+                    </span>
+                  </div>
+                  {discount > 0 && (
+                    <div className="flex gap-8">
+                      <span className="text-muted-foreground">
+                        {po.discount_label ? `Discount (${po.discount_label})` : 'Discount'}
+                      </span>
+                      <span className="font-semibold min-w-[120px] text-right text-destructive">
+                        −{formatCurrency(discount, 'QAR')}
+                      </span>
+                    </div>
+                  )}
+                  <div className="flex gap-8 border-t pt-1 w-full justify-end">
+                    <span className="font-bold">Grand Total</span>
+                    <span className="font-bold min-w-[120px] text-right">
+                      {formatCurrency(grandTotal, 'QAR')}
+                    </span>
+                  </div>
                 </div>
-              </CardContent>
-            </Card>
+              </div>
 
-            {/* Submit */}
-            <div className="flex justify-end gap-3">
-              <Button variant="outline" onClick={() => router.push('/purchase/orders')}>
-                Cancel
-              </Button>
-              <Button onClick={submit} disabled={saving || !canSubmit}>
-                {saving ? 'Creating…' : 'Create Bill'}
-              </Button>
+              <div className="flex justify-end gap-3">
+                <Button variant="outline" onClick={() => onOpenChange(false)}>
+                  Cancel
+                </Button>
+                <Button onClick={submit} disabled={saving || !canSubmit}>
+                  {saving ? 'Creating…' : 'Create Bill'}
+                </Button>
+              </div>
             </div>
           </div>
-        </div>
-      )}
-    </PageWrapper>
-  )
-}
-
-export default function CreateBillPage() {
-  return (
-    <Suspense fallback={<div className="flex items-center justify-center py-20 text-muted-foreground text-sm">Loading…</div>}>
-      <CreateBillForm />
-    </Suspense>
+        )}
+      </DialogContent>
+    </Dialog>
   )
 }
