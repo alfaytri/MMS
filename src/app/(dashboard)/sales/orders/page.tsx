@@ -3,7 +3,6 @@
 import { useState, useMemo, useRef } from 'react'
 import { useRouter } from 'next/navigation'
 import { type ColumnDef } from '@tanstack/react-table'
-import { Eye } from 'lucide-react'
 import { toast } from 'sonner'
 import { PageHeader } from '@/components/shared/PageHeader'
 import { PageWrapper } from '@/components/shared/PageWrapper'
@@ -111,12 +110,7 @@ export default function SaleOrdersPage() {
       accessorKey: 'so_number',
       header: ({ column }) => <DataTableColumnHeader column={column} title="SO #" />,
       cell: ({ row }) => (
-        <button
-          className="font-mono text-sm font-medium text-primary hover:underline"
-          onClick={() => setDetailSO(row.original)}
-        >
-          {row.getValue('so_number')}
-        </button>
+        <span className="font-mono text-sm font-medium">{row.getValue('so_number')}</span>
       ),
     },
     {
@@ -144,19 +138,6 @@ export default function SaleOrdersPage() {
       header: ({ column }) => <DataTableColumnHeader column={column} title="Date" />,
       cell: ({ row }) => (
         <span className="text-sm text-muted-foreground">{formatDate(row.getValue('created_at'))}</span>
-      ),
-    },
-    {
-      id: 'actions',
-      cell: ({ row }) => (
-        <Button
-          variant="ghost"
-          size="icon"
-          className="h-8 w-8"
-          onClick={() => setDetailSO(row.original)}
-        >
-          <Eye className="h-4 w-4" />
-        </Button>
       ),
     },
   ], [])
@@ -226,7 +207,7 @@ export default function SaleOrdersPage() {
         <DivisionFilter value={divisionFilter} onChange={setDivisionFilter} />
       </div>
 
-      <DataTable columns={columns} data={orders ?? []} isLoading={isLoading} />
+      <DataTable columns={columns} data={orders ?? []} isLoading={isLoading} onRowClick={(row) => setDetailSO(row)} />
 
       <SoDetailDialog
         open={!!detailSO}
