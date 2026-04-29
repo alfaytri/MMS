@@ -152,9 +152,11 @@ Purchase & Sales▾:
 
 ## 🔄 In Progress
 
-🚀 Starting: **Bill Rework Plan Task 1: Fix Grand Total duplicate currency and print date**
+🚀 Starting: **Bill Rework Plan Task 2: Remove approval status from bills UI**
 
 ## ✅ Completed
+
+- [2026-04-29] **Bill Rework Task 1: Fix Grand Total duplicate currency and print date** — `src/components/purchase/BillDetailDocument.tsx` — Removed trailing `{currency}` from Grand Total, deleted redundant "Total (QAR):" row, changed print timestamps from `toLocaleString`/`toISOString` to `toLocaleDateString('en-GB')`
 
 - [2026-04-29] **PO Status Auto-Progression (All Tasks)** — `supabase/migrations/20260429000002_po_auto_progress_status.sql`, `src/hooks/usePurchaseOrders.ts`, `src/app/(dashboard)/purchase/orders/page.tsx`, `src/components/purchase/PoDetailDialog.tsx`, `src/components/purchase/PoStatusBadge.tsx` — PO auto-advances from approved→partially_received→received→completed; new `refresh_po_status` DB function; backfill ran on all existing POs; teal badge for Completed status
 
