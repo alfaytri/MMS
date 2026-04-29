@@ -65,7 +65,7 @@ export function BillDetailDocument({
   const watermark = getWatermark(bill)
   const [origin, setOrigin] = useState('')
   const [attachOpen, setAttachOpen] = useState(false)
-  const printTimestamp = new Date().toLocaleString('en-GB')
+  const printTimestamp = new Date().toLocaleDateString('en-GB')
 
   useEffect(() => {
     setOrigin(window.location.origin)
@@ -219,11 +219,7 @@ export function BillDetailDocument({
           )}
           <div className="flex justify-between font-bold text-base">
             <span>Grand Total:</span>
-            <span>{formatCurrency(bill.total_amount, currency)} {currency}</span>
-          </div>
-          <div className="flex justify-between text-muted-foreground">
-            <span>Total (QAR):</span>
-            <span>{formatCurrency(bill.total_amount, 'QAR')}</span>
+            <span>{formatCurrency(bill.total_amount, currency)}</span>
           </div>
         </div>
       </div>
@@ -420,7 +416,7 @@ export function BillDetailDocument({
           <span dir="rtl">هذا المستند تم إنشاؤه تلقائياً</span>
         </p>
         <p className="shrink-0">
-          This document was automatically generated · {new Date().toISOString()}
+          This document was automatically generated · {new Date().toLocaleDateString('en-GB')}
         </p>
       </div>
     </div>
