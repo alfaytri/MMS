@@ -157,6 +157,8 @@ Purchase & Sales▾:
 
 ## ✅ Completed
 
+- [2026-04-30] **PO Return Debit Note inline display + backfill** — `src/hooks/usePurchaseReturns.ts`, `src/components/purchase/PoDetailDialog.tsx` — `usePurchaseReturnsByPO` now joins `credit_notes(*)`; `POReturn` type gains `credit_note_id` and `debit_note`; return row in PO dialog shows DN number + PDF download when note exists; "Create Debit Note" button shown for returns at `supplier_confirmed`/`closed` with no note (backfills existing returns); `useCreateDebitNoteForReturn` exported mutation
+
 - [2026-04-30] **Credit & Debit Notes Task 9: Central page with type switcher** — `src/app/(dashboard)/sales/credit-notes/page.tsx` — Replaced single-type credit-notes page with unified Credit & Debit Notes hub; `noteType` state drives `useCreditNotes`/`useDebitNotes` hook selection; separate `creditColumns`/`debitColumns` column definitions; Select dropdown switcher (`w-48`) below PageHeader; "Create Credit Note" button hidden when Debit Notes tab is active; PDF download via `CreditDebitNoteDownloadButton`; `ConfirmDialog` for apply flow unchanged; zero TypeScript errors
 
 - [2026-04-30] **PO Returns: Full feature** — `supabase/migrations/20260430170000_po_returns.sql`, `src/hooks/usePurchaseReturns.ts`, `src/hooks/useSaleReturns.ts`, `src/components/purchase/PoDetailDialog.tsx`, `src/app/(dashboard)/sales/returns/page.tsx` — PO returns with `pending→dispatched→supplier_confirmed→closed` flow; inventory deducted on dispatch via `rpc_process_po_return_dispatch` (SECURITY DEFINER); cancel reverses inventory via `rpc_cancel_po_return_dispatch`; Returns page has Sale/PO toggle with URL persistence (`?type=sale|po`); cancel available for both return types at correct stages
