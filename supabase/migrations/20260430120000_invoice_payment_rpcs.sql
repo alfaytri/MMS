@@ -1,4 +1,14 @@
 -- supabase/migrations/20260430120000_invoice_payment_rpcs.sql
+--
+-- NOTE ON TRANSACTION SAFETY
+-- Supabase db push wraps each migration file in an implicit BEGIN/COMMIT, so
+-- all statements here execute atomically by default. However, because this file
+-- does NOT contain an explicit BEGIN; ... COMMIT; block, partial execution could
+-- theoretically leave the two backfill UPDATEs below half-applied if the
+-- connection drops mid-migration (Supabase marks the migration applied even on
+-- partial failure). A companion migration (20260430130000_invoice_payment_backfill_guard.sql)
+-- provides an idempotent re-run of those backfills as a belt-and-suspenders
+-- measure.
 
 -- ─── 1. Add customer_id column ───────────────────────────────────────────────
 ALTER TABLE payments ADD COLUMN IF NOT EXISTS customer_id UUID REFERENCES customers(id);
