@@ -62,7 +62,7 @@ export default function CreditNotesPage() {
     {
       id: 'return_ref',
       header: 'Return #',
-      cell: () => '—',
+      cell: ({ row }) => row.original.return_number ?? '—',
     },
     {
       accessorKey: 'total_amount',
@@ -129,7 +129,7 @@ export default function CreditNotesPage() {
     {
       id: 'return_ref',
       header: 'Return #',
-      cell: () => '—',
+      cell: ({ row }) => row.original.return_number ?? '—',
     },
     {
       accessorKey: 'total_amount',

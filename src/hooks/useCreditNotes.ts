@@ -53,6 +53,7 @@ export type CreditNote = {
   credit_note_lines?: CreditNoteLine[]
   // joined
   invoice_display?: string | null
+  return_number?: string | null
 }
 
 export type CreateCreditNotePayload = {
@@ -91,13 +92,14 @@ export function useCreditNotes() {
       const supabase = createClient()
       const { data, error } = await (supabase as any)
         .from('credit_notes')
-        .select('*, credit_note_lines(*), invoices(invoice_id)')
+        .select('*, credit_note_lines(*), invoices(invoice_id), returns(return_number)')
         .eq('note_type', 'credit')
         .order('created_at', { ascending: false })
       if (error) throw error
       return (data ?? []).map((cn: any) => ({
         ...cn,
         invoice_display: cn.invoices?.invoice_id ?? null,
+        return_number: cn.returns?.return_number ?? null,
       })) as CreditNote[]
     },
   })
@@ -110,11 +112,14 @@ export function useDebitNotes() {
       const supabase = createClient()
       const { data, error } = await (supabase as any)
         .from('credit_notes')
-        .select('*')
+        .select('*, returns(return_number)')
         .eq('note_type', 'debit')
         .order('created_at', { ascending: false })
       if (error) throw error
-      return (data ?? []) as CreditNote[]
+      return (data ?? []).map((cn: any) => ({
+        ...cn,
+        return_number: cn.returns?.return_number ?? null,
+      })) as CreditNote[]
     },
   })
 }
