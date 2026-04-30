@@ -40,7 +40,7 @@ import { useReturnsBySO, useCreateSaleReturn, type SaleReturn } from '@/hooks/us
 import { useWarehouses } from '@/hooks/useWarehouses'
 import { usePaymentPlans } from '@/hooks/usePaymentPlans'
 import { CustomerPaymentDialog } from './CustomerPaymentDialog'
-import { PaymentPlanDialog } from '@/components/purchase/PaymentPlanDialog'
+import { PaymentPlanDialog, AR_LABELS } from '@/components/finance/PaymentPlanDialog'
 import { PAYMENT_PLAN_THRESHOLD } from '@/types/invoice'
 import { toast } from 'sonner'
 import { useActivityLog } from '@/hooks/useActivityLog'
@@ -687,6 +687,7 @@ export function SoDetailDialog({ open, onOpenChange, so, onEdit, onConfirm }: So
           onOpenChange={setInvoicePlanOpen}
           invoiceId={soInvoice.id}
           outstanding={invoiceOutstanding}
+          labels={AR_LABELS}
         />
       )}
 
