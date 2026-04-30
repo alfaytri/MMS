@@ -1,6 +1,7 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { createClient } from '@/lib/supabase/client'
 import { logActivity } from '@/lib/logActivity'
+import { nextNoteId } from '@/hooks/useCreditNotes'
 
 export type POReturnStatus = 'pending' | 'dispatched' | 'supplier_confirmed' | 'closed' | 'cancelled'
 
@@ -126,6 +127,83 @@ export function useCreatePurchaseReturn() {
   })
 }
 
+async function createDebitNoteForReturn(
+  supabase: any,
+  returnId: string,
+  ret: { source_id: string; return_number: string; items: POReturnItem[]; reason: string }
+) {
+  // 1. Fetch PO details with line items
+  const { data: po } = await supabase
+    .from('purchase_orders')
+    .select('supplier_name, total_qar, po_number, po_line_items(*)')
+    .eq('id', ret.source_id)
+    .single()
+  const poLineArr: any[] = po?.po_line_items ?? []
+
+  // 2. Build returned lines — resolve unit price from PO line items
+  const returnedLines = ret.items.map((item: POReturnItem) => {
+    const poLine = poLineArr.find(
+      (l: any) =>
+        (item.brand_variant_id && l.brand_variant_id === item.brand_variant_id) ||
+        (item.sku && l.sku === item.sku) ||
+        l.item_name === item.item_name
+    )
+    const unitPrice = poLine?.unit_price ?? 0
+    return {
+      item_name:       item.item_name,
+      sku:             item.sku,
+      qty:             item.qty,
+      unit_price:      unitPrice,
+      total:           item.qty * unitPrice,
+      condition:       item.condition,
+      condition_notes: item.condition_notes,
+    }
+  })
+
+  // 3. Build original lines from PO line items
+  const originalLines = poLineArr.map((l: any) => ({
+    item_name:  l.item_name,
+    sku:        l.sku ?? null,
+    qty:        l.qty,
+    unit_price: l.unit_price,
+    total:      l.total_price ?? l.qty * l.unit_price,
+  }))
+
+  const dnTotal = returnedLines.reduce((s: number, l: any) => s + l.total, 0)
+  const originalTotal = po?.total_qar ?? 0
+  const newTotal = originalTotal - dnTotal
+
+  const credit_note_id = await nextNoteId('debit')
+  const pdfData = { original_lines: originalLines, returned_lines: returnedLines }
+
+  const { data: dn, error: dnErr } = await supabase
+    .from('credit_notes')
+    .insert({
+      credit_note_id,
+      note_type:        'debit',
+      invoice_id:       null,
+      customer_name:    null,
+      supplier_name:    po?.supplier_name ?? null,
+      source_return_id: returnId,
+      reason:           ret.reason,
+      type:             'auto',
+      status:           'issued',
+      total_amount:     dnTotal,
+      original_total:   originalTotal,
+      new_total:        newTotal,
+      line_items:       pdfData,
+    })
+    .select('id')
+    .single()
+  if (dnErr) throw dnErr
+
+  // 4. Link return → debit note
+  await supabase
+    .from('returns')
+    .update({ credit_note_id: dn.id })
+    .eq('id', returnId)
+}
+
 export function useUpdatePOReturnStatus() {
   const queryClient = useQueryClient()
   return useMutation({
@@ -142,7 +220,7 @@ export function useUpdatePOReturnStatus() {
 
       const { data: ret, error: fetchErr } = await (supabase as any)
         .from('returns')
-        .select('return_number, dispatched_at')
+        .select('return_number, dispatched_at, source_id, items, reason')
         .eq('id', id)
         .single()
       if (fetchErr) throw fetchErr
@@ -162,6 +240,13 @@ export function useUpdatePOReturnStatus() {
             .from('returns').update({ status: 'pending' }).eq('id', id)
           throw rpcErr
         }
+        // Auto-create debit note
+        await createDebitNoteForReturn(supabase as any, id, {
+          source_id:     ret.source_id,
+          return_number: ret.return_number,
+          items:         ret.items as POReturnItem[],
+          reason:        ret.reason,
+        })
       } else if (status === 'cancelled' && ret.dispatched_at) {
         // dispatched_at present means inventory was deducted — reverse it first.
         // Assumes dispatched_at IS NOT NULL whenever status='dispatched'; any
@@ -187,6 +272,9 @@ export function useUpdatePOReturnStatus() {
       queryClient.invalidateQueries({ queryKey: ['activity-log'] })
       if (variables.status === 'dispatched' || variables.status === 'cancelled') {
         queryClient.invalidateQueries({ queryKey: ['brand-variants-v2'] })
+      }
+      if (variables.status === 'dispatched') {
+        queryClient.invalidateQueries({ queryKey: ['debit-notes'] })
       }
       const ACTION_MAP: Record<POReturnStatus, { action: string; severity: 'info' | 'warning' }> = {
         pending:            { action: 'PO Return Marked Pending',     severity: 'info' },
