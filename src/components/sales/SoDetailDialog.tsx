@@ -44,6 +44,7 @@ import { PAYMENT_PLAN_THRESHOLD } from '@/types/invoice'
 import { toast } from 'sonner'
 import { useActivityLog } from '@/hooks/useActivityLog'
 import { formatCurrency, formatDate } from '@/lib/utils/formatters'
+import { cn } from '@/lib/utils'
 import {
   Table, TableBody, TableCell, TableHead, TableHeader, TableRow,
 } from '@/components/ui/table'
@@ -434,7 +435,7 @@ export function SoDetailDialog({ open, onOpenChange, so, onEdit, onConfirm }: So
                 {(activityLogs ?? []).length === 0 ? (
                   <p className="text-sm text-muted-foreground text-center py-4">No activity yet</p>
                 ) : (
-                  <div className="relative pl-6 space-y-0">
+                  <div className="relative pl-6">
                     {(activityLogs ?? []).map((log, idx) => {
                       const a = log.action ?? ''
                       const dotClass =
