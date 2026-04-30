@@ -51,7 +51,7 @@ export function InvoiceDetailSidebar({
   hasPaymentPlan,
 }: Props) {
   return (
-    <aside className="invoice-sidebar w-[280px] shrink-0 flex flex-col gap-5 p-5 border-r bg-muted/20 min-h-full lg:min-h-screen lg:sticky lg:top-0 overflow-y-auto">
+    <aside className="invoice-sidebar w-72 shrink-0 flex flex-col gap-5 p-5 border-r bg-muted/20 min-h-full lg:min-h-screen lg:sticky lg:top-0 overflow-y-auto">
       {/* Company selector */}
       <div className="space-y-2">
         <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">Company</p>
