@@ -10,7 +10,7 @@ import { BillDetailSection } from '@/components/purchase/BillDetailSection'
 import { formatCurrency, formatDate } from '@/lib/utils/formatters'
 import { cn } from '@/lib/utils'
 import type { ArInvoice } from '@/types/invoice'
-import type { PaymentPlan, PaymentInstallment } from '@/hooks/usePaymentPlans'
+import type { PaymentPlan } from '@/hooks/usePaymentPlans'
 import type { CustomerPayment } from '@/hooks/useCustomerPayments'
 import type { Division } from '@/hooks/useDivisions'
 import type { Company } from '@/hooks/useCompanies'
@@ -250,9 +250,9 @@ export function InvoiceDetailDocument({
               {plans
                 .flatMap((plan) => plan.payment_installments ?? [])
                 .map((inst, i) => (
-                  <TableRow key={inst.id ?? i}>
+                  <TableRow key={inst.id}>
                     <TableCell className="text-muted-foreground">{i + 1}</TableCell>
-                    <TableCell>{formatDate(inst.due_date ?? '')}</TableCell>
+                    <TableCell>{inst.due_date ? formatDate(inst.due_date) : '—'}</TableCell>
                     <TableCell className="text-right font-medium">
                       {formatCurrency(inst.amount, 'QAR')}
                     </TableCell>
