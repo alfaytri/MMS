@@ -104,10 +104,21 @@ export function useUpdateReturnStatus() {
         .update({ status })
         .eq('id', id)
       if (error) throw error
+
+      if (status === 'restocked') {
+        const { error: rpcError } = await (supabase as any)
+          .rpc('rpc_process_return_restock', { p_return_id: id })
+        if (rpcError) throw rpcError
+      }
     },
-    onSuccess: () => {
+    onSuccess: (_, variables) => {
       queryClient.invalidateQueries({ queryKey: ['sale-returns'] })
       queryClient.invalidateQueries({ queryKey: ['sale-returns-by-so'] })
+      if (variables.status === 'restocked') {
+        queryClient.invalidateQueries({ queryKey: ['inventory'] })
+        queryClient.invalidateQueries({ queryKey: ['brand-variants'] })
+        queryClient.invalidateQueries({ queryKey: ['inventory-brand-variants'] })
+      }
     },
   })
 }

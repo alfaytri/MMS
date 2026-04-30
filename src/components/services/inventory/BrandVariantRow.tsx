@@ -46,6 +46,7 @@ export function BrandVariantRow({ variant, itemId, canMoveUp, canMoveDown, onMov
   const reservedQty = (variant as any).reserved_qty ?? 0
   const reorderPoint = (variant as any).reorder_point ?? 0
   const incoming = variant.incoming ?? 0
+  const damagedQty = (variant as any).damaged_qty ?? 0
 
   return (
     <>
@@ -75,7 +76,17 @@ export function BrandVariantRow({ variant, itemId, canMoveUp, canMoveDown, onMov
           {variant.selling_price != null ? formatCurrency(variant.selling_price, 'QAR') : '—'}
         </TableCell>
         <TableCell className="text-right">
-          <AtpBadge stockLevel={stockLevel} reservedQty={reservedQty} reorderPoint={reorderPoint} />
+          <div className="flex items-center justify-end gap-1.5">
+            <AtpBadge stockLevel={stockLevel} reservedQty={reservedQty} reorderPoint={reorderPoint} />
+            {damagedQty > 0 && (
+              <span
+                title={`${damagedQty} damaged unit${damagedQty > 1 ? 's' : ''} — not sellable`}
+                className="inline-flex items-center rounded-full px-2 py-0.5 text-[11px] font-medium cursor-default bg-red-100 text-red-700"
+              >
+                {damagedQty} dmg
+              </span>
+            )}
+          </div>
         </TableCell>
         <TableCell className="text-right text-[11px]">
           {incoming > 0 ? <span className="text-blue-600 font-medium">+{incoming}</span> : '—'}
