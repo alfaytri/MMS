@@ -1,6 +1,7 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { createClient } from '@/lib/supabase/client'
 import { logActivity } from '@/lib/logActivity'
+import { nextNoteId } from '@/hooks/useCreditNotes'
 
 export type SaleReturn = {
   id: string
@@ -108,6 +109,95 @@ export function useCreateSaleReturn() {
   })
 }
 
+async function createCreditNoteForReturn(
+  supabase: any,
+  returnId: string,
+  ret: { source_id: string; return_number: string; items: any[]; reason: string }
+) {
+  // 1. Fetch SO lines for unit price lookup
+  const { data: soLines } = await supabase
+    .from('sale_order_lines')
+    .select('item_name, sku, brand_variant_id, unit_price')
+    .eq('sale_order_id', ret.source_id)
+  const soLineArr: any[] = soLines ?? []
+
+  // 2. Fetch linked invoice
+  const { data: inv } = await supabase
+    .from('invoices')
+    .select('id, invoice_id, total_amount')
+    .eq('sale_order_id', ret.source_id)
+    .eq('direction', 'outgoing')
+    .maybeSingle()
+
+  // 3. Fetch customer name from SO
+  const { data: soData } = await supabase
+    .from('sale_orders')
+    .select('customers(name)')
+    .eq('id', ret.source_id)
+    .single()
+  const customerName: string = (soData?.customers as any)?.name ?? 'Unknown'
+
+  // 4. Build returned lines — resolve unit price from SO lines
+  const returnedLines = ret.items.map((item: any) => {
+    const soLine = soLineArr.find(
+      (l: any) =>
+        (item.brand_variant_id && l.brand_variant_id === item.brand_variant_id) ||
+        (item.sku && l.sku === item.sku) ||
+        l.item_name === item.item_name
+    )
+    const unitPrice = soLine?.unit_price ?? 0
+    return {
+      item_name:  item.item_name,
+      sku:        item.sku ?? null,
+      qty:        item.qty,
+      unit_price: unitPrice,
+      total:      item.qty * unitPrice,
+    }
+  })
+
+  // 5. Build original lines from SO
+  const originalLines = soLineArr.map((l: any) => ({
+    item_name:  l.item_name,
+    sku:        l.sku ?? null,
+    qty:        0,
+    unit_price: l.unit_price,
+    total:      0,
+  }))
+
+  const cnTotal = returnedLines.reduce((s: number, l: any) => s + l.total, 0)
+  const originalTotal = inv?.total_amount ?? 0
+  const newTotal = originalTotal - cnTotal
+
+  const credit_note_id = await nextNoteId('credit')
+  const pdfData = { original_lines: originalLines, returned_lines: returnedLines }
+
+  const { data: cn, error: cnErr } = await supabase
+    .from('credit_notes')
+    .insert({
+      credit_note_id,
+      note_type:        'credit',
+      invoice_id:       inv?.id ?? null,
+      customer_name:    customerName,
+      source_return_id: returnId,
+      reason:           ret.reason,
+      type:             'auto',
+      status:           'issued',
+      total_amount:     cnTotal,
+      original_total:   originalTotal,
+      new_total:        newTotal,
+      line_items:       pdfData,
+    })
+    .select('id')
+    .single()
+  if (cnErr) throw cnErr
+
+  // 6. Link return → credit note
+  await supabase
+    .from('returns')
+    .update({ credit_note_id: cn.id })
+    .eq('id', returnId)
+}
+
 export function useUpdateReturnStatus() {
   const queryClient = useQueryClient()
   return useMutation({
@@ -116,7 +206,7 @@ export function useUpdateReturnStatus() {
 
       const { data: ret, error: fetchErr } = await (supabase as any)
         .from('returns')
-        .select('source_id, return_number')
+        .select('source_id, return_number, items, reason')
         .eq('id', id)
         .single()
       if (fetchErr) throw fetchErr
@@ -131,9 +221,12 @@ export function useUpdateReturnStatus() {
         const { error: rpcError } = await (supabase as any)
           .rpc('rpc_process_return_restock', { p_return_id: id })
         if (rpcError) throw rpcError
+
+        // Auto-create credit note
+        await createCreditNoteForReturn(supabase as any, id, ret)
       }
 
-      return ret as { source_id: string; return_number: string }
+      return ret as { source_id: string; return_number: string; items: any[]; reason: string }
     },
     onSuccess: (ret, variables) => {
       queryClient.invalidateQueries({ queryKey: ['sale-returns'] })
@@ -141,6 +234,7 @@ export function useUpdateReturnStatus() {
       queryClient.invalidateQueries({ queryKey: ['activity-log'] })
       if (variables.status === 'restocked') {
         queryClient.invalidateQueries({ queryKey: ['brand-variants-v2'] })
+        queryClient.invalidateQueries({ queryKey: ['credit-notes'] })
       }
       const label: Record<SaleReturn['status'], string> = {
         pending:   'Return Marked Pending',
