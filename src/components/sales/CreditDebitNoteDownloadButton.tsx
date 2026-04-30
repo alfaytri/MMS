@@ -14,7 +14,7 @@ interface Props {
 }
 
 export function CreditDebitNoteDownloadButton({ note, referenceNumber, returnNumber }: Props) {
-  const { data: companies } = useCompanies()
+  const { data: companies, isLoading: companiesLoading } = useCompanies()
   const c = companies?.find((co) => co.is_active) ?? companies?.[0]
   const company = c
     ? {
@@ -52,9 +52,9 @@ export function CreditDebitNoteDownloadButton({ note, referenceNumber, returnNum
       fileName={fileName}
     >
       {({ loading }: { loading: boolean }) => (
-        <Button variant="outline" size="sm" disabled={loading} className="gap-1.5">
+        <Button variant="outline" size="sm" disabled={loading || companiesLoading} className="gap-1.5">
           <Download className="h-3.5 w-3.5" />
-          {loading ? 'Preparing…' : 'PDF'}
+          {loading || companiesLoading ? 'Preparing…' : 'PDF'}
         </Button>
       )}
     </PDFDownloadLink>
