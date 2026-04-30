@@ -115,9 +115,7 @@ export function useUpdateReturnStatus() {
       queryClient.invalidateQueries({ queryKey: ['sale-returns'] })
       queryClient.invalidateQueries({ queryKey: ['sale-returns-by-so'] })
       if (variables.status === 'restocked') {
-        queryClient.invalidateQueries({ queryKey: ['inventory'] })
-        queryClient.invalidateQueries({ queryKey: ['brand-variants'] })
-        queryClient.invalidateQueries({ queryKey: ['inventory-brand-variants'] })
+        queryClient.invalidateQueries({ queryKey: ['brand-variants-v2'] })
       }
     },
   })
