@@ -4295,6 +4295,7 @@ export type Database = {
           credit_note_id: string | null
           date: string
           deleted_at: string | null
+          dispatched_at: string | null
           division_id: string | null
           id: string
           items: Json
@@ -4315,6 +4316,7 @@ export type Database = {
           credit_note_id?: string | null
           date?: string
           deleted_at?: string | null
+          dispatched_at?: string | null
           division_id?: string | null
           id?: string
           items?: Json
@@ -4335,6 +4337,7 @@ export type Database = {
           credit_note_id?: string | null
           date?: string
           deleted_at?: string | null
+          dispatched_at?: string | null
           division_id?: string | null
           id?: string
           items?: Json
@@ -6327,6 +6330,14 @@ export type Database = {
             Args: { p_lc_id: string; p_performer_name?: string }
             Returns: undefined
           }
+      rpc_cancel_po_return_dispatch: {
+        Args: { p_return_id: string }
+        Returns: undefined
+      }
+      rpc_process_po_return_dispatch: {
+        Args: { p_return_id: string }
+        Returns: undefined
+      }
       rpc_process_return_restock: {
         Args: { p_return_id: string }
         Returns: undefined
@@ -6441,8 +6452,15 @@ export type Database = {
         | "cancelled"
       receival_status: "pending_approval" | "approved" | "rejected"
       reminder_channel: "Email" | "SMS" | "WhatsApp"
-      return_source_type: "sale_order" | "order"
-      return_status: "pending" | "received" | "restocked" | "closed"
+      return_source_type: "sale_order" | "order" | "purchase_order"
+      return_status:
+        | "pending"
+        | "received"
+        | "restocked"
+        | "closed"
+        | "dispatched"
+        | "supplier_confirmed"
+        | "cancelled"
       rfq_status: "draft" | "sent" | "received" | "cancelled"
       sale_delivery_status:
         | "pending"
@@ -6734,8 +6752,16 @@ export const Constants = {
       ],
       receival_status: ["pending_approval", "approved", "rejected"],
       reminder_channel: ["Email", "SMS", "WhatsApp"],
-      return_source_type: ["sale_order", "order"],
-      return_status: ["pending", "received", "restocked", "closed"],
+      return_source_type: ["sale_order", "order", "purchase_order"],
+      return_status: [
+        "pending",
+        "received",
+        "restocked",
+        "closed",
+        "dispatched",
+        "supplier_confirmed",
+        "cancelled",
+      ],
       rfq_status: ["draft", "sent", "received", "cancelled"],
       sale_delivery_status: [
         "pending",
