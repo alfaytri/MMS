@@ -43,7 +43,7 @@ import { PaymentPlanDialog } from '@/components/purchase/PaymentPlanDialog'
 import { PAYMENT_PLAN_THRESHOLD } from '@/types/invoice'
 import { toast } from 'sonner'
 import { useActivityLog } from '@/hooks/useActivityLog'
-import { formatCurrency, formatDate, formatRelative } from '@/lib/utils/formatters'
+import { formatCurrency, formatDate } from '@/lib/utils/formatters'
 import {
   Table, TableBody, TableCell, TableHead, TableHeader, TableRow,
 } from '@/components/ui/table'
@@ -434,17 +434,38 @@ export function SoDetailDialog({ open, onOpenChange, so, onEdit, onConfirm }: So
                 {(activityLogs ?? []).length === 0 ? (
                   <p className="text-sm text-muted-foreground text-center py-4">No activity yet</p>
                 ) : (
-                  <div className="space-y-2">
-                    {(activityLogs ?? []).map((log) => (
-                      <div key={log.id} className="flex gap-3 text-sm">
-                        <span className="text-muted-foreground shrink-0 text-xs pt-0.5">{formatRelative(log.created_at)}</span>
-                        <div>
-                          <span className="font-medium">{log.action}</span>
-                          {log.performer_name && <span className="text-muted-foreground"> · {log.performer_name}</span>}
-                          {log.details && <p className="text-xs text-muted-foreground mt-0.5">{log.details}</p>}
+                  <div className="relative pl-6 space-y-0">
+                    {(activityLogs ?? []).map((log, idx) => {
+                      const a = log.action ?? ''
+                      const dotClass =
+                        a.includes('Cancelled') || a.includes('Rejected')
+                          ? 'bg-destructive border-destructive'
+                          : a.includes('Delivered') || a.includes('Confirmed') || a.includes('Approved')
+                          ? 'bg-green-500 border-green-500'
+                          : a.includes('Payment')
+                          ? 'bg-purple-500 border-purple-500'
+                          : a.includes('Return')
+                          ? 'bg-orange-500 border-orange-500'
+                          : 'bg-primary border-primary'
+                      return (
+                        <div key={log.id} className="relative pb-4">
+                          {idx < (activityLogs ?? []).length - 1 && (
+                            <span className="absolute left-[-16px] top-3 bottom-0 w-px bg-border" />
+                          )}
+                          <span className={cn('absolute left-[-20px] top-1.5 h-3 w-3 rounded-full border-2', dotClass)} />
+                          <div className="text-sm flex flex-wrap items-center gap-1.5">
+                            <span className="font-medium">{log.action}</span>
+                            {log.performer_name && (
+                              <span className="text-muted-foreground text-xs">· {log.performer_name}</span>
+                            )}
+                          </div>
+                          <p className="text-xs text-muted-foreground mt-0.5">{formatDate(log.created_at)}</p>
+                          {log.details && (
+                            <p className="text-xs text-muted-foreground mt-0.5">{log.details}</p>
+                          )}
                         </div>
-                      </div>
-                    ))}
+                      )
+                    })}
                   </div>
                 )}
               </TabsContent>
