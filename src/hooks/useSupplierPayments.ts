@@ -124,11 +124,15 @@ export function useCreateSupplierPayment() {
       notes: string | null
     }) => {
       const supabase = createClient()
-      const { count } = await (supabase as any)
+      const { data: spayMax } = await (supabase as any)
         .from('payments')
-        .select('*', { count: 'exact', head: true })
-        .eq('direction', 'outgoing')
-      const payment_id = `SPAY-${String((count ?? 0) + 1).padStart(5, '0')}`
+        .select('payment_id')
+        .ilike('payment_id', 'SPAY-%')
+        .order('payment_id', { ascending: false })
+        .limit(1)
+        .maybeSingle()
+      const spayLast = spayMax?.payment_id ? parseInt(spayMax.payment_id.replace('SPAY-', ''), 10) : 0
+      const payment_id = `SPAY-${String(spayLast + 1).padStart(5, '0')}`
 
       const { data, error } = await (supabase as any)
         .from('payments')

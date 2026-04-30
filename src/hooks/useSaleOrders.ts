@@ -490,12 +490,15 @@ export function useCreateSOPayment() {
       exchange_rate: number
     }) => {
       const supabase = createClient()
-      // Generate a payment_id (CPAY-XXXXX) consistent with customer payments
-      const { count: pCount } = await (supabase as any)
+      const { data: cpayMax } = await (supabase as any)
         .from('payments')
-        .select('*', { count: 'exact', head: true })
+        .select('payment_id')
         .ilike('payment_id', 'CPAY-%')
-      const payment_id = `CPAY-${String((pCount ?? 0) + 1).padStart(5, '0')}`
+        .order('payment_id', { ascending: false })
+        .limit(1)
+        .maybeSingle()
+      const cpayLast = cpayMax?.payment_id ? parseInt(cpayMax.payment_id.replace('CPAY-', ''), 10) : 0
+      const payment_id = `CPAY-${String(cpayLast + 1).padStart(5, '0')}`
 
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       const { error } = await (supabase as any).from('payments').insert({

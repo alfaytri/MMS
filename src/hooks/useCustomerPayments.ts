@@ -82,11 +82,17 @@ export function useCreateCustomerPayment() {
       notes: string | null
     }) => {
       const supabase = createClient()
-      const { count } = await (supabase as any)
+      const { data: maxRow } = await (supabase as any)
         .from('payments')
-        .select('*', { count: 'exact', head: true })
+        .select('payment_id')
         .ilike('payment_id', 'CPAY-%')
-      const payment_id = `CPAY-${String((count ?? 0) + 1).padStart(5, '0')}`
+        .order('payment_id', { ascending: false })
+        .limit(1)
+        .maybeSingle()
+      const lastNum = maxRow?.payment_id
+        ? parseInt(maxRow.payment_id.replace('CPAY-', ''), 10)
+        : 0
+      const payment_id = `CPAY-${String(lastNum + 1).padStart(5, '0')}`
 
       const { data, error } = await (supabase as any)
         .from('payments')
