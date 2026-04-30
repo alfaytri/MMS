@@ -80,7 +80,7 @@ export function useCreatePurchaseReturn() {
       date: string
       reason: string
       items: POReturnItem[]
-      warehouse_id: string | null
+      restock_warehouse_id: string | null
       notes: string | null
     }) => {
       const supabase = createClient()
@@ -99,7 +99,7 @@ export function useCreatePurchaseReturn() {
           date: payload.date,
           reason: payload.reason,
           items: payload.items,
-          restock_warehouse_id: payload.warehouse_id,
+          restock_warehouse_id: payload.restock_warehouse_id,
           notes: payload.notes,
           status: 'pending',
         })
@@ -150,7 +150,9 @@ export function useUpdatePOReturnStatus() {
         const { error } = await (supabase as any)
           .from('returns').update({ status }).eq('id', id)
         if (error) throw error
-        // Call RPC — revert status if it fails
+        // Call RPC — revert status if it fails. The RPC runs atomically in PG
+        // so dispatched_at is either NULL (failure) or set (success); we only
+        // need to revert status.
         const { error: rpcErr } = await (supabase as any)
           .rpc('rpc_process_po_return_dispatch', { p_return_id: id })
         if (rpcErr) {
@@ -159,7 +161,10 @@ export function useUpdatePOReturnStatus() {
           throw rpcErr
         }
       } else if (status === 'cancelled' && ret.dispatched_at) {
-        // Cancel RPC first (clears dispatched_at, restores stock) — then update status
+        // dispatched_at present means inventory was deducted — reverse it first.
+        // Assumes dispatched_at IS NOT NULL whenever status='dispatched'; any
+        // record missing dispatched_at with status='dispatched' would skip the
+        // RPC and leave inventory unreversed (data-corruption scenario).
         const { error: rpcErr } = await (supabase as any)
           .rpc('rpc_cancel_po_return_dispatch', { p_return_id: id })
         if (rpcErr) throw rpcErr
