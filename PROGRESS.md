@@ -152,9 +152,13 @@ Purchase & Sales▾:
 
 ## 🔄 In Progress
 
-🚀 Starting: **Invoice Payments Plan Task 10: Wire Invoice Detail Page + Dialog + SoDetailDialog**
+🚀 Starting: **— all tasks complete —**
 
 ## ✅ Completed
+
+- [2026-04-30] **Invoice Payments Task 11: Wire Payments Page — Link Invoice button** — `src/app/(dashboard)/purchase/payments/page.tsx`, `src/components/ui/tooltip.tsx` (new) — Added `SelectInvoiceDialog` import + three `linkInvoice*` state vars; updated `invoiceColumns` actions cell to show Paperclip button for unlinked CPAY rows that have a `customer_id`; mounted `SelectInvoiceDialog` conditionally; installed missing shadcn Tooltip component
+
+- [2026-04-30] **Invoice Payments Task 10: Wire Invoice Detail Page + Dialog + SoDetailDialog** — `src/app/(dashboard)/sales/invoices/[id]/page.tsx`, `src/components/sales/InvoiceDetail.tsx`, `src/components/sales/SoDetailDialog.tsx` — Invoice detail page: Record Payment, Attach Payment (tooltip-guarded), Payment Plan buttons + `AttachInvoiceDialog`; InvoiceDetail dialog: same three buttons + Payment History with detach (AlertDialog); SoDetailDialog: import updated to `finance/PaymentPlanDialog` + `AR_LABELS` added
 
 - [2026-04-30] **Invoice Payments Task 9: SelectInvoiceDialog component** — `src/components/sales/SelectInvoiceDialog.tsx` — Dialog for linking an unlinked incoming payment to an open AR invoice; lists unpaid/partially-paid invoices via `useUnlinkedArInvoices`; calls `useAttachPaymentToInvoice`; payment-status badge with color map; resets selection on close
 
