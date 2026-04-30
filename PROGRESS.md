@@ -156,6 +156,8 @@ Purchase & Sales▾:
 
 ## ✅ Completed
 
+- [2026-04-30] **Sale Return Inventory Integration** — `supabase/migrations/20260430140000_sale_return_restock.sql`, `src/hooks/useSaleReturns.ts`, `src/components/services/inventory/BrandVariantRow.tsx` — Added `damaged_qty` column to `inventory_brand_variants`; added `restocked_at` to `returns`; extended movement_type CHECK constraint with `sale_return` and `sale_return_damaged`; created `rpc_process_return_restock` RPC (idempotent via `restocked_at` stamp): good items restore `stock_level` + insert movement, damaged items increment `damaged_qty` + insert movement; `useUpdateReturnStatus` now calls RPC on `restocked` transition; `BrandVariantRow` shows red "X dmg" badge when `damaged_qty > 0`
+
 - [2026-04-30] **Invoice Payments Task 11: Wire Payments Page — Link Invoice button** — `src/app/(dashboard)/purchase/payments/page.tsx`, `src/components/ui/tooltip.tsx` (new) — Added `SelectInvoiceDialog` import + three `linkInvoice*` state vars; updated `invoiceColumns` actions cell to show Paperclip button for unlinked CPAY rows that have a `customer_id`; mounted `SelectInvoiceDialog` conditionally; installed missing shadcn Tooltip component
 
 - [2026-04-30] **Invoice Payments Task 10: Wire Invoice Detail Page + Dialog + SoDetailDialog** — `src/app/(dashboard)/sales/invoices/[id]/page.tsx`, `src/components/sales/InvoiceDetail.tsx`, `src/components/sales/SoDetailDialog.tsx` — Invoice detail page: Record Payment, Attach Payment (tooltip-guarded), Payment Plan buttons + `AttachInvoiceDialog`; InvoiceDetail dialog: same three buttons + Payment History with detach (AlertDialog); SoDetailDialog: import updated to `finance/PaymentPlanDialog` + `AR_LABELS` added
