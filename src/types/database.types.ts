@@ -821,16 +821,21 @@ export type Database = {
           created_at: string
           created_by: string | null
           credit_note_id: string
-          customer_name: string
+          customer_name: string | null
           id: string
-          invoice_id: string
+          invoice_id: string | null
           line_items: Json | null
+          new_total: number | null
+          note_type: string
           notes: string | null
+          original_total: number | null
           phone: string | null
           reason: string
           refund_method: Database["public"]["Enums"]["payment_method"] | null
           refund_reference: string | null
+          source_return_id: string | null
           status: Database["public"]["Enums"]["credit_note_status"] | null
+          supplier_name: string | null
           total_amount: number
           type: string
           updated_at: string
@@ -840,16 +845,21 @@ export type Database = {
           created_at?: string
           created_by?: string | null
           credit_note_id: string
-          customer_name: string
+          customer_name?: string | null
           id?: string
-          invoice_id: string
+          invoice_id?: string | null
           line_items?: Json | null
+          new_total?: number | null
+          note_type?: string
           notes?: string | null
+          original_total?: number | null
           phone?: string | null
           reason: string
           refund_method?: Database["public"]["Enums"]["payment_method"] | null
           refund_reference?: string | null
+          source_return_id?: string | null
           status?: Database["public"]["Enums"]["credit_note_status"] | null
+          supplier_name?: string | null
           total_amount?: number
           type?: string
           updated_at?: string
@@ -859,16 +869,21 @@ export type Database = {
           created_at?: string
           created_by?: string | null
           credit_note_id?: string
-          customer_name?: string
+          customer_name?: string | null
           id?: string
-          invoice_id?: string
+          invoice_id?: string | null
           line_items?: Json | null
+          new_total?: number | null
+          note_type?: string
           notes?: string | null
+          original_total?: number | null
           phone?: string | null
           reason?: string
           refund_method?: Database["public"]["Enums"]["payment_method"] | null
           refund_reference?: string | null
+          source_return_id?: string | null
           status?: Database["public"]["Enums"]["credit_note_status"] | null
+          supplier_name?: string | null
           total_amount?: number
           type?: string
           updated_at?: string

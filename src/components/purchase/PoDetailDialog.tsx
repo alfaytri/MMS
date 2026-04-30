@@ -117,6 +117,8 @@ export function PoDetailDialog({ open, onOpenChange, po, poId, onEdit }: Props) 
         sku: li.sku ?? null,
         qty: 0,
         brand_variant_id: li.brand_variant_id ?? null,
+        condition: 'other' as const,
+        condition_notes: null,
         _max: li.received_qty,
       }))
     )
@@ -141,7 +143,7 @@ export function PoDetailDialog({ open, onOpenChange, po, poId, onEdit }: Props) 
         source_id: resolvedId,
         date: returnDate,
         reason: returnReason,
-        items: items.map(({ item_name, sku, qty, brand_variant_id }) => ({ item_name, sku, qty, brand_variant_id })),
+        items: items.map(({ item_name, sku, qty, brand_variant_id, condition, condition_notes }) => ({ item_name, sku, qty, brand_variant_id, condition, condition_notes })),
         restock_warehouse_id: returnWarehouseId || null,
         notes: returnNotes || null,
       },
@@ -670,6 +672,11 @@ export function PoDetailDialog({ open, onOpenChange, po, poId, onEdit }: Props) 
                         {returnItems.length > 0 && (
                           <div className="space-y-2">
                             <Label>Items to Return</Label>
+                            {returnItems.filter((i) => i.qty > 0 && !i.brand_variant_id && !i.sku).length > 0 && (
+                              <p className="text-xs text-amber-700 bg-amber-50 border border-amber-200 rounded p-2">
+                                Some items are not linked to inventory — stock will not be deducted for those items when dispatched.
+                              </p>
+                            )}
                             {returnItems.map((item, idx) => (
                               <div key={idx} className="flex items-center gap-3 rounded-md border p-2">
                                 <div className="flex-1 min-w-0">

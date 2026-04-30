@@ -103,7 +103,7 @@ export default function CreditNotesPage() {
           description={`Apply ${applyTarget.credit_note_id} (${formatCurrency(applyTarget.total_amount, 'QAR')}) to invoice ${applyTarget.invoice_display ?? applyTarget.invoice_id}? Any excess will be stored as customer credit balance.`}
           confirmLabel="Apply"
           onConfirm={async () => {
-            await applyCreditNote.mutateAsync({ id: applyTarget.id, invoiceId: applyTarget.invoice_id })
+            await applyCreditNote.mutateAsync({ id: applyTarget.id, invoiceId: applyTarget.invoice_id ?? '' })
             toast.success('Credit note applied')
             setApplyTarget(null)
           }}

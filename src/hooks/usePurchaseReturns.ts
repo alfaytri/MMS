@@ -9,6 +9,8 @@ export type POReturnItem = {
   sku: string | null
   qty: number
   brand_variant_id: string | null
+  condition: 'defective' | 'damaged' | 'other'
+  condition_notes: string | null
 }
 
 export type POReturn = {

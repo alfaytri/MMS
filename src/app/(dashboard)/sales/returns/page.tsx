@@ -160,7 +160,7 @@ function ReturnsContent() {
     setPrItems(
       (po.po_line_items ?? [])
         .filter((l) => l.received_qty > 0)
-        .map((l) => ({ item_name: l.item_name, sku: l.sku ?? null, qty: 0, brand_variant_id: l.brand_variant_id ?? null, _max: l.received_qty }))
+        .map((l) => ({ item_name: l.item_name, sku: l.sku ?? null, qty: 0, brand_variant_id: l.brand_variant_id ?? null, condition: 'other' as const, condition_notes: null, _max: l.received_qty }))
     )
   }
 
@@ -175,7 +175,7 @@ function ReturnsContent() {
         source_id: poId,
         date: prDate,
         reason: prReason,
-        items: items.map(({ item_name, sku, qty, brand_variant_id }) => ({ item_name, sku, qty, brand_variant_id })),
+        items: items.map(({ item_name, sku, qty, brand_variant_id, condition, condition_notes }) => ({ item_name, sku, qty, brand_variant_id, condition, condition_notes })),
         restock_warehouse_id: prWarehouseId || null,
         notes: prNotes || null,
       },

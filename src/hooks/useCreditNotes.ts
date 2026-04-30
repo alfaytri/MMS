@@ -15,20 +15,44 @@ export type CreditNoteLine = {
   created_at: string
 }
 
+export type NoteLineItem = {
+  item_name: string
+  sku: string | null
+  qty: number
+  unit_price: number
+  total: number
+}
+
+export type NoteDebitLineItem = NoteLineItem & {
+  condition?: 'defective' | 'damaged' | 'other'
+  condition_notes?: string | null
+}
+
+export type NotePdfData = {
+  original_lines: NoteLineItem[]
+  returned_lines: NoteDebitLineItem[]
+}
+
 export type CreditNote = {
   id: string
   credit_note_id: string
-  invoice_id: string
-  customer_name: string
+  invoice_id: string | null
+  customer_name: string | null
+  supplier_name: string | null
+  note_type: 'credit' | 'debit'
   reason: string
   type: string
   status: CreditNoteStatus | null
   total_amount: number
+  original_total: number | null
+  new_total: number | null
+  source_return_id: string | null
+  line_items: NotePdfData | null
   created_at: string
   updated_at: string
   credit_note_lines?: CreditNoteLine[]
   // joined
-  invoice_display?: string
+  invoice_display?: string | null
 }
 
 export type CreateCreditNotePayload = {
@@ -136,11 +160,15 @@ export function useApplyCreditNote() {
       const excess = Math.max(0, cnTotal - outstanding)
 
       // Record credit note as a payment
-      const { count } = await (supabase as any)
+      const { data: cpayMax } = await (supabase as any)
         .from('payments')
-        .select('*', { count: 'exact', head: true })
+        .select('payment_id')
         .ilike('payment_id', 'CPAY-%')
-      const payment_id = `CPAY-${String((count ?? 0) + 1).padStart(5, '0')}`
+        .order('payment_id', { ascending: false })
+        .limit(1)
+        .maybeSingle()
+      const cpayLast = cpayMax?.payment_id ? parseInt(cpayMax.payment_id.replace('CPAY-', ''), 10) : 0
+      const payment_id = `CPAY-${String(cpayLast + 1).padStart(5, '0')}`
       await (supabase as any).from('payments').insert({
         payment_id,
         invoice_id: invoiceId,
