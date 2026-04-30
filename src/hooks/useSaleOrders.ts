@@ -494,7 +494,7 @@ export function useCreateSOPayment() {
       const { count: pCount } = await (supabase as any)
         .from('payments')
         .select('*', { count: 'exact', head: true })
-        .eq('direction', 'incoming')
+        .ilike('payment_id', 'CPAY-%')
       const payment_id = `CPAY-${String((pCount ?? 0) + 1).padStart(5, '0')}`
 
       // eslint-disable-next-line @typescript-eslint/no-explicit-any

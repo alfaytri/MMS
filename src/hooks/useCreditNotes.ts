@@ -139,6 +139,7 @@ export function useApplyCreditNote() {
       const { count } = await (supabase as any)
         .from('payments')
         .select('*', { count: 'exact', head: true })
+        .ilike('payment_id', 'CPAY-%')
       const payment_id = `CPAY-${String((count ?? 0) + 1).padStart(5, '0')}`
       await (supabase as any).from('payments').insert({
         payment_id,

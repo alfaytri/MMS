@@ -85,7 +85,7 @@ export function useCreateCustomerPayment() {
       const { count } = await (supabase as any)
         .from('payments')
         .select('*', { count: 'exact', head: true })
-        .eq('direction', 'incoming')
+        .ilike('payment_id', 'CPAY-%')
       const payment_id = `CPAY-${String((count ?? 0) + 1).padStart(5, '0')}`
 
       const { data, error } = await (supabase as any)
