@@ -402,7 +402,9 @@ export function SoDetailDialog({ open, onOpenChange, so, onEdit, onConfirm }: So
                       received: 'Mark Restocked',
                     }
                     const canAdvance = ret.status === 'pending' || ret.status === 'received'
-                    const needsCreditNote = ret.status === 'restocked' && !ret.credit_note_id
+                    // Any completed return (restocked or closed) that has no credit note yet needs one
+                    const needsCreditNote = !ret.credit_note_id &&
+                      (ret.status === 'restocked' || ret.status === 'closed')
 
                     return (
                       <div key={ret.id} className="rounded-md border p-3 space-y-2">
@@ -484,9 +486,9 @@ export function SoDetailDialog({ open, onOpenChange, so, onEdit, onConfirm }: So
                               {createCreditNote.isPending ? 'Creating…' : 'Create Credit Note'}
                             </Button>
                           </div>
-                        ) : ret.credit_note_id ? (
+                        ) : ret.credit_note ? (
                           <p className="text-xs text-muted-foreground pt-1">
-                            Credit note generated
+                            Credit note: <span className="font-mono font-medium text-foreground">{ret.credit_note.credit_note_id}</span>
                           </p>
                         ) : null}
                       </div>

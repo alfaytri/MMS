@@ -21,6 +21,7 @@ export type SaleReturn = {
   notes: string | null
   status: 'pending' | 'received' | 'restocked' | 'closed' | 'cancelled'
   credit_note_id: string | null
+  credit_note?: { credit_note_id: string } | null  // joined display field
   created_by_name: string | null
   created_at: string
   updated_at: string
@@ -268,7 +269,21 @@ export function useReturnsBySO(soId: string | null) {
         .is('deleted_at', null)
         .order('created_at', { ascending: false })
       if (error) throw error
-      return (data ?? []) as SaleReturn[]
+      const rows = data ?? []
+      // Batch-fetch linked credit notes to get display IDs
+      const noteIds = rows.map((r: any) => r.credit_note_id).filter(Boolean)
+      let noteMap: Record<string, { credit_note_id: string }> = {}
+      if (noteIds.length > 0) {
+        const { data: notes } = await (supabase as any)
+          .from('credit_notes')
+          .select('id, credit_note_id')
+          .in('id', noteIds)
+        for (const n of (notes ?? [])) noteMap[n.id] = { credit_note_id: n.credit_note_id }
+      }
+      return rows.map((r: any) => ({
+        ...r,
+        credit_note: r.credit_note_id ? (noteMap[r.credit_note_id] ?? null) : null,
+      })) as SaleReturn[]
     },
     enabled: !!soId,
     staleTime: 30 * 1000,
