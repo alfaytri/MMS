@@ -152,9 +152,15 @@ Purchase & Sales▾:
 
 ## 🔄 In Progress
 
-🚀 Starting: **Invoice Payments Task 7: Move PaymentPlanDialog to finance/ + add labels prop**
+_(nothing in progress)_
 
 ## ✅ Completed
+
+- [2026-04-30] **Invoice Payments Task 9: SelectInvoiceDialog component** — `src/components/sales/SelectInvoiceDialog.tsx` — Dialog for linking an unlinked incoming payment to an open AR invoice; lists unpaid/partially-paid invoices via `useUnlinkedArInvoices`; calls `useAttachPaymentToInvoice`; payment-status badge with color map; resets selection on close
+
+- [2026-04-30] **Invoice Payments Task 8: AttachInvoiceDialog component** — `src/components/sales/AttachInvoiceDialog.tsx` — Dialog for attaching an unlinked payment to the current invoice; lists unlinked incoming payments via `useUnlinkedIncomingPayments`; calls `useAttachPaymentToInvoice`; guards against already-paid invoices; resets selection on close
+
+- [2026-04-30] **Invoice Payments Task 7: Move PaymentPlanDialog to finance/ + add labels prop** — `src/components/finance/PaymentPlanDialog.tsx` (new), `src/components/purchase/PaymentPlanDialog.tsx` (re-export shim) — Canonical dialog now lives in finance/; added `PaymentPlanLabels` interface + `AP_LABELS`/`AR_LABELS` constants; `labels` prop defaults to AP_LABELS for backward compat; purchase file is a thin re-export
 
 - [2026-04-30] **Invoice Payments & Payment Plans Task 1: Database Migration** — `supabase/migrations/20260430120000_invoice_payment_rpcs.sql` — Added `payments.customer_id` nullable FK column; backfilled existing incoming payments via linked invoice and source sale_order; created `recalculate_ar_invoice_payment_status` shared function; created `trg_recalc_ar_payment_status` trigger (AFTER INSERT/UPDATE/DELETE on payments); created `attach_payment_to_invoice` RPC with FOR UPDATE row lock and ownership guard; created `detach_payment_from_invoice` RPC with same guards
 
