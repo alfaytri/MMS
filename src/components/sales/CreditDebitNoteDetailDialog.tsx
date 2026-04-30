@@ -43,25 +43,25 @@ export function CreditDebitNoteDetailDialog({ note, referenceNumber, open, onOpe
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="w-[95vw] max-w-4xl max-h-[90vh] overflow-y-auto overflow-x-hidden">
-        <DialogHeader>
-          <div className="flex items-center justify-between gap-3 pr-6">
-            <DialogTitle className="font-mono text-lg">
+      <DialogContent className="w-[95vw] max-w-[800px] max-h-[90vh] overflow-y-auto p-6">
+        <DialogHeader className="pb-2">
+          <div className="flex items-center gap-3 pr-8">
+            <DialogTitle className="font-mono text-lg leading-none">
               {note.credit_note_id}
             </DialogTitle>
-            <Badge className={cn('text-xs', cfg.className)}>{cfg.label}</Badge>
+            <Badge className={cn('text-xs shrink-0', cfg.className)}>{cfg.label}</Badge>
           </div>
         </DialogHeader>
 
         {/* Meta row */}
-        <div className="grid grid-cols-2 sm:grid-cols-4 gap-4 text-sm">
+        <div className="grid grid-cols-2 sm:grid-cols-4 gap-x-6 gap-y-3 text-sm">
           <div>
             <p className="text-xs text-muted-foreground mb-0.5">{partyLabel}</p>
-            <p className="font-medium">{partyName}</p>
+            <p className="font-medium break-words">{partyName}</p>
           </div>
           <div>
             <p className="text-xs text-muted-foreground mb-0.5">{refLabel}</p>
-            <p className="font-medium">{referenceNumber}</p>
+            <p className="font-medium break-words">{referenceNumber}</p>
           </div>
           {note.return_number && (
             <div>
@@ -85,15 +85,15 @@ export function CreditDebitNoteDetailDialog({ note, referenceNumber, open, onOpe
         {pdfData.original_lines.length > 0 && (
           <div>
             <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-2">Original Items</p>
-            <div className="rounded-md border overflow-x-auto">
-              <Table>
+            <div className="rounded-md border w-full overflow-x-auto">
+              <Table className="w-full min-w-[480px]">
                 <TableHeader>
                   <TableRow>
                     <TableHead className="text-xs">Item</TableHead>
-                    <TableHead className="text-xs">SKU</TableHead>
-                    <TableHead className="text-xs text-right">Qty</TableHead>
-                    <TableHead className="text-xs text-right">Unit Price</TableHead>
-                    <TableHead className="text-xs text-right">Total</TableHead>
+                    <TableHead className="text-xs w-24">SKU</TableHead>
+                    <TableHead className="text-xs text-right w-16">Qty</TableHead>
+                    <TableHead className="text-xs text-right w-28">Unit Price</TableHead>
+                    <TableHead className="text-xs text-right w-28">Total</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
@@ -116,16 +116,16 @@ export function CreditDebitNoteDetailDialog({ note, referenceNumber, open, onOpe
         {pdfData.returned_lines.length > 0 && (
           <div>
             <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-2">Returned Items</p>
-            <div className="rounded-md border overflow-x-auto">
-              <Table>
+            <div className="rounded-md border w-full overflow-x-auto">
+              <Table className={cn('w-full', isDebit ? 'min-w-[580px]' : 'min-w-[480px]')}>
                 <TableHeader>
                   <TableRow>
                     <TableHead className="text-xs">Item</TableHead>
-                    <TableHead className="text-xs">SKU</TableHead>
-                    <TableHead className="text-xs text-right">Qty</TableHead>
-                    {isDebit && <TableHead className="text-xs">Condition</TableHead>}
-                    <TableHead className="text-xs text-right">Unit Price</TableHead>
-                    <TableHead className="text-xs text-right">Value</TableHead>
+                    <TableHead className="text-xs w-24">SKU</TableHead>
+                    <TableHead className="text-xs text-right w-16">Qty</TableHead>
+                    {isDebit && <TableHead className="text-xs w-24">Condition</TableHead>}
+                    <TableHead className="text-xs text-right w-28">Unit Price</TableHead>
+                    <TableHead className="text-xs text-right w-28">Value</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
@@ -150,25 +150,25 @@ export function CreditDebitNoteDetailDialog({ note, referenceNumber, open, onOpe
         <Separator />
 
         {/* Summary */}
-        <div className="flex flex-col items-end gap-1.5 text-sm">
-          <div className="flex gap-8">
+        <div className="flex flex-col items-end gap-1.5 text-sm pr-1">
+          <div className="flex justify-between gap-12 w-full max-w-xs">
             <span className="text-muted-foreground">Original Total</span>
-            <span className="w-32 text-right">{formatCurrency(note.original_total ?? 0, 'QAR')}</span>
+            <span className="text-right tabular-nums">{formatCurrency(note.original_total ?? 0, 'QAR')}</span>
           </div>
-          <div className="flex gap-8 text-destructive">
+          <div className="flex justify-between gap-12 w-full max-w-xs text-destructive">
             <span>{amtLabel}</span>
-            <span className="w-32 text-right">− {formatCurrency(note.total_amount, 'QAR')}</span>
+            <span className="text-right tabular-nums">− {formatCurrency(note.total_amount, 'QAR')}</span>
           </div>
-          <Separator className="w-48 my-1" />
-          <div className="flex gap-8 font-semibold text-base">
+          <Separator className="w-full max-w-xs my-1" />
+          <div className="flex justify-between gap-12 w-full max-w-xs font-semibold text-base">
             <span>New Total</span>
-            <span className="w-32 text-right">{formatCurrency(note.new_total ?? 0, 'QAR')}</span>
+            <span className="text-right tabular-nums">{formatCurrency(note.new_total ?? 0, 'QAR')}</span>
           </div>
         </div>
 
         {/* Download */}
         {note.line_items && (
-          <div className="flex justify-end pt-1">
+          <div className="flex justify-end pt-2">
             <CreditDebitNoteDownloadButton
               note={note}
               referenceNumber={referenceNumber}
