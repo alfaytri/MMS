@@ -54,6 +54,8 @@ WHERE p.source_type = 'sale_order'
 
 Any remaining NULLs after the backfill indicate genuinely ambiguous legacy records. The RPC ownership guard treats `payments.customer_id IS NULL` as a bypass (legacy data is allowed through) rather than a hard rejection — this is safer than locking out pre-existing records.
 
+**Known limitation:** `useUnlinkedArInvoices(customerId)` requires a `customerId`. For orphan payments that remain NULL after backfill, the Payments page "Link Invoice" button will not be able to derive a customer to filter by, so the action will be unavailable. A user must manually assign the `customer_id` on those specific records before the link flow works. Given the rarity of genuinely ambiguous records, this is an acceptable trade-off for the security of the required filter.
+
 ### 2.2 Numeric precision
 
 `amount` and `total_amount` columns are already typed as `NUMERIC` in the schema (not `FLOAT`/`REAL`), so floating-point drift is not possible. The recalculation CASE expression uses `ROUND(..., 2)` on both sides to guard against any sub-cent accumulation from multi-payment scenarios:
@@ -421,4 +423,4 @@ Settle button
 | Modify hook | `src/hooks/useCreateCustomerPayment.ts` — populate `customer_id` on insert |
 | Modify | `src/components/sales/InvoiceDetail.tsx` — add 3 action buttons |
 | Modify | `src/components/sales/InvoiceDetailSidebar.tsx` — wire payment history + plan sections |
-| Modify | `src/app/(dashboard)/purchase/payments/page.tsx` — add Link Invoice button to Invoice Payments tab |
+| Modify | `src/app/(dashboard)/purchase/payments/page.tsx` — add Link Invoice button to Invoice Payments tab (confirmed: single shared page for both AP and AR payments) |
