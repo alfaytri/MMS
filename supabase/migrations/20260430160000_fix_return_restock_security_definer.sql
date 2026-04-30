@@ -1,35 +1,7 @@
--- damaged_qty and restocked_at columns were already applied in a partial run.
--- This migration adds the extended movement_type constraint and the restock RPC.
+-- Fix: add SECURITY DEFINER so the RPC can insert into inventory_stock_movements
+-- (which has RLS enabled with no INSERT policy for non-owner callers).
+-- Then re-run the backfill for any returns that failed the first time.
 
--- ─── 1. damaged_qty column (idempotent) ─────────────────────────────────────
-ALTER TABLE inventory_brand_variants
-  ADD COLUMN IF NOT EXISTS damaged_qty INT NOT NULL DEFAULT 0;
-
--- ─── 2. restocked_at on returns (idempotent) ─────────────────────────────────
-ALTER TABLE returns
-  ADD COLUMN IF NOT EXISTS restocked_at TIMESTAMPTZ;
-
--- ─── 3. Extend movement_type CHECK constraint ────────────────────────────────
--- Includes all existing types plus sale_return and sale_return_damaged
-ALTER TABLE inventory_stock_movements
-  DROP CONSTRAINT IF EXISTS inventory_stock_movements_movement_type_check;
-
-ALTER TABLE inventory_stock_movements
-  ADD CONSTRAINT inventory_stock_movements_movement_type_check
-  CHECK (movement_type IN (
-    'purchase_receival',
-    'sale_delivery',
-    'adjustment',
-    'transfer_in',
-    'transfer_out',
-    'cost_adjustment',
-    'receival_edit',
-    'free_receival',
-    'sale_return',
-    'sale_return_damaged'
-  ));
-
--- ─── 4. rpc_process_return_restock ──────────────────────────────────────────
 CREATE OR REPLACE FUNCTION rpc_process_return_restock(p_return_id UUID)
 RETURNS VOID AS $$
 DECLARE
@@ -49,7 +21,6 @@ BEGIN
     RAISE EXCEPTION 'Return % not found', p_return_id;
   END IF;
 
-  -- Idempotency: skip if inventory was already processed
   IF v_return.restocked_at IS NOT NULL THEN
     RETURN;
   END IF;
@@ -63,13 +34,11 @@ BEGIN
     v_qty   := COALESCE((v_item->>'qty')::INT, 0);
     v_cond  := LOWER(COALESCE(v_item->>'condition', ''));
 
-    -- Skip items with no inventory link or zero quantity
     IF v_bv_id IS NULL OR v_qty <= 0 THEN
       CONTINUE;
     END IF;
 
     IF v_cond = 'good' THEN
-      -- Return good stock to sellable inventory
       UPDATE inventory_brand_variants
       SET    stock_level = stock_level + v_qty
       WHERE  id = v_bv_id;
@@ -92,7 +61,6 @@ BEGIN
       );
 
     ELSIF v_cond = 'damaged' THEN
-      -- Track damaged stock separately — does not go back to sellable inventory
       UPDATE inventory_brand_variants
       SET    damaged_qty = damaged_qty + v_qty
       WHERE  id = v_bv_id;
@@ -116,7 +84,22 @@ BEGIN
     END IF;
   END LOOP;
 
-  -- Stamp so a second call is a no-op
   UPDATE returns SET restocked_at = now() WHERE id = p_return_id;
 END;
 $$ LANGUAGE plpgsql SECURITY DEFINER;
+
+-- Re-run backfill for returns that failed the first time (restocked_at still NULL)
+DO $$
+DECLARE
+  r RECORD;
+BEGIN
+  FOR r IN
+    SELECT id
+    FROM   returns
+    WHERE  status       = 'restocked'
+      AND  restocked_at IS NULL
+  LOOP
+    PERFORM rpc_process_return_restock(r.id);
+  END LOOP;
+END;
+$$;
