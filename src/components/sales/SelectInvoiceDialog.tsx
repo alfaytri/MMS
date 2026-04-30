@@ -100,7 +100,7 @@ export function SelectInvoiceDialog({
             disabled={!selectedId || attach.isPending}
             onClick={handleConfirm}
           >
-            {attach.isPending ? 'Linking…' : 'Link Invoice'}
+            {attach.isPending ? 'Confirming…' : 'Confirm'}
           </Button>
         </DialogFooter>
       </DialogContent>

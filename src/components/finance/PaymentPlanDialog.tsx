@@ -86,7 +86,7 @@ export function PaymentPlanDialog({
         </DialogHeader>
         <div className="space-y-4">
           <p className="text-sm text-muted-foreground">
-            {labels.amountLabel} outstanding:{' '}
+            {labels.partyLabel} — {labels.amountLabel} outstanding:{' '}
             <span className="font-semibold text-foreground">{formatCurrency(outstanding, 'QAR')}</span>
           </p>
           <div className="flex gap-2">
