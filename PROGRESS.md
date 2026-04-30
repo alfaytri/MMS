@@ -152,7 +152,7 @@ Purchase & Sales▾:
 
 ## 🔄 In Progress
 
-_(nothing in progress)_
+🚀 Starting: **Invoice Payments Plan Task 10: Wire Invoice Detail Page + Dialog + SoDetailDialog**
 
 ## ✅ Completed
 
