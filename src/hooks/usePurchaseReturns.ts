@@ -1,7 +1,7 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { createClient } from '@/lib/supabase/client'
 import { logActivity } from '@/lib/logActivity'
-import { nextNoteId } from '@/hooks/useCreditNotes'
+import { nextNoteId, type CreditNote } from '@/hooks/useCreditNotes'
 
 export type POReturnStatus = 'pending' | 'dispatched' | 'supplier_confirmed' | 'closed' | 'cancelled'
 
@@ -29,6 +29,8 @@ export type POReturn = {
   created_by_name: string | null
   created_at: string
   updated_at: string
+  credit_note_id: string | null   // UUID FK → credit_notes.id
+  debit_note?: CreditNote | null  // joined
 }
 
 export function usePurchaseReturnsByPO(poId: string | null) {
@@ -39,13 +41,16 @@ export function usePurchaseReturnsByPO(poId: string | null) {
       const supabase = createClient()
       const { data, error } = await (supabase as any)
         .from('returns')
-        .select('*')
+        .select('*, credit_notes(*)')
         .eq('source_type', 'purchase_order')
         .eq('source_id', poId!)
         .is('deleted_at', null)
         .order('created_at', { ascending: false })
       if (error) throw error
-      return data as POReturn[]
+      return (data ?? []).map((r: any) => ({
+        ...r,
+        debit_note: r.credit_notes ?? null,
+      })) as POReturn[]
     },
     staleTime: 30 * 1000,
   })
@@ -291,6 +296,26 @@ export function useUpdatePOReturnStatus() {
         details:   ret.return_number,
         severity,
       })
+    },
+  })
+}
+
+/** Manually generate a debit note for a return that missed auto-creation. */
+export function useCreateDebitNoteForReturn() {
+  const queryClient = useQueryClient()
+  return useMutation({
+    mutationFn: async (ret: POReturn) => {
+      const supabase = createClient()
+      await createDebitNoteForReturn(supabase, ret.id, {
+        source_id:     ret.source_id,
+        return_number: ret.return_number,
+        items:         ret.items,
+        reason:        ret.reason,
+      })
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['po-returns-by-po'] })
+      queryClient.invalidateQueries({ queryKey: ['debit-notes'] })
     },
   })
 }

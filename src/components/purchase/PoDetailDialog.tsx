@@ -26,7 +26,8 @@ import {
   type PurchaseOrder,
 } from '@/hooks/usePurchaseOrders'
 import { useBillsByPO } from '@/hooks/useSupplierBills'
-import { usePurchaseReturnsByPO, useCreatePurchaseReturn, useUpdatePOReturnStatus, type POReturn, type POReturnItem } from '@/hooks/usePurchaseReturns'
+import { usePurchaseReturnsByPO, useCreatePurchaseReturn, useUpdatePOReturnStatus, useCreateDebitNoteForReturn, type POReturn, type POReturnItem } from '@/hooks/usePurchaseReturns'
+import { CreditDebitNoteDownloadButton } from '@/components/sales/CreditDebitNoteDownloadButton'
 import { useWarehouses } from '@/hooks/useWarehouses'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
@@ -86,6 +87,7 @@ export function PoDetailDialog({ open, onOpenChange, po, poId, onEdit }: Props) 
   const { data: warehouses = [] } = useWarehouses()
   const createPOReturn = useCreatePurchaseReturn()
   const updatePOReturnStatus = useUpdatePOReturnStatus()
+  const createDebitNote = useCreateDebitNoteForReturn()
 
   const [returnCreateOpen, setReturnCreateOpen] = useState(false)
   const [returnDate, setReturnDate] = useState(new Date().toISOString().split('T')[0])
@@ -614,6 +616,33 @@ export function PoDetailDialog({ open, onOpenChange, po, poId, onEdit }: Props) 
                           <div className="text-xs text-muted-foreground">
                             {ret.date} · {ret.items.length} item(s) · {ret.reason}
                           </div>
+                          {/* Debit Note section */}
+                          {ret.debit_note ? (
+                            <div className="flex items-center gap-2 pt-1">
+                              <span className="text-xs text-muted-foreground">Debit Note:</span>
+                              <span className="text-xs font-mono font-medium">{ret.debit_note.credit_note_id}</span>
+                              <CreditDebitNoteDownloadButton
+                                note={ret.debit_note}
+                                referenceNumber={fullPO?.po_number ?? '—'}
+                                returnNumber={ret.return_number}
+                              />
+                            </div>
+                          ) : (ret.status === 'supplier_confirmed' || ret.status === 'closed') ? (
+                            <div className="flex items-center gap-2 pt-1">
+                              <span className="text-xs text-muted-foreground">No debit note yet.</span>
+                              <button
+                                type="button"
+                                className="text-xs text-primary underline underline-offset-2 disabled:opacity-50"
+                                disabled={createDebitNote.isPending}
+                                onClick={() => createDebitNote.mutate(ret, {
+                                  onSuccess: () => toast.success('Debit note created'),
+                                  onError: (e: Error) => toast.error(e.message),
+                                })}
+                              >
+                                {createDebitNote.isPending ? 'Creating…' : 'Create Debit Note'}
+                              </button>
+                            </div>
+                          ) : null}
                           {expandedReturnId === ret.id && (
                             <div className="rounded-md border overflow-x-auto mt-2">
                               <Table>
