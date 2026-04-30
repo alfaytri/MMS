@@ -117,7 +117,7 @@ export function PoDetailDialog({ open, onOpenChange, po, poId, onEdit }: Props) 
         sku: li.sku ?? null,
         qty: 0,
         brand_variant_id: li.brand_variant_id ?? null,
-        condition: 'other' as const,
+        condition: 'defective' as const,
         condition_notes: null,
         _max: li.received_qty,
       }))
@@ -678,24 +678,53 @@ export function PoDetailDialog({ open, onOpenChange, po, poId, onEdit }: Props) 
                               </p>
                             )}
                             {returnItems.map((item, idx) => (
-                              <div key={idx} className="flex items-center gap-3 rounded-md border p-2">
-                                <div className="flex-1 min-w-0">
-                                  <div className="text-sm font-medium truncate">{item.item_name}</div>
-                                  {item.sku && <div className="text-xs text-muted-foreground">{item.sku}</div>}
-                                  <div className="text-xs text-muted-foreground">Max returnable: {item._max}</div>
+                              <div key={idx} className="rounded-md border p-2 space-y-2">
+                                <div className="flex items-center gap-3">
+                                  <div className="flex-1 min-w-0">
+                                    <div className="text-sm font-medium truncate">{item.item_name}</div>
+                                    {item.sku && <div className="text-xs text-muted-foreground">{item.sku}</div>}
+                                    <div className="text-xs text-muted-foreground">Max returnable: {item._max}</div>
+                                  </div>
+                                  <Input
+                                    type="number"
+                                    min="0"
+                                    max={item._max}
+                                    value={item.qty}
+                                    onChange={(e) => {
+                                      const updated = [...returnItems]
+                                      updated[idx] = { ...updated[idx], qty: Math.min(item._max, Math.max(0, Number(e.target.value))) }
+                                      setReturnItems(updated)
+                                    }}
+                                    className="w-20 text-right"
+                                  />
                                 </div>
-                                <Input
-                                  type="number"
-                                  min="0"
-                                  max={item._max}
-                                  value={item.qty}
-                                  onChange={(e) => {
-                                    const updated = [...returnItems]
-                                    updated[idx] = { ...updated[idx], qty: Math.min(item._max, Math.max(0, Number(e.target.value))) }
-                                    setReturnItems(updated)
-                                  }}
-                                  className="w-20 text-right"
-                                />
+                                <div className="flex flex-wrap items-center gap-2">
+                                  <select
+                                    value={item.condition}
+                                    onChange={(e) => {
+                                      const updated = [...returnItems]
+                                      updated[idx] = { ...updated[idx], condition: e.target.value as 'defective' | 'damaged' | 'other', condition_notes: null }
+                                      setReturnItems(updated)
+                                    }}
+                                    className="flex h-8 rounded-md border border-input bg-background px-2 py-1 text-xs"
+                                  >
+                                    <option value="defective">Defective</option>
+                                    <option value="damaged">Damaged</option>
+                                    <option value="other">Other</option>
+                                  </select>
+                                  {item.condition === 'other' && (
+                                    <Input
+                                      placeholder="Describe reason…"
+                                      value={item.condition_notes ?? ''}
+                                      onChange={(e) => {
+                                        const updated = [...returnItems]
+                                        updated[idx] = { ...updated[idx], condition_notes: e.target.value }
+                                        setReturnItems(updated)
+                                      }}
+                                      className="flex-1 h-8 text-xs"
+                                    />
+                                  )}
+                                </div>
                               </div>
                             ))}
                           </div>
