@@ -43,10 +43,10 @@ export function BrandVariantRow({ variant, itemId, canMoveUp, canMoveDown, onMov
   const archive = useArchiveInventoryBrandVariant()
 
   const stockLevel = variant.stock_level ?? 0
-  const reservedQty = (variant as any).reserved_qty ?? 0
-  const reorderPoint = (variant as any).reorder_point ?? 0
+  const reservedQty = variant.reserved_qty ?? 0
+  const reorderPoint = variant.reorder_point ?? 0
   const incoming = variant.incoming ?? 0
-  const damagedQty = (variant as any).damaged_qty ?? 0
+  const damagedQty = variant.damaged_qty ?? 0
 
   return (
     <>
@@ -78,14 +78,12 @@ export function BrandVariantRow({ variant, itemId, canMoveUp, canMoveDown, onMov
         <TableCell className="text-right">
           <div className="flex items-center justify-end gap-1.5">
             <AtpBadge stockLevel={stockLevel} reservedQty={reservedQty} reorderPoint={reorderPoint} />
-            {damagedQty > 0 && (
-              <span
-                title={`${damagedQty} damaged unit${damagedQty > 1 ? 's' : ''} — not sellable`}
-                className="inline-flex items-center rounded-full px-2 py-0.5 text-[11px] font-medium cursor-default bg-red-100 text-red-700"
-              >
-                {damagedQty} dmg
-              </span>
-            )}
+            <span
+              title={`${damagedQty} damaged unit${damagedQty !== 1 ? 's' : ''} — not sellable`}
+              className={`inline-flex items-center rounded-full px-2 py-0.5 text-[11px] font-medium cursor-default ${damagedQty > 0 ? 'bg-red-100 text-red-700' : 'bg-slate-100 text-slate-500'}`}
+            >
+              {damagedQty} dmg
+            </span>
           </div>
         </TableCell>
         <TableCell className="text-right text-[11px]">
