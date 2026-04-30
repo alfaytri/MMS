@@ -152,7 +152,7 @@ Purchase & Sales▾:
 
 ## 🔄 In Progress
 
-_(nothing in progress)_
+🚀 Starting: **Invoice Payments Task 7: Move PaymentPlanDialog to finance/ + add labels prop**
 
 ## ✅ Completed
 
