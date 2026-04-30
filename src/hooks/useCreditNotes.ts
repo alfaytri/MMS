@@ -92,7 +92,7 @@ export function useCreditNotes() {
       const supabase = createClient()
       const { data, error } = await (supabase as any)
         .from('credit_notes')
-        .select('*, credit_note_lines(*), invoices(invoice_id), returns(return_number)')
+        .select('*, credit_note_lines(*), invoices(invoice_id), returns!source_return_id(return_number)')
         .eq('note_type', 'credit')
         .order('created_at', { ascending: false })
       if (error) throw error
@@ -112,7 +112,7 @@ export function useDebitNotes() {
       const supabase = createClient()
       const { data, error } = await (supabase as any)
         .from('credit_notes')
-        .select('*, returns(return_number)')
+        .select('*, returns!source_return_id(return_number)')
         .eq('note_type', 'debit')
         .order('created_at', { ascending: false })
       if (error) throw error
