@@ -151,7 +151,7 @@ export default function CustomersPage() {
                     <TableCell>
                       <Select
                         value={c.credit_group_id ?? ''}
-                        onValueChange={(val) => handleAssign(c.id, val)}
+                        onValueChange={(val) => { if (val) handleAssign(c.id, val) }}
                         disabled={assignGroup.isPending}
                       >
                         <SelectTrigger className="h-8 w-44 text-xs">
@@ -235,7 +235,7 @@ export default function CustomersPage() {
             {newType === 'credit' && (
               <div className="space-y-1.5">
                 <Label>Credit Group <span className="text-destructive">*</span></Label>
-                <Select value={newGroupId} onValueChange={setNewGroupId}>
+                <Select value={newGroupId} onValueChange={(v) => { if (v) setNewGroupId(v) }}>
                   <SelectTrigger>
                     <SelectValue placeholder="Select group…" />
                   </SelectTrigger>

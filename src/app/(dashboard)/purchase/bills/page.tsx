@@ -13,6 +13,7 @@ import { BillFormDialog } from '@/components/purchase/BillFormDialog'
 import { useSupplierBills, type ApInvoice } from '@/hooks/useSupplierBills'
 import { formatCurrency } from '@/lib/utils/formatters'
 import { Badge } from '@/components/ui/badge'
+import { Button } from '@/components/ui/button'
 import { cn } from '@/lib/utils'
 
 const PAY_STATUS_CONFIG: Record<string, string> = {
