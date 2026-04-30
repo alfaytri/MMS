@@ -21,7 +21,7 @@ export type SaleReturn = {
   notes: string | null
   status: 'pending' | 'received' | 'restocked' | 'closed' | 'cancelled'
   credit_note_id: string | null
-  credit_note?: { credit_note_id: string } | null  // joined display field
+  credit_note?: import('@/hooks/useCreditNotes').CreditNote | null  // full object for inline detail view
   created_by_name: string | null
   created_at: string
   updated_at: string
@@ -270,15 +270,15 @@ export function useReturnsBySO(soId: string | null) {
         .order('created_at', { ascending: false })
       if (error) throw error
       const rows = data ?? []
-      // Batch-fetch linked credit notes to get display IDs
+      // Batch-fetch full credit note objects so the dialog can open inline
       const noteIds = rows.map((r: any) => r.credit_note_id).filter(Boolean)
-      let noteMap: Record<string, { credit_note_id: string }> = {}
+      let noteMap: Record<string, any> = {}
       if (noteIds.length > 0) {
         const { data: notes } = await (supabase as any)
           .from('credit_notes')
-          .select('id, credit_note_id')
+          .select('*')
           .in('id', noteIds)
-        for (const n of (notes ?? [])) noteMap[n.id] = { credit_note_id: n.credit_note_id }
+        for (const n of (notes ?? [])) noteMap[n.id] = n
       }
       return rows.map((r: any) => ({
         ...r,

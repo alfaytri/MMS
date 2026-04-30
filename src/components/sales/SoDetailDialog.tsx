@@ -37,6 +37,8 @@ import {
 } from '@/hooks/useCustomerInvoices'
 import { useCustomerPayments } from '@/hooks/useCustomerPayments'
 import { useReturnsBySO, useCreateSaleReturn, useUpdateReturnStatus, useCreateCreditNoteForReturn, type SaleReturn } from '@/hooks/useSaleReturns'
+import { CreditDebitNoteDetailDialog } from '@/components/sales/CreditDebitNoteDetailDialog'
+import type { CreditNote } from '@/hooks/useCreditNotes'
 import { useWarehouses } from '@/hooks/useWarehouses'
 import { usePaymentPlans } from '@/hooks/usePaymentPlans'
 import { CustomerPaymentDialog } from './CustomerPaymentDialog'
@@ -64,6 +66,7 @@ export function SoDetailDialog({ open, onOpenChange, so, onEdit, onConfirm }: So
   const [invoicePayOpen, setInvoicePayOpen] = useState(false)
   const [invoicePlanOpen, setInvoicePlanOpen] = useState(false)
   const [returnOpen, setReturnOpen] = useState(false)
+  const [cnDetailNote, setCnDetailNote] = useState<CreditNote | null>(null)
   const [returnDate, setReturnDate] = useState(new Date().toISOString().slice(0, 10))
   const [returnReason, setReturnReason] = useState('')
   const [returnWarehouseId, setReturnWarehouseId] = useState('')
@@ -487,9 +490,16 @@ export function SoDetailDialog({ open, onOpenChange, so, onEdit, onConfirm }: So
                             </Button>
                           </div>
                         ) : ret.credit_note ? (
-                          <p className="text-xs text-muted-foreground pt-1">
-                            Credit note: <span className="font-mono font-medium text-foreground">{ret.credit_note.credit_note_id}</span>
-                          </p>
+                          <div className="flex items-center gap-1.5 pt-1">
+                            <span className="text-xs text-muted-foreground">Credit note:</span>
+                            <button
+                              type="button"
+                              className="font-mono text-xs font-medium text-primary hover:underline underline-offset-2"
+                              onClick={() => setCnDetailNote(ret.credit_note!)}
+                            >
+                              {ret.credit_note.credit_note_id}
+                            </button>
+                          </div>
                         ) : null}
                       </div>
                     )
@@ -737,6 +747,13 @@ export function SoDetailDialog({ open, onOpenChange, so, onEdit, onConfirm }: So
           <SoDeliveryDialog open={deliveryOpen} onOpenChange={setDeliveryOpen} so={current} />
         </>
       )}
+
+      <CreditDebitNoteDetailDialog
+        note={cnDetailNote}
+        referenceNumber={cnDetailNote?.invoice_id ? (soInvoice?.invoice_id ?? '—') : '—'}
+        open={!!cnDetailNote}
+        onOpenChange={(v) => { if (!v) setCnDetailNote(null) }}
+      />
       {soInvoice && invoicePayOpen && (
         <CustomerPaymentDialog
           open
