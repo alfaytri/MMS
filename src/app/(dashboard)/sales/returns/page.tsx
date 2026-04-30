@@ -207,7 +207,7 @@ function ReturnsContent() {
               key={t}
               onClick={() => setReturnType(t)}
               className={cn(
-                'rounded-md px-3 py-1 text-sm font-medium transition-colors min-h-[32px]',
+                'rounded-md px-3 py-1 text-sm font-medium transition-colors min-h-11 sm:min-h-8',
                 returnType === t ? 'bg-primary text-primary-foreground' : 'hover:bg-muted'
               )}
             >
@@ -222,7 +222,7 @@ function ReturnsContent() {
             <div className="flex flex-wrap gap-2">
               {(['', 'pending', 'received', 'restocked', 'closed', 'cancelled'] as const).map((s) => (
                 <button key={s} onClick={() => setSrStatusFilter(s)}
-                  className={cn('rounded-full border px-3 py-1 text-xs font-medium transition-colors',
+                  className={cn('rounded-full border px-3 py-1 text-xs font-medium transition-colors min-h-11 sm:min-h-8',
                     srStatusFilter === s ? 'bg-primary text-primary-foreground border-primary' : 'bg-background hover:bg-muted'
                   )}>
                   {s || 'All'}
@@ -236,7 +236,7 @@ function ReturnsContent() {
             <div className="flex flex-wrap gap-2">
               {(['', 'pending', 'dispatched', 'supplier_confirmed', 'closed', 'cancelled'] as const).map((s) => (
                 <button key={s} onClick={() => setPrStatusFilter(s)}
-                  className={cn('rounded-full border px-3 py-1 text-xs font-medium transition-colors',
+                  className={cn('rounded-full border px-3 py-1 text-xs font-medium transition-colors min-h-11 sm:min-h-8',
                     prStatusFilter === s ? 'bg-primary text-primary-foreground border-primary' : 'bg-background hover:bg-muted'
                   )}>
                   {s === 'supplier_confirmed' ? 'Supplier Confirmed' : s || 'All'}
@@ -571,7 +571,7 @@ function ReturnsContent() {
 // ─── Page export — wraps in Suspense required by useSearchParams ──────────────
 export default function ReturnsPage() {
   return (
-    <Suspense>
+    <Suspense fallback={<div className="p-6"><Skeleton className="h-10 w-full" /></div>}>
       <ReturnsContent />
     </Suspense>
   )
