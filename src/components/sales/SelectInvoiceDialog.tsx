@@ -14,8 +14,8 @@ import { useAttachPaymentToInvoice } from '@/hooks/useAttachPaymentToInvoice'
 import { formatCurrency, formatDate } from '@/lib/utils/formatters'
 
 const PAY_STATUS_CLASS: Record<string, string> = {
-  unpaid:         'bg-slate-100 text-slate-600',
-  partially_paid: 'bg-amber-100 text-amber-700',
+  unpaid:         'text-slate-600 border-slate-300',
+  partially_paid: 'text-amber-700 border-amber-300',
 }
 
 type Props = {
@@ -83,7 +83,7 @@ export function SelectInvoiceDialog({
                 </div>
                 <div className="flex items-center justify-between text-xs text-muted-foreground mt-1">
                   <span>{formatDate(inv.issued_date)}</span>
-                  <Badge className={cn('text-xs', PAY_STATUS_CLASS[inv.payment_status] ?? '')}>
+                  <Badge variant="outline" className={cn('text-xs', PAY_STATUS_CLASS[inv.payment_status] ?? '')}>
                     {inv.payment_status.replace(/_/g, ' ')}
                   </Badge>
                 </div>

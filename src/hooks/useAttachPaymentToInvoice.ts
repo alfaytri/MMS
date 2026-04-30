@@ -21,7 +21,6 @@ export function useAttachPaymentToInvoice() {
     },
     onSuccess: (_, variables) => {
       queryClient.invalidateQueries({ queryKey: ['customer-payments'] })
-      queryClient.invalidateQueries({ queryKey: ['customer-payments', variables.invoiceId] })
       queryClient.invalidateQueries({ queryKey: ['customer-invoices'] })
       queryClient.invalidateQueries({ queryKey: ['unlinked-incoming-payments'] })
       queryClient.invalidateQueries({ queryKey: ['unlinked-ar-invoices'] })
