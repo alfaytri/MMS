@@ -7,7 +7,6 @@ import { logUserEvent } from '@/lib/auth/audit'
 const bodySchema = z.object({
   full_name: z.string().trim().min(1).optional(),
   email: z.string().trim().toLowerCase().email().optional(),
-  user_type: z.enum(['internal', 'external']).optional(),
   is_active: z.boolean().optional(),
   role_ids: z.array(z.string().uuid()).optional(),
 })
@@ -56,7 +55,6 @@ export async function PATCH(
   const profileUpdates: Record<string, unknown> = {}
   if (changes.full_name !== undefined) profileUpdates.full_name = changes.full_name
   if (changes.email !== undefined) profileUpdates.email = changes.email
-  if (changes.user_type !== undefined) profileUpdates.user_type = changes.user_type
   if (changes.is_active !== undefined) profileUpdates.is_active = changes.is_active
 
   let profileId: string | null = null

@@ -74,9 +74,9 @@ export function useReceivals(filters?: { status?: ReceivalStatus | '' }) {
       let q = (supabase as any)
         .from('receivals')
         .select(`
-          *,
-          receival_items(*),
-          purchase_orders!receivals_po_id_fkey(po_number, supplier_name)
+          id,receival_number,po_id,warehouse_id,date,status,notes,received_by_name,created_at,
+          receival_items(id,receival_id,po_line_item_id,item_name,sku,qty_received,unit_cost,is_free,brand_variant_id),
+          purchase_orders!receivals_po_id_fkey(po_number,supplier_name)
         `)
         .order('created_at', { ascending: false })
       if (filters?.status) q = q.eq('status', filters.status)
@@ -100,9 +100,9 @@ export function useReceival(id: string | null) {
       const { data, error } = await (supabase as any)
         .from('receivals')
         .select(`
-          *,
-          receival_items(*),
-          purchase_orders!receivals_po_id_fkey(po_number, supplier_name, po_line_items(*))
+          id,receival_number,po_id,warehouse_id,date,status,notes,received_by_name,created_at,
+          receival_items(id,receival_id,po_line_item_id,item_name,sku,qty_received,unit_cost,is_free,brand_variant_id),
+          purchase_orders!receivals_po_id_fkey(po_number,supplier_name,po_line_items(id,qty))
         `)
         .eq('id', id)
         .single()
@@ -126,19 +126,17 @@ export function useCreateReceival() {
     mutationFn: async (payload: CreateReceivalPayload) => {
       const supabase = createClient()
 
-      // Resolve current user's display name for audit trail
-      const { data: { user } } = await supabase.auth.getUser()
+      // Resolve user display name and count in parallel (count has no user dependency)
+      const [{ data: { user } }, { count }] = await Promise.all([
+        supabase.auth.getUser(),
+        (supabase as any).from('receivals').select('*', { count: 'exact', head: true }),
+      ])
       let receivedByName: string | null = null
       if (user) {
         const { data: profile } = await (supabase as any)
           .from('profiles').select('full_name').eq('auth_user_id', user.id).maybeSingle()
         receivedByName = profile?.full_name ?? user.email ?? null
       }
-
-      // Generate receival_number (count-based, padded)
-      const { count } = await (supabase as any)
-        .from('receivals')
-        .select('*', { count: 'exact', head: true })
       const receival_number = `RCV-${String((count ?? 0) + 1).padStart(5, '0')}`
 
       // Single atomic RPC — insert + FIFO + stock_level all in one transaction
@@ -273,16 +271,13 @@ export function useApproveReceivalEdit() {
         .from('receival_edit_requests')
         .update(patch)
         .eq('id', request_id)
-        .select('*, receival_id').single()
+        .select('*, receival_id, requested_by').single()
       if (error) throw error
 
-      // Notify the requestor
-      const { data: req } = await (supabase as any)
-        .from('receival_edit_requests')
-        .select('requested_by').eq('id', request_id).single()
-      if (req?.requested_by) {
+      // Notify the requestor (requested_by comes from the update select above)
+      if (data?.requested_by) {
         await (supabase as any).from('notifications').insert({
-          user_id: req.requested_by,
+          user_id: data.requested_by,
           title: action === 'approved' ? 'Edit Request Approved' : 'Edit Request Rejected',
           body: action === 'approved'
             ? 'Your receival edit was approved. You have 48 hours to save your changes.'
@@ -324,5 +319,90 @@ export function useSaveReceivalEdit() {
       qc.invalidateQueries({ queryKey: ['fifo-layers'] })
       qc.invalidateQueries({ queryKey: ['stock_movements'] })
     },
+  })
+}
+
+// ─── LC Selector hooks ────────────────────────────────────────────────────────
+
+export type ReceivalForLcSelector = {
+  id: string
+  receival_number: string
+  po_id: string
+  date: string
+  status: string
+  po_number: string | null
+  supplier_name: string | null
+}
+
+export function useReceivalsForLcSelector({ search = '' }: { search?: string } = {}) {
+  return useQuery({
+    queryKey: ['receivals-lc-selector', { search }],
+    queryFn: async () => {
+      const supabase = createClient()
+      let q = (supabase as any)
+        .from('receivals')
+        .select('id, receival_number, po_id, date, status, purchase_orders!receivals_po_id_fkey(po_number, supplier_name)')
+        .order('date', { ascending: false })
+      const safeSearch = search.replace(/%/g, '\\%').replace(/,/g, '\\,').replace(/\./g, '\\.')
+      if (safeSearch) {
+        q = q.or(`receival_number.ilike.%${safeSearch}%`)
+      }
+      const { data, error } = await q
+      if (error) throw error
+      return (data ?? []).map((r: any) => ({
+        id: r.id as string,
+        receival_number: r.receival_number as string,
+        po_id: r.po_id as string,
+        date: r.date as string,
+        status: r.status as string,
+        po_number: r.purchase_orders?.po_number ?? null,
+        supplier_name: r.purchase_orders?.supplier_name ?? null,
+      })) as ReceivalForLcSelector[]
+    },
+    staleTime: 5 * 60 * 1000,
+  })
+}
+
+export type ReceivalItemWithFifo = {
+  id: string
+  item_name: string
+  sku: string | null
+  qty_received: number
+  unit_cost: number
+  brand_variant_id: string | null
+  remaining_qty: number
+}
+
+export function useReceivalItemsWithFifo(receivalId: string | null) {
+  return useQuery({
+    queryKey: ['receival-items-fifo', receivalId],
+    enabled: !!receivalId,
+    queryFn: async () => {
+      const supabase = createClient()
+      const [{ data: items, error: iErr }, { data: layers, error: lErr }] = await Promise.all([
+        (supabase as any)
+          .from('receival_items')
+          .select('id, item_name, sku, qty_received, unit_cost, brand_variant_id')
+          .eq('receival_id', receivalId!)
+          .eq('is_free', false),
+        (supabase as any)
+          .from('fifo_cost_layers')
+          .select('brand_variant_id, remaining_qty')
+          .eq('receival_id', receivalId!)
+          .gt('remaining_qty', 0),
+      ])
+      if (iErr || lErr) throw iErr ?? lErr
+      // Sum remaining_qty across all layers for each brand_variant
+      const remainingMap = new Map<string, number>()
+      for (const l of layers ?? []) {
+        if (!l.brand_variant_id) continue
+        remainingMap.set(l.brand_variant_id, (remainingMap.get(l.brand_variant_id) ?? 0) + l.remaining_qty)
+      }
+      return (items ?? []).map((item: any) => ({
+        ...item,
+        remaining_qty: remainingMap.get(item.brand_variant_id) ?? 0,
+      })) as ReceivalItemWithFifo[]
+    },
+    staleTime: 2 * 60 * 1000,
   })
 }

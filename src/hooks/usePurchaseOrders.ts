@@ -5,6 +5,20 @@ import { logPOActivity, resolveMyName } from '@/lib/poActivityLogger'
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
+export type InventoryLookupResult = {
+  brand_variant_id: string
+  item_name:        string
+  item_name_ar:     string | null
+  sku:              string | null
+  unit:             string
+  cost_price:       number
+  selling_price:    number
+  // Populated on fresh cascade selection; null when rebuilt from a saved PO row.
+  category_name:    string | null
+  category_name_ar: string | null
+  brand:            string | null
+}
+
 export type POStatus =
   | 'draft'
   | 'pending_approval'
@@ -12,6 +26,7 @@ export type POStatus =
   | 'partially_received'
   | 'received'
   | 'cancelled'
+  | 'completed'
 
 export type POLineItem = {
   id: string
@@ -140,6 +155,7 @@ export type CreatePOPayload = {
   discount_amount: number
   discount_label: string | null
   line_items: POLineItemDraft[]
+  division_id: string | null
 }
 
 export type UpdatePOPayload = Partial<CreatePOPayload> & { id: string }
@@ -207,6 +223,8 @@ export interface POFilters {
   status?: POStatus | ''
   dateFrom?: string
   dateTo?: string
+  divisionId?: string | null
+  divisionIds?: string[]
 }
 
 // ─── Hooks ────────────────────────────────────────────────────────────────────
@@ -228,6 +246,11 @@ export function usePurchaseOrders(filters: POFilters = {}) {
       if (filters.search) {
         const safe = filters.search.replace(/%/g, '\\%')
         query = query.or(`po_number.ilike.%${safe}%,supplier_name.ilike.%${safe}%`)
+      }
+      if (filters.divisionId) {
+        query = query.eq('division_id', filters.divisionId)
+      } else if (filters.divisionIds && filters.divisionIds.length > 0) {
+        query = query.in('division_id', filters.divisionIds)
       }
 
       const { data, error } = await query
@@ -332,6 +355,7 @@ export function useCreatePO() {
           discount_amount: payload.discount_amount,
           discount_label: payload.discount_label,
           created_by: user?.id ?? null,
+          division_id: payload.division_id ?? null,
         })
         .select()
         .single()
@@ -536,7 +560,16 @@ export function useCreatePOPayment() {
       exchange_rate: number
     }) => {
       const supabase = createClient()
+
+      // Generate SPAY- sequence number (count all outgoing payments)
+      const { count: outgoingCount } = await (supabase as any)
+        .from('payments')
+        .select('*', { count: 'exact', head: true })
+        .eq('direction', 'outgoing')
+      const payment_id = `SPAY-${String((outgoingCount ?? 0) + 1).padStart(5, '0')}`
+
       const { error } = await (supabase as any).from('payments').insert({
+        payment_id,
         source_type: 'purchase_order',
         source_id: payment.po_id,
         supplier_id: payment.supplier_id,
@@ -548,9 +581,12 @@ export function useCreatePOPayment() {
         currency: payment.currency,
         exchange_rate: payment.exchange_rate,
         amount_qar: payment.amount * payment.exchange_rate,
+        direction: 'outgoing',
         status: 'pending' as any,
       })
       if (error) throw error
+
+      await (supabase as any).rpc('refresh_po_status', { p_po_id: payment.po_id })
 
       const payPerformer = await resolveMyName()
       await logPOActivity({

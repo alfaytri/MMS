@@ -4,10 +4,12 @@ import { Trash2, Plus, ShoppingBag, Cog, Droplets, Wrench } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Badge } from '@/components/ui/badge'
-import { InventoryItemLookup, type InventoryLookupResult } from './InventoryItemLookup'
+import { CascadeInventorySelector } from './CascadeInventorySelector'
+import type { InventoryLookupResult } from '@/hooks/usePurchaseOrders'
 import { ToolAssetLookup, type ToolAssetLookupResult } from './ToolAssetLookup'
 import { formatCurrency } from '@/lib/utils/formatters'
 import type { POLineItemDraft } from '@/hooks/usePurchaseOrders'
+import { useRef } from 'react'
 import type { ElementType } from 'react'
 
 export type LineType = 'products' | 'spare-parts' | 'consumables' | 'tools'
@@ -74,9 +76,19 @@ interface PoLineItemsEditorProps {
   onChange: (rows: LineItemRow[]) => void
   currency: string
   readOnly?: boolean
+  onPriceLoading?: (loading: boolean) => void
 }
 
-export function PoLineItemsEditor({ value, onChange, currency, readOnly = false }: PoLineItemsEditorProps) {
+export function PoLineItemsEditor({ value, onChange, currency, readOnly = false, onPriceLoading }: PoLineItemsEditorProps) {
+  const priceLoadingKeys = useRef(new Set<string>())
+
+  function handleRowPriceLoading(key: string, loading: boolean) {
+    loading
+      ? priceLoadingKeys.current.add(key)
+      : priceLoadingKeys.current.delete(key)
+    onPriceLoading?.(priceLoadingKeys.current.size > 0)
+  }
+
   function addRow(line_type: LineType) {
     onChange([...value, makeRow(line_type)])
   }
@@ -103,13 +115,14 @@ export function PoLineItemsEditor({ value, onChange, currency, readOnly = false 
       updateRow(key, { item_name: '', sku: '', unit: 'pcs', unit_price: 0, total_price: 0, brand_variant_id: null })
       return
     }
+    const existingRow = value.find((r) => r._key === key)
     updateRow(key, {
-      item_name: item.item_name,
-      sku: item.sku ?? '',
-      unit: item.unit,
-      unit_price: item.cost_price,
-      total_price: item.cost_price,
-      brand_variant_id: item.brand_variant_id,
+      item_name:          item.item_name,
+      sku:                existingRow?.sku?.trim() ? existingRow.sku : (item.sku ?? ''),
+      unit:               item.unit,
+      unit_price:         item.cost_price,
+      total_price:        item.cost_price,
+      brand_variant_id:   item.brand_variant_id,
       tool_asset_item_id: null,
     })
   }
@@ -219,22 +232,26 @@ export function PoLineItemsEditor({ value, onChange, currency, readOnly = false 
                             {row.item_name || '—'}
                           </div>
                         ) : isInventory ? (
-                          <InventoryItemLookup
+                          <CascadeInventorySelector
+                            lineType={lineType}
                             value={
                               row.brand_variant_id
                                 ? {
                                     brand_variant_id: row.brand_variant_id,
-                                    item_name: row.item_name,
-                                    item_name_ar: null,
-                                    sku: row.sku,
-                                    unit: row.unit,
-                                    cost_price: row.unit_price,
-                                    selling_price: 0,
+                                    item_name:        row.item_name,
+                                    item_name_ar:     null,
+                                    sku:              row.sku,
+                                    unit:             row.unit,
+                                    cost_price:       row.unit_price,
+                                    selling_price:    0,
+                                    category_name:    null,
+                                    category_name_ar: null,
+                                    brand:            null,
                                   }
                                 : null
                             }
                             onChange={(item) => handleInventorySelect(row._key, item)}
-                            placeholder={`Search ${cfg.label.toLowerCase()}…`}
+                            onPriceLoading={(loading) => handleRowPriceLoading(row._key, loading)}
                           />
                         ) : (
                           <ToolAssetLookup
@@ -271,9 +288,13 @@ export function PoLineItemsEditor({ value, onChange, currency, readOnly = false 
                         value={row.item_name}
                         onChange={(e) => updateRow(row._key, { item_name: e.target.value })}
                       />
-                      <span className="h-7 px-2 flex items-center rounded-md bg-muted/40 border text-xs text-muted-foreground truncate">
-                        {row.sku || '—'}
-                      </span>
+                      <Input
+                        className="h-7 text-xs"
+                        placeholder="Vendor SKU"
+                        value={row.sku ?? ''}
+                        onChange={(e) => updateRow(row._key, { sku: e.target.value })}
+                        readOnly={readOnly}
+                      />
                       <Input
                         type="number"
                         min="0.001"

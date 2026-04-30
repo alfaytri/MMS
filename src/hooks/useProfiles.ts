@@ -165,7 +165,6 @@ export function useCreateUser() {
       full_name: string
       email: string
       password: string
-      user_type?: 'internal' | 'external'
       role_ids?: string[]
     }) => {
       const res = await fetch('/api/users/create', {
@@ -190,7 +189,6 @@ export function useUpdateUser() {
       auth_user_id: string
       full_name?: string
       email?: string
-      user_type?: 'internal' | 'external'
       is_active?: boolean
       role_ids?: string[]
     }) => {

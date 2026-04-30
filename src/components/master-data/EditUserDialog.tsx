@@ -1,10 +1,11 @@
 'use client'
 
-import { useEffect } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import { useForm } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { z } from 'zod'
 import { toast } from 'sonner'
+import { X } from 'lucide-react'
 import {
   Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter,
 } from '@/components/ui/dialog'
@@ -12,11 +13,19 @@ import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Checkbox } from '@/components/ui/checkbox'
+import { Badge } from '@/components/ui/badge'
 import {
   Form, FormControl, FormField, FormItem, FormLabel, FormMessage,
 } from '@/components/ui/form'
-import { useUpdateUser, type Profile } from '@/hooks/useProfiles'
+import {
+  Select, SelectContent, SelectGroup, SelectItem, SelectLabel, SelectTrigger, SelectValue,
+} from '@/components/ui/select'
+import {
+  useUpdateUser, useUserDivisions, useAssignDivision, useRemoveDivision, type Profile,
+} from '@/hooks/useProfiles'
 import { useRoles } from '@/hooks/useRoles'
+import { useAllDivisions } from '@/hooks/useDivisions'
+import { useCompanies } from '@/hooks/useCompanies'
 import {
   useApprovalRoleAssignments,
   useAddApprovalRoleAssignment,
@@ -28,12 +37,12 @@ const APPROVAL_ROLES: { role: ApprovalRole; label: string }[] = [
   { role: 'purchase_manager', label: 'Purchase Manager' },
   { role: 'accountant',       label: 'Accountant' },
   { role: 'owner',            label: 'Owner' },
+  { role: 'employee',         label: 'Employee' },
 ]
 
 const schema = z.object({
   full_name: z.string().min(1, 'Name is required'),
   email: z.string().email('Enter a valid email'),
-  user_type: z.enum(['internal', 'external']),
   is_active: z.boolean(),
   role_ids: z.array(z.string().uuid()).default([]),
 })
@@ -52,6 +61,54 @@ export function EditUserDialog({ open, onOpenChange, profile }: Props) {
   const { data: allAssignments = [] } = useApprovalRoleAssignments()
   const addApprovalRole = useAddApprovalRoleAssignment()
   const removeApprovalRole = useSoftDeleteApprovalRoleAssignment()
+
+  // ── Division assignment ──────────────────────────────────────────────
+  const { data: allDivisions = [] } = useAllDivisions()
+  const { data: companies = [] } = useCompanies()
+  const { data: userDivisions = [] } = useUserDivisions(profile?.id ?? null)
+  const assignDivision = useAssignDivision()
+  const removeDivision = useRemoveDivision()
+  const [divisionPickValue, setDivisionPickValue] = useState('')
+
+  const companiesWithUnassigned = useMemo(() => {
+    const assignedIds = new Set(userDivisions.map((ud) => ud.division_id))
+    const map = new Map<string, { companyName: string; items: typeof allDivisions }>()
+    for (const d of allDivisions) {
+      if (assignedIds.has(d.id)) continue
+      const groupKey = d.company_id ?? '__no_company__'
+      if (!map.has(groupKey)) {
+        const co = d.company_id ? companies.find((c) => c.id === d.company_id) : undefined
+        map.set(groupKey, { companyName: co?.name_en ?? groupKey, items: [] })
+      }
+      map.get(groupKey)!.items.push(d)
+    }
+    return Array.from(map.values()).filter((g) => g.items.length > 0)
+  }, [allDivisions, companies, userDivisions])
+
+  function handleAssignDivision(divisionId: string) {
+    if (!profile?.id || !divisionId) return
+    assignDivision.mutate(
+      { profile_id: profile.id, division_id: divisionId },
+      {
+        onSuccess: () => {
+          setDivisionPickValue('')
+          toast.success("Division assigned. Changes take effect on the user's next login.")
+        },
+        onError: (err) => toast.error(err.message),
+      }
+    )
+  }
+
+  function handleRemoveDivision(id: string) {
+    if (!profile?.id) return
+    removeDivision.mutate(
+      { id, profileId: profile.id },
+      {
+        onSuccess: () => toast.success('Division removed.'),
+        onError: (err) => toast.error(err.message),
+      }
+    )
+  }
 
   // Find this user's current approval role assignment (if any)
   const myAssignment = profile
@@ -86,7 +143,7 @@ export function EditUserDialog({ open, onOpenChange, profile }: Props) {
   const form = useForm<Values>({
     resolver: zodResolver(schema) as never,
     defaultValues: {
-      full_name: '', email: '', user_type: 'internal', is_active: true, role_ids: [],
+      full_name: '', email: '', is_active: true, role_ids: [],
     },
   })
 
@@ -95,7 +152,6 @@ export function EditUserDialog({ open, onOpenChange, profile }: Props) {
       form.reset({
         full_name: profile.full_name ?? '',
         email: profile.email ?? '',
-        user_type: (profile.user_type as 'internal' | 'external') ?? 'internal',
         is_active: profile.is_active ?? true,
         role_ids: (profile.user_custom_roles ?? []).map((r) => r.role_id),
       })
@@ -149,26 +205,6 @@ export function EditUserDialog({ open, onOpenChange, profile }: Props) {
                 </FormItem>
               )}
             />
-            <FormField
-              control={form.control}
-              name="user_type"
-              render={({ field }) => (
-                <FormItem>
-                  <FormLabel>User Type</FormLabel>
-                  <FormControl>
-                    <select
-                      {...field}
-                      className="flex h-9 w-full rounded-md border border-input bg-background px-3 py-1 text-sm"
-                    >
-                      <option value="internal">Internal (staff)</option>
-                      <option value="external">External (client)</option>
-                    </select>
-                  </FormControl>
-                  <FormMessage />
-                </FormItem>
-              )}
-            />
-
             <label className="flex items-center gap-2 cursor-pointer">
               <Checkbox
                 checked={isActive}
@@ -230,6 +266,54 @@ export function EditUserDialog({ open, onOpenChange, profile }: Props) {
                   </span>
                 )}
               </div>
+            </div>
+
+            {/* ── Divisions ── */}
+            <div className="space-y-2 pt-2">
+              <p className="text-sm font-semibold">Divisions</p>
+
+              <div className="flex flex-wrap gap-1.5 min-h-[2rem]">
+                {userDivisions.length === 0 && (
+                  <p className="text-xs text-muted-foreground">No divisions assigned — user cannot create orders.</p>
+                )}
+                {userDivisions.map((ud) => {
+                  const divName = allDivisions.find((d) => d.id === ud.division_id)?.name ?? ud.division_id
+                  return (
+                    <Badge key={ud.id} variant="secondary" className="gap-1 pr-1">
+                      {divName}
+                      <button
+                        type="button"
+                        className="rounded-full hover:bg-muted p-0.5"
+                        onClick={() => handleRemoveDivision(ud.id)}
+                        disabled={removeDivision.isPending}
+                      >
+                        <X className="h-3 w-3" />
+                      </button>
+                    </Badge>
+                  )
+                })}
+              </div>
+
+              {companiesWithUnassigned.length > 0 && (
+                <Select
+                  value={divisionPickValue}
+                  onValueChange={(v) => { if (v) { setDivisionPickValue(v); handleAssignDivision(v) } }}
+                >
+                  <SelectTrigger className="w-64 h-8 text-xs">
+                    <SelectValue placeholder="Add division…" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {companiesWithUnassigned.map((group) => (
+                      <SelectGroup key={group.companyName}>
+                        <SelectLabel>{group.companyName}</SelectLabel>
+                        {group.items.map((d) => (
+                          <SelectItem key={d.id} value={d.id}>{d.name}</SelectItem>
+                        ))}
+                      </SelectGroup>
+                    ))}
+                  </SelectContent>
+                </Select>
+              )}
             </div>
 
             <DialogFooter>

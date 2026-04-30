@@ -1,9 +1,8 @@
 'use client'
 
-import { useState, useMemo } from 'react'
+import { useState, useMemo, useRef } from 'react'
 import { useRouter } from 'next/navigation'
 import { type ColumnDef } from '@tanstack/react-table'
-import { Eye } from 'lucide-react'
 import { toast } from 'sonner'
 import { PageHeader } from '@/components/shared/PageHeader'
 import { PageWrapper } from '@/components/shared/PageWrapper'
@@ -21,6 +20,8 @@ import {
 import { formatCurrency, formatDate } from '@/lib/utils/formatters'
 import { Button } from '@/components/ui/button'
 import { cn } from '@/lib/utils'
+import { DivisionFilter, type DivisionFilterValue } from '@/components/shared/DivisionFilter'
+import { useUserDivisionScope } from '@/hooks/useUserDivisionScope'
 
 const STATUSES: { value: SOStatus | ''; label: string }[] = [
   { value: '', label: 'All' },
@@ -42,21 +43,48 @@ export default function SaleOrdersPage() {
   const [dateFrom, setDateFrom] = useState('')
   const [dateTo, setDateTo] = useState('')
   const [detailSO, setDetailSO] = useState<SaleOrder | null>(null)
+  const [divisionFilter, setDivisionFilter] = useState<DivisionFilterValue>({ companyId: null, divisionId: null })
+
+  const { isSuperViewer, divisions } = useUserDivisionScope()
 
   const confirmSO = useConfirmSO()
 
-  const searchRef = useState<ReturnType<typeof setTimeout> | null>(null)
+  const searchRef = useRef<ReturnType<typeof setTimeout> | null>(null)
   function handleSearch(val: string) {
     setSearch(val)
-    if (searchRef[0]) clearTimeout(searchRef[0])
-    searchRef[1](setTimeout(() => setDebouncedSearch(val), 300))
+    if (searchRef.current) clearTimeout(searchRef.current)
+    searchRef.current = setTimeout(() => setDebouncedSearch(val), 300)
   }
+
+  const hasActiveFilters = !!(statusFilter || dateFrom || dateTo || divisionFilter.companyId || divisionFilter.divisionId)
+  function clearFilters() {
+    setSearch('')
+    setDebouncedSearch('')
+    setStatusFilter('')
+    setDateFrom('')
+    setDateTo('')
+    setDivisionFilter({ companyId: null, divisionId: null })
+  }
+
+  const divisionQueryProps = useMemo(() => {
+    if (!isSuperViewer) return {}
+    if (divisionFilter.divisionId) return { divisionId: divisionFilter.divisionId }
+    if (divisionFilter.companyId) {
+      return {
+        divisionIds: divisions
+          .filter((d) => d.company_id === divisionFilter.companyId)
+          .map((d) => d.id),
+      }
+    }
+    return {}
+  }, [isSuperViewer, divisionFilter, divisions])
 
   const { data: orders, isLoading } = useSaleOrders({
     search: debouncedSearch,
     status: statusFilter,
     dateFrom: dateFrom || undefined,
     dateTo: dateTo || undefined,
+    ...divisionQueryProps,
   })
 
   const statusCounts = useMemo(() => {
@@ -81,7 +109,9 @@ export default function SaleOrdersPage() {
     {
       accessorKey: 'so_number',
       header: ({ column }) => <DataTableColumnHeader column={column} title="SO #" />,
-      cell: ({ row }) => <span className="font-mono text-sm font-medium">{row.getValue('so_number')}</span>,
+      cell: ({ row }) => (
+        <span className="font-mono text-sm font-medium">{row.getValue('so_number')}</span>
+      ),
     },
     {
       accessorKey: 'customer_name',
@@ -108,19 +138,6 @@ export default function SaleOrdersPage() {
       header: ({ column }) => <DataTableColumnHeader column={column} title="Date" />,
       cell: ({ row }) => (
         <span className="text-sm text-muted-foreground">{formatDate(row.getValue('created_at'))}</span>
-      ),
-    },
-    {
-      id: 'actions',
-      cell: ({ row }) => (
-        <Button
-          variant="ghost"
-          size="icon"
-          className="h-8 w-8"
-          onClick={() => setDetailSO(row.original)}
-        >
-          <Eye className="h-4 w-4" />
-        </Button>
       ),
     },
   ], [])
@@ -164,7 +181,7 @@ export default function SaleOrdersPage() {
       </div>
 
       {/* Filters */}
-      <div className="flex flex-col gap-3 sm:flex-row sm:items-center">
+      <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:flex-wrap">
         <SearchInput value={search} onChange={handleSearch} placeholder="Search SO number or customer…" />
         <div className="flex gap-2 flex-wrap">
           <input
@@ -181,15 +198,16 @@ export default function SaleOrdersPage() {
             className="h-9 rounded-md border border-input bg-background px-3 text-sm w-36"
             aria-label="To date"
           />
-          {(dateFrom || dateTo) && (
-            <Button variant="ghost" size="sm" onClick={() => { setDateFrom(''); setDateTo('') }}>
-              Clear dates
+          {hasActiveFilters && (
+            <Button variant="ghost" size="sm" onClick={clearFilters}>
+              Clear filters
             </Button>
           )}
         </div>
+        <DivisionFilter value={divisionFilter} onChange={setDivisionFilter} />
       </div>
 
-      <DataTable columns={columns} data={orders ?? []} isLoading={isLoading} />
+      <DataTable columns={columns} data={orders ?? []} isLoading={isLoading} onRowClick={(row) => setDetailSO(row)} />
 
       <SoDetailDialog
         open={!!detailSO}

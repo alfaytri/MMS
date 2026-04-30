@@ -7,15 +7,8 @@ import { Input } from '@/components/ui/input'
 import { Button } from '@/components/ui/button'
 import { cn } from '@/lib/utils'
 
-export type InventoryLookupResult = {
-  brand_variant_id: string
-  item_name: string
-  item_name_ar: string | null
-  sku: string | null
-  unit: string
-  cost_price: number
-  selling_price: number
-}
+import type { InventoryLookupResult } from '@/hooks/usePurchaseOrders'
+export type { InventoryLookupResult } from '@/hooks/usePurchaseOrders'
 
 interface InventoryItemLookupProps {
   value: InventoryLookupResult | null
@@ -53,6 +46,9 @@ export function InventoryItemLookup({ value, onChange, placeholder = 'Search inv
           unit: r.inventory_items.unit,
           cost_price: r.cost_price ?? 0,
           selling_price: r.selling_price ?? 0,
+          category_name: null,
+          category_name_ar: null,
+          brand: null,
         }))
       )
       setLoading(false)

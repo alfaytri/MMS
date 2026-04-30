@@ -23,14 +23,24 @@ export function BrandVariantEditDialog({ open, onOpenChange, itemId, variant }: 
   const [brand, setBrand] = useState('')
   const [code, setCode] = useState('')
   const [sellingPrice, setSellingPrice] = useState('')
+  const [marginPercent, setMarginPercent] = useState('0')
   const [reorderPoint, setReorderPoint] = useState('0')
+  const [stockLevel, setStockLevel] = useState('0')
+  const [avgCost, setAvgCost] = useState('')
+
+  // True when the system manages avg cost (stock received via PO)
+  // Reads persisted DB value (not editable stockLevel state) — manual edits to Stock on Hand cannot unlock this field
+  const avgCostLocked = isEdit && (variant?.stock_level ?? 0) > 0
 
   useEffect(() => {
     if (open) {
       setBrand((variant as any)?.brand ?? '')
       setCode((variant as any)?.code ?? '')
       setSellingPrice((variant as any)?.selling_price != null ? String((variant as any).selling_price) : '')
+      setMarginPercent((variant as any)?.margin_percent != null ? String((variant as any).margin_percent) : '0')
       setReorderPoint(variant ? String((variant as any).reorder_point ?? 0) : '0')
+      setStockLevel(variant ? String((variant as any).stock_level ?? 0) : '0')
+      setAvgCost(variant?.average_cost != null ? String(variant.average_cost) : '')
     }
   }, [open, variant])
 
@@ -45,17 +55,18 @@ export function BrandVariantEditDialog({ open, onOpenChange, itemId, variant }: 
       brand: brand.trim(),
       code: code.trim() || null,
       selling_price: sellingPrice ? Number(sellingPrice) : 0,
+      margin_percent: Number(marginPercent) || 0,
       reorder_point: Number(reorderPoint),
+      stock_level: Number(stockLevel) || 0,
+      // Only include average_cost when the field is editable (not locked by PO receivals)
+      ...(!avgCostLocked && { average_cost: avgCost !== '' ? Number(avgCost) : null }),
     }
 
     if (isEdit && variant) {
       update.mutate(
         { id: variant.id, ...payload },
         {
-          onSuccess: () => {
-            toast.success('Variant updated')
-            onOpenChange(false)
-          },
+          onSuccess: () => { toast.success('Variant updated'); onOpenChange(false) },
           onError: (err) => toast.error(err.message),
         },
       )
@@ -63,10 +74,7 @@ export function BrandVariantEditDialog({ open, onOpenChange, itemId, variant }: 
       create.mutate(
         { item_id: itemId, ...payload },
         {
-          onSuccess: () => {
-            toast.success('Variant added')
-            onOpenChange(false)
-          },
+          onSuccess: () => { toast.success('Variant added'); onOpenChange(false) },
           onError: (err) => toast.error(err.message),
         },
       )
@@ -103,24 +111,63 @@ export function BrandVariantEditDialog({ open, onOpenChange, itemId, variant }: 
             <div className="space-y-1">
               <Label>Selling Price (QAR)</Label>
               <Input
-                type="number"
-                min="0"
-                step="0.01"
+                type="number" min="0" step="0.01"
                 value={sellingPrice}
                 onChange={(e) => setSellingPrice(e.target.value)}
                 placeholder="0.00"
               />
             </div>
             <div className="space-y-1">
+              <Label>Markup %</Label>
+              <Input
+                type="number" min="0" step="0.01"
+                value={marginPercent}
+                onChange={(e) => setMarginPercent(e.target.value)}
+                placeholder="0"
+              />
+              <p className="text-xs text-muted-foreground">Used by LC price review: price = avg_cost × (1 + markup%)</p>
+            </div>
+          </div>
+          <div className="grid grid-cols-2 gap-3">
+            <div className="space-y-1">
+              <Label>Avg Cost (QAR)</Label>
+              {avgCostLocked ? (
+                <div className="space-y-1">
+                  <Input
+                    value={avgCost}
+                    readOnly
+                    className="bg-muted text-muted-foreground cursor-not-allowed"
+                  />
+                  <p className="text-xs text-muted-foreground">Auto-calculated from PO receivals</p>
+                </div>
+              ) : (
+                <div className="space-y-1">
+                  <Input
+                    type="number" min="0" step="0.01"
+                    value={avgCost}
+                    onChange={(e) => setAvgCost(e.target.value)}
+                    placeholder="0.00"
+                  />
+                  <p className="text-xs text-muted-foreground">Set initial cost — overwritten by first PO receival</p>
+                </div>
+              )}
+            </div>
+            <div className="space-y-1">
               <Label>Reorder Point</Label>
               <Input
-                type="number"
-                min="0"
-                step="1"
+                type="number" min="0" step="1"
                 value={reorderPoint}
                 onChange={(e) => setReorderPoint(e.target.value)}
               />
             </div>
+          </div>
+          <div className="space-y-1">
+            <Label>Stock on Hand</Label>
+            <Input
+              type="number" min="0" step="1"
+              value={stockLevel}
+              onChange={(e) => setStockLevel(e.target.value)}
+            />
           </div>
           <DialogFooter>
             <Button type="button" variant="outline" onClick={() => onOpenChange(false)}>

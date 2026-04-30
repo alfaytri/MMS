@@ -151,6 +151,7 @@ export function useRecentNotifications() {
         .from('notifications')
         .select('*')
         .eq('profile_id', profileId)
+        .is('read_at', null)
         .order('created_at', { ascending: false })
         .limit(10)
       if (error) throw error

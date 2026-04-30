@@ -1,19 +1,28 @@
 'use client'
 
-import { useState } from 'react'
-import { useRouter } from 'next/navigation'
+import { useState, Suspense } from 'react'
+import { useRouter, useSearchParams } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 
-export default function LoginPage() {
-  const router = useRouter()
-  const [email, setEmail] = useState('')
+const REASON_MESSAGES: Record<string, string> = {
+  timeout:    'You were signed out due to 30 minutes of inactivity.',
+  signout:    'You have been signed out.',
+}
+
+function LoginForm() {
+  const router       = useRouter()
+  const searchParams = useSearchParams()
+  const reason       = searchParams.get('reason')
+  const next         = searchParams.get('next') ?? '/'
+
+  const [email,    setEmail]    = useState('')
   const [password, setPassword] = useState('')
-  const [error, setError] = useState<string | null>(null)
-  const [loading, setLoading] = useState(false)
+  const [error,    setError]    = useState<string | null>(null)
+  const [loading,  setLoading]  = useState(false)
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault()
@@ -26,7 +35,7 @@ export default function LoginPage() {
       setLoading(false)
       return
     }
-    router.push('/')
+    router.push(next)
     router.refresh()
   }
 
@@ -39,6 +48,11 @@ export default function LoginPage() {
         </CardDescription>
       </CardHeader>
       <CardContent>
+        {reason && REASON_MESSAGES[reason] && (
+          <div className="mb-4 rounded-md bg-yellow-50 border border-yellow-200 px-4 py-2.5 text-sm text-yellow-800">
+            {REASON_MESSAGES[reason]}
+          </div>
+        )}
         <form onSubmit={handleSubmit} className="space-y-4">
           <div className="space-y-2">
             <Label htmlFor="email">Email</Label>
@@ -72,5 +86,13 @@ export default function LoginPage() {
         </form>
       </CardContent>
     </Card>
+  )
+}
+
+export default function LoginPage() {
+  return (
+    <Suspense fallback={null}>
+      <LoginForm />
+    </Suspense>
   )
 }

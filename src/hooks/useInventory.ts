@@ -1,14 +1,14 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { createClient } from '@/lib/supabase/client'
 import type { DBTable, DBInsert, DBUpdate } from '@/types/database.types'
+import type { ServiceNode, ServiceInventoryLinkFull, LinkType } from '@/components/services/inventory/serviceInventoryHelpers'
 
 export type InventoryCategory = DBTable<'inventory_categories'>
 export type InventoryItem = DBTable<'inventory_items'>
 export type BrandVariant = DBTable<'inventory_brand_variants'>
 export type InventoryItemInsert = DBInsert<'inventory_items'>
 export type InventoryItemUpdate = DBUpdate<'inventory_items'>
-// Manual type used instead of DBInsert<'inventory_brand_variants'> because generated
-// types are stale. The actual schema uses brand TEXT, not brand_id FK.
+// Explicit insert shape (subset of DBInsert) to keep the API surface minimal.
 export type BrandVariantInsert = {
   item_id: string
   brand: string
@@ -17,6 +17,8 @@ export type BrandVariantInsert = {
   selling_price?: number | null
   average_cost?: number | null
   reorder_point?: number
+  margin_percent?: number | null
+  stock_level?: number | null
 }
 export type BrandVariantUpdate = Partial<Omit<BrandVariantInsert, 'item_id'>> & { id?: string }
 
@@ -93,6 +95,7 @@ export function useCreateInventoryItem() {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['inventory-items'] })
+      queryClient.invalidateQueries({ queryKey: ['inventory-items-by-category'] })
     },
   })
 }
@@ -133,7 +136,9 @@ export function useCreateBrandVariant() {
     },
     onSuccess: (_: unknown, variables: BrandVariantInsert) => {
       queryClient.invalidateQueries({ queryKey: ['brand-variants', variables.item_id] })
+      queryClient.invalidateQueries({ queryKey: ['brand-variants-v2', variables.item_id] })
       queryClient.invalidateQueries({ queryKey: ['inventory-items'] })
+      queryClient.invalidateQueries({ queryKey: ['all-brand-names'] })
     },
   })
 }
@@ -155,6 +160,7 @@ export function useUpdateBrandVariant() {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['brand-variants'] })
+      queryClient.invalidateQueries({ queryKey: ['brand-variants-v2'] })
       queryClient.invalidateQueries({ queryKey: ['inventory-items'] })
     },
   })
@@ -247,7 +253,7 @@ export type ServiceInventoryLink = {
   id: string
   service_id: string
   brand_variant_id: string
-  qty_per_service: number
+  quantity: number
   notes: string | null
 }
 
@@ -290,6 +296,7 @@ export function useCreateInventoryCategory() {
     },
     onSuccess: (_, v) => {
       qc.invalidateQueries({ queryKey: ['inventory-categories', v.type] })
+      qc.invalidateQueries({ queryKey: ['inventory-categories'] })
     },
   })
 }
@@ -547,7 +554,7 @@ export function useServiceInventoryLinks(brandVariantId: string | null) {
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       const { data, error } = await (supabase as any)
         .from('service_inventory')
-        .select('id, service_id, brand_variant_id, qty_per_service, notes')
+        .select('id, service_id, brand_variant_id, quantity, notes')
         .eq('brand_variant_id', brandVariantId!)
       if (error) throw error
       return (data ?? []) as ServiceInventoryLink[]
@@ -583,7 +590,7 @@ export function useUpdateServiceInventoryLinks() {
         if (error) throw error
       }
       if (toAdd.length > 0) {
-        const rows = toAdd.map((sid) => ({ service_id: sid, brand_variant_id: brandVariantId, qty_per_service: 1 }))
+        const rows = toAdd.map((sid) => ({ service_id: sid, brand_variant_id: brandVariantId, quantity: 1 }))
         // eslint-disable-next-line @typescript-eslint/no-explicit-any
         const { error } = await (supabase as any).from('service_inventory').insert(rows)
         if (error) throw error
@@ -745,5 +752,212 @@ export function useStaffProfiles() {
       return (data ?? []) as { id: string; full_name: string }[]
     },
     staleTime: 10 * 60 * 1000,
+  })
+}
+
+// ─── LC Price Review helpers ───────────────────────────────────────────────────
+
+export type BrandVariantPriceSummary = {
+  id: string
+  selling_price: number | null
+  margin_percent: number | null
+  average_cost: number | null
+}
+
+export function useBrandVariantsByIds(ids: string[]) {
+  return useQuery({
+    queryKey: ['brand-variants-price-summary', ids.slice().sort().join(',')],
+    enabled: ids.length > 0,
+    queryFn: async () => {
+      const supabase = createClient()
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const { data, error } = await (supabase as any)
+        .from('inventory_brand_variants')
+        .select('id, selling_price, margin_percent, average_cost')
+        .in('id', ids)
+      if (error) throw error
+      return (data ?? []) as BrandVariantPriceSummary[]
+    },
+    staleTime: 0,
+  })
+}
+
+export type SellingPriceUpdate = {
+  id: string
+  selling_price: number
+  margin_percent: number
+}
+
+export function useBatchUpdateSellingPrices() {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: async (updates: SellingPriceUpdate[]) => {
+      const supabase = createClient()
+      // Single Postgres transaction via RPC — avoids N parallel HTTP requests
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const { error } = await (supabase as any)
+        .rpc('batch_update_variant_prices', { p_updates: updates })
+      if (error) throw error
+    },
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ['brand-variants'] })
+      qc.invalidateQueries({ queryKey: ['inventory-brand-variants'] })
+      qc.invalidateQueries({ queryKey: ['brand-variants-price-summary'] })
+    },
+  })
+}
+
+export function useAllBrandNames() {
+  return useQuery({
+    queryKey: ['all-brand-names'],
+    queryFn: async () => {
+      const supabase = createClient()
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const { data, error } = await (supabase as any)
+        .from('inventory_brand_variants')
+        .select('brand')
+        .neq('status', 'archived')
+        .order('brand')
+      if (error) throw error
+      return [...new Set((data ?? []).map((r: { brand: string }) => r.brand))] as string[]
+    },
+    staleTime: 10 * 60 * 1000,
+  })
+}
+
+// ─── Service-centric service inventory hooks ──────────────────────────────────
+
+/** All services — used to build leaves list and breadcrumbs. */
+export function useServicesForLinks() {
+  return useQuery({
+    queryKey: ['services-for-links'],
+    queryFn: async () => {
+      const supabase = createClient()
+      const { data, error } = await supabase
+        .from('services')
+        .select('id, name_en, parent_id, tree_type')
+        .order('name_en')
+      if (error) throw error
+      return (data ?? []) as ServiceNode[]
+    },
+    staleTime: 5 * 60 * 1000,
+  })
+}
+
+/**
+ * All service_inventory rows with joined variant + item details.
+ * Uses LEFT JOIN (no !inner) so links with a missing/archived variant
+ * appear with a null inventory_brand_variants field rather than silently
+ * disappearing from the view and making the counters lie.
+ */
+export function useAllServiceLinks() {
+  return useQuery({
+    queryKey: ['service-links-all'],
+    queryFn: async () => {
+      const supabase = createClient()
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const { data, error } = await (supabase as any)
+        .from('service_inventory')
+        .select(`
+          id,
+          service_id,
+          brand_variant_id,
+          link_type,
+          warranty_months,
+          quantity,
+          group_label,
+          inventory_brand_variants(
+            brand,
+            selling_price,
+            inventory_items(name_en, sku, unit)
+          )
+        `)
+      if (error) throw error
+      return (data ?? []) as ServiceInventoryLinkFull[]
+    },
+    staleTime: 2 * 60 * 1000,
+  })
+}
+
+/** Insert a single new service↔variant link. */
+export function useAddServiceInventoryLink() {
+  const qc = useQueryClient()
+  return useMutation<void, Error, {
+    service_id: string
+    brand_variant_id: string
+    link_type: LinkType
+    quantity: number
+    warranty_months: number
+    group_label?: string | null
+  }>({
+    mutationFn: async (row) => {
+      const supabase = createClient()
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const { error } = await (supabase as any)
+        .from('service_inventory')
+        .insert(row)
+      if (error) throw error
+    },
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ['service-links-all'] })
+    },
+  })
+}
+
+/** Delete a service↔variant link by its primary key id. */
+export function useDeleteServiceInventoryLink() {
+  const qc = useQueryClient()
+  return useMutation<void, Error, string>({
+    mutationFn: async (id) => {
+      const supabase = createClient()
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const { error } = await (supabase as any)
+        .from('service_inventory')
+        .delete()
+        .eq('id', id)
+      if (error) throw error
+    },
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ['service-links-all'] })
+    },
+  })
+}
+
+/**
+ * Patch link_type, warranty_months, or quantity on an existing link.
+ * Uses optimistic updates to avoid table flicker on inline edits — the
+ * cache is updated immediately; rolled back if the server rejects.
+ */
+export function useUpdateServiceInventoryLink() {
+  const qc = useQueryClient()
+  return useMutation<
+    void,
+    Error,
+    { id: string; link_type?: LinkType; warranty_months?: number; quantity?: number; group_label?: string | null },
+    { prev: ServiceInventoryLinkFull[] | undefined }
+  >({
+    mutationFn: async ({ id, ...patch }) => {
+      const supabase = createClient()
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const { error } = await (supabase as any)
+        .from('service_inventory')
+        .update(patch)
+        .eq('id', id)
+      if (error) throw error
+    },
+    onMutate: async (variables) => {
+      await qc.cancelQueries({ queryKey: ['service-links-all'] })
+      const prev = qc.getQueryData<ServiceInventoryLinkFull[]>(['service-links-all'])
+      qc.setQueryData<ServiceInventoryLinkFull[]>(['service-links-all'], (old) =>
+        old?.map((l) => l.id === variables.id ? { ...l, ...variables } : l) ?? []
+      )
+      return { prev }
+    },
+    onError: (_err, _vars, ctx) => {
+      if (ctx?.prev) qc.setQueryData(['service-links-all'], ctx.prev)
+    },
+    onSettled: () => {
+      qc.invalidateQueries({ queryKey: ['service-links-all'] })
+    },
   })
 }

@@ -6,11 +6,10 @@ import { PageHeader } from '@/components/shared/PageHeader'
 import { PageWrapper } from '@/components/shared/PageWrapper'
 import { DataTable } from '@/components/shared/DataTable'
 import { DataTableColumnHeader } from '@/components/shared/DataTableColumnHeader'
-import { DeliveryFormDialog } from '@/components/sales/DeliveryFormDialog'
 import { useSaleDeliveries, type SaleDelivery, type DeliveryStatus } from '@/hooks/useSaleDeliveries'
 import { formatDate } from '@/lib/utils/formatters'
-import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog'
 import { cn } from '@/lib/utils'
 
 const STATUS_CONFIG: Record<DeliveryStatus, { label: string; className: string }> = {
@@ -21,16 +20,16 @@ const STATUS_CONFIG: Record<DeliveryStatus, { label: string; className: string }
 }
 
 const STATUSES: { value: DeliveryStatus | ''; label: string }[] = [
-  { value: '', label: 'All' },
-  { value: 'pending', label: 'Pending' },
+  { value: '',            label: 'All' },
+  { value: 'pending',     label: 'Pending' },
   { value: 'in_progress', label: 'In Progress' },
-  { value: 'delivered', label: 'Delivered' },
-  { value: 'cancelled', label: 'Cancelled' },
+  { value: 'delivered',   label: 'Delivered' },
+  { value: 'cancelled',   label: 'Cancelled' },
 ]
 
 export default function DeliveriesPage() {
   const [statusFilter, setStatusFilter] = useState<DeliveryStatus | ''>('')
-  const [activeDelivery, setActiveDelivery] = useState<SaleDelivery | null>(null)
+  const [detailDelivery, setDetailDelivery] = useState<SaleDelivery | null>(null)
 
   const { data: deliveries, isLoading } = useSaleDeliveries({ status: statusFilter })
 
@@ -75,20 +74,6 @@ export default function DeliveriesPage() {
         return <Badge className={cn('text-xs', cfg.className)}>{cfg.label}</Badge>
       },
     },
-    {
-      id: 'actions',
-      cell: ({ row }) => {
-        const d = row.original
-        if (d.status === 'pending' || d.status === 'in_progress') {
-          return (
-            <Button variant="outline" size="sm" onClick={() => setActiveDelivery(d)}>
-              Complete
-            </Button>
-          )
-        }
-        return null
-      },
-    },
   ], [])
 
   return (
@@ -110,14 +95,60 @@ export default function DeliveriesPage() {
           </button>
         ))}
       </div>
-      <DataTable columns={columns} data={deliveries ?? []} isLoading={isLoading} />
-      {activeDelivery && (
-        <DeliveryFormDialog
-          open
-          onOpenChange={(v) => { if (!v) setActiveDelivery(null) }}
-          delivery={activeDelivery}
-        />
-      )}
+      <DataTable
+        columns={columns}
+        data={deliveries ?? []}
+        isLoading={isLoading}
+        onRowClick={(row) => setDetailDelivery(row)}
+      />
+
+      {/* Delivery Detail Dialog */}
+      <Dialog open={!!detailDelivery} onOpenChange={(o) => { if (!o) setDetailDelivery(null) }}>
+        <DialogContent className="w-full max-w-full rounded-none sm:max-w-2xl sm:rounded-lg">
+          <DialogHeader>
+            <DialogTitle>
+              {detailDelivery?.delivery_number}
+              <span className="ml-2 text-sm font-normal text-muted-foreground">
+                · {detailDelivery?.so_number} · {detailDelivery?.customer_name}
+              </span>
+            </DialogTitle>
+          </DialogHeader>
+
+          <div className="flex flex-wrap gap-3 text-sm text-muted-foreground">
+            {detailDelivery?.date && <span>Date: <span className="text-foreground">{formatDate(detailDelivery.date)}</span></span>}
+            {detailDelivery?.warehouse_name && <span>Warehouse: <span className="text-foreground">{detailDelivery.warehouse_name}</span></span>}
+            {detailDelivery?.status && (
+              <Badge className={cn('text-xs', STATUS_CONFIG[detailDelivery.status as DeliveryStatus]?.className)}>
+                {STATUS_CONFIG[detailDelivery.status as DeliveryStatus]?.label ?? detailDelivery.status}
+              </Badge>
+            )}
+          </div>
+
+          <div className="overflow-x-auto">
+            <table className="w-full text-sm">
+              <thead>
+                <tr className="border-b text-left text-xs text-muted-foreground uppercase tracking-wider">
+                  <th className="pb-2 pr-4">Item</th>
+                  <th className="pb-2 pr-4">SKU</th>
+                  <th className="pb-2 text-right">Qty Delivered</th>
+                </tr>
+              </thead>
+              <tbody>
+                {(detailDelivery?.items ?? []).map((item, i) => (
+                  <tr key={i} className="border-b last:border-0">
+                    <td className="py-2 pr-4 font-medium">{item.item_name}</td>
+                    <td className="py-2 pr-4 text-muted-foreground font-mono text-xs">{item.sku ?? '—'}</td>
+                    <td className="py-2 text-right">{item.qty_delivered}</td>
+                  </tr>
+                ))}
+                {(detailDelivery?.items ?? []).length === 0 && (
+                  <tr><td colSpan={3} className="py-4 text-center text-muted-foreground">No items</td></tr>
+                )}
+              </tbody>
+            </table>
+          </div>
+        </DialogContent>
+      </Dialog>
     </PageWrapper>
   )
 }

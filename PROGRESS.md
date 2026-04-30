@@ -13,7 +13,7 @@
 | **Project** | MMS — Maintenance Management System |
 | **Owner** | Mohamed Ismail |
 | **Working dir** | `D:/MMS` |
-| **Active branch** | `develop` — all Phase 1 feature work here, never commit directly to `main` |
+| **Active branch** | `feature/purchase-module` — current working branch for bill rework |
 | **Goal** | Web ERP for a Qatar maintenance company (Alfaytri Maintenance, RSH Cleaning and Pest Control) |
 
 ---
@@ -146,12 +146,109 @@ Purchase & Sales▾:
 | `docs/superpowers/plans/2026-04-20-warehouses-hub-redesign.md` | ✅ DONE | Warehouses operational hub — 7-tab redesign, URL state, React.memo, unified receivals+deliveries |
 | `docs/superpowers/plans/2026-04-22-po-approval-chain.md` | ✅ DONE | PO approval chain — configurable division-based chains, cumulative tiers, notifications, admin force-approve |
 | `docs/superpowers/plans/2026-04-25-inventory-complete.md` | ✅ DONE | Inventory accounting — FIFO layers, atomic RPCs, reserved qty, COGS, stock movements, ledger hooks |
+| `docs/superpowers/plans/2026-04-27-multi-company-division-isolation.md` | ✅ DONE | Division isolation — JWT hook, RLS, DivisionFilter, PO/SO create pickers, user division assignment |
+| `docs/superpowers/plans/2026-04-30-po-returns.md` | ✅ DONE | PO returns — dispatch/cancel/supplier-confirm flow, inventory deduction on dispatch, cancel with RPC reversal, type toggle on Returns page |
 
 ---
 
 ## 🔄 In Progress
 
-Next: **feature/purchase-module** — awaiting new plan
+🚀 Starting: **— all tasks complete —**
+
+## ✅ Completed
+
+- [2026-04-30] **PO Return Debit Note inline display + backfill** — `src/hooks/usePurchaseReturns.ts`, `src/components/purchase/PoDetailDialog.tsx` — `usePurchaseReturnsByPO` now joins `credit_notes(*)`; `POReturn` type gains `credit_note_id` and `debit_note`; return row in PO dialog shows DN number + PDF download when note exists; "Create Debit Note" button shown for returns at `supplier_confirmed`/`closed` with no note (backfills existing returns); `useCreateDebitNoteForReturn` exported mutation
+
+- [2026-04-30] **Credit & Debit Notes Task 9: Central page with type switcher** — `src/app/(dashboard)/sales/credit-notes/page.tsx` — Replaced single-type credit-notes page with unified Credit & Debit Notes hub; `noteType` state drives `useCreditNotes`/`useDebitNotes` hook selection; separate `creditColumns`/`debitColumns` column definitions; Select dropdown switcher (`w-48`) below PageHeader; "Create Credit Note" button hidden when Debit Notes tab is active; PDF download via `CreditDebitNoteDownloadButton`; `ConfirmDialog` for apply flow unchanged; zero TypeScript errors
+
+- [2026-04-30] **PO Returns: Full feature** — `supabase/migrations/20260430170000_po_returns.sql`, `src/hooks/usePurchaseReturns.ts`, `src/hooks/useSaleReturns.ts`, `src/components/purchase/PoDetailDialog.tsx`, `src/app/(dashboard)/sales/returns/page.tsx` — PO returns with `pending→dispatched→supplier_confirmed→closed` flow; inventory deducted on dispatch via `rpc_process_po_return_dispatch` (SECURITY DEFINER); cancel reverses inventory via `rpc_cancel_po_return_dispatch`; Returns page has Sale/PO toggle with URL persistence (`?type=sale|po`); cancel available for both return types at correct stages
+- [2026-04-30] **Sale Return Inventory Integration** — `supabase/migrations/20260430140000_sale_return_restock.sql`, `src/hooks/useSaleReturns.ts`, `src/components/services/inventory/BrandVariantRow.tsx` — Added `damaged_qty` column to `inventory_brand_variants`; added `restocked_at` to `returns`; extended movement_type CHECK constraint with `sale_return` and `sale_return_damaged`; created `rpc_process_return_restock` RPC (idempotent via `restocked_at` stamp): good items restore `stock_level` + insert movement, damaged items increment `damaged_qty` + insert movement; `useUpdateReturnStatus` now calls RPC on `restocked` transition; `BrandVariantRow` shows red "X dmg" badge when `damaged_qty > 0`
+
+- [2026-04-30] **Invoice Payments Task 11: Wire Payments Page — Link Invoice button** — `src/app/(dashboard)/purchase/payments/page.tsx`, `src/components/ui/tooltip.tsx` (new) — Added `SelectInvoiceDialog` import + three `linkInvoice*` state vars; updated `invoiceColumns` actions cell to show Paperclip button for unlinked CPAY rows that have a `customer_id`; mounted `SelectInvoiceDialog` conditionally; installed missing shadcn Tooltip component
+
+- [2026-04-30] **Invoice Payments Task 10: Wire Invoice Detail Page + Dialog + SoDetailDialog** — `src/app/(dashboard)/sales/invoices/[id]/page.tsx`, `src/components/sales/InvoiceDetail.tsx`, `src/components/sales/SoDetailDialog.tsx` — Invoice detail page: Record Payment, Attach Payment (tooltip-guarded), Payment Plan buttons + `AttachInvoiceDialog`; InvoiceDetail dialog: same three buttons + Payment History with detach (AlertDialog); SoDetailDialog: import updated to `finance/PaymentPlanDialog` + `AR_LABELS` added
+
+- [2026-04-30] **Invoice Payments Task 9: SelectInvoiceDialog component** — `src/components/sales/SelectInvoiceDialog.tsx` — Dialog for linking an unlinked incoming payment to an open AR invoice; lists unpaid/partially-paid invoices via `useUnlinkedArInvoices`; calls `useAttachPaymentToInvoice`; payment-status badge with color map; resets selection on close
+
+- [2026-04-30] **Invoice Payments Task 8: AttachInvoiceDialog component** — `src/components/sales/AttachInvoiceDialog.tsx` — Dialog for attaching an unlinked payment to the current invoice; lists unlinked incoming payments via `useUnlinkedIncomingPayments`; calls `useAttachPaymentToInvoice`; guards against already-paid invoices; resets selection on close
+
+- [2026-04-30] **Invoice Payments Task 7: Move PaymentPlanDialog to finance/ + add labels prop** — `src/components/finance/PaymentPlanDialog.tsx` (new), `src/components/purchase/PaymentPlanDialog.tsx` (re-export shim) — Canonical dialog now lives in finance/; added `PaymentPlanLabels` interface + `AP_LABELS`/`AR_LABELS` constants; `labels` prop defaults to AP_LABELS for backward compat; purchase file is a thin re-export
+
+- [2026-04-30] **Invoice Payments & Payment Plans Task 1: Database Migration** — `supabase/migrations/20260430120000_invoice_payment_rpcs.sql` — Added `payments.customer_id` nullable FK column; backfilled existing incoming payments via linked invoice and source sale_order; created `recalculate_ar_invoice_payment_status` shared function; created `trg_recalc_ar_payment_status` trigger (AFTER INSERT/UPDATE/DELETE on payments); created `attach_payment_to_invoice` RPC with FOR UPDATE row lock and ownership guard; created `detach_payment_from_invoice` RPC with same guards
+
+- [2026-04-30] **Invoice Detail Page Task 5: Rebuild with Bill-style sidebar layout** — `src/app/(dashboard)/sales/invoices/[id]/page.tsx` — Replaced flat toolbar-only layout with sidebar + content split; `InvoiceDetailSidebar` always visible on lg+, overlay on mobile; `usePathname`/`useSearchParams` for URL-persisted toggle state; `handleToggle` syncs URL params; toolbar moved inside main content area; `Printer` removed from lucide imports (sidebar handles print); `showNotes`/`showQR`/`showPaymentPlan` props now passed to `InvoiceDetailDocument`
+
+- [2026-04-29] **Sale Module UX: SO row click + Invoice document page** — `src/app/(dashboard)/sales/orders/page.tsx`, `src/app/(dashboard)/sales/invoices/page.tsx`, `src/app/(dashboard)/sales/invoices/[id]/page.tsx` (new), `src/components/sales/InvoiceDetailDocument.tsx` (new) — SO list: eye button removed, entire row clickable via onRowClick; Invoice list: row navigates to full document page; new /sales/invoices/[id] route shows printable invoice with company header, "فاتورة مبيعات", customer, line items, totals, payment history, balance, QR code, watermark, plus Print/Send/Pay toolbar
+
+- [2026-04-29] **Fix PO payment direction bug** — `src/hooks/usePurchaseOrders.ts`, `supabase/migrations/20260429150000_fix_po_payment_direction.sql` — `useCreatePOPayment` was missing `direction: 'outgoing'` and `payment_id`, causing PO payments to default to `incoming` and appear on Invoice Payments page; migration backfills all affected rows and assigns SPAY- IDs
+
+- [2026-04-29] **Notification bell fix** — `src/hooks/useNotifications.ts` — Added `.is('read_at', null)` filter to `useRecentNotifications` so approved/read notifications are immediately removed from the bell dropdown
+
+- [2026-04-29] **Bill Rework Task 7: Update bill VM and AttachBillDialog for multi-allocation** — `src/hooks/useSupplierBills.ts`, `src/hooks/useAttachPaymentToBill.ts`, `src/components/purchase/AttachBillDialog.tsx` — `useBillViewModel` now queries `payment_bill_allocations` joined with `payments`; hook calls `allocate_payment_to_bill` with required `amount`; link-payment dialog shows payment cards with remaining balance and partial allocation amount input; attach-bill mode preserved
+
+- [2026-04-29] **Bill Rework Task 6: Multi-bill payment allocations migration** — `supabase/migrations/20260429140000_payment_bill_allocations.sql` — Created `payment_bill_allocations` table; backfilled existing 1:1 links; new `allocate_payment_to_bill` RPC with FOR UPDATE row lock and manually_paid guard; shim preserves `attach_payment_to_bill` for existing callers
+
+- [2026-04-29] **Bill Rework Task 5: Replace create-bill page with CreateBillFromPODialog** — `src/components/purchase/CreateBillFromPODialog.tsx` (new), `src/app/(dashboard)/purchase/orders/page.tsx`, `src/components/purchase/PoDetailDialog.tsx`, deleted `src/app/(dashboard)/purchase/create-bill/page.tsx` — Inline dialog replaces full-page route; fetches PO conditionally; shows discount row; on success redirects to new bill detail page
+
+- [2026-04-29] **Bill Rework Task 4: Manual Mark as Paid button** — `supabase/migrations/20260429130000_invoices_manually_paid.sql`, `src/hooks/useSupplierBills.ts`, `src/components/purchase/BillDetailDocument.tsx` — Added `manually_paid` column to invoices (prevents allocation RPC from overwriting manual status); `useMarkBillPaymentStatus` hook sets both `payment_status` and `manually_paid`; button toggles between Mark as Paid (default) / Mark as Unpaid (outline) with pending state
+
+- [2026-04-29] **Bill Rework Task 3: Two-level Company + Division sidebar selectors** — `src/components/purchase/BillDetailSidebar.tsx`, `src/components/purchase/BillDetailDocument.tsx`, `src/app/(dashboard)/purchase/bills/[id]/page.tsx` — Added Company selector above Division in sidebar; Division disabled until company chosen; print header shows company name_en on line 1, division name on line 2, address below; footer updated to show company · division
+
+- [2026-04-29] **Bill Rework Task 2: Remove approval-status-related code from bills UI** — `src/components/purchase/BillDetailDocument.tsx` — Deleted DOC_STATUS_COLORS constant; removed doc_status === 'draft' check from getWatermark function (keeping only paid/overdue watermarks); removed doc_status badge from meta section (kept only payment_status badge)
+
+- [2026-04-29] **Bill Rework Task 1: Fix Grand Total duplicate currency and print date** — `src/components/purchase/BillDetailDocument.tsx` — Removed trailing `{currency}` from Grand Total, deleted redundant "Total (QAR):" row, changed print timestamps from `toLocaleString`/`toISOString` to `toLocaleDateString('en-GB')`
+
+- [2026-04-29] **PO Status Auto-Progression (All Tasks)** — `supabase/migrations/20260429000002_po_auto_progress_status.sql`, `src/hooks/usePurchaseOrders.ts`, `src/app/(dashboard)/purchase/orders/page.tsx`, `src/components/purchase/PoDetailDialog.tsx`, `src/components/purchase/PoStatusBadge.tsx` — PO auto-advances from approved→partially_received→received→completed; new `refresh_po_status` DB function; backfill ran on all existing POs; teal badge for Completed status
+
+- [2026-04-29] **Bill Discount Inheritance & PO Module Fixes (All Tasks)** — `supabase/migrations/20260429000001_bill_discount_columns.sql`, `src/types/invoice.ts`, `src/hooks/useSupplierBills.ts`, `src/components/purchase/BillFormDialog.tsx`, `src/app/(dashboard)/purchase/create-bill/page.tsx`, `src/components/purchase/BillDetailDocument.tsx` — Bills auto-inherit PO discount; bill IDs renamed to PO-XXXXX-Bn pattern; discount line shown in totals; Supplier Ref shown in meta row; ApInvoice type now exposes discount_amount, discount_label, source_label
+
+- [2026-04-28] **Purchase Payments Enhancement (All Tasks)** — `src/hooks/useSupplierPayments.ts`, `src/hooks/useSupplierBills.ts`, `src/hooks/useAttachPaymentToBill.ts` (new), `src/components/purchase/AttachBillDialog.tsx` (new), `src/components/purchase/PoDetailDialog.tsx`, `src/components/purchase/BillDetailDocument.tsx`, `src/app/(dashboard)/purchase/payments/page.tsx`, `supabase/migrations/20260428200006_assign_missing_spay_ids.sql`, `supabase/migrations/20260428200007_attach_payment_to_bill_rpc.sql` — Fixed supplier/PO resolution for PO-direct payments; PO # column + eye icon on Purchase Payments; one-time bill attachment via atomic RPC from both Payments page and Bill detail; backfilled null SPAY- IDs
+
+- [2026-04-28] **Unified Payments Page (All Tasks)** — `src/app/(dashboard)/purchase/payments/page.tsx` (rewritten), `src/app/(dashboard)/sales/payments/page.tsx` (deleted), `src/components/layout/nav-config.ts` — Merged Purchase Payments and Customer Payments into single page with Purchase Payments / Invoice Payments dropdown selector; old sales payments page removed; nav consolidated to single Payments entry at /purchase/payments
+
+- [2026-04-28] **Inventory Module Task 1: Add Avg Cost field to BrandVariantEditDialog** — `src/components/services/inventory/BrandVariantEditDialog.tsx` — New avgCost state; lock condition on stock_level > 0; editable input with helper text when unlocked, read-only with "Auto-calculated from PO receivals" note when locked; spread average_cost into payload only if not locked
+
+- [2026-04-28] **Delivery Auto-Confirm + Cancel-Delivered: All Tasks** — `supabase/migrations/20260428000008_delivery_sequence_and_rpcs.sql`, `src/hooks/useSaleOrders.ts`, `src/hooks/useSaleDeliveries.ts`, `src/components/sales/SoDetailDialog.tsx`, `src/app/(dashboard)/sales/deliveries/page.tsx` — Deliveries auto-confirm on creation via atomic RPC; cancel reverses inventory for delivered deliveries; delivery numbers generated by DB sequence
+- [2026-04-28] **[Multi-Company Division Isolation] Task 10: Expandability verification + TypeScript build** — zero TypeScript errors; `is_division_visible()`, `useUserDivisionScope()`, `<DivisionFilter />`, division picker pattern all generic; `fix: SO create form useEffect auto-seed` patched
+- [2026-04-28] **[Multi-Company Division Isolation] Task 9: User Management — Division Assignment UI** — `src/components/master-data/EditUserDialog.tsx` — Division section with Badge+X removal, company-grouped Select picker, "Changes take effect on user's next login" toast; uses `useAllDivisions` + `useUserDivisions` + `useAssignDivision` + `useRemoveDivision`
+- [2026-04-28] **[Multi-Company Division Isolation] Task 8: SO Create Form — Division Picker** — `src/hooks/useSaleOrders.ts`, `src/app/(dashboard)/sales/create-so/page.tsx` — `division_id` in CreateSOPayload + RPC call; division picker for multi-division users; useEffect auto-seed; validation guard
+- [2026-04-28] **[Multi-Company Division Isolation] Task 7: PO Create Form — Division Picker** — `src/hooks/usePurchaseOrders.ts`, `src/app/(dashboard)/purchase/create-po/page.tsx`, `src/app/(dashboard)/purchase/edit-po/[id]/page.tsx` — `division_id` in CreatePOPayload + insert; division picker for multi-division users; useEffect auto-seed; validation guard
+- [2026-04-28] **[Multi-Company Division Isolation] Tasks 5 & 6: Wire DivisionFilter into PO & SO list pages** — `src/hooks/usePurchaseOrders.ts`, `src/hooks/useSaleOrders.ts`, `src/app/(dashboard)/purchase/orders/page.tsx`, `src/app/(dashboard)/sales/orders/page.tsx` — divisionId/divisionIds filter fields; DivisionFilter component wired; clearFilters resets division state; useRef fix for SO debounce
+- [2026-04-28] **[Multi-Company Division Isolation] Tasks 3 & 4: useUserDivisionScope + DivisionFilter** — `src/hooks/useUserDivisionScope.ts`, `src/components/shared/DivisionFilter.tsx`, `src/hooks/useDivisions.ts` — JWT claims hook (owner/accountant = super-viewer); DivisionFilter dropdowns (returns null for non-super-viewers); staleTime fix on useAllDivisions
+- [2026-04-28] **[Multi-Company Division Isolation] Task 2: Update create_sale_order RPC** — `supabase/migrations/20260428200004_so_rpc_add_division_id.sql` — Added `p_division_id UUID DEFAULT NULL` param + `division_id` column to INSERT; added `SET search_path = public`
+- [2026-04-28] **[Multi-Company Division Isolation] Task 1: DB Migration — Columns, JWT Hook, Helper, RLS** — `supabase/migrations/20260428200001_division_isolation.sql`, `20260428200002_fix_backfill_division_id.sql`, `20260428200003_division_isolation_hardening.sql` — Added division_id to PO/SO tables, backfilled from user_divisions, JWT auth hook reads approval_role_assignments for user_type claim, is_division_visible RLS helper, division_scope policies on both tables; also extended approval_role enum with 'employee'
+- [2026-04-27] **[SO Invoice Cash/Credit Plan] ALL TASKS COMPLETE** — `supabase/migrations/20260428000005–00007`, `src/types/invoice.ts`, `src/hooks/useCustomerInvoices.ts`, `src/hooks/useSaleOrders.ts`, `src/components/sales/SoDetailDialog.tsx`, `src/components/sales/SoTermsSection.tsx`, `src/app/(dashboard)/sales/create-so/page.tsx` — Cash/credit customer type enforcement; atomic generate_invoice_from_so RPC; Invoice tab in SoDetailDialog with generate/send/pay/plan actions; cash UX on create-SO page
+- [2026-04-27] **[SO Module Polish]** — `src/hooks/useSaleOrders.ts`, `src/hooks/useSaleDeliveries.ts`, `src/components/sales/SoDetailDialog.tsx`, `src/app/(dashboard)/sales/orders/page.tsx` — activity log on delivery create; useCancelDelivery mutation with activity log; SoDetailDialog payment status badge (Paid/Partially Paid/Unpaid) + cancel delivery button on pending deliveries; SO # column now clickable to open detail dialog
+- [2026-04-26] **[Credit Groups Dialog] Tasks 1–4** — `supabase/migrations/20260428000001_credit_groups_payment_methods.sql`, `src/hooks/useCreditGroups.ts`, `src/app/(dashboard)/master-data/credit-groups/AddCreditGroupDialog.tsx`, `src/app/(dashboard)/master-data/credit-groups/page.tsx` — payment_methods + max_days migration; PAYMENT_METHODS constant; modal dialog with toggle grid; table shows Methods + Max Days columns
+- [2026-04-26] **[SO Creation Rebuild] Task 9: Add Download PDF button to SoDetailDialog** — `src/components/sales/SoDetailDialog.tsx`, `src/hooks/useSaleOrders.ts` — dynamic PDFDownloadLink + QuotationDocument imports (SSR-safe); useSaleOrder select now fetches phone; Download PDF button shown for quotation/pending_approval status
+- [2026-04-26] **[SO Creation Rebuild] Task 8: PDF Quotation component** — `src/components/sales/SoQuotationPdf.tsx` — QuotationDocument with Cairo font (Arabic/Latin), grouped line items by type, subtotal/discount/grand total, terms + validity, fixed footer
+- [2026-04-26] **[SO Creation Rebuild] Task 7: Rewrite create-SO page** — `src/app/(dashboard)/sales/create-so/page.tsx` — rebuilt with Popover/Command customer selector, credit group display + no-credit-group blocking, intent-based quotation/confirm flow calling atomic RPC, isPriceLoading gate, validity_days from terms
+- [2026-04-26] **[Service Links Redesign] Task 4: Rebuild ServiceLinksView** — `src/components/services/inventory/ServiceLinksView.tsx` — Full service-centric rebuild: counters (total/linked/unlinked), URL-synced filters (slSearch/slType/slStatus), collapsible a11y rows (role=button, aria-expanded, keyboard Enter/Space), inline link-type + warranty + qty editing with optimistic updates, AlertDialog delete confirmation, NewLinkDialog with 2-step service→variant flow; fixed Ark UI `onValueChange: string | null` signatures
+- [2026-04-26] **[Service Links Redesign] Tasks 1–3: DB migration + helpers + hooks** — `supabase/migrations/20260426000002_service_inventory_link_type.sql`, `src/components/services/inventory/serviceInventoryHelpers.ts`, `src/hooks/useInventory.ts` — added quantity/link_type/warranty_months/group_label columns; helpers with LINK_TYPE_CONFIG, WARRANTY_OPTIONS, collectLeaves, buildBreadcrumbMap; new hooks useServicesForLinks, useAllServiceLinks, useAddServiceInventoryLink, useDeleteServiceInventoryLink, useUpdateServiceInventoryLink with optimistic updates
+- [2026-04-26] **[Cascade Inline Creation Plan] Task 7: Editable Vendor SKU** — `src/components/purchase/PoLineItemsEditor.tsx` — replaced read-only SKU span with editable Input; pre-fill guard preserves user-typed SKU on cascade select
+- [2026-04-26] **[Cascade Inline Creation Plan] Task 6: Stock pill display** — `src/components/purchase/CascadeInventorySelector.tsx` — shows "N in stock" (green) or "Out of stock" (muted) on both fresh-select and ancestry (DB-reload) paths; null-safe math guards against NaN on new variants
+- [2026-04-26] **[Cascade Inline Creation Plan] Task 5: Wire inline forms** — `src/components/purchase/CascadeInventorySelector.tsx` — added isCatCreating/isItemCreating/isVarCreating states; "Add new…" buttons outside Command filter; auto-advance opens next popover on creation; loading skeletons in item/variant CommandGroups prevent empty-flash after inline creation
+- [2026-04-26] **[Cascade Inline Creation Plan] Task 4: CascadeInlineForms** — `src/components/purchase/CascadeInlineForms.tsx` — three inline form components (Category, Item, Brand/Variant) with keyboard nav (Enter/Escape); brand autocomplete uses global useAllBrandNames hook across all variants
+- [2026-04-26] **[Cascade Inline Creation Plan] Task 3: Full-object state refactor** — `src/components/purchase/CascadeInventorySelector.tsx` — stores InventoryCategory/InventoryItem objects directly to eliminate .find() race condition on TanStack Query refetch after inline creation
+- [2026-04-26] **[Cascade Inline Creation Plan] Task 2: useBrandVariantAncestry stock fields** — `src/hooks/useBrandVariantAncestry.ts` — added stock_level + reserved_qty to type and query for ancestry (DB-reload) stock display path
+- [2026-04-26] **[Cascade Inline Creation Plan] Task 1: Query invalidations** — `src/hooks/useInventory.ts` — added inventory-items-by-category invalidation to useCreateInventoryItem; brand-variants-v2 + all-brand-names invalidation to useCreateBrandVariant; broad inventory-categories invalidation to useCreateInventoryCategory; new useAllBrandNames hook
+
+**[Cascade Inventory Selector Plan] — ALL TASKS COMPLETE ✅**
+
+- [2026-04-26] **[Cascade Inventory Selector Plan] Task 6: ATP guard migration** — `supabase/migrations/20260426000003_fix_apply_receival_edit_atp_guard.sql`, `20260426000004_fix_apply_receival_edit_atp_guard_v2.sql` — ATP guard on qty decrease in apply_receival_edit; v2 adds FOR UPDATE lock + COALESCE(stock_level,0) + variant ID in error message
+- [2026-04-26] **[Cascade Inventory Selector Plan] Task 5: Disable submit while price is loading** — `src/app/(dashboard)/purchase/create-po/page.tsx` — added isPriceLoading state, wired onPriceLoading to PoLineItemsEditor, both submit buttons disabled + label feedback during price fetch
+- [2026-04-26] **[Cascade Inventory Selector Plan] Task 4: Wire CascadeInventorySelector into PoLineItemsEditor + surface price-loading state** — `src/components/purchase/PoLineItemsEditor.tsx` — replaced InventoryItemLookup with CascadeInventorySelector; added onPriceLoading callback chain using useRef-backed Set to aggregate per-row loading state without extra re-renders
+
+**LC Page Enhancements Plan (2026-04-25-lc-page-enhancements.md)** — COMPLETE ✅
+- [x] Task 0: Setup — merge develop
+- [x] Task 1: DB Migration — private `lc-bills` storage bucket
+- [x] Task 2: DB Migration — `validate_lc_allocation` pre-flight RPC
+- [x] Task 3: Install `decimal.js`
+- [x] Task 4: Shared hooks — `useReceivalsForLcSelector` + `useReceivalItemsWithFifo`
+- [x] Task 5: `useLandedCosts` — add `bill_path`, `useValidateLcAllocation`, `useBillSignedUrls`
+- [x] Task 6: `CreateLcDialog` — bill upload, expandable items, decimal total, search
+- [x] Task 7: `LcDetailDialog` — bill links, all_items_sold badge, receivals breakdown, POs, apply pre-flight
+- [x] Task 8: Build verification + PROGRESS.md
 
 ---
 
@@ -197,6 +294,7 @@ Next: **feature/purchase-module** — awaiting new plan
 
 - [ ] **Manual smoke test** — in-app user management (all 17 tasks code-complete; browser smoke test pending before Phase 2)
 - [ ] **Verify** self-provision banner flow (Create My Profile) on a fresh auth user with no profile row ← **LAST TEST — complete only when manually instructed**
+- [ ] **LC: all_items_sold — QuickBooks guidance** (spec §12) — When `all_items_sold = TRUE`, surface a banner/note in the LC detail dialog instructing the user to record the LC total as a period expense in QuickBooks ("Landed Cost Expense | [month] | [amount]"). No integration, UI message only. ← **DEFERRED: last task of Phase 1**
 
 ### Bug Fixes & Features Applied [2026-04-24] (continued)
 
@@ -222,6 +320,12 @@ Next: **feature/purchase-module** — awaiting new plan
 ---
 
 ## ✅ Completed
+
+- [2026-04-26] **Cascade Inventory Selector Plan Task 4: Wire CascadeInventorySelector into PoLineItemsEditor** — `src/components/purchase/PoLineItemsEditor.tsx` — Replaced InventoryItemLookup with CascadeInventorySelector; added onPriceLoading prop to interface + signature; added priceLoadingKeys Set state + handleRowPriceLoading aggregator; tsc --noEmit clean
+- [2026-04-26] **Cascade Inventory Selector Plan Task 2: Create useBrandVariantAncestry hook** — `src/hooks/useBrandVariantAncestry.ts` — TanStack Query reverse-lookup hook for brand variant ancestry (item + category) by variantId; nested FK select joins inventory_items and inventory_categories tables; 10-minute staleTime cache; tsc --noEmit clean
+- [2026-04-25] **LC Revert & Price Review Tasks 1–5** — `supabase/migrations/20260425000300_lc_revert_and_margin.sql`, `src/hooks/useLandedCosts.ts`, `src/hooks/useInventory.ts`, `src/components/services/inventory/BrandVariantEditDialog.tsx`, `src/app/(dashboard)/purchase/landed-costs/page.tsx` — revert_snapshot on landed_costs, margin_percent on brand_variants, revert_landed_cost RPC, Revert Apply button with REVERT-to-confirm guard, post-apply PriceReviewDialog with per-row margin/fixed choice and batch selling price update
+- [2026-04-25] **LC Page Enhancements Tasks 0–8** — `supabase/migrations/20260425000200_lc_bills_bucket.sql`, `supabase/migrations/20260425000201_rpc_validate_lc_allocation.sql`, `src/hooks/useReceivals.ts`, `src/hooks/useLandedCosts.ts`, `src/app/(dashboard)/purchase/landed-costs/page.tsx` — Private lc-bills bucket with role-based RLS, validate_lc_allocation pre-flight RPC, decimal.js totals, useRef-based bill upload with 5 MB guard + date-structured paths, expandable receival items (remaining FIFO qty) in Create dialog, all_items_sold badge + bill signed-URL links + attached receivals/PO breakdown + apply pre-flight table in Detail dialog
+- [2026-04-25] **LC Page Enhancements Plan Task 2: DB Migration — `validate_lc_allocation` pre-flight RPC** — `supabase/migrations/20260425000201_rpc_validate_lc_allocation.sql` — Read-only function checks LC applicability (via `attached_receival_ids`), returns JSONB array of per-variant summaries with qty_received, qty_remaining_in_layers, and warning if sold-out; guards: not-found, already-applied, voided states; GRANT EXECUTE to authenticated
 
 ### LC Multi-Currency + Receival Redesign (Plan: 2026-04-25-lc-multicurrency-receival-redesign.md) — COMPLETE ✅
 
