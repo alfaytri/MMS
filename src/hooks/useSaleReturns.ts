@@ -18,7 +18,7 @@ export type SaleReturn = {
   }[]
   restock_warehouse_id: string | null
   notes: string | null
-  status: 'pending' | 'received' | 'restocked' | 'closed'
+  status: 'pending' | 'received' | 'restocked' | 'closed' | 'cancelled'
   created_by_name: string | null
   created_at: string
   updated_at: string
@@ -147,6 +147,7 @@ export function useUpdateReturnStatus() {
         received:  'Return Received',
         restocked: 'Return Restocked',
         closed:    'Return Closed',
+        cancelled: 'Return Cancelled',
       }
       logActivity({
         action:    label[variables.status],

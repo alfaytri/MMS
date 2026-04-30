@@ -33,6 +33,7 @@ const STATUS_CONFIG: Record<SaleReturn['status'], { label: string; className: st
   received:  { label: 'Received',  className: 'border-blue-500 text-blue-500' },
   restocked: { label: 'Restocked', className: 'border-success text-success' },
   closed:    { label: 'Closed',    className: 'border-muted-foreground/50 text-muted-foreground' },
+  cancelled: { label: 'Cancelled', className: 'border-destructive text-destructive' },
 }
 
 const STATUS_NEXT: Partial<Record<SaleReturn['status'], SaleReturn['status']>> = {
