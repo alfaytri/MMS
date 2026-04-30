@@ -3,7 +3,7 @@
 import { useState, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
 import {
-  Dialog, DialogContent, DialogHeader, DialogTitle,
+  Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter,
 } from '@/components/ui/dialog'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { Badge } from '@/components/ui/badge'
@@ -26,6 +26,11 @@ import {
   type PurchaseOrder,
 } from '@/hooks/usePurchaseOrders'
 import { useBillsByPO } from '@/hooks/useSupplierBills'
+import { usePurchaseReturnsByPO, useCreatePurchaseReturn, useUpdatePOReturnStatus, type POReturn, type POReturnItem } from '@/hooks/usePurchaseReturns'
+import { useWarehouses } from '@/hooks/useWarehouses'
+import { Input } from '@/components/ui/input'
+import { Label } from '@/components/ui/label'
+import { Textarea } from '@/components/ui/textarea'
 import { useActivityLog } from '@/hooks/useActivityLog'
 import { formatCurrency, formatDate } from '@/lib/utils/formatters'
 import { cn } from '@/lib/utils'
@@ -56,6 +61,18 @@ export function PoDetailDialog({ open, onOpenChange, po, poId, onEdit }: Props) 
     open && resolvedId ? { module: 'purchase_orders', entity_id: resolvedId } : {}
   )
   const { data: existingBills = [] } = useBillsByPO(open ? resolvedId : null)
+  const { data: poReturns = [] } = usePurchaseReturnsByPO(open ? resolvedId : null)
+  const { data: warehouses = [] } = useWarehouses()
+  const createPOReturn = useCreatePurchaseReturn()
+  const updatePOReturnStatus = useUpdatePOReturnStatus()
+
+  const [returnCreateOpen, setReturnCreateOpen] = useState(false)
+  const [returnDate, setReturnDate] = useState(new Date().toISOString().split('T')[0])
+  const [returnReason, setReturnReason] = useState('')
+  const [returnNotes, setReturnNotes] = useState('')
+  const [returnWarehouseId, setReturnWarehouseId] = useState('')
+  const [returnItems, setReturnItems] = useState<(POReturnItem & { _max: number })[]>([])
+  const [expandedReturnId, setExpandedReturnId] = useState<string | null>(null)
   const submitPO = useSubmitPOForApproval()
   const cancelPO = useCancelPO()
 
@@ -70,6 +87,48 @@ export function PoDetailDialog({ open, onOpenChange, po, poId, onEdit }: Props) 
 
   const isViewingSnapshot = activeVersionTab !== currentVersionNumber
   const snapshotVersion = versions.find((v) => v.version_number === activeVersionTab) ?? null
+
+  function openCreateReturn() {
+    const receivedLines = (fullPO?.po_line_items ?? []).filter((li) => li.received_qty > 0)
+    setReturnItems(
+      receivedLines.map((li) => ({
+        item_name: li.item_name,
+        sku: li.sku ?? null,
+        qty: 0,
+        brand_variant_id: li.brand_variant_id ?? null,
+        _max: li.received_qty,
+      }))
+    )
+    const latestReceival = (receivals ?? []).slice().sort(
+      (a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime()
+    )[0]
+    setReturnWarehouseId(latestReceival?.warehouse_id ?? '')
+    setReturnDate(new Date().toISOString().split('T')[0])
+    setReturnReason('')
+    setReturnNotes('')
+    setReturnCreateOpen(true)
+  }
+
+  function handleCreatePOReturn() {
+    if (!returnReason) { toast.error('Reason is required'); return }
+    const items = returnItems.filter((i) => i.qty > 0)
+    if (items.length === 0) { toast.error('Enter qty for at least one item'); return }
+    if (!resolvedId) return
+    createPOReturn.mutate(
+      {
+        source_id: resolvedId,
+        date: returnDate,
+        reason: returnReason,
+        items: items.map(({ item_name, sku, qty, brand_variant_id }) => ({ item_name, sku, qty, brand_variant_id })),
+        restock_warehouse_id: returnWarehouseId || null,
+        notes: returnNotes || null,
+      },
+      {
+        onSuccess: () => { toast.success('Return created'); setReturnCreateOpen(false) },
+        onError: (err: Error) => toast.error(err.message),
+      }
+    )
+  }
 
   // Show skeleton header while PO loads when only an ID was provided
   if (open && !current && isLoading) {
@@ -217,6 +276,11 @@ export function PoDetailDialog({ open, onOpenChange, po, poId, onEdit }: Props) 
                 )}
                 {!isViewingSnapshot && <TabsTrigger value="payments">Payments</TabsTrigger>}
                 <TabsTrigger value="activity">Activity</TabsTrigger>
+                {!isViewingSnapshot && current && ['partially_received', 'received', 'completed'].includes(current.status) && (
+                  <TabsTrigger value="returns">
+                    Returns{poReturns.length > 0 ? ` (${poReturns.length})` : ''}
+                  </TabsTrigger>
+                )}
               </TabsList>
 
               {/* ── Line Items ───────────────────────────────────── */}
@@ -457,6 +521,189 @@ export function PoDetailDialog({ open, onOpenChange, po, poId, onEdit }: Props) 
                   </div>
                 )}
               </TabsContent>
+
+              {/* ── Returns ──────────────────────────────────────── */}
+              {!isViewingSnapshot && current && ['partially_received', 'received', 'completed'].includes(current.status) && (
+                <TabsContent value="returns" className="flex-1 overflow-y-auto space-y-3">
+                  <div className="flex justify-end">
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      disabled={(fullPO?.po_line_items ?? []).every((li) => li.received_qty === 0)}
+                      title={(fullPO?.po_line_items ?? []).every((li) => li.received_qty === 0) ? 'No items received yet' : undefined}
+                      onClick={openCreateReturn}
+                    >
+                      + Create Return
+                    </Button>
+                  </div>
+
+                  {poReturns.length === 0 ? (
+                    <p className="text-sm text-muted-foreground text-center py-6">No returns for this order</p>
+                  ) : (
+                    poReturns.map((ret) => {
+                      const PO_STATUS_CONFIG: Record<string, { label: string; className: string }> = {
+                        pending:            { label: 'Pending',            className: 'border-warning text-warning' },
+                        dispatched:         { label: 'Dispatched',         className: 'border-blue-500 text-blue-500' },
+                        supplier_confirmed: { label: 'Supplier Confirmed', className: 'border-success text-success' },
+                        closed:             { label: 'Closed',             className: 'border-muted-foreground/50 text-muted-foreground' },
+                        cancelled:          { label: 'Cancelled',          className: 'border-muted-foreground/30 text-muted-foreground/60' },
+                      }
+                      const cfg = PO_STATUS_CONFIG[ret.status] ?? PO_STATUS_CONFIG.pending
+                      const PO_STATUS_NEXT: Partial<Record<string, string>> = {
+                        pending:            'dispatched',
+                        dispatched:         'supplier_confirmed',
+                        supplier_confirmed: 'closed',
+                      }
+                      const PO_STATUS_LABEL: Record<string, string> = {
+                        dispatched:         'Mark Dispatched',
+                        supplier_confirmed: 'Confirm Supplier Receipt',
+                        closed:             'Close Return',
+                      }
+                      const next = PO_STATUS_NEXT[ret.status]
+                      const canCancel = ret.status === 'pending' || ret.status === 'dispatched'
+                      return (
+                        <div key={ret.id} className="rounded-md border p-3 space-y-2">
+                          <div className="flex flex-wrap items-center justify-between gap-2">
+                            <div className="flex items-center gap-2">
+                              <button
+                                type="button"
+                                className="font-mono font-semibold text-sm hover:underline"
+                                onClick={() => setExpandedReturnId(expandedReturnId === ret.id ? null : ret.id)}
+                              >
+                                {ret.return_number}
+                              </button>
+                              <Badge variant="outline" className={cn('text-xs', cfg.className)}>{cfg.label}</Badge>
+                            </div>
+                            <div className="flex items-center gap-2">
+                              {next && (
+                                <Button
+                                  size="sm"
+                                  variant="outline"
+                                  disabled={updatePOReturnStatus.isPending}
+                                  onClick={() => updatePOReturnStatus.mutate(
+                                    { id: ret.id, status: next as any, sourceId: resolvedId! },
+                                    { onSuccess: () => toast.success(PO_STATUS_LABEL[next] ?? next), onError: (e: Error) => toast.error(e.message) }
+                                  )}
+                                >
+                                  {PO_STATUS_LABEL[next]}
+                                </Button>
+                              )}
+                              {canCancel && (
+                                <Button
+                                  size="sm"
+                                  variant="ghost"
+                                  className="text-destructive hover:text-destructive"
+                                  disabled={updatePOReturnStatus.isPending}
+                                  onClick={() => updatePOReturnStatus.mutate(
+                                    { id: ret.id, status: 'cancelled', sourceId: resolvedId! },
+                                    { onSuccess: () => toast.success('Return cancelled'), onError: (e: Error) => toast.error(e.message) }
+                                  )}
+                                >
+                                  Cancel
+                                </Button>
+                              )}
+                            </div>
+                          </div>
+                          <div className="text-xs text-muted-foreground">
+                            {ret.date} · {ret.items.length} item(s) · {ret.reason}
+                          </div>
+                          {expandedReturnId === ret.id && (
+                            <div className="rounded-md border overflow-x-auto mt-2">
+                              <Table>
+                                <TableHeader>
+                                  <TableRow>
+                                    <TableHead className="text-xs">Item</TableHead>
+                                    <TableHead className="text-xs text-right">Qty</TableHead>
+                                  </TableRow>
+                                </TableHeader>
+                                <TableBody>
+                                  {ret.items.map((item, idx) => (
+                                    <TableRow key={idx}>
+                                      <TableCell className="text-xs">{item.item_name}{item.sku ? ` · ${item.sku}` : ''}</TableCell>
+                                      <TableCell className="text-xs text-right">{item.qty}</TableCell>
+                                    </TableRow>
+                                  ))}
+                                </TableBody>
+                              </Table>
+                            </div>
+                          )}
+                        </div>
+                      )
+                    })
+                  )}
+
+                  {/* Create Return Dialog */}
+                  <Dialog open={returnCreateOpen} onOpenChange={(o) => { if (!o) setReturnCreateOpen(false) }}>
+                    <DialogContent className="w-full max-w-full rounded-none sm:max-w-2xl sm:rounded-lg max-h-[90vh] flex flex-col">
+                      <DialogHeader className="shrink-0">
+                        <DialogTitle>Create PO Return</DialogTitle>
+                      </DialogHeader>
+                      <div className="flex-1 overflow-y-auto space-y-4 py-2">
+                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                          <div className="space-y-1">
+                            <Label htmlFor="por-date">Return Date *</Label>
+                            <Input id="por-date" type="date" value={returnDate} onChange={(e) => setReturnDate(e.target.value)} />
+                          </div>
+                          <div className="space-y-1">
+                            <Label htmlFor="por-warehouse">Dispatch From Warehouse</Label>
+                            <select
+                              id="por-warehouse"
+                              value={returnWarehouseId}
+                              onChange={(e) => setReturnWarehouseId(e.target.value)}
+                              className="flex h-9 w-full rounded-md border border-input bg-background px-3 py-1 text-sm"
+                            >
+                              <option value="">Select warehouse…</option>
+                              {warehouses.map((w) => (
+                                <option key={w.id} value={w.id}>{w.name}</option>
+                              ))}
+                            </select>
+                          </div>
+                        </div>
+                        <div className="space-y-1">
+                          <Label htmlFor="por-reason">Reason *</Label>
+                          <Input id="por-reason" value={returnReason} onChange={(e) => setReturnReason(e.target.value)} placeholder="e.g. Wrong item, damaged on arrival…" />
+                        </div>
+                        {returnItems.length > 0 && (
+                          <div className="space-y-2">
+                            <Label>Items to Return</Label>
+                            {returnItems.map((item, idx) => (
+                              <div key={idx} className="flex items-center gap-3 rounded-md border p-2">
+                                <div className="flex-1 min-w-0">
+                                  <div className="text-sm font-medium truncate">{item.item_name}</div>
+                                  {item.sku && <div className="text-xs text-muted-foreground">{item.sku}</div>}
+                                  <div className="text-xs text-muted-foreground">Max returnable: {item._max}</div>
+                                </div>
+                                <Input
+                                  type="number"
+                                  min="0"
+                                  max={item._max}
+                                  value={item.qty}
+                                  onChange={(e) => {
+                                    const updated = [...returnItems]
+                                    updated[idx] = { ...updated[idx], qty: Math.min(item._max, Math.max(0, Number(e.target.value))) }
+                                    setReturnItems(updated)
+                                  }}
+                                  className="w-20 text-right"
+                                />
+                              </div>
+                            ))}
+                          </div>
+                        )}
+                        <div className="space-y-1">
+                          <Label htmlFor="por-notes">Notes</Label>
+                          <Textarea id="por-notes" value={returnNotes} onChange={(e) => setReturnNotes(e.target.value)} rows={2} />
+                        </div>
+                      </div>
+                      <DialogFooter className="shrink-0">
+                        <Button variant="outline" onClick={() => setReturnCreateOpen(false)} disabled={createPOReturn.isPending}>Cancel</Button>
+                        <Button onClick={handleCreatePOReturn} disabled={createPOReturn.isPending}>
+                          {createPOReturn.isPending ? 'Creating…' : 'Create Return'}
+                        </Button>
+                      </DialogFooter>
+                    </DialogContent>
+                  </Dialog>
+                </TabsContent>
+              )}
             </Tabs>
           )}
 
