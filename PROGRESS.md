@@ -152,9 +152,11 @@ Purchase & Sales▾:
 
 ## 🔄 In Progress
 
-🚀 Starting: **Invoice Payments & Payment Plans Task 1: Database Migration**
+_(nothing in progress)_
 
 ## ✅ Completed
+
+- [2026-04-30] **Invoice Payments & Payment Plans Task 1: Database Migration** — `supabase/migrations/20260430120000_invoice_payment_rpcs.sql` — Added `payments.customer_id` nullable FK column; backfilled existing incoming payments via linked invoice and source sale_order; created `recalculate_ar_invoice_payment_status` shared function; created `trg_recalc_ar_payment_status` trigger (AFTER INSERT/UPDATE/DELETE on payments); created `attach_payment_to_invoice` RPC with FOR UPDATE row lock and ownership guard; created `detach_payment_from_invoice` RPC with same guards
 
 - [2026-04-30] **Invoice Detail Page Task 5: Rebuild with Bill-style sidebar layout** — `src/app/(dashboard)/sales/invoices/[id]/page.tsx` — Replaced flat toolbar-only layout with sidebar + content split; `InvoiceDetailSidebar` always visible on lg+, overlay on mobile; `usePathname`/`useSearchParams` for URL-persisted toggle state; `handleToggle` syncs URL params; toolbar moved inside main content area; `Printer` removed from lucide imports (sidebar handles print); `showNotes`/`showQR`/`showPaymentPlan` props now passed to `InvoiceDetailDocument`
 
