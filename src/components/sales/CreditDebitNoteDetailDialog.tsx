@@ -43,7 +43,7 @@ export function CreditDebitNoteDetailDialog({ note, referenceNumber, open, onOpe
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="w-[95vw] max-w-6xl max-h-[90vh] overflow-y-auto p-6">
+      <DialogContent className="w-fit min-w-[900px] max-w-[98vw] max-h-[90vh] overflow-y-auto overflow-x-visible p-8">
 
         {/* ── Header ── */}
         <DialogHeader className="pb-3">
@@ -90,7 +90,7 @@ export function CreditDebitNoteDetailDialog({ note, referenceNumber, open, onOpe
               Original Items
             </p>
             <div className="rounded-md border">
-              <Table className="w-full">
+              <Table className="w-full min-w-[850px]">
                 <TableHeader>
                   <TableRow>
                     <TableHead className="text-xs">Item</TableHead>
@@ -104,7 +104,7 @@ export function CreditDebitNoteDetailDialog({ note, referenceNumber, open, onOpe
                   {pdfData.original_lines.map((line: NoteLineItem, idx: number) => (
                     <TableRow key={idx}>
                       <TableCell className="text-sm">{line.item_name}</TableCell>
-                      <TableCell className="text-xs text-muted-foreground">{line.sku ?? '—'}</TableCell>
+                      <TableCell className="text-xs text-muted-foreground whitespace-nowrap">{line.sku ?? '—'}</TableCell>
                       <TableCell className="text-sm text-right">{line.qty}</TableCell>
                       <TableCell className="text-sm text-right whitespace-nowrap tabular-nums">
                         {formatCurrency(line.unit_price, 'QAR')}
@@ -127,7 +127,7 @@ export function CreditDebitNoteDetailDialog({ note, referenceNumber, open, onOpe
               Returned Items
             </p>
             <div className="rounded-md border">
-              <Table className="w-full">
+              <Table className="w-full min-w-[850px]">
                 <TableHeader>
                   <TableRow>
                     <TableHead className="text-xs">Item</TableHead>
@@ -142,10 +142,10 @@ export function CreditDebitNoteDetailDialog({ note, referenceNumber, open, onOpe
                   {pdfData.returned_lines.map((line: NoteDebitLineItem, idx: number) => (
                     <TableRow key={idx}>
                       <TableCell className="text-sm">{line.item_name}</TableCell>
-                      <TableCell className="text-xs text-muted-foreground">{line.sku ?? '—'}</TableCell>
+                      <TableCell className="text-xs text-muted-foreground whitespace-nowrap">{line.sku ?? '—'}</TableCell>
                       <TableCell className="text-sm text-right">{line.qty}</TableCell>
                       {isDebit && (
-                        <TableCell className="text-xs text-muted-foreground">{conditionLabel(line)}</TableCell>
+                        <TableCell className="text-xs text-muted-foreground whitespace-nowrap">{conditionLabel(line)}</TableCell>
                       )}
                       <TableCell className="text-sm text-right whitespace-nowrap tabular-nums">
                         {formatCurrency(line.unit_price, 'QAR')}
