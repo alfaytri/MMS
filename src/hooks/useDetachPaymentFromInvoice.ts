@@ -24,6 +24,7 @@ export function useDetachPaymentFromInvoice() {
       queryClient.invalidateQueries({ queryKey: ['customer-payments', variables.invoiceId] })
       queryClient.invalidateQueries({ queryKey: ['customer-invoices'] })
       queryClient.invalidateQueries({ queryKey: ['unlinked-incoming-payments'] })
+      queryClient.invalidateQueries({ queryKey: ['unlinked-ar-invoices'] })
     },
   })
 }
