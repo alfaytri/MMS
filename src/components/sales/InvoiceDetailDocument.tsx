@@ -10,6 +10,7 @@ import { BillDetailSection } from '@/components/purchase/BillDetailSection'
 import { formatCurrency, formatDate } from '@/lib/utils/formatters'
 import { cn } from '@/lib/utils'
 import type { ArInvoice } from '@/types/invoice'
+import type { PaymentPlan, PaymentInstallment } from '@/hooks/usePaymentPlans'
 import type { CustomerPayment } from '@/hooks/useCustomerPayments'
 import type { Division } from '@/hooks/useDivisions'
 import type { Company } from '@/hooks/useCompanies'
@@ -21,6 +22,10 @@ type Props = {
   payments: CustomerPayment[]
   company: Company | null
   division: Division | null
+  plans?: PaymentPlan[]
+  showNotes?: boolean
+  showQR?: boolean
+  showPaymentPlan?: boolean
 }
 
 const PAY_STATUS_COLORS: Record<string, string> = {
@@ -42,7 +47,16 @@ function getWatermark(inv: ArInvoice): { text: string; colorClass: string } | nu
   return null
 }
 
-export function InvoiceDetailDocument({ invoice, payments, company, division }: Props) {
+export function InvoiceDetailDocument({
+  invoice,
+  payments,
+  company,
+  division,
+  plans = [],
+  showNotes = true,
+  showQR = true,
+  showPaymentPlan = true,
+}: Props) {
   const [origin, setOrigin] = useState('')
   const watermark = getWatermark(invoice)
   const printTimestamp = new Date().toLocaleDateString('en-GB')
@@ -220,28 +234,69 @@ export function InvoiceDetailDocument({ invoice, payments, company, division }: 
         </div>
       </BillDetailSection>
 
-      {/* 7. Notes */}
-      {invoice.notes && (
+      {/* 7. Payment Plan */}
+      {showPaymentPlan && plans.length > 0 && (
+        <BillDetailSection title="Payment Plan">
+          <Table>
+            <TableHeader>
+              <TableRow>
+                <TableHead>#</TableHead>
+                <TableHead>Due Date</TableHead>
+                <TableHead className="text-right">Amount</TableHead>
+                <TableHead>Status</TableHead>
+              </TableRow>
+            </TableHeader>
+            <TableBody>
+              {plans
+                .flatMap((plan) => plan.payment_installments ?? [])
+                .map((inst, i) => (
+                  <TableRow key={inst.id ?? i}>
+                    <TableCell className="text-muted-foreground">{i + 1}</TableCell>
+                    <TableCell>{formatDate(inst.due_date ?? '')}</TableCell>
+                    <TableCell className="text-right font-medium">
+                      {formatCurrency(inst.amount, 'QAR')}
+                    </TableCell>
+                    <TableCell>
+                      <span className={cn(
+                        'text-xs px-1.5 py-0.5 rounded font-medium capitalize',
+                        inst.status === 'paid'    ? 'bg-green-100 text-green-700' :
+                        inst.status === 'overdue' ? 'bg-red-100 text-red-700' :
+                                                    'bg-slate-100 text-slate-600'
+                      )}>
+                        {inst.status}
+                      </span>
+                    </TableCell>
+                  </TableRow>
+                ))}
+            </TableBody>
+          </Table>
+        </BillDetailSection>
+      )}
+
+      {/* 8. Notes */}
+      {showNotes && invoice.notes && (
         <BillDetailSection title="Notes / Remarks">
           <p className="text-sm text-muted-foreground whitespace-pre-line">{invoice.notes}</p>
         </BillDetailSection>
       )}
 
-      {/* 8. QR Code */}
-      <BillDetailSection>
-        <div className="flex justify-end">
-          <div className="p-3 border rounded-lg text-center space-y-1">
-            {origin ? (
-              <QRCodeSVG value={`${origin}/sales/invoices/${invoice.id}`} size={96} />
-            ) : (
-              <div className="w-24 h-24 bg-muted animate-pulse rounded" />
-            )}
-            <p className="text-xs font-mono text-muted-foreground">{invoice.invoice_id}</p>
+      {/* 9. QR Code */}
+      {showQR && (
+        <BillDetailSection>
+          <div className="flex justify-end">
+            <div className="p-3 border rounded-lg text-center space-y-1">
+              {origin ? (
+                <QRCodeSVG value={`${origin}/sales/invoices/${invoice.id}`} size={96} />
+              ) : (
+                <div className="w-24 h-24 bg-muted animate-pulse rounded" />
+              )}
+              <p className="text-xs font-mono text-muted-foreground">{invoice.invoice_id}</p>
+            </div>
           </div>
-        </div>
-      </BillDetailSection>
+        </BillDetailSection>
+      )}
 
-      {/* 9. Footer */}
+      {/* 10. Footer */}
       <div className="border-t pt-4 flex items-start justify-between text-xs text-muted-foreground gap-4">
         <p>
           {company?.name_en ?? FALLBACK_COMPANY}
