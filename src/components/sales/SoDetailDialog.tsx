@@ -1,6 +1,7 @@
 'use client'
 
 import { useState } from 'react'
+import { useRouter } from 'next/navigation'
 import dynamic from 'next/dynamic'
 import {
   Dialog, DialogContent, DialogHeader, DialogTitle,
@@ -86,6 +87,7 @@ export function SoDetailDialog({ open, onOpenChange, so, onEdit, onConfirm }: So
   const { data: warehouses = [] } = useWarehouses()
 
   const current = fullSO ?? so
+  const router = useRouter()
 
   const canRecordPayment = current && ['confirmed', 'partial_delivery', 'delivered', 'invoiced'].includes(current.status)
   const canDeliver = current && ['confirmed', 'partial_delivery'].includes(current.status)
@@ -646,6 +648,15 @@ export function SoDetailDialog({ open, onOpenChange, so, onEdit, onConfirm }: So
               )}
               {(current?.status === 'quotation' || current?.status === 'pending_approval') && fullSO && (
                 <SoPdfButton so={fullSO} />
+              )}
+              {soInvoice && (
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => { onOpenChange(false); router.push(`/sales/invoices/${soInvoice.id}`) }}
+                >
+                  View Invoice ({soInvoice.invoice_id})
+                </Button>
               )}
               <Button variant="outline" size="sm" onClick={() => onOpenChange(false)}>
                 Close
