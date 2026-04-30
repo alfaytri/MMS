@@ -6,51 +6,66 @@ import { Select as SelectPrimitive } from "@base-ui/react/select"
 import { cn } from "@/lib/utils"
 import { ChevronDownIcon, CheckIcon, ChevronUpIcon } from "lucide-react"
 
-// ── Label registry ─────────────────────────────────────────────────────────────
-// Each <Select> owns a stable Map<stringifiedValue, displayLabel>.
-// <SelectItem> populates it on mount via useLayoutEffect.
-// When new entries are added, bump() is called — this increments a version
-// counter held in context, causing <SelectValue> to re-render so
-// itemToStringLabel returns the human-readable label instead of the raw value.
-interface RegistryCtx {
-  registry: Map<string, string>
-  bump: () => void
+// ── Label extraction ───────────────────────────────────────────────────────────
+// Recursively extracts text from any React node (handles strings, numbers,
+// arrays, and nested elements). Used to derive human-readable labels from
+// SelectItem children without needing the items to be mounted in the DOM.
+function extractText(node: React.ReactNode): string {
+  if (typeof node === "string") return node
+  if (typeof node === "number") return String(node)
+  if (Array.isArray(node)) return node.map(extractText).join("")
+  if (React.isValidElement(node)) {
+    return extractText((node.props as { children?: React.ReactNode }).children)
+  }
+  return ""
 }
-const SelectRegistryCtx = React.createContext<RegistryCtx>({
-  registry: new Map(),
-  bump: () => {},
-})
+
+// Walk the React element tree to collect value→label pairs from SelectItem
+// nodes. Runs synchronously during render so the registry is ready before
+// Base UI ever calls itemToStringLabel — no DOM mounting required.
+function buildRegistry(node: React.ReactNode): Map<string, string> {
+  const map = new Map<string, string>()
+  collectItems(node, map)
+  return map
+}
+
+function collectItems(node: React.ReactNode, map: Map<string, string>) {
+  React.Children.forEach(node, (child) => {
+    if (!React.isValidElement(child)) return
+    const { value, children } = child.props as {
+      value?: unknown
+      children?: React.ReactNode
+    }
+    if (value != null) {
+      const label = extractText(children)
+      if (label) map.set(String(value), label)
+    }
+    if (children) collectItems(children as React.ReactNode, map)
+  })
+}
 
 // ── Select (root) ──────────────────────────────────────────────────────────────
 function Select({ children, ...props }: SelectPrimitive.Root.Props<string>) {
-  const [registry] = React.useState<Map<string, string>>(() => new Map())
-  const [version, bump] = React.useReducer((v: number) => v + 1, 0)
+  // Rebuild the value→label map whenever children change (i.e. when async data
+  // arrives and new SelectItem elements are produced). No effects, no context,
+  // no mounting dependency — the tree is walked purely as React elements.
+  const registry = React.useMemo(() => buildRegistry(children), [children])
 
   const itemToStringLabel = React.useCallback(
     (value: unknown): string => registry.get(String(value ?? "")) ?? "",
     [registry],
   )
 
-  // Re-create context value only when version changes so SelectValue and
-  // SelectItem only re-render when registry entries are actually added.
-  const ctxValue = React.useMemo(
-    () => ({ registry, bump }),
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-    [registry, version],
-  )
-
   return (
-    <SelectRegistryCtx.Provider value={ctxValue}>
-      <SelectPrimitive.Root
-        itemToStringLabel={
-          props.itemToStringLabel ??
-          (itemToStringLabel as SelectPrimitive.Root.Props<string>["itemToStringLabel"])
-        }
-        {...props}
-      >
-        {children}
-      </SelectPrimitive.Root>
-    </SelectRegistryCtx.Provider>
+    <SelectPrimitive.Root
+      itemToStringLabel={
+        props.itemToStringLabel ??
+        (itemToStringLabel as SelectPrimitive.Root.Props<string>["itemToStringLabel"])
+      }
+      {...props}
+    >
+      {children}
+    </SelectPrimitive.Root>
   )
 }
 
@@ -67,10 +82,6 @@ function SelectGroup({ className, ...props }: SelectPrimitive.Group.Props) {
 
 // ── SelectValue ────────────────────────────────────────────────────────────────
 function SelectValue({ className, ...props }: SelectPrimitive.Value.Props) {
-  // Subscribe to the registry context so this re-renders whenever bump() is
-  // called — i.e. after SelectItem mounts and populates a new registry entry.
-  React.useContext(SelectRegistryCtx)
-
   return (
     <SelectPrimitive.Value
       data-slot="select-value"
@@ -170,29 +181,6 @@ function SelectItem({
   value,
   ...props
 }: SelectPrimitive.Item.Props) {
-  const { registry, bump } = React.useContext(SelectRegistryCtx)
-  const textRef = React.useRef<HTMLDivElement | null>(null)
-
-  // Populate the registry after the DOM is committed, then signal SelectValue
-  // to re-render by calling bump(). Guards with has(key) so each value is only
-  // registered once — prevents infinite bump loops.
-  React.useLayoutEffect(() => {
-    if (value == null) return
-    const key = String(value)
-    if (registry.has(key)) return
-
-    let label: string | undefined
-    if (typeof children === "string" && children) {
-      label = children
-    } else if (textRef.current) {
-      label = textRef.current.textContent?.trim()
-    }
-    if (label) {
-      registry.set(key, label)
-      bump()
-    }
-  })
-
   return (
     <SelectPrimitive.Item
       data-slot="select-item"
@@ -203,10 +191,7 @@ function SelectItem({
       value={value}
       {...props}
     >
-      <SelectPrimitive.ItemText
-        ref={textRef}
-        className="flex flex-1 shrink-0 gap-2 whitespace-nowrap"
-      >
+      <SelectPrimitive.ItemText className="flex flex-1 shrink-0 gap-2 whitespace-nowrap">
         {children}
       </SelectPrimitive.ItemText>
       <SelectPrimitive.ItemIndicator

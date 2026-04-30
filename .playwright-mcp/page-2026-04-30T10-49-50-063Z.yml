@@ -1,0 +1,63 @@
+- generic [active] [ref=e1]:
+  - generic [ref=e2]:
+    - banner [ref=e4]:
+      - link "MMS" [ref=e5] [cursor=pointer]:
+        - /url: /
+        - img [ref=e6]
+        - generic [ref=e8]: MMS
+      - navigation [ref=e9]:
+        - button "Master Data" [ref=e10] [cursor=pointer]:
+          - img [ref=e11]
+          - text: Master Data
+          - img [ref=e15]
+        - button "Orders" [ref=e17] [cursor=pointer]:
+          - img [ref=e18]
+          - text: Orders
+          - img [ref=e22]
+        - button "Contracts" [ref=e24] [cursor=pointer]:
+          - img [ref=e25]
+          - text: Contracts
+          - img [ref=e28]
+        - button "Purchase & Sales" [ref=e30] [cursor=pointer]:
+          - img [ref=e31]
+          - text: Purchase & Sales
+          - img [ref=e34]
+        - button "Teams" [ref=e36] [cursor=pointer]:
+          - img [ref=e37]
+          - text: Teams
+          - img [ref=e42]
+    - main [ref=e44]:
+      - generic [ref=e45]:
+        - tablist [ref=e48]:
+          - tab "Normal Services" [selected] [ref=e49] [cursor=pointer]:
+            - img
+            - text: Normal Services
+          - tab "Contract Services" [ref=e50] [cursor=pointer]:
+            - img
+            - text: Contract Services
+          - tab "Mobile App Services" [ref=e51] [cursor=pointer]:
+            - img
+            - text: Mobile App Services
+          - tab "Notifications" [ref=e52] [cursor=pointer]:
+            - img
+            - text: Notifications
+          - tab "Instructions" [ref=e53] [cursor=pointer]:
+            - img
+            - text: Instructions
+          - tab "Inventory" [ref=e54] [cursor=pointer]:
+            - img
+            - text: Inventory
+          - tab "Promotions" [ref=e55] [cursor=pointer]:
+            - img
+            - text: Promotions
+        - generic [ref=e56]:
+          - img [ref=e57]
+          - generic [ref=e59]: "Filter by:"
+          - generic [ref=e60]:
+            - button "All Divisions" [ref=e61] [cursor=pointer]:
+              - generic [ref=e62]: All Divisions
+              - img [ref=e63]
+            - button "New Service" [ref=e65] [cursor=pointer]:
+              - img
+              - text: New Service
+  - region "Notifications alt+T"

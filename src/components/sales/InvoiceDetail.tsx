@@ -1,18 +1,27 @@
 'use client'
 
 import { useState } from 'react'
-import { AlertTriangle, Send, X } from 'lucide-react'
+import { AlertTriangle, Link2, Send, Unlink, X } from 'lucide-react'
 import { toast } from 'sonner'
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip'
+import {
+  AlertDialog, AlertDialogAction, AlertDialogCancel,
+  AlertDialogContent, AlertDialogDescription,
+  AlertDialogFooter, AlertDialogHeader, AlertDialogTitle,
+} from '@/components/ui/alert-dialog'
+import { AttachInvoiceDialog } from './AttachInvoiceDialog'
+import { useDetachPaymentFromInvoice } from '@/hooks/useDetachPaymentFromInvoice'
+import { useUnlinkedIncomingPayments } from '@/hooks/useUnlinkedIncomingPayments'
 import { useSendInvoice, useDismissRefresh } from '@/hooks/useCustomerInvoices'
 import { useCustomerPayments } from '@/hooks/useCustomerPayments'
 import { usePaymentPlans } from '@/hooks/usePaymentPlans'
 import { CustomerPaymentDialog } from './CustomerPaymentDialog'
-import { PaymentPlanDialog } from '@/components/purchase/PaymentPlanDialog'
+import { PaymentPlanDialog, AR_LABELS } from '@/components/finance/PaymentPlanDialog'
 import { formatCurrency, formatDate } from '@/lib/utils/formatters'
-import { PAYMENT_PLAN_THRESHOLD, type ArInvoice } from '@/types/invoice'
+import { type ArInvoice } from '@/types/invoice'
 import { cn } from '@/lib/utils'
 
 type Props = {
@@ -41,6 +50,13 @@ export function InvoiceDetail({ open, onOpenChange, invoice }: Props) {
   const { data: plans } = usePaymentPlans(invoice.id)
   const [payOpen, setPayOpen] = useState(false)
   const [planOpen, setPlanOpen] = useState(false)
+  const [attachOpen, setAttachOpen]     = useState(false)
+  const [detachTarget, setDetachTarget] = useState<{ id: string; payment_id: string | null } | null>(null)
+  const detach = useDetachPaymentFromInvoice()
+  const { data: unlinkedPayments = [], isLoading: loadingUnlinked } = useUnlinkedIncomingPayments(
+    invoice.customer_id
+  )
+  const hasUnlinkedPayments = unlinkedPayments.length > 0
 
   const totalPaid = (payments ?? []).reduce((s, p) => s + p.amount, 0)
   const outstanding = (invoice.total_amount ?? 0) - totalPaid
@@ -149,12 +165,32 @@ export function InvoiceDetail({ open, onOpenChange, invoice }: Props) {
               )}
               {outstanding > 0 && invoice.doc_status !== 'draft' && (
                 <Button variant="outline" className="min-h-11" onClick={() => setPayOpen(true)}>
-                  Pay Now
+                  Record Payment
                 </Button>
               )}
-              {outstanding >= PAYMENT_PLAN_THRESHOLD && !hasActivePlan && (
+              <TooltipProvider>
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <span>
+                      <Button
+                        variant="outline"
+                        className="min-h-11"
+                        disabled={loadingUnlinked || !hasUnlinkedPayments}
+                        onClick={() => setAttachOpen(true)}
+                      >
+                        <Link2 className="w-4 h-4 mr-2" />
+                        Attach Payment
+                      </Button>
+                    </span>
+                  </TooltipTrigger>
+                  {!hasUnlinkedPayments && (
+                    <TooltipContent>No unlinked payments for this customer</TooltipContent>
+                  )}
+                </Tooltip>
+              </TooltipProvider>
+              {invoice.payment_status !== 'paid' && (
                 <Button variant="outline" className="min-h-11" onClick={() => setPlanOpen(true)}>
-                  Set Up Payment Plan
+                  Payment Plan
                 </Button>
               )}
             </div>
@@ -162,6 +198,50 @@ export function InvoiceDetail({ open, onOpenChange, invoice }: Props) {
             <div className="grid grid-cols-2 gap-4 text-sm text-muted-foreground">
               <div>Issued: <span className="text-foreground">{formatDate(invoice.issued_date)}</span></div>
               <div>Due: <span className="text-foreground">{formatDate(invoice.due_date)}</span></div>
+            </div>
+
+            {/* Payment History */}
+            <div>
+              <p className="text-xs font-semibold uppercase tracking-wider text-muted-foreground mb-2">
+                Payment History
+              </p>
+              {(payments ?? []).length === 0 ? (
+                <p className="text-sm text-muted-foreground">No payments recorded</p>
+              ) : (
+                <div className="space-y-2">
+                  {(payments ?? []).map((p) => (
+                    <div
+                      key={p.id}
+                      className="flex items-center justify-between text-sm border rounded p-2"
+                    >
+                      <div>
+                        <span className="font-mono font-medium">{p.payment_id ?? '—'}</span>
+                        <span className="text-muted-foreground ml-2 text-xs">
+                          {formatDate(p.date)} · {p.method.replace(/_/g, ' ')}
+                        </span>
+                      </div>
+                      <div className="flex items-center gap-2">
+                        <span className="font-medium">{formatCurrency(p.amount, 'QAR')}</span>
+                        <TooltipProvider>
+                          <Tooltip>
+                            <TooltipTrigger asChild>
+                              <Button
+                                variant="ghost"
+                                size="icon"
+                                className="h-6 w-6 text-muted-foreground hover:text-destructive"
+                                onClick={() => setDetachTarget({ id: p.id, payment_id: p.payment_id ?? null })}
+                              >
+                                <Unlink className="w-3 h-3" />
+                              </Button>
+                            </TooltipTrigger>
+                            <TooltipContent>Detach payment</TooltipContent>
+                          </Tooltip>
+                        </TooltipProvider>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
             </div>
           </div>
         </DialogContent>
@@ -182,8 +262,52 @@ export function InvoiceDetail({ open, onOpenChange, invoice }: Props) {
           onOpenChange={setPlanOpen}
           invoiceId={invoice.id}
           outstanding={outstanding}
+          labels={AR_LABELS}
         />
       )}
+      {attachOpen && (
+        <AttachInvoiceDialog
+          open
+          onOpenChange={setAttachOpen}
+          invoiceId={invoice.id}
+          customerId={invoice.customer_id}
+          invoicePaid={invoice.payment_status === 'paid'}
+        />
+      )}
+
+      <AlertDialog
+        open={!!detachTarget}
+        onOpenChange={(v) => { if (!v) setDetachTarget(null) }}
+      >
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Detach payment?</AlertDialogTitle>
+            <AlertDialogDescription>
+              This will unlink{' '}
+              <span className="font-mono font-medium">{detachTarget?.payment_id ?? 'this payment'}</span>{' '}
+              from the invoice. The invoice status will be recalculated. The payment record is NOT deleted.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={async () => {
+                if (!detachTarget) return
+                try {
+                  await detach.mutateAsync({ paymentId: detachTarget.id, invoiceId: invoice.id })
+                  toast.success('Payment detached')
+                } catch (err: unknown) {
+                  toast.error((err as Error).message ?? 'Failed to detach')
+                } finally {
+                  setDetachTarget(null)
+                }
+              }}
+            >
+              Detach
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </>
   )
 }

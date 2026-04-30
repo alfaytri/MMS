@@ -1,0 +1,88 @@
+- generic [ref=e1]:
+  - generic [ref=e2]:
+    - banner [ref=e4]:
+      - link "MMS" [ref=e5] [cursor=pointer]:
+        - /url: /
+        - img [ref=e6]
+        - generic [ref=e8]: MMS
+      - navigation [ref=e9]:
+        - button "Master Data" [ref=e10] [cursor=pointer]:
+          - img [ref=e11]
+          - text: Master Data
+          - img [ref=e15]
+        - button "Orders" [ref=e17] [cursor=pointer]:
+          - img [ref=e18]
+          - text: Orders
+          - img [ref=e22]
+        - button "Contracts" [ref=e24] [cursor=pointer]:
+          - img [ref=e25]
+          - text: Contracts
+          - img [ref=e28]
+        - button "Purchase & Sales" [ref=e30] [cursor=pointer]:
+          - img [ref=e31]
+          - text: Purchase & Sales
+          - img [ref=e34]
+        - button "Teams" [ref=e36] [cursor=pointer]:
+          - img [ref=e37]
+          - text: Teams
+          - img [ref=e42]
+    - main [ref=e44]:
+      - generic [ref=e45]:
+        - tablist [ref=e48]:
+          - tab "Normal Services" [ref=e49] [cursor=pointer]:
+            - img
+            - text: Normal Services
+          - tab "Contract Services" [ref=e50] [cursor=pointer]:
+            - img
+            - text: Contract Services
+          - tab "Mobile App Services" [ref=e51] [cursor=pointer]:
+            - img
+            - text: Mobile App Services
+          - tab "Notifications" [ref=e52] [cursor=pointer]:
+            - img
+            - text: Notifications
+          - tab "Instructions" [ref=e53] [cursor=pointer]:
+            - img
+            - text: Instructions
+          - tab "Inventory" [active] [selected] [ref=e54] [cursor=pointer]:
+            - img
+            - text: Inventory
+          - tab "Promotions" [ref=e55] [cursor=pointer]:
+            - img
+            - text: Promotions
+        - generic [ref=e178]:
+          - generic [ref=e180]:
+            - button "Products (Installation)" [ref=e181] [cursor=pointer]
+            - button "Spare Parts (Sales)" [ref=e182] [cursor=pointer]
+            - button "Consumables (Internal)" [ref=e183] [cursor=pointer]
+            - button "Tools & Assets" [ref=e184] [cursor=pointer]
+            - button "Service Links" [ref=e185] [cursor=pointer]
+          - generic [ref=e187]:
+            - generic [ref=e188]:
+              - textbox "Search products (installation)…" [ref=e189]
+              - generic [ref=e190]:
+                - switch [ref=e191] [cursor=pointer]
+                - generic [ref=e192] [cursor=pointer]: Show archived
+              - button "New Category" [ref=e193] [cursor=pointer]:
+                - img
+                - text: New Category
+            - table [ref=e195]:
+              - rowgroup [ref=e196]:
+                - row "ITEM SKU UNIT PRICING STOCK / SERVICES ACTIONS" [ref=e197]:
+                  - columnheader "ITEM" [ref=e198]
+                  - columnheader "SKU" [ref=e199]
+                  - columnheader "UNIT" [ref=e200]
+                  - columnheader "PRICING" [ref=e201]
+                  - columnheader "STOCK / SERVICES" [ref=e202]
+                  - columnheader "ACTIONS" [ref=e203]
+              - rowgroup [ref=e204]:
+                - row "No products (installation) categories yet" [ref=e205]:
+                  - cell "No products (installation) categories yet" [ref=e206]
+  - generic [ref=e69]:
+    - img [ref=e71]
+    - button "Open Tanstack query devtools" [ref=e119] [cursor=pointer]:
+      - img [ref=e120]
+  - region "Notifications alt+T"
+  - button "Open Next.js Dev Tools" [ref=e173] [cursor=pointer]:
+    - img [ref=e174]
+  - alert [ref=e177]
