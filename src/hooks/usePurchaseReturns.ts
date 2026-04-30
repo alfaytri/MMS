@@ -41,15 +41,27 @@ export function usePurchaseReturnsByPO(poId: string | null) {
       const supabase = createClient()
       const { data, error } = await (supabase as any)
         .from('returns')
-        .select('*, credit_notes(*)')
+        .select('*')
         .eq('source_type', 'purchase_order')
         .eq('source_id', poId!)
         .is('deleted_at', null)
         .order('created_at', { ascending: false })
       if (error) throw error
-      return (data ?? []).map((r: any) => ({
+      // Fetch linked debit notes separately to avoid PostgREST ambiguity
+      // (both returns.credit_note_id→credit_notes and credit_notes.source_return_id→returns exist)
+      const rows = data ?? []
+      const noteIds = rows.map((r: any) => r.credit_note_id).filter(Boolean)
+      let noteMap: Record<string, any> = {}
+      if (noteIds.length > 0) {
+        const { data: notes } = await (supabase as any)
+          .from('credit_notes')
+          .select('*')
+          .in('id', noteIds)
+        for (const n of (notes ?? [])) noteMap[n.id] = n
+      }
+      return rows.map((r: any) => ({
         ...r,
-        debit_note: r.credit_notes ?? null,
+        debit_note: r.credit_note_id ? (noteMap[r.credit_note_id] ?? null) : null,
       })) as POReturn[]
     },
     staleTime: 30 * 1000,
