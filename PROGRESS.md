@@ -147,6 +147,7 @@ Purchase & Sales▾:
 | `docs/superpowers/plans/2026-04-22-po-approval-chain.md` | ✅ DONE | PO approval chain — configurable division-based chains, cumulative tiers, notifications, admin force-approve |
 | `docs/superpowers/plans/2026-04-25-inventory-complete.md` | ✅ DONE | Inventory accounting — FIFO layers, atomic RPCs, reserved qty, COGS, stock movements, ledger hooks |
 | `docs/superpowers/plans/2026-04-27-multi-company-division-isolation.md` | ✅ DONE | Division isolation — JWT hook, RLS, DivisionFilter, PO/SO create pickers, user division assignment |
+| `docs/superpowers/plans/2026-04-30-po-returns.md` | ✅ DONE | PO returns — dispatch/cancel/supplier-confirm flow, inventory deduction on dispatch, cancel with RPC reversal, type toggle on Returns page |
 
 ---
 
@@ -156,6 +157,7 @@ Purchase & Sales▾:
 
 ## ✅ Completed
 
+- [2026-04-30] **PO Returns: Full feature** — `supabase/migrations/20260430170000_po_returns.sql`, `src/hooks/usePurchaseReturns.ts`, `src/hooks/useSaleReturns.ts`, `src/components/purchase/PoDetailDialog.tsx`, `src/app/(dashboard)/sales/returns/page.tsx` — PO returns with `pending→dispatched→supplier_confirmed→closed` flow; inventory deducted on dispatch via `rpc_process_po_return_dispatch` (SECURITY DEFINER); cancel reverses inventory via `rpc_cancel_po_return_dispatch`; Returns page has Sale/PO toggle with URL persistence (`?type=sale|po`); cancel available for both return types at correct stages
 - [2026-04-30] **Sale Return Inventory Integration** — `supabase/migrations/20260430140000_sale_return_restock.sql`, `src/hooks/useSaleReturns.ts`, `src/components/services/inventory/BrandVariantRow.tsx` — Added `damaged_qty` column to `inventory_brand_variants`; added `restocked_at` to `returns`; extended movement_type CHECK constraint with `sale_return` and `sale_return_damaged`; created `rpc_process_return_restock` RPC (idempotent via `restocked_at` stamp): good items restore `stock_level` + insert movement, damaged items increment `damaged_qty` + insert movement; `useUpdateReturnStatus` now calls RPC on `restocked` transition; `BrandVariantRow` shows red "X dmg" badge when `damaged_qty > 0`
 
 - [2026-04-30] **Invoice Payments Task 11: Wire Payments Page — Link Invoice button** — `src/app/(dashboard)/purchase/payments/page.tsx`, `src/components/ui/tooltip.tsx` (new) — Added `SelectInvoiceDialog` import + three `linkInvoice*` state vars; updated `invoiceColumns` actions cell to show Paperclip button for unlinked CPAY rows that have a `customer_id`; mounted `SelectInvoiceDialog` conditionally; installed missing shadcn Tooltip component
