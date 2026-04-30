@@ -101,7 +101,7 @@ export default function CreditNotesPage() {
               <CreditDebitNoteDownloadButton
                 note={note}
                 referenceNumber={note.invoice_display ?? note.invoice_id ?? '—'}
-                returnNumber="—"
+                returnNumber={note.return_number ?? '—'}
               />
             )}
             {(note.status === 'issued' || note.status === 'approved') && (
@@ -167,7 +167,7 @@ export default function CreditNotesPage() {
           <CreditDebitNoteDownloadButton
             note={note}
             referenceNumber="—"
-            returnNumber="—"
+            returnNumber={note.return_number ?? '—'}
           />
         )
       },
