@@ -2,9 +2,12 @@
 
 import { useState, useEffect, Suspense } from 'react'
 import { useParams, useRouter, usePathname, useSearchParams } from 'next/navigation'
-import { ArrowLeft, Send, Settings2 } from 'lucide-react'
+import { ArrowLeft, Link2, Send, Settings2 } from 'lucide-react'
 import { toast } from 'sonner'
 import { Button } from '@/components/ui/button'
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip'
+import { AttachInvoiceDialog } from '@/components/sales/AttachInvoiceDialog'
+import { useUnlinkedIncomingPayments } from '@/hooks/useUnlinkedIncomingPayments'
 import { useCustomerInvoice, useSendInvoice } from '@/hooks/useCustomerInvoices'
 import { useCustomerPayments } from '@/hooks/useCustomerPayments'
 import { usePaymentPlans } from '@/hooks/usePaymentPlans'
@@ -12,8 +15,7 @@ import { useCompanies } from '@/hooks/useCompanies'
 import { useDivisionsByCompany } from '@/hooks/useDivisions'
 import { InvoiceDetailDocument } from '@/components/sales/InvoiceDetailDocument'
 import { CustomerPaymentDialog } from '@/components/sales/CustomerPaymentDialog'
-import { PaymentPlanDialog } from '@/components/purchase/PaymentPlanDialog'
-import { PAYMENT_PLAN_THRESHOLD } from '@/types/invoice'
+import { PaymentPlanDialog, AR_LABELS } from '@/components/finance/PaymentPlanDialog'
 import { InvoiceDetailSidebar, type InvoiceToggleKey } from '@/components/sales/InvoiceDetailSidebar'
 import { cn } from '@/lib/utils'
 
@@ -37,6 +39,7 @@ function InvoiceDetailContent() {
   const [sidebarOpen, setSidebarOpen] = useState(false)
   const [payOpen, setPayOpen] = useState(false)
   const [planOpen, setPlanOpen] = useState(false)
+  const [attachOpen, setAttachOpen] = useState(false)
 
   function handleToggle(key: InvoiceToggleKey, value: boolean) {
     const setters: Record<InvoiceToggleKey, (v: boolean) => void> = {
@@ -56,6 +59,10 @@ function InvoiceDetailContent() {
   }
 
   const { data: invoice, isLoading, isError } = useCustomerInvoice(id)
+  const { data: unlinkedPayments = [], isLoading: loadingUnlinked } = useUnlinkedIncomingPayments(
+    invoice?.customer_id ?? ''
+  )
+  const hasUnlinkedPayments = unlinkedPayments.length > 0
   const { data: payments = [] } = useCustomerPayments(id)
   const { data: plans = [] } = usePaymentPlans(id)
   const { data: companies = [] } = useCompanies()
@@ -165,10 +172,30 @@ function InvoiceDetailContent() {
           )}
           {outstanding > 0 && invoice.doc_status !== 'draft' && (
             <Button variant="outline" size="sm" onClick={() => setPayOpen(true)}>
-              Pay Now
+              Record Payment
             </Button>
           )}
-          {outstanding >= PAYMENT_PLAN_THRESHOLD && !hasActivePlan && (
+          <TooltipProvider>
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <span>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    disabled={loadingUnlinked || !hasUnlinkedPayments}
+                    onClick={() => setAttachOpen(true)}
+                  >
+                    <Link2 className="h-4 w-4 mr-1.5" />
+                    Attach Payment
+                  </Button>
+                </span>
+              </TooltipTrigger>
+              {!hasUnlinkedPayments && (
+                <TooltipContent>No unlinked payments for this customer</TooltipContent>
+              )}
+            </Tooltip>
+          </TooltipProvider>
+          {invoice.payment_status !== 'paid' && (
             <Button variant="outline" size="sm" onClick={() => setPlanOpen(true)}>
               Payment Plan
             </Button>
@@ -205,6 +232,16 @@ function InvoiceDetailContent() {
           onOpenChange={setPlanOpen}
           invoiceId={invoice.id}
           outstanding={outstanding}
+          labels={AR_LABELS}
+        />
+      )}
+      {attachOpen && invoice && (
+        <AttachInvoiceDialog
+          open
+          onOpenChange={setAttachOpen}
+          invoiceId={invoice.id}
+          customerId={invoice.customer_id}
+          invoicePaid={invoice.payment_status === 'paid'}
         />
       )}
     </div>

@@ -367,7 +367,7 @@ export function PoReceiveTab({ po }: { po: PurchaseOrder }) {
             <div className="space-y-1">
               <Label>Item *</Label>
               <Select
-                value={nonPoItemId || undefined}
+                value={nonPoItemId}
                 onValueChange={(v) => { setNonPoItemId(v ?? ''); setNonPoVariantId('') }}
               >
                 <SelectTrigger><SelectValue placeholder="— Select —" /></SelectTrigger>
@@ -387,7 +387,7 @@ export function PoReceiveTab({ po }: { po: PurchaseOrder }) {
             <div className="space-y-1">
               <Label>Brand / Variant <span className="text-muted-foreground text-xs">(optional)</span></Label>
               <Select
-                value={nonPoVariantId || undefined}
+                value={nonPoVariantId}
                 onValueChange={(v) => setNonPoVariantId(v ?? '')}
                 disabled={!nonPoItemId}
               >

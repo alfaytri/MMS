@@ -31,7 +31,7 @@ export function CustomerPaymentDialog({ open, onOpenChange, invoice, alreadyPaid
   const [saving, setSaving] = useState(false)
 
   const amountNum = Number(amount)
-  const canPay = amountNum > 0 && amountNum <= outstanding && date
+  const canPay = amountNum > 0 && amountNum <= outstanding && !!date
 
   const submit = async () => {
     setSaving(true)
