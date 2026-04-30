@@ -37,6 +37,27 @@ import { cn } from '@/lib/utils'
 import {
   Table, TableBody, TableCell, TableHead, TableHeader, TableRow,
 } from '@/components/ui/table'
+import {
+  Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
+} from '@/components/ui/select'
+
+const PO_STATUS_CONFIG: Record<string, { label: string; className: string }> = {
+  pending:            { label: 'Pending',            className: 'border-warning text-warning' },
+  dispatched:         { label: 'Dispatched',         className: 'border-blue-500 text-blue-500' },
+  supplier_confirmed: { label: 'Supplier Confirmed', className: 'border-success text-success' },
+  closed:             { label: 'Closed',             className: 'border-muted-foreground/50 text-muted-foreground' },
+  cancelled:          { label: 'Cancelled',          className: 'border-muted-foreground/30 text-muted-foreground/60' },
+}
+const PO_STATUS_NEXT: Partial<Record<string, string>> = {
+  pending:            'dispatched',
+  dispatched:         'supplier_confirmed',
+  supplier_confirmed: 'closed',
+}
+const PO_STATUS_LABEL: Record<string, string> = {
+  dispatched:         'Mark Dispatched',
+  supplier_confirmed: 'Confirm Supplier Receipt',
+  closed:             'Close Return',
+}
 
 type Props = {
   open: boolean
@@ -113,6 +134,7 @@ export function PoDetailDialog({ open, onOpenChange, po, poId, onEdit }: Props) 
     if (!returnReason) { toast.error('Reason is required'); return }
     const items = returnItems.filter((i) => i.qty > 0)
     if (items.length === 0) { toast.error('Enter qty for at least one item'); return }
+    if (items.some((i) => i.qty > i._max)) { toast.error('One or more quantities exceed the received amount'); return }
     if (!resolvedId) return
     createPOReturn.mutate(
       {
@@ -541,24 +563,7 @@ export function PoDetailDialog({ open, onOpenChange, po, poId, onEdit }: Props) 
                     <p className="text-sm text-muted-foreground text-center py-6">No returns for this order</p>
                   ) : (
                     poReturns.map((ret) => {
-                      const PO_STATUS_CONFIG: Record<string, { label: string; className: string }> = {
-                        pending:            { label: 'Pending',            className: 'border-warning text-warning' },
-                        dispatched:         { label: 'Dispatched',         className: 'border-blue-500 text-blue-500' },
-                        supplier_confirmed: { label: 'Supplier Confirmed', className: 'border-success text-success' },
-                        closed:             { label: 'Closed',             className: 'border-muted-foreground/50 text-muted-foreground' },
-                        cancelled:          { label: 'Cancelled',          className: 'border-muted-foreground/30 text-muted-foreground/60' },
-                      }
                       const cfg = PO_STATUS_CONFIG[ret.status] ?? PO_STATUS_CONFIG.pending
-                      const PO_STATUS_NEXT: Partial<Record<string, string>> = {
-                        pending:            'dispatched',
-                        dispatched:         'supplier_confirmed',
-                        supplier_confirmed: 'closed',
-                      }
-                      const PO_STATUS_LABEL: Record<string, string> = {
-                        dispatched:         'Mark Dispatched',
-                        supplier_confirmed: 'Confirm Supplier Receipt',
-                        closed:             'Close Return',
-                      }
                       const next = PO_STATUS_NEXT[ret.status]
                       const canCancel = ret.status === 'pending' || ret.status === 'dispatched'
                       return (
@@ -645,18 +650,17 @@ export function PoDetailDialog({ open, onOpenChange, po, poId, onEdit }: Props) 
                             <Input id="por-date" type="date" value={returnDate} onChange={(e) => setReturnDate(e.target.value)} />
                           </div>
                           <div className="space-y-1">
-                            <Label htmlFor="por-warehouse">Dispatch From Warehouse</Label>
-                            <select
-                              id="por-warehouse"
-                              value={returnWarehouseId}
-                              onChange={(e) => setReturnWarehouseId(e.target.value)}
-                              className="flex h-9 w-full rounded-md border border-input bg-background px-3 py-1 text-sm"
-                            >
-                              <option value="">Select warehouse…</option>
-                              {warehouses.map((w) => (
-                                <option key={w.id} value={w.id}>{w.name}</option>
-                              ))}
-                            </select>
+                            <Label>Dispatch From Warehouse</Label>
+                            <Select value={returnWarehouseId} onValueChange={(v) => setReturnWarehouseId(v ?? '')}>
+                              <SelectTrigger>
+                                <SelectValue placeholder="Select warehouse…" />
+                              </SelectTrigger>
+                              <SelectContent>
+                                {warehouses.map((w) => (
+                                  <SelectItem key={w.id} value={w.id}>{w.name}</SelectItem>
+                                ))}
+                              </SelectContent>
+                            </Select>
                           </div>
                         </div>
                         <div className="space-y-1">
