@@ -36,7 +36,7 @@ import {
   useSendInvoice,
 } from '@/hooks/useCustomerInvoices'
 import { useCustomerPayments } from '@/hooks/useCustomerPayments'
-import { useReturnsBySO, useCreateSaleReturn, type SaleReturn } from '@/hooks/useSaleReturns'
+import { useReturnsBySO, useCreateSaleReturn, useUpdateReturnStatus, useCreateCreditNoteForReturn, type SaleReturn } from '@/hooks/useSaleReturns'
 import { useWarehouses } from '@/hooks/useWarehouses'
 import { usePaymentPlans } from '@/hooks/usePaymentPlans'
 import { CustomerPaymentDialog } from './CustomerPaymentDialog'
@@ -73,6 +73,8 @@ export function SoDetailDialog({ open, onOpenChange, so, onEdit, onConfirm }: So
   const approveSO = useApproveSO()
   const cancelDelivery = useCancelDelivery()
   const createReturn = useCreateSaleReturn()
+  const updateReturnStatus = useUpdateReturnStatus()
+  const createCreditNote = useCreateCreditNoteForReturn()
   const generateInvoice = useGenerateInvoice()
   const sendInvoice = useSendInvoice()
   const { data: fullSO, isLoading, isError } = useSaleOrder(open ? (so?.id ?? null) : null)
@@ -390,45 +392,106 @@ export function SoDetailDialog({ open, onOpenChange, so, onEdit, onConfirm }: So
                 {soReturns.length === 0 ? (
                   <p className="text-sm text-muted-foreground text-center py-6">No returns for this order</p>
                 ) : (
-                  soReturns.map((ret) => (
-                    <div key={ret.id} className="rounded-md border p-3 space-y-2">
-                      <div className="flex items-center justify-between">
-                        <span className="font-mono text-sm font-medium">{ret.return_number}</span>
-                        <span className={`text-xs px-2 py-0.5 rounded-full font-medium capitalize ${
-                          ret.status === 'restocked' ? 'bg-green-100 text-green-700' :
-                          ret.status === 'received'  ? 'bg-blue-100 text-blue-700' :
-                          ret.status === 'closed'    ? 'bg-slate-100 text-slate-600' :
-                                                       'bg-amber-100 text-amber-700'
-                        }`}>{ret.status}</span>
-                      </div>
-                      <p className="text-xs text-muted-foreground">{formatDate(ret.date)} · {ret.reason}</p>
-                      <div className="rounded border overflow-x-auto">
-                        <Table>
-                          <TableHeader>
-                            <TableRow>
-                              <TableHead className="text-xs">Item</TableHead>
-                              <TableHead className="text-xs text-right">Qty</TableHead>
-                              <TableHead className="text-xs">Condition</TableHead>
-                            </TableRow>
-                          </TableHeader>
-                          <TableBody>
-                            {ret.items.map((item, i) => (
-                              <TableRow key={i}>
-                                <TableCell className="text-xs">{item.item_name}</TableCell>
-                                <TableCell className="text-xs text-right">{item.qty}</TableCell>
-                                <TableCell className="text-xs">
-                                  <span className={`px-1.5 py-0.5 rounded text-[10px] font-medium ${
-                                    item.condition === 'good' ? 'bg-green-100 text-green-700' : 'bg-red-100 text-red-700'
-                                  }`}>{item.condition}</span>
-                                </TableCell>
+                  soReturns.map((ret) => {
+                    const nextStatus: Record<string, SaleReturn['status']> = {
+                      pending:  'received',
+                      received: 'restocked',
+                    }
+                    const nextLabel: Record<string, string> = {
+                      pending:  'Mark Received',
+                      received: 'Mark Restocked',
+                    }
+                    const canAdvance = ret.status === 'pending' || ret.status === 'received'
+                    const needsCreditNote = ret.status === 'restocked' && !ret.credit_note_id
+
+                    return (
+                      <div key={ret.id} className="rounded-md border p-3 space-y-2">
+                        {/* Header row */}
+                        <div className="flex items-center justify-between gap-2">
+                          <span className="font-mono text-sm font-medium">{ret.return_number}</span>
+                          <div className="flex items-center gap-2">
+                            {canAdvance && (
+                              <Button
+                                size="sm"
+                                variant="outline"
+                                className="h-7 text-xs"
+                                disabled={updateReturnStatus.isPending}
+                                onClick={() =>
+                                  updateReturnStatus.mutate(
+                                    { id: ret.id, status: nextStatus[ret.status] },
+                                    { onSuccess: () => toast.success(`${ret.return_number} marked ${nextStatus[ret.status]}`) }
+                                  )
+                                }
+                              >
+                                {updateReturnStatus.isPending ? '…' : nextLabel[ret.status]}
+                              </Button>
+                            )}
+                            <span className={`text-xs px-2 py-0.5 rounded-full font-medium capitalize ${
+                              ret.status === 'restocked' ? 'bg-green-100 text-green-700' :
+                              ret.status === 'received'  ? 'bg-blue-100 text-blue-700' :
+                              ret.status === 'closed'    ? 'bg-slate-100 text-slate-600' :
+                                                           'bg-amber-100 text-amber-700'
+                            }`}>{ret.status}</span>
+                          </div>
+                        </div>
+
+                        <p className="text-xs text-muted-foreground">{formatDate(ret.date)} · {ret.reason}</p>
+
+                        {/* Items table */}
+                        <div className="rounded border overflow-x-auto">
+                          <Table>
+                            <TableHeader>
+                              <TableRow>
+                                <TableHead className="text-xs">Item</TableHead>
+                                <TableHead className="text-xs text-right">Qty</TableHead>
+                                <TableHead className="text-xs">Condition</TableHead>
                               </TableRow>
-                            ))}
-                          </TableBody>
-                        </Table>
+                            </TableHeader>
+                            <TableBody>
+                              {ret.items.map((item, i) => (
+                                <TableRow key={i}>
+                                  <TableCell className="text-xs">{item.item_name}</TableCell>
+                                  <TableCell className="text-xs text-right">{item.qty}</TableCell>
+                                  <TableCell className="text-xs">
+                                    <span className={`px-1.5 py-0.5 rounded text-[10px] font-medium ${
+                                      item.condition === 'good' ? 'bg-green-100 text-green-700' : 'bg-red-100 text-red-700'
+                                    }`}>{item.condition}</span>
+                                  </TableCell>
+                                </TableRow>
+                              ))}
+                            </TableBody>
+                          </Table>
+                        </div>
+
+                        {ret.notes && <p className="text-xs text-muted-foreground italic">{ret.notes}</p>}
+
+                        {/* Credit note row */}
+                        {needsCreditNote ? (
+                          <div className="flex items-center gap-2 pt-1">
+                            <span className="text-xs text-muted-foreground">No credit note yet.</span>
+                            <Button
+                              size="sm"
+                              variant="outline"
+                              className="h-7 text-xs"
+                              disabled={createCreditNote.isPending}
+                              onClick={() =>
+                                createCreditNote.mutate(ret, {
+                                  onSuccess: () => toast.success(`Credit note created for ${ret.return_number}`),
+                                  onError: () => toast.error('Failed to create credit note'),
+                                })
+                              }
+                            >
+                              {createCreditNote.isPending ? 'Creating…' : 'Create Credit Note'}
+                            </Button>
+                          </div>
+                        ) : ret.credit_note_id ? (
+                          <p className="text-xs text-muted-foreground pt-1">
+                            Credit note generated
+                          </p>
+                        ) : null}
                       </div>
-                      {ret.notes && <p className="text-xs text-muted-foreground italic">{ret.notes}</p>}
-                    </div>
-                  ))
+                    )
+                  })
                 )}
               </TabsContent>
 

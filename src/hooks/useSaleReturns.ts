@@ -20,6 +20,7 @@ export type SaleReturn = {
   restock_warehouse_id: string | null
   notes: string | null
   status: 'pending' | 'received' | 'restocked' | 'closed' | 'cancelled'
+  credit_note_id: string | null
   created_by_name: string | null
   created_at: string
   updated_at: string
@@ -267,9 +268,28 @@ export function useReturnsBySO(soId: string | null) {
         .is('deleted_at', null)
         .order('created_at', { ascending: false })
       if (error) throw error
-      return data as SaleReturn[]
+      return (data ?? []) as SaleReturn[]
     },
     enabled: !!soId,
     staleTime: 30 * 1000,
+  })
+}
+
+export function useCreateCreditNoteForReturn() {
+  const queryClient = useQueryClient()
+  return useMutation({
+    mutationFn: async (ret: SaleReturn) => {
+      const supabase = createClient()
+      await createCreditNoteForReturn(supabase, ret.id, {
+        source_id:     ret.source_id,
+        return_number: ret.return_number,
+        items:         ret.items,
+        reason:        ret.reason,
+      })
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['sale-returns-by-so'] })
+      queryClient.invalidateQueries({ queryKey: ['credit-notes'] })
+    },
   })
 }
