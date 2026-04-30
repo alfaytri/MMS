@@ -11,6 +11,7 @@ import { DataTableColumnHeader } from '@/components/shared/DataTableColumnHeader
 import { ConfirmDialog } from '@/components/shared/ConfirmDialog'
 import { CreditNoteFormDialog } from '@/components/sales/CreditNoteFormDialog'
 import { CreditDebitNoteDownloadButton } from '@/components/sales/CreditDebitNoteDownloadButton'
+import { CreditDebitNoteDetailDialog } from '@/components/sales/CreditDebitNoteDetailDialog'
 import {
   useCreditNotes,
   useDebitNotes,
@@ -35,6 +36,7 @@ export default function CreditNotesPage() {
   const [noteType, setNoteType] = useState<'credit' | 'debit'>('credit')
   const [createOpen, setCreateOpen] = useState(false)
   const [applyTarget, setApplyTarget] = useState<CreditNote | null>(null)
+  const [detailNote, setDetailNote] = useState<CreditNote | null>(null)
 
   const { data: creditNotes = [], isLoading: cnLoading } = useCreditNotes()
   const { data: debitNotes  = [], isLoading: dnLoading  } = useDebitNotes()
@@ -43,11 +45,25 @@ export default function CreditNotesPage() {
   const rows    = noteType === 'credit' ? creditNotes : debitNotes
   const loading = noteType === 'credit' ? cnLoading   : dnLoading
 
+  const detailRefNumber = detailNote
+    ? detailNote.note_type === 'credit'
+      ? (detailNote.invoice_display ?? detailNote.invoice_id ?? '—')
+      : '—'
+    : '—'
+
   const creditColumns = useMemo<ColumnDef<CreditNote>[]>(() => [
     {
       accessorKey: 'credit_note_id',
       header: ({ column }) => <DataTableColumnHeader column={column} title="CN #" />,
-      cell: ({ row }) => <span className="font-mono text-sm font-medium">{row.getValue('credit_note_id')}</span>,
+      cell: ({ row }) => (
+        <button
+          type="button"
+          className="font-mono text-sm font-medium text-primary hover:underline underline-offset-2"
+          onClick={() => setDetailNote(row.original)}
+        >
+          {row.getValue('credit_note_id')}
+        </button>
+      ),
     },
     {
       accessorKey: 'customer_name',
@@ -119,7 +135,15 @@ export default function CreditNotesPage() {
     {
       accessorKey: 'credit_note_id',
       header: ({ column }) => <DataTableColumnHeader column={column} title="DN #" />,
-      cell: ({ row }) => <span className="font-mono text-sm font-medium">{row.getValue('credit_note_id')}</span>,
+      cell: ({ row }) => (
+        <button
+          type="button"
+          className="font-mono text-sm font-medium text-primary hover:underline underline-offset-2"
+          onClick={() => setDetailNote(row.original)}
+        >
+          {row.getValue('credit_note_id')}
+        </button>
+      ),
     },
     {
       accessorKey: 'supplier_name',
@@ -209,6 +233,13 @@ export default function CreditNotesPage() {
       {noteType === 'credit' && (
         <CreditNoteFormDialog open={createOpen} onOpenChange={setCreateOpen} />
       )}
+
+      <CreditDebitNoteDetailDialog
+        note={detailNote}
+        referenceNumber={detailRefNumber}
+        open={!!detailNote}
+        onOpenChange={(v) => { if (!v) setDetailNote(null) }}
+      />
 
       {applyTarget && (
         <ConfirmDialog
