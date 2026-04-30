@@ -1,17 +1,16 @@
 'use client'
 
 import { useState, useMemo } from 'react'
+import { useRouter } from 'next/navigation'
 import { type ColumnDef } from '@tanstack/react-table'
 import { PageHeader } from '@/components/shared/PageHeader'
 import { PageWrapper } from '@/components/shared/PageWrapper'
 import { SearchInput } from '@/components/shared/SearchInput'
 import { DataTable } from '@/components/shared/DataTable'
 import { DataTableColumnHeader } from '@/components/shared/DataTableColumnHeader'
-import { InvoiceDetail } from '@/components/sales/InvoiceDetail'
 import { useCustomerInvoices } from '@/hooks/useCustomerInvoices'
 import { type ArInvoice } from '@/types/invoice'
 import { formatCurrency, formatDate } from '@/lib/utils/formatters'
-import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
 import { AlertTriangle } from 'lucide-react'
 import { cn } from '@/lib/utils'
@@ -41,9 +40,9 @@ const PAY_STATUS_CONFIG: Record<string, string> = {
 }
 
 export default function CustomerInvoicesPage() {
+  const router = useRouter()
   const [search, setSearch] = useState('')
   const [docFilter, setDocFilter] = useState<ArInvoice['doc_status'] | ''>('')
-  const [selected, setSelected] = useState<ArInvoice | null>(null)
 
   const { data: invoices, isLoading } = useCustomerInvoices({
     search,
@@ -109,14 +108,6 @@ export default function CustomerInvoicesPage() {
       header: ({ column }) => <DataTableColumnHeader column={column} title="Due" />,
       cell: ({ row }) => <span className="hidden lg:table-cell">{formatDate(row.getValue('due_date'))}</span>,
     },
-    {
-      id: 'actions',
-      cell: ({ row }) => (
-        <Button variant="ghost" size="sm" className="min-h-11 md:min-h-9" onClick={() => setSelected(row.original)}>
-          View
-        </Button>
-      ),
-    },
   ], [])
 
   return (
@@ -141,15 +132,12 @@ export default function CustomerInvoicesPage() {
       </div>
 
       <SearchInput value={search} onChange={setSearch} placeholder="Search invoice # …" />
-      <DataTable columns={columns} data={invoices ?? []} isLoading={isLoading} />
-
-      {selected && (
-        <InvoiceDetail
-          open
-          onOpenChange={(v) => { if (!v) setSelected(null) }}
-          invoice={selected}
-        />
-      )}
+      <DataTable
+        columns={columns}
+        data={invoices ?? []}
+        isLoading={isLoading}
+        onRowClick={(row) => router.push(`/sales/invoices/${row.id}`)}
+      />
     </PageWrapper>
   )
 }

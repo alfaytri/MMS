@@ -8,8 +8,7 @@ export type InventoryItem = DBTable<'inventory_items'>
 export type BrandVariant = DBTable<'inventory_brand_variants'>
 export type InventoryItemInsert = DBInsert<'inventory_items'>
 export type InventoryItemUpdate = DBUpdate<'inventory_items'>
-// Manual type used instead of DBInsert<'inventory_brand_variants'> because generated
-// types are stale. The actual schema uses brand TEXT, not brand_id FK.
+// Explicit insert shape (subset of DBInsert) to keep the API surface minimal.
 export type BrandVariantInsert = {
   item_id: string
   brand: string

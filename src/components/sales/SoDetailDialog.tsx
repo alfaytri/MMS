@@ -1,6 +1,7 @@
 'use client'
 
 import { useState } from 'react'
+import { useRouter } from 'next/navigation'
 import dynamic from 'next/dynamic'
 import {
   Dialog, DialogContent, DialogHeader, DialogTitle,
@@ -35,13 +36,18 @@ import {
   useSendInvoice,
 } from '@/hooks/useCustomerInvoices'
 import { useCustomerPayments } from '@/hooks/useCustomerPayments'
+import { useReturnsBySO, useCreateSaleReturn, useUpdateReturnStatus, useCreateCreditNoteForReturn, type SaleReturn } from '@/hooks/useSaleReturns'
+import { CreditDebitNoteDetailDialog } from '@/components/sales/CreditDebitNoteDetailDialog'
+import type { CreditNote } from '@/hooks/useCreditNotes'
+import { useWarehouses } from '@/hooks/useWarehouses'
 import { usePaymentPlans } from '@/hooks/usePaymentPlans'
 import { CustomerPaymentDialog } from './CustomerPaymentDialog'
-import { PaymentPlanDialog } from '@/components/purchase/PaymentPlanDialog'
+import { PaymentPlanDialog, AR_LABELS } from '@/components/finance/PaymentPlanDialog'
 import { PAYMENT_PLAN_THRESHOLD } from '@/types/invoice'
 import { toast } from 'sonner'
 import { useActivityLog } from '@/hooks/useActivityLog'
-import { formatCurrency, formatDate, formatRelative } from '@/lib/utils/formatters'
+import { formatCurrency, formatDate } from '@/lib/utils/formatters'
+import { cn } from '@/lib/utils'
 import {
   Table, TableBody, TableCell, TableHead, TableHeader, TableRow,
 } from '@/components/ui/table'
@@ -59,9 +65,19 @@ export function SoDetailDialog({ open, onOpenChange, so, onEdit, onConfirm }: So
   const [deliveryOpen, setDeliveryOpen] = useState(false)
   const [invoicePayOpen, setInvoicePayOpen] = useState(false)
   const [invoicePlanOpen, setInvoicePlanOpen] = useState(false)
+  const [returnOpen, setReturnOpen] = useState(false)
+  const [cnDetailNote, setCnDetailNote] = useState<CreditNote | null>(null)
+  const [returnDate, setReturnDate] = useState(new Date().toISOString().slice(0, 10))
+  const [returnReason, setReturnReason] = useState('')
+  const [returnWarehouseId, setReturnWarehouseId] = useState('')
+  const [returnNotes, setReturnNotes] = useState('')
+  const [returnItems, setReturnItems] = useState<{ item_name: string; sku: string | null; qty: number; condition: 'good' | 'damaged'; brand_variant_id: string | null }[]>([])
 
   const approveSO = useApproveSO()
   const cancelDelivery = useCancelDelivery()
+  const createReturn = useCreateSaleReturn()
+  const updateReturnStatus = useUpdateReturnStatus()
+  const createCreditNote = useCreateCreditNoteForReturn()
   const generateInvoice = useGenerateInvoice()
   const sendInvoice = useSendInvoice()
   const { data: fullSO, isLoading, isError } = useSaleOrder(open ? (so?.id ?? null) : null)
@@ -72,8 +88,11 @@ export function SoDetailDialog({ open, onOpenChange, so, onEdit, onConfirm }: So
   const { data: activityLogs } = useActivityLog(
     open && so?.id ? { module: 'sale_orders', entity_id: so.id } : {}
   )
+  const { data: soReturns = [] } = useReturnsBySO(open ? (so?.id ?? null) : null)
+  const { data: warehouses = [] } = useWarehouses()
 
   const current = fullSO ?? so
+  const router = useRouter()
 
   const canRecordPayment = current && ['confirmed', 'partial_delivery', 'delivered', 'invoiced'].includes(current.status)
   const canDeliver = current && ['confirmed', 'partial_delivery'].includes(current.status)
@@ -198,6 +217,7 @@ export function SoDetailDialog({ open, onOpenChange, so, onEdit, onConfirm }: So
                 <TabsTrigger value="items">Items</TabsTrigger>
                 <TabsTrigger value="deliveries">Deliveries</TabsTrigger>
                 <TabsTrigger value="payments">Payments</TabsTrigger>
+                <TabsTrigger value="returns">Returns {soReturns.length > 0 && `(${soReturns.length})`}</TabsTrigger>
                 <TabsTrigger value="activity">Activity</TabsTrigger>
                 <TabsTrigger value="invoice">Invoice</TabsTrigger>
               </TabsList>
@@ -354,22 +374,176 @@ export function SoDetailDialog({ open, onOpenChange, so, onEdit, onConfirm }: So
                 )}
               </TabsContent>
 
+              {/* ── Returns ──────────────────────────────────────── */}
+              <TabsContent value="returns" className="flex-1 overflow-y-auto space-y-3">
+                {current && ['delivered', 'invoiced', 'closed'].includes(current.status) && (
+                  <div className="flex justify-end">
+                    <Button size="sm" variant="outline" onClick={() => {
+                      setReturnItems((fullSO?.sale_order_lines ?? []).map((li) => ({
+                        item_name: li.item_name,
+                        sku: li.sku ?? null,
+                        qty: li.qty,
+                        condition: 'good' as const,
+                        brand_variant_id: li.brand_variant_id ?? null,
+                      })))
+                      setReturnOpen(true)
+                    }}>
+                      + Create Return
+                    </Button>
+                  </div>
+                )}
+                {soReturns.length === 0 ? (
+                  <p className="text-sm text-muted-foreground text-center py-6">No returns for this order</p>
+                ) : (
+                  soReturns.map((ret) => {
+                    const nextStatus: Record<string, SaleReturn['status']> = {
+                      pending:  'received',
+                      received: 'restocked',
+                    }
+                    const nextLabel: Record<string, string> = {
+                      pending:  'Mark Received',
+                      received: 'Mark Restocked',
+                    }
+                    const canAdvance = ret.status === 'pending' || ret.status === 'received'
+                    // Any completed return (restocked or closed) that has no credit note yet needs one
+                    const needsCreditNote = !ret.credit_note_id &&
+                      (ret.status === 'restocked' || ret.status === 'closed')
+
+                    return (
+                      <div key={ret.id} className="rounded-md border p-3 space-y-2">
+                        {/* Header row */}
+                        <div className="flex items-center justify-between gap-2">
+                          <span className="font-mono text-sm font-medium">{ret.return_number}</span>
+                          <div className="flex items-center gap-2">
+                            {canAdvance && (
+                              <Button
+                                size="sm"
+                                variant="outline"
+                                className="h-7 text-xs"
+                                disabled={updateReturnStatus.isPending}
+                                onClick={() =>
+                                  updateReturnStatus.mutate(
+                                    { id: ret.id, status: nextStatus[ret.status] },
+                                    { onSuccess: () => toast.success(`${ret.return_number} marked ${nextStatus[ret.status]}`) }
+                                  )
+                                }
+                              >
+                                {updateReturnStatus.isPending ? '…' : nextLabel[ret.status]}
+                              </Button>
+                            )}
+                            <span className={`text-xs px-2 py-0.5 rounded-full font-medium capitalize ${
+                              ret.status === 'restocked' ? 'bg-green-100 text-green-700' :
+                              ret.status === 'received'  ? 'bg-blue-100 text-blue-700' :
+                              ret.status === 'closed'    ? 'bg-slate-100 text-slate-600' :
+                                                           'bg-amber-100 text-amber-700'
+                            }`}>{ret.status}</span>
+                          </div>
+                        </div>
+
+                        <p className="text-xs text-muted-foreground">{formatDate(ret.date)} · {ret.reason}</p>
+
+                        {/* Items table */}
+                        <div className="rounded border overflow-x-auto">
+                          <Table>
+                            <TableHeader>
+                              <TableRow>
+                                <TableHead className="text-xs">Item</TableHead>
+                                <TableHead className="text-xs text-right">Qty</TableHead>
+                                <TableHead className="text-xs">Condition</TableHead>
+                              </TableRow>
+                            </TableHeader>
+                            <TableBody>
+                              {ret.items.map((item, i) => (
+                                <TableRow key={i}>
+                                  <TableCell className="text-xs">{item.item_name}</TableCell>
+                                  <TableCell className="text-xs text-right">{item.qty}</TableCell>
+                                  <TableCell className="text-xs">
+                                    <span className={`px-1.5 py-0.5 rounded text-[10px] font-medium ${
+                                      item.condition === 'good' ? 'bg-green-100 text-green-700' : 'bg-red-100 text-red-700'
+                                    }`}>{item.condition}</span>
+                                  </TableCell>
+                                </TableRow>
+                              ))}
+                            </TableBody>
+                          </Table>
+                        </div>
+
+                        {ret.notes && <p className="text-xs text-muted-foreground italic">{ret.notes}</p>}
+
+                        {/* Credit note row */}
+                        {needsCreditNote ? (
+                          <div className="flex items-center gap-2 pt-1">
+                            <span className="text-xs text-muted-foreground">No credit note yet.</span>
+                            <Button
+                              size="sm"
+                              variant="outline"
+                              className="h-7 text-xs"
+                              disabled={createCreditNote.isPending}
+                              onClick={() =>
+                                createCreditNote.mutate(ret, {
+                                  onSuccess: () => toast.success(`Credit note created for ${ret.return_number}`),
+                                  onError: () => toast.error('Failed to create credit note'),
+                                })
+                              }
+                            >
+                              {createCreditNote.isPending ? 'Creating…' : 'Create Credit Note'}
+                            </Button>
+                          </div>
+                        ) : ret.credit_note ? (
+                          <div className="flex items-center gap-1.5 pt-1">
+                            <span className="text-xs text-muted-foreground">Credit note:</span>
+                            <button
+                              type="button"
+                              className="font-mono text-xs font-medium text-primary hover:underline underline-offset-2"
+                              onClick={() => setCnDetailNote(ret.credit_note!)}
+                            >
+                              {ret.credit_note.credit_note_id}
+                            </button>
+                          </div>
+                        ) : null}
+                      </div>
+                    )
+                  })
+                )}
+              </TabsContent>
+
               {/* ── Activity ─────────────────────────────────────── */}
               <TabsContent value="activity" className="flex-1 overflow-y-auto">
                 {(activityLogs ?? []).length === 0 ? (
                   <p className="text-sm text-muted-foreground text-center py-4">No activity yet</p>
                 ) : (
-                  <div className="space-y-2">
-                    {(activityLogs ?? []).map((log) => (
-                      <div key={log.id} className="flex gap-3 text-sm">
-                        <span className="text-muted-foreground shrink-0 text-xs pt-0.5">{formatRelative(log.created_at)}</span>
-                        <div>
-                          <span className="font-medium">{log.action}</span>
-                          {log.performer_name && <span className="text-muted-foreground"> · {log.performer_name}</span>}
-                          {log.details && <p className="text-xs text-muted-foreground mt-0.5">{log.details}</p>}
+                  <div className="relative pl-6">
+                    {(activityLogs ?? []).map((log, idx) => {
+                      const a = log.action ?? ''
+                      const dotClass =
+                        a.includes('Cancelled') || a.includes('Rejected')
+                          ? 'bg-destructive border-destructive'
+                          : a.includes('Delivered') || a.includes('Confirmed') || a.includes('Approved')
+                          ? 'bg-green-500 border-green-500'
+                          : a.includes('Payment')
+                          ? 'bg-purple-500 border-purple-500'
+                          : a.includes('Return')
+                          ? 'bg-orange-500 border-orange-500'
+                          : 'bg-primary border-primary'
+                      return (
+                        <div key={log.id} className="relative pb-4">
+                          {idx < (activityLogs ?? []).length - 1 && (
+                            <span className="absolute left-[-16px] top-3 bottom-0 w-px bg-border" />
+                          )}
+                          <span className={cn('absolute left-[-20px] top-1.5 h-3 w-3 rounded-full border-2', dotClass)} />
+                          <div className="text-sm flex flex-wrap items-center gap-1.5">
+                            <span className="font-medium">{log.action}</span>
+                            {log.performer_name && (
+                              <span className="text-muted-foreground text-xs">· {log.performer_name}</span>
+                            )}
+                          </div>
+                          <p className="text-xs text-muted-foreground mt-0.5">{formatDate(log.created_at)}</p>
+                          {log.details && (
+                            <p className="text-xs text-muted-foreground mt-0.5">{log.details}</p>
+                          )}
                         </div>
-                      </div>
-                    ))}
+                      )
+                    })}
                   </div>
                 )}
               </TabsContent>
@@ -550,6 +724,15 @@ export function SoDetailDialog({ open, onOpenChange, so, onEdit, onConfirm }: So
               {(current?.status === 'quotation' || current?.status === 'pending_approval') && fullSO && (
                 <SoPdfButton so={fullSO} />
               )}
+              {soInvoice && (
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => { onOpenChange(false); router.push(`/sales/invoices/${soInvoice.id}`) }}
+                >
+                  View Invoice ({soInvoice.invoice_id})
+                </Button>
+              )}
               <Button variant="outline" size="sm" onClick={() => onOpenChange(false)}>
                 Close
               </Button>
@@ -564,6 +747,13 @@ export function SoDetailDialog({ open, onOpenChange, so, onEdit, onConfirm }: So
           <SoDeliveryDialog open={deliveryOpen} onOpenChange={setDeliveryOpen} so={current} />
         </>
       )}
+
+      <CreditDebitNoteDetailDialog
+        note={cnDetailNote}
+        referenceNumber={cnDetailNote?.invoice_id ? (soInvoice?.invoice_id ?? '—') : '—'}
+        open={!!cnDetailNote}
+        onOpenChange={(v) => { if (!v) setCnDetailNote(null) }}
+      />
       {soInvoice && invoicePayOpen && (
         <CustomerPaymentDialog
           open
@@ -579,7 +769,126 @@ export function SoDetailDialog({ open, onOpenChange, so, onEdit, onConfirm }: So
           onOpenChange={setInvoicePlanOpen}
           invoiceId={soInvoice.id}
           outstanding={invoiceOutstanding}
+          labels={AR_LABELS}
         />
+      )}
+
+      {/* Create Return Dialog */}
+      {returnOpen && current && (
+        <Dialog open onOpenChange={(o) => { if (!o) { setReturnOpen(false); setReturnReason(''); setReturnNotes(''); setReturnWarehouseId('') } }}>
+          <DialogContent className="w-full max-w-full rounded-none sm:max-w-lg sm:rounded-lg max-h-[90vh] flex flex-col">
+            <DialogHeader>
+              <DialogTitle>Create Return — {current.so_number}</DialogTitle>
+            </DialogHeader>
+            <div className="flex-1 overflow-y-auto space-y-4 py-2">
+              <div className="grid grid-cols-2 gap-3">
+                <div className="space-y-1">
+                  <label className="text-xs font-medium text-muted-foreground uppercase tracking-wider">Return Date</label>
+                  <input
+                    type="date"
+                    className="flex h-9 w-full rounded-md border border-input bg-background px-3 py-1 text-sm focus:outline-none focus:ring-1 focus:ring-ring"
+                    value={returnDate}
+                    onChange={(e) => setReturnDate(e.target.value)}
+                  />
+                </div>
+                <div className="space-y-1">
+                  <label className="text-xs font-medium text-muted-foreground uppercase tracking-wider">Restock Warehouse</label>
+                  <select
+                    className="flex h-9 w-full rounded-md border border-input bg-background px-3 py-1 text-sm focus:outline-none focus:ring-1 focus:ring-ring"
+                    value={returnWarehouseId}
+                    onChange={(e) => setReturnWarehouseId(e.target.value)}
+                  >
+                    <option value="">None / Inspect first</option>
+                    {warehouses.map((w: any) => <option key={w.id} value={w.id}>{w.name}</option>)}
+                  </select>
+                </div>
+              </div>
+              <div className="space-y-1">
+                <label className="text-xs font-medium text-muted-foreground uppercase tracking-wider">Reason <span className="text-destructive">*</span></label>
+                <input
+                  className="flex h-9 w-full rounded-md border border-input bg-background px-3 py-1 text-sm focus:outline-none focus:ring-1 focus:ring-ring"
+                  placeholder="e.g. Wrong item, damaged on arrival…"
+                  value={returnReason}
+                  onChange={(e) => setReturnReason(e.target.value)}
+                />
+              </div>
+              <div className="space-y-2">
+                <label className="text-xs font-medium text-muted-foreground uppercase tracking-wider">Items</label>
+                <div className="rounded-md border overflow-x-auto">
+                  <Table>
+                    <TableHeader>
+                      <TableRow>
+                        <TableHead className="text-xs">Item</TableHead>
+                        <TableHead className="text-xs text-right w-20">Qty</TableHead>
+                        <TableHead className="text-xs w-28">Condition</TableHead>
+                      </TableRow>
+                    </TableHeader>
+                    <TableBody>
+                      {returnItems.map((item, i) => (
+                        <TableRow key={i}>
+                          <TableCell className="text-xs font-medium">{item.item_name}</TableCell>
+                          <TableCell className="text-right">
+                            <input
+                              type="number" min={0}
+                              className="w-16 h-7 text-xs text-right rounded border border-input bg-background px-2 focus:outline-none focus:ring-1 focus:ring-ring"
+                              value={item.qty}
+                              onChange={(e) => setReturnItems((prev) => prev.map((it, j) => j === i ? { ...it, qty: Number(e.target.value) } : it))}
+                            />
+                          </TableCell>
+                          <TableCell>
+                            <select
+                              className="h-7 text-xs rounded border border-input bg-background px-1 focus:outline-none focus:ring-1 focus:ring-ring"
+                              value={item.condition}
+                              onChange={(e) => setReturnItems((prev) => prev.map((it, j) => j === i ? { ...it, condition: e.target.value as 'good' | 'damaged' } : it))}
+                            >
+                              <option value="good">Good</option>
+                              <option value="damaged">Damaged</option>
+                            </select>
+                          </TableCell>
+                        </TableRow>
+                      ))}
+                    </TableBody>
+                  </Table>
+                </div>
+              </div>
+              <div className="space-y-1">
+                <label className="text-xs font-medium text-muted-foreground uppercase tracking-wider">Notes</label>
+                <textarea
+                  rows={2}
+                  className="flex w-full rounded-md border border-input bg-background px-3 py-2 text-sm resize-none focus:outline-none focus:ring-1 focus:ring-ring"
+                  placeholder="Optional notes…"
+                  value={returnNotes}
+                  onChange={(e) => setReturnNotes(e.target.value)}
+                />
+              </div>
+            </div>
+            <div className="flex justify-end gap-2 pt-2 border-t">
+              <Button variant="outline" size="sm" onClick={() => setReturnOpen(false)}>Cancel</Button>
+              <Button
+                size="sm"
+                disabled={!returnReason.trim() || createReturn.isPending || returnItems.every((it) => it.qty === 0)}
+                onClick={() => {
+                  createReturn.mutate(
+                    {
+                      source_id: current.id,
+                      date: returnDate,
+                      reason: returnReason,
+                      items: returnItems.filter((it) => it.qty > 0),
+                      restock_warehouse_id: returnWarehouseId || null,
+                      notes: returnNotes || null,
+                    },
+                    {
+                      onSuccess: () => { toast.success('Return created'); setReturnOpen(false); setReturnReason(''); setReturnNotes(''); setReturnWarehouseId('') },
+                      onError: (err) => toast.error((err as Error).message),
+                    }
+                  )
+                }}
+              >
+                {createReturn.isPending ? 'Creating…' : 'Create Return'}
+              </Button>
+            </div>
+          </DialogContent>
+        </Dialog>
       )}
     </>
   )

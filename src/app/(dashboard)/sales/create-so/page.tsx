@@ -149,10 +149,10 @@ export default function CreateSOPage() {
       intent,
       currency,
       exchange_rate:        exchangeRate,
-      expected_delivery:    null,
+      expected_delivery:    terms.expected_delivery || null,
       payment_terms:        isCash ? null : (terms.payment_terms || null),
       payment_terms_notes:  isCash ? null : (terms.payment_terms_notes || null),
-      payment_milestones:   null,
+      payment_milestones:   isCash ? null : (terms.payment_milestones.length > 0 ? terms.payment_milestones.map(({ _key, ...m }) => m) : null),
       delivery_terms:       terms.delivery_terms || null,
       delivery_terms_notes: terms.delivery_terms_notes || null,
       customer_notes:       terms.customer_notes || null,
@@ -268,7 +268,7 @@ export default function CreateSOPage() {
                   <ChevronsUpDown className="h-4 w-4 opacity-50" />
                 </PopoverTrigger>
                 <PopoverContent className="w-[min(400px,90vw)] p-0">
-                  <Command>
+                  <Command shouldFilter={false}>
                     <CommandInput placeholder="Search customers..." value={customerSearch} onValueChange={setCustomerSearch} />
                     <CommandList>
                       <CommandEmpty>No customers found.</CommandEmpty>

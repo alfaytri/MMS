@@ -6,6 +6,7 @@ export type CustomerPayment = {
   id: string
   payment_id: string | null
   invoice_id: string | null
+  customer_id: string | null
   source_type: string | null
   source_id: string | null
   amount: number
@@ -29,7 +30,7 @@ export function useCustomerPayments(invoiceId?: string) {
       const supabase = createClient()
       let q = (supabase as any)
         .from('payments')
-        .select('*, invoices(invoice_id, customers(name))')
+        .select('*, customer_id, invoices(invoice_id, customers(name))')
         .eq('direction', 'incoming')
         .order('date', { ascending: false })
       if (invoiceId) q = q.eq('invoice_id', invoiceId)
@@ -73,6 +74,7 @@ export function useCreateCustomerPayment() {
   return useMutation({
     mutationFn: async (payload: {
       invoice_id: string
+      customer_id: string
       amount: number
       method: 'bank_transfer' | 'cash' | 'cheque' | 'online_transfer' | 'pos'
       date: string
@@ -83,27 +85,28 @@ export function useCreateCustomerPayment() {
       const { count } = await (supabase as any)
         .from('payments')
         .select('*', { count: 'exact', head: true })
-        .eq('direction', 'incoming')
+        .ilike('payment_id', 'CPAY-%')
       const payment_id = `CPAY-${String((count ?? 0) + 1).padStart(5, '0')}`
 
       const { data, error } = await (supabase as any)
         .from('payments')
         .insert({
           payment_id,
-          invoice_id: payload.invoice_id,
-          amount: payload.amount,
-          method: payload.method,
-          date: payload.date,
-          reference: payload.reference,
-          notes: payload.notes,
-          direction: 'incoming',
-          status: 'completed',
+          invoice_id:  payload.invoice_id,
+          customer_id: payload.customer_id,
+          amount:      payload.amount,
+          method:      payload.method,
+          date:        payload.date,
+          reference:   payload.reference,
+          notes:       payload.notes,
+          direction:   'incoming',
+          status:      'completed',
         })
         .select()
         .single()
       if (error) throw error
 
-      // Recompute invoice payment_status
+      // Recompute invoice payment_status (belt-and-suspenders alongside the DB trigger)
       const { data: allPayments } = await (supabase as any)
         .from('payments')
         .select('amount')
@@ -117,11 +120,9 @@ export function useCreateCustomerPayment() {
         .eq('id', payload.invoice_id)
         .single()
       const newStatus =
-        totalPaid >= (inv?.total_amount ?? Infinity)
-          ? 'paid'
-          : totalPaid > 0
-          ? 'partially_paid'
-          : 'unpaid'
+        totalPaid >= (inv?.total_amount ?? Infinity) ? 'paid'
+        : totalPaid > 0 ? 'partially_paid'
+        : 'unpaid'
 
       await (supabase as any)
         .from('invoices')
@@ -130,8 +131,9 @@ export function useCreateCustomerPayment() {
 
       return data
     },
-    onSuccess: () => {
+    onSuccess: (_, variables) => {
       queryClient.invalidateQueries({ queryKey: ['customer-payments'] })
+      queryClient.invalidateQueries({ queryKey: ['customer-payments', variables.invoice_id] })
       queryClient.invalidateQueries({ queryKey: ['customer-invoices'] })
     },
   })

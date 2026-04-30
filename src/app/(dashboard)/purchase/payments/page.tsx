@@ -15,6 +15,7 @@ import { useCustomerPayments, type CustomerPayment } from '@/hooks/useCustomerPa
 import { SoDetailDialog } from '@/components/sales/SoDetailDialog'
 import { PoDetailDialog } from '@/components/purchase/PoDetailDialog'
 import { AttachBillDialog } from '@/components/purchase/AttachBillDialog'
+import { SelectInvoiceDialog } from '@/components/sales/SelectInvoiceDialog'
 import { formatCurrency, formatDate } from '@/lib/utils/formatters'
 import type { SaleOrder } from '@/hooks/useSaleOrders'
 
@@ -46,6 +47,9 @@ export default function PaymentsPage() {
   const [attachBillOpen, setAttachBillOpen]     = useState(false)
   const [attachPaymentId, setAttachPaymentId]   = useState<string | null>(null)
   const [attachSupplierId, setAttachSupplierId] = useState<string | null>(null)
+  const [linkInvoiceOpen, setLinkInvoiceOpen]   = useState(false)
+  const [linkPaymentId, setLinkPaymentId]       = useState<string | null>(null)
+  const [linkCustomerId, setLinkCustomerId]     = useState<string | null>(null)
 
   const openSO = useCallback(function openSO(payment: CustomerPayment) {
     if (!payment.source_id || payment.source_type !== 'sale_order') return
@@ -244,17 +248,35 @@ export default function PaymentsPage() {
       header: '',
       cell: ({ row }) => {
         const p = row.original
-        if (p.source_type !== 'sale_order' || !p.source_id) return null
         return (
-          <Button
-            size="icon"
-            variant="ghost"
-            className="h-7 w-7"
-            aria-label="View sale order"
-            onClick={() => openSO(p)}
-          >
-            <Eye className="h-3.5 w-3.5" />
-          </Button>
+          <div className="flex items-center gap-1">
+            {p.source_type === 'sale_order' && p.source_id && (
+              <Button
+                size="icon"
+                variant="ghost"
+                className="h-7 w-7"
+                aria-label="View sale order"
+                onClick={() => openSO(p)}
+              >
+                <Eye className="h-3.5 w-3.5" />
+              </Button>
+            )}
+            {!p.invoice_id && p.customer_id && (
+              <Button
+                size="icon"
+                variant="ghost"
+                className="h-7 w-7"
+                aria-label="Link to invoice"
+                onClick={() => {
+                  setLinkPaymentId(p.id)
+                  setLinkCustomerId(p.customer_id!)
+                  setLinkInvoiceOpen(true)
+                }}
+              >
+                <Paperclip className="h-3.5 w-3.5" />
+              </Button>
+            )}
+          </div>
         )
       },
     },
@@ -306,6 +328,14 @@ export default function PaymentsPage() {
         paymentId={attachPaymentId ?? undefined}
         supplierId={attachSupplierId}
       />
+      {linkInvoiceOpen && linkPaymentId && linkCustomerId && (
+        <SelectInvoiceDialog
+          open
+          onOpenChange={setLinkInvoiceOpen}
+          paymentId={linkPaymentId}
+          customerId={linkCustomerId}
+        />
+      )}
     </PageWrapper>
   )
 }

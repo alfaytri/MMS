@@ -100,7 +100,6 @@ export type Customer = {
   name:                string
   phone:               string | null
   email:               string | null
-  customer_number:     string | null
   customer_type:       string | null
   is_blocked:          boolean
   credit_group_id:     string | null
@@ -186,12 +185,12 @@ export function useCustomers(search?: string) {
       const supabase = createClient()
       let q = (supabase as any)
         .from('customers')
-        .select('id, name, phone, email, customer_number, customer_type, is_blocked, credit_group_id, credit_groups(name, credit_limit)')
+        .select('id, name, phone, email, customer_type, is_blocked, credit_group_id, credit_groups(name, credit_limit)')
         .order('name')
         .limit(50)
       if (search) {
         const safe = search.replace(/%/g, '\\%')
-        q = q.ilike('name', `%${safe}%`)
+        q = q.or(`name.ilike.%${safe}%,phone.ilike.%${safe}%`)
       }
       const { data, error } = await q
       if (error) throw error
@@ -222,7 +221,7 @@ export function useAllCustomers(search: string, page: number) {
         .range(from, to)
       if (search) {
         const safe = search.replace(/%/g, '\\%')
-        q = q.ilike('name', `%${safe}%`)
+        q = q.or(`name.ilike.%${safe}%,phone.ilike.%${safe}%`)
       }
       const { data, count, error } = await q
       if (error) throw error
@@ -495,7 +494,7 @@ export function useCreateSOPayment() {
       const { count: pCount } = await (supabase as any)
         .from('payments')
         .select('*', { count: 'exact', head: true })
-        .eq('direction', 'incoming')
+        .ilike('payment_id', 'CPAY-%')
       const payment_id = `CPAY-${String((pCount ?? 0) + 1).padStart(5, '0')}`
 
       // eslint-disable-next-line @typescript-eslint/no-explicit-any

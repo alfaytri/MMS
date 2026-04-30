@@ -49,8 +49,10 @@ export function AttachBillDialog({ open, onOpenChange, mode, paymentId, billId, 
     mode === 'link-payment' ? supplierId : undefined
   )
 
+  type AvailablePayment = { id: string; payment_id: string; amount: number; method: string; date: string; reference: string | null; allocated: number; remaining: number }
+
   // link-payment mode: fetch all outgoing payments for this supplier with their allocated amounts
-  const { data: availablePayments = [], isLoading: loadingAvailable } = useQuery({
+  const { data: availablePayments = [], isLoading: loadingAvailable } = useQuery<AvailablePayment[]>({
     queryKey: ['supplier-payments-available', supplierId],
     queryFn: async () => {
       const supabase = createClient()
@@ -64,14 +66,15 @@ export function AttachBillDialog({ open, onOpenChange, mode, paymentId, billId, 
         .eq('direction', 'outgoing')
         .order('date', { ascending: false })
       if (error) throw error
-      return (data ?? []).map((p: any) => {
-        const allocated = (p.payment_bill_allocations ?? []).reduce((s: number, a: any) => s + a.amount, 0)
+      type RawPayment = { id: string; payment_id: string; amount: number; method: string; date: string; reference: string | null; payment_bill_allocations: { amount: number }[] }
+      return (data ?? []).map((p: RawPayment) => {
+        const allocated = (p.payment_bill_allocations ?? []).reduce((s: number, a: { amount: number }) => s + a.amount, 0)
         return {
           ...p,
           allocated,
           remaining: p.amount - allocated,
         }
-      }).filter((p: any) => p.remaining > 0.001)
+      }).filter((p: RawPayment & { remaining: number }) => p.remaining > 0.001)
     },
     enabled: mode === 'link-payment' && !!supplierId,
   })

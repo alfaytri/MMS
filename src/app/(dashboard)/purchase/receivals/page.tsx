@@ -259,6 +259,7 @@ export default function ReceivalsPage() {
   const [requestEditTarget, setRequestEditTarget] = useState<Receival | null>(null)
   const [editTarget, setEditTarget] = useState<{ receival: Receival; request: ReceivalEditRequest } | null>(null)
   const [adminApproveTarget, setAdminApproveTarget] = useState<ReceivalEditRequest | null>(null)
+  const [detailReceival, setDetailReceival] = useState<Receival | null>(null)
 
   const { data: receivals, isLoading } = useReceivals({ status: statusFilter as any })
   const { data: isAdmin } = useIsAdmin()
@@ -338,7 +339,12 @@ export default function ReceivalsPage() {
         ))}
       </div>
 
-      <DataTable columns={columns} data={receivals ?? []} isLoading={isLoading} />
+      <DataTable
+        columns={columns}
+        data={receivals ?? []}
+        isLoading={isLoading}
+        onRowClick={(row) => setDetailReceival(row)}
+      />
 
       <ReceivalFormDialog open={createOpen} onOpenChange={setCreateOpen} />
 
@@ -357,6 +363,54 @@ export default function ReceivalsPage() {
         target={editTarget}
         onClose={() => setEditTarget(null)}
       />
+
+      {/* Receival Detail Dialog */}
+      <Dialog open={!!detailReceival} onOpenChange={(o) => { if (!o) setDetailReceival(null) }}>
+        <DialogContent className="w-full max-w-full rounded-none sm:max-w-2xl sm:rounded-lg">
+          <DialogHeader>
+            <DialogTitle>
+              {detailReceival?.receival_number}
+              <span className="ml-2 text-sm font-normal text-muted-foreground">
+                · {detailReceival?.po_number} · {detailReceival?.supplier_name} · {detailReceival ? formatDate(detailReceival.date) : ''}
+              </span>
+            </DialogTitle>
+          </DialogHeader>
+          <div className="overflow-x-auto">
+            <table className="w-full text-sm">
+              <thead>
+                <tr className="border-b text-left text-xs text-muted-foreground uppercase tracking-wider">
+                  <th className="pb-2 pr-4">Item</th>
+                  <th className="pb-2 pr-4">SKU</th>
+                  <th className="pb-2 pr-4 text-right">Qty Received</th>
+                  <th className="pb-2 pr-4 text-right">Unit Cost</th>
+                  <th className="pb-2">Type</th>
+                </tr>
+              </thead>
+              <tbody>
+                {(detailReceival?.receival_items ?? []).map((item) => (
+                  <tr key={item.id} className="border-b last:border-0">
+                    <td className="py-2 pr-4 font-medium">{item.item_name}</td>
+                    <td className="py-2 pr-4 text-muted-foreground font-mono text-xs">{item.sku ?? '—'}</td>
+                    <td className="py-2 pr-4 text-right">{item.qty_received}</td>
+                    <td className="py-2 pr-4 text-right">{item.unit_cost ? `QAR ${item.unit_cost.toFixed(2)}` : '—'}</td>
+                    <td className="py-2">
+                      {item.is_free
+                        ? <span className="text-xs px-1.5 py-0.5 rounded bg-purple-100 text-purple-700">Free</span>
+                        : <span className="text-xs px-1.5 py-0.5 rounded bg-slate-100 text-slate-600">Purchased</span>}
+                    </td>
+                  </tr>
+                ))}
+                {(detailReceival?.receival_items ?? []).length === 0 && (
+                  <tr><td colSpan={5} className="py-4 text-center text-muted-foreground">No items found</td></tr>
+                )}
+              </tbody>
+            </table>
+          </div>
+          {detailReceival?.notes && (
+            <p className="text-sm text-muted-foreground border-t pt-3"><span className="font-medium">Notes:</span> {detailReceival.notes}</p>
+          )}
+        </DialogContent>
+      </Dialog>
     </PageWrapper>
   )
 }

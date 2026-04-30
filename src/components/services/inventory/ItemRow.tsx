@@ -41,7 +41,7 @@ export function ItemRow({ item, categoryType, showArchived, canMoveUp, canMoveDo
   const [archiveOpen, setArchiveOpen] = useState(false)
   const archive = useArchiveInventoryItem()
   const updateVariantOrder = useUpdateSortOrders('inventory_brand_variants')
-  const { data: variants = [] } = useInventoryBrandVariants(expanded ? item.id : null, showArchived)
+  const { data: variants = [] } = useInventoryBrandVariants(item.id, showArchived)
 
   function handleVariantMove(idx: number, direction: 'up' | 'down') {
     const targetIdx = direction === 'up' ? idx - 1 : idx + 1
@@ -54,6 +54,7 @@ export function ItemRow({ item, categoryType, showArchived, canMoveUp, canMoveDo
   }
 
   const totalAtp = variants.reduce((sum, v) => sum + (v.stock_level ?? 0) - ((v as any).reserved_qty ?? 0), 0)
+  const totalDamaged = variants.reduce((sum, v) => sum + ((v as any).damaged_qty ?? 0), 0)
   const minReorder = Math.min(...variants.map((v) => (v as any).reorder_point ?? 0), Infinity)
   const reorderPoint = isFinite(minReorder) ? minReorder : 0
   const linkedCount = item.linked_services_count ?? 0
@@ -89,6 +90,14 @@ export function ItemRow({ item, categoryType, showArchived, canMoveUp, canMoveDo
         <td className="py-2 px-2">
           <div className="flex items-center gap-2">
             <StockBadge atp={totalAtp} reorderPoint={reorderPoint} />
+            {totalDamaged > 0 && (
+              <span
+                title={`${totalDamaged} damaged unit${totalDamaged > 1 ? 's' : ''} — not sellable`}
+                className="inline-flex items-center rounded-full px-2 py-0.5 text-[11px] font-medium bg-red-100 text-red-700"
+              >
+                {totalDamaged} dmg
+              </span>
+            )}
             {linkedCount > 0 && (
               <Badge variant="outline" className="text-[10px] px-1.5 py-0 gap-0.5 text-blue-600 border-blue-200">
                 🔗 {linkedCount}

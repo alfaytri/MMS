@@ -127,15 +127,37 @@ export function useCreditGroupCustomerCounts() {
 export function useAssignCreditGroup() {
   const queryClient = useQueryClient()
   return useMutation({
-    mutationFn: async ({ customerId, groupId }: { customerId: string; groupId: string }) => {
+    mutationFn: async ({ customerId, groupId, groupName }: { customerId: string; groupId: string; groupName?: string }) => {
       const supabase = createClient()
-      const { error } = await (supabase as any)
+      const { data, error } = await (supabase as any)
         .from('customers')
-        .update({ credit_group_id: groupId })
+        .update({ credit_group_id: groupId, customer_type: 'credit' })
         .eq('id', customerId)
+        .select('id, credit_group_id')
       if (error) throw error
+      if (!data || data.length === 0) throw new Error('Customer not found or update blocked')
+      return { groupName }
     },
-    onSuccess: () => {
+    onMutate: async ({ customerId, groupId, groupName }) => {
+      await queryClient.cancelQueries({ queryKey: ['all-customers'] })
+      const snapshots = queryClient.getQueriesData({ queryKey: ['all-customers'] })
+      queryClient.setQueriesData({ queryKey: ['all-customers'] }, (old: any) => {
+        if (!old?.customers) return old
+        return {
+          ...old,
+          customers: old.customers.map((c: any) =>
+            c.id === customerId
+              ? { ...c, credit_group_id: groupId, credit_group_name: groupName ?? c.credit_group_name, customer_type: 'credit' }
+              : c
+          ),
+        }
+      })
+      return { snapshots }
+    },
+    onError: (_err, _vars, context) => {
+      context?.snapshots?.forEach(([key, data]) => queryClient.setQueryData(key, data))
+    },
+    onSettled: () => {
       queryClient.invalidateQueries({ queryKey: ['customers'] })
       queryClient.invalidateQueries({ queryKey: ['all-customers'] })
       queryClient.invalidateQueries({ queryKey: ['credit-group-counts'] })

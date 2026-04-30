@@ -37,12 +37,13 @@ export function CustomerPaymentDialog({ open, onOpenChange, invoice, alreadyPaid
     setSaving(true)
     try {
       await createPayment.mutateAsync({
-        invoice_id: invoice.id,
-        amount: amountNum,
+        invoice_id:  invoice.id,
+        customer_id: invoice.customer_id,
+        amount:      amountNum,
         method,
         date,
         reference: reference || null,
-        notes: null,
+        notes:     null,
       })
       toast.success('Payment recorded')
       onOpenChange(false)

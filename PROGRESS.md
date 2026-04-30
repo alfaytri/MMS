@@ -147,14 +147,38 @@ Purchase & Sales▾:
 | `docs/superpowers/plans/2026-04-22-po-approval-chain.md` | ✅ DONE | PO approval chain — configurable division-based chains, cumulative tiers, notifications, admin force-approve |
 | `docs/superpowers/plans/2026-04-25-inventory-complete.md` | ✅ DONE | Inventory accounting — FIFO layers, atomic RPCs, reserved qty, COGS, stock movements, ledger hooks |
 | `docs/superpowers/plans/2026-04-27-multi-company-division-isolation.md` | ✅ DONE | Division isolation — JWT hook, RLS, DivisionFilter, PO/SO create pickers, user division assignment |
+| `docs/superpowers/plans/2026-04-30-po-returns.md` | ✅ DONE | PO returns — dispatch/cancel/supplier-confirm flow, inventory deduction on dispatch, cancel with RPC reversal, type toggle on Returns page |
 
 ---
 
 ## 🔄 In Progress
 
-_(nothing in progress)_
+🚀 Starting: **— all tasks complete —**
 
 ## ✅ Completed
+
+- [2026-04-30] **PO Return Debit Note inline display + backfill** — `src/hooks/usePurchaseReturns.ts`, `src/components/purchase/PoDetailDialog.tsx` — `usePurchaseReturnsByPO` now joins `credit_notes(*)`; `POReturn` type gains `credit_note_id` and `debit_note`; return row in PO dialog shows DN number + PDF download when note exists; "Create Debit Note" button shown for returns at `supplier_confirmed`/`closed` with no note (backfills existing returns); `useCreateDebitNoteForReturn` exported mutation
+
+- [2026-04-30] **Credit & Debit Notes Task 9: Central page with type switcher** — `src/app/(dashboard)/sales/credit-notes/page.tsx` — Replaced single-type credit-notes page with unified Credit & Debit Notes hub; `noteType` state drives `useCreditNotes`/`useDebitNotes` hook selection; separate `creditColumns`/`debitColumns` column definitions; Select dropdown switcher (`w-48`) below PageHeader; "Create Credit Note" button hidden when Debit Notes tab is active; PDF download via `CreditDebitNoteDownloadButton`; `ConfirmDialog` for apply flow unchanged; zero TypeScript errors
+
+- [2026-04-30] **PO Returns: Full feature** — `supabase/migrations/20260430170000_po_returns.sql`, `src/hooks/usePurchaseReturns.ts`, `src/hooks/useSaleReturns.ts`, `src/components/purchase/PoDetailDialog.tsx`, `src/app/(dashboard)/sales/returns/page.tsx` — PO returns with `pending→dispatched→supplier_confirmed→closed` flow; inventory deducted on dispatch via `rpc_process_po_return_dispatch` (SECURITY DEFINER); cancel reverses inventory via `rpc_cancel_po_return_dispatch`; Returns page has Sale/PO toggle with URL persistence (`?type=sale|po`); cancel available for both return types at correct stages
+- [2026-04-30] **Sale Return Inventory Integration** — `supabase/migrations/20260430140000_sale_return_restock.sql`, `src/hooks/useSaleReturns.ts`, `src/components/services/inventory/BrandVariantRow.tsx` — Added `damaged_qty` column to `inventory_brand_variants`; added `restocked_at` to `returns`; extended movement_type CHECK constraint with `sale_return` and `sale_return_damaged`; created `rpc_process_return_restock` RPC (idempotent via `restocked_at` stamp): good items restore `stock_level` + insert movement, damaged items increment `damaged_qty` + insert movement; `useUpdateReturnStatus` now calls RPC on `restocked` transition; `BrandVariantRow` shows red "X dmg" badge when `damaged_qty > 0`
+
+- [2026-04-30] **Invoice Payments Task 11: Wire Payments Page — Link Invoice button** — `src/app/(dashboard)/purchase/payments/page.tsx`, `src/components/ui/tooltip.tsx` (new) — Added `SelectInvoiceDialog` import + three `linkInvoice*` state vars; updated `invoiceColumns` actions cell to show Paperclip button for unlinked CPAY rows that have a `customer_id`; mounted `SelectInvoiceDialog` conditionally; installed missing shadcn Tooltip component
+
+- [2026-04-30] **Invoice Payments Task 10: Wire Invoice Detail Page + Dialog + SoDetailDialog** — `src/app/(dashboard)/sales/invoices/[id]/page.tsx`, `src/components/sales/InvoiceDetail.tsx`, `src/components/sales/SoDetailDialog.tsx` — Invoice detail page: Record Payment, Attach Payment (tooltip-guarded), Payment Plan buttons + `AttachInvoiceDialog`; InvoiceDetail dialog: same three buttons + Payment History with detach (AlertDialog); SoDetailDialog: import updated to `finance/PaymentPlanDialog` + `AR_LABELS` added
+
+- [2026-04-30] **Invoice Payments Task 9: SelectInvoiceDialog component** — `src/components/sales/SelectInvoiceDialog.tsx` — Dialog for linking an unlinked incoming payment to an open AR invoice; lists unpaid/partially-paid invoices via `useUnlinkedArInvoices`; calls `useAttachPaymentToInvoice`; payment-status badge with color map; resets selection on close
+
+- [2026-04-30] **Invoice Payments Task 8: AttachInvoiceDialog component** — `src/components/sales/AttachInvoiceDialog.tsx` — Dialog for attaching an unlinked payment to the current invoice; lists unlinked incoming payments via `useUnlinkedIncomingPayments`; calls `useAttachPaymentToInvoice`; guards against already-paid invoices; resets selection on close
+
+- [2026-04-30] **Invoice Payments Task 7: Move PaymentPlanDialog to finance/ + add labels prop** — `src/components/finance/PaymentPlanDialog.tsx` (new), `src/components/purchase/PaymentPlanDialog.tsx` (re-export shim) — Canonical dialog now lives in finance/; added `PaymentPlanLabels` interface + `AP_LABELS`/`AR_LABELS` constants; `labels` prop defaults to AP_LABELS for backward compat; purchase file is a thin re-export
+
+- [2026-04-30] **Invoice Payments & Payment Plans Task 1: Database Migration** — `supabase/migrations/20260430120000_invoice_payment_rpcs.sql` — Added `payments.customer_id` nullable FK column; backfilled existing incoming payments via linked invoice and source sale_order; created `recalculate_ar_invoice_payment_status` shared function; created `trg_recalc_ar_payment_status` trigger (AFTER INSERT/UPDATE/DELETE on payments); created `attach_payment_to_invoice` RPC with FOR UPDATE row lock and ownership guard; created `detach_payment_from_invoice` RPC with same guards
+
+- [2026-04-30] **Invoice Detail Page Task 5: Rebuild with Bill-style sidebar layout** — `src/app/(dashboard)/sales/invoices/[id]/page.tsx` — Replaced flat toolbar-only layout with sidebar + content split; `InvoiceDetailSidebar` always visible on lg+, overlay on mobile; `usePathname`/`useSearchParams` for URL-persisted toggle state; `handleToggle` syncs URL params; toolbar moved inside main content area; `Printer` removed from lucide imports (sidebar handles print); `showNotes`/`showQR`/`showPaymentPlan` props now passed to `InvoiceDetailDocument`
+
+- [2026-04-29] **Sale Module UX: SO row click + Invoice document page** — `src/app/(dashboard)/sales/orders/page.tsx`, `src/app/(dashboard)/sales/invoices/page.tsx`, `src/app/(dashboard)/sales/invoices/[id]/page.tsx` (new), `src/components/sales/InvoiceDetailDocument.tsx` (new) — SO list: eye button removed, entire row clickable via onRowClick; Invoice list: row navigates to full document page; new /sales/invoices/[id] route shows printable invoice with company header, "فاتورة مبيعات", customer, line items, totals, payment history, balance, QR code, watermark, plus Print/Send/Pay toolbar
 
 - [2026-04-29] **Fix PO payment direction bug** — `src/hooks/usePurchaseOrders.ts`, `supabase/migrations/20260429150000_fix_po_payment_direction.sql` — `useCreatePOPayment` was missing `direction: 'outgoing'` and `payment_id`, causing PO payments to default to `incoming` and appear on Invoice Payments page; migration backfills all affected rows and assigns SPAY- IDs
 

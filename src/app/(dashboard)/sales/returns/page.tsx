@@ -1,6 +1,7 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, Suspense } from 'react'
+import { useRouter, useSearchParams } from 'next/navigation'
 import { toast } from 'sonner'
 import { PageHeader } from '@/components/shared/PageHeader'
 import { PageWrapper } from '@/components/shared/PageWrapper'
@@ -15,6 +16,9 @@ import {
   Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter,
 } from '@/components/ui/dialog'
 import {
+  Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
+} from '@/components/ui/select'
+import {
   Table, TableBody, TableCell, TableHead, TableHeader, TableRow,
 } from '@/components/ui/table'
 import {
@@ -23,94 +27,160 @@ import {
   useUpdateReturnStatus,
   type SaleReturn,
 } from '@/hooks/useSaleReturns'
+import {
+  usePurchaseReturns,
+  useCreatePurchaseReturn,
+  useUpdatePOReturnStatus,
+  type POReturn,
+  type POReturnItem,
+  type POReturnStatus,
+} from '@/hooks/usePurchaseReturns'
 import { useSaleOrders } from '@/hooks/useSaleOrders'
+import { usePurchaseOrders } from '@/hooks/usePurchaseOrders'
 import { useWarehouses } from '@/hooks/useWarehouses'
 import { formatDate } from '@/lib/utils/formatters'
 import { cn } from '@/lib/utils'
 
-const STATUS_CONFIG: Record<SaleReturn['status'], { label: string; className: string }> = {
+// ─── Sale Return status config ────────────────────────────────────────────────
+const SR_STATUS_CONFIG: Record<SaleReturn['status'], { label: string; className: string }> = {
   pending:   { label: 'Pending',   className: 'border-warning text-warning' },
   received:  { label: 'Received',  className: 'border-blue-500 text-blue-500' },
   restocked: { label: 'Restocked', className: 'border-success text-success' },
   closed:    { label: 'Closed',    className: 'border-muted-foreground/50 text-muted-foreground' },
+  cancelled: { label: 'Cancelled', className: 'border-muted-foreground/30 text-muted-foreground/60' },
 }
 
-const STATUS_NEXT: Partial<Record<SaleReturn['status'], SaleReturn['status']>> = {
-  pending: 'received',
+const SR_STATUS_NEXT: Partial<Record<SaleReturn['status'], SaleReturn['status']>> = {
+  pending:  'received',
   received: 'restocked',
   restocked: 'closed',
 }
 
-export default function SaleReturnsPage() {
-  const [search, setSearch] = useState('')
-  const [statusFilter, setStatusFilter] = useState<SaleReturn['status'] | ''>('')
-  const [createOpen, setCreateOpen] = useState(false)
-  const [detailReturn, setDetailReturn] = useState<SaleReturn | null>(null)
+// ─── PO Return status config ──────────────────────────────────────────────────
+const PR_STATUS_CONFIG: Record<POReturnStatus, { label: string; className: string }> = {
+  pending:            { label: 'Pending',            className: 'border-warning text-warning' },
+  dispatched:         { label: 'Dispatched',         className: 'border-blue-500 text-blue-500' },
+  supplier_confirmed: { label: 'Supplier Confirmed', className: 'border-success text-success' },
+  closed:             { label: 'Closed',             className: 'border-muted-foreground/50 text-muted-foreground' },
+  cancelled:          { label: 'Cancelled',          className: 'border-muted-foreground/30 text-muted-foreground/60' },
+}
 
-  // Create return form state
+const PR_STATUS_NEXT: Partial<Record<POReturnStatus, POReturnStatus>> = {
+  pending:            'dispatched',
+  dispatched:         'supplier_confirmed',
+  supplier_confirmed: 'closed',
+}
+
+const PR_STATUS_LABEL: Record<string, string> = {
+  dispatched:         'Mark Dispatched',
+  supplier_confirmed: 'Confirm Supplier Receipt',
+  closed:             'Close Return',
+}
+
+// ─── Inner component (uses useSearchParams — requires Suspense wrapper) ───────
+function ReturnsContent() {
+  const router = useRouter()
+  const searchParams = useSearchParams()
+  const returnType = (searchParams.get('type') ?? 'sale') as 'sale' | 'po'
+
+  function setReturnType(t: 'sale' | 'po') {
+    const params = new URLSearchParams(searchParams.toString())
+    params.set('type', t)
+    router.replace(`?${params.toString()}`)
+  }
+
+  // ── Sale return state ──
+  const [srSearch, setSrSearch] = useState('')
+  const [srStatusFilter, setSrStatusFilter] = useState<SaleReturn['status'] | ''>('')
+  const [srCreateOpen, setSrCreateOpen] = useState(false)
+  const [srDetailReturn, setSrDetailReturn] = useState<SaleReturn | null>(null)
   const [soId, setSoId] = useState('')
-  const [returnDate, setReturnDate] = useState(new Date().toISOString().split('T')[0])
-  const [reason, setReason] = useState('')
-  const [notes, setNotes] = useState('')
-  const [warehouseId, setWarehouseId] = useState('')
-  const [returnItems, setReturnItems] = useState<SaleReturn['items']>([])
+  const [srDate, setSrDate] = useState(new Date().toISOString().split('T')[0])
+  const [srReason, setSrReason] = useState('')
+  const [srNotes, setSrNotes] = useState('')
+  const [srWarehouseId, setSrWarehouseId] = useState('')
+  const [srItems, setSrItems] = useState<SaleReturn['items']>([])
 
-  const { data: returns, isLoading } = useSaleReturns({ search, status: statusFilter || undefined })
-  const { data: orders } = useSaleOrders({ status: 'delivered' })
-  const { data: warehouses } = useWarehouses()
-  const createReturn = useCreateSaleReturn()
-  const updateStatus = useUpdateReturnStatus()
+  // ── PO return state ──
+  const [prSearch, setPrSearch] = useState('')
+  const [prStatusFilter, setPrStatusFilter] = useState<POReturnStatus | ''>('')
+  const [prCreateOpen, setPrCreateOpen] = useState(false)
+  const [prDetailReturn, setPrDetailReturn] = useState<POReturn | null>(null)
+  const [poId, setPoId] = useState('')
+  const [prDate, setPrDate] = useState(new Date().toISOString().split('T')[0])
+  const [prReason, setPrReason] = useState('')
+  const [prNotes, setPrNotes] = useState('')
+  const [prWarehouseId, setPrWarehouseId] = useState('')
+  const [prItems, setPrItems] = useState<(POReturnItem & { _max: number })[]>([])
 
+  // ── Queries ──
+  const { data: saleReturns, isLoading: srLoading } = useSaleReturns({ search: srSearch, status: srStatusFilter || undefined })
+  const { data: poReturns,   isLoading: prLoading }  = usePurchaseReturns({ search: prSearch, status: prStatusFilter || undefined })
+  const { data: saleOrders }    = useSaleOrders({ status: 'delivered' })
+  const { data: purchaseOrders } = usePurchaseOrders({})
+  const { data: warehouses = [] } = useWarehouses()
+
+  // ── Mutations ──
+  const createSaleReturn  = useCreateSaleReturn()
+  const updateSaleStatus  = useUpdateReturnStatus()
+  const createPOReturn    = useCreatePurchaseReturn()
+  const updatePOStatus    = useUpdatePOReturnStatus()
+
+  // ── Sale return handlers ──
   function handleSOSelect(id: string) {
     setSoId(id)
-    const so = (orders ?? []).find((o) => o.id === id)
+    const so = (saleOrders ?? []).find((o) => o.id === id)
     if (!so) return
-    setReturnItems(
+    setSrItems(
       (so.sale_order_lines ?? [])
         .filter((l) => l.delivered_qty > 0)
-        .map((l) => ({
-          item_name: l.item_name,
-          sku: l.sku,
-          qty: 0,
-          condition: 'good' as const,
-          brand_variant_id: l.brand_variant_id,
-        }))
+        .map((l) => ({ item_name: l.item_name, sku: l.sku, qty: 0, condition: 'good' as const, brand_variant_id: l.brand_variant_id }))
     )
   }
 
-  function handleCreateReturn() {
-    if (!soId) { toast.error('Select a sale order'); return }
-    if (!reason) { toast.error('Reason is required'); return }
-    const items = returnItems.filter((i) => i.qty > 0)
+  function handleCreateSaleReturn() {
+    if (!soId)    { toast.error('Select a sale order'); return }
+    if (!srReason) { toast.error('Reason is required'); return }
+    const items = srItems.filter((i) => i.qty > 0)
     if (items.length === 0) { toast.error('Enter qty for at least one item'); return }
-
-    createReturn.mutate(
+    createSaleReturn.mutate(
+      { source_id: soId, date: srDate, reason: srReason, items, restock_warehouse_id: srWarehouseId || null, notes: srNotes || null },
       {
-        source_id: soId,
-        date: returnDate,
-        reason,
-        items,
-        restock_warehouse_id: warehouseId || null,
-        notes: notes || null,
-      },
-      {
-        onSuccess: () => {
-          toast.success('Return created')
-          setCreateOpen(false)
-          setSoId(''); setReason(''); setNotes(''); setReturnItems([])
-        },
+        onSuccess: () => { toast.success('Return created'); setSrCreateOpen(false); setSoId(''); setSrReason(''); setSrNotes(''); setSrItems([]) },
         onError: (err) => toast.error(err.message),
       }
     )
   }
 
-  function handleAdvanceStatus(ret: SaleReturn) {
-    const next = STATUS_NEXT[ret.status]
-    if (!next) return
-    updateStatus.mutate(
-      { id: ret.id, status: next },
+  // ── PO return handlers ──
+  function handlePOSelect(id: string) {
+    setPoId(id)
+    const po = (purchaseOrders ?? []).find((o) => o.id === id)
+    if (!po) return
+    setPrItems(
+      (po.po_line_items ?? [])
+        .filter((l) => l.received_qty > 0)
+        .map((l) => ({ item_name: l.item_name, sku: l.sku ?? null, qty: 0, brand_variant_id: l.brand_variant_id ?? null, condition: 'other' as const, condition_notes: null, _max: l.received_qty }))
+    )
+  }
+
+  function handleCreatePOReturn() {
+    if (!poId)     { toast.error('Select a purchase order'); return }
+    if (!prReason) { toast.error('Reason is required'); return }
+    const items = prItems.filter((i) => i.qty > 0)
+    if (items.length === 0) { toast.error('Enter qty for at least one item'); return }
+    if (items.some((i) => i.qty > i._max)) { toast.error('One or more quantities exceed the received amount'); return }
+    createPOReturn.mutate(
       {
-        onSuccess: () => toast.success(`Return marked as ${next}`),
+        source_id: poId,
+        date: prDate,
+        reason: prReason,
+        items: items.map(({ item_name, sku, qty, brand_variant_id, condition, condition_notes }) => ({ item_name, sku, qty, brand_variant_id, condition, condition_notes })),
+        restock_warehouse_id: prWarehouseId || null,
+        notes: prNotes || null,
+      },
+      {
+        onSuccess: () => { toast.success('Return created'); setPrCreateOpen(false); setPoId(''); setPrReason(''); setPrNotes(''); setPrItems([]) },
         onError: (err) => toast.error(err.message),
       }
     )
@@ -119,102 +189,177 @@ export default function SaleReturnsPage() {
   return (
     <PageWrapper>
       <PageHeader
-        title="Sale Returns"
-        description="Manage customer returns and restocking"
-        actions={<Button onClick={() => setCreateOpen(true)}>+ Create Return</Button>}
+        title="Returns"
+        description="Manage returns and restocking"
+        actions={
+          <Button onClick={() => returnType === 'sale' ? setSrCreateOpen(true) : setPrCreateOpen(true)}>
+            + Create Return
+          </Button>
+        }
       />
 
-      {/* Filters */}
-      <div className="flex flex-col gap-3 sm:flex-row sm:items-center">
-        <SearchInput value={search} onChange={setSearch} placeholder="Search return number…" />
-        <div className="flex flex-wrap gap-2">
-          {(['', 'pending', 'received', 'restocked', 'closed'] as const).map((s) => (
+      {/* ── Type toggle + search ── */}
+      <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:flex-wrap">
+        {/* Segmented toggle */}
+        <div className="flex rounded-lg border p-1 gap-1 shrink-0">
+          {(['sale', 'po'] as const).map((t) => (
             <button
-              key={s}
-              onClick={() => setStatusFilter(s)}
+              key={t}
+              onClick={() => setReturnType(t)}
               className={cn(
-                'rounded-full border px-3 py-1 text-xs font-medium transition-colors',
-                statusFilter === s ? 'bg-primary text-primary-foreground border-primary' : 'bg-background hover:bg-muted'
+                'rounded-md px-3 py-1 text-sm font-medium transition-colors min-h-11 sm:min-h-8',
+                returnType === t ? 'bg-primary text-primary-foreground' : 'hover:bg-muted'
               )}
             >
-              {s || 'All'}
+              {t === 'sale' ? 'Sale Returns' : 'PO Returns'}
             </button>
           ))}
         </div>
+
+        {returnType === 'sale' ? (
+          <>
+            <SearchInput value={srSearch} onChange={setSrSearch} placeholder="Search return number…" />
+            <div className="flex flex-wrap gap-2">
+              {(['', 'pending', 'received', 'restocked', 'closed', 'cancelled'] as const).map((s) => (
+                <button key={s} onClick={() => setSrStatusFilter(s)}
+                  className={cn('rounded-full border px-3 py-1 text-xs font-medium transition-colors min-h-11 sm:min-h-8',
+                    srStatusFilter === s ? 'bg-primary text-primary-foreground border-primary' : 'bg-background hover:bg-muted'
+                  )}>
+                  {s || 'All'}
+                </button>
+              ))}
+            </div>
+          </>
+        ) : (
+          <>
+            <SearchInput value={prSearch} onChange={setPrSearch} placeholder="Search return number…" />
+            <div className="flex flex-wrap gap-2">
+              {(['', 'pending', 'dispatched', 'supplier_confirmed', 'closed', 'cancelled'] as const).map((s) => (
+                <button key={s} onClick={() => setPrStatusFilter(s)}
+                  className={cn('rounded-full border px-3 py-1 text-xs font-medium transition-colors min-h-11 sm:min-h-8',
+                    prStatusFilter === s ? 'bg-primary text-primary-foreground border-primary' : 'bg-background hover:bg-muted'
+                  )}>
+                  {s === 'supplier_confirmed' ? 'Supplier Confirmed' : s || 'All'}
+                </button>
+              ))}
+            </div>
+          </>
+        )}
       </div>
 
-      {/* Returns list */}
-      {isLoading ? (
-        <div className="space-y-3">
-          {Array.from({ length: 3 }).map((_, i) => <Skeleton key={i} className="h-24 w-full rounded-lg" />)}
-        </div>
-      ) : (returns ?? []).length === 0 ? (
-        <div className="rounded-lg border border-dashed p-8 text-center text-muted-foreground text-sm">
-          No sale returns found
-        </div>
-      ) : (
-        <div className="space-y-3">
-          {(returns ?? []).map((ret) => {
-            const cfg = STATUS_CONFIG[ret.status]
-            const next = STATUS_NEXT[ret.status]
-            return (
-              <div key={ret.id} className="rounded-lg border p-4 space-y-2">
-                <div className="flex flex-wrap items-center justify-between gap-2">
-                  <div className="flex items-center gap-2">
-                    <button
-                      type="button"
-                      className="font-mono font-semibold text-sm hover:underline"
-                      onClick={() => setDetailReturn(ret)}
-                    >
-                      {ret.return_number}
-                    </button>
-                    <Badge variant="outline" className={cn('text-xs', cfg.className)}>{cfg.label}</Badge>
+      {/* ── Sale returns list ── */}
+      {returnType === 'sale' && (
+        srLoading ? (
+          <div className="space-y-3">{Array.from({ length: 3 }).map((_, i) => <Skeleton key={i} className="h-24 w-full rounded-lg" />)}</div>
+        ) : (saleReturns ?? []).length === 0 ? (
+          <div className="rounded-lg border border-dashed p-8 text-center text-muted-foreground text-sm">No sale returns found</div>
+        ) : (
+          <div className="space-y-3">
+            {(saleReturns ?? []).map((ret) => {
+              const cfg  = SR_STATUS_CONFIG[ret.status] ?? SR_STATUS_CONFIG.pending
+              const next = SR_STATUS_NEXT[ret.status]
+              const canCancel = ret.status === 'pending' || ret.status === 'received'
+              return (
+                <div key={ret.id} className="rounded-lg border p-4 space-y-2">
+                  <div className="flex flex-wrap items-center justify-between gap-2">
+                    <div className="flex items-center gap-2">
+                      <button type="button" className="font-mono font-semibold text-sm hover:underline" onClick={() => setSrDetailReturn(ret)}>
+                        {ret.return_number}
+                      </button>
+                      <Badge variant="outline" className={cn('text-xs', cfg.className)}>{cfg.label}</Badge>
+                    </div>
+                    <div className="flex items-center gap-2">
+                      {next && (
+                        <Button size="sm" variant="outline" disabled={updateSaleStatus.isPending}
+                          onClick={() => updateSaleStatus.mutate({ id: ret.id, status: next },
+                            { onSuccess: () => toast.success(`Marked as ${SR_STATUS_CONFIG[next].label}`), onError: (e) => toast.error(e.message) }
+                          )}>
+                          Mark as {SR_STATUS_CONFIG[next].label}
+                        </Button>
+                      )}
+                      {canCancel && (
+                        <Button size="sm" variant="ghost" className="text-destructive hover:text-destructive" disabled={updateSaleStatus.isPending}
+                          onClick={() => updateSaleStatus.mutate({ id: ret.id, status: 'cancelled' },
+                            { onSuccess: () => toast.success('Return cancelled'), onError: (e) => toast.error(e.message) }
+                          )}>
+                          Cancel
+                        </Button>
+                      )}
+                    </div>
                   </div>
-                  {next && (
-                    <Button
-                      size="sm"
-                      variant="outline"
-                      onClick={() => handleAdvanceStatus(ret)}
-                      disabled={updateStatus.isPending}
-                    >
-                      Mark as {STATUS_CONFIG[next].label}
-                    </Button>
-                  )}
+                  <div className="text-sm text-muted-foreground">{formatDate(ret.date)} · {ret.items.length} item(s) · {ret.reason}</div>
                 </div>
-                <div className="text-sm text-muted-foreground">
-                  {formatDate(ret.date)} · {ret.items.length} item(s) · {ret.reason}
-                </div>
-              </div>
-            )
-          })}
-        </div>
+              )
+            })}
+          </div>
+        )
       )}
 
-      {/* Return Detail Dialog */}
-      <Dialog open={!!detailReturn} onOpenChange={(open) => { if (!open) setDetailReturn(null) }}>
+      {/* ── PO returns list ── */}
+      {returnType === 'po' && (
+        prLoading ? (
+          <div className="space-y-3">{Array.from({ length: 3 }).map((_, i) => <Skeleton key={i} className="h-24 w-full rounded-lg" />)}</div>
+        ) : (poReturns ?? []).length === 0 ? (
+          <div className="rounded-lg border border-dashed p-8 text-center text-muted-foreground text-sm">No PO returns found</div>
+        ) : (
+          <div className="space-y-3">
+            {(poReturns ?? []).map((ret) => {
+              const cfg  = PR_STATUS_CONFIG[ret.status] ?? PR_STATUS_CONFIG.pending
+              const next = PR_STATUS_NEXT[ret.status]
+              const canCancel = ret.status === 'pending' || ret.status === 'dispatched'
+              return (
+                <div key={ret.id} className="rounded-lg border p-4 space-y-2">
+                  <div className="flex flex-wrap items-center justify-between gap-2">
+                    <div className="flex items-center gap-2">
+                      <button type="button" className="font-mono font-semibold text-sm hover:underline" onClick={() => setPrDetailReturn(ret)}>
+                        {ret.return_number}
+                      </button>
+                      <Badge variant="outline" className={cn('text-xs', cfg.className)}>{cfg.label}</Badge>
+                    </div>
+                    <div className="flex items-center gap-2">
+                      {next && (
+                        <Button size="sm" variant="outline" disabled={updatePOStatus.isPending}
+                          onClick={() => updatePOStatus.mutate({ id: ret.id, status: next, sourceId: ret.source_id },
+                            { onSuccess: () => toast.success(`Marked as ${PR_STATUS_CONFIG[next].label}`), onError: (e) => toast.error(e.message) }
+                          )}>
+                          {PR_STATUS_LABEL[next]}
+                        </Button>
+                      )}
+                      {canCancel && (
+                        <Button size="sm" variant="ghost" className="text-destructive hover:text-destructive" disabled={updatePOStatus.isPending}
+                          onClick={() => updatePOStatus.mutate({ id: ret.id, status: 'cancelled', sourceId: ret.source_id },
+                            { onSuccess: () => toast.success('Return cancelled'), onError: (e) => toast.error(e.message) }
+                          )}>
+                          Cancel
+                        </Button>
+                      )}
+                    </div>
+                  </div>
+                  <div className="text-sm text-muted-foreground">{formatDate(ret.date)} · {ret.items.length} item(s) · {ret.reason}</div>
+                </div>
+              )
+            })}
+          </div>
+        )
+      )}
+
+      {/* ── Sale Return Detail Dialog ── */}
+      <Dialog open={!!srDetailReturn} onOpenChange={(o) => { if (!o) setSrDetailReturn(null) }}>
         <DialogContent className="w-full max-w-full rounded-none sm:max-w-lg sm:rounded-lg">
-          {detailReturn && (
+          {srDetailReturn && (
             <>
-              <DialogHeader>
-                <DialogTitle>Return {detailReturn.return_number}</DialogTitle>
-              </DialogHeader>
+              <DialogHeader><DialogTitle>Return {srDetailReturn.return_number}</DialogTitle></DialogHeader>
               <div className="space-y-3">
                 <div className="text-sm space-y-1">
-                  <div><span className="text-muted-foreground">Date:</span> {formatDate(detailReturn.date)}</div>
-                  <div><span className="text-muted-foreground">Reason:</span> {detailReturn.reason}</div>
-                  {detailReturn.notes && <div><span className="text-muted-foreground">Notes:</span> {detailReturn.notes}</div>}
+                  <div><span className="text-muted-foreground">Date:</span> {formatDate(srDetailReturn.date)}</div>
+                  <div><span className="text-muted-foreground">Reason:</span> {srDetailReturn.reason}</div>
+                  {srDetailReturn.notes && <div><span className="text-muted-foreground">Notes:</span> {srDetailReturn.notes}</div>}
                 </div>
                 <div className="rounded-md border overflow-x-auto">
                   <Table>
-                    <TableHeader>
-                      <TableRow>
-                        <TableHead>Item</TableHead>
-                        <TableHead className="text-right">Qty</TableHead>
-                        <TableHead>Condition</TableHead>
-                      </TableRow>
-                    </TableHeader>
+                    <TableHeader><TableRow><TableHead>Item</TableHead><TableHead className="text-right">Qty</TableHead><TableHead>Condition</TableHead></TableRow></TableHeader>
                     <TableBody>
-                      {detailReturn.items.map((item, idx) => (
+                      {srDetailReturn.items.map((item, idx) => (
                         <TableRow key={idx}>
                           <TableCell className="text-sm">{item.item_name}</TableCell>
                           <TableCell className="text-right text-sm">{item.qty}</TableCell>
@@ -229,97 +374,102 @@ export default function SaleReturnsPage() {
                   </Table>
                 </div>
               </div>
-              <DialogFooter>
-                <Button variant="outline" onClick={() => setDetailReturn(null)}>Close</Button>
-              </DialogFooter>
+              <DialogFooter><Button variant="outline" onClick={() => setSrDetailReturn(null)}>Close</Button></DialogFooter>
             </>
           )}
         </DialogContent>
       </Dialog>
 
-      {/* Create Return Dialog */}
-      <Dialog open={createOpen} onOpenChange={(open) => { if (!open) setCreateOpen(false) }}>
+      {/* ── PO Return Detail Dialog ── */}
+      <Dialog open={!!prDetailReturn} onOpenChange={(o) => { if (!o) setPrDetailReturn(null) }}>
+        <DialogContent className="w-full max-w-full rounded-none sm:max-w-lg sm:rounded-lg">
+          {prDetailReturn && (
+            <>
+              <DialogHeader><DialogTitle>Return {prDetailReturn.return_number}</DialogTitle></DialogHeader>
+              <div className="space-y-3">
+                <div className="text-sm space-y-1">
+                  <div><span className="text-muted-foreground">Date:</span> {formatDate(prDetailReturn.date)}</div>
+                  <div><span className="text-muted-foreground">Reason:</span> {prDetailReturn.reason}</div>
+                  {prDetailReturn.notes && <div><span className="text-muted-foreground">Notes:</span> {prDetailReturn.notes}</div>}
+                </div>
+                <div className="rounded-md border overflow-x-auto">
+                  <Table>
+                    <TableHeader><TableRow><TableHead>Item</TableHead><TableHead className="text-right">Qty</TableHead></TableRow></TableHeader>
+                    <TableBody>
+                      {prDetailReturn.items.map((item, idx) => (
+                        <TableRow key={idx}>
+                          <TableCell className="text-sm">{item.item_name}{item.sku ? ` · ${item.sku}` : ''}</TableCell>
+                          <TableCell className="text-right text-sm">{item.qty}</TableCell>
+                        </TableRow>
+                      ))}
+                    </TableBody>
+                  </Table>
+                </div>
+              </div>
+              <DialogFooter><Button variant="outline" onClick={() => setPrDetailReturn(null)}>Close</Button></DialogFooter>
+            </>
+          )}
+        </DialogContent>
+      </Dialog>
+
+      {/* ── Create Sale Return Dialog ── */}
+      <Dialog open={srCreateOpen} onOpenChange={(o) => { if (!o) setSrCreateOpen(false) }}>
         <DialogContent className="w-full max-w-full rounded-none sm:max-w-2xl sm:rounded-lg max-h-[90vh] flex flex-col">
-          <DialogHeader className="shrink-0">
-            <DialogTitle>Create Sale Return</DialogTitle>
-          </DialogHeader>
+          <DialogHeader className="shrink-0"><DialogTitle>Create Sale Return</DialogTitle></DialogHeader>
           <div className="flex-1 overflow-y-auto space-y-4 py-2">
             <div className="space-y-1">
-              <Label htmlFor="return-so">Sale Order (delivered) *</Label>
-              <select
-                id="return-so"
-                value={soId}
-                onChange={(e) => handleSOSelect(e.target.value)}
-                className="flex h-9 w-full rounded-md border border-input bg-background px-3 py-1 text-sm"
-              >
-                <option value="">Select sale order…</option>
-                {(orders ?? []).map((o) => (
-                  <option key={o.id} value={o.id}>{o.so_number} — {o.customer_name ?? 'Unknown'}</option>
-                ))}
-              </select>
+              <Label htmlFor="sr-so">Sale Order (delivered) *</Label>
+              <Select value={soId} onValueChange={(v) => handleSOSelect(v ?? '')}>
+                <SelectTrigger id="sr-so">
+                  <SelectValue placeholder="Select sale order…" />
+                </SelectTrigger>
+                <SelectContent>
+                  {(saleOrders ?? []).map((o) => (
+                    <SelectItem key={o.id} value={o.id}>{o.so_number} — {o.customer_name ?? 'Unknown'}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
             </div>
-
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
               <div className="space-y-1">
-                <Label htmlFor="return-date">Return Date *</Label>
-                <Input id="return-date" type="date" value={returnDate} onChange={(e) => setReturnDate(e.target.value)} />
+                <Label htmlFor="sr-date">Return Date *</Label>
+                <Input id="sr-date" type="date" value={srDate} onChange={(e) => setSrDate(e.target.value)} />
               </div>
               <div className="space-y-1">
-                <Label htmlFor="return-warehouse">Restock Warehouse</Label>
-                <select
-                  id="return-warehouse"
-                  value={warehouseId}
-                  onChange={(e) => setWarehouseId(e.target.value)}
-                  className="flex h-9 w-full rounded-md border border-input bg-background px-3 py-1 text-sm"
-                >
-                  <option value="">No restocking</option>
-                  {(warehouses ?? []).map((w) => (
-                    <option key={w.id} value={w.id}>{w.name}</option>
-                  ))}
-                </select>
+                <Label>Restock Warehouse</Label>
+                <Select value={srWarehouseId} onValueChange={(v) => setSrWarehouseId(v ?? '')}>
+                  <SelectTrigger>
+                    <SelectValue placeholder="No restocking" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {warehouses.map((w) => (
+                      <SelectItem key={w.id} value={w.id}>{w.name}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
               </div>
             </div>
-
             <div className="space-y-1">
-              <Label htmlFor="return-reason">Reason *</Label>
-              <Input id="return-reason" value={reason} onChange={(e) => setReason(e.target.value)} placeholder="e.g. Defective item, wrong item shipped…" />
+              <Label htmlFor="sr-reason">Reason *</Label>
+              <Input id="sr-reason" value={srReason} onChange={(e) => setSrReason(e.target.value)} placeholder="e.g. Defective item, wrong item shipped…" />
             </div>
-
-            {returnItems.length > 0 && (
+            {srItems.length > 0 && (
               <div className="space-y-2">
                 <Label>Return Items</Label>
-                {returnItems.map((item, idx) => (
+                {srItems.map((item, idx) => (
                   <div key={idx} className="flex items-center gap-3 rounded-md border p-2">
                     <div className="flex-1 min-w-0">
                       <div className="text-sm font-medium truncate">{item.item_name}</div>
                       {item.sku && <div className="text-xs text-muted-foreground">{item.sku}</div>}
                     </div>
                     <div className="flex items-center gap-2">
-                      <Input
-                        type="number"
-                        min="0"
-                        value={item.qty}
-                        onChange={(e) => {
-                          const updated = [...returnItems]
-                          updated[idx] = { ...updated[idx], qty: Math.max(0, Number(e.target.value)) }
-                          setReturnItems(updated)
-                        }}
-                        className="w-20 text-right"
-                      />
-                      <button
-                        type="button"
-                        onClick={() => {
-                          const updated = [...returnItems]
-                          updated[idx] = { ...updated[idx], condition: item.condition === 'good' ? 'damaged' : 'good' }
-                          setReturnItems(updated)
-                        }}
-                        className={cn(
-                          'rounded-md border px-2 py-1 text-xs font-medium transition-colors min-h-9',
-                          item.condition === 'good'
-                            ? 'border-success text-success'
-                            : 'border-destructive text-destructive'
-                        )}
-                      >
+                      <Input type="number" min="0" value={item.qty}
+                        onChange={(e) => { const u = [...srItems]; u[idx] = { ...u[idx], qty: Math.max(0, Number(e.target.value)) }; setSrItems(u) }}
+                        className="w-20 text-right" />
+                      <button type="button"
+                        onClick={() => { const u = [...srItems]; u[idx] = { ...u[idx], condition: item.condition === 'good' ? 'damaged' : 'good' }; setSrItems(u) }}
+                        className={cn('rounded-md border px-2 py-1 text-xs font-medium transition-colors min-h-9',
+                          item.condition === 'good' ? 'border-success text-success' : 'border-destructive text-destructive')}>
                         {item.condition}
                       </button>
                     </div>
@@ -327,22 +477,102 @@ export default function SaleReturnsPage() {
                 ))}
               </div>
             )}
-
             <div className="space-y-1">
-              <Label htmlFor="return-notes">Notes</Label>
-              <Textarea id="return-notes" value={notes} onChange={(e) => setNotes(e.target.value)} rows={2} />
+              <Label htmlFor="sr-notes">Notes</Label>
+              <Textarea id="sr-notes" value={srNotes} onChange={(e) => setSrNotes(e.target.value)} rows={2} />
             </div>
           </div>
           <DialogFooter className="shrink-0">
-            <Button variant="outline" onClick={() => setCreateOpen(false)} disabled={createReturn.isPending}>
-              Cancel
+            <Button variant="outline" onClick={() => setSrCreateOpen(false)} disabled={createSaleReturn.isPending}>Cancel</Button>
+            <Button onClick={handleCreateSaleReturn} disabled={createSaleReturn.isPending}>
+              {createSaleReturn.isPending ? 'Creating…' : 'Create Return'}
             </Button>
-            <Button onClick={handleCreateReturn} disabled={createReturn.isPending}>
-              {createReturn.isPending ? 'Creating…' : 'Create Return'}
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* ── Create PO Return Dialog ── */}
+      <Dialog open={prCreateOpen} onOpenChange={(o) => { if (!o) setPrCreateOpen(false) }}>
+        <DialogContent className="w-full max-w-full rounded-none sm:max-w-2xl sm:rounded-lg max-h-[90vh] flex flex-col">
+          <DialogHeader className="shrink-0"><DialogTitle>Create PO Return</DialogTitle></DialogHeader>
+          <div className="flex-1 overflow-y-auto space-y-4 py-2">
+            <div className="space-y-1">
+              <Label>Purchase Order (with receivals) *</Label>
+              <Select value={poId} onValueChange={(v) => handlePOSelect(v ?? '')}>
+                <SelectTrigger>
+                  <SelectValue placeholder="Select purchase order…" />
+                </SelectTrigger>
+                <SelectContent>
+                  {(purchaseOrders ?? [])
+                    .filter((o) => (o.po_line_items ?? []).some((l) => l.received_qty > 0))
+                    .map((o) => (
+                      <SelectItem key={o.id} value={o.id}>{o.po_number} — {o.supplier_name ?? 'Unknown'}</SelectItem>
+                    ))}
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+              <div className="space-y-1">
+                <Label htmlFor="pr-date">Return Date *</Label>
+                <Input id="pr-date" type="date" value={prDate} onChange={(e) => setPrDate(e.target.value)} />
+              </div>
+              <div className="space-y-1">
+                <Label>Dispatch From Warehouse</Label>
+                <Select value={prWarehouseId} onValueChange={(v) => setPrWarehouseId(v ?? '')}>
+                  <SelectTrigger>
+                    <SelectValue placeholder="Select warehouse…" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {warehouses.map((w) => (
+                      <SelectItem key={w.id} value={w.id}>{w.name}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+            </div>
+            <div className="space-y-1">
+              <Label htmlFor="pr-reason">Reason *</Label>
+              <Input id="pr-reason" value={prReason} onChange={(e) => setPrReason(e.target.value)} placeholder="e.g. Wrong item, damaged on arrival…" />
+            </div>
+            {prItems.length > 0 && (
+              <div className="space-y-2">
+                <Label>Items to Return</Label>
+                {prItems.map((item, idx) => (
+                  <div key={idx} className="flex items-center gap-3 rounded-md border p-2">
+                    <div className="flex-1 min-w-0">
+                      <div className="text-sm font-medium truncate">{item.item_name}</div>
+                      {item.sku && <div className="text-xs text-muted-foreground">{item.sku}</div>}
+                      <div className="text-xs text-muted-foreground">Max: {item._max}</div>
+                    </div>
+                    <Input type="number" min="0" max={item._max} value={item.qty}
+                      onChange={(e) => { const u = [...prItems]; u[idx] = { ...u[idx], qty: Math.min(item._max, Math.max(0, Number(e.target.value))) }; setPrItems(u) }}
+                      className="w-20 text-right" />
+                  </div>
+                ))}
+              </div>
+            )}
+            <div className="space-y-1">
+              <Label htmlFor="pr-notes">Notes</Label>
+              <Textarea id="pr-notes" value={prNotes} onChange={(e) => setPrNotes(e.target.value)} rows={2} />
+            </div>
+          </div>
+          <DialogFooter className="shrink-0">
+            <Button variant="outline" onClick={() => setPrCreateOpen(false)} disabled={createPOReturn.isPending}>Cancel</Button>
+            <Button onClick={handleCreatePOReturn} disabled={createPOReturn.isPending}>
+              {createPOReturn.isPending ? 'Creating…' : 'Create Return'}
             </Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>
     </PageWrapper>
+  )
+}
+
+// ─── Page export — wraps in Suspense required by useSearchParams ──────────────
+export default function ReturnsPage() {
+  return (
+    <Suspense fallback={<div className="p-6"><Skeleton className="h-10 w-full" /></div>}>
+      <ReturnsContent />
+    </Suspense>
   )
 }
