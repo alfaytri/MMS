@@ -417,6 +417,7 @@ export function useFifoLayers(brandVariantId: string | null, enabled = true) {
         .select('id, brand_variant_id, receival_number, date, qty, remaining_qty, unit_cost, landed_cost_per_unit, total_unit_cost, created_at')
         .eq('brand_variant_id', brandVariantId!)
         .order('date', { ascending: true })
+        .order('receival_number', { ascending: true })
         .order('created_at', { ascending: true })
       if (error) throw error
       return (data ?? []) as FifoLayer[]
