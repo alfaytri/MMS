@@ -1,8 +1,8 @@
 'use client'
 
 import { useState, useEffect, Suspense } from 'react'
-import { useParams, useRouter } from 'next/navigation'
-import { ArrowLeft, Printer, Send } from 'lucide-react'
+import { useParams, useRouter, usePathname, useSearchParams } from 'next/navigation'
+import { ArrowLeft, Send, Settings2 } from 'lucide-react'
 import { toast } from 'sonner'
 import { Button } from '@/components/ui/button'
 import { useCustomerInvoice, useSendInvoice } from '@/hooks/useCustomerInvoices'
@@ -14,16 +14,46 @@ import { InvoiceDetailDocument } from '@/components/sales/InvoiceDetailDocument'
 import { CustomerPaymentDialog } from '@/components/sales/CustomerPaymentDialog'
 import { PaymentPlanDialog } from '@/components/purchase/PaymentPlanDialog'
 import { PAYMENT_PLAN_THRESHOLD } from '@/types/invoice'
+import { InvoiceDetailSidebar, type InvoiceToggleKey } from '@/components/sales/InvoiceDetailSidebar'
+import { cn } from '@/lib/utils'
 
 function InvoiceDetailContent() {
   const params = useParams<{ id: string }>()
   const id = params.id
   const router = useRouter()
+  const pathname = usePathname()
+  const searchParams = useSearchParams()
+
+  function getParam(key: string): boolean {
+    const val = searchParams.get(key)
+    return val === null ? true : val !== 'false'
+  }
 
   const [selectedCompanyId, setSelectedCompanyId] = useState('')
   const [selectedDivisionId, setSelectedDivisionId] = useState('')
+  const [showNotes, setShowNotes] = useState(() => getParam('showNotes'))
+  const [showQR, setShowQR] = useState(() => getParam('showQR'))
+  const [showPaymentPlan, setShowPaymentPlan] = useState(() => getParam('showPaymentPlan'))
+  const [sidebarOpen, setSidebarOpen] = useState(false)
   const [payOpen, setPayOpen] = useState(false)
   const [planOpen, setPlanOpen] = useState(false)
+
+  function handleToggle(key: InvoiceToggleKey, value: boolean) {
+    const setters: Record<InvoiceToggleKey, (v: boolean) => void> = {
+      showNotes: setShowNotes,
+      showQR: setShowQR,
+      showPaymentPlan: setShowPaymentPlan,
+    }
+    setters[key](value)
+    const p = new URLSearchParams(searchParams.toString())
+    if (value) {
+      p.delete(key)
+    } else {
+      p.set(key, 'false')
+    }
+    const qs = p.toString()
+    router.replace(`${pathname}${qs ? '?' + qs : ''}`, { scroll: false })
+  }
 
   const { data: invoice, isLoading, isError } = useCustomerInvoice(id)
   const { data: payments = [] } = useCustomerPayments(id)
@@ -72,51 +102,92 @@ function InvoiceDetailContent() {
   }
 
   return (
-    <div className="min-h-screen bg-muted/30 print:bg-white">
-      {/* Toolbar */}
-      <div className="flex items-center gap-2 px-4 py-3 bg-background border-b print:hidden flex-wrap">
-        <Button variant="ghost" size="sm" onClick={() => router.push('/sales/invoices')}>
-          <ArrowLeft className="h-4 w-4 mr-1.5" />
-          Back
-        </Button>
-        <div className="flex-1" />
-        {invoice.doc_status === 'ready_to_send' && (
-          <Button
-            size="sm"
-            disabled={sendInvoice.isPending}
-            onClick={() => sendInvoice.mutate(invoice.id, {
-              onSuccess: () => toast.success('Invoice marked as sent'),
-              onError: () => toast.error('Failed to mark as sent'),
-            })}
-          >
-            <Send className="h-4 w-4 mr-1.5" />
-            {sendInvoice.isPending ? 'Sending…' : 'Send to Customer'}
-          </Button>
+    <div className="flex min-h-screen print:block print:min-h-0">
+      {/* Sidebar */}
+      <>
+        {sidebarOpen && (
+          <div
+            className="fixed inset-0 z-40 bg-black/40 lg:hidden"
+            onClick={() => setSidebarOpen(false)}
+          />
         )}
-        {outstanding > 0 && invoice.doc_status !== 'draft' && (
-          <Button variant="outline" size="sm" onClick={() => setPayOpen(true)}>
-            Pay Now
-          </Button>
-        )}
-        {outstanding >= PAYMENT_PLAN_THRESHOLD && !hasActivePlan && (
-          <Button variant="outline" size="sm" onClick={() => setPlanOpen(true)}>
-            Payment Plan
-          </Button>
-        )}
-        <Button variant="outline" size="sm" onClick={() => window.print()}>
-          <Printer className="h-4 w-4 mr-1.5" />
-          Print
-        </Button>
-      </div>
+        <div className={cn(
+          'fixed inset-y-0 left-0 z-50 lg:static lg:z-auto transition-transform lg:transform-none',
+          sidebarOpen ? 'translate-x-0' : '-translate-x-full lg:translate-x-0'
+        )}>
+          <InvoiceDetailSidebar
+            companies={companies}
+            selectedCompanyId={selectedCompanyId}
+            onCompanyChange={setSelectedCompanyId}
+            divisions={divisionsByCompany}
+            selectedDivisionId={selectedDivisionId}
+            onDivisionChange={setSelectedDivisionId}
+            showNotes={showNotes}
+            showQR={showQR}
+            showPaymentPlan={showPaymentPlan}
+            onToggle={handleToggle}
+            hasNotes={!!invoice.notes}
+            hasPaymentPlan={plans.some((p) => p.status === 'active')}
+          />
+        </div>
+      </>
 
-      {/* Document */}
-      <div className="p-4 lg:p-8 print:p-0">
-        <InvoiceDetailDocument
-          invoice={invoice}
-          payments={payments}
-          company={selectedCompany}
-          division={selectedDivision}
-        />
+      {/* Main content */}
+      <div className="flex-1 overflow-auto bg-muted/30 print:p-0 print:bg-white print:overflow-visible">
+        {/* Toolbar */}
+        <div className="flex items-center gap-2 px-4 py-3 bg-background border-b print:hidden flex-wrap">
+          <Button
+            variant="ghost"
+            size="sm"
+            className="lg:hidden"
+            onClick={() => setSidebarOpen(true)}
+          >
+            <Settings2 className="h-4 w-4 mr-1.5" />
+            Options
+          </Button>
+          <Button variant="ghost" size="sm" onClick={() => router.push('/sales/invoices')}>
+            <ArrowLeft className="h-4 w-4 mr-1.5" />
+            Back
+          </Button>
+          <div className="flex-1" />
+          {invoice.doc_status === 'ready_to_send' && (
+            <Button
+              size="sm"
+              disabled={sendInvoice.isPending}
+              onClick={() => sendInvoice.mutate(invoice.id, {
+                onSuccess: () => toast.success('Invoice marked as sent'),
+                onError: () => toast.error('Failed to mark as sent'),
+              })}
+            >
+              <Send className="h-4 w-4 mr-1.5" />
+              {sendInvoice.isPending ? 'Sending…' : 'Send to Customer'}
+            </Button>
+          )}
+          {outstanding > 0 && invoice.doc_status !== 'draft' && (
+            <Button variant="outline" size="sm" onClick={() => setPayOpen(true)}>
+              Pay Now
+            </Button>
+          )}
+          {outstanding >= PAYMENT_PLAN_THRESHOLD && !hasActivePlan && (
+            <Button variant="outline" size="sm" onClick={() => setPlanOpen(true)}>
+              Payment Plan
+            </Button>
+          )}
+        </div>
+
+        {/* Document */}
+        <div className="p-4 lg:p-8 print:p-0">
+          <InvoiceDetailDocument
+            invoice={invoice}
+            payments={payments}
+            company={selectedCompany}
+            division={selectedDivision}
+            plans={plans}
+            showNotes={showNotes}
+            showQR={showQR}
+            showPaymentPlan={showPaymentPlan}
+          />
+        </div>
       </div>
 
       {payOpen && (
