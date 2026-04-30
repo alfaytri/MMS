@@ -76,6 +76,18 @@ export function BrandVariantRow({ variant, itemId, canMoveUp, canMoveDown, onMov
           {variant.selling_price != null ? formatCurrency(variant.selling_price, 'QAR') : '—'}
         </TableCell>
         <TableCell className="text-right">
+          {reservedQty > 0 ? (
+            <span
+              title={`${reservedQty} unit${reservedQty !== 1 ? 's' : ''} reserved for confirmed orders`}
+              className="inline-flex items-center rounded-full px-2 py-0.5 text-[11px] font-medium cursor-default bg-orange-100 text-orange-700"
+            >
+              {reservedQty}
+            </span>
+          ) : (
+            <span className="text-[11px] text-muted-foreground">—</span>
+          )}
+        </TableCell>
+        <TableCell className="text-right">
           <div className="flex items-center justify-end gap-1.5">
             <AtpBadge stockLevel={stockLevel} reservedQty={reservedQty} reorderPoint={reorderPoint} />
             <span
@@ -109,7 +121,7 @@ export function BrandVariantRow({ variant, itemId, canMoveUp, canMoveDown, onMov
 
       {fifoOpen && (
         <TableRow className="bg-slate-50/50 hover:bg-slate-50/50">
-          <TableCell colSpan={7} className="py-2 px-4">
+          <TableCell colSpan={8} className="py-2 px-4">
             <FifoLayersTable brandVariantId={variant.id} />
           </TableCell>
         </TableRow>

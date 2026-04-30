@@ -135,6 +135,7 @@ export function ItemRow({ item, categoryType, showArchived, canMoveUp, canMoveDo
                     <TableHead className="text-[10px] h-7 font-semibold">CODE</TableHead>
                     <TableHead className="text-[10px] h-7 font-semibold text-right">AVG COST</TableHead>
                     <TableHead className="text-[10px] h-7 font-semibold text-right">SELLING PRICE</TableHead>
+                    <TableHead className="text-[10px] h-7 font-semibold text-right">RESERVED</TableHead>
                     <TableHead className="text-[10px] h-7 font-semibold text-right">AVAILABLE</TableHead>
                     <TableHead className="text-[10px] h-7 font-semibold text-right">INCOMING</TableHead>
                     <TableHead className="text-[10px] h-7" />
@@ -143,7 +144,7 @@ export function ItemRow({ item, categoryType, showArchived, canMoveUp, canMoveDo
                 <TableBody>
                   {variants.length === 0 && (
                     <TableRow>
-                      <TableCell colSpan={7} className="text-center text-[11px] text-muted-foreground py-4">
+                      <TableCell colSpan={8} className="text-center text-[11px] text-muted-foreground py-4">
                         No variants yet
                       </TableCell>
                     </TableRow>
