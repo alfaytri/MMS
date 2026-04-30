@@ -145,22 +145,31 @@ export function useUpdatePOReturnStatus() {
         .single()
       if (fetchErr) throw fetchErr
 
-      const { error } = await (supabase as any)
-        .from('returns')
-        .update({ status })
-        .eq('id', id)
-      if (error) throw error
-
       if (status === 'dispatched') {
+        // Update status first (RPC validates status = 'dispatched')
+        const { error } = await (supabase as any)
+          .from('returns').update({ status }).eq('id', id)
+        if (error) throw error
+        // Call RPC — revert status if it fails
         const { error: rpcErr } = await (supabase as any)
           .rpc('rpc_process_po_return_dispatch', { p_return_id: id })
-        if (rpcErr) throw rpcErr
-      }
-
-      if (status === 'cancelled' && ret.dispatched_at) {
+        if (rpcErr) {
+          await (supabase as any)
+            .from('returns').update({ status: 'pending' }).eq('id', id)
+          throw rpcErr
+        }
+      } else if (status === 'cancelled' && ret.dispatched_at) {
+        // Cancel RPC first (clears dispatched_at, restores stock) — then update status
         const { error: rpcErr } = await (supabase as any)
           .rpc('rpc_cancel_po_return_dispatch', { p_return_id: id })
         if (rpcErr) throw rpcErr
+        const { error } = await (supabase as any)
+          .from('returns').update({ status }).eq('id', id)
+        if (error) throw error
+      } else {
+        const { error } = await (supabase as any)
+          .from('returns').update({ status }).eq('id', id)
+        if (error) throw error
       }
 
       return { return_number: ret.return_number as string }
