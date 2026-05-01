@@ -157,6 +157,12 @@ Purchase & Sales▾:
 
 ## ✅ Completed
 
+- [2026-05-01] **Fix FIFO depletion order (receival_number tiebreaker)** — `supabase/migrations/20260501000003_fix_fifo_order_by_receival.sql`, `src/hooks/useInventory.ts` — `deduct_fifo_layers` ORDER BY updated from `date, created_at, id` to `date, receival_number, created_at, id`; `useFifoLayers` display query updated to match; fixes same-date receivals being drained out of arrival sequence (e.g. RCV-00011 emptying before RCV-00010)
+
+- [2026-05-01] **Delivery releases reserved_qty** — `supabase/migrations/20260501000002_delivery_release_reserved.sql` — `complete_delivery_inventory` now decrements `reserved_qty` per item on delivery completion, clamped at 0
+
+- [2026-05-01] **Inventory INCOMING trigger + RESERVED column** — `supabase/migrations/20260501000001_incoming_qty_trigger.sql`, `src/components/services/inventory/BrandVariantRow.tsx`, `src/components/services/inventory/ItemRow.tsx` — `fn_refresh_incoming_qty` + triggers on `po_line_items` and `purchase_orders`; RESERVED column (orange badge) added to inventory variant table; colSpan updated to 8
+
 - [2026-04-30] **PO Return Debit Note inline display + backfill** — `src/hooks/usePurchaseReturns.ts`, `src/components/purchase/PoDetailDialog.tsx` — `usePurchaseReturnsByPO` now joins `credit_notes(*)`; `POReturn` type gains `credit_note_id` and `debit_note`; return row in PO dialog shows DN number + PDF download when note exists; "Create Debit Note" button shown for returns at `supplier_confirmed`/`closed` with no note (backfills existing returns); `useCreateDebitNoteForReturn` exported mutation
 
 - [2026-04-30] **Credit & Debit Notes Task 9: Central page with type switcher** — `src/app/(dashboard)/sales/credit-notes/page.tsx` — Replaced single-type credit-notes page with unified Credit & Debit Notes hub; `noteType` state drives `useCreditNotes`/`useDebitNotes` hook selection; separate `creditColumns`/`debitColumns` column definitions; Select dropdown switcher (`w-48`) below PageHeader; "Create Credit Note" button hidden when Debit Notes tab is active; PDF download via `CreditDebitNoteDownloadButton`; `ConfirmDialog` for apply flow unchanged; zero TypeScript errors
