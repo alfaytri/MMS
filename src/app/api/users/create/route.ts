@@ -45,14 +45,14 @@ export async function POST(request: Request) {
     email,
     password,
     email_confirm: true,
-    user_metadata: { full_name, must_change_password: true },
+    user_metadata: { full_name },
   })
   if (createErr || !created.user) {
     return NextResponse.json({ error: `Auth user creation failed: ${createErr?.message ?? 'unknown'}` }, { status: 400 })
   }
   const authUserId = created.user.id
 
-  // 5. Insert profile (dual-write mirror of must_change_password).
+  // 5. Insert profile.
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const { data: profile, error: profErr } = await (admin as any)
     .from('profiles')
@@ -62,7 +62,6 @@ export async function POST(request: Request) {
       full_name,
       user_type: 'internal',
       is_active: true,
-      must_change_password: true,
       created_by: gate.authUserId,
     })
     .select('id')

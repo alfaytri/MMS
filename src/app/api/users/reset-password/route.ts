@@ -41,19 +41,11 @@ export async function POST(request: Request) {
   if (getErr || !existing.user) {
     return NextResponse.json({ error: `User not found: ${getErr?.message ?? 'unknown'}` }, { status: 404 })
   }
-  const mergedMeta = { ...(existing.user.user_metadata ?? {}), must_change_password: true }
-
   const { error: updErr } = await admin.auth.admin.updateUserById(user_id, {
     password,
-    user_metadata: mergedMeta,
+    user_metadata: existing.user.user_metadata ?? {},
   })
   if (updErr) return NextResponse.json({ error: `Password reset failed: ${updErr.message}` }, { status: 400 })
-
-  // Mirror to profiles.
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  await (admin as any).from('profiles')
-    .update({ must_change_password: true })
-    .eq('auth_user_id', user_id)
 
   // Audit (no password in details).
   await logUserEvent({

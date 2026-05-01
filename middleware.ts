@@ -4,15 +4,8 @@ import { NextResponse, type NextRequest } from 'next/server'
 // Explicit allowlist — no stringly-typed bypass, no startsWith surprises.
 const ALLOWED_PATHS = new Set<string>([
   '/login',
-  '/change-password',
-  '/api/users/me/change-password',
 ])
 const ALLOWED_PREFIXES = ['/api/auth/', '/_next/', '/favicon']
-
-function isAllowedPath(path: string): boolean {
-  if (ALLOWED_PATHS.has(path)) return true
-  return ALLOWED_PREFIXES.some((p) => path.startsWith(p))
-}
 
 export async function middleware(request: NextRequest) {
   let supabaseResponse = NextResponse.next({ request })
@@ -71,30 +64,6 @@ export async function middleware(request: NextRequest) {
     const url = request.nextUrl.clone()
     url.pathname = '/'
     return NextResponse.redirect(url)
-  }
-
-  // ─── Force-change-password gate ──────────────────────────────────────
-  if (user) {
-    // Primary: JWT user_metadata — no DB roundtrip.
-    let mustChange = Boolean(user.user_metadata?.must_change_password)
-
-    // Fallback: if the claim is completely missing (legacy sessions, or a
-    // JWT that hasn't been refreshed yet), consult the DB mirror.
-    if (user.user_metadata?.must_change_password === undefined) {
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      const { data: profile } = await (supabase as any)
-        .from('profiles')
-        .select('must_change_password')
-        .eq('auth_user_id', user.id)
-        .maybeSingle()
-      mustChange = Boolean(profile?.must_change_password)
-    }
-
-    if (mustChange && !isAllowedPath(pathname)) {
-      const url = request.nextUrl.clone()
-      url.pathname = '/change-password'
-      return NextResponse.redirect(url)
-    }
   }
 
   return supabaseResponse

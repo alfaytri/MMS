@@ -234,8 +234,6 @@ export function useCompleteMyPasswordChange() {
       })
       const json = await res.json()
       if (!res.ok) throw new Error(json.error ?? 'Change failed')
-      // CRITICAL: refresh the client session so the middleware sees
-      // must_change_password: false on the very next navigation.
       const supabase = createClient()
       await supabase.auth.refreshSession()
       return json
