@@ -151,7 +151,7 @@ export function useReorderServices() {
       treeType: string
     }) => {
       const supabase = createClient()
-      // Re-fetch live siblings to handle sort_order gaps from concurrent inserts
+      // Re-fetch live siblings to get authoritative sort_order values for the swap
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       let siblingsQuery = (supabase.from('services') as any)
         .select('id, sort_order')
@@ -165,20 +165,17 @@ export function useReorderServices() {
       const { data: siblings, error: fetchErr } = await siblingsQuery
       if (fetchErr) throw fetchErr
 
-      // Filter rows with null sort_order — they can't participate in a swap safely
       const sortedSiblings = (siblings as { id: string; sort_order: number | null }[])
         .filter((s): s is { id: string; sort_order: number } => s.sort_order !== null)
 
       const idx = sortedSiblings.findIndex((s) => s.id === movedId)
       if (idx === -1) throw new Error('Service not found in siblings')
       const targetIdx = direction === 'up' ? idx - 1 : idx + 1
-      if (targetIdx < 0 || targetIdx >= sortedSiblings.length) return null // boundary
+      if (targetIdx < 0 || targetIdx >= sortedSiblings.length) return null
 
       const moved = sortedSiblings[idx]
       const sibling = sortedSiblings[targetIdx]
 
-      // Two-write swap — not atomic. If a UNIQUE constraint is ever added to
-      // (tree_type, parent_id, sort_order), replace with an RPC in a single transaction.
       await Promise.all([
         supabase.from('services').update({ sort_order: sibling.sort_order }).eq('id', moved.id),
         supabase.from('services').update({ sort_order: moved.sort_order }).eq('id', sibling.id),
@@ -200,11 +197,47 @@ export function useReorderServices() {
 
       return { treeType }
     },
-    onSuccess: (result) => {
-      if (result) {
-        // Prefix match — invalidates all divisionSlug variants for this treeType
-        queryClient.invalidateQueries({ queryKey: ['services', result.treeType] })
-      }
+
+    onMutate: async ({ movedId, parentId, direction, treeType }) => {
+      // Cancel any in-flight refetches so they don't overwrite the optimistic update
+      await queryClient.cancelQueries({ queryKey: ['services', treeType] })
+
+      // Snapshot all matching queries for rollback on error
+      const previousQueries = queryClient.getQueriesData<Service[]>({ queryKey: ['services', treeType] })
+
+      // Optimistically swap sort_order in every cached variant of this tree
+      queryClient.setQueriesData<Service[]>({ queryKey: ['services', treeType] }, (old) => {
+        if (!old) return old
+        const siblings = old
+          .filter((s) => (s.parent_id ?? null) === parentId && s.sort_order !== null)
+          .sort((a, b) => (a.sort_order ?? 0) - (b.sort_order ?? 0))
+        const idx = siblings.findIndex((s) => s.id === movedId)
+        if (idx === -1) return old
+        const targetIdx = direction === 'up' ? idx - 1 : idx + 1
+        if (targetIdx < 0 || targetIdx >= siblings.length) return old
+        const moved = siblings[idx]
+        const sibling = siblings[targetIdx]
+        return old.map((s) => {
+          if (s.id === moved.id) return { ...s, sort_order: sibling.sort_order }
+          if (s.id === sibling.id) return { ...s, sort_order: moved.sort_order }
+          return s
+        })
+      })
+
+      return { previousQueries }
+    },
+
+    onError: (_err, { treeType }, context) => {
+      // Roll back to snapshot on failure
+      context?.previousQueries.forEach(([queryKey, data]) => {
+        queryClient.setQueryData(queryKey, data)
+      })
+      queryClient.invalidateQueries({ queryKey: ['services', treeType] })
+    },
+
+    onSettled: (_data, _err, { treeType }) => {
+      // Sync with server once the mutation has settled (success or error)
+      queryClient.invalidateQueries({ queryKey: ['services', treeType] })
     },
   })
 }
