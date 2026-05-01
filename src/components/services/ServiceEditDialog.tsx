@@ -54,17 +54,22 @@ export function ServiceEditDialog({
   const updateService = useUpdateService()
   const { data: treeData = [] } = useServiceTree(type, [], open)
 
+  const parentDivision = useMemo(
+    () => (parentId ? (treeData.find((s) => s.id === parentId)?.division ?? null) : null),
+    [parentId, treeData],
+  )
+
   const form = useForm<ServiceFormValues>({
     resolver: zodResolver(serviceSchema) as Resolver<ServiceFormValues>,
-    defaultValues: toDefaults(node, type, parentId),
+    defaultValues: toDefaults(node, type, parentId, parentDivision),
   })
 
   useEffect(() => {
     if (open) {
-      form.reset(toDefaults(node, type, parentId))
+      form.reset(toDefaults(node, type, parentId, parentDivision))
       setPendingFile(null)
     }
-  }, [open, node, parentId, type]) // eslint-disable-line react-hooks/exhaustive-deps
+  }, [open, node, parentId, type, parentDivision]) // eslint-disable-line react-hooks/exhaustive-deps
 
   // Parent combobox items — excludes the node itself and all its descendants
   const parentComboItems = useMemo(() => {

@@ -61,6 +61,7 @@ export function toDefaults(
   node: Service | null,
   type: 'normal' | 'contract' | 'mobile',
   parentId: string | null,
+  parentDivision?: string | null,
 ): ServiceFormValues {
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const s = node as any
@@ -69,7 +70,7 @@ export function toDefaults(
     name_ar: s?.name_ar ?? '',
     code: s?.code ?? null,
     status: (s?.status as 'active' | 'inactive') ?? 'active',
-    division: (s?.division as ServiceFormValues['division']) ?? 'maintenance',
+    division: (s?.division as ServiceFormValues['division']) ?? parentDivision ?? 'maintenance',
     parent_id: s?.parent_id ?? parentId,
     price: s?.price ?? null,
     emergency_price: s?.emergency_price ?? null,
