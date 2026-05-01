@@ -24,7 +24,7 @@ export const serviceSchema = z.object({
   name_ar: z.string().min(1, 'Name (AR) is required'),
   code: z.string().optional().nullable(),
   status: z.enum(['active', 'inactive']),
-  division: z.enum(['maintenance', 'cleaning', 'kitchen', 'pest-control']),
+  division: z.string().min(1, 'Division is required'),
   parent_id: z.string().nullable(),
   // Pricing
   price: z.coerce.number().nullable(),

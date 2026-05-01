@@ -4886,7 +4886,7 @@ export type Database = {
           created_at: string | null
           deleted_at: string | null
           discount: number | null
-          division: Database["public"]["Enums"]["division"] | null
+          division: string | null
           duration: number | null
           emergency_price: number | null
           id: string
@@ -4923,7 +4923,7 @@ export type Database = {
           created_at?: string | null
           deleted_at?: string | null
           discount?: number | null
-          division?: Database["public"]["Enums"]["division"] | null
+          division?: string | null
           duration?: number | null
           emergency_price?: number | null
           id?: string
@@ -4960,7 +4960,7 @@ export type Database = {
           created_at?: string | null
           deleted_at?: string | null
           discount?: number | null
-          division?: Database["public"]["Enums"]["division"] | null
+          division?: string | null
           duration?: number | null
           emergency_price?: number | null
           id?: string
