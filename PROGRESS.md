@@ -157,6 +157,8 @@ Purchase & Sales▾:
 
 ## ✅ Completed
 
+- [2026-05-01] **Inventory: fix incoming cache + reserved orders drill-down** — `src/hooks/useReceivals.ts`, `src/hooks/usePOApprovals.ts`, `src/hooks/useInventory.ts`, `src/components/services/inventory/BrandVariantRow.tsx`, `src/components/services/inventory/ReservedOrdersDialog.tsx` (new) — Fixed wrong React Query cache key (`inventory-brand-variants` → `brand-variants-v2`) in receival and receival-edit mutations so INCOMING column refreshes after receivals; added `brand-variants-v2` invalidation to PO approve/force-approve so INCOMING updates when a PO is approved; added `useReservedOrderLines` hook (queries `sale_order_lines` joined to `sale_orders` for confirmed/partial_delivery statuses); built `ReservedOrdersDialog` showing SO number, customer, qty, expected delivery, status; reserved badge is now a clickable button opening the dialog
+
 - [2026-05-01] **Fix FIFO depletion order (receival_number tiebreaker)** — `supabase/migrations/20260501000003_fix_fifo_order_by_receival.sql`, `src/hooks/useInventory.ts` — `deduct_fifo_layers` ORDER BY updated from `date, created_at, id` to `date, receival_number, created_at, id`; `useFifoLayers` display query updated to match; fixes same-date receivals being drained out of arrival sequence (e.g. RCV-00011 emptying before RCV-00010)
 
 - [2026-05-01] **Delivery releases reserved_qty** — `supabase/migrations/20260501000002_delivery_release_reserved.sql` — `complete_delivery_inventory` now decrements `reserved_qty` per item on delivery completion, clamped at 0
