@@ -808,6 +808,41 @@ export function useBatchUpdateSellingPrices() {
   })
 }
 
+// ─── Reserved order lines (for the reserved-badge drill-down) ────────────────
+
+export type ReservedOrderLine = {
+  id: string
+  qty: number
+  delivered_qty: number
+  sale_orders: {
+    id: string
+    so_number: string
+    status: string
+    expected_delivery: string | null
+    customers: { name: string } | null
+  } | null
+}
+
+export function useReservedOrderLines(brandVariantId: string | null) {
+  return useQuery({
+    queryKey: ['reserved-order-lines', brandVariantId],
+    enabled: !!brandVariantId,
+    queryFn: async () => {
+      const supabase = createClient()
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const { data, error } = await (supabase as any)
+        .from('sale_order_lines')
+        .select('id, qty, delivered_qty, sale_orders!inner(id, so_number, status, expected_delivery, customers(name))')
+        .eq('brand_variant_id', brandVariantId!)
+        .in('sale_orders.status', ['confirmed', 'partial_delivery'])
+        .is('sale_orders.deleted_at', null)
+      if (error) throw error
+      return (data ?? []) as ReservedOrderLine[]
+    },
+    staleTime: 30 * 1000,
+  })
+}
+
 export function useAllBrandNames() {
   return useQuery({
     queryKey: ['all-brand-names'],

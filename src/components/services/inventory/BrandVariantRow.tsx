@@ -8,6 +8,7 @@ import { TableCell, TableRow } from '@/components/ui/table'
 import { ConfirmDialog } from '@/components/shared/ConfirmDialog'
 import { FifoLayersTable } from './FifoLayersTable'
 import { BrandVariantEditDialog } from './BrandVariantEditDialog'
+import { ReservedOrdersDialog } from './ReservedOrdersDialog'
 import { useArchiveInventoryBrandVariant, type BrandVariant } from '@/hooks/useInventory'
 import { formatCurrency } from '@/lib/utils/formatters'
 
@@ -40,6 +41,7 @@ export function BrandVariantRow({ variant, itemId, canMoveUp, canMoveDown, onMov
   const [fifoOpen, setFifoOpen] = useState(false)
   const [editOpen, setEditOpen] = useState(false)
   const [archiveOpen, setArchiveOpen] = useState(false)
+  const [reservedOpen, setReservedOpen] = useState(false)
   const archive = useArchiveInventoryBrandVariant()
 
   const stockLevel = variant.stock_level ?? 0
@@ -77,12 +79,13 @@ export function BrandVariantRow({ variant, itemId, canMoveUp, canMoveDown, onMov
         </TableCell>
         <TableCell className="text-right">
           {reservedQty > 0 ? (
-            <span
-              title={`${reservedQty} unit${reservedQty !== 1 ? 's' : ''} reserved for confirmed orders`}
-              className="inline-flex items-center rounded-full px-2 py-0.5 text-[11px] font-medium cursor-default bg-orange-100 text-orange-700"
+            <button
+              title="Click to see which orders are holding this reservation"
+              className="inline-flex items-center rounded-full px-2 py-0.5 text-[11px] font-medium cursor-pointer bg-orange-100 text-orange-700 hover:bg-orange-200 transition-colors"
+              onClick={(e) => { e.stopPropagation(); setReservedOpen(true) }}
             >
               {reservedQty}
-            </span>
+            </button>
           ) : (
             <span className="text-[11px] text-muted-foreground">—</span>
           )}
@@ -128,6 +131,13 @@ export function BrandVariantRow({ variant, itemId, canMoveUp, canMoveDown, onMov
       )}
 
       <BrandVariantEditDialog open={editOpen} onOpenChange={setEditOpen} itemId={itemId} variant={variant} />
+
+      <ReservedOrdersDialog
+        open={reservedOpen}
+        onOpenChange={setReservedOpen}
+        brandVariantId={variant.id}
+        variantLabel={variant.brand ?? 'Variant'}
+      />
 
       <ConfirmDialog
         open={archiveOpen}

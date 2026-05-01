@@ -168,6 +168,7 @@ export function useApproveStep() {
       queryClient.invalidateQueries({ queryKey: ['purchase-orders'] })
       queryClient.invalidateQueries({ queryKey: ['purchase-order', variables.poId] })
       queryClient.invalidateQueries({ queryKey: ['notifications'] })
+      queryClient.invalidateQueries({ queryKey: ['brand-variants-v2'] })
     },
   })
 }
@@ -232,6 +233,7 @@ export function useForceApproveStep() {
       queryClient.invalidateQueries({ queryKey: ['purchase-orders'] })
       queryClient.invalidateQueries({ queryKey: ['purchase-order', variables.poId] })
       queryClient.invalidateQueries({ queryKey: ['notifications'] })
+      queryClient.invalidateQueries({ queryKey: ['brand-variants-v2'] })
     },
   })
 }
