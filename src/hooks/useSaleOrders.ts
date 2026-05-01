@@ -365,6 +365,8 @@ export function useCreateSO() {
     },
     onSuccess: (data) => {
       queryClient.invalidateQueries({ queryKey: ['sale-orders'] })
+      queryClient.invalidateQueries({ queryKey: ['brand-variants-v2'] })
+      queryClient.invalidateQueries({ queryKey: ['reserved-order-lines'] })
       logActivity({
         action:    `Sale Order ${data.status === 'pending_approval' ? 'Submitted for Approval' : data.status === 'confirmed' ? 'Confirmed' : 'Created'}`,
         module:    'sale_orders',
@@ -429,18 +431,14 @@ export function useConfirmSO() {
         .eq('id', id)
       if (soErr) throw soErr
 
-      // 2. Reserve stock (best-effort)
-      try {
-        await supabase.functions.invoke('reserve-stock', {
-          body: {
-            sale_order_id: id,
-            items: lineItems
-              .filter((l) => l.brand_variant_id)
-              .map((l) => ({ brand_variant_id: l.brand_variant_id, qty: l.qty })),
-          },
-        })
-      } catch {
-        console.warn('reserve-stock edge function failed — stock not reserved')
+      // 2. Reserve stock via RPC
+      const reservations = lineItems
+        .filter((l) => l.brand_variant_id && l.qty > 0)
+        .map((l) => ({ bv_id: l.brand_variant_id, delta: l.qty }))
+      if (reservations.length > 0) {
+        const { error: resErr } = await (supabase as any)
+          .rpc('batch_update_reserved_qty', { p_updates: reservations })
+        if (resErr) throw resErr
       }
 
       // 3. Create stub delivery (warehouse_id nullable after migration)
@@ -563,7 +561,8 @@ export function useCreateDelivery() {
       queryClient.invalidateQueries({ queryKey: ['sale-orders'] })
       queryClient.invalidateQueries({ queryKey: ['sale-order', variables.so_id] })
       queryClient.invalidateQueries({ queryKey: ['sale-deliveries'] })
-      queryClient.invalidateQueries({ queryKey: ['inventory-brand-variants'] })
+      queryClient.invalidateQueries({ queryKey: ['brand-variants-v2'] })
+      queryClient.invalidateQueries({ queryKey: ['reserved-order-lines'] })
       queryClient.invalidateQueries({ queryKey: ['fifo-layers'] })
       queryClient.invalidateQueries({ queryKey: ['stock_movements'] })
       queryClient.invalidateQueries({ queryKey: ['cogs-entries'] })
@@ -609,7 +608,8 @@ export function useCancelSO() {
     onSuccess: (_data, id) => {
       queryClient.invalidateQueries({ queryKey: ['sale-orders'] })
       queryClient.invalidateQueries({ queryKey: ['sale-order', id] })
-      queryClient.invalidateQueries({ queryKey: ['inventory-brand-variants'] })
+      queryClient.invalidateQueries({ queryKey: ['brand-variants-v2'] })
+      queryClient.invalidateQueries({ queryKey: ['reserved-order-lines'] })
       logActivity({ action: 'Sale Order Cancelled', module: 'sale_orders', entity_id: id, severity: 'warning' })
     },
   })
@@ -630,6 +630,8 @@ export function useApproveSO() {
     onSuccess: (_data, id) => {
       queryClient.invalidateQueries({ queryKey: ['sale-orders'] })
       queryClient.invalidateQueries({ queryKey: ['sale-order', id] })
+      queryClient.invalidateQueries({ queryKey: ['brand-variants-v2'] })
+      queryClient.invalidateQueries({ queryKey: ['reserved-order-lines'] })
       logActivity({ action: 'Sale Order Approved', module: 'sale_orders', entity_id: id, severity: 'info' })
     },
   })

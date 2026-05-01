@@ -8,6 +8,7 @@ import { TableCell, TableRow } from '@/components/ui/table'
 import { ConfirmDialog } from '@/components/shared/ConfirmDialog'
 import { FifoLayersTable } from './FifoLayersTable'
 import { BrandVariantEditDialog } from './BrandVariantEditDialog'
+import { ReservedOrdersDialog } from './ReservedOrdersDialog'
 import { useArchiveInventoryBrandVariant, type BrandVariant } from '@/hooks/useInventory'
 import { formatCurrency } from '@/lib/utils/formatters'
 
@@ -40,6 +41,7 @@ export function BrandVariantRow({ variant, itemId, canMoveUp, canMoveDown, onMov
   const [fifoOpen, setFifoOpen] = useState(false)
   const [editOpen, setEditOpen] = useState(false)
   const [archiveOpen, setArchiveOpen] = useState(false)
+  const [reservedOpen, setReservedOpen] = useState(false)
   const archive = useArchiveInventoryBrandVariant()
 
   const stockLevel = variant.stock_level ?? 0
@@ -76,6 +78,19 @@ export function BrandVariantRow({ variant, itemId, canMoveUp, canMoveDown, onMov
           {variant.selling_price != null ? formatCurrency(variant.selling_price, 'QAR') : '—'}
         </TableCell>
         <TableCell className="text-right">
+          {reservedQty > 0 ? (
+            <button
+              title="Click to see which orders are holding this reservation"
+              className="inline-flex items-center rounded-full px-2 py-0.5 text-[11px] font-medium cursor-pointer bg-orange-100 text-orange-700 hover:bg-orange-200 transition-colors"
+              onClick={(e) => { e.stopPropagation(); setReservedOpen(true) }}
+            >
+              {reservedQty}
+            </button>
+          ) : (
+            <span className="text-[11px] text-muted-foreground">—</span>
+          )}
+        </TableCell>
+        <TableCell className="text-right">
           <div className="flex items-center justify-end gap-1.5">
             <AtpBadge stockLevel={stockLevel} reservedQty={reservedQty} reorderPoint={reorderPoint} />
             <span
@@ -109,13 +124,20 @@ export function BrandVariantRow({ variant, itemId, canMoveUp, canMoveDown, onMov
 
       {fifoOpen && (
         <TableRow className="bg-slate-50/50 hover:bg-slate-50/50">
-          <TableCell colSpan={7} className="py-2 px-4">
+          <TableCell colSpan={8} className="py-2 px-4">
             <FifoLayersTable brandVariantId={variant.id} />
           </TableCell>
         </TableRow>
       )}
 
       <BrandVariantEditDialog open={editOpen} onOpenChange={setEditOpen} itemId={itemId} variant={variant} />
+
+      <ReservedOrdersDialog
+        open={reservedOpen}
+        onOpenChange={setReservedOpen}
+        brandVariantId={variant.id}
+        variantLabel={variant.brand ?? 'Variant'}
+      />
 
       <ConfirmDialog
         open={archiveOpen}

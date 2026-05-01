@@ -417,6 +417,7 @@ export function useFifoLayers(brandVariantId: string | null, enabled = true) {
         .select('id, brand_variant_id, receival_number, date, qty, remaining_qty, unit_cost, landed_cost_per_unit, total_unit_cost, created_at')
         .eq('brand_variant_id', brandVariantId!)
         .order('date', { ascending: true })
+        .order('receival_number', { ascending: true })
         .order('created_at', { ascending: true })
       if (error) throw error
       return (data ?? []) as FifoLayer[]
@@ -804,6 +805,41 @@ export function useBatchUpdateSellingPrices() {
       qc.invalidateQueries({ queryKey: ['inventory-brand-variants'] })
       qc.invalidateQueries({ queryKey: ['brand-variants-price-summary'] })
     },
+  })
+}
+
+// ─── Reserved order lines (for the reserved-badge drill-down) ────────────────
+
+export type ReservedOrderLine = {
+  id: string
+  qty: number
+  delivered_qty: number
+  sale_orders: {
+    id: string
+    so_number: string
+    status: string
+    expected_delivery: string | null
+    customers: { name: string } | null
+  } | null
+}
+
+export function useReservedOrderLines(brandVariantId: string | null) {
+  return useQuery({
+    queryKey: ['reserved-order-lines', brandVariantId],
+    enabled: !!brandVariantId,
+    queryFn: async () => {
+      const supabase = createClient()
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const { data, error } = await (supabase as any)
+        .from('sale_order_lines')
+        .select('id, qty, delivered_qty, sale_orders!inner(id, so_number, status, expected_delivery, customers(name))')
+        .eq('brand_variant_id', brandVariantId!)
+        .in('sale_orders.status', ['confirmed', 'partial_delivery'])
+        .is('sale_orders.deleted_at', null)
+      if (error) throw error
+      return (data ?? []) as ReservedOrderLine[]
+    },
+    staleTime: 30 * 1000,
   })
 }
 

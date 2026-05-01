@@ -180,7 +180,7 @@ export function useCreateReceival() {
       queryClient.invalidateQueries({ queryKey: ['po-receivals', variables.po_id] })
       queryClient.invalidateQueries({ queryKey: ['purchase-order', variables.po_id] })
       queryClient.invalidateQueries({ queryKey: ['purchase-orders'] })
-      queryClient.invalidateQueries({ queryKey: ['inventory-brand-variants'] })
+      queryClient.invalidateQueries({ queryKey: ['brand-variants-v2'] })
       queryClient.invalidateQueries({ queryKey: ['fifo-layers'] })
     },
   })
@@ -315,7 +315,7 @@ export function useSaveReceivalEdit() {
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ['receivals'] })
       qc.invalidateQueries({ queryKey: ['receival_edit_requests'] })
-      qc.invalidateQueries({ queryKey: ['inventory-brand-variants'] })
+      qc.invalidateQueries({ queryKey: ['brand-variants-v2'] })
       qc.invalidateQueries({ queryKey: ['fifo-layers'] })
       qc.invalidateQueries({ queryKey: ['stock_movements'] })
     },
