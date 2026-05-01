@@ -1,6 +1,7 @@
 import { TopNav } from '@/components/layout/TopNav'
 import { RealtimeSync } from '@/components/shared/RealtimeSync'
 import { InactivityGuard } from '@/components/auth/InactivityGuard'
+import { SessionGuard } from '@/components/auth/SessionGuard'
 
 export default function DashboardLayout({
   children,
@@ -8,13 +9,15 @@ export default function DashboardLayout({
   children: React.ReactNode
 }) {
   return (
-    <div className="min-h-screen bg-muted/30 flex flex-col">
-      <InactivityGuard />
-      <RealtimeSync />
-      <div className="print:hidden"><TopNav /></div>
-      <main className="flex-1 overflow-hidden flex flex-col print:overflow-visible">
-        {children}
-      </main>
-    </div>
+    <SessionGuard>
+      <div className="min-h-screen bg-muted/30 flex flex-col">
+        <InactivityGuard />
+        <RealtimeSync />
+        <div className="print:hidden"><TopNav /></div>
+        <main className="flex-1 overflow-hidden flex flex-col print:overflow-visible">
+          {children}
+        </main>
+      </div>
+    </SessionGuard>
   )
 }
