@@ -17,8 +17,8 @@ import { ServiceLeafPanel } from './ServiceLeafPanel'
 export function ServiceLinksView({ enabled }: { enabled: boolean }) {
   const [selectedLeafId, setSelectedLeafId] = useState<string | null>(null)
 
-  const { data: allServices = [], isLoading: servicesLoading } = useServicesForLinks()
-  const { data: allLinks = [], isLoading: linksLoading } = useAllServiceLinks()
+  const { data: allServices = [], isLoading: servicesLoading } = useServicesForLinks(enabled)
+  const { data: allLinks = [], isLoading: linksLoading } = useAllServiceLinks(enabled)
   const isLoading = servicesLoading || linksLoading
 
   const treeMap = useMemo(() => buildTreeMap(allServices), [allServices])
