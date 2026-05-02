@@ -190,6 +190,8 @@ export function ServiceLeafPanel({
     const qty = Number(raw)
     if (qty > 0) {
       updateLink.mutate({ id, quantity: qty }, { onError: (err) => toast.error(err.message) })
+    } else {
+      toast.error('Quantity must be greater than zero')
     }
   }
 
@@ -282,6 +284,7 @@ export function ServiceLeafPanel({
                   </p>
                 </div>
                 <Input
+                  key={link.quantity}
                   type="number"
                   min={0.01}
                   step={0.01}
