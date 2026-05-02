@@ -153,9 +153,11 @@ Purchase & Sales▾:
 
 ## 🔄 In Progress
 
-🚀 Starting: **— all tasks complete —**
+🚀 Starting: **— Service → Inventory linking UI in service edit dialog —**
 
 ## ✅ Completed
+
+- [2026-05-02] **Inventory seed from Inventory.xlsx** — `scripts/seed_inventory.py` — Cleared all existing test inventory data (cogs_entries, stock_movements, service_inventory, fifo_cost_layers, brand_variants, items, categories); parsed 224 Excel rows into 17 categories / 129 items / 199 brand variants across 4 types (products, spare-parts, consumables, tools); AC items grouped by spec with brand as variant; group items use IsGroup parent→item, children→brand_variants; standalone items parsed by en-dash brand separator
 
 - [2026-05-02] **Normal Services UI Overhaul** — `supabase/migrations/20260502130000_services_photo_req_division_array.sql`, `src/types/database.types.ts`, `src/hooks/useServices.ts`, `src/app/(dashboard)/master-data/services/page.tsx`, `src/components/services/ServiceTableView.tsx`, `src/components/services/ContractTableView.tsx`, `src/components/services/ServiceTree.tsx`, `src/components/services/ServiceTreeRow.tsx`, `src/components/services/ServiceEditSections.tsx`, `src/components/services/ServiceEditDialog.tsx` — Added search box + linkage filter chips (Inventory/Reminders/Instructions/QC/Parts) to toolbar; added Division column and Linked icons column (📦🔔📋✅🔧) to tree table; fixed duration format (1h 30m), warranty format (6 mo); all rows now open Edit on click (chevron expands); migrated division to text[] with multi-select in dialog; added photo_requirement field; Legacy Service ID visible on all services; Configurable service type now shows component services selector (stored in components column); name_ar made optional; tsc clean
 
