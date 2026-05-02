@@ -153,9 +153,9 @@ Purchase & Sales▾:
 
 ## 🔄 In Progress
 
-🚀 Starting: **— Service → Inventory linking UI in service edit dialog —**
-
 ## ✅ Completed
+
+- [2026-05-02] **Service Links Redesign** — `ServiceLinksColumnBrowser.tsx` (new), `ServiceLeafPanel.tsx` (new), `ServiceLinksView.tsx`, `serviceInventoryHelpers.ts`, `useInventory.ts`, migration `20260502000001` — Replaced cramped tree-table with column browser + inline right panel; link types simplified to supply/consumable only; no more modal dialogs
 
 - [2026-05-02] **Inventory seed from Inventory.xlsx** — `scripts/seed_inventory.py` — Cleared all existing test inventory data (cogs_entries, stock_movements, service_inventory, fifo_cost_layers, brand_variants, items, categories); parsed 224 Excel rows into 17 categories / 129 items / 199 brand variants across 4 types (products, spare-parts, consumables, tools); AC items grouped by spec with brand as variant; group items use IsGroup parent→item, children→brand_variants; standalone items parsed by en-dash brand separator
 
