@@ -32,15 +32,23 @@ function InventoryColumnPicker({
   allVariants,
   onSelect,
   title,
+  linkedVariantIds = new Set(),
 }: {
   open: boolean
   onOpenChange: (v: boolean) => void
   allVariants: BrandVariantGrouped[]
   onSelect: (variantId: string) => void
   title: string
+  linkedVariantIds?: Set<string>
 }) {
   const [selectedCatId, setSelectedCatId] = useState<string | null>(null)
   const [selectedItemId, setSelectedItemId] = useState<string | null>(null)
+
+  // Item IDs that already have at least one linked variant for this service
+  const linkedItemIds = useMemo(
+    () => new Set(allVariants.filter((v) => linkedVariantIds.has(v.variantId)).map((v) => v.itemId)),
+    [allVariants, linkedVariantIds],
+  )
 
   // Unique categories sorted A→Z
   const categories = useMemo(() => {
@@ -130,30 +138,34 @@ function InventoryColumnPicker({
                 No items
               </div>
             ) : (
-              items.map((item) => (
-                <button
-                  key={item.id}
-                  onClick={() => setSelectedItemId(item.id)}
-                  className={cn(
-                    'w-full text-left px-3 py-2.5 border-b border-border/30',
-                    'flex items-center justify-between gap-1 hover:bg-muted/30 transition-colors',
-                    selectedItemId === item.id && 'bg-primary/10 text-primary',
-                  )}
-                >
-                  <div className="min-w-0 flex-1">
-                    <p className={cn(
-                      'text-xs truncate',
-                      selectedItemId === item.id ? 'font-semibold' : '',
-                    )}>
-                      {item.name}
-                    </p>
-                    <p className="text-[10px] text-muted-foreground">{item.sku}</p>
-                  </div>
-                  {selectedItemId === item.id && (
-                    <ChevronRight className="h-3 w-3 shrink-0 text-primary" />
-                  )}
-                </button>
-              ))
+              items.map((item) => {
+                const alreadyLinked = linkedItemIds.has(item.id)
+                return (
+                  <button
+                    key={item.id}
+                    onClick={() => setSelectedItemId(item.id)}
+                    className={cn(
+                      'w-full text-left px-3 py-2.5 border-b border-border/30',
+                      'flex items-center justify-between gap-1 hover:bg-muted/30 transition-colors',
+                      selectedItemId === item.id && 'bg-primary/10 text-primary',
+                      alreadyLinked && selectedItemId !== item.id && 'opacity-40',
+                    )}
+                  >
+                    <div className="min-w-0 flex-1">
+                      <p className={cn(
+                        'text-xs truncate',
+                        selectedItemId === item.id ? 'font-semibold' : '',
+                      )}>
+                        {item.name}
+                      </p>
+                      <p className="text-[10px] text-muted-foreground">{item.sku}</p>
+                    </div>
+                    {selectedItemId === item.id && (
+                      <ChevronRight className="h-3 w-3 shrink-0 text-primary" />
+                    )}
+                  </button>
+                )
+              })
             )}
           </div>
 
@@ -217,6 +229,12 @@ export function ServiceLeafPanel({
 
   const supplyLink = links.find((l) => l.link_type === 'supply') ?? null
   const consumableLinks = links.filter((l) => l.link_type === 'consumable')
+
+  // Set of already-linked brand_variant_ids — passed to pickers to dim used items
+  const linkedVariantIds = useMemo(
+    () => new Set(links.map((l) => l.brand_variant_id)),
+    [links],
+  )
 
   // Picker open state
   const [supplyPickerOpen, setSupplyPickerOpen] = useState(false)
@@ -467,6 +485,7 @@ export function ServiceLeafPanel({
         allVariants={allVariants}
         onSelect={handleAddSupply}
         title="Set Supply Item"
+        linkedVariantIds={linkedVariantIds}
       />
       <InventoryColumnPicker
         open={consumablePickerOpen}
@@ -477,6 +496,7 @@ export function ServiceLeafPanel({
         allVariants={allVariants}
         onSelect={handleConsumablePicked}
         title="Add Consumable"
+        linkedVariantIds={linkedVariantIds}
       />
     </>
   )
