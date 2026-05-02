@@ -181,10 +181,63 @@ export function useInventoryItemsAll(enabled = true) {
       const supabase = createClient()
       const { data, error } = await supabase
         .from('inventory_items')
-        .select('*')
+        .select('*, inventory_categories(id, name_en, type)')
         .order('name_en')
       if (error) throw error
-      return (data ?? []) as InventoryItem[]
+      return (data ?? []) as (InventoryItem & {
+        inventory_categories: { id: string; name_en: string; type: string } | null
+      })[]
+    },
+    staleTime: 5 * 60 * 1000,
+  })
+}
+
+export interface BrandVariantGrouped {
+  variantId: string
+  brand: string
+  costPrice: number
+  itemId: string
+  itemName: string
+  itemSku: string
+  catId: string
+  catName: string
+  catType: string
+}
+
+/** All brand variants with item + category info — used for the hierarchical link picker. */
+export function useAllBrandVariantsGrouped(enabled = true) {
+  return useQuery({
+    queryKey: ['brand-variants-grouped'],
+    enabled,
+    queryFn: async () => {
+      const supabase = createClient()
+      const { data, error } = await supabase
+        .from('inventory_brand_variants')
+        .select('id, brand, cost_price, inventory_items(id, name_en, sku, inventory_categories(id, name_en, type))')
+        .order('brand')
+      if (error) throw error
+      const rows = (data ?? []) as Array<{
+        id: string
+        brand: string
+        cost_price: number | null
+        inventory_items: {
+          id: string
+          name_en: string
+          sku: string
+          inventory_categories: { id: string; name_en: string; type: string } | null
+        } | null
+      }>
+      return rows.map((r): BrandVariantGrouped => ({
+        variantId: r.id,
+        brand: r.brand,
+        costPrice: r.cost_price ?? 0,
+        itemId: r.inventory_items?.id ?? '',
+        itemName: r.inventory_items?.name_en ?? 'Unknown item',
+        itemSku: r.inventory_items?.sku ?? '',
+        catId: r.inventory_items?.inventory_categories?.id ?? '__none__',
+        catName: r.inventory_items?.inventory_categories?.name_en ?? 'Uncategorised',
+        catType: r.inventory_items?.inventory_categories?.type ?? '',
+      }))
     },
     staleTime: 5 * 60 * 1000,
   })
@@ -864,15 +917,17 @@ export function useAllBrandNames() {
 // ─── Service-centric service inventory hooks ──────────────────────────────────
 
 /** All services — used to build leaves list and breadcrumbs. */
-export function useServicesForLinks() {
+export function useServicesForLinks(enabled = true) {
   return useQuery({
     queryKey: ['services-for-links'],
+    enabled,
     queryFn: async () => {
       const supabase = createClient()
       const { data, error } = await supabase
         .from('services')
-        .select('id, name_en, parent_id, tree_type')
-        .order('name_en')
+        .select('id, name_en, parent_id, tree_type, warranty')
+        .is('deleted_at', null)
+        .order('sort_order', { ascending: true })
       if (error) throw error
       return (data ?? []) as ServiceNode[]
     },
@@ -886,9 +941,10 @@ export function useServicesForLinks() {
  * appear with a null inventory_brand_variants field rather than silently
  * disappearing from the view and making the counters lie.
  */
-export function useAllServiceLinks() {
+export function useAllServiceLinks(enabled = true) {
   return useQuery({
     queryKey: ['service-links-all'],
+    enabled,
     queryFn: async () => {
       const supabase = createClient()
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
