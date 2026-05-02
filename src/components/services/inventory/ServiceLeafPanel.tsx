@@ -42,16 +42,18 @@ function InventoryColumnPicker({
   const [selectedCatId, setSelectedCatId] = useState<string | null>(null)
   const [selectedItemId, setSelectedItemId] = useState<string | null>(null)
 
-  // Unique categories in order of first appearance
+  // Unique categories sorted A→Z
   const categories = useMemo(() => {
     const seen = new Map<string, string>()
     for (const v of allVariants) {
       if (!seen.has(v.catId)) seen.set(v.catId, v.catName)
     }
-    return [...seen.entries()].map(([id, name]) => ({ id, name }))
+    return [...seen.entries()]
+      .map(([id, name]) => ({ id, name }))
+      .sort((a, b) => a.name.localeCompare(b.name))
   }, [allVariants])
 
-  // Items for the selected category
+  // Items for the selected category, sorted A→Z
   const items = useMemo(() => {
     if (!selectedCatId) return []
     const seen = new Map<string, { id: string; name: string; sku: string }>()
@@ -59,12 +61,17 @@ function InventoryColumnPicker({
       if (v.catId === selectedCatId && !seen.has(v.itemId))
         seen.set(v.itemId, { id: v.itemId, name: v.itemName, sku: v.itemSku })
     }
-    return [...seen.values()]
+    return [...seen.values()].sort((a, b) => a.name.localeCompare(b.name))
   }, [allVariants, selectedCatId])
 
-  // Brands for the selected item
+  // Brands for the selected item, sorted A→Z
   const brands = useMemo(
-    () => (selectedItemId ? allVariants.filter((v) => v.itemId === selectedItemId) : []),
+    () =>
+      selectedItemId
+        ? allVariants
+            .filter((v) => v.itemId === selectedItemId)
+            .sort((a, b) => a.brand.localeCompare(b.brand))
+        : [],
     [allVariants, selectedItemId],
   )
 
