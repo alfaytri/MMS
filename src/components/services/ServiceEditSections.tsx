@@ -3,8 +3,8 @@
 
 import { useWatch, useFieldArray, type UseFormReturn } from 'react-hook-form'
 import { z } from 'zod'
-import { Upload, X, ImageIcon, Trash2, Plus, Search, Check } from 'lucide-react'
-import { useState } from 'react'
+import { Upload, X, ImageIcon, Trash2, Plus, Search, Check, ChevronRight, ChevronDown } from 'lucide-react'
+import { useState, useMemo } from 'react'
 import { toast } from 'sonner'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -485,6 +485,144 @@ export function PhotoRequirementSection({ form }: { form: UseFormReturn<ServiceF
   )
 }
 
+// ─── Component Tree Picker (used inside Configurable service type) ─────────────
+
+interface ComponentTreePickerProps {
+  flat: Service[]
+  selectedIds: string[]
+  onToggle: (id: string) => void
+}
+
+function ComponentTreePicker({ flat, selectedIds, onToggle }: ComponentTreePickerProps) {
+  const [search, setSearch] = useState('')
+  const [expanded, setExpanded] = useState<Set<string>>(new Set())
+
+  // Build parent→children map from the visible set
+  const visibleFlat = useMemo(() => {
+    if (!search.trim()) return flat
+    const lower = search.toLowerCase()
+    const parentMap = new Map(flat.map((s) => [s.id, s.parent_id ?? null]))
+    const directMatches = new Set(
+      flat
+        .filter(
+          (s) =>
+            s.name_en.toLowerCase().includes(lower) ||
+            (s.name_ar && s.name_ar.toLowerCase().includes(lower)),
+        )
+        .map((s) => s.id),
+    )
+    const keepIds = new Set(directMatches)
+    function addAncestors(id: string) {
+      const parent = parentMap.get(id)
+      if (parent && !keepIds.has(parent)) {
+        keepIds.add(parent)
+        addAncestors(parent)
+      }
+    }
+    directMatches.forEach((id) => addAncestors(id))
+    return flat.filter((s) => keepIds.has(s.id))
+  }, [flat, search])
+
+  const treeMap = useMemo(() => {
+    const map = new Map<string | null, Service[]>()
+    for (const s of visibleFlat) {
+      const key = s.parent_id ?? null
+      if (!map.has(key)) map.set(key, [])
+      map.get(key)!.push(s)
+    }
+    return map
+  }, [visibleFlat])
+
+  function toggleExpand(id: string) {
+    setExpanded((prev) => {
+      const next = new Set(prev)
+      next.has(id) ? next.delete(id) : next.add(id)
+      return next
+    })
+  }
+
+  function renderNode(service: Service, depth: number): React.ReactNode {
+    const children = treeMap.get(service.id) ?? []
+    const hasChildren = children.length > 0
+    const isExpanded = expanded.has(service.id) || !!search.trim() // auto-expand when searching
+    const isSelected = selectedIds.includes(service.id)
+
+    return (
+      <div key={service.id}>
+        <button
+          type="button"
+          onClick={() => onToggle(service.id)}
+          className={cn(
+            'flex items-center gap-1.5 w-full text-left py-1.5 pr-3 hover:bg-muted/50 transition-colors border-b border-border/20 last:border-0',
+            isSelected && 'bg-primary/5',
+          )}
+          style={{ paddingLeft: 8 + depth * 16 }}
+        >
+          {/* Expand/collapse toggle — stop propagation so it doesn't select */}
+          <span
+            className="w-4 h-4 flex items-center justify-center shrink-0 text-muted-foreground"
+            onClick={(e) => {
+              e.stopPropagation()
+              if (hasChildren) toggleExpand(service.id)
+            }}
+          >
+            {hasChildren
+              ? isExpanded
+                ? <ChevronDown className="h-3 w-3" />
+                : <ChevronRight className="h-3 w-3" />
+              : null}
+          </span>
+
+          {/* Checkbox indicator */}
+          <span className={cn(
+            'h-3.5 w-3.5 rounded border flex items-center justify-center shrink-0 transition-colors',
+            isSelected
+              ? 'bg-primary border-primary'
+              : 'border-muted-foreground/40 bg-background',
+          )}>
+            {isSelected && <Check className="h-2.5 w-2.5 text-primary-foreground" />}
+          </span>
+
+          {/* Name */}
+          <div className="min-w-0 flex-1">
+            <div className={cn('text-xs truncate', hasChildren ? 'font-medium' : 'font-normal')}>
+              {service.name_en}
+            </div>
+            {service.name_ar && (
+              <div className="text-[10px] truncate text-muted-foreground">{service.name_ar}</div>
+            )}
+          </div>
+        </button>
+
+        {hasChildren && isExpanded && children.map((child) => renderNode(child, depth + 1))}
+      </div>
+    )
+  }
+
+  const roots = treeMap.get(null) ?? []
+
+  return (
+    <div className="space-y-1.5">
+      <div className="relative">
+        <Search className="absolute left-2 top-1/2 -translate-y-1/2 h-3 w-3 text-muted-foreground pointer-events-none" />
+        <Input
+          placeholder="Search services…"
+          value={search}
+          onChange={(e) => setSearch(e.target.value)}
+          className="h-7 pl-6 text-[11px]"
+        />
+      </div>
+      <div className="border rounded-md max-h-56 overflow-y-auto">
+        {roots.length === 0 ? (
+          <p className="text-[11px] text-muted-foreground text-center py-4">No services found</p>
+        ) : (
+          roots.map((root) => renderNode(root, 0))
+        )}
+      </div>
+    </div>
+  )
+}
+
 // ─── Feature Fields (QC, parts, inventory, reminders, service type, components) ─
 
 interface FeatureFieldsSectionProps {
@@ -498,8 +636,6 @@ export function FeatureFieldsSection({
   treeData = [],
   currentServiceId,
 }: FeatureFieldsSectionProps) {
-  const [componentSearch, setComponentSearch] = useState('')
-
   const { fields: inventoryFields, append: appendItem, remove: removeItem } = useFieldArray({
     control: form.control,
     name: 'inventory_items_list',
@@ -519,16 +655,8 @@ export function FeatureFieldsSection({
     form.setValue('component_service_ids', next, { shouldDirty: true })
   }
 
-  // Services available as components: exclude self and descendants
+  // Services available as components: exclude self
   const availableComponents = treeData.filter((s) => s.id !== currentServiceId)
-
-  const filteredComponents = componentSearch.trim()
-    ? availableComponents.filter(
-        (s) =>
-          s.name_en.toLowerCase().includes(componentSearch.toLowerCase()) ||
-          (s.name_ar && s.name_ar.toLowerCase().includes(componentSearch.toLowerCase())),
-      )
-    : availableComponents
 
   return (
     <div className="space-y-4">
@@ -640,54 +768,21 @@ export function FeatureFieldsSection({
         {/* Component services selector — only for configurable */}
         {serviceType === 'configurable' && (
           <div className="ml-4 border-l-2 border-border pl-3 space-y-2">
-            <p className="text-[11px] text-muted-foreground">
-              Select the services bundled inside this configurable service.
-            </p>
-            {componentIds.length > 0 && (
-              <p className="text-[11px] font-medium text-foreground">
-                {componentIds.length} service{componentIds.length !== 1 ? 's' : ''} selected
+            <div className="flex items-center justify-between">
+              <p className="text-[11px] text-muted-foreground">
+                Select the services bundled into this one.
               </p>
-            )}
-            <div className="relative">
-              <Search className="absolute left-2 top-1/2 -translate-y-1/2 h-3 w-3 text-muted-foreground pointer-events-none" />
-              <Input
-                placeholder="Search services…"
-                value={componentSearch}
-                onChange={(e) => setComponentSearch(e.target.value)}
-                className="h-7 pl-6 text-[11px]"
-              />
-            </div>
-            <div className="border rounded-md max-h-48 overflow-y-auto">
-              {filteredComponents.length === 0 ? (
-                <p className="text-[11px] text-muted-foreground text-center py-4">No services found</p>
-              ) : (
-                filteredComponents.map((s) => {
-                  const isSelected = componentIds.includes(s.id)
-                  return (
-                    <button
-                      key={s.id}
-                      type="button"
-                      onClick={() => toggleComponent(s.id)}
-                      className={cn(
-                        'flex items-center gap-2 w-full px-3 py-2 text-left hover:bg-muted/50 transition-colors border-b border-border/30 last:border-0',
-                        isSelected && 'bg-primary/5',
-                      )}
-                    >
-                      <Check className={cn(
-                        'h-3 w-3 shrink-0',
-                        isSelected ? 'text-primary opacity-100' : 'opacity-0',
-                      )} />
-                      <div className="min-w-0 flex-1">
-                        <div className="text-xs truncate font-normal">{s.name_en}</div>
-                        {s.name_ar && (
-                          <div className="text-[10px] truncate text-muted-foreground">{s.name_ar}</div>
-                        )}
-                      </div>
-                    </button>
-                  )
-                })
+              {componentIds.length > 0 && (
+                <span className="text-[11px] font-medium text-primary">
+                  {componentIds.length} selected
+                </span>
               )}
             </div>
+            <ComponentTreePicker
+              flat={availableComponents}
+              selectedIds={componentIds}
+              onToggle={toggleComponent}
+            />
           </div>
         )}
       </div>
