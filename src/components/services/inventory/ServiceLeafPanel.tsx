@@ -18,6 +18,7 @@ import {
   useDeleteServiceInventoryLink,
   useUpdateServiceInventoryLink,
   useAllBrandVariantsGrouped,
+  useAllServiceLinks,
   type BrandVariantGrouped,
 } from '@/hooks/useInventory'
 import type { ServiceInventoryLinkFull } from './serviceInventoryHelpers'
@@ -226,14 +227,15 @@ export function ServiceLeafPanel({
   const updateLink = useUpdateServiceInventoryLink()
 
   const { data: allVariants = [] } = useAllBrandVariantsGrouped(true)
+  const { data: allLinks = [] } = useAllServiceLinks(true)
 
   const supplyLink = links.find((l) => l.link_type === 'supply') ?? null
   const consumableLinks = links.filter((l) => l.link_type === 'consumable')
 
-  // Set of already-linked brand_variant_ids — passed to pickers to dim used items
+  // All variant IDs linked to ANY service — used to dim items in the picker
   const linkedVariantIds = useMemo(
-    () => new Set(links.map((l) => l.brand_variant_id)),
-    [links],
+    () => new Set(allLinks.map((l) => l.brand_variant_id)),
+    [allLinks],
   )
 
   // Picker open state
