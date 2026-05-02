@@ -45,11 +45,20 @@ function InventoryColumnPicker({
   const [selectedCatId, setSelectedCatId] = useState<string | null>(null)
   const [selectedItemId, setSelectedItemId] = useState<string | null>(null)
 
-  // Item IDs that already have at least one linked variant for this service
-  const linkedItemIds = useMemo(
-    () => new Set(allVariants.filter((v) => linkedVariantIds.has(v.variantId)).map((v) => v.itemId)),
-    [allVariants, linkedVariantIds],
-  )
+  // Item IDs where EVERY brand variant is already linked somewhere — these get dimmed
+  const fullyUsedItemIds = useMemo(() => {
+    const variantsByItem = new Map<string, string[]>()
+    for (const v of allVariants) {
+      const arr = variantsByItem.get(v.itemId) ?? []
+      arr.push(v.variantId)
+      variantsByItem.set(v.itemId, arr)
+    }
+    const result = new Set<string>()
+    for (const [itemId, variantIds] of variantsByItem) {
+      if (variantIds.every((id) => linkedVariantIds.has(id))) result.add(itemId)
+    }
+    return result
+  }, [allVariants, linkedVariantIds])
 
   // Unique categories sorted A→Z
   const categories = useMemo(() => {
@@ -140,7 +149,7 @@ function InventoryColumnPicker({
               </div>
             ) : (
               items.map((item) => {
-                const alreadyLinked = linkedItemIds.has(item.id)
+                const allUsed = fullyUsedItemIds.has(item.id)
                 return (
                   <button
                     key={item.id}
@@ -149,7 +158,7 @@ function InventoryColumnPicker({
                       'w-full text-left px-3 py-2.5 border-b border-border/30',
                       'flex items-center justify-between gap-1 hover:bg-muted/30 transition-colors',
                       selectedItemId === item.id && 'bg-primary/10 text-primary',
-                      alreadyLinked && selectedItemId !== item.id && 'opacity-40',
+                      allUsed && selectedItemId !== item.id && 'opacity-40',
                     )}
                   >
                     <div className="min-w-0 flex-1">
@@ -181,11 +190,17 @@ function InventoryColumnPicker({
                 No brands
               </div>
             ) : (
-              brands.map((v) => (
-                <button
+              brands.map((v) => {
+                const brandUsed = linkedVariantIds.has(v.variantId)
+                return <button
                   key={v.variantId}
                   onClick={() => handleBrandSelect(v.variantId)}
-                  className="w-full text-left px-3 py-2.5 border-b border-border/30 flex items-center justify-between gap-2 hover:bg-primary/10 hover:text-primary transition-colors"
+                  className={cn(
+                    'w-full text-left px-3 py-2.5 border-b border-border/30 flex items-center justify-between gap-2 transition-colors',
+                    brandUsed
+                      ? 'opacity-40 hover:bg-muted/30'
+                      : 'hover:bg-primary/10 hover:text-primary',
+                  )}
                 >
                   <span className="text-xs font-medium">{v.brand}</span>
                   {v.costPrice > 0 && (
@@ -194,7 +209,7 @@ function InventoryColumnPicker({
                     </span>
                   )}
                 </button>
-              ))
+              })
             )}
           </div>
         </div>
