@@ -6,6 +6,8 @@ import { useServiceTree, useReorderServices, type Service } from '@/hooks/useSer
 interface ServiceTableViewProps {
   serviceType: 'normal' | 'mobile'
   divisionFilter: string[]
+  searchQuery: string
+  linkageFilter: string[]
   enabled: boolean
   onEdit: (node: Service) => void
   onAddChild: (parentId: string) => void
@@ -14,6 +16,8 @@ interface ServiceTableViewProps {
 export function ServiceTableView({
   serviceType,
   divisionFilter,
+  searchQuery,
+  linkageFilter,
   enabled,
   onEdit,
   onAddChild,
@@ -27,6 +31,8 @@ export function ServiceTableView({
       isLoading={isLoading}
       error={error ?? null}
       treeType={serviceType}
+      searchQuery={searchQuery}
+      linkageFilter={linkageFilter}
       onEdit={onEdit}
       onAddChild={onAddChild}
       onReorder={(args: ReorderArgs) => reorder.mutate(args)}

@@ -7,6 +7,8 @@ import { useServiceTree, useReorderServices, type Service } from '@/hooks/useSer
 interface ContractTableViewProps {
   typeFilter: 'all' | 'preventive' | 'area' | 'general'
   divisionFilter: string[]
+  searchQuery: string
+  linkageFilter: string[]
   enabled: boolean
   onEdit: (node: Service) => void
   onAddChild: (parentId: string) => void
@@ -15,6 +17,8 @@ interface ContractTableViewProps {
 export function ContractTableView({
   typeFilter,
   divisionFilter,
+  searchQuery,
+  linkageFilter,
   enabled,
   onEdit,
   onAddChild,
@@ -36,6 +40,8 @@ export function ContractTableView({
       isLoading={isLoading}
       error={error ?? null}
       treeType="contract"
+      searchQuery={searchQuery}
+      linkageFilter={linkageFilter}
       onEdit={onEdit}
       onAddChild={onAddChild}
       onReorder={(args: ReorderArgs) => reorder.mutate(args)}

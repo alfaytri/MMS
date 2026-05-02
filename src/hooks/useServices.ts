@@ -25,7 +25,7 @@ export function useServiceTree(
         .order('sort_order', { ascending: true })
       query = query.is('deleted_at', null)
       if (divisionSlugs.length > 0) {
-        query = query.in('division', divisionSlugs)
+        query = query.overlaps('division', divisionSlugs)
       }
       const { data, error } = await query
       if (error) throw error

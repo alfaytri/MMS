@@ -4,10 +4,11 @@
 import { useState } from 'react'
 import {
   ListTree, FileText, Smartphone, Bell, Package, Tag,
-  Filter, Plus, Ruler, Percent,
+  Filter, Plus, Ruler, Percent, Search, BookOpen, ClipboardCheck, Wrench,
 } from 'lucide-react'
 import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { Button } from '@/components/ui/button'
+import { Input } from '@/components/ui/input'
 import { DivisionMultiSelect } from '@/components/shared/DivisionMultiSelect'
 import { ServiceTableView } from '@/components/services/ServiceTableView'
 import { ContractTableView } from '@/components/services/ContractTableView'
@@ -21,9 +22,9 @@ import type { Service } from '@/hooks/useServices'
 type TabKey = 'normal' | 'contract' | 'mobile' | 'reminders' | 'instructions' | 'inventory' | 'promotions'
 
 const TABS: { key: TabKey; label: string; icon: React.ElementType }[] = [
-  { key: 'normal', label: 'Normal Services', icon: ListTree },
-  { key: 'contract', label: 'Contract Services', icon: FileText },
-  { key: 'mobile', label: 'Mobile App Services', icon: Smartphone },
+  { key: 'normal', label: 'Normal', icon: ListTree },
+  { key: 'contract', label: 'Contract', icon: FileText },
+  { key: 'mobile', label: 'Mobile', icon: Smartphone },
   { key: 'reminders', label: 'Notifications', icon: Bell },
   { key: 'instructions', label: 'Instructions', icon: FileText },
   { key: 'inventory', label: 'Inventory', icon: Package },
@@ -36,6 +37,16 @@ const CONTRACT_TYPES = [
   { key: 'general', label: 'General', icon: Percent },
 ]
 
+type LinkageKey = 'inventory' | 'reminders' | 'instructions' | 'qc' | 'parts'
+
+const LINKAGE_CHIPS: { key: LinkageKey; label: string; icon: React.ElementType }[] = [
+  { key: 'inventory', label: 'Inventory', icon: Package },
+  { key: 'reminders', label: 'Reminders', icon: Bell },
+  { key: 'instructions', label: 'Instructions', icon: BookOpen },
+  { key: 'qc', label: 'QC', icon: ClipboardCheck },
+  { key: 'parts', label: 'Parts', icon: Wrench },
+]
+
 const FILTER_BAR_HIDDEN_TABS: TabKey[] = ['reminders', 'instructions', 'inventory', 'promotions']
 
 export default function ServicesPage() {
@@ -43,6 +54,8 @@ export default function ServicesPage() {
   const [visitedTabs, setVisitedTabs] = useState<Set<TabKey>>(new Set(['normal']))
   const [divisionFilter, setDivisionFilter] = useState<string[]>([])
   const [contractTypeFilter, setContractTypeFilter] = useState<'all' | 'preventive' | 'area' | 'general'>('all')
+  const [searchQuery, setSearchQuery] = useState('')
+  const [linkageFilter, setLinkageFilter] = useState<LinkageKey[]>([])
   const [editDialog, setEditDialog] = useState<{
     open: boolean
     mode: 'new' | 'edit'
@@ -56,7 +69,15 @@ export default function ServicesPage() {
     setActiveTab(t)
     setDivisionFilter([])
     setContractTypeFilter('all')
+    setSearchQuery('')
+    setLinkageFilter([])
     setVisitedTabs((prev) => new Set([...prev, t]))
+  }
+
+  function toggleLinkage(key: LinkageKey) {
+    setLinkageFilter((prev) =>
+      prev.includes(key) ? prev.filter((k) => k !== key) : [...prev, key],
+    )
   }
 
   function openNew() {
@@ -104,9 +125,37 @@ export default function ServicesPage() {
       {/* FILTER BAR */}
       {showFilterBar && (
         <div className="flex items-center gap-2 px-4 py-2 border-b border-border bg-card overflow-x-auto flex-nowrap">
-          <Filter className="h-3.5 w-3.5 text-muted-foreground shrink-0" />
-          <span className="text-xs text-muted-foreground shrink-0">Filter by:</span>
+          {/* Left side: search + filter chips */}
+          {isTreeTab && (
+            <>
+              <div className="relative shrink-0">
+                <Search className="absolute left-2 top-1/2 -translate-y-1/2 h-3 w-3 text-muted-foreground pointer-events-none" />
+                <Input
+                  placeholder="Search services…"
+                  value={searchQuery}
+                  onChange={(e) => setSearchQuery(e.target.value)}
+                  className="h-7 pl-6 w-44 text-[11px]"
+                />
+              </div>
+              <div className="h-4 w-px bg-border shrink-0" />
+              <Filter className="h-3.5 w-3.5 text-muted-foreground shrink-0" />
+              {LINKAGE_CHIPS.map(({ key, label, icon: Icon }) => (
+                <Button
+                  key={key}
+                  variant={linkageFilter.includes(key) ? 'default' : 'outline'}
+                  size="sm"
+                  className="h-7 text-[11px] gap-1 shrink-0"
+                  onClick={() => toggleLinkage(key)}
+                >
+                  <Icon className="h-3 w-3" />
+                  {label}
+                </Button>
+              ))}
+              <div className="h-4 w-px bg-border shrink-0" />
+            </>
+          )}
 
+          {/* Contract type filter */}
           {activeTab === 'contract' && CONTRACT_TYPES.map(({ key, label, icon: Icon }) => (
             <Button
               key={key}
@@ -122,6 +171,7 @@ export default function ServicesPage() {
             </Button>
           ))}
 
+          {/* Right side: division filter + new button */}
           <div className="ml-auto flex items-center gap-2 shrink-0">
             <DivisionMultiSelect value={divisionFilter} onChange={setDivisionFilter} />
             {isTreeTab && (
@@ -140,6 +190,8 @@ export default function ServicesPage() {
           <ServiceTableView
             serviceType="normal"
             divisionFilter={divisionFilter}
+            searchQuery={searchQuery}
+            linkageFilter={linkageFilter}
             enabled={visitedTabs.has('normal')}
             onEdit={openEdit}
             onAddChild={openAddChild}
@@ -149,6 +201,8 @@ export default function ServicesPage() {
           <ContractTableView
             typeFilter={contractTypeFilter}
             divisionFilter={divisionFilter}
+            searchQuery={searchQuery}
+            linkageFilter={linkageFilter}
             enabled={visitedTabs.has('contract')}
             onEdit={openEdit}
             onAddChild={openAddChild}
@@ -158,6 +212,8 @@ export default function ServicesPage() {
           <ServiceTableView
             serviceType="mobile"
             divisionFilter={divisionFilter}
+            searchQuery={searchQuery}
+            linkageFilter={linkageFilter}
             enabled={visitedTabs.has('mobile')}
             onEdit={openEdit}
             onAddChild={openAddChild}

@@ -917,6 +917,13 @@ export type Database = {
             referencedRelation: "supplier_bills"
             referencedColumns: ["id"]
           },
+          {
+            foreignKeyName: "credit_notes_source_return_id_fkey"
+            columns: ["source_return_id"]
+            isOneToOne: false
+            referencedRelation: "returns"
+            referencedColumns: ["id"]
+          },
         ]
       }
       custom_roles: {
@@ -4886,7 +4893,7 @@ export type Database = {
           created_at: string | null
           deleted_at: string | null
           discount: number | null
-          division: string | null
+          division: string[] | null
           duration: number | null
           emergency_price: number | null
           id: string
@@ -4899,6 +4906,7 @@ export type Database = {
           name_ar: string | null
           name_en: string
           parent_id: string | null
+          photo_requirement: string | null
           price: number | null
           price_unit: string | null
           qc_checklist: boolean | null
@@ -4923,7 +4931,7 @@ export type Database = {
           created_at?: string | null
           deleted_at?: string | null
           discount?: number | null
-          division?: string | null
+          division?: string[] | null
           duration?: number | null
           emergency_price?: number | null
           id?: string
@@ -4936,6 +4944,7 @@ export type Database = {
           name_ar?: string | null
           name_en: string
           parent_id?: string | null
+          photo_requirement?: string | null
           price?: number | null
           price_unit?: string | null
           qc_checklist?: boolean | null
@@ -4960,7 +4969,7 @@ export type Database = {
           created_at?: string | null
           deleted_at?: string | null
           discount?: number | null
-          division?: string | null
+          division?: string[] | null
           duration?: number | null
           emergency_price?: number | null
           id?: string
@@ -4973,6 +4982,7 @@ export type Database = {
           name_ar?: string | null
           name_en?: string
           parent_id?: string | null
+          photo_requirement?: string | null
           price?: number | null
           price_unit?: string | null
           qc_checklist?: boolean | null
@@ -5885,12 +5895,16 @@ export type Database = {
           created_at: string | null
           customer_id: string | null
           direction: string | null
+          discount_amount: number | null
+          discount_label: string | null
           division: string | null
           doc_status: string | null
           due_date: string | null
           id: string | null
           invoice_id: string | null
+          invoice_type: string | null
           issued_date: string | null
+          manually_paid: boolean | null
           needs_refresh: boolean | null
           notes: string | null
           paid_amount: number | null
@@ -5915,12 +5929,16 @@ export type Database = {
           created_at?: string | null
           customer_id?: string | null
           direction?: string | null
+          discount_amount?: number | null
+          discount_label?: string | null
           division?: string | null
           doc_status?: string | null
           due_date?: string | null
           id?: string | null
           invoice_id?: string | null
+          invoice_type?: string | null
           issued_date?: string | null
+          manually_paid?: boolean | null
           needs_refresh?: boolean | null
           notes?: string | null
           paid_amount?: number | null
@@ -5945,12 +5963,16 @@ export type Database = {
           created_at?: string | null
           customer_id?: string | null
           direction?: string | null
+          discount_amount?: number | null
+          discount_label?: string | null
           division?: string | null
           doc_status?: string | null
           due_date?: string | null
           id?: string | null
           invoice_id?: string | null
+          invoice_type?: string | null
           issued_date?: string | null
+          manually_paid?: boolean | null
           needs_refresh?: boolean | null
           notes?: string | null
           paid_amount?: number | null
@@ -6021,12 +6043,16 @@ export type Database = {
           created_at: string | null
           customer_id: string | null
           direction: string | null
+          discount_amount: number | null
+          discount_label: string | null
           division: string | null
           doc_status: string | null
           due_date: string | null
           id: string | null
           invoice_id: string | null
+          invoice_type: string | null
           issued_date: string | null
+          manually_paid: boolean | null
           needs_refresh: boolean | null
           notes: string | null
           paid_amount: number | null
@@ -6051,12 +6077,16 @@ export type Database = {
           created_at?: string | null
           customer_id?: string | null
           direction?: string | null
+          discount_amount?: number | null
+          discount_label?: string | null
           division?: string | null
           doc_status?: string | null
           due_date?: string | null
           id?: string | null
           invoice_id?: string | null
+          invoice_type?: string | null
           issued_date?: string | null
+          manually_paid?: boolean | null
           needs_refresh?: boolean | null
           notes?: string | null
           paid_amount?: number | null
@@ -6081,12 +6111,16 @@ export type Database = {
           created_at?: string | null
           customer_id?: string | null
           direction?: string | null
+          discount_amount?: number | null
+          discount_label?: string | null
           division?: string | null
           doc_status?: string | null
           due_date?: string | null
           id?: string | null
           invoice_id?: string | null
+          invoice_type?: string | null
           issued_date?: string | null
+          manually_paid?: boolean | null
           needs_refresh?: boolean | null
           notes?: string | null
           paid_amount?: number | null
@@ -6307,6 +6341,8 @@ export type Database = {
         Args: { p_invoice_id: string; p_payment_id: string }
         Returns: undefined
       }
+      fn_refresh_incoming_qty: { Args: { p_bv_id: string }; Returns: undefined }
+      fn_refresh_reserved_qty: { Args: { p_bv_id: string }; Returns: undefined }
       generate_invoice_from_so: { Args: { p_so_id: string }; Returns: Json }
       get_dead_stock_report: {
         Args: never
@@ -6838,10 +6874,17 @@ export const Constants = {
   },
 } as const
 
-// ─── Shorthand helpers ─────────────────────────────────────────────────────
-export type DBTable<T extends keyof Database['public']['Tables']> =
-  Database['public']['Tables'][T]['Row']
-export type DBInsert<T extends keyof Database['public']['Tables']> =
-  Database['public']['Tables'][T]['Insert']
-export type DBUpdate<T extends keyof Database['public']['Tables']> =
-  Database['public']['Tables'][T]['Update']
+// ─── Convenience type helpers ─────────────────────────────────────────────────
+type PublicSchema = Database['public']
+
+export type DBTable<T extends keyof PublicSchema['Tables']> =
+  PublicSchema['Tables'][T]['Row']
+
+export type DBInsert<T extends keyof PublicSchema['Tables']> =
+  PublicSchema['Tables'][T]['Insert']
+
+export type DBUpdate<T extends keyof PublicSchema['Tables']> =
+  PublicSchema['Tables'][T]['Update']
+
+export type DBEnum<T extends keyof PublicSchema['Enums']> =
+  PublicSchema['Enums'][T]

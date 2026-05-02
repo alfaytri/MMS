@@ -27,7 +27,7 @@ import {
   serviceSchema, toDefaults, type ServiceFormValues,
   CoreSection, CatalogImageSection, StatusSection, DivisionSection,
   ContractSection, PricingSection, DurationWarrantySection,
-  InvoiceTextSection, FeatureFieldsSection,
+  InvoiceTextSection, PhotoRequirementSection, FeatureFieldsSection,
 } from './ServiceEditSections'
 
 interface ServiceEditDialogProps {
@@ -127,6 +127,7 @@ export function ServiceEditDialog({
         name_en: values.name_en,
         name_ar: values.name_ar || null,
         code: values.code || null,
+        legacy_service_id: values.legacy_service_id || null,
         status: values.status,
         division: values.division,
         parent_id: values.parent_id,
@@ -140,6 +141,7 @@ export function ServiceEditDialog({
         warranty: values.warranty,
         invoice_text_en: type !== 'contract' ? values.invoice_text_en || null : null,
         invoice_text_ar: type !== 'contract' ? values.invoice_text_ar || null : null,
+        photo_requirement: type !== 'contract' ? values.photo_requirement : null,
         instructions: false,
         reminder_days: values.has_reminders ? values.reminder_days : null,
         // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -148,7 +150,8 @@ export function ServiceEditDialog({
         spare_parts: type !== 'contract' ? values.spare_parts : null,
         // eslint-disable-next-line @typescript-eslint/no-explicit-any
         service_type: type !== 'contract' ? (values.service_type as any) : null,
-        legacy_service_id: values.service_type === 'configurable' ? values.legacy_service_id || null : null,
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        components: values.service_type === 'configurable' ? (values.component_service_ids as any) : null,
         // eslint-disable-next-line @typescript-eslint/no-explicit-any
         qc_items: type !== 'contract' && values.qc_items.length > 0 ? (values.qc_items as any) : null,
         ...(catalogImageUrl !== undefined && { catalog_image_url: catalogImageUrl }),
@@ -258,7 +261,14 @@ export function ServiceEditDialog({
               <PricingSection form={form} type={type} />
               <DurationWarrantySection form={form} />
               {type !== 'contract' && <InvoiceTextSection form={form} />}
-              {type !== 'contract' && <FeatureFieldsSection form={form} />}
+              {type !== 'contract' && <PhotoRequirementSection form={form} />}
+              {type !== 'contract' && (
+                <FeatureFieldsSection
+                  form={form}
+                  treeData={treeData}
+                  currentServiceId={node?.id ?? null}
+                />
+              )}
 
               <DialogFooter>
                 <Button type="button" variant="outline" onClick={() => handleOpenChange(false)}>

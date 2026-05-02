@@ -5,6 +5,7 @@ import { useState } from 'react'
 import {
   ChevronRight, ChevronDown, ArrowUp, ArrowDown,
   Plus, Pencil, Settings2, Bell, Shield, Clock, Archive, Wrench,
+  Package, BookOpen, ClipboardCheck,
 } from 'lucide-react'
 import { toast } from 'sonner'
 import { Button } from '@/components/ui/button'
@@ -24,6 +25,14 @@ const LEVEL_COLORS: Record<number, string> = {
   2: 'bg-amber-100 text-amber-700',
 }
 
+function formatDuration(minutes: number | null | undefined): string {
+  if (!minutes) return '—'
+  if (minutes < 60) return `${minutes}m`
+  const h = Math.floor(minutes / 60)
+  const m = minutes % 60
+  return m > 0 ? `${h}h ${m}m` : `${h}h`
+}
+
 interface ServiceTreeRowProps {
   service: Service
   depth: number
@@ -32,6 +41,8 @@ interface ServiceTreeRowProps {
   isFirst: boolean
   isLast: boolean
   treeType: string
+  divisionMap: Map<string, string>
+  instructionServiceIds: Set<string>
   onToggleExpand: (id: string) => void
   onEdit: (node: Service) => void
   onAddChild: (parentId: string) => void
@@ -46,6 +57,8 @@ export function ServiceTreeRow({
   isFirst,
   isLast,
   treeType,
+  divisionMap,
+  instructionServiceIds,
   onToggleExpand,
   onEdit,
   onAddChild,
@@ -57,13 +70,12 @@ export function ServiceTreeRow({
   const levelLabel = `L${depth + 1}`
   const levelColor = LEVEL_COLORS[Math.min(depth, 2)] ?? 'bg-slate-100 text-slate-700'
 
-  function handleRowClick() {
-    if (isBranch) {
-      onToggleExpand(service.id)
-    } else {
-      onEdit(service)
-    }
-  }
+  // Linkage flags
+  const hasInventory = Array.isArray(service.inventory_items) && (service.inventory_items as unknown[]).length > 0
+  const hasReminders = service.reminder_days != null
+  const hasInstructions = instructionServiceIds.has(service.id)
+  const hasQC = !!(service.qc_checklist || (Array.isArray(service.qc_items) && (service.qc_items as unknown[]).length > 0))
+  const hasParts = service.spare_parts === true
 
   function handleArchiveConfirm() {
     archiveService.mutate(
@@ -88,7 +100,7 @@ export function ServiceTreeRow({
           'flex items-center min-h-[40px] border-b border-border/50 hover:bg-muted/30 cursor-pointer',
           isBranch && 'bg-muted/20',
         )}
-        onClick={handleRowClick}
+        onClick={() => onEdit(service)}
       >
         {/* 1. Order — w-10 */}
         <div className="w-10 flex flex-col items-center justify-center gap-0 shrink-0">
@@ -126,18 +138,27 @@ export function ServiceTreeRow({
           )}
         </div>
 
-        {/* 2. Service — w-[260px] */}
+        {/* 2. Service — w-[240px] */}
         <div
-          className="w-[260px] flex items-center gap-1 min-w-0 shrink-0"
+          className="w-[240px] flex items-center gap-1 min-w-0 shrink-0"
           style={{ paddingLeft: 12 + depth * 20 }}
         >
-          <span className="w-4 h-4 flex items-center justify-center shrink-0">
+          {/* Chevron as its own button so it doesn't trigger onEdit */}
+          <button
+            type="button"
+            aria-label={isExpanded ? 'Collapse' : 'Expand'}
+            className="w-4 h-4 flex items-center justify-center shrink-0 text-muted-foreground hover:text-foreground"
+            onClick={(e) => {
+              e.stopPropagation()
+              if (isBranch) onToggleExpand(service.id)
+            }}
+          >
             {isBranch
               ? isExpanded
-                ? <ChevronDown className="h-3.5 w-3.5 text-muted-foreground" />
-                : <ChevronRight className="h-3.5 w-3.5 text-muted-foreground" />
+                ? <ChevronDown className="h-3.5 w-3.5" />
+                : <ChevronRight className="h-3.5 w-3.5" />
               : null}
-          </span>
+          </button>
           <Badge className={cn('text-[9px] px-1 py-0 h-4 shrink-0 border-0', levelColor)}>
             {levelLabel}
           </Badge>
@@ -159,8 +180,25 @@ export function ServiceTreeRow({
           </div>
         </div>
 
-        {/* 3. Invoice Text — w-[200px] */}
-        <div className="w-[200px] shrink-0 px-2">
+        {/* 3. Division — w-[110px] */}
+        <div className="w-[110px] shrink-0 px-2 flex flex-wrap gap-0.5">
+          {Array.isArray(service.division) && service.division.length > 0
+            ? service.division.map((slug) => (
+                <Badge
+                  key={slug}
+                  variant="outline"
+                  className="text-[9px] px-1 py-0 h-4 border-muted-foreground/30 text-muted-foreground"
+                >
+                  {divisionMap.get(slug) ?? slug}
+                </Badge>
+              ))
+            : !isBranch
+              ? <span className="text-[11px] text-muted-foreground/40">—</span>
+              : null}
+        </div>
+
+        {/* 4. Invoice Text — w-[170px] */}
+        <div className="w-[170px] shrink-0 px-2">
           {!isBranch && (service.invoice_text_en || service.invoice_text_ar) ? (
             <>
               <div className="text-[11px] truncate text-foreground">{service.invoice_text_en ?? '—'}</div>
@@ -171,8 +209,8 @@ export function ServiceTreeRow({
           ) : null}
         </div>
 
-        {/* 4. Pricing / Unit — w-[160px] */}
-        <div className="w-[160px] shrink-0 px-2">
+        {/* 5. Pricing / Unit — w-[150px] */}
+        <div className="w-[150px] shrink-0 px-2">
           {!isBranch && (
             service.service_type === 'configurable' ? (
               <div className="flex items-center gap-1 text-[11px] text-primary">
@@ -181,7 +219,7 @@ export function ServiceTreeRow({
             ) : service.price != null ? (
               <div>
                 <div className="text-xs font-semibold">
-                  Reg: {formatCurrency(service.price)} QAR
+                  {formatCurrency(service.price)} QAR
                 </div>
                 {service.price_unit && (
                   <div className="text-[9px] text-muted-foreground">/ {service.price_unit}</div>
@@ -198,8 +236,8 @@ export function ServiceTreeRow({
           )}
         </div>
 
-        {/* 5. Reminders — w-[100px] */}
-        <div className="w-[100px] shrink-0 px-2">
+        {/* 6. Reminders — w-[80px] */}
+        <div className="w-[80px] shrink-0 px-2">
           {!isBranch && service.reminder_days != null ? (
             <div className="flex items-center gap-1 text-[11px]">
               <Bell className="h-3 w-3 text-yellow-500" />
@@ -210,35 +248,50 @@ export function ServiceTreeRow({
           ) : null}
         </div>
 
-        {/* 6. Details — w-[130px] */}
-        <div className="w-[130px] shrink-0 px-2 flex items-center gap-1.5">
+        {/* 7. Details — w-[120px] */}
+        <div className="w-[120px] shrink-0 px-2 flex items-center gap-1.5">
           {!isBranch && (
             <>
               <div className={cn(
                 'flex items-center gap-0.5 text-[10px]',
                 service.warranty ? 'text-foreground' : 'text-muted-foreground/40',
               )}>
-                <Shield className="h-3 w-3" />{service.warranty ?? 0}m
+                <Shield className="h-3 w-3" />
+                {service.warranty != null ? `${service.warranty} mo` : '—'}
               </div>
-              <div className="flex items-center gap-0.5 text-[10px] text-muted-foreground w-[38px]">
-                <Clock className="h-3 w-3" />{service.duration ?? 0}m
+              <div className="flex items-center gap-0.5 text-[10px] text-muted-foreground">
+                <Clock className="h-3 w-3" />
+                {formatDuration(service.duration)}
               </div>
-              <Badge
-                variant="outline"
-                className={cn(
-                  'text-[9px] px-1 py-0 h-3.5 gap-0.5',
-                  service.spare_parts
-                    ? 'border-green-500 text-green-600'
-                    : 'border-muted text-muted-foreground/40',
-                )}
-              >
-                <Wrench className="h-2 w-2" />Parts
-              </Badge>
             </>
           )}
         </div>
 
-        {/* 7. Actions — w-[70px] */}
+        {/* 8. Linked — w-[100px] */}
+        <div className="w-[100px] shrink-0 px-2 flex items-center gap-1">
+          <Package
+            className={cn('h-3.5 w-3.5', hasInventory ? 'text-blue-500' : 'text-muted-foreground/25')}
+            aria-label="Inventory"
+          />
+          <Bell
+            className={cn('h-3.5 w-3.5', hasReminders ? 'text-yellow-500' : 'text-muted-foreground/25')}
+            aria-label="Reminders"
+          />
+          <BookOpen
+            className={cn('h-3.5 w-3.5', hasInstructions ? 'text-purple-500' : 'text-muted-foreground/25')}
+            aria-label="Instructions"
+          />
+          <ClipboardCheck
+            className={cn('h-3.5 w-3.5', hasQC ? 'text-green-500' : 'text-muted-foreground/25')}
+            aria-label="QC"
+          />
+          <Wrench
+            className={cn('h-3.5 w-3.5', hasParts ? 'text-orange-500' : 'text-muted-foreground/25')}
+            aria-label="Parts"
+          />
+        </div>
+
+        {/* 9. Actions — w-[70px] */}
         <div className="w-[70px] shrink-0 flex items-center justify-end gap-0.5 px-1">
           <Button
             variant="ghost"

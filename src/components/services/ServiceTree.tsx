@@ -4,6 +4,8 @@
 import { useState, useMemo } from 'react'
 import { cn } from '@/lib/utils'
 import { ServiceTreeRow } from './ServiceTreeRow'
+import { useDivisions } from '@/hooks/useDivisions'
+import { useAllServiceInstructionLinks } from '@/hooks/useServices'
 import type { Service } from '@/hooks/useServices'
 
 export interface ReorderArgs {
@@ -42,13 +44,92 @@ export function collectDescendantIds(
   return result
 }
 
+function applyFilters(
+  flat: Service[],
+  searchQuery: string,
+  linkageFilter: string[],
+  instructionServiceIds: Set<string>,
+): Service[] {
+  let result = flat
+
+  if (searchQuery.trim()) {
+    const lower = searchQuery.toLowerCase()
+    const parentMap = new Map(flat.map((s) => [s.id, s.parent_id ?? null]))
+
+    const directMatches = new Set(
+      flat
+        .filter(
+          (s) =>
+            s.name_en.toLowerCase().includes(lower) ||
+            (s.name_ar && s.name_ar.toLowerCase().includes(lower)),
+        )
+        .map((s) => s.id),
+    )
+
+    // Include all ancestors of matching nodes to preserve tree context
+    const keepIds = new Set(directMatches)
+    function addAncestors(id: string) {
+      const parent = parentMap.get(id)
+      if (parent && !keepIds.has(parent)) {
+        keepIds.add(parent)
+        addAncestors(parent)
+      }
+    }
+    directMatches.forEach((id) => addAncestors(id))
+    result = result.filter((s) => keepIds.has(s.id))
+  }
+
+  if (linkageFilter.length > 0) {
+    const linkMatches = new Set(
+      result
+        .filter((s) => {
+          if (
+            linkageFilter.includes('inventory') &&
+            !(Array.isArray(s.inventory_items) && (s.inventory_items as unknown[]).length > 0)
+          )
+            return false
+          if (linkageFilter.includes('reminders') && s.reminder_days == null) return false
+          if (linkageFilter.includes('instructions') && !instructionServiceIds.has(s.id))
+            return false
+          if (
+            linkageFilter.includes('qc') &&
+            !(
+              s.qc_checklist ||
+              (Array.isArray(s.qc_items) && (s.qc_items as unknown[]).length > 0)
+            )
+          )
+            return false
+          if (linkageFilter.includes('parts') && !s.spare_parts) return false
+          return true
+        })
+        .map((s) => s.id),
+    )
+
+    const parentMap = new Map(flat.map((s) => [s.id, s.parent_id ?? null]))
+    const keepIds = new Set(linkMatches)
+    function addAncestors(id: string) {
+      const parent = parentMap.get(id)
+      if (parent && !keepIds.has(parent)) {
+        keepIds.add(parent)
+        addAncestors(parent)
+      }
+    }
+    linkMatches.forEach((id) => addAncestors(id))
+    result = result.filter((s) => keepIds.has(s.id))
+  }
+
+  return result
+}
+
 const COLUMNS = [
   { label: 'Order', width: 'w-10' },
-  { label: 'Service', width: 'w-[260px]' },
-  { label: 'Invoice Text', width: 'w-[200px]' },
-  { label: 'Pricing / Unit', width: 'w-[160px]' },
-  { label: 'Reminders', width: 'w-[100px]' },
-  { label: 'Details', width: 'w-[130px]' },
+  { label: 'Service', width: 'w-[240px]' },
+  { label: 'Division', width: 'w-[110px]' },
+  { label: 'Invoice Text', width: 'w-[170px]' },
+  { label: 'Pricing / Unit', width: 'w-[150px]' },
+  { label: 'Reminders', width: 'w-[80px]' },
+  { label: 'Details', width: 'w-[120px]' },
+  { label: 'Linked', width: 'w-[100px]' },
   { label: 'Actions', width: 'w-[70px]' },
 ]
 
@@ -57,6 +138,8 @@ interface ServiceTreeProps {
   isLoading: boolean
   error: Error | null
   treeType: string
+  searchQuery?: string
+  linkageFilter?: string[]
   onEdit: (node: Service) => void
   onAddChild: (parentId: string) => void
   onReorder: (args: ReorderArgs) => void
@@ -67,12 +150,32 @@ export function ServiceTree({
   isLoading,
   error,
   treeType,
+  searchQuery = '',
+  linkageFilter = [],
   onEdit,
   onAddChild,
   onReorder,
 }: ServiceTreeProps) {
   const [expanded, setExpanded] = useState<Set<string>>(new Set())
-  const treeMap = useMemo(() => buildTreeMap(data), [data])
+  const { data: divisions = [] } = useDivisions()
+  const { data: instructionLinks = [] } = useAllServiceInstructionLinks()
+
+  const divisionMap = useMemo(
+    () => new Map(divisions.map((d) => [d.slug, d.short_name ?? d.name])),
+    [divisions],
+  )
+
+  const instructionServiceIds = useMemo(
+    () => new Set(instructionLinks.map((l) => l.service_id)),
+    [instructionLinks],
+  )
+
+  const filteredData = useMemo(
+    () => applyFilters(data, searchQuery, linkageFilter, instructionServiceIds),
+    [data, searchQuery, linkageFilter, instructionServiceIds],
+  )
+
+  const treeMap = useMemo(() => buildTreeMap(filteredData), [filteredData])
 
   function toggleExpand(id: string) {
     setExpanded((prev) => {
@@ -94,7 +197,7 @@ export function ServiceTree({
   if (error) {
     return (
       <div className="flex h-32 items-center justify-center px-4 text-sm text-destructive">
-        Failed to load: {error.message}
+        Failed to load this section: {error.message}
       </div>
     )
   }
@@ -125,6 +228,8 @@ export function ServiceTree({
           isFirst={idx === 0}
           isLast={idx === siblings.length - 1}
           treeType={treeType}
+          divisionMap={divisionMap}
+          instructionServiceIds={instructionServiceIds}
           onToggleExpand={toggleExpand}
           onEdit={onEdit}
           onAddChild={onAddChild}
@@ -142,7 +247,10 @@ export function ServiceTree({
         {COLUMNS.map((col) => (
           <div
             key={col.label}
-            className={cn(col.width, 'px-2 py-1.5 shrink-0 text-[10px] uppercase tracking-wider font-semibold text-muted-foreground')}
+            className={cn(
+              col.width,
+              'px-2 py-1.5 shrink-0 text-[10px] uppercase tracking-wider font-semibold text-muted-foreground',
+            )}
           >
             {col.label}
           </div>
