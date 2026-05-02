@@ -20,6 +20,7 @@ interface ColumnPanelProps {
   isLeaf: (id: string) => boolean
   linksByService: Map<string, ServiceInventoryLinkFull[]>
   onSelect: (colIdx: number, id: string) => void
+  isLastColumn: boolean                  // last column gets extra width for long leaf names
 }
 
 const ColumnPanel = React.memo(function ColumnPanel({
@@ -30,11 +31,15 @@ const ColumnPanel = React.memo(function ColumnPanel({
   isLeaf,
   linksByService,
   onSelect,
+  isLastColumn,
 }: ColumnPanelProps) {
   if (nodes.length === 0) return null
 
   return (
-    <div className="w-52 shrink-0 border-r border-border overflow-y-auto flex flex-col bg-background">
+    <div className={cn(
+      'shrink-0 border-r border-border overflow-y-auto flex flex-col bg-background',
+      isLastColumn ? 'w-80' : 'w-52',
+    )}>
       {nodes.map((node) => {
         const leaf = isLeaf(node.id)
         const isActive = leaf
@@ -172,6 +177,7 @@ export function ServiceLinksColumnBrowser({
           isLeaf={isLeaf}
           linksByService={linksByService}
           onSelect={handleSelect}
+          isLastColumn={colIdx === columns.length - 1}
         />
       ))}
 
