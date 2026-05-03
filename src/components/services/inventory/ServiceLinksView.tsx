@@ -3,6 +3,7 @@
 
 import { useState, useMemo } from 'react'
 import { Skeleton } from '@/components/ui/skeleton'
+import { Button } from '@/components/ui/button'
 import { useServicesForLinks, useAllServiceLinks } from '@/hooks/useInventory'
 import {
   buildBreadcrumbMap,
@@ -89,8 +90,14 @@ export function ServiceLinksView({ enabled }: { enabled: boolean }) {
 
   return (
     <div className="flex h-full">
-      {/* Left panel — 40% */}
-      <div className="w-[40%] shrink-0 flex flex-col h-full">
+      {/* Left panel — 40% on lg+, full-width when nothing selected (mobile/tablet) */}
+      <div
+        className={`
+          h-full flex flex-col shrink-0
+          lg:w-[40%]
+          ${rightPanelMode === 'zero' ? 'w-full' : 'hidden lg:flex'}
+        `}
+      >
         <ServiceLinksMasterList
           leafServices={leafServices}
           breadcrumbMap={breadcrumbs}
@@ -105,8 +112,29 @@ export function ServiceLinksView({ enabled }: { enabled: boolean }) {
         />
       </div>
 
-      {/* Right panel — 60% */}
-      <div className="flex-1 h-full overflow-y-auto">
+      {/* Right panel — 60% on lg+, slides in on mobile/tablet */}
+      <div
+        className={`
+          flex-1 h-full overflow-y-auto
+          ${rightPanelMode === 'zero' ? 'hidden lg:block' : 'block'}
+        `}
+      >
+        {/* Back button — mobile/tablet only, shown when right panel is active */}
+        {rightPanelMode !== 'zero' && (
+          <div className="lg:hidden border-b p-2">
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={() => {
+                setActiveId(null)
+                setCheckedIds(new Set())
+              }}
+            >
+              ← Back to list
+            </Button>
+          </div>
+        )}
+
         {rightPanelMode === 'zero' && (
           <ServiceLinksZeroState
             leafServices={leafServices}
