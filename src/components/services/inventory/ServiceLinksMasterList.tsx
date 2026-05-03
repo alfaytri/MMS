@@ -86,12 +86,22 @@ export function ServiceLinksMasterList({
     }
   }
 
-  const renderRow = (service: ServiceNode) => {
+  const handleSearchKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
+    if (e.key === 'ArrowDown') {
+      e.preventDefault()
+      setFocusedIdx(0)
+      listRef.current?.focus()
+      return
+    }
+    handleKeyDown(e)
+  }
+
+  const renderRow = (service: ServiceNode, idx: number) => {
     const breadcrumb = breadcrumbMap.get(service.id) ?? ''
     const isActive = activeId === service.id
     const isChecked = checkedIds.has(service.id)
     const hasSupply = hasSupplySet.has(service.id)
-    const isFocused = focusedIdx === filteredLeaves.indexOf(service)
+    const isFocused = focusedIdx === idx
 
     let rowCls =
       'group relative flex items-start gap-2 px-3 py-2 cursor-pointer select-none border-l-[3px] transition-colors'
@@ -123,9 +133,14 @@ export function ServiceLinksMasterList({
 
         {/* Text */}
         <div className="flex-1 min-w-0">
-          <p className="text-xs text-muted-foreground leading-tight truncate">
-            {breadcrumb.split(' › ').slice(0, -1).join(' › ')}
-          </p>
+          {(() => {
+            const parentCrumb = breadcrumb.split(' › ').slice(0, -1).join(' › ')
+            return parentCrumb ? (
+              <p className="text-xs text-muted-foreground leading-tight truncate">
+                {parentCrumb}
+              </p>
+            ) : null
+          })()}
           <p className="text-sm font-medium leading-snug break-words">
             {service.name_en}
           </p>
@@ -151,7 +166,7 @@ export function ServiceLinksMasterList({
           placeholder={`Search ${totalCount} services…`}
           value={query}
           onChange={e => { setQuery(e.target.value); setFocusedIdx(0) }}
-          onKeyDown={handleKeyDown}
+          onKeyDown={handleSearchKeyDown}
           className="h-9"
         />
       </div>
@@ -178,7 +193,7 @@ export function ServiceLinksMasterList({
           filteredLeaves.length === 0 ? (
             <p className="p-4 text-sm text-muted-foreground text-center">No services match &quot;{query}&quot;</p>
           ) : (
-            filteredLeaves.map(s => renderRow(s))
+            filteredLeaves.map((s, i) => renderRow(s, i))
           )
         ) : (
           // Grouped by category
@@ -190,7 +205,7 @@ export function ServiceLinksMasterList({
                   ({leaves.length})
                 </span>
               </div>
-              {leaves.map(s => renderRow(s))}
+              {leaves.map(s => renderRow(s, filteredLeaves.indexOf(s)))}
             </div>
           ))
         )}
