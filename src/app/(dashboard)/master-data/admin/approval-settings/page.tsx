@@ -1,6 +1,7 @@
 'use client'
 
 import { useState } from 'react'
+import { PageWrapper } from '@/components/shared/PageWrapper'
 import { ApprovalChainsTab } from '@/components/purchase/ApprovalChainsTab'
 import { ApprovalRoleAssignmentsTab } from '@/components/purchase/ApprovalRoleAssignmentsTab'
 
@@ -8,7 +9,7 @@ export default function ApprovalSettingsPage() {
   const [activeTab, setActiveTab] = useState<'chains' | 'assignments'>('chains')
 
   return (
-    <div className="space-y-6">
+    <PageWrapper>
       <div>
         <h2 className="text-lg font-semibold">Approval Settings</h2>
         <p className="text-sm text-muted-foreground">Configure approval chains and role assignments</p>
@@ -28,6 +29,6 @@ export default function ApprovalSettingsPage() {
         ))}
       </div>
       {activeTab === 'chains' ? <ApprovalChainsTab /> : <ApprovalRoleAssignmentsTab />}
-    </div>
+    </PageWrapper>
   )
 }
