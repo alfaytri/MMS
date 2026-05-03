@@ -26,7 +26,6 @@ interface LeafPanelProps {
   breadcrumb: string
   links: ServiceInventoryLinkFull[]
   warranty: number | null
-  linkedVariantIds?: Set<string>
   onClose: () => void
 }
 
@@ -36,7 +35,6 @@ export function ServiceLeafPanel({
   breadcrumb,
   links,
   warranty,
-  linkedVariantIds = new Set(),
   onClose,
 }: LeafPanelProps) {
   const addLink = useAddServiceInventoryLink()
@@ -44,6 +42,12 @@ export function ServiceLeafPanel({
   const updateLink = useUpdateServiceInventoryLink()
 
   const { data: allVariants = [] } = useAllBrandVariantsGrouped(true)
+
+  // Only dim variants already linked to THIS service in the pickers
+  const linkedVariantIds = useMemo(
+    () => new Set(links.map((l) => l.brand_variant_id)),
+    [links],
+  )
 
   const supplyLinks = links.filter((l) => l.link_type === 'supply')
   const consumableLinks = links.filter((l) => l.link_type === 'consumable')
