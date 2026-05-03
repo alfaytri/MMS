@@ -45,7 +45,7 @@ export function ServiceLeafPanel({
 
   const { data: allVariants = [] } = useAllBrandVariantsGrouped(true)
 
-  const supplyLink = links.find((l) => l.link_type === 'supply') ?? null
+  const supplyLinks = links.filter((l) => l.link_type === 'supply')
   const consumableLinks = links.filter((l) => l.link_type === 'consumable')
 
   // Picker open state
@@ -150,41 +150,48 @@ export function ServiceLeafPanel({
               Supply Item
             </p>
 
-            {supplyLink ? (
-              <div className="rounded-md border border-border bg-muted/20 px-3 py-2.5 flex items-start justify-between gap-2">
-                <div className="min-w-0 flex-1">
-                  <p className="text-xs font-medium">
-                    {supplyLink.inventory_brand_variants?.brand}
-                  </p>
-                  <p className="text-[10px] text-muted-foreground">
-                    {supplyLink.inventory_brand_variants?.inventory_items?.name_en}
-                    {' · '}
-                    {supplyLink.inventory_brand_variants?.inventory_items?.sku}
-                  </p>
-                  {(supplyLink.inventory_brand_variants?.selling_price ?? 0) > 0 && (
-                    <p className="text-[10px] text-emerald-700 mt-0.5">
-                      QAR {supplyLink.inventory_brand_variants!.selling_price!.toLocaleString()}
-                    </p>
-                  )}
-                </div>
-                <button
-                  onClick={() => handleRemove(supplyLink.id)}
-                  className="text-muted-foreground hover:text-destructive transition-colors shrink-0 mt-0.5"
-                  title="Remove supply item"
-                  aria-label="Remove supply item"
+            <div className="space-y-1.5">
+              {supplyLinks.map((link) => (
+                <div
+                  key={link.id}
+                  className="rounded-md border border-border bg-muted/20 px-3 py-2.5 flex items-start justify-between gap-2"
                 >
-                  <X className="h-3.5 w-3.5" />
-                </button>
-              </div>
-            ) : (
+                  <div className="min-w-0 flex-1">
+                    <p className="text-xs font-medium">
+                      {link.inventory_brand_variants?.brand}
+                    </p>
+                    <p className="text-[10px] text-muted-foreground">
+                      {link.inventory_brand_variants?.inventory_items?.name_en}
+                      {' · '}
+                      {link.inventory_brand_variants?.inventory_items?.sku}
+                    </p>
+                    {(link.inventory_brand_variants?.selling_price ?? 0) > 0 && (
+                      <p className="text-[10px] text-emerald-700 mt-0.5">
+                        QAR {link.inventory_brand_variants!.selling_price!.toLocaleString()}
+                      </p>
+                    )}
+                  </div>
+                  <button
+                    onClick={() => handleRemove(link.id)}
+                    className="text-muted-foreground hover:text-destructive transition-colors shrink-0 mt-0.5"
+                    title="Remove supply item"
+                    aria-label="Remove supply item"
+                  >
+                    <X className="h-3.5 w-3.5" />
+                  </button>
+                </div>
+              ))}
               <button
                 onClick={() => setSupplyPickerOpen(true)}
-                className="w-full h-8 inline-flex items-center justify-between rounded-md border border-input bg-background px-3 text-xs text-muted-foreground hover:bg-accent hover:text-accent-foreground transition-colors"
+                className={cn(
+                  'flex items-center gap-1.5 text-xs text-muted-foreground',
+                  'hover:text-foreground transition-colors py-1 px-1',
+                )}
               >
-                <span>Set supply item…</span>
-                <span className="text-muted-foreground opacity-50 ml-2">›</span>
+                <Plus className="h-3.5 w-3.5" />
+                Add supply item
               </button>
-            )}
+            </div>
           </section>
 
           {/* Consumables */}
