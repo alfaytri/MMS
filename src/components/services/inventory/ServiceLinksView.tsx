@@ -9,6 +9,7 @@ import { useServicesForLinks, useAllServiceLinks } from '@/hooks/useInventory'
 import {
   buildBreadcrumbMap,
   buildParentIdSet,
+  buildTreeMap,
 } from './serviceInventoryHelpers'
 import { ServiceLinksMasterList } from './ServiceLinksMasterList'
 import { ServiceLinksZeroState } from './ServiceLinksZeroState'
@@ -22,6 +23,7 @@ export function ServiceLinksView({ enabled }: { enabled: boolean }) {
 
   const breadcrumbs = useMemo(() => buildBreadcrumbMap(allServices), [allServices])
   const parentIds = useMemo(() => buildParentIdSet(allServices), [allServices])
+  const treeMap = useMemo(() => buildTreeMap(allServices), [allServices])
 
   // Leaf IDs: services with no children
   const leafIdSet = useMemo(
@@ -106,16 +108,15 @@ export function ServiceLinksView({ enabled }: { enabled: boolean }) {
         `}
       >
         <ServiceLinksMasterList
-          leafServices={leafServices}
+          allServices={allServices}
+          treeMap={treeMap}
+          leafIdSet={leafIdSet}
           breadcrumbMap={breadcrumbs}
           hasSupplySet={hasSupplySet}
           activeId={activeId}
           checkedIds={checkedIds}
           onActivate={setActiveId}
           onToggleCheck={handleToggleCheck}
-          totalCount={leafServices.length}
-          linkedCount={linkedCount}
-          noSupplyCount={noSupplyCount}
         />
       </div>
 
