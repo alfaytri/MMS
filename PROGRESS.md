@@ -153,6 +153,8 @@ Purchase & Sales▾:
 
 ## 🔄 In Progress
 
+🚀 Starting: **Service Links Redesign — Code Review Fixes**
+
 ## ✅ Completed
 
 - [2026-05-03] **Service Links Redesign Task 7: Responsive Behaviour** — `src/components/services/inventory/ServiceLinksView.tsx` — Made master-detail layout responsive: left panel full-width on mobile/tablet, 40% on desktop (lg+); right panel hidden below lg when nothing selected, shows when activeId/bulk mode active; added back button on mobile (lg:hidden) with `setActiveId(null)` + `setCheckedIds(new Set())`; imported Button component; tsc clean
