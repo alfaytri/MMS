@@ -144,6 +144,31 @@ Use `npx supabase migration repair --status applied <version>` for each manually
 
 ---
 
+# Git Co-Authorship — Mandatory Rule
+
+Every commit **must** include both authors in the commit message trailer. No exceptions.
+
+```
+Co-Authored-By: Mohamed Ismail <m.Ismail@alfaytri.com>
+Co-Authored-By: Claude Sonnet 4.6 <noreply@anthropic.com>
+```
+
+**How to apply:** Always pass the commit message via a HEREDOC so both trailers are included:
+
+```bash
+git commit -m "$(cat <<'EOF'
+feat(scope): description
+
+Co-Authored-By: Mohamed Ismail <m.Ismail@alfaytri.com>
+Co-Authored-By: Claude Sonnet 4.6 <noreply@anthropic.com>
+EOF
+)"
+```
+
+This applies to every commit — feature code, PROGRESS.md updates, migrations, and fixes alike.
+
+---
+
 # Code Review — Mandatory Rule
 
 After completing any task (code, feature, fix, or refactor), your work will be reviewed by **Codex**. Write code as if Codex will scrutinize every line — because it will.
