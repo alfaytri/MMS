@@ -1,5 +1,5 @@
 // src/hooks/useTeams.ts
-import { useQuery } from '@tanstack/react-query'
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { createClient } from '@/lib/supabase/client'
 import type { DBTable, DBInsert, DBUpdate } from '@/types/database.types'
 
@@ -303,5 +303,483 @@ export function useTeamActivityLogCount() {
       return (count ?? 0) as number
     },
     staleTime: 10 * 1000,
+  })
+}
+
+// ---------------------------------------------------------------------------
+// Internal log helper
+// ---------------------------------------------------------------------------
+
+async function logActivity(params: {
+  action: string
+  entityType: string
+  entityId: string
+  beforeData?: Record<string, unknown>
+  afterData?: Record<string, unknown>
+}) {
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const db = createClient() as any
+  await db.from('team_activity_log').insert({
+    action:      params.action,
+    entity_type: params.entityType,
+    entity_id:   params.entityId,
+    before_data: params.beforeData ?? null,
+    after_data:  params.afterData ?? null,
+  })
+}
+
+// ---------------------------------------------------------------------------
+// Team mutations
+// ---------------------------------------------------------------------------
+
+export function useCreateTeam() {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: async (input: DBInsert<'teams'>) => {
+      const supabase = createClient()
+      const { data, error } = await supabase.from('teams').insert(input).select().single()
+      if (error) throw error
+      await logActivity({ action: 'team-created', entityType: 'team', entityId: data.id, afterData: data as Record<string, unknown> })
+      return data
+    },
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ['teams'] })
+      qc.invalidateQueries({ queryKey: ['team-activity-log'] })
+      qc.invalidateQueries({ queryKey: ['team-activity-log-count'] })
+    },
+  })
+}
+
+export function useUpdateTeam() {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: async ({ id, before, ...patch }: DBUpdate<'teams'> & { id: string; before?: Record<string, unknown> }) => {
+      const supabase = createClient()
+      const { data, error } = await supabase.from('teams').update(patch).eq('id', id).select().single()
+      if (error) throw error
+      await logActivity({ action: 'team-edited', entityType: 'team', entityId: id, beforeData: before, afterData: data as Record<string, unknown> })
+      return data
+    },
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ['teams'] })
+      qc.invalidateQueries({ queryKey: ['team-activity-log'] })
+      qc.invalidateQueries({ queryKey: ['team-activity-log-count'] })
+    },
+  })
+}
+
+export function useArchiveTeam() {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: async (id: string) => {
+      const supabase = createClient()
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const { error } = await supabase.from('teams').update({ deleted_at: new Date().toISOString() } as any).eq('id', id)
+      if (error) throw error
+      await logActivity({ action: 'team-archived', entityType: 'team', entityId: id })
+    },
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ['teams'] })
+      qc.invalidateQueries({ queryKey: ['team-activity-log'] })
+      qc.invalidateQueries({ queryKey: ['team-activity-log-count'] })
+    },
+  })
+}
+
+// ---------------------------------------------------------------------------
+// Employee mutations
+// ---------------------------------------------------------------------------
+
+export function useCreateEmployee() {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: async (input: EmployeeInsert) => {
+      const supabase = createClient()
+      const { data, error } = await supabase.from('employees').insert(input).select().single()
+      if (error) throw error
+      await logActivity({ action: 'employee-created', entityType: 'employee', entityId: data.id, afterData: data as Record<string, unknown> })
+      return data
+    },
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ['employees'] })
+      qc.invalidateQueries({ queryKey: ['teams'] })
+      qc.invalidateQueries({ queryKey: ['team-activity-log'] })
+      qc.invalidateQueries({ queryKey: ['team-activity-log-count'] })
+    },
+  })
+}
+
+export function useUpdateEmployee() {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: async ({ id, before, ...patch }: EmployeeUpdate & { id: string; before?: Record<string, unknown> }) => {
+      const supabase = createClient()
+      const { data, error } = await supabase.from('employees').update(patch).eq('id', id).select().single()
+      if (error) throw error
+      await logActivity({ action: 'employee-edited', entityType: 'employee', entityId: id, beforeData: before, afterData: data as Record<string, unknown> })
+      return data
+    },
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ['employees'] })
+      qc.invalidateQueries({ queryKey: ['teams'] })
+      qc.invalidateQueries({ queryKey: ['team-activity-log'] })
+      qc.invalidateQueries({ queryKey: ['team-activity-log-count'] })
+    },
+  })
+}
+
+export function useArchiveEmployee() {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: async (id: string) => {
+      const supabase = createClient()
+      const { error } = await supabase.from('employees')
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        .update({ deleted_at: new Date().toISOString(), status: 'archived', team_id: null } as any)
+        .eq('id', id)
+      if (error) throw error
+      await logActivity({ action: 'employee-archived', entityType: 'employee', entityId: id })
+    },
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ['employees'] })
+      qc.invalidateQueries({ queryKey: ['teams'] })
+      qc.invalidateQueries({ queryKey: ['team-activity-log'] })
+      qc.invalidateQueries({ queryKey: ['team-activity-log-count'] })
+    },
+  })
+}
+
+// ---------------------------------------------------------------------------
+// Vehicle mutations
+// ---------------------------------------------------------------------------
+
+export function useCreateVehicle() {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: async (input: VehicleInsert) => {
+      const supabase = createClient()
+      const { data, error } = await supabase.from('vehicles').insert(input).select().single()
+      if (error) throw error
+      await logActivity({ action: 'vehicle-created', entityType: 'vehicle', entityId: data.id, afterData: data as Record<string, unknown> })
+      return data
+    },
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ['vehicles'] })
+      qc.invalidateQueries({ queryKey: ['team-activity-log'] })
+      qc.invalidateQueries({ queryKey: ['team-activity-log-count'] })
+    },
+  })
+}
+
+export function useUpdateVehicle() {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: async ({ id, before, ...patch }: VehicleUpdate & { id: string; before?: Record<string, unknown> }) => {
+      const supabase = createClient()
+      const { data, error } = await supabase.from('vehicles').update(patch).eq('id', id).select().single()
+      if (error) throw error
+      await logActivity({ action: 'vehicle-edited', entityType: 'vehicle', entityId: id, beforeData: before, afterData: data as Record<string, unknown> })
+      return data
+    },
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ['vehicles'] })
+      qc.invalidateQueries({ queryKey: ['teams'] })
+      qc.invalidateQueries({ queryKey: ['team-activity-log'] })
+      qc.invalidateQueries({ queryKey: ['team-activity-log-count'] })
+    },
+  })
+}
+
+export function useArchiveVehicle() {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: async (id: string) => {
+      const supabase = createClient()
+      const { error } = await supabase.from('vehicles')
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        .update({ deleted_at: new Date().toISOString(), team_id: null } as any)
+        .eq('id', id)
+      if (error) throw error
+      await logActivity({ action: 'vehicle-archived', entityType: 'vehicle', entityId: id })
+    },
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ['vehicles'] })
+      qc.invalidateQueries({ queryKey: ['teams'] })
+      qc.invalidateQueries({ queryKey: ['team-activity-log'] })
+      qc.invalidateQueries({ queryKey: ['team-activity-log-count'] })
+    },
+  })
+}
+
+// ---------------------------------------------------------------------------
+// Assignment mutations
+// ---------------------------------------------------------------------------
+
+export function useAssignEmployeeToTeam() {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: async ({ employeeId, teamId }: { employeeId: string; teamId: string }) => {
+      const supabase = createClient()
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const { error } = await supabase.from('employees').update({ team_id: teamId, status: 'active' } as any).eq('id', employeeId)
+      if (error) throw error
+      await logActivity({ action: 'employee-assigned', entityType: 'employee', entityId: employeeId, afterData: { team_id: teamId } })
+    },
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ['employees'] })
+      qc.invalidateQueries({ queryKey: ['teams'] })
+      qc.invalidateQueries({ queryKey: ['team-activity-log'] })
+      qc.invalidateQueries({ queryKey: ['team-activity-log-count'] })
+    },
+  })
+}
+
+export function useUnassignEmployee() {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: async ({ employeeId, fromTeamId }: { employeeId: string; fromTeamId: string }) => {
+      const supabase = createClient()
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const { error } = await supabase.from('employees').update({ team_id: null, status: 'unassigned' } as any).eq('id', employeeId)
+      if (error) throw error
+      await logActivity({ action: 'employee-removed', entityType: 'employee', entityId: employeeId, beforeData: { team_id: fromTeamId } })
+    },
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ['employees'] })
+      qc.invalidateQueries({ queryKey: ['teams'] })
+      qc.invalidateQueries({ queryKey: ['team-activity-log'] })
+      qc.invalidateQueries({ queryKey: ['team-activity-log-count'] })
+    },
+  })
+}
+
+export function useSetTeamLeader() {
+  const qc = useQueryClient()
+  return useMutation({
+    // logActivity is done inside RPC assign_team_leader
+    mutationFn: async ({ teamId, employeeId }: { teamId: string; employeeId: string }) => {
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const db = createClient() as any
+      const { error } = await db.rpc('assign_team_leader', {
+        p_team_id:     teamId,
+        p_employee_id: employeeId,
+      })
+      if (error) throw error
+    },
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ['employees'] })
+      qc.invalidateQueries({ queryKey: ['teams'] })
+      qc.invalidateQueries({ queryKey: ['team-activity-log'] })
+      qc.invalidateQueries({ queryKey: ['team-activity-log-count'] })
+    },
+  })
+}
+
+export function useRemoveTeamLeader() {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: async ({ teamId }: { teamId: string }) => {
+      const supabase = createClient()
+      const { data: team, error: fetchError } = await supabase
+        .from('teams').select('leader_id').eq('id', teamId).single()
+      if (fetchError) throw fetchError
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const { error } = await supabase.from('teams').update({ leader_id: null } as any).eq('id', teamId)
+      if (error) throw error
+      await logActivity({ action: 'leader-removed', entityType: 'team', entityId: teamId, beforeData: { leader_id: (team as any).leader_id } })
+    },
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ['teams'] })
+      qc.invalidateQueries({ queryKey: ['team-activity-log'] })
+      qc.invalidateQueries({ queryKey: ['team-activity-log-count'] })
+    },
+  })
+}
+
+export function useAssignVehicleToTeam() {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: async ({ vehicleId, teamId }: { vehicleId: string; teamId: string }) => {
+      const supabase = createClient()
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const { error } = await supabase.from('vehicles').update({ team_id: teamId } as any).eq('id', vehicleId)
+      if (error) throw error
+      await logActivity({ action: 'vehicle-assigned', entityType: 'vehicle', entityId: vehicleId, afterData: { team_id: teamId } })
+    },
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ['vehicles'] })
+      qc.invalidateQueries({ queryKey: ['teams'] })
+      qc.invalidateQueries({ queryKey: ['team-activity-log'] })
+      qc.invalidateQueries({ queryKey: ['team-activity-log-count'] })
+    },
+  })
+}
+
+export function useUnassignVehicle() {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: async ({ vehicleId, fromTeamId }: { vehicleId: string; fromTeamId: string }) => {
+      const supabase = createClient()
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const { error } = await supabase.from('vehicles').update({ team_id: null } as any).eq('id', vehicleId)
+      if (error) throw error
+      await logActivity({ action: 'vehicle-removed', entityType: 'vehicle', entityId: vehicleId, beforeData: { team_id: fromTeamId } })
+    },
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ['vehicles'] })
+      qc.invalidateQueries({ queryKey: ['teams'] })
+      qc.invalidateQueries({ queryKey: ['team-activity-log'] })
+      qc.invalidateQueries({ queryKey: ['team-activity-log-count'] })
+    },
+  })
+}
+
+export function useSetEmployeeStatus() {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: async ({ employeeId, status }: { employeeId: string; status: EmployeeStatus }) => {
+      const supabase = createClient()
+      const patch: Record<string, unknown> = { status }
+      if (status !== 'active') patch.team_id = null
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const { error } = await supabase.from('employees').update(patch as any).eq('id', employeeId)
+      if (error) throw error
+      await logActivity({ action: 'employee-status-changed', entityType: 'employee', entityId: employeeId, afterData: { status } })
+    },
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ['employees'] })
+      qc.invalidateQueries({ queryKey: ['teams'] })
+      qc.invalidateQueries({ queryKey: ['team-activity-log'] })
+      qc.invalidateQueries({ queryKey: ['team-activity-log-count'] })
+    },
+  })
+}
+
+// ---------------------------------------------------------------------------
+// Schedule mutations
+// ---------------------------------------------------------------------------
+
+export function useCreateSchedule() {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: async (input: ScheduleInsert) => {
+      const supabase = createClient()
+      const { data, error } = await supabase.from('schedules').insert(input).select().single()
+      if (error) throw error
+      await logActivity({ action: 'schedule-created', entityType: 'schedule', entityId: data.id, afterData: data as Record<string, unknown> })
+      return data
+    },
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ['schedules'] })
+      qc.invalidateQueries({ queryKey: ['team-activity-log'] })
+      qc.invalidateQueries({ queryKey: ['team-activity-log-count'] })
+    },
+  })
+}
+
+export function useUpdateSchedule() {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: async ({ id, ...patch }: ScheduleUpdate & { id: string }) => {
+      const supabase = createClient()
+      const { data, error } = await supabase.from('schedules').update(patch).eq('id', id).select().single()
+      if (error) throw error
+      await logActivity({ action: 'schedule-edited', entityType: 'schedule', entityId: id, afterData: data as Record<string, unknown> })
+      return data
+    },
+    onSuccess: () => { qc.invalidateQueries({ queryKey: ['schedules'] }) },
+  })
+}
+
+/** Soft-deletes a schedule, cascades assignment deletion, and re-syncs affected teams. */
+export function useDeleteSchedule() {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: async (id: string) => {
+      const supabase = createClient()
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const db = createClient() as any
+
+      // 1. Find all teams that have an assignment to this schedule
+      const { data: affected } = await supabase
+        .from('team_schedule_assignments')
+        .select('team_id')
+        .eq('schedule_id', id)
+
+      // 2. Soft-delete the schedule
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const { error } = await (supabase.from('schedules') as any)
+        .update({ deleted_at: new Date().toISOString() })
+        .eq('id', id)
+      if (error) throw error
+
+      // 3. Delete all assignments referencing this schedule
+      await supabase.from('team_schedule_assignments').delete().eq('schedule_id', id)
+
+      // 4. Re-sync each affected team's active schedule pointer
+      const teamIds = [...new Set(((affected ?? []) as { team_id: string }[]).map(r => r.team_id))]
+      await Promise.all(
+        teamIds.map(teamId => db.rpc('sync_team_active_schedule', { p_team_id: teamId }))
+      )
+
+      await logActivity({ action: 'schedule-deleted', entityType: 'schedule', entityId: id })
+    },
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ['schedules'] })
+      qc.invalidateQueries({ queryKey: ['teams'] })
+      qc.invalidateQueries({ queryKey: ['team-schedule-assignments'] })
+      qc.invalidateQueries({ queryKey: ['team-activity-log'] })
+      qc.invalidateQueries({ queryKey: ['team-activity-log-count'] })
+    },
+  })
+}
+
+export function useAttachSchedule() {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: async (input: { teamId: string; scheduleId: string; startDate: string; endDate?: string | null }) => {
+      const supabase = createClient()
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const db = createClient() as any
+      const { data, error } = await supabase.from('team_schedule_assignments').insert({
+        team_id:     input.teamId,
+        schedule_id: input.scheduleId,
+        start_date:  input.startDate,
+        end_date:    input.endDate ?? null,
+      }).select().single()
+      if (error) throw error
+      const { error: syncError } = await db.rpc('sync_team_active_schedule', { p_team_id: input.teamId })
+      if (syncError) throw syncError
+      await logActivity({ action: 'schedule-attached', entityType: 'team', entityId: input.teamId, afterData: data as Record<string, unknown> })
+      return data
+    },
+    onSuccess: (_data, vars) => {
+      qc.invalidateQueries({ queryKey: ['teams'] })
+      qc.invalidateQueries({ queryKey: ['team-schedule-assignments', vars.teamId] })
+      qc.invalidateQueries({ queryKey: ['team-activity-log'] })
+      qc.invalidateQueries({ queryKey: ['team-activity-log-count'] })
+    },
+  })
+}
+
+export function useDetachSchedule() {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: async ({ assignmentId, teamId }: { assignmentId: string; teamId: string }) => {
+      const supabase = createClient()
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const db = createClient() as any
+      const { error } = await supabase.from('team_schedule_assignments').delete().eq('id', assignmentId)
+      if (error) throw error
+      const { error: syncError } = await db.rpc('sync_team_active_schedule', { p_team_id: teamId })
+      if (syncError) throw syncError
+      await logActivity({ action: 'schedule-detached', entityType: 'team', entityId: teamId })
+    },
+    onSuccess: (_data, vars) => {
+      qc.invalidateQueries({ queryKey: ['teams'] })
+      qc.invalidateQueries({ queryKey: ['team-schedule-assignments', vars.teamId] })
+      qc.invalidateQueries({ queryKey: ['team-activity-log'] })
+      qc.invalidateQueries({ queryKey: ['team-activity-log-count'] })
+    },
   })
 }
