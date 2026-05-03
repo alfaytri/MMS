@@ -53,7 +53,9 @@ export const serviceSchema = z.object({
   qc_checklist: z.boolean(),
   spare_parts: z.boolean(),
   service_type: z.enum(['standard', 'configurable']),
-  component_service_ids: z.array(z.string()).nullable(),
+  component_service_ids: z.array(
+    z.object({ id: z.string(), qty: z.coerce.number().min(1).default(1) }),
+  ).nullable(),
   qc_items: z.array(
     z.object({ label: z.string().min(1), max_score: z.coerce.number().min(0) }),
   ),
@@ -98,7 +100,11 @@ export function toDefaults(
     qc_checklist: s?.qc_checklist ?? false,
     spare_parts: s?.spare_parts ?? false,
     service_type: (s?.service_type as 'standard' | 'configurable') ?? 'standard',
-    component_service_ids: Array.isArray(s?.components) ? s.components : null,
+    component_service_ids: Array.isArray(s?.components)
+      ? s.components.map((c: unknown) =>
+          typeof c === 'string' ? { id: c, qty: 1 } : c,
+        )
+      : null,
     qc_items: Array.isArray(s?.qc_items) ? s.qc_items : [],
   }
 }
@@ -432,13 +438,13 @@ export function InvoiceTextSection({ form }: { form: UseFormReturn<ServiceFormVa
         <FormField control={form.control} name="invoice_text_en" render={({ field }) => (
           <FormItem>
             <FormLabel>Invoice Text (EN)</FormLabel>
-            <FormControl><Textarea rows={2} {...field} value={field.value ?? ''} /></FormControl>
+            <FormControl><Textarea rows={1} className="resize-none overflow-hidden [field-sizing:content] min-h-[2.5rem]" {...field} value={field.value ?? ''} /></FormControl>
           </FormItem>
         )} />
         <FormField control={form.control} name="invoice_text_ar" render={({ field }) => (
           <FormItem>
             <FormLabel>Invoice Text (AR)</FormLabel>
-            <FormControl><Textarea rows={2} dir="rtl" {...field} value={field.value ?? ''} /></FormControl>
+            <FormControl><Textarea rows={1} dir="rtl" className="resize-none overflow-hidden [field-sizing:content] min-h-[2.5rem]" {...field} value={field.value ?? ''} /></FormControl>
           </FormItem>
         )} />
       </div>
@@ -487,17 +493,25 @@ export function PhotoRequirementSection({ form }: { form: UseFormReturn<ServiceF
 
 // ─── Component Tree Picker (used inside Configurable service type) ─────────────
 
+type ComponentEntry = { id: string; qty: number }
+
 interface ComponentTreePickerProps {
   flat: Service[]
-  selectedIds: string[]
+  selectedEntries: ComponentEntry[]
   onToggle: (id: string) => void
+  onQtyChange: (id: string, qty: number) => void
 }
 
-function ComponentTreePicker({ flat, selectedIds, onToggle }: ComponentTreePickerProps) {
+function ComponentTreePicker({ flat, selectedEntries, onToggle, onQtyChange }: ComponentTreePickerProps) {
   const [search, setSearch] = useState('')
   const [expanded, setExpanded] = useState<Set<string>>(new Set())
 
-  // Build parent→children map from the visible set
+  const selectedIds = useMemo(() => new Set(selectedEntries.map((e) => e.id)), [selectedEntries])
+  const qtyMap = useMemo(
+    () => new Map(selectedEntries.map((e) => [e.id, e.qty])),
+    [selectedEntries],
+  )
+
   const visibleFlat = useMemo(() => {
     if (!search.trim()) return flat
     const lower = search.toLowerCase()
@@ -514,10 +528,7 @@ function ComponentTreePicker({ flat, selectedIds, onToggle }: ComponentTreePicke
     const keepIds = new Set(directMatches)
     function addAncestors(id: string) {
       const parent = parentMap.get(id)
-      if (parent && !keepIds.has(parent)) {
-        keepIds.add(parent)
-        addAncestors(parent)
-      }
+      if (parent && !keepIds.has(parent)) { keepIds.add(parent); addAncestors(parent) }
     }
     directMatches.forEach((id) => addAncestors(id))
     return flat.filter((s) => keepIds.has(s.id))
@@ -533,6 +544,21 @@ function ComponentTreePicker({ flat, selectedIds, onToggle }: ComponentTreePicke
     return map
   }, [visibleFlat])
 
+  // For each node: how many selected descendants does it have?
+  const descendantSelectedCount = useMemo(() => {
+    const counts = new Map<string, number>()
+    function countSelected(id: string): number {
+      const children = treeMap.get(id) ?? []
+      const childSum = children.reduce((acc, c) => acc + countSelected(c.id), 0)
+      const self = selectedIds.has(id) ? 1 : 0
+      counts.set(id, self + childSum)
+      return self + childSum
+    }
+    const roots = treeMap.get(null) ?? []
+    roots.forEach((r) => countSelected(r.id))
+    return counts
+  }, [treeMap, selectedIds])
+
   function toggleExpand(id: string) {
     setExpanded((prev) => {
       const next = new Set(prev)
@@ -544,55 +570,86 @@ function ComponentTreePicker({ flat, selectedIds, onToggle }: ComponentTreePicke
   function renderNode(service: Service, depth: number): React.ReactNode {
     const children = treeMap.get(service.id) ?? []
     const hasChildren = children.length > 0
-    const isExpanded = expanded.has(service.id) || !!search.trim() // auto-expand when searching
-    const isSelected = selectedIds.includes(service.id)
+    const isExpanded = expanded.has(service.id) || !!search.trim()
+    const isSelected = selectedIds.has(service.id)
+    const qty = qtyMap.get(service.id) ?? 1
+    // Children selected but this node is collapsed and not itself selected
+    const hiddenChildCount = !isExpanded && hasChildren
+      ? (descendantSelectedCount.get(service.id) ?? 0) - (isSelected ? 1 : 0)
+      : 0
 
     return (
       <div key={service.id}>
-        <button
-          type="button"
-          onClick={() => onToggle(service.id)}
+        <div
           className={cn(
-            'flex items-center gap-1.5 w-full text-left py-1.5 pr-3 hover:bg-muted/50 transition-colors border-b border-border/20 last:border-0',
+            'flex items-center gap-1.5 w-full py-1.5 pr-2 border-b border-border/20 last:border-0',
             isSelected && 'bg-primary/5',
           )}
           style={{ paddingLeft: 8 + depth * 16 }}
         >
-          {/* Expand/collapse toggle — stop propagation so it doesn't select */}
-          <span
-            className="w-4 h-4 flex items-center justify-center shrink-0 text-muted-foreground"
-            onClick={(e) => {
-              e.stopPropagation()
-              if (hasChildren) toggleExpand(service.id)
-            }}
+          {/* Expand/collapse */}
+          <button
+            type="button"
+            className="w-4 h-4 flex items-center justify-center shrink-0 text-muted-foreground hover:text-foreground relative"
+            onClick={() => hasChildren && toggleExpand(service.id)}
+            tabIndex={hasChildren ? 0 : -1}
           >
             {hasChildren
               ? isExpanded
                 ? <ChevronDown className="h-3 w-3" />
                 : <ChevronRight className="h-3 w-3" />
               : null}
-          </span>
+            {/* dot indicator: collapsed parent with selected children */}
+            {hiddenChildCount > 0 && (
+              <span className="absolute -top-0.5 -right-0.5 h-1.5 w-1.5 rounded-full bg-primary block" />
+            )}
+          </button>
 
-          {/* Checkbox indicator */}
-          <span className={cn(
-            'h-3.5 w-3.5 rounded border flex items-center justify-center shrink-0 transition-colors',
-            isSelected
-              ? 'bg-primary border-primary'
-              : 'border-muted-foreground/40 bg-background',
-          )}>
+          {/* Checkbox */}
+          <button
+            type="button"
+            onClick={() => onToggle(service.id)}
+            className={cn(
+              'h-3.5 w-3.5 rounded border flex items-center justify-center shrink-0 transition-colors',
+              isSelected ? 'bg-primary border-primary' : 'border-muted-foreground/40 bg-background hover:border-primary/60',
+            )}
+          >
             {isSelected && <Check className="h-2.5 w-2.5 text-primary-foreground" />}
-          </span>
+          </button>
 
-          {/* Name */}
-          <div className="min-w-0 flex-1">
+          {/* Name — clicking selects */}
+          <button
+            type="button"
+            onClick={() => onToggle(service.id)}
+            className="min-w-0 flex-1 text-left"
+          >
             <div className={cn('text-xs truncate', hasChildren ? 'font-medium' : 'font-normal')}>
               {service.name_en}
             </div>
             {service.name_ar && (
               <div className="text-[10px] truncate text-muted-foreground">{service.name_ar}</div>
             )}
-          </div>
-        </button>
+          </button>
+
+          {/* Qty input — only when selected */}
+          {isSelected && (
+            <div className="flex items-center gap-1 shrink-0" onClick={(e) => e.stopPropagation()}>
+              <span className="text-[10px] text-muted-foreground">×</span>
+              <Input
+                type="number"
+                min={1}
+                step={1}
+                value={qty}
+                onChange={(e) => {
+                  const v = parseInt(e.target.value, 10)
+                  if (v > 0) onQtyChange(service.id, v)
+                }}
+                className="h-6 w-12 text-[11px] px-1.5"
+                aria-label="Quantity"
+              />
+            </div>
+          )}
+        </div>
 
         {hasChildren && isExpanded && children.map((child) => renderNode(child, depth + 1))}
       </div>
@@ -647,11 +704,18 @@ export function FeatureFieldsSection({
   const hasInventory = useWatch({ control: form.control, name: 'has_inventory' })
   const hasReminders = useWatch({ control: form.control, name: 'has_reminders' })
   const serviceType = useWatch({ control: form.control, name: 'service_type' })
-  const componentIds = (useWatch({ control: form.control, name: 'component_service_ids' }) ?? []) as string[]
+  const componentEntries = (useWatch({ control: form.control, name: 'component_service_ids' }) ?? []) as ComponentEntry[]
 
   function toggleComponent(id: string) {
-    const current = componentIds
-    const next = current.includes(id) ? current.filter((c) => c !== id) : [...current, id]
+    const already = componentEntries.find((e) => e.id === id)
+    const next = already
+      ? componentEntries.filter((e) => e.id !== id)
+      : [...componentEntries, { id, qty: 1 }]
+    form.setValue('component_service_ids', next, { shouldDirty: true })
+  }
+
+  function setComponentQty(id: string, qty: number) {
+    const next = componentEntries.map((e) => e.id === id ? { ...e, qty } : e)
     form.setValue('component_service_ids', next, { shouldDirty: true })
   }
 
@@ -772,16 +836,17 @@ export function FeatureFieldsSection({
               <p className="text-[11px] text-muted-foreground">
                 Select the services bundled into this one.
               </p>
-              {componentIds.length > 0 && (
+              {componentEntries.length > 0 && (
                 <span className="text-[11px] font-medium text-primary">
-                  {componentIds.length} selected
+                  {componentEntries.length} selected
                 </span>
               )}
             </div>
             <ComponentTreePicker
               flat={availableComponents}
-              selectedIds={componentIds}
+              selectedEntries={componentEntries}
               onToggle={toggleComponent}
+              onQtyChange={setComponentQty}
             />
           </div>
         )}
