@@ -172,6 +172,7 @@ Link "Alkauther (Central Filter Cartridge)" to:
 - User unchecks exceptions
 - Button label updates live: `Link to [N] services`
 - User can change the selected inventory item (via the add control above) while the checklist is open
+- **Height cap:** The checklist container is `max-h-[300px] overflow-y-auto` so that with 50+ services the `Link to [N] services` button and the Link Intersection Summary below always remain visible without the user scrolling the whole page
 
 **Progress Flow:**
 
@@ -180,6 +181,8 @@ Link "Alkauther (Central Filter Cartridge)" to:
 3. Single API call: `POST /service-links/bulk { serviceIds: [...], inventoryItemId: "..." }` — atomic, all-or-nothing
 4. On success: button becomes a checkmark for 1.5s, then a success toast appears: `Linked "Alkauther" to 11 services`, checkboxes auto-clear, right panel returns to zero state
 5. On failure: toast with error message, checkboxes remain so the user can retry
+
+> **Idempotency note:** The bulk endpoint must upsert — if any `serviceId` in the batch already has a link to the given `inventoryItemId`, the backend silently ignores that duplicate rather than returning an error. This ensures a user who accidentally re-selects an already-linked service never sees a failure for the entire batch.
 
 **Link Intersection Summary (below checklist):**  
 A read-only section showing the inventory items across all selected services:
@@ -197,7 +200,7 @@ A read-only section showing the inventory items across all selected services:
 | Fetch links for a single service | `GET /services/:id/links` | Returns linked inventory items |
 | Add single link | `POST /services/:id/links { inventoryItemId }` | Single-select mode |
 | Remove single link | `DELETE /services/:id/links/:linkId` | Single-select mode |
-| Bulk link | `POST /service-links/bulk { serviceIds: [...], inventoryItemId }` | Atomic — all succeed or all fail |
+| Bulk link | `POST /service-links/bulk { serviceIds: [...], inventoryItemId }` | Upsert — duplicates silently ignored; atomic for non-duplicate entries |
 
 ---
 
