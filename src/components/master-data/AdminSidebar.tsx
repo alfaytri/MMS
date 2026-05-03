@@ -17,6 +17,7 @@ import {
   Percent,
   CreditCard,
   Bot,
+  CheckSquare,
 } from 'lucide-react'
 
 type SidebarItem = {
@@ -52,6 +53,7 @@ const ADMIN_SECTIONS: SidebarSection[] = [
     label: 'Operations',
     items: [
       { label: 'Reason Lists', href: '/master-data/admin/reason-lists', icon: List },
+      { label: 'Approval Settings', href: '/master-data/admin/approval-settings', icon: CheckSquare },
       { label: 'Document T&C', href: '/master-data/admin/document-terms', icon: FileText, comingSoon: true },
     ],
   },

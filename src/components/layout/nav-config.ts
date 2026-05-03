@@ -30,7 +30,6 @@ export const NAV_ITEMS: NavEntry[] = [
           { label: 'Users & Roles', href: '/master-data/users' },
           { label: 'Audit Trail', href: '/master-data/audit-trail' },
           { label: 'Admin', href: '/master-data/admin' },
-          { label: 'Approval Settings', href: '/purchase/approval-settings' },
         ],
       },
       {
