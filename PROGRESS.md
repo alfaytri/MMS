@@ -148,10 +148,19 @@ Purchase & Sales▾:
 | `docs/superpowers/plans/2026-04-25-inventory-complete.md` | ✅ DONE | Inventory accounting — FIFO layers, atomic RPCs, reserved qty, COGS, stock movements, ledger hooks |
 | `docs/superpowers/plans/2026-04-27-multi-company-division-isolation.md` | ✅ DONE | Division isolation — JWT hook, RLS, DivisionFilter, PO/SO create pickers, user division assignment |
 | `docs/superpowers/plans/2026-04-30-po-returns.md` | ✅ DONE | PO returns — dispatch/cancel/supplier-confirm flow, inventory deduction on dispatch, cancel with RPC reversal, type toggle on Returns page |
+| `docs/superpowers/plans/2026-05-03-teams-employee-page.md` | 🚀 ACTIVE | Teams & Employee page — full CRUD dialogs, drag-and-drop, activity logging, schedule management |
 
 ---
 
 ## 🔄 In Progress
+
+🚀 Starting: **Teams & Employee Page Task 8: TeamsPageContext**
+
+## ✅ Completed
+
+- [2026-05-03] **Teams & Employee Page Task 8: TeamsPageContext** — `src/components/teams/TeamsPageContext.tsx` (new) — Page-wide React Context with dialog state (team/employee/vehicle/schedule/log), search + division filter, density toggle; integrated `useToolCountMap` batch hooks to prevent N+1 queries; includes `TeamsPageProvider` component + `useTeamsPage` hook; tsc clean
+- [2026-05-03] **Service Links Redesign — Code Review Fixes** — `InventoryColumnPicker.tsx` (new), `ServiceLeafPanel.tsx`, `ServiceLinksMasterList.tsx`, `ServiceLinksBulkPanel.tsx`, `ServiceLinksView.tsx`, deleted `ServiceLinksColumnBrowser.tsx` — Fixed O(n²) idxMap, Escape key, collapsible category headers with per-category linked count, filtered stat bar counts, Checkbox onCheckedChange, InventoryColumnPicker extracted to own file, ServiceLeafPanel accepts linkedVariantIds prop (removes internal hook call), unused cn import removed
+- [2026-05-03] **Service Links Redesign Task 7: Responsive Behaviour** — `src/components/services/inventory/ServiceLinksView.tsx` — Made master-detail layout responsive: left panel full-width on mobile/tablet, 40% on desktop (lg+); right panel hidden below lg when nothing selected, shows when activeId/bulk mode active; added back button on mobile (lg:hidden) with `setActiveId(null)` + `setCheckedIds(new Set())`; imported Button component; tsc clean
 
 ## ✅ Completed
 
