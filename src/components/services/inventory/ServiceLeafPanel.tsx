@@ -27,7 +27,7 @@ import type { ServiceInventoryLinkFull } from './serviceInventoryHelpers'
 // 3-column browser: Category → Item → Brand
 // Opens as a Dialog; calls onSelect(variantId) and closes on brand click.
 
-function InventoryColumnPicker({
+export function InventoryColumnPicker({
   open,
   onOpenChange,
   allVariants,
