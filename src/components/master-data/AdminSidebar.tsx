@@ -71,7 +71,7 @@ export function AdminSidebar() {
   const pathname = usePathname()
 
   return (
-    <nav className="w-full lg:w-56 shrink-0">
+    <nav className="w-full lg:w-56 shrink-0 outline-none">
       {/* Title */}
       <div className="flex items-center gap-2 px-2 pb-4 mb-1 border-b border-border">
         <Settings2 className="h-5 w-5 text-primary" />
