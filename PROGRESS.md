@@ -153,10 +153,9 @@ Purchase & Sales▾:
 
 ## 🔄 In Progress
 
-🚀 Starting: **Service Links Redesign — Code Review Fixes**
-
 ## ✅ Completed
 
+- [2026-05-03] **Service Links Redesign — Code Review Fixes** — `InventoryColumnPicker.tsx` (new), `ServiceLeafPanel.tsx`, `ServiceLinksMasterList.tsx`, `ServiceLinksBulkPanel.tsx`, `ServiceLinksView.tsx`, deleted `ServiceLinksColumnBrowser.tsx` — Fixed O(n²) idxMap, Escape key, collapsible category headers with per-category linked count, filtered stat bar counts, Checkbox onCheckedChange, InventoryColumnPicker extracted to own file, ServiceLeafPanel accepts linkedVariantIds prop (removes internal hook call), unused cn import removed
 - [2026-05-03] **Service Links Redesign Task 7: Responsive Behaviour** — `src/components/services/inventory/ServiceLinksView.tsx` — Made master-detail layout responsive: left panel full-width on mobile/tablet, 40% on desktop (lg+); right panel hidden below lg when nothing selected, shows when activeId/bulk mode active; added back button on mobile (lg:hidden) with `setActiveId(null)` + `setCheckedIds(new Set())`; imported Button component; tsc clean
 
 - [2026-05-03] **Service Links Redesign Task 2: Hook — useAddBulkServiceInventoryLinks** — `src/hooks/useInventory.ts` — Added bulk mutation hook calling RPC `service_inventory_bulk_upsert` with serviceIds array; invalidates `service-links-all` cache on success; defaults link_type to 'supply', quantity to 1, warrantyMonths to 0; TypeScript compiles cleanly
