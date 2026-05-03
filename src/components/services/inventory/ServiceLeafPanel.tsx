@@ -184,31 +184,29 @@ export function ServiceLeafPanel({
         className="rounded-md border border-border bg-muted/20 px-3 py-2 flex items-center gap-2"
       >
         <div className="min-w-0 flex-1">
-          <div className="flex items-center gap-1.5">
-            <p className="text-xs font-medium leading-tight truncate">
-              {link.inventory_brand_variants?.brand}
-            </p>
-            {/* Default badge — only on option group items */}
-            {isOption && (
-              <button
-                onClick={() => handleSetDefault(link.id)}
-                title={link.is_default ? 'Default pre-selection' : 'Set as default'}
-                aria-label={link.is_default ? 'Default' : 'Set as default'}
-                className="shrink-0"
-              >
-                {link.is_default ? (
-                  <span className="inline-flex items-center gap-0.5 rounded-full bg-amber-100 text-amber-700 text-[9px] font-semibold px-1.5 py-0.5 border border-amber-200">
-                    <Star className="h-2.5 w-2.5 fill-amber-500 text-amber-500" />
-                    default
-                  </span>
-                ) : (
-                  <span className="inline-flex items-center rounded-full bg-muted text-muted-foreground text-[9px] font-medium px-1.5 py-0.5 border border-border hover:border-amber-300 hover:text-amber-600 transition-colors">
-                    set default
-                  </span>
-                )}
-              </button>
-            )}
-          </div>
+          <p className="text-xs font-medium leading-tight">
+            {link.inventory_brand_variants?.brand}
+          </p>
+          {/* Default badge — only on option group items */}
+          {isOption && (
+            <button
+              onClick={() => handleSetDefault(link.id)}
+              title={link.is_default ? 'Default pre-selection' : 'Set as default'}
+              aria-label={link.is_default ? 'Default' : 'Set as default'}
+              className="mt-0.5"
+            >
+              {link.is_default ? (
+                <span className="inline-flex items-center gap-0.5 rounded-full bg-amber-100 text-amber-700 text-[9px] font-semibold px-1.5 py-0.5 border border-amber-200">
+                  <Star className="h-2.5 w-2.5 fill-amber-500 text-amber-500" />
+                  default
+                </span>
+              ) : (
+                <span className="inline-flex items-center rounded-full bg-muted text-muted-foreground text-[9px] font-medium px-1.5 py-0.5 border border-border hover:border-amber-300 hover:text-amber-600 transition-colors">
+                  set default
+                </span>
+              )}
+            </button>
+          )}
           <p className="text-[10px] text-muted-foreground">
             {link.inventory_brand_variants?.inventory_items?.name_en}
             {' · '}
