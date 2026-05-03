@@ -387,10 +387,7 @@ export function ServiceLeafPanel({
       {/* ── Pickers (rendered outside the panel div to avoid clipping) ── */}
       <InventoryColumnPicker
         open={supplyPickerOpen}
-        onOpenChange={(v) => {
-          setSupplyPickerOpen(v)
-          if (!v) handleCancelSupply()
-        }}
+        onOpenChange={setSupplyPickerOpen}
         allVariants={allVariants}
         onSelect={handleSupplyPicked}
         title="Set Supply Item"
@@ -398,10 +395,7 @@ export function ServiceLeafPanel({
       />
       <InventoryColumnPicker
         open={consumablePickerOpen}
-        onOpenChange={(v) => {
-          setConsumablePickerOpen(v)
-          if (!v) handleCancelConsumable()
-        }}
+        onOpenChange={setConsumablePickerOpen}
         allVariants={allVariants}
         onSelect={handleConsumablePicked}
         title="Add Consumable"
