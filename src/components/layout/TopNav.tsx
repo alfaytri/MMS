@@ -25,7 +25,7 @@ export async function TopNav() {
         className="flex items-center gap-2 text-primary font-bold mr-4 shrink-0"
       >
         <Wrench className="h-5 w-5" />
-        <span className="text-sm">MMS</span>
+        <span className="text-sm">Alfaytri</span>
       </Link>
 
       <nav className="flex items-center gap-1 flex-1 overflow-x-auto">
