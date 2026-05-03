@@ -31,6 +31,7 @@ export interface ServiceInventoryLinkFull {
   warranty_months: number
   quantity: number
   group_label: string | null
+  is_default: boolean
   inventory_brand_variants: {
     brand: string
     selling_price: number | null

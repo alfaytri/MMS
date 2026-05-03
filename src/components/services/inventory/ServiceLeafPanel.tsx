@@ -52,12 +52,17 @@ export function ServiceLeafPanel({
   const supplyLinks = links.filter((l) => l.link_type === 'supply')
   const consumableLinks = links.filter((l) => l.link_type === 'consumable')
 
+  // Required = no group, options = group_label set
+  const requiredSupplyLinks = supplyLinks.filter((l) => l.group_label === null)
+  const optionSupplyLinks = supplyLinks.filter((l) => l.group_label !== null)
+
   // Picker open state
   const [supplyPickerOpen, setSupplyPickerOpen] = useState(false)
   const [consumablePickerOpen, setConsumablePickerOpen] = useState(false)
 
   // Supply add flow
   const [addingSupply, setAddingSupply] = useState(false)
+  const [supplyPendingMode, setSupplyPendingMode] = useState<'required' | 'option'>('required')
   const [supplyPendingVariantId, setSupplyPendingVariantId] = useState<string | null>(null)
   const [supplyPendingQty, setSupplyPendingQty] = useState(1)
 
@@ -65,6 +70,11 @@ export function ServiceLeafPanel({
   const [addingConsumable, setAddingConsumable] = useState(false)
   const [pendingVariantId, setPendingVariantId] = useState<string | null>(null)
   const [pendingQty, setPendingQty] = useState(1)
+
+  function openSupplyPicker(mode: 'required' | 'option') {
+    setSupplyPendingMode(mode)
+    setSupplyPickerOpen(true)
+  }
 
   function handleSupplyPicked(variantId: string) {
     setSupplyPendingVariantId(variantId)
@@ -74,6 +84,7 @@ export function ServiceLeafPanel({
 
   function handleConfirmSupply() {
     if (!supplyPendingVariantId) return
+    const isOption = supplyPendingMode === 'option'
     addLink.mutate(
       {
         service_id: serviceId,
@@ -81,6 +92,9 @@ export function ServiceLeafPanel({
         link_type: 'supply',
         quantity: supplyPendingQty,
         warranty_months: warranty ?? 0,
+        group_label: isOption ? 'options' : null,
+        // first option in the group becomes default automatically
+        is_default: isOption && optionSupplyLinks.length === 0,
       },
       {
         onSuccess: () => {
@@ -97,6 +111,16 @@ export function ServiceLeafPanel({
     setAddingSupply(false)
     setSupplyPendingVariantId(null)
     setSupplyPendingQty(1)
+  }
+
+  // Set one option as default — clears default on all siblings
+  function handleSetDefault(id: string) {
+    optionSupplyLinks.forEach((link) => {
+      updateLink.mutate(
+        { id: link.id, is_default: link.id === id },
+        { onError: (err) => toast.error(err.message) },
+      )
+    })
   }
 
   function handleConsumablePicked(variantId: string) {
@@ -152,6 +176,72 @@ export function ServiceLeafPanel({
     ? allVariants.find((v) => v.variantId === pendingVariantId)
     : null
 
+  // ── Shared card for a supply link row ────────────────────────────────────────
+  function renderSupplyCard(link: ServiceInventoryLinkFull, showRadio = false) {
+    return (
+      <div
+        key={link.id}
+        className="rounded-md border border-border bg-muted/20 px-3 py-2 flex items-center gap-2"
+      >
+        {/* Radio button — only shown for option group items */}
+        {showRadio && (
+          <button
+            onClick={() => handleSetDefault(link.id)}
+            title={link.is_default ? 'Default option' : 'Set as default'}
+            className="shrink-0 mt-0.5"
+            aria-label={link.is_default ? 'Default' : 'Set as default'}
+          >
+            {link.is_default ? (
+              <span className="flex items-center justify-center w-3.5 h-3.5 rounded-full border-2 border-primary">
+                <span className="w-1.5 h-1.5 rounded-full bg-primary block" />
+              </span>
+            ) : (
+              <span className="block w-3.5 h-3.5 rounded-full border-2 border-muted-foreground/40 hover:border-primary transition-colors" />
+            )}
+          </button>
+        )}
+
+        <div className="min-w-0 flex-1">
+          <p className="text-xs font-medium leading-tight">
+            {link.inventory_brand_variants?.brand}
+          </p>
+          <p className="text-[10px] text-muted-foreground">
+            {link.inventory_brand_variants?.inventory_items?.name_en}
+            {' · '}
+            {link.inventory_brand_variants?.inventory_items?.sku}
+          </p>
+          {(link.inventory_brand_variants?.selling_price ?? 0) > 0 && (
+            <p className="text-[10px] text-emerald-700 mt-0.5">
+              QAR {link.inventory_brand_variants!.selling_price!.toLocaleString()}
+            </p>
+          )}
+        </div>
+
+        <Input
+          key={link.quantity}
+          type="number"
+          min={0.01}
+          step={0.01}
+          defaultValue={link.quantity}
+          onBlur={(e) => handleQtyBlur(link.id, e.target.value)}
+          className="h-6 w-16 text-[11px] px-2 shrink-0"
+          aria-label="Quantity"
+        />
+        <span className="text-[10px] text-muted-foreground shrink-0 w-5 text-right">
+          {link.inventory_brand_variants?.inventory_items?.unit}
+        </span>
+        <button
+          onClick={() => handleRemove(link.id)}
+          className="text-muted-foreground hover:text-destructive transition-colors shrink-0"
+          title="Remove"
+          aria-label="Remove"
+        >
+          <X className="h-3.5 w-3.5" />
+        </button>
+      </div>
+    )
+  }
+
   return (
     <>
       <div className="w-72 shrink-0 flex flex-col border-l border-border bg-background h-full">
@@ -184,56 +274,44 @@ export function ServiceLeafPanel({
             </p>
 
             <div className="space-y-1.5">
-              {supplyLinks.map((link) => (
-                <div
-                  key={link.id}
-                  className="rounded-md border border-border bg-muted/20 px-3 py-2 flex items-center gap-2"
-                >
-                  <div className="min-w-0 flex-1">
-                    <p className="text-xs font-medium">
-                      {link.inventory_brand_variants?.brand}
+              {/* Required items */}
+              {requiredSupplyLinks.map((link) => renderSupplyCard(link, false))}
+
+              {/* Select One group */}
+              {optionSupplyLinks.length > 0 && (
+                <div className="rounded-md border border-dashed border-border p-2 space-y-1.5">
+                  <p className="text-[10px] font-medium text-muted-foreground uppercase tracking-wide">
+                    Select One
+                  </p>
+                  {optionSupplyLinks.map((link) => renderSupplyCard(link, true))}
+                  {!addingSupply && (
+                    <button
+                      onClick={() => openSupplyPicker('option')}
+                      className={cn(
+                        'flex items-center gap-1.5 text-xs text-muted-foreground',
+                        'hover:text-foreground transition-colors py-0.5 px-1',
+                      )}
+                    >
+                      <Plus className="h-3 w-3" />
+                      Add option
+                    </button>
+                  )}
+                </div>
+              )}
+
+              {/* Confirm card after picking */}
+              {addingSupply && supplyPendingVariant && (
+                <div className="rounded-md border border-border p-2.5 space-y-2">
+                  <div>
+                    <p className="text-xs font-medium truncate">
+                      {supplyPendingVariant.brand} · {supplyPendingVariant.itemName}
                     </p>
-                    <p className="text-[10px] text-muted-foreground">
-                      {link.inventory_brand_variants?.inventory_items?.name_en}
-                      {' · '}
-                      {link.inventory_brand_variants?.inventory_items?.sku}
-                    </p>
-                    {(link.inventory_brand_variants?.selling_price ?? 0) > 0 && (
-                      <p className="text-[10px] text-emerald-700 mt-0.5">
-                        QAR {link.inventory_brand_variants!.selling_price!.toLocaleString()}
+                    {supplyPendingMode === 'option' && (
+                      <p className="text-[10px] text-muted-foreground mt-0.5">
+                        Adding as select-one option
                       </p>
                     )}
                   </div>
-                  <Input
-                    key={link.quantity}
-                    type="number"
-                    min={0.01}
-                    step={0.01}
-                    defaultValue={link.quantity}
-                    onBlur={(e) => handleQtyBlur(link.id, e.target.value)}
-                    className="h-6 w-16 text-[11px] px-2 shrink-0"
-                    aria-label="Quantity"
-                  />
-                  <span className="text-[10px] text-muted-foreground shrink-0 w-5 text-right">
-                    {link.inventory_brand_variants?.inventory_items?.unit}
-                  </span>
-                  <button
-                    onClick={() => handleRemove(link.id)}
-                    className="text-muted-foreground hover:text-destructive transition-colors shrink-0"
-                    title="Remove supply item"
-                    aria-label="Remove supply item"
-                  >
-                    <X className="h-3.5 w-3.5" />
-                  </button>
-                </div>
-              ))}
-
-              {/* Quantity confirm after picking a supply item */}
-              {addingSupply && supplyPendingVariant && (
-                <div className="rounded-md border border-border p-2.5 space-y-2">
-                  <p className="text-xs font-medium truncate">
-                    {supplyPendingVariant.brand} · {supplyPendingVariant.itemName}
-                  </p>
                   <div className="flex items-center gap-2">
                     <Input
                       type="number"
@@ -267,17 +345,32 @@ export function ServiceLeafPanel({
                 </div>
               )}
 
+              {/* Add buttons */}
               {!addingSupply && (
-                <button
-                  onClick={() => setSupplyPickerOpen(true)}
-                  className={cn(
-                    'flex items-center gap-1.5 text-xs text-muted-foreground',
-                    'hover:text-foreground transition-colors py-1 px-1',
+                <div className="flex flex-wrap gap-x-4 gap-y-0.5">
+                  <button
+                    onClick={() => openSupplyPicker('required')}
+                    className={cn(
+                      'flex items-center gap-1.5 text-xs text-muted-foreground',
+                      'hover:text-foreground transition-colors py-1 px-1',
+                    )}
+                  >
+                    <Plus className="h-3.5 w-3.5" />
+                    Add supply item
+                  </button>
+                  {optionSupplyLinks.length === 0 && (
+                    <button
+                      onClick={() => openSupplyPicker('option')}
+                      className={cn(
+                        'flex items-center gap-1.5 text-xs text-muted-foreground',
+                        'hover:text-foreground transition-colors py-1 px-1',
+                      )}
+                    >
+                      <Plus className="h-3.5 w-3.5" />
+                      Add option
+                    </button>
                   )}
-                >
-                  <Plus className="h-3.5 w-3.5" />
-                  Add supply item
-                </button>
+                </div>
               )}
             </div>
           </section>
@@ -328,7 +421,6 @@ export function ServiceLeafPanel({
                 </div>
               ))}
 
-              {/* Quantity confirm after picking a consumable */}
               {addingConsumable && pendingVariant && (
                 <div className="rounded-md border border-border p-2.5 space-y-2">
                   <p className="text-xs font-medium truncate">
@@ -390,7 +482,7 @@ export function ServiceLeafPanel({
         onOpenChange={setSupplyPickerOpen}
         allVariants={allVariants}
         onSelect={handleSupplyPicked}
-        title="Set Supply Item"
+        title={supplyPendingMode === 'option' ? 'Add Option (Select One)' : 'Set Supply Item'}
         linkedVariantIds={linkedVariantIds}
       />
       <InventoryColumnPicker
