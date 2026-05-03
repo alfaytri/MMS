@@ -380,7 +380,21 @@ Each tab: count badge + highlights when active + acts as a drop zone.
 
 ---
 
-## 9. Downstream integrations (read-only notes, no work needed in this phase)
+## 9. Risk Mitigations (mandatory implementation constraints)
+
+| # | Risk | Mitigation |
+|---|---|---|
+| R1 | **Audit log gaps** — new mutations added without logging | `useLogActivity` is called inside every mutation hook's `mutationFn`, not in `onSuccess`. New hooks must follow the same pattern. A linting comment `// MUST call logActivity` is added above every mutationFn. |
+| R2 | **Emergency/QC mutual exclusion** | TeamEditDialog `onChange` handler for either toggle immediately sets the other to `false` before calling `field.onChange`. No DB constraint needed — enforced purely in UI. |
+| R3 | **Skill delete-all + re-insert data loss** | Wrap both operations in a Postgres function `upsert_employee_services(p_employee_id, p_service_ids[])` that runs DELETE + INSERT in one transaction. If INSERT fails the DELETE rolls back. Never run them as two separate Supabase calls. |
+| R4 | **handleDropLeader partial state** | Implement as a single Postgres RPC `assign_team_leader(p_team_id, p_employee_id)` that atomically sets `teams.leader_id` AND ensures `employees.team_id = p_team_id` in one transaction. Log row inserted inside the function. |
+| R5 | **Schedule sync complexity** | `teams.schedule_id` is synced by a Postgres function `sync_team_active_schedule(p_team_id)` called after every attach/detach. Function selects the assignment where `start_date <= CURRENT_DATE AND (end_date IS NULL OR end_date >= CURRENT_DATE)` ordered by `start_date DESC LIMIT 1`. Frontend never computes this directly. |
+| R6 | **Async plate validation** | `VehicleEditDialog` runs an `onBlur` query: `SELECT count(*) FROM vehicles WHERE plate = $1 AND id != $currentId`. Shows inline error "Plate already in use" and blocks Save if count > 0. Form-level `isValid` check prevents submission with a stale blur state. |
+| R7 | **Migration order & foreign keys** | Migrations must be applied strictly 1→4. Migration 2 (`tool_assignments`) references `tool_asset_units` which must exist. Migration 3 (`team_activity_log`) references `profiles`. Both are pre-existing tables — verified before applying. |
+
+---
+
+## 10. Downstream integrations (read-only notes, no work needed in this phase)
 
 | Module | What it reads |
 |---|---|
