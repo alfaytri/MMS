@@ -15,6 +15,7 @@ import { formatCurrency } from '@/lib/utils/formatters'
 type Props = {
   variant: BrandVariant
   itemId: string
+  itemName: string
   canMoveUp: boolean
   canMoveDown: boolean
   onMoveUp: () => void
@@ -37,7 +38,8 @@ function AtpBadge({ stockLevel, reservedQty, reorderPoint }: { stockLevel: numbe
   )
 }
 
-export function BrandVariantRow({ variant, itemId, canMoveUp, canMoveDown, onMoveUp, onMoveDown }: Props) {
+export function BrandVariantRow({ variant, itemId, itemName, canMoveUp, canMoveDown, onMoveUp, onMoveDown }: Props) {
+  const displayBrand = (!variant.brand || variant.brand.toLowerCase() === 'generic') ? itemName : variant.brand
   const [fifoOpen, setFifoOpen] = useState(false)
   const [editOpen, setEditOpen] = useState(false)
   const [archiveOpen, setArchiveOpen] = useState(false)
@@ -66,7 +68,7 @@ export function BrandVariantRow({ variant, itemId, canMoveUp, canMoveDown, onMov
               className="font-medium text-blue-600 hover:underline"
               onClick={(e) => { e.stopPropagation(); setEditOpen(true) }}
             >
-              {variant.brand}
+              {displayBrand}
             </button>
           </div>
         </TableCell>
@@ -136,14 +138,14 @@ export function BrandVariantRow({ variant, itemId, canMoveUp, canMoveDown, onMov
         open={reservedOpen}
         onOpenChange={setReservedOpen}
         brandVariantId={variant.id}
-        variantLabel={variant.brand ?? 'Variant'}
+        variantLabel={displayBrand}
       />
 
       <ConfirmDialog
         open={archiveOpen}
         onOpenChange={setArchiveOpen}
         title="Archive Brand Variant"
-        description={`Archive "${variant.brand}"? It will be hidden from the inventory view.`}
+        description={`Archive "${displayBrand}"? It will be hidden from the inventory view.`}
         confirmLabel="Archive"
         variant="destructive"
         onConfirm={() =>
