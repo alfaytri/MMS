@@ -7,35 +7,43 @@ import { Checkbox } from '@/components/ui/checkbox'
 import { ServiceNode } from './serviceInventoryHelpers'
 
 interface Props {
-  leafServices: ServiceNode[]
+  allServices: ServiceNode[]
+  treeMap: Map<string | null, ServiceNode[]>
+  leafIdSet: Set<string>
   breadcrumbMap: Map<string, string>
   hasSupplySet: Set<string>
   activeId: string | null
   checkedIds: Set<string>
   onActivate: (id: string) => void
   onToggleCheck: (id: string) => void
-  totalCount: number
-  linkedCount: number
-  noSupplyCount: number
 }
 
 export function ServiceLinksMasterList({
-  leafServices,
+  allServices,
+  treeMap,
+  leafIdSet,
   breadcrumbMap,
   hasSupplySet,
   activeId,
   checkedIds,
   onActivate,
   onToggleCheck,
-  totalCount,
-  linkedCount,
-  noSupplyCount,
 }: Props) {
   const [query, setQuery] = useState('')
   const [focusedIdx, setFocusedIdx] = useState(0)
-  const [collapsedCats, setCollapsedCats] = useState<Set<string>>(new Set())
+  const [expandedIds, setExpandedIds] = useState<Set<string>>(new Set())
   const searchRef = useRef<HTMLInputElement>(null)
   const listRef = useRef<HTMLDivElement>(null)
+  const didInit = useRef(false)
+
+  // Auto-expand root nodes once data loads
+  useEffect(() => {
+    if (didInit.current) return
+    const roots = treeMap.get(null) ?? []
+    if (roots.length === 0) return
+    setExpandedIds(new Set(roots.map((r) => r.id)))
+    didInit.current = true
+  }, [treeMap])
 
   // CMD/CTRL+F focuses the search bar
   useEffect(() => {
@@ -49,9 +57,44 @@ export function ServiceLinksMasterList({
     return () => window.removeEventListener('keydown', handler)
   }, [])
 
+  const leafServices = useMemo(
+    () => allServices.filter((s) => leafIdSet.has(s.id)),
+    [allServices, leafIdSet],
+  )
+
+  const totalCount = leafServices.length
+
+  // Precompute leaf-count and linked-count for every branch node (for header badges)
+  const nodeStats = useMemo(() => {
+    const total = new Map<string, number>()
+    const linked = new Map<string, number>()
+
+    function recurse(nodeId: string): [number, number] {
+      if (total.has(nodeId)) return [total.get(nodeId)!, linked.get(nodeId)!]
+      const children = treeMap.get(nodeId) ?? []
+      if (leafIdSet.has(nodeId) || children.length === 0) {
+        const l = hasSupplySet.has(nodeId) ? 1 : 0
+        total.set(nodeId, 1)
+        linked.set(nodeId, l)
+        return [1, l]
+      }
+      let t = 0, l = 0
+      for (const child of children) {
+        const [ct, cl] = recurse(child.id)
+        t += ct; l += cl
+      }
+      total.set(nodeId, t)
+      linked.set(nodeId, l)
+      return [t, l]
+    }
+
+    for (const root of treeMap.get(null) ?? []) recurse(root.id)
+    return { total, linked }
+  }, [treeMap, leafIdSet, hasSupplySet])
+
   const trimmed = query.trim().toLowerCase()
 
-  // Filtered flat list of leaf services
+  // Flat filtered list for search mode
   const filteredLeaves = useMemo(
     () =>
       trimmed
@@ -64,40 +107,29 @@ export function ServiceLinksMasterList({
     [leafServices, breadcrumbMap, trimmed],
   )
 
-  // O(1) index lookup — avoids O(n²) indexOf calls in the grouped render
+  // O(1) index lookup for keyboard focus state
   const idxMap = useMemo(
     () => new Map(filteredLeaves.map((s, i) => [s.id, i])),
     [filteredLeaves],
   )
 
-  // Stat bar counts — update with the current filter
+  // Stat bar — reflects current search filter
   const filteredLinkedCount = useMemo(
     () => filteredLeaves.filter((s) => hasSupplySet.has(s.id)).length,
     [filteredLeaves, hasSupplySet],
   )
   const filteredNoSupplyCount = filteredLeaves.length - filteredLinkedCount
 
-  // Group by top-level category (first segment of breadcrumb)
-  const groups = useMemo(() => {
-    if (trimmed) return new Map<string, ServiceNode[]>()
-    const map = new Map<string, ServiceNode[]>()
-    for (const s of filteredLeaves) {
-      const breadcrumb = breadcrumbMap.get(s.id) ?? s.name_en
-      const cat = breadcrumb.split(' › ')[0]
-      if (!map.has(cat)) map.set(cat, [])
-      map.get(cat)!.push(s)
-    }
-    return map
-  }, [filteredLeaves, breadcrumbMap, trimmed])
-
-  function toggleCollapse(cat: string) {
-    setCollapsedCats((prev) => {
+  function toggleExpanded(id: string) {
+    setExpandedIds((prev) => {
       const next = new Set(prev)
-      if (next.has(cat)) next.delete(cat)
-      else next.add(cat)
+      if (next.has(id)) next.delete(id)
+      else next.add(id)
       return next
     })
   }
+
+  // ── Keyboard handlers (search mode only) ──────────────────────────────────
 
   const handleKeyDown = (e: React.KeyboardEvent) => {
     if (e.key === 'ArrowDown') {
@@ -132,12 +164,14 @@ export function ServiceLinksMasterList({
     handleKeyDown(e)
   }
 
+  // ── Row renderer (leaf services) ──────────────────────────────────────────
+
   const renderRow = (service: ServiceNode, flatIdx: number) => {
     const breadcrumb = breadcrumbMap.get(service.id) ?? ''
     const isActive = activeId === service.id
     const isChecked = checkedIds.has(service.id)
     const hasSupply = hasSupplySet.has(service.id)
-    const isFocused = focusedIdx === flatIdx
+    const isFocused = trimmed && focusedIdx === flatIdx
 
     let rowCls =
       'group relative flex items-start gap-2 px-3 py-2 cursor-pointer select-none border-l-[3px] transition-colors'
@@ -170,9 +204,9 @@ export function ServiceLinksMasterList({
           />
         </div>
 
-        {/* Text */}
+        {/* Text — breadcrumb only shown in search mode (tree gives context in normal mode) */}
         <div className="flex-1 min-w-0">
-          {(() => {
+          {trimmed && (() => {
             const parentCrumb = breadcrumb.split(' › ').slice(0, -1).join(' › ')
             return parentCrumb ? (
               <p className="text-xs text-muted-foreground leading-tight truncate">
@@ -196,6 +230,49 @@ export function ServiceLinksMasterList({
     )
   }
 
+  // ── Tree renderer (normal mode) ───────────────────────────────────────────
+
+  function renderTree(nodes: ServiceNode[], level: number): React.ReactNode {
+    return nodes.map((node) => {
+      const isLeaf = leafIdSet.has(node.id)
+
+      if (isLeaf) {
+        return renderRow(node, idxMap.get(node.id) ?? 0)
+      }
+
+      const children = treeMap.get(node.id) ?? []
+      const isExpanded = expandedIds.has(node.id)
+      const nodeTotal = nodeStats.total.get(node.id) ?? 0
+      const nodeLinked = nodeStats.linked.get(node.id) ?? 0
+      // Indent increases per level; root level 0 = full left
+      const pl = 8 + level * 12
+
+      return (
+        <div key={node.id}>
+          <button
+            style={{ paddingLeft: `${pl}px` }}
+            onClick={() => toggleExpanded(node.id)}
+            className="w-full flex items-center gap-1.5 pr-3 py-1.5 text-xs font-semibold text-muted-foreground bg-muted/20 hover:bg-muted/40 transition-colors sticky top-0 z-10 border-b border-border/20"
+          >
+            {isExpanded
+              ? <ChevronDown className="h-3 w-3 shrink-0" />
+              : <ChevronRight className="h-3 w-3 shrink-0" />
+            }
+            <span className="flex-1 text-left uppercase tracking-wide truncate">
+              {node.name_en}
+            </span>
+            <span className="font-normal normal-case shrink-0">
+              {nodeTotal} · <span className="text-green-600">{nodeLinked}</span>
+            </span>
+          </button>
+          {isExpanded && renderTree(children, level + 1)}
+        </div>
+      )
+    })
+  }
+
+  // ── Render ─────────────────────────────────────────────────────────────────
+
   return (
     <div className="flex flex-col h-full border-r">
       {/* Search bar */}
@@ -210,7 +287,7 @@ export function ServiceLinksMasterList({
         />
       </div>
 
-      {/* Stat bar — counts update with the active filter */}
+      {/* Stat bar */}
       <div className="px-3 py-1.5 text-xs text-muted-foreground border-b bg-muted/30 shrink-0">
         <span className="font-medium text-foreground">{filteredLeaves.length}</span> services
         {' · '}
@@ -225,10 +302,9 @@ export function ServiceLinksMasterList({
         className="flex-1 overflow-y-auto"
         role="listbox"
         tabIndex={0}
-        onKeyDown={handleKeyDown}
+        onKeyDown={trimmed ? handleKeyDown : undefined}
       >
         {trimmed ? (
-          // Flat search results
           filteredLeaves.length === 0 ? (
             <p className="p-4 text-sm text-muted-foreground text-center">
               No services match &quot;{query}&quot;
@@ -237,29 +313,7 @@ export function ServiceLinksMasterList({
             filteredLeaves.map((s, i) => renderRow(s, i))
           )
         ) : (
-          // Grouped by category with collapsible headers
-          Array.from(groups.entries()).map(([cat, leaves]) => {
-            const isCollapsed = collapsedCats.has(cat)
-            const catLinkedCount = leaves.filter((s) => hasSupplySet.has(s.id)).length
-            return (
-              <div key={cat}>
-                <button
-                  onClick={() => toggleCollapse(cat)}
-                  className="w-full flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold text-muted-foreground uppercase tracking-wide bg-muted/20 sticky top-0 z-10 hover:bg-muted/40 transition-colors"
-                >
-                  {isCollapsed
-                    ? <ChevronRight className="h-3 w-3 shrink-0" />
-                    : <ChevronDown className="h-3 w-3 shrink-0" />
-                  }
-                  <span className="flex-1 text-left">{cat}</span>
-                  <span className="font-normal normal-case">
-                    {leaves.length} · <span className="text-green-600">{catLinkedCount}</span> linked
-                  </span>
-                </button>
-                {!isCollapsed && leaves.map((s) => renderRow(s, idxMap.get(s.id) ?? 0))}
-              </div>
-            )
-          })
+          renderTree(treeMap.get(null) ?? [], 0)
         )}
       </div>
     </div>
