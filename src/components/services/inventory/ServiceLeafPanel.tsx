@@ -52,22 +52,47 @@ export function ServiceLeafPanel({
   const [supplyPickerOpen, setSupplyPickerOpen] = useState(false)
   const [consumablePickerOpen, setConsumablePickerOpen] = useState(false)
 
+  // Supply add flow
+  const [addingSupply, setAddingSupply] = useState(false)
+  const [supplyPendingVariantId, setSupplyPendingVariantId] = useState<string | null>(null)
+  const [supplyPendingQty, setSupplyPendingQty] = useState(1)
+
   // Consumable add flow
   const [addingConsumable, setAddingConsumable] = useState(false)
   const [pendingVariantId, setPendingVariantId] = useState<string | null>(null)
   const [pendingQty, setPendingQty] = useState(1)
 
-  function handleAddSupply(variantId: string) {
+  function handleSupplyPicked(variantId: string) {
+    setSupplyPendingVariantId(variantId)
+    setSupplyPendingQty(1)
+    setAddingSupply(true)
+  }
+
+  function handleConfirmSupply() {
+    if (!supplyPendingVariantId) return
     addLink.mutate(
       {
         service_id: serviceId,
-        brand_variant_id: variantId,
+        brand_variant_id: supplyPendingVariantId,
         link_type: 'supply',
-        quantity: 1,
+        quantity: supplyPendingQty,
         warranty_months: warranty ?? 0,
       },
-      { onError: (err) => toast.error(err.message) },
+      {
+        onSuccess: () => {
+          setAddingSupply(false)
+          setSupplyPendingVariantId(null)
+          setSupplyPendingQty(1)
+        },
+        onError: (err) => toast.error(err.message),
+      },
     )
+  }
+
+  function handleCancelSupply() {
+    setAddingSupply(false)
+    setSupplyPendingVariantId(null)
+    setSupplyPendingQty(1)
   }
 
   function handleConsumablePicked(variantId: string) {
@@ -115,6 +140,10 @@ export function ServiceLeafPanel({
     }
   }
 
+  const supplyPendingVariant = supplyPendingVariantId
+    ? allVariants.find((v) => v.variantId === supplyPendingVariantId)
+    : null
+
   const pendingVariant = pendingVariantId
     ? allVariants.find((v) => v.variantId === pendingVariantId)
     : null
@@ -154,7 +183,7 @@ export function ServiceLeafPanel({
               {supplyLinks.map((link) => (
                 <div
                   key={link.id}
-                  className="rounded-md border border-border bg-muted/20 px-3 py-2.5 flex items-start justify-between gap-2"
+                  className="rounded-md border border-border bg-muted/20 px-3 py-2 flex items-center gap-2"
                 >
                   <div className="min-w-0 flex-1">
                     <p className="text-xs font-medium">
@@ -171,9 +200,22 @@ export function ServiceLeafPanel({
                       </p>
                     )}
                   </div>
+                  <Input
+                    key={link.quantity}
+                    type="number"
+                    min={0.01}
+                    step={0.01}
+                    defaultValue={link.quantity}
+                    onBlur={(e) => handleQtyBlur(link.id, e.target.value)}
+                    className="h-6 w-16 text-[11px] px-2 shrink-0"
+                    aria-label="Quantity"
+                  />
+                  <span className="text-[10px] text-muted-foreground shrink-0 w-5 text-right">
+                    {link.inventory_brand_variants?.inventory_items?.unit}
+                  </span>
                   <button
                     onClick={() => handleRemove(link.id)}
-                    className="text-muted-foreground hover:text-destructive transition-colors shrink-0 mt-0.5"
+                    className="text-muted-foreground hover:text-destructive transition-colors shrink-0"
                     title="Remove supply item"
                     aria-label="Remove supply item"
                   >
@@ -181,16 +223,58 @@ export function ServiceLeafPanel({
                   </button>
                 </div>
               ))}
-              <button
-                onClick={() => setSupplyPickerOpen(true)}
-                className={cn(
-                  'flex items-center gap-1.5 text-xs text-muted-foreground',
-                  'hover:text-foreground transition-colors py-1 px-1',
-                )}
-              >
-                <Plus className="h-3.5 w-3.5" />
-                Add supply item
-              </button>
+
+              {/* Quantity confirm after picking a supply item */}
+              {addingSupply && supplyPendingVariant && (
+                <div className="rounded-md border border-border p-2.5 space-y-2">
+                  <p className="text-xs font-medium truncate">
+                    {supplyPendingVariant.brand} · {supplyPendingVariant.itemName}
+                  </p>
+                  <div className="flex items-center gap-2">
+                    <Input
+                      type="number"
+                      min={0.01}
+                      step={0.01}
+                      value={supplyPendingQty}
+                      onChange={(e) => setSupplyPendingQty(Number(e.target.value))}
+                      className="h-7 w-20 text-xs"
+                      aria-label="Quantity"
+                      autoFocus
+                    />
+                    <span className="text-[10px] text-muted-foreground">qty</span>
+                    <Button
+                      size="sm"
+                      className="h-7 text-xs flex-1"
+                      onClick={handleConfirmSupply}
+                      disabled={addLink.isPending}
+                    >
+                      {addLink.isPending ? '…' : 'Add'}
+                    </Button>
+                    <Button
+                      size="sm"
+                      variant="ghost"
+                      className="h-7 text-xs px-2"
+                      onClick={handleCancelSupply}
+                      aria-label="Cancel"
+                    >
+                      <X className="h-3 w-3" />
+                    </Button>
+                  </div>
+                </div>
+              )}
+
+              {!addingSupply && (
+                <button
+                  onClick={() => setSupplyPickerOpen(true)}
+                  className={cn(
+                    'flex items-center gap-1.5 text-xs text-muted-foreground',
+                    'hover:text-foreground transition-colors py-1 px-1',
+                  )}
+                >
+                  <Plus className="h-3.5 w-3.5" />
+                  Add supply item
+                </button>
+              )}
             </div>
           </section>
 
@@ -299,9 +383,12 @@ export function ServiceLeafPanel({
       {/* ── Pickers (rendered outside the panel div to avoid clipping) ── */}
       <InventoryColumnPicker
         open={supplyPickerOpen}
-        onOpenChange={setSupplyPickerOpen}
+        onOpenChange={(v) => {
+          setSupplyPickerOpen(v)
+          if (!v) handleCancelSupply()
+        }}
         allVariants={allVariants}
-        onSelect={handleAddSupply}
+        onSelect={handleSupplyPicked}
         title="Set Supply Item"
         linkedVariantIds={linkedVariantIds}
       />
