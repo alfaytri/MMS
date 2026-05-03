@@ -154,6 +154,7 @@ export function ItemRow({ item, categoryType, showArchived, canMoveUp, canMoveDo
                       key={v.id}
                       variant={v}
                       itemId={item.id}
+                      itemName={item.name_en}
                       canMoveUp={idx > 0}
                       canMoveDown={idx < variants.length - 1}
                       onMoveUp={() => handleVariantMove(idx, 'up')}
