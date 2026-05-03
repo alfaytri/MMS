@@ -958,6 +958,7 @@ export function useAllServiceLinks(enabled = true) {
           warranty_months,
           quantity,
           group_label,
+          is_default,
           inventory_brand_variants(
             brand,
             selling_price,
@@ -981,6 +982,7 @@ export function useAddServiceInventoryLink() {
     quantity: number
     warranty_months: number
     group_label?: string | null
+    is_default?: boolean
   }>({
     mutationFn: async (row) => {
       const supabase = createClient()
@@ -1060,7 +1062,7 @@ export function useUpdateServiceInventoryLink() {
   return useMutation<
     void,
     Error,
-    { id: string; link_type?: LinkType; warranty_months?: number; quantity?: number; group_label?: string | null },
+    { id: string; link_type?: LinkType; warranty_months?: number; quantity?: number; group_label?: string | null; is_default?: boolean },
     { prev: ServiceInventoryLinkFull[] | undefined }
   >({
     mutationFn: async ({ id, ...patch }) => {
