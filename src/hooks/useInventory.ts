@@ -996,6 +996,40 @@ export function useAddServiceInventoryLink() {
   })
 }
 
+/** Bulk insert service↔variant links via RPC. */
+export function useAddBulkServiceInventoryLinks() {
+  const queryClient = useQueryClient()
+  return useMutation({
+    mutationFn: async ({
+      serviceIds,
+      brandVariantId,
+      linkType = 'supply' as const,
+      quantity = 1,
+      warrantyMonths = 0,
+    }: {
+      serviceIds: string[]
+      brandVariantId: string
+      linkType?: 'supply' | 'consumable'
+      quantity?: number
+      warrantyMonths?: number
+    }) => {
+      const supabase = createClient()
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const { error } = await (supabase as any).rpc('service_inventory_bulk_upsert', {
+        p_service_ids: serviceIds,
+        p_brand_variant_id: brandVariantId,
+        p_link_type: linkType,
+        p_quantity: quantity,
+        p_warranty_months: warrantyMonths,
+      })
+      if (error) throw error
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['service-links-all'] })
+    },
+  })
+}
+
 /** Delete a service↔variant link by its primary key id. */
 export function useDeleteServiceInventoryLink() {
   const qc = useQueryClient()
