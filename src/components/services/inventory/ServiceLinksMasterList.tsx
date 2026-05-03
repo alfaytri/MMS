@@ -1,7 +1,7 @@
 'use client'
 
 import { useEffect, useMemo, useRef, useState } from 'react'
-import { ChevronDown, ChevronRight } from 'lucide-react'
+import { ChevronDown, ChevronRight, ChevronsDown, ChevronsUp } from 'lucide-react'
 import { Input } from '@/components/ui/input'
 import { Checkbox } from '@/components/ui/checkbox'
 import { ServiceNode } from './serviceInventoryHelpers'
@@ -64,7 +64,21 @@ export function ServiceLinksMasterList({
 
   const totalCount = leafServices.length
 
-  // Precompute leaf-count and linked-count for every branch node (for header badges)
+  // All branch (non-leaf) node IDs — used for global expand/collapse all
+  const allBranchIds = useMemo(() => {
+    const ids = new Set<string>()
+    function collect(nodeId: string) {
+      if (leafIdSet.has(nodeId)) return
+      const children = treeMap.get(nodeId) ?? []
+      if (children.length === 0) return
+      ids.add(nodeId)
+      for (const child of children) collect(child.id)
+    }
+    for (const root of treeMap.get(null) ?? []) collect(root.id)
+    return ids
+  }, [treeMap, leafIdSet])
+
+  // Precompute leaf-count and linked-count per branch node (for header badges)
   const nodeStats = useMemo(() => {
     const total = new Map<string, number>()
     const linked = new Map<string, number>()
@@ -119,6 +133,49 @@ export function ServiceLinksMasterList({
     [filteredLeaves, hasSupplySet],
   )
   const filteredNoSupplyCount = filteredLeaves.length - filteredLinkedCount
+
+  // Global expand/collapse all
+  const allExpanded = allBranchIds.size > 0 && [...allBranchIds].every((id) => expandedIds.has(id))
+
+  function expandAll() {
+    setExpandedIds(new Set(allBranchIds))
+  }
+  function collapseAll() {
+    setExpandedIds(new Set())
+  }
+
+  // Collect all branch IDs in a node's subtree (not including the node itself)
+  function getSubtreeBranchIds(nodeId: string): string[] {
+    const ids: string[] = []
+    function collect(id: string) {
+      const children = treeMap.get(id) ?? []
+      for (const child of children) {
+        if (!leafIdSet.has(child.id) && (treeMap.get(child.id)?.length ?? 0) > 0) {
+          ids.push(child.id)
+          collect(child.id)
+        }
+      }
+    }
+    collect(nodeId)
+    return ids
+  }
+
+  function toggleSubtree(nodeId: string, e: React.MouseEvent) {
+    e.stopPropagation()
+    const descendants = getSubtreeBranchIds(nodeId)
+    // Include the node itself
+    const all = [nodeId, ...descendants]
+    const subtreeAllExpanded = all.every((id) => expandedIds.has(id))
+    setExpandedIds((prev) => {
+      const next = new Set(prev)
+      if (subtreeAllExpanded) {
+        for (const id of all) next.delete(id)
+      } else {
+        for (const id of all) next.add(id)
+      }
+      return next
+    })
+  }
 
   function toggleExpanded(id: string) {
     setExpandedIds((prev) => {
@@ -204,7 +261,7 @@ export function ServiceLinksMasterList({
           />
         </div>
 
-        {/* Text — breadcrumb only shown in search mode (tree gives context in normal mode) */}
+        {/* Text — breadcrumb only shown in search mode */}
         <div className="flex-1 min-w-0">
           {trimmed && (() => {
             const parentCrumb = breadcrumb.split(' › ').slice(0, -1).join(' › ')
@@ -244,27 +301,53 @@ export function ServiceLinksMasterList({
       const isExpanded = expandedIds.has(node.id)
       const nodeTotal = nodeStats.total.get(node.id) ?? 0
       const nodeLinked = nodeStats.linked.get(node.id) ?? 0
-      // Indent increases per level; root level 0 = full left
       const pl = 8 + level * 12
+
+      // Whether all branch descendants are expanded (for subtree toggle icon)
+      const subtreeBranches = getSubtreeBranchIds(node.id)
+      const subtreeAllExpanded =
+        expandedIds.has(node.id) &&
+        subtreeBranches.every((id) => expandedIds.has(id))
 
       return (
         <div key={node.id}>
-          <button
-            style={{ paddingLeft: `${pl}px` }}
-            onClick={() => toggleExpanded(node.id)}
-            className="w-full flex items-center gap-1.5 pr-3 py-1.5 text-xs font-semibold text-muted-foreground bg-muted/20 hover:bg-muted/40 transition-colors sticky top-0 z-10 border-b border-border/20"
+          <div
+            className="flex items-center bg-muted/20 hover:bg-muted/30 transition-colors sticky top-0 z-10 border-b border-border/20 group/header"
           >
-            {isExpanded
-              ? <ChevronDown className="h-3 w-3 shrink-0" />
-              : <ChevronRight className="h-3 w-3 shrink-0" />
-            }
-            <span className="flex-1 text-left uppercase tracking-wide truncate">
-              {node.name_en}
-            </span>
-            <span className="font-normal normal-case shrink-0">
+            {/* Main chevron — toggles this node only */}
+            <button
+              style={{ paddingLeft: `${pl}px` }}
+              onClick={() => toggleExpanded(node.id)}
+              className="flex-1 flex items-center gap-1.5 pr-1 py-1.5 text-xs font-semibold text-muted-foreground min-w-0"
+            >
+              {isExpanded
+                ? <ChevronDown className="h-3 w-3 shrink-0" />
+                : <ChevronRight className="h-3 w-3 shrink-0" />
+              }
+              <span className="flex-1 text-left uppercase tracking-wide truncate">
+                {node.name_en}
+              </span>
+            </button>
+
+            {/* Expand/collapse all subtree button — only shown when node has branch descendants */}
+            {subtreeBranches.length > 0 && (
+              <button
+                onClick={(e) => toggleSubtree(node.id, e)}
+                title={subtreeAllExpanded ? 'Collapse all inside' : 'Expand all inside'}
+                className="shrink-0 p-1 text-muted-foreground hover:text-foreground opacity-0 group-hover/header:opacity-100 transition-opacity"
+              >
+                {subtreeAllExpanded
+                  ? <ChevronsUp className="h-3 w-3" />
+                  : <ChevronsDown className="h-3 w-3" />
+                }
+              </button>
+            )}
+
+            {/* Stats */}
+            <span className="text-xs font-normal text-muted-foreground shrink-0 pr-3">
               {nodeTotal} · <span className="text-green-600">{nodeLinked}</span>
             </span>
-          </button>
+          </div>
           {isExpanded && renderTree(children, level + 1)}
         </div>
       )
@@ -287,13 +370,23 @@ export function ServiceLinksMasterList({
         />
       </div>
 
-      {/* Stat bar */}
-      <div className="px-3 py-1.5 text-xs text-muted-foreground border-b bg-muted/30 shrink-0">
-        <span className="font-medium text-foreground">{filteredLeaves.length}</span> services
-        {' · '}
-        <span className="text-green-600 font-medium">{filteredLinkedCount}</span> linked
-        {' · '}
-        <span className="text-amber-500 font-medium">{filteredNoSupplyCount}</span> no supply
+      {/* Stat bar — with global expand/collapse all */}
+      <div className="flex items-center gap-2 px-3 py-1.5 text-xs text-muted-foreground border-b bg-muted/30 shrink-0">
+        <span>
+          <span className="font-medium text-foreground">{filteredLeaves.length}</span> services
+          {' · '}
+          <span className="text-green-600 font-medium">{filteredLinkedCount}</span> linked
+          {' · '}
+          <span className="text-amber-500 font-medium">{filteredNoSupplyCount}</span> no supply
+        </span>
+        {!trimmed && (
+          <button
+            onClick={allExpanded ? collapseAll : expandAll}
+            className="ml-auto shrink-0 text-xs text-muted-foreground hover:text-foreground underline underline-offset-2 transition-colors"
+          >
+            {allExpanded ? 'Collapse all' : 'Expand all'}
+          </button>
+        )}
       </div>
 
       {/* List */}
