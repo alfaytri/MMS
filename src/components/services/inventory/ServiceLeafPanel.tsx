@@ -2,7 +2,7 @@
 'use client'
 
 import { useState, useMemo } from 'react'
-import { X, Plus } from 'lucide-react'
+import { X, Plus, Star } from 'lucide-react'
 import { toast } from 'sonner'
 import { cn } from '@/lib/utils'
 import { Input } from '@/components/ui/input'
@@ -177,34 +177,38 @@ export function ServiceLeafPanel({
     : null
 
   // ── Shared card for a supply link row ────────────────────────────────────────
-  function renderSupplyCard(link: ServiceInventoryLinkFull, showRadio = false) {
+  function renderSupplyCard(link: ServiceInventoryLinkFull, isOption = false) {
     return (
       <div
         key={link.id}
         className="rounded-md border border-border bg-muted/20 px-3 py-2 flex items-center gap-2"
       >
-        {/* Radio button — only shown for option group items */}
-        {showRadio && (
-          <button
-            onClick={() => handleSetDefault(link.id)}
-            title={link.is_default ? 'Default option' : 'Set as default'}
-            className="shrink-0 mt-0.5"
-            aria-label={link.is_default ? 'Default' : 'Set as default'}
-          >
-            {link.is_default ? (
-              <span className="flex items-center justify-center w-3.5 h-3.5 rounded-full border-2 border-primary">
-                <span className="w-1.5 h-1.5 rounded-full bg-primary block" />
-              </span>
-            ) : (
-              <span className="block w-3.5 h-3.5 rounded-full border-2 border-muted-foreground/40 hover:border-primary transition-colors" />
-            )}
-          </button>
-        )}
-
         <div className="min-w-0 flex-1">
-          <p className="text-xs font-medium leading-tight">
-            {link.inventory_brand_variants?.brand}
-          </p>
+          <div className="flex items-center gap-1.5">
+            <p className="text-xs font-medium leading-tight truncate">
+              {link.inventory_brand_variants?.brand}
+            </p>
+            {/* Default badge — only on option group items */}
+            {isOption && (
+              <button
+                onClick={() => handleSetDefault(link.id)}
+                title={link.is_default ? 'Default pre-selection' : 'Set as default'}
+                aria-label={link.is_default ? 'Default' : 'Set as default'}
+                className="shrink-0"
+              >
+                {link.is_default ? (
+                  <span className="inline-flex items-center gap-0.5 rounded-full bg-amber-100 text-amber-700 text-[9px] font-semibold px-1.5 py-0.5 border border-amber-200">
+                    <Star className="h-2.5 w-2.5 fill-amber-500 text-amber-500" />
+                    default
+                  </span>
+                ) : (
+                  <span className="inline-flex items-center rounded-full bg-muted text-muted-foreground text-[9px] font-medium px-1.5 py-0.5 border border-border hover:border-amber-300 hover:text-amber-600 transition-colors">
+                    set default
+                  </span>
+                )}
+              </button>
+            )}
+          </div>
           <p className="text-[10px] text-muted-foreground">
             {link.inventory_brand_variants?.inventory_items?.name_en}
             {' · '}
