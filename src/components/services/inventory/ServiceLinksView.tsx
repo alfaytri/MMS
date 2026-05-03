@@ -2,6 +2,7 @@
 'use client'
 
 import { useState, useMemo } from 'react'
+import { ArrowLeft } from 'lucide-react'
 import { Skeleton } from '@/components/ui/skeleton'
 import { Button } from '@/components/ui/button'
 import { useServicesForLinks, useAllServiceLinks } from '@/hooks/useInventory'
@@ -112,57 +113,57 @@ export function ServiceLinksView({ enabled }: { enabled: boolean }) {
         />
       </div>
 
-      {/* Right panel — 60% on lg+, slides in on mobile/tablet */}
-      <div
-        className={`
-          flex-1 h-full overflow-y-auto
-          ${rightPanelMode === 'zero' ? 'hidden lg:block' : 'block'}
-        `}
-      >
-        {/* Back button — mobile/tablet only, shown when right panel is active */}
-        {rightPanelMode !== 'zero' && (
+      {/* Right panel: single or bulk — shown on all viewports when active */}
+      {rightPanelMode !== 'zero' && (
+        <div className="flex-1 h-full overflow-y-auto">
+          {/* Back button — mobile/tablet only */}
           <div className="lg:hidden border-b p-2">
             <Button
               variant="ghost"
               size="sm"
+              className="h-11 px-3"
               onClick={() => {
                 setActiveId(null)
                 setCheckedIds(new Set())
               }}
             >
-              ← Back to list
+              <ArrowLeft className="mr-1 h-4 w-4" />
+              Back to list
             </Button>
           </div>
-        )}
 
-        {rightPanelMode === 'zero' && (
+          {rightPanelMode === 'single' && activeId && activeService && (
+            <ServiceLeafPanel
+              serviceId={activeService.id}
+              serviceName={activeService.name_en}
+              breadcrumb={breadcrumbs.get(activeService.id) ?? ''}
+              links={activeLinks}
+              warranty={activeService.warranty ?? null}
+              onClose={() => setActiveId(null)}
+            />
+          )}
+
+          {rightPanelMode === 'bulk' && (
+            <ServiceLinksBulkPanel
+              checkedIds={checkedIds}
+              services={allServices}
+              allLinks={allLinks}
+              onClearAll={handleClearAll}
+            />
+          )}
+        </div>
+      )}
+
+      {/* Zero state — only rendered and visible on desktop */}
+      {rightPanelMode === 'zero' && (
+        <div className="hidden lg:flex flex-1 h-full overflow-y-auto">
           <ServiceLinksZeroState
             leafServices={leafServices}
             breadcrumbMap={breadcrumbs}
             hasSupplySet={hasSupplySet}
           />
-        )}
-
-        {rightPanelMode === 'single' && activeId && activeService && (
-          <ServiceLeafPanel
-            serviceId={activeService.id}
-            serviceName={activeService.name_en}
-            breadcrumb={breadcrumbs.get(activeService.id) ?? ''}
-            links={activeLinks}
-            warranty={activeService.warranty ?? null}
-            onClose={() => setActiveId(null)}
-          />
-        )}
-
-        {rightPanelMode === 'bulk' && (
-          <ServiceLinksBulkPanel
-            checkedIds={checkedIds}
-            services={allServices}
-            allLinks={allLinks}
-            onClearAll={handleClearAll}
-          />
-        )}
-      </div>
+        </div>
+      )}
     </div>
   )
 }
