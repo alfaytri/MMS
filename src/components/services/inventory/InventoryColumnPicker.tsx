@@ -97,14 +97,14 @@ export function InventoryColumnPicker({
       if (!v) { setSelectedCatId(null); setSelectedItemId(null) }
       onOpenChange(v)
     }}>
-      <DialogContent className="w-full h-full rounded-none p-0 flex flex-col md:h-[460px] md:max-w-[640px] md:rounded-lg">
+      <DialogContent className="w-full h-full rounded-none p-0 flex flex-col md:h-[500px] md:max-w-[780px] md:rounded-lg">
         <DialogHeader className="px-4 py-3 border-b border-border shrink-0">
           <DialogTitle className="text-sm">{title}</DialogTitle>
         </DialogHeader>
 
         <div className="flex flex-1 overflow-hidden">
           {/* ── Column 1: Categories ── */}
-          <div className="w-44 shrink-0 border-r border-border overflow-y-auto flex flex-col">
+          <div className="w-48 shrink-0 border-r border-border overflow-y-auto flex flex-col">
             {categories.map((cat) => (
               <button
                 key={cat.id}
@@ -115,7 +115,7 @@ export function InventoryColumnPicker({
                   selectedCatId === cat.id && 'bg-primary/10 text-primary font-semibold',
                 )}
               >
-                <span className="flex-1 truncate">{cat.name}</span>
+                <span className="flex-1 break-words">{cat.name}</span>
                 {selectedCatId === cat.id && (
                   <ChevronRight className="h-3 w-3 shrink-0" />
                 )}
@@ -124,7 +124,7 @@ export function InventoryColumnPicker({
           </div>
 
           {/* ── Column 2: Items ── */}
-          <div className="w-52 shrink-0 border-r border-border overflow-y-auto flex flex-col">
+          <div className="w-64 shrink-0 border-r border-border overflow-y-auto flex flex-col">
             {selectedCatId === null ? (
               <div className="flex flex-1 items-center justify-center text-xs text-muted-foreground select-none">
                 ← Select a category
@@ -149,7 +149,7 @@ export function InventoryColumnPicker({
                   >
                     <div className="min-w-0 flex-1">
                       <p className={cn(
-                        'text-xs truncate',
+                        'text-xs break-words',
                         selectedItemId === item.id ? 'font-semibold' : '',
                       )}>
                         {item.name}
