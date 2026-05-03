@@ -5,7 +5,6 @@ import { useState, useMemo } from 'react'
 import { Skeleton } from '@/components/ui/skeleton'
 import { useServicesForLinks, useAllServiceLinks } from '@/hooks/useInventory'
 import {
-  buildTreeMap,
   buildBreadcrumbMap,
   buildParentIdSet,
 } from './serviceInventoryHelpers'
@@ -15,22 +14,18 @@ import { ServiceLinksBulkPanel } from './ServiceLinksBulkPanel'
 import { ServiceLeafPanel } from './ServiceLeafPanel'
 
 export function ServiceLinksView({ enabled }: { enabled: boolean }) {
-  const [selectedLeafId, setSelectedLeafId] = useState<string | null>(null)
-
   const { data: allServices = [], isLoading: servicesLoading } = useServicesForLinks(enabled)
   const { data: allLinks = [], isLoading: linksLoading } = useAllServiceLinks(enabled)
   const isLoading = servicesLoading || linksLoading
 
-  const treeMap = useMemo(() => buildTreeMap(allServices), [allServices])
   const breadcrumbs = useMemo(() => buildBreadcrumbMap(allServices), [allServices])
   const parentIds = useMemo(() => buildParentIdSet(allServices), [allServices])
 
   // Leaf IDs: services with no children
-  const leafIds = useMemo(
-    () => allServices.filter((s) => !parentIds.has(s.id)).map((s) => s.id),
+  const leafIdSet = useMemo(
+    () => new Set(allServices.filter(s => !parentIds.has(s.id)).map(s => s.id)),
     [allServices, parentIds],
   )
-  const leafIdSet = useMemo(() => new Set(leafIds), [leafIds])
 
   // New state for master-detail layout
   const [activeId, setActiveId] = useState<string | null>(null)
@@ -91,12 +86,6 @@ export function ServiceLinksView({ enabled }: { enabled: boolean }) {
       </div>
     )
   }
-
-  // treeMap is computed but not used in this layout — kept to avoid breaking
-  // any downstream helpers that may need it in future tasks
-  void treeMap
-  void selectedLeafId
-  void setSelectedLeafId
 
   return (
     <div className="flex h-full">
