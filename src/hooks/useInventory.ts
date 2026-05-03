@@ -998,21 +998,22 @@ export function useAddServiceInventoryLink() {
 
 /** Bulk insert service↔variant links via RPC. */
 export function useAddBulkServiceInventoryLinks() {
-  const queryClient = useQueryClient()
+  const qc = useQueryClient()
   return useMutation({
     mutationFn: async ({
       serviceIds,
       brandVariantId,
-      linkType = 'supply' as const,
+      linkType = 'supply' as LinkType,
       quantity = 1,
       warrantyMonths = 0,
     }: {
       serviceIds: string[]
       brandVariantId: string
-      linkType?: 'supply' | 'consumable'
+      linkType?: LinkType
       quantity?: number
       warrantyMonths?: number
     }) => {
+      if (serviceIds.length === 0) return
       const supabase = createClient()
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       const { error } = await (supabase as any).rpc('service_inventory_bulk_upsert', {
@@ -1025,7 +1026,7 @@ export function useAddBulkServiceInventoryLinks() {
       if (error) throw error
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['service-links-all'] })
+      qc.invalidateQueries({ queryKey: ['service-links-all'] })
     },
   })
 }
