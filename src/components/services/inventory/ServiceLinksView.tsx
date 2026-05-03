@@ -63,6 +63,12 @@ export function ServiceLinksView({ enabled }: { enabled: boolean }) {
   const linkedCount = hasSupplySet.size
   const noSupplyCount = leafServices.length - linkedCount
 
+  // All variant IDs linked to any service — passed to ServiceLeafPanel for picker dimming
+  const linkedVariantIds = useMemo(
+    () => new Set(allLinks.map((l) => l.brand_variant_id)),
+    [allLinks],
+  )
+
   const rightPanelMode: 'zero' | 'single' | 'bulk' =
     checkedIds.size >= 2 ? 'bulk' : activeId ? 'single' : 'zero'
 
@@ -139,6 +145,7 @@ export function ServiceLinksView({ enabled }: { enabled: boolean }) {
               breadcrumb={breadcrumbs.get(activeService.id) ?? ''}
               links={activeLinks}
               warranty={activeService.warranty ?? null}
+              linkedVariantIds={linkedVariantIds}
               onClose={() => setActiveId(null)}
             />
           )}

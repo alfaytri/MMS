@@ -1,6 +1,7 @@
 'use client'
 
-import { useEffect, useRef, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
+import { ChevronDown, ChevronRight } from 'lucide-react'
 import { Input } from '@/components/ui/input'
 import { Checkbox } from '@/components/ui/checkbox'
 import { ServiceNode } from './serviceInventoryHelpers'
@@ -32,6 +33,7 @@ export function ServiceLinksMasterList({
 }: Props) {
   const [query, setQuery] = useState('')
   const [focusedIdx, setFocusedIdx] = useState(0)
+  const [collapsedCats, setCollapsedCats] = useState<Set<string>>(new Set())
   const searchRef = useRef<HTMLInputElement>(null)
   const listRef = useRef<HTMLDivElement>(null)
 
@@ -50,32 +52,60 @@ export function ServiceLinksMasterList({
   const trimmed = query.trim().toLowerCase()
 
   // Filtered flat list of leaf services
-  const filteredLeaves = trimmed
-    ? leafServices.filter(s => {
-        const name = s.name_en.toLowerCase()
-        const breadcrumb = (breadcrumbMap.get(s.id) ?? '').toLowerCase()
-        return name.includes(trimmed) || breadcrumb.includes(trimmed)
-      })
-    : leafServices
+  const filteredLeaves = useMemo(
+    () =>
+      trimmed
+        ? leafServices.filter((s) => {
+            const name = s.name_en.toLowerCase()
+            const breadcrumb = (breadcrumbMap.get(s.id) ?? '').toLowerCase()
+            return name.includes(trimmed) || breadcrumb.includes(trimmed)
+          })
+        : leafServices,
+    [leafServices, breadcrumbMap, trimmed],
+  )
+
+  // O(1) index lookup — avoids O(n²) indexOf calls in the grouped render
+  const idxMap = useMemo(
+    () => new Map(filteredLeaves.map((s, i) => [s.id, i])),
+    [filteredLeaves],
+  )
+
+  // Stat bar counts — update with the current filter
+  const filteredLinkedCount = useMemo(
+    () => filteredLeaves.filter((s) => hasSupplySet.has(s.id)).length,
+    [filteredLeaves, hasSupplySet],
+  )
+  const filteredNoSupplyCount = filteredLeaves.length - filteredLinkedCount
 
   // Group by top-level category (first segment of breadcrumb)
-  const groups = new Map<string, ServiceNode[]>()
-  if (!trimmed) {
+  const groups = useMemo(() => {
+    if (trimmed) return new Map<string, ServiceNode[]>()
+    const map = new Map<string, ServiceNode[]>()
     for (const s of filteredLeaves) {
       const breadcrumb = breadcrumbMap.get(s.id) ?? s.name_en
       const cat = breadcrumb.split(' › ')[0]
-      if (!groups.has(cat)) groups.set(cat, [])
-      groups.get(cat)!.push(s)
+      if (!map.has(cat)) map.set(cat, [])
+      map.get(cat)!.push(s)
     }
+    return map
+  }, [filteredLeaves, breadcrumbMap, trimmed])
+
+  function toggleCollapse(cat: string) {
+    setCollapsedCats((prev) => {
+      const next = new Set(prev)
+      if (next.has(cat)) next.delete(cat)
+      else next.add(cat)
+      return next
+    })
   }
 
   const handleKeyDown = (e: React.KeyboardEvent) => {
     if (e.key === 'ArrowDown') {
       e.preventDefault()
-      setFocusedIdx(i => Math.min(i + 1, filteredLeaves.length - 1))
+      setFocusedIdx((i) => Math.min(i + 1, filteredLeaves.length - 1))
     } else if (e.key === 'ArrowUp') {
       e.preventDefault()
-      setFocusedIdx(i => Math.max(i - 1, 0))
+      setFocusedIdx((i) => Math.max(i - 1, 0))
     } else if (e.key === 'Enter') {
       const s = filteredLeaves[focusedIdx]
       if (s) onActivate(s.id)
@@ -87,6 +117,12 @@ export function ServiceLinksMasterList({
   }
 
   const handleSearchKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
+    if (e.key === 'Escape') {
+      e.preventDefault()
+      setQuery('')
+      setFocusedIdx(0)
+      return
+    }
     if (e.key === 'ArrowDown') {
       e.preventDefault()
       setFocusedIdx(0)
@@ -96,12 +132,12 @@ export function ServiceLinksMasterList({
     handleKeyDown(e)
   }
 
-  const renderRow = (service: ServiceNode, idx: number) => {
+  const renderRow = (service: ServiceNode, flatIdx: number) => {
     const breadcrumb = breadcrumbMap.get(service.id) ?? ''
     const isActive = activeId === service.id
     const isChecked = checkedIds.has(service.id)
     const hasSupply = hasSupplySet.has(service.id)
-    const isFocused = focusedIdx === idx
+    const isFocused = focusedIdx === flatIdx
 
     let rowCls =
       'group relative flex items-start gap-2 px-3 py-2 cursor-pointer select-none border-l-[3px] transition-colors'
@@ -126,9 +162,12 @@ export function ServiceLinksMasterList({
         {/* Checkbox — visible on hover or when checked */}
         <div
           className={`mt-0.5 shrink-0 transition-opacity ${isChecked ? 'opacity-100' : 'opacity-0 group-hover:opacity-100'}`}
-          onClick={e => { e.stopPropagation(); onToggleCheck(service.id) }}
+          onClick={(e) => { e.stopPropagation(); onToggleCheck(service.id) }}
         >
-          <Checkbox checked={isChecked} />
+          <Checkbox
+            checked={isChecked}
+            onCheckedChange={() => onToggleCheck(service.id)}
+          />
         </div>
 
         {/* Text */}
@@ -165,19 +204,19 @@ export function ServiceLinksMasterList({
           ref={searchRef}
           placeholder={`Search ${totalCount} services…`}
           value={query}
-          onChange={e => { setQuery(e.target.value); setFocusedIdx(0) }}
+          onChange={(e) => { setQuery(e.target.value); setFocusedIdx(0) }}
           onKeyDown={handleSearchKeyDown}
           className="h-9"
         />
       </div>
 
-      {/* Stat bar */}
+      {/* Stat bar — counts update with the active filter */}
       <div className="px-3 py-1.5 text-xs text-muted-foreground border-b bg-muted/30 shrink-0">
         <span className="font-medium text-foreground">{filteredLeaves.length}</span> services
         {' · '}
-        <span className="text-green-600 font-medium">{linkedCount}</span> linked
+        <span className="text-green-600 font-medium">{filteredLinkedCount}</span> linked
         {' · '}
-        <span className="text-amber-500 font-medium">{noSupplyCount}</span> no supply
+        <span className="text-amber-500 font-medium">{filteredNoSupplyCount}</span> no supply
       </div>
 
       {/* List */}
@@ -191,23 +230,36 @@ export function ServiceLinksMasterList({
         {trimmed ? (
           // Flat search results
           filteredLeaves.length === 0 ? (
-            <p className="p-4 text-sm text-muted-foreground text-center">No services match &quot;{query}&quot;</p>
+            <p className="p-4 text-sm text-muted-foreground text-center">
+              No services match &quot;{query}&quot;
+            </p>
           ) : (
             filteredLeaves.map((s, i) => renderRow(s, i))
           )
         ) : (
-          // Grouped by category
-          Array.from(groups.entries()).map(([cat, leaves]) => (
-            <div key={cat}>
-              <div className="px-3 py-1.5 text-xs font-semibold text-muted-foreground uppercase tracking-wide bg-muted/20 sticky top-0 z-10">
-                {cat}
-                <span className="ml-1 font-normal normal-case">
-                  ({leaves.length})
-                </span>
+          // Grouped by category with collapsible headers
+          Array.from(groups.entries()).map(([cat, leaves]) => {
+            const isCollapsed = collapsedCats.has(cat)
+            const catLinkedCount = leaves.filter((s) => hasSupplySet.has(s.id)).length
+            return (
+              <div key={cat}>
+                <button
+                  onClick={() => toggleCollapse(cat)}
+                  className="w-full flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold text-muted-foreground uppercase tracking-wide bg-muted/20 sticky top-0 z-10 hover:bg-muted/40 transition-colors"
+                >
+                  {isCollapsed
+                    ? <ChevronRight className="h-3 w-3 shrink-0" />
+                    : <ChevronDown className="h-3 w-3 shrink-0" />
+                  }
+                  <span className="flex-1 text-left">{cat}</span>
+                  <span className="font-normal normal-case">
+                    {leaves.length} · <span className="text-green-600">{catLinkedCount}</span> linked
+                  </span>
+                </button>
+                {!isCollapsed && leaves.map((s) => renderRow(s, idxMap.get(s.id) ?? 0))}
               </div>
-              {leaves.map(s => renderRow(s, filteredLeaves.indexOf(s)))}
-            </div>
-          ))
+            )
+          })
         )}
       </div>
     </div>
