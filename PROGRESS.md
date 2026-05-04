@@ -154,10 +154,11 @@ Purchase & Sales▾:
 
 ## 🔄 In Progress
 
-🚀 Next: **Teams & Employee Page Task 19 (if any)**
+_Nothing in progress_
 
 ## ✅ Completed
 
+- [2026-05-04] **Teams & Employee Page (Tasks 1-20)** — `supabase/migrations/20260503000001-5_*.sql`, `src/hooks/useTeams.ts`, `src/components/teams/**`, `src/app/(dashboard)/master-data/teams/page.tsx` — Full teams management page with drag-and-drop, CRUD dialogs, activity logging, and schedule management
 - [2026-05-04] **Teams & Employee Page Task 18: ActivityLogPanel + EntityActivityLogDialog** — `src/components/teams/dialogs/ActivityLogPanel.tsx` (new), `src/components/teams/dialogs/EntityActivityLogDialog.tsx` (new) — ActivityLogPanel: right Sheet with 5 filter tabs (all/team/employee/vehicle/schedule); renders logs with action label, entity_type badge, actor name, relative time; null-safe on entity_type and created_at. EntityActivityLogDialog: standalone Dialog for per-entity log view with same log card layout; tsc clean
 - [2026-05-04] **Teams & Employee Page Task 17: ScheduleDialog** — `src/components/teams/dialogs/ScheduleDialog.tsx` (new) — Dual-mode dialog: LIST mode (global schedule library CRUD with inline day-grid editor; Errata 13: Sun–Thu enabled by default for Saudi Arabia workweek); TEAM-ATTACHMENT mode (attach/detach schedule assignments with date range; `a.schedule.name` typed directly via joined `Schedule` object; status badges: active/upcoming/past); tsc clean
 - [2026-05-04] **Teams & Employee Page Task 16: VehicleEditDialog** — `src/components/teams/dialogs/VehicleEditDialog.tsx` (new) — Dialog for create/edit/archive vehicles; Errata 5: Save button disabled during async plate uniqueness check (`isValidatingPlate` state); plate blur triggers Supabase count query excluding current vehicle id; `isMutating` guards both create and update paths; tsc clean
