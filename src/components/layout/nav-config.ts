@@ -35,7 +35,7 @@ export const NAV_ITEMS: NavEntry[] = [
       {
         items: [
           { label: 'Services', href: '/master-data/services' },
-          { label: 'Team & Employee', href: '/master-data/teams', comingSoon: true },
+          { label: 'Teams & Employees', href: '/master-data/teams' },
           { label: 'Subscription Packages', href: '/master-data/subscriptions', comingSoon: true },
           { label: 'QuickBooks', href: '/master-data/quickbooks', comingSoon: true },
           { label: 'Notification Trail', href: '/master-data/notifications', comingSoon: true },
