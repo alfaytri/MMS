@@ -17,7 +17,7 @@ export function EntityActivityLogDialog({ open, entityId, entityName, onClose }:
 
   return (
     <Dialog open={open} onOpenChange={o => { if (!o) onClose() }}>
-      <DialogContent className="w-full max-w-lg max-h-[80vh] overflow-y-auto md:rounded-lg">
+      <DialogContent className="w-full max-w-lg rounded-none md:rounded-lg max-h-[80vh] overflow-y-auto">
         <DialogHeader>
           <DialogTitle>Activity — {entityName}</DialogTitle>
         </DialogHeader>

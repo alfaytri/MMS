@@ -138,7 +138,7 @@ export function ScheduleDialog() {
 
   return (
     <Dialog open={open} onOpenChange={o => { if (!o) closeScheduleDialog() }}>
-      <DialogContent className="w-full max-w-2xl max-h-[90vh] overflow-y-auto md:rounded-lg">
+      <DialogContent className="w-full max-w-2xl rounded-none md:rounded-lg max-h-[90vh] overflow-y-auto">
         <DialogHeader>
           <DialogTitle>{isTeamMode ? 'Team Schedules' : 'Manage Schedules'}</DialogTitle>
         </DialogHeader>

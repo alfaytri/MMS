@@ -88,7 +88,7 @@ export function VehicleEditDialog() {
 
   return (
     <Dialog open={open} onOpenChange={o => { if (!o) closeVehicleDialog() }}>
-      <DialogContent className="w-full max-w-md md:rounded-lg">
+      <DialogContent className="w-full max-w-md rounded-none md:rounded-lg">
         <DialogHeader>
           <DialogTitle>{isEdit ? 'Edit Vehicle' : 'New Vehicle'}</DialogTitle>
         </DialogHeader>
