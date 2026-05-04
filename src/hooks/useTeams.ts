@@ -7,36 +7,16 @@ import type { DBTable, DBInsert, DBUpdate } from '@/types/database.types'
 // Base DB types
 // ---------------------------------------------------------------------------
 
-// Extend TeamRaw to include newly added columns not yet in generated types
-export interface TeamRaw extends DBTable<'teams'> {
-  name_en?: string | null
-  name_ar?: string | null
-  phone?: string | null
-  division_id?: string | null
-  is_emergency?: boolean | null
-  is_qc?: boolean | null
-  traccar_device_id?: string | null
-  deleted_at?: string | null
-}
+export type TeamRaw = DBTable<'teams'>
 export type TeamInsert = DBInsert<'teams'>
 export type TeamUpdate = DBUpdate<'teams'>
 
-// Extend Employee to include newly added columns not yet in generated types
-export interface Employee extends DBTable<'employees'> {
-  avatar_url?: string | null
-  site_visit_order?: boolean | null
-  site_visit_quotation?: boolean | null
-  deleted_at?: string | null
-}
+export type Employee = DBTable<'employees'>
 export type EmployeeInsert = DBInsert<'employees'>
 export type EmployeeUpdate = DBUpdate<'employees'>
 export type EmployeeStatus = 'active' | 'unassigned' | 'vacation' | 'on-task' | 'archived'
 
-// Extend Vehicle to include newly added columns not yet in generated types
-export interface Vehicle extends DBTable<'vehicles'> {
-  traccar_device_id?: string | null
-  deleted_at?: string | null
-}
+export type Vehicle = DBTable<'vehicles'>
 export type VehicleInsert = DBInsert<'vehicles'>
 export type VehicleUpdate = DBUpdate<'vehicles'>
 
@@ -101,7 +81,7 @@ export function useTeams(filters?: TeamsFilters) {
 
       const [teamsRes, employeesRes, vehiclesRes, schedulesRes] = await Promise.allSettled([
         // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        (supabase.from('teams') as any).select('*').is('deleted_at', null).order('name_en'),
+        (supabase.from('teams') as any).select('*').is('deleted_at', null).order('name_en', { nullsFirst: false }),
         // eslint-disable-next-line @typescript-eslint/no-explicit-any
         (supabase.from('employees') as any).select('*').is('deleted_at', null),
         // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -134,11 +114,13 @@ export function useTeams(filters?: TeamsFilters) {
         const q = filters.search.toLowerCase()
         result = result.filter(t =>
           t.name_en?.toLowerCase().includes(q) ||
-          t.name_ar?.toLowerCase().includes(q)
+          t.name_ar?.toLowerCase().includes(q) ||
+          t.name?.toLowerCase().includes(q)
         )
       }
       if (filters?.divisionId) {
-        result = result.filter(t => t.division_id === filters.divisionId)
+        // divisionId may be a division slug (enum value) or UUID — match against division column
+        result = result.filter(t => (t as unknown as Record<string, unknown>).division === filters.divisionId)
       }
 
       return result

@@ -14,7 +14,7 @@ export function TeamRow({ team }: { team: TeamFull }) {
 
   return (
     <div className="flex flex-col sm:flex-row sm:items-center gap-2 px-3 py-2 border-b hover:bg-muted/30 text-sm">
-      <div className="w-36 shrink-0 font-medium truncate">{team.name_en}</div>
+      <div className="w-36 shrink-0 font-medium truncate">{team.name_en ?? team.name}</div>
       <div className="flex gap-1 shrink-0">
         {team.is_emergency && (
           <Badge className="text-[10px] px-1 bg-red-100 text-red-700 hover:bg-red-100">EMR</Badge>

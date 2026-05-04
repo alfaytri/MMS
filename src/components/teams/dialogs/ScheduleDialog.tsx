@@ -37,6 +37,7 @@ interface DayConfig {
   enabled: boolean
   start: string
   end: string
+  break_start: string
   break_minutes: number
 }
 
@@ -54,6 +55,7 @@ function defaultDays(): ScheduleFormValues['days'] {
         enabled: ['sun', 'mon', 'tue', 'wed', 'thu'].includes(d),
         start: '08:00',
         end: '17:00',
+        break_start: '13:00',
         break_minutes: 60,
       },
     ])
@@ -82,6 +84,7 @@ export function ScheduleDialog() {
   const detachSchedule = useDetachSchedule()
 
   const [editingId, setEditingId] = useState<string | 'new' | null>(null)
+  const [viewOnly, setViewOnly] = useState(false)
   const [showAttachForm, setShowAttachForm] = useState(false)
 
   const form = useForm<ScheduleFormValues>({
@@ -92,10 +95,20 @@ export function ScheduleDialog() {
   })
 
   function startEdit(schedule?: Schedule) {
+    setViewOnly(false)
     setEditingId(schedule?.id ?? 'new')
     form.reset({
       name: schedule?.name ?? '',
       days: (schedule?.days as ScheduleFormValues['days'] | undefined) ?? defaultDays(),
+    })
+  }
+
+  function startView(schedule: Schedule) {
+    setViewOnly(true)
+    setEditingId(schedule.id)
+    form.reset({
+      name: schedule.name ?? '',
+      days: (schedule.days as unknown as ScheduleFormValues['days'] | undefined) ?? defaultDays(),
     })
   }
 
@@ -154,15 +167,21 @@ export function ScheduleDialog() {
                   onSubmit={form.handleSubmit(onSaveSchedule)}
                   className="border rounded p-3 space-y-3"
                 >
+                  {viewOnly && (
+                    <p className="text-xs text-muted-foreground bg-muted/40 rounded px-2 py-1">
+                      View only — <button type="button" className="underline hover:text-foreground" onClick={() => setViewOnly(false)}>click to edit</button>
+                    </p>
+                  )}
+
                   <FormField
                     control={form.control}
                     name="name"
-                    rules={{ required: 'Required' }}
+                    rules={{ required: !viewOnly && 'Required' }}
                     render={({ field }) => (
                       <FormItem>
                         <FormLabel>Name</FormLabel>
                         <FormControl>
-                          <Input {...field} />
+                          <Input {...field} disabled={viewOnly} />
                         </FormControl>
                       </FormItem>
                     )}
@@ -178,32 +197,46 @@ export function ScheduleDialog() {
                         >
                           <Switch
                             checked={enabled}
-                            onCheckedChange={v => form.setValue(`days.${day}.enabled`, v)}
+                            disabled={viewOnly}
+                            onCheckedChange={v => !viewOnly && form.setValue(`days.${day}.enabled`, v)}
                           />
                           <span className="w-8 uppercase text-xs font-mono">{day}</span>
                           {enabled && (
                             <>
                               <Input
                                 type="time"
-                                className="w-28 h-7"
+                                className="w-32 h-8"
+                                disabled={viewOnly}
                                 {...form.register(`days.${day}.start`)}
                               />
                               <span>–</span>
                               <Input
                                 type="time"
-                                className="w-28 h-7"
+                                className="w-32 h-8"
+                                disabled={viewOnly}
                                 {...form.register(`days.${day}.end`)}
                               />
-                              <Input
-                                type="number"
-                                min={0}
-                                max={180}
-                                className="w-20 h-7"
-                                placeholder="break min"
-                                {...form.register(`days.${day}.break_minutes`, {
-                                  valueAsNumber: true,
-                                })}
-                              />
+                              <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
+                                <span>Break @</span>
+                                <Input
+                                  type="time"
+                                  className="w-32 h-8"
+                                  disabled={viewOnly}
+                                  {...form.register(`days.${day}.break_start`)}
+                                />
+                                <span>for</span>
+                                <Input
+                                  type="number"
+                                  min={0}
+                                  max={180}
+                                  className="w-14 h-8"
+                                  disabled={viewOnly}
+                                  {...form.register(`days.${day}.break_minutes`, {
+                                    valueAsNumber: true,
+                                  })}
+                                />
+                                <span>min</span>
+                              </div>
                             </>
                           )}
                         </div>
@@ -212,18 +245,20 @@ export function ScheduleDialog() {
                   </div>
 
                   <div className="flex gap-2">
-                    <Button type="submit" size="sm">
-                      {createSchedule.isPending || updateSchedule.isPending
-                        ? 'Saving...'
-                        : 'Save'}
-                    </Button>
+                    {!viewOnly && (
+                      <Button type="submit" size="sm">
+                        {createSchedule.isPending || updateSchedule.isPending
+                          ? 'Saving...'
+                          : 'Save'}
+                      </Button>
+                    )}
                     <Button
                       type="button"
                       size="sm"
                       variant="outline"
-                      onClick={() => setEditingId(null)}
+                      onClick={() => { setEditingId(null); setViewOnly(false) }}
                     >
-                      Cancel
+                      {viewOnly ? 'Close' : 'Cancel'}
                     </Button>
                   </div>
                 </form>
@@ -238,6 +273,9 @@ export function ScheduleDialog() {
                 >
                   <span className="font-medium">{s.name}</span>
                   <div className="flex gap-2">
+                    <Button size="sm" variant="ghost" onClick={() => startView(s)}>
+                      View
+                    </Button>
                     <Button size="sm" variant="outline" onClick={() => startEdit(s)}>
                       Edit
                     </Button>

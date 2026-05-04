@@ -5407,6 +5407,9 @@ export type Database = {
           is_qc: boolean
           leader_id: string | null
           name: string
+          name_ar: string | null
+          name_en: string
+          phone: string | null
           schedule_end: number | null
           schedule_id: string | null
           schedule_start: number | null
@@ -5424,6 +5427,9 @@ export type Database = {
           is_qc?: boolean
           leader_id?: string | null
           name: string
+          name_ar?: string | null
+          name_en?: string
+          phone?: string | null
           schedule_end?: number | null
           schedule_id?: string | null
           schedule_start?: number | null
@@ -5441,6 +5447,9 @@ export type Database = {
           is_qc?: boolean
           leader_id?: string | null
           name?: string
+          name_ar?: string | null
+          name_en?: string
+          phone?: string | null
           schedule_end?: number | null
           schedule_id?: string | null
           schedule_start?: number | null
@@ -7129,3 +7138,13 @@ export const Constants = {
     },
   },
 } as const
+
+// ─── Convenience type helpers ──────────────────────────────────────────────────
+export type DBTable<T extends keyof Database['public']['Tables']> =
+  Database['public']['Tables'][T]['Row']
+
+export type DBInsert<T extends keyof Database['public']['Tables']> =
+  Database['public']['Tables'][T]['Insert']
+
+export type DBUpdate<T extends keyof Database['public']['Tables']> =
+  Database['public']['Tables'][T]['Update']

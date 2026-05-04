@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useMemo } from 'react'
+import { useEffect, useState } from 'react'
 import { useForm } from 'react-hook-form'
 import {
   Dialog,
@@ -27,8 +27,7 @@ import {
 import { Input } from '@/components/ui/input'
 import { Button } from '@/components/ui/button'
 import { Switch } from '@/components/ui/switch'
-import { useCreateTeam, useUpdateTeam, useArchiveTeam, useEmployees } from '@/hooks/useTeams'
-import { useDivisions } from '@/hooks/useDivisions'
+import { useCreateTeam, useUpdateTeam, useArchiveTeam } from '@/hooks/useTeams'
 import { useTeamsPage } from '../TeamsPageContext'
 
 // ─── Country codes ─────────────────────────────────────────────────────────────
@@ -57,11 +56,19 @@ function parsePhone(phone: string): { code: string; number: string } {
   return { code: '+974', number: phone }
 }
 
+type TeamDivision = 'alfaytri-maintenance' | 'alfaytri-kitchen' | 'rsh'
+
+const DIVISION_OPTIONS: { value: TeamDivision; label: string }[] = [
+  { value: 'alfaytri-maintenance', label: 'Maintenance' },
+  { value: 'alfaytri-kitchen',     label: 'Kitchen'     },
+  { value: 'rsh',                  label: 'RSH'         },
+]
+
 // ─── Form value types ──────────────────────────────────────────────────────────
 interface TeamFormValues {
   name_en:           string
   name_ar:           string
-  division_id:       string
+  division:          TeamDivision | ''
   countryCode:       string
   phoneNumber:       string
   is_emergency:      boolean
@@ -75,28 +82,17 @@ export function TeamEditDialog() {
   const { open, team } = teamDialog
   const isEdit = !!team
 
+  const [saveError, setSaveError] = useState<string | null>(null)
+
   const createTeam  = useCreateTeam()
   const updateTeam  = useUpdateTeam()
   const archiveTeam = useArchiveTeam()
-
-  const { data: divisions = [], isLoading: divisionsLoading } = useDivisions()
-  const { data: allEmployees = [] } = useEmployees()
-
-  // Derive site visit capability from current team's members (read-only)
-  const teamMembers = useMemo(
-    () => (team ? allEmployees.filter(e => e.team_id === team.id) : []),
-    [allEmployees, team],
-  )
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const hasOrderVisit      = teamMembers.some(e => (e as any).site_visit_order === true)
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const hasQuotationVisit  = teamMembers.some(e => (e as any).site_visit_quotation === true)
 
   const form = useForm<TeamFormValues>({
     defaultValues: {
       name_en:           '',
       name_ar:           '',
-      division_id:       '',
+      division:          '',
       countryCode:       '+974',
       phoneNumber:       '',
       is_emergency:      false,
@@ -105,17 +101,19 @@ export function TeamEditDialog() {
     },
   })
 
-  // Populate form when opening. Errata 6: normalize both-true data — emergency wins.
   useEffect(() => {
+    setSaveError(null)
     if (team) {
       const isEmergency = team.is_emergency ?? false
       const isQc        = isEmergency ? false : (team.is_qc ?? false)
-      const parsed      = parsePhone(team.phone ?? '')
-
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const parsed      = parsePhone((team as any).phone ?? '')
       form.reset({
-        name_en:           team.name_en           ?? '',
-        name_ar:           team.name_ar           ?? '',
-        division_id:       team.division_id        ?? '',
+        name_en:           team.name_en                              ?? team.name ?? '',
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        name_ar:           (team as any).name_ar                    ?? '',
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        division:          ((team as any).division as TeamDivision)  ?? '',
         countryCode:       parsed.code,
         phoneNumber:       parsed.number,
         is_emergency:      isEmergency,
@@ -124,53 +122,56 @@ export function TeamEditDialog() {
       })
     } else {
       form.reset({
-        name_en:           '',
-        name_ar:           '',
-        division_id:       '',
-        countryCode:       '+974',
-        phoneNumber:       '',
-        is_emergency:      false,
-        is_qc:             false,
-        traccar_device_id: '',
+        name_en: '', name_ar: '', division: '',
+        countryCode: '+974', phoneNumber: '',
+        is_emergency: false, is_qc: false, traccar_device_id: '',
       })
     }
   }, [team, open, form])
 
   async function onSubmit(values: TeamFormValues) {
-    const fullPhone = values.phoneNumber
-      ? `${values.countryCode} ${values.phoneNumber}`
-      : ''
+    setSaveError(null)
+    try {
+      const fullPhone = values.phoneNumber
+        ? `${values.countryCode} ${values.phoneNumber}`
+        : null
 
-    const payload = {
-      name_en:           values.name_en,
-      name_ar:           values.name_ar           || null,
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      division_id:       values.division_id        || null as any,
-      phone:             fullPhone                 || null,
-      is_emergency:      values.is_emergency,
-      is_qc:             values.is_qc,
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      traccar_device_id: values.traccar_device_id || null as any,
-    }
+      const payload = {
+        name:              values.name_en,
+        name_en:           values.name_en,
+        name_ar:           values.name_ar           || null,
+        division:          values.division           || null,
+        phone:             fullPhone,
+        is_emergency:      values.is_emergency,
+        is_qc:             values.is_qc,
+        traccar_device_id: values.traccar_device_id || null,
+      }
 
-    if (isEdit) {
-      await updateTeam.mutateAsync({
-        id:     team!.id,
-        before: team as unknown as Record<string, unknown>,
+      if (isEdit) {
+        await updateTeam.mutateAsync({
+          id:     team!.id,
+          before: team as unknown as Record<string, unknown>,
+          // eslint-disable-next-line @typescript-eslint/no-explicit-any
+          ...(payload as any),
+        })
+      } else {
         // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        ...(payload as any),
-      })
-    } else {
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      await createTeam.mutateAsync(payload as any)
-    }
+        await createTeam.mutateAsync(payload as any)
+      }
 
-    closeTeamDialog()
+      closeTeamDialog()
+    } catch (err) {
+      setSaveError(err instanceof Error ? err.message : 'Save failed. Please try again.')
+    }
   }
 
   async function handleArchive() {
-    await archiveTeam.mutateAsync(team!.id)
-    closeTeamDialog()
+    try {
+      await archiveTeam.mutateAsync(team!.id)
+      closeTeamDialog()
+    } catch (err) {
+      setSaveError(err instanceof Error ? err.message : 'Archive failed.')
+    }
   }
 
   const isPending = createTeam.isPending || updateTeam.isPending
@@ -222,25 +223,21 @@ export function TeamEditDialog() {
               {/* ── Division ── */}
               <FormField
                 control={form.control}
-                name="division_id"
+                name="division"
                 rules={{ required: 'Division is required' }}
                 render={({ field }) => (
                   <FormItem>
                     <FormLabel>Division</FormLabel>
-                    <Select
-                      value={field.value}
-                      onValueChange={field.onChange}
-                      disabled={divisionsLoading}
-                    >
+                    <Select value={field.value} onValueChange={field.onChange}>
                       <FormControl>
                         <SelectTrigger>
-                          <SelectValue placeholder={divisionsLoading ? 'Loading…' : 'Select division'} />
+                          <SelectValue placeholder="Select division" />
                         </SelectTrigger>
                       </FormControl>
                       <SelectContent>
-                        {divisions.map(div => (
-                          <SelectItem key={div.id} value={div.id}>
-                            {div.name}
+                        {DIVISION_OPTIONS.map(opt => (
+                          <SelectItem key={opt.value} value={opt.value}>
+                            {opt.label}
                           </SelectItem>
                         ))}
                       </SelectContent>
@@ -313,30 +310,6 @@ export function TeamEditDialog() {
                 />
               </div>
 
-              {/* ── Site Visit Capability (read-only) ── */}
-              <div className="rounded-lg border p-3 space-y-3">
-                <div>
-                  <p className="text-sm font-medium">Site Visit Capability</p>
-                  <p className="text-xs text-muted-foreground mt-0.5">
-                    Auto-derived from team members&apos; site visit flags (read-only)
-                  </p>
-                </div>
-
-                <div className="flex items-center justify-between">
-                  <span className="text-sm font-normal text-muted-foreground">
-                    Site Visit — Orders
-                  </span>
-                  <Switch checked={hasOrderVisit} disabled aria-readonly />
-                </div>
-
-                <div className="flex items-center justify-between">
-                  <span className="text-sm font-normal text-muted-foreground">
-                    Site Visit — Contracts
-                  </span>
-                  <Switch checked={hasQuotationVisit} disabled aria-readonly />
-                </div>
-              </div>
-
               {/* ── Phone ── */}
               <div className="flex gap-2 items-end">
                 <FormField
@@ -344,9 +317,7 @@ export function TeamEditDialog() {
                   name="countryCode"
                   render={({ field }) => (
                     <FormItem className="w-36 shrink-0">
-                      <FormLabel>
-                        Phone <span className="text-destructive">*</span>
-                      </FormLabel>
+                      <FormLabel>Phone</FormLabel>
                       <Select value={field.value} onValueChange={field.onChange}>
                         <FormControl>
                           <SelectTrigger className="h-9">
@@ -399,6 +370,10 @@ export function TeamEditDialog() {
                   </FormItem>
                 )}
               />
+
+              {saveError && (
+                <p className="text-sm text-destructive">{saveError}</p>
+              )}
 
             </div>
 
