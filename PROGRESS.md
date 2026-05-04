@@ -154,10 +154,12 @@ Purchase & Sales▾:
 
 ## 🔄 In Progress
 
-🚀 Starting: **Teams & Employee Page Task 8: TeamsPageContext**
+🚀 Starting: **Teams & Employee Page Task 17: Next task**
 
 ## ✅ Completed
 
+- [2026-05-04] **Teams & Employee Page Task 16: VehicleEditDialog** — `src/components/teams/dialogs/VehicleEditDialog.tsx` (new) — Dialog for create/edit/archive vehicles; Errata 5: Save button disabled during async plate uniqueness check (`isValidatingPlate` state); plate blur triggers Supabase count query excluding current vehicle id; `isMutating` guards both create and update paths; tsc clean
+- [2026-05-04] **Teams & Employee Page Task 15: EmployeeEditDialog** — `src/components/teams/dialogs/EmployeeEditDialog.tsx` (new) — Dialog for create/edit/archive employees; Errata 7: `crypto.randomUUID()` avatar paths; Errata 11: `submitError` state + try/catch in `onSubmit`; Errata 2: edit path uses `save_employee` RPC (atomic employee+skills), create path uses `createEmployee` then `upsert_employee_services`; loads existing skill IDs from `employee_services` table on open; tsc clean
 - [2026-05-03] **Teams & Employee Page Task 8: TeamsPageContext** — `src/components/teams/TeamsPageContext.tsx` (new) — Page-wide React Context with dialog state (team/employee/vehicle/schedule/log), search + division filter, density toggle; integrated `useToolCountMap` batch hooks to prevent N+1 queries; includes `TeamsPageProvider` component + `useTeamsPage` hook; tsc clean
 - [2026-05-03] **Service Links Redesign — Code Review Fixes** — `InventoryColumnPicker.tsx` (new), `ServiceLeafPanel.tsx`, `ServiceLinksMasterList.tsx`, `ServiceLinksBulkPanel.tsx`, `ServiceLinksView.tsx`, deleted `ServiceLinksColumnBrowser.tsx` — Fixed O(n²) idxMap, Escape key, collapsible category headers with per-category linked count, filtered stat bar counts, Checkbox onCheckedChange, InventoryColumnPicker extracted to own file, ServiceLeafPanel accepts linkedVariantIds prop (removes internal hook call), unused cn import removed
 - [2026-05-03] **Service Links Redesign Task 7: Responsive Behaviour** — `src/components/services/inventory/ServiceLinksView.tsx` — Made master-detail layout responsive: left panel full-width on mobile/tablet, 40% on desktop (lg+); right panel hidden below lg when nothing selected, shows when activeId/bulk mode active; added back button on mobile (lg:hidden) with `setActiveId(null)` + `setCheckedIds(new Set())`; imported Button component; tsc clean
