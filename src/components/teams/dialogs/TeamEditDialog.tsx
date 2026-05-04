@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect } from 'react'
+import { useEffect, useMemo } from 'react'
 import { useForm } from 'react-hook-form'
 import {
   Dialog,
@@ -27,28 +27,49 @@ import {
 import { Input } from '@/components/ui/input'
 import { Button } from '@/components/ui/button'
 import { Switch } from '@/components/ui/switch'
-import { useCreateTeam, useUpdateTeam, useArchiveTeam } from '@/hooks/useTeams'
+import { useCreateTeam, useUpdateTeam, useArchiveTeam, useEmployees } from '@/hooks/useTeams'
 import { useDivisions } from '@/hooks/useDivisions'
 import { useTeamsPage } from '../TeamsPageContext'
 
-// ---------------------------------------------------------------------------
-// Form value types
-// ---------------------------------------------------------------------------
+// ─── Country codes ─────────────────────────────────────────────────────────────
+const COUNTRY_CODES = [
+  { code: '+974', label: 'QA Qatar' },
+  { code: '+966', label: 'SA Saudi' },
+  { code: '+971', label: 'AE UAE'   },
+  { code: '+965', label: 'KW Kuwait'},
+  { code: '+973', label: 'BH Bahrain'},
+  { code: '+968', label: 'OM Oman'  },
+  { code: '+20',  label: 'EG Egypt' },
+  { code: '+92',  label: 'PK Pakistan'},
+  { code: '+91',  label: 'IN India' },
+  { code: '+880', label: 'BD Bangladesh'},
+]
 
+function parsePhone(phone: string): { code: string; number: string } {
+  for (const c of COUNTRY_CODES) {
+    if (phone.startsWith(c.code + ' ')) {
+      return { code: c.code, number: phone.slice(c.code.length + 1) }
+    }
+    if (phone.startsWith(c.code)) {
+      return { code: c.code, number: phone.slice(c.code.length) }
+    }
+  }
+  return { code: '+974', number: phone }
+}
+
+// ─── Form value types ──────────────────────────────────────────────────────────
 interface TeamFormValues {
   name_en:           string
   name_ar:           string
   division_id:       string
-  phone:             string
+  countryCode:       string
+  phoneNumber:       string
   is_emergency:      boolean
   is_qc:             boolean
   traccar_device_id: string
 }
 
-// ---------------------------------------------------------------------------
-// Component
-// ---------------------------------------------------------------------------
-
+// ─── Component ─────────────────────────────────────────────────────────────────
 export function TeamEditDialog() {
   const { teamDialog, closeTeamDialog } = useTeamsPage()
   const { open, team } = teamDialog
@@ -59,33 +80,44 @@ export function TeamEditDialog() {
   const archiveTeam = useArchiveTeam()
 
   const { data: divisions = [], isLoading: divisionsLoading } = useDivisions()
+  const { data: allEmployees = [] } = useEmployees()
+
+  // Derive site visit capability from current team's members (read-only)
+  const teamMembers = useMemo(
+    () => (team ? allEmployees.filter(e => e.team_id === team.id) : []),
+    [allEmployees, team],
+  )
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const hasOrderVisit      = teamMembers.some(e => (e as any).site_visit_order === true)
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const hasQuotationVisit  = teamMembers.some(e => (e as any).site_visit_quotation === true)
 
   const form = useForm<TeamFormValues>({
     defaultValues: {
       name_en:           '',
       name_ar:           '',
       division_id:       '',
-      phone:             '',
+      countryCode:       '+974',
+      phoneNumber:       '',
       is_emergency:      false,
       is_qc:             false,
       traccar_device_id: '',
     },
   })
 
-  // Populate form when opening in edit mode.
-  // Errata 6: normalize both-true data (pre-constraint legacy rows) — prefer emergency over QC.
+  // Populate form when opening. Errata 6: normalize both-true data — emergency wins.
   useEffect(() => {
     if (team) {
-      const rawEmergency = team.is_emergency ?? false
-      const rawQc        = team.is_qc ?? false
-      const isEmergency  = rawEmergency
-      const isQc         = isEmergency ? false : rawQc   // mutual exclusion — emergency wins
+      const isEmergency = team.is_emergency ?? false
+      const isQc        = isEmergency ? false : (team.is_qc ?? false)
+      const parsed      = parsePhone(team.phone ?? '')
 
       form.reset({
         name_en:           team.name_en           ?? '',
         name_ar:           team.name_ar           ?? '',
         division_id:       team.division_id        ?? '',
-        phone:             team.phone              ?? '',
+        countryCode:       parsed.code,
+        phoneNumber:       parsed.number,
         is_emergency:      isEmergency,
         is_qc:             isQc,
         traccar_device_id: team.traccar_device_id ?? '',
@@ -95,7 +127,8 @@ export function TeamEditDialog() {
         name_en:           '',
         name_ar:           '',
         division_id:       '',
-        phone:             '',
+        countryCode:       '+974',
+        phoneNumber:       '',
         is_emergency:      false,
         is_qc:             false,
         traccar_device_id: '',
@@ -104,12 +137,16 @@ export function TeamEditDialog() {
   }, [team, open, form])
 
   async function onSubmit(values: TeamFormValues) {
+    const fullPhone = values.phoneNumber
+      ? `${values.countryCode} ${values.phoneNumber}`
+      : ''
+
     const payload = {
       name_en:           values.name_en,
       name_ar:           values.name_ar           || null,
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       division_id:       values.division_id        || null as any,
-      phone:             values.phone              || null,
+      phone:             fullPhone                 || null,
       is_emergency:      values.is_emergency,
       is_qc:             values.is_qc,
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -137,26 +174,29 @@ export function TeamEditDialog() {
   }
 
   const isPending = createTeam.isPending || updateTeam.isPending
+  const isQc      = form.watch('is_qc')
+  const isEmerg   = form.watch('is_emergency')
+  const isNormal  = !isQc && !isEmerg
 
   return (
     <Dialog open={open} onOpenChange={isOpen => { if (!isOpen) closeTeamDialog() }}>
-      <DialogContent className="w-full max-w-lg rounded-none md:rounded-lg">
-        <DialogHeader>
-          <DialogTitle>{isEdit ? 'Edit Team' : 'New Team'}</DialogTitle>
+      <DialogContent className="w-full max-w-lg rounded-none md:rounded-lg max-h-[90vh] overflow-y-auto p-0">
+        <DialogHeader className="px-6 pt-5 pb-0">
+          <DialogTitle>{isEdit ? 'Edit Team' : 'Add Team'}</DialogTitle>
         </DialogHeader>
 
         <Form {...form}>
-          <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
+          <form onSubmit={form.handleSubmit(onSubmit)}>
+            <div className="px-6 py-4 space-y-4">
 
-            {/* Name fields — EN required, AR optional */}
-            <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+              {/* ── Team Name (EN) ── */}
               <FormField
                 control={form.control}
                 name="name_en"
-                rules={{ required: 'Name (EN) is required' }}
+                rules={{ required: 'Team Name (EN) is required' }}
                 render={({ field }) => (
                   <FormItem>
-                    <FormLabel>Name (EN) <span className="text-destructive">*</span></FormLabel>
+                    <FormLabel>Team Name (EN)</FormLabel>
                     <FormControl>
                       <Input placeholder="e.g. Team Alpha" {...field} />
                     </FormControl>
@@ -164,122 +204,205 @@ export function TeamEditDialog() {
                   </FormItem>
                 )}
               />
+
+              {/* ── Team Name (AR) ── */}
               <FormField
                 control={form.control}
                 name="name_ar"
                 render={({ field }) => (
                   <FormItem>
-                    <FormLabel>Name (AR)</FormLabel>
+                    <FormLabel>Team Name (AR)</FormLabel>
                     <FormControl>
                       <Input placeholder="الاسم بالعربية" dir="rtl" {...field} />
                     </FormControl>
                   </FormItem>
                 )}
               />
-            </div>
 
-            {/* Division — required */}
-            <FormField
-              control={form.control}
-              name="division_id"
-              rules={{ required: 'Division is required' }}
-              render={({ field }) => (
-                <FormItem>
-                  <FormLabel>Division <span className="text-destructive">*</span></FormLabel>
-                  <Select
-                    value={field.value}
-                    onValueChange={field.onChange}
-                    disabled={divisionsLoading}
-                  >
-                    <FormControl>
-                      <SelectTrigger>
-                        <SelectValue placeholder={divisionsLoading ? 'Loading…' : 'Select division'} />
-                      </SelectTrigger>
-                    </FormControl>
-                    <SelectContent>
-                      {divisions.map(div => (
-                        <SelectItem key={div.id} value={div.id}>
-                          {div.name}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                  <FormMessage />
-                </FormItem>
-              )}
-            />
-
-            {/* Phone */}
-            <FormField
-              control={form.control}
-              name="phone"
-              render={({ field }) => (
-                <FormItem>
-                  <FormLabel>Phone</FormLabel>
-                  <FormControl>
-                    <Input type="tel" placeholder="+966 5x xxx xxxx" {...field} />
-                  </FormControl>
-                </FormItem>
-              )}
-            />
-
-            {/* EMR / QC switches — mutually exclusive */}
-            <div className="flex flex-wrap gap-6">
+              {/* ── Division ── */}
               <FormField
                 control={form.control}
-                name="is_emergency"
+                name="division_id"
+                rules={{ required: 'Division is required' }}
                 render={({ field }) => (
-                  <FormItem className="flex items-center gap-2">
-                    <FormControl>
-                      <Switch
-                        checked={field.value}
-                        onCheckedChange={checked => {
-                          field.onChange(checked)
-                          // Turning ON emergency must turn OFF QC
-                          if (checked) form.setValue('is_qc', false)
-                        }}
-                      />
-                    </FormControl>
-                    <FormLabel className="!mt-0 cursor-pointer">Emergency (EMR)</FormLabel>
+                  <FormItem>
+                    <FormLabel>Division</FormLabel>
+                    <Select
+                      value={field.value}
+                      onValueChange={field.onChange}
+                      disabled={divisionsLoading}
+                    >
+                      <FormControl>
+                        <SelectTrigger>
+                          <SelectValue placeholder={divisionsLoading ? 'Loading…' : 'Select division'} />
+                        </SelectTrigger>
+                      </FormControl>
+                      <SelectContent>
+                        {divisions.map(div => (
+                          <SelectItem key={div.id} value={div.id}>
+                            {div.name}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                    <FormMessage />
                   </FormItem>
                 )}
               />
+
+              {/* ── Team Type card ── */}
+              <div className="rounded-lg border p-3 space-y-3">
+                <p className="text-sm font-medium">Team Type</p>
+
+                {/* QC Team */}
+                <FormField
+                  control={form.control}
+                  name="is_qc"
+                  render={({ field }) => (
+                    <FormItem className="flex items-center justify-between">
+                      <FormLabel className="!mt-0 font-normal text-sm cursor-pointer">
+                        QC Team
+                      </FormLabel>
+                      <FormControl>
+                        <Switch
+                          checked={field.value}
+                          onCheckedChange={checked => {
+                            field.onChange(checked)
+                            if (checked) form.setValue('is_emergency', false)
+                          }}
+                        />
+                      </FormControl>
+                    </FormItem>
+                  )}
+                />
+
+                {/* Normal — derived: neither QC nor Emergency */}
+                <div className="flex items-center justify-between">
+                  <span className="text-sm font-normal">Normal</span>
+                  <Switch
+                    checked={isNormal}
+                    onCheckedChange={checked => {
+                      if (checked) {
+                        form.setValue('is_qc', false)
+                        form.setValue('is_emergency', false)
+                      }
+                    }}
+                  />
+                </div>
+
+                {/* Emergency */}
+                <FormField
+                  control={form.control}
+                  name="is_emergency"
+                  render={({ field }) => (
+                    <FormItem className="flex items-center justify-between">
+                      <FormLabel className="!mt-0 font-normal text-sm cursor-pointer">
+                        Emergency
+                      </FormLabel>
+                      <FormControl>
+                        <Switch
+                          checked={field.value}
+                          onCheckedChange={checked => {
+                            field.onChange(checked)
+                            if (checked) form.setValue('is_qc', false)
+                          }}
+                        />
+                      </FormControl>
+                    </FormItem>
+                  )}
+                />
+              </div>
+
+              {/* ── Site Visit Capability (read-only) ── */}
+              <div className="rounded-lg border p-3 space-y-3">
+                <div>
+                  <p className="text-sm font-medium">Site Visit Capability</p>
+                  <p className="text-xs text-muted-foreground mt-0.5">
+                    Auto-derived from team members&apos; site visit flags (read-only)
+                  </p>
+                </div>
+
+                <div className="flex items-center justify-between">
+                  <span className="text-sm font-normal text-muted-foreground">
+                    Site Visit — Orders
+                  </span>
+                  <Switch checked={hasOrderVisit} disabled aria-readonly />
+                </div>
+
+                <div className="flex items-center justify-between">
+                  <span className="text-sm font-normal text-muted-foreground">
+                    Site Visit — Contracts
+                  </span>
+                  <Switch checked={hasQuotationVisit} disabled aria-readonly />
+                </div>
+              </div>
+
+              {/* ── Phone ── */}
+              <div className="flex gap-2 items-end">
+                <FormField
+                  control={form.control}
+                  name="countryCode"
+                  render={({ field }) => (
+                    <FormItem className="w-36 shrink-0">
+                      <FormLabel>
+                        Phone <span className="text-destructive">*</span>
+                      </FormLabel>
+                      <Select value={field.value} onValueChange={field.onChange}>
+                        <FormControl>
+                          <SelectTrigger className="h-9">
+                            <SelectValue />
+                          </SelectTrigger>
+                        </FormControl>
+                        <SelectContent>
+                          {COUNTRY_CODES.map(c => (
+                            <SelectItem key={c.code} value={c.code}>
+                              {c.label}
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                    </FormItem>
+                  )}
+                />
+                <FormField
+                  control={form.control}
+                  name="phoneNumber"
+                  render={({ field }) => (
+                    <FormItem className="flex-1">
+                      {/* invisible label keeps vertical alignment */}
+                      <FormLabel className="invisible select-none" aria-hidden>
+                        Number
+                      </FormLabel>
+                      <FormControl>
+                        <Input
+                          {...field}
+                          type="tel"
+                          placeholder="XXXX XXXX"
+                          className="h-9"
+                        />
+                      </FormControl>
+                    </FormItem>
+                  )}
+                />
+              </div>
+
+              {/* ── Traccar Device ID ── */}
               <FormField
                 control={form.control}
-                name="is_qc"
+                name="traccar_device_id"
                 render={({ field }) => (
-                  <FormItem className="flex items-center gap-2">
+                  <FormItem>
+                    <FormLabel>Traccar Device ID</FormLabel>
                     <FormControl>
-                      <Switch
-                        checked={field.value}
-                        onCheckedChange={checked => {
-                          field.onChange(checked)
-                          // Turning ON QC must turn OFF emergency
-                          if (checked) form.setValue('is_emergency', false)
-                        }}
-                      />
+                      <Input placeholder="Optional GPS tracker identifier" {...field} />
                     </FormControl>
-                    <FormLabel className="!mt-0 cursor-pointer">QC</FormLabel>
                   </FormItem>
                 )}
               />
+
             </div>
 
-            {/* Traccar Device ID */}
-            <FormField
-              control={form.control}
-              name="traccar_device_id"
-              render={({ field }) => (
-                <FormItem>
-                  <FormLabel>Traccar Device ID</FormLabel>
-                  <FormControl>
-                    <Input placeholder="Optional GPS tracker identifier" {...field} />
-                  </FormControl>
-                </FormItem>
-              )}
-            />
-
-            <DialogFooter className="flex-col gap-2 sm:flex-row">
+            <DialogFooter className="px-6 pb-5 flex-col sm:flex-row gap-2 border-t pt-4">
               <Button
                 type="button"
                 variant="outline"
@@ -302,12 +425,11 @@ export function TeamEditDialog() {
               <Button
                 type="submit"
                 disabled={isPending}
-                className="min-h-11"
+                className="min-h-11 sm:ml-auto"
               >
-                {isPending ? 'Saving…' : 'Save'}
+                {isPending ? 'Saving…' : isEdit ? 'Save' : 'Add Team'}
               </Button>
             </DialogFooter>
-
           </form>
         </Form>
       </DialogContent>
