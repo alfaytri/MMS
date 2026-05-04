@@ -640,7 +640,7 @@ export function useSetEmployeeStatus() {
     mutationFn: async ({ employeeId, status }: { employeeId: string; status: EmployeeStatus }) => {
       const supabase = createClient()
       const patch: Record<string, unknown> = { status }
-      if (status !== 'active') patch.team_id = null
+      if (status === 'unassigned' || status === 'vacation' || status === 'archived') patch.team_id = null
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       const { error } = await supabase.from('employees').update(patch as any).eq('id', employeeId)
       if (error) throw error
@@ -696,9 +696,8 @@ export function useDeleteSchedule() {
   const qc = useQueryClient()
   return useMutation({
     mutationFn: async (id: string) => {
-      const supabase = createClient()
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      const db = createClient() as any
+      const supabase = createClient() as any
 
       // 1. Find all teams that have an assignment to this schedule
       const { data: affected } = await supabase
@@ -707,8 +706,8 @@ export function useDeleteSchedule() {
         .eq('schedule_id', id)
 
       // 2. Soft-delete the schedule
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      const { error } = await (supabase.from('schedules') as any)
+      const { error } = await supabase
+        .from('schedules')
         .update({ deleted_at: new Date().toISOString() })
         .eq('id', id)
       if (error) throw error
@@ -719,7 +718,7 @@ export function useDeleteSchedule() {
       // 4. Re-sync each affected team's active schedule pointer
       const teamIds = [...new Set(((affected ?? []) as { team_id: string }[]).map(r => r.team_id))]
       await Promise.all(
-        teamIds.map(teamId => db.rpc('sync_team_active_schedule', { p_team_id: teamId }))
+        teamIds.map((teamId: string) => supabase.rpc('sync_team_active_schedule', { p_team_id: teamId }))
       )
 
       await logActivity({ action: 'schedule-deleted', entityType: 'schedule', entityId: id })

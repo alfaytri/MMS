@@ -125,6 +125,14 @@ export function EmployeeEditDialog() {
         qc.invalidateQueries({ queryKey: ['teams'] })
         qc.invalidateQueries({ queryKey: ['team-activity-log'] })
         qc.invalidateQueries({ queryKey: ['team-activity-log-count'] })
+        // Log the edit (save_employee RPC doesn't log internally)
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        await (createClient() as any).from('team_activity_log').insert({
+          action:      'employee-edited',
+          entity_type: 'employee',
+          entity_id:   employee!.id,
+          after_data:  { name: values.name, status: values.status },
+        })
       } else {
         // Create path: create employee first, then upsert skills
         const payload = {
@@ -159,7 +167,7 @@ export function EmployeeEditDialog() {
 
   return (
     <Dialog open={open} onOpenChange={o => { if (!o) closeEmployeeDialog() }}>
-      <DialogContent className="w-full max-w-lg md:rounded-lg max-h-[90vh] overflow-y-auto">
+      <DialogContent className="w-full max-w-lg rounded-none md:rounded-lg max-h-[90vh] overflow-y-auto">
         <DialogHeader>
           <DialogTitle>{isEdit ? 'Edit Employee' : 'New Employee'}</DialogTitle>
         </DialogHeader>
