@@ -66,14 +66,16 @@ const DIVISION_OPTIONS: { value: TeamDivision; label: string }[] = [
 
 // ─── Form value types ──────────────────────────────────────────────────────────
 interface TeamFormValues {
-  name_en:           string
-  name_ar:           string
-  division:          TeamDivision | ''
-  countryCode:       string
-  phoneNumber:       string
-  is_emergency:      boolean
-  is_qc:             boolean
-  traccar_device_id: string
+  name_en:              string
+  name_ar:              string
+  division:             TeamDivision | ''
+  countryCode:          string
+  phoneNumber:          string
+  is_emergency:         boolean
+  is_qc:                boolean
+  site_visit_order:     boolean
+  site_visit_quotation: boolean
+  traccar_device_id:    string
 }
 
 // ─── Component ─────────────────────────────────────────────────────────────────
@@ -84,23 +86,22 @@ export function TeamEditDialog() {
 
   const [saveError, setSaveError] = useState<string | null>(null)
 
-  const hasOrderVisit     = team?.members?.some(m => m.site_visit_order)     ?? false
-  const hasQuotationVisit = team?.members?.some(m => m.site_visit_quotation) ?? false
-
   const createTeam  = useCreateTeam()
   const updateTeam  = useUpdateTeam()
   const archiveTeam = useArchiveTeam()
 
   const form = useForm<TeamFormValues>({
     defaultValues: {
-      name_en:           '',
-      name_ar:           '',
-      division:          '',
-      countryCode:       '+974',
-      phoneNumber:       '',
-      is_emergency:      false,
-      is_qc:             false,
-      traccar_device_id: '',
+      name_en:              '',
+      name_ar:              '',
+      division:             '',
+      countryCode:          '+974',
+      phoneNumber:          '',
+      is_emergency:         false,
+      is_qc:                false,
+      site_visit_order:     false,
+      site_visit_quotation: false,
+      traccar_device_id:    '',
     },
   })
 
@@ -119,15 +120,21 @@ export function TeamEditDialog() {
         division:          ((team as any).division as TeamDivision)  ?? '',
         countryCode:       parsed.code,
         phoneNumber:       parsed.number,
-        is_emergency:      isEmergency,
-        is_qc:             isQc,
-        traccar_device_id: team.traccar_device_id ?? '',
+        is_emergency:         isEmergency,
+        is_qc:                isQc,
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        site_visit_order:     (team as any).site_visit_order     ?? false,
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        site_visit_quotation: (team as any).site_visit_quotation ?? false,
+        traccar_device_id:    team.traccar_device_id ?? '',
       })
     } else {
       form.reset({
         name_en: '', name_ar: '', division: '',
         countryCode: '+974', phoneNumber: '',
-        is_emergency: false, is_qc: false, traccar_device_id: '',
+        is_emergency: false, is_qc: false,
+        site_visit_order: false, site_visit_quotation: false,
+        traccar_device_id: '',
       })
     }
   }, [team, open, form])
@@ -145,9 +152,11 @@ export function TeamEditDialog() {
         name_ar:           values.name_ar           || null,
         division:          values.division           || null,
         phone:             fullPhone,
-        is_emergency:      values.is_emergency,
-        is_qc:             values.is_qc,
-        traccar_device_id: values.traccar_device_id || null,
+        is_emergency:         values.is_emergency,
+        is_qc:                values.is_qc,
+        site_visit_order:     values.site_visit_order,
+        site_visit_quotation: values.site_visit_quotation,
+        traccar_device_id:    values.traccar_device_id || null,
       }
 
       if (isEdit) {
@@ -313,29 +322,40 @@ export function TeamEditDialog() {
                 />
               </div>
 
-              {/* ── Site Visit Capability (read-only) ── */}
-              {isEdit && (
-                <div className="rounded-lg border p-3 space-y-3">
-                  <div>
-                    <p className="text-sm font-medium">Site Visit Capability</p>
-                    <p className="text-xs text-muted-foreground mt-0.5">
-                      Auto-derived from team members&apos; site visit flags (read-only)
-                    </p>
-                  </div>
-                  <div className="flex items-center justify-between">
-                    <span className="text-sm font-normal text-muted-foreground">
-                      Site Visit — Orders
-                    </span>
-                    <Switch checked={hasOrderVisit} disabled aria-readonly />
-                  </div>
-                  <div className="flex items-center justify-between">
-                    <span className="text-sm font-normal text-muted-foreground">
-                      Site Visit — Contracts
-                    </span>
-                    <Switch checked={hasQuotationVisit} disabled aria-readonly />
-                  </div>
-                </div>
-              )}
+              {/* ── Site Visit Capability ── */}
+              <div className="rounded-lg border p-3 space-y-3">
+                <p className="text-sm font-medium">Site Visit Capability</p>
+
+                <FormField
+                  control={form.control}
+                  name="site_visit_order"
+                  render={({ field }) => (
+                    <FormItem className="flex items-center justify-between">
+                      <FormLabel className="!mt-0 font-normal text-sm cursor-pointer">
+                        Site Visit — Orders
+                      </FormLabel>
+                      <FormControl>
+                        <Switch checked={field.value} onCheckedChange={field.onChange} />
+                      </FormControl>
+                    </FormItem>
+                  )}
+                />
+
+                <FormField
+                  control={form.control}
+                  name="site_visit_quotation"
+                  render={({ field }) => (
+                    <FormItem className="flex items-center justify-between">
+                      <FormLabel className="!mt-0 font-normal text-sm cursor-pointer">
+                        Site Visit — Contracts
+                      </FormLabel>
+                      <FormControl>
+                        <Switch checked={field.value} onCheckedChange={field.onChange} />
+                      </FormControl>
+                    </FormItem>
+                  )}
+                />
+              </div>
 
               {/* ── Phone ── */}
               <div className="flex gap-2 items-end">
