@@ -50,7 +50,12 @@ export function useDnDHandlers() {
 
     if (drag.type === 'employee' && drop.zone === 'team-leader') {
       // Guard: block archived/vacation from becoming leader
-      const cached = qc.getQueryData<Employee[]>(['employees', undefined]) ?? []
+      // Try both possible cache key forms
+      const cached = (
+        qc.getQueryData<Employee[]>(['employees']) ??
+        qc.getQueryData<Employee[]>(['employees', undefined]) ??
+        []
+      )
       const emp = cached.find(e => e.id === drag.employeeId)
       if (emp && (emp.status === 'archived' || emp.status === 'vacation')) return
       setLeader.mutate({ teamId: drop.teamId, employeeId: drag.employeeId })
