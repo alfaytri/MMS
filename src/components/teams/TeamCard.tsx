@@ -10,7 +10,7 @@ import { MembersGrid } from './MembersGrid'
 import type { TeamFull } from '@/hooks/useTeams'
 
 export function TeamCard({ team }: { team: TeamFull }) {
-  const { openTeamDialog, openScheduleDialog, openLogPanel, teamToolCounts } = useTeamsPage()
+  const { openTeamDialog, openScheduleDialog, openLogPanel, openToolsSheet, teamToolCounts } = useTeamsPage()
   const toolCount = teamToolCounts.get(team.id) ?? 0
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const hasSVO = (team as any).site_visit_order     ?? false
@@ -66,11 +66,14 @@ export function TeamCard({ team }: { team: TeamFull }) {
             <span className="hidden sm:inline truncate max-w-[6rem]">{team.schedule.name}</span>
           )}
         </button>
-        {toolCount > 0 && (
-          <span className="p-1 flex items-center gap-0.5 text-xs">
-            <Wrench className="h-3.5 w-3.5" />{toolCount}
-          </span>
-        )}
+        <button
+          onClick={() => openToolsSheet(team.id, team.name_en ?? team.name)}
+          className="p-1 hover:text-foreground flex items-center gap-0.5 text-xs"
+          type="button"
+        >
+          <Wrench className="h-3.5 w-3.5" />
+          {toolCount > 0 && <span>{toolCount}</span>}
+        </button>
         <button
           onClick={() => openLogPanel(team.id, 'team')}
           className="p-1 hover:text-foreground ml-auto"

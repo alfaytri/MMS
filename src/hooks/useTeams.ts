@@ -26,16 +26,25 @@ export type ScheduleUpdate = DBUpdate<'schedules'>
 
 export type ScheduleAssignment = DBTable<'team_schedule_assignments'>
 
-// tool_assignments and team_activity_log are not yet in generated types — manual interfaces
+// tool_assignments — mirrors the DB schema
 export interface ToolAssignment {
   id: string
   team_id: string | null
   employee_id: string | null
-  tool_asset_item_id: string | null
-  quantity: number | null
-  assigned_at: string | null
+  tool_unit_id: string
+  assigned_at: string
+  assigned_to: string
   notes: string | null
-  created_at: string | null
+  // joined relations (present when fetched with select)
+  tool_unit?: {
+    id: string
+    serial_number: string
+    brand: string
+    condition: string | null
+    status: string | null
+    item_id: string
+    item?: { id: string; name_en: string; name_ar: string | null }
+  }
 }
 
 export interface ActivityLogEntry {
@@ -43,7 +52,8 @@ export interface ActivityLogEntry {
   entity_id: string | null
   entity_type: string | null
   action: string
-  payload: Record<string, unknown> | null
+  before_data: Record<string, unknown> | null
+  after_data: Record<string, unknown> | null
   actor_id: string | null
   created_at: string | null
 }
@@ -200,7 +210,7 @@ export function useTeamScheduleAssignments(teamId: string | null) {
   })
 }
 
-/** Fetches tool assignments for a single team or employee — for use in detail views. */
+/** Fetches tool assignments for a single team or employee, joined with unit + item names. */
 export function useToolAssignments(entityType: 'team' | 'employee', entityId: string | null) {
   return useQuery({
     queryKey: ['tool-assignments', entityType, entityId],
@@ -208,12 +218,79 @@ export function useToolAssignments(entityType: 'team' | 'employee', entityId: st
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       const db = createClient() as any
       const col = entityType === 'team' ? 'team_id' : 'employee_id'
-      const { data, error } = await db.from('tool_assignments').select('*').eq(col, entityId!)
+      const { data, error } = await db
+        .from('tool_assignments')
+        .select('*, tool_unit:tool_asset_units(id, serial_number, brand, condition, status, item_id, item:tool_asset_items(id, name_en, name_ar))')
+        .eq(col, entityId!)
+        .order('assigned_at', { ascending: false })
       if (error) throw error
       return (data ?? []) as ToolAssignment[]
     },
     enabled: !!entityId,
     staleTime: 30 * 1000,
+  })
+}
+
+/** Fetches available tool units (not yet assigned) for a given item, joined with item name. */
+export function useAvailableToolUnits(itemId: string | null) {
+  return useQuery({
+    queryKey: ['available-tool-units', itemId],
+    queryFn: async () => {
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const db = createClient() as any
+      const { data, error } = await db
+        .from('tool_asset_units')
+        .select('id, serial_number, brand, condition, status, item_id, item:tool_asset_items(id, name_en, name_ar)')
+        .eq('item_id', itemId!)
+        .eq('status', 'available')
+      if (error) throw error
+      return (data ?? []) as ToolAssignment['tool_unit'][]
+    },
+    enabled: !!itemId,
+    staleTime: 30 * 1000,
+  })
+}
+
+export function useAssignToolToTeam() {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: async ({ teamId, toolUnitId }: { teamId: string; toolUnitId: string }) => {
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const db = createClient() as any
+      const { error } = await db.from('tool_assignments').insert({
+        team_id:     teamId,
+        tool_unit_id: toolUnitId,
+        assigned_at: new Date().toISOString(),
+        assigned_to: teamId,
+      })
+      if (error) throw error
+      await logActivity({ action: 'tool-assigned', entityType: 'team', entityId: teamId, afterData: { tool_unit_id: toolUnitId } })
+    },
+    onSuccess: (_d, { teamId }) => {
+      qc.invalidateQueries({ queryKey: ['tool-assignments', 'team', teamId] })
+      qc.invalidateQueries({ queryKey: ['tool-count-map', 'team'] })
+      qc.invalidateQueries({ queryKey: ['available-tool-units'] })
+      qc.invalidateQueries({ queryKey: ['team-activity-log'] })
+    },
+  })
+}
+
+export function useUnassignToolFromTeam() {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: async ({ assignmentId, teamId }: { assignmentId: string; teamId: string }) => {
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const db = createClient() as any
+      const { error } = await db.from('tool_assignments').delete().eq('id', assignmentId)
+      if (error) throw error
+      await logActivity({ action: 'tool-removed', entityType: 'team', entityId: teamId, beforeData: { assignment_id: assignmentId } })
+    },
+    onSuccess: (_d, { teamId }) => {
+      qc.invalidateQueries({ queryKey: ['tool-assignments', 'team', teamId] })
+      qc.invalidateQueries({ queryKey: ['tool-count-map', 'team'] })
+      qc.invalidateQueries({ queryKey: ['available-tool-units'] })
+      qc.invalidateQueries({ queryKey: ['team-activity-log'] })
+    },
   })
 }
 

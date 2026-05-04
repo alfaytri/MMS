@@ -9,6 +9,7 @@ interface EmployeeDialogState { open: boolean; employee: Employee | null }
 interface VehicleDialogState  { open: boolean; vehicle: Vehicle | null }
 interface ScheduleDialogState { open: boolean; teamId: string | null }
 interface LogPanelState       { open: boolean; entityId: string | null; entityType: string | null }
+interface ToolsSheetState     { open: boolean; teamId: string | null; teamName: string | null }
 
 interface TeamsPageContextValue {
   teamDialog:     TeamDialogState
@@ -16,6 +17,7 @@ interface TeamsPageContextValue {
   vehicleDialog:  VehicleDialogState
   scheduleDialog: ScheduleDialogState
   logPanel:       LogPanelState
+  toolsSheet:     ToolsSheetState
 
   searchQuery:    string
   divisionFilter: string | null
@@ -35,6 +37,8 @@ interface TeamsPageContextValue {
   closeScheduleDialog:() => void
   openLogPanel:       (entityId?: string, entityType?: string) => void
   closeLogPanel:      () => void
+  openToolsSheet:     (teamId: string, teamName: string) => void
+  closeToolsSheet:    () => void
   setSearch:          (q: string) => void
   setDivisionFilter:  (id: string | null) => void
   setDensity:         (d: 'card' | 'list') => void
@@ -48,6 +52,7 @@ export function TeamsPageProvider({ children }: { children: ReactNode }) {
   const [vehicleDialog,  setVehicleDialog]  = useState<VehicleDialogState>({ open: false, vehicle: null })
   const [scheduleDialog, setScheduleDialog] = useState<ScheduleDialogState>({ open: false, teamId: null })
   const [logPanel,       setLogPanel]       = useState<LogPanelState>({ open: false, entityId: null, entityType: null })
+  const [toolsSheet,     setToolsSheet]     = useState<ToolsSheetState>({ open: false, teamId: null, teamName: null })
   const [searchQuery,    setSearch]         = useState('')
   const [divisionFilter, setDivisionFilter] = useState<string | null>(null)
   const [density,        setDensity]        = useState<'card' | 'list'>('card')
@@ -62,6 +67,7 @@ export function TeamsPageProvider({ children }: { children: ReactNode }) {
       vehicleDialog,
       scheduleDialog,
       logPanel,
+      toolsSheet,
       searchQuery,
       divisionFilter,
       density,
@@ -77,6 +83,8 @@ export function TeamsPageProvider({ children }: { children: ReactNode }) {
       closeScheduleDialog: ()         => setScheduleDialog({ open: false, teamId: null }),
       openLogPanel:        (id, type) => setLogPanel({ open: true, entityId: id ?? null, entityType: type ?? null }),
       closeLogPanel:       ()         => setLogPanel({ open: false, entityId: null, entityType: null }),
+      openToolsSheet:      (teamId, teamName) => setToolsSheet({ open: true, teamId, teamName }),
+      closeToolsSheet:     ()         => setToolsSheet({ open: false, teamId: null, teamName: null }),
       setSearch,
       setDivisionFilter,
       setDensity,

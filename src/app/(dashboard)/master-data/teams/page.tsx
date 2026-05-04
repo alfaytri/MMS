@@ -12,6 +12,7 @@ import { EmployeeEditDialog } from '@/components/teams/dialogs/EmployeeEditDialo
 import { VehicleEditDialog } from '@/components/teams/dialogs/VehicleEditDialog'
 import { ScheduleDialog } from '@/components/teams/dialogs/ScheduleDialog'
 import { ActivityLogPanel } from '@/components/teams/dialogs/ActivityLogPanel'
+import { TeamToolsSheet } from '@/components/teams/dialogs/TeamToolsSheet'
 import { Truck } from 'lucide-react'
 import { useEmployees, useVehicles } from '@/hooks/useTeams'
 
@@ -42,6 +43,7 @@ function TeamsPageInner() {
       <VehicleEditDialog />
       <ScheduleDialog />
       <ActivityLogPanel />
+      <TeamToolsSheet />
     </DndContext>
   )
 }

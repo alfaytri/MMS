@@ -1,7 +1,7 @@
 'use client'
 
 import { useState } from 'react'
-import { formatDistanceToNow, parseISO } from 'date-fns'
+import { formatDistanceToNow, format, parseISO } from 'date-fns'
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from '@/components/ui/sheet'
 import { Badge } from '@/components/ui/badge'
 import { useTeamActivityLog } from '@/hooks/useTeams'
@@ -10,6 +10,58 @@ import { useTeamsPage } from '../TeamsPageContext'
 const FILTER_TABS = ['all', 'team', 'employee', 'vehicle', 'schedule'] as const
 type FilterTab = (typeof FILTER_TABS)[number]
 
+// Human-readable action labels
+const ACTION_LABELS: Record<string, string> = {
+  'team-created':      'Team Created',
+  'team-edited':       'Team Updated',
+  'team-archived':     'Team Archived',
+  'employee-created':  'Employee Added',
+  'employee-edited':   'Employee Updated',
+  'employee-archived': 'Employee Archived',
+  'employee-disabled': 'Employee Disabled',
+  'employee-enabled':  'Employee Re-enabled',
+  'employee-removed':  'Employee Removed',
+  'vehicle-created':   'Vehicle Created',
+  'vehicle-edited':    'Vehicle Updated',
+  'vehicle-archived':  'Vehicle Archived',
+  'vehicle-assigned':  'Vehicle Assigned',
+  'vehicle-removed':   'Vehicle Unassigned',
+  'tool-assigned':     'Tool Assigned',
+  'tool-removed':      'Tool Removed',
+}
+
+function actionLabel(action: string) {
+  return ACTION_LABELS[action] ?? action.replace(/-/g, ' ').replace(/\b\w/g, c => c.toUpperCase())
+}
+
+// Pull 2-3 meaningful fields from a data object for display
+function dataSummary(data: Record<string, unknown> | null | undefined): string | null {
+  if (!data) return null
+  const skip = new Set(['id', 'created_at', 'updated_at', 'deleted_at', 'actor_id'])
+  const pairs = Object.entries(data)
+    .filter(([k, v]) => !skip.has(k) && v !== null && v !== undefined && v !== '')
+    .slice(0, 3)
+    .map(([k, v]) => `${k.replace(/_/g, ' ')}: ${String(v)}`)
+  return pairs.length ? pairs.join(' · ') : null
+}
+
+function Timestamp({ iso }: { iso: string }) {
+  const [showExact, setShowExact] = useState(false)
+  const date = parseISO(iso)
+  return (
+    <button
+      type="button"
+      onClick={() => setShowExact(s => !s)}
+      className="text-xs text-muted-foreground hover:text-foreground transition-colors text-left"
+      title={showExact ? 'Click for relative time' : 'Click for exact time'}
+    >
+      {showExact
+        ? format(date, 'MMM d, yyyy · h:mm a')
+        : formatDistanceToNow(date, { addSuffix: true })}
+    </button>
+  )
+}
+
 export function ActivityLogPanel() {
   const { logPanel, closeLogPanel } = useTeamsPage()
   const { open, entityId } = logPanel
@@ -17,8 +69,7 @@ export function ActivityLogPanel() {
 
   const { data: logs = [] } = useTeamActivityLog(entityId ?? undefined)
 
-  const visible =
-    filter === 'all' ? logs : logs.filter(l => l.entity_type === filter)
+  const visible = filter === 'all' ? logs : logs.filter(l => l.entity_type === filter)
 
   return (
     <Sheet open={open} onOpenChange={o => { if (!o) closeLogPanel() }}>
@@ -45,26 +96,43 @@ export function ActivityLogPanel() {
         </div>
 
         <div className="space-y-3">
-          {visible.map(log => (
-            <div key={log.id} className="border rounded p-3 space-y-1 text-sm">
-              <div className="flex items-center justify-between gap-2">
-                <span className="font-medium capitalize">
-                  {log.action.replace(/-/g, ' ')}
-                </span>
-                <Badge variant="secondary" className="text-[10px] capitalize">
-                  {log.entity_type ?? '—'}
-                </Badge>
+          {visible.map(log => {
+            const after  = dataSummary(log.after_data)
+            const before = dataSummary(log.before_data)
+            return (
+              <div key={log.id} className="border rounded p-3 space-y-1.5 text-sm">
+                {/* Action + entity type */}
+                <div className="flex items-center justify-between gap-2">
+                  <span className="font-medium">{actionLabel(log.action)}</span>
+                  <Badge variant="secondary" className="text-[10px] capitalize shrink-0">
+                    {log.entity_type ?? '—'}
+                  </Badge>
+                </div>
+
+                {/* Who */}
+                {log.actor && (
+                  <p className="text-xs text-muted-foreground">
+                    by <span className="font-medium text-foreground">{log.actor.full_name}</span>
+                  </p>
+                )}
+
+                {/* Data summary */}
+                {after && (
+                  <p className="text-xs text-muted-foreground truncate" title={after}>
+                    {after}
+                  </p>
+                )}
+                {!after && before && (
+                  <p className="text-xs text-muted-foreground truncate" title={before}>
+                    was: {before}
+                  </p>
+                )}
+
+                {/* Timestamp — click to toggle relative ↔ exact */}
+                {log.created_at && <Timestamp iso={log.created_at} />}
               </div>
-              {log.actor && (
-                <p className="text-xs text-muted-foreground">by {log.actor.full_name}</p>
-              )}
-              {log.created_at && (
-                <p className="text-xs text-muted-foreground">
-                  {formatDistanceToNow(parseISO(log.created_at), { addSuffix: true })}
-                </p>
-              )}
-            </div>
-          ))}
+            )
+          })}
           {visible.length === 0 && (
             <p className="text-sm text-muted-foreground text-center py-8">No activity</p>
           )}
