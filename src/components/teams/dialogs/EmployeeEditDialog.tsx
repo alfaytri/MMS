@@ -13,7 +13,7 @@ import { Checkbox } from '@/components/ui/checkbox'
 import { cn } from '@/lib/utils'
 import { createClient } from '@/lib/supabase/client'
 import { useServiceTree, type Service } from '@/hooks/useServices'
-import { useCreateEmployee, useArchiveEmployee } from '@/hooks/useTeams'
+import { useCreateEmployee, useArchiveEmployee, logActivity } from '@/hooks/useTeams'
 import { useDivisions } from '@/hooks/useDivisions'
 import { useTeamsPage } from '../TeamsPageContext'
 
@@ -112,7 +112,10 @@ function ServiceTreeSection({
         <button
           type="button"
           onClick={() => onBulkChange(leafIds, !allSelected)}
-          className="px-3 py-2.5 text-xs text-primary hover:underline border-l shrink-0"
+          className={cn(
+            'px-3 py-2.5 text-xs hover:underline border-l shrink-0',
+            allSelected ? 'text-destructive' : 'text-primary',
+          )}
         >
           {allSelected ? 'Deselect all' : 'Select all'}
         </button>
@@ -148,17 +151,31 @@ function ServiceNodeRow({
   const hasChildren = node.children.length > 0
   const isLeaf      = !hasChildren
 
-  // For parent nodes: check if all descendants are selected
-  const leafIds     = hasChildren ? getLeafIds(node) : []
-  const allSelected = hasChildren && leafIds.length > 0 && leafIds.every(id => selectedIds.has(id))
+  const leafIds      = hasChildren ? getLeafIds(node) : []
+  const selectedCount = hasChildren ? leafIds.filter(id => selectedIds.has(id)).length : 0
+  const allSelected  = hasChildren && leafIds.length > 0 && selectedCount === leafIds.length
+  const someSelected = hasChildren && selectedCount > 0 && !allSelected
+
+  // Progressive indent: 12px base + 20px per depth level
+  const paddingLeft = 12 + depth * 20
 
   return (
     <>
       <div
         className={cn(
-          'flex items-center gap-2 px-3 py-2 text-sm hover:bg-muted/20',
-          depth > 0 && 'pl-8',
+          'flex items-center gap-2 pr-3 py-2 hover:bg-muted/20',
+          // Depth 0: medium text, no track
+          depth === 0 && 'text-sm',
+          // Depth 1: slightly muted, left track
+          depth === 1 && 'text-sm border-l-2',
+          // Depth 2+: smaller, lighter, thinner track
+          depth >= 2 && 'text-xs border-l-2',
+          // Track colour driven by selection state (depth > 0)
+          depth > 0 && !someSelected && !allSelected && 'border-l-border/50',
+          depth > 0 && someSelected  && 'border-l-amber-400',
+          depth > 0 && allSelected   && 'border-l-primary/60',
         )}
+        style={{ paddingLeft }}
       >
         {hasChildren ? (
           <button
@@ -185,6 +202,7 @@ function ServiceNodeRow({
           className={cn(
             'flex-1 min-w-0 truncate',
             isLeaf ? 'cursor-pointer' : 'font-medium',
+            depth >= 2 && 'text-muted-foreground font-normal',
           )}
         >
           {node.name_en}
@@ -192,17 +210,32 @@ function ServiceNodeRow({
 
         {/* Arabic name */}
         {node.name_ar && (
-          <span className="text-xs text-muted-foreground shrink-0" dir="rtl">
+          <span className={cn('text-muted-foreground shrink-0', depth >= 2 ? 'text-[10px]' : 'text-xs')} dir="rtl">
             {node.name_ar}
           </span>
         )}
 
-        {/* Select all — parent nodes only */}
+        {/* Selection count badge — visible when collapsed and something is selected */}
+        {hasChildren && selectedCount > 0 && !expanded && (
+          <span className={cn(
+            'text-[10px] px-1.5 py-0.5 rounded-full font-medium shrink-0',
+            allSelected
+              ? 'bg-primary/10 text-primary'
+              : 'bg-amber-100 text-amber-700',
+          )}>
+            {selectedCount}/{leafIds.length}
+          </span>
+        )}
+
+        {/* Select all / Deselect — parent nodes only */}
         {hasChildren && (
           <button
             type="button"
             onClick={() => onBulkChange(leafIds, !allSelected)}
-            className="text-xs text-primary hover:underline shrink-0 ml-1"
+            className={cn(
+              'text-xs hover:underline shrink-0 ml-1',
+              allSelected ? 'text-destructive' : 'text-primary',
+            )}
           >
             {allSelected ? 'Deselect' : 'Select all'}
           </button>
@@ -374,17 +407,15 @@ export function EmployeeEditDialog() {
           p_service_ids: serviceIds,
         })
         if (error) throw error
+        // Log and invalidate only after the RPC fully succeeded
+        await logActivity({
+          action: 'employee-edited', entityType: 'employee', entityId: employee!.id,
+          afterData: { name: values.name, status: employee!.status ?? 'active' },
+        })
         qc.invalidateQueries({ queryKey: ['employees'] })
         qc.invalidateQueries({ queryKey: ['teams'] })
         qc.invalidateQueries({ queryKey: ['team-activity-log'] })
         qc.invalidateQueries({ queryKey: ['team-activity-log-count'] })
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        await (createClient() as any).from('team_activity_log').insert({
-          action:      'employee-edited',
-          entity_type: 'employee',
-          entity_id:   employee!.id,
-          after_data:  { name: values.name, status: employee!.status ?? 'active' },
-        })
       } else {
         const payload = {
           name:        values.name,
@@ -405,6 +436,15 @@ export function EmployeeEditDialog() {
           })
           if (error) throw error
         }
+        // Log only after employee + services both committed successfully
+        await logActivity({
+          action: 'employee-created', entityType: 'employee', entityId: created.id,
+          afterData: { name: values.name },
+        })
+        qc.invalidateQueries({ queryKey: ['employees'] })
+        qc.invalidateQueries({ queryKey: ['teams'] })
+        qc.invalidateQueries({ queryKey: ['team-activity-log'] })
+        qc.invalidateQueries({ queryKey: ['team-activity-log-count'] })
       }
       closeEmployeeDialog()
     } catch (err) {
@@ -419,195 +459,196 @@ export function EmployeeEditDialog() {
 
   return (
     <Dialog open={open} onOpenChange={o => { if (!o) closeEmployeeDialog() }}>
-      <DialogContent className="w-full max-w-lg rounded-none md:rounded-lg max-h-[90vh] overflow-y-auto p-0">
-        <DialogHeader className="px-6 pt-5 pb-0">
+      <DialogContent className="w-full h-full max-h-[100dvh] rounded-none md:h-auto md:max-h-[90vh] md:max-w-2xl md:rounded-lg lg:max-w-5xl lg:h-[90vh] flex flex-col p-0 gap-0">
+        <DialogHeader className="px-6 pt-5 pb-4 border-b shrink-0">
           <DialogTitle>{isEdit ? 'Edit Employee' : 'Add Employee'}</DialogTitle>
         </DialogHeader>
 
         <Form {...form}>
-          <form onSubmit={form.handleSubmit(onSubmit)}>
-            <div className="px-6 py-4 space-y-4">
+          <form onSubmit={form.handleSubmit(onSubmit)} className="flex flex-col flex-1 min-h-0">
 
-              {/* ── Photo + Name row ── */}
-              <div className="flex items-start gap-4">
-                {/* Circular photo placeholder */}
-                <button
-                  type="button"
-                  onClick={() => fileRef.current?.click()}
-                  className="shrink-0 h-16 w-16 rounded-full border-2 border-dashed border-muted-foreground/40 flex flex-col items-center justify-center gap-0.5 hover:border-primary hover:bg-muted/30 transition-colors overflow-hidden"
-                  aria-label="Upload photo"
-                >
-                  {displayAvatar ? (
-                    <img src={displayAvatar} alt="avatar" className="h-full w-full object-cover" />
-                  ) : (
-                    <>
-                      <Camera className="h-5 w-5 text-muted-foreground" />
-                      <span className="text-[10px] text-muted-foreground leading-none">Photo</span>
-                    </>
-                  )}
-                </button>
-                <input
-                  ref={fileRef}
-                  type="file"
-                  accept="image/*"
-                  className="hidden"
-                  onChange={handleFileChange}
-                />
+            {/* ── Scrollable body ── */}
+            <div className="flex-1 min-h-0 overflow-y-auto lg:overflow-hidden">
+              <div className="px-6 py-5 lg:flex lg:gap-0 lg:h-full lg:divide-x">
 
-                {/* Name field */}
-                <FormField
-                  control={form.control}
-                  name="name"
-                  rules={{ required: 'Name is required' }}
-                  render={({ field }) => (
-                    <FormItem className="flex-1">
-                      <FormLabel>
-                        Name <span className="text-destructive">*</span>
-                      </FormLabel>
-                      <FormControl>
-                        <Input {...field} placeholder="Full name" />
-                      </FormControl>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
-              </div>
+                {/* ── LEFT COLUMN: personal info ── */}
+                <div className="space-y-5 lg:w-80 lg:shrink-0 lg:pr-8">
 
-              {/* ── Phone row ── */}
-              <div className="flex gap-2 items-end">
-                <FormField
-                  control={form.control}
-                  name="countryCode"
-                  render={({ field }) => (
-                    <FormItem className="w-32 shrink-0">
-                      <FormLabel>Phone</FormLabel>
-                      <Select value={field.value} onValueChange={field.onChange}>
+                  {/* Photo + Name */}
+                  <div className="flex items-start gap-4">
+                    <button
+                      type="button"
+                      onClick={() => fileRef.current?.click()}
+                      className="shrink-0 h-20 w-20 rounded-full border-2 border-dashed border-muted-foreground/40 flex flex-col items-center justify-center gap-1 hover:border-primary hover:bg-muted/30 transition-colors overflow-hidden"
+                      aria-label="Upload photo"
+                    >
+                      {displayAvatar ? (
+                        <img src={displayAvatar} alt="avatar" className="h-full w-full object-cover" />
+                      ) : (
+                        <>
+                          <Camera className="h-6 w-6 text-muted-foreground" />
+                          <span className="text-[10px] text-muted-foreground leading-none">Photo</span>
+                        </>
+                      )}
+                    </button>
+                    <input
+                      ref={fileRef}
+                      type="file"
+                      accept="image/*"
+                      className="hidden"
+                      onChange={handleFileChange}
+                    />
+
+                    <FormField
+                      control={form.control}
+                      name="name"
+                      rules={{ required: 'Name is required' }}
+                      render={({ field }) => (
+                        <FormItem className="flex-1">
+                          <FormLabel>
+                            Name <span className="text-destructive">*</span>
+                          </FormLabel>
+                          <FormControl>
+                            <Input {...field} placeholder="Full name" />
+                          </FormControl>
+                          <FormMessage />
+                        </FormItem>
+                      )}
+                    />
+                  </div>
+
+                  {/* Phone */}
+                  <div className="flex gap-2 items-end">
+                    <FormField
+                      control={form.control}
+                      name="countryCode"
+                      render={({ field }) => (
+                        <FormItem className="w-32 shrink-0">
+                          <FormLabel>Phone</FormLabel>
+                          <Select value={field.value} onValueChange={field.onChange}>
+                            <FormControl>
+                              <SelectTrigger>
+                                <SelectValue />
+                              </SelectTrigger>
+                            </FormControl>
+                            <SelectContent>
+                              {COUNTRY_CODES.map(c => (
+                                <SelectItem key={c.code} value={c.code}>
+                                  {c.label}
+                                </SelectItem>
+                              ))}
+                            </SelectContent>
+                          </Select>
+                        </FormItem>
+                      )}
+                    />
+                    <FormField
+                      control={form.control}
+                      name="phoneNumber"
+                      render={({ field }) => (
+                        <FormItem className="flex-1">
+                          <FormLabel className="invisible select-none" aria-hidden>
+                            Number
+                          </FormLabel>
+                          <FormControl>
+                            <Input {...field} type="tel" placeholder="XXXX XXXX" />
+                          </FormControl>
+                        </FormItem>
+                      )}
+                    />
+                  </div>
+
+                  {/* Nationality */}
+                  <FormField
+                    control={form.control}
+                    name="nationality"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Nationality</FormLabel>
                         <FormControl>
-                          <SelectTrigger className="h-9">
-                            <SelectValue />
-                          </SelectTrigger>
+                          <Input {...field} placeholder="e.g. Qatari" />
                         </FormControl>
-                        <SelectContent>
-                          {COUNTRY_CODES.map(c => (
-                            <SelectItem key={c.code} value={c.code}>
-                              {c.label}
-                            </SelectItem>
-                          ))}
-                        </SelectContent>
-                      </Select>
-                    </FormItem>
+                      </FormItem>
+                    )}
+                  />
+
+                  {/* Join Date */}
+                  <FormField
+                    control={form.control}
+                    name="join_date"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Join Date</FormLabel>
+                        <FormControl>
+                          <Input {...field} type="date" className="w-full" />
+                        </FormControl>
+                      </FormItem>
+                    )}
+                  />
+
+                  {/* Error (left column, visible without scroll) */}
+                  {submitError && (
+                    <p className="text-sm text-destructive border border-destructive/20 rounded p-3">
+                      {submitError}
+                    </p>
                   )}
-                />
-                <FormField
-                  control={form.control}
-                  name="phoneNumber"
-                  render={({ field }) => (
-                    <FormItem className="flex-1">
-                      {/* invisible label keeps vertical alignment with country code label */}
-                      <FormLabel className="invisible select-none" aria-hidden>
-                        Number
-                      </FormLabel>
-                      <FormControl>
-                        <Input
-                          {...field}
-                          type="tel"
-                          placeholder="XXXX XXXX"
-                          className="h-9"
-                        />
-                      </FormControl>
-                    </FormItem>
-                  )}
-                />
-              </div>
-
-              {/* ── Nationality ── */}
-              <FormField
-                control={form.control}
-                name="nationality"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>Nationality</FormLabel>
-                    <FormControl>
-                      <Input {...field} placeholder="e.g. Qatari" />
-                    </FormControl>
-                  </FormItem>
-                )}
-              />
-
-              {/* ── Join Date ── */}
-              <FormField
-                control={form.control}
-                name="join_date"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>Join Date</FormLabel>
-                    <FormControl>
-                      <Input {...field} type="date" className="w-full" />
-                    </FormControl>
-                  </FormItem>
-                )}
-              />
-
-              {/* ── Skillset (Services) ── */}
-              <div className="space-y-2">
-                <p className="text-sm font-medium">Skillset (Services)</p>
-
-                {/* Division filter */}
-                <div>
-                  <label className="text-xs text-muted-foreground mb-1 block">
-                    Filter by Division
-                  </label>
-                  <Select value={divisionSlug} onValueChange={v => setDivisionSlug(v ?? '')}>
-                    <SelectTrigger className="h-8 text-sm">
-                      <SelectValue placeholder="All divisions" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="">All divisions</SelectItem>
-                      {divisions.map(d => (
-                        <SelectItem key={d.id} value={d.slug ?? d.id}>
-                          {d.name}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
                 </div>
-                <ServiceTreeSection
-                  title="Normal Services"
-                  nodes={normalTree}
-                  selectedIds={selectedIds}
-                  onToggle={toggleService}
-                  onBulkChange={bulkChange}
-                />
-                <ServiceTreeSection
-                  title="Contract Services"
-                  nodes={contractTree}
-                  selectedIds={selectedIds}
-                  onToggle={toggleService}
-                  onBulkChange={bulkChange}
-                />
-                <ServiceTreeSection
-                  title="Mobile Services"
-                  nodes={mobileTree}
-                  selectedIds={selectedIds}
-                  onToggle={toggleService}
-                  onBulkChange={bulkChange}
-                />
-              </div>
 
-              {/* ── Error ── */}
-              {submitError && (
-                <p className="text-sm text-destructive border border-destructive/20 rounded p-2">
-                  {submitError}
-                </p>
-              )}
+                {/* ── RIGHT COLUMN: skillset ── */}
+                <div className="mt-6 lg:mt-0 lg:flex-1 lg:pl-8 lg:overflow-y-auto space-y-3">
+                  <p className="text-sm font-semibold">Skillset (Services)</p>
+
+                  {/* Division filter */}
+                  <div>
+                    <label className="text-xs text-muted-foreground mb-1 block">
+                      Filter by Division
+                    </label>
+                    <Select value={divisionSlug} onValueChange={v => setDivisionSlug(v ?? '')}>
+                      <SelectTrigger className="h-9 text-sm">
+                        <SelectValue placeholder="All divisions" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="">All divisions</SelectItem>
+                        {divisions.map(d => (
+                          <SelectItem key={d.id} value={d.slug ?? d.id}>
+                            {d.name}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+
+                  <ServiceTreeSection
+                    title="Normal Services"
+                    nodes={normalTree}
+                    selectedIds={selectedIds}
+                    onToggle={toggleService}
+                    onBulkChange={bulkChange}
+                  />
+                  <ServiceTreeSection
+                    title="Contract Services"
+                    nodes={contractTree}
+                    selectedIds={selectedIds}
+                    onToggle={toggleService}
+                    onBulkChange={bulkChange}
+                  />
+                  <ServiceTreeSection
+                    title="Mobile Services"
+                    nodes={mobileTree}
+                    selectedIds={selectedIds}
+                    onToggle={toggleService}
+                    onBulkChange={bulkChange}
+                  />
+
+                  {/* bottom padding inside scroll area */}
+                  <div className="h-4" />
+                </div>
+              </div>
             </div>
 
-            <DialogFooter className="px-6 pb-5 flex-col sm:flex-row gap-2 border-t pt-4">
-              <Button
-                type="button"
-                variant="outline"
-                onClick={closeEmployeeDialog}
-              >
+            {/* ── Sticky footer ── */}
+            <DialogFooter className="px-6 py-4 flex-col sm:flex-row gap-2 border-t shrink-0">
+              <Button type="button" variant="outline" onClick={closeEmployeeDialog}>
                 Cancel
               </Button>
               {isEdit && (
@@ -629,11 +670,7 @@ export function EmployeeEditDialog() {
                   Archive
                 </Button>
               )}
-              <Button
-                type="submit"
-                disabled={isPending}
-                className="sm:ml-auto"
-              >
+              <Button type="submit" disabled={isPending} className="sm:ml-auto">
                 {isPending ? 'Saving...' : isEdit ? 'Save' : 'Add Employee'}
               </Button>
             </DialogFooter>

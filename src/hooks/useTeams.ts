@@ -310,7 +310,7 @@ export function useTeamActivityLogCount() {
 // Internal log helper
 // ---------------------------------------------------------------------------
 
-async function logActivity(params: {
+export async function logActivity(params: {
   action: string
   entityType: string
   entityId: string
@@ -397,8 +397,7 @@ export function useCreateEmployee() {
       const supabase = createClient()
       const { data, error } = await supabase.from('employees').insert(input).select().single()
       if (error) throw error
-      await logActivity({ action: 'employee-created', entityType: 'employee', entityId: data.id, afterData: data as Record<string, unknown> })
-      return data
+      return data  // activity log written by caller after all steps succeed
     },
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ['employees'] })
