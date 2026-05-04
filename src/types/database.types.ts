@@ -1243,6 +1243,7 @@ export type Database = {
           avatar: string | null
           avatar_url: string | null
           created_at: string | null
+          deleted_at: string | null
           id: string
           join_date: string
           name: string
@@ -1260,6 +1261,7 @@ export type Database = {
           avatar?: string | null
           avatar_url?: string | null
           created_at?: string | null
+          deleted_at?: string | null
           id?: string
           join_date: string
           name: string
@@ -1277,6 +1279,7 @@ export type Database = {
           avatar?: string | null
           avatar_url?: string | null
           created_at?: string | null
+          deleted_at?: string | null
           id?: string
           join_date?: string
           name?: string
@@ -5663,6 +5666,7 @@ export type Database = {
       vehicles: {
         Row: {
           created_at: string | null
+          deleted_at: string | null
           id: string
           plate: string
           team_id: string | null
@@ -5672,6 +5676,7 @@ export type Database = {
         }
         Insert: {
           created_at?: string | null
+          deleted_at?: string | null
           id?: string
           plate: string
           team_id?: string | null
@@ -5681,6 +5686,7 @@ export type Database = {
         }
         Update: {
           created_at?: string | null
+          deleted_at?: string | null
           id?: string
           plate?: string
           team_id?: string | null
@@ -6534,6 +6540,7 @@ export type Database = {
           avatar: string | null
           avatar_url: string | null
           created_at: string | null
+          deleted_at: string | null
           id: string
           join_date: string
           name: string
@@ -7052,5 +7059,3 @@ export const Constants = {
     },
   },
 } as const
-A new version of Supabase CLI is available: v2.95.4 (currently installed v2.91.3)
-We recommend updating regularly for new features and bug fixes: https://supabase.com/docs/guides/cli/getting-started#updating-the-supabase-cli
