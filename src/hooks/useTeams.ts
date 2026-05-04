@@ -376,14 +376,17 @@ export async function logActivity(params: {
   beforeData?: Record<string, unknown>
   afterData?: Record<string, unknown>
 }) {
+  const supabase = createClient()
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const db = createClient() as any
+  const db = supabase as any
+  const { data: { user } } = await supabase.auth.getUser()
   await db.from('team_activity_log').insert({
     action:      params.action,
     entity_type: params.entityType,
     entity_id:   params.entityId,
     before_data: params.beforeData ?? null,
     after_data:  params.afterData ?? null,
+    actor_id:    user?.id ?? null,
   })
 }
 
