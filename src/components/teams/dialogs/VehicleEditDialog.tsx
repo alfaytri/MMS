@@ -56,6 +56,7 @@ export function VehicleEditDialog() {
       const { count } = await (supabase.from('vehicles') as any)
         .select('id', { count: 'exact', head: true })
         .eq('plate', plate)
+        .is('deleted_at', null)
         .neq('id', vehicle?.id ?? '00000000-0000-0000-0000-000000000000')
       if ((count ?? 0) > 0) {
         setPlateError('Plate already in use')
