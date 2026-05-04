@@ -13,7 +13,7 @@ import { Checkbox } from '@/components/ui/checkbox'
 import { cn } from '@/lib/utils'
 import { createClient } from '@/lib/supabase/client'
 import { useServiceTree, type Service } from '@/hooks/useServices'
-import { useCreateEmployee, useArchiveEmployee, logActivity } from '@/hooks/useTeams'
+import { useCreateEmployee, useArchiveEmployee, useDisableEmployee, useEnableEmployee, logActivity } from '@/hooks/useTeams'
 import { useDivisions } from '@/hooks/useDivisions'
 import { useTeamsPage } from '../TeamsPageContext'
 
@@ -274,7 +274,11 @@ export function EmployeeEditDialog() {
 
   const qc             = useQueryClient()
   const createEmployee  = useCreateEmployee()
+  const disableEmployee = useDisableEmployee()
+  const enableEmployee  = useEnableEmployee()
   const archiveEmployee = useArchiveEmployee()
+
+  const isArchived = employee?.status === 'archived'
 
   const fileRef = useRef<HTMLInputElement>(null)
   const [submitError,    setSubmitError]    = useState<string | null>(null)
@@ -651,25 +655,67 @@ export function EmployeeEditDialog() {
               <Button type="button" variant="outline" onClick={closeEmployeeDialog}>
                 Cancel
               </Button>
+
               {isEdit && (
-                <Button
-                  type="button"
-                  variant="destructive"
-                  disabled={archiveEmployee.isPending}
-                  onClick={async () => {
-                    try {
-                      await archiveEmployee.mutateAsync(employee!.id)
-                      closeEmployeeDialog()
-                    } catch (err) {
-                      setSubmitError(
-                        err instanceof Error ? err.message : 'Archive failed',
-                      )
-                    }
-                  }}
-                >
-                  Archive
-                </Button>
+                <>
+                  {/* Re-enable — only for archived employees */}
+                  {isArchived && (
+                    <Button
+                      type="button"
+                      variant="outline"
+                      disabled={enableEmployee.isPending}
+                      onClick={async () => {
+                        try {
+                          await enableEmployee.mutateAsync(employee!.id)
+                          closeEmployeeDialog()
+                        } catch (err) {
+                          setSubmitError(err instanceof Error ? err.message : 'Failed to re-enable')
+                        }
+                      }}
+                    >
+                      {enableEmployee.isPending ? 'Enabling...' : 'Re-enable'}
+                    </Button>
+                  )}
+
+                  {/* Disable — sets status=archived, stays visible in Archive tab */}
+                  {!isArchived && (
+                    <Button
+                      type="button"
+                      variant="outline"
+                      className="text-amber-600 border-amber-300 hover:bg-amber-50"
+                      disabled={disableEmployee.isPending}
+                      onClick={async () => {
+                        try {
+                          await disableEmployee.mutateAsync(employee!.id)
+                          closeEmployeeDialog()
+                        } catch (err) {
+                          setSubmitError(err instanceof Error ? err.message : 'Failed to disable')
+                        }
+                      }}
+                    >
+                      {disableEmployee.isPending ? 'Disabling...' : 'Disable'}
+                    </Button>
+                  )}
+
+                  {/* Remove — permanent soft-delete, disappears from all lists */}
+                  <Button
+                    type="button"
+                    variant="destructive"
+                    disabled={archiveEmployee.isPending}
+                    onClick={async () => {
+                      try {
+                        await archiveEmployee.mutateAsync(employee!.id)
+                        closeEmployeeDialog()
+                      } catch (err) {
+                        setSubmitError(err instanceof Error ? err.message : 'Failed to remove')
+                      }
+                    }}
+                  >
+                    {archiveEmployee.isPending ? 'Removing...' : 'Remove'}
+                  </Button>
+                </>
               )}
+
               <Button type="submit" disabled={isPending} className="sm:ml-auto">
                 {isPending ? 'Saving...' : isEdit ? 'Save' : 'Add Employee'}
               </Button>

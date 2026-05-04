@@ -427,6 +427,51 @@ export function useUpdateEmployee() {
   })
 }
 
+/** Disable: sets status=archived but keeps deleted_at null (stays visible in Archive tab). */
+export function useDisableEmployee() {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: async (id: string) => {
+      const supabase = createClient()
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const { error } = await (supabase.from('employees') as any)
+        .update({ status: 'archived', team_id: null })
+        .eq('id', id)
+      if (error) throw error
+      await logActivity({ action: 'employee-disabled', entityType: 'employee', entityId: id })
+    },
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ['employees'] })
+      qc.invalidateQueries({ queryKey: ['teams'] })
+      qc.invalidateQueries({ queryKey: ['team-activity-log'] })
+      qc.invalidateQueries({ queryKey: ['team-activity-log-count'] })
+    },
+  })
+}
+
+/** Re-enable: clears archived status back to unassigned. */
+export function useEnableEmployee() {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: async (id: string) => {
+      const supabase = createClient()
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const { error } = await (supabase.from('employees') as any)
+        .update({ status: 'unassigned' })
+        .eq('id', id)
+      if (error) throw error
+      await logActivity({ action: 'employee-enabled', entityType: 'employee', entityId: id })
+    },
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ['employees'] })
+      qc.invalidateQueries({ queryKey: ['teams'] })
+      qc.invalidateQueries({ queryKey: ['team-activity-log'] })
+      qc.invalidateQueries({ queryKey: ['team-activity-log-count'] })
+    },
+  })
+}
+
+/** Remove: permanently soft-deletes (sets deleted_at — employee disappears from all lists). */
 export function useArchiveEmployee() {
   const qc = useQueryClient()
   return useMutation({
@@ -437,7 +482,7 @@ export function useArchiveEmployee() {
         .update({ deleted_at: new Date().toISOString(), status: 'archived', team_id: null } as any)
         .eq('id', id)
       if (error) throw error
-      await logActivity({ action: 'employee-archived', entityType: 'employee', entityId: id })
+      await logActivity({ action: 'employee-removed', entityType: 'employee', entityId: id })
     },
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ['employees'] })
