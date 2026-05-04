@@ -1241,6 +1241,7 @@ export type Database = {
       employees: {
         Row: {
           avatar: string | null
+          avatar_url: string | null
           created_at: string | null
           id: string
           join_date: string
@@ -1248,6 +1249,8 @@ export type Database = {
           name_ar: string | null
           nationality: string | null
           phone: string
+          site_visit_order: boolean
+          site_visit_quotation: boolean
           skills: string[] | null
           status: Database["public"]["Enums"]["employee_status"] | null
           team_id: string | null
@@ -1255,6 +1258,7 @@ export type Database = {
         }
         Insert: {
           avatar?: string | null
+          avatar_url?: string | null
           created_at?: string | null
           id?: string
           join_date: string
@@ -1262,6 +1266,8 @@ export type Database = {
           name_ar?: string | null
           nationality?: string | null
           phone: string
+          site_visit_order?: boolean
+          site_visit_quotation?: boolean
           skills?: string[] | null
           status?: Database["public"]["Enums"]["employee_status"] | null
           team_id?: string | null
@@ -1269,6 +1275,7 @@ export type Database = {
         }
         Update: {
           avatar?: string | null
+          avatar_url?: string | null
           created_at?: string | null
           id?: string
           join_date?: string
@@ -1276,6 +1283,8 @@ export type Database = {
           name_ar?: string | null
           nationality?: string | null
           phone?: string
+          site_visit_order?: boolean
+          site_visit_quotation?: boolean
           skills?: string[] | null
           status?: Database["public"]["Enums"]["employee_status"] | null
           team_id?: string | null
@@ -4817,6 +4826,7 @@ export type Database = {
         Row: {
           created_at: string | null
           days: Json
+          deleted_at: string | null
           id: string
           name: string
           updated_at: string | null
@@ -4824,6 +4834,7 @@ export type Database = {
         Insert: {
           created_at?: string | null
           days: Json
+          deleted_at?: string | null
           id?: string
           name: string
           updated_at?: string | null
@@ -4831,6 +4842,7 @@ export type Database = {
         Update: {
           created_at?: string | null
           days?: Json
+          deleted_at?: string | null
           id?: string
           name?: string
           updated_at?: string | null
@@ -4843,6 +4855,7 @@ export type Database = {
           created_at: string
           group_label: string | null
           id: string
+          is_default: boolean
           link_type: string
           notes: string | null
           quantity: number
@@ -4854,6 +4867,7 @@ export type Database = {
           created_at?: string
           group_label?: string | null
           id?: string
+          is_default?: boolean
           link_type?: string
           notes?: string | null
           quantity?: number
@@ -4865,6 +4879,7 @@ export type Database = {
           created_at?: string
           group_label?: string | null
           id?: string
+          is_default?: boolean
           link_type?: string
           notes?: string | null
           quantity?: number
@@ -5266,6 +5281,47 @@ export type Database = {
         }
         Relationships: []
       }
+      team_activity_log: {
+        Row: {
+          action: string
+          actor_id: string | null
+          after_data: Json | null
+          before_data: Json | null
+          created_at: string
+          entity_id: string
+          entity_type: string
+          id: string
+        }
+        Insert: {
+          action: string
+          actor_id?: string | null
+          after_data?: Json | null
+          before_data?: Json | null
+          created_at?: string
+          entity_id: string
+          entity_type: string
+          id?: string
+        }
+        Update: {
+          action?: string
+          actor_id?: string | null
+          after_data?: Json | null
+          before_data?: Json | null
+          created_at?: string
+          entity_id?: string
+          entity_type?: string
+          id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "team_activity_log_actor_id_fkey"
+            columns: ["actor_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       team_schedule_assignments: {
         Row: {
           created_at: string | null
@@ -5313,12 +5369,15 @@ export type Database = {
           created_at: string | null
           division: Database["public"]["Enums"]["team_division"]
           id: string
+          is_emergency: boolean
+          is_qc: boolean
           leader_id: string | null
           name: string
           schedule_end: number | null
           schedule_id: string | null
           schedule_start: number | null
           tag: Database["public"]["Enums"]["team_tag"] | null
+          traccar_device_id: string | null
           updated_at: string | null
           vehicle_id: string | null
         }
@@ -5326,12 +5385,15 @@ export type Database = {
           created_at?: string | null
           division: Database["public"]["Enums"]["team_division"]
           id?: string
+          is_emergency?: boolean
+          is_qc?: boolean
           leader_id?: string | null
           name: string
           schedule_end?: number | null
           schedule_id?: string | null
           schedule_start?: number | null
           tag?: Database["public"]["Enums"]["team_tag"] | null
+          traccar_device_id?: string | null
           updated_at?: string | null
           vehicle_id?: string | null
         }
@@ -5339,12 +5401,15 @@ export type Database = {
           created_at?: string | null
           division?: Database["public"]["Enums"]["team_division"]
           id?: string
+          is_emergency?: boolean
+          is_qc?: boolean
           leader_id?: string | null
           name?: string
           schedule_end?: number | null
           schedule_id?: string | null
           schedule_start?: number | null
           tag?: Database["public"]["Enums"]["team_tag"] | null
+          traccar_device_id?: string | null
           updated_at?: string | null
           vehicle_id?: string | null
         }
@@ -5451,6 +5516,58 @@ export type Database = {
           },
         ]
       }
+      tool_assignments: {
+        Row: {
+          assigned_at: string
+          assigned_to: string
+          employee_id: string | null
+          id: string
+          notes: string | null
+          team_id: string | null
+          tool_unit_id: string
+        }
+        Insert: {
+          assigned_at?: string
+          assigned_to: string
+          employee_id?: string | null
+          id?: string
+          notes?: string | null
+          team_id?: string | null
+          tool_unit_id: string
+        }
+        Update: {
+          assigned_at?: string
+          assigned_to?: string
+          employee_id?: string | null
+          id?: string
+          notes?: string | null
+          team_id?: string | null
+          tool_unit_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "tool_assignments_employee_id_fkey"
+            columns: ["employee_id"]
+            isOneToOne: false
+            referencedRelation: "employees"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "tool_assignments_team_id_fkey"
+            columns: ["team_id"]
+            isOneToOne: false
+            referencedRelation: "teams"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "tool_assignments_tool_unit_id_fkey"
+            columns: ["tool_unit_id"]
+            isOneToOne: false
+            referencedRelation: "tool_asset_units"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       user_custom_roles: {
         Row: {
           created_at: string
@@ -5549,6 +5666,7 @@ export type Database = {
           id: string
           plate: string
           team_id: string | null
+          traccar_device_id: string | null
           type: string
           updated_at: string | null
         }
@@ -5557,6 +5675,7 @@ export type Database = {
           id?: string
           plate: string
           team_id?: string | null
+          traccar_device_id?: string | null
           type: string
           updated_at?: string | null
         }
@@ -5565,6 +5684,7 @@ export type Database = {
           id?: string
           plate?: string
           team_id?: string | null
+          traccar_device_id?: string | null
           type?: string
           updated_at?: string | null
         }
@@ -6216,6 +6336,10 @@ export type Database = {
         Args: { p_approved_by: string; p_transfer_id: string }
         Returns: undefined
       }
+      assign_team_leader: {
+        Args: { p_employee_id: string; p_team_id: string }
+        Returns: undefined
+      }
       attach_payment_to_bill: {
         Args: { p_bill_id: string; p_payment_id: string }
         Returns: undefined
@@ -6393,9 +6517,64 @@ export type Database = {
         Args: { p_return_id: string }
         Returns: undefined
       }
+      save_employee: {
+        Args: {
+          p_avatar_url: string
+          p_employee_id: string
+          p_join_date: string
+          p_name: string
+          p_nationality: string
+          p_phone: string
+          p_service_ids: string[]
+          p_site_visit_order: boolean
+          p_site_visit_quotation: boolean
+          p_status: string
+        }
+        Returns: {
+          avatar: string | null
+          avatar_url: string | null
+          created_at: string | null
+          id: string
+          join_date: string
+          name: string
+          name_ar: string | null
+          nationality: string | null
+          phone: string
+          site_visit_order: boolean
+          site_visit_quotation: boolean
+          skills: string[] | null
+          status: Database["public"]["Enums"]["employee_status"] | null
+          team_id: string | null
+          updated_at: string | null
+        }
+        SetofOptions: {
+          from: "*"
+          to: "employees"
+          isOneToOne: true
+          isSetofReturn: false
+        }
+      }
+      service_inventory_bulk_upsert: {
+        Args: {
+          p_brand_variant_id: string
+          p_link_type?: string
+          p_quantity?: number
+          p_service_ids: string[]
+          p_warranty_months?: number
+        }
+        Returns: undefined
+      }
       storage_lc_bills_write_allowed: { Args: never; Returns: boolean }
+      sync_team_active_schedule: {
+        Args: { p_team_id: string }
+        Returns: undefined
+      }
       update_reserved_qty: {
         Args: { p_bv_id: string; p_delta: number }
+        Returns: undefined
+      }
+      upsert_employee_services: {
+        Args: { p_employee_id: string; p_service_ids: string[] }
         Returns: undefined
       }
       validate_lc_allocation: { Args: { p_lc_id: string }; Returns: Json }
@@ -6873,18 +7052,5 @@ export const Constants = {
     },
   },
 } as const
-
-// ─── Convenience type helpers ─────────────────────────────────────────────────
-type PublicSchema = Database['public']
-
-export type DBTable<T extends keyof PublicSchema['Tables']> =
-  PublicSchema['Tables'][T]['Row']
-
-export type DBInsert<T extends keyof PublicSchema['Tables']> =
-  PublicSchema['Tables'][T]['Insert']
-
-export type DBUpdate<T extends keyof PublicSchema['Tables']> =
-  PublicSchema['Tables'][T]['Update']
-
-export type DBEnum<T extends keyof PublicSchema['Enums']> =
-  PublicSchema['Enums'][T]
+A new version of Supabase CLI is available: v2.95.4 (currently installed v2.91.3)
+We recommend updating regularly for new features and bug fixes: https://supabase.com/docs/guides/cli/getting-started#updating-the-supabase-cli
