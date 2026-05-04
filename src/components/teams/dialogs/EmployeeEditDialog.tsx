@@ -8,13 +8,13 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '
 import { Form, FormField, FormItem, FormLabel, FormControl, FormMessage } from '@/components/ui/form'
 import { Input } from '@/components/ui/input'
 import { Button } from '@/components/ui/button'
-import { Switch } from '@/components/ui/switch'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { Checkbox } from '@/components/ui/checkbox'
 import { cn } from '@/lib/utils'
 import { createClient } from '@/lib/supabase/client'
 import { useServiceTree, type Service } from '@/hooks/useServices'
 import { useCreateEmployee, useArchiveEmployee } from '@/hooks/useTeams'
+import { useDivisions } from '@/hooks/useDivisions'
 import { useTeamsPage } from '../TeamsPageContext'
 
 // ─── Country codes ────────────────────────────────────────────────────────────
@@ -179,14 +179,12 @@ function ServiceNodeRow({
 
 // ─── Form values ──────────────────────────────────────────────────────────────
 interface EmployeeFormValues {
-  name:                 string
-  countryCode:          string
-  phoneNumber:          string
-  nationality:          string
-  join_date:            string
-  site_visit_order:     boolean
-  site_visit_quotation: boolean
-  avatar_url:           string
+  name:        string
+  countryCode: string
+  phoneNumber: string
+  nationality: string
+  join_date:   string
+  avatar_url:  string
 }
 
 // ─── Main dialog ──────────────────────────────────────────────────────────────
@@ -200,14 +198,19 @@ export function EmployeeEditDialog() {
   const archiveEmployee = useArchiveEmployee()
 
   const fileRef = useRef<HTMLInputElement>(null)
-  const [submitError, setSubmitError] = useState<string | null>(null)
-  const [isPending,   setIsPending]   = useState(false)
-  const [previewUrl,  setPreviewUrl]  = useState<string | null>(null)
+  const [submitError,    setSubmitError]    = useState<string | null>(null)
+  const [isPending,      setIsPending]      = useState(false)
+  const [previewUrl,     setPreviewUrl]     = useState<string | null>(null)
+  const [divisionSlug,   setDivisionSlug]   = useState<string>('')
 
-  // ─── Services ──────────────────────────────────────────────────────────────
-  const { data: normalFlat   = [] } = useServiceTree('normal',   [])
-  const { data: contractFlat = [] } = useServiceTree('contract', [])
-  const { data: mobileFlat   = [] } = useServiceTree('mobile',   [])
+  // ─── Divisions ─────────────────────────────────────────────────────────────
+  const { data: divisions = [] } = useDivisions()
+
+  // ─── Services (filtered by selected division) ───────────────────────────────
+  const slugFilter = divisionSlug ? [divisionSlug] : []
+  const { data: normalFlat   = [] } = useServiceTree('normal',   slugFilter)
+  const { data: contractFlat = [] } = useServiceTree('contract', slugFilter)
+  const { data: mobileFlat   = [] } = useServiceTree('mobile',   slugFilter)
 
   const normalTree   = useMemo(() => buildTree(normalFlat),   [normalFlat])
   const contractTree = useMemo(() => buildTree(contractFlat), [contractFlat])
@@ -229,8 +232,7 @@ export function EmployeeEditDialog() {
   const form = useForm<EmployeeFormValues>({
     defaultValues: {
       name: '', countryCode: '+974', phoneNumber: '', nationality: '',
-      join_date: todayStr, site_visit_order: false, site_visit_quotation: false,
-      avatar_url: '',
+      join_date: todayStr, avatar_url: '',
     },
   })
 
@@ -239,18 +241,17 @@ export function EmployeeEditDialog() {
     setSubmitError(null)
     setPreviewUrl(null)
     setSelectedIds(new Set())
+    setDivisionSlug('')
 
     if (employee) {
       const parsed = parsePhone(employee.phone ?? '')
       form.reset({
-        name:                 employee.name ?? '',
-        countryCode:          parsed.code,
-        phoneNumber:          parsed.number,
-        nationality:          employee.nationality ?? '',
-        join_date:            employee.join_date ?? todayStr,
-        site_visit_order:     employee.site_visit_order ?? false,
-        site_visit_quotation: employee.site_visit_quotation ?? false,
-        avatar_url:           employee.avatar_url ?? '',
+        name:        employee.name        ?? '',
+        countryCode: parsed.code,
+        phoneNumber: parsed.number,
+        nationality: employee.nationality ?? '',
+        join_date:   employee.join_date   ?? todayStr,
+        avatar_url:  employee.avatar_url  ?? '',
       })
       setPreviewUrl(employee.avatar_url ?? null)
       // Load existing skill IDs (employee_services not in generated types — cast required)
@@ -265,8 +266,7 @@ export function EmployeeEditDialog() {
     } else {
       form.reset({
         name: '', countryCode: '+974', phoneNumber: '', nationality: '',
-        join_date: todayStr, site_visit_order: false, site_visit_quotation: false,
-        avatar_url: '',
+        join_date: todayStr, avatar_url: '',
       })
     }
   }, [employee, open]) // eslint-disable-line react-hooks/exhaustive-deps
@@ -310,16 +310,14 @@ export function EmployeeEditDialog() {
         const supabase = createClient()
         // eslint-disable-next-line @typescript-eslint/no-explicit-any
         const { error } = await (supabase as any).rpc('save_employee', {
-          p_employee_id:          employee!.id,
-          p_name:                 values.name,
-          p_phone:                fullPhone || null,
-          p_nationality:          values.nationality || null,
-          p_join_date:            values.join_date || null,
-          p_status:               employee!.status ?? 'active',
-          p_site_visit_order:     values.site_visit_order,
-          p_site_visit_quotation: values.site_visit_quotation,
-          p_avatar_url:           avatarUrl || null,
-          p_service_ids:          serviceIds,
+          p_employee_id: employee!.id,
+          p_name:        values.name,
+          p_phone:       fullPhone || null,
+          p_nationality: values.nationality || null,
+          p_join_date:   values.join_date || null,
+          p_status:      employee!.status ?? 'active',
+          p_avatar_url:  avatarUrl || null,
+          p_service_ids: serviceIds,
         })
         if (error) throw error
         qc.invalidateQueries({ queryKey: ['employees'] })
@@ -335,14 +333,12 @@ export function EmployeeEditDialog() {
         })
       } else {
         const payload = {
-          name:                 values.name,
-          phone:                fullPhone || null,
-          nationality:          values.nationality || null,
-          join_date:            values.join_date,
-          status:               'unassigned' as const,
-          site_visit_order:     values.site_visit_order,
-          site_visit_quotation: values.site_visit_quotation,
-          avatar_url:           avatarUrl || null,
+          name:        values.name,
+          phone:       fullPhone || null,
+          nationality: values.nationality || null,
+          join_date:   values.join_date,
+          status:      'unassigned' as const,
+          avatar_url:  avatarUrl || null,
         }
         // eslint-disable-next-line @typescript-eslint/no-explicit-any
         const created = await createEmployee.mutateAsync(payload as any)
@@ -498,55 +494,29 @@ export function EmployeeEditDialog() {
                 )}
               />
 
-              {/* ── Site Visit Authorization ── */}
-              <div className="rounded-lg border p-3 space-y-3">
-                <div className="flex items-center gap-2 mb-1">
-                  <span className="h-4 w-4 rounded-full bg-primary/20 flex items-center justify-center text-[9px] text-primary font-bold">
-                    ✓
-                  </span>
-                  <span className="text-sm font-medium text-foreground">
-                    Site Visit Authorization
-                  </span>
-                </div>
-                <FormField
-                  control={form.control}
-                  name="site_visit_order"
-                  render={({ field }) => (
-                    <FormItem className="flex items-center justify-between">
-                      <FormLabel className="!mt-0 font-normal text-sm cursor-pointer">
-                        Site Visit — Orders
-                      </FormLabel>
-                      <FormControl>
-                        <Switch
-                          checked={field.value}
-                          onCheckedChange={field.onChange}
-                        />
-                      </FormControl>
-                    </FormItem>
-                  )}
-                />
-                <FormField
-                  control={form.control}
-                  name="site_visit_quotation"
-                  render={({ field }) => (
-                    <FormItem className="flex items-center justify-between">
-                      <FormLabel className="!mt-0 font-normal text-sm cursor-pointer">
-                        Site Visit — Quotations
-                      </FormLabel>
-                      <FormControl>
-                        <Switch
-                          checked={field.value}
-                          onCheckedChange={field.onChange}
-                        />
-                      </FormControl>
-                    </FormItem>
-                  )}
-                />
-              </div>
-
               {/* ── Skillset (Services) ── */}
               <div className="space-y-2">
                 <p className="text-sm font-medium">Skillset (Services)</p>
+
+                {/* Division filter */}
+                <div>
+                  <label className="text-xs text-muted-foreground mb-1 block">
+                    Filter by Division
+                  </label>
+                  <Select value={divisionSlug} onValueChange={v => setDivisionSlug(v ?? '')}>
+                    <SelectTrigger className="h-8 text-sm">
+                      <SelectValue placeholder="All divisions" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="">All divisions</SelectItem>
+                      {divisions.map(d => (
+                        <SelectItem key={d.id} value={d.slug ?? d.id}>
+                          {d.name}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
                 <ServiceTreeSection
                   title="Normal Services"
                   nodes={normalTree}
