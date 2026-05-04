@@ -1,6 +1,7 @@
 'use client'
 
 import { DndContext, DragOverlay, type DragStartEvent } from '@dnd-kit/core'
+import { TooltipProvider } from '@/components/ui/tooltip'
 import { TeamsPageProvider } from '@/components/teams/TeamsPageContext'
 import { useDnDHandlers, type DragData } from '@/components/teams/useDnDHandlers'
 import { TopBar } from '@/components/teams/TopBar'
@@ -79,8 +80,10 @@ function DragOverlayContent({ item }: { item: DragData }) {
 
 export default function TeamsPage() {
   return (
-    <TeamsPageProvider>
-      <TeamsPageInner />
-    </TeamsPageProvider>
+    <TooltipProvider>
+      <TeamsPageProvider>
+        <TeamsPageInner />
+      </TeamsPageProvider>
+    </TooltipProvider>
   )
 }

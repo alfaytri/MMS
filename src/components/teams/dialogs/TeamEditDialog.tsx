@@ -84,6 +84,9 @@ export function TeamEditDialog() {
 
   const [saveError, setSaveError] = useState<string | null>(null)
 
+  const hasOrderVisit     = team?.members?.some(m => m.site_visit_order)     ?? false
+  const hasQuotationVisit = team?.members?.some(m => m.site_visit_quotation) ?? false
+
   const createTeam  = useCreateTeam()
   const updateTeam  = useUpdateTeam()
   const archiveTeam = useArchiveTeam()
@@ -309,6 +312,30 @@ export function TeamEditDialog() {
                   )}
                 />
               </div>
+
+              {/* ── Site Visit Capability (read-only) ── */}
+              {isEdit && (
+                <div className="rounded-lg border p-3 space-y-3">
+                  <div>
+                    <p className="text-sm font-medium">Site Visit Capability</p>
+                    <p className="text-xs text-muted-foreground mt-0.5">
+                      Auto-derived from team members&apos; site visit flags (read-only)
+                    </p>
+                  </div>
+                  <div className="flex items-center justify-between">
+                    <span className="text-sm font-normal text-muted-foreground">
+                      Site Visit — Orders
+                    </span>
+                    <Switch checked={hasOrderVisit} disabled aria-readonly />
+                  </div>
+                  <div className="flex items-center justify-between">
+                    <span className="text-sm font-normal text-muted-foreground">
+                      Site Visit — Contracts
+                    </span>
+                    <Switch checked={hasQuotationVisit} disabled aria-readonly />
+                  </div>
+                </div>
+              )}
 
               {/* ── Phone ── */}
               <div className="flex gap-2 items-end">

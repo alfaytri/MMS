@@ -11,7 +11,9 @@ import type { TeamFull } from '@/hooks/useTeams'
 
 export function TeamCard({ team }: { team: TeamFull }) {
   const { openTeamDialog, openScheduleDialog, openLogPanel, teamToolCounts } = useTeamsPage()
-  const toolCount = teamToolCounts.get(team.id) ?? 0
+  const toolCount  = teamToolCounts.get(team.id) ?? 0
+  const hasSVO = team.members.some(m => m.site_visit_order)
+  const hasSVC = team.members.some(m => m.site_visit_quotation)
 
   return (
     <div className="rounded-lg border bg-card shadow-sm flex flex-col gap-2 p-3">
@@ -31,6 +33,12 @@ export function TeamCard({ team }: { team: TeamFull }) {
           )}
           {team.is_qc && (
             <Badge className="text-[10px] px-1 bg-purple-100 text-purple-700 hover:bg-purple-100">QC</Badge>
+          )}
+          {hasSVO && (
+            <Badge className="text-[10px] px-1 bg-blue-100 text-blue-700 hover:bg-blue-100">SVO</Badge>
+          )}
+          {hasSVC && (
+            <Badge className="text-[10px] px-1 bg-teal-100 text-teal-700 hover:bg-teal-100">SVC</Badge>
           )}
         </div>
       </div>
