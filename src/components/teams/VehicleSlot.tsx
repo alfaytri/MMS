@@ -58,15 +58,16 @@ function DraggableVehicleChip({ vehicle, teamId, onUnassign, onLog, dropRef, isO
   return (
     <div
       ref={(n) => { setNodeRef(n); dropRef(n) }}
+      {...attributes}
       className={cn(
-        'group flex items-center gap-2 h-10 px-2 rounded border bg-muted/50 text-sm cursor-grab transition-opacity',
+        'group flex items-center gap-2 h-10 px-2 rounded border bg-muted/50 text-sm transition-opacity',
         isDragging && 'opacity-50',
         isOver && 'ring-2 ring-primary bg-primary/5'
       )}
-      {...listeners}
-      {...attributes}
     >
-      <Truck className="h-3 w-3 shrink-0 text-muted-foreground" />
+      <div {...listeners} className="cursor-grab touch-none shrink-0">
+        <Truck className="h-3 w-3 text-muted-foreground" />
+      </div>
       <span className="flex-1 truncate font-mono text-xs">{vehicle.plate}</span>
       {traccarId && <Satellite className="h-3 w-3 text-blue-500" />}
       <div className="hidden group-hover:flex items-center gap-1">
