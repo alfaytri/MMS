@@ -34,12 +34,18 @@ function actionLabel(action: string) {
   return ACTION_LABELS[action] ?? action.replace(/-/g, ' ').replace(/\b\w/g, c => c.toUpperCase())
 }
 
-// Pull 2-3 meaningful fields from a data object for display
+const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
+
+// Pull 2-3 meaningful fields from a data object — skips ID columns and UUID values
 function dataSummary(data: Record<string, unknown> | null | undefined): string | null {
   if (!data) return null
-  const skip = new Set(['id', 'created_at', 'updated_at', 'deleted_at', 'actor_id'])
   const pairs = Object.entries(data)
-    .filter(([k, v]) => !skip.has(k) && v !== null && v !== undefined && v !== '')
+    .filter(([k, v]) => {
+      if (k === 'id' || k.endsWith('_id') || k.endsWith('_at')) return false
+      if (v === null || v === undefined || v === '') return false
+      if (typeof v === 'string' && UUID_RE.test(v)) return false
+      return true
+    })
     .slice(0, 3)
     .map(([k, v]) => `${k.replace(/_/g, ' ')}: ${String(v)}`)
   return pairs.length ? pairs.join(' · ') : null
