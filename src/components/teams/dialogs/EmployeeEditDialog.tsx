@@ -1,99 +1,296 @@
 'use client'
 
-import { useEffect, useRef, useState } from 'react'
+import { useEffect, useRef, useState, useMemo } from 'react'
 import { useForm } from 'react-hook-form'
 import { useQueryClient } from '@tanstack/react-query'
+import { Camera, ChevronRight, ChevronDown } from 'lucide-react'
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog'
 import { Form, FormField, FormItem, FormLabel, FormControl, FormMessage } from '@/components/ui/form'
 import { Input } from '@/components/ui/input'
 import { Button } from '@/components/ui/button'
 import { Switch } from '@/components/ui/switch'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
+import { Checkbox } from '@/components/ui/checkbox'
+import { cn } from '@/lib/utils'
 import { createClient } from '@/lib/supabase/client'
+import { useServiceTree, type Service } from '@/hooks/useServices'
 import { useCreateEmployee, useArchiveEmployee } from '@/hooks/useTeams'
 import { useTeamsPage } from '../TeamsPageContext'
-import type { EmployeeStatus } from '@/hooks/useTeams'
 
+// ─── Country codes ────────────────────────────────────────────────────────────
+const COUNTRY_CODES = [
+  { code: '+974', label: 'QA +974' },
+  { code: '+966', label: 'SA +966' },
+  { code: '+971', label: 'AE +971' },
+  { code: '+965', label: 'KW +965' },
+  { code: '+973', label: 'BH +973' },
+  { code: '+968', label: 'OM +968' },
+  { code: '+20',  label: 'EG +20'  },
+  { code: '+92',  label: 'PK +92'  },
+  { code: '+91',  label: 'IN +91'  },
+  { code: '+880', label: 'BD +880' },
+]
+
+function parsePhone(phone: string): { code: string; number: string } {
+  for (const c of COUNTRY_CODES) {
+    if (phone.startsWith(c.code + ' ')) {
+      return { code: c.code, number: phone.slice(c.code.length + 1) }
+    }
+    if (phone.startsWith(c.code)) {
+      return { code: c.code, number: phone.slice(c.code.length) }
+    }
+  }
+  return { code: '+974', number: phone }
+}
+
+// ─── Service tree builder ─────────────────────────────────────────────────────
+interface ServiceNode extends Service {
+  children: ServiceNode[]
+}
+
+function buildTree(flat: Service[]): ServiceNode[] {
+  const map = new Map<string, ServiceNode>()
+  flat.forEach(s => map.set(s.id, { ...s, children: [] }))
+  const roots: ServiceNode[] = []
+  flat.forEach(s => {
+    if (s.parent_id && map.has(s.parent_id)) {
+      map.get(s.parent_id)!.children.push(map.get(s.id)!)
+    } else {
+      roots.push(map.get(s.id)!)
+    }
+  })
+  return roots
+}
+
+// ─── ServiceTreeSection ───────────────────────────────────────────────────────
+function ServiceTreeSection({
+  title,
+  nodes,
+  selectedIds,
+  onToggle,
+}: {
+  title: string
+  nodes: ServiceNode[]
+  selectedIds: Set<string>
+  onToggle: (id: string) => void
+}) {
+  const [open, setOpen] = useState(true)
+  if (nodes.length === 0) return null
+  return (
+    <div className="border rounded-lg overflow-hidden">
+      <button
+        type="button"
+        onClick={() => setOpen(o => !o)}
+        className="w-full flex items-center justify-between px-3 py-2.5 bg-muted/40 text-sm font-semibold hover:bg-muted/60 transition-colors"
+      >
+        {title}
+        {open
+          ? <ChevronDown className="h-4 w-4 text-muted-foreground" />
+          : <ChevronRight className="h-4 w-4 text-muted-foreground" />
+        }
+      </button>
+      {open && (
+        <div className="divide-y">
+          {nodes.map(node => (
+            <ServiceNodeRow
+              key={node.id}
+              node={node}
+              selectedIds={selectedIds}
+              onToggle={onToggle}
+              depth={0}
+            />
+          ))}
+        </div>
+      )}
+    </div>
+  )
+}
+
+// ─── ServiceNodeRow ───────────────────────────────────────────────────────────
+function ServiceNodeRow({
+  node,
+  selectedIds,
+  onToggle,
+  depth,
+}: {
+  node: ServiceNode
+  selectedIds: Set<string>
+  onToggle: (id: string) => void
+  depth: number
+}) {
+  const [expanded, setExpanded] = useState(false)
+  const hasChildren = node.children.length > 0
+  const isLeaf = !hasChildren
+
+  return (
+    <>
+      <div
+        className={cn(
+          'flex items-center gap-2 px-3 py-2 text-sm hover:bg-muted/20',
+          depth > 0 && 'pl-8',
+        )}
+      >
+        {hasChildren ? (
+          <button
+            type="button"
+            onClick={() => setExpanded(e => !e)}
+            className="p-0.5 hover:text-foreground text-muted-foreground shrink-0"
+          >
+            {expanded
+              ? <ChevronDown className="h-3.5 w-3.5" />
+              : <ChevronRight className="h-3.5 w-3.5" />
+            }
+          </button>
+        ) : (
+          <Checkbox
+            id={node.id}
+            checked={selectedIds.has(node.id)}
+            onCheckedChange={() => onToggle(node.id)}
+            className="shrink-0"
+          />
+        )}
+        <label
+          htmlFor={isLeaf ? node.id : undefined}
+          className={cn(
+            'flex-1 min-w-0 truncate',
+            isLeaf ? 'cursor-pointer' : 'font-medium',
+          )}
+        >
+          {node.name_en}
+        </label>
+        {node.name_ar && (
+          <span className="text-xs text-muted-foreground shrink-0" dir="rtl">
+            {node.name_ar}
+          </span>
+        )}
+      </div>
+      {hasChildren && expanded && node.children.map(child => (
+        <ServiceNodeRow
+          key={child.id}
+          node={child}
+          selectedIds={selectedIds}
+          onToggle={onToggle}
+          depth={depth + 1}
+        />
+      ))}
+    </>
+  )
+}
+
+// ─── Form values ──────────────────────────────────────────────────────────────
 interface EmployeeFormValues {
   name:                 string
-  phone:                string
+  countryCode:          string
+  phoneNumber:          string
   nationality:          string
   join_date:            string
-  status:               EmployeeStatus
   site_visit_order:     boolean
   site_visit_quotation: boolean
   avatar_url:           string
-  serviceIds:           string[]
 }
 
-const STATUSES: EmployeeStatus[] = ['unassigned', 'active', 'vacation', 'on-task', 'archived']
-
+// ─── Main dialog ──────────────────────────────────────────────────────────────
 export function EmployeeEditDialog() {
   const { employeeDialog, closeEmployeeDialog } = useTeamsPage()
   const { open, employee } = employeeDialog
   const isEdit = !!employee
 
-  const qc = useQueryClient()
+  const qc             = useQueryClient()
   const createEmployee  = useCreateEmployee()
   const archiveEmployee = useArchiveEmployee()
 
   const fileRef = useRef<HTMLInputElement>(null)
   const [submitError, setSubmitError] = useState<string | null>(null)
   const [isPending,   setIsPending]   = useState(false)
+  const [previewUrl,  setPreviewUrl]  = useState<string | null>(null)
+
+  // ─── Services ──────────────────────────────────────────────────────────────
+  const { data: normalFlat   = [] } = useServiceTree('normal',   [])
+  const { data: contractFlat = [] } = useServiceTree('contract', [])
+  const { data: mobileFlat   = [] } = useServiceTree('mobile',   [])
+
+  const normalTree   = useMemo(() => buildTree(normalFlat),   [normalFlat])
+  const contractTree = useMemo(() => buildTree(contractFlat), [contractFlat])
+  const mobileTree   = useMemo(() => buildTree(mobileFlat),   [mobileFlat])
+
+  const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set())
+
+  function toggleService(id: string) {
+    setSelectedIds(prev => {
+      const next = new Set(prev)
+      next.has(id) ? next.delete(id) : next.add(id)
+      return next
+    })
+  }
+
+  // ─── Form ──────────────────────────────────────────────────────────────────
+  const todayStr = new Date().toISOString().slice(0, 10)
 
   const form = useForm<EmployeeFormValues>({
     defaultValues: {
-      name: '', phone: '', nationality: '', join_date: '',
-      status: 'unassigned', site_visit_order: false, site_visit_quotation: false,
-      avatar_url: '', serviceIds: [],
+      name: '', countryCode: '+974', phoneNumber: '', nationality: '',
+      join_date: todayStr, site_visit_order: false, site_visit_quotation: false,
+      avatar_url: '',
     },
   })
 
   useEffect(() => {
     if (!open) return
     setSubmitError(null)
+    setPreviewUrl(null)
+    setSelectedIds(new Set())
+
     if (employee) {
+      const parsed = parsePhone(employee.phone ?? '')
       form.reset({
         name:                 employee.name ?? '',
-        phone:                employee.phone ?? '',
+        countryCode:          parsed.code,
+        phoneNumber:          parsed.number,
         nationality:          employee.nationality ?? '',
-        join_date:            employee.join_date ?? '',
-        status:               (employee.status as EmployeeStatus) ?? 'unassigned',
+        join_date:            employee.join_date ?? todayStr,
         site_visit_order:     employee.site_visit_order ?? false,
         site_visit_quotation: employee.site_visit_quotation ?? false,
         avatar_url:           employee.avatar_url ?? '',
-        serviceIds:           [],
       })
-      // Load existing skill IDs for the employee
+      setPreviewUrl(employee.avatar_url ?? null)
+      // Load existing skill IDs (employee_services not in generated types — cast required)
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       ;(createClient() as any)
         .from('employee_services')
         .select('service_id')
         .eq('employee_id', employee.id)
         .then(({ data }: { data: { service_id: string }[] | null }) => {
-          if (data) form.setValue('serviceIds', data.map(r => r.service_id))
+          if (data) setSelectedIds(new Set(data.map(r => r.service_id)))
         })
     } else {
       form.reset({
-        name: '', phone: '', nationality: '', join_date: '',
-        status: 'unassigned', site_visit_order: false, site_visit_quotation: false,
-        avatar_url: '', serviceIds: [],
+        name: '', countryCode: '+974', phoneNumber: '', nationality: '',
+        join_date: todayStr, site_visit_order: false, site_visit_quotation: false,
+        avatar_url: '',
       })
     }
   }, [employee, open]) // eslint-disable-line react-hooks/exhaustive-deps
 
+  // ─── Avatar upload ──────────────────────────────────────────────────────────
+  function handleFileChange(e: React.ChangeEvent<HTMLInputElement>) {
+    const file = e.target.files?.[0]
+    if (!file) return
+    setPreviewUrl(URL.createObjectURL(file))
+  }
+
   async function uploadAvatar(file: File): Promise<string> {
     const supabase = createClient()
-    // Errata 7: UUID path to prevent collisions
     const ext  = file.name.split('.').pop()
     const path = `${crypto.randomUUID()}.${ext}`
-    const { error } = await supabase.storage.from('employee-avatars').upload(path, file, { upsert: true })
+    const { error } = await supabase.storage
+      .from('employee-avatars')
+      .upload(path, file, { upsert: true })
     if (error) throw error
     const { data } = supabase.storage.from('employee-avatars').getPublicUrl(path)
     return data.publicUrl
   }
 
-  // Errata 11: Wrap onSubmit in try/catch and surface errors via submitError state
+  // ─── Submit ─────────────────────────────────────────────────────────────────
   async function onSubmit(values: EmployeeFormValues) {
     setSubmitError(null)
     setIsPending(true)
@@ -103,56 +300,58 @@ export function EmployeeEditDialog() {
         avatarUrl = await uploadAvatar(fileRef.current.files[0])
       }
 
+      const fullPhone = values.phoneNumber
+        ? `${values.countryCode} ${values.phoneNumber}`
+        : ''
+
+      const serviceIds = Array.from(selectedIds)
+
       if (isEdit) {
-        // Errata 2: Atomic edit — save_employee RPC updates employee + skills in one transaction
         const supabase = createClient()
         // eslint-disable-next-line @typescript-eslint/no-explicit-any
         const { error } = await (supabase as any).rpc('save_employee', {
           p_employee_id:          employee!.id,
           p_name:                 values.name,
-          p_phone:                values.phone || null,
+          p_phone:                fullPhone || null,
           p_nationality:          values.nationality || null,
           p_join_date:            values.join_date || null,
-          p_status:               values.status,
+          p_status:               employee!.status ?? 'active',
           p_site_visit_order:     values.site_visit_order,
           p_site_visit_quotation: values.site_visit_quotation,
           p_avatar_url:           avatarUrl || null,
-          p_service_ids:          values.serviceIds,
+          p_service_ids:          serviceIds,
         })
         if (error) throw error
-        // Manually invalidate since we bypassed mutation hooks
         qc.invalidateQueries({ queryKey: ['employees'] })
         qc.invalidateQueries({ queryKey: ['teams'] })
         qc.invalidateQueries({ queryKey: ['team-activity-log'] })
         qc.invalidateQueries({ queryKey: ['team-activity-log-count'] })
-        // Log the edit (save_employee RPC doesn't log internally)
         // eslint-disable-next-line @typescript-eslint/no-explicit-any
         await (createClient() as any).from('team_activity_log').insert({
           action:      'employee-edited',
           entity_type: 'employee',
           entity_id:   employee!.id,
-          after_data:  { name: values.name, status: values.status },
+          after_data:  { name: values.name, status: employee!.status ?? 'active' },
         })
       } else {
-        // Create path: create employee first, then upsert skills
         const payload = {
           name:                 values.name,
-          phone:                values.phone || null,
+          phone:                fullPhone || null,
           nationality:          values.nationality || null,
-          join_date:            values.join_date || null,
-          status:               values.status,
+          join_date:            values.join_date,
+          status:               'unassigned' as const,
           site_visit_order:     values.site_visit_order,
           site_visit_quotation: values.site_visit_quotation,
           avatar_url:           avatarUrl || null,
         }
         // eslint-disable-next-line @typescript-eslint/no-explicit-any
         const created = await createEmployee.mutateAsync(payload as any)
-        if (values.serviceIds.length > 0) {
+        if (serviceIds.length > 0) {
           const supabase = createClient()
           // eslint-disable-next-line @typescript-eslint/no-explicit-any
           const { error } = await (supabase as any).rpc('upsert_employee_services', {
             p_employee_id: created.id,
-            p_service_ids: values.serviceIds,
+            p_service_ids: serviceIds,
           })
           if (error) throw error
         }
@@ -165,139 +364,223 @@ export function EmployeeEditDialog() {
     }
   }
 
+  const avatarWatchUrl = form.watch('avatar_url')
+  const displayAvatar  = previewUrl || avatarWatchUrl || null
+
   return (
     <Dialog open={open} onOpenChange={o => { if (!o) closeEmployeeDialog() }}>
-      <DialogContent className="w-full max-w-lg rounded-none md:rounded-lg max-h-[90vh] overflow-y-auto">
-        <DialogHeader>
-          <DialogTitle>{isEdit ? 'Edit Employee' : 'New Employee'}</DialogTitle>
+      <DialogContent className="w-full max-w-lg rounded-none md:rounded-lg max-h-[90vh] overflow-y-auto p-0">
+        <DialogHeader className="px-6 pt-5 pb-0">
+          <DialogTitle>{isEdit ? 'Edit Employee' : 'Add Employee'}</DialogTitle>
         </DialogHeader>
+
         <Form {...form}>
-          <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
+          <form onSubmit={form.handleSubmit(onSubmit)}>
+            <div className="px-6 py-4 space-y-4">
 
-            {/* Name */}
-            <FormField
-              control={form.control}
-              name="name"
-              rules={{ required: 'Required' }}
-              render={({ field }) => (
-                <FormItem>
-                  <FormLabel>Name</FormLabel>
-                  <FormControl><Input {...field} /></FormControl>
-                  <FormMessage />
-                </FormItem>
-              )}
-            />
+              {/* ── Photo + Name row ── */}
+              <div className="flex items-start gap-4">
+                {/* Circular photo placeholder */}
+                <button
+                  type="button"
+                  onClick={() => fileRef.current?.click()}
+                  className="shrink-0 h-16 w-16 rounded-full border-2 border-dashed border-muted-foreground/40 flex flex-col items-center justify-center gap-0.5 hover:border-primary hover:bg-muted/30 transition-colors overflow-hidden"
+                  aria-label="Upload photo"
+                >
+                  {displayAvatar ? (
+                    <img src={displayAvatar} alt="avatar" className="h-full w-full object-cover" />
+                  ) : (
+                    <>
+                      <Camera className="h-5 w-5 text-muted-foreground" />
+                      <span className="text-[10px] text-muted-foreground leading-none">Photo</span>
+                    </>
+                  )}
+                </button>
+                <input
+                  ref={fileRef}
+                  type="file"
+                  accept="image/*"
+                  className="hidden"
+                  onChange={handleFileChange}
+                />
 
-            {/* Phone / Nationality / Join Date / Status */}
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-              <FormField
-                control={form.control}
-                name="phone"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>Phone</FormLabel>
-                    <FormControl><Input {...field} type="tel" /></FormControl>
-                  </FormItem>
-                )}
-              />
+                {/* Name field */}
+                <FormField
+                  control={form.control}
+                  name="name"
+                  rules={{ required: 'Name is required' }}
+                  render={({ field }) => (
+                    <FormItem className="flex-1">
+                      <FormLabel>
+                        Name <span className="text-destructive">*</span>
+                      </FormLabel>
+                      <FormControl>
+                        <Input {...field} placeholder="Full name" />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+              </div>
+
+              {/* ── Phone row ── */}
+              <div className="flex gap-2 items-end">
+                <FormField
+                  control={form.control}
+                  name="countryCode"
+                  render={({ field }) => (
+                    <FormItem className="w-32 shrink-0">
+                      <FormLabel>Phone</FormLabel>
+                      <Select value={field.value} onValueChange={field.onChange}>
+                        <FormControl>
+                          <SelectTrigger className="h-9">
+                            <SelectValue />
+                          </SelectTrigger>
+                        </FormControl>
+                        <SelectContent>
+                          {COUNTRY_CODES.map(c => (
+                            <SelectItem key={c.code} value={c.code}>
+                              {c.label}
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                    </FormItem>
+                  )}
+                />
+                <FormField
+                  control={form.control}
+                  name="phoneNumber"
+                  render={({ field }) => (
+                    <FormItem className="flex-1">
+                      {/* invisible label keeps vertical alignment with country code label */}
+                      <FormLabel className="invisible select-none" aria-hidden>
+                        Number
+                      </FormLabel>
+                      <FormControl>
+                        <Input
+                          {...field}
+                          type="tel"
+                          placeholder="XXXX XXXX"
+                          className="h-9"
+                        />
+                      </FormControl>
+                    </FormItem>
+                  )}
+                />
+              </div>
+
+              {/* ── Nationality ── */}
               <FormField
                 control={form.control}
                 name="nationality"
                 render={({ field }) => (
                   <FormItem>
                     <FormLabel>Nationality</FormLabel>
-                    <FormControl><Input {...field} /></FormControl>
+                    <FormControl>
+                      <Input {...field} placeholder="e.g. Qatari" />
+                    </FormControl>
                   </FormItem>
                 )}
               />
+
+              {/* ── Join Date ── */}
               <FormField
                 control={form.control}
                 name="join_date"
                 render={({ field }) => (
                   <FormItem>
                     <FormLabel>Join Date</FormLabel>
-                    <FormControl><Input {...field} type="date" /></FormControl>
+                    <FormControl>
+                      <Input {...field} type="date" className="w-full" />
+                    </FormControl>
                   </FormItem>
                 )}
               />
-              <FormField
-                control={form.control}
-                name="status"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>Status</FormLabel>
-                    <Select value={field.value} onValueChange={field.onChange}>
-                      <FormControl>
-                        <SelectTrigger>
-                          <SelectValue />
-                        </SelectTrigger>
-                      </FormControl>
-                      <SelectContent>
-                        {STATUSES.map(s => (
-                          <SelectItem key={s} value={s} className="capitalize">{s}</SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
-                  </FormItem>
-                )}
-              />
-            </div>
 
-            {/* Avatar upload */}
-            <div>
-              <p className="text-sm font-medium mb-1">Avatar</p>
-              <input
-                ref={fileRef}
-                type="file"
-                accept="image/*"
-                className="text-sm"
-              />
-              {form.watch('avatar_url') && (
-                <img
-                  src={form.watch('avatar_url')}
-                  alt="Current avatar"
-                  className="mt-2 h-12 w-12 rounded-full object-cover"
+              {/* ── Site Visit Authorization ── */}
+              <div className="rounded-lg border p-3 space-y-3">
+                <div className="flex items-center gap-2 mb-1">
+                  <span className="h-4 w-4 rounded-full bg-primary/20 flex items-center justify-center text-[9px] text-primary font-bold">
+                    ✓
+                  </span>
+                  <span className="text-sm font-medium text-foreground">
+                    Site Visit Authorization
+                  </span>
+                </div>
+                <FormField
+                  control={form.control}
+                  name="site_visit_order"
+                  render={({ field }) => (
+                    <FormItem className="flex items-center justify-between">
+                      <FormLabel className="!mt-0 font-normal text-sm cursor-pointer">
+                        Site Visit — Orders
+                      </FormLabel>
+                      <FormControl>
+                        <Switch
+                          checked={field.value}
+                          onCheckedChange={field.onChange}
+                        />
+                      </FormControl>
+                    </FormItem>
+                  )}
                 />
+                <FormField
+                  control={form.control}
+                  name="site_visit_quotation"
+                  render={({ field }) => (
+                    <FormItem className="flex items-center justify-between">
+                      <FormLabel className="!mt-0 font-normal text-sm cursor-pointer">
+                        Site Visit — Quotations
+                      </FormLabel>
+                      <FormControl>
+                        <Switch
+                          checked={field.value}
+                          onCheckedChange={field.onChange}
+                        />
+                      </FormControl>
+                    </FormItem>
+                  )}
+                />
+              </div>
+
+              {/* ── Skillset (Services) ── */}
+              <div className="space-y-2">
+                <p className="text-sm font-medium">Skillset (Services)</p>
+                <ServiceTreeSection
+                  title="Normal Services"
+                  nodes={normalTree}
+                  selectedIds={selectedIds}
+                  onToggle={toggleService}
+                />
+                <ServiceTreeSection
+                  title="Contract Services"
+                  nodes={contractTree}
+                  selectedIds={selectedIds}
+                  onToggle={toggleService}
+                />
+                <ServiceTreeSection
+                  title="Mobile Services"
+                  nodes={mobileTree}
+                  selectedIds={selectedIds}
+                  onToggle={toggleService}
+                />
+              </div>
+
+              {/* ── Error ── */}
+              {submitError && (
+                <p className="text-sm text-destructive border border-destructive/20 rounded p-2">
+                  {submitError}
+                </p>
               )}
             </div>
 
-            {/* Permissions */}
-            <div className="flex flex-wrap gap-6">
-              <FormField
-                control={form.control}
-                name="site_visit_order"
-                render={({ field }) => (
-                  <FormItem className="flex items-center gap-2">
-                    <FormControl>
-                      <Switch checked={field.value} onCheckedChange={field.onChange} />
-                    </FormControl>
-                    <FormLabel className="!mt-0">Site Visit Order (SVO)</FormLabel>
-                  </FormItem>
-                )}
-              />
-              <FormField
-                control={form.control}
-                name="site_visit_quotation"
-                render={({ field }) => (
-                  <FormItem className="flex items-center gap-2">
-                    <FormControl>
-                      <Switch checked={field.value} onCheckedChange={field.onChange} />
-                    </FormControl>
-                    <FormLabel className="!mt-0">Site Visit Quotation (SVC)</FormLabel>
-                  </FormItem>
-                )}
-              />
-            </div>
-
-            {/* Errata 11: Surface submit errors */}
-            {submitError && (
-              <p className="text-sm text-destructive border border-destructive/20 rounded p-2">
-                {submitError}
-              </p>
-            )}
-
-            <DialogFooter className="flex-col sm:flex-row gap-2">
-              <Button type="button" variant="outline" onClick={closeEmployeeDialog}>
+            <DialogFooter className="px-6 pb-5 flex-col sm:flex-row gap-2 border-t pt-4">
+              <Button
+                type="button"
+                variant="outline"
+                onClick={closeEmployeeDialog}
+              >
                 Cancel
               </Button>
               {isEdit && (
@@ -310,15 +593,21 @@ export function EmployeeEditDialog() {
                       await archiveEmployee.mutateAsync(employee!.id)
                       closeEmployeeDialog()
                     } catch (err) {
-                      setSubmitError(err instanceof Error ? err.message : 'Archive failed')
+                      setSubmitError(
+                        err instanceof Error ? err.message : 'Archive failed',
+                      )
                     }
                   }}
                 >
                   Archive
                 </Button>
               )}
-              <Button type="submit" disabled={isPending}>
-                {isPending ? 'Saving...' : 'Save'}
+              <Button
+                type="submit"
+                disabled={isPending}
+                className="sm:ml-auto"
+              >
+                {isPending ? 'Saving...' : isEdit ? 'Save' : 'Add Employee'}
               </Button>
             </DialogFooter>
           </form>
