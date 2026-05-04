@@ -62,33 +62,62 @@ function buildTree(flat: Service[]): ServiceNode[] {
   return roots
 }
 
+/** Recursively collect all leaf IDs under a node */
+function getLeafIds(node: ServiceNode): string[] {
+  if (node.children.length === 0) return [node.id]
+  return node.children.flatMap(getLeafIds)
+}
+
+/** Collect all leaf IDs across a list of root nodes */
+function getSectionLeafIds(nodes: ServiceNode[]): string[] {
+  return nodes.flatMap(getLeafIds)
+}
+
+// ─── Shared prop types ────────────────────────────────────────────────────────
+interface TreeSharedProps {
+  selectedIds:   Set<string>
+  onToggle:      (id: string) => void
+  onBulkChange:  (ids: string[], selected: boolean) => void
+}
+
 // ─── ServiceTreeSection ───────────────────────────────────────────────────────
 function ServiceTreeSection({
   title,
   nodes,
   selectedIds,
   onToggle,
-}: {
-  title: string
-  nodes: ServiceNode[]
-  selectedIds: Set<string>
-  onToggle: (id: string) => void
-}) {
+  onBulkChange,
+}: { title: string; nodes: ServiceNode[] } & TreeSharedProps) {
   const [open, setOpen] = useState(true)
   if (nodes.length === 0) return null
+
+  const leafIds    = getSectionLeafIds(nodes)
+  const allSelected = leafIds.length > 0 && leafIds.every(id => selectedIds.has(id))
+
   return (
     <div className="border rounded-lg overflow-hidden">
-      <button
-        type="button"
-        onClick={() => setOpen(o => !o)}
-        className="w-full flex items-center justify-between px-3 py-2.5 bg-muted/40 text-sm font-semibold hover:bg-muted/60 transition-colors"
-      >
-        {title}
-        {open
-          ? <ChevronDown className="h-4 w-4 text-muted-foreground" />
-          : <ChevronRight className="h-4 w-4 text-muted-foreground" />
-        }
-      </button>
+      {/* Header row — expand toggle on left, select-all on right */}
+      <div className="flex items-center bg-muted/40 hover:bg-muted/60 transition-colors">
+        <button
+          type="button"
+          onClick={() => setOpen(o => !o)}
+          className="flex-1 flex items-center justify-between px-3 py-2.5 text-sm font-semibold text-left"
+        >
+          <span>{title}</span>
+          {open
+            ? <ChevronDown className="h-4 w-4 text-muted-foreground" />
+            : <ChevronRight className="h-4 w-4 text-muted-foreground" />
+          }
+        </button>
+        <button
+          type="button"
+          onClick={() => onBulkChange(leafIds, !allSelected)}
+          className="px-3 py-2.5 text-xs text-primary hover:underline border-l shrink-0"
+        >
+          {allSelected ? 'Deselect all' : 'Select all'}
+        </button>
+      </div>
+
       {open && (
         <div className="divide-y">
           {nodes.map(node => (
@@ -97,6 +126,7 @@ function ServiceTreeSection({
               node={node}
               selectedIds={selectedIds}
               onToggle={onToggle}
+              onBulkChange={onBulkChange}
               depth={0}
             />
           ))}
@@ -111,16 +141,16 @@ function ServiceNodeRow({
   node,
   selectedIds,
   onToggle,
+  onBulkChange,
   depth,
-}: {
-  node: ServiceNode
-  selectedIds: Set<string>
-  onToggle: (id: string) => void
-  depth: number
-}) {
+}: { node: ServiceNode; depth: number } & TreeSharedProps) {
   const [expanded, setExpanded] = useState(false)
   const hasChildren = node.children.length > 0
-  const isLeaf = !hasChildren
+  const isLeaf      = !hasChildren
+
+  // For parent nodes: check if all descendants are selected
+  const leafIds     = hasChildren ? getLeafIds(node) : []
+  const allSelected = hasChildren && leafIds.length > 0 && leafIds.every(id => selectedIds.has(id))
 
   return (
     <>
@@ -149,6 +179,7 @@ function ServiceNodeRow({
             className="shrink-0"
           />
         )}
+
         <label
           htmlFor={isLeaf ? node.id : undefined}
           className={cn(
@@ -158,18 +189,33 @@ function ServiceNodeRow({
         >
           {node.name_en}
         </label>
+
+        {/* Arabic name */}
         {node.name_ar && (
           <span className="text-xs text-muted-foreground shrink-0" dir="rtl">
             {node.name_ar}
           </span>
         )}
+
+        {/* Select all — parent nodes only */}
+        {hasChildren && (
+          <button
+            type="button"
+            onClick={() => onBulkChange(leafIds, !allSelected)}
+            className="text-xs text-primary hover:underline shrink-0 ml-1"
+          >
+            {allSelected ? 'Deselect' : 'Select all'}
+          </button>
+        )}
       </div>
+
       {hasChildren && expanded && node.children.map(child => (
         <ServiceNodeRow
           key={child.id}
           node={child}
           selectedIds={selectedIds}
           onToggle={onToggle}
+          onBulkChange={onBulkChange}
           depth={depth + 1}
         />
       ))}
@@ -222,6 +268,14 @@ export function EmployeeEditDialog() {
     setSelectedIds(prev => {
       const next = new Set(prev)
       next.has(id) ? next.delete(id) : next.add(id)
+      return next
+    })
+  }
+
+  function bulkChange(ids: string[], selected: boolean) {
+    setSelectedIds(prev => {
+      const next = new Set(prev)
+      ids.forEach(id => selected ? next.add(id) : next.delete(id))
       return next
     })
   }
@@ -522,18 +576,21 @@ export function EmployeeEditDialog() {
                   nodes={normalTree}
                   selectedIds={selectedIds}
                   onToggle={toggleService}
+                  onBulkChange={bulkChange}
                 />
                 <ServiceTreeSection
                   title="Contract Services"
                   nodes={contractTree}
                   selectedIds={selectedIds}
                   onToggle={toggleService}
+                  onBulkChange={bulkChange}
                 />
                 <ServiceTreeSection
                   title="Mobile Services"
                   nodes={mobileTree}
                   selectedIds={selectedIds}
                   onToggle={toggleService}
+                  onBulkChange={bulkChange}
                 />
               </div>
 
