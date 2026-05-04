@@ -1238,6 +1238,36 @@ export type Database = {
           },
         ]
       }
+      employee_services: {
+        Row: {
+          employee_id: string
+          service_id: string
+        }
+        Insert: {
+          employee_id: string
+          service_id: string
+        }
+        Update: {
+          employee_id?: string
+          service_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "employee_services_employee_id_fkey"
+            columns: ["employee_id"]
+            isOneToOne: false
+            referencedRelation: "employees"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "employee_services_service_id_fkey"
+            columns: ["service_id"]
+            isOneToOne: false
+            referencedRelation: "services"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       employees: {
         Row: {
           avatar: string | null
@@ -5370,6 +5400,7 @@ export type Database = {
       teams: {
         Row: {
           created_at: string | null
+          deleted_at: string | null
           division: Database["public"]["Enums"]["team_division"]
           id: string
           is_emergency: boolean
@@ -5386,6 +5417,7 @@ export type Database = {
         }
         Insert: {
           created_at?: string | null
+          deleted_at?: string | null
           division: Database["public"]["Enums"]["team_division"]
           id?: string
           is_emergency?: boolean
@@ -5402,6 +5434,7 @@ export type Database = {
         }
         Update: {
           created_at?: string | null
+          deleted_at?: string | null
           division?: Database["public"]["Enums"]["team_division"]
           id?: string
           is_emergency?: boolean
@@ -6523,44 +6556,81 @@ export type Database = {
         Args: { p_return_id: string }
         Returns: undefined
       }
-      save_employee: {
-        Args: {
-          p_avatar_url: string
-          p_employee_id: string
-          p_join_date: string
-          p_name: string
-          p_nationality: string
-          p_phone: string
-          p_service_ids: string[]
-          p_site_visit_order: boolean
-          p_site_visit_quotation: boolean
-          p_status: string
-        }
-        Returns: {
-          avatar: string | null
-          avatar_url: string | null
-          created_at: string | null
-          deleted_at: string | null
-          id: string
-          join_date: string
-          name: string
-          name_ar: string | null
-          nationality: string | null
-          phone: string
-          site_visit_order: boolean
-          site_visit_quotation: boolean
-          skills: string[] | null
-          status: Database["public"]["Enums"]["employee_status"] | null
-          team_id: string | null
-          updated_at: string | null
-        }
-        SetofOptions: {
-          from: "*"
-          to: "employees"
-          isOneToOne: true
-          isSetofReturn: false
-        }
-      }
+      save_employee:
+        | {
+            Args: {
+              p_avatar_url: string
+              p_employee_id: string
+              p_join_date: string
+              p_name: string
+              p_nationality: string
+              p_phone: string
+              p_service_ids: string[]
+              p_status: string
+            }
+            Returns: {
+              avatar: string | null
+              avatar_url: string | null
+              created_at: string | null
+              deleted_at: string | null
+              id: string
+              join_date: string
+              name: string
+              name_ar: string | null
+              nationality: string | null
+              phone: string
+              site_visit_order: boolean
+              site_visit_quotation: boolean
+              skills: string[] | null
+              status: Database["public"]["Enums"]["employee_status"] | null
+              team_id: string | null
+              updated_at: string | null
+            }
+            SetofOptions: {
+              from: "*"
+              to: "employees"
+              isOneToOne: true
+              isSetofReturn: false
+            }
+          }
+        | {
+            Args: {
+              p_avatar_url: string
+              p_employee_id: string
+              p_join_date: string
+              p_name: string
+              p_nationality: string
+              p_phone: string
+              p_service_ids: string[]
+              p_site_visit_order: boolean
+              p_site_visit_quotation: boolean
+              p_status: string
+            }
+            Returns: {
+              avatar: string | null
+              avatar_url: string | null
+              created_at: string | null
+              deleted_at: string | null
+              id: string
+              join_date: string
+              name: string
+              name_ar: string | null
+              nationality: string | null
+              phone: string
+              site_visit_order: boolean
+              site_visit_quotation: boolean
+              skills: string[] | null
+              status: Database["public"]["Enums"]["employee_status"] | null
+              team_id: string | null
+              updated_at: string | null
+            }
+            SetofOptions: {
+              from: "*"
+              to: "employees"
+              isOneToOne: true
+              isSetofReturn: false
+            }
+          }
       service_inventory_bulk_upsert: {
         Args: {
           p_brand_variant_id: string
