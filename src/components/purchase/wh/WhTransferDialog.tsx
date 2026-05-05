@@ -159,8 +159,6 @@ export function WhTransferDialog({ warehouses, currentProfile, children }: Props
         transfer_number:          transferNumber,
         from_warehouse_id:        fromId,
         to_warehouse_id:          toId,
-        from_warehouse_name:      fromWh?.name ?? '',
-        to_warehouse_name:        toWh?.name   ?? '',
         status:                   'pending_approval',
         date:                     new Date().toISOString().split('T')[0],
         created_by_name:          currentProfile?.full_name ?? currentProfile?.email ?? '',
@@ -187,7 +185,8 @@ export function WhTransferDialog({ warehouses, currentProfile, children }: Props
       toast.success(`Transfer submitted — awaiting approval from ${managerName}`)
       handleClose()
     } catch (e: unknown) {
-      toast.error(e instanceof Error ? e.message : 'Something went wrong')
+      const msg = e instanceof Error ? e.message : (e as { message?: string })?.message ?? 'Something went wrong'
+      toast.error(msg)
     } finally {
       setSubmitting(false)
     }
