@@ -382,9 +382,12 @@ export function useCreateInventoryCheck() {
       notes?: string | null
     }) => {
       const supabase = createClient()
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const { data: checkNumber, error: seqErr } = await (supabase as any).rpc('generate_check_number')
+      if (seqErr) throw seqErr
       const { data, error } = await (supabase as any)
         .from('inventory_checks')
-        .insert({ warehouse_id: warehouseId, warehouse_name: warehouseName, status: 'draft', notes })
+        .insert({ check_number: checkNumber, warehouse_id: warehouseId, warehouse_name: warehouseName, status: 'draft', notes })
         .select()
         .single()
       if (error) throw error
