@@ -7,6 +7,7 @@ import { Button } from '@/components/ui/button'
 import { useWarehouseTransfers, useApproveTransfer, useRejectTransfer } from '@/hooks/useWarehouseOperations'
 import type { Warehouse } from '@/hooks/useWarehouses'
 import type { Profile } from '@/hooks/useProfiles'
+import { createClient } from '@/lib/supabase/client'
 import { format } from 'date-fns'
 import { toast } from 'sonner'
 
@@ -30,19 +31,46 @@ export const WhTransfersTab = React.memo(function WhTransfersTab({ warehouses, c
 
   function canApprove(transfer: any) {
     const toWh = warehouses.find(w => w.id === transfer.to_warehouse_id)
-    return (toWh as any)?.manager_id === currentProfile?.id
+    // manager_profile_id is a profiles.id — same space as currentProfile.id
+    return (toWh as any)?.manager_profile_id === currentProfile?.id
+  }
+
+  async function notifyCreator(transfer: any, approved: boolean) {
+    const creatorProfileId: string | null = transfer.created_by_profile_id ?? null
+    if (!creatorProfileId) return
+    const supabase = createClient()
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    await (supabase as any).from('notifications').insert({
+      profile_id:   creatorProfileId,
+      type:         approved ? 'transfer_approved' : 'transfer_rejected',
+      title:        approved ? 'Stock Transfer Approved' : 'Stock Transfer Rejected',
+      body:         approved
+        ? `Your transfer ${transfer.transfer_number} has been approved by ${currentProfile?.full_name ?? 'the warehouse manager'}.`
+        : `Your transfer ${transfer.transfer_number} was rejected by ${currentProfile?.full_name ?? 'the warehouse manager'}.`,
+      related_id:   transfer.id,
+      related_type: 'warehouse_transfer',
+    })
   }
 
   function handleApprove(transfer: any) {
     approve.mutate(
       { id: transfer.id, approvedByName: currentProfile?.full_name ?? 'Manager' },
-      { onSuccess: () => toast.success('Transfer approved'), onError: (e) => toast.error(e.message) }
+      {
+        onSuccess: () => {
+          toast.success('Transfer approved')
+          notifyCreator(transfer, true)
+        },
+        onError: (e) => toast.error(e.message),
+      }
     )
   }
 
-  function handleReject(id: string) {
-    reject.mutate(id, {
-      onSuccess: () => toast.success('Transfer rejected'),
+  function handleReject(transfer: any) {
+    reject.mutate(transfer.id, {
+      onSuccess: () => {
+        toast.success('Transfer rejected')
+        notifyCreator(transfer, false)
+      },
       onError: (e) => toast.error(e.message),
     })
   }
@@ -88,7 +116,7 @@ export const WhTransfersTab = React.memo(function WhTransfersTab({ warehouses, c
                   size="sm"
                   variant="outline"
                   className="h-7 text-[10px] gap-1 text-destructive border-destructive/30 hover:bg-destructive/10"
-                  onClick={() => handleReject(t.id)}
+                  onClick={() => handleReject(t)}
                   disabled={reject.isPending}
                 >
                   <XCircle className="h-3 w-3" /> Reject

@@ -54,11 +54,10 @@ export function WhTransferDialog({ warehouses, currentProfile, children }: Props
   const [pendingFromId, setPendingFromId] = useState<string | null>(null)
   const qc = useQueryClient()
 
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const toWh   = warehouses.find((w) => w.id === toId)
   const fromWh = warehouses.find((w) => w.id === fromId)
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const managerName        = (toWh as any)?.manager_name ?? 'the warehouse manager'
+  const managerName        = toWh?.manager_profile_name ?? toWh?.manager_name ?? 'the warehouse manager'
+  const managerProfileId   = toWh?.manager_profile_id ?? null
   const showApprovalBanner = !!fromId && !!toId
 
   // Source warehouse stock for item picker
@@ -156,19 +155,33 @@ export function WhTransferDialog({ warehouses, currentProfile, children }: Props
         })
 
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      const { error } = await (supabase as any).from('warehouse_transfers').insert({
-        transfer_number:     transferNumber,
-        from_warehouse_id:   fromId,
-        to_warehouse_id:     toId,
-        from_warehouse_name: fromWh?.name ?? '',
-        to_warehouse_name:   toWh?.name   ?? '',
-        status:              'pending_approval',
-        date:                new Date().toISOString().split('T')[0],
-        created_by_name:     currentProfile?.full_name ?? currentProfile?.email ?? '',
-        items:               validRows,
-        notes:               notes || null,
-      })
+      const { data: newTransfer, error } = await (supabase as any).from('warehouse_transfers').insert({
+        transfer_number:          transferNumber,
+        from_warehouse_id:        fromId,
+        to_warehouse_id:          toId,
+        from_warehouse_name:      fromWh?.name ?? '',
+        to_warehouse_name:        toWh?.name   ?? '',
+        status:                   'pending_approval',
+        date:                     new Date().toISOString().split('T')[0],
+        created_by_name:          currentProfile?.full_name ?? currentProfile?.email ?? '',
+        created_by_profile_id:    currentProfile?.id ?? null,
+        items:                    validRows,
+        notes:                    notes || null,
+      }).select('id').single()
       if (error) throw error
+
+      // Notify the destination warehouse manager (fire-and-forget — never block the happy path)
+      if (managerProfileId && newTransfer?.id) {
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        ;(supabase as any).from('notifications').insert({
+          profile_id:   managerProfileId,
+          type:         'transfer_approval_request',
+          title:        `Stock Transfer Requires Approval`,
+          body:         `Transfer ${transferNumber} from ${fromWh?.name ?? 'a warehouse'} to ${toWh?.name ?? 'your warehouse'} submitted by ${currentProfile?.full_name ?? 'a user'} is awaiting your approval.`,
+          related_id:   newTransfer.id,
+          related_type: 'warehouse_transfer',
+        })
+      }
 
       qc.invalidateQueries({ queryKey: ['warehouse_transfers'] })
       toast.success(`Transfer submitted — awaiting approval from ${managerName}`)

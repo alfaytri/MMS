@@ -190,7 +190,7 @@ export function useWarehouseStock(warehouseId?: string) {
       return (data ?? []) as WarehouseStockItem[]
     },
     staleTime: 5 * 60 * 1000,
-    enabled: warehouseId !== null,
+    enabled: !!warehouseId,
   })
 }
 
@@ -255,9 +255,11 @@ export function useApproveTransfer() {
     },
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ['warehouse_transfers'] })
+      qc.invalidateQueries({ queryKey: ['warehouse_stock'] })
       qc.invalidateQueries({ queryKey: ['inventory-brand-variants'] })
       qc.invalidateQueries({ queryKey: ['stock_movements'] })
       qc.invalidateQueries({ queryKey: ['fifo-layers'] })
+      qc.invalidateQueries({ queryKey: ['warehouses'] })
     },
   })
 }
