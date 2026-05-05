@@ -154,9 +154,11 @@ Purchase & Sales▾:
 
 ## 🔄 In Progress
 
-🚀 Starting: **Stock Transfer Bug Fix — notification trail, canApprove identity mismatch, cache invalidation**
+_Nothing in progress_
 
 ## ✅ Completed
+
+- [2026-05-05] **Stock Transfer Bug Fix** — `supabase/migrations/20260505000013_warehouse_manager_profile.sql`, `src/hooks/useWarehouses.ts`, `src/hooks/useWarehouseOperations.ts`, `src/components/purchase/wh/WhTransferDialog.tsx`, `src/components/purchase/wh/WhTransfersTab.tsx`, `src/components/master-data/WarehouseFormDialog.tsx` — Fixed 5 bugs: (1) canApprove always-false: warehouses.manager_id is employees FK, compared against profiles.id — added manager_profile_id (profiles FK) and fixed comparison; (2) notification banner was a lie — now inserts real in-app notification to destination manager on create, and back-notification to requester on approve/reject; (3) useWarehouseStock enabled guard: `undefined !== null` was true causing unfiltered all-stock fetch — changed to !!warehouseId; (4) useApproveTransfer missing warehouse_stock + warehouses cache invalidation; (5) WarehouseFormDialog: added System Manager (Approvals) profile dropdown
 
 - [2026-05-05] **Warehouses Hotfix: fix UUID/TEXT cast error on reference_id** — `supabase/migrations/20260505000012_fix_reference_id_cast.sql` — Migrations 010 and 011 re-introduced `p_brand_variant_id::TEXT` in the `inventory_stock_movements` INSERT; since `reference_id` is UUID, this caused "column reference_id is of type uuid but expression is of type text" when adding/editing brand variants; migration 012 removes the `::TEXT` cast in both the increase and decrease movement log paths
 - [2026-05-05] **Warehouses Hotfix: surface allocation errors + fresh cache** — `src/components/services/inventory/BrandVariantEditDialog.tsx`, `src/hooks/useInventory.ts`, `supabase/migrations/20260505000011_allocate_warehouse_stock_verify.sql` — applyAllocations re-throws RPC errors so success toast is blocked if allocation fails; useVariantWarehouseStock staleTime reduced to 0 so dialog always loads live DB state on reopen; migration 011 adds end-of-function verification that FIFO final qty equals target, raising exception on mismatch
