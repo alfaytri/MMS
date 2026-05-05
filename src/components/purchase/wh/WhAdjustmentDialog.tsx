@@ -189,11 +189,11 @@ export function WhAdjustmentDialog({ warehouses, currentProfile, children }: Pro
             {/* Item — cascading Category → Item → Brand */}
             <div className="space-y-1.5">
               <Label className="text-xs">Item *</Label>
-              <div className="grid grid-cols-3 gap-2">
-                {/* Category */}
+              <div className="space-y-2">
+                {/* Row 1: Category (full width) */}
                 <Select value={categoryId} onValueChange={handleCategoryChange}>
-                  <SelectTrigger className="h-8 text-xs">
-                    <SelectValue placeholder="Category" />
+                  <SelectTrigger className="h-8 text-xs w-full">
+                    <SelectValue placeholder="Select category…" />
                   </SelectTrigger>
                   <SelectContent>
                     {categories.map((c) => (
@@ -204,33 +204,34 @@ export function WhAdjustmentDialog({ warehouses, currentProfile, children }: Pro
                   </SelectContent>
                 </Select>
 
-                {/* Item */}
-                <Select value={itemId} onValueChange={handleItemChange} disabled={!categoryId}>
-                  <SelectTrigger className="h-8 text-xs">
-                    <SelectValue placeholder="Item" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {items.map((i) => (
-                      <SelectItem key={i.id} value={i.id} className="text-xs">
-                        {i.name_en}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
+                {/* Row 2: Item (grows) + Brand (fixed) */}
+                <div className="grid grid-cols-[1fr_140px] gap-2">
+                  <Select value={itemId} onValueChange={handleItemChange} disabled={!categoryId}>
+                    <SelectTrigger className="h-8 text-xs">
+                      <SelectValue placeholder="Select item…" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {items.map((i) => (
+                        <SelectItem key={i.id} value={i.id} className="text-xs">
+                          {i.name_en}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
 
-                {/* Brand / Variant */}
-                <Select value={variantId} onValueChange={handleVariantChange} disabled={!itemId}>
-                  <SelectTrigger className="h-8 text-xs">
-                    <SelectValue placeholder="Brand" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {variants.map((v) => (
-                      <SelectItem key={v.id} value={v.id} className="text-xs">
-                        {(v as any).brand}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
+                  <Select value={variantId} onValueChange={handleVariantChange} disabled={!itemId}>
+                    <SelectTrigger className="h-8 text-xs">
+                      <SelectValue placeholder="Brand" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {variants.map((v) => (
+                        <SelectItem key={v.id} value={v.id} className="text-xs">
+                          {(v as any).brand}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
               </div>
             </div>
 
