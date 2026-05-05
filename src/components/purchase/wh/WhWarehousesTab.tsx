@@ -38,7 +38,7 @@ export const WhWarehousesTab = React.memo(function WhWarehousesTab({ warehouses 
             <div className="flex items-center gap-1.5 text-xs">
               <User className="h-3 w-3 flex-shrink-0" />
               <span className="text-muted-foreground">Manager:</span>
-              <span className="font-medium text-foreground">{(wh as any).manager_name ?? 'Unassigned'}</span>
+              <span className="font-medium text-foreground">{wh.manager_name ?? 'Unassigned'}</span>
             </div>
             <div className="pt-2 border-t flex justify-between items-center">
               <div className="flex items-center gap-1 text-xs">
