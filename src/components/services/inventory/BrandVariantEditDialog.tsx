@@ -111,7 +111,8 @@ export function BrandVariantEditDialog({ open, onOpenChange, itemId, variant }: 
     for (const wh of warehouses) {
       const target = parseInt(whAlloc[wh.id] ?? '0') || 0
       const current = currentQtyMap.get(wh.id) ?? 0
-      if (target !== current) {
+      // Include warehouses with qty changes OR existing stock (cost-only updates)
+      if (target !== current || current > 0) {
         changed.push({ warehouseId: wh.id, targetQty: target })
       }
     }
