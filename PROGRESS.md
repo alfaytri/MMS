@@ -154,7 +154,7 @@ Purchase & Sales▾:
 
 ## 🔄 In Progress
 
-_Nothing in progress_
+🚀 Starting: **Stock Transfer Bug Fix — notification trail, canApprove identity mismatch, cache invalidation**
 
 ## ✅ Completed
 
