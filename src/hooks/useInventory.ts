@@ -517,7 +517,7 @@ export function useVariantWarehouseStock(variantId: string | undefined, enabled 
       }
     },
     enabled: !!variantId && enabled,
-    staleTime: 30_000,
+    staleTime: 0,
   })
 }
 

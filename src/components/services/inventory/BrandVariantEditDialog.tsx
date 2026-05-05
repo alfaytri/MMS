@@ -104,7 +104,7 @@ export function BrandVariantEditDialog({ open, onOpenChange, itemId, variant }: 
     setWhAlloc((prev) => ({ ...prev, [whId]: qty }))
   }
 
-  async function applyAllocations(variantId: string, unitCost: number) {
+  async function applyAllocations(variantId: string, unitCost: number): Promise<void> {
     const supabase = createClient()
     const changed: { warehouseId: string; targetQty: number }[] = []
 
@@ -129,14 +129,12 @@ export function BrandVariantEditDialog({ open, onOpenChange, itemId, variant }: 
           p_target_qty: targetQty,
           p_unit_cost: unitCost,
         })
-        if (error) throw error
+        if (error) throw new Error(error.message ?? 'allocate_warehouse_stock failed')
       }
       qc.invalidateQueries({ queryKey: ['variant_warehouse_stock'] })
       qc.invalidateQueries({ queryKey: ['warehouse_stock'] })
       qc.invalidateQueries({ queryKey: ['warehouses'] })
       qc.invalidateQueries({ queryKey: ['brand_variants'] })
-    } catch (err) {
-      toast.error(err instanceof Error ? err.message : 'Failed to allocate warehouse stock')
     } finally {
       setAllocating(false)
     }
@@ -166,9 +164,13 @@ export function BrandVariantEditDialog({ open, onOpenChange, itemId, variant }: 
         { id: variant.id, ...payload },
         {
           onSuccess: async () => {
-            await applyAllocations(variant.id, unitCost)
-            toast.success('Variant updated')
-            onOpenChange(false)
+            try {
+              await applyAllocations(variant.id, unitCost)
+              toast.success('Variant updated')
+              onOpenChange(false)
+            } catch (err) {
+              toast.error(err instanceof Error ? err.message : 'Stock allocation failed')
+            }
           },
           onError: (err) => toast.error(err.message),
         },
@@ -180,9 +182,13 @@ export function BrandVariantEditDialog({ open, onOpenChange, itemId, variant }: 
           onSuccess: async (data) => {
             // eslint-disable-next-line @typescript-eslint/no-explicit-any
             const newId = (data as any)?.id
-            if (newId) await applyAllocations(newId, unitCost)
-            toast.success('Variant added')
-            onOpenChange(false)
+            try {
+              if (newId) await applyAllocations(newId, unitCost)
+              toast.success('Variant added')
+              onOpenChange(false)
+            } catch (err) {
+              toast.error(err instanceof Error ? err.message : 'Stock allocation failed')
+            }
           },
           onError: (err) => toast.error(err.message),
         },
