@@ -140,8 +140,6 @@ export function WhAdjustmentDialog({ warehouses, currentProfile, children }: Pro
       const { error } = await (supabase as any).from('stock_adjustments').insert({
         warehouse_id: warehouseId,
         brand_variant_id: selectedItem!.brand_variant_id,
-        item_name: selectedItem!.item_name,
-        sku: selectedItem!.sku ?? null,
         adjustment_type: type,
         qty: parseFloat(qty),
         reason,
