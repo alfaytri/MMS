@@ -154,7 +154,7 @@ Purchase & Sales▾:
 
 ## 🔄 In Progress
 
-_Nothing in progress_
+🚀 Starting: **Warehouses Hotfix: avg_cost cost-only update not reflected in warehouse stock view**
 
 ## ✅ Completed
 
