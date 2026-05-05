@@ -154,7 +154,7 @@ Purchase & Sales▾:
 
 ## 🔄 In Progress
 
-_Nothing in progress_
+🚀 Starting: **Warehouses Hotfix: unassigned stock persistence and stale zero-cost FIFO layers**
 
 ## ✅ Completed
 
