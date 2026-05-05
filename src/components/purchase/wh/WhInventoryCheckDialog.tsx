@@ -16,16 +16,26 @@ import { createClient } from '@/lib/supabase/client'
 import { toast } from 'sonner'
 import { useQueryClient } from '@tanstack/react-query'
 
+interface StockItem {
+  warehouse_id: string
+  brand_variant_id: string
+  item_name: string
+  brand: string | null
+  sku: string | null
+  unit: string | null
+  qty: number
+  avg_cost: number
+  total_value: number
+}
+
 interface CheckItemsTableProps {
-  warehouseId: string
+  stock: StockItem[]
   search: string
   counts: Record<string, string>
   onCountChange: (variantId: string, value: string) => void
 }
 
-function CheckItemsTable({ warehouseId, search, counts, onCountChange }: CheckItemsTableProps) {
-  const { data: stock = [] } = useWarehouseStock(warehouseId)
-
+function CheckItemsTable({ stock, search, counts, onCountChange }: CheckItemsTableProps) {
   const filtered = useMemo(() => {
     if (!search) return stock
     const q = search.toLowerCase()
@@ -130,6 +140,9 @@ export function WhInventoryCheckDialog({ warehouses, children }: Props) {
   const createCheck = useCreateInventoryCheck()
   const qc = useQueryClient()
 
+  // Lift stock query to parent so handleSubmit can access item details
+  const { data: stock = [] } = useWarehouseStock(warehouseId || undefined)
+
   function handleClose() {
     setOpen(false)
     setWarehouseId(''); setSearch(''); setCounts({}); setNotes('')
@@ -153,15 +166,25 @@ export function WhInventoryCheckDialog({ warehouses, children }: Props) {
         notes: notes || null,
       })
 
-      // Step 2: Build item rows from counts
+      // Step 2: Build item rows from counts, including required fields from stock data
+      // Build a lookup map for O(1) access
+      const stockMap = new Map(stock.map(s => [s.brand_variant_id, s]))
+
       const itemRows = Object.entries(counts)
         .filter(([, v]) => v !== '')
-        .map(([variantId, countedStr]) => ({
-          check_id: check.id,
-          brand_variant_id: variantId,
-          counted_qty: parseFloat(countedStr),
-          is_counted: true,
-        }))
+        .map(([variantId, countedStr]) => {
+          const s = stockMap.get(variantId)
+          return {
+            check_id: check.id,
+            brand_variant_id: variantId,
+            item_name: s?.item_name ?? '',
+            brand: s?.brand ?? '',
+            sku: s?.sku ?? null,
+            system_qty: s?.qty ?? 0,
+            counted_qty: parseFloat(countedStr),
+            is_counted: true,
+          }
+        })
 
       if (itemRows.length > 0) {
         const { error } = await (supabase as any)
@@ -179,8 +202,8 @@ export function WhInventoryCheckDialog({ warehouses, children }: Props) {
       qc.invalidateQueries({ queryKey: ['inventory_checks'] })
       toast.success(`Inventory check submitted for approval`)
       handleClose()
-    } catch (e: any) {
-      toast.error(e.message ?? 'Something went wrong')
+    } catch (e: unknown) {
+      toast.error(e instanceof Error ? e.message : 'Something went wrong')
     } finally {
       setSubmitting(false)
     }
@@ -232,7 +255,7 @@ export function WhInventoryCheckDialog({ warehouses, children }: Props) {
           <div className="flex-1 min-h-0 overflow-y-auto">
             {warehouseId && (
               <CheckItemsTable
-                warehouseId={warehouseId}
+                stock={stock}
                 search={search}
                 counts={counts}
                 onCountChange={handleCountChange}
