@@ -1,3 +1,4 @@
+import { useMemo } from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { createClient } from '@/lib/supabase/client'
 
@@ -191,6 +192,18 @@ export function useWarehouseStock(warehouseId?: string) {
     staleTime: 5 * 60 * 1000,
     enabled: warehouseId !== null,
   })
+}
+
+export function useWarehouseStockSummary(warehouseId: string | null): {
+  data: Map<string, number>
+  isLoading: boolean
+} {
+  const { data: items = [], isLoading } = useWarehouseStock(warehouseId ?? undefined)
+  const data = useMemo(
+    () => new Map(items.map((item) => [item.brand_variant_id, item.qty])),
+    [items],
+  )
+  return { data, isLoading }
 }
 
 export function useWarehouseTransfers({ status }: { status?: TransferStatus } = {}) {
