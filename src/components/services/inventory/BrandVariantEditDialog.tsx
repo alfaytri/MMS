@@ -19,36 +19,35 @@ type Props = {
   variant?: BrandVariant | null
 }
 
-/** Per-warehouse qty from warehouse_stock_view + unassigned count from fifo_cost_layers */
+/** Per-warehouse qty + unassigned count from fifo_cost_layers directly */
 function useVariantWarehouseStock(variantId: string | undefined) {
   return useQuery({
     queryKey: ['variant_warehouse_stock', variantId],
     queryFn: async () => {
       if (!variantId) return { perWarehouse: [] as { warehouse_id: string; qty: number }[], unassigned: 0 }
       const supabase = createClient()
+      // Query all FIFO layers for this variant with remaining stock
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      const [viewRes, unassignedRes] = await Promise.all([
-        (supabase as any)
-          .from('warehouse_stock_view')
-          .select('warehouse_id, qty')
-          .eq('brand_variant_id', variantId),
-        (supabase as any)
-          .from('fifo_cost_layers')
-          .select('remaining_qty')
-          .eq('brand_variant_id', variantId)
-          .is('warehouse_id', null)
-          .gt('remaining_qty', 0),
-      ])
-      if (viewRes.error) throw viewRes.error
-      if (unassignedRes.error) throw unassignedRes.error
+      const { data, error } = await (supabase as any)
+        .from('fifo_cost_layers')
+        .select('warehouse_id, remaining_qty')
+        .eq('brand_variant_id', variantId)
+        .gt('remaining_qty', 0)
+      if (error) throw error
 
-      const unassigned = (unassignedRes.data ?? []).reduce(
-        (sum: number, r: { remaining_qty: number }) => sum + (r.remaining_qty ?? 0), 0
-      )
-      return {
-        perWarehouse: (viewRes.data ?? []) as { warehouse_id: string; qty: number }[],
-        unassigned,
+      // Aggregate per warehouse + unassigned
+      const whMap = new Map<string, number>()
+      let unassigned = 0
+      for (const row of (data ?? []) as { warehouse_id: string | null; remaining_qty: number }[]) {
+        if (!row.warehouse_id) {
+          unassigned += row.remaining_qty
+        } else {
+          whMap.set(row.warehouse_id, (whMap.get(row.warehouse_id) ?? 0) + row.remaining_qty)
+        }
       }
+
+      const perWarehouse = Array.from(whMap.entries()).map(([warehouse_id, qty]) => ({ warehouse_id, qty }))
+      return { perWarehouse, unassigned }
     },
     enabled: !!variantId,
     staleTime: 30_000,
