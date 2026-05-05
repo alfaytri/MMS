@@ -9,7 +9,6 @@ import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { useCreateBrandVariant, useUpdateBrandVariant, useVariantWarehouseStock, type BrandVariant } from '@/hooks/useInventory'
 import { useWarehouses } from '@/hooks/useWarehouses'
-import { useQueryClient } from '@tanstack/react-query'
 
 type Props = {
   open: boolean
@@ -22,7 +21,6 @@ export function BrandVariantEditDialog({ open, onOpenChange, itemId, variant }: 
   const isEdit = !!variant
   const create = useCreateBrandVariant()
   const update = useUpdateBrandVariant()
-  const qc = useQueryClient()
 
   const [brand, setBrand] = useState('')
   const [code, setCode] = useState('')
@@ -32,7 +30,7 @@ export function BrandVariantEditDialog({ open, onOpenChange, itemId, variant }: 
   const [avgCost, setAvgCost] = useState('')
 
   const { data: warehouses = [] } = useWarehouses()
-  const { data: whStockData } = useVariantWarehouseStock(isEdit ? variant?.id : undefined)
+  const { data: whStockData } = useVariantWarehouseStock(isEdit && open ? variant?.id : undefined)
   const currentWhStock = whStockData?.perWarehouse ?? []
   const unassignedQty = whStockData?.unassigned ?? 0
 
@@ -85,7 +83,6 @@ export function BrandVariantEditDialog({ open, onOpenChange, itemId, variant }: 
         { id: variant.id, ...payload },
         {
           onSuccess: () => {
-            qc.invalidateQueries({ queryKey: ['variant_warehouse_stock'] })
             toast.success('Variant updated')
             onOpenChange(false)
           },
