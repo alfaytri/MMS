@@ -28,13 +28,14 @@ export type StockMovement = {
 }
 
 export type WarehouseStockItem = {
+  warehouse_id: string
   brand_variant_id: string
   item_name: string
   brand: string | null
   sku: string | null
   unit: string
-  stock_level: number
-  average_cost: number
+  qty: number
+  avg_cost: number
   total_value: number
 }
 
@@ -177,24 +178,18 @@ export function useWarehouseStock(warehouseId?: string) {
     queryKey: ['warehouse_stock', warehouseId],
     queryFn: async () => {
       const supabase = createClient()
-      const { data, error } = await (supabase as any)
-        .from('inventory_brand_variants')
-        .select('id, item_name, brand, sku, unit, stock_level, average_cost')
-        .gt('stock_level', 0)
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      let q = (supabase as any)
+        .from('warehouse_stock_view')
+        .select('warehouse_id, brand_variant_id, item_name, brand, sku, unit, qty, avg_cost, total_value')
         .order('item_name', { ascending: true })
+      if (warehouseId) q = q.eq('warehouse_id', warehouseId)
+      const { data, error } = await q
       if (error) throw error
-      return ((data ?? []) as any[]).map((v) => ({
-        brand_variant_id: v.id,
-        item_name: v.item_name,
-        brand: v.brand,
-        sku: v.sku,
-        unit: v.unit,
-        stock_level: v.stock_level,
-        average_cost: v.average_cost,
-        total_value: v.stock_level * v.average_cost,
-      })) as WarehouseStockItem[]
+      return (data ?? []) as WarehouseStockItem[]
     },
     staleTime: 5 * 60 * 1000,
+    enabled: warehouseId !== null,
   })
 }
 

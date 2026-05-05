@@ -70,7 +70,7 @@ function CheckItemsTable({ warehouseId, search, counts, onCountChange }: CheckIt
               const countedStr = counts[s.brand_variant_id]
               const isCounted = countedStr !== undefined && countedStr !== ''
               const counted = isCounted ? parseFloat(countedStr) : null
-              const systemQty = s.stock_level ?? 0
+              const systemQty = s.qty ?? 0
               const variance = counted !== null ? counted - systemQty : null
               const rowBg = !isCounted ? 'bg-muted/30' : variance === 0 ? 'bg-success/5' : 'bg-warning/5'
               return (

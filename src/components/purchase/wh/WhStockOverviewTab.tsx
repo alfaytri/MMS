@@ -29,7 +29,7 @@ export const WhStockOverviewTab = React.memo(function WhStockOverviewTab({ wareh
   }, [allStock, search])
 
   const totalItems = filtered.length
-  const totalQty = useMemo(() => filtered.reduce((sum, s) => sum + (s.stock_level ?? 0), 0), [filtered])
+  const totalQty = useMemo(() => filtered.reduce((sum, s) => sum + (s.qty ?? 0), 0), [filtered])
   const totalValue = useMemo(() => filtered.reduce((sum, s) => sum + (s.total_value ?? 0), 0), [filtered])
 
   return (
@@ -100,8 +100,8 @@ export const WhStockOverviewTab = React.memo(function WhStockOverviewTab({ wareh
                     <TableCell className="text-xs font-medium">{s.item_name}</TableCell>
                     <TableCell className="text-xs text-muted-foreground">{s.brand ?? '—'}</TableCell>
                     <TableCell className="text-xs text-primary">{s.sku ?? '—'}</TableCell>
-                    <TableCell className="text-xs text-right font-medium">{s.stock_level ?? 0}</TableCell>
-                    <TableCell className="text-xs text-right">{(s.average_cost ?? 0).toFixed(2)}</TableCell>
+                    <TableCell className="text-xs text-right font-medium">{s.qty ?? 0}</TableCell>
+                    <TableCell className="text-xs text-right">{(s.avg_cost ?? 0).toFixed(2)}</TableCell>
                     <TableCell className="text-xs text-right">{(s.total_value ?? 0).toFixed(2)}</TableCell>
                   </TableRow>
                 ))
