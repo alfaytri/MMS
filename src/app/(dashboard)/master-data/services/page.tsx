@@ -4,7 +4,7 @@
 import { useState } from 'react'
 import {
   ListTree, FileText, Smartphone, Bell, Package, Tag,
-  Filter, Plus, Ruler, Percent, Search, BookOpen, ClipboardCheck, Wrench,
+  Filter, Plus, Ruler, Percent, Search, BookOpen, ClipboardCheck, Wrench, GripVertical,
 } from 'lucide-react'
 import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { Button } from '@/components/ui/button'
@@ -56,6 +56,7 @@ export default function ServicesPage() {
   const [contractTypeFilter, setContractTypeFilter] = useState<'all' | 'preventive' | 'area' | 'general'>('all')
   const [searchQuery, setSearchQuery] = useState('')
   const [linkageFilter, setLinkageFilter] = useState<LinkageKey[]>([])
+  const [dragMode, setDragMode] = useState(false)
   const [editDialog, setEditDialog] = useState<{
     open: boolean
     mode: 'new' | 'edit'
@@ -71,6 +72,7 @@ export default function ServicesPage() {
     setContractTypeFilter('all')
     setSearchQuery('')
     setLinkageFilter([])
+    setDragMode(false)
     setVisitedTabs((prev) => new Set([...prev, t]))
   }
 
@@ -175,10 +177,21 @@ export default function ServicesPage() {
           <div className="ml-auto flex items-center gap-2 shrink-0">
             <DivisionMultiSelect value={divisionFilter} onChange={setDivisionFilter} />
             {isTreeTab && (
-              <Button size="sm" className="h-7 text-[11px] gap-1" onClick={openNew}>
-                <Plus className="h-3.5 w-3.5" />
-                {newButtonLabel}
-              </Button>
+              <>
+                <Button
+                  size="sm"
+                  variant={dragMode ? 'default' : 'outline'}
+                  className="h-7 text-[11px] gap-1"
+                  onClick={() => setDragMode((d) => !d)}
+                >
+                  <GripVertical className="h-3.5 w-3.5" />
+                  Reorder
+                </Button>
+                <Button size="sm" className="h-7 text-[11px] gap-1" onClick={openNew}>
+                  <Plus className="h-3.5 w-3.5" />
+                  {newButtonLabel}
+                </Button>
+              </>
             )}
           </div>
         </div>
@@ -192,6 +205,7 @@ export default function ServicesPage() {
             divisionFilter={divisionFilter}
             searchQuery={searchQuery}
             linkageFilter={linkageFilter}
+            dragMode={dragMode}
             enabled={visitedTabs.has('normal')}
             onEdit={openEdit}
             onAddChild={openAddChild}
@@ -203,6 +217,7 @@ export default function ServicesPage() {
             divisionFilter={divisionFilter}
             searchQuery={searchQuery}
             linkageFilter={linkageFilter}
+            dragMode={dragMode}
             enabled={visitedTabs.has('contract')}
             onEdit={openEdit}
             onAddChild={openAddChild}
@@ -214,6 +229,7 @@ export default function ServicesPage() {
             divisionFilter={divisionFilter}
             searchQuery={searchQuery}
             linkageFilter={linkageFilter}
+            dragMode={dragMode}
             enabled={visitedTabs.has('mobile')}
             onEdit={openEdit}
             onAddChild={openAddChild}

@@ -10,7 +10,7 @@
 
 1. [Introduction](#1-introduction)
 2. [System Overview](#2-system-overview)
-3. [Stakeholders & User Roles](#3-stakeholders--user-roles)
+3. [Stakeholders & User Roles](#3-user-roles)
 4. [Business Divisions](#4-business-divisions)
 5. [Functional Requirements](#5-functional-requirements)
    - 5.1 Authentication & Authorization
@@ -84,7 +84,7 @@ The Alfaytri System is a single-page web application (SPA) built on Next.js 15 (
 
 ---
 
-## 3. Stakeholders & User Roles
+## 3. User Roles
 
 ### 3.1 User Roles
 

@@ -14,15 +14,15 @@ export function VehiclePool() {
   const { setNodeRef, isOver } = useDroppable({ id: 'vehicle-pool', data: { zone: 'vehicle-pool' } })
 
   return (
-    <div className="flex flex-col gap-1">
-      <p className="text-xs font-medium text-muted-foreground flex items-center gap-1">
-        <Truck className="h-3.5 w-3.5" /> Vehicle Pool · {pool.length} available
+    <div className="flex flex-col gap-2">
+      <p className="text-sm font-medium text-muted-foreground flex items-center gap-1.5">
+        <Truck className="h-4 w-4" /> Vehicle Pool · {pool.length} available
       </p>
       <div
         ref={setNodeRef}
         className={cn(
-          'min-h-[2.5rem] rounded border-2 border-dashed p-1 flex flex-col gap-1 transition-colors',
-          pool.length === 0 && 'items-center justify-center text-xs text-muted-foreground',
+          'min-h-[3.5rem] rounded border-2 border-dashed p-2 flex flex-col gap-1.5 transition-colors',
+          pool.length === 0 && 'items-center justify-center text-sm text-muted-foreground',
           isOver && 'border-primary bg-primary/5'
         )}
       >
@@ -46,20 +46,20 @@ function PoolVehicleChip({ vehicle }: { vehicle: Vehicle }) {
       {...listeners}
       {...attributes}
       className={cn(
-        'group flex items-center gap-1.5 px-2 py-1 rounded border bg-muted/50 text-xs cursor-grab',
+        'group flex items-center gap-2 px-3 py-2 rounded border bg-muted/50 text-sm cursor-grab',
         isDragging && 'opacity-50'
       )}
     >
-      <GripVertical className="h-3 w-3 text-muted-foreground shrink-0" />
-      <Truck className="h-3 w-3 text-muted-foreground shrink-0" />
+      <GripVertical className="h-4 w-4 text-muted-foreground shrink-0" />
+      <Truck className="h-4 w-4 text-muted-foreground shrink-0" />
       <span className="flex-1 truncate font-mono">{vehicle.plate}</span>
-      {vehicle.traccar_device_id && <Satellite className="h-3 w-3 text-blue-500" />}
+      {vehicle.traccar_device_id && <Satellite className="h-4 w-4 text-blue-500" />}
       <button
         onClick={() => openLogPanel(vehicle.id, 'vehicle')}
-        className="hidden group-hover:block p-0.5 hover:text-primary"
+        className="hidden group-hover:block p-1 hover:text-primary"
         type="button"
       >
-        <Clock className="h-3 w-3" />
+        <Clock className="h-4 w-4" />
       </button>
     </div>
   )

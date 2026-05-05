@@ -39,16 +39,16 @@ export function StatusTabItem({ tab, isActive, count, onClick }: {
       onClick={onClick}
       type="button"
       className={cn(
-        'flex-1 flex flex-col items-center gap-0.5 py-1.5 rounded text-xs transition-colors',
+        'flex-1 flex flex-col items-center gap-1 py-2.5 rounded text-xs transition-colors',
         isActive ? 'bg-primary text-primary-foreground' : 'hover:bg-muted',
         isOver && !isActive && 'bg-primary/10 ring-1 ring-primary'
       )}
     >
-      <Icon className="h-3.5 w-3.5" />
-      <span className="hidden sm:block truncate">{tab.label}</span>
+      <Icon className="h-4 w-4" />
+      <span className="hidden sm:block truncate text-[11px]">{tab.label}</span>
       <span
         className={cn(
-          'text-[10px] rounded-full px-1',
+          'text-[10px] rounded-full px-1.5',
           isActive ? 'bg-primary-foreground/20' : 'bg-muted-foreground/20'
         )}
       >

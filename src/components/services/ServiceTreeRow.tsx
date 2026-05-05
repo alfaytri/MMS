@@ -5,8 +5,10 @@ import { useState } from 'react'
 import {
   ChevronRight, ChevronDown, ArrowUp, ArrowDown,
   Plus, Pencil, Settings2, Bell, Shield, Clock, Archive, Wrench,
-  Package, BookOpen, ClipboardCheck,
+  Package, BookOpen, ClipboardCheck, GripVertical, Eye,
 } from 'lucide-react'
+import { useSortable } from '@dnd-kit/sortable'
+import { CSS } from '@dnd-kit/utilities'
 import { toast } from 'sonner'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
@@ -41,10 +43,12 @@ interface ServiceTreeRowProps {
   isFirst: boolean
   isLast: boolean
   treeType: string
+  dragMode?: boolean
   divisionMap: Map<string, string>
   instructionServiceIds: Set<string>
   onToggleExpand: (id: string) => void
   onEdit: (node: Service) => void
+  onView: (node: Service) => void
   onAddChild: (parentId: string) => void
   onReorder: (args: ReorderArgs) => void
 }
@@ -57,16 +61,27 @@ export function ServiceTreeRow({
   isFirst,
   isLast,
   treeType,
+  dragMode = false,
   divisionMap,
   instructionServiceIds,
   onToggleExpand,
   onEdit,
+  onView,
   onAddChild,
   onReorder,
 }: ServiceTreeRowProps) {
   const [archiveOpen, setArchiveOpen] = useState(false)
   const archiveService = useArchiveService()
   const isBranch = hasChildren
+
+  const {
+    attributes,
+    listeners,
+    setNodeRef,
+    transform,
+    transition,
+    isDragging,
+  } = useSortable({ id: service.id, disabled: !dragMode })
   const levelLabel = `L${depth + 1}`
   const levelColor = LEVEL_COLORS[Math.min(depth, 2)] ?? 'bg-slate-100 text-slate-700'
 
@@ -93,15 +108,38 @@ export function ServiceTreeRow({
     )
   }
 
+  const sortableStyle = {
+    transform: CSS.Transform.toString(transform),
+    transition,
+    opacity: isDragging ? 0.4 : undefined,
+    position: isDragging ? 'relative' as const : undefined,
+    zIndex: isDragging ? 50 : undefined,
+  }
+
   return (
     <>
       <div
+        ref={setNodeRef}
+        style={sortableStyle}
         className={cn(
-          'flex items-center min-h-[40px] border-b border-border/50 hover:bg-muted/30 cursor-pointer',
-          isBranch && 'bg-muted/20',
+          'flex items-center min-h-[40px] border-b border-border/50 hover:bg-muted/30',
+          isBranch ? 'cursor-pointer bg-muted/20' : 'cursor-default',
+          isDragging && 'bg-primary/5 border-primary/30',
         )}
-        onClick={() => onEdit(service)}
+        onClick={() => { if (isBranch) onToggleExpand(service.id) }}
       >
+        {/* Drag handle — only in drag mode */}
+        {dragMode && (
+          <div
+            {...attributes}
+            {...listeners}
+            className="w-8 shrink-0 flex items-center justify-center cursor-grab active:cursor-grabbing text-muted-foreground/40 hover:text-muted-foreground"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <GripVertical className="h-4 w-4" />
+          </div>
+        )}
+
         {/* 1. Order — w-10 */}
         <div className="w-10 flex flex-col items-center justify-center gap-0 shrink-0">
           {isFirst && isLast ? (
@@ -138,9 +176,9 @@ export function ServiceTreeRow({
           )}
         </div>
 
-        {/* 2. Service — w-[240px] */}
+        {/* 2. Service — w-[600px] */}
         <div
-          className="w-[240px] flex items-center gap-1 min-w-0 shrink-0"
+          className="w-[600px] flex items-center gap-1.5 min-w-0 shrink-0"
           style={{ paddingLeft: 12 + depth * 20 }}
         >
           {/* Chevron as its own button so it doesn't trigger onEdit */}
@@ -171,11 +209,14 @@ export function ServiceTreeRow({
             </Badge>
           )}
           <div className="min-w-0 flex-1">
-            <div className={cn('text-xs truncate text-foreground', isBranch ? 'font-semibold' : 'font-normal')}>
+            <div className={cn(
+              'text-sm truncate text-foreground leading-tight',
+              isBranch ? 'font-semibold' : 'font-medium',
+            )}>
               {service.name_en}
             </div>
             {service.name_ar && (
-              <div className="text-[10px] truncate text-muted-foreground">{service.name_ar}</div>
+              <div className="text-xs truncate text-muted-foreground leading-tight">{service.name_ar}</div>
             )}
           </div>
         </div>
@@ -291,8 +332,17 @@ export function ServiceTreeRow({
           />
         </div>
 
-        {/* 9. Actions — w-[70px] */}
-        <div className="w-[70px] shrink-0 flex items-center justify-end gap-0.5 px-1">
+        {/* 9. Actions — w-[96px] */}
+        <div className="w-[96px] shrink-0 flex items-center justify-end gap-0.5 px-1">
+          <Button
+            variant="ghost"
+            size="icon"
+            className="h-5 w-5"
+            aria-label="View service"
+            onClick={(e) => { e.stopPropagation(); onView(service) }}
+          >
+            <Eye className="h-3.5 w-3.5 text-sky-500" />
+          </Button>
           <Button
             variant="ghost"
             size="icon"

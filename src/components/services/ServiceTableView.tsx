@@ -8,6 +8,7 @@ interface ServiceTableViewProps {
   divisionFilter: string[]
   searchQuery: string
   linkageFilter: string[]
+  dragMode: boolean
   enabled: boolean
   onEdit: (node: Service) => void
   onAddChild: (parentId: string) => void
@@ -18,6 +19,7 @@ export function ServiceTableView({
   divisionFilter,
   searchQuery,
   linkageFilter,
+  dragMode,
   enabled,
   onEdit,
   onAddChild,
@@ -33,6 +35,7 @@ export function ServiceTableView({
       treeType={serviceType}
       searchQuery={searchQuery}
       linkageFilter={linkageFilter}
+      dragMode={dragMode}
       onEdit={onEdit}
       onAddChild={onAddChild}
       onReorder={(args: ReorderArgs) => reorder.mutate(args)}

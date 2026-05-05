@@ -9,6 +9,7 @@ interface ContractTableViewProps {
   divisionFilter: string[]
   searchQuery: string
   linkageFilter: string[]
+  dragMode: boolean
   enabled: boolean
   onEdit: (node: Service) => void
   onAddChild: (parentId: string) => void
@@ -19,6 +20,7 @@ export function ContractTableView({
   divisionFilter,
   searchQuery,
   linkageFilter,
+  dragMode,
   enabled,
   onEdit,
   onAddChild,
@@ -42,6 +44,7 @@ export function ContractTableView({
       treeType="contract"
       searchQuery={searchQuery}
       linkageFilter={linkageFilter}
+      dragMode={dragMode}
       onEdit={onEdit}
       onAddChild={onAddChild}
       onReorder={(args: ReorderArgs) => reorder.mutate(args)}

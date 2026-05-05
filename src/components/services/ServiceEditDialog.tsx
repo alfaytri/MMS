@@ -37,6 +37,7 @@ interface ServiceEditDialogProps {
   type: 'normal' | 'contract' | 'mobile'
   node: Service | null
   parentId: string | null
+  readOnly?: boolean
 }
 
 export function ServiceEditDialog({
@@ -46,6 +47,7 @@ export function ServiceEditDialog({
   type,
   node,
   parentId,
+  readOnly = false,
 }: ServiceEditDialogProps) {
   const [confirmDiscardOpen, setConfirmDiscardOpen] = useState(false)
   const [parentOpen, setParentOpen] = useState(false)
@@ -97,7 +99,7 @@ export function ServiceEditDialog({
   }, [treeData, node])
 
   function handleOpenChange(nextOpen: boolean) {
-    if (!nextOpen && form.formState.isDirty) {
+    if (!readOnly && !nextOpen && form.formState.isDirty) {
       setConfirmDiscardOpen(true)
       return
     }
@@ -172,9 +174,11 @@ export function ServiceEditDialog({
   }
 
   const isSaving = createService.isPending || updateService.isPending
-  const title = mode === 'new'
-    ? `New ${type === 'contract' ? 'Contract ' : type === 'mobile' ? 'Mobile App ' : ''}Service`
-    : 'Edit Service'
+  const title = readOnly
+    ? 'View Service'
+    : mode === 'new'
+      ? `New ${type === 'contract' ? 'Contract ' : type === 'mobile' ? 'Mobile App ' : ''}Service`
+      : 'Edit Service'
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const currentImageUrl = (node as any)?.catalog_image_url ?? null
 
@@ -187,96 +191,108 @@ export function ServiceEditDialog({
           </DialogHeader>
 
           <Form {...form}>
-            <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-5">
+            <form onSubmit={readOnly ? (e) => e.preventDefault() : form.handleSubmit(onSubmit)} className="space-y-5">
+              <fieldset disabled={readOnly} className={cn(readOnly && 'opacity-70 pointer-events-none')}>
 
-              <CoreSection form={form} />
-              <CatalogImageSection
-                pendingFile={pendingFile}
-                currentUrl={currentImageUrl}
-                onFileChange={setPendingFile}
-              />
-              <div className="grid grid-cols-2 gap-3">
-                <StatusSection form={form} />
-                <DivisionSection form={form} mode={mode} hasParent={parentId !== null} />
-              </div>
+                <div className="space-y-5">
+                  <CoreSection form={form} />
+                  <CatalogImageSection
+                    pendingFile={pendingFile}
+                    currentUrl={currentImageUrl}
+                    onFileChange={setPendingFile}
+                  />
+                  <div className="grid grid-cols-2 gap-3">
+                    <StatusSection form={form} />
+                    <DivisionSection form={form} mode={mode} hasParent={parentId !== null} />
+                  </div>
 
-              {/* Parent service combobox */}
-              <div>
-                <label className="text-sm font-medium">Parent Service (optional)</label>
-                <Popover open={parentOpen} onOpenChange={setParentOpen}>
-                  <PopoverTrigger
-                    className="w-full justify-between font-normal h-9 text-sm mt-1.5 inline-flex items-center rounded-md border border-input bg-background px-3 shadow-xs hover:bg-accent hover:text-accent-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
-                    render={(props) => <button type="button" role="combobox" {...props} />}
-                  >
-                    {parentComboItems.find((i) => i.id === form.watch('parent_id'))?.name_en ?? 'None (root level)'}
-                    <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
-                  </PopoverTrigger>
-                  <PopoverContent className="w-[420px] p-0" align="start">
-                    <Command>
-                      <CommandInput placeholder="Search services…" />
-                      <CommandList className="max-h-60">
-                        <CommandEmpty>No services found.</CommandEmpty>
-                        <CommandGroup>
-                          <CommandItem
-                            value="__none__"
-                            onSelect={() => {
-                              form.setValue('parent_id', null, { shouldDirty: true })
-                              setParentOpen(false)
-                            }}
-                          >
-                            <Check className={cn('mr-2 h-4 w-4', form.watch('parent_id') === null ? 'opacity-100' : 'opacity-0')} />
-                            <span className="text-sm text-muted-foreground italic">None (root level)</span>
-                          </CommandItem>
-                          {parentComboItems.map((item) => (
-                            <CommandItem
-                              key={item.id}
-                              value={`${item.breadcrumb} ${item.name_en}`}
-                              onSelect={() => {
-                                form.setValue('parent_id', item.id, { shouldDirty: true })
-                                setParentOpen(false)
-                              }}
-                            >
-                              <Check className={cn('mr-2 h-4 w-4 shrink-0', form.watch('parent_id') === item.id ? 'opacity-100' : 'opacity-0')} />
-                              <div style={{ paddingInlineStart: item.depth * 16 }}>
-                                {item.breadcrumb && (
-                                  <div className="text-[10px] text-muted-foreground leading-tight">{item.breadcrumb}</div>
-                                )}
-                                <div className="text-xs">
-                                  {item.name_en}
-                                  {item.name_ar && (
-                                    <span className="text-muted-foreground ml-1.5">{item.name_ar}</span>
-                                  )}
-                                </div>
-                              </div>
-                            </CommandItem>
-                          ))}
-                        </CommandGroup>
-                      </CommandList>
-                    </Command>
-                  </PopoverContent>
-                </Popover>
-              </div>
+                  {/* Parent service combobox */}
+                  <div>
+                    <label className="text-sm font-medium">Parent Service (optional)</label>
+                    <Popover open={parentOpen} onOpenChange={setParentOpen}>
+                      <PopoverTrigger
+                        className="w-full justify-between font-normal h-9 text-sm mt-1.5 inline-flex items-center rounded-md border border-input bg-background px-3 shadow-xs hover:bg-accent hover:text-accent-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
+                        render={(props) => <button type="button" role="combobox" {...props} />}
+                      >
+                        {parentComboItems.find((i) => i.id === form.watch('parent_id'))?.name_en ?? 'None (root level)'}
+                        <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
+                      </PopoverTrigger>
+                      <PopoverContent className="w-[420px] p-0" align="start">
+                        <Command>
+                          <CommandInput placeholder="Search services…" />
+                          <CommandList className="max-h-60">
+                            <CommandEmpty>No services found.</CommandEmpty>
+                            <CommandGroup>
+                              <CommandItem
+                                value="__none__"
+                                onSelect={() => {
+                                  form.setValue('parent_id', null, { shouldDirty: true })
+                                  setParentOpen(false)
+                                }}
+                              >
+                                <Check className={cn('mr-2 h-4 w-4', form.watch('parent_id') === null ? 'opacity-100' : 'opacity-0')} />
+                                <span className="text-sm text-muted-foreground italic">None (root level)</span>
+                              </CommandItem>
+                              {parentComboItems.map((item) => (
+                                <CommandItem
+                                  key={item.id}
+                                  value={`${item.breadcrumb} ${item.name_en}`}
+                                  onSelect={() => {
+                                    form.setValue('parent_id', item.id, { shouldDirty: true })
+                                    setParentOpen(false)
+                                  }}
+                                >
+                                  <Check className={cn('mr-2 h-4 w-4 shrink-0', form.watch('parent_id') === item.id ? 'opacity-100' : 'opacity-0')} />
+                                  <div style={{ paddingInlineStart: item.depth * 16 }}>
+                                    {item.breadcrumb && (
+                                      <div className="text-[10px] text-muted-foreground leading-tight">{item.breadcrumb}</div>
+                                    )}
+                                    <div className="text-xs">
+                                      {item.name_en}
+                                      {item.name_ar && (
+                                        <span className="text-muted-foreground ml-1.5">{item.name_ar}</span>
+                                      )}
+                                    </div>
+                                  </div>
+                                </CommandItem>
+                              ))}
+                            </CommandGroup>
+                          </CommandList>
+                        </Command>
+                      </PopoverContent>
+                    </Popover>
+                  </div>
 
-              {type === 'contract' && <ContractSection form={form} />}
-              <PricingSection form={form} type={type} />
-              <DurationWarrantySection form={form} />
-              {type !== 'contract' && <InvoiceTextSection form={form} />}
-              {type !== 'contract' && <PhotoRequirementSection form={form} />}
-              {type !== 'contract' && (
-                <FeatureFieldsSection
-                  form={form}
-                  treeData={treeData}
-                  currentServiceId={node?.id ?? null}
-                />
-              )}
+                  {type === 'contract' && <ContractSection form={form} />}
+                  <PricingSection form={form} type={type} />
+                  <DurationWarrantySection form={form} />
+                  {type !== 'contract' && <InvoiceTextSection form={form} />}
+                  {type !== 'contract' && <PhotoRequirementSection form={form} />}
+                  {type !== 'contract' && (
+                    <FeatureFieldsSection
+                      form={form}
+                      treeData={treeData}
+                      currentServiceId={node?.id ?? null}
+                    />
+                  )}
+                </div>
+              </fieldset>
 
               <DialogFooter>
-                <Button type="button" variant="outline" onClick={() => handleOpenChange(false)}>
-                  Cancel
-                </Button>
-                <Button type="submit" disabled={isSaving}>
-                  {isSaving ? 'Saving…' : 'Save'}
-                </Button>
+                {readOnly ? (
+                  <Button type="button" onClick={() => onOpenChange(false)}>
+                    Close
+                  </Button>
+                ) : (
+                  <>
+                    <Button type="button" variant="outline" onClick={() => handleOpenChange(false)}>
+                      Cancel
+                    </Button>
+                    <Button type="submit" disabled={isSaving}>
+                      {isSaving ? 'Saving…' : 'Save'}
+                    </Button>
+                  </>
+                )}
               </DialogFooter>
             </form>
           </Form>

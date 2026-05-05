@@ -23,13 +23,18 @@ export const NAV_ITEMS: NavEntry[] = [
     icon: 'Database',
     groups: [
       {
+        label: 'Vendors & Clients',
         items: [
-          { label: 'Suppliers',         href: '/master-data/suppliers' },
-          { label: 'Customers',         href: '/master-data/customers' },
-          { label: 'Warehouses',        href: '/purchase/warehouses' },
+          { label: 'Suppliers', href: '/master-data/suppliers' },
+          { label: 'Customers', href: '/master-data/customers' },
+        ],
+      },
+      {
+        items: [
+          { label: 'Warehouses',    href: '/purchase/warehouses' },
           { label: 'Users & Roles', href: '/master-data/users' },
-          { label: 'Audit Trail', href: '/master-data/audit-trail' },
-          { label: 'Admin', href: '/master-data/admin' },
+          { label: 'Audit Trail',   href: '/master-data/audit-trail' },
+          { label: 'Admin',         href: '/master-data/admin' },
         ],
       },
       {

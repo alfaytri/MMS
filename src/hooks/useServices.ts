@@ -242,6 +242,44 @@ export function useReorderServices() {
   })
 }
 
+export function useReorderServicesBulk() {
+  const queryClient = useQueryClient()
+  return useMutation({
+    mutationFn: async ({
+      updates,
+      treeType,
+    }: {
+      updates: { id: string; sort_order: number }[]
+      treeType: string
+    }) => {
+      const supabase = createClient()
+      await Promise.all(
+        updates.map(({ id, sort_order }) =>
+          supabase.from('services').update({ sort_order }).eq('id', id),
+        ),
+      )
+      return { treeType }
+    },
+    onMutate: async ({ updates, treeType }) => {
+      await queryClient.cancelQueries({ queryKey: ['services', treeType] })
+      const previous = queryClient.getQueriesData<Service[]>({ queryKey: ['services', treeType] })
+      const orderMap = new Map(updates.map(({ id, sort_order }) => [id, sort_order]))
+      queryClient.setQueriesData<Service[]>({ queryKey: ['services', treeType] }, (old) => {
+        if (!old) return old
+        return old.map((s) => (orderMap.has(s.id) ? { ...s, sort_order: orderMap.get(s.id)! } : s))
+      })
+      return { previous }
+    },
+    onError: (_err, { treeType }, context) => {
+      context?.previous.forEach(([key, data]) => queryClient.setQueryData(key, data))
+      queryClient.invalidateQueries({ queryKey: ['services', treeType] })
+    },
+    onSettled: (_data, _err, { treeType }) => {
+      queryClient.invalidateQueries({ queryKey: ['services', treeType] })
+    },
+  })
+}
+
 export function useArchiveService() {
   const queryClient = useQueryClient()
   return useMutation({

@@ -30,8 +30,8 @@ export function EmployeePool() {
   }
 
   return (
-    <div className="flex flex-col gap-2">
-      <div className="flex gap-0.5">
+    <div className="flex flex-col gap-3">
+      <div className="flex gap-1">
         {STATUS_TABS.map(tab => (
           <StatusTabItem
             key={tab.key}
@@ -43,18 +43,18 @@ export function EmployeePool() {
         ))}
       </div>
       <div className="relative">
-        <Search className="absolute left-2.5 top-2 h-3.5 w-3.5 text-muted-foreground" />
+        <Search className="absolute left-3 top-2.5 h-4 w-4 text-muted-foreground" />
         <Input
           placeholder="Search..."
-          className="pl-7 h-7 text-xs"
+          className="pl-9 h-9 text-sm"
           value={search}
           onChange={e => setSearch(e.target.value)}
         />
       </div>
-      <div className="flex flex-col overflow-y-auto max-h-[calc(100vh-26rem)]">
+      <div className="flex flex-col overflow-y-auto max-h-[calc(100vh-24rem)]">
         {pool.map(emp => <EmployeeRow key={emp.id} employee={emp} />)}
         {pool.length === 0 && (
-          <p className="text-xs text-muted-foreground text-center py-4">No employees</p>
+          <p className="text-sm text-muted-foreground text-center py-6">No employees</p>
         )}
       </div>
     </div>
