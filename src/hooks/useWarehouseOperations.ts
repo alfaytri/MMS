@@ -476,7 +476,7 @@ export function useReceivalsAndDeliveries() {
       const [receivalsRes, deliveriesRes] = await Promise.all([
         (supabase as any)
           .from('receivals')
-          .select('id, receival_number, po_id, warehouse_id, date, status, items, received_by_name')
+          .select('id, receival_number, po_id, warehouse_id, date, status, received_by_name, receival_items(id)')
           .order('date', { ascending: false }),
         (supabase as any)
           .from('sale_deliveries')
@@ -493,11 +493,11 @@ export function useReceivalsAndDeliveries() {
         docNumber: r.receival_number ?? '',
         reference: r.po_id ?? '',
         warehouseId: r.warehouse_id ?? '',
-        warehouseName: '', // warehouse_name not available in receivals, would need join
-        counterparty: r.received_by_name ?? '', // supplier name not directly available
+        warehouseName: '',
+        counterparty: r.received_by_name ?? '',
         date: r.date ?? '',
-        items: Array.isArray(r.items) ? r.items : [],
-        itemCount: Array.isArray(r.items) ? r.items.length : 0,
+        items: Array.isArray(r.receival_items) ? r.receival_items : [],
+        itemCount: Array.isArray(r.receival_items) ? r.receival_items.length : 0,
         status: r.status ?? 'pending',
       }))
 
