@@ -49,23 +49,32 @@ function WarehouseStockTooltip({
   disabled: boolean
   children: React.ReactNode
 }) {
-  const [open, setOpen] = useState(false)
-  const { data: warehouses = [] } = useWarehouses()
-  const { data: whStock, isLoading } = useVariantWarehouseStock(variantId, open && !disabled)
-
   if (disabled) return <>{children}</>
+  return <WarehouseStockTooltipInner variantId={variantId}>{children}</WarehouseStockTooltipInner>
+}
+
+function WarehouseStockTooltipInner({
+  variantId,
+  children,
+}: {
+  variantId: string
+  children: React.ReactNode
+}) {
+  const [open, setOpen] = useState(false)
+  const { data: warehouses = [], isLoading: warehousesLoading } = useWarehouses()
+  const { data: whStock, isLoading } = useVariantWarehouseStock(variantId, open)
 
   const rows = whStock?.perWarehouse ?? []
   const unassigned = whStock?.unassigned ?? 0
   const total = rows.reduce((s, r) => s + r.qty, 0) + unassigned
 
   return (
-    <TooltipProvider>
+    <TooltipProvider delayDuration={300}>
       <Tooltip open={open} onOpenChange={setOpen}>
         <TooltipTrigger asChild>{children}</TooltipTrigger>
         <TooltipContent side="top" className="p-0">
           <div className="min-w-[160px] max-h-60 overflow-y-auto px-3 py-2 text-xs">
-            {isLoading ? (
+            {isLoading || warehousesLoading ? (
               <div className="py-0.5 opacity-70">Loading…</div>
             ) : total === 0 ? (
               <div className="py-0.5 opacity-70">No stock data</div>
