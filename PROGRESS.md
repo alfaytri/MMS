@@ -154,7 +154,7 @@ Purchase & Sales▾:
 
 ## 🔄 In Progress
 
-_Nothing in progress_
+🚀 Starting: **Warehouses Per-Warehouse Stock Task 1: Export `useVariantWarehouseStock` from `useInventory.ts`**
 
 ## ✅ Completed
 
