@@ -45,8 +45,9 @@ export function BrandVariantEditDialog({ open, onOpenChange, itemId, variant }: 
   const fifoWarehouseTotal = currentWhStock.reduce((s, w) => s + w.qty, 0)
   const unassignedQty = Math.max(fifoUnassigned, (variant?.stock_level ?? 0) - fifoWarehouseTotal)
 
-  // True when the system manages avg cost (stock received via PO)
-  const avgCostLocked = isEdit && (variant?.stock_level ?? 0) > 0
+  // True only after a real PO receival has created FIFO layers with a receival_id.
+  // Manual allocation (Odoo migration, opening stock) does NOT lock the field.
+  const avgCostLocked = isEdit && (whStockData?.hasReceivals ?? false)
 
   // Build a map of current DB qty per warehouse for delta detection
   const currentQtyMap = useMemo(() => {
