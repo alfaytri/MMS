@@ -154,9 +154,11 @@ Purchase & Sales▾:
 
 ## 🔄 In Progress
 
-🚀 Starting: **Warehouses Per-Warehouse Stock Task 1: Export `useVariantWarehouseStock` from `useInventory.ts`**
+_Nothing in progress_
 
 ## ✅ Completed
+
+- [2026-05-05] **Warehouses Per-Warehouse Stock Task 1: Export `useVariantWarehouseStock` from `useInventory.ts`** — `src/hooks/useInventory.ts` — Added WarehouseStockRow and VariantWarehouseStock types; exported useVariantWarehouseStock hook that queries fifo_cost_layers directly, grouping remaining_qty by warehouse_id into perWarehouse array and summing null warehouse_ids into unassigned bucket; enabled parameter gates network request for lazy loading (tooltip hover use-case); staleTime 30s
 
 - [2026-05-05] **Per-Warehouse Stock Visibility** — `supabase/migrations/20260505000003_warehouse_stock_view_and_trigger.sql`, `src/hooks/useWarehouseOperations.ts`, `src/components/purchase/wh/WhWarehousesTab.tsx`, `src/components/purchase/wh/WhStockOverviewTab.tsx`, `src/components/purchase/wh/WhTransferDialog.tsx`, `src/app/(dashboard)/purchase/warehouses/page.tsx` — DB view (warehouse_stock_view) over fifo_cost_layers with double-join to inventory_items; trigger (trg_warehouse_stats) maintaining warehouses.item_count and total_value on INSERT/UPDATE/DELETE; generate_transfer_number() sequence function; useWarehouseStock queries view; useWarehouseStockSummary returns memoized Map for O(1) lookups; WhWarehousesTab adds 'View Stock →' button and proportional value comparison bar; WhStockOverviewTab adds warehouse filter Select + clear pill + URL param pre-selection; WhTransferDialog replaces free-text items with item picker from source warehouse stock, per-row available-qty validation with error borders, submit guard, and DB-sequence transfer numbers
 
