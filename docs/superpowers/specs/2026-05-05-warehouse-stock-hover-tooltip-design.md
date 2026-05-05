@@ -47,7 +47,8 @@ Unassigned           2
 Total               27
 ```
 
-- While loading (first hover), renders a small loading indicator.
+- While loading (first hover), renders a small loading indicator. The tooltip container has a fixed `min-w-[160px]` and the loading state occupies the same vertical space as a single row, preventing size jitter when data arrives.
+- The content area uses `max-h-60 overflow-y-auto` so that variants spread across many warehouses don't produce an unusably tall tooltip.
 - If only one warehouse and no unassigned stock, still shows the breakdown (consistent behaviour, avoids conditional tooltip logic).
 - If no warehouse data at all (stock is 0 or query returns empty), the tooltip is suppressed — the badge already shows 0.
 
