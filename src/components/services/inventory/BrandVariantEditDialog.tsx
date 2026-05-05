@@ -19,20 +19,36 @@ type Props = {
   variant?: BrandVariant | null
 }
 
-/** Per-warehouse qty from warehouse_stock_view */
+/** Per-warehouse qty from warehouse_stock_view + unassigned count from fifo_cost_layers */
 function useVariantWarehouseStock(variantId: string | undefined) {
   return useQuery({
     queryKey: ['variant_warehouse_stock', variantId],
     queryFn: async () => {
-      if (!variantId) return []
+      if (!variantId) return { perWarehouse: [] as { warehouse_id: string; qty: number }[], unassigned: 0 }
       const supabase = createClient()
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      const { data, error } = await (supabase as any)
-        .from('warehouse_stock_view')
-        .select('warehouse_id, qty')
-        .eq('brand_variant_id', variantId)
-      if (error) throw error
-      return (data ?? []) as { warehouse_id: string; qty: number }[]
+      const [viewRes, unassignedRes] = await Promise.all([
+        (supabase as any)
+          .from('warehouse_stock_view')
+          .select('warehouse_id, qty')
+          .eq('brand_variant_id', variantId),
+        (supabase as any)
+          .from('fifo_cost_layers')
+          .select('remaining_qty')
+          .eq('brand_variant_id', variantId)
+          .is('warehouse_id', null)
+          .gt('remaining_qty', 0),
+      ])
+      if (viewRes.error) throw viewRes.error
+      if (unassignedRes.error) throw unassignedRes.error
+
+      const unassigned = (unassignedRes.data ?? []).reduce(
+        (sum: number, r: { remaining_qty: number }) => sum + (r.remaining_qty ?? 0), 0
+      )
+      return {
+        perWarehouse: (viewRes.data ?? []) as { warehouse_id: string; qty: number }[],
+        unassigned,
+      }
     },
     enabled: !!variantId,
     staleTime: 30_000,
@@ -57,7 +73,9 @@ export function BrandVariantEditDialog({ open, onOpenChange, itemId, variant }: 
   const [allocating, setAllocating] = useState(false)
 
   const { data: warehouses = [] } = useWarehouses()
-  const { data: currentWhStock = [] } = useVariantWarehouseStock(isEdit ? variant?.id : undefined)
+  const { data: whStockData } = useVariantWarehouseStock(isEdit ? variant?.id : undefined)
+  const currentWhStock = whStockData?.perWarehouse ?? []
+  const unassignedQty = whStockData?.unassigned ?? 0
 
   // True when the system manages avg cost (stock received via PO)
   const avgCostLocked = isEdit && (variant?.stock_level ?? 0) > 0
@@ -88,17 +106,31 @@ export function BrandVariantEditDialog({ open, onOpenChange, itemId, variant }: 
     }
   }, [open, variant])
 
-  // Computed total from warehouse allocations
-  const computedStockLevel = useMemo(() => {
-    return Object.values(whAlloc).reduce((sum, v) => sum + (parseInt(v) || 0), 0)
-  }, [whAlloc])
-
   // Build a map of current DB qty per warehouse for delta detection
   const currentQtyMap = useMemo(() => {
     const m = new Map<string, number>()
     currentWhStock.forEach((ws) => m.set(ws.warehouse_id, ws.qty))
     return m
   }, [currentWhStock])
+
+  // Computed total from warehouse allocations (allocated + remaining unassigned after changes)
+  const allocatedTotal = useMemo(() => {
+    return Object.values(whAlloc).reduce((sum, v) => sum + (parseInt(v) || 0), 0)
+  }, [whAlloc])
+
+  // How many units are being pulled from unassigned by the current allocation
+  const beingReassigned = useMemo(() => {
+    let delta = 0
+    for (const wh of warehouses) {
+      const target = parseInt(whAlloc[wh.id] ?? '0') || 0
+      const current = currentQtyMap.get(wh.id) ?? 0
+      if (target > current) delta += (target - current)
+    }
+    return Math.min(delta, unassignedQty)
+  }, [warehouses, whAlloc, currentQtyMap, unassignedQty])
+
+  const remainingUnassigned = unassignedQty - beingReassigned
+  const computedStockLevel = allocatedTotal + remainingUnassigned
 
   function updateWhAlloc(whId: string, qty: string) {
     setWhAlloc((prev) => ({ ...prev, [whId]: qty }))
@@ -309,8 +341,18 @@ export function BrandVariantEditDialog({ open, onOpenChange, itemId, variant }: 
                   )
                 })}
               </div>
+              {unassignedQty > 0 && (
+                <div className="flex items-center justify-between px-1 py-1.5 rounded bg-warning/10 border border-warning/20">
+                  <span className="text-xs text-warning font-medium">Unassigned stock</span>
+                  <span className="text-xs font-semibold text-warning">
+                    {remainingUnassigned > 0 ? remainingUnassigned : `0 (was ${unassignedQty})`}
+                  </span>
+                </div>
+              )}
               <p className="text-[10px] text-muted-foreground">
-                Set how many units each warehouse holds. Changes are applied on save.
+                {unassignedQty > 0
+                  ? 'Increase a warehouse qty to pull from unassigned stock first.'
+                  : 'Set how many units each warehouse holds. Changes are applied on save.'}
               </p>
             </div>
           )}
