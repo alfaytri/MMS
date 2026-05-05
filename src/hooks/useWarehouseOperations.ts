@@ -190,7 +190,6 @@ export function useWarehouseStock(warehouseId?: string) {
       return (data ?? []) as WarehouseStockItem[]
     },
     staleTime: 5 * 60 * 1000,
-    enabled: !!warehouseId,
   })
 }
 
