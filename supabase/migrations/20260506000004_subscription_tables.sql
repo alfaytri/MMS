@@ -30,6 +30,7 @@ CREATE TABLE IF NOT EXISTS subscription_packages (
   updated_at         timestamptz   NOT NULL DEFAULT now()
 );
 
+DROP TRIGGER IF EXISTS trg_subscription_packages_updated_at ON subscription_packages;
 CREATE TRIGGER trg_subscription_packages_updated_at
   BEFORE UPDATE ON subscription_packages
   FOR EACH ROW EXECUTE FUNCTION set_updated_at();
@@ -61,6 +62,7 @@ CREATE TABLE IF NOT EXISTS customer_subscriptions (
   updated_at                timestamptz   NOT NULL DEFAULT now()
 );
 
+DROP TRIGGER IF EXISTS trg_customer_subscriptions_updated_at ON customer_subscriptions;
 CREATE TRIGGER trg_customer_subscriptions_updated_at
   BEFORE UPDATE ON customer_subscriptions
   FOR EACH ROW EXECUTE FUNCTION set_updated_at();
