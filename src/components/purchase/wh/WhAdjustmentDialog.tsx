@@ -1,6 +1,7 @@
 'use client'
 
 import { useState, useRef } from 'react'
+import { useQueryClient } from '@tanstack/react-query'
 import { Camera, X } from 'lucide-react'
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog'
 import { Button } from '@/components/ui/button'
@@ -11,7 +12,12 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Warehouse } from '@/hooks/useWarehouses'
 import { createClient } from '@/lib/supabase/client'
 import { toast } from 'sonner'
-import { InventoryItemLookup, InventoryLookupResult } from '@/components/purchase/InventoryItemLookup'
+import type { InventoryLookupResult } from '@/hooks/usePurchaseOrders'
+import {
+  useInventoryCategories,
+  useInventoryItemsByCategory,
+  useInventoryBrandVariants,
+} from '@/hooks/useInventory'
 
 const ADJUSTMENT_TYPES = [
   { value: 'increase',  label: 'Increase (Found/Returned)' },
@@ -29,6 +35,10 @@ interface Props {
 export function WhAdjustmentDialog({ warehouses, currentProfile, children }: Props) {
   const [open, setOpen] = useState(false)
   const [warehouseId, setWarehouseId] = useState('')
+  // Cascading item selection
+  const [categoryId, setCategoryId] = useState('')
+  const [itemId, setItemId] = useState('')
+  const [variantId, setVariantId] = useState('')
   const [selectedItem, setSelectedItem] = useState<InventoryLookupResult | null>(null)
   const [type, setType] = useState('')
   const [qty, setQty] = useState('')
@@ -38,12 +48,48 @@ export function WhAdjustmentDialog({ warehouses, currentProfile, children }: Pro
   const [previews, setPreviews] = useState<string[]>([])
   const [submitting, setSubmitting] = useState(false)
   const fileRef = useRef<HTMLInputElement>(null)
+  const qc = useQueryClient()
+
+  const { data: categories = [] } = useInventoryCategories()
+  const { data: items = [] } = useInventoryItemsByCategory(categoryId || null)
+  const { data: variants = [] } = useInventoryBrandVariants(itemId || null)
 
   const canSubmit = !!warehouseId && !!selectedItem && !!type && !!qty && !!reason
+
+  function handleCategoryChange(id: string) {
+    setCategoryId(id)
+    setItemId('')
+    setVariantId('')
+    setSelectedItem(null)
+  }
+
+  function handleItemChange(id: string) {
+    setItemId(id)
+    setVariantId('')
+    setSelectedItem(null)
+  }
+
+  function handleVariantChange(id: string) {
+    setVariantId(id)
+    const variant = variants.find((v) => v.id === id)
+    const item = items.find((i) => i.id === itemId)
+    if (!variant || !item) { setSelectedItem(null); return }
+    setSelectedItem({
+      brand_variant_id: variant.id,
+      item_name:        `${item.name_en} · ${variant.brand}`,
+      item_name_ar:     null,
+      sku:              (item as any).sku ?? null,
+      unit:             (item as any).unit ?? 'pcs',
+      cost_price:       (variant as any).cost_price ?? 0,
+    })
+  }
 
   function handleClose() {
     setOpen(false)
     setWarehouseId('')
+    setCategoryId('')
+    setItemId('')
+    setVariantId('')
     setSelectedItem(null)
     setType('')
     setQty('')
@@ -96,8 +142,6 @@ export function WhAdjustmentDialog({ warehouses, currentProfile, children }: Pro
       const { error } = await (supabase as any).from('stock_adjustments').insert({
         warehouse_id: warehouseId,
         brand_variant_id: selectedItem!.brand_variant_id,
-        item_name: selectedItem!.item_name,
-        sku: selectedItem!.sku ?? null,
         adjustment_type: type,
         qty: parseFloat(qty),
         reason,
@@ -108,6 +152,7 @@ export function WhAdjustmentDialog({ warehouses, currentProfile, children }: Pro
       })
       if (error) throw error
 
+      qc.invalidateQueries({ queryKey: ['stock_adjustments'] })
       toast.success('Adjustment submitted for approval')
       handleClose()
     } catch (e: any) {
@@ -142,14 +187,53 @@ export function WhAdjustmentDialog({ warehouses, currentProfile, children }: Pro
               </Select>
             </div>
 
-            {/* Item lookup */}
+            {/* Item — cascading Category → Item → Brand */}
             <div className="space-y-1.5">
               <Label className="text-xs">Item *</Label>
-              <InventoryItemLookup
-                value={selectedItem}
-                onChange={setSelectedItem}
-                placeholder="Search inventory…"
-              />
+              <div className="space-y-2">
+                {/* Row 1: Category (full width) */}
+                <Select value={categoryId} onValueChange={handleCategoryChange}>
+                  <SelectTrigger className="h-8 text-xs w-full">
+                    <SelectValue placeholder="Select category…" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {categories.map((c) => (
+                      <SelectItem key={c.id} value={c.id} className="text-xs">
+                        {c.name_en}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+
+                {/* Row 2: Item (grows) + Brand (fixed) */}
+                <div className="grid grid-cols-[1fr_140px] gap-2">
+                  <Select value={itemId} onValueChange={handleItemChange} disabled={!categoryId}>
+                    <SelectTrigger className="h-8 text-xs">
+                      <SelectValue placeholder="Select item…" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {items.map((i) => (
+                        <SelectItem key={i.id} value={i.id} className="text-xs">
+                          {i.name_en}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+
+                  <Select value={variantId} onValueChange={handleVariantChange} disabled={!itemId}>
+                    <SelectTrigger className="h-8 text-xs">
+                      <SelectValue placeholder="Brand" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {variants.map((v) => (
+                        <SelectItem key={v.id} value={v.id} className="text-xs">
+                          {(v as any).brand}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+              </div>
             </div>
 
             {/* Type + Qty */}

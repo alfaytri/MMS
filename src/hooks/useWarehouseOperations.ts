@@ -1,3 +1,4 @@
+import { useMemo } from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { createClient } from '@/lib/supabase/client'
 
@@ -28,13 +29,14 @@ export type StockMovement = {
 }
 
 export type WarehouseStockItem = {
+  warehouse_id: string
   brand_variant_id: string
   item_name: string
   brand: string | null
   sku: string | null
   unit: string
-  stock_level: number
-  average_cost: number
+  qty: number
+  avg_cost: number
   total_value: number
 }
 
@@ -177,25 +179,30 @@ export function useWarehouseStock(warehouseId?: string) {
     queryKey: ['warehouse_stock', warehouseId],
     queryFn: async () => {
       const supabase = createClient()
-      const { data, error } = await (supabase as any)
-        .from('inventory_brand_variants')
-        .select('id, item_name, brand, sku, unit, stock_level, average_cost')
-        .gt('stock_level', 0)
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      let q = (supabase as any)
+        .from('warehouse_stock_view')
+        .select('warehouse_id, brand_variant_id, item_name, brand, sku, unit, qty, avg_cost, total_value')
         .order('item_name', { ascending: true })
+      if (warehouseId) q = q.eq('warehouse_id', warehouseId)
+      const { data, error } = await q
       if (error) throw error
-      return ((data ?? []) as any[]).map((v) => ({
-        brand_variant_id: v.id,
-        item_name: v.item_name,
-        brand: v.brand,
-        sku: v.sku,
-        unit: v.unit,
-        stock_level: v.stock_level,
-        average_cost: v.average_cost,
-        total_value: v.stock_level * v.average_cost,
-      })) as WarehouseStockItem[]
+      return (data ?? []) as WarehouseStockItem[]
     },
     staleTime: 5 * 60 * 1000,
   })
+}
+
+export function useWarehouseStockSummary(warehouseId: string | null): {
+  data: Map<string, number>
+  isLoading: boolean
+} {
+  const { data: items = [], isLoading } = useWarehouseStock(warehouseId ?? undefined)
+  const data = useMemo(
+    () => new Map(items.map((item) => [item.brand_variant_id, item.qty])),
+    [items],
+  )
+  return { data, isLoading }
 }
 
 export function useWarehouseTransfers({ status }: { status?: TransferStatus } = {}) {
@@ -247,9 +254,11 @@ export function useApproveTransfer() {
     },
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ['warehouse_transfers'] })
+      qc.invalidateQueries({ queryKey: ['warehouse_stock'] })
       qc.invalidateQueries({ queryKey: ['inventory-brand-variants'] })
       qc.invalidateQueries({ queryKey: ['stock_movements'] })
       qc.invalidateQueries({ queryKey: ['fifo-layers'] })
+      qc.invalidateQueries({ queryKey: ['warehouses'] })
     },
   })
 }
@@ -276,7 +285,11 @@ export function useStockAdjustments({ warehouseId }: { warehouseId?: string } = 
       const supabase = createClient()
       let q = (supabase as any)
         .from('stock_adjustments')
-        .select('*')
+        .select(`
+          *,
+          warehouses(name),
+          inventory_brand_variants(brand, inventory_items(name_en, sku))
+        `)
         .order('created_at', { ascending: false })
       if (warehouseId) q = q.eq('warehouse_id', warehouseId)
       const { data, error } = await q
@@ -318,7 +331,10 @@ export function useApproveStockAdjustment() {
     },
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ['stock_adjustments'] })
-      qc.invalidateQueries({ queryKey: ['inventory-brand-variants'] })
+      qc.invalidateQueries({ queryKey: ['brand-variants-grouped'] })
+      qc.invalidateQueries({ queryKey: ['brand-variants-v2'] })
+      qc.invalidateQueries({ queryKey: ['brand-variants'] })
+      qc.invalidateQueries({ queryKey: ['warehouse_stock'] })
       qc.invalidateQueries({ queryKey: ['stock_movements'] })
       qc.invalidateQueries({ queryKey: ['fifo-layers'] })
     },
@@ -374,9 +390,12 @@ export function useCreateInventoryCheck() {
       notes?: string | null
     }) => {
       const supabase = createClient()
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const { data: checkNumber, error: seqErr } = await (supabase as any).rpc('generate_check_number')
+      if (seqErr) throw seqErr
       const { data, error } = await (supabase as any)
         .from('inventory_checks')
-        .insert({ warehouse_id: warehouseId, warehouse_name: warehouseName, status: 'draft', notes })
+        .insert({ check_number: checkNumber, warehouse_id: warehouseId, warehouse_name: warehouseName, status: 'draft', notes })
         .select()
         .single()
       if (error) throw error
@@ -465,7 +484,7 @@ export function useReceivalsAndDeliveries() {
       const [receivalsRes, deliveriesRes] = await Promise.all([
         (supabase as any)
           .from('receivals')
-          .select('id, receival_number, po_id, warehouse_id, date, status, items, received_by_name')
+          .select('id, receival_number, po_id, warehouse_id, date, status, received_by_name, purchase_orders(po_number), warehouses(name), receival_items(id, item_name, sku, qty_received)')
           .order('date', { ascending: false }),
         (supabase as any)
           .from('sale_deliveries')
@@ -480,13 +499,15 @@ export function useReceivalsAndDeliveries() {
         id: r.id,
         direction: 'inbound' as const,
         docNumber: r.receival_number ?? '',
-        reference: r.po_id ?? '',
+        reference: r.purchase_orders?.po_number ?? '',
         warehouseId: r.warehouse_id ?? '',
-        warehouseName: '', // warehouse_name not available in receivals, would need join
-        counterparty: r.received_by_name ?? '', // supplier name not directly available
+        warehouseName: r.warehouses?.name ?? '',
+        counterparty: r.received_by_name ?? '',
         date: r.date ?? '',
-        items: Array.isArray(r.items) ? r.items : [],
-        itemCount: Array.isArray(r.items) ? r.items.length : 0,
+        items: Array.isArray(r.receival_items)
+          ? r.receival_items.map((ri: any) => ({ name: ri.item_name ?? '', sku: ri.sku ?? '', qty: ri.qty_received ?? 0 }))
+          : [],
+        itemCount: Array.isArray(r.receival_items) ? r.receival_items.length : 0,
         status: r.status ?? 'pending',
       }))
 

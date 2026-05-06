@@ -51,7 +51,9 @@ export const WhAdjustmentsTab = React.memo(function WhAdjustmentsTab({ warehouse
 
   function canApprove(adj: any) {
     const wh = warehouses.find(w => w.id === adj.warehouse_id)
-    return currentProfile?.id === (wh as any)?.manager_id
+    // If no manager is assigned to the warehouse, any authenticated user can approve
+    if (!wh?.manager_profile_id) return true
+    return currentProfile?.id === wh.manager_profile_id
   }
 
   if (adjustments.length === 0) {
@@ -86,11 +88,11 @@ export const WhAdjustmentsTab = React.memo(function WhAdjustmentsTab({ warehouse
                 <TableCell className="text-xs whitespace-nowrap">
                   {adj.created_at ? format(new Date(adj.created_at), 'dd MMM') : '—'}
                 </TableCell>
-                <TableCell className="text-xs">{(adj as any).warehouse_name ?? '—'}</TableCell>
+                <TableCell className="text-xs">{(adj as any).warehouses?.name ?? '—'}</TableCell>
                 <TableCell className="text-xs">
-                  {(adj as any).item_name ?? '—'}
-                  {(adj as any).brand && (
-                    <span className="text-muted-foreground ml-1">({(adj as any).brand})</span>
+                  {(adj as any).inventory_brand_variants?.inventory_items?.name_en ?? '—'}
+                  {(adj as any).inventory_brand_variants?.brand && (
+                    <span className="text-muted-foreground ml-1">({(adj as any).inventory_brand_variants.brand})</span>
                   )}
                 </TableCell>
                 <TableCell>

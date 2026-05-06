@@ -9,7 +9,9 @@ import { ConfirmDialog } from '@/components/shared/ConfirmDialog'
 import { FifoLayersTable } from './FifoLayersTable'
 import { BrandVariantEditDialog } from './BrandVariantEditDialog'
 import { ReservedOrdersDialog } from './ReservedOrdersDialog'
-import { useArchiveInventoryBrandVariant, type BrandVariant } from '@/hooks/useInventory'
+import { useArchiveInventoryBrandVariant, useVariantWarehouseStock, type BrandVariant } from '@/hooks/useInventory'
+import { useWarehouses } from '@/hooks/useWarehouses'
+import { Tooltip, TooltipTrigger, TooltipContent, TooltipProvider } from '@/components/ui/tooltip'
 import { formatCurrency } from '@/lib/utils/formatters'
 
 type Props = {
@@ -35,6 +37,74 @@ function AtpBadge({ stockLevel, reservedQty, reorderPoint }: { stockLevel: numbe
     >
       {atp}
     </span>
+  )
+}
+
+function WarehouseStockTooltip({
+  variantId,
+  disabled,
+  children,
+}: {
+  variantId: string
+  disabled: boolean
+  children: React.ReactNode
+}) {
+  if (disabled) return <>{children}</>
+  return <WarehouseStockTooltipInner variantId={variantId}>{children}</WarehouseStockTooltipInner>
+}
+
+function WarehouseStockTooltipInner({
+  variantId,
+  children,
+}: {
+  variantId: string
+  children: React.ReactNode
+}) {
+  const [open, setOpen] = useState(false)
+  const { data: warehouses = [], isLoading: warehousesLoading } = useWarehouses()
+  const { data: whStock, isLoading } = useVariantWarehouseStock(variantId, open)
+
+  const rows = whStock?.perWarehouse ?? []
+  const unassigned = whStock?.unassigned ?? 0
+  const total = rows.reduce((s, r) => s + r.qty, 0) + unassigned
+
+  return (
+    <TooltipProvider delayDuration={300}>
+      <Tooltip open={open} onOpenChange={setOpen}>
+        <TooltipTrigger asChild>{children}</TooltipTrigger>
+        <TooltipContent side="top" className="p-0">
+          <div className="min-w-[160px] max-h-60 overflow-y-auto px-3 py-2 text-xs">
+            {isLoading || warehousesLoading ? (
+              <div className="py-0.5 opacity-70">Loading…</div>
+            ) : total === 0 ? (
+              <div className="py-0.5 opacity-70">No stock data</div>
+            ) : (
+              <>
+                {rows.map((r) => {
+                  const wh = warehouses.find((w) => w.id === r.warehouse_id)
+                  return (
+                    <div key={r.warehouse_id} className="flex justify-between gap-4 py-0.5">
+                      <span>{wh?.name ?? 'Unknown'}</span>
+                      <span className="font-medium tabular-nums">{r.qty}</span>
+                    </div>
+                  )
+                })}
+                {unassigned > 0 && (
+                  <div className="flex justify-between gap-4 py-0.5 opacity-70">
+                    <span>Unassigned</span>
+                    <span className="font-medium tabular-nums">{unassigned}</span>
+                  </div>
+                )}
+                <div className="flex justify-between gap-4 pt-1 mt-0.5 border-t border-primary-foreground/20">
+                  <span>Total</span>
+                  <span className="font-medium tabular-nums">{total}</span>
+                </div>
+              </>
+            )}
+          </div>
+        </TooltipContent>
+      </Tooltip>
+    </TooltipProvider>
   )
 }
 
@@ -94,7 +164,9 @@ export function BrandVariantRow({ variant, itemId, itemName, canMoveUp, canMoveD
         </TableCell>
         <TableCell className="text-right">
           <div className="flex items-center justify-end gap-1.5">
-            <AtpBadge stockLevel={stockLevel} reservedQty={reservedQty} reorderPoint={reorderPoint} />
+            <WarehouseStockTooltip variantId={variant.id} disabled={stockLevel <= 0}>
+              <AtpBadge stockLevel={stockLevel} reservedQty={reservedQty} reorderPoint={reorderPoint} />
+            </WarehouseStockTooltip>
             <span
               title={`${damagedQty} damaged unit${damagedQty !== 1 ? 's' : ''} — not sellable`}
               className={`inline-flex items-center rounded-full px-2 py-0.5 text-[11px] font-medium cursor-default ${damagedQty > 0 ? 'bg-red-100 text-red-700' : 'bg-slate-100 text-slate-500'}`}

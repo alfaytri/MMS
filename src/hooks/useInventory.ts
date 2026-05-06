@@ -479,6 +479,48 @@ export function useFifoLayers(brandVariantId: string | null, enabled = true) {
   })
 }
 
+// ─── Per-warehouse stock breakdown ────────────────────────────────────────────
+
+export type WarehouseStockRow = { warehouse_id: string; qty: number }
+export type VariantWarehouseStock = { perWarehouse: WarehouseStockRow[]; unassigned: number; hasReceivals: boolean }
+
+export function useVariantWarehouseStock(variantId: string | undefined, enabled = true) {
+  return useQuery<VariantWarehouseStock>({
+    queryKey: ['variant_warehouse_stock', variantId],
+    queryFn: async () => {
+      if (!variantId) return { perWarehouse: [], unassigned: 0, hasReceivals: false }
+      const supabase = createClient()
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const { data, error } = await (supabase as any)
+        .from('fifo_cost_layers')
+        .select('warehouse_id, remaining_qty, receival_id')
+        .eq('brand_variant_id', variantId)
+        .gt('remaining_qty', 0)
+      if (error) throw error
+
+      const whMap = new Map<string, number>()
+      let unassigned = 0
+      let hasReceivals = false
+      for (const row of (data ?? []) as { warehouse_id: string | null; remaining_qty: number; receival_id: string | null }[]) {
+        if (row.receival_id) hasReceivals = true
+        if (!row.warehouse_id) {
+          unassigned += row.remaining_qty
+        } else {
+          whMap.set(row.warehouse_id, (whMap.get(row.warehouse_id) ?? 0) + row.remaining_qty)
+        }
+      }
+
+      return {
+        perWarehouse: Array.from(whMap.entries()).map(([warehouse_id, qty]) => ({ warehouse_id, qty })),
+        unassigned,
+        hasReceivals,
+      }
+    },
+    enabled: !!variantId && enabled,
+    staleTime: 0,
+  })
+}
+
 // ─── Tool asset hooks ─────────────────────────────────────────────────────────
 
 export function useToolAssetItems(search = '') {

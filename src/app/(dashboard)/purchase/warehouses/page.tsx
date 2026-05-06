@@ -26,7 +26,8 @@ import { WhTransferDialog } from '@/components/purchase/wh/WhTransferDialog'
 function WarehousesPageInner() {
   const searchParams = useSearchParams()
   const router = useRouter()
-  const activeTab = searchParams.get('tab') ?? 'warehouses'
+  const activeTab    = searchParams.get('tab')       ?? 'warehouses'
+  const warehouseParam = searchParams.get('warehouse') ?? undefined
   const setActiveTab = (val: string) =>
     router.replace(`/purchase/warehouses?tab=${val}`, { scroll: false })
 
@@ -120,7 +121,7 @@ function WarehousesPageInner() {
             <WhWarehousesTab warehouses={warehouses} />
           </TabsContent>
           <TabsContent value="stock" className="mt-0">
-            <WhStockOverviewTab warehouses={warehouses} />
+            <WhStockOverviewTab warehouses={warehouses} initialWarehouseId={warehouseParam} />
           </TabsContent>
           <TabsContent value="transfers" className="mt-0">
             <WhTransfersTab warehouses={warehouses} currentProfile={currentProfile ?? null} />
