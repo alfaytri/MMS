@@ -1,7 +1,7 @@
 'use client'
 
 import { useEffect } from 'react'
-import { useForm } from 'react-hook-form'
+import { useForm, type Resolver } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { z } from 'zod'
 import { PackageCheck } from 'lucide-react'
@@ -81,8 +81,9 @@ export function PackageEditDialog({
   const upsert = useUpsertPackage()
 
   const form = useForm<FormValues>({
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    resolver: zodResolver(schema) as any,
+    // z.coerce fields have `unknown` input types that diverge from FormValues;
+    // cast to Resolver<FormValues> to satisfy RHF while keeping output types intact.
+    resolver: zodResolver(schema) as Resolver<FormValues>,
     defaultValues: {
       name: '',
       name_ar: '',
@@ -98,6 +99,7 @@ export function PackageEditDialog({
 
   const priorityResponse = form.watch('priority_response')
   const discountPercent = form.watch('discount_percent') ?? 0
+  const autoRenewDefault = form.watch('auto_renew_default')
 
   const overrides: Record<string, number | null> = {}
   selectedServices.forEach((s) => {
@@ -138,7 +140,10 @@ export function PackageEditDialog({
       })
       onServicesChange([])
     }
-  }, [open, pkg]) // eslint-disable-line react-hooks/exhaustive-deps
+  // form is stable (RHF guarantee); onServicesChange intentionally omitted —
+  // we only want to reset when the dialog opens or the target package changes.
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [open, pkg])
 
   function onSubmit(values: FormValues) {
     if (selectedServices.length === 0) {
@@ -185,7 +190,7 @@ export function PackageEditDialog({
 
         <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
           {/* Names */}
-          <div className="grid grid-cols-2 gap-3">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
             <div className="space-y-1.5">
               <Label className="text-xs">Name (EN) *</Label>
               <Input className="h-8 text-xs" {...form.register('name')} />
@@ -210,7 +215,7 @@ export function PackageEditDialog({
           </div>
 
           {/* Numbers row */}
-          <div className="grid grid-cols-3 gap-3">
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
             <div className="space-y-1.5">
               <Label className="text-xs">Discount % *</Label>
               <Input type="number" min={0} max={100} step={0.5} className="h-8 text-xs" {...form.register('discount_percent')} />
@@ -232,12 +237,15 @@ export function PackageEditDialog({
           </div>
 
           {/* Priority + Response Hours */}
-          <div className="grid grid-cols-2 gap-3">
-            <div className="space-y-1.5">
+          <div className="flex flex-wrap gap-3">
+            <div className="space-y-1.5 flex-1 min-w-[160px]">
               <Label className="text-xs">Priority Response</Label>
               <Select
                 value={priorityResponse}
-                onValueChange={(v) => form.setValue('priority_response', v as PriorityResponse, { shouldValidate: true })}
+                onValueChange={(v) => {
+                  form.setValue('priority_response', v as PriorityResponse, { shouldValidate: true })
+                  if (v === 'none') form.setValue('response_hours', null)
+                }}
               >
                 <SelectTrigger className="h-8 text-xs">
                   <SelectValue />
@@ -250,7 +258,7 @@ export function PackageEditDialog({
               </Select>
             </div>
             {priorityResponse !== 'none' && (
-              <div className="space-y-1.5">
+              <div className="space-y-1.5 flex-1 min-w-[160px]">
                 <Label className="text-xs">
                   Response Hours *{' '}
                   <span className="text-muted-foreground">
@@ -275,7 +283,7 @@ export function PackageEditDialog({
           <div className="flex items-center gap-3">
             <Switch
               id="auto_renew_default"
-              checked={form.watch('auto_renew_default')}
+              checked={autoRenewDefault}
               onCheckedChange={(v) => form.setValue('auto_renew_default', v)}
             />
             <Label htmlFor="auto_renew_default" className="text-xs">Auto-renew by default</Label>
