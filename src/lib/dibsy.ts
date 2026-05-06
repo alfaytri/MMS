@@ -16,12 +16,33 @@ export interface DibsyCreatePaymentParams {
   metadata?: Record<string, string>
 }
 
+interface DibsyRawPayment {
+  id: string
+  status: string
+  amount: DibsyAmount
+  metadata?: Record<string, string>
+  _links?: {
+    checkout?: { href: string }
+    self?: { href: string }
+  }
+}
+
 export interface DibsyPayment {
   id: string
   status: string
   checkoutUrl: string
   amount: DibsyAmount
   metadata?: Record<string, string>
+}
+
+function normalizePayment(raw: DibsyRawPayment): DibsyPayment {
+  return {
+    id: raw.id,
+    status: raw.status,
+    checkoutUrl: raw._links?.checkout?.href ?? '',
+    amount: raw.amount,
+    metadata: raw.metadata,
+  }
 }
 
 export interface DibsyWebhookPayload {
@@ -55,12 +76,14 @@ export async function createDibsyPayment(
     }),
   })
 
-  if (!res.ok) {
+  // Dibsy returns 201 Created for new payments
+  if (res.status !== 200 && res.status !== 201) {
     const text = await res.text()
     throw new Error(`Dibsy API error ${res.status}: ${text}`)
   }
 
-  return res.json() as Promise<DibsyPayment>
+  const raw = await res.json() as DibsyRawPayment
+  return normalizePayment(raw)
 }
 
 export async function getDibsyPayment(paymentId: string): Promise<DibsyPayment> {
@@ -73,7 +96,8 @@ export async function getDibsyPayment(paymentId: string): Promise<DibsyPayment> 
     throw new Error(`Dibsy API error ${res.status}: ${text}`)
   }
 
-  return res.json() as Promise<DibsyPayment>
+  const raw = await res.json() as DibsyRawPayment
+  return normalizePayment(raw)
 }
 
 export function dibsyStatusToSubscriptionStatus(
