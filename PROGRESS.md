@@ -154,9 +154,11 @@ Purchase & Sales▾:
 
 ## 🔄 In Progress
 
-_Nothing in progress_
+🚀 Next: Customer module planning
 
 ## ✅ Completed
+
+- [2026-05-06] **Subscription Module Tasks 1–8: Subscription Packages master-data page** — `supabase/migrations/20260506000004–6_*.sql`, `src/hooks/useSubscriptionPackages.ts`, `src/components/master-data/subscriptions/{ServicePickerTree,PackageEditDialog,SubscriptionPackageRow,SubscriptionsPage}.tsx`, `src/app/(dashboard)/master-data/subscriptions/page.tsx`, `src/components/layout/nav-config.ts` — Full catalog page for annual subscription tiers: atomic upsert RPC, DB aggregate view, searchable service picker tree with per-service discount overrides, SLA strict-mode validation, subscriber count pill, archive flow with AlertDialog, bilingual EN/AR names.
 
 - [2026-05-05] **Stock Transfer Bug Fix** — `supabase/migrations/20260505000013_warehouse_manager_profile.sql`, `src/hooks/useWarehouses.ts`, `src/hooks/useWarehouseOperations.ts`, `src/components/purchase/wh/WhTransferDialog.tsx`, `src/components/purchase/wh/WhTransfersTab.tsx`, `src/components/master-data/WarehouseFormDialog.tsx` — Fixed 5 bugs: (1) canApprove always-false: warehouses.manager_id is employees FK, compared against profiles.id — added manager_profile_id (profiles FK) and fixed comparison; (2) notification banner was a lie — now inserts real in-app notification to destination manager on create, and back-notification to requester on approve/reject; (3) useWarehouseStock enabled guard: `undefined !== null` was true causing unfiltered all-stock fetch — changed to !!warehouseId; (4) useApproveTransfer missing warehouse_stock + warehouses cache invalidation; (5) WarehouseFormDialog: added System Manager (Approvals) profile dropdown
 
