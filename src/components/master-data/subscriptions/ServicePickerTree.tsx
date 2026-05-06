@@ -1,7 +1,7 @@
 // src/components/master-data/subscriptions/ServicePickerTree.tsx
 'use client'
 
-import React, { useState, useMemo } from 'react'
+import { useState, useMemo } from 'react'
 import { Search } from 'lucide-react'
 import { Input } from '@/components/ui/input'
 import { Checkbox } from '@/components/ui/checkbox'
@@ -39,8 +39,7 @@ function useAllServicesForPicker() {
 }
 
 // ---------------------------------------------------------------------------
-// IndeterminateCheckbox — shadcn Checkbox wraps a <button>, so we need a ref
-// to the underlying button element to set the non-standard indeterminate prop.
+// IndeterminateCheckbox — uses Base UI's native indeterminate prop directly.
 // ---------------------------------------------------------------------------
 function IndeterminateCheckbox({
   id,
@@ -53,17 +52,11 @@ function IndeterminateCheckbox({
   indeterminate: boolean
   onCheckedChange: () => void
 }) {
-  const ref = React.useRef<HTMLButtonElement>(null)
-  React.useEffect(() => {
-    if (ref.current) {
-      ;(ref.current as any).indeterminate = indeterminate
-    }
-  }, [indeterminate])
   return (
     <Checkbox
-      ref={ref}
       id={id}
       checked={checked}
+      indeterminate={indeterminate}
       onCheckedChange={onCheckedChange}
     />
   )
@@ -109,7 +102,7 @@ export function ServicePickerTree({
   onChange,
   packageDiscountPercent,
 }: ServicePickerTreeProps) {
-  const { data: services = [], isLoading } = useAllServicesForPicker()
+  const { data: services = [], isLoading, error } = useAllServicesForPicker()
   const [search, setSearch] = useState('')
 
   const treeMap = useMemo(() => buildTreeMap(services as any), [services])
@@ -118,7 +111,20 @@ export function ServicePickerTree({
   const filteredServices = useMemo(() => {
     if (!search.trim()) return services
     const q = search.toLowerCase()
-    return services.filter((s) => s.name_en.toLowerCase().includes(q))
+    const parentMap = new Map(services.map((s) => [s.id, s.parent_id ?? null]))
+    const directMatches = new Set(
+      services.filter((s) => s.name_en.toLowerCase().includes(q)).map((s) => s.id),
+    )
+    const keepIds = new Set(directMatches)
+    function addAncestors(id: string) {
+      const parent = parentMap.get(id)
+      if (parent && !keepIds.has(parent)) {
+        keepIds.add(parent)
+        addAncestors(parent)
+      }
+    }
+    directMatches.forEach((id) => addAncestors(id))
+    return services.filter((s) => keepIds.has(s.id))
   }, [services, search])
 
   const filteredTreeMap = useMemo(
@@ -138,7 +144,6 @@ export function ServicePickerTree({
     if (allSelected) {
       next = new Set(selectedSet)
       targets.forEach((id) => next.delete(id))
-      if (!isLeaf) next.delete(nodeId)
     } else {
       next = new Set(selectedSet)
       targets.forEach((id) => next.add(id))
@@ -152,9 +157,13 @@ export function ServicePickerTree({
   // Per-service discount override
   // -------------------------------------------------------------------------
   function setOverride(serviceId: string, value: string) {
-    const parsed = value === '' ? null : parseFloat(value)
-    const nextOverrides = { ...overrides, [serviceId]: parsed }
-    onChange(selectedIds, nextOverrides)
+    if (value === '') {
+      onChange(selectedIds, { ...overrides, [serviceId]: null })
+      return
+    }
+    const parsed = parseFloat(value)
+    if (isNaN(parsed) || parsed < 0 || parsed > 100) return
+    onChange(selectedIds, { ...overrides, [serviceId]: parsed })
   }
 
   // -------------------------------------------------------------------------
@@ -214,6 +223,17 @@ export function ServicePickerTree({
     return (
       <div className="h-32 flex items-center justify-center text-xs text-muted-foreground">
         Loading services…
+      </div>
+    )
+  }
+
+  // -------------------------------------------------------------------------
+  // Error state
+  // -------------------------------------------------------------------------
+  if (error) {
+    return (
+      <div className="h-32 flex items-center justify-center text-xs text-destructive">
+        Failed to load services. Please try again.
       </div>
     )
   }
