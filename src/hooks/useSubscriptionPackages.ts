@@ -105,21 +105,20 @@ export function useUpsertPackage() {
       })
       if (error) throw new Error(error.message)
 
-      await logActivity({
+      logActivity({
         action: isCreate ? 'create' : 'update',
         module: 'subscription_packages',
         entity_id: data as string,
         details: JSON.stringify(packageFields),
         performer_name: performerName ?? null,
-      })
+      }).catch(() => {})
 
       return data as string
     },
-    onSuccess: (_, { payload }) => {
+    onSuccess: (newId, { payload }) => {
       qc.invalidateQueries({ queryKey: ['subscription_packages'] })
-      if (payload.id) {
-        qc.invalidateQueries({ queryKey: ['subscription_package_services', payload.id] })
-      }
+      const packageId = payload.id ?? newId
+      qc.invalidateQueries({ queryKey: ['subscription_package_services', packageId] })
     },
   })
 }
@@ -140,12 +139,12 @@ export function useArchivePackage() {
         .update({ is_active: false })
         .eq('id', id)
       if (error) throw new Error(error.message)
-      await logActivity({
+      logActivity({
         action: 'archive',
         module: 'subscription_packages',
         entity_id: id,
         performer_name: performerName ?? null,
-      })
+      }).catch(() => {})
     },
     onSuccess: () => qc.invalidateQueries({ queryKey: ['subscription_packages'] }),
   })
