@@ -1,4 +1,4 @@
-export type ApprovalRole = 'purchase_manager' | 'accountant' | 'owner' | 'employee'
+export type ApprovalRole = 'purchase_manager' | 'accountant' | 'owner' | 'employee' | 'warehouse_manager'
 
 export type ApprovalChainTier = {
   id: string

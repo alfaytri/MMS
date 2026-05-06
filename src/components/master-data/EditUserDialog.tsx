@@ -34,10 +34,11 @@ import {
 import type { ApprovalRole } from '@/lib/approvalChainResolution'
 
 const APPROVAL_ROLES: { role: ApprovalRole; label: string }[] = [
-  { role: 'purchase_manager', label: 'Purchase Manager' },
-  { role: 'accountant',       label: 'Accountant' },
-  { role: 'owner',            label: 'Owner' },
-  { role: 'employee',         label: 'Employee' },
+  { role: 'purchase_manager',  label: 'Purchase Manager' },
+  { role: 'accountant',        label: 'Accountant' },
+  { role: 'owner',             label: 'Owner' },
+  { role: 'employee',          label: 'Employee' },
+  { role: 'warehouse_manager', label: 'Warehouse Manager' },
 ]
 
 const schema = z.object({
@@ -238,34 +239,30 @@ export function EditUserDialog({ open, onOpenChange, profile }: Props) {
               </div>
             </div>
 
-            <div>
+            <div className="space-y-1.5">
               <Label>Approval Role</Label>
-              <p className="text-xs text-muted-foreground mb-2">Determines who this user can act as in the PO approval chain.</p>
-              <div className="flex flex-wrap gap-2">
-                {APPROVAL_ROLES.map(({ role, label }) => {
-                  const isActive = myAssignment?.role === role
-                  return (
-                    <button
-                      key={role}
-                      type="button"
-                      onClick={() => handleApprovalRoleToggle(role)}
-                      disabled={addApprovalRole.isPending || removeApprovalRole.isPending}
-                      className={`rounded-md border px-4 py-1.5 text-sm font-medium transition-colors ${
-                        isActive
-                          ? 'border-primary bg-primary/10 text-primary'
-                          : 'border-muted-foreground/30 text-muted-foreground hover:bg-muted'
-                      }`}
-                    >
-                      {label}
-                    </button>
-                  )
-                })}
-                {myAssignment && (
-                  <span className="self-center text-xs text-muted-foreground">
-                    Click active role to remove
-                  </span>
-                )}
-              </div>
+              <p className="text-xs text-muted-foreground">Determines who this user can act as in the PO approval chain and warehouse approvals.</p>
+              <Select
+                value={myAssignment?.role ?? '__none__'}
+                onValueChange={(v) => {
+                  if (v === '__none__') {
+                    if (myAssignment) removeApprovalRole.mutate(myAssignment.id, { onError: (e) => toast.error(e.message) })
+                  } else {
+                    handleApprovalRoleToggle(v as ApprovalRole)
+                  }
+                }}
+                disabled={addApprovalRole.isPending || removeApprovalRole.isPending}
+              >
+                <SelectTrigger className="w-64 h-9 text-sm">
+                  <SelectValue placeholder="No approval role" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="__none__">— No approval role —</SelectItem>
+                  {APPROVAL_ROLES.map(({ role, label }) => (
+                    <SelectItem key={role} value={role}>{label}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
             </div>
 
             {/* ── Divisions ── */}
