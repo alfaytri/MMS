@@ -1,6 +1,7 @@
 'use client'
 
 import { useState, useRef } from 'react'
+import { useQueryClient } from '@tanstack/react-query'
 import { Camera, X } from 'lucide-react'
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog'
 import { Button } from '@/components/ui/button'
@@ -47,6 +48,7 @@ export function WhAdjustmentDialog({ warehouses, currentProfile, children }: Pro
   const [previews, setPreviews] = useState<string[]>([])
   const [submitting, setSubmitting] = useState(false)
   const fileRef = useRef<HTMLInputElement>(null)
+  const qc = useQueryClient()
 
   const { data: categories = [] } = useInventoryCategories()
   const { data: items = [] } = useInventoryItemsByCategory(categoryId || null)
@@ -150,6 +152,7 @@ export function WhAdjustmentDialog({ warehouses, currentProfile, children }: Pro
       })
       if (error) throw error
 
+      qc.invalidateQueries({ queryKey: ['stock_adjustments'] })
       toast.success('Adjustment submitted for approval')
       handleClose()
     } catch (e: any) {

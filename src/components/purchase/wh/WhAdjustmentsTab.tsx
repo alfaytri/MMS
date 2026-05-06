@@ -86,11 +86,11 @@ export const WhAdjustmentsTab = React.memo(function WhAdjustmentsTab({ warehouse
                 <TableCell className="text-xs whitespace-nowrap">
                   {adj.created_at ? format(new Date(adj.created_at), 'dd MMM') : '—'}
                 </TableCell>
-                <TableCell className="text-xs">{(adj as any).warehouse_name ?? '—'}</TableCell>
+                <TableCell className="text-xs">{(adj as any).warehouses?.name ?? '—'}</TableCell>
                 <TableCell className="text-xs">
-                  {(adj as any).item_name ?? '—'}
-                  {(adj as any).brand && (
-                    <span className="text-muted-foreground ml-1">({(adj as any).brand})</span>
+                  {(adj as any).inventory_brand_variants?.inventory_items?.name_en ?? '—'}
+                  {(adj as any).inventory_brand_variants?.brand && (
+                    <span className="text-muted-foreground ml-1">({(adj as any).inventory_brand_variants.brand})</span>
                   )}
                 </TableCell>
                 <TableCell>

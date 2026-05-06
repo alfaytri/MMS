@@ -285,7 +285,11 @@ export function useStockAdjustments({ warehouseId }: { warehouseId?: string } = 
       const supabase = createClient()
       let q = (supabase as any)
         .from('stock_adjustments')
-        .select('*')
+        .select(`
+          *,
+          warehouses(name),
+          inventory_brand_variants(brand, inventory_items(name_en, sku))
+        `)
         .order('created_at', { ascending: false })
       if (warehouseId) q = q.eq('warehouse_id', warehouseId)
       const { data, error } = await q
