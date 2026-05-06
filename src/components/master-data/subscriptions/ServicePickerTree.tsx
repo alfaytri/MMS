@@ -29,7 +29,7 @@ function useAllServicesForPicker() {
       const { data, error } = await (supabase as any)
         .from('services')
         .select('id, name_en, parent_id, tree_type')
-        .eq('is_active', true)
+        .is('deleted_at', null)
         .order('sort_order', { ascending: true })
       if (error) throw error
       return (data ?? []) as PickerService[]
