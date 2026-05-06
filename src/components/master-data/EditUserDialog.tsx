@@ -214,29 +214,55 @@ export function EditUserDialog({ open, onOpenChange, profile }: Props) {
               <span className="text-sm">Active</span>
             </label>
 
-            <div>
+            <div className="space-y-1.5">
               <Label>Roles</Label>
-              <div className="mt-2 flex flex-wrap gap-x-4 gap-y-1 border rounded-md p-3">
-                {(roles ?? []).length === 0 && (
-                  <p className="text-xs text-muted-foreground">No roles defined yet.</p>
+              {/* Selected roles as removable badges */}
+              <div className="flex flex-wrap gap-1.5 min-h-[2rem]">
+                {selectedRoles.length === 0 && (
+                  <p className="text-xs text-muted-foreground">No roles assigned.</p>
                 )}
-                {(roles ?? []).map((role) => (
-                  <label key={role.id} className="flex items-center gap-2 py-0.5 px-2 rounded hover:bg-muted cursor-pointer min-w-[170px]">
-                    <Checkbox
-                      className="shrink-0"
-                      checked={selectedRoles.includes(role.id)}
-                      onCheckedChange={(checked) => {
-                        const current = form.getValues('role_ids')
-                        form.setValue(
-                          'role_ids',
-                          checked ? [...current, role.id] : current.filter((id) => id !== role.id)
-                        )
-                      }}
-                    />
-                    <span className="text-xs whitespace-nowrap">{role.name}</span>
-                  </label>
-                ))}
+                {selectedRoles.map((id) => {
+                  const role = (roles ?? []).find((r) => r.id === id)
+                  if (!role) return null
+                  return (
+                    <Badge key={id} variant="secondary" className="gap-1 pr-1">
+                      {role.name}
+                      <button
+                        type="button"
+                        className="rounded-full hover:bg-muted p-0.5"
+                        onClick={() => {
+                          const current = form.getValues('role_ids')
+                          form.setValue('role_ids', current.filter((r) => r !== id))
+                        }}
+                      >
+                        <X className="h-3 w-3" />
+                      </button>
+                    </Badge>
+                  )
+                })}
               </div>
+              {/* Dropdown to add a role */}
+              {(roles ?? []).filter((r) => !selectedRoles.includes(r.id)).length > 0 && (
+                <Select
+                  value=""
+                  onValueChange={(id) => {
+                    if (!id) return
+                    const current = form.getValues('role_ids')
+                    if (!current.includes(id)) form.setValue('role_ids', [...current, id])
+                  }}
+                >
+                  <SelectTrigger className="w-64 h-9 text-sm">
+                    <SelectValue placeholder="Add role…" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {(roles ?? [])
+                      .filter((r) => !selectedRoles.includes(r.id))
+                      .map((r) => (
+                        <SelectItem key={r.id} value={r.id}>{r.name}</SelectItem>
+                      ))}
+                  </SelectContent>
+                </Select>
+              )}
             </div>
 
             <div className="space-y-1.5">
