@@ -7,6 +7,13 @@ import { Input } from '@/components/ui/input'
 import { Checkbox } from '@/components/ui/checkbox'
 import { Label } from '@/components/ui/label'
 import { Button } from '@/components/ui/button'
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select'
 import { createClient } from '@/lib/supabase/client'
 import { useQuery } from '@tanstack/react-query'
 import { buildTreeMap, collectDescendantIds } from '@/components/services/ServiceTree'
@@ -20,6 +27,7 @@ type PickerService = {
   name_en: string
   parent_id: string | null
   tree_type: string | null
+  division: string[] | null
 }
 
 function useAllServicesForPicker() {
@@ -29,7 +37,7 @@ function useAllServicesForPicker() {
       const supabase = createClient()
       const { data, error } = await (supabase as any)
         .from('services')
-        .select('id, name_en, parent_id, tree_type')
+        .select('id, name_en, parent_id, tree_type, division')
         .is('deleted_at', null)
         .order('sort_order', { ascending: true })
       if (error) throw error
@@ -76,16 +84,41 @@ export function ServicePickerTree({
   const { data: services = [], isLoading, error } = useAllServicesForPicker()
   const [search, setSearch] = useState('')
   const [collapsed, setCollapsed] = useState<Set<string>>(new Set())
+  const [selectedDivision, setSelectedDivision] = useState<string | null>(null)
 
   const treeMap = useMemo(() => buildTreeMap(services as any), [services])
   const selectedSet = useMemo(() => new Set(selectedIds), [selectedIds])
 
+  const allDivisions = useMemo(() => {
+    const set = new Set<string>()
+    services.forEach((s) => s.division?.forEach((d) => set.add(d)))
+    return [...set].sort()
+  }, [services])
+
   const filteredServices = useMemo(() => {
-    if (!search.trim()) return services
-    const q = search.toLowerCase()
     const parentMap = new Map(services.map((s) => [s.id, s.parent_id ?? null]))
+
+    let base = services
+    if (selectedDivision) {
+      const divMatches = new Set(
+        services.filter((s) => s.division?.includes(selectedDivision)).map((s) => s.id),
+      )
+      const keepIds = new Set(divMatches)
+      function addAncestorsDiv(id: string) {
+        const parent = parentMap.get(id)
+        if (parent && !keepIds.has(parent)) {
+          keepIds.add(parent)
+          addAncestorsDiv(parent)
+        }
+      }
+      divMatches.forEach((id) => addAncestorsDiv(id))
+      base = services.filter((s) => keepIds.has(s.id))
+    }
+
+    if (!search.trim()) return base
+    const q = search.toLowerCase()
     const directMatches = new Set(
-      services.filter((s) => s.name_en.toLowerCase().includes(q)).map((s) => s.id),
+      base.filter((s) => s.name_en.toLowerCase().includes(q)).map((s) => s.id),
     )
     const keepIds = new Set(directMatches)
     function addAncestors(id: string) {
@@ -96,8 +129,8 @@ export function ServicePickerTree({
       }
     }
     directMatches.forEach((id) => addAncestors(id))
-    return services.filter((s) => keepIds.has(s.id))
-  }, [services, search])
+    return base.filter((s) => keepIds.has(s.id))
+  }, [services, search, selectedDivision])
 
   const filteredTreeMap = useMemo(
     () => buildTreeMap(filteredServices as any),
@@ -266,6 +299,22 @@ export function ServicePickerTree({
             onChange={(e) => setSearch(e.target.value)}
           />
         </div>
+        {allDivisions.length > 0 && (
+          <Select
+            value={selectedDivision ?? '__all__'}
+            onValueChange={(v) => setSelectedDivision(v === '__all__' ? null : v)}
+          >
+            <SelectTrigger className="h-7 text-xs">
+              <SelectValue placeholder="All divisions" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="__all__" className="text-xs">All divisions</SelectItem>
+              {allDivisions.map((d) => (
+                <SelectItem key={d} value={d} className="text-xs">{d}</SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        )}
         <div className="flex items-center gap-2">
           <Button
             type="button"
