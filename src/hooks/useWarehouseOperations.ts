@@ -331,7 +331,10 @@ export function useApproveStockAdjustment() {
     },
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ['stock_adjustments'] })
-      qc.invalidateQueries({ queryKey: ['inventory-brand-variants'] })
+      qc.invalidateQueries({ queryKey: ['brand-variants-grouped'] })
+      qc.invalidateQueries({ queryKey: ['brand-variants-v2'] })
+      qc.invalidateQueries({ queryKey: ['brand-variants'] })
+      qc.invalidateQueries({ queryKey: ['warehouse_stock'] })
       qc.invalidateQueries({ queryKey: ['stock_movements'] })
       qc.invalidateQueries({ queryKey: ['fifo-layers'] })
     },
