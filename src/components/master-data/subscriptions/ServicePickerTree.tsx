@@ -62,9 +62,7 @@ function getCheckState(
 
 export interface ServicePickerTreeProps {
   selectedIds: string[]
-  overrides: Record<string, number | null>
-  onChange: (ids: string[], overrides: Record<string, number | null>) => void
-  packageDiscountPercent: number
+  onChange: (ids: string[]) => void
 }
 
 // ---------------------------------------------------------------------------
@@ -73,9 +71,7 @@ export interface ServicePickerTreeProps {
 
 export function ServicePickerTree({
   selectedIds,
-  overrides,
   onChange,
-  packageDiscountPercent,
 }: ServicePickerTreeProps) {
   const { data: services = [], isLoading, error } = useAllServicesForPicker()
   const [search, setSearch] = useState('')
@@ -116,41 +112,38 @@ export function ServicePickerTree({
     const targets = isLeaf ? [nodeId] : descendants
     const anySelected = targets.some((id) => selectedSet.has(id))
     const next = new Set(selectedSet)
-    const nextOverrides = { ...overrides }
     if (anySelected) {
-      targets.forEach((id) => { next.delete(id); delete nextOverrides[id] })
+      targets.forEach((id) => next.delete(id))
     } else {
       targets.forEach((id) => next.add(id))
     }
-    onChange([...next], nextOverrides)
+    onChange([...next])
   }
 
   // -------------------------------------------------------------------------
-  // Select all / Clear all (across full unfiltered tree)
+  // Select all leaves under a branch (or globally)
   // -------------------------------------------------------------------------
-  function selectAll() {
-    const allLeaves: string[] = []
-    services.forEach((s) => {
-      if ((treeMap.get(s.id) ?? []).length === 0) allLeaves.push(s.id)
-    })
-    onChange(allLeaves, overrides)
+  function selectBranch(nodeId: string | null) {
+    const next = new Set(selectedSet)
+    if (nodeId === null) {
+      // global: all leaves
+      services.forEach((s) => {
+        if ((treeMap.get(s.id) ?? []).length === 0) next.add(s.id)
+      })
+    } else {
+      const descendants = collectDescendantIds(nodeId, treeMap as any)
+      const isLeaf = descendants.size === 0
+      if (isLeaf) {
+        next.add(nodeId)
+      } else {
+        descendants.forEach((id) => next.add(id))
+      }
+    }
+    onChange([...next])
   }
 
   function clearAll() {
-    onChange([], {})
-  }
-
-  // -------------------------------------------------------------------------
-  // Per-service discount override
-  // -------------------------------------------------------------------------
-  function setOverride(serviceId: string, value: string) {
-    if (value === '') {
-      onChange(selectedIds, { ...overrides, [serviceId]: null })
-      return
-    }
-    const parsed = parseFloat(value)
-    if (isNaN(parsed) || parsed < 0 || parsed > 100) return
-    onChange(selectedIds, { ...overrides, [serviceId]: parsed })
+    onChange([])
   }
 
   // -------------------------------------------------------------------------
@@ -160,12 +153,11 @@ export function ServicePickerTree({
     const children = filteredTreeMap.get(service.id) ?? []
     const checkState = getCheckState(service.id, treeMap as any, selectedSet)
     const isLeaf = (treeMap.get(service.id) ?? []).length === 0
-    const isSelected = selectedSet.has(service.id)
 
     return (
       <div key={service.id}>
         <div
-          className="flex items-center gap-2 py-1 rounded hover:bg-muted/40 px-1"
+          className="flex items-center gap-2 py-1 rounded hover:bg-muted/40 px-1 group"
           style={{ paddingLeft: `${depth * 16 + 4}px` }}
         >
           <Checkbox
@@ -179,20 +171,14 @@ export function ServicePickerTree({
           >
             {service.name_en}
           </Label>
-          {isLeaf && isSelected && (
-            <div className="flex items-center gap-1">
-              <Input
-                type="number"
-                min={0}
-                max={100}
-                step={0.5}
-                className="h-5 w-16 text-[10px] px-1"
-                placeholder={`${packageDiscountPercent}% (pkg)`}
-                value={overrides[service.id] ?? ''}
-                onChange={(e) => setOverride(service.id, e.target.value)}
-              />
-              <span className="text-[10px] text-muted-foreground">%</span>
-            </div>
+          {!isLeaf && (
+            <button
+              type="button"
+              onClick={() => selectBranch(service.id)}
+              className="hidden group-hover:inline text-[10px] text-primary px-1 hover:underline"
+            >
+              Select all
+            </button>
           )}
         </div>
         {children.map((child) => renderNode(child, depth + 1))}
@@ -246,7 +232,7 @@ export function ServicePickerTree({
             variant="ghost"
             size="sm"
             className="h-5 px-1.5 text-[10px] text-primary"
-            onClick={selectAll}
+            onClick={() => selectBranch(null)}
           >
             Select All
           </Button>

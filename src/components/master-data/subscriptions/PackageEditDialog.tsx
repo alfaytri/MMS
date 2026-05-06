@@ -98,18 +98,10 @@ export function PackageEditDialog({
   })
 
   const priorityResponse = form.watch('priority_response')
-  const discountPercent = form.watch('discount_percent') ?? 0
   const autoRenewDefault = form.watch('auto_renew_default')
 
-  const overrides: Record<string, number | null> = {}
-  selectedServices.forEach((s) => {
-    overrides[s.service_id] = s.discount_override
-  })
-
-  function handleServicesChange(ids: string[], newOverrides: Record<string, number | null>) {
-    onServicesChange(
-      ids.map((id) => ({ service_id: id, discount_override: newOverrides[id] ?? null })),
-    )
+  function handleServicesChange(ids: string[]) {
+    onServicesChange(ids.map((id) => ({ service_id: id, discount_override: null })))
   }
 
   useEffect(() => {
@@ -297,9 +289,7 @@ export function PackageEditDialog({
             </div>
             <ServicePickerTree
               selectedIds={selectedServices.map((s) => s.service_id)}
-              overrides={overrides}
               onChange={handleServicesChange}
-              packageDiscountPercent={discountPercent}
             />
             {selectedServices.length === 0 && form.formState.isSubmitted && (
               <p className="text-[10px] text-destructive">Select at least one service</p>
