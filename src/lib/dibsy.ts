@@ -104,7 +104,8 @@ export function dibsyStatusToSubscriptionStatus(
   dibsyStatus: string
 ): 'pending_payment' | 'active' | 'cancelled' | null {
   switch (dibsyStatus) {
-    case 'paid':      return 'active'
+    case 'paid':
+    case 'succeeded': return 'active'
     case 'failed':
     case 'expired':   return 'pending_payment'
     case 'refunded':  return 'cancelled'
