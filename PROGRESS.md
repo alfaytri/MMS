@@ -154,9 +154,11 @@ Purchase & Sales▾:
 
 ## 🔄 In Progress
 
-🚀 Next: Customer module planning
+🚀 Next: Wire Dibsy checkout into subscription activation UI
 
 ## ✅ Completed
+
+- [2026-05-06] **Dibsy Payment Gateway Integration** — `src/lib/dibsy.ts`, `src/app/api/payments/dibsy/create/route.ts`, `src/app/api/payments/dibsy/webhook/route.ts`, `supabase/migrations/20260506090000_add_dibsy_payment_fields.sql`, `.env.local` — Dibsy (Qatar payment gateway) client with createDibsyPayment/getDibsyPayment helpers; POST /api/payments/dibsy/create creates a Dibsy payment session and stores dibsy_payment_id + checkout URL on customer_subscriptions; POST /api/payments/dibsy/webhook receives payment events (paid/failed/expired/refunded), maps to subscription status (active/pending_payment/cancelled), and activates start/end dates on first successful payment.
 
 - [2026-05-06] **Subscription Module Tasks 1–8: Subscription Packages master-data page** — `supabase/migrations/20260506000004–6_*.sql`, `src/hooks/useSubscriptionPackages.ts`, `src/components/master-data/subscriptions/{ServicePickerTree,PackageEditDialog,SubscriptionPackageRow,SubscriptionsPage}.tsx`, `src/app/(dashboard)/master-data/subscriptions/page.tsx`, `src/components/layout/nav-config.ts` — Full catalog page for annual subscription tiers: atomic upsert RPC, DB aggregate view, searchable service picker tree with per-service discount overrides, SLA strict-mode validation, subscriber count pill, archive flow with AlertDialog, bilingual EN/AR names.
 
