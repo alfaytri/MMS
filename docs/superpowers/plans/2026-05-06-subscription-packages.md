@@ -4,7 +4,7 @@
 
 **Goal:** Build the `/master-data/subscriptions` page — a catalog manager for annual customer loyalty packages with per-service discounts, SLA priority tiers, and a live subscriber count display.
 
-**Architecture:** Three migrations create the four tables, the aggregate view, and the atomic upsert RPC. One hook file owns all TanStack Query logic. Four focused components compose the page: a searchable checkbox service tree, a full-featured edit dialog, a table row, and the client shell. The nav entry already exists in `nav-config.ts` — just remove `comingSoon: true`.
+**Architecture:** Three migrations create the four tables, the aggregate view (which includes both subscriber count and service count — no client-side aggregation), and the atomic upsert RPC. One hook file owns all TanStack Query logic. Four focused components compose the page: a searchable checkbox service tree, a full-featured edit dialog, a table row, and the client shell. The nav entry already exists in `nav-config.ts` — just remove `comingSoon: true`.
 
 **Tech Stack:** Next.js 14 App Router, Supabase (PostgREST + RPC + `npx supabase db push`), TanStack Query v5, react-hook-form + zod, shadcn/ui, lucide-react, sonner (toasts), `@/lib/logActivity`
 
@@ -128,17 +128,24 @@ CREATE POLICY "authenticated_read" ON subscription_usage_log
 ```sql
 -- supabase/migrations/20260506000005_subscription_packages_view.sql
 
+-- Both counts live in Postgres — zero client-side aggregation.
 CREATE OR REPLACE VIEW subscription_packages_with_counts AS
 SELECT
   sp.*,
-  COALESCE(cnt.active_subscribers, 0)::int AS subscriber_count
+  COALESCE(sub_cnt.active_subscribers, 0)::int AS subscriber_count,
+  COALESCE(svc_cnt.service_count,       0)::int AS service_count
 FROM subscription_packages sp
 LEFT JOIN (
   SELECT package_id, COUNT(*)::int AS active_subscribers
   FROM customer_subscriptions
   WHERE status = 'active'
   GROUP BY package_id
-) cnt ON cnt.package_id = sp.id;
+) sub_cnt ON sub_cnt.package_id = sp.id
+LEFT JOIN (
+  SELECT package_id, COUNT(*)::int AS service_count
+  FROM subscription_package_services
+  GROUP BY package_id
+) svc_cnt ON svc_cnt.package_id = sp.id;
 
 GRANT SELECT ON subscription_packages_with_counts TO authenticated;
 GRANT SELECT ON subscription_packages_with_counts TO service_role;
@@ -314,6 +321,7 @@ export type SubscriptionPackage = {
 
 export type SubscriptionPackageWithCount = SubscriptionPackage & {
   subscriber_count: number
+  service_count: number
 }
 
 export type PackageServiceEntry = {
@@ -1214,42 +1222,18 @@ export function SubscriptionPackageRow({ pkg, showStatus, onEdit, onArchive }: P
 
 **Note on "services" column:** The view returns packages + subscriber counts but not service counts. Service counts require either a second view or a separate query. For the initial implementation, replace the `services` static placeholder in this component with a `usePackageServiceCount` hook or pass service count as a prop from `SubscriptionsPage` after fetching all junction rows in bulk. The simplest approach: add a second query in `SubscriptionsPage` — `SELECT package_id, COUNT(*) FROM subscription_package_services GROUP BY package_id` — and pass counts down as `serviceCount: number`.
 
-- [ ] **Step 2: Add `usePackageServiceCounts` to the hook file**
+- [ ] **Step 2: Fix the services cell — read `pkg.service_count` directly**
 
-Open `src/hooks/useSubscriptionPackages.ts` and append:
-
-```typescript
-export function usePackageServiceCounts() {
-  return useQuery({
-    queryKey: ['subscription_package_service_counts'],
-    queryFn: async () => {
-      const supabase = createClient()
-      const { data, error } = await (supabase as any)
-        .from('subscription_package_services')
-        .select('package_id')
-      if (error) throw error
-      const counts: Record<string, number> = {}
-      ;(data ?? []).forEach((row: { package_id: string }) => {
-        counts[row.package_id] = (counts[row.package_id] ?? 0) + 1
-      })
-      return counts
-    },
-    staleTime: 5 * 60 * 1000,
-  })
-}
-```
-
-Then update `SubscriptionPackageRow` to accept `serviceCount: number` prop and render it instead of the static `'services'` label:
+`service_count` is now returned by the view on every package row, so no extra hook or prop is needed. In `SubscriptionPackageRow`, replace the static `'services'` placeholder in the services cell:
 
 ```typescript
-// In Props interface, add:
-serviceCount: number
-
-// Replace the services cell content:
+{/* Services count — sourced from the DB view, no extra query */}
 <span className="text-[10px] border border-primary/30 text-primary rounded-full px-2 py-0.5">
-  {serviceCount} services
+  {pkg.service_count} services
 </span>
 ```
+
+Also remove `serviceCount` from the `Props` interface — it is no longer needed since the value lives on `pkg`.
 
 - [ ] **Step 3: Type-check**
 
@@ -1314,7 +1298,6 @@ import {
   useSubscriptionPackages,
   useArchivePackage,
   usePackageServices,
-  usePackageServiceCounts,
   type SubscriptionPackageWithCount,
   type PackageServiceEntry,
 } from '@/hooks/useSubscriptionPackages'
@@ -1335,7 +1318,6 @@ export function SubscriptionsPage({ currentProfile }: Props) {
   const [editServices, setEditServices] = useState<PackageServiceEntry[]>([])
 
   const { data: packages = [], isLoading } = useSubscriptionPackages({ includeArchived: showArchived })
-  const { data: serviceCounts = {} } = usePackageServiceCounts()
   const archive = useArchivePackage()
 
   // Load existing services when edit dialog opens for an existing package
@@ -1482,7 +1464,6 @@ export function SubscriptionsPage({ currentProfile }: Props) {
                   key={pkg.id}
                   pkg={pkg}
                   showStatus={showArchived}
-                  serviceCount={serviceCounts[pkg.id] ?? 0}
                   onEdit={openEdit}
                   onArchive={setArchiveTarget}
                 />
@@ -1671,6 +1652,42 @@ EOF
 
 ---
 
+### Task 10: Future migration note — customer FK
+
+**Files:**
+- Create: `supabase/migrations/20260506000007_customer_subscriptions_customer_fk.sql` *(do NOT push yet — placeholder only)*
+
+- [ ] **Step 1: Create the placeholder migration file but leave it unapplied**
+
+```sql
+-- supabase/migrations/20260506000007_customer_subscriptions_customer_fk.sql
+-- TODO: Apply once the customers table primary key column is confirmed.
+-- Run `npx supabase db push` after the customers module is live.
+
+ALTER TABLE customer_subscriptions
+  ADD CONSTRAINT fk_customer_subscriptions_customer
+  FOREIGN KEY (customer_id) REFERENCES customers(id) ON DELETE RESTRICT;
+```
+
+- [ ] **Step 2: Commit the placeholder only (do NOT push to DB)**
+
+```bash
+git add supabase/migrations/20260506000007_customer_subscriptions_customer_fk.sql
+git commit -m "$(cat <<'EOF'
+chore(db): add placeholder FK migration for customer_subscriptions.customer_id
+
+Not applied yet — waiting on customers module to confirm PK column name.
+
+Co-Authored-By: Mohamed Ismail <m.Ismail@alfaytri.com>
+Co-Authored-By: Claude Sonnet 4.6 <noreply@anthropic.com>
+EOF
+)"
+```
+
+**When to apply:** Once `src/app/(dashboard)/master-data/customers` is built and the `customers` table exists, run `npx supabase db push` to wire the FK and close this gap.
+
+---
+
 ## Self-Review Checklist
 
 | Spec requirement | Covered in task |
@@ -1683,7 +1700,7 @@ EOF
 | `subscription_packages_with_counts` view (no client-side aggregation) | Task 1 |
 | `upsert_package_with_services` RPC (atomic) | Task 2 |
 | `useSubscriptionPackages`, `usePackageServices`, `useUpsertPackage`, `useArchivePackage` | Task 3 |
-| `usePackageServiceCounts` (service count per package) | Task 6 |
+| `service_count` in DB view — no client-side aggregation | Task 1 |
 | `ServicePickerTree` — tree hierarchy, checkboxes, tri-state parents, search, discount overrides | Task 4 |
 | `PackageEditDialog` — all fields, SLA strict-mode, services picker, validation | Task 5 |
 | `SubscriptionPackageRow` — all columns, subscriber pill, archive action hidden on archived | Task 6 |
@@ -1694,3 +1711,4 @@ EOF
 | Orange accent throughout | Tasks 6, 7 |
 | Full-screen on mobile, centered card on md+ | Task 5 |
 | PROGRESS.md update | Task 9 |
+| Customer FK placeholder migration (not applied until customers module ships) | Task 10 |
