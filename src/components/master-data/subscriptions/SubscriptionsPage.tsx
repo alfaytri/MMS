@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useMemo } from 'react'
+import { useState, useMemo, useEffect } from 'react'
 import { PackageCheck, Plus } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -55,12 +55,14 @@ export function SubscriptionsPage({ currentProfile }: Props) {
   // Load existing services when edit dialog opens for an existing package
   const { data: existingServices = [] } = usePackageServices(editTarget?.id ?? null)
 
-  // Sync existing services into dialog state when target changes
-  useMemo(() => {
+  // Sync existing services into dialog state once the query resolves for this target.
+  // usePackageServices re-queries when editTarget.id changes, so existingServices
+  // always belongs to the current editTarget by the time length > 0.
+  useEffect(() => {
     if (editTarget && existingServices.length > 0) {
       setEditServices(existingServices)
     }
-  }, [editTarget, existingServices])
+  }, [editTarget?.id, existingServices])
 
   const filtered = useMemo(() => {
     if (!search.trim()) return packages
