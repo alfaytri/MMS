@@ -148,6 +148,21 @@ export function ServicePickerTree({
   }
 
   // -------------------------------------------------------------------------
+  // Collapse / expand all parent nodes
+  // -------------------------------------------------------------------------
+  function collapseAll() {
+    const allParents = new Set<string>()
+    services.forEach((s) => {
+      if ((treeMap.get(s.id) ?? []).length > 0) allParents.add(s.id)
+    })
+    setCollapsed(allParents)
+  }
+
+  function expandAll() {
+    setCollapsed(new Set())
+  }
+
+  // -------------------------------------------------------------------------
   // Recursive renderer
   // -------------------------------------------------------------------------
   function renderNode(service: PickerService, depth: number) {
@@ -172,36 +187,35 @@ export function ServicePickerTree({
           className="flex items-center gap-1 py-1 rounded hover:bg-muted/40 px-1 group"
           style={{ paddingLeft: `${depth * 16 + 4}px` }}
         >
-          {/* Collapse toggle — only for parent nodes */}
-          {!isLeaf ? (
-            <button
-              type="button"
-              onClick={toggleCollapse}
-              className="text-muted-foreground hover:text-foreground flex-shrink-0"
-            >
-              {isCollapsed
-                ? <ChevronRight className="h-3 w-3" />
-                : <ChevronDown className="h-3 w-3" />}
-            </button>
-          ) : (
-            <span className="w-3 flex-shrink-0" />
-          )}
           <Checkbox
             id={`svc-${service.id}`}
             checked={checkState === 'checked'}
             onCheckedChange={() => toggleNode(service.id)}
           />
-          <Label
-            htmlFor={`svc-${service.id}`}
-            className="text-xs cursor-pointer flex-1"
-          >
-            {service.name_en}
-          </Label>
+
+          {/* For parent nodes: chevron + label together are the collapse trigger */}
+          {!isLeaf ? (
+            <button
+              type="button"
+              onClick={toggleCollapse}
+              className="flex items-center gap-1 flex-1 text-left min-w-0"
+            >
+              {isCollapsed
+                ? <ChevronRight className="h-3 w-3 flex-shrink-0 text-muted-foreground" />
+                : <ChevronDown className="h-3 w-3 flex-shrink-0 text-muted-foreground" />}
+              <span className="text-xs truncate">{service.name_en}</span>
+            </button>
+          ) : (
+            <Label htmlFor={`svc-${service.id}`} className="text-xs cursor-pointer flex-1">
+              {service.name_en}
+            </Label>
+          )}
+
           {!isLeaf && (
             <button
               type="button"
               onClick={() => selectBranch(service.id)}
-              className="hidden group-hover:inline text-[10px] text-primary px-1 hover:underline"
+              className="hidden group-hover:inline text-[10px] text-primary px-1 hover:underline flex-shrink-0"
             >
               Select all
             </button>
@@ -257,10 +271,10 @@ export function ServicePickerTree({
             type="button"
             variant="ghost"
             size="sm"
-            className="h-5 px-1.5 text-[10px] text-primary"
-            onClick={() => selectBranch(null)}
+            className="h-5 px-1.5 text-[10px] text-muted-foreground"
+            onClick={collapseAll}
           >
-            Select All
+            Collapse All
           </Button>
           <span className="text-muted-foreground text-[10px]">·</span>
           <Button
@@ -268,9 +282,9 @@ export function ServicePickerTree({
             variant="ghost"
             size="sm"
             className="h-5 px-1.5 text-[10px] text-muted-foreground"
-            onClick={clearAll}
+            onClick={expandAll}
           >
-            Clear All
+            Expand All
           </Button>
         </div>
       </div>
