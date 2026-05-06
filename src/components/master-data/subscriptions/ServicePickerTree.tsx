@@ -6,6 +6,7 @@ import { Search } from 'lucide-react'
 import { Input } from '@/components/ui/input'
 import { Checkbox } from '@/components/ui/checkbox'
 import { Label } from '@/components/ui/label'
+import { Button } from '@/components/ui/button'
 import { createClient } from '@/lib/supabase/client'
 import { useQuery } from '@tanstack/react-query'
 import { buildTreeMap, collectDescendantIds } from '@/components/services/ServiceTree'
@@ -39,46 +40,20 @@ function useAllServicesForPicker() {
 }
 
 // ---------------------------------------------------------------------------
-// IndeterminateCheckbox — uses Base UI's native indeterminate prop directly.
-// ---------------------------------------------------------------------------
-function IndeterminateCheckbox({
-  id,
-  checked,
-  indeterminate,
-  onCheckedChange,
-}: {
-  id: string
-  checked: boolean
-  indeterminate: boolean
-  onCheckedChange: () => void
-}) {
-  return (
-    <Checkbox
-      id={id}
-      checked={checked}
-      indeterminate={indeterminate}
-      onCheckedChange={onCheckedChange}
-    />
-  )
-}
-
-// ---------------------------------------------------------------------------
 // Helpers
 // ---------------------------------------------------------------------------
 
+// Bi-state: checked = any descendant (or self for leaves) is selected.
 function getCheckState(
   nodeId: string,
   treeMap: Map<string | null, PickerService[]>,
   selectedSet: Set<string>,
-): 'checked' | 'unchecked' | 'indeterminate' {
+): 'checked' | 'unchecked' {
   const descendants = collectDescendantIds(nodeId, treeMap as any)
   if (descendants.size === 0) {
     return selectedSet.has(nodeId) ? 'checked' : 'unchecked'
   }
-  const selectedCount = [...descendants].filter((id) => selectedSet.has(id)).length
-  if (selectedCount === 0) return 'unchecked'
-  if (selectedCount === descendants.size) return 'checked'
-  return 'indeterminate'
+  return [...descendants].some((id) => selectedSet.has(id)) ? 'checked' : 'unchecked'
 }
 
 // ---------------------------------------------------------------------------
@@ -133,24 +108,36 @@ export function ServicePickerTree({
   )
 
   // -------------------------------------------------------------------------
-  // Toggle a node — for branches, toggles all leaf descendants
+  // Toggle a node — any-selected → deselect all; none → select all
   // -------------------------------------------------------------------------
   function toggleNode(nodeId: string) {
     const descendants = [...collectDescendantIds(nodeId, treeMap as any)]
     const isLeaf = descendants.length === 0
     const targets = isLeaf ? [nodeId] : descendants
-    const allSelected = targets.every((id) => selectedSet.has(id))
-    let next: Set<string>
-    if (allSelected) {
-      next = new Set(selectedSet)
-      targets.forEach((id) => next.delete(id))
+    const anySelected = targets.some((id) => selectedSet.has(id))
+    const next = new Set(selectedSet)
+    const nextOverrides = { ...overrides }
+    if (anySelected) {
+      targets.forEach((id) => { next.delete(id); delete nextOverrides[id] })
     } else {
-      next = new Set(selectedSet)
       targets.forEach((id) => next.add(id))
     }
-    const nextOverrides = { ...overrides }
-    if (allSelected) targets.forEach((id) => delete nextOverrides[id])
     onChange([...next], nextOverrides)
+  }
+
+  // -------------------------------------------------------------------------
+  // Select all / Clear all (across full unfiltered tree)
+  // -------------------------------------------------------------------------
+  function selectAll() {
+    const allLeaves: string[] = []
+    services.forEach((s) => {
+      if ((treeMap.get(s.id) ?? []).length === 0) allLeaves.push(s.id)
+    })
+    onChange(allLeaves, overrides)
+  }
+
+  function clearAll() {
+    onChange([], {})
   }
 
   // -------------------------------------------------------------------------
@@ -181,10 +168,9 @@ export function ServicePickerTree({
           className="flex items-center gap-2 py-1 rounded hover:bg-muted/40 px-1"
           style={{ paddingLeft: `${depth * 16 + 4}px` }}
         >
-          <IndeterminateCheckbox
+          <Checkbox
             id={`svc-${service.id}`}
             checked={checkState === 'checked'}
-            indeterminate={checkState === 'indeterminate'}
             onCheckedChange={() => toggleNode(service.id)}
           />
           <Label
@@ -243,8 +229,8 @@ export function ServicePickerTree({
   // -------------------------------------------------------------------------
   return (
     <div className="border rounded-md overflow-hidden">
-      {/* Search bar */}
-      <div className="p-2 border-b">
+      {/* Search bar + bulk actions */}
+      <div className="p-2 border-b space-y-1.5">
         <div className="relative">
           <Search className="absolute left-2 top-1/2 -translate-y-1/2 h-3 w-3 text-muted-foreground" />
           <Input
@@ -253,6 +239,27 @@ export function ServicePickerTree({
             value={search}
             onChange={(e) => setSearch(e.target.value)}
           />
+        </div>
+        <div className="flex items-center gap-2">
+          <Button
+            type="button"
+            variant="ghost"
+            size="sm"
+            className="h-5 px-1.5 text-[10px] text-primary"
+            onClick={selectAll}
+          >
+            Select All
+          </Button>
+          <span className="text-muted-foreground text-[10px]">·</span>
+          <Button
+            type="button"
+            variant="ghost"
+            size="sm"
+            className="h-5 px-1.5 text-[10px] text-muted-foreground"
+            onClick={clearAll}
+          >
+            Clear All
+          </Button>
         </div>
       </div>
 
