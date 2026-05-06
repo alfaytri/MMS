@@ -2,7 +2,7 @@
 'use client'
 
 import { useState, useMemo } from 'react'
-import { Search } from 'lucide-react'
+import { Search, ChevronRight, ChevronDown } from 'lucide-react'
 import { Input } from '@/components/ui/input'
 import { Checkbox } from '@/components/ui/checkbox'
 import { Label } from '@/components/ui/label'
@@ -75,6 +75,7 @@ export function ServicePickerTree({
 }: ServicePickerTreeProps) {
   const { data: services = [], isLoading, error } = useAllServicesForPicker()
   const [search, setSearch] = useState('')
+  const [collapsed, setCollapsed] = useState<Set<string>>(new Set())
 
   const treeMap = useMemo(() => buildTreeMap(services as any), [services])
   const selectedSet = useMemo(() => new Set(selectedIds), [selectedIds])
@@ -154,12 +155,37 @@ export function ServicePickerTree({
     const checkState = getCheckState(service.id, treeMap as any, selectedSet)
     const isLeaf = (treeMap.get(service.id) ?? []).length === 0
 
+    const isCollapsed = !isLeaf && collapsed.has(service.id)
+
+    function toggleCollapse(e: React.MouseEvent) {
+      e.preventDefault()
+      setCollapsed((prev) => {
+        const next = new Set(prev)
+        next.has(service.id) ? next.delete(service.id) : next.add(service.id)
+        return next
+      })
+    }
+
     return (
       <div key={service.id}>
         <div
-          className="flex items-center gap-2 py-1 rounded hover:bg-muted/40 px-1 group"
+          className="flex items-center gap-1 py-1 rounded hover:bg-muted/40 px-1 group"
           style={{ paddingLeft: `${depth * 16 + 4}px` }}
         >
+          {/* Collapse toggle — only for parent nodes */}
+          {!isLeaf ? (
+            <button
+              type="button"
+              onClick={toggleCollapse}
+              className="text-muted-foreground hover:text-foreground flex-shrink-0"
+            >
+              {isCollapsed
+                ? <ChevronRight className="h-3 w-3" />
+                : <ChevronDown className="h-3 w-3" />}
+            </button>
+          ) : (
+            <span className="w-3 flex-shrink-0" />
+          )}
           <Checkbox
             id={`svc-${service.id}`}
             checked={checkState === 'checked'}
@@ -181,7 +207,7 @@ export function ServicePickerTree({
             </button>
           )}
         </div>
-        {children.map((child) => renderNode(child, depth + 1))}
+        {!isCollapsed && children.map((child) => renderNode(child, depth + 1))}
       </div>
     )
   }
