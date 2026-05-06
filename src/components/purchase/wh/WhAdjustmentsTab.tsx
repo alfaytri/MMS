@@ -51,7 +51,9 @@ export const WhAdjustmentsTab = React.memo(function WhAdjustmentsTab({ warehouse
 
   function canApprove(adj: any) {
     const wh = warehouses.find(w => w.id === adj.warehouse_id)
-    return currentProfile?.id === (wh as any)?.manager_id
+    // If no manager is assigned to the warehouse, any authenticated user can approve
+    if (!wh?.manager_profile_id) return true
+    return currentProfile?.id === wh.manager_profile_id
   }
 
   if (adjustments.length === 0) {
