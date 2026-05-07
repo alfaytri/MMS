@@ -157,7 +157,11 @@ SELECT
   COALESCE(o.status::text, 'scheduled')  AS status,
   c.name                                  AS customer_name,
   c.id                                    AS customer_id,
-  NULL::uuid                              AS service_id
+  -- Extract first service_id from the services JSON array.
+  -- Verify the actual JSON key name against your order_team_assignments.services payload.
+  -- Common shapes: [{"id": "uuid", ...}] → use ->0->>'id'
+  --               [{"service_id": "uuid", ...}] → use ->0->>'service_id'
+  NULLIF((ota.services::jsonb -> 0 ->> 'id'), '')::uuid AS service_id
 
 FROM public.order_team_assignments  ota
 JOIN public.orders                  o   ON o.id  = ota.order_id
@@ -180,6 +184,8 @@ SELECT
   CASE WHEN cv.completed THEN 'completed' ELSE 'scheduled' END AS status,
   c.name                                  AS customer_name,
   c.id                                    AS customer_id,
+  -- contract_visits stores service as a name string, not a UUID FK.
+  -- If your schema adds a service_id FK to contract_visits later, replace NULL here.
   NULL::uuid                              AS service_id
 
 FROM public.contract_visits  cv
@@ -271,32 +277,27 @@ BEGIN
     RETURN jsonb_build_object('success', false, 'error', 'QC teams cannot be assigned via calendar swap');
   END IF;
 
-  -- 3. Check time conflict: new team must not have another assignment on the same date
-  --    that overlaps with this visit's time slot (simple date-level check when no time data).
+  -- 3. Check time conflict: only block when BOTH visits have time slots that actually overlap.
+  --    If either visit has no time_slot (e.g. a contract_visit), skip the conflict check —
+  --    no-time visits are considered "flexible" and never block a timed assignment.
   SELECT COUNT(*) INTO v_time_conflict
   FROM   public.order_team_assignments
-  WHERE  team_id       = p_new_team_id
-    AND  id           <> p_assignment_id
+  WHERE  team_id        = p_new_team_id
+    AND  id            <> p_assignment_id
     AND  scheduled_date = v_scheduled_date
-    AND  (
-      -- When both have time slots, check actual overlap
-      v_time_slot IS NOT NULL
-      AND time_slot IS NOT NULL
-      AND time_slot::time <
-          CASE WHEN v_duration ~ '^\d+$'
-               THEN v_time_slot::time + (v_duration::int * interval '1 hour')
-               ELSE v_time_slot::time + interval '2 hours'
-          END
-      AND (
-        CASE WHEN duration ~ '^\d+$'
-             THEN time_slot::time + (duration::int * interval '1 hour')
-             ELSE time_slot::time + interval '2 hours'
-        END
-      ) > v_time_slot::time
-      -- When no time data, treat as full-day conflict
-      OR v_time_slot IS NULL
-      OR time_slot IS NULL
-    );
+    AND  v_time_slot IS NOT NULL          -- incoming visit must have a time
+    AND  time_slot IS NOT NULL            -- existing visit must have a time (contract_visits excluded)
+    AND  time_slot::time <
+         CASE WHEN v_duration ~ '^\d+$'
+              THEN v_time_slot::time + (v_duration::int * interval '1 hour')
+              ELSE v_time_slot::time + interval '2 hours'
+         END
+    AND (
+         CASE WHEN duration ~ '^\d+$'
+              THEN time_slot::time + (duration::int * interval '1 hour')
+              ELSE time_slot::time + interval '2 hours'
+         END
+        ) > v_time_slot::time;
 
   IF v_time_conflict > 0 THEN
     RETURN jsonb_build_object('success', false, 'error', 'Time conflict with existing visit');

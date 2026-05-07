@@ -298,7 +298,7 @@ export function NowIndicator({
 
   return (
     <div
-      className="absolute top-0 bottom-0 w-px bg-red-500 z-20 pointer-events-none"
+      className="absolute top-0 bottom-0 w-px bg-red-500 z-[25] pointer-events-none"
       style={{ left: leftPx, height: rowCount * rowHeight }}
       aria-hidden
     />
@@ -722,13 +722,6 @@ import type { CalendarSchedule } from '@/hooks/useCalendarSchedule'
 const SCROLL_CELL_WIDTH = 60   // px per hour in Scroll mode
 const FIT_MIN_CELL_WIDTH = 40  // minimum px per hour in Fit mode
 
-/** Division slug → color mapping. Extend as divisions grow. */
-const DIVISION_COLORS: Record<string, string> = {
-  'rsh':                  '#f97316',
-  'alfaytri-maintenance': '#3b82f6',
-  'alfaytri-kitchen':     '#22c55e',
-}
-
 function buildHoursArray(dayStart: number, dayEnd: number): number[] {
   const hours: number[] = []
   for (let h = dayStart; h < dayEnd; h++) hours.push(h)
@@ -753,6 +746,8 @@ interface TimelineGridProps {
   onSwap: (visit: CalendarVisit) => void
   /** Available viewport width for the grid body (px) */
   bodyWidth: number
+  /** Division slug → hex color, derived from useDivisions() in CalendarPage */
+  divisionColors: Record<string, string>
 }
 
 export function TimelineGrid({
@@ -766,6 +761,7 @@ export function TimelineGrid({
   onEdit,
   onSwap,
   bodyWidth,
+  divisionColors,
 }: TimelineGridProps) {
   const headerScrollRef = useRef<HTMLDivElement>(null)
   const bodyScrollRef = useRef<HTMLDivElement>(null)
@@ -859,7 +855,7 @@ export function TimelineGrid({
               hours={hours}
               dayStart={schedule.day_start}
               cellWidth={cellWidth}
-              divisionColor={DIVISION_COLORS[team.division] ?? '#94a3b8'}
+              divisionColor={divisionColors[team.division] ?? '#94a3b8'}
               canEdit={canEdit}
               canSwap={canSwap}
               onEdit={onEdit}
@@ -908,21 +904,17 @@ import type { CalendarVisit } from '@/hooks/useCalendarVisits'
 import type { TeamFull } from '@/hooks/useTeams'
 import type { DayCapacity } from '@/hooks/useWeekCapacity'
 
-const DIVISION_COLORS: Record<string, string> = {
-  'rsh':                  '#f97316',
-  'alfaytri-maintenance': '#3b82f6',
-  'alfaytri-kitchen':     '#22c55e',
-}
-
 interface TeamCardProps {
   team: TeamFull
   visits: CalendarVisit[]
   capacity: DayCapacity
+  /** Hex color for the division dot, derived from divisions table */
+  divisionColor: string
   onOpen: () => void
 }
 
-export function TeamCard({ team, visits, capacity, onOpen }: TeamCardProps) {
-  const divColor = DIVISION_COLORS[team.division] ?? '#94a3b8'
+export function TeamCard({ team, visits, capacity, divisionColor, onOpen }: TeamCardProps) {
+  const divColor = divisionColor
   const barColor = getBarColor(capacity.percentage)
   const preview = visits.slice(0, 2)
   const remaining = visits.length - 2
@@ -1006,6 +998,8 @@ interface TeamCardListProps {
   canSwap: boolean
   onEdit: (visit: CalendarVisit) => void
   onSwap: (visit: CalendarVisit) => void
+  /** Division slug → hex color, derived from divisions table in CalendarPage */
+  divisionColors: Record<string, string>
 }
 
 export function TeamCardList({
@@ -1017,6 +1011,7 @@ export function TeamCardList({
   canSwap,
   onEdit,
   onSwap,
+  divisionColors,
 }: TeamCardListProps) {
   const [sheetTeam, setSheetTeam] = useState<TeamFull | null>(null)
 
@@ -1034,6 +1029,7 @@ export function TeamCardList({
             team={team}
             visits={visitsByTeam.get(team.id) ?? []}
             capacity={capacityByTeam.get(team.id) ?? defaultCapacity}
+            divisionColor={divisionColors[team.division] ?? '#94a3b8'}
             onOpen={() => setSheetTeam(team)}
           />
         ))}
@@ -1167,10 +1163,53 @@ EOF
 ## Task 13: `SwapTeamDialog`
 
 **Files:**
+- Create: `src/hooks/useTeamSkills.ts`
 - Create: `src/components/calendar/SwapTeamDialog.tsx`
 - Create: `src/components/calendar/SwapTeamDialog.test.tsx`
 
-- [ ] **Step 1: Write the failing test**
+- [ ] **Step 1: Create `src/hooks/useTeamSkills.ts`**
+
+```typescript
+import { useQuery } from '@tanstack/react-query'
+import { createClient } from '@/lib/supabase/client'
+
+/**
+ * Returns a Map<teamId, serviceId[]> for all teams in the given division.
+ * Used by SwapTeamDialog for client-side skill eligibility display.
+ * Source: employee_services joined through team_members → employees.
+ */
+export function useTeamSkills(divisionSlug: string | null) {
+  return useQuery({
+    queryKey: ['team-skills', divisionSlug],
+    enabled: !!divisionSlug,
+    staleTime: 5 * 60 * 1000,
+    queryFn: async () => {
+      const supabase = createClient()
+      // Query: teams → team_members → employees → employee_services
+      const { data, error } = await supabase
+        .from('employee_services')
+        .select('service_id, employees!inner(team_members!inner(team_id, teams!inner(division)))')
+        .eq('employees.team_members.teams.division', divisionSlug!)
+      if (error) throw error
+
+      const map = new Map<string, string[]>()
+      for (const row of data ?? []) {
+        const teamId = (row.employees as any)?.team_members?.[0]?.team_id as string | undefined
+        if (!teamId || !row.service_id) continue
+        const existing = map.get(teamId) ?? []
+        if (!existing.includes(row.service_id)) {
+          map.set(teamId, [...existing, row.service_id])
+        }
+      }
+      return map
+    },
+    // Return empty Map when disabled so consumers don't need null checks
+    placeholderData: new Map<string, string[]>(),
+  })
+}
+```
+
+- [ ] **Step 2: Write the failing test**
 
 Create `src/components/calendar/SwapTeamDialog.test.tsx`:
 
@@ -1197,24 +1236,45 @@ function makeVisit(overrides: Partial<CalendarVisit>): CalendarVisit {
     id: 'v1', source_type: 'order', team_id: 't1',
     division: 'rsh', is_qc: false, visit_date: '2026-05-07',
     start_time: '09:00', end_time: '11:00', visit_type: 'normal_order',
-    status: 'scheduled', customer_name: 'Test', customer_id: 'c1', service_id: null,
+    status: 'scheduled', customer_name: 'Test', customer_id: 'c1', service_id: 'svc-1',
     ...overrides,
   }
 }
 
 describe('filterEligibleTeams', () => {
-  const targetVisit = makeVisit({ id: 'target', team_id: 'team-current', start_time: '09:00', end_time: '11:00' })
+  const targetVisit = makeVisit({ id: 'target', team_id: 'team-current', start_time: '09:00', end_time: '11:00', service_id: 'svc-pest' })
+  // teamSkills: team-b has svc-pest, team-c does not
+  const teamSkills: Map<string, string[]> = new Map([
+    ['team-b', ['svc-pest', 'svc-cleaning']],
+    ['team-c', ['svc-cleaning']],
+    ['team-current', ['svc-pest']],
+  ])
 
   it('excludes the current team', () => {
     const teams = [makeTeam({ id: 'team-current' }), makeTeam({ id: 'team-b' })]
-    const result = filterEligibleTeams(teams, targetVisit, [])
+    const result = filterEligibleTeams(teams, targetVisit, [], teamSkills)
     expect(result.find(r => r.team.id === 'team-current')).toBeUndefined()
   })
 
   it('excludes QC teams', () => {
     const teams = [makeTeam({ id: 'team-qc', is_qc: true }), makeTeam({ id: 'team-b' })]
-    const result = filterEligibleTeams(teams, targetVisit, [])
+    const result = filterEligibleTeams(teams, targetVisit, [], teamSkills)
     expect(result.find(r => r.team.id === 'team-qc')).toBeUndefined()
+  })
+
+  it('marks a team missing the required skill as ineligible', () => {
+    const teams = [makeTeam({ id: 'team-c' })]
+    const result = filterEligibleTeams(teams, targetVisit, [], teamSkills)
+    const entry = result.find(r => r.team.id === 'team-c')
+    expect(entry?.eligible).toBe(false)
+    expect(entry?.reason).toMatch(/skill/i)
+  })
+
+  it('marks a team with the required skill as eligible', () => {
+    const teams = [makeTeam({ id: 'team-b' })]
+    const result = filterEligibleTeams(teams, targetVisit, [], teamSkills)
+    const entry = result.find(r => r.team.id === 'team-b')
+    expect(entry?.eligible).toBe(true)
   })
 
   it('marks a team with time conflict as ineligible', () => {
@@ -1223,7 +1283,7 @@ describe('filterEligibleTeams', () => {
     const existingVisits: CalendarVisit[] = [
       makeVisit({ id: 'conflict', team_id: 'team-b', start_time: '10:00', end_time: '12:00' }),
     ]
-    const result = filterEligibleTeams(teams, targetVisit, existingVisits)
+    const result = filterEligibleTeams(teams, targetVisit, existingVisits, teamSkills)
     const entry = result.find(r => r.team.id === 'team-b')
     expect(entry?.eligible).toBe(false)
     expect(entry?.reason).toMatch(/conflict/i)
@@ -1234,14 +1294,22 @@ describe('filterEligibleTeams', () => {
     const existingVisits: CalendarVisit[] = [
       makeVisit({ id: 'other', team_id: 'team-b', start_time: '13:00', end_time: '14:00' }),
     ]
-    const result = filterEligibleTeams(teams, targetVisit, existingVisits)
+    const result = filterEligibleTeams(teams, targetVisit, existingVisits, teamSkills)
     const entry = result.find(r => r.team.id === 'team-b')
+    expect(entry?.eligible).toBe(true)
+  })
+
+  it('treats missing service_id as no skill requirement (all teams eligible)', () => {
+    const visit = makeVisit({ id: 'no-svc', team_id: 'team-current', service_id: null })
+    const teams = [makeTeam({ id: 'team-c' })]
+    const result = filterEligibleTeams(teams, visit, [], teamSkills)
+    const entry = result.find(r => r.team.id === 'team-c')
     expect(entry?.eligible).toBe(true)
   })
 })
 ```
 
-- [ ] **Step 2: Run test to verify it fails**
+- [ ] **Step 3: Run test to verify it fails**
 
 ```bash
 npx vitest run src/components/calendar/SwapTeamDialog.test.tsx
@@ -1249,7 +1317,7 @@ npx vitest run src/components/calendar/SwapTeamDialog.test.tsx
 
 Expected: FAIL — cannot find module
 
-- [ ] **Step 3: Create `src/components/calendar/SwapTeamDialog.tsx`**
+- [ ] **Step 4: Create `src/components/calendar/SwapTeamDialog.tsx`**
 
 ```typescript
 'use client'
@@ -1291,10 +1359,16 @@ function timesOverlap(
   return s1 < e2 && e1 > s2
 }
 
+/**
+ * @param teamSkills  Map<teamId, serviceId[]> — from useTeamSkills() or extended useTeams.
+ *                    If a team has no entry, it is treated as having no skills.
+ *                    If targetVisit.service_id is null, the skill check is skipped.
+ */
 export function filterEligibleTeams(
   teams: TeamFull[],
   targetVisit: CalendarVisit,
   allDayVisits: CalendarVisit[],
+  teamSkills: Map<string, string[]>,
 ): TeamEligibility[] {
   return teams
     .filter(t => t.id !== targetVisit.team_id && !t.is_qc)
@@ -1302,6 +1376,15 @@ export function filterEligibleTeams(
       const teamVisits = allDayVisits.filter(v => v.team_id === team.id && v.id !== targetVisit.id)
       const visitCount = teamVisits.length
 
+      // Skill check — only when visit has a service requirement
+      if (targetVisit.service_id) {
+        const skills = teamSkills.get(team.id) ?? []
+        if (!skills.includes(targetVisit.service_id)) {
+          return { team, eligible: false, visitCount, reason: 'Missing skill' }
+        }
+      }
+
+      // Time conflict check
       if (targetVisit.start_time && targetVisit.end_time) {
         const conflict = teamVisits.find(v =>
           v.start_time && v.end_time &&
@@ -1327,6 +1410,8 @@ interface SwapTeamDialogProps {
   assignmentId: string
   teams: TeamFull[]
   allDayVisits: CalendarVisit[]
+  /** Map<teamId, serviceId[]> from useTeamSkills() — used for client-side eligibility display */
+  teamSkills: Map<string, string[]>
   onClose: () => void
 }
 
@@ -1335,6 +1420,7 @@ export function SwapTeamDialog({
   assignmentId,
   teams,
   allDayVisits,
+  teamSkills,
   onClose,
 }: SwapTeamDialogProps) {
   const [selectedId, setSelectedId] = useState<string | null>(null)
@@ -1343,7 +1429,7 @@ export function SwapTeamDialog({
   const queryClient = useQueryClient()
 
   const cfg = getVisitTypeConfig(visit.visit_type)
-  const eligible = filterEligibleTeams(teams, visit, allDayVisits)
+  const eligible = filterEligibleTeams(teams, visit, allDayVisits, teamSkills)
 
   const eligibleTeams = eligible.filter(e => e.eligible)
   const ineligibleTeams = eligible.filter(e => !e.eligible)
@@ -1456,20 +1542,20 @@ export function SwapTeamDialog({
 }
 ```
 
-- [ ] **Step 4: Run test to verify it passes**
+- [ ] **Step 5: Run test to verify it passes**
 
 ```bash
 npx vitest run src/components/calendar/SwapTeamDialog.test.tsx
 ```
 
-Expected: PASS (4 tests)
+Expected: PASS (6 tests)
 
-- [ ] **Step 5: Commit**
+- [ ] **Step 6: Commit**
 
 ```bash
-git add src/components/calendar/SwapTeamDialog.tsx src/components/calendar/SwapTeamDialog.test.tsx
+git add src/hooks/useTeamSkills.ts src/components/calendar/SwapTeamDialog.tsx src/components/calendar/SwapTeamDialog.test.tsx
 git commit -m "$(cat <<'EOF'
-feat(calendar): add SwapTeamDialog with client eligibility filter and server RPC confirm
+feat(calendar): add SwapTeamDialog with skill + time eligibility filter and server RPC confirm
 
 Co-Authored-By: Mohamed Ismail <m.Ismail@alfaytri.com>
 Co-Authored-By: Claude Sonnet 4.6 <noreply@anthropic.com>
@@ -1490,12 +1576,15 @@ EOF
 ```typescript
 'use client'
 
-import { useState, useRef, useEffect } from 'react'
+import { useState, useRef, useEffect, useMemo } from 'react'
 import { format } from 'date-fns'
+import { useQuery } from '@tanstack/react-query'
+import { createClient } from '@/lib/supabase/client'
 import { useCalendarSchedule } from '@/hooks/useCalendarSchedule'
 import { useCalendarVisits, groupVisitsByTeam, filterVisitsByType } from '@/hooks/useCalendarVisits'
 import { useWeekCapacity, computeDayCapacity, buildWeekDates, getWeekStart } from '@/hooks/useWeekCapacity'
 import { useTeams } from '@/hooks/useTeams'
+import { useTeamSkills } from '@/hooks/useTeamSkills'
 import { useUserDivisionScope } from '@/hooks/useUserDivisionScope'
 import { CalendarToolbar } from './CalendarToolbar'
 import { WeekCapacityStrip } from './WeekCapacityStrip'
@@ -1505,29 +1594,30 @@ import { SwapTeamDialog } from './SwapTeamDialog'
 import type { CalendarVisit } from '@/hooks/useCalendarVisits'
 import { useRouter } from 'next/navigation'
 
-/** Read current user's permissions from the session profile */
+/**
+ * Queries the current user's permissions via React Query.
+ * Follows the same pattern as other auth-dependent queries in the codebase.
+ */
 function useCalendarPermissions() {
-  const [perms, setPerms] = useState<string[]>([])
-  useEffect(() => {
-    import('@/lib/supabase/client').then(({ createClient }) => {
+  const { data: perms = [] } = useQuery({
+    queryKey: ['calendar-permissions'],
+    staleTime: 5 * 60 * 1000,
+    queryFn: async () => {
       const supabase = createClient()
-      supabase.auth.getSession().then(({ data: { session } }) => {
-        if (!session) return
-        supabase
-          .from('user_custom_roles')
-          .select('custom_roles(permissions)')
-          .eq('user_id', session.user.id)
-          .then(({ data }) => {
-            const all: string[] = []
-            for (const row of data ?? []) {
-              const cr = row.custom_roles as { permissions: string[] } | null
-              if (cr?.permissions) all.push(...cr.permissions)
-            }
-            setPerms(all)
-          })
-      })
-    })
-  }, [])
+      const { data: { session } } = await supabase.auth.getSession()
+      if (!session) return []
+      const { data } = await supabase
+        .from('user_custom_roles')
+        .select('custom_roles(permissions)')
+        .eq('user_id', session.user.id)
+      const all: string[] = []
+      for (const row of data ?? []) {
+        const cr = row.custom_roles as { permissions: string[] } | null
+        if (cr?.permissions) all.push(...cr.permissions)
+      }
+      return all
+    },
+  })
   return {
     canView:  perms.includes('calendar.view') || perms.length === 0, // fallback open while loading
     canEdit:  perms.includes('calendar.edit-order'),
@@ -1563,49 +1653,61 @@ export function CalendarPage() {
   const { data: rawVisits = [] } = useCalendarVisits(date, activeDivisionSlug)
   const { data: weekVisitsRaw = {} } = useWeekCapacity(weekStart, activeDivisionSlug, activeVisitTypes)
   const { data: allTeams = [] } = useTeams({ divisionId: activeDivisionSlug })
+  const { data: teamSkills = new Map() } = useTeamSkills(activeDivisionSlug)
   const { canEdit, canSwap } = useCalendarPermissions()
 
   // Apply visit type filter
-  const visits = filterVisitsByType(rawVisits, activeVisitTypes)
-  const visitsByTeam = groupVisitsByTeam(visits)
+  const visits = useMemo(
+    () => filterVisitsByType(rawVisits, activeVisitTypes),
+    [rawVisits, activeVisitTypes],
+  )
+  const visitsByTeam = useMemo(() => groupVisitsByTeam(visits), [visits])
 
   // Teams: exclude QC
-  const teams = allTeams.filter(t => !t.is_qc)
+  const teams = useMemo(() => allTeams.filter(t => !t.is_qc), [allTeams])
 
-  // Week capacity per date using the active schedule
+  // Division slug → hex color for team row dots, derived from loaded divisions data
+  const divisionColors = useMemo(
+    () => Object.fromEntries(divisions.map(d => [d.slug, d.color ?? '#94a3b8'])),
+    [divisions],
+  )
+
   const scheduleData = schedule ?? { mode: 'normal' as const, day_start: 7, day_end: 18, scroll_to: 7, label: '' }
-  const capacityByDate = weekDates.reduce<Record<string, ReturnType<typeof computeDayCapacity>>>((acc, d) => {
-    const dayOfWeek = new Date(d).getDay() // 0=Sun...6=Sat
-    const dayNames = ['sun', 'mon', 'tue', 'wed', 'thu', 'fri', 'sat'] as const
-    const dayKey = dayNames[dayOfWeek]
-    // Use schedule days config if available, otherwise derive from day_start/day_end
-    const daySchedule = {
-      enabled: dayOfWeek !== 5, // Fri off by default; override from schedule days if available
-      start: `${String(scheduleData.day_start).padStart(2, '0')}:00`,
-      end: `${String(scheduleData.day_end).padStart(2, '0')}:00`,
-      break_minutes: 60,
-    }
-    acc[d] = computeDayCapacity(weekVisitsRaw[d] ?? [], daySchedule)
-    return acc
-  }, {})
 
-  // Per-team capacity for mobile cards
-  const capacityByTeam = new Map(
-    teams.map(t => {
-      const teamVisits = visitsByTeam.get(t.id) ?? []
-      const todayDayOfWeek = new Date(date).getDay()
+  // Week capacity per date
+  const capacityByDate = useMemo(() => {
+    return weekDates.reduce<Record<string, ReturnType<typeof computeDayCapacity>>>((acc, d) => {
+      const dayOfWeek = new Date(d).getDay() // 0=Sun...6=Sat
       const daySchedule = {
-        enabled: todayDayOfWeek !== 5,
+        enabled: dayOfWeek !== 5, // Fri off by default; override from schedule days if available
         start: `${String(scheduleData.day_start).padStart(2, '0')}:00`,
         end: `${String(scheduleData.day_end).padStart(2, '0')}:00`,
         break_minutes: 60,
       }
-      return [t.id, computeDayCapacity(
-        teamVisits.map(v => ({ start_time: v.start_time, end_time: v.end_time })),
-        daySchedule,
-      )]
-    })
-  )
+      acc[d] = computeDayCapacity(weekVisitsRaw[d] ?? [], daySchedule)
+      return acc
+    }, {})
+  }, [weekDates, weekVisitsRaw, scheduleData.day_start, scheduleData.day_end])
+
+  // Per-team capacity for mobile cards
+  const capacityByTeam = useMemo(() => {
+    const todayDayOfWeek = new Date(date).getDay()
+    const daySchedule = {
+      enabled: todayDayOfWeek !== 5,
+      start: `${String(scheduleData.day_start).padStart(2, '0')}:00`,
+      end: `${String(scheduleData.day_end).padStart(2, '0')}:00`,
+      break_minutes: 60,
+    }
+    return new Map(
+      teams.map(t => {
+        const teamVisits = visitsByTeam.get(t.id) ?? []
+        return [t.id, computeDayCapacity(
+          teamVisits.map(v => ({ start_time: v.start_time, end_time: v.end_time })),
+          daySchedule,
+        )]
+      })
+    )
+  }, [teams, visitsByTeam, date, scheduleData.day_start, scheduleData.day_end])
 
   // Grid body width for Fit mode calculation
   useEffect(() => {
@@ -1669,6 +1771,7 @@ export function CalendarPage() {
             onEdit={handleEdit}
             onSwap={setSwapVisit}
             bodyWidth={gridWidth}
+            divisionColors={divisionColors}
           />
         </div>
 
@@ -1683,6 +1786,7 @@ export function CalendarPage() {
             canSwap={canSwap}
             onEdit={handleEdit}
             onSwap={setSwapVisit}
+            divisionColors={divisionColors}
           />
         </div>
       </div>
@@ -1694,6 +1798,7 @@ export function CalendarPage() {
           assignmentId={swapVisit.id}
           teams={teams}
           allDayVisits={rawVisits}
+          teamSkills={teamSkills}
           onClose={() => setSwapVisit(null)}
         />
       )}
