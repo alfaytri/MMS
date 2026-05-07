@@ -154,7 +154,7 @@ Purchase & Sales▾:
 
 ## 🔄 In Progress
 
-_(no active task)_
+🚀 Next: Wire Dibsy checkout into subscription activation UI
 
 ## ✅ Completed
 
