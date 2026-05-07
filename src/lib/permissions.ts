@@ -2,7 +2,7 @@ import React from 'react'
 import type { LucideProps } from 'lucide-react'
 import {
   Database, ShoppingCart, TrendingUp, ClipboardList,
-  FileText, Receipt, Users, Settings2,
+  FileText, Receipt, Users, Settings2, CalendarDays,
 } from 'lucide-react'
 
 export type PermissionEntry = {
@@ -127,6 +127,15 @@ export const PERMISSION_GROUPS: PermissionGroup[] = [
       { key: 'system.admin',  label: 'System Administrator', description: 'Full system access including all admin functions' },
       { key: 'system.import', label: 'Import Data',          description: 'Access the CSV import tool for bulk data upload' },
       { key: 'system.export', label: 'Export Data',          description: 'Export data to CSV or PDF formats' },
+    ],
+  },
+  {
+    module: 'Calendar',
+    icon: asFC(CalendarDays),
+    permissions: [
+      { key: 'calendar.view',        label: 'View Calendar',    description: 'Access the Operations Calendar page' },
+      { key: 'calendar.edit-order',  label: 'Edit Visits',      description: 'Edit visits directly from the calendar grid' },
+      { key: 'calendar.swap-teams',  label: 'Swap Teams',       description: 'Reassign a visit to a different team from the calendar' },
     ],
   },
 ]

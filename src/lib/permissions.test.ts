@@ -59,3 +59,12 @@ it('includes purchase.approvals.chain.manage permission', () => {
 it('includes purchase.approvals.bypass permission', () => {
   expect(ALL_PERMISSIONS).toContain('purchase.approvals.bypass')
 })
+
+it('includes calendar permission group with required keys', () => {
+  const calGroup = PERMISSION_GROUPS.find(g => g.module === 'Calendar')
+  expect(calGroup).toBeDefined()
+  const keys = calGroup!.permissions.map(p => p.key)
+  expect(keys).toContain('calendar.view')
+  expect(keys).toContain('calendar.edit-order')
+  expect(keys).toContain('calendar.swap-teams')
+})
