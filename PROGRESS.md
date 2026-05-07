@@ -154,9 +154,11 @@ Purchase & Sales▾:
 
 ## 🔄 In Progress
 
-🚀 Starting: **Operations Calendar Plan Part 2 Task 14: CalendarPage shell + wire up page.tsx**
+_(no active task)_
 
 ## ✅ Completed
+
+- [2026-05-07] **Operations Calendar Plan Part 2 Task 14: CalendarPage shell + wire up page.tsx** — `src/components/calendar/CalendarPage.tsx`, `src/app/(dashboard)/calendar/page.tsx` — CalendarPage 'use client' shell wires all calendar hooks (useCalendarSchedule, useCalendarVisits, useWeekCapacity, useTeams, useTeamSkills, useUserDivisionScope) and all sub-components (CalendarToolbar, WeekCapacityStrip, TimelineGrid, TeamCardList, SwapTeamDialog); inline useCalendarPermissions hook reads user_custom_roles; correct string-based getWeekStart/buildWeekDates signatures used; placeholder page.tsx replaced with clean import; 41/41 tests pass; zero new TypeScript errors
 
 - [2026-05-07] **Operations Calendar Plan Part 2 Task 13: SwapTeamDialog + useTeamSkills** — `src/hooks/useTeamSkills.ts`, `src/components/calendar/SwapTeamDialog.tsx`, `src/components/calendar/SwapTeamDialog.test.tsx` — useTeamSkills returns Map<teamId, serviceId[]> via employee_services → employees (direct team_id FK); filterEligibleTeams checks skill first then time conflict; SwapTeamDialog shows eligible/ineligible teams with reason badges and conflict peek; server-side RPC swap_visit_team confirms with atomic re-validation; 7/7 tests passing
 
