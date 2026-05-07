@@ -154,9 +154,11 @@ Purchase & Sales▾:
 
 ## 🔄 In Progress
 
-🚀 Next: Wire Dibsy checkout into subscription activation UI
+🚀 Starting: **Operations Calendar Plan Part 2 Task 14: CalendarPage shell + wire up page.tsx**
 
 ## ✅ Completed
+
+- [2026-05-07] **Operations Calendar Plan Part 2 Task 13: SwapTeamDialog + useTeamSkills** — `src/hooks/useTeamSkills.ts`, `src/components/calendar/SwapTeamDialog.tsx`, `src/components/calendar/SwapTeamDialog.test.tsx` — useTeamSkills returns Map<teamId, serviceId[]> via employee_services → employees (direct team_id FK); filterEligibleTeams checks skill first then time conflict; SwapTeamDialog shows eligible/ineligible teams with reason badges and conflict peek; server-side RPC swap_visit_team confirms with atomic re-validation; 7/7 tests passing
 
 - [2026-05-06] **Dibsy Payment Gateway Integration** — `src/lib/dibsy.ts`, `src/app/api/payments/dibsy/create/route.ts`, `src/app/api/payments/dibsy/webhook/route.ts`, `supabase/migrations/20260506090000_add_dibsy_payment_fields.sql`, `.env.local` — Dibsy (Qatar payment gateway) client with createDibsyPayment/getDibsyPayment helpers; POST /api/payments/dibsy/create creates a Dibsy payment session and stores dibsy_payment_id + checkout URL on customer_subscriptions; POST /api/payments/dibsy/webhook receives payment events (paid/failed/expired/refunded), maps to subscription status (active/pending_payment/cancelled), and activates start/end dates on first successful payment.
 
