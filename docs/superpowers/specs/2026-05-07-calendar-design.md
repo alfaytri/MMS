@@ -85,7 +85,8 @@ Eight ghost/outline toggle chips, one per `visit_type` enum value:
 
 - Ghost/outline style — low visual weight when 8+ chips visible
 - Click toggles visibility of matching visit blocks on the grid and updates week strip bars
-- Wrap on mobile, single row on desktop
+- **Desktop (`lg+`):** single row, wraps only if viewport is very narrow
+- **Mobile (`< md`):** chips hidden; replaced by a single "Filters" button that opens a bottom sheet containing all 8 chips — saves ~60px of vertical space for the card list
 
 ---
 
@@ -110,6 +111,7 @@ Eight ghost/outline toggle chips, one per `visit_type` enum value:
   - 80–99% → `bg-amber-400`
   - 100%+ → `bg-red-500`, bar overflows container to signal overtime visually
 - **Off days** (0 baseline): ghost dashed outline bar + `Off` label — maintains 7-column visual rhythm
+- **Overflow display:** red bars also show a `+Nm` overflow label (e.g. `+120m`) so dispatchers can distinguish 101% load from 150% load at a glance
 - **Today column**: subtle ring highlight + bold day label
 - **Click**: jumps the main grid to that date
 
@@ -162,7 +164,18 @@ Positioned absolutely within each team row by `start_time`/`end_time`.
 | < 60px | Color dot only |
 
 - Colored by `visit_type` (8 semantic colors matching toolbar chips)
+- Each visit type also has a **distinct icon** (Lucide) rendered inside the block alongside the color — ensures visit types remain distinguishable for color-blind users and when two similar colors (e.g. Site Visit vs Site Visit Contract) are adjacent
 - Height: fills row minus 4px padding top/bottom
+
+**Z-index layers** (prevents hover cards being clipped by sticky columns):
+| Layer | z-index |
+|---|---|
+| Grid body cells | `z-0` |
+| Sticky hour ruler | `z-10` |
+| Sticky team name column | `z-10` |
+| Visit block (default) | `z-20` |
+| Visit block hover card | `z-30` |
+| SwapTeamDialog overlay | `z-50` |
 
 **Hover card (desktop):** team, customer, time range, visit type, status. Action buttons:
 - **Edit** (`calendar.edit-order`): navigates to `/orders/create-visit?edit=<id>`
@@ -174,9 +187,14 @@ Positioned absolutely within each team row by `start_time`/`end_time`.
 | Mode | Cell width | Scroll |
 |---|---|---|
 | Scroll | 60px fixed | Horizontal scroll |
-| Fit | viewport ÷ hours | No scroll |
+| Fit | viewport ÷ hours | No scroll (forced scroll if cell < 40px) |
 
-Header and body share a single `scrollLeft` ref — kept in sync, no drift.
+- **Fit mode constraint:** hour cells have `min-width: 40px`. If the viewport is too narrow to fit all hours at 40px, the grid forces horizontal scroll regardless of the toggle — preventing illegible 10–20px cells on smaller laptops.
+- Header and body share a single `scrollLeft` ref — kept in sync, no drift.
+
+### "Now" indicator
+
+A live red vertical line at the current time, rendered as an absolutely-positioned element within the grid body. Updates every 60 seconds via `setInterval`. Visible only when the current time falls within the active schedule window (`day_start`–`day_end`). Hidden when viewing a past or future date.
 
 ### Tablet (`md`–`lg`)
 
@@ -234,7 +252,11 @@ Replaces the grid entirely on phones.
 | Ineligible teams | Visible at `opacity-40` with reason tag | Hidden / moved to bottom |
 | Action | Confirm Swap (primary) | Full-width bottom button |
 
-### Eligibility logic (client-side)
+### Eligibility logic
+
+**Display (client-side):** On dialog open, teams are pre-filtered using locally cached `employee_services` and `calendar_visits` data for visual speed. Ineligible teams are dimmed with reason tags immediately.
+
+**Confirm (server-side):** On "Confirm Swap" the PATCH calls a Supabase RPC `swap_visit_team(visit_id, new_team_id)` which re-validates eligibility atomically before committing. If validation fails (e.g. skill removed since the dialog opened), the RPC returns an error and the UI surfaces it as a toast — preventing race-condition "Failed to Save" errors.
 
 A team is **eligible** if:
 1. Has a skill matching the visit's service (`employee_services`)
@@ -269,11 +291,12 @@ A team is **eligible** if:
 
 ### `useCalendarVisits(date, divisionId, visitTypes?)`
 
-- Unified query across: orders, contract_visits, site_visits, follow_ups, backwork, qc_visits
-- Joins: `team_id`, `customer_name`, `start_time`, `end_time`, `visit_type`, `status`
+- Queries the **`calendar_visits` Supabase view** — a Postgres view that does the UNION of orders, contract_visits, site_visits, follow_ups, backwork, qc_visits once on the DB side. This makes the hook a simple indexed `SELECT` against the view rather than a multi-table join at query time, eliminating the UNION performance bottleneck as data grows.
+- View columns: `id`, `source_type`, `team_id`, `division_id`, `customer_name`, `start_time`, `end_time`, `visit_type`, `status`, `service_id`, `is_qc`
 - Filters out `is_qc: true` teams by default
 - Returns flat `Visit[]` — components group by `team_id` client-side
 - React Query invalidation on cron job mutations → real-time status changes
+- **Migration required:** `supabase/migrations/YYYYMMDDHHMMSS_create_calendar_visits_view.sql`
 
 ### `useWeekCapacity(weekStart, divisionId, visitTypes?)`
 
@@ -310,9 +333,13 @@ src/components/calendar/
   TeamDaySheet.tsx                  ← mobile bottom sheet detail
 
 src/hooks/
-  useCalendarVisits.ts              ← unified visits query
+  useCalendarVisits.ts              ← unified visits query (via calendar_visits view)
   useCalendarSchedule.ts            ← active schedule window
   useWeekCapacity.ts                ← lightweight week aggregation
+
+supabase/migrations/
+  YYYYMMDDHHMMSS_create_calendar_visits_view.sql   ← Postgres UNION view
+  YYYYMMDDHHMMSS_create_swap_visit_team_rpc.sql    ← server-side eligibility + swap RPC
 ```
 
 ---
