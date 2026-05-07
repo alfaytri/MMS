@@ -66,8 +66,7 @@ function useCalendarPermissions() {
 
 export function CalendarPage() {
   const router = useRouter()
-  const today = format(new Date(), 'yyyy-MM-dd')
-  const [date, setDate] = useState(today)
+  const [date, setDate] = useState(() => format(new Date(), 'yyyy-MM-dd'))
   const [fitMode, setFitMode] = useState(false)
   const [activeVisitTypes, setActiveVisitTypes] = useState<Set<string>>(new Set())
   const [swapVisit, setSwapVisit] = useState<CalendarVisit | null>(null)
@@ -75,8 +74,7 @@ export function CalendarPage() {
   const [gridWidth, setGridWidth] = useState(0)
 
   const { isSuperViewer, divisions } = useUserDivisionScope()
-  const defaultSlug = divisions[0]?.slug ?? null
-  const [activeDivisionSlug, setActiveDivisionSlug] = useState<string | null>(defaultSlug)
+  const [activeDivisionSlug, setActiveDivisionSlug] = useState<string | null>(null)
 
   // Once divisions load, initialise the active slug if not yet set
   useEffect(() => {
@@ -86,8 +84,10 @@ export function CalendarPage() {
   }, [divisions, activeDivisionSlug])
 
   // Derived week window
-  const weekStart = getWeekStart(new Date(date))
-  const weekDates = buildWeekDates(weekStart)
+  const { weekStart, weekDates } = useMemo(() => {
+    const ws = getWeekStart(new Date(date))
+    return { weekStart: ws, weekDates: buildWeekDates(ws) }
+  }, [date])
 
   // Data hooks
   const { data: schedule } = useCalendarSchedule()
@@ -95,16 +95,13 @@ export function CalendarPage() {
   const { data: weekVisitsRaw = {} } = useWeekCapacity(weekStart, activeDivisionSlug, activeVisitTypes)
   const { data: allTeams = [] } = useTeams({ divisionId: activeDivisionSlug })
   const { data: teamSkills = new Map() } = useTeamSkills(activeDivisionSlug)
-  const { canEdit, canSwap } = useCalendarPermissions()
+  const { canView, canEdit, canSwap } = useCalendarPermissions()
 
   // Resolved schedule with safe fallback
-  const scheduleData = schedule ?? {
-    mode: 'normal' as const,
-    day_start: 7,
-    day_end: 18,
-    scroll_to: 7,
-    label: '',
-  }
+  const scheduleData = useMemo(
+    () => schedule ?? { mode: 'normal' as const, day_start: 7, day_end: 18, scroll_to: 7, label: '' },
+    [schedule],
+  )
 
   // Filtered visits (empty Set = all types shown)
   const visits = useMemo(
@@ -191,6 +188,14 @@ export function CalendarPage() {
   // state setter which accepts string | null so we can clear on super-viewer
   function handleDivisionChange(slug: string) {
     setActiveDivisionSlug(slug || null)
+  }
+
+  if (!canView) {
+    return (
+      <div className="flex items-center justify-center h-64 text-muted-foreground text-sm">
+        You do not have permission to view the calendar.
+      </div>
+    )
   }
 
   return (
