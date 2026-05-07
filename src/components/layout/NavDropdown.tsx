@@ -22,6 +22,7 @@ import {
   Receipt,
   ShoppingBag,
   Users,
+  CalendarDays,
   type LucideIcon,
 } from 'lucide-react'
 import { cn } from '@/lib/utils'

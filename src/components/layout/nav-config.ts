@@ -96,7 +96,12 @@ export const NAV_ITEMS: NavEntry[] = [
   {
     label: 'Teams',
     icon: 'Users',
-    comingSoon: true,
-    groups: [],
+    groups: [
+      {
+        items: [
+          { label: 'Calendar', href: '/calendar' },
+        ],
+      },
+    ],
   },
 ]
