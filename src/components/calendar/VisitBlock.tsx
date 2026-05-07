@@ -123,7 +123,7 @@ export function VisitBlock({
                 Edit
               </button>
             )}
-            {canSwap && (
+            {canSwap && visit.source_type === 'order' && (
               <button
                 className="text-[10px] px-2 py-0.5 rounded border hover:bg-muted transition-colors"
                 onClick={e => { e.stopPropagation(); onSwap(visit) }}

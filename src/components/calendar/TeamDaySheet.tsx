@@ -72,7 +72,7 @@ export function TeamDaySheet({
                       Edit
                     </Button>
                   )}
-                  {canSwap && (
+                  {canSwap && visit.source_type === 'order' && (
                     <Button variant="outline" size="sm" className="h-7 text-xs px-2" onClick={() => onSwap(visit)}>
                       Swap
                     </Button>

@@ -1,5 +1,6 @@
 'use client'
 
+import { useState } from 'react'
 import { ChevronLeft, ChevronRight, ChevronDown, Filter } from 'lucide-react'
 import { format, addDays, subDays, parseISO, isToday } from 'date-fns'
 import { Button } from '@/components/ui/button'
@@ -11,6 +12,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select'
+import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover'
 import { cn } from '@/lib/utils'
 import type { CalendarSchedule } from '@/hooks/useCalendarSchedule'
 import type { Division } from '@/hooks/useDivisions'
@@ -62,6 +64,8 @@ export function CalendarToolbar({
   onFitModeToggle,
   showFitToggle = false,
 }: CalendarToolbarProps) {
+  const [filtersOpen, setFiltersOpen] = useState(false)
+
   const parsed = parseISO(date)
   const dateLabel = format(parsed, 'EEE, MMM d')
   const onToday = !isToday(parsed)
@@ -171,15 +175,42 @@ export function CalendarToolbar({
 
       {/* Mobile: Filters button (visible only on < sm) */}
       <div className="flex sm:hidden">
-        <Button variant="outline" size="sm" className="h-8 gap-1 text-xs">
-          <Filter className="h-3.5 w-3.5" />
-          Filters
-          {activeVisitTypes.size > 0 && (
-            <Badge className="h-4 w-4 p-0 flex items-center justify-center text-[10px]">
-              {activeVisitTypes.size}
-            </Badge>
-          )}
-        </Button>
+        <Popover open={filtersOpen} onOpenChange={setFiltersOpen}>
+          <PopoverTrigger asChild>
+            <Button variant="outline" size="sm" className="h-8 gap-1 text-xs">
+              <Filter className="h-3.5 w-3.5" />
+              Filters
+              {activeVisitTypes.size > 0 && (
+                <Badge className="h-4 w-4 p-0 flex items-center justify-center text-[10px]">
+                  {activeVisitTypes.size}
+                </Badge>
+              )}
+            </Button>
+          </PopoverTrigger>
+          <PopoverContent align="start" className="w-56 p-3">
+            <div className="flex flex-col gap-2">
+              <p className="text-xs font-medium text-muted-foreground uppercase tracking-wide">Visit Types</p>
+              <div className="flex flex-col gap-1">
+                {VISIT_TYPES.map(vt => {
+                  const active = activeVisitTypes.size === 0 || activeVisitTypes.has(vt.key)
+                  return (
+                    <button
+                      key={vt.key}
+                      onClick={() => onVisitTypeToggle(vt.key)}
+                      className={cn(
+                        'flex items-center gap-2 rounded-md px-2 py-1.5 text-xs text-left transition-colors hover:bg-muted',
+                        active ? 'font-medium' : 'opacity-50',
+                      )}
+                    >
+                      <span className={cn('h-2 w-2 rounded-full shrink-0', vt.color)} />
+                      {vt.label}
+                    </button>
+                  )
+                })}
+              </div>
+            </div>
+          </PopoverContent>
+        </Popover>
       </div>
     </div>
   )
