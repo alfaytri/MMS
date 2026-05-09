@@ -154,9 +154,11 @@ Purchase & Sales▾:
 
 ## 🔄 In Progress
 
-🚀 Starting: **Orders Module Plan Task 5: Hook — useCustomerLookup**
+🚀 Starting: **Orders Module Plan Task 7: Hook — useCreateOrder (draft state + submit)**
 
 ## ✅ Completed
+
+- [2026-05-09] **Orders Module Plan Task 6: Hooks — useBlueplate + useCustomerAddresses** — `src/hooks/useBlueplate.ts`, `src/hooks/useCustomerAddresses.ts` — useBlueplate mutation hook calls Supabase Edge Function blue-plate-lookup via supabase.functions.invoke (Amendment A4); useCustomerAddresses query hook fetches addresses per phone_id with is_primary ordering, mutation hook adds addresses with cache invalidation; both hooks follow existing patterns from useCustomerLookup.ts; no address_line field per Amendment A2; zero TypeScript errors
 
 - [2026-05-09] **Orders Module Plan Task 4: Warranty & Address Utilities (with tests)** — `src/lib/orders/warrantyUtils.ts`, `src/lib/orders/__tests__/warrantyUtils.test.ts` — Implemented getWarrantyInfo pure function (uses startOfDay from date-fns per Amendment A5 to avoid timezone off-by-one; checks warrantyMonths and warrantyExpiresAt, returns active/expiring_soon/expired status with label); implemented formatAddressLine pure function (no longer checks address_line field per Amendment A2; computes directly from blue_plate parts or coordinates or fallback); all 7 tests passing; both functions ready for use in useCustomerHistory and order detail views
 
