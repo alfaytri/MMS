@@ -7,6 +7,7 @@ import { Label } from '@/components/ui/label'
 import { useCustomerAddresses } from '@/hooks/useCustomerAddresses'
 import { toast } from 'sonner'
 import { cn } from '@/lib/utils'
+import { ExternalLink } from 'lucide-react'
 import type { CustomerAddress } from '@/types/orders'
 
 type Mode = 'blue_plate' | 'coordinates'
@@ -19,8 +20,27 @@ interface Props {
   onAdded: (address: CustomerAddress) => void
 }
 
+function googleMapsCoordUrl(lat: string, lng: string): string | null {
+  const latNum = parseFloat(lat)
+  const lngNum = parseFloat(lng)
+  if (isNaN(latNum) || isNaN(lngNum)) return null
+  return `https://www.google.com/maps?q=${latNum},${lngNum}`
+}
+
+function googleMapsPlateUrl(zone: string, street: string, building: string, unit: string): string | null {
+  const parts = [
+    building && `Building ${building}`,
+    street && `Street ${street}`,
+    zone && `Zone ${zone}`,
+    unit && `Unit ${unit}`,
+    'Qatar',
+  ].filter(Boolean)
+  if (parts.length <= 1) return null
+  return `https://www.google.com/maps/search/${encodeURIComponent(parts.join(', '))}`
+}
+
 export function AddressCreationSheet({ open, onOpenChange, customerId, phoneId, onAdded }: Props) {
-  const { addAddress } = useCustomerAddresses(phoneId)
+  const { addAddress } = useCustomerAddresses(customerId)
 
   const [mode, setMode] = useState<Mode>('blue_plate')
   const [label, setLabel] = useState('')
@@ -34,6 +54,9 @@ export function AddressCreationSheet({ open, onOpenChange, customerId, phoneId, 
   // Coordinates fields
   const [lat, setLat] = useState('')
   const [lng, setLng] = useState('')
+
+  const coordsMapUrl = googleMapsCoordUrl(lat, lng)
+  const plateMapUrl = googleMapsPlateUrl(zoneNo, streetNo, buildingNo, unitNo)
 
   function resetState() {
     setMode('blue_plate')
@@ -157,6 +180,19 @@ export function AddressCreationSheet({ open, onOpenChange, customerId, phoneId, 
                   <Input placeholder="70" value={zoneNo} onChange={(e) => setZoneNo(e.target.value)} />
                 </div>
               </div>
+
+              {plateMapUrl && (
+                <a
+                  href={plateMapUrl}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="flex items-center gap-1.5 text-xs text-blue-600 hover:text-blue-700 hover:underline"
+                >
+                  <ExternalLink className="h-3.5 w-3.5" />
+                  Verify on Google Maps
+                </a>
+              )}
+
               <Button className="w-full" onClick={handleSaveBluePlate} disabled={addAddress.isPending}>
                 {addAddress.isPending ? 'Saving…' : 'Save Address'}
               </Button>
@@ -176,9 +212,24 @@ export function AddressCreationSheet({ open, onOpenChange, customerId, phoneId, 
                   <Input placeholder="51.4480" value={lng} onChange={(e) => setLng(e.target.value)} />
                 </div>
               </div>
-              <p className="text-xs text-slate-400">
-                From Google Maps → right-click on location → "What's here?"
-              </p>
+
+              <div className="space-y-1">
+                <p className="text-xs text-slate-400">
+                  From Google Maps → right-click on location → "What's here?"
+                </p>
+                {coordsMapUrl && (
+                  <a
+                    href={coordsMapUrl}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="flex items-center gap-1.5 text-xs text-blue-600 hover:text-blue-700 hover:underline"
+                  >
+                    <ExternalLink className="h-3.5 w-3.5" />
+                    Verify on Google Maps
+                  </a>
+                )}
+              </div>
+
               <Button className="w-full" onClick={handleSaveCoords} disabled={addAddress.isPending}>
                 {addAddress.isPending ? 'Saving…' : 'Save Address'}
               </Button>

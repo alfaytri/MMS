@@ -29,13 +29,13 @@ export function useCustomerLookup() {
         .select(`
           id,
           customer_id,
-          customers!inner(id, name),
-          customer_addresses(id)
+          customers!inner(id, name, customer_addresses(id))
         `)
         .eq('phone', normalizedPhone)
         .single()
 
       if (!error && data) {
+        const customer = data.customers as any
         const { count: orderCount } = await supabase
           .from('orders')
           .select('id', { count: 'exact', head: true })
@@ -45,9 +45,9 @@ export function useCustomerLookup() {
           found: true,
           customerId: data.customer_id,
           phoneId: data.id,
-          customerName: (data.customers as any).name,
+          customerName: customer.name,
           phone: normalizedPhone,
-          addressCount: (data.customer_addresses as any[]).length,
+          addressCount: (customer.customer_addresses as any[]).length,
           orderCount: orderCount ?? 0,
         }
       }
@@ -61,26 +61,32 @@ export function useCustomerLookup() {
 
       if (custError || !customer) return { found: false }
 
-      // Backfill customer_phones so future lookups work
-      const { data: phoneRecord } = await supabase
+      // Backfill customer_phones so future lookups work — select first to avoid 406 on upsert
+      let { data: phoneRecord } = await supabase
         .from('customer_phones')
-        .upsert(
-          { customer_id: customer.id, phone: normalizedPhone, is_primary: true },
-          { onConflict: 'phone' }
-        )
         .select('id')
+        .eq('phone', normalizedPhone)
         .single()
+
+      if (!phoneRecord) {
+        const { data: inserted } = await supabase
+          .from('customer_phones')
+          .insert({ customer_id: (customer as any).id, phone: normalizedPhone, is_primary: true })
+          .select('id')
+          .single()
+        phoneRecord = inserted
+      }
 
       if (!phoneRecord) return { found: false }
 
       const { count: orderCount } = await supabase
         .from('orders')
         .select('id', { count: 'exact', head: true })
-        .eq('customer_id', customer.id)
+        .eq('customer_id', (customer as any).id)
 
       return {
         found: true,
-        customerId: customer.id,
+        customerId: (customer as any).id,
         phoneId: phoneRecord.id,
         customerName: (customer as any).name,
         phone: normalizedPhone,

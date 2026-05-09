@@ -19,7 +19,7 @@ interface Props {
 }
 
 export function AddressPicker({ customerId, phoneId, selected, onSelect, className }: Props) {
-  const { addresses, isLoading } = useCustomerAddresses(phoneId)
+  const { addresses, isLoading } = useCustomerAddresses(customerId)
   const [open, setOpen] = useState(false)
   const [sheetOpen, setSheetOpen] = useState(false)
 

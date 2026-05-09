@@ -2,23 +2,23 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { createClient } from '@/lib/supabase/client'
 import type { CustomerAddress } from '@/types/orders'
 
-export function useCustomerAddresses(phoneId: string | null) {
+export function useCustomerAddresses(customerId: string | null) {
   const supabase = createClient()
   const qc = useQueryClient()
 
   const { data: addresses = [], isLoading } = useQuery({
-    queryKey: ['customer-addresses', phoneId],
+    queryKey: ['customer-addresses', customerId],
     queryFn: async (): Promise<CustomerAddress[]> => {
-      if (!phoneId) return []
+      if (!customerId) return []
       const { data, error } = await supabase
         .from('customer_addresses')
         .select('*')
-        .eq('phone_id', phoneId)
+        .eq('customer_id', customerId)
         .order('is_primary', { ascending: false })
       if (error) throw error
       return data ?? []
     },
-    enabled: !!phoneId,
+    enabled: !!customerId,
   })
 
   const addAddress = useMutation({
@@ -34,7 +34,7 @@ export function useCustomerAddresses(phoneId: string | null) {
       return data
     },
     onSuccess: () => {
-      qc.invalidateQueries({ queryKey: ['customer-addresses', phoneId] })
+      qc.invalidateQueries({ queryKey: ['customer-addresses', customerId] })
     },
   })
 
