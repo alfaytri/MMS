@@ -154,9 +154,11 @@ Purchase & Sales▾:
 
 ## 🔄 In Progress
 
-🚀 Starting: **Orders Module Plan Task 1: DB migration — customer_phones & customer_addresses**
+🚀 Starting: **Orders Module Plan Task 2: DB schema validation & integration**
 
 ## ✅ Completed
+
+- [2026-05-09] **Orders Module Plan Task 1: DB migration — customer_phones & customer_addresses** — `supabase/migrations/20260509120000_customer_phones_addresses.sql` — Created customer_phones table with phone + label + is_primary fields, unique constraint on phone; added phone_id FK to existing customer_addresses table linking to customer_phones; created indexes on (customer_id) and (phone) for query performance; migration applied successfully via `npx supabase db push`
 
 - [2026-05-07] **Operations Calendar Plan Part 2 Task 14: CalendarPage shell + wire up page.tsx** — `src/components/calendar/CalendarPage.tsx`, `src/app/(dashboard)/calendar/page.tsx` — CalendarPage 'use client' shell wires all calendar hooks (useCalendarSchedule, useCalendarVisits, useWeekCapacity, useTeams, useTeamSkills, useUserDivisionScope) and all sub-components (CalendarToolbar, WeekCapacityStrip, TimelineGrid, TeamCardList, SwapTeamDialog); inline useCalendarPermissions hook reads user_custom_roles; correct string-based getWeekStart/buildWeekDates signatures used; placeholder page.tsx replaced with clean import; 41/41 tests pass; zero new TypeScript errors
 
