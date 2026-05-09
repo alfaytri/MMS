@@ -154,9 +154,11 @@ Purchase & Sales▾:
 
 ## 🔄 In Progress
 
-🚀 Starting: **Orders Module Plan Task 8: AddressPicker & AddressCreationSheet components**
+🚀 Starting: **Orders Module Plan Task 9: useCreateOrder hook (draft state + submit)**
 
 ## ✅ Completed
+
+- [2026-05-09] **Orders Module Plan Task 8: AddressPicker & AddressCreationSheet components** — `src/components/orders/AddressPicker.tsx`, `src/components/orders/AddressCreationSheet.tsx` — AddressPicker: popover-based address selection with saved addresses list and "Add New Address" button; integrates useCustomerAddresses hook with full responsive design; uses formatAddressLine utility for display without address_line field (Amendment A2). AddressCreationSheet: right-side sheet for adding addresses via two methods: (1) Blue Plate lookup with Supabase Edge Function via useBlueplate.fetchByNumber mutation, displays resolved unit/building/street/zone; (2) GPS coordinates with lat/lng inputs; both tabs support optional label and persist to database via useCustomerAddresses.addAddress mutation with cache invalidation; zero TypeScript errors
 
 - [2026-05-09] **Orders Module Plan Task 7: PhoneLookupModal component** — `src/components/orders/PhoneLookupModal.tsx` — 3-step modal: (1) phone input + lookup; (2) found state with customer summary (address/order counts); (3) new customer creation with name + optional second phone for service requests; integrates useCustomerLookup hook with lookupPhone.mutateAsync and quickCreate.mutateAsync; radio buttons for "Does customer use another number?"; form reset on modal close; toast error on create failure; zero TypeScript errors
 
