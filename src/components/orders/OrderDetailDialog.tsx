@@ -78,6 +78,7 @@ export function OrderDetailDialog({ orderId, open, onOpenChange }: Props) {
                       {order.confirmation_status === 'msg_sent' &&
                         'Message sent — awaiting customer reply'}
                       {(order.confirmation_status === 'customer_confirmed' ||
+                        order.confirmation_status === 'agent_confirmed' ||
                         order.confirmation_status === 'manually_confirmed') &&
                         'Order confirmed ✓'}
                       {order.confirmation_status === 'no_response' && 'No response received'}
@@ -86,10 +87,14 @@ export function OrderDetailDialog({ orderId, open, onOpenChange }: Props) {
                       {canTransition(order.status as OrderStatus, 'confirmed') && (
                         <Button
                           size="sm"
-                          className="h-7 gap-1 text-xs"
+                          className="min-h-11 sm:h-7 gap-1 text-xs"
                           onClick={async () => {
-                            await confirmManually.mutateAsync()
-                            toast.success('Order confirmed')
+                            try {
+                              await confirmManually.mutateAsync()
+                              toast.success('Order confirmed')
+                            } catch {
+                              toast.error('Failed to confirm order')
+                            }
                           }}
                           disabled={confirmManually.isPending}
                         >
@@ -101,10 +106,14 @@ export function OrderDetailDialog({ orderId, open, onOpenChange }: Props) {
                         <Button
                           size="sm"
                           variant="outline"
-                          className="h-7 gap-1 text-xs"
+                          className="min-h-11 sm:h-7 gap-1 text-xs"
                           onClick={async () => {
-                            await rollback.mutateAsync()
-                            toast.success('Rolled back to scheduled')
+                            try {
+                              await rollback.mutateAsync()
+                              toast.success('Rolled back to scheduled')
+                            } catch {
+                              toast.error('Failed to roll back order')
+                            }
                           }}
                           disabled={rollback.isPending}
                         >
@@ -115,7 +124,7 @@ export function OrderDetailDialog({ orderId, open, onOpenChange }: Props) {
                         <Button
                           size="sm"
                           variant="destructive"
-                          className="h-7 gap-1 text-xs"
+                          className="min-h-11 sm:h-7 gap-1 text-xs"
                           onClick={() => setCancelOpen(true)}
                         >
                           <XCircle className="h-3 w-3" /> Cancel

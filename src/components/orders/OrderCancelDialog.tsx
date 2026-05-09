@@ -42,8 +42,14 @@ export function OrderCancelDialog({
   const [notes, setNotes] = useState('')
   const { reasons } = useReasonLists('cancellation')
 
+  function handleClose() {
+    setReason('')
+    setNotes('')
+    onOpenChange(false)
+  }
+
   return (
-    <AlertDialog open={open} onOpenChange={onOpenChange}>
+    <AlertDialog open={open} onOpenChange={(v) => { if (!v) handleClose() }}>
       <AlertDialogContent className="w-full sm:max-w-md">
         <AlertDialogHeader>
           <AlertDialogTitle className="text-red-600">Cancel Order</AlertDialogTitle>
@@ -55,7 +61,7 @@ export function OrderCancelDialog({
           <div className="space-y-1.5">
             <label className="text-sm font-medium">Cancellation Reason *</label>
             <Select value={reason} onValueChange={(v) => setReason(v ?? '')}>
-              <SelectTrigger>
+              <SelectTrigger className="min-h-11">
                 <SelectValue placeholder="Select reason…" />
               </SelectTrigger>
               <SelectContent>
@@ -78,7 +84,7 @@ export function OrderCancelDialog({
           </div>
         </div>
         <AlertDialogFooter>
-          <Button variant="outline" onClick={() => onOpenChange(false)}>
+          <Button variant="outline" onClick={() => handleClose()}>
             Keep Order
           </Button>
           <Button
