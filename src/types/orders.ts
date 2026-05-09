@@ -81,6 +81,12 @@ export interface OrderAttachment {
   type: string
 }
 
+export interface VisitDateWindow {
+  date: string           // ISO date string e.g. "2026-05-09"
+  fromTime: string | null  // "09:00" — null means no preference
+  toTime: string | null    // "12:00" — null means no preference
+}
+
 export interface OrderDraft {
   customerId: string
   phoneId: string
@@ -91,7 +97,7 @@ export interface OrderDraft {
   type: OrderType
   services: OrderServiceDraft[]
   visitDate: string
-  visitDates: string[]          // multi-date selection (ISO date strings)
+  visitDates: VisitDateWindow[] // multi-date selection with optional arrival windows
   visitEndDate: string | null
   mode: OrderMode
   assignments: TeamAssignmentDraft[]
@@ -131,6 +137,13 @@ export interface OrderDetail extends OrderListItem {
     price: number
     duration: number
     path: string[]
+  }>
+  order_visit_dates: Array<{
+    id: string
+    visit_date: string
+    from_time: string | null
+    to_time: string | null
+    sort_order: number
   }>
   order_team_assignments: Array<{
     id: string
