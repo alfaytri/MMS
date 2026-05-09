@@ -154,9 +154,11 @@ Purchase & Sales▾:
 
 ## 🔄 In Progress
 
-🚀 Starting: **Orders Module Task 14: useOrders + Order List page**
+🚀 Starting: **Orders Module Task 15: useOrderDetail + useOrderActions**
 
 ## ✅ Completed
+
+- [2026-05-09] **Orders Module Task 14: useOrders + Order List page** — `src/hooks/useOrders.ts`, `src/components/orders/OrderCard.tsx`, `src/app/(dashboard)/orders/page.tsx` — useOrders: TanStack Query hook with Supabase join (customers!inner + customer_phones!left), status chip filters (scheduled/pending_approval/no_confirmation/no_address/past_due_no_invoice), date range filters, ilike order number search, division filter (any-cast for DB enum), sort by date/amount, 200-row limit; OrderCard: button card with STATUS_STYLES/CONFIRMATION_LABELS maps, truncated address, QAR total, formatted date; Orders List page: chip filter bar (orange active state), collapsible filter panel with customer name/phone/order number/date inputs, full-screen list with loading/empty states; zero TypeScript errors introduced
 
 - [2026-05-09] **Orders Module Plan Task 13: Create Order Page** — `src/components/orders/OrderFormPanel.tsx`, `src/app/(dashboard)/orders/create/page.tsx` — OrderFormPanel: responsive 340 px-wide left panel with type tabs (order/site-visit), ServiceSelector + SelectedServiceCard list, visit date picker, AddressPicker (guarded by customerId), voucher code input with Apply button, notes textarea, dynamic QAR total footer, Confirm Order button with disabled/loading states; Create Order page: DndContext wired with handleDragStart/handleDragEnd using over.data.current (Amendment A6), team name resolved from useTeams data via any-cast (TeamFull fields opaque to TS), PhoneLookupModal opens on mount and sets draft customer, three-panel responsive layout (form panel + TeamCalendarPanel + CustomerHistoryPanel), submit mutation with toast feedback and router.push; zero TypeScript errors introduced
 
