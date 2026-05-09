@@ -13,7 +13,7 @@
 | **Project** | MMS — Maintenance Management System |
 | **Owner** | Mohamed Ismail |
 | **Working dir** | `D:/MMS` |
-| **Active branch** | `feature/purchase-module` — current working branch for bill rework |
+| **Active branch** | `feature/orders-module` — Orders Module complete, ready for merge |
 | **Goal** | Web ERP for a Qatar maintenance company (Alfaytri Maintenance, RSH Cleaning and Pest Control) |
 
 ---
@@ -149,14 +149,17 @@ Purchase & Sales▾:
 | `docs/superpowers/plans/2026-04-27-multi-company-division-isolation.md` | ✅ DONE | Division isolation — JWT hook, RLS, DivisionFilter, PO/SO create pickers, user division assignment |
 | `docs/superpowers/plans/2026-04-30-po-returns.md` | ✅ DONE | PO returns — dispatch/cancel/supplier-confirm flow, inventory deduction on dispatch, cancel with RPC reversal, type toggle on Returns page |
 | `docs/superpowers/plans/2026-05-03-teams-employee-page.md` | 🚀 ACTIVE | Teams & Employee page — full CRUD dialogs, drag-and-drop, activity logging, schedule management |
+| `docs/superpowers/plans/2026-05-09-orders-module.md` + amendments | ✅ DONE | Orders Module — customer phones/addresses, installed products, order creation with team calendar DnD, order list with chip filters, order detail sheet with 4 tabs, cancel/confirm/rollback actions, Blue Plate Edge Function, navigation |
 
 ---
 
 ## 🔄 In Progress
 
-🚀 Starting: **Orders Module Task 18: PROGRESS.md final update**
+_All Orders Module tasks complete. Next: merge `feature/orders-module` → `develop`, then resume Teams & Employee page plan._
 
 ## ✅ Completed
+
+- [2026-05-09] **Orders Module Task 18: PROGRESS.md final update** — `PROGRESS.md` — Updated active branch, plan table, in-progress section; Orders Module fully documented
 
 - [2026-05-09] **Orders Module Task 17: Navigation Update** — `src/components/layout/nav-config.ts` — Replaced Orders top-nav stub (comingSoon, empty groups) with a live dropdown containing Work Orders (→ /orders) and Create Order (→ /orders/create); removed comingSoon flag; follows existing NavGroup/NavItem pattern; zero TypeScript errors introduced
 - [2026-05-09] **Orders Module Task 16: OrderDetailDialog + OrderCancelDialog** — `src/hooks/useReasonLists.ts`, `src/components/orders/OrderCancelDialog.tsx`, `src/components/orders/OrderDetailDialog.tsx`, `src/app/(dashboard)/orders/page.tsx` — useReasonLists: TanStack Query hook fetching reason_lists by category (active, sort_order); OrderCancelDialog: AlertDialog with Base UI Select (onValueChange null-guarded) for cancellation reasons + optional notes textarea; OrderDetailDialog: Sheet with 4 tabs (services/invoice/follow-up/logs), confirmation banner with BANNER_STYLES map for all 6 ConfirmationStatus values, confirm/rollback/cancel action buttons wired to useOrderActions mutations with toast feedback, logs tab with timeline UI; orders page wired to open dialog on OrderCard click; tsc clean on new/modified files
