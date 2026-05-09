@@ -3,7 +3,7 @@ import { useState } from 'react'
 import { useMutation, useQueryClient } from '@tanstack/react-query'
 import { createClient } from '@/lib/supabase/client'
 import { formatAddressLine } from '@/lib/orders/warrantyUtils'
-import type { OrderDraft, OrderServiceDraft, TeamAssignmentDraft, CustomerAddress, OrderAttachment } from '@/types/orders'
+import type { OrderDraft, OrderServiceDraft, TeamAssignmentDraft, CustomerAddress, OrderAttachment, VisitDateWindow } from '@/types/orders'
 import type { CustomerLookupResult } from '@/hooks/useCustomerLookup'
 import type { PendingAttachment } from '@/components/orders/AttachmentsUpload'
 
@@ -19,7 +19,7 @@ const INITIAL_DRAFT: OrderDraft = {
   type: 'order',
   services: [],
   visitDate: today,
-  visitDates: [today],
+  visitDates: [{ date: today, fromTime: null, toTime: null }] as VisitDateWindow[],
   visitEndDate: null,
   mode: 'normal',
   assignments: [],
@@ -64,6 +64,15 @@ export function useCreateOrder() {
           services: a.services.filter((s) => s.serviceId !== serviceId),
         }))
         .filter((a) => a.services.length > 0),
+    }))
+  }
+
+  function updateServiceQty(serviceId: string, qty: number) {
+    setDraft((d) => ({
+      ...d,
+      services: d.services.map((s) =>
+        s.serviceId === serviceId ? { ...s, qty: Math.max(1, qty) } : s
+      ),
     }))
   }
 
@@ -120,7 +129,7 @@ export function useCreateOrder() {
         ? formatAddressLine(draft.addressSnapshot)
         : null
 
-      // Upload pending files to Supabase storage
+      // Upload pending files to Supabase storage before the atomic RPC
       const uploadedAttachments: OrderAttachment[] = []
       for (const item of pendingFiles) {
         const ext = item.file.name.split('.').pop() ?? 'bin'
@@ -136,75 +145,62 @@ export function useCreateOrder() {
         }
       }
 
-      // Primary visit date = first in the sorted array (or fallback to visitDate)
-      const primaryDate = draft.visitDates.length > 0
-        ? [...draft.visitDates].sort()[0]
-        : draft.visitDate
+      // Primary visit date = first window in sorted order
+      const sortedWindows = [...draft.visitDates].sort((a, b) => a.date.localeCompare(b.date))
+      const primaryDate = sortedWindows.length > 0 ? sortedWindows[0].date : draft.visitDate
 
-      const { data: order, error } = await (supabase as any)
-        .from('orders')
-        .insert({
-          order_id: orderId,
-          customer_id: draft.customerId,
-          type: draft.type,
-          status,
-          confirmation_status: 'not_sent',
-          scheduled_date: primaryDate,
-          total_amount: totalAmount,
-          address: addressString,
-          notes: draft.notes || null,
-          has_invoice: false,
-          visit_dates: draft.visitDates.length > 0 ? draft.visitDates : [draft.visitDate],
-          arrival_phone: draft.arrivalPhone || null,
-          attachments: uploadedAttachments.length > 0 ? uploadedAttachments : null,
-        })
-        .select('id')
-        .single()
+      // Build payloads for the atomic RPC
+      const servicesPayload = draft.services.map((s) => ({
+        service_id: s.serviceId,
+        name: s.serviceName,
+        qty: s.qty,
+        price: s.price,
+        duration: s.duration,
+        path: s.path,
+        configuration: s.configuration ?? null,
+      }))
 
-      if (error || !order) throw error ?? new Error('Failed to create order')
+      const visitDatesPayload = sortedWindows.map((w, i) => ({
+        visit_date: w.date,
+        from_time: w.fromTime ?? null,
+        to_time: w.toTime ?? null,
+        sort_order: i,
+      }))
 
-      if (draft.services.length > 0) {
-        await (supabase as any).from('order_services').insert(
-          draft.services.map((s) => ({
-            order_id: order.id,
-            service_id: s.serviceId,
-            name: s.serviceName,
-            qty: s.qty,
-            price: s.price,
-            duration: s.duration,
-            path: s.path,
-            configuration: s.configuration ?? null,
-          }))
-        )
-      }
+      const assignmentsPayload = draft.assignments.map((a) => ({
+        team_id: a.teamId,
+        services: a.services,
+        scheduled_date: draft.visitDate,
+        time_slot: a.timeSlot,
+        duration: String(a.duration),
+      }))
 
-      if (draft.assignments.length > 0) {
-        const { error: assignError } = await (supabase as any).from('order_team_assignments').insert(
-          draft.assignments.map((a) => ({
-            order_id: order.id,
-            team_id: a.teamId,
-            services: a.services,
-            scheduled_date: draft.visitDate,
-            time_slot: a.timeSlot,
-            duration: a.duration,
-          }))
-        )
-        if (assignError) {
-          if (assignError.code === '23505') {
-            throw new Error('That time slot is already taken — choose a different time or team')
-          }
-          throw assignError
-        }
-      }
-
-      await (supabase as any).from('order_log').insert({
-        order_id: order.id,
-        action: 'created',
-        user_name: 'agent',
-        details: `Order ${orderId} created`,
+      // Single atomic RPC — all inserts in one DB transaction
+      const { data: newOrderId, error } = await (supabase as any).rpc('create_order_with_dates', {
+        p_order_id:       orderId,
+        p_customer_id:    draft.customerId,
+        p_type:           draft.type,
+        p_status:         status,
+        p_scheduled_date: primaryDate,
+        p_total_amount:   totalAmount,
+        p_address:        addressString ?? '',
+        p_notes:          draft.notes ?? '',
+        p_arrival_phone:  draft.arrivalPhone ?? '',
+        p_attachments:    uploadedAttachments.length > 0 ? uploadedAttachments : null,
+        p_services:       servicesPayload,
+        p_visit_dates:    visitDatesPayload,
+        p_assignments:    assignmentsPayload,
       })
 
-      return order.id
+      if (error) {
+        // The RPC raises 'slot_conflict' via RAISE EXCEPTION with ERRCODE P0001
+        if (error.message?.startsWith('slot_conflict:')) {
+          throw new Error('That time slot is already taken — choose a different time or team')
+        }
+        throw error
+      }
+
+      return newOrderId as string
     },
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ['orders'] })
@@ -220,6 +216,7 @@ export function useCreateOrder() {
     setAddress,
     addService,
     removeService,
+    updateServiceQty,
     addAssignment,
     removeAssignment,
     update,
