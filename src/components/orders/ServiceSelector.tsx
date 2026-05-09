@@ -2,8 +2,7 @@
 import { useState } from 'react'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { Button } from '@/components/ui/button'
-import { Input } from '@/components/ui/input'
-import { Plus, Clock } from 'lucide-react'
+import { Plus, Minus } from 'lucide-react'
 import { useServiceTree } from '@/hooks/useServices'
 import type { OrderServiceDraft } from '@/types/orders'
 
@@ -35,7 +34,6 @@ export function ServiceSelector({ onAdd, divisionFilters = [], treeType = 'norma
     const levels = []
     let parentId: string | null = null
     let levelIndex = 0
-
     while (true) {
       const options = getChildren(parentId)
       if (options.length === 0) break
@@ -84,36 +82,60 @@ export function ServiceSelector({ onAdd, divisionFilters = [], treeType = 'norma
   return (
     <div className="space-y-2">
       {levels.map((level, i) => (
-        <Select key={i} value={(level.selectedId ?? '') as string} onValueChange={(v) => handleLevelChange(i, v ?? '')}>
+        <Select
+          key={i}
+          value={(level.selectedId ?? '') as string}
+          onValueChange={(v) => handleLevelChange(i, v ?? '')}
+        >
           <SelectTrigger className="h-9">
             <SelectValue placeholder={i === 0 ? 'Select category…' : 'Select…'} />
           </SelectTrigger>
           <SelectContent>
             {level.options.map((opt) => (
-              <SelectItem key={opt.id} value={opt.id as string}>{opt.name_en}</SelectItem>
+              <SelectItem key={opt.id} value={opt.id as string}>
+                {opt.name_en}
+              </SelectItem>
             ))}
           </SelectContent>
         </Select>
       ))}
 
       {isLeaf && lastSelected && (
-        <div className="rounded-md border border-slate-200 bg-slate-50 p-2 space-y-2">
-          <div className="flex items-center justify-between text-sm">
-            <span className="flex items-center gap-1 text-slate-500">
-              <Clock className="h-3.5 w-3.5" /> {lastSelected.duration} min
-            </span>
-            <span className="font-semibold text-slate-900">QAR {lastSelected.price}</span>
-          </div>
+        <div className="rounded-md border border-slate-200 bg-slate-50 p-2">
           <div className="flex items-center gap-2">
-            <Input
-              type="number"
-              min={1}
-              value={qty}
-              onChange={(e) => setQty(Math.max(1, parseInt(e.target.value) || 1))}
-              className="h-8 w-16 text-center"
-            />
-            <Button size="sm" className="flex-1 h-8 gap-1" onClick={handleAdd}>
-              <Plus className="h-3.5 w-3.5" /> Add Service
+            {/* Qty stepper */}
+            <div className="flex items-center rounded border border-slate-200 bg-white">
+              <button
+                type="button"
+                onClick={() => setQty((q) => Math.max(1, q - 1))}
+                disabled={qty <= 1}
+                className="px-1.5 py-1 text-slate-500 hover:text-slate-900 disabled:opacity-40"
+                aria-label="Decrease quantity"
+              >
+                <Minus className="h-3 w-3" />
+              </button>
+              <span className="w-6 select-none text-center text-xs font-medium text-slate-900">
+                {qty}
+              </span>
+              <button
+                type="button"
+                onClick={() => setQty((q) => q + 1)}
+                className="px-1.5 py-1 text-slate-500 hover:text-slate-900"
+                aria-label="Increase quantity"
+              >
+                <Plus className="h-3 w-3" />
+              </button>
+            </div>
+
+            {/* Unit price */}
+            <span className="flex-1 text-right text-xs text-slate-500">
+              QAR {lastSelected.price ?? 0}
+            </span>
+
+            {/* Add button */}
+            <Button size="sm" className="h-8 gap-1" onClick={handleAdd}>
+              <Plus className="h-3.5 w-3.5" />
+              Add Service
             </Button>
           </div>
         </div>
