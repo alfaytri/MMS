@@ -154,10 +154,11 @@ Purchase & Sales▾:
 
 ## 🔄 In Progress
 
-🚀 Starting: **Orders Module Task 17: Navigation Update**
+🚀 Starting: **Orders Module Task 18: PROGRESS.md final update**
 
 ## ✅ Completed
 
+- [2026-05-09] **Orders Module Task 17: Navigation Update** — `src/components/layout/nav-config.ts` — Replaced Orders top-nav stub (comingSoon, empty groups) with a live dropdown containing Work Orders (→ /orders) and Create Order (→ /orders/create); removed comingSoon flag; follows existing NavGroup/NavItem pattern; zero TypeScript errors introduced
 - [2026-05-09] **Orders Module Task 16: OrderDetailDialog + OrderCancelDialog** — `src/hooks/useReasonLists.ts`, `src/components/orders/OrderCancelDialog.tsx`, `src/components/orders/OrderDetailDialog.tsx`, `src/app/(dashboard)/orders/page.tsx` — useReasonLists: TanStack Query hook fetching reason_lists by category (active, sort_order); OrderCancelDialog: AlertDialog with Base UI Select (onValueChange null-guarded) for cancellation reasons + optional notes textarea; OrderDetailDialog: Sheet with 4 tabs (services/invoice/follow-up/logs), confirmation banner with BANNER_STYLES map for all 6 ConfirmationStatus values, confirm/rollback/cancel action buttons wired to useOrderActions mutations with toast feedback, logs tab with timeline UI; orders page wired to open dialog on OrderCard click; tsc clean on new/modified files
 - [2026-05-09] **Orders Module Task 15: useOrderDetail + useOrderActions** — `src/hooks/useOrderDetail.ts`, `src/hooks/useOrderActions.ts` — useOrderDetail: TanStack Query hook fetching full order with customers!inner join (name + customer_phones), order_services, order_team_assignments with team name resolved from teams!inner, order_log sorted descending by created_at; useOrderActions: three mutations (confirmManually, rollback, cancel) each updating orders table and inserting to order_log, with dual cache invalidation (orders + order-detail); canTransition: exported standalone pure function with VALID_TRANSITIONS state machine covering all 9 OrderStatus values; zero TypeScript errors introduced in new files
 
