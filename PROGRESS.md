@@ -154,9 +154,11 @@ Purchase & Sales▾:
 
 ## 🔄 In Progress
 
-🚀 Starting: **Orders Module Plan Task 10: useCreateOrder hook tests + validation**
+🚀 Starting: **Orders Module Plan Task 11: OrderForm shell component**
 
 ## ✅ Completed
+
+- [2026-05-09] **Orders Module Plan Task 10: ServiceSelector & SelectedServiceCard components** — `src/components/orders/ServiceSelector.tsx`, `src/components/orders/SelectedServiceCard.tsx` — ServiceSelector: cascading dropdown tree navigation via useServiceTree hook (handles null price/duration gracefully), hierarchical category selection, leaf node validation, quantity input with min=1 constraint, service details card (duration + price), Add Service button integrating onAdd callback to populate OrderServiceDraft array; responsive design with h-9 triggers and h-8 inputs. SelectedServiceCard: dnd-kit draggable wrapper using useDraggable hook, GripVertical + X buttons for drag/remove, service name + path hierarchy, quantity × duration × price metadata, opacity-50 + shadow-lg during drag; integrates with drag-drop context for future reordering; zero TypeScript errors
 
 - [2026-05-09] **Orders Module Plan Task 9: useCreateOrder hook (draft state + submit)** — `src/hooks/useCreateOrder.ts` — State management hook with draft store (customer, address, services, assignments); setters for customer/address/services with array transformations; mutations (addService/removeService handle cascading assignment cleanup, addAssignment generates UUIDs); submit mutation computes order_id via sequence query, formats address via formatAddressLine (Amendment A2), validates slot uniqueness on order_team_assignments insert (Amendment A1 — catches 23505 code and surfaces user-friendly message), inserts to orders/order_services/order_team_assignments/order_log tables atomically, invalidates orders cache, resets draft on success; isValid guards on customerId/services/visitDate/addressId/assignments; zero TypeScript errors
 
