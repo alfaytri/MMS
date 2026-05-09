@@ -154,7 +154,7 @@ Purchase & Sales▾:
 
 ## 🔄 In Progress
 
-🚀 Next: Wire Dibsy checkout into subscription activation UI
+🚀 Starting: **Orders Module Plan Task 1: DB migration — customer_phones & customer_addresses**
 
 ## ✅ Completed
 
