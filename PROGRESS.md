@@ -154,9 +154,11 @@ Purchase & Sales▾:
 
 ## 🔄 In Progress
 
-🚀 Starting: **Orders Module Plan Task 3: Hook — useInstalledProducts**
+🚀 Starting: **Orders Module Plan Task 4: Hook — useOrderForm**
 
 ## ✅ Completed
+
+- [2026-05-09] **Orders Module Plan Task 3: TypeScript types file — orders.ts** — `src/types/orders.ts` — Created TypeScript types for Orders Module including CustomerPhone, CustomerAddress (without address_line per Amendment A2), InstalledProduct, OrderStatus, ConfirmationStatus, OrderMode, OrderType, OrderServiceDraft, TeamAssignmentDraft, OrderDraft (with addressSnapshot: CustomerAddress | null per Amendment A2), OrderListItem, OrderDetail, WarrantyStatus, WarrantyInfo, CustomerHistoryOrder, and OrdersFilter; file compiles cleanly with `npx tsc --noEmit`
 
 - [2026-05-09] **Orders Module Plan Task 2: DB migration — installed_products table** — `supabase/migrations/20260509120001_installed_products.sql` — Created installed_products table with customer_id, phone_id, address_id, order_id FKs; product details (name, brand, model, serial_number); installed_at date; warranty_months with trigger-computed warranty_expires_at; notes and created_at fields; created indexes on customer_id, order_id, phone_id; used BEFORE INSERT/UPDATE trigger to compute warranty expiry dates atomically via plpgsql function; migration applied successfully via `npx supabase db push --include-all`
 
