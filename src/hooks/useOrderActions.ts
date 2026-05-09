@@ -23,18 +23,31 @@ export function useOrderActions(orderId: string | null) {
   const supabase = createClient()
   const qc = useQueryClient()
 
-  function invalidate() {
-    qc.invalidateQueries({ queryKey: ['orders'] })
-    qc.invalidateQueries({ queryKey: ['order-detail', orderId] })
+  async function invalidate() {
+    await Promise.all([
+      qc.invalidateQueries({ queryKey: ['orders'] }),
+      qc.invalidateQueries({ queryKey: ['order-detail', orderId] }),
+    ])
   }
 
   async function logAction(action: string, details: string) {
-    await supabase.from('order_log').insert({ order_id: orderId, action, user_name: 'agent', details })
+    const { error } = await supabase.from('order_log').insert({
+      order_id: orderId,
+      action,
+      user_name: 'agent',
+      details,
+    })
+    if (error) throw error
   }
 
   const confirmManually = useMutation({
     mutationFn: async () => {
-      await supabase.from('orders').update({ status: 'confirmed', confirmation_status: 'manually_confirmed' }).eq('id', orderId!)
+      if (!orderId) throw new Error('orderId is required')
+      const { error } = await supabase
+        .from('orders')
+        .update({ status: 'confirmed', confirmation_status: 'manually_confirmed' })
+        .eq('id', orderId!)
+      if (error) throw error
       await logAction('manually_confirmed', 'Order confirmed manually by agent')
     },
     onSuccess: invalidate,
@@ -42,7 +55,12 @@ export function useOrderActions(orderId: string | null) {
 
   const rollback = useMutation({
     mutationFn: async () => {
-      await supabase.from('orders').update({ status: 'scheduled', confirmation_status: 'not_sent' }).eq('id', orderId!)
+      if (!orderId) throw new Error('orderId is required')
+      const { error } = await supabase
+        .from('orders')
+        .update({ status: 'scheduled', confirmation_status: 'not_sent' })
+        .eq('id', orderId!)
+      if (error) throw error
       await logAction('rollback', 'Confirmation rolled back to scheduled')
     },
     onSuccess: invalidate,
@@ -50,7 +68,12 @@ export function useOrderActions(orderId: string | null) {
 
   const cancel = useMutation({
     mutationFn: async ({ reason, notes }: { reason: string; notes?: string }) => {
-      await supabase.from('orders').update({ status: 'cancelled' }).eq('id', orderId!)
+      if (!orderId) throw new Error('orderId is required')
+      const { error } = await supabase
+        .from('orders')
+        .update({ status: 'cancelled' })
+        .eq('id', orderId!)
+      if (error) throw error
       await logAction('cancelled', `Reason: ${reason}${notes ? ` | Notes: ${notes}` : ''}`)
     },
     onSuccess: invalidate,

@@ -24,7 +24,7 @@ export function useOrderDetail(orderId: string | null) {
       if (error) throw error
       return {
         ...data,
-        customer_name: (data.customers as any).name,
+        customer_name: (data.customers as any)?.name ?? '',
         customer_phone: (data.customers as any)?.customer_phones?.[0]?.phone ?? '',
         services_summary: '',
         order_team_assignments: (data.order_team_assignments ?? []).map((a: any) => ({
