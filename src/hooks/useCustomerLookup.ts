@@ -65,7 +65,7 @@ export function useCustomerLookup() {
         p_phone: phone.trim(),
         p_link_phone: linkPhone?.trim(),
       })
-      if (error || !data) throw error || new Error('Failed to create customer')
+      if (error || !data) throw new Error(error?.message ?? error?.details ?? JSON.stringify(error) ?? 'Failed to create customer')
 
       const result = data as any
       return {

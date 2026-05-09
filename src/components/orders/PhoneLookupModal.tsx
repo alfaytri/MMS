@@ -129,8 +129,8 @@ export function PhoneLookupModal({ open, onOpenChange, onConfirm }: Props) {
       onConfirm(result)
       onOpenChange(false)
       handleReset()
-    } catch {
-      toast.error('Failed to create customer')
+    } catch (err: any) {
+      toast.error(err?.message ?? 'Failed to create customer')
     }
   }
 
