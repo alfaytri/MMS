@@ -154,9 +154,11 @@ Purchase & Sales▾:
 
 ## 🔄 In Progress
 
-🚀 Starting: **Orders Module Plan Task 7: Hook — useCreateOrder (draft state + submit)**
+🚀 Starting: **Orders Module Plan Task 8: Hook — useCreateOrder (draft state + submit)**
 
 ## ✅ Completed
+
+- [2026-05-09] **Orders Module Plan Task 7: PhoneLookupModal component** — `src/components/orders/PhoneLookupModal.tsx` — 3-step modal: (1) phone input + lookup; (2) found state with customer summary (address/order counts); (3) new customer creation with name + optional second phone for service requests; integrates useCustomerLookup hook with lookupPhone.mutateAsync and quickCreate.mutateAsync; radio buttons for "Does customer use another number?"; form reset on modal close; toast error on create failure; zero TypeScript errors
 
 - [2026-05-09] **Orders Module Plan Task 6: Hooks — useBlueplate + useCustomerAddresses** — `src/hooks/useBlueplate.ts`, `src/hooks/useCustomerAddresses.ts` — useBlueplate mutation hook calls Supabase Edge Function blue-plate-lookup via supabase.functions.invoke (Amendment A4); useCustomerAddresses query hook fetches addresses per phone_id with is_primary ordering, mutation hook adds addresses with cache invalidation; both hooks follow existing patterns from useCustomerLookup.ts; no address_line field per Amendment A2; zero TypeScript errors
 
