@@ -291,15 +291,26 @@ export function AddressCreationSheet({ open, onOpenChange, customerId, phoneId, 
               </div>
 
               {coordsMapUrl && (
-                <a
-                  href={coordsMapUrl}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="flex items-center gap-1.5 text-xs text-blue-600 hover:text-blue-700 hover:underline"
-                >
-                  <ExternalLink className="h-3.5 w-3.5" />
-                  Verify on Google Maps
-                </a>
+                <div className="flex gap-3">
+                  <a
+                    href={coordsMapUrl}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="flex items-center gap-1.5 text-xs text-blue-600 hover:text-blue-700 hover:underline"
+                  >
+                    <ExternalLink className="h-3.5 w-3.5" />
+                    Google Maps
+                  </a>
+                  <a
+                    href={wazeUrl(parseFloat(lat), parseFloat(lng))}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="flex items-center gap-1.5 text-xs text-blue-600 hover:text-blue-700 hover:underline"
+                  >
+                    <ExternalLink className="h-3.5 w-3.5" />
+                    Waze
+                  </a>
+                </div>
               )}
 
               <Button className="w-full" onClick={handleSaveCoords} disabled={addAddress.isPending}>
