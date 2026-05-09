@@ -7,10 +7,13 @@ import { Label } from '@/components/ui/label'
 import { useCustomerAddresses } from '@/hooks/useCustomerAddresses'
 import { toast } from 'sonner'
 import { cn } from '@/lib/utils'
-import { ExternalLink } from 'lucide-react'
+import { ExternalLink, CheckCircle2, XCircle, Loader2 } from 'lucide-react'
 import type { CustomerAddress } from '@/types/orders'
 
 type Mode = 'blue_plate' | 'coordinates'
+type VerifyState = 'idle' | 'loading' | 'found' | 'not_found' | 'error'
+
+interface QnasResult { lat: number; lng: number }
 
 interface Props {
   open: boolean
@@ -20,23 +23,8 @@ interface Props {
   onAdded: (address: CustomerAddress) => void
 }
 
-function googleMapsCoordUrl(lat: string, lng: string): string | null {
-  const latNum = parseFloat(lat)
-  const lngNum = parseFloat(lng)
-  if (isNaN(latNum) || isNaN(lngNum)) return null
-  return `https://www.google.com/maps?q=${latNum},${lngNum}`
-}
-
-function googleMapsPlateUrl(zone: string, street: string, building: string, unit: string): string | null {
-  const parts = [
-    building && `Building ${building}`,
-    street && `Street ${street}`,
-    zone && `Zone ${zone}`,
-    unit && `Unit ${unit}`,
-    'Qatar',
-  ].filter(Boolean)
-  if (parts.length <= 1) return null
-  return `https://www.google.com/maps/search/${encodeURIComponent(parts.join(', '))}`
+function googleMapsCoordUrl(lat: number | string, lng: number | string): string {
+  return `https://www.google.com/maps?q=${lat},${lng}`
 }
 
 export function AddressCreationSheet({ open, onOpenChange, customerId, phoneId, onAdded }: Props) {
@@ -51,18 +39,57 @@ export function AddressCreationSheet({ open, onOpenChange, customerId, phoneId, 
   const [streetNo, setStreetNo] = useState('')
   const [zoneNo, setZoneNo] = useState('')
 
+  // QNAS verification state
+  const [verifyState, setVerifyState] = useState<VerifyState>('idle')
+  const [qnasResult, setQnasResult] = useState<QnasResult | null>(null)
+
   // Coordinates fields
   const [lat, setLat] = useState('')
   const [lng, setLng] = useState('')
 
-  const coordsMapUrl = googleMapsCoordUrl(lat, lng)
-  const plateMapUrl = googleMapsPlateUrl(zoneNo, streetNo, buildingNo, unitNo)
+  const coordsMapUrl = (lat && lng) ? googleMapsCoordUrl(lat, lng) : null
+
+  // Reset QNAS state when blue plate fields change
+  function onBluePlateChange(setter: (v: string) => void, value: string) {
+    setter(value)
+    setVerifyState('idle')
+    setQnasResult(null)
+  }
+
+  async function handleVerifyQnas() {
+    if (!zoneNo || !streetNo || !buildingNo) {
+      toast.error('Enter Zone, Street, and Building to verify')
+      return
+    }
+    setVerifyState('loading')
+    setQnasResult(null)
+    try {
+      const res = await fetch(
+        `/api/qnas/lookup?zone=${encodeURIComponent(zoneNo)}&street=${encodeURIComponent(streetNo)}&building=${encodeURIComponent(buildingNo)}`
+      )
+      const data = await res.json()
+      if (!res.ok || data.error) {
+        setVerifyState('error')
+        return
+      }
+      if (data.found) {
+        setVerifyState('found')
+        setQnasResult({ lat: data.lat, lng: data.lng })
+      } else {
+        setVerifyState('not_found')
+      }
+    } catch {
+      setVerifyState('error')
+    }
+  }
 
   function resetState() {
     setMode('blue_plate')
     setLabel('')
     setUnitNo(''); setBuildingNo(''); setStreetNo(''); setZoneNo('')
     setLat(''); setLng('')
+    setVerifyState('idle')
+    setQnasResult(null)
   }
 
   async function handleSaveBluePlate() {
@@ -164,34 +191,74 @@ export function AddressCreationSheet({ open, onOpenChange, customerId, phoneId, 
             <div className="space-y-4">
               <div className="grid grid-cols-2 gap-4">
                 <div className="space-y-1.5">
-                  <Label>Unit No.</Label>
-                  <Input placeholder="5" value={unitNo} onChange={(e) => setUnitNo(e.target.value)} />
-                </div>
-                <div className="space-y-1.5">
-                  <Label>Building No.</Label>
-                  <Input placeholder="58" value={buildingNo} onChange={(e) => setBuildingNo(e.target.value)} />
+                  <Label>Zone No.</Label>
+                  <Input placeholder="35" value={zoneNo} onChange={(e) => onBluePlateChange(setZoneNo, e.target.value)} />
                 </div>
                 <div className="space-y-1.5">
                   <Label>Street No.</Label>
-                  <Input placeholder="662" value={streetNo} onChange={(e) => setStreetNo(e.target.value)} />
+                  <Input placeholder="877" value={streetNo} onChange={(e) => onBluePlateChange(setStreetNo, e.target.value)} />
                 </div>
                 <div className="space-y-1.5">
-                  <Label>Zone No.</Label>
-                  <Input placeholder="70" value={zoneNo} onChange={(e) => setZoneNo(e.target.value)} />
+                  <Label>Building No.</Label>
+                  <Input placeholder="41" value={buildingNo} onChange={(e) => onBluePlateChange(setBuildingNo, e.target.value)} />
+                </div>
+                <div className="space-y-1.5">
+                  <Label>Unit No. <span className="font-normal text-slate-400">(optional)</span></Label>
+                  <Input placeholder="5" value={unitNo} onChange={(e) => setUnitNo(e.target.value)} />
                 </div>
               </div>
 
-              {plateMapUrl && (
-                <a
-                  href={plateMapUrl}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="flex items-center gap-1.5 text-xs text-blue-600 hover:text-blue-700 hover:underline"
+              {/* QNAS Verification */}
+              <div className="space-y-2">
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  className="w-full"
+                  onClick={handleVerifyQnas}
+                  disabled={verifyState === 'loading' || !zoneNo || !streetNo || !buildingNo}
                 >
-                  <ExternalLink className="h-3.5 w-3.5" />
-                  Verify on Google Maps
-                </a>
-              )}
+                  {verifyState === 'loading' ? (
+                    <><Loader2 className="mr-1.5 h-3.5 w-3.5 animate-spin" />Verifying…</>
+                  ) : (
+                    'Verify on Qatar National Address System'
+                  )}
+                </Button>
+
+                {verifyState === 'found' && qnasResult && (
+                  <div className="rounded-md border border-green-200 bg-green-50 px-3 py-2 space-y-1">
+                    <div className="flex items-center gap-1.5 text-sm font-medium text-green-700">
+                      <CheckCircle2 className="h-4 w-4" />
+                      Address verified
+                    </div>
+                    <p className="text-xs text-green-600">
+                      {qnasResult.lat.toFixed(6)}, {qnasResult.lng.toFixed(6)}
+                    </p>
+                    <a
+                      href={googleMapsCoordUrl(qnasResult.lat, qnasResult.lng)}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="flex items-center gap-1 text-xs text-green-700 hover:underline"
+                    >
+                      <ExternalLink className="h-3 w-3" />
+                      Open on Google Maps
+                    </a>
+                  </div>
+                )}
+
+                {verifyState === 'not_found' && (
+                  <div className="flex items-center gap-1.5 rounded-md border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700">
+                    <XCircle className="h-4 w-4 shrink-0" />
+                    Address not found in Qatar national database
+                  </div>
+                )}
+
+                {verifyState === 'error' && (
+                  <p className="text-xs text-slate-500">
+                    Could not reach QNAS service. You can still save the address.
+                  </p>
+                )}
+              </div>
 
               <Button className="w-full" onClick={handleSaveBluePlate} disabled={addAddress.isPending}>
                 {addAddress.isPending ? 'Saving…' : 'Save Address'}
@@ -213,22 +280,17 @@ export function AddressCreationSheet({ open, onOpenChange, customerId, phoneId, 
                 </div>
               </div>
 
-              <div className="space-y-1">
-                <p className="text-xs text-slate-400">
-                  From Google Maps → right-click on location → "What's here?"
-                </p>
-                {coordsMapUrl && (
-                  <a
-                    href={coordsMapUrl}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="flex items-center gap-1.5 text-xs text-blue-600 hover:text-blue-700 hover:underline"
-                  >
-                    <ExternalLink className="h-3.5 w-3.5" />
-                    Verify on Google Maps
-                  </a>
-                )}
-              </div>
+              {coordsMapUrl && (
+                <a
+                  href={coordsMapUrl}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="flex items-center gap-1.5 text-xs text-blue-600 hover:text-blue-700 hover:underline"
+                >
+                  <ExternalLink className="h-3.5 w-3.5" />
+                  Verify on Google Maps
+                </a>
+              )}
 
               <Button className="w-full" onClick={handleSaveCoords} disabled={addAddress.isPending}>
                 {addAddress.isPending ? 'Saving…' : 'Save Address'}
