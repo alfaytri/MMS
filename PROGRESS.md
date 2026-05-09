@@ -154,7 +154,7 @@ Purchase & Sales▾:
 
 ## 🔄 In Progress
 
-🚀 Starting: **Orders Module Plan Task 14: Orders List page**
+🚀 Starting: **Orders Module Task 14: useOrders + Order List page**
 
 ## ✅ Completed
 
