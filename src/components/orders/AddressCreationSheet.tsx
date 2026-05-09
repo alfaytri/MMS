@@ -4,7 +4,6 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/u
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
-import { useBlueplate } from '@/hooks/useBlueplate'
 import { useCustomerAddresses } from '@/hooks/useCustomerAddresses'
 import { toast } from 'sonner'
 import { cn } from '@/lib/utils'
@@ -21,46 +20,26 @@ interface Props {
 }
 
 export function AddressCreationSheet({ open, onOpenChange, customerId, phoneId, onAdded }: Props) {
-  const { fetchByNumber } = useBlueplate()
   const { addAddress } = useCustomerAddresses(phoneId)
 
   const [mode, setMode] = useState<Mode>('blue_plate')
   const [label, setLabel] = useState('')
 
-  // Blue Plate
-  const [bluePlateNo, setBluePlateNo] = useState('')
+  // Blue Plate fields
   const [unitNo, setUnitNo] = useState('')
   const [buildingNo, setBuildingNo] = useState('')
   const [streetNo, setStreetNo] = useState('')
   const [zoneNo, setZoneNo] = useState('')
-  const [showManual, setShowManual] = useState(false)
 
-  // Coordinates
+  // Coordinates fields
   const [lat, setLat] = useState('')
   const [lng, setLng] = useState('')
 
   function resetState() {
     setMode('blue_plate')
     setLabel('')
-    setBluePlateNo(''); setUnitNo(''); setBuildingNo(''); setStreetNo(''); setZoneNo('')
-    setShowManual(false)
+    setUnitNo(''); setBuildingNo(''); setStreetNo(''); setZoneNo('')
     setLat(''); setLng('')
-  }
-
-  async function handleFetch() {
-    if (!bluePlateNo.trim()) return
-    try {
-      const result = await fetchByNumber.mutateAsync(bluePlateNo.trim())
-      setUnitNo(result.unit_no ?? '')
-      setBuildingNo(result.building_no ?? '')
-      setStreetNo(result.street_no ?? '')
-      setZoneNo(result.zone_no ?? '')
-      setShowManual(true)
-      toast.success('Address fetched — review and save')
-    } catch {
-      setShowManual(true)
-      toast.error('Lookup failed — enter details manually')
-    }
   }
 
   async function handleSaveBluePlate() {
@@ -74,7 +53,7 @@ export function AddressCreationSheet({ open, onOpenChange, customerId, phoneId, 
         phone_id: phoneId,
         label: label || null,
         address_type: 'blue_plate',
-        blue_plate_no: bluePlateNo || null,
+        blue_plate_no: null,
         unit_no: unitNo || null,
         building_no: buildingNo || null,
         street_no: streetNo || null,
@@ -125,9 +104,12 @@ export function AddressCreationSheet({ open, onOpenChange, customerId, phoneId, 
 
         <div className="space-y-5 pt-1">
 
-          {/* Address label */}
+          {/* Label */}
           <div className="space-y-1.5">
-            <Label>Address Label <span className="text-slate-400 font-normal">(optional)</span></Label>
+            <Label>
+              Address Label{' '}
+              <span className="font-normal text-slate-400">(optional)</span>
+            </Label>
             <Input
               placeholder="e.g. Main Villa, Office Floor 3"
               value={label}
@@ -136,7 +118,7 @@ export function AddressCreationSheet({ open, onOpenChange, customerId, phoneId, 
           </div>
 
           {/* Mode toggle */}
-          <div className="flex rounded-lg border border-slate-200 p-1 gap-1 bg-slate-50">
+          <div className="flex rounded-lg border border-slate-200 bg-slate-50 p-1 gap-1">
             {(['blue_plate', 'coordinates'] as const).map((m) => (
               <button
                 key={m}
@@ -157,77 +139,34 @@ export function AddressCreationSheet({ open, onOpenChange, customerId, phoneId, 
           {/* ── Blue Plate ── */}
           {mode === 'blue_plate' && (
             <div className="space-y-4">
-              <div className="space-y-1.5">
-                <Label>Blue Plate Number</Label>
-                <div className="flex gap-2">
-                  <Input
-                    placeholder="e.g. 32662-5-58-70"
-                    value={bluePlateNo}
-                    onChange={(e) => setBluePlateNo(e.target.value)}
-                    onKeyDown={(e) => e.key === 'Enter' && handleFetch()}
-                    className="flex-1"
-                  />
-                  <Button
-                    variant="outline"
-                    onClick={handleFetch}
-                    disabled={!bluePlateNo.trim() || fetchByNumber.isPending}
-                    className="shrink-0"
-                  >
-                    {fetchByNumber.isPending ? 'Fetching…' : 'Fetch'}
-                  </Button>
+              <div className="grid grid-cols-2 gap-4">
+                <div className="space-y-1.5">
+                  <Label>Unit No.</Label>
+                  <Input placeholder="5" value={unitNo} onChange={(e) => setUnitNo(e.target.value)} />
                 </div>
-                <p className="text-xs text-slate-400">
-                  Auto-fills fields from Qatar Municipality. Or enter manually below.
-                </p>
+                <div className="space-y-1.5">
+                  <Label>Building No.</Label>
+                  <Input placeholder="58" value={buildingNo} onChange={(e) => setBuildingNo(e.target.value)} />
+                </div>
+                <div className="space-y-1.5">
+                  <Label>Street No.</Label>
+                  <Input placeholder="662" value={streetNo} onChange={(e) => setStreetNo(e.target.value)} />
+                </div>
+                <div className="space-y-1.5">
+                  <Label>Zone No.</Label>
+                  <Input placeholder="70" value={zoneNo} onChange={(e) => setZoneNo(e.target.value)} />
+                </div>
               </div>
-
-              {!showManual && (
-                <button
-                  type="button"
-                  onClick={() => setShowManual(true)}
-                  className="text-sm text-orange-600 hover:underline underline-offset-2"
-                >
-                  Skip — enter address manually
-                </button>
-              )}
-
-              {showManual && (
-                <>
-                  <div className="grid grid-cols-2 gap-3">
-                    <div className="space-y-1.5">
-                      <Label className="text-xs text-slate-500">Unit No.</Label>
-                      <Input placeholder="5" value={unitNo} onChange={(e) => setUnitNo(e.target.value)} />
-                    </div>
-                    <div className="space-y-1.5">
-                      <Label className="text-xs text-slate-500">Building No.</Label>
-                      <Input placeholder="58" value={buildingNo} onChange={(e) => setBuildingNo(e.target.value)} />
-                    </div>
-                    <div className="space-y-1.5">
-                      <Label className="text-xs text-slate-500">Street No.</Label>
-                      <Input placeholder="662" value={streetNo} onChange={(e) => setStreetNo(e.target.value)} />
-                    </div>
-                    <div className="space-y-1.5">
-                      <Label className="text-xs text-slate-500">Zone No.</Label>
-                      <Input placeholder="70" value={zoneNo} onChange={(e) => setZoneNo(e.target.value)} />
-                    </div>
-                  </div>
-
-                  <Button
-                    className="w-full"
-                    onClick={handleSaveBluePlate}
-                    disabled={addAddress.isPending}
-                  >
-                    {addAddress.isPending ? 'Saving…' : 'Save Address'}
-                  </Button>
-                </>
-              )}
+              <Button className="w-full" onClick={handleSaveBluePlate} disabled={addAddress.isPending}>
+                {addAddress.isPending ? 'Saving…' : 'Save Address'}
+              </Button>
             </div>
           )}
 
           {/* ── Coordinates ── */}
           {mode === 'coordinates' && (
             <div className="space-y-4">
-              <div className="grid grid-cols-2 gap-3">
+              <div className="grid grid-cols-2 gap-4">
                 <div className="space-y-1.5">
                   <Label>Latitude</Label>
                   <Input placeholder="25.3764" value={lat} onChange={(e) => setLat(e.target.value)} />
@@ -240,11 +179,7 @@ export function AddressCreationSheet({ open, onOpenChange, customerId, phoneId, 
               <p className="text-xs text-slate-400">
                 From Google Maps → right-click on location → "What's here?"
               </p>
-              <Button
-                className="w-full"
-                onClick={handleSaveCoords}
-                disabled={addAddress.isPending}
-              >
+              <Button className="w-full" onClick={handleSaveCoords} disabled={addAddress.isPending}>
                 {addAddress.isPending ? 'Saving…' : 'Save Address'}
               </Button>
             </div>
