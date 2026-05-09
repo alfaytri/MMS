@@ -13,7 +13,7 @@ interface ServiceNode {
   parent_id: string | null
   price: number | null
   duration: number | null
-  division: string
+  division: string[] | null
 }
 
 interface Props {
@@ -28,10 +28,7 @@ export function ServiceSelector({ onAdd, divisionFilters = [], treeType = 'norma
   const [qty, setQty] = useState(1)
 
   function getChildren(parentId: string | null): ServiceNode[] {
-    return (services ?? []).filter((s: ServiceNode) =>
-      s.parent_id === parentId &&
-      (divisionFilters.length === 0 || divisionFilters.includes(s.division))
-    )
+    return (services ?? []).filter((s: ServiceNode) => s.parent_id === parentId)
   }
 
   function buildLevels(): Array<{ options: ServiceNode[]; selectedId: string | undefined }> {
