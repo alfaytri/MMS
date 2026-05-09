@@ -154,9 +154,11 @@ Purchase & Sales▾:
 
 ## 🔄 In Progress
 
-🚀 Starting: **Orders Module Plan Task 2: DB schema validation & integration**
+🚀 Starting: **Orders Module Plan Task 3: Hook — useInstalledProducts**
 
 ## ✅ Completed
+
+- [2026-05-09] **Orders Module Plan Task 2: DB migration — installed_products table** — `supabase/migrations/20260509120001_installed_products.sql` — Created installed_products table with customer_id, phone_id, address_id, order_id FKs; product details (name, brand, model, serial_number); installed_at date; warranty_months with trigger-computed warranty_expires_at; notes and created_at fields; created indexes on customer_id, order_id, phone_id; used BEFORE INSERT/UPDATE trigger to compute warranty expiry dates atomically via plpgsql function; migration applied successfully via `npx supabase db push --include-all`
 
 - [2026-05-09] **Orders Module Plan Task 1: DB migration — customer_phones & customer_addresses** — `supabase/migrations/20260509120000_customer_phones_addresses.sql` — Created customer_phones table with phone + label + is_primary fields, unique constraint on phone; added phone_id FK to existing customer_addresses table linking to customer_phones; created indexes on (customer_id) and (phone) for query performance; migration applied successfully via `npx supabase db push`
 
