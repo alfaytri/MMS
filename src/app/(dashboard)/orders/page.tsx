@@ -70,10 +70,9 @@ export default function OrdersPage() {
         {/* Filter panel */}
         {showFilters && (
           <div className="mt-3 grid grid-cols-2 gap-2 md:grid-cols-4">
-            <Input placeholder="Customer name" className="h-8 text-sm" onChange={(e) => setFilter((f) => ({ ...f, customerName: e.target.value || undefined }))} />
-            <Input placeholder="Phone" className="h-8 text-sm" onChange={(e) => setFilter((f) => ({ ...f, customerPhone: e.target.value || undefined }))} />
             <Input placeholder="Order number" className="h-8 text-sm" onChange={(e) => setFilter((f) => ({ ...f, orderNumber: e.target.value || undefined }))} />
             <Input type="date" className="h-8 text-sm" onChange={(e) => setFilter((f) => ({ ...f, visitDateFrom: e.target.value || undefined }))} />
+            <Input type="date" className="h-8 text-sm" onChange={(e) => setFilter((f) => ({ ...f, visitDateTo: e.target.value || undefined }))} />
           </div>
         )}
       </div>

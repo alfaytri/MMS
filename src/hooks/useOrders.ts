@@ -20,7 +20,8 @@ export function useOrders(filter: OrdersFilter = {}) {
 
       if (filter.statusChip === 'scheduled') query = query.eq('status', 'scheduled')
       else if (filter.statusChip === 'pending_approval') query = query.eq('status', 'pending-approval')
-      else if (filter.statusChip === 'no_confirmation') query = query.in('status', ['pending-confirmation']).or('confirmation_status.eq.no_response')
+      else if (filter.statusChip === 'no_confirmation')
+        query = query.or('status.eq.pending-confirmation,confirmation_status.eq.no_response')
       else if (filter.statusChip === 'no_address') query = query.is('address', null)
       else if (filter.statusChip === 'past_due_no_invoice') {
         const today = new Date().toISOString().split('T')[0]
