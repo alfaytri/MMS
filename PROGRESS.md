@@ -154,9 +154,11 @@ Purchase & Sales▾:
 
 ## 🔄 In Progress
 
-🚀 Starting: **Orders Module Plan Task 9: useCreateOrder hook (draft state + submit)**
+🚀 Starting: **Orders Module Plan Task 10: useCreateOrder hook tests + validation**
 
 ## ✅ Completed
+
+- [2026-05-09] **Orders Module Plan Task 9: useCreateOrder hook (draft state + submit)** — `src/hooks/useCreateOrder.ts` — State management hook with draft store (customer, address, services, assignments); setters for customer/address/services with array transformations; mutations (addService/removeService handle cascading assignment cleanup, addAssignment generates UUIDs); submit mutation computes order_id via sequence query, formats address via formatAddressLine (Amendment A2), validates slot uniqueness on order_team_assignments insert (Amendment A1 — catches 23505 code and surfaces user-friendly message), inserts to orders/order_services/order_team_assignments/order_log tables atomically, invalidates orders cache, resets draft on success; isValid guards on customerId/services/visitDate/addressId/assignments; zero TypeScript errors
 
 - [2026-05-09] **Orders Module Plan Task 8: AddressPicker & AddressCreationSheet components** — `src/components/orders/AddressPicker.tsx`, `src/components/orders/AddressCreationSheet.tsx` — AddressPicker: popover-based address selection with saved addresses list and "Add New Address" button; integrates useCustomerAddresses hook with full responsive design; uses formatAddressLine utility for display without address_line field (Amendment A2). AddressCreationSheet: right-side sheet for adding addresses via two methods: (1) Blue Plate lookup with Supabase Edge Function via useBlueplate.fetchByNumber mutation, displays resolved unit/building/street/zone; (2) GPS coordinates with lat/lng inputs; both tabs support optional label and persist to database via useCustomerAddresses.addAddress mutation with cache invalidation; zero TypeScript errors
 
