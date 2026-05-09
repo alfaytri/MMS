@@ -154,10 +154,11 @@ Purchase & Sales▾:
 
 ## 🔄 In Progress
 
-🚀 Starting: **Orders Module Task 16: OrderDetailDialog + OrderCancelDialog**
+🚀 Starting: **Orders Module Task 17: Navigation Update**
 
 ## ✅ Completed
 
+- [2026-05-09] **Orders Module Task 16: OrderDetailDialog + OrderCancelDialog** — `src/hooks/useReasonLists.ts`, `src/components/orders/OrderCancelDialog.tsx`, `src/components/orders/OrderDetailDialog.tsx`, `src/app/(dashboard)/orders/page.tsx` — useReasonLists: TanStack Query hook fetching reason_lists by category (active, sort_order); OrderCancelDialog: AlertDialog with Base UI Select (onValueChange null-guarded) for cancellation reasons + optional notes textarea; OrderDetailDialog: Sheet with 4 tabs (services/invoice/follow-up/logs), confirmation banner with BANNER_STYLES map for all 6 ConfirmationStatus values, confirm/rollback/cancel action buttons wired to useOrderActions mutations with toast feedback, logs tab with timeline UI; orders page wired to open dialog on OrderCard click; tsc clean on new/modified files
 - [2026-05-09] **Orders Module Task 15: useOrderDetail + useOrderActions** — `src/hooks/useOrderDetail.ts`, `src/hooks/useOrderActions.ts` — useOrderDetail: TanStack Query hook fetching full order with customers!inner join (name + customer_phones), order_services, order_team_assignments with team name resolved from teams!inner, order_log sorted descending by created_at; useOrderActions: three mutations (confirmManually, rollback, cancel) each updating orders table and inserting to order_log, with dual cache invalidation (orders + order-detail); canTransition: exported standalone pure function with VALID_TRANSITIONS state machine covering all 9 OrderStatus values; zero TypeScript errors introduced in new files
 
 - [2026-05-09] **Orders Module Task 14: useOrders + Order List page** — `src/hooks/useOrders.ts`, `src/components/orders/OrderCard.tsx`, `src/app/(dashboard)/orders/page.tsx` — useOrders: TanStack Query hook with Supabase join (customers!inner + customer_phones!left), status chip filters (scheduled/pending_approval/no_confirmation/no_address/past_due_no_invoice), date range filters, ilike order number search, division filter (any-cast for DB enum), sort by date/amount, 200-row limit; OrderCard: button card with STATUS_STYLES/CONFIRMATION_LABELS maps, truncated address, QAR total, formatted date; Orders List page: chip filter bar (orange active state), collapsible filter panel with customer name/phone/order number/date inputs, full-screen list with loading/empty states; zero TypeScript errors introduced
