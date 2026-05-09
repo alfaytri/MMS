@@ -154,7 +154,7 @@ Purchase & Sales▾:
 
 ## 🔄 In Progress
 
-🚀 Starting: **Orders Module Plan Task 8: Hook — useCreateOrder (draft state + submit)**
+🚀 Starting: **Orders Module Plan Task 8: AddressPicker & AddressCreationSheet components**
 
 ## ✅ Completed
 
