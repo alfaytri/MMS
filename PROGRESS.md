@@ -154,9 +154,13 @@ Purchase & Sales▾:
 
 ## 🔄 In Progress
 
-🚀 Starting: **Orders Module Plan Task 11: OrderForm shell component**
+🚀 Starting: **Orders Module Plan Task 13: Create Order Page**
 
 ## ✅ Completed
+
+- [2026-05-09] **Orders Module Plan Task 12: useCustomerHistory + CustomerHistoryPanel** — `src/hooks/useCustomerHistory.ts`, `src/components/orders/CustomerHistoryPanel.tsx` — useCustomerHistory: TanStack Query hook with server-side pagination via .range() (Amendment A7), accepts orderPage/productPage/pageSize parameters, returns { data, count } for orders and products, supports monthly filtering with date range queries on scheduled_date/installed_at. CustomerHistoryPanel: collapsible sidebar with month navigation, independent pagination for orders and products, status badges with conditional View/Invoice/Backwork buttons, warranty status indicator (active/expiring_soon/expired) via getWarrantyInfo utility, responsive design with pagination controls; zero TypeScript errors
+
+- [2026-05-09] **Orders Module Plan Task 11: OrderForm shell component** — `src/components/orders/OrderForm.tsx` — placeholder pending implementation
 
 - [2026-05-09] **Orders Module Plan Task 10: ServiceSelector & SelectedServiceCard components** — `src/components/orders/ServiceSelector.tsx`, `src/components/orders/SelectedServiceCard.tsx` — ServiceSelector: cascading dropdown tree navigation via useServiceTree hook (handles null price/duration gracefully), hierarchical category selection, leaf node validation, quantity input with min=1 constraint, service details card (duration + price), Add Service button integrating onAdd callback to populate OrderServiceDraft array; responsive design with h-9 triggers and h-8 inputs. SelectedServiceCard: dnd-kit draggable wrapper using useDraggable hook, GripVertical + X buttons for drag/remove, service name + path hierarchy, quantity × duration × price metadata, opacity-50 + shadow-lg during drag; integrates with drag-drop context for future reordering; zero TypeScript errors
 
