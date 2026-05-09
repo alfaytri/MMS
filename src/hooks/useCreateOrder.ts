@@ -29,7 +29,7 @@ export function useCreateOrder() {
   const supabase = createClient()
   const qc = useQueryClient()
 
-  function setCustomer(result: CustomerLookupResult & { phone: string }) {
+  function setCustomer(result: CustomerLookupResult) {
     setDraft((d) => ({
       ...d,
       customerId: result.customerId,

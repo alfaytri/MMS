@@ -83,7 +83,7 @@ export default function CreateOrderPage() {
         open={lookupOpen}
         onOpenChange={setLookupOpen}
         onConfirm={(result) => {
-          setCustomer({ ...result, phone: result.customerName })
+          setCustomer(result)
           setLookupOpen(false)
         }}
       />

@@ -6,6 +6,7 @@ export interface CustomerLookupResult {
   customerId: string
   phoneId: string
   customerName: string
+  phone: string
   addressCount: number
   orderCount: number
 }
@@ -21,6 +22,8 @@ export function useCustomerLookup() {
 
   const lookupPhone = useMutation({
     mutationFn: async (phone: string): Promise<LookupResult> => {
+      const normalizedPhone = phone.replace(/\s+/g, '')
+
       const { data, error } = await supabase
         .from('customer_phones')
         .select(`
@@ -29,22 +32,59 @@ export function useCustomerLookup() {
           customers!inner(id, name),
           customer_addresses(id)
         `)
-        .eq('phone', phone.replace(/\s+/g, ''))
+        .eq('phone', normalizedPhone)
         .single()
 
-      if (error || !data) return { found: false }
+      if (!error && data) {
+        const { count: orderCount } = await supabase
+          .from('orders')
+          .select('id', { count: 'exact', head: true })
+          .eq('customer_id', data.customer_id)
+
+        return {
+          found: true,
+          customerId: data.customer_id,
+          phoneId: data.id,
+          customerName: (data.customers as any).name,
+          phone: normalizedPhone,
+          addressCount: (data.customer_addresses as any[]).length,
+          orderCount: orderCount ?? 0,
+        }
+      }
+
+      // Fallback: customer created via Customers module only has customers.phone
+      const { data: customer, error: custError } = await supabase
+        .from('customers')
+        .select('id, name, customer_addresses(id)')
+        .eq('phone', normalizedPhone)
+        .single()
+
+      if (custError || !customer) return { found: false }
+
+      // Backfill customer_phones so future lookups work
+      const { data: phoneRecord } = await supabase
+        .from('customer_phones')
+        .upsert(
+          { customer_id: customer.id, phone: normalizedPhone, is_primary: true },
+          { onConflict: 'phone' }
+        )
+        .select('id')
+        .single()
+
+      if (!phoneRecord) return { found: false }
 
       const { count: orderCount } = await supabase
         .from('orders')
         .select('id', { count: 'exact', head: true })
-        .eq('customer_id', data.customer_id)
+        .eq('customer_id', customer.id)
 
       return {
         found: true,
-        customerId: data.customer_id,
-        phoneId: data.id,
-        customerName: (data.customers as any).name,
-        addressCount: (data.customer_addresses as any[]).length,
+        customerId: customer.id,
+        phoneId: phoneRecord.id,
+        customerName: (customer as any).name,
+        phone: normalizedPhone,
+        addressCount: ((customer as any).customer_addresses as any[]).length,
         orderCount: orderCount ?? 0,
       }
     },
@@ -73,6 +113,7 @@ export function useCustomerLookup() {
         customerId: result.customer_id,
         phoneId: result.phone_id,
         customerName: result.customer_name,
+        phone: phone.trim(),
         addressCount: 0,
         orderCount: 0,
       }
