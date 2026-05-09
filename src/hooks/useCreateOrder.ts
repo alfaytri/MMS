@@ -5,7 +5,6 @@ import { createClient } from '@/lib/supabase/client'
 import { formatAddressLine } from '@/lib/orders/warrantyUtils'
 import type { OrderDraft, OrderServiceDraft, TeamAssignmentDraft, CustomerAddress } from '@/types/orders'
 import type { CustomerLookupResult } from '@/hooks/useCustomerLookup'
-import { v4 as uuidv4 } from 'uuid'
 
 const INITIAL_DRAFT: OrderDraft = {
   customerId: '',
@@ -62,7 +61,7 @@ export function useCreateOrder() {
   }
 
   function addAssignment(assignment: Omit<TeamAssignmentDraft, 'id'>) {
-    setDraft((d) => ({ ...d, assignments: [...d.assignments, { ...assignment, id: uuidv4() }] }))
+    setDraft((d) => ({ ...d, assignments: [...d.assignments, { ...assignment, id: crypto.randomUUID() }] }))
   }
 
   function removeAssignment(id: string) {
@@ -113,7 +112,7 @@ export function useCreateOrder() {
         ? formatAddressLine(draft.addressSnapshot)
         : null
 
-      const { data: order, error } = await supabase
+      const { data: order, error } = await (supabase as any)
         .from('orders')
         .insert({
           order_id: orderId,
@@ -133,7 +132,7 @@ export function useCreateOrder() {
       if (error || !order) throw error ?? new Error('Failed to create order')
 
       if (draft.services.length > 0) {
-        await supabase.from('order_services').insert(
+        await (supabase as any).from('order_services').insert(
           draft.services.map((s) => ({
             order_id: order.id,
             service_id: s.serviceId,
@@ -148,7 +147,7 @@ export function useCreateOrder() {
       }
 
       if (draft.assignments.length > 0) {
-        const { error: assignError } = await supabase.from('order_team_assignments').insert(
+        const { error: assignError } = await (supabase as any).from('order_team_assignments').insert(
           draft.assignments.map((a) => ({
             order_id: order.id,
             team_id: a.teamId,
@@ -166,7 +165,7 @@ export function useCreateOrder() {
         }
       }
 
-      await supabase.from('order_log').insert({
+      await (supabase as any).from('order_log').insert({
         order_id: order.id,
         action: 'created',
         user_name: 'agent',
