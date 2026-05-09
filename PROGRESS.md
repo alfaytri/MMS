@@ -155,9 +155,13 @@ Purchase & Sales▾:
 
 ## 🔄 In Progress
 
-🚀 Starting: **Orders Service Card & Time Windows Task 1: DB Migration — order_visit_dates table**
+🚀 Starting: **Orders Service Card & Time Windows Task 11: Smoke test + drop column migration**
 
 ## ✅ Completed
+
+- [2026-05-09] **Orders Service Card & Time Windows Task 10: OrderFormPanel wire-up** — `src/components/orders/OrderFormPanel.tsx`, `src/app/(dashboard)/orders/create/page.tsx` — OrderFormPanel: added onUpdateServiceQty prop, handleDatesChange (string[] → VisitDateWindow[] transform preserving existing time windows), VisitDateSchedule rendered below date picker, SelectedServiceCard wired with onQtyChange; create/page.tsx: destructured updateServiceQty from useCreateOrder and passed as onUpdateServiceQty to OrderFormPanel; zero TypeScript errors in orders module
+
+- [2026-05-09] **Orders Service Card & Time Windows Tasks 1–9: DB + components** — `supabase/migrations/20260509200000–2_*.sql`, `src/types/orders.ts`, `src/components/orders/SelectedServiceCard.tsx`, `src/components/orders/ServiceSelector.tsx`, `src/hooks/useDateAvailability.ts`, `src/components/orders/VisitDateSchedule.tsx`, `src/hooks/useCreateOrder.ts` — Normalized order_visit_dates table with backfill; atomic create_order_with_dates RPC; get_date_team_availability conflict-check RPC; VisitDateWindow type; SelectedServiceCard Idea 1 stacked layout (breadcrumb/name/stepper/clock/price); ServiceSelector leaf panel stepper; useDateAvailability hook; VisitDateSchedule with Apply-to-all + conflict detection + loading spinner race-condition guard
 
 - [2026-05-09] **Orders Module Task 18: PROGRESS.md final update** — `PROGRESS.md` — Updated active branch, plan table, in-progress section; Orders Module fully documented
 
