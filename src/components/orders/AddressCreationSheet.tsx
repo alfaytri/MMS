@@ -27,6 +27,10 @@ function googleMapsCoordUrl(lat: number | string, lng: number | string): string 
   return `https://www.google.com/maps?q=${lat},${lng}`
 }
 
+function wazeUrl(lat: number, lng: number): string {
+  return `https://waze.com/ul?ll=${lat},${lng}&navigate=yes`
+}
+
 export function AddressCreationSheet({ open, onOpenChange, customerId, phoneId, onAdded }: Props) {
   const { addAddress } = useCustomerAddresses(customerId)
 
@@ -34,7 +38,6 @@ export function AddressCreationSheet({ open, onOpenChange, customerId, phoneId, 
   const [label, setLabel] = useState('')
 
   // Blue Plate fields
-  const [unitNo, setUnitNo] = useState('')
   const [buildingNo, setBuildingNo] = useState('')
   const [streetNo, setStreetNo] = useState('')
   const [zoneNo, setZoneNo] = useState('')
@@ -86,14 +89,14 @@ export function AddressCreationSheet({ open, onOpenChange, customerId, phoneId, 
   function resetState() {
     setMode('blue_plate')
     setLabel('')
-    setUnitNo(''); setBuildingNo(''); setStreetNo(''); setZoneNo('')
+    setBuildingNo(''); setStreetNo(''); setZoneNo('')
     setLat(''); setLng('')
     setVerifyState('idle')
     setQnasResult(null)
   }
 
   async function handleSaveBluePlate() {
-    if (!unitNo && !buildingNo && !streetNo && !zoneNo) {
+    if (!buildingNo && !streetNo && !zoneNo) {
       toast.error('Enter at least one address field')
       return
     }
@@ -104,7 +107,7 @@ export function AddressCreationSheet({ open, onOpenChange, customerId, phoneId, 
         label: label || null,
         address_type: 'blue_plate',
         blue_plate_no: null,
-        unit_no: unitNo || null,
+        unit_no: null,
         building_no: buildingNo || null,
         street_no: streetNo || null,
         zone_no: zoneNo || null,
@@ -198,13 +201,9 @@ export function AddressCreationSheet({ open, onOpenChange, customerId, phoneId, 
                   <Label>Street No.</Label>
                   <Input placeholder="877" value={streetNo} onChange={(e) => onBluePlateChange(setStreetNo, e.target.value)} />
                 </div>
-                <div className="space-y-1.5">
+                <div className="space-y-1.5 col-span-2">
                   <Label>Building No.</Label>
                   <Input placeholder="41" value={buildingNo} onChange={(e) => onBluePlateChange(setBuildingNo, e.target.value)} />
-                </div>
-                <div className="space-y-1.5">
-                  <Label>Unit No. <span className="font-normal text-slate-400">(optional)</span></Label>
-                  <Input placeholder="5" value={unitNo} onChange={(e) => setUnitNo(e.target.value)} />
                 </div>
               </div>
 
@@ -226,7 +225,7 @@ export function AddressCreationSheet({ open, onOpenChange, customerId, phoneId, 
                 </Button>
 
                 {verifyState === 'found' && qnasResult && (
-                  <div className="rounded-md border border-green-200 bg-green-50 px-3 py-2 space-y-1">
+                  <div className="rounded-md border border-green-200 bg-green-50 px-3 py-2 space-y-1.5">
                     <div className="flex items-center gap-1.5 text-sm font-medium text-green-700">
                       <CheckCircle2 className="h-4 w-4" />
                       Address verified
@@ -234,15 +233,26 @@ export function AddressCreationSheet({ open, onOpenChange, customerId, phoneId, 
                     <p className="text-xs text-green-600">
                       {qnasResult.lat.toFixed(6)}, {qnasResult.lng.toFixed(6)}
                     </p>
-                    <a
-                      href={googleMapsCoordUrl(qnasResult.lat, qnasResult.lng)}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className="flex items-center gap-1 text-xs text-green-700 hover:underline"
-                    >
-                      <ExternalLink className="h-3 w-3" />
-                      Open on Google Maps
-                    </a>
+                    <div className="flex gap-3">
+                      <a
+                        href={googleMapsCoordUrl(qnasResult.lat, qnasResult.lng)}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="flex items-center gap-1 text-xs text-green-700 hover:underline"
+                      >
+                        <ExternalLink className="h-3 w-3" />
+                        Google Maps
+                      </a>
+                      <a
+                        href={wazeUrl(qnasResult.lat, qnasResult.lng)}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="flex items-center gap-1 text-xs text-green-700 hover:underline"
+                      >
+                        <ExternalLink className="h-3 w-3" />
+                        Waze
+                      </a>
+                    </div>
                   </div>
                 )}
 
