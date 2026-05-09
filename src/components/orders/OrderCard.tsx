@@ -33,7 +33,7 @@ export function OrderCard({ order, onClick }: Props) {
   return (
     <button
       onClick={onClick}
-      className="w-full rounded-lg border border-slate-200 bg-white p-3 text-left transition-colors hover:border-slate-300 hover:bg-slate-50"
+      className="w-full min-h-11 rounded-lg border border-slate-200 bg-white p-3 text-left transition-colors hover:border-slate-300 hover:bg-slate-50"
     >
       <div className="flex items-start justify-between gap-3">
         <div className="min-w-0">
@@ -54,7 +54,7 @@ export function OrderCard({ order, onClick }: Props) {
           )}
         </div>
         <div className="shrink-0 text-right">
-          <p className="font-semibold text-slate-900">QAR {order.total_amount.toLocaleString()}</p>
+          <p className="font-semibold text-slate-900">QAR {(order.total_amount ?? 0).toLocaleString()}</p>
           {order.scheduled_date && (
             <p className="text-xs text-slate-500">{format(new Date(order.scheduled_date), 'dd MMM yyyy')}</p>
           )}

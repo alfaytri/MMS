@@ -3,7 +3,9 @@ import { useQuery } from '@tanstack/react-query'
 import { createClient } from '@/lib/supabase/client'
 import type { OrderListItem, OrdersFilter } from '@/types/orders'
 
-export function useOrders(filter: OrdersFilter = {}) {
+const DEFAULT_FILTER: OrdersFilter = {}
+
+export function useOrders(filter: OrdersFilter = DEFAULT_FILTER) {
   const supabase = createClient()
 
   return useQuery({
@@ -14,8 +16,7 @@ export function useOrders(filter: OrdersFilter = {}) {
         .select(`
           id, order_id, customer_id, type, division, status, confirmation_status,
           scheduled_date, total_amount, agent_name, address, has_invoice, invoice_number, created_at,
-          customers!inner(name),
-          customer_phones!left(phone)
+          customers!inner(name, customer_phones(phone))
         `)
 
       if (filter.statusChip === 'scheduled') query = query.eq('status', 'scheduled')
@@ -35,7 +36,9 @@ export function useOrders(filter: OrdersFilter = {}) {
       if (filter.orderNumber)     query = query.ilike('order_id', `%${filter.orderNumber}%`)
       if (filter.division)        query = query.eq('division', filter.division as any)
 
-      if (filter.sortBy === 'date_asc')    query = query.order('scheduled_date', { ascending: true })
+      if (filter.sortBy === 'date_asc')         query = query.order('scheduled_date', { ascending: true })
+      else if (filter.sortBy === 'date_desc')   query = query.order('scheduled_date', { ascending: false })
+      else if (filter.sortBy === 'amount_asc')  query = query.order('total_amount', { ascending: true })
       else if (filter.sortBy === 'amount_desc') query = query.order('total_amount', { ascending: false })
       else query = query.order('scheduled_date', { ascending: false })
 
@@ -45,7 +48,7 @@ export function useOrders(filter: OrdersFilter = {}) {
       return (data ?? []).map((o: any) => ({
         ...o,
         customer_name: o.customers?.name ?? '',
-        customer_phone: o.customer_phones?.[0]?.phone ?? '',
+        customer_phone: o.customers?.customer_phones?.[0]?.phone ?? '',
         services_summary: '',
       }))
     },

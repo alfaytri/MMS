@@ -43,25 +43,27 @@ export default function OrdersPage() {
           </Button>
         </div>
 
-        {/* Chips */}
-        <div className="mt-3 flex flex-wrap gap-2">
-          {CHIPS.map((chip) => (
-            <button
-              key={chip.key}
-              onClick={() => handleChip(chip.key)}
-              className={cn(
-                'rounded-full border px-3 py-1 text-sm font-medium transition-colors',
-                activeChip === chip.key
-                  ? 'border-orange-500 bg-orange-500 text-white'
-                  : 'border-slate-200 bg-white text-slate-600 hover:border-slate-300'
-              )}
-            >
-              {chip.label}
-            </button>
-          ))}
+        {/* Chips + Filter */}
+        <div className="mt-3 flex items-center justify-between">
+          <div className="flex flex-1 gap-2 overflow-x-auto pb-1 mr-2">
+            {CHIPS.map((chip) => (
+              <button
+                key={chip.key}
+                onClick={() => handleChip(chip.key)}
+                className={cn(
+                  'shrink-0 rounded-full border px-3 py-1 text-sm font-medium transition-colors',
+                  activeChip === chip.key
+                    ? 'border-orange-500 bg-orange-500 text-white'
+                    : 'border-slate-200 bg-white text-slate-600 hover:border-slate-300'
+                )}
+              >
+                {chip.label}
+              </button>
+            ))}
+          </div>
           <button
             onClick={() => setShowFilters((v) => !v)}
-            className="ml-auto flex items-center gap-1.5 rounded-full border border-slate-200 px-3 py-1 text-sm text-slate-600 hover:border-slate-300"
+            className="shrink-0 flex items-center gap-1.5 rounded-full border border-slate-200 px-3 py-1 text-sm text-slate-600 hover:border-slate-300"
           >
             <Filter className="h-3.5 w-3.5" /> Filter
           </button>
