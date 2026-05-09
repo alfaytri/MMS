@@ -51,8 +51,14 @@ export const NAV_ITEMS: NavEntry[] = [
   {
     label: 'Orders',
     icon: 'ShoppingCart',
-    comingSoon: true,
-    groups: [],
+    groups: [
+      {
+        items: [
+          { label: 'Work Orders', href: '/orders' },
+          { label: 'Create Order', href: '/orders/create' },
+        ],
+      },
+    ],
   },
   {
     label: 'Contracts',
