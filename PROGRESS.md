@@ -155,9 +155,11 @@ Purchase & Sales▾:
 
 ## 🔄 In Progress
 
-🚀 Starting: **Orders Service Card & Time Windows Task 11: Smoke test + drop column migration**
+_(nothing — all Orders Service Card & Time Windows tasks complete)_
 
 ## ✅ Completed
+
+- [2026-05-09] **Orders Service Card & Time Windows Task 11: Drop legacy JSONB column** — `supabase/migrations/20260509200010_drop_orders_visit_dates_column.sql` — Applied ALTER TABLE orders DROP COLUMN visit_dates; all data was already backfilled to order_visit_dates in Task 1; migration pushed and verified
 
 - [2026-05-09] **Orders Service Card & Time Windows Task 10: OrderFormPanel wire-up** — `src/components/orders/OrderFormPanel.tsx`, `src/app/(dashboard)/orders/create/page.tsx` — OrderFormPanel: added onUpdateServiceQty prop, handleDatesChange (string[] → VisitDateWindow[] transform preserving existing time windows), VisitDateSchedule rendered below date picker, SelectedServiceCard wired with onQtyChange; create/page.tsx: destructured updateServiceQty from useCreateOrder and passed as onUpdateServiceQty to OrderFormPanel; zero TypeScript errors in orders module
 
