@@ -154,9 +154,11 @@ Purchase & Sales▾:
 
 ## 🔄 In Progress
 
-🚀 Starting: **Orders Module Plan Task 4: Hook — useOrderForm**
+🚀 Starting: **Orders Module Plan Task 5: Hook — useCustomerLookup**
 
 ## ✅ Completed
+
+- [2026-05-09] **Orders Module Plan Task 4: Warranty & Address Utilities (with tests)** — `src/lib/orders/warrantyUtils.ts`, `src/lib/orders/__tests__/warrantyUtils.test.ts` — Implemented getWarrantyInfo pure function (uses startOfDay from date-fns per Amendment A5 to avoid timezone off-by-one; checks warrantyMonths and warrantyExpiresAt, returns active/expiring_soon/expired status with label); implemented formatAddressLine pure function (no longer checks address_line field per Amendment A2; computes directly from blue_plate parts or coordinates or fallback); all 7 tests passing; both functions ready for use in useCustomerHistory and order detail views
 
 - [2026-05-09] **Orders Module Plan Task 3: TypeScript types file — orders.ts** — `src/types/orders.ts` — Created TypeScript types for Orders Module including CustomerPhone, CustomerAddress (without address_line per Amendment A2), InstalledProduct, OrderStatus, ConfirmationStatus, OrderMode, OrderType, OrderServiceDraft, TeamAssignmentDraft, OrderDraft (with addressSnapshot: CustomerAddress | null per Amendment A2), OrderListItem, OrderDetail, WarrantyStatus, WarrantyInfo, CustomerHistoryOrder, and OrdersFilter; file compiles cleanly with `npx tsc --noEmit`
 
