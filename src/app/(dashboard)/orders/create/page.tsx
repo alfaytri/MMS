@@ -27,6 +27,7 @@ export default function CreateOrderPage() {
     setAddress,
     addService,
     removeService,
+    updateServiceQty,
     addAssignment,
     update,
     isValid,
@@ -120,6 +121,7 @@ export default function CreateOrderPage() {
           onTypeChange={(type) => update({ type })}
           onAddService={addService}
           onRemoveService={removeService}
+          onUpdateServiceQty={updateServiceQty}
           onAddressSelect={setAddress}
           onUpdate={update}
           onPendingFilesChange={setPendingFiles}

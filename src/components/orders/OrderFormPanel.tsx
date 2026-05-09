@@ -12,11 +12,12 @@ import { ServiceSelector } from './ServiceSelector'
 import { SelectedServiceCard } from './SelectedServiceCard'
 import { AddressPicker } from './AddressPicker'
 import { VisitDatePicker } from './VisitDatePicker'
+import { VisitDateSchedule } from './VisitDateSchedule'
 import { AttachmentsUpload } from './AttachmentsUpload'
 import type { PendingAttachment } from './AttachmentsUpload'
 import { useDivisions } from '@/hooks/useDivisions'
 import { cn } from '@/lib/utils'
-import type { OrderDraft, OrderServiceDraft, CustomerAddress, OrderType } from '@/types/orders'
+import type { OrderDraft, OrderServiceDraft, CustomerAddress, OrderType, VisitDateWindow } from '@/types/orders'
 
 const COUNTRY_CODES = [
   { code: '+974', label: 'QA +974' },
@@ -39,6 +40,7 @@ interface Props {
   onTypeChange: (type: OrderType) => void
   onAddService: (s: OrderServiceDraft) => void
   onRemoveService: (id: string) => void
+  onUpdateServiceQty: (serviceId: string, qty: number) => void
   onAddressSelect: (a: CustomerAddress) => void
   onUpdate: (patch: Partial<OrderDraft>) => void
   onPendingFilesChange: (files: PendingAttachment[]) => void
@@ -53,6 +55,7 @@ export function OrderFormPanel({
   onTypeChange,
   onAddService,
   onRemoveService,
+  onUpdateServiceQty,
   onAddressSelect,
   onUpdate,
   onPendingFilesChange,
@@ -75,16 +78,27 @@ export function OrderFormPanel({
     setSelectedDivisions(slug ? [slug] : [])
   }
 
-  // Combine country code + local number for storage
   function handleArrivalPhoneChange(local: string) {
     const full = local.trim() ? `${arrivalCountryCode}${local.trim().replace(/^0/, '')}` : ''
     onUpdate({ arrivalPhone: full })
   }
 
-  // Parse stored arrivalPhone back to local number for display
   const arrivalLocalNumber = draft.arrivalPhone
     ? draft.arrivalPhone.replace(arrivalCountryCode, '')
     : ''
+
+  // Transform string[] from VisitDatePicker → VisitDateWindow[], preserving existing time windows
+  function handleDatesChange(dates: string[]) {
+    const existingMap = new Map(draft.visitDates.map((w) => [w.date, w]))
+    const newWindows: VisitDateWindow[] = dates.map(
+      (date) => existingMap.get(date) ?? { date, fromTime: null, toTime: null }
+    )
+    const primaryDate =
+      newWindows.length > 0
+        ? [...newWindows].sort((a, b) => a.date.localeCompare(b.date))[0].date
+        : draft.visitDate
+    onUpdate({ visitDates: newWindows, visitDate: primaryDate })
+  }
 
   return (
     <div className="flex h-full w-full shrink-0 flex-col border-r bg-white sm:w-[340px]">
@@ -166,7 +180,12 @@ export function OrderFormPanel({
               {draft.services.length > 0 && (
                 <div className="mt-2 space-y-1.5">
                   {draft.services.map((s) => (
-                    <SelectedServiceCard key={s.serviceId} service={s} onRemove={onRemoveService} />
+                    <SelectedServiceCard
+                      key={s.serviceId}
+                      service={s}
+                      onRemove={onRemoveService}
+                      onQtyChange={onUpdateServiceQty}
+                    />
                   ))}
                 </div>
               )}
@@ -183,13 +202,18 @@ export function OrderFormPanel({
             Visit Date
           </Label>
           <VisitDatePicker
-            selected={draft.visitDates}
-            onChange={(dates) => onUpdate({
-              visitDates: dates,
-              visitDate: dates.length > 0 ? [...dates].sort()[0] : draft.visitDate,
-            })}
+            selected={draft.visitDates.map((w) => w.date)}
+            onChange={handleDatesChange}
           />
         </div>
+
+        {/* ── Requested Arrival Window (per-day time schedule) ── */}
+        {draft.visitDates.length > 0 && (
+          <VisitDateSchedule
+            windows={draft.visitDates}
+            onChange={(windows) => onUpdate({ visitDates: windows })}
+          />
+        )}
 
         {/* ── Order Address ── */}
         <div className="space-y-1.5">
@@ -268,7 +292,7 @@ export function OrderFormPanel({
           />
         </div>
 
-        {/* ── Voucher Code (moved to bottom) ── */}
+        {/* ── Voucher Code ── */}
         <div className="space-y-1.5">
           <Label className="text-xs font-semibold uppercase tracking-wide text-slate-500">
             Voucher Code
