@@ -2716,6 +2716,8 @@ export type Database = {
         Row: {
           address: string | null
           agent_name: string | null
+          arrival_phone: string | null
+          attachments: Json | null
           confirmation_sent_at: string | null
           confirmation_status:
             | Database["public"]["Enums"]["confirmation_status"]
@@ -2736,10 +2738,13 @@ export type Database = {
           type: string | null
           updated_at: string | null
           visit_date: string | null
+          visit_dates: Json | null
         }
         Insert: {
           address?: string | null
           agent_name?: string | null
+          arrival_phone?: string | null
+          attachments?: Json | null
           confirmation_sent_at?: string | null
           confirmation_status?:
             | Database["public"]["Enums"]["confirmation_status"]
@@ -2760,10 +2765,13 @@ export type Database = {
           type?: string | null
           updated_at?: string | null
           visit_date?: string | null
+          visit_dates?: Json | null
         }
         Update: {
           address?: string | null
           agent_name?: string | null
+          arrival_phone?: string | null
+          attachments?: Json | null
           confirmation_sent_at?: string | null
           confirmation_status?:
             | Database["public"]["Enums"]["confirmation_status"]
@@ -2784,6 +2792,7 @@ export type Database = {
           type?: string | null
           updated_at?: string | null
           visit_date?: string | null
+          visit_dates?: Json | null
         }
         Relationships: [
           {
@@ -7600,5 +7609,3 @@ export const Constants = {
     },
   },
 } as const
-A new version of Supabase CLI is available: v2.98.2 (currently installed v2.91.3)
-We recommend updating regularly for new features and bug fixes: https://supabase.com/docs/guides/cli/getting-started#updating-the-supabase-cli

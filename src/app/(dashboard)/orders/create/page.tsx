@@ -21,6 +21,8 @@ export default function CreateOrderPage() {
 
   const {
     draft,
+    pendingFiles,
+    setPendingFiles,
     setCustomer,
     setAddress,
     addService,
@@ -114,11 +116,13 @@ export default function CreateOrderPage() {
       <div className="flex h-[calc(100vh-56px)] flex-col overflow-hidden sm:flex-row">
         <OrderFormPanel
           draft={draft}
+          pendingFiles={pendingFiles}
           onTypeChange={(type) => update({ type })}
           onAddService={addService}
           onRemoveService={removeService}
           onAddressSelect={setAddress}
           onUpdate={update}
+          onPendingFilesChange={setPendingFiles}
           onSubmit={handleSubmit}
           isSubmitting={submit.isPending}
           isValid={isValid()}

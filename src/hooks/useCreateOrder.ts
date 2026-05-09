@@ -3,8 +3,11 @@ import { useState } from 'react'
 import { useMutation, useQueryClient } from '@tanstack/react-query'
 import { createClient } from '@/lib/supabase/client'
 import { formatAddressLine } from '@/lib/orders/warrantyUtils'
-import type { OrderDraft, OrderServiceDraft, TeamAssignmentDraft, CustomerAddress } from '@/types/orders'
+import type { OrderDraft, OrderServiceDraft, TeamAssignmentDraft, CustomerAddress, OrderAttachment } from '@/types/orders'
 import type { CustomerLookupResult } from '@/hooks/useCustomerLookup'
+import type { PendingAttachment } from '@/components/orders/AttachmentsUpload'
+
+const today = new Date().toISOString().split('T')[0]
 
 const INITIAL_DRAFT: OrderDraft = {
   customerId: '',
@@ -15,17 +18,21 @@ const INITIAL_DRAFT: OrderDraft = {
   addressSnapshot: null,
   type: 'order',
   services: [],
-  visitDate: new Date().toISOString().split('T')[0],
+  visitDate: today,
+  visitDates: [today],
   visitEndDate: null,
   mode: 'normal',
   assignments: [],
   voucherCode: '',
   voucherDiscount: 0,
   notes: '',
+  arrivalPhone: '',
+  attachments: [],
 }
 
 export function useCreateOrder() {
   const [draft, setDraft] = useState<OrderDraft>(INITIAL_DRAFT)
+  const [pendingFiles, setPendingFiles] = useState<PendingAttachment[]>([])
   const supabase = createClient()
   const qc = useQueryClient()
 
@@ -74,6 +81,7 @@ export function useCreateOrder() {
 
   function reset() {
     setDraft(INITIAL_DRAFT)
+    setPendingFiles([])
   }
 
   function isValid(): boolean {
@@ -112,6 +120,27 @@ export function useCreateOrder() {
         ? formatAddressLine(draft.addressSnapshot)
         : null
 
+      // Upload pending files to Supabase storage
+      const uploadedAttachments: OrderAttachment[] = []
+      for (const item of pendingFiles) {
+        const ext = item.file.name.split('.').pop() ?? 'bin'
+        const path = `${orderId}/${item.id}.${ext}`
+        const { error: uploadErr } = await supabase.storage
+          .from('order-attachments')
+          .upload(path, item.file, { upsert: true, contentType: item.file.type })
+        if (!uploadErr) {
+          const { data: { publicUrl } } = supabase.storage
+            .from('order-attachments')
+            .getPublicUrl(path)
+          uploadedAttachments.push({ url: publicUrl, name: item.file.name, type: item.file.type })
+        }
+      }
+
+      // Primary visit date = first in the sorted array (or fallback to visitDate)
+      const primaryDate = draft.visitDates.length > 0
+        ? [...draft.visitDates].sort()[0]
+        : draft.visitDate
+
       const { data: order, error } = await (supabase as any)
         .from('orders')
         .insert({
@@ -120,11 +149,14 @@ export function useCreateOrder() {
           type: draft.type,
           status,
           confirmation_status: 'not_sent',
-          scheduled_date: draft.visitDate,
+          scheduled_date: primaryDate,
           total_amount: totalAmount,
           address: addressString,
           notes: draft.notes || null,
           has_invoice: false,
+          visit_dates: draft.visitDates.length > 0 ? draft.visitDates : [draft.visitDate],
+          arrival_phone: draft.arrivalPhone || null,
+          attachments: uploadedAttachments.length > 0 ? uploadedAttachments : null,
         })
         .select('id')
         .single()
@@ -182,6 +214,8 @@ export function useCreateOrder() {
 
   return {
     draft,
+    pendingFiles,
+    setPendingFiles,
     setCustomer,
     setAddress,
     addService,

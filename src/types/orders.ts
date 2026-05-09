@@ -75,6 +75,12 @@ export interface TeamAssignmentDraft {
   duration: number
 }
 
+export interface OrderAttachment {
+  url: string
+  name: string
+  type: string
+}
+
 export interface OrderDraft {
   customerId: string
   phoneId: string
@@ -85,12 +91,15 @@ export interface OrderDraft {
   type: OrderType
   services: OrderServiceDraft[]
   visitDate: string
+  visitDates: string[]          // multi-date selection (ISO date strings)
   visitEndDate: string | null
   mode: OrderMode
   assignments: TeamAssignmentDraft[]
   voucherCode: string
   voucherDiscount: number
   notes: string
+  arrivalPhone: string          // phone to call on arrival
+  attachments: OrderAttachment[] // uploaded file/image URLs
 }
 
 export interface OrderListItem {
