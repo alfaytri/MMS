@@ -12,6 +12,31 @@ export type Database = {
   __InternalSupabase: {
     PostgrestVersion: "14.5"
   }
+  graphql_public: {
+    Tables: {
+      [_ in never]: never
+    }
+    Views: {
+      [_ in never]: never
+    }
+    Functions: {
+      graphql: {
+        Args: {
+          extensions?: Json
+          operationName?: string
+          query?: string
+          variables?: Json
+        }
+        Returns: Json
+      }
+    }
+    Enums: {
+      [_ in never]: never
+    }
+    CompositeTypes: {
+      [_ in never]: never
+    }
+  }
   public: {
     Tables: {
       activity_log: {
@@ -987,6 +1012,7 @@ export type Database = {
           id: string
           label: string
           line: string
+          phone_id: string | null
           tags: string[] | null
           type: Database["public"]["Enums"]["address_type"]
           updated_at: string | null
@@ -1004,6 +1030,7 @@ export type Database = {
           id?: string
           label: string
           line: string
+          phone_id?: string | null
           tags?: string[] | null
           type: Database["public"]["Enums"]["address_type"]
           updated_at?: string | null
@@ -1021,6 +1048,7 @@ export type Database = {
           id?: string
           label?: string
           line?: string
+          phone_id?: string | null
           tags?: string[] | null
           type?: Database["public"]["Enums"]["address_type"]
           updated_at?: string | null
@@ -1028,6 +1056,118 @@ export type Database = {
         Relationships: [
           {
             foreignKeyName: "customer_addresses_customer_id_fkey"
+            columns: ["customer_id"]
+            isOneToOne: false
+            referencedRelation: "customers"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "customer_addresses_phone_id_fkey"
+            columns: ["phone_id"]
+            isOneToOne: false
+            referencedRelation: "customer_phones"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      customer_phones: {
+        Row: {
+          created_at: string
+          customer_id: string
+          id: string
+          is_primary: boolean
+          label: string | null
+          phone: string
+        }
+        Insert: {
+          created_at?: string
+          customer_id: string
+          id?: string
+          is_primary?: boolean
+          label?: string | null
+          phone: string
+        }
+        Update: {
+          created_at?: string
+          customer_id?: string
+          id?: string
+          is_primary?: boolean
+          label?: string | null
+          phone?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "customer_phones_customer_id_fkey"
+            columns: ["customer_id"]
+            isOneToOne: false
+            referencedRelation: "customers"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      customer_subscriptions: {
+        Row: {
+          auto_renew: boolean
+          created_at: string
+          customer_id: string
+          dibsy_checkout_url: string | null
+          dibsy_payment_id: string | null
+          discount_percent_snapshot: number
+          end_date: string
+          id: string
+          package_id: string
+          price_paid: number
+          start_date: string
+          status: string
+          updated_at: string
+        }
+        Insert: {
+          auto_renew?: boolean
+          created_at?: string
+          customer_id: string
+          dibsy_checkout_url?: string | null
+          dibsy_payment_id?: string | null
+          discount_percent_snapshot: number
+          end_date: string
+          id?: string
+          package_id: string
+          price_paid: number
+          start_date: string
+          status?: string
+          updated_at?: string
+        }
+        Update: {
+          auto_renew?: boolean
+          created_at?: string
+          customer_id?: string
+          dibsy_checkout_url?: string | null
+          dibsy_payment_id?: string | null
+          discount_percent_snapshot?: number
+          end_date?: string
+          id?: string
+          package_id?: string
+          price_paid?: number
+          start_date?: string
+          status?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "customer_subscriptions_package_id_fkey"
+            columns: ["package_id"]
+            isOneToOne: false
+            referencedRelation: "subscription_packages"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "customer_subscriptions_package_id_fkey"
+            columns: ["package_id"]
+            isOneToOne: false
+            referencedRelation: "subscription_packages_with_counts"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "fk_customer_subscriptions_customer"
             columns: ["customer_id"]
             isOneToOne: false
             referencedRelation: "customers"
@@ -1389,6 +1529,86 @@ export type Database = {
             columns: ["warehouse_id"]
             isOneToOne: false
             referencedRelation: "warehouses"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      installed_products: {
+        Row: {
+          address_id: string | null
+          brand: string | null
+          created_at: string
+          customer_id: string
+          id: string
+          installed_at: string
+          model: string | null
+          notes: string | null
+          order_id: string
+          phone_id: string
+          product_name: string
+          serial_number: string | null
+          warranty_expires_at: string | null
+          warranty_months: number
+        }
+        Insert: {
+          address_id?: string | null
+          brand?: string | null
+          created_at?: string
+          customer_id: string
+          id?: string
+          installed_at: string
+          model?: string | null
+          notes?: string | null
+          order_id: string
+          phone_id: string
+          product_name: string
+          serial_number?: string | null
+          warranty_expires_at?: string | null
+          warranty_months?: number
+        }
+        Update: {
+          address_id?: string | null
+          brand?: string | null
+          created_at?: string
+          customer_id?: string
+          id?: string
+          installed_at?: string
+          model?: string | null
+          notes?: string | null
+          order_id?: string
+          phone_id?: string
+          product_name?: string
+          serial_number?: string | null
+          warranty_expires_at?: string | null
+          warranty_months?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "installed_products_address_id_fkey"
+            columns: ["address_id"]
+            isOneToOne: false
+            referencedRelation: "customer_addresses"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "installed_products_customer_id_fkey"
+            columns: ["customer_id"]
+            isOneToOne: false
+            referencedRelation: "customers"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "installed_products_order_id_fkey"
+            columns: ["order_id"]
+            isOneToOne: false
+            referencedRelation: "orders"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "installed_products_phone_id_fkey"
+            columns: ["phone_id"]
+            isOneToOne: false
+            referencedRelation: "customer_phones"
             referencedColumns: ["id"]
           },
         ]
@@ -2464,7 +2684,9 @@ export type Database = {
           created_at: string | null
           duration: string | null
           id: string
+          is_full_day: boolean
           order_id: string
+          parent_assignment_id: string | null
           scheduled_date: string
           services: Json
           team_id: string
@@ -2474,7 +2696,9 @@ export type Database = {
           created_at?: string | null
           duration?: string | null
           id?: string
+          is_full_day?: boolean
           order_id: string
+          parent_assignment_id?: string | null
           scheduled_date: string
           services: Json
           team_id: string
@@ -2484,7 +2708,9 @@ export type Database = {
           created_at?: string | null
           duration?: string | null
           id?: string
+          is_full_day?: boolean
           order_id?: string
+          parent_assignment_id?: string | null
           scheduled_date?: string
           services?: Json
           team_id?: string
@@ -2496,6 +2722,13 @@ export type Database = {
             columns: ["order_id"]
             isOneToOne: false
             referencedRelation: "orders"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "order_team_assignments_parent_assignment_id_fkey"
+            columns: ["parent_assignment_id"]
+            isOneToOne: false
+            referencedRelation: "order_team_assignments"
             referencedColumns: ["id"]
           },
           {
@@ -5234,6 +5467,135 @@ export type Database = {
           },
         ]
       }
+      subscription_package_services: {
+        Row: {
+          discount_override: number | null
+          id: string
+          package_id: string
+          service_id: string
+        }
+        Insert: {
+          discount_override?: number | null
+          id?: string
+          package_id: string
+          service_id: string
+        }
+        Update: {
+          discount_override?: number | null
+          id?: string
+          package_id?: string
+          service_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "subscription_package_services_package_id_fkey"
+            columns: ["package_id"]
+            isOneToOne: false
+            referencedRelation: "subscription_packages"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "subscription_package_services_package_id_fkey"
+            columns: ["package_id"]
+            isOneToOne: false
+            referencedRelation: "subscription_packages_with_counts"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "subscription_package_services_service_id_fkey"
+            columns: ["service_id"]
+            isOneToOne: false
+            referencedRelation: "services"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      subscription_packages: {
+        Row: {
+          auto_renew_default: boolean
+          created_at: string
+          created_by_name: string | null
+          description: string | null
+          discount_percent: number
+          duration_months: number
+          id: string
+          initial_fee: number
+          is_active: boolean
+          name: string
+          name_ar: string | null
+          priority_response: string
+          response_hours: number | null
+          updated_at: string
+        }
+        Insert: {
+          auto_renew_default?: boolean
+          created_at?: string
+          created_by_name?: string | null
+          description?: string | null
+          discount_percent?: number
+          duration_months?: number
+          id?: string
+          initial_fee?: number
+          is_active?: boolean
+          name: string
+          name_ar?: string | null
+          priority_response?: string
+          response_hours?: number | null
+          updated_at?: string
+        }
+        Update: {
+          auto_renew_default?: boolean
+          created_at?: string
+          created_by_name?: string | null
+          description?: string | null
+          discount_percent?: number
+          duration_months?: number
+          id?: string
+          initial_fee?: number
+          is_active?: boolean
+          name?: string
+          name_ar?: string | null
+          priority_response?: string
+          response_hours?: number | null
+          updated_at?: string
+        }
+        Relationships: []
+      }
+      subscription_usage_log: {
+        Row: {
+          created_at: string
+          discount_applied: number
+          id: string
+          order_id: string
+          service_id: string
+          subscription_id: string
+        }
+        Insert: {
+          created_at?: string
+          discount_applied: number
+          id?: string
+          order_id: string
+          service_id: string
+          subscription_id: string
+        }
+        Update: {
+          created_at?: string
+          discount_applied?: number
+          id?: string
+          order_id?: string
+          service_id?: string
+          subscription_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "subscription_usage_log_subscription_id_fkey"
+            columns: ["subscription_id"]
+            isOneToOne: false
+            referencedRelation: "customer_subscriptions"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       suppliers: {
         Row: {
           address: string | null
@@ -5413,6 +5775,8 @@ export type Database = {
           schedule_end: number | null
           schedule_id: string | null
           schedule_start: number | null
+          site_visit_order: boolean
+          site_visit_quotation: boolean
           tag: Database["public"]["Enums"]["team_tag"] | null
           traccar_device_id: string | null
           updated_at: string | null
@@ -5433,6 +5797,8 @@ export type Database = {
           schedule_end?: number | null
           schedule_id?: string | null
           schedule_start?: number | null
+          site_visit_order?: boolean
+          site_visit_quotation?: boolean
           tag?: Database["public"]["Enums"]["team_tag"] | null
           traccar_device_id?: string | null
           updated_at?: string | null
@@ -5453,6 +5819,8 @@ export type Database = {
           schedule_end?: number | null
           schedule_id?: string | null
           schedule_start?: number | null
+          site_visit_order?: boolean
+          site_visit_quotation?: boolean
           tag?: Database["public"]["Enums"]["team_tag"] | null
           traccar_device_id?: string | null
           updated_at?: string | null
@@ -5894,6 +6262,7 @@ export type Database = {
           created_at: string | null
           created_by: string | null
           created_by_name: string | null
+          created_by_profile_id: string | null
           date: string
           from_warehouse_id: string
           id: string
@@ -5911,6 +6280,7 @@ export type Database = {
           created_at?: string | null
           created_by?: string | null
           created_by_name?: string | null
+          created_by_profile_id?: string | null
           date: string
           from_warehouse_id: string
           id?: string
@@ -5928,6 +6298,7 @@ export type Database = {
           created_at?: string | null
           created_by?: string | null
           created_by_name?: string | null
+          created_by_profile_id?: string | null
           date?: string
           from_warehouse_id?: string
           id?: string
@@ -5939,6 +6310,13 @@ export type Database = {
           updated_at?: string | null
         }
         Relationships: [
+          {
+            foreignKeyName: "warehouse_transfers_created_by_profile_id_fkey"
+            columns: ["created_by_profile_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
           {
             foreignKeyName: "warehouse_transfers_from_warehouse_id_fkey"
             columns: ["from_warehouse_id"]
@@ -5962,6 +6340,7 @@ export type Database = {
           item_count: number | null
           location: string | null
           manager_id: string | null
+          manager_profile_id: string | null
           name: string
           total_value: number | null
           updated_at: string | null
@@ -5972,6 +6351,7 @@ export type Database = {
           item_count?: number | null
           location?: string | null
           manager_id?: string | null
+          manager_profile_id?: string | null
           name: string
           total_value?: number | null
           updated_at?: string | null
@@ -5982,6 +6362,7 @@ export type Database = {
           item_count?: number | null
           location?: string | null
           manager_id?: string | null
+          manager_profile_id?: string | null
           name?: string
           total_value?: number | null
           updated_at?: string | null
@@ -5992,6 +6373,13 @@ export type Database = {
             columns: ["manager_id"]
             isOneToOne: false
             referencedRelation: "employees"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "warehouses_manager_profile_id_fkey"
+            columns: ["manager_profile_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
             referencedColumns: ["id"]
           },
         ]
@@ -6042,6 +6430,24 @@ export type Database = {
       }
     }
     Views: {
+      calendar_visits: {
+        Row: {
+          customer_id: string | null
+          customer_name: string | null
+          division: string | null
+          end_time: string | null
+          id: string | null
+          is_qc: boolean | null
+          service_id: string | null
+          source_type: string | null
+          start_time: string | null
+          status: string | null
+          team_id: string | null
+          visit_date: string | null
+          visit_type: string | null
+        }
+        Relationships: []
+      }
       credit_group_customer_counts: {
         Row: {
           credit_group_id: string | null
@@ -6205,6 +6611,27 @@ export type Database = {
           },
         ]
       }
+      subscription_packages_with_counts: {
+        Row: {
+          auto_renew_default: boolean | null
+          created_at: string | null
+          created_by_name: string | null
+          description: string | null
+          discount_percent: number | null
+          duration_months: number | null
+          id: string | null
+          initial_fee: number | null
+          is_active: boolean | null
+          name: string | null
+          name_ar: string | null
+          priority_response: string | null
+          response_hours: number | null
+          service_count: number | null
+          subscriber_count: number | null
+          updated_at: string | null
+        }
+        Relationships: []
+      }
       supplier_bills: {
         Row: {
           agent_name: string | null
@@ -6353,6 +6780,35 @@ export type Database = {
           },
         ]
       }
+      warehouse_stock_view: {
+        Row: {
+          avg_cost: number | null
+          brand: string | null
+          brand_variant_id: string | null
+          item_name: string | null
+          qty: number | null
+          sku: string | null
+          total_value: number | null
+          unit: string | null
+          warehouse_id: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "fifo_cost_layers_brand_variant_id_fkey"
+            columns: ["brand_variant_id"]
+            isOneToOne: false
+            referencedRelation: "inventory_brand_variants"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "fifo_cost_layers_warehouse_id_fkey"
+            columns: ["warehouse_id"]
+            isOneToOne: false
+            referencedRelation: "warehouses"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
     }
     Functions: {
       advance_po_approval_tier: {
@@ -6362,6 +6818,15 @@ export type Database = {
       allocate_landed_cost: { Args: { p_lc_id: string }; Returns: Json }
       allocate_payment_to_bill: {
         Args: { p_amount: number; p_bill_id: string; p_payment_id: string }
+        Returns: undefined
+      }
+      allocate_warehouse_stock: {
+        Args: {
+          p_brand_variant_id: string
+          p_target_qty: number
+          p_unit_cost: number
+          p_warehouse_id: string
+        }
         Returns: undefined
       }
       append_shipment_events: {
@@ -6441,6 +6906,10 @@ export type Database = {
           id: string
         }[]
       }
+      create_customer_with_phone: {
+        Args: { p_link_phone?: string; p_name: string; p_phone: string }
+        Returns: Json
+      }
       create_landed_cost: {
         Args: {
           p_attached_po_ids: string[]
@@ -6515,7 +6984,9 @@ export type Database = {
       }
       fn_refresh_incoming_qty: { Args: { p_bv_id: string }; Returns: undefined }
       fn_refresh_reserved_qty: { Args: { p_bv_id: string }; Returns: undefined }
+      generate_check_number: { Args: never; Returns: string }
       generate_invoice_from_so: { Args: { p_so_id: string }; Returns: Json }
+      generate_transfer_number: { Args: never; Returns: string }
       get_dead_stock_report: {
         Args: never
         Returns: {
@@ -6651,6 +7122,10 @@ export type Database = {
         Returns: undefined
       }
       storage_lc_bills_write_allowed: { Args: never; Returns: boolean }
+      swap_visit_team: {
+        Args: { p_assignment_id: string; p_new_team_id: string }
+        Returns: Json
+      }
       sync_team_active_schedule: {
         Args: { p_team_id: string }
         Returns: undefined
@@ -6663,11 +7138,20 @@ export type Database = {
         Args: { p_employee_id: string; p_service_ids: string[] }
         Returns: undefined
       }
+      upsert_package_with_services: {
+        Args: { p_package: Json; p_services: Json }
+        Returns: string
+      }
       validate_lc_allocation: { Args: { p_lc_id: string }; Returns: Json }
     }
     Enums: {
       address_type: "blue-plate" | "google-coords"
-      approval_role: "purchase_manager" | "accountant" | "owner" | "employee"
+      approval_role:
+        | "purchase_manager"
+        | "accountant"
+        | "owner"
+        | "employee"
+        | "warehouse_manager"
       approval_source_type: "sale_order" | "order"
       approval_status: "pending" | "approved" | "rejected"
       approval_type: "margin" | "credit"
@@ -6953,10 +7437,19 @@ export type CompositeTypes<
     : never
 
 export const Constants = {
+  graphql_public: {
+    Enums: {},
+  },
   public: {
     Enums: {
       address_type: ["blue-plate", "google-coords"],
-      approval_role: ["purchase_manager", "accountant", "owner", "employee"],
+      approval_role: [
+        "purchase_manager",
+        "accountant",
+        "owner",
+        "employee",
+        "warehouse_manager",
+      ],
       approval_source_type: ["sale_order", "order"],
       approval_status: ["pending", "approved", "rejected"],
       approval_type: ["margin", "credit"],
@@ -7138,13 +7631,3 @@ export const Constants = {
     },
   },
 } as const
-
-// ─── Convenience type helpers ──────────────────────────────────────────────────
-export type DBTable<T extends keyof Database['public']['Tables']> =
-  Database['public']['Tables'][T]['Row']
-
-export type DBInsert<T extends keyof Database['public']['Tables']> =
-  Database['public']['Tables'][T]['Insert']
-
-export type DBUpdate<T extends keyof Database['public']['Tables']> =
-  Database['public']['Tables'][T]['Update']
