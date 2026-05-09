@@ -6,6 +6,7 @@ import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Plus, Filter } from 'lucide-react'
 import { OrderCard } from '@/components/orders/OrderCard'
+import { OrderDetailDialog } from '@/components/orders/OrderDetailDialog'
 import { useOrders } from '@/hooks/useOrders'
 import type { OrdersFilter } from '@/types/orders'
 import { cn } from '@/lib/utils'
@@ -92,6 +93,12 @@ export default function OrdersPage() {
           </div>
         )}
       </div>
+
+      <OrderDetailDialog
+        orderId={selectedOrderId}
+        open={!!selectedOrderId}
+        onOpenChange={(v) => { if (!v) setSelectedOrderId(null) }}
+      />
     </div>
   )
 }
