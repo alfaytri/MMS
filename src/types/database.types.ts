@@ -12,31 +12,6 @@ export type Database = {
   __InternalSupabase: {
     PostgrestVersion: "14.5"
   }
-  graphql_public: {
-    Tables: {
-      [_ in never]: never
-    }
-    Views: {
-      [_ in never]: never
-    }
-    Functions: {
-      graphql: {
-        Args: {
-          extensions?: Json
-          operationName?: string
-          query?: string
-          variables?: Json
-        }
-        Returns: Json
-      }
-    }
-    Enums: {
-      [_ in never]: never
-    }
-    CompositeTypes: {
-      [_ in never]: never
-    }
-  }
   public: {
     Tables: {
       activity_log: {
@@ -1000,58 +975,52 @@ export type Database = {
       }
       customer_addresses: {
         Row: {
-          blue_plate_building: string | null
-          blue_plate_street: string | null
-          blue_plate_unit: string | null
-          blue_plate_zone: string | null
-          coords_lat: number | null
-          coords_lng: number | null
-          country: string | null
+          address_type: string
+          blue_plate_no: string | null
+          building_no: string | null
           created_at: string | null
           customer_id: string
           id: string
-          label: string
-          line: string
+          is_primary: boolean
+          label: string | null
+          lat: number | null
+          lng: number | null
           phone_id: string | null
-          tags: string[] | null
-          type: Database["public"]["Enums"]["address_type"]
-          updated_at: string | null
+          street_no: string | null
+          unit_no: string | null
+          zone_no: string | null
         }
         Insert: {
-          blue_plate_building?: string | null
-          blue_plate_street?: string | null
-          blue_plate_unit?: string | null
-          blue_plate_zone?: string | null
-          coords_lat?: number | null
-          coords_lng?: number | null
-          country?: string | null
+          address_type: string
+          blue_plate_no?: string | null
+          building_no?: string | null
           created_at?: string | null
           customer_id: string
           id?: string
-          label: string
-          line: string
+          is_primary?: boolean
+          label?: string | null
+          lat?: number | null
+          lng?: number | null
           phone_id?: string | null
-          tags?: string[] | null
-          type: Database["public"]["Enums"]["address_type"]
-          updated_at?: string | null
+          street_no?: string | null
+          unit_no?: string | null
+          zone_no?: string | null
         }
         Update: {
-          blue_plate_building?: string | null
-          blue_plate_street?: string | null
-          blue_plate_unit?: string | null
-          blue_plate_zone?: string | null
-          coords_lat?: number | null
-          coords_lng?: number | null
-          country?: string | null
+          address_type?: string
+          blue_plate_no?: string | null
+          building_no?: string | null
           created_at?: string | null
           customer_id?: string
           id?: string
-          label?: string
-          line?: string
+          is_primary?: boolean
+          label?: string | null
+          lat?: number | null
+          lng?: number | null
           phone_id?: string | null
-          tags?: string[] | null
-          type?: Database["public"]["Enums"]["address_type"]
-          updated_at?: string | null
+          street_no?: string | null
+          unit_no?: string | null
+          zone_no?: string | null
         }
         Relationships: [
           {
@@ -1184,6 +1153,7 @@ export type Database = {
           credit_limit: number | null
           customer_type: string | null
           email: string | null
+          entity_type: string | null
           id: string
           is_blocked: boolean | null
           name: string
@@ -1201,6 +1171,7 @@ export type Database = {
           credit_limit?: number | null
           customer_type?: string | null
           email?: string | null
+          entity_type?: string | null
           id?: string
           is_blocked?: boolean | null
           name: string
@@ -1218,6 +1189,7 @@ export type Database = {
           credit_limit?: number | null
           customer_type?: string | null
           email?: string | null
+          entity_type?: string | null
           id?: string
           is_blocked?: boolean | null
           name?: string
@@ -7437,9 +7409,6 @@ export type CompositeTypes<
     : never
 
 export const Constants = {
-  graphql_public: {
-    Enums: {},
-  },
   public: {
     Enums: {
       address_type: ["blue-plate", "google-coords"],
@@ -7631,3 +7600,5 @@ export const Constants = {
     },
   },
 } as const
+A new version of Supabase CLI is available: v2.98.2 (currently installed v2.91.3)
+We recommend updating regularly for new features and bug fixes: https://supabase.com/docs/guides/cli/getting-started#updating-the-supabase-cli

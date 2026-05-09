@@ -18,20 +18,19 @@ interface ServiceNode {
 
 interface Props {
   onAdd: (service: OrderServiceDraft) => void
-  divisionFilter?: string
+  divisionFilters?: string[]
   treeType?: string
 }
 
-export function ServiceSelector({ onAdd, divisionFilter, treeType = 'normal' }: Props) {
-  const divisionSlugs = divisionFilter ? [divisionFilter] : []
-  const { data: services = [] } = useServiceTree(treeType, divisionSlugs, true)
+export function ServiceSelector({ onAdd, divisionFilters = [], treeType = 'normal' }: Props) {
+  const { data: services = [] } = useServiceTree(treeType, divisionFilters, true)
   const [selections, setSelections] = useState<Record<number, string>>({})
   const [qty, setQty] = useState(1)
 
   function getChildren(parentId: string | null): ServiceNode[] {
     return (services ?? []).filter((s: ServiceNode) =>
       s.parent_id === parentId &&
-      (!divisionFilter || s.division === divisionFilter)
+      (divisionFilters.length === 0 || divisionFilters.includes(s.division))
     )
   }
 

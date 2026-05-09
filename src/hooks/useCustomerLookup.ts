@@ -101,16 +101,25 @@ export function useCustomerLookup() {
       name,
       phone,
       linkPhone,
+      entityType,
     }: {
       name: string
       phone: string
       linkPhone?: string | null
+      entityType?: 'individual' | 'business'
     }): Promise<CustomerLookupResult> => {
       const { data, error } = await supabase.rpc('create_customer_with_phone', {
         p_name: name.trim(),
         p_phone: phone.trim(),
         p_link_phone: linkPhone?.trim(),
       })
+      // Update entity_type after creation (RPC doesn't accept it yet)
+      if (!error && data) {
+        const result = data as any
+        await supabase.from('customers')
+          .update({ entity_type: entityType ?? 'individual' })
+          .eq('id', result.customer_id)
+      }
       if (error || !data) throw new Error(error?.message ?? error?.details ?? JSON.stringify(error) ?? 'Failed to create customer')
 
       const result = data as any

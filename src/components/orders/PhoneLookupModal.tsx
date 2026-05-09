@@ -86,6 +86,7 @@ export function PhoneLookupModal({ open, onOpenChange, onConfirm }: Props) {
   const [countryCode, setCountryCode] = useState('+974')
   const [phone, setPhone] = useState('')
   const [name, setName] = useState('')
+  const [entityType, setEntityType] = useState<'individual' | 'business'>('individual')
   const [linkCountryCode, setLinkCountryCode] = useState('+974')
   const [linkPhone, setLinkPhone] = useState('')
   const [showLinkPhone, setShowLinkPhone] = useState(false)
@@ -101,6 +102,7 @@ export function PhoneLookupModal({ open, onOpenChange, onConfirm }: Props) {
     setCountryCode('+974')
     setPhone('')
     setName('')
+    setEntityType('individual')
     setLinkCountryCode('+974')
     setLinkPhone('')
     setShowLinkPhone(false)
@@ -125,6 +127,7 @@ export function PhoneLookupModal({ open, onOpenChange, onConfirm }: Props) {
         name: name.trim(),
         phone: fullPhone,
         linkPhone: showLinkPhone ? fullLinkPhone || undefined : undefined,
+        entityType,
       })
       onConfirm(result)
       onOpenChange(false)
@@ -151,7 +154,13 @@ export function PhoneLookupModal({ open, onOpenChange, onConfirm }: Props) {
                 onCountryCodeChange={setCountryCode}
                 value={phone}
                 onChange={setPhone}
-                onKeyDown={(e) => e.key === 'Enter' && handleLookup()}
+                onKeyDown={(e) => {
+                  if (e.key === 'Enter') {
+                    e.preventDefault()
+                    e.stopPropagation()
+                    handleLookup()
+                  }
+                }}
               />
             </div>
             <div className="flex justify-end gap-2">
@@ -198,6 +207,19 @@ export function PhoneLookupModal({ open, onOpenChange, onConfirm }: Props) {
                 value={name}
                 onChange={(e) => setName(e.target.value)}
               />
+            </div>
+            <div className="space-y-2">
+              <Label>Customer Type</Label>
+              <div className="flex gap-4 text-sm">
+                <label className="flex items-center gap-1.5 cursor-pointer">
+                  <input type="radio" name="entity_type" checked={entityType === 'individual'} onChange={() => setEntityType('individual')} />
+                  Individual
+                </label>
+                <label className="flex items-center gap-1.5 cursor-pointer">
+                  <input type="radio" name="entity_type" checked={entityType === 'business'} onChange={() => setEntityType('business')} />
+                  Business
+                </label>
+              </div>
             </div>
             <div className="space-y-2">
               <p className="text-sm text-slate-600">

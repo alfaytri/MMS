@@ -10,6 +10,8 @@ import { TeamCalendarPanel } from '@/components/orders/TeamCalendarPanel'
 import { CustomerHistoryPanel } from '@/components/orders/CustomerHistoryPanel'
 import { useCreateOrder } from '@/hooks/useCreateOrder'
 import { useTeams } from '@/hooks/useTeams'
+import { Button } from '@/components/ui/button'
+import { Search } from 'lucide-react'
 import type { OrderServiceDraft } from '@/types/orders'
 
 export default function CreateOrderPage() {
@@ -79,6 +81,7 @@ export default function CreateOrderPage() {
 
   return (
     <DndContext onDragStart={handleDragStart} onDragEnd={handleDragEnd}>
+      <div className="relative">
       <PhoneLookupModal
         open={lookupOpen}
         onOpenChange={setLookupOpen}
@@ -87,6 +90,21 @@ export default function CreateOrderPage() {
           setLookupOpen(false)
         }}
       />
+
+      {/* Look up another customer — shown in top-right when a customer is loaded */}
+      {draft.customerId && (
+        <div className="absolute right-4 top-3 z-10">
+          <Button
+            variant="outline"
+            size="sm"
+            className="gap-1.5 text-xs h-8"
+            onClick={() => setLookupOpen(true)}
+          >
+            <Search className="h-3.5 w-3.5" />
+            Look Up Another Customer
+          </Button>
+        </div>
+      )}
 
       {/* Three-panel layout:
           - OrderFormPanel: fixed 340 px on sm+, full-width on mobile
@@ -123,6 +141,7 @@ export default function CreateOrderPage() {
           onViewOrder={(id) => window.open(`/orders/${id}`, '_blank')}
           onCreateBackwork={(id) => router.push(`/orders/create-backwork?from=${id}`)}
         />
+      </div>
       </div>
     </DndContext>
   )

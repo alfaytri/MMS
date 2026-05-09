@@ -1,5 +1,6 @@
 // src/components/orders/OrderFormPanel.tsx
 'use client'
+import { useState } from 'react'
 import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -9,6 +10,8 @@ import { CalendarIcon, CheckCircle } from 'lucide-react'
 import { ServiceSelector } from './ServiceSelector'
 import { SelectedServiceCard } from './SelectedServiceCard'
 import { AddressPicker } from './AddressPicker'
+import { useDivisions } from '@/hooks/useDivisions'
+import { cn } from '@/lib/utils'
 import type { OrderDraft, OrderServiceDraft, CustomerAddress, OrderType } from '@/types/orders'
 
 interface Props {
@@ -34,6 +37,20 @@ export function OrderFormPanel({
   isSubmitting,
   isValid,
 }: Props) {
+  const { data: divisions = [] } = useDivisions()
+  const [multiDivision, setMultiDivision] = useState(false)
+  const [selectedDivisions, setSelectedDivisions] = useState<string[]>([])
+
+  function toggleDivision(slug: string) {
+    setSelectedDivisions((prev) =>
+      prev.includes(slug) ? prev.filter((s) => s !== slug) : [...prev, slug]
+    )
+  }
+
+  function handleSingleDivision(slug: string) {
+    setSelectedDivisions(slug ? [slug] : [])
+  }
+
   return (
     <div className="flex h-full w-full shrink-0 flex-col border-r bg-white sm:w-[340px]">
       <div className="flex-1 overflow-y-auto p-4 space-y-4">
@@ -44,6 +61,71 @@ export function OrderFormPanel({
             <TabsTrigger value="site-visit" className="flex-1">Site Visit</TabsTrigger>
           </TabsList>
         </Tabs>
+
+        {/* Division */}
+        {draft.type === 'order' && (
+          <div className="space-y-2">
+            <div className="flex items-center justify-between">
+              <Label className="text-xs font-semibold uppercase tracking-wide text-slate-500">
+                Division
+              </Label>
+              <label className="flex items-center gap-1.5 text-xs text-slate-500 cursor-pointer select-none">
+                <input
+                  type="checkbox"
+                  checked={multiDivision}
+                  onChange={(e) => {
+                    setMultiDivision(e.target.checked)
+                    setSelectedDivisions([])
+                  }}
+                  className="rounded"
+                />
+                Multi-division
+              </label>
+            </div>
+
+            {!multiDivision ? (
+              <div className="flex flex-wrap gap-1.5">
+                {divisions.map((d) => (
+                  <button
+                    key={d.slug}
+                    type="button"
+                    onClick={() => handleSingleDivision(selectedDivisions[0] === d.slug ? '' : d.slug)}
+                    className={cn(
+                      'rounded-full border px-3 py-1 text-xs font-medium transition-colors',
+                      selectedDivisions[0] === d.slug
+                        ? 'border-orange-500 bg-orange-500 text-white'
+                        : 'border-slate-200 bg-white text-slate-600 hover:border-slate-300'
+                    )}
+                  >
+                    {d.short_name ?? d.name}
+                  </button>
+                ))}
+              </div>
+            ) : (
+              <div className="flex flex-wrap gap-1.5">
+                {divisions.map((d) => (
+                  <label
+                    key={d.slug}
+                    className={cn(
+                      'flex cursor-pointer items-center gap-1.5 rounded-full border px-3 py-1 text-xs font-medium transition-colors',
+                      selectedDivisions.includes(d.slug)
+                        ? 'border-orange-500 bg-orange-500 text-white'
+                        : 'border-slate-200 bg-white text-slate-600 hover:border-slate-300'
+                    )}
+                  >
+                    <input
+                      type="checkbox"
+                      className="sr-only"
+                      checked={selectedDivisions.includes(d.slug)}
+                      onChange={() => toggleDivision(d.slug)}
+                    />
+                    {d.short_name ?? d.name}
+                  </label>
+                ))}
+              </div>
+            )}
+          </div>
+        )}
 
         {/* Services */}
         <div>
@@ -57,7 +139,10 @@ export function OrderFormPanel({
           </div>
           {draft.type === 'order' && (
             <>
-              <ServiceSelector onAdd={onAddService} />
+              <ServiceSelector
+                onAdd={onAddService}
+                divisionFilters={selectedDivisions}
+              />
               {draft.services.length > 0 && (
                 <div className="mt-2 space-y-1.5">
                   {draft.services.map((s) => (
