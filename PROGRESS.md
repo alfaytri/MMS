@@ -155,7 +155,7 @@ Purchase & Sales▾:
 
 ## 🔄 In Progress
 
-_All Orders Module tasks complete. Next: merge `feature/orders-module` → `develop`, then resume Teams & Employee page plan._
+🚀 Starting: **Orders Service Card & Time Windows Task 1: DB Migration — order_visit_dates table**
 
 ## ✅ Completed
 
