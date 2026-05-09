@@ -154,9 +154,11 @@ Purchase & Sales▾:
 
 ## 🔄 In Progress
 
-🚀 Starting: **Orders Module Plan Task 13: Create Order Page**
+🚀 Starting: **Orders Module Plan Task 14: Orders List page**
 
 ## ✅ Completed
+
+- [2026-05-09] **Orders Module Plan Task 13: Create Order Page** — `src/components/orders/OrderFormPanel.tsx`, `src/app/(dashboard)/orders/create/page.tsx` — OrderFormPanel: responsive 340 px-wide left panel with type tabs (order/site-visit), ServiceSelector + SelectedServiceCard list, visit date picker, AddressPicker (guarded by customerId), voucher code input with Apply button, notes textarea, dynamic QAR total footer, Confirm Order button with disabled/loading states; Create Order page: DndContext wired with handleDragStart/handleDragEnd using over.data.current (Amendment A6), team name resolved from useTeams data via any-cast (TeamFull fields opaque to TS), PhoneLookupModal opens on mount and sets draft customer, three-panel responsive layout (form panel + TeamCalendarPanel + CustomerHistoryPanel), submit mutation with toast feedback and router.push; zero TypeScript errors introduced
 
 - [2026-05-09] **Orders Module Plan Task 12: useCustomerHistory + CustomerHistoryPanel** — `src/hooks/useCustomerHistory.ts`, `src/components/orders/CustomerHistoryPanel.tsx` — useCustomerHistory: TanStack Query hook with server-side pagination via .range() (Amendment A7), accepts orderPage/productPage/pageSize parameters, returns { data, count } for orders and products, supports monthly filtering with date range queries on scheduled_date/installed_at. CustomerHistoryPanel: collapsible sidebar with month navigation, independent pagination for orders and products, status badges with conditional View/Invoice/Backwork buttons, warranty status indicator (active/expiring_soon/expired) via getWarrantyInfo utility, responsive design with pagination controls; zero TypeScript errors
 
