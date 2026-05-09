@@ -1,6 +1,6 @@
 'use client'
 import { useState } from 'react'
-import { Sheet, SheetContent, SheetHeader, SheetTitle } from '@/components/ui/sheet'
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
@@ -24,25 +24,25 @@ export function AddressCreationSheet({ open, onOpenChange, customerId, phoneId, 
 
   const [label, setLabel] = useState('')
 
-  // Blue Plate tab state
+  // Blue Plate tab
   const [bluePlateNo, setBluePlateNo] = useState('')
   const [unitNo, setUnitNo] = useState('')
   const [buildingNo, setBuildingNo] = useState('')
   const [streetNo, setStreetNo] = useState('')
   const [zoneNo, setZoneNo] = useState('')
-  const [bpFetched, setBpFetched] = useState(false)
+  const [showManual, setShowManual] = useState(false)
 
-  // Coordinates tab state
+  // Coordinates tab
   const [lat, setLat] = useState('')
   const [lng, setLng] = useState('')
 
   function resetState() {
     setLabel('')
-    setBluePlateNo(''); setUnitNo(''); setBuildingNo(''); setStreetNo(''); setZoneNo(''); setBpFetched(false)
+    setBluePlateNo(''); setUnitNo(''); setBuildingNo(''); setStreetNo(''); setZoneNo(''); setShowManual(false)
     setLat(''); setLng('')
   }
 
-  async function handleFetchBluePlate() {
+  async function handleFetch() {
     if (!bluePlateNo.trim()) return
     try {
       const result = await fetchByNumber.mutateAsync(bluePlateNo.trim())
@@ -50,11 +50,11 @@ export function AddressCreationSheet({ open, onOpenChange, customerId, phoneId, 
       setBuildingNo(result.building_no ?? '')
       setStreetNo(result.street_no ?? '')
       setZoneNo(result.zone_no ?? '')
-      setBpFetched(true)
+      setShowManual(true)
       toast.success('Address fetched — review and save')
     } catch {
-      toast.error('Blue Plate lookup failed — enter details manually below')
-      setBpFetched(true)
+      setShowManual(true)
+      toast.error('Lookup failed — enter details manually')
     }
   }
 
@@ -114,13 +114,13 @@ export function AddressCreationSheet({ open, onOpenChange, customerId, phoneId, 
   }
 
   return (
-    <Sheet open={open} onOpenChange={(v) => { onOpenChange(v); if (!v) resetState() }}>
-      <SheetContent side="bottom" className="h-auto max-h-[90vh] rounded-t-2xl overflow-y-auto sm:side-right sm:h-full sm:max-h-full sm:rounded-none sm:max-w-md">
-        <SheetHeader className="mb-4">
-          <SheetTitle>Add New Address</SheetTitle>
-        </SheetHeader>
+    <Dialog open={open} onOpenChange={(v) => { onOpenChange(v); if (!v) resetState() }}>
+      <DialogContent className="w-full max-w-md">
+        <DialogHeader>
+          <DialogTitle>Add New Address</DialogTitle>
+        </DialogHeader>
 
-        <div className="space-y-4 pb-6">
+        <div className="space-y-4">
           {/* Label */}
           <div className="space-y-1.5">
             <Label>Address Label (optional)</Label>
@@ -137,7 +137,7 @@ export function AddressCreationSheet({ open, onOpenChange, customerId, phoneId, 
               <TabsTrigger value="coordinates" className="flex-1">Coordinates</TabsTrigger>
             </TabsList>
 
-            {/* ── Blue Plate tab ── */}
+            {/* Blue Plate */}
             <TabsContent value="blue_plate" className="space-y-3 pt-4">
               <div className="space-y-1.5">
                 <Label>Blue Plate Number</Label>
@@ -146,12 +146,12 @@ export function AddressCreationSheet({ open, onOpenChange, customerId, phoneId, 
                     placeholder="e.g. 32662-5-58-70"
                     value={bluePlateNo}
                     onChange={(e) => setBluePlateNo(e.target.value)}
-                    onKeyDown={(e) => e.key === 'Enter' && handleFetchBluePlate()}
+                    onKeyDown={(e) => e.key === 'Enter' && handleFetch()}
                     className="flex-1"
                   />
                   <Button
                     variant="outline"
-                    onClick={handleFetchBluePlate}
+                    onClick={handleFetch}
                     disabled={!bluePlateNo.trim() || fetchByNumber.isPending}
                     className="shrink-0"
                   >
@@ -159,13 +159,22 @@ export function AddressCreationSheet({ open, onOpenChange, customerId, phoneId, 
                   </Button>
                 </div>
                 <p className="text-xs text-slate-400">
-                  Fetches unit/zone from Qatar Municipality. Or enter fields manually below.
+                  Fetches from Qatar Municipality, or enter manually below.
                 </p>
               </div>
 
-              {/* Manual fields — always visible once user clicks Fetch or types a plate */}
-              {(bpFetched || bluePlateNo) && (
-                <div className="space-y-3 rounded-lg border border-slate-200 bg-slate-50 p-3">
+              {!showManual && (
+                <button
+                  type="button"
+                  onClick={() => setShowManual(true)}
+                  className="text-sm text-slate-500 underline-offset-2 hover:underline"
+                >
+                  Skip — enter address manually
+                </button>
+              )}
+
+              {showManual && (
+                <div className="space-y-3">
                   <div className="grid grid-cols-2 gap-3">
                     <div className="space-y-1.5">
                       <Label className="text-xs">Unit No.</Label>
@@ -184,28 +193,14 @@ export function AddressCreationSheet({ open, onOpenChange, customerId, phoneId, 
                       <Input placeholder="70" value={zoneNo} onChange={(e) => setZoneNo(e.target.value)} className="h-9" />
                     </div>
                   </div>
-                  <Button
-                    className="w-full"
-                    onClick={handleSaveBluePlate}
-                    disabled={addAddress.isPending}
-                  >
+                  <Button className="w-full" onClick={handleSaveBluePlate} disabled={addAddress.isPending}>
                     {addAddress.isPending ? 'Saving…' : 'Save Address'}
                   </Button>
                 </div>
               )}
-
-              {!bpFetched && !bluePlateNo && (
-                <Button
-                  variant="ghost"
-                  className="w-full text-slate-400 text-sm"
-                  onClick={() => setBpFetched(true)}
-                >
-                  Skip — enter address manually
-                </Button>
-              )}
             </TabsContent>
 
-            {/* ── Coordinates tab ── */}
+            {/* Coordinates */}
             <TabsContent value="coordinates" className="space-y-3 pt-4">
               <div className="grid grid-cols-2 gap-3">
                 <div className="space-y-1.5">
@@ -218,7 +213,7 @@ export function AddressCreationSheet({ open, onOpenChange, customerId, phoneId, 
                 </div>
               </div>
               <p className="text-xs text-slate-400">
-                Paste coordinates from Google Maps (right-click → "What's here?")
+                Paste from Google Maps → right-click → "What's here?"
               </p>
               <Button className="w-full" onClick={handleSaveCoords} disabled={addAddress.isPending}>
                 {addAddress.isPending ? 'Saving…' : 'Save Address'}
@@ -226,7 +221,7 @@ export function AddressCreationSheet({ open, onOpenChange, customerId, phoneId, 
             </TabsContent>
           </Tabs>
         </div>
-      </SheetContent>
-    </Sheet>
+      </DialogContent>
+    </Dialog>
   )
 }
