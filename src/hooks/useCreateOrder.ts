@@ -38,7 +38,7 @@ async function generateOrderId(supabase: ReturnType<typeof createClient>): Promi
     .select('order_id')
     .order('created_at', { ascending: false })
     .limit(1)
-    .single()
+    .maybeSingle()
   const lastNum = last?.order_id
     ? parseInt(last.order_id.match(/(\d+)$/)?.[1] ?? '0', 10)
     : 0
