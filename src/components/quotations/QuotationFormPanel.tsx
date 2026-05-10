@@ -1,6 +1,6 @@
 // src/components/quotations/QuotationFormPanel.tsx
 'use client'
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { Button } from '@/components/ui/button'
 import { Textarea } from '@/components/ui/textarea'
 import { Label } from '@/components/ui/label'
@@ -42,6 +42,11 @@ export function QuotationFormPanel({
   whatsAppWindowClosed,
 }: Props) {
   const [lookupOpen, setLookupOpen] = useState(!draft.customerId)
+
+  // Re-open modal if customer is cleared (e.g. new quotation in same session)
+  useEffect(() => {
+    if (!draft.customerId) setLookupOpen(true)
+  }, [draft.customerId])
 
   const hasCustomer = !!draft.customerId
 
