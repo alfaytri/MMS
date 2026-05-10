@@ -156,9 +156,11 @@ Purchase & Sales▾:
 
 ## 🔄 In Progress
 
-🚀 Starting: **Quotation Module Task 3: Hooks — useCreateQuotation + useSaveQuotation**
+🚀 Starting: **Quotation Module Task 6: QuotationSummaryPanel — right panel**
 
 ## ✅ Completed
+
+- [2026-05-10] **Quotation Module Task 5: QuotationFormPanel — left panel** — `src/components/quotations/QuotationFormPanel.tsx`, `src/components/orders/SelectedServiceCard.tsx` — Created QuotationFormPanel: left 340 px panel with PhoneLookupModal (opens on mount when no customer), customer header row with Change button, ServiceSelector tree browser (no division filter), SelectedServiceCard list with qty controls (time grid hidden via new hideTimeControls prop), notes textarea, QAR total strip, WATI window-closed amber warning, Send via WhatsApp + Save Draft action buttons; added hideTimeControls prop to SelectedServiceCard to suppress arrival window grid; zero TypeScript errors
 
 - [2026-05-10] **Quotation Module Task 2: Types — src/types/quotations.ts** — `src/types/quotations.ts` — Created TypeScript types for Quotation Module including QuotationLineDraft, QuotationDraft (draft state for creation form), QuotationStatus ('draft' | 'sent'), QuotationListItem (list page shape), QuotationDetail (full detail with line items and logs), QuotationLineItem, QuotationLog, and QuotationsFilter; file compiles cleanly; committed with co-authors
 
