@@ -94,8 +94,8 @@ export function SiteVisitDetailSheet({ visitId, open, onOpenChange }: Props) {
     <>
       <Sheet
         open={open}
-        onOpenChange={(newOpen, _event, reason) => {
-          if (cancelOpen && reason === 'outside-press') return
+        onOpenChange={(newOpen: boolean) => {
+          if (cancelOpen) return
           onOpenChange(newOpen)
         }}
       >
@@ -242,20 +242,32 @@ export function SiteVisitDetailSheet({ visitId, open, onOpenChange }: Props) {
 
                 <div className="flex-1 overflow-y-auto px-4 py-3">
                   <TabsContent value="followup" className="mt-0 space-y-2">
-                    <p className="text-xs text-slate-500 mb-3">
-                      Create an order directly from this site visit.
-                    </p>
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      className="w-full gap-2"
-                      onClick={() =>
-                        router.push(`/orders/new?customer_id=${visit.customer_id}&from_visit=${visit.id}`)
-                      }
-                    >
-                      <Plus className="h-4 w-4" />
-                      Create Order
-                    </Button>
+                    {visit.status === 'completed' ? (
+                      <>
+                        <p className="text-xs text-slate-500 mb-3">
+                          Create a follow-up order from this completed site visit.
+                        </p>
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          className="w-full gap-2"
+                          onClick={() => {
+                            const params = new URLSearchParams({
+                              customer_id: visit.customer_id,
+                              ...(visit.customer_phone_id && { phone_id: visit.customer_phone_id }),
+                            })
+                            router.push(`/orders/create?${params.toString()}`)
+                          }}
+                        >
+                          <Plus className="h-4 w-4" />
+                          Create Order
+                        </Button>
+                      </>
+                    ) : (
+                      <p className="text-sm text-slate-400">
+                        Available once the site visit is marked as completed.
+                      </p>
+                    )}
                   </TabsContent>
 
                   <TabsContent value="logs" className="mt-0">

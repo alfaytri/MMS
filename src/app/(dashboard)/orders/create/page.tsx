@@ -1,7 +1,7 @@
 // src/app/(dashboard)/orders/create/page.tsx
 'use client'
-import { useState } from 'react'
-import { useRouter } from 'next/navigation'
+import { useState, useEffect } from 'react'
+import { useRouter, useSearchParams } from 'next/navigation'
 import { DndContext, DragOverlay, type DragEndEvent, type DragStartEvent } from '@dnd-kit/core'
 import { toast } from 'sonner'
 import { PhoneLookupModal } from '@/components/orders/PhoneLookupModal'
@@ -12,11 +12,17 @@ import { useCreateOrder } from '@/hooks/useCreateOrder'
 import { useTeams } from '@/hooks/useTeams'
 import { SelectedServiceCard } from '@/components/orders/SelectedServiceCard'
 import { SiteVisitCard, SITE_VISIT_SERVICE_ID, makeSiteVisitDraft } from '@/components/orders/SiteVisitCard'
+import { createClient } from '@/lib/supabase/client'
 import type { OrderServiceDraft } from '@/types/orders'
 
 export default function CreateOrderPage() {
   const router = useRouter()
-  const [lookupOpen, setLookupOpen] = useState(true)
+  const searchParams = useSearchParams()
+  const prefilledCustomerId = searchParams.get('customer_id')
+  const prefilledPhoneId = searchParams.get('phone_id')
+
+  // If we arrived from a site visit, skip the lookup modal
+  const [lookupOpen, setLookupOpen] = useState(!prefilledCustomerId)
   const [draggingService, setDraggingService] = useState<OrderServiceDraft | null>(null)
 
   const {
@@ -39,6 +45,35 @@ export default function CreateOrderPage() {
   } = useCreateOrder()
 
   const { data: teams } = useTeams()
+
+  // Auto-fill customer when navigating from a site visit
+  useEffect(() => {
+    if (!prefilledCustomerId) return
+    const supabase = createClient()
+    ;(supabase as any)
+      .from('customers')
+      .select('id, name, customer_phones(id, phone)')
+      .eq('id', prefilledCustomerId)
+      .single()
+      .then(({ data, error }: { data: any; error: any }) => {
+        if (error || !data) return
+        const phones: Array<{ id: string; phone: string }> = data.customer_phones ?? []
+        const phone = prefilledPhoneId
+          ? phones.find((p) => p.id === prefilledPhoneId) ?? phones[0]
+          : phones[0]
+        if (!phone) return
+        setCustomer({
+          found: true as const,
+          customerId: data.id as string,
+          phoneId: phone.id,
+          customerName: data.name as string,
+          phone: phone.phone,
+          addressCount: 0,
+          orderCount: 0,
+        })
+      })
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [])
 
   function handleDragStart(event: DragStartEvent) {
     const { data } = event.active
