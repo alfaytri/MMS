@@ -81,6 +81,7 @@ export function ServiceSelector({ onAdd, divisionFilters = [], treeType = 'norma
       qty,
       price: lastSelected.price ?? 0,
       duration: lastSelected.duration ?? 0,
+      division: lastSelected.division?.[0] ?? '',
       rootSkillId: lastSelected.id as string,
     })
     setSelections({})

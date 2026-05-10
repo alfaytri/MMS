@@ -62,6 +62,8 @@ export interface OrderServiceDraft {
   qty: number
   price: number
   duration: number
+  /** Division slug derived from the service node's division tags (first entry) */
+  division?: string
   configuration?: Record<string, unknown>
   rootSkillId?: string
   /** Requested arrival window — set per service in the order form */

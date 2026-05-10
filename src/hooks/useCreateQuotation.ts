@@ -6,6 +6,7 @@ import { createClient } from '@/lib/supabase/client'
 import type { QuotationDraft, QuotationLineDraft } from '@/types/quotations'
 import type { CustomerLookupResult } from '@/hooks/useCustomerLookup'
 import type { OrderServiceDraft } from '@/types/orders'
+import type { PostgrestError } from '@supabase/supabase-js'
 
 const INITIAL: QuotationDraft = {
   quotationId: '',
@@ -24,6 +25,7 @@ export function computeTotal(services: QuotationLineDraft[]): number {
 
 export function useCreateQuotation() {
   const [draft, setDraft] = useState<QuotationDraft>(INITIAL)
+  const [quotationIdError, setQuotationIdError] = useState<PostgrestError | null>(null)
   const supabase = createClient()
   const qc = useQueryClient()
 
@@ -31,7 +33,11 @@ export function useCreateQuotation() {
   useEffect(() => {
     ;(supabase as any)
       .rpc('generate_quotation_id')
-      .then(({ data }: { data: string | null }) => {
+      .then(({ data, error }: { data: string | null; error: PostgrestError | null }) => {
+        if (error) {
+          setQuotationIdError(error)
+          return
+        }
         if (data) setDraft((d) => ({ ...d, quotationId: data }))
       })
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -55,7 +61,7 @@ export function useCreateQuotation() {
       qty: service.qty,
       price: service.price,
       duration: service.duration ?? null,
-      division: (service as any).division ?? '',
+      division: service.division ?? '',
     }
     setDraft((d) => {
       const services = [...d.services, line]
@@ -126,7 +132,7 @@ export function useCreateQuotation() {
 
   const sendViaWhatsApp = useMutation({
     mutationFn: async () => {
-      await saveToDb('sent')
+      await saveToDb('draft')  // safe landing pad — DB record exists before network call
       const total = computeTotal(draft.services)
       const expiryDate = new Date()
       expiryDate.setDate(expiryDate.getDate() + 30)
@@ -151,12 +157,15 @@ export function useCreateQuotation() {
       })
       const json = await res.json()
       if (!res.ok) throw new Error(json.error ?? 'Failed to send')
+      if (json.windowClosed) return json as { windowClosed: boolean }
+      await saveToDb('sent')  // promote to 'sent' only after confirmed delivery
       return json as { windowClosed?: boolean }
     },
   })
 
   return {
     draft,
+    quotationIdError,
     setCustomer,
     addService,
     removeService,
