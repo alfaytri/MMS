@@ -3,7 +3,7 @@
 import { useState, useMemo, useRef } from 'react'
 import { useDroppable } from '@dnd-kit/core'
 import { Button } from '@/components/ui/button'
-import { ChevronLeft, ChevronRight, Phone, ClipboardList, Clock, User } from 'lucide-react'
+import { ChevronLeft, ChevronRight, Phone, ClipboardList, Clock, User, X } from 'lucide-react'
 import { format, addDays, subDays } from 'date-fns'
 import { useTeams } from '@/hooks/useTeams'
 import { useCalendarVisits, type CalendarVisit } from '@/hooks/useCalendarVisits'
@@ -97,6 +97,7 @@ interface Props {
   draftInfo: DraftInfo
   draggingService: OrderServiceDraft | null
   onAssign: (assignment: Omit<TeamAssignmentDraft, 'id'>) => void
+  onRemoveAssignment: (id: string) => void
   onDateChange: (date: string) => void
 }
 
@@ -146,6 +147,7 @@ interface DraftBlockProps {
   assignmentEndFn: (a: TeamAssignmentDraft, start: number) => number
   assignmentLabelFn: (a: TeamAssignmentDraft) => string
   hourLeftFn: (h: number) => number
+  onRemove: (id: string) => void
 }
 
 function fmt12(t: string): string {
@@ -165,6 +167,7 @@ function DraftBlock({
   assignmentEndFn,
   assignmentLabelFn,
   hourLeftFn,
+  onRemove,
 }: DraftBlockProps) {
   const [hovered, setHovered] = useState(false)
   const leaveTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
@@ -208,13 +211,21 @@ function DraftBlock({
       onMouseLeave={handleMouseLeave}
     >
       {/* Block */}
-      <div className="h-full w-full overflow-hidden rounded bg-orange-200 border border-orange-300 px-1.5 text-[11px] text-orange-900 font-medium flex flex-col justify-center cursor-default">
-        <span className="truncate leading-tight font-mono">
+      <div className="relative h-full w-full overflow-hidden rounded bg-orange-200 border border-orange-300 px-1.5 text-[11px] text-orange-900 font-medium flex flex-col justify-center cursor-default group/block">
+        <span className="truncate leading-tight font-mono pr-4">
           {draftInfo.orderId || label}
         </span>
         {blockW >= 80 && (
           <span className="truncate text-[10px] text-orange-600 leading-tight">{timeLabel}</span>
         )}
+        <button
+          type="button"
+          onClick={(e) => { e.stopPropagation(); onRemove(a.id) }}
+          className="absolute right-0.5 top-0.5 flex h-4 w-4 items-center justify-center rounded opacity-0 transition-opacity hover:bg-orange-400 group-hover/block:opacity-100"
+          aria-label="Remove assignment"
+        >
+          <X className="h-2.5 w-2.5 text-orange-900" />
+        </button>
       </div>
 
       {/* Hover popup */}
@@ -301,6 +312,7 @@ export function TeamCalendarPanel({
   draftInfo,
   draggingService,
   onAssign,
+  onRemoveAssignment,
   onDateChange,
 }: Props) {
   const { data: teamsRaw } = useTeams()
@@ -524,6 +536,7 @@ export function TeamCalendarPanel({
                       assignmentEndFn={assignmentEnd}
                       assignmentLabelFn={assignmentLabel}
                       hourLeftFn={hourLeft}
+                      onRemove={onRemoveAssignment}
                     />
                   ))}
                 </div>

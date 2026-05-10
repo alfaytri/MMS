@@ -29,6 +29,7 @@ export default function CreateOrderPage() {
     updateServiceQty,
     updateServiceTime,
     addAssignment,
+    removeAssignment,
     update,
     isValid,
     submit,
@@ -134,6 +135,7 @@ export default function CreateOrderPage() {
             }}
             draggingService={draggingService}
             onAssign={addAssignment}
+            onRemoveAssignment={removeAssignment}
             onDateChange={(date) => update({ visitDate: date })}
           />
         </div>
