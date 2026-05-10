@@ -155,9 +155,11 @@ Purchase & Sales▾:
 
 ## 🔄 In Progress
 
-_(nothing — all Orders Service Card & Time Windows tasks complete)_
+_(nothing)_
 
 ## ✅ Completed
+
+- [2026-05-10] **Orders UX Refinements: calendar blocks, order numbering, customer lookup UX** — `src/types/orders.ts`, `src/hooks/useCreateOrder.ts`, `src/components/orders/TeamCalendarPanel.tsx`, `src/components/orders/OrderFormPanel.tsx`, `src/app/(dashboard)/orders/create/page.tsx`, `src/components/orders/OrderCard.tsx`, `src/hooks/useOrders.ts`, `src/components/calendar/TeamDaySheet.tsx`, `supabase/migrations/20260510120000_calendar_visits_add_order_fields.sql` — Pre-generate order ID (N/YYYY/MM/NNNN) on draft init; track-stacked overlapping calendar blocks with hover popup; inclusive end-hour block width; order number on calendar block; customer lookup moved inline into form panel with disabled services until customer selected
 
 - [2026-05-09] **Orders Service Card & Time Windows Task 11: Drop legacy JSONB column** — `supabase/migrations/20260509200010_drop_orders_visit_dates_column.sql` — Applied ALTER TABLE orders DROP COLUMN visit_dates; all data was already backfilled to order_visit_dates in Task 1; migration pushed and verified
 
