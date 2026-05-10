@@ -81,6 +81,7 @@ interface PendingDrop {
 }
 
 interface DraftInfo {
+  orderId: string
   customerName: string
   phone: string
   notes: string
@@ -208,7 +209,9 @@ function DraftBlock({
     >
       {/* Block */}
       <div className="h-full w-full overflow-hidden rounded bg-orange-200 border border-orange-300 px-1.5 text-[11px] text-orange-900 font-medium flex flex-col justify-center cursor-default">
-        <span className="truncate leading-tight">{label}</span>
+        <span className="truncate leading-tight font-mono">
+          {draftInfo.orderId || label}
+        </span>
         {blockW >= 80 && (
           <span className="truncate text-[10px] text-orange-600 leading-tight">{timeLabel}</span>
         )}
@@ -222,7 +225,10 @@ function DraftBlock({
           onMouseEnter={handleMouseEnter}
           onMouseLeave={handleMouseLeave}
         >
-          {/* Status badge */}
+          {/* Order number + status */}
+          {draftInfo.orderId && (
+            <p className="font-mono font-bold text-slate-900 text-sm">{draftInfo.orderId}</p>
+          )}
           <div className="flex items-center gap-2 flex-wrap">
             <span className="rounded border border-orange-200 bg-orange-100 px-2 py-0.5 text-[10px] font-bold uppercase text-orange-700">
               {draftInfo.mode === 'emergency' ? 'Emergency' : draftInfo.mode === 'waitlist' ? 'Waitlist' : 'Scheduled'}

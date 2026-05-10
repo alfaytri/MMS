@@ -142,6 +142,7 @@ export default function CreateOrderPage() {
             assignments={draft.assignments}
             draftServices={draft.services}
             draftInfo={{
+              orderId: draft.orderId,
               customerName: draft.customerName,
               phone: draft.arrivalPhone || draft.phone,
               notes: draft.notes,

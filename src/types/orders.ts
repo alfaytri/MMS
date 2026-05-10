@@ -92,6 +92,7 @@ export interface VisitDateWindow {
 }
 
 export interface OrderDraft {
+  orderId: string          // pre-generated human-readable ID shown before submit
   customerId: string
   phoneId: string
   customerName: string

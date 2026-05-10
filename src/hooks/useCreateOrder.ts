@@ -1,5 +1,5 @@
 // src/hooks/useCreateOrder.ts
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { useMutation, useQueryClient } from '@tanstack/react-query'
 import { createClient } from '@/lib/supabase/client'
 import { formatAddressLine } from '@/lib/orders/warrantyUtils'
@@ -10,6 +10,7 @@ import type { PendingAttachment } from '@/components/orders/AttachmentsUpload'
 const today = new Date().toISOString().split('T')[0]
 
 const INITIAL_DRAFT: OrderDraft = {
+  orderId: '',
   customerId: '',
   phoneId: '',
   customerName: '',
@@ -30,11 +31,35 @@ const INITIAL_DRAFT: OrderDraft = {
   attachments: [],
 }
 
+async function generateOrderId(supabase: ReturnType<typeof createClient>): Promise<string> {
+  const { data: last } = await supabase
+    .from('orders')
+    .select('order_id')
+    .order('created_at', { ascending: false })
+    .limit(1)
+    .single()
+  const lastNum = last?.order_id
+    ? parseInt(last.order_id.match(/(\d+)$/)?.[1] ?? '0', 10)
+    : 0
+  const now = new Date()
+  const year = now.getFullYear()
+  const month = String(now.getMonth() + 1).padStart(2, '0')
+  return `N/${year}/${month}/${String(lastNum + 1).padStart(4, '0')}`
+}
+
 export function useCreateOrder() {
   const [draft, setDraft] = useState<OrderDraft>(INITIAL_DRAFT)
   const [pendingFiles, setPendingFiles] = useState<PendingAttachment[]>([])
   const supabase = createClient()
   const qc = useQueryClient()
+
+  // Pre-generate the order ID on mount so it can be displayed before submit
+  useEffect(() => {
+    generateOrderId(supabase).then((id) => {
+      setDraft((d) => ({ ...d, orderId: id }))
+    })
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [])
 
   function setCustomer(result: CustomerLookupResult) {
     setDraft((d) => ({
@@ -122,22 +147,8 @@ export function useCreateOrder() {
     mutationFn: async () => {
       if (!isValid()) throw new Error('Order is incomplete')
 
-      const { data: last } = await supabase
-        .from('orders')
-        .select('order_id')
-        .order('created_at', { ascending: false })
-        .limit(1)
-        .single()
-
-      // Extract trailing digits from any format (ORD-0001 or N/2026/05/001)
-      const lastNum = last?.order_id
-        ? parseInt(last.order_id.match(/(\d+)$/)?.[1] ?? '0', 10)
-        : 0
-      const nextNum = lastNum + 1
-      const now = new Date()
-      const year = now.getFullYear()
-      const month = String(now.getMonth() + 1).padStart(2, '0')
-      const orderId = `N/${year}/${month}/${String(nextNum).padStart(4, '0')}`
+      // Re-generate at submit to avoid stale sequence if the form was open a long time
+      const orderId = await generateOrderId(supabase)
 
       const totalAmount =
         draft.services.reduce((sum, s) => sum + s.price * s.qty, 0) - draft.voucherDiscount
