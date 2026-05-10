@@ -100,6 +100,7 @@ export interface OrderDraft {
   addressId: string | null
   addressSnapshot: CustomerAddress | null
   type: OrderType
+  division: string         // division enum value e.g. "maintenance" | "cleaning" ...
   services: OrderServiceDraft[]
   visitDate: string
   visitDates: VisitDateWindow[] // multi-date selection with optional arrival windows

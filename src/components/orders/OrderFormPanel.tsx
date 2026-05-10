@@ -71,14 +71,23 @@ export function OrderFormPanel({
   const [selectedDivisions, setSelectedDivisions] = useState<string[]>([])
   const [arrivalCountryCode, setArrivalCountryCode] = useState('+974')
 
+  // Keep draft.division in sync: always the first selected division slug
+  function syncDivision(slugs: string[]) {
+    onUpdate({ division: slugs[0] ?? '' })
+  }
+
   function toggleDivision(slug: string) {
-    setSelectedDivisions((prev) =>
-      prev.includes(slug) ? prev.filter((s) => s !== slug) : [...prev, slug]
-    )
+    setSelectedDivisions((prev) => {
+      const next = prev.includes(slug) ? prev.filter((s) => s !== slug) : [...prev, slug]
+      syncDivision(next)
+      return next
+    })
   }
 
   function handleSingleDivision(slug: string) {
-    setSelectedDivisions(slug ? [slug] : [])
+    const next = slug ? [slug] : []
+    setSelectedDivisions(next)
+    syncDivision(next)
   }
 
   function handleArrivalPhoneChange(local: string) {
@@ -155,7 +164,7 @@ export function OrderFormPanel({
                 <input
                   type="checkbox"
                   checked={multiDivision}
-                  onChange={(e) => { setMultiDivision(e.target.checked); setSelectedDivisions([]) }}
+                  onChange={(e) => { setMultiDivision(e.target.checked); setSelectedDivisions([]); onUpdate({ division: '' }) }}
                   className="rounded"
                 />
                 Multi-division

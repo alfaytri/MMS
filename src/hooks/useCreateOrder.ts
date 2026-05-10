@@ -18,6 +18,7 @@ const INITIAL_DRAFT: OrderDraft = {
   addressId: null,
   addressSnapshot: null,
   type: 'order',
+  division: '',
   services: [],
   visitDate: today,
   visitDates: [{ date: today, fromTime: null, toTime: null }] as VisitDateWindow[],
@@ -136,6 +137,7 @@ export function useCreateOrder() {
   function isValid(): boolean {
     return (
       !!draft.customerId &&
+      !!draft.division &&
       draft.services.length > 0 &&
       !!draft.visitDate &&
       !!draft.addressId &&
@@ -210,6 +212,7 @@ export function useCreateOrder() {
         p_order_id:       orderId,
         p_customer_id:    draft.customerId,
         p_type:           draft.type,
+        p_division:       draft.division,
         p_status:         status,
         p_scheduled_date: primaryDate,
         p_total_amount:   totalAmount,
