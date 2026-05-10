@@ -1,9 +1,9 @@
 // src/components/orders/TeamCalendarPanel.tsx
 'use client'
-import { useState, useMemo } from 'react'
+import { useState, useMemo, useRef } from 'react'
 import { useDroppable } from '@dnd-kit/core'
 import { Button } from '@/components/ui/button'
-import { ChevronLeft, ChevronRight } from 'lucide-react'
+import { ChevronLeft, ChevronRight, Phone, ClipboardList, Clock, User } from 'lucide-react'
 import { format, addDays, subDays } from 'date-fns'
 import { useTeams } from '@/hooks/useTeams'
 import { useCalendarVisits, type CalendarVisit } from '@/hooks/useCalendarVisits'
@@ -80,12 +80,20 @@ interface PendingDrop {
   timeSlot: string
 }
 
+interface DraftInfo {
+  customerName: string
+  phone: string
+  notes: string
+  mode: OrderMode
+}
+
 interface Props {
   visitDate: string
   mode: OrderMode
   onModeChange: (mode: OrderMode) => void
   assignments: TeamAssignmentDraft[]
   draftServices: OrderServiceDraft[]
+  draftInfo: DraftInfo
   draggingService: OrderServiceDraft | null
   onAssign: (assignment: Omit<TeamAssignmentDraft, 'id'>) => void
   onDateChange: (date: string) => void
@@ -126,6 +134,155 @@ function DroppableCell({ teamId, hour, isOccupied, isSkillMatch, rowHeight }: Dr
 }
 
 // ---------------------------------------------------------------------------
+// DraftBlock — hoverable assignment block with popup card
+// ---------------------------------------------------------------------------
+
+interface DraftBlockProps {
+  assignment: TeamAssignmentDraft
+  draftServices: OrderServiceDraft[]
+  draftInfo: DraftInfo
+  trackMap: Map<string, number>
+  assignmentEndFn: (a: TeamAssignmentDraft, start: number) => number
+  assignmentLabelFn: (a: TeamAssignmentDraft) => string
+  hourLeftFn: (h: number) => number
+}
+
+function fmt12(t: string): string {
+  const [hStr, mStr] = t.split(':')
+  const h = parseInt(hStr)
+  const m = mStr ?? '00'
+  const period = h < 12 ? 'AM' : 'PM'
+  const h12 = h === 0 ? 12 : h > 12 ? h - 12 : h
+  return `${h12}:${m} ${period}`
+}
+
+function DraftBlock({
+  assignment: a,
+  draftServices,
+  draftInfo,
+  trackMap,
+  assignmentEndFn,
+  assignmentLabelFn,
+  hourLeftFn,
+}: DraftBlockProps) {
+  const [hovered, setHovered] = useState(false)
+  const leaveTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
+
+  const start = parseHour(a.timeSlot)
+  if (start === null) return null
+
+  const end = assignmentEndFn(a, start)
+  const track = trackMap.get(`a-${a.id}`) ?? 0
+  const label = assignmentLabelFn(a)
+  const blockW = (end - start) * CELL_W - 2
+
+  const timeLabel = a.toTime
+    ? `${fmt12(a.timeSlot)} – ${fmt12(a.toTime)}`
+    : fmt12(a.timeSlot)
+
+  const serviceLines = a.services.map((s) => {
+    const draft = draftServices.find((ds) => ds.serviceId === s.serviceId)
+    return { name: draft?.serviceName ?? 'Service', qty: s.qty, price: draft ? draft.price * s.qty : 0 }
+  })
+
+  function handleMouseEnter() {
+    if (leaveTimer.current) clearTimeout(leaveTimer.current)
+    setHovered(true)
+  }
+  function handleMouseLeave() {
+    leaveTimer.current = setTimeout(() => setHovered(false), 120)
+  }
+
+  return (
+    <div
+      className="absolute"
+      style={{
+        left: hourLeftFn(start) + 1,
+        width: blockW,
+        top: track * TRACK_H + 2,
+        height: TRACK_H - 4,
+        zIndex: hovered ? 40 : 20,
+      }}
+      onMouseEnter={handleMouseEnter}
+      onMouseLeave={handleMouseLeave}
+    >
+      {/* Block */}
+      <div className="h-full w-full overflow-hidden rounded bg-orange-200 border border-orange-300 px-1.5 text-[11px] text-orange-900 font-medium flex flex-col justify-center cursor-default">
+        <span className="truncate leading-tight">{label}</span>
+        {blockW >= 80 && (
+          <span className="truncate text-[10px] text-orange-600 leading-tight">{timeLabel}</span>
+        )}
+      </div>
+
+      {/* Hover popup */}
+      {hovered && (
+        <div
+          className="absolute top-full left-0 mt-1 w-64 bg-white border border-slate-200 rounded-lg shadow-xl p-3 space-y-2.5 text-xs"
+          style={{ zIndex: 50 }}
+          onMouseEnter={handleMouseEnter}
+          onMouseLeave={handleMouseLeave}
+        >
+          {/* Status badge */}
+          <div className="flex items-center gap-2 flex-wrap">
+            <span className="rounded border border-orange-200 bg-orange-100 px-2 py-0.5 text-[10px] font-bold uppercase text-orange-700">
+              {draftInfo.mode === 'emergency' ? 'Emergency' : draftInfo.mode === 'waitlist' ? 'Waitlist' : 'Scheduled'}
+            </span>
+            <span className="rounded border border-slate-200 bg-slate-50 px-2 py-0.5 text-[10px] text-slate-500">
+              Draft
+            </span>
+          </div>
+
+          {/* Customer */}
+          {draftInfo.customerName && (
+            <div className="flex items-center gap-1.5 text-slate-700">
+              <User className="h-3 w-3 shrink-0 text-slate-400" />
+              <span className="font-medium">{draftInfo.customerName}</span>
+            </div>
+          )}
+
+          {/* Phone */}
+          {draftInfo.phone && (
+            <div className="flex items-center gap-1.5 text-slate-600">
+              <Phone className="h-3 w-3 shrink-0 text-slate-400" />
+              <span>{draftInfo.phone}</span>
+            </div>
+          )}
+
+          {/* Time */}
+          <div className="flex items-center gap-1.5 text-slate-600">
+            <Clock className="h-3 w-3 shrink-0 text-slate-400" />
+            <span>{timeLabel}</span>
+          </div>
+
+          {/* Services */}
+          <div className="flex items-start gap-1.5">
+            <ClipboardList className="h-3 w-3 shrink-0 mt-0.5 text-slate-400" />
+            <div className="space-y-0.5">
+              {serviceLines.map((s, i) => (
+                <div key={i} className="flex items-center justify-between gap-4 text-slate-700">
+                  <span>{s.qty}× {s.name}</span>
+                  {s.price > 0 && (
+                    <span className="font-semibold text-slate-900 shrink-0">QAR {s.price.toFixed(0)}</span>
+                  )}
+                </div>
+              ))}
+            </div>
+          </div>
+
+          {/* Notes */}
+          {draftInfo.notes && (
+            <div className="rounded bg-amber-50 border border-amber-100 px-2 py-1.5 text-slate-600">
+              <span className="font-semibold text-amber-700">Note: </span>
+              {draftInfo.notes}
+            </div>
+          )}
+        </div>
+      )}
+    </div>
+  )
+}
+
+// ---------------------------------------------------------------------------
 // TeamCalendarPanel
 // ---------------------------------------------------------------------------
 
@@ -135,6 +292,7 @@ export function TeamCalendarPanel({
   onModeChange,
   assignments,
   draftServices,
+  draftInfo,
   draggingService,
   onAssign,
   onDateChange,
@@ -350,35 +508,18 @@ export function TeamCalendarPanel({
                   })}
 
                   {/* Draft assignments */}
-                  {assignmentsForTeam(team.id).map((a) => {
-                    const start = parseHour(a.timeSlot)
-                    if (start === null) return null
-                    const end = assignmentEnd(a, start)
-                    const track = trackMap.get(`a-${a.id}`) ?? 0
-                    const label = assignmentLabel(a)
-                    const timeRange = a.toTime
-                      ? `${formatHour(start)}–${formatHour(parseHour(a.toTime) ?? end)}`
-                      : formatHour(start)
-                    const blockW = (end - start) * CELL_W - 2
-                    return (
-                      <div
-                        key={a.id}
-                        title={`${timeRange} · ${label}`}
-                        className="absolute overflow-hidden rounded bg-orange-200 border border-orange-300 px-1.5 text-[11px] text-orange-900 font-medium flex flex-col justify-center pointer-events-none"
-                        style={{
-                          left: hourLeft(start) + 1,
-                          width: blockW,
-                          top: track * TRACK_H + 2,
-                          height: TRACK_H - 4,
-                        }}
-                      >
-                        <span className="truncate leading-tight">{label}</span>
-                        {blockW >= 80 && (
-                          <span className="truncate text-[10px] text-orange-600 leading-tight">{timeRange}</span>
-                        )}
-                      </div>
-                    )
-                  })}
+                  {assignmentsForTeam(team.id).map((a) => (
+                    <DraftBlock
+                      key={a.id}
+                      assignment={a}
+                      draftServices={draftServices}
+                      draftInfo={draftInfo}
+                      trackMap={trackMap}
+                      assignmentEndFn={assignmentEnd}
+                      assignmentLabelFn={assignmentLabel}
+                      hourLeftFn={hourLeft}
+                    />
+                  ))}
                 </div>
               </div>
             )

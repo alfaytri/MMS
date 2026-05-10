@@ -141,6 +141,12 @@ export default function CreateOrderPage() {
             onModeChange={(mode) => update({ mode })}
             assignments={draft.assignments}
             draftServices={draft.services}
+            draftInfo={{
+              customerName: draft.customerName,
+              phone: draft.arrivalPhone || draft.phone,
+              notes: draft.notes,
+              mode: draft.mode,
+            }}
             draggingService={draggingService}
             onAssign={addAssignment}
             onDateChange={(date) => update({ visitDate: date })}
