@@ -11,6 +11,7 @@ import { CustomerHistoryPanel } from '@/components/orders/CustomerHistoryPanel'
 import { useCreateOrder } from '@/hooks/useCreateOrder'
 import { useTeams } from '@/hooks/useTeams'
 import { SelectedServiceCard } from '@/components/orders/SelectedServiceCard'
+import { SiteVisitCard, SITE_VISIT_SERVICE_ID, makeSiteVisitDraft } from '@/components/orders/SiteVisitCard'
 import type { OrderServiceDraft } from '@/types/orders'
 
 export default function CreateOrderPage() {
@@ -30,6 +31,8 @@ export default function CreateOrderPage() {
     updateServiceTime,
     addAssignment,
     removeAssignment,
+    updateSiteVisitTime,
+    setType,
     update,
     isValid,
     submit,
@@ -105,12 +108,13 @@ export default function CreateOrderPage() {
         <OrderFormPanel
           draft={draft}
           pendingFiles={pendingFiles}
-          onTypeChange={(type) => update({ type })}
+          onTypeChange={setType}
           onAddService={addService}
           onRemoveService={removeService}
           onUpdateServiceQty={updateServiceQty}
           onUpdateServiceTime={updateServiceTime}
           onAddressSelect={setAddress}
+          onUpdateSiteVisitTime={updateSiteVisitTime}
           onUpdate={update}
           onLookupCustomer={() => setLookupOpen(true)}
           onPendingFilesChange={setPendingFiles}
@@ -125,7 +129,11 @@ export default function CreateOrderPage() {
             mode={draft.mode}
             onModeChange={(mode) => update({ mode })}
             assignments={draft.assignments}
-            draftServices={draft.services}
+            draftServices={
+              draft.type === 'site-visit'
+                ? [makeSiteVisitDraft(draft.siteVisitFromTime, draft.siteVisitToTime)]
+                : draft.services
+            }
             draftInfo={{
               orderId: draft.orderId,
               customerName: draft.customerName,
@@ -152,13 +160,22 @@ export default function CreateOrderPage() {
       <DragOverlay dropAnimation={null} style={{ zIndex: 9999 }}>
         {draggingService ? (
           <div className="w-72 rotate-1">
-            <SelectedServiceCard
-              service={draggingService}
-              onRemove={() => {}}
-              onQtyChange={() => {}}
-              onTimeChange={() => {}}
-              isOverlay
-            />
+            {draggingService.serviceId === SITE_VISIT_SERVICE_ID ? (
+              <SiteVisitCard
+                fromTime={draggingService.fromTime ?? null}
+                toTime={draggingService.toTime ?? null}
+                onTimeChange={() => {}}
+                isOverlay
+              />
+            ) : (
+              <SelectedServiceCard
+                service={draggingService}
+                onRemove={() => {}}
+                onQtyChange={() => {}}
+                onTimeChange={() => {}}
+                isOverlay
+              />
+            )}
           </div>
         ) : null}
       </DragOverlay>

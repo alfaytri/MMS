@@ -395,26 +395,41 @@ export function TeamCalendarPanel({
     const teamVisits = visitsForTeam(teamId)
     const teamAssignments = assignmentsForTeam(teamId)
 
-    const blocks: Block[] = []
-
+    // Existing visits occupy the top tracks
+    const visitBlocks: Block[] = []
     for (const v of teamVisits) {
       const start = parseHour(v.start_time)
       const end = v.end_time ? parseHour(v.end_time) : (start !== null ? start + 1 : null)
       if (start !== null && end !== null) {
-        blocks.push({ id: `v-${v.id}`, start, end })
+        visitBlocks.push({ id: `v-${v.id}`, start, end })
       }
     }
+    const visitTrackMap = assignTracks(visitBlocks)
+    const maxVisitTrack = visitBlocks.length === 0
+      ? -1
+      : Math.max(...Array.from(visitTrackMap.values()))
 
+    // Draft assignments always go below all existing visit tracks
+    const assignmentBlocks: Block[] = []
     for (const a of teamAssignments) {
       const start = parseHour(a.timeSlot)
       if (start === null) continue
       const end = assignmentEnd(a, start)
-      blocks.push({ id: `a-${a.id}`, start, end })
+      assignmentBlocks.push({ id: `a-${a.id}`, start, end })
     }
+    const assignmentTrackMap = assignTracks(assignmentBlocks)
+    const draftOffset = maxVisitTrack + 1
 
-    const trackMap = assignTracks(blocks)
-    const maxTrack = blocks.length === 0 ? 0 : Math.max(...Array.from(trackMap.values()))
-    const trackCount = blocks.length === 0 ? 1 : maxTrack + 1
+    const trackMap = new Map<string, number>([
+      ...visitTrackMap,
+      ...Array.from(assignmentTrackMap.entries()).map(
+        ([id, t]): [string, number] => [id, t + draftOffset],
+      ),
+    ])
+
+    const allValues = Array.from(trackMap.values())
+    const maxTrack = allValues.length === 0 ? 0 : Math.max(...allValues)
+    const trackCount = allValues.length === 0 ? 1 : maxTrack + 1
     const rowHeight = trackCount * TRACK_H
 
     return { trackMap, rowHeight }

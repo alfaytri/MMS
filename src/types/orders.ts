@@ -112,6 +112,8 @@ export interface OrderDraft {
   notes: string
   arrivalPhone: string          // phone to call on arrival
   attachments: OrderAttachment[] // uploaded file/image URLs
+  siteVisitFromTime: string | null
+  siteVisitToTime: string | null
 }
 
 export interface OrderListItem {

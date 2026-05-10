@@ -10,6 +10,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { CheckCircle, User, Search } from 'lucide-react'
 import { ServiceSelector } from './ServiceSelector'
 import { SelectedServiceCard } from './SelectedServiceCard'
+import { SiteVisitCard } from './SiteVisitCard'
 import { AddressPicker } from './AddressPicker'
 import { VisitDatePicker } from './VisitDatePicker'
 import { AttachmentsUpload } from './AttachmentsUpload'
@@ -36,12 +37,13 @@ const COUNTRY_CODES = [
 interface Props {
   draft: OrderDraft
   pendingFiles: PendingAttachment[]
-  onTypeChange: (type: OrderType) => void
+  onTypeChange: (type: OrderType) => void | Promise<void>
   onAddService: (s: OrderServiceDraft) => void
   onRemoveService: (id: string) => void
   onUpdateServiceQty: (serviceId: string, qty: number) => void
   onUpdateServiceTime: (serviceId: string, fromTime: string | null, toTime: string | null) => void
   onAddressSelect: (a: CustomerAddress) => void
+  onUpdateSiteVisitTime: (fromTime: string | null, toTime: string | null) => void
   onUpdate: (patch: Partial<OrderDraft>) => void
   onPendingFilesChange: (files: PendingAttachment[]) => void
   onLookupCustomer: () => void
@@ -59,6 +61,7 @@ export function OrderFormPanel({
   onUpdateServiceQty,
   onUpdateServiceTime,
   onAddressSelect,
+  onUpdateSiteVisitTime,
   onUpdate,
   onPendingFilesChange,
   onLookupCustomer,
@@ -238,7 +241,11 @@ export function OrderFormPanel({
             )
           )}
           {draft.type === 'site-visit' && (
-            <p className="text-xs text-slate-400 mt-1">Site visit — no services required</p>
+            <SiteVisitCard
+              fromTime={draft.siteVisitFromTime}
+              toTime={draft.siteVisitToTime}
+              onTimeChange={onUpdateSiteVisitTime}
+            />
           )}
         </div>
         </div>{/* end disabled wrapper */}

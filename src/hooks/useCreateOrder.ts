@@ -3,7 +3,8 @@ import { useState, useEffect } from 'react'
 import { useMutation, useQueryClient } from '@tanstack/react-query'
 import { createClient } from '@/lib/supabase/client'
 import { formatAddressLine } from '@/lib/orders/warrantyUtils'
-import type { OrderDraft, OrderServiceDraft, TeamAssignmentDraft, CustomerAddress, OrderAttachment, VisitDateWindow } from '@/types/orders'
+import type { OrderDraft, OrderServiceDraft, TeamAssignmentDraft, CustomerAddress, OrderAttachment, VisitDateWindow, OrderType } from '@/types/orders'
+import { SITE_VISIT_SERVICE_ID } from '@/components/orders/SiteVisitCard'
 import type { CustomerLookupResult } from '@/hooks/useCustomerLookup'
 import type { PendingAttachment } from '@/components/orders/AttachmentsUpload'
 
@@ -30,6 +31,8 @@ const INITIAL_DRAFT: OrderDraft = {
   notes: '',
   arrivalPhone: '',
   attachments: [],
+  siteVisitFromTime: null,
+  siteVisitToTime: null,
 }
 
 async function generateOrderId(supabase: ReturnType<typeof createClient>): Promise<string> {
@@ -48,6 +51,22 @@ async function generateOrderId(supabase: ReturnType<typeof createClient>): Promi
   return `N/${year}/${month}/${String(lastNum + 1).padStart(4, '0')}`
 }
 
+async function generateVisitId(supabase: ReturnType<typeof createClient>): Promise<string> {
+  const { data: last } = await (supabase as any)
+    .from('site_visits')
+    .select('visit_id')
+    .order('created_at', { ascending: false })
+    .limit(1)
+    .maybeSingle() as { data: { visit_id: string } | null }
+  const lastNum = last?.visit_id
+    ? parseInt(last.visit_id.match(/(\d+)$/)?.[1] ?? '0', 10)
+    : 0
+  const now = new Date()
+  const year = now.getFullYear()
+  const month = String(now.getMonth() + 1).padStart(2, '0')
+  return `V/${year}/${month}/${String(lastNum + 1).padStart(4, '0')}`
+}
+
 export function useCreateOrder() {
   const [draft, setDraft] = useState<OrderDraft>(INITIAL_DRAFT)
   const [pendingFiles, setPendingFiles] = useState<PendingAttachment[]>([])
@@ -61,6 +80,13 @@ export function useCreateOrder() {
     })
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
+
+  async function setType(type: OrderType) {
+    const newId = type === 'site-visit'
+      ? await generateVisitId(supabase)
+      : await generateOrderId(supabase)
+    setDraft((d) => ({ ...d, type, orderId: newId }))
+  }
 
   function setCustomer(result: CustomerLookupResult) {
     setDraft((d) => ({
@@ -117,6 +143,10 @@ export function useCreateOrder() {
     }))
   }
 
+  function updateSiteVisitTime(fromTime: string | null, toTime: string | null) {
+    setDraft((d) => ({ ...d, siteVisitFromTime: fromTime, siteVisitToTime: toTime }))
+  }
+
   function addAssignment(assignment: Omit<TeamAssignmentDraft, 'id'>) {
     setDraft((d) => ({ ...d, assignments: [...d.assignments, { ...assignment, id: crypto.randomUUID() }] }))
   }
@@ -135,6 +165,14 @@ export function useCreateOrder() {
   }
 
   function isValid(): boolean {
+    if (draft.type === 'site-visit') {
+      return (
+        !!draft.customerId &&
+        !!draft.visitDate &&
+        !!draft.addressId &&
+        draft.assignments.length > 0
+      )
+    }
     return (
       !!draft.customerId &&
       !!draft.division &&
@@ -147,41 +185,77 @@ export function useCreateOrder() {
 
   const submit = useMutation({
     mutationFn: async () => {
-      if (!isValid()) throw new Error('Order is incomplete')
-
-      // Re-generate at submit to avoid stale sequence if the form was open a long time
-      const orderId = await generateOrderId(supabase)
-
-      const totalAmount =
-        draft.services.reduce((sum, s) => sum + s.price * s.qty, 0) - draft.voucherDiscount
+      if (!isValid()) throw new Error('Form is incomplete')
 
       const status = draft.mode === 'waitlist' ? 'waitlist' : 'scheduled'
+      const addressString = draft.addressSnapshot ? formatAddressLine(draft.addressSnapshot) : null
+      const sortedWindows = [...draft.visitDates].sort((a, b) => a.date.localeCompare(b.date))
+      const primaryDate = sortedWindows.length > 0 ? sortedWindows[0].date : draft.visitDate
 
-      const addressString = draft.addressSnapshot
-        ? formatAddressLine(draft.addressSnapshot)
-        : null
+      const visitDatesPayload = sortedWindows.map((w, i) => ({
+        visit_date: w.date,
+        from_time: w.fromTime ?? null,
+        to_time: w.toTime ?? null,
+        sort_order: i,
+      }))
 
       // Upload pending files to Supabase storage before the atomic RPC
       const uploadedAttachments: OrderAttachment[] = []
       for (const item of pendingFiles) {
         const ext = item.file.name.split('.').pop() ?? 'bin'
-        const path = `${orderId}/${item.id}.${ext}`
+        const storagePath = `${draft.orderId}/${item.id}.${ext}`
         const { error: uploadErr } = await supabase.storage
           .from('order-attachments')
-          .upload(path, item.file, { upsert: true, contentType: item.file.type })
+          .upload(storagePath, item.file, { upsert: true, contentType: item.file.type })
         if (!uploadErr) {
           const { data: { publicUrl } } = supabase.storage
             .from('order-attachments')
-            .getPublicUrl(path)
+            .getPublicUrl(storagePath)
           uploadedAttachments.push({ url: publicUrl, name: item.file.name, type: item.file.type })
         }
       }
 
-      // Primary visit date = first window in sorted order
-      const sortedWindows = [...draft.visitDates].sort((a, b) => a.date.localeCompare(b.date))
-      const primaryDate = sortedWindows.length > 0 ? sortedWindows[0].date : draft.visitDate
+      // ── Site visit path ─────────────────────────────────────────────────────
+      if (draft.type === 'site-visit') {
+        const visitId = await generateVisitId(supabase)
 
-      // Build payloads for the atomic RPC
+        const assignmentsPayload = draft.assignments.map((a) => ({
+          team_id: a.teamId,
+          scheduled_date: primaryDate,
+          time_slot: a.timeSlot,
+          duration: String(a.duration),
+        }))
+
+        const { data: newId, error } = await (supabase as any).rpc('create_site_visit', {
+          p_visit_id:       visitId,
+          p_customer_id:    draft.customerId,
+          p_status:         status,
+          p_mode:           draft.mode,
+          p_scheduled_date: primaryDate,
+          p_address:        addressString ?? '',
+          p_notes:          draft.notes ?? '',
+          p_arrival_phone:  draft.arrivalPhone ?? '',
+          p_attachments:    uploadedAttachments.length > 0 ? uploadedAttachments : null,
+          p_visit_dates:    visitDatesPayload,
+          p_assignments:    assignmentsPayload,
+        })
+
+        if (error) {
+          if (error.message?.startsWith('slot_conflict:')) {
+            throw new Error('That time slot is already taken — choose a different time or team')
+          }
+          const detail = (error as { details?: string }).details
+          const hint   = (error as { hint?: string }).hint
+          throw new Error([error.message ?? 'Failed to create site visit', detail, hint].filter(Boolean).join(' — '))
+        }
+
+        return newId as string
+      }
+
+      // ── Regular order path ──────────────────────────────────────────────────
+      const orderId = await generateOrderId(supabase)
+      const totalAmount = draft.services.reduce((sum, s) => sum + s.price * s.qty, 0) - draft.voucherDiscount
+
       const servicesPayload = draft.services.map((s) => ({
         service_id: s.serviceId,
         name: s.serviceName,
@@ -192,22 +266,14 @@ export function useCreateOrder() {
         configuration: s.configuration ?? null,
       }))
 
-      const visitDatesPayload = sortedWindows.map((w, i) => ({
-        visit_date: w.date,
-        from_time: w.fromTime ?? null,
-        to_time: w.toTime ?? null,
-        sort_order: i,
-      }))
-
       const assignmentsPayload = draft.assignments.map((a) => ({
         team_id: a.teamId,
-        services: a.services,
-        scheduled_date: draft.visitDate,
+        services: a.services.filter((s) => s.serviceId !== SITE_VISIT_SERVICE_ID),
+        scheduled_date: primaryDate,
         time_slot: a.timeSlot,
         duration: String(a.duration),
       }))
 
-      // Single atomic RPC — all inserts in one DB transaction
       const { data: newOrderId, error } = await (supabase as any).rpc('create_order_with_dates', {
         p_order_id:       orderId,
         p_customer_id:    draft.customerId,
@@ -229,17 +295,16 @@ export function useCreateOrder() {
         if (error.message?.startsWith('slot_conflict:')) {
           throw new Error('That time slot is already taken — choose a different time or team')
         }
-        // Surface the Postgres error detail so it appears in the toast
-        const detail = (error as { message?: string; details?: string; hint?: string }).details
-        const hint   = (error as { message?: string; details?: string; hint?: string }).hint
-        const msg    = error.message ?? 'Failed to create order'
-        throw new Error([msg, detail, hint].filter(Boolean).join(' — '))
+        const detail = (error as { details?: string }).details
+        const hint   = (error as { hint?: string }).hint
+        throw new Error([error.message ?? 'Failed to create order', detail, hint].filter(Boolean).join(' — '))
       }
 
       return newOrderId as string
     },
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ['orders'] })
+      qc.invalidateQueries({ queryKey: ['site-visits'] })
       reset()
     },
   })
@@ -250,12 +315,14 @@ export function useCreateOrder() {
     setPendingFiles,
     setCustomer,
     setAddress,
+    setType,
     addService,
     removeService,
     updateServiceQty,
     updateServiceTime,
     addAssignment,
     removeAssignment,
+    updateSiteVisitTime,
     update,
     reset,
     isValid,
