@@ -207,22 +207,26 @@ export function OrderFormPanel({
             )}
           </div>
           {draft.type === 'order' && (
-            <>
-              <ServiceSelector onAdd={onAddService} divisionFilters={selectedDivisions} />
-              {draft.services.length > 0 && (
-                <div className="mt-2 space-y-1.5">
-                  {draft.services.map((s) => (
-                    <SelectedServiceCard
-                      key={s.serviceId}
-                      service={s}
-                      onRemove={onRemoveService}
-                      onQtyChange={onUpdateServiceQty}
-                      onTimeChange={onUpdateServiceTime}
-                    />
-                  ))}
-                </div>
-              )}
-            </>
+            selectedDivisions.length === 0 ? (
+              <p className="text-xs text-slate-400 mt-1">Select a division first</p>
+            ) : (
+              <>
+                <ServiceSelector onAdd={onAddService} divisionFilters={selectedDivisions} />
+                {draft.services.length > 0 && (
+                  <div className="mt-2 space-y-1.5">
+                    {draft.services.map((s) => (
+                      <SelectedServiceCard
+                        key={s.serviceId}
+                        service={s}
+                        onRemove={onRemoveService}
+                        onQtyChange={onUpdateServiceQty}
+                        onTimeChange={onUpdateServiceTime}
+                      />
+                    ))}
+                  </div>
+                )}
+              </>
+            )
           )}
           {draft.type === 'site-visit' && (
             <p className="text-xs text-slate-400 mt-1">Site visit — no services required</p>
