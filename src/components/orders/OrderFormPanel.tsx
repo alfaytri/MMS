@@ -284,7 +284,7 @@ export function OrderFormPanel({
           <Label className="text-xs font-semibold uppercase tracking-wide text-slate-500">
             Phone on Arrival
           </Label>
-          <div className="flex">
+          <div className="flex h-10 rounded-md border border-input shadow-sm focus-within:ring-1 focus-within:ring-ring">
             <Select value={arrivalCountryCode} onValueChange={(v) => {
               if (!v) return
               setArrivalCountryCode(v)
@@ -292,7 +292,7 @@ export function OrderFormPanel({
                 onUpdate({ arrivalPhone: `${v}${arrivalLocalNumber}` })
               }
             }}>
-              <SelectTrigger className="w-28 shrink-0 rounded-r-none border-r-0 focus:z-10 h-10">
+              <SelectTrigger className="w-28 shrink-0 rounded-r-none border-0 shadow-none focus:ring-0 h-full bg-slate-50 text-xs font-medium">
                 <SelectValue />
               </SelectTrigger>
               <SelectContent>
@@ -301,11 +301,12 @@ export function OrderFormPanel({
                 ))}
               </SelectContent>
             </Select>
+            <div className="w-px bg-border self-stretch" />
             <Input
               placeholder="5XXX XXXX"
               value={arrivalLocalNumber}
               onChange={(e) => handleArrivalPhoneChange(e.target.value)}
-              className="rounded-l-none h-10"
+              className="rounded-l-none border-0 shadow-none focus-visible:ring-0 h-full flex-1"
             />
           </div>
         </div>
