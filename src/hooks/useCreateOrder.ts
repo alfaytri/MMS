@@ -226,11 +226,14 @@ export function useCreateOrder() {
       })
 
       if (error) {
-        // The RPC raises 'slot_conflict' via RAISE EXCEPTION with ERRCODE P0001
         if (error.message?.startsWith('slot_conflict:')) {
           throw new Error('That time slot is already taken — choose a different time or team')
         }
-        throw error
+        // Surface the Postgres error detail so it appears in the toast
+        const detail = (error as { message?: string; details?: string; hint?: string }).details
+        const hint   = (error as { message?: string; details?: string; hint?: string }).hint
+        const msg    = error.message ?? 'Failed to create order'
+        throw new Error([msg, detail, hint].filter(Boolean).join(' — '))
       }
 
       return newOrderId as string
