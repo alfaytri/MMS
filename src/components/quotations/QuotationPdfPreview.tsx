@@ -4,7 +4,6 @@ import { useQuery } from '@tanstack/react-query'
 import { createClient } from '@/lib/supabase/client'
 import { format } from 'date-fns'
 import type { QuotationDraft } from '@/types/quotations'
-import { computeTotal } from '@/hooks/useCreateQuotation'
 
 interface DivisionRecord {
   id: string
@@ -17,11 +16,12 @@ interface DivisionRecord {
 }
 
 function useDivisionBySlug(slug: string | null) {
-  const supabase = createClient()
   return useQuery<DivisionRecord | null>({
     queryKey: ['division-by-slug', slug],
     enabled: !!slug,
+    staleTime: 10 * 60 * 1000,
     queryFn: async () => {
+      const supabase = createClient()
       const { data, error } = await (supabase as any)
         .from('divisions')
         .select('id, name, name_ar, address_en, logo_url, stamp_url, default_currency')
