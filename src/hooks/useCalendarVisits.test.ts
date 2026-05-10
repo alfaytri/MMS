@@ -15,6 +15,9 @@ const makeVisit = (overrides: Partial<CalendarVisit>): CalendarVisit => ({
   customer_name: 'Al-Sayed',
   customer_id: 'cust-1',
   service_id: null,
+  order_number: null,
+  customer_phone: null,
+  services_summary: null,
   ...overrides,
 })
 

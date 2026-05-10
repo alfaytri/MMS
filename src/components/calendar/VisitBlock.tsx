@@ -2,7 +2,7 @@
 
 import { useState } from 'react'
 import {
-  Briefcase, Zap, RefreshCw, Wrench, MapPin, FileText, ClipboardList, ShieldCheck,
+  Briefcase, Zap, RefreshCw, Wrench, MapPin, FileText, ClipboardList, ShieldCheck, Phone,
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import type { CalendarVisit } from '@/hooks/useCalendarVisits'
@@ -104,16 +104,31 @@ export function VisitBlock({
       {/* Hover card */}
       {hovered && (
         <div
-          className="absolute top-full left-0 mt-1 min-w-[180px] bg-popover border rounded-md shadow-lg p-2 z-30 space-y-1"
+          className="absolute top-full left-0 mt-1 min-w-[200px] bg-popover border rounded-md shadow-lg p-2.5 z-30 space-y-1.5"
           onMouseEnter={() => setHovered(true)}
           onMouseLeave={() => setHovered(false)}
         >
-          <div className="text-xs font-medium text-foreground">{visit.customer_name ?? '—'}</div>
+          {visit.order_number && (
+            <div className="text-[10px] font-mono font-semibold text-foreground">{visit.order_number}</div>
+          )}
           <div className="text-[10px] text-muted-foreground">
             {cfg.label} · {visit.start_time}–{visit.end_time}
           </div>
-          <div className="text-[10px] text-muted-foreground capitalize">{visit.status}</div>
-
+          <div className="text-[10px] font-medium capitalize">{visit.status}</div>
+          {visit.customer_name && (
+            <div className="text-[10px] text-muted-foreground">{visit.customer_name}</div>
+          )}
+          {visit.customer_phone && (
+            <div className="flex items-center gap-1 text-[10px] text-muted-foreground">
+              <Phone className="h-2.5 w-2.5" />
+              {visit.customer_phone}
+            </div>
+          )}
+          {visit.services_summary && (
+            <div className="text-[10px] text-muted-foreground border-t pt-1 mt-1">
+              {visit.services_summary}
+            </div>
+          )}
           <div className="flex gap-1 pt-1">
             {canEdit && (
               <button

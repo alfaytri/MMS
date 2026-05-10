@@ -25,6 +25,9 @@ export interface CalendarVisit {
   customer_name: string | null
   customer_id: string | null
   service_id: string | null
+  order_number: string | null
+  customer_phone: string | null
+  services_summary: string | null
 }
 
 /** Groups a flat visit array by team_id, excluding QC visits. */
