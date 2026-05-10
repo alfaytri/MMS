@@ -10,13 +10,13 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { CheckCircle, User, Search } from 'lucide-react'
 import { ServiceSelector } from './ServiceSelector'
 import { SelectedServiceCard } from './SelectedServiceCard'
-import { SiteVisitCard } from './SiteVisitCard'
 import { AddressPicker } from './AddressPicker'
 import { VisitDatePicker } from './VisitDatePicker'
 import { AttachmentsUpload } from './AttachmentsUpload'
 import type { PendingAttachment } from './AttachmentsUpload'
 import { useDivisions } from '@/hooks/useDivisions'
 import { cn } from '@/lib/utils'
+import { SiteVisitCard } from './SiteVisitCard'
 import type { OrderDraft, OrderServiceDraft, CustomerAddress, OrderType, VisitDateWindow } from '@/types/orders'
 
 const COUNTRY_CODES = [
@@ -50,6 +50,7 @@ interface Props {
   onSubmit: () => void
   isSubmitting: boolean
   isValid: boolean
+  submitLabel?: string
 }
 
 export function OrderFormPanel({
@@ -68,6 +69,7 @@ export function OrderFormPanel({
   onSubmit,
   isSubmitting,
   isValid,
+  submitLabel = 'Confirm Order',
 }: Props) {
   const { data: divisions = [] } = useDivisions()
   const [multiDivision, setMultiDivision] = useState(false)
@@ -374,7 +376,7 @@ export function OrderFormPanel({
           onClick={onSubmit}
         >
           <CheckCircle className="h-4 w-4" />
-          {isSubmitting ? 'Confirming…' : 'Confirm Order'}
+          {isSubmitting ? 'Saving…' : submitLabel}
         </Button>
       </div>
     </div>

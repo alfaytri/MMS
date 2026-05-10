@@ -17,6 +17,7 @@ export function useOrderDetail(orderId: string | null) {
           customers!inner(name, customer_phones(phone)),
           order_services(id, service_id, name, qty, price, duration, path),
           order_team_assignments(id, team_id, services, scheduled_date, time_slot, duration, teams!inner(name)),
+          order_visit_dates(id, visit_date, from_time, to_time, sort_order),
           order_log(id, action, user_name, details, created_at)
         `)
         .eq('id', orderId)
