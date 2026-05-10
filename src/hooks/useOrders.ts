@@ -45,7 +45,11 @@ export function useOrders(filter: OrdersFilter = DEFAULT_FILTER) {
       if (filter.visitDateFrom)   query = query.gte('scheduled_date', filter.visitDateFrom)
       if (filter.visitDateTo)     query = query.lte('scheduled_date', filter.visitDateTo)
       if (filter.orderNumber)     query = query.ilike('order_id', `%${filter.orderNumber}%`)
-      if (filter.customerPhone)   query = query.ilike('arrival_phone', `%${filter.customerPhone}%`)
+      // Search both the stored arrival phone AND the customer's primary phone
+      if (filter.customerPhone) {
+        const ph = filter.customerPhone.replace(/\s+/g, '')
+        query = query.or(`arrival_phone.ilike.%${ph}%,customers.phone.ilike.%${ph}%`)
+      }
       if (filter.division)        query = query.eq('division', filter.division as any)
 
       if (filter.sortBy === 'date_asc')         query = query.order('scheduled_date', { ascending: true })

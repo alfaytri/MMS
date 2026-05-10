@@ -129,7 +129,7 @@ export default function CreateOrderPage() {
             draftInfo={{
               orderId: draft.orderId,
               customerName: draft.customerName,
-              phone: draft.arrivalPhone || draft.phone,
+              phone: draft.phone || draft.arrivalPhone,
               notes: draft.notes,
               mode: draft.mode,
             }}
