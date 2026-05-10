@@ -8,8 +8,12 @@ import { Label } from '@/components/ui/label'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { Plus, Search, X, ChevronDown, ChevronUp } from 'lucide-react'
 import { OrderCard } from '@/components/orders/OrderCard'
+import { SiteVisitListCard } from '@/components/orders/SiteVisitListCard'
 import { OrderDetailDialog } from '@/components/orders/OrderDetailDialog'
+import { SiteVisitDetailSheet } from '@/components/orders/SiteVisitDetailSheet'
 import { useOrders, useOrderCounts } from '@/hooks/useOrders'
+import { useSiteVisits } from '@/hooks/useSiteVisits'
+import { useTeams } from '@/hooks/useTeams'
 import type { OrdersFilter } from '@/types/orders'
 import { cn } from '@/lib/utils'
 
@@ -70,9 +74,15 @@ export default function OrdersPage() {
   const [search, setSearch] = useState<SearchState>(EMPTY_SEARCH)
   const [searchOpen, setSearchOpen] = useState(true)
   const [selectedOrderId, setSelectedOrderId] = useState<string | null>(null)
+  const [selectedVisitId, setSelectedVisitId] = useState<string | null>(null)
 
-  const { data: orders = [], isLoading } = useOrders(filter)
+  const isSiteVisitOnly = search.orderType === 'site-visit'
+  const isOrderOnly     = search.orderType === 'order'
+  const { data: orders = [], isLoading } = useOrders({ ...filter, orderType: isOrderOnly ? 'order' : undefined })
+  const { data: siteVisits = [], isLoading: isLoadingSV } = useSiteVisits()
   const { data: counts } = useOrderCounts()
+  const { data: teamsRaw = [] } = useTeams()
+  const teams = teamsRaw as Array<{ id: string; name_en: string | null; name: string }>
 
   function toggleStatus(val: string) {
     setSearch((s) => ({
@@ -190,22 +200,26 @@ export default function OrdersPage() {
             <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
               <div className="space-y-1.5">
                 <Label className="text-[11px] font-semibold uppercase tracking-wide text-slate-500">From Order Date</Label>
-                <Input type="date" className="h-9 text-sm" value={search.bookingDateFrom}
+                <Input type="date" className="h-9 text-sm cursor-pointer" value={search.bookingDateFrom}
+                  onClick={(e) => { try { (e.target as HTMLInputElement).showPicker() } catch {} }}
                   onChange={(e) => setSearch((s) => ({ ...s, bookingDateFrom: e.target.value }))} />
               </div>
               <div className="space-y-1.5">
                 <Label className="text-[11px] font-semibold uppercase tracking-wide text-slate-500">To Order Date</Label>
-                <Input type="date" className="h-9 text-sm" value={search.bookingDateTo}
+                <Input type="date" className="h-9 text-sm cursor-pointer" value={search.bookingDateTo}
+                  onClick={(e) => { try { (e.target as HTMLInputElement).showPicker() } catch {} }}
                   onChange={(e) => setSearch((s) => ({ ...s, bookingDateTo: e.target.value }))} />
               </div>
               <div className="space-y-1.5">
                 <Label className="text-[11px] font-semibold uppercase tracking-wide text-slate-500">From Visit Date</Label>
-                <Input type="date" className="h-9 text-sm" value={search.visitDateFrom}
+                <Input type="date" className="h-9 text-sm cursor-pointer" value={search.visitDateFrom}
+                  onClick={(e) => { try { (e.target as HTMLInputElement).showPicker() } catch {} }}
                   onChange={(e) => setSearch((s) => ({ ...s, visitDateFrom: e.target.value }))} />
               </div>
               <div className="space-y-1.5">
                 <Label className="text-[11px] font-semibold uppercase tracking-wide text-slate-500">To Visit Date</Label>
-                <Input type="date" className="h-9 text-sm" value={search.visitDateTo}
+                <Input type="date" className="h-9 text-sm cursor-pointer" value={search.visitDateTo}
+                  onClick={(e) => { try { (e.target as HTMLInputElement).showPicker() } catch {} }}
                   onChange={(e) => setSearch((s) => ({ ...s, visitDateTo: e.target.value }))} />
               </div>
             </div>
@@ -236,8 +250,22 @@ export default function OrdersPage() {
               </div>
               <div className="space-y-1.5">
                 <Label className="text-[11px] font-semibold uppercase tracking-wide text-slate-500">Team</Label>
-                <Input placeholder="Team name…" className="h-9 text-sm" value={search.team}
-                  onChange={(e) => setSearch((s) => ({ ...s, team: e.target.value }))} />
+                <Select
+                  value={search.team || '__all__'}
+                  onValueChange={(v) => setSearch((s) => ({ ...s, team: v === '__all__' ? '' : v }))}
+                >
+                  <SelectTrigger className="h-9 w-full text-sm">
+                    <SelectValue placeholder="All teams" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="__all__">All teams</SelectItem>
+                    {teams.map((t) => (
+                      <SelectItem key={t.id} value={t.name_en ?? t.name}>
+                        {t.name_en ?? t.name}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
               </div>
             </div>
 
@@ -254,25 +282,54 @@ export default function OrdersPage() {
         )}
       </div>
 
-      {/* ── Order grid ── */}
+      {/* ── Order / Site Visit grid ── */}
       <div className="flex-1 overflow-y-auto p-4 sm:p-6">
-        {isLoading ? (
-          <p className="py-12 text-center text-sm text-slate-400">Loading orders…</p>
-        ) : orders.length === 0 ? (
-          <p className="py-12 text-center text-sm text-slate-400">No orders found</p>
-        ) : (
-          <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-4">
-            {orders.map((order) => (
-              <OrderCard key={order.id} order={order} onClick={() => setSelectedOrderId(order.id)} />
-            ))}
-          </div>
-        )}
+        {(isLoading || isLoadingSV) ? (
+          <p className="py-12 text-center text-sm text-slate-400">Loading…</p>
+        ) : (() => {
+          // Build a unified sorted list based on type filter
+          type Row =
+            | { kind: 'order'; item: typeof orders[0] }
+            | { kind: 'visit'; item: typeof siteVisits[0] }
+
+          let rows: Row[] = []
+          if (!isSiteVisitOnly) rows.push(...orders.map((o) => ({ kind: 'order' as const, item: o })))
+          if (!isOrderOnly)     rows.push(...siteVisits.map((v) => ({ kind: 'visit' as const, item: v })))
+
+          // Sort combined list by scheduled_date descending
+          rows.sort((a, b) => {
+            const da = a.item.scheduled_date ?? ''
+            const db = b.item.scheduled_date ?? ''
+            return db.localeCompare(da)
+          })
+
+          if (rows.length === 0) {
+            return <p className="py-12 text-center text-sm text-slate-400">No orders found</p>
+          }
+
+          return (
+            <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-4">
+              {rows.map((row) =>
+                row.kind === 'order' ? (
+                  <OrderCard key={row.item.id} order={row.item} onClick={() => setSelectedOrderId(row.item.id)} />
+                ) : (
+                  <SiteVisitListCard key={row.item.id} visit={row.item} onClick={() => setSelectedVisitId(row.item.id)} />
+                )
+              )}
+            </div>
+          )
+        })()}
       </div>
 
       <OrderDetailDialog
         orderId={selectedOrderId}
         open={!!selectedOrderId}
         onOpenChange={(v) => { if (!v) setSelectedOrderId(null) }}
+      />
+      <SiteVisitDetailSheet
+        visitId={selectedVisitId}
+        open={!!selectedVisitId}
+        onOpenChange={(v) => { if (!v) setSelectedVisitId(null) }}
       />
     </div>
   )
