@@ -33,7 +33,7 @@ function buildMessage(body: SendQuotationBody): string {
 }
 
 export async function POST(req: NextRequest) {
-  const WATI_URL = process.env.WATI_API_URL
+  const WATI_URL = process.env.WATI_API_URL?.replace(/\/$/, '')
   const WATI_TOKEN = process.env.WATI_API_TOKEN
 
   if (!WATI_URL || !WATI_TOKEN) {
@@ -53,6 +53,10 @@ export async function POST(req: NextRequest) {
   // Validate required fields
   if (!body.phone || !body.customerName || !body.quotationId || !body.divisionName || !body.services || body.total === undefined || !body.expiryDate) {
     return NextResponse.json({ error: 'Missing required fields' }, { status: 400 })
+  }
+
+  if (!Array.isArray(body.services) || body.services.length === 0) {
+    return NextResponse.json({ error: 'services must be a non-empty array' }, { status: 400 })
   }
 
   // Normalize phone — WATI expects digits only, no + prefix
