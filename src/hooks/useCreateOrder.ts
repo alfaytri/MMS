@@ -76,8 +76,17 @@ export function useCreateOrder() {
     }))
   }
 
+  function updateServiceTime(serviceId: string, fromTime: string | null, toTime: string | null) {
+    setDraft((d) => ({
+      ...d,
+      services: d.services.map((s) =>
+        s.serviceId === serviceId ? { ...s, fromTime, toTime } : s
+      ),
+    }))
+  }
+
   function addAssignment(assignment: Omit<TeamAssignmentDraft, 'id'>) {
-    setDraft((d) => ({ ...d, assignments: [...d.assignments, { ...assignment, id: crypto.randomUUID() }] }))
+    setDraft((d) => ({ ...d, assignments: [...d.assignments, { toTime: null, ...assignment, id: crypto.randomUUID() }] }))
   }
 
   function removeAssignment(id: string) {
@@ -217,6 +226,7 @@ export function useCreateOrder() {
     addService,
     removeService,
     updateServiceQty,
+    updateServiceTime,
     addAssignment,
     removeAssignment,
     update,

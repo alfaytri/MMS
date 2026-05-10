@@ -7,14 +7,10 @@ import { ChevronLeft, ChevronRight } from 'lucide-react'
 import { format, addDays, subDays } from 'date-fns'
 import { useTeams } from '@/hooks/useTeams'
 import { useCalendarVisits, type CalendarVisit } from '@/hooks/useCalendarVisits'
-
 import { AllocateQuantityDialog } from './AllocateQuantityDialog'
 import type { OrderServiceDraft, TeamAssignmentDraft, OrderMode } from '@/types/orders'
 import { cn } from '@/lib/utils'
 
-// TeamFull extends TeamRaw = DBTable<'teams'>, but DBTable is a broken re-export in
-// this codebase — the Row fields (id, name, name_en, …) are not visible to TS.
-// We define a local alias with the fields we need so we can cast safely.
 interface TeamRow {
   id: string
   name: string
@@ -23,8 +19,59 @@ interface TeamRow {
   members: Array<{ skills: string[] | null }>
 }
 
-/** Hours shown in the grid: 7 AM – 6 PM (inclusive). */
-const HOURS = Array.from({ length: 12 }, (_, i) => i + 7)
+/** Full day: 12 AM – 11 PM */
+const HOURS = Array.from({ length: 24 }, (_, i) => i)
+const CELL_W = 56   // px per hour column — w-14
+const TRACK_H = 44  // px per stacking track
+
+function formatHour(h: number): string {
+  if (h === 0) return '12AM'
+  if (h < 12) return `${h}AM`
+  if (h === 12) return '12PM'
+  return `${h - 12}PM`
+}
+
+/** Parse "HH:MM" or plain integer string → integer hour */
+function parseHour(t: string | null): number | null {
+  if (!t) return null
+  const n = parseInt(t)
+  return isNaN(n) ? null : n
+}
+
+// ---------------------------------------------------------------------------
+// Track assignment — greedy interval scheduling
+// ---------------------------------------------------------------------------
+
+interface Block {
+  id: string
+  start: number   // hour
+  end: number     // hour (exclusive)
+}
+
+/** Returns a map of block.id → track index (0-based). */
+function assignTracks(blocks: Block[]): Map<string, number> {
+  const sorted = [...blocks].sort((a, b) => a.start - b.start)
+  const trackEnds: number[] = []  // trackEnds[i] = end hour of last block on track i
+  const result = new Map<string, number>()
+
+  for (const b of sorted) {
+    let placed = false
+    for (let t = 0; t < trackEnds.length; t++) {
+      if (trackEnds[t] <= b.start) {
+        trackEnds[t] = b.end
+        result.set(b.id, t)
+        placed = true
+        break
+      }
+    }
+    if (!placed) {
+      result.set(b.id, trackEnds.length)
+      trackEnds.push(b.end)
+    }
+  }
+
+  return result
+}
 
 interface PendingDrop {
   service: OrderServiceDraft
@@ -44,34 +91,36 @@ interface Props {
 }
 
 // ---------------------------------------------------------------------------
-// DroppableCell
+// DroppableCell — one hour slot per team row
 // ---------------------------------------------------------------------------
 
 interface DroppableCellProps {
   teamId: string
   hour: number
+  isOccupied: boolean
   isSkillMatch: boolean | null
-  children?: React.ReactNode
+  rowHeight: number
 }
 
-function DroppableCell({ teamId, hour, isSkillMatch, children }: DroppableCellProps) {
+function DroppableCell({ teamId, hour, isOccupied, isSkillMatch, rowHeight }: DroppableCellProps) {
   const { isOver, setNodeRef } = useDroppable({
     id: `${teamId}-${hour}`,
     data: { teamId, hour },
+    disabled: isOccupied,
   })
 
   return (
     <div
       ref={setNodeRef}
+      style={{ width: CELL_W, minWidth: CELL_W, height: rowHeight }}
       className={cn(
-        'relative h-12 w-16 shrink-0 border-r border-slate-100 transition-colors',
-        isOver && 'bg-orange-50 ring-1 ring-inset ring-orange-300',
-        isSkillMatch === true && 'bg-green-50',
-        isSkillMatch === false && 'opacity-40',
+        'shrink-0 border-r border-slate-100 transition-colors',
+        isOccupied && 'bg-slate-100 cursor-not-allowed',
+        !isOccupied && isOver && 'bg-orange-50 ring-1 ring-inset ring-orange-300',
+        !isOccupied && isSkillMatch === true && 'bg-green-50',
+        !isOccupied && isSkillMatch === false && 'opacity-40',
       )}
-    >
-      {children}
-    </div>
+    />
   )
 }
 
@@ -88,171 +137,227 @@ export function TeamCalendarPanel({
   onAssign,
   onDateChange,
 }: Props) {
-  // Cast the query result to our local TeamRow shape — TeamFull extends TeamRaw which
-  // is typed as DBTable<'teams'>, a broken re-export in this codebase. The data at
-  // runtime is correct; we cast here to make TS happy without touching shared files.
   const { data: teamsRaw } = useTeams()
   const teams = (teamsRaw ?? []) as unknown as TeamRow[]
-
-  // Pass null for divisionSlug — the panel shows all divisions in the order context.
   const { data: visits } = useCalendarVisits(visitDate, null)
-
   const [pendingDrop, setPendingDrop] = useState<PendingDrop | null>(null)
 
   const date = useMemo(() => new Date(visitDate), [visitDate])
 
-  // Build a map of teamId → flat array of skill strings from all members.
   const teamSkillMap = useMemo<Record<string, string[]>>(() => {
     const map: Record<string, string[]> = {}
-    teams.forEach((t) => {
-      map[t.id] = t.members.flatMap((e) => e.skills ?? [])
-    })
+    teams.forEach((t) => { map[t.id] = t.members.flatMap((e) => e.skills ?? []) })
     return map
   }, [teams])
 
-  /** Returns true if the team has the required skill, false if not, null if no skill required. */
   function getSkillMatch(teamId: string): boolean | null {
     if (!draggingService?.rootSkillId) return null
     return (teamSkillMap[teamId] ?? []).includes(draggingService.rootSkillId)
   }
 
-  function getVisitsForCell(teamId: string, hour: number): CalendarVisit[] {
-    return (visits ?? []).filter(
-      (v) => v.team_id === teamId && v.start_time !== null && parseInt(v.start_time) === hour,
-    )
-  }
-
-  function getAssignmentsForCell(teamId: string, hour: number): TeamAssignmentDraft[] {
-    return assignments.filter(
-      (a) => a.teamId === teamId && parseInt(a.timeSlot) === hour,
-    )
-  }
-
-  /** Resolves the best display name for a team (prefers Arabic-script-aware name_en). */
   function teamDisplayName(team: TeamRow): string {
     return team.name_en ?? team.name
   }
 
-  function formatHour(hour: number): string {
-    if (hour < 12) return `${hour}AM`
-    if (hour === 12) return '12PM'
-    return `${hour - 12}PM`
+  /** Returns true if the team already has an existing visit covering this hour */
+  function isOccupied(teamId: string, hour: number): boolean {
+    return (visits ?? []).some((v) => {
+      if (v.team_id !== teamId || !v.start_time) return false
+      const start = parseHour(v.start_time)
+      const end = v.end_time ? parseHour(v.end_time) : (start !== null ? start + 1 : null)
+      if (start === null || end === null) return false
+      return hour >= start && hour < end
+    })
+  }
+
+  /** Visits belonging to one team */
+  function visitsForTeam(teamId: string): CalendarVisit[] {
+    return (visits ?? []).filter((v) => v.team_id === teamId && v.start_time !== null)
+  }
+
+  /** Draft assignments belonging to one team */
+  function assignmentsForTeam(teamId: string): TeamAssignmentDraft[] {
+    return assignments.filter((a) => a.teamId === teamId)
+  }
+
+  /** CSS left offset for a given hour */
+  function hourLeft(h: number): number {
+    return (h - HOURS[0]) * CELL_W
+  }
+
+  /**
+   * Compute all blocks (visits + assignments) for a team, assign tracks,
+   * and return the row height needed to fit them all.
+   */
+  function computeTeamLayout(teamId: string): {
+    trackMap: Map<string, number>
+    rowHeight: number
+  } {
+    const teamVisits = visitsForTeam(teamId)
+    const teamAssignments = assignmentsForTeam(teamId)
+
+    const blocks: Block[] = []
+
+    for (const v of teamVisits) {
+      const start = parseHour(v.start_time)
+      const end = v.end_time ? parseHour(v.end_time) : (start !== null ? start + 1 : null)
+      if (start !== null && end !== null) {
+        blocks.push({ id: `v-${v.id}`, start, end })
+      }
+    }
+
+    for (const a of teamAssignments) {
+      const start = parseHour(a.timeSlot)
+      if (start === null) continue
+      // Prefer toTime window if available, fall back to duration
+      const end = a.toTime
+        ? parseHour(a.toTime) ?? (start + Math.max(1, Math.ceil(a.duration / 60)))
+        : start + Math.max(1, Math.ceil(a.duration / 60))
+      blocks.push({ id: `a-${a.id}`, start, end })
+    }
+
+    const trackMap = assignTracks(blocks)
+    const maxTrack = blocks.length === 0 ? 0 : Math.max(...Array.from(trackMap.values()))
+    const trackCount = blocks.length === 0 ? 1 : maxTrack + 1
+    const rowHeight = trackCount * TRACK_H
+
+    return { trackMap, rowHeight }
   }
 
   return (
     <div className="flex h-full flex-col overflow-hidden">
       {/* ── Header ── */}
       <div className="flex flex-wrap items-center justify-between gap-2 border-b px-4 py-2">
-        {/* Date navigation */}
         <div className="flex items-center gap-1">
-          <Button
-            variant="ghost"
-            size="icon"
-            className="h-7 w-7"
-            aria-label="Previous day"
-            onClick={() => onDateChange(format(subDays(date, 1), 'yyyy-MM-dd'))}
-          >
+          <Button variant="ghost" size="icon" className="h-7 w-7" aria-label="Previous day"
+            onClick={() => onDateChange(format(subDays(date, 1), 'yyyy-MM-dd'))}>
             <ChevronLeft className="h-4 w-4" />
           </Button>
           <span className="min-w-[7rem] text-center text-sm font-medium">
             {format(date, 'EEE, MMM d')}
           </span>
-          <Button
-            variant="ghost"
-            size="icon"
-            className="h-7 w-7"
-            aria-label="Next day"
-            onClick={() => onDateChange(format(addDays(date, 1), 'yyyy-MM-dd'))}
-          >
+          <Button variant="ghost" size="icon" className="h-7 w-7" aria-label="Next day"
+            onClick={() => onDateChange(format(addDays(date, 1), 'yyyy-MM-dd'))}>
             <ChevronRight className="h-4 w-4" />
           </Button>
         </div>
 
-        {/* Mode switcher */}
         <div className="flex gap-1">
           {(['normal', 'emergency', 'waitlist'] as OrderMode[]).map((m) => (
-            <Button
-              key={m}
-              size="sm"
-              variant={mode === m ? 'default' : 'outline'}
-              className="h-7 capitalize text-xs"
-              onClick={() => onModeChange(m)}
-            >
+            <Button key={m} size="sm" variant={mode === m ? 'default' : 'outline'}
+              className="h-7 capitalize text-xs" onClick={() => onModeChange(m)}>
               {m === 'normal' ? 'Normal' : m === 'emergency' ? 'Emergency' : 'Wait List'}
             </Button>
           ))}
         </div>
       </div>
 
-      {/* ── Calendar grid ── */}
+      {/* ── Grid ── */}
       <div className="flex-1 overflow-auto">
-        <div className="flex min-w-max">
-          {/* Team label column */}
-          <div className="w-32 shrink-0 border-r">
-            {/* Corner cell */}
-            <div className="flex h-8 items-center border-b bg-slate-50 px-2 text-xs font-medium text-slate-500">
+        <div className="flex min-w-max flex-col">
+
+          {/* Hour header row */}
+          <div className="flex border-b bg-slate-50 sticky top-0 z-10">
+            <div className="w-32 shrink-0 border-r px-2 py-1 text-xs font-medium text-slate-500">
               Teams / Time
             </div>
-
-            {/* One row per team */}
-            {(teams ?? []).map((team: TeamRow) => (
-              <div
-                key={team.id}
-                className={cn(
-                  'flex h-12 items-center border-b px-2 text-sm transition-opacity',
-                  draggingService && getSkillMatch(team.id) === false && 'opacity-40',
-                )}
-              >
-                <p className="max-w-[110px] truncate font-medium text-slate-900">
-                  {teamDisplayName(team)}
-                </p>
-              </div>
-            ))}
+            <div className="flex">
+              {HOURS.map((h) => (
+                <div
+                  key={h}
+                  style={{ width: CELL_W, minWidth: CELL_W }}
+                  className="shrink-0 border-r border-slate-100 px-1 py-1 text-center text-[10px] text-slate-500"
+                >
+                  {formatHour(h)}
+                </div>
+              ))}
+            </div>
           </div>
 
-          {/* Time columns */}
-          <div className="flex flex-1">
-            {HOURS.map((hour) => (
-              <div key={hour} className="w-16 shrink-0">
-                {/* Hour header */}
-                <div className="flex h-8 items-center justify-center border-b border-r bg-slate-50 text-xs text-slate-500">
-                  {formatHour(hour)}
+          {/* Team rows */}
+          {(teams ?? []).map((team: TeamRow) => {
+            const { trackMap, rowHeight } = computeTeamLayout(team.id)
+
+            return (
+              <div key={team.id} className="flex border-b">
+                {/* Team label */}
+                <div
+                  style={{ height: rowHeight }}
+                  className={cn(
+                    'w-32 shrink-0 flex items-center border-r px-2',
+                    draggingService && getSkillMatch(team.id) === false && 'opacity-40',
+                  )}
+                >
+                  <p className="max-w-[110px] truncate text-sm font-medium text-slate-900">
+                    {teamDisplayName(team)}
+                  </p>
                 </div>
 
-                {/* One droppable cell per team */}
-                {(teams ?? []).map((team: TeamRow) => (
-                  <DroppableCell
-                    key={team.id}
-                    teamId={team.id}
-                    hour={hour}
-                    isSkillMatch={draggingService ? getSkillMatch(team.id) : null}
-                  >
-                    {/* Existing calendar visits */}
-                    {getVisitsForCell(team.id, hour).map((v: CalendarVisit) => (
+                {/* Hour cells + absolutely-positioned blocks */}
+                <div className="relative flex">
+                  {HOURS.map((hour) => (
+                    <DroppableCell
+                      key={hour}
+                      teamId={team.id}
+                      hour={hour}
+                      isOccupied={isOccupied(team.id, hour)}
+                      isSkillMatch={draggingService ? getSkillMatch(team.id) : null}
+                      rowHeight={rowHeight}
+                    />
+                  ))}
+
+                  {/* Existing calendar visits */}
+                  {visitsForTeam(team.id).map((v) => {
+                    const start = parseHour(v.start_time)
+                    const end = v.end_time ? parseHour(v.end_time) : (start !== null ? start + 1 : null)
+                    if (start === null || end === null) return null
+                    const track = trackMap.get(`v-${v.id}`) ?? 0
+                    return (
                       <div
                         key={v.id}
                         title={v.customer_name ?? v.id}
-                        className="absolute inset-0 m-0.5 truncate rounded bg-blue-100 p-0.5 text-xs text-blue-800"
+                        className="absolute overflow-hidden rounded bg-blue-100 px-1 text-xs text-blue-800 flex items-center pointer-events-none"
+                        style={{
+                          left: hourLeft(start) + 1,
+                          width: (end - start) * CELL_W - 2,
+                          top: track * TRACK_H + 2,
+                          height: TRACK_H - 4,
+                        }}
                       >
-                        {v.customer_name ?? v.id}
+                        <span className="truncate">{v.customer_name ?? '—'}</span>
                       </div>
-                    ))}
+                    )
+                  })}
 
-                    {/* Draft assignments added in this order form */}
-                    {getAssignmentsForCell(team.id, hour).map((a: TeamAssignmentDraft) => (
+                  {/* Draft assignments */}
+                  {assignmentsForTeam(team.id).map((a) => {
+                    const start = parseHour(a.timeSlot)
+                    if (start === null) return null
+                    const end = a.toTime
+                      ? parseHour(a.toTime) ?? (start + Math.max(1, Math.ceil(a.duration / 60)))
+                      : start + Math.max(1, Math.ceil(a.duration / 60))
+                    const track = trackMap.get(`a-${a.id}`) ?? 0
+                    const totalQty = a.services.reduce((sum, s) => sum + s.qty, 0)
+                    return (
                       <div
                         key={a.id}
-                        title={`${a.services.reduce((sum, s) => sum + s.qty, 0)}× new`}
-                        className="absolute inset-0 m-0.5 truncate rounded bg-orange-100 p-0.5 text-xs text-orange-800"
+                        title={`${totalQty}× new`}
+                        className="absolute overflow-hidden rounded bg-orange-100 px-1 text-xs text-orange-800 flex items-center pointer-events-none"
+                        style={{
+                          left: hourLeft(start) + 1,
+                          width: (end - start) * CELL_W - 2,
+                          top: track * TRACK_H + 2,
+                          height: TRACK_H - 4,
+                        }}
                       >
-                        {a.services.reduce((sum, s) => sum + s.qty, 0)}× new
+                        <span className="truncate">{totalQty}× new</span>
                       </div>
-                    ))}
-                  </DroppableCell>
-                ))}
+                    )
+                  })}
+                </div>
               </div>
-            ))}
-          </div>
+            )
+          })}
         </div>
       </div>
 
@@ -270,13 +375,9 @@ export function TeamCalendarPanel({
               onAssign({
                 teamId: a.teamId,
                 teamName: a.teamName,
-                services: [
-                  {
-                    serviceId: pendingDrop.service.serviceId,
-                    qty: a.qty,
-                  },
-                ],
+                services: [{ serviceId: pendingDrop.service.serviceId, qty: a.qty }],
                 timeSlot: a.timeSlot,
+                toTime: pendingDrop.service.toTime ?? null,
                 duration: pendingDrop.service.duration,
               }),
             )

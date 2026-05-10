@@ -64,6 +64,9 @@ export interface OrderServiceDraft {
   duration: number
   configuration?: Record<string, unknown>
   rootSkillId?: string
+  /** Requested arrival window — set per service in the order form */
+  fromTime?: string | null
+  toTime?: string | null
 }
 
 export interface TeamAssignmentDraft {
@@ -72,6 +75,7 @@ export interface TeamAssignmentDraft {
   teamName: string
   services: Array<{ serviceId: string; qty: number }>
   timeSlot: string
+  toTime: string | null   // end of window; null → fall back to timeSlot + duration
   duration: number
 }
 

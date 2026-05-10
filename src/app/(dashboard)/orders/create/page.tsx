@@ -2,7 +2,7 @@
 'use client'
 import { useState } from 'react'
 import { useRouter } from 'next/navigation'
-import { DndContext, type DragEndEvent, type DragStartEvent } from '@dnd-kit/core'
+import { DndContext, DragOverlay, type DragEndEvent, type DragStartEvent } from '@dnd-kit/core'
 import { toast } from 'sonner'
 import { PhoneLookupModal } from '@/components/orders/PhoneLookupModal'
 import { OrderFormPanel } from '@/components/orders/OrderFormPanel'
@@ -12,6 +12,7 @@ import { useCreateOrder } from '@/hooks/useCreateOrder'
 import { useTeams } from '@/hooks/useTeams'
 import { Button } from '@/components/ui/button'
 import { Search } from 'lucide-react'
+import { SelectedServiceCard } from '@/components/orders/SelectedServiceCard'
 import type { OrderServiceDraft } from '@/types/orders'
 
 export default function CreateOrderPage() {
@@ -28,6 +29,7 @@ export default function CreateOrderPage() {
     addService,
     removeService,
     updateServiceQty,
+    updateServiceTime,
     addAssignment,
     update,
     isValid,
@@ -53,20 +55,21 @@ export default function CreateOrderPage() {
     if (!dropData?.teamId) return
 
     const { teamId, hour } = dropData
-    // TeamFull extends DBTable<'teams'> whose Row fields are opaque to TS — use any cast
     const match = (teams as unknown as Array<Record<string, unknown>>)?.find(
       (t) => t['id'] === teamId,
     )
     const teamName = (match?.['name_en'] as string | null | undefined) ??
       (match?.['name'] as string | null | undefined) ??
       teamId
-    const timeSlot = `${String(hour).padStart(2, '0')}:00`
+    // If the service has a preferred fromTime, use it; otherwise use the dropped cell hour
+    const timeSlot = service.fromTime ?? `${String(hour).padStart(2, '0')}:00`
 
     addAssignment({
       teamId,
       teamName,
       services: [{ serviceId: service.serviceId, qty: service.qty }],
       timeSlot,
+      toTime: service.toTime ?? null,
       duration: service.duration,
     })
   }
@@ -83,8 +86,8 @@ export default function CreateOrderPage() {
   }
 
   return (
-    <DndContext onDragStart={handleDragStart} onDragEnd={handleDragEnd}>
-      <div className="relative">
+    <DndContext autoScroll={false} onDragStart={handleDragStart} onDragEnd={handleDragEnd}>
+      <div className="relative overflow-x-hidden">
       <PhoneLookupModal
         open={lookupOpen}
         onOpenChange={setLookupOpen}
@@ -122,6 +125,7 @@ export default function CreateOrderPage() {
           onAddService={addService}
           onRemoveService={removeService}
           onUpdateServiceQty={updateServiceQty}
+          onUpdateServiceTime={updateServiceTime}
           onAddressSelect={setAddress}
           onUpdate={update}
           onPendingFilesChange={setPendingFiles}
@@ -149,6 +153,21 @@ export default function CreateOrderPage() {
         />
       </div>
       </div>
+
+      {/* Portal-rendered drag ghost — renders at document.body, never clipped by sidebar overflow */}
+      <DragOverlay dropAnimation={null} style={{ zIndex: 9999 }}>
+        {draggingService ? (
+          <div className="w-72 rotate-1">
+            <SelectedServiceCard
+              service={draggingService}
+              onRemove={() => {}}
+              onQtyChange={() => {}}
+              onTimeChange={() => {}}
+              isOverlay
+            />
+          </div>
+        ) : null}
+      </DragOverlay>
     </DndContext>
   )
 }
