@@ -85,6 +85,7 @@ interface Props {
   mode: OrderMode
   onModeChange: (mode: OrderMode) => void
   assignments: TeamAssignmentDraft[]
+  draftServices: OrderServiceDraft[]
   draggingService: OrderServiceDraft | null
   onAssign: (assignment: Omit<TeamAssignmentDraft, 'id'>) => void
   onDateChange: (date: string) => void
@@ -133,6 +134,7 @@ export function TeamCalendarPanel({
   mode,
   onModeChange,
   assignments,
+  draftServices,
   draggingService,
   onAssign,
   onDateChange,
@@ -157,6 +159,27 @@ export function TeamCalendarPanel({
 
   function teamDisplayName(team: TeamRow): string {
     return team.name_en ?? team.name
+  }
+
+  /** Build a human-readable label for a draft assignment block */
+  function assignmentLabel(a: TeamAssignmentDraft): string {
+    return a.services.map((s) => {
+      const draft = draftServices.find((ds) => ds.serviceId === s.serviceId)
+      const name = draft?.serviceName ?? 'Service'
+      return s.qty > 1 ? `${s.qty}× ${name}` : name
+    }).join(', ')
+  }
+
+  /**
+   * Compute block end hour for an assignment.
+   * toTime is INCLUSIVE: "10:00" means the 10AM cell is occupied → end = 11
+   */
+  function assignmentEnd(a: TeamAssignmentDraft, start: number): number {
+    if (a.toTime) {
+      const h = parseHour(a.toTime)
+      return h !== null ? h + 1 : start + Math.max(1, Math.ceil(a.duration / 60))
+    }
+    return start + Math.max(1, Math.ceil(a.duration / 60))
   }
 
   /** Returns true if the team already has an existing visit covering this hour */
@@ -209,10 +232,7 @@ export function TeamCalendarPanel({
     for (const a of teamAssignments) {
       const start = parseHour(a.timeSlot)
       if (start === null) continue
-      // Prefer toTime window if available, fall back to duration
-      const end = a.toTime
-        ? parseHour(a.toTime) ?? (start + Math.max(1, Math.ceil(a.duration / 60)))
-        : start + Math.max(1, Math.ceil(a.duration / 60))
+      const end = assignmentEnd(a, start)
       blocks.push({ id: `a-${a.id}`, start, end })
     }
 
@@ -333,24 +353,29 @@ export function TeamCalendarPanel({
                   {assignmentsForTeam(team.id).map((a) => {
                     const start = parseHour(a.timeSlot)
                     if (start === null) return null
-                    const end = a.toTime
-                      ? parseHour(a.toTime) ?? (start + Math.max(1, Math.ceil(a.duration / 60)))
-                      : start + Math.max(1, Math.ceil(a.duration / 60))
+                    const end = assignmentEnd(a, start)
                     const track = trackMap.get(`a-${a.id}`) ?? 0
-                    const totalQty = a.services.reduce((sum, s) => sum + s.qty, 0)
+                    const label = assignmentLabel(a)
+                    const timeRange = a.toTime
+                      ? `${formatHour(start)}–${formatHour(parseHour(a.toTime) ?? end)}`
+                      : formatHour(start)
+                    const blockW = (end - start) * CELL_W - 2
                     return (
                       <div
                         key={a.id}
-                        title={`${totalQty}× new`}
-                        className="absolute overflow-hidden rounded bg-orange-100 px-1 text-xs text-orange-800 flex items-center pointer-events-none"
+                        title={`${timeRange} · ${label}`}
+                        className="absolute overflow-hidden rounded bg-orange-200 border border-orange-300 px-1.5 text-[11px] text-orange-900 font-medium flex flex-col justify-center pointer-events-none"
                         style={{
                           left: hourLeft(start) + 1,
-                          width: (end - start) * CELL_W - 2,
+                          width: blockW,
                           top: track * TRACK_H + 2,
                           height: TRACK_H - 4,
                         }}
                       >
-                        <span className="truncate">{totalQty}× new</span>
+                        <span className="truncate leading-tight">{label}</span>
+                        {blockW >= 80 && (
+                          <span className="truncate text-[10px] text-orange-600 leading-tight">{timeRange}</span>
+                        )}
                       </div>
                     )
                   })}

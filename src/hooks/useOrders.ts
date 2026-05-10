@@ -15,8 +15,10 @@ export function useOrders(filter: OrdersFilter = DEFAULT_FILTER) {
         .from('orders')
         .select(`
           id, order_id, customer_id, type, division, status, confirmation_status,
-          scheduled_date, total_amount, agent_name, address, has_invoice, invoice_number, created_at,
-          customers!inner(name, customer_phones(phone))
+          scheduled_date, scheduled_time, total_amount, agent_name, address, arrival_phone,
+          has_invoice, invoice_number, created_at,
+          customers!inner(name, customer_phones(phone)),
+          order_services(name, qty)
         `)
 
       if (filter.statusChip === 'scheduled') query = query.eq('status', 'scheduled')
@@ -49,7 +51,11 @@ export function useOrders(filter: OrdersFilter = DEFAULT_FILTER) {
         ...o,
         customer_name: o.customers?.name ?? '',
         customer_phone: o.customers?.customer_phones?.[0]?.phone ?? '',
-        services_summary: '',
+        arrival_phone: o.arrival_phone ?? null,
+        scheduled_time: o.scheduled_time ?? null,
+        services_summary: (o.order_services ?? [])
+          .map((s: { name: string; qty: number }) => `${s.qty}× ${s.name}`)
+          .join(', '),
       }))
     },
   })

@@ -126,10 +126,12 @@ export interface OrderListItem {
   total_amount: number
   agent_name: string | null
   address: string | null
+  arrival_phone: string | null
   has_invoice: boolean
   invoice_number: string | null
   created_at: string
   services_summary: string
+  scheduled_time: string | null
 }
 
 export interface OrderDetail extends OrderListItem {

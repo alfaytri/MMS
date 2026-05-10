@@ -1,27 +1,37 @@
 // src/components/orders/OrderCard.tsx
 import { format } from 'date-fns'
+import { Phone, ClipboardList, Clock, MapPin } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import type { OrderListItem, OrderStatus, ConfirmationStatus } from '@/types/orders'
 
 const STATUS_STYLES: Record<OrderStatus, string> = {
-  tentative: 'bg-slate-100 text-slate-600',
-  scheduled: 'bg-blue-100 text-blue-700',
-  confirmed: 'bg-green-100 text-green-700',
-  'in-progress': 'bg-orange-100 text-orange-700',
-  completed: 'bg-green-100 text-green-800 font-semibold',
-  cancelled: 'bg-red-100 text-red-700',
-  waitlist: 'bg-yellow-100 text-yellow-700',
-  'pending-confirmation': 'bg-orange-100 text-orange-700',
-  'pending-approval': 'bg-yellow-100 text-yellow-700',
+  tentative:            'bg-slate-100 text-slate-600 border-slate-200',
+  scheduled:            'bg-orange-100 text-orange-700 border-orange-200',
+  confirmed:            'bg-green-100 text-green-700 border-green-200',
+  'in-progress':        'bg-blue-100 text-blue-700 border-blue-200',
+  completed:            'bg-green-100 text-green-800 border-green-300',
+  cancelled:            'bg-red-100 text-red-700 border-red-200',
+  waitlist:             'bg-yellow-100 text-yellow-700 border-yellow-200',
+  'pending-confirmation': 'bg-orange-100 text-orange-700 border-orange-200',
+  'pending-approval':   'bg-yellow-100 text-yellow-700 border-yellow-200',
 }
 
 const CONFIRMATION_LABELS: Record<ConfirmationStatus, string> = {
-  not_sent: 'Not Sent',
-  msg_sent: 'Msg Sent',
+  not_sent:           'Not Sent',
+  msg_sent:           'Msg Sent',
   customer_confirmed: 'Confirmed',
-  agent_confirmed: 'Agent Confirmed',
-  no_response: 'No Response',
+  agent_confirmed:    'Agent Confirmed',
+  no_response:        'No Response',
   manually_confirmed: 'Manual Confirm',
+}
+
+function fmt12(t: string): string {
+  const [hStr, mStr] = t.split(':')
+  const h = parseInt(hStr)
+  const m = mStr ?? '00'
+  const period = h < 12 ? 'AM' : 'PM'
+  const h12 = h === 0 ? 12 : h > 12 ? h - 12 : h
+  return `${h12}:${m} ${period}`
 }
 
 interface Props {
@@ -30,36 +40,65 @@ interface Props {
 }
 
 export function OrderCard({ order, onClick }: Props) {
+  const phone = order.arrival_phone || order.customer_phone
+  const timeLabel = order.scheduled_time ? fmt12(order.scheduled_time) : null
+
   return (
     <button
       onClick={onClick}
-      className="w-full min-h-11 rounded-lg border border-slate-200 bg-white p-3 text-left transition-colors hover:border-slate-300 hover:bg-slate-50"
+      className="w-full min-h-11 rounded-lg border border-slate-200 bg-white p-3 text-left transition-colors hover:border-slate-300 hover:bg-slate-50 space-y-2"
     >
-      <div className="flex items-start justify-between gap-3">
-        <div className="min-w-0">
-          <div className="flex items-center gap-2">
-            <span className="font-semibold text-slate-900">{order.order_id}</span>
-            <span className={cn('rounded px-1.5 py-0.5 text-xs font-medium', STATUS_STYLES[order.status as OrderStatus])}>
-              {order.status}
-            </span>
-            <span className="rounded bg-slate-100 px-1.5 py-0.5 text-xs text-slate-500">
-              {CONFIRMATION_LABELS[order.confirmation_status as ConfirmationStatus]}
-            </span>
-          </div>
-          <p className="mt-0.5 text-sm text-slate-600">
-            {order.customer_name} · {order.customer_phone}
-          </p>
-          {order.address && (
-            <p className="text-xs text-slate-400 truncate mt-0.5">{order.address}</p>
-          )}
-        </div>
-        <div className="shrink-0 text-right">
-          <p className="font-semibold text-slate-900">QAR {(order.total_amount ?? 0).toLocaleString()}</p>
-          {order.scheduled_date && (
-            <p className="text-xs text-slate-500">{format(new Date(order.scheduled_date), 'dd MMM yyyy')}</p>
-          )}
-        </div>
+      {/* Row 1: order ID + status + confirmation */}
+      <div className="flex items-center gap-2 flex-wrap">
+        <span className="font-mono font-semibold text-slate-900 text-sm">{order.order_id}</span>
+        <span className={cn('rounded border px-1.5 py-0.5 text-[11px] font-semibold uppercase', STATUS_STYLES[order.status as OrderStatus] ?? 'bg-slate-100 text-slate-600')}>
+          {order.status}
+        </span>
+        <span className="rounded bg-slate-100 px-1.5 py-0.5 text-[11px] text-slate-500">
+          {CONFIRMATION_LABELS[order.confirmation_status as ConfirmationStatus] ?? order.confirmation_status}
+        </span>
+        <span className="ml-auto font-semibold text-slate-900 text-sm">
+          QAR {(order.total_amount ?? 0).toLocaleString()}
+        </span>
       </div>
+
+      {/* Row 2: customer name + date + time */}
+      <div className="flex items-center gap-3 text-xs text-slate-600 flex-wrap">
+        <span className="font-medium">{order.customer_name}</span>
+        {order.scheduled_date && (
+          <span className="text-slate-400">{format(new Date(order.scheduled_date), 'dd MMM yyyy')}</span>
+        )}
+        {timeLabel && (
+          <span className="flex items-center gap-1 text-slate-400">
+            <Clock className="h-3 w-3" />
+            {timeLabel}
+          </span>
+        )}
+      </div>
+
+      {/* Row 3: phone */}
+      {phone && (
+        <div className="flex items-center gap-1.5 text-xs text-slate-600">
+          <Phone className="h-3 w-3 shrink-0 text-slate-400" />
+          <span>{phone}</span>
+        </div>
+      )}
+
+      {/* Row 4: address */}
+      {order.address && (
+        <div className="flex items-center gap-1.5 text-xs text-slate-400">
+          <MapPin className="h-3 w-3 shrink-0" />
+          <span className="truncate">{order.address}</span>
+        </div>
+      )}
+
+      {/* Row 5: services */}
+      {order.services_summary && (
+        <div className="flex items-start gap-1.5 text-xs text-slate-600">
+          <ClipboardList className="h-3 w-3 shrink-0 mt-0.5 text-slate-400" />
+          <span className="leading-snug">{order.services_summary}</span>
+        </div>
+      )}
     </button>
   )
 }
