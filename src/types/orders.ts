@@ -189,7 +189,12 @@ export interface CustomerHistoryOrder {
 }
 
 export interface OrdersFilter {
+  /** Legacy single-chip quick filter — kept for backward compat */
   statusChip?: string
+  /** Multi-status filter — when set, statusChip is ignored */
+  statuses?: string[]
+  orderType?: string
+  addressMissing?: boolean
   bookingDateFrom?: string
   bookingDateTo?: string
   visitDateFrom?: string

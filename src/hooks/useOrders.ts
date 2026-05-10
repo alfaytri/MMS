@@ -21,21 +21,31 @@ export function useOrders(filter: OrdersFilter = DEFAULT_FILTER) {
           order_services(name, qty)
         `)
 
-      if (filter.statusChip === 'scheduled') query = query.eq('status', 'scheduled')
-      else if (filter.statusChip === 'pending_approval') query = query.eq('status', 'pending-approval')
-      else if (filter.statusChip === 'no_confirmation')
+      // Multi-status filter takes precedence over legacy statusChip
+      if (filter.statuses?.length) {
+        query = query.in('status', filter.statuses)
+      } else if (filter.statusChip === 'scheduled') {
+        query = query.eq('status', 'scheduled')
+      } else if (filter.statusChip === 'pending_approval') {
+        query = query.eq('status', 'pending-approval')
+      } else if (filter.statusChip === 'no_confirmation') {
         query = query.or('status.eq.pending-confirmation,confirmation_status.eq.no_response')
-      else if (filter.statusChip === 'no_address') query = query.is('address', null)
-      else if (filter.statusChip === 'past_due_no_invoice') {
+      } else if (filter.statusChip === 'no_address') {
+        query = query.is('address', null)
+      } else if (filter.statusChip === 'past_due_no_invoice') {
         const today = new Date().toISOString().split('T')[0]
         query = query.lt('scheduled_date', today).eq('has_invoice', false).neq('status', 'cancelled')
       }
+
+      if (filter.orderType)       query = query.eq('type', filter.orderType)
+      if (filter.addressMissing)  query = query.is('address', null)
 
       if (filter.bookingDateFrom) query = query.gte('created_at', filter.bookingDateFrom)
       if (filter.bookingDateTo)   query = query.lte('created_at', filter.bookingDateTo)
       if (filter.visitDateFrom)   query = query.gte('scheduled_date', filter.visitDateFrom)
       if (filter.visitDateTo)     query = query.lte('scheduled_date', filter.visitDateTo)
       if (filter.orderNumber)     query = query.ilike('order_id', `%${filter.orderNumber}%`)
+      if (filter.customerPhone)   query = query.ilike('arrival_phone', `%${filter.customerPhone}%`)
       if (filter.division)        query = query.eq('division', filter.division as any)
 
       if (filter.sortBy === 'date_asc')         query = query.order('scheduled_date', { ascending: true })
@@ -58,5 +68,38 @@ export function useOrders(filter: OrdersFilter = DEFAULT_FILTER) {
           .join(', '),
       }))
     },
+  })
+}
+
+export function useOrderCounts() {
+  const supabase = createClient()
+
+  return useQuery({
+    queryKey: ['order-counts'],
+    queryFn: async () => {
+      const today = new Date().toISOString().split('T')[0]
+      const [all, active, noAddress, notConfirmed, notInvoiced] = await Promise.all([
+        supabase.from('orders').select('id', { count: 'exact', head: true }),
+        supabase.from('orders').select('id', { count: 'exact', head: true })
+          .in('status', ['scheduled', 'confirmed', 'in-progress', 'pending-confirmation']),
+        supabase.from('orders').select('id', { count: 'exact', head: true })
+          .is('address', null),
+        supabase.from('orders').select('id', { count: 'exact', head: true })
+          .in('confirmation_status', ['not_sent', 'no_response'])
+          .neq('status', 'cancelled'),
+        supabase.from('orders').select('id', { count: 'exact', head: true })
+          .eq('has_invoice', false)
+          .neq('status', 'cancelled')
+          .lt('scheduled_date', today),
+      ])
+      return {
+        all:          all.count          ?? 0,
+        active:       active.count       ?? 0,
+        noAddress:    noAddress.count    ?? 0,
+        notConfirmed: notConfirmed.count ?? 0,
+        notInvoiced:  notInvoiced.count  ?? 0,
+      }
+    },
+    staleTime: 30 * 1000,
   })
 }

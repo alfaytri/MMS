@@ -54,7 +54,7 @@ export const NAV_ITEMS: NavEntry[] = [
     groups: [
       {
         items: [
-          { label: 'Work Orders', href: '/orders' },
+          { label: 'View Orders', href: '/orders' },
           { label: 'Create Order', href: '/orders/create' },
         ],
       },
