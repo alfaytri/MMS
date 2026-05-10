@@ -31,16 +31,19 @@
 
 ---
 
-## Task 1: DB Migration — quotation_line_items
+## Task 1: DB Migration — quotation_line_items + sequence + save_quotation RPC
 
 **Files:**
 - Create: `supabase/migrations/20260510230000_quotation_line_items.sql`
+
+> **Why an RPC?** Client-side ID generation (select-last + increment) has a race condition under concurrent use. A DB sequence is atomic. Wrapping save in an RPC makes quotation + line items one transaction — a dropped network call can't leave orphaned data.
 
 - [ ] **Step 1: Create migration file**
 
 ```sql
 -- supabase/migrations/20260510230000_quotation_line_items.sql
 
+-- ── 1. Line items table ──────────────────────────────────────────────────────
 CREATE TABLE quotation_line_items (
   id            UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   quotation_id  UUID NOT NULL REFERENCES quotations(id) ON DELETE CASCADE,
@@ -59,6 +62,81 @@ ALTER TABLE quotation_line_items ENABLE ROW LEVEL SECURITY;
 
 CREATE POLICY "authenticated_full_access" ON quotation_line_items
   FOR ALL TO authenticated USING (true) WITH CHECK (true);
+
+-- ── 2. Atomic ID generation ───────────────────────────────────────────────────
+-- Uses a DB sequence so concurrent sessions never produce the same number.
+CREATE SEQUENCE IF NOT EXISTS quotation_number_seq;
+
+CREATE OR REPLACE FUNCTION generate_quotation_id()
+RETURNS TEXT
+LANGUAGE plpgsql
+SECURITY DEFINER
+AS $$
+DECLARE
+  v_num   INT  := nextval('quotation_number_seq');
+  v_year  TEXT := to_char(NOW(), 'YYYY');
+  v_month TEXT := to_char(NOW(), 'MM');
+BEGIN
+  RETURN 'Q/' || v_year || '/' || v_month || '/' || lpad(v_num::TEXT, 4, '0');
+END;
+$$;
+
+-- ── 3. Transactional save RPC ────────────────────────────────────────────────
+-- Upserts the quotation row and replaces all line items in one transaction.
+-- Prevents orphaned line items if the client disconnects mid-save.
+CREATE OR REPLACE FUNCTION save_quotation(
+  p_quotation_id  TEXT,
+  p_customer_id   UUID,
+  p_division      TEXT,
+  p_status        quotation_status,
+  p_total_amount  NUMERIC,
+  p_notes         TEXT,
+  p_expiry_date   DATE,
+  p_sent_date     TIMESTAMPTZ,
+  p_line_items    JSONB   -- [{service_id, name, path, qty, price, duration}]
+)
+RETURNS UUID
+LANGUAGE plpgsql
+SECURITY DEFINER
+AS $$
+DECLARE
+  v_quot_id UUID;
+BEGIN
+  INSERT INTO quotations (
+    quotation_id, customer_id, division, status,
+    total_amount, notes, created_date, expiry_date, sent_date
+  ) VALUES (
+    p_quotation_id, p_customer_id, p_division, p_status,
+    p_total_amount, NULLIF(p_notes, ''),
+    CURRENT_DATE, p_expiry_date, p_sent_date
+  )
+  ON CONFLICT (quotation_id) DO UPDATE SET
+    status       = EXCLUDED.status,
+    total_amount = EXCLUDED.total_amount,
+    notes        = EXCLUDED.notes,
+    expiry_date  = EXCLUDED.expiry_date,
+    sent_date    = EXCLUDED.sent_date
+  RETURNING id INTO v_quot_id;
+
+  -- Replace line items atomically inside the same transaction
+  DELETE FROM quotation_line_items WHERE quotation_id = v_quot_id;
+
+  INSERT INTO quotation_line_items (
+    quotation_id, service_id, name, path, qty, price, duration
+  )
+  SELECT
+    v_quot_id,
+    NULLIF(item->>'service_id', '')::UUID,
+    item->>'name',
+    ARRAY(SELECT jsonb_array_elements_text(item->'path')),
+    (item->>'qty')::INT,
+    (item->>'price')::NUMERIC,
+    NULLIF(item->>'duration', '')::INT
+  FROM jsonb_array_elements(COALESCE(p_line_items, '[]'::jsonb)) AS item;
+
+  RETURN v_quot_id;
+END;
+$$;
 ```
 
 - [ ] **Step 2: Apply migration**
@@ -73,7 +151,7 @@ Expected output: `Remote database is up to date` or migration applied successful
 
 ```bash
 git add supabase/migrations/20260510230000_quotation_line_items.sql
-git commit -m "feat(db): add quotation_line_items table
+git commit -m "feat(db): quotation_line_items table, ID sequence, save_quotation RPC
 
 Co-Authored-By: Mohamed Ismail <m.Ismail@alfaytri.com>
 Co-Authored-By: Claude Sonnet 4.6 <noreply@anthropic.com>"
@@ -187,7 +265,7 @@ Co-Authored-By: Claude Sonnet 4.6 <noreply@anthropic.com>"
 **Files:**
 - Create: `src/hooks/useCreateQuotation.ts`
 
-Manages all draft state, generates the Q/YYYY/MM/NNNN ID on mount, and exposes `saveDraft` and `sendViaWhatsApp` mutations.
+Manages all draft state. ID generation uses the `generate_quotation_id()` DB function (atomic via sequence). Saving calls the `save_quotation` RPC so quotation + line items are committed in one transaction.
 
 - [ ] **Step 1: Create hook**
 
@@ -201,8 +279,6 @@ import type { QuotationDraft, QuotationLineDraft } from '@/types/quotations'
 import type { CustomerLookupResult } from '@/hooks/useCustomerLookup'
 import type { OrderServiceDraft } from '@/types/orders'
 
-const today = new Date().toISOString().split('T')[0]
-
 const INITIAL: QuotationDraft = {
   quotationId: '',
   customerId: '',
@@ -214,24 +290,6 @@ const INITIAL: QuotationDraft = {
   notes: '',
 }
 
-async function generateQuotationId(
-  supabase: ReturnType<typeof createClient>,
-): Promise<string> {
-  const { data: last } = await (supabase as any)
-    .from('quotations')
-    .select('quotation_id')
-    .order('created_at', { ascending: false })
-    .limit(1)
-    .maybeSingle()
-  const lastNum = last?.quotation_id
-    ? parseInt(last.quotation_id.match(/(\d+)$/)?.[1] ?? '0', 10)
-    : 0
-  const now = new Date()
-  const year = now.getFullYear()
-  const month = String(now.getMonth() + 1).padStart(2, '0')
-  return `Q/${year}/${month}/${String(lastNum + 1).padStart(4, '0')}`
-}
-
 export function computeTotal(services: QuotationLineDraft[]): number {
   return services.reduce((sum, s) => sum + s.price * s.qty, 0)
 }
@@ -241,10 +299,13 @@ export function useCreateQuotation() {
   const supabase = createClient()
   const qc = useQueryClient()
 
+  // Generate Q/YYYY/MM/NNNN via DB sequence — race-condition-free
   useEffect(() => {
-    generateQuotationId(supabase).then((id) =>
-      setDraft((d) => ({ ...d, quotationId: id })),
-    )
+    ;(supabase as any)
+      .rpc('generate_quotation_id')
+      .then(({ data }: { data: string | null }) => {
+        if (data) setDraft((d) => ({ ...d, quotationId: data }))
+      })
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
 
@@ -300,89 +361,64 @@ export function useCreateQuotation() {
     return !!draft.customerId && draft.services.length > 0
   }
 
-  async function upsertToDb(status: 'draft' | 'sent') {
+  // Single RPC call — quotation row + line items committed atomically
+  async function saveToDb(status: 'draft' | 'sent'): Promise<string> {
     const total = computeTotal(draft.services)
-    const expiryDate = new Date()
-    expiryDate.setDate(expiryDate.getDate() + 30)
-    const expiry = expiryDate.toISOString().split('T')[0]
+    const expiry = new Date()
+    expiry.setDate(expiry.getDate() + 30)
 
-    // Upsert quotation row
-    const { data: quot, error: qErr } = await (supabase as any)
-      .from('quotations')
-      .upsert(
-        {
-          quotation_id: draft.quotationId,
-          customer_id: draft.customerId,
-          division: draft.division,
-          status,
-          total_amount: total,
-          notes: draft.notes || null,
-          created_date: today,
-          expiry_date: expiry,
-          ...(status === 'sent' ? { sent_date: new Date().toISOString() } : {}),
-        },
-        { onConflict: 'quotation_id' },
-      )
-      .select('id')
-      .single()
-    if (qErr) throw qErr
-
-    const quotUuid: string = quot.id
-
-    // Replace line items
-    await (supabase as any)
-      .from('quotation_line_items')
-      .delete()
-      .eq('quotation_id', quotUuid)
-
-    if (draft.services.length > 0) {
-      const { error: liErr } = await (supabase as any)
-        .from('quotation_line_items')
-        .insert(
-          draft.services.map((s) => ({
-            quotation_id: quotUuid,
-            service_id: s.serviceId || null,
-            name: s.name,
-            path: s.path,
-            qty: s.qty,
-            price: s.price,
-            duration: s.duration,
-          })),
-        )
-      if (liErr) throw liErr
-    }
-
+    const { data: quotUuid, error } = await (supabase as any).rpc('save_quotation', {
+      p_quotation_id: draft.quotationId,
+      p_customer_id:  draft.customerId,
+      p_division:     draft.division,
+      p_status:       status,
+      p_total_amount: total,
+      p_notes:        draft.notes || '',
+      p_expiry_date:  expiry.toISOString().split('T')[0],
+      p_sent_date:    status === 'sent' ? new Date().toISOString() : null,
+      p_line_items:   JSON.stringify(
+        draft.services.map((s) => ({
+          service_id: s.serviceId || null,
+          name:       s.name,
+          path:       s.path,
+          qty:        s.qty,
+          price:      s.price,
+          duration:   s.duration ?? null,
+        })),
+      ),
+    })
+    if (error) throw error
     qc.invalidateQueries({ queryKey: ['quotations'] })
-    return quotUuid
+    return quotUuid as string
   }
 
   const saveDraft = useMutation({
-    mutationFn: () => upsertToDb('draft'),
+    mutationFn: () => saveToDb('draft'),
   })
 
   const sendViaWhatsApp = useMutation({
     mutationFn: async () => {
-      await upsertToDb('sent')
+      await saveToDb('sent')
       const total = computeTotal(draft.services)
+      const expiryDate = new Date()
+      expiryDate.setDate(expiryDate.getDate() + 30)
       const res = await fetch('/api/wati/send-quotation', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          phone: draft.phone,
+          phone:        draft.phone,
           customerName: draft.customerName,
-          quotationId: draft.quotationId,
+          quotationId:  draft.quotationId,
           divisionName: draft.division,
           services: draft.services.map((s) => ({
-            name: s.name,
-            qty: s.qty,
+            name:  s.name,
+            qty:   s.qty,
             price: s.price,
           })),
           total,
-          expiryDate: (() => {
-            const d = new Date()
-            d.setDate(d.getDate() + 30)
-            return d.toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' })
-          })(),
+          expiryDate: expiryDate.toLocaleDateString('en-GB', {
+            day: '2-digit', month: 'short', year: 'numeric',
+          }),
         }),
       })
       const json = await res.json()
@@ -410,7 +446,7 @@ export function useCreateQuotation() {
 
 ```bash
 git add src/hooks/useCreateQuotation.ts
-git commit -m "feat(quotations): useCreateQuotation hook
+git commit -m "feat(quotations): useCreateQuotation hook — atomic ID + RPC save
 
 Co-Authored-By: Mohamed Ismail <m.Ismail@alfaytri.com>
 Co-Authored-By: Claude Sonnet 4.6 <noreply@anthropic.com>"
