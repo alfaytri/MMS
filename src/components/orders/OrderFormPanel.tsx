@@ -7,12 +7,11 @@ import { Input } from '@/components/ui/input'
 import { Textarea } from '@/components/ui/textarea'
 import { Label } from '@/components/ui/label'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
-import { CheckCircle } from 'lucide-react'
+import { CheckCircle, User, Search } from 'lucide-react'
 import { ServiceSelector } from './ServiceSelector'
 import { SelectedServiceCard } from './SelectedServiceCard'
 import { AddressPicker } from './AddressPicker'
 import { VisitDatePicker } from './VisitDatePicker'
-import { VisitDateSchedule } from './VisitDateSchedule'
 import { AttachmentsUpload } from './AttachmentsUpload'
 import type { PendingAttachment } from './AttachmentsUpload'
 import { useDivisions } from '@/hooks/useDivisions'
@@ -41,9 +40,11 @@ interface Props {
   onAddService: (s: OrderServiceDraft) => void
   onRemoveService: (id: string) => void
   onUpdateServiceQty: (serviceId: string, qty: number) => void
+  onUpdateServiceTime: (serviceId: string, fromTime: string | null, toTime: string | null) => void
   onAddressSelect: (a: CustomerAddress) => void
   onUpdate: (patch: Partial<OrderDraft>) => void
   onPendingFilesChange: (files: PendingAttachment[]) => void
+  onLookupCustomer: () => void
   onSubmit: () => void
   isSubmitting: boolean
   isValid: boolean
@@ -56,9 +57,11 @@ export function OrderFormPanel({
   onAddService,
   onRemoveService,
   onUpdateServiceQty,
+  onUpdateServiceTime,
   onAddressSelect,
   onUpdate,
   onPendingFilesChange,
+  onLookupCustomer,
   onSubmit,
   isSubmitting,
   isValid,
@@ -104,6 +107,34 @@ export function OrderFormPanel({
     <div className="flex h-full w-full shrink-0 flex-col border-r bg-white sm:w-[340px]">
       <div className="flex-1 overflow-y-auto p-4 space-y-4">
 
+        {/* ── Customer row ── */}
+        {draft.customerId ? (
+          <div className="flex items-center gap-2 rounded-lg border border-slate-200 bg-slate-50 px-3 py-2">
+            <User className="h-4 w-4 shrink-0 text-slate-400" />
+            <div className="min-w-0 flex-1">
+              <p className="truncate text-sm font-semibold text-slate-900">{draft.customerName}</p>
+              <p className="truncate text-xs text-slate-500">{draft.phone}</p>
+            </div>
+            <button
+              type="button"
+              onClick={onLookupCustomer}
+              className="flex shrink-0 items-center gap-1 rounded border border-slate-200 bg-white px-2 py-1 text-[11px] text-slate-500 hover:border-slate-300 hover:text-slate-700 transition-colors"
+            >
+              <Search className="h-3 w-3" />
+              Change
+            </button>
+          </div>
+        ) : (
+          <button
+            type="button"
+            onClick={onLookupCustomer}
+            className="flex w-full items-center gap-2 rounded-lg border border-dashed border-orange-300 bg-orange-50 px-3 py-2.5 text-sm text-orange-600 hover:bg-orange-100 transition-colors"
+          >
+            <Search className="h-4 w-4 shrink-0" />
+            <span className="font-medium">Look up a customer to start</span>
+          </button>
+        )}
+
         {/* Type toggle */}
         <Tabs value={draft.type} onValueChange={(v) => onTypeChange(v as OrderType)}>
           <TabsList className="w-full">
@@ -112,7 +143,8 @@ export function OrderFormPanel({
           </TabsList>
         </Tabs>
 
-        {/* ── Division ── */}
+        {/* ── Division + Services (disabled until customer selected) ── */}
+        <div className={cn(!draft.customerId && 'pointer-events-none opacity-40 select-none')}>
         {draft.type === 'order' && (
           <div className="space-y-2">
             <div className="flex items-center justify-between">
@@ -185,6 +217,7 @@ export function OrderFormPanel({
                       service={s}
                       onRemove={onRemoveService}
                       onQtyChange={onUpdateServiceQty}
+                      onTimeChange={onUpdateServiceTime}
                     />
                   ))}
                 </div>
@@ -195,6 +228,7 @@ export function OrderFormPanel({
             <p className="text-xs text-slate-400 mt-1">Site visit — no services required</p>
           )}
         </div>
+        </div>{/* end disabled wrapper */}
 
         {/* ── Visit Date (multi-date picker) ── */}
         <div className="space-y-1.5">
@@ -206,14 +240,6 @@ export function OrderFormPanel({
             onChange={handleDatesChange}
           />
         </div>
-
-        {/* ── Requested Arrival Window (per-day time schedule) ── */}
-        {draft.visitDates.length > 0 && (
-          <VisitDateSchedule
-            windows={draft.visitDates}
-            onChange={(windows) => onUpdate({ visitDates: windows })}
-          />
-        )}
 
         {/* ── Order Address ── */}
         <div className="space-y-1.5">
