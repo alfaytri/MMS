@@ -156,9 +156,11 @@ Purchase & Sales▾:
 
 ## 🔄 In Progress
 
-🚀 Starting: **Quotation Module Task 1: DB Migration — quotation_line_items + sequence + save_quotation RPC**
+🚀 Starting: **Quotation Module Task 3: Hooks — useCreateQuotation + useSaveQuotation**
 
 ## ✅ Completed
+
+- [2026-05-10] **Quotation Module Task 2: Types — src/types/quotations.ts** — `src/types/quotations.ts` — Created TypeScript types for Quotation Module including QuotationLineDraft, QuotationDraft (draft state for creation form), QuotationStatus ('draft' | 'sent'), QuotationListItem (list page shape), QuotationDetail (full detail with line items and logs), QuotationLineItem, QuotationLog, and QuotationsFilter; file compiles cleanly; committed with co-authors
 
 - [2026-05-10] **Quotation Module Task 1: DB Migration — quotation_line_items + sequence + save_quotation RPC** — `supabase/migrations/20260510240100_quotation_line_items.sql` — Created quotation_line_items table (id, quotation_id, service_id, name, path, qty, price, duration); created quotation_number_seq for atomic ID generation; created generate_quotation_id() function (format Q/YYYY/MM/NNNN); created save_quotation RPC for transactional upsert of quotation + atomic replacement of line items via JSONB array; migration applied via npx supabase db push; committed with co-authors
 
