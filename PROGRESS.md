@@ -150,14 +150,17 @@ Purchase & Sales▾:
 | `docs/superpowers/plans/2026-04-30-po-returns.md` | ✅ DONE | PO returns — dispatch/cancel/supplier-confirm flow, inventory deduction on dispatch, cancel with RPC reversal, type toggle on Returns page |
 | `docs/superpowers/plans/2026-05-03-teams-employee-page.md` | 🚀 ACTIVE | Teams & Employee page — full CRUD dialogs, drag-and-drop, activity logging, schedule management |
 | `docs/superpowers/plans/2026-05-09-orders-module.md` + amendments | ✅ DONE | Orders Module — customer phones/addresses, installed products, order creation with team calendar DnD, order list with chip filters, order detail sheet with 4 tabs, cancel/confirm/rollback actions, Blue Plate Edge Function, navigation |
+| `docs/superpowers/plans/2026-05-10-quotation-module.md` | 🚀 ACTIVE | Quotation Module — quotation_line_items table, ID sequence, save_quotation RPC, create/edit dialogs, form hooks, list page with filters, detail view, PDF generation, send flow |
 
 ---
 
 ## 🔄 In Progress
 
-_(nothing)_
+🚀 Starting: **Quotation Module Task 1: DB Migration — quotation_line_items + sequence + save_quotation RPC**
 
 ## ✅ Completed
+
+- [2026-05-10] **Quotation Module Task 1: DB Migration — quotation_line_items + sequence + save_quotation RPC** — `supabase/migrations/20260510240100_quotation_line_items.sql` — Created quotation_line_items table (id, quotation_id, service_id, name, path, qty, price, duration); created quotation_number_seq for atomic ID generation; created generate_quotation_id() function (format Q/YYYY/MM/NNNN); created save_quotation RPC for transactional upsert of quotation + atomic replacement of line items via JSONB array; migration applied via npx supabase db push; committed with co-authors
 
 - [2026-05-10] **Orders UX Refinements: calendar blocks, order numbering, customer lookup UX** — `src/types/orders.ts`, `src/hooks/useCreateOrder.ts`, `src/components/orders/TeamCalendarPanel.tsx`, `src/components/orders/OrderFormPanel.tsx`, `src/app/(dashboard)/orders/create/page.tsx`, `src/components/orders/OrderCard.tsx`, `src/hooks/useOrders.ts`, `src/components/calendar/TeamDaySheet.tsx`, `supabase/migrations/20260510120000_calendar_visits_add_order_fields.sql` — Pre-generate order ID (N/YYYY/MM/NNNN) on draft init; track-stacked overlapping calendar blocks with hover popup; inclusive end-hour block width; order number on calendar block; customer lookup moved inline into form panel with disabled services until customer selected
 
