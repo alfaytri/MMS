@@ -82,11 +82,17 @@ export function useCreateOrder() {
       services: d.services.map((s) =>
         s.serviceId === serviceId ? { ...s, fromTime, toTime } : s
       ),
+      // Keep calendar blocks in sync: update toTime on assignments that carry this service
+      assignments: d.assignments.map((a) =>
+        a.services.some((s) => s.serviceId === serviceId)
+          ? { ...a, toTime: toTime ?? null }
+          : a
+      ),
     }))
   }
 
   function addAssignment(assignment: Omit<TeamAssignmentDraft, 'id'>) {
-    setDraft((d) => ({ ...d, assignments: [...d.assignments, { toTime: null, ...assignment, id: crypto.randomUUID() }] }))
+    setDraft((d) => ({ ...d, assignments: [...d.assignments, { ...assignment, id: crypto.randomUUID() }] }))
   }
 
   function removeAssignment(id: string) {
@@ -119,15 +125,19 @@ export function useCreateOrder() {
       const { data: last } = await supabase
         .from('orders')
         .select('order_id')
-        .ilike('order_id', 'ORD-%')
         .order('created_at', { ascending: false })
         .limit(1)
         .single()
 
-      const nextNum = last?.order_id
-        ? parseInt(last.order_id.replace('ORD-', ''), 10) + 1
-        : 1
-      const orderId = `ORD-${String(nextNum).padStart(4, '0')}`
+      // Extract trailing digits from any format (ORD-0001 or N/2026/05/001)
+      const lastNum = last?.order_id
+        ? parseInt(last.order_id.match(/(\d+)$/)?.[1] ?? '0', 10)
+        : 0
+      const nextNum = lastNum + 1
+      const now = new Date()
+      const year = now.getFullYear()
+      const month = String(now.getMonth() + 1).padStart(2, '0')
+      const orderId = `N/${year}/${month}/${String(nextNum).padStart(4, '0')}`
 
       const totalAmount =
         draft.services.reduce((sum, s) => sum + s.price * s.qty, 0) - draft.voucherDiscount
