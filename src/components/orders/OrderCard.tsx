@@ -40,8 +40,10 @@ interface Props {
 }
 
 export function OrderCard({ order, onClick }: Props) {
-  const phone = order.arrival_phone || order.customer_phone
   const timeLabel = order.scheduled_time ? fmt12(order.scheduled_time) : null
+  const arrivalDiffers =
+    order.arrival_phone &&
+    order.arrival_phone !== order.customer_phone
 
   return (
     <button
@@ -76,11 +78,20 @@ export function OrderCard({ order, onClick }: Props) {
         )}
       </div>
 
-      {/* Row 3: phone */}
-      {phone && (
+      {/* Row 3: customer phone */}
+      {order.customer_phone && (
         <div className="flex items-center gap-1.5 text-xs text-slate-600">
           <Phone className="h-3 w-3 shrink-0 text-slate-400" />
-          <span>{phone}</span>
+          <span>{order.customer_phone}</span>
+        </div>
+      )}
+
+      {/* Row 3b: arrival phone — only when different from customer phone */}
+      {arrivalDiffers && (
+        <div className="flex items-center gap-1.5 text-xs text-slate-500">
+          <Phone className="h-3 w-3 shrink-0 text-orange-400" />
+          <span>{order.arrival_phone}</span>
+          <span className="text-[10px] text-orange-400 font-medium">on arrival</span>
         </div>
       )}
 
