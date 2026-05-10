@@ -21,6 +21,8 @@ export interface QuotationDraft {
   notes: string
 }
 
+// Intentional subset of the DB quotation_status enum — this module only creates/sends.
+// Other statuses (approved, converted, etc.) arrive as strings at runtime; components handle them with a style fallback.
 export type QuotationStatus = 'draft' | 'sent'
 
 export interface QuotationListItem {
