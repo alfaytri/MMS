@@ -60,6 +60,8 @@ export function useEditOrder(orderId: string) {
       qty: s.qty,
       price: s.price,
       duration: s.duration,
+      fromTime: s.from_time ? s.from_time.substring(0, 5) : null,
+      toTime: s.to_time ? s.to_time.substring(0, 5) : null,
     }))
 
     const visitDates: VisitDateWindow[] = (order.order_visit_dates ?? []).length > 0
@@ -233,6 +235,8 @@ export function useEditOrder(orderId: string) {
             price: s.price,
             duration: s.duration,
             path: s.path ?? [],
+            from_time: s.fromTime ?? null,
+            to_time: s.toTime ?? null,
           }))
         )
         if (insSvcErr) throw insSvcErr

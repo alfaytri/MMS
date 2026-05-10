@@ -219,12 +219,22 @@ export function useCreateOrder() {
       if (draft.type === 'site-visit') {
         const visitId = await generateVisitId(supabase)
 
-        const assignmentsPayload = draft.assignments.map((a) => ({
-          team_id: a.teamId,
-          scheduled_date: primaryDate,
-          time_slot: a.timeSlot,
-          duration: String(a.duration),
-        }))
+        const assignmentsPayload = draft.assignments.map((a) => {
+          let durationHours = Math.max(1, Math.ceil(a.duration / 60))
+          if (a.toTime) {
+            const startH = parseInt(a.timeSlot)
+            const endH = parseInt(a.toTime)
+            if (!isNaN(startH) && !isNaN(endH) && endH > startH) {
+              durationHours = endH - startH
+            }
+          }
+          return {
+            team_id: a.teamId,
+            scheduled_date: primaryDate,
+            time_slot: a.timeSlot,
+            duration: String(durationHours),
+          }
+        })
 
         const { data: newId, error } = await (supabase as any).rpc('create_site_visit', {
           p_visit_id:       visitId,
@@ -264,15 +274,27 @@ export function useCreateOrder() {
         duration: s.duration,
         path: s.path,
         configuration: s.configuration ?? null,
+        from_time: s.fromTime ?? null,
+        to_time: s.toTime ?? null,
       }))
 
-      const assignmentsPayload = draft.assignments.map((a) => ({
-        team_id: a.teamId,
-        services: a.services.filter((s) => s.serviceId !== SITE_VISIT_SERVICE_ID),
-        scheduled_date: primaryDate,
-        time_slot: a.timeSlot,
-        duration: String(a.duration),
-      }))
+      const assignmentsPayload = draft.assignments.map((a) => {
+        let durationHours = Math.max(1, Math.ceil(a.duration / 60))
+        if (a.toTime) {
+          const startH = parseInt(a.timeSlot)
+          const endH = parseInt(a.toTime)
+          if (!isNaN(startH) && !isNaN(endH) && endH > startH) {
+            durationHours = endH - startH
+          }
+        }
+        return {
+          team_id: a.teamId,
+          services: a.services.filter((s) => s.serviceId !== SITE_VISIT_SERVICE_ID),
+          scheduled_date: primaryDate,
+          time_slot: a.timeSlot,
+          duration: String(durationHours),
+        }
+      })
 
       const { data: newOrderId, error } = await (supabase as any).rpc('create_order_with_dates', {
         p_order_id:       orderId,
