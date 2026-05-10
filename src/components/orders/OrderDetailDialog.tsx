@@ -6,10 +6,11 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
 import { format } from 'date-fns'
-import { CheckCircle, RotateCcw, XCircle } from 'lucide-react'
+import { CheckCircle, RotateCcw, XCircle, Pencil } from 'lucide-react'
 import { useOrderDetail } from '@/hooks/useOrderDetail'
 import { useOrderActions, canTransition } from '@/hooks/useOrderActions'
 import { OrderCancelDialog } from './OrderCancelDialog'
+import { OrderEditDialog } from './OrderEditDialog'
 import { toast } from 'sonner'
 import type { OrderStatus, ConfirmationStatus } from '@/types/orders'
 import { cn } from '@/lib/utils'
@@ -31,8 +32,11 @@ interface Props {
 
 export function OrderDetailDialog({ orderId, open, onOpenChange }: Props) {
   const [cancelOpen, setCancelOpen] = useState(false)
+  const [editOpen, setEditOpen] = useState(false)
   const { data: order, isLoading } = useOrderDetail(orderId)
   const { confirmManually, rollback, cancel } = useOrderActions(orderId)
+
+  const EDITABLE_STATUSES: OrderStatus[] = ['scheduled', 'pending-confirmation', 'waitlist', 'tentative']
 
   if (!open) return null
 
@@ -83,7 +87,17 @@ export function OrderDetailDialog({ orderId, open, onOpenChange }: Props) {
                         'Order confirmed ✓'}
                       {order.confirmation_status === 'no_response' && 'No response received'}
                     </p>
-                    <div className="flex gap-1">
+                    <div className="flex gap-1 flex-wrap">
+                      {EDITABLE_STATUSES.includes(order.status as OrderStatus) && (
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          className="min-h-11 sm:h-7 gap-1 text-xs"
+                          onClick={() => setEditOpen(true)}
+                        >
+                          <Pencil className="h-3 w-3" /> Edit
+                        </Button>
+                      )}
                       {canTransition(order.status as OrderStatus, 'confirmed') && (
                         <Button
                           size="sm"
@@ -239,6 +253,14 @@ export function OrderDetailDialog({ orderId, open, onOpenChange }: Props) {
           )}
         </SheetContent>
       </Sheet>
+
+      {order && editOpen && (
+        <OrderEditDialog
+          open={editOpen}
+          onOpenChange={setEditOpen}
+          order={order}
+        />
+      )}
 
       {order && (
         <OrderCancelDialog

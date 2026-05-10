@@ -13,7 +13,7 @@ export function useOrderDetail(orderId: string | null) {
         .from('orders')
         .select(`
           id, order_id, customer_id, type, division, status, confirmation_status,
-          scheduled_date, total_amount, agent_name, address, has_invoice, invoice_number, created_at,
+          scheduled_date, total_amount, agent_name, address, notes, arrival_phone, has_invoice, invoice_number, created_at,
           customers!inner(name, customer_phones(phone)),
           order_services(id, service_id, name, qty, price, duration, path),
           order_team_assignments(id, team_id, services, scheduled_date, time_slot, duration, teams!inner(name)),
@@ -34,7 +34,7 @@ export function useOrderDetail(orderId: string | null) {
         order_log: (data.order_log ?? []).sort(
           (a: any, b: any) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime()
         ),
-      } as OrderDetail
+      } as unknown as OrderDetail
     },
     enabled: !!orderId,
   })

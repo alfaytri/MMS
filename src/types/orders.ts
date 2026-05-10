@@ -131,6 +131,7 @@ export interface OrderListItem {
   agent_name: string | null
   address: string | null
   arrival_phone: string | null
+  notes: string | null
   has_invoice: boolean
   invoice_number: string | null
   created_at: string

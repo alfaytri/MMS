@@ -32,7 +32,7 @@ export function useOrderActions(orderId: string | null) {
 
   async function logAction(action: string, details: string) {
     const { error } = await supabase.from('order_log').insert({
-      order_id: orderId,
+      order_id: orderId!,
       action,
       user_name: 'agent',
       details,
@@ -79,5 +79,40 @@ export function useOrderActions(orderId: string | null) {
     onSuccess: invalidate,
   })
 
-  return { confirmManually, rollback, cancel }
+  const updateOrder = useMutation({
+    mutationFn: async (payload: {
+      scheduledDate: string
+      notes: string
+      arrivalPhone: string
+      assignments: Array<{ id: string; timeSlot: string; duration: string; scheduledDate: string }>
+    }) => {
+      if (!orderId) throw new Error('orderId is required')
+      const { error: orderErr } = await supabase
+        .from('orders')
+        .update({
+          scheduled_date: payload.scheduledDate,
+          notes: payload.notes,
+          arrival_phone: payload.arrivalPhone || null,
+        })
+        .eq('id', orderId)
+      if (orderErr) throw orderErr
+
+      for (const a of payload.assignments) {
+        const { error: aErr } = await supabase
+          .from('order_team_assignments')
+          .update({
+            scheduled_date: a.scheduledDate,
+            time_slot: a.timeSlot,
+            duration: a.duration,
+          })
+          .eq('id', a.id)
+        if (aErr) throw aErr
+      }
+
+      await logAction('edited', `Order updated — date: ${payload.scheduledDate}`)
+    },
+    onSuccess: invalidate,
+  })
+
+  return { confirmManually, rollback, cancel, updateOrder }
 }
