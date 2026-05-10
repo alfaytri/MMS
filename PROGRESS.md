@@ -156,9 +156,11 @@ Purchase & Sales▾:
 
 ## 🔄 In Progress
 
-🚀 Starting: **Quotation Module Task 6: QuotationSummaryPanel — right panel**
+🚀 Starting: **Quotation Module Task 7: Create page — 3-panel wiring**
 
 ## ✅ Completed
+
+- [2026-05-10] **Quotation Module Task 6: WATI send-quotation API route** — `src/app/api/wati/send-quotation/route.ts`, `.env.local` — Created POST route handler with SendQuotationBody interface; validates WATI_API_URL and WATI_API_TOKEN exist; strips phone to digits only; calls getContacts API to check 24-hour conversation window; returns `{ windowClosed: true }` if window expired (soft failure for soft resend); builds formatted message with customer name, quotation number, services list, total, and expiry date; sends via sendSessionMessage on open window; returns `{ sent: true }` on success; added WATI_API_URL and WATI_API_TOKEN env vars to .env.local; comprehensive error handling with console logging for debugging; zero TypeScript errors
 
 - [2026-05-10] **Quotation Module Task 5: QuotationFormPanel — left panel** — `src/components/quotations/QuotationFormPanel.tsx`, `src/components/orders/SelectedServiceCard.tsx` — Created QuotationFormPanel: left 340 px panel with PhoneLookupModal (opens on mount when no customer), customer header row with Change button, ServiceSelector tree browser (no division filter), SelectedServiceCard list with qty controls (time grid hidden via new hideTimeControls prop), notes textarea, QAR total strip, WATI window-closed amber warning, Send via WhatsApp + Save Draft action buttons; added hideTimeControls prop to SelectedServiceCard to suppress arrival window grid; zero TypeScript errors
 
