@@ -1,20 +1,74 @@
 'use client'
 
 import { useState } from 'react'
-import { Search, MessageSquare, RefreshCw } from 'lucide-react'
+import { Search, MessageSquare, RefreshCw, AlertCircle, CheckCircle2 } from 'lucide-react'
 import { Input } from '@/components/ui/input'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import type { ChatConversation } from '@/types/contact-center'
+import type { SyncProgress } from '@/hooks/contact-center/useContactCenterState'
 
 interface Props {
   conversations: ChatConversation[]
   loading: boolean
   onSelectConversation: (convo: ChatConversation) => void
   onSync?: () => Promise<void>
+  syncProgress?: SyncProgress
 }
 
-export function ChatListView({ conversations, loading, onSelectConversation, onSync }: Props) {
+function SyncBanner({ progress }: { progress: SyncProgress }) {
+  if (progress.stage === 'idle') return null
+
+  const pct =
+    progress.stage === 'upserting' && progress.total
+      ? Math.round(((progress.synced ?? 0) / progress.total) * 100)
+      : null
+
+  const label =
+    progress.stage === 'fetching'
+      ? `Fetching from WATI… ${progress.fetched ? `(${progress.fetched} found)` : ''}`
+      : progress.stage === 'resolving'
+      ? `Resolving ${progress.fetched ?? 0} contacts…`
+      : progress.stage === 'upserting'
+      ? `Saving ${progress.synced ?? 0} / ${progress.total ?? '?'} contacts…`
+      : progress.stage === 'done'
+      ? `Synced ${progress.synced ?? 0} contacts`
+      : progress.stage === 'error'
+      ? (progress.error ?? 'Sync failed')
+      : ''
+
+  const isError = progress.stage === 'error'
+  const isDone  = progress.stage === 'done'
+
+  return (
+    <div
+      className={`px-3 py-2 text-xs flex flex-col gap-1 border-b border-border ${
+        isError ? 'bg-destructive/10 text-destructive' : isDone ? 'bg-green-500/10 text-green-700 dark:text-green-400' : 'bg-primary/5 text-muted-foreground'
+      }`}
+    >
+      <div className="flex items-center gap-1.5">
+        {isError ? (
+          <AlertCircle className="h-3.5 w-3.5 flex-shrink-0" />
+        ) : isDone ? (
+          <CheckCircle2 className="h-3.5 w-3.5 flex-shrink-0" />
+        ) : (
+          <RefreshCw className="h-3.5 w-3.5 flex-shrink-0 animate-spin" />
+        )}
+        <span>{label}</span>
+      </div>
+      {pct !== null && (
+        <div className="w-full bg-muted rounded-full h-1.5 overflow-hidden">
+          <div
+            className="h-full bg-primary rounded-full transition-all duration-300"
+            style={{ width: `${pct}%` }}
+          />
+        </div>
+      )}
+    </div>
+  )
+}
+
+export function ChatListView({ conversations, loading, onSelectConversation, onSync, syncProgress }: Props) {
   const [search, setSearch] = useState('')
   const [filter, setFilter] = useState<'all' | 'unanswered'>('all')
   const [syncing, setSyncing] = useState(false)
@@ -35,6 +89,8 @@ export function ChatListView({ conversations, loading, onSelectConversation, onS
     return matchesSearch && matchesFilter
   })
 
+  const isSyncing = syncing || (syncProgress && syncProgress.stage !== 'idle' && syncProgress.stage !== 'done' && syncProgress.stage !== 'error')
+
   return (
     <div className="flex flex-col h-full">
       {/* Search + sync */}
@@ -49,11 +105,23 @@ export function ChatListView({ conversations, loading, onSelectConversation, onS
           />
         </div>
         {onSync && (
-          <Button size="icon" variant="ghost" className="h-8 w-8 flex-shrink-0" onClick={handleSync} disabled={syncing} title="Sync from WATI">
-            <RefreshCw className={`h-3.5 w-3.5 ${syncing ? 'animate-spin' : ''}`} />
+          <Button
+            size="icon"
+            variant="ghost"
+            className="h-8 w-8 flex-shrink-0"
+            onClick={handleSync}
+            disabled={!!isSyncing}
+            title="Sync from WATI"
+          >
+            <RefreshCw className={`h-3.5 w-3.5 ${isSyncing ? 'animate-spin' : ''}`} />
           </Button>
         )}
       </div>
+
+      {/* Progress banner */}
+      {syncProgress && syncProgress.stage !== 'idle' && (
+        <SyncBanner progress={syncProgress} />
+      )}
 
       {/* Filter tabs */}
       <div className="flex border-b border-border">
@@ -81,6 +149,9 @@ export function ChatListView({ conversations, loading, onSelectConversation, onS
           <div className="flex flex-col items-center justify-center py-8 gap-2 text-muted-foreground">
             <MessageSquare className="h-8 w-8 opacity-30" />
             <p className="text-xs">No conversations</p>
+            {onSync && !isSyncing && (
+              <p className="text-xs opacity-60">Press the sync button to import from WATI</p>
+            )}
           </div>
         )}
         {filtered.map((c) => (
