@@ -3,10 +3,32 @@
 import { LayoutGrid, List, Search } from 'lucide-react'
 import { Input } from '@/components/ui/input'
 import { Button } from '@/components/ui/button'
-import { useTeams } from '@/hooks/useTeams'
+import { useTeams, type TeamFull } from '@/hooks/useTeams'
 import { useTeamsPage } from './TeamsPageContext'
 import { TeamCard } from './TeamCard'
 import { TeamRow } from './TeamRow'
+
+type DivisionGroup = { divisionName: string; teams: TeamFull[] }
+type CompanyGroup  = { companyName: string; divisions: DivisionGroup[] }
+
+function groupTeams(teams: TeamFull[]): CompanyGroup[] {
+  const companyMap = new Map<string, Map<string, TeamFull[]>>()
+
+  for (const t of teams) {
+    const companyName  = t.division?.company_name ?? 'Unassigned'
+    const divisionName = t.division?.name         ?? 'Unassigned'
+
+    if (!companyMap.has(companyName)) companyMap.set(companyName, new Map())
+    const divMap = companyMap.get(companyName)!
+    if (!divMap.has(divisionName)) divMap.set(divisionName, [])
+    divMap.get(divisionName)!.push(t)
+  }
+
+  return Array.from(companyMap.entries()).map(([companyName, divMap]) => ({
+    companyName,
+    divisions: Array.from(divMap.entries()).map(([divisionName, teams]) => ({ divisionName, teams })),
+  }))
+}
 
 export function TeamGrid() {
   const { searchQuery, divisionFilter, density, setSearch, setDensity } = useTeamsPage()
@@ -14,6 +36,9 @@ export function TeamGrid() {
     search: searchQuery,
     divisionId: divisionFilter ?? undefined,
   })
+
+  const groups         = groupTeams(teams)
+  const multiCompany   = groups.length > 1
 
   return (
     <div className="flex-1 flex flex-col min-h-0">
@@ -60,16 +85,35 @@ export function TeamGrid() {
             No teams found
           </div>
         )}
-        {!isLoading && density === 'card' && (
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-3">
-            {teams.map(t => <TeamCard key={t.id} team={t} />)}
+
+        {!isLoading && teams.length > 0 && groups.map(cg => (
+          <div key={cg.companyName} className="mb-6">
+            {multiCompany && (
+              <h2 className="text-base font-semibold text-foreground mb-3 pb-1 border-b">
+                {cg.companyName}
+              </h2>
+            )}
+
+            {cg.divisions.map(dg => (
+              <div key={dg.divisionName} className="mb-4">
+                <h3 className={`text-sm font-medium text-muted-foreground mb-2 ${multiCompany ? 'pl-2' : ''}`}>
+                  {dg.divisionName}
+                </h3>
+
+                {density === 'card' && (
+                  <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-3">
+                    {dg.teams.map(t => <TeamCard key={t.id} team={t} />)}
+                  </div>
+                )}
+                {density === 'list' && (
+                  <div className="rounded-lg border overflow-hidden">
+                    {dg.teams.map(t => <TeamRow key={t.id} team={t} />)}
+                  </div>
+                )}
+              </div>
+            ))}
           </div>
-        )}
-        {!isLoading && density === 'list' && (
-          <div className="rounded-lg border overflow-hidden">
-            {teams.map(t => <TeamRow key={t.id} team={t} />)}
-          </div>
-        )}
+        ))}
       </div>
     </div>
   )
