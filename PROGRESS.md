@@ -157,9 +157,11 @@ Purchase & Sales▾:
 
 ## 🔄 In Progress
 
-🚀 Starting: **Contact Centre Phase 1 Task 21: ContactCenterSidebar + Layout Integration**
+🚀 Next: **Contact Centre Phase 1 — further tasks**
 
 ## ✅ Completed
+
+- [2026-05-11] **Contact Centre Phase 1: WhatsApp reactions** — `src/components/contact-center/ChatSection.tsx`, `src/hooks/contact-center/useChatMessages.ts`, `src/hooks/contact-center/useLiveThread.ts`, `src/components/contact-center/ContactCenterSidebar.tsx`, `src/types/contact-center.ts`, `src/app/api/wati/fetch-messages/route.ts`, `supabase/migrations/20260511270000_chat_messages_reactions.sql` — Added reactions JSONB column; fetch-messages route detects WATI reaction items and applies them; ChatSection renders ReactionBubbles and EmojiPicker (hover to react); useChatMessages.reactToMessage toggles agent emoji; removed WA source badge
 
 - [2026-05-11] **Contact Centre Phase 1 Task 20: ChatListView** — `src/components/contact-center/ChatListView.tsx` — Created conversation list component with search (customer name/phone/message text), All/Unanswered filter tabs, unread badges (99+ cap), last message timestamp formatting, customer name/phone display fallback, hover states, empty state icon, responsive compact layout (text-xs sizing); filters search and unread count via conversation list reducer; integrates with ChatConversation type; zero TypeScript errors
 
