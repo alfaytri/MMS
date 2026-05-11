@@ -2,7 +2,6 @@
 'use client'
 
 import { useState, useCallback } from 'react'
-import { createClient } from '@/lib/supabase/client'
 import { useLiveConversations }  from './useLiveConversations'
 import { useLiveThread }         from './useLiveThread'
 import { useWhatsAppWindow }     from './useWhatsAppWindow'
@@ -49,9 +48,11 @@ export function useContactCenterState() {
   }
 
   const syncFromWati = useCallback(async () => {
-    const supabase = createClient()
-    const { error } = await supabase.functions.invoke('api-wati', { body: { action: 'sync_contacts' } })
-    if (error) throw error
+    const res = await fetch('/api/wati/sync-contacts', { method: 'POST' })
+    if (!res.ok) {
+      const err = await res.json().catch(() => ({}))
+      throw new Error(err.error ?? 'Sync failed')
+    }
   }, [])
 
   return {
