@@ -157,9 +157,11 @@ Purchase & Sales▾:
 
 ## 🔄 In Progress
 
-🚀 Starting: **Contact Centre Phase 1 Task 2: normalisePhone Utility + Tests**
+🚀 Starting: **Contact Centre Phase 1 Task 3: Wati Phone Validation API Route**
 
 ## ✅ Completed
+
+- [2026-05-11] **Contact Centre Phase 1 Task 2: normalisePhone Utility + Tests** — `src/lib/contact-center/normalise-phone.ts`, `src/lib/contact-center/normalise-phone.test.ts` — Utility exports normalisePhone() to handle Qatar local (8-digit), 974-prefix (11), 00974-prefix (13), and international (+) formats; converts all to canonical +974XXXXXXXX; tryNormalisePhone() returns null on error instead of throwing; comprehensive test coverage (13 tests, all passing); NormalisePhoneError class for explicit error handling
 
 - [2026-05-11] **Contact Centre Phase 1 Task 1: Database Migration** — `supabase/migrations/20260511210000_contact_centre_phase1.sql`, `supabase/migrations/20260511210001_contact_centre_chat_fixes.sql` — Extended service_customers (is_blocked, customer_type, pending_payment_amount), service_customer_addresses (is_geocoded), created customer_blocks table, extended chat_conversations (conversation_type, wati_phone, nullable customer_id→service_customers), extended chat_messages (delivery_status, external_id, nullable text), compound index, permission seed for contact_centre.view
 
