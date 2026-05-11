@@ -157,9 +157,11 @@ Purchase & Sales▾:
 
 ## 🔄 In Progress
 
-🚀 Starting: **Contact Centre Phase 1 Task 3: Wati Phone Validation API Route**
+🚀 Starting: **Contact Centre Phase 1 Task 4: Wati Template API Route**
 
 ## ✅ Completed
+
+- [2026-05-11] **Contact Centre Phase 1 Task 3: TypeScript Types File** — `src/types/contact-center.ts` — Created comprehensive TypeScript types for Contact Centre module including DeliveryStatus, ConversationType, CrmMode, UnknownCallerStep, SidebarView type aliases; ChatConversation and ChatMessage interfaces with joined customer/agent name fields; WatiTemplate types (WatiTemplateParam, WatiTemplateComponent, WatiTemplate) for template structure; WindowStatus for conversation window tracking; SelectedCustomer for form state; CustomerBlock for blocking management; all types validate cleanly with tsc
 
 - [2026-05-11] **Contact Centre Phase 1 Task 2: normalisePhone Utility + Tests** — `src/lib/contact-center/normalise-phone.ts`, `src/lib/contact-center/normalise-phone.test.ts` — Utility exports normalisePhone() to handle Qatar local (8-digit), 974-prefix (11), 00974-prefix (13), and international (+) formats; converts all to canonical +974XXXXXXXX; tryNormalisePhone() returns null on error instead of throwing; comprehensive test coverage (13 tests, all passing); NormalisePhoneError class for explicit error handling
 
