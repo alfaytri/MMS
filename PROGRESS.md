@@ -156,9 +156,15 @@ Purchase & Sales▾:
 
 ## 🔄 In Progress
 
-🚀 Starting: **Pre-CRM Patch Task 1: Create service_customers tables migration**
+🚀 Starting: **Pre-CRM Patch Task 4: Update RPCs to use service_customer_id**
 
 ## ✅ Completed
+
+- [2026-05-11] **Pre-CRM Patch Task 3: Migration A — backfill service_customer_id** — `supabase/migrations/20260511100002_orders_service_customer_backfill.sql` — Added nullable service_customer_id to orders/quotations/site_visits; inserted service_customers rows from legacy customers using DISTINCT ON + legacy_customer_id mapping; backfilled phones; validated completeness; set NOT NULL on all three tables
+
+- [2026-05-11] **Pre-CRM Patch Task 2: create_service_customer RPC** — `supabase/migrations/20260511100001_create_service_customer_rpc.sql` — Created RPC to find-or-create service customer by phone; returns existing customer if phone already registered; inserts primary + optional non-primary second phone; GRANT EXECUTE to authenticated
+
+- [2026-05-11] **Pre-CRM Patch Task 1: Create service_customers tables migration** — `supabase/migrations/20260511100000_service_customers.sql` — Created service_customers, service_customer_phones, service_customer_addresses tables; partial unique indexes for one-primary-phone and one-primary-address constraints; updated_at trigger; RLS policies for authenticated users
 
 - [2026-05-10] **Quotation Module Task 6: WATI send-quotation API route** — `src/app/api/wati/send-quotation/route.ts`, `.env.local` — Created POST route handler with SendQuotationBody interface; validates WATI_API_URL and WATI_API_TOKEN exist; strips phone to digits only; calls getContacts API to check 24-hour conversation window; returns `{ windowClosed: true }` if window expired (soft failure for soft resend); builds formatted message with customer name, quotation number, services list, total, and expiry date; sends via sendSessionMessage on open window; returns `{ sent: true }` on success; added WATI_API_URL and WATI_API_TOKEN env vars to .env.local; comprehensive error handling with console logging for debugging; zero TypeScript errors
 
