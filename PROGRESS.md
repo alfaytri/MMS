@@ -157,9 +157,11 @@ Purchase & Sales▾:
 
 ## 🔄 In Progress
 
-🚀 Starting: **Contact Centre Phase 1 Task 20: CrmSection**
+🚀 Starting: **Contact Centre Phase 1 Task 21: ContactCenterSidebar + Layout Integration**
 
 ## ✅ Completed
+
+- [2026-05-11] **Contact Centre Phase 1 Task 20: ChatListView** — `src/components/contact-center/ChatListView.tsx` — Created conversation list component with search (customer name/phone/message text), All/Unanswered filter tabs, unread badges (99+ cap), last message timestamp formatting, customer name/phone display fallback, hover states, empty state icon, responsive compact layout (text-xs sizing); filters search and unread count via conversation list reducer; integrates with ChatConversation type; zero TypeScript errors
 
 - [2026-05-11] **Contact Centre Phase 1 Task 19: ChatSection** — `src/components/contact-center/ChatSection.tsx` — Created WhatsApp message thread component with auto-scroll tracking (user scroll-up detection), message bubbles styled left/right by sender type, delivery status ticks (sending/sent/delivered/read spinner/icons), RTL-safe dir="auto" text, attachment rendering via AttachmentRenderer, timestamp formatting, retry button for failed messages, WA API badge for customer messages, integration with useChatMessages.retryMessage; responsive max-width-85% bubbles, text-xs sizing, teal primary bg for agent messages, gray bg for customer; zero TypeScript errors
 
