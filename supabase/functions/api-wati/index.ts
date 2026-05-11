@@ -1,7 +1,7 @@
 import { serve } from 'https://deno.land/std@0.177.0/http/server.ts'
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
 
-const WATI_ENDPOINT = (Deno.env.get('WATI_API_ENDPOINT') ?? '').replace(/\/$/, '')
+const WATI_ENDPOINT = (Deno.env.get('WATI_API_URL') ?? '').replace(/\/$/, '')
 const WATI_TOKEN   = (Deno.env.get('WATI_API_TOKEN') ?? '').replace(/^Bearer\s+/i, '')
 const SUPA_URL     = Deno.env.get('SUPABASE_URL')!
 const SUPA_ANON    = Deno.env.get('SUPABASE_ANON_KEY')!
@@ -43,10 +43,16 @@ serve(async (req) => {
   if (authErr || !user) return json({ error: 'Unauthorized' }, 401)
 
   const supaAdmin = createClient(SUPA_URL, SUPA_SERVICE)
+  const { data: profileRow } = await supaAdmin
+    .from('profiles')
+    .select('id')
+    .eq('auth_user_id', user.id)
+    .single()
+  if (!profileRow) return json({ error: 'Forbidden' }, 403)
   const { data: roleRows } = await supaAdmin
     .from('user_custom_roles')
     .select('custom_roles(permissions)')
-    .eq('user_id', user.id)
+    .eq('profile_id', profileRow.id)
   const perms: string[] = (roleRows ?? []).flatMap(
     (r: { custom_roles: { permissions: string[] } | null }) => r.custom_roles?.permissions ?? []
   )
