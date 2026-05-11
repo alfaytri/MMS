@@ -6,6 +6,18 @@ const WATI_TOKEN = (process.env.WATI_API_TOKEN ?? '').replace(/^Bearer\s+/i, '')
 const SUPA_URL   = process.env.NEXT_PUBLIC_SUPABASE_URL!
 const SUPA_KEY   = process.env.SUPABASE_SERVICE_ROLE_KEY!
 
+type DeliveryStatus = 'sending' | 'sent' | 'delivered' | 'read' | 'failed'
+
+function normaliseStatus(raw: string | undefined | null): DeliveryStatus {
+  switch ((raw ?? '').toUpperCase()) {
+    case 'READ':      return 'read'
+    case 'DELIVERED': return 'delivered'
+    case 'SENT':      return 'sent'
+    case 'FAILED':    return 'failed'
+    default:          return 'sent'
+  }
+}
+
 function sleep(ms: number) {
   return new Promise<void>((r) => setTimeout(r, ms))
 }
@@ -42,22 +54,29 @@ export async function GET(req: NextRequest) {
   const supabase = createClient(SUPA_URL, SUPA_KEY)
   const cutoff   = new Date(Date.now() - days * 24 * 60 * 60 * 1000)
 
-  // Paginate WATI getMessages until we reach the cutoff date
+  // WATI expects the number without the leading +
+  const watiPhone = phone.replace(/^\+/, '')
+
   let pageNumber = 1
   const pageSize = 100
   const allItems: any[] = []
   let reachedCutoff = false
 
   while (!reachedCutoff) {
-    const data = await watiGet(
-      `/api/v1/getMessages/${encodeURIComponent(phone)}?pageSize=${pageSize}&pageNumber=${pageNumber}`
-    )
+    let data: any
+    try {
+      data = await watiGet(
+        `/api/v1/getMessages/${encodeURIComponent(watiPhone)}?pageSize=${pageSize}&pageNumber=${pageNumber}`
+      )
+    } catch (err: any) {
+      console.error('[fetch-messages] WATI error', err.message)
+      return NextResponse.json({ error: err.message }, { status: 502 })
+    }
 
     const items: any[] = data?.messages?.items ?? []
     if (items.length === 0) break
 
     for (const item of items) {
-      // WATI timestamps can be Unix seconds or ISO string
       const ts = item.created
         ? new Date(item.created)
         : item.timestamp
@@ -77,9 +96,9 @@ export async function GET(req: NextRequest) {
     return NextResponse.json({ fetched: 0 })
   }
 
-  // Transform WATI items → chat_messages rows
+  // Build rows — filter out items without an ID (can't dedup without it)
   const rows = allItems
-    .filter((item) => item.id) // must have an ID for dedup
+    .filter((item) => item.id)
     .map((item) => {
       const isAgent = item.owner === true || item.eventType === 'message_sent'
       const ts = item.created
@@ -88,29 +107,37 @@ export async function GET(req: NextRequest) {
         ? new Date(item.timestamp * 1000).toISOString()
         : new Date().toISOString()
 
+      // text is NOT NULL in DB — use empty string for media-only messages
+      const text = typeof item.text === 'string' && item.text.trim()
+        ? item.text.trim()
+        : item.type && item.type !== 'text'
+        ? `[${item.type}]`
+        : ''
+
       return {
-        conversation_id:  conversationId,
-        from_type:        isAgent ? 'agent' : 'customer',
-        source:           'whatsapp_api',
-        text:             item.text ?? null,
-        agent_name:       isAgent ? (item.senderName ?? null) : null,
-        delivery_status:  isAgent ? (item.statusString?.toLowerCase() ?? 'sent') : 'delivered',
-        external_id:      item.id,
-        created_at:       ts,
+        conversation_id: conversationId,
+        from_type:       isAgent ? 'agent' : 'customer',
+        source:          'whatsapp_api',
+        text,
+        agent_name:      isAgent ? (item.senderName ?? null) : null,
+        delivery_status: isAgent ? normaliseStatus(item.statusString) : 'delivered',
+        external_id:     String(item.id),
+        created_at:      ts,
       }
     })
 
-  // Upsert on external_id to avoid duplicates
+  // Insert new rows only — ignoreDuplicates generates ON CONFLICT DO NOTHING
+  // which works with the partial unique index on external_id
   const CHUNK = 200
   let inserted = 0
   for (let i = 0; i < rows.length; i += CHUNK) {
     const { error } = await (supabase.from('chat_messages') as any)
-      .upsert(rows.slice(i, i + CHUNK), { onConflict: 'external_id', ignoreDuplicates: true })
+      .upsert(rows.slice(i, i + CHUNK), { ignoreDuplicates: true })
     if (error) {
-      console.error('[fetch-messages] upsert error', error)
+      console.error('[fetch-messages] insert error', error)
       return NextResponse.json({ error: error.message }, { status: 500 })
     }
-    inserted += Math.min(CHUNK, rows.length - i)
+    inserted += rows.slice(i, i + CHUNK).length
   }
 
   return NextResponse.json({ fetched: inserted })
