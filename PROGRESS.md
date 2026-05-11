@@ -157,9 +157,11 @@ Purchase & Sales▾:
 
 ## 🔄 In Progress
 
-(none)
+🚀 Starting: **Contact Centre Phase 1 Task 18: ChatInputBar**
 
 ## ✅ Completed
+
+- [2026-05-11] **Contact Centre Phase 1 Task 17: AddressSection** — `src/components/contact-center/AddressSection.tsx` — Created address management component with drag-to-orders support, 2-step add form (address type selector → form fields), Blue Plate vs Google Coordinates modes, is_geocoded warning banner, address list with primary badge, grip handles, map icons; full validation and error handling; integrated with useAddressState hook; responsive layout with text-xs sizing; zero TypeScript errors
 
 - [2026-05-11] **Contact Centre Phase 1 Task 15: AttachmentRenderer, ProductsList, OrderHistorySection** — `src/components/contact-center/AttachmentRenderer.tsx`, `src/components/contact-center/ProductsList.tsx`, `src/components/contact-center/OrderHistorySection.tsx` — Created three UI components: (1) AttachmentRenderer handles image/file attachments with type detection, renders as img tag with max-width/height or file link with truncation; (2) ProductsList maps InstalledProduct[] with warranty status icons (Shield/ShieldAlert/ShieldOff for active/expiring/expired), Badge variant, brand/model/expiry metadata, responsive flex layout; (3) OrderHistorySection uses TanStack Query to fetch top 20 orders by scheduled_date DESC, renders order_id/services_summary/date/status with statusColor map (completed→emerald, cancelled→rose, scheduled/confirmed→blue, in-progress→amber); all three components responsive with text-xs sizing and proper null handling; zero TypeScript errors
 
