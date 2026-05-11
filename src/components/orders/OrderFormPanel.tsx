@@ -1,6 +1,6 @@
 // src/components/orders/OrderFormPanel.tsx
 'use client'
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -14,7 +14,7 @@ import { AddressPicker } from './AddressPicker'
 import { VisitDatePicker } from './VisitDatePicker'
 import { AttachmentsUpload } from './AttachmentsUpload'
 import type { PendingAttachment } from './AttachmentsUpload'
-import { useDivisions } from '@/hooks/useDivisions'
+import { useUserCompanyDivisions } from '@/hooks/useUserCompanyDivisions'
 import { cn } from '@/lib/utils'
 import { SiteVisitCard } from './SiteVisitCard'
 import type { OrderDraft, OrderServiceDraft, CustomerAddress, OrderType, VisitDateWindow } from '@/types/orders'
@@ -71,10 +71,17 @@ export function OrderFormPanel({
   isValid,
   submitLabel = 'Confirm Order',
 }: Props) {
-  const { data: divisions = [] } = useDivisions()
+  const { data: divisions = [] } = useUserCompanyDivisions()
   const [multiDivision, setMultiDivision] = useState(false)
   const [selectedDivisions, setSelectedDivisions] = useState<string[]>([])
   const [arrivalCountryCode, setArrivalCountryCode] = useState('+974')
+
+  // Pre-populate division when editing an existing order
+  useEffect(() => {
+    if (draft.division && selectedDivisions.length === 0) {
+      setSelectedDivisions([draft.division])
+    }
+  }, [draft.division]) // eslint-disable-line react-hooks/exhaustive-deps
 
   // Keep draft.division in sync: always the first selected division slug
   function syncDivision(slugs: string[]) {
@@ -189,7 +196,7 @@ export function OrderFormPanel({
                         : 'border-slate-200 bg-white text-slate-600 hover:border-slate-300'
                     )}
                   >
-                    {d.short_name ?? d.name}
+                    {d.name}
                   </button>
                 ) : (
                   <label
@@ -202,7 +209,7 @@ export function OrderFormPanel({
                     )}
                   >
                     <input type="checkbox" className="sr-only" checked={selectedDivisions.includes(d.slug)} onChange={() => toggleDivision(d.slug)} />
-                    {d.short_name ?? d.name}
+                    {d.name}
                   </label>
                 )
               )}
