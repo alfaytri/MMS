@@ -34,7 +34,17 @@ export function useQuotations(filter: QuotationsFilter = {}) {
       const { data, error } = await q
       if (error) throw error
 
-      return (data ?? []).map((r: any) => ({
+      let rows = data ?? []
+      if (filter.customerPhone) {
+        const ph = filter.customerPhone.replace(/\s+/g, '').toLowerCase()
+        rows = rows.filter((r: any) =>
+          (r.customers?.customer_phones ?? []).some((cp: any) =>
+            (cp.phone ?? '').replace(/\s+/g, '').toLowerCase().includes(ph)
+          )
+        )
+      }
+
+      return rows.map((r: any) => ({
         id:             r.id,
         quotation_id:   r.quotation_id,
         customer_name:  r.customers?.name ?? '—',
