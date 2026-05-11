@@ -1,7 +1,7 @@
 'use client'
 
 import { useEffect, useRef } from 'react'
-import { Loader2, Check, CheckCheck, RefreshCw } from 'lucide-react'
+import { Loader2, Check, CheckCheck, RefreshCw, ChevronUp } from 'lucide-react'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { AttachmentRenderer } from './AttachmentRenderer'
@@ -13,6 +13,9 @@ type ChatMessagesReturn = ReturnType<typeof useChatMessages>
 interface Props {
   messages: ChatMessage[]
   loading: boolean
+  fetchingWati?: boolean
+  canLoadMore?: boolean
+  onLoadMore?: () => void
   phone: string
   chatMessages: ChatMessagesReturn
 }
@@ -25,7 +28,7 @@ function DeliveryTick({ status }: { status: ChatMessage['delivery_status'] }) {
   return null
 }
 
-export function ChatSection({ messages, loading, phone, chatMessages }: Props) {
+export function ChatSection({ messages, loading, fetchingWati, canLoadMore, onLoadMore, phone, chatMessages }: Props) {
   const bottomRef = useRef<HTMLDivElement>(null)
   const scrollRef = useRef<HTMLDivElement>(null)
   const userScrolledUp = useRef(false)
@@ -48,8 +51,9 @@ export function ChatSection({ messages, loading, phone, chatMessages }: Props) {
 
   if (loading) {
     return (
-      <div className="flex-1 flex items-center justify-center">
-        <Loader2 className="h-4 w-4 animate-spin text-muted-foreground" />
+      <div className="flex-1 flex flex-col items-center justify-center gap-2 text-muted-foreground">
+        <Loader2 className="h-4 w-4 animate-spin" />
+        <span className="text-xs">Loading messages…</span>
       </div>
     )
   }
@@ -58,53 +62,81 @@ export function ChatSection({ messages, loading, phone, chatMessages }: Props) {
     <div
       ref={scrollRef}
       onScroll={handleScroll}
-      className="flex-1 overflow-y-auto px-2 py-2 space-y-2 overscroll-contain"
+      className="flex-1 overflow-y-auto px-2 py-2 overscroll-contain"
     >
-      {messages.map((msg) => {
-        const isAgent = msg.from_type === 'agent'
-        return (
-          <div key={msg.id} className={`flex ${isAgent ? 'justify-end' : 'justify-start'}`}>
-            <div className={`max-w-[85%] flex flex-col ${isAgent ? 'items-end' : 'items-start'}`}>
-              <span className="text-xs text-muted-foreground mb-0.5">
-                {isAgent ? (msg.agent_name ?? 'Agent') : phone}
-              </span>
+      {/* Load more older messages */}
+      {canLoadMore && onLoadMore && (
+        <div className="flex justify-center mb-2">
+          <Button
+            size="sm"
+            variant="ghost"
+            className="h-7 text-xs gap-1 text-muted-foreground"
+            onClick={onLoadMore}
+            disabled={fetchingWati}
+          >
+            {fetchingWati
+              ? <><Loader2 className="h-3 w-3 animate-spin" /> Loading older…</>
+              : <><ChevronUp className="h-3 w-3" /> Load older messages</>
+            }
+          </Button>
+        </div>
+      )}
 
-              <div className={`rounded-lg px-2.5 py-1.5 text-xs ${
-                isAgent ? 'bg-primary text-primary-foreground' : 'bg-muted text-foreground'
-              }`}>
-                {msg.text && (
-                  <span dir="auto" className="whitespace-pre-wrap break-words">
-                    {msg.text}
-                  </span>
-                )}
-                {msg.attachments?.map((att, i) => (
-                  <AttachmentRenderer key={i} url={att.url} type={att.type} name={att.name} />
-                ))}
-                {!isAgent && msg.source === 'whatsapp_api' && (
-                  <Badge variant="secondary" className="ml-1.5 text-xs py-0 px-1 align-middle">WA API</Badge>
-                )}
-              </div>
+      {/* Fetching indicator when no messages yet */}
+      {fetchingWati && messages.length === 0 && (
+        <div className="flex flex-col items-center justify-center py-6 gap-2 text-muted-foreground">
+          <Loader2 className="h-4 w-4 animate-spin" />
+          <span className="text-xs">Fetching message history…</span>
+        </div>
+      )}
 
-              <div className="flex items-center gap-1 mt-0.5">
-                <span className="text-xs text-muted-foreground">
-                  {new Date(msg.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+      <div className="space-y-2">
+        {messages.map((msg) => {
+          const isAgent = msg.from_type === 'agent'
+          return (
+            <div key={msg.id} className={`flex ${isAgent ? 'justify-end' : 'justify-start'}`}>
+              <div className={`max-w-[85%] flex flex-col ${isAgent ? 'items-end' : 'items-start'}`}>
+                <span className="text-xs text-muted-foreground mb-0.5">
+                  {isAgent ? (msg.agent_name ?? 'Agent') : phone}
                 </span>
-                {isAgent && <DeliveryTick status={msg.delivery_status} />}
-                {isAgent && msg.delivery_status === 'failed' && (
-                  <Button
-                    size="icon"
-                    variant="ghost"
-                    className="h-5 w-5"
-                    onClick={() => chatMessages.retryMessage(msg, phone)}
-                  >
-                    <RefreshCw className="h-3 w-3 text-destructive" />
-                  </Button>
-                )}
+
+                <div className={`rounded-lg px-2.5 py-1.5 text-xs ${
+                  isAgent ? 'bg-primary text-primary-foreground' : 'bg-muted text-foreground'
+                }`}>
+                  {msg.text && (
+                    <span dir="auto" className="whitespace-pre-wrap break-words">
+                      {msg.text}
+                    </span>
+                  )}
+                  {msg.attachments?.map((att, i) => (
+                    <AttachmentRenderer key={i} url={att.url} type={att.type} name={att.name} />
+                  ))}
+                  {!isAgent && msg.source === 'whatsapp_api' && (
+                    <Badge variant="secondary" className="ml-1.5 text-xs py-0 px-1 align-middle">WA</Badge>
+                  )}
+                </div>
+
+                <div className="flex items-center gap-1 mt-0.5">
+                  <span className="text-xs text-muted-foreground">
+                    {new Date(msg.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                  </span>
+                  {isAgent && <DeliveryTick status={msg.delivery_status} />}
+                  {isAgent && msg.delivery_status === 'failed' && (
+                    <Button
+                      size="icon"
+                      variant="ghost"
+                      className="h-5 w-5"
+                      onClick={() => chatMessages.retryMessage(msg, phone)}
+                    >
+                      <RefreshCw className="h-3 w-3 text-destructive" />
+                    </Button>
+                  )}
+                </div>
               </div>
             </div>
-          </div>
-        )
-      })}
+          )
+        })}
+      </div>
       <div ref={bottomRef} />
     </div>
   )

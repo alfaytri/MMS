@@ -6,9 +6,9 @@ const WATI_TOKEN = (process.env.WATI_API_TOKEN ?? '').replace(/^Bearer\s+/i, '')
 const SUPA_URL   = process.env.NEXT_PUBLIC_SUPABASE_URL!
 const SUPA_KEY   = process.env.SUPABASE_SERVICE_ROLE_KEY!
 
-// Recent mode: last 500 contacts (~10 s). Full mode: all 13k+ (~5 min).
-const RECENT_PAGE_LIMIT = 5
-const PAGE_SIZE         = 100
+// Recent mode: stop when contacts older than 2 days. Full: all pages.
+const RECENT_DAYS = 2
+const PAGE_SIZE   = 100
 
 function normalisePhone(raw: string): string | null {
   const cleaned = raw.replace(/[\s\-().]/g, '')
@@ -22,6 +22,11 @@ function normalisePhone(raw: string): string | null {
   if (digits.length === 8 && /^[3-9]/.test(digits))       return `+974${digits}`
   if (digits.length >= 7 && digits.length <= 15)           return `+${digits}`
   return null
+}
+
+function contactName(c: any): string | null {
+  const full = [c.firstName, c.lastName].filter(Boolean).join(' ').trim()
+  return full || c.fullName || c.name || null
 }
 
 function encode(data: object) {
@@ -71,13 +76,14 @@ async function upsertContacts(allContacts: any[], supabase: ReturnType<typeof cr
   }
 
   const rows = phones.map((phone) => {
-    const contact = phoneMap.get(phone)!
+    const c = phoneMap.get(phone)!
     return {
-      wati_phone:      phone,
-      customer_id:     customerByPhone.get(phone) ?? null,
-      last_message:    contact.lastMessage ?? null,
-      last_message_at: contact.lastReceivedMessageDate
-        ? new Date(contact.lastReceivedMessageDate).toISOString()
+      wati_phone:         phone,
+      wati_contact_name:  contactName(c),
+      customer_id:        customerByPhone.get(phone) ?? null,
+      last_message:       c.lastMessage ?? null,
+      last_message_at:    c.lastReceivedMessageDate
+        ? new Date(c.lastReceivedMessageDate).toISOString()
         : new Date().toISOString(),
     }
   })
@@ -100,7 +106,7 @@ export async function GET(req: NextRequest) {
     return NextResponse.json({ error: 'WATI credentials not configured' }, { status: 500 })
 
   const full = req.nextUrl.searchParams.get('mode') === 'full'
-  const maxPages = full ? Infinity : RECENT_PAGE_LIMIT
+  const cutoff = full ? null : new Date(Date.now() - RECENT_DAYS * 24 * 60 * 60 * 1000)
   const supabase = createClient(SUPA_URL, SUPA_KEY)
 
   const stream = new TransformStream()
@@ -110,8 +116,9 @@ export async function GET(req: NextRequest) {
     try {
       let pageNumber = 1
       const allContacts: any[] = []
+      let reachedCutoff = false
 
-      while (pageNumber <= maxPages) {
+      while (!reachedCutoff) {
         await writer.write(encode({ stage: 'fetching', page: pageNumber, total: allContacts.length }))
 
         const result = await watiGet(`/api/v1/getContacts?pageSize=${PAGE_SIZE}&pageNumber=${pageNumber}`)
@@ -121,12 +128,19 @@ export async function GET(req: NextRequest) {
         }
 
         const contacts: any[] = result.data?.contact_list ?? []
-        allContacts.push(...contacts)
+        if (contacts.length === 0) break
 
-        const reachedEnd = contacts.length < PAGE_SIZE
-        const reachedLimit = !full && pageNumber >= RECENT_PAGE_LIMIT
+        if (cutoff) {
+          for (const c of contacts) {
+            const lastActive = c.lastReceivedMessageDate ? new Date(c.lastReceivedMessageDate) : null
+            if (lastActive && lastActive < cutoff) { reachedCutoff = true; break }
+            allContacts.push(c)
+          }
+        } else {
+          allContacts.push(...contacts)
+        }
 
-        if (reachedEnd || reachedLimit) break
+        if (contacts.length < PAGE_SIZE) break
         pageNumber++
         await sleep(300)
       }

@@ -14,7 +14,7 @@ export function useLiveConversations() {
     const { data, error } = await (supabase as any)
       .from('chat_conversations')
       .select(`
-        id, customer_id, conversation_type, wati_phone,
+        id, customer_id, conversation_type, wati_phone, wati_contact_name,
         last_message, last_message_at, unread_count, created_at,
         service_customers(name)
       `)
@@ -32,7 +32,7 @@ export function useLiveConversations() {
     setConversations(
       (data as any[]).map((row) => ({
         ...row,
-        customer_name: row.service_customers?.name ?? null,
+        customer_name: row.service_customers?.name ?? row.wati_contact_name ?? null,
       }))
     )
     setLoading(false)

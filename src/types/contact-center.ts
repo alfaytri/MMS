@@ -11,6 +11,7 @@ export interface ChatConversation {
   customer_id: string | null
   conversation_type: ConversationType
   wati_phone: string | null
+  wati_contact_name: string | null
   last_message: string | null
   last_message_at: string | null
   unread_count: number

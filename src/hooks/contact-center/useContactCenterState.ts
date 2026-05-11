@@ -26,7 +26,7 @@ export function useContactCenterState() {
   const [syncProgress, setSyncProgress]         = useState<SyncProgress>({ stage: 'idle' })
 
   const { conversations, loading: convsLoading, markRead, refetch: refetchConversations } = useLiveConversations()
-  const { messages, loading: threadLoading, patchMessage } = useLiveThread(activeConversationId)
+  const { messages, loading: threadLoading, fetchingWati, canLoadMore, loadMore, patchMessage } = useLiveThread(activeConversationId, activePhone)
   const windowStatus = useWhatsAppWindow(messages)
 
   const customerData   = useCustomerData(activeCustomerId)
@@ -115,6 +115,9 @@ export function useContactCenterState() {
     convsLoading,
     messages,
     threadLoading,
+    fetchingWati,
+    canLoadMore,
+    loadMore,
     windowStatus,
     customerData,
     chatMessages,

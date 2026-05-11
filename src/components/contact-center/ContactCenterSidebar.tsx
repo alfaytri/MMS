@@ -34,6 +34,7 @@ export function ContactCenterSidebar() {
   const state = useContactCenterState()
   const {
     sidebarView, conversations, convsLoading, messages, threadLoading,
+    fetchingWati, canLoadMore, loadMore,
     windowStatus, customerData, chatMessages, addressState,
     activeConversationId, activeCustomerId, activePhone,
     openConversation, goToList, expandSidebar, collapseSidebar, syncFromWati, syncProgress,
@@ -123,7 +124,7 @@ export function ContactCenterSidebar() {
   const DetailContent = (
     <div className="flex flex-col h-full">
       {/* Header */}
-      <div className="flex items-center gap-2 px-3 py-2 border-b border-border">
+      <div className="flex items-center gap-2 px-3 py-2 border-b border-border flex-shrink-0">
         <Button size="icon" variant="ghost" className="h-7 w-7 flex-shrink-0" onClick={goToList}>
           <ChevronLeft className="h-3.5 w-3.5" />
         </Button>
@@ -133,11 +134,14 @@ export function ContactCenterSidebar() {
         </div>
       </div>
 
-      {/* Chat thread */}
-      <div className="flex flex-col h-60">
+      {/* Chat thread — takes 55% of sidebar height */}
+      <div className="flex flex-col flex-shrink-0" style={{ height: '55%' }}>
         <ChatSection
           messages={messages}
           loading={threadLoading}
+          fetchingWati={fetchingWati}
+          canLoadMore={canLoadMore}
+          onLoadMore={loadMore}
           phone={activePhone ?? ''}
           chatMessages={chatMessages}
         />
@@ -153,7 +157,7 @@ export function ContactCenterSidebar() {
       </div>
 
       {/* CRM + detail sections */}
-      <div className="flex-1 overflow-y-auto overscroll-contain">
+      <div className="flex-1 min-h-0 overflow-y-auto overscroll-contain">
         <SectionHeader icon={<User className="h-3 w-3" />} label="Customer">
           <CrmSection
             customerData={customerData}
