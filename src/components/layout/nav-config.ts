@@ -61,6 +61,18 @@ export const NAV_ITEMS: NavEntry[] = [
     ],
   },
   {
+    label: 'Quotations',
+    icon: 'FileText',
+    groups: [
+      {
+        items: [
+          { label: 'View Quotations', href: '/quotations' },
+          { label: 'Create Quotation', href: '/quotations/create' },
+        ],
+      },
+    ],
+  },
+  {
     label: 'Contracts',
     icon: 'FileText',
     comingSoon: true,
