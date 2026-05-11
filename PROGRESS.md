@@ -157,9 +157,11 @@ Purchase & Sales▾:
 
 ## 🔄 In Progress
 
-(placeholder for next task)
+🚀 Starting: **Contact Centre Phase 1 Task 20: CrmSection**
 
 ## ✅ Completed
+
+- [2026-05-11] **Contact Centre Phase 1 Task 19: ChatSection** — `src/components/contact-center/ChatSection.tsx` — Created WhatsApp message thread component with auto-scroll tracking (user scroll-up detection), message bubbles styled left/right by sender type, delivery status ticks (sending/sent/delivered/read spinner/icons), RTL-safe dir="auto" text, attachment rendering via AttachmentRenderer, timestamp formatting, retry button for failed messages, WA API badge for customer messages, integration with useChatMessages.retryMessage; responsive max-width-85% bubbles, text-xs sizing, teal primary bg for agent messages, gray bg for customer; zero TypeScript errors
 
 - [2026-05-11] **Contact Centre Phase 1 Task 18: ChatInputBar** — `src/components/contact-center/ChatInputBar.tsx` — Created WhatsApp message input bar with window status banner (closed/warning/open states), textarea input (Enter to send, Shift+Enter for newline), Send button with spinner, template dropdown button with lazy loading, collapsible template list (variable count badges), template confirmation dialog with field-by-field variable editor (customer name pre-filled), integration with useChatMessages hook; responsive compact sizing (text-xs, h-8 buttons); zero TypeScript errors
 
