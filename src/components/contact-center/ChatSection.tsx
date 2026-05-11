@@ -77,9 +77,9 @@ export function ChatSection({ messages, loading, phone, chatMessages }: Props) {
                     {msg.text}
                   </span>
                 )}
-                {msg.attachment_url && (
-                  <AttachmentRenderer url={msg.attachment_url} type={msg.attachment_type} name={msg.attachment_name} />
-                )}
+                {msg.attachments?.map((att, i) => (
+                  <AttachmentRenderer key={i} url={att.url} type={att.type} name={att.name} />
+                ))}
                 {!isAgent && msg.source === 'whatsapp_api' && (
                   <Badge variant="secondary" className="ml-1.5 text-xs py-0 px-1 align-middle">WA API</Badge>
                 )}

@@ -19,22 +19,25 @@ export interface ChatConversation {
   customer_name?: string | null
 }
 
+export interface ChatAttachment {
+  name: string
+  type: string
+  url: string
+}
+
 export interface ChatMessage {
   id: string
   conversation_id: string
   from_type: 'customer' | 'agent'
   source: 'whatsapp_api' | 'manual'
   text: string | null
-  attachment_url: string | null
-  attachment_type: string | null
-  attachment_name: string | null
+  agent_name: string | null
+  attachments: ChatAttachment[] | null
   delivery_status: DeliveryStatus
   external_id: string | null
   reply_to_external_id: string | null
   sent_by_profile_id: string | null
   created_at: string
-  // joined
-  agent_name?: string | null
 }
 
 export interface WatiTemplateParam {

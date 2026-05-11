@@ -23,7 +23,7 @@ export function useLiveThread(conversationId: string | null) {
         .from('chat_messages')
         .select(`
           id, conversation_id, from_type, source,
-          text, attachment_url, attachment_type, attachment_name,
+          text, agent_name, attachments,
           delivery_status, external_id, reply_to_external_id,
           sent_by_profile_id, created_at,
           profiles!sent_by_profile_id(full_name)
@@ -37,7 +37,8 @@ export function useLiveThread(conversationId: string | null) {
           setMessages(
             (data as any[]).map((row) => ({
               ...row,
-              agent_name: row.profiles?.full_name ?? null,
+              // prefer the joined profile name over the stored agent_name text
+              agent_name: row.profiles?.full_name ?? row.agent_name ?? null,
             }))
           )
         } else if (error) {
