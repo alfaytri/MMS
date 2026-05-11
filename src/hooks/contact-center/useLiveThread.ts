@@ -26,19 +26,23 @@ export function useLiveThread(conversationId: string | null) {
           text, attachment_url, attachment_type, attachment_name,
           delivery_status, external_id, reply_to_external_id,
           sent_by_profile_id, created_at,
-          profiles(full_name)
+          profiles!sent_by_profile_id(full_name)
         `)
         .eq('conversation_id', conversationId)
         .order('created_at', { ascending: true })
         .limit(200)
 
-      if (!cancelled && !error && data) {
-        setMessages(
-          (data as any[]).map((row) => ({
-            ...row,
-            agent_name: row.profiles?.full_name ?? null,
-          }))
-        )
+      if (!cancelled) {
+        if (!error && data) {
+          setMessages(
+            (data as any[]).map((row) => ({
+              ...row,
+              agent_name: row.profiles?.full_name ?? null,
+            }))
+          )
+        } else if (error) {
+          console.error('[useLiveThread] query error', error)
+        }
         setLoading(false)
       }
     }
