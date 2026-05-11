@@ -25,7 +25,7 @@ export function useContactCenterState() {
   const [activePhone, setActivePhone]           = useState<string | null>(null)
   const [syncProgress, setSyncProgress]         = useState<SyncProgress>({ stage: 'idle' })
 
-  const { conversations, loading: convsLoading, markRead } = useLiveConversations()
+  const { conversations, loading: convsLoading, markRead, refetch: refetchConversations } = useLiveConversations()
   const { messages, loading: threadLoading, patchMessage } = useLiveThread(activeConversationId)
   const windowStatus = useWhatsAppWindow(messages)
 
@@ -88,6 +88,7 @@ export function useContactCenterState() {
             setSyncProgress({ stage: 'error', error: event.error })
           } else if (event.done) {
             setSyncProgress({ stage: 'done', synced: event.synced, total: event.synced })
+            refetchConversations()
             // auto-clear after 4 s
             setTimeout(() => setSyncProgress({ stage: 'idle' }), 4000)
           } else {
