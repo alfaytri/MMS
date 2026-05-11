@@ -62,11 +62,20 @@ export interface ActivityLogEntry {
 // Composed types
 // ---------------------------------------------------------------------------
 
+export interface TeamDivision {
+  id:           string
+  slug:         string
+  name:         string
+  company_id:   string
+  company_name: string
+}
+
 export interface TeamFull extends TeamRaw {
   leader:   Employee | null
   members:  Employee[]
   vehicle:  Vehicle | null
   schedule: Schedule | null
+  division: TeamDivision | null
 }
 
 export interface TeamsFilters {
@@ -91,7 +100,7 @@ export function useTeams(filters?: TeamsFilters) {
 
       const [teamsRes, employeesRes, vehiclesRes, schedulesRes] = await Promise.allSettled([
         // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        (supabase.from('teams') as any).select('*').is('deleted_at', null).order('name_en', { nullsFirst: false }),
+        (supabase.from('teams') as any).select('*, divisions(id, slug, name, company_id, companies(id, name_en))').is('deleted_at', null).order('name_en', { nullsFirst: false }),
         // eslint-disable-next-line @typescript-eslint/no-explicit-any
         (supabase.from('employees') as any).select('*').is('deleted_at', null),
         // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -112,13 +121,24 @@ export function useTeams(filters?: TeamsFilters) {
       const vehByTeam = new Map(vehicles.filter(v => v.team_id).map(v => [v.team_id!, v]))
       const schById   = new Map(schedules.map(s => [s.id, s]))
 
-      let result: TeamFull[] = teams.map(t => ({
-        ...t,
-        leader:   t.leader_id ? (empById.get(t.leader_id) ?? null) : null,
-        members:  employees.filter(e => e.team_id === t.id),
-        vehicle:  vehByTeam.get(t.id) ?? null,
-        schedule: t.schedule_id ? (schById.get(t.schedule_id) ?? null) : null,
-      }))
+      let result: TeamFull[] = teams.map(t => {
+        const raw = t as unknown as Record<string, unknown>
+        const div = raw.divisions as { id: string; slug: string; name: string; company_id: string; companies?: { id: string; name_en: string } } | null
+        return {
+          ...t,
+          leader:   t.leader_id ? (empById.get(t.leader_id) ?? null) : null,
+          members:  employees.filter(e => e.team_id === t.id),
+          vehicle:  vehByTeam.get(t.id) ?? null,
+          schedule: t.schedule_id ? (schById.get(t.schedule_id) ?? null) : null,
+          division: div ? {
+            id:           div.id,
+            slug:         div.slug,
+            name:         div.name,
+            company_id:   div.company_id,
+            company_name: div.companies?.name_en ?? '',
+          } : null,
+        }
+      })
 
       if (filters?.search) {
         const q = filters.search.toLowerCase()
@@ -129,8 +149,7 @@ export function useTeams(filters?: TeamsFilters) {
         )
       }
       if (filters?.divisionId) {
-        // divisionId may be a division slug (enum value) or UUID — match against division column
-        result = result.filter(t => (t as unknown as Record<string, unknown>).division === filters.divisionId)
+        result = result.filter(t => (t as unknown as Record<string, unknown>).division_id === filters.divisionId)
       }
 
       return result
