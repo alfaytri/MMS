@@ -151,12 +151,13 @@ Purchase & Sales▾:
 | `docs/superpowers/plans/2026-05-03-teams-employee-page.md` | 🚀 ACTIVE | Teams & Employee page — full CRUD dialogs, drag-and-drop, activity logging, schedule management |
 | `docs/superpowers/plans/2026-05-09-orders-module.md` + amendments | ✅ DONE | Orders Module — customer phones/addresses, installed products, order creation with team calendar DnD, order list with chip filters, order detail sheet with 4 tabs, cancel/confirm/rollback actions, Blue Plate Edge Function, navigation |
 | `docs/superpowers/plans/2026-05-10-quotation-module.md` | 🚀 ACTIVE | Quotation Module — quotation_line_items table, ID sequence, save_quotation RPC, create/edit dialogs, form hooks, list page with filters, detail view, PDF generation, send flow |
+| `docs/superpowers/plans/2026-05-11-contact-centre-phase1.md` | 🚀 ACTIVE | Contact Centre Phase 1 — WhatsApp sidebar, CRM panel, address mgmt, warranty display, order history, WATI edge functions |
 
 ---
 
 ## 🔄 In Progress
 
-_(All Pre-CRM Patch tasks complete — branch ready for review)_
+🚀 Starting: **Contact Centre Phase 1 Task 1: Database Migration**
 
 ## ✅ Completed
 
