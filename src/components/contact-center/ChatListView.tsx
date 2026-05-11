@@ -1,10 +1,18 @@
 'use client'
 
 import { useState } from 'react'
-import { Search, MessageSquare, RefreshCw, AlertCircle, CheckCircle2 } from 'lucide-react'
+import { Search, MessageSquare, RefreshCw, AlertCircle, CheckCircle2, ChevronDown } from 'lucide-react'
 import { Input } from '@/components/ui/input'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from '@/components/ui/dropdown-menu'
+import { cn } from '@/lib/utils'
 import type { ChatConversation } from '@/types/contact-center'
 import type { SyncProgress } from '@/hooks/contact-center/useContactCenterState'
 
@@ -12,7 +20,7 @@ interface Props {
   conversations: ChatConversation[]
   loading: boolean
   onSelectConversation: (convo: ChatConversation) => void
-  onSync?: () => Promise<void>
+  onSync?: (full?: boolean) => Promise<void>
   syncProgress?: SyncProgress
 }
 
@@ -26,16 +34,14 @@ function SyncBanner({ progress }: { progress: SyncProgress }) {
 
   const label =
     progress.stage === 'fetching'
-      ? `Fetching from WATI… ${progress.fetched ? `(${progress.fetched} found)` : ''}`
+      ? `Fetching from WATI… ${progress.fetched ? `(${progress.fetched} so far)` : ''}`
       : progress.stage === 'resolving'
       ? `Resolving ${progress.fetched ?? 0} contacts…`
       : progress.stage === 'upserting'
-      ? `Saving ${progress.synced ?? 0} / ${progress.total ?? '?'} contacts…`
+      ? `Saving ${progress.synced ?? 0} contacts…`
       : progress.stage === 'done'
       ? `Synced ${progress.synced ?? 0} contacts`
-      : progress.stage === 'error'
-      ? (progress.error ?? 'Sync failed')
-      : ''
+      : (progress.error ?? 'Sync failed')
 
   const isError = progress.stage === 'error'
   const isDone  = progress.stage === 'done'
@@ -43,7 +49,11 @@ function SyncBanner({ progress }: { progress: SyncProgress }) {
   return (
     <div
       className={`px-3 py-2 text-xs flex flex-col gap-1 border-b border-border ${
-        isError ? 'bg-destructive/10 text-destructive' : isDone ? 'bg-green-500/10 text-green-700 dark:text-green-400' : 'bg-primary/5 text-muted-foreground'
+        isError
+          ? 'bg-destructive/10 text-destructive'
+          : isDone
+          ? 'bg-green-500/10 text-green-700 dark:text-green-400'
+          : 'bg-primary/5 text-muted-foreground'
       }`}
     >
       <div className="flex items-center gap-1.5">
@@ -73,10 +83,10 @@ export function ChatListView({ conversations, loading, onSelectConversation, onS
   const [filter, setFilter] = useState<'all' | 'unanswered'>('all')
   const [syncing, setSyncing] = useState(false)
 
-  async function handleSync() {
+  async function handleSync(full = false) {
     if (!onSync || syncing) return
     setSyncing(true)
-    try { await onSync() } finally { setSyncing(false) }
+    try { await onSync(full) } finally { setSyncing(false) }
   }
 
   const filtered = conversations.filter((c) => {
@@ -89,7 +99,12 @@ export function ChatListView({ conversations, loading, onSelectConversation, onS
     return matchesSearch && matchesFilter
   })
 
-  const isSyncing = syncing || (syncProgress && syncProgress.stage !== 'idle' && syncProgress.stage !== 'done' && syncProgress.stage !== 'error')
+  const isSyncing =
+    syncing ||
+    (syncProgress &&
+      syncProgress.stage !== 'idle' &&
+      syncProgress.stage !== 'done' &&
+      syncProgress.stage !== 'error')
 
   return (
     <div className="flex flex-col h-full">
@@ -105,16 +120,38 @@ export function ChatListView({ conversations, loading, onSelectConversation, onS
           />
         </div>
         {onSync && (
-          <Button
-            size="icon"
-            variant="ghost"
-            className="h-8 w-8 flex-shrink-0"
-            onClick={handleSync}
-            disabled={!!isSyncing}
-            title="Sync from WATI"
-          >
-            <RefreshCw className={`h-3.5 w-3.5 ${isSyncing ? 'animate-spin' : ''}`} />
-          </Button>
+          <DropdownMenu>
+            <DropdownMenuTrigger
+              disabled={!!isSyncing}
+              title="Sync from WATI"
+              className={cn(
+                'inline-flex items-center gap-1 h-8 px-2 rounded-md text-sm font-medium transition-colors',
+                'hover:bg-accent hover:text-accent-foreground',
+                'focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring',
+                'disabled:pointer-events-none disabled:opacity-50',
+              )}
+            >
+              <RefreshCw className={`h-3.5 w-3.5 ${isSyncing ? 'animate-spin' : ''}`} />
+              <ChevronDown className="h-3 w-3 opacity-60" />
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="end" className="text-xs">
+              <DropdownMenuItem onClick={() => handleSync(false)} className="text-xs gap-2">
+                <RefreshCw className="h-3.5 w-3.5" />
+                <div>
+                  <p className="font-medium">Sync recent</p>
+                  <p className="text-muted-foreground">Last 500 contacts (~10 s)</p>
+                </div>
+              </DropdownMenuItem>
+              <DropdownMenuSeparator />
+              <DropdownMenuItem onClick={() => handleSync(true)} className="text-xs gap-2">
+                <RefreshCw className="h-3.5 w-3.5" />
+                <div>
+                  <p className="font-medium">Sync all contacts</p>
+                  <p className="text-muted-foreground">All 13 000+ contacts (~5 min)</p>
+                </div>
+              </DropdownMenuItem>
+            </DropdownMenuContent>
+          </DropdownMenu>
         )}
       </div>
 
@@ -150,7 +187,7 @@ export function ChatListView({ conversations, loading, onSelectConversation, onS
             <MessageSquare className="h-8 w-8 opacity-30" />
             <p className="text-xs">No conversations</p>
             {onSync && !isSyncing && (
-              <p className="text-xs opacity-60">Press the sync button to import from WATI</p>
+              <p className="text-xs opacity-60">Use the sync button to import from WATI</p>
             )}
           </div>
         )}

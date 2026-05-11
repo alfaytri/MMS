@@ -56,10 +56,11 @@ export function useContactCenterState() {
     setSidebarView('collapsed')
   }
 
-  const syncFromWati = useCallback(async () => {
+  const syncFromWati = useCallback(async (full = false) => {
     setSyncProgress({ stage: 'fetching', fetched: 0 })
 
-    const res = await fetch('/api/wati/sync-contacts', { method: 'GET' })
+    const url = full ? '/api/wati/sync-contacts?mode=full' : '/api/wati/sync-contacts'
+    const res = await fetch(url, { method: 'GET' })
     if (!res.ok || !res.body) {
       const err = await res.json().catch(() => ({}))
       setSyncProgress({ stage: 'error', error: err.error ?? 'Sync failed' })
