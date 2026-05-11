@@ -48,7 +48,7 @@ export function ContactCenterSidebar() {
     return (
       <>
         {/* Desktop: fixed right strip */}
-        <div className="hidden lg:flex fixed right-0 top-0 h-full w-10 border-l border-border bg-background z-40 flex-col items-center pt-16 gap-3">
+        <div className="hidden lg:flex fixed right-0 top-14 bottom-0 w-10 border-l border-border bg-background z-40 flex-col items-center pt-3 gap-3">
           <Button size="icon" variant="ghost" className="h-8 w-8" onClick={expandSidebar}>
             <ChevronLeft className="h-4 w-4" />
           </Button>
@@ -73,7 +73,7 @@ export function ContactCenterSidebar() {
     return (
       <>
         {/* Desktop */}
-        <div className="hidden lg:flex fixed right-0 top-0 h-full w-80 border-l border-border bg-background z-40 flex-col">
+        <div className="hidden lg:flex fixed right-0 top-14 bottom-0 w-80 border-l border-border bg-background z-40 flex-col">
           <div className="flex items-center justify-between px-3 py-2 border-b border-border">
             <span className="text-xs font-semibold">Contact Centre</span>
             <Button size="icon" variant="ghost" className="h-7 w-7" onClick={collapseSidebar}>
@@ -180,7 +180,7 @@ export function ContactCenterSidebar() {
   return (
     <>
       {/* Desktop */}
-      <div className="hidden lg:flex fixed right-0 top-0 h-full w-80 border-l border-border bg-background z-40 flex-col">
+      <div className="hidden lg:flex fixed right-0 top-14 bottom-0 w-80 border-l border-border bg-background z-40 flex-col">
         {DetailContent}
       </div>
 
