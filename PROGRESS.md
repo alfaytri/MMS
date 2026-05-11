@@ -157,9 +157,11 @@ Purchase & Sales▾:
 
 ## 🔄 In Progress
 
-🚀 Starting: **Contact Centre Phase 1 Task 6: CRM Sidebar UI Shell**
+(none)
 
 ## ✅ Completed
+
+- [2026-05-11] **Contact Centre Phase 1 Task 6: Add Contact Centre permission group** — `src/lib/permissions.ts`, `src/lib/permissions.test.ts` — Added `Headphones` to lucide-react imports; registered `contact_centre.view` permission in PERMISSION_GROUPS with label "Access Contact Centre" and description for sidebar/chat/CRM panel access; added two test cases verifying permission exists in ALL_PERMISSIONS array and Contact Centre group is properly defined with required permission key; all 11 tests passing
 
 - [2026-05-11] **Contact Centre Phase 1 Task 5: webhook-wati Edge Function** — `supabase/functions/webhook-wati/index.ts`, `supabase/config.toml` — Created Edge Function handling WATI inbound/outbound/status events with HMAC-SHA256 signature verification (x-wati-signature), phone normalisation for Qatar formats (+974XXXXXXXX canonical), event classification (inbound/outbound/status), conversation upsert with last_message tracking, customer lookup via service_customer_phones, unread count increment on inbound, message insert with external_id tracking (wati_messageId), attachment URL/type/name support, delivery_status mapping (sent→delivered→read→failed), ghost-outbound fix via 23505 unique violation catch; verify_jwt = false in config.toml; zero TypeScript errors
 
