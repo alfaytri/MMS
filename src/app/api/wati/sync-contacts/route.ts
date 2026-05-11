@@ -25,6 +25,26 @@ function encode(data: object) {
   return new TextEncoder().encode(`data: ${JSON.stringify(data)}\n\n`)
 }
 
+function sleep(ms: number) {
+  return new Promise((r) => setTimeout(r, ms))
+}
+
+async function watiGet(path: string, retries = 3): Promise<{ ok: true; data: any } | { ok: false; status: number; text: string }> {
+  for (let attempt = 0; attempt < retries; attempt++) {
+    const res = await fetch(`${WATI_URL}${path}`, {
+      headers: { Authorization: `Bearer ${WATI_TOKEN}` },
+    })
+    if (res.status === 429) {
+      const wait = parseInt(res.headers.get('Retry-After') ?? '10', 10) * 1000
+      await sleep(wait)
+      continue
+    }
+    if (!res.ok) return { ok: false, status: res.status, text: await res.text() }
+    return { ok: true, data: await res.json() }
+  }
+  return { ok: false, status: 429, text: 'Rate limit — retries exhausted' }
+}
+
 export async function GET() {
   if (!WATI_URL || !WATI_TOKEN) {
     return NextResponse.json({ error: 'WATI credentials not configured' }, { status: 500 })
@@ -46,24 +66,20 @@ export async function GET() {
       while (true) {
         await writer.write(encode({ stage: 'fetching', page: pageNumber, total: allContacts.length }))
 
-        const res = await fetch(
-          `${WATI_URL}/api/v1/getContacts?pageSize=${pageSize}&pageNumber=${pageNumber}`,
-          { headers: { Authorization: `Bearer ${WATI_TOKEN}` } }
-        )
-
-        if (!res.ok) {
-          const text = await res.text()
-          await writer.write(encode({ error: `WATI ${res.status}: ${text}` }))
+        const result = await watiGet(`/api/v1/getContacts?pageSize=${pageSize}&pageNumber=${pageNumber}`)
+        if (!result.ok) {
+          await writer.write(encode({ error: `WATI ${result.status}: ${result.text}` }))
           await writer.close()
           return
         }
 
-        const data = await res.json()
-        const contacts: any[] = data?.contact_list ?? []
+        const contacts: any[] = result.data?.contact_list ?? []
         allContacts.push(...contacts)
 
         if (contacts.length < pageSize) break
         pageNumber++
+        // small pause between pages to stay under rate limit
+        if (contacts.length === pageSize) await sleep(300)
       }
 
       await writer.write(encode({ stage: 'resolving', fetched: allContacts.length }))
@@ -159,19 +175,15 @@ export async function POST() {
   const allContacts: any[] = []
 
   while (true) {
-    const res = await fetch(
-      `${WATI_URL}/api/v1/getContacts?pageSize=${pageSize}&pageNumber=${pageNumber}`,
-      { headers: { Authorization: `Bearer ${WATI_TOKEN}` } }
-    )
-    if (!res.ok) {
-      const text = await res.text()
-      return NextResponse.json({ error: `WATI ${res.status}`, detail: text }, { status: 502 })
+    const result = await watiGet(`/api/v1/getContacts?pageSize=${pageSize}&pageNumber=${pageNumber}`)
+    if (!result.ok) {
+      return NextResponse.json({ error: `WATI ${result.status}`, detail: result.text }, { status: 502 })
     }
-    const data = await res.json()
-    const contacts: any[] = data?.contact_list ?? []
+    const contacts: any[] = result.data?.contact_list ?? []
     allContacts.push(...contacts)
     if (contacts.length < pageSize) break
     pageNumber++
+    if (contacts.length === pageSize) await sleep(300)
   }
 
   const phoneMap = new Map<string, any>()
