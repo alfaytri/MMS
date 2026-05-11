@@ -156,7 +156,7 @@ Purchase & Sales▾:
 
 ## 🔄 In Progress
 
-🚀 Starting: **Quotation Module Task 7: Create page — 3-panel wiring**
+🚀 Starting: **Pre-CRM Patch Task 1: Create service_customers tables migration**
 
 ## ✅ Completed
 
