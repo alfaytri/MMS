@@ -157,9 +157,11 @@ Purchase & Sales▾:
 
 ## 🔄 In Progress
 
-🚀 Starting: **Contact Centre Phase 1 Task 1: Database Migration**
+🚀 Starting: **Contact Centre Phase 1 Task 2: normalisePhone Utility + Tests**
 
 ## ✅ Completed
+
+- [2026-05-11] **Contact Centre Phase 1 Task 1: Database Migration** — `supabase/migrations/20260511210000_contact_centre_phase1.sql`, `supabase/migrations/20260511210001_contact_centre_chat_fixes.sql` — Extended service_customers (is_blocked, customer_type, pending_payment_amount), service_customer_addresses (is_geocoded), created customer_blocks table, extended chat_conversations (conversation_type, wati_phone, nullable customer_id→service_customers), extended chat_messages (delivery_status, external_id, nullable text), compound index, permission seed for contact_centre.view
 
 - [2026-05-11] **Pre-CRM Patch Task 14: OrderFormPanel — useUserCompanyDivisions** — `src/components/orders/OrderFormPanel.tsx` — Swapped useDivisions for useUserCompanyDivisions; division picker now scoped to logged-in user's companies; removed d.short_name fallback
 
