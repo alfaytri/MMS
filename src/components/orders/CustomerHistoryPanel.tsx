@@ -1,5 +1,6 @@
 'use client'
 import { useState } from 'react'
+import { useQuery } from '@tanstack/react-query'
 import { format, addMonths, subMonths } from 'date-fns'
 import { ChevronLeft, ChevronRight, ReceiptText, Wrench, ExternalLink } from 'lucide-react'
 import { Button } from '@/components/ui/button'
@@ -7,6 +8,7 @@ import { Badge } from '@/components/ui/badge'
 import { useCustomerHistory } from '@/hooks/useCustomerHistory'
 import { getWarrantyInfo } from '@/lib/orders/warrantyUtils'
 import { cn } from '@/lib/utils'
+import { createClient } from '@/lib/supabase/client'
 import type { OrderStatus } from '@/types/orders'
 
 const STATUS_COLORS: Record<OrderStatus, string> = {
@@ -29,6 +31,24 @@ const WARRANTY_COLORS = {
 
 const PAGE_SIZE = 4
 
+function useCustomerQuotations(customerId: string | null) {
+  return useQuery({
+    queryKey: ['customer-quotations', customerId],
+    enabled: !!customerId,
+    queryFn: async () => {
+      const supabase = createClient()
+      const { data, error } = await (supabase as any)
+        .from('quotations')
+        .select('id, quotation_id, status, total_amount, created_date, division')
+        .eq('customer_id', customerId)
+        .order('created_at', { ascending: false })
+        .limit(10)
+      if (error) throw error
+      return data ?? []
+    },
+  })
+}
+
 interface Props {
   customerId: string | null
   onViewOrder?: (orderId: string) => void
@@ -45,6 +65,7 @@ export function CustomerHistoryPanel({ customerId, onViewOrder, onCreateBackwork
   const month = activeMonth.getMonth() + 1
 
   const { orders, products } = useCustomerHistory(customerId, year, month, orderPage, productPage, PAGE_SIZE)
+  const { data: customerQuotations } = useCustomerQuotations(customerId)
 
   const orderItems = orders.data?.data ?? []
   const orderCount = orders.data?.count ?? 0
@@ -242,6 +263,33 @@ export function CustomerHistoryPanel({ customerId, onViewOrder, onCreateBackwork
                   Next →
                 </button>
               </div>
+            )}
+          </div>
+
+          {/* Quotations */}
+          <div className="border-t">
+            <p className="px-4 py-2 text-[11px] font-semibold uppercase tracking-wide text-slate-400">
+              Quotations
+            </p>
+            {(!customerQuotations || customerQuotations.length === 0) ? (
+              <p className="px-4 py-2 text-xs text-slate-400">No quotations yet</p>
+            ) : (
+              customerQuotations.map((q: any) => (
+                <div
+                  key={q.id}
+                  className="flex items-center justify-between px-4 py-2 hover:bg-slate-50 border-b border-slate-100 last:border-0"
+                >
+                  <div>
+                    <p className="text-xs font-mono font-semibold text-slate-700">
+                      {q.quotation_id}
+                    </p>
+                    <p className="text-[11px] text-slate-400 capitalize">{q.status}</p>
+                  </div>
+                  <p className="text-xs font-medium text-slate-700">
+                    QAR {(q.total_amount ?? 0).toLocaleString()}
+                  </p>
+                </div>
+              ))
             )}
           </div>
         </div>
