@@ -47,10 +47,10 @@ export function ContactCenterSidebar() {
   if (sidebarView === 'collapsed') {
     return (
       <>
-        {/* Desktop: fixed right strip */}
-        <div className="hidden lg:flex fixed right-0 top-14 bottom-0 w-10 border-l border-border bg-background z-40 flex-col items-center pt-3 gap-3">
+        {/* Desktop: fixed left strip */}
+        <div className="hidden lg:flex fixed left-0 top-14 bottom-0 w-10 border-r border-border bg-background z-40 flex-col items-center pt-3 gap-3">
           <Button size="icon" variant="ghost" className="h-8 w-8" onClick={expandSidebar}>
-            <ChevronLeft className="h-4 w-4" />
+            <ChevronRight className="h-4 w-4" />
           </Button>
           <Button size="icon" variant="ghost" className="h-8 w-8" onClick={expandSidebar}>
             <MessageSquare className="h-4 w-4" />
@@ -59,7 +59,7 @@ export function ContactCenterSidebar() {
 
         {/* Mobile: FAB */}
         <button
-          className="lg:hidden fixed bottom-4 right-4 z-50 h-12 w-12 rounded-full bg-primary shadow-lg flex items-center justify-center"
+          className="lg:hidden fixed bottom-4 left-4 z-50 h-12 w-12 rounded-full bg-primary shadow-lg flex items-center justify-center"
           onClick={expandSidebar}
         >
           <MessageSquare className="h-5 w-5 text-primary-foreground" />
@@ -73,11 +73,11 @@ export function ContactCenterSidebar() {
     return (
       <>
         {/* Desktop */}
-        <div className="hidden lg:flex fixed right-0 top-14 bottom-0 w-80 border-l border-border bg-background z-40 flex-col">
+        <div className="hidden lg:flex fixed left-0 top-14 bottom-0 w-80 border-r border-border bg-background z-40 flex-col">
           <div className="flex items-center justify-between px-3 py-2 border-b border-border">
             <span className="text-xs font-semibold">Contact Centre</span>
             <Button size="icon" variant="ghost" className="h-7 w-7" onClick={collapseSidebar}>
-              <ChevronRight className="h-3.5 w-3.5" />
+              <ChevronLeft className="h-3.5 w-3.5" />
             </Button>
           </div>
           <div className="flex-1 overflow-hidden">
@@ -98,7 +98,7 @@ export function ContactCenterSidebar() {
             <div className="flex items-center justify-between px-3 py-2 border-b border-border">
               <span className="text-xs font-semibold">Contact Centre</span>
               <Button size="icon" variant="ghost" className="h-7 w-7" onClick={collapseSidebar}>
-                <ChevronRight className="h-3.5 w-3.5" />
+                <ChevronLeft className="h-3.5 w-3.5" />
               </Button>
             </div>
             <div className="flex-1 overflow-hidden">
@@ -180,7 +180,7 @@ export function ContactCenterSidebar() {
   return (
     <>
       {/* Desktop */}
-      <div className="hidden lg:flex fixed right-0 top-14 bottom-0 w-80 border-l border-border bg-background z-40 flex-col">
+      <div className="hidden lg:flex fixed left-0 top-14 bottom-0 w-80 border-r border-border bg-background z-40 flex-col">
         {DetailContent}
       </div>
 

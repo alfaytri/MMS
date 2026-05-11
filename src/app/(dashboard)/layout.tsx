@@ -17,7 +17,7 @@ export default function DashboardLayout({
           <InactivityGuard />
           <RealtimeSync />
           <div className="print:hidden"><TopNav /></div>
-          <main className="flex-1 overflow-hidden flex flex-col print:overflow-visible lg:pr-80">
+          <main className="flex-1 overflow-hidden flex flex-col print:overflow-visible lg:pl-80">
             {children}
           </main>
           <ContactCenterSidebarGate />
