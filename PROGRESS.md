@@ -156,9 +156,19 @@ Purchase & Sales▾:
 
 ## 🔄 In Progress
 
-🚀 Starting: **Pre-CRM Patch Task 10: Teams division_id FK migration**
+_(All Pre-CRM Patch tasks complete — branch ready for review)_
 
 ## ✅ Completed
+
+- [2026-05-11] **Pre-CRM Patch Task 14: OrderFormPanel — useUserCompanyDivisions** — `src/components/orders/OrderFormPanel.tsx` — Swapped useDivisions for useUserCompanyDivisions; division picker now scoped to logged-in user's companies; removed d.short_name fallback
+
+- [2026-05-11] **Pre-CRM Patch Task 13: TeamGrid — group by Company → Division** — `src/components/teams/TeamGrid.tsx` — Added groupTeams() that builds Company→Division→teams hierarchy; company headers shown only when multiple companies present; unassigned teams rendered under 'Unassigned' group; both card and list density supported
+
+- [2026-05-11] **Pre-CRM Patch Task 12: TeamEditDialog — Company → Division cascade** — `src/components/teams/dialogs/TeamEditDialog.tsx` — Removed hardcoded TeamDivision enum and DIVISION_OPTIONS; added company_id + division_id fields; Company Select populated from useCompanies; Division Select populated from useDivisionsByCompany and disabled until company chosen; changing company resets division; payload writes division_id UUID
+
+- [2026-05-11] **Pre-CRM Patch Task 11: useTeams — join divisions, UUID filter** — `src/hooks/useTeams.ts` — Added divisions(id,slug,name,company_id,companies(id,name_en)) join; new TeamDivision interface and TeamFull.division field; divisionId filter now matches t.division_id UUID instead of old enum string
+
+- [2026-05-11] **Pre-CRM Patch Task 10: Teams division_id FK migration** — `supabase/migrations/20260511200000_teams_division_fk.sql` — Dropped calendar_visits view (dep on teams.division); added division_id UUID FK; backfilled from enum slug matching; dropped old division column and team_division enum; rebuilt calendar_visits view using d.slug from divisions JOIN
 
 - [2026-05-11] **Pre-CRM Patch Tasks 5–9: Wire hooks to service_customers** — `src/hooks/useCustomerLookup.ts`, `src/hooks/useCustomerAddresses.ts`, `src/hooks/useCreateOrder.ts`, `src/hooks/useEditOrder.ts`, `src/hooks/useCreateQuotation.ts` — Phone lookup + address queries target service_customer_phones/service_customer_addresses; all RPC calls pass p_service_customer_id; useEditOrder reads service_customer_id with fallback
 
