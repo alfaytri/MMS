@@ -1,6 +1,6 @@
 // src/components/quotations/QuotationDetailSheet.tsx
 'use client'
-import { Sheet, SheetContent, SheetHeader } from '@/components/ui/sheet'
+import { Sheet, SheetContent, SheetHeader, SheetTitle } from '@/components/ui/sheet'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { Badge } from '@/components/ui/badge'
 import { format } from 'date-fns'
@@ -61,9 +61,9 @@ export function QuotationDetailSheet({ quotationId, open, onOpenChange }: Props)
           <>
             <SheetHeader className="border-b px-4 py-3">
               <div className="flex items-center gap-2 flex-wrap">
-                <span className="font-bold text-slate-900 font-mono">
+                <SheetTitle className="font-mono font-bold text-slate-900">
                   {q.quotation_id}
-                </span>
+                </SheetTitle>
                 <Badge
                   className={cn(
                     'text-xs capitalize',
@@ -87,7 +87,7 @@ export function QuotationDetailSheet({ quotationId, open, onOpenChange }: Props)
                   <TabsTrigger
                     key={tab}
                     value={tab}
-                    className="capitalize px-3 py-1.5 text-sm data-active:border-orange-500"
+                    className="capitalize px-3 py-1.5 text-sm rounded-none border-b-2 border-transparent data-active:border-orange-500"
                   >
                     {tab === 'preview' ? 'Preview' : 'Logs'}
                   </TabsTrigger>
