@@ -44,7 +44,13 @@ The existing `customers` table is shared between Sales Orders (SO) and field-ser
 | `is_primary` | BOOLEAN | default false |
 | `created_at` | TIMESTAMPTZ | default now() |
 
-Constraint: exactly one phone per customer can have `is_primary = true` (enforced in application logic).
+Constraint: exactly one phone per customer can have `is_primary = true`, enforced at the DB level via a partial unique index:
+
+```sql
+CREATE UNIQUE INDEX idx_one_primary_phone
+  ON service_customer_phones (customer_id)
+  WHERE (is_primary = true);
+```
 
 #### `service_customer_addresses`
 | Column | Type | Notes |
@@ -63,24 +69,27 @@ Constraint: exactly one phone per customer can have `is_primary = true` (enforce
 | `tags` | TEXT[] | e.g. ['MEP', 'Contract'] |
 | `created_at` | TIMESTAMPTZ | default now() |
 
-### Orders Table Change
+### Orders & Quotations Table Change — Two-Migration Strategy
 
-Rename FK column on `orders`:
-- Remove: `customer_id UUID FK → customers(id)`
-- Add: `service_customer_id UUID FK → service_customers(id)`
+Dropping the old `customer_id` column in the same migration as the backfill would crash the running app the moment it tries to read a column that no longer exists. Use two sequential migrations instead:
 
-Migration backfills `service_customer_id` by:
-1. Inserting one `service_customers` row per distinct `customer_id` currently referenced by `orders` (copying `name`, `name_ar` from `customers`)
-2. Inserting into `service_customer_phones` using `customers.phone` as the primary phone
-3. Setting `orders.service_customer_id` from the newly created `service_customers` rows
-4. Dropping the old `customer_id` column from `orders`
+**Migration A — Add + Backfill (runs before code deploy):**
+1. Add `service_customer_id UUID NULLABLE FK → service_customers(id)` to `orders` and `quotations`
+2. Insert one `service_customers` row per distinct `customer_id` currently on those tables (copying `name`, `name_ar` from `customers`)
+3. Insert into `service_customer_phones` using `customers.phone` as the primary phone
+4. `UPDATE orders SET service_customer_id = <mapped id>`
+5. `UPDATE quotations SET service_customer_id = <mapped id>`
+6. Set `service_customer_id NOT NULL` on both tables
 
-### Quotations Table Change
+**Code deploy** — frontend now reads/writes `service_customer_id` only.
 
-Same pattern as orders:
-- Remove: `customer_id UUID FK → customers(id)` from `quotations`
-- Add: `service_customer_id UUID FK → service_customers(id)`
-- Migration backfills identically to orders migration above
+**Migration B — Cleanup (runs after code is confirmed stable):**
+1. `ALTER TABLE orders DROP COLUMN customer_id`
+2. `ALTER TABLE quotations DROP COLUMN customer_id`
+
+### Address Migration — Not Required
+
+`orders.address` is stored as an **immutable snapshot string** on the order record itself, not as a FK reference to `customer_addresses`. There is no address FK to migrate. `service_customer_addresses` starts empty and is populated going forward as service customers are created through the CRM module.
 
 ### SO Side — Unchanged
 
