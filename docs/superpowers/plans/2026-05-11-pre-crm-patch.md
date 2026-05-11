@@ -43,11 +43,12 @@ Open `src/components/orders/OrderFormPanel.tsx` lines 230–250. The service sel
 
 -- ── 1. service_customers ──────────────────────────────────────────────────────
 CREATE TABLE public.service_customers (
-  id         UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-  name       TEXT NOT NULL,
-  name_ar    TEXT,
-  created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
-  updated_at TIMESTAMPTZ NOT NULL DEFAULT now()
+  id                  UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  name                TEXT NOT NULL,
+  name_ar             TEXT,
+  legacy_customer_id  UUID,   -- temp: old customers.id used for backfill mapping (dropped in Migration B)
+  created_at          TIMESTAMPTZ NOT NULL DEFAULT now(),
+  updated_at          TIMESTAMPTZ NOT NULL DEFAULT now()
 );
 
 -- ── 2. service_customer_phones ────────────────────────────────────────────────
@@ -63,6 +64,11 @@ CREATE TABLE public.service_customer_phones (
 -- Enforce max one primary phone per customer at the DB level
 CREATE UNIQUE INDEX idx_one_primary_phone
   ON public.service_customer_phones (customer_id)
+  WHERE (is_primary = true);
+
+-- Enforce max one primary address per customer at the DB level
+CREATE UNIQUE INDEX idx_one_primary_address
+  ON public.service_customer_addresses (customer_id)
   WHERE (is_primary = true);
 
 -- ── 3. service_customer_addresses ─────────────────────────────────────────────
@@ -272,90 +278,66 @@ ALTER TABLE public.quotations
   ADD COLUMN IF NOT EXISTS service_customer_id UUID
     REFERENCES public.service_customers(id);
 
--- ── 3. Backfill: for every unique customer referenced by orders, create a
---      service_customers row (copy name/name_ar) and a primary phone row.
---      Use a CTE with INSERT ... ON CONFLICT DO NOTHING for idempotency.
-WITH distinct_order_customers AS (
-  SELECT DISTINCT o.customer_id
-    FROM public.orders o
-   WHERE o.customer_id IS NOT NULL
-),
--- Insert into service_customers only if not already created
-inserted_service_customers AS (
-  INSERT INTO public.service_customers (id, name, name_ar)
-  SELECT
-    gen_random_uuid(),
-    COALESCE(c.name, 'Unknown'),
-    c.name_ar
-  FROM distinct_order_customers doc
-  JOIN public.customers c ON c.id = doc.customer_id
-  ON CONFLICT DO NOTHING
-  RETURNING id
-),
--- We need a mapping from old customer_id → new service_customer_id.
--- Build it by matching on name (since we just inserted fresh rows).
--- For safety, use a temp table keyed by old customer_id.
-mapping AS (
-  SELECT
-    doc.customer_id AS old_id,
-    sc.id           AS new_id
-  FROM distinct_order_customers doc
-  JOIN public.customers c ON c.id = doc.customer_id
-  JOIN public.service_customers sc
-    ON sc.name = COALESCE(c.name, 'Unknown')
-   AND sc.created_at >= now() - interval '1 minute'
+-- ── 3. Backfill: for every unique customer referenced by orders/quotations,
+--      create one service_customers row per distinct old customer_id.
+--      Uses legacy_customer_id for exact mapping — no name-based joins.
+INSERT INTO public.service_customers (name, name_ar, legacy_customer_id)
+SELECT DISTINCT ON (c.id)
+  COALESCE(c.name, 'Unknown'),
+  c.name_ar,
+  c.id                       -- store old PK for exact backfill mapping
+FROM public.customers c
+WHERE c.id IN (
+  SELECT customer_id FROM public.orders     WHERE customer_id IS NOT NULL
+  UNION
+  SELECT customer_id FROM public.quotations WHERE customer_id IS NOT NULL
 )
--- Update orders
+ON CONFLICT DO NOTHING;
+
+-- ── 4. Map orders to new service_customer_id via legacy_customer_id ───────────
 UPDATE public.orders o
-   SET service_customer_id = m.new_id
-  FROM mapping m
- WHERE o.customer_id = m.old_id
+   SET service_customer_id = sc.id
+  FROM public.service_customers sc
+ WHERE sc.legacy_customer_id = o.customer_id
    AND o.service_customer_id IS NULL;
 
--- ── 4. Backfill phones from customers.phone ───────────────────────────────────
+-- ── 5. Backfill phones from customers.phone ───────────────────────────────────
 INSERT INTO public.service_customer_phones (customer_id, phone, label, is_primary)
-SELECT DISTINCT
-  o.service_customer_id,
+SELECT DISTINCT ON (sc.id)
+  sc.id,
   c.phone,
   'mobile',
   true
-FROM public.orders o
-JOIN public.customers c ON c.id = o.customer_id
-WHERE o.service_customer_id IS NOT NULL
-  AND c.phone IS NOT NULL
+FROM public.service_customers sc
+JOIN public.customers c ON c.id = sc.legacy_customer_id
+WHERE c.phone IS NOT NULL
   AND c.phone <> ''
 ON CONFLICT DO NOTHING;
 
--- ── 5. Backfill quotations ────────────────────────────────────────────────────
-WITH distinct_quot_customers AS (
-  SELECT DISTINCT q.customer_id
-    FROM public.quotations q
-   WHERE q.customer_id IS NOT NULL
-)
+-- ── 6. Map quotations to new service_customer_id via legacy_customer_id ───────
 UPDATE public.quotations q
    SET service_customer_id = sc.id
-  FROM distinct_quot_customers dqc
-  JOIN public.customers c ON c.id = dqc.customer_id
-  JOIN public.service_customers sc
-    ON sc.name = COALESCE(c.name, 'Unknown')
- WHERE q.customer_id = dqc.customer_id
+  FROM public.service_customers sc
+ WHERE sc.legacy_customer_id = q.customer_id
    AND q.service_customer_id IS NULL;
 
--- ── 6. Set NOT NULL now that backfill is complete ─────────────────────────────
--- Only set NOT NULL if every row has been backfilled (safe guard).
+-- ── 7. Set NOT NULL now that backfill is complete ─────────────────────────────
 DO $$
 BEGIN
-  IF NOT EXISTS (
+  IF EXISTS (
     SELECT 1 FROM public.orders WHERE service_customer_id IS NULL AND customer_id IS NOT NULL
   ) THEN
-    ALTER TABLE public.orders ALTER COLUMN service_customer_id SET NOT NULL;
+    RAISE EXCEPTION 'Backfill incomplete: some orders still have NULL service_customer_id';
   END IF;
 
-  IF NOT EXISTS (
+  IF EXISTS (
     SELECT 1 FROM public.quotations WHERE service_customer_id IS NULL AND customer_id IS NOT NULL
   ) THEN
-    ALTER TABLE public.quotations ALTER COLUMN service_customer_id SET NOT NULL;
+    RAISE EXCEPTION 'Backfill incomplete: some quotations still have NULL service_customer_id';
   END IF;
+
+  ALTER TABLE public.orders     ALTER COLUMN service_customer_id SET NOT NULL;
+  ALTER TABLE public.quotations ALTER COLUMN service_customer_id SET NOT NULL;
 END;
 $$;
 ```
@@ -408,7 +390,8 @@ Then write the updated RPCs. The key change in each: replace `p_customer_id` par
 -- The full RPC body is preserved; only the parameter name and INSERT column change.
 
 -- Drop and recreate (Postgres requires DROP to change parameter names)
-DROP FUNCTION IF EXISTS public.create_order_with_dates CASCADE;
+-- Do NOT use CASCADE — if dependants exist Postgres will name them and stop safely.
+DROP FUNCTION IF EXISTS public.create_order_with_dates(TEXT, UUID, TEXT, TEXT, TEXT, DATE, NUMERIC, TEXT, TEXT, TEXT, JSONB, JSONB, JSONB, JSONB);
 
 CREATE OR REPLACE FUNCTION public.create_order_with_dates(
   p_order_id           TEXT,
@@ -507,7 +490,7 @@ $$;
 GRANT EXECUTE ON FUNCTION public.create_order_with_dates TO authenticated;
 
 -- ── save_quotation ─────────────────────────────────────────────────────────────
-DROP FUNCTION IF EXISTS public.save_quotation CASCADE;
+DROP FUNCTION IF EXISTS public.save_quotation(TEXT, UUID, TEXT, TEXT, NUMERIC, TEXT, DATE, TIMESTAMPTZ, JSONB);
 
 CREATE OR REPLACE FUNCTION public.save_quotation(
   p_quotation_id        TEXT,
@@ -547,10 +530,10 @@ BEGIN
   RETURNING id INTO v_uuid;
 
   -- Replace line items
-  DELETE FROM public.quotation_lines WHERE quotation_id = v_uuid;
+  DELETE FROM public.quotation_line_items WHERE quotation_id = v_uuid;
 
   FOR v_line IN SELECT * FROM jsonb_array_elements(p_line_items) LOOP
-    INSERT INTO public.quotation_lines (
+    INSERT INTO public.quotation_line_items (
       quotation_id, service_id, name, path, qty, price, duration
     ) VALUES (
       v_uuid,
@@ -1439,6 +1422,8 @@ No work required. `OrderFormPanel.tsx` lines 230–250 already conditionally ren
 
 ALTER TABLE public.orders     DROP COLUMN IF EXISTS customer_id;
 ALTER TABLE public.quotations DROP COLUMN IF EXISTS customer_id;
+-- Drop the backfill helper column — legacy_customer_id served its purpose
+ALTER TABLE public.service_customers DROP COLUMN IF EXISTS legacy_customer_id;
 ```
 
 - [ ] **Step 2: Apply migration**
