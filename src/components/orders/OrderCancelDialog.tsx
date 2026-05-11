@@ -2,12 +2,12 @@
 'use client'
 import { useState } from 'react'
 import {
-  AlertDialog,
-  AlertDialogContent,
-  AlertDialogHeader,
-  AlertDialogTitle,
-  AlertDialogFooter,
-} from '@/components/ui/alert-dialog'
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogFooter,
+} from '@/components/ui/dialog'
 import { Button } from '@/components/ui/button'
 import { Textarea } from '@/components/ui/textarea'
 import {
@@ -49,11 +49,11 @@ export function OrderCancelDialog({
   }
 
   return (
-    <AlertDialog open={open} onOpenChange={(v) => { if (!v) handleClose() }}>
-      <AlertDialogContent className="w-full sm:max-w-md">
-        <AlertDialogHeader>
-          <AlertDialogTitle className="text-red-600">Cancel Order</AlertDialogTitle>
-        </AlertDialogHeader>
+    <Dialog open={open} onOpenChange={(v) => { if (!v) handleClose() }}>
+      <DialogContent className="w-full sm:max-w-md" showCloseButton={false}>
+        <DialogHeader>
+          <DialogTitle className="text-red-600">Cancel Order</DialogTitle>
+        </DialogHeader>
         <div className="space-y-3 py-2">
           <p className="text-sm text-slate-600">
             <strong>{orderDisplayId}</strong> — {customerName}
@@ -61,7 +61,7 @@ export function OrderCancelDialog({
           <div className="space-y-1.5">
             <label className="text-sm font-medium">Cancellation Reason *</label>
             <Select value={reason} onValueChange={(v) => setReason(v ?? '')}>
-              <SelectTrigger className="min-h-11">
+              <SelectTrigger className="min-h-11 w-full">
                 <SelectValue placeholder="Select reason…" />
               </SelectTrigger>
               <SelectContent>
@@ -83,8 +83,8 @@ export function OrderCancelDialog({
             />
           </div>
         </div>
-        <AlertDialogFooter>
-          <Button variant="outline" onClick={() => handleClose()}>
+        <DialogFooter>
+          <Button variant="outline" onClick={handleClose}>
             Keep Order
           </Button>
           <Button
@@ -94,8 +94,8 @@ export function OrderCancelDialog({
           >
             {isLoading ? 'Cancelling…' : 'Confirm Cancellation'}
           </Button>
-        </AlertDialogFooter>
-      </AlertDialogContent>
-    </AlertDialog>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
   )
 }

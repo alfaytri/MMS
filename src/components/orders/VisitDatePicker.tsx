@@ -68,26 +68,6 @@ export function VisitDatePicker({ selected, onChange }: Props) {
         </PopoverContent>
       </Popover>
 
-      {/* Selected date chips */}
-      {selected.length > 0 && (
-        <div className="flex flex-wrap gap-1.5">
-          {[...selected].sort().map((iso) => (
-            <span
-              key={iso}
-              className="flex items-center gap-1 rounded-full bg-orange-50 border border-orange-200 px-2.5 py-0.5 text-xs font-medium text-orange-700"
-            >
-              {format(parseISO(iso), 'd MMM yyyy')}
-              <button
-                type="button"
-                onClick={() => removeDate(iso)}
-                className="ml-0.5 rounded-full hover:bg-orange-200 p-0.5"
-              >
-                <X className="h-2.5 w-2.5" />
-              </button>
-            </span>
-          ))}
-        </div>
-      )}
     </div>
   )
 }

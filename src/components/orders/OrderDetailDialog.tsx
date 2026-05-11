@@ -42,7 +42,13 @@ export function OrderDetailDialog({ orderId, open, onOpenChange }: Props) {
 
   return (
     <>
-      <Sheet open={open} onOpenChange={onOpenChange}>
+      <Sheet
+        open={open}
+        onOpenChange={(newOpen, _event, reason) => {
+          if (cancelOpen && reason === 'outside-press') return
+          onOpenChange(newOpen)
+        }}
+      >
         <SheetContent side="right" className="w-full sm:max-w-xl flex flex-col p-0">
           {isLoading || !order ? (
             <div className="flex flex-1 items-center justify-center text-sm text-slate-400">
@@ -172,7 +178,7 @@ export function OrderDetailDialog({ orderId, open, onOpenChange }: Props) {
                       <div key={a.id} className="rounded-lg border p-3">
                         <p className="font-medium text-sm">{a.team_name}</p>
                         <p className="text-xs text-slate-500 mt-0.5">
-                          {a.scheduled_date} · {a.time_slot} · {a.duration}min
+                          {a.scheduled_date} · {a.time_slot} · {a.duration}h
                         </p>
                       </div>
                     ))}

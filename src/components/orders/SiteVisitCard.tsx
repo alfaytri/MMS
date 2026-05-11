@@ -1,5 +1,5 @@
 'use client'
-import { useRef } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { useDraggable } from '@dnd-kit/core'
 import { GripVertical } from 'lucide-react'
 import { cn } from '@/lib/utils'
@@ -7,7 +7,6 @@ import type { OrderServiceDraft } from '@/types/orders'
 
 export const SITE_VISIT_SERVICE_ID = '__site_visit__'
 
-/** Build a synthetic OrderServiceDraft for drag-and-drop and calendar rendering. */
 export function makeSiteVisitDraft(
   fromTime: string | null,
   toTime: string | null,
@@ -24,15 +23,16 @@ export function makeSiteVisitDraft(
   }
 }
 
-// Arrival window grid: 6 AM – 10 PM (same range as SelectedServiceCard)
-const GRID_HOURS = Array.from({ length: 16 }, (_, i) => i + 6)
-const GRID_ROWS = [GRID_HOURS.slice(0, 8), GRID_HOURS.slice(8)]
+// 12 AM – 11 PM (24 h, 3 rows of 8)
+const GRID_HOURS = Array.from({ length: 24 }, (_, i) => i)
+const GRID_ROWS = [GRID_HOURS.slice(0, 8), GRID_HOURS.slice(8, 16), GRID_HOURS.slice(16)]
 
 function toTimeStr(h: number): string {
   return `${String(h).padStart(2, '0')}:00`
 }
 
 function gridLabel(h: number): string {
+  if (h === 0) return '12a'
   if (h === 12) return '12p'
   return h < 12 ? `${h}a` : `${h - 12}p`
 }
@@ -52,40 +52,59 @@ interface TimeGridProps {
 }
 
 function SiteVisitTimeGrid({ fromTime, toTime, onChange }: TimeGridProps) {
-  const isDragging = useRef(false)
-  const dragAnchor = useRef<number | null>(null)
-
   const fromHour = fromTime ? parseInt(fromTime) : null
   const toHour = toTime ? parseInt(toTime) : null
 
-  function handleMouseDown(h: number, e: React.MouseEvent) {
-    e.preventDefault()
-    if (!isDragging.current && fromHour !== null && toHour === null) {
-      if (h > fromHour) { onChange(fromTime!, toTimeStr(h)); return }
-      if (h === fromHour) { onChange(null, null); return }
+  const dragStartRef = useRef<number | null>(null)
+  const [preview, setPreview] = useState<{ from: number; to: number } | null>(null)
+  const previewRef = useRef(preview)
+  const fromHourRef = useRef(fromHour)
+  const toHourRef = useRef(toHour)
+  const onChangeRef = useRef(onChange)
+  useEffect(() => { previewRef.current = preview }, [preview])
+  useEffect(() => { fromHourRef.current = fromHour }, [fromHour])
+  useEffect(() => { toHourRef.current = toHour }, [toHour])
+  useEffect(() => { onChangeRef.current = onChange }, [onChange])
+
+  useEffect(() => {
+    function onMouseUp() {
+      if (dragStartRef.current === null) return
+      const p = previewRef.current
+      if (p !== null) {
+        if (p.from === p.to && fromHourRef.current === p.from && toHourRef.current === null) {
+          onChangeRef.current(null, null)
+        } else if (p.from === p.to) {
+          onChangeRef.current(toTimeStr(p.from), null)
+        } else {
+          onChangeRef.current(toTimeStr(p.from), toTimeStr(p.to))
+        }
+      }
+      dragStartRef.current = null
+      setPreview(null)
     }
-    isDragging.current = true
-    dragAnchor.current = h
-    onChange(toTimeStr(h), null)
+    window.addEventListener('mouseup', onMouseUp)
+    return () => window.removeEventListener('mouseup', onMouseUp)
+  }, [])
+
+  function handleMouseDown(h: number) {
+    dragStartRef.current = h
+    setPreview({ from: h, to: h })
   }
 
   function handleMouseEnter(h: number) {
-    if (!isDragging.current || dragAnchor.current === null) return
-    const lo = Math.min(h, dragAnchor.current)
-    const hi = Math.max(h, dragAnchor.current)
-    onChange(toTimeStr(lo), lo !== hi ? toTimeStr(hi) : null)
+    if (dragStartRef.current === null) return
+    const s = dragStartRef.current
+    setPreview({ from: Math.min(s, h), to: Math.max(s, h) })
   }
 
-  function stopDrag() {
-    isDragging.current = false
-    dragAnchor.current = null
-  }
+  const displayFrom = preview ? preview.from : fromHour
+  const displayTo = preview ? preview.to : toHour
 
   const rangeLabel =
-    fromHour !== null && toHour !== null
-      ? `${formatTime12h(toTimeStr(fromHour))} → ${formatTime12h(toTimeStr(toHour))}`
-      : fromHour !== null
-      ? `From ${formatTime12h(toTimeStr(fromHour))}`
+    displayFrom !== null && displayTo !== null
+      ? `${formatTime12h(toTimeStr(displayFrom))} → ${formatTime12h(toTimeStr(displayTo))}`
+      : displayFrom !== null
+      ? `From ${formatTime12h(toTimeStr(displayFrom))}`
       : null
 
   return (
@@ -99,29 +118,25 @@ function SiteVisitTimeGrid({ fromTime, toTime, onChange }: TimeGridProps) {
         )}
       </div>
 
-      <div
-        className="space-y-px rounded bg-slate-50 p-1 select-none"
-        onMouseLeave={stopDrag}
-        onMouseUp={stopDrag}
-      >
+      <div className="space-y-px rounded bg-slate-50 p-1 select-none">
         {GRID_ROWS.map((row, ri) => (
           <div key={ri} className="grid grid-cols-8 gap-px">
             {row.map((h) => {
               const selected =
-                fromHour !== null
-                  ? toHour !== null
-                    ? h >= fromHour && h <= toHour
-                    : h === fromHour
+                displayFrom !== null
+                  ? displayTo !== null
+                    ? h >= displayFrom && h <= displayTo
+                    : h === displayFrom
                   : false
-              const isLeft = h === fromHour
-              const isRight = h === toHour && toHour !== fromHour
-              const isSingle = h === fromHour && toHour === null
+              const isLeft = h === displayFrom
+              const isRight = h === displayTo && displayTo !== displayFrom
+              const isSingle = selected && displayTo === null
 
               return (
                 <div
                   key={h}
-                  className="flex cursor-col-resize flex-col items-center"
-                  onMouseDown={(e) => handleMouseDown(h, e)}
+                  className="flex cursor-pointer flex-col items-center"
+                  onMouseDown={() => handleMouseDown(h)}
                   onMouseEnter={() => handleMouseEnter(h)}
                 >
                   <span

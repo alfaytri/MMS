@@ -13,6 +13,7 @@ interface DivisionRecord {
   logo_url: string | null
   stamp_url: string | null
   default_currency: string | null
+  companies: { name_en: string | null } | null
 }
 
 function useDivisionBySlug(slug: string | null) {
@@ -24,7 +25,7 @@ function useDivisionBySlug(slug: string | null) {
       const supabase = createClient()
       const { data, error } = await (supabase as any)
         .from('divisions')
-        .select('id, name, name_ar, address_en, logo_url, stamp_url, default_currency')
+        .select('id, name, name_ar, address_en, logo_url, stamp_url, default_currency, companies(name_en)')
         .eq('slug', slug)
         .single()
       if (error) return null
@@ -60,6 +61,11 @@ export function QuotationPdfPreview({ draft, total }: Props) {
           {/* Header */}
           <div className="flex items-start justify-between gap-4">
             <div className="space-y-1">
+              {division?.companies?.name_en && (
+                <p className="text-xl font-bold text-slate-900">
+                  {division.companies.name_en}
+                </p>
+              )}
               {division?.logo_url ? (
                 <img
                   src={division.logo_url}
@@ -67,7 +73,7 @@ export function QuotationPdfPreview({ draft, total }: Props) {
                   className="h-12 w-auto object-contain"
                 />
               ) : (
-                <div className="text-lg font-bold text-slate-900">
+                <div className="text-sm font-medium text-slate-500">
                   {division?.name ?? '—'}
                 </div>
               )}

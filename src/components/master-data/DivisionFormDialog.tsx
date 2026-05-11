@@ -376,7 +376,7 @@ export function DivisionFormDialog({
                   <FormControl>
                     <Input
                       dir="rtl"
-                      placeholder="e.g. صيانة الفايتري"
+                      placeholder="e.g. الفيتري"
                       {...field}
                     />
                   </FormControl>

@@ -176,16 +176,14 @@ export function CalendarToolbar({
       {/* Mobile: Filters button (visible only on < sm) */}
       <div className="flex sm:hidden">
         <Popover open={filtersOpen} onOpenChange={setFiltersOpen}>
-          <PopoverTrigger asChild>
-            <Button variant="outline" size="sm" className="h-8 gap-1 text-xs">
-              <Filter className="h-3.5 w-3.5" />
-              Filters
-              {activeVisitTypes.size > 0 && (
-                <Badge className="h-4 w-4 p-0 flex items-center justify-center text-[10px]">
-                  {activeVisitTypes.size}
-                </Badge>
-              )}
-            </Button>
+          <PopoverTrigger className="inline-flex items-center gap-1 rounded-md border border-input bg-background px-3 h-8 text-xs font-medium shadow-sm transition-colors hover:bg-accent hover:text-accent-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring">
+            <Filter className="h-3.5 w-3.5" />
+            Filters
+            {activeVisitTypes.size > 0 && (
+              <Badge className="h-4 w-4 p-0 flex items-center justify-center text-[10px]">
+                {activeVisitTypes.size}
+              </Badge>
+            )}
           </PopoverTrigger>
           <PopoverContent align="start" className="w-56 p-3">
             <div className="flex flex-col gap-2">

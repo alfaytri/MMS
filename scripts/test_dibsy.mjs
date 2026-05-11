@@ -11,7 +11,7 @@ import { createClient } from '@supabase/supabase-js'
 
 const DIBSY_SECRET_KEY = 'sk_test_218279e5aed93c8256ea352aadda8b3a2759'
 const DIBSY_BASE = 'https://api.dibsy.one/v2'
-const LOCAL_BASE = 'http://localhost:3000'
+const LOCAL_BASE = process.env.TEST_BASE ?? 'http://localhost:3000'
 const SUPABASE_URL = 'https://wkmvjxxmzstsvahuiwsz.supabase.co'
 const SERVICE_ROLE_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY
 
@@ -36,8 +36,8 @@ try {
       amount: { value: '1.00', currency: 'QAR' },
       description: 'MMS integration test',
       method: 'creditcard',
-      redirectUrl: 'http://localhost:3000/test-redirect',
-      webhookUrl: 'http://localhost:3000/api/payments/dibsy/webhook',
+      redirectUrl: `${LOCAL_BASE}/test-redirect`,
+      webhookUrl: `${LOCAL_BASE}/api/payments/dibsy/webhook`,
       metadata: { subscription_id: 'test-only' },
     }),
   })

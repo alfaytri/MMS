@@ -30,7 +30,7 @@ BEGIN
     v_customer_id := v_existing_cid;
   ELSE
     INSERT INTO customers (name, phone, customer_type)
-    VALUES (p_name, p_phone, 'individual')
+    VALUES (p_name, p_phone, 'cash')
     RETURNING id INTO v_customer_id;
 
     -- Also insert the linkPhone under the new customer if it doesn't exist yet

@@ -7,13 +7,17 @@ import { Label } from '@/components/ui/label'
 import { PhoneLookupModal } from '@/components/orders/PhoneLookupModal'
 import { ServiceSelector } from '@/components/orders/ServiceSelector'
 import { SelectedServiceCard } from '@/components/orders/SelectedServiceCard'
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { Send, Save, User } from 'lucide-react'
 import type { QuotationDraft } from '@/types/quotations'
 import type { CustomerLookupResult } from '@/hooks/useCustomerLookup'
 import type { OrderServiceDraft } from '@/types/orders'
+import type { DivisionOption } from '@/hooks/useUserCompanyDivisions'
 
 interface Props {
   draft: QuotationDraft
+  divisions: DivisionOption[]
+  onDivisionChange: (slug: string) => void
   onCustomerSelect: (result: CustomerLookupResult) => void
   onAddService: (service: OrderServiceDraft) => void
   onRemoveService: (serviceId: string) => void
@@ -29,6 +33,8 @@ interface Props {
 
 export function QuotationFormPanel({
   draft,
+  divisions,
+  onDivisionChange,
   onCustomerSelect,
   onAddService,
   onRemoveService,
@@ -91,12 +97,41 @@ export function QuotationFormPanel({
 
         {/* Scrollable body */}
         <div className="flex-1 overflow-y-auto px-4 py-3 space-y-3">
+          {/* Division selector */}
+          <div className="space-y-1.5">
+            <Label className="text-[11px] font-semibold uppercase tracking-wide text-slate-400">
+              Division
+            </Label>
+            <Select
+              value={draft.division || null}
+              onValueChange={(v) => v && onDivisionChange(v)}
+            >
+              <SelectTrigger className="h-9 w-full text-sm min-h-[44px] sm:min-h-0">
+                <SelectValue placeholder="Select division…" />
+              </SelectTrigger>
+              <SelectContent alignItemWithTrigger={false}>
+                {divisions.length === 0 ? (
+                  <div className="px-3 py-2 text-sm text-slate-400">No divisions found</div>
+                ) : (
+                  divisions.map((d) => (
+                    <SelectItem key={d.id} value={d.slug}>
+                      {d.name}
+                    </SelectItem>
+                  ))
+                )}
+              </SelectContent>
+            </Select>
+          </div>
+
           {/* Service tree browser */}
           <div className="space-y-1.5">
             <Label className="text-[11px] font-semibold uppercase tracking-wide text-slate-400">
               Services
             </Label>
-            <ServiceSelector onAdd={onAddService} />
+            <ServiceSelector
+              onAdd={onAddService}
+              divisionFilters={draft.division ? [draft.division] : []}
+            />
           </div>
 
           {/* Selected services */}

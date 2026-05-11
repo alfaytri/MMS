@@ -99,6 +99,8 @@ interface Props {
   onAssign: (assignment: Omit<TeamAssignmentDraft, 'id'>) => void
   onRemoveAssignment: (id: string) => void
   onDateChange: (date: string) => void
+  /** When editing an existing order, exclude its visits from the calendar so they don't double-render alongside the draft blocks */
+  editingOrderNumber?: string | null
 }
 
 // ---------------------------------------------------------------------------
@@ -300,6 +302,128 @@ function DraftBlock({
 }
 
 // ---------------------------------------------------------------------------
+// VisitBlock — hoverable existing calendar visit block with popup card
+// ---------------------------------------------------------------------------
+
+interface VisitBlockProps {
+  visit: CalendarVisit
+  trackMap: Map<string, number>
+  hourLeftFn: (h: number) => number
+}
+
+function VisitBlock({ visit: v, trackMap, hourLeftFn }: VisitBlockProps) {
+  const [hovered, setHovered] = useState(false)
+  const leaveTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
+
+  const start = parseHour(v.start_time)
+  if (start === null) return null
+  const rawEnd = v.end_time ? parseHour(v.end_time) : null
+  const end = rawEnd !== null && rawEnd > start ? rawEnd : start + 1
+
+  const track = trackMap.get(`v-${v.id}`) ?? 0
+  const blockW = (end - start) * CELL_W - 2
+  const isSiteVisit = v.source_type === 'site_visit'
+
+  const timeLabel = [v.start_time, v.end_time]
+    .filter(Boolean)
+    .map((t) => fmt12(t!.substring(0, 5)))
+    .join(' – ')
+
+  function handleMouseEnter() {
+    if (leaveTimer.current) clearTimeout(leaveTimer.current)
+    setHovered(true)
+  }
+  function handleMouseLeave() {
+    leaveTimer.current = setTimeout(() => setHovered(false), 120)
+  }
+
+  const colorBlock = isSiteVisit
+    ? 'bg-purple-100 border-purple-300 text-purple-900'
+    : 'bg-blue-100 border-blue-300 text-blue-900'
+  const colorNumber = isSiteVisit ? 'text-purple-600' : 'text-blue-600'
+  const colorBadge = isSiteVisit
+    ? 'border-purple-200 bg-purple-50 text-purple-700'
+    : 'border-blue-200 bg-blue-50 text-blue-700'
+
+  return (
+    <div
+      className="absolute"
+      style={{
+        left: hourLeftFn(start) + 1,
+        width: blockW,
+        top: track * TRACK_H + 2,
+        height: TRACK_H - 4,
+        zIndex: hovered ? 40 : 10,
+      }}
+      onMouseEnter={handleMouseEnter}
+      onMouseLeave={handleMouseLeave}
+    >
+      {/* Block */}
+      <div className={`relative h-full w-full overflow-hidden rounded border px-1 text-[11px] font-medium flex flex-col justify-center cursor-default ${colorBlock}`}>
+        {v.order_number && (
+          <span className={`truncate font-mono leading-none ${colorNumber}`} style={{ fontSize: 9 }}>
+            {v.order_number}
+          </span>
+        )}
+        <span className="truncate leading-none">{v.customer_name ?? '—'}</span>
+      </div>
+
+      {/* Hover popup */}
+      {hovered && (
+        <div
+          className="absolute top-full left-0 mt-1 w-64 bg-white border border-slate-200 rounded-lg shadow-xl p-3 space-y-2.5 text-xs"
+          style={{ zIndex: 50 }}
+          onMouseEnter={handleMouseEnter}
+          onMouseLeave={handleMouseLeave}
+        >
+          {v.order_number && (
+            <p className="font-mono font-bold text-slate-900 text-sm">{v.order_number}</p>
+          )}
+          <div className="flex items-center gap-2 flex-wrap">
+            <span className={`rounded border px-2 py-0.5 text-[10px] font-bold uppercase ${colorBadge}`}>
+              {v.status}
+            </span>
+            {isSiteVisit && (
+              <span className="rounded border border-purple-200 bg-purple-50 px-2 py-0.5 text-[10px] text-purple-600">
+                Site Visit
+              </span>
+            )}
+          </div>
+
+          {v.customer_name && (
+            <div className="flex items-center gap-1.5 text-slate-700">
+              <User className="h-3 w-3 shrink-0 text-slate-400" />
+              <span className="font-medium">{v.customer_name}</span>
+            </div>
+          )}
+
+          {v.customer_phone && (
+            <div className="flex items-center gap-1.5 text-slate-600">
+              <Phone className="h-3 w-3 shrink-0 text-slate-400" />
+              <span>{v.customer_phone}</span>
+            </div>
+          )}
+
+          {timeLabel && (
+            <div className="flex items-center gap-1.5 text-slate-600">
+              <Clock className="h-3 w-3 shrink-0 text-slate-400" />
+              <span>{timeLabel}</span>
+            </div>
+          )}
+
+          {v.services_summary && (
+            <div className="flex items-start gap-1.5">
+              <ClipboardList className="h-3 w-3 shrink-0 mt-0.5 text-slate-400" />
+              <span className="text-slate-700">{v.services_summary}</span>
+            </div>
+          )}
+        </div>
+      )}
+    </div>
+  )
+}
+
+// ---------------------------------------------------------------------------
 // TeamCalendarPanel
 // ---------------------------------------------------------------------------
 
@@ -314,6 +438,7 @@ export function TeamCalendarPanel({
   onAssign,
   onRemoveAssignment,
   onDateChange,
+  editingOrderNumber,
 }: Props) {
   const { data: teamsRaw } = useTeams()
   const teams = (teamsRaw ?? []) as unknown as TeamRow[]
@@ -363,15 +488,20 @@ export function TeamCalendarPanel({
     return (visits ?? []).some((v) => {
       if (v.team_id !== teamId || !v.start_time) return false
       const start = parseHour(v.start_time)
-      const end = v.end_time ? parseHour(v.end_time) : (start !== null ? start + 1 : null)
-      if (start === null || end === null) return false
+      if (start === null) return false
+      const rawEnd = v.end_time ? parseHour(v.end_time) : null
+      const end = rawEnd !== null && rawEnd > start ? rawEnd : start + 1
       return hour >= start && hour < end
     })
   }
 
-  /** Visits belonging to one team */
+  /** Visits belonging to one team, excluding the order currently being edited */
   function visitsForTeam(teamId: string): CalendarVisit[] {
-    return (visits ?? []).filter((v) => v.team_id === teamId && v.start_time !== null)
+    return (visits ?? []).filter((v) =>
+      v.team_id === teamId &&
+      v.start_time !== null &&
+      (!editingOrderNumber || v.order_number !== editingOrderNumber)
+    )
   }
 
   /** Draft assignments belonging to one team */
@@ -399,10 +529,10 @@ export function TeamCalendarPanel({
     const visitBlocks: Block[] = []
     for (const v of teamVisits) {
       const start = parseHour(v.start_time)
-      const end = v.end_time ? parseHour(v.end_time) : (start !== null ? start + 1 : null)
-      if (start !== null && end !== null) {
-        visitBlocks.push({ id: `v-${v.id}`, start, end })
-      }
+      if (start === null) continue
+      const rawEnd = v.end_time ? parseHour(v.end_time) : null
+      const end = rawEnd !== null && rawEnd > start ? rawEnd : start + 1
+      visitBlocks.push({ id: `v-${v.id}`, start, end })
     }
     const visitTrackMap = assignTracks(visitBlocks)
     const maxVisitTrack = visitBlocks.length === 0
@@ -518,27 +648,14 @@ export function TeamCalendarPanel({
                   ))}
 
                   {/* Existing calendar visits */}
-                  {visitsForTeam(team.id).map((v) => {
-                    const start = parseHour(v.start_time)
-                    const end = v.end_time ? parseHour(v.end_time) : (start !== null ? start + 1 : null)
-                    if (start === null || end === null) return null
-                    const track = trackMap.get(`v-${v.id}`) ?? 0
-                    return (
-                      <div
-                        key={v.id}
-                        title={v.customer_name ?? v.id}
-                        className="absolute overflow-hidden rounded bg-blue-100 px-1 text-xs text-blue-800 flex items-center pointer-events-none"
-                        style={{
-                          left: hourLeft(start) + 1,
-                          width: (end - start) * CELL_W - 2,
-                          top: track * TRACK_H + 2,
-                          height: TRACK_H - 4,
-                        }}
-                      >
-                        <span className="truncate">{v.customer_name ?? '—'}</span>
-                      </div>
-                    )
-                  })}
+                  {visitsForTeam(team.id).map((v) => (
+                    <VisitBlock
+                      key={v.id}
+                      visit={v}
+                      trackMap={trackMap}
+                      hourLeftFn={hourLeft}
+                    />
+                  ))}
 
                   {/* Draft assignments */}
                   {assignmentsForTeam(team.id).map((a) => (

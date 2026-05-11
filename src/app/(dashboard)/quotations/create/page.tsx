@@ -6,14 +6,18 @@ import { QuotationFormPanel } from '@/components/quotations/QuotationFormPanel'
 import { QuotationPdfPreview } from '@/components/quotations/QuotationPdfPreview'
 import { CustomerHistoryPanel } from '@/components/orders/CustomerHistoryPanel'
 import { useCreateQuotation } from '@/hooks/useCreateQuotation'
+import { useUserCompanyDivisions } from '@/hooks/useUserCompanyDivisions'
 
 export default function CreateQuotationPage() {
   const router = useRouter()
   const [windowClosed, setWindowClosed] = useState(false)
 
+  const { data: divisions = [] } = useUserCompanyDivisions()
+
   const {
     draft,
     setCustomer,
+    setDivision,
     addService,
     removeService,
     updateQty,
@@ -53,6 +57,8 @@ export default function CreateQuotationPage() {
     <div className="flex h-[calc(100vh-56px)] flex-col overflow-hidden sm:flex-row">
       <QuotationFormPanel
         draft={draft}
+        divisions={divisions}
+        onDivisionChange={setDivision}
         onCustomerSelect={setCustomer}
         onAddService={addService}
         onRemoveService={removeService}

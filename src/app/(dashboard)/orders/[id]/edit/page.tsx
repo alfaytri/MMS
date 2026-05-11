@@ -158,6 +158,7 @@ export default function EditOrderPage() {
               onAssign={addAssignment}
               onRemoveAssignment={removeAssignment}
               onDateChange={(date) => update({ visitDate: date })}
+              editingOrderNumber={draft.orderId}
             />
           </div>
 

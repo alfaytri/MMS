@@ -58,13 +58,8 @@ export const NAV_ITEMS: NavEntry[] = [
           { label: 'Create Order', href: '/orders/create' },
         ],
       },
-    ],
-  },
-  {
-    label: 'Quotations',
-    icon: 'FileText',
-    groups: [
       {
+        label: 'Quotations',
         items: [
           { label: 'View Quotations', href: '/quotations' },
           { label: 'Create Quotation', href: '/quotations/create' },
