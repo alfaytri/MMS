@@ -28,6 +28,8 @@ import { Input } from '@/components/ui/input'
 import { Button } from '@/components/ui/button'
 import { Switch } from '@/components/ui/switch'
 import { useCreateTeam, useUpdateTeam, useArchiveTeam } from '@/hooks/useTeams'
+import { useCompanies } from '@/hooks/useCompanies'
+import { useDivisionsByCompany } from '@/hooks/useDivisions'
 import { useTeamsPage } from '../TeamsPageContext'
 
 // ─── Country codes ─────────────────────────────────────────────────────────────
@@ -56,19 +58,12 @@ function parsePhone(phone: string): { code: string; number: string } {
   return { code: '+974', number: phone }
 }
 
-type TeamDivision = 'alfaytri-maintenance' | 'alfaytri-kitchen' | 'rsh'
-
-const DIVISION_OPTIONS: { value: TeamDivision; label: string }[] = [
-  { value: 'alfaytri-maintenance', label: 'Maintenance' },
-  { value: 'alfaytri-kitchen',     label: 'Kitchen'     },
-  { value: 'rsh',                  label: 'RSH'         },
-]
-
 // ─── Form value types ──────────────────────────────────────────────────────────
 interface TeamFormValues {
   name_en:              string
   name_ar:              string
-  division:             TeamDivision | ''
+  company_id:           string
+  division_id:          string
   countryCode:          string
   phoneNumber:          string
   is_emergency:         boolean
@@ -89,12 +84,14 @@ export function TeamEditDialog() {
   const createTeam  = useCreateTeam()
   const updateTeam  = useUpdateTeam()
   const archiveTeam = useArchiveTeam()
+  const { data: companies = [] } = useCompanies()
 
   const form = useForm<TeamFormValues>({
     defaultValues: {
       name_en:              '',
       name_ar:              '',
-      division:             '',
+      company_id:           '',
+      division_id:          '',
       countryCode:          '+974',
       phoneNumber:          '',
       is_emergency:         false,
@@ -105,6 +102,9 @@ export function TeamEditDialog() {
     },
   })
 
+  const selectedCompanyId = form.watch('company_id')
+  const { data: divisionsForCompany = [] } = useDivisionsByCompany(selectedCompanyId || null)
+
   useEffect(() => {
     setSaveError(null)
     if (team) {
@@ -113,11 +113,12 @@ export function TeamEditDialog() {
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       const parsed      = parsePhone((team as any).phone ?? '')
       form.reset({
-        name_en:           team.name_en                              ?? team.name ?? '',
+        name_en:           team.name_en ?? team.name ?? '',
         // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        name_ar:           (team as any).name_ar                    ?? '',
+        name_ar:           (team as any).name_ar ?? '',
+        company_id:        team.division?.company_id ?? '',
         // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        division:          ((team as any).division as TeamDivision)  ?? '',
+        division_id:       ((team as any).division_id as string) ?? '',
         countryCode:       parsed.code,
         phoneNumber:       parsed.number,
         is_emergency:         isEmergency,
@@ -130,7 +131,7 @@ export function TeamEditDialog() {
       })
     } else {
       form.reset({
-        name_en: '', name_ar: '', division: '',
+        name_en: '', name_ar: '', company_id: '', division_id: '',
         countryCode: '+974', phoneNumber: '',
         is_emergency: false, is_qc: false,
         site_visit_order: false, site_visit_quotation: false,
@@ -150,7 +151,7 @@ export function TeamEditDialog() {
         name:              values.name_en,
         name_en:           values.name_en,
         name_ar:           values.name_ar           || null,
-        division:          values.division           || null,
+        division_id:       values.division_id        || null,
         phone:             fullPhone,
         is_emergency:         values.is_emergency,
         is_qc:                values.is_qc,
@@ -232,24 +233,61 @@ export function TeamEditDialog() {
                 )}
               />
 
+              {/* ── Company ── */}
+              <FormField
+                control={form.control}
+                name="company_id"
+                rules={{ required: 'Company is required' }}
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Company</FormLabel>
+                    <Select
+                      value={field.value}
+                      onValueChange={v => {
+                        field.onChange(v)
+                        form.setValue('division_id', '')
+                      }}
+                    >
+                      <FormControl>
+                        <SelectTrigger>
+                          <SelectValue placeholder="Select company" />
+                        </SelectTrigger>
+                      </FormControl>
+                      <SelectContent>
+                        {companies.map(c => (
+                          <SelectItem key={c.id} value={c.id}>
+                            {c.name_en}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+
               {/* ── Division ── */}
               <FormField
                 control={form.control}
-                name="division"
+                name="division_id"
                 rules={{ required: 'Division is required' }}
                 render={({ field }) => (
                   <FormItem>
                     <FormLabel>Division</FormLabel>
-                    <Select value={field.value} onValueChange={field.onChange}>
+                    <Select
+                      value={field.value}
+                      onValueChange={field.onChange}
+                      disabled={!selectedCompanyId}
+                    >
                       <FormControl>
                         <SelectTrigger>
-                          <SelectValue placeholder="Select division" />
+                          <SelectValue placeholder={selectedCompanyId ? 'Select division' : 'Select company first'} />
                         </SelectTrigger>
                       </FormControl>
                       <SelectContent>
-                        {DIVISION_OPTIONS.map(opt => (
-                          <SelectItem key={opt.value} value={opt.value}>
-                            {opt.label}
+                        {divisionsForCompany.map(d => (
+                          <SelectItem key={d.id} value={d.id}>
+                            {d.name}
                           </SelectItem>
                         ))}
                       </SelectContent>
