@@ -11,13 +11,13 @@ export function ContactCenterSidebarGate() {
     queryKey: ['cc-permission'],
     staleTime: 5 * 60 * 1000,
     queryFn: async () => {
-      const { data: { session } } = await supabase.auth.getSession()
-      if (!session) return false
+      const { data: { user } } = await supabase.auth.getUser()
+      if (!user) return false
 
       const { data: profile } = await (supabase as any)
         .from('profiles')
-        .select('user_custom_roles(custom_roles(permissions))')
-        .eq('auth_user_id', session.user.id)
+        .select('user_custom_roles!user_custom_roles_profile_id_fkey(custom_roles(permissions))')
+        .eq('auth_user_id', user.id)
         .maybeSingle()
       if (!profile) return false
 
