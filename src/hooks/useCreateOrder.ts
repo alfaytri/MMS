@@ -224,8 +224,8 @@ export function useCreateOrder() {
           if (a.toTime) {
             const startH = parseInt(a.timeSlot)
             const endH = parseInt(a.toTime)
-            if (!isNaN(startH) && !isNaN(endH) && endH > startH) {
-              durationHours = endH - startH
+            if (!isNaN(startH) && !isNaN(endH) && endH >= startH) {
+              durationHours = endH - startH + 1
             }
           }
           return {
@@ -237,8 +237,8 @@ export function useCreateOrder() {
         })
 
         const { data: newId, error } = await (supabase as any).rpc('create_site_visit', {
-          p_visit_id:       visitId,
-          p_customer_id:    draft.customerId,
+          p_visit_id:            visitId,
+          p_service_customer_id: draft.customerId,
           p_status:         status,
           p_mode:           draft.mode,
           p_scheduled_date: primaryDate,
@@ -297,8 +297,8 @@ export function useCreateOrder() {
       })
 
       const { data: newOrderId, error } = await (supabase as any).rpc('create_order_with_dates', {
-        p_order_id:       orderId,
-        p_customer_id:    draft.customerId,
+        p_order_id:            orderId,
+        p_service_customer_id: draft.customerId,
         p_type:           draft.type,
         p_division:       draft.division,
         p_status:         status,

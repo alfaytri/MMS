@@ -7,11 +7,11 @@ export function useCustomerAddresses(customerId: string | null) {
   const qc = useQueryClient()
 
   const { data: addresses = [], isLoading } = useQuery({
-    queryKey: ['customer-addresses', customerId],
+    queryKey: ['service-customer-addresses', customerId],
     queryFn: async (): Promise<CustomerAddress[]> => {
       if (!customerId) return []
-      const { data, error } = await supabase
-        .from('customer_addresses')
+      const { data, error } = await (supabase as any)
+        .from('service_customer_addresses')
         .select('*')
         .eq('customer_id', customerId)
         .order('is_primary', { ascending: false })
@@ -25,8 +25,8 @@ export function useCustomerAddresses(customerId: string | null) {
     mutationFn: async (
       input: Omit<CustomerAddress, 'id' | 'created_at'>
     ): Promise<CustomerAddress> => {
-      const { data, error } = await supabase
-        .from('customer_addresses')
+      const { data, error } = await (supabase as any)
+        .from('service_customer_addresses')
         .insert(input)
         .select()
         .single()
@@ -34,7 +34,7 @@ export function useCustomerAddresses(customerId: string | null) {
       return data
     },
     onSuccess: () => {
-      qc.invalidateQueries({ queryKey: ['customer-addresses', customerId] })
+      qc.invalidateQueries({ queryKey: ['service-customer-addresses', customerId] })
     },
   })
 

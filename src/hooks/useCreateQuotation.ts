@@ -87,6 +87,13 @@ export function useCreateQuotation() {
     }))
   }
 
+  function setDivision(slug: string) {
+    setDraft((d) => {
+      if (d.division === slug) return d
+      return { ...d, division: slug, services: [] }
+    })
+  }
+
   function update(partial: Partial<Pick<QuotationDraft, 'notes'>>) {
     setDraft((d) => ({ ...d, ...partial }))
   }
@@ -102,8 +109,8 @@ export function useCreateQuotation() {
     expiry.setDate(expiry.getDate() + 30)
 
     const { data: quotUuid, error } = await (supabase as any).rpc('save_quotation', {
-      p_quotation_id: draft.quotationId,
-      p_customer_id:  draft.customerId,
+      p_quotation_id:        draft.quotationId,
+      p_service_customer_id: draft.customerId,
       p_division:     draft.division,
       p_status:       status,
       p_total_amount: total,
@@ -167,6 +174,7 @@ export function useCreateQuotation() {
     draft,
     quotationIdError,
     setCustomer,
+    setDivision,
     addService,
     removeService,
     updateQty,

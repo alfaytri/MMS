@@ -24,22 +24,22 @@ export function useCustomerLookup() {
     mutationFn: async (phone: string): Promise<LookupResult> => {
       const normalizedPhone = phone.replace(/\s+/g, '')
 
-      const { data, error } = await supabase
-        .from('customer_phones')
+      const { data, error } = await (supabase as any)
+        .from('service_customer_phones')
         .select(`
           id,
           customer_id,
-          customers!inner(id, name, customer_addresses(id))
+          service_customers!inner(id, name, service_customer_addresses(id))
         `)
         .eq('phone', normalizedPhone)
         .single()
 
       if (!error && data) {
-        const customer = data.customers as any
-        const { count: orderCount } = await supabase
+        const customer = data.service_customers as any
+        const { count: orderCount } = await (supabase as any)
           .from('orders')
           .select('id', { count: 'exact', head: true })
-          .eq('customer_id', data.customer_id)
+          .eq('service_customer_id', data.customer_id)
 
         return {
           found: true,
@@ -47,52 +47,12 @@ export function useCustomerLookup() {
           phoneId: data.id,
           customerName: customer.name,
           phone: normalizedPhone,
-          addressCount: (customer.customer_addresses as any[]).length,
+          addressCount: (customer.service_customer_addresses as any[]).length,
           orderCount: orderCount ?? 0,
         }
       }
 
-      // Fallback: customer created via Customers module only has customers.phone
-      const { data: customer, error: custError } = await supabase
-        .from('customers')
-        .select('id, name, customer_addresses(id)')
-        .eq('phone', normalizedPhone)
-        .single()
-
-      if (custError || !customer) return { found: false }
-
-      // Backfill customer_phones so future lookups work — select first to avoid 406 on upsert
-      let { data: phoneRecord } = await supabase
-        .from('customer_phones')
-        .select('id')
-        .eq('phone', normalizedPhone)
-        .single()
-
-      if (!phoneRecord) {
-        const { data: inserted } = await supabase
-          .from('customer_phones')
-          .insert({ customer_id: (customer as any).id, phone: normalizedPhone, is_primary: true })
-          .select('id')
-          .single()
-        phoneRecord = inserted
-      }
-
-      if (!phoneRecord) return { found: false }
-
-      const { count: orderCount } = await supabase
-        .from('orders')
-        .select('id', { count: 'exact', head: true })
-        .eq('customer_id', (customer as any).id)
-
-      return {
-        found: true,
-        customerId: (customer as any).id,
-        phoneId: phoneRecord.id,
-        customerName: (customer as any).name,
-        phone: normalizedPhone,
-        addressCount: ((customer as any).customer_addresses as any[]).length,
-        orderCount: orderCount ?? 0,
-      }
+      return { found: false }
     },
   })
 
@@ -101,36 +61,28 @@ export function useCustomerLookup() {
       name,
       phone,
       linkPhone,
-      entityType,
     }: {
       name: string
       phone: string
       linkPhone?: string | null
       entityType?: 'individual' | 'business'
     }): Promise<CustomerLookupResult> => {
-      const { data, error } = await supabase.rpc('create_customer_with_phone', {
-        p_name: name.trim(),
-        p_phone: phone.trim(),
-        p_link_phone: linkPhone?.trim(),
+      const { data, error } = await (supabase as any).rpc('create_service_customer', {
+        p_name:       name.trim(),
+        p_phone:      phone.trim(),
+        p_link_phone: linkPhone?.trim() ?? null,
       })
-      // Update entity_type after creation (RPC doesn't accept it yet)
-      if (!error && data) {
-        const result = data as any
-        await supabase.from('customers')
-          .update({ entity_type: entityType ?? 'individual' })
-          .eq('id', result.customer_id)
-      }
-      if (error || !data) throw new Error(error?.message ?? error?.details ?? JSON.stringify(error) ?? 'Failed to create customer')
+      if (error || !data) throw new Error(error?.message ?? 'Failed to create customer')
 
       const result = data as any
       return {
         found: true,
         customerId: result.customer_id,
-        phoneId: result.phone_id,
+        phoneId:    result.phone_id,
         customerName: result.customer_name,
-        phone: phone.trim(),
+        phone:      phone.trim(),
         addressCount: 0,
-        orderCount: 0,
+        orderCount:   0,
       }
     },
   })

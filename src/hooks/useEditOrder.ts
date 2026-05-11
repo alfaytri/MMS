@@ -19,7 +19,7 @@ import type { PendingAttachment } from '@/components/orders/AttachmentsUpload'
 function computeToTime(timeSlot: string, durationHours: number): string | null {
   const h = parseInt(timeSlot)
   if (isNaN(h)) return null
-  return `${String(h + durationHours).padStart(2, '0')}:00`
+  return `${String(h + durationHours - 1).padStart(2, '0')}:00`
 }
 
 export function useEditOrder(orderId: string) {
@@ -75,7 +75,7 @@ export function useEditOrder(orderId: string) {
     setExistingAddress(order.address ?? '')
     setDraft({
       orderId: order.order_id,
-      customerId: order.customer_id,
+      customerId: (order as any).service_customer_id ?? order.customer_id,
       phoneId: '',
       customerName: order.customer_name,
       phone: order.customer_phone,
@@ -256,7 +256,7 @@ export function useEditOrder(orderId: string) {
           if (a.toTime) {
             const startH = parseInt(a.timeSlot)
             const endH = parseInt(a.toTime)
-            if (!isNaN(startH) && !isNaN(endH) && endH > startH) durationHours = endH - startH
+            if (!isNaN(startH) && !isNaN(endH) && endH >= startH) durationHours = endH - startH + 1
           }
           return {
             order_id: orderId,
