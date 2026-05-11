@@ -156,9 +156,13 @@ Purchase & Sales▾:
 
 ## 🔄 In Progress
 
-🚀 Starting: **Pre-CRM Patch Task 4: Update RPCs to use service_customer_id**
+🚀 Starting: **Pre-CRM Patch Task 10: Teams division_id FK migration**
 
 ## ✅ Completed
+
+- [2026-05-11] **Pre-CRM Patch Tasks 5–9: Wire hooks to service_customers** — `src/hooks/useCustomerLookup.ts`, `src/hooks/useCustomerAddresses.ts`, `src/hooks/useCreateOrder.ts`, `src/hooks/useEditOrder.ts`, `src/hooks/useCreateQuotation.ts` — Phone lookup + address queries target service_customer_phones/service_customer_addresses; all RPC calls pass p_service_customer_id; useEditOrder reads service_customer_id with fallback
+
+- [2026-05-11] **Pre-CRM Patch Task 4: Update RPCs to use service_customer_id** — `supabase/migrations/20260511100003_update_order_rpcs_service_customer.sql` — Dropped all overloads of create_order_with_dates; recreated with p_service_customer_id; same for create_site_visit and save_quotation; customer_id columns made nullable; calendar_visits view updated to COALESCE service_customers + legacy customers names
 
 - [2026-05-11] **Pre-CRM Patch Task 3: Migration A — backfill service_customer_id** — `supabase/migrations/20260511100002_orders_service_customer_backfill.sql` — Added nullable service_customer_id to orders/quotations/site_visits; inserted service_customers rows from legacy customers using DISTINCT ON + legacy_customer_id mapping; backfilled phones; validated completeness; set NOT NULL on all three tables
 
