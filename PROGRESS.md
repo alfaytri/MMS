@@ -157,9 +157,11 @@ Purchase & Sales▾:
 
 ## 🔄 In Progress
 
-🚀 Starting: **Contact Centre Phase 1 Task 18: ChatInputBar**
+(placeholder for next task)
 
 ## ✅ Completed
+
+- [2026-05-11] **Contact Centre Phase 1 Task 18: ChatInputBar** — `src/components/contact-center/ChatInputBar.tsx` — Created WhatsApp message input bar with window status banner (closed/warning/open states), textarea input (Enter to send, Shift+Enter for newline), Send button with spinner, template dropdown button with lazy loading, collapsible template list (variable count badges), template confirmation dialog with field-by-field variable editor (customer name pre-filled), integration with useChatMessages hook; responsive compact sizing (text-xs, h-8 buttons); zero TypeScript errors
 
 - [2026-05-11] **Contact Centre Phase 1 Task 17: AddressSection** — `src/components/contact-center/AddressSection.tsx` — Created address management component with drag-to-orders support, 2-step add form (address type selector → form fields), Blue Plate vs Google Coordinates modes, is_geocoded warning banner, address list with primary badge, grip handles, map icons; full validation and error handling; integrated with useAddressState hook; responsive layout with text-xs sizing; zero TypeScript errors
 
