@@ -13,10 +13,18 @@ export function ContactCenterSidebarGate() {
     queryFn: async () => {
       const { data: { session } } = await supabase.auth.getSession()
       if (!session) return false
-      const { data } = await (supabase as any)
+
+      const { data: profile } = await supabase
+        .from('profiles')
+        .select('id')
+        .eq('auth_user_id', session.user.id)
+        .single()
+      if (!profile) return false
+
+      const { data } = await supabase
         .from('user_custom_roles')
         .select('custom_roles(permissions)')
-        .eq('user_id', session.user.id)
+        .eq('profile_id', profile.id)
       const perms: string[] = ((data ?? []) as Array<{ custom_roles: { permissions: string[] } | null }>)
         .flatMap((r) => r.custom_roles?.permissions ?? [])
       return perms.includes('contact_centre.view')
