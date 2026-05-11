@@ -29,7 +29,7 @@ export function useContactCenterState() {
     setActiveCustomerId(customerId)
     setActivePhone(phone)
     setSidebarView('detail')
-    if (conversationId) markRead(conversationId)
+    markRead(conversationId)
   }
 
   function goToList() {
@@ -49,7 +49,6 @@ export function useContactCenterState() {
 
   return {
     sidebarView,
-    setSidebarView,
     activeConversationId,
     activeCustomerId,
     activePhone,
