@@ -37,6 +37,44 @@ async function watiGet(path: string): Promise<any> {
   throw new Error('WATI rate limit retries exhausted')
 }
 
+interface Attachment {
+  url: string
+  type: string
+  name: string
+}
+
+function extractAttachments(item: any): Attachment[] {
+  const msgType: string = item.type ?? ''
+  const data = item.data ?? {}
+
+  if (msgType === 'image') {
+    const url = data.url ?? item.image?.url ?? null
+    if (!url) return []
+    return [{ url, type: data.mimeType ?? 'image/jpeg', name: data.caption ?? 'image' }]
+  }
+  if (msgType === 'document') {
+    const url = data.url ?? item.document?.url ?? null
+    if (!url) return []
+    return [{ url, type: data.mimeType ?? 'application/octet-stream', name: data.fileName ?? data.filename ?? 'document' }]
+  }
+  if (msgType === 'video') {
+    const url = data.url ?? item.video?.url ?? null
+    if (!url) return []
+    return [{ url, type: data.mimeType ?? 'video/mp4', name: data.caption ?? 'video' }]
+  }
+  if (msgType === 'audio' || msgType === 'voice') {
+    const url = data.url ?? item.audio?.url ?? null
+    if (!url) return []
+    return [{ url, type: data.mimeType ?? 'audio/ogg', name: 'audio' }]
+  }
+  if (msgType === 'sticker') {
+    const url = data.url ?? item.sticker?.url ?? null
+    if (!url) return []
+    return [{ url, type: 'image/webp', name: 'sticker' }]
+  }
+  return []
+}
+
 // GET /api/wati/fetch-messages?conversationId=...&phone=...&days=10
 export async function GET(req: NextRequest) {
   const { searchParams } = req.nextUrl
@@ -102,18 +140,20 @@ export async function GET(req: NextRequest) {
 
   // Build message rows
   const rows = messageItems.map((item) => {
-    const isAgent = item.owner === true || item.eventType === 'message_sent'
-    const ts = item.created
+    const isAgent   = item.owner === true || item.eventType === 'message_sent'
+    const ts        = item.created
       ? new Date(item.created).toISOString()
       : item.timestamp
       ? new Date(item.timestamp * 1000).toISOString()
       : new Date().toISOString()
+    const msgType   = item.type ?? 'text'
+    const attachments = extractAttachments(item)
 
     // text is NOT NULL in DB — use label for media-only messages
     const text = typeof item.text === 'string' && item.text.trim()
       ? item.text.trim()
-      : item.type && item.type !== 'text'
-      ? `[${item.type}]`
+      : msgType !== 'text'
+      ? `[${msgType}]`
       : ''
 
     return {
@@ -122,27 +162,28 @@ export async function GET(req: NextRequest) {
       source:          'whatsapp_api',
       text,
       agent_name:      isAgent ? (item.senderName ?? null) : null,
+      attachments:     attachments.length > 0 ? attachments : null,
       delivery_status: isAgent ? normaliseStatus(item.statusString) : 'delivered',
       external_id:     String(item.id),
       created_at:      ts,
     }
   })
 
-  // Insert new messages — ignoreDuplicates → ON CONFLICT DO NOTHING
+  // Upsert with conflict on external_id (skip duplicates thanks to unique index)
   const CHUNK = 200
   let inserted = 0
   for (let i = 0; i < rows.length; i += CHUNK) {
+    const chunk = rows.slice(i, i + CHUNK)
     const { error } = await (supabase.from('chat_messages') as any)
-      .upsert(rows.slice(i, i + CHUNK), { ignoreDuplicates: true })
+      .upsert(chunk, { onConflict: 'external_id', ignoreDuplicates: true })
     if (error) {
-      console.error('[fetch-messages] insert error', error)
+      console.error('[fetch-messages] upsert error', error)
       return NextResponse.json({ error: error.message }, { status: 500 })
     }
-    inserted += rows.slice(i, i + CHUNK).length
+    inserted += chunk.length
   }
 
   // Apply reactions to target messages
-  // Group by target external_id: { externalId → [{ emoji, from_type }] }
   if (reactionItems.length > 0) {
     const reactionsByTarget = new Map<string, { emoji: string; from_type: string }[]>()
     for (const item of reactionItems) {
@@ -154,13 +195,25 @@ export async function GET(req: NextRequest) {
       list.push({ emoji, from_type: isAgent ? 'agent' : 'customer' })
       reactionsByTarget.set(String(targetId), list)
     }
-
     for (const [targetExternalId, reactions] of reactionsByTarget) {
       await (supabase.from('chat_messages') as any)
         .update({ reactions })
         .eq('external_id', targetExternalId)
         .eq('conversation_id', conversationId)
     }
+  }
+
+  // Update conversation last_message / last_message_at from the most recent message
+  if (rows.length > 0) {
+    const newest = rows.reduce((a, b) =>
+      new Date(a.created_at) > new Date(b.created_at) ? a : b
+    )
+    await (supabase.from('chat_conversations') as any)
+      .update({
+        last_message:    newest.text || `[${newest.from_type === 'agent' ? 'sent' : 'received'}]`,
+        last_message_at: newest.created_at,
+      })
+      .eq('id', conversationId)
   }
 
   return NextResponse.json({ fetched: inserted })

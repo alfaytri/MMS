@@ -164,12 +164,14 @@ export function ChatSection({ messages, loading, fetchingWati, canLoadMore, onLo
                     }`}
                     onMouseEnter={() => setPickerFor(msg.id)}
                   >
+                    {/* Regular text — not a media label */}
                     {msg.text && msg.text !== '' && !/^\[.+\]$/.test(msg.text) && (
                       <span dir="auto" className="whitespace-pre-wrap break-words">
                         {msg.text}
                       </span>
                     )}
-                    {msg.text && /^\[.+\]$/.test(msg.text) && (
+                    {/* Media label — only show if there's no actual attachment to render */}
+                    {msg.text && /^\[.+\]$/.test(msg.text) && !msg.attachments?.length && (
                       <span className="italic text-xs opacity-70">{msg.text}</span>
                     )}
                     {msg.attachments?.map((att, i) => (

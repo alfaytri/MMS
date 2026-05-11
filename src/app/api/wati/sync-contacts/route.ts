@@ -75,28 +75,50 @@ async function upsertContacts(allContacts: any[], supabase: ReturnType<typeof cr
     customerByPhone.set(row.phone, row.customer_id)
   }
 
-  const rows = phones.map((phone) => {
-    const c = phoneMap.get(phone)!
-    return {
-      wati_phone:         phone,
-      wati_contact_name:  contactName(c),
-      customer_id:        customerByPhone.get(phone) ?? null,
-      last_message:       c.lastMessage ?? null,
-      last_message_at:    c.lastReceivedMessageDate
-        ? new Date(c.lastReceivedMessageDate).toISOString()
-        : new Date().toISOString(),
+  // Split into contacts with/without a known last-message date
+  const rowsWithDate: any[] = []
+  const rowsNoDate: any[]   = []
+
+  for (const phone of phones) {
+    const c    = phoneMap.get(phone)!
+    const date = c.lastReceivedMessageDate
+      ? new Date(c.lastReceivedMessageDate).toISOString()
+      : null
+
+    const base = {
+      wati_phone:        phone,
+      wati_contact_name: contactName(c),
+      customer_id:       customerByPhone.get(phone) ?? null,
     }
-  })
+
+    if (date) {
+      rowsWithDate.push({ ...base, last_message: c.lastMessage ?? null, last_message_at: date })
+    } else {
+      rowsNoDate.push(base)
+    }
+  }
 
   const CHUNK = 500
   let synced = 0
-  for (let i = 0; i < rows.length; i += CHUNK) {
-    const chunk = rows.slice(i, i + CHUNK)
+
+  // Contacts with a date: full update (overwrite last_message_at)
+  for (let i = 0; i < rowsWithDate.length; i += CHUNK) {
+    const chunk = rowsWithDate.slice(i, i + CHUNK)
     const { error } = await (supabase.from('chat_conversations') as any)
       .upsert(chunk, { onConflict: 'wati_phone', ignoreDuplicates: false })
     if (error) throw new Error((error as any).message)
     synced += chunk.length
   }
+
+  // Contacts without a date: insert new only — never overwrite last_message_at on existing rows
+  for (let i = 0; i < rowsNoDate.length; i += CHUNK) {
+    const chunk = rowsNoDate.slice(i, i + CHUNK)
+    const { error } = await (supabase.from('chat_conversations') as any)
+      .upsert(chunk, { onConflict: 'wati_phone', ignoreDuplicates: true })
+    if (error) throw new Error((error as any).message)
+    synced += chunk.length
+  }
+
   return synced
 }
 
@@ -133,7 +155,9 @@ export async function GET(req: NextRequest) {
         if (cutoff) {
           for (const c of contacts) {
             const lastActive = c.lastReceivedMessageDate ? new Date(c.lastReceivedMessageDate) : null
-            if (lastActive && lastActive < cutoff) { reachedCutoff = true; break }
+            // Skip contacts with no known message date in recent mode (no chat activity)
+            if (!lastActive) continue
+            if (lastActive < cutoff) { reachedCutoff = true; break }
             allContacts.push(c)
           }
         } else {

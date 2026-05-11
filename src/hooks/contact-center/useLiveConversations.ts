@@ -18,8 +18,9 @@ export function useLiveConversations() {
         last_message, last_message_at, unread_count, created_at,
         service_customers(name)
       `)
-      .order('last_message_at', { ascending: false })
-      .limit(200)
+      .not('last_message_at', 'is', null)
+      .order('last_message_at', { ascending: false, nullsFirst: false })
+      .limit(500)
 
     if (cancelledRef.current) return
 
