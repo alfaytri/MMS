@@ -36,7 +36,7 @@ export function ContactCenterSidebar() {
     sidebarView, conversations, convsLoading, messages, threadLoading,
     windowStatus, customerData, chatMessages, addressState,
     activeConversationId, activeCustomerId, activePhone,
-    openConversation, goToList, expandSidebar, collapseSidebar,
+    openConversation, goToList, expandSidebar, collapseSidebar, syncFromWati,
   } = state
 
   function handleSelectConversation(c: ChatConversation) {
@@ -85,6 +85,7 @@ export function ContactCenterSidebar() {
               conversations={conversations}
               loading={convsLoading}
               onSelectConversation={handleSelectConversation}
+              onSync={syncFromWati}
             />
           </div>
         </div>

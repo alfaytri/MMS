@@ -94,6 +94,57 @@ serve(async (req) => {
       return json(data)
     }
 
+    case 'sync_contacts': {
+      let pageNumber = 1
+      const pageSize = 100
+      let totalSynced = 0
+
+      while (true) {
+        const data = await wati(`/api/v1/getContacts?pageSize=${pageSize}&pageNumber=${pageNumber}`) as any
+        if (data?.error) return json(data, 502)
+
+        const contacts: any[] = data?.contact_list ?? []
+        if (contacts.length === 0) break
+
+        for (const contact of contacts) {
+          const rawPhone: string = contact.phone ?? contact.wAid ?? ''
+          if (!rawPhone) continue
+
+          const normalised = rawPhone.startsWith('+') ? rawPhone : `+${rawPhone.replace(/\D/g, '')}`
+
+          // Resolve customer
+          const { data: phoneLookup } = await supaAdmin
+            .from('service_customer_phones')
+            .select('customer_id')
+            .eq('phone', normalised)
+            .maybeSingle()
+
+          const lastMsgAt = contact.lastReceivedMessageDate
+            ? new Date(contact.lastReceivedMessageDate).toISOString()
+            : new Date().toISOString()
+
+          await supaAdmin
+            .from('chat_conversations')
+            .upsert(
+              {
+                wati_phone:      normalised,
+                customer_id:     phoneLookup?.customer_id ?? null,
+                last_message:    contact.lastMessage ?? null,
+                last_message_at: lastMsgAt,
+              },
+              { onConflict: 'wati_phone', ignoreDuplicates: false }
+            )
+
+          totalSynced++
+        }
+
+        if (contacts.length < pageSize) break
+        pageNumber++
+      }
+
+      return json({ synced: totalSynced })
+    }
+
     default:
       return json({ error: 'Unknown action' }, 400)
   }

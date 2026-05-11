@@ -1,7 +1,8 @@
 // src/hooks/contact-center/useContactCenterState.ts
 'use client'
 
-import { useState } from 'react'
+import { useState, useCallback } from 'react'
+import { createClient } from '@/lib/supabase/client'
 import { useLiveConversations }  from './useLiveConversations'
 import { useLiveThread }         from './useLiveThread'
 import { useWhatsAppWindow }     from './useWhatsAppWindow'
@@ -47,6 +48,12 @@ export function useContactCenterState() {
     setSidebarView('collapsed')
   }
 
+  const syncFromWati = useCallback(async () => {
+    const supabase = createClient()
+    const { error } = await supabase.functions.invoke('api-wati', { body: { action: 'sync_contacts' } })
+    if (error) throw error
+  }, [])
+
   return {
     sidebarView,
     activeConversationId,
@@ -65,5 +72,6 @@ export function useContactCenterState() {
     expandSidebar,
     collapseSidebar,
     patchMessage,
+    syncFromWati,
   }
 }

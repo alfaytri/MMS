@@ -1,20 +1,29 @@
 'use client'
 
 import { useState } from 'react'
-import { Search, MessageSquare } from 'lucide-react'
+import { Search, MessageSquare, RefreshCw } from 'lucide-react'
 import { Input } from '@/components/ui/input'
 import { Badge } from '@/components/ui/badge'
+import { Button } from '@/components/ui/button'
 import type { ChatConversation } from '@/types/contact-center'
 
 interface Props {
   conversations: ChatConversation[]
   loading: boolean
   onSelectConversation: (convo: ChatConversation) => void
+  onSync?: () => Promise<void>
 }
 
-export function ChatListView({ conversations, loading, onSelectConversation }: Props) {
+export function ChatListView({ conversations, loading, onSelectConversation, onSync }: Props) {
   const [search, setSearch] = useState('')
   const [filter, setFilter] = useState<'all' | 'unanswered'>('all')
+  const [syncing, setSyncing] = useState(false)
+
+  async function handleSync() {
+    if (!onSync || syncing) return
+    setSyncing(true)
+    try { await onSync() } finally { setSyncing(false) }
+  }
 
   const filtered = conversations.filter((c) => {
     const matchesSearch =
@@ -28,9 +37,9 @@ export function ChatListView({ conversations, loading, onSelectConversation }: P
 
   return (
     <div className="flex flex-col h-full">
-      {/* Search */}
-      <div className="px-3 py-2 border-b border-border">
-        <div className="relative">
+      {/* Search + sync */}
+      <div className="px-3 py-2 border-b border-border flex gap-2">
+        <div className="relative flex-1">
           <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-muted-foreground" />
           <Input
             value={search}
@@ -39,6 +48,11 @@ export function ChatListView({ conversations, loading, onSelectConversation }: P
             className="pl-8 h-8 text-xs"
           />
         </div>
+        {onSync && (
+          <Button size="icon" variant="ghost" className="h-8 w-8 flex-shrink-0" onClick={handleSync} disabled={syncing} title="Sync from WATI">
+            <RefreshCw className={`h-3.5 w-3.5 ${syncing ? 'animate-spin' : ''}`} />
+          </Button>
+        )}
       </div>
 
       {/* Filter tabs */}
