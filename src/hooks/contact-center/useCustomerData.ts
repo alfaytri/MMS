@@ -5,6 +5,8 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { createClient } from '@/lib/supabase/client'
 import { normalisePhone, tryNormalisePhone } from '@/lib/contact-center/normalise-phone'
 import type { CrmMode, UnknownCallerStep, CustomerBlock } from '@/types/contact-center'
+import type { InstalledProduct } from '@/types/orders'
+export type { InstalledProduct }
 
 export interface ServiceCustomer {
   id: string
@@ -24,15 +26,6 @@ export interface CustomerPhone {
   is_primary: boolean
 }
 
-export interface InstalledProduct {
-  id: string
-  customer_id: string
-  product_name: string
-  brand: string | null
-  model: string | null
-  warranty_expires_at: string | null
-  installed_at: string | null
-}
 
 export function useCustomerData(customerId: string | null) {
   const supabase = createClient()

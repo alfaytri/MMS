@@ -1,14 +1,15 @@
 'use client'
 
-import { useEffect, useRef } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { Loader2, Check, CheckCheck, RefreshCw, ChevronUp } from 'lucide-react'
-import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { AttachmentRenderer } from './AttachmentRenderer'
 import type { ChatMessage } from '@/types/contact-center'
 import type { useChatMessages } from '@/hooks/contact-center/useChatMessages'
 
 type ChatMessagesReturn = ReturnType<typeof useChatMessages>
+
+const QUICK_EMOJIS = ['👍', '❤️', '😂', '😮', '😢', '🙏']
 
 interface Props {
   messages: ChatMessage[]
@@ -18,6 +19,7 @@ interface Props {
   onLoadMore?: () => void
   phone: string
   chatMessages: ChatMessagesReturn
+  onReact?: (messageId: string, externalId: string | null, emoji: string) => void
 }
 
 function DeliveryTick({ status }: { status: ChatMessage['delivery_status'] }) {
@@ -28,10 +30,54 @@ function DeliveryTick({ status }: { status: ChatMessage['delivery_status'] }) {
   return null
 }
 
-export function ChatSection({ messages, loading, fetchingWati, canLoadMore, onLoadMore, phone, chatMessages }: Props) {
-  const bottomRef = useRef<HTMLDivElement>(null)
-  const scrollRef = useRef<HTMLDivElement>(null)
+function ReactionBubbles({ reactions }: { reactions: ChatMessage['reactions'] }) {
+  if (!reactions || reactions.length === 0) return null
+
+  // Count by emoji
+  const counts = new Map<string, number>()
+  for (const r of reactions) {
+    counts.set(r.emoji, (counts.get(r.emoji) ?? 0) + 1)
+  }
+
+  return (
+    <div className="flex flex-wrap gap-0.5 mt-1">
+      {Array.from(counts.entries()).map(([emoji, count]) => (
+        <span
+          key={emoji}
+          className="inline-flex items-center gap-0.5 bg-muted border border-border rounded-full px-1.5 py-0.5 text-xs leading-none"
+        >
+          {emoji}
+          {count > 1 && <span className="text-muted-foreground text-xs">{count}</span>}
+        </span>
+      ))}
+    </div>
+  )
+}
+
+function EmojiPicker({ onPick, onClose }: { onPick: (e: string) => void; onClose: () => void }) {
+  return (
+    <div
+      className="absolute z-50 flex gap-0.5 bg-popover border border-border rounded-full shadow-md px-2 py-1 -top-9"
+      onMouseLeave={onClose}
+    >
+      {QUICK_EMOJIS.map((e) => (
+        <button
+          key={e}
+          className="text-base hover:scale-125 transition-transform leading-none p-0.5"
+          onClick={() => { onPick(e); onClose() }}
+        >
+          {e}
+        </button>
+      ))}
+    </div>
+  )
+}
+
+export function ChatSection({ messages, loading, fetchingWati, canLoadMore, onLoadMore, phone, chatMessages, onReact }: Props) {
+  const bottomRef     = useRef<HTMLDivElement>(null)
+  const scrollRef     = useRef<HTMLDivElement>(null)
   const userScrolledUp = useRef(false)
+  const [pickerFor, setPickerFor] = useState<string | null>(null)
 
   useEffect(() => {
     const el = scrollRef.current
@@ -64,7 +110,7 @@ export function ChatSection({ messages, loading, fetchingWati, canLoadMore, onLo
       onScroll={handleScroll}
       className="flex-1 overflow-y-auto px-2 py-2 overscroll-contain"
     >
-      {/* Load more older messages */}
+      {/* Load older messages */}
       {canLoadMore && onLoadMore && (
         <div className="flex justify-center mb-2">
           <Button
@@ -76,8 +122,7 @@ export function ChatSection({ messages, loading, fetchingWati, canLoadMore, onLo
           >
             {fetchingWati
               ? <><Loader2 className="h-3 w-3 animate-spin" /> Loading older…</>
-              : <><ChevronUp className="h-3 w-3" /> Load older messages</>
-            }
+              : <><ChevronUp className="h-3 w-3" /> Load older messages</>}
           </Button>
         </div>
       )}
@@ -94,27 +139,47 @@ export function ChatSection({ messages, loading, fetchingWati, canLoadMore, onLo
         {messages.map((msg) => {
           const isAgent = msg.from_type === 'agent'
           return (
-            <div key={msg.id} className={`flex ${isAgent ? 'justify-end' : 'justify-start'}`}>
+            <div
+              key={msg.id}
+              className={`flex ${isAgent ? 'justify-end' : 'justify-start'}`}
+              onMouseLeave={() => setPickerFor(null)}
+            >
               <div className={`max-w-[85%] flex flex-col ${isAgent ? 'items-end' : 'items-start'}`}>
                 <span className="text-xs text-muted-foreground mb-0.5">
                   {isAgent ? (msg.agent_name ?? 'Agent') : phone}
                 </span>
 
-                <div className={`rounded-lg px-2.5 py-1.5 text-xs ${
-                  isAgent ? 'bg-primary text-primary-foreground' : 'bg-muted text-foreground'
-                }`}>
-                  {msg.text && (
-                    <span dir="auto" className="whitespace-pre-wrap break-words">
-                      {msg.text}
-                    </span>
+                {/* Bubble + emoji picker trigger */}
+                <div className="relative group">
+                  {pickerFor === msg.id && onReact && (
+                    <EmojiPicker
+                      onPick={(emoji) => onReact(msg.id, msg.external_id, emoji)}
+                      onClose={() => setPickerFor(null)}
+                    />
                   )}
-                  {msg.attachments?.map((att, i) => (
-                    <AttachmentRenderer key={i} url={att.url} type={att.type} name={att.name} />
-                  ))}
-                  {!isAgent && msg.source === 'whatsapp_api' && (
-                    <Badge variant="secondary" className="ml-1.5 text-xs py-0 px-1 align-middle">WA</Badge>
-                  )}
+
+                  <div
+                    className={`rounded-lg px-2.5 py-1.5 text-xs cursor-default select-text ${
+                      isAgent ? 'bg-primary text-primary-foreground' : 'bg-muted text-foreground'
+                    }`}
+                    onMouseEnter={() => setPickerFor(msg.id)}
+                  >
+                    {msg.text && msg.text !== '' && !/^\[.+\]$/.test(msg.text) && (
+                      <span dir="auto" className="whitespace-pre-wrap break-words">
+                        {msg.text}
+                      </span>
+                    )}
+                    {msg.text && /^\[.+\]$/.test(msg.text) && (
+                      <span className="italic text-xs opacity-70">{msg.text}</span>
+                    )}
+                    {msg.attachments?.map((att, i) => (
+                      <AttachmentRenderer key={i} url={att.url} type={att.type} name={att.name} />
+                    ))}
+                  </div>
                 </div>
+
+                {/* Reactions */}
+                <ReactionBubbles reactions={msg.reactions ?? []} />
 
                 <div className="flex items-center gap-1 mt-0.5">
                   <span className="text-xs text-muted-foreground">

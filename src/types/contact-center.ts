@@ -26,6 +26,11 @@ export interface ChatAttachment {
   url: string
 }
 
+export interface ChatReaction {
+  emoji: string
+  from_type: 'customer' | 'agent'
+}
+
 export interface ChatMessage {
   id: string
   conversation_id: string
@@ -34,6 +39,7 @@ export interface ChatMessage {
   text: string | null
   agent_name: string | null
   attachments: ChatAttachment[] | null
+  reactions: ChatReaction[]
   delivery_status: DeliveryStatus
   external_id: string | null
   reply_to_external_id: string | null

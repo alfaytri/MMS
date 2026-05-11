@@ -175,6 +175,20 @@ export function useChatMessages(patchMessage: (id: string, patch: Partial<ChatMe
     }
   }, [templates.length, supabase])
 
+  const reactToMessage = useCallback(async (messageId: string, emoji: string) => {
+    // Optimistic: read existing reactions, append, update
+    const { data: row } = await (supabase as any)
+      .from('chat_messages').select('reactions').eq('id', messageId).single()
+    const existing: { emoji: string; from_type: string }[] = row?.reactions ?? []
+    // Toggle: remove if same agent reaction exists, otherwise add
+    const hasIt = existing.some((r) => r.emoji === emoji && r.from_type === 'agent')
+    const updated = hasIt
+      ? existing.filter((r) => !(r.emoji === emoji && r.from_type === 'agent'))
+      : [...existing, { emoji, from_type: 'agent' }]
+    await (supabase as any).from('chat_messages').update({ reactions: updated }).eq('id', messageId)
+    patchMessage(messageId, { reactions: updated } as any)
+  }, [supabase, patchMessage])
+
   const retryMessage = useCallback(async (message: ChatMessage, phone: string) => {
     if (!message.text) return
     patchMessage(message.id, { delivery_status: 'sending' })
@@ -205,5 +219,6 @@ export function useChatMessages(patchMessage: (id: string, patch: Partial<ChatMe
     sendTemplate,
     loadTemplates,
     retryMessage,
+    reactToMessage,
   }
 }

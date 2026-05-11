@@ -96,38 +96,39 @@ export async function GET(req: NextRequest) {
     return NextResponse.json({ fetched: 0 })
   }
 
-  // Build rows — filter out items without an ID (can't dedup without it)
-  const rows = allItems
-    .filter((item) => item.id)
-    .map((item) => {
-      const isAgent = item.owner === true || item.eventType === 'message_sent'
-      const ts = item.created
-        ? new Date(item.created).toISOString()
-        : item.timestamp
-        ? new Date(item.timestamp * 1000).toISOString()
-        : new Date().toISOString()
+  // Separate reaction items from regular messages
+  const reactionItems = allItems.filter((item) => item.type === 'reaction' && item.reactionMessage)
+  const messageItems  = allItems.filter((item) => item.type !== 'reaction' && item.id)
 
-      // text is NOT NULL in DB — use empty string for media-only messages
-      const text = typeof item.text === 'string' && item.text.trim()
-        ? item.text.trim()
-        : item.type && item.type !== 'text'
-        ? `[${item.type}]`
-        : ''
+  // Build message rows
+  const rows = messageItems.map((item) => {
+    const isAgent = item.owner === true || item.eventType === 'message_sent'
+    const ts = item.created
+      ? new Date(item.created).toISOString()
+      : item.timestamp
+      ? new Date(item.timestamp * 1000).toISOString()
+      : new Date().toISOString()
 
-      return {
-        conversation_id: conversationId,
-        from_type:       isAgent ? 'agent' : 'customer',
-        source:          'whatsapp_api',
-        text,
-        agent_name:      isAgent ? (item.senderName ?? null) : null,
-        delivery_status: isAgent ? normaliseStatus(item.statusString) : 'delivered',
-        external_id:     String(item.id),
-        created_at:      ts,
-      }
-    })
+    // text is NOT NULL in DB — use label for media-only messages
+    const text = typeof item.text === 'string' && item.text.trim()
+      ? item.text.trim()
+      : item.type && item.type !== 'text'
+      ? `[${item.type}]`
+      : ''
 
-  // Insert new rows only — ignoreDuplicates generates ON CONFLICT DO NOTHING
-  // which works with the partial unique index on external_id
+    return {
+      conversation_id: conversationId,
+      from_type:       isAgent ? 'agent' : 'customer',
+      source:          'whatsapp_api',
+      text,
+      agent_name:      isAgent ? (item.senderName ?? null) : null,
+      delivery_status: isAgent ? normaliseStatus(item.statusString) : 'delivered',
+      external_id:     String(item.id),
+      created_at:      ts,
+    }
+  })
+
+  // Insert new messages — ignoreDuplicates → ON CONFLICT DO NOTHING
   const CHUNK = 200
   let inserted = 0
   for (let i = 0; i < rows.length; i += CHUNK) {
@@ -138,6 +139,28 @@ export async function GET(req: NextRequest) {
       return NextResponse.json({ error: error.message }, { status: 500 })
     }
     inserted += rows.slice(i, i + CHUNK).length
+  }
+
+  // Apply reactions to target messages
+  // Group by target external_id: { externalId → [{ emoji, from_type }] }
+  if (reactionItems.length > 0) {
+    const reactionsByTarget = new Map<string, { emoji: string; from_type: string }[]>()
+    for (const item of reactionItems) {
+      const targetId = item.reactionMessage?.key?.id
+      const emoji    = item.reactionMessage?.text
+      if (!targetId || !emoji) continue
+      const isAgent  = item.owner === true || item.eventType === 'message_sent'
+      const list = reactionsByTarget.get(String(targetId)) ?? []
+      list.push({ emoji, from_type: isAgent ? 'agent' : 'customer' })
+      reactionsByTarget.set(String(targetId), list)
+    }
+
+    for (const [targetExternalId, reactions] of reactionsByTarget) {
+      await (supabase.from('chat_messages') as any)
+        .update({ reactions })
+        .eq('external_id', targetExternalId)
+        .eq('conversation_id', conversationId)
+    }
   }
 
   return NextResponse.json({ fetched: inserted })

@@ -18,7 +18,7 @@ export function useLiveThread(conversationId: string | null, phone: string | nul
       .from('chat_messages')
       .select(`
         id, conversation_id, from_type, source,
-        text, agent_name, attachments,
+        text, agent_name, attachments, reactions,
         delivery_status, external_id, reply_to_external_id,
         sent_by_profile_id, created_at,
         profiles!sent_by_profile_id(full_name)

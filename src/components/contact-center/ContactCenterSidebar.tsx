@@ -144,6 +144,7 @@ export function ContactCenterSidebar() {
           onLoadMore={loadMore}
           phone={activePhone ?? ''}
           chatMessages={chatMessages}
+          onReact={(msgId, _extId, emoji) => chatMessages.reactToMessage(msgId, emoji)}
         />
         {activeConversationId && activePhone && (
           <ChatInputBar
