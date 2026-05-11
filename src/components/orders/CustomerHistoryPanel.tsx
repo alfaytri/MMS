@@ -37,9 +37,9 @@ function useCustomerQuotations(customerId: string | null) {
     enabled: !!customerId,
     queryFn: async () => {
       const supabase = createClient()
-      const { data, error } = await (supabase as any)
+      const { data, error } = await supabase
         .from('quotations')
-        .select('id, quotation_id, status, total_amount, created_date, division')
+        .select('id, quotation_id, status, total_amount')
         .eq('customer_id', customerId)
         .order('created_at', { ascending: false })
         .limit(10)
@@ -65,7 +65,7 @@ export function CustomerHistoryPanel({ customerId, onViewOrder, onCreateBackwork
   const month = activeMonth.getMonth() + 1
 
   const { orders, products } = useCustomerHistory(customerId, year, month, orderPage, productPage, PAGE_SIZE)
-  const { data: customerQuotations } = useCustomerQuotations(customerId)
+  const { data: customerQuotations, isLoading: quotationsLoading } = useCustomerQuotations(customerId)
 
   const orderItems = orders.data?.data ?? []
   const orderCount = orders.data?.count ?? 0
@@ -267,11 +267,13 @@ export function CustomerHistoryPanel({ customerId, onViewOrder, onCreateBackwork
           </div>
 
           {/* Quotations */}
-          <div className="border-t">
-            <p className="px-4 py-2 text-[11px] font-semibold uppercase tracking-wide text-slate-400">
-              Quotations
-            </p>
-            {(!customerQuotations || customerQuotations.length === 0) ? (
+          <div className="border-t p-3">
+            <div className="mb-2 flex items-center justify-between">
+              <span className="text-xs font-semibold uppercase tracking-wide text-slate-500">Quotations</span>
+            </div>
+            {quotationsLoading ? (
+              <p className="px-4 py-2 text-xs text-slate-400">Loading…</p>
+            ) : (!customerQuotations || customerQuotations.length === 0) ? (
               <p className="px-4 py-2 text-xs text-slate-400">No quotations yet</p>
             ) : (
               customerQuotations.map((q: any) => (
