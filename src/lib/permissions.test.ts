@@ -68,3 +68,13 @@ it('includes calendar permission group with required keys', () => {
   expect(keys).toContain('calendar.edit-order')
   expect(keys).toContain('calendar.swap-teams')
 })
+
+it('includes contact_centre.view permission', () => {
+  expect(ALL_PERMISSIONS).toContain('contact_centre.view')
+})
+
+it('includes Contact Centre permission group', () => {
+  const group = PERMISSION_GROUPS.find(g => g.module === 'Contact Centre')
+  expect(group).toBeDefined()
+  expect(group!.permissions.map(p => p.key)).toContain('contact_centre.view')
+})
