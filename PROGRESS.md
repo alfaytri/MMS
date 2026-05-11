@@ -157,9 +157,11 @@ Purchase & Sales▾:
 
 ## 🔄 In Progress
 
-🚀 Starting: **Contact Centre Phase 1 Task 4: Wati Template API Route**
+🚀 Starting: **Contact Centre Phase 1 Task 6: CRM Sidebar UI Shell**
 
 ## ✅ Completed
+
+- [2026-05-11] **Contact Centre Phase 1 Task 5: webhook-wati Edge Function** — `supabase/functions/webhook-wati/index.ts`, `supabase/config.toml` — Created Edge Function handling WATI inbound/outbound/status events with HMAC-SHA256 signature verification (x-wati-signature), phone normalisation for Qatar formats (+974XXXXXXXX canonical), event classification (inbound/outbound/status), conversation upsert with last_message tracking, customer lookup via service_customer_phones, unread count increment on inbound, message insert with external_id tracking (wati_messageId), attachment URL/type/name support, delivery_status mapping (sent→delivered→read→failed), ghost-outbound fix via 23505 unique violation catch; verify_jwt = false in config.toml; zero TypeScript errors
 
 - [2026-05-11] **Contact Centre Phase 1 Task 3: TypeScript Types File** — `src/types/contact-center.ts` — Created comprehensive TypeScript types for Contact Centre module including DeliveryStatus, ConversationType, CrmMode, UnknownCallerStep, SidebarView type aliases; ChatConversation and ChatMessage interfaces with joined customer/agent name fields; WatiTemplate types (WatiTemplateParam, WatiTemplateComponent, WatiTemplate) for template structure; WindowStatus for conversation window tracking; SelectedCustomer for form state; CustomerBlock for blocking management; all types validate cleanly with tsc
 
