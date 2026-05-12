@@ -97,15 +97,25 @@ export function useLiveThread(conversationId: string | null, phone: string | nul
         { event: '*', schema: 'public', table: 'chat_messages', filter: `conversation_id=eq.${conversationId}` },
         async (payload) => {
           if (cancelledRef.current) return
+          const incoming = {
+            ...(payload.new as ChatMessage),
+            reactions: (payload.new as any).reactions ?? [],
+          } as ChatMessage
+
           if (payload.eventType === 'INSERT') {
             setMessages((prev) => {
-              if (prev.some((m) => m.id === (payload.new as ChatMessage).id)) return prev
-              return [...prev, payload.new as ChatMessage]
+              if (prev.some((m) => m.id === incoming.id)) return prev
+              return [...prev, incoming]
             })
           } else if (payload.eventType === 'UPDATE') {
-            setMessages((prev) =>
-              prev.map((m) => (m.id === (payload.new as ChatMessage).id ? { ...m, ...payload.new } : m))
-            )
+            setMessages((prev) => {
+              const idx = prev.findIndex((m) => m.id === incoming.id)
+              if (idx === -1) {
+                // Missed the INSERT (e.g. network blip) — append the row
+                return [...prev, incoming]
+              }
+              return prev.map((m) => (m.id === incoming.id ? { ...m, ...incoming } : m))
+            })
           }
         }
       )

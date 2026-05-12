@@ -2,7 +2,7 @@
 
 import { useEffect, useRef, useState } from 'react'
 import { createPortal } from 'react-dom'
-import { Loader2, Check, CheckCheck, RefreshCw, ChevronUp } from 'lucide-react'
+import { Loader2, Check, CheckCheck, RefreshCw, ChevronUp, ChevronDown } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { AttachmentRenderer } from './AttachmentRenderer'
 import type { ChatMessage } from '@/types/contact-center'
@@ -86,7 +86,9 @@ export function ChatSection({ messages, loading, fetchingWati, canLoadMore, onLo
   const scrollRef      = useRef<HTMLDivElement>(null)
   const userScrolledUp = useRef(false)
   const closeTimer     = useRef<ReturnType<typeof setTimeout> | null>(null)
-  const [pickerFor, setPickerFor] = useState<{ id: string; msg: ChatMessage; x: number; y: number } | null>(null)
+  const [pickerFor, setPickerFor]   = useState<{ id: string; msg: ChatMessage; x: number; y: number } | null>(null)
+  const [newMsgCount, setNewMsgCount] = useState(0)
+  const prevMsgCount = useRef(0)
 
   function openPicker(msg: ChatMessage, el: HTMLElement) {
     if (closeTimer.current) clearTimeout(closeTimer.current)
@@ -104,8 +106,15 @@ export function ChatSection({ messages, loading, fetchingWati, canLoadMore, onLo
     const el = scrollRef.current
     if (!el) return
     const isNearBottom = el.scrollHeight - el.scrollTop - el.clientHeight < 80
-    if (isNearBottom || !userScrolledUp.current) {
+    const added = messages.length - prevMsgCount.current
+    prevMsgCount.current = messages.length
+
+    if (!userScrolledUp.current || isNearBottom) {
       bottomRef.current?.scrollIntoView({ behavior: 'smooth' })
+      setNewMsgCount(0)
+    } else if (added > 0) {
+      // New message arrived while user is scrolled up — show badge
+      setNewMsgCount((n) => n + added)
     }
   }, [messages])
 
@@ -114,6 +123,12 @@ export function ChatSection({ messages, loading, fetchingWati, canLoadMore, onLo
     if (!el) return
     const isNearBottom = el.scrollHeight - el.scrollTop - el.clientHeight < 80
     userScrolledUp.current = !isNearBottom
+    if (isNearBottom) setNewMsgCount(0)
+  }
+
+  function scrollToBottom() {
+    bottomRef.current?.scrollIntoView({ behavior: 'smooth' })
+    setNewMsgCount(0)
   }
 
   if (loading) {
@@ -129,7 +144,7 @@ export function ChatSection({ messages, loading, fetchingWati, canLoadMore, onLo
     <div
       ref={scrollRef}
       onScroll={handleScroll}
-      className="flex-1 overflow-y-auto px-2 py-2 overscroll-contain"
+      className="relative flex-1 overflow-y-auto px-2 py-2 overscroll-contain"
     >
       {/* Load older messages */}
       {canLoadMore && onLoadMore && (
@@ -244,6 +259,17 @@ export function ChatSection({ messages, loading, fetchingWati, canLoadMore, onLo
         })}
       </div>
       <div ref={bottomRef} />
+
+      {/* Scroll-to-bottom badge when user is scrolled up and new messages arrive */}
+      {newMsgCount > 0 && (
+        <button
+          onClick={scrollToBottom}
+          className="absolute bottom-2 left-1/2 -translate-x-1/2 flex items-center gap-1 bg-primary text-primary-foreground text-xs rounded-full px-3 py-1 shadow-md hover:opacity-90 transition-opacity z-10"
+        >
+          <ChevronDown className="h-3 w-3" />
+          {newMsgCount} new message{newMsgCount > 1 ? 's' : ''}
+        </button>
+      )}
 
       {/* Portal picker — renders at document.body so it's above every stacking context */}
       {pickerFor && onReact && (

@@ -160,10 +160,19 @@ export async function POST(req: NextRequest) {
   }
 
   // ── Customer reaction ────────────────────────────────────────────────────────
-  if (body.type === 'reaction' && body.reactionMessage) {
-    const targetExternalId: string | null = body.reactionMessage?.key?.id ?? null
-    const emoji: string | null = body.reactionMessage?.text ?? null
-    if (targetExternalId && emoji) {
+  // Wati sends reactions in two possible shapes:
+  //   • body.reaction.messageId / body.reaction.emoji   (newer Wati / Cloud API style)
+  //   • body.reactionMessage.key.id / body.reactionMessage.text  (older style)
+  const isReaction = body.type === 'reaction' && (body.reaction || body.reactionMessage)
+  if (isReaction) {
+    const targetExternalId: string | null =
+      body.reaction?.messageId ??
+      body.reactionMessage?.key?.id ?? null
+    const emoji: string | null =
+      body.reaction?.emoji ??
+      body.reactionMessage?.text ?? null
+
+    if (targetExternalId) {
       // Check both raw id and wati_-prefixed id (agent-sent messages use prefix)
       const { data: targetRow } = await (supabase.from('chat_messages') as any)
         .select('id, reactions')
@@ -171,13 +180,22 @@ export async function POST(req: NextRequest) {
         .maybeSingle()
       if (targetRow) {
         const existing: { emoji: string; from_type: string }[] = targetRow.reactions ?? []
-        const hasIt = existing.some((r) => r.emoji === emoji && r.from_type === 'customer')
-        const updated = hasIt
-          ? existing.filter((r) => !(r.emoji === emoji && r.from_type === 'customer'))
-          : [...existing, { emoji, from_type: 'customer' }]
-        await (supabase.from('chat_messages') as any)
-          .update({ reactions: updated })
-          .eq('id', targetRow.id)
+        if (emoji) {
+          // Add or toggle reaction
+          const hasIt = existing.some((r) => r.emoji === emoji && r.from_type === 'customer')
+          const updated = hasIt
+            ? existing.filter((r) => !(r.emoji === emoji && r.from_type === 'customer'))
+            : [...existing, { emoji, from_type: 'customer' }]
+          await (supabase.from('chat_messages') as any)
+            .update({ reactions: updated })
+            .eq('id', targetRow.id)
+        } else {
+          // Empty emoji = customer removed all reactions on this message
+          const updated = existing.filter((r) => r.from_type !== 'customer')
+          await (supabase.from('chat_messages') as any)
+            .update({ reactions: updated })
+            .eq('id', targetRow.id)
+        }
       }
     }
     return NextResponse.json({ ok: true })
