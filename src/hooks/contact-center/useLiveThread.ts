@@ -10,8 +10,9 @@ export function useLiveThread(conversationId: string | null, phone: string | nul
   const [fetchingWati, setFetchingWati] = useState(false)
   const [canLoadMore, setCanLoadMore]   = useState(false)
   const [loadedDays, setLoadedDays]     = useState(10)
-  const supabase   = createClient()
-  const cancelledRef = useRef(false)
+  const supabase      = createClient()
+  const cancelledRef  = useRef(false)
+  const convIdRef     = useRef<string | null>(null)   // stable ref so event listeners can read it
 
   const loadFromDb = useCallback(async (convId: string) => {
     const { data, error } = await (supabase as any)
@@ -34,12 +35,12 @@ export function useLiveThread(conversationId: string | null, phone: string | nul
     }
     return (data as any[]).map((row) => ({
       ...row,
-      reactions: row.reactions ?? [],
+      reactions:  row.reactions ?? [],
       agent_name: row.profiles?.full_name ?? row.agent_name ?? null,
     })) as ChatMessage[]
   }, [])
 
-  // Fetch only recent messages (last 24h) for the periodic poll — always captures newest
+  // Fetch only the last 24 h — always captures the newest messages regardless of volume
   const pollFromDb = useCallback(async (convId: string) => {
     const since = new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString()
     const { data, error } = await (supabase as any)
@@ -62,10 +63,42 @@ export function useLiveThread(conversationId: string | null, phone: string | nul
     }
     return (data as any[]).map((row) => ({
       ...row,
-      reactions: row.reactions ?? [],
+      reactions:  row.reactions ?? [],
       agent_name: row.profiles?.full_name ?? row.agent_name ?? null,
     })) as ChatMessage[]
   }, [])
+
+  // Shared merge: adds missed messages AND syncs reactions/delivery_status on existing ones
+  function applyPoll(prev: ChatMessage[], recent: ChatMessage[]): ChatMessage[] {
+    let changed = false
+    const merged = prev.map((m) => {
+      const updated = recent.find((r) => r.id === m.id)
+      if (!updated) return m
+      const reactionsChanged   = JSON.stringify(updated.reactions)      !== JSON.stringify(m.reactions)
+      const statusChanged      = updated.delivery_status                !== m.delivery_status
+      const externalIdChanged  = updated.external_id                    !== m.external_id
+      if (reactionsChanged || statusChanged || externalIdChanged) {
+        changed = true
+        return { ...m, reactions: updated.reactions, delivery_status: updated.delivery_status, external_id: updated.external_id }
+      }
+      return m
+    })
+    const existingIds = new Set(prev.map((m) => m.id))
+    const missed      = recent.filter((r) => !existingIds.has(r.id))
+    if (missed.length === 0 && !changed) return prev
+    return [...merged, ...missed].sort(
+      (a, b) => new Date(a.created_at).getTime() - new Date(b.created_at).getTime()
+    )
+  }
+
+  // Trigger an immediate poll (used by visibility/online/realtime-error handlers)
+  const triggerPoll = useCallback(async () => {
+    const convId = convIdRef.current
+    if (!convId || cancelledRef.current) return
+    const recent = await pollFromDb(convId)
+    if (cancelledRef.current) return
+    setMessages((prev) => applyPoll(prev, recent))
+  }, [pollFromDb])
 
   const fetchFromWati = useCallback(async (convId: string, ph: string, days: number) => {
     if (!ph) return
@@ -83,6 +116,8 @@ export function useLiveThread(conversationId: string | null, phone: string | nul
   }, [])
 
   useEffect(() => {
+    convIdRef.current = conversationId
+
     if (!conversationId) {
       setMessages([])
       setLoading(false)
@@ -102,7 +137,6 @@ export function useLiveThread(conversationId: string | null, phone: string | nul
         setCanLoadMore(true)
         setLoading(false)
       } else if (phone) {
-        // No local messages — fetch 10 days from WATI then reload
         await fetchFromWati(conversationId!, phone, 10)
         if (cancelledRef.current) return
         const fresh = await loadFromDb(conversationId!)
@@ -119,6 +153,7 @@ export function useLiveThread(conversationId: string | null, phone: string | nul
 
     init()
 
+    // ── Realtime subscription ────────────────────────────────────────────────
     const channel = supabase
       .channel(`thread-${conversationId}`)
       .on(
@@ -139,64 +174,56 @@ export function useLiveThread(conversationId: string | null, phone: string | nul
           } else if (payload.eventType === 'UPDATE') {
             setMessages((prev) => {
               const idx = prev.findIndex((m) => m.id === incoming.id)
-              if (idx === -1) {
-                // Missed the INSERT (e.g. network blip) — append the row
-                return [...prev, incoming]
-              }
+              if (idx === -1) return [...prev, incoming]   // missed INSERT — append
               return prev.map((m) => (m.id === incoming.id ? { ...m, ...incoming } : m))
             })
           }
         }
       )
+      .on('system' as any, {}, (status: any) => {
+        // When the WebSocket drops or reconnects, trigger an immediate poll
+        // so we catch anything missed during the outage gap
+        if (status === 'CHANNEL_ERROR' || status === 'TIMED_OUT' || status === 'CLOSED') {
+          console.warn('[useLiveThread] Realtime disconnected — polling immediately', status)
+          triggerPoll()
+        }
+      })
       .subscribe()
 
-    // Periodic fallback: re-sync recent messages every 10 s
-    // Adds missed messages AND updates reactions/delivery_status on existing rows
-    const poll = setInterval(async () => {
-      if (cancelledRef.current) return
-      const recent = await pollFromDb(conversationId!)
-      if (cancelledRef.current) return
-      setMessages((prev) => {
-        const prevMap = new Map(prev.map((m) => [m.id, m]))
-        let changed = false
-        const merged = prev.map((m) => {
-          const updated = prevMap.has(m.id) ? recent.find((r) => r.id === m.id) : undefined
-          if (!updated) return m
-          const reactionsChanged = JSON.stringify(updated.reactions) !== JSON.stringify(m.reactions)
-          const statusChanged = updated.delivery_status !== m.delivery_status
-          if (reactionsChanged || statusChanged) {
-            changed = true
-            return { ...m, reactions: updated.reactions, delivery_status: updated.delivery_status }
-          }
-          return m
-        })
-        const existingIds = new Set(prev.map((m) => m.id))
-        const missed = recent.filter((r) => !existingIds.has(r.id))
-        if (missed.length === 0 && !changed) return prev
-        const combined = [...merged, ...missed].sort(
-          (a, b) => new Date(a.created_at).getTime() - new Date(b.created_at).getTime()
-        )
-        return combined
-      })
-    }, 10_000)
+    // ── Periodic fallback: every 5 s ─────────────────────────────────────────
+    const poll = setInterval(triggerPoll, 5_000)
+
+    // ── Immediate poll when tab becomes visible again ─────────────────────────
+    function handleVisibility() {
+      if (!document.hidden) triggerPoll()
+    }
+
+    // ── Immediate poll when network comes back online ─────────────────────────
+    function handleOnline() {
+      triggerPoll()
+    }
+
+    document.addEventListener('visibilitychange', handleVisibility)
+    window.addEventListener('online', handleOnline)
 
     return () => {
       cancelledRef.current = true
       clearInterval(poll)
       supabase.removeChannel(channel)
+      document.removeEventListener('visibilitychange', handleVisibility)
+      window.removeEventListener('online', handleOnline)
     }
   }, [conversationId, phone])
 
   async function loadMore() {
     if (!conversationId || !phone || fetchingWati) return
     const previousDays = loadedDays
-    const moreDays = loadedDays + 20
+    const moreDays     = loadedDays + 20
     setLoadedDays(moreDays)
 
     await fetchFromWati(conversationId, phone, moreDays)
     if (cancelledRef.current) return
 
-    // Only load messages in the newly-added date window and prepend them
     const olderCutoff = new Date(Date.now() - moreDays     * 24 * 60 * 60 * 1000).toISOString()
     const newerCutoff = new Date(Date.now() - previousDays * 24 * 60 * 60 * 1000).toISOString()
 
@@ -211,19 +238,20 @@ export function useLiveThread(conversationId: string | null, phone: string | nul
       `)
       .eq('conversation_id', conversationId)
       .gte('created_at', olderCutoff)
-      .lt('created_at', newerCutoff)
+      .lt('created_at',  newerCutoff)
       .order('created_at', { ascending: true })
       .limit(500)
 
     if (cancelledRef.current || !data) return
     const older = (data as any[]).map((row) => ({
       ...row,
+      reactions:  row.reactions ?? [],
       agent_name: row.profiles?.full_name ?? row.agent_name ?? null,
     })) as ChatMessage[]
 
     setMessages((prev) => {
       const existingIds = new Set(prev.map((m) => m.id))
-      const newOlder = older.filter((m) => !existingIds.has(m.id))
+      const newOlder    = older.filter((m) => !existingIds.has(m.id))
       return [...newOlder, ...prev]
     })
     setCanLoadMore(older.length > 0)
