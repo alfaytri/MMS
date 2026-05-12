@@ -3,12 +3,19 @@
 import { createContext, useContext, useMemo, useState, useCallback, type ReactNode } from 'react'
 import type { SelectedCustomer } from '@/types/contact-center'
 
+// 'none'      — user has no CC permission, sidebar is hidden
+// 'collapsed' — sidebar shows as a 40 px strip
+// 'expanded'  — sidebar shows at full 320 px width
+export type CCSidebarState = 'none' | 'collapsed' | 'expanded'
+
 interface ContactCenterContextValue {
   selectedCustomer: SelectedCustomer | null
   openCustomerById: (customerId: string, customerName: string, primaryPhone: string, conversationId?: string | null) => void
   openCustomerByPhone: (phone: string) => void
   clearSelectedCustomer: () => void
   pendingPhone: string | null
+  ccSidebar: CCSidebarState
+  setCcSidebar: (state: CCSidebarState) => void
 }
 
 const ContactCenterContext = createContext<ContactCenterContextValue | null>(null)
@@ -16,6 +23,7 @@ const ContactCenterContext = createContext<ContactCenterContextValue | null>(nul
 export function ContactCenterProvider({ children }: { children: ReactNode }) {
   const [selectedCustomer, setSelectedCustomer] = useState<SelectedCustomer | null>(null)
   const [pendingPhone, setPendingPhone] = useState<string | null>(null)
+  const [ccSidebar, setCcSidebar] = useState<CCSidebarState>('none')
 
   const openCustomerById = useCallback(
     (customerId: string, customerName: string, primaryPhone: string, conversationId: string | null = null) => {
@@ -36,8 +44,8 @@ export function ContactCenterProvider({ children }: { children: ReactNode }) {
   }, [])
 
   const value = useMemo(
-    () => ({ selectedCustomer, openCustomerById, openCustomerByPhone, clearSelectedCustomer, pendingPhone }),
-    [selectedCustomer, openCustomerById, openCustomerByPhone, clearSelectedCustomer, pendingPhone]
+    () => ({ selectedCustomer, openCustomerById, openCustomerByPhone, clearSelectedCustomer, pendingPhone, ccSidebar, setCcSidebar }),
+    [selectedCustomer, openCustomerById, openCustomerByPhone, clearSelectedCustomer, pendingPhone, ccSidebar]
   )
 
   return <ContactCenterContext.Provider value={value}>{children}</ContactCenterContext.Provider>

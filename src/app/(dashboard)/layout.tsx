@@ -4,6 +4,7 @@ import { InactivityGuard } from '@/components/auth/InactivityGuard'
 import { SessionGuard } from '@/components/auth/SessionGuard'
 import { ContactCenterProvider } from '@/contexts/ContactCenterContext'
 import { ContactCenterSidebarGate } from '@/components/contact-center/ContactCenterSidebarGate'
+import { DashboardMain } from '@/components/layout/DashboardMain'
 
 export default function DashboardLayout({
   children,
@@ -17,9 +18,9 @@ export default function DashboardLayout({
           <InactivityGuard />
           <RealtimeSync />
           <div className="print:hidden"><TopNav /></div>
-          <main className="flex-1 overflow-hidden flex flex-col print:overflow-visible lg:pl-80">
+          <DashboardMain>
             {children}
-          </main>
+          </DashboardMain>
           <ContactCenterSidebarGate />
         </div>
       </ContactCenterProvider>
