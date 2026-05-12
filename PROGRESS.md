@@ -161,6 +161,8 @@ Purchase & Sales▾:
 
 ## ✅ Completed
 
+- [2026-05-12] **Contact Centre: Broadcast/template events rendered as dividers** — `src/app/api/wati/fetch-messages/route.ts`, `src/app/api/wati/webhook/route.ts` — isWatiSystemEvent now catches 'broadcast'/'broadcast_sent' types and "Broadcast message with using..." content pattern; webhook stores these as message_kind='event' and skips last_message/unread updates; ChatSection already renders events as centered gray dividers so no UI change needed
+
 - [2026-05-12] **Contact Centre: Template/HSM message text and document extraction** — `src/app/api/wati/fetch-messages/route.ts`, `src/app/api/wati/webhook/route.ts` — Added extractText() / extractWebhookText() helpers covering item.text, caption, template body components, item.body, eventDescription, note; added full template/hsm block to extractAttachments() checking data.template.components header, templateHeader.document/image, header.format fallback; agent-sent PDF + text messages now display correctly instead of "📎 Attachment"
 
 - [2026-05-12] **Contact Centre: System event messages rendered as Wati-style dividers** — `supabase/migrations/20260512130000_chat_messages_kind.sql`, `src/types/contact-center.ts`, `src/hooks/contact-center/useLiveThread.ts`, `src/app/api/wati/fetch-messages/route.ts`, `src/components/contact-center/ChatSection.tsx` — Added message_kind column; Wati numeric type 1/note/activity → event kind with text from item.body; ChatSection renders events as ── System event ── dividers (not bubbles); legacy [1]/[2] rows in DB covered by regex fallback
