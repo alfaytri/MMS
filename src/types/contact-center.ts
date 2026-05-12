@@ -67,6 +67,7 @@ export interface WatiTemplate {
   bodyOriginal?: string
   components: WatiTemplateComponent[]
   variableCount: number
+  paramNames: string[]   // actual param names e.g. ['pdflink','booking_number','date']
   unsupported: boolean
 }
 

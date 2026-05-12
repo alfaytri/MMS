@@ -121,7 +121,10 @@ export function useChatMessages(patchMessage: (id: string, patch: Partial<ChatMe
     }
 
     const tempId: string = inserted.id
-    const parameters = variables.map((v, i) => ({ name: `${i + 1}`, value: v }))
+    // Use named params if available, fall back to positional for legacy templates
+    const parameters = template.paramNames.length > 0
+      ? template.paramNames.map((name, i) => ({ name, value: variables[i] ?? '' }))
+      : variables.map((v, i) => ({ name: `${i + 1}`, value: v }))
 
     try {
       const { data: fnData, error: fnErr } = await supabase.functions.invoke('api-wati', {
@@ -158,17 +161,19 @@ export function useChatMessages(patchMessage: (id: string, patch: Partial<ChatMe
       const raw: any[] = (data as any)?.messageTemplates ?? []
       const parsed: WatiTemplate[] = raw.map((t) => {
         const bodyComp = (t.components ?? []).find((c: any) => c.type === 'BODY')
-        const matches = bodyComp?.text?.match(/\{\{\d+\}\}/g) ?? []
-        const variableCount = matches.length
+        // Match both named {{paramname}} and positional {{1}} variables
+        const matches = bodyComp?.text?.match(/\{\{(\w+)\}\}/g) ?? []
+        const paramNames = matches.map((m: string) => m.replace(/\{\{|\}\}/g, ''))
         return {
-          id:             t.id ?? t.elementName,
-          elementName:    t.elementName,
-          bodyOriginal:   bodyComp?.text ?? '',
-          components:     t.components ?? [],
-          variableCount,
-          unsupported:    variableCount > 2,
+          id:           t.id ?? t.elementName,
+          elementName:  t.elementName,
+          bodyOriginal: bodyComp?.text ?? '',
+          components:   t.components ?? [],
+          variableCount: paramNames.length,
+          paramNames,
+          unsupported:  false,
         }
-      }).filter((t) => !t.unsupported)
+      })
       setTemplates(parsed)
     } finally {
       setTemplatesLoading(false)
