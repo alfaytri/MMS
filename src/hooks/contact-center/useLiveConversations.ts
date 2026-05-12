@@ -11,6 +11,11 @@ export function useLiveConversations() {
   const cancelledRef = useRef(false)
 
   const load = useCallback(async () => {
+    // Only show today + yesterday
+    const yesterdayStart = new Date()
+    yesterdayStart.setDate(yesterdayStart.getDate() - 1)
+    yesterdayStart.setHours(0, 0, 0, 0)
+
     const { data, error } = await (supabase as any)
       .from('chat_conversations')
       .select(`
@@ -19,8 +24,8 @@ export function useLiveConversations() {
         service_customers(name)
       `)
       .not('last_message_at', 'is', null)
+      .gte('last_message_at', yesterdayStart.toISOString())
       .order('last_message_at', { ascending: false, nullsFirst: false })
-      .limit(500)
 
     if (cancelledRef.current) return
 
