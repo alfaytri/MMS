@@ -221,9 +221,9 @@ export function useChatMessages(
     }
   }, [templates.length, supabase])
 
-  const reactToMessage = useCallback(async (messageId: string, emoji: string, phone?: string) => {
+  const reactToMessage = useCallback(async (messageId: string, emoji: string, _phone?: string) => {
     const { data: row } = await (supabase as any)
-      .from('chat_messages').select('reactions, external_id').eq('id', messageId).maybeSingle()
+      .from('chat_messages').select('reactions').eq('id', messageId).maybeSingle()
     const existing: { emoji: string; from_type: string }[] = row?.reactions ?? []
     const hasIt = existing.some((r) => r.emoji === emoji && r.from_type === 'agent')
     const updated = hasIt
@@ -236,17 +236,9 @@ export function useChatMessages(
       return
     }
     patchMessage(messageId, { reactions: updated } as any)
-
-    // Send the reaction to the customer via Wati (best-effort — don't throw on failure)
-    // Removing a reaction sends empty emoji per WhatsApp spec
-    const externalId: string | null = row?.external_id ?? null
-    if (phone && externalId) {
-      const rawId = externalId.startsWith('wati_') ? externalId.slice(5) : externalId
-      const sendEmoji = hasIt ? '' : emoji  // empty string = remove reaction
-      supabase.functions.invoke('api-wati', {
-        body: { action: 'send_reaction', phone, message_id: rawId, emoji: sendEmoji },
-      }).catch(() => { /* silent — local reaction already saved */ })
-    }
+    // NOTE: Wati does not expose a reaction-sending API endpoint.
+    // Agent reactions are stored in MMS only and are not forwarded to the customer's WhatsApp.
+    // Customer reactions arrive via the Wati webhook and are stored/displayed automatically.
   }, [supabase, patchMessage])
 
   const retryMessage = useCallback(async (message: ChatMessage, phone: string) => {

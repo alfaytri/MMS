@@ -34,21 +34,31 @@ function DeliveryTick({ status }: { status: ChatMessage['delivery_status'] }) {
 function ReactionBubbles({ reactions }: { reactions: ChatMessage['reactions'] }) {
   if (!reactions || reactions.length === 0) return null
 
-  // Count by emoji
-  const counts = new Map<string, number>()
+  // Group by emoji — track whether any are from customer (on WhatsApp) vs agent-only (MMS internal)
+  const groups = new Map<string, { count: number; hasCustomer: boolean; hasAgent: boolean }>()
   for (const r of reactions) {
-    counts.set(r.emoji, (counts.get(r.emoji) ?? 0) + 1)
+    const g = groups.get(r.emoji) ?? { count: 0, hasCustomer: false, hasAgent: false }
+    g.count++
+    if (r.from_type === 'customer') g.hasCustomer = true
+    else g.hasAgent = true
+    groups.set(r.emoji, g)
   }
 
   return (
     <div className="flex flex-wrap gap-0.5 mt-1">
-      {Array.from(counts.entries()).map(([emoji, count]) => (
+      {Array.from(groups.entries()).map(([emoji, g]) => (
         <span
           key={emoji}
-          className="inline-flex items-center gap-0.5 bg-muted border border-border rounded-full px-1.5 py-0.5 text-xs leading-none"
+          title={g.hasCustomer ? 'Reacted on WhatsApp' : 'MMS only — not visible to customer on WhatsApp'}
+          className={`inline-flex items-center gap-0.5 border rounded-full px-1.5 py-0.5 text-xs leading-none ${
+            g.hasCustomer
+              ? 'bg-muted border-border'
+              : 'bg-muted/50 border-dashed border-border/60 opacity-70'
+          }`}
         >
           {emoji}
-          {count > 1 && <span className="text-muted-foreground text-xs">{count}</span>}
+          {g.count > 1 && <span className="text-muted-foreground text-xs">{g.count}</span>}
+          {!g.hasCustomer && <span className="text-[9px] text-muted-foreground ml-0.5">MMS</span>}
         </span>
       ))}
     </div>

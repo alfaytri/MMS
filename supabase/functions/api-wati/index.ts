@@ -81,16 +81,6 @@ serve(async (req) => {
       return json(data)
     }
 
-    case 'send_reaction': {
-      const { message_id, emoji } = body
-      // Wati reaction endpoint — mirrors WhatsApp Cloud API reaction support
-      const data = await wati(`/api/v1/sendReactionMessage/${encodeURIComponent(phone)}`, {
-        method: 'POST',
-        body: JSON.stringify({ messageId: message_id, emoji }),
-      })
-      return json(data)
-    }
-
     case 'get_templates': {
       if (!templateCache) {
         const data = await wati('/api/v1/getMessageTemplates')
