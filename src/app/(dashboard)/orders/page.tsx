@@ -159,7 +159,7 @@ export default function OrdersPage() {
             <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
               <div className="space-y-1.5">
                 <Label className="text-[11px] font-semibold uppercase tracking-wide text-slate-500">Order Type</Label>
-                <Select value={search.orderType} onValueChange={(v) => setSearch((s) => ({ ...s, orderType: v === 'all' ? '' : v }))}>
+                <Select value={search.orderType} onValueChange={(v) => setSearch((s) => ({ ...s, orderType: v === 'all' ? '' : (v ?? '') }))}>
                   <SelectTrigger className="h-9 text-sm">
                     <SelectValue placeholder="All" />
                   </SelectTrigger>
@@ -238,7 +238,7 @@ export default function OrdersPage() {
               </div>
               <div className="space-y-1.5">
                 <Label className="text-[11px] font-semibold uppercase tracking-wide text-slate-500">Address Missing</Label>
-                <Select value={search.addressMissing || 'all'} onValueChange={(v) => setSearch((s) => ({ ...s, addressMissing: v === 'all' ? '' : v }))}>
+                <Select value={search.addressMissing || 'all'} onValueChange={(v) => setSearch((s) => ({ ...s, addressMissing: v === 'all' ? '' : (v ?? '') }))}>
                   <SelectTrigger className="h-9 text-sm">
                     <SelectValue placeholder="All" />
                   </SelectTrigger>
@@ -252,7 +252,7 @@ export default function OrdersPage() {
                 <Label className="text-[11px] font-semibold uppercase tracking-wide text-slate-500">Team</Label>
                 <Select
                   value={search.team || '__all__'}
-                  onValueChange={(v) => setSearch((s) => ({ ...s, team: v === '__all__' ? '' : v }))}
+                  onValueChange={(v) => setSearch((s) => ({ ...s, team: v === '__all__' ? '' : (v ?? '') }))}
                 >
                   <SelectTrigger className="h-9 w-full text-sm">
                     <SelectValue placeholder="All teams" />

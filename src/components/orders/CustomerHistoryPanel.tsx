@@ -40,7 +40,7 @@ function useCustomerQuotations(customerId: string | null) {
       const { data, error } = await supabase
         .from('quotations')
         .select('id, quotation_id, status, total_amount')
-        .eq('customer_id', customerId)
+        .eq('customer_id', customerId as string)
         .order('created_at', { ascending: false })
         .limit(10)
       if (error) throw error

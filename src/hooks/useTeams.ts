@@ -70,7 +70,7 @@ export interface TeamDivision {
   company_name: string
 }
 
-export interface TeamFull extends TeamRaw {
+export interface TeamFull extends Omit<TeamRaw, 'division'> {
   leader:   Employee | null
   members:  Employee[]
   vehicle:  Vehicle | null
