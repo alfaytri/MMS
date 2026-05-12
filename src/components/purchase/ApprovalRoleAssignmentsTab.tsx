@@ -22,10 +22,11 @@ import type { ApprovalRole } from '@/lib/approvalChainResolution'
 
 const APPROVAL_ROLES: ApprovalRole[] = ['purchase_manager', 'accountant', 'owner']
 const ROLE_LABELS: Record<ApprovalRole, string> = {
-  purchase_manager: 'Purchase Manager',
-  accountant: 'Accountant',
-  owner: 'Owner',
-  employee: 'Employee',
+  purchase_manager:  'Purchase Manager',
+  accountant:        'Accountant',
+  owner:             'Owner',
+  employee:          'Employee',
+  warehouse_manager: 'Warehouse Manager',
 }
 
 export function ApprovalRoleAssignmentsTab() {

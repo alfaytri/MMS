@@ -81,6 +81,10 @@ export function WhAdjustmentDialog({ warehouses, currentProfile, children }: Pro
       sku:              (item as any).sku ?? null,
       unit:             (item as any).unit ?? 'pcs',
       cost_price:       (variant as any).cost_price ?? 0,
+      selling_price:    (variant as any).selling_price ?? 0,
+      category_name:    null,
+      category_name_ar: null,
+      brand:            (variant as any).brand ?? null,
     })
   }
 
@@ -192,7 +196,7 @@ export function WhAdjustmentDialog({ warehouses, currentProfile, children }: Pro
               <Label className="text-xs">Item *</Label>
               <div className="space-y-2">
                 {/* Row 1: Category (full width) */}
-                <Select value={categoryId} onValueChange={handleCategoryChange}>
+                <Select value={categoryId} onValueChange={(v) => { if (v !== null) handleCategoryChange(v) }}>
                   <SelectTrigger className="h-8 text-xs w-full">
                     <SelectValue placeholder="Select category…" />
                   </SelectTrigger>
@@ -207,7 +211,7 @@ export function WhAdjustmentDialog({ warehouses, currentProfile, children }: Pro
 
                 {/* Row 2: Item (grows) + Brand (fixed) */}
                 <div className="grid grid-cols-[1fr_140px] gap-2">
-                  <Select value={itemId} onValueChange={handleItemChange} disabled={!categoryId}>
+                  <Select value={itemId} onValueChange={(v) => { if (v !== null) handleItemChange(v) }} disabled={!categoryId}>
                     <SelectTrigger className="h-8 text-xs">
                       <SelectValue placeholder="Select item…" />
                     </SelectTrigger>
@@ -220,7 +224,7 @@ export function WhAdjustmentDialog({ warehouses, currentProfile, children }: Pro
                     </SelectContent>
                   </Select>
 
-                  <Select value={variantId} onValueChange={handleVariantChange} disabled={!itemId}>
+                  <Select value={variantId} onValueChange={(v) => { if (v !== null) handleVariantChange(v) }} disabled={!itemId}>
                     <SelectTrigger className="h-8 text-xs">
                       <SelectValue placeholder="Brand" />
                     </SelectTrigger>

@@ -60,8 +60,8 @@ export function useEditOrder(orderId: string) {
       qty: s.qty,
       price: s.price,
       duration: s.duration,
-      fromTime: s.from_time ? s.from_time.substring(0, 5) : null,
-      toTime: s.to_time ? s.to_time.substring(0, 5) : null,
+      fromTime: (s as any).from_time ? (s as any).from_time.substring(0, 5) : null,
+      toTime: (s as any).to_time ? (s as any).to_time.substring(0, 5) : null,
     }))
 
     const visitDates: VisitDateWindow[] = (order.order_visit_dates ?? []).length > 0
@@ -226,7 +226,7 @@ export function useEditOrder(orderId: string) {
       const { error: delSvcErr } = await supabase.from('order_services').delete().eq('order_id', orderId)
       if (delSvcErr) throw delSvcErr
       if (draft.services.length > 0) {
-        const { error: insSvcErr } = await supabase.from('order_services').insert(
+        const { error: insSvcErr } = await (supabase as any).from('order_services').insert(
           draft.services.map((s) => ({
             order_id: orderId,
             service_id: s.serviceId === SITE_VISIT_SERVICE_ID ? null : s.serviceId,
