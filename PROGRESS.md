@@ -161,6 +161,8 @@ Purchase & Sales▾:
 
 ## ✅ Completed
 
+- [2026-05-12] **Contact Centre: Webhook externalId + timestamp — fix customer reactions and message order** — `src/app/api/wati/webhook/route.ts` — (1) externalId now prefers whatsappMessageId over body.id so stored IDs match the wamid format that reaction webhooks reference; customer reactions were silently dropped because the lookup always missed; (2) timestamp now prefers body.timestamp (actual WhatsApp delivery epoch) over body.created; Wati sets body.created on bot auto-replies to the customer trigger time, causing them to sort before earlier agent messages; (3) added console.log to reaction handler for Vercel log debugging
+
 - [2026-05-12] **Contact Centre: Instant message sync — visibility/online/realtime-error poll triggers** — `src/hooks/contact-center/useLiveThread.ts` — Poll reduced to 5s; immediate poll fires on tab-focus (visibilitychange), network-online, and Realtime CHANNEL_ERROR/TIMED_OUT; extracted applyPoll helper merges missed messages + reactions + delivery_status; convIdRef keeps event listeners in sync without re-registering
 
 - [2026-05-12] **Contact Centre: Remove dead send_reaction Wati call, MMS-only reaction indicator** — `src/hooks/contact-center/useChatMessages.ts`, `src/components/contact-center/ChatSection.tsx`, `supabase/functions/api-wati/index.ts` — Wati has no reaction-sending API; removed send_reaction action from edge function and stripped the call from reactToMessage; ReactionBubbles now shows dashed border + "MMS" label for agent reactions (not on WhatsApp) vs solid border for customer reactions (confirmed on WhatsApp)
