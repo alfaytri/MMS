@@ -58,7 +58,52 @@ function extractAttachments(body: any): Attachment[] {
     if (!url) return []
     return [{ url, type: 'image/webp', name: 'sticker' }]
   }
+
+  // Template / HSM messages with document or image header
+  if (msgType === 'template' || msgType === 'hsm') {
+    const components: any[] = data.template?.components ?? data.components ?? []
+    const header = components.find((c: any) => (c.type ?? '').toLowerCase() === 'header')
+
+    const headerDoc =
+      header?.document ??
+      data.template?.header?.document ??
+      body.templateHeader?.document ??
+      data.templateHeader?.document ?? null
+
+    const headerImg =
+      header?.image ??
+      data.template?.header?.image ??
+      body.templateHeader?.image ??
+      data.templateHeader?.image ?? null
+
+    if (headerDoc) {
+      const url = headerDoc.url ?? headerDoc.link ?? mediaUrl ?? null
+      if (url) return [{ url, type: 'application/octet-stream', name: headerDoc.filename ?? headerDoc.fileName ?? 'document' }]
+    }
+    if (headerImg) {
+      const url = headerImg.url ?? headerImg.link ?? mediaUrl ?? null
+      if (url) return [{ url, type: 'image/jpeg', name: 'image' }]
+    }
+    const headerFormat = (header?.format ?? data.template?.header?.format ?? '').toLowerCase()
+    if (headerFormat === 'document' && mediaUrl) return [{ url: mediaUrl, type: 'application/octet-stream', name: data.fileName ?? 'document' }]
+    if (headerFormat === 'image' && mediaUrl) return [{ url: mediaUrl, type: 'image/jpeg', name: 'image' }]
+  }
+
   return []
+}
+
+// Extract the best available text from any Wati message type
+function extractWebhookText(body: any, msgType: string): string {
+  const direct = body.text?.trim() ?? ''
+  if (direct) return direct
+  const caption = body.caption?.trim() ?? body.data?.caption?.trim() ?? ''
+  if (caption) return caption
+  if (msgType === 'template' || msgType === 'hsm') {
+    const components: any[] = body.data?.template?.components ?? body.data?.components ?? []
+    const comp = components.find((c: any) => (c.type ?? '').toLowerCase() === 'body')
+    if (comp?.text?.trim()) return comp.text.trim()
+  }
+  return body.body?.trim() ?? body.eventDescription?.trim() ?? ''
 }
 
 // GET — WATI verification ping

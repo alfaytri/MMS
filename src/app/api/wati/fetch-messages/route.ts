@@ -76,7 +76,73 @@ function extractAttachments(item: any): Attachment[] {
     if (!url) return []
     return [{ url, type: 'image/webp', name: 'sticker' }]
   }
+
+  // Template / HSM messages — header may contain a document or image
+  if (msgType === 'template' || msgType === 'hsm') {
+    // Components array path: data.template.components[].type === 'header'
+    const components: any[] = data.template?.components ?? data.components ?? []
+    const header = components.find(
+      (c: any) => (c.type ?? '').toLowerCase() === 'header'
+    )
+
+    // Direct header sub-objects from different Wati API shapes
+    const headerDoc =
+      header?.document ??
+      data.template?.header?.document ??
+      item.templateHeader?.document ??
+      data.templateHeader?.document ?? null
+
+    const headerImg =
+      header?.image ??
+      data.template?.header?.image ??
+      item.templateHeader?.image ??
+      data.templateHeader?.image ?? null
+
+    if (headerDoc) {
+      const url = headerDoc.url ?? headerDoc.link ?? mediaUrl ?? null
+      if (url) {
+        const name = headerDoc.filename ?? headerDoc.fileName ?? data.fileName ?? 'document'
+        return [{ url, type: 'application/octet-stream', name }]
+      }
+    }
+    if (headerImg) {
+      const url = headerImg.url ?? headerImg.link ?? mediaUrl ?? null
+      if (url) return [{ url, type: 'image/jpeg', name: 'image' }]
+    }
+    // Fallback: if the header format field tells us the type but url is elsewhere
+    const headerFormat = (header?.format ?? data.template?.header?.format ?? '').toLowerCase()
+    if (headerFormat === 'document' && mediaUrl) {
+      const name = data.fileName ?? data.filename ?? item.media?.fileName ?? 'document'
+      return [{ url: mediaUrl, type: 'application/octet-stream', name }]
+    }
+    if (headerFormat === 'image' && mediaUrl) {
+      return [{ url: mediaUrl, type: 'image/jpeg', name: 'image' }]
+    }
+  }
+
   return []
+}
+
+// Extract rendered text from any message type including templates
+function extractText(item: any, msgType: string): string {
+  // Direct text field (works for most types including templates with rendered body)
+  const direct = item.text?.trim() ?? ''
+  if (direct) return direct
+
+  // Caption (document/image with caption)
+  const caption = item.caption?.trim() ?? item.data?.caption?.trim() ?? ''
+  if (caption) return caption
+
+  // Template body text from components
+  if (msgType === 'template' || msgType === 'hsm') {
+    const components: any[] = item.data?.template?.components ?? item.data?.components ?? []
+    const body = components.find((c: any) => (c.type ?? '').toLowerCase() === 'body')
+    const bodyText = body?.text?.trim() ?? ''
+    if (bodyText) return bodyText
+  }
+
+  // System / activity text
+  return item.body?.trim() ?? item.eventDescription?.trim() ?? item.note?.trim() ?? ''
 }
 
 // GET /api/wati/fetch-messages?conversationId=...&phone=...&days=10
@@ -162,18 +228,12 @@ export async function GET(req: NextRequest) {
     const msgType   = String(item.type ?? 'text')
     const isEvent   = isWatiSystemEvent(item)
     const attachments = isEvent ? [] : extractAttachments(item)
+    const rawText = extractText(item, msgType)
 
-    // For system events, text comes from item.body or item.eventDescription
-    // For regular messages, prefer item.text
-    const rawText = typeof item.text === 'string' && item.text.trim()
-      ? item.text.trim()
-      : item.body?.trim() || item.eventDescription?.trim() || item.note?.trim() || null
-
-    const text = rawText
-      ? rawText
-      : !isEvent && msgType !== 'text' && msgType !== '0' && attachments.length === 0
+    // Only use a [type] label when we have no text AND no attachment AND it's not a system event
+    const text = rawText || (!isEvent && attachments.length === 0 && msgType !== 'text' && msgType !== '0'
       ? `[${msgType}]`
-      : ''
+      : '')
 
     return {
       conversation_id: conversationId,
