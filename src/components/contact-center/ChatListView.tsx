@@ -278,10 +278,42 @@ export function ChatListView({ conversations, loading, onSelectConversation, onS
           <div className="px-3 py-4 text-xs text-muted-foreground text-center">Loading…</div>
         )}
 
-        {/* Normal results */}
-        {filtered.map((c) => (
-          <ConversationRow key={c.id} c={c} onClick={() => onSelectConversation(c)} />
-        ))}
+        {/* Normal results grouped by Today / Yesterday */}
+        {!loading && filtered.length > 0 && (() => {
+          const todayStart = new Date(); todayStart.setHours(0, 0, 0, 0)
+          const yesterdayStart = new Date(todayStart); yesterdayStart.setDate(yesterdayStart.getDate() - 1)
+
+          const todayRows     = filtered.filter(c => new Date(c.last_message_at!) >= todayStart)
+          const yesterdayRows = filtered.filter(c => {
+            const d = new Date(c.last_message_at!)
+            return d >= yesterdayStart && d < todayStart
+          })
+
+          return (
+            <>
+              {todayRows.length > 0 && (
+                <>
+                  <div className="px-3 py-1 text-xs font-medium text-muted-foreground bg-muted/30 border-b border-border sticky top-0 z-10">
+                    Today · {todayRows.length}
+                  </div>
+                  {todayRows.map(c => (
+                    <ConversationRow key={c.id} c={c} onClick={() => onSelectConversation(c)} />
+                  ))}
+                </>
+              )}
+              {yesterdayRows.length > 0 && (
+                <>
+                  <div className="px-3 py-1 text-xs font-medium text-muted-foreground bg-muted/30 border-b border-border sticky top-0 z-10">
+                    Yesterday · {yesterdayRows.length}
+                  </div>
+                  {yesterdayRows.map(c => (
+                    <ConversationRow key={c.id} c={c} onClick={() => onSelectConversation(c)} />
+                  ))}
+                </>
+              )}
+            </>
+          )
+        })()}
 
         {/* Phone lookup feedback — only when no local results */}
         {!loading && filtered.length === 0 && (

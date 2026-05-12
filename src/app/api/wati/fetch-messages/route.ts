@@ -44,7 +44,7 @@ interface Attachment {
 }
 
 function extractAttachments(item: any): Attachment[] {
-  const msgType: string = item.type ?? ''
+  const msgType: string = String(item.type ?? '')
   const data = item.data ?? {}
 
   if (msgType === 'image') {
@@ -146,13 +146,14 @@ export async function GET(req: NextRequest) {
       : item.timestamp
       ? new Date(item.timestamp * 1000).toISOString()
       : new Date().toISOString()
-    const msgType   = item.type ?? 'text'
+    // Wati sometimes returns numeric type codes (0, 1, …) — normalise to string
+    const msgType   = String(item.type ?? 'text')
     const attachments = extractAttachments(item)
 
     // text is NOT NULL in DB — use label for media-only messages
     const text = typeof item.text === 'string' && item.text.trim()
       ? item.text.trim()
-      : msgType !== 'text'
+      : msgType !== 'text' && msgType !== '0'   // '0' is Wati's numeric code for plain text
       ? `[${msgType}]`
       : ''
 

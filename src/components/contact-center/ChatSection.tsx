@@ -145,9 +145,11 @@ export function ChatSection({ messages, loading, fetchingWati, canLoadMore, onLo
               onMouseLeave={() => setPickerFor(null)}
             >
               <div className={`max-w-[85%] flex flex-col ${isAgent ? 'items-end' : 'items-start'}`}>
-                <span className="text-xs text-muted-foreground mb-0.5">
-                  {isAgent ? (msg.agent_name ?? 'Agent') : phone}
-                </span>
+                {isAgent && (
+                  <span className="text-xs text-muted-foreground mb-0.5">
+                    {msg.agent_name ?? 'Agent'}
+                  </span>
+                )}
 
                 {/* Bubble + emoji picker trigger */}
                 <div className="relative group">

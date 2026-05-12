@@ -26,6 +26,7 @@ export function useLiveConversations() {
       .not('last_message_at', 'is', null)
       .gte('last_message_at', yesterdayStart.toISOString())
       .order('last_message_at', { ascending: false, nullsFirst: false })
+      .limit(200)
 
     if (cancelledRef.current) return
 
