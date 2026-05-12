@@ -161,6 +161,8 @@ Purchase & Sales▾:
 
 ## ✅ Completed
 
+- [2026-05-12] **Contact Centre: Poll full-merge — reactions + delivery_status + missed messages** — `src/hooks/contact-center/useLiveThread.ts` — Added pollFromDb (last 24h window, always captures newest regardless of conversation volume); 10s poll now updates reactions and delivery_status on existing rows in addition to appending missed messages; normalized reactions null→[] everywhere
+
 - [2026-05-12] **Contact Centre: Reaction payload fix, Realtime missed-INSERT fallback, new-message badge** — `src/hooks/contact-center/useLiveThread.ts`, `src/app/api/wati/webhook/route.ts`, `src/components/contact-center/ChatSection.tsx` — Webhook now handles both Wati reaction payload shapes (body.reaction.messageId + body.reactionMessage.key.id); Realtime UPDATE handler appends message to state if the INSERT was missed (fixes 'need Load older to see new message'); orange new-message badge appears when scrolled up and clears on scroll-to-bottom
 
 - [2026-05-12] **Contact Centre: Cleanup duplicate rows, fix reaction lookup, send reactions via Wati** — `supabase/migrations/20260512180000_cleanup_duplicate_agent_messages.sql`, `src/app/api/wati/webhook/route.ts`, `supabase/functions/api-wati/index.ts`, `src/hooks/contact-center/useChatMessages.ts`, `src/components/contact-center/ContactCenterSidebar.tsx` — DB migration deletes old non-prefixed duplicate agent rows where wati_-prefixed twin exists; customer reaction webhook now uses .in() for prefix-aware lookup; reactToMessage calls api-wati send_reaction (best-effort) so agent emoji reactions are sent to customer on WhatsApp; empty emoji removes reaction per WhatsApp spec
