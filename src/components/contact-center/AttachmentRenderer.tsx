@@ -9,6 +9,16 @@ interface Props {
 }
 
 export function AttachmentRenderer({ url, type, name }: Props) {
+  // Empty URL = placeholder for attachments Wati doesn't return URLs for (e.g. broadcast docs)
+  if (url === '') {
+    return (
+      <div className="flex items-center gap-1.5 mt-1 px-2 py-1.5 rounded bg-muted/40 border border-dashed border-border/60 text-xs text-muted-foreground/60 cursor-default">
+        <FileText className="h-3.5 w-3.5 flex-shrink-0" />
+        <span className="truncate max-w-[160px]">{name ?? 'document'}</span>
+        <span className="ml-auto text-[10px] opacity-60 whitespace-nowrap">URL not available</span>
+      </div>
+    )
+  }
   if (!url) return null
 
   const mime = type ?? ''

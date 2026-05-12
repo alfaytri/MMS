@@ -43,13 +43,25 @@ interface Attachment {
   name: string
 }
 
+// Returns a placeholder attachment for broadcast messages that reference a document in their text
+// but have no URL (Wati doesn't return document URLs for broadcast history items).
+function broadcastDocumentPlaceholder(item: any): Attachment[] {
+  if (item.eventType !== 'broadcastMessage') return []
+  const text = String(item.finalText ?? '')
+  if (/المستند المرفق|مرفق لكم فاتورة|المرفق|الوثيقة المرفقة/i.test(text)) {
+    return [{ url: '', type: 'application/octet-stream', name: 'document' }]
+  }
+  return []
+}
+
 function extractAttachments(item: any): Attachment[] {
   const msgType: string = String(item.type ?? '')
   const data = item.data ?? {}
   // Wati stores media URL in several possible locations — try all of them
   const mediaUrl =
     data.url ?? data.link ?? data.mediaUrl ??
-    item.media?.url ?? item.mediaUrl ?? item.url ?? null
+    item.media?.url ?? item.mediaUrl ?? item.url ??
+    item.mediaHeaderLink ?? null  // broadcast messages use this field (often null)
 
   if (msgType === 'image') {
     const url = mediaUrl ?? item.image?.url ?? item.image?.link ?? null
@@ -248,7 +260,7 @@ export async function GET(req: NextRequest) {
     // Wati sometimes returns numeric type codes (0, 1, …) — normalise to string
     const msgType   = String(item.type ?? 'text')
     const isEvent   = isWatiSystemEvent(item)
-    const attachments = isEvent ? [] : extractAttachments(item)
+    const attachments = isEvent ? [] : (extractAttachments(item).length > 0 ? extractAttachments(item) : broadcastDocumentPlaceholder(item))
     // For ticket events, use eventDescription as the display text (it's the correct system message)
     const rawText = isEvent
       ? (item.eventDescription?.trim() ?? '')
