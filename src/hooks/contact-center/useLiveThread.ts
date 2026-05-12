@@ -34,6 +34,35 @@ export function useLiveThread(conversationId: string | null, phone: string | nul
     }
     return (data as any[]).map((row) => ({
       ...row,
+      reactions: row.reactions ?? [],
+      agent_name: row.profiles?.full_name ?? row.agent_name ?? null,
+    })) as ChatMessage[]
+  }, [])
+
+  // Fetch only recent messages (last 24h) for the periodic poll — always captures newest
+  const pollFromDb = useCallback(async (convId: string) => {
+    const since = new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString()
+    const { data, error } = await (supabase as any)
+      .from('chat_messages')
+      .select(`
+        id, conversation_id, from_type, source, message_kind,
+        text, agent_name, attachments, reactions,
+        delivery_status, external_id, reply_to_external_id,
+        sent_by_profile_id, created_at,
+        profiles!sent_by_profile_id(full_name)
+      `)
+      .eq('conversation_id', convId)
+      .gte('created_at', since)
+      .order('created_at', { ascending: true })
+
+    if (cancelledRef.current) return []
+    if (error) {
+      console.error('[useLiveThread] poll error', error)
+      return []
+    }
+    return (data as any[]).map((row) => ({
+      ...row,
+      reactions: row.reactions ?? [],
       agent_name: row.profiles?.full_name ?? row.agent_name ?? null,
     })) as ChatMessage[]
   }, [])
@@ -121,20 +150,35 @@ export function useLiveThread(conversationId: string | null, phone: string | nul
       )
       .subscribe()
 
-    // Periodic fallback: re-sync from DB every 15 s in case Realtime dropped an event
+    // Periodic fallback: re-sync recent messages every 10 s
+    // Adds missed messages AND updates reactions/delivery_status on existing rows
     const poll = setInterval(async () => {
       if (cancelledRef.current) return
-      const fresh = await loadFromDb(conversationId!)
+      const recent = await pollFromDb(conversationId!)
       if (cancelledRef.current) return
       setMessages((prev) => {
-        const prevIds = new Set(prev.map((m) => m.id))
-        const missed = fresh.filter((m) => !prevIds.has(m.id))
-        if (missed.length === 0) return prev
-        return [...prev, ...missed].sort(
+        const prevMap = new Map(prev.map((m) => [m.id, m]))
+        let changed = false
+        const merged = prev.map((m) => {
+          const updated = prevMap.has(m.id) ? recent.find((r) => r.id === m.id) : undefined
+          if (!updated) return m
+          const reactionsChanged = JSON.stringify(updated.reactions) !== JSON.stringify(m.reactions)
+          const statusChanged = updated.delivery_status !== m.delivery_status
+          if (reactionsChanged || statusChanged) {
+            changed = true
+            return { ...m, reactions: updated.reactions, delivery_status: updated.delivery_status }
+          }
+          return m
+        })
+        const existingIds = new Set(prev.map((m) => m.id))
+        const missed = recent.filter((r) => !existingIds.has(r.id))
+        if (missed.length === 0 && !changed) return prev
+        const combined = [...merged, ...missed].sort(
           (a, b) => new Date(a.created_at).getTime() - new Date(b.created_at).getTime()
         )
+        return combined
       })
-    }, 15_000)
+    }, 10_000)
 
     return () => {
       cancelledRef.current = true
