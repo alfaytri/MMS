@@ -160,31 +160,40 @@ export async function POST(req: NextRequest) {
   }
 
   // ── Customer reaction ────────────────────────────────────────────────────────
-  // Wati sends reactions in two possible shapes:
-  //   • body.reaction.messageId / body.reaction.emoji   (newer Wati / Cloud API style)
-  //   • body.reactionMessage.key.id / body.reactionMessage.text  (older style)
-  const isReaction = body.type === 'reaction' && (body.reaction || body.reactionMessage)
-  if (isReaction) {
+  // Accept any payload whose type is 'reaction' regardless of which sub-field
+  // carries the data — Wati uses at least three different shapes in the wild.
+  if (String(body.type ?? '').toLowerCase() === 'reaction') {
+    // Log the full body so Vercel logs reveal the exact field structure
+    console.log('[webhook:reaction] full payload:', JSON.stringify(body))
+
+    // Try every known field path for the target message ID and emoji
     const targetExternalId: string | null =
       body.reaction?.messageId ??
-      body.reactionMessage?.key?.id ?? null
+      body.reactionMessage?.key?.id ??
+      body.referredMessageId ??
+      body.targetMessageId ??
+      body.messageId ?? null
+
     const emoji: string | null =
       body.reaction?.emoji ??
-      body.reactionMessage?.text ?? null
+      body.reactionMessage?.text ??
+      body.emoji ??
+      body.reactionEmoji ?? null
+
+    console.log('[webhook:reaction] extracted', { targetExternalId, emoji, waId: body.waId })
 
     if (targetExternalId) {
-      // Check both raw id and wati_-prefixed id (agent-sent messages use prefix)
+      // Check both wamid and wati_-prefixed id (agent-sent messages use prefix)
       const { data: targetRow } = await (supabase.from('chat_messages') as any)
         .select('id, reactions')
         .in('external_id', [targetExternalId, `wati_${targetExternalId}`])
         .order('created_at', { ascending: false })
         .limit(1)
         .maybeSingle()
-      console.log('[webhook:reaction]', { targetExternalId, emoji, found: !!targetRow })
+      console.log('[webhook:reaction] db lookup', { found: !!targetRow, targetExternalId })
       if (targetRow) {
         const existing: { emoji: string; from_type: string }[] = targetRow.reactions ?? []
         if (emoji) {
-          // Add or toggle reaction
           const hasIt = existing.some((r) => r.emoji === emoji && r.from_type === 'customer')
           const updated = hasIt
             ? existing.filter((r) => !(r.emoji === emoji && r.from_type === 'customer'))
@@ -193,7 +202,7 @@ export async function POST(req: NextRequest) {
             .update({ reactions: updated })
             .eq('id', targetRow.id)
         } else {
-          // Empty emoji = customer removed all reactions on this message
+          // Empty emoji = customer removed all reactions
           const updated = existing.filter((r) => r.from_type !== 'customer')
           await (supabase.from('chat_messages') as any)
             .update({ reactions: updated })
