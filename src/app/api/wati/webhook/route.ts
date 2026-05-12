@@ -178,6 +178,7 @@ export async function POST(req: NextRequest) {
         .select('id, reactions')
         .in('external_id', [targetExternalId, `wati_${targetExternalId}`])
         .maybeSingle()
+      console.log('[webhook:reaction]', { targetExternalId, emoji, found: !!targetRow })
       if (targetRow) {
         const existing: { emoji: string; from_type: string }[] = targetRow.reactions ?? []
         if (emoji) {
@@ -252,11 +253,17 @@ export async function POST(req: NextRequest) {
     ? `[${msgType}]`
     : '')
 
-  const externalId: string | null = body.id ?? body.whatsappMessageId ?? null
-  const ts = body.created
-    ? new Date(body.created).toISOString()
-    : body.timestamp
+  // Prefer WhatsApp's own message ID (wamid.xxx) over Wati's internal id.
+  // This is critical for reaction lookups: body.reaction.messageId is always the wamid.
+  const externalId: string | null = body.whatsappMessageId ?? body.id ?? null
+
+  // Prefer body.timestamp (Unix epoch of actual WhatsApp delivery) over body.created.
+  // body.created on bot auto-replies is often the customer's trigger-message time,
+  // not the bot's reply time, causing auto-replies to appear before earlier agent messages.
+  const ts = body.timestamp
     ? new Date(Number(body.timestamp) * 1000).toISOString()
+    : body.created
+    ? new Date(body.created).toISOString()
     : new Date().toISOString()
   const senderName: string | null = body.senderName ?? null
 
