@@ -161,6 +161,8 @@ Purchase & Sales▾:
 
 ## ✅ Completed
 
+- [2026-05-12] **Contact Centre: Remove dead send_reaction Wati call, MMS-only reaction indicator** — `src/hooks/contact-center/useChatMessages.ts`, `src/components/contact-center/ChatSection.tsx`, `supabase/functions/api-wati/index.ts` — Wati has no reaction-sending API; removed send_reaction action from edge function and stripped the call from reactToMessage; ReactionBubbles now shows dashed border + "MMS" label for agent reactions (not on WhatsApp) vs solid border for customer reactions (confirmed on WhatsApp)
+
 - [2026-05-12] **Contact Centre: RLS fix for reactions, orders 400, reactToMessage error guard** — `supabase/migrations/20260512200000_chat_messages_rls_reactions.sql`, `src/components/contact-center/OrderHistorySection.tsx`, `src/hooks/contact-center/useChatMessages.ts` — (1) Added RLS policies on chat_messages (SELECT/INSERT/UPDATE for authenticated) so browser-client reaction UPDATEs are no longer silently blocked; (2) Fixed orders query 400 by replacing non-existent services_summary column with order_type + total_amount; (3) reactToMessage now checks update error and bails early to avoid ghost reactions in local state
 
 - [2026-05-12] **Contact Centre: Poll full-merge — reactions + delivery_status + missed messages** — `src/hooks/contact-center/useLiveThread.ts` — Added pollFromDb (last 24h window, always captures newest regardless of conversation volume); 10s poll now updates reactions and delivery_status on existing rows in addition to appending missed messages; normalized reactions null→[] everywhere
