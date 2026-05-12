@@ -241,6 +241,12 @@ export async function GET(req: NextRequest) {
     const attachments = isEvent ? [] : extractAttachments(item)
     const rawText = extractText(item, msgType)
 
+    // TEMP DEBUG — remove once broadcast body field is confirmed
+    const t = msgType.toLowerCase()
+    if (t === 'broadcast' || t === 'broadcast_sent' || t === 'template' || t === 'hsm') {
+      console.log('[fetch-messages] template/broadcast item:', JSON.stringify(item, null, 2))
+    }
+
     // Only use a [type] label when we have no text AND no attachment AND it's not a system event
     const text = rawText || (!isEvent && attachments.length === 0 && msgType !== 'text' && msgType !== '0'
       ? `[${msgType}]`

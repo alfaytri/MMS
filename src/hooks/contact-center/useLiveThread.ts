@@ -119,14 +119,44 @@ export function useLiveThread(conversationId: string | null, phone: string | nul
 
   async function loadMore() {
     if (!conversationId || !phone || fetchingWati) return
+    const previousDays = loadedDays
     const moreDays = loadedDays + 20
     setLoadedDays(moreDays)
+
     await fetchFromWati(conversationId, phone, moreDays)
-    const fresh = await loadFromDb(conversationId)
-    if (!cancelledRef.current) {
-      setMessages(fresh)
-      setCanLoadMore(true)
-    }
+    if (cancelledRef.current) return
+
+    // Only load messages in the newly-added date window and prepend them
+    const olderCutoff = new Date(Date.now() - moreDays     * 24 * 60 * 60 * 1000).toISOString()
+    const newerCutoff = new Date(Date.now() - previousDays * 24 * 60 * 60 * 1000).toISOString()
+
+    const { data } = await (supabase as any)
+      .from('chat_messages')
+      .select(`
+        id, conversation_id, from_type, source, message_kind,
+        text, agent_name, attachments, reactions,
+        delivery_status, external_id, reply_to_external_id,
+        sent_by_profile_id, created_at,
+        profiles!sent_by_profile_id(full_name)
+      `)
+      .eq('conversation_id', conversationId)
+      .gte('created_at', olderCutoff)
+      .lt('created_at', newerCutoff)
+      .order('created_at', { ascending: true })
+      .limit(500)
+
+    if (cancelledRef.current || !data) return
+    const older = (data as any[]).map((row) => ({
+      ...row,
+      agent_name: row.profiles?.full_name ?? row.agent_name ?? null,
+    })) as ChatMessage[]
+
+    setMessages((prev) => {
+      const existingIds = new Set(prev.map((m) => m.id))
+      const newOlder = older.filter((m) => !existingIds.has(m.id))
+      return [...newOlder, ...prev]
+    })
+    setCanLoadMore(older.length > 0)
   }
 
   function patchMessage(id: string, patch: Partial<ChatMessage>) {
