@@ -161,6 +161,8 @@ Purchase & Sales▾:
 
 ## ✅ Completed
 
+- [2026-05-12] **Contact Centre: Fix 409 on send message/template** — `src/hooks/contact-center/useChatMessages.ts` — `sent_by_profile_id` FK references `profiles.id` but code was passing `auth.users.id`; resolved by looking up `profiles.id` via `auth_user_id = user.id` before both sendSessionMessage and sendTemplate inserts
+
 - [2026-05-12] **Contact Centre: Real-time reactions + delivery status webhooks** — `src/app/api/wati/webhook/route.ts`, `src/components/ui/scroll-area.tsx` — webhook now handles sentMessageDELIVERED_v2/sentMessageREAD_v2 (tick icons update live), templateMessageFailed, and customer reaction events (type=reaction → toggles reactions JSONB → Supabase Realtime pushes to UI); added missing scroll-area shadcn component that was causing build error
 
 - [2026-05-12] **Contact Centre: Named template params + emoji picker** — `src/types/contact-center.ts`, `src/hooks/contact-center/useChatMessages.ts`, `src/components/contact-center/ChatInputBar.tsx` — WatiTemplate.paramNames tracks named vars (e.g. pdflink, booking_number); loadTemplates uses /\{\{(\w+)\}\}/g and removes 2-var cap; sendTemplate builds named-param array for Wati v2 API; ChatInputBar gains full 6-group emoji picker with cursor-position insert; template dialog shows {{paramName}} labels with live fill-in preview
