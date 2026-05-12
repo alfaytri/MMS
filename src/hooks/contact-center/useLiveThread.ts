@@ -163,5 +163,9 @@ export function useLiveThread(conversationId: string | null, phone: string | nul
     setMessages((prev) => prev.map((m) => (m.id === id ? { ...m, ...patch } : m)))
   }
 
-  return { messages, loading, fetchingWati, canLoadMore, loadMore, patchMessage }
+  function addMessage(msg: ChatMessage) {
+    setMessages((prev) => prev.some((m) => m.id === msg.id) ? prev : [...prev, msg])
+  }
+
+  return { messages, loading, fetchingWati, canLoadMore, loadMore, patchMessage, addMessage }
 }

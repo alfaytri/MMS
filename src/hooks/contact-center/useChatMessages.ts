@@ -18,7 +18,10 @@ interface SendTemplateParams {
   variables: string[]
 }
 
-export function useChatMessages(patchMessage: (id: string, patch: Partial<ChatMessage>) => void) {
+export function useChatMessages(
+  patchMessage: (id: string, patch: Partial<ChatMessage>) => void,
+  addMessage?: (msg: ChatMessage) => void,
+) {
   const supabase = createClient()
   const [inputText, setInputText] = useState('')
   const [sending, setSending] = useState(false)
@@ -60,6 +63,12 @@ export function useChatMessages(patchMessage: (id: string, patch: Partial<ChatMe
 
     const tempId: string = inserted.id
     onOptimisticInsert?.(tempId)
+    addMessage?.({
+      ...inserted,
+      reactions: inserted.reactions ?? [],
+      attachments: inserted.attachments ?? null,
+      message_kind: inserted.message_kind ?? 'message',
+    } as ChatMessage)
     setInputText('')
 
     try {
@@ -87,7 +96,7 @@ export function useChatMessages(patchMessage: (id: string, patch: Partial<ChatMe
     } finally {
       setSending(false)
     }
-  }, [sending, supabase, patchMessage])
+  }, [sending, supabase, patchMessage, addMessage])
 
   const sendTemplate = useCallback(async ({
     conversationId,
@@ -128,6 +137,12 @@ export function useChatMessages(patchMessage: (id: string, patch: Partial<ChatMe
     }
 
     const tempId: string = inserted.id
+    addMessage?.({
+      ...inserted,
+      reactions: inserted.reactions ?? [],
+      attachments: inserted.attachments ?? null,
+      message_kind: inserted.message_kind ?? 'message',
+    } as ChatMessage)
     // Use named params if available, fall back to positional for legacy templates
     const parameters = template.paramNames.length > 0
       ? template.paramNames.map((name, i) => ({ name, value: variables[i] ?? '' }))
@@ -158,7 +173,7 @@ export function useChatMessages(patchMessage: (id: string, patch: Partial<ChatMe
     } finally {
       setSending(false)
     }
-  }, [sending, supabase, patchMessage])
+  }, [sending, supabase, patchMessage, addMessage])
 
   const loadTemplates = useCallback(async () => {
     if (templates.length > 0) return
