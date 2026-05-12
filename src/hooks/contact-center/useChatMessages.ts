@@ -16,6 +16,7 @@ interface SendTemplateParams {
   phone: string
   template: WatiTemplate
   variables: string[]
+  headerUrl?: string
 }
 
 export function useChatMessages(
@@ -77,7 +78,10 @@ export function useChatMessages(
       })
       if (fnErr) throw fnErr
 
-      const watiId = (fnData as any)?.id ?? (fnData as any)?.messageId
+      const watiId = (fnData as any)?.message?.whatsappMessageId
+        ?? (fnData as any)?.info?.whatsAppMessageId
+        ?? (fnData as any)?.id
+        ?? (fnData as any)?.messageId
       if (watiId) {
         await (supabase as any)
           .from('chat_messages')
@@ -103,6 +107,7 @@ export function useChatMessages(
     phone,
     template,
     variables,
+    headerUrl,
   }: SendTemplateParams) => {
     if (sending) return
     setSending(true)
@@ -112,9 +117,9 @@ export function useChatMessages(
       .from('profiles').select('id').eq('auth_user_id', user?.id).maybeSingle()
     const profileId: string | null = profile?.id ?? null
 
-    const bodyText = variables.reduce(
-      (t, v, i) => t.replace(`{{${i + 1}}}`, v),
-      template.bodyOriginal ?? template.elementName
+    const bodyText = template.paramNames.reduce(
+      (t, name, i) => t.replace(`{{${name}}}`, variables[i] ?? ''),
+      template.bodyOriginal || template.elementName
     )
 
     const { data: inserted, error: insertErr } = await (supabase as any)
@@ -143,10 +148,12 @@ export function useChatMessages(
       attachments: inserted.attachments ?? null,
       message_kind: inserted.message_kind ?? 'message',
     } as ChatMessage)
-    // Use named params if available, fall back to positional for legacy templates
-    const parameters = template.paramNames.length > 0
+    const bodyParams = template.paramNames.length > 0
       ? template.paramNames.map((name, i) => ({ name, value: variables[i] ?? '' }))
       : variables.map((v, i) => ({ name: `${i + 1}`, value: v }))
+    const parameters = template.headerMedia && headerUrl
+      ? [{ name: 'url', value: headerUrl }, ...bodyParams]
+      : bodyParams
 
     try {
       const { data: fnData, error: fnErr } = await supabase.functions.invoke('api-wati', {
@@ -159,7 +166,10 @@ export function useChatMessages(
         },
       })
       if (fnErr) throw fnErr
-      const watiId = (fnData as any)?.id ?? (fnData as any)?.messageId
+      const watiId = (fnData as any)?.message?.whatsappMessageId
+        ?? (fnData as any)?.info?.whatsAppMessageId
+        ?? (fnData as any)?.id
+        ?? (fnData as any)?.messageId
       const patch = watiId
         ? { external_id: `wati_${watiId}`, delivery_status: 'sent' as const }
         : { delivery_status: 'sent' as const }
@@ -182,18 +192,27 @@ export function useChatMessages(
       const { data } = await supabase.functions.invoke('api-wati', { body: { action: 'get_templates' } })
       const raw: any[] = (data as any)?.messageTemplates ?? []
       const parsed: WatiTemplate[] = raw.map((t) => {
-        const bodyComp = (t.components ?? []).find((c: any) => c.type === 'BODY')
+        const comps: any[] = t.components ?? []
+        const bodyComp   = comps.find((c: any) => (c.type ?? '').toUpperCase() === 'BODY')
+        const headerComp = comps.find((c: any) => (c.type ?? '').toUpperCase() === 'HEADER')
         // Match both named {{paramname}} and positional {{1}} variables
         const matches = bodyComp?.text?.match(/\{\{(\w+)\}\}/g) ?? []
         const paramNames = matches.map((m: string) => m.replace(/\{\{|\}\}/g, ''))
+        const headerFmt = (headerComp?.format ?? '').toUpperCase()
+        const headerMedia: WatiTemplate['headerMedia'] =
+          headerFmt === 'DOCUMENT' ? 'document'
+          : headerFmt === 'IMAGE'  ? 'image'
+          : headerFmt === 'VIDEO'  ? 'video'
+          : null
         return {
           id:           t.id ?? t.elementName,
           elementName:  t.elementName,
           bodyOriginal: bodyComp?.text ?? '',
-          components:   t.components ?? [],
+          components:   comps,
           variableCount: paramNames.length,
           paramNames,
           unsupported:  false,
+          headerMedia,
         }
       })
       setTemplates(parsed)
@@ -224,7 +243,10 @@ export function useChatMessages(
       const { data: fnData } = await supabase.functions.invoke('api-wati', {
         body: { action: 'send_session_message', phone, text: message.text },
       })
-      const watiId = (fnData as any)?.id
+      const watiId = (fnData as any)?.message?.whatsappMessageId
+        ?? (fnData as any)?.info?.whatsAppMessageId
+        ?? (fnData as any)?.id
+        ?? (fnData as any)?.messageId
       const patch = watiId
         ? { external_id: `wati_${watiId}`, delivery_status: 'sent' as const }
         : { delivery_status: 'sent' as const }

@@ -148,9 +148,10 @@ export async function POST(req: NextRequest) {
         : eventType === 'sentMessageREAD_v2'    ? 'read'
         : eventType === 'templateMessageFailed' ? 'failed'
         : normaliseStatus(body.statusString ?? body.status)
+      // MMS stores outgoing messages as wati_<id>; check both forms
       await (supabase.from('chat_messages') as any)
         .update({ delivery_status: status })
-        .eq('external_id', String(externalId))
+        .in('external_id', [String(externalId), `wati_${String(externalId)}`])
     }
     return NextResponse.json({ ok: true })
   }
@@ -274,11 +275,11 @@ export async function POST(req: NextRequest) {
     conversationId = created.id
   }
 
-  // Insert message (skip duplicate external_id)
+  // Insert message (skip duplicate external_id — also check wati_ prefix used for outgoing)
   if (externalId) {
     const { data: dup } = await (supabase.from('chat_messages') as any)
       .select('id')
-      .eq('external_id', externalId)
+      .in('external_id', [externalId, `wati_${externalId}`])
       .maybeSingle()
 
     if (!dup) {

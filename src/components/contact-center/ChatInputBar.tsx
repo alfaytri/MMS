@@ -39,6 +39,7 @@ export function ChatInputBar({ conversationId, phone, customerName, windowStatus
   const [showEmoji, setShowEmoji] = useState(false)
   const [confirmTemplate, setConfirmTemplate] = useState<WatiTemplate | null>(null)
   const [templateVars, setTemplateVars] = useState<string[]>([])
+  const [headerUrl, setHeaderUrl] = useState('')
   const textareaRef = useRef<HTMLTextAreaElement>(null)
 
   const { isOpen, minutesRemaining } = windowStatus
@@ -75,6 +76,7 @@ export function ChatInputBar({ conversationId, phone, customerName, windowStatus
 
   function openTemplateConfirm(template: WatiTemplate) {
     setTemplateVars(Array.from({ length: template.variableCount }, () => ''))
+    setHeaderUrl('')
     setConfirmTemplate(template)
     setShowTemplates(false)
   }
@@ -82,7 +84,13 @@ export function ChatInputBar({ conversationId, phone, customerName, windowStatus
   async function handleSendTemplate() {
     if (!confirmTemplate) return
     try {
-      await sendTemplate({ conversationId, phone, template: confirmTemplate, variables: templateVars })
+      await sendTemplate({
+        conversationId,
+        phone,
+        template: confirmTemplate,
+        variables: templateVars,
+        headerUrl: headerUrl || undefined,
+      })
       setConfirmTemplate(null)
       toast.success('Template sent')
     } catch {
@@ -225,6 +233,21 @@ export function ChatInputBar({ conversationId, phone, customerName, windowStatus
                 <div className="rounded-lg bg-muted/60 border border-border px-3 py-2.5 text-xs leading-relaxed whitespace-pre-wrap break-words dir-auto">
                   {renderPreview(confirmTemplate) || <span className="text-muted-foreground italic">No body text</span>}
                 </div>
+
+                {/* Header media URL input */}
+                {confirmTemplate.headerMedia && (
+                  <div className="space-y-1">
+                    <Label className="text-xs font-medium">
+                      {confirmTemplate.headerMedia === 'document' ? 'Document URL' : confirmTemplate.headerMedia === 'image' ? 'Image URL' : 'Video URL'}
+                    </Label>
+                    <Input
+                      value={headerUrl}
+                      onChange={(e) => setHeaderUrl(e.target.value)}
+                      className="h-8 text-xs"
+                      placeholder={`https://... (${confirmTemplate.headerMedia} link)`}
+                    />
+                  </div>
+                )}
 
                 {/* Variable inputs */}
                 {confirmTemplate.variableCount > 0 && (

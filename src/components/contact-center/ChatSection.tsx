@@ -57,7 +57,7 @@ function ReactionBubbles({ reactions }: { reactions: ChatMessage['reactions'] })
 function EmojiPicker({ onPick, onClose }: { onPick: (e: string) => void; onClose: () => void }) {
   return (
     <div
-      className="absolute z-50 flex gap-0.5 bg-popover border border-border rounded-full shadow-md px-2 py-1 -top-9"
+      className="absolute z-[200] flex gap-0.5 bg-popover border border-border rounded-full shadow-md px-2 py-1 -top-9"
       onMouseLeave={onClose}
     >
       {QUICK_EMOJIS.map((e) => (
@@ -174,7 +174,7 @@ export function ChatSection({ messages, loading, fetchingWati, canLoadMore, onLo
                 {/* Bubble + emoji picker — onMouseLeave on this wrapper so moving
                     into the picker (DOM child) doesn't close it */}
                 <div
-                  className="relative group"
+                  className={`relative group ${pickerFor === msg.id ? 'z-[100]' : ''}`}
                   onMouseEnter={() => setPickerFor(msg.id)}
                   onMouseLeave={() => setPickerFor(null)}
                 >

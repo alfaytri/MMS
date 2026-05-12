@@ -69,6 +69,7 @@ export interface WatiTemplate {
   variableCount: number
   paramNames: string[]   // actual param names e.g. ['pdflink','booking_number','date']
   unsupported: boolean
+  headerMedia: 'document' | 'image' | 'video' | null
 }
 
 export interface WindowStatus {
