@@ -164,9 +164,10 @@ export async function POST(req: NextRequest) {
     const targetExternalId: string | null = body.reactionMessage?.key?.id ?? null
     const emoji: string | null = body.reactionMessage?.text ?? null
     if (targetExternalId && emoji) {
+      // Check both raw id and wati_-prefixed id (agent-sent messages use prefix)
       const { data: targetRow } = await (supabase.from('chat_messages') as any)
         .select('id, reactions')
-        .eq('external_id', targetExternalId)
+        .in('external_id', [targetExternalId, `wati_${targetExternalId}`])
         .maybeSingle()
       if (targetRow) {
         const existing: { emoji: string; from_type: string }[] = targetRow.reactions ?? []
