@@ -229,7 +229,12 @@ export function useChatMessages(
     const updated = hasIt
       ? existing.filter((r) => !(r.emoji === emoji && r.from_type === 'agent'))
       : [...existing, { emoji, from_type: 'agent' }]
-    await (supabase as any).from('chat_messages').update({ reactions: updated }).eq('id', messageId)
+    const { error: updateErr } = await (supabase as any)
+      .from('chat_messages').update({ reactions: updated }).eq('id', messageId)
+    if (updateErr) {
+      console.error('[reactToMessage] update failed', updateErr)
+      return
+    }
     patchMessage(messageId, { reactions: updated } as any)
 
     // Send the reaction to the customer via Wati (best-effort — don't throw on failure)

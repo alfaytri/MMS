@@ -9,7 +9,8 @@ interface OrderRow {
   order_id: string
   status: string
   scheduled_date: string | null
-  services_summary: string
+  order_type: string
+  total_amount: number | null
   has_invoice: boolean
 }
 
@@ -22,7 +23,7 @@ export function OrderHistorySection({ customerId }: { customerId: string | null 
       if (!customerId) return []
       const { data, error } = await (supabase as any)
         .from('orders')
-        .select('id, order_id, status, scheduled_date, services_summary, has_invoice')
+        .select('id, order_id, status, scheduled_date, order_type, total_amount, has_invoice')
         .eq('service_customer_id', customerId)
         .order('scheduled_date', { ascending: false, nullsFirst: false })
         .limit(20)
@@ -49,9 +50,12 @@ export function OrderHistorySection({ customerId }: { customerId: string | null 
         <div key={o.id} className="flex items-start justify-between gap-2 rounded-md border border-border p-2">
           <div className="flex-1 min-w-0">
             <p className="text-xs font-mono text-muted-foreground">{o.order_id}</p>
-            <p className="text-xs truncate">{o.services_summary}</p>
+            <p className="text-xs capitalize text-foreground">{o.order_type.replace('_', ' ')}</p>
             {o.scheduled_date && (
               <p className="text-xs text-muted-foreground">{new Date(o.scheduled_date).toLocaleDateString()}</p>
+            )}
+            {o.total_amount != null && o.total_amount > 0 && (
+              <p className="text-xs text-muted-foreground">QAR {o.total_amount.toLocaleString()}</p>
             )}
           </div>
           <Badge
