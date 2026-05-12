@@ -157,9 +157,11 @@ Purchase & Sales▾:
 
 ## 🔄 In Progress
 
-🚀 Next: **Contact Centre Phase 1 — further tasks / testing**
+🚀 Next: **Contact Centre — deploy to Vercel for webhook-driven reactions**
 
 ## ✅ Completed
+
+- [2026-05-12] **Contact Centre: Real-time messages + session guard + reaction architecture** — `src/app/api/wati/fetch-messages/route.ts`, `src/app/api/wati/webhook/route.ts`, `src/hooks/contact-center/useChatMessages.ts`, `src/hooks/contact-center/useLiveThread.ts`, `supabase/migrations/20260512210000_chat_messages_replica_identity.sql`, `supabase/migrations/20260512220000_cleanup_duplicate_messages.sql` — (1) useLiveThread: always syncs Wati on conversation open, adds 10s background Wati API sync, reduces poll to 2s, syncs on tab-visible/network-online events; (2) useChatMessages: session refresh guard in sendSessionMessage + sendTemplate prevents 401 when JWT expires mid-session; (3) fetch-messages: prefers wamid as external_id, pre-claims wati_-prefixed rows before upsert to eliminate duplicate agent messages, handles both separate reaction items and embedded reactions; confirmed Wati getMessages API returns 0 reaction items — customer reactions are push-only via webhook (works on Vercel, not localhost); (4) REPLICA IDENTITY FULL migration so Realtime filtered subscriptions receive UPDATE events; (5) cleanup migration removes legacy bare-id duplicates
 
 - [2026-05-12] **Contact Centre: Webhook externalId + timestamp — fix customer reactions and message order** — `src/app/api/wati/webhook/route.ts` — (1) externalId now prefers whatsappMessageId over body.id so stored IDs match the wamid format that reaction webhooks reference; customer reactions were silently dropped because the lookup always missed; (2) timestamp now prefers body.timestamp (actual WhatsApp delivery epoch) over body.created; Wati sets body.created on bot auto-replies to the customer trigger time, causing them to sort before earlier agent messages; (3) added console.log to reaction handler for Vercel log debugging
 
