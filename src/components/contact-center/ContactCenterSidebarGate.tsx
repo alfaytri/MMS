@@ -1,11 +1,14 @@
 'use client'
 
+import { useEffect } from 'react'
 import { useQuery } from '@tanstack/react-query'
 import { createClient } from '@/lib/supabase/client'
+import { useContactCenterContext } from '@/contexts/ContactCenterContext'
 import { ContactCenterSidebar } from './ContactCenterSidebar'
 
 export function ContactCenterSidebarGate() {
   const supabase = createClient()
+  const { setCcSidebar } = useContactCenterContext()
 
   const { data: hasPermission, isLoading } = useQuery({
     queryKey: ['cc-permission'],
@@ -26,6 +29,12 @@ export function ContactCenterSidebarGate() {
       return perms.includes('contact_centre.view')
     },
   })
+
+  // Tell DashboardMain how much left-padding to apply
+  useEffect(() => {
+    if (isLoading) return
+    setCcSidebar(hasPermission ? 'collapsed' : 'none')
+  }, [hasPermission, isLoading, setCcSidebar])
 
   if (isLoading || !hasPermission) return null
   return <ContactCenterSidebar />
