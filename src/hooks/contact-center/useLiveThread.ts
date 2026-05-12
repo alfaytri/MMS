@@ -121,8 +121,24 @@ export function useLiveThread(conversationId: string | null, phone: string | nul
       )
       .subscribe()
 
+    // Periodic fallback: re-sync from DB every 15 s in case Realtime dropped an event
+    const poll = setInterval(async () => {
+      if (cancelledRef.current) return
+      const fresh = await loadFromDb(conversationId!)
+      if (cancelledRef.current) return
+      setMessages((prev) => {
+        const prevIds = new Set(prev.map((m) => m.id))
+        const missed = fresh.filter((m) => !prevIds.has(m.id))
+        if (missed.length === 0) return prev
+        return [...prev, ...missed].sort(
+          (a, b) => new Date(a.created_at).getTime() - new Date(b.created_at).getTime()
+        )
+      })
+    }, 15_000)
+
     return () => {
       cancelledRef.current = true
+      clearInterval(poll)
       supabase.removeChannel(channel)
     }
   }, [conversationId, phone])

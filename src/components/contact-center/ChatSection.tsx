@@ -88,7 +88,7 @@ export function ChatSection({ messages, loading, fetchingWati, canLoadMore, onLo
   const closeTimer     = useRef<ReturnType<typeof setTimeout> | null>(null)
   const [pickerFor, setPickerFor]   = useState<{ id: string; msg: ChatMessage; x: number; y: number } | null>(null)
   const [newMsgCount, setNewMsgCount] = useState(0)
-  const prevMsgCount = useRef(0)
+  const prevLastId = useRef<string | null>(null)
 
   function openPicker(msg: ChatMessage, el: HTMLElement) {
     if (closeTimer.current) clearTimeout(closeTimer.current)
@@ -106,15 +106,16 @@ export function ChatSection({ messages, loading, fetchingWati, canLoadMore, onLo
     const el = scrollRef.current
     if (!el) return
     const isNearBottom = el.scrollHeight - el.scrollTop - el.clientHeight < 80
-    const added = messages.length - prevMsgCount.current
-    prevMsgCount.current = messages.length
+    const lastId = messages[messages.length - 1]?.id ?? null
+    const newAtBottom = lastId !== null && lastId !== prevLastId.current && prevLastId.current !== null
+    prevLastId.current = lastId
 
     if (!userScrolledUp.current || isNearBottom) {
       bottomRef.current?.scrollIntoView({ behavior: 'smooth' })
       setNewMsgCount(0)
-    } else if (added > 0) {
-      // New message arrived while user is scrolled up — show badge
-      setNewMsgCount((n) => n + added)
+    } else if (newAtBottom) {
+      // A new message arrived at the bottom while user is scrolled up — show badge
+      setNewMsgCount((n) => n + 1)
     }
   }, [messages])
 
