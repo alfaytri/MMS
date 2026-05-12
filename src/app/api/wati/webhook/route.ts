@@ -177,6 +177,8 @@ export async function POST(req: NextRequest) {
       const { data: targetRow } = await (supabase.from('chat_messages') as any)
         .select('id, reactions')
         .in('external_id', [targetExternalId, `wati_${targetExternalId}`])
+        .order('created_at', { ascending: false })
+        .limit(1)
         .maybeSingle()
       console.log('[webhook:reaction]', { targetExternalId, emoji, found: !!targetRow })
       if (targetRow) {
