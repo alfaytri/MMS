@@ -163,7 +163,6 @@ export function ChatSection({ messages, loading, fetchingWati, canLoadMore, onLo
             <div
               key={msg.id}
               className={`flex ${isAgent ? 'justify-end' : 'justify-start'}`}
-              onMouseLeave={() => setPickerFor(null)}
             >
               <div className={`max-w-[85%] flex flex-col ${isAgent ? 'items-end' : 'items-start'}`}>
                 {isAgent && (
@@ -172,8 +171,13 @@ export function ChatSection({ messages, loading, fetchingWati, canLoadMore, onLo
                   </span>
                 )}
 
-                {/* Bubble + emoji picker trigger */}
-                <div className="relative group">
+                {/* Bubble + emoji picker — onMouseLeave on this wrapper so moving
+                    into the picker (DOM child) doesn't close it */}
+                <div
+                  className="relative group"
+                  onMouseEnter={() => setPickerFor(msg.id)}
+                  onMouseLeave={() => setPickerFor(null)}
+                >
                   {pickerFor === msg.id && onReact && (
                     <EmojiPicker
                       onPick={(emoji) => onReact(msg.id, msg.external_id, emoji)}
@@ -185,7 +189,6 @@ export function ChatSection({ messages, loading, fetchingWati, canLoadMore, onLo
                     className={`rounded-lg px-2.5 py-1.5 text-xs cursor-default select-text ${
                       isAgent ? 'bg-primary text-primary-foreground' : 'bg-muted text-foreground'
                     }`}
-                    onMouseEnter={() => setPickerFor(msg.id)}
                   >
                     {/* Regular text */}
                     {msg.text && msg.text !== '' && (
