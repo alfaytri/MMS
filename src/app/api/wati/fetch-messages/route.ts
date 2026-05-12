@@ -236,9 +236,15 @@ export async function GET(req: NextRequest) {
     return NextResponse.json({ fetched: 0 })
   }
 
-  // Separate reaction items from regular messages
-  const reactionItems = allItems.filter((item) => item.type === 'reaction' && item.reactionMessage)
-  const messageItems  = allItems.filter((item) => item.type !== 'reaction' && item.id)
+  // Separate reaction items from regular messages.
+  // Wati's getMessages API does not return reactions as separate items —
+  // they only arrive via the Wati webhook (push). The filter and Strategy B
+  // (embedded reactions) below are kept as a safety net in case Wati changes
+  // their API to include them.
+  const reactionItems = allItems.filter((item: any) =>
+    String(item.type ?? '').toLowerCase() === 'reaction'
+  )
+  const messageItems  = allItems.filter((item: any) => String(item.type ?? '').toLowerCase() !== 'reaction' && item.id)
 
   // Wati ticket events (eventType='ticket') cover all platform system events:
   //   type 0 = chat initialized, type 1 = assigned, type 2 = closed, type 5 = status change
@@ -271,6 +277,12 @@ export async function GET(req: NextRequest) {
       ? `[${msgType}]`
       : '')
 
+    // Prefer whatsappMessageId (wamid) over Wati's internal id.
+    // Reactions reference the wamid, so storing it here lets reaction
+    // lookups find the right row. Fall back to the numeric Wati id if
+    // the API response doesn't include whatsappMessageId.
+    const externalId = item.whatsappMessageId ?? String(item.id)
+
     return {
       conversation_id: conversationId,
       from_type:       isAgent ? 'agent' : 'customer',
@@ -279,13 +291,38 @@ export async function GET(req: NextRequest) {
       agent_name:      isAgent ? (item.senderName ?? null) : null,
       attachments:     attachments.length > 0 ? attachments : null,
       delivery_status: isAgent ? normaliseStatus(item.statusString) : 'delivered',
-      external_id:     String(item.id),
+      external_id:     externalId,
       created_at:      ts,
       message_kind:    isEvent ? 'event' : 'message',
     }
   })
 
-  // Upsert with UPDATE on conflict so already-stored [1] rows get re-classified
+  // ── Pre-claim rows stored by MMS with wati_ prefix ─────────────────────────
+  // When an agent sends from MMS the row is immediately inserted with
+  // external_id = 'wati_<wamid>'. The Wati API returns the same message with
+  // external_id = '<wamid>' (no prefix). The upsert below uses onConflict:
+  // 'external_id', so it would INSERT a second row (different key). We avoid
+  // duplicates by first resolving those wati_-prefixed rows: update their
+  // external_id to the bare form so the subsequent upsert hits the same row.
+  const bareIds = rows.map((r) => r.external_id).filter(Boolean)
+  if (bareIds.length > 0) {
+    const watiPrefixIds = bareIds.map((id) => `wati_${id}`)
+    const { data: prefixedRows } = await (supabase.from('chat_messages') as any)
+      .select('id, external_id')
+      .in('external_id', watiPrefixIds)
+      .eq('conversation_id', conversationId)
+    if (prefixedRows?.length) {
+      for (const pr of prefixedRows as { id: string; external_id: string }[]) {
+        const bareId = pr.external_id.replace(/^wati_/, '')
+        await (supabase.from('chat_messages') as any)
+          .update({ external_id: bareId })
+          .eq('id', pr.id)
+      }
+    }
+  }
+
+  // Upsert — now safe: wati_-prefixed rows were renamed to bare ids above,
+  // so onConflict:'external_id' will UPDATE them instead of inserting duplicates.
   const CHUNK = 200
   let inserted = 0
   for (let i = 0; i < rows.length; i += CHUNK) {
@@ -299,23 +336,74 @@ export async function GET(req: NextRequest) {
     inserted += chunk.length
   }
 
-  // Apply reactions to target messages
-  if (reactionItems.length > 0) {
-    const reactionsByTarget = new Map<string, { emoji: string; from_type: string }[]>()
-    for (const item of reactionItems) {
-      const targetId = item.reactionMessage?.key?.id
-      const emoji    = item.reactionMessage?.text
-      if (!targetId || !emoji) continue
-      const isAgent  = item.owner === true || item.eventType === 'message_sent'
-      const list = reactionsByTarget.get(String(targetId)) ?? []
-      list.push({ emoji, from_type: isAgent ? 'agent' : 'customer' })
-      reactionsByTarget.set(String(targetId), list)
+  // Apply reactions to target messages.
+  // Strategy A: separate reaction items in the message list
+  // Strategy B: reactions embedded in the message object itself (item.reactions[])
+  //
+  // We collect everything into a single map keyed by target message external_id,
+  // then write it in one pass.
+  const reactionsByTarget = new Map<string, { emoji: string; from_type: string }[]>()
+
+  // Strategy A — dedicated reaction items (type === 'reaction')
+  for (const item of reactionItems) {
+    // Wati uses several different shapes for the target ID and emoji:
+    //   • newer Cloud API:  item.reaction.messageId / item.reaction.emoji
+    //   • older Wati style: item.reactionMessage.key.id / item.reactionMessage.text
+    //   • flat fields:      item.referredMessageId / item.emoji or item.reactionEmoji
+    const targetId =
+      item.reactionMessage?.key?.id ??
+      item.reaction?.messageId ??
+      item.referredMessageId ??
+      item.targetMessageId ??
+      item.messageId ?? null
+
+    const emoji =
+      item.reactionMessage?.text ??
+      item.reaction?.emoji ??
+      item.emoji ??
+      item.reactionEmoji ?? null
+
+    if (!targetId || !emoji) continue
+    const isAgent = item.owner === true || item.eventType === 'message_sent'
+    const key = String(targetId)
+    const list = reactionsByTarget.get(key) ?? []
+    list.push({ emoji, from_type: isAgent ? 'agent' : 'customer' })
+    reactionsByTarget.set(key, list)
+  }
+
+  // Strategy B — reactions embedded in message objects
+  // Wati getMessages sometimes includes a `reactions` array on the message itself
+  // rather than returning a separate reaction item.
+  for (const item of allItems) {
+    const embedded: any[] = item.reactions ?? item.reactionDetails ?? []
+    if (!Array.isArray(embedded) || embedded.length === 0) continue
+    const messageExternalId = item.whatsappMessageId ?? String(item.id)
+    const list = reactionsByTarget.get(messageExternalId) ?? []
+    for (const r of embedded) {
+      const emoji = r.emoji ?? r.text ?? r.reactionText ?? null
+      if (!emoji) continue
+      const isAgent = r.owner === true || (r.senderType ?? '').toLowerCase() === 'agent'
+      // Avoid duplicates if both strategy A and B fire for the same message
+      if (!list.some((x) => x.emoji === emoji)) {
+        list.push({ emoji, from_type: isAgent ? 'agent' : 'customer' })
+      }
     }
-    for (const [targetExternalId, reactions] of reactionsByTarget) {
+    if (list.length > 0) reactionsByTarget.set(messageExternalId, list)
+  }
+
+  // Write reactions to DB
+  for (const [targetId, reactions] of reactionsByTarget) {
+    // Search by wamid AND legacy wati_<id> prefix used by the chat send flow
+    const { data: targetRow } = await (supabase.from('chat_messages') as any)
+      .select('id')
+      .eq('conversation_id', conversationId)
+      .in('external_id', [targetId, `wati_${targetId}`])
+      .maybeSingle()
+
+    if (targetRow) {
       await (supabase.from('chat_messages') as any)
         .update({ reactions })
-        .eq('external_id', targetExternalId)
-        .eq('conversation_id', conversationId)
+        .eq('id', targetRow.id)
     }
   }
 

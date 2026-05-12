@@ -129,37 +129,38 @@ export function useLiveThread(conversationId: string | null, phone: string | nul
     setLoadedDays(10)
 
     async function init() {
+      // 1. Show whatever is in the DB immediately
       const existing = await loadFromDb(conversationId!)
       if (cancelledRef.current) return
+      setMessages(existing)
+      setCanLoadMore(existing.length > 0)
+      setLoading(false)
 
-      if (existing.length > 0) {
-        setMessages(existing)
-        setCanLoadMore(true)
-        setLoading(false)
-      } else if (phone) {
-        await fetchFromWati(conversationId!, phone, 10)
+      // 2. Always sync the last day from Wati so any messages that arrived
+      //    without the webhook (local dev, preview URLs) are pulled in now.
+      if (phone) {
+        await fetchFromWati(conversationId!, phone, 1)
         if (cancelledRef.current) return
         const fresh = await loadFromDb(conversationId!)
         if (!cancelledRef.current) {
-          setMessages(fresh)
+          setMessages((prev) => applyPoll(prev, fresh))
           setCanLoadMore(fresh.length > 0)
-          setLoading(false)
         }
-      } else {
-        setMessages([])
-        setLoading(false)
       }
     }
 
     init()
 
     // ── Realtime subscription ────────────────────────────────────────────────
+    // REPLICA IDENTITY FULL is required on chat_messages for the
+    // conversation_id filter to match in WAL events. See migration
+    // 20260512210000_chat_messages_replica_identity.sql.
     const channel = supabase
       .channel(`thread-${conversationId}`)
       .on(
         'postgres_changes',
         { event: '*', schema: 'public', table: 'chat_messages', filter: `conversation_id=eq.${conversationId}` },
-        async (payload) => {
+        (payload) => {
           if (cancelledRef.current) return
           const incoming = {
             ...(payload.new as ChatMessage),
@@ -169,38 +170,74 @@ export function useLiveThread(conversationId: string | null, phone: string | nul
           if (payload.eventType === 'INSERT') {
             setMessages((prev) => {
               if (prev.some((m) => m.id === incoming.id)) return prev
-              return [...prev, incoming]
+              return [...prev, incoming].sort(
+                (a, b) => new Date(a.created_at).getTime() - new Date(b.created_at).getTime()
+              )
             })
           } else if (payload.eventType === 'UPDATE') {
             setMessages((prev) => {
               const idx = prev.findIndex((m) => m.id === incoming.id)
-              if (idx === -1) return [...prev, incoming]   // missed INSERT — append
+              if (idx === -1) return [...prev, incoming].sort(
+                (a, b) => new Date(a.created_at).getTime() - new Date(b.created_at).getTime()
+              )
               return prev.map((m) => (m.id === incoming.id ? { ...m, ...incoming } : m))
             })
           }
         }
       )
-      .on('system' as any, {}, (status: any) => {
-        // When the WebSocket drops or reconnects, trigger an immediate poll
-        // so we catch anything missed during the outage gap
+      .subscribe((status, err) => {
+        if (err) console.error('[useLiveThread] channel error', err)
+        // On any disconnect/error: poll immediately so we catch anything missed
         if (status === 'CHANNEL_ERROR' || status === 'TIMED_OUT' || status === 'CLOSED') {
-          console.warn('[useLiveThread] Realtime disconnected — polling immediately', status)
+          console.warn('[useLiveThread] Realtime', status, '— polling immediately')
           triggerPoll()
         }
       })
-      .subscribe()
 
-    // ── Periodic fallback: every 5 s ─────────────────────────────────────────
-    const poll = setInterval(triggerPoll, 5_000)
+    // ── Periodic DB poll: every 2 s ──────────────────────────────────────────
+    // Catches anything the Realtime WebSocket misses.
+    const poll = setInterval(triggerPoll, 2_000)
 
-    // ── Immediate poll when tab becomes visible again ─────────────────────────
+    // ── Periodic Wati API sync: every 10 s ───────────────────────────────────
+    // The Wati webhook only fires when Wati is configured to call THIS deployment's URL.
+    // On local dev and preview URLs the webhook never arrives, so messages only exist
+    // in Wati's servers (not our DB). This sync pulls them in on a schedule so
+    // new customer messages appear within ~10 s regardless of webhook config.
+    let watiSyncing = false
+    async function syncFromWati() {
+      const convId = convIdRef.current
+      const ph     = phone
+      if (!convId || !ph || watiSyncing || cancelledRef.current) return
+      watiSyncing = true
+      console.log('[useLiveThread] syncing from Wati…')
+      try {
+        const res = await fetch(
+          `/api/wati/fetch-messages?conversationId=${encodeURIComponent(convId)}&phone=${encodeURIComponent(ph)}&days=1`,
+          { method: 'GET' }
+        )
+        const json = await res.json().catch(() => null)
+        console.log('[useLiveThread] wati sync result', res.status, json)
+        // After syncing Wati → DB, immediately pull new rows into state
+        if (!cancelledRef.current) {
+          const recent = await pollFromDb(convId)
+          if (!cancelledRef.current) setMessages((prev) => applyPoll(prev, recent))
+        }
+      } catch (e) {
+        console.warn('[useLiveThread] wati sync error', e)
+      } finally {
+        watiSyncing = false
+      }
+    }
+    const watiSync = setInterval(syncFromWati, 10_000)
+
+    // ── Immediate poll + Wati sync when tab becomes visible again ────────────
     function handleVisibility() {
-      if (!document.hidden) triggerPoll()
+      if (!document.hidden) { triggerPoll(); syncFromWati() }
     }
 
-    // ── Immediate poll when network comes back online ─────────────────────────
+    // ── Immediate poll + Wati sync when network comes back online ─────────────
     function handleOnline() {
-      triggerPoll()
+      triggerPoll(); syncFromWati()
     }
 
     document.addEventListener('visibilitychange', handleVisibility)
@@ -209,6 +246,7 @@ export function useLiveThread(conversationId: string | null, phone: string | nul
     return () => {
       cancelledRef.current = true
       clearInterval(poll)
+      clearInterval(watiSync)
       supabase.removeChannel(channel)
       document.removeEventListener('visibilitychange', handleVisibility)
       window.removeEventListener('online', handleOnline)

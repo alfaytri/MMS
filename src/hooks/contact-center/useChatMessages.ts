@@ -38,9 +38,19 @@ export function useChatMessages(
     if (!text.trim() || sending) return
     setSending(true)
 
-    const { data: { user } } = await supabase.auth.getUser()
+    // Ensure we have a valid session — refresh if the token has expired
+    let { data: { user } } = await supabase.auth.getUser()
+    if (!user) {
+      const { data: refreshed } = await supabase.auth.refreshSession()
+      user = refreshed?.user ?? null
+    }
+    if (!user) {
+      setSending(false)
+      throw new Error('Session expired — please reload the page and log in again.')
+    }
+
     const { data: profile } = await (supabase as any)
-      .from('profiles').select('id').eq('auth_user_id', user?.id).maybeSingle()
+      .from('profiles').select('id').eq('auth_user_id', user.id).maybeSingle()
     const profileId: string | null = profile?.id ?? null
 
     const { data: inserted, error: insertErr } = await (supabase as any)
@@ -112,9 +122,19 @@ export function useChatMessages(
     if (sending) return
     setSending(true)
 
-    const { data: { user } } = await supabase.auth.getUser()
+    // Ensure we have a valid session — refresh if the token has expired
+    let { data: { user } } = await supabase.auth.getUser()
+    if (!user) {
+      const { data: refreshed } = await supabase.auth.refreshSession()
+      user = refreshed?.user ?? null
+    }
+    if (!user) {
+      setSending(false)
+      throw new Error('Session expired — please reload the page and log in again.')
+    }
+
     const { data: profile } = await (supabase as any)
-      .from('profiles').select('id').eq('auth_user_id', user?.id).maybeSingle()
+      .from('profiles').select('id').eq('auth_user_id', user.id).maybeSingle()
     const profileId: string | null = profile?.id ?? null
 
     const bodyText = template.paramNames.reduce(
