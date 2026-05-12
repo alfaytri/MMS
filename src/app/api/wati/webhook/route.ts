@@ -29,32 +29,34 @@ interface Attachment {
 function extractAttachments(body: any): Attachment[] {
   const msgType: string = String(body.type ?? '')
   const data = body.data ?? {}
-  const mediaUrl = data.url ?? body.media?.url ?? null
+  const mediaUrl =
+    data.url ?? data.link ?? data.mediaUrl ??
+    body.media?.url ?? body.mediaUrl ?? body.url ?? null
 
   if (msgType === 'image') {
-    const url = mediaUrl ?? body.image?.url ?? null
+    const url = mediaUrl ?? body.image?.url ?? body.image?.link ?? null
     if (!url) return []
-    return [{ url, type: data.mimeType ?? body.media?.mimeType ?? 'image/jpeg', name: data.caption ?? 'image' }]
+    return [{ url, type: data.mimeType ?? body.media?.mimeType ?? body.mimeType ?? 'image/jpeg', name: data.caption ?? body.caption ?? 'image' }]
   }
   if (msgType === 'document') {
     const url = mediaUrl ?? body.document?.url ?? body.document?.link ?? null
     if (!url) return []
-    const name = data.fileName ?? data.filename ?? body.document?.filename ?? body.document?.fileName ?? body.media?.fileName ?? 'document'
-    const mime = data.mimeType ?? body.document?.mimeType ?? body.media?.mimeType ?? 'application/octet-stream'
+    const name = data.fileName ?? data.filename ?? body.document?.filename ?? body.document?.fileName ?? body.media?.fileName ?? body.fileName ?? 'document'
+    const mime = data.mimeType ?? body.document?.mimeType ?? body.media?.mimeType ?? body.mimeType ?? 'application/octet-stream'
     return [{ url, type: mime, name }]
   }
   if (msgType === 'video') {
-    const url = mediaUrl ?? body.video?.url ?? null
+    const url = mediaUrl ?? body.video?.url ?? body.video?.link ?? null
     if (!url) return []
-    return [{ url, type: data.mimeType ?? body.media?.mimeType ?? 'video/mp4', name: data.caption ?? 'video' }]
+    return [{ url, type: data.mimeType ?? body.media?.mimeType ?? body.mimeType ?? 'video/mp4', name: data.caption ?? body.caption ?? 'video' }]
   }
   if (msgType === 'audio' || msgType === 'voice') {
-    const url = mediaUrl ?? body.audio?.url ?? null
+    const url = mediaUrl ?? body.audio?.url ?? body.audio?.link ?? null
     if (!url) return []
-    return [{ url, type: data.mimeType ?? body.media?.mimeType ?? 'audio/ogg', name: 'audio' }]
+    return [{ url, type: data.mimeType ?? body.media?.mimeType ?? body.mimeType ?? 'audio/ogg', name: 'audio' }]
   }
   if (msgType === 'sticker') {
-    const url = mediaUrl ?? body.sticker?.url ?? null
+    const url = mediaUrl ?? body.sticker?.url ?? body.sticker?.link ?? null
     if (!url) return []
     return [{ url, type: 'image/webp', name: 'sticker' }]
   }
@@ -98,12 +100,16 @@ function extractWebhookText(body: any, msgType: string): string {
   if (direct) return direct
   const caption = body.caption?.trim() ?? body.data?.caption?.trim() ?? ''
   if (caption) return caption
+  const dataBody = body.data?.body?.trim() ?? ''
+  if (dataBody) return dataBody
   if (msgType === 'template' || msgType === 'hsm') {
     const components: any[] = body.data?.template?.components ?? body.data?.components ?? []
     const comp = components.find((c: any) => (c.type ?? '').toLowerCase() === 'body')
     if (comp?.text?.trim()) return comp.text.trim()
+    const directBody = body.data?.template?.body?.trim() ?? ''
+    if (directBody) return directBody
   }
-  return body.body?.trim() ?? body.eventDescription?.trim() ?? ''
+  return body.body?.trim() ?? ''
 }
 
 // GET — WATI verification ping

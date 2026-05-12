@@ -46,33 +46,35 @@ interface Attachment {
 function extractAttachments(item: any): Attachment[] {
   const msgType: string = String(item.type ?? '')
   const data = item.data ?? {}
-  // Wati uses data.url OR media.url OR a type-specific sub-object
-  const mediaUrl = data.url ?? item.media?.url ?? null
+  // Wati stores media URL in several possible locations — try all of them
+  const mediaUrl =
+    data.url ?? data.link ?? data.mediaUrl ??
+    item.media?.url ?? item.mediaUrl ?? item.url ?? null
 
   if (msgType === 'image') {
-    const url = mediaUrl ?? item.image?.url ?? null
+    const url = mediaUrl ?? item.image?.url ?? item.image?.link ?? null
     if (!url) return []
-    return [{ url, type: data.mimeType ?? item.media?.mimeType ?? 'image/jpeg', name: data.caption ?? item.media?.caption ?? 'image' }]
+    return [{ url, type: data.mimeType ?? item.media?.mimeType ?? item.mimeType ?? 'image/jpeg', name: data.caption ?? item.media?.caption ?? item.caption ?? 'image' }]
   }
   if (msgType === 'document') {
     const url = mediaUrl ?? item.document?.url ?? item.document?.link ?? null
     if (!url) return []
-    const name = data.fileName ?? data.filename ?? item.document?.filename ?? item.document?.fileName ?? item.media?.fileName ?? 'document'
-    const mime = data.mimeType ?? item.document?.mimeType ?? item.media?.mimeType ?? 'application/octet-stream'
+    const name = data.fileName ?? data.filename ?? item.document?.filename ?? item.document?.fileName ?? item.media?.fileName ?? item.fileName ?? 'document'
+    const mime = data.mimeType ?? item.document?.mimeType ?? item.media?.mimeType ?? item.mimeType ?? 'application/octet-stream'
     return [{ url, type: mime, name }]
   }
   if (msgType === 'video') {
-    const url = mediaUrl ?? item.video?.url ?? null
+    const url = mediaUrl ?? item.video?.url ?? item.video?.link ?? null
     if (!url) return []
-    return [{ url, type: data.mimeType ?? item.media?.mimeType ?? 'video/mp4', name: data.caption ?? 'video' }]
+    return [{ url, type: data.mimeType ?? item.media?.mimeType ?? item.mimeType ?? 'video/mp4', name: data.caption ?? item.caption ?? 'video' }]
   }
   if (msgType === 'audio' || msgType === 'voice') {
-    const url = mediaUrl ?? item.audio?.url ?? null
+    const url = mediaUrl ?? item.audio?.url ?? item.audio?.link ?? null
     if (!url) return []
-    return [{ url, type: data.mimeType ?? item.media?.mimeType ?? 'audio/ogg', name: 'audio' }]
+    return [{ url, type: data.mimeType ?? item.media?.mimeType ?? item.mimeType ?? 'audio/ogg', name: 'audio' }]
   }
   if (msgType === 'sticker') {
-    const url = mediaUrl ?? item.sticker?.url ?? null
+    const url = mediaUrl ?? item.sticker?.url ?? item.sticker?.link ?? null
     if (!url) return []
     return [{ url, type: 'image/webp', name: 'sticker' }]
   }
@@ -133,16 +135,23 @@ function extractText(item: any, msgType: string): string {
   const caption = item.caption?.trim() ?? item.data?.caption?.trim() ?? ''
   if (caption) return caption
 
+  // data.body — Wati sometimes stores rendered template body here
+  const dataBody = item.data?.body?.trim() ?? ''
+  if (dataBody) return dataBody
+
   // Template body text from components
   if (msgType === 'template' || msgType === 'hsm') {
     const components: any[] = item.data?.template?.components ?? item.data?.components ?? []
     const body = components.find((c: any) => (c.type ?? '').toLowerCase() === 'body')
     const bodyText = body?.text?.trim() ?? ''
     if (bodyText) return bodyText
+    // Rendered body might also be at data.template.body directly
+    const directBody = item.data?.template?.body?.trim() ?? ''
+    if (directBody) return directBody
   }
 
-  // System / activity text
-  return item.body?.trim() ?? item.eventDescription?.trim() ?? item.note?.trim() ?? ''
+  // System / activity text — only used for events, not for real messages
+  return item.body?.trim() ?? item.note?.trim() ?? ''
 }
 
 // GET /api/wati/fetch-messages?conversationId=...&phone=...&days=10
