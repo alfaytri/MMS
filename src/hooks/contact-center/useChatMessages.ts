@@ -223,7 +223,7 @@ export function useChatMessages(
 
   const reactToMessage = useCallback(async (messageId: string, emoji: string, phone?: string) => {
     const { data: row } = await (supabase as any)
-      .from('chat_messages').select('reactions, external_id').eq('id', messageId).single()
+      .from('chat_messages').select('reactions, external_id').eq('id', messageId).maybeSingle()
     const existing: { emoji: string; from_type: string }[] = row?.reactions ?? []
     const hasIt = existing.some((r) => r.emoji === emoji && r.from_type === 'agent')
     const updated = hasIt
