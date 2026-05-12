@@ -10,6 +10,7 @@ import { AddressSection }      from './AddressSection'
 import { ProductsList }        from './ProductsList'
 import { OrderHistorySection } from './OrderHistorySection'
 import { useContactCenterState } from '@/hooks/contact-center/useContactCenterState'
+import { useContactCenterContext } from '@/contexts/ContactCenterContext'
 import type { ChatConversation } from '@/types/contact-center'
 
 interface SectionHeaderProps {
@@ -39,6 +40,10 @@ export function ContactCenterSidebar() {
     activeConversationId, activeCustomerId, activePhone,
     openConversation, goToList, expandSidebar, collapseSidebar, syncFromWati, syncProgress,
   } = state
+  const { setCcSidebar } = useContactCenterContext()
+
+  function handleExpand() { setCcSidebar('expanded'); expandSidebar() }
+  function handleCollapse() { setCcSidebar('collapsed'); collapseSidebar() }
 
   function handleSelectConversation(c: ChatConversation) {
     openConversation(c.id, c.customer_id, c.wati_phone)
@@ -50,10 +55,10 @@ export function ContactCenterSidebar() {
       <>
         {/* Desktop: fixed left strip */}
         <div className="hidden lg:flex fixed left-0 top-14 bottom-0 w-10 border-r border-border bg-background z-40 flex-col items-center pt-3 gap-3">
-          <Button size="icon" variant="ghost" className="h-8 w-8" onClick={expandSidebar}>
+          <Button size="icon" variant="ghost" className="h-8 w-8" onClick={handleExpand}>
             <ChevronRight className="h-4 w-4" />
           </Button>
-          <Button size="icon" variant="ghost" className="h-8 w-8" onClick={expandSidebar}>
+          <Button size="icon" variant="ghost" className="h-8 w-8" onClick={handleExpand}>
             <MessageSquare className="h-4 w-4" />
           </Button>
         </div>
@@ -61,7 +66,7 @@ export function ContactCenterSidebar() {
         {/* Mobile: FAB */}
         <button
           className="lg:hidden fixed bottom-4 left-4 z-50 h-12 w-12 rounded-full bg-primary shadow-lg flex items-center justify-center"
-          onClick={expandSidebar}
+          onClick={handleExpand}
         >
           <MessageSquare className="h-5 w-5 text-primary-foreground" />
         </button>
@@ -77,7 +82,7 @@ export function ContactCenterSidebar() {
         <div className="hidden lg:flex fixed left-0 top-14 bottom-0 w-80 border-r border-border bg-background z-40 flex-col">
           <div className="flex items-center justify-between px-3 py-2 border-b border-border">
             <span className="text-xs font-semibold">Contact Centre</span>
-            <Button size="icon" variant="ghost" className="h-7 w-7" onClick={collapseSidebar}>
+            <Button size="icon" variant="ghost" className="h-7 w-7" onClick={handleCollapse}>
               <ChevronLeft className="h-3.5 w-3.5" />
             </Button>
           </div>
@@ -93,14 +98,14 @@ export function ContactCenterSidebar() {
         </div>
 
         {/* Mobile: slide-over drawer */}
-        <div className="lg:hidden fixed inset-0 z-50 bg-black/40" onClick={collapseSidebar}>
+        <div className="lg:hidden fixed inset-0 z-50 bg-black/40" onClick={handleCollapse}>
           <div
             className="absolute bottom-0 left-0 right-0 h-[85vh] bg-background rounded-t-xl flex flex-col"
             onClick={(e) => e.stopPropagation()}
           >
             <div className="flex items-center justify-between px-3 py-2 border-b border-border">
               <span className="text-xs font-semibold">Contact Centre</span>
-              <Button size="icon" variant="ghost" className="h-7 w-7" onClick={collapseSidebar}>
+              <Button size="icon" variant="ghost" className="h-7 w-7" onClick={handleCollapse}>
                 <ChevronLeft className="h-3.5 w-3.5" />
               </Button>
             </div>
