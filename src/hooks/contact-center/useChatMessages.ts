@@ -35,6 +35,9 @@ export function useChatMessages(patchMessage: (id: string, patch: Partial<ChatMe
     setSending(true)
 
     const { data: { user } } = await supabase.auth.getUser()
+    const { data: profile } = await (supabase as any)
+      .from('profiles').select('id').eq('auth_user_id', user?.id).maybeSingle()
+    const profileId: string | null = profile?.id ?? null
 
     const { data: inserted, error: insertErr } = await (supabase as any)
       .from('chat_messages')
@@ -45,7 +48,7 @@ export function useChatMessages(patchMessage: (id: string, patch: Partial<ChatMe
         text:               text.trim(),
         delivery_status:    'sending',
         external_id:        null,
-        sent_by_profile_id: user?.id ?? null,
+        sent_by_profile_id: profileId,
       })
       .select()
       .single()
@@ -96,6 +99,10 @@ export function useChatMessages(patchMessage: (id: string, patch: Partial<ChatMe
     setSending(true)
 
     const { data: { user } } = await supabase.auth.getUser()
+    const { data: profile } = await (supabase as any)
+      .from('profiles').select('id').eq('auth_user_id', user?.id).maybeSingle()
+    const profileId: string | null = profile?.id ?? null
+
     const bodyText = variables.reduce(
       (t, v, i) => t.replace(`{{${i + 1}}}`, v),
       template.bodyOriginal ?? template.elementName
@@ -110,7 +117,7 @@ export function useChatMessages(patchMessage: (id: string, patch: Partial<ChatMe
         text:               bodyText,
         delivery_status:    'sending',
         external_id:        null,
-        sent_by_profile_id: user?.id ?? null,
+        sent_by_profile_id: profileId,
       })
       .select()
       .single()
