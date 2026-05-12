@@ -25,7 +25,7 @@ export function useContactCenterState() {
   const [activePhone, setActivePhone]           = useState<string | null>(null)
   const [syncProgress, setSyncProgress]         = useState<SyncProgress>({ stage: 'idle' })
 
-  const { conversations, loading: convsLoading, markRead, refetch: refetchConversations } = useLiveConversations()
+  const { conversations, loading: convsLoading, markRead, markOpened, refetch: refetchConversations } = useLiveConversations()
   const { messages, loading: threadLoading, fetchingWati, canLoadMore, loadMore, patchMessage } = useLiveThread(activeConversationId, activePhone)
   const windowStatus = useWhatsAppWindow(messages)
 
@@ -39,6 +39,7 @@ export function useContactCenterState() {
     setActivePhone(phone)
     setSidebarView('detail')
     markRead(conversationId)
+    markOpened(conversationId)
   }
 
   function goToList() {

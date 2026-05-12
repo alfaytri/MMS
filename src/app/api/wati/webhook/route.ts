@@ -27,31 +27,34 @@ interface Attachment {
 }
 
 function extractAttachments(body: any): Attachment[] {
-  const msgType: string = body.type ?? ''
+  const msgType: string = String(body.type ?? '')
   const data = body.data ?? {}
+  const mediaUrl = data.url ?? body.media?.url ?? null
 
   if (msgType === 'image') {
-    const url = data.url ?? body.image?.url ?? null
+    const url = mediaUrl ?? body.image?.url ?? null
     if (!url) return []
-    return [{ url, type: data.mimeType ?? 'image/jpeg', name: data.caption ?? 'image' }]
+    return [{ url, type: data.mimeType ?? body.media?.mimeType ?? 'image/jpeg', name: data.caption ?? 'image' }]
   }
   if (msgType === 'document') {
-    const url = data.url ?? body.document?.url ?? null
+    const url = mediaUrl ?? body.document?.url ?? body.document?.link ?? null
     if (!url) return []
-    return [{ url, type: data.mimeType ?? 'application/octet-stream', name: data.fileName ?? data.filename ?? 'document' }]
+    const name = data.fileName ?? data.filename ?? body.document?.filename ?? body.document?.fileName ?? body.media?.fileName ?? 'document'
+    const mime = data.mimeType ?? body.document?.mimeType ?? body.media?.mimeType ?? 'application/octet-stream'
+    return [{ url, type: mime, name }]
   }
   if (msgType === 'video') {
-    const url = data.url ?? body.video?.url ?? null
+    const url = mediaUrl ?? body.video?.url ?? null
     if (!url) return []
-    return [{ url, type: data.mimeType ?? 'video/mp4', name: data.caption ?? 'video' }]
+    return [{ url, type: data.mimeType ?? body.media?.mimeType ?? 'video/mp4', name: data.caption ?? 'video' }]
   }
   if (msgType === 'audio' || msgType === 'voice') {
-    const url = data.url ?? body.audio?.url ?? null
+    const url = mediaUrl ?? body.audio?.url ?? null
     if (!url) return []
-    return [{ url, type: data.mimeType ?? 'audio/ogg', name: 'audio' }]
+    return [{ url, type: data.mimeType ?? body.media?.mimeType ?? 'audio/ogg', name: 'audio' }]
   }
   if (msgType === 'sticker') {
-    const url = data.url ?? null
+    const url = mediaUrl ?? body.sticker?.url ?? null
     if (!url) return []
     return [{ url, type: 'image/webp', name: 'sticker' }]
   }
@@ -82,6 +85,33 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ ok: true })
   }
 
+  // ── Conversation status change (resolved / reopened / assigned) ────────────
+  if (
+    eventType === 'conversation_resolved' ||
+    eventType === 'conversation_resolve' ||
+    eventType === 'conversation_reopened' ||
+    eventType === 'conversation_reopen' ||
+    eventType === 'conversation_assigned'
+  ) {
+    const rawWaId: string = body.waId ?? body.contactWAId ?? body.from ?? ''
+    if (rawWaId) {
+      const phone = normalisePhone(rawWaId)
+      const isResolved = eventType.includes('resolve')
+      const assignedAgent: string | null =
+        body.assignedTo?.name ?? body.assignedTo?.fullName ??
+        (typeof body.assignedTo === 'string' ? body.assignedTo : null) ??
+        body.operatorName ?? null
+
+      await (supabase.from('chat_conversations') as any)
+        .update({
+          wati_status: isResolved ? 'resolved' : 'open',
+          ...(assignedAgent ? { assigned_agent: assignedAgent } : {}),
+        })
+        .eq('wati_phone', phone)
+    }
+    return NextResponse.json({ ok: true })
+  }
+
   // ── New message (received from customer or sent via WATI) ───────────────────
   const rawWaId: string = body.waId ?? body.from ?? ''
   if (!rawWaId) return NextResponse.json({ ok: true })
@@ -90,6 +120,12 @@ export async function POST(req: NextRequest) {
   const isAgent  = body.owner === true || eventType === 'message_sent' || eventType === 'sent_message'
   const msgType: string = body.type ?? 'text'
   const attachments = extractAttachments(body)
+
+  // Extract assigned agent from message payload (Wati sometimes includes it)
+  const assignedAgentInMsg: string | null =
+    body.assignedTo?.name ?? body.assignedTo?.fullName ??
+    (typeof body.assignedTo === 'string' ? body.assignedTo : null) ??
+    body.operatorName ?? null
 
   const text = typeof body.text === 'string' && body.text.trim()
     ? body.text.trim()
@@ -120,6 +156,7 @@ export async function POST(req: NextRequest) {
         last_message:    text || `[${msgType}]`,
         last_message_at: ts,
         ...(senderName ? { wati_contact_name: senderName } : {}),
+        ...(assignedAgentInMsg ? { assigned_agent: assignedAgentInMsg } : {}),
         ...(!isAgent ? { unread_count: (existing.unread_count ?? 0) + 1 } : {}),
       })
       .eq('id', conversationId)
@@ -131,6 +168,7 @@ export async function POST(req: NextRequest) {
         last_message:      text || `[${msgType}]`,
         last_message_at:   ts,
         unread_count:      isAgent ? 0 : 1,
+        ...(assignedAgentInMsg ? { assigned_agent: assignedAgentInMsg } : {}),
       })
       .select('id')
       .single()

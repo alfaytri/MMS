@@ -1,7 +1,7 @@
 'use client'
 
 import { useState, useEffect, useRef } from 'react'
-import { Search, MessageSquare, RefreshCw, AlertCircle, CheckCircle2, ChevronDown } from 'lucide-react'
+import { Search, MessageSquare, RefreshCw, AlertCircle, CheckCircle2, ChevronDown, Headphones, Bot } from 'lucide-react'
 import { Input } from '@/components/ui/input'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
@@ -79,15 +79,26 @@ function SyncBanner({ progress }: { progress: SyncProgress }) {
 }
 
 function ConversationRow({ c, onClick }: { c: ChatConversation; onClick: () => void }) {
+  const isBot      = c.assigned_agent?.toLowerCase() === 'bot' || c.assigned_agent?.toLowerCase() === 'chatbot'
+  const isResolved = c.wati_status === 'resolved'
+
   return (
     <button
-      className="w-full flex items-start gap-2.5 px-3 py-2.5 hover:bg-muted/50 transition-colors border-b border-border/50 text-left"
+      className={`w-full flex items-start gap-2.5 px-3 py-2.5 hover:bg-muted/50 transition-colors border-b border-border/50 text-left ${
+        isResolved ? 'opacity-60' : ''
+      }`}
       onClick={onClick}
     >
+      {/* Avatar circle */}
+      <div className="flex-shrink-0 w-8 h-8 rounded-full bg-primary/10 flex items-center justify-center text-xs font-semibold text-primary mt-0.5">
+        {(c.customer_name ?? c.wati_contact_name ?? c.wati_phone ?? '?')[0]?.toUpperCase()}
+      </div>
+
       <div className="flex-1 min-w-0">
+        {/* Row 1: name + time */}
         <div className="flex items-center justify-between gap-1">
-          <span className="text-xs font-medium truncate">
-            {c.customer_name ?? c.wati_phone ?? 'Unknown'}
+          <span className={`text-xs font-semibold truncate ${!c.is_opened && c.unread_count > 0 ? 'text-foreground' : 'text-foreground/80'}`}>
+            {c.customer_name ?? c.wati_contact_name ?? c.wati_phone ?? 'Unknown'}
           </span>
           {c.last_message_at && (
             <span className="text-xs text-muted-foreground flex-shrink-0">
@@ -95,19 +106,37 @@ function ConversationRow({ c, onClick }: { c: ChatConversation; onClick: () => v
             </span>
           )}
         </div>
+
+        {/* Row 2: assigned agent */}
+        {c.assigned_agent && (
+          <div className="flex items-center gap-1 mt-0.5">
+            {isBot
+              ? <Bot className="h-3 w-3 text-muted-foreground flex-shrink-0" />
+              : <Headphones className="h-3 w-3 text-muted-foreground flex-shrink-0" />
+            }
+            <span className="text-xs text-muted-foreground truncate">{c.assigned_agent}</span>
+          </div>
+        )}
+
+        {/* Row 3: last message + unread badge */}
         <div className="flex items-center justify-between gap-1 mt-0.5">
           <span className="text-xs text-muted-foreground truncate">
             {c.last_message ?? 'No messages yet'}
           </span>
-          {c.unread_count > 0 && (
-            <Badge className="h-4 min-w-4 text-xs px-1 py-0 flex-shrink-0">
-              {c.unread_count > 99 ? '99+' : c.unread_count}
-            </Badge>
-          )}
+          <div className="flex items-center gap-1 flex-shrink-0">
+            {isResolved && (
+              <span className="text-xs text-muted-foreground border border-border rounded px-1">Resolved</span>
+            )}
+            {!isResolved && c.is_opened && c.unread_count === 0 && (
+              <CheckCircle2 className="h-3 w-3 text-muted-foreground/50" />
+            )}
+            {c.unread_count > 0 && (
+              <Badge className="h-4 min-w-4 text-xs px-1 py-0">
+                {c.unread_count > 99 ? '99+' : c.unread_count}
+              </Badge>
+            )}
+          </div>
         </div>
-        {c.wati_phone && (
-          <span className="text-xs text-muted-foreground font-mono">{c.wati_phone}</span>
-        )}
       </div>
     </button>
   )

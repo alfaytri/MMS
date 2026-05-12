@@ -15,6 +15,9 @@ export interface ChatConversation {
   last_message: string | null
   last_message_at: string | null
   unread_count: number
+  assigned_agent: string | null
+  is_opened: boolean
+  wati_status: string
   created_at: string
   // joined
   customer_name?: string | null

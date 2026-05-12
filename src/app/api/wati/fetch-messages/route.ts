@@ -46,29 +46,33 @@ interface Attachment {
 function extractAttachments(item: any): Attachment[] {
   const msgType: string = String(item.type ?? '')
   const data = item.data ?? {}
+  // Wati uses data.url OR media.url OR a type-specific sub-object
+  const mediaUrl = data.url ?? item.media?.url ?? null
 
   if (msgType === 'image') {
-    const url = data.url ?? item.image?.url ?? null
+    const url = mediaUrl ?? item.image?.url ?? null
     if (!url) return []
-    return [{ url, type: data.mimeType ?? 'image/jpeg', name: data.caption ?? 'image' }]
+    return [{ url, type: data.mimeType ?? item.media?.mimeType ?? 'image/jpeg', name: data.caption ?? item.media?.caption ?? 'image' }]
   }
   if (msgType === 'document') {
-    const url = data.url ?? item.document?.url ?? null
+    const url = mediaUrl ?? item.document?.url ?? item.document?.link ?? null
     if (!url) return []
-    return [{ url, type: data.mimeType ?? 'application/octet-stream', name: data.fileName ?? data.filename ?? 'document' }]
+    const name = data.fileName ?? data.filename ?? item.document?.filename ?? item.document?.fileName ?? item.media?.fileName ?? 'document'
+    const mime = data.mimeType ?? item.document?.mimeType ?? item.media?.mimeType ?? 'application/octet-stream'
+    return [{ url, type: mime, name }]
   }
   if (msgType === 'video') {
-    const url = data.url ?? item.video?.url ?? null
+    const url = mediaUrl ?? item.video?.url ?? null
     if (!url) return []
-    return [{ url, type: data.mimeType ?? 'video/mp4', name: data.caption ?? 'video' }]
+    return [{ url, type: data.mimeType ?? item.media?.mimeType ?? 'video/mp4', name: data.caption ?? 'video' }]
   }
   if (msgType === 'audio' || msgType === 'voice') {
-    const url = data.url ?? item.audio?.url ?? null
+    const url = mediaUrl ?? item.audio?.url ?? null
     if (!url) return []
-    return [{ url, type: data.mimeType ?? 'audio/ogg', name: 'audio' }]
+    return [{ url, type: data.mimeType ?? item.media?.mimeType ?? 'audio/ogg', name: 'audio' }]
   }
   if (msgType === 'sticker') {
-    const url = data.url ?? item.sticker?.url ?? null
+    const url = mediaUrl ?? item.sticker?.url ?? null
     if (!url) return []
     return [{ url, type: 'image/webp', name: 'sticker' }]
   }
@@ -176,7 +180,7 @@ export async function GET(req: NextRequest) {
   for (let i = 0; i < rows.length; i += CHUNK) {
     const chunk = rows.slice(i, i + CHUNK)
     const { error } = await (supabase.from('chat_messages') as any)
-      .upsert(chunk, { ignoreDuplicates: true })
+      .upsert(chunk, { onConflict: 'external_id', ignoreDuplicates: true })
     if (error) {
       console.error('[fetch-messages] upsert error', error)
       return NextResponse.json({ error: error.message }, { status: 500 })

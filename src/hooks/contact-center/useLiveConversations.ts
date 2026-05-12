@@ -20,7 +20,8 @@ export function useLiveConversations() {
       .from('chat_conversations')
       .select(`
         id, customer_id, conversation_type, wati_phone, wati_contact_name,
-        last_message, last_message_at, unread_count, created_at,
+        last_message, last_message_at, unread_count,
+        assigned_agent, is_opened, wati_status, created_at,
         service_customers(name)
       `)
       .not('last_message_at', 'is', null)
@@ -74,5 +75,15 @@ export function useLiveConversations() {
       .eq('id', conversationId)
   }
 
-  return { conversations, loading, markRead, refetch: load }
+  function markOpened(conversationId: string) {
+    setConversations((prev) =>
+      prev.map((c) => (c.id === conversationId ? { ...c, is_opened: true } : c))
+    )
+    ;(supabase as any)
+      .from('chat_conversations')
+      .update({ is_opened: true })
+      .eq('id', conversationId)
+  }
+
+  return { conversations, loading, markRead, markOpened, refetch: load }
 }

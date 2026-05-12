@@ -85,10 +85,16 @@ async function upsertContacts(allContacts: any[], supabase: ReturnType<typeof cr
       ? new Date(c.lastReceivedMessageDate).toISOString()
       : null
 
+    // Wati returns the assigned operator as assignedTo.name or assignedTo (string)
+    const assignedAgent: string | null =
+      c.assignedTo?.name ?? c.assignedTo?.fullName ?? (typeof c.assignedTo === 'string' ? c.assignedTo : null) ??
+      c.operatorName ?? c.agentName ?? null
+
     const base = {
       wati_phone:        phone,
       wati_contact_name: contactName(c),
       customer_id:       customerByPhone.get(phone) ?? null,
+      assigned_agent:    assignedAgent,
     }
 
     if (date) {
