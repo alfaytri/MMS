@@ -107,11 +107,14 @@ function extractWebhookText(body: any, msgType: string): string {
   if (dataBody) return dataBody
   const t = msgType.toLowerCase()
   if (t === 'template' || t === 'hsm') {
-    const components: any[] = body.data?.template?.components ?? body.data?.components ?? []
+    const components: any[] = body.data?.template?.components ?? body.data?.components ?? body.templateComponents ?? []
     const comp = components.find((c: any) => (c.type ?? '').toLowerCase() === 'body')
     if (comp?.text?.trim()) return comp.text.trim()
-    const directBody = body.data?.template?.body?.trim() ?? ''
+    const directBody = body.data?.template?.body?.trim() ?? body.templateBody?.trim() ?? ''
     if (directBody) return directBody
+    // Fall back to template name so message never shows as blank
+    const tplName = body.data?.template?.name ?? body.templateName ?? body.elementName ?? ''
+    if (tplName) return `[Template: ${tplName}]`
   }
   if (msgType === 'contacts' && Array.isArray(body.contacts) && body.contacts.length > 0) {
     const name = body.contacts[0]?.name?.formatted_name ?? body.contacts[0]?.name?.first_name ?? null
@@ -275,8 +278,39 @@ export async function POST(req: NextRequest) {
     conversationId = created.id
   }
 
-  // Insert message (skip duplicate external_id — also check wati_ prefix used for outgoing)
+  // Insert message (or update pending optimistic row from the app)
   if (externalId) {
+    // Race-condition guard: if the app sent this message, it already inserted a row with
+    // delivery_status='sending' and external_id=null. The webhook fires before the app can
+    // write wati_<id>, so we "claim" that pending row instead of duplicating.
+    if (isAgent && !isMsgEvent) {
+      const cutoff = new Date(Date.now() - 60_000).toISOString()
+      const { data: pendingRow } = await (supabase.from('chat_messages') as any)
+        .select('id')
+        .eq('conversation_id', conversationId)
+        .eq('from_type', 'agent')
+        .eq('delivery_status', 'sending')
+        .is('external_id', null)
+        .eq('text', text)
+        .gte('created_at', cutoff)
+        .order('created_at', { ascending: false })
+        .limit(1)
+        .maybeSingle()
+
+      if (pendingRow) {
+        await (supabase.from('chat_messages') as any)
+          .update({
+            external_id:      externalId,
+            delivery_status:  normaliseStatus(body.statusString ?? 'SENT'),
+            ...(senderName ? { agent_name: senderName } : {}),
+            ...(attachments.length > 0 ? { attachments } : {}),
+          })
+          .eq('id', pendingRow.id)
+        return NextResponse.json({ ok: true })
+      }
+    }
+
+    // Normal dup check (also covers wati_ prefix written by the app before webhook fires)
     const { data: dup } = await (supabase.from('chat_messages') as any)
       .select('id')
       .in('external_id', [externalId, `wati_${externalId}`])

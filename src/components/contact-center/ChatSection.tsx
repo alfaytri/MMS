@@ -1,6 +1,7 @@
 'use client'
 
 import { useEffect, useRef, useState } from 'react'
+import { createPortal } from 'react-dom'
 import { Loader2, Check, CheckCheck, RefreshCw, ChevronUp } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { AttachmentRenderer } from './AttachmentRenderer'
@@ -54,30 +55,50 @@ function ReactionBubbles({ reactions }: { reactions: ChatMessage['reactions'] })
   )
 }
 
-function EmojiPicker({ onPick, onClose }: { onPick: (e: string) => void; onClose: () => void }) {
-  return (
+function EmojiPickerPortal({
+  x, y, onPick, onClose, onEnter,
+}: { x: number; y: number; onPick: (e: string) => void; onClose: () => void; onEnter: () => void }) {
+  if (typeof document === 'undefined') return null
+  return createPortal(
     <div
-      className="absolute z-[200] flex gap-0.5 bg-popover border border-border rounded-full shadow-md px-2 py-1 -top-9"
+      style={{ position: 'fixed', top: y - 44, left: x, zIndex: 9999 }}
+      onMouseEnter={onEnter}
       onMouseLeave={onClose}
     >
-      {QUICK_EMOJIS.map((e) => (
-        <button
-          key={e}
-          className="text-base hover:scale-125 transition-transform leading-none p-0.5"
-          onClick={() => { onPick(e); onClose() }}
-        >
-          {e}
-        </button>
-      ))}
-    </div>
+      <div className="flex gap-0.5 bg-popover border border-border rounded-full shadow-lg px-2 py-1">
+        {QUICK_EMOJIS.map((e) => (
+          <button
+            key={e}
+            className="text-base hover:scale-125 transition-transform leading-none p-0.5"
+            onClick={() => { onPick(e); onClose() }}
+          >
+            {e}
+          </button>
+        ))}
+      </div>
+    </div>,
+    document.body,
   )
 }
 
 export function ChatSection({ messages, loading, fetchingWati, canLoadMore, onLoadMore, phone, chatMessages, onReact }: Props) {
-  const bottomRef     = useRef<HTMLDivElement>(null)
-  const scrollRef     = useRef<HTMLDivElement>(null)
+  const bottomRef      = useRef<HTMLDivElement>(null)
+  const scrollRef      = useRef<HTMLDivElement>(null)
   const userScrolledUp = useRef(false)
-  const [pickerFor, setPickerFor] = useState<string | null>(null)
+  const closeTimer     = useRef<ReturnType<typeof setTimeout> | null>(null)
+  const [pickerFor, setPickerFor] = useState<{ id: string; msg: ChatMessage; x: number; y: number } | null>(null)
+
+  function openPicker(msg: ChatMessage, el: HTMLElement) {
+    if (closeTimer.current) clearTimeout(closeTimer.current)
+    const r = el.getBoundingClientRect()
+    setPickerFor({ id: msg.id, msg, x: r.left, y: r.top })
+  }
+  function schedulePickerClose() {
+    closeTimer.current = setTimeout(() => setPickerFor(null), 120)
+  }
+  function cancelPickerClose() {
+    if (closeTimer.current) clearTimeout(closeTimer.current)
+  }
 
   useEffect(() => {
     const el = scrollRef.current
@@ -171,20 +192,12 @@ export function ChatSection({ messages, loading, fetchingWati, canLoadMore, onLo
                   </span>
                 )}
 
-                {/* Bubble + emoji picker — onMouseLeave on this wrapper so moving
-                    into the picker (DOM child) doesn't close it */}
+                {/* Bubble — hover opens the portal picker */}
                 <div
-                  className={`relative group ${pickerFor === msg.id ? 'z-[100]' : ''}`}
-                  onMouseEnter={() => setPickerFor(msg.id)}
-                  onMouseLeave={() => setPickerFor(null)}
+                  className="relative group"
+                  onMouseEnter={(e) => openPicker(msg, e.currentTarget)}
+                  onMouseLeave={schedulePickerClose}
                 >
-                  {pickerFor === msg.id && onReact && (
-                    <EmojiPicker
-                      onPick={(emoji) => onReact(msg.id, msg.external_id, emoji)}
-                      onClose={() => setPickerFor(null)}
-                    />
-                  )}
-
                   <div
                     className={`rounded-lg px-2.5 py-1.5 text-xs cursor-default select-text ${
                       isAgent ? 'bg-primary text-primary-foreground' : 'bg-muted text-foreground'
@@ -231,6 +244,20 @@ export function ChatSection({ messages, loading, fetchingWati, canLoadMore, onLo
         })}
       </div>
       <div ref={bottomRef} />
+
+      {/* Portal picker — renders at document.body so it's above every stacking context */}
+      {pickerFor && onReact && (
+        <EmojiPickerPortal
+          x={pickerFor.x}
+          y={pickerFor.y}
+          onPick={(emoji) => {
+            onReact(pickerFor.msg.id, pickerFor.msg.external_id, emoji)
+            setPickerFor(null)
+          }}
+          onClose={schedulePickerClose}
+          onEnter={cancelPickerClose}
+        />
+      )}
     </div>
   )
 }
