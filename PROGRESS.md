@@ -157,9 +157,11 @@ Purchase & Sales▾:
 
 ## 🔄 In Progress
 
-🚀 Next: **Contact Centre Phase 1 — further tasks**
+🚀 Next: **Contact Centre Phase 1 — further tasks / testing**
 
 ## ✅ Completed
+
+- [2026-05-12] **Contact Centre: Fix delivery spinner, template body, reaction z-index, dup-check prefix, header media** — `src/hooks/contact-center/useChatMessages.ts`, `src/app/api/wati/webhook/route.ts`, `src/components/contact-center/ChatSection.tsx`, `src/components/contact-center/ChatInputBar.tsx`, `src/types/contact-center.ts` — (1) watiId now checks message.whatsappMessageId/info.whatsAppMessageId so delivery_status advances from 'sending'; (2) sendTemplate uses named-param replacement and bodyOriginal‖elementName fallback so text is never blank; (3) loadTemplates detects HEADER DOCUMENT/IMAGE/VIDEO and adds headerMedia field; ChatInputBar shows a URL input and passes it as header parameter; (4) webhook dup-check and delivery-status update both use .in() with wati_ prefix variants to avoid duplicate rows and missed status updates; (5) EmojiPicker z-[200] + wrapper z-[100] when active so picker clears CRM column stacking context
 
 - [2026-05-12] **Contact Centre: Optimistic message insert — sent messages appear immediately** — `src/hooks/contact-center/useLiveThread.ts`, `useContactCenterState.ts`, `useChatMessages.ts` — after INSERT succeeds, addMessage() pushes the row directly into thread state; Realtime still fires but dedup guard prevents doubles; fixes sent messages not appearing without page reload
 
