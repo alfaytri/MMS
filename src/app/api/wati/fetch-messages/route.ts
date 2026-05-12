@@ -210,10 +210,14 @@ export async function GET(req: NextRequest) {
 
   // Wati uses numeric type codes for its platform events (not WhatsApp messages):
   //   type = 1  → system activity/note ("Chat assigned", "Chat initialized", etc.)
-  // All other numeric codes outside 0 (plain text) are treated as unknown media.
+  // broadcast / broadcast_sent → template sent via campaign; body not available, treat as event
   function isWatiSystemEvent(item: any): boolean {
-    const t = String(item.type ?? '')
-    return t === '1' || t === 'note' || t === 'activity'
+    const t = String(item.type ?? '').toLowerCase()
+    if (t === '1' || t === 'note' || t === 'activity' || t === 'broadcast' || t === 'broadcast_sent') return true
+    // Content-pattern fallback: Wati event descriptions for broadcasts
+    const desc = String(item.eventDescription ?? item.body ?? '')
+    if (/broadcast message with using/i.test(desc)) return true
+    return false
   }
 
   // Build message rows

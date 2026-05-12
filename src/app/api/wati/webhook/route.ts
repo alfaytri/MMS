@@ -163,8 +163,14 @@ export async function POST(req: NextRequest) {
 
   const phone    = normalisePhone(rawWaId)
   const isAgent  = body.owner === true || eventType === 'message_sent' || eventType === 'sent_message'
-  const msgType: string = body.type ?? 'text'
-  const attachments = extractAttachments(body)
+  const msgType: string = String(body.type ?? 'text').toLowerCase()
+
+  // Detect Wati platform events: type 1, note, activity, broadcast
+  const isMsgEvent = msgType === '1' || msgType === 'note' || msgType === 'activity' ||
+    msgType === 'broadcast' || msgType === 'broadcast_sent' ||
+    /broadcast message with using/i.test(String(body.eventDescription ?? body.body ?? ''))
+
+  const attachments = isMsgEvent ? [] : extractAttachments(body)
 
   // Extract assigned agent from message payload (Wati sometimes includes it)
   const assignedAgentInMsg: string | null =
@@ -172,11 +178,10 @@ export async function POST(req: NextRequest) {
     (typeof body.assignedTo === 'string' ? body.assignedTo : null) ??
     body.operatorName ?? null
 
-  const text = typeof body.text === 'string' && body.text.trim()
-    ? body.text.trim()
-    : msgType !== 'text'
+  const rawText = extractWebhookText(body, msgType)
+  const text = rawText || (!isMsgEvent && attachments.length === 0 && msgType !== 'text' && msgType !== '0'
     ? `[${msgType}]`
-    : ''
+    : '')
 
   const externalId: string | null = body.id ?? body.whatsappMessageId ?? null
   const ts = body.created
@@ -198,11 +203,10 @@ export async function POST(req: NextRequest) {
     conversationId = existing.id
     await (supabase.from('chat_conversations') as any)
       .update({
-        last_message:    text || `[${msgType}]`,
-        last_message_at: ts,
+        ...(!isMsgEvent ? { last_message: text || `[${msgType}]`, last_message_at: ts } : {}),
         ...(senderName ? { wati_contact_name: senderName } : {}),
         ...(assignedAgentInMsg ? { assigned_agent: assignedAgentInMsg } : {}),
-        ...(!isAgent ? { unread_count: (existing.unread_count ?? 0) + 1 } : {}),
+        ...(!isAgent && !isMsgEvent ? { unread_count: (existing.unread_count ?? 0) + 1 } : {}),
       })
       .eq('id', conversationId)
   } else {
@@ -237,12 +241,13 @@ export async function POST(req: NextRequest) {
           conversation_id:  conversationId,
           from_type:        isAgent ? 'agent' : 'customer',
           source:           'whatsapp_api',
-          text:             text || `[${msgType}]`,
+          text:             text,
           agent_name:       isAgent ? senderName : null,
           attachments:      attachments.length > 0 ? attachments : null,
           delivery_status:  isAgent ? normaliseStatus(body.statusString) : 'delivered',
           external_id:      externalId,
           created_at:       ts,
+          message_kind:     isMsgEvent ? 'event' : 'message',
         })
     }
   }
