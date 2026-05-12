@@ -167,6 +167,8 @@ Purchase & Sales▾:
 
 - [2026-05-12] **Contact Centre: Document placeholder for broadcast messages** — `src/app/api/wati/fetch-messages/route.ts`, `src/components/contact-center/AttachmentRenderer.tsx` — Wati doesn't return document URLs for broadcast items; broadcastDocumentPlaceholder detects Arabic doc references in finalText and returns url='' attachment; AttachmentRenderer shows a dashed greyed-out row with "URL not available"
 
+- [2026-05-12] **Contact Centre: Fix 409 on send + emoji picker disappears** — `supabase/migrations/20260512150000_chat_messages_external_id_partial_index.sql`, `src/components/contact-center/ChatSection.tsx` — Replaced full unique index on external_id with partial (WHERE NOT NULL) so NULL rows don't conflict; moved hover handlers to relative wrapper div so picker stays open when mouse moves into it
+
 - [2026-05-12] **Contact Centre: Broadcast finalText, correct event detection, contacts type** — `src/app/api/wati/fetch-messages/route.ts`, `src/app/api/wati/webhook/route.ts` — Debug confirmed: broadcasts have eventType='broadcastMessage', type='text', content in item.finalText; ticket events (type 0/1/2) detected via eventType='ticket'; broadcasts marked isAgent=true; ticket events use eventDescription as display text; contacts type shows formatted_name
 
 - [2026-05-12] **Contact Centre: Show actual template body text instead of broadcast metadata** — `src/app/api/wati/fetch-messages/route.ts`, `src/app/api/wati/webhook/route.ts` — Reverted broadcast/broadcast_sent from isWatiSystemEvent (they are real messages with content); removed item.eventDescription from text extraction entirely (it's always Wati metadata, never content); extended template component body lookup to broadcast types; added data.text fallback
