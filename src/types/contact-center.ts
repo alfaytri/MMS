@@ -39,6 +39,7 @@ export interface ChatMessage {
   conversation_id: string
   from_type: 'customer' | 'agent'
   source: 'whatsapp_api' | 'manual'
+  message_kind: 'message' | 'event'
   text: string | null
   agent_name: string | null
   attachments: ChatAttachment[] | null

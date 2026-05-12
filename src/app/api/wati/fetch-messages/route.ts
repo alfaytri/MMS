@@ -142,6 +142,14 @@ export async function GET(req: NextRequest) {
   const reactionItems = allItems.filter((item) => item.type === 'reaction' && item.reactionMessage)
   const messageItems  = allItems.filter((item) => item.type !== 'reaction' && item.id)
 
+  // Wati uses numeric type codes for its platform events (not WhatsApp messages):
+  //   type = 1  → system activity/note ("Chat assigned", "Chat initialized", etc.)
+  // All other numeric codes outside 0 (plain text) are treated as unknown media.
+  function isWatiSystemEvent(item: any): boolean {
+    const t = String(item.type ?? '')
+    return t === '1' || t === 'note' || t === 'activity'
+  }
+
   // Build message rows
   const rows = messageItems.map((item) => {
     const isAgent   = item.owner === true || item.eventType === 'message_sent'
@@ -152,12 +160,18 @@ export async function GET(req: NextRequest) {
       : new Date().toISOString()
     // Wati sometimes returns numeric type codes (0, 1, …) — normalise to string
     const msgType   = String(item.type ?? 'text')
-    const attachments = extractAttachments(item)
+    const isEvent   = isWatiSystemEvent(item)
+    const attachments = isEvent ? [] : extractAttachments(item)
 
-    // text is NOT NULL in DB — use label for media-only messages
-    const text = typeof item.text === 'string' && item.text.trim()
+    // For system events, text comes from item.body or item.eventDescription
+    // For regular messages, prefer item.text
+    const rawText = typeof item.text === 'string' && item.text.trim()
       ? item.text.trim()
-      : msgType !== 'text' && msgType !== '0'   // '0' is Wati's numeric code for plain text
+      : item.body?.trim() || item.eventDescription?.trim() || item.note?.trim() || null
+
+    const text = rawText
+      ? rawText
+      : !isEvent && msgType !== 'text' && msgType !== '0' && attachments.length === 0
       ? `[${msgType}]`
       : ''
 
@@ -171,16 +185,17 @@ export async function GET(req: NextRequest) {
       delivery_status: isAgent ? normaliseStatus(item.statusString) : 'delivered',
       external_id:     String(item.id),
       created_at:      ts,
+      message_kind:    isEvent ? 'event' : 'message',
     }
   })
 
-  // Upsert with conflict on external_id (skip duplicates thanks to unique index)
+  // Upsert with UPDATE on conflict so already-stored [1] rows get re-classified
   const CHUNK = 200
   let inserted = 0
   for (let i = 0; i < rows.length; i += CHUNK) {
     const chunk = rows.slice(i, i + CHUNK)
     const { error } = await (supabase.from('chat_messages') as any)
-      .upsert(chunk, { onConflict: 'external_id', ignoreDuplicates: true })
+      .upsert(chunk, { onConflict: 'external_id', ignoreDuplicates: false })
     if (error) {
       console.error('[fetch-messages] upsert error', error)
       return NextResponse.json({ error: error.message }, { status: 500 })

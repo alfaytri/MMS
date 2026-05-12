@@ -138,6 +138,27 @@ export function ChatSection({ messages, loading, fetchingWati, canLoadMore, onLo
       <div className="space-y-2">
         {messages.map((msg) => {
           const isAgent = msg.from_type === 'agent'
+
+          // System activity events: message_kind='event' OR legacy [digit] rows already in DB
+          const isEvent =
+            msg.message_kind === 'event' ||
+            /^\[\d+\]$/.test(msg.text ?? '') && !msg.attachments?.length
+
+          if (isEvent) {
+            const label = msg.text && !/^\[\d+\]$/.test(msg.text)
+              ? msg.text
+              : null
+            return (
+              <div key={msg.id} className="flex items-center gap-2 py-1 px-2">
+                <div className="flex-1 h-px bg-border/60" />
+                <span className="text-xs text-muted-foreground italic text-center shrink-0 max-w-[80%]">
+                  {label ?? 'System event'}
+                </span>
+                <div className="flex-1 h-px bg-border/60" />
+              </div>
+            )
+          }
+
           return (
             <div
               key={msg.id}
@@ -166,20 +187,16 @@ export function ChatSection({ messages, loading, fetchingWati, canLoadMore, onLo
                     }`}
                     onMouseEnter={() => setPickerFor(msg.id)}
                   >
-                    {/* Regular text — not a media label */}
-                    {msg.text && msg.text !== '' && !/^\[.+\]$/.test(msg.text) && (
+                    {/* Regular text */}
+                    {msg.text && msg.text !== '' && (
                       <span dir="auto" className="whitespace-pre-wrap break-words">
                         {msg.text}
                       </span>
                     )}
-                    {/* Media label — show if no actual attachment rendered */}
-                    {msg.text && /^\[.+\]$/.test(msg.text) && !msg.attachments?.length && (
-                      <span className="italic text-xs opacity-70">{msg.text}</span>
-                    )}
                     {msg.attachments?.map((att, i) => (
                       <AttachmentRenderer key={i} url={att.url} type={att.type} name={att.name} />
                     ))}
-                    {/* Fallback: completely empty bubble — attachment URL not available */}
+                    {/* Fallback: attachment with unavailable URL */}
                     {(!msg.text || msg.text === '') && !msg.attachments?.length && (
                       <span className="italic text-xs opacity-50">📎 Attachment</span>
                     )}

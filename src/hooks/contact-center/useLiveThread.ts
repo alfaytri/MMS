@@ -17,7 +17,7 @@ export function useLiveThread(conversationId: string | null, phone: string | nul
     const { data, error } = await (supabase as any)
       .from('chat_messages')
       .select(`
-        id, conversation_id, from_type, source,
+        id, conversation_id, from_type, source, message_kind,
         text, agent_name, attachments, reactions,
         delivery_status, external_id, reply_to_external_id,
         sent_by_profile_id, created_at,
