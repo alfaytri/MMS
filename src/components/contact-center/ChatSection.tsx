@@ -172,13 +172,17 @@ export function ChatSection({ messages, loading, fetchingWati, canLoadMore, onLo
                         {msg.text}
                       </span>
                     )}
-                    {/* Media label — only show if there's no actual attachment to render */}
+                    {/* Media label — show if no actual attachment rendered */}
                     {msg.text && /^\[.+\]$/.test(msg.text) && !msg.attachments?.length && (
                       <span className="italic text-xs opacity-70">{msg.text}</span>
                     )}
                     {msg.attachments?.map((att, i) => (
                       <AttachmentRenderer key={i} url={att.url} type={att.type} name={att.name} />
                     ))}
+                    {/* Fallback: completely empty bubble — attachment URL not available */}
+                    {(!msg.text || msg.text === '') && !msg.attachments?.length && (
+                      <span className="italic text-xs opacity-50">📎 Attachment</span>
+                    )}
                   </div>
                 </div>
 
