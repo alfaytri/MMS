@@ -161,6 +161,8 @@ Purchase & Sales▾:
 
 ## ✅ Completed
 
+- [2026-05-12] **Contact Centre: Load-more prepends older messages without replacing existing** — `src/hooks/contact-center/useLiveThread.ts` — loadMore now queries only the new date window and prepends results; existing messages stay in state; dedup guard prevents doubles
+
 - [2026-05-12] **Contact Centre: Show actual template body text instead of broadcast metadata** — `src/app/api/wati/fetch-messages/route.ts`, `src/app/api/wati/webhook/route.ts` — Reverted broadcast/broadcast_sent from isWatiSystemEvent (they are real messages with content); removed item.eventDescription from text extraction entirely (it's always Wati metadata, never content); extended template component body lookup to broadcast types; added data.text fallback
 
 - [2026-05-12] **Contact Centre: Video/media URL extraction and template body text** — `src/app/api/wati/fetch-messages/route.ts`, `src/app/api/wati/webhook/route.ts` — Expanded media URL fallback chain (item.mediaUrl, item.url, data.link, data.mediaUrl) so video/audio attachments are found regardless of Wati field shape; added data.body and data.template.body checks to text extraction so rendered template body text is captured; removed eventDescription from real-message text path
