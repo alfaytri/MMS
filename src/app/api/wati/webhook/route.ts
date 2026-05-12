@@ -100,16 +100,17 @@ function extractWebhookText(body: any, msgType: string): string {
   if (direct) return direct
   const caption = body.caption?.trim() ?? body.data?.caption?.trim() ?? ''
   if (caption) return caption
-  const dataBody = body.data?.body?.trim() ?? ''
+  const dataBody = body.data?.body?.trim() ?? body.data?.text?.trim() ?? ''
   if (dataBody) return dataBody
-  if (msgType === 'template' || msgType === 'hsm') {
+  const t = msgType.toLowerCase()
+  if (t === 'template' || t === 'hsm' || t === 'broadcast' || t === 'broadcast_sent') {
     const components: any[] = body.data?.template?.components ?? body.data?.components ?? []
     const comp = components.find((c: any) => (c.type ?? '').toLowerCase() === 'body')
     if (comp?.text?.trim()) return comp.text.trim()
     const directBody = body.data?.template?.body?.trim() ?? ''
     if (directBody) return directBody
   }
-  return body.body?.trim() ?? ''
+  return body.body?.trim() ?? body.note?.trim() ?? ''
 }
 
 // GET — WATI verification ping
@@ -172,9 +173,7 @@ export async function POST(req: NextRequest) {
   const msgType: string = String(body.type ?? 'text').toLowerCase()
 
   // Detect Wati platform events: type 1, note, activity, broadcast
-  const isMsgEvent = msgType === '1' || msgType === 'note' || msgType === 'activity' ||
-    msgType === 'broadcast' || msgType === 'broadcast_sent' ||
-    /broadcast message with using/i.test(String(body.eventDescription ?? body.body ?? ''))
+  const isMsgEvent = msgType === '1' || msgType === 'note' || msgType === 'activity'
 
   const attachments = isMsgEvent ? [] : extractAttachments(body)
 

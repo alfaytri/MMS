@@ -125,9 +125,11 @@ function extractAttachments(item: any): Attachment[] {
   return []
 }
 
-// Extract rendered text from any message type including templates
+// Extract rendered text from any message type including templates.
+// Never use item.eventDescription — it is always Wati metadata ("Broadcast message with using..."),
+// never the actual message content.
 function extractText(item: any, msgType: string): string {
-  // Direct text field (works for most types including templates with rendered body)
+  // Direct text field
   const direct = item.text?.trim() ?? ''
   if (direct) return direct
 
@@ -135,22 +137,22 @@ function extractText(item: any, msgType: string): string {
   const caption = item.caption?.trim() ?? item.data?.caption?.trim() ?? ''
   if (caption) return caption
 
-  // data.body — Wati sometimes stores rendered template body here
-  const dataBody = item.data?.body?.trim() ?? ''
+  // data.body / data.text — Wati stores rendered template body here for broadcast messages
+  const dataBody = item.data?.body?.trim() ?? item.data?.text?.trim() ?? ''
   if (dataBody) return dataBody
 
-  // Template body text from components
-  if (msgType === 'template' || msgType === 'hsm') {
+  // Template / HSM / broadcast — body from components or direct body field
+  const t = msgType.toLowerCase()
+  if (t === 'template' || t === 'hsm' || t === 'broadcast' || t === 'broadcast_sent') {
     const components: any[] = item.data?.template?.components ?? item.data?.components ?? []
-    const body = components.find((c: any) => (c.type ?? '').toLowerCase() === 'body')
-    const bodyText = body?.text?.trim() ?? ''
+    const bodyComp = components.find((c: any) => (c.type ?? '').toLowerCase() === 'body')
+    const bodyText = bodyComp?.text?.trim() ?? ''
     if (bodyText) return bodyText
-    // Rendered body might also be at data.template.body directly
     const directBody = item.data?.template?.body?.trim() ?? ''
     if (directBody) return directBody
   }
 
-  // System / activity text — only used for events, not for real messages
+  // Note / system event text
   return item.body?.trim() ?? item.note?.trim() ?? ''
 }
 
@@ -219,14 +221,10 @@ export async function GET(req: NextRequest) {
 
   // Wati uses numeric type codes for its platform events (not WhatsApp messages):
   //   type = 1  → system activity/note ("Chat assigned", "Chat initialized", etc.)
-  // broadcast / broadcast_sent → template sent via campaign; body not available, treat as event
+  // broadcast / broadcast_sent → real outbound template messages with actual content
   function isWatiSystemEvent(item: any): boolean {
     const t = String(item.type ?? '').toLowerCase()
-    if (t === '1' || t === 'note' || t === 'activity' || t === 'broadcast' || t === 'broadcast_sent') return true
-    // Content-pattern fallback: Wati event descriptions for broadcasts
-    const desc = String(item.eventDescription ?? item.body ?? '')
-    if (/broadcast message with using/i.test(desc)) return true
-    return false
+    return t === '1' || t === 'note' || t === 'activity'
   }
 
   // Build message rows
