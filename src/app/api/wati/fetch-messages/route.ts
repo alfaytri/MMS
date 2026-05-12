@@ -175,7 +175,7 @@ export async function GET(req: NextRequest) {
   for (let i = 0; i < rows.length; i += CHUNK) {
     const chunk = rows.slice(i, i + CHUNK)
     const { error } = await (supabase.from('chat_messages') as any)
-      .upsert(chunk, { onConflict: 'external_id', ignoreDuplicates: true })
+      .upsert(chunk, { ignoreDuplicates: true })
     if (error) {
       console.error('[fetch-messages] upsert error', error)
       return NextResponse.json({ error: error.message }, { status: 500 })
