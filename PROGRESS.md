@@ -161,6 +161,8 @@ Purchase & Sales▾:
 
 ## ✅ Completed
 
+- [2026-05-12] **Contact Centre: Named template params + emoji picker** — `src/types/contact-center.ts`, `src/hooks/contact-center/useChatMessages.ts`, `src/components/contact-center/ChatInputBar.tsx` — WatiTemplate.paramNames tracks named vars (e.g. pdflink, booking_number); loadTemplates uses /\{\{(\w+)\}\}/g and removes 2-var cap; sendTemplate builds named-param array for Wati v2 API; ChatInputBar gains full 6-group emoji picker with cursor-position insert; template dialog shows {{paramName}} labels with live fill-in preview
+
 - [2026-05-12] **Contact Centre: Load-more prepends older messages without replacing existing** — `src/hooks/contact-center/useLiveThread.ts` — loadMore now queries only the new date window and prepends results; existing messages stay in state; dedup guard prevents doubles
 
 - [2026-05-12] **Contact Centre: POST /api/wati/send-message — send + save in one call** — `src/app/api/wati/send-message/route.ts` — MMS system calls this to send template/session messages via Wati and save to chat_messages with real document URL; supports templateName+parameters, documentUrl, imageUrl, senderName, skipWatiSend; find-or-create conversation; returns conversationId + watiMessageId
