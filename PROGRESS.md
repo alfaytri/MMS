@@ -161,6 +161,8 @@ Purchase & Sales▾:
 
 ## ✅ Completed
 
+- [2026-05-12] **Contact Centre: Optimistic message insert — sent messages appear immediately** — `src/hooks/contact-center/useLiveThread.ts`, `useContactCenterState.ts`, `useChatMessages.ts` — after INSERT succeeds, addMessage() pushes the row directly into thread state; Realtime still fires but dedup guard prevents doubles; fixes sent messages not appearing without page reload
+
 - [2026-05-12] **Contact Centre: Fix fetch-messages 500 — restore full unique index** — `supabase/migrations/20260512170000_chat_messages_external_id_full_index.sql` — partial index (WHERE external_id IS NOT NULL) broke ON CONFLICT (external_id) in the upsert; PostgREST generates no predicate so PostgreSQL can't find the index; restored to full unique index (PostgreSQL allows multiple NULLs natively)
 
 - [2026-05-12] **Contact Centre: Enable Realtime for chat tables** — `supabase/migrations/20260512160000_chat_realtime.sql` — chat_messages and chat_conversations were missing from supabase_realtime publication; without this postgres_changes listeners in useLiveThread/useLiveConversations received no events so sent/received messages never appeared without a page reload
