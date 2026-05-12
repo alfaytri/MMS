@@ -125,10 +125,14 @@ function extractAttachments(item: any): Attachment[] {
   return []
 }
 
-// Extract rendered text from any message type including templates.
-// Never use item.eventDescription — it is always Wati metadata ("Broadcast message with using..."),
-// never the actual message content.
+// Extract the actual message content.
+// item.finalText holds the rendered body for broadcastMessage events.
+// item.eventDescription is always Wati platform metadata — never message content.
 function extractText(item: any, msgType: string): string {
+  // finalText — Wati's rendered template body for broadcastMessage items
+  const finalText = item.finalText?.trim() ?? ''
+  if (finalText) return finalText
+
   // Direct text field
   const direct = item.text?.trim() ?? ''
   if (direct) return direct
@@ -137,13 +141,13 @@ function extractText(item: any, msgType: string): string {
   const caption = item.caption?.trim() ?? item.data?.caption?.trim() ?? ''
   if (caption) return caption
 
-  // data.body / data.text — Wati stores rendered template body here for broadcast messages
+  // data.body / data.text
   const dataBody = item.data?.body?.trim() ?? item.data?.text?.trim() ?? ''
   if (dataBody) return dataBody
 
-  // Template / HSM / broadcast — body from components or direct body field
+  // Template / HSM — body from components
   const t = msgType.toLowerCase()
-  if (t === 'template' || t === 'hsm' || t === 'broadcast' || t === 'broadcast_sent') {
+  if (t === 'template' || t === 'hsm') {
     const components: any[] = item.data?.template?.components ?? item.data?.components ?? []
     const bodyComp = components.find((c: any) => (c.type ?? '').toLowerCase() === 'body')
     const bodyText = bodyComp?.text?.trim() ?? ''
@@ -152,7 +156,12 @@ function extractText(item: any, msgType: string): string {
     if (directBody) return directBody
   }
 
-  // Note / system event text
+  // contacts message — show formatted name of first contact
+  if (msgType === 'contacts' && Array.isArray(item.contacts) && item.contacts.length > 0) {
+    const name = item.contacts[0]?.name?.formatted_name ?? item.contacts[0]?.name?.first_name ?? null
+    return name ? `📇 ${name}` : '📇 Contact card'
+  }
+
   return item.body?.trim() ?? item.note?.trim() ?? ''
 }
 
@@ -219,17 +228,18 @@ export async function GET(req: NextRequest) {
   const reactionItems = allItems.filter((item) => item.type === 'reaction' && item.reactionMessage)
   const messageItems  = allItems.filter((item) => item.type !== 'reaction' && item.id)
 
-  // Wati uses numeric type codes for its platform events (not WhatsApp messages):
-  //   type = 1  → system activity/note ("Chat assigned", "Chat initialized", etc.)
-  // broadcast / broadcast_sent → real outbound template messages with actual content
+  // Wati ticket events (eventType='ticket') cover all platform system events:
+  //   type 0 = chat initialized, type 1 = assigned, type 2 = closed, type 5 = status change
   function isWatiSystemEvent(item: any): boolean {
+    if (item.eventType === 'ticket') return true
     const t = String(item.type ?? '').toLowerCase()
-    return t === '1' || t === 'note' || t === 'activity'
+    return t === 'note' || t === 'activity'
   }
 
   // Build message rows
   const rows = messageItems.map((item) => {
-    const isAgent   = item.owner === true || item.eventType === 'message_sent'
+    // broadcastMessage = sent from system/agent (no owner field on broadcast items)
+    const isAgent = item.owner === true || item.eventType === 'message_sent' || item.eventType === 'broadcastMessage'
     const ts        = item.created
       ? new Date(item.created).toISOString()
       : item.timestamp
@@ -239,13 +249,10 @@ export async function GET(req: NextRequest) {
     const msgType   = String(item.type ?? 'text')
     const isEvent   = isWatiSystemEvent(item)
     const attachments = isEvent ? [] : extractAttachments(item)
-    const rawText = extractText(item, msgType)
-
-    // TEMP DEBUG — remove once broadcast body field is confirmed
-    const t = msgType.toLowerCase()
-    if (t === 'broadcast' || t === 'broadcast_sent' || t === 'template' || t === 'hsm') {
-      console.log('[fetch-messages] template/broadcast item:', JSON.stringify(item, null, 2))
-    }
+    // For ticket events, use eventDescription as the display text (it's the correct system message)
+    const rawText = isEvent
+      ? (item.eventDescription?.trim() ?? '')
+      : extractText(item, msgType)
 
     // Only use a [type] label when we have no text AND no attachment AND it's not a system event
     const text = rawText || (!isEvent && attachments.length === 0 && msgType !== 'text' && msgType !== '0'

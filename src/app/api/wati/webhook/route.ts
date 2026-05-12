@@ -96,6 +96,9 @@ function extractAttachments(body: any): Attachment[] {
 
 // Extract the best available text from any Wati message type
 function extractWebhookText(body: any, msgType: string): string {
+  // finalText — rendered template body on broadcastMessage webhook events
+  const finalText = body.finalText?.trim() ?? ''
+  if (finalText) return finalText
   const direct = body.text?.trim() ?? ''
   if (direct) return direct
   const caption = body.caption?.trim() ?? body.data?.caption?.trim() ?? ''
@@ -103,12 +106,16 @@ function extractWebhookText(body: any, msgType: string): string {
   const dataBody = body.data?.body?.trim() ?? body.data?.text?.trim() ?? ''
   if (dataBody) return dataBody
   const t = msgType.toLowerCase()
-  if (t === 'template' || t === 'hsm' || t === 'broadcast' || t === 'broadcast_sent') {
+  if (t === 'template' || t === 'hsm') {
     const components: any[] = body.data?.template?.components ?? body.data?.components ?? []
     const comp = components.find((c: any) => (c.type ?? '').toLowerCase() === 'body')
     if (comp?.text?.trim()) return comp.text.trim()
     const directBody = body.data?.template?.body?.trim() ?? ''
     if (directBody) return directBody
+  }
+  if (msgType === 'contacts' && Array.isArray(body.contacts) && body.contacts.length > 0) {
+    const name = body.contacts[0]?.name?.formatted_name ?? body.contacts[0]?.name?.first_name ?? null
+    return name ? `📇 ${name}` : '📇 Contact card'
   }
   return body.body?.trim() ?? body.note?.trim() ?? ''
 }
@@ -169,11 +176,11 @@ export async function POST(req: NextRequest) {
   if (!rawWaId) return NextResponse.json({ ok: true })
 
   const phone    = normalisePhone(rawWaId)
-  const isAgent  = body.owner === true || eventType === 'message_sent' || eventType === 'sent_message'
+  const isAgent  = body.owner === true || eventType === 'message_sent' || eventType === 'sent_message' || eventType === 'broadcastMessage'
   const msgType: string = String(body.type ?? 'text').toLowerCase()
 
-  // Detect Wati platform events: type 1, note, activity, broadcast
-  const isMsgEvent = msgType === '1' || msgType === 'note' || msgType === 'activity'
+  // Detect Wati platform events: ticket events cover all system activity (type 0/1/2)
+  const isMsgEvent = eventType === 'ticket' || msgType === 'note' || msgType === 'activity'
 
   const attachments = isMsgEvent ? [] : extractAttachments(body)
 
