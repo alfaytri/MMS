@@ -112,7 +112,11 @@ serve(async (req) => {
     case 'get_templates': {
       if (!templateCache) {
         const data = await wati('/api/v1/getMessageTemplates')
-        if (!('error' in (data as object))) templateCache = (data as { messageTemplates?: unknown[] }).messageTemplates ?? []
+        if (!('error' in (data as object))) {
+          const EXCLUDED = new Set(['DELETED', 'PAUSED', 'DISABLED'])
+          const all: any[] = (data as { messageTemplates?: unknown[] }).messageTemplates ?? []
+          templateCache = all.filter((t: any) => !EXCLUDED.has((t.status ?? '').toUpperCase()))
+        }
       }
       return json({ messageTemplates: templateCache ?? [] })
     }

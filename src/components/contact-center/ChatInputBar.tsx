@@ -357,6 +357,7 @@ export function ChatInputBar({ conversationId, phone, customerName, windowStatus
   const [showInstructions, setShowInstructions] = useState(false)
   const [confirmTemplate, setConfirmTemplate]   = useState<WatiTemplate | null>(null)
   const [templatesExpanded, setTemplatesExpanded] = useState(false)
+  const [templateFilter, setTemplateFilter] = useState<'no-params' | 'has-params'>('no-params')
   const textareaRef = useRef<HTMLTextAreaElement>(null)
   const { isOpen, minutesRemaining } = windowStatus
 
@@ -449,19 +450,60 @@ export function ChatInputBar({ conversationId, phone, customerName, windowStatus
         </button>
 
         {templatesExpanded && (
-          <div className="overflow-x-auto scrollbar-none px-2 pb-1.5 flex gap-1.5 flex-wrap max-h-24 overflow-y-auto">
-            {templates.length === 0 && !templatesLoading && (
-              <span className="text-xs text-muted-foreground px-1">No templates</span>
-            )}
-            {templates.map((t) => (
-              <button
-                key={t.id}
-                onClick={() => { setConfirmTemplate(t); setTemplatesExpanded(false) }}
-                className="shrink-0 rounded-full border border-border bg-muted/50 px-2.5 py-0.5 text-[11px] hover:bg-primary/10 hover:border-primary/40 hover:text-primary transition-colors"
-              >
-                {t.elementName}
-              </button>
-            ))}
+          <div className="px-2 pt-1 pb-1.5 space-y-1.5">
+            {/* Filter toggle — with counts */}
+            <div className="flex gap-1 items-center">
+              {(['no-params', 'has-params'] as const).map((f) => {
+                const count = templates.filter((t) => f === 'no-params' ? t.variableCount === 0 : t.variableCount > 0).length
+                return (
+                  <button
+                    key={f}
+                    onClick={() => setTemplateFilter(f)}
+                    className={`rounded-full px-2.5 py-0.5 text-[10px] font-medium border transition-colors flex items-center gap-1 ${
+                      templateFilter === f
+                        ? 'bg-primary text-primary-foreground border-primary'
+                        : 'bg-muted/50 border-border text-muted-foreground hover:bg-muted'
+                    }`}
+                  >
+                    {f === 'no-params' ? 'No params' : 'Has params'}
+                    {templates.length > 0 && (
+                      <span className={`rounded-full px-1 text-[9px] leading-none py-px ${
+                        templateFilter === f ? 'bg-primary-foreground/20 text-primary-foreground' : 'bg-muted-foreground/20'
+                      }`}>{count}</span>
+                    )}
+                  </button>
+                )
+              })}
+            </div>
+
+            {/* Template pills */}
+            <div className="overflow-x-auto scrollbar-none flex gap-1.5 flex-wrap max-h-20 overflow-y-auto">
+              {templates.length === 0 && !templatesLoading && (
+                <span className="text-xs text-muted-foreground px-1">No templates</span>
+              )}
+              {templates
+                .filter((t) => templateFilter === 'no-params' ? t.variableCount === 0 : t.variableCount > 0)
+                .map((t) => (
+                  <button
+                    key={t.id}
+                    onClick={() => { setConfirmTemplate(t); setTemplatesExpanded(false) }}
+                    title={t.variableCount > 0 ? `Params: ${t.paramNames.join(', ')}` : 'No parameters — sends instantly'}
+                    className="shrink-0 rounded-full border border-border bg-muted/50 px-2.5 py-0.5 text-[11px] hover:bg-primary/10 hover:border-primary/40 hover:text-primary transition-colors flex items-center gap-1"
+                  >
+                    {t.elementName}
+                    {t.variableCount > 0 && (
+                      <span className="rounded-full bg-amber-100 text-amber-700 border border-amber-300 px-1 text-[9px] leading-none py-px font-medium">
+                        {t.variableCount}
+                      </span>
+                    )}
+                  </button>
+                ))}
+              {templates.length > 0 && templates.filter((t) => templateFilter === 'no-params' ? t.variableCount === 0 : t.variableCount > 0).length === 0 && (
+                <span className="text-xs text-muted-foreground px-1">
+                  No {templateFilter === 'no-params' ? 'parameter-free' : 'parameterised'} templates
+                </span>
+              )}
+            </div>
           </div>
         )}
       </div>

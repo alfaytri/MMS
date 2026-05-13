@@ -202,9 +202,7 @@ export function useChatMessages(
       const patch = watiId
         ? { external_id: `wati_${watiId}`, delivery_status: 'sent' as const }
         : { delivery_status: 'sent' as const }
-      if (watiId) {
-        await (supabase as any).from('chat_messages').update(patch).eq('id', tempId)
-      }
+      await (supabase as any).from('chat_messages').update(patch).eq('id', tempId)
       patchMessage(tempId, patch)
     } catch {
       await (supabase as any).from('chat_messages').update({ delivery_status: 'failed' }).eq('id', tempId)
@@ -224,8 +222,10 @@ export function useChatMessages(
         const comps: any[] = t.components ?? []
         const bodyComp   = comps.find((c: any) => (c.type ?? '').toUpperCase() === 'BODY')
         const headerComp = comps.find((c: any) => (c.type ?? '').toUpperCase() === 'HEADER')
+        // WATI v1 puts body text at t.body (root level); components[].text is a fallback
+        const bodyText = t.body ?? bodyComp?.text ?? ''
         // Match both named {{paramname}} and positional {{1}} variables
-        const matches = bodyComp?.text?.match(/\{\{(\w+)\}\}/g) ?? []
+        const matches = bodyText.match(/\{\{(\w+)\}\}/g) ?? []
         const paramNames = matches.map((m: string) => m.replace(/\{\{|\}\}/g, ''))
         const headerFmt = (headerComp?.format ?? '').toUpperCase()
         const headerMedia: WatiTemplate['headerMedia'] =
@@ -236,7 +236,7 @@ export function useChatMessages(
         return {
           id:           t.id ?? t.elementName,
           elementName:  t.elementName,
-          bodyOriginal: bodyComp?.text ?? '',
+          bodyOriginal: bodyText,
           components:   comps,
           variableCount: paramNames.length,
           paramNames,
