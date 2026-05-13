@@ -46,11 +46,16 @@ export function ContactCenterSidebar() {
   function handleExpand() { setCcSidebar('expanded'); expandSidebar() }
   function handleCollapse() { setCcSidebar('collapsed'); collapseSidebar() }
 
-  // When another part of the app sets pendingPhone, auto-expand and show the CRM
+  // When another part of the app sets pendingPhone, auto-expand and open the chat
   useEffect(() => {
     if (!pendingPhone) return
     setCcSidebar('expanded')
-    openPhoneDirect(pendingPhone)
+    const convo = conversations.find((c) => c.wati_phone === pendingPhone)
+    if (convo) {
+      openConversation(convo.id, convo.customer_id ?? null, pendingPhone)
+    } else {
+      openPhoneDirect(pendingPhone)
+    }
   }, [pendingPhone])
 
   function handleSelectConversation(c: ChatConversation) {
