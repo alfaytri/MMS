@@ -219,7 +219,7 @@ function AddressForm({ initial, validateBluePlate, onSave, onCancel, saving }: A
               <div className="flex-1">
                 <Input
                   value={form.lat}
-                  onChange={(e) => setForm((f) => ({ ...f, lat: e.target.value.trim() }))}
+                  onChange={(e) => { setForm((f) => ({ ...f, lat: e.target.value.trim() })); setValidated(null); setValidationFailed(false) }}
                   className="h-7 text-xs font-mono"
                   placeholder="25.2854"
                 />
@@ -228,7 +228,7 @@ function AddressForm({ initial, validateBluePlate, onSave, onCancel, saving }: A
               <div className="flex-1">
                 <Input
                   value={form.lng}
-                  onChange={(e) => setForm((f) => ({ ...f, lng: e.target.value.trim() }))}
+                  onChange={(e) => { setForm((f) => ({ ...f, lng: e.target.value.trim() })); setValidated(null); setValidationFailed(false) }}
                   className="h-7 text-xs font-mono"
                   placeholder="51.5310"
                 />
@@ -236,6 +236,58 @@ function AddressForm({ initial, validateBluePlate, onSave, onCancel, saving }: A
               </div>
             </div>
           </div>
+
+          {/* Verify button */}
+          {!validated && (
+            <Button
+              size="sm"
+              variant="outline"
+              className="w-full h-7 text-xs gap-1"
+              disabled={!form.lat || !form.lng || validating}
+              onClick={() => {
+                const latNum = parseFloat(form.lat)
+                const lngNum = parseFloat(form.lng)
+                if (isNaN(latNum) || isNaN(lngNum) || Math.abs(latNum) > 90 || Math.abs(lngNum) > 180) {
+                  setValidationFailed(true)
+                  return
+                }
+                setValidationFailed(false)
+                setValidated({ lat: latNum, lng: lngNum, waze_link: `https://waze.com/ul?ll=${latNum},${lngNum}&navigate=yes` })
+              }}
+            >
+              Verify coordinates
+            </Button>
+          )}
+
+          {/* Verification success */}
+          {validated && (
+            <div className="rounded-md bg-emerald-50 border border-emerald-200 px-2.5 py-2 space-y-1">
+              <div className="flex items-center gap-1.5">
+                <CheckCircle2 className="h-3.5 w-3.5 text-emerald-600 flex-shrink-0" />
+                <span className="text-xs font-medium text-emerald-700">Coordinates verified</span>
+              </div>
+              <p className="text-[11px] text-emerald-700 font-mono pl-5">
+                {Number(validated.lat).toFixed(6)}, {Number(validated.lng).toFixed(6)}
+              </p>
+              <a
+                href={validated.waze_link}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="inline-flex items-center gap-1 pl-5 text-[11px] text-blue-600 hover:underline"
+              >
+                <Navigation className="h-2.5 w-2.5" /> View in Waze
+              </a>
+            </div>
+          )}
+
+          {/* Verification failure */}
+          {validationFailed && (
+            <div className="rounded-md bg-red-50 border border-red-200 px-2.5 py-2 flex items-center gap-1.5">
+              <XCircle className="h-3.5 w-3.5 text-red-500 flex-shrink-0" />
+              <span className="text-xs text-red-600">Invalid coordinates — check the values and try again</span>
+            </div>
+          )}
+
           <div>
             <Label className="text-xs">Label (optional)</Label>
             <Input value={form.label} onChange={(e) => handleFieldChange('label', e.target.value)} className="h-7 text-xs" placeholder="e.g. Office" />
