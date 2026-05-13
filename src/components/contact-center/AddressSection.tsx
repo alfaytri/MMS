@@ -215,16 +215,26 @@ function AddressForm({ initial, validateBluePlate, onSave, onCancel, saving }: A
         <>
           <div>
             <Label className="text-xs">Coordinates *</Label>
-            <Input
-              value={`${form.lat}${form.lat && form.lng ? ', ' : ''}${form.lng}`}
-              onChange={(e) => {
-                const parts = e.target.value.split(',').map((s) => s.trim())
-                setForm((f) => ({ ...f, lat: parts[0] ?? '', lng: parts[1] ?? '' }))
-              }}
-              className="h-7 text-xs font-mono"
-              placeholder="25.2854, 51.5310"
-            />
-            <p className="text-xs text-muted-foreground mt-0.5">lat, lng — e.g. 25.2854, 51.5310</p>
+            <div className="flex gap-1.5">
+              <div className="flex-1">
+                <Input
+                  value={form.lat}
+                  onChange={(e) => setForm((f) => ({ ...f, lat: e.target.value.trim() }))}
+                  className="h-7 text-xs font-mono"
+                  placeholder="25.2854"
+                />
+                <p className="text-[10px] text-muted-foreground mt-0.5 text-center">Latitude</p>
+              </div>
+              <div className="flex-1">
+                <Input
+                  value={form.lng}
+                  onChange={(e) => setForm((f) => ({ ...f, lng: e.target.value.trim() }))}
+                  className="h-7 text-xs font-mono"
+                  placeholder="51.5310"
+                />
+                <p className="text-[10px] text-muted-foreground mt-0.5 text-center">Longitude</p>
+              </div>
+            </div>
           </div>
           <div>
             <Label className="text-xs">Label (optional)</Label>
