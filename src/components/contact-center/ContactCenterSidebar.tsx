@@ -1,5 +1,6 @@
 'use client'
 
+import { useEffect } from 'react'
 import { ChevronLeft, ChevronRight, MessageSquare, MapPin, Package, Clock, User } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { ChatListView }        from './ChatListView'
@@ -38,12 +39,19 @@ export function ContactCenterSidebar() {
     fetchingWati, canLoadMore, loadMore,
     windowStatus, customerData, chatMessages, addressState,
     activeConversationId, activeCustomerId, activePhone,
-    openConversation, goToList, expandSidebar, collapseSidebar, syncFromWati, syncProgress, triggerPoll,
+    openConversation, goToList, expandSidebar, collapseSidebar, openPhoneDirect, syncFromWati, syncProgress, triggerPoll,
   } = state
-  const { setCcSidebar } = useContactCenterContext()
+  const { setCcSidebar, pendingPhone } = useContactCenterContext()
 
   function handleExpand() { setCcSidebar('expanded'); expandSidebar() }
   function handleCollapse() { setCcSidebar('collapsed'); collapseSidebar() }
+
+  // When another part of the app sets pendingPhone, auto-expand and show the CRM
+  useEffect(() => {
+    if (!pendingPhone) return
+    setCcSidebar('expanded')
+    openPhoneDirect(pendingPhone)
+  }, [pendingPhone])
 
   function handleSelectConversation(c: ChatConversation) {
     openConversation(c.id, c.customer_id, c.wati_phone)

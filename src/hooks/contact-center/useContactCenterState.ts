@@ -57,6 +57,13 @@ export function useContactCenterState() {
     setSidebarView('collapsed')
   }
 
+  function openPhoneDirect(phone: string) {
+    setActivePhone(phone)
+    setActiveConversationId(null)
+    setActiveCustomerId(null)
+    setSidebarView('detail')
+  }
+
   const syncFromWati = useCallback(async (full = false) => {
     setSyncProgress({ stage: 'fetching', fetched: 0 })
 
@@ -128,6 +135,7 @@ export function useContactCenterState() {
     goToList,
     expandSidebar,
     collapseSidebar,
+    openPhoneDirect,
     patchMessage,
     triggerPoll,
     syncFromWati,
