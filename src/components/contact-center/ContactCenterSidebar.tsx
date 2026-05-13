@@ -38,7 +38,7 @@ export function ContactCenterSidebar() {
     fetchingWati, canLoadMore, loadMore,
     windowStatus, customerData, chatMessages, addressState,
     activeConversationId, activeCustomerId, activePhone,
-    openConversation, goToList, expandSidebar, collapseSidebar, syncFromWati, syncProgress,
+    openConversation, goToList, expandSidebar, collapseSidebar, syncFromWati, syncProgress, triggerPoll,
   } = state
   const { setCcSidebar } = useContactCenterContext()
 
@@ -158,6 +158,7 @@ export function ContactCenterSidebar() {
             customerName={displayName}
             windowStatus={windowStatus}
             chatMessages={chatMessages}
+            onAfterSend={triggerPoll}
           />
         )}
       </div>

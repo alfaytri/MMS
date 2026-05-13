@@ -198,27 +198,26 @@ export function useLiveThread(conversationId: string | null, phone: string | nul
     // Catches anything the Realtime WebSocket misses.
     const poll = setInterval(triggerPoll, 2_000)
 
-    // ── Periodic Wati API sync: every 10 s ───────────────────────────────────
-    // The Wati webhook only fires when Wati is configured to call THIS deployment's URL.
-    // On local dev and preview URLs the webhook never arrives, so messages only exist
-    // in Wati's servers (not our DB). This sync pulls them in on a schedule so
-    // new customer messages appear within ~10 s regardless of webhook config.
+    // ── Periodic Wati API sync ────────────────────────────────────────────────
+    // Polls Wati's getMessages API on a schedule so incoming customer messages
+    // appear without needing the webhook to reach this machine.
+    // Local dev: 5 s interval — fast enough to feel responsive without a tunnel.
+    // Production: 15 s interval — webhook handles instant delivery; polling is
+    //   just a safety net for missed events.
+    const WATI_SYNC_MS = process.env.NODE_ENV === 'development' ? 5_000 : 15_000
+
     let watiSyncing = false
     async function syncFromWati() {
       const convId = convIdRef.current
       const ph     = phone
       if (!convId || !ph || watiSyncing || cancelledRef.current) return
       watiSyncing = true
-      console.log('[useLiveThread] syncing from Wati…')
       try {
         const res = await fetch(
           `/api/wati/fetch-messages?conversationId=${encodeURIComponent(convId)}&phone=${encodeURIComponent(ph)}&days=1`,
           { method: 'GET' }
         )
-        const json = await res.json().catch(() => null)
-        console.log('[useLiveThread] wati sync result', res.status, json)
-        // After syncing Wati → DB, immediately pull new rows into state
-        if (!cancelledRef.current) {
+        if (!cancelledRef.current && res.ok) {
           const recent = await pollFromDb(convId)
           if (!cancelledRef.current) setMessages((prev) => applyPoll(prev, recent))
         }
@@ -228,7 +227,7 @@ export function useLiveThread(conversationId: string | null, phone: string | nul
         watiSyncing = false
       }
     }
-    const watiSync = setInterval(syncFromWati, 10_000)
+    const watiSync = setInterval(syncFromWati, WATI_SYNC_MS)
 
     // ── Immediate poll + Wati sync when tab becomes visible again ────────────
     function handleVisibility() {
@@ -303,5 +302,5 @@ export function useLiveThread(conversationId: string | null, phone: string | nul
     setMessages((prev) => prev.some((m) => m.id === msg.id) ? prev : [...prev, msg])
   }
 
-  return { messages, loading, fetchingWati, canLoadMore, loadMore, patchMessage, addMessage }
+  return { messages, loading, fetchingWati, canLoadMore, loadMore, patchMessage, addMessage, triggerPoll }
 }

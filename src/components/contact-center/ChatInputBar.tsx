@@ -31,9 +31,10 @@ interface Props {
   customerName: string
   windowStatus: WindowStatus
   chatMessages: ChatMessagesReturn
+  onAfterSend?: () => void
 }
 
-export function ChatInputBar({ conversationId, phone, customerName, windowStatus, chatMessages }: Props) {
+export function ChatInputBar({ conversationId, phone, customerName, windowStatus, chatMessages, onAfterSend }: Props) {
   const { inputText, setInputText, sending, templates, templatesLoading, sendSessionMessage, sendTemplate, loadTemplates } = chatMessages
   const [showTemplates, setShowTemplates] = useState(false)
   const [showEmoji, setShowEmoji] = useState(false)
@@ -48,6 +49,7 @@ export function ChatInputBar({ conversationId, phone, customerName, windowStatus
     if (!inputText.trim() || sending) return
     try {
       await sendSessionMessage({ conversationId, phone, text: inputText })
+      onAfterSend?.()
     } catch {
       toast.error('Failed to send message')
     }
@@ -93,6 +95,7 @@ export function ChatInputBar({ conversationId, phone, customerName, windowStatus
       })
       setConfirmTemplate(null)
       toast.success('Template sent')
+      onAfterSend?.()
     } catch {
       toast.error('Failed to send template')
     }
