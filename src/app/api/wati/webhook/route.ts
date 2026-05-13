@@ -347,27 +347,64 @@ export async function POST(req: NextRequest) {
       }
     }
 
-    // Normal dup check (also covers wati_ prefix written by the app before webhook fires)
+    // Normal dup check (covers wati_ prefix written by app, and bare wamid)
     const { data: dup } = await (supabase.from('chat_messages') as any)
-      .select('id')
+      .select('id, external_id')
       .in('external_id', [externalId, `wati_${externalId}`])
       .maybeSingle()
 
-    if (!dup) {
-      await (supabase.from('chat_messages') as any)
-        .insert({
-          conversation_id:  conversationId,
-          from_type:        isAgent ? 'agent' : 'customer',
-          source:           'whatsapp_api',
-          text:             text,
-          agent_name:       isAgent ? senderName : null,
-          attachments:      attachments.length > 0 ? attachments : null,
-          delivery_status:  isAgent ? normaliseStatus(body.statusString) : 'delivered',
-          external_id:      externalId,
-          created_at:       ts,
-          message_kind:     isMsgEvent ? 'event' : 'message',
-        })
+    if (dup) {
+      // If the row is stored under wati_<id> prefix, update it to the bare wamid
+      // so reactions and future lookups work against the canonical ID.
+      if (dup.external_id !== externalId) {
+        await (supabase.from('chat_messages') as any)
+          .update({ external_id: externalId })
+          .eq('id', dup.id)
+      }
+      return NextResponse.json({ ok: true })
     }
+
+    // Broad text-based dedup for agent messages:
+    // The app may have stored the message with wati_<numericId> while the
+    // webhook arrives with the wamid — different external_ids, so the check
+    // above misses it. A text+conversation+time match catches this case.
+    if (isAgent && !isMsgEvent && text) {
+      const cutoff2 = new Date(Date.now() - 2 * 60_000).toISOString()
+      const { data: textDup } = await (supabase.from('chat_messages') as any)
+        .select('id, external_id')
+        .eq('conversation_id', conversationId)
+        .eq('from_type', 'agent')
+        .eq('text', text)
+        .gte('created_at', cutoff2)
+        .order('created_at', { ascending: false })
+        .limit(1)
+        .maybeSingle()
+
+      if (textDup) {
+        // Claim the existing row with the canonical wamid
+        await (supabase.from('chat_messages') as any)
+          .update({
+            external_id:     externalId,
+            delivery_status: normaliseStatus(body.statusString ?? 'SENT'),
+          })
+          .eq('id', textDup.id)
+        return NextResponse.json({ ok: true })
+      }
+    }
+
+    await (supabase.from('chat_messages') as any)
+      .insert({
+        conversation_id:  conversationId,
+        from_type:        isAgent ? 'agent' : 'customer',
+        source:           'whatsapp_api',
+        text:             text,
+        agent_name:       isAgent ? senderName : null,
+        attachments:      attachments.length > 0 ? attachments : null,
+        delivery_status:  isAgent ? normaliseStatus(body.statusString) : 'delivered',
+        external_id:      externalId,
+        created_at:       ts,
+        message_kind:     isMsgEvent ? 'event' : 'message',
+      })
   }
 
   return NextResponse.json({ ok: true })
