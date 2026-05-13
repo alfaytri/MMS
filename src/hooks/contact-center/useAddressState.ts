@@ -58,21 +58,27 @@ export function useAddressState(customerId: string | null) {
         .eq('customer_id', customerId)
         .order('is_primary', { ascending: false })
       if (error) throw error
-      return data ?? []
+      // Normalise DB hyphen format ('blue-plate', 'google-coords') to TS underscore format
+      return ((data ?? []) as any[]).map((row) => ({
+        ...row,
+        address_type: (row.address_type as string)?.replace('-', '_') as AddressType,
+      })) as CustomerAddress[]
     },
     enabled: !!customerId,
   })
 
-  /** Validate a blue-plate address via the edge function.
+  /** Validate a blue-plate address via the QARS GIS service.
    *  Returns resolved coords + waze_link on success, null on failure. */
   async function validateBluePlate(
-    building: string, street: string, zone: string, unit?: string,
+    building: string, street: string, zone: string, _unit?: string,
   ): Promise<{ lat: number; lng: number; waze_link: string } | null> {
-    const plate = [unit ? `U${unit}` : '', `B${building}`, `S${street}`, `Z${zone}`]
-      .filter(Boolean).join(' ')
     try {
       const { data: geo, error: geoErr } = await supabase.functions.invoke('blue-plate-lookup', {
-        body: { plate },
+        body: {
+          zone_no:     zone,
+          street_no:   street,
+          building_no: building,
+        },
       })
       if (!geoErr && geo?.lat && geo?.lng) {
         return { lat: geo.lat, lng: geo.lng, waze_link: buildWazeLink(geo.lat, geo.lng) }
