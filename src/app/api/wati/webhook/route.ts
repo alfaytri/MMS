@@ -166,17 +166,21 @@ export async function POST(req: NextRequest) {
     // Log the full body so Vercel logs reveal the exact field structure
     console.log('[webhook:reaction] full payload:', JSON.stringify(body))
 
-    // Try every known field path for the target message ID and emoji
+    // Wati sends reactions with the target wamid in replyContextId
+    // and the emoji in body.text (not in body.reaction / body.reactionMessage).
+    // Also support the Cloud API shapes as fallback.
     const targetExternalId: string | null =
-      body.reaction?.messageId ??
-      body.reactionMessage?.key?.id ??
+      body.replyContextId ??           // Wati actual shape: replyContextId = target wamid
+      body.reaction?.messageId ??      // Cloud API style
+      body.reactionMessage?.key?.id ?? // older Wati style
       body.referredMessageId ??
       body.targetMessageId ??
       body.messageId ?? null
 
     const emoji: string | null =
-      body.reaction?.emoji ??
-      body.reactionMessage?.text ??
+      body.text ??                      // Wati actual shape: text = emoji character
+      body.reaction?.emoji ??           // Cloud API style
+      body.reactionMessage?.text ??     // older Wati style
       body.emoji ??
       body.reactionEmoji ?? null
 
