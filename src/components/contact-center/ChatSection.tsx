@@ -155,8 +155,11 @@ export function ChatSection({ messages, loading, fetchingWati, canLoadMore, onLo
     <div
       ref={scrollRef}
       onScroll={handleScroll}
-      className="relative flex-1 overflow-y-auto px-2 py-2 overscroll-contain"
+      className="relative flex-1 overflow-y-auto px-2 py-2 overscroll-contain flex flex-col"
     >
+      {/* Push messages to the bottom when there are few of them */}
+      <div className="flex-1" />
+
       {/* Load older messages */}
       {canLoadMore && onLoadMore && (
         <div className="flex justify-center mb-2">

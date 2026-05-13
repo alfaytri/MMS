@@ -135,19 +135,21 @@ function AttachmentDialog({
 
   return (
     <Dialog open={open} onOpenChange={(o) => { if (!o) handleClose() }}>
-      <DialogContent className="max-w-lg p-0 overflow-hidden">
-        <DialogHeader className="px-4 pt-4 pb-2">
-          <DialogTitle className="text-sm">Send Attachment</DialogTitle>
+      <DialogContent className="w-[95vw] max-w-xl p-0 overflow-hidden">
+        <DialogHeader className="px-5 pt-5 pb-3 border-b border-border">
+          <DialogTitle className="text-base">Send Attachment</DialogTitle>
         </DialogHeader>
 
         {/* Category tabs */}
-        <div className="flex border-b border-border">
+        <div className="flex border-b border-border bg-muted/30">
           {ATTACH_TABS.map((t) => (
             <button
               key={t.key}
               onClick={() => { setTab(t.key); reset() }}
-              className={`flex-1 flex flex-col items-center gap-1 py-3 text-xs transition-colors border-r last:border-r-0 border-border ${
-                tab === t.key ? 'bg-primary/5 text-primary border-b-2 border-b-primary' : 'text-muted-foreground hover:bg-muted/50'
+              className={`flex-1 flex flex-col items-center gap-1.5 py-3.5 text-xs font-medium transition-colors border-r last:border-r-0 border-border ${
+                tab === t.key
+                  ? 'bg-background text-primary border-b-2 border-b-primary'
+                  : 'text-muted-foreground hover:bg-muted/60 hover:text-foreground'
               }`}
             >
               {t.icon}
@@ -156,7 +158,7 @@ function AttachmentDialog({
           ))}
         </div>
 
-        <div className="p-4 space-y-3">
+        <div className="p-5 space-y-4">
           {!file ? (
             /* Drop zone */
             <div
@@ -164,18 +166,18 @@ function AttachmentDialog({
               onDragLeave={() => setDragging(false)}
               onDrop={handleDrop}
               onClick={() => inputRef.current?.click()}
-              className={`flex flex-col items-center justify-center gap-3 border-2 border-dashed rounded-xl py-10 cursor-pointer transition-colors ${
-                dragging ? 'border-primary bg-primary/5' : 'border-border hover:border-primary/50 hover:bg-muted/30'
+              className={`flex flex-col items-center justify-center gap-4 border-2 border-dashed rounded-xl py-14 cursor-pointer transition-colors ${
+                dragging ? 'border-primary bg-primary/5' : 'border-border hover:border-primary/50 hover:bg-muted/20'
               }`}
             >
-              <Upload className="h-8 w-8 text-muted-foreground" />
-              <div className="text-center">
-                <p className="text-sm font-medium">Drag & Drop Files Here</p>
-                <p className="text-xs text-muted-foreground mt-0.5">
-                  {activeTab.label.toLowerCase()} files supported
+              <Upload className="h-10 w-10 text-muted-foreground" />
+              <div className="text-center space-y-1">
+                <p className="text-sm font-semibold">Drag & Drop Files Here</p>
+                <p className="text-xs text-muted-foreground">
+                  Supported: {activeTab.label.toLowerCase()}
                 </p>
               </div>
-              <Button variant="outline" size="sm" type="button">Browse Files</Button>
+              <Button variant="outline" size="sm" className="px-6" type="button">Browse Files</Button>
               <input
                 ref={inputRef}
                 type="file"
@@ -186,17 +188,17 @@ function AttachmentDialog({
             </div>
           ) : (
             /* File preview */
-            <div className="space-y-3">
-              <div className="flex items-center gap-3 rounded-lg border border-border bg-muted/30 p-3">
-                <div className="h-10 w-10 flex items-center justify-center rounded-md bg-muted flex-shrink-0">
+            <div className="space-y-4">
+              <div className="flex items-center gap-3 rounded-xl border border-border bg-muted/30 p-4">
+                <div className="h-12 w-12 flex items-center justify-center rounded-lg bg-muted flex-shrink-0">
                   {activeTab.icon}
                 </div>
                 <div className="flex-1 min-w-0">
-                  <p className="text-xs font-medium truncate">{file.name}</p>
-                  <p className="text-[11px] text-muted-foreground">{(file.size / 1024).toFixed(1)} KB</p>
+                  <p className="text-sm font-medium truncate">{file.name}</p>
+                  <p className="text-xs text-muted-foreground mt-0.5">{(file.size / 1024).toFixed(1)} KB</p>
                 </div>
-                <button onClick={reset} className="p-1 rounded hover:bg-muted">
-                  <X className="h-3.5 w-3.5 text-muted-foreground" />
+                <button onClick={reset} className="p-1.5 rounded-md hover:bg-muted">
+                  <X className="h-4 w-4 text-muted-foreground" />
                 </button>
               </div>
 
@@ -205,16 +207,16 @@ function AttachmentDialog({
                 <img
                   src={URL.createObjectURL(file)}
                   alt="preview"
-                  className="w-full max-h-40 object-contain rounded-md border border-border"
+                  className="w-full max-h-52 object-contain rounded-xl border border-border bg-muted/20"
                 />
               )}
 
-              <div>
-                <Label className="text-xs">Caption (optional)</Label>
+              <div className="space-y-1.5">
+                <Label className="text-sm">Caption (optional)</Label>
                 <Input
                   value={caption}
                   onChange={(e) => setCaption(e.target.value)}
-                  className="h-8 text-xs mt-1"
+                  className="h-9"
                   placeholder="Add a caption…"
                 />
               </div>
@@ -222,16 +224,15 @@ function AttachmentDialog({
           )}
         </div>
 
-        <DialogFooter className="px-4 pb-4 gap-2">
-          <Button variant="ghost" size="sm" onClick={handleClose}>Cancel</Button>
+        <DialogFooter className="px-5 pb-5 gap-2">
+          <Button variant="ghost" onClick={handleClose}>Cancel</Button>
           <Button
-            size="sm"
             disabled={!file || sending}
             onClick={() => { if (file) onSend(file, caption) }}
           >
             {sending
-              ? <><Loader2 className="h-3.5 w-3.5 animate-spin mr-1" />Sending…</>
-              : <><Send className="h-3.5 w-3.5 mr-1" />Send</>}
+              ? <><Loader2 className="h-4 w-4 animate-spin mr-1.5" />Sending…</>
+              : <><Send className="h-4 w-4 mr-1.5" />Send</>}
           </Button>
         </DialogFooter>
       </DialogContent>
@@ -255,12 +256,12 @@ function InstructionsDialog({
     queryKey: ['instructions-for-chat'],
     staleTime: 5 * 60 * 1000,
     queryFn: async () => {
-      const { data } = await (supabase as any)
+      const { data, error } = await (supabase as any)
         .from('instructions')
         .select('id, name_en, type, content_type, content_preview, full_content, status')
         .eq('status', 'active')
-        .is('deleted_at', null)
         .order('name_en')
+      if (error) console.error('[instructions-for-chat]', error)
       return (data ?? []) as {
         id: string; name_en: string; type: string; content_type: string
         content_preview: string | null; full_content: string | null; status: string
@@ -280,52 +281,58 @@ function InstructionsDialog({
 
   return (
     <Dialog open={open} onOpenChange={(o) => { if (!o) onClose() }}>
-      <DialogContent className="max-w-sm p-0 overflow-hidden">
-        <DialogHeader className="px-4 pt-4 pb-2 border-b border-border">
-          <DialogTitle className="text-sm flex items-center gap-2">
+      <DialogContent className="w-[95vw] max-w-md p-0 overflow-hidden">
+        <DialogHeader className="px-5 pt-5 pb-3 border-b border-border">
+          <DialogTitle className="text-base flex items-center gap-2">
             <BookOpen className="h-4 w-4" /> Service Instructions
           </DialogTitle>
         </DialogHeader>
 
-        <div className="px-3 pt-2">
+        <div className="px-4 pt-3">
           <Input
             value={search}
             onChange={(e) => setSearch(e.target.value)}
             placeholder="Search instructions…"
-            className="h-8 text-xs"
+            className="h-9"
+            autoFocus
           />
         </div>
 
-        <ScrollArea className="h-72 px-2 py-2">
+        <ScrollArea className="h-80 px-3 py-3">
           {isLoading && (
-            <div className="flex items-center justify-center py-8">
-              <Loader2 className="h-4 w-4 animate-spin text-muted-foreground" />
+            <div className="flex items-center justify-center py-10">
+              <Loader2 className="h-5 w-5 animate-spin text-muted-foreground" />
             </div>
           )}
           {!isLoading && filtered.length === 0 && (
-            <p className="text-xs text-muted-foreground text-center py-8">No instructions found</p>
+            <div className="flex flex-col items-center justify-center py-10 gap-2 text-muted-foreground">
+              <BookOpen className="h-6 w-6 opacity-30" />
+              <p className="text-sm">No instructions found</p>
+              <p className="text-xs opacity-70">Add instructions in Services → Instructions</p>
+            </div>
           )}
-          <div className="space-y-1">
+          <div className="space-y-1.5">
             {filtered.map((instr) => {
               const text = instr.full_content || instr.content_preview || instr.name_en
+              const isText = instr.content_type === 'text'
               return (
                 <button
                   key={instr.id}
-                  disabled={sending || instr.content_type !== 'text'}
+                  disabled={sending || !isText}
                   onClick={() => { onSend(text); onClose() }}
-                  className="w-full text-left rounded-md px-3 py-2 hover:bg-muted transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                  className="w-full text-left rounded-lg px-4 py-3 hover:bg-muted transition-colors disabled:opacity-50 disabled:cursor-not-allowed border border-transparent hover:border-border"
                 >
-                  <div className="flex items-center gap-1.5 flex-wrap">
-                    <span className="text-xs font-medium">{instr.name_en}</span>
-                    <Badge className={`text-[10px] py-0 px-1 h-4 border-0 ${TYPE_COLOR[instr.type] ?? 'bg-muted text-muted-foreground'}`}>
-                      {instr.type === 'pre-service' ? 'Pre' : 'Post'}
+                  <div className="flex items-center gap-2 flex-wrap">
+                    <span className="text-sm font-medium">{instr.name_en}</span>
+                    <Badge className={`text-[10px] py-0 px-1.5 h-4 border-0 ${TYPE_COLOR[instr.type] ?? 'bg-muted text-muted-foreground'}`}>
+                      {instr.type === 'pre-service' ? 'Pre-service' : 'Post-service'}
                     </Badge>
-                    {instr.content_type !== 'text' && (
-                      <span className="text-[10px] text-muted-foreground">({instr.content_type} — not supported yet)</span>
+                    {!isText && (
+                      <span className="text-[10px] text-muted-foreground italic">({instr.content_type})</span>
                     )}
                   </div>
                   {instr.content_preview && (
-                    <p className="text-[11px] text-muted-foreground mt-0.5 line-clamp-2">{instr.content_preview}</p>
+                    <p className="text-xs text-muted-foreground mt-1 line-clamp-2 leading-relaxed">{instr.content_preview}</p>
                   )}
                 </button>
               )
