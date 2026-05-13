@@ -73,6 +73,34 @@ serve(async (req) => {
       return json(data)
     }
 
+    case 'send_file': {
+      // body: { phone, url, caption?, filename?, mime_type? }
+      const { url: fileUrl, caption, filename, mime_type } = body as any
+      if (!fileUrl) return json({ error: 'url required' }, 400)
+
+      // Fetch the file from Supabase Storage (or any public URL)
+      let fileBlob: Blob
+      try {
+        const fileRes = await fetch(fileUrl)
+        if (!fileRes.ok) return json({ error: `Failed to fetch file: ${fileRes.status}` }, 502)
+        fileBlob = await fileRes.blob()
+      } catch (e) {
+        return json({ error: `File fetch error: ${e}` }, 502)
+      }
+
+      // Build multipart/form-data for Wati sendSessionFile
+      const form = new FormData()
+      form.append('file', new Blob([await fileBlob.arrayBuffer()], { type: mime_type ?? fileBlob.type }), filename ?? 'file')
+
+      const captionParam = caption ? `&caption=${encodeURIComponent(caption)}` : ''
+      const watiRes = await fetch(
+        `${WATI_ENDPOINT}/api/v1/sendSessionFile/${encodeURIComponent(phone)}?${captionParam}`,
+        { method: 'POST', headers: { Authorization: `Bearer ${WATI_TOKEN}` }, body: form },
+      )
+      const watiData = await watiRes.json().catch(() => ({ ok: watiRes.ok }))
+      return json(watiData)
+    }
+
     case 'send_template': {
       const data = await wati(`/api/v2/sendTemplateMessage?whatsappNumber=${encodeURIComponent(phone)}`, {
         method: 'POST',

@@ -4,6 +4,15 @@ import { useState, useCallback } from 'react'
 import { createClient } from '@/lib/supabase/client'
 import type { ChatMessage, WatiTemplate } from '@/types/contact-center'
 
+export type AttachmentCategory = 'image' | 'video' | 'document' | 'audio'
+
+export interface SendFileParams {
+  conversationId: string
+  phone: string
+  file: File
+  caption?: string
+}
+
 interface SendSessionMessageParams {
   conversationId: string
   phone: string
@@ -284,6 +293,80 @@ export function useChatMessages(
     }
   }, [supabase, patchMessage])
 
+  const sendFile = useCallback(async ({ conversationId, phone, file, caption }: SendFileParams) => {
+    if (sending) return
+    setSending(true)
+
+    let { data: { user } } = await supabase.auth.getUser()
+    if (!user) {
+      const { data: refreshed } = await supabase.auth.refreshSession()
+      user = refreshed?.user ?? null
+    }
+    if (!user) { setSending(false); throw new Error('Session expired') }
+
+    // 1. Upload to Supabase Storage
+    const ext      = file.name.split('.').pop() ?? 'bin'
+    const path     = `${conversationId}/${Date.now()}.${ext}`
+    const { data: uploaded, error: upErr } = await supabase.storage
+      .from('chat-attachments')
+      .upload(path, file, { contentType: file.type, upsert: false })
+    if (upErr || !uploaded) { setSending(false); throw new Error(upErr?.message ?? 'Upload failed') }
+
+    const { data: { publicUrl } } = supabase.storage.from('chat-attachments').getPublicUrl(path)
+
+    // 2. Insert a placeholder message row
+    const { data: profile } = await (supabase as any)
+      .from('profiles').select('id').eq('auth_user_id', user.id).maybeSingle()
+    const { data: inserted } = await (supabase as any)
+      .from('chat_messages')
+      .insert({
+        conversation_id:    conversationId,
+        from_type:          'agent',
+        source:             'whatsapp_api',
+        text:               caption ?? null,
+        attachments:        [{ url: publicUrl, type: file.type, name: file.name }],
+        delivery_status:    'sending',
+        external_id:        null,
+        sent_by_profile_id: profile?.id ?? null,
+      })
+      .select().single()
+
+    if (inserted) {
+      addMessage?.({ ...inserted, reactions: [], message_kind: 'message' } as ChatMessage)
+    }
+
+    // 3. Send via Wati
+    try {
+      const { data: fnData, error: fnErr } = await supabase.functions.invoke('api-wati', {
+        body: {
+          action:    'send_file',
+          phone,
+          url:       publicUrl,
+          caption:   caption ?? '',
+          filename:  file.name,
+          mime_type: file.type,
+        },
+      })
+      if (fnErr) throw fnErr
+      const watiId = (fnData as any)?.message?.whatsappMessageId
+        ?? (fnData as any)?.info?.whatsAppMessageId ?? null
+      if (inserted) {
+        const patch = watiId
+          ? { external_id: `wati_${watiId}`, delivery_status: 'sent' as const }
+          : { delivery_status: 'sent' as const }
+        await (supabase as any).from('chat_messages').update(patch).eq('id', inserted.id)
+        patchMessage(inserted.id, patch)
+      }
+    } catch {
+      if (inserted) {
+        await (supabase as any).from('chat_messages').update({ delivery_status: 'failed' }).eq('id', inserted.id)
+        patchMessage(inserted.id, { delivery_status: 'failed' })
+      }
+    } finally {
+      setSending(false)
+    }
+  }, [sending, supabase, patchMessage, addMessage])
+
   return {
     inputText,
     setInputText,
@@ -292,6 +375,7 @@ export function useChatMessages(
     templatesLoading,
     sendSessionMessage,
     sendTemplate,
+    sendFile,
     loadTemplates,
     retryMessage,
     reactToMessage,
