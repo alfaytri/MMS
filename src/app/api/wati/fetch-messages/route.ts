@@ -299,11 +299,21 @@ export async function GET(req: NextRequest) {
 
   // ── Pre-claim rows stored by MMS with wati_ prefix ─────────────────────────
   // When an agent sends from MMS the row is immediately inserted with
-  // external_id = 'wati_<wamid>'. The Wati API returns the same message with
-  // external_id = '<wamid>' (no prefix). The upsert below uses onConflict:
-  // 'external_id', so it would INSERT a second row (different key). We avoid
-  // duplicates by first resolving those wati_-prefixed rows: update their
-  // external_id to the bare form so the subsequent upsert hits the same row.
+  // external_id = 'wati_<id>'. The Wati API returns the same message with
+  // external_id = '<wamid>' (no prefix, and possibly a *different* ID format —
+  // e.g. the send API returns a numeric id but getMessages returns a wamid).
+  //
+  // Strategy 1 — exact prefix match: look for wati_<exactId> in DB and strip prefix.
+  // Strategy 2 — text+time fallback: for agent messages not resolved by strategy 1,
+  //   find an existing agent row with the same text within ±5 minutes and update its
+  //   external_id. This handles the numeric→wamid mismatch that causes duplicate rows.
+  //
+  // Both strategies update the DB row's external_id BEFORE the upsert so that
+  // onConflict:'external_id' hits the existing row instead of inserting a new one.
+
+  const resolvedExternalIds = new Set<string>() // bare ids that were successfully pre-claimed
+
+  // Strategy 1: exact wati_<id> prefix match
   const bareIds = rows.map((r) => r.external_id).filter(Boolean)
   if (bareIds.length > 0) {
     const watiPrefixIds = bareIds.map((id) => `wati_${id}`)
@@ -317,7 +327,39 @@ export async function GET(req: NextRequest) {
         await (supabase.from('chat_messages') as any)
           .update({ external_id: bareId })
           .eq('id', pr.id)
+        resolvedExternalIds.add(bareId)
       }
+    }
+  }
+
+  // Strategy 2: text+time fallback for unresolved agent messages
+  // Catches the case where the send API returned a numeric id (stored as wati_12345)
+  // but getMessages returns the wamid (wAMID.xxx) — a different string, so strategy 1
+  // finds nothing and the upsert would INSERT a duplicate row.
+  for (const row of rows) {
+    if (resolvedExternalIds.has(row.external_id)) continue
+    if (row.from_type !== 'agent' || row.message_kind !== 'message' || !row.text?.trim()) continue
+
+    const ts     = new Date(row.created_at)
+    const tsMinus = new Date(ts.getTime() - 5 * 60_000).toISOString()
+    const tsPlus  = new Date(ts.getTime() + 5 * 60_000).toISOString()
+
+    const { data: textMatch } = await (supabase.from('chat_messages') as any)
+      .select('id, external_id')
+      .eq('conversation_id', conversationId)
+      .eq('from_type', 'agent')
+      .eq('message_kind', 'message')
+      .eq('text', row.text.trim())
+      .gte('created_at', tsMinus)
+      .lte('created_at', tsPlus)
+      .maybeSingle()
+
+    if (textMatch) {
+      // Update the existing row's external_id to the wamid so the upsert hits it
+      await (supabase.from('chat_messages') as any)
+        .update({ external_id: row.external_id })
+        .eq('id', (textMatch as { id: string }).id)
+      resolvedExternalIds.add(row.external_id)
     }
   }
 
