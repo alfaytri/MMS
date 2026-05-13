@@ -46,17 +46,19 @@ export function ContactCenterSidebar() {
   function handleExpand() { setCcSidebar('expanded'); expandSidebar() }
   function handleCollapse() { setCcSidebar('collapsed'); collapseSidebar() }
 
-  // When another part of the app sets pendingPhone, auto-expand and open the chat
+  // When another part of the app sets pendingPhone, auto-expand and open the chat.
+  // Depends on nonce so re-triggering with the same phone still fires the effect.
   useEffect(() => {
     if (!pendingPhone) return
+    const { phone } = pendingPhone
     setCcSidebar('expanded')
-    const convo = conversations.find((c) => c.wati_phone === pendingPhone)
+    const convo = conversations.find((c) => c.wati_phone === phone)
     if (convo) {
-      openConversation(convo.id, convo.customer_id ?? null, pendingPhone)
+      openConversation(convo.id, convo.customer_id ?? null, phone)
     } else {
-      openPhoneDirect(pendingPhone)
+      openPhoneDirect(phone)
     }
-  }, [pendingPhone])
+  }, [pendingPhone?.nonce])
 
   function handleSelectConversation(c: ChatConversation) {
     openConversation(c.id, c.customer_id, c.wati_phone)
