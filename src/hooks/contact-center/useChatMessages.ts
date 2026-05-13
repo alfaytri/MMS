@@ -212,9 +212,10 @@ export function useChatMessages(
     }
   }, [sending, supabase, patchMessage, addMessage])
 
-  const loadTemplates = useCallback(async () => {
-    if (templates.length > 0) return
+  const loadTemplates = useCallback(async (force = false) => {
+    if (!force && templates.length > 0) return
     setTemplatesLoading(true)
+    setTemplates([])
     try {
       const { data } = await supabase.functions.invoke('api-wati', { body: { action: 'get_templates' } })
       const raw: any[] = (data as any)?.messageTemplates ?? []

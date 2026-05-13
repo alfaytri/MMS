@@ -1,7 +1,7 @@
 'use client'
 
 import { useState, useRef, useCallback } from 'react'
-import { Send, Smile, Paperclip, BookOpen, X, Loader2, Check, FileText, Image as ImageIcon, Video, Music, Upload } from 'lucide-react'
+import { Send, Smile, Paperclip, BookOpen, X, Loader2, Check, FileText, Image as ImageIcon, Video, Music, Upload, GripVertical, RefreshCw } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Textarea } from '@/components/ui/textarea'
 import { Input } from '@/components/ui/input'
@@ -358,10 +358,26 @@ export function ChatInputBar({ conversationId, phone, customerName, windowStatus
   const [confirmTemplate, setConfirmTemplate]   = useState<WatiTemplate | null>(null)
   const [templatesExpanded, setTemplatesExpanded] = useState(false)
   const [templateFilter, setTemplateFilter] = useState<'no-params' | 'has-params'>('no-params')
+  const [paramOverrides, setParamOverrides] = useState<Record<string, 'no-params' | 'has-params'>>(() => {
+    try { return JSON.parse(localStorage.getItem('cc-template-overrides') ?? '{}') } catch { return {} }
+  })
+  const [draggedTemplate, setDraggedTemplate] = useState<string | null>(null)
+  const [dragOver, setDragOver]               = useState<'no-params' | 'has-params' | null>(null)
   const textareaRef = useRef<HTMLTextAreaElement>(null)
   const { isOpen, minutesRemaining } = windowStatus
 
-  // Load templates once when the bar mounts
+  function getEffectiveGroup(t: WatiTemplate): 'no-params' | 'has-params' {
+    return paramOverrides[t.elementName] ?? (t.variableCount === 0 ? 'no-params' : 'has-params')
+  }
+
+  function setOverride(elementName: string, group: 'no-params' | 'has-params') {
+    setParamOverrides((prev) => {
+      const next = { ...prev, [elementName]: group }
+      localStorage.setItem('cc-template-overrides', JSON.stringify(next))
+      return next
+    })
+  }
+
   const handleLoadTemplates = useCallback(() => {
     if (templates.length === 0) loadTemplates()
     setTemplatesExpanded((v) => !v)
@@ -450,17 +466,29 @@ export function ChatInputBar({ conversationId, phone, customerName, windowStatus
         </button>
 
         {templatesExpanded && (
-          <div className="px-2 pt-1 pb-1.5 space-y-1.5">
-            {/* Filter toggle — with counts */}
-            <div className="flex gap-1 items-center">
+          <div className="pb-1.5">
+            {/* Filter tabs + refresh button */}
+            <div className="flex items-center gap-1 px-2 py-1">
               {(['no-params', 'has-params'] as const).map((f) => {
-                const count = templates.filter((t) => f === 'no-params' ? t.variableCount === 0 : t.variableCount > 0).length
+                const count = templates.filter((t) => getEffectiveGroup(t) === f).length
+                const isTarget = dragOver === f && draggedTemplate !== null
                 return (
                   <button
                     key={f}
                     onClick={() => setTemplateFilter(f)}
-                    className={`rounded-full px-2.5 py-0.5 text-[10px] font-medium border transition-colors flex items-center gap-1 ${
-                      templateFilter === f
+                    onDragOver={(e) => { e.preventDefault(); setDragOver(f) }}
+                    onDragLeave={() => setDragOver(null)}
+                    onDrop={(e) => {
+                      e.preventDefault()
+                      if (draggedTemplate) setOverride(draggedTemplate, f)
+                      setDraggedTemplate(null)
+                      setDragOver(null)
+                      setTemplateFilter(f)
+                    }}
+                    className={`rounded-full px-2.5 py-0.5 text-[10px] font-medium border transition-all flex items-center gap-1 ${
+                      isTarget
+                        ? 'border-dashed border-primary bg-primary/10 text-primary scale-105'
+                        : templateFilter === f
                         ? 'bg-primary text-primary-foreground border-primary'
                         : 'bg-muted/50 border-border text-muted-foreground hover:bg-muted'
                     }`}
@@ -468,40 +496,61 @@ export function ChatInputBar({ conversationId, phone, customerName, windowStatus
                     {f === 'no-params' ? 'No params' : 'Has params'}
                     {templates.length > 0 && (
                       <span className={`rounded-full px-1 text-[9px] leading-none py-px ${
-                        templateFilter === f ? 'bg-primary-foreground/20 text-primary-foreground' : 'bg-muted-foreground/20'
+                        templateFilter === f && !isTarget ? 'bg-primary-foreground/20 text-primary-foreground' : 'bg-muted-foreground/20'
                       }`}>{count}</span>
                     )}
                   </button>
                 )
               })}
+              {/* Refresh button */}
+              <button
+                onClick={() => loadTemplates(true)}
+                disabled={templatesLoading}
+                title="Reload templates from WATI"
+                className="ml-auto p-1 rounded text-muted-foreground hover:text-foreground hover:bg-muted transition-colors disabled:opacity-40"
+              >
+                <RefreshCw className={`h-3 w-3 ${templatesLoading ? 'animate-spin' : ''}`} />
+              </button>
             </div>
 
-            {/* Template pills */}
-            <div className="overflow-x-auto scrollbar-none flex gap-1.5 flex-wrap max-h-20 overflow-y-auto">
+            {/* Template list — one per line */}
+            <div className="overflow-y-auto max-h-36 px-2 space-y-px">
               {templates.length === 0 && !templatesLoading && (
-                <span className="text-xs text-muted-foreground px-1">No templates</span>
+                <p className="text-xs text-muted-foreground py-1 px-1">No templates loaded</p>
               )}
               {templates
-                .filter((t) => templateFilter === 'no-params' ? t.variableCount === 0 : t.variableCount > 0)
+                .filter((t) => getEffectiveGroup(t) === templateFilter)
                 .map((t) => (
-                  <button
+                  <div
                     key={t.id}
-                    onClick={() => { setConfirmTemplate(t); setTemplatesExpanded(false) }}
-                    title={t.variableCount > 0 ? `Params: ${t.paramNames.join(', ')}` : 'No parameters — sends instantly'}
-                    className="shrink-0 rounded-full border border-border bg-muted/50 px-2.5 py-0.5 text-[11px] hover:bg-primary/10 hover:border-primary/40 hover:text-primary transition-colors flex items-center gap-1"
+                    draggable
+                    onDragStart={() => setDraggedTemplate(t.elementName)}
+                    onDragEnd={() => { setDraggedTemplate(null); setDragOver(null) }}
+                    className={`flex items-center gap-1.5 rounded px-1.5 py-1 border transition-colors ${
+                      draggedTemplate === t.elementName
+                        ? 'opacity-40 border-border bg-muted'
+                        : 'border-transparent hover:border-border hover:bg-muted/40'
+                    }`}
                   >
-                    {t.elementName}
+                    <GripVertical className="h-3.5 w-3.5 text-muted-foreground/40 shrink-0 cursor-grab active:cursor-grabbing" />
+                    <button
+                      onClick={() => { setConfirmTemplate(t); setTemplatesExpanded(false) }}
+                      title={t.variableCount > 0 ? `Params: ${t.paramNames.join(', ')}` : 'No parameters — sends instantly'}
+                      className="flex-1 text-left text-[11px] truncate hover:text-primary transition-colors"
+                    >
+                      {t.elementName}
+                    </button>
                     {t.variableCount > 0 && (
-                      <span className="rounded-full bg-amber-100 text-amber-700 border border-amber-300 px-1 text-[9px] leading-none py-px font-medium">
-                        {t.variableCount}
+                      <span className="shrink-0 rounded-full bg-amber-100 text-amber-700 border border-amber-300 px-1.5 text-[9px] leading-none py-px font-medium">
+                        {t.variableCount} param{t.variableCount > 1 ? 's' : ''}
                       </span>
                     )}
-                  </button>
+                  </div>
                 ))}
-              {templates.length > 0 && templates.filter((t) => templateFilter === 'no-params' ? t.variableCount === 0 : t.variableCount > 0).length === 0 && (
-                <span className="text-xs text-muted-foreground px-1">
-                  No {templateFilter === 'no-params' ? 'parameter-free' : 'parameterised'} templates
-                </span>
+              {templates.length > 0 && templates.filter((t) => getEffectiveGroup(t) === templateFilter).length === 0 && (
+                <p className="text-xs text-muted-foreground py-1 px-1">
+                  No {templateFilter === 'no-params' ? 'parameter-free' : 'parameterised'} templates — drag one here from the other tab
+                </p>
               )}
             </div>
           </div>
