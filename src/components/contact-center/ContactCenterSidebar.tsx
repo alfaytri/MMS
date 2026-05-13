@@ -139,32 +139,8 @@ export function ContactCenterSidebar() {
         </div>
       </div>
 
-      {/* Chat thread — takes 55% of sidebar height */}
-      <div className="flex flex-col flex-shrink-0" style={{ height: '55%' }}>
-        <ChatSection
-          messages={messages}
-          loading={threadLoading}
-          fetchingWati={fetchingWati}
-          canLoadMore={canLoadMore}
-          onLoadMore={loadMore}
-          phone={activePhone ?? ''}
-          chatMessages={chatMessages}
-          onReact={(msgId, _extId, emoji) => chatMessages.reactToMessage(msgId, emoji, activePhone ?? '')}
-        />
-        {activeConversationId && activePhone && (
-          <ChatInputBar
-            conversationId={activeConversationId}
-            phone={activePhone}
-            customerName={displayName}
-            windowStatus={windowStatus}
-            chatMessages={chatMessages}
-            onAfterSend={triggerPoll}
-          />
-        )}
-      </div>
-
-      {/* CRM + detail sections */}
-      <div className="flex-1 min-h-0 overflow-y-auto overscroll-contain">
+      {/* CRM + detail sections — scrollable, capped so chat always has room */}
+      <div className="flex-shrink-0 max-h-[45%] overflow-y-auto overscroll-contain border-b border-border">
         <SectionHeader icon={<User className="h-3 w-3" />} label="Customer">
           <CrmSection
             customerData={customerData}
@@ -186,6 +162,30 @@ export function ContactCenterSidebar() {
         <SectionHeader icon={<Clock className="h-3 w-3" />} label="Order History">
           <OrderHistorySection customerId={activeCustomerId} />
         </SectionHeader>
+      </div>
+
+      {/* Chat thread — takes all remaining height */}
+      <div className="flex flex-col flex-1 min-h-0">
+        <ChatSection
+          messages={messages}
+          loading={threadLoading}
+          fetchingWati={fetchingWati}
+          canLoadMore={canLoadMore}
+          onLoadMore={loadMore}
+          phone={activePhone ?? ''}
+          chatMessages={chatMessages}
+          onReact={(msgId, _extId, emoji) => chatMessages.reactToMessage(msgId, emoji, activePhone ?? '')}
+        />
+        {activeConversationId && activePhone && (
+          <ChatInputBar
+            conversationId={activeConversationId}
+            phone={activePhone}
+            customerName={displayName}
+            windowStatus={windowStatus}
+            chatMessages={chatMessages}
+            onAfterSend={triggerPoll}
+          />
+        )}
       </div>
     </div>
   )
