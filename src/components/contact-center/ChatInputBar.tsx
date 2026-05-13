@@ -495,8 +495,9 @@ export function ChatInputBar({ conversationId, phone, customerName, windowStatus
         </div>
       )}
 
-      {/* ── Input row ────────────────────────────────────────────────────── */}
-      <div className="flex items-end gap-1.5 p-2">
+      {/* ── Input area ───────────────────────────────────────────────────── */}
+      <div className="flex flex-col gap-1 p-2">
+        {/* Textarea row */}
         <Textarea
           ref={textareaRef}
           value={inputText}
@@ -504,31 +505,30 @@ export function ChatInputBar({ conversationId, phone, customerName, windowStatus
           onKeyDown={(e) => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); handleSend() } }}
           disabled={!isOpen || sending}
           placeholder={isOpen ? 'Type a message… (Enter to send)' : 'Window closed — use a template above'}
-          className="min-h-[44px] max-h-[100px] resize-none text-xs flex-1"
+          className="min-h-[44px] max-h-[100px] resize-none text-xs w-full"
         />
 
-        {/* Action buttons */}
-        <div className="flex flex-col gap-1">
+        {/* Action buttons row */}
+        <div className="flex items-center gap-1">
+          {/* Secondary actions: emoji, attach, instructions */}
+          <Button size="icon" variant="ghost" className="h-8 w-8" disabled={!isOpen} onClick={() => setShowEmoji((s) => !s)}>
+            <Smile className={`h-4 w-4 ${showEmoji ? 'text-primary' : 'text-muted-foreground'}`} />
+          </Button>
+          <Button size="icon" variant="ghost" className="h-8 w-8" disabled={!isOpen} onClick={() => setShowAttach(true)} title="Send attachment">
+            <Paperclip className="h-4 w-4 text-muted-foreground" />
+          </Button>
+          <Button size="icon" variant="ghost" className="h-8 w-8" disabled={!isOpen} onClick={() => setShowInstructions(true)} title="Send service instruction">
+            <BookOpen className="h-4 w-4 text-muted-foreground" />
+          </Button>
+
+          {/* Push send to right */}
+          <div className="flex-1" />
+
           {/* Send */}
-          <Button size="icon" className="h-8 w-8" disabled={!isOpen || !inputText.trim() || sending} onClick={handleSend}>
+          <Button className="h-8 px-3 gap-1.5 text-xs" disabled={!isOpen || !inputText.trim() || sending} onClick={handleSend}>
             {sending
               ? <div className="h-3.5 w-3.5 border-2 border-white border-t-transparent rounded-full animate-spin" />
-              : <Send className="h-3.5 w-3.5" />}
-          </Button>
-
-          {/* Emoji */}
-          <Button size="icon" variant="outline" className="h-8 w-8" disabled={!isOpen} onClick={() => { setShowEmoji((s) => !s) }}>
-            <Smile className={`h-3.5 w-3.5 ${showEmoji ? 'text-primary' : ''}`} />
-          </Button>
-
-          {/* Attachment */}
-          <Button size="icon" variant="outline" className="h-8 w-8" disabled={!isOpen} onClick={() => setShowAttach(true)} title="Send attachment">
-            <Paperclip className="h-3.5 w-3.5" />
-          </Button>
-
-          {/* Service instructions */}
-          <Button size="icon" variant="outline" className="h-8 w-8" disabled={!isOpen} onClick={() => setShowInstructions(true)} title="Send service instruction">
-            <BookOpen className="h-3.5 w-3.5" />
+              : <><Send className="h-3.5 w-3.5" /> Send</>}
           </Button>
         </div>
       </div>
