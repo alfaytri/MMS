@@ -19,6 +19,7 @@ export interface CustomerAddress {
   lng: number | null
   is_primary: boolean
   is_geocoded: boolean
+  waze_link: string | null
   tags: string[]
   created_at: string
 }
@@ -32,6 +33,7 @@ export interface AddressFormData {
   lat?: number
   lng?: number
   label?: string
+  waze_link?: string
 }
 
 export function useAddressState(customerId: string | null) {
@@ -60,6 +62,11 @@ export function useAddressState(customerId: string | null) {
       let lat: number | null = form.lat ?? null
       let lng: number | null = form.lng ?? null
       let isGeocoded = true
+
+      /** Build a Waze deep-link from coordinates */
+      function wazeLink(la: number, lo: number): string {
+        return `https://waze.com/ul?ll=${la},${lo}&navigate=yes`
+      }
 
       if (form.type === 'blue_plate' && form.building && form.street && form.zone) {
         const autoLabel = `B${form.building} S${form.street} Z${form.zone}`
@@ -93,19 +100,23 @@ export function useAddressState(customerId: string | null) {
             lat,
             lng,
             is_geocoded:  isGeocoded,
+            waze_link:    lat && lng ? wazeLink(lat, lng) : null,
             is_primary:   addresses.length === 0,
           })
         if (error) throw error
       } else {
+        const la = form.lat ?? null
+        const lo = form.lng ?? null
         const { error } = await (supabase as any)
           .from('service_customer_addresses')
           .insert({
             customer_id:  customerId,
             address_type: 'google-coords',
             label:        form.label ?? null,
-            lat:          form.lat ?? null,
-            lng:          form.lng ?? null,
+            lat:          la,
+            lng:          lo,
             is_geocoded:  true,
+            waze_link:    la && lo ? wazeLink(la, lo) : null,
             is_primary:   addresses.length === 0,
           })
         if (error) throw error

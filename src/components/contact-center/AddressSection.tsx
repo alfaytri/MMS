@@ -1,7 +1,7 @@
 'use client'
 
 import { useState } from 'react'
-import { MapPin, AlertTriangle, Plus, GripVertical } from 'lucide-react'
+import { MapPin, AlertTriangle, Plus, GripVertical, Navigation } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
@@ -69,29 +69,71 @@ export function AddressSection({ addressState }: { addressState: AddressStateRet
 
   return (
     <div className="px-3 py-2 space-y-2">
-      {addresses.map((a) => (
-        <div
-          key={a.id}
-          draggable
-          onDragStart={(e) => handleDragStart(e, a)}
-          className="flex items-start gap-2 rounded-md border border-border p-2 cursor-grab active:cursor-grabbing"
-        >
-          <GripVertical className="h-3.5 w-3.5 text-muted-foreground mt-0.5 flex-shrink-0" />
-          <div className="flex-1 min-w-0">
-            <div className="flex items-center gap-1.5">
-              <MapPin className="h-3 w-3 text-muted-foreground flex-shrink-0" />
-              <span className="text-xs font-medium truncate">{a.label ?? `${a.building ? `B${a.building}` : ''} S${a.street} Z${a.zone}`.trim()}</span>
-              {a.is_primary && <Badge variant="secondary" className="text-xs py-0 px-1">primary</Badge>}
-            </div>
-            {!a.is_geocoded && (
-              <div className="flex items-center gap-1 mt-0.5">
-                <AlertTriangle className="h-3 w-3 text-amber-500 flex-shrink-0" />
-                <span className="text-xs text-amber-600">No GPS coords</span>
+      {addresses.map((a) => {
+        const autoLabel = [
+          a.building ? `B${a.building}` : '',
+          a.street   ? `S${a.street}`   : '',
+          a.zone     ? `Z${a.zone}`     : '',
+        ].filter(Boolean).join(' ') || 'Address'
+        const displayLabel = a.label ?? autoLabel
+
+        const coordText = a.lat && a.lng
+          ? `${Number(a.lat).toFixed(5)}, ${Number(a.lng).toFixed(5)}`
+          : null
+
+        return (
+          <div
+            key={a.id}
+            draggable
+            onDragStart={(e) => handleDragStart(e, a)}
+            className="flex items-start gap-2 rounded-md border border-border p-2 cursor-grab active:cursor-grabbing"
+          >
+            <GripVertical className="h-3.5 w-3.5 text-muted-foreground mt-0.5 flex-shrink-0" />
+            <div className="flex-1 min-w-0 space-y-0.5">
+              {/* Label row */}
+              <div className="flex items-center gap-1.5 flex-wrap">
+                <MapPin className="h-3 w-3 text-muted-foreground flex-shrink-0" />
+                <span className="text-xs font-medium">{displayLabel}</span>
+                {a.is_primary && <Badge variant="secondary" className="text-[10px] py-0 px-1 h-4">primary</Badge>}
               </div>
-            )}
+
+              {/* Blue plate details */}
+              {a.address_type === 'blue_plate' && (a.building || a.street || a.zone) && (
+                <p className="text-[11px] text-muted-foreground font-mono pl-4">
+                  {[a.unit ? `U${a.unit}` : '', a.building ? `B${a.building}` : '', a.street ? `S${a.street}` : '', a.zone ? `Z${a.zone}` : ''].filter(Boolean).join(' · ')}
+                </p>
+              )}
+
+              {/* Coordinates */}
+              {coordText && (
+                <p className="text-[11px] text-muted-foreground font-mono pl-4">{coordText}</p>
+              )}
+
+              {/* No GPS warning */}
+              {!a.is_geocoded && (
+                <div className="flex items-center gap-1 pl-4">
+                  <AlertTriangle className="h-3 w-3 text-amber-500 flex-shrink-0" />
+                  <span className="text-[11px] text-amber-600">No GPS coords</span>
+                </div>
+              )}
+
+              {/* Waze link */}
+              {a.waze_link && (
+                <a
+                  href={a.waze_link}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="inline-flex items-center gap-1 pl-4 text-[11px] text-blue-600 hover:text-blue-700 hover:underline"
+                  onClick={(e) => e.stopPropagation()}
+                >
+                  <Navigation className="h-2.5 w-2.5" />
+                  Open in Waze
+                </a>
+              )}
+            </div>
           </div>
-        </div>
-      ))}
+        )
+      })}
 
       {!addingAddress && (
         <Button size="sm" variant="outline" className="w-full h-7 text-xs" onClick={() => setAddingAddress(true)}>
