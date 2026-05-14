@@ -276,18 +276,17 @@ export async function GET(req: NextRequest) {
     const msgType    = WATI_TYPE_MAP[rawTypeStr] ?? rawTypeStr
     const isEvent   = isWatiSystemEvent(item)
 
-    // Log first few customer media items so we can inspect the URL field structure
+    // Log customer media items so we can inspect the full URL field structure
     if (!isAgent && !isEvent && FETCH_MEDIA_TYPES.has(msgType.toLowerCase())) {
-      console.log('[fetch-messages] customer media item keys:', JSON.stringify({
-        type: item.type, rawType: rawTypeStr, mappedType: msgType,
-        data_keys:  Object.keys(item.data ?? {}),
-        media_keys: Object.keys(item.media ?? {}),
-        top_keys:   Object.keys(item).filter((k) => !['data', 'media', 'reactions', 'reactionDetails'].includes(k)),
-        data_url:   item.data?.url, data_link: item.data?.link, data_mediaUrl: item.data?.mediaUrl,
-        data_filePath: item.data?.filePath, data_fileUrl: item.data?.fileUrl,
-        media_url:  item.media?.url, media_link: item.media?.link,
-        item_url:   item.url, item_filePath: item.filePath, item_mediaUrl: item.mediaUrl,
+      console.log('[fetch-messages] customer media raw:', JSON.stringify({
+        type: msgType,
+        text: item.text,
+        data_type:   typeof item.data,
+        data_value:  typeof item.data === 'string' ? item.data : JSON.stringify(item.data)?.substring(0, 300),
+        media_value: typeof item.media === 'string' ? item.media : JSON.stringify(item.media)?.substring(0, 300),
+        item_url:    item.url, item_filePath: item.filePath, item_mediaUrl: item.mediaUrl,
         item_mediaHeaderLink: item.mediaHeaderLink,
+        item_caption: item.caption,
       }))
     }
 
