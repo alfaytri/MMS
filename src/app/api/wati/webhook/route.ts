@@ -377,12 +377,15 @@ export async function POST(req: NextRequest) {
         .maybeSingle()
 
       if (pendingRow) {
+        // Never touch attachments for agent messages — the send flow has already
+        // stored the canonical Supabase Storage URL in the optimistic insert.
+        // WATI's webhook may report its own copy at data/images/... but writing
+        // that proxy URL here would clobber the working Supabase URL.
         await (supabase.from('chat_messages') as any)
           .update({
             external_id:      externalId,
             delivery_status:  normaliseStatus(body.statusString ?? 'SENT'),
             ...(senderName ? { agent_name: senderName } : {}),
-            ...(attachments.length > 0 ? { attachments } : {}),
           })
           .eq('id', pendingRow.id)
         return NextResponse.json({ ok: true })

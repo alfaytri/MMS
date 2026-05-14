@@ -17,23 +17,39 @@ export async function GET(req: NextRequest) {
     return new NextResponse('invalid path', { status: 400 })
   }
 
-  const upstream = `${WATI_URL}/${path}`
-  console.log('[wati/media] fetching', upstream, '| token prefix:', WATI_TOKEN.slice(0, 12))
-  let res: Response
-  try {
-    res = await fetch(upstream, {
-      headers: { Authorization: `Bearer ${WATI_TOKEN}` },
-    })
-  } catch (err) {
-    console.error('[wati/media] fetch failed', err)
-    return new NextResponse('upstream fetch failed', { status: 502 })
+  // Try multiple WATI media URL formats — different WATI tenant configurations
+  // serve media at different paths. We try each until one returns 200.
+  const candidates = [
+    `${WATI_URL}/${path}`,
+    `${WATI_URL}/api/file/showFile?fileName=${encodeURIComponent(path)}`,
+    `${WATI_URL}/api/v1/getMedia?fileName=${encodeURIComponent(path)}`,
+  ]
+
+  let res: Response | null = null
+  let lastStatus = 0
+  let lastBody = ''
+  for (const upstream of candidates) {
+    console.log('[wati/media] trying', upstream)
+    try {
+      const r = await fetch(upstream, {
+        headers: { Authorization: `Bearer ${WATI_TOKEN}` },
+        redirect: 'follow',
+      })
+      console.log('[wati/media]  → status', r.status, 'content-type', r.headers.get('content-type'))
+      if (r.ok) {
+        res = r
+        break
+      }
+      lastStatus = r.status
+      lastBody = await r.text().catch(() => '')
+      console.warn('[wati/media]  → body:', lastBody.slice(0, 200))
+    } catch (err) {
+      console.error('[wati/media]  → fetch error', err)
+    }
   }
 
-  console.log('[wati/media] upstream status', res.status, 'content-type', res.headers.get('content-type'))
-  if (!res.ok) {
-    const body = await res.text().catch(() => '')
-    console.error('[wati/media] upstream error body:', body.slice(0, 200))
-    return new NextResponse(`upstream ${res.status}`, { status: res.status })
+  if (!res) {
+    return new NextResponse(`upstream ${lastStatus} ${lastBody.slice(0, 80)}`, { status: lastStatus || 502 })
   }
 
   const contentType = res.headers.get('content-type') ?? 'application/octet-stream'
