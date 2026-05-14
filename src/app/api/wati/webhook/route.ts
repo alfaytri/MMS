@@ -260,10 +260,33 @@ export async function POST(req: NextRequest) {
 
   const phone    = normalisePhone(rawWaId)
   const isAgent  = body.owner === true || eventType === 'message_sent' || eventType === 'sent_message' || eventType === 'broadcastMessage'
-  const msgType: string = String(body.type ?? 'text').toLowerCase()
+
+  // Wati's older API returns numeric type codes — map them to string names so
+  // extractAttachments and extractWebhookText work correctly.
+  const WATI_TYPE_MAP: Record<string, string> = {
+    '0': 'text', '1': 'image', '2': 'video', '3': 'audio',
+    '4': 'document', '5': 'sticker', '6': 'location', '7': 'contacts',
+  }
+  const rawTypeStr = String(body.type ?? 'text')
+  const msgType: string = (WATI_TYPE_MAP[rawTypeStr] ?? rawTypeStr).toLowerCase()
 
   // Detect Wati platform events: ticket events cover all system activity (type 0/1/2)
   const isMsgEvent = eventType === 'ticket' || msgType === 'note' || msgType === 'activity'
+
+  // Log customer media messages so we can see what URL fields WATI actually provides
+  if (!isAgent && !isMsgEvent && MEDIA_TYPES.has(msgType)) {
+    console.log('[webhook] customer media payload keys:', JSON.stringify({
+      type: body.type, mappedType: msgType,
+      data_keys:  Object.keys(body.data ?? {}),
+      media_keys: Object.keys(body.media ?? {}),
+      top_keys:   Object.keys(body).filter((k) => !['data', 'media'].includes(k)),
+      data_url:   body.data?.url, data_link: body.data?.link, data_mediaUrl: body.data?.mediaUrl,
+      data_filePath: body.data?.filePath, data_fileUrl: body.data?.fileUrl,
+      media_url:  body.media?.url, media_link: body.media?.link,
+      body_url:   body.url, body_filePath: body.filePath, body_mediaUrl: body.mediaUrl,
+      body_mediaHeaderLink: body.mediaHeaderLink,
+    }))
+  }
 
   const attachments = isMsgEvent ? [] : extractAttachments(body)
 

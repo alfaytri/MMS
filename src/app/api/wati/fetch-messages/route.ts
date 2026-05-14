@@ -256,6 +256,13 @@ export async function GET(req: NextRequest) {
     return t === 'note' || t === 'activity'
   }
 
+  // Wati's older API returns numeric type codes instead of string names.
+  // Map them here so extractAttachments / extractText / isWatiSystemEvent all work correctly.
+  const WATI_TYPE_MAP: Record<string, string> = {
+    '0': 'text', '1': 'image', '2': 'video', '3': 'audio',
+    '4': 'document', '5': 'sticker', '6': 'location', '7': 'contacts',
+  }
+
   // Build message rows
   const rows = messageItems.map((item) => {
     // broadcastMessage = sent from system/agent (no owner field on broadcast items)
@@ -265,9 +272,25 @@ export async function GET(req: NextRequest) {
       : item.timestamp
       ? new Date(item.timestamp * 1000).toISOString()
       : new Date().toISOString()
-    // Wati sometimes returns numeric type codes (0, 1, …) — normalise to string
-    const msgType   = String(item.type ?? 'text')
+    const rawTypeStr = String(item.type ?? 'text')
+    const msgType    = WATI_TYPE_MAP[rawTypeStr] ?? rawTypeStr
     const isEvent   = isWatiSystemEvent(item)
+
+    // Log first few customer media items so we can inspect the URL field structure
+    if (!isAgent && !isEvent && FETCH_MEDIA_TYPES.has(msgType.toLowerCase())) {
+      console.log('[fetch-messages] customer media item keys:', JSON.stringify({
+        type: item.type, rawType: rawTypeStr, mappedType: msgType,
+        data_keys:  Object.keys(item.data ?? {}),
+        media_keys: Object.keys(item.media ?? {}),
+        top_keys:   Object.keys(item).filter((k) => !['data', 'media', 'reactions', 'reactionDetails'].includes(k)),
+        data_url:   item.data?.url, data_link: item.data?.link, data_mediaUrl: item.data?.mediaUrl,
+        data_filePath: item.data?.filePath, data_fileUrl: item.data?.fileUrl,
+        media_url:  item.media?.url, media_link: item.media?.link,
+        item_url:   item.url, item_filePath: item.filePath, item_mediaUrl: item.mediaUrl,
+        item_mediaHeaderLink: item.mediaHeaderLink,
+      }))
+    }
+
     const attachments = isEvent ? [] : (extractAttachments(item).length > 0 ? extractAttachments(item) : broadcastDocumentPlaceholder(item))
     // For ticket events, use eventDescription as the display text (it's the correct system message)
     const rawText = isEvent
