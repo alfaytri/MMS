@@ -2,6 +2,18 @@
 
 import { FileText, Download } from 'lucide-react'
 
+function truncateFilename(name: string, max = 22): string {
+  if (name.length <= max) return name
+  const dot = name.lastIndexOf('.')
+  if (dot > 0) {
+    const ext  = name.slice(dot)           // e.g. ".pdf"
+    const base = name.slice(0, dot)
+    const keep = Math.max(max - ext.length - 1, 6)
+    return `${base.slice(0, keep)}…${ext}`
+  }
+  return `${name.slice(0, max - 1)}…`
+}
+
 interface Props {
   url: string | null
   type: string | null
@@ -35,7 +47,7 @@ export function AttachmentRenderer({ url, type, name, isAgent }: Props) {
           : 'bg-background border-border text-muted-foreground'
       }`}>
         <FileText className="h-3.5 w-3.5 flex-shrink-0 opacity-70" />
-        <span className="truncate max-w-[160px] font-medium">{name ?? 'attachment'}</span>
+        <span className="font-medium">{truncateFilename(name ?? 'attachment')}</span>
         <span className="ml-auto text-[10px] whitespace-nowrap opacity-60">not available</span>
       </div>
     )
@@ -56,10 +68,16 @@ export function AttachmentRenderer({ url, type, name, isAgent }: Props) {
             alt={name ?? 'image'}
             className="max-w-[200px] max-h-[160px] rounded-md object-cover border border-border/50 block"
             onError={(e) => {
-              const parent = e.currentTarget.closest('.group') as HTMLElement | null
-              if (parent) parent.innerHTML = `<span class="text-xs opacity-60">[image unavailable]</span>`
+              e.currentTarget.style.display = 'none'
+              const sibling = e.currentTarget.nextElementSibling as HTMLElement | null
+              if (sibling) sibling.style.display = 'flex'
             }}
           />
+          <div style={{ display: 'none' }} className="items-center gap-1.5 px-2 py-1.5 rounded border border-dashed text-xs text-muted-foreground border-border">
+            <FileText className="h-3.5 w-3.5 opacity-70" />
+            <span>{name ? truncateFilename(name) : 'image'}</span>
+            <span className="opacity-60 text-[10px]">unavailable</span>
+          </div>
         </a>
         {/* Download overlay */}
         <button
@@ -111,7 +129,7 @@ export function AttachmentRenderer({ url, type, name, isAgent }: Props) {
       title={`Download ${name ?? 'file'}`}
     >
       <FileText className="h-4 w-4 flex-shrink-0 opacity-80" />
-      <span className="truncate flex-1 font-medium">{name ?? 'attachment'}</span>
+      <span className="font-medium">{truncateFilename(name ?? 'attachment')}</span>
       <Download className="h-3.5 w-3.5 flex-shrink-0 opacity-60" />
     </button>
   )

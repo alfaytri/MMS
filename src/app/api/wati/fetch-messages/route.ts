@@ -62,11 +62,12 @@ function extractAttachments(item: any): Attachment[] {
 
   // Wati's getMessages API returns item.data as a relative file path string
   // (e.g. "data/images/uuid.jpg", "data/documents/uuid.pdf") instead of an object.
-  // Construct the full URL by prepending the WATI base URL.
+  // WATI requires Bearer auth to fetch these, so route through our proxy which
+  // adds the token server-side, allowing <img src> and fetch() to work without credentials.
   let data: any = rawData
   let dataUrl: string | null = null
   if (typeof rawData === 'string' && rawData) {
-    dataUrl = `${WATI_URL}/${rawData}`
+    dataUrl = `/api/wati/media?path=${encodeURIComponent(rawData)}`
     data = {}  // reset so .url / .mimeType etc. lookups below still work for object shape
   }
 
