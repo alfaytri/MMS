@@ -365,10 +365,13 @@ export async function GET(req: NextRequest) {
         resolvedExternalIds.add(row.external_id)
       }
     } else if (row.attachments?.length) {
-      // File message with no text: find a wati_-prefixed optimistic row within ±5 min
-      // (handles race where fetch-messages runs before the webhook updates external_id)
-      const { data: fileMatch } = await (supabase.from('chat_messages') as any)
-        .select('id, external_id')
+      // File message with no text: find the optimistic row the app inserted.
+      // Try wati_-prefixed first (sendSessionFile returned a numeric id),
+      // then fall back to null external_id (sendSessionFileViaUrl returned nothing).
+      let fileMatchId: string | null = null
+
+      const { data: pm } = await (supabase.from('chat_messages') as any)
+        .select('id')
         .eq('conversation_id', conversationId)
         .eq('from_type', 'agent')
         .eq('message_kind', 'message')
@@ -376,11 +379,26 @@ export async function GET(req: NextRequest) {
         .gte('created_at', tsMinus)
         .lte('created_at', tsPlus)
         .maybeSingle()
+      fileMatchId = (pm as { id: string } | null)?.id ?? null
 
-      if (fileMatch) {
+      if (!fileMatchId) {
+        const { data: nm } = await (supabase.from('chat_messages') as any)
+          .select('id')
+          .eq('conversation_id', conversationId)
+          .eq('from_type', 'agent')
+          .eq('message_kind', 'message')
+          .is('external_id', null)
+          .in('delivery_status', ['sent', 'sending'])
+          .gte('created_at', tsMinus)
+          .lte('created_at', tsPlus)
+          .maybeSingle()
+        fileMatchId = (nm as { id: string } | null)?.id ?? null
+      }
+
+      if (fileMatchId) {
         await (supabase.from('chat_messages') as any)
           .update({ external_id: row.external_id })
-          .eq('id', (fileMatch as { id: string }).id)
+          .eq('id', fileMatchId)
         resolvedExternalIds.add(row.external_id)
       }
     }

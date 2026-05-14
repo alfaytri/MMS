@@ -75,30 +75,34 @@ serve(async (req) => {
 
     case 'send_file': {
       // body: { phone, url, caption?, filename?, mime_type? }
+      // Uses sendSessionFile (binary upload): the edge function downloads the file from
+      // our storage and POSTs it directly to WATI. This is synchronous — WATI returns the
+      // wamid in the response, avoiding the "accepted-but-never-delivered" problem that
+      // sendSessionFileViaUrl has when WATI fetches asynchronously and silently fails.
       const { url: fileUrl, caption, filename, mime_type } = body as any
       if (!fileUrl) return json({ error: 'url required' }, 400)
 
-      // Fetch the file from Supabase Storage (or any public URL)
-      let fileBlob: Blob
-      try {
-        const fileRes = await fetch(fileUrl)
-        if (!fileRes.ok) return json({ error: `Failed to fetch file: ${fileRes.status}` }, 502)
-        fileBlob = await fileRes.blob()
-      } catch (e) {
-        return json({ error: `File fetch error: ${e}` }, 502)
-      }
+      // 1. Download from Supabase storage
+      const fileRes = await fetch(fileUrl)
+      if (!fileRes.ok) return json({ error: 'fetch_failed', httpStatus: fileRes.status }, 502)
+      const fileBlob = await fileRes.blob()
 
-      // Build multipart/form-data for Wati sendSessionFile
+      // 2. Upload to WATI as multipart/form-data
       const form = new FormData()
-      form.append('file', new Blob([await fileBlob.arrayBuffer()], { type: mime_type ?? fileBlob.type }), filename ?? 'file')
+      form.append('file', new File([fileBlob], filename ?? 'file', { type: mime_type ?? 'application/octet-stream' }))
+      if (caption) form.append('caption', caption)
 
-      const captionParam = caption ? `&caption=${encodeURIComponent(caption)}` : ''
       const watiRes = await fetch(
-        `${WATI_ENDPOINT}/api/v1/sendSessionFile/${encodeURIComponent(phone)}?${captionParam}`,
-        { method: 'POST', headers: { Authorization: `Bearer ${WATI_TOKEN}` }, body: form },
+        `${WATI_ENDPOINT}/api/v1/sendSessionFile/${encodeURIComponent(phone)}`,
+        {
+          method: 'POST',
+          headers: { Authorization: `Bearer ${WATI_TOKEN}` },
+          body: form,
+        },
       )
-      const watiData = await watiRes.json().catch(() => ({ ok: watiRes.ok }))
-      return json(watiData)
+      const watiData = await watiRes.json().catch(() => ({ ok: watiRes.ok, httpStatus: watiRes.status }))
+      // Return WATI's status so the client can detect failures via fnErr
+      return json(watiData, watiRes.ok ? 200 : watiRes.status)
     }
 
     case 'send_template': {

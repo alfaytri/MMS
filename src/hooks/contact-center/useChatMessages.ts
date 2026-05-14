@@ -362,11 +362,12 @@ export function useChatMessages(
         await (supabase as any).from('chat_messages').update(patch).eq('id', inserted.id)
         patchMessage(inserted.id, patch)
       }
-    } catch {
+    } catch (err) {
       if (inserted) {
         await (supabase as any).from('chat_messages').update({ delivery_status: 'failed' }).eq('id', inserted.id)
         patchMessage(inserted.id, { delivery_status: 'failed' })
       }
+      throw err
     } finally {
       setSending(false)
     }
