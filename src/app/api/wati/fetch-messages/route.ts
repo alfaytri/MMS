@@ -442,6 +442,14 @@ export async function GET(req: NextRequest) {
   let inserted = 0
   for (let i = 0; i < rows.length; i += CHUNK) {
     const chunk = rows.slice(i, i + CHUNK).map((row) => {
+      // Agent messages: never overwrite attachments. The send flow stores the
+      // canonical Supabase Storage URL; WATI also retains a copy under data/images/…
+      // but we must not let the proxy URL clobber the original Supabase URL.
+      if ((row as any).from_type === 'agent') {
+        const { attachments: _omit, ...rest } = row as any
+        return rest
+      }
+      // Customer messages: include attachments only if there is a real (non-empty) URL
       const hasRealUrl = (row.attachments as any[] | null)?.some((a: any) => a.url)
       if (hasRealUrl) return row
       // Omit attachments so ON CONFLICT DO UPDATE won't touch the column

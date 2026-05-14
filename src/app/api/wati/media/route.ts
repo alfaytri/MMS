@@ -18,16 +18,21 @@ export async function GET(req: NextRequest) {
   }
 
   const upstream = `${WATI_URL}/${path}`
+  console.log('[wati/media] fetching', upstream, '| token prefix:', WATI_TOKEN.slice(0, 12))
   let res: Response
   try {
     res = await fetch(upstream, {
       headers: { Authorization: `Bearer ${WATI_TOKEN}` },
     })
-  } catch {
+  } catch (err) {
+    console.error('[wati/media] fetch failed', err)
     return new NextResponse('upstream fetch failed', { status: 502 })
   }
 
+  console.log('[wati/media] upstream status', res.status, 'content-type', res.headers.get('content-type'))
   if (!res.ok) {
+    const body = await res.text().catch(() => '')
+    console.error('[wati/media] upstream error body:', body.slice(0, 200))
     return new NextResponse(`upstream ${res.status}`, { status: res.status })
   }
 
