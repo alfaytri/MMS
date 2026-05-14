@@ -428,6 +428,25 @@ export async function GET(req: NextRequest) {
     }
   }
 
+  // Only allow upsert for agent rows whose external_id already exists in DB.
+  // This ensures the upsert fires as ON CONFLICT DO UPDATE — never a fresh INSERT
+  // (which would land with attachments=null → the "📎 Attachment" placeholder).
+  const agentExternalIds = rows
+    .filter((r) => r.from_type === 'agent' && r.external_id)
+    .map((r) => r.external_id as string)
+
+  const existingAgentRows = new Set<string>()
+  if (agentExternalIds.length > 0) {
+    const { data: existing } = await (supabase.from('chat_messages') as any)
+      .select('external_id')
+      .in('external_id', agentExternalIds)
+      .eq('conversation_id', conversationId)
+      .eq('from_type', 'agent')
+    for (const r of (existing ?? []) as { external_id: string }[]) {
+      existingAgentRows.add(r.external_id)
+    }
+  }
+
   // Upsert — now safe: wati_-prefixed rows were renamed to bare ids above,
   // so onConflict:'external_id' will UPDATE them instead of inserting duplicates.
   //
@@ -438,31 +457,48 @@ export async function GET(req: NextRequest) {
   // valid Supabase Storage URL we wrote when the agent originally sent the file.
   // Omitting the column leaves the existing DB value untouched on UPDATE while
   // still inserting null for genuinely new rows with no URL.
+  // PostgREST normalises bulk upsert payloads: if ANY object in the array has
+  // the `attachments` key, PostgREST adds `attachments = NULL` to every object
+  // that omitted it, and the ON CONFLICT UPDATE then overwrites the existing DB
+  // value with NULL. To prevent this we split into two streams:
+  //   • withAttachments  — customer rows that have a real URL
+  //   • noAttachments    — agent rows + customer rows without a URL
+  // Each stream is upserted separately so PostgREST's column normalisation
+  // doesn't bleed across them.
+  const withAttachments: typeof rows = []
+  const noAttachments: typeof rows = []
+
+  for (const row of rows) {
+    if ((row as any).from_type === 'agent') {
+      if (!existingAgentRows.has(row.external_id)) continue
+      const { attachments: _omit, ...rest } = row as any
+      noAttachments.push(rest)
+    } else {
+      const hasRealUrl = (row.attachments as any[] | null)?.some((a: any) => a.url)
+      if (hasRealUrl) {
+        withAttachments.push(row)
+      } else {
+        const { attachments: _omit, ...rest } = row as any
+        noAttachments.push(rest)
+      }
+    }
+  }
+
   const CHUNK = 200
   let inserted = 0
-  for (let i = 0; i < rows.length; i += CHUNK) {
-    const chunk = rows.slice(i, i + CHUNK).map((row) => {
-      // Agent messages: never overwrite attachments. The send flow stores the
-      // canonical Supabase Storage URL; WATI also retains a copy under data/images/…
-      // but we must not let the proxy URL clobber the original Supabase URL.
-      if ((row as any).from_type === 'agent') {
-        const { attachments: _omit, ...rest } = row as any
-        return rest
+
+  for (const stream of [withAttachments, noAttachments]) {
+    for (let i = 0; i < stream.length; i += CHUNK) {
+      const chunk = stream.slice(i, i + CHUNK)
+      if (chunk.length === 0) continue
+      const { error } = await (supabase.from('chat_messages') as any)
+        .upsert(chunk, { onConflict: 'external_id', ignoreDuplicates: false })
+      if (error) {
+        console.error('[fetch-messages] upsert error', error)
+        return NextResponse.json({ error: error.message }, { status: 500 })
       }
-      // Customer messages: include attachments only if there is a real (non-empty) URL
-      const hasRealUrl = (row.attachments as any[] | null)?.some((a: any) => a.url)
-      if (hasRealUrl) return row
-      // Omit attachments so ON CONFLICT DO UPDATE won't touch the column
-      const { attachments: _omit, ...rest } = row as any
-      return rest
-    })
-    const { error } = await (supabase.from('chat_messages') as any)
-      .upsert(chunk, { onConflict: 'external_id', ignoreDuplicates: false })
-    if (error) {
-      console.error('[fetch-messages] upsert error', error)
-      return NextResponse.json({ error: error.message }, { status: 500 })
+      inserted += chunk.length
     }
-    inserted += chunk.length
   }
 
   // Apply reactions to target messages.

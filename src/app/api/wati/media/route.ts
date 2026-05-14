@@ -13,7 +13,7 @@ export async function GET(req: NextRequest) {
   if (!path) return new NextResponse('path required', { status: 400 })
 
   // Only allow WATI media paths (prevents open-proxy abuse)
-  if (!/^data\/(images|documents|videos|audio|voice|stickers)\/[a-zA-Z0-9_\-\.]+$/.test(path)) {
+  if (!/^data\/(images|documents|videos|audios?|voice|stickers)\/[a-zA-Z0-9_\-\.]+$/.test(path)) {
     return new NextResponse('invalid path', { status: 400 })
   }
 

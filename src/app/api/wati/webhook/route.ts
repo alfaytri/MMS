@@ -445,6 +445,13 @@ export async function POST(req: NextRequest) {
       }
     }
 
+    // For agent messages, NEVER include attachments in the insert — the MMS
+    // send flow already inserted the row with the canonical Supabase Storage URL.
+    // If we reach this point for an agent message, all dedup checks above failed,
+    // meaning we'd be creating a NEW row. WATI's attachment URLs don't work for
+    // outbound agent files, so omit them to avoid broken placeholders.
+    const insertAttachments = isAgent ? null : (attachments.length > 0 ? attachments : null)
+
     await (supabase.from('chat_messages') as any)
       .insert({
         conversation_id:  conversationId,
@@ -452,7 +459,7 @@ export async function POST(req: NextRequest) {
         source:           'whatsapp_api',
         text:             text,
         agent_name:       isAgent ? senderName : null,
-        attachments:      attachments.length > 0 ? attachments : null,
+        attachments:      insertAttachments,
         delivery_status:  isAgent ? normaliseStatus(body.statusString) : 'delivered',
         external_id:      externalId,
         created_at:       ts,
