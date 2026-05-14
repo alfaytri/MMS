@@ -180,7 +180,14 @@ export function useLiveThread(conversationId: string | null, phone: string | nul
               if (idx === -1) return [...prev, incoming].sort(
                 (a, b) => new Date(a.created_at).getTime() - new Date(b.created_at).getTime()
               )
-              return prev.map((m) => (m.id === incoming.id ? { ...m, ...incoming } : m))
+              const cur = prev[idx]
+              // Preserve a working attachment URL if the DB update has only empty URLs.
+              // fetch-messages upserts can clobber the Supabase storage URL we stored
+              // on send with an empty URL when WATI hasn't returned the media link yet.
+              const curHasUrl = cur.attachments?.some((a) => a.url)
+              const newHasUrl = (incoming.attachments as any[] | null)?.some((a: any) => a.url)
+              const attachments = curHasUrl && !newHasUrl ? cur.attachments : incoming.attachments
+              return prev.map((m) => (m.id === incoming.id ? { ...m, ...incoming, attachments } : m))
             })
           }
         }
