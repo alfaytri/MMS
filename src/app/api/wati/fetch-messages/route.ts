@@ -406,10 +406,24 @@ export async function GET(req: NextRequest) {
 
   // Upsert — now safe: wati_-prefixed rows were renamed to bare ids above,
   // so onConflict:'external_id' will UPDATE them instead of inserting duplicates.
+  //
+  // Attachment URL preservation: omit the `attachments` column from the upsert
+  // payload whenever all URLs in the row are empty strings. WATI's getMessages
+  // API often returns media messages without a URL (e.g. it hasn't fetched the
+  // media yet). If we blindly upsert `attachments:[{url:''}]` we overwrite the
+  // valid Supabase Storage URL we wrote when the agent originally sent the file.
+  // Omitting the column leaves the existing DB value untouched on UPDATE while
+  // still inserting null for genuinely new rows with no URL.
   const CHUNK = 200
   let inserted = 0
   for (let i = 0; i < rows.length; i += CHUNK) {
-    const chunk = rows.slice(i, i + CHUNK)
+    const chunk = rows.slice(i, i + CHUNK).map((row) => {
+      const hasRealUrl = (row.attachments as any[] | null)?.some((a: any) => a.url)
+      if (hasRealUrl) return row
+      // Omit attachments so ON CONFLICT DO UPDATE won't touch the column
+      const { attachments: _omit, ...rest } = row as any
+      return rest
+    })
     const { error } = await (supabase.from('chat_messages') as any)
       .upsert(chunk, { onConflict: 'external_id', ignoreDuplicates: false })
     if (error) {
