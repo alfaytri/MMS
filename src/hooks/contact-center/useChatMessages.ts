@@ -349,8 +349,12 @@ export function useChatMessages(
         },
       })
       if (fnErr) throw fnErr
-      const watiId = (fnData as any)?.message?.whatsappMessageId
-        ?? (fnData as any)?.info?.whatsAppMessageId ?? null
+      const watiResp = fnData as any
+      if (watiResp?.result === false || watiResp?.error) {
+        throw new Error(watiResp?.info ?? watiResp?.error ?? watiResp?.detail ?? 'WATI rejected the file')
+      }
+      const watiId = watiResp?.message?.whatsappMessageId
+        ?? watiResp?.info?.whatsAppMessageId ?? null
       if (inserted) {
         const patch = watiId
           ? { external_id: `wati_${watiId}`, delivery_status: 'sent' as const }

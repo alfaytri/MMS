@@ -34,30 +34,30 @@ function extractAttachments(body: any): Attachment[] {
     body.media?.url ?? body.mediaUrl ?? body.url ?? null
 
   if (msgType === 'image') {
-    const url = mediaUrl ?? body.image?.url ?? body.image?.link ?? null
-    if (!url) return []
-    return [{ url, type: data.mimeType ?? body.media?.mimeType ?? body.mimeType ?? 'image/jpeg', name: data.caption ?? body.caption ?? 'image' }]
+    const url  = mediaUrl ?? body.image?.url ?? body.image?.link ?? ''
+    const type = data.mimeType ?? body.media?.mimeType ?? body.mimeType ?? 'image/jpeg'
+    const name = data.caption ?? body.caption ?? 'image'
+    return [{ url, type, name }]
   }
   if (msgType === 'document') {
-    const url = mediaUrl ?? body.document?.url ?? body.document?.link ?? null
-    if (!url) return []
+    const url  = mediaUrl ?? body.document?.url ?? body.document?.link ?? ''
     const name = data.fileName ?? data.filename ?? body.document?.filename ?? body.document?.fileName ?? body.media?.fileName ?? body.fileName ?? 'document'
-    const mime = data.mimeType ?? body.document?.mimeType ?? body.media?.mimeType ?? body.mimeType ?? 'application/octet-stream'
-    return [{ url, type: mime, name }]
+    const type = data.mimeType ?? body.document?.mimeType ?? body.media?.mimeType ?? body.mimeType ?? 'application/octet-stream'
+    return [{ url, type, name }]
   }
   if (msgType === 'video') {
-    const url = mediaUrl ?? body.video?.url ?? body.video?.link ?? null
-    if (!url) return []
-    return [{ url, type: data.mimeType ?? body.media?.mimeType ?? body.mimeType ?? 'video/mp4', name: data.caption ?? body.caption ?? 'video' }]
+    const url  = mediaUrl ?? body.video?.url ?? body.video?.link ?? ''
+    const type = data.mimeType ?? body.media?.mimeType ?? body.mimeType ?? 'video/mp4'
+    const name = data.caption ?? body.caption ?? 'video'
+    return [{ url, type, name }]
   }
   if (msgType === 'audio' || msgType === 'voice') {
-    const url = mediaUrl ?? body.audio?.url ?? body.audio?.link ?? null
-    if (!url) return []
-    return [{ url, type: data.mimeType ?? body.media?.mimeType ?? body.mimeType ?? 'audio/ogg', name: 'audio' }]
+    const url  = mediaUrl ?? body.audio?.url ?? body.audio?.link ?? ''
+    const type = data.mimeType ?? body.media?.mimeType ?? body.mimeType ?? 'audio/ogg'
+    return [{ url, type, name: 'audio' }]
   }
   if (msgType === 'sticker') {
-    const url = mediaUrl ?? body.sticker?.url ?? body.sticker?.link ?? null
-    if (!url) return []
+    const url = mediaUrl ?? body.sticker?.url ?? body.sticker?.link ?? ''
     return [{ url, type: 'image/webp', name: 'sticker' }]
   }
 
@@ -94,8 +94,19 @@ function extractAttachments(body: any): Attachment[] {
   return []
 }
 
+// Media message types where body.text is the filename, not a user caption
+const MEDIA_TYPES = new Set(['image', 'document', 'video', 'audio', 'voice', 'sticker'])
+
 // Extract the best available text from any Wati message type
 function extractWebhookText(body: any, msgType: string): string {
+  const t = msgType.toLowerCase()
+
+  // For media messages WATI puts the filename in body.text — skip it and only
+  // use the actual user caption so we don't render filenames as chat text.
+  if (MEDIA_TYPES.has(t)) {
+    return body.caption?.trim() ?? body.data?.caption?.trim() ?? ''
+  }
+
   // finalText — rendered template body on broadcastMessage webhook events
   const finalText = body.finalText?.trim() ?? ''
   if (finalText) return finalText
@@ -105,7 +116,6 @@ function extractWebhookText(body: any, msgType: string): string {
   if (caption) return caption
   const dataBody = body.data?.body?.trim() ?? body.data?.text?.trim() ?? ''
   if (dataBody) return dataBody
-  const t = msgType.toLowerCase()
   if (t === 'template' || t === 'hsm') {
     const components: any[] = body.data?.template?.components ?? body.data?.components ?? body.templateComponents ?? []
     const comp = components.find((c: any) => (c.type ?? '').toLowerCase() === 'body')
@@ -326,13 +336,20 @@ export async function POST(req: NextRequest) {
     // write wati_<id>, so we "claim" that pending row instead of duplicating.
     if (isAgent && !isMsgEvent) {
       const cutoff = new Date(Date.now() - 60_000).toISOString()
+
+      // For file/media messages the app inserts text=null; the webhook produces
+      // text='' (empty caption). Use an OR filter so both cases match.
+      const textFilter = text
+        ? `text.eq.${text}`
+        : 'text.is.null,text.eq.'
+
       const { data: pendingRow } = await (supabase.from('chat_messages') as any)
         .select('id')
         .eq('conversation_id', conversationId)
         .eq('from_type', 'agent')
         .eq('delivery_status', 'sending')
         .is('external_id', null)
-        .eq('text', text)
+        .or(textFilter)
         .gte('created_at', cutoff)
         .order('created_at', { ascending: false })
         .limit(1)
