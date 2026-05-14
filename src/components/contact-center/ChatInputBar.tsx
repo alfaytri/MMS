@@ -1,7 +1,7 @@
 'use client'
 
-import { useState, useRef, useCallback } from 'react'
-import { Send, Smile, Paperclip, BookOpen, X, Loader2, Check, FileText, Image as ImageIcon, Video, Music, Upload, GripVertical, RefreshCw } from 'lucide-react'
+import { useState, useRef, useCallback, useEffect } from 'react'
+import { Send, Smile, Paperclip, BookOpen, X, Loader2, Check, FileText, Image as ImageIcon, Video, Music, Upload, GripVertical, RefreshCw, Mic, Square } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Textarea } from '@/components/ui/textarea'
 import { Input } from '@/components/ui/input'
@@ -118,6 +118,11 @@ function AttachmentDialog({
   const [caption, setCaption] = useState('')
   const [dragging, setDragging] = useState(false)
   const inputRef            = useRef<HTMLInputElement>(null)
+
+  // Reset state whenever the dialog closes (controlled open prop → no onOpenChange fires)
+  useEffect(() => {
+    if (!open) { setFile(null); setCaption('') }
+  }, [open])
 
   const activeTab = ATTACH_TABS.find((t) => t.key === tab)!
 
@@ -364,6 +369,84 @@ export function ChatInputBar({ conversationId, phone, customerName, windowStatus
   const [draggedTemplate, setDraggedTemplate] = useState<string | null>(null)
   const [dragOver, setDragOver]               = useState<'no-params' | 'has-params' | null>(null)
   const textareaRef = useRef<HTMLTextAreaElement>(null)
+
+  // ── Voice recording ────────────────────────────────────────────────────────
+  const [recording, setRecording]             = useState(false)
+  const [recordingDuration, setRecordingDuration] = useState(0)
+  const recorderRef    = useRef<MediaRecorder | null>(null)
+  const chunksRef      = useRef<Blob[]>([])
+  const streamRef      = useRef<MediaStream | null>(null)
+  const durationTimer  = useRef<ReturnType<typeof setInterval> | null>(null)
+
+  useEffect(() => () => {
+    // Cleanup on unmount
+    streamRef.current?.getTracks().forEach((t) => t.stop())
+    if (durationTimer.current) clearInterval(durationTimer.current)
+  }, [])
+
+  async function startRecording() {
+    try {
+      const stream = await navigator.mediaDevices.getUserMedia({ audio: true })
+      streamRef.current = stream
+      chunksRef.current = []
+
+      const mimeType =
+        MediaRecorder.isTypeSupported('audio/webm;codecs=opus') ? 'audio/webm;codecs=opus'
+        : MediaRecorder.isTypeSupported('audio/ogg;codecs=opus') ? 'audio/ogg;codecs=opus'
+        : 'audio/webm'
+
+      const recorder = new MediaRecorder(stream, { mimeType })
+      recorderRef.current = recorder
+
+      recorder.ondataavailable = (e) => { if (e.data.size > 0) chunksRef.current.push(e.data) }
+      recorder.onstop = async () => {
+        const blob = new Blob(chunksRef.current, { type: recorder.mimeType })
+        const ext  = recorder.mimeType.includes('ogg') ? 'ogg' : 'webm'
+        const file = new File([blob], `voice-note-${Date.now()}.${ext}`, { type: recorder.mimeType })
+
+        streamRef.current?.getTracks().forEach((t) => t.stop())
+        streamRef.current = null
+        if (durationTimer.current) { clearInterval(durationTimer.current); durationTimer.current = null }
+        setRecording(false)
+        setRecordingDuration(0)
+
+        if (blob.size < 1000) return // cancelled / too short — don't send
+        try {
+          await sendFile({ conversationId, phone, file })
+          onAfterSend?.()
+          toast.success('Voice note sent')
+        } catch (e: any) {
+          toast.error(e?.message ?? 'Failed to send voice note')
+        }
+      }
+
+      recorder.start()
+      setRecording(true)
+      setRecordingDuration(0)
+      durationTimer.current = setInterval(() => setRecordingDuration((d) => d + 1), 1000)
+    } catch {
+      toast.error('Microphone access denied — check browser permissions')
+    }
+  }
+
+  function stopRecording() {
+    recorderRef.current?.stop()
+  }
+
+  function cancelRecording() {
+    const rec = recorderRef.current
+    if (rec) {
+      rec.ondataavailable = null
+      rec.onstop = null
+      if (rec.state !== 'inactive') rec.stop()
+    }
+    streamRef.current?.getTracks().forEach((t) => t.stop())
+    streamRef.current = null
+    if (durationTimer.current) { clearInterval(durationTimer.current); durationTimer.current = null }
+    setRecording(false)
+    setRecordingDuration(0)
+  }
+
   const { isOpen, minutesRemaining } = windowStatus
 
   function getEffectiveGroup(t: WatiTemplate): 'no-params' | 'has-params' {
@@ -600,28 +683,57 @@ export function ChatInputBar({ conversationId, phone, customerName, windowStatus
         />
 
         {/* Action buttons row */}
-        <div className="flex items-center gap-1">
-          {/* Secondary actions: emoji, attach, instructions */}
-          <Button size="icon" variant="ghost" className="h-8 w-8" disabled={!isOpen} onClick={() => setShowEmoji((s) => !s)}>
-            <Smile className={`h-4 w-4 ${showEmoji ? 'text-primary' : 'text-muted-foreground'}`} />
-          </Button>
-          <Button size="icon" variant="ghost" className="h-8 w-8" disabled={!isOpen} onClick={() => setShowAttach(true)} title="Send attachment">
-            <Paperclip className="h-4 w-4 text-muted-foreground" />
-          </Button>
-          <Button size="icon" variant="ghost" className="h-8 w-8" disabled={!isOpen} onClick={() => setShowInstructions(true)} title="Send service instruction">
-            <BookOpen className="h-4 w-4 text-muted-foreground" />
-          </Button>
+        {recording ? (
+          /* Recording mode */
+          <div className="flex items-center gap-2 h-8">
+            {/* Cancel recording */}
+            <Button size="icon" variant="ghost" className="h-8 w-8 flex-shrink-0" onClick={cancelRecording} title="Cancel">
+              <X className="h-4 w-4 text-muted-foreground" />
+            </Button>
+            {/* Pulsing indicator + duration */}
+            <div className="flex items-center gap-1.5 flex-1 text-xs text-destructive font-medium">
+              <span className="h-2 w-2 rounded-full bg-destructive animate-pulse flex-shrink-0" />
+              {Math.floor(recordingDuration / 60)}:{String(recordingDuration % 60).padStart(2, '0')}
+              <span className="text-muted-foreground font-normal ml-1">Recording…</span>
+            </div>
+            {/* Stop & send */}
+            <Button
+              size="icon"
+              className="h-8 w-8 bg-destructive hover:bg-destructive/90 flex-shrink-0"
+              onClick={stopRecording}
+              title="Stop and send"
+            >
+              <Square className="h-3.5 w-3.5 fill-current" />
+            </Button>
+          </div>
+        ) : (
+          <div className="flex items-center gap-1">
+            {/* Secondary actions: emoji, attach, instructions */}
+            <Button size="icon" variant="ghost" className="h-8 w-8" disabled={!isOpen} onClick={() => setShowEmoji((s) => !s)}>
+              <Smile className={`h-4 w-4 ${showEmoji ? 'text-primary' : 'text-muted-foreground'}`} />
+            </Button>
+            <Button size="icon" variant="ghost" className="h-8 w-8" disabled={!isOpen} onClick={() => setShowAttach(true)} title="Send attachment">
+              <Paperclip className="h-4 w-4 text-muted-foreground" />
+            </Button>
+            <Button size="icon" variant="ghost" className="h-8 w-8" disabled={!isOpen} onClick={() => setShowInstructions(true)} title="Send service instruction">
+              <BookOpen className="h-4 w-4 text-muted-foreground" />
+            </Button>
+            {/* Voice note */}
+            <Button size="icon" variant="ghost" className="h-8 w-8" disabled={!isOpen} onClick={startRecording} title="Record voice note">
+              <Mic className="h-4 w-4 text-muted-foreground" />
+            </Button>
 
-          {/* Push send to right */}
-          <div className="flex-1" />
+            {/* Push send to right */}
+            <div className="flex-1" />
 
-          {/* Send */}
-          <Button className="h-8 px-3 gap-1.5 text-xs" disabled={!isOpen || !inputText.trim() || sending} onClick={handleSend}>
-            {sending
-              ? <div className="h-3.5 w-3.5 border-2 border-white border-t-transparent rounded-full animate-spin" />
-              : <><Send className="h-3.5 w-3.5" /> Send</>}
-          </Button>
-        </div>
+            {/* Send */}
+            <Button className="h-8 px-3 gap-1.5 text-xs" disabled={!isOpen || !inputText.trim() || sending} onClick={handleSend}>
+              {sending
+                ? <div className="h-3.5 w-3.5 border-2 border-white border-t-transparent rounded-full animate-spin" />
+                : <><Send className="h-3.5 w-3.5" /> Send</>}
+            </Button>
+          </div>
+        )}
       </div>
 
       {/* ── Dialogs ──────────────────────────────────────────────────────── */}

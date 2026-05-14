@@ -239,11 +239,11 @@ export function ChatSection({ messages, loading, fetchingWati, canLoadMore, onLo
                       </span>
                     )}
                     {msg.attachments?.map((att, i) => (
-                      <AttachmentRenderer key={i} url={att.url} type={att.type} name={att.name} />
+                      <AttachmentRenderer key={i} url={att.url} type={att.type} name={att.name} isAgent={isAgent} />
                     ))}
-                    {/* Fallback: attachment with unavailable URL */}
+                    {/* Fallback: message with no parseable content */}
                     {(!msg.text || msg.text === '') && !msg.attachments?.length && (
-                      <span className="italic text-xs opacity-50">📎 Attachment</span>
+                      <span className="text-xs opacity-60">📎 Attachment</span>
                     )}
                   </div>
                 </div>

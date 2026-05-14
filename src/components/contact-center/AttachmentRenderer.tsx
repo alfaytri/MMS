@@ -6,16 +6,37 @@ interface Props {
   url: string | null
   type: string | null
   name: string | null
+  isAgent?: boolean
 }
 
-export function AttachmentRenderer({ url, type, name }: Props) {
-  // Empty URL = placeholder for attachments Wati doesn't return URLs for (e.g. broadcast docs)
+function downloadBlob(url: string, filename: string) {
+  fetch(url)
+    .then((r) => r.blob())
+    .then((blob) => {
+      const blobUrl = URL.createObjectURL(blob)
+      const a = document.createElement('a')
+      a.href = blobUrl
+      a.download = filename || 'file'
+      document.body.appendChild(a)
+      a.click()
+      document.body.removeChild(a)
+      URL.revokeObjectURL(blobUrl)
+    })
+    .catch(() => window.open(url, '_blank'))
+}
+
+export function AttachmentRenderer({ url, type, name, isAgent }: Props) {
+  // Empty URL = WATI didn't return a URL (e.g. broadcast docs or undownloaded media)
   if (url === '') {
     return (
-      <div className="flex items-center gap-1.5 mt-1 px-2 py-1.5 rounded bg-muted/40 border border-dashed border-border/60 text-xs text-muted-foreground/60 cursor-default">
-        <FileText className="h-3.5 w-3.5 flex-shrink-0" />
-        <span className="truncate max-w-[160px]">{name ?? 'document'}</span>
-        <span className="ml-auto text-[10px] opacity-60 whitespace-nowrap">URL not available</span>
+      <div className={`flex items-center gap-1.5 mt-1 px-2 py-1.5 rounded border border-dashed text-xs cursor-default ${
+        isAgent
+          ? 'bg-white/20 border-white/40 text-white/80'
+          : 'bg-background border-border text-muted-foreground'
+      }`}>
+        <FileText className="h-3.5 w-3.5 flex-shrink-0 opacity-70" />
+        <span className="truncate max-w-[160px] font-medium">{name ?? 'attachment'}</span>
+        <span className="ml-auto text-[10px] whitespace-nowrap opacity-60">not available</span>
       </div>
     )
   }
@@ -28,18 +49,27 @@ export function AttachmentRenderer({ url, type, name }: Props) {
 
   if (isImage) {
     return (
-      <a href={url} target="_blank" rel="noopener noreferrer" className="block mt-1">
-        <img
-          src={url}
-          alt={name ?? 'image'}
-          className="max-w-[200px] max-h-[160px] rounded-md object-cover border border-border/50"
-          onError={(e) => {
-            // fallback to download link if image fails to load
-            const el = e.currentTarget.parentElement!
-            el.innerHTML = `<span class="text-xs opacity-60">[image unavailable]</span>`
-          }}
-        />
-      </a>
+      <div className="relative group mt-1 inline-block">
+        <a href={url} target="_blank" rel="noopener noreferrer">
+          <img
+            src={url}
+            alt={name ?? 'image'}
+            className="max-w-[200px] max-h-[160px] rounded-md object-cover border border-border/50 block"
+            onError={(e) => {
+              const parent = e.currentTarget.closest('.group') as HTMLElement | null
+              if (parent) parent.innerHTML = `<span class="text-xs opacity-60">[image unavailable]</span>`
+            }}
+          />
+        </a>
+        {/* Download overlay */}
+        <button
+          className="absolute top-1 right-1 opacity-0 group-hover:opacity-100 transition-opacity bg-black/50 hover:bg-black/70 rounded p-1"
+          onClick={(e) => { e.preventDefault(); downloadBlob(url, name ?? 'image') }}
+          title="Download image"
+        >
+          <Download className="h-3 w-3 text-white" />
+        </button>
+      </div>
     )
   }
 
@@ -63,27 +93,26 @@ export function AttachmentRenderer({ url, type, name }: Props) {
   if (isAudio) {
     return (
       <div className="mt-1">
-        <audio
-          src={url}
-          controls
-          className="h-8 max-w-[220px]"
-          preload="metadata"
-        />
+        <audio src={url} controls className="h-8 max-w-[220px]" preload="metadata" />
       </div>
     )
   }
 
-  // Document / generic file
+  // Document / generic file — programmatic download so the browser doesn't open text files inline
   return (
-    <a
-      href={url}
-      target="_blank"
-      rel="noopener noreferrer"
-      className="flex items-center gap-1.5 mt-1 px-2 py-1.5 rounded bg-muted/60 border border-border/50 text-xs text-muted-foreground hover:text-foreground hover:bg-muted transition-colors"
+    <button
+      type="button"
+      onClick={() => downloadBlob(url, name ?? 'file')}
+      className={`flex items-center gap-2 mt-1 w-full px-2.5 py-2 rounded-lg border text-xs transition-colors text-left ${
+        isAgent
+          ? 'bg-black/25 border-white/20 text-white hover:bg-black/35'
+          : 'bg-background border-border text-foreground hover:bg-muted'
+      }`}
+      title={`Download ${name ?? 'file'}`}
     >
-      <FileText className="h-3.5 w-3.5 flex-shrink-0" />
-      <span className="truncate max-w-[160px]">{name ?? 'attachment'}</span>
-      <Download className="h-3 w-3 flex-shrink-0 ml-auto opacity-60" />
-    </a>
+      <FileText className="h-4 w-4 flex-shrink-0 opacity-80" />
+      <span className="truncate flex-1 font-medium">{name ?? 'attachment'}</span>
+      <Download className="h-3.5 w-3.5 flex-shrink-0 opacity-60" />
+    </button>
   )
 }

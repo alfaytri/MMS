@@ -30,8 +30,8 @@ function extractAttachments(body: any): Attachment[] {
   const msgType: string = String(body.type ?? '')
   const data = body.data ?? {}
   const mediaUrl =
-    data.url ?? data.link ?? data.mediaUrl ??
-    body.media?.url ?? body.mediaUrl ?? body.url ?? null
+    data.url ?? data.link ?? data.mediaUrl ?? data.filePath ?? data.fileUrl ?? data.mediaLink ??
+    body.media?.url ?? body.media?.link ?? body.mediaUrl ?? body.url ?? body.filePath ?? null
 
   if (msgType === 'image') {
     const url  = mediaUrl ?? body.image?.url ?? body.image?.link ?? ''

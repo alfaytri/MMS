@@ -61,8 +61,8 @@ function extractAttachments(item: any): Attachment[] {
   const data = item.data ?? {}
   // Wati stores media URL in several possible locations — try all of them
   const mediaUrl =
-    data.url ?? data.link ?? data.mediaUrl ??
-    item.media?.url ?? item.mediaUrl ?? item.url ??
+    data.url ?? data.link ?? data.mediaUrl ?? data.filePath ?? data.fileUrl ?? data.mediaLink ??
+    item.media?.url ?? item.media?.link ?? item.mediaUrl ?? item.url ?? item.filePath ??
     item.mediaHeaderLink ?? null  // broadcast messages use this field (often null)
 
   if (msgType === 'image') {
