@@ -43,6 +43,8 @@ interface Attachment {
   name: string
 }
 
+const FETCH_MEDIA_TYPES = new Set(['image', 'document', 'video', 'audio', 'voice', 'sticker'])
+
 // Returns a placeholder attachment for broadcast messages that reference a document in their text
 // but have no URL (Wati doesn't return document URLs for broadcast history items).
 function broadcastDocumentPlaceholder(item: any): Attachment[] {
@@ -65,30 +67,25 @@ function extractAttachments(item: any): Attachment[] {
 
   if (msgType === 'image') {
     const url = mediaUrl ?? item.image?.url ?? item.image?.link ?? null
-    if (!url) return []
-    return [{ url, type: data.mimeType ?? item.media?.mimeType ?? item.mimeType ?? 'image/jpeg', name: data.caption ?? item.media?.caption ?? item.caption ?? 'image' }]
+    return [{ url: url ?? '', type: data.mimeType ?? item.media?.mimeType ?? item.mimeType ?? 'image/jpeg', name: data.caption ?? item.media?.caption ?? item.caption ?? 'image' }]
   }
   if (msgType === 'document') {
     const url = mediaUrl ?? item.document?.url ?? item.document?.link ?? null
-    if (!url) return []
     const name = data.fileName ?? data.filename ?? item.document?.filename ?? item.document?.fileName ?? item.media?.fileName ?? item.fileName ?? 'document'
     const mime = data.mimeType ?? item.document?.mimeType ?? item.media?.mimeType ?? item.mimeType ?? 'application/octet-stream'
-    return [{ url, type: mime, name }]
+    return [{ url: url ?? '', type: mime, name }]
   }
   if (msgType === 'video') {
     const url = mediaUrl ?? item.video?.url ?? item.video?.link ?? null
-    if (!url) return []
-    return [{ url, type: data.mimeType ?? item.media?.mimeType ?? item.mimeType ?? 'video/mp4', name: data.caption ?? item.caption ?? 'video' }]
+    return [{ url: url ?? '', type: data.mimeType ?? item.media?.mimeType ?? item.mimeType ?? 'video/mp4', name: data.caption ?? item.caption ?? 'video' }]
   }
   if (msgType === 'audio' || msgType === 'voice') {
     const url = mediaUrl ?? item.audio?.url ?? item.audio?.link ?? null
-    if (!url) return []
-    return [{ url, type: data.mimeType ?? item.media?.mimeType ?? item.mimeType ?? 'audio/ogg', name: 'audio' }]
+    return [{ url: url ?? '', type: data.mimeType ?? item.media?.mimeType ?? item.mimeType ?? 'audio/ogg', name: 'audio' }]
   }
   if (msgType === 'sticker') {
     const url = mediaUrl ?? item.sticker?.url ?? item.sticker?.link ?? null
-    if (!url) return []
-    return [{ url, type: 'image/webp', name: 'sticker' }]
+    return [{ url: url ?? '', type: 'image/webp', name: 'sticker' }]
   }
 
   // Template / HSM messages — header may contain a document or image
@@ -144,6 +141,11 @@ function extractText(item: any, msgType: string): string {
   // finalText — Wati's rendered template body for broadcastMessage items
   const finalText = item.finalText?.trim() ?? ''
   if (finalText) return finalText
+
+  // For media messages item.text contains the filename — use caption only
+  if (FETCH_MEDIA_TYPES.has(msgType.toLowerCase())) {
+    return item.caption?.trim() ?? item.data?.caption?.trim() ?? ''
+  }
 
   // Direct text field
   const direct = item.text?.trim() ?? ''
@@ -338,28 +340,49 @@ export async function GET(req: NextRequest) {
   // finds nothing and the upsert would INSERT a duplicate row.
   for (const row of rows) {
     if (resolvedExternalIds.has(row.external_id)) continue
-    if (row.from_type !== 'agent' || row.message_kind !== 'message' || !row.text?.trim()) continue
+    if (row.from_type !== 'agent' || row.message_kind !== 'message') continue
 
-    const ts     = new Date(row.created_at)
+    const ts      = new Date(row.created_at)
     const tsMinus = new Date(ts.getTime() - 5 * 60_000).toISOString()
     const tsPlus  = new Date(ts.getTime() + 5 * 60_000).toISOString()
 
-    const { data: textMatch } = await (supabase.from('chat_messages') as any)
-      .select('id, external_id')
-      .eq('conversation_id', conversationId)
-      .eq('from_type', 'agent')
-      .eq('message_kind', 'message')
-      .eq('text', row.text.trim())
-      .gte('created_at', tsMinus)
-      .lte('created_at', tsPlus)
-      .maybeSingle()
+    if (row.text?.trim()) {
+      // Text match: find an agent row with matching text within ±5 min
+      const { data: textMatch } = await (supabase.from('chat_messages') as any)
+        .select('id, external_id')
+        .eq('conversation_id', conversationId)
+        .eq('from_type', 'agent')
+        .eq('message_kind', 'message')
+        .eq('text', row.text.trim())
+        .gte('created_at', tsMinus)
+        .lte('created_at', tsPlus)
+        .maybeSingle()
 
-    if (textMatch) {
-      // Update the existing row's external_id to the wamid so the upsert hits it
-      await (supabase.from('chat_messages') as any)
-        .update({ external_id: row.external_id })
-        .eq('id', (textMatch as { id: string }).id)
-      resolvedExternalIds.add(row.external_id)
+      if (textMatch) {
+        await (supabase.from('chat_messages') as any)
+          .update({ external_id: row.external_id })
+          .eq('id', (textMatch as { id: string }).id)
+        resolvedExternalIds.add(row.external_id)
+      }
+    } else if (row.attachments?.length) {
+      // File message with no text: find a wati_-prefixed optimistic row within ±5 min
+      // (handles race where fetch-messages runs before the webhook updates external_id)
+      const { data: fileMatch } = await (supabase.from('chat_messages') as any)
+        .select('id, external_id')
+        .eq('conversation_id', conversationId)
+        .eq('from_type', 'agent')
+        .eq('message_kind', 'message')
+        .like('external_id', 'wati_%')
+        .gte('created_at', tsMinus)
+        .lte('created_at', tsPlus)
+        .maybeSingle()
+
+      if (fileMatch) {
+        await (supabase.from('chat_messages') as any)
+          .update({ external_id: row.external_id })
+          .eq('id', (fileMatch as { id: string }).id)
+        resolvedExternalIds.add(row.external_id)
+      }
     }
   }
 
