@@ -58,12 +58,27 @@ function broadcastDocumentPlaceholder(item: any): Attachment[] {
 
 function extractAttachments(item: any): Attachment[] {
   const msgType: string = String(item.type ?? '')
-  const data = item.data ?? {}
+  const rawData = item.data ?? {}
+
+  // Wati's getMessages API returns item.data as a relative file path string
+  // (e.g. "data/images/uuid.jpg", "data/documents/uuid.pdf") instead of an object.
+  // Construct the full URL by prepending the WATI base URL.
+  let data: any = rawData
+  let dataUrl: string | null = null
+  if (typeof rawData === 'string' && rawData) {
+    dataUrl = `${WATI_URL}/${rawData}`
+    data = {}  // reset so .url / .mimeType etc. lookups below still work for object shape
+  }
+
   // Wati stores media URL in several possible locations — try all of them
   const mediaUrl =
+    dataUrl ??
     data.url ?? data.link ?? data.mediaUrl ?? data.filePath ?? data.fileUrl ?? data.mediaLink ??
     item.media?.url ?? item.media?.link ?? item.mediaUrl ?? item.url ?? item.filePath ??
     item.mediaHeaderLink ?? null  // broadcast messages use this field (often null)
+
+  // For customer media, item.text holds the original filename (e.g. "invoice.pdf")
+  const textFilename = typeof item.text === 'string' && item.text ? item.text : null
 
   if (msgType === 'image') {
     const url = mediaUrl ?? item.image?.url ?? item.image?.link ?? null
@@ -71,7 +86,7 @@ function extractAttachments(item: any): Attachment[] {
   }
   if (msgType === 'document') {
     const url = mediaUrl ?? item.document?.url ?? item.document?.link ?? null
-    const name = data.fileName ?? data.filename ?? item.document?.filename ?? item.document?.fileName ?? item.media?.fileName ?? item.fileName ?? 'document'
+    const name = textFilename ?? data.fileName ?? data.filename ?? item.document?.filename ?? item.document?.fileName ?? item.media?.fileName ?? item.fileName ?? 'document'
     const mime = data.mimeType ?? item.document?.mimeType ?? item.media?.mimeType ?? item.mimeType ?? 'application/octet-stream'
     return [{ url: url ?? '', type: mime, name }]
   }
@@ -275,20 +290,6 @@ export async function GET(req: NextRequest) {
     const rawTypeStr = String(item.type ?? 'text')
     const msgType    = WATI_TYPE_MAP[rawTypeStr] ?? rawTypeStr
     const isEvent   = isWatiSystemEvent(item)
-
-    // Log customer media items so we can inspect the full URL field structure
-    if (!isAgent && !isEvent && FETCH_MEDIA_TYPES.has(msgType.toLowerCase())) {
-      console.log('[fetch-messages] customer media raw:', JSON.stringify({
-        type: msgType,
-        text: item.text,
-        data_type:   typeof item.data,
-        data_value:  typeof item.data === 'string' ? item.data : JSON.stringify(item.data)?.substring(0, 300),
-        media_value: typeof item.media === 'string' ? item.media : JSON.stringify(item.media)?.substring(0, 300),
-        item_url:    item.url, item_filePath: item.filePath, item_mediaUrl: item.mediaUrl,
-        item_mediaHeaderLink: item.mediaHeaderLink,
-        item_caption: item.caption,
-      }))
-    }
 
     const attachments = isEvent ? [] : (extractAttachments(item).length > 0 ? extractAttachments(item) : broadcastDocumentPlaceholder(item))
     // For ticket events, use eventDescription as the display text (it's the correct system message)

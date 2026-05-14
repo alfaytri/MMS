@@ -26,10 +26,22 @@ interface Attachment {
   name: string
 }
 
+const WATI_URL_WEBHOOK = (process.env.WATI_API_URL ?? '').replace(/\/$/, '')
+
 function extractAttachments(body: any): Attachment[] {
   const msgType: string = String(body.type ?? '')
-  const data = body.data ?? {}
+  const rawData = body.data ?? {}
+
+  // body.data can be a relative file path string (e.g. "data/images/uuid.jpg")
+  let data: any = rawData
+  let dataUrl: string | null = null
+  if (typeof rawData === 'string' && rawData) {
+    dataUrl = `${WATI_URL_WEBHOOK}/${rawData}`
+    data = {}
+  }
+
   const mediaUrl =
+    dataUrl ??
     data.url ?? data.link ?? data.mediaUrl ?? data.filePath ?? data.fileUrl ?? data.mediaLink ??
     body.media?.url ?? body.media?.link ?? body.mediaUrl ?? body.url ?? body.filePath ?? null
 
@@ -41,7 +53,8 @@ function extractAttachments(body: any): Attachment[] {
   }
   if (msgType === 'document') {
     const url  = mediaUrl ?? body.document?.url ?? body.document?.link ?? ''
-    const name = data.fileName ?? data.filename ?? body.document?.filename ?? body.document?.fileName ?? body.media?.fileName ?? body.fileName ?? 'document'
+    const textFilename = typeof body.text === 'string' && body.text ? body.text : null
+    const name = textFilename ?? data.fileName ?? data.filename ?? body.document?.filename ?? body.document?.fileName ?? body.media?.fileName ?? body.fileName ?? 'document'
     const type = data.mimeType ?? body.document?.mimeType ?? body.media?.mimeType ?? body.mimeType ?? 'application/octet-stream'
     return [{ url, type, name }]
   }
@@ -272,21 +285,6 @@ export async function POST(req: NextRequest) {
 
   // Detect Wati platform events: ticket events cover all system activity (type 0/1/2)
   const isMsgEvent = eventType === 'ticket' || msgType === 'note' || msgType === 'activity'
-
-  // Log customer media messages so we can see what URL fields WATI actually provides
-  if (!isAgent && !isMsgEvent && MEDIA_TYPES.has(msgType)) {
-    console.log('[webhook] customer media payload keys:', JSON.stringify({
-      type: body.type, mappedType: msgType,
-      data_keys:  Object.keys(body.data ?? {}),
-      media_keys: Object.keys(body.media ?? {}),
-      top_keys:   Object.keys(body).filter((k) => !['data', 'media'].includes(k)),
-      data_url:   body.data?.url, data_link: body.data?.link, data_mediaUrl: body.data?.mediaUrl,
-      data_filePath: body.data?.filePath, data_fileUrl: body.data?.fileUrl,
-      media_url:  body.media?.url, media_link: body.media?.link,
-      body_url:   body.url, body_filePath: body.filePath, body_mediaUrl: body.mediaUrl,
-      body_mediaHeaderLink: body.mediaHeaderLink,
-    }))
-  }
 
   const attachments = isMsgEvent ? [] : extractAttachments(body)
 
