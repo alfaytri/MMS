@@ -28,8 +28,13 @@ interface Attachment {
 
 const WATI_URL_WEBHOOK = (process.env.WATI_API_URL ?? '').replace(/\/$/, '')
 
-function extractAttachments(body: any): Attachment[] {
-  const msgType: string = String(body.type ?? '')
+function extractAttachments(body: any, mappedMsgType?: string): Attachment[] {
+  const WEBHOOK_TYPE_MAP: Record<string, string> = {
+    '0': 'text', '1': 'image', '2': 'video', '3': 'audio',
+    '4': 'document', '5': 'sticker', '6': 'location', '7': 'contacts',
+  }
+  const rawType = String(body.type ?? '')
+  const msgType: string = mappedMsgType ?? WEBHOOK_TYPE_MAP[rawType] ?? rawType
   const rawData = body.data ?? {}
 
   // body.data can be a relative file path string (e.g. "data/images/uuid.jpg")
@@ -286,7 +291,7 @@ export async function POST(req: NextRequest) {
   // Detect Wati platform events: ticket events cover all system activity (type 0/1/2)
   const isMsgEvent = eventType === 'ticket' || msgType === 'note' || msgType === 'activity'
 
-  const attachments = isMsgEvent ? [] : extractAttachments(body)
+  const attachments = isMsgEvent ? [] : extractAttachments(body, msgType)
 
   // Extract assigned agent from message payload (Wati sometimes includes it)
   const assignedAgentInMsg: string | null =
@@ -352,9 +357,12 @@ export async function POST(req: NextRequest) {
 
   // Insert message (or update pending optimistic row from the app)
   if (externalId) {
-    // Race-condition guard: if the app sent this message, it already inserted a row with
-    // delivery_status='sending' and external_id=null. The webhook fires before the app can
-    // write wati_<id>, so we "claim" that pending row instead of duplicating.
+    // Race-condition guard: if the app sent this message, it already inserted a row.
+    // The webhook may fire before OR after the send API response, so we need to
+    // match both cases:
+    //   - still 'sending' with null external_id  (webhook raced ahead of API response)
+    //   - already 'sent'/'sending' with null or wati_<numericId> external_id
+    //     (API responded first but before the wamid could be stored)
     if (isAgent && !isMsgEvent) {
       const cutoff = new Date(Date.now() - 60_000).toISOString()
 
@@ -368,8 +376,8 @@ export async function POST(req: NextRequest) {
         .select('id')
         .eq('conversation_id', conversationId)
         .eq('from_type', 'agent')
-        .eq('delivery_status', 'sending')
-        .is('external_id', null)
+        .in('delivery_status', ['sending', 'sent'])
+        .or('external_id.is.null,external_id.like.wati_%')
         .or(textFilter)
         .gte('created_at', cutoff)
         .order('created_at', { ascending: false })
