@@ -2,6 +2,7 @@
 'use client'
 
 import { useState, useCallback } from 'react'
+import { createClient } from '@/lib/supabase/client'
 import { useLiveConversations }  from './useLiveConversations'
 import { useLiveThread }         from './useLiveThread'
 import { useWhatsAppWindow }     from './useWhatsAppWindow'
@@ -25,7 +26,7 @@ export function useContactCenterState() {
   const [activePhone, setActivePhone]           = useState<string | null>(null)
   const [syncProgress, setSyncProgress]         = useState<SyncProgress>({ stage: 'idle' })
 
-  const { conversations, loading: convsLoading, markRead, markOpened, refetch: refetchConversations } = useLiveConversations()
+  const { conversations, loading: convsLoading, markRead, markOpened, patchConversation, clearStatusPatch, refetch: refetchConversations } = useLiveConversations()
   const { messages, loading: threadLoading, fetchingWati, canLoadMore, loadMore, patchMessage, addMessage, triggerPoll } = useLiveThread(activeConversationId, activePhone)
 
   const activeConversation = conversations.find((c) => c.id === activeConversationId) ?? null
@@ -65,6 +66,23 @@ export function useContactCenterState() {
     setActiveCustomerId(null)
     setSidebarView('detail')
   }
+
+  const updateConversationStatus = useCallback(async (status: 'open' | 'pending' | 'resolved') => {
+    if (!activeConversationId || !activePhone) return
+    patchConversation(activeConversationId, { wati_status: status })
+    const supabase = createClient()
+    const { error } = await (supabase as any)
+      .from('chat_conversations')
+      .update({ wati_status: status })
+      .eq('id', activeConversationId)
+    if (error) {
+      console.error('[updateConversationStatus] DB update failed', error)
+      // Roll back optimistic patch so the UI shows the real status
+      patchConversation(activeConversationId, { wati_status: activeConversation?.wati_status ?? 'open' })
+    }
+    clearStatusPatch(activeConversationId)
+    await supabase.functions.invoke('api-wati', { body: { action: 'set_status', phone: activePhone, status } })
+  }, [activeConversationId, activePhone, activeConversation, patchConversation, clearStatusPatch])
 
   const syncFromWati = useCallback(async (full = false) => {
     setSyncProgress({ stage: 'fetching', fetched: 0 })
@@ -141,5 +159,6 @@ export function useContactCenterState() {
     patchMessage,
     triggerPoll,
     syncFromWati,
+    updateConversationStatus,
   }
 }

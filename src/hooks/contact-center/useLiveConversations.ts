@@ -12,6 +12,7 @@ export function useLiveConversations() {
   // IDs that we've marked read locally — prevents the realtime re-fetch from
   // flashing the old unread count back while the DB update is in-flight.
   const locallyReadIds = useRef(new Set<string>())
+  const localStatusPatch = useRef(new Map<string, string>())
 
   const load = useCallback(async () => {
     // Show last 3 days so the list stays populated even when the webhook is
@@ -30,6 +31,8 @@ export function useLiveConversations() {
       `)
       .not('last_message_at', 'is', null)
       .gte('last_message_at', yesterdayStart.toISOString())
+      // Hide contacts that were synced from WATI but have never had a real message
+      .or('last_message.not.is.null,unread_count.gt.0')
       .order('last_message_at', { ascending: false, nullsFirst: false })
       .limit(200)
 
@@ -45,9 +48,11 @@ export function useLiveConversations() {
       (data as any[]).map((row) => ({
         ...row,
         customer_name: row.service_customers?.name ?? row.wati_contact_name ?? null,
-        // Keep unread_count at 0 for conversations we've already marked read
-        // locally, even if the DB re-fetch still returns the old value.
         unread_count: locallyReadIds.current.has(row.id) ? 0 : row.unread_count,
+        // Keep locally-patched status until the DB confirms the change
+        wati_status: localStatusPatch.current.has(row.id)
+          ? localStatusPatch.current.get(row.id)
+          : row.wati_status,
       }))
     )
     setLoading(false)
@@ -97,5 +102,14 @@ export function useLiveConversations() {
       .eq('id', conversationId)
   }
 
-  return { conversations, loading, markRead, markOpened, refetch: load }
+  function patchConversation(id: string, patch: Record<string, unknown>) {
+    if ('wati_status' in patch) localStatusPatch.current.set(id, patch.wati_status as string)
+    setConversations((prev) => prev.map((c) => (c.id === id ? { ...c, ...patch } : c)))
+  }
+
+  function clearStatusPatch(id: string) {
+    localStatusPatch.current.delete(id)
+  }
+
+  return { conversations, loading, markRead, markOpened, patchConversation, clearStatusPatch, refetch: load }
 }
