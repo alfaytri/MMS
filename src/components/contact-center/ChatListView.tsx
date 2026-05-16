@@ -307,15 +307,20 @@ export function ChatListView({ conversations, loading, onSelectConversation, onS
           <div className="px-3 py-4 text-xs text-muted-foreground text-center">Loading…</div>
         )}
 
-        {/* Normal results grouped by Today / Yesterday */}
+        {/* Normal results grouped by Today / Yesterday / Earlier */}
         {!loading && filtered.length > 0 && (() => {
           const todayStart = new Date(); todayStart.setHours(0, 0, 0, 0)
           const yesterdayStart = new Date(todayStart); yesterdayStart.setDate(yesterdayStart.getDate() - 1)
+          const earlierStart   = new Date(todayStart); earlierStart.setDate(earlierStart.getDate() - 3)
 
           const todayRows     = filtered.filter(c => new Date(c.last_message_at!) >= todayStart)
           const yesterdayRows = filtered.filter(c => {
             const d = new Date(c.last_message_at!)
             return d >= yesterdayStart && d < todayStart
+          })
+          const earlierRows   = filtered.filter(c => {
+            const d = new Date(c.last_message_at!)
+            return d >= earlierStart && d < yesterdayStart
           })
 
           return (
@@ -336,6 +341,16 @@ export function ChatListView({ conversations, loading, onSelectConversation, onS
                     Yesterday · {yesterdayRows.length}
                   </div>
                   {yesterdayRows.map(c => (
+                    <ConversationRow key={c.id} c={c} onClick={() => onSelectConversation(c)} />
+                  ))}
+                </>
+              )}
+              {earlierRows.length > 0 && (
+                <>
+                  <div className="px-3 py-1 text-xs font-medium text-muted-foreground bg-muted/30 border-b border-border sticky top-0 z-10">
+                    Earlier · {earlierRows.length}
+                  </div>
+                  {earlierRows.map(c => (
                     <ConversationRow key={c.id} c={c} onClick={() => onSelectConversation(c)} />
                   ))}
                 </>
@@ -373,7 +388,7 @@ export function ChatListView({ conversations, loading, onSelectConversation, onS
             {!lookupLoading && !lookupResult && !lookupNotFound && !search.trim() && (
               <div className="flex flex-col items-center justify-center py-8 gap-2 text-muted-foreground">
                 <MessageSquare className="h-8 w-8 opacity-30" />
-                <p className="text-xs">No conversations today or yesterday</p>
+                <p className="text-xs">No conversations in the last 3 days</p>
                 <p className="text-xs opacity-60 text-center px-4">
                   Search a phone number to find older contacts
                 </p>

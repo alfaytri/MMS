@@ -6,8 +6,10 @@ const WATI_TOKEN = (process.env.WATI_API_TOKEN ?? '').replace(/^Bearer\s+/i, '')
 const SUPA_URL   = process.env.NEXT_PUBLIC_SUPABASE_URL!
 const SUPA_KEY   = process.env.SUPABASE_SERVICE_ROLE_KEY!
 
-// Recent mode: stop when contacts older than 2 days. Full: all pages.
-const RECENT_DAYS = 2
+// Recent mode: scan up to this many pages (100 contacts each) regardless of sort order.
+// Wati sorts /getContacts by name, not by date, so date-based early cutoff is unreliable.
+const RECENT_MAX_PAGES = 15
+const RECENT_DAYS = 3
 const PAGE_SIZE   = 100
 
 function normalisePhone(raw: string): string | null {
@@ -75,14 +77,21 @@ async function upsertContacts(allContacts: any[], supabase: ReturnType<typeof cr
     customerByPhone.set(row.phone, row.customer_id)
   }
 
-  // Split into contacts with/without a known last-message date
+  // Split into contacts with/without a known last-message date.
+  // Wati's /getContacts API stopped returning lastReceivedMessageDate and lastMessage
+  // for most contacts. Fall back to lastUpdated (which Wati sets whenever a message
+  // is sent to or received from the contact) so that recently-active contacts still
+  // appear in the conversation list after a sync.
   const rowsWithDate: any[] = []
   const rowsNoDate: any[]   = []
 
   for (const phone of phones) {
     const c    = phoneMap.get(phone)!
+    // Prefer lastReceivedMessageDate; fall back to lastUpdated as a proxy for activity
     const date = c.lastReceivedMessageDate
       ? new Date(c.lastReceivedMessageDate).toISOString()
+      : c.lastUpdated
+      ? new Date(c.lastUpdated).toISOString()
       : null
 
     // Wati returns the assigned operator as assignedTo.name or assignedTo (string)
@@ -98,6 +107,8 @@ async function upsertContacts(allContacts: any[], supabase: ReturnType<typeof cr
     }
 
     if (date) {
+      // Use lastMessage when available; otherwise leave last_message untouched on
+      // existing rows (ignoreDuplicates:false only applies to new inserts via lastUpdated).
       rowsWithDate.push({ ...base, last_message: c.lastMessage ?? null, last_message_at: date })
     } else {
       rowsNoDate.push(base)
@@ -144,9 +155,13 @@ export async function GET(req: NextRequest) {
     try {
       let pageNumber = 1
       const allContacts: any[] = []
-      let reachedCutoff = false
 
-      while (!reachedCutoff) {
+      // Wati sorts /getContacts by name, not by activity date, so date-based early
+      // cutoff is unreliable. In recent mode we scan a fixed page window and filter
+      // each contact by its activity date (lastReceivedMessageDate or lastUpdated).
+      const maxPages = full ? Infinity : RECENT_MAX_PAGES
+
+      while (pageNumber <= maxPages) {
         await writer.write(encode({ stage: 'fetching', page: pageNumber, total: allContacts.length }))
 
         const result = await watiGet(`/api/v1/getContacts?pageSize=${PAGE_SIZE}&pageNumber=${pageNumber}`)
@@ -160,10 +175,11 @@ export async function GET(req: NextRequest) {
 
         if (cutoff) {
           for (const c of contacts) {
-            const lastActive = c.lastReceivedMessageDate ? new Date(c.lastReceivedMessageDate) : null
-            // Skip contacts with no known message date in recent mode (no chat activity)
-            if (!lastActive) continue
-            if (lastActive < cutoff) { reachedCutoff = true; break }
+            // Use lastReceivedMessageDate first; fall back to lastUpdated as a proxy
+            // for activity (Wati sets lastUpdated when messages are sent/received)
+            const rawDate = c.lastReceivedMessageDate ?? c.lastUpdated ?? null
+            const lastActive = rawDate ? new Date(rawDate) : null
+            if (!lastActive || lastActive < cutoff) continue
             allContacts.push(c)
           }
         } else {

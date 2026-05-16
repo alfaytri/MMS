@@ -9,11 +9,15 @@ export function useLiveConversations() {
   const [loading, setLoading] = useState(true)
   const supabase = createClient()
   const cancelledRef = useRef(false)
+  // IDs that we've marked read locally — prevents the realtime re-fetch from
+  // flashing the old unread count back while the DB update is in-flight.
+  const locallyReadIds = useRef(new Set<string>())
 
   const load = useCallback(async () => {
-    // Only show today + yesterday
+    // Show last 3 days so the list stays populated even when the webhook is
+    // briefly down or the sync runs slightly behind.
     const yesterdayStart = new Date()
-    yesterdayStart.setDate(yesterdayStart.getDate() - 1)
+    yesterdayStart.setDate(yesterdayStart.getDate() - 3)
     yesterdayStart.setHours(0, 0, 0, 0)
 
     const { data, error } = await (supabase as any)
@@ -41,6 +45,9 @@ export function useLiveConversations() {
       (data as any[]).map((row) => ({
         ...row,
         customer_name: row.service_customers?.name ?? row.wati_contact_name ?? null,
+        // Keep unread_count at 0 for conversations we've already marked read
+        // locally, even if the DB re-fetch still returns the old value.
+        unread_count: locallyReadIds.current.has(row.id) ? 0 : row.unread_count,
       }))
     )
     setLoading(false)
@@ -66,6 +73,7 @@ export function useLiveConversations() {
   }, [load])
 
   function markRead(conversationId: string) {
+    locallyReadIds.current.add(conversationId)
     setConversations((prev) =>
       prev.map((c) => (c.id === conversationId ? { ...c, unread_count: 0 } : c))
     )
@@ -73,6 +81,10 @@ export function useLiveConversations() {
       .from('chat_conversations')
       .update({ unread_count: 0 })
       .eq('id', conversationId)
+      .then(() => {
+        // DB confirmed — safe to stop overriding (new messages will increment correctly)
+        locallyReadIds.current.delete(conversationId)
+      })
   }
 
   function markOpened(conversationId: string) {
