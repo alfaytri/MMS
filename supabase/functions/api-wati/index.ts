@@ -79,8 +79,13 @@ serve(async (req) => {
       // our storage and POSTs it directly to WATI. This is synchronous — WATI returns the
       // wamid in the response, avoiding the "accepted-but-never-delivered" problem that
       // sendSessionFileViaUrl has when WATI fetches asynchronously and silently fails.
+      //
+      // IMPORTANT: Audio files (voice notes) must use sendSessionAudio, not sendSessionFile.
+      // WATI rejects audio uploaded to sendSessionFile — route by mime_type prefix.
       const { url: fileUrl, caption, filename, mime_type } = body as any
       if (!fileUrl) return json({ error: 'url required' }, 400)
+
+      const isAudio = (mime_type ?? '').startsWith('audio/')
 
       // 1. Download from Supabase storage
       const fileRes = await fetch(fileUrl)
@@ -90,10 +95,15 @@ serve(async (req) => {
       // 2. Upload to WATI as multipart/form-data
       const form = new FormData()
       form.append('file', new File([fileBlob], filename ?? 'file', { type: mime_type ?? 'application/octet-stream' }))
-      if (caption) form.append('caption', caption)
+      if (!isAudio && caption) form.append('caption', caption)
+
+      // Audio → sendSessionAudio; everything else → sendSessionFile
+      const watiPath = isAudio
+        ? `/api/v1/sendSessionAudio/${encodeURIComponent(phone)}`
+        : `/api/v1/sendSessionFile/${encodeURIComponent(phone)}`
 
       const watiRes = await fetch(
-        `${WATI_ENDPOINT}/api/v1/sendSessionFile/${encodeURIComponent(phone)}`,
+        `${WATI_ENDPOINT}${watiPath}`,
         {
           method: 'POST',
           headers: { Authorization: `Bearer ${WATI_TOKEN}` },
