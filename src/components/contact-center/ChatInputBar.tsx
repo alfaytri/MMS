@@ -380,12 +380,11 @@ export function ChatInputBar({ conversationId, phone, customerName, windowStatus
   const durationTimer  = useRef<ReturnType<typeof setInterval> | null>(null)
 
   useEffect(() => () => {
-    // Cleanup on unmount
     streamRef.current?.getTracks().forEach((t) => t.stop())
     if (durationTimer.current) clearInterval(durationTimer.current)
   }, [])
 
-  async function startRecording() {
+async function startRecording() {
     try {
       const stream = await navigator.mediaDevices.getUserMedia({ audio: true })
       streamRef.current = stream

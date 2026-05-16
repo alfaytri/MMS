@@ -179,6 +179,23 @@ serve(async (req) => {
       return json({ synced: totalSynced })
     }
 
+    case 'set_status': {
+      const { status } = body as any
+      const VALID = new Set(['open', 'resolved', 'pending'])
+      if (!phone || !VALID.has(status)) return json({ error: 'phone and status (open|pending|resolved) required' }, 400)
+
+      // Fetch the most recent message to get the WATI ticketId for this phone
+      const msgData = await wati(`/api/v1/getMessages/${encodeURIComponent(phone)}?pageSize=1`) as any
+      const ticketId: string | undefined = msgData?.messages?.items?.[0]?.ticketId
+      if (!ticketId) return json({ error: 'no active ticket found for this phone' }, 404)
+
+      const data = await wati(`/api/v3/conversations/${ticketId}/target-status`, {
+        method: 'PUT',
+        body: JSON.stringify({ status }),
+      })
+      return json(data)
+    }
+
     default:
       return json({ error: 'Unknown action' }, 400)
   }

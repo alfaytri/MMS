@@ -110,8 +110,15 @@ export function AttachmentRenderer({ url, type, name, isAgent }: Props) {
 
   if (isAudio) {
     return (
-      <div className="mt-1">
-        <audio src={url} controls className="h-8 max-w-[220px]" preload="metadata" />
+      <div className={`mt-1 rounded-lg overflow-hidden ${
+        isAgent ? '-mx-2 -mb-1 -mt-0.5' : '-mx-2 -mb-1 -mt-0.5'
+      }`}>
+        <audio
+          src={url}
+          controls
+          className="h-10 w-[240px] max-w-full block"
+          preload="metadata"
+        />
       </div>
     )
   }

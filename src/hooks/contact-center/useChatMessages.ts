@@ -11,6 +11,7 @@ export interface SendFileParams {
   phone: string
   file: File
   caption?: string
+  agentProfileId?: string | null
 }
 
 interface SendSessionMessageParams {
@@ -18,6 +19,7 @@ interface SendSessionMessageParams {
   phone: string
   text: string
   onOptimisticInsert?: (tempId: string) => void
+  agentProfileId?: string | null
 }
 
 interface SendTemplateParams {
@@ -26,6 +28,7 @@ interface SendTemplateParams {
   template: WatiTemplate
   variables: string[]
   headerUrl?: string
+  agentProfileId?: string | null
 }
 
 export function useChatMessages(
@@ -43,6 +46,7 @@ export function useChatMessages(
     phone,
     text,
     onOptimisticInsert,
+    agentProfileId,
   }: SendSessionMessageParams) => {
     if (!text.trim() || sending) return
     setSending(true)
@@ -58,9 +62,12 @@ export function useChatMessages(
       throw new Error('Session expired — please reload the page and log in again.')
     }
 
-    const { data: profile } = await (supabase as any)
-      .from('profiles').select('id').eq('auth_user_id', user.id).maybeSingle()
-    const profileId: string | null = profile?.id ?? null
+    let profileId: string | null = agentProfileId ?? null
+    if (profileId === null) {
+      const { data: profile } = await (supabase as any)
+        .from('profiles').select('id').eq('auth_user_id', user.id).maybeSingle()
+      profileId = profile?.id ?? null
+    }
 
     const { data: inserted, error: insertErr } = await (supabase as any)
       .from('chat_messages')
@@ -127,6 +134,7 @@ export function useChatMessages(
     template,
     variables,
     headerUrl,
+    agentProfileId,
   }: SendTemplateParams) => {
     if (sending) return
     setSending(true)
@@ -142,9 +150,12 @@ export function useChatMessages(
       throw new Error('Session expired — please reload the page and log in again.')
     }
 
-    const { data: profile } = await (supabase as any)
-      .from('profiles').select('id').eq('auth_user_id', user.id).maybeSingle()
-    const profileId: string | null = profile?.id ?? null
+    let profileId: string | null = agentProfileId ?? null
+    if (profileId === null) {
+      const { data: profile } = await (supabase as any)
+        .from('profiles').select('id').eq('auth_user_id', user.id).maybeSingle()
+      profileId = profile?.id ?? null
+    }
 
     const bodyText = template.paramNames.reduce(
       (t, name, i) => t.replace(`{{${name}}}`, variables[i] ?? ''),
@@ -294,7 +305,7 @@ export function useChatMessages(
     }
   }, [supabase, patchMessage])
 
-  const sendFile = useCallback(async ({ conversationId, phone, file, caption }: SendFileParams) => {
+  const sendFile = useCallback(async ({ conversationId, phone, file, caption, agentProfileId }: SendFileParams) => {
     if (sending) return
     setSending(true)
 
@@ -308,16 +319,23 @@ export function useChatMessages(
     // 1. Upload to Supabase Storage
     const ext      = file.name.split('.').pop() ?? 'bin'
     const path     = `${conversationId}/${Date.now()}.${ext}`
+    // Strip ;codecs=... suffix — Supabase Storage checks against allowed_mime_types
+    // with exact match; "audio/ogg;codecs=opus" would fail against "audio/ogg".
+    const contentType = file.type.split(';')[0]
     const { data: uploaded, error: upErr } = await supabase.storage
       .from('chat-attachments')
-      .upload(path, file, { contentType: file.type, upsert: false })
+      .upload(path, file, { contentType, upsert: false })
     if (upErr || !uploaded) { setSending(false); throw new Error(upErr?.message ?? 'Upload failed') }
 
     const { data: { publicUrl } } = supabase.storage.from('chat-attachments').getPublicUrl(path)
 
     // 2. Insert a placeholder message row
-    const { data: profile } = await (supabase as any)
-      .from('profiles').select('id').eq('auth_user_id', user.id).maybeSingle()
+    let fileProfileId: string | null = agentProfileId ?? null
+    if (fileProfileId === null) {
+      const { data: profile } = await (supabase as any)
+        .from('profiles').select('id').eq('auth_user_id', user.id).maybeSingle()
+      fileProfileId = profile?.id ?? null
+    }
     const { data: inserted } = await (supabase as any)
       .from('chat_messages')
       .insert({
@@ -328,7 +346,7 @@ export function useChatMessages(
         attachments:        [{ url: publicUrl, type: file.type, name: file.name }],
         delivery_status:    'sending',
         external_id:        null,
-        sent_by_profile_id: profile?.id ?? null,
+        sent_by_profile_id: fileProfileId,
       })
       .select().single()
 

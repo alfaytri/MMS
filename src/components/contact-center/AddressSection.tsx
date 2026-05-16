@@ -312,6 +312,7 @@ function AddressForm({ initial, validateBluePlate, onSave, onCancel, saving }: A
 
 export function AddressSection({ addressState }: { addressState: AddressStateReturn }) {
   const {
+    customerId,
     addresses, addingAddress, setAddingAddress,
     editingId, setEditingId,
     setGeocodingWarning, validateBluePlate, addAddress, updateAddress,
@@ -323,6 +324,10 @@ export function AddressSection({ addressState }: { addressState: AddressStateRet
   }
 
   async function handleAdd(form: AddressFormData, resolved: ValidationResult | null) {
+    if (!customerId) {
+      toast.error('No customer selected — resolve a customer before adding an address')
+      return
+    }
     try {
       await addAddress.mutateAsync({ ...form, resolvedCoords: resolved } as any)
       toast.success('Address saved')
@@ -433,14 +438,20 @@ export function AddressSection({ addressState }: { addressState: AddressStateRet
 
       {/* Add button */}
       {!addingAddress && !editingId && (
-        <Button
-          size="sm"
-          variant="outline"
-          className="w-full h-7 text-xs"
-          onClick={() => { setGeocodingWarning(false); setAddingAddress(true) }}
-        >
-          <Plus className="h-3 w-3 mr-1" /> Add address
-        </Button>
+        customerId ? (
+          <Button
+            size="sm"
+            variant="outline"
+            className="w-full h-7 text-xs"
+            onClick={() => { setGeocodingWarning(false); setAddingAddress(true) }}
+          >
+            <Plus className="h-3 w-3 mr-1" /> Add address
+          </Button>
+        ) : (
+          <p className="text-center text-[11px] text-muted-foreground py-1">
+            Resolve a customer first to add addresses
+          </p>
+        )
       )}
 
       {/* New address form */}

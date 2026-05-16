@@ -188,6 +188,7 @@ export function useAddressState(customerId: string | null) {
   })
 
   return {
+    customerId,
     addresses,
     isLoading,
     addingAddress,

@@ -124,8 +124,11 @@ function ConversationRow({ c, onClick }: { c: ChatConversation; onClick: () => v
             {c.last_message ?? 'No messages yet'}
           </span>
           <div className="flex items-center gap-1 flex-shrink-0">
-            {isResolved && (
-              <span className="text-xs text-muted-foreground border border-border rounded px-1">Resolved</span>
+            {c.wati_status === 'resolved' && (
+              <span className="text-[10px] text-emerald-600 border border-emerald-300 bg-emerald-50 rounded px-1 leading-tight py-px">Solved</span>
+            )}
+            {c.wati_status === 'pending' && (
+              <span className="text-[10px] text-amber-600 border border-amber-300 bg-amber-50 rounded px-1 leading-tight py-px">Pending</span>
             )}
             {!isResolved && c.is_opened && c.unread_count === 0 && (
               <CheckCircle2 className="h-3 w-3 text-muted-foreground/50" />
