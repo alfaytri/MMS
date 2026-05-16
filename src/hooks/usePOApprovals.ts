@@ -3,6 +3,7 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { createClient } from '@/lib/supabase/client'
 import type { PurchaseOrder } from './usePurchaseOrders'
 import { logPOActivity, ROLE_LABELS } from '@/lib/poActivityLogger'
+import { savePoSnapshot } from '@/lib/poVersionHelper'
 
 async function getMyIdentity() {
   const supabase = createClient()
@@ -45,7 +46,10 @@ export function usePendingApprovals() {
 
       const pos = (data ?? []) as PurchaseOrder[]
 
-      // Filter to POs where current user has an active pending step in their role
+      // Owners see all pending POs so they can approve any chain
+      if (roles.includes('owner')) return pos
+
+      // Others see only POs where they have an active pending step in their role
       return pos.filter((po) => {
         const steps = po.po_approvals ?? []
         const maxIteration = Math.max(...steps.map((s: any) => s.iteration ?? 1), 1)
@@ -149,6 +153,7 @@ export function useApproveStep() {
       const { data: poStatus } = await (supabase as any)
         .from('purchase_orders').select('status, created_by, po_number').eq('id', poId).single()
       if (poStatus?.status === 'approved' && poStatus.created_by) {
+        await savePoSnapshot(supabase, poId, 'approved')
         const { data: creatorProfile } = await (supabase as any)
           .from('profiles').select('id').eq('auth_user_id', poStatus.created_by).maybeSingle()
         if (creatorProfile) {
@@ -224,6 +229,7 @@ export function useForceApproveStep() {
       const { data: forcedPoStatus } = await (supabase as any)
         .from('purchase_orders').select('status').eq('id', poId).single()
       if (forcedPoStatus?.status === 'approved') {
+        await savePoSnapshot(supabase, poId, 'approved')
         await logPOActivity({ poId, action: 'PO Fully Approved (Force)', performerName: forcePerformer, severity: 'critical' })
       }
 

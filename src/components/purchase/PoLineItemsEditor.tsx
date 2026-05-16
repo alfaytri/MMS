@@ -117,7 +117,7 @@ export function PoLineItemsEditor({ value, onChange, currency, readOnly = false,
     }
     const existingRow = value.find((r) => r._key === key)
     updateRow(key, {
-      item_name:          item.item_name,
+      // item_name intentionally not set — vendor name stays empty for the user to fill in
       sku:                existingRow?.sku?.trim() ? existingRow.sku : (item.sku ?? ''),
       unit:               item.unit,
       unit_price:         item.cost_price,
@@ -209,7 +209,7 @@ export function PoLineItemsEditor({ value, onChange, currency, readOnly = false,
             </div>
 
             {/* Column headers */}
-            <div className="grid grid-cols-[minmax(0,2fr)_80px_65px_60px_85px_70px] gap-2 px-3 py-1.5 bg-muted/30 text-[10px] font-medium text-muted-foreground uppercase tracking-wider">
+            <div className="grid grid-cols-[minmax(0,1.2fr)_minmax(0,0.8fr)_65px_60px_85px_70px] gap-2 px-3 py-1.5 bg-muted/30 text-[10px] font-medium text-muted-foreground uppercase tracking-wider">
               <span>Vendor Item Name</span>
               <span>SKU</span>
               <span>Qty *</span>
@@ -281,7 +281,7 @@ export function PoLineItemsEditor({ value, onChange, currency, readOnly = false,
                     </div>
 
                     {/* Row B: editable fields */}
-                    <div className="grid grid-cols-[minmax(0,2fr)_80px_65px_60px_85px_70px] gap-2 items-center">
+                    <div className="grid grid-cols-[minmax(0,1.2fr)_minmax(0,0.8fr)_65px_60px_85px_70px] gap-2 items-center">
                       <Input
                         className="h-7 text-xs"
                         placeholder="Vendor's name for this item"
@@ -290,7 +290,7 @@ export function PoLineItemsEditor({ value, onChange, currency, readOnly = false,
                       />
                       <Input
                         className="h-7 text-xs"
-                        placeholder="Vendor SKU"
+                        placeholder="SKU"
                         value={row.sku ?? ''}
                         onChange={(e) => updateRow(row._key, { sku: e.target.value })}
                         readOnly={readOnly}
