@@ -309,7 +309,7 @@ export function ChatListView({ conversations, loading, onSelectConversation, onS
 
         {/* Normal results grouped by Today / Yesterday / Earlier */}
         {!loading && filtered.length > 0 && (() => {
-          const todayStart = new Date(); todayStart.setHours(0, 0, 0, 0)
+          const todayStart     = new Date(); todayStart.setHours(0, 0, 0, 0)
           const yesterdayStart = new Date(todayStart); yesterdayStart.setDate(yesterdayStart.getDate() - 1)
           const earlierStart   = new Date(todayStart); earlierStart.setDate(earlierStart.getDate() - 3)
 
@@ -323,13 +323,24 @@ export function ChatListView({ conversations, loading, onSelectConversation, onS
             return d >= earlierStart && d < yesterdayStart
           })
 
+          const DayHeading = ({ label, count }: { label: string; count: number }) => (
+            <div className="sticky top-0 z-10 flex items-center gap-2 px-3 py-2 bg-background border-b border-border">
+              <div className="flex-1 h-px bg-border" />
+              <span className="flex items-center gap-1.5 bg-muted rounded-full px-3 py-0.5 text-xs font-semibold text-foreground/70 whitespace-nowrap select-none">
+                {label}
+                <span className="bg-primary/15 text-primary rounded-full px-1.5 py-px text-[10px] font-bold leading-none">
+                  {count}
+                </span>
+              </span>
+              <div className="flex-1 h-px bg-border" />
+            </div>
+          )
+
           return (
             <>
               {todayRows.length > 0 && (
                 <>
-                  <div className="px-3 py-1 text-xs font-medium text-muted-foreground bg-muted/30 border-b border-border sticky top-0 z-10">
-                    Today · {todayRows.length}
-                  </div>
+                  <DayHeading label="Today" count={todayRows.length} />
                   {todayRows.map(c => (
                     <ConversationRow key={c.id} c={c} onClick={() => onSelectConversation(c)} />
                   ))}
@@ -337,9 +348,7 @@ export function ChatListView({ conversations, loading, onSelectConversation, onS
               )}
               {yesterdayRows.length > 0 && (
                 <>
-                  <div className="px-3 py-1 text-xs font-medium text-muted-foreground bg-muted/30 border-b border-border sticky top-0 z-10">
-                    Yesterday · {yesterdayRows.length}
-                  </div>
+                  <DayHeading label="Yesterday" count={yesterdayRows.length} />
                   {yesterdayRows.map(c => (
                     <ConversationRow key={c.id} c={c} onClick={() => onSelectConversation(c)} />
                   ))}
@@ -347,9 +356,7 @@ export function ChatListView({ conversations, loading, onSelectConversation, onS
               )}
               {earlierRows.length > 0 && (
                 <>
-                  <div className="px-3 py-1 text-xs font-medium text-muted-foreground bg-muted/30 border-b border-border sticky top-0 z-10">
-                    Earlier · {earlierRows.length}
-                  </div>
+                  <DayHeading label="Earlier" count={earlierRows.length} />
                   {earlierRows.map(c => (
                     <ConversationRow key={c.id} c={c} onClick={() => onSelectConversation(c)} />
                   ))}
