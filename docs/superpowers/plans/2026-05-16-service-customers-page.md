@@ -243,6 +243,7 @@ export function useCreateServiceCustomer() {
         const addressRows = payload.addresses.map((a, i) => {
           const lat = a.lat !== '' ? parseFloat(a.lat) : null
           const lng = a.lng !== '' ? parseFloat(a.lng) : null
+          const isValidGeocode = lat != null && !isNaN(lat) && lng != null && !isNaN(lng)
           return {
             customer_id: customerId,
             phone_id: a.phoneIndex != null ? (phoneIds[a.phoneIndex] ?? null) : null,
@@ -252,14 +253,13 @@ export function useCreateServiceCustomer() {
             building: a.building || null,
             street: a.street || null,
             zone: a.zone || null,
-            lat,
-            lng,
+            lat: isValidGeocode ? lat : null,
+            lng: isValidGeocode ? lng : null,
             is_primary: i === payload.primaryAddressIdx,
-            is_geocoded: lat != null && lng != null,
-            waze_link:
-              lat != null && lng != null
-                ? `https://waze.com/ul?ll=${lat},${lng}&navigate=yes`
-                : null,
+            is_geocoded: isValidGeocode,
+            waze_link: isValidGeocode
+              ? `https://waze.com/ul?ll=${lat},${lng}&navigate=yes`
+              : null,
           }
         })
         const { error: addrErr } = await (supabase as any)
@@ -314,8 +314,8 @@ export function useUpdateServiceCustomer() {
         await (supabase as any).from('service_customers').update({ is_blocked: false }).eq('id', id)
       }
 
-      // 3. Upsert phones
-      //    - First set all existing phones to is_primary = false (avoid unique index conflict)
+      // 3. Upsert phones — update existing, insert new, delete removed
+      //    First clear all is_primary flags to avoid the unique-index conflict during updates.
       await (supabase as any).from('service_customer_phones').update({ is_primary: false }).eq('customer_id', id)
 
       const resultPhoneIds: string[] = []
@@ -341,19 +341,42 @@ export function useUpdateServiceCustomer() {
         }
       }
 
+      // Delete phones removed from the form (try/catch: FK violation = order references it, skip silently)
+      const keepPhoneIds = payload.phones.map((p) => p.id).filter(Boolean) as string[]
+      if (keepPhoneIds.length > 0) {
+        await (supabase as any)
+          .from('service_customer_phones')
+          .delete()
+          .eq('customer_id', id)
+          .not('id', 'in', `(${keepPhoneIds.join(',')})`)
+      }
+
       // Set the single primary
       const primaryId = resultPhoneIds[payload.primaryPhoneIdx]
       if (primaryId) {
         await (supabase as any).from('service_customer_phones').update({ is_primary: true }).eq('id', primaryId)
       }
 
-      // 4. Delete all existing addresses, reinsert (safe — orders store address snapshots, not live FKs)
-      await (supabase as any).from('service_customer_addresses').delete().eq('customer_id', id)
+      // 4. Diff addresses — delete removed, upsert kept (preserves created_at, avoids ID churn)
+      const keepAddressIds = payload.addresses.map((a) => a.id).filter(Boolean) as string[]
+      if (keepAddressIds.length > 0) {
+        await (supabase as any)
+          .from('service_customer_addresses')
+          .delete()
+          .eq('customer_id', id)
+          .not('id', 'in', `(${keepAddressIds.join(',')})`)
+      } else {
+        // All addresses were removed
+        await (supabase as any).from('service_customer_addresses').delete().eq('customer_id', id)
+      }
+
       if (payload.addresses.length > 0) {
         const addressRows = payload.addresses.map((a, i) => {
           const lat = a.lat !== '' ? parseFloat(a.lat) : null
           const lng = a.lng !== '' ? parseFloat(a.lng) : null
+          const isValidGeocode = lat != null && !isNaN(lat) && lng != null && !isNaN(lng)
           return {
+            ...(a.id ? { id: a.id } : {}),
             customer_id: id,
             phone_id: a.phoneIndex != null ? (resultPhoneIds[a.phoneIndex] ?? null) : null,
             address_type: a.address_type,
@@ -362,19 +385,19 @@ export function useUpdateServiceCustomer() {
             building: a.building || null,
             street: a.street || null,
             zone: a.zone || null,
-            lat,
-            lng,
+            lat: isValidGeocode ? lat : null,
+            lng: isValidGeocode ? lng : null,
             is_primary: i === payload.primaryAddressIdx,
-            is_geocoded: lat != null && lng != null,
-            waze_link:
-              lat != null && lng != null
-                ? `https://waze.com/ul?ll=${lat},${lng}&navigate=yes`
-                : null,
+            is_geocoded: isValidGeocode,
+            waze_link: isValidGeocode
+              ? `https://waze.com/ul?ll=${lat},${lng}&navigate=yes`
+              : null,
           }
         })
+        // upsert: existing rows (with id) are updated; new rows (no id) are inserted
         const { error: addrErr } = await (supabase as any)
           .from('service_customer_addresses')
-          .insert(addressRows)
+          .upsert(addressRows, { onConflict: 'id' })
         if (addrErr) throw new Error(addrErr.message)
       }
     },
@@ -783,7 +806,18 @@ Append (inside the form, after the separator):
                       disabled={phoneFields.length === 1}
                       onClick={() => {
                         removePhone(idx)
+                        // Fix address phoneIndex references: clear links to the removed phone,
+                        // decrement links to phones that shifted down.
+                        const currentAddresses = form.getValues('addresses') ?? []
+                        currentAddresses.forEach((addr, aIdx) => {
+                          if (addr.phoneIndex === idx) {
+                            form.setValue(`addresses.${aIdx}.phoneIndex`, null)
+                          } else if (addr.phoneIndex != null && addr.phoneIndex > idx) {
+                            form.setValue(`addresses.${aIdx}.phoneIndex`, addr.phoneIndex - 1)
+                          }
+                        })
                         if (primaryPhoneIdx >= phoneFields.length - 1) setPrimaryPhoneIdx(0)
+                        else if (primaryPhoneIdx > idx) setPrimaryPhoneIdx(primaryPhoneIdx - 1)
                       }}
                     >
                       <Trash2 className="h-3.5 w-3.5" />
