@@ -5,7 +5,10 @@ import { NextResponse, type NextRequest } from 'next/server'
 const ALLOWED_PATHS = new Set<string>([
   '/login',
 ])
-const ALLOWED_PREFIXES = ['/api/auth/', '/_next/', '/favicon']
+// Inbound webhooks from external services (Wati, 17track) carry no session
+// cookie — they must bypass the auth gate. Each route validates its own
+// shared secret / signature instead.
+const WEBHOOK_PREFIXES = ['/api/wati/webhook', '/api/webhooks/']
 
 export async function middleware(request: NextRequest) {
   let supabaseResponse = NextResponse.next({ request })
@@ -47,9 +50,10 @@ export async function middleware(request: NextRequest) {
   const pathname = request.nextUrl.pathname
 
   // ─── Unauthenticated gate ────────────────────────────────────────────
-  // Anyone without a session is sent to /login, except for /login itself
-  // (and non-page assets, which are already excluded by the matcher).
-  if (!user && pathname !== '/login') {
+  // Anyone without a session is sent to /login, except for /login itself,
+  // webhook routes (validated by their own signature checks), and static assets.
+  const isWebhook = WEBHOOK_PREFIXES.some(p => pathname.startsWith(p))
+  if (!user && pathname !== '/login' && !isWebhook) {
     const url = request.nextUrl.clone()
     url.pathname = '/login'
     // Preserve the original destination so we can redirect back after login

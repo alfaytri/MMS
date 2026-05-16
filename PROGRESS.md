@@ -155,6 +155,37 @@ Purchase & Sales▾:
 
 ---
 
+## 🔒 Security Audit Log
+
+> Run after every module completion per the rule in `AGENTS.md`.
+
+| Date | Module / Scope | Secrets | RLS | Auth Gate | Error Handling | Notes |
+|---|---|---|---|---|---|---|
+| 2026-05-16 | **Full codebase audit** (all modules to date) | ✅ | ✅ | ⚠️ | ⚠️ | See details below |
+
+### 2026-05-16 Full Codebase Audit — Detail
+
+**1. Secrets** ✅ CLEAN
+- All API tokens (`WATI_API_TOKEN`, `DIBSY_SECRET_KEY`, `SUPABASE_SERVICE_ROLE_KEY`) loaded from `process.env` only. No hardcoded credentials found in source.
+- `.gitignore` covers `.env*` and `*.pem`. `.env.local` is present on disk but gitignored (verify it has never been committed: `git log --all -- .env.local`).
+
+**2. RLS** ✅ CLEAN
+- Migration `20260420000002_fix_rls_all_tables.sql` enables RLS + a permissive `authenticated` policy on all 48+ tables.
+- All new tables added since (employee_services, chat_messages, chat_conversations, team_activity_log, tool_assignments, etc.) each have RLS enabled in their own migration.
+- **Design note:** Policies use `USING (true)` — all authenticated users can read/write all rows. Intentional for this internal ERP. Multi-tenant row isolation is a Phase 3 concern.
+
+**3. Auth Gate** ⚠️ FIXED THIS SESSION
+- Middleware correctly blocks unauthenticated access to all routes.
+- **Bug found & fixed:** `ALLOWED_PREFIXES` in `middleware.ts` was defined but never used — a dead-code oversight meaning external webhook calls (Wati, 17track) were being redirected to `/login` instead of reaching their handlers. Fixed by replacing it with `WEBHOOK_PREFIXES` and applying the check (`src/middleware.ts`).
+- Webhook routes validate their own payloads internally (Wati by sender phone match, 17track by shared secret).
+
+**4. Error Handling** ⚠️ FIXED THIS SESSION
+- Most routes have full try/catch and return proper status codes.
+- **Bug found & fixed:** `POST /api/wati/send-message` was returning `{ ok: true }` even when the Wati API call silently failed. Fixed — response now includes `watiSent: boolean` and `watiError: string | null` so callers know if delivery actually happened (`src/app/api/wati/send-message/route.ts`).
+- `POST /api/shipments/deregister-tracking` swallows the tracking error and returns 200 intentionally — deregistering is non-fatal (fire-and-forget after a shipment closes). Accepted.
+
+---
+
 ## 🔄 In Progress
 
 🚀 Next: **Contact Centre — deploy to Vercel for webhook-driven reactions**

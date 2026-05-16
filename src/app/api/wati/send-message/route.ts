@@ -55,17 +55,17 @@ export async function POST(req: NextRequest) {
 
   // ── 1. Send via Wati ────────────────────────────────────────────────────────
   let watiMessageId: string | null = null
+  let watiSent = skipWatiSend // if skipped, treat as "already sent"
+  let watiError: string | null = null
 
   if (!skipWatiSend && WATI_URL && WATI_TOKEN) {
     if (templateName) {
-      // Template message — uses Wati's sendTemplateMessage endpoint
       const params = parameters ?? []
       const watiBody: any = {
         template_name:  templateName,
         broadcast_name: templateName,
         parameters:     params,
       }
-
       const res = await fetch(
         `${WATI_URL}/api/v1/sendTemplateMessage/${watiPhone}`,
         {
@@ -77,11 +77,13 @@ export async function POST(req: NextRequest) {
       if (res.ok) {
         const data = await res.json().catch(() => null)
         watiMessageId = data?.id ?? data?.messageId ?? null
+        watiSent = true
       } else {
-        console.warn('[send-message] Wati template send failed:', res.status, await res.text())
+        const errText = await res.text().catch(() => '')
+        watiError = `Wati ${res.status}: ${errText}`
+        console.warn('[send-message] Wati template send failed:', res.status, errText)
       }
     } else {
-      // Plain session message
       const res = await fetch(
         `${WATI_URL}/api/v1/sendSessionMessage/${watiPhone}`,
         {
@@ -93,8 +95,11 @@ export async function POST(req: NextRequest) {
       if (res.ok) {
         const data = await res.json().catch(() => null)
         watiMessageId = data?.id ?? data?.messageId ?? null
+        watiSent = true
       } else {
-        console.warn('[send-message] Wati session send failed:', res.status, await res.text())
+        const errText = await res.text().catch(() => '')
+        watiError = `Wati ${res.status}: ${errText}`
+        console.warn('[send-message] Wati session send failed:', res.status, errText)
       }
     }
   }
@@ -173,5 +178,5 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: insertError.message }, { status: 500 })
   }
 
-  return NextResponse.json({ ok: true, conversationId, watiMessageId })
+  return NextResponse.json({ ok: true, conversationId, watiMessageId, watiSent, watiError })
 }

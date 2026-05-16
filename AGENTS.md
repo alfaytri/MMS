@@ -178,3 +178,41 @@ After completing any task (code, feature, fix, or refactor), your work will be r
 - Do not cut corners, skip edge cases, or leave TODOs in delivered code
 - Every change must be self-contained, correct, and match the requirements exactly
 - If Codex finds a mistake, it reflects on the quality of your work — aim for zero findings
+
+---
+
+# Module Completion Security Checklist — Mandatory Rule
+
+After completing **any module** (before the final commit and PROGRESS.md update), run this four-point security check and record the result in PROGRESS.md under `## 🔒 Security Audit Log`.
+
+## The Four Checks
+
+### 1. Secrets — No credentials in the repo
+- [ ] No API keys, tokens, or passwords hardcoded in source files
+- [ ] All secrets accessed via `process.env.*` only
+- [ ] `.env*`, `*.pem`, `*.key` are in `.gitignore`
+- [ ] Verify with: `grep -r "sk_\|Bearer \|apiKey.*=.*['\"]" src/ --include="*.ts" --include="*.tsx"`
+
+### 2. RLS — Every new Supabase table is locked down
+- [ ] Every `CREATE TABLE` in new migrations has a matching `ALTER TABLE ... ENABLE ROW LEVEL SECURITY`
+- [ ] Every RLS-enabled table has at least one `CREATE POLICY`
+- [ ] Tables with no RLS = anyone with the anon key can read/write them
+
+### 3. Auth gate on new API routes
+- [ ] New routes under `src/app/api/` that are called by the app (not external webhooks) require an authenticated session — the middleware handles this automatically, but double-check any route that uses `createClient(URL, SERVICE_ROLE_KEY)` directly
+- [ ] External webhook routes (called by Wati, 17track, etc.) are added to `WEBHOOK_PREFIXES` in `middleware.ts` AND validate their own shared secret / HMAC signature inside the route handler
+
+### 4. Error handling — No silent failures on external calls
+- [ ] Every call to an external API (Wati, Dibsy, 17track, etc.) is wrapped in try/catch
+- [ ] On failure, the route returns a non-200 status **or** includes `{ ok: false, error: "..." }` so the caller knows
+- [ ] No route returns `{ ok: true }` when a critical external call silently failed
+
+## How to record results in PROGRESS.md
+
+Add a row to the `## 🔒 Security Audit Log` table after the module is done:
+
+```
+| [YYYY-MM-DD] | Module Name | ✅ Secrets | ✅ RLS | ✅ Auth gate | ✅ Error handling | Notes |
+```
+
+Use ✅ when clean, ⚠️ when there is an accepted known gap (explain in Notes), ❌ if something needs fixing before merge.
