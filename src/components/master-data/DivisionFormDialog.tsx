@@ -5,7 +5,7 @@ import { useForm, useWatch } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { z } from 'zod'
 import { toast } from 'sonner'
-import { ImageIcon, Loader2 } from 'lucide-react'
+import { ImageIcon, Loader2, X } from 'lucide-react'
 import {
   Dialog,
   DialogContent,
@@ -38,12 +38,9 @@ import { useCompanies } from '@/hooks/useCompanies'
 // ─── Colour palette ────────────────────────────────────────────────────────────
 
 const COLOR_PALETTE = [
-  ['#2563eb', '#0ea5e9', '#06b6d4'],
-  ['#10b981', '#22c55e', '#84cc16'],
-  ['#eab308', '#f59e0b', '#f97316'],
-  ['#ef4444', '#f43f5e', '#ec4899'],
-  ['#a855f7', '#8b5cf6', '#6366f1'],
-  ['#64748b', '#475569', '#334155', '#1e293b', '#0f172a'],
+  ['#2563eb', '#0ea5e9', '#06b6d4', '#10b981', '#22c55e', '#84cc16'],
+  ['#eab308', '#f59e0b', '#f97316', '#ef4444', '#f43f5e', '#ec4899'],
+  ['#a855f7', '#8b5cf6', '#6366f1', '#64748b', '#334155', '#0f172a'],
 ]
 
 // ─── Schema ────────────────────────────────────────────────────────────────────
@@ -245,12 +242,11 @@ export function DivisionFormDialog({
                     <Select value={field.value} onValueChange={field.onChange}>
                       <FormControl>
                         <SelectTrigger className="w-full">
-                          <SelectValue placeholder="Select company">
-                          {(v: unknown) => {
-                            const c = companies.find((co) => co.id === String(v ?? ''))
-                            return c ? c.name_en : (companies.length > 0 ? String(v) : undefined)
-                          }}
-                        </SelectValue>
+                          <SelectValue placeholder="Select company…">
+                            {field.value
+                              ? (companies.find((c) => c.id === field.value)?.name_en ?? 'Select company…')
+                              : 'Select company…'}
+                          </SelectValue>
                         </SelectTrigger>
                       </FormControl>
                       <SelectContent>
@@ -318,46 +314,52 @@ export function DivisionFormDialog({
               name="color"
               render={({ field }) => (
                 <FormItem>
-                  <FormLabel>Brand Color</FormLabel>
-                  <FormControl>
-                    <Input
-                      type="text"
-                      placeholder="#2563eb"
-                      maxLength={7}
-                      {...field}
-                      onChange={(e) => {
-                        field.onChange(e)
-                      }}
+                  <div className="flex items-center gap-2">
+                    <FormLabel className="mb-0">Brand Color</FormLabel>
+                    {currentColor && /^#[0-9a-fA-F]{6}$/.test(currentColor) && (
+                      <span
+                        className="h-5 w-5 rounded-full border border-border shadow-sm flex-shrink-0"
+                        style={{ backgroundColor: currentColor }}
+                      />
+                    )}
+                  </div>
+                  {/* Hex text + native colour wheel */}
+                  <div className="flex items-center gap-2">
+                    <FormControl>
+                      <Input
+                        type="text"
+                        placeholder="#2563eb"
+                        maxLength={7}
+                        className="font-mono w-32"
+                        {...field}
+                      />
+                    </FormControl>
+                    <input
+                      type="color"
+                      value={/^#[0-9a-fA-F]{6}$/.test(currentColor ?? '') ? currentColor : '#2563eb'}
+                      onChange={(e) => form.setValue('color', e.target.value, { shouldValidate: true })}
+                      className="h-9 w-9 cursor-pointer rounded border border-input bg-transparent p-0.5"
+                      title="Pick a custom colour"
                     />
-                  </FormControl>
+                  </div>
                   {/* Swatch grid */}
-                  <div className="flex flex-col gap-1 pt-1">
+                  <div className="flex flex-col gap-1.5 pt-1">
                     {COLOR_PALETTE.map((row, ri) => (
-                      <div key={ri} className="flex gap-1 flex-wrap">
+                      <div key={ri} className="flex gap-1.5">
                         {row.map((hex) => (
                           <button
                             key={hex}
                             type="button"
                             title={hex}
                             style={{ backgroundColor: hex }}
-                            className={`w-6 h-6 rounded cursor-pointer border-2 transition-colors ${
+                            className={`h-8 w-8 rounded-md cursor-pointer border-2 transition-all hover:scale-110 ${
                               currentColor?.toLowerCase() === hex.toLowerCase()
-                                ? 'border-foreground'
+                                ? 'border-foreground ring-2 ring-foreground/20'
                                 : 'border-transparent'
                             }`}
-                            onClick={() =>
-                              form.setValue('color', hex, { shouldValidate: true })
-                            }
+                            onClick={() => form.setValue('color', hex, { shouldValidate: true })}
                           />
                         ))}
-                        {/* Live preview swatch at end of first row */}
-                        {ri === 0 && currentColor && /^#[0-9a-fA-F]{6}$/.test(currentColor) && (
-                          <span
-                            className="w-6 h-6 rounded border border-border ml-1"
-                            style={{ backgroundColor: currentColor }}
-                            title="Current color"
-                          />
-                        )}
                       </div>
                     ))}
                   </div>
@@ -438,69 +440,83 @@ export function DivisionFormDialog({
               {/* Logo */}
               <div className="flex flex-col gap-1">
                 <span className="text-sm font-medium leading-none">Logo</span>
-                <label className="cursor-pointer">
-                  <div className="border-2 border-dashed rounded-lg p-4 flex flex-col items-center justify-center gap-1 min-h-[100px]">
-                    {isUploadingLogo ? (
-                      <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
-                    ) : logoUrl ? (
-                      // eslint-disable-next-line @next/next/no-img-element
-                      <img
-                        src={logoUrl}
-                        alt="Logo preview"
-                        className="h-16 w-auto object-contain"
-                      />
-                    ) : (
-                      <>
-                        <ImageIcon className="h-6 w-6 text-muted-foreground" />
-                        <span className="text-xs text-muted-foreground">Upload Logo</span>
-                      </>
-                    )}
-                  </div>
-                  <input
-                    type="file"
-                    accept="image/*"
-                    className="hidden"
-                    disabled={isUploadingLogo}
-                    onChange={(e) => {
-                      const file = e.target.files?.[0]
-                      if (file) handleUpload(file, 'logo_url', setIsUploadingLogo)
-                    }}
-                  />
-                </label>
+                <div className="relative">
+                  <label className="cursor-pointer block">
+                    <div className="border-2 border-dashed rounded-lg p-4 flex flex-col items-center justify-center gap-1 min-h-[100px] hover:bg-muted/30 transition-colors">
+                      {isUploadingLogo ? (
+                        <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
+                      ) : logoUrl ? (
+                        // eslint-disable-next-line @next/next/no-img-element
+                        <img src={logoUrl} alt="Logo preview" className="h-16 w-auto object-contain" />
+                      ) : (
+                        <>
+                          <ImageIcon className="h-6 w-6 text-muted-foreground" />
+                          <span className="text-xs text-muted-foreground">Upload Logo</span>
+                        </>
+                      )}
+                    </div>
+                    <input
+                      type="file"
+                      accept="image/*"
+                      className="hidden"
+                      disabled={isUploadingLogo}
+                      onChange={(e) => {
+                        const file = e.target.files?.[0]
+                        if (file) handleUpload(file, 'logo_url', setIsUploadingLogo)
+                      }}
+                    />
+                  </label>
+                  {logoUrl && !isUploadingLogo && (
+                    <button
+                      type="button"
+                      onClick={() => form.setValue('logo_url', '', { shouldValidate: true })}
+                      className="absolute top-1.5 right-1.5 h-5 w-5 rounded-full bg-background border border-border shadow flex items-center justify-center hover:bg-destructive hover:text-white hover:border-destructive transition-colors"
+                    >
+                      <X className="h-3 w-3" />
+                    </button>
+                  )}
+                </div>
               </div>
 
               {/* Stamp */}
               <div className="flex flex-col gap-1">
                 <span className="text-sm font-medium leading-none">Stamp</span>
-                <label className="cursor-pointer">
-                  <div className="border-2 border-dashed rounded-lg p-4 flex flex-col items-center justify-center gap-1 min-h-[100px]">
-                    {isUploadingStamp ? (
-                      <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
-                    ) : stampUrl ? (
-                      // eslint-disable-next-line @next/next/no-img-element
-                      <img
-                        src={stampUrl}
-                        alt="Stamp preview"
-                        className="h-16 w-auto object-contain"
-                      />
-                    ) : (
-                      <>
-                        <ImageIcon className="h-6 w-6 text-muted-foreground" />
-                        <span className="text-xs text-muted-foreground">Upload Stamp</span>
-                      </>
-                    )}
-                  </div>
-                  <input
-                    type="file"
-                    accept="image/*"
-                    className="hidden"
-                    disabled={isUploadingStamp}
-                    onChange={(e) => {
-                      const file = e.target.files?.[0]
-                      if (file) handleUpload(file, 'stamp_url', setIsUploadingStamp)
-                    }}
-                  />
-                </label>
+                <div className="relative">
+                  <label className="cursor-pointer block">
+                    <div className="border-2 border-dashed rounded-lg p-4 flex flex-col items-center justify-center gap-1 min-h-[100px] hover:bg-muted/30 transition-colors">
+                      {isUploadingStamp ? (
+                        <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
+                      ) : stampUrl ? (
+                        // eslint-disable-next-line @next/next/no-img-element
+                        <img src={stampUrl} alt="Stamp preview" className="h-16 w-auto object-contain" />
+                      ) : (
+                        <>
+                          <ImageIcon className="h-6 w-6 text-muted-foreground" />
+                          <span className="text-xs text-muted-foreground">Upload Stamp</span>
+                        </>
+                      )}
+                    </div>
+                    <input
+                      type="file"
+                      accept="image/*"
+                      className="hidden"
+                      disabled={isUploadingStamp}
+                      onChange={(e) => {
+                        const file = e.target.files?.[0]
+                        if (file) handleUpload(file, 'stamp_url', setIsUploadingStamp)
+                      }}
+                    />
+                  </label>
+                  {stampUrl && !isUploadingStamp && (
+                    <button
+                      type="button"
+                      onClick={() => form.setValue('stamp_url', '', { shouldValidate: true })}
+                      className="absolute top-1.5 right-1.5 h-5 w-5 rounded-full bg-background border border-border shadow flex items-center justify-center hover:bg-destructive hover:text-white hover:border-destructive transition-colors"
+                    >
+                      <X className="h-3 w-3" />
+                    </button>
+                  )}
+                </div>
               </div>
             </div>
 
