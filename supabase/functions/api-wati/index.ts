@@ -85,23 +85,18 @@ serve(async (req) => {
       const { url: fileUrl, caption, filename, mime_type } = body as any
       if (!fileUrl) return json({ error: 'url required' }, 400)
 
-      const isAudio = (mime_type ?? '').startsWith('audio/')
-
       // 1. Download from Supabase storage
       const fileRes = await fetch(fileUrl)
       if (!fileRes.ok) return json({ error: 'fetch_failed', httpStatus: fileRes.status }, 502)
       const fileBlob = await fileRes.blob()
 
-      // 2. Upload to WATI as multipart/form-data
+      // 2. Upload to WATI as multipart/form-data via sendSessionFile.
+      // Note: WATI does not expose a separate sendSessionAudio endpoint.
       const form = new FormData()
       form.append('file', new File([fileBlob], filename ?? 'file', { type: mime_type ?? 'application/octet-stream' }))
-      if (!isAudio && caption) form.append('caption', caption)
+      if (caption) form.append('caption', caption)
 
-      // Audio → sendSessionAudio; everything else → sendSessionFile
-      const watiPath = isAudio
-        ? `/api/v1/sendSessionAudio/${encodeURIComponent(phone)}`
-        : `/api/v1/sendSessionFile/${encodeURIComponent(phone)}`
-
+      const watiPath = `/api/v1/sendSessionFile/${encodeURIComponent(phone)}`
       const watiRes = await fetch(
         `${WATI_ENDPOINT}${watiPath}`,
         {
@@ -110,9 +105,19 @@ serve(async (req) => {
           body: form,
         },
       )
-      const watiData = await watiRes.json().catch(() => ({ ok: watiRes.ok, httpStatus: watiRes.status }))
-      // Return WATI's status so the client can detect failures via fnErr
-      return json(watiData, watiRes.ok ? 200 : watiRes.status)
+
+      // Read raw body first so we can log and parse
+      const rawText = await watiRes.text()
+      let watiData: any
+      try { watiData = JSON.parse(rawText) } catch { watiData = { raw: rawText, httpStatus: watiRes.status } }
+
+      // Always log so we can diagnose audio failures in Supabase Edge Function logs
+      console.log(`[api-wati] sendSessionFile → HTTP ${watiRes.status}`, JSON.stringify(watiData).slice(0, 400))
+
+      if (!watiRes.ok) {
+        return json({ error: 'wati_rejected', httpStatus: watiRes.status, detail: rawText.slice(0, 300) }, watiRes.status)
+      }
+      return json(watiData)
     }
 
     case 'send_template': {
