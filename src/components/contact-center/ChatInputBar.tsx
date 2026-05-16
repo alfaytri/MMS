@@ -13,6 +13,7 @@ import { toast } from 'sonner'
 import { useQuery } from '@tanstack/react-query'
 import { createClient } from '@/lib/supabase/client'
 import type { WindowStatus, WatiTemplate } from '@/types/contact-center'
+import { webmOpusToOgg } from '@/lib/webm-opus-to-ogg'
 import type { useChatMessages } from '@/hooks/contact-center/useChatMessages'
 
 type ChatMessagesReturn = ReturnType<typeof useChatMessages>
@@ -390,9 +391,13 @@ export function ChatInputBar({ conversationId, phone, customerName, windowStatus
       streamRef.current = stream
       chunksRef.current = []
 
+      // Prefer OGG (Firefox records natively), then WebM/Opus (Chrome).
+      // audio/mp4 is intentionally skipped: Chrome picks it on Windows but produces
+      // AAC-in-MP4 which the WebM→OGG converter can't handle, resulting in a
+      // mis-labeled file that WhatsApp rejects as a "Media upload error".
       const mimeType =
-        MediaRecorder.isTypeSupported('audio/webm;codecs=opus') ? 'audio/webm;codecs=opus'
-        : MediaRecorder.isTypeSupported('audio/ogg;codecs=opus') ? 'audio/ogg;codecs=opus'
+        MediaRecorder.isTypeSupported('audio/ogg;codecs=opus')    ? 'audio/ogg;codecs=opus'
+        : MediaRecorder.isTypeSupported('audio/webm;codecs=opus') ? 'audio/webm;codecs=opus'
         : 'audio/webm'
 
       const recorder = new MediaRecorder(stream, { mimeType })
@@ -400,9 +405,7 @@ export function ChatInputBar({ conversationId, phone, customerName, windowStatus
 
       recorder.ondataavailable = (e) => { if (e.data.size > 0) chunksRef.current.push(e.data) }
       recorder.onstop = async () => {
-        const blob = new Blob(chunksRef.current, { type: recorder.mimeType })
-        const ext  = recorder.mimeType.includes('ogg') ? 'ogg' : 'webm'
-        const file = new File([blob], `voice-note-${Date.now()}.${ext}`, { type: recorder.mimeType })
+        const rawBlob = new Blob(chunksRef.current, { type: recorder.mimeType })
 
         streamRef.current?.getTracks().forEach((t) => t.stop())
         streamRef.current = null
@@ -410,7 +413,22 @@ export function ChatInputBar({ conversationId, phone, customerName, windowStatus
         setRecording(false)
         setRecordingDuration(0)
 
-        if (blob.size < 1000) return // cancelled / too short — don't send
+        if (rawBlob.size < 1000) return
+
+        // Convert WebM→OGG so WhatsApp plays it as a voice note.
+        // Firefox already records OGG natively; only Chrome needs conversion.
+        let finalBlob: Blob
+        if (recorder.mimeType.includes('ogg')) {
+          finalBlob = rawBlob
+        } else {
+          try {
+            finalBlob = await webmOpusToOgg(rawBlob)
+          } catch {
+            finalBlob = rawBlob
+          }
+        }
+        const file = new File([finalBlob], `voice-note-${Date.now()}.ogg`, { type: 'audio/ogg' })
+
         try {
           await sendFile({ conversationId, phone, file })
           onAfterSend?.()
