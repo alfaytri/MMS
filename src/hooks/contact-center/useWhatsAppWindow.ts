@@ -6,8 +6,13 @@ import type { ChatMessage, WindowStatus } from '@/types/contact-center'
 const WINDOW_HOURS = 24
 const SAFETY_BUFFER_MINUTES = 5
 
-export function useWhatsAppWindow(messages: ChatMessage[]): WindowStatus {
+export function useWhatsAppWindow(messages: ChatMessage[], watiStatus?: string | null): WindowStatus {
   return useMemo(() => {
+    // A resolved conversation is always closed regardless of the 24-hour timer.
+    if (watiStatus === 'resolved') {
+      return { isOpen: false, expiresAt: null, minutesRemaining: 0 }
+    }
+
     const lastInbound = [...messages]
       .reverse()
       .find((m) => m.from_type === 'customer' && m.source === 'whatsapp_api')
@@ -29,5 +34,5 @@ export function useWhatsAppWindow(messages: ChatMessage[]): WindowStatus {
       expiresAt: isOpen ? expiresAt : null,
       minutesRemaining: Math.max(0, minutesRemaining),
     }
-  }, [messages])
+  }, [messages, watiStatus])
 }

@@ -27,7 +27,9 @@ export function useContactCenterState() {
 
   const { conversations, loading: convsLoading, markRead, markOpened, refetch: refetchConversations } = useLiveConversations()
   const { messages, loading: threadLoading, fetchingWati, canLoadMore, loadMore, patchMessage, addMessage, triggerPoll } = useLiveThread(activeConversationId, activePhone)
-  const windowStatus = useWhatsAppWindow(messages)
+
+  const activeConversation = conversations.find((c) => c.id === activeConversationId) ?? null
+  const windowStatus = useWhatsAppWindow(messages, activeConversation?.wati_status)
 
   const customerData   = useCustomerData(activeCustomerId)
   const chatMessages   = useChatMessages(patchMessage, addMessage)
