@@ -1,7 +1,7 @@
 // src/hooks/useServiceCustomers.ts
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { createClient } from '@/lib/supabase/client'
-import { normalisePhone } from '@/lib/contact-center/normalise-phone'
+import { normalisePhone, tryNormalisePhone } from '@/lib/contact-center/normalise-phone'
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 
@@ -121,7 +121,7 @@ export function useServiceCustomers() {
         }
       })
     },
-    staleTime: 30 * 1000,
+    staleTime: 5 * 60 * 1000,
   })
 }
 
@@ -201,29 +201,28 @@ export function useUpdateServiceCustomer() {
       const supabase = createClient()
       const { id } = payload
 
-      // 1. Update customer core fields
+      // 1. Update customer core fields (and blocked status if provided)
+      const coreUpdate: Record<string, unknown> = {
+        name: payload.name.trim(),
+        referral_source: payload.referral_source || null,
+      }
+      if (payload.is_blocked !== undefined) {
+        coreUpdate.is_blocked = payload.is_blocked
+      }
       const { error: custErr } = await (supabase as any)
         .from('service_customers')
-        .update({
-          name: payload.name.trim(),
-          referral_source: payload.referral_source || null,
-        })
+        .update(coreUpdate)
         .eq('id', id)
       if (custErr) throw new Error(custErr.message)
 
-      // 2. Handle blacklist changes
+      // 2. Insert block record if blacklisting
       if (payload.is_blocked === true) {
         const { data: { user } } = await supabase.auth.getUser()
-        await Promise.all([
-          (supabase as any).from('service_customers').update({ is_blocked: true }).eq('id', id),
-          (supabase as any).from('customer_blocks').insert({
-            customer_id: id,
-            reason: payload.block_reason?.trim() ?? 'Blacklisted via customer page',
-            blocked_by: user?.id ?? null,
-          }),
-        ])
-      } else if (payload.is_blocked === false) {
-        await (supabase as any).from('service_customers').update({ is_blocked: false }).eq('id', id)
+        await (supabase as any).from('customer_blocks').insert({
+          customer_id: id,
+          reason: payload.block_reason?.trim() ?? 'Blacklisted via customer page',
+          blocked_by: user?.id ?? null,
+        })
       }
 
       // 3. Upsert phones — update existing, insert new, delete removed
@@ -233,7 +232,8 @@ export function useUpdateServiceCustomer() {
       const resultPhoneIds: string[] = []
       for (let i = 0; i < payload.phones.length; i++) {
         const p = payload.phones[i]
-        const normalised = normalisePhone(p.phone)
+        const normalised = tryNormalisePhone(p.phone)
+        if (!normalised) throw new Error(`Invalid phone number: ${p.phone}`)
         if (p.id) {
           // Update existing
           await (supabase as any)
@@ -253,7 +253,7 @@ export function useUpdateServiceCustomer() {
         }
       }
 
-      // Delete phones removed from the form (try/catch: FK violation = order references it, skip silently)
+      // Delete phones removed from the form (note: FK violations will propagate as errors)
       const keepPhoneIds = payload.phones.map((p) => p.id).filter(Boolean) as string[]
       if (keepPhoneIds.length > 0) {
         await (supabase as any)
@@ -261,6 +261,9 @@ export function useUpdateServiceCustomer() {
           .delete()
           .eq('customer_id', id)
           .not('id', 'in', `(${keepPhoneIds.join(',')})`)
+      } else {
+        // All phones replaced with new entries — delete old rows
+        await (supabase as any).from('service_customer_phones').delete().eq('customer_id', id)
       }
 
       // Set the single primary
