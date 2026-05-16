@@ -4,11 +4,22 @@ import { useState, useCallback } from 'react'
 import { createClient } from '@/lib/supabase/client'
 import type { ChatMessage, WatiTemplate } from '@/types/contact-center'
 
+export type AttachmentCategory = 'image' | 'video' | 'document' | 'audio'
+
+export interface SendFileParams {
+  conversationId: string
+  phone: string
+  file: File
+  caption?: string
+  agentProfileId?: string | null
+}
+
 interface SendSessionMessageParams {
   conversationId: string
   phone: string
   text: string
   onOptimisticInsert?: (tempId: string) => void
+  agentProfileId?: string | null
 }
 
 interface SendTemplateParams {
@@ -17,6 +28,7 @@ interface SendTemplateParams {
   template: WatiTemplate
   variables: string[]
   headerUrl?: string
+  agentProfileId?: string | null
 }
 
 export function useChatMessages(
@@ -34,6 +46,7 @@ export function useChatMessages(
     phone,
     text,
     onOptimisticInsert,
+    agentProfileId,
   }: SendSessionMessageParams) => {
     if (!text.trim() || sending) return
     setSending(true)
@@ -49,9 +62,12 @@ export function useChatMessages(
       throw new Error('Session expired — please reload the page and log in again.')
     }
 
-    const { data: profile } = await (supabase as any)
-      .from('profiles').select('id').eq('auth_user_id', user.id).maybeSingle()
-    const profileId: string | null = profile?.id ?? null
+    let profileId: string | null = agentProfileId ?? null
+    if (profileId === null) {
+      const { data: profile } = await (supabase as any)
+        .from('profiles').select('id').eq('auth_user_id', user.id).maybeSingle()
+      profileId = profile?.id ?? null
+    }
 
     const { data: inserted, error: insertErr } = await (supabase as any)
       .from('chat_messages')
@@ -118,6 +134,7 @@ export function useChatMessages(
     template,
     variables,
     headerUrl,
+    agentProfileId,
   }: SendTemplateParams) => {
     if (sending) return
     setSending(true)
@@ -133,9 +150,12 @@ export function useChatMessages(
       throw new Error('Session expired — please reload the page and log in again.')
     }
 
-    const { data: profile } = await (supabase as any)
-      .from('profiles').select('id').eq('auth_user_id', user.id).maybeSingle()
-    const profileId: string | null = profile?.id ?? null
+    let profileId: string | null = agentProfileId ?? null
+    if (profileId === null) {
+      const { data: profile } = await (supabase as any)
+        .from('profiles').select('id').eq('auth_user_id', user.id).maybeSingle()
+      profileId = profile?.id ?? null
+    }
 
     const bodyText = template.paramNames.reduce(
       (t, name, i) => t.replace(`{{${name}}}`, variables[i] ?? ''),
@@ -193,9 +213,7 @@ export function useChatMessages(
       const patch = watiId
         ? { external_id: `wati_${watiId}`, delivery_status: 'sent' as const }
         : { delivery_status: 'sent' as const }
-      if (watiId) {
-        await (supabase as any).from('chat_messages').update(patch).eq('id', tempId)
-      }
+      await (supabase as any).from('chat_messages').update(patch).eq('id', tempId)
       patchMessage(tempId, patch)
     } catch {
       await (supabase as any).from('chat_messages').update({ delivery_status: 'failed' }).eq('id', tempId)
@@ -205,9 +223,10 @@ export function useChatMessages(
     }
   }, [sending, supabase, patchMessage, addMessage])
 
-  const loadTemplates = useCallback(async () => {
-    if (templates.length > 0) return
+  const loadTemplates = useCallback(async (force = false) => {
+    if (!force && templates.length > 0) return
     setTemplatesLoading(true)
+    setTemplates([])
     try {
       const { data } = await supabase.functions.invoke('api-wati', { body: { action: 'get_templates' } })
       const raw: any[] = (data as any)?.messageTemplates ?? []
@@ -215,8 +234,10 @@ export function useChatMessages(
         const comps: any[] = t.components ?? []
         const bodyComp   = comps.find((c: any) => (c.type ?? '').toUpperCase() === 'BODY')
         const headerComp = comps.find((c: any) => (c.type ?? '').toUpperCase() === 'HEADER')
+        // WATI v1 puts body text at t.body (root level); components[].text is a fallback
+        const bodyText = t.body ?? bodyComp?.text ?? ''
         // Match both named {{paramname}} and positional {{1}} variables
-        const matches = bodyComp?.text?.match(/\{\{(\w+)\}\}/g) ?? []
+        const matches = bodyText.match(/\{\{(\w+)\}\}/g) ?? []
         const paramNames = matches.map((m: string) => m.replace(/\{\{|\}\}/g, ''))
         const headerFmt = (headerComp?.format ?? '').toUpperCase()
         const headerMedia: WatiTemplate['headerMedia'] =
@@ -227,7 +248,7 @@ export function useChatMessages(
         return {
           id:           t.id ?? t.elementName,
           elementName:  t.elementName,
-          bodyOriginal: bodyComp?.text ?? '',
+          bodyOriginal: bodyText,
           components:   comps,
           variableCount: paramNames.length,
           paramNames,
@@ -284,6 +305,92 @@ export function useChatMessages(
     }
   }, [supabase, patchMessage])
 
+  const sendFile = useCallback(async ({ conversationId, phone, file, caption, agentProfileId }: SendFileParams) => {
+    if (sending) return
+    setSending(true)
+
+    let { data: { user } } = await supabase.auth.getUser()
+    if (!user) {
+      const { data: refreshed } = await supabase.auth.refreshSession()
+      user = refreshed?.user ?? null
+    }
+    if (!user) { setSending(false); throw new Error('Session expired') }
+
+    // 1. Upload to Supabase Storage
+    const ext      = file.name.split('.').pop() ?? 'bin'
+    const path     = `${conversationId}/${Date.now()}.${ext}`
+    // Strip ;codecs=... suffix — Supabase Storage checks against allowed_mime_types
+    // with exact match; "audio/ogg;codecs=opus" would fail against "audio/ogg".
+    const contentType = file.type.split(';')[0]
+    const { data: uploaded, error: upErr } = await supabase.storage
+      .from('chat-attachments')
+      .upload(path, file, { contentType, upsert: false })
+    if (upErr || !uploaded) { setSending(false); throw new Error(upErr?.message ?? 'Upload failed') }
+
+    const { data: { publicUrl } } = supabase.storage.from('chat-attachments').getPublicUrl(path)
+
+    // 2. Insert a placeholder message row
+    let fileProfileId: string | null = agentProfileId ?? null
+    if (fileProfileId === null) {
+      const { data: profile } = await (supabase as any)
+        .from('profiles').select('id').eq('auth_user_id', user.id).maybeSingle()
+      fileProfileId = profile?.id ?? null
+    }
+    const { data: inserted } = await (supabase as any)
+      .from('chat_messages')
+      .insert({
+        conversation_id:    conversationId,
+        from_type:          'agent',
+        source:             'whatsapp_api',
+        text:               caption ?? null,
+        attachments:        [{ url: publicUrl, type: file.type, name: file.name }],
+        delivery_status:    'sending',
+        external_id:        null,
+        sent_by_profile_id: fileProfileId,
+      })
+      .select().single()
+
+    if (inserted) {
+      addMessage?.({ ...inserted, reactions: [], message_kind: 'message' } as ChatMessage)
+    }
+
+    // 3. Send via Wati
+    try {
+      const { data: fnData, error: fnErr } = await supabase.functions.invoke('api-wati', {
+        body: {
+          action:    'send_file',
+          phone,
+          url:       publicUrl,
+          caption:   caption ?? '',
+          filename:  file.name,
+          mime_type: file.type,
+        },
+      })
+      if (fnErr) throw fnErr
+      const watiResp = fnData as any
+      if (watiResp?.result === false || watiResp?.error) {
+        throw new Error(watiResp?.info ?? watiResp?.error ?? watiResp?.detail ?? 'WATI rejected the file')
+      }
+      const watiId = watiResp?.message?.whatsappMessageId
+        ?? watiResp?.info?.whatsAppMessageId ?? null
+      if (inserted) {
+        const patch = watiId
+          ? { external_id: `wati_${watiId}`, delivery_status: 'sent' as const }
+          : { delivery_status: 'sent' as const }
+        await (supabase as any).from('chat_messages').update(patch).eq('id', inserted.id)
+        patchMessage(inserted.id, patch)
+      }
+    } catch (err) {
+      if (inserted) {
+        await (supabase as any).from('chat_messages').update({ delivery_status: 'failed' }).eq('id', inserted.id)
+        patchMessage(inserted.id, { delivery_status: 'failed' })
+      }
+      throw err
+    } finally {
+      setSending(false)
+    }
+  }, [sending, supabase, patchMessage, addMessage])
+
   return {
     inputText,
     setInputText,
@@ -292,6 +399,7 @@ export function useChatMessages(
     templatesLoading,
     sendSessionMessage,
     sendTemplate,
+    sendFile,
     loadTemplates,
     retryMessage,
     reactToMessage,

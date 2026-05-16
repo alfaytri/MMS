@@ -155,8 +155,11 @@ export function ChatSection({ messages, loading, fetchingWati, canLoadMore, onLo
     <div
       ref={scrollRef}
       onScroll={handleScroll}
-      className="relative flex-1 overflow-y-auto px-2 py-2 overscroll-contain"
+      className="relative flex-1 overflow-y-auto px-2 py-2 overscroll-contain flex flex-col"
     >
+      {/* Push messages to the bottom when there are few of them */}
+      <div className="flex-1" />
+
       {/* Load older messages */}
       {canLoadMore && onLoadMore && (
         <div className="flex justify-center mb-2">
@@ -236,11 +239,11 @@ export function ChatSection({ messages, loading, fetchingWati, canLoadMore, onLo
                       </span>
                     )}
                     {msg.attachments?.map((att, i) => (
-                      <AttachmentRenderer key={i} url={att.url} type={att.type} name={att.name} />
+                      <AttachmentRenderer key={i} url={att.url} type={att.type} name={att.name} isAgent={isAgent} />
                     ))}
-                    {/* Fallback: attachment with unavailable URL */}
+                    {/* Fallback: message with no parseable content */}
                     {(!msg.text || msg.text === '') && !msg.attachments?.length && (
-                      <span className="italic text-xs opacity-50">📎 Attachment</span>
+                      <span className="text-xs opacity-60">📎 Attachment</span>
                     )}
                   </div>
                 </div>

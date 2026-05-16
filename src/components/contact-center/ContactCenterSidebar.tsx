@@ -1,6 +1,7 @@
 'use client'
 
-import { ChevronLeft, ChevronRight, MessageSquare, MapPin, Package, Clock, User } from 'lucide-react'
+import { useEffect, useRef, useState } from 'react'
+import { ChevronLeft, ChevronRight, MessageSquare, MapPin, Package, Clock, User, ChevronDown } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { ChatListView }        from './ChatListView'
 import { ChatSection }         from './ChatSection'
@@ -38,12 +39,40 @@ export function ContactCenterSidebar() {
     fetchingWati, canLoadMore, loadMore,
     windowStatus, customerData, chatMessages, addressState,
     activeConversationId, activeCustomerId, activePhone,
-    openConversation, goToList, expandSidebar, collapseSidebar, syncFromWati, syncProgress,
+    openConversation, goToList, expandSidebar, collapseSidebar, openPhoneDirect, syncFromWati, syncProgress, triggerPoll,
+    updateConversationStatus,
   } = state
-  const { setCcSidebar } = useContactCenterContext()
+  const { setCcSidebar, pendingPhone } = useContactCenterContext()
+  const [showStatusPicker, setShowStatusPicker] = useState(false)
+  const statusPickerRef = useRef<HTMLDivElement>(null)
+
+  useEffect(() => {
+    if (!showStatusPicker) return
+    function handleClickOutside(e: MouseEvent) {
+      if (statusPickerRef.current && !statusPickerRef.current.contains(e.target as Node)) {
+        setShowStatusPicker(false)
+      }
+    }
+    document.addEventListener('mousedown', handleClickOutside)
+    return () => document.removeEventListener('mousedown', handleClickOutside)
+  }, [showStatusPicker])
 
   function handleExpand() { setCcSidebar('expanded'); expandSidebar() }
   function handleCollapse() { setCcSidebar('collapsed'); collapseSidebar() }
+
+  // When another part of the app sets pendingPhone, auto-expand and open the chat.
+  // Depends on nonce so re-triggering with the same phone still fires the effect.
+  useEffect(() => {
+    if (!pendingPhone) return
+    const { phone } = pendingPhone
+    setCcSidebar('expanded')
+    const convo = conversations.find((c) => c.wati_phone === phone)
+    if (convo) {
+      openConversation(convo.id, convo.customer_id ?? null, phone)
+    } else {
+      openPhoneDirect(phone)
+    }
+  }, [pendingPhone?.nonce])
 
   function handleSelectConversation(c: ChatConversation) {
     openConversation(c.id, c.customer_id, c.wati_phone)
@@ -126,6 +155,20 @@ export function ContactCenterSidebar() {
   const activeConvo = conversations.find((c) => c.id === activeConversationId)
   const displayName = customerData.customer?.name ?? activeConvo?.customer_name ?? activePhone ?? 'Unknown'
 
+  const STATUS_CONFIG = {
+    open:     { label: 'Open',    dot: 'bg-blue-500',    text: 'text-blue-600',   border: 'border-blue-200',   bg: 'bg-blue-50' },
+    pending:  { label: 'Pending', dot: 'bg-amber-500',   text: 'text-amber-600',  border: 'border-amber-200',  bg: 'bg-amber-50' },
+    resolved: { label: 'Solved',  dot: 'bg-emerald-500', text: 'text-emerald-600',border: 'border-emerald-200',bg: 'bg-emerald-50' },
+  } as const
+
+  const currentStatus = (activeConvo?.wati_status ?? 'open') as keyof typeof STATUS_CONFIG
+  const statusCfg = STATUS_CONFIG[currentStatus] ?? STATUS_CONFIG.open
+
+  async function handleStatusChange(status: 'open' | 'pending' | 'resolved') {
+    setShowStatusPicker(false)
+    await updateConversationStatus(status)
+  }
+
   const DetailContent = (
     <div className="flex flex-col h-full">
       {/* Header */}
@@ -137,33 +180,40 @@ export function ContactCenterSidebar() {
           <p className="text-xs font-semibold truncate">{displayName}</p>
           {activePhone && <p className="text-xs text-muted-foreground font-mono">{activePhone}</p>}
         </div>
-      </div>
-
-      {/* Chat thread — takes 55% of sidebar height */}
-      <div className="flex flex-col flex-shrink-0" style={{ height: '55%' }}>
-        <ChatSection
-          messages={messages}
-          loading={threadLoading}
-          fetchingWati={fetchingWati}
-          canLoadMore={canLoadMore}
-          onLoadMore={loadMore}
-          phone={activePhone ?? ''}
-          chatMessages={chatMessages}
-          onReact={(msgId, _extId, emoji) => chatMessages.reactToMessage(msgId, emoji, activePhone ?? '')}
-        />
-        {activeConversationId && activePhone && (
-          <ChatInputBar
-            conversationId={activeConversationId}
-            phone={activePhone}
-            customerName={displayName}
-            windowStatus={windowStatus}
-            chatMessages={chatMessages}
-          />
+        {/* Status dropdown — only shown when a conversation is active */}
+        {activeConversationId && (
+          <div className="relative flex-shrink-0" ref={statusPickerRef}>
+            <button
+              onClick={() => setShowStatusPicker((p) => !p)}
+              className={`flex items-center gap-1 rounded-full px-2 py-0.5 text-[11px] font-medium border transition-colors ${statusCfg.text} ${statusCfg.border} ${statusCfg.bg}`}
+            >
+              <span className={`h-1.5 w-1.5 rounded-full ${statusCfg.dot}`} />
+              {statusCfg.label}
+              <ChevronDown className="h-2.5 w-2.5 opacity-60" />
+            </button>
+            {showStatusPicker && (
+              <div className="absolute right-0 top-full mt-1 w-32 bg-popover border border-border rounded-lg shadow-lg z-50 py-1 overflow-hidden">
+                {(Object.keys(STATUS_CONFIG) as Array<keyof typeof STATUS_CONFIG>).map((s) => {
+                  const cfg = STATUS_CONFIG[s]
+                  return (
+                    <button
+                      key={s}
+                      onClick={() => handleStatusChange(s)}
+                      className={`w-full flex items-center gap-2 px-3 py-2 text-xs hover:bg-muted transition-colors ${s === currentStatus ? 'font-semibold' : ''}`}
+                    >
+                      <span className={`h-2 w-2 rounded-full ${cfg.dot}`} />
+                      {cfg.label}
+                    </button>
+                  )
+                })}
+              </div>
+            )}
+          </div>
         )}
       </div>
 
-      {/* CRM + detail sections */}
-      <div className="flex-1 min-h-0 overflow-y-auto overscroll-contain">
+      {/* CRM + detail sections — scrollable, capped so chat always has room */}
+      <div className="flex-shrink-0 max-h-[45%] overflow-y-auto overscroll-contain border-b border-border">
         <SectionHeader icon={<User className="h-3 w-3" />} label="Customer">
           <CrmSection
             customerData={customerData}
@@ -185,6 +235,30 @@ export function ContactCenterSidebar() {
         <SectionHeader icon={<Clock className="h-3 w-3" />} label="Order History">
           <OrderHistorySection customerId={activeCustomerId} />
         </SectionHeader>
+      </div>
+
+      {/* Chat thread — takes all remaining height */}
+      <div className="flex flex-col flex-1 min-h-0">
+        <ChatSection
+          messages={messages}
+          loading={threadLoading}
+          fetchingWati={fetchingWati}
+          canLoadMore={canLoadMore}
+          onLoadMore={loadMore}
+          phone={activePhone ?? ''}
+          chatMessages={chatMessages}
+          onReact={(msgId, _extId, emoji) => chatMessages.reactToMessage(msgId, emoji, activePhone ?? '')}
+        />
+        {activeConversationId && activePhone && (
+          <ChatInputBar
+            conversationId={activeConversationId}
+            phone={activePhone}
+            customerName={displayName}
+            windowStatus={windowStatus}
+            chatMessages={chatMessages}
+            onAfterSend={triggerPoll}
+          />
+        )}
       </div>
     </div>
   )

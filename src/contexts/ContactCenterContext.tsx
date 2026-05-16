@@ -8,12 +8,16 @@ import type { SelectedCustomer } from '@/types/contact-center'
 // 'expanded'  — sidebar shows at full 320 px width
 export type CCSidebarState = 'none' | 'collapsed' | 'expanded'
 
+// Wraps the phone in an object so the useEffect in ContactCenterSidebar always
+// fires — even when the same phone is looked up twice in a row (e.g. Change → same number).
+export interface PendingPhoneTrigger { phone: string; nonce: number }
+
 interface ContactCenterContextValue {
   selectedCustomer: SelectedCustomer | null
   openCustomerById: (customerId: string, customerName: string, primaryPhone: string, conversationId?: string | null) => void
   openCustomerByPhone: (phone: string) => void
   clearSelectedCustomer: () => void
-  pendingPhone: string | null
+  pendingPhone: PendingPhoneTrigger | null
   ccSidebar: CCSidebarState
   setCcSidebar: (state: CCSidebarState) => void
 }
@@ -22,7 +26,7 @@ const ContactCenterContext = createContext<ContactCenterContextValue | null>(nul
 
 export function ContactCenterProvider({ children }: { children: ReactNode }) {
   const [selectedCustomer, setSelectedCustomer] = useState<SelectedCustomer | null>(null)
-  const [pendingPhone, setPendingPhone] = useState<string | null>(null)
+  const [pendingPhone, setPendingPhone] = useState<PendingPhoneTrigger | null>(null)
   const [ccSidebar, setCcSidebar] = useState<CCSidebarState>('none')
 
   const openCustomerById = useCallback(
@@ -35,7 +39,7 @@ export function ContactCenterProvider({ children }: { children: ReactNode }) {
 
   const openCustomerByPhone = useCallback((phone: string) => {
     setSelectedCustomer(null)
-    setPendingPhone(phone)
+    setPendingPhone({ phone, nonce: Date.now() })
   }, [])
 
   const clearSelectedCustomer = useCallback(() => {

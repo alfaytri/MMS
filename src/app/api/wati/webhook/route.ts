@@ -26,38 +26,56 @@ interface Attachment {
   name: string
 }
 
-function extractAttachments(body: any): Attachment[] {
-  const msgType: string = String(body.type ?? '')
-  const data = body.data ?? {}
+const WATI_URL_WEBHOOK = (process.env.WATI_API_URL ?? '').replace(/\/$/, '')
+
+function extractAttachments(body: any, mappedMsgType?: string): Attachment[] {
+  const WEBHOOK_TYPE_MAP: Record<string, string> = {
+    '0': 'text', '1': 'image', '2': 'video', '3': 'audio',
+    '4': 'document', '5': 'sticker', '6': 'location', '7': 'contacts',
+  }
+  const rawType = String(body.type ?? '')
+  const msgType: string = mappedMsgType ?? WEBHOOK_TYPE_MAP[rawType] ?? rawType
+  const rawData = body.data ?? {}
+
+  // body.data can be a relative file path string (e.g. "data/images/uuid.jpg")
+  let data: any = rawData
+  let dataUrl: string | null = null
+  if (typeof rawData === 'string' && rawData) {
+    dataUrl = `${WATI_URL_WEBHOOK}/${rawData}`
+    data = {}
+  }
+
   const mediaUrl =
-    data.url ?? data.link ?? data.mediaUrl ??
-    body.media?.url ?? body.mediaUrl ?? body.url ?? null
+    dataUrl ??
+    data.url ?? data.link ?? data.mediaUrl ?? data.filePath ?? data.fileUrl ?? data.mediaLink ??
+    body.media?.url ?? body.media?.link ?? body.mediaUrl ?? body.url ?? body.filePath ?? null
 
   if (msgType === 'image') {
-    const url = mediaUrl ?? body.image?.url ?? body.image?.link ?? null
-    if (!url) return []
-    return [{ url, type: data.mimeType ?? body.media?.mimeType ?? body.mimeType ?? 'image/jpeg', name: data.caption ?? body.caption ?? 'image' }]
+    const url  = mediaUrl ?? body.image?.url ?? body.image?.link ?? ''
+    const type = data.mimeType ?? body.media?.mimeType ?? body.mimeType ?? 'image/jpeg'
+    const name = data.caption ?? body.caption ?? 'image'
+    return [{ url, type, name }]
   }
   if (msgType === 'document') {
-    const url = mediaUrl ?? body.document?.url ?? body.document?.link ?? null
-    if (!url) return []
-    const name = data.fileName ?? data.filename ?? body.document?.filename ?? body.document?.fileName ?? body.media?.fileName ?? body.fileName ?? 'document'
-    const mime = data.mimeType ?? body.document?.mimeType ?? body.media?.mimeType ?? body.mimeType ?? 'application/octet-stream'
-    return [{ url, type: mime, name }]
+    const url  = mediaUrl ?? body.document?.url ?? body.document?.link ?? ''
+    const textFilename = typeof body.text === 'string' && body.text ? body.text : null
+    const name = textFilename ?? data.fileName ?? data.filename ?? body.document?.filename ?? body.document?.fileName ?? body.media?.fileName ?? body.fileName ?? 'document'
+    const type = data.mimeType ?? body.document?.mimeType ?? body.media?.mimeType ?? body.mimeType ?? 'application/octet-stream'
+    return [{ url, type, name }]
   }
   if (msgType === 'video') {
-    const url = mediaUrl ?? body.video?.url ?? body.video?.link ?? null
-    if (!url) return []
-    return [{ url, type: data.mimeType ?? body.media?.mimeType ?? body.mimeType ?? 'video/mp4', name: data.caption ?? body.caption ?? 'video' }]
+    const url  = mediaUrl ?? body.video?.url ?? body.video?.link ?? ''
+    const type = data.mimeType ?? body.media?.mimeType ?? body.mimeType ?? 'video/mp4'
+    const name = data.caption ?? body.caption ?? 'video'
+    return [{ url, type, name }]
   }
   if (msgType === 'audio' || msgType === 'voice') {
-    const url = mediaUrl ?? body.audio?.url ?? body.audio?.link ?? null
-    if (!url) return []
-    return [{ url, type: data.mimeType ?? body.media?.mimeType ?? body.mimeType ?? 'audio/ogg', name: 'audio' }]
+    const url  = mediaUrl ?? body.audio?.url ?? body.audio?.link ?? ''
+    const type = data.mimeType ?? body.media?.mimeType ?? body.mimeType ?? 'audio/ogg'
+    return [{ url, type, name: 'audio' }]
   }
   if (msgType === 'sticker') {
-    const url = mediaUrl ?? body.sticker?.url ?? body.sticker?.link ?? null
-    if (!url) return []
+    const url = mediaUrl ?? body.sticker?.url ?? body.sticker?.link ?? ''
     return [{ url, type: 'image/webp', name: 'sticker' }]
   }
 
@@ -94,8 +112,19 @@ function extractAttachments(body: any): Attachment[] {
   return []
 }
 
+// Media message types where body.text is the filename, not a user caption
+const MEDIA_TYPES = new Set(['image', 'document', 'video', 'audio', 'voice', 'sticker'])
+
 // Extract the best available text from any Wati message type
 function extractWebhookText(body: any, msgType: string): string {
+  const t = msgType.toLowerCase()
+
+  // For media messages WATI puts the filename in body.text — skip it and only
+  // use the actual user caption so we don't render filenames as chat text.
+  if (MEDIA_TYPES.has(t)) {
+    return body.caption?.trim() ?? body.data?.caption?.trim() ?? ''
+  }
+
   // finalText — rendered template body on broadcastMessage webhook events
   const finalText = body.finalText?.trim() ?? ''
   if (finalText) return finalText
@@ -105,7 +134,6 @@ function extractWebhookText(body: any, msgType: string): string {
   if (caption) return caption
   const dataBody = body.data?.body?.trim() ?? body.data?.text?.trim() ?? ''
   if (dataBody) return dataBody
-  const t = msgType.toLowerCase()
   if (t === 'template' || t === 'hsm') {
     const components: any[] = body.data?.template?.components ?? body.data?.components ?? body.templateComponents ?? []
     const comp = components.find((c: any) => (c.type ?? '').toLowerCase() === 'body')
@@ -250,12 +278,20 @@ export async function POST(req: NextRequest) {
 
   const phone    = normalisePhone(rawWaId)
   const isAgent  = body.owner === true || eventType === 'message_sent' || eventType === 'sent_message' || eventType === 'broadcastMessage'
-  const msgType: string = String(body.type ?? 'text').toLowerCase()
+
+  // Wati's older API returns numeric type codes — map them to string names so
+  // extractAttachments and extractWebhookText work correctly.
+  const WATI_TYPE_MAP: Record<string, string> = {
+    '0': 'text', '1': 'image', '2': 'video', '3': 'audio',
+    '4': 'document', '5': 'sticker', '6': 'location', '7': 'contacts',
+  }
+  const rawTypeStr = String(body.type ?? 'text')
+  const msgType: string = (WATI_TYPE_MAP[rawTypeStr] ?? rawTypeStr).toLowerCase()
 
   // Detect Wati platform events: ticket events cover all system activity (type 0/1/2)
   const isMsgEvent = eventType === 'ticket' || msgType === 'note' || msgType === 'activity'
 
-  const attachments = isMsgEvent ? [] : extractAttachments(body)
+  const attachments = isMsgEvent ? [] : extractAttachments(body, msgType)
 
   // Extract assigned agent from message payload (Wati sometimes includes it)
   const assignedAgentInMsg: string | null =
@@ -321,30 +357,43 @@ export async function POST(req: NextRequest) {
 
   // Insert message (or update pending optimistic row from the app)
   if (externalId) {
-    // Race-condition guard: if the app sent this message, it already inserted a row with
-    // delivery_status='sending' and external_id=null. The webhook fires before the app can
-    // write wati_<id>, so we "claim" that pending row instead of duplicating.
+    // Race-condition guard: if the app sent this message, it already inserted a row.
+    // The webhook may fire before OR after the send API response, so we need to
+    // match both cases:
+    //   - still 'sending' with null external_id  (webhook raced ahead of API response)
+    //   - already 'sent'/'sending' with null or wati_<numericId> external_id
+    //     (API responded first but before the wamid could be stored)
     if (isAgent && !isMsgEvent) {
       const cutoff = new Date(Date.now() - 60_000).toISOString()
+
+      // For file/media messages the app inserts text=null; the webhook produces
+      // text='' (empty caption). Use an OR filter so both cases match.
+      const textFilter = text
+        ? `text.eq.${text}`
+        : 'text.is.null,text.eq.'
+
       const { data: pendingRow } = await (supabase.from('chat_messages') as any)
         .select('id')
         .eq('conversation_id', conversationId)
         .eq('from_type', 'agent')
-        .eq('delivery_status', 'sending')
-        .is('external_id', null)
-        .eq('text', text)
+        .in('delivery_status', ['sending', 'sent'])
+        .or('external_id.is.null,external_id.like.wati_%')
+        .or(textFilter)
         .gte('created_at', cutoff)
         .order('created_at', { ascending: false })
         .limit(1)
         .maybeSingle()
 
       if (pendingRow) {
+        // Never touch attachments for agent messages — the send flow has already
+        // stored the canonical Supabase Storage URL in the optimistic insert.
+        // WATI's webhook may report its own copy at data/images/... but writing
+        // that proxy URL here would clobber the working Supabase URL.
         await (supabase.from('chat_messages') as any)
           .update({
             external_id:      externalId,
             delivery_status:  normaliseStatus(body.statusString ?? 'SENT'),
             ...(senderName ? { agent_name: senderName } : {}),
-            ...(attachments.length > 0 ? { attachments } : {}),
           })
           .eq('id', pendingRow.id)
         return NextResponse.json({ ok: true })
@@ -396,6 +445,13 @@ export async function POST(req: NextRequest) {
       }
     }
 
+    // For agent messages, NEVER include attachments in the insert — the MMS
+    // send flow already inserted the row with the canonical Supabase Storage URL.
+    // If we reach this point for an agent message, all dedup checks above failed,
+    // meaning we'd be creating a NEW row. WATI's attachment URLs don't work for
+    // outbound agent files, so omit them to avoid broken placeholders.
+    const insertAttachments = isAgent ? null : (attachments.length > 0 ? attachments : null)
+
     await (supabase.from('chat_messages') as any)
       .insert({
         conversation_id:  conversationId,
@@ -403,7 +459,7 @@ export async function POST(req: NextRequest) {
         source:           'whatsapp_api',
         text:             text,
         agent_name:       isAgent ? senderName : null,
-        attachments:      attachments.length > 0 ? attachments : null,
+        attachments:      insertAttachments,
         delivery_status:  isAgent ? normaliseStatus(body.statusString) : 'delivered',
         external_id:      externalId,
         created_at:       ts,

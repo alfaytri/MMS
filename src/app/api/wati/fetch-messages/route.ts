@@ -43,6 +43,8 @@ interface Attachment {
   name: string
 }
 
+const FETCH_MEDIA_TYPES = new Set(['image', 'document', 'video', 'audio', 'voice', 'sticker'])
+
 // Returns a placeholder attachment for broadcast messages that reference a document in their text
 // but have no URL (Wati doesn't return document URLs for broadcast history items).
 function broadcastDocumentPlaceholder(item: any): Attachment[] {
@@ -56,39 +58,50 @@ function broadcastDocumentPlaceholder(item: any): Attachment[] {
 
 function extractAttachments(item: any): Attachment[] {
   const msgType: string = String(item.type ?? '')
-  const data = item.data ?? {}
+  const rawData = item.data ?? {}
+
+  // Wati's getMessages API returns item.data as a relative file path string
+  // (e.g. "data/images/uuid.jpg", "data/documents/uuid.pdf") instead of an object.
+  // WATI requires Bearer auth to fetch these, so route through our proxy which
+  // adds the token server-side, allowing <img src> and fetch() to work without credentials.
+  let data: any = rawData
+  let dataUrl: string | null = null
+  if (typeof rawData === 'string' && rawData) {
+    dataUrl = `/api/wati/media?path=${encodeURIComponent(rawData)}`
+    data = {}  // reset so .url / .mimeType etc. lookups below still work for object shape
+  }
+
   // Wati stores media URL in several possible locations — try all of them
   const mediaUrl =
-    data.url ?? data.link ?? data.mediaUrl ??
-    item.media?.url ?? item.mediaUrl ?? item.url ??
+    dataUrl ??
+    data.url ?? data.link ?? data.mediaUrl ?? data.filePath ?? data.fileUrl ?? data.mediaLink ??
+    item.media?.url ?? item.media?.link ?? item.mediaUrl ?? item.url ?? item.filePath ??
     item.mediaHeaderLink ?? null  // broadcast messages use this field (often null)
+
+  // For customer media, item.text holds the original filename (e.g. "invoice.pdf")
+  const textFilename = typeof item.text === 'string' && item.text ? item.text : null
 
   if (msgType === 'image') {
     const url = mediaUrl ?? item.image?.url ?? item.image?.link ?? null
-    if (!url) return []
-    return [{ url, type: data.mimeType ?? item.media?.mimeType ?? item.mimeType ?? 'image/jpeg', name: data.caption ?? item.media?.caption ?? item.caption ?? 'image' }]
+    return [{ url: url ?? '', type: data.mimeType ?? item.media?.mimeType ?? item.mimeType ?? 'image/jpeg', name: data.caption ?? item.media?.caption ?? item.caption ?? 'image' }]
   }
   if (msgType === 'document') {
     const url = mediaUrl ?? item.document?.url ?? item.document?.link ?? null
-    if (!url) return []
-    const name = data.fileName ?? data.filename ?? item.document?.filename ?? item.document?.fileName ?? item.media?.fileName ?? item.fileName ?? 'document'
+    const name = textFilename ?? data.fileName ?? data.filename ?? item.document?.filename ?? item.document?.fileName ?? item.media?.fileName ?? item.fileName ?? 'document'
     const mime = data.mimeType ?? item.document?.mimeType ?? item.media?.mimeType ?? item.mimeType ?? 'application/octet-stream'
-    return [{ url, type: mime, name }]
+    return [{ url: url ?? '', type: mime, name }]
   }
   if (msgType === 'video') {
     const url = mediaUrl ?? item.video?.url ?? item.video?.link ?? null
-    if (!url) return []
-    return [{ url, type: data.mimeType ?? item.media?.mimeType ?? item.mimeType ?? 'video/mp4', name: data.caption ?? item.caption ?? 'video' }]
+    return [{ url: url ?? '', type: data.mimeType ?? item.media?.mimeType ?? item.mimeType ?? 'video/mp4', name: data.caption ?? item.caption ?? 'video' }]
   }
   if (msgType === 'audio' || msgType === 'voice') {
     const url = mediaUrl ?? item.audio?.url ?? item.audio?.link ?? null
-    if (!url) return []
-    return [{ url, type: data.mimeType ?? item.media?.mimeType ?? item.mimeType ?? 'audio/ogg', name: 'audio' }]
+    return [{ url: url ?? '', type: data.mimeType ?? item.media?.mimeType ?? item.mimeType ?? 'audio/ogg', name: 'audio' }]
   }
   if (msgType === 'sticker') {
     const url = mediaUrl ?? item.sticker?.url ?? item.sticker?.link ?? null
-    if (!url) return []
-    return [{ url, type: 'image/webp', name: 'sticker' }]
+    return [{ url: url ?? '', type: 'image/webp', name: 'sticker' }]
   }
 
   // Template / HSM messages — header may contain a document or image
@@ -144,6 +157,11 @@ function extractText(item: any, msgType: string): string {
   // finalText — Wati's rendered template body for broadcastMessage items
   const finalText = item.finalText?.trim() ?? ''
   if (finalText) return finalText
+
+  // For media messages item.text contains the filename — use caption only
+  if (FETCH_MEDIA_TYPES.has(msgType.toLowerCase())) {
+    return item.caption?.trim() ?? item.data?.caption?.trim() ?? ''
+  }
 
   // Direct text field
   const direct = item.text?.trim() ?? ''
@@ -254,6 +272,13 @@ export async function GET(req: NextRequest) {
     return t === 'note' || t === 'activity'
   }
 
+  // Wati's older API returns numeric type codes instead of string names.
+  // Map them here so extractAttachments / extractText / isWatiSystemEvent all work correctly.
+  const WATI_TYPE_MAP: Record<string, string> = {
+    '0': 'text', '1': 'image', '2': 'video', '3': 'audio',
+    '4': 'document', '5': 'sticker', '6': 'location', '7': 'contacts',
+  }
+
   // Build message rows
   const rows = messageItems.map((item) => {
     // broadcastMessage = sent from system/agent (no owner field on broadcast items)
@@ -263,9 +288,10 @@ export async function GET(req: NextRequest) {
       : item.timestamp
       ? new Date(item.timestamp * 1000).toISOString()
       : new Date().toISOString()
-    // Wati sometimes returns numeric type codes (0, 1, …) — normalise to string
-    const msgType   = String(item.type ?? 'text')
+    const rawTypeStr = String(item.type ?? 'text')
+    const msgType    = WATI_TYPE_MAP[rawTypeStr] ?? rawTypeStr
     const isEvent   = isWatiSystemEvent(item)
+
     const attachments = isEvent ? [] : (extractAttachments(item).length > 0 ? extractAttachments(item) : broadcastDocumentPlaceholder(item))
     // For ticket events, use eventDescription as the display text (it's the correct system message)
     const rawText = isEvent
@@ -338,44 +364,141 @@ export async function GET(req: NextRequest) {
   // finds nothing and the upsert would INSERT a duplicate row.
   for (const row of rows) {
     if (resolvedExternalIds.has(row.external_id)) continue
-    if (row.from_type !== 'agent' || row.message_kind !== 'message' || !row.text?.trim()) continue
+    if (row.from_type !== 'agent' || row.message_kind !== 'message') continue
 
-    const ts     = new Date(row.created_at)
+    const ts      = new Date(row.created_at)
     const tsMinus = new Date(ts.getTime() - 5 * 60_000).toISOString()
     const tsPlus  = new Date(ts.getTime() + 5 * 60_000).toISOString()
 
-    const { data: textMatch } = await (supabase.from('chat_messages') as any)
-      .select('id, external_id')
+    if (row.text?.trim()) {
+      // Text match: find an agent row with matching text within ±5 min
+      const { data: textMatch } = await (supabase.from('chat_messages') as any)
+        .select('id, external_id')
+        .eq('conversation_id', conversationId)
+        .eq('from_type', 'agent')
+        .eq('message_kind', 'message')
+        .eq('text', row.text.trim())
+        .gte('created_at', tsMinus)
+        .lte('created_at', tsPlus)
+        .maybeSingle()
+
+      if (textMatch) {
+        await (supabase.from('chat_messages') as any)
+          .update({ external_id: row.external_id })
+          .eq('id', (textMatch as { id: string }).id)
+        resolvedExternalIds.add(row.external_id)
+      }
+    } else if (row.attachments?.length) {
+      // File message with no text: find the optimistic row the app inserted.
+      // Try wati_-prefixed first (sendSessionFile returned a numeric id),
+      // then fall back to null external_id (sendSessionFileViaUrl returned nothing).
+      let fileMatchId: string | null = null
+
+      const { data: pm } = await (supabase.from('chat_messages') as any)
+        .select('id')
+        .eq('conversation_id', conversationId)
+        .eq('from_type', 'agent')
+        .eq('message_kind', 'message')
+        .like('external_id', 'wati_%')
+        .gte('created_at', tsMinus)
+        .lte('created_at', tsPlus)
+        .maybeSingle()
+      fileMatchId = (pm as { id: string } | null)?.id ?? null
+
+      if (!fileMatchId) {
+        const { data: nm } = await (supabase.from('chat_messages') as any)
+          .select('id')
+          .eq('conversation_id', conversationId)
+          .eq('from_type', 'agent')
+          .eq('message_kind', 'message')
+          .is('external_id', null)
+          .in('delivery_status', ['sent', 'sending'])
+          .gte('created_at', tsMinus)
+          .lte('created_at', tsPlus)
+          .maybeSingle()
+        fileMatchId = (nm as { id: string } | null)?.id ?? null
+      }
+
+      if (fileMatchId) {
+        await (supabase.from('chat_messages') as any)
+          .update({ external_id: row.external_id })
+          .eq('id', fileMatchId)
+        resolvedExternalIds.add(row.external_id)
+      }
+    }
+  }
+
+  // Only allow upsert for agent rows whose external_id already exists in DB.
+  // This ensures the upsert fires as ON CONFLICT DO UPDATE — never a fresh INSERT
+  // (which would land with attachments=null → the "📎 Attachment" placeholder).
+  const agentExternalIds = rows
+    .filter((r) => r.from_type === 'agent' && r.external_id)
+    .map((r) => r.external_id as string)
+
+  const existingAgentRows = new Set<string>()
+  if (agentExternalIds.length > 0) {
+    const { data: existing } = await (supabase.from('chat_messages') as any)
+      .select('external_id')
+      .in('external_id', agentExternalIds)
       .eq('conversation_id', conversationId)
       .eq('from_type', 'agent')
-      .eq('message_kind', 'message')
-      .eq('text', row.text.trim())
-      .gte('created_at', tsMinus)
-      .lte('created_at', tsPlus)
-      .maybeSingle()
-
-    if (textMatch) {
-      // Update the existing row's external_id to the wamid so the upsert hits it
-      await (supabase.from('chat_messages') as any)
-        .update({ external_id: row.external_id })
-        .eq('id', (textMatch as { id: string }).id)
-      resolvedExternalIds.add(row.external_id)
+    for (const r of (existing ?? []) as { external_id: string }[]) {
+      existingAgentRows.add(r.external_id)
     }
   }
 
   // Upsert — now safe: wati_-prefixed rows were renamed to bare ids above,
   // so onConflict:'external_id' will UPDATE them instead of inserting duplicates.
+  //
+  // Attachment URL preservation: omit the `attachments` column from the upsert
+  // payload whenever all URLs in the row are empty strings. WATI's getMessages
+  // API often returns media messages without a URL (e.g. it hasn't fetched the
+  // media yet). If we blindly upsert `attachments:[{url:''}]` we overwrite the
+  // valid Supabase Storage URL we wrote when the agent originally sent the file.
+  // Omitting the column leaves the existing DB value untouched on UPDATE while
+  // still inserting null for genuinely new rows with no URL.
+  // PostgREST normalises bulk upsert payloads: if ANY object in the array has
+  // the `attachments` key, PostgREST adds `attachments = NULL` to every object
+  // that omitted it, and the ON CONFLICT UPDATE then overwrites the existing DB
+  // value with NULL. To prevent this we split into two streams:
+  //   • withAttachments  — customer rows that have a real URL
+  //   • noAttachments    — agent rows + customer rows without a URL
+  // Each stream is upserted separately so PostgREST's column normalisation
+  // doesn't bleed across them.
+  const withAttachments: typeof rows = []
+  const noAttachments: typeof rows = []
+
+  for (const row of rows) {
+    if ((row as any).from_type === 'agent') {
+      if (!existingAgentRows.has(row.external_id)) continue
+      const { attachments: _omit, ...rest } = row as any
+      noAttachments.push(rest)
+    } else {
+      const hasRealUrl = (row.attachments as any[] | null)?.some((a: any) => a.url)
+      if (hasRealUrl) {
+        withAttachments.push(row)
+      } else {
+        const { attachments: _omit, ...rest } = row as any
+        noAttachments.push(rest)
+      }
+    }
+  }
+
   const CHUNK = 200
   let inserted = 0
-  for (let i = 0; i < rows.length; i += CHUNK) {
-    const chunk = rows.slice(i, i + CHUNK)
-    const { error } = await (supabase.from('chat_messages') as any)
-      .upsert(chunk, { onConflict: 'external_id', ignoreDuplicates: false })
-    if (error) {
-      console.error('[fetch-messages] upsert error', error)
-      return NextResponse.json({ error: error.message }, { status: 500 })
+
+  for (const stream of [withAttachments, noAttachments]) {
+    for (let i = 0; i < stream.length; i += CHUNK) {
+      const chunk = stream.slice(i, i + CHUNK)
+      if (chunk.length === 0) continue
+      const { error } = await (supabase.from('chat_messages') as any)
+        .upsert(chunk, { onConflict: 'external_id', ignoreDuplicates: false })
+      if (error) {
+        console.error('[fetch-messages] upsert error', error)
+        return NextResponse.json({ error: error.message }, { status: 500 })
+      }
+      inserted += chunk.length
     }
-    inserted += chunk.length
   }
 
   // Apply reactions to target messages.

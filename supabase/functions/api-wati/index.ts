@@ -73,6 +73,36 @@ serve(async (req) => {
       return json(data)
     }
 
+    case 'send_file': {
+      const { url: fileUrl, caption, filename, mime_type } = body as any
+      if (!fileUrl) return json({ error: 'url required' }, 400)
+
+      const fileRes = await fetch(fileUrl)
+      if (!fileRes.ok) return json({ error: 'fetch_failed', httpStatus: fileRes.status }, 502)
+      const fileBlob = await fileRes.blob()
+
+      const form = new FormData()
+      form.append('file', new File([fileBlob], filename ?? 'file', { type: mime_type ?? 'application/octet-stream' }))
+      if (caption) form.append('caption', caption)
+
+      const watiRes = await fetch(
+        `${WATI_ENDPOINT}/api/v1/sendSessionFile/${encodeURIComponent(phone)}`,
+        {
+          method: 'POST',
+          headers: { Authorization: `Bearer ${WATI_TOKEN}` },
+          body: form,
+        },
+      )
+      const rawText = await watiRes.text()
+      let watiData: any
+      try { watiData = JSON.parse(rawText) } catch { watiData = { raw: rawText, httpStatus: watiRes.status } }
+      console.log(`[api-wati] sendSessionFile → HTTP ${watiRes.status}`, JSON.stringify(watiData).slice(0, 400))
+      if (!watiRes.ok) {
+        return json({ error: 'wati_rejected', httpStatus: watiRes.status, detail: rawText.slice(0, 300) }, watiRes.status)
+      }
+      return json(watiData)
+    }
+
     case 'send_template': {
       const data = await wati(`/api/v2/sendTemplateMessage?whatsappNumber=${encodeURIComponent(phone)}`, {
         method: 'POST',
@@ -84,7 +114,11 @@ serve(async (req) => {
     case 'get_templates': {
       if (!templateCache) {
         const data = await wati('/api/v1/getMessageTemplates')
-        if (!('error' in (data as object))) templateCache = (data as { messageTemplates?: unknown[] }).messageTemplates ?? []
+        if (!('error' in (data as object))) {
+          const EXCLUDED = new Set(['DELETED', 'PAUSED', 'DISABLED'])
+          const all: any[] = (data as { messageTemplates?: unknown[] }).messageTemplates ?? []
+          templateCache = all.filter((t: any) => !EXCLUDED.has((t.status ?? '').toUpperCase()))
+        }
       }
       return json({ messageTemplates: templateCache ?? [] })
     }
@@ -143,6 +177,23 @@ serve(async (req) => {
       }
 
       return json({ synced: totalSynced })
+    }
+
+    case 'set_status': {
+      const { status } = body as any
+      const VALID = new Set(['open', 'resolved', 'pending'])
+      if (!phone || !VALID.has(status)) return json({ error: 'phone and status (open|pending|resolved) required' }, 400)
+
+      // Fetch the most recent message to get the WATI ticketId for this phone
+      const msgData = await wati(`/api/v1/getMessages/${encodeURIComponent(phone)}?pageSize=1`) as any
+      const ticketId: string | undefined = msgData?.messages?.items?.[0]?.ticketId
+      if (!ticketId) return json({ error: 'no active ticket found for this phone' }, 404)
+
+      const data = await wati(`/api/v3/conversations/${ticketId}/target-status`, {
+        method: 'PUT',
+        body: JSON.stringify({ status }),
+      })
+      return json(data)
     }
 
     default:
