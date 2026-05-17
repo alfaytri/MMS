@@ -68,6 +68,14 @@ const formSchema = z.object({
   addresses: z.array(addressRowSchema),
   blacklistOn: z.boolean().optional(),
   blacklistReason: z.string().optional(),
+}).superRefine((data, ctx) => {
+  if (data.blacklistOn && !data.blacklistReason?.trim()) {
+    ctx.addIssue({
+      code: z.ZodIssueCode.custom,
+      message: 'Reason is required when blacklisting',
+      path: ['blacklistReason'],
+    })
+  }
 })
 
 type FormValues = z.infer<typeof formSchema>
@@ -133,8 +141,10 @@ export function ServiceCustomerFormDialog({
         blacklistOn: customer.is_blocked,
         blacklistReason: '',
       })
-      setPrimaryPhoneIdx(phones.findIndex((p) => p.is_primary) >= 0 ? phones.findIndex((p) => p.is_primary) : 0)
-      setPrimaryAddressIdx(addresses.findIndex((a) => a.is_primary) >= 0 ? addresses.findIndex((a) => a.is_primary) : 0)
+      const primaryPhoneI = phones.findIndex((p) => p.is_primary)
+      setPrimaryPhoneIdx(primaryPhoneI >= 0 ? primaryPhoneI : 0)
+      const primaryAddressI = addresses.findIndex((a) => a.is_primary)
+      setPrimaryAddressIdx(primaryAddressI >= 0 ? primaryAddressI : 0)
     } else {
       form.reset({
         name: '',
@@ -345,8 +355,11 @@ export function ServiceCustomerFormDialog({
                             form.setValue(`addresses.${aIdx}.phoneIndex`, addr.phoneIndex - 1)
                           }
                         })
-                        if (primaryPhoneIdx >= phoneFields.length - 1) setPrimaryPhoneIdx(0)
-                        else if (primaryPhoneIdx > idx) setPrimaryPhoneIdx(primaryPhoneIdx - 1)
+                        if (primaryPhoneIdx === idx) {
+                          setPrimaryPhoneIdx(0)
+                        } else if (primaryPhoneIdx > idx) {
+                          setPrimaryPhoneIdx(primaryPhoneIdx - 1)
+                        }
                       }}
                     >
                       <Trash2 className="h-3.5 w-3.5" />
@@ -417,7 +430,11 @@ export function ServiceCustomerFormDialog({
                         className="h-8 w-8 text-muted-foreground hover:text-destructive shrink-0"
                         onClick={() => {
                           removeAddress(idx)
-                          if (primaryAddressIdx >= addressFields.length - 1) setPrimaryAddressIdx(0)
+                          if (primaryAddressIdx === idx) {
+                            setPrimaryAddressIdx(0)
+                          } else if (primaryAddressIdx > idx) {
+                            setPrimaryAddressIdx(primaryAddressIdx - 1)
+                          }
                         }}
                       >
                         <Trash2 className="h-3.5 w-3.5" />
