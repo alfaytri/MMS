@@ -12,7 +12,7 @@ Strategy: pre-generate UUIDs in Python so all inserts can be batched.
   ~3 large operations instead of 20k individual ones.
 """
 
-import sys, argparse, time, uuid
+import sys, argparse, time, uuid, os
 import pandas as pd
 import requests
 
@@ -20,7 +20,9 @@ import requests
 
 EXCEL_PATH   = r"C:\Users\IT\Downloads\Customer Old Data.xlsx"
 SUPABASE_URL = "https://wkmvjxxmzstsvahuiwsz.supabase.co"
-SERVICE_KEY  = "REDACTED_SERVICE_ROLE_KEY"
+SERVICE_KEY  = os.environ.get("SUPABASE_SERVICE_ROLE_KEY", "")
+if not SERVICE_KEY:
+    raise SystemExit("Set SUPABASE_SERVICE_ROLE_KEY env var before running this script.")
 BATCH_SIZE   = 500
 
 HEADERS = {
