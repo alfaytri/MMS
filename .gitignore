@@ -2,7 +2,6 @@
 
 # Local issue tracking
 /Issues/
-
 # dependencies
 /node_modules
 /.pnp
@@ -45,7 +44,9 @@ next-env.d.ts
 
 # git worktrees
 .claude/worktrees/
+.claude/settings.local.json
 
 # Supabase CLI
 supabase/.temp/
 .playwright-mcp/
+

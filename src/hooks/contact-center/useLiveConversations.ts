@@ -44,8 +44,11 @@ export function useLiveConversations() {
 
     setConversations(
       (data as any[])
-        // Hide contacts synced from WATI that have never had a real message
-        .filter((row: any) => row.last_message != null || row.unread_count > 0)
+        // The SQL query already filters to last_message_at within 3 days — every
+        // row returned has recent activity. Hiding by last_message text was too
+        // aggressive: WATI's /getContacts API often omits lastMessage, so real
+        // conversations were invisible even though they had a valid last_message_at.
+        .filter((row: any) => row.last_message_at != null)
         .map((row) => ({
           ...row,
           customer_name: row.service_customers?.name ?? row.wati_contact_name ?? null,

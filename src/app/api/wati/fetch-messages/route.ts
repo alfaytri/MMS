@@ -320,6 +320,8 @@ export async function GET(req: NextRequest) {
       external_id:     externalId,
       created_at:      ts,
       message_kind:    isEvent ? 'event' : 'message',
+      // marker only — never written to DB; stripped before upsert
+      _isBroadcast:    item.eventType === 'broadcastMessage',
     }
   })
 
@@ -469,16 +471,32 @@ export async function GET(req: NextRequest) {
   const noAttachments: typeof rows = []
 
   for (const row of rows) {
+    const isBroadcast = (row as any)._isBroadcast === true
     if ((row as any).from_type === 'agent') {
-      if (!existingAgentRows.has(row.external_id)) continue
-      const { attachments: _omit, ...rest } = row as any
-      noAttachments.push(rest)
+      const isNew = !existingAgentRows.has(row.external_id)
+      // Skip agent rows not already in DB unless they're Wati-native broadcasts
+      // (broadcasts were never pre-inserted by MMS, so they have no existing row).
+      if (isNew && !isBroadcast) continue
+      const { attachments, _isBroadcast: _mb, ...rest } = row as any
+      if (isNew) {
+        // New broadcast row — treat attachments the same as customer messages
+        const hasRealUrl = (attachments as any[] | null)?.some((a: any) => a.url)
+        if (hasRealUrl) {
+          withAttachments.push({ ...rest, attachments })
+        } else {
+          noAttachments.push(rest)
+        }
+      } else {
+        // Existing MMS-sent row — omit attachments to preserve stored URLs
+        noAttachments.push(rest)
+      }
     } else {
+      const { _isBroadcast: _mb, ...rowClean } = row as any
       const hasRealUrl = (row.attachments as any[] | null)?.some((a: any) => a.url)
       if (hasRealUrl) {
-        withAttachments.push(row)
+        withAttachments.push(rowClean)
       } else {
-        const { attachments: _omit, ...rest } = row as any
+        const { attachments: _omit, ...rest } = rowClean
         noAttachments.push(rest)
       }
     }

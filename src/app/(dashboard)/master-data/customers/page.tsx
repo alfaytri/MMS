@@ -34,10 +34,8 @@ export default function CustomersPage() {
   const [createOpen, setCreateOpen]           = useState(false)
   const [newName, setNewName]                 = useState('')
   const [newPhone, setNewPhone]               = useState('')
-  const [newEmail, setNewEmail]               = useState('')
   const [newType, setNewType]                 = useState<'cash' | 'credit'>('credit')
   const [newGroupId, setNewGroupId]           = useState('')
-  const [newEntityType, setNewEntityType]     = useState<'individual' | 'business'>('individual')
 
   function handleSearch(val: string) {
     setSearch(val)
@@ -79,17 +77,15 @@ export default function CustomersPage() {
       {
         name:            newName.trim(),
         phone:           newPhone.trim(),
-        email:           newEmail.trim() || null,
         customer_type:   newType,
         credit_group_id: newType === 'credit' ? newGroupId : null,
-        entity_type:     newEntityType,
       },
       {
         onSuccess: () => {
           toast.success('Customer created')
           setCreateOpen(false)
-          setNewName(''); setNewPhone(''); setNewEmail('')
-          setNewType('credit'); setNewGroupId(''); setNewEntityType('individual')
+          setNewName(''); setNewPhone('')
+          setNewType('credit'); setNewGroupId('')
         },
         onError: (err) => toast.error(err.message),
       }
@@ -122,7 +118,6 @@ export default function CustomersPage() {
             <TableRow>
               <TableHead>Name</TableHead>
               <TableHead className="hidden sm:table-cell">Phone</TableHead>
-              <TableHead className="hidden md:table-cell">Entity</TableHead>
               <TableHead className="hidden md:table-cell">Type</TableHead>
               <TableHead>Credit Group</TableHead>
             </TableRow>
@@ -133,7 +128,6 @@ export default function CustomersPage() {
                   <TableRow key={i}>
                     <TableCell><Skeleton className="h-5 w-40" /></TableCell>
                     <TableCell className="hidden sm:table-cell"><Skeleton className="h-5 w-28" /></TableCell>
-                    <TableCell className="hidden md:table-cell"><Skeleton className="h-5 w-20" /></TableCell>
                     <TableCell className="hidden md:table-cell"><Skeleton className="h-5 w-20" /></TableCell>
                     <TableCell><Skeleton className="h-8 w-36" /></TableCell>
                   </TableRow>
@@ -148,11 +142,6 @@ export default function CustomersPage() {
                     </TableCell>
                     <TableCell className="hidden sm:table-cell text-sm text-muted-foreground">
                       {c.phone ?? '—'}
-                    </TableCell>
-                    <TableCell className="hidden md:table-cell text-sm text-muted-foreground capitalize">
-                      <Badge variant="outline" className="text-xs capitalize">
-                        {(c as any).entity_type ?? 'individual'}
-                      </Badge>
                     </TableCell>
                     <TableCell className="hidden md:table-cell text-sm text-muted-foreground capitalize">
                       {c.customer_type ?? '—'}
@@ -219,27 +208,6 @@ export default function CustomersPage() {
                 value={newPhone}
                 onChange={(e) => setNewPhone(e.target.value)}
               />
-            </div>
-            <div className="space-y-1.5">
-              <Label>Email</Label>
-              <Input
-                placeholder="optional"
-                type="email"
-                value={newEmail}
-                onChange={(e) => setNewEmail(e.target.value)}
-              />
-            </div>
-            <div className="space-y-1.5">
-              <Label>Entity Type <span className="text-destructive">*</span></Label>
-              <Select value={newEntityType} onValueChange={(v) => setNewEntityType(v as 'individual' | 'business')}>
-                <SelectTrigger>
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="individual">Individual</SelectItem>
-                  <SelectItem value="business">Business</SelectItem>
-                </SelectContent>
-              </Select>
             </div>
             <div className="space-y-1.5">
               <Label>Customer Type <span className="text-destructive">*</span></Label>

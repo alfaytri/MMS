@@ -66,6 +66,7 @@ interface TeamFormValues {
   division_id:          string
   countryCode:          string
   phoneNumber:          string
+  is_normal:            boolean
   is_emergency:         boolean
   is_qc:                boolean
   site_visit_order:     boolean
@@ -94,6 +95,7 @@ export function TeamEditDialog() {
       division_id:          '',
       countryCode:          '+974',
       phoneNumber:          '',
+      is_normal:            true,
       is_emergency:         false,
       is_qc:                false,
       site_visit_order:     false,
@@ -108,10 +110,8 @@ export function TeamEditDialog() {
   useEffect(() => {
     setSaveError(null)
     if (team) {
-      const isEmergency = team.is_emergency ?? false
-      const isQc        = isEmergency ? false : (team.is_qc ?? false)
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      const parsed      = parsePhone((team as any).phone ?? '')
+      const parsed = parsePhone((team as any).phone ?? '')
       form.reset({
         name_en:           team.name_en ?? team.name ?? '',
         // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -121,19 +121,21 @@ export function TeamEditDialog() {
         division_id:       ((team as any).division_id as string) ?? '',
         countryCode:       parsed.code,
         phoneNumber:       parsed.number,
-        is_emergency:         isEmergency,
-        is_qc:                isQc,
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        is_normal:            (team as any).is_normal            ?? !(team.is_qc ?? false),
+        is_emergency:         team.is_emergency                  ?? false,
+        is_qc:                team.is_qc                         ?? false,
         // eslint-disable-next-line @typescript-eslint/no-explicit-any
         site_visit_order:     (team as any).site_visit_order     ?? false,
         // eslint-disable-next-line @typescript-eslint/no-explicit-any
         site_visit_quotation: (team as any).site_visit_quotation ?? false,
-        traccar_device_id:    team.traccar_device_id ?? '',
+        traccar_device_id:    team.traccar_device_id             ?? '',
       })
     } else {
       form.reset({
         name_en: '', name_ar: '', company_id: '', division_id: '',
         countryCode: '+974', phoneNumber: '',
-        is_emergency: false, is_qc: false,
+        is_normal: true, is_emergency: false, is_qc: false,
         site_visit_order: false, site_visit_quotation: false,
         traccar_device_id: '',
       })
@@ -153,6 +155,7 @@ export function TeamEditDialog() {
         name_ar:           values.name_ar           || null,
         division_id:       values.division_id        || null,
         phone:             fullPhone,
+        is_normal:            values.is_normal,
         is_emergency:         values.is_emergency,
         is_qc:                values.is_qc,
         site_visit_order:     values.site_visit_order,
@@ -188,9 +191,6 @@ export function TeamEditDialog() {
   }
 
   const isPending = createTeam.isPending || updateTeam.isPending
-  const isQc      = form.watch('is_qc')
-  const isEmerg   = form.watch('is_emergency')
-  const isNormal  = !isQc && !isEmerg
 
   return (
     <Dialog open={open} onOpenChange={isOpen => { if (!isOpen) closeTeamDialog() }}>
@@ -301,7 +301,7 @@ export function TeamEditDialog() {
               <div className="rounded-lg border p-3 space-y-3">
                 <p className="text-sm font-medium">Team Type</p>
 
-                {/* QC Team */}
+                {/* QC Team — exclusive: turns off Normal + Emergency */}
                 <FormField
                   control={form.control}
                   name="is_qc"
@@ -315,7 +315,10 @@ export function TeamEditDialog() {
                           checked={field.value}
                           onCheckedChange={checked => {
                             field.onChange(checked)
-                            if (checked) form.setValue('is_emergency', false)
+                            if (checked) {
+                              form.setValue('is_normal', false)
+                              form.setValue('is_emergency', false)
+                            }
                           }}
                         />
                       </FormControl>
@@ -323,21 +326,29 @@ export function TeamEditDialog() {
                   )}
                 />
 
-                {/* Normal — derived: neither QC nor Emergency */}
-                <div className="flex items-center justify-between">
-                  <span className="text-sm font-normal">Normal</span>
-                  <Switch
-                    checked={isNormal}
-                    onCheckedChange={checked => {
-                      if (checked) {
-                        form.setValue('is_qc', false)
-                        form.setValue('is_emergency', false)
-                      }
-                    }}
-                  />
-                </div>
+                {/* Normal — can coexist with Emergency; turns off QC if on */}
+                <FormField
+                  control={form.control}
+                  name="is_normal"
+                  render={({ field }) => (
+                    <FormItem className="flex items-center justify-between">
+                      <FormLabel className="!mt-0 font-normal text-sm cursor-pointer">
+                        Normal
+                      </FormLabel>
+                      <FormControl>
+                        <Switch
+                          checked={field.value}
+                          onCheckedChange={checked => {
+                            field.onChange(checked)
+                            if (checked) form.setValue('is_qc', false)
+                          }}
+                        />
+                      </FormControl>
+                    </FormItem>
+                  )}
+                />
 
-                {/* Emergency */}
+                {/* Emergency — can coexist with Normal; turns off QC if on */}
                 <FormField
                   control={form.control}
                   name="is_emergency"

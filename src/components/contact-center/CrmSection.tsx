@@ -130,7 +130,9 @@ export function CrmSection({ customerData, onCustomerResolved, pendingPhone }: P
   }
 
   // ── Unknown caller view ────────────────────────────────────────────────────
-  if (crmMode === 'unknown') {
+  // Also shown when there's simply no linked customer (no need to set crmMode
+  // explicitly — the !customer path falls through here automatically).
+  if (crmMode === 'unknown' || (!customerLoading && !customer)) {
     return (
       <div className="px-3 py-2 space-y-3">
         <p className="text-xs font-medium text-muted-foreground uppercase tracking-wide">Unknown Caller</p>
@@ -182,9 +184,6 @@ export function CrmSection({ customerData, onCustomerResolved, pendingPhone }: P
     return <div className="px-3 py-2 text-xs text-muted-foreground">Loading…</div>
   }
 
-  if (!customer) {
-    return <div className="px-3 py-2 text-xs text-muted-foreground">No customer data</div>
-  }
 
   // ── View mode ──────────────────────────────────────────────────────────────
   if (crmMode === 'view') {

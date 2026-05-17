@@ -41,6 +41,14 @@ function sleep(ms: number) {
   return new Promise<void>((r) => setTimeout(r, ms))
 }
 
+async function safeWrite(writer: WritableStreamDefaultWriter, data: Uint8Array) {
+  try {
+    await writer.write(data)
+  } catch {
+    // client disconnected — stream already closed
+  }
+}
+
 async function watiGet(path: string, retries = 3): Promise<{ ok: true; data: any } | { ok: false; status: number; text: string }> {
   for (let attempt = 0; attempt < retries; attempt++) {
     const res = await fetch(`${WATI_URL}${path}`, {
@@ -157,6 +165,10 @@ async function upsertContacts(allContacts: any[], supabase: ReturnType<typeof cr
     synced += chunk.length
   }
 
+  // Backfill last_message from chat_messages for conversations where Wati's
+  // /getContacts API didn't return lastMessage text.
+  await (supabase as any).rpc('backfill_conversation_last_messages')
+
   return synced
 }
 
@@ -188,11 +200,14 @@ export async function GET(req: NextRequest) {
       const maxPages = full ? Infinity : RECENT_MAX_PAGES
 
       while (pageNumber <= maxPages) {
-        await writer.write(encode({ stage: 'fetching', page: pageNumber, total: allContacts.length }))
+        // Stop pumping SSE events once the client has gone away
+        if (req.signal.aborted) break
+
+        await safeWrite(writer, encode({ stage: 'fetching', page: pageNumber, total: allContacts.length }))
 
         const result = await watiGet(`/api/v1/getContacts?pageSize=${PAGE_SIZE}&pageNumber=${pageNumber}`)
         if (!result.ok) {
-          await writer.write(encode({ error: `WATI ${result.status}: ${result.text}` }))
+          await safeWrite(writer, encode({ error: `WATI ${result.status}: ${result.text}` }))
           return
         }
 
@@ -217,16 +232,50 @@ export async function GET(req: NextRequest) {
         await sleep(300)
       }
 
-      await writer.write(encode({ stage: 'resolving', fetched: allContacts.length }))
+      await safeWrite(writer, encode({ stage: 'resolving', fetched: allContacts.length }))
 
       const synced = await upsertContacts(allContacts, supabase)
-      await writer.write(encode({ stage: 'upserting', synced, total: synced }))
-      await writer.write(encode({ done: true, synced, full }))
+      await safeWrite(writer, encode({ stage: 'upserting', synced, total: synced }))
+
+      // For conversations still missing last_message (Wati's /getContacts didn't
+      // return lastMessage and they've never been opened in the app so chat_messages
+      // is empty), fetch 1 page from Wati's getMessages to populate the preview text.
+      // Cap at 50 and use the same date window as the contact sync.
+      const msgCutoff = cutoff ?? new Date(Date.now() - RECENT_DAYS * 24 * 60 * 60 * 1000)
+      const { data: nullMsgConvos } = await (supabase as any)
+        .from('chat_conversations')
+        .select('id, wati_phone')
+        .is('last_message', null)
+        .not('last_message_at', 'is', null)
+        .gte('last_message_at', msgCutoff.toISOString())
+        .order('last_message_at', { ascending: false })
+        .limit(50)
+
+      for (const convo of (nullMsgConvos ?? []) as { id: string; wati_phone: string }[]) {
+        const phone = convo.wati_phone.replace(/^\+/, '')
+        const result = await watiGet(`/api/v1/getMessages/${encodeURIComponent(phone)}?pageSize=5&pageNumber=1`)
+        if (!result.ok) continue
+        const items: any[] = result.data?.messages?.items ?? []
+        // Skip ticket/note/activity system events — find the first real message
+        const msgItem = items.find((item: any) => {
+          const t = String(item.type ?? '').toLowerCase()
+          return item.eventType !== 'ticket' && t !== 'note' && t !== 'activity' && t !== 'reaction'
+        })
+        if (!msgItem) continue
+        const text = (msgItem.finalText ?? msgItem.text ?? '').trim() || '[message]'
+        await (supabase as any)
+          .from('chat_conversations')
+          .update({ last_message: text })
+          .eq('id', convo.id)
+        await sleep(100)
+      }
+
+      await safeWrite(writer, encode({ done: true, synced, full }))
     } catch (err: any) {
       console.error('[sync-contacts] error', err)
-      await writer.write(encode({ error: err.message ?? 'Unknown error' }))
+      await safeWrite(writer, encode({ error: err.message ?? 'Unknown error' }))
     } finally {
-      await writer.close()
+      try { await writer.close() } catch { /* already closed by client disconnect */ }
     }
   })()
 
