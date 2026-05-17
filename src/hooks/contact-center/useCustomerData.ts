@@ -26,6 +26,23 @@ export interface CustomerPhone {
   is_primary: boolean
 }
 
+export interface ServiceCustomerAddress {
+  id: string
+  customer_id: string
+  phone_id: string | null
+  address_type: 'blue-plate' | 'google-coords'
+  label: string | null
+  unit: string | null
+  building: string | null
+  street: string | null
+  zone: string | null
+  lat: number | null
+  lng: number | null
+  is_primary: boolean
+  is_geocoded: boolean
+  waze_link: string | null
+  tags: string[]
+}
 
 export function useCustomerData(customerId: string | null) {
   const supabase = createClient()
@@ -54,6 +71,21 @@ export function useCustomerData(customerId: string | null) {
       if (!customerId) return []
       const { data, error } = await (supabase as any)
         .from('service_customer_phones')
+        .select('*')
+        .eq('customer_id', customerId)
+        .order('is_primary', { ascending: false })
+      if (error) throw error
+      return data ?? []
+    },
+    enabled: !!customerId,
+  })
+
+  const { data: addresses = [] } = useQuery<ServiceCustomerAddress[]>({
+    queryKey: ['service-customer-addresses', customerId],
+    queryFn: async () => {
+      if (!customerId) return []
+      const { data, error } = await (supabase as any)
+        .from('service_customer_addresses')
         .select('*')
         .eq('customer_id', customerId)
         .order('is_primary', { ascending: false })
@@ -172,6 +204,7 @@ export function useCustomerData(customerId: string | null) {
     customer,
     customerLoading,
     phones,
+    addresses,
     products,
     blocks,
     crmMode,
