@@ -1,18 +1,10 @@
 'use client'
 
 import { useState, useEffect, useRef } from 'react'
-import { Search, MessageSquare, RefreshCw, AlertCircle, CheckCircle2, ChevronDown, Headphones, Bot } from 'lucide-react'
+import { Search, MessageSquare, RefreshCw, AlertCircle, CheckCircle2, Headphones, Bot } from 'lucide-react'
 import { Input } from '@/components/ui/input'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuSeparator,
-  DropdownMenuTrigger,
-} from '@/components/ui/dropdown-menu'
-import { cn } from '@/lib/utils'
 import type { ChatConversation } from '@/types/contact-center'
 import type { SyncProgress } from '@/hooks/contact-center/useContactCenterState'
 
@@ -247,38 +239,16 @@ export function ChatListView({ conversations, loading, onSelectConversation, onS
           />
         </div>
         {onSync && (
-          <DropdownMenu>
-            <DropdownMenuTrigger
-              disabled={!!isSyncing}
-              title="Sync from WATI"
-              className={cn(
-                'inline-flex items-center gap-1 h-8 px-2 rounded-md text-sm font-medium transition-colors',
-                'hover:bg-accent hover:text-accent-foreground',
-                'focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring',
-                'disabled:pointer-events-none disabled:opacity-50',
-              )}
-            >
-              <RefreshCw className={`h-3.5 w-3.5 ${isSyncing ? 'animate-spin' : ''}`} />
-              <ChevronDown className="h-3 w-3 opacity-60" />
-            </DropdownMenuTrigger>
-            <DropdownMenuContent align="end" className="text-xs">
-              <DropdownMenuItem onClick={() => handleSync(false)} className="text-xs gap-2">
-                <RefreshCw className="h-3.5 w-3.5" />
-                <div>
-                  <p className="font-medium">Sync recent</p>
-                  <p className="text-muted-foreground">Last 500 contacts (~10 s)</p>
-                </div>
-              </DropdownMenuItem>
-              <DropdownMenuSeparator />
-              <DropdownMenuItem onClick={() => handleSync(true)} className="text-xs gap-2">
-                <RefreshCw className="h-3.5 w-3.5" />
-                <div>
-                  <p className="font-medium">Sync all contacts</p>
-                  <p className="text-muted-foreground">All 13 000+ contacts (~5 min)</p>
-                </div>
-              </DropdownMenuItem>
-            </DropdownMenuContent>
-          </DropdownMenu>
+          <Button
+            variant="ghost"
+            size="icon"
+            className="h-8 w-8 flex-shrink-0"
+            disabled={!!isSyncing}
+            title="Sync from WATI (today + yesterday)"
+            onClick={() => handleSync()}
+          >
+            <RefreshCw className={`h-3.5 w-3.5 ${isSyncing ? 'animate-spin' : ''}`} />
+          </Button>
         )}
       </div>
 
