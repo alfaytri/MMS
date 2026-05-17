@@ -60,6 +60,7 @@ export async function POST(req: NextRequest) {
     documentName,
     imageUrl,
     senderName,
+    skipDbInsert,
   } = body as {
     phone?: string
     text?: string
@@ -67,6 +68,7 @@ export async function POST(req: NextRequest) {
     documentName?: string
     imageUrl?: string
     senderName?: string
+    skipDbInsert?: boolean
   }
 
   if (!rawPhone || !text) {
@@ -130,79 +132,81 @@ export async function POST(req: NextRequest) {
     console.error('[whapi/send-message] WHAPI fetch threw:', whapiError)
   }
 
-  // ── 4. Save to Supabase ──────────────────────────────────────────────────────
-  const supabase = createAdminClient()
-  const ts       = new Date().toISOString()
+  // ── 4. Save to Supabase (skipped when caller manages its own optimistic row) ──
+  if (!skipDbInsert) {
+    const supabase = createAdminClient()
+    const ts       = new Date().toISOString()
 
-  // Build attachments array
-  const attachments: Array<{ url: string; type: string; name: string }> = []
-  if (documentUrl) {
-    attachments.push({
-      url:  documentUrl,
-      type: 'application/pdf',
-      name: documentName ?? 'document.pdf',
-    })
-  }
-  if (imageUrl) {
-    attachments.push({ url: imageUrl, type: 'image/jpeg', name: 'image' })
-  }
-
-  // Find or create conversation row keyed by phone
-  const { data: existing } = await (supabase.from('chat_conversations') as any)
-    .select('id')
-    .eq('wati_phone', phone)
-    .maybeSingle()
-
-  let conversationId: string
-
-  if (existing) {
-    conversationId = existing.id
-    await (supabase.from('chat_conversations') as any)
-      .update({
-        last_message:    text,
-        last_message_at: ts,
-        ...(senderName ? { assigned_agent: senderName } : {}),
+    // Build attachments array
+    const attachments: Array<{ url: string; type: string; name: string }> = []
+    if (documentUrl) {
+      attachments.push({
+        url:  documentUrl,
+        type: 'application/pdf',
+        name: documentName ?? 'document.pdf',
       })
-      .eq('id', conversationId)
-  } else {
-    const { data: created, error: createErr } = await (supabase.from('chat_conversations') as any)
-      .insert({
-        wati_phone:      phone,
-        last_message:    text,
-        last_message_at: ts,
-        unread_count:    0,
-        ...(senderName ? { assigned_agent: senderName } : {}),
-      })
-      .select('id')
-      .single()
-
-    if (createErr || !created) {
-      console.error('[whapi/send-message] create conversation error', createErr)
-      return NextResponse.json({ error: createErr?.message ?? 'Failed to create conversation' }, { status: 500 })
     }
-    conversationId = created.id
-  }
+    if (imageUrl) {
+      attachments.push({ url: imageUrl, type: 'image/jpeg', name: 'image' })
+    }
 
-  // Insert the outbound message row
-  const insertPayload: Record<string, unknown> = {
-    conversation_id: conversationId,
-    from_type:       'agent',
-    source:          'whatsapp_api',
-    text,
-    agent_name:      senderName ?? 'Agent',
-    attachments:     attachments.length > 0 ? attachments : null,
-    delivery_status: whapiOk ? 'sending' : 'failed',
-    message_kind:    'message',
-    created_at:      ts,
-  }
-  if (messageId) insertPayload.external_id = messageId
+    // Find or create conversation row keyed by phone
+    const { data: existing } = await (supabase.from('chat_conversations') as any)
+      .select('id')
+      .eq('wati_phone', phone)
+      .maybeSingle()
 
-  const { error: insertErr } = await (supabase.from('chat_messages') as any)
-    .insert(insertPayload)
+    let conversationId: string
 
-  if (insertErr) {
-    console.error('[whapi/send-message] insert message error', insertErr)
-    return NextResponse.json({ error: insertErr.message }, { status: 500 })
+    if (existing) {
+      conversationId = existing.id
+      await (supabase.from('chat_conversations') as any)
+        .update({
+          last_message:    text,
+          last_message_at: ts,
+          ...(senderName ? { assigned_agent: senderName } : {}),
+        })
+        .eq('id', conversationId)
+    } else {
+      const { data: created, error: createErr } = await (supabase.from('chat_conversations') as any)
+        .insert({
+          wati_phone:      phone,
+          last_message:    text,
+          last_message_at: ts,
+          unread_count:    0,
+          ...(senderName ? { assigned_agent: senderName } : {}),
+        })
+        .select('id')
+        .single()
+
+      if (createErr || !created) {
+        console.error('[whapi/send-message] create conversation error', createErr)
+        return NextResponse.json({ error: createErr?.message ?? 'Failed to create conversation' }, { status: 500 })
+      }
+      conversationId = created.id
+    }
+
+    // Insert the outbound message row
+    const insertPayload: Record<string, unknown> = {
+      conversation_id: conversationId,
+      from_type:       'agent',
+      source:          'whatsapp_api',
+      text,
+      agent_name:      senderName ?? 'Agent',
+      attachments:     attachments.length > 0 ? attachments : null,
+      delivery_status: whapiOk ? 'sending' : 'failed',
+      message_kind:    'message',
+      created_at:      ts,
+    }
+    if (messageId) insertPayload.external_id = messageId
+
+    const { error: insertErr } = await (supabase.from('chat_messages') as any)
+      .insert(insertPayload)
+
+    if (insertErr) {
+      console.error('[whapi/send-message] insert message error', insertErr)
+      return NextResponse.json({ error: insertErr.message }, { status: 500 })
+    }
   }
 
   // ── 5. Return result ─────────────────────────────────────────────────────────

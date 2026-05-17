@@ -104,7 +104,7 @@ export function useChatMessages(
         const res = await fetch('/api/whapi/send-message', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ phone, text: text.trim() }),
+          body: JSON.stringify({ phone, text: text.trim(), skipDbInsert: true }),
         })
         const data = await res.json().catch(() => ({}))
         if (!res.ok) throw new Error(data.error ?? 'WHAPI send failed')
@@ -310,23 +310,39 @@ export function useChatMessages(
     patchMessage(message.id, { delivery_status: 'sending' })
     await (supabase as any).from('chat_messages').update({ delivery_status: 'sending' }).eq('id', message.id)
     try {
-      const { data: fnData } = await supabase.functions.invoke('api-wati', {
-        body: { action: 'send_session_message', phone, text: message.text },
-      })
-      const watiId = (fnData as any)?.message?.whatsappMessageId
-        ?? (fnData as any)?.info?.whatsAppMessageId
-        ?? (fnData as any)?.id
-        ?? (fnData as any)?.messageId
-      const patch = watiId
-        ? { external_id: `wati_${watiId}`, delivery_status: 'sent' as const }
-        : { delivery_status: 'sent' as const }
-      await (supabase as any).from('chat_messages').update(patch).eq('id', message.id)
-      patchMessage(message.id, patch)
+      if (provider === 'whapi') {
+        const res = await fetch('/api/whapi/send-message', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ phone, text: message.text, skipDbInsert: true }),
+        })
+        const data = await res.json().catch(() => ({}))
+        if (!res.ok) throw new Error(data.error ?? 'WHAPI retry failed')
+        const whapiId = data.messageId ?? null
+        const patch = whapiId
+          ? { external_id: whapiId, delivery_status: 'sent' as const }
+          : { delivery_status: 'sent' as const }
+        await (supabase as any).from('chat_messages').update(patch).eq('id', message.id)
+        patchMessage(message.id, patch)
+      } else {
+        const { data: fnData } = await supabase.functions.invoke('api-wati', {
+          body: { action: 'send_session_message', phone, text: message.text },
+        })
+        const watiId = (fnData as any)?.message?.whatsappMessageId
+          ?? (fnData as any)?.info?.whatsAppMessageId
+          ?? (fnData as any)?.id
+          ?? (fnData as any)?.messageId
+        const patch = watiId
+          ? { external_id: `wati_${watiId}`, delivery_status: 'sent' as const }
+          : { delivery_status: 'sent' as const }
+        await (supabase as any).from('chat_messages').update(patch).eq('id', message.id)
+        patchMessage(message.id, patch)
+      }
     } catch {
       await (supabase as any).from('chat_messages').update({ delivery_status: 'failed' }).eq('id', message.id)
       patchMessage(message.id, { delivery_status: 'failed' })
     }
-  }, [supabase, patchMessage])
+  }, [provider, supabase, patchMessage])
 
   const sendFile = useCallback(async ({ conversationId, phone, file, caption, agentProfileId }: SendFileParams) => {
     if (sending) return
@@ -381,7 +397,7 @@ export function useChatMessages(
     try {
       if (provider === 'whapi') {
         const isImage = file.type.startsWith('image/')
-        const reqBody: any = { phone, text: caption ?? '' }
+        const reqBody: any = { phone, text: caption ?? '', skipDbInsert: true }
         if (isImage) reqBody.imageUrl = publicUrl
         else { reqBody.documentUrl = publicUrl; reqBody.documentName = file.name }
         const res = await fetch('/api/whapi/send-message', {

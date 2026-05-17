@@ -1,8 +1,6 @@
 import { type NextRequest, NextResponse } from 'next/server'
-import { createClient } from '@supabase/supabase-js'
+import { createAdminClient } from '@/lib/supabase/admin'
 
-const SUPA_URL = process.env.NEXT_PUBLIC_SUPABASE_URL!
-const SUPA_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY!
 const WEBHOOK_SECRET = process.env.WHAPI_WEBHOOK_SECRET ?? ''
 
 function normalisePhone(raw: string): string {
@@ -36,7 +34,7 @@ export async function POST(req: NextRequest) {
   let body: any
   try { body = await req.json() } catch { return new Response('Bad JSON', { status: 400 }) }
 
-  const supabase = createClient(SUPA_URL, SUPA_KEY)
+  const supabase = createAdminClient()
   const eventType = body?.event?.type
 
   // ── Status updates ───────────────────────────────────────────────────────────
