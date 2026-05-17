@@ -1,15 +1,13 @@
 'use client'
 
 import { useEffect, useRef, useState } from 'react'
-import { ChevronLeft, ChevronRight, MessageSquare, MapPin, Package, Clock, User, ChevronDown } from 'lucide-react'
+import { ChevronLeft, ChevronRight, MessageSquare, MapPin, User, ChevronDown } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { ChatListView }        from './ChatListView'
 import { ChatSection }         from './ChatSection'
 import { ChatInputBar }        from './ChatInputBar'
 import { CrmSection }          from './CrmSection'
 import { AddressSection }      from './AddressSection'
-import { ProductsList }        from './ProductsList'
-import { OrderHistorySection } from './OrderHistorySection'
 import { useContactCenterState } from '@/hooks/contact-center/useContactCenterState'
 import { useContactCenterContext } from '@/contexts/ContactCenterContext'
 import type { ChatConversation } from '@/types/contact-center'
@@ -228,13 +226,6 @@ export function ContactCenterSidebar() {
           <AddressSection addressState={addressState} />
         </SectionHeader>
 
-        <SectionHeader icon={<Package className="h-3 w-3" />} label="Products">
-          <ProductsList products={customerData.products} />
-        </SectionHeader>
-
-        <SectionHeader icon={<Clock className="h-3 w-3" />} label="Order History">
-          <OrderHistorySection customerId={activeCustomerId} />
-        </SectionHeader>
       </div>
 
       {/* Chat thread — takes all remaining height */}
