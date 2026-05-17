@@ -10,7 +10,7 @@ import { cn } from '@/lib/utils'
 import { ExternalLink, CheckCircle2, XCircle, Loader2 } from 'lucide-react'
 import type { CustomerAddress } from '@/types/orders'
 
-type Mode = 'blue_plate' | 'coordinates'
+type Mode = 'blue-plate' | 'google-coords'
 type VerifyState = 'idle' | 'loading' | 'found' | 'not_found' | 'error'
 
 interface QnasResult { lat: number; lng: number }
@@ -34,7 +34,7 @@ function wazeUrl(lat: number, lng: number): string {
 export function AddressCreationSheet({ open, onOpenChange, customerId, phoneId, onAdded }: Props) {
   const { addAddress } = useCustomerAddresses(customerId)
 
-  const [mode, setMode] = useState<Mode>('blue_plate')
+  const [mode, setMode] = useState<Mode>('blue-plate')
   const [label, setLabel] = useState('')
 
   // Blue Plate fields
@@ -87,7 +87,7 @@ export function AddressCreationSheet({ open, onOpenChange, customerId, phoneId, 
   }
 
   function resetState() {
-    setMode('blue_plate')
+    setMode('blue-plate')
     setLabel('')
     setBuildingNo(''); setStreetNo(''); setZoneNo('')
     setLat(''); setLng('')
@@ -101,18 +101,24 @@ export function AddressCreationSheet({ open, onOpenChange, customerId, phoneId, 
       return
     }
     try {
+      const geocoded = verifyState === 'found' && qnasResult != null
       const address = await addAddress.mutateAsync({
         customer_id: customerId,
-        phone_id: phoneId,
+        phone_id: phoneId || null,
         label: label || null,
-        address_type: 'blue_plate',
-        blue_plate_no: null,
-        unit_no: null,
-        building_no: buildingNo || null,
-        street_no: streetNo || null,
-        zone_no: zoneNo || null,
-        lat: null, lng: null,
+        address_type: 'blue-plate',
+        unit: null,
+        building: buildingNo || null,
+        street: streetNo || null,
+        zone: zoneNo || null,
+        lat: geocoded ? qnasResult!.lat : null,
+        lng: geocoded ? qnasResult!.lng : null,
         is_primary: false,
+        is_geocoded: geocoded,
+        waze_link: geocoded
+          ? `https://waze.com/ul?ll=${qnasResult!.lat},${qnasResult!.lng}&navigate=yes`
+          : null,
+        tags: [],
       })
       onAdded(address)
       onOpenChange(false)
@@ -132,13 +138,15 @@ export function AddressCreationSheet({ open, onOpenChange, customerId, phoneId, 
     try {
       const address = await addAddress.mutateAsync({
         customer_id: customerId,
-        phone_id: phoneId,
+        phone_id: phoneId || null,
         label: label || null,
-        address_type: 'coordinates',
-        blue_plate_no: null,
-        unit_no: null, building_no: null, street_no: null, zone_no: null,
+        address_type: 'google-coords',
+        unit: null, building: null, street: null, zone: null,
         lat: latNum, lng: lngNum,
         is_primary: false,
+        is_geocoded: true,
+        waze_link: `https://waze.com/ul?ll=${latNum},${lngNum}&navigate=yes`,
+        tags: [],
       })
       onAdded(address)
       onOpenChange(false)
@@ -172,7 +180,7 @@ export function AddressCreationSheet({ open, onOpenChange, customerId, phoneId, 
 
           {/* Mode toggle */}
           <div className="flex rounded-lg border border-slate-200 bg-slate-50 p-1 gap-1">
-            {(['blue_plate', 'coordinates'] as const).map((m) => (
+            {(['blue-plate', 'google-coords'] as const).map((m) => (
               <button
                 key={m}
                 type="button"
@@ -184,13 +192,13 @@ export function AddressCreationSheet({ open, onOpenChange, customerId, phoneId, 
                     : 'text-slate-500 hover:text-slate-700'
                 )}
               >
-                {m === 'blue_plate' ? 'Blue Plate' : 'Coordinates'}
+                {m === 'blue-plate' ? 'Blue Plate' : 'Coordinates'}
               </button>
             ))}
           </div>
 
           {/* ── Blue Plate ── */}
-          {mode === 'blue_plate' && (
+          {mode === 'blue-plate' && (
             <div className="space-y-4">
               <div className="grid grid-cols-2 gap-4">
                 <div className="space-y-1.5">
@@ -277,7 +285,7 @@ export function AddressCreationSheet({ open, onOpenChange, customerId, phoneId, 
           )}
 
           {/* ── Coordinates ── */}
-          {mode === 'coordinates' && (
+          {mode === 'google-coords' && (
             <div className="space-y-4">
               <div className="grid grid-cols-2 gap-4">
                 <div className="space-y-1.5">

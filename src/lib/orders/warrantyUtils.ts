@@ -19,12 +19,12 @@ export function getWarrantyInfo(
 }
 
 export function formatAddressLine(address: CustomerAddress): string {
-  if (address.address_type === 'blue_plate') {
+  if (address.address_type === 'blue-plate') {
     const parts = [
-      address.unit_no && `U-${address.unit_no}`,
-      address.building_no && `B ${address.building_no}`,
-      address.street_no && `St ${address.street_no}`,
-      address.zone_no && `Zone ${address.zone_no}`,
+      address.unit     && `U-${address.unit}`,
+      address.building && `B ${address.building}`,
+      address.street   && `St ${address.street}`,
+      address.zone     && `Zone ${address.zone}`,
     ].filter(Boolean)
     return parts.length > 0 ? parts.join(', ') + ', Qatar' : 'Qatar'
   }

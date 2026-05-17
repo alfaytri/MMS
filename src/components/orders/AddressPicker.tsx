@@ -106,7 +106,7 @@ export function AddressPicker({ customerId, phoneId, selected, onSelect, classNa
                     <p className="text-xs text-slate-500">{formatAddressLine(addr)}</p>
                   </div>
                   <Badge variant="outline" className="ml-auto shrink-0 text-xs">
-                    {addr.address_type === 'blue_plate' ? 'BP' : 'GPS'}
+                    {addr.address_type === 'blue-plate' ? 'BP' : 'GPS'}
                   </Badge>
                 </button>
               ))}

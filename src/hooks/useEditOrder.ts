@@ -200,9 +200,9 @@ export function useEditOrder(orderId: string) {
 
       const addressString = draft.addressSnapshot
         ? [
-            draft.addressSnapshot.blue_plate_no,
-            draft.addressSnapshot.street_no,
-            draft.addressSnapshot.zone_no,
+            draft.addressSnapshot.building,
+            draft.addressSnapshot.street,
+            draft.addressSnapshot.zone,
           ]
             .filter(Boolean)
             .join(', ')

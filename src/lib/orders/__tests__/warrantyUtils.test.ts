@@ -34,11 +34,12 @@ describe('getWarrantyInfo', () => {
 
 describe('formatAddressLine', () => {
   const base: CustomerAddress = {
-    id: '1', customer_id: '1', phone_id: '1', label: null,
-    address_type: 'blue_plate', blue_plate_no: 'BP123',
-    unit_no: '5', building_no: '58', street_no: '662', zone_no: '70',
+    id: '1', customer_id: '1', phone_id: null, label: null,
+    address_type: 'blue-plate',
+    unit: '5', building: '58', street: '662', zone: '70',
     lat: null, lng: null,
-    is_primary: false, created_at: '2026-01-01'
+    is_primary: false, is_geocoded: false, waze_link: null, tags: [],
+    created_at: '2026-01-01',
   }
 
   it('formats blue plate address from parts', () => {
@@ -47,12 +48,12 @@ describe('formatAddressLine', () => {
   })
 
   it('formats coordinates address', () => {
-    const coords: CustomerAddress = { ...base, address_type: 'coordinates', lat: 25.3764, lng: 51.448 }
+    const coords: CustomerAddress = { ...base, address_type: 'google-coords', lat: 25.3764, lng: 51.448 }
     expect(formatAddressLine(coords)).toBe('25.3764, 51.4480')
   })
 
   it('returns fallback for empty coords', () => {
-    const empty: CustomerAddress = { ...base, address_type: 'coordinates', lat: null, lng: null }
+    const empty: CustomerAddress = { ...base, address_type: 'google-coords', lat: null, lng: null }
     expect(formatAddressLine(empty)).toBe('Address on file')
   })
 })
