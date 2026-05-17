@@ -8,7 +8,7 @@ const ALLOWED_PATHS = new Set<string>([
 // Inbound webhooks from external services (Wati, 17track) carry no session
 // cookie — they must bypass the auth gate. Each route validates its own
 // shared secret / signature instead.
-const WEBHOOK_PREFIXES = ['/api/wati/webhook', '/api/webhooks/']
+const WEBHOOK_PREFIXES = ['/api/wati/webhook', '/api/whapi/webhook', '/api/webhooks/']
 
 export async function middleware(request: NextRequest) {
   let supabaseResponse = NextResponse.next({ request })
