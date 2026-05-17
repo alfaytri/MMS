@@ -6,10 +6,10 @@ const WATI_TOKEN = (process.env.WATI_API_TOKEN ?? '').replace(/^Bearer\s+/i, '')
 const SUPA_URL   = process.env.NEXT_PUBLIC_SUPABASE_URL!
 const SUPA_KEY   = process.env.SUPABASE_SERVICE_ROLE_KEY!
 
-// Recent mode: scan up to this many pages (100 contacts each) regardless of sort order.
-// Wati sorts /getContacts by name, not by date, so date-based early cutoff is unreliable.
-const RECENT_MAX_PAGES = 15
-const RECENT_DAYS = 3
+// Default (recent) mode: scan ALL pages but keep only contacts active in the last
+// RECENT_DAYS days. Wati sorts by name, not date, so a page cap would miss contacts
+// whose names fall later in the alphabet.
+const RECENT_DAYS = 2
 const PAGE_SIZE   = 100
 
 function normalisePhone(raw: string): string | null {
@@ -82,8 +82,15 @@ async function upsertContacts(allContacts: any[], supabase: ReturnType<typeof cr
   // for most contacts. Fall back to lastUpdated (which Wati sets whenever a message
   // is sent to or received from the contact) so that recently-active contacts still
   // appear in the conversation list after a sync.
-  const rowsWithDate: any[] = []
-  const rowsNoDate: any[]   = []
+  //
+  // Split into THREE streams so PostgREST column-normalisation doesn't accidentally
+  // null out last_message when Wati omits it:
+  //   rowsWithDateAndMsg  — have a date AND a lastMessage → write both fields
+  //   rowsWithDateNoMsg   — have a date but no lastMessage → write only last_message_at
+  //   rowsNoDate          — no date at all → insert-only (ignoreDuplicates:true)
+  const rowsWithDateAndMsg: any[] = []
+  const rowsWithDateNoMsg:  any[] = []
+  const rowsNoDate:         any[] = []
 
   for (const phone of phones) {
     const c    = phoneMap.get(phone)!
@@ -107,9 +114,12 @@ async function upsertContacts(allContacts: any[], supabase: ReturnType<typeof cr
     }
 
     if (date) {
-      // Use lastMessage when available; otherwise leave last_message untouched on
-      // existing rows (ignoreDuplicates:false only applies to new inserts via lastUpdated).
-      rowsWithDate.push({ ...base, last_message: c.lastMessage ?? null, last_message_at: date })
+      if (c.lastMessage) {
+        rowsWithDateAndMsg.push({ ...base, last_message: c.lastMessage, last_message_at: date })
+      } else {
+        // Wati didn't return lastMessage — update last_message_at only, preserve existing last_message
+        rowsWithDateNoMsg.push({ ...base, last_message_at: date })
+      }
     } else {
       rowsNoDate.push(base)
     }
@@ -118,9 +128,18 @@ async function upsertContacts(allContacts: any[], supabase: ReturnType<typeof cr
   const CHUNK = 500
   let synced = 0
 
-  // Contacts with a date: full update (overwrite last_message_at)
-  for (let i = 0; i < rowsWithDate.length; i += CHUNK) {
-    const chunk = rowsWithDate.slice(i, i + CHUNK)
+  // Contacts with a date AND a lastMessage: write both fields
+  for (let i = 0; i < rowsWithDateAndMsg.length; i += CHUNK) {
+    const chunk = rowsWithDateAndMsg.slice(i, i + CHUNK)
+    const { error } = await (supabase.from('chat_conversations') as any)
+      .upsert(chunk, { onConflict: 'wati_phone', ignoreDuplicates: false })
+    if (error) throw new Error((error as any).message)
+    synced += chunk.length
+  }
+
+  // Contacts with a date but no lastMessage: update last_message_at only (don't touch last_message)
+  for (let i = 0; i < rowsWithDateNoMsg.length; i += CHUNK) {
+    const chunk = rowsWithDateNoMsg.slice(i, i + CHUNK)
     const { error } = await (supabase.from('chat_conversations') as any)
       .upsert(chunk, { onConflict: 'wati_phone', ignoreDuplicates: false })
     if (error) throw new Error((error as any).message)
@@ -145,7 +164,13 @@ export async function GET(req: NextRequest) {
     return NextResponse.json({ error: 'WATI credentials not configured' }, { status: 500 })
 
   const full = req.nextUrl.searchParams.get('mode') === 'full'
-  const cutoff = full ? null : new Date(Date.now() - RECENT_DAYS * 24 * 60 * 60 * 1000)
+  // full mode → no cutoff; default mode → start-of-day 2 days ago
+  const cutoff = full ? null : (() => {
+    const d = new Date()
+    d.setDate(d.getDate() - RECENT_DAYS)
+    d.setHours(0, 0, 0, 0)
+    return d
+  })()
   const supabase = createClient(SUPA_URL, SUPA_KEY)
 
   const stream = new TransformStream()
@@ -156,10 +181,9 @@ export async function GET(req: NextRequest) {
       let pageNumber = 1
       const allContacts: any[] = []
 
-      // Wati sorts /getContacts by name, not by activity date, so date-based early
-      // cutoff is unreliable. In recent mode we scan a fixed page window and filter
-      // each contact by its activity date (lastReceivedMessageDate or lastUpdated).
-      const maxPages = full ? Infinity : RECENT_MAX_PAGES
+      // Both modes now scan all pages; the difference is only the date filter applied
+      // per-contact inside the loop.
+      const maxPages = Infinity
 
       while (pageNumber <= maxPages) {
         await writer.write(encode({ stage: 'fetching', page: pageNumber, total: allContacts.length }))
