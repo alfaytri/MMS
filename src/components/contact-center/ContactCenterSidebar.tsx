@@ -39,6 +39,7 @@ export function ContactCenterSidebar() {
     activeConversationId, activeCustomerId, activePhone,
     openConversation, goToList, expandSidebar, collapseSidebar, openPhoneDirect, syncFromWati, syncProgress, triggerPoll,
     updateConversationStatus,
+    provider, setProvider,
   } = state
   const { setCcSidebar, pendingPhone } = useContactCenterContext()
   const [showStatusPicker, setShowStatusPicker] = useState(false)
@@ -109,6 +110,22 @@ export function ContactCenterSidebar() {
         <div className="hidden lg:flex fixed left-0 top-14 bottom-0 w-80 border-r border-border bg-background z-40 flex-col">
           <div className="flex items-center justify-between px-3 py-2 border-b border-border">
             <span className="text-xs font-semibold">Contact Centre</span>
+            {/* Provider toggle */}
+            <div className="flex items-center rounded-full border border-border bg-muted/50 p-0.5 gap-0.5">
+              {(['wati', 'whapi'] as const).map((p) => (
+                <button
+                  key={p}
+                  onClick={() => setProvider(p)}
+                  className={`rounded-full px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide transition-colors min-h-[22px] ${
+                    provider === p
+                      ? 'bg-primary text-primary-foreground shadow-sm'
+                      : 'text-muted-foreground hover:text-foreground'
+                  }`}
+                >
+                  {p}
+                </button>
+              ))}
+            </div>
             <Button size="icon" variant="ghost" className="h-7 w-7" onClick={handleCollapse}>
               <ChevronLeft className="h-3.5 w-3.5" />
             </Button>
@@ -132,6 +149,22 @@ export function ContactCenterSidebar() {
           >
             <div className="flex items-center justify-between px-3 py-2 border-b border-border">
               <span className="text-xs font-semibold">Contact Centre</span>
+              {/* Provider toggle */}
+              <div className="flex items-center rounded-full border border-border bg-muted/50 p-0.5 gap-0.5">
+                {(['wati', 'whapi'] as const).map((p) => (
+                  <button
+                    key={p}
+                    onClick={() => setProvider(p)}
+                    className={`rounded-full px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide transition-colors min-h-[22px] ${
+                      provider === p
+                        ? 'bg-primary text-primary-foreground shadow-sm'
+                        : 'text-muted-foreground hover:text-foreground'
+                    }`}
+                  >
+                    {p}
+                  </button>
+                ))}
+              </div>
               <Button size="icon" variant="ghost" className="h-7 w-7" onClick={handleCollapse}>
                 <ChevronLeft className="h-3.5 w-3.5" />
               </Button>
