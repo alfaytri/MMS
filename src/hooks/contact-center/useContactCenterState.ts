@@ -41,28 +41,39 @@ export function useContactCenterState() {
   // up to date without user interaction. No banner or spinner; the debounced
   // realtime subscription in useLiveConversations handles the UI update.
   useEffect(() => {
+    const controller = new AbortController()
+
     async function runBgSync() {
       if (bgSyncRunning.current) return
       bgSyncRunning.current = true
       try {
-        const res = await fetch('/api/wati/sync-contacts', { method: 'GET' })
+        const res = await fetch('/api/wati/sync-contacts', {
+          method: 'GET',
+          signal: controller.signal,
+        })
         if (!res.ok || !res.body) return
         const reader = res.body.getReader()
-        // Drain the SSE stream to completion so the server-side upserts finish.
-        // We don't parse events — the realtime subscription handles UI updates.
-        while (true) {
-          const { done } = await reader.read()
-          if (done) break
+        try {
+          while (true) {
+            const { done } = await reader.read()
+            if (done) break
+          }
+        } finally {
+          reader.cancel()
         }
-      } catch {
-        // Background sync failures are non-fatal — silently ignore.
+      } catch (err: unknown) {
+        if (err instanceof Error && err.name === 'AbortError') return
+        // All other background sync failures are non-fatal — silently ignore.
       } finally {
         bgSyncRunning.current = false
       }
     }
 
-    const interval = setInterval(runBgSync, 5 * 60 * 1000) // every 5 minutes
-    return () => clearInterval(interval)
+    const interval = setInterval(runBgSync, 5 * 60 * 1000)
+    return () => {
+      clearInterval(interval)
+      controller.abort()
+    }
   }, [])
 
   function openConversation(conversationId: string, customerId: string | null, phone: string | null) {
