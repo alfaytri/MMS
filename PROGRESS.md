@@ -161,6 +161,7 @@ Purchase & Sales▾:
 
 | Date | Module / Scope | Secrets | RLS | Auth Gate | Error Handling | Notes |
 |---|---|---|---|---|---|---|
+| 2026-05-17 | **WHAPI Integration** | ✅ | ✅ | ✅ | ✅ | `WHAPI_TOKEN` via `process.env` only; `app_settings` has RLS + anon-read policy; `/api/whapi/webhook` in `WEBHOOK_PREFIXES` (middleware bypass); `/api/whapi/send-*` routes behind `requireAuth()`; all WHAPI fetch calls wrapped in try/catch; webhook signing: ⚠️ optional `WHAPI_WEBHOOK_SECRET` query-param check (WHAPI standard plan doesn't provide HMAC — accepted gap, documented here) |
 | 2026-05-17 | **Service Customers Page** | ✅ | ✅ | ✅ | ✅ | All mutations throw on error; RLS on `service_customer_*` tables inherited from existing `20260420000002_fix_rls_all_tables.sql` migration; new `referral_source` and `phone_id` columns inherit parent table RLS; no new API routes added |
 | 2026-05-16 | **Full codebase audit** (all modules to date) | ✅ | ✅ | ⚠️ | ⚠️ | See details below |
 
@@ -189,9 +190,13 @@ Purchase & Sales▾:
 
 ## 🔄 In Progress
 
-🚀 Next: **Test & verify Service Customers page in browser**
+🚀 Next: **Set WHAPI_TOKEN and WHAPI_WEBHOOK_SECRET in .env.local, then test WHAPI integration end-to-end**
 
 ## ✅ Completed
+
+- [2026-05-17] **WHAPI Integration + Provider Toggle** — `supabase/migrations/20260517120000_app_settings.sql`, `supabase/migrations/20260517130000_app_settings_fix.sql`, `src/app/api/settings/cc-provider/route.ts`, `src/app/api/whapi/webhook/route.ts`, `src/app/api/whapi/send-message/route.ts`, `src/app/api/whapi/send-reaction/route.ts`, `src/hooks/useProviderSetting.ts`, `src/hooks/contact-center/useChatMessages.ts`, `src/hooks/contact-center/useContactCenterState.ts`, `src/components/contact-center/ContactCenterSidebar.tsx`, `middleware.ts` — (1) WATI/WHAPI global provider toggle in Contact Centre list-view header persisted to `app_settings` DB table with Realtime cross-tab sync; (2) WHAPI inbound webhook handler — text, image, document, audio, video, reactions (toggle `chat_messages.reactions` JSONB), status updates, idempotent conversation upsert with out-of-order timestamp guard; (3) WHAPI send-message + send-reaction endpoints with auth gate; (4) `useChatMessages` routes sendSessionMessage/sendFile/reactToMessage to WHAPI when provider is set; (5) Fixed `RuntimeAbortError` / `BodyStreamBuffer was aborted` crash in background sync (Turbopack TDZ fix included)
+
+- [2026-05-17] **WATI sync-contacts WritableStream crash fix** — `src/app/api/wati/sync-contacts/route.ts` — Added `safeWrite` helper that swallows writes to already-closed streams; wrapped `writer.close()` in try/catch; added `req.signal.aborted` guard in page-fetch loop — prevents `TypeError: Invalid state: WritableStream is closed` when client disconnects during 4-minute full sync
 
 - [2026-05-17] **Service Customers Page** — `supabase/migrations/20260516160000_service_customers_phone_id_referral.sql`, `src/hooks/useServiceCustomers.ts`, `src/components/master-data/ServiceCustomerFormDialog.tsx`, `src/app/(dashboard)/master-data/service-customers/page.tsx`, `src/components/layout/nav-config.ts`, `src/hooks/contact-center/useCustomerData.ts`, `src/components/contact-center/CrmSection.tsx` — Full CRUD for service customers with multi-phone/address management, address-to-phone linking, GPS + Blue Plate addresses with Google Maps/Waze links, blacklist toggle with required reason, and CRM panel address display with active-phone highlighting
 
