@@ -467,22 +467,40 @@ export function ServiceCustomerFormDialog({
                     />
 
                     {addrType === 'blue-plate' && (
-                      <div className="grid grid-cols-3 gap-2">
-                        {(['zone', 'street', 'building'] as const).map((f) => (
-                          <FormField
-                            key={f}
-                            control={form.control}
-                            name={`addresses.${idx}.${f}`}
-                            render={({ field: ff }) => (
-                              <FormItem>
-                                <FormLabel className="text-xs capitalize">{f}</FormLabel>
-                                <FormControl>
-                                  <Input className="h-8 text-sm" placeholder={f} {...ff} />
-                                </FormControl>
-                              </FormItem>
-                            )}
-                          />
-                        ))}
+                      <div className="space-y-2">
+                        <div className="grid grid-cols-3 gap-2">
+                          {(['zone', 'street', 'building'] as const).map((f) => (
+                            <FormField
+                              key={f}
+                              control={form.control}
+                              name={`addresses.${idx}.${f}`}
+                              render={({ field: ff }) => (
+                                <FormItem>
+                                  <FormLabel className="text-xs capitalize">{f}</FormLabel>
+                                  <FormControl>
+                                    <Input className="h-8 text-sm" placeholder={f} {...ff} />
+                                  </FormControl>
+                                </FormItem>
+                              )}
+                            />
+                          ))}
+                        </div>
+                        {(() => {
+                          const z = form.watch(`addresses.${idx}.zone`)
+                          const s = form.watch(`addresses.${idx}.street`)
+                          const b = form.watch(`addresses.${idx}.building`)
+                          const parts = [
+                            z && `Zone ${z}`,
+                            s && `St ${s}`,
+                            b && `Bldg ${b}`,
+                          ].filter(Boolean)
+                          if (!parts.length) return null
+                          return (
+                            <p className="text-xs text-muted-foreground bg-muted/50 rounded px-2 py-1">
+                              {parts.join(', ')}
+                            </p>
+                          )
+                        })()}
                       </div>
                     )}
 
