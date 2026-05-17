@@ -495,10 +495,20 @@ export function ServiceCustomerFormDialog({
                             b && `Bldg ${b}`,
                           ].filter(Boolean)
                           if (!parts.length) return null
+                          const query = encodeURIComponent([...parts, 'Qatar'].join(', '))
+                          const mapsUrl = `https://maps.google.com/?q=${query}`
                           return (
-                            <p className="text-xs text-muted-foreground bg-muted/50 rounded px-2 py-1">
-                              {parts.join(', ')}
-                            </p>
+                            <div className="flex items-center gap-2 bg-muted/50 rounded px-2 py-1">
+                              <p className="text-xs text-muted-foreground flex-1">{parts.join(', ')}</p>
+                              <a
+                                href={mapsUrl}
+                                target="_blank"
+                                rel="noopener noreferrer"
+                                className="inline-flex items-center gap-0.5 text-xs text-primary hover:underline shrink-0"
+                              >
+                                <ExternalLink className="h-3 w-3" /> Verify on Maps
+                              </a>
+                            </div>
                           )
                         })()}
                       </div>
