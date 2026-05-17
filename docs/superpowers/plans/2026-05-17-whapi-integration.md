@@ -86,13 +86,11 @@ create table if not exists app_settings (
 
 alter table app_settings enable row level security;
 
--- Only the service role (server-side API routes) can read or write settings.
--- The anon/authenticated key used by the browser client can only read.
+-- Browser (anon/authenticated) can read settings (e.g. read cc_provider).
+-- Writes are done exclusively through server-side routes that use the
+-- service_role key — which bypasses RLS automatically, so no write policy needed.
 create policy "anon read" on app_settings
   for select using (true);
-
-create policy "service role write" on app_settings
-  for all using (auth.role() = 'service_role');
 
 -- Seed the default provider
 insert into app_settings (key, value)
@@ -108,14 +106,16 @@ npx supabase db push
 
 Expected output ends with: `Finished supabase db push.`
 
-- [ ] **Step 3: Add WHAPI_TOKEN to environment**
+- [ ] **Step 3: Add environment variables**
 
 Add to `.env.local`:
 ```
 WHAPI_TOKEN=your_channel_token_here
+WHAPI_WEBHOOK_SECRET=generate_a_random_32_char_string_here
 ```
 
-(Get the token from the WHAPI dashboard → Channel → API Token.)
+`WHAPI_TOKEN` — from the WHAPI dashboard → Channel → API Token.  
+`WHAPI_WEBHOOK_SECRET` — any long random string (e.g. output of `openssl rand -hex 16`). You will append this as `?secret=...` when registering the webhook URL.
 
 - [ ] **Step 4: Commit**
 
@@ -141,14 +141,23 @@ The browser's anon key can't write to `app_settings` (RLS blocks it). This thin 
 ```typescript
 // src/app/api/settings/cc-provider/route.ts
 import { type NextRequest, NextResponse } from 'next/server'
+import { createServerClient } from '@supabase/ssr'
 import { createClient } from '@supabase/supabase-js'
+import { cookies } from 'next/headers'
 
-const supabase = createClient(
-  process.env.NEXT_PUBLIC_SUPABASE_URL!,
-  process.env.SUPABASE_SERVICE_ROLE_KEY!,
-)
+const SUPA_URL  = process.env.NEXT_PUBLIC_SUPABASE_URL!
+const ANON_KEY  = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
+const SUPA_KEY  = process.env.SUPABASE_SERVICE_ROLE_KEY!
 
 export async function PATCH(req: NextRequest) {
+  // ── Auth gate: verify the caller has a valid session ──────────────────────
+  const cookieStore = await cookies()
+  const authClient = createServerClient(SUPA_URL, ANON_KEY, {
+    cookies: { getAll: () => cookieStore.getAll() },
+  })
+  const { data: { user } } = await authClient.auth.getUser()
+  if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+
   let body: unknown
   try { body = await req.json() } catch {
     return NextResponse.json({ error: 'Invalid JSON' }, { status: 400 })
@@ -159,7 +168,9 @@ export async function PATCH(req: NextRequest) {
     return NextResponse.json({ error: 'value must be "wati" or "whapi"' }, { status: 400 })
   }
 
-  const { error } = await supabase
+  // Use service role ONLY after confirming the caller is authenticated
+  const serviceClient = createClient(SUPA_URL, SUPA_KEY)
+  const { error } = await serviceClient
     .from('app_settings')
     .upsert({ key: 'cc_provider', value }, { onConflict: 'key' })
 
@@ -236,12 +247,18 @@ export function useProviderSetting() {
   }, [])
 
   async function setProvider(value: Provider) {
+    const previous = provider
     setProviderState(value) // optimistic
-    await fetch('/api/settings/cc-provider', {
-      method: 'PATCH',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ value }),
-    })
+    try {
+      const res = await fetch('/api/settings/cc-provider', {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ value }),
+      })
+      if (!res.ok) throw new Error('Failed to update provider')
+    } catch {
+      setProviderState(previous) // roll back on failure
+    }
   }
 
   return { provider, setProvider, loading }
@@ -330,12 +347,22 @@ function extractAttachments(msg: any): { url: string; type: string; name: string
   return []
 }
 
+const WEBHOOK_SECRET = process.env.WHAPI_WEBHOOK_SECRET ?? ''
+
+function verifySecret(req: NextRequest): boolean {
+  if (!WEBHOOK_SECRET) return true // no secret configured — allow (dev only)
+  return req.nextUrl.searchParams.get('secret') === WEBHOOK_SECRET
+}
+
 // GET — WHAPI verification ping
-export async function GET() {
+export async function GET(req: NextRequest) {
+  if (!verifySecret(req)) return new Response('Unauthorized', { status: 401 })
   return new Response('OK', { status: 200 })
 }
 
 export async function POST(req: NextRequest) {
+  if (!verifySecret(req)) return new Response('Unauthorized', { status: 401 })
+
   let body: any
   try { body = await req.json() } catch {
     return new Response('Bad JSON', { status: 400 })
@@ -419,16 +446,18 @@ export async function POST(req: NextRequest) {
         ? new Date(Number(msg.timestamp) * 1000).toISOString()
         : new Date().toISOString()
 
-      // Upsert conversation
+      // Ensure the conversation row exists, then conditionally update the preview
+      // fields only when the incoming message is newer than what is stored.
+      // This prevents out-of-order webhook deliveries from overwriting a newer
+      // preview with an older one.
+      await (supabase.from('chat_conversations') as any)
+        .upsert({ wati_phone: phone }, { onConflict: 'wati_phone', ignoreDuplicates: true })
+
+      const previewText = text || (attachments[0]?.name ?? '[attachment]')
       const { data: convo } = await (supabase.from('chat_conversations') as any)
-        .upsert(
-          {
-            wati_phone:     phone,
-            last_message:   text || (attachments[0]?.name ?? '[attachment]'),
-            last_message_at: ts,
-          },
-          { onConflict: 'wati_phone', ignoreDuplicates: false },
-        )
+        .update({ last_message: previewText, last_message_at: ts })
+        .eq('wati_phone', phone)
+        .or(`last_message_at.is.null,last_message_at.lt.${ts}`)
         .select('id')
         .single()
 
@@ -483,12 +512,15 @@ Co-Authored-By: Claude Sonnet 4.6 <noreply@anthropic.com>"
 ```typescript
 // src/app/api/whapi/send-message/route.ts
 import { type NextRequest, NextResponse } from 'next/server'
+import { createServerClient } from '@supabase/ssr'
 import { createClient } from '@supabase/supabase-js'
+import { cookies } from 'next/headers'
 
-const WHAPI_BASE = 'https://gate.whapi.cloud'
-const WHAPI_TOKEN = (process.env.WHAPI_TOKEN ?? '').replace(/^Bearer\s+/i, '')
-const SUPA_URL    = process.env.NEXT_PUBLIC_SUPABASE_URL!
-const SUPA_KEY    = process.env.SUPABASE_SERVICE_ROLE_KEY!
+const WHAPI_BASE   = 'https://gate.whapi.cloud'
+const WHAPI_TOKEN  = (process.env.WHAPI_TOKEN ?? '').replace(/^Bearer\s+/i, '')
+const SUPA_URL     = process.env.NEXT_PUBLIC_SUPABASE_URL!
+const ANON_KEY     = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
+const SUPA_KEY     = process.env.SUPABASE_SERVICE_ROLE_KEY!
 
 function whapiPhone(phone: string): string {
   // WHAPI expects "97412345678" (no + or @) for text/to field
@@ -514,6 +546,14 @@ async function whapiPost(path: string, payload: object): Promise<{ ok: boolean; 
 }
 
 export async function POST(req: NextRequest) {
+  // ── Auth gate ───────────────────────────────────────────────────────────────
+  const cookieStore = await cookies()
+  const authClient = createServerClient(SUPA_URL, ANON_KEY, {
+    cookies: { getAll: () => cookieStore.getAll() },
+  })
+  const { data: { user } } = await authClient.auth.getUser()
+  if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+
   let body: any
   try { body = await req.json() } catch {
     return NextResponse.json({ error: 'Invalid JSON' }, { status: 400 })
@@ -626,11 +666,14 @@ Co-Authored-By: Claude Sonnet 4.6 <noreply@anthropic.com>"
 ```typescript
 // src/app/api/whapi/send-reaction/route.ts
 import { type NextRequest, NextResponse } from 'next/server'
+import { createServerClient } from '@supabase/ssr'
 import { createClient } from '@supabase/supabase-js'
+import { cookies } from 'next/headers'
 
 const WHAPI_BASE   = 'https://gate.whapi.cloud'
 const WHAPI_TOKEN  = (process.env.WHAPI_TOKEN ?? '').replace(/^Bearer\s+/i, '')
 const SUPA_URL     = process.env.NEXT_PUBLIC_SUPABASE_URL!
+const ANON_KEY     = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
 const SUPA_KEY     = process.env.SUPABASE_SERVICE_ROLE_KEY!
 
 function whapiPhone(phone: string): string {
@@ -638,6 +681,14 @@ function whapiPhone(phone: string): string {
 }
 
 export async function POST(req: NextRequest) {
+  // ── Auth gate ───────────────────────────────────────────────────────────────
+  const cookieStore = await cookies()
+  const authClient = createServerClient(SUPA_URL, ANON_KEY, {
+    cookies: { getAll: () => cookieStore.getAll() },
+  })
+  const { data: { user } } = await authClient.auth.getUser()
+  if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+
   let body: any
   try { body = await req.json() } catch {
     return NextResponse.json({ error: 'Invalid JSON' }, { status: 400 })
@@ -1206,6 +1257,6 @@ Co-Authored-By: Claude Sonnet 4.6 <noreply@anthropic.com>"
 Once deployed, register the webhook in the WHAPI dashboard:
 
 1. Go to Channel Settings → Webhooks
-2. Set URL: `https://<your-production-domain>/api/whapi/webhook`
+2. Set URL: `https://<your-production-domain>/api/whapi/webhook?secret=<WHAPI_WEBHOOK_SECRET value>`
 3. Enable events: **messages.post** and **statuses.post**
 4. Save
