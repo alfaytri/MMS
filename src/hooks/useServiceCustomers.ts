@@ -85,43 +85,92 @@ export interface UpdateServiceCustomerPayload extends CreateServiceCustomerPaylo
   block_reason?: string | null
 }
 
-// ── Query: list all service customers ─────────────────────────────────────────
+// ── Query: list service customers (server-side search + pagination) ───────────
+//
+// Three parallel fetches avoid the PostgREST row-count ceiling that occurs when
+// a nested join on 20k customers × N phones/addresses is fetched in one query.
 
-export function useServiceCustomers() {
-  return useQuery<ServiceCustomerRow[]>({
-    queryKey: ['service-customers'],
+export interface ServiceCustomersPage {
+  data: ServiceCustomerRow[]
+  total: number
+}
+
+export function useServiceCustomers(search = '', page = 0, pageSize = 20) {
+  const trimmed = search.trim()
+  return useQuery<ServiceCustomersPage>({
+    queryKey: ['service-customers', trimmed, page, pageSize],
     queryFn: async () => {
       const supabase = createClient()
-      const { data, error } = await (supabase as any)
-        .from('service_customers')
-        .select(`
-          id, name, name_ar, customer_type, is_blocked, referral_source, created_at, updated_at,
-          service_customer_phones(id, customer_id, phone, label, is_primary),
-          service_customer_addresses(id, customer_id, phone_id, address_type, label, unit, building, street, zone, lat, lng, is_primary, is_geocoded, waze_link, tags, created_at)
-        `)
-        .order('name')
-      if (error) throw error
 
-      return (data as any[]).map((row) => {
-        const phones: ServiceCustomerPhone[] = row.service_customer_phones ?? []
-        const addresses: ServiceCustomerAddress[] = row.service_customer_addresses ?? []
-        return {
-          id: row.id,
-          name: row.name,
-          name_ar: row.name_ar,
-          customer_type: row.customer_type,
-          is_blocked: row.is_blocked ?? false,
-          referral_source: row.referral_source,
-          created_at: row.created_at,
-          updated_at: row.updated_at,
-          primaryPhone: phones.find((p) => p.is_primary) ?? phones[0] ?? null,
-          primaryAddress: addresses.find((a) => a.is_primary) ?? addresses[0] ?? null,
-          allPhones: phones,
-          allAddresses: addresses,
-        }
-      })
+      const from = page * pageSize
+      const to   = from + pageSize - 1
+
+      // 1. Fetch one page of customers with exact total count
+      let custQuery = (supabase as any)
+        .from('service_customers')
+        .select('id, name, name_ar, customer_type, is_blocked, referral_source, created_at, updated_at', { count: 'exact' })
+        .order('name')
+        .range(from, to)
+      if (trimmed.length >= 2) {
+        custQuery = custQuery.ilike('name', `%${trimmed}%`)
+      }
+      const { data: custData, error: custErr, count } = await custQuery
+      if (custErr) throw custErr
+      const customers = custData as any[]
+      if (customers.length === 0) return { data: [], total: count ?? 0 }
+
+      const ids: string[] = customers.map((c: any) => c.id)
+
+      // 2. Fetch all phones for these customers in parallel with addresses
+      const [phonesRes, addrsRes] = await Promise.all([
+        (supabase as any)
+          .from('service_customer_phones')
+          .select('id, customer_id, phone, label, is_primary')
+          .in('customer_id', ids),
+        (supabase as any)
+          .from('service_customer_addresses')
+          .select('id, customer_id, phone_id, address_type, label, unit, building, street, zone, lat, lng, is_primary, is_geocoded, waze_link, tags, created_at')
+          .in('customer_id', ids),
+      ])
+      if (phonesRes.error) throw phonesRes.error
+      if (addrsRes.error)  throw addrsRes.error
+
+      const phonesByCustomer = new Map<string, ServiceCustomerPhone[]>()
+      for (const p of (phonesRes.data as ServiceCustomerPhone[])) {
+        const arr = phonesByCustomer.get(p.customer_id) ?? []
+        arr.push(p)
+        phonesByCustomer.set(p.customer_id, arr)
+      }
+      const addrsByCustomer = new Map<string, ServiceCustomerAddress[]>()
+      for (const a of (addrsRes.data as ServiceCustomerAddress[])) {
+        const arr = addrsByCustomer.get(a.customer_id) ?? []
+        arr.push(a)
+        addrsByCustomer.set(a.customer_id, arr)
+      }
+
+      return {
+        total: count ?? 0,
+        data: customers.map((row: any) => {
+          const phones    = phonesByCustomer.get(row.id) ?? []
+          const addresses = addrsByCustomer.get(row.id) ?? []
+          return {
+            id:               row.id,
+            name:             row.name,
+            name_ar:          row.name_ar,
+            customer_type:    row.customer_type,
+            is_blocked:       row.is_blocked ?? false,
+            referral_source:  row.referral_source,
+            created_at:       row.created_at,
+            updated_at:       row.updated_at,
+            primaryPhone:     phones.find((p) => p.is_primary) ?? phones[0] ?? null,
+            primaryAddress:   addresses.find((a) => a.is_primary) ?? addresses[0] ?? null,
+            allPhones:        phones,
+            allAddresses:     addresses,
+          }
+        }),
+      }
     },
-    staleTime: 5 * 60 * 1000,
+    staleTime: 60 * 1000,
   })
 }
 

@@ -24,6 +24,13 @@ import { Skeleton } from '@/components/ui/skeleton'
 import { DataTablePagination } from './DataTablePagination'
 import { cn } from '@/lib/utils'
 
+export interface ManualPaginationProps {
+  pageIndex: number
+  pageCount: number
+  total: number
+  onPageChange: (pageIndex: number) => void
+}
+
 interface DataTableProps<TData, TValue> {
   columns: ColumnDef<TData, TValue>[]
   data: TData[]
@@ -31,6 +38,7 @@ interface DataTableProps<TData, TValue> {
   globalFilter?: string
   pageSize?: number
   onRowClick?: (row: TData) => void
+  manualPagination?: ManualPaginationProps
 }
 
 export function DataTable<TData, TValue>({
@@ -40,16 +48,35 @@ export function DataTable<TData, TValue>({
   globalFilter = '',
   pageSize = 20,
   onRowClick,
+  manualPagination,
 }: DataTableProps<TData, TValue>) {
   const [sorting, setSorting] = useState<SortingState>([])
   const [columnFilters, setColumnFilters] = useState<ColumnFiltersState>([])
 
+  const isManual = !!manualPagination
+
   const table = useReactTable({
     data,
     columns,
-    state: { sorting, columnFilters, globalFilter },
+    manualPagination: isManual,
+    pageCount: isManual ? manualPagination!.pageCount : undefined,
+    state: {
+      sorting,
+      columnFilters,
+      globalFilter,
+      ...(isManual && { pagination: { pageIndex: manualPagination!.pageIndex, pageSize } }),
+    },
     onSortingChange: setSorting,
     onColumnFiltersChange: setColumnFilters,
+    ...(isManual && {
+      onPaginationChange: (updater) => {
+        const current = { pageIndex: manualPagination!.pageIndex, pageSize }
+        const next = typeof updater === 'function' ? updater(current) : updater
+        if (next.pageIndex !== current.pageIndex) {
+          manualPagination!.onPageChange(next.pageIndex)
+        }
+      },
+    }),
     getCoreRowModel: getCoreRowModel(),
     getSortedRowModel: getSortedRowModel(),
     getFilteredRowModel: getFilteredRowModel(),
@@ -133,7 +160,7 @@ export function DataTable<TData, TValue>({
         </Table>
       </div>
       {table.getPageCount() > 1 && (
-        <DataTablePagination table={table} />
+        <DataTablePagination table={table} total={manualPagination?.total} />
       )}
     </div>
   )

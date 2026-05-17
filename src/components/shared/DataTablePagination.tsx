@@ -6,13 +6,15 @@ import { ChevronLeft, ChevronRight, ChevronsLeft, ChevronsRight } from 'lucide-r
 
 interface DataTablePaginationProps<TData> {
   table: Table<TData>
+  total?: number
 }
 
-export function DataTablePagination<TData>({ table }: DataTablePaginationProps<TData>) {
+export function DataTablePagination<TData>({ table, total }: DataTablePaginationProps<TData>) {
+  const rowCount = total ?? table.getFilteredRowModel().rows.length
   return (
     <div className="flex flex-col gap-2 px-2 py-4 sm:flex-row sm:items-center sm:justify-between">
       <div className="text-sm text-muted-foreground">
-        {table.getFilteredRowModel().rows.length} row(s) total
+        {rowCount} row(s) total
       </div>
       <div className="flex items-center gap-2">
         <div className="text-sm text-muted-foreground">

@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useMemo } from 'react'
+import { useState, useMemo, useDeferredValue, useEffect } from 'react'
 import { type ColumnDef } from '@tanstack/react-table'
 import { MoreHorizontal, Pencil } from 'lucide-react'
 import { PageHeader } from '@/components/shared/PageHeader'
@@ -35,12 +35,23 @@ function formatPrimaryAddress(row: ServiceCustomerRow): string {
   return a.label ?? '—'
 }
 
+const PAGE_SIZE = 20
+
 export default function ServiceCustomersPage() {
   const [search, setSearch]         = useState('')
+  const [page, setPage]             = useState(0)
   const [dialogOpen, setDialogOpen] = useState(false)
   const [editing, setEditing]       = useState<ServiceCustomerRow | null>(null)
 
-  const { data: customers = [], isLoading } = useServiceCustomers()
+  const deferredSearch = useDeferredValue(search)
+
+  // Reset to first page whenever the search term changes
+  useEffect(() => { setPage(0) }, [deferredSearch])
+
+  const { data, isLoading } = useServiceCustomers(deferredSearch, page, PAGE_SIZE)
+  const customers = data?.data ?? []
+  const total     = data?.total ?? 0
+  const pageCount = Math.max(1, Math.ceil(total / PAGE_SIZE))
 
   const columns = useMemo<ColumnDef<ServiceCustomerRow>[]>(
     () => [
@@ -131,14 +142,14 @@ export default function ServiceCustomersPage() {
       <SearchInput
         value={search}
         onChange={setSearch}
-        placeholder="Search by name or phone…"
+        placeholder="Search by name (min 2 chars)…"
       />
 
       <DataTable
         columns={columns}
         data={customers}
         isLoading={isLoading}
-        globalFilter={search}
+        manualPagination={{ pageIndex: page, pageCount, total, onPageChange: setPage }}
       />
 
       <ServiceCustomerFormDialog
