@@ -89,31 +89,102 @@ export interface UpdateServiceCustomerPayload extends CreateServiceCustomerPaylo
 //
 // Three parallel fetches avoid the PostgREST row-count ceiling that occurs when
 // a nested join on 20k customers × N phones/addresses is fetched in one query.
+//
+// Search logic:
+//   - Always: name ilike '%search%'
+//   - When search contains a digit: pre-fetch matching customer_ids from
+//     service_customer_phones and add id.in.(...) via PostgREST OR filter.
+//     The id.in clause is only added when at least one phone match is found.
+//
+// Filters:
+//   - multiplePhones: fetches customer_ids from the customers_with_multi_phones
+//     view (GROUP BY HAVING count > 1 runs server-side) and appends an .in()
+//     filter to the main query.
 
 export interface ServiceCustomersPage {
   data: ServiceCustomerRow[]
   total: number
 }
 
-export function useServiceCustomers(search = '', page = 0, pageSize = 20) {
-  const trimmed = search.trim()
+export interface ServiceCustomerFilters {
+  multiplePhones?: boolean
+}
+
+export function useServiceCustomers(
+  search   = '',
+  page     = 0,
+  pageSize = 20,
+  filters: ServiceCustomerFilters = {},
+) {
+  const trimmed  = search.trim()
+  const hasSearch = trimmed.length >= 2
+  const hasDigit  = hasSearch && /\d/.test(trimmed)
+
   return useQuery<ServiceCustomersPage>({
-    queryKey: ['service-customers', trimmed, page, pageSize],
+    queryKey: ['service-customers', trimmed, page, pageSize, filters.multiplePhones ?? false],
     queryFn: async () => {
       const supabase = createClient()
-
       const from = page * pageSize
       const to   = from + pageSize - 1
 
-      // 1. Fetch one page of customers with exact total count
+      // 1. Pre-queries run in parallel (only when needed)
+      const [phoneRes, multiRes] = await Promise.all([
+        hasDigit
+          ? (supabase as any)
+              .from('service_customer_phones')
+              .select('customer_id')
+              .ilike('phone', `%${trimmed}%`)
+          : Promise.resolve({ data: null, error: null }),
+        filters.multiplePhones
+          ? (supabase as any)
+              .from('customers_with_multi_phones')
+              .select('customer_id')
+          : Promise.resolve({ data: null, error: null }),
+      ])
+      if (phoneRes.error) throw phoneRes.error
+      if (multiRes.error)  throw multiRes.error
+
+      // Phone customer_ids (only populated when search has a digit)
+      const phoneIds: string[] = phoneRes.data
+        ? (phoneRes.data as any[]).map((r: any) => r.customer_id)
+        : []
+
+      // Multi-phone customer_ids (null = filter not active)
+      const multiIds: string[] | null = multiRes.data
+        ? (multiRes.data as any[]).map((r: any) => r.customer_id)
+        : null
+
+      // 2. Main customer query with exact count for pagination
       let custQuery = (supabase as any)
         .from('service_customers')
-        .select('id, name, name_ar, customer_type, is_blocked, referral_source, created_at, updated_at', { count: 'exact' })
+        .select(
+          'id, name, name_ar, customer_type, is_blocked, referral_source, created_at, updated_at',
+          { count: 'exact' },
+        )
         .order('name')
         .range(from, to)
-      if (trimmed.length >= 2) {
-        custQuery = custQuery.ilike('name', `%${trimmed}%`)
+
+      // Search filter — OR(name, phone) when phone IDs exist; plain ilike otherwise
+      if (hasSearch) {
+        if (phoneIds.length > 0) {
+          custQuery = custQuery.or(
+            `name.ilike.%${trimmed}%,id.in.(${phoneIds.join(',')})`,
+          )
+        } else {
+          custQuery = custQuery.ilike('name', `%${trimmed}%`)
+        }
       }
+
+      // Multiple-phones filter (ANDed with the search above)
+      if (multiIds !== null) {
+        // If the view returned nothing, use an impossible UUID so the query
+        // correctly returns 0 results instead of ignoring the filter.
+        const safeIds = multiIds.length > 0
+          ? multiIds
+          : ['00000000-0000-0000-0000-000000000000']
+        custQuery = custQuery.in('id', safeIds)
+      }
+
       const { data: custData, error: custErr, count } = await custQuery
       if (custErr) throw custErr
       const customers = custData as any[]
