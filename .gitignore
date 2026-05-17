@@ -50,3 +50,13 @@ next-env.d.ts
 supabase/.temp/
 .playwright-mcp/
 
+# Local planning & reference docs (not application code)
+/Ideas/
+/Old Schema/
+*.xlsx
+*.docx
+
+# Dev tooling
+/.agents/
+/skills-lock.json
+
