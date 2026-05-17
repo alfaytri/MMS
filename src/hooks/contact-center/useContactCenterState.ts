@@ -124,10 +124,10 @@ export function useContactCenterState() {
     await supabase.functions.invoke('api-wati', { body: { action: 'set_status', phone: activePhone, status } })
   }, [activeConversationId, activePhone, activeConversation, patchConversation, clearStatusPatch])
 
-  const syncFromWati = useCallback(async (full = false) => {
+  const syncFromWati = useCallback(async () => {
     setSyncProgress({ stage: 'fetching', fetched: 0 })
 
-    const url = full ? '/api/wati/sync-contacts?mode=full' : '/api/wati/sync-contacts'
+    const url = '/api/wati/sync-contacts'
     const res = await fetch(url, { method: 'GET' })
     if (!res.ok || !res.body) {
       const err = await res.json().catch(() => ({}))
