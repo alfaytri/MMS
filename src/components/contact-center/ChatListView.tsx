@@ -12,7 +12,7 @@ interface Props {
   conversations: ChatConversation[]
   loading: boolean
   onSelectConversation: (convo: ChatConversation) => void
-  onSync?: (full?: boolean) => Promise<void>
+  onSync?: () => Promise<void>
   syncProgress?: SyncProgress
 }
 
@@ -154,10 +154,10 @@ export function ChatListView({ conversations, loading, onSelectConversation, onS
   const [lookupNotFound, setLookupNotFound] = useState(false)
   const lookupAbortRef = useRef<AbortController | null>(null)
 
-  async function handleSync(full = false) {
+  async function handleSync() {
     if (!onSync || syncing) return
     setSyncing(true)
-    try { await onSync(full) } finally { setSyncing(false) }
+    try { await onSync() } finally { setSyncing(false) }
   }
 
   const filtered = conversations.filter((c) => {

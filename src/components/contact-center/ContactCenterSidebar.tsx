@@ -118,7 +118,7 @@ export function ContactCenterSidebar() {
               conversations={conversations}
               loading={convsLoading}
               onSelectConversation={handleSelectConversation}
-              onSync={(full) => syncFromWati(full)}
+              onSync={() => syncFromWati()}
               syncProgress={syncProgress}
             />
           </div>
