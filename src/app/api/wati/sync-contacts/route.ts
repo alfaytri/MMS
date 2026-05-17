@@ -181,11 +181,7 @@ export async function GET(req: NextRequest) {
       let pageNumber = 1
       const allContacts: any[] = []
 
-      // Both modes now scan all pages; the difference is only the date filter applied
-      // per-contact inside the loop.
-      const maxPages = Infinity
-
-      while (pageNumber <= maxPages) {
+      while (true) {
         await writer.write(encode({ stage: 'fetching', page: pageNumber, total: allContacts.length }))
 
         const result = await watiGet(`/api/v1/getContacts?pageSize=${PAGE_SIZE}&pageNumber=${pageNumber}`)
