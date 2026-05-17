@@ -262,7 +262,7 @@ export function CrmSection({ customerData, onCustomerResolved, pendingPhone }: P
                               <span className="font-medium">{a.label}</span>
                             )}
                             <Badge variant="outline" className="text-[9px] py-0 px-1">
-                              {a.address_type === 'blue-plate' ? 'BP' : 'GPS'}
+                              {a.address_type === 'blue-plate' ? 'Blue Plate' : 'GPS'}
                             </Badge>
                             {a.is_primary && (
                               <Badge variant="secondary" className="text-[9px] py-0 px-1">primary</Badge>
