@@ -69,7 +69,7 @@ export function useContactCenterState() {
           err instanceof Error &&
           (err.name === 'AbortError' ||
            err.name.includes('Abort') ||
-           err.message.includes('aborted') ||
+           err.message.toLowerCase().includes('aborted') ||
            err.message.includes('BodyStreamBuffer'))
         ) return
         // All other background sync failures are non-fatal — silently ignore.
