@@ -76,6 +76,7 @@ No `WHAPI_BASE_URL` needed — always `https://gate.whapi.cloud`.
 | `src/app/api/whapi/webhook/route.ts` | Receive WHAPI events; map to `chat_messages` schema |
 | `src/app/api/whapi/send-message/route.ts` | Send text + media via WHAPI |
 | `src/app/api/whapi/send-reaction/route.ts` | Send emoji reaction via WHAPI |
+| `src/app/api/settings/cc-provider/route.ts` | PATCH endpoint (service-role) for writing `cc_provider` |
 | `src/hooks/useProviderSetting.ts` | Read/write/subscribe `cc_provider` |
 
 ---
@@ -254,6 +255,6 @@ In `useContactCenterState.ts`, the background sync catch currently only matches 
 
 ## 15. File Change Summary
 
-**New files:** 5  
+**New files:** 6  
 **Modified files:** `middleware.ts`, `ChatInputBar.tsx`, `ContactCenterSidebar.tsx`, `useChatMessages.ts`, `useContactCenterState.ts`  
 **Migration:** 1
