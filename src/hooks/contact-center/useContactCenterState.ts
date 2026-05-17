@@ -3,6 +3,7 @@
 
 import { useState, useCallback, useEffect, useRef } from 'react'
 import { createClient } from '@/lib/supabase/client'
+import { tryNormalisePhone } from '@/lib/contact-center/normalise-phone'
 import { useLiveConversations }  from './useLiveConversations'
 import { useLiveThread }         from './useLiveThread'
 import { useWhatsAppWindow }     from './useWhatsAppWindow'
@@ -64,7 +65,13 @@ export function useContactCenterState() {
           reader.cancel()
         }
       } catch (err: unknown) {
-        if (err instanceof Error && err.name === 'AbortError') return
+        if (
+          err instanceof Error &&
+          (err.name === 'AbortError' ||
+           err.name.includes('Abort') ||
+           err.message.includes('aborted') ||
+           err.message.includes('BodyStreamBuffer'))
+        ) return
         // All other background sync failures are non-fatal — silently ignore.
       } finally {
         bgSyncRunning.current = false
@@ -81,13 +88,41 @@ export function useContactCenterState() {
     }
   }, [])
 
-  function openConversation(conversationId: string, customerId: string | null, phone: string | null) {
-    setActiveConversationId(conversationId)
-    setActiveCustomerId(customerId)
+  async function openConversation(conversationId: string, customerId: string | null, phone: string | null) {
+    let resolvedCustomerId = customerId
+
+    // If the conversation has no linked customer but we have a phone, do a live
+    // lookup against service_customer_phones. This catches the common case where
+    // the customer was added to MMS after the last WATI sync ran.
+    if (!customerId && phone) {
+      const normalised = tryNormalisePhone(phone) ?? phone
+      const supabase = createClient()
+      const { data } = await (supabase as any)
+        .from('service_customer_phones')
+        .select('customer_id')
+        .eq('phone', normalised)
+        .maybeSingle()
+      if (data?.customer_id) {
+        resolvedCustomerId = data.customer_id
+        // Only persist the link when we have a real conversation row to update
+        if (conversationId) {
+          ;(supabase as any)
+            .from('chat_conversations')
+            .update({ customer_id: data.customer_id })
+            .eq('id', conversationId)
+        }
+      }
+    }
+
+    setActiveConversationId(conversationId || null)
+    setActiveCustomerId(resolvedCustomerId)
     setActivePhone(phone)
     setSidebarView('detail')
-    markRead(conversationId)
-    markOpened(conversationId)
+    // Guard: markRead/markOpened require a valid conversation ID
+    if (conversationId) {
+      markRead(conversationId)
+      markOpened(conversationId)
+    }
   }
 
   function goToList() {
