@@ -1,7 +1,7 @@
 // src/hooks/contact-center/useContactCenterState.ts
 'use client'
 
-import { useState, useCallback } from 'react'
+import { useState, useCallback, useEffect, useRef } from 'react'
 import { createClient } from '@/lib/supabase/client'
 import { useLiveConversations }  from './useLiveConversations'
 import { useLiveThread }         from './useLiveThread'
@@ -25,6 +25,7 @@ export function useContactCenterState() {
   const [activeCustomerId, setActiveCustomerId] = useState<string | null>(null)
   const [activePhone, setActivePhone]           = useState<string | null>(null)
   const [syncProgress, setSyncProgress]         = useState<SyncProgress>({ stage: 'idle' })
+  const bgSyncRunning = useRef(false)
 
   const { conversations, loading: convsLoading, markRead, markOpened, patchConversation, clearStatusPatch, refetch: refetchConversations } = useLiveConversations()
   const { messages, loading: threadLoading, fetchingWati, canLoadMore, loadMore, patchMessage, addMessage, triggerPoll } = useLiveThread(activeConversationId, activePhone)
@@ -35,6 +36,34 @@ export function useContactCenterState() {
   const customerData   = useCustomerData(activeCustomerId)
   const chatMessages   = useChatMessages(patchMessage, addMessage)
   const addressState   = useAddressState(activeCustomerId)
+
+  // Silent background sync every 5 minutes — keeps the conversation list
+  // up to date without user interaction. No banner or spinner; the debounced
+  // realtime subscription in useLiveConversations handles the UI update.
+  useEffect(() => {
+    async function runBgSync() {
+      if (bgSyncRunning.current) return
+      bgSyncRunning.current = true
+      try {
+        const res = await fetch('/api/wati/sync-contacts', { method: 'GET' })
+        if (!res.ok || !res.body) return
+        const reader = res.body.getReader()
+        // Drain the SSE stream to completion so the server-side upserts finish.
+        // We don't parse events — the realtime subscription handles UI updates.
+        while (true) {
+          const { done } = await reader.read()
+          if (done) break
+        }
+      } catch {
+        // Background sync failures are non-fatal — silently ignore.
+      } finally {
+        bgSyncRunning.current = false
+      }
+    }
+
+    const interval = setInterval(runBgSync, 5 * 60 * 1000) // every 5 minutes
+    return () => clearInterval(interval)
+  }, [])
 
   function openConversation(conversationId: string, customerId: string | null, phone: string | null) {
     setActiveConversationId(conversationId)
