@@ -50,6 +50,9 @@ next-env.d.ts
 supabase/.temp/
 .playwright-mcp/
 
+# AI planning artifacts (plans, specs, notes generated during development)
+/docs/superpowers/
+
 # Local planning & reference docs (not application code)
 /Ideas/
 /Old Schema/
