@@ -10,6 +10,7 @@ import { useWhatsAppWindow }     from './useWhatsAppWindow'
 import { useCustomerData }       from './useCustomerData'
 import { useChatMessages }       from './useChatMessages'
 import { useAddressState }       from './useAddressState'
+import { useProviderSetting }    from '@/hooks/useProviderSetting'
 import type { SidebarView }      from '@/types/contact-center'
 
 export interface SyncProgress {
@@ -35,8 +36,9 @@ export function useContactCenterState() {
   const windowStatus = useWhatsAppWindow(messages, activeConversation?.wati_status)
 
   const customerData   = useCustomerData(activeCustomerId)
-  const chatMessages   = useChatMessages(patchMessage, addMessage)
+  const chatMessages   = useChatMessages(patchMessage, addMessage, provider)
   const addressState   = useAddressState(activeCustomerId)
+  const { provider, setProvider } = useProviderSetting()
 
   // Silent background sync every 5 minutes — keeps the conversation list
   // up to date without user interaction. No banner or spinner; the debounced
@@ -231,6 +233,8 @@ export function useContactCenterState() {
     chatMessages,
     addressState,
     syncProgress,
+    provider,
+    setProvider,
     openConversation,
     goToList,
     expandSidebar,
