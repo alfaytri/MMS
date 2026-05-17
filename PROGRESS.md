@@ -161,6 +161,7 @@ Purchase & Sales▾:
 
 | Date | Module / Scope | Secrets | RLS | Auth Gate | Error Handling | Notes |
 |---|---|---|---|---|---|---|
+| 2026-05-17 | **Service Customers Page** | ✅ | ✅ | ✅ | ✅ | All mutations throw on error; RLS on `service_customer_*` tables inherited from existing `20260420000002_fix_rls_all_tables.sql` migration; new `referral_source` and `phone_id` columns inherit parent table RLS; no new API routes added |
 | 2026-05-16 | **Full codebase audit** (all modules to date) | ✅ | ✅ | ⚠️ | ⚠️ | See details below |
 
 ### 2026-05-16 Full Codebase Audit — Detail
@@ -188,9 +189,11 @@ Purchase & Sales▾:
 
 ## 🔄 In Progress
 
-🚀 Next: **Contact Centre — deploy to Vercel for webhook-driven reactions**
+🚀 Next: **Test & verify Service Customers page in browser**
 
 ## ✅ Completed
+
+- [2026-05-17] **Service Customers Page** — `supabase/migrations/20260516160000_service_customers_phone_id_referral.sql`, `src/hooks/useServiceCustomers.ts`, `src/components/master-data/ServiceCustomerFormDialog.tsx`, `src/app/(dashboard)/master-data/service-customers/page.tsx`, `src/components/layout/nav-config.ts`, `src/hooks/contact-center/useCustomerData.ts`, `src/components/contact-center/CrmSection.tsx` — Full CRUD for service customers with multi-phone/address management, address-to-phone linking, GPS + Blue Plate addresses with Google Maps/Waze links, blacklist toggle with required reason, and CRM panel address display with active-phone highlighting
 
 - [2026-05-12] **Contact Centre: Real-time messages + session guard + reaction architecture** — `src/app/api/wati/fetch-messages/route.ts`, `src/app/api/wati/webhook/route.ts`, `src/hooks/contact-center/useChatMessages.ts`, `src/hooks/contact-center/useLiveThread.ts`, `supabase/migrations/20260512210000_chat_messages_replica_identity.sql`, `supabase/migrations/20260512220000_cleanup_duplicate_messages.sql` — (1) useLiveThread: always syncs Wati on conversation open, adds 10s background Wati API sync, reduces poll to 2s, syncs on tab-visible/network-online events; (2) useChatMessages: session refresh guard in sendSessionMessage + sendTemplate prevents 401 when JWT expires mid-session; (3) fetch-messages: prefers wamid as external_id, pre-claims wati_-prefixed rows before upsert to eliminate duplicate agent messages, handles both separate reaction items and embedded reactions; confirmed Wati getMessages API returns 0 reaction items — customer reactions are push-only via webhook (works on Vercel, not localhost); (4) REPLICA IDENTITY FULL migration so Realtime filtered subscriptions receive UPDATE events; (5) cleanup migration removes legacy bare-id duplicates
 
