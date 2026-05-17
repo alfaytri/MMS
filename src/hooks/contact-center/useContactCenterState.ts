@@ -47,7 +47,9 @@ export function useContactCenterState() {
       if (bgSyncRunning.current) return
       bgSyncRunning.current = true
       try {
-        const res = await fetch('/api/wati/sync-contacts', {
+        // Use ?mode=full so the background sync scans all pages and catches
+        // contacts whose names fall beyond the fast 15-page manual window.
+        const res = await fetch('/api/wati/sync-contacts?mode=full', {
           method: 'GET',
           signal: controller.signal,
         })
@@ -69,6 +71,9 @@ export function useContactCenterState() {
       }
     }
 
+    // Run once immediately on mount so all contacts are caught quickly,
+    // then repeat every 5 minutes.
+    runBgSync()
     const interval = setInterval(runBgSync, 5 * 60 * 1000)
     return () => {
       clearInterval(interval)

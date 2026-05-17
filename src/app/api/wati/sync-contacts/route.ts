@@ -6,11 +6,13 @@ const WATI_TOKEN = (process.env.WATI_API_TOKEN ?? '').replace(/^Bearer\s+/i, '')
 const SUPA_URL   = process.env.NEXT_PUBLIC_SUPABASE_URL!
 const SUPA_KEY   = process.env.SUPABASE_SERVICE_ROLE_KEY!
 
-// Default (recent) mode: scan ALL pages but keep only contacts active in the last
-// RECENT_DAYS days. Wati sorts by name, not date, so a page cap would miss contacts
-// whose names fall later in the alphabet.
-const RECENT_DAYS = 2
-const PAGE_SIZE   = 100
+// Default mode (manual button): fast scan — limited pages, 2-day filter, ~10 s.
+// Background mode (?mode=full): scans all pages with no date filter, run silently.
+// Wati sorts /getContacts by name, not date, so the background full-scan is the
+// reliable way to catch all recently-active contacts across the alphabet.
+const RECENT_MAX_PAGES = 15   // ~10 s for the manual button
+const RECENT_DAYS      = 2
+const PAGE_SIZE        = 100
 
 function normalisePhone(raw: string): string | null {
   const cleaned = raw.replace(/[\s\-().]/g, '')
@@ -181,7 +183,11 @@ export async function GET(req: NextRequest) {
       let pageNumber = 1
       const allContacts: any[] = []
 
-      while (true) {
+      // Default mode caps pages for a fast ~10 s manual sync.
+      // Full mode scans everything (used by the silent background sync).
+      const maxPages = full ? Infinity : RECENT_MAX_PAGES
+
+      while (pageNumber <= maxPages) {
         await writer.write(encode({ stage: 'fetching', page: pageNumber, total: allContacts.length }))
 
         const result = await watiGet(`/api/v1/getContacts?pageSize=${PAGE_SIZE}&pageNumber=${pageNumber}`)
