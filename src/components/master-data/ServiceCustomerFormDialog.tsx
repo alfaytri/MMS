@@ -6,7 +6,7 @@ import { useForm, useFieldArray } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { z } from 'zod'
 import { toast } from 'sonner'
-import { Plus, Trash2, MapPin, Phone, ExternalLink } from 'lucide-react'
+import { Plus, Trash2, MapPin, Phone, ExternalLink, Loader2, CheckCircle2, XCircle } from 'lucide-react'
 import {
   Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter,
 } from '@/components/ui/dialog'
@@ -96,6 +96,30 @@ export function ServiceCustomerFormDialog({
 
   const [primaryPhoneIdx, setPrimaryPhoneIdx]     = useState(0)
   const [primaryAddressIdx, setPrimaryAddressIdx] = useState(0)
+
+  type QnasState = 'idle' | 'loading' | 'found' | 'not_found' | 'error'
+  const [qnasStates, setQnasStates]   = useState<Record<string, QnasState>>({})
+  const [qnasResults, setQnasResults] = useState<Record<string, { lat: number; lng: number }>>({})
+
+  async function handleVerifyQnas(fieldId: string, zone: string, street: string, building: string) {
+    setQnasStates((s) => ({ ...s, [fieldId]: 'loading' }))
+    setQnasResults((r) => { const n = { ...r }; delete n[fieldId]; return n })
+    try {
+      const res = await fetch(
+        `/api/qnas/lookup?zone=${encodeURIComponent(zone)}&street=${encodeURIComponent(street)}&building=${encodeURIComponent(building)}`
+      )
+      const data = await res.json()
+      if (!res.ok || data.error) { setQnasStates((s) => ({ ...s, [fieldId]: 'error' })); return }
+      if (data.found) {
+        setQnasStates((s) => ({ ...s, [fieldId]: 'found' }))
+        setQnasResults((r) => ({ ...r, [fieldId]: { lat: data.lat, lng: data.lng } }))
+      } else {
+        setQnasStates((s) => ({ ...s, [fieldId]: 'not_found' }))
+      }
+    } catch {
+      setQnasStates((s) => ({ ...s, [fieldId]: 'error' }))
+    }
+  }
 
   const form = useForm<FormValues>({
     resolver: zodResolver(formSchema),
@@ -486,28 +510,53 @@ export function ServiceCustomerFormDialog({
                           ))}
                         </div>
                         {(() => {
-                          const z = form.watch(`addresses.${idx}.zone`)
-                          const s = form.watch(`addresses.${idx}.street`)
-                          const b = form.watch(`addresses.${idx}.building`)
-                          const parts = [
-                            z && `Zone ${z}`,
-                            s && `St ${s}`,
-                            b && `Bldg ${b}`,
-                          ].filter(Boolean)
-                          if (!parts.length) return null
-                          const query = encodeURIComponent([...parts, 'Qatar'].join(', '))
-                          const mapsUrl = `https://maps.google.com/?q=${query}`
+                          const z = form.watch(`addresses.${idx}.zone`) ?? ''
+                          const s = form.watch(`addresses.${idx}.street`) ?? ''
+                          const b = form.watch(`addresses.${idx}.building`) ?? ''
+                          const canVerify = !!(z && s && b)
+                          const qState  = qnasStates[field.id]  ?? 'idle'
+                          const qResult = qnasResults[field.id]
                           return (
-                            <div className="flex items-center gap-2 bg-muted/50 rounded px-2 py-1">
-                              <p className="text-xs text-muted-foreground flex-1">{parts.join(', ')}</p>
-                              <a
-                                href={mapsUrl}
-                                target="_blank"
-                                rel="noopener noreferrer"
-                                className="inline-flex items-center gap-0.5 text-xs text-primary hover:underline shrink-0"
+                            <div className="space-y-2">
+                              <Button
+                                type="button"
+                                variant="outline"
+                                size="sm"
+                                className="w-full text-xs"
+                                disabled={!canVerify || qState === 'loading'}
+                                onClick={() => handleVerifyQnas(field.id, z, s, b)}
                               >
-                                <ExternalLink className="h-3 w-3" /> Verify on Maps
-                              </a>
+                                {qState === 'loading'
+                                  ? <><Loader2 className="h-3 w-3 mr-1.5 animate-spin" />Verifying…</>
+                                  : 'Verify on Qatar National Address System'}
+                              </Button>
+
+                              {qState === 'found' && qResult && (
+                                <div className="rounded-md border border-green-200 bg-green-50 px-3 py-2 space-y-1.5">
+                                  <div className="flex items-center gap-1.5 text-sm font-medium text-green-700">
+                                    <CheckCircle2 className="h-4 w-4" /> Address verified
+                                  </div>
+                                  <p className="text-xs text-green-600">{qResult.lat.toFixed(6)}, {qResult.lng.toFixed(6)}</p>
+                                  <div className="flex gap-3">
+                                    <a href={`https://www.google.com/maps?q=${qResult.lat},${qResult.lng}`} target="_blank" rel="noopener noreferrer" className="inline-flex items-center gap-1 text-xs text-green-700 hover:underline">
+                                      <ExternalLink className="h-3 w-3" /> Google Maps
+                                    </a>
+                                    <a href={`https://waze.com/ul?ll=${qResult.lat},${qResult.lng}&navigate=yes`} target="_blank" rel="noopener noreferrer" className="inline-flex items-center gap-1 text-xs text-green-700 hover:underline">
+                                      <ExternalLink className="h-3 w-3" /> Waze
+                                    </a>
+                                  </div>
+                                </div>
+                              )}
+
+                              {qState === 'not_found' && (
+                                <div className="flex items-center gap-1.5 rounded-md border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700">
+                                  <XCircle className="h-4 w-4 shrink-0" /> Address not found in Qatar national database
+                                </div>
+                              )}
+
+                              {qState === 'error' && (
+                                <p className="text-xs text-muted-foreground">Could not reach QNAS service. You can still save the address.</p>
+                              )}
                             </div>
                           )
                         })()}
