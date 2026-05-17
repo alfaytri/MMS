@@ -67,12 +67,12 @@ export default function ServiceCustomersPage() {
       },
       {
         id: 'primary_address',
-        header: 'Primary Address',
+        header: () => <span className="hidden md:inline">Primary Address</span>,
         cell: ({ row }) => {
           const a = row.original.primaryAddress
-          if (!a) return <span className="text-muted-foreground text-sm">—</span>
+          if (!a) return <span className="hidden md:inline text-muted-foreground text-sm">—</span>
           return (
-            <div className="flex items-center gap-1.5 text-sm text-muted-foreground">
+            <div className="hidden md:flex items-center gap-1.5 text-sm text-muted-foreground">
               <Badge variant="outline" className="text-[10px] shrink-0">
                 {a.address_type === 'blue-plate' ? 'BP' : 'GPS'}
               </Badge>
@@ -83,9 +83,9 @@ export default function ServiceCustomersPage() {
       },
       {
         accessorKey: 'referral_source',
-        header: 'Found Us Via',
+        header: () => <span className="hidden lg:inline">Found Us Via</span>,
         cell: ({ row }) => (
-          <span className="text-sm text-muted-foreground capitalize">
+          <span className="hidden lg:inline text-sm text-muted-foreground capitalize">
             {row.original.referral_source?.replace('-', ' ') ?? '—'}
           </span>
         ),
