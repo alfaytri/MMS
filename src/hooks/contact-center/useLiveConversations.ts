@@ -31,29 +31,30 @@ export function useLiveConversations() {
       `)
       .not('last_message_at', 'is', null)
       .gte('last_message_at', yesterdayStart.toISOString())
-      // Hide contacts that were synced from WATI but have never had a real message
-      .or('last_message.not.is.null,unread_count.gt.0')
       .order('last_message_at', { ascending: false, nullsFirst: false })
       .limit(200)
 
     if (cancelledRef.current) return
 
     if (error) {
-      console.error('[useLiveConversations] query error', error)
+      console.error('[useLiveConversations] query error — code:', (error as any).code, '| message:', (error as any).message, '| details:', (error as any).details, '| raw:', JSON.stringify(error))
       setLoading(false)
       return
     }
 
     setConversations(
-      (data as any[]).map((row) => ({
-        ...row,
-        customer_name: row.service_customers?.name ?? row.wati_contact_name ?? null,
-        unread_count: locallyReadIds.current.has(row.id) ? 0 : row.unread_count,
-        // Keep locally-patched status until the DB confirms the change
-        wati_status: localStatusPatch.current.has(row.id)
-          ? localStatusPatch.current.get(row.id)
-          : row.wati_status,
-      }))
+      (data as any[])
+        // Hide contacts synced from WATI that have never had a real message
+        .filter((row: any) => row.last_message != null || row.unread_count > 0)
+        .map((row) => ({
+          ...row,
+          customer_name: row.service_customers?.name ?? row.wati_contact_name ?? null,
+          unread_count: locallyReadIds.current.has(row.id) ? 0 : row.unread_count,
+          // Keep locally-patched status until the DB confirms the change
+          wati_status: localStatusPatch.current.has(row.id)
+            ? localStatusPatch.current.get(row.id)
+            : row.wati_status,
+        }))
     )
     setLoading(false)
   }, [])
@@ -62,17 +63,28 @@ export function useLiveConversations() {
     cancelledRef.current = false
     load()
 
+    // Debounce realtime-triggered reloads so a burst of upserts (e.g. 25 contacts
+    // from a background sync) batches into a single DB query instead of 25.
+    let debounceTimer: ReturnType<typeof setTimeout> | null = null
+    function debouncedLoad() {
+      if (debounceTimer) clearTimeout(debounceTimer)
+      debounceTimer = setTimeout(() => {
+        if (!cancelledRef.current) load()
+      }, 400)
+    }
+
     const channel = supabase
       .channel('live-conversations')
       .on(
         'postgres_changes',
         { event: '*', schema: 'public', table: 'chat_conversations' },
-        () => { if (!cancelledRef.current) load() }
+        () => { if (!cancelledRef.current) debouncedLoad() }
       )
       .subscribe()
 
     return () => {
       cancelledRef.current = true
+      if (debounceTimer) clearTimeout(debounceTimer)
       supabase.removeChannel(channel)
     }
   }, [load])
