@@ -467,8 +467,8 @@ export function ServiceCustomerFormDialog({
                     />
 
                     {addrType === 'blue-plate' && (
-                      <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
-                        {(['zone', 'street', 'building', 'unit'] as const).map((f) => (
+                      <div className="grid grid-cols-3 gap-2">
+                        {(['zone', 'street', 'building'] as const).map((f) => (
                           <FormField
                             key={f}
                             control={form.control}
@@ -569,7 +569,7 @@ export function ServiceCustomerFormDialog({
                     address_type: 'blue-plate',
                     label: '',
                     phoneIndex: null,
-                    zone: '', street: '', building: '', unit: '',
+                    zone: '', street: '', building: '',
                     lat: '', lng: '',
                   })
                 }
