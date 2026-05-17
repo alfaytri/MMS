@@ -56,6 +56,9 @@ supabase/.temp/
 *.xlsx
 *.docx
 
+# One-time / maintenance scripts (not application code)
+/scripts/
+
 # Dev tooling
 /.agents/
 /skills-lock.json
