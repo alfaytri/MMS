@@ -35,10 +35,10 @@ export function useContactCenterState() {
   const activeConversation = conversations.find((c) => c.id === activeConversationId) ?? null
   const windowStatus = useWhatsAppWindow(messages, activeConversation?.wati_status)
 
+  const { provider, setProvider } = useProviderSetting()
   const customerData   = useCustomerData(activeCustomerId)
   const chatMessages   = useChatMessages(patchMessage, addMessage, provider)
   const addressState   = useAddressState(activeCustomerId)
-  const { provider, setProvider } = useProviderSetting()
 
   // Silent background sync every 5 minutes — keeps the conversation list
   // up to date without user interaction. No banner or spinner; the debounced
