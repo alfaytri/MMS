@@ -136,17 +136,30 @@ export async function GET(req: NextRequest) {
                 const text     = m.text?.body?.trim() || m.caption?.trim() || null
                 const fromType = m.from_me ? 'agent' : 'customer'
 
+                // Extract attachments — WHAPI's `link` arrives only when Auto
+                // Download is on. Fall back to /media/{id} (proxied with auth).
                 const attachments: { url: string; type: string; name: string }[] = []
-                if (msgType === 'image' && m.image?.link)
-                  attachments.push({ url: m.image.link, type: m.image.mime_type ?? 'image/jpeg', name: m.image.filename ?? 'image' })
-                else if (msgType === 'document' && m.document?.link)
-                  attachments.push({ url: m.document.link, type: m.document.mime_type ?? 'application/octet-stream', name: m.document.filename ?? 'document' })
-                else if (msgType === 'video' && m.video?.link)
-                  attachments.push({ url: m.video.link, type: m.video.mime_type ?? 'video/mp4', name: m.video.filename ?? 'video' })
-                else if (msgType === 'audio' && m.audio?.link)
-                  attachments.push({ url: m.audio.link, type: m.audio.mime_type ?? 'audio/ogg', name: m.audio.filename ?? 'audio' })
-                else if (msgType === 'sticker' && m.sticker?.link)
-                  attachments.push({ url: m.sticker.link, type: 'image/webp', name: 'sticker' })
+                const mediaSpec: Array<{ key: string; defaultMime: string; defaultName: string }> = [
+                  { key: 'image',    defaultMime: 'image/jpeg',               defaultName: 'image' },
+                  { key: 'video',    defaultMime: 'video/mp4',                defaultName: 'video' },
+                  { key: 'audio',    defaultMime: 'audio/ogg',                defaultName: 'audio' },
+                  { key: 'voice',    defaultMime: 'audio/ogg; codecs=opus',   defaultName: 'voice' },
+                  { key: 'document', defaultMime: 'application/octet-stream', defaultName: 'document' },
+                  { key: 'sticker',  defaultMime: 'image/webp',               defaultName: 'sticker' },
+                ]
+                for (const { key, defaultMime, defaultName } of mediaSpec) {
+                  if (msgType !== key) continue
+                  const media = m[key]
+                  if (!media) continue
+                  const url: string | null = media.link
+                    ?? (media.id ? `https://gate.whapi.cloud/media/${media.id}` : null)
+                  if (!url) continue
+                  attachments.push({
+                    url,
+                    type: media.mime_type ?? defaultMime,
+                    name: media.file_name ?? media.filename ?? defaultName,
+                  })
+                }
 
                 return {
                   conversation_id: conversationId,

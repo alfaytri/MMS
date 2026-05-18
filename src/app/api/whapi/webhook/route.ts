@@ -106,16 +106,33 @@ export async function POST(req: NextRequest) {
       text = msg.caption.trim()
     }
 
-    // Extract attachments
+    // Extract attachments — WHAPI's `link` field only arrives when Auto Download
+    // is enabled in the channel settings. When it's off we only get `id`, so
+    // fall back to the /media/{id} endpoint (the /api/whapi/media proxy adds
+    // the bearer token at fetch time).
     const attachments: { url: string; type: string; name: string }[] = []
-    if (msgType === 'image' && msg.image?.link) {
-      attachments.push({ url: msg.image.link, type: msg.image.mime_type ?? 'image/jpeg', name: 'image' })
-    } else if (msgType === 'document' && msg.document?.link) {
-      attachments.push({ url: msg.document.link, type: msg.document.mime_type ?? 'application/octet-stream', name: msg.document.filename ?? 'document' })
-    } else if (msgType === 'audio' && msg.audio?.link) {
-      attachments.push({ url: msg.audio.link, type: msg.audio.mime_type ?? 'audio/ogg', name: 'audio' })
-    } else if (msgType === 'video' && msg.video?.link) {
-      attachments.push({ url: msg.video.link, type: msg.video.mime_type ?? 'video/mp4', name: 'video' })
+    const mediaSpec: Array<{ key: string; defaultMime: string; defaultName: string }> = [
+      { key: 'image',    defaultMime: 'image/jpeg',               defaultName: 'image' },
+      { key: 'video',    defaultMime: 'video/mp4',                defaultName: 'video' },
+      { key: 'audio',    defaultMime: 'audio/ogg',                defaultName: 'audio' },
+      { key: 'voice',    defaultMime: 'audio/ogg; codecs=opus',   defaultName: 'voice' },
+      { key: 'document', defaultMime: 'application/octet-stream', defaultName: 'document' },
+      { key: 'sticker',  defaultMime: 'image/webp',               defaultName: 'sticker' },
+    ]
+    for (const { key, defaultMime, defaultName } of mediaSpec) {
+      if (msgType !== key) continue
+      const media = msg[key]
+      if (!media) continue
+      const url: string | null = media.link
+        ?? (media.id ? `https://gate.whapi.cloud/media/${media.id}` : null)
+      if (!url) continue
+      attachments.push({
+        url,
+        type: media.mime_type ?? defaultMime,
+        name: media.file_name ?? media.filename ?? defaultName,
+      })
+      // Caption inside media object is more accurate than root-level for WHAPI
+      if (!text && typeof media.caption === 'string') text = media.caption.trim()
     }
 
     const previewText = text || (msgType !== 'text' ? `[${msgType}]` : '')

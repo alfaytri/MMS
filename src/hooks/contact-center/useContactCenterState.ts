@@ -210,15 +210,19 @@ export function useContactCenterState() {
     }
   }
 
-  const syncFromWati = useCallback(async () => {
+  // Not memoised on purpose: streamSync closes over the current-render
+  // `refetchConversations`, which is rebuilt when `provider` flips from
+  // 'wati' → 'whapi'. A `useCallback(…, [])` here would freeze the
+  // first-render WATI version and cause the list to flip to WATI on sync.
+  async function syncFromWati() {
     setSyncProgress({ stage: 'fetching', fetched: 0 })
     await streamSync('/api/wati/sync-contacts')
-  }, [])
+  }
 
-  const syncFromWhapi = useCallback(async () => {
+  async function syncFromWhapi() {
     setSyncProgress({ stage: 'fetching', fetched: 0 })
     await streamSync('/api/whapi/sync-chats')
-  }, [])
+  }
 
   const syncFromProvider = provider === 'whapi' ? syncFromWhapi : syncFromWati
 
