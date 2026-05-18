@@ -4,6 +4,7 @@
   "private": true,
   "scripts": {
     "dev": "next dev --turbopack",
+    "tunnel": "ngrok http --domain=freight-tinsmith-flashcard.ngrok-free.dev 3000",
     "build": "next build",
     "start": "next start",
     "lint": "eslint",
