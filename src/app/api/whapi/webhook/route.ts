@@ -153,6 +153,7 @@ export async function POST(req: NextRequest) {
     const { data: convo } = await (supabase.from('chat_conversations') as any)
       .update({ last_message: previewText, last_message_at: ts, unread_count: 1 })
       .eq('wati_phone', phone)
+      .eq('provider', 'whapi')
       .or(`last_message_at.is.null,last_message_at.lt.${ts}`)
       .select('id')
       .maybeSingle()
@@ -163,7 +164,8 @@ export async function POST(req: NextRequest) {
       const { data: existing } = await (supabase.from('chat_conversations') as any)
         .select('id')
         .eq('wati_phone', phone)
-        .single()
+        .eq('provider', 'whapi')
+        .maybeSingle()
       conversationId = existing?.id ?? null
     }
 

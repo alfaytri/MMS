@@ -119,7 +119,8 @@ export async function GET(req: NextRequest) {
           const { data: existing } = await (supabase.from('chat_conversations') as any)
             .select('id')
             .eq('wati_phone', phone)
-            .single()
+            .eq('provider', 'whapi')
+            .maybeSingle()
           conversationId = existing?.id ?? null
         }
 
