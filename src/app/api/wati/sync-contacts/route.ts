@@ -121,6 +121,7 @@ async function upsertContacts(allContacts: any[], supabase: ReturnType<typeof cr
       wati_contact_name: contactName(c),
       customer_id:       customerByPhone.get(phone) ?? null,
       assigned_agent:    assignedAgent,
+      provider:          'wati',
     }
 
     if (date) {

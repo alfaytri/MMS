@@ -29,13 +29,13 @@ export function useContactCenterState() {
   const [syncProgress, setSyncProgress]         = useState<SyncProgress>({ stage: 'idle' })
   const bgSyncRunning = useRef(false)
 
-  const { conversations, loading: convsLoading, markRead, markOpened, patchConversation, clearStatusPatch, refetch: refetchConversations } = useLiveConversations()
+  const { provider, setProvider } = useProviderSetting()
+  const { conversations, loading: convsLoading, markRead, markOpened, patchConversation, clearStatusPatch, refetch: refetchConversations } = useLiveConversations(provider)
   const { messages, loading: threadLoading, fetchingWati, canLoadMore, loadMore, patchMessage, addMessage, triggerPoll } = useLiveThread(activeConversationId, activePhone)
 
   const activeConversation = conversations.find((c) => c.id === activeConversationId) ?? null
   const windowStatus = useWhatsAppWindow(messages, activeConversation?.wati_status)
 
-  const { provider, setProvider } = useProviderSetting()
   const customerData   = useCustomerData(activeCustomerId)
   const chatMessages   = useChatMessages(patchMessage, addMessage, provider)
   const addressState   = useAddressState(activeCustomerId)

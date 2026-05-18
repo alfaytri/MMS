@@ -4,7 +4,7 @@ import { useState, useEffect, useCallback, useRef } from 'react'
 import { createClient } from '@/lib/supabase/client'
 import type { ChatConversation } from '@/types/contact-center'
 
-export function useLiveConversations() {
+export function useLiveConversations(provider: 'wati' | 'whapi' = 'wati') {
   const [conversations, setConversations] = useState<ChatConversation[]>([])
   const [loading, setLoading] = useState(true)
   const supabase = createClient()
@@ -29,6 +29,7 @@ export function useLiveConversations() {
         assigned_agent, is_opened, wati_status, created_at,
         service_customers(name)
       `)
+      .eq('provider', provider)
       .not('last_message_at', 'is', null)
       .gte('last_message_at', yesterdayStart.toISOString())
       .order('last_message_at', { ascending: false, nullsFirst: false })
@@ -60,7 +61,7 @@ export function useLiveConversations() {
         }))
     )
     setLoading(false)
-  }, [])
+  }, [provider])
 
   useEffect(() => {
     cancelledRef.current = false
