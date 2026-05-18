@@ -131,7 +131,7 @@ export async function POST(req: NextRequest) {
 
     // Find or create conversation (idempotent, out-of-order timestamp guard)
     await (supabase.from('chat_conversations') as any)
-      .upsert({ wati_phone: phone, provider: 'whapi' }, { onConflict: 'wati_phone', ignoreDuplicates: true })
+      .upsert({ wati_phone: phone, provider: 'whapi' }, { onConflict: 'wati_phone,provider', ignoreDuplicates: true })
 
     const { data: convo } = await (supabase.from('chat_conversations') as any)
       .update({ last_message: previewText, last_message_at: ts, unread_count: 1 })

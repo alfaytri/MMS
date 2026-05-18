@@ -4,7 +4,7 @@ import { useState, useEffect, useCallback, useRef } from 'react'
 import { createClient } from '@/lib/supabase/client'
 import type { ChatMessage } from '@/types/contact-center'
 
-export function useLiveThread(conversationId: string | null, phone: string | null) {
+export function useLiveThread(conversationId: string | null, phone: string | null, provider: 'wati' | 'whapi' = 'wati') {
   const [messages, setMessages]         = useState<ChatMessage[]>([])
   const [loading, setLoading]           = useState(false)
   const [fetchingWati, setFetchingWati] = useState(false)
@@ -136,9 +136,8 @@ export function useLiveThread(conversationId: string | null, phone: string | nul
       setCanLoadMore(existing.length > 0)
       setLoading(false)
 
-      // 2. Always sync the last day from Wati so any messages that arrived
-      //    without the webhook (local dev, preview URLs) are pulled in now.
-      if (phone) {
+      // 2. Sync from WATI only — WHAPI conversations are fully webhook-driven.
+      if (phone && provider === 'wati') {
         await fetchFromWati(conversationId!, phone, 1)
         if (cancelledRef.current) return
         const fresh = await loadFromDb(conversationId!)
@@ -217,7 +216,7 @@ export function useLiveThread(conversationId: string | null, phone: string | nul
     async function syncFromWati() {
       const convId = convIdRef.current
       const ph     = phone
-      if (!convId || !ph || watiSyncing || cancelledRef.current) return
+      if (!convId || !ph || watiSyncing || cancelledRef.current || provider !== 'wati') return
       watiSyncing = true
       try {
         const res = await fetch(
@@ -257,7 +256,7 @@ export function useLiveThread(conversationId: string | null, phone: string | nul
       document.removeEventListener('visibilitychange', handleVisibility)
       window.removeEventListener('online', handleOnline)
     }
-  }, [conversationId, phone])
+  }, [conversationId, phone, provider])
 
   async function loadMore() {
     if (!conversationId || !phone || fetchingWati) return

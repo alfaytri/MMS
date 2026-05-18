@@ -109,7 +109,7 @@ export async function GET(req: NextRequest) {
             customer_id:       customerByPhone.get(phone) ?? null,
             last_message:      lastMsgText,
             last_message_at:   lastMsgAt,
-          }, { onConflict: 'wati_phone', ignoreDuplicates: false })
+          }, { onConflict: 'wati_phone,provider', ignoreDuplicates: false })
           .select('id')
           .maybeSingle()
 
@@ -131,17 +131,30 @@ export async function GET(req: NextRequest) {
             const toInsert = msgs
               .filter((m: any) => m.type !== 'reaction' && m.id)
               .map((m: any) => {
-                const ts = m.timestamp
-                  ? new Date(m.timestamp * 1000).toISOString()
-                  : new Date().toISOString()
-                const text: string = m.text?.body?.trim() || null
+                const ts       = m.timestamp ? new Date(m.timestamp * 1000).toISOString() : new Date().toISOString()
+                const msgType  = (m.type ?? 'text').toLowerCase()
+                const text     = m.text?.body?.trim() || m.caption?.trim() || null
                 const fromType = m.from_me ? 'agent' : 'customer'
+
+                const attachments: { url: string; type: string; name: string }[] = []
+                if (msgType === 'image' && m.image?.link)
+                  attachments.push({ url: m.image.link, type: m.image.mime_type ?? 'image/jpeg', name: m.image.filename ?? 'image' })
+                else if (msgType === 'document' && m.document?.link)
+                  attachments.push({ url: m.document.link, type: m.document.mime_type ?? 'application/octet-stream', name: m.document.filename ?? 'document' })
+                else if (msgType === 'video' && m.video?.link)
+                  attachments.push({ url: m.video.link, type: m.video.mime_type ?? 'video/mp4', name: m.video.filename ?? 'video' })
+                else if (msgType === 'audio' && m.audio?.link)
+                  attachments.push({ url: m.audio.link, type: m.audio.mime_type ?? 'audio/ogg', name: m.audio.filename ?? 'audio' })
+                else if (msgType === 'sticker' && m.sticker?.link)
+                  attachments.push({ url: m.sticker.link, type: 'image/webp', name: 'sticker' })
+
                 return {
                   conversation_id: conversationId,
                   external_id:     m.id,
                   from_type:       fromType,
                   source:          'whatsapp_api',
                   text:            text || null,
+                  attachments:     attachments.length > 0 ? attachments : null,
                   delivery_status: m.status ?? 'delivered',
                   created_at:      ts,
                   message_kind:    'message',

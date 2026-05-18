@@ -143,7 +143,7 @@ async function upsertContacts(allContacts: any[], supabase: ReturnType<typeof cr
   for (let i = 0; i < rowsWithDateAndMsg.length; i += CHUNK) {
     const chunk = rowsWithDateAndMsg.slice(i, i + CHUNK)
     const { error } = await (supabase.from('chat_conversations') as any)
-      .upsert(chunk, { onConflict: 'wati_phone', ignoreDuplicates: false })
+      .upsert(chunk, { onConflict: 'wati_phone,provider', ignoreDuplicates: false })
     if (error) throw new Error((error as any).message)
     synced += chunk.length
   }
@@ -152,7 +152,7 @@ async function upsertContacts(allContacts: any[], supabase: ReturnType<typeof cr
   for (let i = 0; i < rowsWithDateNoMsg.length; i += CHUNK) {
     const chunk = rowsWithDateNoMsg.slice(i, i + CHUNK)
     const { error } = await (supabase.from('chat_conversations') as any)
-      .upsert(chunk, { onConflict: 'wati_phone', ignoreDuplicates: false })
+      .upsert(chunk, { onConflict: 'wati_phone,provider', ignoreDuplicates: false })
     if (error) throw new Error((error as any).message)
     synced += chunk.length
   }
@@ -161,7 +161,7 @@ async function upsertContacts(allContacts: any[], supabase: ReturnType<typeof cr
   for (let i = 0; i < rowsNoDate.length; i += CHUNK) {
     const chunk = rowsNoDate.slice(i, i + CHUNK)
     const { error } = await (supabase.from('chat_conversations') as any)
-      .upsert(chunk, { onConflict: 'wati_phone', ignoreDuplicates: true })
+      .upsert(chunk, { onConflict: 'wati_phone,provider', ignoreDuplicates: true })
     if (error) throw new Error((error as any).message)
     synced += chunk.length
   }
