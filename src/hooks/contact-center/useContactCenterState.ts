@@ -166,10 +166,7 @@ export function useContactCenterState() {
     await supabase.functions.invoke('api-wati', { body: { action: 'set_status', phone: activePhone, status } })
   }, [activeConversationId, activePhone, activeConversation, patchConversation, clearStatusPatch])
 
-  const syncFromWati = useCallback(async () => {
-    setSyncProgress({ stage: 'fetching', fetched: 0 })
-
-    const url = '/api/wati/sync-contacts'
+  async function streamSync(url: string) {
     const res = await fetch(url, { method: 'GET' })
     if (!res.ok || !res.body) {
       const err = await res.json().catch(() => ({}))
@@ -177,7 +174,7 @@ export function useContactCenterState() {
       throw new Error(err.error ?? 'Sync failed')
     }
 
-    const reader = res.body.getReader()
+    const reader  = res.body.getReader()
     const decoder = new TextDecoder()
     let buf = ''
 
@@ -199,22 +196,31 @@ export function useContactCenterState() {
           } else if (event.done) {
             setSyncProgress({ stage: 'done', synced: event.synced, total: event.synced })
             refetchConversations()
-            // auto-clear after 4 s
             setTimeout(() => setSyncProgress({ stage: 'idle' }), 4000)
           } else {
             setSyncProgress({
-              stage: event.stage ?? 'fetching',
+              stage:   event.stage ?? 'fetching',
               fetched: event.total ?? event.fetched,
               synced:  event.synced,
               total:   event.total,
             })
           }
-        } catch {
-          // ignore parse errors on partial lines
-        }
+        } catch { /* ignore partial lines */ }
       }
     }
+  }
+
+  const syncFromWati = useCallback(async () => {
+    setSyncProgress({ stage: 'fetching', fetched: 0 })
+    await streamSync('/api/wati/sync-contacts')
   }, [])
+
+  const syncFromWhapi = useCallback(async () => {
+    setSyncProgress({ stage: 'fetching', fetched: 0 })
+    await streamSync('/api/whapi/sync-chats')
+  }, [])
+
+  const syncFromProvider = provider === 'whapi' ? syncFromWhapi : syncFromWati
 
   return {
     sidebarView,
@@ -243,6 +249,7 @@ export function useContactCenterState() {
     patchMessage,
     triggerPoll,
     syncFromWati,
+    syncFromProvider,
     updateConversationStatus,
   }
 }

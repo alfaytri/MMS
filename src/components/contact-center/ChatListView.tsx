@@ -14,9 +14,10 @@ interface Props {
   onSelectConversation: (convo: ChatConversation) => void
   onSync?: () => Promise<void>
   syncProgress?: SyncProgress
+  provider?: 'wati' | 'whapi'
 }
 
-function SyncBanner({ progress }: { progress: SyncProgress }) {
+function SyncBanner({ progress, provider = 'wati' }: { progress: SyncProgress; provider?: 'wati' | 'whapi' }) {
   if (progress.stage === 'idle') return null
 
   const pct =
@@ -24,15 +25,16 @@ function SyncBanner({ progress }: { progress: SyncProgress }) {
       ? Math.round(((progress.synced ?? 0) / progress.total) * 100)
       : null
 
+  const providerLabel = provider === 'whapi' ? 'WHAPI' : 'WATI'
   const label =
     progress.stage === 'fetching'
-      ? `Fetching from WATI… ${progress.fetched ? `(${progress.fetched} so far)` : ''}`
+      ? `Fetching from ${providerLabel}… ${progress.fetched ? `(${progress.fetched} so far)` : ''}`
       : progress.stage === 'resolving'
-      ? `Resolving ${progress.fetched ?? 0} contacts…`
+      ? `Resolving ${progress.fetched ?? 0} chats…`
       : progress.stage === 'upserting'
-      ? `Saving ${progress.synced ?? 0} contacts…`
+      ? `Saving ${progress.synced ?? 0} / ${progress.total ?? '?'} chats…`
       : progress.stage === 'done'
-      ? `Synced ${progress.synced ?? 0} contacts`
+      ? `Synced ${progress.synced ?? 0} chats`
       : (progress.error ?? 'Sync failed')
 
   const isError = progress.stage === 'error'
@@ -143,7 +145,7 @@ function looksLikePhone(s: string): boolean {
   return /^[+\d\s\-().]{6,}$/.test(s.trim()) && /\d{6}/.test(s)
 }
 
-export function ChatListView({ conversations, loading, onSelectConversation, onSync, syncProgress }: Props) {
+export function ChatListView({ conversations, loading, onSelectConversation, onSync, syncProgress, provider = 'wati' }: Props) {
   const [search, setSearch] = useState('')
   const [filter, setFilter] = useState<'all' | 'unanswered'>('all')
   const [syncing, setSyncing] = useState(false)
@@ -244,7 +246,7 @@ export function ChatListView({ conversations, loading, onSelectConversation, onS
             size="icon"
             className="h-8 w-8 flex-shrink-0"
             disabled={!!isSyncing}
-            title="Sync from WATI (today + yesterday)"
+            title={provider === 'whapi' ? 'Sync chats from WHAPI' : 'Sync from WATI (today + yesterday)'}
             onClick={() => handleSync()}
           >
             <RefreshCw className={`h-3.5 w-3.5 ${isSyncing ? 'animate-spin' : ''}`} />
@@ -254,7 +256,7 @@ export function ChatListView({ conversations, loading, onSelectConversation, onS
 
       {/* Progress banner */}
       {syncProgress && syncProgress.stage !== 'idle' && (
-        <SyncBanner progress={syncProgress} />
+        <SyncBanner progress={syncProgress} provider={provider} />
       )}
 
       {/* Filter tabs */}
@@ -370,7 +372,9 @@ export function ChatListView({ conversations, loading, onSelectConversation, onS
                 <MessageSquare className="h-8 w-8 opacity-30" />
                 <p className="text-xs">No conversations in the last 3 days</p>
                 <p className="text-xs opacity-60 text-center px-4">
-                  Search a phone number to find older contacts
+                  {provider === 'whapi'
+                    ? 'Press the sync button to import your WhatsApp chats'
+                    : 'Search a phone number to find older contacts'}
                 </p>
               </div>
             )}

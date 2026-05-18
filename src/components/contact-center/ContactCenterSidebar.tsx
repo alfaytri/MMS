@@ -37,7 +37,7 @@ export function ContactCenterSidebar() {
     fetchingWati, canLoadMore, loadMore,
     windowStatus, customerData, chatMessages, addressState,
     activeConversationId, activeCustomerId, activePhone,
-    openConversation, goToList, expandSidebar, collapseSidebar, openPhoneDirect, syncFromWati, syncProgress, triggerPoll,
+    openConversation, goToList, expandSidebar, collapseSidebar, openPhoneDirect, syncFromProvider, syncProgress, triggerPoll,
     updateConversationStatus,
     provider, setProvider,
   } = state
@@ -135,8 +135,9 @@ export function ContactCenterSidebar() {
               conversations={conversations}
               loading={convsLoading}
               onSelectConversation={handleSelectConversation}
-              onSync={() => syncFromWati()}
+              onSync={() => syncFromProvider()}
               syncProgress={syncProgress}
+              provider={provider}
             />
           </div>
         </div>
