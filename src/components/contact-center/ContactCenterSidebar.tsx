@@ -273,6 +273,7 @@ export function ContactCenterSidebar() {
           phone={activePhone ?? ''}
           chatMessages={chatMessages}
           onReact={(msgId, _extId, emoji) => chatMessages.reactToMessage(msgId, emoji, activePhone ?? '')}
+          provider={provider}
         />
         {activeConversationId && activePhone && (
           <ChatInputBar
@@ -282,6 +283,7 @@ export function ContactCenterSidebar() {
             windowStatus={windowStatus}
             chatMessages={chatMessages}
             onAfterSend={triggerPoll}
+            provider={provider}
           />
         )}
       </div>
