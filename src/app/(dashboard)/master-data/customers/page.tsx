@@ -77,6 +77,7 @@ export default function CustomersPage() {
       {
         name:            newName.trim(),
         phone:           newPhone.trim(),
+        email:           null,
         customer_type:   newType,
         credit_group_id: newType === 'credit' ? newGroupId : null,
       },

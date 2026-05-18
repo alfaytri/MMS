@@ -418,8 +418,9 @@ async function resolveActorProfileId(): Promise<string | null> {
     .select('id')
     .eq('auth_user_id', authUserId)
     .maybeSingle()
-  _cachedProfileId = data?.id ?? null
-  return _cachedProfileId
+  const id: string | null = data?.id ?? null
+  _cachedProfileId = id
+  return id
 }
 
 export async function logActivity(params: {

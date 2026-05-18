@@ -187,6 +187,7 @@ export function CrmSection({ customerData, onCustomerResolved, pendingPhone }: P
 
   // ── View mode ──────────────────────────────────────────────────────────────
   if (crmMode === 'view') {
+    if (!customer) return null
     return (
       <div className="px-3 py-2 space-y-2 overscroll-contain">
         <div className="flex items-start justify-between gap-2">
