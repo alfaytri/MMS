@@ -118,7 +118,7 @@ export function CalendarToolbar({
         {isSuperViewer && divisions.length > 1 && (
           <Select
             value={activeDivisionSlug ?? ''}
-            onValueChange={onDivisionChange}
+            onValueChange={(v) => { if (v !== null) onDivisionChange(v) }}
           >
             <SelectTrigger className="h-7 w-36 text-xs gap-1">
               <SelectValue placeholder="All divisions" />

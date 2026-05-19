@@ -23,7 +23,7 @@ export function useOrders(filter: OrdersFilter = DEFAULT_FILTER) {
 
       // Multi-status filter takes precedence over legacy statusChip
       if (filter.statuses?.length) {
-        query = query.in('status', filter.statuses)
+        query = query.in('status', filter.statuses as any)
       } else if (filter.statusChip === 'scheduled') {
         query = query.eq('status', 'scheduled')
       } else if (filter.statusChip === 'pending_approval') {

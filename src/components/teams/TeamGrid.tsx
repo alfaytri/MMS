@@ -24,10 +24,14 @@ function groupTeams(teams: TeamFull[]): CompanyGroup[] {
     divMap.get(divisionName)!.push(t)
   }
 
-  return Array.from(companyMap.entries()).map(([companyName, divMap]) => ({
-    companyName,
-    divisions: Array.from(divMap.entries()).map(([divisionName, teams]) => ({ divisionName, teams })),
-  }))
+  return Array.from(companyMap.entries())
+    .sort(([a], [b]) => a.localeCompare(b))
+    .map(([companyName, divMap]) => ({
+      companyName,
+      divisions: Array.from(divMap.entries())
+        .sort(([a], [b]) => a.localeCompare(b))
+        .map(([divisionName, teams]) => ({ divisionName, teams })),
+    }))
 }
 
 export function TeamGrid() {

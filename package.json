@@ -4,6 +4,7 @@
   "private": true,
   "scripts": {
     "dev": "next dev --turbopack",
+    "tunnel": "\"C:\\Users\\IT\\AppData\\Local\\Microsoft\\WinGet\\Links\\ngrok.exe\" http --domain=freight-tinsmith-flashcard.ngrok-free.dev 3000",
     "build": "next build",
     "start": "next start",
     "lint": "eslint",
@@ -19,6 +20,7 @@
     "@radix-ui/react-alert-dialog": "^1.1.15",
     "@radix-ui/react-label": "^2.1.8",
     "@radix-ui/react-progress": "^1.1.8",
+    "@radix-ui/react-scroll-area": "^1.2.10",
     "@radix-ui/react-slot": "^1.2.4",
     "@radix-ui/react-tooltip": "^1.2.8",
     "@react-pdf/renderer": "^4.5.1",

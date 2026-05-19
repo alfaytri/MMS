@@ -47,9 +47,11 @@ export function VehicleEditDialog() {
     )
   }, [vehicle, open]) // eslint-disable-line react-hooks/exhaustive-deps
 
-  async function validatePlate(plate: string) {
-    if (!plate) return
+  // Returns true if plate is available, false if already in use.
+  async function validatePlate(plate: string): Promise<boolean> {
+    if (!plate) return true
     setIsValidating(true)
+    setPlateError(null)
     try {
       const supabase = createClient()
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -60,16 +62,20 @@ export function VehicleEditDialog() {
         .neq('id', vehicle?.id ?? '00000000-0000-0000-0000-000000000000')
       if ((count ?? 0) > 0) {
         setPlateError('Plate already in use')
-      } else {
-        setPlateError(null)
+        return false
       }
+      return true
     } finally {
       setIsValidating(false)
     }
   }
 
   async function onSubmit(values: VehicleFormValues) {
-    if (plateError) return
+    // Always validate on submit — handles the case where the user clicks Save
+    // without tabbing away from the plate field first (blur never fired).
+    const valid = await validatePlate(values.plate)
+    if (!valid) return
+
     const payload = {
       type:              values.type,
       plate:             values.plate,
@@ -130,10 +136,6 @@ export function VehicleEditDialog() {
                   <FormControl>
                     <Input
                       {...field}
-                      onBlur={async e => {
-                        field.onBlur()
-                        await validatePlate(e.target.value)
-                      }}
                       className={plateError ? 'border-destructive' : ''}
                     />
                   </FormControl>
@@ -177,10 +179,9 @@ export function VehicleEditDialog() {
                   Archive
                 </Button>
               )}
-              {/* Errata 5: Disabled while plate validation is in progress */}
               <Button
                 type="submit"
-                disabled={isMutating || !!plateError || isValidatingPlate}
+                disabled={isMutating || isValidatingPlate}
               >
                 {isValidatingPlate ? 'Checking...' : isMutating ? 'Saving...' : 'Save'}
               </Button>

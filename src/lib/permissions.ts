@@ -2,7 +2,7 @@ import React from 'react'
 import type { LucideProps } from 'lucide-react'
 import {
   Database, ShoppingCart, TrendingUp, ClipboardList,
-  FileText, Receipt, Users, Settings2, CalendarDays,
+  FileText, Receipt, Users, Settings2, CalendarDays, Headphones,
 } from 'lucide-react'
 
 export type PermissionEntry = {
@@ -136,6 +136,17 @@ export const PERMISSION_GROUPS: PermissionGroup[] = [
       { key: 'calendar.view',        label: 'View Calendar',    description: 'Access the Operations Calendar page' },
       { key: 'calendar.edit-order',  label: 'Edit Visits',      description: 'Edit visits directly from the calendar grid' },
       { key: 'calendar.swap-teams',  label: 'Swap Teams',       description: 'Reassign a visit to a different team from the calendar' },
+    ],
+  },
+  {
+    module: 'Contact Centre',
+    icon: asFC(Headphones),
+    permissions: [
+      {
+        key: 'contact_centre.view',
+        label: 'Access Contact Centre',
+        description: 'View the Contact Centre sidebar, chat threads, and customer CRM panel',
+      },
     ],
   },
 ]

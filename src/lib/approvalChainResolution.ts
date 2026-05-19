@@ -29,10 +29,11 @@ export type ApprovalStepInsert = {
 }
 
 const ROLE_LABELS: Record<ApprovalRole, string> = {
-  purchase_manager: 'Purchase Manager',
-  accountant: 'Accountant',
-  owner: 'Owner',
-  employee: 'Employee',
+  purchase_manager:  'Purchase Manager',
+  accountant:        'Accountant',
+  owner:             'Owner',
+  employee:          'Employee',
+  warehouse_manager: 'Warehouse Manager',
 }
 
 export function findApplicableTiers(amount: number, tiers: ApprovalChainTier[]): ApprovalChainTier[] {

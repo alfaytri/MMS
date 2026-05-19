@@ -1,0 +1,607 @@
+import { type NextRequest, NextResponse } from 'next/server'
+import { createClient } from '@supabase/supabase-js'
+
+const WATI_URL   = (process.env.WATI_API_URL ?? '').replace(/\/$/, '')
+const WATI_TOKEN = (process.env.WATI_API_TOKEN ?? '').replace(/^Bearer\s+/i, '')
+const SUPA_URL   = process.env.NEXT_PUBLIC_SUPABASE_URL!
+const SUPA_KEY   = process.env.SUPABASE_SERVICE_ROLE_KEY!
+
+type DeliveryStatus = 'sending' | 'sent' | 'delivered' | 'read' | 'failed'
+
+function normaliseStatus(raw: string | undefined | null): DeliveryStatus {
+  switch ((raw ?? '').toUpperCase()) {
+    case 'READ':      return 'read'
+    case 'DELIVERED': return 'delivered'
+    case 'SENT':      return 'sent'
+    case 'FAILED':    return 'failed'
+    default:          return 'sent'
+  }
+}
+
+function sleep(ms: number) {
+  return new Promise<void>((r) => setTimeout(r, ms))
+}
+
+async function watiGet(path: string): Promise<any> {
+  for (let attempt = 0; attempt < 3; attempt++) {
+    const res = await fetch(`${WATI_URL}${path}`, {
+      headers: { Authorization: `Bearer ${WATI_TOKEN}` },
+    })
+    if (res.status === 429) {
+      await sleep(parseInt(res.headers.get('Retry-After') ?? '10', 10) * 1000)
+      continue
+    }
+    if (!res.ok) throw new Error(`WATI ${res.status}: ${await res.text()}`)
+    return res.json()
+  }
+  throw new Error('WATI rate limit retries exhausted')
+}
+
+interface Attachment {
+  url: string
+  type: string
+  name: string
+}
+
+const FETCH_MEDIA_TYPES = new Set(['image', 'document', 'video', 'audio', 'voice', 'sticker'])
+
+// Returns a placeholder attachment for broadcast messages that reference a document in their text
+// but have no URL (Wati doesn't return document URLs for broadcast history items).
+function broadcastDocumentPlaceholder(item: any): Attachment[] {
+  if (item.eventType !== 'broadcastMessage') return []
+  const text = String(item.finalText ?? '')
+  if (/المستند المرفق|مرفق لكم فاتورة|المرفق|الوثيقة المرفقة/i.test(text)) {
+    return [{ url: '', type: 'application/octet-stream', name: 'document' }]
+  }
+  return []
+}
+
+function extractAttachments(item: any): Attachment[] {
+  const msgType: string = String(item.type ?? '')
+  const rawData = item.data ?? {}
+
+  // Wati's getMessages API returns item.data as a relative file path string
+  // (e.g. "data/images/uuid.jpg", "data/documents/uuid.pdf") instead of an object.
+  // WATI requires Bearer auth to fetch these, so route through our proxy which
+  // adds the token server-side, allowing <img src> and fetch() to work without credentials.
+  let data: any = rawData
+  let dataUrl: string | null = null
+  if (typeof rawData === 'string' && rawData) {
+    dataUrl = `/api/wati/media?path=${encodeURIComponent(rawData)}`
+    data = {}  // reset so .url / .mimeType etc. lookups below still work for object shape
+  }
+
+  // Wati stores media URL in several possible locations — try all of them
+  const mediaUrl =
+    dataUrl ??
+    data.url ?? data.link ?? data.mediaUrl ?? data.filePath ?? data.fileUrl ?? data.mediaLink ??
+    item.media?.url ?? item.media?.link ?? item.mediaUrl ?? item.url ?? item.filePath ??
+    item.mediaHeaderLink ?? null  // broadcast messages use this field (often null)
+
+  // For customer media, item.text holds the original filename (e.g. "invoice.pdf")
+  const textFilename = typeof item.text === 'string' && item.text ? item.text : null
+
+  if (msgType === 'image') {
+    const url = mediaUrl ?? item.image?.url ?? item.image?.link ?? null
+    return [{ url: url ?? '', type: data.mimeType ?? item.media?.mimeType ?? item.mimeType ?? 'image/jpeg', name: data.caption ?? item.media?.caption ?? item.caption ?? 'image' }]
+  }
+  if (msgType === 'document') {
+    const url = mediaUrl ?? item.document?.url ?? item.document?.link ?? null
+    const name = textFilename ?? data.fileName ?? data.filename ?? item.document?.filename ?? item.document?.fileName ?? item.media?.fileName ?? item.fileName ?? 'document'
+    const mime = data.mimeType ?? item.document?.mimeType ?? item.media?.mimeType ?? item.mimeType ?? 'application/octet-stream'
+    return [{ url: url ?? '', type: mime, name }]
+  }
+  if (msgType === 'video') {
+    const url = mediaUrl ?? item.video?.url ?? item.video?.link ?? null
+    return [{ url: url ?? '', type: data.mimeType ?? item.media?.mimeType ?? item.mimeType ?? 'video/mp4', name: data.caption ?? item.caption ?? 'video' }]
+  }
+  if (msgType === 'audio' || msgType === 'voice') {
+    const url = mediaUrl ?? item.audio?.url ?? item.audio?.link ?? null
+    return [{ url: url ?? '', type: data.mimeType ?? item.media?.mimeType ?? item.mimeType ?? 'audio/ogg', name: 'audio' }]
+  }
+  if (msgType === 'sticker') {
+    const url = mediaUrl ?? item.sticker?.url ?? item.sticker?.link ?? null
+    return [{ url: url ?? '', type: 'image/webp', name: 'sticker' }]
+  }
+
+  // Template / HSM messages — header may contain a document or image
+  if (msgType === 'template' || msgType === 'hsm') {
+    // Components array path: data.template.components[].type === 'header'
+    const components: any[] = data.template?.components ?? data.components ?? []
+    const header = components.find(
+      (c: any) => (c.type ?? '').toLowerCase() === 'header'
+    )
+
+    // Direct header sub-objects from different Wati API shapes
+    const headerDoc =
+      header?.document ??
+      data.template?.header?.document ??
+      item.templateHeader?.document ??
+      data.templateHeader?.document ?? null
+
+    const headerImg =
+      header?.image ??
+      data.template?.header?.image ??
+      item.templateHeader?.image ??
+      data.templateHeader?.image ?? null
+
+    if (headerDoc) {
+      const url = headerDoc.url ?? headerDoc.link ?? mediaUrl ?? null
+      if (url) {
+        const name = headerDoc.filename ?? headerDoc.fileName ?? data.fileName ?? 'document'
+        return [{ url, type: 'application/octet-stream', name }]
+      }
+    }
+    if (headerImg) {
+      const url = headerImg.url ?? headerImg.link ?? mediaUrl ?? null
+      if (url) return [{ url, type: 'image/jpeg', name: 'image' }]
+    }
+    // Fallback: if the header format field tells us the type but url is elsewhere
+    const headerFormat = (header?.format ?? data.template?.header?.format ?? '').toLowerCase()
+    if (headerFormat === 'document' && mediaUrl) {
+      const name = data.fileName ?? data.filename ?? item.media?.fileName ?? 'document'
+      return [{ url: mediaUrl, type: 'application/octet-stream', name }]
+    }
+    if (headerFormat === 'image' && mediaUrl) {
+      return [{ url: mediaUrl, type: 'image/jpeg', name: 'image' }]
+    }
+  }
+
+  return []
+}
+
+// Extract the actual message content.
+// item.finalText holds the rendered body for broadcastMessage events.
+// item.eventDescription is always Wati platform metadata — never message content.
+function extractText(item: any, msgType: string): string {
+  // finalText — Wati's rendered template body for broadcastMessage items
+  const finalText = item.finalText?.trim() ?? ''
+  if (finalText) return finalText
+
+  // For media messages item.text contains the filename — use caption only
+  if (FETCH_MEDIA_TYPES.has(msgType.toLowerCase())) {
+    return item.caption?.trim() ?? item.data?.caption?.trim() ?? ''
+  }
+
+  // Direct text field
+  const direct = item.text?.trim() ?? ''
+  if (direct) return direct
+
+  // Caption (document/image with caption)
+  const caption = item.caption?.trim() ?? item.data?.caption?.trim() ?? ''
+  if (caption) return caption
+
+  // data.body / data.text
+  const dataBody = item.data?.body?.trim() ?? item.data?.text?.trim() ?? ''
+  if (dataBody) return dataBody
+
+  // Template / HSM — body from components
+  const t = msgType.toLowerCase()
+  if (t === 'template' || t === 'hsm') {
+    const components: any[] = item.data?.template?.components ?? item.data?.components ?? []
+    const bodyComp = components.find((c: any) => (c.type ?? '').toLowerCase() === 'body')
+    const bodyText = bodyComp?.text?.trim() ?? ''
+    if (bodyText) return bodyText
+    const directBody = item.data?.template?.body?.trim() ?? ''
+    if (directBody) return directBody
+  }
+
+  // contacts message — show formatted name of first contact
+  if (msgType === 'contacts' && Array.isArray(item.contacts) && item.contacts.length > 0) {
+    const name = item.contacts[0]?.name?.formatted_name ?? item.contacts[0]?.name?.first_name ?? null
+    return name ? `📇 ${name}` : '📇 Contact card'
+  }
+
+  return item.body?.trim() ?? item.note?.trim() ?? ''
+}
+
+// GET /api/wati/fetch-messages?conversationId=...&phone=...&days=10
+export async function GET(req: NextRequest) {
+  const { searchParams } = req.nextUrl
+  const conversationId = searchParams.get('conversationId')
+  const phone          = searchParams.get('phone')
+  const days           = parseInt(searchParams.get('days') ?? '10', 10)
+
+  if (!conversationId || !phone) {
+    return NextResponse.json({ error: 'conversationId and phone required' }, { status: 400 })
+  }
+  if (!WATI_URL || !WATI_TOKEN) {
+    return NextResponse.json({ error: 'WATI credentials not configured' }, { status: 500 })
+  }
+
+  const supabase = createClient(SUPA_URL, SUPA_KEY)
+  const cutoff   = new Date(Date.now() - days * 24 * 60 * 60 * 1000)
+
+  // WATI expects the number without the leading +
+  const watiPhone = phone.replace(/^\+/, '')
+
+  let pageNumber = 1
+  const pageSize = 100
+  const allItems: any[] = []
+  let reachedCutoff = false
+
+  while (!reachedCutoff) {
+    let data: any
+    try {
+      data = await watiGet(
+        `/api/v1/getMessages/${encodeURIComponent(watiPhone)}?pageSize=${pageSize}&pageNumber=${pageNumber}`
+      )
+    } catch (err: any) {
+      console.error('[fetch-messages] WATI error', err.message)
+      return NextResponse.json({ error: err.message }, { status: 502 })
+    }
+
+    const items: any[] = data?.messages?.items ?? []
+    if (items.length === 0) break
+
+    for (const item of items) {
+      const ts = item.created
+        ? new Date(item.created)
+        : item.timestamp
+        ? new Date(item.timestamp * 1000)
+        : null
+
+      if (ts && ts < cutoff) { reachedCutoff = true; break }
+      allItems.push(item)
+    }
+
+    if (items.length < pageSize) break
+    pageNumber++
+    await sleep(200)
+  }
+
+  if (allItems.length === 0) {
+    return NextResponse.json({ fetched: 0 })
+  }
+
+  // Separate reaction items from regular messages.
+  // Wati's getMessages API does not return reactions as separate items —
+  // they only arrive via the Wati webhook (push). The filter and Strategy B
+  // (embedded reactions) below are kept as a safety net in case Wati changes
+  // their API to include them.
+  const reactionItems = allItems.filter((item: any) =>
+    String(item.type ?? '').toLowerCase() === 'reaction'
+  )
+  const messageItems  = allItems.filter((item: any) => String(item.type ?? '').toLowerCase() !== 'reaction' && item.id)
+
+  // Wati ticket events (eventType='ticket') cover all platform system events:
+  //   type 0 = chat initialized, type 1 = assigned, type 2 = closed, type 5 = status change
+  function isWatiSystemEvent(item: any): boolean {
+    if (item.eventType === 'ticket') return true
+    const t = String(item.type ?? '').toLowerCase()
+    return t === 'note' || t === 'activity'
+  }
+
+  // Wati's older API returns numeric type codes instead of string names.
+  // Map them here so extractAttachments / extractText / isWatiSystemEvent all work correctly.
+  const WATI_TYPE_MAP: Record<string, string> = {
+    '0': 'text', '1': 'image', '2': 'video', '3': 'audio',
+    '4': 'document', '5': 'sticker', '6': 'location', '7': 'contacts',
+  }
+
+  // Build message rows
+  const rows = messageItems.map((item) => {
+    // broadcastMessage = sent from system/agent (no owner field on broadcast items)
+    const isAgent = item.owner === true || item.eventType === 'message_sent' || item.eventType === 'broadcastMessage'
+    const ts        = item.created
+      ? new Date(item.created).toISOString()
+      : item.timestamp
+      ? new Date(item.timestamp * 1000).toISOString()
+      : new Date().toISOString()
+    const rawTypeStr = String(item.type ?? 'text')
+    const msgType    = WATI_TYPE_MAP[rawTypeStr] ?? rawTypeStr
+    const isEvent   = isWatiSystemEvent(item)
+
+    const attachments = isEvent ? [] : (extractAttachments(item).length > 0 ? extractAttachments(item) : broadcastDocumentPlaceholder(item))
+    // For ticket events, use eventDescription as the display text (it's the correct system message)
+    const rawText = isEvent
+      ? (item.eventDescription?.trim() ?? '')
+      : extractText(item, msgType)
+
+    // Only use a [type] label when we have no text AND no attachment AND it's not a system event
+    const text = rawText || (!isEvent && attachments.length === 0 && msgType !== 'text' && msgType !== '0'
+      ? `[${msgType}]`
+      : '')
+
+    // Prefer whatsappMessageId (wamid) over Wati's internal id.
+    // Reactions reference the wamid, so storing it here lets reaction
+    // lookups find the right row. Fall back to the numeric Wati id if
+    // the API response doesn't include whatsappMessageId.
+    const externalId = item.whatsappMessageId ?? String(item.id)
+
+    return {
+      conversation_id: conversationId,
+      from_type:       isAgent ? 'agent' : 'customer',
+      source:          'whatsapp_api',
+      text,
+      agent_name:      isAgent ? (item.senderName ?? null) : null,
+      attachments:     attachments.length > 0 ? attachments : null,
+      delivery_status: isAgent ? normaliseStatus(item.statusString) : 'delivered',
+      external_id:     externalId,
+      created_at:      ts,
+      message_kind:    isEvent ? 'event' : 'message',
+      // marker only — never written to DB; stripped before upsert
+      _isBroadcast:    item.eventType === 'broadcastMessage',
+    }
+  })
+
+  // ── Pre-claim rows stored by MMS with wati_ prefix ─────────────────────────
+  // When an agent sends from MMS the row is immediately inserted with
+  // external_id = 'wati_<id>'. The Wati API returns the same message with
+  // external_id = '<wamid>' (no prefix, and possibly a *different* ID format —
+  // e.g. the send API returns a numeric id but getMessages returns a wamid).
+  //
+  // Strategy 1 — exact prefix match: look for wati_<exactId> in DB and strip prefix.
+  // Strategy 2 — text+time fallback: for agent messages not resolved by strategy 1,
+  //   find an existing agent row with the same text within ±5 minutes and update its
+  //   external_id. This handles the numeric→wamid mismatch that causes duplicate rows.
+  //
+  // Both strategies update the DB row's external_id BEFORE the upsert so that
+  // onConflict:'external_id' hits the existing row instead of inserting a new one.
+
+  const resolvedExternalIds = new Set<string>() // bare ids that were successfully pre-claimed
+
+  // Strategy 1: exact wati_<id> prefix match
+  const bareIds = rows.map((r) => r.external_id).filter(Boolean)
+  if (bareIds.length > 0) {
+    const watiPrefixIds = bareIds.map((id) => `wati_${id}`)
+    const { data: prefixedRows } = await (supabase.from('chat_messages') as any)
+      .select('id, external_id')
+      .in('external_id', watiPrefixIds)
+      .eq('conversation_id', conversationId)
+    if (prefixedRows?.length) {
+      for (const pr of prefixedRows as { id: string; external_id: string }[]) {
+        const bareId = pr.external_id.replace(/^wati_/, '')
+        await (supabase.from('chat_messages') as any)
+          .update({ external_id: bareId })
+          .eq('id', pr.id)
+        resolvedExternalIds.add(bareId)
+      }
+    }
+  }
+
+  // Strategy 2: text+time fallback for unresolved agent messages
+  // Catches the case where the send API returned a numeric id (stored as wati_12345)
+  // but getMessages returns the wamid (wAMID.xxx) — a different string, so strategy 1
+  // finds nothing and the upsert would INSERT a duplicate row.
+  for (const row of rows) {
+    if (resolvedExternalIds.has(row.external_id)) continue
+    if (row.from_type !== 'agent' || row.message_kind !== 'message') continue
+
+    const ts      = new Date(row.created_at)
+    const tsMinus = new Date(ts.getTime() - 5 * 60_000).toISOString()
+    const tsPlus  = new Date(ts.getTime() + 5 * 60_000).toISOString()
+
+    if (row.text?.trim()) {
+      // Text match: find an agent row with matching text within ±5 min
+      const { data: textMatch } = await (supabase.from('chat_messages') as any)
+        .select('id, external_id')
+        .eq('conversation_id', conversationId)
+        .eq('from_type', 'agent')
+        .eq('message_kind', 'message')
+        .eq('text', row.text.trim())
+        .gte('created_at', tsMinus)
+        .lte('created_at', tsPlus)
+        .maybeSingle()
+
+      if (textMatch) {
+        await (supabase.from('chat_messages') as any)
+          .update({ external_id: row.external_id })
+          .eq('id', (textMatch as { id: string }).id)
+        resolvedExternalIds.add(row.external_id)
+      }
+    } else if (row.attachments?.length) {
+      // File message with no text: find the optimistic row the app inserted.
+      // Try wati_-prefixed first (sendSessionFile returned a numeric id),
+      // then fall back to null external_id (sendSessionFileViaUrl returned nothing).
+      let fileMatchId: string | null = null
+
+      const { data: pm } = await (supabase.from('chat_messages') as any)
+        .select('id')
+        .eq('conversation_id', conversationId)
+        .eq('from_type', 'agent')
+        .eq('message_kind', 'message')
+        .like('external_id', 'wati_%')
+        .gte('created_at', tsMinus)
+        .lte('created_at', tsPlus)
+        .maybeSingle()
+      fileMatchId = (pm as { id: string } | null)?.id ?? null
+
+      if (!fileMatchId) {
+        const { data: nm } = await (supabase.from('chat_messages') as any)
+          .select('id')
+          .eq('conversation_id', conversationId)
+          .eq('from_type', 'agent')
+          .eq('message_kind', 'message')
+          .is('external_id', null)
+          .in('delivery_status', ['sent', 'sending'])
+          .gte('created_at', tsMinus)
+          .lte('created_at', tsPlus)
+          .maybeSingle()
+        fileMatchId = (nm as { id: string } | null)?.id ?? null
+      }
+
+      if (fileMatchId) {
+        await (supabase.from('chat_messages') as any)
+          .update({ external_id: row.external_id })
+          .eq('id', fileMatchId)
+        resolvedExternalIds.add(row.external_id)
+      }
+    }
+  }
+
+  // Only allow upsert for agent rows whose external_id already exists in DB.
+  // This ensures the upsert fires as ON CONFLICT DO UPDATE — never a fresh INSERT
+  // (which would land with attachments=null → the "📎 Attachment" placeholder).
+  const agentExternalIds = rows
+    .filter((r) => r.from_type === 'agent' && r.external_id)
+    .map((r) => r.external_id as string)
+
+  const existingAgentRows = new Set<string>()
+  if (agentExternalIds.length > 0) {
+    const { data: existing } = await (supabase.from('chat_messages') as any)
+      .select('external_id')
+      .in('external_id', agentExternalIds)
+      .eq('conversation_id', conversationId)
+      .eq('from_type', 'agent')
+    for (const r of (existing ?? []) as { external_id: string }[]) {
+      existingAgentRows.add(r.external_id)
+    }
+  }
+
+  // Upsert — now safe: wati_-prefixed rows were renamed to bare ids above,
+  // so onConflict:'external_id' will UPDATE them instead of inserting duplicates.
+  //
+  // Attachment URL preservation: omit the `attachments` column from the upsert
+  // payload whenever all URLs in the row are empty strings. WATI's getMessages
+  // API often returns media messages without a URL (e.g. it hasn't fetched the
+  // media yet). If we blindly upsert `attachments:[{url:''}]` we overwrite the
+  // valid Supabase Storage URL we wrote when the agent originally sent the file.
+  // Omitting the column leaves the existing DB value untouched on UPDATE while
+  // still inserting null for genuinely new rows with no URL.
+  // PostgREST normalises bulk upsert payloads: if ANY object in the array has
+  // the `attachments` key, PostgREST adds `attachments = NULL` to every object
+  // that omitted it, and the ON CONFLICT UPDATE then overwrites the existing DB
+  // value with NULL. To prevent this we split into two streams:
+  //   • withAttachments  — customer rows that have a real URL
+  //   • noAttachments    — agent rows + customer rows without a URL
+  // Each stream is upserted separately so PostgREST's column normalisation
+  // doesn't bleed across them.
+  const withAttachments: typeof rows = []
+  const noAttachments: typeof rows = []
+
+  for (const row of rows) {
+    const isBroadcast = (row as any)._isBroadcast === true
+    if ((row as any).from_type === 'agent') {
+      const isNew = !existingAgentRows.has(row.external_id)
+      // Skip agent rows not already in DB unless they're Wati-native broadcasts
+      // (broadcasts were never pre-inserted by MMS, so they have no existing row).
+      if (isNew && !isBroadcast) continue
+      const { attachments, _isBroadcast: _mb, ...rest } = row as any
+      if (isNew) {
+        // New broadcast row — treat attachments the same as customer messages
+        const hasRealUrl = (attachments as any[] | null)?.some((a: any) => a.url)
+        if (hasRealUrl) {
+          withAttachments.push({ ...rest, attachments })
+        } else {
+          noAttachments.push(rest)
+        }
+      } else {
+        // Existing MMS-sent row — omit attachments to preserve stored URLs
+        noAttachments.push(rest)
+      }
+    } else {
+      const { _isBroadcast: _mb, ...rowClean } = row as any
+      const hasRealUrl = (row.attachments as any[] | null)?.some((a: any) => a.url)
+      if (hasRealUrl) {
+        withAttachments.push(rowClean)
+      } else {
+        const { attachments: _omit, ...rest } = rowClean
+        noAttachments.push(rest)
+      }
+    }
+  }
+
+  const CHUNK = 200
+  let inserted = 0
+
+  for (const stream of [withAttachments, noAttachments]) {
+    for (let i = 0; i < stream.length; i += CHUNK) {
+      const chunk = stream.slice(i, i + CHUNK)
+      if (chunk.length === 0) continue
+      const { error } = await (supabase.from('chat_messages') as any)
+        .upsert(chunk, { onConflict: 'external_id', ignoreDuplicates: false })
+      if (error) {
+        console.error('[fetch-messages] upsert error', error)
+        return NextResponse.json({ error: error.message }, { status: 500 })
+      }
+      inserted += chunk.length
+    }
+  }
+
+  // Apply reactions to target messages.
+  // Strategy A: separate reaction items in the message list
+  // Strategy B: reactions embedded in the message object itself (item.reactions[])
+  //
+  // We collect everything into a single map keyed by target message external_id,
+  // then write it in one pass.
+  const reactionsByTarget = new Map<string, { emoji: string; from_type: string }[]>()
+
+  // Strategy A — dedicated reaction items (type === 'reaction')
+  for (const item of reactionItems) {
+    // Wati uses several different shapes for the target ID and emoji:
+    //   • newer Cloud API:  item.reaction.messageId / item.reaction.emoji
+    //   • older Wati style: item.reactionMessage.key.id / item.reactionMessage.text
+    //   • flat fields:      item.referredMessageId / item.emoji or item.reactionEmoji
+    const targetId =
+      item.reactionMessage?.key?.id ??
+      item.reaction?.messageId ??
+      item.referredMessageId ??
+      item.targetMessageId ??
+      item.messageId ?? null
+
+    const emoji =
+      item.reactionMessage?.text ??
+      item.reaction?.emoji ??
+      item.emoji ??
+      item.reactionEmoji ?? null
+
+    if (!targetId || !emoji) continue
+    const isAgent = item.owner === true || item.eventType === 'message_sent'
+    const key = String(targetId)
+    const list = reactionsByTarget.get(key) ?? []
+    list.push({ emoji, from_type: isAgent ? 'agent' : 'customer' })
+    reactionsByTarget.set(key, list)
+  }
+
+  // Strategy B — reactions embedded in message objects
+  // Wati getMessages sometimes includes a `reactions` array on the message itself
+  // rather than returning a separate reaction item.
+  for (const item of allItems) {
+    const embedded: any[] = item.reactions ?? item.reactionDetails ?? []
+    if (!Array.isArray(embedded) || embedded.length === 0) continue
+    const messageExternalId = item.whatsappMessageId ?? String(item.id)
+    const list = reactionsByTarget.get(messageExternalId) ?? []
+    for (const r of embedded) {
+      const emoji = r.emoji ?? r.text ?? r.reactionText ?? null
+      if (!emoji) continue
+      const isAgent = r.owner === true || (r.senderType ?? '').toLowerCase() === 'agent'
+      // Avoid duplicates if both strategy A and B fire for the same message
+      if (!list.some((x) => x.emoji === emoji)) {
+        list.push({ emoji, from_type: isAgent ? 'agent' : 'customer' })
+      }
+    }
+    if (list.length > 0) reactionsByTarget.set(messageExternalId, list)
+  }
+
+  // Write reactions to DB
+  for (const [targetId, reactions] of reactionsByTarget) {
+    // Search by wamid AND legacy wati_<id> prefix used by the chat send flow
+    const { data: targetRow } = await (supabase.from('chat_messages') as any)
+      .select('id')
+      .eq('conversation_id', conversationId)
+      .in('external_id', [targetId, `wati_${targetId}`])
+      .maybeSingle()
+
+    if (targetRow) {
+      await (supabase.from('chat_messages') as any)
+        .update({ reactions })
+        .eq('id', targetRow.id)
+    }
+  }
+
+  // Update conversation last_message / last_message_at from the most recent message
+  if (rows.length > 0) {
+    const newest = rows.reduce((a, b) =>
+      new Date(a.created_at) > new Date(b.created_at) ? a : b
+    )
+    await (supabase.from('chat_conversations') as any)
+      .update({
+        last_message:    newest.text || `[${newest.from_type === 'agent' ? 'sent' : 'received'}]`,
+        last_message_at: newest.created_at,
+      })
+      .eq('id', conversationId)
+  }
+
+  return NextResponse.json({ fetched: inserted })
+}

@@ -12,17 +12,19 @@ export interface CustomerPhone {
 export interface CustomerAddress {
   id: string
   customer_id: string
-  phone_id: string
+  phone_id: string | null
   label: string | null
-  address_type: 'blue_plate' | 'coordinates'
-  blue_plate_no: string | null
-  unit_no: string | null
-  building_no: string | null
-  street_no: string | null
-  zone_no: string | null
+  address_type: 'blue-plate' | 'google-coords'
+  unit: string | null
+  building: string | null
+  street: string | null
+  zone: string | null
   lat: number | null
   lng: number | null
   is_primary: boolean
+  is_geocoded: boolean
+  waze_link: string | null
+  tags: string[]
   created_at: string
 }
 

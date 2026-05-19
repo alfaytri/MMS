@@ -7,6 +7,7 @@ import { Label } from '@/components/ui/label'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { CheckCircle, UserPlus } from 'lucide-react'
 import { useCustomerLookup, type CustomerLookupResult } from '@/hooks/useCustomerLookup'
+import { useContactCenterContext } from '@/contexts/ContactCenterContext'
 import { toast } from 'sonner'
 
 const COUNTRY_CODES = [
@@ -93,6 +94,7 @@ export function PhoneLookupModal({ open, onOpenChange, onConfirm }: Props) {
   const [lookupResult, setLookupResult] = useState<CustomerLookupResult | null>(null)
 
   const { lookupPhone, quickCreate } = useCustomerLookup()
+  const { openCustomerByPhone, ccSidebar } = useContactCenterContext()
 
   const fullPhone = `${countryCode}${phone.trim().replace(/^0/, '')}`
   const fullLinkPhone = `${linkCountryCode}${linkPhone.trim().replace(/^0/, '')}`
@@ -111,6 +113,8 @@ export function PhoneLookupModal({ open, onOpenChange, onConfirm }: Props) {
 
   async function handleLookup() {
     if (!phone.trim()) return
+    // Open CRM sidebar for this phone immediately (only if user has CC access)
+    if (ccSidebar !== 'none') openCustomerByPhone(fullPhone)
     const result = await lookupPhone.mutateAsync(fullPhone)
     if (result.found) {
       setLookupResult(result)

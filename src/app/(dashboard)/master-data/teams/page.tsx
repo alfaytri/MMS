@@ -1,6 +1,6 @@
 'use client'
 
-import { DndContext, DragOverlay, type DragStartEvent } from '@dnd-kit/core'
+import { DndContext, DragOverlay, PointerSensor, useSensor, useSensors, pointerWithin, type DragStartEvent } from '@dnd-kit/core'
 import { TooltipProvider } from '@/components/ui/tooltip'
 import { TeamsPageProvider } from '@/components/teams/TeamsPageContext'
 import { useDnDHandlers, type DragData } from '@/components/teams/useDnDHandlers'
@@ -19,12 +19,18 @@ import { useEmployees, useVehicles } from '@/hooks/useTeams'
 function TeamsPageInner() {
   const { handleDragStart, handleDragEnd, activeItem } = useDnDHandlers()
 
+  const sensors = useSensors(
+    useSensor(PointerSensor, {
+      activationConstraint: { distance: 6 },
+    })
+  )
+
   function onDragStart(event: DragStartEvent) {
     handleDragStart(event.active.data.current as DragData)
   }
 
   return (
-    <DndContext onDragStart={onDragStart} onDragEnd={handleDragEnd}>
+    <DndContext sensors={sensors} collisionDetection={pointerWithin} onDragStart={onDragStart} onDragEnd={handleDragEnd}>
       <div className="flex flex-col h-full">
         <TopBar />
         <div className="flex flex-1 min-h-0 overflow-hidden">

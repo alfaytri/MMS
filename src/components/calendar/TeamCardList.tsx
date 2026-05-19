@@ -47,7 +47,7 @@ export function TeamCardList({
             team={team}
             visits={visitsByTeam.get(team.id) ?? []}
             capacity={capacityByTeam.get(team.id) ?? defaultCapacity}
-            divisionColor={divisionColors[team.division as string] ?? '#94a3b8'}
+            divisionColor={divisionColors[(team.division as unknown as string)] ?? '#94a3b8'}
             onOpen={() => setSheetTeam(team)}
           />
         ))}

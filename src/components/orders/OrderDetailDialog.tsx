@@ -44,9 +44,8 @@ export function OrderDetailDialog({ orderId, open, onOpenChange }: Props) {
     <>
       <Sheet
         open={open}
-        onOpenChange={(newOpen, _event, reason) => {
-          if (cancelOpen && reason === 'outside-press') return
-          onOpenChange(newOpen)
+        onOpenChange={(newOpen: boolean) => {
+          if (!cancelOpen || newOpen) onOpenChange(newOpen)
         }}
       >
         <SheetContent side="right" className="w-full sm:max-w-xl flex flex-col p-0">

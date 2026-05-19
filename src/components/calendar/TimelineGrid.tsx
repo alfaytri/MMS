@@ -144,7 +144,7 @@ export function TimelineGrid({
               hours={hours}
               dayStart={schedule.day_start}
               cellWidth={cellWidth}
-              divisionColor={divisionColors[team.division as string] ?? '#94a3b8'}
+              divisionColor={divisionColors[(team.division as unknown as string)] ?? '#94a3b8'}
               canEdit={canEdit}
               canSwap={canSwap}
               onEdit={onEdit}
