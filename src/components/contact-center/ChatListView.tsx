@@ -1,18 +1,10 @@
 'use client'
 
 import { useState, useEffect, useRef } from 'react'
-import { Search, MessageSquare, RefreshCw, AlertCircle, CheckCircle2, ChevronDown, Headphones, Bot } from 'lucide-react'
+import { Search, MessageSquare, RefreshCw, AlertCircle, CheckCircle2, Headphones, Bot } from 'lucide-react'
 import { Input } from '@/components/ui/input'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuSeparator,
-  DropdownMenuTrigger,
-} from '@/components/ui/dropdown-menu'
-import { cn } from '@/lib/utils'
 import type { ChatConversation } from '@/types/contact-center'
 import type { SyncProgress } from '@/hooks/contact-center/useContactCenterState'
 
@@ -20,11 +12,12 @@ interface Props {
   conversations: ChatConversation[]
   loading: boolean
   onSelectConversation: (convo: ChatConversation) => void
-  onSync?: (full?: boolean) => Promise<void>
+  onSync?: () => Promise<void>
   syncProgress?: SyncProgress
+  provider?: 'wati' | 'whapi'
 }
 
-function SyncBanner({ progress }: { progress: SyncProgress }) {
+function SyncBanner({ progress, provider = 'wati' }: { progress: SyncProgress; provider?: 'wati' | 'whapi' }) {
   if (progress.stage === 'idle') return null
 
   const pct =
@@ -32,15 +25,16 @@ function SyncBanner({ progress }: { progress: SyncProgress }) {
       ? Math.round(((progress.synced ?? 0) / progress.total) * 100)
       : null
 
+  const providerLabel = provider === 'whapi' ? 'WHAPI' : 'WATI'
   const label =
     progress.stage === 'fetching'
-      ? `Fetching from WATI… ${progress.fetched ? `(${progress.fetched} so far)` : ''}`
+      ? `Fetching from ${providerLabel}… ${progress.fetched ? `(${progress.fetched} so far)` : ''}`
       : progress.stage === 'resolving'
-      ? `Resolving ${progress.fetched ?? 0} contacts…`
+      ? `Resolving ${progress.fetched ?? 0} chats…`
       : progress.stage === 'upserting'
-      ? `Saving ${progress.synced ?? 0} contacts…`
+      ? `Saving ${progress.synced ?? 0} / ${progress.total ?? '?'} chats…`
       : progress.stage === 'done'
-      ? `Synced ${progress.synced ?? 0} contacts`
+      ? `Synced ${progress.synced ?? 0} chats`
       : (progress.error ?? 'Sync failed')
 
   const isError = progress.stage === 'error'
@@ -151,7 +145,7 @@ function looksLikePhone(s: string): boolean {
   return /^[+\d\s\-().]{6,}$/.test(s.trim()) && /\d{6}/.test(s)
 }
 
-export function ChatListView({ conversations, loading, onSelectConversation, onSync, syncProgress }: Props) {
+export function ChatListView({ conversations, loading, onSelectConversation, onSync, syncProgress, provider = 'wati' }: Props) {
   const [search, setSearch] = useState('')
   const [filter, setFilter] = useState<'all' | 'unanswered'>('all')
   const [syncing, setSyncing] = useState(false)
@@ -162,10 +156,10 @@ export function ChatListView({ conversations, loading, onSelectConversation, onS
   const [lookupNotFound, setLookupNotFound] = useState(false)
   const lookupAbortRef = useRef<AbortController | null>(null)
 
-  async function handleSync(full = false) {
+  async function handleSync() {
     if (!onSync || syncing) return
     setSyncing(true)
-    try { await onSync(full) } finally { setSyncing(false) }
+    try { await onSync() } finally { setSyncing(false) }
   }
 
   const filtered = conversations.filter((c) => {
@@ -247,44 +241,22 @@ export function ChatListView({ conversations, loading, onSelectConversation, onS
           />
         </div>
         {onSync && (
-          <DropdownMenu>
-            <DropdownMenuTrigger
-              disabled={!!isSyncing}
-              title="Sync from WATI"
-              className={cn(
-                'inline-flex items-center gap-1 h-8 px-2 rounded-md text-sm font-medium transition-colors',
-                'hover:bg-accent hover:text-accent-foreground',
-                'focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring',
-                'disabled:pointer-events-none disabled:opacity-50',
-              )}
-            >
-              <RefreshCw className={`h-3.5 w-3.5 ${isSyncing ? 'animate-spin' : ''}`} />
-              <ChevronDown className="h-3 w-3 opacity-60" />
-            </DropdownMenuTrigger>
-            <DropdownMenuContent align="end" className="text-xs">
-              <DropdownMenuItem onClick={() => handleSync(false)} className="text-xs gap-2">
-                <RefreshCw className="h-3.5 w-3.5" />
-                <div>
-                  <p className="font-medium">Sync recent</p>
-                  <p className="text-muted-foreground">Last 500 contacts (~10 s)</p>
-                </div>
-              </DropdownMenuItem>
-              <DropdownMenuSeparator />
-              <DropdownMenuItem onClick={() => handleSync(true)} className="text-xs gap-2">
-                <RefreshCw className="h-3.5 w-3.5" />
-                <div>
-                  <p className="font-medium">Sync all contacts</p>
-                  <p className="text-muted-foreground">All 13 000+ contacts (~5 min)</p>
-                </div>
-              </DropdownMenuItem>
-            </DropdownMenuContent>
-          </DropdownMenu>
+          <Button
+            variant="ghost"
+            size="icon"
+            className="h-8 w-8 flex-shrink-0"
+            disabled={!!isSyncing}
+            title={provider === 'whapi' ? 'Sync chats from WHAPI' : 'Sync from WATI (today + yesterday)'}
+            onClick={() => handleSync()}
+          >
+            <RefreshCw className={`h-3.5 w-3.5 ${isSyncing ? 'animate-spin' : ''}`} />
+          </Button>
         )}
       </div>
 
       {/* Progress banner */}
       {syncProgress && syncProgress.stage !== 'idle' && (
-        <SyncBanner progress={syncProgress} />
+        <SyncBanner progress={syncProgress} provider={provider} />
       )}
 
       {/* Filter tabs */}
@@ -310,21 +282,39 @@ export function ChatListView({ conversations, loading, onSelectConversation, onS
           <div className="px-3 py-4 text-xs text-muted-foreground text-center">Loading…</div>
         )}
 
-        {/* Normal results grouped by Today / Yesterday / Earlier */}
+        {/* Normal results grouped by date */}
         {!loading && filtered.length > 0 && (() => {
           const todayStart     = new Date(); todayStart.setHours(0, 0, 0, 0)
           const yesterdayStart = new Date(todayStart); yesterdayStart.setDate(yesterdayStart.getDate() - 1)
-          const earlierStart   = new Date(todayStart); earlierStart.setDate(earlierStart.getDate() - 3)
 
-          const todayRows     = filtered.filter(c => new Date(c.last_message_at!) >= todayStart)
-          const yesterdayRows = filtered.filter(c => {
-            const d = new Date(c.last_message_at!)
-            return d >= yesterdayStart && d < todayStart
-          })
-          const earlierRows   = filtered.filter(c => {
-            const d = new Date(c.last_message_at!)
-            return d >= earlierStart && d < yesterdayStart
-          })
+          // Build ordered groups: Today, Yesterday, then one bucket per calendar day
+          const groups = new Map<string, { label: string; sortKey: number; rows: typeof filtered }>()
+
+          for (const c of filtered) {
+            if (!c.last_message_at) continue
+            const d = new Date(c.last_message_at)
+            let key: string
+            let label: string
+            let sortKey: number
+
+            if (d >= todayStart) {
+              key = '__today__'; label = 'Today'; sortKey = todayStart.getTime()
+            } else if (d >= yesterdayStart) {
+              key = '__yesterday__'; label = 'Yesterday'; sortKey = yesterdayStart.getTime()
+            } else {
+              // Normalise to start-of-day so same-day messages share a bucket
+              const dayStart = new Date(d); dayStart.setHours(0, 0, 0, 0)
+              key = dayStart.toISOString()
+              sortKey = dayStart.getTime()
+              label = dayStart.toLocaleDateString([], { weekday: 'short', day: 'numeric', month: 'short' })
+            }
+
+            if (!groups.has(key)) groups.set(key, { label, sortKey, rows: [] })
+            groups.get(key)!.rows.push(c)
+          }
+
+          // Sort groups newest-first
+          const sorted = Array.from(groups.values()).sort((a, b) => b.sortKey - a.sortKey)
 
           const DayHeading = ({ label, count }: { label: string; count: number }) => (
             <div className="sticky top-0 z-10 flex items-center gap-2 px-3 py-2 bg-background border-b border-border">
@@ -341,30 +331,14 @@ export function ChatListView({ conversations, loading, onSelectConversation, onS
 
           return (
             <>
-              {todayRows.length > 0 && (
-                <>
-                  <DayHeading label="Today" count={todayRows.length} />
-                  {todayRows.map(c => (
+              {sorted.map(({ label, rows }) => (
+                <div key={label}>
+                  <DayHeading label={label} count={rows.length} />
+                  {rows.map(c => (
                     <ConversationRow key={c.id} c={c} onClick={() => onSelectConversation(c)} />
                   ))}
-                </>
-              )}
-              {yesterdayRows.length > 0 && (
-                <>
-                  <DayHeading label="Yesterday" count={yesterdayRows.length} />
-                  {yesterdayRows.map(c => (
-                    <ConversationRow key={c.id} c={c} onClick={() => onSelectConversation(c)} />
-                  ))}
-                </>
-              )}
-              {earlierRows.length > 0 && (
-                <>
-                  <DayHeading label="Earlier" count={earlierRows.length} />
-                  {earlierRows.map(c => (
-                    <ConversationRow key={c.id} c={c} onClick={() => onSelectConversation(c)} />
-                  ))}
-                </>
-              )}
+                </div>
+              ))}
             </>
           )
         })()}
@@ -398,9 +372,11 @@ export function ChatListView({ conversations, loading, onSelectConversation, onS
             {!lookupLoading && !lookupResult && !lookupNotFound && !search.trim() && (
               <div className="flex flex-col items-center justify-center py-8 gap-2 text-muted-foreground">
                 <MessageSquare className="h-8 w-8 opacity-30" />
-                <p className="text-xs">No conversations in the last 3 days</p>
+                <p className="text-xs">No conversations yet</p>
                 <p className="text-xs opacity-60 text-center px-4">
-                  Search a phone number to find older contacts
+                  {provider === 'whapi'
+                    ? 'Press the sync button to import your WhatsApp chats'
+                    : 'Search a phone number to find older contacts'}
                 </p>
               </div>
             )}

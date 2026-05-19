@@ -1,7 +1,7 @@
 'use client'
 
 import { useState } from 'react'
-import { User, Phone, AlertTriangle, Edit2, Plus, Trash2, Lock } from 'lucide-react'
+import { User, Phone, AlertTriangle, Edit2, Plus, Trash2, Lock, MapPin, ExternalLink } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
@@ -10,9 +10,23 @@ import { Textarea } from '@/components/ui/textarea'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { toast } from 'sonner'
 import { tryNormalisePhone } from '@/lib/contact-center/normalise-phone'
-import type { useCustomerData } from '@/hooks/contact-center/useCustomerData'
+import type { useCustomerData, ServiceCustomerAddress } from '@/hooks/contact-center/useCustomerData'
 
 type CustomerDataReturn = ReturnType<typeof useCustomerData>
+
+function formatAddress(a: ServiceCustomerAddress): string {
+  if (a.address_type === 'blue-plate') {
+    const parts = [
+      a.zone     && `Zone ${a.zone}`,
+      a.street   && `St ${a.street}`,
+      a.building && `Bldg ${a.building}`,
+      a.unit     && `Unit ${a.unit}`,
+    ].filter(Boolean)
+    return parts.length ? parts.join(', ') : a.label ?? 'No details'
+  }
+  if (a.lat != null && a.lng != null) return `${a.lat}, ${a.lng}`
+  return a.label ?? 'GPS address'
+}
 
 interface Props {
   customerData: CustomerDataReturn
@@ -22,7 +36,7 @@ interface Props {
 
 export function CrmSection({ customerData, onCustomerResolved, pendingPhone }: Props) {
   const {
-    customer, customerLoading, phones, crmMode, setCrmMode,
+    customer, customerLoading, phones, addresses, crmMode, setCrmMode,
     unknownStep, setUnknownStep,
     updateCustomer, addPhone, removePhone, blockCustomer, unblockCustomer, searchByPhone,
   } = customerData
@@ -116,7 +130,9 @@ export function CrmSection({ customerData, onCustomerResolved, pendingPhone }: P
   }
 
   // ── Unknown caller view ────────────────────────────────────────────────────
-  if (crmMode === 'unknown') {
+  // Also shown when there's simply no linked customer (no need to set crmMode
+  // explicitly — the !customer path falls through here automatically).
+  if (crmMode === 'unknown' || (!customerLoading && !customer)) {
     return (
       <div className="px-3 py-2 space-y-3">
         <p className="text-xs font-medium text-muted-foreground uppercase tracking-wide">Unknown Caller</p>
@@ -168,12 +184,10 @@ export function CrmSection({ customerData, onCustomerResolved, pendingPhone }: P
     return <div className="px-3 py-2 text-xs text-muted-foreground">Loading…</div>
   }
 
-  if (!customer) {
-    return <div className="px-3 py-2 text-xs text-muted-foreground">No customer data</div>
-  }
 
   // ── View mode ──────────────────────────────────────────────────────────────
   if (crmMode === 'view') {
+    if (!customer) return null
     return (
       <div className="px-3 py-2 space-y-2 overscroll-contain">
         <div className="flex items-start justify-between gap-2">
@@ -217,6 +231,78 @@ export function CrmSection({ customerData, onCustomerResolved, pendingPhone }: P
             </div>
           ))}
         </div>
+
+        {(() => {
+          const normWatiPhone = tryNormalisePhone(pendingPhone ?? '')
+          const activePhoneId = normWatiPhone
+            ? phones.find((p) => p.phone === normWatiPhone)?.id ?? null
+            : null
+          return (
+            <>
+              {addresses.length > 0 && (
+                <div className="space-y-1 pt-1 border-t border-border/50">
+                  {addresses.map((a) => {
+                    const isLinked = a.phone_id != null && a.phone_id === activePhoneId
+                    const googleMapsUrl =
+                      a.lat != null && a.lng != null
+                        ? `https://maps.google.com/?q=${a.lat},${a.lng}`
+                        : null
+
+                    return (
+                      <div
+                        key={a.id}
+                        className={`flex items-start gap-1.5 text-xs rounded px-1.5 py-1 ${
+                          isLinked ? 'bg-primary/10 border border-primary/20' : ''
+                        }`}
+                      >
+                        <MapPin className="h-3 w-3 text-muted-foreground flex-shrink-0 mt-0.5" />
+                        <div className="min-w-0 flex-1">
+                          <div className="flex items-center gap-1 flex-wrap">
+                            {a.label && (
+                              <span className="font-medium">{a.label}</span>
+                            )}
+                            <Badge variant="outline" className="text-[9px] py-0 px-1">
+                              {a.address_type === 'blue-plate' ? 'Blue Plate' : 'GPS'}
+                            </Badge>
+                            {a.is_primary && (
+                              <Badge variant="secondary" className="text-[9px] py-0 px-1">primary</Badge>
+                            )}
+                          </div>
+                          <p className="text-muted-foreground truncate">{formatAddress(a)}</p>
+                          <div className="flex gap-2 mt-0.5">
+                            {googleMapsUrl && (
+                              <a
+                                href={googleMapsUrl}
+                                target="_blank"
+                                rel="noopener noreferrer"
+                                className="inline-flex items-center gap-0.5 text-primary hover:underline"
+                              >
+                                <ExternalLink className="h-2.5 w-2.5" /> Maps
+                              </a>
+                            )}
+                            {a.waze_link && (
+                              <a
+                                href={a.waze_link}
+                                target="_blank"
+                                rel="noopener noreferrer"
+                                className="inline-flex items-center gap-0.5 text-primary hover:underline"
+                              >
+                                <ExternalLink className="h-2.5 w-2.5" /> Waze
+                              </a>
+                            )}
+                          </div>
+                        </div>
+                      </div>
+                    )
+                  })}
+                </div>
+              )}
+              {addresses.length === 0 && (
+                <p className="text-xs text-muted-foreground pl-0.5 pt-1 border-t border-border/50">No addresses saved</p>
+              )}
+            </>
+          )
+        })()}
       </div>
     )
   }

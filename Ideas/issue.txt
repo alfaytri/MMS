@@ -1,6 +1,0 @@
-⚠️ Critical Unpatched Issues (Carry-over)
-The following two issues from your previous implementation files remain Critical and should be patched before this branch is merged to develop:
-
-Security Risk (LC Bills Bucket): The storage migration still sets the lc-bills bucket to public: true. This allows anyone with the URL to view sensitive supplier invoices and financial customs documents. Fix: Set to public: false and use signed URLs for viewing.
-
-Accounting Integrity (LC Revert): The revert_landed_cost RPC still uses a "snapshot" overwrite logic. If multiple Landed Costs are applied to one batch, reverting the first one will delete the costs added by the second one. Fix: Use a delta-based subtraction for reverts instead of restoring snapshots.

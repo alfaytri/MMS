@@ -6,11 +6,13 @@ const WATI_TOKEN = (process.env.WATI_API_TOKEN ?? '').replace(/^Bearer\s+/i, '')
 const SUPA_URL   = process.env.NEXT_PUBLIC_SUPABASE_URL!
 const SUPA_KEY   = process.env.SUPABASE_SERVICE_ROLE_KEY!
 
-// Recent mode: scan up to this many pages (100 contacts each) regardless of sort order.
-// Wati sorts /getContacts by name, not by date, so date-based early cutoff is unreliable.
-const RECENT_MAX_PAGES = 15
-const RECENT_DAYS = 3
-const PAGE_SIZE   = 100
+// Default mode (manual button): fast scan — limited pages, 2-day filter, ~10 s.
+// Background mode (?mode=full): scans all pages with no date filter, run silently.
+// Wati sorts /getContacts by name, not date, so the background full-scan is the
+// reliable way to catch all recently-active contacts across the alphabet.
+const RECENT_MAX_PAGES = 15   // ~10 s for the manual button
+const RECENT_DAYS      = 2
+const PAGE_SIZE        = 100
 
 function normalisePhone(raw: string): string | null {
   const cleaned = raw.replace(/[\s\-().]/g, '')
@@ -37,6 +39,14 @@ function encode(data: object) {
 
 function sleep(ms: number) {
   return new Promise<void>((r) => setTimeout(r, ms))
+}
+
+async function safeWrite(writer: WritableStreamDefaultWriter, data: Uint8Array) {
+  try {
+    await writer.write(data)
+  } catch {
+    // client disconnected — stream already closed
+  }
 }
 
 async function watiGet(path: string, retries = 3): Promise<{ ok: true; data: any } | { ok: false; status: number; text: string }> {
@@ -82,8 +92,15 @@ async function upsertContacts(allContacts: any[], supabase: ReturnType<typeof cr
   // for most contacts. Fall back to lastUpdated (which Wati sets whenever a message
   // is sent to or received from the contact) so that recently-active contacts still
   // appear in the conversation list after a sync.
-  const rowsWithDate: any[] = []
-  const rowsNoDate: any[]   = []
+  //
+  // Split into THREE streams so PostgREST column-normalisation doesn't accidentally
+  // null out last_message when Wati omits it:
+  //   rowsWithDateAndMsg  — have a date AND a lastMessage → write both fields
+  //   rowsWithDateNoMsg   — have a date but no lastMessage → write only last_message_at
+  //   rowsNoDate          — no date at all → insert-only (ignoreDuplicates:true)
+  const rowsWithDateAndMsg: any[] = []
+  const rowsWithDateNoMsg:  any[] = []
+  const rowsNoDate:         any[] = []
 
   for (const phone of phones) {
     const c    = phoneMap.get(phone)!
@@ -104,12 +121,16 @@ async function upsertContacts(allContacts: any[], supabase: ReturnType<typeof cr
       wati_contact_name: contactName(c),
       customer_id:       customerByPhone.get(phone) ?? null,
       assigned_agent:    assignedAgent,
+      provider:          'wati',
     }
 
     if (date) {
-      // Use lastMessage when available; otherwise leave last_message untouched on
-      // existing rows (ignoreDuplicates:false only applies to new inserts via lastUpdated).
-      rowsWithDate.push({ ...base, last_message: c.lastMessage ?? null, last_message_at: date })
+      if (c.lastMessage) {
+        rowsWithDateAndMsg.push({ ...base, last_message: c.lastMessage, last_message_at: date })
+      } else {
+        // Wati didn't return lastMessage — update last_message_at only, preserve existing last_message
+        rowsWithDateNoMsg.push({ ...base, last_message_at: date })
+      }
     } else {
       rowsNoDate.push(base)
     }
@@ -118,11 +139,20 @@ async function upsertContacts(allContacts: any[], supabase: ReturnType<typeof cr
   const CHUNK = 500
   let synced = 0
 
-  // Contacts with a date: full update (overwrite last_message_at)
-  for (let i = 0; i < rowsWithDate.length; i += CHUNK) {
-    const chunk = rowsWithDate.slice(i, i + CHUNK)
+  // Contacts with a date AND a lastMessage: write both fields
+  for (let i = 0; i < rowsWithDateAndMsg.length; i += CHUNK) {
+    const chunk = rowsWithDateAndMsg.slice(i, i + CHUNK)
     const { error } = await (supabase.from('chat_conversations') as any)
-      .upsert(chunk, { onConflict: 'wati_phone', ignoreDuplicates: false })
+      .upsert(chunk, { onConflict: 'wati_phone,provider', ignoreDuplicates: false })
+    if (error) throw new Error((error as any).message)
+    synced += chunk.length
+  }
+
+  // Contacts with a date but no lastMessage: update last_message_at only (don't touch last_message)
+  for (let i = 0; i < rowsWithDateNoMsg.length; i += CHUNK) {
+    const chunk = rowsWithDateNoMsg.slice(i, i + CHUNK)
+    const { error } = await (supabase.from('chat_conversations') as any)
+      .upsert(chunk, { onConflict: 'wati_phone,provider', ignoreDuplicates: false })
     if (error) throw new Error((error as any).message)
     synced += chunk.length
   }
@@ -131,10 +161,14 @@ async function upsertContacts(allContacts: any[], supabase: ReturnType<typeof cr
   for (let i = 0; i < rowsNoDate.length; i += CHUNK) {
     const chunk = rowsNoDate.slice(i, i + CHUNK)
     const { error } = await (supabase.from('chat_conversations') as any)
-      .upsert(chunk, { onConflict: 'wati_phone', ignoreDuplicates: true })
+      .upsert(chunk, { onConflict: 'wati_phone,provider', ignoreDuplicates: true })
     if (error) throw new Error((error as any).message)
     synced += chunk.length
   }
+
+  // Backfill last_message from chat_messages for conversations where Wati's
+  // /getContacts API didn't return lastMessage text.
+  await (supabase as any).rpc('backfill_conversation_last_messages')
 
   return synced
 }
@@ -145,7 +179,13 @@ export async function GET(req: NextRequest) {
     return NextResponse.json({ error: 'WATI credentials not configured' }, { status: 500 })
 
   const full = req.nextUrl.searchParams.get('mode') === 'full'
-  const cutoff = full ? null : new Date(Date.now() - RECENT_DAYS * 24 * 60 * 60 * 1000)
+  // full mode → no cutoff; default mode → start-of-day 2 days ago
+  const cutoff = full ? null : (() => {
+    const d = new Date()
+    d.setDate(d.getDate() - RECENT_DAYS)
+    d.setHours(0, 0, 0, 0)
+    return d
+  })()
   const supabase = createClient(SUPA_URL, SUPA_KEY)
 
   const stream = new TransformStream()
@@ -156,17 +196,19 @@ export async function GET(req: NextRequest) {
       let pageNumber = 1
       const allContacts: any[] = []
 
-      // Wati sorts /getContacts by name, not by activity date, so date-based early
-      // cutoff is unreliable. In recent mode we scan a fixed page window and filter
-      // each contact by its activity date (lastReceivedMessageDate or lastUpdated).
+      // Default mode caps pages for a fast ~10 s manual sync.
+      // Full mode scans everything (used by the silent background sync).
       const maxPages = full ? Infinity : RECENT_MAX_PAGES
 
       while (pageNumber <= maxPages) {
-        await writer.write(encode({ stage: 'fetching', page: pageNumber, total: allContacts.length }))
+        // Stop pumping SSE events once the client has gone away
+        if (req.signal.aborted) break
+
+        await safeWrite(writer, encode({ stage: 'fetching', page: pageNumber, total: allContacts.length }))
 
         const result = await watiGet(`/api/v1/getContacts?pageSize=${PAGE_SIZE}&pageNumber=${pageNumber}`)
         if (!result.ok) {
-          await writer.write(encode({ error: `WATI ${result.status}: ${result.text}` }))
+          await safeWrite(writer, encode({ error: `WATI ${result.status}: ${result.text}` }))
           return
         }
 
@@ -191,16 +233,50 @@ export async function GET(req: NextRequest) {
         await sleep(300)
       }
 
-      await writer.write(encode({ stage: 'resolving', fetched: allContacts.length }))
+      await safeWrite(writer, encode({ stage: 'resolving', fetched: allContacts.length }))
 
       const synced = await upsertContacts(allContacts, supabase)
-      await writer.write(encode({ stage: 'upserting', synced, total: synced }))
-      await writer.write(encode({ done: true, synced, full }))
+      await safeWrite(writer, encode({ stage: 'upserting', synced, total: synced }))
+
+      // For conversations still missing last_message (Wati's /getContacts didn't
+      // return lastMessage and they've never been opened in the app so chat_messages
+      // is empty), fetch 1 page from Wati's getMessages to populate the preview text.
+      // Cap at 50 and use the same date window as the contact sync.
+      const msgCutoff = cutoff ?? new Date(Date.now() - RECENT_DAYS * 24 * 60 * 60 * 1000)
+      const { data: nullMsgConvos } = await (supabase as any)
+        .from('chat_conversations')
+        .select('id, wati_phone')
+        .is('last_message', null)
+        .not('last_message_at', 'is', null)
+        .gte('last_message_at', msgCutoff.toISOString())
+        .order('last_message_at', { ascending: false })
+        .limit(50)
+
+      for (const convo of (nullMsgConvos ?? []) as { id: string; wati_phone: string }[]) {
+        const phone = convo.wati_phone.replace(/^\+/, '')
+        const result = await watiGet(`/api/v1/getMessages/${encodeURIComponent(phone)}?pageSize=5&pageNumber=1`)
+        if (!result.ok) continue
+        const items: any[] = result.data?.messages?.items ?? []
+        // Skip ticket/note/activity system events — find the first real message
+        const msgItem = items.find((item: any) => {
+          const t = String(item.type ?? '').toLowerCase()
+          return item.eventType !== 'ticket' && t !== 'note' && t !== 'activity' && t !== 'reaction'
+        })
+        if (!msgItem) continue
+        const text = (msgItem.finalText ?? msgItem.text ?? '').trim() || '[message]'
+        await (supabase as any)
+          .from('chat_conversations')
+          .update({ last_message: text })
+          .eq('id', convo.id)
+        await sleep(100)
+      }
+
+      await safeWrite(writer, encode({ done: true, synced, full }))
     } catch (err: any) {
       console.error('[sync-contacts] error', err)
-      await writer.write(encode({ error: err.message ?? 'Unknown error' }))
+      await safeWrite(writer, encode({ error: err.message ?? 'Unknown error' }))
     } finally {
-      await writer.close()
+      try { await writer.close() } catch { /* already closed by client disconnect */ }
     }
   })()
 

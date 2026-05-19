@@ -42,6 +42,7 @@ interface Props {
   windowStatus: WindowStatus
   chatMessages: ChatMessagesReturn
   onAfterSend?: () => void
+  provider?: 'wati' | 'whapi'
 }
 
 // ── Template confirm dialog ───────────────────────────────────────────────────
@@ -351,7 +352,7 @@ function InstructionsDialog({
 }
 
 // ── Main ChatInputBar ─────────────────────────────────────────────────────────
-export function ChatInputBar({ conversationId, phone, customerName, windowStatus, chatMessages, onAfterSend }: Props) {
+export function ChatInputBar({ conversationId, phone, customerName, windowStatus, chatMessages, onAfterSend, provider }: Props) {
   const {
     inputText, setInputText, sending,
     templates, templatesLoading,
@@ -464,7 +465,9 @@ async function startRecording() {
     setRecordingDuration(0)
   }
 
-  const { isOpen, minutesRemaining } = windowStatus
+  const { isOpen: watiIsOpen, minutesRemaining } = windowStatus
+  // WHAPI uses WhatsApp Business App (QR bridge) — no 24-hour session window concept
+  const isOpen = provider === 'whapi' ? true : watiIsOpen
 
   function getEffectiveGroup(t: WatiTemplate): 'no-params' | 'has-params' {
     return paramOverrides[t.elementName] ?? (t.variableCount === 0 ? 'no-params' : 'has-params')
@@ -488,8 +491,8 @@ async function startRecording() {
     try {
       await sendSessionMessage({ conversationId, phone, text: inputText })
       onAfterSend?.()
-    } catch {
-      toast.error('Failed to send message')
+    } catch (e: any) {
+      toast.error(e?.message ?? 'Failed to send message')
     }
   }
 
@@ -553,8 +556,8 @@ async function startRecording() {
   return (
     <div className="border-t border-border flex flex-col flex-shrink-0">
 
-      {/* ── Templates quick-bar ──────────────────────────────────────────── */}
-      <div className="border-b border-border">
+      {/* ── Templates quick-bar — WATI only ──────────────────────────────── */}
+      {provider !== 'whapi' && <div className="border-b border-border">
         <button
           onClick={handleLoadTemplates}
           className="w-full flex items-center justify-between px-3 py-1.5 text-xs text-muted-foreground hover:bg-muted/40 transition-colors"
@@ -655,16 +658,18 @@ async function startRecording() {
             </div>
           </div>
         )}
-      </div>
+      </div>}
 
-      {/* ── Window banner ────────────────────────────────────────────────── */}
-      <div className={`flex items-center gap-1.5 px-3 py-1 text-xs border-b ${windowBannerClass}`}>
-        {!isOpen
-          ? 'Window closed — use a template'
-          : minutesRemaining < 60
-          ? `Window closes in ${minutesRemaining}m`
-          : `Window open · ${Math.floor(minutesRemaining / 60)}h ${minutesRemaining % 60}m left`}
-      </div>
+      {/* ── Window banner — WATI only ────────────────────────────────────── */}
+      {provider !== 'whapi' && (
+        <div className={`flex items-center gap-1.5 px-3 py-1 text-xs border-b ${windowBannerClass}`}>
+          {!isOpen
+            ? 'Window closed — use a template'
+            : minutesRemaining < 60
+            ? `Window closes in ${minutesRemaining}m`
+            : `Window open · ${Math.floor(minutesRemaining / 60)}h ${minutesRemaining % 60}m left`}
+        </div>
+      )}
 
       {/* ── Emoji panel ──────────────────────────────────────────────────── */}
       {showEmoji && (

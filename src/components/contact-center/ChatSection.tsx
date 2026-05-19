@@ -21,6 +21,7 @@ interface Props {
   phone: string
   chatMessages: ChatMessagesReturn
   onReact?: (messageId: string, externalId: string | null, emoji: string) => void
+  provider?: 'wati' | 'whapi'
 }
 
 function DeliveryTick({ status }: { status: ChatMessage['delivery_status'] }) {
@@ -91,7 +92,11 @@ function EmojiPickerPortal({
   )
 }
 
-export function ChatSection({ messages, loading, fetchingWati, canLoadMore, onLoadMore, phone, chatMessages, onReact }: Props) {
+function whapiProxyUrl(url: string): string {
+  return `/api/whapi/media?url=${encodeURIComponent(url)}`
+}
+
+export function ChatSection({ messages, loading, fetchingWati, canLoadMore, onLoadMore, phone, chatMessages, onReact, provider }: Props) {
   const bottomRef      = useRef<HTMLDivElement>(null)
   const scrollRef      = useRef<HTMLDivElement>(null)
   const userScrolledUp = useRef(false)
@@ -239,7 +244,13 @@ export function ChatSection({ messages, loading, fetchingWati, canLoadMore, onLo
                       </span>
                     )}
                     {msg.attachments?.map((att, i) => (
-                      <AttachmentRenderer key={i} url={att.url} type={att.type} name={att.name} isAgent={isAgent} />
+                      <AttachmentRenderer
+                        key={i}
+                        url={att.url && provider === 'whapi' ? whapiProxyUrl(att.url) : att.url}
+                        type={att.type}
+                        name={att.name}
+                        isAgent={isAgent}
+                      />
                     ))}
                     {/* Fallback: message with no parseable content */}
                     {(!msg.text || msg.text === '') && !msg.attachments?.length && (

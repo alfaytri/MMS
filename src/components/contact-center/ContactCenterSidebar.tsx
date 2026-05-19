@@ -1,15 +1,13 @@
 'use client'
 
 import { useEffect, useRef, useState } from 'react'
-import { ChevronLeft, ChevronRight, MessageSquare, MapPin, Package, Clock, User, ChevronDown } from 'lucide-react'
+import { ChevronLeft, ChevronRight, MessageSquare, MapPin, User, ChevronDown } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { ChatListView }        from './ChatListView'
 import { ChatSection }         from './ChatSection'
 import { ChatInputBar }        from './ChatInputBar'
 import { CrmSection }          from './CrmSection'
 import { AddressSection }      from './AddressSection'
-import { ProductsList }        from './ProductsList'
-import { OrderHistorySection } from './OrderHistorySection'
 import { useContactCenterState } from '@/hooks/contact-center/useContactCenterState'
 import { useContactCenterContext } from '@/contexts/ContactCenterContext'
 import type { ChatConversation } from '@/types/contact-center'
@@ -39,8 +37,9 @@ export function ContactCenterSidebar() {
     fetchingWati, canLoadMore, loadMore,
     windowStatus, customerData, chatMessages, addressState,
     activeConversationId, activeCustomerId, activePhone,
-    openConversation, goToList, expandSidebar, collapseSidebar, openPhoneDirect, syncFromWati, syncProgress, triggerPoll,
+    openConversation, goToList, expandSidebar, collapseSidebar, openPhoneDirect, syncFromProvider, syncProgress, triggerPoll,
     updateConversationStatus,
+    provider, setProvider,
   } = state
   const { setCcSidebar, pendingPhone } = useContactCenterContext()
   const [showStatusPicker, setShowStatusPicker] = useState(false)
@@ -111,6 +110,22 @@ export function ContactCenterSidebar() {
         <div className="hidden lg:flex fixed left-0 top-14 bottom-0 w-80 border-r border-border bg-background z-40 flex-col">
           <div className="flex items-center justify-between px-3 py-2 border-b border-border">
             <span className="text-xs font-semibold">Contact Centre</span>
+            {/* Provider toggle */}
+            <div className="flex items-center rounded-full border border-border bg-muted/50 p-0.5 gap-0.5">
+              {(['wati', 'whapi'] as const).map((p) => (
+                <button
+                  key={p}
+                  onClick={() => setProvider(p)}
+                  className={`rounded-full px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide transition-colors min-h-[22px] ${
+                    provider === p
+                      ? 'bg-primary text-primary-foreground shadow-sm'
+                      : 'text-muted-foreground hover:text-foreground'
+                  }`}
+                >
+                  {p}
+                </button>
+              ))}
+            </div>
             <Button size="icon" variant="ghost" className="h-7 w-7" onClick={handleCollapse}>
               <ChevronLeft className="h-3.5 w-3.5" />
             </Button>
@@ -120,8 +135,9 @@ export function ContactCenterSidebar() {
               conversations={conversations}
               loading={convsLoading}
               onSelectConversation={handleSelectConversation}
-              onSync={(full) => syncFromWati(full)}
+              onSync={() => syncFromProvider()}
               syncProgress={syncProgress}
+              provider={provider}
             />
           </div>
         </div>
@@ -134,6 +150,22 @@ export function ContactCenterSidebar() {
           >
             <div className="flex items-center justify-between px-3 py-2 border-b border-border">
               <span className="text-xs font-semibold">Contact Centre</span>
+              {/* Provider toggle */}
+              <div className="flex items-center rounded-full border border-border bg-muted/50 p-0.5 gap-0.5">
+                {(['wati', 'whapi'] as const).map((p) => (
+                  <button
+                    key={p}
+                    onClick={() => setProvider(p)}
+                    className={`rounded-full px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide transition-colors min-h-[22px] ${
+                      provider === p
+                        ? 'bg-primary text-primary-foreground shadow-sm'
+                        : 'text-muted-foreground hover:text-foreground'
+                    }`}
+                  >
+                    {p}
+                  </button>
+                ))}
+              </div>
               <Button size="icon" variant="ghost" className="h-7 w-7" onClick={handleCollapse}>
                 <ChevronLeft className="h-3.5 w-3.5" />
               </Button>
@@ -153,7 +185,7 @@ export function ContactCenterSidebar() {
 
   // ── Customer detail view ───────────────────────────────────────────────────
   const activeConvo = conversations.find((c) => c.id === activeConversationId)
-  const displayName = customerData.customer?.name ?? activeConvo?.customer_name ?? activePhone ?? 'Unknown'
+  const displayName = activeConvo?.wati_contact_name ?? customerData.customer?.name ?? activeConvo?.customer_name ?? activePhone ?? 'Unknown'
 
   const STATUS_CONFIG = {
     open:     { label: 'Open',    dot: 'bg-blue-500',    text: 'text-blue-600',   border: 'border-blue-200',   bg: 'bg-blue-50' },
@@ -228,13 +260,6 @@ export function ContactCenterSidebar() {
           <AddressSection addressState={addressState} />
         </SectionHeader>
 
-        <SectionHeader icon={<Package className="h-3 w-3" />} label="Products">
-          <ProductsList products={customerData.products} />
-        </SectionHeader>
-
-        <SectionHeader icon={<Clock className="h-3 w-3" />} label="Order History">
-          <OrderHistorySection customerId={activeCustomerId} />
-        </SectionHeader>
       </div>
 
       {/* Chat thread — takes all remaining height */}
@@ -248,6 +273,7 @@ export function ContactCenterSidebar() {
           phone={activePhone ?? ''}
           chatMessages={chatMessages}
           onReact={(msgId, _extId, emoji) => chatMessages.reactToMessage(msgId, emoji, activePhone ?? '')}
+          provider={provider}
         />
         {activeConversationId && activePhone && (
           <ChatInputBar
@@ -257,6 +283,7 @@ export function ContactCenterSidebar() {
             windowStatus={windowStatus}
             chatMessages={chatMessages}
             onAfterSend={triggerPoll}
+            provider={provider}
           />
         )}
       </div>

@@ -264,6 +264,7 @@ interface EmployeeFormValues {
   nationality: string
   join_date:   string
   avatar_url:  string
+  division_id: string
 }
 
 // ─── Main dialog ──────────────────────────────────────────────────────────────
@@ -323,7 +324,7 @@ export function EmployeeEditDialog() {
   const form = useForm<EmployeeFormValues>({
     defaultValues: {
       name: '', countryCode: '+974', phoneNumber: '', nationality: '',
-      join_date: todayStr, avatar_url: '',
+      join_date: todayStr, avatar_url: '', division_id: '',
     },
   })
 
@@ -336,6 +337,7 @@ export function EmployeeEditDialog() {
 
     if (employee) {
       const parsed = parsePhone(employee.phone ?? '')
+      const divId = employee.division_id ?? ''
       form.reset({
         name:        employee.name        ?? '',
         countryCode: parsed.code,
@@ -343,8 +345,12 @@ export function EmployeeEditDialog() {
         nationality: employee.nationality ?? '',
         join_date:   employee.join_date   ?? todayStr,
         avatar_url:  employee.avatar_url  ?? '',
+        division_id: divId,
       })
       setPreviewUrl(employee.avatar_url ?? null)
+      // Pre-set skillset filter to match the employee's division
+      const matchedDiv = divisions.find(d => d.id === divId)
+      setDivisionSlug(matchedDiv?.slug ?? '')
       // Load existing skill IDs (employee_services not in generated types — cast required)
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       ;(createClient() as any)
@@ -357,7 +363,7 @@ export function EmployeeEditDialog() {
     } else {
       form.reset({
         name: '', countryCode: '+974', phoneNumber: '', nationality: '',
-        join_date: todayStr, avatar_url: '',
+        join_date: todayStr, avatar_url: '', division_id: '',
       })
     }
   }, [employee, open]) // eslint-disable-line react-hooks/exhaustive-deps
@@ -409,6 +415,7 @@ export function EmployeeEditDialog() {
           p_status:      employee!.status ?? 'active',
           p_avatar_url:  avatarUrl || null,
           p_service_ids: serviceIds,
+          p_division_id: values.division_id || null,
         })
         if (error) throw error
         // Log and invalidate only after the RPC fully succeeded
@@ -428,6 +435,7 @@ export function EmployeeEditDialog() {
           join_date:   values.join_date,
           status:      'unassigned' as const,
           avatar_url:  avatarUrl || null,
+          division_id: values.division_id || null,
         }
         // eslint-disable-next-line @typescript-eslint/no-explicit-any
         const created = await createEmployee.mutateAsync(payload as any)
@@ -586,6 +594,39 @@ export function EmployeeEditDialog() {
                         <FormControl>
                           <Input {...field} type="date" className="w-full" />
                         </FormControl>
+                      </FormItem>
+                    )}
+                  />
+
+                  {/* Division */}
+                  <FormField
+                    control={form.control}
+                    name="division_id"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Division</FormLabel>
+                        <Select
+                          value={field.value}
+                          onValueChange={val => {
+                            field.onChange(val)
+                            const matched = divisions.find(d => d.id === val)
+                            setDivisionSlug(matched?.slug ?? '')
+                          }}
+                        >
+                          <FormControl>
+                            <SelectTrigger>
+                              <SelectValue placeholder="Select division…" />
+                            </SelectTrigger>
+                          </FormControl>
+                          <SelectContent>
+                            <SelectItem value="">No division</SelectItem>
+                            {divisions.map(d => (
+                              <SelectItem key={d.id} value={d.id}>
+                                {d.name}
+                              </SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
                       </FormItem>
                     )}
                   />

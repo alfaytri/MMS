@@ -2,6 +2,7 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { createClient } from '@/lib/supabase/client'
 import { findApplicableTiers, validateRoles, buildApprovalSteps, getNotificationRecipients } from '@/lib/approvalChainResolution'
 import { logPOActivity, resolveMyName } from '@/lib/poActivityLogger'
+import { savePoSnapshot } from '@/lib/poVersionHelper'
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -268,7 +269,7 @@ export function usePurchaseOrder(id: string | null) {
       const supabase = createClient()
       const { data, error } = await (supabase as any)
         .from('purchase_orders')
-        .select('*, po_line_items(*), po_approvals(*)')
+        .select('*, po_line_items(*, inventory_brand_variants(inventory_items(name_en))), po_approvals(*)')
         .eq('id', id!)
         .single()
       if (error) throw error
@@ -513,6 +514,9 @@ export function useSubmitPOForApproval() {
       const { error: poErr } = await (supabase as any)
         .from('purchase_orders').update({ status: 'pending_approval' }).eq('id', id)
       if (poErr) throw poErr
+
+      // Snapshot the PO state at submission time
+      await savePoSnapshot(supabase, id, 'submitted')
 
       const submitPerformer = await resolveMyName()
       await logPOActivity({

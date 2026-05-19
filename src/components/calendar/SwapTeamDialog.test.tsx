@@ -10,7 +10,7 @@ function makeTeam(overrides: Partial<TeamFull>): TeamFull {
     name: 'Team 1',
     name_en: 'Team 1',
     name_ar: null,
-    division: 'rsh' as TeamFull['division'],
+    division: 'rsh' as unknown as TeamFull['division'],
     is_qc: false,
     is_emergency: false,
     leader_id: null,

@@ -68,6 +68,7 @@ export function useDnDHandlers() {
     }
 
     if (drag.type === 'vehicle' && drop.zone === 'team-vehicle') {
+      if (drag.fromTeamId === drop.teamId) return
       assignVehicle.mutate({ vehicleId: drag.vehicleId, teamId: drop.teamId })
       return
     }

@@ -4,7 +4,7 @@ import { useState, useEffect, useCallback, useRef } from 'react'
 import { createClient } from '@/lib/supabase/client'
 import type { ChatMessage } from '@/types/contact-center'
 
-export function useLiveThread(conversationId: string | null, phone: string | null) {
+export function useLiveThread(conversationId: string | null, phone: string | null, provider: 'wati' | 'whapi' = 'wati') {
   const [messages, setMessages]         = useState<ChatMessage[]>([])
   const [loading, setLoading]           = useState(false)
   const [fetchingWati, setFetchingWati] = useState(false)
@@ -133,19 +133,38 @@ export function useLiveThread(conversationId: string | null, phone: string | nul
       const existing = await loadFromDb(conversationId!)
       if (cancelledRef.current) return
       setMessages(existing)
-      setCanLoadMore(existing.length > 0)
+      setCanLoadMore(false)
       setLoading(false)
 
-      // 2. Always sync the last day from Wati so any messages that arrived
-      //    without the webhook (local dev, preview URLs) are pulled in now.
-      if (phone) {
-        await fetchFromWati(conversationId!, phone, 1)
+      // 2. Sync history from provider on open.
+      // WATI: fetch 30 days so full history loads automatically.
+      // WHAPI: fetch last 100 messages as catch-up (webhook drives real-time delivery).
+      if (phone && provider === 'wati') {
+        await fetchFromWati(conversationId!, phone, 30)
         if (cancelledRef.current) return
         const fresh = await loadFromDb(conversationId!)
         if (!cancelledRef.current) {
           setMessages((prev) => applyPoll(prev, fresh))
-          setCanLoadMore(fresh.length > 0)
+          // Only show "Load older" if we hit the 500-row DB limit — meaning
+          // there are likely more messages beyond what the query returned.
+          setCanLoadMore(fresh.length >= 500)
         }
+      }
+
+      // WHAPI: only call the API when we have no local history — webhooks deliver
+      // new messages in real-time so polling would burn the request quota for nothing.
+      if (phone && provider === 'whapi' && existing.length === 0) {
+        try {
+          await fetch(
+            `/api/whapi/fetch-messages?conversationId=${encodeURIComponent(conversationId!)}&phone=${encodeURIComponent(phone)}&count=100`,
+            { method: 'GET' }
+          )
+        } catch (e) {
+          console.error('[useLiveThread] whapi fetch error', e)
+        }
+        if (cancelledRef.current) return
+        const fresh = await loadFromDb(conversationId!)
+        if (!cancelledRef.current) setMessages((prev) => applyPoll(prev, fresh))
       }
     }
 
@@ -217,7 +236,7 @@ export function useLiveThread(conversationId: string | null, phone: string | nul
     async function syncFromWati() {
       const convId = convIdRef.current
       const ph     = phone
-      if (!convId || !ph || watiSyncing || cancelledRef.current) return
+      if (!convId || !ph || watiSyncing || cancelledRef.current || provider !== 'wati') return
       watiSyncing = true
       try {
         const res = await fetch(
@@ -257,10 +276,10 @@ export function useLiveThread(conversationId: string | null, phone: string | nul
       document.removeEventListener('visibilitychange', handleVisibility)
       window.removeEventListener('online', handleOnline)
     }
-  }, [conversationId, phone])
+  }, [conversationId, phone, provider])
 
   async function loadMore() {
-    if (!conversationId || !phone || fetchingWati) return
+    if (!conversationId || !phone || fetchingWati || provider !== 'wati') return
     const previousDays = loadedDays
     const moreDays     = loadedDays + 20
     setLoadedDays(moreDays)

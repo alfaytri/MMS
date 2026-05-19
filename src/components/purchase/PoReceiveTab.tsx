@@ -25,7 +25,8 @@ import type { PurchaseOrder } from '@/hooks/usePurchaseOrders'
 type ReceiveRow = {
   po_line_item_id: string
   brand_variant_id: string | null
-  item_name: string
+  item_name: string        // vendor name (user-entered)
+  system_name: string | null  // name from inventory system
   sku: string | null
   unit: string
   ordered: number
@@ -56,6 +57,7 @@ export function PoReceiveTab({ po }: { po: PurchaseOrder }) {
       po_line_item_id: li.id,
       brand_variant_id: li.brand_variant_id ?? null,
       item_name: li.item_name,
+      system_name: (li as any).inventory_brand_variants?.inventory_items?.name_en ?? null,
       sku: li.sku ?? null,
       unit: li.unit ?? '',
       ordered: li.qty,
@@ -224,7 +226,7 @@ export function PoReceiveTab({ po }: { po: PurchaseOrder }) {
               return (
                 <TableRow key={row.po_line_item_id} className={done ? 'bg-muted/30' : ''}>
                   <TableCell>
-                    <p className="font-medium text-sm">{row.item_name}</p>
+                    <p className="font-medium text-sm">{row.system_name ?? row.item_name}</p>
                     {row.sku && <p className="text-xs text-muted-foreground">{row.sku}</p>}
                   </TableCell>
                   <TableCell className="text-right text-sm">

@@ -73,7 +73,7 @@ export interface TeamDivision {
 export interface TeamFull extends Omit<TeamRaw, 'division'> {
   leader:   Employee | null
   members:  Employee[]
-  vehicle:  Vehicle | null
+  vehicles: Vehicle[]
   schedule: Schedule | null
   division: TeamDivision | null
 }
@@ -118,7 +118,12 @@ export function useTeams(filters?: TeamsFilters) {
       const schedules = schedulesRes.status === 'fulfilled' ? ((schedulesRes.value.data ?? []) as Schedule[]) : []
 
       const empById   = new Map(employees.map(e => [e.id, e]))
-      const vehByTeam = new Map(vehicles.filter(v => v.team_id).map(v => [v.team_id!, v]))
+      const vehByTeam = new Map<string, Vehicle[]>()
+      for (const v of vehicles.filter(v => v.team_id)) {
+        const list = vehByTeam.get(v.team_id!) ?? []
+        list.push(v)
+        vehByTeam.set(v.team_id!, list)
+      }
       const schById   = new Map(schedules.map(s => [s.id, s]))
 
       let result: TeamFull[] = teams.map(t => {
@@ -128,7 +133,7 @@ export function useTeams(filters?: TeamsFilters) {
           ...t,
           leader:   t.leader_id ? (empById.get(t.leader_id) ?? null) : null,
           members:  employees.filter(e => e.team_id === t.id),
-          vehicle:  vehByTeam.get(t.id) ?? null,
+          vehicles: vehByTeam.get(t.id) ?? [],
           schedule: t.schedule_id ? (schById.get(t.schedule_id) ?? null) : null,
           division: div ? {
             id:           div.id,
@@ -388,6 +393,36 @@ export function useTeamActivityLogCount() {
 // Internal log helper
 // ---------------------------------------------------------------------------
 
+// Module-level cache so concurrent logActivity calls don't each race for the
+// auth lock. Keyed by auth user id; cleared on sign-out automatically because
+// a new createClient() session will have a different user id.
+let _cachedProfileId: string | null | undefined = undefined
+let _cachedAuthUserId: string | null = null
+
+async function resolveActorProfileId(): Promise<string | null> {
+  const supabase = createClient()
+  // getSession() reads from local storage — no network round-trip, no lock
+  const { data: { session } } = await supabase.auth.getSession()
+  const authUserId = session?.user?.id ?? null
+
+  if (authUserId === _cachedAuthUserId && _cachedProfileId !== undefined) {
+    return _cachedProfileId
+  }
+
+  _cachedAuthUserId = authUserId
+  if (!authUserId) { _cachedProfileId = null; return null }
+
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const { data } = await (supabase as any)
+    .from('profiles')
+    .select('id')
+    .eq('auth_user_id', authUserId)
+    .maybeSingle()
+  const id: string | null = data?.id ?? null
+  _cachedProfileId = id
+  return id
+}
+
 export async function logActivity(params: {
   action: string
   entityType: string
@@ -398,14 +433,15 @@ export async function logActivity(params: {
   const supabase = createClient()
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const db = supabase as any
-  const { data: { user } } = await supabase.auth.getUser()
+  const profileId = await resolveActorProfileId()
+
   await db.from('team_activity_log').insert({
     action:      params.action,
     entity_type: params.entityType,
     entity_id:   params.entityId,
     before_data: params.beforeData ?? null,
     after_data:  params.afterData ?? null,
-    actor_id:    user?.id ?? null,
+    actor_id:    profileId,
   })
 }
 
@@ -731,7 +767,49 @@ export function useAssignVehicleToTeam() {
       if (error) throw error
       await logActivity({ action: 'vehicle-assigned', entityType: 'vehicle', entityId: vehicleId, afterData: { team_id: teamId } })
     },
-    onSuccess: () => {
+    onMutate: async ({ vehicleId, teamId }) => {
+      await qc.cancelQueries({ queryKey: ['teams'] })
+      await qc.cancelQueries({ queryKey: ['vehicles'] })
+
+      const prevTeamsEntries = qc.getQueriesData<TeamFull[]>({ queryKey: ['teams'] })
+      const prevVehicles = qc.getQueryData<Vehicle[]>(['vehicles'])
+
+      // Resolve the vehicle object from either cache
+      let vehicle = prevVehicles?.find(v => v.id === vehicleId)
+      if (!vehicle) {
+        outer: for (const [, teams] of prevTeamsEntries) {
+          for (const team of teams ?? []) {
+            const found = team.vehicles.find(v => v.id === vehicleId)
+            if (found) { vehicle = found; break outer }
+          }
+        }
+      }
+
+      // Move vehicle in vehicles cache
+      qc.setQueriesData<Vehicle[]>({ queryKey: ['vehicles'] }, old =>
+        old?.map(v => v.id === vehicleId ? { ...v, team_id: teamId } : v)
+      )
+
+      // Move vehicle across team cards cache
+      qc.setQueriesData<TeamFull[]>({ queryKey: ['teams'] }, old =>
+        old?.map(team => {
+          const without = team.vehicles.filter(v => v.id !== vehicleId)
+          if (team.id === teamId && vehicle) {
+            return { ...team, vehicles: [...without, { ...vehicle, team_id: teamId }] }
+          }
+          return { ...team, vehicles: without }
+        })
+      )
+
+      return { prevTeamsEntries, prevVehicles }
+    },
+    onError: (_err, _vars, ctx) => {
+      if (ctx?.prevTeamsEntries) {
+        for (const [key, data] of ctx.prevTeamsEntries) qc.setQueryData(key, data)
+      }
+      if (ctx?.prevVehicles) qc.setQueryData(['vehicles'], ctx.prevVehicles)
+    },
+    onSettled: () => {
       qc.invalidateQueries({ queryKey: ['vehicles'] })
       qc.invalidateQueries({ queryKey: ['teams'] })
       qc.invalidateQueries({ queryKey: ['team-activity-log'] })
@@ -750,7 +828,35 @@ export function useUnassignVehicle() {
       if (error) throw error
       await logActivity({ action: 'vehicle-removed', entityType: 'vehicle', entityId: vehicleId, beforeData: { team_id: fromTeamId } })
     },
-    onSuccess: () => {
+    onMutate: async ({ vehicleId }) => {
+      await qc.cancelQueries({ queryKey: ['teams'] })
+      await qc.cancelQueries({ queryKey: ['vehicles'] })
+
+      const prevTeamsEntries = qc.getQueriesData<TeamFull[]>({ queryKey: ['teams'] })
+      const prevVehicles = qc.getQueryData<Vehicle[]>(['vehicles'])
+
+      // Remove from vehicles cache (set team_id null)
+      qc.setQueriesData<Vehicle[]>({ queryKey: ['vehicles'] }, old =>
+        old?.map(v => v.id === vehicleId ? { ...v, team_id: null } : v)
+      )
+
+      // Remove from team cards cache
+      qc.setQueriesData<TeamFull[]>({ queryKey: ['teams'] }, old =>
+        old?.map(team => ({
+          ...team,
+          vehicles: team.vehicles.filter(v => v.id !== vehicleId),
+        }))
+      )
+
+      return { prevTeamsEntries, prevVehicles }
+    },
+    onError: (_err, _vars, ctx) => {
+      if (ctx?.prevTeamsEntries) {
+        for (const [key, data] of ctx.prevTeamsEntries) qc.setQueryData(key, data)
+      }
+      if (ctx?.prevVehicles) qc.setQueryData(['vehicles'], ctx.prevVehicles)
+    },
+    onSettled: () => {
       qc.invalidateQueries({ queryKey: ['vehicles'] })
       qc.invalidateQueries({ queryKey: ['teams'] })
       qc.invalidateQueries({ queryKey: ['team-activity-log'] })

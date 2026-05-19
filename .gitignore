@@ -2,7 +2,6 @@
 
 # Local issue tracking
 /Issues/
-
 # dependencies
 /node_modules
 /.pnp
@@ -45,7 +44,25 @@ next-env.d.ts
 
 # git worktrees
 .claude/worktrees/
+.claude/settings.local.json
 
 # Supabase CLI
 supabase/.temp/
 .playwright-mcp/
+
+# AI planning artifacts (plans, specs, notes generated during development)
+/docs/superpowers/
+
+# Local planning & reference docs (not application code)
+/Ideas/
+/Old Schema/
+*.xlsx
+*.docx
+
+# One-time / maintenance scripts (not application code)
+/scripts/
+
+# Dev tooling
+/.agents/
+/skills-lock.json
+

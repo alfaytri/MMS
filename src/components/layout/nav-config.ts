@@ -23,13 +23,6 @@ export const NAV_ITEMS: NavEntry[] = [
     icon: 'Database',
     groups: [
       {
-        label: 'Vendors & Clients',
-        items: [
-          { label: 'Suppliers', href: '/master-data/suppliers' },
-          { label: 'Customers', href: '/master-data/customers' },
-        ],
-      },
-      {
         items: [
           { label: 'Warehouses',    href: '/purchase/warehouses' },
           { label: 'Users & Roles', href: '/master-data/users' },
@@ -39,6 +32,7 @@ export const NAV_ITEMS: NavEntry[] = [
       },
       {
         items: [
+          { label: 'Service Customers', href: '/master-data/service-customers' },
           { label: 'Services', href: '/master-data/services' },
           { label: 'Teams & Employees', href: '/master-data/teams' },
           { label: 'Subscription Packages', href: '/master-data/subscriptions' },
@@ -77,6 +71,13 @@ export const NAV_ITEMS: NavEntry[] = [
     label: 'Purchase & Sales',
     icon: 'ShoppingBag',
     groups: [
+      {
+        label: 'Vendors & Clients',
+        items: [
+          { label: 'Suppliers', href: '/master-data/suppliers' },
+          { label: 'Customers', href: '/master-data/customers' },
+        ],
+      },
       {
         label: 'PURCHASE',
         items: [

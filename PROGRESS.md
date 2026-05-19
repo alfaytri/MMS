@@ -155,11 +155,53 @@ Purchase & Sales▾:
 
 ---
 
+## 🔒 Security Audit Log
+
+> Run after every module completion per the rule in `AGENTS.md`.
+
+| Date | Module / Scope | Secrets | RLS | Auth Gate | Error Handling | Notes |
+|---|---|---|---|---|---|---|
+| 2026-05-18 | **Old System Data Migration** | ✅ Secrets | ✅ RLS | ✅ Auth gate | ✅ Error handling | Data-only migration SQL; no new API routes or RLS tables created |
+| 2026-05-17 | **WHAPI Integration** | ✅ | ✅ | ✅ | ✅ | `WHAPI_TOKEN` via `process.env` only; `app_settings` has RLS + anon-read policy; `/api/whapi/webhook` in `WEBHOOK_PREFIXES` (middleware bypass); `/api/whapi/send-*` routes behind `requireAuth()`; all WHAPI fetch calls wrapped in try/catch; webhook signing: ⚠️ optional `WHAPI_WEBHOOK_SECRET` query-param check (WHAPI standard plan doesn't provide HMAC — accepted gap, documented here) |
+| 2026-05-17 | **Service Customers Page** | ✅ | ✅ | ✅ | ✅ | All mutations throw on error; RLS on `service_customer_*` tables inherited from existing `20260420000002_fix_rls_all_tables.sql` migration; new `referral_source` and `phone_id` columns inherit parent table RLS; no new API routes added |
+| 2026-05-16 | **Full codebase audit** (all modules to date) | ✅ | ✅ | ⚠️ | ⚠️ | See details below |
+
+### 2026-05-16 Full Codebase Audit — Detail
+
+**1. Secrets** ✅ CLEAN
+- All API tokens (`WATI_API_TOKEN`, `DIBSY_SECRET_KEY`, `SUPABASE_SERVICE_ROLE_KEY`) loaded from `process.env` only. No hardcoded credentials found in source.
+- `.gitignore` covers `.env*` and `*.pem`. `.env.local` is present on disk but gitignored (verify it has never been committed: `git log --all -- .env.local`).
+
+**2. RLS** ✅ CLEAN
+- Migration `20260420000002_fix_rls_all_tables.sql` enables RLS + a permissive `authenticated` policy on all 48+ tables.
+- All new tables added since (employee_services, chat_messages, chat_conversations, team_activity_log, tool_assignments, etc.) each have RLS enabled in their own migration.
+- **Design note:** Policies use `USING (true)` — all authenticated users can read/write all rows. Intentional for this internal ERP. Multi-tenant row isolation is a Phase 3 concern.
+
+**3. Auth Gate** ⚠️ FIXED THIS SESSION
+- Middleware correctly blocks unauthenticated access to all routes.
+- **Bug found & fixed:** `ALLOWED_PREFIXES` in `middleware.ts` was defined but never used — a dead-code oversight meaning external webhook calls (Wati, 17track) were being redirected to `/login` instead of reaching their handlers. Fixed by replacing it with `WEBHOOK_PREFIXES` and applying the check (`src/middleware.ts`).
+- Webhook routes validate their own payloads internally (Wati by sender phone match, 17track by shared secret).
+
+**4. Error Handling** ⚠️ FIXED THIS SESSION
+- Most routes have full try/catch and return proper status codes.
+- **Bug found & fixed:** `POST /api/wati/send-message` was returning `{ ok: true }` even when the Wati API call silently failed. Fixed — response now includes `watiSent: boolean` and `watiError: string | null` so callers know if delivery actually happened (`src/app/api/wati/send-message/route.ts`).
+- `POST /api/shipments/deregister-tracking` swallows the tracking error and returns 200 intentionally — deregistering is non-fatal (fire-and-forget after a shipment closes). Accepted.
+
+---
+
 ## 🔄 In Progress
 
-🚀 Next: **Contact Centre — deploy to Vercel for webhook-driven reactions**
+🚀 Next: **Set WHAPI_TOKEN and WHAPI_WEBHOOK_SECRET in .env.local, then test WHAPI integration end-to-end**
 
 ## ✅ Completed
+
+- [2026-05-18] **Old System Data Migration: Inventory & Services Import** — `supabase/migrations/20260518100001_inventory_categories_and_items.sql`, `supabase/migrations/20260518120000_services_tree_import.sql`, `supabase/migrations/20260518130000_service_inventory_links.sql`, `scripts/migrate/generate_inventory_migration.py`, `scripts/migrate/generate_services_migration.py`, `scripts/migrate/generate_service_inventory_links.py` — Imports 224 inventory items (ACs, Water Coolers, Heaters, Pumps, Electrical, Plumbing) and 725 services from old Maintenance Division system; restructures AC/Water Cooler/Heater/Pump categories per boss specification; classifies consumable vs. spare-parts-sales items; links 73 supply-and-install services to inventory brand variants
+
+- [2026-05-17] **WHAPI Integration + Provider Toggle** — `supabase/migrations/20260517120000_app_settings.sql`, `supabase/migrations/20260517130000_app_settings_fix.sql`, `src/app/api/settings/cc-provider/route.ts`, `src/app/api/whapi/webhook/route.ts`, `src/app/api/whapi/send-message/route.ts`, `src/app/api/whapi/send-reaction/route.ts`, `src/hooks/useProviderSetting.ts`, `src/hooks/contact-center/useChatMessages.ts`, `src/hooks/contact-center/useContactCenterState.ts`, `src/components/contact-center/ContactCenterSidebar.tsx`, `middleware.ts` — (1) WATI/WHAPI global provider toggle in Contact Centre list-view header persisted to `app_settings` DB table with Realtime cross-tab sync; (2) WHAPI inbound webhook handler — text, image, document, audio, video, reactions (toggle `chat_messages.reactions` JSONB), status updates, idempotent conversation upsert with out-of-order timestamp guard; (3) WHAPI send-message + send-reaction endpoints with auth gate; (4) `useChatMessages` routes sendSessionMessage/sendFile/reactToMessage to WHAPI when provider is set; (5) Fixed `RuntimeAbortError` / `BodyStreamBuffer was aborted` crash in background sync (Turbopack TDZ fix included)
+
+- [2026-05-17] **WATI sync-contacts WritableStream crash fix** — `src/app/api/wati/sync-contacts/route.ts` — Added `safeWrite` helper that swallows writes to already-closed streams; wrapped `writer.close()` in try/catch; added `req.signal.aborted` guard in page-fetch loop — prevents `TypeError: Invalid state: WritableStream is closed` when client disconnects during 4-minute full sync
+
+- [2026-05-17] **Service Customers Page** — `supabase/migrations/20260516160000_service_customers_phone_id_referral.sql`, `src/hooks/useServiceCustomers.ts`, `src/components/master-data/ServiceCustomerFormDialog.tsx`, `src/app/(dashboard)/master-data/service-customers/page.tsx`, `src/components/layout/nav-config.ts`, `src/hooks/contact-center/useCustomerData.ts`, `src/components/contact-center/CrmSection.tsx` — Full CRUD for service customers with multi-phone/address management, address-to-phone linking, GPS + Blue Plate addresses with Google Maps/Waze links, blacklist toggle with required reason, and CRM panel address display with active-phone highlighting
 
 - [2026-05-12] **Contact Centre: Real-time messages + session guard + reaction architecture** — `src/app/api/wati/fetch-messages/route.ts`, `src/app/api/wati/webhook/route.ts`, `src/hooks/contact-center/useChatMessages.ts`, `src/hooks/contact-center/useLiveThread.ts`, `supabase/migrations/20260512210000_chat_messages_replica_identity.sql`, `supabase/migrations/20260512220000_cleanup_duplicate_messages.sql` — (1) useLiveThread: always syncs Wati on conversation open, adds 10s background Wati API sync, reduces poll to 2s, syncs on tab-visible/network-online events; (2) useChatMessages: session refresh guard in sendSessionMessage + sendTemplate prevents 401 when JWT expires mid-session; (3) fetch-messages: prefers wamid as external_id, pre-claims wati_-prefixed rows before upsert to eliminate duplicate agent messages, handles both separate reaction items and embedded reactions; confirmed Wati getMessages API returns 0 reaction items — customer reactions are push-only via webhook (works on Vercel, not localhost); (4) REPLICA IDENTITY FULL migration so Realtime filtered subscriptions receive UPDATE events; (5) cleanup migration removes legacy bare-id duplicates
 

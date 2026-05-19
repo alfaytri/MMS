@@ -28,6 +28,22 @@ interface Attachment {
 
 const WATI_URL_WEBHOOK = (process.env.WATI_API_URL ?? '').replace(/\/$/, '')
 
+// Inbound WATI media URLs require a Bearer token — the browser can't supply that in
+// <img src> or <video src>. Convert any URL that lives on the WATI server to our proxy
+// endpoint /api/wati/media?path=... so the browser can fetch the media without credentials.
+const WATI_MEDIA_PATH_RE = /^data\/(images|documents|videos|audios?|voice|stickers)\/[a-zA-Z0-9_\-.]+$/
+
+function toProxyUrl(url: string | null): string | null {
+  if (!url) return null
+  if (url.startsWith('/')) return url  // already a local/proxy URL
+  if (WATI_MEDIA_PATH_RE.test(url)) return `/api/wati/media?path=${encodeURIComponent(url)}`
+  if (WATI_URL_WEBHOOK && url.startsWith(WATI_URL_WEBHOOK + '/')) {
+    const rel = url.slice(WATI_URL_WEBHOOK.length + 1)
+    if (WATI_MEDIA_PATH_RE.test(rel)) return `/api/wati/media?path=${encodeURIComponent(rel)}`
+  }
+  return url  // external/CDN/Supabase URL — use as-is
+}
+
 function extractAttachments(body: any, mappedMsgType?: string): Attachment[] {
   const WEBHOOK_TYPE_MAP: Record<string, string> = {
     '0': 'text', '1': 'image', '2': 'video', '3': 'audio',
@@ -51,31 +67,31 @@ function extractAttachments(body: any, mappedMsgType?: string): Attachment[] {
     body.media?.url ?? body.media?.link ?? body.mediaUrl ?? body.url ?? body.filePath ?? null
 
   if (msgType === 'image') {
-    const url  = mediaUrl ?? body.image?.url ?? body.image?.link ?? ''
+    const url  = toProxyUrl(mediaUrl ?? body.image?.url ?? body.image?.link ?? null) ?? ''
     const type = data.mimeType ?? body.media?.mimeType ?? body.mimeType ?? 'image/jpeg'
     const name = data.caption ?? body.caption ?? 'image'
     return [{ url, type, name }]
   }
   if (msgType === 'document') {
-    const url  = mediaUrl ?? body.document?.url ?? body.document?.link ?? ''
+    const url  = toProxyUrl(mediaUrl ?? body.document?.url ?? body.document?.link ?? null) ?? ''
     const textFilename = typeof body.text === 'string' && body.text ? body.text : null
     const name = textFilename ?? data.fileName ?? data.filename ?? body.document?.filename ?? body.document?.fileName ?? body.media?.fileName ?? body.fileName ?? 'document'
     const type = data.mimeType ?? body.document?.mimeType ?? body.media?.mimeType ?? body.mimeType ?? 'application/octet-stream'
     return [{ url, type, name }]
   }
   if (msgType === 'video') {
-    const url  = mediaUrl ?? body.video?.url ?? body.video?.link ?? ''
+    const url  = toProxyUrl(mediaUrl ?? body.video?.url ?? body.video?.link ?? null) ?? ''
     const type = data.mimeType ?? body.media?.mimeType ?? body.mimeType ?? 'video/mp4'
     const name = data.caption ?? body.caption ?? 'video'
     return [{ url, type, name }]
   }
   if (msgType === 'audio' || msgType === 'voice') {
-    const url  = mediaUrl ?? body.audio?.url ?? body.audio?.link ?? ''
+    const url  = toProxyUrl(mediaUrl ?? body.audio?.url ?? body.audio?.link ?? null) ?? ''
     const type = data.mimeType ?? body.media?.mimeType ?? body.mimeType ?? 'audio/ogg'
     return [{ url, type, name: 'audio' }]
   }
   if (msgType === 'sticker') {
-    const url = mediaUrl ?? body.sticker?.url ?? body.sticker?.link ?? ''
+    const url = toProxyUrl(mediaUrl ?? body.sticker?.url ?? body.sticker?.link ?? null) ?? ''
     return [{ url, type: 'image/webp', name: 'sticker' }]
   }
 
@@ -97,16 +113,16 @@ function extractAttachments(body: any, mappedMsgType?: string): Attachment[] {
       data.templateHeader?.image ?? null
 
     if (headerDoc) {
-      const url = headerDoc.url ?? headerDoc.link ?? mediaUrl ?? null
+      const url = toProxyUrl(headerDoc.url ?? headerDoc.link ?? mediaUrl ?? null)
       if (url) return [{ url, type: 'application/octet-stream', name: headerDoc.filename ?? headerDoc.fileName ?? 'document' }]
     }
     if (headerImg) {
-      const url = headerImg.url ?? headerImg.link ?? mediaUrl ?? null
+      const url = toProxyUrl(headerImg.url ?? headerImg.link ?? mediaUrl ?? null)
       if (url) return [{ url, type: 'image/jpeg', name: 'image' }]
     }
     const headerFormat = (header?.format ?? data.template?.header?.format ?? '').toLowerCase()
-    if (headerFormat === 'document' && mediaUrl) return [{ url: mediaUrl, type: 'application/octet-stream', name: data.fileName ?? 'document' }]
-    if (headerFormat === 'image' && mediaUrl) return [{ url: mediaUrl, type: 'image/jpeg', name: 'image' }]
+    if (headerFormat === 'document' && mediaUrl) return [{ url: toProxyUrl(mediaUrl) ?? mediaUrl, type: 'application/octet-stream', name: data.fileName ?? 'document' }]
+    if (headerFormat === 'image' && mediaUrl) return [{ url: toProxyUrl(mediaUrl) ?? mediaUrl, type: 'image/jpeg', name: 'image' }]
   }
 
   return []

@@ -1,14 +1,17 @@
 // src/hooks/contact-center/useContactCenterState.ts
 'use client'
 
-import { useState, useCallback } from 'react'
+import { useState, useCallback, useEffect, useRef } from 'react'
 import { createClient } from '@/lib/supabase/client'
+import { tryNormalisePhone } from '@/lib/contact-center/normalise-phone'
 import { useLiveConversations }  from './useLiveConversations'
 import { useLiveThread }         from './useLiveThread'
 import { useWhatsAppWindow }     from './useWhatsAppWindow'
 import { useCustomerData }       from './useCustomerData'
 import { useChatMessages }       from './useChatMessages'
 import { useAddressState }       from './useAddressState'
+import { useProviderSetting }    from '@/hooks/useProviderSetting'
+import { playNotificationSound } from '@/lib/contact-center/notification-sound'
 import type { SidebarView }      from '@/types/contact-center'
 
 export interface SyncProgress {
@@ -25,24 +28,135 @@ export function useContactCenterState() {
   const [activeCustomerId, setActiveCustomerId] = useState<string | null>(null)
   const [activePhone, setActivePhone]           = useState<string | null>(null)
   const [syncProgress, setSyncProgress]         = useState<SyncProgress>({ stage: 'idle' })
+  const bgSyncRunning = useRef(false)
 
-  const { conversations, loading: convsLoading, markRead, markOpened, patchConversation, clearStatusPatch, refetch: refetchConversations } = useLiveConversations()
-  const { messages, loading: threadLoading, fetchingWati, canLoadMore, loadMore, patchMessage, addMessage, triggerPoll } = useLiveThread(activeConversationId, activePhone)
+  const { provider, setProvider } = useProviderSetting()
+  const { conversations, loading: convsLoading, markRead, markOpened, patchConversation, clearStatusPatch, refetch: refetchConversations } = useLiveConversations(provider)
+  const { messages, loading: threadLoading, fetchingWati, canLoadMore, loadMore, patchMessage, addMessage, triggerPoll } = useLiveThread(activeConversationId, activePhone, provider)
 
   const activeConversation = conversations.find((c) => c.id === activeConversationId) ?? null
   const windowStatus = useWhatsAppWindow(messages, activeConversation?.wati_status)
 
   const customerData   = useCustomerData(activeCustomerId)
-  const chatMessages   = useChatMessages(patchMessage, addMessage)
+  const chatMessages   = useChatMessages(patchMessage, addMessage, provider)
   const addressState   = useAddressState(activeCustomerId)
 
-  function openConversation(conversationId: string, customerId: string | null, phone: string | null) {
-    setActiveConversationId(conversationId)
-    setActiveCustomerId(customerId)
+  // Silent background sync every 5 minutes — keeps the conversation list
+  // up to date without user interaction. No banner or spinner; the debounced
+  // realtime subscription in useLiveConversations handles the UI update.
+  useEffect(() => {
+    const controller = new AbortController()
+
+    async function runBgSync() {
+      if (bgSyncRunning.current) return
+      bgSyncRunning.current = true
+      try {
+        // Use ?mode=full so the background sync scans all pages and catches
+        // contacts whose names fall beyond the fast 15-page manual window.
+        const res = await fetch('/api/wati/sync-contacts?mode=full', {
+          method: 'GET',
+          signal: controller.signal,
+        })
+        if (!res.ok || !res.body) return
+        const reader = res.body.getReader()
+        try {
+          while (true) {
+            const { done } = await reader.read()
+            if (done) break
+          }
+        } finally {
+          reader.cancel().catch(() => {})
+        }
+      } catch (err: unknown) {
+        if (
+          err instanceof Error &&
+          (err.name === 'AbortError' ||
+           err.name.includes('Abort') ||
+           err.message.toLowerCase().includes('aborted') ||
+           err.message.includes('BodyStreamBuffer'))
+        ) return
+        // All other background sync failures are non-fatal — silently ignore.
+      } finally {
+        bgSyncRunning.current = false
+      }
+    }
+
+    // Run once immediately on mount so all contacts are caught quickly,
+    // then repeat every 5 minutes.
+    runBgSync()
+    const interval = setInterval(runBgSync, 5 * 60 * 1000)
+    return () => {
+      clearInterval(interval)
+      controller.abort()
+    }
+  }, [])
+
+  // ── Sound notification for any inbound customer message ─────────────────────
+  // Single global subscription covers all conversations, not just the active one.
+  // The setTimeout(0) ensures React StrictMode's immediate cleanup can cancel the
+  // subscription before the WebSocket is created, avoiding the dev-mode warning
+  // "WebSocket is closed before the connection is established".
+  useEffect(() => {
+    const supabase = createClient()
+    let channel: ReturnType<typeof supabase.channel> | null = null
+    let cancelled = false
+
+    const timer = setTimeout(() => {
+      if (cancelled) return
+      channel = supabase
+        .channel('global-inbound-sound')
+        .on(
+          'postgres_changes',
+          { event: 'INSERT', schema: 'public', table: 'chat_messages' },
+          (payload) => {
+            if ((payload.new as any)?.from_type === 'customer') playNotificationSound()
+          }
+        )
+        .subscribe()
+    }, 0)
+
+    return () => {
+      cancelled = true
+      clearTimeout(timer)
+      if (channel) supabase.removeChannel(channel)
+    }
+  }, [])
+
+  async function openConversation(conversationId: string, customerId: string | null, phone: string | null) {
+    let resolvedCustomerId = customerId
+
+    // If the conversation has no linked customer but we have a phone, do a live
+    // lookup against service_customer_phones. This catches the common case where
+    // the customer was added to MMS after the last WATI sync ran.
+    if (!customerId && phone) {
+      const normalised = tryNormalisePhone(phone) ?? phone
+      const supabase = createClient()
+      const { data } = await (supabase as any)
+        .from('service_customer_phones')
+        .select('customer_id')
+        .eq('phone', normalised)
+        .maybeSingle()
+      if (data?.customer_id) {
+        resolvedCustomerId = data.customer_id
+        // Only persist the link when we have a real conversation row to update
+        if (conversationId) {
+          ;(supabase as any)
+            .from('chat_conversations')
+            .update({ customer_id: data.customer_id })
+            .eq('id', conversationId)
+        }
+      }
+    }
+
+    setActiveConversationId(conversationId || null)
+    setActiveCustomerId(resolvedCustomerId)
     setActivePhone(phone)
     setSidebarView('detail')
-    markRead(conversationId)
-    markOpened(conversationId)
+    // Guard: markRead/markOpened require a valid conversation ID
+    if (conversationId) {
+      markRead(conversationId)
+      markOpened(conversationId)
+    }
   }
 
   function goToList() {
@@ -84,10 +198,7 @@ export function useContactCenterState() {
     await supabase.functions.invoke('api-wati', { body: { action: 'set_status', phone: activePhone, status } })
   }, [activeConversationId, activePhone, activeConversation, patchConversation, clearStatusPatch])
 
-  const syncFromWati = useCallback(async (full = false) => {
-    setSyncProgress({ stage: 'fetching', fetched: 0 })
-
-    const url = full ? '/api/wati/sync-contacts?mode=full' : '/api/wati/sync-contacts'
+  async function streamSync(url: string) {
     const res = await fetch(url, { method: 'GET' })
     if (!res.ok || !res.body) {
       const err = await res.json().catch(() => ({}))
@@ -95,7 +206,7 @@ export function useContactCenterState() {
       throw new Error(err.error ?? 'Sync failed')
     }
 
-    const reader = res.body.getReader()
+    const reader  = res.body.getReader()
     const decoder = new TextDecoder()
     let buf = ''
 
@@ -117,22 +228,35 @@ export function useContactCenterState() {
           } else if (event.done) {
             setSyncProgress({ stage: 'done', synced: event.synced, total: event.synced })
             refetchConversations()
-            // auto-clear after 4 s
             setTimeout(() => setSyncProgress({ stage: 'idle' }), 4000)
           } else {
             setSyncProgress({
-              stage: event.stage ?? 'fetching',
+              stage:   event.stage ?? 'fetching',
               fetched: event.total ?? event.fetched,
               synced:  event.synced,
               total:   event.total,
             })
           }
-        } catch {
-          // ignore parse errors on partial lines
-        }
+        } catch { /* ignore partial lines */ }
       }
     }
-  }, [])
+  }
+
+  // Not memoised on purpose: streamSync closes over the current-render
+  // `refetchConversations`, which is rebuilt when `provider` flips from
+  // 'wati' → 'whapi'. A `useCallback(…, [])` here would freeze the
+  // first-render WATI version and cause the list to flip to WATI on sync.
+  async function syncFromWati() {
+    setSyncProgress({ stage: 'fetching', fetched: 0 })
+    await streamSync('/api/wati/sync-contacts')
+  }
+
+  async function syncFromWhapi() {
+    setSyncProgress({ stage: 'fetching', fetched: 0 })
+    await streamSync('/api/whapi/sync-chats')
+  }
+
+  const syncFromProvider = provider === 'whapi' ? syncFromWhapi : syncFromWati
 
   return {
     sidebarView,
@@ -151,6 +275,8 @@ export function useContactCenterState() {
     chatMessages,
     addressState,
     syncProgress,
+    provider,
+    setProvider,
     openConversation,
     goToList,
     expandSidebar,
@@ -159,6 +285,7 @@ export function useContactCenterState() {
     patchMessage,
     triggerPoll,
     syncFromWati,
+    syncFromProvider,
     updateConversationStatus,
   }
 }

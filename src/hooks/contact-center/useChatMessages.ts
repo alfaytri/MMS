@@ -34,6 +34,7 @@ interface SendTemplateParams {
 export function useChatMessages(
   patchMessage: (id: string, patch: Partial<ChatMessage>) => void,
   addMessage?: (msg: ChatMessage) => void,
+  provider: 'wati' | 'whapi' = 'wati',
 ) {
   const supabase = createClient()
   const [inputText, setInputText] = useState('')
@@ -99,34 +100,50 @@ export function useChatMessages(
     setInputText('')
 
     try {
-      const { data: fnData, error: fnErr } = await supabase.functions.invoke('api-wati', {
-        body: { action: 'send_session_message', phone, text: text.trim() },
-      })
-      if (fnErr) throw fnErr
-
-      const watiId = (fnData as any)?.message?.whatsappMessageId
-        ?? (fnData as any)?.info?.whatsAppMessageId
-        ?? (fnData as any)?.id
-        ?? (fnData as any)?.messageId
-      if (watiId) {
-        await (supabase as any)
-          .from('chat_messages')
-          .update({ external_id: `wati_${watiId}`, delivery_status: 'sent' })
-          .eq('id', tempId)
-        patchMessage(tempId, { external_id: `wati_${watiId}`, delivery_status: 'sent' })
+      if (provider === 'whapi') {
+        const res = await fetch('/api/whapi/send-message', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ phone, text: text.trim(), skipDbInsert: true }),
+        })
+        const data = await res.json().catch(() => ({}))
+        if (!res.ok) throw new Error(data.error ?? 'WHAPI send failed')
+        const whapiId = data.messageId ?? null
+        const patch = whapiId
+          ? { external_id: whapiId, delivery_status: 'sent' as const }
+          : { delivery_status: 'sent' as const }
+        await (supabase as any).from('chat_messages').update(patch).eq('id', tempId)
+        patchMessage(tempId, patch)
       } else {
-        patchMessage(tempId, { delivery_status: 'sent' })
+        const { data: fnData, error: fnErr } = await supabase.functions.invoke('api-wati', {
+          body: { action: 'send_session_message', phone, text: text.trim() },
+        })
+        if (fnErr) throw fnErr
+        const watiId = (fnData as any)?.message?.whatsappMessageId
+          ?? (fnData as any)?.info?.whatsAppMessageId
+          ?? (fnData as any)?.id
+          ?? (fnData as any)?.messageId
+        if (watiId) {
+          await (supabase as any)
+            .from('chat_messages')
+            .update({ external_id: `wati_${watiId}`, delivery_status: 'sent' })
+            .eq('id', tempId)
+          patchMessage(tempId, { external_id: `wati_${watiId}`, delivery_status: 'sent' })
+        } else {
+          patchMessage(tempId, { delivery_status: 'sent' })
+        }
       }
-    } catch {
+    } catch (err) {
       await (supabase as any)
         .from('chat_messages')
         .update({ delivery_status: 'failed' })
         .eq('id', tempId)
       patchMessage(tempId, { delivery_status: 'failed' })
+      throw err
     } finally {
       setSending(false)
     }
-  }, [sending, supabase, patchMessage, addMessage])
+  }, [provider, sending, supabase, patchMessage, addMessage])
 
   const sendTemplate = useCallback(async ({
     conversationId,
@@ -262,14 +279,24 @@ export function useChatMessages(
     }
   }, [templates.length, supabase])
 
-  const reactToMessage = useCallback(async (messageId: string, emoji: string, _phone?: string) => {
+  const reactToMessage = useCallback(async (messageId: string, emoji: string, phone?: string) => {
     const { data: row } = await (supabase as any)
-      .from('chat_messages').select('reactions').eq('id', messageId).maybeSingle()
+      .from('chat_messages').select('reactions, external_id').eq('id', messageId).maybeSingle()
     const existing: { emoji: string; from_type: string }[] = row?.reactions ?? []
     const hasIt = existing.some((r) => r.emoji === emoji && r.from_type === 'agent')
     const updated = hasIt
       ? existing.filter((r) => !(r.emoji === emoji && r.from_type === 'agent'))
       : [...existing, { emoji, from_type: 'agent' }]
+
+    if (provider === 'whapi' && row?.external_id && phone) {
+      // Fire-and-forget: send-reaction route handles DB update via external_id
+      fetch('/api/whapi/send-reaction', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ to: phone, messageId: row.external_id, emoji }),
+      }).catch(() => {/* non-fatal */})
+    }
+
     const { error: updateErr } = await (supabase as any)
       .from('chat_messages').update({ reactions: updated }).eq('id', messageId)
     if (updateErr) {
@@ -277,33 +304,46 @@ export function useChatMessages(
       return
     }
     patchMessage(messageId, { reactions: updated } as any)
-    // NOTE: Wati does not expose a reaction-sending API endpoint.
-    // Agent reactions are stored in MMS only and are not forwarded to the customer's WhatsApp.
-    // Customer reactions arrive via the Wati webhook and are stored/displayed automatically.
-  }, [supabase, patchMessage])
+  }, [provider, supabase, patchMessage])
 
   const retryMessage = useCallback(async (message: ChatMessage, phone: string) => {
     if (!message.text) return
     patchMessage(message.id, { delivery_status: 'sending' })
     await (supabase as any).from('chat_messages').update({ delivery_status: 'sending' }).eq('id', message.id)
     try {
-      const { data: fnData } = await supabase.functions.invoke('api-wati', {
-        body: { action: 'send_session_message', phone, text: message.text },
-      })
-      const watiId = (fnData as any)?.message?.whatsappMessageId
-        ?? (fnData as any)?.info?.whatsAppMessageId
-        ?? (fnData as any)?.id
-        ?? (fnData as any)?.messageId
-      const patch = watiId
-        ? { external_id: `wati_${watiId}`, delivery_status: 'sent' as const }
-        : { delivery_status: 'sent' as const }
-      await (supabase as any).from('chat_messages').update(patch).eq('id', message.id)
-      patchMessage(message.id, patch)
+      if (provider === 'whapi') {
+        const res = await fetch('/api/whapi/send-message', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ phone, text: message.text, skipDbInsert: true }),
+        })
+        const data = await res.json().catch(() => ({}))
+        if (!res.ok) throw new Error(data.error ?? 'WHAPI retry failed')
+        const whapiId = data.messageId ?? null
+        const patch = whapiId
+          ? { external_id: whapiId, delivery_status: 'sent' as const }
+          : { delivery_status: 'sent' as const }
+        await (supabase as any).from('chat_messages').update(patch).eq('id', message.id)
+        patchMessage(message.id, patch)
+      } else {
+        const { data: fnData } = await supabase.functions.invoke('api-wati', {
+          body: { action: 'send_session_message', phone, text: message.text },
+        })
+        const watiId = (fnData as any)?.message?.whatsappMessageId
+          ?? (fnData as any)?.info?.whatsAppMessageId
+          ?? (fnData as any)?.id
+          ?? (fnData as any)?.messageId
+        const patch = watiId
+          ? { external_id: `wati_${watiId}`, delivery_status: 'sent' as const }
+          : { delivery_status: 'sent' as const }
+        await (supabase as any).from('chat_messages').update(patch).eq('id', message.id)
+        patchMessage(message.id, patch)
+      }
     } catch {
       await (supabase as any).from('chat_messages').update({ delivery_status: 'failed' }).eq('id', message.id)
       patchMessage(message.id, { delivery_status: 'failed' })
     }
-  }, [supabase, patchMessage])
+  }, [provider, supabase, patchMessage])
 
   const sendFile = useCallback(async ({ conversationId, phone, file, caption, agentProfileId }: SendFileParams) => {
     if (sending) return
@@ -354,31 +394,61 @@ export function useChatMessages(
       addMessage?.({ ...inserted, reactions: [], message_kind: 'message' } as ChatMessage)
     }
 
-    // 3. Send via Wati
+    // 3. Send via provider
     try {
-      const { data: fnData, error: fnErr } = await supabase.functions.invoke('api-wati', {
-        body: {
-          action:    'send_file',
-          phone,
-          url:       publicUrl,
-          caption:   caption ?? '',
-          filename:  file.name,
-          mime_type: file.type,
-        },
-      })
-      if (fnErr) throw fnErr
-      const watiResp = fnData as any
-      if (watiResp?.result === false || watiResp?.error) {
-        throw new Error(watiResp?.info ?? watiResp?.error ?? watiResp?.detail ?? 'WATI rejected the file')
-      }
-      const watiId = watiResp?.message?.whatsappMessageId
-        ?? watiResp?.info?.whatsAppMessageId ?? null
-      if (inserted) {
-        const patch = watiId
-          ? { external_id: `wati_${watiId}`, delivery_status: 'sent' as const }
-          : { delivery_status: 'sent' as const }
-        await (supabase as any).from('chat_messages').update(patch).eq('id', inserted.id)
-        patchMessage(inserted.id, patch)
+      if (provider === 'whapi') {
+        const isImage = file.type.startsWith('image/')
+        const isVideo = file.type.startsWith('video/')
+        const isAudio = file.type.startsWith('audio/')
+        const reqBody: any = { phone, skipDbInsert: true }
+        if (caption) reqBody.text = caption
+        if (isImage)      reqBody.imageUrl    = publicUrl
+        else if (isVideo) reqBody.videoUrl    = publicUrl
+        else if (isAudio) reqBody.audioUrl    = publicUrl
+        else { reqBody.documentUrl = publicUrl; reqBody.documentName = file.name }
+        const res = await fetch('/api/whapi/send-message', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(reqBody),
+        })
+        const data = await res.json().catch(() => ({}))
+        if (!res.ok) throw new Error(data.error ?? 'WHAPI file send failed')
+        if (inserted) {
+          const whapiId = data.messageId ?? null
+          const patch = whapiId
+            ? { external_id: whapiId, delivery_status: 'sent' as const }
+            : { delivery_status: 'sent' as const }
+          await (supabase as any).from('chat_messages').update(patch).eq('id', inserted.id)
+          patchMessage(inserted.id, patch)
+        }
+      } else {
+        // Use Next.js API route (Node.js) instead of Deno edge function — the edge
+        // function loads the entire file into memory which fails for large videos.
+        const fileRes = await fetch('/api/wati/send-file', {
+          method:  'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body:    JSON.stringify({
+            phone,
+            url:       publicUrl,
+            caption:   caption ?? '',
+            filename:  file.name,
+            mime_type: file.type,
+          }),
+        })
+        const watiResp = await fileRes.json().catch(() => ({})) as any
+        if (!fileRes.ok) throw new Error(watiResp?.detail ?? watiResp?.error ?? 'WATI rejected the file')
+        if (watiResp?.result === false || watiResp?.error) {
+          throw new Error(watiResp?.info ?? watiResp?.error ?? 'WATI rejected the file')
+        }
+        const watiId = watiResp?.message?.whatsappMessageId
+          ?? watiResp?.info?.whatsAppMessageId ?? null
+        if (inserted) {
+          const patch = watiId
+            ? { external_id: `wati_${watiId}`, delivery_status: 'sent' as const }
+            : { delivery_status: 'sent' as const }
+          await (supabase as any).from('chat_messages').update(patch).eq('id', inserted.id)
+          patchMessage(inserted.id, patch)
+        }
       }
     } catch (err) {
       if (inserted) {
@@ -389,7 +459,7 @@ export function useChatMessages(
     } finally {
       setSending(false)
     }
-  }, [sending, supabase, patchMessage, addMessage])
+  }, [provider, sending, supabase, patchMessage, addMessage])
 
   return {
     inputText,
