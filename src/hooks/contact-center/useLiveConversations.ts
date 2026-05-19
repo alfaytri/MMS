@@ -15,7 +15,12 @@ export function useLiveConversations(provider: 'wati' | 'whapi' = 'wati') {
   const localStatusPatch = useRef(new Map<string, string>())
 
   const load = useCallback(async () => {
-    const { data, error } = await (supabase as any)
+    // WATI: only today + yesterday. WHAPI: full history, no cutoff.
+    const yesterdayStart = new Date()
+    yesterdayStart.setDate(yesterdayStart.getDate() - 1)
+    yesterdayStart.setHours(0, 0, 0, 0)
+
+    let query = (supabase as any)
       .from('chat_conversations')
       .select(`
         id, customer_id, conversation_type, wati_phone, wati_contact_name,
@@ -27,6 +32,12 @@ export function useLiveConversations(provider: 'wati' | 'whapi' = 'wati') {
       .not('last_message_at', 'is', null)
       .order('last_message_at', { ascending: false, nullsFirst: false })
       .limit(500)
+
+    if (provider === 'wati') {
+      query = query.gte('last_message_at', yesterdayStart.toISOString())
+    }
+
+    const { data, error } = await query
 
     if (cancelledRef.current) return
 
