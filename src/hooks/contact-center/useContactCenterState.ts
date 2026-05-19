@@ -11,6 +11,7 @@ import { useCustomerData }       from './useCustomerData'
 import { useChatMessages }       from './useChatMessages'
 import { useAddressState }       from './useAddressState'
 import { useProviderSetting }    from '@/hooks/useProviderSetting'
+import { playNotificationSound } from '@/lib/contact-center/notification-sound'
 import type { SidebarView }      from '@/types/contact-center'
 
 export interface SyncProgress {
@@ -64,7 +65,7 @@ export function useContactCenterState() {
             if (done) break
           }
         } finally {
-          reader.cancel()
+          reader.cancel().catch(() => {})
         }
       } catch (err: unknown) {
         if (
@@ -87,6 +88,37 @@ export function useContactCenterState() {
     return () => {
       clearInterval(interval)
       controller.abort()
+    }
+  }, [])
+
+  // ── Sound notification for any inbound customer message ─────────────────────
+  // Single global subscription covers all conversations, not just the active one.
+  // The setTimeout(0) ensures React StrictMode's immediate cleanup can cancel the
+  // subscription before the WebSocket is created, avoiding the dev-mode warning
+  // "WebSocket is closed before the connection is established".
+  useEffect(() => {
+    const supabase = createClient()
+    let channel: ReturnType<typeof supabase.channel> | null = null
+    let cancelled = false
+
+    const timer = setTimeout(() => {
+      if (cancelled) return
+      channel = supabase
+        .channel('global-inbound-sound')
+        .on(
+          'postgres_changes',
+          { event: 'INSERT', schema: 'public', table: 'chat_messages' },
+          (payload) => {
+            if ((payload.new as any)?.from_type === 'customer') playNotificationSound()
+          }
+        )
+        .subscribe()
+    }, 0)
+
+    return () => {
+      cancelled = true
+      clearTimeout(timer)
+      if (channel) supabase.removeChannel(channel)
     }
   }, [])
 

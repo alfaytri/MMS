@@ -3,8 +3,17 @@ import { type NextRequest, NextResponse } from 'next/server'
 const WHAPI_TOKEN = process.env.WHAPI_TOKEN ?? ''
 
 export async function GET(req: NextRequest) {
-  const url = req.nextUrl.searchParams.get('url')
+  let url = req.nextUrl.searchParams.get('url')
   if (!url) return NextResponse.json({ error: 'Missing url parameter' }, { status: 400 })
+
+  // Unwrap double-wrapped URLs: if the `url` param is itself a /api/whapi/media?url=... path,
+  // extract the inner URL so old DB rows with double-wrapped URLs still resolve correctly.
+  if (url.startsWith('/api/whapi/media')) {
+    try {
+      const inner = new URL(url, 'http://localhost').searchParams.get('url')
+      if (inner) url = inner
+    } catch { /* keep url as-is */ }
+  }
 
   if (!WHAPI_TOKEN)
     return NextResponse.json({ error: 'WHAPI_TOKEN not configured' }, { status: 500 })

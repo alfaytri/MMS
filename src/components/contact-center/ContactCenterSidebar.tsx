@@ -185,7 +185,7 @@ export function ContactCenterSidebar() {
 
   // ── Customer detail view ───────────────────────────────────────────────────
   const activeConvo = conversations.find((c) => c.id === activeConversationId)
-  const displayName = customerData.customer?.name ?? activeConvo?.customer_name ?? activePhone ?? 'Unknown'
+  const displayName = activeConvo?.wati_contact_name ?? customerData.customer?.name ?? activeConvo?.customer_name ?? activePhone ?? 'Unknown'
 
   const STATUS_CONFIG = {
     open:     { label: 'Open',    dot: 'bg-blue-500',    text: 'text-blue-600',   border: 'border-blue-200',   bg: 'bg-blue-50' },

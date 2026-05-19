@@ -491,8 +491,8 @@ async function startRecording() {
     try {
       await sendSessionMessage({ conversationId, phone, text: inputText })
       onAfterSend?.()
-    } catch {
-      toast.error('Failed to send message')
+    } catch (e: any) {
+      toast.error(e?.message ?? 'Failed to send message')
     }
   }
 

@@ -282,21 +282,39 @@ export function ChatListView({ conversations, loading, onSelectConversation, onS
           <div className="px-3 py-4 text-xs text-muted-foreground text-center">Loading…</div>
         )}
 
-        {/* Normal results grouped by Today / Yesterday / Earlier */}
+        {/* Normal results grouped by date */}
         {!loading && filtered.length > 0 && (() => {
           const todayStart     = new Date(); todayStart.setHours(0, 0, 0, 0)
           const yesterdayStart = new Date(todayStart); yesterdayStart.setDate(yesterdayStart.getDate() - 1)
-          const earlierStart   = new Date(todayStart); earlierStart.setDate(earlierStart.getDate() - 3)
 
-          const todayRows     = filtered.filter(c => new Date(c.last_message_at!) >= todayStart)
-          const yesterdayRows = filtered.filter(c => {
-            const d = new Date(c.last_message_at!)
-            return d >= yesterdayStart && d < todayStart
-          })
-          const earlierRows   = filtered.filter(c => {
-            const d = new Date(c.last_message_at!)
-            return d >= earlierStart && d < yesterdayStart
-          })
+          // Build ordered groups: Today, Yesterday, then one bucket per calendar day
+          const groups = new Map<string, { label: string; sortKey: number; rows: typeof filtered }>()
+
+          for (const c of filtered) {
+            if (!c.last_message_at) continue
+            const d = new Date(c.last_message_at)
+            let key: string
+            let label: string
+            let sortKey: number
+
+            if (d >= todayStart) {
+              key = '__today__'; label = 'Today'; sortKey = todayStart.getTime()
+            } else if (d >= yesterdayStart) {
+              key = '__yesterday__'; label = 'Yesterday'; sortKey = yesterdayStart.getTime()
+            } else {
+              // Normalise to start-of-day so same-day messages share a bucket
+              const dayStart = new Date(d); dayStart.setHours(0, 0, 0, 0)
+              key = dayStart.toISOString()
+              sortKey = dayStart.getTime()
+              label = dayStart.toLocaleDateString([], { weekday: 'short', day: 'numeric', month: 'short' })
+            }
+
+            if (!groups.has(key)) groups.set(key, { label, sortKey, rows: [] })
+            groups.get(key)!.rows.push(c)
+          }
+
+          // Sort groups newest-first
+          const sorted = Array.from(groups.values()).sort((a, b) => b.sortKey - a.sortKey)
 
           const DayHeading = ({ label, count }: { label: string; count: number }) => (
             <div className="sticky top-0 z-10 flex items-center gap-2 px-3 py-2 bg-background border-b border-border">
@@ -313,30 +331,14 @@ export function ChatListView({ conversations, loading, onSelectConversation, onS
 
           return (
             <>
-              {todayRows.length > 0 && (
-                <>
-                  <DayHeading label="Today" count={todayRows.length} />
-                  {todayRows.map(c => (
+              {sorted.map(({ label, rows }) => (
+                <div key={label}>
+                  <DayHeading label={label} count={rows.length} />
+                  {rows.map(c => (
                     <ConversationRow key={c.id} c={c} onClick={() => onSelectConversation(c)} />
                   ))}
-                </>
-              )}
-              {yesterdayRows.length > 0 && (
-                <>
-                  <DayHeading label="Yesterday" count={yesterdayRows.length} />
-                  {yesterdayRows.map(c => (
-                    <ConversationRow key={c.id} c={c} onClick={() => onSelectConversation(c)} />
-                  ))}
-                </>
-              )}
-              {earlierRows.length > 0 && (
-                <>
-                  <DayHeading label="Earlier" count={earlierRows.length} />
-                  {earlierRows.map(c => (
-                    <ConversationRow key={c.id} c={c} onClick={() => onSelectConversation(c)} />
-                  ))}
-                </>
-              )}
+                </div>
+              ))}
             </>
           )
         })()}
@@ -370,7 +372,7 @@ export function ChatListView({ conversations, loading, onSelectConversation, onS
             {!lookupLoading && !lookupResult && !lookupNotFound && !search.trim() && (
               <div className="flex flex-col items-center justify-center py-8 gap-2 text-muted-foreground">
                 <MessageSquare className="h-8 w-8 opacity-30" />
-                <p className="text-xs">No conversations in the last 3 days</p>
+                <p className="text-xs">No conversations yet</p>
                 <p className="text-xs opacity-60 text-center px-4">
                   {provider === 'whapi'
                     ? 'Press the sync button to import your WhatsApp chats'

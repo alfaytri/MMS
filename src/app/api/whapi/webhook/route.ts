@@ -93,6 +93,9 @@ export async function POST(req: NextRequest) {
     const phone = normalisePhone(msg.from ?? '')
     if (!phone || phone === '+') continue
 
+    // chat_name = name saved in WHAPI phonebook; from_name = WhatsApp push name
+    const contactName: string | null = msg.chat_name ?? msg.from_name ?? null
+
     const externalId: string = msg.id ?? ''
     const ts = msg.timestamp
       ? new Date(Number(msg.timestamp) * 1000).toISOString()
@@ -123,9 +126,14 @@ export async function POST(req: NextRequest) {
       if (msgType !== key) continue
       const media = msg[key]
       if (!media) continue
-      const url: string | null = media.link
+      const rawUrl: string | null = media.link
         ?? (media.id ? `https://gate.whapi.cloud/media/${media.id}` : null)
-      if (!url) continue
+      if (!rawUrl) continue
+      // Proxy through our server — browser can't add the Bearer token on <img>/<video> src.
+      // Guard against double-wrapping if rawUrl is already a proxy path.
+      const url = rawUrl.startsWith('/api/whapi/media')
+        ? rawUrl
+        : `/api/whapi/media?url=${encodeURIComponent(rawUrl)}`
       attachments.push({
         url,
         type: media.mime_type ?? defaultMime,
@@ -146,12 +154,21 @@ export async function POST(req: NextRequest) {
       if (dup) continue
     }
 
-    // Find or create conversation (idempotent, out-of-order timestamp guard)
+    // Find or create conversation (idempotent, out-of-order timestamp guard).
+    // ignoreDuplicates: false so wati_contact_name is kept fresh on every message.
     await (supabase.from('chat_conversations') as any)
-      .upsert({ wati_phone: phone, provider: 'whapi' }, { onConflict: 'wati_phone,provider', ignoreDuplicates: true })
+      .upsert(
+        { wati_phone: phone, provider: 'whapi', ...(contactName ? { wati_contact_name: contactName } : {}) },
+        { onConflict: 'wati_phone,provider', ignoreDuplicates: false }
+      )
 
     const { data: convo } = await (supabase.from('chat_conversations') as any)
-      .update({ last_message: previewText, last_message_at: ts, unread_count: 1 })
+      .update({
+        last_message:    previewText,
+        last_message_at: ts,
+        unread_count:    1,
+        ...(contactName ? { wati_contact_name: contactName } : {}),
+      })
       .eq('wati_phone', phone)
       .eq('provider', 'whapi')
       .or(`last_message_at.is.null,last_message_at.lt.${ts}`)

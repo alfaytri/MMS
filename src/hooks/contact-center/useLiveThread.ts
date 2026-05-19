@@ -133,18 +133,38 @@ export function useLiveThread(conversationId: string | null, phone: string | nul
       const existing = await loadFromDb(conversationId!)
       if (cancelledRef.current) return
       setMessages(existing)
-      setCanLoadMore(existing.length > 0)
+      setCanLoadMore(false)
       setLoading(false)
 
-      // 2. Sync from WATI only — WHAPI conversations are fully webhook-driven.
+      // 2. Sync history from provider on open.
+      // WATI: fetch 30 days so full history loads automatically.
+      // WHAPI: fetch last 100 messages as catch-up (webhook drives real-time delivery).
       if (phone && provider === 'wati') {
-        await fetchFromWati(conversationId!, phone, 1)
+        await fetchFromWati(conversationId!, phone, 30)
         if (cancelledRef.current) return
         const fresh = await loadFromDb(conversationId!)
         if (!cancelledRef.current) {
           setMessages((prev) => applyPoll(prev, fresh))
-          setCanLoadMore(fresh.length > 0)
+          // Only show "Load older" if we hit the 500-row DB limit — meaning
+          // there are likely more messages beyond what the query returned.
+          setCanLoadMore(fresh.length >= 500)
         }
+      }
+
+      // WHAPI: only call the API when we have no local history — webhooks deliver
+      // new messages in real-time so polling would burn the request quota for nothing.
+      if (phone && provider === 'whapi' && existing.length === 0) {
+        try {
+          await fetch(
+            `/api/whapi/fetch-messages?conversationId=${encodeURIComponent(conversationId!)}&phone=${encodeURIComponent(phone)}&count=100`,
+            { method: 'GET' }
+          )
+        } catch (e) {
+          console.error('[useLiveThread] whapi fetch error', e)
+        }
+        if (cancelledRef.current) return
+        const fresh = await loadFromDb(conversationId!)
+        if (!cancelledRef.current) setMessages((prev) => applyPoll(prev, fresh))
       }
     }
 
@@ -259,7 +279,7 @@ export function useLiveThread(conversationId: string | null, phone: string | nul
   }, [conversationId, phone, provider])
 
   async function loadMore() {
-    if (!conversationId || !phone || fetchingWati) return
+    if (!conversationId || !phone || fetchingWati || provider !== 'wati') return
     const previousDays = loadedDays
     const moreDays     = loadedDays + 20
     setLoadedDays(moreDays)

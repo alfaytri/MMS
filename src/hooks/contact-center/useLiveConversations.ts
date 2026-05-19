@@ -15,12 +15,6 @@ export function useLiveConversations(provider: 'wati' | 'whapi' = 'wati') {
   const localStatusPatch = useRef(new Map<string, string>())
 
   const load = useCallback(async () => {
-    // Show last 3 days so the list stays populated even when the webhook is
-    // briefly down or the sync runs slightly behind.
-    const yesterdayStart = new Date()
-    yesterdayStart.setDate(yesterdayStart.getDate() - 3)
-    yesterdayStart.setHours(0, 0, 0, 0)
-
     const { data, error } = await (supabase as any)
       .from('chat_conversations')
       .select(`
@@ -31,9 +25,8 @@ export function useLiveConversations(provider: 'wati' | 'whapi' = 'wati') {
       `)
       .eq('provider', provider)
       .not('last_message_at', 'is', null)
-      .gte('last_message_at', yesterdayStart.toISOString())
       .order('last_message_at', { ascending: false, nullsFirst: false })
-      .limit(200)
+      .limit(500)
 
     if (cancelledRef.current) return
 
@@ -52,7 +45,8 @@ export function useLiveConversations(provider: 'wati' | 'whapi' = 'wati') {
         .filter((row: any) => row.last_message_at != null)
         .map((row) => ({
           ...row,
-          customer_name: row.service_customers?.name ?? row.wati_contact_name ?? null,
+          // WHAPI/WATI phonebook name takes priority over CRM name — matches chat header order
+          customer_name: row.wati_contact_name ?? row.service_customers?.name ?? null,
           unread_count: locallyReadIds.current.has(row.id) ? 0 : row.unread_count,
           // Keep locally-patched status until the DB confirms the change
           wati_status: localStatusPatch.current.has(row.id)

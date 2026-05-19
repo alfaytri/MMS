@@ -133,12 +133,13 @@ export function useChatMessages(
           patchMessage(tempId, { delivery_status: 'sent' })
         }
       }
-    } catch {
+    } catch (err) {
       await (supabase as any)
         .from('chat_messages')
         .update({ delivery_status: 'failed' })
         .eq('id', tempId)
       patchMessage(tempId, { delivery_status: 'failed' })
+      throw err
     } finally {
       setSending(false)
     }
@@ -397,8 +398,13 @@ export function useChatMessages(
     try {
       if (provider === 'whapi') {
         const isImage = file.type.startsWith('image/')
-        const reqBody: any = { phone, text: caption ?? '', skipDbInsert: true }
-        if (isImage) reqBody.imageUrl = publicUrl
+        const isVideo = file.type.startsWith('video/')
+        const isAudio = file.type.startsWith('audio/')
+        const reqBody: any = { phone, skipDbInsert: true }
+        if (caption) reqBody.text = caption
+        if (isImage)      reqBody.imageUrl    = publicUrl
+        else if (isVideo) reqBody.videoUrl    = publicUrl
+        else if (isAudio) reqBody.audioUrl    = publicUrl
         else { reqBody.documentUrl = publicUrl; reqBody.documentName = file.name }
         const res = await fetch('/api/whapi/send-message', {
           method: 'POST',
@@ -416,20 +422,23 @@ export function useChatMessages(
           patchMessage(inserted.id, patch)
         }
       } else {
-        const { data: fnData, error: fnErr } = await supabase.functions.invoke('api-wati', {
-          body: {
-            action:    'send_file',
+        // Use Next.js API route (Node.js) instead of Deno edge function — the edge
+        // function loads the entire file into memory which fails for large videos.
+        const fileRes = await fetch('/api/wati/send-file', {
+          method:  'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body:    JSON.stringify({
             phone,
             url:       publicUrl,
             caption:   caption ?? '',
             filename:  file.name,
             mime_type: file.type,
-          },
+          }),
         })
-        if (fnErr) throw fnErr
-        const watiResp = fnData as any
+        const watiResp = await fileRes.json().catch(() => ({})) as any
+        if (!fileRes.ok) throw new Error(watiResp?.detail ?? watiResp?.error ?? 'WATI rejected the file')
         if (watiResp?.result === false || watiResp?.error) {
-          throw new Error(watiResp?.info ?? watiResp?.error ?? watiResp?.detail ?? 'WATI rejected the file')
+          throw new Error(watiResp?.info ?? watiResp?.error ?? 'WATI rejected the file')
         }
         const watiId = watiResp?.message?.whatsappMessageId
           ?? watiResp?.info?.whatsAppMessageId ?? null

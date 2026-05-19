@@ -31,7 +31,7 @@ export async function PATCH(request: Request) {
   const { error } = await (admin as any).from('app_settings').upsert(
     {
       key: 'cc_provider',
-      value: JSON.stringify(provider), // Produces '"wati"' or '"whapi"' which is valid JSONB
+      value: provider,
     },
     {
       onConflict: 'key',

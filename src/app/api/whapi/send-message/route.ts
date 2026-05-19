@@ -59,6 +59,8 @@ export async function POST(req: NextRequest) {
     documentUrl,
     documentName,
     imageUrl,
+    videoUrl,
+    audioUrl,
     senderName,
     skipDbInsert,
   } = body as {
@@ -67,12 +69,15 @@ export async function POST(req: NextRequest) {
     documentUrl?: string
     documentName?: string
     imageUrl?: string
+    videoUrl?: string
+    audioUrl?: string
     senderName?: string
     skipDbInsert?: boolean
   }
 
-  if (!rawPhone || !text) {
-    return NextResponse.json({ error: 'phone and text are required' }, { status: 400 })
+  const hasMedia = !!(documentUrl || imageUrl || videoUrl || audioUrl)
+  if (!rawPhone || (!text && !hasMedia)) {
+    return NextResponse.json({ error: 'phone and text or media are required' }, { status: 400 })
   }
 
   const phone      = normalisePhone(rawPhone)
@@ -82,10 +87,11 @@ export async function POST(req: NextRequest) {
   let messageId: string | null = null
   let whapiOk = false
   let whapiError: string | null = null
+  let whapiStatusCode = 0
 
   try {
     let endpoint: string
-    let whapiBody: Record<string, string>
+    let whapiBody: Record<string, string | undefined>
 
     if (documentUrl) {
       endpoint  = `${WHAPI_BASE_URL}/messages/document`
@@ -93,13 +99,27 @@ export async function POST(req: NextRequest) {
         to:       whapiPhone,
         filename: documentName ?? 'document',
         media:    documentUrl,
+        caption:  text || undefined,
       }
     } else if (imageUrl) {
       endpoint  = `${WHAPI_BASE_URL}/messages/image`
       whapiBody = {
         to:      whapiPhone,
-        caption: text,
+        caption: text || undefined,
         media:   imageUrl,
+      }
+    } else if (videoUrl) {
+      endpoint  = `${WHAPI_BASE_URL}/messages/video`
+      whapiBody = {
+        to:      whapiPhone,
+        media:   videoUrl,
+        caption: text || undefined,
+      }
+    } else if (audioUrl) {
+      endpoint  = `${WHAPI_BASE_URL}/messages/audio`
+      whapiBody = {
+        to:    whapiPhone,
+        media: audioUrl,
       }
     } else {
       endpoint  = `${WHAPI_BASE_URL}/messages/text`
@@ -124,7 +144,8 @@ export async function POST(req: NextRequest) {
       whapiOk   = true
     } else {
       const errText = await res.text().catch(() => '')
-      whapiError = `WHAPI ${res.status}: ${errText}`
+      whapiStatusCode = res.status
+      whapiError = `WHAPI ${res.status}: ${errText.slice(0, 300)}`
       console.warn('[whapi/send-message] WHAPI send failed:', res.status, errText)
     }
   } catch (err) {
@@ -140,15 +161,20 @@ export async function POST(req: NextRequest) {
     // Build attachments array
     const attachments: Array<{ url: string; type: string; name: string }> = []
     if (documentUrl) {
-      attachments.push({
-        url:  documentUrl,
-        type: 'application/pdf',
-        name: documentName ?? 'document.pdf',
-      })
+      attachments.push({ url: documentUrl, type: 'application/octet-stream', name: documentName ?? 'document' })
     }
     if (imageUrl) {
       attachments.push({ url: imageUrl, type: 'image/jpeg', name: 'image' })
     }
+    if (videoUrl) {
+      attachments.push({ url: videoUrl, type: 'video/mp4', name: 'video' })
+    }
+    if (audioUrl) {
+      attachments.push({ url: audioUrl, type: 'audio/ogg', name: 'audio' })
+    }
+
+    const lastMsg = text
+      || (documentUrl ? '[Document]' : imageUrl ? '[Image]' : videoUrl ? '[Video]' : audioUrl ? '[Voice note]' : '')
 
     // Find or create conversation row keyed by phone
     const { data: existing } = await (supabase.from('chat_conversations') as any)
@@ -162,7 +188,7 @@ export async function POST(req: NextRequest) {
       conversationId = existing.id
       await (supabase.from('chat_conversations') as any)
         .update({
-          last_message:    text,
+          last_message:    lastMsg,
           last_message_at: ts,
           ...(senderName ? { assigned_agent: senderName } : {}),
         })
@@ -171,7 +197,7 @@ export async function POST(req: NextRequest) {
       const { data: created, error: createErr } = await (supabase.from('chat_conversations') as any)
         .insert({
           wati_phone:      phone,
-          last_message:    text,
+          last_message:    lastMsg,
           last_message_at: ts,
           unread_count:    0,
           ...(senderName ? { assigned_agent: senderName } : {}),
@@ -191,7 +217,7 @@ export async function POST(req: NextRequest) {
       conversation_id: conversationId,
       from_type:       'agent',
       source:          'whatsapp_api',
-      text,
+      text:            text || null,
       agent_name:      senderName ?? 'Agent',
       attachments:     attachments.length > 0 ? attachments : null,
       delivery_status: whapiOk ? 'sending' : 'failed',
@@ -211,7 +237,8 @@ export async function POST(req: NextRequest) {
 
   // ── 5. Return result ─────────────────────────────────────────────────────────
   if (!whapiOk) {
-    return NextResponse.json({ ok: false, error: whapiError }, { status: 500 })
+    const httpStatus = whapiStatusCode >= 400 && whapiStatusCode < 600 ? whapiStatusCode : 500
+    return NextResponse.json({ ok: false, error: whapiError }, { status: httpStatus })
   }
 
   return NextResponse.json({ ok: true, messageId })

@@ -7,7 +7,6 @@ const SUPA_URL    = process.env.NEXT_PUBLIC_SUPABASE_URL!
 const SUPA_KEY    = process.env.SUPABASE_SERVICE_ROLE_KEY!
 
 const PAGE_SIZE   = 100
-const MSG_LIMIT   = 20   // messages to fetch per chat for preview
 
 function normalisePhone(raw: string): string | null {
   // WHAPI chat IDs are like "97412345678@s.whatsapp.net"
@@ -82,7 +81,7 @@ export async function GET(req: NextRequest) {
         customerByPhone.set(row.phone, row.customer_id)
       }
 
-      // ── 3. Upsert conversations + messages ───────────────────────────────────
+      // ── 3. Upsert conversations (metadata only — messages arrive via webhook) ──
       await safeWrite(writer, encode({ stage: 'upserting', synced: 0, total: allChats.length }))
 
       let synced = 0
@@ -100,87 +99,17 @@ export async function GET(req: NextRequest) {
           || (chat.last_message?.type ? `[${chat.last_message.type}]` : null)
           || null
 
-        // Upsert conversation — conflict on wati_phone (shared column for all providers)
-        const { data: convo } = await (supabase.from('chat_conversations') as any)
+        await (supabase.from('chat_conversations') as any)
           .upsert({
-            wati_phone:        phone,
-            provider:          'whapi',
-            wati_contact_name: chat.name ?? null,
-            customer_id:       customerByPhone.get(phone) ?? null,
-            last_message:      lastMsgText,
-            last_message_at:   lastMsgAt,
+            wati_phone:      phone,
+            provider:        'whapi',
+            // Only set the name if WHAPI has one — don't overwrite an existing
+            // name with null when WHAPI hasn't saved a label for this contact.
+            ...(chat.name ? { wati_contact_name: chat.name } : {}),
+            customer_id:     customerByPhone.get(phone) ?? null,
+            last_message:    lastMsgText,
+            last_message_at: lastMsgAt,
           }, { onConflict: 'wati_phone,provider', ignoreDuplicates: false })
-          .select('id')
-          .maybeSingle()
-
-        // Fallback: fetch existing conversation id if upsert returned nothing
-        let conversationId: string | null = convo?.id ?? null
-        if (!conversationId) {
-          const { data: existing } = await (supabase.from('chat_conversations') as any)
-            .select('id')
-            .eq('wati_phone', phone)
-            .eq('provider', 'whapi')
-            .maybeSingle()
-          conversationId = existing?.id ?? null
-        }
-
-        // ── Fetch recent messages for this chat ────────────────────────────────
-        if (conversationId) {
-          const msgResult = await whapiGet(`/messages/list/${encodeURIComponent(chat.id)}?count=${MSG_LIMIT}`)
-          if (msgResult.ok) {
-            const msgs: any[] = msgResult.data?.messages ?? []
-            const toInsert = msgs
-              .filter((m: any) => m.type !== 'reaction' && m.id)
-              .map((m: any) => {
-                const ts       = m.timestamp ? new Date(m.timestamp * 1000).toISOString() : new Date().toISOString()
-                const msgType  = (m.type ?? 'text').toLowerCase()
-                const text     = m.text?.body?.trim() || m.caption?.trim() || null
-                const fromType = m.from_me ? 'agent' : 'customer'
-
-                // Extract attachments — WHAPI's `link` arrives only when Auto
-                // Download is on. Fall back to /media/{id} (proxied with auth).
-                const attachments: { url: string; type: string; name: string }[] = []
-                const mediaSpec: Array<{ key: string; defaultMime: string; defaultName: string }> = [
-                  { key: 'image',    defaultMime: 'image/jpeg',               defaultName: 'image' },
-                  { key: 'video',    defaultMime: 'video/mp4',                defaultName: 'video' },
-                  { key: 'audio',    defaultMime: 'audio/ogg',                defaultName: 'audio' },
-                  { key: 'voice',    defaultMime: 'audio/ogg; codecs=opus',   defaultName: 'voice' },
-                  { key: 'document', defaultMime: 'application/octet-stream', defaultName: 'document' },
-                  { key: 'sticker',  defaultMime: 'image/webp',               defaultName: 'sticker' },
-                ]
-                for (const { key, defaultMime, defaultName } of mediaSpec) {
-                  if (msgType !== key) continue
-                  const media = m[key]
-                  if (!media) continue
-                  const url: string | null = media.link
-                    ?? (media.id ? `https://gate.whapi.cloud/media/${media.id}` : null)
-                  if (!url) continue
-                  attachments.push({
-                    url,
-                    type: media.mime_type ?? defaultMime,
-                    name: media.file_name ?? media.filename ?? defaultName,
-                  })
-                }
-
-                return {
-                  conversation_id: conversationId,
-                  external_id:     m.id,
-                  from_type:       fromType,
-                  source:          'whatsapp_api',
-                  text:            text || null,
-                  attachments:     attachments.length > 0 ? attachments : null,
-                  delivery_status: m.status ?? 'delivered',
-                  created_at:      ts,
-                  message_kind:    'message',
-                }
-              })
-
-            if (toInsert.length > 0) {
-              await (supabase.from('chat_messages') as any)
-                .upsert(toInsert, { onConflict: 'external_id', ignoreDuplicates: true })
-            }
-          }
-        }
 
         synced++
         if (synced % 10 === 0) {
