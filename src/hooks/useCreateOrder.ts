@@ -259,7 +259,7 @@ export function useCreateOrder() {
           throw new Error([error.message ?? 'Failed to create site visit', detail, hint].filter(Boolean).join(' — '))
         }
 
-        return newId as string
+        return { orderId: visitId, primaryDate, type: 'site-visit' as const }
       }
 
       // ── Regular order path ──────────────────────────────────────────────────
@@ -323,23 +323,17 @@ export function useCreateOrder() {
         throw new Error([error.message ?? 'Failed to create order', detail, hint].filter(Boolean).join(' — '))
       }
 
-      return newOrderId as string
+      return { orderId, primaryDate, type: draft.type }
     },
-    onSuccess: async () => {
-      // Capture values before reset() clears the draft
-      const capturedOrderId = draft.orderId
-      const capturedType    = draft.type
-      const sortedWindows   = [...draft.visitDates].sort((a, b) => a.date.localeCompare(b.date))
-      const primaryDate     = sortedWindows.length > 0 ? sortedWindows[0].date : draft.visitDate
-
+    onSuccess: async (result) => {
       qc.invalidateQueries({ queryKey: ['orders'] })
       qc.invalidateQueries({ queryKey: ['site-visits'] })
       reset()
 
       // Send confirmation immediately if the visit is within 2 days (cron would miss it)
-      if (capturedType !== 'site-visit') {
-        const todayMs    = new Date().setHours(0, 0, 0, 0)
-        const visitMs    = new Date(primaryDate + 'T00:00:00').getTime()
+      if (result.type !== 'site-visit') {
+        const todayMs        = new Date().setHours(0, 0, 0, 0)
+        const visitMs        = new Date(result.primaryDate + 'T00:00:00').getTime()
         const daysUntilVisit = Math.round((visitMs - todayMs) / 86_400_000)
 
         if (daysUntilVisit <= 2) {
@@ -351,8 +345,18 @@ export function useCreateOrder() {
                 'Content-Type': 'application/json',
                 Authorization:  `Bearer ${session.access_token}`,
               },
-              body: JSON.stringify({ orderId: capturedOrderId }),
-            }).catch(console.error)
+              body: JSON.stringify({ orderId: result.orderId }),
+            })
+              .then(async (res) => {
+                if (!res.ok) {
+                  const body = await res.json().catch(() => ({}))
+                  console.warn('[booking-confirm] route error', res.status, body)
+                } else {
+                  const body = await res.json().catch(() => ({}))
+                  console.log('[booking-confirm] sent', body)
+                }
+              })
+              .catch((err) => console.error('[booking-confirm] fetch failed', err))
           }
         }
       }
