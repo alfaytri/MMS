@@ -12,6 +12,7 @@ import { ServiceSelector } from './ServiceSelector'
 import { SelectedServiceCard } from './SelectedServiceCard'
 import { AddressPicker } from './AddressPicker'
 import { VisitDatePicker } from './VisitDatePicker'
+import { VisitDateSchedule } from './VisitDateSchedule'
 import { AttachmentsUpload } from './AttachmentsUpload'
 import type { PendingAttachment } from './AttachmentsUpload'
 import { useUserCompanyDivisions } from '@/hooks/useUserCompanyDivisions'
@@ -51,6 +52,15 @@ interface Props {
   isSubmitting: boolean
   isValid: boolean
   submitLabel?: string
+  onDivisionsChange?: (slugs: string[]) => void
+}
+
+function SectionLabel({ children }: { children: React.ReactNode }) {
+  return (
+    <p className="text-[11px] font-semibold uppercase tracking-widest text-slate-400">
+      {children}
+    </p>
+  )
 }
 
 export function OrderFormPanel({
@@ -70,6 +80,7 @@ export function OrderFormPanel({
   isSubmitting,
   isValid,
   submitLabel = 'Confirm Order',
+  onDivisionsChange,
 }: Props) {
   const { data: divisions = [] } = useUserCompanyDivisions()
   const [multiDivision, setMultiDivision] = useState(false)
@@ -83,17 +94,17 @@ export function OrderFormPanel({
     }
   }, [draft.division]) // eslint-disable-line react-hooks/exhaustive-deps
 
-  // Keep draft.division in sync: always the first selected division slug
   function syncDivision(slugs: string[]) {
     onUpdate({ division: slugs[0] ?? '' })
+    onDivisionsChange?.(slugs)
   }
 
   function toggleDivision(slug: string) {
-    setSelectedDivisions((prev) => {
-      const next = prev.includes(slug) ? prev.filter((s) => s !== slug) : [...prev, slug]
-      syncDivision(next)
-      return next
-    })
+    const next = selectedDivisions.includes(slug)
+      ? selectedDivisions.filter((s) => s !== slug)
+      : [...selectedDivisions, slug]
+    setSelectedDivisions(next)
+    syncDivision(next)
   }
 
   function handleSingleDivision(slug: string) {
@@ -111,7 +122,6 @@ export function OrderFormPanel({
     ? draft.arrivalPhone.replace(arrivalCountryCode, '')
     : ''
 
-  // Transform string[] from VisitDatePicker → VisitDateWindow[], preserving existing time windows
   function handleDatesChange(dates: string[]) {
     const existingMap = new Map(draft.visitDates.map((w) => [w.date, w]))
     const newWindows: VisitDateWindow[] = dates.map(
@@ -125,156 +135,177 @@ export function OrderFormPanel({
   }
 
   return (
-    <div className="flex h-full w-full shrink-0 flex-col border-r bg-white sm:w-[340px]">
-      <div className="flex-1 overflow-y-auto p-4 space-y-4">
+    <div className="flex h-full w-full shrink-0 flex-col border-r bg-white sm:w-[360px]">
+      <div className="flex-1 overflow-y-auto">
 
-        {/* ── Customer row ── */}
-        {draft.customerId ? (
-          <div className="flex items-center gap-2 rounded-lg border border-slate-200 bg-slate-50 px-3 py-2">
-            <User className="h-4 w-4 shrink-0 text-slate-400" />
-            <div className="min-w-0 flex-1">
-              <p className="truncate text-sm font-semibold text-slate-900">{draft.customerName}</p>
-              <p className="truncate text-xs text-slate-500">{draft.phone}</p>
+        {/* ── Customer ── */}
+        <div className="px-5 pt-5 pb-4">
+          {draft.customerId ? (
+            <div className="flex items-center gap-3 rounded-xl border border-slate-100 bg-slate-50 px-4 py-3 shadow-sm">
+              <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-orange-100">
+                <User className="h-4 w-4 text-orange-500" />
+              </div>
+              <div className="min-w-0 flex-1">
+                <p className="truncate text-sm font-semibold text-slate-900">{draft.customerName}</p>
+                <p className="truncate text-xs text-slate-400">{draft.phone}</p>
+              </div>
+              <button
+                type="button"
+                onClick={onLookupCustomer}
+                className="flex shrink-0 items-center gap-1.5 rounded-lg border border-slate-200 bg-white px-2.5 py-1.5 text-[11px] font-medium text-slate-500 hover:border-slate-300 hover:text-slate-700 transition-colors shadow-sm"
+              >
+                <Search className="h-3 w-3" />
+                Change
+              </button>
             </div>
+          ) : (
             <button
               type="button"
               onClick={onLookupCustomer}
-              className="flex shrink-0 items-center gap-1 rounded border border-slate-200 bg-white px-2 py-1 text-[11px] text-slate-500 hover:border-slate-300 hover:text-slate-700 transition-colors"
+              className="flex w-full items-center justify-center gap-2.5 rounded-xl border-2 border-dashed border-orange-200 bg-orange-50/50 px-4 py-4 text-sm font-medium text-orange-500 hover:border-orange-300 hover:bg-orange-50 transition-colors"
             >
-              <Search className="h-3 w-3" />
-              Change
+              <Search className="h-4 w-4 shrink-0" />
+              Look up a customer to start
             </button>
-          </div>
-        ) : (
-          <button
-            type="button"
-            onClick={onLookupCustomer}
-            className="flex w-full items-center gap-2 rounded-lg border border-dashed border-orange-300 bg-orange-50 px-3 py-2.5 text-sm text-orange-600 hover:bg-orange-100 transition-colors"
-          >
-            <Search className="h-4 w-4 shrink-0" />
-            <span className="font-medium">Look up a customer to start</span>
-          </button>
-        )}
+          )}
+        </div>
 
-        {/* Type toggle */}
-        <Tabs value={draft.type} onValueChange={(v) => onTypeChange(v as OrderType)}>
-          <TabsList className="w-full">
-            <TabsTrigger value="order" className="flex-1">Order</TabsTrigger>
-            <TabsTrigger value="site-visit" className="flex-1">Site Visit</TabsTrigger>
-          </TabsList>
-        </Tabs>
+        <div className="mx-5 border-t border-slate-100" />
 
-        {/* ── Division + Services (disabled until customer selected) ── */}
-        <div className={cn(!draft.customerId && 'pointer-events-none opacity-40 select-none')}>
-        {draft.type === 'order' && (
-          <div className="space-y-2">
-            <div className="flex items-center justify-between">
-              <Label className="text-xs font-semibold uppercase tracking-wide text-slate-500">
-                Division
-              </Label>
-              <label className="flex items-center gap-1.5 text-xs text-slate-500 cursor-pointer select-none">
-                <input
-                  type="checkbox"
-                  checked={multiDivision}
-                  onChange={(e) => { setMultiDivision(e.target.checked); setSelectedDivisions([]); onUpdate({ division: '' }) }}
-                  className="rounded"
-                />
-                Multi-division
-              </label>
+        {/* ── Order Type ── */}
+        <div className="px-5 py-4">
+          <Tabs value={draft.type} onValueChange={(v) => onTypeChange(v as OrderType)}>
+            <TabsList className="w-full h-10">
+              <TabsTrigger value="order" className="flex-1 text-sm">Order</TabsTrigger>
+              <TabsTrigger value="site-visit" className="flex-1 text-sm">Site Visit</TabsTrigger>
+            </TabsList>
+          </Tabs>
+        </div>
+
+        <div className="mx-5 border-t border-slate-100" />
+
+        {/* ── Division + Services ── */}
+        <div className={cn('px-5 py-4 space-y-4', !draft.customerId && 'pointer-events-none opacity-40 select-none')}>
+
+          {draft.type === 'order' && (
+            <div className="space-y-2.5">
+              <div className="flex items-center justify-between">
+                <SectionLabel>Division</SectionLabel>
+                <label className="flex items-center gap-1.5 cursor-pointer select-none">
+                  <input
+                    type="checkbox"
+                    checked={multiDivision}
+                    onChange={(e) => { setMultiDivision(e.target.checked); setSelectedDivisions([]); onUpdate({ division: '' }) }}
+                    className="rounded accent-orange-500"
+                  />
+                  <span className="text-xs text-slate-400">Multi-division</span>
+                </label>
+              </div>
+              <div className="flex flex-wrap gap-2">
+                {divisions.map((d) =>
+                  !multiDivision ? (
+                    <button
+                      key={d.slug}
+                      type="button"
+                      onClick={() => handleSingleDivision(selectedDivisions[0] === d.slug ? '' : d.slug)}
+                      className={cn(
+                        'rounded-full px-4 py-1.5 text-sm font-medium transition-all',
+                        selectedDivisions[0] === d.slug
+                          ? 'bg-orange-500 text-white shadow-sm shadow-orange-200'
+                          : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
+                      )}
+                    >
+                      {d.name}
+                    </button>
+                  ) : (
+                    <label
+                      key={d.slug}
+                      className={cn(
+                        'flex cursor-pointer items-center gap-1.5 rounded-full px-4 py-1.5 text-sm font-medium transition-all',
+                        selectedDivisions.includes(d.slug)
+                          ? 'bg-orange-500 text-white shadow-sm shadow-orange-200'
+                          : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
+                      )}
+                    >
+                      <input type="checkbox" className="sr-only" checked={selectedDivisions.includes(d.slug)} onChange={() => toggleDivision(d.slug)} />
+                      {d.name}
+                    </label>
+                  )
+                )}
+              </div>
             </div>
-            <div className="flex flex-wrap gap-1.5">
-              {divisions.map((d) =>
-                !multiDivision ? (
-                  <button
-                    key={d.slug}
-                    type="button"
-                    onClick={() => handleSingleDivision(selectedDivisions[0] === d.slug ? '' : d.slug)}
-                    className={cn(
-                      'rounded-full border px-3 py-1 text-xs font-medium transition-colors',
-                      selectedDivisions[0] === d.slug
-                        ? 'border-orange-500 bg-orange-500 text-white'
-                        : 'border-slate-200 bg-white text-slate-600 hover:border-slate-300'
-                    )}
-                  >
-                    {d.name}
-                  </button>
-                ) : (
-                  <label
-                    key={d.slug}
-                    className={cn(
-                      'flex cursor-pointer items-center gap-1.5 rounded-full border px-3 py-1 text-xs font-medium transition-colors',
-                      selectedDivisions.includes(d.slug)
-                        ? 'border-orange-500 bg-orange-500 text-white'
-                        : 'border-slate-200 bg-white text-slate-600 hover:border-slate-300'
-                    )}
-                  >
-                    <input type="checkbox" className="sr-only" checked={selectedDivisions.includes(d.slug)} onChange={() => toggleDivision(d.slug)} />
-                    {d.name}
-                  </label>
-                )
+          )}
+
+          {/* ── Requested Services ── */}
+          <div className="space-y-2.5">
+            <div className="flex items-center justify-between">
+              <SectionLabel>Requested Services</SectionLabel>
+              {draft.services.length > 0 && (
+                <span className="rounded-full bg-orange-100 px-2 py-0.5 text-[11px] font-semibold text-orange-600">
+                  {draft.services.length} selected
+                </span>
               )}
             </div>
-          </div>
-        )}
 
-        {/* ── Requested Services ── */}
-        <div>
-          <div className="mb-2 flex items-center justify-between">
-            <Label className="text-xs font-semibold uppercase tracking-wide text-slate-500">
-              Requested Services
-            </Label>
-            {draft.services.length > 0 && (
-              <span className="text-xs text-slate-400">{draft.services.length} selected</span>
+            {draft.type === 'order' && (
+              selectedDivisions.length === 0 ? (
+                <p className="text-xs text-slate-400">Select a division first</p>
+              ) : (
+                <div className="space-y-2">
+                  <ServiceSelector onAdd={onAddService} divisionFilters={selectedDivisions} />
+                  {draft.services.length > 0 && (
+                    <div className="space-y-2">
+                      {draft.services.map((s) => (
+                        <SelectedServiceCard
+                          key={s.serviceId}
+                          service={s}
+                          onRemove={onRemoveService}
+                          onQtyChange={onUpdateServiceQty}
+                          onTimeChange={onUpdateServiceTime}
+                          hideTimeControls
+                        />
+                      ))}
+                    </div>
+                  )}
+                </div>
+              )
+            )}
+
+            {draft.type === 'site-visit' && (
+              <SiteVisitCard
+                fromTime={draft.siteVisitFromTime}
+                toTime={draft.siteVisitToTime}
+                onTimeChange={onUpdateSiteVisitTime}
+              />
             )}
           </div>
-          {draft.type === 'order' && (
-            selectedDivisions.length === 0 ? (
-              <p className="text-xs text-slate-400 mt-1">Select a division first</p>
-            ) : (
-              <>
-                <ServiceSelector onAdd={onAddService} divisionFilters={selectedDivisions} />
-                {draft.services.length > 0 && (
-                  <div className="mt-2 space-y-1.5">
-                    {draft.services.map((s) => (
-                      <SelectedServiceCard
-                        key={s.serviceId}
-                        service={s}
-                        onRemove={onRemoveService}
-                        onQtyChange={onUpdateServiceQty}
-                        onTimeChange={onUpdateServiceTime}
-                      />
-                    ))}
-                  </div>
-                )}
-              </>
-            )
-          )}
-          {draft.type === 'site-visit' && (
-            <SiteVisitCard
-              fromTime={draft.siteVisitFromTime}
-              toTime={draft.siteVisitToTime}
-              onTimeChange={onUpdateSiteVisitTime}
+        </div>
+
+        <div className="mx-5 border-t border-slate-100" />
+
+        {/* ── Visit Date ── */}
+        <div className="px-5 py-4 space-y-4">
+          <div className="space-y-2.5">
+            <SectionLabel>Visit Date</SectionLabel>
+            <VisitDatePicker
+              selected={draft.visitDates.map((w) => w.date)}
+              onChange={handleDatesChange}
+            />
+          </div>
+
+          {draft.visitDates.length > 0 && (
+            <VisitDateSchedule
+              windows={draft.visitDates}
+              onChange={(windows) => onUpdate({ visitDates: windows })}
             />
           )}
         </div>
-        </div>{/* end disabled wrapper */}
 
-        {/* ── Visit Date (multi-date picker) ── */}
-        <div className="space-y-1.5">
-          <Label className="text-xs font-semibold uppercase tracking-wide text-slate-500">
-            Visit Date
-          </Label>
-          <VisitDatePicker
-            selected={draft.visitDates.map((w) => w.date)}
-            onChange={handleDatesChange}
-          />
-        </div>
+        <div className="mx-5 border-t border-slate-100" />
 
         {/* ── Order Address ── */}
-        <div className="space-y-1.5">
-          <Label className="text-xs font-semibold uppercase tracking-wide text-slate-500">
-            Order Address
-          </Label>
+        <div className="px-5 py-4 space-y-2.5">
+          <SectionLabel>Order Address</SectionLabel>
           {draft.customerId ? (
             <AddressPicker
               customerId={draft.customerId}
@@ -290,32 +321,30 @@ export function OrderFormPanel({
           )}
         </div>
 
+        <div className="mx-5 border-t border-slate-100" />
+
         {/* ── Notes ── */}
-        <div className="space-y-1.5">
-          <Label className="text-xs font-semibold uppercase tracking-wide text-slate-500">
-            Notes
-          </Label>
+        <div className="px-5 py-4 space-y-2.5">
+          <SectionLabel>Notes</SectionLabel>
           <Textarea
             placeholder="Add notes…"
             value={draft.notes}
             onChange={(e) => onUpdate({ notes: e.target.value })}
-            rows={2}
-            className="resize-none"
+            rows={3}
+            className="resize-none text-sm"
           />
         </div>
 
+        <div className="mx-5 border-t border-slate-100" />
+
         {/* ── Phone on Arrival ── */}
-        <div className="space-y-1.5">
-          <Label className="text-xs font-semibold uppercase tracking-wide text-slate-500">
-            Phone on Arrival
-          </Label>
-          <div className="flex h-10 rounded-md border border-input shadow-sm focus-within:ring-1 focus-within:ring-ring">
+        <div className="px-5 py-4 space-y-2.5">
+          <SectionLabel>Phone on Arrival</SectionLabel>
+          <div className="flex h-10 rounded-lg border border-input shadow-sm focus-within:ring-2 focus-within:ring-orange-300 focus-within:border-orange-400 transition-all">
             <Select value={arrivalCountryCode} onValueChange={(v) => {
               if (!v) return
               setArrivalCountryCode(v)
-              if (arrivalLocalNumber) {
-                onUpdate({ arrivalPhone: `${v}${arrivalLocalNumber}` })
-              }
+              if (arrivalLocalNumber) onUpdate({ arrivalPhone: `${v}${arrivalLocalNumber}` })
             }}>
               <SelectTrigger className="w-28 shrink-0 rounded-r-none border-0 shadow-none focus:ring-0 h-full bg-slate-50 text-xs font-medium">
                 <SelectValue />
@@ -331,16 +360,16 @@ export function OrderFormPanel({
               placeholder="5XXX XXXX"
               value={arrivalLocalNumber}
               onChange={(e) => handleArrivalPhoneChange(e.target.value)}
-              className="rounded-l-none border-0 shadow-none focus-visible:ring-0 h-full flex-1"
+              className="rounded-l-none border-0 shadow-none focus-visible:ring-0 h-full flex-1 text-sm"
             />
           </div>
         </div>
 
+        <div className="mx-5 border-t border-slate-100" />
+
         {/* ── Attachments ── */}
-        <div className="space-y-1.5">
-          <Label className="text-xs font-semibold uppercase tracking-wide text-slate-500">
-            Attachments
-          </Label>
+        <div className="px-5 py-4 space-y-2.5">
+          <SectionLabel>Attachments</SectionLabel>
           <AttachmentsUpload
             attachments={pendingFiles}
             onChange={onPendingFilesChange}
@@ -348,37 +377,37 @@ export function OrderFormPanel({
           />
         </div>
 
+        <div className="mx-5 border-t border-slate-100" />
+
         {/* ── Voucher Code ── */}
-        <div className="space-y-1.5">
-          <Label className="text-xs font-semibold uppercase tracking-wide text-slate-500">
-            Voucher Code
-          </Label>
+        <div className="px-5 py-4 space-y-2.5">
+          <SectionLabel>Voucher Code</SectionLabel>
           <div className="flex gap-2">
             <Input
-              placeholder="ENTER VOUCHER CODE"
+              placeholder="Enter code…"
               value={draft.voucherCode}
               onChange={(e) => onUpdate({ voucherCode: e.target.value })}
-              className="h-9 flex-1 uppercase"
+              className="h-10 flex-1 uppercase text-sm tracking-widest"
             />
-            <Button variant="outline" size="sm" className="h-9 min-h-[44px] sm:min-h-0">Apply</Button>
+            <Button variant="outline" size="sm" className="h-10 px-4 text-xs font-semibold">Apply</Button>
           </div>
         </div>
 
         {/* ── Total ── */}
         {draft.services.length > 0 && (
-          <div className="rounded-md bg-slate-50 p-2 text-right">
-            <span className="text-xs text-slate-500">Total: </span>
-            <span className="font-semibold text-slate-900">
+          <div className="mx-5 mb-5 rounded-xl bg-gradient-to-r from-orange-50 to-amber-50 border border-orange-100 px-4 py-3 flex items-center justify-between">
+            <span className="text-sm text-slate-500 font-medium">Total</span>
+            <span className="text-lg font-bold text-slate-900">
               QAR {draft.services.reduce((sum, s) => sum + s.price * s.qty, 0).toFixed(0)}
             </span>
           </div>
         )}
       </div>
 
-      {/* Footer */}
-      <div className="border-t p-3">
+      {/* ── Footer ── */}
+      <div className="border-t border-slate-100 bg-white px-5 py-4">
         <Button
-          className="w-full gap-2 min-h-[44px]"
+          className="w-full gap-2 h-11 text-sm font-semibold rounded-xl shadow-sm"
           disabled={!isValid || isSubmitting}
           onClick={onSubmit}
         >

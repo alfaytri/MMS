@@ -108,15 +108,18 @@ export default function CreateOrderPage() {
     const teamName = (match?.['name_en'] as string | null | undefined) ??
       (match?.['name'] as string | null | undefined) ??
       teamId
-    // If the service has a preferred fromTime, use it; otherwise use the dropped cell hour
-    const timeSlot = service.fromTime ?? `${String(hour).padStart(2, '0')}:00`
+
+    // Use the current day's time window; fall back to the dropped cell hour
+    const visitWindow = draft.visitDates.find((w) => w.date === draft.visitDate)
+    const timeSlot = visitWindow?.fromTime ?? `${String(hour).padStart(2, '0')}:00`
+    const toTime   = visitWindow?.toTime ?? null
 
     addAssignment({
       teamId,
       teamName,
       services: [{ serviceId: service.serviceId, qty: service.qty }],
       timeSlot,
-      toTime: service.toTime ?? null,
+      toTime,
       duration: service.duration,
       date: draft.visitDate,
     })
