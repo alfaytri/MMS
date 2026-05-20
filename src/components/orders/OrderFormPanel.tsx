@@ -298,6 +298,11 @@ export function OrderFormPanel({
             <VisitDateSchedule
               windows={draft.visitDates}
               onChange={(windows) => onUpdate({ visitDates: windows })}
+              services={draft.services.map((s) => ({
+                serviceId:   s.serviceId,
+                serviceName: s.serviceName,
+                qty:         s.qty,
+              }))}
             />
           )}
         </div>

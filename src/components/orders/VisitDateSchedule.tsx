@@ -1,9 +1,8 @@
 'use client'
 import { useEffect, useRef, useState } from 'react'
 import { format, parseISO } from 'date-fns'
-import { Copy, Check, AlertTriangle, Loader2, X, GripVertical } from 'lucide-react'
+import { AlertTriangle, ArrowDown, ArrowUp, Check, ChevronDown, ChevronRight, GripVertical, Loader2, X } from 'lucide-react'
 import { Label } from '@/components/ui/label'
-import { Button } from '@/components/ui/button'
 import { useDraggable } from '@dnd-kit/core'
 import { useDateAvailability } from '@/hooks/useDateAvailability'
 import { cn } from '@/lib/utils'
@@ -23,7 +22,7 @@ function gridLabel(h: number): string {
   return h < 12 ? `${h}am` : `${h - 12}pm`
 }
 
-function formatTime12h(t: string): string {
+export function formatTime12h(t: string): string {
   const h = parseInt(t)
   const m = t.split(':')[1]
   const period = h < 12 ? 'AM' : 'PM'
@@ -32,7 +31,7 @@ function formatTime12h(t: string): string {
 }
 
 // ---------------------------------------------------------------------------
-// TimeWindowGrid — drag or click-click to select a range across 3 rows
+// TimeWindowGrid — drag-to-select a range across 3 rows
 // ---------------------------------------------------------------------------
 
 interface TimeWindowGridProps {
@@ -45,16 +44,16 @@ function TimeWindowGrid({ fromTime, toTime, onChange }: TimeWindowGridProps) {
   const fromHour = fromTime ? parseInt(fromTime) : null
   const toHour   = toTime   ? parseInt(toTime)   : null
 
-  const dragStartRef  = useRef<number | null>(null)
+  const dragStartRef = useRef<number | null>(null)
   const [preview, setPreview] = useState<{ from: number; to: number } | null>(null)
-  const previewRef    = useRef(preview)
-  const fromHourRef   = useRef(fromHour)
-  const toHourRef     = useRef(toHour)
-  const onChangeRef   = useRef(onChange)
-  useEffect(() => { previewRef.current  = preview },    [preview])
-  useEffect(() => { fromHourRef.current = fromHour },   [fromHour])
-  useEffect(() => { toHourRef.current   = toHour },     [toHour])
-  useEffect(() => { onChangeRef.current = onChange },   [onChange])
+  const previewRef   = useRef(preview)
+  const fromHourRef  = useRef(fromHour)
+  const toHourRef    = useRef(toHour)
+  const onChangeRef  = useRef(onChange)
+  useEffect(() => { previewRef.current  = preview  }, [preview])
+  useEffect(() => { fromHourRef.current = fromHour }, [fromHour])
+  useEffect(() => { toHourRef.current   = toHour   }, [toHour])
+  useEffect(() => { onChangeRef.current = onChange  }, [onChange])
 
   useEffect(() => {
     function onMouseUp() {
@@ -112,23 +111,16 @@ function TimeWindowGrid({ fromTime, toTime, onChange }: TimeWindowGridProps) {
                 onMouseDown={() => handleMouseDown(h)}
                 onMouseEnter={() => handleMouseEnter(h)}
               >
-                <span
-                  className={cn(
-                    'mb-0.5 select-none text-[9px] leading-none',
-                    selected ? 'font-semibold text-orange-600' : 'text-slate-400',
-                  )}
-                >
+                <span className={cn('mb-0.5 select-none text-[9px] leading-none', selected ? 'font-semibold text-orange-600' : 'text-slate-400')}>
                   {gridLabel(h)}
                 </span>
-                <div
-                  className={cn(
-                    'h-5 w-full transition-colors',
-                    selected ? 'bg-orange-400' : 'bg-slate-200 hover:bg-orange-100',
-                    isSingle && 'rounded',
-                    isLeft  && !isSingle && 'rounded-l',
-                    isRight && 'rounded-r',
-                  )}
-                />
+                <div className={cn(
+                  'h-5 w-full transition-colors',
+                  selected ? 'bg-orange-400' : 'bg-slate-200 hover:bg-orange-100',
+                  isSingle && 'rounded',
+                  isLeft  && !isSingle && 'rounded-l',
+                  isRight && 'rounded-r',
+                )} />
               </div>
             )
           })}
@@ -139,7 +131,7 @@ function TimeWindowGrid({ fromTime, toTime, onChange }: TimeWindowGridProps) {
 }
 
 // ---------------------------------------------------------------------------
-// WindowDragHandle — grip icon that makes the day-window row draggable
+// WindowDragHandle — grip that drags the day-window onto the team calendar
 // ---------------------------------------------------------------------------
 
 function WindowDragHandle({ date, fromTime, toTime }: { date: string; fromTime: string | null; toTime: string | null }) {
@@ -174,21 +166,40 @@ function WindowDragHandle({ date, fromTime, toTime }: { date: string; fromTime: 
 // VisitDateSchedule
 // ---------------------------------------------------------------------------
 
+interface ServiceSummary {
+  serviceId: string
+  serviceName: string
+  qty: number
+}
+
 interface Props {
   windows: VisitDateWindow[]
   onChange: (windows: VisitDateWindow[]) => void
+  services?: ServiceSummary[]
 }
 
-export function VisitDateSchedule({ windows, onChange }: Props) {
-  const [appliedDates, setAppliedDates] = useState<Set<string>>(new Set())
-
+export function VisitDateSchedule({ windows, onChange, services = [] }: Props) {
   const sorted = [...windows].sort((a, b) => a.date.localeCompare(b.date))
-  const sourceWindow = sorted.find((w) => w.fromTime && w.toTime) ?? null
+  const isMultiDay = sorted.length > 1
 
+  // Accordion open state — first day open by default
+  const [openDates, setOpenDates] = useState<Set<string>>(
+    () => new Set(sorted[0] ? [sorted[0].date] : [])
+  )
+
+  // When a new date is added, open it automatically
+  useEffect(() => {
+    setOpenDates((prev) => {
+      const next = new Set(prev)
+      sorted.forEach((w) => { if (!next.has(w.date) && windows.length > prev.size) next.add(w.date) })
+      return next
+    })
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [windows.length])
+
+  const sourceWindow = sorted.find((w) => w.fromTime && w.toTime) ?? null
   const datesToCheck = sourceWindow
-    ? sorted
-        .filter((w) => w.date !== sourceWindow.date && (!w.fromTime || !w.toTime))
-        .map((w) => w.date)
+    ? sorted.filter((w) => w.date !== sourceWindow.date && (!w.fromTime || !w.toTime)).map((w) => w.date)
     : []
 
   const { data: availability = [], isLoading: isCheckingAvailability } = useDateAvailability(
@@ -196,39 +207,33 @@ export function VisitDateSchedule({ windows, onChange }: Props) {
     sourceWindow?.fromTime ?? null,
     sourceWindow?.toTime ?? null,
   )
-  const availabilityMap = new Map(
-    availability.map((a) => [a.visit_date, a.available_teams_count]),
-  )
+  const availabilityMap = new Map(availability.map((a) => [a.visit_date, a.available_teams_count]))
 
   function updateWindow(date: string, patch: Partial<VisitDateWindow>) {
     onChange(windows.map((w) => (w.date === date ? { ...w, ...patch } : w)))
-    if (appliedDates.has(date)) {
-      setAppliedDates((prev) => {
-        const next = new Set(prev)
-        next.delete(date)
-        return next
-      })
-    }
   }
 
-  function handleApplyToAll() {
-    if (!sourceWindow?.fromTime || !sourceWindow?.toTime) return
-    const newApplied = new Set(appliedDates)
-    const updated = windows.map((w) => {
-      if (w.date === sourceWindow.date) return w
-      if (w.fromTime && w.toTime) return w
-      if (availabilityMap.get(w.date) === 0) return w
-      newApplied.add(w.date)
-      return { ...w, fromTime: sourceWindow.fromTime, toTime: sourceWindow.toTime }
+  function toggleOpen(date: string) {
+    setOpenDates((prev) => {
+      const next = new Set(prev)
+      if (next.has(date)) next.delete(date)
+      else next.add(date)
+      return next
     })
-    setAppliedDates(newApplied)
-    onChange(updated)
   }
 
-  const hasOtherEmptyRows = sorted.some(
-    (w) => w.date !== sourceWindow?.date && (!w.fromTime || !w.toTime),
-  )
-  const showApplyButton = !!sourceWindow && hasOtherEmptyRows && sorted.length > 1
+  // Swap time windows between two adjacent sorted positions
+  function swapTimeWindows(i: number, j: number) {
+    const dateA = sorted[i].date
+    const dateB = sorted[j].date
+    const winA  = windows.find((w) => w.date === dateA)!
+    const winB  = windows.find((w) => w.date === dateB)!
+    onChange(windows.map((w) => {
+      if (w.date === dateA) return { ...w, fromTime: winB.fromTime, toTime: winB.toTime }
+      if (w.date === dateB) return { ...w, fromTime: winA.fromTime, toTime: winA.toTime }
+      return w
+    }))
+  }
 
   if (sorted.length === 0) return null
 
@@ -238,10 +243,9 @@ export function VisitDateSchedule({ windows, onChange }: Props) {
         Requested Arrival Window
       </Label>
 
-      <div className="space-y-4">
-        {sorted.map((w) => {
-          const isSource = w.date === sourceWindow?.date
-          const isApplied = appliedDates.has(w.date)
+      <div className={cn('space-y-1.5', isMultiDay && 'space-y-1')}>
+        {sorted.map((w, i) => {
+          const isOpen = !isMultiDay || openDates.has(w.date)
           const avail = availabilityMap.get(w.date)
           const isConflicted = !isCheckingAvailability && avail === 0
 
@@ -253,72 +257,118 @@ export function VisitDateSchedule({ windows, onChange }: Props) {
               : null
 
           return (
-            <div key={w.date} className="space-y-1.5">
-              {/* Date row */}
-              <div className="flex items-center justify-between gap-1">
-                <div className="flex min-w-0 items-center gap-1">
-                  <WindowDragHandle date={w.date} fromTime={w.fromTime} toTime={w.toTime} />
-                  <span className="shrink-0 text-xs font-medium text-slate-700">
-                    {format(parseISO(w.date), 'd MMM yyyy')}
+            <div
+              key={w.date}
+              className={cn(
+                'rounded-lg border border-slate-200 bg-white',
+                isMultiDay && 'overflow-hidden',
+              )}
+            >
+              {/* ── Header row ───────────────────────────────────────────── */}
+              <div
+                className={cn(
+                  'flex items-center gap-1 px-2 py-1.5',
+                  isMultiDay && 'cursor-pointer hover:bg-slate-50 transition-colors',
+                )}
+                onClick={() => isMultiDay && toggleOpen(w.date)}
+              >
+                {/* Accordion chevron */}
+                {isMultiDay && (
+                  <span className="shrink-0 text-slate-400">
+                    {isOpen
+                      ? <ChevronDown className="h-3.5 w-3.5" />
+                      : <ChevronRight className="h-3.5 w-3.5" />
+                    }
                   </span>
-                  {rangeLabel && (
-                    <span className="truncate text-[11px] font-medium text-orange-600">
-                      {rangeLabel}
-                    </span>
-                  )}
-                </div>
+                )}
 
-                <div className="flex shrink-0 items-center gap-1">
+                {/* Date + time label */}
+                <span className="shrink-0 text-xs font-semibold text-slate-700">
+                  {format(parseISO(w.date), 'd MMM yyyy')}
+                </span>
+                {rangeLabel && (
+                  <span className="truncate text-[11px] font-medium text-orange-600">
+                    {rangeLabel}
+                  </span>
+                )}
+                {isConflicted && (
+                  <span className="ml-auto flex shrink-0 items-center gap-1 text-[11px] text-amber-600">
+                    {isCheckingAvailability
+                      ? <Loader2 className="h-3 w-3 animate-spin" />
+                      : <AlertTriangle className="h-3 w-3" />
+                    }
+                    {!isCheckingAvailability && 'No availability'}
+                  </span>
+                )}
+
+                {/* Right-side controls — stop click from toggling accordion */}
+                <div
+                  className="ml-auto flex shrink-0 items-center gap-0.5"
+                  onClick={(e) => e.stopPropagation()}
+                >
+                  {isMultiDay && (
+                    <>
+                      <button
+                        type="button"
+                        disabled={i === 0}
+                        onClick={() => swapTimeWindows(i, i - 1)}
+                        className="rounded p-0.5 text-slate-400 hover:text-slate-600 disabled:opacity-20"
+                        title="Move window up"
+                      >
+                        <ArrowUp className="h-3 w-3" />
+                      </button>
+                      <button
+                        type="button"
+                        disabled={i === sorted.length - 1}
+                        onClick={() => swapTimeWindows(i, i + 1)}
+                        className="rounded p-0.5 text-slate-400 hover:text-slate-600 disabled:opacity-20"
+                        title="Move window down"
+                      >
+                        <ArrowDown className="h-3 w-3" />
+                      </button>
+                    </>
+                  )}
+
+                  <WindowDragHandle date={w.date} fromTime={w.fromTime} toTime={w.toTime} />
+
                   {w.fromTime && (
                     <button
                       type="button"
                       onClick={() => updateWindow(w.date, { fromTime: null, toTime: null })}
-                      className="text-slate-400 hover:text-red-500"
+                      className="rounded p-0.5 text-slate-400 hover:text-red-500"
                       aria-label="Clear time window"
                     >
                       <X className="h-3 w-3" />
                     </button>
                   )}
-
-                  {isSource && showApplyButton && (
-                    <Button
-                      type="button"
-                      variant="outline"
-                      size="sm"
-                      className="h-6 gap-1 px-2 text-[11px]"
-                      onClick={handleApplyToAll}
-                      disabled={isCheckingAvailability}
-                    >
-                      {isCheckingAvailability ? (
-                        <Loader2 className="h-3 w-3 animate-spin" />
-                      ) : (
-                        <Copy className="h-3 w-3" />
-                      )}
-                      Apply to all
-                    </Button>
-                  )}
-
-                  {isApplied && !isSource && (
-                    <span className="flex items-center gap-0.5 text-[11px] text-slate-400">
-                      <Check className="h-3 w-3 text-green-500" />
-                      applied
-                    </span>
-                  )}
-
-                  {isConflicted && (
-                    <span className="flex items-center gap-1 text-[11px] text-amber-600">
-                      <AlertTriangle className="h-3 w-3" />
-                      No availability
-                    </span>
-                  )}
                 </div>
               </div>
 
-              <TimeWindowGrid
-                fromTime={w.fromTime}
-                toTime={w.toTime}
-                onChange={(from, to) => updateWindow(w.date, { fromTime: from, toTime: to })}
-              />
+              {/* ── Expandable body ───────────────────────────────────────── */}
+              {isOpen && (
+                <div className="space-y-2 border-t border-slate-100 px-2 pb-2 pt-2">
+                  <TimeWindowGrid
+                    fromTime={w.fromTime}
+                    toTime={w.toTime}
+                    onChange={(from, to) => updateWindow(w.date, { fromTime: from, toTime: to })}
+                  />
+
+                  {/* Service list for this day */}
+                  {services.length > 0 && (
+                    <div className="space-y-0.5 pt-0.5">
+                      {services.map((s) => (
+                        <div key={s.serviceId} className="flex items-center gap-1.5">
+                          <Check className="h-3 w-3 shrink-0 text-orange-400" />
+                          <span className="truncate text-[11px] text-slate-600">
+                            {s.qty > 1 && <span className="font-semibold text-slate-500">{s.qty}× </span>}
+                            {s.serviceName}
+                          </span>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              )}
             </div>
           )
         })}
