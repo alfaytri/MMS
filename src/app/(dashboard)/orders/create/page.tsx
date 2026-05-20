@@ -2,7 +2,7 @@
 'use client'
 import { useState, useEffect } from 'react'
 import { useRouter, useSearchParams } from 'next/navigation'
-import { DndContext, DragOverlay, type DragEndEvent, type DragStartEvent } from '@dnd-kit/core'
+import { DndContext, DragOverlay, pointerWithin, type DragEndEvent, type DragStartEvent } from '@dnd-kit/core'
 import { toast } from 'sonner'
 import { PhoneLookupModal } from '@/components/orders/PhoneLookupModal'
 import { OrderFormPanel } from '@/components/orders/OrderFormPanel'
@@ -20,10 +20,14 @@ export default function CreateOrderPage() {
   const searchParams = useSearchParams()
   const prefilledCustomerId = searchParams.get('customer_id')
   const prefilledPhoneId = searchParams.get('phone_id')
+  const prefilledDate = searchParams.get('date')
+  const prefilledTeamId = searchParams.get('teamId')
+  const prefilledHour = searchParams.get('hour') ? parseInt(searchParams.get('hour')!) : undefined
 
   // If we arrived from a site visit, skip the lookup modal
   const [lookupOpen, setLookupOpen] = useState(!prefilledCustomerId)
   const [draggingService, setDraggingService] = useState<OrderServiceDraft | null>(null)
+  const [selectedDivisions, setSelectedDivisions] = useState<string[]>([])
 
   const {
     draft,
@@ -45,6 +49,12 @@ export default function CreateOrderPage() {
   } = useCreateOrder()
 
   const { data: teams } = useTeams()
+
+  // Pre-set visit date when navigating from the calendar cell click
+  useEffect(() => {
+    if (prefilledDate) update({ visitDate: prefilledDate })
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [])
 
   // Auto-fill customer when navigating from a site visit
   useEffect(() => {
@@ -123,7 +133,7 @@ export default function CreateOrderPage() {
   }
 
   return (
-    <DndContext autoScroll={false} onDragStart={handleDragStart} onDragEnd={handleDragEnd}>
+    <DndContext autoScroll={false} collisionDetection={pointerWithin} onDragStart={handleDragStart} onDragEnd={handleDragEnd}>
       <div className="relative overflow-x-hidden">
       <PhoneLookupModal
         open={lookupOpen}
@@ -152,6 +162,7 @@ export default function CreateOrderPage() {
           onUpdateSiteVisitTime={updateSiteVisitTime}
           onUpdate={update}
           onLookupCustomer={() => setLookupOpen(true)}
+          onDivisionsChange={setSelectedDivisions}
           onPendingFilesChange={setPendingFiles}
           onSubmit={handleSubmit}
           isSubmitting={submit.isPending}
@@ -161,6 +172,11 @@ export default function CreateOrderPage() {
         <div className="flex-1 overflow-hidden">
           <TeamCalendarPanel
             visitDate={draft.visitDate}
+            primaryVisitDate={
+              draft.visitDates.length > 0
+                ? [...draft.visitDates].sort((a, b) => a.date.localeCompare(b.date))[0].date
+                : draft.visitDate
+            }
             mode={draft.mode}
             onModeChange={(mode) => update({ mode })}
             assignments={draft.assignments}
@@ -180,6 +196,9 @@ export default function CreateOrderPage() {
             onAssign={addAssignment}
             onRemoveAssignment={removeAssignment}
             onDateChange={(date) => update({ visitDate: date })}
+            divisionSlugs={selectedDivisions}
+            initialTeamId={prefilledTeamId ?? undefined}
+            initialHour={prefilledHour}
           />
         </div>
 
