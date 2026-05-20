@@ -134,10 +134,10 @@ export function useCreateOrder() {
       services: d.services.map((s) =>
         s.serviceId === serviceId ? { ...s, fromTime, toTime } : s
       ),
-      // Keep calendar blocks in sync: update toTime on assignments that carry this service
+      // Keep calendar blocks in sync: update both start and end on assignments that carry this service
       assignments: d.assignments.map((a) =>
         a.services.some((s) => s.serviceId === serviceId)
-          ? { ...a, toTime: toTime ?? null }
+          ? { ...a, timeSlot: fromTime ?? a.timeSlot, toTime: toTime ?? null }
           : a
       ),
     }))
@@ -230,7 +230,7 @@ export function useCreateOrder() {
           }
           return {
             team_id: a.teamId,
-            scheduled_date: primaryDate,
+            scheduled_date: a.date ?? primaryDate,
             time_slot: a.timeSlot,
             duration: String(durationHours),
           }
@@ -290,7 +290,7 @@ export function useCreateOrder() {
         return {
           team_id: a.teamId,
           services: a.services.filter((s) => s.serviceId !== SITE_VISIT_SERVICE_ID),
-          scheduled_date: primaryDate,
+          scheduled_date: a.date ?? primaryDate,
           time_slot: a.timeSlot,
           duration: String(durationHours),
         }

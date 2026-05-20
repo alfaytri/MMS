@@ -81,6 +81,8 @@ export interface TeamAssignmentDraft {
   timeSlot: string
   toTime: string | null   // end of window; null → fall back to timeSlot + duration
   duration: number
+  /** ISO date string — which day this assignment is for in a multi-day order */
+  date?: string
 }
 
 export interface OrderAttachment {

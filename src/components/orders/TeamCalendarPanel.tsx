@@ -575,9 +575,6 @@ export function TeamCalendarPanel({
   initialTeamId,
   initialHour,
 }: Props) {
-  // Only show draft blocks when viewing the primary assignment date.
-  // On other days the user is checking availability, not placing assignments.
-  const showDraftBlocks = !primaryVisitDate || visitDate === primaryVisitDate
   const { data: teamsRaw } = useTeams(
     divisionSlugs && divisionSlugs.length > 0 ? { divisionIds: divisionSlugs } : undefined
   )
@@ -693,10 +690,15 @@ export function TeamCalendarPanel({
     )
   }
 
-  /** Draft assignments belonging to one team — hidden when viewing a non-primary date */
+  /** Draft assignments for one team on the currently displayed date */
   function assignmentsForTeam(teamId: string): TeamAssignmentDraft[] {
-    if (!showDraftBlocks) return []
-    return assignments.filter((a) => a.teamId === teamId)
+    return assignments.filter((a) => {
+      if (a.teamId !== teamId) return false
+      // date-stamped assignments: show only on their own day
+      // legacy (no date): show only on the primary visit date
+      const assignmentDate = a.date ?? primaryVisitDate ?? visitDate
+      return visitDate === assignmentDate
+    })
   }
 
   /** CSS left offset for a given hour */

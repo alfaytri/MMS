@@ -118,6 +118,7 @@ export default function CreateOrderPage() {
       timeSlot,
       toTime: service.toTime ?? null,
       duration: service.duration,
+      date: draft.visitDate,
     })
   }
 
