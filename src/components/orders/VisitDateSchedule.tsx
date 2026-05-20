@@ -1,9 +1,10 @@
 'use client'
 import { useEffect, useRef, useState } from 'react'
 import { format, parseISO } from 'date-fns'
-import { Copy, Check, AlertTriangle, Loader2, X } from 'lucide-react'
+import { Copy, Check, AlertTriangle, Loader2, X, GripVertical } from 'lucide-react'
 import { Label } from '@/components/ui/label'
 import { Button } from '@/components/ui/button'
+import { useDraggable } from '@dnd-kit/core'
 import { useDateAvailability } from '@/hooks/useDateAvailability'
 import { cn } from '@/lib/utils'
 import type { VisitDateWindow } from '@/types/orders'
@@ -138,6 +139,38 @@ function TimeWindowGrid({ fromTime, toTime, onChange }: TimeWindowGridProps) {
 }
 
 // ---------------------------------------------------------------------------
+// WindowDragHandle — grip icon that makes the day-window row draggable
+// ---------------------------------------------------------------------------
+
+function WindowDragHandle({ date, fromTime, toTime }: { date: string; fromTime: string | null; toTime: string | null }) {
+  const canDrag = !!fromTime
+  const { attributes, listeners, setNodeRef, isDragging } = useDraggable({
+    id: `day-window-${date}`,
+    data: { type: 'day-window', date, fromTime, toTime },
+    disabled: !canDrag,
+  })
+
+  return (
+    <button
+      ref={setNodeRef}
+      {...listeners}
+      {...attributes}
+      type="button"
+      tabIndex={-1}
+      aria-label="Drag to assign to team"
+      title={canDrag ? 'Drag to assign all services to a team' : 'Set a time window first'}
+      className={cn(
+        'flex items-center text-slate-300 transition-colors',
+        canDrag ? 'cursor-grab hover:text-orange-400 active:cursor-grabbing' : 'cursor-default opacity-40',
+        isDragging && 'opacity-40',
+      )}
+    >
+      <GripVertical className="h-4 w-4" />
+    </button>
+  )
+}
+
+// ---------------------------------------------------------------------------
 // VisitDateSchedule
 // ---------------------------------------------------------------------------
 
@@ -223,7 +256,8 @@ export function VisitDateSchedule({ windows, onChange }: Props) {
             <div key={w.date} className="space-y-1.5">
               {/* Date row */}
               <div className="flex items-center justify-between gap-1">
-                <div className="flex min-w-0 items-center gap-1.5">
+                <div className="flex min-w-0 items-center gap-1">
+                  <WindowDragHandle date={w.date} fromTime={w.fromTime} toTime={w.toTime} />
                   <span className="shrink-0 text-xs font-medium text-slate-700">
                     {format(parseISO(w.date), 'd MMM yyyy')}
                   </span>

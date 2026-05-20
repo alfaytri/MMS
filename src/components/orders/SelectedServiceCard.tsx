@@ -158,6 +158,8 @@ interface Props {
   isOverlay?: boolean
   /** When true, hides the per-service arrival window time grid (e.g. in quotation form) */
   hideTimeControls?: boolean
+  /** When true, hides the drag handle (use when the day-window is the drag target instead) */
+  hideDragHandle?: boolean
 }
 
 export function SelectedServiceCard({
@@ -167,11 +169,12 @@ export function SelectedServiceCard({
   onTimeChange,
   isOverlay = false,
   hideTimeControls = false,
+  hideDragHandle = false,
 }: Props) {
   const { attributes, listeners, setNodeRef, isDragging } = useDraggable({
     id: service.serviceId,
     data: { type: 'service', service },
-    disabled: isOverlay,
+    disabled: isOverlay || hideDragHandle,
   })
 
   const pathLabel = service.path.slice(0, -1).join(' / ')
@@ -186,7 +189,7 @@ export function SelectedServiceCard({
         isOverlay && 'shadow-2xl ring-1 ring-orange-300 cursor-grabbing',
       )}
     >
-      {!isOverlay && (
+      {!isOverlay && !hideDragHandle && (
         <div className="absolute left-1.5 top-1/2 -translate-y-1/2">
           <button
             {...listeners}

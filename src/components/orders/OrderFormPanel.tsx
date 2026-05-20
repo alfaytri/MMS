@@ -263,6 +263,7 @@ export function OrderFormPanel({
                           onQtyChange={onUpdateServiceQty}
                           onTimeChange={onUpdateServiceTime}
                           hideTimeControls
+                          hideDragHandle
                         />
                       ))}
                     </div>

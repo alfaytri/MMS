@@ -27,6 +27,7 @@ export default function CreateOrderPage() {
   // If we arrived from a site visit, skip the lookup modal
   const [lookupOpen, setLookupOpen] = useState(!prefilledCustomerId)
   const [draggingService, setDraggingService] = useState<OrderServiceDraft | null>(null)
+  const [draggingDayWindow, setDraggingDayWindow] = useState<{ date: string; fromTime: string | null; toTime: string | null } | null>(null)
   const [selectedDivisions, setSelectedDivisions] = useState<string[]>([])
 
   const {
@@ -89,15 +90,21 @@ export default function CreateOrderPage() {
     const { data } = event.active
     if (data.current?.type === 'service') {
       setDraggingService(data.current.service as OrderServiceDraft)
+    } else if (data.current?.type === 'day-window') {
+      setDraggingDayWindow({
+        date:     data.current.date     as string,
+        fromTime: data.current.fromTime as string | null,
+        toTime:   data.current.toTime   as string | null,
+      })
     }
   }
 
   function handleDragEnd(event: DragEndEvent) {
     setDraggingService(null)
+    setDraggingDayWindow(null)
     const { active, over } = event
     if (!over || !active.data.current) return
 
-    const service = active.data.current.service as OrderServiceDraft
     const dropData = over.data.current as { teamId: string; hour: number } | undefined
     if (!dropData?.teamId) return
 
@@ -109,7 +116,27 @@ export default function CreateOrderPage() {
       (match?.['name'] as string | null | undefined) ??
       teamId
 
-    // Use the current day's time window; fall back to the dropped cell hour
+    // ── Day-window drag: assign ALL services at the day's time window ────────
+    if (active.data.current.type === 'day-window') {
+      const dayData = active.data.current as { date: string; fromTime: string | null; toTime: string | null }
+      if (draft.services.length === 0) return
+      const timeSlot = dayData.fromTime ?? `${String(hour).padStart(2, '0')}:00`
+      const toTime   = dayData.toTime ?? null
+      const totalDuration = draft.services.reduce((sum, s) => sum + s.duration, 0)
+      addAssignment({
+        teamId,
+        teamName,
+        services: draft.services.map((s) => ({ serviceId: s.serviceId, qty: s.qty })),
+        timeSlot,
+        toTime,
+        duration: totalDuration,
+        date: dayData.date,
+      })
+      return
+    }
+
+    // ── Single-service drag ──────────────────────────────────────────────────
+    const service = active.data.current.service as OrderServiceDraft
     const visitWindow = draft.visitDates.find((w) => w.date === draft.visitDate)
     const timeSlot = visitWindow?.fromTime ?? `${String(hour).padStart(2, '0')}:00`
     const toTime   = visitWindow?.toTime ?? null
@@ -216,7 +243,34 @@ export default function CreateOrderPage() {
 
       {/* Portal-rendered drag ghost — renders at document.body, never clipped by sidebar overflow */}
       <DragOverlay dropAnimation={null} style={{ zIndex: 9999 }}>
-        {draggingService ? (
+        {draggingDayWindow ? (
+          <div className="w-72 rotate-1 rounded-xl border border-orange-300 bg-white shadow-2xl ring-1 ring-orange-200 px-3 py-2.5 space-y-1.5">
+            <div className="flex items-center justify-between">
+              <span className="text-[11px] font-medium text-slate-500">
+                {new Date(draggingDayWindow.date + 'T00:00:00').toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' })}
+              </span>
+              {draggingDayWindow.fromTime && (
+                <span className="text-[11px] font-semibold text-orange-600">
+                  {(() => {
+                    const fmt = (t: string) => { const h = parseInt(t); const m = t.split(':')[1]; const p = h < 12 ? 'AM' : 'PM'; const h12 = h === 0 ? 12 : h > 12 ? h - 12 : h; return `${h12}:${m} ${p}` }
+                    return draggingDayWindow.toTime
+                      ? `${fmt(draggingDayWindow.fromTime)} → ${fmt(draggingDayWindow.toTime)}`
+                      : `From ${fmt(draggingDayWindow.fromTime)}`
+                  })()}
+                </span>
+              )}
+            </div>
+            <div className="border-t border-slate-100" />
+            <div className="space-y-0.5">
+              {draft.services.map((s) => (
+                <p key={s.serviceId} className="truncate text-xs text-slate-700">
+                  {s.qty > 1 && <span className="font-semibold text-slate-500">{s.qty}× </span>}
+                  {s.serviceName}
+                </p>
+              ))}
+            </div>
+          </div>
+        ) : draggingService ? (
           <div className="w-72 rotate-1">
             {draggingService.serviceId === SITE_VISIT_SERVICE_ID ? (
               <SiteVisitCard
