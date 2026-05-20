@@ -311,6 +311,7 @@ export function useCreateOrder() {
         p_services:       servicesPayload,
         p_visit_dates:    visitDatesPayload,
         p_assignments:    assignmentsPayload,
+        p_address_id:     draft.addressId ?? null,
       })
 
       if (error) {
