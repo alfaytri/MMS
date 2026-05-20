@@ -1,23 +1,20 @@
 /**
  * POST /api/notifications/send-booking-confirmations
  *
- * Finds all orders whose scheduled_date is exactly 2 days from today
- * and whose confirmation has not been sent yet, then sends the Wati
- * template `normal_booking_conformation_utility` to each customer.
+ * Two modes:
  *
- * Protected by the `x-cron-secret` header matching CRON_SECRET env var.
- * Called automatically by the `send-booking-confirmations` Supabase edge
- * function (Deno.cron, daily at 08:00 GST) and can also be triggered
- * manually from the admin UI.
+ * CRON MODE (no body):
+ *   Header:  x-cron-secret: <CRON_SECRET>
+ *   Action:  Finds all orders whose scheduled_date = today + 2 days and
+ *            sends the confirmation template to each customer.
  *
- * Template parameters (positional, matches Wati template):
- *   1 = booking_number   e.g. "N/2026/05/0042"
- *   2 = date             e.g. "20 مايو 2026"
- *   3 = time             e.g. "10:00 ص"
- *   4 = address_label    e.g. "House 58, Street 662, Zone 70"
- *   5 = address_link     e.g. "https://waze.com/ul?ll=25.3,51.4&navigate=yes"
+ * IMMEDIATE MODE (body: { orderId }):
+ *   Header:  Authorization: Bearer <supabase-access-token>
+ *   Action:  Sends the confirmation for a single order right now.
+ *            Used when an order is created with a visit ≤ 2 days away.
  *
- * PDF attachment: set BOOKING_CONFIRMATION_PDF_URL env var (dummy for now).
+ * Template: normal_booking_conformation_utility
+ * Parameters: booking_number, date (Arabic), time (Arabic), address_label, address_link
  */
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@supabase/supabase-js'
@@ -37,7 +34,6 @@ const ARABIC_MONTHS = [
 ]
 
 function formatDateAr(iso: string): string {
-  // Parse as noon UTC to avoid off-by-one from timezone shifts
   const d = new Date(iso + 'T12:00:00Z')
   return `${d.getUTCDate()} ${ARABIC_MONTHS[d.getUTCMonth()]} ${d.getUTCFullYear()}`
 }
@@ -54,15 +50,29 @@ function formatTimeAr(slot: string): string {
 
 function normalisePhone(raw: string): string {
   const digits = raw.replace(/\D/g, '')
-  // Qatar numbers without country code → prepend 974
   return digits.startsWith('974') ? digits : `974${digits}`
 }
 
 export async function POST(req: NextRequest) {
+  // ── Parse body ───────────────────────────────────────────────────────────────
+  let body: { orderId?: string } = {}
+  try { body = await req.json() } catch { /* cron mode sends no body */ }
+
+  const isImmediateMode = !!body.orderId
+
   // ── Auth ────────────────────────────────────────────────────────────────────
-  const secret = req.headers.get('x-cron-secret') ?? ''
-  if (CRON_SECRET && secret !== CRON_SECRET) {
-    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+  if (isImmediateMode) {
+    const token = (req.headers.get('authorization') ?? '').replace(/^Bearer\s+/i, '')
+    if (!token) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+
+    const authClient = createClient(SUPA_URL, SUPA_KEY)
+    const { data: { user }, error: authErr } = await authClient.auth.getUser(token)
+    if (authErr || !user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+  } else {
+    const secret = req.headers.get('x-cron-secret') ?? ''
+    if (CRON_SECRET && secret !== CRON_SECRET) {
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+    }
   }
 
   if (!WATI_URL || !WATI_TOKEN) {
@@ -71,13 +81,10 @@ export async function POST(req: NextRequest) {
 
   const supabase = createClient(SUPA_URL, SUPA_KEY)
 
-  // ── Target date: 2 days from today ─────────────────────────────────────────
-  const target = new Date()
-  target.setUTCDate(target.getUTCDate() + 2)
-  const targetDate = target.toISOString().split('T')[0]
+  // ── Build query ──────────────────────────────────────────────────────────────
+  let targetDate: string | undefined
 
-  // ── Fetch eligible orders ───────────────────────────────────────────────────
-  const { data: orders, error: fetchErr } = await (supabase as any)
+  let query = (supabase as any)
     .from('orders')
     .select(`
       id,
@@ -89,10 +96,20 @@ export async function POST(req: NextRequest) {
       order_team_assignments ( time_slot, scheduled_date ),
       service_customer_addresses ( label, waze_link )
     `)
-    .eq('scheduled_date', targetDate)
     .is('confirmation_sent_at', null)
     .in('status', ['scheduled', 'confirmed'])
     .not('service_customer_id', 'is', null)
+
+  if (isImmediateMode) {
+    query = query.eq('order_id', body.orderId)
+  } else {
+    const target = new Date()
+    target.setUTCDate(target.getUTCDate() + 2)
+    targetDate = target.toISOString().split('T')[0]
+    query = query.eq('scheduled_date', targetDate)
+  }
+
+  const { data: orders, error: fetchErr } = await query
 
   if (fetchErr) {
     console.error('[booking-confirm] fetch error', fetchErr)
@@ -121,16 +138,13 @@ export async function POST(req: NextRequest) {
       const watiPhone = normalisePhone(phoneRow.phone)
 
       // ── 2. Address ───────────────────────────────────────────────────────
-      // Prefer the address snapshot on the order; fall back to customer primary
       let addressLabel: string = order.address ?? ''
       let wazeLink: string = ''
 
       if (order.service_customer_addresses) {
-        // Direct FK join succeeded
         addressLabel = order.service_customer_addresses.label ?? order.address ?? ''
         wazeLink     = order.service_customer_addresses.waze_link ?? ''
       } else if (order.address_id) {
-        // Shouldn't happen but defensive fallback
         const { data: addr } = await (supabase as any)
           .from('service_customer_addresses')
           .select('label, waze_link')
@@ -157,24 +171,17 @@ export async function POST(req: NextRequest) {
         { name: 'address_link',   value: wazeLink },
       ]
 
-      // Include PDF header if configured
       if (PDF_URL) {
         parameters.unshift({ name: 'header', value: PDF_URL })
       }
 
       // ── 5. Send Wati template ─────────────────────────────────────────────
-      const watiBody: Record<string, unknown> = {
-        template_name:  TEMPLATE_NAME,
-        broadcast_name: TEMPLATE_NAME,
-        parameters,
-      }
-
       const watiRes = await fetch(
         `${WATI_URL}/api/v1/sendTemplateMessage/${watiPhone}`,
         {
           method:  'POST',
           headers: { Authorization: `Bearer ${WATI_TOKEN}`, 'Content-Type': 'application/json' },
-          body:    JSON.stringify(watiBody),
+          body:    JSON.stringify({ template_name: TEMPLATE_NAME, broadcast_name: TEMPLATE_NAME, parameters }),
         },
       )
 
@@ -197,11 +204,10 @@ export async function POST(req: NextRequest) {
         wazeLink,
         '',
         'يرجى مراجعة تفاصيل الخدمات في المستند المرفق.',
-      ].filter((l) => l !== undefined).join('\n').trim()
+      ].filter(Boolean).join('\n').trim()
 
       const phone = `+${watiPhone}`
 
-      // Find or create conversation
       const { data: existing } = await (supabase as any)
         .from('chat_conversations')
         .select('id')
@@ -246,10 +252,7 @@ export async function POST(req: NextRequest) {
       // ── 7. Mark order confirmation sent ───────────────────────────────────
       await (supabase as any)
         .from('orders')
-        .update({
-          confirmation_status: 'sent',
-          confirmation_sent_at: new Date().toISOString(),
-        })
+        .update({ confirmation_status: 'sent', confirmation_sent_at: new Date().toISOString() })
         .eq('id', order.id)
 
       results.push({ orderId, ok: watiOk })
@@ -262,5 +265,5 @@ export async function POST(req: NextRequest) {
 
   const sent   = results.filter((r) => r.ok).length
   const failed = results.filter((r) => !r.ok).length
-  return NextResponse.json({ date: targetDate, sent, failed, results })
+  return NextResponse.json({ date: targetDate ?? body.orderId, sent, failed, results })
 }

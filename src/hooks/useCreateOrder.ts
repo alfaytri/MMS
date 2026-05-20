@@ -325,10 +325,37 @@ export function useCreateOrder() {
 
       return newOrderId as string
     },
-    onSuccess: () => {
+    onSuccess: async () => {
+      // Capture values before reset() clears the draft
+      const capturedOrderId = draft.orderId
+      const capturedType    = draft.type
+      const sortedWindows   = [...draft.visitDates].sort((a, b) => a.date.localeCompare(b.date))
+      const primaryDate     = sortedWindows.length > 0 ? sortedWindows[0].date : draft.visitDate
+
       qc.invalidateQueries({ queryKey: ['orders'] })
       qc.invalidateQueries({ queryKey: ['site-visits'] })
       reset()
+
+      // Send confirmation immediately if the visit is within 2 days (cron would miss it)
+      if (capturedType !== 'site-visit') {
+        const todayMs    = new Date().setHours(0, 0, 0, 0)
+        const visitMs    = new Date(primaryDate + 'T00:00:00').getTime()
+        const daysUntilVisit = Math.round((visitMs - todayMs) / 86_400_000)
+
+        if (daysUntilVisit <= 2) {
+          const { data: { session } } = await supabase.auth.getSession()
+          if (session?.access_token) {
+            fetch('/api/notifications/send-booking-confirmations', {
+              method:  'POST',
+              headers: {
+                'Content-Type': 'application/json',
+                Authorization:  `Bearer ${session.access_token}`,
+              },
+              body: JSON.stringify({ orderId: capturedOrderId }),
+            }).catch(console.error)
+          }
+        }
+      }
     },
   })
 
