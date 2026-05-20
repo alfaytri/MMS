@@ -185,12 +185,14 @@ export async function POST(req: NextRequest) {
         },
       )
 
-      const watiOk   = watiRes.ok
-      const watiData = await watiRes.json().catch(() => null)
-      const watiMsgId: string | null = watiData?.id ?? watiData?.messageId ?? null
+      const watiOk       = watiRes.ok
+      const rawText      = await watiRes.text()
+      let   watiData: Record<string, unknown> | null = null
+      try { watiData = JSON.parse(rawText) } catch { /* non-JSON response */ }
+      const watiMsgId: string | null = (watiData?.id ?? watiData?.messageId ?? null) as string | null
 
       if (!watiOk) {
-        console.warn('[booking-confirm] wati send failed', orderId, watiRes.status, watiData)
+        console.warn('[booking-confirm] wati send failed', orderId, watiRes.status, rawText.slice(0, 300))
       }
 
       // ── 6. Save to chat_messages for Contact Centre visibility ────────────
