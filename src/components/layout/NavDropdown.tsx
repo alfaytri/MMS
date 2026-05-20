@@ -23,6 +23,7 @@ import {
   ShoppingBag,
   Users,
   CalendarDays,
+  BarChart2,
   type LucideIcon,
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
@@ -35,6 +36,7 @@ const ICON_MAP: Record<string, LucideIcon> = {
   Receipt,
   ShoppingBag,
   Users,
+  BarChart2,
 }
 
 interface NavDropdownProps {

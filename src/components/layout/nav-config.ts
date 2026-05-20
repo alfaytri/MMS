@@ -118,4 +118,15 @@ export const NAV_ITEMS: NavEntry[] = [
       },
     ],
   },
+  {
+    label: 'Reports',
+    icon: 'BarChart2',
+    groups: [
+      {
+        items: [
+          { label: 'Overtime', href: '/reports/overtime' },
+        ],
+      },
+    ],
+  },
 ]
