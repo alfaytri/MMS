@@ -1,5 +1,5 @@
 'use client'
-import { useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { format, parseISO } from 'date-fns'
 import { Copy, Check, AlertTriangle, Loader2, X } from 'lucide-react'
 import { Label } from '@/components/ui/label'
@@ -17,9 +17,9 @@ function toTimeStr(h: number): string {
 }
 
 function gridLabel(h: number): string {
-  if (h === 0) return '12a'
-  if (h === 12) return '12p'
-  return h < 12 ? `${h}a` : `${h - 12}p`
+  if (h === 0) return '12am'
+  if (h === 12) return '12pm'
+  return h < 12 ? `${h}am` : `${h - 12}pm`
 }
 
 function formatTime12h(t: string): string {
@@ -42,15 +42,52 @@ interface TimeWindowGridProps {
 
 function TimeWindowGrid({ fromTime, toTime, onChange }: TimeWindowGridProps) {
   const fromHour = fromTime ? parseInt(fromTime) : null
-  const toHour = toTime ? parseInt(toTime) : null
+  const toHour   = toTime   ? parseInt(toTime)   : null
 
-  function handleClick(h: number) {
-    if (fromHour !== null && toHour === null) {
-      if (h > fromHour) { onChange(fromTime, toTimeStr(h)); return }
-      if (h === fromHour) { onChange(null, null); return }
+  const dragStartRef  = useRef<number | null>(null)
+  const [preview, setPreview] = useState<{ from: number; to: number } | null>(null)
+  const previewRef    = useRef(preview)
+  const fromHourRef   = useRef(fromHour)
+  const toHourRef     = useRef(toHour)
+  const onChangeRef   = useRef(onChange)
+  useEffect(() => { previewRef.current  = preview },    [preview])
+  useEffect(() => { fromHourRef.current = fromHour },   [fromHour])
+  useEffect(() => { toHourRef.current   = toHour },     [toHour])
+  useEffect(() => { onChangeRef.current = onChange },   [onChange])
+
+  useEffect(() => {
+    function onMouseUp() {
+      if (dragStartRef.current === null) return
+      const p = previewRef.current
+      if (p !== null) {
+        if (p.from === p.to && fromHourRef.current === p.from && toHourRef.current === null) {
+          onChangeRef.current(null, null)
+        } else if (p.from === p.to) {
+          onChangeRef.current(toTimeStr(p.from), null)
+        } else {
+          onChangeRef.current(toTimeStr(p.from), toTimeStr(p.to))
+        }
+      }
+      dragStartRef.current = null
+      setPreview(null)
     }
-    onChange(toTimeStr(h), null)
+    window.addEventListener('mouseup', onMouseUp)
+    return () => window.removeEventListener('mouseup', onMouseUp)
+  }, [])
+
+  function handleMouseDown(h: number) {
+    dragStartRef.current = h
+    setPreview({ from: h, to: h })
   }
+
+  function handleMouseEnter(h: number) {
+    if (dragStartRef.current === null) return
+    const s = dragStartRef.current
+    setPreview({ from: Math.min(s, h), to: Math.max(s, h) })
+  }
+
+  const displayFrom = preview ? preview.from : fromHour
+  const displayTo   = preview ? preview.to   : toHour
 
   return (
     <div className="space-y-px rounded-md bg-slate-50 p-1.5 select-none">
@@ -58,20 +95,21 @@ function TimeWindowGrid({ fromTime, toTime, onChange }: TimeWindowGridProps) {
         <div key={rowIdx} className="grid grid-cols-8 gap-px">
           {row.map((h) => {
             const selected =
-              fromHour !== null
-                ? toHour !== null
-                  ? h >= fromHour && h <= toHour
-                  : h === fromHour
+              displayFrom !== null
+                ? displayTo !== null
+                  ? h >= displayFrom && h <= displayTo
+                  : h === displayFrom
                 : false
-            const isLeft = h === fromHour
-            const isRight = h === toHour && toHour !== fromHour
-            const isSingle = h === fromHour && toHour === null
+            const isLeft   = h === displayFrom
+            const isRight  = h === displayTo && displayTo !== displayFrom
+            const isSingle = h === displayFrom && displayTo === null
 
             return (
               <div
                 key={h}
                 className="flex cursor-pointer flex-col items-center"
-                onClick={() => handleClick(h)}
+                onMouseDown={() => handleMouseDown(h)}
+                onMouseEnter={() => handleMouseEnter(h)}
               >
                 <span
                   className={cn(
@@ -86,7 +124,7 @@ function TimeWindowGrid({ fromTime, toTime, onChange }: TimeWindowGridProps) {
                     'h-5 w-full transition-colors',
                     selected ? 'bg-orange-400' : 'bg-slate-200 hover:bg-orange-100',
                     isSingle && 'rounded',
-                    isLeft && !isSingle && 'rounded-l',
+                    isLeft  && !isSingle && 'rounded-l',
                     isRight && 'rounded-r',
                   )}
                 />
