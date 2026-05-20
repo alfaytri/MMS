@@ -14,10 +14,10 @@ export function useOrders(filter: OrdersFilter = DEFAULT_FILTER) {
       let query = supabase
         .from('orders')
         .select(`
-          id, order_id, customer_id, type, division, status, confirmation_status,
+          id, order_id, service_customer_id, type, division, status, confirmation_status,
           scheduled_date, scheduled_time, total_amount, agent_name, address, arrival_phone,
           has_invoice, invoice_number, created_at,
-          customers!inner(name, customer_phones(phone)),
+          service_customers(name, service_customer_phones(phone)),
           order_services(name, qty)
         `)
 
@@ -48,7 +48,7 @@ export function useOrders(filter: OrdersFilter = DEFAULT_FILTER) {
       // Search both the stored arrival phone AND the customer's primary phone
       if (filter.customerPhone) {
         const ph = filter.customerPhone.replace(/\s+/g, '')
-        query = query.or(`arrival_phone.ilike.%${ph}%,customers.phone.ilike.%${ph}%`)
+        query = query.or(`arrival_phone.ilike.%${ph}%,service_customers.phone.ilike.%${ph}%`)
       }
       if (filter.division)        query = query.eq('division', filter.division as any)
 
@@ -63,8 +63,8 @@ export function useOrders(filter: OrdersFilter = DEFAULT_FILTER) {
 
       return (data ?? []).map((o: any) => ({
         ...o,
-        customer_name: o.customers?.name ?? '',
-        customer_phone: o.customers?.customer_phones?.[0]?.phone ?? '',
+        customer_name: o.service_customers?.name ?? '',
+        customer_phone: o.service_customers?.service_customer_phones?.[0]?.phone ?? '',
         arrival_phone: o.arrival_phone ?? null,
         scheduled_time: o.scheduled_time ?? null,
         services_summary: (o.order_services ?? [])
