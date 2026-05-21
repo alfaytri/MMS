@@ -124,8 +124,7 @@ export function OrderDetailDialog({ orderId, open, onOpenChange }: Props) {
                           <CheckCircle className="h-3 w-3" /> Confirm
                         </Button>
                       )}
-                      {(order.confirmation_status === 'manually_confirmed' ||
-                        order.confirmation_status === 'customer_confirmed') && (
+                      {order.status === 'confirmed' && (
                         <Button
                           size="sm"
                           variant="outline"

@@ -19,33 +19,39 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@supabase/supabase-js'
 
-const WATI_URL    = (process.env.WATI_API_URL ?? '').replace(/\/$/, '')
-const WATI_TOKEN  = (process.env.WATI_API_TOKEN ?? '').replace(/^Bearer\s+/i, '')
+// This route forwards the actual WATI call to the api-wati Edge Function,
+// because direct WATI calls from Node.js are silently filtered. WATI creds
+// are configured as Supabase secrets, not in this route's env.
 const SUPA_URL    = process.env.NEXT_PUBLIC_SUPABASE_URL!
 const SUPA_KEY    = process.env.SUPABASE_SERVICE_ROLE_KEY!
+const SUPA_ANON   = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
 const CRON_SECRET = process.env.CRON_SECRET ?? ''
 const PDF_URL     = process.env.BOOKING_CONFIRMATION_PDF_URL ?? ''
 
 const TEMPLATE_NAME = 'normal_booking_conformation_utility'
 
-const ARABIC_MONTHS = [
-  'يناير', 'فبراير', 'مارس', 'أبريل', 'مايو', 'يونيو',
-  'يوليو', 'أغسطس', 'سبتمبر', 'أكتوبر', 'نوفمبر', 'ديسمبر',
+// Use English formatting (matches template's approved sample structure)
+// to avoid WATI's "Check your template, it cannot have typos or blank text"
+// rejection of Arabic-formatted values.
+const MONTHS_EN = [
+  'January', 'February', 'March',     'April',   'May',      'June',
+  'July',    'August',   'September', 'October', 'November', 'December',
 ]
 
-function formatDateAr(iso: string): string {
+function formatDate(iso: string): string {
   const d = new Date(iso + 'T12:00:00Z')
-  return `${d.getUTCDate()} ${ARABIC_MONTHS[d.getUTCMonth()]} ${d.getUTCFullYear()}`
+  const days = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday']
+  return `${days[d.getUTCDay()]} ${d.getUTCDate()}/${MONTHS_EN[d.getUTCMonth()].slice(0, 3)}/${d.getUTCFullYear()}`
 }
 
-function formatTimeAr(slot: string): string {
+function formatTime(slot: string): string {
   const [hStr, mStr] = slot.split(':')
   const h = parseInt(hStr)
   const m = mStr?.padStart(2, '0') ?? '00'
-  if (h === 0)  return `12:${m} ص`
-  if (h < 12)   return `${h}:${m} ص`
-  if (h === 12) return `12:${m} م`
-  return `${h - 12}:${m} م`
+  if (h === 0)  return `12:${m} AM`
+  if (h < 12)   return `${String(h).padStart(2, '0')}:${m} AM`
+  if (h === 12) return `12:${m} PM`
+  return `${String(h - 12).padStart(2, '0')}:${m} PM`
 }
 
 function normalisePhone(raw: string): string {
@@ -61,12 +67,13 @@ export async function POST(req: NextRequest) {
   const isImmediateMode = !!body.orderId
 
   // ── Auth ────────────────────────────────────────────────────────────────────
+  let userToken = ''
   if (isImmediateMode) {
-    const token = (req.headers.get('authorization') ?? '').replace(/^Bearer\s+/i, '')
-    if (!token) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+    userToken = (req.headers.get('authorization') ?? '').replace(/^Bearer\s+/i, '')
+    if (!userToken) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
 
     const authClient = createClient(SUPA_URL, SUPA_KEY)
-    const { data: { user }, error: authErr } = await authClient.auth.getUser(token)
+    const { data: { user }, error: authErr } = await authClient.auth.getUser(userToken)
     if (authErr || !user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
   } else {
     const secret = req.headers.get('x-cron-secret') ?? ''
@@ -75,11 +82,14 @@ export async function POST(req: NextRequest) {
     }
   }
 
-  if (!WATI_URL || !WATI_TOKEN) {
-    return NextResponse.json({ error: 'WATI credentials not configured' }, { status: 500 })
-  }
-
   const supabase = createClient(SUPA_URL, SUPA_KEY)
+
+  // User-scoped client for invoking the api-wati Edge Function — matches
+  // exactly how the contact centre invokes it from the browser, so WATI
+  // sees an identical request signature.
+  const userSupabase = isImmediateMode
+    ? createClient(SUPA_URL, SUPA_ANON, { global: { headers: { Authorization: `Bearer ${userToken}` } } })
+    : null
 
   // ── Build query ──────────────────────────────────────────────────────────────
   let targetDate: string | undefined
@@ -89,6 +99,7 @@ export async function POST(req: NextRequest) {
     .select(`
       id,
       order_id,
+      status,
       scheduled_date,
       address,
       address_id,
@@ -122,7 +133,7 @@ export async function POST(req: NextRequest) {
     const orderId: string = order.order_id
 
     try {
-      // ── 1. Primary phone ──────────────────────────────────────────────────
+      // ── 1. Primary phone + customer name ──────────────────────────────────
       const { data: phoneRow } = await (supabase as any)
         .from('service_customer_phones')
         .select('phone')
@@ -134,6 +145,13 @@ export async function POST(req: NextRequest) {
         results.push({ orderId, ok: false, error: 'no primary phone' })
         continue
       }
+
+      const { data: customerRow } = await (supabase as any)
+        .from('service_customers')
+        .select('name')
+        .eq('id', order.service_customer_id)
+        .maybeSingle()
+      const customerName: string = customerRow?.name ?? ''
 
       const watiPhone = normalisePhone(phoneRow.phone)
 
@@ -163,44 +181,85 @@ export async function POST(req: NextRequest) {
       const timeSlot = sorted[0]?.time_slot ?? null
 
       // ── 4. Build template parameters ─────────────────────────────────────
-      const parameters: Array<{ name: string; value: string }> = [
-        { name: 'booking_number', value: orderId },
-        { name: 'date',           value: formatDateAr(order.scheduled_date) },
-        { name: 'time',           value: timeSlot ? formatTimeAr(timeSlot) : '' },
-        { name: 'address_label',  value: addressLabel },
-        { name: 'address_link',   value: wazeLink },
+      // Use NAMED params matching the template's variable names — this is
+      // the format the contact centre uses successfully via the same Edge
+      // Function. English-formatted values match the approved sample structure.
+      const safe = (v: string | null | undefined) => (v && v.trim()) || '-'
+      const bodyParams: Array<{ name: string; value: string }> = [
+        { name: 'booking_number', value: safe(orderId) },
+        { name: 'date',           value: safe(formatDate(order.scheduled_date)) },
+        { name: 'time',           value: safe(timeSlot ? formatTime(timeSlot) : '') },
+        { name: 'address_label',  value: safe(addressLabel) },
+        { name: 'address_link',   value: safe(wazeLink) },
       ]
+      const parameters = PDF_URL
+        ? [{ name: 'pdflink', value: PDF_URL }, ...bodyParams]
+        : bodyParams
 
-      if (PDF_URL) {
-        parameters.unshift({ name: 'header', value: PDF_URL })
+      // ── 5. Send via the api-wati Edge Function ───────────────────────────
+      // Match the contact centre's exact invocation: same client, same
+      // headers, same payload shape, same phone format (with + prefix).
+      let watiData: Record<string, unknown> | null = null
+      let fnError: string | null = null
+
+      const invokeBody = {
+        action:         'send_template',
+        phone:          watiPhone,
+        template_name:  TEMPLATE_NAME,
+        broadcast_name: `${TEMPLATE_NAME}_${orderId.replace(/[^a-zA-Z0-9]/g, '_')}_${Date.now()}`,
+        parameters,
       }
 
-      // ── 5. Send Wati template ─────────────────────────────────────────────
-      const watiRes = await fetch(
-        `${WATI_URL}/api/v1/sendTemplateMessage/${watiPhone}`,
-        {
+      if (userSupabase) {
+        // Immediate mode — invoke via Supabase client with the user's JWT,
+        // identical to the contact centre flow.
+        const { data: fnData, error: fnErr } = await userSupabase.functions.invoke('api-wati', {
+          body: invokeBody,
+        })
+        if (fnErr) fnError = fnErr.message ?? String(fnErr)
+        watiData = (fnData ?? null) as Record<string, unknown> | null
+      } else {
+        // Cron mode — direct fetch with x-cron-secret (no user JWT available).
+        const watiRes = await fetch(`${SUPA_URL}/functions/v1/api-wati`, {
           method:  'POST',
-          headers: { Authorization: `Bearer ${WATI_TOKEN}`, 'Content-Type': 'application/json' },
-          body:    JSON.stringify({ template_name: TEMPLATE_NAME, broadcast_name: TEMPLATE_NAME, parameters }),
-        },
-      )
+          headers: { 'Content-Type': 'application/json', 'apikey': SUPA_ANON, 'Authorization': `Bearer ${SUPA_ANON}`, 'x-cron-secret': CRON_SECRET },
+          body:    JSON.stringify(invokeBody),
+        })
+        const rawText = await watiRes.text()
+        try { watiData = JSON.parse(rawText) } catch { watiData = { raw: rawText } }
+        if (!watiRes.ok) fnError = `HTTP ${watiRes.status}: ${rawText.slice(0, 200)}`
+      }
 
-      const watiOk       = watiRes.ok
-      const rawText      = await watiRes.text()
-      let   watiData: Record<string, unknown> | null = null
-      try { watiData = JSON.parse(rawText) } catch { /* non-JSON response */ }
-      const watiMsgId: string | null = (watiData?.id ?? watiData?.messageId ?? null) as string | null
+      // v2 response shape: { result: true, info: "...", message: { whatsappMessageId } }
+      const watiMsgId: string | null = (
+        (watiData as any)?.message?.whatsappMessageId ??
+        (watiData as any)?.info?.whatsAppMessageId ??
+        (watiData as any)?.id ??
+        (watiData as any)?.messageId ??
+        null
+      ) as string | null
+
+      const watiOk = !fnError && !watiData?.error && watiData?.result !== false
 
       if (!watiOk) {
-        console.warn('[booking-confirm] wati send failed', orderId, watiRes.status, rawText.slice(0, 300))
+        console.warn(
+          '[booking-confirm] wati send failed',
+          orderId,
+          'result:', watiData?.result,
+          'fn_error:', fnError ?? watiData?.error,
+          'detail:', watiData?.detail,
+          'body:', JSON.stringify(watiData).slice(0, 500),
+        )
+      } else {
+        console.log('[booking-confirm] wati send ok', orderId, 'msgId:', watiMsgId, 'body:', JSON.stringify(watiData).slice(0, 300))
       }
 
       // ── 6. Save to chat_messages for Contact Centre visibility ────────────
       const msgText = [
         `تم تأكيد موعد الخدمة رقم ${orderId}`,
         '',
-        `بتاريخ ${formatDateAr(order.scheduled_date)}`,
-        timeSlot ? `في الساعة ${formatTimeAr(timeSlot)}` : '',
+        `بتاريخ ${formatDate(order.scheduled_date)}`,
+        timeSlot ? `في الساعة ${formatTime(timeSlot)}` : '',
         '',
         `العنوان: ${addressLabel}`,
         wazeLink,
@@ -251,10 +310,15 @@ export async function POST(req: NextRequest) {
           })
       }
 
-      // ── 7. Mark order confirmation sent ───────────────────────────────────
+      // ── 7. Mark order confirmation sent + auto-confirm if WATI succeeded ───
+      const now = new Date().toISOString()
       await (supabase as any)
         .from('orders')
-        .update({ confirmation_status: 'sent', confirmation_sent_at: new Date().toISOString() })
+        .update({
+          confirmation_status:  watiOk ? 'sent' : 'failed',
+          confirmation_sent_at: watiOk ? now   : null,
+          ...(watiOk && order.status === 'scheduled' ? { status: 'confirmed' } : {}),
+        })
         .eq('id', order.id)
 
       results.push({ orderId, ok: watiOk })

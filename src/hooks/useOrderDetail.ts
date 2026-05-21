@@ -12,11 +12,12 @@ export function useOrderDetail(orderId: string | null) {
       const { data, error } = await supabase
         .from('orders')
         .select(`
-          id, order_id, customer_id, type, division, status, confirmation_status,
+          id, order_id, service_customer_id, address_id, type, division, status, confirmation_status,
           scheduled_date, total_amount, agent_name, address, notes, arrival_phone, has_invoice, invoice_number, created_at,
-          customers!inner(name, customer_phones(phone)),
+          service_customers(name, service_customer_phones(phone)),
+          service_customer_addresses(id, label, building, street, zone, lat, lng, waze_link, is_primary),
           order_services(id, service_id, name, qty, price, duration, path, from_time, to_time),
-          order_team_assignments(id, team_id, services, scheduled_date, time_slot, duration, teams!inner(name)),
+          order_team_assignments(id, team_id, services, scheduled_date, time_slot, duration, teams(name)),
           order_visit_dates(id, visit_date, from_time, to_time, sort_order),
           order_log(id, action, user_name, details, created_at)
         `)
@@ -25,8 +26,8 @@ export function useOrderDetail(orderId: string | null) {
       if (error) throw error
       return {
         ...data,
-        customer_name: (data.customers as any)?.name ?? '',
-        customer_phone: (data.customers as any)?.customer_phones?.[0]?.phone ?? '',
+        customer_name: (data.service_customers as any)?.name ?? '',
+        customer_phone: (data.service_customers as any)?.service_customer_phones?.[0]?.phone ?? '',
         services_summary: '',
         order_team_assignments: (data.order_team_assignments ?? []).map((a: any) => ({
           ...a,

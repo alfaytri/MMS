@@ -58,7 +58,7 @@ export function useOrderActions(orderId: string | null) {
       if (!orderId) throw new Error('orderId is required')
       const { error } = await supabase
         .from('orders')
-        .update({ status: 'scheduled', confirmation_status: 'not_sent' })
+        .update({ status: 'scheduled', confirmation_status: 'not_sent', confirmation_sent_at: null })
         .eq('id', orderId!)
       if (error) throw error
       await logAction('rollback', 'Confirmation rolled back to scheduled')
@@ -81,6 +81,7 @@ export function useOrderActions(orderId: string | null) {
 
   const updateOrder = useMutation({
     mutationFn: async (payload: {
+      orderReadableId: string
       scheduledDate: string
       notes: string
       arrivalPhone: string
@@ -90,9 +91,11 @@ export function useOrderActions(orderId: string | null) {
       const { error: orderErr } = await supabase
         .from('orders')
         .update({
-          scheduled_date: payload.scheduledDate,
-          notes: payload.notes,
-          arrival_phone: payload.arrivalPhone || null,
+          scheduled_date:       payload.scheduledDate,
+          notes:                payload.notes,
+          arrival_phone:        payload.arrivalPhone || null,
+          confirmation_sent_at: null,
+          confirmation_status:  'not_sent',
         })
         .eq('id', orderId)
       if (orderErr) throw orderErr
@@ -111,7 +114,32 @@ export function useOrderActions(orderId: string | null) {
 
       await logAction('edited', `Order updated — date: ${payload.scheduledDate}`)
     },
-    onSuccess: invalidate,
+    onSuccess: async (_data, variables) => {
+      await invalidate()
+
+      // Re-send confirmation immediately if visit is within 2 days;
+      // for far-future orders the cron will pick it up (confirmation_sent_at is now null).
+      const todayMs        = new Date().setHours(0, 0, 0, 0)
+      const visitMs        = new Date(variables.scheduledDate + 'T00:00:00').getTime()
+      const daysUntilVisit = Math.round((visitMs - todayMs) / 86_400_000)
+
+      if (daysUntilVisit <= 2) {
+        const { data: { session } } = await supabase.auth.getSession()
+        if (session?.access_token) {
+          fetch('/api/notifications/send-booking-confirmations', {
+            method:  'POST',
+            headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${session.access_token}` },
+            body:    JSON.stringify({ orderId: variables.orderReadableId }),
+          })
+            .then(async (res) => {
+              const body = await res.json().catch(() => ({}))
+              if (!res.ok) console.warn('[booking-confirm] resend failed', res.status, body)
+              else         console.log('[booking-confirm] resent after edit', body)
+            })
+            .catch((err) => console.error('[booking-confirm] resend fetch failed', err))
+        }
+      }
+    },
   })
 
   return { confirmManually, rollback, cancel, updateOrder }

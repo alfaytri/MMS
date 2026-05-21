@@ -73,14 +73,35 @@ export function useEditOrder(orderId: string) {
       : [{ date: order.scheduled_date ?? '', fromTime: null, toTime: null }]
 
     setExistingAddress(order.address ?? '')
+
+    // Pre-populate the address from the joined service_customer_addresses
+    // record so the user doesn't have to re-select it just to edit other fields.
+    const addrRow = (order as any).service_customer_addresses ?? null
+    const addressSnapshot: CustomerAddress | null = addrRow
+      ? {
+          id:           addrRow.id,
+          customer_id:  (order as any).service_customer_id ?? '',
+          phone_id:     null,
+          label:        addrRow.label ?? null,
+          address_type: 'blue-plate',
+          unit:         null,
+          building:     addrRow.building ?? null,
+          street:       addrRow.street ?? null,
+          zone:         addrRow.zone ?? null,
+          lat:          addrRow.lat ?? null,
+          lng:          addrRow.lng ?? null,
+          is_primary:   !!addrRow.is_primary,
+        }
+      : null
+
     setDraft({
       orderId: order.order_id,
       customerId: (order as any).service_customer_id ?? order.customer_id,
       phoneId: '',
       customerName: order.customer_name,
       phone: order.customer_phone,
-      addressId: null,           // force re-select to change address
-      addressSnapshot: null,
+      addressId:       (order as any).address_id ?? null,
+      addressSnapshot: addressSnapshot,
       type: order.type as OrderType,
       division: order.division ?? '',
       services,
@@ -212,12 +233,14 @@ export function useEditOrder(orderId: string) {
       const { error: orderErr } = await supabase
         .from('orders')
         .update({
-          division: (draft.division || null) as any,
-          scheduled_date: primaryDate,
-          notes: draft.notes || null,
-          arrival_phone: draft.arrivalPhone || null,
-          address: addressString || null,
-          total_amount: draft.services.reduce((sum, s) => sum + s.price * s.qty, 0) - draft.voucherDiscount,
+          division:             (draft.division || null) as any,
+          scheduled_date:       primaryDate,
+          notes:                draft.notes || null,
+          arrival_phone:        draft.arrivalPhone || null,
+          address:              addressString || null,
+          total_amount:         draft.services.reduce((sum, s) => sum + s.price * s.qty, 0) - draft.voucherDiscount,
+          confirmation_sent_at: null,
+          confirmation_status:  'not_sent',
         })
         .eq('id', orderId)
       if (orderErr) throw orderErr
@@ -298,11 +321,36 @@ export function useEditOrder(orderId: string) {
         user_name: 'agent',
         details: `Order updated — date: ${primaryDate}`,
       })
+
+      return { orderReadableId: draft.orderId, primaryDate }
     },
-    onSuccess: () => {
+    onSuccess: async (result) => {
       qc.invalidateQueries({ queryKey: ['orders'] })
       qc.invalidateQueries({ queryKey: ['order-detail', orderId] })
       qc.invalidateQueries({ queryKey: ['site-visits'] })
+
+      // Re-send confirmation immediately if visit is within 2 days;
+      // for far-future orders the cron will pick it up (confirmation_sent_at is now null).
+      const todayMs        = new Date().setHours(0, 0, 0, 0)
+      const visitMs        = new Date(result.primaryDate + 'T00:00:00').getTime()
+      const daysUntilVisit = Math.round((visitMs - todayMs) / 86_400_000)
+
+      if (daysUntilVisit <= 2) {
+        const { data: { session } } = await supabase.auth.getSession()
+        if (session?.access_token) {
+          fetch('/api/notifications/send-booking-confirmations', {
+            method:  'POST',
+            headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${session.access_token}` },
+            body:    JSON.stringify({ orderId: result.orderReadableId }),
+          })
+            .then(async (res) => {
+              const body = await res.json().catch(() => ({}))
+              if (!res.ok) console.warn('[booking-confirm] resend failed', res.status, body)
+              else         console.log('[booking-confirm] resent after edit', body)
+            })
+            .catch((err) => console.error('[booking-confirm] resend fetch failed', err))
+        }
+      }
     },
   })
 

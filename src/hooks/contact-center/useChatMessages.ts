@@ -208,8 +208,9 @@ export function useChatMessages(
     const bodyParams = template.paramNames.length > 0
       ? template.paramNames.map((name, i) => ({ name, value: variables[i] ?? '' }))
       : variables.map((v, i) => ({ name: `${i + 1}`, value: v }))
+    const hdrName = template.headerParamName ?? 'url'
     const parameters = template.headerMedia && headerUrl
-      ? [{ name: 'url', value: headerUrl }, ...bodyParams]
+      ? [{ name: hdrName, value: headerUrl }, ...bodyParams]
       : bodyParams
 
     try {
@@ -251,17 +252,22 @@ export function useChatMessages(
         const comps: any[] = t.components ?? []
         const bodyComp   = comps.find((c: any) => (c.type ?? '').toUpperCase() === 'BODY')
         const headerComp = comps.find((c: any) => (c.type ?? '').toUpperCase() === 'HEADER')
-        // WATI v1 puts body text at t.body (root level); components[].text is a fallback
-        const bodyText = t.body ?? bodyComp?.text ?? ''
-        // Match both named {{paramname}} and positional {{1}} variables
+        // Prefer bodyOriginal (named variables like {{booking_number}}) over
+        // body (positional {{1}}) — the API needs the named param names.
+        const bodyText = t.bodyOriginal ?? t.body ?? bodyComp?.text ?? ''
         const matches = bodyText.match(/\{\{(\w+)\}\}/g) ?? []
         const paramNames = matches.map((m: string) => m.replace(/\{\{|\}\}/g, ''))
+        // Detect header media from components[] OR from root-level header object
         const headerFmt = (headerComp?.format ?? '').toUpperCase()
+          || (t.header?.headerTypeString ?? t.header?.typeString ?? '').toUpperCase()
         const headerMedia: WatiTemplate['headerMedia'] =
           headerFmt === 'DOCUMENT' ? 'document'
           : headerFmt === 'IMAGE'  ? 'image'
           : headerFmt === 'VIDEO'  ? 'video'
           : null
+        const headerLink: string = t.header?.link ?? ''
+        const headerParamMatch = headerLink.match(/\{\{(\w+)\}\}/)
+        const headerParamName = headerParamMatch ? headerParamMatch[1] : null
         return {
           id:           t.id ?? t.elementName,
           elementName:  t.elementName,
@@ -271,6 +277,7 @@ export function useChatMessages(
           paramNames,
           unsupported:  false,
           headerMedia,
+          headerParamName,
         }
       })
       setTemplates(parsed)
