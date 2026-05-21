@@ -1,10 +1,10 @@
 import { type NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@supabase/supabase-js'
 
-const WATI_URL   = (process.env.WATI_API_URL ?? '').replace(/\/$/, '')
-const WATI_TOKEN = (process.env.WATI_API_TOKEN ?? '').replace(/^Bearer\s+/i, '')
-const SUPA_URL   = process.env.NEXT_PUBLIC_SUPABASE_URL!
-const SUPA_KEY   = process.env.SUPABASE_SERVICE_ROLE_KEY!
+const SUPA_URL    = process.env.NEXT_PUBLIC_SUPABASE_URL!
+const SUPA_KEY    = process.env.SUPABASE_SERVICE_ROLE_KEY!
+const SUPA_ANON   = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
+const CRON_SECRET = process.env.CRON_SECRET ?? ''
 
 function normalisePhone(raw: string): string {
   const digits = raw.replace(/\D/g, '')
@@ -15,20 +15,21 @@ function normalisePhone(raw: string): string {
  * POST /api/wati/send-message
  *
  * Called by the MMS system whenever it sends a WhatsApp message to a customer.
- * Sends via Wati AND saves to chat_messages so the message (with any document)
- * is always visible in the Contact Centre chat history.
+ * Routes through the api-wati Edge Function (direct Node.js→WATI calls are
+ * silently filtered) AND saves to chat_messages so the message is always
+ * visible in the Contact Centre chat history.
  *
  * Body (JSON):
  *   phone          string   — customer WhatsApp number, e.g. "+97455852848"
  *   text           string   — the rendered message body to display and send
  *   templateName?  string   — Wati template name (e.g. "normal_booking_conformation_utility")
- *   parameters?    Array<{name:string; value:string}> — template parameters for Wati
+ *   parameters?    Array<{name:string; value:string}> — template params (use NAMED params
+ *                             from bodyOriginal, not positional {{1}}/{{2}})
  *   documentUrl?   string   — URL of the document header attachment (PDF, etc.)
  *   documentName?  string   — filename shown in the chat (defaults to "document")
  *   imageUrl?      string   — URL of an image header attachment
  *   senderName?    string   — agent/system name shown in the chat bubble
  *   skipWatiSend?  boolean  — if true, skip the Wati API call and only save to DB
- *                             (use when your system already sent via Wati separately)
  */
 export async function POST(req: NextRequest) {
   let body: any
@@ -53,54 +54,56 @@ export async function POST(req: NextRequest) {
   const phone = normalisePhone(rawPhone)
   const watiPhone = phone.replace(/^\+/, '')
 
-  // ── 1. Send via Wati ────────────────────────────────────────────────────────
+  // ── 1. Send via api-wati Edge Function ──────────────────────────────────────
   let watiMessageId: string | null = null
-  let watiSent = skipWatiSend // if skipped, treat as "already sent"
+  let watiSent = skipWatiSend
   let watiError: string | null = null
 
-  if (!skipWatiSend && WATI_URL && WATI_TOKEN) {
-    if (templateName) {
-      const params = parameters ?? []
-      const watiBody: any = {
-        template_name:  templateName,
-        broadcast_name: templateName,
-        parameters:     params,
-      }
-      const res = await fetch(
-        `${WATI_URL}/api/v1/sendTemplateMessage/${watiPhone}`,
-        {
-          method:  'POST',
-          headers: { Authorization: `Bearer ${WATI_TOKEN}`, 'Content-Type': 'application/json' },
-          body:    JSON.stringify(watiBody),
-        }
-      )
-      if (res.ok) {
-        const data = await res.json().catch(() => null)
-        watiMessageId = data?.id ?? data?.messageId ?? null
-        watiSent = true
+  if (!skipWatiSend) {
+    try {
+      const invokeBody = templateName
+        ? {
+            action:         'send_template',
+            phone:          watiPhone,
+            template_name:  templateName,
+            broadcast_name: `${templateName}_${Date.now()}`,
+            parameters:     parameters ?? [],
+          }
+        : {
+            action: 'send_session_message',
+            phone:  watiPhone,
+            text,
+          }
+
+      const res = await fetch(`${SUPA_URL}/functions/v1/api-wati`, {
+        method:  'POST',
+        headers: {
+          'Content-Type':  'application/json',
+          'apikey':        SUPA_ANON,
+          'Authorization': `Bearer ${SUPA_ANON}`,
+          'x-cron-secret': CRON_SECRET,
+        },
+        body: JSON.stringify(invokeBody),
+      })
+
+      const rawText = await res.text()
+      let data: any
+      try { data = JSON.parse(rawText) } catch { data = { raw: rawText } }
+
+      if (!res.ok || data?.error) {
+        watiError = data?.error ?? `HTTP ${res.status}: ${rawText.slice(0, 200)}`
+        console.warn('[send-message] Edge Function send failed:', watiError)
       } else {
-        const errText = await res.text().catch(() => '')
-        watiError = `Wati ${res.status}: ${errText}`
-        console.warn('[send-message] Wati template send failed:', res.status, errText)
-      }
-    } else {
-      const res = await fetch(
-        `${WATI_URL}/api/v1/sendSessionMessage/${watiPhone}`,
-        {
-          method:  'POST',
-          headers: { Authorization: `Bearer ${WATI_TOKEN}`, 'Content-Type': 'application/json' },
-          body:    JSON.stringify({ messageText: text }),
-        }
-      )
-      if (res.ok) {
-        const data = await res.json().catch(() => null)
-        watiMessageId = data?.id ?? data?.messageId ?? null
+        watiMessageId = data?.message?.whatsappMessageId
+          ?? data?.info?.whatsAppMessageId
+          ?? data?.id
+          ?? data?.messageId
+          ?? null
         watiSent = true
-      } else {
-        const errText = await res.text().catch(() => '')
-        watiError = `Wati ${res.status}: ${errText}`
-        console.warn('[send-message] Wati session send failed:', res.status, errText)
       }
+    } catch (err) {
+      watiError = err instanceof Error ? err.message : String(err)
+      console.error('[send-message] Edge Function call failed:', watiError)
     }
   }
 
@@ -108,7 +111,6 @@ export async function POST(req: NextRequest) {
   const supabase = createClient(SUPA_URL, SUPA_KEY)
   const ts = new Date().toISOString()
 
-  // Build attachments array
   const attachments: Array<{ url: string; type: string; name: string }> = []
   if (documentUrl) {
     attachments.push({
@@ -121,7 +123,6 @@ export async function POST(req: NextRequest) {
     attachments.push({ url: imageUrl, type: 'image/jpeg', name: 'image' })
   }
 
-  // Find or create conversation
   const { data: existing } = await (supabase.from('chat_conversations') as any)
     .select('id')
     .eq('wati_phone', phone)
@@ -156,7 +157,6 @@ export async function POST(req: NextRequest) {
     conversationId = created.id
   }
 
-  // Insert message row (skip if duplicate external_id)
   const insertPayload: any = {
     conversation_id:  conversationId,
     from_type:        'agent',

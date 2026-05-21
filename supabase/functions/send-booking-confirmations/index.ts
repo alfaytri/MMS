@@ -8,7 +8,7 @@
  * Required env vars (set in Supabase Dashboard → Edge Functions → Secrets):
  *   WATI_API_URL                  — e.g. https://live-mt-server.wati.io/6273
  *   WATI_API_TOKEN                — Bearer token for Wati
- *   BOOKING_CONFIRMATION_PDF_URL  — public PDF URL (dummy for now)
+ *   BOOKING_CONFIRMATION_PDF_URL  — public PDF URL (optional)
  *
  * Auto-provided by Supabase runtime:
  *   SUPABASE_URL
@@ -19,24 +19,25 @@ import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
 
 const TEMPLATE_NAME = 'normal_booking_conformation_utility'
 
-const ARABIC_MONTHS = [
-  'يناير', 'فبراير', 'مارس', 'أبريل', 'مايو', 'يونيو',
-  'يوليو', 'أغسطس', 'سبتمبر', 'أكتوبر', 'نوفمبر', 'ديسمبر',
+const MONTHS_EN = [
+  'January', 'February', 'March',     'April',   'May',      'June',
+  'July',    'August',   'September', 'October', 'November', 'December',
 ]
 
-function formatDateAr(iso: string): string {
+function formatDate(iso: string): string {
   const d = new Date(iso + 'T12:00:00Z')
-  return `${d.getUTCDate()} ${ARABIC_MONTHS[d.getUTCMonth()]} ${d.getUTCFullYear()}`
+  const days = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday']
+  return `${days[d.getUTCDay()]} ${d.getUTCDate()}/${MONTHS_EN[d.getUTCMonth()].slice(0, 3)}/${d.getUTCFullYear()}`
 }
 
-function formatTimeAr(slot: string): string {
+function formatTime(slot: string): string {
   const [hStr, mStr] = slot.split(':')
   const h = parseInt(hStr)
   const m = mStr?.padStart(2, '0') ?? '00'
-  if (h === 0)  return `12:${m} ص`
-  if (h < 12)   return `${h}:${m} ص`
-  if (h === 12) return `12:${m} م`
-  return `${h - 12}:${m} م`
+  if (h === 0)  return `12:${m} AM`
+  if (h < 12)   return `${String(h).padStart(2, '0')}:${m} AM`
+  if (h === 12) return `12:${m} PM`
+  return `${String(h - 12).padStart(2, '0')}:${m} PM`
 }
 
 function normalisePhone(raw: string): string {
@@ -70,6 +71,7 @@ async function run() {
     .select(`
       id,
       order_id,
+      status,
       scheduled_date,
       address,
       address_id,
@@ -125,30 +127,36 @@ async function run() {
         .sort((a, b) => a.time_slot.localeCompare(b.time_slot))
       const timeSlot = sorted[0]?.time_slot ?? null
 
-      // 4. Template parameters
+      // 4. Template parameters — use NAMED params matching bodyOriginal
+      const safe = (v: string | null | undefined) => (v && v.trim()) || '-'
       const parameters: Array<{ name: string; value: string }> = []
-      if (PDF_URL) parameters.push({ name: 'header', value: PDF_URL })
+      if (PDF_URL) parameters.push({ name: 'pdflink', value: PDF_URL })
       parameters.push(
-        { name: 'booking_number', value: orderId },
-        { name: 'date',           value: formatDateAr(order.scheduled_date) },
-        { name: 'time',           value: timeSlot ? formatTimeAr(timeSlot) : '' },
-        { name: 'address_label',  value: addressLabel },
-        { name: 'address_link',   value: wazeLink },
+        { name: 'booking_number', value: safe(orderId) },
+        { name: 'date',           value: safe(formatDate(order.scheduled_date)) },
+        { name: 'time',           value: safe(timeSlot ? formatTime(timeSlot) : '') },
+        { name: 'address_label',  value: safe(addressLabel) },
+        { name: 'address_link',   value: safe(wazeLink) },
       )
 
-      // 5. Send template
+      // 5. Send template via WATI v2
       const watiRes = await fetch(
-        `${WATI_URL}/api/v1/sendTemplateMessage/${watiPhone}`,
+        `${WATI_URL}/api/v2/sendTemplateMessage?whatsappNumber=${encodeURIComponent(watiPhone)}`,
         {
           method:  'POST',
           headers: { Authorization: `Bearer ${WATI_TOKEN}`, 'Content-Type': 'application/json' },
-          body:    JSON.stringify({ template_name: TEMPLATE_NAME, broadcast_name: TEMPLATE_NAME, parameters }),
+          body:    JSON.stringify({
+            template_name:  TEMPLATE_NAME,
+            broadcast_name: `${TEMPLATE_NAME}_${orderId.replace(/[^a-zA-Z0-9]/g, '_')}_${Date.now()}`,
+            parameters,
+          }),
         },
       )
 
       const watiOk   = watiRes.ok
       const watiData = await watiRes.json().catch(() => null)
-      const watiMsgId: string | null = watiData?.id ?? watiData?.messageId ?? null
+      const watiMsgId: string | null =
+        watiData?.message?.whatsappMessageId ?? watiData?.id ?? watiData?.messageId ?? null
 
       if (!watiOk) {
         console.warn(`[booking-confirm] wati send failed for ${orderId}`, watiRes.status)
@@ -158,8 +166,8 @@ async function run() {
       const msgText = [
         `تم تأكيد موعد الخدمة رقم ${orderId}`,
         '',
-        `بتاريخ ${formatDateAr(order.scheduled_date)}`,
-        timeSlot ? `في الساعة ${formatTimeAr(timeSlot)}` : '',
+        `بتاريخ ${formatDate(order.scheduled_date)}`,
+        timeSlot ? `في الساعة ${formatTime(timeSlot)}` : '',
         '',
         `العنوان: ${addressLabel}`,
         wazeLink,
@@ -207,10 +215,15 @@ async function run() {
           })
       }
 
-      // 7. Mark sent
+      // 7. Mark sent + auto-confirm
+      const now = new Date().toISOString()
       await (supabase as any)
         .from('orders')
-        .update({ confirmation_status: 'sent', confirmation_sent_at: new Date().toISOString() })
+        .update({
+          confirmation_status:  watiOk ? 'sent' : 'failed',
+          confirmation_sent_at: watiOk ? now   : null,
+          ...(watiOk && order.status === 'scheduled' ? { status: 'confirmed' } : {}),
+        })
         .eq('id', order.id)
 
       console.log(`[booking-confirm] ${watiOk ? '✓' : '✗'} ${orderId}`)
