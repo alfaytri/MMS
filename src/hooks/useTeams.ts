@@ -66,6 +66,7 @@ export interface TeamDivision {
   id:           string
   slug:         string
   name:         string
+  short_name:   string | null
   company_id:   string
   company_name: string
 }
@@ -79,8 +80,9 @@ export interface TeamFull extends Omit<TeamRaw, 'division'> {
 }
 
 export interface TeamsFilters {
-  search?:     string
-  divisionId?: string | null
+  search?:      string
+  divisionId?:  string | null
+  divisionIds?: string[]       // multi-division filter — matches any of the provided slugs/UUIDs
 }
 
 // ---------------------------------------------------------------------------
@@ -100,7 +102,7 @@ export function useTeams(filters?: TeamsFilters) {
 
       const [teamsRes, employeesRes, vehiclesRes, schedulesRes] = await Promise.allSettled([
         // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        (supabase.from('teams') as any).select('*, divisions(id, slug, name, company_id, companies(id, name_en))').is('deleted_at', null).order('name_en', { nullsFirst: false }),
+        (supabase.from('teams') as any).select('*, divisions(id, slug, name, short_name, company_id, companies(id, name_en))').is('deleted_at', null).order('name_en', { nullsFirst: false }),
         // eslint-disable-next-line @typescript-eslint/no-explicit-any
         (supabase.from('employees') as any).select('*').is('deleted_at', null),
         // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -139,6 +141,7 @@ export function useTeams(filters?: TeamsFilters) {
             id:           div.id,
             slug:         div.slug,
             name:         div.name,
+            short_name:   (div as any).short_name ?? null,
             company_id:   div.company_id,
             company_name: div.companies?.name_en ?? '',
           } : null,
@@ -153,8 +156,19 @@ export function useTeams(filters?: TeamsFilters) {
           t.name?.toLowerCase().includes(q)
         )
       }
-      if (filters?.divisionId) {
-        result = result.filter(t => (t as unknown as Record<string, unknown>).division_id === filters.divisionId)
+      if (filters?.divisionIds && filters.divisionIds.length > 0) {
+        const ids = filters.divisionIds
+        result = result.filter(t =>
+          ids.some(id =>
+            (t as unknown as Record<string, unknown>).division_id === id ||
+            t.division?.slug === id
+          )
+        )
+      } else if (filters?.divisionId) {
+        result = result.filter(t =>
+          (t as unknown as Record<string, unknown>).division_id === filters.divisionId ||
+          t.division?.slug === filters.divisionId
+        )
       }
 
       return result

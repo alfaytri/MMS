@@ -136,7 +136,8 @@ export default function CreateOrderPage() {
     }
 
     // ── Single-service drag ──────────────────────────────────────────────────
-    const service = active.data.current.service as OrderServiceDraft
+    const service = active.data.current.service as OrderServiceDraft | undefined
+    if (!service) return
     const visitWindow = draft.visitDates.find((w) => w.date === draft.visitDate)
     const timeSlot = visitWindow?.fromTime ?? `${String(hour).padStart(2, '0')}:00`
     const toTime   = visitWindow?.toTime ?? null

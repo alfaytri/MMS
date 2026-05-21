@@ -364,11 +364,32 @@ export async function POST(req: NextRequest) {
       })
       .select('id')
       .single()
-    if (error || !created) {
-      console.error('[webhook] create conversation error', error)
-      return NextResponse.json({ error: error?.message }, { status: 500 })
+
+    if (error) {
+      if (error.code === '23505') {
+        // Race condition: a concurrent webhook created the conversation first.
+        // Re-fetch the winning row and continue processing the message normally.
+        const { data: raced } = await (supabase.from('chat_conversations') as any)
+          .select('id, unread_count')
+          .eq('wati_phone', phone)
+          .maybeSingle()
+        if (!raced) {
+          console.error('[webhook] create conversation error (race recovery failed)', error)
+          return NextResponse.json({ error: error?.message }, { status: 500 })
+        }
+        conversationId = raced.id
+        if (!isAgent && !isMsgEvent) {
+          await (supabase.from('chat_conversations') as any)
+            .update({ unread_count: (raced.unread_count ?? 0) + 1 })
+            .eq('id', conversationId)
+        }
+      } else {
+        console.error('[webhook] create conversation error', error)
+        return NextResponse.json({ error: error?.message }, { status: 500 })
+      }
+    } else {
+      conversationId = created.id
     }
-    conversationId = created.id
   }
 
   // Insert message (or update pending optimistic row from the app)

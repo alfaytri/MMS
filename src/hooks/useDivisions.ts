@@ -113,3 +113,60 @@ export function useDeleteDivision() {
     },
   })
 }
+
+// ---------------------------------------------------------------------------
+// Division calendar schedule assignment
+// ---------------------------------------------------------------------------
+
+export interface DivisionWithSchedule {
+  id: string
+  slug: string
+  name: string
+  short_name: string | null
+  calendar_schedule_id: string | null
+}
+
+/** Active divisions including their assigned calendar schedule id. */
+export function useDivisionsWithSchedule() {
+  return useQuery({
+    queryKey: ['divisions', 'with-schedule'],
+    queryFn: async (): Promise<DivisionWithSchedule[]> => {
+      const supabase = createClient()
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const { data, error } = await (supabase as any)
+        .from('divisions')
+        .select('id, slug, name, short_name, calendar_schedule_id')
+        .eq('is_active', true)
+        .order('sort_order')
+      if (error) throw error
+      return (data ?? []) as DivisionWithSchedule[]
+    },
+    staleTime: 2 * 60 * 1000,
+  })
+}
+
+/** Assigns (or clears) the calendar schedule for a division. */
+export function useAssignDivisionSchedule() {
+  const queryClient = useQueryClient()
+  return useMutation({
+    mutationFn: async ({
+      divisionId,
+      scheduleId,
+    }: {
+      divisionId: string
+      scheduleId: string | null
+    }) => {
+      const supabase = createClient()
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const { error } = await (supabase as any)
+        .from('divisions')
+        .update({ calendar_schedule_id: scheduleId })
+        .eq('id', divisionId)
+      if (error) throw error
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['divisions'] })
+      queryClient.invalidateQueries({ queryKey: ['division-schedule'] })
+    },
+  })
+}

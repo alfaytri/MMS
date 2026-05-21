@@ -6,7 +6,7 @@ import type { ChatMessage, WindowStatus } from '@/types/contact-center'
 const WINDOW_HOURS = 24
 const SAFETY_BUFFER_MINUTES = 5
 
-const CLOSE_EVENT_PATTERN = /clos|resolv|ended|انتهت|أغلق|تم الإغلاق/i
+const CLOSE_EVENT_PATTERN = /clos|resolv|ended|expir|انتهت|أغلق|تم الإغلاق/i
 
 export function useWhatsAppWindow(messages: ChatMessage[], watiStatus?: string | null): WindowStatus {
   return useMemo(() => {
@@ -15,9 +15,11 @@ export function useWhatsAppWindow(messages: ChatMessage[], watiStatus?: string |
       return { isOpen: false, expiresAt: null, minutesRemaining: 0 }
     }
 
+    // Exclude event messages (system notifications, expiry notices) — only real
+    // customer chat messages reset the 24-hour window.
     const lastInbound = [...messages]
       .reverse()
-      .find((m) => m.from_type === 'customer' && m.source === 'whatsapp_api')
+      .find((m) => m.from_type === 'customer' && m.source === 'whatsapp_api' && m.message_kind !== 'event')
 
     if (!lastInbound) {
       return { isOpen: false, expiresAt: null, minutesRemaining: 0 }

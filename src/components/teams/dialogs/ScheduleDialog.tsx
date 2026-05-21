@@ -28,6 +28,10 @@ import {
   type ScheduleInsert,
   type ScheduleUpdate,
 } from '@/hooks/useTeams'
+import {
+  useDivisionsWithSchedule,
+  useAssignDivisionSchedule,
+} from '@/hooks/useDivisions'
 import { useTeamsPage } from '../TeamsPageContext'
 
 const DAYS = ['sun', 'mon', 'tue', 'wed', 'thu', 'fri', 'sat'] as const
@@ -77,15 +81,18 @@ export function ScheduleDialog() {
 
   const { data: schedules = [] } = useSchedules()
   const { data: assignments = [] } = useTeamScheduleAssignments(teamId)
+  const { data: divisions = [] } = useDivisionsWithSchedule()
   const createSchedule = useCreateSchedule()
   const updateSchedule = useUpdateSchedule()
   const deleteSchedule = useDeleteSchedule()
   const attachSchedule = useAttachSchedule()
   const detachSchedule = useDetachSchedule()
+  const assignDivisionSchedule = useAssignDivisionSchedule()
 
   const [editingId, setEditingId] = useState<string | 'new' | null>(null)
   const [viewOnly, setViewOnly] = useState(false)
   const [showAttachForm, setShowAttachForm] = useState(false)
+  const [expandedDivisions, setExpandedDivisions] = useState<string | null>(null)
 
   const form = useForm<ScheduleFormValues>({
     defaultValues: { name: '', days: defaultDays() },
@@ -266,29 +273,119 @@ export function ScheduleDialog() {
             )}
 
             <div className="space-y-2">
-              {schedules.map(s => (
-                <div
-                  key={s.id}
-                  className="flex items-center justify-between border rounded px-3 py-2 text-sm"
-                >
-                  <span className="font-medium">{s.name}</span>
-                  <div className="flex gap-2">
-                    <Button size="sm" variant="ghost" onClick={() => startView(s)}>
-                      View
-                    </Button>
-                    <Button size="sm" variant="outline" onClick={() => startEdit(s)}>
-                      Edit
-                    </Button>
-                    <Button
-                      size="sm"
-                      variant="destructive"
-                      onClick={() => deleteSchedule.mutate(s.id)}
-                    >
-                      Delete
-                    </Button>
+              {schedules.map(s => {
+                const assignedDivisions = divisions.filter(d => d.calendar_schedule_id === s.id)
+                const unassignedDivisions = divisions.filter(d => d.calendar_schedule_id !== s.id)
+                const isDivExpanded = expandedDivisions === s.id
+
+                return (
+                  <div key={s.id} className="border rounded overflow-hidden">
+                    {/* Row header */}
+                    <div className="flex items-center justify-between px-3 py-2 text-sm">
+                      <div className="flex items-center gap-2 min-w-0">
+                        <span className="font-medium">{s.name}</span>
+                        {assignedDivisions.length > 0 && (
+                          <div className="flex flex-wrap gap-1">
+                            {assignedDivisions.map(d => (
+                              <span
+                                key={d.id}
+                                className="inline-flex items-center rounded-full bg-orange-100 px-2 py-0.5 text-[10px] font-semibold text-orange-700"
+                              >
+                                {d.short_name ?? d.name}
+                              </span>
+                            ))}
+                          </div>
+                        )}
+                      </div>
+                      <div className="flex items-center gap-1 shrink-0">
+                        <Button
+                          size="sm"
+                          variant="ghost"
+                          className="text-xs h-7 px-2"
+                          onClick={() => setExpandedDivisions(isDivExpanded ? null : s.id)}
+                        >
+                          {isDivExpanded ? 'Hide' : 'Divisions'}
+                        </Button>
+                        <Button size="sm" variant="ghost" onClick={() => startView(s)}>
+                          View
+                        </Button>
+                        <Button size="sm" variant="outline" onClick={() => startEdit(s)}>
+                          Edit
+                        </Button>
+                        <Button
+                          size="sm"
+                          variant="destructive"
+                          onClick={() => deleteSchedule.mutate(s.id)}
+                        >
+                          Delete
+                        </Button>
+                      </div>
+                    </div>
+
+                    {/* Division assignment panel */}
+                    {isDivExpanded && (
+                      <div className="border-t bg-muted/30 px-3 py-2.5 space-y-2">
+                        <p className="text-[11px] font-semibold uppercase tracking-widest text-muted-foreground">
+                          Calendar divisions
+                        </p>
+
+                        {/* Currently assigned */}
+                        {assignedDivisions.length === 0 ? (
+                          <p className="text-xs text-muted-foreground">No divisions assigned yet.</p>
+                        ) : (
+                          <div className="flex flex-wrap gap-1.5">
+                            {assignedDivisions.map(d => (
+                              <span
+                                key={d.id}
+                                className="inline-flex items-center gap-1 rounded-full border border-orange-200 bg-orange-50 px-2.5 py-1 text-xs font-medium text-orange-700"
+                              >
+                                {d.short_name ?? d.name}
+                                <button
+                                  type="button"
+                                  className="ml-0.5 opacity-60 hover:opacity-100 transition-opacity"
+                                  title="Remove"
+                                  onClick={() =>
+                                    assignDivisionSchedule.mutate({
+                                      divisionId: d.id,
+                                      scheduleId: null,
+                                    })
+                                  }
+                                >
+                                  ×
+                                </button>
+                              </span>
+                            ))}
+                          </div>
+                        )}
+
+                        {/* Assign another division */}
+                        {unassignedDivisions.length > 0 && (
+                          <div className="flex items-center gap-2">
+                            <Select
+                              onValueChange={divisionId => {
+                                if (divisionId) {
+                                  assignDivisionSchedule.mutate({ divisionId, scheduleId: s.id })
+                                }
+                              }}
+                            >
+                              <SelectTrigger className="h-7 w-44 text-xs">
+                                <SelectValue placeholder="Add division…" />
+                              </SelectTrigger>
+                              <SelectContent>
+                                {unassignedDivisions.map(d => (
+                                  <SelectItem key={d.id} value={d.id} className="text-xs">
+                                    {d.short_name ?? d.name}
+                                  </SelectItem>
+                                ))}
+                              </SelectContent>
+                            </Select>
+                          </div>
+                        )}
+                      </div>
+                    )}
                   </div>
-                </div>
-              ))}
+                )
+              })}
               {schedules.length === 0 && (
                 <p className="text-sm text-muted-foreground text-center py-4">
                   No schedules yet

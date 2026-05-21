@@ -1,7 +1,7 @@
 'use client'
 
 import { useState } from 'react'
-import { ChevronLeft, ChevronRight, ChevronDown, Filter } from 'lucide-react'
+import { ChevronLeft, ChevronRight, ChevronDown, Filter, Plus } from 'lucide-react'
 import { format, addDays, subDays, parseISO, isToday } from 'date-fns'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
@@ -48,6 +48,7 @@ interface CalendarToolbarProps {
   onFitModeToggle: () => void
   /** Hidden on mobile — only rendered at lg+ */
   showFitToggle?: boolean
+  onCreateOrder?: () => void
 }
 
 export function CalendarToolbar({
@@ -63,6 +64,7 @@ export function CalendarToolbar({
   fitMode,
   onFitModeToggle,
   showFitToggle = false,
+  onCreateOrder,
 }: CalendarToolbarProps) {
   const [filtersOpen, setFiltersOpen] = useState(false)
 
@@ -150,6 +152,17 @@ export function CalendarToolbar({
               Scroll
             </button>
           </div>
+        )}
+
+        {/* New Order quick-access */}
+        {onCreateOrder && (
+          <button
+            onClick={onCreateOrder}
+            className="inline-flex items-center gap-1.5 rounded-lg bg-orange-500 hover:bg-orange-600 active:bg-orange-700 text-white text-xs font-semibold px-3 h-8 transition-colors shadow-sm shadow-orange-200"
+          >
+            <Plus className="h-3.5 w-3.5" />
+            <span className="hidden sm:inline">New Order</span>
+          </button>
         )}
       </div>
 

@@ -2,7 +2,7 @@
 'use client'
 import { useState } from 'react'
 import { useRouter, useParams } from 'next/navigation'
-import { DndContext, DragOverlay, type DragEndEvent, type DragStartEvent } from '@dnd-kit/core'
+import { DndContext, DragOverlay, pointerWithin, type DragEndEvent, type DragStartEvent } from '@dnd-kit/core'
 import { toast } from 'sonner'
 import { ArrowLeft } from 'lucide-react'
 import { Button } from '@/components/ui/button'
@@ -21,6 +21,8 @@ export default function EditOrderPage() {
   const orderId = params.id as string
 
   const [draggingService, setDraggingService] = useState<OrderServiceDraft | null>(null)
+  const [draggingDayWindow, setDraggingDayWindow] = useState<{ date: string; fromTime: string | null; toTime: string | null } | null>(null)
+  const [selectedDivisions, setSelectedDivisions] = useState<string[]>([])
 
   const {
     draft,
@@ -48,15 +50,21 @@ export default function EditOrderPage() {
     const { data } = event.active
     if (data.current?.type === 'service') {
       setDraggingService(data.current.service as OrderServiceDraft)
+    } else if (data.current?.type === 'day-window') {
+      setDraggingDayWindow({
+        date:     data.current.date     as string,
+        fromTime: data.current.fromTime as string | null,
+        toTime:   data.current.toTime   as string | null,
+      })
     }
   }
 
   function handleDragEnd(event: DragEndEvent) {
     setDraggingService(null)
+    setDraggingDayWindow(null)
     const { active, over } = event
     if (!over || !active.data.current) return
 
-    const service = active.data.current.service as OrderServiceDraft
     const dropData = over.data.current as { teamId: string; hour: number } | undefined
     if (!dropData?.teamId) return
 
@@ -66,15 +74,41 @@ export default function EditOrderPage() {
       (match?.['name_en'] as string | null | undefined) ??
       (match?.['name'] as string | null | undefined) ??
       teamId
-    const timeSlot = service.fromTime ?? `${String(hour).padStart(2, '0')}:00`
+
+    // ── Day-window drag: assign ALL services at the day's time window ────────
+    if (active.data.current.type === 'day-window') {
+      const dayData = active.data.current as { date: string; fromTime: string | null; toTime: string | null }
+      if (draft.services.length === 0) return
+      const timeSlot = dayData.fromTime ?? `${String(hour).padStart(2, '0')}:00`
+      const toTime   = dayData.toTime ?? null
+      const totalDuration = draft.services.reduce((sum, s) => sum + s.duration, 0)
+      addAssignment({
+        teamId,
+        teamName,
+        services: draft.services.map((s) => ({ serviceId: s.serviceId, qty: s.qty })),
+        timeSlot,
+        toTime,
+        duration: totalDuration,
+        date: dayData.date,
+      })
+      return
+    }
+
+    // ── Single-service drag ──────────────────────────────────────────────────
+    const service = active.data.current.service as OrderServiceDraft | undefined
+    if (!service) return
+    const visitWindow = draft.visitDates.find((w) => w.date === draft.visitDate)
+    const timeSlot = visitWindow?.fromTime ?? `${String(hour).padStart(2, '0')}:00`
+    const toTime   = visitWindow?.toTime ?? null
 
     addAssignment({
       teamId,
       teamName,
       services: [{ serviceId: service.serviceId, qty: service.qty }],
       timeSlot,
-      toTime: service.toTime ?? null,
+      toTime,
       duration: service.duration,
+      date: draft.visitDate,
     })
   }
 
@@ -98,7 +132,7 @@ export default function EditOrderPage() {
   }
 
   return (
-    <DndContext autoScroll={false} onDragStart={handleDragStart} onDragEnd={handleDragEnd}>
+    <DndContext autoScroll={false} collisionDetection={pointerWithin} onDragStart={handleDragStart} onDragEnd={handleDragEnd}>
       <div className="relative overflow-x-hidden">
         {/* Back bar */}
         <div className="flex items-center gap-2 border-b bg-white px-4 py-2">
@@ -129,6 +163,7 @@ export default function EditOrderPage() {
             onUpdateSiteVisitTime={updateSiteVisitTime}
             onUpdate={update}
             onLookupCustomer={() => {}}   // customer locked on edit — no lookup modal
+            onDivisionsChange={setSelectedDivisions}
             onPendingFilesChange={setPendingFiles}
             onSubmit={handleSubmit}
             isSubmitting={submit.isPending}
@@ -159,6 +194,7 @@ export default function EditOrderPage() {
               onRemoveAssignment={removeAssignment}
               onDateChange={(date) => update({ visitDate: date })}
               editingOrderNumber={draft.orderId}
+              divisionSlugs={selectedDivisions}
             />
           </div>
 
@@ -171,7 +207,34 @@ export default function EditOrderPage() {
       </div>
 
       <DragOverlay dropAnimation={null} style={{ zIndex: 9999 }}>
-        {draggingService ? (
+        {draggingDayWindow ? (
+          <div className="w-72 rotate-1 rounded-xl border border-orange-300 bg-white shadow-2xl ring-1 ring-orange-200 px-3 py-2.5 space-y-1.5">
+            <div className="flex items-center justify-between">
+              <span className="text-[11px] font-medium text-slate-500">
+                {new Date(draggingDayWindow.date + 'T00:00:00').toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' })}
+              </span>
+              {draggingDayWindow.fromTime && (
+                <span className="text-[11px] font-semibold text-orange-600">
+                  {(() => {
+                    const fmt = (t: string) => { const h = parseInt(t); const m = t.split(':')[1]; const p = h < 12 ? 'AM' : 'PM'; const h12 = h === 0 ? 12 : h > 12 ? h - 12 : h; return `${h12}:${m} ${p}` }
+                    return draggingDayWindow.toTime
+                      ? `${fmt(draggingDayWindow.fromTime)} → ${fmt(draggingDayWindow.toTime)}`
+                      : `From ${fmt(draggingDayWindow.fromTime)}`
+                  })()}
+                </span>
+              )}
+            </div>
+            <div className="border-t border-slate-100" />
+            <div className="space-y-0.5">
+              {draft.services.map((s) => (
+                <p key={s.serviceId} className="truncate text-xs text-slate-700">
+                  {s.qty > 1 && <span className="font-semibold text-slate-500">{s.qty}× </span>}
+                  {s.serviceName}
+                </p>
+              ))}
+            </div>
+          </div>
+        ) : draggingService ? (
           <div className="w-72 rotate-1">
             {draggingService.serviceId === SITE_VISIT_SERVICE_ID ? (
               <SiteVisitCard

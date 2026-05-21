@@ -93,6 +93,7 @@ export function OrderEditDialog({ open, onOpenChange, order }: Props) {
       : ''
     try {
       await updateOrder.mutateAsync({
+        orderReadableId: order.order_id,
         scheduledDate,
         notes,
         arrivalPhone,
