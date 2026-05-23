@@ -55,9 +55,9 @@ export function AddUserDialog({ open, onOpenChange }: Props) {
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       const { data, error } = await (supabase as any)
         .from('employees')
-        .select('id, name, teams!teams_leader_id_fkey(id, name)')
+        .select('id, name, team_id, teams!fk_employee_team(id, name)')
         .is('profile_id', null)
-        .not('teams', 'is', null)
+        .not('team_id', 'is', null)
         .eq('status', 'active')
         .order('name')
       if (error) return []

@@ -34,16 +34,11 @@ export function useTeamLeaderIdentity() {
       if (profile.user_type === 'team-leader') {
         const { data: emp } = await (supabase as any)
           .from('employees')
-          .select('id, teams!teams_leader_id_fkey(id)')
+          .select('id, team_id')
           .eq('profile_id', profile.id)
           .maybeSingle()
 
-        const teams = emp?.teams
-        if (Array.isArray(teams) && teams.length > 0) {
-          teamId = teams[0].id
-        } else if (teams && typeof teams === 'object' && 'id' in teams) {
-          teamId = (teams as { id: string }).id
-        }
+        teamId = emp?.team_id ?? null
       }
 
       return { teamId, isAdmin, profileId: profile.id }

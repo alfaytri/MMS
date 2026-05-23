@@ -92,7 +92,7 @@ export function EditUserDialog({ open, onOpenChange, profile }: Props) {
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       const { data } = await (supabase as any)
         .from('employees')
-        .select('id, name, teams!teams_leader_id_fkey(name)')
+        .select('id, name, team_id, teams!fk_employee_team(name)')
         .eq('profile_id', profile.id)
         .maybeSingle()
       return data ?? null
@@ -107,12 +107,12 @@ export function EditUserDialog({ open, onOpenChange, profile }: Props) {
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       const { data } = await (supabase as any)
         .from('employees')
-        .select('id, name, teams!teams_leader_id_fkey(id, name)')
+        .select('id, name, team_id, teams!fk_employee_team(id, name)')
         .is('profile_id', null)
-        .not('teams', 'is', null)
+        .not('team_id', 'is', null)
         .eq('status', 'active')
         .order('name')
-      return (data ?? []) as { id: string; name: string; teams: { id: string; name: string } }[]
+      return (data ?? []) as { id: string; name: string; team_id: string; teams: { id: string; name: string } }[]
     },
     enabled: isTl,
   })
