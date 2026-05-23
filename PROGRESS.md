@@ -193,9 +193,11 @@ Purchase & Sales▾:
 
 ## 🔄 In Progress
 
-🚀 Starting: **Team Leader Plan Task 4: Middleware**
+_(nothing active)_
 
 ## ✅ Completed
+
+- [2026-05-23] **Team Leader Plan Task 4: Middleware** — src/middleware.ts — team leader JWT redirect with API/Next.js route bypass
 
 - [2026-05-23] **Team Leader Plan Task 3: Permissions + Nav Entry** — src/lib/permissions.ts, src/components/layout/nav-config.ts — teams.team_leader.view permission added to Teams group; Team Leader nav item added
 
