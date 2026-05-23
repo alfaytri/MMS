@@ -193,7 +193,7 @@ Purchase & Sales▾:
 
 ## 🔄 In Progress
 
-_(nothing active)_
+🚀 Starting: **Team Leader Plan Task 3: Permissions + Nav Entry**
 
 ## ✅ Completed
 
