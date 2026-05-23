@@ -193,9 +193,11 @@ Purchase & Sales▾:
 
 ## 🔄 In Progress
 
-🚀 Starting: **Team Leader Plan Task 7: useTeamLeaderIdentity Hook**
+_(nothing active)_
 
 ## ✅ Completed
+
+- [2026-05-23] **Team Leader Plan Task 7: useTeamLeaderIdentity Hook** — src/hooks/useTeamLeaderIdentity.ts — DB-driven team ID resolution and admin check
 
 - [2026-05-23] **Team Leader Plan Task 6: visitDrafts IndexedDB Layer** — src/lib/visitDrafts.ts — IndexedDB persistence for visit photos and signatures with crash recovery
 
