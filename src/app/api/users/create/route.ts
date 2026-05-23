@@ -11,6 +11,8 @@ const bodySchema = z.object({
   email: z.string().trim().toLowerCase().email('Valid email required'),
   password: passwordSchema,
   role_ids: z.array(z.string().uuid()).default([]),
+  is_team_leader: z.boolean().default(false),
+  employee_id: z.string().uuid().optional(),
 })
 
 export async function POST(request: Request) {
@@ -27,7 +29,7 @@ export async function POST(request: Request) {
   if (!parsed.success) {
     return NextResponse.json({ error: parsed.error.issues[0]?.message ?? 'Invalid body' }, { status: 400 })
   }
-  const { full_name, email, password, role_ids } = parsed.data
+  const { full_name, email, password, role_ids, is_team_leader, employee_id } = parsed.data
 
   // 3. Rate limit.
   if (await isRateLimited({
@@ -45,7 +47,9 @@ export async function POST(request: Request) {
     email,
     password,
     email_confirm: true,
-    user_metadata: { full_name },
+    user_metadata: is_team_leader
+      ? { full_name, is_team_leader: true }
+      : { full_name },
   })
   if (createErr || !created.user) {
     return NextResponse.json({ error: `Auth user creation failed: ${createErr?.message ?? 'unknown'}` }, { status: 400 })
@@ -60,7 +64,7 @@ export async function POST(request: Request) {
       auth_user_id: authUserId,
       email,
       full_name,
-      user_type: 'internal',
+      user_type: is_team_leader ? 'team-leader' : 'internal',
       is_active: true,
       created_by: gate.authUserId,
     })
@@ -73,9 +77,34 @@ export async function POST(request: Request) {
     )
   }
 
-  // 6. Assign roles via atomic RPC (non-fatal on failure).
+  // 6a. Link employee if team leader.
+  if (is_team_leader && employee_id) {
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const { data: emp } = await (admin as any)
+      .from('employees')
+      .select('id, teams!teams_leader_id_fkey(id)')
+      .eq('id', employee_id)
+      .maybeSingle()
+
+    const teamId = Array.isArray(emp?.teams) ? emp.teams[0]?.id
+      : (emp?.teams as { id: string } | null)?.id ?? null
+
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    await (admin as any)
+      .from('employees')
+      .update({ profile_id: profile.id })
+      .eq('id', employee_id)
+
+    if (teamId) {
+      await admin.auth.admin.updateUserById(authUserId, {
+        user_metadata: { full_name, is_team_leader: true, team_id: teamId },
+      })
+    }
+  }
+
+  // 6b. Assign roles via atomic RPC (non-fatal on failure, skip for TL).
   let roleWarning: string | null = null
-  if (role_ids.length > 0) {
+  if (!is_team_leader && role_ids.length > 0) {
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const { error: rpcErr } = await (admin as any).rpc('replace_user_custom_roles', {
       p_user_id: profile.id,
