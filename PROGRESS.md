@@ -193,9 +193,15 @@ Purchase & Sales▾:
 
 ## 🔄 In Progress
 
-🚀 Starting: **Team Leader Plan Task 9: ServiceStatusList + DamageReport**
+🚀 Starting: **Team Leader Plan Task 12: TlHeader Component**
 
 ## ✅ Completed
+
+- [2026-05-23] **Team Leader Plan Task 11: SignaturePad** — src/components/team-leader/shared/SignaturePad.tsx — Canvas signature pad with IndexedDB persistence and crash recovery
+
+- [2026-05-23] **Team Leader Plan Task 10: PhotoCapture** — src/components/team-leader/shared/PhotoCapture.tsx — Camera capture with IndexedDB draft persistence (Fix 4)
+
+- [2026-05-23] **Team Leader Plan Task 9: ServiceStatusList + DamageReport** — src/components/team-leader/shared/ServiceStatusList.tsx, DamageReport.tsx — Per-service done/skipped/issue toggle + damage report with photo upload
 
 - [2026-05-23] **Team Leader Plan Task 8: useTeamLeaderOrders Hook** — src/hooks/useTeamLeaderOrders.ts — visit list query with parallel joins for orders, contracts, backwork, follow-up
 
