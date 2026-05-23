@@ -2,6 +2,7 @@
 'use client'
 
 import { useState } from 'react'
+import type { ElementType } from 'react'
 import {
   Banknote, Building2, CheckCircle2, ChevronDown,
   Clock, CreditCard, FileText, Phone, QrCode,
@@ -18,7 +19,7 @@ import type { FinancePayment } from '@/hooks/usePayments'
 const PAYMENT_STATUS_CONFIG: Record<string, {
   label: string
   color: string
-  icon: React.ElementType
+  icon: ElementType
 }> = {
   completed: { label: 'Completed', color: 'bg-emerald-100 text-emerald-700', icon: CheckCircle2 },
   pending:   { label: 'Pending',   color: 'bg-amber-100 text-amber-700',     icon: Clock },
@@ -29,7 +30,7 @@ const PAYMENT_STATUS_CONFIG: Record<string, {
 
 const METHOD_CONFIG: Record<string, {
   label: string
-  icon: React.ElementType
+  icon: ElementType
   color: string
 }> = {
   cash:          { label: 'Cash',          icon: Banknote,   color: 'bg-emerald-100 text-emerald-700' },
@@ -76,10 +77,12 @@ export function PaymentCard({ payment, selected, onSelect }: Props) {
   return (
     <div className="border rounded-lg bg-card">
       {/* ── Collapsed row ──────────────────────────────────────────── */}
-      <button
-        type="button"
+      <div
+        role="button"
+        tabIndex={0}
         onClick={() => setExpanded((v) => !v)}
-        className="flex w-full items-center gap-3 px-4 py-3 text-left min-h-11"
+        onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); setExpanded((v) => !v) } }}
+        className="flex w-full items-center gap-3 px-4 py-3 text-left min-h-11 cursor-pointer"
       >
         {isSelectable && (
           <div onClick={(e) => e.stopPropagation()}>
@@ -140,7 +143,9 @@ export function PaymentCard({ payment, selected, onSelect }: Props) {
               Inv: {formatCurrency(payment.invoice_total)}
             </p>
           )}
-          {invoiceRemaining != null && invoiceRemaining <= 0 ? (
+          {invoiceRemaining != null && invoiceRemaining < 0 ? (
+            <p className="text-[10px] text-emerald-600 font-medium">Overpaid</p>
+          ) : invoiceRemaining != null && invoiceRemaining === 0 ? (
             <p className="text-[10px] text-emerald-600 font-medium">Fully paid</p>
           ) : invoiceRemaining != null ? (
             <p className="text-[10px] text-amber-600">Bal: {formatCurrency(invoiceRemaining)}</p>
@@ -164,7 +169,7 @@ export function PaymentCard({ payment, selected, onSelect }: Props) {
             expanded && 'rotate-180'
           )}
         />
-      </button>
+      </div>
 
       {/* ── Expanded detail ────────────────────────────────────────── */}
       {expanded && (
@@ -182,7 +187,7 @@ export function PaymentCard({ payment, selected, onSelect }: Props) {
               <p><span className="text-muted-foreground">Date:</span> {formatDate(payment.date)}</p>
               {payment.reference && <p><span className="text-muted-foreground">Reference:</span> {payment.reference}</p>}
               {payment.transaction_id && <p><span className="text-muted-foreground">Transaction ID:</span> {payment.transaction_id}</p>}
-              {payment.bank_name && <p><span className="text-muted-foreground">Bank:</span> {payment.bank_name}</p>}
+              {!isCheque && payment.bank_name && <p><span className="text-muted-foreground">Bank:</span> {payment.bank_name}</p>}
             </div>
           </div>
 
