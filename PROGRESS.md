@@ -193,9 +193,11 @@ Purchase & Sales▾:
 
 ## 🔄 In Progress
 
-🚀 Starting: **Team Leader Plan Task 8: useTeamLeaderOrders Hook**
+_(nothing active)_
 
 ## ✅ Completed
+
+- [2026-05-23] **Team Leader Plan Task 8: useTeamLeaderOrders Hook** — src/hooks/useTeamLeaderOrders.ts — visit list query with parallel joins for orders, contracts, backwork, follow-up
 
 - [2026-05-23] **Team Leader Plan Task 7: useTeamLeaderIdentity Hook** — src/hooks/useTeamLeaderIdentity.ts — DB-driven team ID resolution and admin check
 
