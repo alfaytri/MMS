@@ -47,7 +47,7 @@ CREATE POLICY "tll_insert" ON team_live_locations
       SELECT t.id FROM teams t
       JOIN employees e ON e.id = t.leader_id
       JOIN profiles p ON p.id = e.profile_id
-      WHERE p.auth_user_id = auth.uid()
+      WHERE p.auth_user_id = (SELECT auth.uid())
     )
   );
 
@@ -58,7 +58,7 @@ CREATE POLICY "tll_update" ON team_live_locations
       SELECT t.id FROM teams t
       JOIN employees e ON e.id = t.leader_id
       JOIN profiles p ON p.id = e.profile_id
-      WHERE p.auth_user_id = auth.uid()
+      WHERE p.auth_user_id = (SELECT auth.uid())
     )
   )
   WITH CHECK (
@@ -66,7 +66,7 @@ CREATE POLICY "tll_update" ON team_live_locations
       SELECT t.id FROM teams t
       JOIN employees e ON e.id = t.leader_id
       JOIN profiles p ON p.id = e.profile_id
-      WHERE p.auth_user_id = auth.uid()
+      WHERE p.auth_user_id = (SELECT auth.uid())
     )
   );
 
