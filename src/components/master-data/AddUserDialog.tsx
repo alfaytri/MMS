@@ -1,9 +1,11 @@
 'use client'
 
+import { useState } from 'react'
 import { useForm } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { z } from 'zod'
 import { toast } from 'sonner'
+import { useQuery } from '@tanstack/react-query'
 import {
   Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter,
 } from '@/components/ui/dialog'
@@ -11,12 +13,17 @@ import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Checkbox } from '@/components/ui/checkbox'
+import { Switch } from '@/components/ui/switch'
+import {
+  Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
+} from '@/components/ui/select'
 import {
   Form, FormControl, FormField, FormItem, FormLabel, FormMessage,
 } from '@/components/ui/form'
 import { passwordSchema } from '@/lib/auth/password-policy'
 import { useCreateUser } from '@/hooks/useProfiles'
 import { useRoles } from '@/hooks/useRoles'
+import { createClient } from '@/lib/supabase/client'
 
 const schema = z.object({
   full_name: z.string().min(1, 'Name is required'),
@@ -38,6 +45,28 @@ interface Props {
 export function AddUserDialog({ open, onOpenChange }: Props) {
   const createUser = useCreateUser()
   const { data: roles } = useRoles()
+  const [isTl, setIsTl] = useState(false)
+  const [linkedEmployeeId, setLinkedEmployeeId] = useState<string | null>(null)
+
+  const { data: tlEmployees = [] } = useQuery({
+    queryKey: ['tl-linkable-employees'],
+    queryFn: async () => {
+      const supabase = createClient()
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const { data, error } = await (supabase as any)
+        .from('employees')
+        .select('id, name, teams!teams_leader_id_fkey(id, name)')
+        .is('profile_id', null)
+        .not('teams', 'is', null)
+        .eq('status', 'active')
+        .order('name')
+      if (error) return []
+      return (data ?? []).filter((e: { teams: unknown }) => e.teams !== null) as {
+        id: string; name: string; teams: { id: string; name: string }
+      }[]
+    },
+    enabled: isTl,
+  })
 
   const form = useForm<Values>({
     resolver: zodResolver(schema) as never,
@@ -55,7 +84,9 @@ export function AddUserDialog({ open, onOpenChange }: Props) {
         full_name: values.full_name,
         email: values.email,
         password: values.password,
-        role_ids: values.role_ids,
+        role_ids: isTl ? [] : values.role_ids,
+        employee_id: isTl ? linkedEmployeeId ?? undefined : undefined,
+        is_team_leader: isTl,
       },
       {
         onSuccess: (res) => {
@@ -123,6 +154,41 @@ export function AddUserDialog({ open, onOpenChange }: Props) {
               )}
             />
 
+            {/* Team Leader toggle */}
+            <div className="flex items-center justify-between rounded-lg border p-3">
+              <div>
+                <Label className="text-sm font-medium">Team Leader Account</Label>
+                <p className="text-xs text-muted-foreground mt-0.5">
+                  Links this account to a team leader employee
+                </p>
+              </div>
+              <Switch checked={isTl} onCheckedChange={setIsTl} />
+            </div>
+
+            {isTl && (
+              <div className="space-y-1.5">
+                <Label>Linked Employee *</Label>
+                <Select value={linkedEmployeeId ?? ''} onValueChange={setLinkedEmployeeId}>
+                  <SelectTrigger>
+                    <SelectValue placeholder="Select team leader employee…" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {tlEmployees.map((e) => (
+                      <SelectItem key={e.id} value={e.id}>
+                        {e.name} — {e.teams?.name ?? 'Unknown Team'}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+                {tlEmployees.length === 0 && (
+                  <p className="text-xs text-muted-foreground">
+                    No unlinked team leaders found.
+                  </p>
+                )}
+              </div>
+            )}
+
+            {!isTl && (
             <div>
               <Label>Roles</Label>
               <div className="mt-2 flex flex-wrap gap-x-4 gap-y-1 border rounded-md p-3">
@@ -147,6 +213,7 @@ export function AddUserDialog({ open, onOpenChange }: Props) {
                 ))}
               </div>
             </div>
+            )}
 
             <DialogFooter>
               <Button type="button" variant="outline" onClick={() => onOpenChange(false)}>Cancel</Button>
