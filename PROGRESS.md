@@ -13,7 +13,7 @@
 | **Project** | MMS — Maintenance Management System |
 | **Owner** | Mohamed Ismail |
 | **Working dir** | `D:/MMS` |
-| **Active branch** | `feature/orders-module` — Orders Module complete, ready for merge |
+| **Active branch** | `feature/invoices-module` — Invoices Module (3 finance pages) |
 | **Goal** | Web ERP for a Qatar maintenance company (Alfaytri Maintenance, RSH Cleaning and Pest Control) |
 
 ---
@@ -191,7 +191,7 @@ Purchase & Sales▾:
 
 ## 🔄 In Progress
 
-🚀 Next: **Set WHAPI_TOKEN and WHAPI_WEBHOOK_SECRET in .env.local, then test WHAPI integration end-to-end**
+🚀 Starting: **Invoices Module Task 8: PaymentCard Component**
 
 ## ✅ Completed
 
