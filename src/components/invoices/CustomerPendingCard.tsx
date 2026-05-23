@@ -48,6 +48,7 @@ export function CustomerPendingCard({ customer, onView }: Props) {
         </div>
 
         <button
+          type="button"
           className="text-xs font-medium text-primary hover:underline"
           onClick={(e) => { e.stopPropagation(); onView(customer) }}
         >
