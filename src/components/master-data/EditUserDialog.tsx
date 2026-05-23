@@ -6,6 +6,7 @@ import { zodResolver } from '@hookform/resolvers/zod'
 import { z } from 'zod'
 import { toast } from 'sonner'
 import { X } from 'lucide-react'
+import { useQuery } from '@tanstack/react-query'
 import {
   Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter,
 } from '@/components/ui/dialog'
@@ -14,6 +15,7 @@ import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Checkbox } from '@/components/ui/checkbox'
 import { Badge } from '@/components/ui/badge'
+import { Switch } from '@/components/ui/switch'
 import {
   Form, FormControl, FormField, FormItem, FormLabel, FormMessage,
 } from '@/components/ui/form'
@@ -32,6 +34,7 @@ import {
   useSoftDeleteApprovalRoleAssignment,
 } from '@/hooks/useApprovalRoleAssignments'
 import type { ApprovalRole } from '@/lib/approvalChainResolution'
+import { createClient } from '@/lib/supabase/client'
 
 const APPROVAL_ROLES: { role: ApprovalRole; label: string }[] = [
   { role: 'purchase_manager',  label: 'Purchase Manager' },
@@ -70,6 +73,49 @@ export function EditUserDialog({ open, onOpenChange, profile }: Props) {
   const assignDivision = useAssignDivision()
   const removeDivision = useRemoveDivision()
   const [divisionPickValue, setDivisionPickValue] = useState('')
+
+  // ── Team Leader toggle ──────────────────────────────────────────────
+  const currentlyTl = profile?.user_type === 'team-leader'
+  const [isTl, setIsTl] = useState(currentlyTl)
+  const [linkedEmployeeId, setLinkedEmployeeId] = useState<string | null>(null)
+
+  useEffect(() => {
+    setIsTl(profile?.user_type === 'team-leader')
+    setLinkedEmployeeId(null)
+  }, [profile])
+
+  const { data: currentEmployee } = useQuery({
+    queryKey: ['tl-current-employee', profile?.id],
+    queryFn: async () => {
+      if (!profile?.id) return null
+      const supabase = createClient()
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const { data } = await (supabase as any)
+        .from('employees')
+        .select('id, name, teams!teams_leader_id_fkey(name)')
+        .eq('profile_id', profile.id)
+        .maybeSingle()
+      return data ?? null
+    },
+    enabled: !!profile?.id && currentlyTl,
+  })
+
+  const { data: tlEmployees = [] } = useQuery({
+    queryKey: ['tl-linkable-employees-edit'],
+    queryFn: async () => {
+      const supabase = createClient()
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const { data } = await (supabase as any)
+        .from('employees')
+        .select('id, name, teams!teams_leader_id_fkey(id, name)')
+        .is('profile_id', null)
+        .not('teams', 'is', null)
+        .eq('status', 'active')
+        .order('name')
+      return (data ?? []) as { id: string; name: string; teams: { id: string; name: string } }[]
+    },
+    enabled: isTl,
+  })
 
   const companiesWithUnassigned = useMemo(() => {
     const assignedIds = new Set(userDivisions.map((ud) => ud.division_id))
@@ -165,7 +211,16 @@ export function EditUserDialog({ open, onOpenChange, profile }: Props) {
   function onSubmit(values: Values) {
     if (!profile) return
     updateUser.mutate(
-      { auth_user_id: profile.auth_user_id, ...values },
+      {
+        auth_user_id: profile.auth_user_id,
+        ...values,
+        role_ids: isTl ? [] : values.role_ids,
+        is_team_leader: isTl,
+        employee_id: linkedEmployeeId && linkedEmployeeId !== '__change__'
+          ? linkedEmployeeId
+          : undefined,
+        demote_team_leader: !isTl && currentlyTl,
+      },
       {
         onSuccess: () => {
           toast.success('User updated')
@@ -214,6 +269,58 @@ export function EditUserDialog({ open, onOpenChange, profile }: Props) {
               <span className="text-sm">Active</span>
             </label>
 
+            {/* Team Leader toggle */}
+            <div className="flex items-center justify-between rounded-lg border p-3">
+              <div>
+                <Label className="text-sm font-medium">Team Leader Account</Label>
+                <p className="text-xs text-muted-foreground mt-0.5">
+                  Links this account to a team leader employee
+                </p>
+              </div>
+              <Switch checked={isTl} onCheckedChange={setIsTl} />
+            </div>
+
+            {isTl && currentEmployee && !linkedEmployeeId && (
+              <div className="rounded-lg border p-3 bg-muted/50 text-sm">
+                <p className="font-medium">{currentEmployee.name}</p>
+                <p className="text-xs text-muted-foreground">
+                  {currentEmployee.teams?.name ?? 'Unknown Team'}
+                </p>
+                <button
+                  type="button"
+                  className="text-xs text-primary mt-1 underline"
+                  onClick={() => setLinkedEmployeeId('__change__')}
+                >
+                  Change employee
+                </button>
+              </div>
+            )}
+
+            {isTl && (!currentEmployee || linkedEmployeeId) && (
+              <div className="space-y-1.5">
+                <Label>Linked Employee *</Label>
+                <Select
+                  value={linkedEmployeeId && linkedEmployeeId !== '__change__' ? linkedEmployeeId : ''}
+                  onValueChange={setLinkedEmployeeId}
+                >
+                  <SelectTrigger>
+                    <SelectValue placeholder="Select team leader employee…" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {tlEmployees.map((e) => (
+                      <SelectItem key={e.id} value={e.id}>
+                        {e.name} — {e.teams?.name ?? 'Unknown Team'}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+                {tlEmployees.length === 0 && (
+                  <p className="text-xs text-muted-foreground">No unlinked team leaders found.</p>
+                )}
+              </div>
+            )}
+
+            {!isTl && (
             <div className="space-y-1.5">
               <Label>Roles</Label>
               {/* Selected roles as removable badges */}
@@ -264,6 +371,7 @@ export function EditUserDialog({ open, onOpenChange, profile }: Props) {
                 </Select>
               )}
             </div>
+            )}
 
             <div className="space-y-1.5">
               <Label>Approval Role</Label>
