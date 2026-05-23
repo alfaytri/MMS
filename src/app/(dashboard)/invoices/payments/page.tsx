@@ -165,6 +165,7 @@ export default function ViewPaymentsPage() {
     setDateFrom(''); setDateTo('')
     setInvoiceSearch(''); setCustomerSearch(''); setRefSearch('')
     setMethodFilter(''); setAgent('')
+    setFiltersOpen(false)
   }
 
   const uniqueAgents = useMemo(() => {
@@ -268,7 +269,7 @@ export default function ViewPaymentsPage() {
               return (
                 <button
                   key={m.key}
-                  onClick={() => setActiveMethod(isActive ? undefined : m.key)}
+                  onClick={() => { setActiveMethod(isActive ? undefined : m.key); setMethodFilter('') }}
                   className={cn(
                     'flex items-center gap-1.5 whitespace-nowrap rounded-full border px-3 py-1.5 text-xs font-medium transition-all shrink-0 min-h-9',
                     isActive
@@ -292,10 +293,10 @@ export default function ViewPaymentsPage() {
           <Input placeholder="Invoice #" value={invoiceSearch} onChange={(e) => setInvoiceSearch(e.target.value)} />
           <Input placeholder="Customer" value={customerSearch} onChange={(e) => setCustomerSearch(e.target.value)} />
           <Input placeholder="Reference / Txn" value={refSearch} onChange={(e) => setRefSearch(e.target.value)} />
-          <Select value={methodFilter} onValueChange={(v) => setMethodFilter(v ?? '')}>
+          <Select value={methodFilter} onValueChange={(v) => { setMethodFilter(v ?? ''); setActiveMethod(undefined) }}>
             <SelectTrigger><SelectValue placeholder="Method" /></SelectTrigger>
             <SelectContent>
-              <SelectItem value="all">All</SelectItem>
+              <SelectItem value="">All</SelectItem>
               {METHOD_CHIPS.map((m) => (
                 <SelectItem key={m.key} value={m.key}>{m.label}</SelectItem>
               ))}
@@ -304,7 +305,7 @@ export default function ViewPaymentsPage() {
           <Select value={agent} onValueChange={(v) => setAgent(v ?? '')}>
             <SelectTrigger><SelectValue placeholder="Agent" /></SelectTrigger>
             <SelectContent>
-              <SelectItem value="all">All</SelectItem>
+              <SelectItem value="">All</SelectItem>
               {uniqueAgents.map((a) => (
                 <SelectItem key={a} value={a}>{a}</SelectItem>
               ))}
@@ -318,6 +319,7 @@ export default function ViewPaymentsPage() {
         <div className="flex items-center gap-3 p-3 rounded-lg border bg-blue-50/50">
           <Checkbox
             checked={selected.size === selectablePayments.length && selectablePayments.length > 0}
+            indeterminate={selected.size > 0 && selected.size < selectablePayments.length}
             onCheckedChange={(v) => handleSelectAll(v === true)}
           />
           <span className="text-sm font-medium">{selected.size} selected</span>
