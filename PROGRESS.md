@@ -193,9 +193,11 @@ Purchase & Sales▾:
 
 ## 🔄 In Progress
 
-🚀 Starting: **Team Leader Plan Task 3: Permissions + Nav Entry**
+_(nothing active)_
 
 ## ✅ Completed
+
+- [2026-05-23] **Team Leader Plan Task 3: Permissions + Nav Entry** — src/lib/permissions.ts, src/components/layout/nav-config.ts — teams.team_leader.view permission added to Teams group; Team Leader nav item added
 
 - [2026-05-23] **Team Leader Plan Task 2: Install idb + TypeScript Types** — package.json, src/types/team-leader.ts — idb dependency added and all module TypeScript types defined
 
