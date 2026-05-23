@@ -193,9 +193,11 @@ Purchase & Sales▾:
 
 ## 🔄 In Progress
 
-🚀 Starting: **Team Leader Plan Task 2: Install idb + TypeScript Types**
+_(nothing active)_
 
 ## ✅ Completed
+
+- [2026-05-23] **Team Leader Plan Task 2: Install idb + TypeScript Types** — package.json, src/types/team-leader.ts — idb dependency added and all module TypeScript types defined
 
 - [2026-05-23] **Invoices Module Tasks 1–12 (complete)** — `supabase/migrations/20260523120000_invoices_module.sql`, `src/hooks/useInvoices.ts`, `src/hooks/usePayments.ts`, `src/hooks/usePendingPayments.ts`, `src/components/invoices/InvoiceCard.tsx`, `src/components/invoices/PaymentCard.tsx`, `src/components/invoices/VoidInvoiceDialog.tsx`, `src/components/invoices/CreditNoteDialog.tsx`, `src/components/invoices/CustomerPendingCard.tsx`, `src/components/invoices/CustomerInvoiceDetailDialog.tsx`, `src/app/(dashboard)/invoices/page.tsx`, `src/app/(dashboard)/invoices/payments/page.tsx`, `src/app/(dashboard)/invoices/pending-payments/page.tsx`, `src/types/invoice.ts`, `src/components/layout/nav-config.ts` — 3 finance pages (View Invoices, View Payments, Pending Payments) with card-based UI, infinite scroll, QB sync flags, void/credit-note actions, and server-aggregated pending balances. DB migration: qb_synced columns, mark_overdue pg_cron job, get_customer_pending_balances RPC, RBAC RLS policies, reason_lists seed, performance indexes.
 
