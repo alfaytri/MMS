@@ -6,7 +6,9 @@
 
 **Architecture:** Approach A — dedicated `tl_invoices` table separate from the AR/AP `invoices` table. New `payment_methods` table seeded with 7 methods. New API route `POST /api/payments/dibsy/create-tl-invoice` handles Dibsy link creation + Wati send. Existing Dibsy webhook extended to handle `tl_invoice_id` in metadata.
 
-**Tech Stack:** Next.js 15 App Router, Supabase (Postgres + RLS), Tailwind CSS, shadcn/ui, Sonner toasts, Wati WhatsApp API, Dibsy payment gateway.
+**Tech Stack:** Next.js 15.5.15 App Router, Supabase (Postgres + RLS), Tailwind CSS, shadcn/ui, Sonner toasts, Wati WhatsApp API, Dibsy payment gateway.
+
+**RLS note:** Every admin-managed master-data table in this codebase (`brand_groups`, `custom_roles`, `reason_lists`, etc.) uses `FOR ALL TO authenticated USING (true)` — access is enforced at the application layer, not RLS. `payment_methods` and `tl_invoices` follow the same pattern. Do NOT introduce an admin-only RLS check here; it would diverge from the existing convention and the reviewer's proposed `custom_roles @> '["admin"]'` syntax refers to a column that does not exist on `profiles`.
 
 ---
 
@@ -1193,11 +1195,11 @@ import { redirect, notFound } from 'next/navigation'
 import { createAdminClient } from '@/lib/supabase/admin'
 
 interface Props {
-  params: { invoiceId: string }
+  params: Promise<{ invoiceId: string }>
 }
 
 export default async function PayPage({ params }: Props) {
-  const { invoiceId } = params
+  const { invoiceId } = await params
 
   const supabase = createAdminClient()
   const { data: invoice } = await (supabase as any)
