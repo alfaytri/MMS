@@ -9,6 +9,9 @@ const bodySchema = z.object({
   email: z.string().trim().toLowerCase().email().optional(),
   is_active: z.boolean().optional(),
   role_ids: z.array(z.string().uuid()).optional(),
+  is_team_leader: z.boolean().optional(),
+  employee_id: z.string().uuid().optional(),
+  demote_team_leader: z.boolean().optional(),
 })
 
 export async function PATCH(
@@ -38,6 +41,80 @@ export async function PATCH(
   }
 
   const admin = createAdminClient()
+
+  // 3b. Handle team leader promotion (OFF → ON)
+  if (changes.is_team_leader === true && changes.employee_id) {
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const { data: emp } = await (admin as any)
+      .from('employees')
+      .select('id, profile_id, teams!teams_leader_id_fkey(id)')
+      .eq('id', changes.employee_id)
+      .maybeSingle()
+
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const { data: currentProfile } = await (admin as any)
+      .from('profiles')
+      .select('id')
+      .eq('auth_user_id', targetAuthUserId)
+      .maybeSingle()
+
+    if (currentProfile) {
+      // Clear old employee link if switching employees
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      await (admin as any)
+        .from('employees')
+        .update({ profile_id: null })
+        .eq('profile_id', currentProfile.id)
+        .neq('id', changes.employee_id)
+
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      await (admin as any)
+        .from('employees')
+        .update({ profile_id: currentProfile.id })
+        .eq('id', changes.employee_id)
+    }
+
+    const teamId = Array.isArray(emp?.teams) ? emp.teams[0]?.id
+      : (emp?.teams as { id: string } | null)?.id ?? null
+
+    await admin.auth.admin.updateUserById(targetAuthUserId, {
+      user_metadata: { is_team_leader: true, team_id: teamId ?? undefined },
+    })
+
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    await (admin as any)
+      .from('profiles')
+      .update({ user_type: 'team-leader' })
+      .eq('auth_user_id', targetAuthUserId)
+  }
+
+  // 3c. Handle demotion (ON → OFF)
+  if (changes.demote_team_leader === true) {
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const { data: currentProfile } = await (admin as any)
+      .from('profiles')
+      .select('id')
+      .eq('auth_user_id', targetAuthUserId)
+      .maybeSingle()
+
+    if (currentProfile) {
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      await (admin as any)
+        .from('employees')
+        .update({ profile_id: null })
+        .eq('profile_id', currentProfile.id)
+    }
+
+    await admin.auth.admin.updateUserById(targetAuthUserId, {
+      user_metadata: { is_team_leader: false },
+    })
+
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    await (admin as any)
+      .from('profiles')
+      .update({ user_type: 'internal' })
+      .eq('auth_user_id', targetAuthUserId)
+  }
 
   // 4. Email change (hits auth.users) — must not clobber user_metadata.
   if (changes.email) {
