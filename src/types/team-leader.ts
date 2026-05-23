@@ -114,4 +114,5 @@ export interface TlIdentity {
   teamId: string | null
   isAdmin: boolean
   profileId: string
+  divisionIds: string[]
 }

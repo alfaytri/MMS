@@ -41,23 +41,36 @@ export function useTeamLeaderIdentity() {
         teamId = emp?.team_id ?? null
       }
 
-      return { teamId, isAdmin, profileId: profile.id }
+      // Fetch user's division IDs for multi-team access
+      const { data: userDivs } = await (supabase as any)
+        .from('user_divisions')
+        .select('division_id')
+        .eq('profile_id', profile.id)
+      const divisionIds = (userDivs ?? []).map((ud: { division_id: string }) => ud.division_id)
+
+      return { teamId, isAdmin, profileId: profile.id, divisionIds }
     },
     staleTime: 60_000,
     refetchOnWindowFocus: true, // re-check if roster changes while app is open
   })
 }
 
-export function useAllTeamsForSelect() {
+export function useAllTeamsForSelect(divisionIds?: string[]) {
   return useQuery<TlTeamOption[]>({
-    queryKey: ['tl-all-teams-select'],
+    queryKey: ['tl-all-teams-select', divisionIds ?? 'all'],
     queryFn: async () => {
       const supabase = createClient()
-      const { data, error } = await (supabase as any)
+      let query = (supabase as any)
         .from('teams')
-        .select('id, name, divisions(name)')
+        .select('id, name, division_id, divisions(name)')
         .eq('is_deleted', false)
         .order('name', { ascending: true })
+
+      if (divisionIds && divisionIds.length > 0) {
+        query = query.in('division_id', divisionIds)
+      }
+
+      const { data, error } = await query
       if (error) throw error
       return (data ?? []).map((t: { id: string; name: string; divisions?: { name: string } | null }) => ({
         id: t.id,

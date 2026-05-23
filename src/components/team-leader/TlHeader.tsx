@@ -12,6 +12,7 @@ import type { TlTeamOption } from '@/types/team-leader'
 interface Props {
   teamName: string
   isAdmin: boolean
+  showTeamSelector?: boolean
   allTeams: TlTeamOption[]
   effectiveTeamId: string | null
   onTeamChange: (teamId: string) => void
@@ -22,7 +23,7 @@ interface Props {
 }
 
 export function TlHeader({
-  teamName, isAdmin, allTeams, effectiveTeamId,
+  teamName, isAdmin, showTeamSelector, allTeams, effectiveTeamId,
   onTeamChange, todayCount, totalCount, viewMode, onViewModeChange,
 }: Props) {
   const today = format(new Date(), 'EEEE, MMM d, yyyy')
@@ -46,8 +47,8 @@ export function TlHeader({
         </div>
       </div>
 
-      {/* Row 2: admin team override */}
-      {isAdmin && (
+      {/* Row 2: team selector (admin sees all, managers see their division teams) */}
+      {(showTeamSelector ?? isAdmin) && (
         <Select value={effectiveTeamId ?? ''} onValueChange={(v) => { if (v) onTeamChange(v) }}>
           <SelectTrigger className="h-9 text-sm">
             <SelectValue placeholder="Select team…" />
