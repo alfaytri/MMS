@@ -118,6 +118,7 @@ export const PERMISSION_GROUPS: PermissionGroup[] = [
       { key: 'teams.manage',    label: 'Manage Teams',    description: 'Create, edit, and delete teams' },
       { key: 'employees.view',  label: 'View Employees',  description: 'Access the employee directory' },
       { key: 'employees.manage',label: 'Manage Employees',description: 'Create, edit, and manage employee records' },
+      { key: 'teams.team_leader.view', label: 'View Team Leader', description: 'Access the Team Leader field execution page and monitor any team\'s visits' },
     ],
   },
   {

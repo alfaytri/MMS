@@ -126,7 +126,8 @@ export const NAV_ITEMS: NavEntry[] = [
     groups: [
       {
         items: [
-          { label: 'Calendar', href: '/calendar' },
+          { label: 'Calendar',    href: '/calendar' },
+          { label: 'Team Leader', href: '/team-leader' },
         ],
       },
     ],
