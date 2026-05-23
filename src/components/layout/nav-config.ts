@@ -62,6 +62,19 @@ export const NAV_ITEMS: NavEntry[] = [
     ],
   },
   {
+    label: 'Invoices',
+    icon: 'Receipt',
+    groups: [
+      {
+        items: [
+          { label: 'View Invoices', href: '/invoices' },
+          { label: 'View Payments', href: '/invoices/payments' },
+          { label: 'Pending Payments', href: '/invoices/pending-payments' },
+        ],
+      },
+    ],
+  },
+  {
     label: 'Contracts',
     icon: 'FileText',
     comingSoon: true,
