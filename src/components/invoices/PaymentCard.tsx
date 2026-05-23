@@ -117,7 +117,7 @@ export function PaymentCard({ payment, selected, onSelect }: Props) {
               </span>
             )}
             {payment.invoice_display && (
-              <span className="flex items-center gap-1 hidden sm:flex">
+              <span className="hidden sm:flex items-center gap-1">
                 <Receipt className="h-3 w-3" /> {payment.invoice_display}
               </span>
             )}
