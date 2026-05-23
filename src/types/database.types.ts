@@ -7294,7 +7294,7 @@ export type Database = {
         | "pending_approval"
         | "approved"
         | "rejected"
-      user_type: "internal" | "customer" | "employee"
+      user_type: "internal" | "customer" | "employee" | "team-leader"
       voucher_type: "single_use" | "multi_use" | "limited"
     }
     CompositeTypes: {

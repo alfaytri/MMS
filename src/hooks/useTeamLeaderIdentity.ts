@@ -3,7 +3,7 @@
 // JWT is only used for the is_team_leader flag (UI hint for middleware).
 import { useQuery } from '@tanstack/react-query'
 import { createClient } from '@/lib/supabase/client'
-import type { TlIdentity } from '@/types/team-leader'
+import type { TlIdentity, TlTeamOption } from '@/types/team-leader'
 
 export function useTeamLeaderIdentity() {
   return useQuery<TlIdentity | null>({
@@ -54,7 +54,7 @@ export function useTeamLeaderIdentity() {
 }
 
 export function useAllTeamsForSelect() {
-  return useQuery({
+  return useQuery<TlTeamOption[]>({
     queryKey: ['tl-all-teams-select'],
     queryFn: async () => {
       const supabase = createClient()

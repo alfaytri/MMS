@@ -48,7 +48,7 @@ export function TlHeader({
 
       {/* Row 2: admin team override */}
       {isAdmin && (
-        <Select value={effectiveTeamId ?? ''} onValueChange={onTeamChange}>
+        <Select value={effectiveTeamId ?? ''} onValueChange={(v) => { if (v) onTeamChange(v) }}>
           <SelectTrigger className="h-9 text-sm">
             <SelectValue placeholder="Select team…" />
           </SelectTrigger>

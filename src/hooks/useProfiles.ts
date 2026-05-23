@@ -166,6 +166,8 @@ export function useCreateUser() {
       email: string
       password: string
       role_ids?: string[]
+      is_team_leader?: boolean
+      employee_id?: string
     }) => {
       const res = await fetch('/api/users/create', {
         method: 'POST',
@@ -191,6 +193,9 @@ export function useUpdateUser() {
       email?: string
       is_active?: boolean
       role_ids?: string[]
+      is_team_leader?: boolean
+      employee_id?: string
+      demote_team_leader?: boolean
     }) => {
       const { auth_user_id, ...body } = payload
       const res = await fetch(`/api/users/${auth_user_id}`, {

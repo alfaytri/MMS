@@ -126,7 +126,7 @@ export function TlInvoiceDialog({ visit, data, profileId, onDone, onClose }: Pro
             {visit.type === 'contract' && (
               <div className="space-y-1.5">
                 <Label>Contract Discount (%)</Label>
-                <Select value={contractDiscount} onValueChange={setContractDiscount}>
+                <Select value={contractDiscount} onValueChange={(v) => { if (v) setContractDiscount(v) }}>
                   <SelectTrigger className="h-11"><SelectValue /></SelectTrigger>
                   <SelectContent>
                     {DISCOUNT_OPTIONS.map((d) => (
@@ -139,7 +139,7 @@ export function TlInvoiceDialog({ visit, data, profileId, onDone, onClose }: Pro
 
             <div className="space-y-1.5">
               <Label>CC Discount (%)</Label>
-              <Select value={ccDiscount} onValueChange={setCcDiscount}>
+              <Select value={ccDiscount} onValueChange={(v) => { if (v) setCcDiscount(v) }}>
                 <SelectTrigger className="h-11"><SelectValue /></SelectTrigger>
                 <SelectContent>
                   {DISCOUNT_OPTIONS.map((d) => (
