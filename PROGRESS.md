@@ -193,7 +193,7 @@ Purchase & Sales▾:
 
 ## 🔄 In Progress
 
-_(nothing active)_
+🚀 Starting: **Team Leader Plan Task 5: Dashboard Layout — Stripped Shell**
 
 ## ✅ Completed
 
