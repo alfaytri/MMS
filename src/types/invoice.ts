@@ -39,14 +39,25 @@ export type ArInvoice = {
   invoice_type: 'cash' | 'credit'  // set at generation time from customer_type
   doc_status: 'draft' | 'ready_to_send' | 'sent'
   payment_status: BillPaymentStatus
+  status: string | null             // lifecycle status: draft, sent, void, cancelled
   needs_refresh: boolean
   total_amount: number | null
   subtotal: number | null
   tax: number | null
+  paid_amount: number | null
   issued_date: string
   due_date: string
   notes: string | null
+  source: string | null             // invoice_source enum: order, contract, quotation
+  source_type?: string | null       // alias used by some queries
+  source_id: string | null
+  source_label: string | null
+  agent_name: string | null
+  division: string | null
+  division_id?: string | null
+  manually_paid: boolean
   created_at: string | null
+  updated_at?: string | null
   // joined
   customer_name?: string
   so_number?: string

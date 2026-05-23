@@ -47,9 +47,22 @@ export function NavDropdown({ entry }: NavDropdownProps) {
   const pathname = usePathname()
   const Icon = ICON_MAP[entry.icon]
 
-  const isActive = entry.groups.some((group) =>
-    group.items.some((item) => pathname.startsWith(item.href))
-  )
+  const allHrefs = entry.groups.flatMap((g) => g.items.map((i) => i.href))
+
+  const isItemActive = (href: string) => {
+    if (pathname === href) return true
+    if (!pathname.startsWith(href + '/')) return false
+    // Don't highlight if a more-specific sibling nav item also matches
+    const hasMoreSpecificMatch = allHrefs.some(
+      (other) =>
+        other !== href &&
+        other.startsWith(href) &&
+        (pathname === other || pathname.startsWith(other + '/'))
+    )
+    return !hasMoreSpecificMatch
+  }
+
+  const isActive = allHrefs.some(isItemActive)
 
   return (
     <DropdownMenu>
@@ -99,7 +112,7 @@ export function NavDropdown({ entry }: NavDropdownProps) {
                         href={item.href}
                         className={cn(
                           'w-full cursor-pointer',
-                          pathname.startsWith(item.href) && 'text-primary font-medium'
+                          isItemActive(item.href) && 'text-primary font-medium'
                         )}
                       >
                         {item.label}

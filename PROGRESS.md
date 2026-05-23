@@ -13,7 +13,7 @@
 | **Project** | MMS — Maintenance Management System |
 | **Owner** | Mohamed Ismail |
 | **Working dir** | `D:/MMS` |
-| **Active branch** | `feature/orders-module` — Orders Module complete, ready for merge |
+| **Active branch** | `feature/invoices-module` — Invoices Module (3 finance pages) |
 | **Goal** | Web ERP for a Qatar maintenance company (Alfaytri Maintenance, RSH Cleaning and Pest Control) |
 
 ---
@@ -152,6 +152,7 @@ Purchase & Sales▾:
 | `docs/superpowers/plans/2026-05-09-orders-module.md` + amendments | ✅ DONE | Orders Module — customer phones/addresses, installed products, order creation with team calendar DnD, order list with chip filters, order detail sheet with 4 tabs, cancel/confirm/rollback actions, Blue Plate Edge Function, navigation |
 | `docs/superpowers/plans/2026-05-10-quotation-module.md` | 🚀 ACTIVE | Quotation Module — quotation_line_items table, ID sequence, save_quotation RPC, create/edit dialogs, form hooks, list page with filters, detail view, PDF generation, send flow |
 | `docs/superpowers/plans/2026-05-11-contact-centre-phase1.md` | 🚀 ACTIVE | Contact Centre Phase 1 — WhatsApp sidebar, CRM panel, address mgmt, warranty display, order history, WATI edge functions |
+| `docs/superpowers/plans/2026-05-23-invoices-module.md` | ✅ DONE | Invoices Module — View Invoices, View Payments, Pending Payments pages with card UI, infinite scroll, QB sync, void/credit-note, server-aggregated pending balances |
 
 ---
 
@@ -161,6 +162,7 @@ Purchase & Sales▾:
 
 | Date | Module / Scope | Secrets | RLS | Auth Gate | Error Handling | Notes |
 |---|---|---|---|---|---|---|
+| 2026-05-23 | **Invoices Module** | ✅ | ✅ | ✅ | ✅ | No hardcoded secrets; all Supabase calls via `createClient()`; `invoices`/`payments`/`credit_notes` had pre-existing RLS — migration adds void/credit-note restricted policies for accounting/admin; all mutations use try/catch in UI; no new API routes (client-side Supabase only) |
 | 2026-05-18 | **Old System Data Migration** | ✅ Secrets | ✅ RLS | ✅ Auth gate | ✅ Error handling | Data-only migration SQL; no new API routes or RLS tables created |
 | 2026-05-17 | **WHAPI Integration** | ✅ | ✅ | ✅ | ✅ | `WHAPI_TOKEN` via `process.env` only; `app_settings` has RLS + anon-read policy; `/api/whapi/webhook` in `WEBHOOK_PREFIXES` (middleware bypass); `/api/whapi/send-*` routes behind `requireAuth()`; all WHAPI fetch calls wrapped in try/catch; webhook signing: ⚠️ optional `WHAPI_WEBHOOK_SECRET` query-param check (WHAPI standard plan doesn't provide HMAC — accepted gap, documented here) |
 | 2026-05-17 | **Service Customers Page** | ✅ | ✅ | ✅ | ✅ | All mutations throw on error; RLS on `service_customer_*` tables inherited from existing `20260420000002_fix_rls_all_tables.sql` migration; new `referral_source` and `phone_id` columns inherit parent table RLS; no new API routes added |
@@ -191,9 +193,11 @@ Purchase & Sales▾:
 
 ## 🔄 In Progress
 
-🚀 Next: **Set WHAPI_TOKEN and WHAPI_WEBHOOK_SECRET in .env.local, then test WHAPI integration end-to-end**
+_(nothing active — all Invoices Module tasks complete)_
 
 ## ✅ Completed
+
+- [2026-05-23] **Invoices Module Tasks 1–12 (complete)** — `supabase/migrations/20260523120000_invoices_module.sql`, `src/hooks/useInvoices.ts`, `src/hooks/usePayments.ts`, `src/hooks/usePendingPayments.ts`, `src/components/invoices/InvoiceCard.tsx`, `src/components/invoices/PaymentCard.tsx`, `src/components/invoices/VoidInvoiceDialog.tsx`, `src/components/invoices/CreditNoteDialog.tsx`, `src/components/invoices/CustomerPendingCard.tsx`, `src/components/invoices/CustomerInvoiceDetailDialog.tsx`, `src/app/(dashboard)/invoices/page.tsx`, `src/app/(dashboard)/invoices/payments/page.tsx`, `src/app/(dashboard)/invoices/pending-payments/page.tsx`, `src/types/invoice.ts`, `src/components/layout/nav-config.ts` — 3 finance pages (View Invoices, View Payments, Pending Payments) with card-based UI, infinite scroll, QB sync flags, void/credit-note actions, and server-aggregated pending balances. DB migration: qb_synced columns, mark_overdue pg_cron job, get_customer_pending_balances RPC, RBAC RLS policies, reason_lists seed, performance indexes.
 
 - [2026-05-18] **Old System Data Migration: Inventory & Services Import** — `supabase/migrations/20260518100001_inventory_categories_and_items.sql`, `supabase/migrations/20260518120000_services_tree_import.sql`, `supabase/migrations/20260518130000_service_inventory_links.sql`, `scripts/migrate/generate_inventory_migration.py`, `scripts/migrate/generate_services_migration.py`, `scripts/migrate/generate_service_inventory_links.py` — Imports 224 inventory items (ACs, Water Coolers, Heaters, Pumps, Electrical, Plumbing) and 725 services from old Maintenance Division system; restructures AC/Water Cooler/Heater/Pump categories per boss specification; classifies consumable vs. spare-parts-sales items; links 73 supply-and-install services to inventory brand variants
 
