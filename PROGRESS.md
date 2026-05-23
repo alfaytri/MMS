@@ -193,7 +193,7 @@ Purchase & Sales▾:
 
 ## 🔄 In Progress
 
-_(nothing active — all Invoices Module tasks complete)_
+🚀 Starting: **Team Leader Plan Task 2: Install idb + TypeScript Types**
 
 ## ✅ Completed
 
