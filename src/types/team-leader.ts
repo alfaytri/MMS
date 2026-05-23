@@ -113,6 +113,7 @@ export interface TlTeamOption {
 export interface TlIdentity {
   teamId: string | null
   isAdmin: boolean
+  isDivisionManager: boolean
   profileId: string
   divisionIds: string[]
 }

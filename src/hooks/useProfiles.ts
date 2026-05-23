@@ -196,6 +196,7 @@ export function useUpdateUser() {
       is_team_leader?: boolean
       employee_id?: string
       demote_team_leader?: boolean
+      is_division_manager?: boolean
     }) => {
       const { auth_user_id, ...body } = payload
       const res = await fetch(`/api/users/${auth_user_id}`, {

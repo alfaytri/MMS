@@ -12,6 +12,7 @@ const bodySchema = z.object({
   is_team_leader: z.boolean().optional(),
   employee_id: z.string().uuid().optional(),
   demote_team_leader: z.boolean().optional(),
+  is_division_manager: z.boolean().optional(),
 })
 
 export async function PATCH(
@@ -133,6 +134,7 @@ export async function PATCH(
   if (changes.full_name !== undefined) profileUpdates.full_name = changes.full_name
   if (changes.email !== undefined) profileUpdates.email = changes.email
   if (changes.is_active !== undefined) profileUpdates.is_active = changes.is_active
+  if (changes.is_division_manager !== undefined) profileUpdates.is_division_manager = changes.is_division_manager
 
   let profileId: string | null = null
   if (Object.keys(profileUpdates).length > 0 || changes.role_ids !== undefined) {

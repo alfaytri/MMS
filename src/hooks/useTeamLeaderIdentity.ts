@@ -16,7 +16,7 @@ export function useTeamLeaderIdentity() {
       // Resolve profile
       const { data: profile, error: profileError } = await (supabase as any)
         .from('profiles')
-        .select('id, user_type, user_custom_roles(custom_roles(permissions))')
+        .select('id, user_type, is_division_manager, user_custom_roles(custom_roles(permissions))')
         .eq('auth_user_id', user.id)
         .maybeSingle()
 
@@ -41,14 +41,19 @@ export function useTeamLeaderIdentity() {
         teamId = emp?.team_id ?? null
       }
 
-      // Fetch user's division IDs for multi-team access
-      const { data: userDivs } = await (supabase as any)
-        .from('user_divisions')
-        .select('division_id')
-        .eq('profile_id', profile.id)
-      const divisionIds = (userDivs ?? []).map((ud: { division_id: string }) => ud.division_id)
+      const isDivisionManager = profile.is_division_manager === true
 
-      return { teamId, isAdmin, profileId: profile.id, divisionIds }
+      // Fetch user's division IDs for multi-team access (only if division manager)
+      let divisionIds: string[] = []
+      if (isDivisionManager) {
+        const { data: userDivs } = await (supabase as any)
+          .from('user_divisions')
+          .select('division_id')
+          .eq('profile_id', profile.id)
+        divisionIds = (userDivs ?? []).map((ud: { division_id: string }) => ud.division_id)
+      }
+
+      return { teamId, isAdmin, isDivisionManager, profileId: profile.id, divisionIds }
     },
     staleTime: 60_000,
     refetchOnWindowFocus: true, // re-check if roster changes while app is open

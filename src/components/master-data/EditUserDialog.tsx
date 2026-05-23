@@ -79,8 +79,12 @@ export function EditUserDialog({ open, onOpenChange, profile }: Props) {
   const [isTl, setIsTl] = useState(currentlyTl)
   const [linkedEmployeeId, setLinkedEmployeeId] = useState<string | null>(null)
 
+  // ── Division Manager toggle ────────────────────────────────────────
+  const [isDivMgr, setIsDivMgr] = useState(false)
+
   useEffect(() => {
     setIsTl(profile?.user_type === 'team-leader')
+    setIsDivMgr(profile?.is_division_manager ?? false)
     setLinkedEmployeeId(null)
   }, [profile])
 
@@ -220,6 +224,7 @@ export function EditUserDialog({ open, onOpenChange, profile }: Props) {
           ? linkedEmployeeId
           : undefined,
         demote_team_leader: !isTl && currentlyTl,
+        is_division_manager: isDivMgr,
       },
       {
         onSuccess: () => {
@@ -319,6 +324,17 @@ export function EditUserDialog({ open, onOpenChange, profile }: Props) {
                 )}
               </div>
             )}
+
+            {/* Division Manager toggle */}
+            <div className="flex items-center justify-between rounded-lg border p-3">
+              <div>
+                <Label className="text-sm font-medium">Division Manager</Label>
+                <p className="text-xs text-muted-foreground mt-0.5">
+                  Can access the Team Leader page for all teams in their assigned divisions
+                </p>
+              </div>
+              <Switch checked={isDivMgr} onCheckedChange={setIsDivMgr} />
+            </div>
 
             {!isTl && (
             <div className="space-y-1.5">

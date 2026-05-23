@@ -19,9 +19,9 @@ import type { TlVisit, OrderCompletionData } from '@/types/team-leader'
 export default function TeamLeaderPage() {
   const { data: identity, isLoading: identityLoading } = useTeamLeaderIdentity()
   const isAdmin = identity?.isAdmin ?? false
-  const hasMultiTeam = !isAdmin && (identity?.divisionIds?.length ?? 0) > 0
+  const isDivMgr = identity?.isDivisionManager ?? false
   const { data: allTeams = [] } = useAllTeamsForSelect(
-    isAdmin ? undefined : identity?.divisionIds
+    isAdmin ? undefined : isDivMgr ? identity?.divisionIds : undefined
   )
 
   const [adminOverride, setAdminOverride]       = useState<string | null>(null)
@@ -106,8 +106,8 @@ export default function TeamLeaderPage() {
     )
   }
 
-  // No team access — allow admins and managers with divisions
-  if (!identity?.teamId && !isAdmin && !hasMultiTeam) {
+  // No team access — allow admins and division managers
+  if (!identity?.teamId && !isAdmin && !isDivMgr) {
     return (
       <div className="flex flex-col items-center justify-center h-screen gap-4 px-6 text-center">
         <AlertTriangle className="h-10 w-10 text-destructive" />
@@ -127,7 +127,7 @@ export default function TeamLeaderPage() {
       <TlHeader
         teamName={teamName}
         isAdmin={isAdmin}
-        showTeamSelector={isAdmin || (hasMultiTeam && allTeams.length > 1)}
+        showTeamSelector={isAdmin || (isDivMgr && allTeams.length > 1)}
         allTeams={allTeams}
         effectiveTeamId={effectiveTeamId}
         onTeamChange={setAdminOverride}

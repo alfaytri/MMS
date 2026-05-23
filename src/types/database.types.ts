@@ -3536,6 +3536,7 @@ export type Database = {
           full_name_ar: string | null
           id: string
           is_active: boolean | null
+          is_division_manager: boolean
           must_change_password: boolean
           phone: string | null
           updated_at: string
@@ -3553,6 +3554,7 @@ export type Database = {
           full_name_ar?: string | null
           id?: string
           is_active?: boolean | null
+          is_division_manager?: boolean
           must_change_password?: boolean
           phone?: string | null
           updated_at?: string
@@ -3570,6 +3572,7 @@ export type Database = {
           full_name_ar?: string | null
           id?: string
           is_active?: boolean | null
+          is_division_manager?: boolean
           must_change_password?: boolean
           phone?: string | null
           updated_at?: string
