@@ -153,6 +153,7 @@ Purchase & Sales▾:
 | `docs/superpowers/plans/2026-05-10-quotation-module.md` | 🚀 ACTIVE | Quotation Module — quotation_line_items table, ID sequence, save_quotation RPC, create/edit dialogs, form hooks, list page with filters, detail view, PDF generation, send flow |
 | `docs/superpowers/plans/2026-05-11-contact-centre-phase1.md` | 🚀 ACTIVE | Contact Centre Phase 1 — WhatsApp sidebar, CRM panel, address mgmt, warranty display, order history, WATI edge functions |
 | `docs/superpowers/plans/2026-05-23-invoices-module.md` | ✅ DONE | Invoices Module — View Invoices, View Payments, Pending Payments pages with card UI, infinite scroll, QB sync, void/credit-note, server-aggregated pending balances |
+| `docs/superpowers/plans/2026-05-23-team-leader.md` | ✅ DONE | Team Leader Module — mobile-first field execution app: identity detection, stripped layout, GPS tracking, 7 order dialogs, invoice flow, customer escalation, admin TL management |
 
 ---
 
@@ -162,6 +163,7 @@ Purchase & Sales▾:
 
 | Date | Module / Scope | Secrets | RLS | Auth Gate | Error Handling | Notes |
 |---|---|---|---|---|---|---|
+| 2026-05-23 | **Team Leader Module** | ✅ | ✅ | ✅ | ✅ | No hardcoded secrets; all Supabase calls via `createClient()`/`createServerClient()`; no new DB tables created (pre-existing); API routes `/api/contact-center/escalate` and `/api/team-leader/update-location` both check `supabase.auth.getUser()` and return 401; all routes use try/catch with proper error responses; Storage uploads use authenticated Supabase client |
 | 2026-05-23 | **Invoices Module** | ✅ | ✅ | ✅ | ✅ | No hardcoded secrets; all Supabase calls via `createClient()`; `invoices`/`payments`/`credit_notes` had pre-existing RLS — migration adds void/credit-note restricted policies for accounting/admin; all mutations use try/catch in UI; no new API routes (client-side Supabase only) |
 | 2026-05-18 | **Old System Data Migration** | ✅ Secrets | ✅ RLS | ✅ Auth gate | ✅ Error handling | Data-only migration SQL; no new API routes or RLS tables created |
 | 2026-05-17 | **WHAPI Integration** | ✅ | ✅ | ✅ | ✅ | `WHAPI_TOKEN` via `process.env` only; `app_settings` has RLS + anon-read policy; `/api/whapi/webhook` in `WEBHOOK_PREFIXES` (middleware bypass); `/api/whapi/send-*` routes behind `requireAuth()`; all WHAPI fetch calls wrapped in try/catch; webhook signing: ⚠️ optional `WHAPI_WEBHOOK_SECRET` query-param check (WHAPI standard plan doesn't provide HMAC — accepted gap, documented here) |
@@ -193,9 +195,11 @@ Purchase & Sales▾:
 
 ## 🔄 In Progress
 
-🚀 Starting: **Team Leader Plan Task 12: TlHeader Component**
+(none)
 
 ## ✅ Completed
+
+- [2026-05-23] **Team Leader Plan Tasks 9–30 (complete)** — `src/components/team-leader/` (17 components), `src/hooks/useDeductOrderStock.ts`, `src/hooks/useGpsTracking.ts`, `src/hooks/useTeamLeaderIdentity.ts` (updated), `src/hooks/useProfiles.ts` (updated), `src/app/(dashboard)/team-leader/page.tsx`, `src/app/api/contact-center/escalate/route.ts`, `src/app/api/team-leader/update-location/route.ts`, `src/components/master-data/AddUserDialog.tsx` (TL toggle), `src/components/master-data/EditUserDialog.tsx` (TL toggle), `src/app/api/users/create/route.ts` (TL fields), `src/app/api/users/[id]/route.ts` (promote/demote), `src/types/database.types.ts` (team-leader user_type) — Shared widgets (ServiceStatusList, DamageReport, PhotoCapture, SignaturePad), TlHeader, TlOrderCard, TlVisitList, OrderDetailDispatch, 7 order dialogs (Normal, Backwork, FollowUp, SiteVisitSingle, SiteVisitContract, ContractVisit, QC), TlInvoiceDialog with optimistic lock, CustomerUnavailableDialog with photo escalation, GPS tracking hook, stock deduction hook, admin TL promote/demote in user management
 
 - [2026-05-23] **Team Leader Plan Task 11: SignaturePad** — src/components/team-leader/shared/SignaturePad.tsx — Canvas signature pad with IndexedDB persistence and crash recovery
 
