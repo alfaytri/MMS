@@ -193,9 +193,11 @@ Purchase & Sales▾:
 
 ## 🔄 In Progress
 
-🚀 Starting: **Team Leader Plan Task 5: Dashboard Layout — Stripped Shell**
+_(nothing active)_
 
 ## ✅ Completed
+
+- [2026-05-23] **Team Leader Plan Task 5: Dashboard Layout — Stripped Shell** — src/app/(dashboard)/layout.tsx — stripped layout branch added for team leader sessions via x-is-team-leader header
 
 - [2026-05-23] **Team Leader Plan Task 4: Middleware** — src/middleware.ts — team leader JWT redirect with API/Next.js route bypass
 
