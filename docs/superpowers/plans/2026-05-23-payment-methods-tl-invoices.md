@@ -1012,7 +1012,7 @@ export async function POST(request: Request) {
         { name: 'bookingnumber', value: order_id },
         { name: 'total_amount',  value: formattedAmount },
         { name: 'due_amount',    value: formattedAmount },
-        { name: 'url',           value: `pay/${invoice_id}` },
+        { name: 'url',           value: invoice_id },
       ],
       senderName: 'MMS System',
     }

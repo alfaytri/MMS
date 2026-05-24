@@ -182,7 +182,7 @@ The existing optimistic-lock visit update (`.not('status', 'in', '("completed","
    - `bookingnumber` = order_id
    - `total_amount` = `${amount.toFixed(2)} QAR`
    - `due_amount` = `${amount.toFixed(2)} QAR`
-   - `url` = `pay/${invoice_id}` (button suffix — Meta base URL is `https://mms.alfaytri.com/`)
+   - `url` = `${invoice_id}` (button suffix — template button URL is `https://mms.alfaytri.com/pay/{{url}}`)
 5. Return `{ ok: true, checkoutUrl }`.
 
 **Error handling:** Dibsy failure → 502. DB update failure → log and continue (don't block). Wati failure → log and continue (don't block; Wati is best-effort).
