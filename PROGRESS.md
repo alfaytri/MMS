@@ -195,9 +195,11 @@ Purchase & Sales▾:
 
 ## 🔄 In Progress
 
-🚀 Starting: **Payment Methods + TL Invoices Task 3: tl_invoice_payments table + Dibsy flow**
+🚀 Starting: **Task 3: Admin Payment Methods page**
 
 ## ✅ Completed
+
+- [2026-05-24] **Payment Methods + TL Invoices Task 2: tl_invoices migration** — `supabase/migrations/20260523220000_tl_invoices.sql`, `20260523220001_tl_invoices_fixes.sql` — tl_invoices table with sequence, triggers, UNIQUE invoice_number, RLS
 
 - [2026-05-24] **Payment Methods + TL Invoices Task 2: tl_invoices migration** — `supabase/migrations/20260523220000_tl_invoices.sql` — tl_invoices table with sequence (tl_invoice_seq), auto-generate trigger (TL-YYYY-NNNN), updated_at trigger, RLS (SELECT/INSERT/UPDATE for authenticated); visit_id stored without FK (visits are logical/unified across 3 assignment tables)
 
