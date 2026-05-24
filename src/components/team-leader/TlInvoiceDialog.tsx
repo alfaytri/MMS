@@ -1,7 +1,7 @@
 // src/components/team-leader/TlInvoiceDialog.tsx
 'use client'
 
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useMemo } from 'react'
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog'
 import { Button } from '@/components/ui/button'
 import { Label } from '@/components/ui/label'
@@ -38,7 +38,7 @@ export function TlInvoiceDialog({ visit, data, profileId, onDone, onClose }: Pro
   const [signature, setSignature]             = useState<Blob | null>(data.signature ?? null)
   const [submitting, setSubmitting]           = useState(false)
 
-  const supabase = createClient()
+  const supabase = useMemo(() => createClient(), [])
 
   // Load active payment methods on mount
   useEffect(() => {
@@ -106,7 +106,7 @@ export function TlInvoiceDialog({ visit, data, profileId, onDone, onClose }: Pro
           order_id:          visit.order_id ?? null,
           customer_name:     visit.customer_name,
           customer_phone:    visit.customer_phone ?? null,
-          items:             allItems,
+          items:             allItems.map(({ name, qty, unit_price, total }) => ({ name, qty, unit_price, total })),
           subtotal,
           discount_amount:   discount,
           total_amount:      totalAmount,
@@ -241,12 +241,15 @@ export function TlInvoiceDialog({ visit, data, profileId, onDone, onClose }: Pro
 
             {/* Payment method */}
             <div className="space-y-1.5">
-              <Label>Payment Method</Label>
+              <Label htmlFor="payment-method-select">Payment Method</Label>
               <Select value={paymentMethodId} onValueChange={(v) => { if (v) setPaymentMethodId(v) }}>
-                <SelectTrigger className="h-11">
+                <SelectTrigger id="payment-method-select" className="h-11">
                   <SelectValue placeholder="Select payment method…" />
                 </SelectTrigger>
                 <SelectContent>
+                  {paymentMethods.length === 0 && (
+                    <SelectItem value="__none" disabled>No active payment methods</SelectItem>
+                  )}
                   {paymentMethods.map((m) => (
                     <SelectItem key={m.id} value={m.id}>{m.name}</SelectItem>
                   ))}
