@@ -195,9 +195,11 @@ Purchase & Sales▾:
 
 ## 🔄 In Progress
 
-🚀 Starting: **Task 5: create-tl-invoice API route**
+🚀 Starting: **Task 6: (next task)**
 
 ## ✅ Completed
+
+- [2026-05-24] **Payment Methods + TL Invoices Task 5: create-tl-invoice API route** — `src/app/api/payments/dibsy/create-tl-invoice/route.ts` — POST route: validates invoice_id/amount/order_id; creates Dibsy payment link (blocking, returns 502 on failure); updates tl_invoices with dibsy_payment_id + dibsy_checkout_url (non-blocking); sends Wati mms_tl_invoice_payment template with bookingnumber/total_amount/due_amount/url params (non-blocking, skipped if no phone); returns { ok: true, checkoutUrl }
 
 - [2026-05-24] **Payment Methods + TL Invoices Task 4: Revised TlInvoiceDialog** — `src/types/team-leader.ts`, `src/components/team-leader/dialogs/NormalOrderDialog.tsx`, `src/components/team-leader/TlInvoiceDialog.tsx` — Added addedServices? to OrderCompletionData; NormalOrderDialog passes addedServices through onComplete; TlInvoiceDialog replaced: single QAR discount input, DB-driven payment methods (active, sorted), services breakdown table including added services, totals block (Grand Total / Discount / Amount Due), cash flow (Confirm & Mark Paid), non-cash flow (Confirm & Send Payment Link → Dibsy), optimistic-lock preserved
 
