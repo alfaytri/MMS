@@ -195,9 +195,11 @@ Purchase & Sales▾:
 
 ## 🔄 In Progress
 
-🚀 Starting: **Task 7: Public Payment Page + Middleware**
+🚀 Starting: **Task 8: (next task)**
 
 ## ✅ Completed
+
+- [2026-05-24] **Payment Methods + TL Invoices Task 7: Public Payment Page + Middleware** — `src/app/pay/[invoiceId]/page.tsx`, `src/middleware.ts` — Public /pay/[invoiceId] page using admin client (no auth required): redirects to Dibsy checkout if unpaid with URL, shows "Already Settled" card if paid, shows "Not Ready" fallback otherwise; middleware updated to exclude /pay/ from team-leader redirect
 
 - [2026-05-24] **Payment Methods + TL Invoices Task 6: Extend Dibsy webhook** — `src/app/api/payments/dibsy/webhook/route.ts` — tl_invoice_id metadata handling
 
