@@ -195,9 +195,13 @@ Purchase & Sales▾:
 
 ## 🔄 In Progress
 
-🚀 Starting: **Payment Methods + TL Invoices Task 1: payment_methods migration**
+🚀 Starting: **Payment Methods + TL Invoices Task 3: tl_invoice_payments table + Dibsy flow**
 
 ## ✅ Completed
+
+- [2026-05-24] **Payment Methods + TL Invoices Task 2: tl_invoices migration** — `supabase/migrations/20260523220000_tl_invoices.sql` — tl_invoices table with sequence (tl_invoice_seq), auto-generate trigger (TL-YYYY-NNNN), updated_at trigger, RLS (SELECT/INSERT/UPDATE for authenticated); visit_id stored without FK (visits are logical/unified across 3 assignment tables)
+
+- [2026-05-24] **Payment Methods + TL Invoices Task 1: payment_methods migration** — `supabase/migrations/20260523210000_payment_methods.sql` — payment_methods table + 7 seeded methods
 
 - [2026-05-23] **Team Leader Plan Tasks 9–30 (complete)** — `src/components/team-leader/` (17 components), `src/hooks/useDeductOrderStock.ts`, `src/hooks/useGpsTracking.ts`, `src/hooks/useTeamLeaderIdentity.ts` (updated), `src/hooks/useProfiles.ts` (updated), `src/app/(dashboard)/team-leader/page.tsx`, `src/app/api/contact-center/escalate/route.ts`, `src/app/api/team-leader/update-location/route.ts`, `src/components/master-data/AddUserDialog.tsx` (TL toggle), `src/components/master-data/EditUserDialog.tsx` (TL toggle), `src/app/api/users/create/route.ts` (TL fields), `src/app/api/users/[id]/route.ts` (promote/demote), `src/types/database.types.ts` (team-leader user_type) — Shared widgets (ServiceStatusList, DamageReport, PhotoCapture, SignaturePad), TlHeader, TlOrderCard, TlVisitList, OrderDetailDispatch, 7 order dialogs (Normal, Backwork, FollowUp, SiteVisitSingle, SiteVisitContract, ContractVisit, QC), TlInvoiceDialog with optimistic lock, CustomerUnavailableDialog with photo escalation, GPS tracking hook, stock deduction hook, admin TL promote/demote in user management
 
