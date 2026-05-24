@@ -31,7 +31,7 @@ export function PaymentMethodsAdmin() {
   const [newName, setNewName] = useState('')
   const newSlug = slugify(newName)
 
-  const { data: methods = [], isLoading } = useQuery<PaymentMethod[]>({
+  const { data: methods = [], isLoading, isError } = useQuery<PaymentMethod[]>({
     queryKey: ['payment_methods'],
     queryFn: async () => {
       const { data, error } = await supabase
@@ -70,7 +70,8 @@ export function PaymentMethodsAdmin() {
 
   const addMutation = useMutation({
     mutationFn: async ({ name, slug }: { name: string; slug: string }) => {
-      const maxOrder = methods.reduce((m, r) => Math.max(m, r.sort_order), 0)
+      const live = qc.getQueryData<PaymentMethod[]>(['payment_methods']) ?? []
+      const maxOrder = live.reduce((m, r) => Math.max(m, r.sort_order), 0)
       const { error } = await supabase
         .from('payment_methods')
         .insert({ name, slug, sort_order: maxOrder + 1 })
@@ -89,7 +90,8 @@ export function PaymentMethodsAdmin() {
   function handleAdd() {
     const trimmed = newName.trim()
     if (!trimmed) return
-    if (methods.some((m) => m.slug === newSlug)) {
+    const currentMethods = qc.getQueryData<PaymentMethod[]>(['payment_methods']) ?? []
+    if (currentMethods.some((m) => m.slug === newSlug)) {
       toast.error(`A method with slug "${newSlug}" already exists`)
       return
     }
@@ -101,6 +103,14 @@ export function PaymentMethodsAdmin() {
       <div className="flex items-center justify-center py-12">
         <Loader2 className="h-5 w-5 animate-spin text-muted-foreground" />
       </div>
+    )
+  }
+
+  if (isError) {
+    return (
+      <p className="py-12 text-sm text-center text-destructive">
+        Failed to load payment methods. Please refresh.
+      </p>
     )
   }
 
@@ -122,6 +132,7 @@ export function PaymentMethodsAdmin() {
             </div>
             <Switch
               checked={m.is_active}
+              aria-label={`Toggle ${m.name}`}
               onCheckedChange={(checked) =>
                 toggleMutation.mutate({ id: m.id, is_active: checked })
               }

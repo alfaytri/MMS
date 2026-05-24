@@ -16,6 +16,7 @@ import {
   Clock,
   Percent,
   CreditCard,
+  Banknote,
   Bot,
   CheckSquare,
 } from 'lucide-react'
@@ -53,7 +54,7 @@ const ADMIN_SECTIONS: SidebarSection[] = [
     label: 'Operations',
     items: [
       { label: 'Reason Lists', href: '/master-data/admin/reason-lists', icon: List },
-      { label: 'Payment Methods', href: '/master-data/admin/payment-methods', icon: CreditCard },
+      { label: 'Payment Methods', href: '/master-data/admin/payment-methods', icon: Banknote },
       { label: 'Approval Settings', href: '/master-data/admin/approval-settings', icon: CheckSquare },
       { label: 'Document T&C', href: '/master-data/admin/document-terms', icon: FileText, comingSoon: true },
     ],
