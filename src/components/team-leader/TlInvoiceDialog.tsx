@@ -9,7 +9,6 @@ import { Input } from '@/components/ui/input'
 import { Textarea } from '@/components/ui/textarea'
 import { ScrollArea } from '@/components/ui/scroll-area'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
-import { SignaturePad } from './shared/SignaturePad'
 import { toast } from 'sonner'
 import { createClient } from '@/lib/supabase/client'
 import type { TlVisit, OrderCompletionData, AddedBillableService } from '@/types/team-leader'
@@ -36,7 +35,6 @@ export function TlInvoiceDialog({ visit, data, profileId, onDone, onClose }: Pro
   const [paymentMethodId, setPaymentMethodId] = useState<string>('')
   const [discountAmount, setDiscountAmount]   = useState(0)
   const [notes, setNotes]                     = useState('')
-  const [signature, setSignature]             = useState<Blob | null>(data.signature ?? null)
   const [submitting, setSubmitting]           = useState(false)
 
   const supabase = useMemo(() => createClient(), [])
@@ -82,7 +80,6 @@ export function TlInvoiceDialog({ visit, data, profileId, onDone, onClose }: Pro
   const effectivePaid = isCash || totalAmount === 0
 
   async function handleConfirm() {
-    if (!signature)       { toast.error('Customer signature required'); return }
     if (!paymentMethodId) { toast.error('Select a payment method'); return }
 
     setSubmitting(true)
@@ -175,7 +172,7 @@ export function TlInvoiceDialog({ visit, data, profileId, onDone, onClose }: Pro
           </DialogTitle>
         </DialogHeader>
 
-        <ScrollArea className="flex-1">
+        <ScrollArea className="flex-1 min-h-0">
           <div className="space-y-5 p-4">
             {/* Customer */}
             <div>
@@ -276,7 +273,6 @@ export function TlInvoiceDialog({ visit, data, profileId, onDone, onClose }: Pro
               />
             </div>
 
-            <SignaturePad visitId={`${visit.id}-invoice`} value={signature} onChange={setSignature} />
           </div>
         </ScrollArea>
 
@@ -284,7 +280,7 @@ export function TlInvoiceDialog({ visit, data, profileId, onDone, onClose }: Pro
           <Button
             className="w-full min-h-11"
             onClick={handleConfirm}
-            disabled={!signature || !paymentMethodId || submitting}
+            disabled={!paymentMethodId || submitting}
           >
             {submitting
               ? 'Processing…'
