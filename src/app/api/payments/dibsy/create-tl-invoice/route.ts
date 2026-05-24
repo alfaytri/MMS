@@ -8,8 +8,12 @@
 // Non-blocking: Wati send failure → log + continue
 
 import { NextResponse } from 'next/server'
+import { createClient as createServerClient } from '@/lib/supabase/server'
 import { createAdminClient } from '@/lib/supabase/admin'
 import { createDibsyPayment } from '@/lib/dibsy'
+
+const UUID_RE =
+  /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
 
 interface RequestBody {
   invoice_id: string
@@ -19,6 +23,17 @@ interface RequestBody {
 }
 
 export async function POST(request: Request) {
+  // ── Auth guard ───────────────────────────────────────────────────────────────
+  // Middleware refreshes cookies but does NOT enforce auth on /api/* routes.
+  // Each route must validate the session independently.
+  const supabaseAuth = await createServerClient()
+  const {
+    data: { user },
+  } = await supabaseAuth.auth.getUser()
+  if (!user) {
+    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+  }
+
   let body: RequestBody
 
   try {
@@ -29,9 +44,19 @@ export async function POST(request: Request) {
 
   const { invoice_id, amount, order_id, customer_phone } = body
 
-  if (!invoice_id || !amount || !order_id) {
+  if (!invoice_id || typeof amount !== 'number' || amount <= 0 || !order_id) {
     return NextResponse.json(
-      { error: 'Missing required fields: invoice_id, amount, order_id' },
+      {
+        error:
+          'Missing or invalid fields: invoice_id, amount (must be > 0), order_id',
+      },
+      { status: 400 },
+    )
+  }
+
+  if (!UUID_RE.test(invoice_id)) {
+    return NextResponse.json(
+      { error: 'Invalid invoice_id format' },
       { status: 400 },
     )
   }
@@ -59,8 +84,8 @@ export async function POST(request: Request) {
 
   // ── 2. Store Dibsy IDs on the invoice (non-blocking) ────────────────────────
   const supabase = createAdminClient()
-  const { error: dbErr } = await supabase
-    .from('tl_invoices' as any)
+  const { error: dbErr } = await (supabase as any)
+    .from('tl_invoices')
     .update({
       dibsy_payment_id:   payment.id,
       dibsy_checkout_url: payment.checkoutUrl,
