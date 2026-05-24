@@ -18,6 +18,7 @@ type PaymentMethod = {
   slug: string
   is_active: boolean
   sort_order: number
+  requires_payment_link: boolean
 }
 
 function slugify(name: string) {
@@ -36,7 +37,7 @@ export function PaymentMethodsAdmin() {
     queryFn: async () => {
       const { data, error } = await supabase
         .from('payment_methods')
-        .select('id, name, slug, is_active, sort_order')
+        .select('id, name, slug, is_active, sort_order, requires_payment_link')
         .order('sort_order', { ascending: true })
       if (error) throw error
       return data ?? []
@@ -129,6 +130,9 @@ export function PaymentMethodsAdmin() {
             <div className="flex items-center gap-3">
               <span className="text-sm font-medium">{m.name}</span>
               <Badge variant="outline" className="text-[10px] font-mono">{m.slug}</Badge>
+              {m.requires_payment_link && (
+                <Badge variant="secondary" className="text-[10px]">Online Link</Badge>
+              )}
             </div>
             <Switch
               checked={m.is_active}
