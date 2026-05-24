@@ -999,18 +999,20 @@ export async function POST(request: Request) {
   }
 
   // 3. Send Wati notification (non-blocking on failure)
+  // Template: mms_tl_invoice_payment (Utility, Arabic)
+  // Body vars: {{bookingnumber}}, {{total_amount}}, {{due_amount}}
+  // Button:    Call-to-Action / Visit Website — base "https://mms.alfaytri.com/" + dynamic {{url}}
   if (customer_phone) {
     const formattedAmount = `${amount.toFixed(2)} QAR`
     const watiBody = {
       phone:        customer_phone,
-      text:         `شكراً لإستخدامكم خدمات الفيتري\n\nمرفق لكم فاتورة الخدمة للطلب رقم ${order_id}\n\nالمبلغ المستحق: ${formattedAmount}`,
-      templateName: 'mms_invoice_remaining_payment2',
+      text:         `شكراً لإستخدامكم خدمات الفيتري\n\nمرفق لكم فاتورة الخدمة للطلب رقم ${order_id}\n\nالمبلغ الإجمالي: ${formattedAmount}\nالمبلغ المستحق: ${formattedAmount}`,
+      templateName: 'mms_tl_invoice_payment',
       parameters: [
-        { name: 'bookingnumber',   value: order_id },
-        { name: 'received_payment', value: '0.00' },
-        { name: 'total_payment',    value: formattedAmount },
-        { name: 'due_payment',      value: formattedAmount },
-        { name: 'url',              value: `pay/${invoice_id}` },
+        { name: 'bookingnumber', value: order_id },
+        { name: 'total_amount',  value: formattedAmount },
+        { name: 'due_amount',    value: formattedAmount },
+        { name: 'url',           value: `pay/${invoice_id}` },
       ],
       senderName: 'MMS System',
     }

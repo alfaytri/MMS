@@ -178,12 +178,11 @@ The existing optimistic-lock visit update (`.not('status', 'in', '("completed","
    - `webhookUrl: ${APP_URL}/api/payments/dibsy/webhook`
    - `metadata: { tl_invoice_id: invoice_id }`
 3. Update `tl_invoices` with `dibsy_payment_id` and `dibsy_checkout_url`.
-4. Send Wati template `mms_invoice_remaining_payment2` to `customer_phone` via existing `POST /api/wati/send-message`. If `customer_phone` is null/empty, skip Wati silently (log a warning):
+4. Send Wati template `mms_tl_invoice_payment` to `customer_phone` via existing `POST /api/wati/send-message`. If `customer_phone` is null/empty, skip Wati silently (log a warning):
    - `bookingnumber` = order_id
-   - `received_payment` = "0.00"
-   - `total_payment` = `${amount.toFixed(2)} QAR`
-   - `due_payment` = `${amount.toFixed(2)} QAR`
-   - `url` = `pay/${invoice_id}`
+   - `total_amount` = `${amount.toFixed(2)} QAR`
+   - `due_amount` = `${amount.toFixed(2)} QAR`
+   - `url` = `pay/${invoice_id}` (button suffix — Meta base URL is `https://mms.alfaytri.com/`)
 5. Return `{ ok: true, checkoutUrl }`.
 
 **Error handling:** Dibsy failure → 502. DB update failure → log and continue (don't block). Wati failure → log and continue (don't block; Wati is best-effort).
