@@ -195,7 +195,7 @@ Purchase & Sales▾:
 
 ## 🔄 In Progress
 
-🚀 Starting: **Payment Methods + TL Invoices Task 4: (next task)**
+🚀 Starting: **Task 4: Revised TlInvoiceDialog**
 
 ## ✅ Completed
 
