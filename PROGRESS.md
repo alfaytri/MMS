@@ -163,6 +163,7 @@ Purchase & Sales▾:
 
 | Date | Module / Scope | Secrets | RLS | Auth Gate | Error Handling | Notes |
 |---|---|---|---|---|---|---|
+| 2026-05-24 | **Inventory Category Tree** | ✅ | ✅ | ✅ | ✅ | No new API routes; parent_id column inherits existing RLS policies on inventory_categories; all mutations use existing Supabase client-side hooks with try/catch; no secrets involved |
 | 2026-05-24 | **Payment Methods + TL Invoices** | ✅ | ✅ | ✅ | ✅ | All 8 tasks + post-review fixes complete. Wati + DB update after Dibsy are best-effort. Webhook is external (no auth, consistent with other webhooks). |
 | 2026-05-23 | **Team Leader Module** | ✅ | ✅ | ✅ | ✅ | No hardcoded secrets; all Supabase calls via `createClient()`/`createServerClient()`; no new DB tables created (pre-existing); API routes `/api/contact-center/escalate` and `/api/team-leader/update-location` both check `supabase.auth.getUser()` and return 401; all routes use try/catch with proper error responses; Storage uploads use authenticated Supabase client |
 | 2026-05-23 | **Invoices Module** | ✅ | ✅ | ✅ | ✅ | No hardcoded secrets; all Supabase calls via `createClient()`; `invoices`/`payments`/`credit_notes` had pre-existing RLS — migration adds void/credit-note restricted policies for accounting/admin; all mutations use try/catch in UI; no new API routes (client-side Supabase only) |
@@ -200,6 +201,7 @@ Purchase & Sales▾:
 
 ## ✅ Completed
 
+- [2026-05-24] **Inventory Category Tree Tasks 1-7: Full tree implementation** — `supabase/migrations/20260524200000_inventory_category_tree.sql`, `src/hooks/useInventoryTree.ts`, `CategoryRow.tsx`, `ItemsListView.tsx`, `CategoryEditDialog.tsx`, `CascadeInventorySelector.tsx`, `WhAdjustmentDialog.tsx`, `PoReceiveTab.tsx`, `InventoryItemFormDialog.tsx`, `useInventory.ts` — Self-referential parent_id with auto-split migration (27 categories → tree), recursive tree rendering with depth indent, breadcrumb pickers in all downstream consumers, parent category selector with cycle prevention
 - [2026-05-24] **Payment Methods + TL Invoices — Post-review fixes** — supabase/migrations/20260524010000_payment_methods_link_flag.sql, TlInvoiceDialog.tsx, PaymentMethodsAdmin.tsx, database.types.ts — added requires_payment_link column, three-way payment branching, UNIQUE visit_id constraint, types regenerated
 - [2026-05-24] **Payment Methods + TL Invoices Task 8: Security Audit** — `PROGRESS.md` — four-point security audit passed: no hardcoded secrets; payment_methods + tl_invoices both have RLS + policies; create-tl-invoice route has auth guard; all external calls (Dibsy blocking/502, DB+Wati non-blocking/logged) have correct error handling
 - [2026-05-24] **Payment Methods + TL Invoices Task 7: Public Payment Page + Middleware** — `src/app/pay/[invoiceId]/page.tsx`, `src/middleware.ts` — Public /pay/[invoiceId] page using admin client (no auth required): redirects to Dibsy checkout if unpaid with URL, shows "Already Settled" card if paid, shows "Not Ready" fallback otherwise; middleware updated to exclude /pay/ from team-leader redirect
