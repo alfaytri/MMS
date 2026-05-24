@@ -999,15 +999,18 @@ export async function POST(request: Request) {
   }
 
   // 3. Send Wati notification (non-blocking on failure)
-  // Template: mms_tl_invoice_payment (Utility, Arabic)
-  // Body vars: {{bookingnumber}}, {{total_amount}}, {{due_amount}}
-  // Button:    Call-to-Action / Visit Website — base "https://mms.alfaytri.com/" + dynamic {{url}}
+  // Template name is environment-driven:
+  //   dev  → mms_tl_invoice_payment_dev  (button: freight-tinsmith-flashcard.ngrok-free.dev/pay/{{url}})
+  //   prod → mms_tl_invoice_payment      (button: mms.alfaytri.com/pay/{{url}})
+  // Both templates have identical body vars: {{bookingnumber}}, {{total_amount}}, {{due_amount}}
+  // Add WATI_INVOICE_TEMPLATE to .env.local to switch between them.
   if (customer_phone) {
     const formattedAmount = `${amount.toFixed(2)} QAR`
+    const templateName = process.env.WATI_INVOICE_TEMPLATE ?? 'mms_tl_invoice_payment'
     const watiBody = {
       phone:        customer_phone,
       text:         `شكراً لإستخدامكم خدمات الفيتري\n\nمرفق لكم فاتورة الخدمة للطلب رقم ${order_id}\n\nالمبلغ الإجمالي: ${formattedAmount}\nالمبلغ المستحق: ${formattedAmount}`,
-      templateName: 'mms_tl_invoice_payment',
+      templateName,
       parameters: [
         { name: 'bookingnumber', value: order_id },
         { name: 'total_amount',  value: formattedAmount },
