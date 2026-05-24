@@ -195,9 +195,11 @@ Purchase & Sales▾:
 
 ## 🔄 In Progress
 
-🚀 Starting: **Task 4: Revised TlInvoiceDialog**
+🚀 Starting: **Task 5: (next task)**
 
 ## ✅ Completed
+
+- [2026-05-24] **Payment Methods + TL Invoices Task 4: Revised TlInvoiceDialog** — `src/types/team-leader.ts`, `src/components/team-leader/dialogs/NormalOrderDialog.tsx`, `src/components/team-leader/TlInvoiceDialog.tsx` — Added addedServices? to OrderCompletionData; NormalOrderDialog passes addedServices through onComplete; TlInvoiceDialog replaced: single QAR discount input, DB-driven payment methods (active, sorted), services breakdown table including added services, totals block (Grand Total / Discount / Amount Due), cash flow (Confirm & Mark Paid), non-cash flow (Confirm & Send Payment Link → Dibsy), optimistic-lock preserved
 
 - [2026-05-24] **Payment Methods + TL Invoices Task 3: Admin Payment Methods page** — `src/components/master-data/AdminSidebar.tsx`, `src/components/master-data/PaymentMethodsAdmin.tsx`, `src/app/(dashboard)/master-data/admin/payment-methods/page.tsx`, `src/types/database.types.ts` — Payment Methods entry added to Admin Sidebar (Operations section, between Reason Lists and Approval Settings); PaymentMethodsAdmin component with list/toggle (optimistic updates) and add form with slug preview; page at /master-data/admin/payment-methods; payment_methods table type added to database.types.ts
 
