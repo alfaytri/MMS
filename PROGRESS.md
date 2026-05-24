@@ -195,7 +195,7 @@ Purchase & Sales▾:
 
 ## 🔄 In Progress
 
-🚀 Starting: **Task 6: (next task)**
+🚀 Starting: **Task 6: Extend Dibsy webhook**
 
 ## ✅ Completed
 
