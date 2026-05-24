@@ -195,9 +195,11 @@ Purchase & Sales▾:
 
 ## 🔄 In Progress
 
-🚀 Starting: **Task 3: Admin Payment Methods page**
+🚀 Starting: **Payment Methods + TL Invoices Task 4: (next task)**
 
 ## ✅ Completed
+
+- [2026-05-24] **Payment Methods + TL Invoices Task 3: Admin Payment Methods page** — `src/components/master-data/AdminSidebar.tsx`, `src/components/master-data/PaymentMethodsAdmin.tsx`, `src/app/(dashboard)/master-data/admin/payment-methods/page.tsx`, `src/types/database.types.ts` — Payment Methods entry added to Admin Sidebar (Operations section, between Reason Lists and Approval Settings); PaymentMethodsAdmin component with list/toggle (optimistic updates) and add form with slug preview; page at /master-data/admin/payment-methods; payment_methods table type added to database.types.ts
 
 - [2026-05-24] **Payment Methods + TL Invoices Task 2: tl_invoices migration** — `supabase/migrations/20260523220000_tl_invoices.sql`, `20260523220001_tl_invoices_fixes.sql` — tl_invoices table with sequence, triggers, UNIQUE invoice_number, RLS
 
