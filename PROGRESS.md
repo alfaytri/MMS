@@ -195,9 +195,11 @@ Purchase & Sales▾:
 
 ## 🔄 In Progress
 
-🚀 Starting: **Task 7: (next task)**
+🚀 Starting: **Task 7: Public Payment Page + Middleware**
 
 ## ✅ Completed
+
+- [2026-05-24] **Payment Methods + TL Invoices Task 6: Extend Dibsy webhook** — `src/app/api/payments/dibsy/webhook/route.ts` — tl_invoice_id metadata handling
 
 - [2026-05-24] **Payment Methods + TL Invoices Task 5: create-tl-invoice API route** — `src/app/api/payments/dibsy/create-tl-invoice/route.ts` — POST route: validates invoice_id/amount/order_id; creates Dibsy payment link (blocking, returns 502 on failure); updates tl_invoices with dibsy_payment_id + dibsy_checkout_url (non-blocking); sends Wati mms_tl_invoice_payment template with bookingnumber/total_amount/due_amount/url params (non-blocking, skipped if no phone); returns { ok: true, checkoutUrl }
 
