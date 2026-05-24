@@ -33,9 +33,11 @@ export interface TlVisit {
   source_id: string
   source_type: string
   team_id: string
+  order_id: string | null
   // Joined customer/location data
   customer_name: string
   address: string
+  waze_link: string | null
   services: TlService[]
   customer_phone: string | null
   location_phone: string | null
@@ -102,6 +104,7 @@ export interface OrderCompletionData {
   damageReport: { noted: boolean; description?: string; photos?: Blob[] }
   signature?: Blob
   qcScores?: Record<string, number>
+  addedServices?: AddedBillableService[]
 }
 
 export interface TlTeamOption {
@@ -116,4 +119,33 @@ export interface TlIdentity {
   isDivisionManager: boolean
   profileId: string
   divisionIds: string[]
+}
+
+export type FollowUpStatus =
+  | 'issue-resolved'
+  | 'improvement-noted'
+  | 'no-change'
+  | 'condition-worsened'
+  | 'retreatment-required'
+
+export type BackworkReason =
+  | 'issue-confirmed'
+  | 'partially-resolved-previously'
+  | 'new-issue-found'
+  | 'equipment-needed'
+  | 'access-issue-previously'
+
+export interface DamageReportEntry {
+  id: string
+  description: string
+  photos: Blob[]
+  customerNotified: boolean
+}
+
+export interface AddedBillableService {
+  id: string
+  name: string
+  path: string
+  qty: number
+  unitPrice: number
 }
