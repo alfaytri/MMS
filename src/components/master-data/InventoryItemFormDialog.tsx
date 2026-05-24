@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect } from 'react'
+import { useEffect, useMemo } from 'react'
 import { useForm } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { z } from 'zod'
@@ -15,8 +15,9 @@ import { Input } from '@/components/ui/input'
 import { Button } from '@/components/ui/button'
 import {
   useCreateInventoryItem, useUpdateInventoryItem,
-  useInventoryCategories, type InventoryItem,
+  type InventoryItem,
 } from '@/hooks/useInventory'
+import { useAllCategoriesFlat, breadcrumb as getBreadcrumb } from '@/hooks/useInventoryTree'
 
 const itemSchema = z.object({
   category_id: z.string().min(1, 'Category is required'),
@@ -43,7 +44,14 @@ export function InventoryItemFormDialog({ open, onOpenChange, item, defaultCateg
   const isEditing = !!item
   const create = useCreateInventoryItem()
   const update = useUpdateInventoryItem()
-  const { data: categories } = useInventoryCategories()
+  const { data: allCategories } = useAllCategoriesFlat()
+  const categories = useMemo(
+    () => (allCategories ?? []).filter((c) => {
+      const hasChildren = (allCategories ?? []).some((child) => (child as any).parent_id === c.id)
+      return !hasChildren
+    }),
+    [allCategories],
+  )
   const isPending = create.isPending || update.isPending
 
   const form = useForm<ItemFormValues>({
@@ -97,7 +105,7 @@ export function InventoryItemFormDialog({ open, onOpenChange, item, defaultCateg
               <FormItem><FormLabel>Category *</FormLabel><FormControl>
                 <select {...field} className="flex h-9 w-full rounded-md border border-input bg-background px-3 py-1 text-sm">
                   <option value="">Select category</option>
-                  {categories?.map((c) => <option key={c.id} value={c.id}>{c.name_en}</option>)}
+                  {categories?.map((c) => <option key={c.id} value={c.id}>{getBreadcrumb(c.id, allCategories ?? [])}</option>)}
                 </select>
               </FormControl><FormMessage /></FormItem>
             )} />

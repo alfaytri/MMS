@@ -1,6 +1,6 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useMemo } from 'react'
 import { Plus } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -9,7 +9,8 @@ import { Label } from '@/components/ui/label'
 import { Skeleton } from '@/components/ui/skeleton'
 import { CategoryRow } from './CategoryRow'
 import { CategoryEditDialog } from './CategoryEditDialog'
-import { useInventoryCategoriesByType, useUpdateSortOrders } from '@/hooks/useInventory'
+import { useUpdateSortOrders } from '@/hooks/useInventory'
+import { useInventoryTree, type InventoryTreeNode } from '@/hooks/useInventoryTree'
 
 type InventorySubType = 'products' | 'spare-parts' | 'consumables'
 
@@ -17,6 +18,21 @@ const LABEL_MAP: Record<InventorySubType, string> = {
   'products': 'Products (Installation)',
   'spare-parts': 'Spare Parts (Sales)',
   'consumables': 'Consumables (Internal)',
+}
+
+function filterTree(nodes: InventoryTreeNode[], search: string): InventoryTreeNode[] {
+  if (!search) return nodes
+  const lower = search.toLowerCase()
+  return nodes.reduce<InventoryTreeNode[]>((acc, node) => {
+    const nameMatch =
+      node.name_en.toLowerCase().includes(lower) ||
+      (node.name_ar ?? '').toLowerCase().includes(lower)
+    const filteredChildren = filterTree(node.children, search)
+    if (nameMatch || filteredChildren.length > 0) {
+      acc.push({ ...node, children: nameMatch ? node.children : filteredChildren })
+    }
+    return acc
+  }, [])
 }
 
 type Props = {
@@ -29,8 +45,10 @@ export function ItemsListView({ type, enabled }: Props) {
   const [showArchived, setShowArchived] = useState(false)
   const [createCategoryOpen, setCreateCategoryOpen] = useState(false)
 
-  const { data: categories = [], isLoading } = useInventoryCategoriesByType(type, showArchived)
+  const { tree, isLoading } = useInventoryTree(type, showArchived)
   const updateCategoryOrder = useUpdateSortOrders('inventory_categories')
+
+  const filtered = useMemo(() => filterTree(tree, search), [tree, search])
 
   function handleCategoryMove(idx: number, direction: 'up' | 'down') {
     const targetIdx = direction === 'up' ? idx - 1 : idx + 1
@@ -42,18 +60,12 @@ export function ItemsListView({ type, enabled }: Props) {
     ])
   }
 
-  const filtered = categories.filter((c) =>
-    !search ||
-    c.name_en.toLowerCase().includes(search.toLowerCase()) ||
-    (c.name_ar ?? '').toLowerCase().includes(search.toLowerCase())
-  )
-
   return (
     <div className="flex flex-col h-full">
       {/* Toolbar */}
       <div className="flex items-center gap-3 px-4 py-2 border-b border-border flex-wrap">
         <Input
-          placeholder={`Search ${LABEL_MAP[type].toLowerCase()}…`}
+          placeholder={`Search ${LABEL_MAP[type].toLowerCase()}...`}
           value={search}
           onChange={(e) => setSearch(e.target.value)}
           className="h-7 text-xs w-64"
@@ -93,10 +105,10 @@ export function ItemsListView({ type, enabled }: Props) {
                   </td>
                 </tr>
               )}
-              {filtered.map((cat, idx) => (
+              {filtered.map((node, idx) => (
                 <CategoryRow
-                  key={cat.id}
-                  category={cat}
+                  key={node.id}
+                  node={node}
                   categoryType={type}
                   showArchived={showArchived}
                   canMoveUp={idx > 0}

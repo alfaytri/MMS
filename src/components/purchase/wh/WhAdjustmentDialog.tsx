@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useRef } from 'react'
+import { useState, useRef, useMemo } from 'react'
 import { useQueryClient } from '@tanstack/react-query'
 import { Camera, X } from 'lucide-react'
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog'
@@ -14,10 +14,10 @@ import { createClient } from '@/lib/supabase/client'
 import { toast } from 'sonner'
 import type { InventoryLookupResult } from '@/hooks/usePurchaseOrders'
 import {
-  useInventoryCategories,
   useInventoryItemsByCategory,
   useInventoryBrandVariants,
 } from '@/hooks/useInventory'
+import { useAllCategoriesFlat, breadcrumb as getBreadcrumb } from '@/hooks/useInventoryTree'
 
 const ADJUSTMENT_TYPES = [
   { value: 'increase',  label: 'Increase (Found/Returned)' },
@@ -50,7 +50,14 @@ export function WhAdjustmentDialog({ warehouses, currentProfile, children }: Pro
   const fileRef = useRef<HTMLInputElement>(null)
   const qc = useQueryClient()
 
-  const { data: categories = [] } = useInventoryCategories()
+  const { data: allCategories = [] } = useAllCategoriesFlat()
+  const categories = useMemo(
+    () => allCategories.filter((c) => {
+      const hasChildren = allCategories.some((child) => (child as any).parent_id === c.id)
+      return !hasChildren
+    }),
+    [allCategories],
+  )
   const { data: items = [] } = useInventoryItemsByCategory(categoryId || null)
   const { data: variants = [] } = useInventoryBrandVariants(itemId || null)
 
@@ -203,7 +210,7 @@ export function WhAdjustmentDialog({ warehouses, currentProfile, children }: Pro
                   <SelectContent>
                     {categories.map((c) => (
                       <SelectItem key={c.id} value={c.id} className="text-xs">
-                        {c.name_en}
+                        {getBreadcrumb(c.id, allCategories)}
                       </SelectItem>
                     ))}
                   </SelectContent>

@@ -1,6 +1,6 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useMemo } from 'react'
 import { Check, ChevronsUpDown, X } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover'
@@ -14,13 +14,13 @@ import {
 import { cn } from '@/lib/utils'
 import { createClient } from '@/lib/supabase/client'
 import {
-  useInventoryCategoriesByType,
   useInventoryItemsByCategory,
   useInventoryBrandVariants,
   type InventoryCategory,
   type InventoryItem,
   type BrandVariant,
 } from '@/hooks/useInventory'
+import { useInventoryTree } from '@/hooks/useInventoryTree'
 import { useBrandVariantAncestry } from '@/hooks/useBrandVariantAncestry'
 import type { InventoryLookupResult } from '@/hooks/usePurchaseOrders'
 import type { LineType } from './PoLineItemsEditor'
@@ -77,8 +77,15 @@ export function CascadeInventorySelector({
   const [isItemCreating, setIsItemCreating] = useState(false)
   const [isVarCreating,  setIsVarCreating]  = useState(false)
 
-  const { data: categories = [], isLoading: catsLoading } =
-    useInventoryCategoriesByType(lineType)
+  const { flat: allCategories, breadcrumb: getBreadcrumb, isLoading: catsLoading } =
+    useInventoryTree(lineType)
+  const categories = useMemo(
+    () => allCategories.filter((c) => {
+      const hasChildren = allCategories.some((child) => (child as any).parent_id === c.id)
+      return !hasChildren
+    }),
+    [allCategories],
+  )
   const { data: items = [], isLoading: itemsLoading } =
     useInventoryItemsByCategory(selectedCategory?.id ?? null)
   const { data: variants = [], isLoading: varsLoading } =
@@ -177,10 +184,11 @@ export function CascadeInventorySelector({
   // ── PILL ───────────────────────────────────────────────────────────────────
   if (value) {
     const categoryLabel =
-      selectedCategory?.name_en ??
-      ancestry?.inventory_items?.inventory_categories?.name_en ??
-      value.category_name ??
-      null
+      selectedCategory
+        ? getBreadcrumb(selectedCategory.id)
+        : ancestry?.inventory_items?.inventory_categories
+          ? ancestry.inventory_items.inventory_categories.name_en
+          : value.category_name ?? null
     const categoryLabelAr =
       selectedCategory?.name_ar ??
       ancestry?.inventory_items?.inventory_categories?.name_ar ??
@@ -266,7 +274,7 @@ export function CascadeInventorySelector({
           render={(props) => <button type="button" {...props} />}
         >
           <span className="truncate">
-            {catsLoading ? 'Loading…' : (selectedCategory?.name_en ?? 'Category…')}
+            {catsLoading ? 'Loading…' : (selectedCategory ? getBreadcrumb(selectedCategory.id) : 'Category…')}
           </span>
           <ChevronsUpDown className="ml-1 h-3 w-3 shrink-0 opacity-50" />
         </PopoverTrigger>
@@ -288,7 +296,7 @@ export function CascadeInventorySelector({
                   {categories.map((cat) => (
                     <CommandItem
                       key={cat.id}
-                      value={cat.name_en}
+                      value={getBreadcrumb(cat.id)}
                       onSelect={() => {
                         setSelectedCategory(cat)
                         setSelectedItem(null)
@@ -299,7 +307,7 @@ export function CascadeInventorySelector({
                     >
                       <Check className={cn('mr-2 h-3 w-3 shrink-0', selectedCategory?.id === cat.id ? 'opacity-100' : 'opacity-0')} />
                       <div>
-                        <div>{cat.name_en}</div>
+                        <div>{getBreadcrumb(cat.id)}</div>
                         {cat.name_ar && <div className="text-muted-foreground">{cat.name_ar}</div>}
                       </div>
                     </CommandItem>

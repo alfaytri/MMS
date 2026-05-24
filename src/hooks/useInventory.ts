@@ -335,7 +335,7 @@ export function useInventoryCategoriesByType(type: string, showArchived = false)
 
 export function useCreateInventoryCategory() {
   const qc = useQueryClient()
-  return useMutation<InventoryCategory, Error, { name_en: string; name_ar?: string | null; sku?: string | null; type: string }>({
+  return useMutation<InventoryCategory, Error, { name_en: string; name_ar?: string | null; sku?: string | null; type: string; parent_id?: string | null }>({
     mutationFn: async (payload) => {
       const supabase = createClient()
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -350,6 +350,7 @@ export function useCreateInventoryCategory() {
     onSuccess: (_, v) => {
       qc.invalidateQueries({ queryKey: ['inventory-categories', v.type] })
       qc.invalidateQueries({ queryKey: ['inventory-categories'] })
+      qc.invalidateQueries({ queryKey: ['inventory-categories-tree'] })
     },
   })
 }
@@ -357,7 +358,7 @@ export function useCreateInventoryCategory() {
 export function useUpdateInventoryCategory() {
   const qc = useQueryClient()
   return useMutation({
-    mutationFn: async ({ id, ...payload }: { id: string; name_en?: string; name_ar?: string | null; sku?: string | null; status?: string }) => {
+    mutationFn: async ({ id, ...payload }: { id: string; name_en?: string; name_ar?: string | null; sku?: string | null; status?: string; parent_id?: string | null }) => {
       const supabase = createClient()
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       const { data, error } = await (supabase as any)
@@ -369,7 +370,10 @@ export function useUpdateInventoryCategory() {
       if (error) throw error
       return data as InventoryCategory
     },
-    onSuccess: () => qc.invalidateQueries({ queryKey: ['inventory-categories'] }),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ['inventory-categories'] })
+      qc.invalidateQueries({ queryKey: ['inventory-categories-tree'] })
+    },
   })
 }
 
@@ -774,6 +778,7 @@ export function useArchiveInventoryCategory() {
     },
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ['inventory-categories'] })
+      qc.invalidateQueries({ queryKey: ['inventory-categories-tree'] })
       qc.invalidateQueries({ queryKey: ['inventory-items-by-category'] })
       qc.invalidateQueries({ queryKey: ['brand-variants-v2'] })
     },

@@ -1,6 +1,6 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useMemo } from 'react'
 import { toast } from 'sonner'
 import { Gift, Check } from 'lucide-react'
 import { Button } from '@/components/ui/button'
@@ -18,8 +18,9 @@ import {
 import { useWarehouses } from '@/hooks/useWarehouses'
 import { useCreateReceival } from '@/hooks/useReceivals'
 import {
-  useInventoryCategories, useInventoryItemsAll, useInventoryBrandVariants,
+  useInventoryItemsAll, useInventoryBrandVariants,
 } from '@/hooks/useInventory'
+import { useAllCategoriesFlat, breadcrumb as getBreadcrumb } from '@/hooks/useInventoryTree'
 import type { PurchaseOrder } from '@/hooks/usePurchaseOrders'
 
 type ReceiveRow = {
@@ -97,7 +98,14 @@ export function PoReceiveTab({ po }: { po: PurchaseOrder }) {
   const [nonPoVariantId, setNonPoVariantId] = useState('')
   const [nonPoQty, setNonPoQty] = useState('')
 
-  const { data: categories = [] } = useInventoryCategories()
+  const { data: allCategories = [] } = useAllCategoriesFlat()
+  const categories = useMemo(
+    () => allCategories.filter((c) => {
+      const hasChildren = allCategories.some((child) => (child as any).parent_id === c.id)
+      return !hasChildren
+    }),
+    [allCategories],
+  )
   const { data: allItems = [] } = useInventoryItemsAll()
   const { data: variants = [] } = useInventoryBrandVariants(nonPoItemId || null)
 
@@ -359,7 +367,7 @@ export function PoReceiveTab({ po }: { po: PurchaseOrder }) {
                 <SelectContent>
                   <SelectItem value="all">All Categories</SelectItem>
                   {(categories as any[]).map((c) => (
-                    <SelectItem key={c.id} value={c.id}>{c.name_en}</SelectItem>
+                    <SelectItem key={c.id} value={c.id}>{getBreadcrumb(c.id, allCategories)}</SelectItem>
                   ))}
                 </SelectContent>
               </Select>
