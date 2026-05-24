@@ -31,12 +31,13 @@ export async function middleware(request: NextRequest) {
   const isTeamLeader = user?.user_metadata?.is_team_leader === true
   const path = request.nextUrl.pathname
 
-  // Fix 1: never redirect API or Next.js internal routes
+  // Fix 1: never redirect API, Next.js internal routes, or the public pay page
   if (
     isTeamLeader &&
     !path.startsWith('/team-leader') &&
     !path.startsWith('/api/') &&
-    !path.startsWith('/_next/')
+    !path.startsWith('/_next/') &&
+    !path.startsWith('/pay/')
   ) {
     return NextResponse.redirect(new URL('/team-leader', request.url))
   }
