@@ -12,12 +12,15 @@ CREATE TABLE IF NOT EXISTS payment_methods (
 
 ALTER TABLE payment_methods ENABLE ROW LEVEL SECURITY;
 
+DROP POLICY IF EXISTS "Authenticated users can read payment_methods" ON payment_methods;
 CREATE POLICY "Authenticated users can read payment_methods"
   ON payment_methods FOR SELECT TO authenticated USING (true);
 
+DROP POLICY IF EXISTS "Authenticated users can insert payment_methods" ON payment_methods;
 CREATE POLICY "Authenticated users can insert payment_methods"
   ON payment_methods FOR INSERT TO authenticated WITH CHECK (true);
 
+DROP POLICY IF EXISTS "Authenticated users can update payment_methods" ON payment_methods;
 CREATE POLICY "Authenticated users can update payment_methods"
   ON payment_methods FOR UPDATE TO authenticated USING (true);
 
