@@ -10,7 +10,7 @@ CREATE SEQUENCE IF NOT EXISTS tl_invoice_seq START 1;
 -- The visit_id stores the source assignment row UUID (from the get_team_leader_visits RPC).
 CREATE TABLE IF NOT EXISTS tl_invoices (
   id                 uuid        DEFAULT gen_random_uuid() PRIMARY KEY,
-  invoice_number     text        NOT NULL,
+  invoice_number     text        NOT NULL UNIQUE,
   visit_id           uuid        NOT NULL,
   order_id           text,
   customer_name      text        NOT NULL,
@@ -46,19 +46,11 @@ CREATE TRIGGER tl_invoice_number_trigger
   BEFORE INSERT ON tl_invoices
   FOR EACH ROW EXECUTE FUNCTION generate_tl_invoice_number();
 
--- ── updated_at trigger ────────────────────────────────────────────────────────
-CREATE OR REPLACE FUNCTION set_tl_invoices_updated_at()
-RETURNS TRIGGER LANGUAGE plpgsql AS $$
-BEGIN
-  NEW.updated_at = now();
-  RETURN NEW;
-END;
-$$;
-
+-- ── updated_at trigger (uses project-wide set_updated_at function) ────────────
 DROP TRIGGER IF EXISTS tl_invoices_set_updated_at ON tl_invoices;
 CREATE TRIGGER tl_invoices_set_updated_at
   BEFORE UPDATE ON tl_invoices
-  FOR EACH ROW EXECUTE FUNCTION set_tl_invoices_updated_at();
+  FOR EACH ROW EXECUTE FUNCTION set_updated_at();
 
 -- ── RLS ───────────────────────────────────────────────────────────────────────
 ALTER TABLE tl_invoices ENABLE ROW LEVEL SECURITY;
