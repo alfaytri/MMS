@@ -19,6 +19,7 @@ type PaymentMethod = {
   name: string
   slug: string
   sort_order: number
+  requires_payment_link: boolean
 }
 
 interface Props {
@@ -44,7 +45,7 @@ export function TlInvoiceDialog({ visit, data, profileId, onDone, onClose }: Pro
   useEffect(() => {
     supabase
       .from('payment_methods')
-      .select('id, name, slug, sort_order')
+      .select('id, name, slug, sort_order, requires_payment_link')
       .eq('is_active', true)
       .order('sort_order', { ascending: true })
       .then(({ data: methods, error }) => {
@@ -53,9 +54,6 @@ export function TlInvoiceDialog({ visit, data, profileId, onDone, onClose }: Pro
         if (methods && methods.length > 0) setPaymentMethodId(methods[0].id)
       })
   }, []) // eslint-disable-line react-hooks/exhaustive-deps
-
-  const selectedMethod = paymentMethods.find((m) => m.id === paymentMethodId)
-  const isCash = selectedMethod?.slug === 'cash'
 
   // Build items from original visit services + added billable services
   const allItems = [
@@ -76,6 +74,12 @@ export function TlInvoiceDialog({ visit, data, profileId, onDone, onClose }: Pro
   const subtotal    = allItems.reduce((sum, i) => sum + i.total, 0)
   const discount    = Math.min(Math.max(discountAmount, 0), subtotal)
   const totalAmount = subtotal - discount
+
+  const selectedMethod = paymentMethods.find((m) => m.id === paymentMethodId)
+  const isCash = selectedMethod?.slug === 'cash'
+  const requiresPaymentLink = selectedMethod?.requires_payment_link === true
+  // A zero-amount invoice is always treated as paid regardless of method
+  const effectivePaid = isCash || totalAmount === 0
 
   async function handleConfirm() {
     if (!signature)       { toast.error('Customer signature required'); return }
@@ -111,7 +115,7 @@ export function TlInvoiceDialog({ visit, data, profileId, onDone, onClose }: Pro
           discount_amount:   discount,
           total_amount:      totalAmount,
           payment_method_id: paymentMethodId,
-          payment_status:    isCash ? 'paid' : 'unpaid',
+          payment_status:    effectivePaid ? 'paid' : 'unpaid',
           notes:             notes.trim() || null,
           created_by:        profileId,
         })
@@ -122,14 +126,17 @@ export function TlInvoiceDialog({ visit, data, profileId, onDone, onClose }: Pro
       const invoiceId     = (invoice as { id: string; invoice_number: string }).id
       const invoiceNumber = (invoice as { id: string; invoice_number: string }).invoice_number
 
-      // 3a. Cash — mark paid and done
-      if (isCash) {
-        toast.success(`${invoiceNumber} created — marked as paid`)
+      // 3a. Cash, zero-amount, or non-link method — mark paid and done
+      if (effectivePaid || !requiresPaymentLink) {
+        const msg = effectivePaid
+          ? `${invoiceNumber} created — marked as paid`
+          : `${invoiceNumber} created — awaiting ${selectedMethod?.name ?? 'payment'}`
+        toast.success(msg)
         onDone(visit.id)
         return
       }
 
-      // 3b. Non-cash — create Dibsy link + send Wati
+      // 3b. Online payment — create Dibsy link + send Wati
       const res = await fetch('/api/payments/dibsy/create-tl-invoice', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -281,9 +288,11 @@ export function TlInvoiceDialog({ visit, data, profileId, onDone, onClose }: Pro
           >
             {submitting
               ? 'Processing…'
-              : isCash
+              : effectivePaid
                 ? 'Confirm & Mark Paid'
-                : 'Confirm & Send Payment Link'}
+                : requiresPaymentLink
+                  ? 'Confirm & Send Payment Link'
+                  : 'Confirm & Create Invoice'}
           </Button>
         </div>
       </DialogContent>
