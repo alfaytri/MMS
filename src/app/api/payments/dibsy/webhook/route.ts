@@ -29,8 +29,28 @@ export async function POST(request: Request) {
   }
 
   const subscriptionId = payment.metadata?.subscription_id
+  const tlInvoiceId    = payment.metadata?.tl_invoice_id
+
+  // Handle tl_invoice payment
+  if (tlInvoiceId) {
+    if (payment.status === 'paid') {
+      const adminClient = createAdminClient()
+      const { error } = await (adminClient as any)
+        .from('tl_invoices')
+        .update({ payment_status: 'paid', updated_at: new Date().toISOString() })
+        .eq('id', tlInvoiceId)
+
+      if (error) {
+        console.error('[dibsy/webhook] tl_invoices update failed', error)
+        return NextResponse.json({ error: 'DB update failed' }, { status: 500 })
+      }
+      console.log(`[dibsy/webhook] tl_invoice ${tlInvoiceId} → paid (payment ${dibsyPaymentId})`)
+    }
+    return NextResponse.json({ ok: true })
+  }
+
   if (!subscriptionId) {
-    // Not a subscription payment — acknowledge and ignore
+    // Unknown payment type — acknowledge and ignore
     return NextResponse.json({ ok: true })
   }
 
