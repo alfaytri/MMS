@@ -1,7 +1,7 @@
 'use client'
 
-import { useState, useMemo, useEffect } from 'react'
-import { Menu } from '@base-ui/react/menu'
+import { useState, useMemo, useEffect, useRef, useLayoutEffect } from 'react'
+import { createPortal } from 'react-dom'
 import { Check, ChevronRight, ChevronLeft, Search, ArrowLeft } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import type { InventoryTreeNode } from '@/hooks/useInventoryTree'
@@ -21,15 +21,64 @@ interface CascadeCategoryMenuProps {
 // ─── Styles ──────────────────────────────────────────────────────────────────
 
 const itemCls =
-  'flex items-center gap-2 rounded-sm px-2 py-1.5 text-xs outline-none select-none cursor-default data-[highlighted]:bg-accent data-[highlighted]:text-accent-foreground'
+  'flex items-center gap-2 rounded-sm px-2 py-1.5 text-xs outline-none select-none cursor-default hover:bg-accent hover:text-accent-foreground'
 
-const submenuTriggerCls =
-  'flex items-center gap-2 rounded-sm px-2 py-1.5 text-xs outline-none select-none cursor-default data-[highlighted]:bg-accent data-[highlighted]:text-accent-foreground data-[popup-open]:bg-accent/50'
+const flyoutCls =
+  'fixed z-[100] min-w-[12rem] max-h-[20rem] overflow-y-auto rounded-md bg-popover p-1 text-popover-foreground shadow-md ring-1 ring-foreground/10'
 
-const popupCls =
-  'z-50 min-w-[12rem] max-h-[min(var(--available-height),20rem)] overflow-y-auto rounded-md bg-popover p-1 text-popover-foreground shadow-md ring-1 ring-foreground/10 origin-(--transform-origin) transition-[transform,scale,opacity] data-[starting-style]:scale-95 data-[starting-style]:opacity-0 data-[ending-style]:scale-95 data-[ending-style]:opacity-0'
+// ─── Portaled flyout panel ──────────────────────────────────────────────────
 
-// ─── Recursive submenu node ─────────────────────────────────────────────────
+function FlyoutPanel({
+  anchorRef,
+  children,
+  onMouseEnter,
+  onMouseLeave,
+}: {
+  anchorRef: React.RefObject<HTMLDivElement | null>
+  children: React.ReactNode
+  onMouseEnter: () => void
+  onMouseLeave: () => void
+}) {
+  const [pos, setPos] = useState<{ top: number; left: number } | null>(null)
+
+  useLayoutEffect(() => {
+    const el = anchorRef.current
+    if (!el) return
+    const rect = el.getBoundingClientRect()
+    const isRtl = getComputedStyle(el).direction === 'rtl'
+    const panelWidth = 192
+
+    let left: number
+    if (isRtl) {
+      left = rect.left - panelWidth + 4
+      if (left < 8) left = rect.right - 4
+    } else {
+      left = rect.right - 4
+      if (left + panelWidth > window.innerWidth - 8) left = rect.left - panelWidth + 4
+    }
+
+    let top = rect.top
+    if (top + 320 > window.innerHeight) top = Math.max(8, window.innerHeight - 320)
+
+    setPos({ top, left })
+  }, [anchorRef])
+
+  if (!pos) return null
+
+  return createPortal(
+    <div
+      className={flyoutCls}
+      style={{ top: pos.top, left: pos.left }}
+      onMouseEnter={onMouseEnter}
+      onMouseLeave={onMouseLeave}
+    >
+      {children}
+    </div>,
+    document.body,
+  )
+}
+
+// ─── Recursive flyout node (desktop) ────────────────────────────────────────
 
 function CategoryNode({
   node,
@@ -40,57 +89,76 @@ function CategoryNode({
   selectedId: string | null
   onSelect: (cat: InventoryCategory) => void
 }) {
+  const [open, setOpen] = useState(false)
+  const closeTimer = useRef<ReturnType<typeof setTimeout>>(undefined)
+  const nodeRef = useRef<HTMLDivElement>(null)
   const isLeaf = node.children.length === 0
   const isSelected = node.id === selectedId
 
+  function handleEnter() {
+    clearTimeout(closeTimer.current)
+    setOpen(true)
+  }
+
+  function handleLeave() {
+    closeTimer.current = setTimeout(() => setOpen(false), 150)
+  }
+
+  useEffect(() => () => clearTimeout(closeTimer.current), [])
+
   if (isLeaf) {
     return (
-      <Menu.Item className={itemCls} onClick={() => onSelect(node)}>
+      <button
+        type="button"
+        className={cn(itemCls, 'w-full text-left')}
+        onClick={() => onSelect(node)}
+      >
         <Check className={cn('h-3 w-3 shrink-0', isSelected ? 'opacity-100' : 'opacity-0')} />
         <div className="flex-1 min-w-0">
           <div className="truncate">{node.name_en}</div>
           {node.name_ar && <div className="text-muted-foreground truncate">{node.name_ar}</div>}
         </div>
-      </Menu.Item>
+      </button>
     )
   }
 
   return (
-    <Menu.SubmenuRoot>
-      <Menu.SubmenuTrigger className={submenuTriggerCls}>
+    <div
+      ref={nodeRef}
+      onMouseEnter={handleEnter}
+      onMouseLeave={handleLeave}
+    >
+      <div className={cn(itemCls, 'w-full', open && 'bg-accent/50')}>
         <Check className={cn('h-3 w-3 shrink-0', isSelected ? 'opacity-100' : 'opacity-0')} />
-        <div
-          className="flex-1 min-w-0 cursor-pointer"
-          onClick={(e) => {
-            e.stopPropagation()
-            onSelect(node)
-          }}
+        <button
+          type="button"
+          className="flex-1 min-w-0 text-left cursor-pointer"
+          onClick={() => onSelect(node)}
         >
           <div className="truncate">{node.name_en}</div>
           {node.name_ar && <div className="text-muted-foreground truncate">{node.name_ar}</div>}
-        </div>
+        </button>
         <ChevronRight className="h-3 w-3 shrink-0 opacity-50 rtl:hidden" />
         <ChevronLeft className="h-3 w-3 shrink-0 opacity-50 hidden rtl:block" />
-      </Menu.SubmenuTrigger>
-      <Menu.Portal>
-        <Menu.Positioner
-          className="z-50"
-          sideOffset={-4}
-          alignOffset={-4}
+      </div>
+
+      {open && (
+        <FlyoutPanel
+          anchorRef={nodeRef}
+          onMouseEnter={handleEnter}
+          onMouseLeave={handleLeave}
         >
-          <Menu.Popup className={popupCls}>
-            {node.children.map((child: InventoryTreeNode) => (
-              <CategoryNode
-                key={child.id}
-                node={child}
-                selectedId={selectedId}
-                onSelect={onSelect}
-              />
-            ))}
-          </Menu.Popup>
-        </Menu.Positioner>
-      </Menu.Portal>
-    </Menu.SubmenuRoot>
+          {node.children.map((child: InventoryTreeNode) => (
+            <CategoryNode
+              key={child.id}
+              node={child}
+              selectedId={selectedId}
+              onSelect={onSelect}
+            />
+          ))}
+        </FlyoutPanel>
+      )}
+    </div>
   )
 }
 
@@ -268,9 +336,10 @@ function FlyoutMenu({
             <div className="py-3 text-center text-xs text-muted-foreground">No categories found.</div>
           ) : (
             filtered.map((cat) => (
-              <Menu.Item
+              <button
                 key={cat.id}
-                className={itemCls}
+                type="button"
+                className={cn(itemCls, 'w-full text-left')}
                 onClick={() => onSelect(cat)}
               >
                 <Check className={cn('h-3 w-3 shrink-0', cat.id === selectedId ? 'opacity-100' : 'opacity-0')} />
@@ -278,7 +347,7 @@ function FlyoutMenu({
                   <div className="truncate">{breadcrumb(cat.id)}</div>
                   {cat.name_ar && <div className="text-muted-foreground truncate">{cat.name_ar}</div>}
                 </div>
-              </Menu.Item>
+              </button>
             ))
           )
         ) : (
