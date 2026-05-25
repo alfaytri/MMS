@@ -20,10 +20,10 @@ export function buildTree(
   parentId: string | null = null,
 ): InventoryTreeNode[] {
   return flat
-    .filter((c) => ((c as any).parent_id ?? null) === parentId)
+    .filter((c) => (c.parent_id ?? null) === parentId)
     .sort((a, b) => {
-      const aOrder = (a as any).sort_order ?? 0
-      const bOrder = (b as any).sort_order ?? 0
+      const aOrder = a.sort_order ?? 0
+      const bOrder = b.sort_order ?? 0
       if (aOrder !== bOrder) return aOrder - bOrder
       return a.name_en.localeCompare(b.name_en)
     })
@@ -45,12 +45,12 @@ export function ancestors(
   let current = map.get(id)
   if (!current) return chain
 
-  let parentId: string | null = (current as any).parent_id ?? null
+  let parentId: string | null = current.parent_id ?? null
   while (parentId) {
     const parent = map.get(parentId)
     if (!parent) break
     chain.unshift(parent)
-    parentId = (parent as any).parent_id ?? null
+    parentId = parent.parent_id ?? null
   }
   return chain
 }
@@ -78,7 +78,7 @@ export function allDescendantIds(id: string, flat: InventoryCategory[]): string[
   while (queue.length > 0) {
     const current = queue.shift()!
     const children = flat.filter(
-      (c) => ((c as any).parent_id ?? null) === current,
+      (c) => (c.parent_id ?? null) === current,
     )
     for (const child of children) {
       result.push(child.id)

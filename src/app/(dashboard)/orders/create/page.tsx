@@ -13,6 +13,8 @@ import { useTeams } from '@/hooks/useTeams'
 import { SelectedServiceCard } from '@/components/orders/SelectedServiceCard'
 import { SiteVisitCard, SITE_VISIT_SERVICE_ID, makeSiteVisitDraft } from '@/components/orders/SiteVisitCard'
 import { createClient } from '@/lib/supabase/client'
+import { useContactCenterContext } from '@/contexts/ContactCenterContext'
+import { tryNormalisePhone } from '@/lib/contact-center/normalise-phone'
 import type { OrderServiceDraft } from '@/types/orders'
 
 export default function CreateOrderPage() {
@@ -50,12 +52,45 @@ export default function CreateOrderPage() {
   } = useCreateOrder()
 
   const { data: teams } = useTeams()
+  const { selectedCustomer } = useContactCenterContext()
 
   // Pre-set visit date when navigating from the calendar cell click
   useEffect(() => {
     if (prefilledDate) update({ visitDate: prefilledDate })
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
+
+  // Sync from the Contact Centre when a customer is resolved there
+  // (e.g. user attaches an existing customer to an unknown 3CX caller).
+  useEffect(() => {
+    if (!selectedCustomer) return
+    if (draft.customerId === selectedCustomer.customerId) return
+
+    const supabase = createClient()
+    let cancelled = false
+    ;(async () => {
+      const normalised = tryNormalisePhone(selectedCustomer.primaryPhone) ?? selectedCustomer.primaryPhone
+      const { data } = await (supabase as any)
+        .from('service_customer_phones')
+        .select('id')
+        .eq('customer_id', selectedCustomer.customerId)
+        .eq('phone', normalised)
+        .maybeSingle()
+      if (cancelled) return
+      setCustomer({
+        found:        true as const,
+        customerId:   selectedCustomer.customerId,
+        phoneId:      data?.id ?? '',
+        customerName: selectedCustomer.customerName,
+        phone:        normalised,
+        addressCount: 0,
+        orderCount:   0,
+      })
+      setLookupOpen(false)
+    })()
+    return () => { cancelled = true }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [selectedCustomer?.customerId])
 
   // Auto-fill customer when navigating from a site visit
   useEffect(() => {

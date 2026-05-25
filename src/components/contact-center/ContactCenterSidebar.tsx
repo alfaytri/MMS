@@ -37,11 +37,11 @@ export function ContactCenterSidebar() {
     fetchingWati, canLoadMore, loadMore,
     windowStatus, customerData, chatMessages, addressState,
     activeConversationId, activeCustomerId, activePhone,
-    openConversation, goToList, expandSidebar, collapseSidebar, openPhoneDirect, syncFromProvider, syncProgress, triggerPoll,
+    openConversation, goToList, expandSidebar, collapseSidebar, syncFromProvider, syncProgress, triggerPoll,
     updateConversationStatus,
     provider, setProvider,
   } = state
-  const { setCcSidebar, pendingPhone } = useContactCenterContext()
+  const { setCcSidebar, pendingPhone, openCustomerById } = useContactCenterContext()
   const [showStatusPicker, setShowStatusPicker] = useState(false)
   const statusPickerRef = useRef<HTMLDivElement>(null)
 
@@ -61,16 +61,15 @@ export function ContactCenterSidebar() {
 
   // When another part of the app sets pendingPhone, auto-expand and open the chat.
   // Depends on nonce so re-triggering with the same phone still fires the effect.
+  // Always go through openConversation — it does the customer + conversation row
+  // resolution (creating a row if none exists), so a phone whose customer is in
+  // service_customer_phones but has no WATI history still binds correctly.
   useEffect(() => {
     if (!pendingPhone) return
     const { phone } = pendingPhone
     setCcSidebar('expanded')
     const convo = conversations.find((c) => c.wati_phone === phone)
-    if (convo) {
-      openConversation(convo.id, convo.customer_id ?? null, phone)
-    } else {
-      openPhoneDirect(phone)
-    }
+    openConversation(convo?.id ?? '', convo?.customer_id ?? null, phone)
   }, [pendingPhone?.nonce])
 
   function handleSelectConversation(c: ChatConversation) {
@@ -252,6 +251,9 @@ export function ContactCenterSidebar() {
             pendingPhone={activePhone}
             onCustomerResolved={(id, name, phone) => {
               openConversation(activeConversationId ?? '', id, phone)
+              // Broadcast the resolved customer so peers (e.g. /orders/create
+              // OrderFormPanel) can sync their own draft.
+              openCustomerById(id, name, phone)
             }}
           />
         </SectionHeader>

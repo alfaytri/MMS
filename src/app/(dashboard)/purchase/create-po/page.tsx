@@ -134,10 +134,10 @@ export default function CreatePOPage() {
     return true
   }
 
-  function saveDraft() {
+  function saveAsType(poType: 'draft' | 'rfq') {
     if (!validate()) return
-    createPO.mutate(buildPayload(), {
-      onSuccess: () => { toast.success('Saved as draft'); router.push('/purchase/orders') },
+    createPO.mutate({ ...buildPayload(), po_type: poType }, {
+      onSuccess: () => { toast.success(poType === 'rfq' ? 'Saved as RFQ' : 'Saved as Draft'); router.push('/purchase/orders') },
       onError: (err) => toast.error(err.message),
     })
   }
@@ -175,9 +175,13 @@ export default function CreatePOPage() {
           </div>
         </div>
         <div className="flex items-center gap-2">
-          <Button variant="outline" size="sm" className="gap-1.5" onClick={saveDraft} disabled={isPending || isPriceLoading}>
+          <Button variant="outline" size="sm" className="gap-1.5" onClick={() => saveAsType('rfq')} disabled={isPending || isPriceLoading}>
             <Save className="h-3.5 w-3.5" />
-            {isPending ? 'Please wait…' : 'Save as RFQ / Draft'}
+            {isPending ? 'Please wait…' : 'Save as RFQ'}
+          </Button>
+          <Button variant="outline" size="sm" className="gap-1.5" onClick={() => saveAsType('draft')} disabled={isPending || isPriceLoading}>
+            <Save className="h-3.5 w-3.5" />
+            {isPending ? 'Please wait…' : 'Save as Draft'}
           </Button>
           <Button size="sm" className="gap-1.5" onClick={submitApproval} disabled={isPending || isPriceLoading}>
             <CheckCircle2 className="h-3.5 w-3.5" />

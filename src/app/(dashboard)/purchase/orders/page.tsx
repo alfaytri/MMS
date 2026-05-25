@@ -20,7 +20,7 @@ import {
 } from '@/components/ui/table'
 import { PoDetailDialog } from '@/components/purchase/PoDetailDialog'
 import { CreateBillFromPODialog } from '@/components/purchase/CreateBillFromPODialog'
-import { usePurchaseOrders, useCancelPO, type PurchaseOrder, type POStatus } from '@/hooks/usePurchaseOrders'
+import { usePurchaseOrders, useCancelPO, type PurchaseOrder, type POStatus, type POType } from '@/hooks/usePurchaseOrders'
 import { useSuppliers } from '@/hooks/useSuppliers'
 import { formatCurrency, formatDate } from '@/lib/utils/formatters'
 import { cn } from '@/lib/utils'
@@ -64,6 +64,13 @@ const STATUS_COLORS: Record<POStatus, string> = {
   cancelled: 'bg-red-100 text-red-700',
 }
 
+const PO_TYPE_TABS: { value: POType | ''; label: string; color: string }[] = [
+  { value: '',          label: 'All',       color: '' },
+  { value: 'rfq',       label: 'RFQ',       color: 'bg-orange-100 text-orange-700 border-orange-300' },
+  { value: 'draft',     label: 'Draft',     color: 'bg-slate-100 text-slate-700 border-slate-300' },
+  { value: 'confirmed', label: 'Confirmed', color: 'bg-emerald-100 text-emerald-700 border-emerald-300' },
+]
+
 function getReceivalStatus(po: PurchaseOrder): 'not_received' | 'partial' | 'fully_received' {
   const items = po.po_line_items ?? []
   if (items.length === 0) return 'not_received'
@@ -98,6 +105,7 @@ export default function PurchaseOrdersPage() {
   const [dateTo, setDateTo] = useState('')
   const [receivalFilter, setReceivalFilter] = useState('')
   const [paymentFilter, setPaymentFilter] = useState('')
+  const [poTypeFilter, setPoTypeFilter] = useState<POType | ''>('')
   const [detailPO, setDetailPO] = useState<PurchaseOrder | null>(null)
   const [createBillPOId, setCreateBillPOId] = useState<string | null>(null)
 
@@ -121,6 +129,7 @@ export default function PurchaseOrdersPage() {
 
   const { data: orders, isLoading } = usePurchaseOrders({
     search,
+    poType: poTypeFilter || undefined,
     dateFrom: dateFrom || undefined,
     dateTo: dateTo || undefined,
     ...divisionQueryProps,
@@ -155,11 +164,12 @@ export default function PurchaseOrdersPage() {
     return result
   }, [orders, statusFilter, supplierFilter, receivalFilter, paymentFilter])
 
-  const hasActiveFilters = !!(search || statusFilter.size > 0 || supplierFilter || dateFrom || dateTo || receivalFilter || paymentFilter || divisionFilter.companyId || divisionFilter.divisionId)
+  const hasActiveFilters = !!(search || statusFilter.size > 0 || supplierFilter || dateFrom || dateTo || receivalFilter || paymentFilter || poTypeFilter || divisionFilter.companyId || divisionFilter.divisionId)
 
   function clearFilters() {
     setSearch(''); setStatusFilter(new Set()); setSupplierFilter('')
     setDateFrom(''); setDateTo(''); setReceivalFilter(''); setPaymentFilter('')
+    setPoTypeFilter('')
     setDivisionFilter({ companyId: null, divisionId: null })
   }
 
@@ -244,6 +254,24 @@ export default function PurchaseOrdersPage() {
             </div>
           </CardContent>
         </Card>
+      </div>
+
+      {/* ── Type Tabs ──────────────────────────────────────────────────────── */}
+      <div className="flex items-center gap-2">
+        {PO_TYPE_TABS.map((tab) => (
+          <Button
+            key={tab.value}
+            variant={poTypeFilter === tab.value ? 'default' : 'outline'}
+            size="sm"
+            className={cn(
+              'min-w-[80px]',
+              poTypeFilter !== tab.value && tab.color,
+            )}
+            onClick={() => setPoTypeFilter(tab.value as POType | '')}
+          >
+            {tab.label}
+          </Button>
+        ))}
       </div>
 
       {/* ── Filters Bar ────────────────────────────────────────────────────── */}
@@ -367,6 +395,7 @@ export default function PurchaseOrdersPage() {
             <TableHeader>
               <TableRow>
                 <TableHead>PO Number</TableHead>
+                <TableHead className="w-[90px] text-center">Type</TableHead>
                 <TableHead>Supplier</TableHead>
                 <TableHead className="w-[110px]">Date</TableHead>
                 <TableHead className="w-[80px] text-center hidden md:table-cell">Items</TableHead>
@@ -380,7 +409,7 @@ export default function PurchaseOrdersPage() {
               {isLoading ? (
                 Array.from({ length: 5 }).map((_, i) => (
                   <TableRow key={i}>
-                    {Array.from({ length: 8 }).map((_, j) => (
+                    {Array.from({ length: 9 }).map((_, j) => (
                       <TableCell
                         key={j}
                         className={cn(
@@ -395,7 +424,7 @@ export default function PurchaseOrdersPage() {
                 ))
               ) : filtered.length === 0 ? (
                 <TableRow>
-                  <TableCell colSpan={8} className="text-center py-12">
+                  <TableCell colSpan={9} className="text-center py-12">
                     <div className="flex flex-col items-center gap-3 text-muted-foreground">
                       <FileText className="h-12 w-12" />
                       <p className="font-medium">No purchase orders found</p>
@@ -418,6 +447,16 @@ export default function PurchaseOrdersPage() {
                     >
                       <TableCell>
                         <span className="font-medium font-mono text-sm">{po.po_number}</span>
+                      </TableCell>
+                      <TableCell className="text-center">
+                        <span className={cn(
+                          'inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium',
+                          po.po_type === 'rfq' ? 'bg-orange-100 text-orange-700'
+                            : po.po_type === 'confirmed' ? 'bg-emerald-100 text-emerald-700'
+                            : 'bg-slate-100 text-slate-700',
+                        )}>
+                          {po.po_type === 'rfq' ? 'RFQ' : po.po_type === 'confirmed' ? 'Confirmed' : 'Draft'}
+                        </span>
                       </TableCell>
                       <TableCell>
                         <span className="font-medium">{po.supplier_name}</span>

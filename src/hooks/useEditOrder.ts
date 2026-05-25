@@ -91,6 +91,10 @@ export function useEditOrder(orderId: string) {
           lat:          addrRow.lat ?? null,
           lng:          addrRow.lng ?? null,
           is_primary:   !!addrRow.is_primary,
+          is_geocoded:  addrRow.is_geocoded ?? false,
+          waze_link:    addrRow.waze_link ?? null,
+          tags:         addrRow.tags ?? [],
+          created_at:   addrRow.created_at ?? '',
         }
       : null
 

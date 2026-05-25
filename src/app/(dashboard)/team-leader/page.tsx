@@ -21,7 +21,7 @@ export default function TeamLeaderPage() {
   const isAdmin = identity?.isAdmin ?? false
   const isDivMgr = identity?.isDivisionManager ?? false
   const { data: allTeams = [] } = useAllTeamsForSelect(
-    isAdmin ? undefined : isDivMgr ? identity?.divisionIds : undefined
+    isDivMgr ? identity?.divisionIds : isAdmin ? undefined : undefined
   )
 
   const [adminOverride, setAdminOverride]       = useState<string | null>(null)

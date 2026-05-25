@@ -44,32 +44,34 @@ export function TlVisitList({
 
   return (
     <div className="flex-1 overflow-y-auto">
-      {Array.from(groups.entries()).map(([date, group]) => (
-        <div key={date}>
-          {/* Sticky date header */}
-          <div className="sticky top-[var(--tl-header-height,148px)] z-[5] flex items-center gap-2 bg-muted/80 backdrop-blur-sm px-4 py-2 border-b">
-            <span className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
-              {dateLabel(date)}
-            </span>
-            <Badge variant="secondary" className="text-xs h-5">{group.length}</Badge>
-          </div>
+      <div className="max-w-2xl">
+        {Array.from(groups.entries()).map(([date, group]) => (
+          <div key={date}>
+            {/* Sticky date header */}
+            <div className="sticky top-0 z-[5] flex items-center gap-2 bg-muted/80 backdrop-blur-sm px-4 py-2 border-b">
+              <span className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+                {dateLabel(date)}
+              </span>
+              <Badge variant="secondary" className="text-xs h-5">{group.length}</Badge>
+            </div>
 
-          {/* Visit cards */}
-          <div className="space-y-3 p-4">
-            {group.map((visit) => (
-              <TlOrderCard
-                key={visit.id}
-                visit={visit}
-                teamId={teamId}
-                isStarted={startedVisits.has(visit.id)}
-                isCompleted={completedVisits.has(visit.id)}
-                onStart={onStart}
-                onTapCard={onTapCard}
-              />
-            ))}
+            {/* Visit cards */}
+            <div className="space-y-3 p-4">
+              {group.map((visit) => (
+                <TlOrderCard
+                  key={visit.id}
+                  visit={visit}
+                  teamId={teamId}
+                  isStarted={startedVisits.has(visit.id)}
+                  isCompleted={completedVisits.has(visit.id)}
+                  onStart={onStart}
+                  onTapCard={onTapCard}
+                />
+              ))}
+            </div>
           </div>
-        </div>
-      ))}
+        ))}
+      </div>
     </div>
   )
 }

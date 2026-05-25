@@ -50,7 +50,7 @@ export function useIsAdmin() {
       if (!user) return false
       const { data } = await (supabase as any)
         .from('profiles')
-        .select('user_custom_roles(custom_roles(is_system, permissions))')
+        .select('user_custom_roles!user_custom_roles_profile_id_fkey(custom_roles(is_system, permissions))')
         .eq('auth_user_id', user.id)
         .maybeSingle()
       if (!data) return false
@@ -211,6 +211,8 @@ export function useUpdateUser() {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['profiles'] })
       queryClient.invalidateQueries({ queryKey: ['my-profile'] })
+      queryClient.invalidateQueries({ queryKey: ['tl-identity'] })
+      queryClient.invalidateQueries({ queryKey: ['is-admin'] })
     },
   })
 }

@@ -29,6 +29,8 @@ export type POStatus =
   | 'cancelled'
   | 'completed'
 
+export type POType = 'rfq' | 'draft' | 'confirmed'
+
 export type POLineItem = {
   id: string
   po_id: string
@@ -86,6 +88,8 @@ export type PurchaseOrder = {
   updated_at: string
   created_by: string | null
   version_number: number
+  po_type: POType
+  rfq_id: string | null
   // joined
   po_line_items?: POLineItem[]
   po_approvals?: POApprovalStep[]
@@ -157,6 +161,8 @@ export type CreatePOPayload = {
   discount_label: string | null
   line_items: POLineItemDraft[]
   division_id: string | null
+  po_type?: POType
+  rfq_id?: string | null
 }
 
 export type UpdatePOPayload = Partial<CreatePOPayload> & { id: string }
@@ -222,6 +228,7 @@ async function generatePONumber(supabase: ReturnType<typeof createClient>): Prom
 export interface POFilters {
   search?: string
   status?: POStatus | ''
+  poType?: POType | ''
   dateFrom?: string
   dateTo?: string
   divisionId?: string | null
@@ -241,6 +248,7 @@ export function usePurchaseOrders(filters: POFilters = {}) {
         .is('deleted_at', null)
         .order('created_at', { ascending: false })
 
+      if (filters.poType) query = query.eq('po_type', filters.poType)
       if (filters.status) query = query.eq('status', filters.status)
       if (filters.dateFrom) query = query.gte('created_date', filters.dateFrom)
       if (filters.dateTo) query = query.lte('created_date', filters.dateTo)
@@ -357,6 +365,8 @@ export function useCreatePO() {
           discount_label: payload.discount_label,
           created_by: user?.id ?? null,
           division_id: payload.division_id ?? null,
+          po_type: payload.po_type ?? 'draft',
+          rfq_id: payload.rfq_id ?? null,
         })
         .select()
         .single()
@@ -434,10 +444,14 @@ export function useUpdatePO() {
           if (liErr) throw liErr
         }
       }
+
+      // Snapshot current version for all PO types
+      await savePoSnapshot(supabase, id, 'saved')
     },
     onSuccess: (_data, variables) => {
       queryClient.invalidateQueries({ queryKey: ['purchase-orders'] })
       queryClient.invalidateQueries({ queryKey: ['purchase-order', variables.id] })
+      queryClient.invalidateQueries({ queryKey: ['po-versions', variables.id] })
     },
   })
 }
@@ -510,9 +524,9 @@ export function useSubmitPOForApproval() {
       const { error: stepsErr } = await (supabase as any).from('po_approvals').insert(steps)
       if (stepsErr) throw stepsErr
 
-      // Update PO status
+      // Update PO status and promote to confirmed type
       const { error: poErr } = await (supabase as any)
-        .from('purchase_orders').update({ status: 'pending_approval' }).eq('id', id)
+        .from('purchase_orders').update({ status: 'pending_approval', po_type: 'confirmed' }).eq('id', id)
       if (poErr) throw poErr
 
       // Snapshot the PO state at submission time
@@ -898,6 +912,9 @@ export function useSavePoAsDraft() {
         if (liErr) throw liErr
       }
 
+      // Snapshot for version history
+      await savePoSnapshot(supabase, id, 'saved')
+
       const draftPerformer = await resolveMyName()
       await logPOActivity({
         poId: id,
@@ -909,6 +926,7 @@ export function useSavePoAsDraft() {
     onSuccess: (_data, variables) => {
       queryClient.invalidateQueries({ queryKey: ['purchase-orders'] })
       queryClient.invalidateQueries({ queryKey: ['purchase-order', variables.id] })
+      queryClient.invalidateQueries({ queryKey: ['po-versions', variables.id] })
     },
   })
 }

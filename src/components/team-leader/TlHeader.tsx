@@ -32,7 +32,8 @@ export function TlHeader({
     : `${totalCount} total`
 
   return (
-    <div className="sticky top-0 z-10 bg-card border-b px-4 py-3 space-y-3">
+    <div className="sticky top-0 z-10 bg-card border-b">
+    <div className="max-w-2xl px-4 py-3 space-y-3">
       {/* Row 1: team name + badges */}
       <div className="flex items-start justify-between gap-2">
         <div>
@@ -74,6 +75,7 @@ export function TlHeader({
           </TabsTrigger>
         </TabsList>
       </Tabs>
+    </div>
     </div>
   )
 }

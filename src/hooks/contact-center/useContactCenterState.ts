@@ -123,39 +123,77 @@ export function useContactCenterState() {
   }, [])
 
   async function openConversation(conversationId: string, customerId: string | null, phone: string | null) {
-    let resolvedCustomerId = customerId
+    let resolvedCustomerId   = customerId
+    let resolvedConversationId: string | null = conversationId || null
 
-    // If the conversation has no linked customer but we have a phone, do a live
-    // lookup against service_customer_phones. This catches the common case where
-    // the customer was added to MMS after the last WATI sync ran.
-    if (!customerId && phone) {
+    if (phone) {
       const normalised = tryNormalisePhone(phone) ?? phone
-      const supabase = createClient()
-      const { data } = await (supabase as any)
-        .from('service_customer_phones')
-        .select('customer_id')
-        .eq('phone', normalised)
-        .maybeSingle()
-      if (data?.customer_id) {
-        resolvedCustomerId = data.customer_id
-        // Only persist the link when we have a real conversation row to update
-        if (conversationId) {
-          ;(supabase as any)
+      const supabase   = createClient()
+
+      // 1. Resolve the customer from the phone if we don't have one yet.
+      // Catches the case where the WATI sync ran before the customer was added to MMS.
+      if (!resolvedCustomerId) {
+        const { data } = await (supabase as any)
+          .from('service_customer_phones')
+          .select('customer_id')
+          .eq('phone', normalised)
+          .maybeSingle()
+        if (data?.customer_id) resolvedCustomerId = data.customer_id
+      }
+
+      // 2. Resolve (or create) a chat_conversations row for this phone+provider.
+      // Without this, attaching a customer to a 3CX-originated unknown caller
+      // leaves activeConversationId null — useLiveThread then short-circuits and
+      // never shows the WhatsApp thread.
+      if (!resolvedConversationId) {
+        const { data: existing } = await (supabase as any)
+          .from('chat_conversations')
+          .select('id, customer_id')
+          .eq('wati_phone', normalised)
+          .eq('provider', provider)
+          .maybeSingle()
+
+        if (existing?.id) {
+          resolvedConversationId = existing.id
+          if (resolvedCustomerId && !existing.customer_id) {
+            await (supabase as any)
+              .from('chat_conversations')
+              .update({ customer_id: resolvedCustomerId })
+              .eq('id', existing.id)
+          }
+        } else {
+          const { data: created, error: createErr } = await (supabase as any)
             .from('chat_conversations')
-            .update({ customer_id: data.customer_id })
-            .eq('id', conversationId)
+            .insert({
+              wati_phone:        normalised,
+              provider,
+              conversation_type: 'customer',
+              ...(resolvedCustomerId ? { customer_id: resolvedCustomerId } : {}),
+            })
+            .select('id')
+            .single()
+          if (createErr) {
+            console.error('[openConversation] create chat_conversations failed', createErr)
+          } else if (created?.id) {
+            resolvedConversationId = created.id
+          }
         }
+      } else if (resolvedCustomerId) {
+        // Existing conversation row, but it may still be missing customer_id.
+        await (supabase as any)
+          .from('chat_conversations')
+          .update({ customer_id: resolvedCustomerId })
+          .eq('id', resolvedConversationId)
       }
     }
 
-    setActiveConversationId(conversationId || null)
+    setActiveConversationId(resolvedConversationId)
     setActiveCustomerId(resolvedCustomerId)
     setActivePhone(phone)
     setSidebarView('detail')
-    // Guard: markRead/markOpened require a valid conversation ID
-    if (conversationId) {
-      markRead(conversationId)
-      markOpened(conversationId)
+    if (resolvedConversationId) {
+      markRead(resolvedConversationId)
+      markOpened(resolvedConversationId)
     }
   }
 
@@ -172,13 +210,6 @@ export function useContactCenterState() {
 
   function collapseSidebar() {
     setSidebarView('collapsed')
-  }
-
-  function openPhoneDirect(phone: string) {
-    setActivePhone(phone)
-    setActiveConversationId(null)
-    setActiveCustomerId(null)
-    setSidebarView('detail')
   }
 
   const updateConversationStatus = useCallback(async (status: 'open' | 'pending' | 'resolved') => {
@@ -281,7 +312,6 @@ export function useContactCenterState() {
     goToList,
     expandSidebar,
     collapseSidebar,
-    openPhoneDirect,
     patchMessage,
     triggerPoll,
     syncFromWati,

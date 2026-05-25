@@ -16,7 +16,7 @@ export function useTeamLeaderIdentity() {
       // Resolve profile
       const { data: profile, error: profileError } = await (supabase as any)
         .from('profiles')
-        .select('id, user_type, is_division_manager, user_custom_roles(custom_roles(permissions))')
+        .select('id, user_type, user_custom_roles!user_custom_roles_profile_id_fkey(custom_roles(permissions))')
         .eq('auth_user_id', user.id)
         .maybeSingle()
 
@@ -41,7 +41,10 @@ export function useTeamLeaderIdentity() {
         teamId = emp?.team_id ?? null
       }
 
-      const isDivisionManager = profile.is_division_manager === true
+      // Use RPC to bypass PostgREST schema cache for new column
+      const { data: isDmFlag } = await (supabase as any)
+        .rpc('check_is_division_manager', { p_profile_id: profile.id })
+      const isDivisionManager = isDmFlag === true
 
       // Fetch user's division IDs for multi-team access (only if division manager)
       let divisionIds: string[] = []
@@ -68,7 +71,7 @@ export function useAllTeamsForSelect(divisionIds?: string[]) {
       let query = (supabase as any)
         .from('teams')
         .select('id, name, division_id, divisions(name)')
-        .eq('is_deleted', false)
+        .is('deleted_at', null)
         .order('name', { ascending: true })
 
       if (divisionIds && divisionIds.length > 0) {

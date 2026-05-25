@@ -2,15 +2,14 @@
 'use client'
 
 import { useState } from 'react'
-import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog'
-import { Button } from '@/components/ui/button'
+import { X } from 'lucide-react'
 import { Badge } from '@/components/ui/badge'
-import { Textarea } from '@/components/ui/textarea'
-import { Label } from '@/components/ui/label'
-import { ScrollArea } from '@/components/ui/scroll-area'
+import { Button } from '@/components/ui/button'
+import { Input } from '@/components/ui/input'
+import { BaseOrderDialog } from '../shared/BaseOrderDialog'
 import { PhotoCapture } from '../shared/PhotoCapture'
-import { DamageReport } from '../shared/DamageReport'
-import type { TlVisit, OrderCompletionData } from '@/types/team-leader'
+import { ServiceCatalogPicker } from '../shared/ServiceCatalogPicker'
+import type { TlVisit, OrderCompletionData, AddedBillableService } from '@/types/team-leader'
 
 interface Props {
   visit: TlVisit
@@ -21,46 +20,99 @@ interface Props {
 
 export function SiteVisitSingleDialog({ visit, profileId, onComplete, onClose }: Props) {
   const [photos, setPhotos] = useState<Blob[]>([])
-  const [damage, setDamage] = useState({ noted: false })
-  const [notes,  setNotes]  = useState('')
+  const [quotationServices, setQuotationServices] = useState<AddedBillableService[]>([])
+  const [customRequest, setCustomRequest] = useState('')
+  const [customRequests, setCustomRequests] = useState<string[]>([])
+
+  const otherTeams = (visit.team_ids ?? []).filter((t) => t !== visit.team_id)
+
+  function addCustomRequest() {
+    if (!customRequest.trim()) return
+    setCustomRequests((p) => [...p, customRequest.trim()])
+    setCustomRequest('')
+  }
 
   function handleSubmit() {
     const data: OrderCompletionData = {
       orderId: visit.source_id, visitId: visit.id, visitType: visit.type,
-      serviceStatuses: {}, inventoryUsage: {}, photos, damageReport: damage,
+      serviceStatuses: {}, inventoryUsage: {}, photos,
+      damageReport: { noted: false },
     }
     onComplete(visit.id, data)
   }
 
   return (
-    <Dialog open onOpenChange={(o) => { if (!o) onClose() }}>
-      <DialogContent className="w-full max-w-2xl h-full sm:h-auto sm:max-h-[90vh] rounded-none sm:rounded-xl flex flex-col p-0">
-        <DialogHeader className="px-4 pt-4 pb-2 border-b shrink-0">
-          <DialogTitle>Site Visit — Single</DialogTitle>
-          <Badge className="w-fit bg-yellow-500 text-white">Assessment</Badge>
-        </DialogHeader>
-
-        <ScrollArea className="flex-1">
-          <div className="space-y-6 p-4">
-            <div className="rounded-lg border bg-muted/50 p-4">
-              <p className="text-xs font-semibold uppercase text-muted-foreground tracking-wide mb-2">Scope</p>
-              {visit.services.map((s) => (
-                <p key={s.id} className="text-sm">• {s.name}</p>
-              ))}
+    <>
+      <BaseOrderDialog
+        open
+        onClose={onClose}
+        headerLabel="Site Visit — Single"
+        headerSubtitle={`${visit.scheduled_time ?? ''} · ${visit.customer_name}`}
+        headerColorClass="bg-yellow-500 text-white"
+        otherTeams={otherTeams}
+        isLastTeam={otherTeams.length === 0}
+        onComplete={handleSubmit}
+        completeLabel="Complete Assessment"
+      >
+        {/* Assessment Purpose */}
+        <div className="rounded-lg border bg-muted/50 p-4 space-y-2">
+          <p className="text-xs font-semibold uppercase text-muted-foreground tracking-wide">Assessment Purpose</p>
+          {visit.services.map((s) => (
+            <div key={s.id} className="flex items-center gap-2 text-sm">
+              <span>•</span>
+              <span>{s.name}</span>
+              <Badge variant="outline" className="text-[10px] bg-muted">Assessment</Badge>
             </div>
-            <PhotoCapture visitId={visit.id} photos={photos} onChange={setPhotos} />
-            <DamageReport visitId={visit.id} value={damage} onChange={setDamage} />
-            <div className="space-y-1.5">
-              <Label>Assessment Notes</Label>
-              <Textarea value={notes} onChange={(e) => setNotes(e.target.value)} rows={4} placeholder="Enter assessment findings…" />
-            </div>
-          </div>
-        </ScrollArea>
-
-        <div className="px-4 pb-4 pt-2 border-t shrink-0">
-          <Button className="w-full min-h-11" onClick={handleSubmit}>Submit Assessment</Button>
+          ))}
         </div>
-      </DialogContent>
-    </Dialog>
+
+        {/* Services for Quotation */}
+        <div className="rounded-lg border border-green-200 bg-green-50/50 p-4 space-y-3">
+          <p className="text-sm font-semibold">Services for Quotation</p>
+          <ServiceCatalogPicker onAdd={(s) => setQuotationServices((p) => [...p, s])} />
+
+          {quotationServices.map((s) => (
+            <div key={s.id} className="flex items-center justify-between text-xs border rounded p-2 bg-background">
+              <div>
+                <p className="font-medium">{s.name}</p>
+                <p className="text-muted-foreground">{s.path}</p>
+              </div>
+              <div className="flex items-center gap-2">
+                <span>QAR {s.unitPrice}</span>
+                <button type="button" onClick={() => setQuotationServices((p) => p.filter((x) => x.id !== s.id))}>
+                  <X className="h-3 w-3 text-destructive" />
+                </button>
+              </div>
+            </div>
+          ))}
+
+          {/* Custom requests */}
+          <div className="flex gap-2">
+            <Input
+              placeholder="Add custom request..."
+              value={customRequest}
+              onChange={(e) => setCustomRequest(e.target.value)}
+              onKeyDown={(e) => { if (e.key === 'Enter') { e.preventDefault(); addCustomRequest() } }}
+              className="h-9 text-sm"
+            />
+            <Button variant="outline" size="sm" className="h-9" onClick={addCustomRequest} disabled={!customRequest.trim()}>
+              Add
+            </Button>
+          </div>
+          {customRequests.map((r, i) => (
+            <div key={i} className="flex items-center justify-between text-xs border rounded p-2 bg-background">
+              <span>{r}</span>
+              <button type="button" onClick={() => setCustomRequests((p) => p.filter((_, j) => j !== i))}>
+                <X className="h-3 w-3 text-destructive" />
+              </button>
+            </div>
+          ))}
+        </div>
+
+        {/* Attachments */}
+        <PhotoCapture visitId={visit.id} photos={photos} onChange={setPhotos} />
+      </BaseOrderDialog>
+
+    </>
   )
 }

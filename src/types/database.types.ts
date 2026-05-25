@@ -1879,6 +1879,7 @@ export type Database = {
           id: string
           name_ar: string | null
           name_en: string
+          parent_id: string | null
           sku: string | null
           sort_order: number
           status: string
@@ -1890,6 +1891,7 @@ export type Database = {
           id?: string
           name_ar?: string | null
           name_en: string
+          parent_id?: string | null
           sku?: string | null
           sort_order?: number
           status?: string
@@ -1901,13 +1903,22 @@ export type Database = {
           id?: string
           name_ar?: string | null
           name_en?: string
+          parent_id?: string | null
           sku?: string | null
           sort_order?: number
           status?: string
           type?: Database["public"]["Enums"]["inventory_type"]
           updated_at?: string | null
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "inventory_categories_parent_id_fkey"
+            columns: ["parent_id"]
+            isOneToOne: false
+            referencedRelation: "inventory_categories"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       inventory_check_items: {
         Row: {
@@ -2930,6 +2941,8 @@ export type Database = {
           agent_name: string | null
           arrival_phone: string | null
           attachments: Json | null
+          completed_at: string | null
+          completed_by: string | null
           confirmation_sent_at: string | null
           confirmation_status:
             | Database["public"]["Enums"]["confirmation_status"]
@@ -2958,6 +2971,8 @@ export type Database = {
           agent_name?: string | null
           arrival_phone?: string | null
           attachments?: Json | null
+          completed_at?: string | null
+          completed_by?: string | null
           confirmation_sent_at?: string | null
           confirmation_status?:
             | Database["public"]["Enums"]["confirmation_status"]
@@ -2986,6 +3001,8 @@ export type Database = {
           agent_name?: string | null
           arrival_phone?: string | null
           attachments?: Json | null
+          completed_at?: string | null
+          completed_by?: string | null
           confirmation_sent_at?: string | null
           confirmation_status?:
             | Database["public"]["Enums"]["confirmation_status"]
@@ -3014,6 +3031,13 @@ export type Database = {
             columns: ["address_id"]
             isOneToOne: false
             referencedRelation: "service_customer_addresses"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "orders_completed_by_fkey"
+            columns: ["completed_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
             referencedColumns: ["id"]
           },
           {
@@ -3983,6 +4007,7 @@ export type Database = {
           payment_terms: string | null
           payment_terms_notes: string | null
           po_number: string
+          po_type: Database["public"]["Enums"]["po_type"]
           rfq_id: string | null
           status: Database["public"]["Enums"]["po_status"] | null
           subtotal: number | null
@@ -4013,6 +4038,7 @@ export type Database = {
           payment_terms?: string | null
           payment_terms_notes?: string | null
           po_number: string
+          po_type?: Database["public"]["Enums"]["po_type"]
           rfq_id?: string | null
           status?: Database["public"]["Enums"]["po_status"] | null
           subtotal?: number | null
@@ -4043,6 +4069,7 @@ export type Database = {
           payment_terms?: string | null
           payment_terms_notes?: string | null
           po_number?: string
+          po_type?: Database["public"]["Enums"]["po_type"]
           rfq_id?: string | null
           status?: Database["public"]["Enums"]["po_status"] | null
           subtotal?: number | null
@@ -8296,6 +8323,7 @@ export type Database = {
         | "cancelled"
         | "waitlist"
         | "pending-confirmation"
+        | "customer-unavailable"
       payment_method:
         | "online"
         | "pay_later"
@@ -8319,6 +8347,7 @@ export type Database = {
         | "received"
         | "completed"
         | "cancelled"
+      po_type: "rfq" | "draft" | "confirmed"
       promotion_rule_type:
         | "percentage"
         | "fixed"
@@ -8396,7 +8425,7 @@ export type Database = {
         | "pending_approval"
         | "approved"
         | "rejected"
-      user_type: "internal" | "customer" | "employee"
+      user_type: "internal" | "customer" | "employee" | "team-leader"
       voucher_type: "single_use" | "multi_use" | "limited"
     }
     CompositeTypes: {
@@ -8595,6 +8624,7 @@ export const Constants = {
         "cancelled",
         "waitlist",
         "pending-confirmation",
+        "customer-unavailable",
       ],
       payment_method: [
         "online",
@@ -8622,6 +8652,7 @@ export const Constants = {
         "completed",
         "cancelled",
       ],
+      po_type: ["rfq", "draft", "confirmed"],
       promotion_rule_type: [
         "percentage",
         "fixed",
@@ -8708,7 +8739,7 @@ export const Constants = {
         "approved",
         "rejected",
       ],
-      user_type: ["internal", "customer", "employee"],
+      user_type: ["internal", "customer", "employee", "team-leader"],
       voucher_type: ["single_use", "multi_use", "limited"],
     },
   },

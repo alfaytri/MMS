@@ -2,7 +2,7 @@
 'use client'
 
 import { useState } from 'react'
-import { MapPin, Phone, Bell, Play, Users, AlertTriangle } from 'lucide-react'
+import { MapPin, Phone, Bell, Play, Users, AlertTriangle, Clock } from 'lucide-react'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { cn } from '@/lib/utils'
@@ -35,10 +35,15 @@ export function TlOrderCard({ visit, teamId, isStarted, isCompleted, onStart, on
   const shownServices = visit.services.slice(0, 3)
   const extraCount    = visit.services.length - 3
 
-  function copyNavigate() {
-    const url = `https://www.google.com/maps/dir/?api=1&destination=${encodeURIComponent(visit.address)}`
-    navigator.clipboard.writeText(url)
-    toast.success('Navigation link copied')
+  function handleNavigate() {
+    const url = visit.waze_link
+      ?? `https://waze.com/ul?q=${encodeURIComponent(visit.address)}&navigate=yes`
+    const isMobile = /Android|iPhone|iPad/i.test(navigator.userAgent)
+    if (isMobile) {
+      window.location.href = url
+    } else {
+      window.open(url, '_blank')
+    }
   }
 
   if (isCompleted) {
@@ -76,11 +81,21 @@ export function TlOrderCard({ visit, teamId, isStarted, isCompleted, onStart, on
         {/* Card body — tap to open detail */}
         <button
           type="button"
-          className="w-full px-3 py-2 text-left"
+          className="w-full px-3 py-3 text-left space-y-2"
           onClick={() => onTapCard(visit)}
         >
-          <p className="font-semibold text-sm">{visit.customer_name}</p>
-          <p className="text-xs text-muted-foreground mb-1">{visit.address}</p>
+          <div className="flex items-start justify-between gap-2">
+            <div className="min-w-0">
+              <p className="font-semibold text-sm truncate">{visit.customer_name}</p>
+              <p className="text-xs text-muted-foreground truncate">{visit.address}</p>
+            </div>
+            {visit.scheduled_time && (
+              <span className="flex items-center gap-1 shrink-0 text-xs font-medium text-muted-foreground bg-muted rounded-md px-2 py-1">
+                <Clock className="h-3 w-3" />
+                {visit.scheduled_time}
+              </span>
+            )}
+          </div>
           <div className="flex flex-wrap gap-1">
             {shownServices.map((s) => (
               <Badge key={s.id} variant="secondary" className="text-xs">{s.name}</Badge>
@@ -93,7 +108,7 @@ export function TlOrderCard({ visit, teamId, isStarted, isCompleted, onStart, on
 
         {/* 2×2 action buttons */}
         <div className="grid grid-cols-2 gap-px bg-border border-t">
-          <Button variant="ghost" className="rounded-none min-h-11 gap-1.5 text-xs" onClick={copyNavigate}>
+          <Button variant="ghost" className="rounded-none min-h-11 gap-1.5 text-xs" onClick={handleNavigate}>
             <MapPin className="h-4 w-4" /> Navigate
           </Button>
           <Button variant="ghost" className="rounded-none min-h-11 gap-1.5 text-xs" asChild>
@@ -139,6 +154,8 @@ export function TlOrderCard({ visit, teamId, isStarted, isCompleted, onStart, on
         open={unavailableOpen}
         visitId={visit.id}
         teamId={teamId}
+        sourceType={visit.source_type}
+        sourceId={visit.source_id}
         onClose={() => setUnavailableOpen(false)}
       />
     </>

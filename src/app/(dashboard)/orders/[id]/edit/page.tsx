@@ -78,7 +78,7 @@ export default function EditOrderPage() {
     // ── Day-window drag: assign ALL services at the day's time window ────────
     if (active.data.current.type === 'day-window') {
       const dayData = active.data.current as { date: string; fromTime: string | null; toTime: string | null }
-      if (draft.services.length === 0) return
+      if (!draft || draft.services.length === 0) return
       const timeSlot = dayData.fromTime ?? `${String(hour).padStart(2, '0')}:00`
       const toTime   = dayData.toTime ?? null
       const totalDuration = draft.services.reduce((sum, s) => sum + s.duration, 0)
@@ -96,7 +96,7 @@ export default function EditOrderPage() {
 
     // ── Single-service drag ──────────────────────────────────────────────────
     const service = active.data.current.service as OrderServiceDraft | undefined
-    if (!service) return
+    if (!service || !draft) return
     const visitWindow = draft.visitDates.find((w) => w.date === draft.visitDate)
     const timeSlot = visitWindow?.fromTime ?? `${String(hour).padStart(2, '0')}:00`
     const toTime   = visitWindow?.toTime ?? null

@@ -84,13 +84,36 @@ export function TlInvoiceDialog({ visit, data, profileId, onDone, onClose }: Pro
 
     setSubmitting(true)
     try {
-      // 1. Optimistic-lock visit update (preserves existing locking logic)
-      const { data: updated, error: visitErr } = await (supabase as any)
-        .from('visits')
-        .update({ status: 'completed', completed_at: new Date().toISOString(), completed_by: profileId })
-        .eq('id', visit.id)
-        .not('status', 'in', '("completed","customer-unavailable")')
-        .select('id')
+      // 1. Optimistic-lock: mark the source record completed
+      const now = new Date().toISOString()
+      let updated: any[] | null = null
+      let visitErr: any = null
+
+      if (visit.source_type === 'order') {
+        const res = await (supabase as any)
+          .from('orders')
+          .update({ status: 'completed', completed_at: now, completed_by: profileId })
+          .eq('id', visit.source_id)
+          .not('status', 'in', '("completed","customer-unavailable")')
+          .select('id')
+        updated = res.data; visitErr = res.error
+      } else if (visit.source_type === 'contract') {
+        const res = await (supabase as any)
+          .from('contract_visits')
+          .update({ completed: true })
+          .eq('id', visit.id)
+          .eq('completed', false)
+          .select('id')
+        updated = res.data; visitErr = res.error
+      } else if (visit.source_type === 'site_visit') {
+        const res = await (supabase as any)
+          .from('site_visits')
+          .update({ status: 'completed', completed_at: now, completed_by: profileId })
+          .eq('id', visit.source_id)
+          .not('status', 'in', '("completed","customer-unavailable")')
+          .select('id')
+        updated = res.data; visitErr = res.error
+      }
 
       if (visitErr) throw visitErr
       if (!updated || updated.length === 0) {

@@ -12,6 +12,10 @@ import { createClient as createServerClient } from '@/lib/supabase/server'
 import { createAdminClient } from '@/lib/supabase/admin'
 import { createDibsyPayment } from '@/lib/dibsy'
 
+const SUPA_URL    = process.env.NEXT_PUBLIC_SUPABASE_URL!
+const SUPA_ANON   = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
+const CRON_SECRET = process.env.CRON_SECRET ?? ''
+
 const UUID_RE =
   /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
 
@@ -98,39 +102,97 @@ export async function POST(request: Request) {
   }
 
   // ── 3. Send Wati WhatsApp notification (non-blocking) ───────────────────────
+  // Same pattern as send-booking-confirmations: call the api-wati Edge Function
+  // directly and save to chat_messages for Contact Centre visibility.
   if (customer_phone) {
     const formattedAmount = `${amount.toFixed(2)} QAR`
     const templateName =
       process.env.WATI_INVOICE_TEMPLATE ?? 'mms_tl_invoice_payment'
 
+    const watiPhone = customer_phone.replace(/\D/g, '')
+
     try {
-      const watiBody = {
-        phone:        customer_phone,
-        // `text` is required by /api/wati/send-message — used as the
-        // chat-history preview; the actual content delivered to the customer
-        // comes from the Wati template.
-        text:         `Payment link for order ${order_id}: ${payment.checkoutUrl}`,
-        templateName,
+      const invokeBody = {
+        action:         'send_template',
+        phone:          watiPhone,
+        template_name:  templateName,
+        broadcast_name: `${templateName}_${order_id.replace(/[^a-zA-Z0-9]/g, '_')}_${Date.now()}`,
         parameters: [
           { name: 'bookingnumber', value: order_id },
           { name: 'total_amount',  value: formattedAmount },
           { name: 'due_amount',    value: formattedAmount },
-          // `url` = invoice UUID only; the template button base URL is
-          // hardcoded in the Wati template as /pay/{{url}}
           { name: 'url',           value: invoice_id },
         ],
-        senderName: 'System',
       }
 
-      const watiRes = await fetch(`${appUrl}/api/wati/send-message`, {
+      const watiRes = await fetch(`${SUPA_URL}/functions/v1/api-wati`, {
         method:  'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body:    JSON.stringify(watiBody),
+        headers: {
+          'Content-Type':  'application/json',
+          'apikey':        SUPA_ANON,
+          'Authorization': `Bearer ${SUPA_ANON}`,
+          'x-cron-secret': CRON_SECRET,
+        },
+        body: JSON.stringify(invokeBody),
       })
 
-      if (!watiRes.ok) {
-        const txt = await watiRes.text()
-        console.warn('[create-tl-invoice] Wati send failed:', txt)
+      const rawText = await watiRes.text()
+      let watiData: Record<string, unknown> | null = null
+      try { watiData = JSON.parse(rawText) } catch { watiData = { raw: rawText } }
+
+      const watiOk = watiRes.ok && !watiData?.error && watiData?.result !== false
+      const watiMsgId: string | null = (
+        (watiData as any)?.message?.whatsappMessageId ??
+        (watiData as any)?.info?.whatsAppMessageId ??
+        (watiData as any)?.id ??
+        (watiData as any)?.messageId ??
+        null
+      ) as string | null
+
+      if (!watiOk) {
+        console.warn('[create-tl-invoice] Wati send failed:', rawText.slice(0, 500))
+      }
+
+      // Save to chat_messages for Contact Centre visibility
+      const msgText = `Payment link for order ${order_id}\n\nAmount: ${formattedAmount}\n\n${payment.checkoutUrl}`
+      const phone = `+${watiPhone}`
+
+      const { data: existing } = await (supabase as any)
+        .from('chat_conversations')
+        .select('id')
+        .eq('wati_phone', phone)
+        .maybeSingle()
+
+      let conversationId: string | null = existing?.id ?? null
+
+      if (!conversationId) {
+        const { data: created } = await (supabase as any)
+          .from('chat_conversations')
+          .insert({ wati_phone: phone, last_message: msgText, last_message_at: new Date().toISOString(), unread_count: 0 })
+          .select('id')
+          .single()
+        conversationId = created?.id ?? null
+      } else {
+        await (supabase as any)
+          .from('chat_conversations')
+          .update({ last_message: msgText, last_message_at: new Date().toISOString() })
+          .eq('id', conversationId)
+      }
+
+      if (conversationId) {
+        await (supabase as any)
+          .from('chat_messages')
+          .insert({
+            conversation_id: conversationId,
+            from_type:       'agent',
+            source:          'whatsapp_api',
+            text:            msgText,
+            agent_name:      'System',
+            external_id:     watiMsgId ? `wati_${watiMsgId}` : `tl_invoice_${invoice_id}_${Date.now()}`,
+            delivery_status: watiOk ? 'sent' : 'failed',
+            message_kind:    'message',
+            created_at:      new Date().toISOString(),
+          })
       }
     } catch (err) {
       console.warn('[create-tl-invoice] Wati call threw:', err)

@@ -81,7 +81,7 @@ export function CascadeInventorySelector({
     useInventoryTree(lineType)
   const categories = useMemo(
     () => allCategories.filter((c) => {
-      const hasChildren = allCategories.some((child) => (child as any).parent_id === c.id)
+      const hasChildren = allCategories.some((child) => child.parent_id === c.id)
       return !hasChildren
     }),
     [allCategories],

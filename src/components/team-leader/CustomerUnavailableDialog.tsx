@@ -13,10 +13,12 @@ interface Props {
   open: boolean
   visitId: string
   teamId: string
+  sourceType: string
+  sourceId: string
   onClose: () => void
 }
 
-export function CustomerUnavailableDialog({ open, visitId, teamId, onClose }: Props) {
+export function CustomerUnavailableDialog({ open, visitId, teamId, sourceType, sourceId, onClose }: Props) {
   const [step,              setStep]            = useState<1 | 2>(1)
   const [buildingPhotos,    setBuildingPhotos]  = useState<Blob[]>([])
   const [callPhotos,        setCallPhotos]      = useState<Blob[]>([])
@@ -33,6 +35,8 @@ export function CustomerUnavailableDialog({ open, visitId, teamId, onClose }: Pr
       const formData = new FormData()
       formData.append('visit_id', visitId)
       formData.append('team_id', teamId)
+      formData.append('source_type', sourceType)
+      formData.append('source_id', sourceId)
       formData.append('notes', notes)
       buildingPhotos.forEach((b, i) => formData.append(`building_${i}`, b, `building_${i}.jpg`))
       callPhotos.forEach((b, i) => formData.append(`call_${i}`, b, `call_${i}.jpg`))

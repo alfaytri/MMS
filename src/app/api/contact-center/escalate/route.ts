@@ -8,9 +8,11 @@ export async function POST(req: NextRequest) {
     if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
 
     const formData = await req.formData()
-    const visitId  = formData.get('visit_id') as string
-    const teamId   = formData.get('team_id')  as string
-    const notes    = formData.get('notes')    as string | null
+    const visitId    = formData.get('visit_id')    as string
+    const teamId     = formData.get('team_id')     as string
+    const sourceType = formData.get('source_type') as string | null
+    const sourceId   = formData.get('source_id')   as string | null
+    const notes      = formData.get('notes')       as string | null
 
     if (!visitId || !teamId) {
       return NextResponse.json({ error: 'visit_id and team_id required' }, { status: 400 })
@@ -54,12 +56,20 @@ export async function POST(req: NextRequest) {
       i++
     }
 
-    // Update visit status
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    await (supabase as any)
-      .from('visits')
-      .update({ status: 'customer-unavailable' })
-      .eq('id', visitId)
+    // Update the source record's status
+    if (sourceType === 'order' && sourceId) {
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      await (supabase as any)
+        .from('orders')
+        .update({ status: 'customer-unavailable' })
+        .eq('id', sourceId)
+    } else if (sourceType === 'site_visit' && sourceId) {
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      await (supabase as any)
+        .from('site_visits')
+        .update({ status: 'customer-unavailable' })
+        .eq('id', sourceId)
+    }
 
     // Create CC escalation task
     // eslint-disable-next-line @typescript-eslint/no-explicit-any

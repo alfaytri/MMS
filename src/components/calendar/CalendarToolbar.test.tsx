@@ -38,6 +38,7 @@ const DIVISIONS: Division[] = [
     logo_url: null,
     name_ar: null,
     stamp_url: null,
+    calendar_schedule_id: null,
   },
   {
     id: 'div-2',
@@ -63,6 +64,7 @@ const DIVISIONS: Division[] = [
     logo_url: null,
     name_ar: null,
     stamp_url: null,
+    calendar_schedule_id: null,
   },
 ]
 
