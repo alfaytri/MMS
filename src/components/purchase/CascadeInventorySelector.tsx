@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useMemo } from 'react'
+import { useState } from 'react'
 import { Check, ChevronsUpDown, X } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover'
@@ -29,6 +29,7 @@ import {
   CascadeNewItemForm,
   CascadeNewVariantForm,
 } from './CascadeInlineForms'
+import { CascadeCategoryMenu } from './CascadeCategoryMenu'
 
 interface CascadeInventorySelectorProps {
   lineType: LineType
@@ -77,15 +78,8 @@ export function CascadeInventorySelector({
   const [isItemCreating, setIsItemCreating] = useState(false)
   const [isVarCreating,  setIsVarCreating]  = useState(false)
 
-  const { flat: allCategories, breadcrumb: getBreadcrumb, isLoading: catsLoading } =
+  const { tree, flat: allCategories, breadcrumb: getBreadcrumb, isLoading: catsLoading } =
     useInventoryTree(lineType)
-  const categories = useMemo(
-    () => allCategories.filter((c) => {
-      const hasChildren = allCategories.some((child) => child.parent_id === c.id)
-      return !hasChildren
-    }),
-    [allCategories],
-  )
   const { data: items = [], isLoading: itemsLoading } =
     useInventoryItemsByCategory(selectedCategory?.id ?? null)
   const { data: variants = [], isLoading: varsLoading } =
@@ -286,44 +280,19 @@ export function CascadeInventorySelector({
               onCancel={() => setIsCatCreating(false)}
             />
           ) : (
-            <>
-              <Command>
-                <CommandInput placeholder="Search category…" className="h-8 text-xs" />
-                <CommandEmpty className="py-2 text-xs text-center text-muted-foreground">
-                  No categories found.
-                </CommandEmpty>
-                <CommandGroup>
-                  {categories.map((cat) => (
-                    <CommandItem
-                      key={cat.id}
-                      value={getBreadcrumb(cat.id)}
-                      onSelect={() => {
-                        setSelectedCategory(cat)
-                        setSelectedItem(null)
-                        onChange(null)
-                        setCatOpen(false)
-                      }}
-                      className="text-xs"
-                    >
-                      <Check className={cn('mr-2 h-3 w-3 shrink-0', selectedCategory?.id === cat.id ? 'opacity-100' : 'opacity-0')} />
-                      <div>
-                        <div>{getBreadcrumb(cat.id)}</div>
-                        {cat.name_ar && <div className="text-muted-foreground">{cat.name_ar}</div>}
-                      </div>
-                    </CommandItem>
-                  ))}
-                </CommandGroup>
-              </Command>
-              <div className="border-t px-2 py-1.5">
-                <button
-                  type="button"
-                  className="w-full text-left text-xs text-muted-foreground hover:text-foreground py-1 px-2 rounded hover:bg-accent"
-                  onClick={() => setIsCatCreating(true)}
-                >
-                  + Add new category
-                </button>
-              </div>
-            </>
+            <CascadeCategoryMenu
+              tree={tree}
+              flat={allCategories}
+              selectedId={selectedCategory?.id ?? null}
+              breadcrumb={getBreadcrumb}
+              onSelect={(cat) => {
+                setSelectedCategory(cat)
+                setSelectedItem(null)
+                onChange(null)
+                setCatOpen(false)
+              }}
+              onCreateNew={() => setIsCatCreating(true)}
+            />
           )}
         </PopoverContent>
       </Popover>
