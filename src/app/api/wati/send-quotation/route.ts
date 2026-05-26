@@ -7,6 +7,10 @@ interface SendQuotationBody {
   divisionName: string
   services: Array<{ name: string; qty: number; price: number }>
   total: number
+  subtotal?: number
+  discountType?: 'flat' | 'percent'
+  discountValue?: number
+  discountAmount?: number
   expiryDate: string
 }
 
@@ -14,6 +18,20 @@ function buildMessage(body: SendQuotationBody): string {
   const serviceLines = body.services
     .map((s) => `• ${s.name} x${s.qty} — QAR ${(s.price * s.qty).toLocaleString()}`)
     .join('\n')
+
+  const hasDiscount = (body.discountAmount ?? 0) > 0
+
+  const totalSection = hasDiscount
+    ? [
+        `Subtotal: QAR ${(body.subtotal ?? body.total).toLocaleString()}`,
+        `Discount (${
+          body.discountType === 'percent'
+            ? `${body.discountValue}%`
+            : `QAR ${body.discountValue}`
+        }): -QAR ${body.discountAmount!.toLocaleString()}`,
+        `Total: QAR ${body.total.toLocaleString()}`,
+      ].join('\n')
+    : `Total: QAR ${body.total.toLocaleString()}`
 
   return [
     `Hello ${body.customerName},`,
@@ -26,7 +44,7 @@ function buildMessage(body: SendQuotationBody): string {
     'Services:',
     serviceLines,
     '',
-    `Total: QAR ${body.total.toLocaleString()}`,
+    totalSection,
     '',
     `Thank you for choosing ${body.divisionName}.`,
   ].join('\n')
