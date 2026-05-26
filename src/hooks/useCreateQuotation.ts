@@ -8,6 +8,7 @@ import type { CustomerLookupResult } from '@/hooks/useCustomerLookup'
 import type { OrderServiceDraft } from '@/types/orders'
 import type { PostgrestError } from '@supabase/supabase-js'
 import { roundMoney, computeDiscount } from '@/lib/money'
+import { capturePdfBlob } from '@/lib/quotations/capture-pdf'
 
 const INITIAL: QuotationDraft = {
   quotationId: '',
@@ -20,6 +21,13 @@ const INITIAL: QuotationDraft = {
   notes: '',
   discountType: 'flat',
   discountValue: 0,
+}
+
+export class WindowClosedError extends Error {
+  constructor() {
+    super('Wati conversation window is closed')
+    this.name = 'WindowClosedError'
+  }
 }
 
 export function computeSubtotal(services: QuotationLineDraft[]): number {
@@ -152,12 +160,15 @@ export function useCreateQuotation() {
     mutationFn: () => saveToDb('draft'),
   })
 
-  const sendViaWhatsApp = useMutation({
+  const sendViaWati = useMutation({
     mutationFn: async () => {
-      await saveToDb('draft')  // safe landing pad — DB record exists before network call
-      const total = computeSubtotal(draft.services)
+      await saveToDb('draft')
+      const sub = computeSubtotal(draft.services)
+      const disc = computeDiscount(sub, draft.discountType, draft.discountValue)
+      const finalTotal = roundMoney(sub - disc)
       const expiryDate = new Date()
       expiryDate.setDate(expiryDate.getDate() + 30)
+
       const res = await fetch('/api/wati/send-quotation', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -171,7 +182,11 @@ export function useCreateQuotation() {
             qty:   s.qty,
             price: s.price,
           })),
-          total,
+          total: finalTotal,
+          subtotal: sub,
+          discountType:  draft.discountType,
+          discountValue: draft.discountValue,
+          discountAmount: disc,
           expiryDate: expiryDate.toLocaleDateString('en-GB', {
             day: '2-digit', month: 'short', year: 'numeric',
           }),
@@ -179,9 +194,48 @@ export function useCreateQuotation() {
       })
       const json = await res.json()
       if (!res.ok) throw new Error(json.error ?? 'Failed to send')
-      if (json.windowClosed) return json as { windowClosed: boolean }
-      await saveToDb('sent')  // promote to 'sent' only after confirmed delivery
-      return json as { windowClosed?: boolean }
+      if (json.windowClosed) throw new WindowClosedError()
+      await saveToDb('sent')
+    },
+  })
+
+  const sendViaWhapi = useMutation({
+    mutationFn: async (pdfElement: HTMLElement) => {
+      await saveToDb('draft')
+      // 1. Capture PDF from DOM
+      const blob = await capturePdfBlob(pdfElement)
+      // 2. Upload to Supabase Storage
+      const fileName = `${draft.quotationId}.pdf`
+      const { error: uploadError } = await supabase.storage
+        .from('quotation-pdfs')
+        .upload(fileName, blob, {
+          contentType: 'application/pdf',
+          upsert: true,
+        })
+      if (uploadError) throw new Error(`PDF upload failed: ${uploadError.message}`)
+      // 3. Get public URL
+      const { data: urlData } = supabase.storage
+        .from('quotation-pdfs')
+        .getPublicUrl(fileName)
+      const publicUrl = urlData.publicUrl
+      // 4. Send via WHAPI
+      const sub = computeSubtotal(draft.services)
+      const disc = computeDiscount(sub, draft.discountType, draft.discountValue)
+      const finalTotal = roundMoney(sub - disc)
+      const res = await fetch('/api/whapi/send-message', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          phone:        draft.phone,
+          documentUrl:  publicUrl,
+          documentName: `Quotation-${draft.quotationId}.pdf`,
+          text:         `Quotation ${draft.quotationId} — Total: QAR ${finalTotal.toLocaleString()}`,
+        }),
+      })
+      const json = await res.json()
+      if (!res.ok || !json.ok) throw new Error(json.error ?? 'WHAPI send failed')
+      // 5. Mark as sent
+      await saveToDb('sent')
     },
   })
 
@@ -202,7 +256,8 @@ export function useCreateQuotation() {
     setDiscountValue,
     isValid,
     saveDraft,
-    sendViaWhatsApp,
+    sendViaWati,
+    sendViaWhapi,
     subtotal,
     discountAmount,
     total,
