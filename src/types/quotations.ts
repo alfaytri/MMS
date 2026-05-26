@@ -19,6 +19,8 @@ export interface QuotationDraft {
   division: string    // derived from first service's division
   services: QuotationLineDraft[]
   notes: string
+  discountType: 'flat' | 'percent'
+  discountValue: number
 }
 
 // Intentional subset of the DB quotation_status enum — this module only creates/sends.
@@ -45,6 +47,8 @@ export interface QuotationDetail {
   division: string
   status: QuotationStatus
   total_amount: number
+  discount_type: 'flat' | 'percent'
+  discount_value: number
   notes: string | null
   created_date: string
   expiry_date: string | null

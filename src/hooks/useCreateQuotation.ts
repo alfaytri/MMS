@@ -7,6 +7,7 @@ import type { QuotationDraft, QuotationLineDraft } from '@/types/quotations'
 import type { CustomerLookupResult } from '@/hooks/useCustomerLookup'
 import type { OrderServiceDraft } from '@/types/orders'
 import type { PostgrestError } from '@supabase/supabase-js'
+import { roundMoney, computeDiscount } from '@/lib/money'
 
 const INITIAL: QuotationDraft = {
   quotationId: '',
@@ -17,10 +18,12 @@ const INITIAL: QuotationDraft = {
   division: '',
   services: [],
   notes: '',
+  discountType: 'flat',
+  discountValue: 0,
 }
 
-export function computeTotal(services: QuotationLineDraft[]): number {
-  return services.reduce((sum, s) => sum + s.price * s.qty, 0)
+export function computeSubtotal(services: QuotationLineDraft[]): number {
+  return roundMoney(services.reduce((sum, s) => sum + s.price * s.qty, 0))
 }
 
 export function useCreateQuotation() {
@@ -98,26 +101,36 @@ export function useCreateQuotation() {
     setDraft((d) => ({ ...d, ...partial }))
   }
 
+  function setDiscountType(type: 'flat' | 'percent') {
+    setDraft((d) => ({ ...d, discountType: type }))
+  }
+
+  function setDiscountValue(value: number) {
+    setDraft((d) => ({ ...d, discountValue: Math.max(0, value) }))
+  }
+
   function isValid(): boolean {
     return !!draft.customerId && draft.services.length > 0
   }
 
   // Single RPC call — quotation row + line items committed atomically
   async function saveToDb(status: 'draft' | 'sent'): Promise<string> {
-    const total = computeTotal(draft.services)
+    const sub = computeSubtotal(draft.services)
+    const disc = computeDiscount(sub, draft.discountType, draft.discountValue)
+    const finalTotal = roundMoney(sub - disc)
     const expiry = new Date()
     expiry.setDate(expiry.getDate() + 30)
 
     const { data: quotUuid, error } = await (supabase as any).rpc('save_quotation', {
       p_quotation_id:        draft.quotationId,
       p_service_customer_id: draft.customerId,
-      p_division:     draft.division,
-      p_status:       status,
-      p_total_amount: total,
-      p_notes:        draft.notes || '',
-      p_expiry_date:  expiry.toISOString().split('T')[0],
-      p_sent_date:    status === 'sent' ? new Date().toISOString() : null,
-      p_line_items:   JSON.stringify(
+      p_division:            draft.division,
+      p_status:              status,
+      p_total_amount:        finalTotal,
+      p_notes:               draft.notes || '',
+      p_expiry_date:         expiry.toISOString().split('T')[0],
+      p_sent_date:           status === 'sent' ? new Date().toISOString() : null,
+      p_line_items:          JSON.stringify(
         draft.services.map((s) => ({
           service_id: s.serviceId || null,
           name:       s.name,
@@ -127,6 +140,8 @@ export function useCreateQuotation() {
           duration:   s.duration ?? null,
         })),
       ),
+      p_discount_type:  draft.discountType,
+      p_discount_value: draft.discountValue,
     })
     if (error) throw error
     qc.invalidateQueries({ queryKey: ['quotations'] })
@@ -140,7 +155,7 @@ export function useCreateQuotation() {
   const sendViaWhatsApp = useMutation({
     mutationFn: async () => {
       await saveToDb('draft')  // safe landing pad — DB record exists before network call
-      const total = computeTotal(draft.services)
+      const total = computeSubtotal(draft.services)
       const expiryDate = new Date()
       expiryDate.setDate(expiryDate.getDate() + 30)
       const res = await fetch('/api/wati/send-quotation', {
@@ -170,6 +185,10 @@ export function useCreateQuotation() {
     },
   })
 
+  const subtotal = computeSubtotal(draft.services)
+  const discountAmount = computeDiscount(subtotal, draft.discountType, draft.discountValue)
+  const total = roundMoney(subtotal - discountAmount)
+
   return {
     draft,
     quotationIdError,
@@ -179,9 +198,13 @@ export function useCreateQuotation() {
     removeService,
     updateQty,
     update,
+    setDiscountType,
+    setDiscountValue,
     isValid,
     saveDraft,
     sendViaWhatsApp,
-    total: computeTotal(draft.services),
+    subtotal,
+    discountAmount,
+    total,
   }
 }
