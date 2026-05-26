@@ -2,6 +2,7 @@
 'use client'
 import { useState, useEffect } from 'react'
 import { Button } from '@/components/ui/button'
+import { Input } from '@/components/ui/input'
 import { Textarea } from '@/components/ui/textarea'
 import { Label } from '@/components/ui/label'
 import { PhoneLookupModal } from '@/components/orders/PhoneLookupModal'
@@ -28,7 +29,14 @@ interface Props {
   isSaving: boolean
   isSending: boolean
   isValid: boolean
-  whatsAppWindowClosed: boolean
+  // Discount
+  discountType: 'flat' | 'percent'
+  discountValue: number
+  onDiscountTypeChange: (type: 'flat' | 'percent') => void
+  onDiscountValueChange: (value: number) => void
+  subtotal: number
+  discountAmount: number
+  total: number
 }
 
 export function QuotationFormPanel({
@@ -45,7 +53,13 @@ export function QuotationFormPanel({
   isSaving,
   isSending,
   isValid,
-  whatsAppWindowClosed,
+  discountType,
+  discountValue,
+  onDiscountTypeChange,
+  onDiscountValueChange,
+  subtotal,
+  discountAmount,
+  total,
 }: Props) {
   const [lookupOpen, setLookupOpen] = useState(!draft.customerId)
 
@@ -172,27 +186,78 @@ export function QuotationFormPanel({
             />
           </div>
 
-          {/* Total */}
+          {/* Discount */}
           {draft.services.length > 0 && (
-            <div className="rounded-md bg-slate-50 p-2 text-right">
-              <span className="text-xs text-slate-500">Total: </span>
-              <span className="font-semibold text-slate-900">
-                QAR{' '}
-                {draft.services
-                  .reduce((sum, s) => sum + s.price * s.qty, 0)
-                  .toFixed(0)}
-              </span>
+            <div className="space-y-2">
+              <div className="space-y-1.5">
+                <Label className="text-[11px] font-semibold uppercase tracking-wide text-slate-400">
+                  Discount
+                </Label>
+                <div className="flex items-center gap-2">
+                  <Input
+                    type="number"
+                    min={0}
+                    step={discountType === 'percent' ? 1 : 0.01}
+                    max={discountType === 'percent' ? 100 : undefined}
+                    placeholder="0"
+                    className="h-9 text-sm text-right flex-1 min-h-[44px] sm:min-h-0"
+                    value={discountValue || ''}
+                    onChange={(e) => onDiscountValueChange(Number(e.target.value) || 0)}
+                  />
+                  <div className="flex rounded-md border overflow-hidden shrink-0">
+                    <button
+                      type="button"
+                      className={`px-3 py-1.5 text-xs font-medium transition-colors min-h-[36px] ${
+                        discountType === 'flat'
+                          ? 'bg-slate-900 text-white'
+                          : 'bg-white text-slate-600 hover:bg-slate-50'
+                      }`}
+                      onClick={() => onDiscountTypeChange('flat')}
+                    >
+                      QAR
+                    </button>
+                    <button
+                      type="button"
+                      className={`px-3 py-1.5 text-xs font-medium transition-colors min-h-[36px] border-l ${
+                        discountType === 'percent'
+                          ? 'bg-slate-900 text-white'
+                          : 'bg-white text-slate-600 hover:bg-slate-50'
+                      }`}
+                      onClick={() => onDiscountTypeChange('percent')}
+                    >
+                      %
+                    </button>
+                  </div>
+                </div>
+              </div>
+
+              {/* Totals strip */}
+              <div className="rounded-md bg-slate-50 p-2 space-y-0.5">
+                {discountAmount > 0 && (
+                  <>
+                    <div className="flex justify-between text-xs text-slate-500">
+                      <span>Subtotal</span>
+                      <span>QAR {subtotal.toLocaleString()}</span>
+                    </div>
+                    <div className="flex justify-between text-xs text-red-500">
+                      <span>
+                        Discount{' '}
+                        ({discountType === 'percent' ? `${discountValue}%` : `QAR ${discountValue}`})
+                      </span>
+                      <span>-QAR {discountAmount.toLocaleString()}</span>
+                    </div>
+                  </>
+                )}
+                <div className="flex justify-between">
+                  <span className="text-xs font-semibold text-slate-900">Total</span>
+                  <span className="font-semibold text-slate-900">
+                    QAR {total.toLocaleString()}
+                  </span>
+                </div>
+              </div>
             </div>
           )}
         </div>
-
-        {/* WATI window closed warning */}
-        {whatsAppWindowClosed && (
-          <div className="mx-4 mb-2 rounded-md border border-amber-200 bg-amber-50 px-3 py-2 text-xs text-amber-800">
-            WATI window is closed for this customer. Ask them to send a message
-            first, then retry.
-          </div>
-        )}
 
         {/* Actions */}
         <div className="border-t px-4 py-3 space-y-2">
