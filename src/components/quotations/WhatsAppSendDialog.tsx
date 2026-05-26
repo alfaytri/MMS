@@ -31,8 +31,7 @@ export function WhatsAppSendDialog({
     <Dialog open={open} onOpenChange={(v) => { if (!isSending) onOpenChange(v) }}>
       <DialogContent
         className="w-full max-w-sm rounded-none sm:rounded-lg"
-        onInteractOutside={(e) => { if (isSending) e.preventDefault() }}
-        onEscapeKeyDown={(e) => { if (isSending) e.preventDefault() }}
+        showCloseButton={!isSending}
       >
         <DialogHeader>
           <DialogTitle>Send Quotation via WhatsApp</DialogTitle>

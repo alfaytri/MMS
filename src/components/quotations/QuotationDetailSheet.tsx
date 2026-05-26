@@ -7,6 +7,8 @@ import { format } from 'date-fns'
 import { useQuotationDetail } from '@/hooks/useQuotationDetail'
 import { QuotationPdfPreview } from './QuotationPdfPreview'
 import { cn } from '@/lib/utils'
+import { computeDiscount, roundMoney } from '@/lib/money'
+import { computeSubtotal } from '@/hooks/useCreateQuotation'
 import type { QuotationDraft } from '@/types/quotations'
 
 const STATUS_STYLES: Record<string, string> = {
@@ -42,13 +44,16 @@ export function QuotationDetailSheet({ quotationId, open, onOpenChange }: Props)
           division: q.division,
         })),
         notes: q.notes ?? '',
+        discountType: (q as any).discount_type ?? 'flat',
+        discountValue: (q as any).discount_value ?? 0,
       }
     : null
 
-  const previewTotal = q?.line_items.reduce(
-    (sum, li) => sum + li.price * li.qty,
-    0,
-  ) ?? 0
+  const previewSubtotal = previewDraft ? computeSubtotal(previewDraft.services) : 0
+  const previewDiscountAmount = previewDraft
+    ? computeDiscount(previewSubtotal, previewDraft.discountType, previewDraft.discountValue)
+    : 0
+  const previewTotal = previewDraft ? roundMoney(previewSubtotal - previewDiscountAmount) : 0
 
   return (
     <Sheet open={open} onOpenChange={onOpenChange}>
@@ -100,6 +105,11 @@ export function QuotationDetailSheet({ quotationId, open, onOpenChange }: Props)
                     <QuotationPdfPreview
                       draft={previewDraft}
                       total={previewTotal}
+                      discountType={previewDraft.discountType}
+                      discountValue={previewDraft.discountValue}
+                      subtotal={previewSubtotal}
+                      discountAmount={previewDiscountAmount}
+                      creatorName={null}
                     />
                   )}
                 </TabsContent>

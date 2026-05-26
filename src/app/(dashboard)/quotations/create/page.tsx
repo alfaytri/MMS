@@ -41,8 +41,9 @@ export default function CreateQuotationPage() {
     total,
   } = useCreateQuotation()
 
+  // title column exists in DB but may not be in generated types yet
   const creatorName = profile
-    ? `${profile.title ?? 'Mr.'} ${profile.full_name}`
+    ? `${(profile as any).title ?? 'Mr.'} ${profile.full_name}`
     : null
 
   async function handleSaveDraft() {
