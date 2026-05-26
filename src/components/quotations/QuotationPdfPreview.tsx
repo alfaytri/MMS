@@ -1,5 +1,6 @@
 // src/components/quotations/QuotationPdfPreview.tsx
 'use client'
+import { forwardRef } from 'react'
 import { useQuery } from '@tanstack/react-query'
 import { createClient } from '@/lib/supabase/client'
 import { format } from 'date-fns'
@@ -37,9 +38,20 @@ function useDivisionBySlug(slug: string | null) {
 interface Props {
   draft: QuotationDraft
   total: number
+  // Discount
+  discountType: 'flat' | 'percent'
+  discountValue: number
+  subtotal: number
+  discountAmount: number
+  // Creator
+  creatorName: string | null
 }
 
-export function QuotationPdfPreview({ draft, total }: Props) {
+export const QuotationPdfPreview = forwardRef<HTMLDivElement, Props>(
+  function QuotationPdfPreview(
+    { draft, total, discountType, discountValue, subtotal, discountAmount, creatorName },
+    ref,
+  ) {
   const { data: division } = useDivisionBySlug(draft.division || null)
   const currency = division?.default_currency ?? 'QAR'
   const today = format(new Date(), 'dd MMM yyyy')
@@ -53,6 +65,7 @@ export function QuotationPdfPreview({ draft, total }: Props) {
   return (
     <div className="flex h-full items-start justify-center overflow-y-auto bg-slate-100 p-6">
       <div
+        ref={ref}
         className="w-full max-w-2xl rounded bg-white shadow-xl"
         style={{ minHeight: '297mm' }}
       >
@@ -79,6 +92,9 @@ export function QuotationPdfPreview({ draft, total }: Props) {
               )}
               {division?.address_en && (
                 <p className="text-xs text-slate-500">{division.address_en}</p>
+              )}
+              {creatorName && (
+                <p className="text-sm font-medium text-slate-700">{creatorName}</p>
               )}
             </div>
             <div className="text-right space-y-0.5">
@@ -171,17 +187,58 @@ export function QuotationPdfPreview({ draft, total }: Props) {
                 )}
               </tbody>
               <tfoot>
-                <tr className="border border-slate-200 bg-slate-50">
-                  <td
-                    colSpan={3}
-                    className="px-3 py-2 text-right font-bold text-slate-900 uppercase text-sm"
-                  >
-                    Total
-                  </td>
-                  <td className="px-3 py-2 text-right font-bold text-slate-900">
-                    {currency} {total.toLocaleString()}
-                  </td>
-                </tr>
+                {discountAmount > 0 ? (
+                  <>
+                    <tr className="border border-slate-100">
+                      <td
+                        colSpan={3}
+                        className="px-3 py-1.5 text-right text-sm text-slate-600"
+                      >
+                        Subtotal
+                      </td>
+                      <td className="px-3 py-1.5 text-right text-sm text-slate-600">
+                        {currency} {subtotal.toLocaleString()}
+                      </td>
+                    </tr>
+                    <tr className="border border-slate-100">
+                      <td
+                        colSpan={3}
+                        className="px-3 py-1.5 text-right text-sm text-red-500"
+                      >
+                        Discount{' '}
+                        ({discountType === 'percent'
+                          ? `${discountValue}%`
+                          : `${currency} ${discountValue}`})
+                      </td>
+                      <td className="px-3 py-1.5 text-right text-sm text-red-500">
+                        -{currency} {discountAmount.toLocaleString()}
+                      </td>
+                    </tr>
+                    <tr className="border border-slate-200 bg-slate-50">
+                      <td
+                        colSpan={3}
+                        className="px-3 py-2 text-right font-bold text-slate-900 uppercase text-sm"
+                      >
+                        Total
+                      </td>
+                      <td className="px-3 py-2 text-right font-bold text-slate-900">
+                        {currency} {total.toLocaleString()}
+                      </td>
+                    </tr>
+                  </>
+                ) : (
+                  <tr className="border border-slate-200 bg-slate-50">
+                    <td
+                      colSpan={3}
+                      className="px-3 py-2 text-right font-bold text-slate-900 uppercase text-sm"
+                    >
+                      Total
+                    </td>
+                    <td className="px-3 py-2 text-right font-bold text-slate-900">
+                      {currency} {total.toLocaleString()}
+                    </td>
+                  </tr>
+                )}
               </tfoot>
             </table>
           </div>
@@ -219,4 +276,4 @@ export function QuotationPdfPreview({ draft, total }: Props) {
       </div>
     </div>
   )
-}
+})
