@@ -243,3 +243,48 @@ Add a row to the `## 🔒 Security Audit Log` table after the module is done:
 ```
 
 Use ✅ when clean, ⚠️ when there is an accepted known gap (explain in Notes), ❌ if something needs fixing before merge.
+
+---
+
+# EOD Report — Mandatory Rule
+
+After **every task completion**, update the EOD file for the current date. This is part of the same post-task ritual as the PROGRESS.md update — never skip it.
+
+**File location:** `D:\MMS\EOD\EOD-YYYY-MM-DD.md` (inside the `EOD/` folder, NOT the project root)
+
+**On every task completion:**
+1. Open `EOD/EOD-YYYY-MM-DD.md` (create if it doesn't exist for today)
+2. Read the existing content — previous sessions may have already added tasks today
+3. Append your completed task as the next numbered item
+4. Keep descriptions simple — one-line plain language, not overly technical paragraphs
+
+**When the user says "EOD":**
+1. Read the existing `EOD/EOD-YYYY-MM-DD.md` first — do NOT overwrite earlier tasks
+2. Add any tasks you completed that aren't already listed
+3. Finalize with: `In Progress`, `Blockers`, and `Tomorrow's Plan` sections
+
+**Format:**
+```
+EOD Report — YYYY-MM-DD
+
+Tasks Completed
+
+1. Short task title — One-line description of what was done.
+2. Next task — One-line description.
+
+In Progress
+None (or list items)
+
+Blockers
+None (or list items)
+
+Tomorrow's Plan
+- Next planned work item
+```
+
+**Rules:**
+- Always READ the existing EOD file before writing — other sessions add to it during the day
+- Never create the file in the project root — always use the `EOD/` folder
+- Keep descriptions simple and scannable — one line per task, no bullet sub-lists
+- The EOD folder is gitignored — no git add needed, just write the file
+- Number tasks sequentially across all sessions (don't restart numbering)
