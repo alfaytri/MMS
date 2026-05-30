@@ -8,7 +8,9 @@ const ALLOWED_PATHS = new Set<string>([
 // Inbound webhooks from external services (Wati, 17track) carry no session
 // cookie — they must bypass the auth gate. Each route validates its own
 // shared secret / signature instead.
-const WEBHOOK_PREFIXES = ['/api/wati/webhook', '/api/whapi/webhook', '/api/webhooks/']
+const WEBHOOK_PREFIXES = ['/api/wati/webhook', '/api/whapi/webhook', '/api/webhooks/', '/api/payments/dibsy/webhook', '/api/payments/dibsy/create-batch-payment']
+
+const PUBLIC_PREFIXES = ['/pay/']
 
 export async function middleware(request: NextRequest) {
   let supabaseResponse = NextResponse.next({ request })
@@ -53,7 +55,8 @@ export async function middleware(request: NextRequest) {
   // Anyone without a session is sent to /login, except for /login itself,
   // webhook routes (validated by their own signature checks), and static assets.
   const isWebhook = WEBHOOK_PREFIXES.some(p => pathname.startsWith(p))
-  if (!user && pathname !== '/login' && !isWebhook) {
+  const isPublic = PUBLIC_PREFIXES.some(p => pathname.startsWith(p))
+  if (!user && pathname !== '/login' && !isWebhook && !isPublic) {
     const url = request.nextUrl.clone()
     url.pathname = '/login'
     // Preserve the original destination so we can redirect back after login

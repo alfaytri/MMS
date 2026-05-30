@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect } from 'react'
+import { useEffect, useState } from 'react'
 import { useForm } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { z } from 'zod'
@@ -23,6 +23,7 @@ import {
 import { Input } from '@/components/ui/input'
 import { Textarea } from '@/components/ui/textarea'
 import { Button } from '@/components/ui/button'
+import { PhoneInputWithCode, splitPhone } from '@/components/shared/PhoneInputWithCode'
 import { useCreateSupplier, useUpdateSupplier, type Supplier } from '@/hooks/useSuppliers'
 
 const supplierSchema = z.object({
@@ -48,6 +49,7 @@ export function SupplierFormDialog({ open, onOpenChange, supplier }: SupplierFor
   const create = useCreateSupplier()
   const update = useUpdateSupplier()
   const isPending = create.isPending || update.isPending
+  const [countryCode, setCountryCode] = useState('+974')
 
   const form = useForm<SupplierFormValues>({
     resolver: zodResolver(supplierSchema),
@@ -64,26 +66,30 @@ export function SupplierFormDialog({ open, onOpenChange, supplier }: SupplierFor
 
   useEffect(() => {
     if (open && supplier) {
+      const { code, digits } = splitPhone(supplier.phone)
+      setCountryCode(code)
       form.reset({
         name: supplier.name,
         category: supplier.category ?? '',
         contact_name: supplier.contact_name ?? '',
-        phone: supplier.phone ?? '',
+        phone: digits,
         email: supplier.email ?? '',
         address: supplier.address ?? '',
         notes: supplier.notes ?? '',
       })
     } else if (open) {
+      setCountryCode('+974')
       form.reset()
     }
   }, [open, supplier, form])
 
   function onSubmit(values: SupplierFormValues) {
+    const fullPhone = values.phone ? `${countryCode}${values.phone}` : null
     const cleanValues = {
       ...values,
       category: values.category || null,
       contact_name: values.contact_name || null,
-      phone: values.phone || null,
+      phone: fullPhone,
       email: values.email || null,
       address: values.address || null,
       notes: values.notes || null,
@@ -168,7 +174,12 @@ export function SupplierFormDialog({ open, onOpenChange, supplier }: SupplierFor
                   <FormItem>
                     <FormLabel>Phone</FormLabel>
                     <FormControl>
-                      <Input placeholder="+974 1234 5678" {...field} />
+                      <PhoneInputWithCode
+                        value={field.value ?? ''}
+                        onChange={field.onChange}
+                        countryCode={countryCode}
+                        onCountryCodeChange={setCountryCode}
+                      />
                     </FormControl>
                     <FormMessage />
                   </FormItem>

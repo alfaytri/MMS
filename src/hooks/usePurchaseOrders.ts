@@ -2,7 +2,7 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { createClient } from '@/lib/supabase/client'
 import { findApplicableTiers, validateRoles, buildApprovalSteps, getNotificationRecipients } from '@/lib/approvalChainResolution'
 import { logPOActivity, resolveMyName } from '@/lib/poActivityLogger'
-import { savePoSnapshot } from '@/lib/poVersionHelper'
+import { savePoSnapshot, resolveLineItemNames } from '@/lib/poVersionHelper'
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -267,6 +267,7 @@ export function usePurchaseOrders(filters: POFilters = {}) {
       return data as PurchaseOrder[]
     },
     staleTime: 30 * 1000,
+    refetchInterval: 30 * 1000,
   })
 }
 
@@ -337,6 +338,15 @@ export function useCreatePO() {
 
       const { data: { user } } = await supabase.auth.getUser()
 
+      // purchase_orders.created_by has a FK to profiles(id), which is a different UUID
+      // namespace than auth.users(id). Resolve the profile row before inserting.
+      let creatorProfileId: string | null = null
+      if (user) {
+        const { data: profile } = await (supabase as any)
+          .from('profiles').select('id').eq('auth_user_id', user.id).maybeSingle()
+        creatorProfileId = profile?.id ?? null
+      }
+
       const subtotal = payload.line_items.reduce((s, li) => s + li.total_price, 0)
       const total_qar = (subtotal - payload.discount_amount) * payload.exchange_rate
       const approval_level = calcApprovalLevel(total_qar)
@@ -363,7 +373,7 @@ export function useCreatePO() {
           vendor_notes: payload.vendor_notes,
           discount_amount: payload.discount_amount,
           discount_label: payload.discount_label,
-          created_by: user?.id ?? null,
+          created_by: creatorProfileId,
           division_id: payload.division_id ?? null,
           po_type: payload.po_type ?? 'draft',
           rfq_id: payload.rfq_id ?? null,
@@ -373,9 +383,10 @@ export function useCreatePO() {
       if (poErr) throw poErr
 
       if (payload.line_items.length > 0) {
+        const resolved = await resolveLineItemNames(supabase, payload.line_items)
         const { error: liErr } = await (supabase as any)
           .from('po_line_items')
-          .insert(payload.line_items.map((li) => ({ ...li, po_id: po.id })))
+          .insert(resolved.map((li) => ({ ...li, po_id: po.id })))
         if (liErr) throw liErr
       }
 
@@ -435,18 +446,16 @@ export function useUpdatePO() {
       if (poErr) throw poErr
 
       if (line_items) {
-        // Delete existing line items and re-insert
         await (supabase as any).from('po_line_items').delete().eq('po_id', id)
         if (line_items.length > 0) {
+          const resolved = await resolveLineItemNames(supabase, line_items)
           const { error: liErr } = await (supabase as any)
             .from('po_line_items')
-            .insert(line_items.map((li) => ({ ...li, po_id: id })))
+            .insert(resolved.map((li) => ({ ...li, po_id: id })))
           if (liErr) throw liErr
         }
       }
 
-      // Snapshot current version for all PO types
-      await savePoSnapshot(supabase, id, 'saved')
     },
     onSuccess: (_data, variables) => {
       queryClient.invalidateQueries({ queryKey: ['purchase-orders'] })
@@ -906,14 +915,12 @@ export function useSavePoAsDraft() {
 
       await (supabase as any).from('po_line_items').delete().eq('po_id', id)
       if (payload.line_items.length > 0) {
+        const resolved = await resolveLineItemNames(supabase, payload.line_items)
         const { error: liErr } = await (supabase as any)
           .from('po_line_items')
-          .insert(payload.line_items.map((li) => ({ ...li, po_id: id })))
+          .insert(resolved.map((li) => ({ ...li, po_id: id })))
         if (liErr) throw liErr
       }
-
-      // Snapshot for version history
-      await savePoSnapshot(supabase, id, 'saved')
 
       const draftPerformer = await resolveMyName()
       await logPOActivity({

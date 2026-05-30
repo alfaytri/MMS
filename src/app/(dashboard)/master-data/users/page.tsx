@@ -193,7 +193,7 @@ export default function UsersRolesPage() {
         if (!userRoles?.length) return <span className="text-muted-foreground">None</span>
         return (
           <div className="flex gap-1 flex-wrap">
-            {userRoles.slice(0, 2).map((ur, i) => (
+            {userRoles.slice(0, 2).map((ur: { custom_roles: { name: string } | null }, i: number) => (
               <Badge key={i} variant="outline" className="text-xs">{ur.custom_roles?.name}</Badge>
             ))}
             {userRoles.length > 2 && <Badge variant="outline" className="text-xs">+{userRoles.length - 2}</Badge>}

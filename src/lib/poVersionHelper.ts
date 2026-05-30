@@ -1,4 +1,32 @@
 import { createClient } from '@/lib/supabase/client'
+import type { POLineItemDraft } from '@/hooks/usePurchaseOrders'
+
+/**
+ * For line items with an empty item_name, resolve from the inventory via brand_variant_id.
+ */
+export async function resolveLineItemNames(
+  supabase: ReturnType<typeof createClient>,
+  items: POLineItemDraft[],
+): Promise<POLineItemDraft[]> {
+  const needsResolve = items.filter((li) => !li.item_name?.trim() && li.brand_variant_id)
+  if (needsResolve.length === 0) return items
+
+  const ids = needsResolve.map((li) => li.brand_variant_id!)
+  const { data: rows } = await (supabase as any)
+    .from('inventory_brand_variants')
+    .select('id, inventory_items(name_en)')
+    .in('id', ids)
+  const nameMap = new Map<string, string>()
+  for (const r of rows ?? []) {
+    nameMap.set(r.id, r.inventory_items?.name_en ?? '')
+  }
+
+  return items.map((li) => {
+    if (li.item_name?.trim()) return li
+    const resolved = li.brand_variant_id ? nameMap.get(li.brand_variant_id) : null
+    return { ...li, item_name: resolved || li.item_name || 'Item' }
+  })
+}
 
 /**
  * Saves a read-only snapshot of the PO's current state into po_versions.
@@ -25,7 +53,7 @@ export async function savePoSnapshot(
       .order('version_number', { ascending: false })
       .limit(1)
       .maybeSingle()
-    const nextVersion = (latest?.version_number ?? po.version_number ?? 0) + 1
+    const nextVersion = (latest?.version_number ?? 0) + 1
 
     await (supabase as any).from('po_versions').insert({
       po_id: poId,

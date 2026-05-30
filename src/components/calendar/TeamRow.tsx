@@ -65,7 +65,8 @@ const OFFHOURS_STYLE = {
 interface TeamRowProps {
   team: TeamFull
   visits: CalendarVisit[]
-  hours: number[]
+  /** Half-hour slots: [0, 0.5, 1, 1.5, … 23.5] */
+  slots: number[]
   dayStart: number
   /** First working hour (inclusive). Cells before this are dimmed. */
   workStart: number
@@ -84,7 +85,7 @@ interface TeamRowProps {
 export function TeamRow({
   team,
   visits,
-  hours,
+  slots,
   dayStart,
   workStart,
   workEnd,
@@ -97,7 +98,7 @@ export function TeamRow({
   onCellClick,
 }: TeamRowProps) {
   const { rowHeight, trackMap } = computeTeamRowLayout(visits)
-  const totalWidth = hours.length * cellWidth
+  const totalWidth = slots.length * cellWidth
 
   return (
     <div className="flex border-b" style={{ height: rowHeight }}>
@@ -122,18 +123,21 @@ export function TeamRow({
 
       {/* Visit blocks + clickable hour cells */}
       <div className="relative flex-1" style={{ width: totalWidth, minWidth: totalWidth }}>
-        {/* Hour grid cells */}
+        {/* Half-hour grid cells */}
         <div className="absolute inset-0 flex z-0">
-          {hours.map((hour, i) => {
-            const isWorking = hour >= workStart && hour < workEnd
+          {slots.map((slot, i) => {
+            const hour = Math.floor(slot)
+            const isHalf = slot % 1 !== 0
+            const isWorking = slot >= workStart && slot < workEnd
             const clickable  = isWorking && !!onCellClick
             return (
               <div
-                key={hour}
+                key={slot}
                 className={cn(
-                  'h-full border-l shrink-0',
+                  'h-full shrink-0',
+                  isHalf ? 'border-l border-border/20' : 'border-l border-border/40',
                   i === 0 && 'border-l-0',
-                  isWorking ? 'border-border/40' : 'border-border/20',
+                  !isWorking && 'border-border/20',
                   clickable && 'cursor-pointer group/cell hover:bg-orange-50/60 transition-colors',
                 )}
                 style={{
@@ -141,9 +145,9 @@ export function TeamRow({
                   minWidth: cellWidth,
                   ...(!isWorking ? OFFHOURS_STYLE : {}),
                 }}
-                onClick={() => clickable && onCellClick?.(team.id, hour)}
+                onClick={() => clickable && onCellClick?.(team.id, slot)}
               >
-                {clickable && (
+                {clickable && !isHalf && (
                   <div className="flex h-full items-center justify-center opacity-0 group-hover/cell:opacity-60 transition-opacity pointer-events-none select-none">
                     <span className="text-orange-400 text-xl font-light leading-none">+</span>
                   </div>

@@ -15,33 +15,8 @@ import { createClient } from '@/lib/supabase/client'
 import { useServiceTree, type Service } from '@/hooks/useServices'
 import { useCreateEmployee, useArchiveEmployee, useDisableEmployee, useEnableEmployee, logActivity } from '@/hooks/useTeams'
 import { useDivisions } from '@/hooks/useDivisions'
+import { PhoneInputWithCode, splitPhone } from '@/components/shared/PhoneInputWithCode'
 import { useTeamsPage } from '../TeamsPageContext'
-
-// ─── Country codes ────────────────────────────────────────────────────────────
-const COUNTRY_CODES = [
-  { code: '+974', label: 'QA +974' },
-  { code: '+966', label: 'SA +966' },
-  { code: '+971', label: 'AE +971' },
-  { code: '+965', label: 'KW +965' },
-  { code: '+973', label: 'BH +973' },
-  { code: '+968', label: 'OM +968' },
-  { code: '+20',  label: 'EG +20'  },
-  { code: '+92',  label: 'PK +92'  },
-  { code: '+91',  label: 'IN +91'  },
-  { code: '+880', label: 'BD +880' },
-]
-
-function parsePhone(phone: string): { code: string; number: string } {
-  for (const c of COUNTRY_CODES) {
-    if (phone.startsWith(c.code + ' ')) {
-      return { code: c.code, number: phone.slice(c.code.length + 1) }
-    }
-    if (phone.startsWith(c.code)) {
-      return { code: c.code, number: phone.slice(c.code.length) }
-    }
-  }
-  return { code: '+974', number: phone }
-}
 
 // ─── Service tree builder ─────────────────────────────────────────────────────
 interface ServiceNode extends Service {
@@ -336,12 +311,12 @@ export function EmployeeEditDialog() {
     setDivisionSlug('')
 
     if (employee) {
-      const parsed = parsePhone(employee.phone ?? '')
+      const { code: parsedCode, digits: parsedDigits } = splitPhone(employee.phone)
       const divId = employee.division_id ?? ''
       form.reset({
         name:        employee.name        ?? '',
-        countryCode: parsed.code,
-        phoneNumber: parsed.number,
+        countryCode: parsedCode,
+        phoneNumber: parsedDigits,
         nationality: employee.nationality ?? '',
         join_date:   employee.join_date   ?? todayStr,
         avatar_url:  employee.avatar_url  ?? '',
@@ -398,7 +373,7 @@ export function EmployeeEditDialog() {
       }
 
       const fullPhone = values.phoneNumber
-        ? `${values.countryCode} ${values.phoneNumber}`
+        ? `${values.countryCode}${values.phoneNumber}`
         : ''
 
       const serviceIds = Array.from(selectedIds)
@@ -530,45 +505,15 @@ export function EmployeeEditDialog() {
                   </div>
 
                   {/* Phone */}
-                  <div className="flex gap-2 items-end">
-                    <FormField
-                      control={form.control}
-                      name="countryCode"
-                      render={({ field }) => (
-                        <FormItem className="w-32 shrink-0">
-                          <FormLabel>Phone</FormLabel>
-                          <Select value={field.value} onValueChange={field.onChange}>
-                            <FormControl>
-                              <SelectTrigger>
-                                <SelectValue />
-                              </SelectTrigger>
-                            </FormControl>
-                            <SelectContent>
-                              {COUNTRY_CODES.map(c => (
-                                <SelectItem key={c.code} value={c.code}>
-                                  {c.label}
-                                </SelectItem>
-                              ))}
-                            </SelectContent>
-                          </Select>
-                        </FormItem>
-                      )}
+                  <FormItem>
+                    <FormLabel>Phone</FormLabel>
+                    <PhoneInputWithCode
+                      value={form.watch('phoneNumber')}
+                      onChange={(v) => form.setValue('phoneNumber', v)}
+                      countryCode={form.watch('countryCode')}
+                      onCountryCodeChange={(v) => form.setValue('countryCode', v)}
                     />
-                    <FormField
-                      control={form.control}
-                      name="phoneNumber"
-                      render={({ field }) => (
-                        <FormItem className="flex-1">
-                          <FormLabel className="invisible select-none" aria-hidden>
-                            Number
-                          </FormLabel>
-                          <FormControl>
-                            <Input {...field} type="tel" placeholder="XXXX XXXX" />
-                          </FormControl>
-                        </FormItem>
-                      )}
-                    />
-                  </div>
+                  </FormItem>
 
                   {/* Nationality */}
                   <FormField

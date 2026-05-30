@@ -107,10 +107,8 @@ export function useContactCenterState() {
         .channel('global-inbound-sound')
         .on(
           'postgres_changes',
-          { event: 'INSERT', schema: 'public', table: 'chat_messages' },
-          (payload) => {
-            if ((payload.new as any)?.from_type === 'customer') playNotificationSound()
-          }
+          { event: 'INSERT', schema: 'public', table: 'chat_messages', filter: 'from_type=eq.customer' },
+          () => { playNotificationSound() }
         )
         .subscribe()
     }, 0)

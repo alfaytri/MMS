@@ -204,7 +204,7 @@ export function EditUserDialog({ open, onOpenChange, profile }: Props) {
         full_name: profile.full_name ?? '',
         email: profile.email ?? '',
         is_active: profile.is_active ?? true,
-        role_ids: (profile.user_custom_roles ?? []).map((r) => r.role_id),
+        role_ids: (profile.user_custom_roles ?? []).map((r: { role_id: string }) => r.role_id),
       })
     }
   }, [profile, open, form])

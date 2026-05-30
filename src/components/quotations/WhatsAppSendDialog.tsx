@@ -36,7 +36,7 @@ export function WhatsAppSendDialog({
         <DialogHeader>
           <DialogTitle>Send Quotation via WhatsApp</DialogTitle>
           <DialogDescription className="text-xs text-slate-500">
-            WHAPI sends the quotation as a PDF document. Wati sends as a text message.
+            Both options send the quotation as a PDF document via WhatsApp.
           </DialogDescription>
         </DialogHeader>
 
@@ -51,7 +51,7 @@ export function WhatsAppSendDialog({
               className="w-full gap-2 bg-green-600 hover:bg-green-700 text-white min-h-11"
               onClick={onSendWati}
             >
-              Send via Wati (Text)
+              Send via Wati (PDF)
             </Button>
             <Button
               className="w-full gap-2 bg-green-600 hover:bg-green-700 text-white min-h-11"

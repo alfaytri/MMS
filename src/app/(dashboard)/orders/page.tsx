@@ -82,7 +82,7 @@ export default function OrdersPage() {
   const { data: siteVisits = [], isLoading: isLoadingSV } = useSiteVisits()
   const { data: counts } = useOrderCounts()
   const { data: teamsRaw = [] } = useTeams()
-  const teams = teamsRaw as Array<{ id: string; name_en: string | null; name: string }>
+  const teams = teamsRaw as unknown as Array<{ id: string; name_en: string | null; name: string }>
 
   function toggleStatus(val: string) {
     setSearch((s) => ({

@@ -187,6 +187,12 @@ export interface WarrantyInfo {
   label: string
 }
 
+export interface CustomerHistoryOrderService {
+  name: string
+  qty: number
+  price: number
+}
+
 export interface CustomerHistoryOrder {
   id: string
   order_id: string
@@ -194,7 +200,8 @@ export interface CustomerHistoryOrder {
   scheduled_date: string | null
   has_invoice: boolean
   invoice_number: string | null
-  services_summary: string
+  total_amount: number
+  services: CustomerHistoryOrderService[]
 }
 
 export interface OrdersFilter {

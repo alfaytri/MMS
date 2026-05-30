@@ -24,6 +24,7 @@ import { Separator } from '@/components/ui/separator'
 import { Textarea } from '@/components/ui/textarea'
 import { Label } from '@/components/ui/label'
 import { tryNormalisePhone } from '@/lib/contact-center/normalise-phone'
+import { PhoneInputWithCode, splitPhone } from '@/components/shared/PhoneInputWithCode'
 import {
   useCreateServiceCustomer,
   useUpdateServiceCustomer,
@@ -44,6 +45,7 @@ const PHONE_LABELS = ['mobile', 'work', 'home'] as const
 
 const phoneRowSchema = z.object({
   id: z.string().optional(),
+  countryCode: z.string(),
   phone: z.string().min(1, 'Phone is required'),
   label: z.enum(['mobile', 'work', 'home']),
 })
@@ -122,11 +124,11 @@ export function ServiceCustomerFormDialog({
   }
 
   const form = useForm<FormValues>({
-    resolver: zodResolver(formSchema),
+    resolver: zodResolver(formSchema) as never,
     defaultValues: {
       name: '',
       referral_source: null,
-      phones: [{ phone: '', label: 'mobile' }],
+      phones: [{ countryCode: '+974', phone: '', label: 'mobile' }],
       addresses: [],
       blacklistOn: false,
       blacklistReason: '',
@@ -147,7 +149,10 @@ export function ServiceCustomerFormDialog({
       form.reset({
         name: customer.name,
         referral_source: customer.referral_source,
-        phones: phones.map((p) => ({ id: p.id, phone: p.phone, label: (p.label as any) ?? 'mobile' })),
+        phones: phones.map((p) => {
+          const { code, digits } = splitPhone(p.phone)
+          return { id: p.id, countryCode: code, phone: digits, label: (p.label as any) ?? 'mobile' }
+        }),
         addresses: addresses.map((a) => ({
           id: a.id,
           address_type: a.address_type,
@@ -173,7 +178,7 @@ export function ServiceCustomerFormDialog({
       form.reset({
         name: '',
         referral_source: null,
-        phones: [{ phone: '', label: 'mobile' }],
+        phones: [{ countryCode: '+974', phone: '', label: 'mobile' }],
         addresses: [],
         blacklistOn: false,
         blacklistReason: '',
@@ -184,16 +189,22 @@ export function ServiceCustomerFormDialog({
   }, [open, customer, form])
 
   function onSubmit(values: FormValues) {
-    for (const p of values.phones) {
-      if (!tryNormalisePhone(p.phone)) {
-        toast.error(`Invalid phone: ${p.phone}`)
+    // Concatenate country code + digits for each phone
+    const fullPhones = values.phones.map((p) => ({
+      ...p,
+      fullPhone: `${p.countryCode}${p.phone}`,
+    }))
+
+    for (const p of fullPhones) {
+      if (!tryNormalisePhone(p.fullPhone)) {
+        toast.error(`Invalid phone: ${p.fullPhone}`)
         return
       }
     }
 
-    const phones: PhoneInput[] = values.phones.map((p, i) => ({
+    const phones: PhoneInput[] = fullPhones.map((p, i) => ({
       id: p.id,
-      phone: p.phone,
+      phone: p.fullPhone,
       label: p.label,
       is_primary: i === primaryPhoneIdx,
     }))
@@ -324,7 +335,12 @@ export function ServiceCustomerFormDialog({
                       render={({ field: f }) => (
                         <FormItem>
                           <FormControl>
-                            <Input placeholder="+974XXXXXXXX" className="font-mono text-sm" {...f} />
+                            <PhoneInputWithCode
+                              value={f.value}
+                              onChange={f.onChange}
+                              countryCode={form.watch(`phones.${idx}.countryCode`)}
+                              onCountryCodeChange={(v) => form.setValue(`phones.${idx}.countryCode`, v)}
+                            />
                           </FormControl>
                           <FormMessage />
                         </FormItem>
@@ -401,7 +417,7 @@ export function ServiceCustomerFormDialog({
                 variant="outline"
                 size="sm"
                 className="gap-1.5"
-                onClick={() => appendPhone({ phone: '', label: 'mobile' })}
+                onClick={() => appendPhone({ countryCode: '+974', phone: '', label: 'mobile' })}
               >
                 <Plus className="h-3.5 w-3.5" /> Add phone
               </Button>

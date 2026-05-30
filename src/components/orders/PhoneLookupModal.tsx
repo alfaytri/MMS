@@ -4,75 +4,11 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/u
 import { Input } from '@/components/ui/input'
 import { Button } from '@/components/ui/button'
 import { Label } from '@/components/ui/label'
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { CheckCircle, UserPlus } from 'lucide-react'
 import { useCustomerLookup, type CustomerLookupResult } from '@/hooks/useCustomerLookup'
 import { useContactCenterContext } from '@/contexts/ContactCenterContext'
+import { PhoneInputWithCode } from '@/components/shared/PhoneInputWithCode'
 import { toast } from 'sonner'
-
-const COUNTRY_CODES = [
-  { code: '+974', flag: '🇶🇦', label: 'QA' },
-  { code: '+971', flag: '🇦🇪', label: 'AE' },
-  { code: '+966', flag: '🇸🇦', label: 'SA' },
-  { code: '+965', flag: '🇰🇼', label: 'KW' },
-  { code: '+973', flag: '🇧🇭', label: 'BH' },
-  { code: '+968', flag: '🇴🇲', label: 'OM' },
-  { code: '+20',  flag: '🇪🇬', label: 'EG' },
-  { code: '+1',   flag: '🇺🇸', label: 'US' },
-  { code: '+44',  flag: '🇬🇧', label: 'GB' },
-  { code: '+91',  flag: '🇮🇳', label: 'IN' },
-  { code: '+92',  flag: '🇵🇰', label: 'PK' },
-  { code: '+880', flag: '🇧🇩', label: 'BD' },
-  { code: '+63',  flag: '🇵🇭', label: 'PH' },
-  { code: '+94',  flag: '🇱🇰', label: 'LK' },
-  { code: '+977', flag: '🇳🇵', label: 'NP' },
-]
-
-function PhoneInput({
-  id,
-  countryCode,
-  onCountryCodeChange,
-  value,
-  onChange,
-  placeholder,
-  onKeyDown,
-}: {
-  id?: string
-  countryCode: string
-  onCountryCodeChange: (v: string) => void
-  value: string
-  onChange: (v: string) => void
-  placeholder?: string
-  onKeyDown?: (e: React.KeyboardEvent<HTMLInputElement>) => void
-}) {
-  return (
-    <div className="flex">
-      <Select value={countryCode} onValueChange={(v) => onCountryCodeChange(v ?? countryCode)}>
-        <SelectTrigger className="w-24 shrink-0 rounded-r-none border-r-0 focus:z-10">
-          <SelectValue />
-        </SelectTrigger>
-        <SelectContent>
-          {COUNTRY_CODES.map((c) => (
-            <SelectItem key={c.code} value={c.code}>
-              <span className="flex items-center gap-1.5">
-                <span>{c.flag}</span>
-                <span className="text-xs text-slate-500">{c.code}</span>
-              </span>
-            </SelectItem>
-          ))}
-        </SelectContent>
-      </Select>
-      <Input
-        id={id}
-        className="rounded-l-none"
-        placeholder={placeholder ?? '5XXX XXXX'}
-        value={value}
-        onChange={(e) => onChange(e.target.value)}
-        onKeyDown={onKeyDown}
-      />
-    </div>
-  )
-}
 
 type Step = 'phone' | 'found' | 'new-customer'
 
@@ -152,7 +88,7 @@ export function PhoneLookupModal({ open, onOpenChange, onConfirm }: Props) {
           <div className="space-y-4">
             <div className="space-y-2">
               <Label htmlFor="phone">Customer Phone Number</Label>
-              <PhoneInput
+              <PhoneInputWithCode
                 id="phone"
                 countryCode={countryCode}
                 onCountryCodeChange={setCountryCode}
@@ -240,7 +176,7 @@ export function PhoneLookupModal({ open, onOpenChange, onConfirm }: Props) {
                 </label>
               </div>
               {showLinkPhone && (
-                <PhoneInput
+                <PhoneInputWithCode
                   countryCode={linkCountryCode}
                   onCountryCodeChange={setLinkCountryCode}
                   value={linkPhone}

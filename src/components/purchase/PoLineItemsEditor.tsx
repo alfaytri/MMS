@@ -17,6 +17,7 @@ export type LineType = 'products' | 'spare-parts' | 'consumables' | 'tools'
 export type LineItemRow = POLineItemDraft & {
   _key: string
   line_type: LineType
+  _system_name?: string
 }
 
 interface TypeConfig {
@@ -112,12 +113,14 @@ export function PoLineItemsEditor({ value, onChange, currency, readOnly = false,
 
   function handleInventorySelect(key: string, item: InventoryLookupResult | null) {
     if (!item) {
-      updateRow(key, { item_name: '', sku: '', unit: 'pcs', unit_price: 0, total_price: 0, brand_variant_id: null })
+      updateRow(key, { item_name: '', sku: '', unit: 'pcs', unit_price: 0, total_price: 0, brand_variant_id: null, _system_name: undefined })
       return
     }
     const existingRow = value.find((r) => r._key === key)
+    const existingName = existingRow?.item_name?.trim() ?? ''
     updateRow(key, {
-      // item_name intentionally not set — vendor name stays empty for the user to fill in
+      item_name:          existingName,
+      _system_name:       item.item_name,
       sku:                existingRow?.sku?.trim() ? existingRow.sku : (item.sku ?? ''),
       unit:               item.unit,
       unit_price:         item.cost_price,
@@ -284,7 +287,7 @@ export function PoLineItemsEditor({ value, onChange, currency, readOnly = false,
                     <div className="grid grid-cols-[minmax(0,1.2fr)_minmax(0,0.8fr)_65px_60px_85px_70px] gap-2 items-center">
                       <Input
                         className="h-7 text-xs"
-                        placeholder="Vendor's name for this item"
+                        placeholder="Vendor item name (optional)"
                         value={row.item_name}
                         onChange={(e) => updateRow(row._key, { item_name: e.target.value })}
                       />

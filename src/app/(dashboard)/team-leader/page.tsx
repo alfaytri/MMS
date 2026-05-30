@@ -1,8 +1,8 @@
 // src/app/(dashboard)/team-leader/page.tsx
 'use client'
 
-import { useState, useMemo } from 'react'
-import { Loader2, AlertTriangle } from 'lucide-react'
+import { useState, useMemo, useEffect } from 'react'
+import { Loader2, AlertTriangle, Users } from 'lucide-react'
 import { isToday, parseISO } from 'date-fns'
 import { useTeamLeaderIdentity, useAllTeamsForSelect } from '@/hooks/useTeamLeaderIdentity'
 import { useTeamLeaderOrders } from '@/hooks/useTeamLeaderOrders'
@@ -12,6 +12,13 @@ import { TlHeader } from '@/components/team-leader/TlHeader'
 import { TlVisitList } from '@/components/team-leader/TlVisitList'
 import { OrderDetailDispatch } from '@/components/team-leader/OrderDetailDispatch'
 import { TlInvoiceDialog } from '@/components/team-leader/TlInvoiceDialog'
+import {
+  Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription,
+} from '@/components/ui/dialog'
+import {
+  Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
+} from '@/components/ui/select'
+import { Button } from '@/components/ui/button'
 import { toast } from 'sonner'
 import { clearDraft } from '@/lib/visitDrafts'
 import type { TlVisit, OrderCompletionData } from '@/types/team-leader'
@@ -30,8 +37,49 @@ export default function TeamLeaderPage() {
   const [completedVisits, setCompletedVisits]   = useState<Set<string>>(new Set())
   const [activeVisit, setActiveVisit]           = useState<TlVisit | null>(null)
   const [invoiceVisit, setInvoiceVisit]         = useState<{ visit: TlVisit; data: OrderCompletionData } | null>(null)
+  const [teamPickerOpen, setTeamPickerOpen]     = useState(false)
+  const [pendingDivision, setPendingDivision]   = useState<string | null>(null)
+  const [pendingTeamId, setPendingTeamId]       = useState<string | null>(null)
 
   const effectiveTeamId = adminOverride ?? identity?.teamId ?? null
+  const showTeamSelector = isAdmin || (isDivMgr && allTeams.length > 1)
+
+  // Derive unique divisions from available teams
+  const divisions = useMemo(() => {
+    const map = new Map<string, string>()
+    for (const t of allTeams) {
+      const divName = t.division_name ?? 'Unassigned'
+      if (!map.has(divName)) map.set(divName, divName)
+    }
+    return [...map.keys()]
+  }, [allTeams])
+
+  const hasOneDivision = divisions.length === 1
+
+  // Auto-lock division when there's only one
+  useEffect(() => {
+    if (hasOneDivision && !pendingDivision) {
+      setPendingDivision(divisions[0])
+    }
+  }, [hasOneDivision, divisions, pendingDivision])
+
+  // Filter teams by selected division
+  const filteredPickerTeams = useMemo(() => {
+    if (!pendingDivision) return allTeams
+    return allTeams.filter((t) => (t.division_name ?? 'Unassigned') === pendingDivision)
+  }, [allTeams, pendingDivision])
+
+  // Reset team when division changes
+  useEffect(() => {
+    setPendingTeamId(null)
+  }, [pendingDivision])
+
+  // Auto-open team picker on first load when admin/manager has no team pre-selected
+  useEffect(() => {
+    if (!identityLoading && showTeamSelector && !effectiveTeamId && allTeams.length > 0) {
+      setTeamPickerOpen(true)
+    }
+  }, [identityLoading, showTeamSelector, effectiveTeamId, allTeams.length])
 
   const { data: allVisits = [], isLoading: visitsLoading } = useTeamLeaderOrders(effectiveTeamId)
 
@@ -127,7 +175,7 @@ export default function TeamLeaderPage() {
       <TlHeader
         teamName={teamName}
         isAdmin={isAdmin}
-        showTeamSelector={isAdmin || (isDivMgr && allTeams.length > 1)}
+        showTeamSelector={showTeamSelector}
         allTeams={allTeams}
         effectiveTeamId={effectiveTeamId}
         onTeamChange={setAdminOverride}
@@ -175,6 +223,74 @@ export default function TeamLeaderPage() {
           onClose={() => setInvoiceVisit(null)}
         />
       )}
+
+      {/* Team selection popup — shown on first visit when no team is pre-selected */}
+      <Dialog open={teamPickerOpen} onOpenChange={setTeamPickerOpen}>
+        <DialogContent className="max-w-sm w-full mx-4 sm:mx-auto">
+          <DialogHeader className="text-center">
+            <div className="mx-auto mb-2 flex h-12 w-12 items-center justify-center rounded-full bg-primary/10">
+              <Users className="h-6 w-6 text-primary" />
+            </div>
+            <DialogTitle>Select Your Team</DialogTitle>
+            <DialogDescription>
+              Choose a team to view their visits and orders for today.
+            </DialogDescription>
+          </DialogHeader>
+
+          <div className="space-y-4 pt-2">
+            {/* Division dropdown */}
+            <div className="space-y-1.5">
+              <label className="text-xs font-medium text-muted-foreground">Division</label>
+              <Select
+                value={pendingDivision ?? ''}
+                onValueChange={(v) => { if (v) setPendingDivision(v) }}
+                disabled={hasOneDivision}
+              >
+                <SelectTrigger className="h-11 text-sm">
+                  <SelectValue placeholder="Select division…" />
+                </SelectTrigger>
+                <SelectContent>
+                  {divisions.map((d) => (
+                    <SelectItem key={d} value={d}>{d}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+
+            {/* Team dropdown — only enabled after division is selected */}
+            <div className="space-y-1.5">
+              <label className="text-xs font-medium text-muted-foreground">Team</label>
+              <Select
+                value={pendingTeamId ?? ''}
+                onValueChange={(v) => { if (v) setPendingTeamId(v) }}
+                disabled={!pendingDivision}
+              >
+                <SelectTrigger className="h-11 text-sm">
+                  <SelectValue placeholder="Select team…" />
+                </SelectTrigger>
+                <SelectContent>
+                  {filteredPickerTeams.map((t) => (
+                    <SelectItem key={t.id} value={t.id}>{t.name}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+
+            <Button
+              className="w-full h-11"
+              disabled={!pendingTeamId}
+              onClick={() => {
+                if (pendingTeamId) {
+                  setAdminOverride(pendingTeamId)
+                  setTeamPickerOpen(false)
+                }
+              }}
+            >
+              Continue
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
     </div>
   )
 }

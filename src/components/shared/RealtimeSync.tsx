@@ -1,47 +1,17 @@
 'use client'
 
-import { useEffect } from 'react'
-import { useQueryClient } from '@tanstack/react-query'
-import { createClient } from '@/lib/supabase/client'
+// RealtimeSync previously used Supabase Realtime subscriptions on
+// purchase_orders, po_approvals, receivals, and notifications — 4 unfiltered
+// postgres_changes channels active for every browser tab. This consumed 95% of
+// the project's Realtime message quota.
+//
+// Replaced with refetchInterval on the relevant React Query hooks:
+//   • usePurchaseOrders  → 30s refetchInterval
+//   • useReceivals       → 30s refetchInterval
+//   • useUnreadNotificationCount → already had 60s refetchInterval
+//
+// This component is now a no-op stub kept so the layout import doesn't break.
 
 export function RealtimeSync() {
-  const queryClient = useQueryClient()
-
-  useEffect(() => {
-    const supabase = createClient()
-
-    const channel = supabase
-      .channel('realtime-sync')
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'purchase_orders' }, (payload: any) => {
-        const id = payload.new?.id ?? payload.old?.id
-        if (id) queryClient.invalidateQueries({ queryKey: ['purchase-order', id] })
-        queryClient.invalidateQueries({ queryKey: ['purchase-orders'], refetchType: 'active' })
-      })
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'po_approvals' }, (payload: any) => {
-        const poId = payload.new?.po_id ?? payload.old?.po_id
-        if (poId) {
-          queryClient.invalidateQueries({ queryKey: ['purchase-order', poId] })
-          queryClient.invalidateQueries({ queryKey: ['po-approvals', poId], refetchType: 'active' })
-        }
-        queryClient.invalidateQueries({ queryKey: ['purchase-orders'], refetchType: 'active' })
-      })
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'receivals' }, (payload: any) => {
-        const id = payload.new?.id ?? payload.old?.id
-        const poId = payload.new?.po_id ?? payload.old?.po_id
-        if (id) queryClient.invalidateQueries({ queryKey: ['receival', id] })
-        if (poId) {
-          queryClient.invalidateQueries({ queryKey: ['po-receivals', poId], refetchType: 'active' })
-          queryClient.invalidateQueries({ queryKey: ['purchase-order', poId] })
-        }
-        queryClient.invalidateQueries({ queryKey: ['receivals'], refetchType: 'active' })
-      })
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'notifications' }, () => {
-        queryClient.invalidateQueries({ queryKey: ['notifications'], refetchType: 'active' })
-      })
-      .subscribe()
-
-    return () => { supabase.removeChannel(channel) }
-  }, [queryClient])
-
   return null
 }

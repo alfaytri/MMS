@@ -149,22 +149,18 @@ export function useApproveStep() {
       const { error: rpcErr } = await (supabase as any).rpc('advance_po_approval_tier', { p_po_id: poId })
       if (rpcErr) throw rpcErr
 
-      // Check if PO is now fully approved — notify creator (created_by stores auth.users.id)
+      // Check if PO is now fully approved — notify creator (created_by stores profiles.id)
       const { data: poStatus } = await (supabase as any)
         .from('purchase_orders').select('status, created_by, po_number').eq('id', poId).single()
       if (poStatus?.status === 'approved' && poStatus.created_by) {
         await savePoSnapshot(supabase, poId, 'approved')
-        const { data: creatorProfile } = await (supabase as any)
-          .from('profiles').select('id').eq('auth_user_id', poStatus.created_by).maybeSingle()
-        if (creatorProfile) {
-          await (supabase as any).from('notifications').insert({
-            profile_id: creatorProfile.id,
-            type: 'po_approved',
-            title: `PO ${poStatus.po_number} has been fully approved`,
-            related_id: poId,
-            related_type: 'purchase_order',
-          })
-        }
+        await (supabase as any).from('notifications').insert({
+          profile_id: poStatus.created_by,
+          type: 'po_approved',
+          title: `PO ${poStatus.po_number} has been fully approved`,
+          related_id: poId,
+          related_type: 'purchase_order',
+        })
         await logPOActivity({ poId, action: 'PO Fully Approved', performerName })
       }
     },
@@ -193,7 +189,16 @@ export function useForceApproveStep() {
       if (!forceComment.trim()) throw new Error('A comment is required for force-approve.')
       const supabase = createClient()
       const me = await getMyIdentity()
-      if (!me) throw new Error('Not authenticated')
+      if (!me?.profileId) throw new Error('Not authenticated')
+
+      const { data: roleRows } = await (supabase as any)
+        .from('approval_role_assignments')
+        .select('role')
+        .eq('profile_id', me.profileId)
+        .eq('role', 'owner')
+        .is('deleted_at', null)
+        .limit(1)
+      if (!roleRows?.length) throw new Error('Only users with the Owner role can force-approve.')
 
       const { data: forceStep } = await (supabase as any)
         .from('po_approvals').select('role').eq('id', stepId).single()
@@ -309,21 +314,17 @@ export function useRejectPO() {
         severity: 'warning',
       })
 
-      // Notify PO creator
+      // Notify PO creator (created_by stores profiles.id)
       const { data: po } = await (supabase as any)
         .from('purchase_orders').select('created_by, po_number').eq('id', poId).single()
       if (po?.created_by) {
-        const { data: creatorProfile } = await (supabase as any)
-          .from('profiles').select('id').eq('auth_user_id', po.created_by).maybeSingle()
-        if (creatorProfile) {
-          await (supabase as any).from('notifications').insert({
-            profile_id: creatorProfile.id,
-            type: 'po_rejected',
-            title: `PO ${po.po_number} was rejected by ${me.email}`,
-            related_id: poId,
-            related_type: 'purchase_order',
-          })
-        }
+        await (supabase as any).from('notifications').insert({
+          profile_id: po.created_by,
+          type: 'po_rejected',
+          title: `PO ${po.po_number} was rejected by ${me.email}`,
+          related_id: poId,
+          related_type: 'purchase_order',
+        })
       }
     },
     onSuccess: (_data: unknown, variables: { poId: string; stepId: string; comment: string; mode: 'full_rejection' | 'send_back_to_draft' }) => {

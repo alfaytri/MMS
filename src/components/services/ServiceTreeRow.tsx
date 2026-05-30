@@ -224,7 +224,7 @@ export function ServiceTreeRow({
         {/* 3. Division — w-[110px] */}
         <div className="w-[110px] shrink-0 px-2 flex flex-wrap gap-0.5">
           {Array.isArray(service.division) && service.division.length > 0
-            ? service.division.map((slug) => (
+            ? service.division.map((slug: string) => (
                 <Badge
                   key={slug}
                   variant="outline"

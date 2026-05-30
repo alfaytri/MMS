@@ -10,6 +10,8 @@ interface NowIndicatorProps {
   /** Sum of all team row heights — passed from TimelineGrid. */
   totalHeight: number
   displayDate: string
+  /** Horizontal offset to account for the sticky sidebar (px). */
+  sidebarOffset: number
 }
 
 function getCurrentMinutes(): number {
@@ -23,6 +25,7 @@ export function NowIndicator({
   cellWidth,
   totalHeight,
   displayDate,
+  sidebarOffset,
 }: NowIndicatorProps) {
   // null until mounted on client — avoids SSR (UTC) initialising the wrong time
   const [minutes, setMinutes] = useState<number | null>(null)
@@ -41,7 +44,8 @@ export function NowIndicator({
   const endMinutes   = dayEnd * 60
   if (minutes < startMinutes || minutes > endMinutes) return null
 
-  const leftPx = ((minutes - startMinutes) / 60) * cellWidth
+  // cellWidth is per half-hour slot (30 min); offset by sidebar width
+  const leftPx = sidebarOffset + ((minutes - startMinutes) / 30) * cellWidth
 
   return (
     <div

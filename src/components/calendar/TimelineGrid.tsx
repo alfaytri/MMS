@@ -8,16 +8,22 @@ import type { CalendarVisit } from '@/hooks/useCalendarVisits'
 import type { TeamFull } from '@/hooks/useTeams'
 import type { CalendarSchedule } from '@/hooks/useCalendarSchedule'
 
-const SCROLL_CELL_WIDTH = 60
-const FIT_MIN_CELL_WIDTH = 40
+/** Width per half-hour slot (scroll mode). 48 slots × 40 = 1920 px total. */
+const SCROLL_CELL_WIDTH = 40
+/** Min width per half-hour slot (fit mode). */
+const FIT_MIN_CELL_WIDTH = 28
 const DIVISION_HEADER_H  = 38
 
-const ALL_HOURS = Array.from({ length: 24 }, (_, i) => i)
+/** 48 half-hour slots: 0, 0.5, 1, 1.5, … 23.5 */
+const ALL_HALF_HOURS = Array.from({ length: 48 }, (_, i) => i * 0.5)
 
-function formatHourLabel(h: number): string {
-  if (h === 0) return '12AM'
-  if (h === 12) return '12PM'
-  return h < 12 ? `${h}AM` : `${h - 12}PM`
+function formatSlotLabel(slot: number): string {
+  const hour = Math.floor(slot)
+  const isHalf = slot % 1 !== 0
+  if (isHalf) return ':30'
+  if (hour === 0) return '12AM'
+  if (hour === 12) return '12PM'
+  return hour < 12 ? `${hour}AM` : `${hour - 12}PM`
 }
 
 function DivisionHeaderRow({
@@ -83,10 +89,10 @@ export function TimelineGrid({
   const headerScrollRef = useRef<HTMLDivElement>(null)
   const bodyScrollRef   = useRef<HTMLDivElement>(null)
 
-  const hours     = ALL_HOURS
-  const hourCount = hours.length
+  const slots     = ALL_HALF_HOURS
+  const slotCount = slots.length
 
-  const rawFitWidth = bodyWidth > 0 ? Math.floor(bodyWidth / hourCount) : SCROLL_CELL_WIDTH
+  const rawFitWidth = bodyWidth > 0 ? Math.floor(bodyWidth / slotCount) : SCROLL_CELL_WIDTH
   const cellWidth   = fitMode
     ? Math.max(rawFitWidth, FIT_MIN_CELL_WIDTH)
     : SCROLL_CELL_WIDTH
@@ -101,17 +107,17 @@ export function TimelineGrid({
 
   useEffect(() => {
     if (!bodyScrollRef.current) return
-    // scroll_to is an absolute hour (0-23); grid always starts at 0
+    // scroll_to is an absolute hour (0-23); each hour = 2 half-hour slots
     const scrollHour = schedule.scroll_to
-    bodyScrollRef.current.scrollLeft = scrollHour * cellWidth
+    bodyScrollRef.current.scrollLeft = scrollHour * 2 * cellWidth
     if (headerScrollRef.current) {
-      headerScrollRef.current.scrollLeft = scrollHour * cellWidth
+      headerScrollRef.current.scrollLeft = scrollHour * 2 * cellWidth
     }
   }, [schedule.scroll_to, cellWidth])
 
   const sidebarWidth = 192
   const scrollable   = !fitMode || forceScroll
-  const totalWidth   = hours.length * cellWidth
+  const totalWidth   = slots.length * cellWidth
 
   // Group teams by division, preserving their original order
   const divisionGroups = useMemo(() => {
@@ -148,18 +154,22 @@ export function TimelineGrid({
       >
         <div className="shrink-0 border-r bg-background" style={{ width: sidebarWidth, minWidth: 128 }} />
         <div className="flex">
-          {hours.map((hour, i) => (
-            <div
-              key={hour}
-              className={cn(
-                'shrink-0 border-l px-1 py-1.5 text-[10px] font-medium text-muted-foreground/70',
-                i === 0 && 'border-l-0',
-              )}
-              style={{ width: cellWidth, minWidth: cellWidth }}
-            >
-              {formatHourLabel(hour)}
-            </div>
-          ))}
+          {slots.map((slot, i) => {
+            const isHalf = slot % 1 !== 0
+            return (
+              <div
+                key={slot}
+                className={cn(
+                  'shrink-0 px-0.5 py-1.5 text-[10px] font-medium text-muted-foreground/70',
+                  isHalf ? 'border-l border-border/20' : 'border-l border-border/50',
+                  i === 0 && 'border-l-0',
+                )}
+                style={{ width: cellWidth, minWidth: cellWidth }}
+              >
+                {formatSlotLabel(slot)}
+              </div>
+            )
+          })}
         </div>
       </div>
 
@@ -179,6 +189,7 @@ export function TimelineGrid({
             cellWidth={cellWidth}
             totalHeight={totalGridHeight}
             displayDate={date}
+            sidebarOffset={sidebarWidth}
           />
 
           {divisionGroups.map(group => {
@@ -196,7 +207,7 @@ export function TimelineGrid({
                       key={team.id}
                       team={team}
                       visits={visitsByTeam.get(team.id) ?? []}
-                      hours={hours}
+                      slots={slots}
                       dayStart={0}
                       workStart={teamSchedule?.day_start ?? 0}
                       workEnd={teamSchedule?.day_end ?? 24}

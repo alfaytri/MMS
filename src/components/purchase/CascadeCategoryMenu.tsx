@@ -71,6 +71,7 @@ function FlyoutPanel({
       style={{ top: pos.top, left: pos.left }}
       onMouseEnter={onMouseEnter}
       onMouseLeave={onMouseLeave}
+      onPointerDown={(e) => e.stopPropagation()}
     >
       {children}
     </div>,
@@ -111,7 +112,7 @@ function CategoryNode({
       <button
         type="button"
         className={cn(itemCls, 'w-full text-left')}
-        onClick={() => onSelect(node)}
+        onPointerDown={(e) => { e.preventDefault(); onSelect(node) }}
       >
         <Check className={cn('h-3 w-3 shrink-0', isSelected ? 'opacity-100' : 'opacity-0')} />
         <div className="flex-1 min-w-0">
@@ -133,7 +134,7 @@ function CategoryNode({
         <button
           type="button"
           className="flex-1 min-w-0 text-left cursor-pointer"
-          onClick={() => onSelect(node)}
+          onPointerDown={(e) => { e.preventDefault(); onSelect(node) }}
         >
           <div className="truncate">{node.name_en}</div>
           {node.name_ar && <div className="text-muted-foreground truncate">{node.name_ar}</div>}
@@ -240,7 +241,7 @@ function DrillDownMenu({
                 key={cat.id}
                 type="button"
                 className={cn(itemCls, 'w-full text-left')}
-                onClick={() => onSelect(cat)}
+                onPointerDown={(e) => { e.preventDefault(); onSelect(cat) }}
               >
                 <Check className={cn('h-3 w-3 shrink-0', cat.id === selectedId ? 'opacity-100' : 'opacity-0')} />
                 <div className="flex-1 min-w-0">
@@ -259,7 +260,7 @@ function DrillDownMenu({
                 <button
                   type="button"
                   className="flex-1 min-w-0 text-left"
-                  onClick={() => onSelect(node)}
+                  onPointerDown={(e) => { e.preventDefault(); onSelect(node) }}
                 >
                   <div className="truncate">{node.name_en}</div>
                   {node.name_ar && <div className="text-muted-foreground truncate">{node.name_ar}</div>}
@@ -340,7 +341,7 @@ function FlyoutMenu({
                 key={cat.id}
                 type="button"
                 className={cn(itemCls, 'w-full text-left')}
-                onClick={() => onSelect(cat)}
+                onPointerDown={(e) => { e.preventDefault(); onSelect(cat) }}
               >
                 <Check className={cn('h-3 w-3 shrink-0', cat.id === selectedId ? 'opacity-100' : 'opacity-0')} />
                 <div className="flex-1 min-w-0">

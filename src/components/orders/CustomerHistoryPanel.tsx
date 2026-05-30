@@ -2,14 +2,21 @@
 import { useState } from 'react'
 import { useQuery } from '@tanstack/react-query'
 import { format, addMonths, subMonths } from 'date-fns'
-import { ChevronLeft, ChevronRight, ReceiptText, Wrench, ExternalLink } from 'lucide-react'
+import { ChevronLeft, ChevronRight, ChevronDown, ReceiptText, Wrench, Repeat } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
+import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover'
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from '@/components/ui/dropdown-menu'
 import { useCustomerHistory } from '@/hooks/useCustomerHistory'
 import { getWarrantyInfo } from '@/lib/orders/warrantyUtils'
 import { cn } from '@/lib/utils'
 import { createClient } from '@/lib/supabase/client'
-import type { OrderStatus } from '@/types/orders'
+import type { CustomerHistoryOrder, OrderStatus } from '@/types/orders'
 
 const STATUS_COLORS: Record<OrderStatus, string> = {
   completed: 'bg-green-100 text-green-800',
@@ -30,6 +37,118 @@ const WARRANTY_COLORS = {
 }
 
 const PAGE_SIZE = 4
+
+// ---------------------------------------------------------------------------
+// OrderHistoryCard — single order card with popover details + action dropdown
+// ---------------------------------------------------------------------------
+
+function OrderHistoryCard({
+  order,
+  onCreateBackwork,
+  onCreateFollowUp,
+}: {
+  order: CustomerHistoryOrder
+  onCreateBackwork?: (orderId: string) => void
+  onCreateFollowUp?: (orderId: string) => void
+}) {
+  return (
+    <Popover>
+      <PopoverTrigger
+        className="w-full rounded-lg border border-slate-200 px-2.5 py-2 space-y-0.5 text-left hover:border-slate-300 hover:bg-slate-50 transition-colors cursor-pointer"
+      >
+        <div className="flex items-center justify-between">
+          <span className="text-xs font-semibold text-slate-900">{order.order_id}</span>
+          <span
+            className={cn(
+              'rounded px-1.5 py-0.5 text-xs font-medium',
+              STATUS_COLORS[order.status as OrderStatus]
+            )}
+          >
+            {order.status}
+          </span>
+        </div>
+        {order.scheduled_date && (
+          <p className="text-xs text-slate-500">
+            {format(new Date(order.scheduled_date), 'dd MMM yyyy')}
+          </p>
+        )}
+      </PopoverTrigger>
+
+      <PopoverContent side="left" align="start" className="w-72 p-0 gap-0" sideOffset={8}>
+        {/* Services list */}
+        <div className="p-3 space-y-1.5">
+          <p className="text-[11px] font-semibold uppercase tracking-wide text-slate-500">
+            Requested Services
+          </p>
+          {order.services.length === 0 ? (
+            <p className="text-xs text-slate-400 italic">No services</p>
+          ) : (
+            <div className="space-y-1.5">
+              {order.services.map((s, i) => (
+                <div key={i} className="flex items-start justify-between gap-3">
+                  <span className="text-xs text-slate-700 leading-snug">
+                    {s.qty > 1 && <span className="font-semibold">{s.qty}× </span>}
+                    {s.name}
+                  </span>
+                  <span className="text-xs font-medium text-slate-500 shrink-0 pt-px">
+                    {(s.price * s.qty).toLocaleString()} QAR
+                  </span>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+
+        {/* Total + invoice badge */}
+        <div className="flex items-center justify-between border-t border-slate-100 px-3 py-2">
+          <span className="text-xs font-semibold text-slate-900">
+            Total: {order.total_amount.toLocaleString()} QAR
+          </span>
+          <Badge
+            className={cn(
+              'text-[10px] h-5',
+              order.has_invoice
+                ? 'bg-green-100 text-green-700 hover:bg-green-100'
+                : 'bg-slate-100 text-slate-500 hover:bg-slate-100'
+            )}
+          >
+            {order.has_invoice ? 'Invoiced' : 'Not Invoiced'}
+          </Badge>
+        </div>
+
+        {/* Action row */}
+        {order.status === 'completed' && (
+          <div className="border-t border-slate-100 px-3 py-2">
+            <DropdownMenu>
+              <DropdownMenuTrigger
+                className="inline-flex h-7 w-full items-center justify-center gap-1.5 rounded-md border border-slate-200 bg-white text-xs font-medium text-slate-700 hover:bg-slate-50 transition-colors"
+              >
+                Actions
+                <ChevronDown className="h-3 w-3" />
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="end" className="w-40">
+                <DropdownMenuItem
+                  className="text-xs gap-2 cursor-pointer"
+                  onClick={() => onCreateFollowUp?.(order.id)}
+                >
+                  <Repeat className="h-3.5 w-3.5" />
+                  Follow Up
+                </DropdownMenuItem>
+                <DropdownMenuItem
+                  className="text-xs gap-2 cursor-pointer text-red-600 focus:text-red-600"
+                  onClick={() => onCreateBackwork?.(order.id)}
+                >
+                  <Wrench className="h-3.5 w-3.5" />
+                  Backwork
+                </DropdownMenuItem>
+              </DropdownMenuContent>
+            </DropdownMenu>
+          </div>
+        )}
+      </PopoverContent>
+    </Popover>
+  )
+}
 
 function useCustomerQuotations(customerId: string | null) {
   return useQuery({
@@ -53,9 +172,10 @@ interface Props {
   customerId: string | null
   onViewOrder?: (orderId: string) => void
   onCreateBackwork?: (orderId: string) => void
+  onCreateFollowUp?: (orderId: string) => void
 }
 
-export function CustomerHistoryPanel({ customerId, onViewOrder, onCreateBackwork }: Props) {
+export function CustomerHistoryPanel({ customerId, onViewOrder, onCreateBackwork, onCreateFollowUp }: Props) {
   const [collapsed, setCollapsed] = useState(false)
   const [activeMonth, setActiveMonth] = useState(new Date())
   const [orderPage, setOrderPage] = useState(0)
@@ -129,8 +249,8 @@ export function CustomerHistoryPanel({ customerId, onViewOrder, onCreateBackwork
           </div>
 
           {/* Orders section */}
-          <div className="border-b p-3">
-            <div className="mb-2 flex items-center justify-between">
+          <div className="border-b px-2 py-2">
+            <div className="mb-1.5 flex items-center justify-between">
               <span className="text-xs font-semibold uppercase tracking-wide text-slate-500">Orders</span>
               <Badge variant="secondary" className="text-xs">
                 {orderCount}
@@ -141,54 +261,14 @@ export function CustomerHistoryPanel({ customerId, onViewOrder, onCreateBackwork
             ) : orderItems.length === 0 ? (
               <p className="text-xs text-slate-400">No orders in {format(activeMonth, 'MMMM')}</p>
             ) : (
-              <div className="space-y-2">
+              <div className="space-y-1.5">
                 {orderItems.map((order) => (
-                  <div key={order.id} className="rounded-lg border border-slate-200 p-2.5 space-y-1.5">
-                    <div className="flex items-center justify-between">
-                      <span className="text-xs font-semibold text-slate-900">{order.order_id}</span>
-                      <span
-                        className={cn(
-                          'rounded px-1.5 py-0.5 text-xs font-medium',
-                          STATUS_COLORS[order.status as OrderStatus]
-                        )}
-                      >
-                        {order.status}
-                      </span>
-                    </div>
-                    {order.scheduled_date && (
-                      <p className="text-xs text-slate-500">{format(new Date(order.scheduled_date), 'dd MMM yyyy')}</p>
-                    )}
-                    <div className="flex gap-1">
-                      <Button
-                        size="sm"
-                        variant="outline"
-                        className="h-6 flex-1 text-xs gap-1 px-2"
-                        onClick={() => onViewOrder?.(order.id)}
-                      >
-                        <ExternalLink className="h-3 w-3" /> View
-                      </Button>
-                      {order.has_invoice && (
-                        <Button
-                          size="sm"
-                          variant="outline"
-                          className="h-6 flex-1 text-xs gap-1 px-2"
-                          onClick={() => window.open(`/sales/invoices/${order.invoice_number}`, '_blank')}
-                        >
-                          <ReceiptText className="h-3 w-3" /> Invoice
-                        </Button>
-                      )}
-                      {order.status === 'completed' && (
-                        <Button
-                          size="sm"
-                          variant="outline"
-                          className="h-6 flex-1 text-xs gap-1 px-2 text-red-600 border-red-200 hover:bg-red-50"
-                          onClick={() => onCreateBackwork?.(order.id)}
-                        >
-                          <Wrench className="h-3 w-3" /> Backwork
-                        </Button>
-                      )}
-                    </div>
-                  </div>
+                  <OrderHistoryCard
+                    key={order.id}
+                    order={order}
+                    onCreateBackwork={onCreateBackwork}
+                    onCreateFollowUp={onCreateFollowUp}
+                  />
                 ))}
               </div>
             )}
@@ -216,7 +296,7 @@ export function CustomerHistoryPanel({ customerId, onViewOrder, onCreateBackwork
           </div>
 
           {/* Products section */}
-          <div className="p-3">
+          <div className="px-2 py-2">
             <div className="mb-2 flex items-center justify-between">
               <span className="text-xs font-semibold uppercase tracking-wide text-slate-500">Installed Products</span>
               <Badge variant="secondary" className="text-xs">
@@ -267,7 +347,7 @@ export function CustomerHistoryPanel({ customerId, onViewOrder, onCreateBackwork
           </div>
 
           {/* Quotations */}
-          <div className="border-t p-3">
+          <div className="border-t px-2 py-2">
             <div className="mb-2 flex items-center justify-between">
               <span className="text-xs font-semibold uppercase tracking-wide text-slate-500">Quotations</span>
             </div>

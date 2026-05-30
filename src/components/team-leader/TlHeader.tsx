@@ -31,13 +31,17 @@ export function TlHeader({
     ? `${todayCount} today`
     : `${totalCount} total`
 
+  // Derive unique division names from the loaded teams
+  const divisionNames = Array.from(new Set(allTeams.map((t) => t.division_name).filter(Boolean)))
+  const hasManyDivisions = divisionNames.length > 1
+
   return (
     <div className="sticky top-0 z-10 bg-card border-b">
     <div className="max-w-2xl px-4 py-3 space-y-3">
-      {/* Row 1: team name + badges */}
-      <div className="flex items-start justify-between gap-2">
-        <div>
-          <h1 className="text-lg font-semibold leading-tight">{teamName}</h1>
+      {/* Row 1: title + date + badges — fixed height to prevent layout shift */}
+      <div className="flex items-center justify-between gap-2 min-h-[44px]">
+        <div className="min-w-0">
+          <h1 className="text-lg font-semibold leading-tight truncate">{teamName}</h1>
           <p className="text-xs text-muted-foreground">{today}</p>
         </div>
         <div className="flex items-center gap-2 shrink-0">
@@ -51,13 +55,13 @@ export function TlHeader({
       {/* Row 2: team selector (admin sees all, managers see their division teams) */}
       {(showTeamSelector ?? isAdmin) && (
         <Select value={effectiveTeamId ?? ''} onValueChange={(v) => { if (v) onTeamChange(v) }}>
-          <SelectTrigger className="h-9 text-sm">
+          <SelectTrigger className="h-9 text-sm w-full">
             <SelectValue placeholder="Select team…" />
           </SelectTrigger>
-          <SelectContent>
+          <SelectContent alignItemWithTrigger={false} side="bottom">
             {allTeams.map((t) => (
               <SelectItem key={t.id} value={t.id}>
-                {t.name}{t.division_name ? ` — ${t.division_name}` : ''}
+                {t.name}{hasManyDivisions && t.division_name ? ` — ${t.division_name}` : ''}
               </SelectItem>
             ))}
           </SelectContent>

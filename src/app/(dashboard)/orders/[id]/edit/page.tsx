@@ -202,6 +202,7 @@ export default function EditOrderPage() {
             customerId={draft.customerId || null}
             onViewOrder={(id) => window.open(`/orders/${id}`, '_blank')}
             onCreateBackwork={(id) => router.push(`/orders/create-backwork?from=${id}`)}
+            onCreateFollowUp={(id) => router.push(`/orders/create?from=${id}&type=follow-up`)}
           />
         </div>
       </div>

@@ -161,40 +161,53 @@ export function useCreateQuotation() {
   })
 
   const sendViaWati = useMutation({
-    mutationFn: async () => {
+    mutationFn: async (pdfElement: HTMLElement) => {
       await saveToDb('draft')
+      // 1. Capture PDF from DOM
+      const blob = await capturePdfBlob(pdfElement)
+      // 2. Upload to Supabase Storage
+      const fileName = `${draft.quotationId}.pdf`
+      const { error: uploadError } = await supabase.storage
+        .from('quotation-pdfs')
+        .upload(fileName, blob, {
+          contentType: 'application/pdf',
+          upsert: true,
+        })
+      if (uploadError) throw new Error(`PDF upload failed: ${uploadError.message}`)
+      // 3. Get public URL
+      const { data: urlData } = supabase.storage
+        .from('quotation-pdfs')
+        .getPublicUrl(fileName)
+      const publicUrl = urlData.publicUrl
+      // 4. Check Wati conversation window + send PDF
+      const digits = draft.phone.replace(/\D/g, '')
+      const checkRes = await fetch('/api/wati/send-quotation', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ phone: digits, checkWindowOnly: true }),
+      })
+      const checkJson = await checkRes.json()
+      if (checkJson.windowClosed) throw new WindowClosedError()
+      // 5. Send PDF file via Wati
       const sub = computeSubtotal(draft.services)
       const disc = computeDiscount(sub, draft.discountType, draft.discountValue)
       const finalTotal = roundMoney(sub - disc)
-      const expiryDate = new Date()
-      expiryDate.setDate(expiryDate.getDate() + 30)
-
-      const res = await fetch('/api/wati/send-quotation', {
+      const sendRes = await fetch('/api/wati/send-file', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          phone:        draft.phone,
-          customerName: draft.customerName,
-          quotationId:  draft.quotationId,
-          divisionName: draft.division,
-          services: draft.services.map((s) => ({
-            name:  s.name,
-            qty:   s.qty,
-            price: s.price,
-          })),
-          total: finalTotal,
-          subtotal: sub,
-          discountType:  draft.discountType,
-          discountValue: draft.discountValue,
-          discountAmount: disc,
-          expiryDate: expiryDate.toLocaleDateString('en-GB', {
-            day: '2-digit', month: 'short', year: 'numeric',
-          }),
+          phone:     digits,
+          url:       publicUrl,
+          filename:  `Quotation-${draft.quotationId}.pdf`,
+          mime_type: 'application/pdf',
+          caption:   `Quotation ${draft.quotationId} — Total: QAR ${finalTotal.toLocaleString()}`,
         }),
       })
-      const json = await res.json()
-      if (!res.ok) throw new Error(json.error ?? 'Failed to send')
-      if (json.windowClosed) throw new WindowClosedError()
+      if (!sendRes.ok) {
+        const errJson = await sendRes.json().catch(() => ({}))
+        throw new Error((errJson as any).error ?? 'Wati file send failed')
+      }
+      // 6. Mark as sent
       await saveToDb('sent')
     },
   })

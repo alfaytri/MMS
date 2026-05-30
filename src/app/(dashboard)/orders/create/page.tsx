@@ -25,6 +25,7 @@ export default function CreateOrderPage() {
   const prefilledDate = searchParams.get('date')
   const prefilledTeamId = searchParams.get('teamId')
   const prefilledHour = searchParams.get('hour') ? parseInt(searchParams.get('hour')!) : undefined
+  const prefilledMinute = searchParams.get('minute') ? parseInt(searchParams.get('minute')!) : 0
 
   // If we arrived from a site visit, skip the lookup modal
   const [lookupOpen, setLookupOpen] = useState(!prefilledCustomerId)
@@ -140,10 +141,10 @@ export default function CreateOrderPage() {
     const { active, over } = event
     if (!over || !active.data.current) return
 
-    const dropData = over.data.current as { teamId: string; hour: number } | undefined
+    const dropData = over.data.current as { teamId: string; hour: number; minute?: number } | undefined
     if (!dropData?.teamId) return
 
-    const { teamId, hour } = dropData
+    const { teamId, hour, minute = 0 } = dropData
     const match = (teams as unknown as Array<Record<string, unknown>>)?.find(
       (t) => t['id'] === teamId,
     )
@@ -155,7 +156,7 @@ export default function CreateOrderPage() {
     if (active.data.current.type === 'day-window') {
       const dayData = active.data.current as { date: string; fromTime: string | null; toTime: string | null }
       if (draft.services.length === 0) return
-      const timeSlot = dayData.fromTime ?? `${String(hour).padStart(2, '0')}:00`
+      const timeSlot = dayData.fromTime ?? `${String(hour).padStart(2, '0')}:${String(minute).padStart(2, '0')}`
       const toTime   = dayData.toTime ?? null
       const totalDuration = draft.services.reduce((sum, s) => sum + s.duration, 0)
       addAssignment({
@@ -174,7 +175,7 @@ export default function CreateOrderPage() {
     const service = active.data.current.service as OrderServiceDraft | undefined
     if (!service) return
     const visitWindow = draft.visitDates.find((w) => w.date === draft.visitDate)
-    const timeSlot = visitWindow?.fromTime ?? `${String(hour).padStart(2, '0')}:00`
+    const timeSlot = visitWindow?.fromTime ?? `${String(hour).padStart(2, '0')}:${String(minute).padStart(2, '0')}`
     const toTime   = visitWindow?.toTime ?? null
 
     addAssignment({
@@ -201,7 +202,7 @@ export default function CreateOrderPage() {
 
   return (
     <DndContext autoScroll={false} collisionDetection={pointerWithin} onDragStart={handleDragStart} onDragEnd={handleDragEnd}>
-      <div className="relative overflow-x-hidden">
+      <div className="relative h-[calc(100vh-56px)] overflow-hidden">
       <PhoneLookupModal
         open={lookupOpen}
         onOpenChange={setLookupOpen}
@@ -273,6 +274,7 @@ export default function CreateOrderPage() {
           customerId={draft.customerId || null}
           onViewOrder={(id) => window.open(`/orders/${id}`, '_blank')}
           onCreateBackwork={(id) => router.push(`/orders/create-backwork?from=${id}`)}
+          onCreateFollowUp={(id) => router.push(`/orders/create?from=${id}&type=follow-up`)}
         />
       </div>
       </div>

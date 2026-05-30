@@ -102,6 +102,26 @@ Whenever you create or modify a `<Select>` / dropdown component, you **must** ve
 
 ---
 
+# Phone Input — Mandatory Rule
+
+Every phone number input in the app **must** use `PhoneInputWithCode` from `src/components/shared/PhoneInputWithCode.tsx`. No plain `<Input>` for phone numbers.
+
+**Component:** `<PhoneInputWithCode>` — renders a country code dropdown (DB-driven from `country_codes` table) + digits-only input field.
+
+**Hook:** `useCountryCodes()` from `src/hooks/useCountryCodes.ts` — fetches active country codes sorted by `sort_order`.
+
+**Helper:** `splitPhone(storedPhone)` — splits a stored phone string (e.g. `+97472195504`) into `{ code: '+974', digits: '72195504' }` for pre-filling edit forms.
+
+**Storage convention:** Always concatenate `countryCode + digits` before saving (e.g. `+97472195504`). The component manages display; the form's `onSubmit` concatenates.
+
+**Checklist when adding a phone field:**
+1. Import `PhoneInputWithCode` (and `splitPhone` if editing existing data)
+2. Add `countryCode` state (default `'+974'`)
+3. On edit: use `splitPhone(existingPhone)` to pre-fill code + digits
+4. On submit: concatenate `${countryCode}${digits}` before saving
+
+---
+
 # Database Migrations — Mandatory Rule
 
 **Always use the Supabase CLI to apply migrations. Never ask the user to run SQL manually.**
@@ -207,12 +227,19 @@ After completing **any module** (before the final commit and PROGRESS.md update)
 - [ ] On failure, the route returns a non-200 status **or** includes `{ ok: false, error: "..." }` so the caller knows
 - [ ] No route returns `{ ok: true }` when a critical external call silently failed
 
+### 5. Layout stability — No visual shifts on user interaction
+- [ ] Dropdowns / Selects: selecting a value must NOT cause surrounding elements to shift position (headers, buttons, rows). Use `min-h-*` or fixed heights on containers whose text content changes dynamically
+- [ ] Conditional rows (e.g. team selector, filter bar): always reserve space or use `min-h-*` on the parent so appearing/disappearing content doesn't push siblings
+- [ ] Text that changes on interaction (titles, badges, counts): container must have a fixed `min-h` matching the tallest possible content, and use `truncate` to prevent overflow
+- [ ] Select trigger text: if the displayed label changes length after selection (e.g. "Select team…" → "Team 1 — Maintenance"), the trigger must have a fixed `h-*` and width should be constrained (e.g. `w-full` inside a fixed-width parent)
+- [ ] When only one option exists for a Select/dropdown, show it pre-selected and disabled — don't make the user pick the only choice, and don't append redundant suffixes (e.g. don't show "— Maintenance" when all items share the same division)
+
 ## How to record results in PROGRESS.md
 
 Add a row to the `## 🔒 Security Audit Log` table after the module is done:
 
 ```
-| [YYYY-MM-DD] | Module Name | ✅ Secrets | ✅ RLS | ✅ Auth gate | ✅ Error handling | Notes |
+| [YYYY-MM-DD] | Module Name | ✅ Secrets | ✅ RLS | ✅ Auth gate | ✅ Error handling | ✅ Layout stability | Notes |
 ```
 
 Use ✅ when clean, ⚠️ when there is an accepted known gap (explain in Notes), ❌ if something needs fixing before merge.

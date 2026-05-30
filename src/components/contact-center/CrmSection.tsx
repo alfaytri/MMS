@@ -10,6 +10,7 @@ import { Textarea } from '@/components/ui/textarea'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { toast } from 'sonner'
 import { tryNormalisePhone } from '@/lib/contact-center/normalise-phone'
+import { PhoneInputWithCode } from '@/components/shared/PhoneInputWithCode'
 import type { useCustomerData, ServiceCustomerAddress } from '@/hooks/contact-center/useCustomerData'
 
 type CustomerDataReturn = ReturnType<typeof useCustomerData>
@@ -49,7 +50,9 @@ export function CrmSection({ customerData, onCustomerResolved, pendingPhone }: P
 
   const [attachSearch, setAttachSearch] = useState(pendingPhone ?? '')
   const [createName, setCreateName]     = useState('')
-  const [createPhone, setCreatePhone]   = useState(pendingPhone ?? '')
+  const [createCountryCode, setCreateCountryCode] = useState('+974')
+  const [createPhone, setCreatePhone]   = useState(pendingPhone?.replace(/^\+\d+/, '') ?? '')
+  const [newPhoneCC, setNewPhoneCC]     = useState('+974')
 
   function enterEdit() {
     setEditName(customer?.name ?? '')
@@ -68,7 +71,7 @@ export function CrmSection({ customerData, onCustomerResolved, pendingPhone }: P
   }
 
   async function handleAddPhone() {
-    const canonical = tryNormalisePhone(newPhone)
+    const canonical = tryNormalisePhone(`${newPhoneCC}${newPhone}`)
     if (!canonical) { toast.error('Invalid phone number'); return }
     try {
       await addPhone.mutateAsync({ phone: canonical })
@@ -114,7 +117,7 @@ export function CrmSection({ customerData, onCustomerResolved, pendingPhone }: P
       toast.error('Name and phone are required')
       return
     }
-    const canonical = tryNormalisePhone(createPhone)
+    const canonical = tryNormalisePhone(`${createCountryCode}${createPhone}`)
     if (!canonical) { toast.error('Invalid phone number'); return }
     const supabase = (await import('@/lib/supabase/client')).createClient()
     try {
@@ -169,7 +172,12 @@ export function CrmSection({ customerData, onCustomerResolved, pendingPhone }: P
             <Label className="text-xs">Name</Label>
             <Input value={createName} onChange={(e) => setCreateName(e.target.value)} className="h-8 text-xs" placeholder="Full name" />
             <Label className="text-xs">Phone</Label>
-            <Input value={createPhone} onChange={(e) => setCreatePhone(e.target.value)} className="h-8 text-xs font-mono" placeholder="+974XXXXXXXX" />
+            <PhoneInputWithCode
+              value={createPhone}
+              onChange={setCreatePhone}
+              countryCode={createCountryCode}
+              onCountryCodeChange={setCreateCountryCode}
+            />
             <div className="flex gap-1.5">
               <Button size="sm" className="flex-1 h-8 text-xs" onClick={handleCreate}>Create</Button>
               <Button size="sm" variant="ghost" className="h-8 text-xs" onClick={() => setUnknownStep('prompt')}>Back</Button>
@@ -343,13 +351,15 @@ export function CrmSection({ customerData, onCustomerResolved, pendingPhone }: P
           </div>
         ))}
         <div className="flex gap-1.5">
-          <Input
-            value={newPhone}
-            onChange={(e) => setNewPhone(e.target.value)}
-            placeholder="+974XXXXXXXX"
-            className="h-7 text-xs font-mono"
-          />
-          <Button size="sm" variant="outline" className="h-7 text-xs" onClick={handleAddPhone}>
+          <div className="flex-1">
+            <PhoneInputWithCode
+              value={newPhone}
+              onChange={setNewPhone}
+              countryCode={newPhoneCC}
+              onCountryCodeChange={setNewPhoneCC}
+            />
+          </div>
+          <Button size="sm" variant="outline" className="h-9 text-xs shrink-0" onClick={handleAddPhone}>
             <Plus className="h-3 w-3" />
           </Button>
         </div>

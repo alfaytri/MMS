@@ -61,11 +61,37 @@ export async function POST(req: NextRequest) {
     )
   }
 
-  let body: SendQuotationBody
+  let body: SendQuotationBody & { checkWindowOnly?: boolean }
   try {
     body = await req.json()
   } catch {
     return NextResponse.json({ error: 'Invalid JSON' }, { status: 400 })
+  }
+
+  // Window-check-only mode: just verify the 24h conversation window is open
+  if (body.checkWindowOnly) {
+    if (!body.phone) return NextResponse.json({ error: 'phone required' }, { status: 400 })
+    const phone = body.phone.replace(/\D/g, '')
+    if (!phone) return NextResponse.json({ error: 'Invalid phone number' }, { status: 400 })
+
+    let contactRes
+    try {
+      contactRes = await fetch(
+        `${WATI_URL}/api/v1/getContacts?pageSize=1&pageNumber=1&name=${phone}`,
+        { headers: { Authorization: `Bearer ${WATI_TOKEN}` } },
+      )
+    } catch {
+      return NextResponse.json({ error: 'Failed to reach WATI API' }, { status: 502 })
+    }
+    if (!contactRes.ok) return NextResponse.json({ error: 'Failed to reach WATI API' }, { status: 502 })
+    const contactData = await contactRes.json().catch(() => null)
+    const contact = contactData?.contact_list?.[0]
+    const windowOpen = (() => {
+      if (!contact?.lastReceivedMessageDate) return false
+      const last = new Date(contact.lastReceivedMessageDate)
+      return Date.now() - last.getTime() < 24 * 60 * 60 * 1000
+    })()
+    return NextResponse.json({ windowClosed: !windowOpen })
   }
 
   // Validate required fields

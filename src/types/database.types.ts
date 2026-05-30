@@ -1,4 +1,4 @@
-﻿export type Json =
+export type Json =
   | string
   | number
   | boolean
@@ -2278,6 +2278,8 @@ export type Database = {
           agent_name: string | null
           created_at: string | null
           customer_id: string | null
+          dibsy_checkout_url: string | null
+          dibsy_payment_id: string | null
           direction: string
           discount_amount: number
           discount_label: string | null
@@ -2312,6 +2314,8 @@ export type Database = {
           agent_name?: string | null
           created_at?: string | null
           customer_id?: string | null
+          dibsy_checkout_url?: string | null
+          dibsy_payment_id?: string | null
           direction?: string
           discount_amount?: number
           discount_label?: string | null
@@ -2346,6 +2350,8 @@ export type Database = {
           agent_name?: string | null
           created_at?: string | null
           customer_id?: string | null
+          dibsy_checkout_url?: string | null
+          dibsy_payment_id?: string | null
           direction?: string
           discount_amount?: number
           discount_label?: string | null
@@ -6773,6 +6779,75 @@ export type Database = {
           },
         ]
       }
+      tl_payment_batch_items: {
+        Row: {
+          amount: number
+          batch_id: string
+          id: string
+          tl_invoice_id: string
+        }
+        Insert: {
+          amount: number
+          batch_id: string
+          id?: string
+          tl_invoice_id: string
+        }
+        Update: {
+          amount?: number
+          batch_id?: string
+          id?: string
+          tl_invoice_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "tl_payment_batch_items_batch_id_fkey"
+            columns: ["batch_id"]
+            isOneToOne: false
+            referencedRelation: "tl_payment_batches"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "tl_payment_batch_items_tl_invoice_id_fkey"
+            columns: ["tl_invoice_id"]
+            isOneToOne: false
+            referencedRelation: "tl_invoices"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      tl_payment_batches: {
+        Row: {
+          created_at: string | null
+          customer_phone: string
+          dibsy_checkout_url: string | null
+          dibsy_payment_id: string | null
+          id: string
+          payment_status: string
+          total_amount: number
+          updated_at: string | null
+        }
+        Insert: {
+          created_at?: string | null
+          customer_phone: string
+          dibsy_checkout_url?: string | null
+          dibsy_payment_id?: string | null
+          id?: string
+          payment_status?: string
+          total_amount: number
+          updated_at?: string | null
+        }
+        Update: {
+          created_at?: string | null
+          customer_phone?: string
+          dibsy_checkout_url?: string | null
+          dibsy_payment_id?: string | null
+          id?: string
+          payment_status?: string
+          total_amount?: number
+          updated_at?: string | null
+        }
+        Relationships: []
+      }
       tool_asset_items: {
         Row: {
           category_id: string | null
@@ -8745,12 +8820,8 @@ export const Constants = {
   },
 } as const
 
-// Convenience aliases — shorthand helpers used throughout the codebase
-export type DBTable<T extends keyof (Database['public']['Tables'] & Database['public']['Views'])> =
-  Tables<T>
+type PublicTables = Database["public"]["Tables"]
 
-export type DBInsert<T extends keyof Database['public']['Tables']> =
-  TablesInsert<T>
-
-export type DBUpdate<T extends keyof Database['public']['Tables']> =
-  TablesUpdate<T>
+export type DBTable<T extends keyof PublicTables> = PublicTables[T]["Row"]
+export type DBInsert<T extends keyof PublicTables> = PublicTables[T]["Insert"]
+export type DBUpdate<T extends keyof PublicTables> = PublicTables[T]["Update"]

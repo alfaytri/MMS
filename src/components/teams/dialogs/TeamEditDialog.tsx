@@ -30,33 +30,8 @@ import { Switch } from '@/components/ui/switch'
 import { useCreateTeam, useUpdateTeam, useArchiveTeam } from '@/hooks/useTeams'
 import { useCompanies } from '@/hooks/useCompanies'
 import { useDivisionsByCompany } from '@/hooks/useDivisions'
+import { PhoneInputWithCode, splitPhone } from '@/components/shared/PhoneInputWithCode'
 import { useTeamsPage } from '../TeamsPageContext'
-
-// ─── Country codes ─────────────────────────────────────────────────────────────
-const COUNTRY_CODES = [
-  { code: '+974', label: 'QA Qatar' },
-  { code: '+966', label: 'SA Saudi' },
-  { code: '+971', label: 'AE UAE'   },
-  { code: '+965', label: 'KW Kuwait'},
-  { code: '+973', label: 'BH Bahrain'},
-  { code: '+968', label: 'OM Oman'  },
-  { code: '+20',  label: 'EG Egypt' },
-  { code: '+92',  label: 'PK Pakistan'},
-  { code: '+91',  label: 'IN India' },
-  { code: '+880', label: 'BD Bangladesh'},
-]
-
-function parsePhone(phone: string): { code: string; number: string } {
-  for (const c of COUNTRY_CODES) {
-    if (phone.startsWith(c.code + ' ')) {
-      return { code: c.code, number: phone.slice(c.code.length + 1) }
-    }
-    if (phone.startsWith(c.code)) {
-      return { code: c.code, number: phone.slice(c.code.length) }
-    }
-  }
-  return { code: '+974', number: phone }
-}
 
 // ─── Form value types ──────────────────────────────────────────────────────────
 interface TeamFormValues {
@@ -111,7 +86,7 @@ export function TeamEditDialog() {
     setSaveError(null)
     if (team) {
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      const parsed = parsePhone((team as any).phone ?? '')
+      const parsed = splitPhone((team as any).phone ?? '')
       form.reset({
         name_en:           team.name_en ?? team.name ?? '',
         // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -120,7 +95,7 @@ export function TeamEditDialog() {
         // eslint-disable-next-line @typescript-eslint/no-explicit-any
         division_id:       ((team as any).division_id as string) ?? '',
         countryCode:       parsed.code,
-        phoneNumber:       parsed.number,
+        phoneNumber:       parsed.digits,
         // eslint-disable-next-line @typescript-eslint/no-explicit-any
         is_normal:            (team as any).is_normal            ?? !(team.is_qc ?? false),
         is_emergency:         team.is_emergency                  ?? false,
@@ -146,7 +121,7 @@ export function TeamEditDialog() {
     setSaveError(null)
     try {
       const fullPhone = values.phoneNumber
-        ? `${values.countryCode} ${values.phoneNumber}`
+        ? `${values.countryCode}${values.phoneNumber}`
         : null
 
       const payload = {
@@ -407,51 +382,15 @@ export function TeamEditDialog() {
               </div>
 
               {/* ── Phone ── */}
-              <div className="flex gap-2 items-end">
-                <FormField
-                  control={form.control}
-                  name="countryCode"
-                  render={({ field }) => (
-                    <FormItem className="w-36 shrink-0">
-                      <FormLabel>Phone</FormLabel>
-                      <Select value={field.value} onValueChange={field.onChange}>
-                        <FormControl>
-                          <SelectTrigger className="h-9">
-                            <SelectValue />
-                          </SelectTrigger>
-                        </FormControl>
-                        <SelectContent>
-                          {COUNTRY_CODES.map(c => (
-                            <SelectItem key={c.code} value={c.code}>
-                              {c.label}
-                            </SelectItem>
-                          ))}
-                        </SelectContent>
-                      </Select>
-                    </FormItem>
-                  )}
+              <FormItem>
+                <FormLabel>Phone</FormLabel>
+                <PhoneInputWithCode
+                  value={form.watch('phoneNumber')}
+                  onChange={(v) => form.setValue('phoneNumber', v)}
+                  countryCode={form.watch('countryCode')}
+                  onCountryCodeChange={(v) => form.setValue('countryCode', v)}
                 />
-                <FormField
-                  control={form.control}
-                  name="phoneNumber"
-                  render={({ field }) => (
-                    <FormItem className="flex-1">
-                      {/* invisible label keeps vertical alignment */}
-                      <FormLabel className="invisible select-none" aria-hidden>
-                        Number
-                      </FormLabel>
-                      <FormControl>
-                        <Input
-                          {...field}
-                          type="tel"
-                          placeholder="XXXX XXXX"
-                          className="h-9"
-                        />
-                      </FormControl>
-                    </FormItem>
-                  )}
-                />
-              </div>
+              </FormItem>
 
               {/* ── Traccar Device ID ── */}
               <FormField

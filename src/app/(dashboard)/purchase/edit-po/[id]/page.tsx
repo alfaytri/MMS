@@ -129,7 +129,7 @@ export default function EditPOPage() {
   // ── Computed ──────────────────────────────────────────────────────────────
   const subtotal = lineItems.reduce((s, li) => s + li.total_price, 0)
   const grandTotal = subtotal - discountAmount
-  const validCount = lineItems.filter((li) => li.item_name.trim() !== '').length
+  const validCount = lineItems.filter((li) => li.brand_variant_id || li.tool_asset_item_id).length
 
   function handleSelectSupplier(s: { id: string; name: string }) {
     setSupplierId(s.id)
@@ -155,7 +155,8 @@ export default function EditPOPage() {
       discount_amount: discountAmount,
       discount_label: discountLabel || null,
       line_items: lineItems.map(({ item_name, sku, qty, unit, unit_price, total_price, brand_variant_id, tool_asset_item_id, free_qty }) => ({
-        item_name, sku, qty, unit, unit_price, total_price, brand_variant_id, tool_asset_item_id, free_qty,
+        item_name: item_name.trim(),
+        sku, qty, unit, unit_price, total_price, brand_variant_id, tool_asset_item_id, free_qty,
       })),
       division_id: (po as any)?.division_id ?? null,
     }
@@ -164,7 +165,6 @@ export default function EditPOPage() {
   function validate() {
     if (!supplierId) { toast.error('Please select a supplier'); return false }
     if (lineItems.length === 0) { toast.error('Add at least one line item'); return false }
-    if (lineItems.some((li) => !li.item_name.trim())) { toast.error('All line items need an item name'); return false }
     if (discountAmount > subtotal) { toast.error('Discount cannot exceed subtotal'); return false }
     return true
   }

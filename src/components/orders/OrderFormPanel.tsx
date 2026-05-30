@@ -264,6 +264,7 @@ export function OrderFormPanel({
                           onTimeChange={onUpdateServiceTime}
                           hideTimeControls
                           hideDragHandle
+                          visitDate={draft.visitDate}
                         />
                       ))}
                     </div>
@@ -277,6 +278,7 @@ export function OrderFormPanel({
                 fromTime={draft.siteVisitFromTime}
                 toTime={draft.siteVisitToTime}
                 onTimeChange={onUpdateSiteVisitTime}
+                visitDate={draft.visitDate}
               />
             )}
           </div>

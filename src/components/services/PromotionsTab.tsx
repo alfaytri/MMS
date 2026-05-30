@@ -9,7 +9,7 @@ import { Badge } from '@/components/ui/badge'
 import {
   Table, TableBody, TableCell, TableHead, TableHeader, TableRow,
 } from '@/components/ui/table'
-import { usePromotionCampaigns, useVouchers, type CampaignWithRules, type VoucherWithCampaign } from '@/hooks/usePromotions'
+import { usePromotionCampaigns, useVouchers, type CampaignWithRules, type VoucherWithCampaign, type PromotionRule } from '@/hooks/usePromotions'
 
 const CAMPAIGN_STATUS_COLOR: Record<string, string> = {
   active: 'bg-green-100 text-green-700',
@@ -169,7 +169,7 @@ function CampaignsSubTab({ enabled }: { enabled: boolean }) {
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {selectedCampaign.promotion_rules.map((rule) => (
+                {selectedCampaign.promotion_rules.map((rule: PromotionRule) => (
                   <TableRow key={rule.id} className="text-xs">
                     <TableCell>
                       <Badge className="text-[10px] px-1.5 py-0 border-0 bg-blue-50 text-blue-700">

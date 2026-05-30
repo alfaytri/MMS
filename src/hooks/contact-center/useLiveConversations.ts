@@ -72,29 +72,16 @@ export function useLiveConversations(provider: 'wati' | 'whapi' = 'wati') {
     cancelledRef.current = false
     load()
 
-    // Debounce realtime-triggered reloads so a burst of upserts (e.g. 25 contacts
-    // from a background sync) batches into a single DB query instead of 25.
-    let debounceTimer: ReturnType<typeof setTimeout> | null = null
-    function debouncedLoad() {
-      if (debounceTimer) clearTimeout(debounceTimer)
-      debounceTimer = setTimeout(() => {
-        if (!cancelledRef.current) load()
-      }, 400)
-    }
-
-    const channel = supabase
-      .channel('live-conversations')
-      .on(
-        'postgres_changes',
-        { event: '*', schema: 'public', table: 'chat_conversations' },
-        () => { if (!cancelledRef.current) debouncedLoad() }
-      )
-      .subscribe()
+    // Poll every 5 seconds instead of using a Realtime subscription.
+    // The previous postgres_changes channel on chat_conversations (no filter)
+    // was one of the top consumers of the Realtime message quota.
+    const poll = setInterval(() => {
+      if (!cancelledRef.current) load()
+    }, 5_000)
 
     return () => {
       cancelledRef.current = true
-      if (debounceTimer) clearTimeout(debounceTimer)
-      supabase.removeChannel(channel)
+      clearInterval(poll)
     }
   }, [load])
 

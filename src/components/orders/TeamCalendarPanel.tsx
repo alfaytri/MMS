@@ -1,10 +1,10 @@
 // src/components/orders/TeamCalendarPanel.tsx
 'use client'
-import { useState, useMemo, useRef, useEffect } from 'react'
+import { useState, useMemo, useRef, useEffect, useCallback } from 'react'
 import { useDroppable } from '@dnd-kit/core'
 import { Button } from '@/components/ui/button'
 import { ChevronLeft, ChevronRight, Phone, ClipboardList, Clock, User, X, AlignJustify, Columns2 } from 'lucide-react'
-import { format, addDays, subDays } from 'date-fns'
+import { format, addDays, subDays, isToday, parseISO } from 'date-fns'
 import { useTeams } from '@/hooks/useTeams'
 import { useCalendarVisits, type CalendarVisit } from '@/hooks/useCalendarVisits'
 import { useAllDivisionSchedules } from '@/hooks/useCalendarSchedule'
@@ -25,18 +25,21 @@ const OFFHOURS_STYLE = {
   backgroundImage: 'repeating-linear-gradient(-45deg, rgb(0 0 0 / 0.04) 0px, rgb(0 0 0 / 0.04) 2px, transparent 2px, transparent 8px)',
 } as const
 
-/** Full day: 12 AM – 11 PM */
-const HOURS = Array.from({ length: 24 }, (_, i) => i)
-const DEFAULT_CELL_W  = 56   // px per hour column in scroll mode
-const FIT_MIN_CELL_W  = 36   // minimum cell width in fit mode
+/** Full day: 48 half-hour slots: 0, 0.5, 1, 1.5, … 23.5 */
+const SLOTS = Array.from({ length: 48 }, (_, i) => i * 0.5)
+const DEFAULT_CELL_W  = 36   // px per half-hour slot in scroll mode
+const FIT_MIN_CELL_W  = 24   // minimum cell width in fit mode
 const SIDEBAR_W       = 128  // team label column width
 const TRACK_H         = 44   // px per stacking track
 
-function formatHour(h: number): string {
-  if (h === 0) return '12AM'
-  if (h < 12) return `${h}AM`
-  if (h === 12) return '12PM'
-  return `${h - 12}PM`
+function formatSlotLabel(slot: number): string {
+  const hour = Math.floor(slot)
+  const isHalf = slot % 1 !== 0
+  if (isHalf) return ':30'
+  if (hour === 0) return '12AM'
+  if (hour < 12) return `${hour}AM`
+  if (hour === 12) return '12PM'
+  return `${hour - 12}PM`
 }
 
 /** Parse "HH:MM" or plain integer string → integer hour */
@@ -137,13 +140,14 @@ interface Props {
 }
 
 // ---------------------------------------------------------------------------
-// DroppableCell — one hour slot per team row
+// DroppableCell — one half-hour slot per team row
 // ---------------------------------------------------------------------------
 
 interface DroppableCellProps {
   teamId: string
-  hour: number
+  slot: number
   isOccupied: boolean
+  isPast: boolean
   isSkillMatch: boolean | null
   rowHeight: number
   workStart: number
@@ -151,28 +155,34 @@ interface DroppableCellProps {
   cellW: number
 }
 
-function DroppableCell({ teamId, hour, isOccupied, isSkillMatch, rowHeight, workStart, workEnd, cellW }: DroppableCellProps) {
+function DroppableCell({ teamId, slot, isOccupied, isPast, isSkillMatch, rowHeight, workStart, workEnd, cellW }: DroppableCellProps) {
+  const hour = Math.floor(slot)
+  const minute = slot % 1 !== 0 ? 30 : 0
+  const blocked = isOccupied || isPast
   const { isOver, setNodeRef } = useDroppable({
-    id: `${teamId}-${hour}`,
-    data: { teamId, hour },
-    disabled: isOccupied,
+    id: `${teamId}-${slot}`,
+    data: { teamId, hour, minute },
+    disabled: blocked,
   })
 
-  const isWorking = hour >= workStart && hour < workEnd
+  const isWorking = slot >= workStart && slot < workEnd
+  const isHalf = slot % 1 !== 0
 
   return (
     <div
       ref={setNodeRef}
       style={{
         width: cellW, minWidth: cellW, height: rowHeight,
-        ...(!isWorking && !isOccupied ? OFFHOURS_STYLE : {}),
+        ...(!isWorking && !blocked ? OFFHOURS_STYLE : {}),
       }}
       className={cn(
-        'shrink-0 border-r border-slate-100 transition-colors',
-        isOccupied && 'bg-slate-100 cursor-not-allowed',
-        !isOccupied && isOver && 'bg-orange-50 ring-1 ring-inset ring-orange-300',
-        !isOccupied && !isOver && isSkillMatch === true && 'bg-green-50',
-        !isOccupied && isSkillMatch === false && 'opacity-40',
+        'shrink-0 transition-colors',
+        isHalf ? 'border-r border-slate-100/50' : 'border-r border-slate-100',
+        blocked && 'bg-slate-100 cursor-not-allowed',
+        isPast && !isOccupied && 'bg-slate-50',
+        !blocked && isOver && 'bg-orange-50 ring-1 ring-inset ring-orange-300',
+        !blocked && !isOver && isSkillMatch === true && 'bg-green-50',
+        !blocked && isSkillMatch === false && 'opacity-40',
       )}
     />
   )
@@ -237,7 +247,8 @@ function DraftBlock({
   const overtimeMinutes = earlyMinutes + lateMinutes
   const track = trackMap.get(`a-${a.id}`) ?? 0
   const label = assignmentLabelFn(a)
-  const blockW = (end - start) * cellW - 2
+  // cellW is per half-hour slot; (end - start) is in hours → multiply by 2
+  const blockW = (end - start) * 2 * cellW - 2
 
   const timeLabel = a.toTime
     ? `${fmt12(a.timeSlot)} – ${fmt12(a.toTime)}`
@@ -409,7 +420,8 @@ function VisitBlock({ visit: v, trackMap, hourLeftFn, workStart, workEnd, cellW 
   const overtimeMinutes = earlyMinutes + lateMinutes
 
   const track = trackMap.get(`v-${v.id}`) ?? 0
-  const blockW = (end - start) * cellW - 2
+  // cellW is per half-hour slot; (end - start) is in hours → multiply by 2
+  const blockW = (end - start) * 2 * cellW - 2
   const isSiteVisit = v.source_type === 'site_visit'
 
   const timeLabel = [v.start_time, v.end_time]
@@ -534,7 +546,7 @@ const DIVISION_HEADER_H = 32
 
 function DivisionHeaderRow({ name, scheduleLabel, cellW }: { name: string; scheduleLabel?: string; cellW: number }) {
   // cap at content width so the row never causes extra horizontal scroll
-  const contentW = SIDEBAR_W + HOURS.length * cellW
+  const contentW = SIDEBAR_W + SLOTS.length * cellW
   return (
     <div style={{ height: DIVISION_HEADER_H }}>
       <div
@@ -584,6 +596,24 @@ export function TeamCalendarPanel({
   const [pendingDrop, setPendingDrop] = useState<PendingDrop | null>(null)
   const [fitMode, setFitMode] = useState(false)
   const [containerWidth, setContainerWidth] = useState(0)
+  const [nowMinutes, setNowMinutes] = useState<number | null>(null)
+
+  useEffect(() => {
+    const tick = () => {
+      const n = new Date()
+      setNowMinutes(n.getHours() * 60 + n.getMinutes())
+    }
+    tick()
+    const id = setInterval(tick, 60_000)
+    return () => clearInterval(id)
+  }, [])
+
+  const dateIsToday = isToday(parseISO(visitDate))
+
+  const isSlotPast = useCallback(
+    (slot: number) => dateIsToday && nowMinutes !== null && slot * 60 < nowMinutes,
+    [dateIsToday, nowMinutes],
+  )
 
   useEffect(() => {
     const el = scrollContainerRef.current
@@ -598,7 +628,7 @@ export function TeamCalendarPanel({
   }, [])
 
   const cellWidth = fitMode && containerWidth > SIDEBAR_W
-    ? Math.max(Math.floor((containerWidth - SIDEBAR_W) / HOURS.length), FIT_MIN_CELL_W)
+    ? Math.max(Math.floor((containerWidth - SIDEBAR_W) / SLOTS.length), FIT_MIN_CELL_W)
     : DEFAULT_CELL_W
 
   const divisionGroups = useMemo(() => {
@@ -622,7 +652,8 @@ export function TeamCalendarPanel({
     const container = scrollContainerRef.current
     if (!container) return
     if (typeof initialHour === 'number') {
-      container.scrollLeft = Math.max(0, initialHour * cellWidth - SIDEBAR_W)
+      // Each hour = 2 half-hour slots
+      container.scrollLeft = Math.max(0, initialHour * 2 * cellWidth - SIDEBAR_W)
     }
     const row = teamRowRefs.current.get(initialTeamId)
     if (row) {
@@ -669,15 +700,18 @@ export function TeamCalendarPanel({
     return start + Math.max(1, Math.ceil(a.duration / 60))
   }
 
-  /** Returns true if the team already has an existing visit covering this hour */
-  function isOccupied(teamId: string, hour: number): boolean {
+  /** Returns true if the team already has an existing visit covering this half-hour slot */
+  function isSlotOccupied(teamId: string, slot: number): boolean {
+    const slotMinutes = slot * 60
+    const slotEndMinutes = slotMinutes + 30
     return (visits ?? []).some((v) => {
       if (v.team_id !== teamId || !v.start_time) return false
-      const start = parseHour(v.start_time)
-      if (start === null) return false
-      const rawEnd = v.end_time ? parseHour(v.end_time) : null
-      const end = rawEnd !== null && rawEnd > start ? rawEnd : start + 1
-      return hour >= start && hour < end
+      const startMin = parseMinutes(v.start_time) ?? (parseHour(v.start_time)! * 60)
+      const endMin = v.end_time
+        ? (parseMinutes(v.end_time) ?? ((parseHour(v.end_time) ?? 0) * 60))
+        : startMin + 60
+      if (endMin <= startMin) return false
+      return slotMinutes < endMin && slotEndMinutes > startMin
     })
   }
 
@@ -701,9 +735,9 @@ export function TeamCalendarPanel({
     })
   }
 
-  /** CSS left offset for a given hour */
+  /** CSS left offset for a given hour (converts hours to half-hour slot units) */
   function hourLeft(h: number): number {
-    return (h - HOURS[0]) * cellWidth
+    return (h - SLOTS[0]) * 2 * cellWidth
   }
 
   /**
@@ -802,23 +836,40 @@ export function TeamCalendarPanel({
 
       {/* ── Grid ── */}
       <div ref={scrollContainerRef} className="flex-1 overflow-auto">
-        <div className="flex min-w-max flex-col">
+        <div className="relative flex min-w-max flex-col">
+          {/* Now indicator — red vertical line for current time */}
+          {dateIsToday && nowMinutes !== null && (
+            <div
+              aria-hidden="true"
+              className="absolute top-0 bottom-0 pointer-events-none z-[25]"
+              style={{ left: SIDEBAR_W + (nowMinutes / 30) * cellWidth }}
+            >
+              <div className="absolute -top-1 -left-1 h-2 w-2 rounded-full bg-red-500" />
+              <div className="absolute top-0 left-0 w-px h-full bg-red-500 opacity-70" />
+            </div>
+          )}
 
-          {/* Hour header row */}
+          {/* Time header row — half-hour slots */}
           <div className="flex border-b bg-slate-50 sticky top-0 z-10">
             <div className="w-32 shrink-0 border-r px-2 py-1 text-xs font-medium text-slate-500">
               Teams / Time
             </div>
             <div className="flex">
-              {HOURS.map((h) => (
-                <div
-                  key={h}
-                  style={{ width: cellWidth, minWidth: cellWidth }}
-                  className="shrink-0 border-r border-slate-100 px-1 py-1 text-center text-[10px] text-slate-500"
-                >
-                  {formatHour(h)}
-                </div>
-              ))}
+              {SLOTS.map((slot) => {
+                const isHalf = slot % 1 !== 0
+                return (
+                  <div
+                    key={slot}
+                    style={{ width: cellWidth, minWidth: cellWidth }}
+                    className={cn(
+                      'shrink-0 px-0.5 py-1 text-center text-[10px] text-slate-500',
+                      isHalf ? 'border-r border-slate-100/50' : 'border-r border-slate-100',
+                    )}
+                  >
+                    {formatSlotLabel(slot)}
+                  </div>
+                )
+              })}
             </div>
           </div>
 
@@ -851,14 +902,15 @@ export function TeamCalendarPanel({
                         </p>
                       </div>
 
-                      {/* Hour cells + absolutely-positioned blocks */}
+                      {/* Half-hour cells + absolutely-positioned blocks */}
                       <div className="relative flex">
-                        {HOURS.map((hour) => (
+                        {SLOTS.map((slot) => (
                           <DroppableCell
-                            key={hour}
+                            key={slot}
                             teamId={team.id}
-                            hour={hour}
-                            isOccupied={isOccupied(team.id, hour)}
+                            slot={slot}
+                            isOccupied={isSlotOccupied(team.id, slot)}
+                            isPast={isSlotPast(slot)}
                             isSkillMatch={draggingService ? getSkillMatch(team.id) : null}
                             rowHeight={rowHeight}
                             workStart={workStart}

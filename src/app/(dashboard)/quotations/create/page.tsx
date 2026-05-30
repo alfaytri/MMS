@@ -65,15 +65,18 @@ export default function CreateQuotationPage() {
     setIsSending(true)
     setSendStatus('Saving quotation…')
     try {
+      setSendStatus('Generating PDF…')
+      const el = getPdfElement()
+      await new Promise((r) => setTimeout(r, 50))
       setSendStatus('Sending via Wati…')
-      await sendViaWati.mutateAsync()
-      toast.success('Quotation sent via Wati')
+      await sendViaWati.mutateAsync(el)
+      toast.success('Quotation sent via Wati (PDF)')
       setSendDialogOpen(false)
       router.push('/quotations')
     } catch (err) {
       if (err instanceof WindowClosedError) {
         toast.info('Wati window closed — sending via WHAPI instead')
-        setSendStatus('Window closed. Generating PDF fallback…')
+        setSendStatus('Window closed. Sending via WHAPI…')
         try {
           await handleWhapiSend()
         } catch {

@@ -175,21 +175,22 @@ export function CascadeInventorySelector({
     setIsVarCreating(false)
   }
 
-  // ── PILL ───────────────────────────────────────────────────────────────────
+  // ── BREADCRUMB (compact, single-line, sits above the vendor name input) ────
   if (value) {
+    // For saved rows (no live selection), the ancestry RPC only returns the
+    // leaf category. Re-derive the full breadcrumb from the tree by id when
+    // possible so the chip shows "AC > Split > Rotary" not just "Rotary".
+    const ancestryCatId = ancestry?.inventory_items?.inventory_categories?.id ?? null
     const categoryLabel =
       selectedCategory
         ? getBreadcrumb(selectedCategory.id)
-        : ancestry?.inventory_items?.inventory_categories
-          ? ancestry.inventory_items.inventory_categories.name_en
+        : ancestryCatId
+          ? (getBreadcrumb(ancestryCatId) ||
+              ancestry?.inventory_items?.inventory_categories?.name_en ||
+              value.category_name ||
+              null)
           : value.category_name ?? null
-    const categoryLabelAr =
-      selectedCategory?.name_ar ??
-      ancestry?.inventory_items?.inventory_categories?.name_ar ??
-      value.category_name_ar ??
-      null
-    const inventoryName   = selectedItem?.name_en ?? ancestry?.inventory_items?.name_en ?? null
-    const inventoryNameAr = selectedItem?.name_ar ?? ancestry?.inventory_items?.name_ar ?? null
+    const inventoryName = selectedItem?.name_en ?? ancestry?.inventory_items?.name_en ?? null
     const brand = selectedVariantBrand ?? ancestry?.brand ?? null
     const code  = selectedVariantCode  ?? ancestry?.code  ?? null
     const ancestryStock =
@@ -198,57 +199,44 @@ export function CascadeInventorySelector({
         : null
     const stockToShow = selectedVariantStock ?? ancestryStock
 
+    // Build a single-line dash-separated breadcrumb, e.g.
+    // "AC - Floor Ceiling - Inverter - 3.0 Ton - GREE"
+    const breadcrumbParts: string[] = []
+    if (categoryLabel) breadcrumbParts.push(categoryLabel.replace(/\s*>\s*/g, ' - '))
+    if (inventoryName) breadcrumbParts.push(inventoryName)
+    if (code) breadcrumbParts.push(code)
+    if (brand) breadcrumbParts.push(brand)
+    const breadcrumbText = breadcrumbParts.join(' - ')
+
     return (
-      <div className="flex items-center gap-2 rounded-md border border-input bg-background px-3 py-1.5 text-sm min-h-[32px]">
+      <div className="flex items-center gap-2 min-h-[20px] px-1 text-xs">
         {isPriceLoading ? (
-          <span className="flex-1 text-xs text-muted-foreground animate-pulse">
-            Fetching price…
-          </span>
+          <span className="flex-1 text-muted-foreground animate-pulse">Fetching price…</span>
         ) : ancestryLoading && !categoryLabel ? (
-          <span className="flex-1 h-4 rounded bg-muted animate-pulse" />
+          <span className="flex-1 h-3 rounded bg-muted animate-pulse" />
         ) : (
-          <div className="flex-1 min-w-0">
-            <div className="flex items-center gap-1 truncate">
-              {categoryLabel && (
-                <span className="text-muted-foreground text-xs shrink-0">
-                  {categoryLabel} ›
-                </span>
-              )}
-              <span className="font-medium truncate">{inventoryName ?? value.item_name}</span>
-              {brand && (
-                <span className="text-muted-foreground text-xs shrink-0">
-                  · {brand}
-                </span>
-              )}
-              {code && (
-                <span className="text-muted-foreground text-xs shrink-0">
-                  {code}
-                </span>
-              )}
-            </div>
-            {(categoryLabelAr || inventoryNameAr || stockToShow != null) && (
-              <div className="flex items-center gap-1 text-xs text-muted-foreground truncate">
-                {categoryLabelAr && <span className="shrink-0">{categoryLabelAr} ›</span>}
-                {inventoryNameAr && <span className="truncate">{inventoryNameAr}</span>}
-                {stockToShow != null && (
-                  <span
-                    className={cn(
-                      'ml-auto shrink-0 font-medium',
-                      stockToShow > 0 ? 'text-green-600' : 'text-muted-foreground'
-                    )}
-                  >
-                    {stockToShow > 0 ? `${stockToShow} in stock` : 'Out of stock'}
-                  </span>
-                )}
-              </div>
+          <span className="flex-1 min-w-0 truncate text-muted-foreground">
+            {breadcrumbText || value.item_name}
+            {breadcrumbText && value.item_name?.trim() && (
+              <span className="text-foreground font-medium">{` (${value.item_name.trim()})`}</span>
             )}
-          </div>
+          </span>
+        )}
+        {stockToShow != null && (
+          <span
+            className={cn(
+              'shrink-0 font-medium',
+              stockToShow > 0 ? 'text-green-600' : 'text-muted-foreground'
+            )}
+          >
+            {stockToShow > 0 ? `${stockToShow} in stock` : 'Out of stock'}
+          </span>
         )}
         <Button
           type="button"
           variant="ghost"
           size="icon"
-          className="h-5 w-5 shrink-0"
+          className="h-4 w-4 shrink-0"
           onClick={handleClear}
           disabled={isPriceLoading}
         >

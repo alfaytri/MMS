@@ -90,8 +90,9 @@ export function VisitBlock({
 
   const startMin  = timeToMinutes(visit.start_time)
   const endMin    = timeToMinutes(visit.end_time)
-  const leftPx    = ((startMin - dayStart * 60) / 60) * cellWidth
-  const widthPx   = Math.max(((endMin - startMin) / 60) * cellWidth, 4)
+  // cellWidth is per half-hour slot (30 min)
+  const leftPx    = ((startMin - dayStart * 60) / 30) * cellWidth
+  const widthPx   = Math.max(((endMin - startMin) / 30) * cellWidth, 4)
   const isOvertime = endMin > workEnd * 60
 
   const topPx    = track * trackHeight + 2

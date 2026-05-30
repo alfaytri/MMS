@@ -1,5 +1,6 @@
 'use client'
 
+import { useState } from 'react'
 import { useForm } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { z } from 'zod'
@@ -12,6 +13,7 @@ import {
 import {
   Form, FormControl, FormField, FormItem, FormLabel, FormMessage,
 } from '@/components/ui/form'
+import { PhoneInputWithCode } from '@/components/shared/PhoneInputWithCode'
 import { useCreateSupplier } from '@/hooks/useSuppliers'
 
 const schema = z.object({
@@ -31,17 +33,19 @@ interface AddSupplierDialogProps {
 
 export function AddSupplierDialog({ open, onOpenChange, onCreated }: AddSupplierDialogProps) {
   const createSupplier = useCreateSupplier()
+  const [countryCode, setCountryCode] = useState('+974')
   const form = useForm<FormValues>({
     resolver: zodResolver(schema) as never,
     defaultValues: { name: '', contact_name: '', phone: '', email: '' },
   })
 
   function handleSubmit(values: FormValues) {
+    const fullPhone = values.phone ? `${countryCode}${values.phone}` : null
     createSupplier.mutate(
       {
         name: values.name,
         contact_name: values.contact_name || null,
-        phone: values.phone || null,
+        phone: fullPhone,
         email: values.email || null,
       },
       {
@@ -93,7 +97,14 @@ export function AddSupplierDialog({ open, onOpenChange, onCreated }: AddSupplier
                 render={({ field }) => (
                   <FormItem>
                     <FormLabel>Phone</FormLabel>
-                    <FormControl><Input {...field} /></FormControl>
+                    <FormControl>
+                      <PhoneInputWithCode
+                        value={field.value ?? ''}
+                        onChange={field.onChange}
+                        countryCode={countryCode}
+                        onCountryCodeChange={setCountryCode}
+                      />
+                    </FormControl>
                     <FormMessage />
                   </FormItem>
                 )}

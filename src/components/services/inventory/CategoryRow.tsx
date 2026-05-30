@@ -115,7 +115,7 @@ export function CategoryRow({ node, categoryType, showArchived, canMoveUp, canMo
       </tr>
 
       {/* Child categories (rendered before items) */}
-      {expanded && node.children.map((child, idx) => (
+      {expanded && node.children.map((child: InventoryTreeNode, idx: number) => (
         <CategoryRow
           key={child.id}
           node={child}

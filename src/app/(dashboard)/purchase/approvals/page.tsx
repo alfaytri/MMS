@@ -135,9 +135,9 @@ export default function ApprovalsPage() {
                   )}
                   <div className="flex gap-2 flex-wrap">
                     <Button size="sm" onClick={() => openDialog(po)}>Review</Button>
-                    {(isAdmin || myRoles.includes('owner')) && pendingSteps.length > 0 && (
+                    {myRoles.includes('owner') && pendingSteps.length > 0 && (
                       <Button size="sm" variant="outline" onClick={() => openDialog(po, 'force')} className="gap-1 text-amber-600 border-amber-300">
-                        <ShieldAlert className="h-3.5 w-3.5" /> {myRoles.includes('owner') && !isAdmin ? 'Owner Approve' : 'Force Approve'}
+                        <ShieldAlert className="h-3.5 w-3.5" /> Force Approve
                       </Button>
                     )}
                     {maxIteration > 1 && (

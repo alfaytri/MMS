@@ -88,6 +88,8 @@ export function useReceivals(filters?: { status?: ReceivalStatus | '' }) {
         supplier_name: r.purchase_orders?.supplier_name ?? null,
       })) as Receival[]
     },
+    staleTime: 30 * 1000,
+    refetchInterval: 30 * 1000,
   })
 }
 

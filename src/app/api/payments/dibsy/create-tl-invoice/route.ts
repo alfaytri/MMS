@@ -15,6 +15,8 @@ import { createDibsyPayment } from '@/lib/dibsy'
 const SUPA_URL    = process.env.NEXT_PUBLIC_SUPABASE_URL!
 const SUPA_ANON   = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
 const CRON_SECRET = process.env.CRON_SECRET ?? ''
+const WATI_URL    = (process.env.WATI_API_URL ?? '').replace(/\/$/, '')
+const WATI_TOKEN  = process.env.WATI_API_TOKEN ?? ''
 
 const UUID_RE =
   /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
@@ -68,15 +70,30 @@ export async function POST(request: Request) {
   const appUrl =
     process.env.NEXT_PUBLIC_APP_URL ?? 'https://mms.alfaytri.com'
 
+  // ── 0. Fetch invoice details for Dibsy metadata ────────────────────────────
+  const supabasePre = createAdminClient()
+  const { data: invDetail } = await (supabasePre as any)
+    .from('tl_invoices')
+    .select('invoice_number, customer_name, discount_amount')
+    .eq('id', invoice_id)
+    .maybeSingle()
+
   // ── 1. Create Dibsy payment link (blocking) ──────────────────────────────────
   let payment: Awaited<ReturnType<typeof createDibsyPayment>>
   try {
     payment = await createDibsyPayment({
       amount:      { value: amount.toFixed(2), currency: 'QAR' },
-      description: `Invoice ${order_id}`,
+      description: `Invoice ${invDetail?.invoice_number ?? order_id}`,
       redirectUrl: `${appUrl}/pay/${invoice_id}`,
       webhookUrl:  `${appUrl}/api/payments/dibsy/webhook`,
-      metadata:    { tl_invoice_id: invoice_id },
+      metadata: {
+        tl_invoice_id:    invoice_id,
+        MMS_invoice_id:   invDetail?.invoice_number ?? '',
+        MMS_order_id:     order_id,
+        customer_phone:   customer_phone ?? '',
+        customer_name:    invDetail?.customer_name ?? '',
+        discount:         String(invDetail?.discount_amount ?? '0.00'),
+      },
     })
   } catch (err) {
     console.error('[create-tl-invoice] Dibsy error:', err)
@@ -106,35 +123,32 @@ export async function POST(request: Request) {
   // directly and save to chat_messages for Contact Centre visibility.
   if (customer_phone) {
     const formattedAmount = `${amount.toFixed(2)} QAR`
-    const templateName =
-      process.env.WATI_INVOICE_TEMPLATE ?? 'mms_tl_invoice_payment'
+    const templateName = 'mms_tl_invoice_payment'
 
     const watiPhone = customer_phone.replace(/\D/g, '')
 
     try {
-      const invokeBody = {
-        action:         'send_template',
-        phone:          watiPhone,
-        template_name:  templateName,
-        broadcast_name: `${templateName}_${order_id.replace(/[^a-zA-Z0-9]/g, '_')}_${Date.now()}`,
-        parameters: [
-          { name: 'bookingnumber', value: order_id },
-          { name: 'total_amount',  value: formattedAmount },
-          { name: 'due_amount',    value: formattedAmount },
-          { name: 'url',           value: invoice_id },
-        ],
-      }
+      const broadcastName = `${templateName}_${order_id.replace(/[^a-zA-Z0-9]/g, '_')}_${Date.now()}`
+      const parameters = [
+        { name: 'bookingnumber', value: order_id },
+        { name: 'total_amount',  value: formattedAmount },
+        { name: 'due_amount',    value: formattedAmount },
+        { name: 'url',           value: invoice_id },
+      ]
 
-      const watiRes = await fetch(`${SUPA_URL}/functions/v1/api-wati`, {
-        method:  'POST',
-        headers: {
-          'Content-Type':  'application/json',
-          'apikey':        SUPA_ANON,
-          'Authorization': `Bearer ${SUPA_ANON}`,
-          'x-cron-secret': CRON_SECRET,
+      // Call WATI v2 directly (same pattern as send-booking-confirmations)
+      const watiRes = await fetch(
+        `${WATI_URL}/api/v2/sendTemplateMessage?whatsappNumber=${encodeURIComponent(watiPhone)}`,
+        {
+          method:  'POST',
+          headers: { Authorization: `Bearer ${WATI_TOKEN}`, 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            template_name:  templateName,
+            broadcast_name: broadcastName,
+            parameters,
+          }),
         },
-        body: JSON.stringify(invokeBody),
-      })
+      )
 
       const rawText = await watiRes.text()
       let watiData: Record<string, unknown> | null = null

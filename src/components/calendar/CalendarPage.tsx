@@ -212,9 +212,12 @@ export function CalendarPage() {
     }
   }
 
-  /** Click on empty calendar cell → open order creation prefilled with date, team, and hour. */
-  function handleCellClick(teamId: string, hour: number) {
-    router.push(`/orders/create?date=${date}&teamId=${encodeURIComponent(teamId)}&hour=${hour}`)
+  /** Click on empty calendar cell → open order creation prefilled with date, team, and time slot.
+   *  `slot` is a half-hour value: 9 = 09:00, 9.5 = 09:30, etc. */
+  function handleCellClick(teamId: string, slot: number) {
+    const hour = Math.floor(slot)
+    const minute = slot % 1 !== 0 ? 30 : 0
+    router.push(`/orders/create?date=${date}&teamId=${encodeURIComponent(teamId)}&hour=${hour}&minute=${minute}`)
   }
 
   function handleDivisionChange(slug: string) {
