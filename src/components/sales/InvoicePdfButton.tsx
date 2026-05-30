@@ -1,9 +1,7 @@
 'use client'
 
-import { PDFDownloadLink } from '@react-pdf/renderer'
+import dynamic from 'next/dynamic'
 import { Button } from '@/components/ui/button'
-import { InvoiceDocument } from './InvoicePdf'
-import { useCompanies } from '@/hooks/useCompanies'
 import type { ArInvoice } from '@/types/invoice'
 
 interface Props {
@@ -12,34 +10,21 @@ interface Props {
   outstanding: number
 }
 
-export function InvoicePdfButton({ invoice, amountPaid, outstanding }: Props) {
-  const { data: companies } = useCompanies()
-  const c = companies?.find((co) => co.is_active) ?? companies?.[0]
+// @react-pdf/renderer is ~1MB. Loading it dynamically keeps it out of the
+// route's initial JS chunk so the page becomes interactive sooner; the PDF
+// implementation streams in alongside.
+const InvoicePdfButtonInner = dynamic(
+  () => import('./InvoicePdfButtonInner').then((m) => m.InvoicePdfButtonInner),
+  {
+    ssr: false,
+    loading: () => (
+      <Button variant="outline" size="sm" disabled>
+        Loading…
+      </Button>
+    ),
+  }
+)
 
-  const company = c ? {
-    name:      c.name_en,
-    address:   c.address_en ?? null,
-    vat_id:    c.vat_id ?? null,
-    cr_number: c.cr_number ?? null,
-  } : undefined
-
-  return (
-    <PDFDownloadLink
-      document={
-        <InvoiceDocument
-          invoice={invoice}
-          amountPaid={amountPaid}
-          outstanding={outstanding}
-          company={company}
-        />
-      }
-      fileName={`Invoice-${invoice.invoice_id}.pdf`}
-    >
-      {({ loading }: { loading: boolean }) => (
-        <Button variant="outline" size="sm" disabled={loading}>
-          {loading ? 'Preparing…' : 'Download PDF'}
-        </Button>
-      )}
-    </PDFDownloadLink>
-  )
+export function InvoicePdfButton(props: Props) {
+  return <InvoicePdfButtonInner {...props} />
 }

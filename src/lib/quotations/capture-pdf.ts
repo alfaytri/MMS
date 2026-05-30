@@ -1,5 +1,6 @@
-import html2canvas from 'html2canvas'
-import { jsPDF } from 'jspdf'
+// html2canvas (~250KB) and jspdf (~350KB) are loaded on-demand inside
+// capturePdfBlob — keeping them out of the route's initial chunk. The cost
+// is paid only when the user actually generates a quotation PDF.
 
 /**
  * Waits for all <img> tags within a given element to fully load.
@@ -34,6 +35,13 @@ async function waitForImages(element: HTMLElement): Promise<void> {
 export async function capturePdfBlob(element: HTMLElement): Promise<Blob> {
   // 1. Ensure all images inside the element are fully painted
   await waitForImages(element)
+
+  // Dynamic-import the heavy libs so they're only fetched when a PDF is
+  // actually being captured — not on initial page load.
+  const [{ default: html2canvas }, { jsPDF }] = await Promise.all([
+    import('html2canvas'),
+    import('jspdf'),
+  ])
 
   // 2. Render at 2× for crisp text on retina displays
   const canvas = await html2canvas(element, {

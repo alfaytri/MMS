@@ -1,44 +1,28 @@
 'use client'
 
-import { PDFDownloadLink } from '@react-pdf/renderer'
+import dynamic from 'next/dynamic'
 import { Button } from '@/components/ui/button'
-import { QuotationDocument } from './SoQuotationPdf'
-import { useCompanies } from '@/hooks/useCompanies'
 import type { SaleOrder } from '@/hooks/useSaleOrders'
 
 interface SoPdfButtonProps {
   so: SaleOrder
 }
 
-export function SoPdfButton({ so }: SoPdfButtonProps) {
-  const { data: companies } = useCompanies()
-  const c = companies?.find((co) => co.is_active) ?? companies?.[0]
+// @react-pdf/renderer is ~1MB. Loading it dynamically keeps it out of the
+// route's initial JS chunk so the page becomes interactive sooner; the PDF
+// implementation streams in alongside.
+const SoPdfButtonInner = dynamic(
+  () => import('./SoPdfButtonInner').then((m) => m.SoPdfButtonInner),
+  {
+    ssr: false,
+    loading: () => (
+      <Button variant="outline" size="sm" disabled>
+        Loading…
+      </Button>
+    ),
+  }
+)
 
-  const company = c ? {
-    name:      c.name_en,
-    address:   c.address_en ?? null,
-    vat_id:    c.vat_id ?? null,
-    cr_number: c.cr_number ?? null,
-  } : undefined
-
-  return (
-    <PDFDownloadLink
-      document={
-        <QuotationDocument
-          so={so}
-          lines={so.sale_order_lines ?? []}
-          customerName={so.customer_name ?? ''}
-          customerPhone={so.customer_phone ?? null}
-          company={company}
-        />
-      }
-      fileName={`Quotation-${so.so_number}.pdf`}
-    >
-      {({ loading }: { loading: boolean }) => (
-        <Button variant="outline" size="sm" disabled={loading}>
-          {loading ? 'Preparing…' : 'Download PDF'}
-        </Button>
-      )}
-    </PDFDownloadLink>
-  )
+export function SoPdfButton(props: SoPdfButtonProps) {
+  return <SoPdfButtonInner {...props} />
 }

@@ -1,6 +1,8 @@
 // src/app/(dashboard)/layout.tsx
+import { Suspense } from 'react'
 import { headers } from 'next/headers'
 import { TopNav } from '@/components/layout/TopNav'
+import { TopNavSkeleton } from '@/components/layout/TopNavSkeleton'
 import { RealtimeSync } from '@/components/shared/RealtimeSync'
 import { InactivityGuard } from '@/components/auth/InactivityGuard'
 import { SessionGuard } from '@/components/auth/SessionGuard'
@@ -35,7 +37,11 @@ export default async function DashboardLayout({
         <div className="min-h-screen bg-muted/30 flex flex-col">
           <InactivityGuard />
           <RealtimeSync />
-          <div className="print:hidden"><TopNav /></div>
+          <div className="print:hidden">
+            <Suspense fallback={<TopNavSkeleton />}>
+              <TopNav />
+            </Suspense>
+          </div>
           <DashboardMain>
             {children}
           </DashboardMain>
