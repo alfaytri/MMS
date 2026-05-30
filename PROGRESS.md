@@ -200,9 +200,11 @@ Purchase & Sales▾:
 
 ## 🔄 In Progress
 
-🚀 Starting: **Quotation Enhancements — Task 10: Manual Testing & Security Audit**
+None
 
 ## ✅ Completed
+
+- [2026-05-30] **Performance Optimization — 5 fixes** — `src/components/auth/SessionGuard.tsx` (module-scope session cache), `src/app/(dashboard)/layout.tsx` (Suspense-wrapped TopNav), `src/components/layout/TopNavSkeleton.tsx` (NEW), `src/app/(dashboard)/loading.tsx` (NEW: dashboard skeleton), `src/components/sales/SoPdfButton.tsx` + `SoPdfButtonInner.tsx` (NEW), `src/components/sales/InvoicePdfButton.tsx` + `InvoicePdfButtonInner.tsx` (NEW), `src/components/sales/CreditDebitNoteDownloadButton.tsx` + `CreditDebitNoteDownloadButtonInner.tsx` (NEW), `src/lib/quotations/capture-pdf.ts` — Eliminated double auth round-trip (saves 200-500ms per navigation), TopNav streams via Suspense, instant loading skeleton, dynamic-import @react-pdf/renderer (~1MB) and html2canvas+jspdf (~600KB)
 
 - [2026-05-26] **Quotation Enhancements Tasks 1–9 + Build Fixes** — `src/lib/money.ts` (NEW: roundMoney + computeDiscount), `src/lib/quotations/capture-pdf.ts` (NEW: client-side PDF capture with waitForImages + JPEG compression), `src/types/quotations.ts` (discountType/discountValue on QuotationDraft + QuotationDetail), `src/hooks/useCreateQuotation.ts` (discount state, computeSubtotal, sendViaWati + sendViaWhapi mutations, WindowClosedError), `src/components/quotations/QuotationFormPanel.tsx` (discount input row, three-line totals, removed amber banner), `src/components/quotations/QuotationPdfPreview.tsx` (forwardRef, discount rows in tfoot, creator name), `src/components/quotations/WhatsAppSendDialog.tsx` (NEW: Wati/WHAPI choice dialog with dynamic status), `src/app/(dashboard)/quotations/create/page.tsx` (wired dialog, hidden PDF target, creator name from profile), `src/components/quotations/QuotationDetailSheet.tsx` (discount props + money helpers), `src/app/api/wati/send-quotation/route.ts` (discount breakdown in text message), `supabase/migrations/20260526210000_quotation_discount.sql`, `20260526210001_profile_title.sql`, `20260526210002_quotation_pdf_bucket.sql` — Discount input (flat QAR + %), creator name on PDF, WhatsApp send flow with Wati/WHAPI choice and automatic fallback
 
