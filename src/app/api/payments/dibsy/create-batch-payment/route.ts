@@ -12,6 +12,7 @@ function phoneLast8(raw: string): string {
 interface RequestBody {
   invoice_ids: string[]
   customer_phone: string
+  customer_phones?: string[]
 }
 
 export async function POST(request: Request) {
@@ -22,7 +23,7 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: 'Invalid JSON' }, { status: 400 })
   }
 
-  const { invoice_ids, customer_phone } = body
+  const { invoice_ids, customer_phone, customer_phones } = body
 
   if (
     !Array.isArray(invoice_ids) ||
@@ -43,7 +44,15 @@ export async function POST(request: Request) {
   }
 
   const supabase = createAdminClient()
-  const requestPhoneNorm = phoneLast8(customer_phone)
+
+  // Build set of allowed phone suffixes (primary + any additional phones)
+  const allowedPhones = new Set<string>()
+  allowedPhones.add(phoneLast8(customer_phone))
+  if (Array.isArray(customer_phones)) {
+    for (const p of customer_phones) {
+      if (typeof p === 'string') allowedPhones.add(phoneLast8(p))
+    }
+  }
 
   // Fetch and validate all requested invoices
   const { data: invoices, error: fetchErr } = await supabase
@@ -70,7 +79,7 @@ export async function POST(request: Request) {
         { status: 400 },
       )
     }
-    if (phoneLast8(inv.customer_phone ?? '') !== requestPhoneNorm) {
+    if (!allowedPhones.has(phoneLast8(inv.customer_phone ?? ''))) {
       return NextResponse.json(
         { error: 'Phone number mismatch — invoices do not belong to this customer' },
         { status: 400 },

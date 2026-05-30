@@ -1,7 +1,7 @@
 'use client'
 
 import { useState } from 'react'
-import { CheckCircle2, Loader2, AlertCircle } from 'lucide-react'
+import { CheckCircle2, Loader2, AlertCircle, Phone } from 'lucide-react'
 
 interface InvoiceItem {
   id: string
@@ -9,26 +9,40 @@ interface InvoiceItem {
   order_id: string
   total_amount: number
   created_at: string
+  customer_phone: string
+}
+
+export interface PhoneGroup {
+  phone: string
+  invoices: InvoiceItem[]
 }
 
 interface Props {
   clickedInvoiceId: string
-  customerPhone?: string
-  invoices: InvoiceItem[]
+  customerName?: string
+  phoneGroups: PhoneGroup[]
   showSuccess?: boolean
   showNotReady?: boolean
 }
 
+function formatPhone(raw: string): string {
+  const digits = raw.replace(/\D/g, '')
+  if (digits.length <= 4) return raw
+  return `+${digits.slice(0, -8)} ${digits.slice(-8, -4)} ${digits.slice(-4)}`
+}
+
 export default function PaymentPortal({
   clickedInvoiceId,
-  customerPhone,
-  invoices,
+  customerName,
+  phoneGroups,
   showSuccess,
   showNotReady,
 }: Props) {
+  const allInvoices = phoneGroups.flatMap((g) => g.invoices)
+
   const [selected, setSelected] = useState<Set<string>>(() => {
     const initial = new Set<string>()
-    if (invoices.some((inv) => inv.id === clickedInvoiceId)) {
+    if (allInvoices.some((inv) => inv.id === clickedInvoiceId)) {
       initial.add(clickedInvoiceId)
     }
     return initial
@@ -62,7 +76,7 @@ export default function PaymentPortal({
     )
   }
 
-  if (invoices.length === 0) {
+  if (allInvoices.length === 0) {
     return (
       <main className="min-h-screen flex items-center justify-center p-4 bg-slate-50" dir="rtl">
         <div className="max-w-sm w-full rounded-xl border bg-white p-6 text-center space-y-3">
@@ -84,14 +98,30 @@ export default function PaymentPortal({
     })
   }
 
-  const selectedTotal = invoices
+  const togglePhoneGroup = (group: PhoneGroup) => {
+    setSelected((prev) => {
+      const next = new Set(prev)
+      const allSelected = group.invoices.every((inv) => next.has(inv.id))
+      if (allSelected) {
+        group.invoices.forEach((inv) => next.delete(inv.id))
+      } else {
+        group.invoices.forEach((inv) => next.add(inv.id))
+      }
+      return next
+    })
+  }
+
+  const selectedTotal = allInvoices
     .filter((inv) => selected.has(inv.id))
     .reduce((sum, inv) => sum + inv.total_amount, 0)
 
   const handlePay = async () => {
-    if (selected.size === 0 || !customerPhone) return
+    if (selected.size === 0) return
     setLoading(true)
     setError(null)
+
+    const selectedInvoices = allInvoices.filter((inv) => selected.has(inv.id))
+    const phones = [...new Set(selectedInvoices.map((inv) => inv.customer_phone).filter(Boolean))]
 
     try {
       const res = await fetch('/api/payments/dibsy/create-batch-payment', {
@@ -99,7 +129,8 @@ export default function PaymentPortal({
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           invoice_ids: Array.from(selected),
-          customer_phone: customerPhone,
+          customer_phone: phones[0] ?? '',
+          customer_phones: phones,
         }),
       })
 
@@ -136,72 +167,138 @@ export default function PaymentPortal({
     }
   }
 
+  const hasMultiplePhones = phoneGroups.length > 1
+
   return (
     <main className="min-h-screen bg-slate-50 pb-24" dir="rtl">
       <div className="bg-white border-b px-4 py-4 text-center">
         <h1 className="text-lg font-bold text-slate-900">الفيتري للصيانة</h1>
         <p className="text-xs text-slate-500">Alfaytri Maintenance</p>
+        {customerName && (
+          <p className="text-sm font-medium text-slate-700 mt-1">{customerName}</p>
+        )}
       </div>
 
-      <div className="max-w-lg mx-auto px-4 py-4 space-y-3">
-        <p className="text-sm text-slate-600 font-medium">
+      <div className={`mx-auto px-4 py-4 ${hasMultiplePhones ? 'max-w-3xl' : 'max-w-lg'}`}>
+        <p className="text-sm text-slate-600 font-medium mb-3">
           الفواتير المستحقة — Outstanding Invoices
         </p>
 
-        {invoices.map((inv) => {
-          const isChecked = selected.has(inv.id)
-          const isClicked = inv.id === clickedInvoiceId
+        <div className={hasMultiplePhones
+          ? 'grid grid-cols-1 md:grid-cols-2 gap-4'
+          : 'space-y-3'
+        }>
+          {phoneGroups.map((group) => {
+            const groupTotal = group.invoices.reduce((s, inv) => s + inv.total_amount, 0)
+            const allGroupSelected = group.invoices.every((inv) => selected.has(inv.id))
+            const someGroupSelected = group.invoices.some((inv) => selected.has(inv.id))
 
-          return (
-            <button
-              key={inv.id}
-              type="button"
-              onClick={() => toggleInvoice(inv.id)}
-              className={`w-full rounded-xl border bg-white p-4 text-right transition-colors ${
-                isChecked
-                  ? 'border-orange-400 ring-2 ring-orange-100'
-                  : 'border-slate-200'
-              } ${isClicked && isChecked ? 'bg-orange-50/50' : ''}`}
-            >
-              <div className="flex items-start justify-between gap-3">
-                <div className="flex-1 min-w-0 space-y-1">
-                  <div className="flex items-center gap-2">
-                    <span className="font-mono text-sm font-semibold text-slate-900">
-                      {inv.invoice_number}
-                    </span>
-                    {inv.order_id && (
-                      <span className="text-xs text-slate-400">#{inv.order_id}</span>
-                    )}
-                  </div>
-                  <p className="text-xs text-slate-500">{formatDate(inv.created_at)}</p>
-                </div>
-
-                <div className="flex items-center gap-3">
-                  <span className="text-base font-bold text-slate-900 whitespace-nowrap">
-                    {inv.total_amount.toFixed(2)} QAR
-                  </span>
-                  <div
-                    className={`h-5 w-5 rounded border-2 flex items-center justify-center shrink-0 ${
-                      isChecked
-                        ? 'bg-orange-500 border-orange-500'
-                        : 'border-slate-300 bg-white'
-                    }`}
+            return (
+              <div key={group.phone} className={hasMultiplePhones
+                ? 'rounded-xl border border-slate-200 bg-white p-3 space-y-2'
+                : 'space-y-3'
+              }>
+                {hasMultiplePhones && (
+                  <button
+                    type="button"
+                    onClick={() => togglePhoneGroup(group)}
+                    className="w-full flex items-center justify-between gap-2 pb-2 border-b border-slate-100"
                   >
-                    {isChecked && (
-                      <svg className="h-3 w-3 text-white" viewBox="0 0 12 12" fill="none">
-                        <path d="M2 6l3 3 5-5" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
-                      </svg>
-                    )}
-                  </div>
+                    <div className="flex items-center gap-2">
+                      <Phone className="h-3.5 w-3.5 text-slate-400" />
+                      <span className="text-xs font-mono font-semibold text-slate-700" dir="ltr">
+                        {formatPhone(group.phone)}
+                      </span>
+                      <span className="text-[10px] text-slate-400">
+                        ({group.invoices.length})
+                      </span>
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <span className="text-xs font-semibold text-slate-600">
+                        {groupTotal.toFixed(2)} QAR
+                      </span>
+                      <div
+                        className={`h-4 w-4 rounded border-2 flex items-center justify-center shrink-0 ${
+                          allGroupSelected
+                            ? 'bg-orange-500 border-orange-500'
+                            : someGroupSelected
+                              ? 'bg-orange-200 border-orange-400'
+                              : 'border-slate-300 bg-white'
+                        }`}
+                      >
+                        {allGroupSelected && (
+                          <svg className="h-2.5 w-2.5 text-white" viewBox="0 0 12 12" fill="none">
+                            <path d="M2 6l3 3 5-5" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
+                          </svg>
+                        )}
+                        {someGroupSelected && !allGroupSelected && (
+                          <div className="h-1.5 w-1.5 rounded-sm bg-orange-500" />
+                        )}
+                      </div>
+                    </div>
+                  </button>
+                )}
+
+                <div className="space-y-2">
+                  {group.invoices.map((inv) => {
+                    const isChecked = selected.has(inv.id)
+                    const isClicked = inv.id === clickedInvoiceId
+
+                    return (
+                      <button
+                        key={inv.id}
+                        type="button"
+                        onClick={() => toggleInvoice(inv.id)}
+                        className={`w-full rounded-xl border bg-white p-4 text-right transition-colors ${
+                          isChecked
+                            ? 'border-orange-400 ring-2 ring-orange-100'
+                            : 'border-slate-200'
+                        } ${isClicked && isChecked ? 'bg-orange-50/50' : ''}`}
+                      >
+                        <div className="flex items-start justify-between gap-3">
+                          <div className="flex-1 min-w-0 space-y-1">
+                            <div className="flex items-center gap-2">
+                              <span className="font-mono text-sm font-semibold text-slate-900">
+                                {inv.invoice_number}
+                              </span>
+                              {inv.order_id && (
+                                <span className="text-xs text-slate-400">#{inv.order_id}</span>
+                              )}
+                            </div>
+                            <p className="text-xs text-slate-500">{formatDate(inv.created_at)}</p>
+                          </div>
+
+                          <div className="flex items-center gap-3">
+                            <span className="text-base font-bold text-slate-900 whitespace-nowrap">
+                              {inv.total_amount.toFixed(2)} QAR
+                            </span>
+                            <div
+                              className={`h-5 w-5 rounded border-2 flex items-center justify-center shrink-0 ${
+                                isChecked
+                                  ? 'bg-orange-500 border-orange-500'
+                                  : 'border-slate-300 bg-white'
+                              }`}
+                            >
+                              {isChecked && (
+                                <svg className="h-3 w-3 text-white" viewBox="0 0 12 12" fill="none">
+                                  <path d="M2 6l3 3 5-5" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
+                                </svg>
+                              )}
+                            </div>
+                          </div>
+                        </div>
+                      </button>
+                    )
+                  })}
                 </div>
               </div>
-            </button>
-          )
-        })}
+            )
+          })}
+        </div>
       </div>
 
       {error && (
-        <div className="max-w-lg mx-auto px-4 pb-2">
+        <div className={`mx-auto px-4 pb-2 ${hasMultiplePhones ? 'max-w-3xl' : 'max-w-lg'}`}>
           <div className="rounded-lg bg-red-50 border border-red-200 p-3 flex items-start gap-2">
             <AlertCircle className="h-4 w-4 text-red-500 mt-0.5 shrink-0" />
             <p className="text-sm text-red-700 whitespace-pre-line">{error}</p>
@@ -210,7 +307,7 @@ export default function PaymentPortal({
       )}
 
       <div className="fixed bottom-0 inset-x-0 bg-white border-t px-4 py-4 safe-area-bottom">
-        <div className="max-w-lg mx-auto">
+        <div className={`mx-auto ${hasMultiplePhones ? 'max-w-3xl' : 'max-w-lg'}`}>
           <button
             type="button"
             onClick={handlePay}
