@@ -38,6 +38,7 @@ interface MapViewProps {
   selectedTeamId: string | null
   flyTo: { lat: number; lng: number } | null
   onFlyToDone: () => void
+  onMapReady?: (map: L.Map) => void
 }
 
 export function MapView({
@@ -48,6 +49,7 @@ export function MapView({
   selectedTeamId,
   flyTo,
   onFlyToDone,
+  onMapReady,
 }: MapViewProps) {
   const containerRef = useRef<HTMLDivElement>(null)
   const mapRef = useRef<L.Map | null>(null)
@@ -84,8 +86,10 @@ export function MapView({
     mapRef.current = map
     teamClusterRef.current = teamCluster
     orderLayerRef.current = orderLayer
+    onMapReady?.(map)
 
     return () => {
+      onMapReady?.(null as any)
       map.remove()
       mapRef.current = null
       teamClusterRef.current = null
