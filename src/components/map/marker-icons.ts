@@ -131,3 +131,69 @@ export function createClusterIcon(cluster: { getChildCount: () => number }): L.D
     iconAnchor: [size / 2, size / 2],
   })
 }
+
+// ── Vehicle tracking status ─────────────────────────────────────
+
+export type VehicleTrackingStatus = 'moving' | 'idle' | 'stopped'
+
+const VEHICLE_STATUS_COLORS: Record<VehicleTrackingStatus, string> = {
+  moving:  '#22c55e',
+  idle:    '#f59e0b',
+  stopped: '#94a3b8',
+}
+
+const CAR_SVG = `<svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M19 17h2c.6 0 1-.4 1-1v-3c0-.9-.7-1.7-1.5-1.9C18.7 10.6 16 10 16 10s-1.3-2-2.2-3.3C13 5.6 12 5 11 5H5c-.6 0-1.1.2-1.4.6L1.8 7.8A2 2 0 0 0 1 9.5V16c0 .6.4 1 1 1h2"/><circle cx="7" cy="17" r="2"/><circle cx="17" cy="17" r="2"/></svg>`
+
+const vehicleIconCache = new Map<VehicleTrackingStatus, L.DivIcon>()
+
+export function getVehicleIcon(status: VehicleTrackingStatus): L.DivIcon {
+  const cached = vehicleIconCache.get(status)
+  if (cached) return cached
+
+  const color = VEHICLE_STATUS_COLORS[status]
+  const pulseClass = status === 'moving' ? ' marker-pulse' : ''
+
+  const icon = L.divIcon({
+    className: '',
+    html: `<div class="${pulseClass}" style="background:${color};width:32px;height:32px;border-radius:8px;border:3px solid white;box-shadow:0 2px 6px rgba(0,0,0,0.3);display:flex;align-items:center;justify-content:center;">${CAR_SVG}</div>`,
+    iconSize: [32, 32],
+    iconAnchor: [16, 16],
+    popupAnchor: [0, -16],
+  })
+
+  vehicleIconCache.set(status, icon)
+  return icon
+}
+
+// ── Vehicle popup builder ───────────────────────────────────────
+
+export function buildVehiclePopup(vehicle: {
+  plate: string
+  type: string
+  speed: number
+  ignition: boolean
+  motion: boolean
+  lastUpdate: string
+}): string {
+  const statusText = vehicle.motion ? 'Moving' : vehicle.ignition ? 'Idle' : 'Stopped'
+  const ignitionText = vehicle.ignition ? '🟢 On' : '🔴 Off'
+  return [
+    `<div style="font-size:13px;line-height:1.4;">`,
+    `<div style="font-weight:600;margin-bottom:2px;">${vehicle.plate}</div>`,
+    `<div style="color:#64748b;font-size:11px;text-transform:capitalize;">${vehicle.type}</div>`,
+    `<div style="color:#64748b;font-size:11px;margin-top:3px;">🚗 ${vehicle.speed} km/h</div>`,
+    `<div style="color:#64748b;font-size:11px;">Ignition: ${ignitionText}</div>`,
+    `<div style="color:#64748b;font-size:11px;">Status: ${statusText}</div>`,
+    `<div style="color:#94a3b8;font-size:10px;margin-top:3px;">⏱ ${new Date(vehicle.lastUpdate).toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' })}</div>`,
+    `</div>`,
+  ].join('')
+}
+
+export function deriveVehicleStatus(
+  motion: boolean | undefined,
+  ignition: boolean | undefined
+): VehicleTrackingStatus {
+  if (motion) return 'moving'
+  if (ignition) return 'idle'
+  return 'stopped'
+}
