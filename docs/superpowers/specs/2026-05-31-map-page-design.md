@@ -52,11 +52,18 @@ interface TeamLocation {
 
 **Status derivation** (computed client-side from speed + updatedAt):
 
+First, compute `effectiveSpeed`: if `updatedAt` is older than 2 minutes, treat speed as 0 regardless of the stored value. This prevents a "black hole" where a device reports speed > 0 then loses connection — without this, stale moving data would match no status bucket.
+
+```typescript
+const ageMs = Date.now() - new Date(updatedAt).getTime()
+const effectiveSpeed = ageMs > 2 * 60_000 ? 0 : (speed ?? 0)
+```
+
 | Status | Condition |
 |---|---|
-| `moving` | speed > 0 AND updatedAt < 2 min ago |
-| `idle` | speed === 0 AND updatedAt < 5 min ago |
-| `stopped` | speed === 0 AND updatedAt between 5–30 min ago |
+| `moving` | effectiveSpeed > 0 (implies updatedAt < 2 min) |
+| `idle` | effectiveSpeed === 0 AND updatedAt < 5 min ago |
+| `stopped` | effectiveSpeed === 0 AND updatedAt between 5–30 min ago |
 | `offline` | updatedAt > 30 min OR no location data |
 
 **Polling:** React Query `refetchInterval: 30_000` (30 seconds).
@@ -101,7 +108,7 @@ interface OrderLocation {
 **Filters:**
 - Excludes `completed` and `cancelled` orders by default
 - Only includes orders where `customer_addresses.lat` and `customer_addresses.lng` are not null
-- Optional date filter (visit_date range) — defaults to all non-completed
+- Date filter on `visit_date`: defaults to **today + tomorrow** to keep the payload small and the map readable. Dispatchers can widen the range via the sidebar date picker. Without a date cap, hundreds of pending orders could accumulate and clutter the map at scale.
 
 **Polling:** React Query `refetchInterval: 60_000` (60 seconds).
 
@@ -156,7 +163,7 @@ interface OrderLocation {
 
 **Row D — Orders toggle + date filter:**
 - Toggle pill: `<button class="flex items-center gap-1.5 text-[10px] font-medium px-2 py-1 rounded-md {active ? 'bg-primary/10 text-primary' : 'bg-muted text-muted-foreground'}">` with `<MapPin h-3 w-3 />` Orders ({count})
-- When orders are shown: compact date input to filter by visit date (optional, defaults to all non-completed)
+- When orders are shown: compact date input to filter by visit date (defaults to today + tomorrow)
 
 ### Team List — `<ScrollArea class="flex-1">`
 
@@ -190,7 +197,7 @@ w-full text-left rounded-md p-2.5 transition-colors
 **Bottom row details:**
 - If currentTask: `<p class="text-[10px] text-muted-foreground mt-1 ml-8 truncate">` with task text
 - Speed (only when moving): `text-[10px]` with car icon + `{speed} km/h`
-- Last update: `text-[10px]` formatted time (en-US, 2-digit hour:minute)
+- Last update: `text-[10px]` formatted time — `updated_at` from DB is UTC; convert to browser's local timezone via `new Date(updatedAt).toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' })` before display
 - **Stale warning:** if `updatedAt` > 5 minutes ago, show `<AlertTriangle h-3 w-3 className="text-warning" />` icon
 
 **Click behavior:**
@@ -224,12 +231,17 @@ L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", {
 Use `leaflet.markercluster` plugin. At zoom <= 10, overlapping markers cluster with a count badge. Configured with:
 - `maxClusterRadius: 50`
 - `disableClusteringAtZoom: 11`
+- **Custom `iconCreateFunction`:** The default yellow/green/orange cluster graphics clash with the design system. Provide a custom function that renders cluster icons as a neutral circle (e.g., `bg-primary` or `bg-slate-700`) with a white count label, matching the app's visual language. Size scales with count: small (<10), medium (10-50), large (>50).
 
 ### Team Markers (effect on team data change)
 
-- `markerLayer.clearLayers()`
-- For each team with lat/lng: create marker with `createTeamIcon(status)`
-- Bind popup with HTML: team name (bold), driver + plate, task line, speed
+**Diff-based update** — do NOT use `clearLayers()`. Clearing and re-adding markers every 30s causes popups to force-close mid-read and visible flickering. Instead, maintain a `Map<teamId, L.Marker>` ref:
+
+- **Existing marker:** call `marker.setLatLng([lat, lng])`. If status changed, call `marker.setIcon(newIcon)` and update popup content via `marker.getPopup().setContent(html)`.
+- **New team:** create marker, add to layer group, store in the Map.
+- **Removed team:** remove marker from layer group, delete from the Map.
+
+This preserves open popups and avoids visual flashing during polling updates.
 
 **Team marker icon (custom L.divIcon):**
 
@@ -325,7 +337,7 @@ map.flyTo([lat, lng], 15, { duration: 1 })
 
 - Icon caching: 4 team icons + 4 order icons = 8 total DivIcon objects regardless of fleet size
 - `useMemo` on filtered team list to avoid re-filtering on every map update
-- Layer group `clearLayers()` + add is faster than individually managing markers
+- Diff-based marker updates (setLatLng/setIcon) instead of clearLayers — preserves popups and avoids flicker during 30s polling
 - Single map instance guarded by `if (mapRef.current) return` in init effect
 - Tile attribution rendered (OSM legal requirement)
 - Leaflet default icon paths patched at module load for Vite compatibility
