@@ -201,9 +201,11 @@ Purchase & Sales▾:
 
 ## 🔄 In Progress
 
-🚀 Starting: **Traccar Fleet Module Task 4** — Geofence UI Components
+None
 
 ## ✅ Completed
+
+- [2026-05-31] **Traccar Fleet Module Task 13: Wire Everything in the Map Page** — `src/app/(dashboard)/map/page.tsx` — Replaced all stub props with real data hooks (useVehicles, useTraccarPositions, useTraccarGeofences, useTraccarHistory); added dynamic imports for VehicleMarkerLayer, VehicleTrail, GeofenceLayer, GeofenceDrawer; wired onMapReady to capture L.Map instance; added handleViewHistory (today's date range), handleFlyToVehicle, handleDrawComplete callbacks; wrapped map area in relative div with floating "Close History" button
 
 - [2026-05-31] **Traccar Fleet Module Task 3: Geofences Migration + API Routes** — `supabase/migrations/20260531130000_traccar_geofences.sql`, `src/app/api/traccar/geofences/route.ts`, `src/app/api/traccar/geofences/[id]/route.ts` — traccar_geofences table with RLS; GET reconciles Traccar Cloud with local DB (orphan cleanup with glitch guard); POST converts Leaflet geometry to WKT and writes both systems; PUT/DELETE keep both Traccar and Supabase in sync
 
