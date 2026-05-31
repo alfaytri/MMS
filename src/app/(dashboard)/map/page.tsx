@@ -65,7 +65,7 @@ export default function MapPage() {
 
   // ── Render ─────────────────────────────────────────────────
   return (
-    <div className="flex flex-col md:flex-row h-full">
+    <div className="flex flex-col md:flex-row flex-1 min-h-0">
       <MapSidebar
         teams={teams}
         search={search}

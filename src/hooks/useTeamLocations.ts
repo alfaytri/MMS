@@ -40,35 +40,44 @@ export function deriveStatus(
 
 /**
  * Fetches all teams joined with their live GPS locations.
- * Polls every 30 seconds to stay in sync with the GPS tracking interval.
+ * Uses two parallel queries (teams + locations) and joins client-side,
+ * matching the proven pattern from useTeams. Polls every 30 seconds.
  */
 export function useTeamLocations() {
   return useQuery({
     queryKey: ['team-locations'],
     queryFn: async (): Promise<TeamLocation[]> => {
-      const supabase = createClient()
-
-      // Fetch teams with leader name, first vehicle plate, and live location
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      const { data, error } = await (supabase as any)
-        .from('teams')
-        .select(`
-          id, name_en, name,
-          leader:employees!teams_leader_id_fkey(name),
-          vehicles(plate),
-          team_live_locations(lat, lng, speed, heading, updated_at)
-        `)
-        .is('deleted_at', null)
-        .order('name_en', { nullsFirst: false })
+      const supabase = createClient() as any
 
-      if (error) throw error
+      // Parallel fetch: teams (with leader + vehicles) and live locations
+      const [teamsRes, locsRes] = await Promise.all([
+        supabase
+          .from('teams')
+          .select('id, name_en, name, leader_id, employees!teams_leader_id_fkey(name), vehicles(plate)')
+          .is('deleted_at', null)
+          .order('name_en', { nullsFirst: false }),
+        supabase
+          .from('team_live_locations')
+          .select('team_id, lat, lng, speed, heading, updated_at'),
+      ])
 
-      return ((data ?? []) as any[]).map((t) => {
-        const loc = t.team_live_locations?.[0] ?? null
+      if (teamsRes.error) throw teamsRes.error
+
+      // Build location lookup by team_id
+      const locMap = new Map<string, any>()
+      for (const loc of (locsRes.data ?? [])) {
+        locMap.set(loc.team_id, loc)
+      }
+
+      return ((teamsRes.data ?? []) as any[]).map((t) => {
+        const loc = locMap.get(t.id) ?? null
+        // leader is a single object (many-to-one via FK)
+        const leaderName = t.employees?.name ?? 'No leader'
         return {
           id: t.id,
           teamName: t.name_en ?? t.name ?? '',
-          driverName: t.leader?.name ?? 'No leader',
+          driverName: leaderName,
           vehiclePlate: t.vehicles?.[0]?.plate ?? '—',
           lat: loc?.lat ?? null,
           lng: loc?.lng ?? null,
