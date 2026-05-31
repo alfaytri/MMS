@@ -10,6 +10,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { createClient } from '@/lib/supabase/client'
 import { useCreateVehicle, useUpdateVehicle, useArchiveVehicle } from '@/hooks/useTeams'
 import { useTeamsPage } from '../TeamsPageContext'
+import { useTraccarDevices } from '@/hooks/useTraccar'
 
 interface VehicleFormValues {
   type:              string
@@ -28,6 +29,9 @@ export function VehicleEditDialog() {
   const updateVehicle  = useUpdateVehicle()
   const archiveVehicle = useArchiveVehicle()
 
+  const { data: traccarDevices = [], isLoading: isLoadingDevices } = useTraccarDevices()
+  const [traccarError, setTraccarError] = useState<string | null>(null)
+
   const [plateError,       setPlateError]     = useState<string | null>(null)
   const [isValidatingPlate, setIsValidating]  = useState(false) // Errata 5
 
@@ -38,6 +42,7 @@ export function VehicleEditDialog() {
   useEffect(() => {
     if (!open) return
     setPlateError(null)
+    setTraccarError(null)
     setIsValidating(false)
     const traccarId = (vehicle as Record<string, unknown> | null)?.traccar_device_id as string | null
     form.reset(
@@ -75,6 +80,22 @@ export function VehicleEditDialog() {
     // without tabbing away from the plate field first (blur never fired).
     const valid = await validatePlate(values.plate)
     if (!valid) return
+
+    // Check for duplicate Traccar device assignment
+    if (values.traccar_device_id) {
+      const supabase = createClient()
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const { count } = await (supabase.from('vehicles') as any)
+        .select('id', { count: 'exact', head: true })
+        .eq('traccar_device_id', values.traccar_device_id)
+        .is('deleted_at', null)
+        .neq('id', vehicle?.id ?? '00000000-0000-0000-0000-000000000000')
+      if ((count ?? 0) > 0) {
+        setTraccarError('This device is already linked to another vehicle')
+        return
+      }
+      setTraccarError(null)
+    }
 
     const payload = {
       type:              values.type,
@@ -150,14 +171,38 @@ export function VehicleEditDialog() {
               )}
             />
 
-            {/* Traccar device ID */}
+            {/* Traccar Device — searchable dropdown */}
             <FormField
               control={form.control}
               name="traccar_device_id"
               render={({ field }) => (
                 <FormItem>
-                  <FormLabel>Traccar Device ID</FormLabel>
-                  <FormControl><Input {...field} /></FormControl>
+                  <FormLabel>Traccar Device</FormLabel>
+                  <Select
+                    value={field.value}
+                    onValueChange={field.onChange}
+                  >
+                    <FormControl>
+                      <SelectTrigger>
+                        <SelectValue placeholder="No device linked" />
+                      </SelectTrigger>
+                    </FormControl>
+                    <SelectContent>
+                      <SelectItem value="">None</SelectItem>
+                      {traccarDevices.map(d => (
+                        <SelectItem key={d.id} value={String(d.id)}>
+                          {d.name} — {d.uniqueId}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                  {isLoadingDevices && (
+                    <p className="text-xs text-muted-foreground">Loading devices...</p>
+                  )}
+                  {traccarError && (
+                    <p className="text-sm text-destructive">{traccarError}</p>
+                  )}
+                  <FormMessage />
                 </FormItem>
               )}
             />
