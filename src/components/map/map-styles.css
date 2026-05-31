@@ -64,3 +64,13 @@
 .marker-cluster-large div {
   background: none !important;
 }
+
+/* ── Leaflet Draw toolbar sprite fix ─────────────────────────────── */
+.leaflet-draw-toolbar a {
+  background-image: url('/images/spritesheet.svg');
+  background-size: 300px 30px;
+}
+.leaflet-retina .leaflet-draw-toolbar a {
+  background-image: url('/images/spritesheet-2x.png');
+  background-size: 300px 30px;
+}
