@@ -19,7 +19,7 @@ function LoginForm() {
   const reason       = searchParams.get('reason')
   const next         = searchParams.get('next') ?? '/'
 
-  const [email,    setEmail]    = useState('')
+  const [username, setUsername]  = useState('')
   const [password, setPassword] = useState('')
   const [error,    setError]    = useState<string | null>(null)
   const [loading,  setLoading]  = useState(false)
@@ -29,6 +29,7 @@ function LoginForm() {
     setError(null)
     setLoading(true)
     const supabase = createClient()
+    const email = username.includes('@') ? username : `${username}@mms.local`
     const { error } = await supabase.auth.signInWithPassword({ email, password })
     if (error) {
       setError(error.message)
@@ -55,15 +56,15 @@ function LoginForm() {
         )}
         <form onSubmit={handleSubmit} className="space-y-4">
           <div className="space-y-2">
-            <Label htmlFor="email">Email</Label>
+            <Label htmlFor="username">Username</Label>
             <Input
-              id="email"
-              type="email"
-              placeholder="you@example.com"
-              value={email}
-              onChange={(e) => setEmail(e.target.value)}
+              id="username"
+              type="text"
+              placeholder="mismail"
+              value={username}
+              onChange={(e) => setUsername(e.target.value)}
               required
-              autoComplete="email"
+              autoComplete="username"
             />
           </div>
           <div className="space-y-2">

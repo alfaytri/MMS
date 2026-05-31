@@ -163,7 +163,7 @@ export function useCreateUser() {
   return useMutation({
     mutationFn: async (payload: {
       full_name: string
-      email: string
+      username: string
       password: string
       role_ids?: string[]
       is_team_leader?: boolean

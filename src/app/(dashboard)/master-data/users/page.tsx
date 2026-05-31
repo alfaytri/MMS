@@ -166,8 +166,12 @@ export default function UsersRolesPage() {
     },
     {
       accessorKey: 'email',
-      header: 'Email',
-      cell: ({ row }) => row.getValue('email') || <span className="text-muted-foreground">—</span>,
+      header: 'Username',
+      cell: ({ row }) => {
+        const email = row.getValue('email') as string | null
+        if (!email) return <span className="text-muted-foreground">—</span>
+        return email.replace(/@mms\.local$/, '')
+      },
     },
     {
       id: 'approval_role',

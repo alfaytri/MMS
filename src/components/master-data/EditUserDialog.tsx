@@ -46,7 +46,8 @@ const APPROVAL_ROLES: { role: ApprovalRole; label: string }[] = [
 
 const schema = z.object({
   full_name: z.string().min(1, 'Name is required'),
-  email: z.string().email('Enter a valid email'),
+  username: z.string().min(1, 'Username is required')
+    .regex(/^[a-zA-Z0-9._@-]+$/, 'Only letters, numbers, dots, hyphens, and underscores'),
   is_active: z.boolean(),
   role_ids: z.array(z.string().uuid()).default([]),
 })
@@ -194,7 +195,7 @@ export function EditUserDialog({ open, onOpenChange, profile }: Props) {
   const form = useForm<Values>({
     resolver: zodResolver(schema) as never,
     defaultValues: {
-      full_name: '', email: '', is_active: true, role_ids: [],
+      full_name: '', username: '', is_active: true, role_ids: [],
     },
   })
 
@@ -202,7 +203,7 @@ export function EditUserDialog({ open, onOpenChange, profile }: Props) {
     if (profile && open) {
       form.reset({
         full_name: profile.full_name ?? '',
-        email: profile.email ?? '',
+        username: (profile.email ?? '').replace(/@mms\.local$/, ''),
         is_active: profile.is_active ?? true,
         role_ids: (profile.user_custom_roles ?? []).map((r: { role_id: string }) => r.role_id),
       })
@@ -214,10 +215,13 @@ export function EditUserDialog({ open, onOpenChange, profile }: Props) {
 
   function onSubmit(values: Values) {
     if (!profile) return
+    const { username, ...rest } = values
+    const email = username.includes('@') ? username : `${username}@mms.local`
     updateUser.mutate(
       {
         auth_user_id: profile.auth_user_id,
-        ...values,
+        ...rest,
+        email,
         role_ids: isTl ? [] : values.role_ids,
         is_team_leader: isTl,
         employee_id: linkedEmployeeId && linkedEmployeeId !== '__change__'
@@ -257,11 +261,11 @@ export function EditUserDialog({ open, onOpenChange, profile }: Props) {
             />
             <FormField
               control={form.control}
-              name="email"
+              name="username"
               render={({ field }) => (
                 <FormItem>
-                  <FormLabel>Email *</FormLabel>
-                  <FormControl><Input type="email" {...field} /></FormControl>
+                  <FormLabel>Username *</FormLabel>
+                  <FormControl><Input {...field} /></FormControl>
                   <FormMessage />
                 </FormItem>
               )}

@@ -27,7 +27,8 @@ import { createClient } from '@/lib/supabase/client'
 
 const schema = z.object({
   full_name: z.string().min(1, 'Name is required'),
-  email: z.string().email('Enter a valid email'),
+  username: z.string().min(1, 'Username is required')
+    .regex(/^[a-zA-Z0-9._-]+$/, 'Only letters, numbers, dots, hyphens, and underscores'),
   password: passwordSchema,
   confirm: z.string(),
   role_ids: z.array(z.string().uuid()).default([]),
@@ -71,7 +72,7 @@ export function AddUserDialog({ open, onOpenChange }: Props) {
   const form = useForm<Values>({
     resolver: zodResolver(schema) as never,
     defaultValues: {
-      full_name: '', email: '', password: '', confirm: '',
+      full_name: '', username: '', password: '', confirm: '',
       role_ids: [],
     },
   })
@@ -82,7 +83,7 @@ export function AddUserDialog({ open, onOpenChange }: Props) {
     createUser.mutate(
       {
         full_name: values.full_name,
-        email: values.email,
+        username: values.username,
         password: values.password,
         role_ids: isTl ? [] : values.role_ids,
         employee_id: isTl ? linkedEmployeeId ?? undefined : undefined,
@@ -91,7 +92,7 @@ export function AddUserDialog({ open, onOpenChange }: Props) {
       {
         onSuccess: (res) => {
           if (res.warning) toast.warning(res.warning)
-          else toast.success(`User created — share credentials with ${values.email}`)
+          else toast.success(`User "${values.username}" created successfully`)
           onOpenChange(false)
           form.reset()
         },
@@ -121,11 +122,11 @@ export function AddUserDialog({ open, onOpenChange }: Props) {
             />
             <FormField
               control={form.control}
-              name="email"
+              name="username"
               render={({ field }) => (
                 <FormItem>
-                  <FormLabel>Email *</FormLabel>
-                  <FormControl><Input type="email" placeholder="ahmed@example.com" {...field} /></FormControl>
+                  <FormLabel>Username *</FormLabel>
+                  <FormControl><Input placeholder="mismail" {...field} /></FormControl>
                   <FormMessage />
                 </FormItem>
               )}

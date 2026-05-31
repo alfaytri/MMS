@@ -8,7 +8,9 @@ import { passwordSchema } from '@/lib/auth/password-policy'
 
 const bodySchema = z.object({
   full_name: z.string().trim().min(1, 'Full name is required'),
-  email: z.string().trim().toLowerCase().email('Valid email required'),
+  username: z.string().trim().toLowerCase()
+    .min(1, 'Username is required')
+    .regex(/^[a-z0-9._-]+$/, 'Only lowercase letters, numbers, dots, hyphens, and underscores'),
   password: passwordSchema,
   role_ids: z.array(z.string().uuid()).default([]),
   is_team_leader: z.boolean().default(false),
@@ -29,7 +31,8 @@ export async function POST(request: Request) {
   if (!parsed.success) {
     return NextResponse.json({ error: parsed.error.issues[0]?.message ?? 'Invalid body' }, { status: 400 })
   }
-  const { full_name, email, password, role_ids, is_team_leader, employee_id } = parsed.data
+  const { full_name, username, password, role_ids, is_team_leader, employee_id } = parsed.data
+  const email = `${username}@mms.local`
 
   // 3. Rate limit.
   if (await isRateLimited({
