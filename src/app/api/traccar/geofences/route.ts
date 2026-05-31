@@ -8,18 +8,10 @@ import {
   traccarWKTToLeaflet,
   leafletToTraccarWKT,
   type LeafletGeometry,
+  type GeofenceResponse,
 } from '@/lib/traccar'
 
-export interface GeofenceResponse {
-  id: string
-  traccarGeofenceId: number
-  name: string
-  description: string | null
-  color: string
-  area: string
-  geometry: ReturnType<typeof traccarWKTToLeaflet>
-  createdBy: string | null
-}
+export type { GeofenceResponse }
 
 export async function GET() {
   const supabase = await createClient()

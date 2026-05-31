@@ -137,6 +137,19 @@ export async function deleteGeofence(id: number): Promise<void> {
   await traccarFetch<void>(`/geofences/${id}`, { method: 'DELETE' })
 }
 
+// ── GeofenceResponse (shared between route and hooks) ───────────
+
+export interface GeofenceResponse {
+  id: string
+  traccarGeofenceId: number
+  name: string
+  description: string | null
+  color: string
+  area: string
+  geometry: ReturnType<typeof traccarWKTToLeaflet>
+  createdBy: string | null
+}
+
 // ── Speed conversion ────────────────────────────────────────────
 
 export function knotsToKmh(knots: number): number {
