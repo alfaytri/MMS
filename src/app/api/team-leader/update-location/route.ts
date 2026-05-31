@@ -8,7 +8,7 @@ export async function POST(req: NextRequest) {
     const { data: { user } } = await supabase.auth.getUser()
     if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
 
-    const { team_id, lat, lng, accuracy } = await req.json()
+    const { team_id, lat, lng, accuracy, speed, heading } = await req.json()
     if (!team_id || lat == null || lng == null) {
       return NextResponse.json({ error: 'team_id, lat, lng required' }, { status: 400 })
     }
@@ -22,7 +22,7 @@ export async function POST(req: NextRequest) {
     const { error } = await (admin as any)
       .from('team_live_locations')
       .upsert(
-        { team_id, lat, lng, accuracy: accuracy ?? null, updated_at: new Date().toISOString() },
+        { team_id, lat, lng, accuracy: accuracy ?? null, speed: speed ?? null, heading: heading ?? null, updated_at: new Date().toISOString() },
         { onConflict: 'team_id' }
       )
 

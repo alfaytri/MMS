@@ -34,6 +34,8 @@ export function useGpsTracking({ teamId, enabled }: GpsTrackingOptions) {
             lat:      coords.latitude,
             lng:      coords.longitude,
             accuracy: coords.accuracy,
+            speed:    coords.speed != null ? coords.speed * 3.6 : null,  // m/s → km/h
+            heading:  coords.heading,
           }),
         })
       } catch (err) {
