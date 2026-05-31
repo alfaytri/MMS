@@ -1,15 +1,20 @@
 // src/components/map/MapSidebar.tsx
 'use client'
 
-import { useMemo } from 'react'
+import { useMemo, useState } from 'react'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Badge } from '@/components/ui/badge'
 import { ScrollArea } from '@/components/ui/scroll-area'
 import {
   RefreshCw, Search, MapPin, Navigation, Clock, WifiOff,
-  AlertTriangle, Car,
+  AlertTriangle, Car, Satellite, Shield, Users,
 } from 'lucide-react'
+import { VehicleSidebar } from './VehicleSidebar'
+import { GeofencePanel } from './GeofencePanel'
+import type { TraccarPosition } from '@/lib/traccar'
+import type { VehicleMapData } from './VehicleMarkerLayer'
+import type { GeofenceResponse, LeafletGeometry } from '@/lib/traccar'
 import { cn } from '@/lib/utils'
 import type { TeamLocation, TeamLocationStatus } from '@/hooks/useTeamLocations'
 
@@ -61,6 +66,22 @@ interface MapSidebarProps {
   dateTo: string
   onDateFromChange: (value: string) => void
   onDateToChange: (value: string) => void
+  // Vehicle tracking props
+  trackedVehicles: VehicleMapData[]
+  vehiclePositions: TraccarPosition[]
+  selectedVehicleId: string | null
+  onSelectVehicle: (vehicleId: string) => void
+  onViewHistory: (vehicleId: string, traccarDeviceId: number) => void
+  onFlyToVehicle: (lat: number, lng: number) => void
+  // Geofence props
+  geofences: GeofenceResponse[]
+  isDrawingGeofence: boolean
+  drawnGeometry: LeafletGeometry | null
+  onStartDrawing: () => void
+  onCancelDrawing: () => void
+  onClearDrawnGeometry: () => void
+  selectedGeofence: GeofenceResponse | null
+  onSelectGeofence: (gf: GeofenceResponse | null) => void
 }
 
 export function MapSidebar({
@@ -78,7 +99,23 @@ export function MapSidebar({
   dateTo,
   onDateFromChange,
   onDateToChange,
+  trackedVehicles,
+  vehiclePositions,
+  selectedVehicleId,
+  onSelectVehicle,
+  onViewHistory,
+  onFlyToVehicle,
+  geofences,
+  isDrawingGeofence,
+  drawnGeometry,
+  onStartDrawing,
+  onCancelDrawing,
+  onClearDrawnGeometry,
+  selectedGeofence,
+  onSelectGeofence,
 }: MapSidebarProps) {
+  const [activeTab, setActiveTab] = useState<'teams' | 'vehicles' | 'geofences'>('teams')
+
   // Filter teams by search
   const filteredTeams = useMemo(() => {
     if (!search.trim()) return teams
@@ -165,83 +202,132 @@ export function MapSidebar({
         </div>
       </div>
 
-      {/* ── Team list ─────────────────────────────────────────── */}
-      <ScrollArea className="flex-1">
-        <div className="p-2 space-y-1">
-          {filteredTeams.map((team) => {
-            const cfg = STATUS_CONFIG[team.status]
-            const StatusIcon = cfg.icon
-            const selected = team.id === selectedTeamId
+      {/* ── Tab switcher ──────────────────────────────────────── */}
+      <div className="flex border-b">
+        {([
+          { key: 'teams',     label: 'Teams',     icon: Users },
+          { key: 'vehicles',  label: 'Vehicles',  icon: Satellite },
+          { key: 'geofences', label: 'Geofences', icon: Shield },
+        ] as const).map(({ key, label, icon: Icon }) => (
+          <button
+            key={key}
+            className={cn(
+              'flex-1 flex items-center justify-center gap-1.5 py-2 text-[10px] font-medium transition-colors',
+              activeTab === key
+                ? 'text-primary border-b-2 border-primary'
+                : 'text-muted-foreground hover:text-foreground'
+            )}
+            onClick={() => setActiveTab(key)}
+          >
+            <Icon className="h-3 w-3" />
+            {label}
+          </button>
+        ))}
+      </div>
 
-            return (
-              <button
-                key={team.id}
-                className={cn(
-                  'w-full text-left rounded-md p-2.5 transition-colors',
-                  selected
-                    ? 'bg-primary/10 border border-primary/30'
-                    : 'hover:bg-muted/50'
-                )}
-                onClick={() => onSelectTeam(team)}
-              >
-                {/* Top row */}
-                <div className="flex items-start justify-between">
-                  <div className="flex items-center gap-2">
-                    {/* Status badge */}
-                    <div
-                      className={cn(
-                        'h-6 w-6 rounded-full flex items-center justify-center shrink-0',
-                        cfg.bg,
-                        cfg.text
-                      )}
-                    >
-                      <StatusIcon className="h-3 w-3" />
-                    </div>
-                    {/* Name stack */}
-                    <div className="min-w-0">
-                      <div className="text-xs font-semibold truncate">{team.teamName}</div>
-                      <div className="text-[10px] text-muted-foreground truncate">
-                        {team.driverName}
+      {/* ── Tab content ───────────────────────────────────────── */}
+      {activeTab === 'teams' && (
+        <ScrollArea className="flex-1">
+          <div className="p-2 space-y-1">
+            {filteredTeams.map((team) => {
+              const cfg = STATUS_CONFIG[team.status]
+              const StatusIcon = cfg.icon
+              const selected = team.id === selectedTeamId
+
+              return (
+                <button
+                  key={team.id}
+                  className={cn(
+                    'w-full text-left rounded-md p-2.5 transition-colors',
+                    selected
+                      ? 'bg-primary/10 border border-primary/30'
+                      : 'hover:bg-muted/50'
+                  )}
+                  onClick={() => onSelectTeam(team)}
+                >
+                  {/* Top row */}
+                  <div className="flex items-start justify-between">
+                    <div className="flex items-center gap-2">
+                      {/* Status badge */}
+                      <div
+                        className={cn(
+                          'h-6 w-6 rounded-full flex items-center justify-center shrink-0',
+                          cfg.bg,
+                          cfg.text
+                        )}
+                      >
+                        <StatusIcon className="h-3 w-3" />
+                      </div>
+                      {/* Name stack */}
+                      <div className="min-w-0">
+                        <div className="text-xs font-semibold truncate">{team.teamName}</div>
+                        <div className="text-[10px] text-muted-foreground truncate">
+                          {team.driverName}
+                        </div>
                       </div>
                     </div>
+                    {/* Plate badge */}
+                    <Badge variant="outline" className="text-[9px] h-4 shrink-0 ml-2">
+                      {team.vehiclePlate}
+                    </Badge>
                   </div>
-                  {/* Plate badge */}
-                  <Badge variant="outline" className="text-[9px] h-4 shrink-0 ml-2">
-                    {team.vehiclePlate}
-                  </Badge>
-                </div>
 
-                {/* Current task */}
-                {team.currentTask && (
-                  <p className="text-[10px] text-muted-foreground mt-1 ml-8 truncate">
-                    📍 {team.currentTask}
-                  </p>
-                )}
-
-                {/* Bottom detail row */}
-                <div className="flex items-center gap-3 mt-1 ml-8 text-[10px] text-muted-foreground">
-                  {team.status === 'moving' && team.speed != null && (
-                    <span className="flex items-center gap-0.5">
-                      <Car className="h-3 w-3" />
-                      {Math.round(team.speed)} km/h
-                    </span>
+                  {/* Current task */}
+                  {team.currentTask && (
+                    <p className="text-[10px] text-muted-foreground mt-1 ml-8 truncate">
+                      📍 {team.currentTask}
+                    </p>
                   )}
-                  <span>⏱ {formatLastUpdate(team.lastUpdate)}</span>
-                  {isStale(team.lastUpdate) && (
-                    <AlertTriangle className="h-3 w-3 text-warning shrink-0" />
-                  )}
-                </div>
-              </button>
-            )
-          })}
 
-          {filteredTeams.length === 0 && (
-            <p className="text-xs text-muted-foreground text-center py-8">
-              No teams found
-            </p>
-          )}
-        </div>
-      </ScrollArea>
+                  {/* Bottom detail row */}
+                  <div className="flex items-center gap-3 mt-1 ml-8 text-[10px] text-muted-foreground">
+                    {team.status === 'moving' && team.speed != null && (
+                      <span className="flex items-center gap-0.5">
+                        <Car className="h-3 w-3" />
+                        {Math.round(team.speed)} km/h
+                      </span>
+                    )}
+                    <span>⏱ {formatLastUpdate(team.lastUpdate)}</span>
+                    {isStale(team.lastUpdate) && (
+                      <AlertTriangle className="h-3 w-3 text-warning shrink-0" />
+                    )}
+                  </div>
+                </button>
+              )
+            })}
+
+            {filteredTeams.length === 0 && (
+              <p className="text-xs text-muted-foreground text-center py-8">
+                No teams found
+              </p>
+            )}
+          </div>
+        </ScrollArea>
+      )}
+
+      {activeTab === 'vehicles' && (
+        <VehicleSidebar
+          vehicles={trackedVehicles}
+          positions={vehiclePositions}
+          selectedVehicleId={selectedVehicleId}
+          onSelectVehicle={onSelectVehicle}
+          onViewHistory={onViewHistory}
+          onFlyTo={onFlyToVehicle}
+        />
+      )}
+
+      {activeTab === 'geofences' && (
+        <GeofencePanel
+          geofences={geofences}
+          isDrawing={isDrawingGeofence}
+          drawnGeometry={drawnGeometry}
+          onStartDrawing={onStartDrawing}
+          onCancelDrawing={onCancelDrawing}
+          onClearDrawnGeometry={onClearDrawnGeometry}
+          selectedGeofence={selectedGeofence}
+          onSelectGeofence={onSelectGeofence}
+        />
+      )}
     </div>
   )
 }

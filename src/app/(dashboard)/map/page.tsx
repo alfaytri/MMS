@@ -7,6 +7,7 @@ import { useTeamLocations } from '@/hooks/useTeamLocations'
 import { useOrderLocations } from '@/hooks/useOrderLocations'
 import { MapSidebar } from '@/components/map/MapSidebar'
 import type { TeamLocation } from '@/hooks/useTeamLocations'
+import type { GeofenceResponse, LeafletGeometry } from '@/lib/traccar'
 
 // Leaflet must be loaded client-side only — it accesses `window` on import.
 // Dynamic import with ssr:false prevents "window is not defined" crashes.
@@ -33,6 +34,11 @@ export default function MapPage() {
   const [showOrders, setShowOrders] = useState(true)
   const [dateFrom, setDateFrom] = useState(getToday)
   const [dateTo, setDateTo] = useState(getTomorrow)
+  // Vehicle tracking state (wired up in later tasks)
+  const [selectedVehicleId, setSelectedVehicleId] = useState<string | null>(null)
+  const [isDrawingGeofence, setIsDrawingGeofence] = useState(false)
+  const [drawnGeometry, setDrawnGeometry] = useState<LeafletGeometry | null>(null)
+  const [selectedGeofence, setSelectedGeofence] = useState<GeofenceResponse | null>(null)
 
   // ── Data ───────────────────────────────────────────────────
   const {
@@ -81,6 +87,22 @@ export default function MapPage() {
         dateTo={dateTo}
         onDateFromChange={setDateFrom}
         onDateToChange={setDateTo}
+        // Vehicle tracking props (wired up in later tasks)
+        trackedVehicles={[]}
+        vehiclePositions={[]}
+        selectedVehicleId={selectedVehicleId}
+        onSelectVehicle={setSelectedVehicleId}
+        onViewHistory={() => {}}
+        onFlyToVehicle={() => {}}
+        // Geofence props (wired up in later tasks)
+        geofences={[]}
+        isDrawingGeofence={isDrawingGeofence}
+        drawnGeometry={drawnGeometry}
+        onStartDrawing={() => setIsDrawingGeofence(true)}
+        onCancelDrawing={() => setIsDrawingGeofence(false)}
+        onClearDrawnGeometry={() => setDrawnGeometry(null)}
+        selectedGeofence={selectedGeofence}
+        onSelectGeofence={setSelectedGeofence}
       />
       <MapView
         teams={teams}
