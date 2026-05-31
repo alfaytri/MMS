@@ -201,9 +201,11 @@ Purchase & Sales▾:
 
 ## 🔄 In Progress
 
-🚀 Starting: **Contracts Module** — Full UI build (4 pages, 11 components, 3 hooks)
+🚀 Starting: **Traccar Fleet Module Task 4** — Geofence UI Components
 
 ## ✅ Completed
+
+- [2026-05-31] **Traccar Fleet Module Task 3: Geofences Migration + API Routes** — `supabase/migrations/20260531130000_traccar_geofences.sql`, `src/app/api/traccar/geofences/route.ts`, `src/app/api/traccar/geofences/[id]/route.ts` — traccar_geofences table with RLS; GET reconciles Traccar Cloud with local DB (orphan cleanup with glitch guard); POST converts Leaflet geometry to WKT and writes both systems; PUT/DELETE keep both Traccar and Supabase in sync
 
 - [2026-05-31] **Map Page: Live Fleet Tracking** — `supabase/migrations/20260531120000_add_speed_heading_to_live_locations.sql`, `src/hooks/useTeamLocations.ts`, `src/hooks/useOrderLocations.ts`, `src/components/map/MapView.tsx`, `src/components/map/MapSidebar.tsx`, `src/components/map/marker-icons.ts`, `src/components/map/map-styles.css`, `src/app/(dashboard)/map/page.tsx`, `src/app/api/team-leader/update-location/route.ts`, `src/hooks/useGpsTracking.ts` — Real-time fleet tracking with Leaflet map, team GPS markers (diff-based updates), order location pins, sidebar with search/status/team cards, 30s polling, marker clustering, pulse animation on moving teams
 - [2026-05-30] **Payment Portal — Multi-Phone Invoice Grouping** — `src/app/pay/[invoiceId]/page.tsx`, `src/components/pay/PaymentPortal.tsx`, `src/app/api/payments/dibsy/create-batch-payment/route.ts` — Payment landing page now looks up customer by name across all phone numbers, groups invoices by phone in separate columns, batch payment API accepts multi-phone invoices
