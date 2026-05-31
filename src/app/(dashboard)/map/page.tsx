@@ -92,6 +92,7 @@ export default function MapPage() {
       .filter(v => v.traccar_device_id)
       .map(v => ({
         vehicleId: v.id,
+        name: v.name ?? null,
         plate: v.plate ?? '',
         type: v.type ?? '',
         traccarDeviceId: parseTraccarId(v.traccar_device_id)!,
@@ -192,7 +193,7 @@ export default function MapPage() {
         selectedGeofence={selectedGeofence}
         onSelectGeofence={setSelectedGeofence}
       />
-      <div className="relative flex-1 min-h-0">
+      <div className="relative flex-1 min-h-0 h-full">
         <MapView
           teams={teams}
           orders={orders}

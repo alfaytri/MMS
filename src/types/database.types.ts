@@ -1,4 +1,4 @@
-export type Json =
+﻿export type Json =
   | string
   | number
   | boolean
@@ -803,6 +803,36 @@ export type Database = {
             referencedColumns: ["id"]
           },
         ]
+      }
+      country_codes: {
+        Row: {
+          code: string
+          flag: string
+          id: number
+          is_active: boolean
+          iso: string
+          name: string
+          sort_order: number
+        }
+        Insert: {
+          code: string
+          flag: string
+          id?: number
+          is_active?: boolean
+          iso: string
+          name: string
+          sort_order?: number
+        }
+        Update: {
+          code?: string
+          flag?: string
+          id?: number
+          is_active?: boolean
+          iso?: string
+          name?: string
+          sort_order?: number
+        }
+        Relationships: []
       }
       credit_groups: {
         Row: {
@@ -3848,6 +3878,7 @@ export type Database = {
           is_division_manager: boolean
           must_change_password: boolean
           phone: string | null
+          title: string
           updated_at: string
           user_type: Database["public"]["Enums"]["user_type"]
         }
@@ -3866,6 +3897,7 @@ export type Database = {
           is_division_manager?: boolean
           must_change_password?: boolean
           phone?: string | null
+          title?: string
           updated_at?: string
           user_type?: Database["public"]["Enums"]["user_type"]
         }
@@ -3884,6 +3916,7 @@ export type Database = {
           is_division_manager?: boolean
           must_change_password?: boolean
           phone?: string | null
+          title?: string
           updated_at?: string
           user_type?: Database["public"]["Enums"]["user_type"]
         }
@@ -4611,6 +4644,8 @@ export type Database = {
           created_at: string | null
           created_date: string
           customer_id: string | null
+          discount_type: string
+          discount_value: number
           division: string | null
           expiry_date: string
           has_configurable: boolean | null
@@ -4633,6 +4668,8 @@ export type Database = {
           created_at?: string | null
           created_date: string
           customer_id?: string | null
+          discount_type?: string
+          discount_value?: number
           division?: string | null
           expiry_date: string
           has_configurable?: boolean | null
@@ -4655,6 +4692,8 @@ export type Database = {
           created_at?: string | null
           created_date?: string
           customer_id?: string | null
+          discount_type?: string
+          discount_value?: number
           division?: string | null
           expiry_date?: string
           has_configurable?: boolean | null
@@ -6508,22 +6547,28 @@ export type Database = {
       team_live_locations: {
         Row: {
           accuracy: number | null
+          heading: number | null
           lat: number
           lng: number
+          speed: number | null
           team_id: string
           updated_at: string
         }
         Insert: {
           accuracy?: number | null
+          heading?: number | null
           lat: number
           lng: number
+          speed?: number | null
           team_id: string
           updated_at?: string
         }
         Update: {
           accuracy?: number | null
+          heading?: number | null
           lat?: number
           lng?: number
+          speed?: number | null
           team_id?: string
           updated_at?: string
         }
@@ -6986,6 +7031,44 @@ export type Database = {
           },
         ]
       }
+      traccar_geofences: {
+        Row: {
+          color: string | null
+          created_at: string | null
+          created_by: string | null
+          description: string | null
+          id: string
+          name: string
+          traccar_geofence_id: number
+        }
+        Insert: {
+          color?: string | null
+          created_at?: string | null
+          created_by?: string | null
+          description?: string | null
+          id?: string
+          name: string
+          traccar_geofence_id: number
+        }
+        Update: {
+          color?: string | null
+          created_at?: string | null
+          created_by?: string | null
+          description?: string | null
+          id?: string
+          name?: string
+          traccar_geofence_id?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "traccar_geofences_created_by_fkey"
+            columns: ["created_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       user_custom_roles: {
         Row: {
           created_at: string
@@ -7090,6 +7173,7 @@ export type Database = {
           created_at: string | null
           deleted_at: string | null
           id: string
+          name: string | null
           plate: string
           team_id: string | null
           traccar_device_id: string | null
@@ -7100,6 +7184,7 @@ export type Database = {
           created_at?: string | null
           deleted_at?: string | null
           id?: string
+          name?: string | null
           plate: string
           team_id?: string | null
           traccar_device_id?: string | null
@@ -7110,6 +7195,7 @@ export type Database = {
           created_at?: string | null
           deleted_at?: string | null
           id?: string
+          name?: string | null
           plate?: string
           team_id?: string | null
           traccar_device_id?: string | null
@@ -8286,6 +8372,8 @@ export type Database = {
           }
       save_quotation: {
         Args: {
+          p_discount_type?: string
+          p_discount_value?: number
           p_division: string
           p_expiry_date: string
           p_line_items: Json
@@ -8821,7 +8909,6 @@ export const Constants = {
 } as const
 
 type PublicTables = Database["public"]["Tables"]
-
 export type DBTable<T extends keyof PublicTables> = PublicTables[T]["Row"]
 export type DBInsert<T extends keyof PublicTables> = PublicTables[T]["Insert"]
 export type DBUpdate<T extends keyof PublicTables> = PublicTables[T]["Update"]

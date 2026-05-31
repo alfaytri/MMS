@@ -1,7 +1,7 @@
 'use client'
 
 import { useDroppable, useDraggable } from '@dnd-kit/core'
-import { Truck, GripVertical, Satellite, Clock } from 'lucide-react'
+import { Truck, GripVertical, Satellite, Clock, Pencil } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { useVehicles } from '@/hooks/useTeams'
 import { useTeamsPage } from './TeamsPageContext'
@@ -34,7 +34,7 @@ export function VehiclePool() {
 }
 
 function PoolVehicleChip({ vehicle }: { vehicle: Vehicle }) {
-  const { openLogPanel } = useTeamsPage()
+  const { openLogPanel, openVehicleDialog } = useTeamsPage()
   const { attributes, listeners, setNodeRef, isDragging } = useDraggable({
     id: `pool-vehicle-${vehicle.id}`,
     data: { type: 'vehicle', vehicleId: vehicle.id, fromTeamId: null } satisfies DragData,
@@ -52,15 +52,26 @@ function PoolVehicleChip({ vehicle }: { vehicle: Vehicle }) {
     >
       <GripVertical className="h-4 w-4 text-muted-foreground shrink-0" />
       <Truck className="h-4 w-4 text-muted-foreground shrink-0" />
-      <span className="flex-1 truncate font-mono">{vehicle.plate}</span>
+      <span className="flex-1 truncate">
+        {vehicle.name ? <><span className="font-medium">{vehicle.name}</span> <span className="text-muted-foreground font-mono text-xs">({vehicle.plate})</span></> : <span className="font-mono">{vehicle.plate}</span>}
+      </span>
       {vehicle.traccar_device_id && <Satellite className="h-4 w-4 text-blue-500" />}
-      <button
-        onClick={() => openLogPanel(vehicle.id, 'vehicle')}
-        className="hidden group-hover:block p-1 hover:text-primary"
-        type="button"
-      >
-        <Clock className="h-4 w-4" />
-      </button>
+      <div className="hidden group-hover:flex items-center gap-1" onPointerDown={e => e.stopPropagation()}>
+        <button
+          onClick={() => openVehicleDialog(vehicle)}
+          className="p-1 hover:text-primary"
+          type="button"
+        >
+          <Pencil className="h-3.5 w-3.5" />
+        </button>
+        <button
+          onClick={() => openLogPanel(vehicle.id, 'vehicle')}
+          className="p-1 hover:text-primary"
+          type="button"
+        >
+          <Clock className="h-4 w-4" />
+        </button>
+      </div>
     </div>
   )
 }

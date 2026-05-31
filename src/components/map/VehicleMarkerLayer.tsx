@@ -9,6 +9,7 @@ import type { TraccarPosition } from '@/lib/traccar'
 
 export interface VehicleMapData {
   vehicleId: string
+  name: string | null
   plate: string
   type: string
   traccarDeviceId: number
@@ -63,10 +64,11 @@ export function VehicleMarkerLayer({
 
       currentIds.add(v.vehicleId)
       const latLng: L.LatLngTuple = [pos.latitude, pos.longitude]
-      const status = deriveVehicleStatus(pos.attributes.motion, pos.attributes.ignition)
+      const status = deriveVehicleStatus(pos.attributes.motion, pos.attributes.ignition, pos.speed)
       const existing = markerMap.get(v.vehicleId)
 
       const popupData = {
+        name: v.name,
         plate: v.plate,
         type: v.type,
         speed: pos.speed,

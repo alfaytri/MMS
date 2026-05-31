@@ -49,7 +49,11 @@ export function VehicleSidebar({
   const filteredVehicles = useMemo(() => {
     const q = search.trim().toLowerCase()
     if (!q) return vehicles
-    return vehicles.filter(v => v.plate.toLowerCase().includes(q) || v.type.toLowerCase().includes(q))
+    return vehicles.filter(v =>
+      v.plate.toLowerCase().includes(q) ||
+      v.type.toLowerCase().includes(q) ||
+      (v.name?.toLowerCase().includes(q) ?? false)
+    )
   }, [vehicles, search])
 
   return (
@@ -82,7 +86,7 @@ export function VehicleSidebar({
           {filteredVehicles.map((v) => {
             const pos = positionMap.get(v.traccarDeviceId)
             const status: VehicleTrackingStatus = pos
-              ? deriveVehicleStatus(pos.attributes.motion, pos.attributes.ignition)
+              ? deriveVehicleStatus(pos.attributes.motion, pos.attributes.ignition, pos.speed)
               : 'stopped'
             const cfg = STATUS_CONFIG[status]
             const selected = v.vehicleId === selectedVehicleId
@@ -103,7 +107,8 @@ export function VehicleSidebar({
                   <div className="flex items-center gap-2">
                     <div className={cn('w-2.5 h-2.5 rounded-full shrink-0', cfg.dotBg)} />
                     <div className="min-w-0">
-                      <div className="text-xs font-semibold truncate">{v.plate}</div>
+                      <div className="text-xs font-semibold truncate">{v.name || v.plate}</div>
+                      {v.name && <div className="text-[10px] text-muted-foreground font-mono truncate">{v.plate}</div>}
                       <div className="text-[10px] text-muted-foreground capitalize">{v.type}</div>
                     </div>
                   </div>
@@ -118,8 +123,8 @@ export function VehicleSidebar({
                       <Car className="h-3 w-3" /> {pos.speed} km/h
                     </span>
                     <span className="flex items-center gap-0.5">
-                      {pos.attributes.ignition ? <Zap className="h-3 w-3 text-success" /> : <ZapOff className="h-3 w-3" />}
-                      {pos.attributes.ignition ? 'On' : 'Off'}
+                      {(pos.attributes.ignition || pos.speed > 0) ? <Zap className="h-3 w-3 text-success" /> : <ZapOff className="h-3 w-3" />}
+                      {(pos.attributes.ignition || pos.speed > 0) ? 'On' : 'Off'}
                     </span>
                     <span>
                       ⏱ {new Date(pos.deviceTime).toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' })}

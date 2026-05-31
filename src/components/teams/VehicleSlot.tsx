@@ -1,7 +1,7 @@
 'use client'
 
 import { useDroppable, useDraggable } from '@dnd-kit/core'
-import { Truck, Satellite, Clock, X } from 'lucide-react'
+import { Truck, Satellite, Clock, X, Pencil } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { useUnassignVehicle } from '@/hooks/useTeams'
 import { useTeamsPage } from './TeamsPageContext'
@@ -10,7 +10,7 @@ import type { DragData } from './useDnDHandlers'
 
 export function VehicleSlot({ team }: { team: TeamFull }) {
   const unassign = useUnassignVehicle()
-  const { openLogPanel } = useTeamsPage()
+  const { openLogPanel, openVehicleDialog } = useTeamsPage()
   const { setNodeRef, isOver } = useDroppable({
     id: `vehicle-slot-${team.id}`,
     data: { zone: 'team-vehicle', teamId: team.id },
@@ -37,6 +37,7 @@ export function VehicleSlot({ team }: { team: TeamFull }) {
           teamId={team.id}
           onUnassign={() => unassign.mutate({ vehicleId: vehicle.id, fromTeamId: team.id })}
           onLog={() => openLogPanel(vehicle.id, 'vehicle')}
+          onEdit={() => openVehicleDialog(vehicle)}
         />
       ))}
       <div
@@ -52,11 +53,12 @@ export function VehicleSlot({ team }: { team: TeamFull }) {
   )
 }
 
-function DraggableVehicleChip({ vehicle, teamId, onUnassign, onLog }: {
+function DraggableVehicleChip({ vehicle, teamId, onUnassign, onLog, onEdit }: {
   vehicle: Vehicle
   teamId: string
   onUnassign: () => void
   onLog: () => void
+  onEdit: () => void
 }) {
   const { attributes, listeners, setNodeRef, isDragging } = useDraggable({
     id: `vehicle-draggable-${vehicle.id}`,
@@ -75,12 +77,17 @@ function DraggableVehicleChip({ vehicle, teamId, onUnassign, onLog }: {
       )}
     >
       <Truck className="h-3 w-3 text-muted-foreground shrink-0" />
-      <span className="flex-1 truncate font-mono text-xs">{vehicle.plate}</span>
+      <span className="flex-1 truncate text-xs">
+        {vehicle.name ? <><span className="font-medium">{vehicle.name}</span> <span className="text-muted-foreground font-mono">({vehicle.plate})</span></> : <span className="font-mono">{vehicle.plate}</span>}
+      </span>
       {traccarId && <Satellite className="h-3 w-3 text-blue-500" />}
       <div
         className="hidden group-hover:flex items-center gap-1"
         onPointerDown={e => e.stopPropagation()}
       >
+        <button onClick={onEdit} className="p-0.5 hover:text-primary" type="button">
+          <Pencil className="h-3 w-3" />
+        </button>
         <button onClick={onLog} className="p-0.5 hover:text-primary" type="button">
           <Clock className="h-3 w-3" />
         </button>

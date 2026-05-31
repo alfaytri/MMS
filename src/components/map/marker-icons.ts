@@ -168,6 +168,7 @@ export function getVehicleIcon(status: VehicleTrackingStatus): L.DivIcon {
 // ── Vehicle popup builder ───────────────────────────────────────
 
 export function buildVehiclePopup(vehicle: {
+  name: string | null
   plate: string
   type: string
   speed: number
@@ -175,11 +176,14 @@ export function buildVehiclePopup(vehicle: {
   motion: boolean
   lastUpdate: string
 }): string {
-  const statusText = vehicle.motion ? 'Moving' : vehicle.ignition ? 'Idle' : 'Stopped'
-  const ignitionText = vehicle.ignition ? '🟢 On' : '🔴 Off'
+  const isIgnitionOn = vehicle.ignition || vehicle.speed > 0
+  const statusText = vehicle.motion || vehicle.speed > 0 ? 'Moving' : isIgnitionOn ? 'Idle' : 'Stopped'
+  const ignitionText = isIgnitionOn ? '🟢 On' : '🔴 Off'
+  const title = vehicle.name || vehicle.plate
   return [
     `<div style="font-size:13px;line-height:1.4;">`,
-    `<div style="font-weight:600;margin-bottom:2px;">${vehicle.plate}</div>`,
+    `<div style="font-weight:600;margin-bottom:2px;">${title}</div>`,
+    vehicle.name ? `<div style="color:#64748b;font-size:11px;">${vehicle.plate}</div>` : '',
     `<div style="color:#64748b;font-size:11px;text-transform:capitalize;">${vehicle.type}</div>`,
     `<div style="color:#64748b;font-size:11px;margin-top:3px;">🚗 ${vehicle.speed} km/h</div>`,
     `<div style="color:#64748b;font-size:11px;">Ignition: ${ignitionText}</div>`,
@@ -191,9 +195,10 @@ export function buildVehiclePopup(vehicle: {
 
 export function deriveVehicleStatus(
   motion: boolean | undefined,
-  ignition: boolean | undefined
+  ignition: boolean | undefined,
+  speed?: number
 ): VehicleTrackingStatus {
-  if (motion) return 'moving'
+  if (motion || (speed != null && speed > 0)) return 'moving'
   if (ignition) return 'idle'
   return 'stopped'
 }

@@ -34,7 +34,7 @@ export default async function DashboardLayout({
   return (
     <SessionGuard>
       <ContactCenterProvider>
-        <div className="min-h-screen bg-muted/30 flex flex-col">
+        <div className="h-screen bg-muted/30 flex flex-col overflow-hidden">
           <InactivityGuard />
           <RealtimeSync />
           <div className="print:hidden">

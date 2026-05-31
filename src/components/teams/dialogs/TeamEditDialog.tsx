@@ -382,15 +382,15 @@ export function TeamEditDialog() {
               </div>
 
               {/* ── Phone ── */}
-              <FormItem>
-                <FormLabel>Phone</FormLabel>
+              <div className="space-y-2">
+                <label className="text-sm font-medium leading-none">Phone</label>
                 <PhoneInputWithCode
                   value={form.watch('phoneNumber')}
                   onChange={(v) => form.setValue('phoneNumber', v)}
                   countryCode={form.watch('countryCode')}
                   onCountryCodeChange={(v) => form.setValue('countryCode', v)}
                 />
-              </FormItem>
+              </div>
 
               {/* ── Traccar Device ID ── */}
               <FormField

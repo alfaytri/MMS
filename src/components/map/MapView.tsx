@@ -207,5 +207,5 @@ export function MapView({
     onFlyToDone()
   }, [flyTo, onFlyToDone])
 
-  return <div ref={containerRef} className="flex-1 min-h-0 w-full z-0" />
+  return <div ref={containerRef} className="h-full w-full z-0" />
 }

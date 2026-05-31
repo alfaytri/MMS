@@ -13,6 +13,7 @@ import { useTeamsPage } from '../TeamsPageContext'
 import { useTraccarDevices } from '@/hooks/useTraccar'
 
 interface VehicleFormValues {
+  name:              string
   type:              string
   plate:             string
   traccar_device_id: string
@@ -36,7 +37,7 @@ export function VehicleEditDialog() {
   const [isValidatingPlate, setIsValidating]  = useState(false) // Errata 5
 
   const form = useForm<VehicleFormValues>({
-    defaultValues: { type: 'car', plate: '', traccar_device_id: '' },
+    defaultValues: { name: '', type: 'car', plate: '', traccar_device_id: '' },
   })
 
   useEffect(() => {
@@ -47,8 +48,8 @@ export function VehicleEditDialog() {
     const traccarId = (vehicle as Record<string, unknown> | null)?.traccar_device_id as string | null
     form.reset(
       vehicle
-        ? { type: vehicle.type ?? 'car', plate: vehicle.plate ?? '', traccar_device_id: traccarId ?? '' }
-        : { type: 'car', plate: '', traccar_device_id: '' }
+        ? { name: vehicle.name ?? '', type: vehicle.type ?? 'car', plate: vehicle.plate ?? '', traccar_device_id: traccarId ?? '' }
+        : { name: '', type: 'car', plate: '', traccar_device_id: '' }
     )
   }, [vehicle, open]) // eslint-disable-line react-hooks/exhaustive-deps
 
@@ -98,6 +99,7 @@ export function VehicleEditDialog() {
     }
 
     const payload = {
+      name:              values.name || null,
       type:              values.type,
       plate:             values.plate,
       traccar_device_id: values.traccar_device_id || null,
@@ -122,6 +124,21 @@ export function VehicleEditDialog() {
         </DialogHeader>
         <Form {...form}>
           <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
+
+            {/* Vehicle name */}
+            <FormField
+              control={form.control}
+              name="name"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel>Vehicle Name</FormLabel>
+                  <FormControl>
+                    <Input placeholder="e.g. Mohamed's Van" {...field} />
+                  </FormControl>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
 
             {/* Vehicle type */}
             <FormField
@@ -179,16 +196,16 @@ export function VehicleEditDialog() {
                 <FormItem>
                   <FormLabel>Traccar Device</FormLabel>
                   <Select
-                    value={field.value}
-                    onValueChange={field.onChange}
+                    value={field.value || '__none__'}
+                    onValueChange={(v) => field.onChange(v === '__none__' ? '' : v)}
                   >
                     <FormControl>
                       <SelectTrigger>
                         <SelectValue placeholder="No device linked" />
                       </SelectTrigger>
                     </FormControl>
-                    <SelectContent>
-                      <SelectItem value="">None</SelectItem>
+                    <SelectContent className="max-h-60 overflow-y-auto" sideOffset={4}>
+                      <SelectItem value="__none__">None</SelectItem>
                       {traccarDevices.map(d => (
                         <SelectItem key={d.id} value={String(d.id)}>
                           {d.name} — {d.uniqueId}
