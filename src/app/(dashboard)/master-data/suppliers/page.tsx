@@ -10,7 +10,8 @@ import { DataTable } from '@/components/shared/DataTable'
 import { DataTableColumnHeader } from '@/components/shared/DataTableColumnHeader'
 import { StatusBadge } from '@/components/shared/StatusBadge'
 import { SupplierFormDialog } from '@/components/master-data/SupplierFormDialog'
-import { useSuppliers, type Supplier } from '@/hooks/useSuppliers'
+import { useSuppliers, type SupplierWithCurrency } from '@/hooks/useSuppliers'
+import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import {
   DropdownMenu,
@@ -22,10 +23,10 @@ import {
 export default function SuppliersPage() {
   const [search, setSearch] = useState('')
   const [dialogOpen, setDialogOpen] = useState(false)
-  const [editing, setEditing] = useState<Supplier | null>(null)
+  const [editing, setEditing] = useState<SupplierWithCurrency | null>(null)
   const { data: suppliers, isLoading } = useSuppliers()
 
-  const columns = useMemo<ColumnDef<Supplier>[]>(
+  const columns = useMemo<ColumnDef<SupplierWithCurrency>[]>(
     () => [
       {
         accessorKey: 'name',
@@ -33,9 +34,40 @@ export default function SuppliersPage() {
         cell: ({ row }) => <span className="font-medium">{row.getValue('name')}</span>,
       },
       {
+        accessorKey: 'supplier_type',
+        header: 'Type',
+        cell: ({ row }) => {
+          const t = row.getValue('supplier_type') as string | null
+          if (!t) return <span className="text-muted-foreground">—</span>
+          return (
+            <Badge variant={t === 'international' ? 'secondary' : 'outline'} className="text-[10px] capitalize">
+              {t}
+            </Badge>
+          )
+        },
+      },
+      {
+        accessorKey: 'country',
+        header: 'Country',
+        cell: ({ row }) => row.getValue('country') || <span className="text-muted-foreground">—</span>,
+      },
+      {
+        id: 'currency',
+        header: 'Currency',
+        cell: ({ row }) => {
+          const c = row.original.currencies
+          if (!c) return <span className="text-muted-foreground">—</span>
+          return <Badge variant="outline" className="text-[10px] font-mono">{c.code}</Badge>
+        },
+      },
+      {
         accessorKey: 'category',
-        header: ({ column }) => <DataTableColumnHeader column={column} title="Category" />,
-        cell: ({ row }) => row.getValue('category') || <span className="text-muted-foreground">—</span>,
+        header: ({ column }) => <DataTableColumnHeader column={column} title="Category" className="hidden lg:flex" />,
+        cell: ({ row }) => (
+          <span className="hidden lg:inline">
+            {row.getValue('category') || <span className="text-muted-foreground">—</span>}
+          </span>
+        ),
       },
       {
         accessorKey: 'contact_name',
@@ -44,14 +76,18 @@ export default function SuppliersPage() {
       },
       {
         accessorKey: 'phone',
-        header: 'Phone',
-        cell: ({ row }) => row.getValue('phone') || <span className="text-muted-foreground">—</span>,
+        header: ({ column }) => <DataTableColumnHeader column={column} title="Phone" className="hidden md:flex" />,
+        cell: ({ row }) => (
+          <span className="hidden md:inline">
+            {row.getValue('phone') || <span className="text-muted-foreground">—</span>}
+          </span>
+        ),
       },
       {
         accessorKey: 'email',
-        header: ({ column }) => <DataTableColumnHeader column={column} title="Email" className="hidden lg:flex" />,
+        header: ({ column }) => <DataTableColumnHeader column={column} title="Email" className="hidden xl:flex" />,
         cell: ({ row }) => (
-          <span className="hidden lg:inline">
+          <span className="hidden xl:inline">
             {row.getValue('email') || <span className="text-muted-foreground">—</span>}
           </span>
         ),

@@ -19,6 +19,7 @@ import {
   useProfiles, useCurrentUserProfile, useCreateMyProfile, type Profile,
 } from '@/hooks/useProfiles'
 import { PERMISSION_GROUPS, ALL_PERMISSIONS, roleColor } from '@/lib/permissions'
+import { PermissionGate } from '@/components/shared/PermissionGate'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
@@ -243,8 +244,8 @@ export default function UsersRolesPage() {
   const usersCount  = (profiles as Profile[] | undefined)?.length ?? 0
 
   return (
+    <PermissionGate permission={['master_data.users.view', 'master_data.roles.view']}>
     <PageWrapper>
-      {/* Custom header */}
       <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
         <div className="flex items-start gap-3">
           <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-primary/10 shrink-0">
@@ -473,5 +474,6 @@ export default function UsersRolesPage() {
         profile={resetDialog.profile}
       />
     </PageWrapper>
+    </PermissionGate>
   )
 }

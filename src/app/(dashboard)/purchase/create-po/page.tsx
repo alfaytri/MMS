@@ -23,30 +23,17 @@ import { PoLineItemsEditor, type LineItemRow } from '@/components/purchase/PoLin
 import { PoTermsSection, DEFAULT_TERMS, type PoTermsValues } from '@/components/purchase/PoTermsSection'
 import { AddSupplierDialog } from '@/components/purchase/AddSupplierDialog'
 import { useCreatePO, useSubmitPOForApproval } from '@/hooks/usePurchaseOrders'
-import { useSuppliers } from '@/hooks/useSuppliers'
+import { useSuppliers, type SupplierWithCurrency } from '@/hooks/useSuppliers'
+import { useCurrencies } from '@/hooks/useCurrencies'
 import { useUserDivisionScope } from '@/hooks/useUserDivisionScope'
 import { useCompanies } from '@/hooks/useCompanies'
 import {
   Select, SelectContent, SelectGroup, SelectItem, SelectLabel, SelectTrigger, SelectValue,
 } from '@/components/ui/select'
 
-const CURRENCIES = ['QAR', 'USD', 'EUR', 'GBP', 'AED', 'SAR', 'KWD'] as const
-
-const CURRENCY_SYMBOLS: Record<string, string> = {
-  QAR: 'QAR ', USD: '$', EUR: '€', GBP: '£', AED: 'AED ', SAR: 'SAR ', KWD: 'KWD ',
-}
-
-const CURRENCY_NAMES: Record<string, string> = {
-  QAR: 'Qatari Riyal', USD: 'US Dollar', EUR: 'Euro',
-  GBP: 'British Pound', AED: 'UAE Dirham', SAR: 'Saudi Riyal', KWD: 'Kuwaiti Dinar',
-}
-
-function sym(currency: string) {
-  return CURRENCY_SYMBOLS[currency] ?? `${currency} `
-}
-
-function formatAmt(amount: number, currency: string) {
-  return `${sym(currency)}${amount.toLocaleString('en-QA', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`
+function formatAmt(amount: number, currencyCode: string, symbol?: string) {
+  const prefix = symbol ?? `${currencyCode} `
+  return `${prefix}${amount.toLocaleString('en-QA', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`
 }
 
 export default function CreatePOPage() {
@@ -54,6 +41,7 @@ export default function CreatePOPage() {
   const createPO = useCreatePO()
   const submitForApproval = useSubmitPOForApproval()
   const { data: suppliers } = useSuppliers()
+  const { data: currencies = [] } = useCurrencies()
 
   const { userDivisionIds, divisions } = useUserDivisionScope()
   const { data: companies = [] } = useCompanies()
@@ -92,6 +80,7 @@ export default function CreatePOPage() {
     return Array.from(map.values())
   }, [divisions, companies])
 
+  const currencySymbol = currencies.find((c) => c.code === currency)?.symbol ?? `${currency} `
   const subtotal = lineItems.reduce((s, li) => s + li.total_price, 0)
   const grandTotal = subtotal - discountAmount
 
@@ -99,6 +88,12 @@ export default function CreatePOPage() {
     setSupplierId(s.id)
     setSupplierName(s.name)
     setSupplierOpen(false)
+
+    // Auto-set currency from supplier's saved currency
+    const full = (suppliers ?? []).find((sup) => sup.id === s.id)
+    if (full?.currencies?.code) {
+      setCurrency(full.currencies.code)
+    }
   }
 
   function buildPayload() {
@@ -287,9 +282,9 @@ export default function CreatePOPage() {
                 onChange={(e) => setCurrency(e.target.value)}
                 className="flex h-9 min-w-[130px] rounded-md border border-input bg-background px-3 py-1 text-sm focus:outline-none focus:ring-1 focus:ring-ring"
               >
-                {CURRENCIES.map((c) => (
-                  <option key={c} value={c}>
-                    {sym(c)}{c} — {CURRENCY_NAMES[c]}
+                {currencies.map((c) => (
+                  <option key={c.id} value={c.code}>
+                    {c.symbol} {c.code} — {c.name}
                   </option>
                 ))}
               </select>
@@ -301,7 +296,7 @@ export default function CreatePOPage() {
                 SUBTOTAL ({currency})
               </label>
               <div className="h-9 px-3 flex items-center rounded-md border bg-muted/30 text-sm font-semibold min-w-[120px]">
-                {formatAmt(subtotal, currency)}
+                {formatAmt(subtotal, currency, currencySymbol)}
               </div>
             </div>
 
@@ -312,7 +307,7 @@ export default function CreatePOPage() {
                   GRAND TOTAL ({currency})
                 </label>
                 <div className="h-9 px-3 flex items-center rounded-md border border-primary/30 bg-primary/5 text-primary font-bold min-w-[120px]">
-                  {formatAmt(grandTotal, currency)}
+                  {formatAmt(grandTotal, currency, currencySymbol)}
                 </div>
               </div>
             )}

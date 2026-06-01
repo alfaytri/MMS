@@ -1,3 +1,20 @@
+# Project Memory — Mandatory Rule
+
+At the start of every session, read the memory index at `C:\Users\IT\.claude\projects\D--MMS\memory\MEMORY.md`. This file contains pointers to saved memories about user preferences, feedback, project context, and reference links. Before starting any work, read the index and then read any memory files relevant to the current task.
+
+**When to read specific memory files:**
+- Building UI / dropdowns / forms → read all `feedback_*.md` files (dropdown rules, commit policy, etc.)
+- Working on a specific module → read the matching `project_*.md` file
+- Integrating with external services → read the matching `reference_*.md` file
+- Any task → always check `feedback_*.md` files for applicable rules
+
+**Rules:**
+- Never skip reading memory — it contains rules the user has already established
+- If a memory conflicts with what you see in the code, trust the current code but flag the conflict
+- After learning new user preferences or project context, save them as new memory files
+
+---
+
 <!-- BEGIN:nextjs-agent-rules -->
 # This is NOT the Next.js you know
 

@@ -19,6 +19,7 @@ import {
   Banknote,
   Bot,
   CheckSquare,
+  Coins,
 } from 'lucide-react'
 
 type SidebarItem = {
@@ -55,6 +56,7 @@ const ADMIN_SECTIONS: SidebarSection[] = [
     items: [
       { label: 'Reason Lists', href: '/master-data/admin/reason-lists', icon: List },
       { label: 'Payment Methods', href: '/master-data/admin/payment-methods', icon: Banknote },
+      { label: 'Currencies', href: '/master-data/admin/currencies', icon: Coins },
       { label: 'Approval Settings', href: '/master-data/admin/approval-settings', icon: CheckSquare },
       { label: 'Document T&C', href: '/master-data/admin/document-terms', icon: FileText, comingSoon: true },
     ],

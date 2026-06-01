@@ -1,5 +1,6 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { createClient } from '@/lib/supabase/client'
+import { usePermissions } from '@/hooks/usePermissions'
 import type { DBTable, DBUpdate } from '@/types/database.types'
 
 export type Profile = DBTable<'profiles'>
@@ -42,26 +43,10 @@ export function useCurrentUserProfile() {
 }
 
 export function useIsAdmin() {
-  return useQuery({
-    queryKey: ['is-admin'],
-    queryFn: async () => {
-      const supabase = createClient()
-      const { data: { user } } = await supabase.auth.getUser()
-      if (!user) return false
-      const { data } = await (supabase as any)
-        .from('profiles')
-        .select('user_custom_roles!user_custom_roles_profile_id_fkey(custom_roles(is_system, permissions))')
-        .eq('auth_user_id', user.id)
-        .maybeSingle()
-      if (!data) return false
-      const roles = (data.user_custom_roles ?? []) as { custom_roles: { is_system: boolean; permissions: string[] } | null }[]
-      return roles.some(
-        (r) => r.custom_roles?.is_system === true ||
-               (r.custom_roles?.permissions ?? []).includes('master_data.users.manage')
-      )
-    },
-    staleTime: 5 * 60 * 1000,
-  })
+  const { data, isLoading } = usePermissions()
+  const isAdmin = data?.isSystemAdmin === true ||
+    (data?.permissions ?? []).includes('master_data.users.manage')
+  return { data: isAdmin, isLoading }
 }
 
 // One-click self-provision — creates a profile row for the current auth user.

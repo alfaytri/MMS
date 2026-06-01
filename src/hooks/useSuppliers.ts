@@ -6,6 +6,10 @@ export type Supplier = DBTable<'suppliers'>
 export type SupplierInsert = DBInsert<'suppliers'>
 export type SupplierUpdate = DBUpdate<'suppliers'>
 
+export type SupplierWithCurrency = Supplier & {
+  currencies: { code: string; symbol: string } | null
+}
+
 export function useSuppliers() {
   return useQuery({
     queryKey: ['suppliers'],
@@ -13,11 +17,11 @@ export function useSuppliers() {
       const supabase = createClient()
       const { data, error } = await supabase
         .from('suppliers')
-        .select('*')
+        .select('*, currencies(code, symbol)')
         .eq('is_active', true)
         .order('name')
       if (error) throw error
-      return data as Supplier[]
+      return data as SupplierWithCurrency[]
     },
     staleTime: 5 * 60 * 1000,
   })

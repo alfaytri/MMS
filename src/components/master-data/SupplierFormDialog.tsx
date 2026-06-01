@@ -23,12 +23,24 @@ import {
 import { Input } from '@/components/ui/input'
 import { Textarea } from '@/components/ui/textarea'
 import { Button } from '@/components/ui/button'
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select'
 import { PhoneInputWithCode, splitPhone } from '@/components/shared/PhoneInputWithCode'
 import { useCreateSupplier, useUpdateSupplier, type Supplier } from '@/hooks/useSuppliers'
+import { useCurrencies } from '@/hooks/useCurrencies'
+import { useCountryCodes } from '@/hooks/useCountryCodes'
 
 const supplierSchema = z.object({
   name: z.string().min(1, 'Name is required'),
   category: z.string().optional(),
+  supplier_type: z.enum(['local', 'international']),
+  currency_id: z.string().optional(),
+  country: z.string().optional(),
   contact_name: z.string().optional(),
   phone: z.string().optional(),
   email: z.union([z.string().email('Invalid email'), z.literal('')]).optional(),
@@ -50,12 +62,18 @@ export function SupplierFormDialog({ open, onOpenChange, supplier }: SupplierFor
   const update = useUpdateSupplier()
   const isPending = create.isPending || update.isPending
   const [countryCode, setCountryCode] = useState('+974')
+  const { data: currencies = [] } = useCurrencies()
+  const { data: countryCodes = [] } = useCountryCodes()
+  const qarCurrency = currencies.find((c) => c.code === 'QAR')
 
   const form = useForm<SupplierFormValues>({
     resolver: zodResolver(supplierSchema),
     defaultValues: {
       name: '',
       category: '',
+      supplier_type: 'local' as const,
+      currency_id: '',
+      country: '',
       contact_name: '',
       phone: '',
       email: '',
@@ -64,6 +82,22 @@ export function SupplierFormDialog({ open, onOpenChange, supplier }: SupplierFor
     },
   })
 
+  const supplierType = form.watch('supplier_type')
+
+  // Auto-set QAR for local suppliers — also fires when currencies finish loading
+  useEffect(() => {
+    if (supplierType === 'local' && qarCurrency) {
+      form.setValue('currency_id', qarCurrency.id)
+    }
+  }, [supplierType, qarCurrency, form])
+
+  // Auto-set country to Qatar for local suppliers
+  useEffect(() => {
+    if (supplierType === 'local') {
+      form.setValue('country', 'Qatar')
+    }
+  }, [supplierType, form])
+
   useEffect(() => {
     if (open && supplier) {
       const { code, digits } = splitPhone(supplier.phone)
@@ -71,6 +105,9 @@ export function SupplierFormDialog({ open, onOpenChange, supplier }: SupplierFor
       form.reset({
         name: supplier.name,
         category: supplier.category ?? '',
+        supplier_type: (supplier as any).supplier_type ?? 'local',
+        currency_id: (supplier as any).currency_id ?? '',
+        country: (supplier as any).country ?? '',
         contact_name: supplier.contact_name ?? '',
         phone: digits,
         email: supplier.email ?? '',
@@ -88,6 +125,9 @@ export function SupplierFormDialog({ open, onOpenChange, supplier }: SupplierFor
     const cleanValues = {
       ...values,
       category: values.category || null,
+      supplier_type: values.supplier_type,
+      currency_id: values.currency_id || null,
+      country: values.country || null,
       contact_name: values.contact_name || null,
       phone: fullPhone,
       email: values.email || null,
@@ -138,6 +178,85 @@ export function SupplierFormDialog({ open, onOpenChange, supplier }: SupplierFor
                 </FormItem>
               )}
             />
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+              <FormField
+                control={form.control}
+                name="supplier_type"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Supplier Type</FormLabel>
+                    <Select value={field.value} onValueChange={field.onChange}>
+                      <FormControl>
+                        <SelectTrigger>
+                          <SelectValue placeholder="Select type…" />
+                        </SelectTrigger>
+                      </FormControl>
+                      <SelectContent>
+                        <SelectItem value="local">Local</SelectItem>
+                        <SelectItem value="international">International</SelectItem>
+                      </SelectContent>
+                    </Select>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+              <FormField
+                control={form.control}
+                name="country"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Country</FormLabel>
+                    <Select
+                      value={field.value ?? ''}
+                      onValueChange={field.onChange}
+                      disabled={supplierType === 'local'}
+                    >
+                      <FormControl>
+                        <SelectTrigger>
+                          <SelectValue placeholder="Select country…" />
+                        </SelectTrigger>
+                      </FormControl>
+                      <SelectContent>
+                        {countryCodes.map((cc) => (
+                          <SelectItem key={cc.id} value={cc.name}>
+                            {cc.flag} {cc.name}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+              <FormField
+                control={form.control}
+                name="currency_id"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Currency</FormLabel>
+                    <Select
+                      value={field.value ?? ''}
+                      onValueChange={field.onChange}
+                      disabled={supplierType === 'local'}
+                    >
+                      <FormControl>
+                        <SelectTrigger>
+                          <SelectValue placeholder="Select currency…" />
+                        </SelectTrigger>
+                      </FormControl>
+                      <SelectContent>
+                        {currencies.map((c) => (
+                          <SelectItem key={c.id} value={c.id}>
+                            {c.code} — {c.name}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+            </div>
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
               <FormField
                 control={form.control}
@@ -204,7 +323,9 @@ export function SupplierFormDialog({ open, onOpenChange, supplier }: SupplierFor
               name="address"
               render={({ field }) => (
                 <FormItem>
-                  <FormLabel>Address</FormLabel>
+                  <FormLabel>
+                    Address <span className="text-muted-foreground font-normal">(Optional)</span>
+                  </FormLabel>
                   <FormControl>
                     <Input placeholder="Street address" {...field} />
                   </FormControl>
@@ -217,7 +338,9 @@ export function SupplierFormDialog({ open, onOpenChange, supplier }: SupplierFor
               name="notes"
               render={({ field }) => (
                 <FormItem>
-                  <FormLabel>Notes</FormLabel>
+                  <FormLabel>
+                    Notes <span className="text-muted-foreground font-normal">(Optional)</span>
+                  </FormLabel>
                   <FormControl>
                     <Textarea placeholder="Internal notes…" rows={3} {...field} />
                   </FormControl>

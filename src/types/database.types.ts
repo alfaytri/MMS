@@ -1,4 +1,4 @@
-﻿export type Json =
+export type Json =
   | string
   | number
   | boolean
@@ -1022,6 +1022,39 @@ export type Database = {
             referencedColumns: ["id"]
           },
         ]
+      }
+      currencies: {
+        Row: {
+          code: string
+          created_at: string
+          id: string
+          is_active: boolean
+          name: string
+          sort_order: number
+          symbol: string
+          updated_at: string
+        }
+        Insert: {
+          code: string
+          created_at?: string
+          id?: string
+          is_active?: boolean
+          name: string
+          sort_order?: number
+          symbol: string
+          updated_at?: string
+        }
+        Update: {
+          code?: string
+          created_at?: string
+          id?: string
+          is_active?: boolean
+          name?: string
+          sort_order?: number
+          symbol?: string
+          updated_at?: string
+        }
+        Relationships: []
       }
       custom_roles: {
         Row: {
@@ -6428,42 +6461,51 @@ export type Database = {
           address: string | null
           category: string | null
           contact_name: string | null
+          country: string | null
           created_at: string
           created_by: string | null
+          currency_id: string | null
           email: string | null
           id: string
           is_active: boolean | null
           name: string
           notes: string | null
           phone: string | null
+          supplier_type: string | null
           updated_at: string
         }
         Insert: {
           address?: string | null
           category?: string | null
           contact_name?: string | null
+          country?: string | null
           created_at?: string
           created_by?: string | null
+          currency_id?: string | null
           email?: string | null
           id?: string
           is_active?: boolean | null
           name: string
           notes?: string | null
           phone?: string | null
+          supplier_type?: string | null
           updated_at?: string
         }
         Update: {
           address?: string | null
           category?: string | null
           contact_name?: string | null
+          country?: string | null
           created_at?: string
           created_by?: string | null
+          currency_id?: string | null
           email?: string | null
           id?: string
           is_active?: boolean | null
           name?: string
           notes?: string | null
           phone?: string | null
+          supplier_type?: string | null
           updated_at?: string
         }
         Relationships: [
@@ -6472,6 +6514,13 @@ export type Database = {
             columns: ["created_by"]
             isOneToOne: false
             referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "suppliers_currency_id_fkey"
+            columns: ["currency_id"]
+            isOneToOne: false
+            referencedRelation: "currencies"
             referencedColumns: ["id"]
           },
         ]
@@ -8908,6 +8957,7 @@ export const Constants = {
   },
 } as const
 
+// ─── Helper aliases ─────────────────────────────────────────────────────────
 type PublicTables = Database["public"]["Tables"]
 export type DBTable<T extends keyof PublicTables> = PublicTables[T]["Row"]
 export type DBInsert<T extends keyof PublicTables> = PublicTables[T]["Insert"]

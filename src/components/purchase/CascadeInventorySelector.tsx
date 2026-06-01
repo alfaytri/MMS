@@ -260,7 +260,7 @@ export function CascadeInventorySelector({
           </span>
           <ChevronsUpDown className="ml-1 h-3 w-3 shrink-0 opacity-50" />
         </PopoverTrigger>
-        <PopoverContent className="w-56 p-0" align="start">
+        <PopoverContent className="w-auto p-0" align="start">
           {isCatCreating ? (
             <CascadeNewCategoryForm
               lineType={lineType}

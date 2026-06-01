@@ -29,7 +29,8 @@ function LoginForm() {
     setError(null)
     setLoading(true)
     const supabase = createClient()
-    const email = username.includes('@') ? username : `${username}@mms.local`
+    const normalised = username.trim().toLowerCase()
+    const email = normalised.includes('@') ? normalised : `${normalised}@mms.local`
     const { error } = await supabase.auth.signInWithPassword({ email, password })
     if (error) {
       setError(error.message)

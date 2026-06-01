@@ -1,6 +1,6 @@
 'use client'
 
-import React from 'react'
+import React, { useMemo } from 'react'
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
 import {
@@ -22,12 +22,43 @@ import {
   Receipt,
   ShoppingBag,
   Users,
-  CalendarDays,
   BarChart2,
+  Warehouse,
+  UserCog,
+  ScrollText,
+  Settings,
+  Headset,
+  Wrench,
+  UsersRound,
+  CreditCard,
+  BookOpen,
+  Bell,
+  List,
+  PlusCircle,
+  FileSearch,
+  FilePlus,
+  Clock,
+  Truck,
+  UserCheck,
+  ClipboardList,
+  CheckCircle,
+  Ship,
+  Calculator,
+  FileQuestion,
+  BarChart3,
+  RotateCcw,
+  PackageCheck,
+  FileX,
+  PackageOpen,
+  Wallet,
+  MapPin,
+  Calendar,
+  Crown,
   type LucideIcon,
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
-import type { NavEntry } from './nav-config'
+import { usePermissions } from '@/hooks/usePermissions'
+import type { NavEntry, NavItem } from './nav-config'
 
 const ICON_MAP: Record<string, LucideIcon> = {
   Database,
@@ -37,6 +68,48 @@ const ICON_MAP: Record<string, LucideIcon> = {
   ShoppingBag,
   Users,
   BarChart2,
+  Warehouse,
+  UserCog,
+  ScrollText,
+  Settings,
+  Headset,
+  Wrench,
+  UsersRound,
+  CreditCard,
+  BookOpen,
+  Bell,
+  List,
+  PlusCircle,
+  FileSearch,
+  FilePlus,
+  Clock,
+  Truck,
+  UserCheck,
+  ClipboardList,
+  CheckCircle,
+  Ship,
+  Calculator,
+  FileQuestion,
+  BarChart3,
+  RotateCcw,
+  PackageCheck,
+  FileX,
+  PackageOpen,
+  Wallet,
+  MapPin,
+  Calendar,
+  Crown,
+}
+
+function canAccess(
+  permission: string | string[] | undefined,
+  userPerms: string[],
+  isSystemAdmin: boolean,
+): boolean {
+  if (!permission) return true
+  if (isSystemAdmin) return true
+  const required = Array.isArray(permission) ? permission : [permission]
+  return required.some((p) => userPerms.includes(p))
 }
 
 interface NavDropdownProps {
@@ -45,14 +118,33 @@ interface NavDropdownProps {
 
 export function NavDropdown({ entry }: NavDropdownProps) {
   const pathname = usePathname()
+  const { data: permData } = usePermissions()
+  const userPerms = permData?.permissions ?? []
+  const isSystemAdmin = permData?.isSystemAdmin ?? false
   const Icon = ICON_MAP[entry.icon]
 
-  const allHrefs = entry.groups.flatMap((g) => g.items.map((i) => i.href))
+  const filteredGroups = useMemo(() => {
+    return entry.groups
+      .map((group) => ({
+        ...group,
+        items: group.items.filter((item) =>
+          canAccess(item.permission, userPerms, isSystemAdmin)
+        ),
+      }))
+      .filter((group) => group.items.length > 0)
+  }, [entry.groups, userPerms, isSystemAdmin])
+
+  if (!canAccess(entry.permission, userPerms, isSystemAdmin) && !entry.comingSoon) {
+    if (filteredGroups.length === 0) return null
+  }
+
+  if (filteredGroups.length === 0 && !entry.comingSoon) return null
+
+  const allHrefs = filteredGroups.flatMap((g) => g.items.map((i: NavItem) => i.href))
 
   const isItemActive = (href: string) => {
     if (pathname === href) return true
     if (!pathname.startsWith(href + '/')) return false
-    // Don't highlight if a more-specific sibling nav item also matches
     const hasMoreSpecificMatch = allHrefs.some(
       (other) =>
         other !== href &&
@@ -87,7 +179,7 @@ export function NavDropdown({ entry }: NavDropdownProps) {
             <Badge variant="secondary" className="ml-auto text-xs h-4">Soon</Badge>
           </DropdownMenuItem>
         ) : (
-          entry.groups.map((group, groupIndex) => (
+          filteredGroups.map((group, groupIndex) => (
             <React.Fragment key={groupIndex}>
               {groupIndex > 0 && <DropdownMenuSeparator />}
               <DropdownMenuGroup>
@@ -96,14 +188,18 @@ export function NavDropdown({ entry }: NavDropdownProps) {
                     {group.label}
                   </DropdownMenuLabel>
                 )}
-                {group.items.map((item) =>
-                  item.comingSoon ? (
+                {group.items.map((item) => {
+                  const ItemIcon = item.icon ? ICON_MAP[item.icon] : null
+                  return item.comingSoon ? (
                     <DropdownMenuItem
                       key={item.href}
                       disabled
                       className="flex items-center justify-between text-muted-foreground"
                     >
-                      <span>{item.label}</span>
+                      <span className="flex items-center gap-2">
+                        {ItemIcon && <ItemIcon className="h-4 w-4" />}
+                        {item.label}
+                      </span>
                       <Badge variant="outline" className="text-xs h-4 font-normal">Soon</Badge>
                     </DropdownMenuItem>
                   ) : (
@@ -111,15 +207,16 @@ export function NavDropdown({ entry }: NavDropdownProps) {
                       <Link
                         href={item.href}
                         className={cn(
-                          'w-full cursor-pointer',
+                          'flex items-center gap-2 w-full cursor-pointer',
                           isItemActive(item.href) && 'text-primary font-medium'
                         )}
                       >
+                        {ItemIcon && <ItemIcon className="h-4 w-4" />}
                         {item.label}
                       </Link>
                     </DropdownMenuItem>
                   )
-                )}
+                })}
               </DropdownMenuGroup>
             </React.Fragment>
           ))

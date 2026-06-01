@@ -6,8 +6,8 @@ import { createClient } from '@/lib/supabase/server'
 
 export async function signIn(formData: FormData) {
   const supabase = await createClient()
-  const username = (formData.get('username') ?? formData.get('email') ?? '') as string
-  const email = username.includes('@') ? username : `${username}@mms.local`
+  const raw = ((formData.get('username') ?? formData.get('email') ?? '') as string).trim().toLowerCase()
+  const email = raw.includes('@') ? raw : `${raw}@mms.local`
   const data = {
     email,
     password: formData.get('password') as string,
