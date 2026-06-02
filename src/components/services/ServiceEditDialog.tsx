@@ -22,6 +22,7 @@ import {
 import { Form } from '@/components/ui/form'
 import { cn } from '@/lib/utils'
 import { useServiceTree, useCreateService, useUpdateService, type Service } from '@/hooks/useServices'
+import { useSubmitServiceChange } from '@/hooks/useServiceChangeRequests'
 import { collectDescendantIds, buildTreeMap } from './ServiceTree'
 import {
   serviceSchema, toDefaults, type ServiceFormValues,
@@ -54,6 +55,7 @@ export function ServiceEditDialog({
   const [pendingFile, setPendingFile] = useState<File | null>(null)
   const createService = useCreateService()
   const updateService = useUpdateService()
+  const submitChange = useSubmitServiceChange()
   const { data: treeData = [] } = useServiceTree(type, [], open)
 
   const parentDivision = useMemo(
@@ -97,6 +99,19 @@ export function ServiceEditDialog({
     }
     return traverse(null, 0, '')
   }, [treeData, node])
+
+  function buildChangesDiff(
+    payload: Record<string, unknown>,
+    existing: Service | null,
+  ): Record<string, { old: unknown; new: unknown }> {
+    const diff: Record<string, { old: unknown; new: unknown }> = {}
+    for (const [key, newVal] of Object.entries(payload)) {
+      if (key === 'treeType' || key === 'id' || key === 'sort_order') continue
+      const oldVal = existing ? (existing as Record<string, unknown>)[key] ?? null : null
+      diff[key] = { old: oldVal, new: newVal }
+    }
+    return diff
+  }
 
   function handleOpenChange(nextOpen: boolean) {
     if (!readOnly && !nextOpen && form.formState.isDirty) {
@@ -159,21 +174,31 @@ export function ServiceEditDialog({
         ...(catalogImageUrl !== undefined && { catalog_image_url: catalogImageUrl }),
       }
 
-      if (mode === 'new') {
-        await createService.mutateAsync({ ...payload, id: serviceId, sort_order: 0, treeType: type })
+      const changes = buildChangesDiff(payload, mode === 'edit' ? node : null)
+
+      const result = await submitChange.mutateAsync({
+        service_id: mode === 'edit' && node ? node.id : null,
+        change_type: mode === 'new' ? 'add' : 'edit',
+        changes,
+        division: Array.isArray(values.division) ? values.division : [values.division].filter(Boolean),
+        tree_type: type,
+        parent_id: values.parent_id,
+      })
+
+      if (result.action === 'applied') {
+        toast.success('Service saved')
       } else {
-        const changedFields = Object.keys(form.formState.dirtyFields)
-        await updateService.mutateAsync({ id: serviceId, ...payload, treeType: type, changedFields })
+        toast.success('Change submitted for approval')
       }
-      toast.success('Service saved')
       onOpenChange(false)
-    } catch (err) {
-      toast.error('Failed to save service')
+    } catch (err: unknown) {
+      const msg = err instanceof Error ? err.message : 'Failed to save service'
+      toast.error(msg)
       console.error(err)
     }
   }
 
-  const isSaving = createService.isPending || updateService.isPending
+  const isSaving = createService.isPending || updateService.isPending || submitChange.isPending
   const title = readOnly
     ? 'View Service'
     : mode === 'new'
