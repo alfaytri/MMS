@@ -13,6 +13,7 @@ interface ContractTableViewProps {
   enabled: boolean
   onEdit: (node: Service) => void
   onAddChild: (parentId: string) => void
+  onShowHistory: (serviceId: string, serviceName: string) => void
 }
 
 export function ContractTableView({
@@ -24,6 +25,7 @@ export function ContractTableView({
   enabled,
   onEdit,
   onAddChild,
+  onShowHistory,
 }: ContractTableViewProps) {
   const { data = [], isLoading, error } = useServiceTree('contract', divisionFilter, enabled)
   const reorder = useReorderServices()
@@ -48,6 +50,7 @@ export function ContractTableView({
       onEdit={onEdit}
       onAddChild={onAddChild}
       onReorder={(args: ReorderArgs) => reorder.mutate(args)}
+      onShowHistory={onShowHistory}
     />
   )
 }

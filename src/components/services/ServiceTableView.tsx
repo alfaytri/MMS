@@ -12,6 +12,7 @@ interface ServiceTableViewProps {
   enabled: boolean
   onEdit: (node: Service) => void
   onAddChild: (parentId: string) => void
+  onShowHistory: (serviceId: string, serviceName: string) => void
 }
 
 export function ServiceTableView({
@@ -23,6 +24,7 @@ export function ServiceTableView({
   enabled,
   onEdit,
   onAddChild,
+  onShowHistory,
 }: ServiceTableViewProps) {
   const { data = [], isLoading, error } = useServiceTree(serviceType, divisionFilter, enabled)
   const reorder = useReorderServices()
@@ -39,6 +41,7 @@ export function ServiceTableView({
       onEdit={onEdit}
       onAddChild={onAddChild}
       onReorder={(args: ReorderArgs) => reorder.mutate(args)}
+      onShowHistory={onShowHistory}
     />
   )
 }

@@ -2,10 +2,13 @@
 'use client'
 
 import { useState } from 'react'
+import Link from 'next/link'
 import {
   ListTree, FileText, Smartphone, Bell, Package, Tag,
   Filter, Plus, Ruler, Percent, Search, BookOpen, ClipboardCheck, Wrench, GripVertical,
+  CheckCircle2, Clock,
 } from 'lucide-react'
+import { formatDistanceToNow } from 'date-fns'
 import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -13,10 +16,13 @@ import { DivisionMultiSelect } from '@/components/shared/DivisionMultiSelect'
 import { ServiceTableView } from '@/components/services/ServiceTableView'
 import { ContractTableView } from '@/components/services/ContractTableView'
 import { ServiceEditDialog } from '@/components/services/ServiceEditDialog'
+import { ServiceChangeHistoryDialog } from '@/components/services/ServiceChangeHistoryDialog'
 import { NotificationsTab } from '@/components/services/NotificationsTab'
 import { InstructionsTab } from '@/components/services/InstructionsTab'
 import { InventoryTab } from '@/components/services/InventoryTab'
 import { PromotionsTab } from '@/components/services/PromotionsTab'
+import { usePendingAddRequests } from '@/hooks/useServiceChangeRequests'
+import { useHasPermission } from '@/hooks/usePermissions'
 import type { Service } from '@/hooks/useServices'
 
 type TabKey = 'normal' | 'contract' | 'mobile' | 'reminders' | 'instructions' | 'inventory' | 'promotions'
@@ -57,6 +63,11 @@ export default function ServicesPage() {
   const [searchQuery, setSearchQuery] = useState('')
   const [linkageFilter, setLinkageFilter] = useState<LinkageKey[]>([])
   const [dragMode, setDragMode] = useState(false)
+  const [historyDialog, setHistoryDialog] = useState<{ serviceId: string; name: string } | null>(null)
+
+  const canApprove = useHasPermission('master_data.services.approve')
+  const { data: pendingAdds = [] } = usePendingAddRequests()
+
   const [editDialog, setEditDialog] = useState<{
     open: boolean
     mode: 'new' | 'edit'
@@ -173,9 +184,17 @@ export default function ServicesPage() {
             </Button>
           ))}
 
-          {/* Right side: division filter + new button */}
+          {/* Right side: division filter + action buttons */}
           <div className="ml-auto flex items-center gap-2 shrink-0">
             <DivisionMultiSelect value={divisionFilter} onChange={setDivisionFilter} />
+            {canApprove && (
+              <Link href="/master-data/services/approvals">
+                <Button variant="outline" size="sm" className="h-7 text-[11px] gap-1">
+                  <CheckCircle2 className="h-3.5 w-3.5" />
+                  Approvals
+                </Button>
+              </Link>
+            )}
             {isTreeTab && (
               <>
                 <Button
@@ -200,16 +219,40 @@ export default function ServicesPage() {
       {/* TAB CONTENT */}
       <div className="flex-1 overflow-auto bg-card">
         {activeTab === 'normal' && (
-          <ServiceTableView
-            serviceType="normal"
-            divisionFilter={divisionFilter}
-            searchQuery={searchQuery}
-            linkageFilter={linkageFilter}
-            dragMode={dragMode}
-            enabled={visitedTabs.has('normal')}
-            onEdit={openEdit}
-            onAddChild={openAddChild}
-          />
+          <>
+            {pendingAdds.length > 0 && (
+              <div className="mx-4 mt-3 border border-dashed border-orange-300 rounded-lg p-3 bg-orange-50/50 space-y-2">
+                <div className="text-xs font-medium text-orange-700 flex items-center gap-1.5">
+                  <Clock className="h-3.5 w-3.5" />
+                  Pending New Services ({pendingAdds.length})
+                </div>
+                {pendingAdds.map((req) => (
+                  <div key={req.id} className="flex items-center justify-between text-sm bg-white/60 rounded px-3 py-1.5">
+                    <div>
+                      <span className="font-medium">{String(req.changes.name_en?.new ?? 'Unnamed')}</span>
+                      {!!req.changes.name_ar?.new && (
+                        <span className="text-muted-foreground ml-2 text-xs">{String(req.changes.name_ar.new)}</span>
+                      )}
+                    </div>
+                    <div className="text-xs text-muted-foreground">
+                      by {req.requester?.full_name ?? 'Unknown'} — {formatDistanceToNow(new Date(req.requested_at), { addSuffix: true })}
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+            <ServiceTableView
+              serviceType="normal"
+              divisionFilter={divisionFilter}
+              searchQuery={searchQuery}
+              linkageFilter={linkageFilter}
+              dragMode={dragMode}
+              enabled={visitedTabs.has('normal')}
+              onEdit={openEdit}
+              onAddChild={openAddChild}
+              onShowHistory={(id, name) => setHistoryDialog({ serviceId: id, name })}
+            />
+          </>
         )}
         {activeTab === 'contract' && (
           <ContractTableView
@@ -221,6 +264,7 @@ export default function ServicesPage() {
             enabled={visitedTabs.has('contract')}
             onEdit={openEdit}
             onAddChild={openAddChild}
+            onShowHistory={(id, name) => setHistoryDialog({ serviceId: id, name })}
           />
         )}
         {activeTab === 'mobile' && (
@@ -233,6 +277,7 @@ export default function ServicesPage() {
             enabled={visitedTabs.has('mobile')}
             onEdit={openEdit}
             onAddChild={openAddChild}
+            onShowHistory={(id, name) => setHistoryDialog({ serviceId: id, name })}
           />
         )}
         {activeTab === 'reminders' && (
@@ -256,6 +301,13 @@ export default function ServicesPage() {
         type={editDialog.type}
         node={editDialog.node}
         parentId={editDialog.parentId}
+      />
+
+      <ServiceChangeHistoryDialog
+        open={!!historyDialog}
+        onOpenChange={(open) => { if (!open) setHistoryDialog(null) }}
+        serviceId={historyDialog?.serviceId ?? null}
+        serviceName={historyDialog?.name ?? ''}
       />
     </div>
   )

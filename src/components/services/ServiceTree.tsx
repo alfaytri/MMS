@@ -156,6 +156,7 @@ interface ServiceTreeProps {
   onEdit: (node: Service) => void
   onAddChild: (parentId: string) => void
   onReorder: (args: ReorderArgs) => void
+  onShowHistory: (serviceId: string, serviceName: string) => void
 }
 
 export function ServiceTree({
@@ -169,6 +170,7 @@ export function ServiceTree({
   onEdit,
   onAddChild,
   onReorder,
+  onShowHistory,
 }: ServiceTreeProps) {
   const [expanded, setExpanded] = useState<Set<string>>(new Set())
   const [activeId, setActiveId] = useState<string | null>(null)
@@ -295,6 +297,7 @@ export function ServiceTree({
           onView={setViewNode}
           onAddChild={onAddChild}
           onReorder={onReorder}
+          onShowHistory={(id) => onShowHistory(id, service.name_en)}
         />
         {hasChildren && isExpanded && children.map((child) => renderNode(child, depth + 1))}
       </div>
