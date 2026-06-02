@@ -64,7 +64,7 @@ export const AUDIT_MODULES = [
   'profiles', 'custom_roles', 'purchase_orders', 'po_approvals',
   'receivals', 'shipments', 'landed_costs', 'sale_orders',
   'deliveries', 'payments', 'stock_adjustments', 'warehouse_transfers',
-  'inventory_checks', 'settings',
+  'inventory_checks', 'settings', 'contracts',
 ] as const
 
 export const AUDIT_SEVERITIES = ['info', 'warning', 'critical'] as const

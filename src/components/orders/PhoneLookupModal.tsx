@@ -16,9 +16,10 @@ interface Props {
   open: boolean
   onOpenChange: (open: boolean) => void
   onConfirm: (result: CustomerLookupResult) => void
+  title?: string
 }
 
-export function PhoneLookupModal({ open, onOpenChange, onConfirm }: Props) {
+export function PhoneLookupModal({ open, onOpenChange, onConfirm, title = 'New Order' }: Props) {
   const [step, setStep] = useState<Step>('phone')
   const [countryCode, setCountryCode] = useState('+974')
   const [phone, setPhone] = useState('')
@@ -81,7 +82,7 @@ export function PhoneLookupModal({ open, onOpenChange, onConfirm }: Props) {
     <Dialog open={open} onOpenChange={(v) => { onOpenChange(v); if (!v) handleReset() }}>
       <DialogContent className="sm:max-w-md">
         <DialogHeader>
-          <DialogTitle>New Order</DialogTitle>
+          <DialogTitle>{title}</DialogTitle>
         </DialogHeader>
 
         {step === 'phone' && (
