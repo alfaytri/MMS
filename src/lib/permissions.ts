@@ -45,6 +45,7 @@ export const PERMISSION_GROUPS: PermissionGroup[] = [
       { key: 'master_data.service_customers.manage',  label: 'Manage Service Customers', description: 'Create, edit, and delete service customer records' },
       { key: 'master_data.services.view',             label: 'View Services',            description: 'Access the services catalog and pricing' },
       { key: 'master_data.services.manage',           label: 'Manage Services',          description: 'Create, edit, and delete service definitions' },
+      { key: 'master_data.services.approve',          label: 'Approve Service Changes',  description: 'Review and approve/reject service change requests' },
       { key: 'master_data.subscriptions.view',        label: 'View Subscriptions',       description: 'Access subscription packages list and details' },
       { key: 'master_data.subscriptions.manage',      label: 'Manage Subscriptions',     description: 'Create, edit, and delete subscription packages' },
       { key: 'master_data.users.view',                label: 'View Users',               description: 'Access the users list and profile details' },
