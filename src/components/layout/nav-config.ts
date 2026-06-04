@@ -86,9 +86,9 @@ export const NAV_ITEMS: NavEntry[] = [
     groups: [
       {
         items: [
-          { label: 'Quotations',     href: '/contracts/quotations',       icon: 'FileText',  permission: 'contracts.view' },
-          { label: 'Live Contracts', href: '/contracts',                  icon: 'FileCheck', permission: 'contracts.view' },
-          { label: 'New Quotation',  href: '/contracts/create-quotation', icon: 'Plus',      permission: 'contracts.create' },
+          { label: 'Draft Quotations', href: '/contracts/quotations',       icon: 'FileSearch',  permission: 'contracts.view' },
+          { label: 'Live Contracts',  href: '/contracts',                  icon: 'FileCheck',   permission: 'contracts.view' },
+          { label: 'Create Quotation', href: '/contracts/create-quotation', icon: 'FilePlus',   permission: 'contracts.create' },
         ],
       },
     ],
