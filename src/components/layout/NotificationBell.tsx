@@ -27,6 +27,8 @@ export function NotificationBell() {
     markRead.mutate(id)
     if (type === 'po_approval_requested' || type === 'po_approved' || type === 'po_rejected') {
       router.push('/purchase/approvals')
+    } else if (type === 'service_change_pending' || type === 'service_change_approved' || type === 'service_change_rejected') {
+      router.push('/master-data/services/approvals')
     }
   }
 

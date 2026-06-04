@@ -3,6 +3,7 @@
 
 import { useState } from 'react'
 import Link from 'next/link'
+import { cn } from '@/lib/utils'
 import {
   ListTree, FileText, Smartphone, Bell, Package, Tag,
   Filter, Plus, Ruler, Percent, Search, BookOpen, ClipboardCheck, Wrench, GripVertical,
@@ -21,7 +22,7 @@ import { NotificationsTab } from '@/components/services/NotificationsTab'
 import { InstructionsTab } from '@/components/services/InstructionsTab'
 import { InventoryTab } from '@/components/services/InventoryTab'
 import { PromotionsTab } from '@/components/services/PromotionsTab'
-import { usePendingAddRequests } from '@/hooks/useServiceChangeRequests'
+import { usePendingAddRequests, usePendingServiceChangeCount } from '@/hooks/useServiceChangeRequests'
 import { useHasPermission } from '@/hooks/usePermissions'
 import type { Service } from '@/hooks/useServices'
 
@@ -67,6 +68,7 @@ export default function ServicesPage() {
 
   const canApprove = useHasPermission('master_data.services.approve')
   const { data: pendingAdds = [] } = usePendingAddRequests()
+  const { data: pendingCount = 0 } = usePendingServiceChangeCount()
 
   const [editDialog, setEditDialog] = useState<{
     open: boolean
@@ -150,20 +152,24 @@ export default function ServicesPage() {
                   className="h-7 pl-6 w-44 text-[11px]"
                 />
               </div>
-              <div className="h-4 w-px bg-border shrink-0" />
-              <Filter className="h-3.5 w-3.5 text-muted-foreground shrink-0" />
-              {LINKAGE_CHIPS.map(({ key, label, icon: Icon }) => (
-                <Button
-                  key={key}
-                  variant={linkageFilter.includes(key) ? 'default' : 'outline'}
-                  size="sm"
-                  className="h-7 text-[11px] gap-1 shrink-0"
-                  onClick={() => toggleLinkage(key)}
-                >
-                  <Icon className="h-3 w-3" />
-                  {label}
-                </Button>
-              ))}
+              {activeTab !== 'contract' && (
+                <>
+                  <div className="h-4 w-px bg-border shrink-0" />
+                  <Filter className="h-3.5 w-3.5 text-muted-foreground shrink-0" />
+                  {LINKAGE_CHIPS.map(({ key, label, icon: Icon }) => (
+                    <Button
+                      key={key}
+                      variant={linkageFilter.includes(key) ? 'default' : 'outline'}
+                      size="sm"
+                      className="h-7 text-[11px] gap-1 shrink-0"
+                      onClick={() => toggleLinkage(key)}
+                    >
+                      <Icon className="h-3 w-3" />
+                      {label}
+                    </Button>
+                  ))}
+                </>
+              )}
               <div className="h-4 w-px bg-border shrink-0" />
             </>
           )}
@@ -174,7 +180,12 @@ export default function ServicesPage() {
               key={key}
               variant={contractTypeFilter === key ? 'default' : 'outline'}
               size="sm"
-              className="h-7 text-[11px] gap-1 shrink-0"
+              className={cn(
+                'h-7 text-[11px] gap-1 shrink-0',
+                contractTypeFilter === key
+                  ? 'bg-orange-500 text-white border-orange-500 hover:bg-orange-600'
+                  : 'border-orange-200 text-orange-700 hover:bg-orange-50',
+              )}
               onClick={() =>
                 setContractTypeFilter((prev) => (prev === key ? 'all' : key as typeof contractTypeFilter))
               }
@@ -189,9 +200,22 @@ export default function ServicesPage() {
             <DivisionMultiSelect value={divisionFilter} onChange={setDivisionFilter} />
             {canApprove && (
               <Link href="/master-data/services/approvals">
-                <Button variant="outline" size="sm" className="h-7 text-[11px] gap-1">
+                <Button
+                  variant="outline"
+                  size="sm"
+                  className={`h-7 text-[11px] gap-1 relative ${
+                    pendingCount > 0
+                      ? 'border-orange-400 text-orange-700 bg-orange-50 hover:bg-orange-100 animate-pulse'
+                      : ''
+                  }`}
+                >
                   <CheckCircle2 className="h-3.5 w-3.5" />
                   Approvals
+                  {pendingCount > 0 && (
+                    <span className="ml-0.5 flex h-4 min-w-4 items-center justify-center rounded-full bg-orange-500 text-[9px] font-bold text-white px-1">
+                      {pendingCount > 9 ? '9+' : pendingCount}
+                    </span>
+                  )}
                 </Button>
               </Link>
             )}

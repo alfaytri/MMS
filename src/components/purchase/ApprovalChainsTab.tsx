@@ -1,21 +1,28 @@
 // src/components/purchase/ApprovalChainsTab.tsx
 'use client'
 
-import { useState } from 'react'
+import { useState, useMemo } from 'react'
 import { toast } from 'sonner'
-import { Plus, Trash2, Pencil, Check, X, AlertTriangle } from 'lucide-react'
+import { Plus, Trash2, Pencil, Check, X, AlertTriangle, Archive } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Badge } from '@/components/ui/badge'
+import { Switch } from '@/components/ui/switch'
+import {
+  Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
+} from '@/components/ui/select'
 import {
   Table, TableBody, TableCell, TableHead, TableHeader, TableRow,
 } from '@/components/ui/table'
+import { ConfirmDialog } from '@/components/shared/ConfirmDialog'
 import {
   useApprovalChains, useUpsertApprovalChain,
   useUpsertApprovalChainTier, useSoftDeleteApprovalChainTier,
+  useToggleChainActive, useArchiveApprovalChain,
 } from '@/hooks/useApprovalChains'
 import { useApprovalRoleAssignments } from '@/hooks/useApprovalRoleAssignments'
 import { useIsAdmin } from '@/hooks/useProfiles'
+import { useDivisions } from '@/hooks/useDivisions'
 import type { ApprovalRole } from '@/lib/approvalChainResolution'
 
 const APPROVAL_ROLES: ApprovalRole[] = ['purchase_manager', 'accountant', 'owner']
@@ -37,12 +44,28 @@ export function ApprovalChainsTab() {
   const upsertChain = useUpsertApprovalChain()
   const upsertTier = useUpsertApprovalChainTier()
   const deleteTier = useSoftDeleteApprovalChainTier()
+  const toggleActive = useToggleChainActive()
+  const archiveChain = useArchiveApprovalChain()
+
+  const { data: divisions = [] } = useDivisions()
 
   const [newChainName, setNewChainName] = useState('')
+  const [newChainDivision, setNewChainDivision] = useState<string>('')
   const [addingTierFor, setAddingTierFor] = useState<string | null>(null)
   const [tierForm, setTierForm] = useState<TierForm>(EMPTY_FORM)
-  // editingTierId → { tierId, chainId, form }
   const [editingTier, setEditingTier] = useState<{ tierId: string; chainId: string; form: TierForm } | null>(null)
+  const [archiveTarget, setArchiveTarget] = useState<{ id: string; name: string } | null>(null)
+
+  const hasGlobalChain = chains.some((c) => !c.division_id)
+  const usedDivisionIds = useMemo(() => new Set(chains.map((c) => c.division_id).filter(Boolean)), [chains])
+  const availableDivisions = divisions.filter((d) => !usedDivisionIds.has(d.id))
+
+  function getDivisionName(chain: (typeof chains)[number]): string | null {
+    if (!chain.division_id) return null
+    if (chain.divisions) return chain.divisions.short_name ?? chain.divisions.name
+    const div = divisions.find((d) => d.id === chain.division_id)
+    return div ? (div.short_name ?? div.name) : null
+  }
 
   function rolesHaveAssignees(roles: ApprovalRole[]): boolean {
     return roles.every((role) => assignments.some((a) => a.role === role && !a.deleted_at))
@@ -58,10 +81,15 @@ export function ApprovalChainsTab() {
 
   function handleAddChain() {
     if (!newChainName.trim()) return
+    const divisionId = newChainDivision || null
+    if (!divisionId && hasGlobalChain) {
+      toast.error('A company default chain already exists. Select a division for an override.')
+      return
+    }
     upsertChain.mutate(
-      { division_id: null, name: newChainName.trim() },
+      { division_id: divisionId, name: newChainName.trim() },
       {
-        onSuccess: () => { setNewChainName(''); toast.success('Chain created') },
+        onSuccess: () => { setNewChainName(''); setNewChainDivision(''); toast.success('Chain created') },
         onError: (e) => toast.error(e.message),
       }
     )
@@ -118,6 +146,24 @@ export function ApprovalChainsTab() {
     )
   }
 
+  function handleToggleActive(chain: (typeof chains)[number]) {
+    const newActive = !chain.is_active
+    const divName = getDivisionName(chain)
+    toggleActive.mutate(
+      { id: chain.id, is_active: newActive },
+      {
+        onSuccess: () => {
+          toast.success(
+            newActive
+              ? `"${chain.name}" is now active for ${divName ?? 'company'}`
+              : `${divName ?? 'Division'} will use Company Default`
+          )
+        },
+        onError: (e) => toast.error(e.message),
+      }
+    )
+  }
+
   if (isLoading) return <div className="text-sm text-muted-foreground p-4">Loading…</div>
 
   return (
@@ -132,21 +178,63 @@ export function ApprovalChainsTab() {
         const tiers = (chain.approval_chain_tiers ?? [])
           .filter((t: any) => !t.deleted_at)
           .sort((a: any, b: any) => a.rank - b.rank)
+        const divName = getDivisionName(chain)
+        const isGlobal = !chain.division_id
+        const isActive = chain.is_active
 
         return (
-          <div key={chain.id} className="rounded-lg border p-4 space-y-3">
-            <div className="flex items-center justify-between">
-              <div>
+          <div
+            key={chain.id}
+            className={`rounded-lg border p-4 space-y-3 transition-opacity ${!isActive && !isGlobal ? 'opacity-60 border-dashed' : ''}`}
+          >
+            {/* Header */}
+            <div className="flex items-center justify-between gap-2">
+              <div className="flex items-center gap-2 flex-wrap">
                 <span className="font-semibold">{chain.name}</span>
-                <span className="ml-2 text-xs text-muted-foreground">
-                  {chain.division_id ? 'Division-specific' : 'Company Default'}
-                </span>
+                {isGlobal ? (
+                  <Badge variant="outline" className="text-[10px] bg-blue-50 text-blue-700 border-blue-200">
+                    Company Default
+                  </Badge>
+                ) : (
+                  <Badge className="text-[10px] bg-orange-100 text-orange-700 border-orange-200 hover:bg-orange-100">
+                    {divName ?? 'Division'}
+                  </Badge>
+                )}
+                {!isGlobal && !isActive && (
+                  <span className="text-[10px] text-muted-foreground italic">Using Company Default</span>
+                )}
               </div>
-              {isAdmin && (
-                <Button size="sm" variant="outline" onClick={() => { setAddingTierFor(chain.id); setTierForm(EMPTY_FORM) }}>
-                  <Plus className="h-3 w-3 mr-1" /> Add Tier
-                </Button>
-              )}
+              <div className="flex items-center gap-2 shrink-0">
+                {/* Toggle: use this chain vs company default (only for division chains) */}
+                {!isGlobal && isAdmin && (
+                  <div className="flex items-center gap-1.5">
+                    <span className="text-[10px] text-muted-foreground whitespace-nowrap">
+                      {isActive ? 'Active' : 'Inactive'}
+                    </span>
+                    <Switch
+                      checked={isActive}
+                      onCheckedChange={() => handleToggleActive(chain)}
+                      disabled={toggleActive.isPending}
+                    />
+                  </div>
+                )}
+                {isAdmin && (
+                  <Button size="sm" variant="outline" onClick={() => { setAddingTierFor(chain.id); setTierForm(EMPTY_FORM) }}>
+                    <Plus className="h-3 w-3 mr-1" /> Add Tier
+                  </Button>
+                )}
+                {/* Archive (only for division chains) */}
+                {!isGlobal && isAdmin && (
+                  <Button
+                    size="sm"
+                    variant="ghost"
+                    className="text-muted-foreground hover:text-destructive"
+                    onClick={() => setArchiveTarget({ id: chain.id, name: chain.name })}
+                  >
+                    <Archive className="h-3.5 w-3.5" />
+                  </Button>
+                )}
+              </div>
             </div>
 
             <Table>
@@ -308,18 +396,51 @@ export function ApprovalChainsTab() {
       })}
 
       {isAdmin && (
-        <div className="flex gap-2 items-center">
+        <div className="flex flex-wrap gap-2 items-center">
           <Input
-            placeholder="New chain name (e.g. Division Override)"
+            placeholder="Chain name"
             value={newChainName}
             onChange={(e) => setNewChainName(e.target.value)}
-            className="max-w-sm"
+            className="max-w-[200px]"
           />
+          {hasGlobalChain ? (
+            <Select value={newChainDivision} onValueChange={(v) => setNewChainDivision(v ?? '')}>
+              <SelectTrigger className="w-48">
+                <SelectValue placeholder="Select division…" />
+              </SelectTrigger>
+              <SelectContent>
+                {availableDivisions.map((d) => (
+                  <SelectItem key={d.id} value={d.id}>{d.short_name ?? d.name}</SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          ) : (
+            <span className="text-xs text-muted-foreground">Company Default</span>
+          )}
           <Button onClick={handleAddChain} disabled={upsertChain.isPending}>
             <Plus className="h-4 w-4 mr-1" /> Create Chain
           </Button>
         </div>
       )}
+
+      {/* Archive confirm dialog */}
+      <ConfirmDialog
+        open={!!archiveTarget}
+        title="Archive approval chain"
+        description={`Archive "${archiveTarget?.name}"? The division will fall back to the Company Default chain. You can recreate it later if needed.`}
+        confirmLabel="Archive"
+        variant="destructive"
+        isPending={archiveChain.isPending}
+        onConfirm={() => {
+          if (archiveTarget) {
+            archiveChain.mutate(archiveTarget.id, {
+              onSuccess: () => { toast.success('Chain archived'); setArchiveTarget(null) },
+              onError: (e) => toast.error(e.message),
+            })
+          }
+        }}
+        onOpenChange={(o) => { if (!o) setArchiveTarget(null) }}
+      />
     </div>
   )
 }

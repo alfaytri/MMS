@@ -78,3 +78,61 @@ export async function requireAuth(): Promise<
   if (!user) return { ok: false, status: 401, message: 'Unauthorized' }
   return { ok: true, authUserId: user.id, email: user.email ?? null }
 }
+
+/**
+ * Generic permission gate. Requires the caller to have ANY of the listed
+ * permissions via their assigned custom roles. System admins (is_system=true)
+ * always pass. Use this instead of requireAdmin() when a route is gated by a
+ * permission OTHER than master_data.users.manage.
+ */
+export async function requirePermission(
+  permission: string | string[],
+): Promise<AdminGateSuccess | AdminGateFailure> {
+  const required = Array.isArray(permission) ? permission : [permission]
+
+  const supabase = await createServerClient()
+  const { data: { user } } = await supabase.auth.getUser()
+  if (!user) return { ok: false, status: 401, message: 'Unauthorized' }
+
+  const bootstrapEmail = process.env.ADMIN_BOOTSTRAP_EMAIL?.trim().toLowerCase()
+  const callerEmail = user.email?.trim().toLowerCase() ?? null
+  if (bootstrapEmail && callerEmail === bootstrapEmail) {
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const { data: bp } = await (supabase as any)
+      .from('profiles')
+      .select('id')
+      .eq('auth_user_id', user.id)
+      .maybeSingle()
+    return { ok: true, authUserId: user.id, email: callerEmail, profileId: bp?.id ?? '' }
+  }
+
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const { data: profile } = await (supabase as any)
+    .from('profiles')
+    .select('id, user_custom_roles!user_custom_roles_profile_id_fkey(custom_roles(is_system, permissions))')
+    .eq('auth_user_id', user.id)
+    .maybeSingle()
+
+  if (!profile) {
+    return { ok: false, status: 403, message: 'Forbidden — no profile linked to this user' }
+  }
+
+  const roles: Array<{ custom_roles: { is_system: boolean; permissions: string[] } | null }> =
+    profile.user_custom_roles ?? []
+
+  const isSystemAdmin = roles.some((r) => r.custom_roles?.is_system === true)
+  if (isSystemAdmin) {
+    return { ok: true, authUserId: user.id, email: callerEmail, profileId: profile.id }
+  }
+
+  const perms: string[] = roles.flatMap((r) => r.custom_roles?.permissions ?? [])
+  if (required.some((p) => perms.includes(p))) {
+    return { ok: true, authUserId: user.id, email: callerEmail, profileId: profile.id }
+  }
+
+  return {
+    ok: false,
+    status: 403,
+    message: `Forbidden — required permission: ${required.join(' or ')}`,
+  }
+}

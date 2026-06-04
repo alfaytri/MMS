@@ -110,10 +110,10 @@ export function PaymentScheduleSection({
           </div>
           <div className="bg-blue-50 rounded-lg p-4">
             <p className="font-medium">
-              Payment Amount ({frequency}): {paymentAmount.toLocaleString()} QAR
+              Payment Amount ({FREQUENCIES.find((f) => f.value === frequency)?.label || frequency}): {paymentAmount.toLocaleString()} QAR
             </p>
             <p className="text-sm text-muted-foreground">
-              {periodCount} payments over the contract period
+              {periodCount} payment{periodCount !== 1 ? 's' : ''} over the contract period
             </p>
           </div>
         </div>

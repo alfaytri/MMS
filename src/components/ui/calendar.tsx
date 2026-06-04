@@ -10,21 +10,142 @@ import { DayPicker } from "react-day-picker"
 import { cn } from "@/lib/utils"
 import { buttonVariants } from "@/components/ui/button"
 
+const MONTHS = [
+  "Jan", "Feb", "Mar", "Apr", "May", "Jun",
+  "Jul", "Aug", "Sep", "Oct", "Nov", "Dec",
+]
+
 function Calendar({
   className,
   classNames,
   showOutsideDays = true,
   ...props
 }: React.ComponentProps<typeof DayPicker>) {
+  const [pickerView, setPickerView] = React.useState<"days" | "months" | "years">("days")
+  const [viewingDate, setViewingDate] = React.useState<Date>(
+    () => (props as any).defaultMonth ?? (props as any).selected ?? new Date()
+  )
+
+  const viewingYear = viewingDate.getFullYear()
+  const viewingMonth = viewingDate.getMonth()
+
+  // Year grid: show 12 years centered on current
+  const yearStart = viewingYear - 5
+  const years = Array.from({ length: 12 }, (_, i) => yearStart + i)
+
+  function handleMonthClick(monthIdx: number) {
+    const d = new Date(viewingYear, monthIdx, 1)
+    setViewingDate(d)
+    setPickerView("days")
+  }
+
+  function handleYearClick(year: number) {
+    const d = new Date(year, viewingMonth, 1)
+    setViewingDate(d)
+    setPickerView("months")
+  }
+
+  const pickerShell = "p-3 w-[276px]";
+
+  if (pickerView === "years") {
+    return (
+      <div className={cn(pickerShell, className)}>
+        <div className="flex items-center justify-between mb-3">
+          <button
+            type="button"
+            onClick={() => setViewingDate(new Date(viewingYear - 12, viewingMonth, 1))}
+            className={cn(buttonVariants({ variant: "outline" }), "h-7 w-7 p-0 opacity-50 hover:opacity-100")}
+          >
+            <ChevronLeftIcon className="h-4 w-4" />
+          </button>
+          <span className="text-sm font-medium">
+            {yearStart} – {yearStart + 11}
+          </span>
+          <button
+            type="button"
+            onClick={() => setViewingDate(new Date(viewingYear + 12, viewingMonth, 1))}
+            className={cn(buttonVariants({ variant: "outline" }), "h-7 w-7 p-0 opacity-50 hover:opacity-100")}
+          >
+            <ChevronRightIcon className="h-4 w-4" />
+          </button>
+        </div>
+        <div className="grid grid-cols-3 gap-2">
+          {years.map((y) => (
+            <button
+              key={y}
+              type="button"
+              onClick={() => handleYearClick(y)}
+              className={cn(
+                "h-9 rounded-md text-sm transition-colors hover:bg-accent hover:text-accent-foreground",
+                y === new Date().getFullYear() && "bg-accent text-accent-foreground font-medium",
+                y === viewingYear && "bg-primary text-primary-foreground font-medium",
+              )}
+            >
+              {y}
+            </button>
+          ))}
+        </div>
+      </div>
+    )
+  }
+
+  if (pickerView === "months") {
+    return (
+      <div className={cn(pickerShell, className)}>
+        <div className="flex items-center justify-between mb-3">
+          <button
+            type="button"
+            onClick={() => setViewingDate(new Date(viewingYear - 1, viewingMonth, 1))}
+            className={cn(buttonVariants({ variant: "outline" }), "h-7 w-7 p-0 opacity-50 hover:opacity-100")}
+          >
+            <ChevronLeftIcon className="h-4 w-4" />
+          </button>
+          <button
+            type="button"
+            onClick={() => setPickerView("years")}
+            className="text-sm font-medium hover:underline cursor-pointer"
+          >
+            {viewingYear}
+          </button>
+          <button
+            type="button"
+            onClick={() => setViewingDate(new Date(viewingYear + 1, viewingMonth, 1))}
+            className={cn(buttonVariants({ variant: "outline" }), "h-7 w-7 p-0 opacity-50 hover:opacity-100")}
+          >
+            <ChevronRightIcon className="h-4 w-4" />
+          </button>
+        </div>
+        <div className="grid grid-cols-3 gap-2">
+          {MONTHS.map((m, idx) => (
+            <button
+              key={m}
+              type="button"
+              onClick={() => handleMonthClick(idx)}
+              className={cn(
+                "h-9 rounded-md text-sm transition-colors hover:bg-accent hover:text-accent-foreground",
+                idx === new Date().getMonth() && viewingYear === new Date().getFullYear() && "bg-accent text-accent-foreground font-medium",
+                idx === viewingMonth && "bg-primary text-primary-foreground font-medium",
+              )}
+            >
+              {m}
+            </button>
+          ))}
+        </div>
+      </div>
+    )
+  }
+
   return (
     <DayPicker
       showOutsideDays={showOutsideDays}
       className={cn("p-3", className)}
+      month={viewingDate}
+      onMonthChange={setViewingDate}
       classNames={{
         months: "flex flex-col sm:flex-row gap-2",
         month: "flex flex-col gap-4",
         month_caption: "flex justify-center pt-1 relative items-center w-full",
-        caption_label: "text-sm font-medium",
+        caption_label: "text-sm font-medium cursor-pointer hover:underline",
         nav: "flex items-center gap-1",
         button_previous: cn(
           buttonVariants({ variant: "outline" }),
@@ -66,12 +187,21 @@ function Calendar({
         ...classNames,
       }}
       components={{
-        Chevron: ({ orientation, ...props }) => {
+        Chevron: ({ orientation, ...chevronProps }) => {
           if (orientation === "left") {
-            return <ChevronLeftIcon className="h-4 w-4" {...props} />
+            return <ChevronLeftIcon className="h-4 w-4" {...chevronProps} />
           }
-          return <ChevronRightIcon className="h-4 w-4" {...props} />
+          return <ChevronRightIcon className="h-4 w-4" {...chevronProps} />
         },
+        CaptionLabel: ({ children }) => (
+          <button
+            type="button"
+            onClick={() => setPickerView("months")}
+            className="text-sm font-medium hover:underline cursor-pointer"
+          >
+            {children}
+          </button>
+        ),
       }}
       {...props}
     />

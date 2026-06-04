@@ -20,7 +20,7 @@ import { useUpdateContract } from '@/hooks/useUpdateContract'
 import { useCurrentUserProfile } from '@/hooks/useProfiles'
 import { useUserDivisionScope } from '@/hooks/useUserDivisionScope'
 import {
-  computeSubtotal, computeNetTotal, computeMonthlyValue,
+  computeSubtotal, computeNetTotal, computeMonthlyValue, computePaymentValue,
   validateBeforeSave, validateTreeIntegrity, generateAllVisits,
 } from '@/lib/contractUtils'
 import { saveContractFull } from '@/hooks/useUpdateContract'
@@ -32,6 +32,7 @@ import { AddContractServiceDialog } from '@/components/contracts/AddContractServ
 import { PaymentScheduleSection } from '@/components/contracts/PaymentScheduleSection'
 import { ContractTermsSection } from '@/components/contracts/ContractTermsSection'
 import { VisitSummarySection } from '@/components/contracts/VisitSummarySection'
+import { ServiceScheduleSection } from '@/components/contracts/ServiceScheduleSection'
 import { SignedDocUploadBanner } from '@/components/contracts/SignedDocUploadBanner'
 import { STATUS_CONFIG, QUOTATION_STATUSES } from '@/types/contracts'
 import type {
@@ -108,9 +109,14 @@ export default function ContractDetailPage() {
   }, [loadedMilestones])
 
   // Computed
-  const subtotal = computeSubtotal(localServices)
+  const subtotal = computeSubtotal(localServices, startDate, endDate)
   const netTotal = computeNetTotal(subtotal, discount)
   const monthlyValue = startDate && endDate ? computeMonthlyValue(netTotal, startDate, endDate) : 0
+  const paymentValue = startDate && endDate ? computePaymentValue(netTotal, startDate, endDate, paymentFrequency) : 0
+  const frequencyLabel: Record<string, string> = {
+    monthly: 'Monthly', quarterly: 'Quarterly',
+    semi_annual: 'Semi-Annual', annual: 'Annual',
+  }
   const generalServices = localServices.filter((s) => s.is_general)
   const statusConfig = contract ? STATUS_CONFIG[contract.status] : null
 
@@ -244,21 +250,27 @@ export default function ContractDetailPage() {
           <Button variant="ghost" size="sm" onClick={() => router.back()}>
             <ArrowLeft className="h-4 w-4" />
           </Button>
-          <div>
-            <div className="flex items-center gap-2">
-              <h1 className="text-xl font-bold sm:text-2xl">
+          <div className="space-y-1.5">
+            <div className="flex items-baseline gap-3">
+              <h1 className="text-xl font-semibold tracking-tight sm:text-2xl">
                 {contract.contract_id || contract.quotation_number || 'Contract'}
               </h1>
-              {statusConfig && (
-                <Badge className={statusConfig.color}>{statusConfig.label}</Badge>
+              {contract.divisions.length > 0 && (
+                <span className="text-sm text-muted-foreground">
+                  {contract.divisions.join(' · ')}
+                </span>
               )}
             </div>
-            <div className="flex items-center gap-2 mt-1">
-              {contract.divisions.map((d) => (
-                <Badge key={d} variant="secondary" className="text-xs">{d}</Badge>
-              ))}
-              {isQuotation && <WorkflowProgressBar currentStatus={contract.status} />}
-            </div>
+            {isQuotation ? (
+              <WorkflowProgressBar currentStatus={contract.status} />
+            ) : (
+              statusConfig && (
+                <span className="inline-flex items-center gap-1.5 text-xs font-medium text-muted-foreground">
+                  <span className="h-1.5 w-1.5 rounded-full bg-primary" />
+                  {statusConfig.label}
+                </span>
+              )
+            )}
           </div>
         </div>
         <div className="flex items-center gap-2 flex-wrap">
@@ -362,7 +374,7 @@ export default function ContractDetailPage() {
               <FieldDisplay label="Start Date" value={contract.start_date} />
               <FieldDisplay label="End Date" value={contract.end_date} />
               <FieldDisplay label="Total Value" value={`${contract.total_value.toLocaleString()} QAR`} />
-              <FieldDisplay label="Monthly Value" value={`${contract.monthly_value.toLocaleString()} QAR`} />
+              <FieldDisplay label={`${frequencyLabel[contract.payment_frequency || 'monthly'] || 'Monthly'} Value`} value={`${contract.monthly_value.toLocaleString()} QAR`} />
             </>
           )}
         </div>
@@ -426,6 +438,16 @@ export default function ContractDetailPage() {
       {isQuotation && localServices.length > 0 && startDate && endDate && (
         <SectionCard title="Visit Summary">
           <VisitSummarySection services={localServices} startDate={startDate} endDate={endDate} />
+        </SectionCard>
+      )}
+
+      {/* Live phase: team scheduling (drag-and-drop) */}
+      {!isQuotation && visits.length > 0 && (
+        <SectionCard title="Team Scheduling">
+          <ServiceScheduleSection
+            contractId={contractId}
+            divisions={contract.divisions || []}
+          />
         </SectionCard>
       )}
 
@@ -589,7 +611,7 @@ export default function ContractDetailPage() {
             )}
             <FieldDisplay label="Subtotal" value={`${subtotal.toLocaleString()} QAR`} />
             <FieldDisplay label="Net Total" value={`${netTotal.toLocaleString()} QAR`} />
-            <FieldDisplay label="Monthly Value" value={`${monthlyValue.toLocaleString()} QAR`} />
+            <FieldDisplay label={`${frequencyLabel[paymentFrequency] || 'Monthly'} Value`} value={`${paymentValue.toLocaleString()} QAR`} />
           </div>
         </SectionCard>
       )}

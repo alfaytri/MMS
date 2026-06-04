@@ -201,9 +201,11 @@ Purchase & Sales▾:
 
 ## 🔄 In Progress
 
-None
+🚀 Starting: **Contract Services V2 Task 2: Zod Schema + Form Defaults**
 
 ## ✅ Completed
+
+- [2026-06-03] **Contract Services V2 Task 1: Database Migration** — `supabase/migrations/20260603115450_contract_services_v2.sql`, `src/types/database.types.ts` — Added item_kind, pricing_mode, discount_scope columns to services table; applied via supabase db push; regenerated TypeScript types
 
 - [2026-05-31] **Traccar Fleet Module Task 13: Wire Everything in the Map Page** — `src/app/(dashboard)/map/page.tsx` — Replaced all stub props with real data hooks (useVehicles, useTraccarPositions, useTraccarGeofences, useTraccarHistory); added dynamic imports for VehicleMarkerLayer, VehicleTrail, GeofenceLayer, GeofenceDrawer; wired onMapReady to capture L.Map instance; added handleViewHistory (today's date range), handleFlyToVehicle, handleDrawComplete callbacks; wrapped map area in relative div with floating "Close History" button
 

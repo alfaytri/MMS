@@ -190,7 +190,7 @@ export function ContractBuildingTree({
                           setAddDialogOpen(true)
                         }}
                       >
-                        Add Child Node
+                        Add Floor / Area
                       </DropdownMenuItem>
                     )}
                     <DropdownMenuItem
@@ -249,7 +249,7 @@ export function ContractBuildingTree({
           }}
         >
           <Plus className="h-3.5 w-3.5 mr-1" />
-          Add Root Node
+          Add Building / Complex
         </Button>
       )}
 

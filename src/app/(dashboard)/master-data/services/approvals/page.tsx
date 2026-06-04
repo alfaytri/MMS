@@ -79,8 +79,8 @@ export default function ServiceApprovalsPage() {
       })
       toast.success('Change approved')
       setApproveTarget(null)
-    } catch (err: unknown) {
-      toast.error(err instanceof Error ? err.message : 'Failed to approve')
+    } catch (err: any) {
+      toast.error(err?.message || String(err) || 'Failed to approve')
     }
   }
 
@@ -100,8 +100,8 @@ export default function ServiceApprovalsPage() {
       toast.success('Change rejected')
       setRejectTarget(null)
       setRejectReason('')
-    } catch (err: unknown) {
-      toast.error(err instanceof Error ? err.message : 'Failed to reject')
+    } catch (err: any) {
+      toast.error(err?.message || String(err) || 'Failed to reject')
     }
   }
 
@@ -144,7 +144,7 @@ export default function ServiceApprovalsPage() {
                 <th className="text-left px-3 py-2 font-medium">Changes</th>
                 <th className="text-left px-3 py-2 font-medium w-[140px]">Requested By</th>
                 <th className="text-left px-3 py-2 font-medium w-[100px]">When</th>
-                {tab === 'pending' && <th className="text-right px-3 py-2 font-medium w-[160px]">Actions</th>}
+                {tab === 'pending' && <th className="text-right px-3 py-2 font-medium w-[200px]">Actions</th>}
                 {tab === 'rejected' && <th className="text-left px-3 py-2 font-medium">Reason</th>}
               </tr>
             </thead>
@@ -172,15 +172,17 @@ export default function ServiceApprovalsPage() {
                     {formatDistanceToNow(new Date(req.requested_at), { addSuffix: true })}
                   </td>
                   {tab === 'pending' && (
-                    <td className="px-3 py-2 text-right space-x-1">
-                      <Button size="sm" variant="outline" className="h-7 text-green-700 border-green-300 hover:bg-green-50"
-                        onClick={() => setApproveTarget(req)}>
-                        Approve
-                      </Button>
-                      <Button size="sm" variant="outline" className="h-7 text-red-700 border-red-300 hover:bg-red-50"
-                        onClick={() => { setRejectTarget(req); setRejectReason('') }}>
-                        Reject
-                      </Button>
+                    <td className="px-3 py-2">
+                      <div className="flex items-center justify-end gap-2">
+                        <Button size="sm" variant="outline" className="h-7 w-20 text-green-700 border-green-300 hover:bg-green-50"
+                          onClick={() => setApproveTarget(req)}>
+                          Approve
+                        </Button>
+                        <Button size="sm" variant="outline" className="h-7 w-20 text-red-700 border-red-300 hover:bg-red-50"
+                          onClick={() => { setRejectTarget(req); setRejectReason('') }}>
+                          Reject
+                        </Button>
+                      </div>
                     </td>
                   )}
                   {tab === 'rejected' && (

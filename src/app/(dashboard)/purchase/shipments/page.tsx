@@ -550,7 +550,7 @@ export default function ShipmentsPage() {
       <PageHeader
         title="Shipments"
         description="Track shipments linked to purchase orders"
-        action={{ label: '+ Create Shipment', onClick: () => setCreateOpen(true) }}
+        action={{ label: 'Create Shipment', onClick: () => setCreateOpen(true) }}
       />
 
       <div className="flex flex-col sm:flex-row gap-3 items-start sm:items-center">

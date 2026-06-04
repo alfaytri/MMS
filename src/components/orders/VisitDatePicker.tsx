@@ -55,6 +55,7 @@ export function VisitDatePicker({ selected, onChange }: Props) {
         <PopoverContent
           className="w-auto p-0"
           align="start"
+          side="bottom"
           sideOffset={4}
         >
           <DayPicker

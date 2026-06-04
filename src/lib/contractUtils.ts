@@ -40,8 +40,18 @@ export function paymentPeriodCount(
   return Math.max(count, 1)
 }
 
-export function computeSubtotal(services: ContractService[]): number {
-  return services.reduce((sum, s) => sum + s.total_price, 0)
+export function computeSubtotal(
+  services: ContractService[],
+  startDate?: string,
+  endDate?: string,
+): number {
+  return services.reduce((sum, s) => {
+    const visitCount =
+      startDate && endDate
+        ? paymentPeriodCount(startDate, endDate, s.frequency)
+        : 1
+    return sum + s.total_price * visitCount
+  }, 0)
 }
 
 export function computeNetTotal(subtotal: number, discount: number): number {
@@ -55,6 +65,16 @@ export function computeMonthlyValue(
 ): number {
   const months = paymentPeriodCount(startDate, endDate, 'monthly')
   return months > 0 ? Math.round(netTotal / months) : netTotal
+}
+
+export function computePaymentValue(
+  netTotal: number,
+  startDate: string,
+  endDate: string,
+  frequency: string,
+): number {
+  const periods = paymentPeriodCount(startDate, endDate, frequency)
+  return periods > 0 ? Math.round(netTotal / periods) : netTotal
 }
 
 export function computeUnitPrice(
@@ -91,6 +111,7 @@ export function generateAllVisits(
 ): PendingVisit[] {
   const visits: PendingVisit[] = []
   for (const svc of services) {
+    if (svc.item_kind === 'product') continue
     const step = frequencyStep[svc.frequency]
     if (!step) continue
     let current = parseISO(startDate)
@@ -227,9 +248,10 @@ export function validateBeforeSave(
     }
   }
 
-  const subtotal = formData.services.reduce(
-    (sum, s) => sum + s.total_price,
-    0,
+  const subtotal = computeSubtotal(
+    formData.services,
+    formData.startDate,
+    formData.endDate,
   )
   if (formData.discount > subtotal) {
     errors.push(

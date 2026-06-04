@@ -19,11 +19,11 @@ export function useApprovalChains() {
       const supabase = createClient()
       const { data, error } = await (supabase as any)
         .from('approval_chains')
-        .select('*, approval_chain_tiers(*)')
-        .eq('is_active', true)
+        .select('*, approval_chain_tiers(*), divisions(name, short_name)')
+        .is('archived_at', null)
         .order('created_at', { ascending: true })
       if (error) throw error
-      return data as ApprovalChain[]
+      return data as (ApprovalChain & { divisions: { name: string; short_name: string | null } | null })[]
     },
     staleTime: 60 * 1000,
   })
@@ -116,6 +116,42 @@ export function useUpsertApprovalChainTier() {
         }).select().single()
       if (error) throw error
       return data
+    },
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ['approval-chains'] })
+      qc.invalidateQueries({ queryKey: ['approval-chain-for-division'] })
+    },
+  })
+}
+
+export function useToggleChainActive() {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: async ({ id, is_active }: { id: string; is_active: boolean }) => {
+      const supabase = createClient()
+      const { error } = await (supabase as any)
+        .from('approval_chains')
+        .update({ is_active })
+        .eq('id', id)
+      if (error) throw error
+    },
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ['approval-chains'] })
+      qc.invalidateQueries({ queryKey: ['approval-chain-for-division'] })
+    },
+  })
+}
+
+export function useArchiveApprovalChain() {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: async (id: string) => {
+      const supabase = createClient()
+      const { error } = await (supabase as any)
+        .from('approval_chains')
+        .update({ is_active: false, archived_at: new Date().toISOString() })
+        .eq('id', id)
+      if (error) throw error
     },
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ['approval-chains'] })

@@ -99,6 +99,23 @@ export function usePendingAddRequests() {
   })
 }
 
+export function usePendingServiceChangeCount() {
+  return useQuery({
+    queryKey: ['service-change-requests', 'pending-count'],
+    queryFn: async () => {
+      const supabase = createClient()
+      const { count, error } = await (supabase as any)
+        .from('service_change_requests')
+        .select('*', { count: 'exact', head: true })
+        .eq('status', 'pending')
+      if (error) throw error
+      return count ?? 0
+    },
+    staleTime: 30 * 1000,
+    refetchInterval: 60 * 1000,
+  })
+}
+
 export function useSubmitServiceChange() {
   const queryClient = useQueryClient()
   return useMutation({

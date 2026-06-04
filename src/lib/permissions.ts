@@ -121,9 +121,10 @@ export const PERMISSION_GROUPS: PermissionGroup[] = [
     module: 'Contracts',
     icon: asFC(FileText),
     permissions: [
-      { key: 'contracts.view',   label: 'View Contracts',   description: 'Access the contracts list and details' },
-      { key: 'contracts.create', label: 'Create Contracts', description: 'Create new service contracts' },
-      { key: 'contracts.edit',   label: 'Edit Contracts',   description: 'Edit existing contract details' },
+      { key: 'contracts.view',     label: 'View Contracts',         description: 'Access the contracts list and details' },
+      { key: 'contracts.create',   label: 'Create Contracts',       description: 'Create new service contracts' },
+      { key: 'contracts.edit',     label: 'Edit Contracts',         description: 'Edit existing contract details' },
+      { key: 'contracts.activate', label: 'Activate / Manage Docs', description: 'Activate contracts and upload/delete contract documents (terms, signed PDFs)' },
     ],
   },
   {

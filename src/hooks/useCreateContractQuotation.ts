@@ -68,6 +68,12 @@ export function useCreateContractQuotation() {
           divisions: s.divisions,
           note: s.note,
           is_general: s.is_general,
+          contract_type: s.contract_type,
+          item_kind: s.item_kind,
+          pricing_mode: s.pricing_mode,
+          discount: s.discount,
+          discount_scope: s.discount_scope,
+          price_unit: s.price_unit,
           sort_order: i,
         }))
         const { error: svcError } = await supabase

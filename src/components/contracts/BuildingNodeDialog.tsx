@@ -19,6 +19,7 @@ export function BuildingNodeDialog({ open, onOpenChange, parentType, onAdd }: Pr
   const [name, setName] = useState('')
   const [type, setType] = useState('')
 
+  const isRoot = !parentType
   const allowedTypes = parentType
     ? NODE_TYPE_CHILDREN[parentType] || []
     : ROOT_NODE_TYPES
@@ -35,7 +36,7 @@ export function BuildingNodeDialog({ open, onOpenChange, parentType, onAdd }: Pr
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="sm:max-w-md">
         <DialogHeader>
-          <DialogTitle>Add Node</DialogTitle>
+          <DialogTitle>{isRoot ? 'Add Building / Complex' : 'Add Floor / Area'}</DialogTitle>
         </DialogHeader>
         <div className="space-y-4 py-4">
           <div className="space-y-2">
@@ -44,7 +45,7 @@ export function BuildingNodeDialog({ open, onOpenChange, parentType, onAdd }: Pr
               id="node-name"
               value={name}
               onChange={(e) => setName(e.target.value)}
-              placeholder="e.g., Building A"
+              placeholder={isRoot ? 'e.g., Building A' : 'e.g., Floor 1, Reception Area'}
               autoFocus
             />
           </div>

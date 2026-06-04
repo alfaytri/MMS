@@ -60,6 +60,12 @@ export interface ContractService {
   divisions: string[];
   note: string | null;
   is_general: boolean;
+  contract_type: 'preventive' | 'area' | 'general';
+  item_kind: 'service' | 'product';
+  pricing_mode: 'fixed' | 'by_condition';
+  discount: number;
+  discount_scope: 'services_only' | 'services_and_products';
+  price_unit: string | null;
   sort_order: number;
   _isNew?: boolean;
   _isDirty?: boolean;

@@ -44,7 +44,7 @@ function DatePicker({
         </span>
         <CalendarIcon className="ml-2 h-4 w-4 shrink-0 opacity-50" />
       </PopoverTrigger>
-      <PopoverContent className="w-auto p-0" align="start">
+      <PopoverContent className="w-auto p-0" align="start" side="bottom">
         <Calendar
           mode="single"
           selected={isValidDate ? date : undefined}

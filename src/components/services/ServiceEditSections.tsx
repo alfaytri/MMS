@@ -35,6 +35,9 @@ export const serviceSchema = z.object({
   price_unit: z.string().nullable(),
   // Contract
   contract_type: z.enum(['preventive', 'area', 'general']).nullable(),
+  item_kind: z.enum(['service', 'product']).nullable(),
+  pricing_mode: z.enum(['fixed', 'by_condition']).nullable(),
+  discount_scope: z.enum(['services_only', 'services_and_products']).nullable(),
   // Duration & Warranty
   duration: z.coerce.number().nullable(),
   warranty: z.coerce.number().nullable(),
@@ -86,6 +89,9 @@ export function toDefaults(
     discount: s?.discount ?? null,
     price_unit: s?.price_unit ?? null,
     contract_type: (s?.contract_type as ServiceFormValues['contract_type']) ?? null,
+    item_kind: s?.item_kind ?? 'service',
+    pricing_mode: s?.pricing_mode ?? 'by_condition',
+    discount_scope: s?.discount_scope ?? 'services_only',
     duration: s?.duration ?? null,
     warranty: s?.warranty ?? null,
     invoice_text_en: s?.invoice_text_en ?? null,
@@ -134,7 +140,16 @@ export function CoreSection({ form }: { form: UseFormReturn<ServiceFormValues> }
         <FormField control={form.control} name="code" render={({ field }) => (
           <FormItem>
             <FormLabel>Service Code</FormLabel>
-            <FormControl><Input {...field} value={field.value ?? ''} /></FormControl>
+            <FormControl>
+              <Input
+                {...field}
+                value={field.value ?? ''}
+                readOnly
+                disabled
+                placeholder="Auto-generated"
+                className="bg-muted/50"
+              />
+            </FormControl>
             <FormMessage />
           </FormItem>
         )} />
@@ -323,6 +338,123 @@ export function ContractSection({ form }: { form: UseFormReturn<ServiceFormValue
           </FormItem>
         )} />
       )}
+    </div>
+  )
+}
+
+// ─── Item Kind ─────────────────────────────────────────────────────────────────
+
+export function ItemKindSection({ form }: { form: UseFormReturn<ServiceFormValues> }) {
+  return (
+    <div className="space-y-3">
+      <h4 className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">
+        Item Kind
+      </h4>
+      <FormField control={form.control} name="item_kind" render={({ field }) => (
+        <FormItem>
+          <div className="flex gap-2">
+            {([
+              { value: 'service', label: 'Service' },
+              { value: 'product', label: 'Product' },
+            ] as const).map((opt) => (
+              <Button
+                key={opt.value}
+                type="button"
+                size="sm"
+                variant={field.value === opt.value ? 'default' : 'outline'}
+                className={cn(
+                  'h-8 text-[11px] flex-1',
+                  field.value === opt.value
+                    ? 'bg-orange-500 text-white border-orange-500 hover:bg-orange-600'
+                    : 'border-orange-200 text-orange-700 hover:bg-orange-50',
+                )}
+                onClick={() => field.onChange(opt.value)}
+              >
+                {opt.label}
+              </Button>
+            ))}
+          </div>
+          <FormMessage />
+        </FormItem>
+      )} />
+    </div>
+  )
+}
+
+// ─── Pricing Mode ──────────────────────────────────────────────────────────────
+
+export function PricingModeSection({ form }: { form: UseFormReturn<ServiceFormValues> }) {
+  return (
+    <div className="space-y-3">
+      <h4 className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">
+        Pricing Mode
+      </h4>
+      <FormField control={form.control} name="pricing_mode" render={({ field }) => (
+        <FormItem>
+          <div className="flex gap-2">
+            {([
+              { value: 'fixed', label: 'Fixed Visit Price' },
+              { value: 'by_condition', label: 'By Reliability & Condition' },
+            ] as const).map((opt) => (
+              <Button
+                key={opt.value}
+                type="button"
+                size="sm"
+                variant={field.value === opt.value ? 'default' : 'outline'}
+                className={cn(
+                  'h-8 text-[11px] flex-1',
+                  field.value === opt.value
+                    ? 'bg-orange-500 text-white border-orange-500 hover:bg-orange-600'
+                    : 'border-orange-200 text-orange-700 hover:bg-orange-50',
+                )}
+                onClick={() => field.onChange(opt.value)}
+              >
+                {opt.label}
+              </Button>
+            ))}
+          </div>
+          <FormMessage />
+        </FormItem>
+      )} />
+    </div>
+  )
+}
+
+// ─── Discount Scope ────────────────────────────────────────────────────────────
+
+export function DiscountScopeSection({ form }: { form: UseFormReturn<ServiceFormValues> }) {
+  return (
+    <div className="space-y-3">
+      <h4 className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">
+        Discount Applies To
+      </h4>
+      <FormField control={form.control} name="discount_scope" render={({ field }) => (
+        <FormItem>
+          <div className="flex gap-2">
+            {([
+              { value: 'services_only', label: 'Services Only' },
+              { value: 'services_and_products', label: 'Services + Products' },
+            ] as const).map((opt) => (
+              <Button
+                key={opt.value}
+                type="button"
+                size="sm"
+                variant={field.value === opt.value ? 'default' : 'outline'}
+                className={cn(
+                  'h-8 text-[11px] flex-1',
+                  field.value === opt.value
+                    ? 'bg-orange-500 text-white border-orange-500 hover:bg-orange-600'
+                    : 'border-orange-200 text-orange-700 hover:bg-orange-50',
+                )}
+                onClick={() => field.onChange(opt.value)}
+              >
+                {opt.label}
+              </Button>
+            ))}
+          </div>
+          <FormMessage />
+        </FormItem>
+      )} />
     </div>
   )
 }

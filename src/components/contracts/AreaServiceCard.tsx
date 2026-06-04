@@ -30,6 +30,12 @@ export function AreaServiceCard({ service, editable, onEdit, onRemove, onViewMed
       )}
 
       <div className="flex flex-wrap items-center gap-1.5">
+        <Badge variant="outline" className="text-xs capitalize">
+          {service.contract_type}
+        </Badge>
+        {service.item_kind === 'product' && (
+          <Badge variant="secondary" className="text-xs">Product</Badge>
+        )}
         {service.brand_name && (
           <Badge variant="outline" className="text-xs">
             {service.brand_name}
@@ -46,14 +52,23 @@ export function AreaServiceCard({ service, editable, onEdit, onRemove, onViewMed
             {service.condition} {service.condition_factor}×
           </span>
         )}
-        <Badge variant="outline" className="text-xs">
-          {service.frequency}
-        </Badge>
+        {service.contract_type !== 'general' && (
+          <Badge variant="outline" className="text-xs">
+            {service.frequency}
+          </Badge>
+        )}
+        {service.contract_type === 'general' && service.discount > 0 && (
+          <Badge variant="outline" className="text-xs text-amber-700">
+            {service.discount}% off
+          </Badge>
+        )}
       </div>
 
       <div className="flex items-center justify-between">
         <span className="text-sm font-medium">
-          Qty {service.quantity} × {service.unit_price.toLocaleString()} QAR ={' '}
+          Qty {service.quantity}
+          {service.contract_type === 'area' && service.price_unit ? ` ${service.price_unit}` : ''}
+          {' × '}{service.unit_price.toLocaleString()} QAR ={' '}
           <span className="font-bold">{service.total_price.toLocaleString()} QAR</span>
         </span>
         <div className="flex items-center gap-1">

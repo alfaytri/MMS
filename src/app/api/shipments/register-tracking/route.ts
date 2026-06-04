@@ -1,6 +1,6 @@
 import { NextResponse } from 'next/server'
 import { createAdminClient } from '@/lib/supabase/admin'
-import { requireAdmin } from '@/lib/auth/require-admin'
+import { requirePermission } from '@/lib/auth/require-admin'
 import {
   registerTracking, getTrackInfo,
   ERR_QUOTA_EXCEEDED, ERR_AMBIGUOUS_CARRIER,
@@ -22,7 +22,7 @@ async function fetchWithBackoff(trackingNumber: string, carrierCode?: number) {
 
 
 export async function POST(request: Request) {
-  const gate = await requireAdmin()
+  const gate = await requirePermission('purchase.shipments.manage')
   if (!gate.ok) return NextResponse.json({ error: gate.message }, { status: gate.status })
 
   const { tracking_number, shipment_id, carrier_code } = await request.json()

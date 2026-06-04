@@ -1,7 +1,7 @@
 // src/components/purchase/ApprovalRoleAssignmentsTab.tsx
 'use client'
 
-import { useState } from 'react'
+import { useMemo, useState } from 'react'
 import { toast } from 'sonner'
 import { Plus, Trash2 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
@@ -29,6 +29,14 @@ const ROLE_LABELS: Record<ApprovalRole, string> = {
   warehouse_manager: 'Warehouse Manager',
 }
 
+const ROLE_COLOURS: Record<string, string> = {
+  purchase_manager:  'bg-blue-50 text-blue-700 border-blue-200',
+  accountant:        'bg-emerald-50 text-emerald-700 border-emerald-200',
+  owner:             'bg-amber-50 text-amber-700 border-amber-200',
+  employee:          'bg-gray-50 text-gray-500 border-gray-200',
+  warehouse_manager: 'bg-purple-50 text-purple-700 border-purple-200',
+}
+
 export function ApprovalRoleAssignmentsTab() {
   const { data: assignments = [], isLoading } = useApprovalRoleAssignments()
   const { data: profiles = [] } = useAllProfiles()
@@ -48,6 +56,28 @@ export function ApprovalRoleAssignmentsTab() {
       }
     )
   }
+
+  // Build a unified list: every profile gets a row, with their assigned role or "Employee" default
+  const userRows = useMemo(() => {
+    const assignedMap = new Map<string, { id: string; role: ApprovalRole; division_id: string | null }>()
+    for (const a of assignments) {
+      if (a.profile_id) assignedMap.set(a.profile_id, { id: a.id, role: a.role as ApprovalRole, division_id: a.division_id })
+    }
+    return profiles.map((p) => {
+      const assignment = assignedMap.get(p.id)
+      return {
+        profileId: p.id,
+        name: profileDisplayName(p),
+        role: assignment?.role ?? ('employee' as ApprovalRole),
+        scope: assignment?.division_id ? 'Division-specific' : 'Company-wide',
+        assignmentId: assignment?.id ?? null,
+        isDefault: !assignment,
+      }
+    }).sort((a, b) => {
+      if (a.isDefault !== b.isDefault) return a.isDefault ? 1 : -1
+      return a.name.localeCompare(b.name)
+    })
+  }, [profiles, assignments])
 
   if (isLoading) return <div className="text-sm text-muted-foreground p-4">Loading…</div>
 
@@ -106,32 +136,39 @@ export function ApprovalRoleAssignmentsTab() {
             </TableRow>
           </TableHeader>
           <TableBody>
-            {assignments.length === 0 ? (
+            {userRows.length === 0 ? (
               <TableRow>
                 <TableCell colSpan={4} className="text-center text-muted-foreground h-16 text-sm">
-                  No role assignments yet
+                  No users found
                 </TableCell>
               </TableRow>
             ) : (
-              assignments.map((a) => (
-                <TableRow key={a.id}>
-                  <TableCell className="font-medium">{a.profiles ? profileDisplayName(a.profiles) : '—'}</TableCell>
-                  <TableCell>
-                    <Badge variant="outline">{ROLE_LABELS[a.role as ApprovalRole] ?? a.role}</Badge>
-                  </TableCell>
-                  <TableCell className="text-sm text-muted-foreground">
-                    {a.division_id ? 'Division-specific' : 'Company-wide'}
-                  </TableCell>
-                  <TableCell>
-                    <Button
-                      variant="ghost" size="icon"
-                      onClick={() => removeAssignment.mutate(a.id, { onError: (e) => toast.error(e.message) })}
-                    >
-                      <Trash2 className="h-3.5 w-3.5 text-muted-foreground" />
-                    </Button>
-                  </TableCell>
-                </TableRow>
-              ))
+              userRows.map((row) => {
+                const colour = ROLE_COLOURS[row.role] ?? ''
+                return (
+                  <TableRow key={row.profileId}>
+                    <TableCell className="font-medium">{row.name}</TableCell>
+                    <TableCell>
+                      <Badge variant="outline" className={colour}>
+                        {ROLE_LABELS[row.role] ?? row.role}
+                      </Badge>
+                    </TableCell>
+                    <TableCell className="text-sm text-muted-foreground">
+                      {row.isDefault ? '—' : row.scope}
+                    </TableCell>
+                    <TableCell>
+                      {!row.isDefault && row.assignmentId && (
+                        <Button
+                          variant="ghost" size="icon"
+                          onClick={() => removeAssignment.mutate(row.assignmentId!, { onError: (e) => toast.error(e.message) })}
+                        >
+                          <Trash2 className="h-3.5 w-3.5 text-muted-foreground" />
+                        </Button>
+                      )}
+                    </TableCell>
+                  </TableRow>
+                )
+              })
             )}
           </TableBody>
         </Table>

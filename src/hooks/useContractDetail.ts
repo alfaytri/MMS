@@ -1,5 +1,6 @@
 'use client'
 
+import { useMemo } from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { createClient } from '@/lib/supabase/client'
 import type {
@@ -47,37 +48,57 @@ export function useContractDetail(contractId: string | undefined) {
     enabled: !!contractId,
   })
 
-  const contract: Contract | null = query.data
-    ? {
-        ...(query.data as any),
-        building_tree: (query.data as any).building_tree || { nodes: [] },
-      }
-    : null
-
-  const services: ContractService[] =
-    (query.data as any)?.contract_services || []
-  const visits: ContractVisit[] = ((query.data as any)?.contract_visits || []).map(
-    (v: any) => ({
-      id: v.id,
-      contract_id: v.contract_id,
-      contract_service_id: v.contract_service_id,
-      service_name: v.service_name,
-      scheduled_date: v.scheduled_date,
-      team_id: v.team_id,
-      team_name: v.teams?.name_en,
-      completed: v.completed || false,
-      building_node_id: v.contract_services?.building_node_id,
-      service_path: v.contract_services?.service_path,
-      brand_name: v.contract_services?.brand_name,
-      frequency: v.contract_services?.frequency,
-      divisions: v.contract_services?.divisions,
-    }),
+  // Memoize all derived values so references stay stable across renders.
+  // Without this, useEffect([services]) in consumers loops infinitely because
+  // `[] || ...` returns a new array reference on every render.
+  const contract: Contract | null = useMemo(
+    () =>
+      query.data
+        ? {
+            ...(query.data as any),
+            building_tree: (query.data as any).building_tree || { nodes: [] },
+          }
+        : null,
+    [query.data],
   )
-  const payments: ContractPayment[] =
-    (query.data as any)?.contract_payments || []
-  const milestones: ContractMilestone[] = (
-    (query.data as any)?.contract_milestones || []
-  ).sort((a: any, b: any) => (a.sort_order || 0) - (b.sort_order || 0))
+
+  const services: ContractService[] = useMemo(
+    () => (query.data as any)?.contract_services || [],
+    [query.data],
+  )
+
+  const visits: ContractVisit[] = useMemo(
+    () =>
+      ((query.data as any)?.contract_visits || []).map((v: any) => ({
+        id: v.id,
+        contract_id: v.contract_id,
+        contract_service_id: v.contract_service_id,
+        service_name: v.service_name,
+        scheduled_date: v.scheduled_date,
+        team_id: v.team_id,
+        team_name: v.teams?.name_en,
+        completed: v.completed || false,
+        building_node_id: v.contract_services?.building_node_id,
+        service_path: v.contract_services?.service_path,
+        brand_name: v.contract_services?.brand_name,
+        frequency: v.contract_services?.frequency,
+        divisions: v.contract_services?.divisions,
+      })),
+    [query.data],
+  )
+
+  const payments: ContractPayment[] = useMemo(
+    () => (query.data as any)?.contract_payments || [],
+    [query.data],
+  )
+
+  const milestones: ContractMilestone[] = useMemo(
+    () =>
+      ((query.data as any)?.contract_milestones || [])
+        .slice()
+        .sort((a: any, b: any) => (a.sort_order || 0) - (b.sort_order || 0)),
+    [query.data],
+  )
 
   const createTentativeVisits = useMutation({
     mutationFn: async (pendingVisits: PendingVisit[]) => {

@@ -24,7 +24,7 @@ import { createClient } from '@/lib/supabase/client'
 import { tryNormalisePhone } from '@/lib/contact-center/normalise-phone'
 import type { CustomerLookupResult } from '@/hooks/useCustomerLookup'
 import {
-  computeSubtotal, computeNetTotal, computeMonthlyValue,
+  computeSubtotal, computeNetTotal, computeMonthlyValue, computePaymentValue,
   validateBeforeSave, validateTreeIntegrity,
 } from '@/lib/contractUtils'
 import { AddressPicker } from '@/components/orders/AddressPicker'
@@ -132,9 +132,14 @@ export default function CreateContractQuotationPage() {
   }, [userDivisions, divisions.length])
 
   // Computed values
-  const subtotal = computeSubtotal(services)
+  const subtotal = computeSubtotal(services, startDate, endDate)
   const netTotal = computeNetTotal(subtotal, discount)
   const monthlyValue = startDate && endDate ? computeMonthlyValue(netTotal, startDate, endDate) : 0
+  const paymentValue = startDate && endDate ? computePaymentValue(netTotal, startDate, endDate, paymentFrequency) : 0
+  const frequencyLabel: Record<string, string> = {
+    monthly: 'Monthly', quarterly: 'Quarterly',
+    semi_annual: 'Semi-Annual', annual: 'Annual',
+  }
   const generalServices = services.filter((s) => s.is_general)
 
   const toggleDivision = (divId: string) => {
@@ -182,7 +187,7 @@ export default function CreateContractQuotationPage() {
 
   const divisionSlugs = userDivisions
     .filter((d) => divisions.includes(d.id))
-    .map((d) => d.short_name || d.name)
+    .map((d) => d.slug)
 
   function buildFormData(): ContractFormData {
     const areaCount = buildingTree.nodes.filter((n) => n.type === 'area').length
@@ -370,18 +375,29 @@ export default function CreateContractQuotationPage() {
           </div>
           <div className="space-y-2 sm:col-span-2">
             <Label>Divisions *</Label>
-            <div className="flex flex-wrap gap-2">
-              {userDivisions.map((d) => (
-                <Badge
-                  key={d.id}
-                  variant={divisions.includes(d.id) ? 'default' : 'outline'}
-                  className="cursor-pointer"
-                  onClick={() => toggleDivision(d.id)}
-                >
-                  {d.name}
-                </Badge>
-              ))}
-            </div>
+            <Select
+              value={divisions.length === 1 ? divisions[0] : divisions.length > 1 ? '__multiple__' : ''}
+              onValueChange={(v) => {
+                if (v && v !== '__multiple__') {
+                  setDivisions([v])
+                }
+              }}
+            >
+              <SelectTrigger>
+                <SelectValue placeholder="Select division">
+                  {divisions.length === 0
+                    ? 'Select division'
+                    : divisions.length === 1
+                      ? userDivisions.find((d) => d.id === divisions[0])?.name || 'Select division'
+                      : `${divisions.length} divisions selected`}
+                </SelectValue>
+              </SelectTrigger>
+              <SelectContent>
+                {userDivisions.map((d) => (
+                  <SelectItem key={d.id} value={d.id}>{d.name}</SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
           </div>
         </div>
       </SectionCard>
@@ -535,7 +551,7 @@ export default function CreateContractQuotationPage() {
           </div>
           <FieldDisplay label="Subtotal" value={`${subtotal.toLocaleString()} QAR`} />
           <FieldDisplay label="Net Total" value={`${netTotal.toLocaleString()} QAR`} />
-          <FieldDisplay label="Monthly Value" value={`${monthlyValue.toLocaleString()} QAR`} />
+          <FieldDisplay label={`${frequencyLabel[paymentFrequency] || 'Monthly'} Value`} value={`${paymentValue.toLocaleString()} QAR`} />
         </div>
       </SectionCard>
 
