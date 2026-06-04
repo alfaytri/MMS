@@ -58,9 +58,13 @@ supabase/.temp/
 /Old Schema/
 *.xlsx
 *.docx
+*.pdf
+DEMO-PREP.md
+/docs/Specification and Tables/
 
 # One-time / maintenance scripts (not application code)
 /scripts/
+temp_*.sql
 
 # Dev tooling
 /.agents/
