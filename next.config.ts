@@ -7,6 +7,7 @@ const nextConfig: NextConfig = {
   // Speed up dev + prod by tree-shaking barrel exports from heavy libraries.
   // Without this, `import { X } from 'lucide-react'` pulls the entire index on compile.
   experimental: {
+    viewTransition: true,
     optimizePackageImports: [
       'lucide-react',
       '@tanstack/react-query',
