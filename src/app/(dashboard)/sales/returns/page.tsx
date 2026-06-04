@@ -1,7 +1,7 @@
 'use client'
 
 import { useState, Suspense } from 'react'
-import { useRouter, useSearchParams } from 'next/navigation'
+import { useSearchParams } from 'next/navigation'
 import { toast } from 'sonner'
 import { PageHeader } from '@/components/shared/PageHeader'
 import { PageWrapper } from '@/components/shared/PageWrapper'
@@ -79,15 +79,10 @@ const PR_STATUS_LABEL: Record<string, string> = {
 
 // ─── Inner component (uses useSearchParams — requires Suspense wrapper) ───────
 function ReturnsContent() {
-  const router = useRouter()
   const searchParams = useSearchParams()
-  const returnType = (searchParams.get('type') ?? 'sale') as 'sale' | 'po'
-
-  function setReturnType(t: 'sale' | 'po') {
-    const params = new URLSearchParams(searchParams.toString())
-    params.set('type', t)
-    router.replace(`?${params.toString()}`)
-  }
+  const [returnType, setReturnType] = useState<'sale' | 'po'>(
+    (searchParams.get('type') ?? 'sale') as 'sale' | 'po'
+  )
 
   // ── Sale return state ──
   const [srSearch, setSrSearch] = useState('')

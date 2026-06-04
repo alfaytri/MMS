@@ -1127,7 +1127,7 @@ export default function LandedCostsPage() {
       <PageHeader
         title="Landed Costs"
         description="Allocate freight, customs and other costs to received goods"
-        action={{ label: '+ Create Landed Cost', onClick: () => setCreateOpen(true) }}
+        action={{ label: 'Create Landed Cost', onClick: () => setCreateOpen(true) }}
       />
 
       <SearchInput value={search} onChange={setSearch} placeholder="Search LC number or description…" />

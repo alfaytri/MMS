@@ -24,8 +24,15 @@ import { WhTransferDialog } from '@/components/purchase/wh/WhTransferDialog'
 
 function WarehousesPageInner() {
   const searchParams = useSearchParams()
-  const warehouseParam = searchParams.get('warehouse') ?? undefined
   const [activeTab, setActiveTab] = useState(searchParams.get('tab') ?? 'warehouses')
+  const [selectedWarehouseId, setSelectedWarehouseId] = useState<string | undefined>(
+    searchParams.get('warehouse') ?? undefined,
+  )
+
+  function handleViewStock(warehouseId: string) {
+    setSelectedWarehouseId(warehouseId)
+    setActiveTab('stock')
+  }
 
   const { data: warehouses = [] } = useWarehouses()
   const { data: currentProfile } = useCurrentUserProfile()
@@ -114,10 +121,10 @@ function WarehousesPageInner() {
 
         <div className="flex-1 overflow-auto">
           <TabsContent value="warehouses" className="mt-0 p-4 md:p-6">
-            <WhWarehousesTab warehouses={warehouses} />
+            <WhWarehousesTab warehouses={warehouses} onViewStock={handleViewStock} />
           </TabsContent>
           <TabsContent value="stock" className="mt-0">
-            <WhStockOverviewTab warehouses={warehouses} initialWarehouseId={warehouseParam} />
+            <WhStockOverviewTab warehouses={warehouses} initialWarehouseId={selectedWarehouseId} />
           </TabsContent>
           <TabsContent value="transfers" className="mt-0">
             <WhTransfersTab warehouses={warehouses} currentProfile={currentProfile ?? null} />

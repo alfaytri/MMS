@@ -1,7 +1,6 @@
 'use client'
 
 import React, { useMemo } from 'react'
-import { useRouter } from 'next/navigation'
 import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip'
@@ -10,6 +9,7 @@ import { Warehouse } from '@/hooks/useWarehouses'
 
 interface Props {
   warehouses: Warehouse[]
+  onViewStock?: (warehouseId: string) => void
 }
 
 const SEGMENT_COLORS = [
@@ -18,16 +18,14 @@ const SEGMENT_COLORS = [
   'bg-indigo-500', 'bg-pink-500', 'bg-lime-500', 'bg-sky-500',
 ]
 
-export const WhWarehousesTab = React.memo(function WhWarehousesTab({ warehouses }: Props) {
-  const router = useRouter()
-
+export const WhWarehousesTab = React.memo(function WhWarehousesTab({ warehouses, onViewStock }: Props) {
   const totalValue = useMemo(
     () => warehouses.reduce((sum, wh) => sum + (wh.total_value ?? 0), 0),
     [warehouses],
   )
 
   function viewStock(warehouseId: string) {
-    router.replace(`/purchase/warehouses?tab=stock&warehouse=${warehouseId}`, { scroll: false })
+    onViewStock?.(warehouseId)
   }
 
   if (warehouses.length === 0) {

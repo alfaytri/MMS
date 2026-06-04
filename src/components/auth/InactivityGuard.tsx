@@ -2,8 +2,11 @@
 
 import { useEffect, useRef, useCallback } from 'react'
 import { useRouter } from 'next/navigation'
+import { useQueryClient } from '@tanstack/react-query'
 import { toast } from 'sonner'
 import { createClient } from '@/lib/supabase/client'
+import { resetSessionVerified } from '@/components/auth/SessionGuard'
+import { resetCachedProfileId } from '@/hooks/useNotifications'
 
 const TIMEOUT_MS  = 30 * 60 * 1000  // 30 minutes
 const WARNING_MS  = 29 * 60 * 1000  // warn at 29 minutes
@@ -21,6 +24,7 @@ const ACTIVITY_EVENTS = [
  */
 export function InactivityGuard() {
   const router       = useRouter()
+  const queryClient  = useQueryClient()
   const lastActivity = useRef(Date.now())
   const warned       = useRef(false)
   const toastId      = useRef<string | number | undefined>(undefined)
@@ -48,6 +52,9 @@ export function InactivityGuard() {
         clearInterval(interval)
         const sb = createClient()
         await sb.auth.signOut()
+        queryClient.clear()
+        resetSessionVerified()
+        resetCachedProfileId()
         router.replace('/login?reason=timeout')
         return
       }
@@ -66,7 +73,7 @@ export function InactivityGuard() {
       ACTIVITY_EVENTS.forEach((e) => window.removeEventListener(e, resetActivity))
       clearInterval(interval)
     }
-  }, [router, resetActivity])
+  }, [router, queryClient, resetActivity])
 
   return null
 }

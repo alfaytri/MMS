@@ -111,13 +111,23 @@ export type NotificationRow = {
   created_at: string
 }
 
+// Cache profile ID in-memory — avoids 2 network calls per notification poll.
+// Reset on page reload (module re-evaluates) which handles user switching.
+let cachedProfileId: string | null | undefined = undefined
+
 async function getMyProfileId(): Promise<string | null> {
+  if (cachedProfileId !== undefined) return cachedProfileId as string | null
   const supabase = createClient()
   const { data: { user } } = await supabase.auth.getUser()
-  if (!user) return null
+  if (!user) { cachedProfileId = null; return null }
   const { data } = await (supabase as any)
     .from('profiles').select('id').eq('auth_user_id', user.id).maybeSingle()
-  return data?.id ?? null
+  cachedProfileId = data?.id ?? null
+  return cachedProfileId as string | null
+}
+
+export function resetCachedProfileId() {
+  cachedProfileId = undefined
 }
 
 export function useUnreadNotificationCount() {

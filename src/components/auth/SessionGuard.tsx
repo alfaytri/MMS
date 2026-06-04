@@ -23,6 +23,10 @@ import { createClient } from '@/lib/supabase/client'
 // Reset on full page reload (module re-evaluates).
 let sessionVerified = false
 
+export function resetSessionVerified() {
+  sessionVerified = false
+}
+
 export function SessionGuard({ children }: { children: React.ReactNode }) {
   const router = useRouter()
   const [verified, setVerified] = useState(sessionVerified)
