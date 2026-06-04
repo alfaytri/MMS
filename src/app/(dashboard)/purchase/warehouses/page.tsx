@@ -1,7 +1,7 @@
 'use client'
 
-import { Suspense } from 'react'
-import { useSearchParams, useRouter } from 'next/navigation'
+import { useState, Suspense } from 'react'
+import { useSearchParams } from 'next/navigation'
 import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs'
 import { Button } from '@/components/ui/button'
 import {
@@ -11,7 +11,6 @@ import {
 import { useWarehouses } from '@/hooks/useWarehouses'
 import { useWarehouseTransfers, useReceivalsAndDeliveries } from '@/hooks/useWarehouseOperations'
 import { useCurrentUserProfile } from '@/hooks/useProfiles'
-// Tab components (will exist after later tasks):
 import { WhWarehousesTab } from '@/components/purchase/wh/WhWarehousesTab'
 import { WhStockOverviewTab } from '@/components/purchase/wh/WhStockOverviewTab'
 import { WhTransfersTab } from '@/components/purchase/wh/WhTransfersTab'
@@ -25,11 +24,8 @@ import { WhTransferDialog } from '@/components/purchase/wh/WhTransferDialog'
 
 function WarehousesPageInner() {
   const searchParams = useSearchParams()
-  const router = useRouter()
-  const activeTab    = searchParams.get('tab')       ?? 'warehouses'
   const warehouseParam = searchParams.get('warehouse') ?? undefined
-  const setActiveTab = (val: string) =>
-    router.replace(`/purchase/warehouses?tab=${val}`, { scroll: false })
+  const [activeTab, setActiveTab] = useState(searchParams.get('tab') ?? 'warehouses')
 
   const { data: warehouses = [] } = useWarehouses()
   const { data: currentProfile } = useCurrentUserProfile()
