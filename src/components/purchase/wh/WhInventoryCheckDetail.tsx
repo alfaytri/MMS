@@ -1,6 +1,6 @@
 'use client'
 
-import React, { useState, useMemo } from 'react'
+import React, { useState, useMemo, useEffect } from 'react'
 import {
   CheckCircle2, Clock, XCircle, ChevronDown, ChevronRight,
   Milestone, User, AlertCircle,
@@ -366,6 +366,19 @@ export function WhInventoryCheckDetail({ check, open, onClose, currentProfile }:
 
   const activeApprovalStep = approvals.find((s) => s.status === 'pending')
 
+  // Controlled tab state — set once per check open; doesn't react to async data changes
+  const [activeTab, setActiveTab] = useState('timeline')
+  useEffect(() => {
+    if (myAssignment?.status === 'pending' || myAssignment?.status === 'in_progress') {
+      setActiveTab('count')
+    } else if (check.status === 'pending_approval') {
+      setActiveTab('approval')
+    } else {
+      setActiveTab('timeline')
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [check.id])
+
   async function handleApproval(approvalId: string, action: 'approved' | 'rejected') {
     setApprovingStep(approvalId)
     try {
@@ -385,13 +398,6 @@ export function WhInventoryCheckDetail({ check, open, onClose, currentProfile }:
       setApprovingStep(null)
     }
   }
-
-  // Determine default tab
-  const defaultTab = myAssignment?.status === 'pending' || myAssignment?.status === 'in_progress'
-    ? 'count'
-    : check.status === 'pending_approval'
-    ? 'approval'
-    : 'timeline'
 
   return (
     <Dialog open={open} onOpenChange={onClose}>
@@ -427,7 +433,7 @@ export function WhInventoryCheckDetail({ check, open, onClose, currentProfile }:
           </div>
         )}
 
-        <Tabs defaultValue={defaultTab} className="flex-1 min-h-0 flex flex-col">
+        <Tabs value={activeTab} onValueChange={setActiveTab} className="flex-1 min-h-0 flex flex-col">
           <TabsList className="flex-shrink-0 text-xs h-8">
             <TabsTrigger value="timeline"  className="text-xs h-7 px-3">Timeline</TabsTrigger>
             <TabsTrigger value="count"     className="text-xs h-7 px-3">
