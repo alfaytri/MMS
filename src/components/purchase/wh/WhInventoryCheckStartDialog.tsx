@@ -25,6 +25,7 @@ type UserOption = { id: string; name: string; title: string }
 
 function distributeCategories(categories: string[], users: UserOption[]): Map<string, string[]> {
   const result = new Map<string, string[]>()
+  if (users.length === 0) return result
   users.forEach((u) => result.set(u.id, []))
   categories.forEach((cat, i) => {
     const user = users[i % users.length]
