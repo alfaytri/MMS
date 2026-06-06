@@ -2253,10 +2253,95 @@ export type Database = {
           },
         ]
       }
+      inventory_check_approvals: {
+        Row: {
+          action_at: string | null
+          check_id: string
+          created_at: string
+          id: string
+          notes: string | null
+          profile_id: string | null
+          profile_name: string | null
+          status: string
+          step_label: string
+          step_order: number
+          step_role: string
+        }
+        Insert: {
+          action_at?: string | null
+          check_id: string
+          created_at?: string
+          id?: string
+          notes?: string | null
+          profile_id?: string | null
+          profile_name?: string | null
+          status?: string
+          step_label: string
+          step_order: number
+          step_role: string
+        }
+        Update: {
+          action_at?: string | null
+          check_id?: string
+          created_at?: string
+          id?: string
+          notes?: string | null
+          profile_id?: string | null
+          profile_name?: string | null
+          status?: string
+          step_label?: string
+          step_order?: number
+          step_role?: string
+        }
+        Relationships: []
+      }
+      inventory_check_assignments: {
+        Row: {
+          assigned_categories: string[]
+          check_id: string
+          completed_at: string | null
+          created_at: string
+          id: string
+          profile_id: string
+          profile_name: string
+          started_at: string | null
+          status: string
+          updated_at: string
+        }
+        Insert: {
+          assigned_categories?: string[]
+          check_id: string
+          completed_at?: string | null
+          created_at?: string
+          id?: string
+          profile_id: string
+          profile_name: string
+          started_at?: string | null
+          status?: string
+          updated_at?: string
+        }
+        Update: {
+          assigned_categories?: string[]
+          check_id?: string
+          completed_at?: string | null
+          created_at?: string
+          id?: string
+          profile_id?: string
+          profile_name?: string
+          started_at?: string | null
+          status?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
       inventory_check_items: {
         Row: {
+          assigned_profile_id: string | null
+          assigned_profile_name: string | null
+          assignment_id: string | null
           brand: string
           brand_variant_id: string
+          category_name: string | null
           check_id: string
           counted_qty: number | null
           created_at: string
@@ -2268,10 +2353,15 @@ export type Database = {
           system_qty: number
           updated_at: string
           variance: number | null
+          variance_type: string | null
         }
         Insert: {
+          assigned_profile_id?: string | null
+          assigned_profile_name?: string | null
+          assignment_id?: string | null
           brand: string
           brand_variant_id: string
+          category_name?: string | null
           check_id: string
           counted_qty?: number | null
           created_at?: string
@@ -2283,10 +2373,15 @@ export type Database = {
           system_qty?: number
           updated_at?: string
           variance?: number | null
+          variance_type?: string | null
         }
         Update: {
+          assigned_profile_id?: string | null
+          assigned_profile_name?: string | null
+          assignment_id?: string | null
           brand?: string
           brand_variant_id?: string
+          category_name?: string | null
           check_id?: string
           counted_qty?: number | null
           created_at?: string
@@ -2298,6 +2393,7 @@ export type Database = {
           system_qty?: number
           updated_at?: string
           variance?: number | null
+          variance_type?: string | null
         }
         Relationships: [
           {
@@ -2316,17 +2412,50 @@ export type Database = {
           },
         ]
       }
+      inventory_check_log: {
+        Row: {
+          check_id: string
+          created_at: string
+          event_type: string
+          id: string
+          meta: Record<string, unknown> | null
+          profile_id: string | null
+          profile_name: string | null
+        }
+        Insert: {
+          check_id: string
+          created_at?: string
+          event_type: string
+          id?: string
+          meta?: Record<string, unknown> | null
+          profile_id?: string | null
+          profile_name?: string | null
+        }
+        Update: {
+          check_id?: string
+          created_at?: string
+          event_type?: string
+          id?: string
+          meta?: Record<string, unknown> | null
+          profile_id?: string | null
+          profile_name?: string | null
+        }
+        Relationships: []
+      }
       inventory_checks: {
         Row: {
           check_number: string
           created_at: string
           created_by: string | null
           id: string
+          initiated_by_name: string | null
+          initiated_by_profile_id: string | null
           notes: string | null
           review_notes: string | null
           reviewed_at: string | null
           reviewed_by: string | null
           reviewed_by_name: string | null
+          started_at: string | null
           status: string
           submitted_at: string | null
           submitted_by: string | null
@@ -2340,11 +2469,14 @@ export type Database = {
           created_at?: string
           created_by?: string | null
           id?: string
+          initiated_by_name?: string | null
+          initiated_by_profile_id?: string | null
           notes?: string | null
           review_notes?: string | null
           reviewed_at?: string | null
           reviewed_by?: string | null
           reviewed_by_name?: string | null
+          started_at?: string | null
           status?: string
           submitted_at?: string | null
           submitted_by?: string | null
@@ -2358,11 +2490,14 @@ export type Database = {
           created_at?: string
           created_by?: string | null
           id?: string
+          initiated_by_name?: string | null
+          initiated_by_profile_id?: string | null
           notes?: string | null
           review_notes?: string | null
           reviewed_at?: string | null
           reviewed_by?: string | null
           reviewed_by_name?: string | null
+          started_at?: string | null
           status?: string
           submitted_at?: string | null
           submitted_by?: string | null
@@ -8367,7 +8502,9 @@ export type Database = {
           avg_cost: number | null
           brand: string | null
           brand_variant_id: string | null
+          category_name: string | null
           item_name: string | null
+          item_type: string | null
           qty: number | null
           sku: string | null
           total_value: number | null

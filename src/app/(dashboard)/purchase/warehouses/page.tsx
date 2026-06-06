@@ -19,7 +19,6 @@ import { WhInventoryChecksTab } from '@/components/purchase/wh/WhInventoryChecks
 import { WhMovementsTab } from '@/components/purchase/wh/WhMovementsTab'
 import { ReceivalsDeliveriesTab } from '@/components/purchase/wh/ReceivalsDeliveriesTab'
 import { WhAdjustmentDialog } from '@/components/purchase/wh/WhAdjustmentDialog'
-import { WhInventoryCheckDialog } from '@/components/purchase/wh/WhInventoryCheckDialog'
 import { WhTransferDialog } from '@/components/purchase/wh/WhTransferDialog'
 
 function WarehousesPageInner() {
@@ -61,12 +60,6 @@ function WarehousesPageInner() {
               Stock Adjustment
             </Button>
           </WhAdjustmentDialog>
-          <WhInventoryCheckDialog warehouses={warehouses}>
-            <Button size="sm" variant="outline" className="gap-1.5">
-              <ClipboardCheck className="h-3.5 w-3.5" />
-              Inventory Check
-            </Button>
-          </WhInventoryCheckDialog>
           <WhTransferDialog warehouses={warehouses} currentProfile={currentProfile ?? null}>
             <Button size="sm" variant="outline" className="gap-1.5">
               <ArrowRightLeft className="h-3.5 w-3.5" />

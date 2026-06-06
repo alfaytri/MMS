@@ -39,6 +39,8 @@ export type WarehouseStockItem = {
   qty: number
   avg_cost: number
   total_value: number
+  category_name: string | null
+  item_type: string | null
 }
 
 export type TransferStatus = 'pending' | 'in_transit' | 'pending_approval' | 'approved' | 'rejected'
@@ -110,6 +112,9 @@ export type InventoryCheck = {
   warehouse_id: string
   warehouse_name: string
   status: string
+  initiated_by_profile_id: string | null
+  initiated_by_name: string | null
+  started_at: string | null
   submitted_by_name: string | null
   submitted_at: string | null
   reviewed_by_name: string | null
@@ -131,7 +136,49 @@ export type InventoryCheckItem = {
   counted_qty: number | null
   is_counted: boolean
   variance: number | null
+  variance_type: string | null
   notes: string | null
+  assignment_id: string | null
+  category_name: string | null
+  assigned_profile_id: string | null
+  assigned_profile_name: string | null
+}
+
+export type InventoryCheckAssignment = {
+  id: string
+  check_id: string
+  profile_id: string
+  profile_name: string
+  assigned_categories: string[]
+  status: 'pending' | 'in_progress' | 'completed'
+  started_at: string | null
+  completed_at: string | null
+  created_at: string
+  updated_at: string
+}
+
+export type InventoryCheckLogEntry = {
+  id: string
+  check_id: string
+  event_type: string
+  profile_id: string | null
+  profile_name: string | null
+  meta: Record<string, unknown> | null
+  created_at: string
+}
+
+export type InventoryCheckApprovalStep = {
+  id: string
+  check_id: string
+  step_order: number
+  step_role: string
+  step_label: string
+  profile_id: string | null
+  profile_name: string | null
+  status: 'pending' | 'approved' | 'rejected'
+  action_at: string | null
+  notes: string | null
+  created_at: string
 }
 
 export type ReceivalDelivery = {
@@ -183,7 +230,7 @@ export function useWarehouseStock(warehouseId?: string) {
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       let q = supabase
         .from('warehouse_stock_view')
-        .select('warehouse_id, brand_variant_id, item_name, brand, sku, unit, qty, avg_cost, total_value')
+        .select('warehouse_id, brand_variant_id, item_name, brand, sku, unit, qty, avg_cost, total_value, category_name, item_type')
         .order('item_name', { ascending: true })
       if (warehouseId) q = q.eq('warehouse_id', warehouseId)
       const { data, error } = await q
@@ -531,5 +578,332 @@ export function useReceivalsAndDeliveries() {
       )
     },
     staleTime: 5 * 60 * 1000,
+  })
+}
+
+// ─── Inventory Check Redesign Hooks ──────────────────────────────────────────
+
+export function useInventoryCheckAssignments(checkId: string) {
+  return useQuery({
+    queryKey: queryKeys.warehouseOps.inventoryCheckAssignments(checkId),
+    queryFn: async () => {
+      const supabase = createClient()
+      const { data, error } = await supabase
+        .from('inventory_check_assignments')
+        .select('*')
+        .eq('check_id', checkId)
+        .order('created_at', { ascending: true })
+      if (error) throw error
+      return (data ?? []) as InventoryCheckAssignment[]
+    },
+    enabled: !!checkId,
+    staleTime: 30_000,
+  })
+}
+
+export function useInventoryCheckLog(checkId: string) {
+  return useQuery({
+    queryKey: queryKeys.warehouseOps.inventoryCheckLog(checkId),
+    queryFn: async () => {
+      const supabase = createClient()
+      const { data, error } = await supabase
+        .from('inventory_check_log')
+        .select('*')
+        .eq('check_id', checkId)
+        .order('created_at', { ascending: true })
+      if (error) throw error
+      return (data ?? []) as InventoryCheckLogEntry[]
+    },
+    enabled: !!checkId,
+    staleTime: 30_000,
+  })
+}
+
+export function useInventoryCheckApprovals(checkId: string) {
+  return useQuery({
+    queryKey: queryKeys.warehouseOps.inventoryCheckApprovals(checkId),
+    queryFn: async () => {
+      const supabase = createClient()
+      const { data, error } = await supabase
+        .from('inventory_check_approvals')
+        .select('*')
+        .eq('check_id', checkId)
+        .order('step_order', { ascending: true })
+      if (error) throw error
+      return (data ?? []) as InventoryCheckApprovalStep[]
+    },
+    enabled: !!checkId,
+    staleTime: 30_000,
+  })
+}
+
+type StartCheckPayload = {
+  warehouseId: string
+  warehouseName: string
+  initiatedByProfileId: string | null
+  initiatedByName: string | null
+  notes?: string | null
+  assignments: Array<{
+    profileId: string
+    profileName: string
+    categories: string[]
+    items: Array<{
+      brand_variant_id: string
+      item_name: string
+      brand: string | null
+      sku: string | null
+      qty: number
+      category_name: string | null
+    }>
+  }>
+}
+
+export function useStartInventoryCheck() {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: async (payload: StartCheckPayload) => {
+      const supabase = createClient()
+
+      const { data: checkNumber, error: seqErr } = await supabase.rpc('generate_check_number')
+      if (seqErr) throw seqErr
+
+      const { data: check, error: checkErr } = await supabase
+        .from('inventory_checks')
+        .insert({
+          check_number: checkNumber as string,
+          warehouse_id: payload.warehouseId,
+          warehouse_name: payload.warehouseName,
+          status: 'in_progress',
+          initiated_by_profile_id: payload.initiatedByProfileId,
+          initiated_by_name: payload.initiatedByName,
+          started_at: new Date().toISOString(),
+          notes: payload.notes ?? null,
+        })
+        .select()
+        .single()
+      if (checkErr) throw checkErr
+
+      for (const a of payload.assignments) {
+        const { data: assignment, error: assignErr } = await supabase
+          .from('inventory_check_assignments')
+          .insert({
+            check_id: check.id,
+            profile_id: a.profileId,
+            profile_name: a.profileName,
+            assigned_categories: a.categories,
+            status: 'pending',
+          })
+          .select()
+          .single()
+        if (assignErr) throw assignErr
+
+        if (a.items.length > 0) {
+          const itemRows = a.items.map((item) => ({
+            check_id: check.id,
+            assignment_id: assignment.id,
+            brand_variant_id: item.brand_variant_id,
+            item_name: item.item_name,
+            brand: item.brand ?? '',
+            sku: item.sku ?? null,
+            system_qty: item.qty,
+            is_counted: false,
+            category_name: item.category_name,
+            assigned_profile_id: a.profileId,
+            assigned_profile_name: a.profileName,
+          }))
+          const { error: itemsErr } = await supabase.from('inventory_check_items').insert(itemRows)
+          if (itemsErr) throw itemsErr
+        }
+      }
+
+      await supabase.from('inventory_check_log').insert({
+        check_id: check.id,
+        event_type: 'initialized',
+        profile_id: payload.initiatedByProfileId,
+        profile_name: payload.initiatedByName,
+      })
+
+      return check as InventoryCheck
+    },
+    onSuccess: () => qc.invalidateQueries({ queryKey: queryKeys.warehouseOps.inventoryChecks }),
+  })
+}
+
+function buildApprovalChain(hasDamageOrWriteOff: boolean) {
+  const steps = [
+    { step_order: 1, step_role: 'accounting_manager', step_label: 'Accounting Manager' },
+    { step_order: 2, step_role: 'inventory_manager',  step_label: 'Inventory Manager'  },
+    { step_order: 3, step_role: 'responsible_person', step_label: 'Responsible Person' },
+  ]
+  if (hasDamageOrWriteOff) {
+    steps.push({ step_order: 4, step_role: 'brand_manager', step_label: 'Brand Manager' })
+    steps.push({ step_order: 5, step_role: 'owner',         step_label: 'Owner'         })
+  } else {
+    steps.push({ step_order: 4, step_role: 'owner',         step_label: 'Owner'         })
+  }
+  return steps
+}
+
+export function useCompleteAssignment() {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: async ({
+      assignmentId,
+      checkId,
+      profileId,
+      profileName,
+    }: {
+      assignmentId: string
+      checkId: string
+      profileId: string | null
+      profileName: string
+    }) => {
+      const supabase = createClient()
+      const now = new Date().toISOString()
+
+      const { error: assignErr } = await supabase
+        .from('inventory_check_assignments')
+        .update({ status: 'completed', completed_at: now })
+        .eq('id', assignmentId)
+      if (assignErr) throw assignErr
+
+      await supabase.from('inventory_check_log').insert({
+        check_id: checkId,
+        event_type: 'user_completed',
+        profile_id: profileId,
+        profile_name: profileName,
+      })
+
+      const { data: allAssignments, error: allErr } = await supabase
+        .from('inventory_check_assignments')
+        .select('status')
+        .eq('check_id', checkId)
+      if (allErr) throw allErr
+
+      const allDone = (allAssignments ?? []).every((a) => a.status === 'completed')
+      if (allDone) {
+        const { data: items } = await supabase
+          .from('inventory_check_items')
+          .select('variance, variance_type')
+          .eq('check_id', checkId)
+
+        const hasVariance = (items ?? []).some((i) => (i.variance ?? 0) !== 0)
+        const hasDamage   = (items ?? []).some(
+          (i) => i.variance_type === 'damage' || i.variance_type === 'write_off',
+        )
+
+        const steps = hasVariance
+          ? buildApprovalChain(hasDamage)
+          : [{ step_order: 1, step_role: 'inventory_manager', step_label: 'Inventory Manager' }]
+
+        await supabase.from('inventory_check_approvals').insert(
+          steps.map((s) => ({ check_id: checkId, ...s, status: 'pending' })),
+        )
+
+        await supabase.from('inventory_checks').update({ status: 'pending_approval' }).eq('id', checkId)
+
+        await supabase.from('inventory_check_log').insert({
+          check_id: checkId,
+          event_type: 'all_counted',
+          profile_name: 'System',
+        })
+      }
+    },
+    onSuccess: (_data, vars) => {
+      qc.invalidateQueries({ queryKey: queryKeys.warehouseOps.inventoryChecks })
+      qc.invalidateQueries({ queryKey: queryKeys.warehouseOps.inventoryCheckAssignments(vars.checkId) })
+      qc.invalidateQueries({ queryKey: queryKeys.warehouseOps.inventoryCheckLog(vars.checkId) })
+      qc.invalidateQueries({ queryKey: queryKeys.warehouseOps.inventoryCheckApprovals(vars.checkId) })
+    },
+  })
+}
+
+export function useApproveCheckStep() {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: async ({
+      approvalId,
+      checkId,
+      action,
+      profileId,
+      profileName,
+      notes,
+    }: {
+      approvalId: string
+      checkId: string
+      action: 'approved' | 'rejected'
+      profileId: string | null
+      profileName: string
+      notes?: string | null
+    }) => {
+      const supabase = createClient()
+      const now = new Date().toISOString()
+
+      const { error: stepErr } = await supabase
+        .from('inventory_check_approvals')
+        .update({ status: action, profile_id: profileId, profile_name: profileName, action_at: now, notes: notes ?? null })
+        .eq('id', approvalId)
+      if (stepErr) throw stepErr
+
+      await supabase.from('inventory_check_log').insert({
+        check_id: checkId,
+        event_type: 'approval_action',
+        profile_id: profileId,
+        profile_name: profileName,
+        meta: { action },
+      })
+
+      if (action === 'rejected') {
+        await supabase.from('inventory_checks').update({ status: 'rejected' }).eq('id', checkId)
+        await supabase.from('inventory_check_log').insert({ check_id: checkId, event_type: 'rejected', profile_id: profileId, profile_name: profileName })
+      } else {
+        const { data: allSteps } = await supabase
+          .from('inventory_check_approvals').select('status').eq('check_id', checkId)
+        if ((allSteps ?? []).every((s) => s.status === 'approved')) {
+          await supabase.from('inventory_checks').update({ status: 'approved' }).eq('id', checkId)
+          await supabase.from('inventory_check_log').insert({ check_id: checkId, event_type: 'approved', profile_id: profileId, profile_name: profileName })
+        }
+      }
+    },
+    onSuccess: (_data, vars) => {
+      qc.invalidateQueries({ queryKey: queryKeys.warehouseOps.inventoryChecks })
+      qc.invalidateQueries({ queryKey: queryKeys.warehouseOps.inventoryCheckApprovals(vars.checkId) })
+      qc.invalidateQueries({ queryKey: queryKeys.warehouseOps.inventoryCheckLog(vars.checkId) })
+    },
+  })
+}
+
+export function useSaveItemCount() {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: async ({
+      itemId,
+      checkId,
+      countedQty,
+      varianceType,
+    }: {
+      itemId: string
+      checkId: string
+      countedQty: number
+      varianceType: string | null
+    }) => {
+      const supabase = createClient()
+      const { data: item, error: fetchErr } = await supabase
+        .from('inventory_check_items')
+        .select('system_qty')
+        .eq('id', itemId)
+        .single()
+      if (fetchErr) throw fetchErr
+
+      const variance = countedQty - (item?.system_qty ?? 0)
+      const { error } = await supabase
+        .from('inventory_check_items')
+        .update({ counted_qty: countedQty, is_counted: true, variance, variance_type: varianceType })
+        .eq('id', itemId)
+      if (error) throw error
+    },
+    onSuccess: (_data, vars) => {
+      qc.invalidateQueries({ queryKey: queryKeys.warehouseOps.inventoryCheckDetail(vars.checkId) })
+    },
   })
 }

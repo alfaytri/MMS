@@ -574,6 +574,12 @@ export const queryKeys = {
       ['inventory_checks', { warehouseId }] as const,
     inventoryCheckDetail: (id: Nullable) =>
       ['inventory_checks', id] as const,
+    inventoryCheckAssignments: (checkId: string) =>
+      ['inventory_check_assignments', checkId] as const,
+    inventoryCheckLog: (checkId: string) =>
+      ['inventory_check_log', checkId] as const,
+    inventoryCheckApprovals: (checkId: string) =>
+      ['inventory_check_approvals', checkId] as const,
     receivalsDeliveries: ['receivals_deliveries'] as const,
   },
 

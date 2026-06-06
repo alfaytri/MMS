@@ -1,11 +1,12 @@
 'use client'
 
-import React, { useMemo } from 'react'
+import React, { useMemo, useState } from 'react'
 import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip'
-import { WarehouseIcon, MapPin, User, Package, DollarSign, ArrowRight } from 'lucide-react'
+import { WarehouseIcon, MapPin, User, Package, DollarSign, ArrowRight, ChevronDown, ChevronUp } from 'lucide-react'
 import { Warehouse } from '@/hooks/useWarehouses'
+import { WarehouseStockTree } from '@/components/purchase/wh/WarehouseStockTree'
 
 interface Props {
   warehouses: Warehouse[]
@@ -23,6 +24,12 @@ export const WhWarehousesTab = React.memo(function WhWarehousesTab({ warehouses,
     () => warehouses.reduce((sum, wh) => sum + (wh.total_value ?? 0), 0),
     [warehouses],
   )
+  // Track which warehouse cards have their stock tree expanded
+  const [expandedWh, setExpandedWh] = useState<Set<string>>(new Set())
+
+  function toggleExpand(id: string) {
+    setExpandedWh((prev) => { const n = new Set(prev); n.has(id) ? n.delete(id) : n.add(id); return n })
+  }
 
   function viewStock(warehouseId: string) {
     onViewStock?.(warehouseId)
@@ -42,7 +49,9 @@ export const WhWarehousesTab = React.memo(function WhWarehousesTab({ warehouses,
     <div className="space-y-6">
       {/* ── Warehouse cards ── */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-        {warehouses.map((wh) => (
+        {warehouses.map((wh) => {
+          const isExpanded = expandedWh.has(wh.id)
+          return (
           <Card key={wh.id} className="hover:shadow-md transition-shadow">
             <CardHeader className="pb-2">
               <CardTitle className="text-sm flex items-center gap-2">
@@ -70,20 +79,44 @@ export const WhWarehousesTab = React.memo(function WhWarehousesTab({ warehouses,
                   QR {(wh.total_value ?? 0).toLocaleString()}
                 </div>
               </div>
-              <div className="pt-1">
+
+              {/* Expand / collapse stock tree */}
+              {(wh.item_count ?? 0) > 0 && (
+                <div className="pt-1">
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    className="h-7 text-xs w-full justify-between gap-1 text-muted-foreground hover:text-foreground"
+                    onClick={() => toggleExpand(wh.id)}
+                  >
+                    <span>{isExpanded ? 'Hide items' : 'Show items'}</span>
+                    {isExpanded
+                      ? <ChevronUp   className="h-3 w-3" />
+                      : <ChevronDown className="h-3 w-3" />}
+                  </Button>
+                  {isExpanded && (
+                    <div className="mt-2">
+                      <WarehouseStockTree warehouseId={wh.id} warehouses={warehouses} />
+                    </div>
+                  )}
+                </div>
+              )}
+
+              <div>
                 <Button
                   variant="ghost"
                   size="sm"
                   className="h-7 text-xs w-full justify-end gap-1 text-muted-foreground hover:text-foreground"
                   onClick={() => viewStock(wh.id)}
                 >
-                  View Stock
+                  View in Stock Overview
                   <ArrowRight className="h-3 w-3" />
                 </Button>
               </div>
             </CardContent>
           </Card>
-        ))}
+          )
+        })}
       </div>
 
       {/* ── Value comparison bar ── */}
