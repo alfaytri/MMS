@@ -8758,7 +8758,6 @@ export type Database = {
         Args: {
           p_item_id: string
           p_counted_qty: number
-          p_variance: number
           p_variance_type: string | null
         }
         Returns: undefined

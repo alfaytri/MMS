@@ -888,20 +888,10 @@ export function useSaveItemCount() {
       varianceType: string | null
     }) => {
       const supabase = createClient()
-      // Fetch system_qty to compute variance
-      const { data: item, error: fetchErr } = await supabase
-        .from('inventory_check_items')
-        .select('system_qty')
-        .eq('id', itemId)
-        .single()
-      if (fetchErr) throw fetchErr
-
-      const variance = countedQty - (item?.system_qty ?? 0)
-      // Use RPC to bypass PostgREST schema cache (new columns are always writable via RPC)
+      // variance is a generated column on inventory_check_items — DB computes it from counted_qty - system_qty
       const { error } = await supabase.rpc('save_inventory_check_item_count', {
         p_item_id:       itemId,
         p_counted_qty:   countedQty,
-        p_variance:      variance,
         p_variance_type: varianceType,
       })
       if (error) throw error
