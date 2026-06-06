@@ -201,9 +201,17 @@ Purchase & Sales▾:
 
 ## 🔄 In Progress
 
-🚀 Starting: **Contract Services V2 Task 2: Zod Schema + Form Defaults**
+🚀 Starting: **Codebase Health Plan Task 5: Pagination**
 
 ## ✅ Completed
+
+- [2026-06-06] **Codebase Health Plan Task 4: Query Key Factory** — `src/lib/queryKeys.ts` (NEW), 117 files migrated (86 hooks, 27 components, 4 pages) — Created centralized query key factory with ~200 key definitions across 40+ modules; migrated every inline query key string in the codebase to use the factory; zero inline keys remain
+
+- [2026-06-06] **Codebase Health Plan Task 3: Empty State + Retry Config** — `src/components/shared/EmptyState.tsx` (NEW), `src/components/shared/DataTable.tsx`, `src/components/providers/QueryProvider.tsx`, 10 custom table pages — Reusable EmptyState component with icon/title/description/action props; DataTable enhanced with emptyState prop; retry config changed to 3 retries with exponential backoff
+
+- [2026-06-06] **Codebase Health Plan Task 2: Error Boundaries** — `src/app/error.tsx` (NEW), `src/app/(dashboard)/error.tsx` (NEW), `src/app/(dashboard)/not-found.tsx` (NEW) — Global error boundary with inline styles, dashboard error boundary with AlertTriangle icon and digest display, dashboard 404 with FileQuestion icon
+
+- [2026-06-06] **Codebase Health Plan Task 1: Security Quick Fixes** — `src/lib/webhooks/verify.ts` (NEW), 3 Dibsy API routes, 1 WHAPI webhook route, `ContractTermsSection.tsx` — Added requireAuth() to 3 unprotected payment routes; HMAC-SHA256 webhook signature verification for Dibsy; timing-safe shared secret validation for WHAPI; DOMPurify sanitization for XSS fix
 
 - [2026-06-03] **Contract Services V2 Task 1: Database Migration** — `supabase/migrations/20260603115450_contract_services_v2.sql`, `src/types/database.types.ts` — Added item_kind, pricing_mode, discount_scope columns to services table; applied via supabase db push; regenerated TypeScript types
 
