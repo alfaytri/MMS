@@ -164,6 +164,7 @@ Purchase & Sales▾:
 
 | Date | Module / Scope | Secrets | RLS | Auth Gate | Error Handling | Layout Stability | Notes |
 |---|---|---|---|---|---|---|---|
+| 2026-06-06 | **Accessibility + Design Tokens (Task 9)** | ✅ | ✅ | ✅ | ✅ | ✅ | Pure UI refactor; no new tables, routes, or external integrations; 601 token substitutions across 96 files; ~180 label fixes across 38 files; 0 TS errors |
 | 2026-06-06 | **TypeScript Hygiene (Task 8)** | ✅ | ✅ | ✅ | ✅ | ✅ | No new tables, routes, or external integrations; pure type-safety refactor across 200 files; 0 TS errors |
 | 2026-05-31 | **Map Page** | ✅ | ✅ | ✅ | ✅ | ✅ | Read-only page, no new tables, uses existing RLS on teams/orders/team_live_locations |
 | 2026-05-26 | **Quotation Enhancements** | ✅ | ✅ | ✅ | ✅ | No hardcoded secrets (WATI_TOKEN via process.env); discount columns added to existing `quotations` table (RLS inherited); `quotation-pdfs` storage bucket has INSERT/UPDATE for authenticated + public SELECT; profile title column inherits existing `profiles` RLS; Wati route protected by middleware auth; all external calls (Wati, WHAPI, Supabase Storage) throw on failure with proper error propagation to UI via toast |
@@ -202,9 +203,11 @@ Purchase & Sales▾:
 
 ## 🔄 In Progress
 
-🚀 Starting: **Codebase Health Plan Task 9: Label Accessibility + Design Token Migration**
+None — Codebase Health Improvement Plan complete (all 9 tasks done)
 
 ## ✅ Completed
+
+- [2026-06-06] **Codebase Health Plan Task 9: Label Accessibility + Design Tokens** — 38 TSX files (label fixes), 96 TSX files (token migration) — Added htmlFor to ~180 Labels with matching input ids; skipped 35 display-only labels (chip groups, composite inputs); migrated 601 raw Tailwind classes to design tokens (text-slate-* → text-muted-foreground/foreground, bg-slate-* → bg-muted, border-slate-* → border-border, text-red-* → text-destructive, text-green-* → text-success); 0 TS errors
 
 - [2026-06-06] **Codebase Health Plan Task 8: Eliminate as-any Casts** — `src/types/database.types.ts` (regenerated), `src/types/leaflet-augments.d.ts` (NEW), `src/types/wati.ts` (NEW), 200 files modified — Removed all 393 `as any` casts across src/; replaced with proper types, `as unknown as T` bridges, typed Supabase client usage, and Leaflet `.d.ts` augmentation; TypeScript build now reports 0 errors
 
