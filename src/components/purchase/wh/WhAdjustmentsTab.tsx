@@ -6,6 +6,7 @@ import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog'
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table'
+import { EmptyState } from '@/components/shared/EmptyState'
 import { useStockAdjustments, useApproveStockAdjustment } from '@/hooks/useWarehouseOperations'
 import { useMutation, useQueryClient } from '@tanstack/react-query'
 import type { Warehouse } from '@/hooks/useWarehouses'
@@ -56,14 +57,6 @@ export const WhAdjustmentsTab = React.memo(function WhAdjustmentsTab({ warehouse
     return currentProfile?.id === wh.manager_profile_id
   }
 
-  if (adjustments.length === 0) {
-    return (
-      <div className="p-4 md:p-6 flex items-center justify-center h-40">
-        <p className="text-xs text-muted-foreground">No stock adjustments yet.</p>
-      </div>
-    )
-  }
-
   return (
     <div className="p-4 md:p-6">
       <div className="rounded-md border overflow-x-auto">
@@ -83,7 +76,13 @@ export const WhAdjustmentsTab = React.memo(function WhAdjustmentsTab({ warehouse
             </TableRow>
           </TableHeader>
           <TableBody>
-            {adjustments.map((adj) => (
+            {adjustments.length === 0 ? (
+              <TableRow>
+                <TableCell colSpan={10} className="p-0">
+                  <EmptyState title="No adjustments found" />
+                </TableCell>
+              </TableRow>
+            ) : adjustments.map((adj) => (
               <TableRow key={adj.id}>
                 <TableCell className="text-xs whitespace-nowrap">
                   {adj.created_at ? format(new Date(adj.created_at), 'dd MMM') : '—'}

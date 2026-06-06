@@ -20,6 +20,7 @@ import {
   Table, TableBody, TableCell, TableHead, TableHeader, TableRow,
 } from '@/components/ui/table'
 import { PhoneInputWithCode } from '@/components/shared/PhoneInputWithCode'
+import { EmptyState } from '@/components/shared/EmptyState'
 import { useAllCustomers, useCreateCustomer } from '@/hooks/useSaleOrders'
 import { useCreditGroups, useAssignCreditGroup } from '@/hooks/useCreditGroups'
 
@@ -145,6 +146,13 @@ export default function CustomersPage() {
                     <TableCell><Skeleton className="h-8 w-36" /></TableCell>
                   </TableRow>
                 ))
+              : customers.length === 0 ? (
+                  <TableRow>
+                    <TableCell colSpan={5} className="p-0">
+                      <EmptyState title="No customers found" />
+                    </TableCell>
+                  </TableRow>
+                )
               : customers.map((c) => (
                   <TableRow key={c.id}>
                     <TableCell>

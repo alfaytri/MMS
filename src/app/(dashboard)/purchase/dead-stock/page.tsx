@@ -13,6 +13,7 @@ import {
 import {
   Table, TableBody, TableCell, TableHead, TableHeader, TableRow,
 } from '@/components/ui/table'
+import { EmptyState } from '@/components/shared/EmptyState'
 import { useDeadStockReport, type DeadStockStatus } from '@/hooks/useDeadStock'
 import { formatCurrency, formatDate } from '@/lib/utils/formatters'
 import { cn } from '@/lib/utils'
@@ -131,8 +132,8 @@ export default function DeadStockPage() {
           {Array.from({ length: 6 }).map((_, i) => <Skeleton key={i} className="h-10 w-full" />)}
         </div>
       ) : items.length === 0 ? (
-        <div className="rounded-lg border border-dashed p-8 text-center text-muted-foreground text-sm">
-          No items found
+        <div className="rounded-lg border border-dashed">
+          <EmptyState title="No dead stock items" description="All inventory items are actively moving" />
         </div>
       ) : (
         <div className="rounded-md border overflow-x-auto">

@@ -24,6 +24,7 @@ import { usePurchaseOrders, useCancelPO, type PurchaseOrder, type POStatus, type
 import { useSuppliers } from '@/hooks/useSuppliers'
 import { formatCurrency, formatDate } from '@/lib/utils/formatters'
 import { cn } from '@/lib/utils'
+import { EmptyState } from '@/components/shared/EmptyState'
 import { PageWrapper } from '@/components/shared/PageWrapper'
 import { DivisionFilter, type DivisionFilterValue } from '@/components/shared/DivisionFilter'
 import { useUserDivisionScope } from '@/hooks/useUserDivisionScope'
@@ -424,14 +425,16 @@ export default function PurchaseOrdersPage() {
                 ))
               ) : filtered.length === 0 ? (
                 <TableRow>
-                  <TableCell colSpan={9} className="text-center py-12">
-                    <div className="flex flex-col items-center gap-3 text-muted-foreground">
-                      <FileText className="h-12 w-12" />
-                      <p className="font-medium">No purchase orders found</p>
-                      <Button variant="outline" size="sm" onClick={() => router.push('/purchase/create-po')}>
-                        Create your first PO
-                      </Button>
-                    </div>
+                  <TableCell colSpan={9} className="p-0">
+                    <EmptyState
+                      title="No purchase orders found"
+                      icon={<FileText className="h-6 w-6 text-muted-foreground" />}
+                      action={
+                        <Button variant="outline" size="sm" onClick={() => router.push('/purchase/create-po')}>
+                          Create your first PO
+                        </Button>
+                      }
+                    />
                   </TableCell>
                 </TableRow>
               ) : (

@@ -24,6 +24,7 @@ import {
 import {
   Table, TableBody, TableCell, TableHead, TableHeader, TableRow,
 } from '@/components/ui/table'
+import { EmptyState } from '@/components/shared/EmptyState'
 
 interface ApprovalDialogState {
   po: PurchaseOrder
@@ -185,7 +186,7 @@ export default function ApprovalsPage() {
               </TableHeader>
               <TableBody>
                 {(completed ?? []).length === 0 ? (
-                  <TableRow><TableCell colSpan={5} className="text-center text-muted-foreground h-16">No completed approvals</TableCell></TableRow>
+                  <TableRow><TableCell colSpan={5} className="p-0"><EmptyState title="No pending approvals" /></TableCell></TableRow>
                 ) : (
                   (completed ?? []).map((po) => {
                     const allSteps = po.po_approvals ?? []

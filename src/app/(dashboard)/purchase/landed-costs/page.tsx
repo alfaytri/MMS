@@ -1135,7 +1135,7 @@ export default function LandedCostsPage() {
       {isLoading ? (
         <div className="space-y-3">{Array.from({ length: 3 }).map((_, i) => <Skeleton key={i} className="h-12 w-full rounded-md" />)}</div>
       ) : (
-        <DataTable columns={columns} data={landedCosts ?? []} />
+        <DataTable columns={columns} data={landedCosts ?? []} emptyState={{ title: 'No landed costs found', description: 'Create a landed cost to allocate freight, customs and other costs to received goods' }} />
       )}
 
       <CreateLcDialog open={createOpen} onOpenChange={setCreateOpen} />

@@ -6,6 +6,7 @@ import { Badge } from '@/components/ui/badge'
 import { Input } from '@/components/ui/input'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table'
+import { EmptyState } from '@/components/shared/EmptyState'
 import { useStockMovements, StockMovement } from '@/hooks/useWarehouseOperations'
 import { Warehouse } from '@/hooks/useWarehouses'
 import { format } from 'date-fns'
@@ -109,8 +110,8 @@ export const WhMovementsTab = React.memo(function WhMovementsTab({ warehouses }:
           <TableBody>
             {filtered.length === 0 ? (
               <TableRow>
-                <TableCell colSpan={9} className="text-center text-xs text-muted-foreground py-8">
-                  No movements found
+                <TableCell colSpan={9} className="p-0">
+                  <EmptyState title="No movements found" />
                 </TableCell>
               </TableRow>
             ) : (

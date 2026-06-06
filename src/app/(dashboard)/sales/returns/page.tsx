@@ -21,6 +21,7 @@ import {
 import {
   Table, TableBody, TableCell, TableHead, TableHeader, TableRow,
 } from '@/components/ui/table'
+import { EmptyState } from '@/components/shared/EmptyState'
 import {
   useSaleReturns,
   useCreateSaleReturn,
@@ -247,7 +248,9 @@ function ReturnsContent() {
         srLoading ? (
           <div className="space-y-3">{Array.from({ length: 3 }).map((_, i) => <Skeleton key={i} className="h-24 w-full rounded-lg" />)}</div>
         ) : (saleReturns ?? []).length === 0 ? (
-          <div className="rounded-lg border border-dashed p-8 text-center text-muted-foreground text-sm">No sale returns found</div>
+          <div className="rounded-lg border border-dashed">
+            <EmptyState title="No returns found" />
+          </div>
         ) : (
           <div className="space-y-3">
             {(saleReturns ?? []).map((ret) => {
@@ -295,7 +298,9 @@ function ReturnsContent() {
         prLoading ? (
           <div className="space-y-3">{Array.from({ length: 3 }).map((_, i) => <Skeleton key={i} className="h-24 w-full rounded-lg" />)}</div>
         ) : (poReturns ?? []).length === 0 ? (
-          <div className="rounded-lg border border-dashed p-8 text-center text-muted-foreground text-sm">No PO returns found</div>
+          <div className="rounded-lg border border-dashed">
+            <EmptyState title="No returns found" />
+          </div>
         ) : (
           <div className="space-y-3">
             {(poReturns ?? []).map((ret) => {
