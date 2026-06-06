@@ -8754,6 +8754,15 @@ export type Database = {
       fn_refresh_incoming_qty: { Args: { p_bv_id: string }; Returns: undefined }
       fn_refresh_reserved_qty: { Args: { p_bv_id: string }; Returns: undefined }
       generate_check_number: { Args: never; Returns: string }
+      save_inventory_check_item_count: {
+        Args: {
+          p_item_id: string
+          p_counted_qty: number
+          p_variance: number
+          p_variance_type: string | null
+        }
+        Returns: undefined
+      }
       generate_contract_id: { Args: never; Returns: string }
       generate_invoice_from_so: { Args: { p_so_id: string }; Returns: Json }
       generate_quotation_id: { Args: never; Returns: string }
