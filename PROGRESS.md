@@ -201,9 +201,11 @@ Purchase & Sales▾:
 
 ## 🔄 In Progress
 
-🚀 Starting: **Codebase Health Plan Task 6: Deduplicate PO/SO Detail Dialogs**
+🚀 Starting: **Codebase Health Plan Task 7: Split Oversized Components**
 
 ## ✅ Completed
+
+- [2026-06-06] **Codebase Health Plan Task 6: Deduplicate PO/SO Dialogs** — `PaymentFormDialog.tsx`, `ActivityTimeline.tsx`, `PaymentSummaryTab.tsx` (NEW shared), `PoReturnsTab.tsx`, `SoReturnsTab.tsx`, `SoInvoiceTab.tsx` (NEW extracted tabs), `PoDetailDialog.tsx` (797→408), `SoDetailDialog.tsx` (895→330), `PoPaymentDialog.tsx` (136→56), `SoPaymentDialog.tsx` (148→61) — Extracted 3 shared components and 3 entity-specific tab components; payment dialogs now thin wrappers around PaymentFormDialog
 
 - [2026-06-06] **Codebase Health Plan Task 5: Pagination** — `src/hooks/useOrders.ts`, `src/hooks/useContracts.ts`, `src/hooks/useSiteVisits.ts`, `src/hooks/contact-center/useLiveConversations.ts`, `src/app/(dashboard)/orders/page.tsx`, `src/app/(dashboard)/contracts/page.tsx` — Converted orders/contracts/siteVisits from useQuery+limit(200) to useInfiniteQuery with PAGE_SIZE=50 and IntersectionObserver infinite scroll; reduced live conversations poll limit from 500 to 100
 
