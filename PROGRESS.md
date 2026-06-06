@@ -202,7 +202,7 @@ Purchase & Sales▾:
 
 ## 🔄 In Progress
 
-None
+🚀 Starting: **Codebase Health Plan Task 9: Label Accessibility + Design Token Migration**
 
 ## ✅ Completed
 
