@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server'
 import { createAdminClient } from '@/lib/supabase/admin'
 import { createDibsyPayment } from '@/lib/dibsy'
+import { requireAuth } from '@/lib/auth/require-admin'
 
 const UUID_RE =
   /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
@@ -16,6 +17,11 @@ interface RequestBody {
 }
 
 export async function POST(request: Request) {
+  const auth = await requireAuth()
+  if (!auth.ok) {
+    return NextResponse.json({ error: auth.message }, { status: auth.status })
+  }
+
   let body: RequestBody
   try {
     body = await request.json()

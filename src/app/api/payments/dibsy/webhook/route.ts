@@ -1,12 +1,19 @@
 import { NextResponse } from 'next/server'
 import { createAdminClient } from '@/lib/supabase/admin'
 import { getDibsyPayment, dibsyStatusToSubscriptionStatus } from '@/lib/dibsy'
+import { verifyHmacSignature } from '@/lib/webhooks/verify'
 
 // Dibsy webhook payload: {"resource":"payment","id":"pt_..."}
 // Status and metadata must be fetched from the Dibsy API.
 
 export async function POST(request: Request) {
   const rawBody = await request.text()
+
+  // Verify Dibsy webhook signature (HMAC-SHA256 on raw body)
+  const signature = request.headers.get('dibsy-signature')
+  if (!verifyHmacSignature(rawBody, signature, process.env.DIBSY_WEBHOOK_SECRET)) {
+    return NextResponse.json({ error: 'Invalid signature' }, { status: 401 })
+  }
 
   let dibsyPaymentId: string | undefined
   try {

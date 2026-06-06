@@ -1,5 +1,6 @@
 import { type NextRequest, NextResponse } from 'next/server'
 import { createAdminClient } from '@/lib/supabase/admin'
+import { verifySharedSecret } from '@/lib/webhooks/verify'
 
 const WEBHOOK_SECRET = process.env.WHAPI_WEBHOOK_SECRET ?? ''
 
@@ -23,12 +24,11 @@ export async function GET() {
 
 // POST — WHAPI event handler
 export async function POST(req: NextRequest) {
-  // Verify shared secret if configured
-  if (WEBHOOK_SECRET) {
-    const secret = req.nextUrl.searchParams.get('secret')
-    if (secret !== WEBHOOK_SECRET) {
-      return new Response('Unauthorized', { status: 401 })
-    }
+  // Verify shared secret via header (timing-safe comparison)
+  // NOTE: After deploying, update the WHAPI webhook URL configuration
+  // to send the secret as an 'x-webhook-secret' header instead of a query parameter.
+  if (!verifySharedSecret(req.headers.get('x-webhook-secret'), WEBHOOK_SECRET || undefined)) {
+    return new Response('Unauthorized', { status: 401 })
   }
 
   let body: any

@@ -1,6 +1,7 @@
 'use client'
 
 import { useState } from 'react'
+import DOMPurify from 'dompurify'
 import { ChevronDown, ChevronRight, ChevronsUpDown } from 'lucide-react'
 import { useQuery } from '@tanstack/react-query'
 import { createClient } from '@/lib/supabase/client'
@@ -146,7 +147,7 @@ export function ContractTermsSection({ divisions, services, termsSnapshot }: Pro
               <div className="px-3 pb-3 border-t">
                 <div
                   className="prose prose-sm max-w-none pt-2 text-sm text-muted-foreground"
-                  dangerouslySetInnerHTML={{ __html: term.content }}
+                  dangerouslySetInnerHTML={{ __html: DOMPurify.sanitize(term.content) }}
                 />
               </div>
             )}
