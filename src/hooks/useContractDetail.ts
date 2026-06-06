@@ -3,6 +3,7 @@
 import { useMemo } from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { createClient } from '@/lib/supabase/client'
+import { queryKeys } from '@/lib/queryKeys'
 import type {
   Contract,
   ContractService,
@@ -17,7 +18,7 @@ export function useContractDetail(contractId: string | undefined) {
   const queryClient = useQueryClient()
 
   const query = useQuery({
-    queryKey: ['contractDetail', contractId],
+    queryKey: queryKeys.contracts.detail(contractId),
     queryFn: async () => {
       if (!contractId) return null
       const { data, error } = await supabase
@@ -122,7 +123,7 @@ export function useContractDetail(contractId: string | undefined) {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({
-        queryKey: ['contractDetail', contractId],
+        queryKey: queryKeys.contracts.detail(contractId),
       })
     },
   })
@@ -143,7 +144,7 @@ export function useContractDetail(contractId: string | undefined) {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({
-        queryKey: ['contractDetail', contractId],
+        queryKey: queryKeys.contracts.detail(contractId),
       })
     },
   })
@@ -158,7 +159,7 @@ export function useContractDetail(contractId: string | undefined) {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({
-        queryKey: ['contractDetail', contractId],
+        queryKey: queryKeys.contracts.detail(contractId),
       })
     },
   })

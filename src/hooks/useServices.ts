@@ -2,6 +2,7 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { createClient } from '@/lib/supabase/client'
 import type { DBTable, DBInsert, DBUpdate } from '@/types/database.types'
+import { queryKeys } from '@/lib/queryKeys'
 
 export type Service = DBTable<'services'>
 export type ServiceInsert = DBInsert<'services'>
@@ -15,7 +16,7 @@ export function useServiceTree(
   enabled = true,
 ) {
   return useQuery({
-    queryKey: ['services', treeType, divisionSlugs],
+    queryKey: queryKeys.services.byType(treeType, divisionSlugs),
     queryFn: async () => {
       const supabase = createClient()
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -38,7 +39,7 @@ export function useServiceTree(
 
 export function useInstructions(enabled = true) {
   return useQuery({
-    queryKey: ['instructions'],
+    queryKey: queryKeys.services.instructions,
     queryFn: async () => {
       const supabase = createClient()
       const { data, error } = await supabase
@@ -55,7 +56,7 @@ export function useInstructions(enabled = true) {
 
 export function useInstructionsFull(enabled = true) {
   return useQuery({
-    queryKey: ['instructions', 'full'],
+    queryKey: queryKeys.services.instructionsFull,
     enabled,
     queryFn: async () => {
       const supabase = createClient()
@@ -99,7 +100,7 @@ export function useCreateService() {
     },
     onSuccess: (data) => {
       // Prefix match — invalidates all divisionSlug variants for this treeType
-      queryClient.invalidateQueries({ queryKey: ['services', data.treeType] })
+      queryClient.invalidateQueries({ queryKey: queryKeys.services.byType(data.treeType) })
     },
   })
 }
@@ -131,7 +132,7 @@ export function useUpdateService() {
     },
     onSuccess: (data) => {
       // Prefix match — invalidates all divisionSlug variants for this treeType
-      queryClient.invalidateQueries({ queryKey: ['services', data.treeType] })
+      queryClient.invalidateQueries({ queryKey: queryKeys.services.byType(data.treeType) })
     },
   })
 }
@@ -200,13 +201,13 @@ export function useReorderServices() {
 
     onMutate: async ({ movedId, parentId, direction, treeType }) => {
       // Cancel any in-flight refetches so they don't overwrite the optimistic update
-      await queryClient.cancelQueries({ queryKey: ['services', treeType] })
+      await queryClient.cancelQueries({ queryKey: queryKeys.services.byType(treeType) })
 
       // Snapshot all matching queries for rollback on error
-      const previousQueries = queryClient.getQueriesData<Service[]>({ queryKey: ['services', treeType] })
+      const previousQueries = queryClient.getQueriesData<Service[]>({ queryKey: queryKeys.services.byType(treeType) })
 
       // Optimistically swap sort_order in every cached variant of this tree
-      queryClient.setQueriesData<Service[]>({ queryKey: ['services', treeType] }, (old) => {
+      queryClient.setQueriesData<Service[]>({ queryKey: queryKeys.services.byType(treeType) }, (old) => {
         if (!old) return old
         const siblings = old
           .filter((s) => (s.parent_id ?? null) === parentId && s.sort_order !== null)
@@ -232,12 +233,12 @@ export function useReorderServices() {
       context?.previousQueries.forEach(([queryKey, data]) => {
         queryClient.setQueryData(queryKey, data)
       })
-      queryClient.invalidateQueries({ queryKey: ['services', treeType] })
+      queryClient.invalidateQueries({ queryKey: queryKeys.services.byType(treeType) })
     },
 
     onSettled: (_data, _err, { treeType }) => {
       // Sync with server once the mutation has settled (success or error)
-      queryClient.invalidateQueries({ queryKey: ['services', treeType] })
+      queryClient.invalidateQueries({ queryKey: queryKeys.services.byType(treeType) })
     },
   })
 }
@@ -261,10 +262,10 @@ export function useReorderServicesBulk() {
       return { treeType }
     },
     onMutate: async ({ updates, treeType }) => {
-      await queryClient.cancelQueries({ queryKey: ['services', treeType] })
-      const previous = queryClient.getQueriesData<Service[]>({ queryKey: ['services', treeType] })
+      await queryClient.cancelQueries({ queryKey: queryKeys.services.byType(treeType) })
+      const previous = queryClient.getQueriesData<Service[]>({ queryKey: queryKeys.services.byType(treeType) })
       const orderMap = new Map(updates.map(({ id, sort_order }) => [id, sort_order]))
-      queryClient.setQueriesData<Service[]>({ queryKey: ['services', treeType] }, (old) => {
+      queryClient.setQueriesData<Service[]>({ queryKey: queryKeys.services.byType(treeType) }, (old) => {
         if (!old) return old
         return old.map((s) => (orderMap.has(s.id) ? { ...s, sort_order: orderMap.get(s.id)! } : s))
       })
@@ -272,10 +273,10 @@ export function useReorderServicesBulk() {
     },
     onError: (_err, { treeType }, context) => {
       context?.previous.forEach(([key, data]) => queryClient.setQueryData(key, data))
-      queryClient.invalidateQueries({ queryKey: ['services', treeType] })
+      queryClient.invalidateQueries({ queryKey: queryKeys.services.byType(treeType) })
     },
     onSettled: (_data, _err, { treeType }) => {
-      queryClient.invalidateQueries({ queryKey: ['services', treeType] })
+      queryClient.invalidateQueries({ queryKey: queryKeys.services.byType(treeType) })
     },
   })
 }
@@ -311,7 +312,7 @@ export function useArchiveService() {
       return { treeType }
     },
     onSuccess: (data) => {
-      queryClient.invalidateQueries({ queryKey: ['services', data.treeType] })
+      queryClient.invalidateQueries({ queryKey: queryKeys.services.byType(data.treeType) })
     },
   })
 }
@@ -330,7 +331,7 @@ export function useCreateInstruction() {
       return data
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['instructions'] })
+      queryClient.invalidateQueries({ queryKey: queryKeys.services.instructions })
     },
   })
 }
@@ -350,7 +351,7 @@ export function useUpdateInstruction() {
       return data
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['instructions'] })
+      queryClient.invalidateQueries({ queryKey: queryKeys.services.instructions })
     },
   })
 }
@@ -367,7 +368,7 @@ export function useArchiveInstruction() {
       if (error) throw error
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['instructions'] })
+      queryClient.invalidateQueries({ queryKey: queryKeys.services.instructions })
     },
   })
 }
@@ -382,7 +383,7 @@ export type ServiceInstructionLink = {
 
 export function useServiceInstructions(serviceId: string | null, enabled = true) {
   return useQuery({
-    queryKey: ['service_instructions', serviceId],
+    queryKey: queryKeys.services.serviceInstructionsByService(serviceId),
     enabled: enabled && !!serviceId,
     queryFn: async () => {
       const supabase = createClient()
@@ -399,7 +400,7 @@ export function useServiceInstructions(serviceId: string | null, enabled = true)
 
 export function useAllServiceInstructionLinks(enabled = true) {
   return useQuery({
-    queryKey: ['service_instructions', 'all'],
+    queryKey: queryKeys.services.serviceInstructionsAll,
     enabled,
     queryFn: async () => {
       const supabase = createClient()
@@ -431,7 +432,7 @@ export function useLinkInstruction() {
       if (error && error.code !== '23505') throw error // 23505 = duplicate key, ignore
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['service_instructions'] })
+      queryClient.invalidateQueries({ queryKey: queryKeys.services.serviceInstructions })
     },
   })
 }
@@ -449,7 +450,7 @@ export function useUnlinkInstruction() {
       if (error) throw error
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['service_instructions'] })
+      queryClient.invalidateQueries({ queryKey: queryKeys.services.serviceInstructions })
     },
   })
 }

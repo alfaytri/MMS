@@ -3,6 +3,7 @@
 import { useState, useEffect } from 'react'
 import { useMutation, useQueryClient } from '@tanstack/react-query'
 import { createClient } from '@/lib/supabase/client'
+import { queryKeys } from '@/lib/queryKeys'
 import type { QuotationDraft, QuotationLineDraft } from '@/types/quotations'
 import type { CustomerLookupResult } from '@/hooks/useCustomerLookup'
 import type { OrderServiceDraft } from '@/types/orders'
@@ -152,7 +153,7 @@ export function useCreateQuotation() {
       p_discount_value: draft.discountValue,
     })
     if (error) throw error
-    qc.invalidateQueries({ queryKey: ['quotations'] })
+    qc.invalidateQueries({ queryKey: queryKeys.quotations.all })
     return quotUuid as string
   }
 

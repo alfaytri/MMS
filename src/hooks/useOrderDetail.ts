@@ -2,11 +2,12 @@
 import { useQuery } from '@tanstack/react-query'
 import { createClient } from '@/lib/supabase/client'
 import type { OrderDetail } from '@/types/orders'
+import { queryKeys } from '@/lib/queryKeys'
 
 export function useOrderDetail(orderId: string | null) {
   const supabase = createClient()
   return useQuery({
-    queryKey: ['order-detail', orderId],
+    queryKey: queryKeys.orders.detail(orderId),
     queryFn: async (): Promise<OrderDetail | null> => {
       if (!orderId) return null
       const { data, error } = await supabase

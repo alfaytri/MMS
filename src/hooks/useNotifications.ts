@@ -4,6 +4,7 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { createClient } from '@/lib/supabase/client'
 import type { DBTable, DBInsert } from '@/types/database.types'
+import { queryKeys } from '@/lib/queryKeys'
 
 type NotificationTemplate = DBTable<'notification_templates'>
 type ReminderCategory = DBTable<'reminder_categories'>
@@ -15,7 +16,7 @@ export type { NotificationTemplate, ReminderCategory, Reminder }
 
 export function useNotificationTemplates() {
   return useQuery({
-    queryKey: ['notification_templates'],
+    queryKey: queryKeys.notifications.templates,
     queryFn: async () => {
       const supabase = createClient()
       const { data, error } = await supabase
@@ -31,7 +32,7 @@ export function useNotificationTemplates() {
 
 export function useReminderCategories() {
   return useQuery({
-    queryKey: ['reminder_categories'],
+    queryKey: queryKeys.notifications.reminderCategories,
     queryFn: async () => {
       const supabase = createClient()
       const { data, error } = await supabase
@@ -47,7 +48,7 @@ export function useReminderCategories() {
 
 export function useReminders() {
   return useQuery({
-    queryKey: ['reminders'],
+    queryKey: queryKeys.notifications.reminders,
     queryFn: async () => {
       const supabase = createClient()
       const { data, error } = await supabase
@@ -74,7 +75,7 @@ export function useCreateReminder() {
       if (error) throw error
       return data
     },
-    onSuccess: () => queryClient.invalidateQueries({ queryKey: ['reminders'] }),
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: queryKeys.notifications.reminders }),
   })
 }
 
@@ -91,7 +92,7 @@ export function useUpdateReminder() {
       if (error) throw error
       return data
     },
-    onSuccess: () => queryClient.invalidateQueries({ queryKey: ['reminders'] }),
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: queryKeys.notifications.reminders }),
   })
 }
 
@@ -132,7 +133,7 @@ export function resetCachedProfileId() {
 
 export function useUnreadNotificationCount() {
   return useQuery({
-    queryKey: ['notifications', 'unread-count'],
+    queryKey: queryKeys.notifications.unreadCount,
     queryFn: async () => {
       const profileId = await getMyProfileId()
       if (!profileId) return 0
@@ -152,7 +153,7 @@ export function useUnreadNotificationCount() {
 
 export function useRecentNotifications() {
   return useQuery({
-    queryKey: ['notifications', 'recent'],
+    queryKey: queryKeys.notifications.recent,
     queryFn: async () => {
       const profileId = await getMyProfileId()
       if (!profileId) return [] as NotificationRow[]
@@ -182,7 +183,7 @@ export function useMarkNotificationRead() {
       if (error) throw error
     },
     onSuccess: () => {
-      qc.invalidateQueries({ queryKey: ['notifications'] })
+      qc.invalidateQueries({ queryKey: queryKeys.notifications.all })
     },
   })
 }
@@ -201,6 +202,6 @@ export function useMarkAllNotificationsRead() {
         .is('read_at', null)
       if (error) throw error
     },
-    onSuccess: () => qc.invalidateQueries({ queryKey: ['notifications'] }),
+    onSuccess: () => qc.invalidateQueries({ queryKey: queryKeys.notifications.all }),
   })
 }

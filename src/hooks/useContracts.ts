@@ -3,12 +3,13 @@
 import { useQuery } from '@tanstack/react-query'
 import { createClient } from '@/lib/supabase/client'
 import type { LiveContractSummary, ContractFilters } from '@/types/contracts'
+import { queryKeys } from '@/lib/queryKeys'
 
 export function useContracts(filters?: ContractFilters) {
   const supabase = createClient()
 
   return useQuery({
-    queryKey: ['contracts', filters],
+    queryKey: queryKeys.contracts.list(filters),
     queryFn: async () => {
       let query = supabase
         .from('contracts')

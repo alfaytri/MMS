@@ -2,6 +2,7 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { createClient } from '@/lib/supabase/client'
 import type { ApprovalRole, ApprovalChainTier } from '@/lib/approvalChainResolution'
+import { queryKeys } from '@/lib/queryKeys'
 
 export type ApprovalChain = {
   id: string
@@ -14,7 +15,7 @@ export type ApprovalChain = {
 
 export function useApprovalChains() {
   return useQuery({
-    queryKey: ['approval-chains'],
+    queryKey: queryKeys.approvals.chains,
     queryFn: async () => {
       const supabase = createClient()
       const { data, error } = await (supabase as any)
@@ -31,7 +32,7 @@ export function useApprovalChains() {
 
 export function useChainForDivision(divisionId: string | null | undefined) {
   return useQuery({
-    queryKey: ['approval-chain-for-division', divisionId],
+    queryKey: queryKeys.approvals.chainForDivision(divisionId),
     queryFn: async () => {
       const supabase = createClient()
       // Try division-specific chain first
@@ -77,8 +78,8 @@ export function useUpsertApprovalChain() {
       return data as ApprovalChain
     },
     onSuccess: () => {
-      qc.invalidateQueries({ queryKey: ['approval-chains'] })
-      qc.invalidateQueries({ queryKey: ['approval-chain-for-division'] })
+      qc.invalidateQueries({ queryKey: queryKeys.approvals.chains })
+      qc.invalidateQueries({ queryKey: queryKeys.approvals.chainForDivisionAll })
     },
   })
 }
@@ -118,8 +119,8 @@ export function useUpsertApprovalChainTier() {
       return data
     },
     onSuccess: () => {
-      qc.invalidateQueries({ queryKey: ['approval-chains'] })
-      qc.invalidateQueries({ queryKey: ['approval-chain-for-division'] })
+      qc.invalidateQueries({ queryKey: queryKeys.approvals.chains })
+      qc.invalidateQueries({ queryKey: queryKeys.approvals.chainForDivisionAll })
     },
   })
 }
@@ -136,8 +137,8 @@ export function useToggleChainActive() {
       if (error) throw error
     },
     onSuccess: () => {
-      qc.invalidateQueries({ queryKey: ['approval-chains'] })
-      qc.invalidateQueries({ queryKey: ['approval-chain-for-division'] })
+      qc.invalidateQueries({ queryKey: queryKeys.approvals.chains })
+      qc.invalidateQueries({ queryKey: queryKeys.approvals.chainForDivisionAll })
     },
   })
 }
@@ -154,8 +155,8 @@ export function useArchiveApprovalChain() {
       if (error) throw error
     },
     onSuccess: () => {
-      qc.invalidateQueries({ queryKey: ['approval-chains'] })
-      qc.invalidateQueries({ queryKey: ['approval-chain-for-division'] })
+      qc.invalidateQueries({ queryKey: queryKeys.approvals.chains })
+      qc.invalidateQueries({ queryKey: queryKeys.approvals.chainForDivisionAll })
     },
   })
 }
@@ -181,8 +182,8 @@ export function useSoftDeleteApprovalChainTier() {
       if (error) throw error
     },
     onSuccess: () => {
-      qc.invalidateQueries({ queryKey: ['approval-chains'] })
-      qc.invalidateQueries({ queryKey: ['approval-chain-for-division'] })
+      qc.invalidateQueries({ queryKey: queryKeys.approvals.chains })
+      qc.invalidateQueries({ queryKey: queryKeys.approvals.chainForDivisionAll })
     },
   })
 }

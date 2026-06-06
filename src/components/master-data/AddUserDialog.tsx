@@ -24,6 +24,7 @@ import { passwordSchema } from '@/lib/auth/password-policy'
 import { useCreateUser } from '@/hooks/useProfiles'
 import { useRoles } from '@/hooks/useRoles'
 import { createClient } from '@/lib/supabase/client'
+import { queryKeys } from '@/lib/queryKeys'
 
 const schema = z.object({
   full_name: z.string().min(1, 'Name is required'),
@@ -50,7 +51,7 @@ export function AddUserDialog({ open, onOpenChange }: Props) {
   const [linkedEmployeeId, setLinkedEmployeeId] = useState<string | null>(null)
 
   const { data: tlEmployees = [] } = useQuery({
-    queryKey: ['tl-linkable-employees'],
+    queryKey: queryKeys.teamLeader.linkableEmployees,
     queryFn: async () => {
       const supabase = createClient()
       // eslint-disable-next-line @typescript-eslint/no-explicit-any

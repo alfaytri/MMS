@@ -2,6 +2,7 @@
 import { useInfiniteQuery, useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { createClient } from '@/lib/supabase/client'
 import { logActivity } from '@/lib/logActivity'
+import { queryKeys } from '@/lib/queryKeys'
 
 const PAGE_SIZE = 50
 
@@ -51,7 +52,7 @@ export type FinancePayment = {
 
 export function usePayments(filters: PaymentFilters = {}) {
   return useInfiniteQuery({
-    queryKey: ['payments', filters],
+    queryKey: queryKeys.payments.list(filters),
     queryFn: async ({ pageParam = 0 }) => {
       const supabase = createClient()
 
@@ -137,7 +138,7 @@ export type PaymentSummary = {
 
 export function usePaymentSummary() {
   return useQuery({
-    queryKey: ['payment-summary'],
+    queryKey: queryKeys.payments.summary,
     queryFn: async (): Promise<PaymentSummary> => {
       const supabase = createClient()
       const { data, error } = await (supabase as any).rpc('get_payment_summary')
@@ -162,8 +163,8 @@ export function useBulkQbSyncPayments() {
       if (error) throw error
     },
     onSuccess: (_, ids) => {
-      queryClient.invalidateQueries({ queryKey: ['payments'] })
-      queryClient.invalidateQueries({ queryKey: ['payment-summary'] })
+      queryClient.invalidateQueries({ queryKey: queryKeys.payments.all })
+      queryClient.invalidateQueries({ queryKey: queryKeys.payments.summary })
       logActivity({
         action: 'Payments QB Synced',
         module: 'payments',

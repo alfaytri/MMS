@@ -1,5 +1,6 @@
 import { useQuery } from '@tanstack/react-query'
 import { createClient } from '@/lib/supabase/client'
+import { queryKeys } from '@/lib/queryKeys'
 
 export type CogsEntry = {
   id: string
@@ -15,7 +16,7 @@ export type CogsEntry = {
 
 export function useCogsEntries(brandVariantId?: string) {
   return useQuery({
-    queryKey: ['cogs-entries', brandVariantId],
+    queryKey: queryKeys.inventory.cogsEntriesByVariant(brandVariantId),
     enabled: !!brandVariantId,
     queryFn: async () => {
       const supabase = createClient()
@@ -33,7 +34,7 @@ export function useCogsEntries(brandVariantId?: string) {
 
 export function useStockMovementsByVariant(brandVariantId?: string) {
   return useQuery({
-    queryKey: ['stock_movements', 'by_variant', brandVariantId],
+    queryKey: queryKeys.inventory.stockMovementsByVariant(brandVariantId),
     enabled: !!brandVariantId,
     queryFn: async () => {
       const supabase = createClient()
@@ -52,7 +53,7 @@ export function useStockMovementsByVariant(brandVariantId?: string) {
 
 export function useServiceInventoryLinks(brandVariantId?: string) {
   return useQuery({
-    queryKey: ['service-inventory', brandVariantId],
+    queryKey: queryKeys.inventory.serviceInventory(brandVariantId),
     enabled: !!brandVariantId,
     queryFn: async () => {
       const supabase = createClient()

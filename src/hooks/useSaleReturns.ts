@@ -2,6 +2,7 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { createClient } from '@/lib/supabase/client'
 import { logActivity } from '@/lib/logActivity'
 import { nextNoteId } from '@/hooks/useCreditNotes'
+import { queryKeys } from '@/lib/queryKeys'
 
 export type SaleReturn = {
   id: string
@@ -29,7 +30,7 @@ export type SaleReturn = {
 
 export function useSaleReturns(filters: { search?: string; status?: string } = {}) {
   return useQuery({
-    queryKey: ['sale-returns', filters],
+    queryKey: queryKeys.saleReturns.list(filters),
     queryFn: async () => {
       const supabase = createClient()
       let q = (supabase as any)
@@ -92,9 +93,9 @@ export function useCreateSaleReturn() {
       return data as SaleReturn
     },
     onSuccess: (data) => {
-      queryClient.invalidateQueries({ queryKey: ['sale-returns'] })
-      queryClient.invalidateQueries({ queryKey: ['sale-returns-by-so'] })
-      queryClient.invalidateQueries({ queryKey: ['activity-log'] })
+      queryClient.invalidateQueries({ queryKey: queryKeys.saleReturns.all })
+      queryClient.invalidateQueries({ queryKey: queryKeys.saleReturns.bySo })
+      queryClient.invalidateQueries({ queryKey: queryKeys.activityLog.all })
       const damagedCount = data.items.filter((i) => i.condition === 'damaged').reduce((s, i) => s + i.qty, 0)
       const goodCount    = data.items.filter((i) => i.condition === 'good').reduce((s, i) => s + i.qty, 0)
       const parts = []
@@ -231,12 +232,12 @@ export function useUpdateReturnStatus() {
       return ret as { source_id: string; return_number: string; items: any[]; reason: string }
     },
     onSuccess: (ret, variables) => {
-      queryClient.invalidateQueries({ queryKey: ['sale-returns'] })
-      queryClient.invalidateQueries({ queryKey: ['sale-returns-by-so'] })
-      queryClient.invalidateQueries({ queryKey: ['activity-log'] })
+      queryClient.invalidateQueries({ queryKey: queryKeys.saleReturns.all })
+      queryClient.invalidateQueries({ queryKey: queryKeys.saleReturns.bySo })
+      queryClient.invalidateQueries({ queryKey: queryKeys.activityLog.all })
       if (variables.status === 'restocked') {
-        queryClient.invalidateQueries({ queryKey: ['brand-variants-v2'] })
-        queryClient.invalidateQueries({ queryKey: ['credit-notes'] })
+        queryClient.invalidateQueries({ queryKey: queryKeys.inventory.brandVariantsV2 })
+        queryClient.invalidateQueries({ queryKey: queryKeys.creditNotes.all })
       }
       const label: Record<SaleReturn['status'], string> = {
         pending:   'Return Marked Pending',
@@ -258,7 +259,7 @@ export function useUpdateReturnStatus() {
 
 export function useReturnsBySO(soId: string | null) {
   return useQuery({
-    queryKey: ['sale-returns-by-so', soId],
+    queryKey: queryKeys.saleReturns.bySoId(soId),
     queryFn: async () => {
       const supabase = createClient()
       const { data, error } = await (supabase as any)
@@ -303,8 +304,8 @@ export function useCreateCreditNoteForReturn() {
       })
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['sale-returns-by-so'] })
-      queryClient.invalidateQueries({ queryKey: ['credit-notes'] })
+      queryClient.invalidateQueries({ queryKey: queryKeys.saleReturns.bySo })
+      queryClient.invalidateQueries({ queryKey: queryKeys.creditNotes.all })
     },
   })
 }

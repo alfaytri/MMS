@@ -2,13 +2,14 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { createClient } from '@/lib/supabase/client'
 import { usePermissions } from '@/hooks/usePermissions'
 import type { DBTable, DBUpdate } from '@/types/database.types'
+import { queryKeys } from '@/lib/queryKeys'
 
 export type Profile = DBTable<'profiles'>
 export type ProfileUpdate = DBUpdate<'profiles'>
 
 export function useProfiles() {
   return useQuery({
-    queryKey: ['profiles'],
+    queryKey: queryKeys.profiles.all,
     queryFn: async () => {
       // Use the admin API route so RLS doesn't filter results for the calling user.
       const res = await fetch('/api/users')
@@ -26,7 +27,7 @@ export function useProfiles() {
 // not an error.
 export function useCurrentUserProfile() {
   return useQuery({
-    queryKey: ['my-profile'],
+    queryKey: queryKeys.profiles.my,
     queryFn: async () => {
       const supabase = createClient()
       const { data: { user } } = await supabase.auth.getUser()
@@ -73,8 +74,8 @@ export function useCreateMyProfile() {
       return data as Profile
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['profiles'] })
-      queryClient.invalidateQueries({ queryKey: ['my-profile'] })
+      queryClient.invalidateQueries({ queryKey: queryKeys.profiles.all })
+      queryClient.invalidateQueries({ queryKey: queryKeys.profiles.my })
     },
   })
 }
@@ -89,13 +90,13 @@ export function useUpdateProfile() {
       if (error) throw error
       return data
     },
-    onSuccess: () => { queryClient.invalidateQueries({ queryKey: ['profiles'] }) },
+    onSuccess: () => { queryClient.invalidateQueries({ queryKey: queryKeys.profiles.all }) },
   })
 }
 
 export function useUserDivisions(profileId: string | null) {
   return useQuery({
-    queryKey: ['user-divisions', profileId],
+    queryKey: queryKeys.profiles.userDivisions(profileId),
     queryFn: async () => {
       const supabase = createClient()
       const { data, error } = await supabase
@@ -119,8 +120,8 @@ export function useAssignDivision() {
       return data
     },
     onSuccess: (_, variables) => {
-      queryClient.invalidateQueries({ queryKey: ['user-divisions', variables.profile_id] })
-      queryClient.invalidateQueries({ queryKey: ['profiles'] })
+      queryClient.invalidateQueries({ queryKey: queryKeys.profiles.userDivisions(variables.profile_id) })
+      queryClient.invalidateQueries({ queryKey: queryKeys.profiles.all })
     },
   })
 }
@@ -135,8 +136,8 @@ export function useRemoveDivision() {
       return profileId
     },
     onSuccess: (profileId) => {
-      queryClient.invalidateQueries({ queryKey: ['user-divisions', profileId] })
-      queryClient.invalidateQueries({ queryKey: ['profiles'] })
+      queryClient.invalidateQueries({ queryKey: queryKeys.profiles.userDivisions(profileId) })
+      queryClient.invalidateQueries({ queryKey: queryKeys.profiles.all })
     },
   })
 }
@@ -164,7 +165,7 @@ export function useCreateUser() {
       return json as { profile: Profile; assigned_role_ids: string[]; warning?: string }
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['profiles'] })
+      queryClient.invalidateQueries({ queryKey: queryKeys.profiles.all })
     },
   })
 }
@@ -194,10 +195,10 @@ export function useUpdateUser() {
       return json
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['profiles'] })
-      queryClient.invalidateQueries({ queryKey: ['my-profile'] })
-      queryClient.invalidateQueries({ queryKey: ['tl-identity'] })
-      queryClient.invalidateQueries({ queryKey: ['is-admin'] })
+      queryClient.invalidateQueries({ queryKey: queryKeys.profiles.all })
+      queryClient.invalidateQueries({ queryKey: queryKeys.profiles.my })
+      queryClient.invalidateQueries({ queryKey: queryKeys.teamLeader.identity })
+      queryClient.invalidateQueries({ queryKey: queryKeys.profiles.isAdmin })
     },
   })
 }
@@ -241,7 +242,7 @@ export function useCompleteMyPasswordChange() {
  */
 export function useAllProfiles() {
   return useQuery({
-    queryKey: ['all-profiles-select'],
+    queryKey: queryKeys.profiles.allSelect,
     queryFn: async () => {
       const supabase = createClient()
       const { data, error } = await (supabase as any)

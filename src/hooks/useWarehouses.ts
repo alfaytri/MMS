@@ -1,6 +1,7 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { createClient } from '@/lib/supabase/client'
 import type { DBTable, DBInsert, DBUpdate } from '@/types/database.types'
+import { queryKeys } from '@/lib/queryKeys'
 
 export type Warehouse = DBTable<'warehouses'> & {
   manager_name: string | null
@@ -12,7 +13,7 @@ export type WarehouseUpdate = DBUpdate<'warehouses'>
 
 export function useWarehouses() {
   return useQuery({
-    queryKey: ['warehouses'],
+    queryKey: queryKeys.warehouses.all,
     queryFn: async () => {
       const supabase = createClient()
       const { data, error } = await supabase
@@ -51,7 +52,7 @@ export function useCreateWarehouse() {
       return data
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['warehouses'] })
+      queryClient.invalidateQueries({ queryKey: queryKeys.warehouses.all })
     },
   })
 }
@@ -71,7 +72,7 @@ export function useUpdateWarehouse() {
       return data
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['warehouses'] })
+      queryClient.invalidateQueries({ queryKey: queryKeys.warehouses.all })
     },
   })
 }
@@ -85,7 +86,7 @@ export function useDeleteWarehouse() {
       if (error) throw error
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['warehouses'] })
+      queryClient.invalidateQueries({ queryKey: queryKeys.warehouses.all })
     },
   })
 }

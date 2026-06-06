@@ -7,6 +7,7 @@ import { Image as ImageIcon, FileText, Volume2, ChevronLeft, ChevronRight, X } f
 import { createClient } from '@/lib/supabase/client'
 import { useQuery } from '@tanstack/react-query'
 import { cn } from '@/lib/utils'
+import { queryKeys } from '@/lib/queryKeys'
 
 interface MediaItem {
   id: string
@@ -42,7 +43,7 @@ export function ServiceMediaDialog({ open, onOpenChange, serviceId, serviceName 
   const [selectedIdx, setSelectedIdx] = useState(0)
 
   const { data: mediaItems = [] } = useQuery<MediaItem[]>({
-    queryKey: ['serviceMedia', serviceId],
+    queryKey: queryKeys.contracts.serviceMedia(serviceId),
     queryFn: async () => {
       if (!serviceId) return []
       const { data, error } = await supabase.storage

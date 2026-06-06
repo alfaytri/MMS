@@ -1,6 +1,7 @@
 import { useQuery } from '@tanstack/react-query'
 import { createClient } from '@/lib/supabase/client'
 import type { CustomerHistoryOrder, CustomerHistoryOrderService, InstalledProduct, OrderStatus } from '@/types/orders'
+import { queryKeys } from '@/lib/queryKeys'
 
 export function useCustomerHistory(
   customerId: string | null,
@@ -17,7 +18,7 @@ export function useCustomerHistory(
   const endDate = `${year}-${String(month).padStart(2, '0')}-${String(lastDay).padStart(2, '0')}`
 
   const orders = useQuery({
-    queryKey: ['customer-history-orders', customerId, year, month, orderPage, pageSize],
+    queryKey: queryKeys.customerHistory.orders(customerId, year, month, orderPage, pageSize),
     queryFn: async (): Promise<{ data: CustomerHistoryOrder[]; count: number }> => {
       if (!customerId) return { data: [], count: 0 }
       const { data, error, count } = await supabase
@@ -54,7 +55,7 @@ export function useCustomerHistory(
   })
 
   const products = useQuery({
-    queryKey: ['customer-history-products', customerId, year, month, productPage, pageSize],
+    queryKey: queryKeys.customerHistory.products(customerId, year, month, productPage, pageSize),
     queryFn: async (): Promise<{ data: InstalledProduct[]; count: number }> => {
       if (!customerId) return { data: [], count: 0 }
       const { data, error, count } = await supabase

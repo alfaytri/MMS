@@ -2,6 +2,7 @@
 import { useState, useEffect } from 'react'
 import { useMutation, useQueryClient } from '@tanstack/react-query'
 import { createClient } from '@/lib/supabase/client'
+import { queryKeys } from '@/lib/queryKeys'
 import { formatAddressLine } from '@/lib/orders/warrantyUtils'
 import type { OrderDraft, OrderServiceDraft, TeamAssignmentDraft, CustomerAddress, OrderAttachment, VisitDateWindow, OrderType } from '@/types/orders'
 import { SITE_VISIT_SERVICE_ID } from '@/components/orders/SiteVisitCard'
@@ -326,8 +327,8 @@ export function useCreateOrder() {
       return { orderId, primaryDate, type: draft.type }
     },
     onSuccess: async (result) => {
-      qc.invalidateQueries({ queryKey: ['orders'] })
-      qc.invalidateQueries({ queryKey: ['site-visits'] })
+      qc.invalidateQueries({ queryKey: queryKeys.orders.all })
+      qc.invalidateQueries({ queryKey: queryKeys.siteVisits.all })
       reset()
 
       // Send confirmation immediately if the visit is within 2 days (cron would miss it)

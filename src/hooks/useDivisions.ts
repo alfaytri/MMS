@@ -1,6 +1,7 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { createClient } from '@/lib/supabase/client'
 import type { DBTable, DBInsert, DBUpdate } from '@/types/database.types'
+import { queryKeys } from '@/lib/queryKeys'
 
 export type Division = DBTable<'divisions'>
 export type DivisionInsert = DBInsert<'divisions'>
@@ -9,7 +10,7 @@ export type DivisionUpdate = DBUpdate<'divisions'>
 /** Active divisions only — used across the app for DivisionFilter, selectors, etc. */
 export function useDivisions() {
   return useQuery({
-    queryKey: ['divisions'],
+    queryKey: queryKeys.divisions.all,
     queryFn: async () => {
       const supabase = createClient()
       const { data, error } = await supabase
@@ -27,7 +28,7 @@ export function useDivisions() {
 /** All divisions including inactive — used by admin Companies page. */
 export function useAllDivisions() {
   return useQuery({
-    queryKey: ['divisions', 'all'],
+    queryKey: queryKeys.divisions.allList,
     queryFn: async () => {
       const supabase = createClient()
       const { data, error } = await supabase
@@ -43,7 +44,7 @@ export function useAllDivisions() {
 
 export function useDivisionsByCompany(companyId: string | null) {
   return useQuery({
-    queryKey: ['divisions', 'company', companyId],
+    queryKey: queryKeys.divisions.byCompany(companyId),
     queryFn: async () => {
       const supabase = createClient()
       const { data, error } = await supabase
@@ -72,7 +73,7 @@ export function useCreateDivision() {
       return data
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['divisions'] })
+      queryClient.invalidateQueries({ queryKey: queryKeys.divisions.all })
     },
   })
 }
@@ -92,7 +93,7 @@ export function useUpdateDivision() {
       return data
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['divisions'] })
+      queryClient.invalidateQueries({ queryKey: queryKeys.divisions.all })
     },
   })
 }
@@ -109,7 +110,7 @@ export function useDeleteDivision() {
       if (error) throw error
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['divisions'] })
+      queryClient.invalidateQueries({ queryKey: queryKeys.divisions.all })
     },
   })
 }
@@ -129,7 +130,7 @@ export interface DivisionWithSchedule {
 /** Active divisions including their assigned calendar schedule id. */
 export function useDivisionsWithSchedule() {
   return useQuery({
-    queryKey: ['divisions', 'with-schedule'],
+    queryKey: queryKeys.divisions.withSchedule,
     queryFn: async (): Promise<DivisionWithSchedule[]> => {
       const supabase = createClient()
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -165,8 +166,8 @@ export function useAssignDivisionSchedule() {
       if (error) throw error
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['divisions'] })
-      queryClient.invalidateQueries({ queryKey: ['division-schedule'] })
+      queryClient.invalidateQueries({ queryKey: queryKeys.divisions.all })
+      queryClient.invalidateQueries({ queryKey: queryKeys.divisions.divisionSchedule })
     },
   })
 }

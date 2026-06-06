@@ -1,6 +1,7 @@
 import { useMemo } from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { createClient } from '@/lib/supabase/client'
+import { queryKeys } from '@/lib/queryKeys'
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -157,7 +158,7 @@ export function useStockMovements({
   limit?: number
 } = {}) {
   return useQuery({
-    queryKey: ['stock_movements', { warehouseId, limit }],
+    queryKey: queryKeys.warehouseOps.stockMovements(warehouseId, limit),
     queryFn: async () => {
       const supabase = createClient()
       let q = (supabase as any)
@@ -176,7 +177,7 @@ export function useStockMovements({
 
 export function useWarehouseStock(warehouseId?: string) {
   return useQuery({
-    queryKey: ['warehouse_stock', warehouseId],
+    queryKey: queryKeys.warehouseOps.warehouseStock(warehouseId),
     queryFn: async () => {
       const supabase = createClient()
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -207,7 +208,7 @@ export function useWarehouseStockSummary(warehouseId: string | null): {
 
 export function useWarehouseTransfers({ status }: { status?: TransferStatus } = {}) {
   return useQuery({
-    queryKey: ['warehouse_transfers', { status }],
+    queryKey: queryKeys.warehouseOps.warehouseTransfersByStatus(status),
     queryFn: async () => {
       const supabase = createClient()
       let q = (supabase as any)
@@ -236,7 +237,7 @@ export function useCreateTransfer() {
       if (error) throw error
       return data as WarehouseTransfer
     },
-    onSuccess: () => qc.invalidateQueries({ queryKey: ['warehouse_transfers'] }),
+    onSuccess: () => qc.invalidateQueries({ queryKey: queryKeys.warehouseOps.warehouseTransfers }),
   })
 }
 
@@ -253,12 +254,12 @@ export function useApproveTransfer() {
       if (error) throw new Error(error.message)
     },
     onSuccess: () => {
-      qc.invalidateQueries({ queryKey: ['warehouse_transfers'] })
-      qc.invalidateQueries({ queryKey: ['warehouse_stock'] })
-      qc.invalidateQueries({ queryKey: ['inventory-brand-variants'] })
-      qc.invalidateQueries({ queryKey: ['stock_movements'] })
-      qc.invalidateQueries({ queryKey: ['fifo-layers'] })
-      qc.invalidateQueries({ queryKey: ['warehouses'] })
+      qc.invalidateQueries({ queryKey: queryKeys.warehouseOps.warehouseTransfers })
+      qc.invalidateQueries({ queryKey: queryKeys.warehouseOps.warehouseStockAll })
+      qc.invalidateQueries({ queryKey: queryKeys.inventory.inventoryBrandVariants })
+      qc.invalidateQueries({ queryKey: queryKeys.inventory.stockMovements })
+      qc.invalidateQueries({ queryKey: queryKeys.inventory.fifoLayers })
+      qc.invalidateQueries({ queryKey: queryKeys.warehouses.all })
     },
   })
 }
@@ -274,13 +275,13 @@ export function useRejectTransfer() {
         .eq('id', id)
       if (error) throw error
     },
-    onSuccess: () => qc.invalidateQueries({ queryKey: ['warehouse_transfers'] }),
+    onSuccess: () => qc.invalidateQueries({ queryKey: queryKeys.warehouseOps.warehouseTransfers }),
   })
 }
 
 export function useStockAdjustments({ warehouseId }: { warehouseId?: string } = {}) {
   return useQuery({
-    queryKey: ['stock_adjustments', { warehouseId }],
+    queryKey: queryKeys.warehouseOps.stockAdjustmentsByWarehouse(warehouseId),
     queryFn: async () => {
       const supabase = createClient()
       let q = (supabase as any)
@@ -313,7 +314,7 @@ export function useCreateStockAdjustment() {
       if (error) throw error
       return data as StockAdjustment
     },
-    onSuccess: () => qc.invalidateQueries({ queryKey: ['stock_adjustments'] }),
+    onSuccess: () => qc.invalidateQueries({ queryKey: queryKeys.warehouseOps.stockAdjustments }),
   })
 }
 
@@ -330,20 +331,20 @@ export function useApproveStockAdjustment() {
       if (error) throw new Error(error.message)
     },
     onSuccess: () => {
-      qc.invalidateQueries({ queryKey: ['stock_adjustments'] })
-      qc.invalidateQueries({ queryKey: ['brand-variants-grouped'] })
-      qc.invalidateQueries({ queryKey: ['brand-variants-v2'] })
-      qc.invalidateQueries({ queryKey: ['brand-variants'] })
-      qc.invalidateQueries({ queryKey: ['warehouse_stock'] })
-      qc.invalidateQueries({ queryKey: ['stock_movements'] })
-      qc.invalidateQueries({ queryKey: ['fifo-layers'] })
+      qc.invalidateQueries({ queryKey: queryKeys.warehouseOps.stockAdjustments })
+      qc.invalidateQueries({ queryKey: queryKeys.inventory.brandVariantsGrouped })
+      qc.invalidateQueries({ queryKey: queryKeys.inventory.brandVariantsV2 })
+      qc.invalidateQueries({ queryKey: queryKeys.inventory.brandVariants })
+      qc.invalidateQueries({ queryKey: queryKeys.warehouseOps.warehouseStockAll })
+      qc.invalidateQueries({ queryKey: queryKeys.inventory.stockMovements })
+      qc.invalidateQueries({ queryKey: queryKeys.inventory.fifoLayers })
     },
   })
 }
 
 export function useInventoryChecks({ warehouseId }: { warehouseId?: string } = {}) {
   return useQuery({
-    queryKey: ['inventory_checks', { warehouseId }],
+    queryKey: queryKeys.warehouseOps.inventoryChecksByWarehouse(warehouseId),
     queryFn: async () => {
       const supabase = createClient()
       let q = (supabase as any)
@@ -361,7 +362,7 @@ export function useInventoryChecks({ warehouseId }: { warehouseId?: string } = {
 
 export function useInventoryCheck(id: string) {
   return useQuery({
-    queryKey: ['inventory_checks', id],
+    queryKey: queryKeys.warehouseOps.inventoryCheckDetail(id),
     queryFn: async () => {
       const supabase = createClient()
       const { data, error } = await (supabase as any)
@@ -401,7 +402,7 @@ export function useCreateInventoryCheck() {
       if (error) throw error
       return data as InventoryCheck
     },
-    onSuccess: () => qc.invalidateQueries({ queryKey: ['inventory_checks'] }),
+    onSuccess: () => qc.invalidateQueries({ queryKey: queryKeys.warehouseOps.inventoryChecks }),
   })
 }
 
@@ -423,7 +424,7 @@ export function useUpdateInventoryCheckItem() {
       if (error) throw error
     },
     onSuccess: () => {
-      qc.invalidateQueries({ queryKey: ['inventory_checks'] })
+      qc.invalidateQueries({ queryKey: queryKeys.warehouseOps.inventoryChecks })
     },
   })
 }
@@ -443,7 +444,7 @@ export function useSubmitInventoryCheck() {
         .eq('id', id)
       if (error) throw error
     },
-    onSuccess: () => qc.invalidateQueries({ queryKey: ['inventory_checks'] }),
+    onSuccess: () => qc.invalidateQueries({ queryKey: queryKeys.warehouseOps.inventoryChecks }),
   })
 }
 
@@ -471,13 +472,13 @@ export function useReviewInventoryCheck() {
         .eq('id', id)
       if (error) throw error
     },
-    onSuccess: () => qc.invalidateQueries({ queryKey: ['inventory_checks'] }),
+    onSuccess: () => qc.invalidateQueries({ queryKey: queryKeys.warehouseOps.inventoryChecks }),
   })
 }
 
 export function useReceivalsAndDeliveries() {
   return useQuery({
-    queryKey: ['receivals_deliveries'],
+    queryKey: queryKeys.warehouseOps.receivalsDeliveries,
     queryFn: async () => {
       const supabase = createClient()
 

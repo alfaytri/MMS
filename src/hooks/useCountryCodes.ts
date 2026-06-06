@@ -1,5 +1,6 @@
 import { useQuery } from '@tanstack/react-query'
 import { createClient } from '@/lib/supabase/client'
+import { queryKeys } from '@/lib/queryKeys'
 
 export interface CountryCode {
   id: number
@@ -11,7 +12,7 @@ export interface CountryCode {
 
 export function useCountryCodes() {
   return useQuery<CountryCode[]>({
-    queryKey: ['country-codes'],
+    queryKey: queryKeys.countryCodes.all,
     queryFn: async (): Promise<CountryCode[]> => {
       const supabase = createClient()
       // country_codes may not be in generated types yet — cast to any

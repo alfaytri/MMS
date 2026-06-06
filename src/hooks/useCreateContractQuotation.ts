@@ -4,6 +4,7 @@ import { useMutation, useQueryClient } from '@tanstack/react-query'
 import { createClient } from '@/lib/supabase/client'
 import { logActivity } from '@/lib/logActivity'
 import type { ContractFormData } from '@/types/contracts'
+import { queryKeys } from '@/lib/queryKeys'
 
 export function useCreateContractQuotation() {
   const supabase = createClient()
@@ -123,7 +124,7 @@ export function useCreateContractQuotation() {
       return contract
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['contractQuotations'] })
+      queryClient.invalidateQueries({ queryKey: queryKeys.contracts.quotationsAll })
     },
   })
 }

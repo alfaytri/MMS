@@ -1,5 +1,6 @@
 import { useQuery } from '@tanstack/react-query'
 import { createClient } from '@/lib/supabase/client'
+import { queryKeys } from '@/lib/queryKeys'
 
 export interface SiteVisitListItem {
   id: string
@@ -28,7 +29,7 @@ export function useSiteVisits(filter: SiteVisitsFilter = {}) {
   const supabase = createClient()
 
   return useQuery({
-    queryKey: ['site-visits', filter],
+    queryKey: queryKeys.siteVisits.list(filter),
     queryFn: async (): Promise<SiteVisitListItem[]> => {
       const { data, error } = await (supabase as any)
         .from('site_visits')

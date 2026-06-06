@@ -2,6 +2,7 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { createClient } from '@/lib/supabase/client'
 import { logActivity } from '@/lib/logActivity'
 import { nextNoteId, type CreditNote } from '@/hooks/useCreditNotes'
+import { queryKeys } from '@/lib/queryKeys'
 
 export type POReturnStatus = 'pending' | 'dispatched' | 'supplier_confirmed' | 'closed' | 'cancelled'
 
@@ -35,7 +36,7 @@ export type POReturn = {
 
 export function usePurchaseReturnsByPO(poId: string | null) {
   return useQuery({
-    queryKey: ['po-returns-by-po', poId],
+    queryKey: queryKeys.purchaseReturns.byPoId(poId),
     enabled: !!poId,
     queryFn: async () => {
       const supabase = createClient()
@@ -70,7 +71,7 @@ export function usePurchaseReturnsByPO(poId: string | null) {
 
 export function usePurchaseReturns(filters: { search?: string; status?: string } = {}) {
   return useQuery({
-    queryKey: ['po-returns', filters],
+    queryKey: queryKeys.purchaseReturns.list(filters),
     queryFn: async () => {
       const supabase = createClient()
       let q = (supabase as any)
@@ -129,9 +130,9 @@ export function useCreatePurchaseReturn() {
       return data as POReturn
     },
     onSuccess: (data) => {
-      queryClient.invalidateQueries({ queryKey: ['po-returns'] })
-      queryClient.invalidateQueries({ queryKey: ['po-returns-by-po'] })
-      queryClient.invalidateQueries({ queryKey: ['activity-log'] })
+      queryClient.invalidateQueries({ queryKey: queryKeys.purchaseReturns.all })
+      queryClient.invalidateQueries({ queryKey: queryKeys.purchaseReturns.byPo })
+      queryClient.invalidateQueries({ queryKey: queryKeys.activityLog.all })
       const totalQty = data.items.reduce((s, i) => s + i.qty, 0)
       logActivity({
         action:    'PO Return Created',
@@ -284,14 +285,14 @@ export function useUpdatePOReturnStatus() {
       return { return_number: ret.return_number as string }
     },
     onSuccess: (ret, variables) => {
-      queryClient.invalidateQueries({ queryKey: ['po-returns'] })
-      queryClient.invalidateQueries({ queryKey: ['po-returns-by-po'] })
-      queryClient.invalidateQueries({ queryKey: ['activity-log'] })
+      queryClient.invalidateQueries({ queryKey: queryKeys.purchaseReturns.all })
+      queryClient.invalidateQueries({ queryKey: queryKeys.purchaseReturns.byPo })
+      queryClient.invalidateQueries({ queryKey: queryKeys.activityLog.all })
       if (variables.status === 'dispatched' || variables.status === 'cancelled') {
-        queryClient.invalidateQueries({ queryKey: ['brand-variants-v2'] })
+        queryClient.invalidateQueries({ queryKey: queryKeys.inventory.brandVariantsV2 })
       }
       if (variables.status === 'dispatched') {
-        queryClient.invalidateQueries({ queryKey: ['debit-notes'] })
+        queryClient.invalidateQueries({ queryKey: queryKeys.creditNotes.debitNotes })
       }
       const ACTION_MAP: Record<POReturnStatus, { action: string; severity: 'info' | 'warning' }> = {
         pending:            { action: 'PO Return Marked Pending',     severity: 'info' },
@@ -326,8 +327,8 @@ export function useCreateDebitNoteForReturn() {
       })
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['po-returns-by-po'] })
-      queryClient.invalidateQueries({ queryKey: ['debit-notes'] })
+      queryClient.invalidateQueries({ queryKey: queryKeys.purchaseReturns.byPo })
+      queryClient.invalidateQueries({ queryKey: queryKeys.creditNotes.debitNotes })
     },
   })
 }

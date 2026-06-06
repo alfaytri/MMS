@@ -3,6 +3,7 @@
 import { useQuery } from '@tanstack/react-query'
 import { createClient } from '@/lib/supabase/client'
 import { Badge } from '@/components/ui/badge'
+import { queryKeys } from '@/lib/queryKeys'
 
 interface OrderRow {
   id: string
@@ -18,7 +19,7 @@ export function OrderHistorySection({ customerId }: { customerId: string | null 
   const supabase = createClient()
 
   const { data: orders = [], isLoading } = useQuery<OrderRow[]>({
-    queryKey: ['cc-order-history', customerId],
+    queryKey: queryKeys.contactCenter.orderHistory(customerId),
     queryFn: async () => {
       if (!customerId) return []
       const { data, error } = await (supabase as any)

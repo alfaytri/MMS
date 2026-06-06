@@ -2,6 +2,7 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { createClient } from '@/lib/supabase/client'
 import type { ApInvoice, InvoiceLineItem, PaymentPlan } from '@/types/invoice'
+import { queryKeys } from '@/lib/queryKeys'
 
 export type { ApInvoice }
 
@@ -14,7 +15,7 @@ export type BillFilters = {
 
 export function useSupplierBills(filters?: BillFilters, options?: { enabled?: boolean }) {
   return useQuery({
-    queryKey: ['supplier-bills', filters],
+    queryKey: queryKeys.supplierBills.list(filters),
     enabled: options?.enabled !== false,
     queryFn: async () => {
       const supabase = createClient()
@@ -46,7 +47,7 @@ export function useSupplierBills(filters?: BillFilters, options?: { enabled?: bo
 
 export function useSupplierBill(id: string | null) {
   return useQuery({
-    queryKey: ['supplier-bill', id],
+    queryKey: queryKeys.supplierBills.detail(id),
     enabled: !!id,
     queryFn: async () => {
       const supabase = createClient()
@@ -67,7 +68,7 @@ export function useSupplierBill(id: string | null) {
 
 export function useBillsByPO(poId: string | null) {
   return useQuery({
-    queryKey: ['supplier-bills-by-po', poId],
+    queryKey: queryKeys.supplierBills.byPo(poId),
     enabled: !!poId,
     queryFn: async () => {
       const supabase = createClient()
@@ -166,7 +167,7 @@ export function useCreateBill() {
       }
       return bill as ApInvoice
     },
-    onSuccess: () => queryClient.invalidateQueries({ queryKey: ['supplier-bills'] }),
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: queryKeys.supplierBills.all }),
   })
 }
 
@@ -189,7 +190,7 @@ export function useApproveBill() {
       if (error) throw error
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['supplier-bills'] })
+      queryClient.invalidateQueries({ queryKey: queryKeys.supplierBills.all })
     },
   })
 }
@@ -243,7 +244,7 @@ export type BillViewModel = {
 
 export function useBillViewModel(id: string | null) {
   return useQuery({
-    queryKey: ['bill-view-model', id],
+    queryKey: queryKeys.supplierBills.viewModelById(id),
     enabled: !!id,
     queryFn: async (): Promise<BillViewModel> => {
       const supabase = createClient()
@@ -335,8 +336,8 @@ export function useMarkBillPaymentStatus() {
       if (error) throw error
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['supplier-bills'] })
-      queryClient.invalidateQueries({ queryKey: ['bill-view-model'] })
+      queryClient.invalidateQueries({ queryKey: queryKeys.supplierBills.all })
+      queryClient.invalidateQueries({ queryKey: queryKeys.supplierBills.viewModel })
     },
   })
 }

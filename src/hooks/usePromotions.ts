@@ -2,6 +2,7 @@
 import { useQuery } from '@tanstack/react-query'
 import { createClient } from '@/lib/supabase/client'
 import type { DBTable } from '@/types/database.types'
+import { queryKeys } from '@/lib/queryKeys'
 
 type PromotionCampaign = DBTable<'promotion_campaigns'>
 type PromotionRule = DBTable<'promotion_rules'>
@@ -19,7 +20,7 @@ export type { PromotionCampaign, PromotionRule, Voucher }
 
 export function usePromotionCampaigns(enabled = true) {
   return useQuery({
-    queryKey: ['promotion_campaigns'],
+    queryKey: queryKeys.promotions.campaigns,
     enabled,
     queryFn: async () => {
       const supabase = createClient()
@@ -36,7 +37,7 @@ export function usePromotionCampaigns(enabled = true) {
 
 export function useVouchers(enabled = true) {
   return useQuery({
-    queryKey: ['vouchers'],
+    queryKey: queryKeys.promotions.vouchers,
     enabled,
     queryFn: async () => {
       const supabase = createClient()

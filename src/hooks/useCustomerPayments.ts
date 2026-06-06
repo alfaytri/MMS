@@ -1,6 +1,7 @@
 // src/hooks/useCustomerPayments.ts
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { createClient } from '@/lib/supabase/client'
+import { queryKeys } from '@/lib/queryKeys'
 
 export type CustomerPayment = {
   id: string
@@ -25,7 +26,7 @@ export type CustomerPayment = {
 
 export function useCustomerPayments(invoiceId?: string) {
   return useQuery({
-    queryKey: ['customer-payments', invoiceId],
+    queryKey: queryKeys.customerPayments.byInvoice(invoiceId),
     queryFn: async () => {
       const supabase = createClient()
       let q = (supabase as any)
@@ -138,9 +139,9 @@ export function useCreateCustomerPayment() {
       return data
     },
     onSuccess: (_, variables) => {
-      queryClient.invalidateQueries({ queryKey: ['customer-payments'] })
-      queryClient.invalidateQueries({ queryKey: ['customer-payments', variables.invoice_id] })
-      queryClient.invalidateQueries({ queryKey: ['customer-invoices'] })
+      queryClient.invalidateQueries({ queryKey: queryKeys.customerPayments.all })
+      queryClient.invalidateQueries({ queryKey: queryKeys.customerPayments.byInvoice(variables.invoice_id) })
+      queryClient.invalidateQueries({ queryKey: queryKeys.customerInvoices.all })
     },
   })
 }

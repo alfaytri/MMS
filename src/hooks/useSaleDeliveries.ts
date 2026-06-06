@@ -2,6 +2,7 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { createClient } from '@/lib/supabase/client'
 import { logActivity } from '@/lib/logActivity'
+import { queryKeys } from '@/lib/queryKeys'
 
 export type DeliveryStatus = 'pending' | 'in_progress' | 'delivered' | 'cancelled'
 
@@ -30,7 +31,7 @@ export type SaleDelivery = {
 
 export function useSaleDeliveries(filters?: { status?: DeliveryStatus | '' }) {
   return useQuery({
-    queryKey: ['sale-deliveries', filters],
+    queryKey: queryKeys.saleDeliveries.list(filters),
     queryFn: async () => {
       const supabase = createClient()
       let q = (supabase as any)
@@ -70,7 +71,7 @@ export function useUpdateDelivery() {
         .eq('id', id)
       if (error) throw error
     },
-    onSuccess: () => queryClient.invalidateQueries({ queryKey: ['sale-deliveries'] }),
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: queryKeys.saleDeliveries.all }),
   })
 }
 
@@ -134,14 +135,14 @@ export function useCompleteDelivery() {
       }
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['sale-deliveries'] })
-      queryClient.invalidateQueries({ queryKey: ['sale-orders'] })
-      queryClient.invalidateQueries({ queryKey: ['customer-invoices'] })
-      queryClient.invalidateQueries({ queryKey: ['inventory-brand-variants'] })
-      queryClient.invalidateQueries({ queryKey: ['fifo-layers'] })
-      queryClient.invalidateQueries({ queryKey: ['stock_movements'] })
-      queryClient.invalidateQueries({ queryKey: ['cogs-entries'] })
-      queryClient.invalidateQueries({ queryKey: ['activity-log'] })
+      queryClient.invalidateQueries({ queryKey: queryKeys.saleDeliveries.all })
+      queryClient.invalidateQueries({ queryKey: queryKeys.saleOrders.all })
+      queryClient.invalidateQueries({ queryKey: queryKeys.customerInvoices.all })
+      queryClient.invalidateQueries({ queryKey: queryKeys.inventory.inventoryBrandVariants })
+      queryClient.invalidateQueries({ queryKey: queryKeys.inventory.fifoLayers })
+      queryClient.invalidateQueries({ queryKey: queryKeys.inventory.stockMovements })
+      queryClient.invalidateQueries({ queryKey: queryKeys.inventory.cogsEntries })
+      queryClient.invalidateQueries({ queryKey: queryKeys.activityLog.all })
     },
   })
 }
@@ -159,14 +160,14 @@ export function useCancelDelivery() {
       if (error) throw new Error(error.message)
     },
     onSuccess: (_data, variables) => {
-      queryClient.invalidateQueries({ queryKey: ['sale-deliveries'] })
-      queryClient.invalidateQueries({ queryKey: ['sale-orders'] })
-      queryClient.invalidateQueries({ queryKey: ['sale-order', variables.soId] })
-      queryClient.invalidateQueries({ queryKey: ['inventory-brand-variants'] })
-      queryClient.invalidateQueries({ queryKey: ['fifo-layers'] })
-      queryClient.invalidateQueries({ queryKey: ['stock_movements'] })
-      queryClient.invalidateQueries({ queryKey: ['cogs-entries'] })
-      queryClient.invalidateQueries({ queryKey: ['activity-log'] })
+      queryClient.invalidateQueries({ queryKey: queryKeys.saleDeliveries.all })
+      queryClient.invalidateQueries({ queryKey: queryKeys.saleOrders.all })
+      queryClient.invalidateQueries({ queryKey: queryKeys.saleOrders.detail(variables.soId) })
+      queryClient.invalidateQueries({ queryKey: queryKeys.inventory.inventoryBrandVariants })
+      queryClient.invalidateQueries({ queryKey: queryKeys.inventory.fifoLayers })
+      queryClient.invalidateQueries({ queryKey: queryKeys.inventory.stockMovements })
+      queryClient.invalidateQueries({ queryKey: queryKeys.inventory.cogsEntries })
+      queryClient.invalidateQueries({ queryKey: queryKeys.activityLog.all })
       logActivity({
         action:    'Delivery Cancelled',
         module:    'sale_orders',

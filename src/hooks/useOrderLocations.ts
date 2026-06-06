@@ -1,6 +1,7 @@
 // src/hooks/useOrderLocations.ts
 import { useQuery } from '@tanstack/react-query'
 import { createClient } from '@/lib/supabase/client'
+import { queryKeys } from '@/lib/queryKeys'
 
 export type OrderLocationStatus = 'scheduled' | 'in-progress' | 'completed' | 'pending'
 
@@ -60,7 +61,7 @@ export function useOrderLocations(opts?: UseOrderLocationsOptions) {
   const dateTo = opts?.dateTo ?? undefined
 
   return useQuery({
-    queryKey: ['order-locations', dateFrom, dateTo],
+    queryKey: queryKeys.orders.locations(dateFrom, dateTo),
     queryFn: async (): Promise<OrderLocation[]> => {
       const supabase = createClient()
 

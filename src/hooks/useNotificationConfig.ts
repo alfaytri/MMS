@@ -4,6 +4,7 @@ import { useMemo } from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { toast } from 'sonner'
 import { createClient } from '@/lib/supabase/client'
+import { queryKeys } from '@/lib/queryKeys'
 
 export type NotificationConfigRow = {
   id: string
@@ -28,7 +29,8 @@ export type UseNotificationConfigReturn = {
   toggleActive: (id: string, isActive: boolean) => Promise<boolean>
 }
 
-const QUERY_KEY = ['notification_config'] as const
+// Query key is now managed by queryKeys factory
+const QUERY_KEY = queryKeys.notificationConfig.all
 
 export function useNotificationConfig(): UseNotificationConfigReturn {
   const queryClient = useQueryClient()

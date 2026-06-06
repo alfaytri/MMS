@@ -18,6 +18,7 @@ import {
   useInventoryBrandVariants,
 } from '@/hooks/useInventory'
 import { useAllCategoriesFlat, breadcrumb as getBreadcrumb } from '@/hooks/useInventoryTree'
+import { queryKeys } from '@/lib/queryKeys'
 
 const ADJUSTMENT_TYPES = [
   { value: 'increase',  label: 'Increase (Found/Returned)' },
@@ -163,7 +164,7 @@ export function WhAdjustmentDialog({ warehouses, currentProfile, children }: Pro
       })
       if (error) throw error
 
-      qc.invalidateQueries({ queryKey: ['stock_adjustments'] })
+      qc.invalidateQueries({ queryKey: queryKeys.warehouseOps.stockAdjustments })
       toast.success('Adjustment submitted for approval')
       handleClose()
     } catch (e: any) {

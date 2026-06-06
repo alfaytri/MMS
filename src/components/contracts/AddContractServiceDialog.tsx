@@ -14,6 +14,7 @@ import { createClient } from '@/lib/supabase/client'
 import { useServiceBrands } from '@/hooks/useServiceBrands'
 import { computeUnitPrice, buildPathFromTree } from '@/lib/contractUtils'
 import type { ContractService, BuildingTree, ServiceFrequency } from '@/types/contracts'
+import { queryKeys } from '@/lib/queryKeys'
 
 const FREQUENCIES: { value: ServiceFrequency; label: string }[] = [
   { value: 'daily', label: 'Daily' },
@@ -56,7 +57,7 @@ interface Props {
 function useServiceChildren(parentId: string | null, enabled: boolean) {
   const supabase = createClient()
   return useQuery({
-    queryKey: ['contractServiceChildren', parentId],
+    queryKey: queryKeys.contracts.serviceChildren(parentId),
     queryFn: async () => {
       let query = (supabase.from('services') as any)
         .select('id, name_en, price, contract_type, item_kind, pricing_mode, discount, discount_scope, price_unit')

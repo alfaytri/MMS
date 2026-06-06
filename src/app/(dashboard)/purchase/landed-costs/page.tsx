@@ -38,12 +38,13 @@ import {
   useBrandVariantsByIds, useBatchUpdateSellingPrices,
 } from '@/hooks/useInventory'
 import type { ColumnDef } from '@tanstack/react-table'
+import { queryKeys } from '@/lib/queryKeys'
 
 // ─── Local hooks for detail dialog ───────────────────────────────────────────
 
 function useAttachedReceivals(receivalIds: string[]) {
   return useQuery({
-    queryKey: ['lc-attached-receivals', receivalIds.slice().sort().join(',')],
+    queryKey: queryKeys.lcAttached.receivals(receivalIds.slice().sort().join(',')),
     enabled: receivalIds.length > 0,
     queryFn: async () => {
       const supabase = createClient()
@@ -66,7 +67,7 @@ function useAttachedReceivals(receivalIds: string[]) {
 
 function useAttachedPOs(poIds: string[]) {
   return useQuery({
-    queryKey: ['lc-attached-pos', poIds.slice().sort().join(',')],
+    queryKey: queryKeys.lcAttached.pos(poIds.slice().sort().join(',')),
     enabled: poIds.length > 0,
     queryFn: async () => {
       const supabase = createClient()

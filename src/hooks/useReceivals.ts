@@ -2,6 +2,7 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { createClient } from '@/lib/supabase/client'
 import { logPOActivity } from '@/lib/poActivityLogger'
+import { queryKeys } from '@/lib/queryKeys'
 
 export type ReceivalStatus = 'pending_approval' | 'approved' | 'rejected'
 
@@ -68,7 +69,7 @@ export type CreateReceivalPayload = {
 
 export function useReceivals(filters?: { status?: ReceivalStatus | '' }) {
   return useQuery({
-    queryKey: ['receivals', filters],
+    queryKey: queryKeys.receivals.list(filters),
     queryFn: async () => {
       const supabase = createClient()
       let q = (supabase as any)
@@ -95,7 +96,7 @@ export function useReceivals(filters?: { status?: ReceivalStatus | '' }) {
 
 export function useReceival(id: string | null) {
   return useQuery({
-    queryKey: ['receival', id],
+    queryKey: queryKeys.receivals.detail(id),
     enabled: !!id,
     queryFn: async () => {
       const supabase = createClient()
@@ -178,12 +179,12 @@ export function useCreateReceival() {
       return data as { receival_id: string; receival_number: string }
     },
     onSuccess: (_data, variables) => {
-      queryClient.invalidateQueries({ queryKey: ['receivals'] })
-      queryClient.invalidateQueries({ queryKey: ['po-receivals', variables.po_id] })
-      queryClient.invalidateQueries({ queryKey: ['purchase-order', variables.po_id] })
-      queryClient.invalidateQueries({ queryKey: ['purchase-orders'] })
-      queryClient.invalidateQueries({ queryKey: ['brand-variants-v2'] })
-      queryClient.invalidateQueries({ queryKey: ['fifo-layers'] })
+      queryClient.invalidateQueries({ queryKey: queryKeys.receivals.all })
+      queryClient.invalidateQueries({ queryKey: queryKeys.purchaseOrders.receivals(variables.po_id) })
+      queryClient.invalidateQueries({ queryKey: queryKeys.purchaseOrders.detail(variables.po_id) })
+      queryClient.invalidateQueries({ queryKey: queryKeys.purchaseOrders.all })
+      queryClient.invalidateQueries({ queryKey: queryKeys.inventory.brandVariantsV2 })
+      queryClient.invalidateQueries({ queryKey: queryKeys.inventory.fifoLayers })
     },
   })
 }
@@ -192,7 +193,7 @@ export function useCreateReceival() {
 
 export function useReceivalEditRequests(receival_id: string | null) {
   return useQuery({
-    queryKey: ['receival_edit_requests', receival_id],
+    queryKey: queryKeys.receivals.editRequestsByReceival(receival_id),
     enabled: !!receival_id,
     queryFn: async () => {
       const supabase = createClient()
@@ -240,7 +241,7 @@ export function useRequestReceivalEdit() {
       return data as ReceivalEditRequest
     },
     onSuccess: (_data, variables) => {
-      qc.invalidateQueries({ queryKey: ['receival_edit_requests', variables.receival_id] })
+      qc.invalidateQueries({ queryKey: queryKeys.receivals.editRequestsByReceival(variables.receival_id) })
     },
   })
 }
@@ -292,8 +293,8 @@ export function useApproveReceivalEdit() {
       return data as ReceivalEditRequest
     },
     onSuccess: (data) => {
-      qc.invalidateQueries({ queryKey: ['receival_edit_requests', data.receival_id] })
-      qc.invalidateQueries({ queryKey: ['receivals'] })
+      qc.invalidateQueries({ queryKey: queryKeys.receivals.editRequestsByReceival(data.receival_id) })
+      qc.invalidateQueries({ queryKey: queryKeys.receivals.all })
     },
   })
 }
@@ -315,11 +316,11 @@ export function useSaveReceivalEdit() {
       return data as { ok: boolean }
     },
     onSuccess: () => {
-      qc.invalidateQueries({ queryKey: ['receivals'] })
-      qc.invalidateQueries({ queryKey: ['receival_edit_requests'] })
-      qc.invalidateQueries({ queryKey: ['brand-variants-v2'] })
-      qc.invalidateQueries({ queryKey: ['fifo-layers'] })
-      qc.invalidateQueries({ queryKey: ['stock_movements'] })
+      qc.invalidateQueries({ queryKey: queryKeys.receivals.all })
+      qc.invalidateQueries({ queryKey: queryKeys.receivals.editRequests })
+      qc.invalidateQueries({ queryKey: queryKeys.inventory.brandVariantsV2 })
+      qc.invalidateQueries({ queryKey: queryKeys.inventory.fifoLayers })
+      qc.invalidateQueries({ queryKey: queryKeys.inventory.stockMovements })
     },
   })
 }
@@ -338,7 +339,7 @@ export type ReceivalForLcSelector = {
 
 export function useReceivalsForLcSelector({ search = '' }: { search?: string } = {}) {
   return useQuery({
-    queryKey: ['receivals-lc-selector', { search }],
+    queryKey: queryKeys.receivals.lcSelector(search),
     queryFn: async () => {
       const supabase = createClient()
       let q = (supabase as any)
@@ -377,7 +378,7 @@ export type ReceivalItemWithFifo = {
 
 export function useReceivalItemsWithFifo(receivalId: string | null) {
   return useQuery({
-    queryKey: ['receival-items-fifo', receivalId],
+    queryKey: queryKeys.receivals.itemsFifo(receivalId),
     enabled: !!receivalId,
     queryFn: async () => {
       const supabase = createClient()

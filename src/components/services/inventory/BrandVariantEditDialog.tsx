@@ -11,6 +11,7 @@ import { useCreateBrandVariant, useUpdateBrandVariant, useVariantWarehouseStock,
 import { useWarehouses } from '@/hooks/useWarehouses'
 import { createClient } from '@/lib/supabase/client'
 import { useQueryClient } from '@tanstack/react-query'
+import { queryKeys } from '@/lib/queryKeys'
 
 type Props = {
   open: boolean
@@ -131,10 +132,10 @@ export function BrandVariantEditDialog({ open, onOpenChange, itemId, variant }: 
         })
         if (error) throw new Error(error.message ?? 'allocate_warehouse_stock failed')
       }
-      qc.invalidateQueries({ queryKey: ['variant_warehouse_stock'] })
-      qc.invalidateQueries({ queryKey: ['warehouse_stock'] })
-      qc.invalidateQueries({ queryKey: ['warehouses'] })
-      qc.invalidateQueries({ queryKey: ['brand_variants'] })
+      qc.invalidateQueries({ queryKey: queryKeys.inventory.variantWarehouseStock })
+      qc.invalidateQueries({ queryKey: queryKeys.warehouseOps.warehouseStockAll })
+      qc.invalidateQueries({ queryKey: queryKeys.warehouses.all })
+      qc.invalidateQueries({ queryKey: queryKeys.misc.brandVariantsUnderscore })
     } finally {
       setAllocating(false)
     }

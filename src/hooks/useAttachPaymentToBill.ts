@@ -1,5 +1,6 @@
 import { useMutation, useQueryClient } from '@tanstack/react-query'
 import { createClient } from '@/lib/supabase/client'
+import { queryKeys } from '@/lib/queryKeys'
 
 export function useAttachPaymentToBill() {
   const queryClient = useQueryClient()
@@ -22,9 +23,9 @@ export function useAttachPaymentToBill() {
       if (error) throw error
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['supplier-payments'] })
-      queryClient.invalidateQueries({ queryKey: ['supplier-bills'] })
-      queryClient.invalidateQueries({ queryKey: ['bill-view-model'] })
+      queryClient.invalidateQueries({ queryKey: queryKeys.supplierPayments.all })
+      queryClient.invalidateQueries({ queryKey: queryKeys.supplierBills.all })
+      queryClient.invalidateQueries({ queryKey: queryKeys.supplierBills.viewModel })
     },
   })
 }

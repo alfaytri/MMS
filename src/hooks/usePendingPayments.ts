@@ -1,6 +1,7 @@
 // src/hooks/usePendingPayments.ts
 import { useQuery } from '@tanstack/react-query'
 import { createClient } from '@/lib/supabase/client'
+import { queryKeys } from '@/lib/queryKeys'
 
 export type PendingInvoice = {
   id: string
@@ -30,7 +31,7 @@ export type CustomerPending = {
 
 export function usePendingPayments() {
   return useQuery({
-    queryKey: ['pending-payments'],
+    queryKey: queryKeys.payments.pending,
     queryFn: async (): Promise<CustomerPending[]> => {
       const supabase = createClient()
       const { data, error } = await (supabase as any).rpc(

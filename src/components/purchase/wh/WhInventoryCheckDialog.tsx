@@ -15,6 +15,7 @@ import { useWarehouseStock, useCreateInventoryCheck } from '@/hooks/useWarehouse
 import { createClient } from '@/lib/supabase/client'
 import { toast } from 'sonner'
 import { useQueryClient } from '@tanstack/react-query'
+import { queryKeys } from '@/lib/queryKeys'
 
 interface StockItem {
   warehouse_id: string
@@ -199,7 +200,7 @@ export function WhInventoryCheckDialog({ warehouses, children }: Props) {
         .update({ status: 'submitted' })
         .eq('id', check.id)
 
-      qc.invalidateQueries({ queryKey: ['inventory_checks'] })
+      qc.invalidateQueries({ queryKey: queryKeys.warehouseOps.inventoryChecks })
       toast.success(`Inventory check submitted for approval`)
       handleClose()
     } catch (e: unknown) {

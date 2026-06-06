@@ -4,6 +4,7 @@ import { useMutation, useQueryClient } from '@tanstack/react-query'
 import { createClient } from '@/lib/supabase/client'
 import { SITE_VISIT_SERVICE_ID } from '@/components/orders/SiteVisitCard'
 import { useOrderDetail } from './useOrderDetail'
+import { queryKeys } from '@/lib/queryKeys'
 import type {
   OrderDraft,
   OrderServiceDraft,
@@ -329,9 +330,9 @@ export function useEditOrder(orderId: string) {
       return { orderReadableId: draft.orderId, primaryDate }
     },
     onSuccess: async (result) => {
-      qc.invalidateQueries({ queryKey: ['orders'] })
-      qc.invalidateQueries({ queryKey: ['order-detail', orderId] })
-      qc.invalidateQueries({ queryKey: ['site-visits'] })
+      qc.invalidateQueries({ queryKey: queryKeys.orders.all })
+      qc.invalidateQueries({ queryKey: queryKeys.orders.detail(orderId) })
+      qc.invalidateQueries({ queryKey: queryKeys.siteVisits.all })
 
       // Re-send confirmation immediately if visit is within 2 days;
       // for far-future orders the cron will pick it up (confirmation_sent_at is now null).

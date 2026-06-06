@@ -1,6 +1,7 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { createClient } from '@/lib/supabase/client'
 import { logActivity } from '@/lib/logActivity'
+import { queryKeys } from '@/lib/queryKeys'
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -181,7 +182,7 @@ export function hasNegativeMargin(lineItems: { unit_price: number; avg_cost: num
 
 export function useCustomers(search?: string) {
   return useQuery({
-    queryKey: ['customers', search],
+    queryKey: queryKeys.customers.search(search),
     queryFn: async () => {
       const supabase = createClient()
       let q = (supabase as any)
@@ -210,7 +211,7 @@ const CUSTOMERS_PAGE_SIZE = 50
 
 export function useAllCustomers(search: string, page: number) {
   return useQuery({
-    queryKey: ['all-customers', search, page],
+    queryKey: queryKeys.customers.allCustomersSearch(search, page),
     queryFn:  async () => {
       const supabase = createClient()
       const from = page * CUSTOMERS_PAGE_SIZE
@@ -254,15 +255,15 @@ export function useCreateCustomer() {
       return data
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['customers'] })
-      queryClient.invalidateQueries({ queryKey: ['all-customers'] })
+      queryClient.invalidateQueries({ queryKey: queryKeys.customers.all })
+      queryClient.invalidateQueries({ queryKey: queryKeys.customers.allCustomers })
     },
   })
 }
 
 export function useSaleOrders(filters: SOFilters = {}) {
   return useQuery({
-    queryKey: ['sale-orders', filters],
+    queryKey: queryKeys.saleOrders.list(filters),
     queryFn: async () => {
       const supabase = createClient()
       let q = (supabase as any)
@@ -297,7 +298,7 @@ export function useSaleOrders(filters: SOFilters = {}) {
 
 export function useSaleOrder(id: string | null) {
   return useQuery({
-    queryKey: ['sale-order', id],
+    queryKey: queryKeys.saleOrders.detail(id),
     queryFn: async () => {
       const supabase = createClient()
       const { data, error } = await (supabase as any)
@@ -318,7 +319,7 @@ export function useSaleOrder(id: string | null) {
 
 export function useSOPayments(soId: string | null) {
   return useQuery({
-    queryKey: ['so-payments', soId],
+    queryKey: queryKeys.saleOrders.payments(soId),
     queryFn: async () => {
       const supabase = createClient()
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -365,9 +366,9 @@ export function useCreateSO() {
       return data as CreateSOResult
     },
     onSuccess: (data) => {
-      queryClient.invalidateQueries({ queryKey: ['sale-orders'] })
-      queryClient.invalidateQueries({ queryKey: ['brand-variants-v2'] })
-      queryClient.invalidateQueries({ queryKey: ['reserved-order-lines'] })
+      queryClient.invalidateQueries({ queryKey: queryKeys.saleOrders.all })
+      queryClient.invalidateQueries({ queryKey: queryKeys.inventory.brandVariantsV2 })
+      queryClient.invalidateQueries({ queryKey: queryKeys.inventory.reservedOrderLines })
       logActivity({
         action:    `Sale Order ${data.status === 'pending_approval' ? 'Submitted for Approval' : data.status === 'confirmed' ? 'Confirmed' : 'Created'}`,
         module:    'sale_orders',
@@ -413,8 +414,8 @@ export function useUpdateSO() {
       }
     },
     onSuccess: (_data, variables) => {
-      queryClient.invalidateQueries({ queryKey: ['sale-orders'] })
-      queryClient.invalidateQueries({ queryKey: ['sale-order', variables.id] })
+      queryClient.invalidateQueries({ queryKey: queryKeys.saleOrders.all })
+      queryClient.invalidateQueries({ queryKey: queryKeys.saleOrders.detail(variables.id) })
     },
   })
 }
@@ -467,10 +468,10 @@ export function useConfirmSO() {
       await syncInvoiceToSalesOrder(id)
     },
     onSuccess: (_data, variables) => {
-      queryClient.invalidateQueries({ queryKey: ['sale-orders'] })
-      queryClient.invalidateQueries({ queryKey: ['sale-order', variables.id] })
-      queryClient.invalidateQueries({ queryKey: ['sale-deliveries'] })
-      queryClient.invalidateQueries({ queryKey: ['customer-invoices'] })
+      queryClient.invalidateQueries({ queryKey: queryKeys.saleOrders.all })
+      queryClient.invalidateQueries({ queryKey: queryKeys.saleOrders.detail(variables.id) })
+      queryClient.invalidateQueries({ queryKey: queryKeys.saleDeliveries.all })
+      queryClient.invalidateQueries({ queryKey: queryKeys.customerInvoices.all })
     },
   })
 }
@@ -519,8 +520,8 @@ export function useCreateSOPayment() {
       if (error) throw error
     },
     onSuccess: (_data, variables) => {
-      queryClient.invalidateQueries({ queryKey: ['so-payments', variables.so_id] })
-      queryClient.invalidateQueries({ queryKey: ['sale-orders'] })
+      queryClient.invalidateQueries({ queryKey: queryKeys.saleOrders.payments(variables.so_id) })
+      queryClient.invalidateQueries({ queryKey: queryKeys.saleOrders.all })
       logActivity({
         action:    'Payment Recorded',
         module:    'sale_orders',
@@ -559,15 +560,15 @@ export function useCreateDelivery() {
       return data as { id: string; delivery_number: string }
     },
     onSuccess: (_data, variables) => {
-      queryClient.invalidateQueries({ queryKey: ['sale-orders'] })
-      queryClient.invalidateQueries({ queryKey: ['sale-order', variables.so_id] })
-      queryClient.invalidateQueries({ queryKey: ['sale-deliveries'] })
-      queryClient.invalidateQueries({ queryKey: ['brand-variants-v2'] })
-      queryClient.invalidateQueries({ queryKey: ['reserved-order-lines'] })
-      queryClient.invalidateQueries({ queryKey: ['fifo-layers'] })
-      queryClient.invalidateQueries({ queryKey: ['stock_movements'] })
-      queryClient.invalidateQueries({ queryKey: ['cogs-entries'] })
-      queryClient.invalidateQueries({ queryKey: ['activity-log'] })
+      queryClient.invalidateQueries({ queryKey: queryKeys.saleOrders.all })
+      queryClient.invalidateQueries({ queryKey: queryKeys.saleOrders.detail(variables.so_id) })
+      queryClient.invalidateQueries({ queryKey: queryKeys.saleDeliveries.all })
+      queryClient.invalidateQueries({ queryKey: queryKeys.inventory.brandVariantsV2 })
+      queryClient.invalidateQueries({ queryKey: queryKeys.inventory.reservedOrderLines })
+      queryClient.invalidateQueries({ queryKey: queryKeys.inventory.fifoLayers })
+      queryClient.invalidateQueries({ queryKey: queryKeys.inventory.stockMovements })
+      queryClient.invalidateQueries({ queryKey: queryKeys.inventory.cogsEntries })
+      queryClient.invalidateQueries({ queryKey: queryKeys.activityLog.all })
       logActivity({
         action:    'Delivery Created',
         module:    'sale_orders',
@@ -607,10 +608,10 @@ export function useCancelSO() {
       if (error) throw error
     },
     onSuccess: (_data, id) => {
-      queryClient.invalidateQueries({ queryKey: ['sale-orders'] })
-      queryClient.invalidateQueries({ queryKey: ['sale-order', id] })
-      queryClient.invalidateQueries({ queryKey: ['brand-variants-v2'] })
-      queryClient.invalidateQueries({ queryKey: ['reserved-order-lines'] })
+      queryClient.invalidateQueries({ queryKey: queryKeys.saleOrders.all })
+      queryClient.invalidateQueries({ queryKey: queryKeys.saleOrders.detail(id) })
+      queryClient.invalidateQueries({ queryKey: queryKeys.inventory.brandVariantsV2 })
+      queryClient.invalidateQueries({ queryKey: queryKeys.inventory.reservedOrderLines })
       logActivity({ action: 'Sale Order Cancelled', module: 'sale_orders', entity_id: id, severity: 'warning' })
     },
   })
@@ -629,10 +630,10 @@ export function useApproveSO() {
       if (error) throw error
     },
     onSuccess: (_data, id) => {
-      queryClient.invalidateQueries({ queryKey: ['sale-orders'] })
-      queryClient.invalidateQueries({ queryKey: ['sale-order', id] })
-      queryClient.invalidateQueries({ queryKey: ['brand-variants-v2'] })
-      queryClient.invalidateQueries({ queryKey: ['reserved-order-lines'] })
+      queryClient.invalidateQueries({ queryKey: queryKeys.saleOrders.all })
+      queryClient.invalidateQueries({ queryKey: queryKeys.saleOrders.detail(id) })
+      queryClient.invalidateQueries({ queryKey: queryKeys.inventory.brandVariantsV2 })
+      queryClient.invalidateQueries({ queryKey: queryKeys.inventory.reservedOrderLines })
       logActivity({ action: 'Sale Order Approved', module: 'sale_orders', entity_id: id, severity: 'info' })
     },
   })

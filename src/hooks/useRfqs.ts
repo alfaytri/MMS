@@ -1,6 +1,7 @@
 // src/hooks/useRfqs.ts
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { createClient } from '@/lib/supabase/client'
+import { queryKeys } from '@/lib/queryKeys'
 
 export type RfqStatus = 'draft' | 'sent' | 'received' | 'cancelled'
 
@@ -52,7 +53,7 @@ export type CreateRfqPayload = {
 
 export function useRfqs(filters?: { status?: RfqStatus | '' }) {
   return useQuery({
-    queryKey: ['rfqs', filters],
+    queryKey: queryKeys.rfqs.list(filters),
     queryFn: async () => {
       const supabase = createClient()
       let q = (supabase as any)
@@ -69,7 +70,7 @@ export function useRfqs(filters?: { status?: RfqStatus | '' }) {
 
 export function useRfq(id: string | null) {
   return useQuery({
-    queryKey: ['rfq', id],
+    queryKey: queryKeys.rfqs.detail(id),
     enabled: !!id,
     queryFn: async () => {
       const supabase = createClient()
@@ -119,7 +120,7 @@ export function useCreateRfq() {
       }
       return rfq as Rfq
     },
-    onSuccess: () => queryClient.invalidateQueries({ queryKey: ['rfqs'] }),
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: queryKeys.rfqs.all }),
   })
 }
 
@@ -138,7 +139,7 @@ export function useUpdateRfq() {
         .eq('id', id)
       if (error) throw error
     },
-    onSuccess: () => queryClient.invalidateQueries({ queryKey: ['rfqs'] }),
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: queryKeys.rfqs.all }),
   })
 }
 
@@ -164,8 +165,8 @@ export function useCreateRfqQuote() {
         .eq('id', payload.rfq_id)
     },
     onSuccess: (_data: unknown, vars: { rfq_id: string; supplier_id: string; supplier_name: string; currency: string; items: Record<string, unknown>; total_amount: number; received_date: string }) => {
-      queryClient.invalidateQueries({ queryKey: ['rfqs'] })
-      queryClient.invalidateQueries({ queryKey: ['rfq', vars.rfq_id] })
+      queryClient.invalidateQueries({ queryKey: queryKeys.rfqs.all })
+      queryClient.invalidateQueries({ queryKey: queryKeys.rfqs.detail(vars.rfq_id) })
     },
   })
 }
@@ -178,6 +179,6 @@ export function useDeleteRfq() {
       const { error } = await (supabase as any).from('rfqs').delete().eq('id', id)
       if (error) throw error
     },
-    onSuccess: () => queryClient.invalidateQueries({ queryKey: ['rfqs'] }),
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: queryKeys.rfqs.all }),
   })
 }

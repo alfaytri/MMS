@@ -15,6 +15,7 @@ import { createClient } from '@/lib/supabase/client'
 import type { WindowStatus, WatiTemplate } from '@/types/contact-center'
 import { webmOpusToOgg } from '@/lib/webm-opus-to-ogg'
 import type { useChatMessages } from '@/hooks/contact-center/useChatMessages'
+import { queryKeys } from '@/lib/queryKeys'
 
 type ChatMessagesReturn = ReturnType<typeof useChatMessages>
 
@@ -260,7 +261,7 @@ function InstructionsDialog({
   const [search, setSearch] = useState('')
 
   const { data: instructions = [], isLoading } = useQuery({
-    queryKey: ['instructions-for-chat'],
+    queryKey: queryKeys.contactCenter.instructionsForChat,
     staleTime: 5 * 60 * 1000,
     queryFn: async () => {
       const { data, error } = await (supabase as any)

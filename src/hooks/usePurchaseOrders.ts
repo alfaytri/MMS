@@ -3,6 +3,7 @@ import { createClient } from '@/lib/supabase/client'
 import { findApplicableTiers, validateRoles, buildApprovalSteps, getNotificationRecipients } from '@/lib/approvalChainResolution'
 import { logPOActivity, resolveMyName } from '@/lib/poActivityLogger'
 import { savePoSnapshot, resolveLineItemNames } from '@/lib/poVersionHelper'
+import { queryKeys } from '@/lib/queryKeys'
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -239,7 +240,7 @@ export interface POFilters {
 
 export function usePurchaseOrders(filters: POFilters = {}) {
   return useQuery({
-    queryKey: ['purchase-orders', filters],
+    queryKey: queryKeys.purchaseOrders.list(filters),
     queryFn: async () => {
       const supabase = createClient()
       let query = (supabase as any)
@@ -273,7 +274,7 @@ export function usePurchaseOrders(filters: POFilters = {}) {
 
 export function usePurchaseOrder(id: string | null) {
   return useQuery({
-    queryKey: ['purchase-order', id],
+    queryKey: queryKeys.purchaseOrders.detail(id),
     queryFn: async () => {
       const supabase = createClient()
       const { data, error } = await (supabase as any)
@@ -290,7 +291,7 @@ export function usePurchaseOrder(id: string | null) {
 
 export function usePOPayments(poId: string | null) {
   return useQuery({
-    queryKey: ['po-payments', poId],
+    queryKey: queryKeys.purchaseOrders.payments(poId),
     queryFn: async () => {
       const supabase = createClient()
       const { data, error } = await (supabase as any)
@@ -310,7 +311,7 @@ export function usePOPayments(poId: string | null) {
 
 export function usePOReceivalsByPO(poId: string | null) {
   return useQuery({
-    queryKey: ['po-receivals', poId],
+    queryKey: queryKeys.purchaseOrders.receivals(poId),
     queryFn: async () => {
       const supabase = createClient()
       const { data, error } = await (supabase as any)
@@ -401,7 +402,7 @@ export function useCreatePO() {
       return po as PurchaseOrder
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['purchase-orders'] })
+      queryClient.invalidateQueries({ queryKey: queryKeys.purchaseOrders.all })
     },
   })
 }
@@ -418,7 +419,7 @@ export function useSoftDeletePO() {
       if (error) throw error
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['purchase-orders'] })
+      queryClient.invalidateQueries({ queryKey: queryKeys.purchaseOrders.all })
     },
   })
 }
@@ -458,9 +459,9 @@ export function useUpdatePO() {
 
     },
     onSuccess: (_data, variables) => {
-      queryClient.invalidateQueries({ queryKey: ['purchase-orders'] })
-      queryClient.invalidateQueries({ queryKey: ['purchase-order', variables.id] })
-      queryClient.invalidateQueries({ queryKey: ['po-versions', variables.id] })
+      queryClient.invalidateQueries({ queryKey: queryKeys.purchaseOrders.all })
+      queryClient.invalidateQueries({ queryKey: queryKeys.purchaseOrders.detail(variables.id) })
+      queryClient.invalidateQueries({ queryKey: queryKeys.purchaseOrders.versions(variables.id) })
     },
   })
 }
@@ -564,10 +565,10 @@ export function useSubmitPOForApproval() {
       }
     },
     onSuccess: (_data: unknown, variables: { id: string }) => {
-      queryClient.invalidateQueries({ queryKey: ['purchase-orders'] })
-      queryClient.invalidateQueries({ queryKey: ['purchase-order', variables.id] })
-      queryClient.invalidateQueries({ queryKey: ['po-approvals'] })
-      queryClient.invalidateQueries({ queryKey: ['notifications'] })
+      queryClient.invalidateQueries({ queryKey: queryKeys.purchaseOrders.all })
+      queryClient.invalidateQueries({ queryKey: queryKeys.purchaseOrders.detail(variables.id) })
+      queryClient.invalidateQueries({ queryKey: queryKeys.approvals.poApprovals })
+      queryClient.invalidateQueries({ queryKey: queryKeys.notifications.all })
     },
   })
 }
@@ -627,8 +628,8 @@ export function useCreatePOPayment() {
       })
     },
     onSuccess: (_data, variables) => {
-      queryClient.invalidateQueries({ queryKey: ['po-payments', variables.po_id] })
-      queryClient.invalidateQueries({ queryKey: ['purchase-orders'] })
+      queryClient.invalidateQueries({ queryKey: queryKeys.purchaseOrders.payments(variables.po_id) })
+      queryClient.invalidateQueries({ queryKey: queryKeys.purchaseOrders.all })
     },
   })
 }
@@ -645,8 +646,8 @@ export function useSubmitPO() {
       if (error) throw error
     },
     onSuccess: (_, id) => {
-      queryClient.invalidateQueries({ queryKey: ['purchase-orders'] })
-      queryClient.invalidateQueries({ queryKey: ['purchase-order', id] })
+      queryClient.invalidateQueries({ queryKey: queryKeys.purchaseOrders.all })
+      queryClient.invalidateQueries({ queryKey: queryKeys.purchaseOrders.detail(id) })
     },
   })
 }
@@ -666,8 +667,8 @@ export function useCancelPO() {
       await logPOActivity({ poId: id, action: 'PO Cancelled', performerName: cancelPerformer, severity: 'warning' })
     },
     onSuccess: (_, id) => {
-      queryClient.invalidateQueries({ queryKey: ['purchase-orders'] })
-      queryClient.invalidateQueries({ queryKey: ['purchase-order', id] })
+      queryClient.invalidateQueries({ queryKey: queryKeys.purchaseOrders.all })
+      queryClient.invalidateQueries({ queryKey: queryKeys.purchaseOrders.detail(id) })
     },
   })
 }
@@ -684,14 +685,14 @@ export function useDeletePoVersion() {
       if (error) throw error
     },
     onSuccess: (_data, variables) => {
-      queryClient.invalidateQueries({ queryKey: ['po-versions', variables.poId] })
+      queryClient.invalidateQueries({ queryKey: queryKeys.purchaseOrders.versions(variables.poId) })
     },
   })
 }
 
 export function usePoVersions(poId: string | null) {
   return useQuery({
-    queryKey: ['po-versions', poId],
+    queryKey: queryKeys.purchaseOrders.versions(poId),
     queryFn: async () => {
       const supabase = createClient()
       const { data, error } = await (supabase as any)
@@ -872,10 +873,10 @@ export function useSubmitPoVersion() {
       })
     },
     onSuccess: (_data, variables) => {
-      queryClient.invalidateQueries({ queryKey: ['purchase-orders'] })
-      queryClient.invalidateQueries({ queryKey: ['purchase-order', variables.id] })
-      queryClient.invalidateQueries({ queryKey: ['po-versions', variables.id] })
-      queryClient.invalidateQueries({ queryKey: ['notifications'] })
+      queryClient.invalidateQueries({ queryKey: queryKeys.purchaseOrders.all })
+      queryClient.invalidateQueries({ queryKey: queryKeys.purchaseOrders.detail(variables.id) })
+      queryClient.invalidateQueries({ queryKey: queryKeys.purchaseOrders.versions(variables.id) })
+      queryClient.invalidateQueries({ queryKey: queryKeys.notifications.all })
     },
   })
 }
@@ -931,9 +932,9 @@ export function useSavePoAsDraft() {
       })
     },
     onSuccess: (_data, variables) => {
-      queryClient.invalidateQueries({ queryKey: ['purchase-orders'] })
-      queryClient.invalidateQueries({ queryKey: ['purchase-order', variables.id] })
-      queryClient.invalidateQueries({ queryKey: ['po-versions', variables.id] })
+      queryClient.invalidateQueries({ queryKey: queryKeys.purchaseOrders.all })
+      queryClient.invalidateQueries({ queryKey: queryKeys.purchaseOrders.detail(variables.id) })
+      queryClient.invalidateQueries({ queryKey: queryKeys.purchaseOrders.versions(variables.id) })
     },
   })
 }

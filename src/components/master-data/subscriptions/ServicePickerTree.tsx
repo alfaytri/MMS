@@ -18,6 +18,7 @@ import { createClient } from '@/lib/supabase/client'
 import { useQuery } from '@tanstack/react-query'
 import { buildTreeMap, collectDescendantIds } from '@/components/services/ServiceTree'
 import type { PackageServiceEntry } from '@/hooks/useSubscriptionPackages'
+import { queryKeys } from '@/lib/queryKeys'
 
 // Re-export so consumers can import alongside this component if needed
 export type { PackageServiceEntry }
@@ -32,7 +33,7 @@ type PickerService = {
 
 function useAllServicesForPicker() {
   return useQuery({
-    queryKey: ['services-all-picker'],
+    queryKey: queryKeys.services.allPicker,
     queryFn: async () => {
       const supabase = createClient()
       const { data, error } = await (supabase as any)

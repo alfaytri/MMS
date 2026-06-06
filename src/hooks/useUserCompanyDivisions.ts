@@ -1,6 +1,7 @@
 // src/hooks/useUserCompanyDivisions.ts
 import { useQuery } from '@tanstack/react-query'
 import { createClient } from '@/lib/supabase/client'
+import { queryKeys } from '@/lib/queryKeys'
 
 export interface DivisionOption {
   id: string
@@ -10,7 +11,7 @@ export interface DivisionOption {
 
 export function useUserCompanyDivisions() {
   return useQuery<DivisionOption[]>({
-    queryKey: ['user-company-divisions'],
+    queryKey: queryKeys.userDivisionScope.companyDivisions,
     staleTime: 5 * 60 * 1000,
     queryFn: async () => {
       const supabase = createClient()

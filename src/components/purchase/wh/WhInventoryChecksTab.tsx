@@ -14,6 +14,7 @@ import type { Profile } from '@/hooks/useProfiles'
 import { createClient } from '@/lib/supabase/client'
 import { format } from 'date-fns'
 import { toast } from 'sonner'
+import { queryKeys } from '@/lib/queryKeys'
 
 const STATUS_CONFIG: Record<string, { icon: React.ReactNode; color: string; bg: string }> = {
   draft:     { icon: <Clock className="h-4 w-4" />, color: 'text-muted-foreground', bg: 'bg-muted/20' },
@@ -63,7 +64,7 @@ export const WhInventoryChecksTab = React.memo(function WhInventoryChecksTab({ w
       if (error) throw error
     },
     onSuccess: () => {
-      qc.invalidateQueries({ queryKey: ['inventory_checks'] })
+      qc.invalidateQueries({ queryKey: queryKeys.warehouseOps.inventoryChecks })
     },
   })
 

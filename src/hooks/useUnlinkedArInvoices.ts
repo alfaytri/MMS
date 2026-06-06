@@ -1,6 +1,7 @@
 // src/hooks/useUnlinkedArInvoices.ts
 import { useQuery } from '@tanstack/react-query'
 import { createClient } from '@/lib/supabase/client'
+import { queryKeys } from '@/lib/queryKeys'
 
 export type UnlinkedArInvoice = {
   id: string
@@ -13,7 +14,7 @@ export type UnlinkedArInvoice = {
 // customerId is required — prevents cross-customer data leak
 export function useUnlinkedArInvoices(customerId: string) {
   return useQuery({
-    queryKey: ['unlinked-ar-invoices', customerId],
+    queryKey: queryKeys.unlinkedAr.invoices(customerId),
     queryFn: async () => {
       const supabase = createClient()
       const { data, error } = await (supabase as any)

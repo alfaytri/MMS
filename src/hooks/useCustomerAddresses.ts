@@ -1,13 +1,14 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { createClient } from '@/lib/supabase/client'
 import type { CustomerAddress } from '@/types/orders'
+import { queryKeys } from '@/lib/queryKeys'
 
 export function useCustomerAddresses(customerId: string | null) {
   const supabase = createClient()
   const qc = useQueryClient()
 
   const { data: addresses = [], isLoading } = useQuery({
-    queryKey: ['service-customer-addresses', customerId],
+    queryKey: queryKeys.contactCenter.serviceCustomerAddresses(customerId),
     queryFn: async (): Promise<CustomerAddress[]> => {
       if (!customerId) return []
       const { data, error } = await (supabase as any)
@@ -34,7 +35,7 @@ export function useCustomerAddresses(customerId: string | null) {
       return data
     },
     onSuccess: () => {
-      qc.invalidateQueries({ queryKey: ['service-customer-addresses', customerId] })
+      qc.invalidateQueries({ queryKey: queryKeys.contactCenter.serviceCustomerAddresses(customerId) })
     },
   })
 

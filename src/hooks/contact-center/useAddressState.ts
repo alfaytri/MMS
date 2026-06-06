@@ -3,6 +3,7 @@
 import { useState } from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { createClient } from '@/lib/supabase/client'
+import { queryKeys } from '@/lib/queryKeys'
 
 export type AddressType = 'blue_plate' | 'google_coords'
 
@@ -49,7 +50,7 @@ export function useAddressState(customerId: string | null) {
   const [geocodingWarning, setGeocodingWarning] = useState(false)
 
   const { data: addresses = [], isLoading } = useQuery<CustomerAddress[]>({
-    queryKey: ['cc-addresses', customerId],
+    queryKey: queryKeys.contactCenter.addresses(customerId),
     queryFn: async () => {
       if (!customerId) return []
       const { data, error } = await (supabase as any)
@@ -148,7 +149,7 @@ export function useAddressState(customerId: string | null) {
       if (error) throw error
     },
     onSuccess: () => {
-      qc.invalidateQueries({ queryKey: ['cc-addresses', customerId] })
+      qc.invalidateQueries({ queryKey: queryKeys.contactCenter.addresses(customerId) })
       setAddingAddress(false)
     },
   })
@@ -182,7 +183,7 @@ export function useAddressState(customerId: string | null) {
       if (error) throw error
     },
     onSuccess: () => {
-      qc.invalidateQueries({ queryKey: ['cc-addresses', customerId] })
+      qc.invalidateQueries({ queryKey: queryKeys.contactCenter.addresses(customerId) })
       setEditingId(null)
     },
   })

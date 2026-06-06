@@ -4,10 +4,11 @@
 import { useQuery } from '@tanstack/react-query'
 import { createClient } from '@/lib/supabase/client'
 import type { TlIdentity, TlTeamOption } from '@/types/team-leader'
+import { queryKeys } from '@/lib/queryKeys'
 
 export function useTeamLeaderIdentity() {
   return useQuery<TlIdentity | null>({
-    queryKey: ['tl-identity'],
+    queryKey: queryKeys.teamLeader.identity,
     queryFn: async (): Promise<TlIdentity | null> => {
       const supabase = createClient()
       const { data: { user } } = await supabase.auth.getUser()
@@ -65,7 +66,7 @@ export function useTeamLeaderIdentity() {
 
 export function useAllTeamsForSelect(divisionIds?: string[]) {
   return useQuery<TlTeamOption[]>({
-    queryKey: ['tl-all-teams-select', divisionIds ?? 'all'],
+    queryKey: queryKeys.teamLeader.allTeamsSelect(divisionIds),
     queryFn: async () => {
       const supabase = createClient()
       let query = (supabase as any)

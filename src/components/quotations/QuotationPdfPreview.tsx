@@ -5,6 +5,7 @@ import { useQuery } from '@tanstack/react-query'
 import { createClient } from '@/lib/supabase/client'
 import { format } from 'date-fns'
 import type { QuotationDraft } from '@/types/quotations'
+import { queryKeys } from '@/lib/queryKeys'
 
 interface DivisionRecord {
   id: string
@@ -19,7 +20,7 @@ interface DivisionRecord {
 
 function useDivisionBySlug(slug: string | null) {
   return useQuery<DivisionRecord | null>({
-    queryKey: ['division-by-slug', slug],
+    queryKey: queryKeys.misc.divisionBySlug(slug),
     enabled: !!slug,
     staleTime: 10 * 60 * 1000,
     queryFn: async () => {

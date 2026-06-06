@@ -8,6 +8,7 @@ import { createClient } from '@/lib/supabase/client'
 import { Button } from '@/components/ui/button'
 import { cn } from '@/lib/utils'
 import type { ContractService } from '@/types/contracts'
+import { queryKeys } from '@/lib/queryKeys'
 
 interface Props {
   divisions: string[]
@@ -27,7 +28,7 @@ export function ContractTermsSection({ divisions, services, termsSnapshot }: Pro
   const [expandedIds, setExpandedIds] = useState<Set<string>>(new Set())
 
   const { data: divisionTerms } = useQuery({
-    queryKey: ['contractDivisionTerms', divisions],
+    queryKey: queryKeys.contracts.divisionTerms(divisions),
     queryFn: async () => {
       if (divisions.length === 0) return []
       const { data } = await supabase
@@ -46,7 +47,7 @@ export function ContractTermsSection({ divisions, services, termsSnapshot }: Pro
   const uniqueServiceIds = [...new Set(serviceIds)]
 
   const { data: serviceTerms } = useQuery({
-    queryKey: ['contractServiceTerms', uniqueServiceIds],
+    queryKey: queryKeys.contracts.serviceTerms(uniqueServiceIds),
     queryFn: async () => {
       if (uniqueServiceIds.length === 0) return []
       const { data } = await supabase

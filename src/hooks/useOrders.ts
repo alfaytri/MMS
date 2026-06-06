@@ -2,6 +2,7 @@
 import { useQuery } from '@tanstack/react-query'
 import { createClient } from '@/lib/supabase/client'
 import type { OrderListItem, OrdersFilter } from '@/types/orders'
+import { queryKeys } from '@/lib/queryKeys'
 
 const DEFAULT_FILTER: OrdersFilter = {}
 
@@ -9,7 +10,7 @@ export function useOrders(filter: OrdersFilter = DEFAULT_FILTER) {
   const supabase = createClient()
 
   return useQuery({
-    queryKey: ['orders', filter],
+    queryKey: queryKeys.orders.list(filter),
     queryFn: async (): Promise<OrderListItem[]> => {
       let query = supabase
         .from('orders')
@@ -79,7 +80,7 @@ export function useOrderCounts() {
   const supabase = createClient()
 
   return useQuery({
-    queryKey: ['order-counts'],
+    queryKey: queryKeys.orders.counts,
     queryFn: async () => {
       const today = new Date().toISOString().split('T')[0]
       const [all, active, noAddress, notConfirmed, notInvoiced] = await Promise.all([

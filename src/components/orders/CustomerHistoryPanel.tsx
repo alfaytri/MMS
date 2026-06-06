@@ -17,6 +17,7 @@ import { getWarrantyInfo } from '@/lib/orders/warrantyUtils'
 import { cn } from '@/lib/utils'
 import { createClient } from '@/lib/supabase/client'
 import type { CustomerHistoryOrder, OrderStatus } from '@/types/orders'
+import { queryKeys } from '@/lib/queryKeys'
 
 const STATUS_COLORS: Record<OrderStatus, string> = {
   completed: 'bg-green-100 text-green-800',
@@ -152,7 +153,7 @@ function OrderHistoryCard({
 
 function useCustomerQuotations(customerId: string | null) {
   return useQuery({
-    queryKey: ['customer-quotations', customerId],
+    queryKey: queryKeys.customers.quotations(customerId),
     enabled: !!customerId,
     queryFn: async () => {
       const supabase = createClient()

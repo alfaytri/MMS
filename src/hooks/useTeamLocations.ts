@@ -1,6 +1,7 @@
 // src/hooks/useTeamLocations.ts
 import { useQuery } from '@tanstack/react-query'
 import { createClient } from '@/lib/supabase/client'
+import { queryKeys } from '@/lib/queryKeys'
 
 export type TeamLocationStatus = 'moving' | 'idle' | 'stopped' | 'offline'
 
@@ -45,7 +46,7 @@ export function deriveStatus(
  */
 export function useTeamLocations() {
   return useQuery({
-    queryKey: ['team-locations'],
+    queryKey: queryKeys.teams.locations,
     queryFn: async (): Promise<TeamLocation[]> => {
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       const supabase = createClient() as any

@@ -3,6 +3,7 @@ import { useInfiniteQuery, useQuery, useMutation, useQueryClient } from '@tansta
 import { createClient } from '@/lib/supabase/client'
 import { logActivity } from '@/lib/logActivity'
 import type { ArInvoice, InvoiceLineItem } from '@/types/invoice'
+import { queryKeys } from '@/lib/queryKeys'
 
 const PAGE_SIZE = 50
 
@@ -36,7 +37,7 @@ export type FinanceInvoice = ArInvoice & {
 
 export function useInvoices(filters: InvoiceFilters = {}) {
   return useInfiniteQuery({
-    queryKey: ['invoices', filters],
+    queryKey: queryKeys.invoices.list(filters),
     queryFn: async ({ pageParam = 0 }) => {
       const supabase = createClient()
       let q = (supabase as any)
@@ -122,7 +123,7 @@ export type InvoiceSummary = {
 
 export function useInvoiceSummary() {
   return useQuery({
-    queryKey: ['invoice-summary'],
+    queryKey: queryKeys.invoices.summary,
     queryFn: async (): Promise<InvoiceSummary> => {
       const supabase = createClient()
       const { data, error } = await (supabase as any).rpc('get_invoice_summary')
@@ -157,10 +158,10 @@ export function useVoidInvoice() {
       if (error) throw error
     },
     onSuccess: (_, vars) => {
-      queryClient.invalidateQueries({ queryKey: ['invoices'] })
-      queryClient.invalidateQueries({ queryKey: ['invoice-summary'] })
-      queryClient.invalidateQueries({ queryKey: ['pending-payments'] })
-      queryClient.invalidateQueries({ queryKey: ['customer-invoices'] })
+      queryClient.invalidateQueries({ queryKey: queryKeys.invoices.all })
+      queryClient.invalidateQueries({ queryKey: queryKeys.invoices.summary })
+      queryClient.invalidateQueries({ queryKey: queryKeys.payments.pending })
+      queryClient.invalidateQueries({ queryKey: queryKeys.customerInvoices.all })
       logActivity({
         action: 'Invoice Voided',
         module: 'invoices',
@@ -242,8 +243,8 @@ export function useIssueCreditNote() {
       return { creditNoteId }
     },
     onSuccess: (result, vars) => {
-      queryClient.invalidateQueries({ queryKey: ['invoices'] })
-      queryClient.invalidateQueries({ queryKey: ['customer-invoices'] })
+      queryClient.invalidateQueries({ queryKey: queryKeys.invoices.all })
+      queryClient.invalidateQueries({ queryKey: queryKeys.customerInvoices.all })
       logActivity({
         action: 'Credit Note Issued',
         module: 'invoices',
@@ -267,7 +268,7 @@ export function useBulkQbSyncInvoices() {
       if (error) throw error
     },
     onSuccess: (_, ids) => {
-      queryClient.invalidateQueries({ queryKey: ['invoices'] })
+      queryClient.invalidateQueries({ queryKey: queryKeys.invoices.all })
       logActivity({
         action: 'Invoices QB Synced',
         module: 'invoices',

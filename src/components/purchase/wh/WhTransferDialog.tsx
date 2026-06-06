@@ -30,6 +30,7 @@ import { useWarehouseStock, useWarehouseStockSummary } from '@/hooks/useWarehous
 import { createClient } from '@/lib/supabase/client'
 import { useQueryClient } from '@tanstack/react-query'
 import { toast } from 'sonner'
+import { queryKeys } from '@/lib/queryKeys'
 
 interface TransferRow {
   brand_variant_id: string
@@ -181,7 +182,7 @@ export function WhTransferDialog({ warehouses, currentProfile, children }: Props
         })
       }
 
-      qc.invalidateQueries({ queryKey: ['warehouse_transfers'] })
+      qc.invalidateQueries({ queryKey: queryKeys.warehouseOps.warehouseTransfers })
       toast.success(`Transfer submitted — awaiting approval from ${managerName}`)
       handleClose()
     } catch (e: unknown) {

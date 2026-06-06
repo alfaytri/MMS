@@ -6,6 +6,7 @@ import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { createClient } from '@/lib/supabase/client'
 import { useCalendarSchedule, useDivisionSchedule, useAllDivisionSchedules } from '@/hooks/useCalendarSchedule'
 import { useCalendarVisits, groupVisitsByTeam, filterVisitsByType } from '@/hooks/useCalendarVisits'
+import { queryKeys } from '@/lib/queryKeys'
 import {
   useWeekCapacity,
   computeDayCapacity,
@@ -31,7 +32,7 @@ import { useRouter } from 'next/navigation'
 
 function useCalendarPermissions() {
   const { data: perms = [] } = useQuery({
-    queryKey: ['calendar-permissions'],
+    queryKey: queryKeys.calendar.permissions,
     staleTime: 5 * 60 * 1000,
     queryFn: async () => {
       const supabase = createClient()
@@ -49,8 +50,8 @@ function useCalendarPermissions() {
   })
   return {
     canView: perms.includes('calendar.view') || perms.length === 0,
-    canEdit: perms.includes('calendar.edit-order'),
-    canSwap: perms.includes('calendar.swap-teams'),
+    canEdit: perms.includes('calendar.manage'),
+    canSwap: perms.includes('calendar.manage'),
   }
 }
 
@@ -183,8 +184,8 @@ export function CalendarPage() {
         'postgres_changes',
         { event: '*', schema: 'public', table: 'calendar_visits' },
         () => {
-          queryClient.invalidateQueries({ queryKey: ['calendar-visits'] })
-          queryClient.invalidateQueries({ queryKey: ['week-capacity'] })
+          queryClient.invalidateQueries({ queryKey: queryKeys.calendar.visitsAll })
+          queryClient.invalidateQueries({ queryKey: queryKeys.calendar.weekCapacityAll })
         },
       )
       .subscribe()

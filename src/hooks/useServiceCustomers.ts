@@ -2,6 +2,7 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { createClient } from '@/lib/supabase/client'
 import { normalisePhone, tryNormalisePhone } from '@/lib/contact-center/normalise-phone'
+import { queryKeys } from '@/lib/queryKeys'
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 
@@ -121,7 +122,7 @@ export function useServiceCustomers(
   const hasDigit  = hasSearch && /\d/.test(trimmed)
 
   return useQuery<ServiceCustomersPage>({
-    queryKey: ['service-customers', trimmed, page, pageSize, filters.multiplePhones ?? false],
+    queryKey: queryKeys.serviceCustomers.list(trimmed, page, pageSize, filters.multiplePhones ?? false),
     queryFn: async () => {
       const supabase = createClient()
       const from = page * pageSize
@@ -308,7 +309,7 @@ export function useCreateServiceCustomer() {
 
       return customerId
     },
-    onSuccess: () => qc.invalidateQueries({ queryKey: ['service-customers'] }),
+    onSuccess: () => qc.invalidateQueries({ queryKey: queryKeys.serviceCustomers.all }),
   })
 }
 
@@ -437,9 +438,9 @@ export function useUpdateServiceCustomer() {
       }
     },
     onSuccess: (_, vars) => {
-      qc.invalidateQueries({ queryKey: ['service-customers'] })
-      qc.invalidateQueries({ queryKey: ['service-customer', vars.id] })
-      qc.invalidateQueries({ queryKey: ['service-customer-addresses', vars.id] })
+      qc.invalidateQueries({ queryKey: queryKeys.serviceCustomers.all })
+      qc.invalidateQueries({ queryKey: queryKeys.contactCenter.serviceCustomer(vars.id) })
+      qc.invalidateQueries({ queryKey: queryKeys.contactCenter.serviceCustomerAddresses(vars.id) })
     },
   })
 }

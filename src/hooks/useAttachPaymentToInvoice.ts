@@ -1,6 +1,7 @@
 // src/hooks/useAttachPaymentToInvoice.ts
 import { useMutation, useQueryClient } from '@tanstack/react-query'
 import { createClient } from '@/lib/supabase/client'
+import { queryKeys } from '@/lib/queryKeys'
 
 export function useAttachPaymentToInvoice() {
   const queryClient = useQueryClient()
@@ -20,10 +21,10 @@ export function useAttachPaymentToInvoice() {
       if (error) throw error
     },
     onSuccess: (_, variables) => {
-      queryClient.invalidateQueries({ queryKey: ['customer-payments'] })
-      queryClient.invalidateQueries({ queryKey: ['customer-invoices'] })
-      queryClient.invalidateQueries({ queryKey: ['unlinked-incoming-payments'] })
-      queryClient.invalidateQueries({ queryKey: ['unlinked-ar-invoices'] })
+      queryClient.invalidateQueries({ queryKey: queryKeys.customerPayments.all })
+      queryClient.invalidateQueries({ queryKey: queryKeys.customerInvoices.all })
+      queryClient.invalidateQueries({ queryKey: queryKeys.unlinkedAr.incomingPaymentsAll })
+      queryClient.invalidateQueries({ queryKey: queryKeys.unlinkedAr.invoicesAll })
     },
   })
 }

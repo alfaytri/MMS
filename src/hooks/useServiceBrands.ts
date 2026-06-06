@@ -3,12 +3,13 @@
 import { useQuery } from '@tanstack/react-query'
 import { createClient } from '@/lib/supabase/client'
 import type { ServiceBrand } from '@/types/contracts'
+import { queryKeys } from '@/lib/queryKeys'
 
 export function useServiceBrands(serviceId: string | null) {
   const supabase = createClient()
 
   return useQuery<ServiceBrand[]>({
-    queryKey: ['serviceBrands', serviceId],
+    queryKey: queryKeys.serviceBrands.byService(serviceId),
     queryFn: async () => {
       if (!serviceId) return []
       const { data, error } = await supabase

@@ -1,6 +1,7 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { createClient } from '@/lib/supabase/client'
 import type { DBTable, DBInsert, DBUpdate } from '@/types/database.types'
+import { queryKeys } from '@/lib/queryKeys'
 
 export type Supplier = DBTable<'suppliers'>
 export type SupplierInsert = DBInsert<'suppliers'>
@@ -12,7 +13,7 @@ export type SupplierWithCurrency = Supplier & {
 
 export function useSuppliers() {
   return useQuery({
-    queryKey: ['suppliers'],
+    queryKey: queryKeys.suppliers.all,
     queryFn: async () => {
       const supabase = createClient()
       const { data, error } = await supabase
@@ -41,7 +42,7 @@ export function useCreateSupplier() {
       return data
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['suppliers'] })
+      queryClient.invalidateQueries({ queryKey: queryKeys.suppliers.all })
     },
   })
 }
@@ -61,7 +62,7 @@ export function useUpdateSupplier() {
       return data
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['suppliers'] })
+      queryClient.invalidateQueries({ queryKey: queryKeys.suppliers.all })
     },
   })
 }

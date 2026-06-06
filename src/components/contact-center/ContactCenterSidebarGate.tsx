@@ -5,13 +5,14 @@ import { useQuery } from '@tanstack/react-query'
 import { createClient } from '@/lib/supabase/client'
 import { useContactCenterContext } from '@/contexts/ContactCenterContext'
 import { ContactCenterSidebar } from './ContactCenterSidebar'
+import { queryKeys } from '@/lib/queryKeys'
 
 export function ContactCenterSidebarGate() {
   const supabase = createClient()
   const { setCcSidebar } = useContactCenterContext()
 
   const { data: hasPermission, isLoading } = useQuery({
-    queryKey: ['cc-permission'],
+    queryKey: queryKeys.contactCenter.permission,
     staleTime: 5 * 60 * 1000,
     queryFn: async () => {
       const { data: { user } } = await supabase.auth.getUser()

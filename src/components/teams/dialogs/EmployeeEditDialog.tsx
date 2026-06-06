@@ -17,6 +17,7 @@ import { useCreateEmployee, useArchiveEmployee, useDisableEmployee, useEnableEmp
 import { useDivisions } from '@/hooks/useDivisions'
 import { PhoneInputWithCode, splitPhone } from '@/components/shared/PhoneInputWithCode'
 import { useTeamsPage } from '../TeamsPageContext'
+import { queryKeys } from '@/lib/queryKeys'
 
 // ─── Service tree builder ─────────────────────────────────────────────────────
 interface ServiceNode extends Service {
@@ -398,10 +399,10 @@ export function EmployeeEditDialog() {
           action: 'employee-edited', entityType: 'employee', entityId: employee!.id,
           afterData: { name: values.name, status: employee!.status ?? 'active' },
         })
-        qc.invalidateQueries({ queryKey: ['employees'] })
-        qc.invalidateQueries({ queryKey: ['teams'] })
-        qc.invalidateQueries({ queryKey: ['team-activity-log'] })
-        qc.invalidateQueries({ queryKey: ['team-activity-log-count'] })
+        qc.invalidateQueries({ queryKey: queryKeys.teams.employees })
+        qc.invalidateQueries({ queryKey: queryKeys.teams.all })
+        qc.invalidateQueries({ queryKey: queryKeys.teams.activityLog })
+        qc.invalidateQueries({ queryKey: queryKeys.teams.activityLogCount })
       } else {
         const payload = {
           name:        values.name,
@@ -428,10 +429,10 @@ export function EmployeeEditDialog() {
           action: 'employee-created', entityType: 'employee', entityId: created.id,
           afterData: { name: values.name },
         })
-        qc.invalidateQueries({ queryKey: ['employees'] })
-        qc.invalidateQueries({ queryKey: ['teams'] })
-        qc.invalidateQueries({ queryKey: ['team-activity-log'] })
-        qc.invalidateQueries({ queryKey: ['team-activity-log-count'] })
+        qc.invalidateQueries({ queryKey: queryKeys.teams.employees })
+        qc.invalidateQueries({ queryKey: queryKeys.teams.all })
+        qc.invalidateQueries({ queryKey: queryKeys.teams.activityLog })
+        qc.invalidateQueries({ queryKey: queryKeys.teams.activityLogCount })
       }
       closeEmployeeDialog()
     } catch (err) {

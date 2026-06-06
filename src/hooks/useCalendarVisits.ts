@@ -1,5 +1,6 @@
 import { useQuery } from '@tanstack/react-query'
 import { createClient } from '@/lib/supabase/client'
+import { queryKeys } from '@/lib/queryKeys'
 
 export type VisitType =
   | 'normal_order'
@@ -56,7 +57,7 @@ export function filterVisitsByType(
 
 export function useCalendarVisits(date: string, divisionSlug: string | null) {
   return useQuery({
-    queryKey: ['calendar-visits', date, divisionSlug],
+    queryKey: queryKeys.calendar.visits(date, divisionSlug ?? undefined),
     queryFn: async (): Promise<CalendarVisit[]> => {
       const supabase = createClient()
       let query = supabase

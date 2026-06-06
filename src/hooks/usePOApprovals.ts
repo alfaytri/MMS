@@ -4,6 +4,7 @@ import { createClient } from '@/lib/supabase/client'
 import type { PurchaseOrder } from './usePurchaseOrders'
 import { logPOActivity, ROLE_LABELS } from '@/lib/poActivityLogger'
 import { savePoSnapshot } from '@/lib/poVersionHelper'
+import { queryKeys } from '@/lib/queryKeys'
 
 async function getMyIdentity() {
   const supabase = createClient()
@@ -21,7 +22,7 @@ async function getMyIdentity() {
 
 export function usePendingApprovals() {
   return useQuery({
-    queryKey: ['po-approvals', 'pending'],
+    queryKey: queryKeys.approvals.poApprovalsPending,
     queryFn: async () => {
       const me = await getMyIdentity()
       if (!me?.profileId) return [] as PurchaseOrder[]
@@ -68,7 +69,7 @@ export function usePendingApprovals() {
 
 export function useCompletedApprovals() {
   return useQuery({
-    queryKey: ['po-approvals', 'completed'],
+    queryKey: queryKeys.approvals.poApprovalsCompleted,
     queryFn: async () => {
       const supabase = createClient()
       const { data, error } = await (supabase as any)
@@ -165,11 +166,11 @@ export function useApproveStep() {
       }
     },
     onSuccess: (_data: unknown, variables: { stepId: string; poId: string; comment: string }) => {
-      queryClient.invalidateQueries({ queryKey: ['po-approvals'] })
-      queryClient.invalidateQueries({ queryKey: ['purchase-orders'] })
-      queryClient.invalidateQueries({ queryKey: ['purchase-order', variables.poId] })
-      queryClient.invalidateQueries({ queryKey: ['notifications'] })
-      queryClient.invalidateQueries({ queryKey: ['brand-variants-v2'] })
+      queryClient.invalidateQueries({ queryKey: queryKeys.approvals.poApprovals })
+      queryClient.invalidateQueries({ queryKey: queryKeys.purchaseOrders.all })
+      queryClient.invalidateQueries({ queryKey: queryKeys.purchaseOrders.detail(variables.poId) })
+      queryClient.invalidateQueries({ queryKey: queryKeys.notifications.all })
+      queryClient.invalidateQueries({ queryKey: queryKeys.inventory.brandVariantsV2 })
     },
   })
 }
@@ -240,11 +241,11 @@ export function useForceApproveStep() {
 
     },
     onSuccess: (_data: unknown, variables: { stepId: string; poId: string; forceComment: string }) => {
-      queryClient.invalidateQueries({ queryKey: ['po-approvals'] })
-      queryClient.invalidateQueries({ queryKey: ['purchase-orders'] })
-      queryClient.invalidateQueries({ queryKey: ['purchase-order', variables.poId] })
-      queryClient.invalidateQueries({ queryKey: ['notifications'] })
-      queryClient.invalidateQueries({ queryKey: ['brand-variants-v2'] })
+      queryClient.invalidateQueries({ queryKey: queryKeys.approvals.poApprovals })
+      queryClient.invalidateQueries({ queryKey: queryKeys.purchaseOrders.all })
+      queryClient.invalidateQueries({ queryKey: queryKeys.purchaseOrders.detail(variables.poId) })
+      queryClient.invalidateQueries({ queryKey: queryKeys.notifications.all })
+      queryClient.invalidateQueries({ queryKey: queryKeys.inventory.brandVariantsV2 })
     },
   })
 }
@@ -328,17 +329,17 @@ export function useRejectPO() {
       }
     },
     onSuccess: (_data: unknown, variables: { poId: string; stepId: string; comment: string; mode: 'full_rejection' | 'send_back_to_draft' }) => {
-      queryClient.invalidateQueries({ queryKey: ['po-approvals'] })
-      queryClient.invalidateQueries({ queryKey: ['purchase-orders'] })
-      queryClient.invalidateQueries({ queryKey: ['purchase-order', variables.poId] })
-      queryClient.invalidateQueries({ queryKey: ['notifications'] })
+      queryClient.invalidateQueries({ queryKey: queryKeys.approvals.poApprovals })
+      queryClient.invalidateQueries({ queryKey: queryKeys.purchaseOrders.all })
+      queryClient.invalidateQueries({ queryKey: queryKeys.purchaseOrders.detail(variables.poId) })
+      queryClient.invalidateQueries({ queryKey: queryKeys.notifications.all })
     },
   })
 }
 
 export function useMyApprovalRoles() {
   return useQuery({
-    queryKey: ['my-approval-roles'],
+    queryKey: queryKeys.approvals.myRoles,
     queryFn: async () => {
       const me = await getMyIdentity()
       if (!me?.profileId) return [] as string[]

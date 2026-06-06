@@ -65,8 +65,7 @@ it('includes calendar permission group with required keys', () => {
   expect(calGroup).toBeDefined()
   const keys = calGroup!.permissions.map(p => p.key)
   expect(keys).toContain('calendar.view')
-  expect(keys).toContain('calendar.edit-order')
-  expect(keys).toContain('calendar.swap-teams')
+  expect(keys).toContain('calendar.manage')
 })
 
 it('includes contact_centre.view permission', () => {

@@ -2,6 +2,7 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { createClient } from '@/lib/supabase/client'
 import type { ArInvoice } from '@/types/invoice'
+import { queryKeys } from '@/lib/queryKeys'
 
 export type { ArInvoice }
 
@@ -13,7 +14,7 @@ export type ArFilters = {
 
 export function useCustomerInvoices(filters?: ArFilters) {
   return useQuery({
-    queryKey: ['customer-invoices', filters],
+    queryKey: queryKeys.customerInvoices.list(filters),
     queryFn: async () => {
       const supabase = createClient()
       let q = (supabase as any)
@@ -36,7 +37,7 @@ export function useCustomerInvoices(filters?: ArFilters) {
 
 export function useCustomerInvoice(id: string | null) {
   return useQuery({
-    queryKey: ['customer-invoice', id],
+    queryKey: queryKeys.customerInvoices.detail(id),
     enabled: !!id,
     queryFn: async () => {
       const supabase = createClient()
@@ -67,13 +68,13 @@ export function useSendInvoice() {
         .eq('direction', 'ar')
       if (error) throw error
     },
-    onSuccess: () => queryClient.invalidateQueries({ queryKey: ['customer-invoices'] }),
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: queryKeys.customerInvoices.all }),
   })
 }
 
 export function useInvoicesBySO(soId: string | null) {
   return useQuery({
-    queryKey: ['invoices-by-so', soId],
+    queryKey: queryKeys.customerInvoices.bySo(soId),
     enabled: !!soId,
     staleTime: 30_000,
     queryFn: async () => {
@@ -107,11 +108,11 @@ export function useGenerateInvoice() {
       return data as { id: string; invoice_id: string; invoice_type: string }
     },
     onSuccess: (_data, soId) => {
-      queryClient.invalidateQueries({ queryKey: ['invoices-by-so', soId] })
-      queryClient.invalidateQueries({ queryKey: ['customer-invoices'] })
-      queryClient.invalidateQueries({ queryKey: ['sale-orders'] })
-      queryClient.invalidateQueries({ queryKey: ['sale-order', soId] })
-      queryClient.invalidateQueries({ queryKey: ['activity-log'] })
+      queryClient.invalidateQueries({ queryKey: queryKeys.customerInvoices.bySo(soId) })
+      queryClient.invalidateQueries({ queryKey: queryKeys.customerInvoices.all })
+      queryClient.invalidateQueries({ queryKey: queryKeys.saleOrders.all })
+      queryClient.invalidateQueries({ queryKey: queryKeys.saleOrders.detail(soId) })
+      queryClient.invalidateQueries({ queryKey: queryKeys.activityLog.all })
     },
   })
 }
@@ -127,6 +128,6 @@ export function useDismissRefresh() {
         .eq('id', id)
       if (error) throw error
     },
-    onSuccess: () => queryClient.invalidateQueries({ queryKey: ['customer-invoices'] }),
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: queryKeys.customerInvoices.all }),
   })
 }

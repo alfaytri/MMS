@@ -1,6 +1,7 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { createClient } from '@/lib/supabase/client'
 import { logActivity } from '@/lib/logActivity'
+import { queryKeys } from '@/lib/queryKeys'
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -52,7 +53,7 @@ export type UpsertPackagePayload = {
 
 export function useSubscriptionPackages({ includeArchived = false }: { includeArchived?: boolean } = {}) {
   return useQuery({
-    queryKey: ['subscription_packages', { includeArchived }],
+    queryKey: queryKeys.subscriptionPackages.list(includeArchived),
     queryFn: async () => {
       const supabase = createClient()
       let q = (supabase as any)
@@ -70,7 +71,7 @@ export function useSubscriptionPackages({ includeArchived = false }: { includeAr
 
 export function usePackageServices(packageId: string | null) {
   return useQuery({
-    queryKey: ['subscription_package_services', packageId],
+    queryKey: queryKeys.subscriptionPackages.services(packageId),
     queryFn: async () => {
       const supabase = createClient()
       const { data, error } = await (supabase as any)
@@ -116,9 +117,9 @@ export function useUpsertPackage() {
       return data as string
     },
     onSuccess: (newId, { payload }) => {
-      qc.invalidateQueries({ queryKey: ['subscription_packages'] })
+      qc.invalidateQueries({ queryKey: queryKeys.subscriptionPackages.all })
       const packageId = payload.id ?? newId
-      qc.invalidateQueries({ queryKey: ['subscription_package_services', packageId] })
+      qc.invalidateQueries({ queryKey: queryKeys.subscriptionPackages.services(packageId) })
     },
   })
 }
@@ -146,6 +147,6 @@ export function useArchivePackage() {
         performer_name: performerName ?? null,
       }).catch(() => {})
     },
-    onSuccess: () => qc.invalidateQueries({ queryKey: ['subscription_packages'] }),
+    onSuccess: () => qc.invalidateQueries({ queryKey: queryKeys.subscriptionPackages.all }),
   })
 }

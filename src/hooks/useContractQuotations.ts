@@ -2,6 +2,7 @@
 
 import { useQuery } from '@tanstack/react-query'
 import { createClient } from '@/lib/supabase/client'
+import { queryKeys } from '@/lib/queryKeys'
 import type {
   ContractQuotationSummary,
   QuotationFilters,
@@ -11,7 +12,7 @@ export function useContractQuotations(filters?: QuotationFilters) {
   const supabase = createClient()
 
   return useQuery({
-    queryKey: ['contractQuotations', filters],
+    queryKey: queryKeys.contracts.quotations(filters),
     queryFn: async () => {
       let query = supabase
         .from('contracts')

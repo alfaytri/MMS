@@ -2,6 +2,7 @@
 import { useQuery } from '@tanstack/react-query'
 import { createClient } from '@/lib/supabase/client'
 import type { QuotationListItem, QuotationsFilter } from '@/types/quotations'
+import { queryKeys } from '@/lib/queryKeys'
 
 export interface QuotationCounts {
   all: number
@@ -13,7 +14,7 @@ export function useQuotations(filter: QuotationsFilter = {}) {
   const supabase = createClient()
 
   return useQuery<QuotationListItem[]>({
-    queryKey: ['quotations', filter],
+    queryKey: queryKeys.quotations.list(filter),
     queryFn: async () => {
       let q = supabase
         .from('quotations')
@@ -62,7 +63,7 @@ export function useQuotationCounts() {
   const supabase = createClient()
 
   return useQuery<QuotationCounts>({
-    queryKey: ['quotation-counts'],
+    queryKey: queryKeys.quotations.counts,
     queryFn: async () => {
       const [all, draft, sent] = await Promise.all([
         supabase.from('quotations').select('id', { count: 'exact', head: true }),

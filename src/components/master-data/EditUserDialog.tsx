@@ -35,6 +35,7 @@ import {
 } from '@/hooks/useApprovalRoleAssignments'
 import type { ApprovalRole } from '@/lib/approvalChainResolution'
 import { createClient } from '@/lib/supabase/client'
+import { queryKeys } from '@/lib/queryKeys'
 
 const APPROVAL_ROLES: { role: ApprovalRole; label: string }[] = [
   { role: 'purchase_manager',  label: 'Purchase Manager' },
@@ -90,7 +91,7 @@ export function EditUserDialog({ open, onOpenChange, profile }: Props) {
   }, [profile])
 
   const { data: currentEmployee } = useQuery({
-    queryKey: ['tl-current-employee', profile?.id],
+    queryKey: queryKeys.teamLeader.currentEmployee(profile?.id),
     queryFn: async () => {
       if (!profile?.id) return null
       const supabase = createClient()
@@ -106,7 +107,7 @@ export function EditUserDialog({ open, onOpenChange, profile }: Props) {
   })
 
   const { data: tlEmployees = [] } = useQuery({
-    queryKey: ['tl-linkable-employees-edit'],
+    queryKey: queryKeys.teamLeader.linkableEmployeesEdit,
     queryFn: async () => {
       const supabase = createClient()
       // eslint-disable-next-line @typescript-eslint/no-explicit-any

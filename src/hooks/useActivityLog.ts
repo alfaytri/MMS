@@ -1,5 +1,6 @@
 import { useQuery } from '@tanstack/react-query'
 import { createClient } from '@/lib/supabase/client'
+import { queryKeys } from '@/lib/queryKeys'
 
 export type ActivityLog = {
   id: string
@@ -25,7 +26,7 @@ interface ActivityLogFilters {
 
 export function useActivityLog(filters: ActivityLogFilters = {}) {
   return useQuery({
-    queryKey: ['activity-log', filters],
+    queryKey: queryKeys.activityLog.list(filters),
     queryFn: async () => {
       const supabase = createClient()
       // eslint-disable-next-line @typescript-eslint/no-explicit-any

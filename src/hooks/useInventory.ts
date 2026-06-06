@@ -2,6 +2,7 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { createClient } from '@/lib/supabase/client'
 import type { DBTable, DBInsert, DBUpdate } from '@/types/database.types'
 import type { ServiceNode, ServiceInventoryLinkFull, LinkType } from '@/components/services/inventory/serviceInventoryHelpers'
+import { queryKeys } from '@/lib/queryKeys'
 
 export type InventoryCategory = DBTable<'inventory_categories'>
 export type InventoryItem = DBTable<'inventory_items'>
@@ -24,7 +25,7 @@ export type BrandVariantUpdate = Partial<Omit<BrandVariantInsert, 'item_id'>> & 
 
 export function useInventoryCategories() {
   return useQuery({
-    queryKey: ['inventory-categories'],
+    queryKey: queryKeys.inventory.categories,
     queryFn: async () => {
       const supabase = createClient()
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -40,7 +41,7 @@ export function useInventoryCategories() {
 
 export function useInventoryItems(categoryType?: string) {
   return useQuery({
-    queryKey: ['inventory-items', categoryType],
+    queryKey: queryKeys.inventory.itemsByType(categoryType),
     queryFn: async () => {
       const supabase = createClient()
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -63,7 +64,7 @@ export function useInventoryItems(categoryType?: string) {
 
 export function useBrandVariants(itemId: string | null) {
   return useQuery({
-    queryKey: ['brand-variants', itemId],
+    queryKey: queryKeys.inventory.brandVariantsByItem(itemId),
     queryFn: async () => {
       const supabase = createClient()
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -94,8 +95,8 @@ export function useCreateInventoryItem() {
       return data
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['inventory-items'] })
-      queryClient.invalidateQueries({ queryKey: ['inventory-items-by-category'] })
+      queryClient.invalidateQueries({ queryKey: queryKeys.inventory.items })
+      queryClient.invalidateQueries({ queryKey: queryKeys.inventory.itemsByCategory })
     },
   })
 }
@@ -115,7 +116,7 @@ export function useUpdateInventoryItem() {
       return data
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['inventory-items'] })
+      queryClient.invalidateQueries({ queryKey: queryKeys.inventory.items })
     },
   })
 }
@@ -135,10 +136,10 @@ export function useCreateBrandVariant() {
       return data
     },
     onSuccess: (_: unknown, variables: BrandVariantInsert) => {
-      queryClient.invalidateQueries({ queryKey: ['brand-variants', variables.item_id] })
-      queryClient.invalidateQueries({ queryKey: ['brand-variants-v2', variables.item_id] })
-      queryClient.invalidateQueries({ queryKey: ['inventory-items'] })
-      queryClient.invalidateQueries({ queryKey: ['all-brand-names'] })
+      queryClient.invalidateQueries({ queryKey: queryKeys.inventory.brandVariantsByItem(variables.item_id) })
+      queryClient.invalidateQueries({ queryKey: queryKeys.inventory.brandVariantsV2ByItem(variables.item_id) })
+      queryClient.invalidateQueries({ queryKey: queryKeys.inventory.items })
+      queryClient.invalidateQueries({ queryKey: queryKeys.inventory.allBrandNames })
     },
   })
 }
@@ -159,9 +160,9 @@ export function useUpdateBrandVariant() {
       return data
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['brand-variants'] })
-      queryClient.invalidateQueries({ queryKey: ['brand-variants-v2'] })
-      queryClient.invalidateQueries({ queryKey: ['inventory-items'] })
+      queryClient.invalidateQueries({ queryKey: queryKeys.inventory.brandVariants })
+      queryClient.invalidateQueries({ queryKey: queryKeys.inventory.brandVariantsV2 })
+      queryClient.invalidateQueries({ queryKey: queryKeys.inventory.items })
     },
   })
 }
@@ -175,7 +176,7 @@ export type ServiceWithInventory = {
 
 export function useInventoryItemsAll(enabled = true) {
   return useQuery({
-    queryKey: ['inventory_items_all'],
+    queryKey: queryKeys.inventory.itemsAll,
     enabled,
     queryFn: async () => {
       const supabase = createClient()
@@ -207,7 +208,7 @@ export interface BrandVariantGrouped {
 /** All brand variants with item + category info — used for the hierarchical link picker. */
 export function useAllBrandVariantsGrouped(enabled = true) {
   return useQuery({
-    queryKey: ['brand-variants-grouped'],
+    queryKey: queryKeys.inventory.brandVariantsGrouped,
     enabled,
     queryFn: async () => {
       const supabase = createClient()
@@ -245,7 +246,7 @@ export function useAllBrandVariantsGrouped(enabled = true) {
 
 export function useServicesWithInventory(enabled = true) {
   return useQuery({
-    queryKey: ['services_with_inventory'],
+    queryKey: queryKeys.inventory.servicesWithInventory,
     enabled,
     queryFn: async () => {
       const supabase = createClient()
@@ -314,7 +315,7 @@ export type ServiceInventoryLink = {
 
 export function useInventoryCategoriesByType(type: string, showArchived = false) {
   return useQuery({
-    queryKey: ['inventory-categories', type, showArchived],
+    queryKey: queryKeys.inventory.categoriesByType(type, showArchived),
     queryFn: async () => {
       const supabase = createClient()
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -348,9 +349,9 @@ export function useCreateInventoryCategory() {
       return data as InventoryCategory
     },
     onSuccess: (_, v) => {
-      qc.invalidateQueries({ queryKey: ['inventory-categories', v.type] })
-      qc.invalidateQueries({ queryKey: ['inventory-categories'] })
-      qc.invalidateQueries({ queryKey: ['inventory-categories-tree'] })
+      qc.invalidateQueries({ queryKey: queryKeys.inventory.categoriesByType(v.type) })
+      qc.invalidateQueries({ queryKey: queryKeys.inventory.categories })
+      qc.invalidateQueries({ queryKey: queryKeys.inventory.categoriesTree })
     },
   })
 }
@@ -371,8 +372,8 @@ export function useUpdateInventoryCategory() {
       return data as InventoryCategory
     },
     onSuccess: () => {
-      qc.invalidateQueries({ queryKey: ['inventory-categories'] })
-      qc.invalidateQueries({ queryKey: ['inventory-categories-tree'] })
+      qc.invalidateQueries({ queryKey: queryKeys.inventory.categories })
+      qc.invalidateQueries({ queryKey: queryKeys.inventory.categoriesTree })
     },
   })
 }
@@ -381,7 +382,7 @@ export function useUpdateInventoryCategory() {
 
 export function useInventoryItemsByCategory(categoryId: string | null, showArchived = false) {
   return useQuery({
-    queryKey: ['inventory-items-by-category', categoryId, showArchived],
+    queryKey: queryKeys.inventory.itemsByCategoryId(categoryId, showArchived),
     enabled: !!categoryId,
     queryFn: async () => {
       const supabase = createClient()
@@ -414,8 +415,8 @@ export function useArchiveInventoryItem() {
       if (error) throw error
     },
     onSuccess: () => {
-      qc.invalidateQueries({ queryKey: ['inventory-items-by-category'] })
-      qc.invalidateQueries({ queryKey: ['brand-variants-v2'] })
+      qc.invalidateQueries({ queryKey: queryKeys.inventory.itemsByCategory })
+      qc.invalidateQueries({ queryKey: queryKeys.inventory.brandVariantsV2 })
     },
   })
 }
@@ -424,7 +425,7 @@ export function useArchiveInventoryItem() {
 
 export function useInventoryBrandVariants(itemId: string | null, showArchived = false) {
   return useQuery({
-    queryKey: ['brand-variants-v2', itemId, showArchived],
+    queryKey: queryKeys.inventory.brandVariantsV2ByItem(itemId, showArchived),
     enabled: !!itemId,
     queryFn: async () => {
       const supabase = createClient()
@@ -456,7 +457,7 @@ export function useArchiveInventoryBrandVariant() {
         .eq('id', id)
       if (error) throw error
     },
-    onSuccess: () => qc.invalidateQueries({ queryKey: ['brand-variants-v2'] }),
+    onSuccess: () => qc.invalidateQueries({ queryKey: queryKeys.inventory.brandVariantsV2 }),
   })
 }
 
@@ -464,7 +465,7 @@ export function useArchiveInventoryBrandVariant() {
 
 export function useFifoLayers(brandVariantId: string | null, enabled = true) {
   return useQuery({
-    queryKey: ['fifo-layers', brandVariantId],
+    queryKey: queryKeys.inventory.fifoLayersByVariant(brandVariantId),
     enabled: enabled && !!brandVariantId,
     queryFn: async () => {
       const supabase = createClient()
@@ -490,7 +491,7 @@ export type VariantWarehouseStock = { perWarehouse: WarehouseStockRow[]; unassig
 
 export function useVariantWarehouseStock(variantId: string | undefined, enabled = true) {
   return useQuery<VariantWarehouseStock>({
-    queryKey: ['variant_warehouse_stock', variantId],
+    queryKey: queryKeys.inventory.variantWarehouseStockById(variantId),
     queryFn: async () => {
       if (!variantId) return { perWarehouse: [], unassigned: 0, hasReceivals: false }
       const supabase = createClient()
@@ -529,7 +530,7 @@ export function useVariantWarehouseStock(variantId: string | undefined, enabled 
 
 export function useToolAssetItems(search = '') {
   return useQuery({
-    queryKey: ['tool-asset-items', search],
+    queryKey: queryKeys.inventory.toolAssetItemsBySearch(search),
     queryFn: async () => {
       const supabase = createClient()
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -548,7 +549,7 @@ export function useToolAssetItems(search = '') {
 
 export function useToolAssetUnits(itemId: string | null) {
   return useQuery({
-    queryKey: ['tool-asset-units', itemId],
+    queryKey: queryKeys.inventory.toolAssetUnits(itemId),
     enabled: !!itemId,
     queryFn: async () => {
       const supabase = createClient()
@@ -579,7 +580,7 @@ export function useCreateToolAssetItem() {
       if (error) throw error
       return data as ToolAssetItem
     },
-    onSuccess: () => qc.invalidateQueries({ queryKey: ['tool-asset-items'] }),
+    onSuccess: () => qc.invalidateQueries({ queryKey: queryKeys.inventory.toolAssetItems }),
   })
 }
 
@@ -598,7 +599,7 @@ export function useUpdateToolAssetItem() {
       if (error) throw error
       return data as ToolAssetItem
     },
-    onSuccess: () => qc.invalidateQueries({ queryKey: ['tool-asset-items'] }),
+    onSuccess: () => qc.invalidateQueries({ queryKey: queryKeys.inventory.toolAssetItems }),
   })
 }
 
@@ -617,7 +618,7 @@ export function useCreateToolAssetUnit() {
       return data as ToolAssetUnit
     },
     onSuccess: (_, v) => {
-      qc.invalidateQueries({ queryKey: ['tool-asset-units', v.item_id] })
+      qc.invalidateQueries({ queryKey: queryKeys.inventory.toolAssetUnits(v.item_id) })
     },
   })
 }
@@ -638,7 +639,7 @@ export function useUpdateToolAssetUnit() {
       return data as ToolAssetUnit
     },
     onSuccess: (_, v) => {
-      qc.invalidateQueries({ queryKey: ['tool-asset-units', v.item_id] })
+      qc.invalidateQueries({ queryKey: queryKeys.inventory.toolAssetUnits(v.item_id) })
     },
   })
 }
@@ -647,7 +648,7 @@ export function useUpdateToolAssetUnit() {
 
 export function useServiceInventoryLinks(brandVariantId: string | null) {
   return useQuery({
-    queryKey: ['service-inventory-links', brandVariantId],
+    queryKey: queryKeys.inventory.serviceInventoryLinks(brandVariantId),
     enabled: !!brandVariantId,
     queryFn: async () => {
       const supabase = createClient()
@@ -697,14 +698,14 @@ export function useUpdateServiceInventoryLinks() {
       }
     },
     onSuccess: (_, v) => {
-      qc.invalidateQueries({ queryKey: ['service-inventory-links', v.brandVariantId] })
+      qc.invalidateQueries({ queryKey: queryKeys.inventory.serviceInventoryLinks(v.brandVariantId) })
     },
   })
 }
 
 export function useAllServices() {
   return useQuery({
-    queryKey: ['services-all-for-links'],
+    queryKey: queryKeys.inventory.servicesAllForLinks,
     queryFn: async () => {
       const supabase = createClient()
       const { data, error } = await supabase
@@ -722,7 +723,7 @@ export function useAllServices() {
 
 export function useInventoryItemsFlat(enabled = true) {
   return useQuery({
-    queryKey: ['inventory-items-all'],
+    queryKey: queryKeys.inventory.itemsAllV2,
     enabled,
     queryFn: async () => {
       const supabase = createClient()
@@ -777,10 +778,10 @@ export function useArchiveInventoryCategory() {
       if (error) throw error
     },
     onSuccess: () => {
-      qc.invalidateQueries({ queryKey: ['inventory-categories'] })
-      qc.invalidateQueries({ queryKey: ['inventory-categories-tree'] })
-      qc.invalidateQueries({ queryKey: ['inventory-items-by-category'] })
-      qc.invalidateQueries({ queryKey: ['brand-variants-v2'] })
+      qc.invalidateQueries({ queryKey: queryKeys.inventory.categories })
+      qc.invalidateQueries({ queryKey: queryKeys.inventory.categoriesTree })
+      qc.invalidateQueries({ queryKey: queryKeys.inventory.itemsByCategory })
+      qc.invalidateQueries({ queryKey: queryKeys.inventory.brandVariantsV2 })
     },
   })
 }
@@ -802,9 +803,9 @@ export function useUpdateSortOrders(table: 'inventory_categories' | 'inventory_i
       if (failed) throw (failed as { error: unknown }).error
     },
     onSuccess: () => {
-      if (table === 'inventory_categories') qc.invalidateQueries({ queryKey: ['inventory-categories'] })
-      if (table === 'inventory_items') qc.invalidateQueries({ queryKey: ['inventory-items-by-category'] })
-      if (table === 'inventory_brand_variants') qc.invalidateQueries({ queryKey: ['brand-variants-v2'] })
+      if (table === 'inventory_categories') qc.invalidateQueries({ queryKey: queryKeys.inventory.categories })
+      if (table === 'inventory_items') qc.invalidateQueries({ queryKey: queryKeys.inventory.itemsByCategory })
+      if (table === 'inventory_brand_variants') qc.invalidateQueries({ queryKey: queryKeys.inventory.brandVariantsV2 })
     },
   })
 }
@@ -832,7 +833,7 @@ export function useUpsertInventoryItemAttributes() {
       }
     },
     onSuccess: (_, v) => {
-      qc.invalidateQueries({ queryKey: ['inventory-item-attributes', v.itemId] })
+      qc.invalidateQueries({ queryKey: queryKeys.inventory.itemAttributes(v.itemId) })
     },
   })
 }
@@ -841,7 +842,7 @@ export function useUpsertInventoryItemAttributes() {
 
 export function useStaffProfiles() {
   return useQuery({
-    queryKey: ['staff-profiles'],
+    queryKey: queryKeys.inventory.staffProfiles,
     queryFn: async () => {
       const supabase = createClient()
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -867,7 +868,7 @@ export type BrandVariantPriceSummary = {
 
 export function useBrandVariantsByIds(ids: string[]) {
   return useQuery({
-    queryKey: ['brand-variants-price-summary', ids.slice().sort().join(',')],
+    queryKey: queryKeys.inventory.brandVariantsPriceSummaryByIds(ids.slice().sort().join(',')),
     enabled: ids.length > 0,
     queryFn: async () => {
       const supabase = createClient()
@@ -901,9 +902,9 @@ export function useBatchUpdateSellingPrices() {
       if (error) throw error
     },
     onSuccess: () => {
-      qc.invalidateQueries({ queryKey: ['brand-variants'] })
-      qc.invalidateQueries({ queryKey: ['inventory-brand-variants'] })
-      qc.invalidateQueries({ queryKey: ['brand-variants-price-summary'] })
+      qc.invalidateQueries({ queryKey: queryKeys.inventory.brandVariants })
+      qc.invalidateQueries({ queryKey: queryKeys.inventory.inventoryBrandVariants })
+      qc.invalidateQueries({ queryKey: queryKeys.inventory.brandVariantsPriceSummary })
     },
   })
 }
@@ -925,7 +926,7 @@ export type ReservedOrderLine = {
 
 export function useReservedOrderLines(brandVariantId: string | null) {
   return useQuery({
-    queryKey: ['reserved-order-lines', brandVariantId],
+    queryKey: queryKeys.inventory.reservedOrderLinesByVariant(brandVariantId),
     enabled: !!brandVariantId,
     queryFn: async () => {
       const supabase = createClient()
@@ -945,7 +946,7 @@ export function useReservedOrderLines(brandVariantId: string | null) {
 
 export function useAllBrandNames() {
   return useQuery({
-    queryKey: ['all-brand-names'],
+    queryKey: queryKeys.inventory.allBrandNames,
     queryFn: async () => {
       const supabase = createClient()
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -966,7 +967,7 @@ export function useAllBrandNames() {
 /** All services — used to build leaves list and breadcrumbs. */
 export function useServicesForLinks(enabled = true) {
   return useQuery({
-    queryKey: ['services-for-links'],
+    queryKey: queryKeys.inventory.servicesForLinks,
     enabled,
     queryFn: async () => {
       const supabase = createClient()
@@ -990,7 +991,7 @@ export function useServicesForLinks(enabled = true) {
  */
 export function useAllServiceLinks(enabled = true) {
   return useQuery({
-    queryKey: ['service-links-all'],
+    queryKey: queryKeys.inventory.serviceLinksAll,
     enabled,
     queryFn: async () => {
       const supabase = createClient()
@@ -1040,7 +1041,7 @@ export function useAddServiceInventoryLink() {
       if (error) throw error
     },
     onSuccess: () => {
-      qc.invalidateQueries({ queryKey: ['service-links-all'] })
+      qc.invalidateQueries({ queryKey: queryKeys.inventory.serviceLinksAll })
     },
   })
 }
@@ -1075,7 +1076,7 @@ export function useAddBulkServiceInventoryLinks() {
       if (error) throw error
     },
     onSuccess: () => {
-      qc.invalidateQueries({ queryKey: ['service-links-all'] })
+      qc.invalidateQueries({ queryKey: queryKeys.inventory.serviceLinksAll })
     },
   })
 }
@@ -1094,7 +1095,7 @@ export function useDeleteServiceInventoryLink() {
       if (error) throw error
     },
     onSuccess: () => {
-      qc.invalidateQueries({ queryKey: ['service-links-all'] })
+      qc.invalidateQueries({ queryKey: queryKeys.inventory.serviceLinksAll })
     },
   })
 }
@@ -1122,18 +1123,18 @@ export function useUpdateServiceInventoryLink() {
       if (error) throw error
     },
     onMutate: async (variables) => {
-      await qc.cancelQueries({ queryKey: ['service-links-all'] })
-      const prev = qc.getQueryData<ServiceInventoryLinkFull[]>(['service-links-all'])
-      qc.setQueryData<ServiceInventoryLinkFull[]>(['service-links-all'], (old) =>
+      await qc.cancelQueries({ queryKey: queryKeys.inventory.serviceLinksAll })
+      const prev = qc.getQueryData<ServiceInventoryLinkFull[]>(queryKeys.inventory.serviceLinksAll)
+      qc.setQueryData<ServiceInventoryLinkFull[]>(queryKeys.inventory.serviceLinksAll, (old) =>
         old?.map((l) => l.id === variables.id ? { ...l, ...variables } : l) ?? []
       )
       return { prev }
     },
     onError: (_err, _vars, ctx) => {
-      if (ctx?.prev) qc.setQueryData(['service-links-all'], ctx.prev)
+      if (ctx?.prev) qc.setQueryData(queryKeys.inventory.serviceLinksAll, ctx.prev)
     },
     onSettled: () => {
-      qc.invalidateQueries({ queryKey: ['service-links-all'] })
+      qc.invalidateQueries({ queryKey: queryKeys.inventory.serviceLinksAll })
     },
   })
 }

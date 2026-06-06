@@ -22,6 +22,7 @@ import { useSiteVisitDetail } from '@/hooks/useSiteVisitDetail'
 import { createClient } from '@/lib/supabase/client'
 import { toast } from 'sonner'
 import { cn } from '@/lib/utils'
+import { queryKeys } from '@/lib/queryKeys'
 
 const STATUS_STYLES: Record<string, string> = {
   scheduled:  'bg-blue-100 text-blue-800',
@@ -67,8 +68,8 @@ export function SiteVisitDetailSheet({ visitId, open, onOpenChange }: Props) {
     },
     onSuccess: () => {
       toast.success('Site visit confirmed')
-      queryClient.invalidateQueries({ queryKey: ['site-visit-detail', visitId] })
-      queryClient.invalidateQueries({ queryKey: ['site-visits'] })
+      queryClient.invalidateQueries({ queryKey: queryKeys.siteVisits.detail(visitId) })
+      queryClient.invalidateQueries({ queryKey: queryKeys.siteVisits.all })
     },
     onError: () => toast.error('Failed to confirm site visit'),
   })
@@ -84,8 +85,8 @@ export function SiteVisitDetailSheet({ visitId, open, onOpenChange }: Props) {
     onSuccess: () => {
       toast.success('Site visit cancelled')
       setCancelOpen(false)
-      queryClient.invalidateQueries({ queryKey: ['site-visit-detail', visitId] })
-      queryClient.invalidateQueries({ queryKey: ['site-visits'] })
+      queryClient.invalidateQueries({ queryKey: queryKeys.siteVisits.detail(visitId) })
+      queryClient.invalidateQueries({ queryKey: queryKeys.siteVisits.all })
     },
     onError: () => toast.error('Failed to cancel site visit'),
   })

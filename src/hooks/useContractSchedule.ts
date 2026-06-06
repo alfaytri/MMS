@@ -4,13 +4,14 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { createClient } from '@/lib/supabase/client'
 import { logActivity } from '@/lib/logActivity'
 import type { ScheduleDate } from '@/types/contracts'
+import { queryKeys } from '@/lib/queryKeys'
 
 export function useContractSchedule(contractId: string | undefined) {
   const supabase = createClient()
   const queryClient = useQueryClient()
 
   const scheduleQuery = useQuery<ScheduleDate[]>({
-    queryKey: ['contractSchedule', contractId],
+    queryKey: queryKeys.contracts.schedule(contractId),
     queryFn: async () => {
       if (!contractId) return []
       const { data, error } = await supabase
@@ -74,10 +75,10 @@ export function useContractSchedule(contractId: string | undefined) {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({
-        queryKey: ['contractSchedule', contractId],
+        queryKey: queryKeys.contracts.schedule(contractId),
       })
       queryClient.invalidateQueries({
-        queryKey: ['contractDetail', contractId],
+        queryKey: queryKeys.contracts.detail(contractId),
       })
     },
   })
@@ -92,7 +93,7 @@ export function useContractSchedule(contractId: string | undefined) {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({
-        queryKey: ['contractSchedule', contractId],
+        queryKey: queryKeys.contracts.schedule(contractId),
       })
     },
   })

@@ -2,6 +2,7 @@ import { useMemo } from 'react'
 import { useQuery } from '@tanstack/react-query'
 import { createClient } from '@/lib/supabase/client'
 import type { InventoryCategory } from '@/hooks/useInventory'
+import { queryKeys } from '@/lib/queryKeys'
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -97,7 +98,7 @@ export function allDescendantIds(id: string, flat: InventoryCategory[]): string[
  */
 export function useInventoryTree(type: string, showArchived = false) {
   const query = useQuery({
-    queryKey: ['inventory-categories-tree', type, showArchived],
+    queryKey: queryKeys.inventory.categoriesTreeByType(type, showArchived),
     queryFn: async () => {
       const supabase = createClient()
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -134,7 +135,7 @@ export function useInventoryTree(type: string, showArchived = false) {
  */
 export function useAllCategoriesFlat() {
   return useQuery({
-    queryKey: ['inventory-categories-all-flat'],
+    queryKey: queryKeys.inventory.categoriesAllFlat,
     queryFn: async () => {
       const supabase = createClient()
       // eslint-disable-next-line @typescript-eslint/no-explicit-any

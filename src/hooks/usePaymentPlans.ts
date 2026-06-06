@@ -2,12 +2,13 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { createClient } from '@/lib/supabase/client'
 import type { PaymentPlan, PaymentInstallment } from '@/types/invoice'
+import { queryKeys } from '@/lib/queryKeys'
 
 export type { PaymentPlan, PaymentInstallment }
 
 export function usePaymentPlans(invoiceId: string | null) {
   return useQuery({
-    queryKey: ['payment-plans', invoiceId],
+    queryKey: queryKeys.payments.plans(invoiceId),
     enabled: !!invoiceId,
     queryFn: async () => {
       const supabase = createClient()
@@ -63,7 +64,7 @@ export function useCreatePaymentPlan() {
       return plan as PaymentPlan
     },
     onSuccess: (_: PaymentPlan, vars: CreatePaymentPlanVars) =>
-      queryClient.invalidateQueries({ queryKey: ['payment-plans', vars.invoice_id] }),
+      queryClient.invalidateQueries({ queryKey: queryKeys.payments.plans(vars.invoice_id) }),
   })
 }
 
@@ -127,9 +128,9 @@ export function useSettleInstallment() {
       }
     },
     onSuccess: (_: void, vars: SettleInstallmentVars) => {
-      queryClient.invalidateQueries({ queryKey: ['payment-plans', vars.invoice_id] })
-      queryClient.invalidateQueries({ queryKey: ['supplier-payments'] })
-      queryClient.invalidateQueries({ queryKey: ['customer-payments'] })
+      queryClient.invalidateQueries({ queryKey: queryKeys.payments.plans(vars.invoice_id) })
+      queryClient.invalidateQueries({ queryKey: queryKeys.supplierPayments.all })
+      queryClient.invalidateQueries({ queryKey: queryKeys.customerPayments.all })
     },
   })
 }

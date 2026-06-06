@@ -2,6 +2,7 @@
 
 import { useQuery } from '@tanstack/react-query'
 import { createClient } from '@/lib/supabase/client'
+import { queryKeys } from '@/lib/queryKeys'
 
 type PermissionsResult = {
   permissions: string[]
@@ -10,7 +11,7 @@ type PermissionsResult = {
 
 export function usePermissions() {
   return useQuery<PermissionsResult>({
-    queryKey: ['user-permissions'],
+    queryKey: queryKeys.permissions.user,
     staleTime: 5 * 60 * 1000,
     queryFn: async () => {
       const supabase = createClient()

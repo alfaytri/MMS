@@ -2,12 +2,13 @@
 import { useQuery } from '@tanstack/react-query'
 import { createClient } from '@/lib/supabase/client'
 import type { QuotationDetail } from '@/types/quotations'
+import { queryKeys } from '@/lib/queryKeys'
 
 export function useQuotationDetail(quotationId: string | null) {
   const supabase = createClient()
 
   return useQuery<QuotationDetail>({
-    queryKey: ['quotation-detail', quotationId],
+    queryKey: queryKeys.quotations.detail(quotationId),
     enabled: !!quotationId,
     queryFn: async () => {
       const { data, error } = await supabase

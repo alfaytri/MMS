@@ -28,6 +28,7 @@ import {
 } from '@/hooks/useShipments'
 import { usePurchaseOrders } from '@/hooks/usePurchaseOrders'
 import type { ColumnDef } from '@tanstack/react-table'
+import { queryKeys } from '@/lib/queryKeys'
 
 // ─── Constants ────────────────────────────────────────────────────────────────
 
@@ -246,7 +247,7 @@ function ShipmentDetailDialog({
         toast.error('Auto-sync unavailable: monthly tracking limit reached')
         return
       }
-      await queryClient.invalidateQueries({ queryKey: ['shipments'] })
+      await queryClient.invalidateQueries({ queryKey: queryKeys.shipments.all })
       toast.success('Tracking synced')
     } catch {
       toast.error('Sync failed — try again')

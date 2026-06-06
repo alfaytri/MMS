@@ -1,5 +1,6 @@
 import { useQuery } from '@tanstack/react-query'
 import { createClient } from '@/lib/supabase/client'
+import { queryKeys } from '@/lib/queryKeys'
 
 export interface TeamOvertimeRow {
   team_id: string
@@ -18,7 +19,7 @@ export interface TeamOvertimeRow {
 
 export function useTeamOvertimeReport(year: number) {
   return useQuery({
-    queryKey: ['team-overtime-report', year],
+    queryKey: queryKeys.teams.overtimeReport(year),
     queryFn: async (): Promise<TeamOvertimeRow[]> => {
       const supabase = createClient()
       const { data, error } = await (supabase as any)

@@ -3,6 +3,7 @@
 
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { createClient } from '@/lib/supabase/client'
+import { queryKeys } from '@/lib/queryKeys'
 
 export type ServiceChangeRequest = {
   id: string
@@ -28,7 +29,7 @@ export function useServiceChangeRequests(filters?: {
   division?: string
 }) {
   return useQuery({
-    queryKey: ['service-change-requests', filters],
+    queryKey: queryKeys.serviceChangeRequests.list(filters),
     queryFn: async () => {
       const supabase = createClient()
       let query = (supabase as any)
@@ -58,7 +59,7 @@ export function useServiceChangeRequests(filters?: {
 
 export function useServiceChangeHistory(serviceId: string | null) {
   return useQuery({
-    queryKey: ['service-change-history', serviceId],
+    queryKey: queryKeys.serviceChangeRequests.historyByService(serviceId),
     enabled: !!serviceId,
     queryFn: async () => {
       const supabase = createClient()
@@ -80,7 +81,7 @@ export function useServiceChangeHistory(serviceId: string | null) {
 
 export function usePendingAddRequests() {
   return useQuery({
-    queryKey: ['service-change-requests', 'pending-adds'],
+    queryKey: queryKeys.serviceChangeRequests.pendingAdds,
     queryFn: async () => {
       const supabase = createClient()
       const { data, error } = await (supabase as any)
@@ -101,7 +102,7 @@ export function usePendingAddRequests() {
 
 export function usePendingServiceChangeCount() {
   return useQuery({
-    queryKey: ['service-change-requests', 'pending-count'],
+    queryKey: queryKeys.serviceChangeRequests.pendingCount,
     queryFn: async () => {
       const supabase = createClient()
       const { count, error } = await (supabase as any)
@@ -135,8 +136,8 @@ export function useSubmitServiceChange() {
       return data as { action: 'applied' | 'pending'; id: string }
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['services'] })
-      queryClient.invalidateQueries({ queryKey: ['service-change-requests'] })
+      queryClient.invalidateQueries({ queryKey: queryKeys.services.all })
+      queryClient.invalidateQueries({ queryKey: queryKeys.serviceChangeRequests.all })
     },
   })
 }
@@ -153,10 +154,10 @@ export function useApproveChangeRequest() {
       return data as { ok: boolean; service_id: string }
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['services'] })
-      queryClient.invalidateQueries({ queryKey: ['service-change-requests'] })
-      queryClient.invalidateQueries({ queryKey: ['service-change-history'] })
-      queryClient.invalidateQueries({ queryKey: ['notifications'] })
+      queryClient.invalidateQueries({ queryKey: queryKeys.services.all })
+      queryClient.invalidateQueries({ queryKey: queryKeys.serviceChangeRequests.all })
+      queryClient.invalidateQueries({ queryKey: queryKeys.serviceChangeRequests.history })
+      queryClient.invalidateQueries({ queryKey: queryKeys.notifications.all })
     },
   })
 }
@@ -174,10 +175,10 @@ export function useRejectChangeRequest() {
       return data as { ok: boolean }
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['services'] })
-      queryClient.invalidateQueries({ queryKey: ['service-change-requests'] })
-      queryClient.invalidateQueries({ queryKey: ['service-change-history'] })
-      queryClient.invalidateQueries({ queryKey: ['notifications'] })
+      queryClient.invalidateQueries({ queryKey: queryKeys.services.all })
+      queryClient.invalidateQueries({ queryKey: queryKeys.serviceChangeRequests.all })
+      queryClient.invalidateQueries({ queryKey: queryKeys.serviceChangeRequests.history })
+      queryClient.invalidateQueries({ queryKey: queryKeys.notifications.all })
     },
   })
 }
@@ -194,9 +195,9 @@ export function useWithdrawChangeRequest() {
       return data as { ok: boolean }
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['services'] })
-      queryClient.invalidateQueries({ queryKey: ['service-change-requests'] })
-      queryClient.invalidateQueries({ queryKey: ['service-change-history'] })
+      queryClient.invalidateQueries({ queryKey: queryKeys.services.all })
+      queryClient.invalidateQueries({ queryKey: queryKeys.serviceChangeRequests.all })
+      queryClient.invalidateQueries({ queryKey: queryKeys.serviceChangeRequests.history })
     },
   })
 }
@@ -217,8 +218,8 @@ export function useUpdatePendingChange() {
       return data as { ok: boolean }
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['service-change-requests'] })
-      queryClient.invalidateQueries({ queryKey: ['service-change-history'] })
+      queryClient.invalidateQueries({ queryKey: queryKeys.serviceChangeRequests.all })
+      queryClient.invalidateQueries({ queryKey: queryKeys.serviceChangeRequests.history })
     },
   })
 }

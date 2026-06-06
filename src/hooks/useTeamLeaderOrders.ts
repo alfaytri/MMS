@@ -3,10 +3,11 @@ import { useQuery } from '@tanstack/react-query'
 import { createClient } from '@/lib/supabase/client'
 import { format } from 'date-fns'
 import type { TlVisit, TlService, VisitStatus, VisitType } from '@/types/team-leader'
+import { queryKeys } from '@/lib/queryKeys'
 
 export function useTeamLeaderOrders(teamId: string | null | undefined) {
   return useQuery<TlVisit[]>({
-    queryKey: ['tl-orders', teamId],
+    queryKey: queryKeys.teamLeader.orders(teamId),
     queryFn: async (): Promise<TlVisit[]> => {
       if (!teamId) return []
       const supabase = createClient()

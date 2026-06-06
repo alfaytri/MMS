@@ -3,6 +3,7 @@
 
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { createClient } from '@/lib/supabase/client'
+import { queryKeys } from '@/lib/queryKeys'
 
 export type CreditGroup = {
   id:               string
@@ -29,7 +30,7 @@ export type PaymentMethodKey = (typeof PAYMENT_METHODS)[number]['key']
 
 export function useCreditGroups() {
   return useQuery({
-    queryKey: ['credit-groups'],
+    queryKey: queryKeys.creditGroups.all,
     queryFn:  async () => {
       const supabase = createClient()
       const { data, error } = await (supabase as any)
@@ -62,8 +63,8 @@ export function useCreateCreditGroup() {
       return data as CreditGroup
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['credit-groups'] })
-      queryClient.invalidateQueries({ queryKey: ['credit-group-counts'] })
+      queryClient.invalidateQueries({ queryKey: queryKeys.creditGroups.all })
+      queryClient.invalidateQueries({ queryKey: queryKeys.creditGroups.counts })
     },
   })
 }
@@ -80,7 +81,7 @@ export function useUpdateCreditGroup() {
       if (error) throw error
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['credit-groups'] })
+      queryClient.invalidateQueries({ queryKey: queryKeys.creditGroups.all })
     },
   })
 }
@@ -97,8 +98,8 @@ export function useDeleteCreditGroup() {
       if (error) throw error
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['credit-groups'] })
-      queryClient.invalidateQueries({ queryKey: ['credit-group-counts'] })
+      queryClient.invalidateQueries({ queryKey: queryKeys.creditGroups.all })
+      queryClient.invalidateQueries({ queryKey: queryKeys.creditGroups.counts })
     },
   })
 }
@@ -106,7 +107,7 @@ export function useDeleteCreditGroup() {
 // Uses the DB view — aggregation done on the server, not the browser.
 export function useCreditGroupCustomerCounts() {
   return useQuery({
-    queryKey: ['credit-group-counts'],
+    queryKey: queryKeys.creditGroups.counts,
     queryFn:  async () => {
       const supabase = createClient()
       const { data, error } = await (supabase as any)
@@ -139,9 +140,9 @@ export function useAssignCreditGroup() {
       return { groupName }
     },
     onMutate: async ({ customerId, groupId, groupName }) => {
-      await queryClient.cancelQueries({ queryKey: ['all-customers'] })
-      const snapshots = queryClient.getQueriesData({ queryKey: ['all-customers'] })
-      queryClient.setQueriesData({ queryKey: ['all-customers'] }, (old: any) => {
+      await queryClient.cancelQueries({ queryKey: queryKeys.customers.allCustomers })
+      const snapshots = queryClient.getQueriesData({ queryKey: queryKeys.customers.allCustomers })
+      queryClient.setQueriesData({ queryKey: queryKeys.customers.allCustomers }, (old: any) => {
         if (!old?.customers) return old
         return {
           ...old,
@@ -158,9 +159,9 @@ export function useAssignCreditGroup() {
       context?.snapshots?.forEach(([key, data]) => queryClient.setQueryData(key, data))
     },
     onSettled: () => {
-      queryClient.invalidateQueries({ queryKey: ['customers'] })
-      queryClient.invalidateQueries({ queryKey: ['all-customers'] })
-      queryClient.invalidateQueries({ queryKey: ['credit-group-counts'] })
+      queryClient.invalidateQueries({ queryKey: queryKeys.customers.all })
+      queryClient.invalidateQueries({ queryKey: queryKeys.customers.allCustomers })
+      queryClient.invalidateQueries({ queryKey: queryKeys.creditGroups.counts })
     },
   })
 }

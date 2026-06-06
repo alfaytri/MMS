@@ -18,6 +18,7 @@ import { useAttachPaymentToBill } from '@/hooks/useAttachPaymentToBill'
 import { formatCurrency, formatDate } from '@/lib/utils/formatters'
 import { createClient } from '@/lib/supabase/client'
 import { cn } from '@/lib/utils'
+import { queryKeys } from '@/lib/queryKeys'
 
 type Props = {
   open: boolean
@@ -53,7 +54,7 @@ export function AttachBillDialog({ open, onOpenChange, mode, paymentId, billId, 
 
   // link-payment mode: fetch all outgoing payments for this supplier with their allocated amounts
   const { data: availablePayments = [], isLoading: loadingAvailable } = useQuery<AvailablePayment[]>({
-    queryKey: ['supplier-payments-available', supplierId],
+    queryKey: queryKeys.supplierPayments.available(supplierId),
     queryFn: async () => {
       const supabase = createClient()
       const { data, error } = await (supabase as any)
@@ -81,7 +82,7 @@ export function AttachBillDialog({ open, onOpenChange, mode, paymentId, billId, 
 
   // attach-bill mode: fetch the payment's full amount so we can pass it to allocate_payment_to_bill
   const { data: paymentForAmount } = useQuery({
-    queryKey: ['payment-amount', paymentId],
+    queryKey: queryKeys.payments.paymentAmount(paymentId),
     queryFn: async () => {
       const supabase = createClient()
       const { data } = await (supabase as any)

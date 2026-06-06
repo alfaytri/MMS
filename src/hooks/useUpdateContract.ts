@@ -4,6 +4,7 @@ import { useMutation, useQueryClient } from '@tanstack/react-query'
 import { createClient } from '@/lib/supabase/client'
 import { isValidTransition, applyTransitionSideEffects } from '@/lib/contractStateMachine'
 import type { ContractStatus, ContractFormData } from '@/types/contracts'
+import { queryKeys } from '@/lib/queryKeys'
 
 interface UpdateContractInput {
   contractId: string
@@ -46,9 +47,9 @@ export function useUpdateContract() {
       if (error) throw error
     },
     onSuccess: (_, { contractId }) => {
-      queryClient.invalidateQueries({ queryKey: ['contractDetail', contractId] })
-      queryClient.invalidateQueries({ queryKey: ['contractQuotations'] })
-      queryClient.invalidateQueries({ queryKey: ['contracts'] })
+      queryClient.invalidateQueries({ queryKey: queryKeys.contracts.detail(contractId) })
+      queryClient.invalidateQueries({ queryKey: queryKeys.contracts.quotationsAll })
+      queryClient.invalidateQueries({ queryKey: queryKeys.contracts.all })
     },
   })
 }

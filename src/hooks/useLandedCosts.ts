@@ -1,5 +1,6 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { createClient } from '@/lib/supabase/client'
+import { queryKeys } from '@/lib/queryKeys'
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -58,7 +59,7 @@ export type CreateLandedCostPayload = {
 
 export function useLandedCosts({ search = '' }: { search?: string } = {}) {
   return useQuery({
-    queryKey: ['landed_costs', { search }],
+    queryKey: queryKeys.landedCosts.list(search),
     queryFn: async () => {
       const supabase = createClient()
       let q = (supabase as any)
@@ -78,7 +79,7 @@ export function useLandedCosts({ search = '' }: { search?: string } = {}) {
 
 export function useLandedCost(id: string) {
   return useQuery({
-    queryKey: ['landed_costs', id],
+    queryKey: queryKeys.landedCosts.detail(id),
     queryFn: async () => {
       const supabase = createClient()
       const { data, error } = await (supabase as any)
@@ -111,7 +112,7 @@ export function useCreateLandedCost() {
       if (error) throw error
       return data as LandedCost
     },
-    onSuccess: () => qc.invalidateQueries({ queryKey: ['landed_costs'] }),
+    onSuccess: () => qc.invalidateQueries({ queryKey: queryKeys.landedCosts.all }),
   })
 }
 
@@ -126,7 +127,7 @@ export function useVoidLandedCost() {
         .eq('id', id)
       if (error) throw error
     },
-    onSuccess: () => qc.invalidateQueries({ queryKey: ['landed_costs'] }),
+    onSuccess: () => qc.invalidateQueries({ queryKey: queryKeys.landedCosts.all }),
   })
 }
 
@@ -140,7 +141,7 @@ export function useApplyLandedCost() {
       if (error) throw error
       return data as LandedCostItemAllocation[]
     },
-    onSuccess: () => qc.invalidateQueries({ queryKey: ['landed_costs'] }),
+    onSuccess: () => qc.invalidateQueries({ queryKey: queryKeys.landedCosts.all }),
   })
 }
 
@@ -161,7 +162,7 @@ export function useRevertLandedCost() {
         .rpc('revert_landed_cost', { p_lc_id: id, p_performer_name: performerName })
       if (error) throw error
     },
-    onSuccess: () => qc.invalidateQueries({ queryKey: ['landed_costs'] }),
+    onSuccess: () => qc.invalidateQueries({ queryKey: queryKeys.landedCosts.all }),
   })
 }
 
@@ -176,7 +177,7 @@ export type LcValidationItem = {
 
 export function useValidateLcAllocation(lcId: string | null | undefined, enabled: boolean) {
   return useQuery({
-    queryKey: ['validate-lc-allocation', lcId],
+    queryKey: queryKeys.landedCosts.validateAllocation(lcId),
     enabled: !!lcId && enabled,
     queryFn: async () => {
       const supabase = createClient()
@@ -192,7 +193,7 @@ export function useValidateLcAllocation(lcId: string | null | undefined, enabled
 export function useBillSignedUrls(paths: (string | null | undefined)[]) {
   const validPaths = (paths.filter(Boolean) as string[]).slice().sort()
   return useQuery({
-    queryKey: ['bill-signed-urls', validPaths],
+    queryKey: queryKeys.landedCosts.billSignedUrls(validPaths),
     enabled: validPaths.length > 0,
     queryFn: async () => {
       const supabase = createClient()

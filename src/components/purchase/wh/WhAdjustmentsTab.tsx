@@ -14,6 +14,7 @@ import type { Profile } from '@/hooks/useProfiles'
 import { createClient } from '@/lib/supabase/client'
 import { format } from 'date-fns'
 import { toast } from 'sonner'
+import { queryKeys } from '@/lib/queryKeys'
 
 const TYPE_STYLES: Record<string, string> = {
   increase:  'bg-success/10 text-success',
@@ -47,7 +48,7 @@ export const WhAdjustmentsTab = React.memo(function WhAdjustmentsTab({ warehouse
         .eq('id', id)
       if (error) throw error
     },
-    onSuccess: () => qc.invalidateQueries({ queryKey: ['stock_adjustments'] }),
+    onSuccess: () => qc.invalidateQueries({ queryKey: queryKeys.warehouseOps.stockAdjustments }),
   })
 
   function canApprove(adj: any) {

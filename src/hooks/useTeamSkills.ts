@@ -1,5 +1,6 @@
 import { useQuery } from '@tanstack/react-query'
 import { createClient } from '@/lib/supabase/client'
+import { queryKeys } from '@/lib/queryKeys'
 
 // Stable empty map returned when the hook is disabled or data is loading
 const EMPTY_SKILLS_MAP = new Map<string, string[]>()
@@ -11,7 +12,7 @@ const EMPTY_SKILLS_MAP = new Map<string, string[]>()
  */
 export function useTeamSkills(divisionSlug: string | null) {
   return useQuery({
-    queryKey: ['team-skills', divisionSlug],
+    queryKey: queryKeys.teams.skills(divisionSlug),
     enabled: !!divisionSlug,
     staleTime: 5 * 60 * 1000,
     queryFn: async () => {

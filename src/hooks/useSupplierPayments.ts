@@ -1,6 +1,7 @@
 // src/hooks/useSupplierPayments.ts
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { createClient } from '@/lib/supabase/client'
+import { queryKeys } from '@/lib/queryKeys'
 
 export type SupplierPayment = {
   id: string
@@ -24,7 +25,7 @@ export type SupplierPayment = {
 
 export function useSupplierPayments(billId?: string) {
   return useQuery({
-    queryKey: ['supplier-payments', billId],
+    queryKey: queryKeys.supplierPayments.byBill(billId),
     queryFn: async () => {
       const supabase = createClient()
 
@@ -179,8 +180,8 @@ export function useCreateSupplierPayment() {
       return data
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['supplier-payments'] })
-      queryClient.invalidateQueries({ queryKey: ['supplier-bills'] })
+      queryClient.invalidateQueries({ queryKey: queryKeys.supplierPayments.all })
+      queryClient.invalidateQueries({ queryKey: queryKeys.supplierBills.all })
     },
   })
 }
@@ -195,7 +196,7 @@ export type UnlinkedPayment = {
 
 export function useUnlinkedOutgoingPayments(supplierId: string | null | undefined) {
   return useQuery({
-    queryKey: ['unlinked-outgoing-payments', supplierId ?? null],
+    queryKey: queryKeys.supplierPayments.unlinkedOutgoing(supplierId),
     queryFn: async () => {
       const supabase = createClient()
       let q = (supabase as any)

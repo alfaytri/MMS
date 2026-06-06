@@ -11,6 +11,7 @@ import { Label } from '@/components/ui/label'
 import { Badge } from '@/components/ui/badge'
 import { Loader2, Plus } from 'lucide-react'
 import { cn } from '@/lib/utils'
+import { queryKeys } from '@/lib/queryKeys'
 
 type PaymentMethod = {
   id: string
@@ -33,7 +34,7 @@ export function PaymentMethodsAdmin() {
   const newSlug = slugify(newName)
 
   const { data: methods = [], isLoading, isError } = useQuery<PaymentMethod[]>({
-    queryKey: ['payment_methods'],
+    queryKey: queryKeys.payments.methods,
     queryFn: async () => {
       const { data, error } = await supabase
         .from('payment_methods')
@@ -53,25 +54,25 @@ export function PaymentMethodsAdmin() {
       if (error) throw error
     },
     onMutate: async ({ id, is_active }) => {
-      await qc.cancelQueries({ queryKey: ['payment_methods'] })
-      const prev = qc.getQueryData<PaymentMethod[]>(['payment_methods'])
-      qc.setQueryData<PaymentMethod[]>(['payment_methods'], (old = []) =>
+      await qc.cancelQueries({ queryKey: queryKeys.payments.methods })
+      const prev = qc.getQueryData<PaymentMethod[]>(queryKeys.payments.methods)
+      qc.setQueryData<PaymentMethod[]>(queryKeys.payments.methods, (old = []) =>
         old.map((m) => (m.id === id ? { ...m, is_active } : m))
       )
       return { prev }
     },
     onError: (_err, _vars, ctx) => {
-      if (ctx?.prev) qc.setQueryData(['payment_methods'], ctx.prev)
+      if (ctx?.prev) qc.setQueryData(queryKeys.payments.methods, ctx.prev)
       toast.error('Failed to update payment method')
     },
     onSuccess: () => {
-      qc.invalidateQueries({ queryKey: ['payment_methods'] })
+      qc.invalidateQueries({ queryKey: queryKeys.payments.methods })
     },
   })
 
   const addMutation = useMutation({
     mutationFn: async ({ name, slug }: { name: string; slug: string }) => {
-      const live = qc.getQueryData<PaymentMethod[]>(['payment_methods']) ?? []
+      const live = qc.getQueryData<PaymentMethod[]>(queryKeys.payments.methods) ?? []
       const maxOrder = live.reduce((m, r) => Math.max(m, r.sort_order), 0)
       const { error } = await supabase
         .from('payment_methods')
@@ -79,7 +80,7 @@ export function PaymentMethodsAdmin() {
       if (error) throw error
     },
     onSuccess: () => {
-      qc.invalidateQueries({ queryKey: ['payment_methods'] })
+      qc.invalidateQueries({ queryKey: queryKeys.payments.methods })
       setNewName('')
       toast.success('Payment method added')
     },
@@ -91,7 +92,7 @@ export function PaymentMethodsAdmin() {
   function handleAdd() {
     const trimmed = newName.trim()
     if (!trimmed) return
-    const currentMethods = qc.getQueryData<PaymentMethod[]>(['payment_methods']) ?? []
+    const currentMethods = qc.getQueryData<PaymentMethod[]>(queryKeys.payments.methods) ?? []
     if (currentMethods.some((m) => m.slug === newSlug)) {
       toast.error(`A method with slug "${newSlug}" already exists`)
       return

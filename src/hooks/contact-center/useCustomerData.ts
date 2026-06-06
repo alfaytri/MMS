@@ -6,6 +6,7 @@ import { createClient } from '@/lib/supabase/client'
 import { normalisePhone, tryNormalisePhone } from '@/lib/contact-center/normalise-phone'
 import type { CrmMode, UnknownCallerStep, CustomerBlock } from '@/types/contact-center'
 import type { InstalledProduct } from '@/types/orders'
+import { queryKeys } from '@/lib/queryKeys'
 export type { InstalledProduct }
 
 export interface ServiceCustomer {
@@ -51,7 +52,7 @@ export function useCustomerData(customerId: string | null) {
   const [unknownStep, setUnknownStep] = useState<UnknownCallerStep>('prompt')
 
   const { data: customer, isLoading: customerLoading } = useQuery<ServiceCustomer | null>({
-    queryKey: ['service-customer', customerId],
+    queryKey: queryKeys.contactCenter.serviceCustomer(customerId),
     queryFn: async () => {
       if (!customerId) return null
       const { data, error } = await (supabase as any)
@@ -66,7 +67,7 @@ export function useCustomerData(customerId: string | null) {
   })
 
   const { data: phones = [] } = useQuery<CustomerPhone[]>({
-    queryKey: ['service-customer-phones', customerId],
+    queryKey: queryKeys.contactCenter.serviceCustomerPhones(customerId),
     queryFn: async () => {
       if (!customerId) return []
       const { data, error } = await (supabase as any)
@@ -81,7 +82,7 @@ export function useCustomerData(customerId: string | null) {
   })
 
   const { data: addresses = [] } = useQuery<ServiceCustomerAddress[]>({
-    queryKey: ['service-customer-addresses', customerId],
+    queryKey: queryKeys.contactCenter.serviceCustomerAddresses(customerId),
     queryFn: async () => {
       if (!customerId) return []
       const { data, error } = await (supabase as any)
@@ -96,7 +97,7 @@ export function useCustomerData(customerId: string | null) {
   })
 
   const { data: products = [] } = useQuery<InstalledProduct[]>({
-    queryKey: ['service-customer-products', customerId],
+    queryKey: queryKeys.contactCenter.serviceCustomerProducts(customerId),
     queryFn: async () => {
       if (!customerId) return []
       const { data, error } = await (supabase as any)
@@ -111,7 +112,7 @@ export function useCustomerData(customerId: string | null) {
   })
 
   const { data: blocks = [] } = useQuery<CustomerBlock[]>({
-    queryKey: ['customer-blocks', customerId],
+    queryKey: queryKeys.contactCenter.customerBlocks(customerId),
     queryFn: async () => {
       if (!customerId) return []
       const { data, error } = await (supabase as any)
@@ -133,7 +134,7 @@ export function useCustomerData(customerId: string | null) {
         .eq('id', customerId)
       if (error) throw error
     },
-    onSuccess: () => qc.invalidateQueries({ queryKey: ['service-customer', customerId] }),
+    onSuccess: () => qc.invalidateQueries({ queryKey: queryKeys.contactCenter.serviceCustomer(customerId) }),
   })
 
   const addPhone = useMutation({
@@ -144,7 +145,7 @@ export function useCustomerData(customerId: string | null) {
         .insert({ customer_id: customerId, phone: canonical, label: label ?? null, is_primary: isPrimary ?? false })
       if (error) throw error
     },
-    onSuccess: () => qc.invalidateQueries({ queryKey: ['service-customer-phones', customerId] }),
+    onSuccess: () => qc.invalidateQueries({ queryKey: queryKeys.contactCenter.serviceCustomerPhones(customerId) }),
   })
 
   const removePhone = useMutation({
@@ -155,7 +156,7 @@ export function useCustomerData(customerId: string | null) {
         .eq('id', phoneId)
       if (error) throw error
     },
-    onSuccess: () => qc.invalidateQueries({ queryKey: ['service-customer-phones', customerId] }),
+    onSuccess: () => qc.invalidateQueries({ queryKey: queryKeys.contactCenter.serviceCustomerPhones(customerId) }),
   })
 
   const blockCustomer = useMutation({
@@ -173,8 +174,8 @@ export function useCustomerData(customerId: string | null) {
       ])
     },
     onSuccess: () => {
-      qc.invalidateQueries({ queryKey: ['service-customer', customerId] })
-      qc.invalidateQueries({ queryKey: ['customer-blocks', customerId] })
+      qc.invalidateQueries({ queryKey: queryKeys.contactCenter.serviceCustomer(customerId) })
+      qc.invalidateQueries({ queryKey: queryKeys.contactCenter.customerBlocks(customerId) })
       setCrmMode('view')
     },
   })
@@ -187,7 +188,7 @@ export function useCustomerData(customerId: string | null) {
         .eq('id', customerId)
       if (error) throw error
     },
-    onSuccess: () => qc.invalidateQueries({ queryKey: ['service-customer', customerId] }),
+    onSuccess: () => qc.invalidateQueries({ queryKey: queryKeys.contactCenter.serviceCustomer(customerId) }),
   })
 
   const searchByPhone = useCallback(async (rawPhone: string) => {

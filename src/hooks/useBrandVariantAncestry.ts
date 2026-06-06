@@ -1,6 +1,7 @@
 // src/hooks/useBrandVariantAncestry.ts
 import { useQuery } from '@tanstack/react-query'
 import { createClient } from '@/lib/supabase/client'
+import { queryKeys } from '@/lib/queryKeys'
 
 export type BrandVariantAncestry = {
   id: string
@@ -24,7 +25,7 @@ export type BrandVariantAncestry = {
 
 export function useBrandVariantAncestry(variantId: string | null) {
   return useQuery({
-    queryKey: ['brand-variant-ancestry', variantId],
+    queryKey: queryKeys.inventory.brandVariantAncestry(variantId),
     enabled: !!variantId,
     staleTime: 10 * 60 * 1000,
     queryFn: async (): Promise<BrandVariantAncestry> => {

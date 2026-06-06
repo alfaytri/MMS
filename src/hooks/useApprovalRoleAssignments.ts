@@ -2,6 +2,7 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { createClient } from '@/lib/supabase/client'
 import type { ApprovalRole, ApprovalRoleAssignmentRow } from '@/lib/approvalChainResolution'
+import { queryKeys } from '@/lib/queryKeys'
 
 export type ApprovalRoleAssignmentWithProfile = ApprovalRoleAssignmentRow & {
   profiles: { id: string; full_name: string; email: string | null } | null
@@ -9,7 +10,7 @@ export type ApprovalRoleAssignmentWithProfile = ApprovalRoleAssignmentRow & {
 
 export function useApprovalRoleAssignments() {
   return useQuery({
-    queryKey: ['approval-role-assignments'],
+    queryKey: queryKeys.approvals.roleAssignments,
     queryFn: async () => {
       const supabase = createClient()
       const { data, error } = await (supabase as any)
@@ -26,7 +27,7 @@ export function useApprovalRoleAssignments() {
 
 export function useApprovalRoleAssignmentsForDivision(divisionId: string | null | undefined) {
   return useQuery({
-    queryKey: ['approval-role-assignments', divisionId],
+    queryKey: queryKeys.approvals.roleAssignmentsByDivision(divisionId),
     queryFn: async () => {
       const supabase = createClient()
       const query = (supabase as any)
@@ -46,7 +47,7 @@ export function useApprovalRoleAssignmentsForDivision(divisionId: string | null 
 
 export function useCurrentUserApprovalRoles() {
   return useQuery({
-    queryKey: ['my-approval-roles'],
+    queryKey: queryKeys.approvals.myRoles,
     queryFn: async () => {
       const supabase = createClient()
       const { data: { user } } = await supabase.auth.getUser()
@@ -105,8 +106,8 @@ export function useAddApprovalRoleAssignment() {
       return data
     },
     onSuccess: () => {
-      qc.invalidateQueries({ queryKey: ['approval-role-assignments'] })
-      qc.invalidateQueries({ queryKey: ['my-approval-roles'] })
+      qc.invalidateQueries({ queryKey: queryKeys.approvals.roleAssignments })
+      qc.invalidateQueries({ queryKey: queryKeys.approvals.myRoles })
     },
   })
 }
@@ -123,8 +124,8 @@ export function useSoftDeleteApprovalRoleAssignment() {
       if (error) throw error
     },
     onSuccess: () => {
-      qc.invalidateQueries({ queryKey: ['approval-role-assignments'] })
-      qc.invalidateQueries({ queryKey: ['my-approval-roles'] })
+      qc.invalidateQueries({ queryKey: queryKeys.approvals.roleAssignments })
+      qc.invalidateQueries({ queryKey: queryKeys.approvals.myRoles })
     },
   })
 }

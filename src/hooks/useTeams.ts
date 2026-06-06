@@ -2,6 +2,7 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { createClient } from '@/lib/supabase/client'
 import type { DBTable, DBInsert, DBUpdate } from '@/types/database.types'
+import { queryKeys } from '@/lib/queryKeys'
 
 // ---------------------------------------------------------------------------
 // Base DB types
@@ -96,7 +97,7 @@ export interface TeamsFilters {
  */
 export function useTeams(filters?: TeamsFilters) {
   return useQuery({
-    queryKey: ['teams', filters],
+    queryKey: queryKeys.teams.list(filters),
     queryFn: async () => {
       const supabase = createClient()
 
@@ -180,7 +181,7 @@ export function useTeams(filters?: TeamsFilters) {
 /** Fetches all active employees, optionally filtered by status or search term. */
 export function useEmployees(filters?: { search?: string; status?: EmployeeStatus }) {
   return useQuery({
-    queryKey: ['employees', filters],
+    queryKey: queryKeys.teams.employeesList(filters),
     queryFn: async () => {
       const supabase = createClient()
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -204,7 +205,7 @@ export function useEmployees(filters?: { search?: string; status?: EmployeeStatu
 /** Fetches all active vehicles. */
 export function useVehicles() {
   return useQuery({
-    queryKey: ['vehicles'],
+    queryKey: queryKeys.teams.vehicles,
     queryFn: async () => {
       const supabase = createClient()
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -219,7 +220,7 @@ export function useVehicles() {
 /** Fetches all schedules. */
 export function useSchedules() {
   return useQuery({
-    queryKey: ['schedules'],
+    queryKey: queryKeys.teams.schedules,
     queryFn: async () => {
       const supabase = createClient()
       const { data, error } = await supabase.from('schedules').select('*').is('deleted_at', null).order('name')
@@ -233,7 +234,7 @@ export function useSchedules() {
 /** Fetches schedule assignment history for a single team, newest first. */
 export function useTeamScheduleAssignments(teamId: string | null) {
   return useQuery({
-    queryKey: ['team-schedule-assignments', teamId],
+    queryKey: queryKeys.teams.scheduleAssignmentsByTeam(teamId),
     queryFn: async () => {
       const supabase = createClient()
       const { data, error } = await supabase
@@ -251,7 +252,7 @@ export function useTeamScheduleAssignments(teamId: string | null) {
 /** Fetches tool assignments for a single team or employee, joined with unit + item names. */
 export function useToolAssignments(entityType: 'team' | 'employee', entityId: string | null) {
   return useQuery({
-    queryKey: ['tool-assignments', entityType, entityId],
+    queryKey: queryKeys.teams.toolAssignments(entityType, entityId),
     queryFn: async () => {
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       const db = createClient() as any
@@ -272,7 +273,7 @@ export function useToolAssignments(entityType: 'team' | 'employee', entityId: st
 /** Fetches available tool units (not yet assigned) for a given item, joined with item name. */
 export function useAvailableToolUnits(itemId: string | null) {
   return useQuery({
-    queryKey: ['available-tool-units', itemId],
+    queryKey: queryKeys.teams.availableToolUnitsByItem(itemId),
     queryFn: async () => {
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       const db = createClient() as any
@@ -305,10 +306,10 @@ export function useAssignToolToTeam() {
       await logActivity({ action: 'tool-assigned', entityType: 'team', entityId: teamId, afterData: { tool_unit_id: toolUnitId } })
     },
     onSuccess: (_d, { teamId }) => {
-      qc.invalidateQueries({ queryKey: ['tool-assignments', 'team', teamId] })
-      qc.invalidateQueries({ queryKey: ['tool-count-map', 'team'] })
-      qc.invalidateQueries({ queryKey: ['available-tool-units'] })
-      qc.invalidateQueries({ queryKey: ['team-activity-log'] })
+      qc.invalidateQueries({ queryKey: queryKeys.teams.toolAssignments('team', teamId) })
+      qc.invalidateQueries({ queryKey: queryKeys.teams.toolCountMap('team') })
+      qc.invalidateQueries({ queryKey: queryKeys.teams.availableToolUnits })
+      qc.invalidateQueries({ queryKey: queryKeys.teams.activityLog })
     },
   })
 }
@@ -324,10 +325,10 @@ export function useUnassignToolFromTeam() {
       await logActivity({ action: 'tool-removed', entityType: 'team', entityId: teamId, beforeData: { assignment_id: assignmentId } })
     },
     onSuccess: (_d, { teamId }) => {
-      qc.invalidateQueries({ queryKey: ['tool-assignments', 'team', teamId] })
-      qc.invalidateQueries({ queryKey: ['tool-count-map', 'team'] })
-      qc.invalidateQueries({ queryKey: ['available-tool-units'] })
-      qc.invalidateQueries({ queryKey: ['team-activity-log'] })
+      qc.invalidateQueries({ queryKey: queryKeys.teams.toolAssignments('team', teamId) })
+      qc.invalidateQueries({ queryKey: queryKeys.teams.toolCountMap('team') })
+      qc.invalidateQueries({ queryKey: queryKeys.teams.availableToolUnits })
+      qc.invalidateQueries({ queryKey: queryKeys.teams.activityLog })
     },
   })
 }
@@ -338,7 +339,7 @@ export function useUnassignToolFromTeam() {
  */
 export function useToolCountMap(entityType: 'team' | 'employee') {
   return useQuery({
-    queryKey: ['tool-count-map', entityType],
+    queryKey: queryKeys.teams.toolCountMap(entityType),
     queryFn: async () => {
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       const db = createClient() as any
@@ -365,7 +366,7 @@ export function useToolCountMap(entityType: 'team' | 'employee') {
  */
 export function useTeamActivityLog(entityId?: string | null) {
   return useQuery({
-    queryKey: ['team-activity-log', entityId ?? 'all'],
+    queryKey: queryKeys.teams.activityLogByEntity(entityId),
     queryFn: async () => {
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       const db = createClient() as any
@@ -389,7 +390,7 @@ export function useTeamActivityLog(entityId?: string | null) {
  */
 export function useTeamActivityLogCount() {
   return useQuery({
-    queryKey: ['team-activity-log-count'],
+    queryKey: queryKeys.teams.activityLogCount,
     queryFn: async () => {
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       const db = createClient() as any
@@ -474,9 +475,9 @@ export function useCreateTeam() {
       return data
     },
     onSuccess: () => {
-      qc.invalidateQueries({ queryKey: ['teams'] })
-      qc.invalidateQueries({ queryKey: ['team-activity-log'] })
-      qc.invalidateQueries({ queryKey: ['team-activity-log-count'] })
+      qc.invalidateQueries({ queryKey: queryKeys.teams.all })
+      qc.invalidateQueries({ queryKey: queryKeys.teams.activityLog })
+      qc.invalidateQueries({ queryKey: queryKeys.teams.activityLogCount })
     },
   })
 }
@@ -492,9 +493,9 @@ export function useUpdateTeam() {
       return data
     },
     onSuccess: () => {
-      qc.invalidateQueries({ queryKey: ['teams'] })
-      qc.invalidateQueries({ queryKey: ['team-activity-log'] })
-      qc.invalidateQueries({ queryKey: ['team-activity-log-count'] })
+      qc.invalidateQueries({ queryKey: queryKeys.teams.all })
+      qc.invalidateQueries({ queryKey: queryKeys.teams.activityLog })
+      qc.invalidateQueries({ queryKey: queryKeys.teams.activityLogCount })
     },
   })
 }
@@ -510,9 +511,9 @@ export function useArchiveTeam() {
       await logActivity({ action: 'team-archived', entityType: 'team', entityId: id })
     },
     onSuccess: () => {
-      qc.invalidateQueries({ queryKey: ['teams'] })
-      qc.invalidateQueries({ queryKey: ['team-activity-log'] })
-      qc.invalidateQueries({ queryKey: ['team-activity-log-count'] })
+      qc.invalidateQueries({ queryKey: queryKeys.teams.all })
+      qc.invalidateQueries({ queryKey: queryKeys.teams.activityLog })
+      qc.invalidateQueries({ queryKey: queryKeys.teams.activityLogCount })
     },
   })
 }
@@ -531,10 +532,10 @@ export function useCreateEmployee() {
       return data  // activity log written by caller after all steps succeed
     },
     onSuccess: () => {
-      qc.invalidateQueries({ queryKey: ['employees'] })
-      qc.invalidateQueries({ queryKey: ['teams'] })
-      qc.invalidateQueries({ queryKey: ['team-activity-log'] })
-      qc.invalidateQueries({ queryKey: ['team-activity-log-count'] })
+      qc.invalidateQueries({ queryKey: queryKeys.teams.employees })
+      qc.invalidateQueries({ queryKey: queryKeys.teams.all })
+      qc.invalidateQueries({ queryKey: queryKeys.teams.activityLog })
+      qc.invalidateQueries({ queryKey: queryKeys.teams.activityLogCount })
     },
   })
 }
@@ -550,10 +551,10 @@ export function useUpdateEmployee() {
       return data
     },
     onSuccess: () => {
-      qc.invalidateQueries({ queryKey: ['employees'] })
-      qc.invalidateQueries({ queryKey: ['teams'] })
-      qc.invalidateQueries({ queryKey: ['team-activity-log'] })
-      qc.invalidateQueries({ queryKey: ['team-activity-log-count'] })
+      qc.invalidateQueries({ queryKey: queryKeys.teams.employees })
+      qc.invalidateQueries({ queryKey: queryKeys.teams.all })
+      qc.invalidateQueries({ queryKey: queryKeys.teams.activityLog })
+      qc.invalidateQueries({ queryKey: queryKeys.teams.activityLogCount })
     },
   })
 }
@@ -572,10 +573,10 @@ export function useDisableEmployee() {
       await logActivity({ action: 'employee-disabled', entityType: 'employee', entityId: id })
     },
     onSuccess: () => {
-      qc.invalidateQueries({ queryKey: ['employees'] })
-      qc.invalidateQueries({ queryKey: ['teams'] })
-      qc.invalidateQueries({ queryKey: ['team-activity-log'] })
-      qc.invalidateQueries({ queryKey: ['team-activity-log-count'] })
+      qc.invalidateQueries({ queryKey: queryKeys.teams.employees })
+      qc.invalidateQueries({ queryKey: queryKeys.teams.all })
+      qc.invalidateQueries({ queryKey: queryKeys.teams.activityLog })
+      qc.invalidateQueries({ queryKey: queryKeys.teams.activityLogCount })
     },
   })
 }
@@ -594,10 +595,10 @@ export function useEnableEmployee() {
       await logActivity({ action: 'employee-enabled', entityType: 'employee', entityId: id })
     },
     onSuccess: () => {
-      qc.invalidateQueries({ queryKey: ['employees'] })
-      qc.invalidateQueries({ queryKey: ['teams'] })
-      qc.invalidateQueries({ queryKey: ['team-activity-log'] })
-      qc.invalidateQueries({ queryKey: ['team-activity-log-count'] })
+      qc.invalidateQueries({ queryKey: queryKeys.teams.employees })
+      qc.invalidateQueries({ queryKey: queryKeys.teams.all })
+      qc.invalidateQueries({ queryKey: queryKeys.teams.activityLog })
+      qc.invalidateQueries({ queryKey: queryKeys.teams.activityLogCount })
     },
   })
 }
@@ -616,10 +617,10 @@ export function useArchiveEmployee() {
       await logActivity({ action: 'employee-removed', entityType: 'employee', entityId: id })
     },
     onSuccess: () => {
-      qc.invalidateQueries({ queryKey: ['employees'] })
-      qc.invalidateQueries({ queryKey: ['teams'] })
-      qc.invalidateQueries({ queryKey: ['team-activity-log'] })
-      qc.invalidateQueries({ queryKey: ['team-activity-log-count'] })
+      qc.invalidateQueries({ queryKey: queryKeys.teams.employees })
+      qc.invalidateQueries({ queryKey: queryKeys.teams.all })
+      qc.invalidateQueries({ queryKey: queryKeys.teams.activityLog })
+      qc.invalidateQueries({ queryKey: queryKeys.teams.activityLogCount })
     },
   })
 }
@@ -639,9 +640,9 @@ export function useCreateVehicle() {
       return data
     },
     onSuccess: () => {
-      qc.invalidateQueries({ queryKey: ['vehicles'] })
-      qc.invalidateQueries({ queryKey: ['team-activity-log'] })
-      qc.invalidateQueries({ queryKey: ['team-activity-log-count'] })
+      qc.invalidateQueries({ queryKey: queryKeys.teams.vehicles })
+      qc.invalidateQueries({ queryKey: queryKeys.teams.activityLog })
+      qc.invalidateQueries({ queryKey: queryKeys.teams.activityLogCount })
     },
   })
 }
@@ -657,10 +658,10 @@ export function useUpdateVehicle() {
       return data
     },
     onSuccess: () => {
-      qc.invalidateQueries({ queryKey: ['vehicles'] })
-      qc.invalidateQueries({ queryKey: ['teams'] })
-      qc.invalidateQueries({ queryKey: ['team-activity-log'] })
-      qc.invalidateQueries({ queryKey: ['team-activity-log-count'] })
+      qc.invalidateQueries({ queryKey: queryKeys.teams.vehicles })
+      qc.invalidateQueries({ queryKey: queryKeys.teams.all })
+      qc.invalidateQueries({ queryKey: queryKeys.teams.activityLog })
+      qc.invalidateQueries({ queryKey: queryKeys.teams.activityLogCount })
     },
   })
 }
@@ -678,10 +679,10 @@ export function useArchiveVehicle() {
       await logActivity({ action: 'vehicle-archived', entityType: 'vehicle', entityId: id })
     },
     onSuccess: () => {
-      qc.invalidateQueries({ queryKey: ['vehicles'] })
-      qc.invalidateQueries({ queryKey: ['teams'] })
-      qc.invalidateQueries({ queryKey: ['team-activity-log'] })
-      qc.invalidateQueries({ queryKey: ['team-activity-log-count'] })
+      qc.invalidateQueries({ queryKey: queryKeys.teams.vehicles })
+      qc.invalidateQueries({ queryKey: queryKeys.teams.all })
+      qc.invalidateQueries({ queryKey: queryKeys.teams.activityLog })
+      qc.invalidateQueries({ queryKey: queryKeys.teams.activityLogCount })
     },
   })
 }
@@ -701,10 +702,10 @@ export function useAssignEmployeeToTeam() {
       await logActivity({ action: 'employee-assigned', entityType: 'employee', entityId: employeeId, afterData: { team_id: teamId } })
     },
     onSuccess: () => {
-      qc.invalidateQueries({ queryKey: ['employees'] })
-      qc.invalidateQueries({ queryKey: ['teams'] })
-      qc.invalidateQueries({ queryKey: ['team-activity-log'] })
-      qc.invalidateQueries({ queryKey: ['team-activity-log-count'] })
+      qc.invalidateQueries({ queryKey: queryKeys.teams.employees })
+      qc.invalidateQueries({ queryKey: queryKeys.teams.all })
+      qc.invalidateQueries({ queryKey: queryKeys.teams.activityLog })
+      qc.invalidateQueries({ queryKey: queryKeys.teams.activityLogCount })
     },
   })
 }
@@ -720,10 +721,10 @@ export function useUnassignEmployee() {
       await logActivity({ action: 'employee-removed', entityType: 'employee', entityId: employeeId, beforeData: { team_id: fromTeamId } })
     },
     onSuccess: () => {
-      qc.invalidateQueries({ queryKey: ['employees'] })
-      qc.invalidateQueries({ queryKey: ['teams'] })
-      qc.invalidateQueries({ queryKey: ['team-activity-log'] })
-      qc.invalidateQueries({ queryKey: ['team-activity-log-count'] })
+      qc.invalidateQueries({ queryKey: queryKeys.teams.employees })
+      qc.invalidateQueries({ queryKey: queryKeys.teams.all })
+      qc.invalidateQueries({ queryKey: queryKeys.teams.activityLog })
+      qc.invalidateQueries({ queryKey: queryKeys.teams.activityLogCount })
     },
   })
 }
@@ -742,10 +743,10 @@ export function useSetTeamLeader() {
       if (error) throw error
     },
     onSuccess: () => {
-      qc.invalidateQueries({ queryKey: ['employees'] })
-      qc.invalidateQueries({ queryKey: ['teams'] })
-      qc.invalidateQueries({ queryKey: ['team-activity-log'] })
-      qc.invalidateQueries({ queryKey: ['team-activity-log-count'] })
+      qc.invalidateQueries({ queryKey: queryKeys.teams.employees })
+      qc.invalidateQueries({ queryKey: queryKeys.teams.all })
+      qc.invalidateQueries({ queryKey: queryKeys.teams.activityLog })
+      qc.invalidateQueries({ queryKey: queryKeys.teams.activityLogCount })
     },
   })
 }
@@ -764,9 +765,9 @@ export function useRemoveTeamLeader() {
       await logActivity({ action: 'leader-removed', entityType: 'team', entityId: teamId, beforeData: { leader_id: (team as any).leader_id } })
     },
     onSuccess: () => {
-      qc.invalidateQueries({ queryKey: ['teams'] })
-      qc.invalidateQueries({ queryKey: ['team-activity-log'] })
-      qc.invalidateQueries({ queryKey: ['team-activity-log-count'] })
+      qc.invalidateQueries({ queryKey: queryKeys.teams.all })
+      qc.invalidateQueries({ queryKey: queryKeys.teams.activityLog })
+      qc.invalidateQueries({ queryKey: queryKeys.teams.activityLogCount })
     },
   })
 }
@@ -782,11 +783,11 @@ export function useAssignVehicleToTeam() {
       await logActivity({ action: 'vehicle-assigned', entityType: 'vehicle', entityId: vehicleId, afterData: { team_id: teamId } })
     },
     onMutate: async ({ vehicleId, teamId }) => {
-      await qc.cancelQueries({ queryKey: ['teams'] })
-      await qc.cancelQueries({ queryKey: ['vehicles'] })
+      await qc.cancelQueries({ queryKey: queryKeys.teams.all })
+      await qc.cancelQueries({ queryKey: queryKeys.teams.vehicles })
 
-      const prevTeamsEntries = qc.getQueriesData<TeamFull[]>({ queryKey: ['teams'] })
-      const prevVehicles = qc.getQueryData<Vehicle[]>(['vehicles'])
+      const prevTeamsEntries = qc.getQueriesData<TeamFull[]>({ queryKey: queryKeys.teams.all })
+      const prevVehicles = qc.getQueryData<Vehicle[]>(queryKeys.teams.vehicles)
 
       // Resolve the vehicle object from either cache
       let vehicle = prevVehicles?.find(v => v.id === vehicleId)
@@ -800,12 +801,12 @@ export function useAssignVehicleToTeam() {
       }
 
       // Move vehicle in vehicles cache
-      qc.setQueriesData<Vehicle[]>({ queryKey: ['vehicles'] }, old =>
+      qc.setQueriesData<Vehicle[]>({ queryKey: queryKeys.teams.vehicles }, old =>
         old?.map(v => v.id === vehicleId ? { ...v, team_id: teamId } : v)
       )
 
       // Move vehicle across team cards cache
-      qc.setQueriesData<TeamFull[]>({ queryKey: ['teams'] }, old =>
+      qc.setQueriesData<TeamFull[]>({ queryKey: queryKeys.teams.all }, old =>
         old?.map(team => {
           const without = team.vehicles.filter(v => v.id !== vehicleId)
           if (team.id === teamId && vehicle) {
@@ -821,13 +822,13 @@ export function useAssignVehicleToTeam() {
       if (ctx?.prevTeamsEntries) {
         for (const [key, data] of ctx.prevTeamsEntries) qc.setQueryData(key, data)
       }
-      if (ctx?.prevVehicles) qc.setQueryData(['vehicles'], ctx.prevVehicles)
+      if (ctx?.prevVehicles) qc.setQueryData(queryKeys.teams.vehicles, ctx.prevVehicles)
     },
     onSettled: () => {
-      qc.invalidateQueries({ queryKey: ['vehicles'] })
-      qc.invalidateQueries({ queryKey: ['teams'] })
-      qc.invalidateQueries({ queryKey: ['team-activity-log'] })
-      qc.invalidateQueries({ queryKey: ['team-activity-log-count'] })
+      qc.invalidateQueries({ queryKey: queryKeys.teams.vehicles })
+      qc.invalidateQueries({ queryKey: queryKeys.teams.all })
+      qc.invalidateQueries({ queryKey: queryKeys.teams.activityLog })
+      qc.invalidateQueries({ queryKey: queryKeys.teams.activityLogCount })
     },
   })
 }
@@ -843,19 +844,19 @@ export function useUnassignVehicle() {
       await logActivity({ action: 'vehicle-removed', entityType: 'vehicle', entityId: vehicleId, beforeData: { team_id: fromTeamId } })
     },
     onMutate: async ({ vehicleId }) => {
-      await qc.cancelQueries({ queryKey: ['teams'] })
-      await qc.cancelQueries({ queryKey: ['vehicles'] })
+      await qc.cancelQueries({ queryKey: queryKeys.teams.all })
+      await qc.cancelQueries({ queryKey: queryKeys.teams.vehicles })
 
-      const prevTeamsEntries = qc.getQueriesData<TeamFull[]>({ queryKey: ['teams'] })
-      const prevVehicles = qc.getQueryData<Vehicle[]>(['vehicles'])
+      const prevTeamsEntries = qc.getQueriesData<TeamFull[]>({ queryKey: queryKeys.teams.all })
+      const prevVehicles = qc.getQueryData<Vehicle[]>(queryKeys.teams.vehicles)
 
       // Remove from vehicles cache (set team_id null)
-      qc.setQueriesData<Vehicle[]>({ queryKey: ['vehicles'] }, old =>
+      qc.setQueriesData<Vehicle[]>({ queryKey: queryKeys.teams.vehicles }, old =>
         old?.map(v => v.id === vehicleId ? { ...v, team_id: null } : v)
       )
 
       // Remove from team cards cache
-      qc.setQueriesData<TeamFull[]>({ queryKey: ['teams'] }, old =>
+      qc.setQueriesData<TeamFull[]>({ queryKey: queryKeys.teams.all }, old =>
         old?.map(team => ({
           ...team,
           vehicles: team.vehicles.filter(v => v.id !== vehicleId),
@@ -868,13 +869,13 @@ export function useUnassignVehicle() {
       if (ctx?.prevTeamsEntries) {
         for (const [key, data] of ctx.prevTeamsEntries) qc.setQueryData(key, data)
       }
-      if (ctx?.prevVehicles) qc.setQueryData(['vehicles'], ctx.prevVehicles)
+      if (ctx?.prevVehicles) qc.setQueryData(queryKeys.teams.vehicles, ctx.prevVehicles)
     },
     onSettled: () => {
-      qc.invalidateQueries({ queryKey: ['vehicles'] })
-      qc.invalidateQueries({ queryKey: ['teams'] })
-      qc.invalidateQueries({ queryKey: ['team-activity-log'] })
-      qc.invalidateQueries({ queryKey: ['team-activity-log-count'] })
+      qc.invalidateQueries({ queryKey: queryKeys.teams.vehicles })
+      qc.invalidateQueries({ queryKey: queryKeys.teams.all })
+      qc.invalidateQueries({ queryKey: queryKeys.teams.activityLog })
+      qc.invalidateQueries({ queryKey: queryKeys.teams.activityLogCount })
     },
   })
 }
@@ -892,10 +893,10 @@ export function useSetEmployeeStatus() {
       await logActivity({ action: 'employee-status-changed', entityType: 'employee', entityId: employeeId, afterData: { status } })
     },
     onSuccess: () => {
-      qc.invalidateQueries({ queryKey: ['employees'] })
-      qc.invalidateQueries({ queryKey: ['teams'] })
-      qc.invalidateQueries({ queryKey: ['team-activity-log'] })
-      qc.invalidateQueries({ queryKey: ['team-activity-log-count'] })
+      qc.invalidateQueries({ queryKey: queryKeys.teams.employees })
+      qc.invalidateQueries({ queryKey: queryKeys.teams.all })
+      qc.invalidateQueries({ queryKey: queryKeys.teams.activityLog })
+      qc.invalidateQueries({ queryKey: queryKeys.teams.activityLogCount })
     },
   })
 }
@@ -915,9 +916,9 @@ export function useCreateSchedule() {
       return data
     },
     onSuccess: () => {
-      qc.invalidateQueries({ queryKey: ['schedules'] })
-      qc.invalidateQueries({ queryKey: ['team-activity-log'] })
-      qc.invalidateQueries({ queryKey: ['team-activity-log-count'] })
+      qc.invalidateQueries({ queryKey: queryKeys.teams.schedules })
+      qc.invalidateQueries({ queryKey: queryKeys.teams.activityLog })
+      qc.invalidateQueries({ queryKey: queryKeys.teams.activityLogCount })
     },
   })
 }
@@ -932,7 +933,7 @@ export function useUpdateSchedule() {
       await logActivity({ action: 'schedule-edited', entityType: 'schedule', entityId: id, afterData: data as Record<string, unknown> })
       return data
     },
-    onSuccess: () => { qc.invalidateQueries({ queryKey: ['schedules'] }) },
+    onSuccess: () => { qc.invalidateQueries({ queryKey: queryKeys.teams.schedules }) },
   })
 }
 
@@ -969,11 +970,11 @@ export function useDeleteSchedule() {
       await logActivity({ action: 'schedule-deleted', entityType: 'schedule', entityId: id })
     },
     onSuccess: () => {
-      qc.invalidateQueries({ queryKey: ['schedules'] })
-      qc.invalidateQueries({ queryKey: ['teams'] })
-      qc.invalidateQueries({ queryKey: ['team-schedule-assignments'] })
-      qc.invalidateQueries({ queryKey: ['team-activity-log'] })
-      qc.invalidateQueries({ queryKey: ['team-activity-log-count'] })
+      qc.invalidateQueries({ queryKey: queryKeys.teams.schedules })
+      qc.invalidateQueries({ queryKey: queryKeys.teams.all })
+      qc.invalidateQueries({ queryKey: queryKeys.teams.scheduleAssignments })
+      qc.invalidateQueries({ queryKey: queryKeys.teams.activityLog })
+      qc.invalidateQueries({ queryKey: queryKeys.teams.activityLogCount })
     },
   })
 }
@@ -998,10 +999,10 @@ export function useAttachSchedule() {
       return data
     },
     onSuccess: (_data, vars) => {
-      qc.invalidateQueries({ queryKey: ['teams'] })
-      qc.invalidateQueries({ queryKey: ['team-schedule-assignments', vars.teamId] })
-      qc.invalidateQueries({ queryKey: ['team-activity-log'] })
-      qc.invalidateQueries({ queryKey: ['team-activity-log-count'] })
+      qc.invalidateQueries({ queryKey: queryKeys.teams.all })
+      qc.invalidateQueries({ queryKey: queryKeys.teams.scheduleAssignmentsByTeam(vars.teamId) })
+      qc.invalidateQueries({ queryKey: queryKeys.teams.activityLog })
+      qc.invalidateQueries({ queryKey: queryKeys.teams.activityLogCount })
     },
   })
 }
@@ -1020,10 +1021,10 @@ export function useDetachSchedule() {
       await logActivity({ action: 'schedule-detached', entityType: 'team', entityId: teamId })
     },
     onSuccess: (_data, vars) => {
-      qc.invalidateQueries({ queryKey: ['teams'] })
-      qc.invalidateQueries({ queryKey: ['team-schedule-assignments', vars.teamId] })
-      qc.invalidateQueries({ queryKey: ['team-activity-log'] })
-      qc.invalidateQueries({ queryKey: ['team-activity-log-count'] })
+      qc.invalidateQueries({ queryKey: queryKeys.teams.all })
+      qc.invalidateQueries({ queryKey: queryKeys.teams.scheduleAssignmentsByTeam(vars.teamId) })
+      qc.invalidateQueries({ queryKey: queryKeys.teams.activityLog })
+      qc.invalidateQueries({ queryKey: queryKeys.teams.activityLogCount })
     },
   })
 }

@@ -1,6 +1,7 @@
 'use client'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { createClient } from '@/lib/supabase/client'
+import { queryKeys } from '@/lib/queryKeys'
 
 export type CreditNoteStatus = 'draft' | 'approved' | 'issued' | 'redeemed'
 
@@ -87,7 +88,7 @@ export async function nextNoteId(type: 'credit' | 'debit'): Promise<string> {
 
 export function useCreditNotes() {
   return useQuery({
-    queryKey: ['credit-notes'],
+    queryKey: queryKeys.creditNotes.all,
     queryFn: async () => {
       const supabase = createClient()
       const { data, error } = await (supabase as any)
@@ -107,7 +108,7 @@ export function useCreditNotes() {
 
 export function useDebitNotes() {
   return useQuery({
-    queryKey: ['debit-notes'],
+    queryKey: queryKeys.creditNotes.debitNotes,
     queryFn: async () => {
       const supabase = createClient()
       const { data, error } = await (supabase as any)
@@ -164,7 +165,7 @@ export function useCreateCreditNote() {
       }
       return cn as CreditNote
     },
-    onSuccess: () => queryClient.invalidateQueries({ queryKey: ['credit-notes'] }),
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: queryKeys.creditNotes.all }),
   })
 }
 
@@ -236,8 +237,8 @@ export function useApplyCreditNote() {
         .eq('id', invoiceId)
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['credit-notes'] })
-      queryClient.invalidateQueries({ queryKey: ['customer-invoices'] })
+      queryClient.invalidateQueries({ queryKey: queryKeys.creditNotes.all })
+      queryClient.invalidateQueries({ queryKey: queryKeys.customerInvoices.all })
     },
   })
 }
