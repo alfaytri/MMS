@@ -203,9 +203,11 @@ Purchase & Sales▾:
 
 ## 🔄 In Progress
 
-🚀 Starting: **Inventory Check Module Redesign — Task 1: Database Migrations + Types + Hooks**
+None
 
 ## ✅ Completed
+
+- [2026-06-06] **Inventory Check Module Redesign** — `supabase/migrations/20260606210000_inventory_check_redesign.sql`, `src/types/database.types.ts`, `src/lib/queryKeys.ts`, `src/hooks/useWarehouseOperations.ts`, `WhInventoryCheckStartDialog.tsx` (NEW), `WhInventoryCheckDetail.tsx` (NEW), `WhInventoryChecksTab.tsx` (rewrite), `page.tsx` — Full rebuild: 3 new DB tables (assignments, log, approvals), 2-step start wizard with user selection + auto category distribution, tabbed detail view (Timeline / Count tree / Approval chain), 8 new hooks; 0 TS errors
 
 - [2026-06-06] **Codebase Health Plan Task 9: Label Accessibility + Design Tokens** — 38 TSX files (label fixes), 96 TSX files (token migration) — Added htmlFor to ~180 Labels with matching input ids; skipped 35 display-only labels (chip groups, composite inputs); migrated 601 raw Tailwind classes to design tokens (text-slate-* → text-muted-foreground/foreground, bg-slate-* → bg-muted, border-slate-* → border-border, text-red-* → text-destructive, text-green-* → text-success); 0 TS errors
 
