@@ -201,9 +201,11 @@ Purchase & Sales▾:
 
 ## 🔄 In Progress
 
-🚀 Starting: **Codebase Health Plan Task 5: Pagination**
+🚀 Starting: **Codebase Health Plan Task 6: Deduplicate PO/SO Detail Dialogs**
 
 ## ✅ Completed
+
+- [2026-06-06] **Codebase Health Plan Task 5: Pagination** — `src/hooks/useOrders.ts`, `src/hooks/useContracts.ts`, `src/hooks/useSiteVisits.ts`, `src/hooks/contact-center/useLiveConversations.ts`, `src/app/(dashboard)/orders/page.tsx`, `src/app/(dashboard)/contracts/page.tsx` — Converted orders/contracts/siteVisits from useQuery+limit(200) to useInfiniteQuery with PAGE_SIZE=50 and IntersectionObserver infinite scroll; reduced live conversations poll limit from 500 to 100
 
 - [2026-06-06] **Codebase Health Plan Task 4: Query Key Factory** — `src/lib/queryKeys.ts` (NEW), 117 files migrated (86 hooks, 27 components, 4 pages) — Created centralized query key factory with ~200 key definitions across 40+ modules; migrated every inline query key string in the codebase to use the factory; zero inline keys remain
 
