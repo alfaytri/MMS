@@ -133,8 +133,7 @@ export function SwapTeamDialog({
     if (!selectedId) return
     setSaving(true)
     try {
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      const supabase = createClient() as any
+      const supabase = createClient()
       const { data, error } = await supabase.rpc('swap_visit_team', {
         p_assignment_id: assignmentId,
         p_new_team_id: selectedId,

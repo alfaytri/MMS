@@ -21,7 +21,7 @@ export async function logPOActivity({
 }) {
   try {
     const supabase = createClient()
-    await (supabase as any).from('activity_log').insert({
+    await supabase.from('activity_log').insert({
       entity_type: 'purchase_order',
       entity_id: poId,
       module: 'purchase_orders',
@@ -40,7 +40,7 @@ export async function resolveMyName(): Promise<string | null> {
     const supabase = createClient()
     const { data: { user } } = await supabase.auth.getUser()
     if (!user) return null
-    const { data: profile } = await (supabase as any)
+    const { data: profile } = await supabase
       .from('profiles').select('full_name').eq('auth_user_id', user.id).maybeSingle()
     return profile?.full_name ?? user.email ?? null
   } catch {

@@ -99,7 +99,7 @@ export async function GET(req: NextRequest) {
           || (chat.last_message?.type ? `[${chat.last_message.type}]` : null)
           || null
 
-        await (supabase.from('chat_conversations') as any)
+        await supabase.from('chat_conversations')
           .upsert({
             wati_phone:      phone,
             provider:        'whapi',

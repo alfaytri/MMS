@@ -48,7 +48,7 @@ function useAttachedReceivals(receivalIds: string[]) {
     enabled: receivalIds.length > 0,
     queryFn: async () => {
       const supabase = createClient()
-      const { data, error } = await (supabase as any)
+      const { data, error } = await supabase
         .from('receivals')
         .select('id, receival_number, date, purchase_orders!receivals_po_id_fkey(supplier_name)')
         .in('id', receivalIds)
@@ -71,7 +71,7 @@ function useAttachedPOs(poIds: string[]) {
     enabled: poIds.length > 0,
     queryFn: async () => {
       const supabase = createClient()
-      const { data, error } = await (supabase as any)
+      const { data, error } = await supabase
         .from('purchase_orders')
         .select('id, po_number, supplier_name')
         .in('id', poIds)

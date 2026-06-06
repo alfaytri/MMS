@@ -4,7 +4,7 @@ import React from 'react'
 import { ArrowRight, CheckCircle2, XCircle } from 'lucide-react'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
-import { useWarehouseTransfers, useApproveTransfer, useRejectTransfer } from '@/hooks/useWarehouseOperations'
+import { useWarehouseTransfers, useApproveTransfer, useRejectTransfer, type WarehouseTransfer } from '@/hooks/useWarehouseOperations'
 import type { Warehouse } from '@/hooks/useWarehouses'
 import type { Profile } from '@/hooks/useProfiles'
 import { createClient } from '@/lib/supabase/client'
@@ -19,6 +19,11 @@ const STATUS_STYLES: Record<string, string> = {
   rejected:         'bg-destructive/10 text-destructive',
 }
 
+// Extended type that includes created_by_profile_id from the DB row (not on the hook's base type)
+type TransferRow = WarehouseTransfer & {
+  created_by_profile_id?: string | null
+}
+
 interface Props {
   warehouses: Warehouse[]
   currentProfile: Profile | null
@@ -29,18 +34,17 @@ export const WhTransfersTab = React.memo(function WhTransfersTab({ warehouses, c
   const approve = useApproveTransfer()
   const reject = useRejectTransfer()
 
-  function canApprove(transfer: any) {
+  function canApprove(transfer: TransferRow) {
     const toWh = warehouses.find(w => w.id === transfer.to_warehouse_id)
     // manager_profile_id is a profiles.id — same space as currentProfile.id
-    return (toWh as any)?.manager_profile_id === currentProfile?.id
+    return toWh?.manager_profile_id === currentProfile?.id
   }
 
-  async function notifyCreator(transfer: any, approved: boolean) {
+  async function notifyCreator(transfer: TransferRow, approved: boolean) {
     const creatorProfileId: string | null = transfer.created_by_profile_id ?? null
     if (!creatorProfileId) return
     const supabase = createClient()
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    await (supabase as any).from('notifications').insert({
+    await supabase.from('notifications').insert({
       profile_id:   creatorProfileId,
       type:         approved ? 'transfer_approved' : 'transfer_rejected',
       title:        approved ? 'Stock Transfer Approved' : 'Stock Transfer Rejected',
@@ -52,7 +56,7 @@ export const WhTransfersTab = React.memo(function WhTransfersTab({ warehouses, c
     })
   }
 
-  function handleApprove(transfer: any) {
+  function handleApprove(transfer: TransferRow) {
     approve.mutate(
       { id: transfer.id, approvedByName: currentProfile?.full_name ?? 'Manager' },
       {
@@ -65,7 +69,7 @@ export const WhTransfersTab = React.memo(function WhTransfersTab({ warehouses, c
     )
   }
 
-  function handleReject(transfer: any) {
+  function handleReject(transfer: TransferRow) {
     reject.mutate(transfer.id, {
       onSuccess: () => {
         toast.success('Transfer rejected')

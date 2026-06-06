@@ -201,9 +201,11 @@ Purchase & Sales▾:
 
 ## 🔄 In Progress
 
-🚀 Starting: **Codebase Health Plan Task 7: Split Oversized Components**
+🚀 Starting: **Codebase Health Plan Task 8: Typed Supabase Wrapper + Migrate Hooks**
 
 ## ✅ Completed
+
+- [2026-06-06] **Codebase Health Plan Task 7: Split Oversized Components** — `ServiceEditBasicInfo.tsx`, `ServiceEditPricing.tsx`, `ServiceEditFeatures.tsx` (NEW), `ServiceEditSections.tsx` (1017→104 barrel), `CalendarBlocks.tsx` (NEW), `TeamCalendarPanel.tsx` (988→424), `ChatTemplateConfirmDialog.tsx`, `ChatAttachmentDialog.tsx`, `ChatInstructionsDialog.tsx` (NEW), `ChatInputBar.tsx` (786→408) — Split 3 oversized components into 10 files; no file exceeds 500 lines
 
 - [2026-06-06] **Codebase Health Plan Task 6: Deduplicate PO/SO Dialogs** — `PaymentFormDialog.tsx`, `ActivityTimeline.tsx`, `PaymentSummaryTab.tsx` (NEW shared), `PoReturnsTab.tsx`, `SoReturnsTab.tsx`, `SoInvoiceTab.tsx` (NEW extracted tabs), `PoDetailDialog.tsx` (797→408), `SoDetailDialog.tsx` (895→330), `PoPaymentDialog.tsx` (136→56), `SoPaymentDialog.tsx` (148→61) — Extracted 3 shared components and 3 entity-specific tab components; payment dialogs now thin wrappers around PaymentFormDialog
 

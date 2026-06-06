@@ -57,23 +57,24 @@ export function AttachBillDialog({ open, onOpenChange, mode, paymentId, billId, 
     queryKey: queryKeys.supplierPayments.available(supplierId),
     queryFn: async () => {
       const supabase = createClient()
-      const { data, error } = await (supabase as any)
+      const { data, error } = await supabase
         .from('payments')
         .select(`
           id, payment_id, amount, method, date, reference,
           payment_bill_allocations(amount)
         `)
-        .eq('supplier_id', supplierId)
+        .eq('supplier_id', supplierId!)
         .eq('direction', 'outgoing')
         .order('date', { ascending: false })
       if (error) throw error
       type RawPayment = { id: string; payment_id: string; amount: number; method: string; date: string; reference: string | null; payment_bill_allocations: { amount: number }[] }
-      return (data ?? []).map((p: RawPayment) => {
-        const allocated = (p.payment_bill_allocations ?? []).reduce((s: number, a: { amount: number }) => s + a.amount, 0)
+      return (data ?? []).map((p) => {
+        const rp = p as unknown as RawPayment
+        const allocated = (rp.payment_bill_allocations ?? []).reduce((s: number, a: { amount: number }) => s + a.amount, 0)
         return {
-          ...p,
+          ...rp,
           allocated,
-          remaining: p.amount - allocated,
+          remaining: rp.amount - allocated,
         }
       }).filter((p: RawPayment & { remaining: number }) => p.remaining > 0.001)
     },
@@ -85,10 +86,10 @@ export function AttachBillDialog({ open, onOpenChange, mode, paymentId, billId, 
     queryKey: queryKeys.payments.paymentAmount(paymentId),
     queryFn: async () => {
       const supabase = createClient()
-      const { data } = await (supabase as any)
+      const { data } = await supabase
         .from('payments')
         .select('amount')
-        .eq('id', paymentId)
+        .eq('id', paymentId!)
         .single()
       return data?.amount ?? 0
     },

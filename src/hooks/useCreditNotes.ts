@@ -73,7 +73,7 @@ export type CreateCreditNotePayload = {
 export async function nextNoteId(type: 'credit' | 'debit'): Promise<string> {
   const supabase = createClient()
   const prefix = type === 'credit' ? 'CN-' : 'DN-'
-  const { data } = await (supabase as any)
+  const { data } = await supabase
     .from('credit_notes')
     .select('credit_note_id')
     .ilike('credit_note_id', `${prefix}%`)
@@ -91,7 +91,7 @@ export function useCreditNotes() {
     queryKey: queryKeys.creditNotes.all,
     queryFn: async () => {
       const supabase = createClient()
-      const { data, error } = await (supabase as any)
+      const { data, error } = await supabase
         .from('credit_notes')
         .select('*, credit_note_lines(*), invoices(invoice_id), returns!source_return_id(return_number)')
         .eq('note_type', 'credit')
@@ -111,7 +111,7 @@ export function useDebitNotes() {
     queryKey: queryKeys.creditNotes.debitNotes,
     queryFn: async () => {
       const supabase = createClient()
-      const { data, error } = await (supabase as any)
+      const { data, error } = await supabase
         .from('credit_notes')
         .select('*, returns!source_return_id(return_number)')
         .eq('note_type', 'debit')
@@ -133,7 +133,7 @@ export function useCreateCreditNote() {
       const credit_note_id = await nextNoteId('credit')
       const totalAmount = payload.lines.reduce((s, l) => s + l.qty * l.unit_price, 0)
 
-      const { data: cn, error } = await (supabase as any)
+      const { data: cn, error } = await supabase
         .from('credit_notes')
         .insert({
           credit_note_id,
@@ -150,7 +150,7 @@ export function useCreateCreditNote() {
       if (error) throw error
 
       if (payload.lines.length > 0) {
-        const { error: lErr } = await (supabase as any)
+        const { error: lErr } = await supabase
           .from('credit_note_lines')
           .insert(
             payload.lines.map((l) => ({
@@ -174,20 +174,20 @@ export function useApplyCreditNote() {
   return useMutation({
     mutationFn: async ({ id, invoiceId }: { id: string; invoiceId: string }) => {
       const supabase = createClient()
-      const { data: cn } = await (supabase as any)
+      const { data: cn } = await supabase
         .from('credit_notes')
         .select('total_amount, invoice_id, credit_note_id')
         .eq('id', id)
         .single()
 
-      const { data: payments } = await (supabase as any)
+      const { data: payments } = await supabase
         .from('payments')
         .select('amount')
         .eq('invoice_id', invoiceId)
         .eq('direction', 'incoming')
       const alreadyPaid = (payments ?? []).reduce((s: number, p: any) => s + p.amount, 0)
 
-      const { data: inv } = await (supabase as any)
+      const { data: inv } = await supabase
         .from('invoices')
         .select('total_amount, customer_id')
         .eq('id', invoiceId)
@@ -196,7 +196,7 @@ export function useApplyCreditNote() {
       const cnTotal = cn?.total_amount ?? 0
       const excess = Math.max(0, cnTotal - outstanding)
 
-      const { data: cpayMax } = await (supabase as any)
+      const { data: cpayMax } = await supabase
         .from('payments')
         .select('payment_id')
         .ilike('payment_id', 'CPAY-%')
@@ -205,7 +205,7 @@ export function useApplyCreditNote() {
         .maybeSingle()
       const cpayLast = cpayMax?.payment_id ? parseInt(cpayMax.payment_id.replace('CPAY-', ''), 10) : 0
       const payment_id = `CPAY-${String(cpayLast + 1).padStart(5, '0')}`
-      await (supabase as any).from('payments').insert({
+      await supabase.from('payments').insert({
         payment_id,
         invoice_id: invoiceId,
         amount: Math.min(cnTotal, outstanding),
@@ -217,13 +217,14 @@ export function useApplyCreditNote() {
       })
 
       if (excess > 0 && inv?.customer_id) {
-        await (supabase as any).rpc('increment_credit_balance', {
+        // @ts-expect-error — increment_credit_balance not yet in generated DB types
+        await supabase.rpc('increment_credit_balance', {
           p_customer_id: inv.customer_id,
           p_amount: excess,
         })
       }
 
-      await (supabase as any)
+      await supabase
         .from('credit_notes')
         .update({ status: 'redeemed' })
         .eq('id', id)
@@ -231,7 +232,7 @@ export function useApplyCreditNote() {
       const newPaid = alreadyPaid + Math.min(cnTotal, outstanding)
       const newStatus =
         newPaid >= (inv?.total_amount ?? Infinity) ? 'paid' : 'partially_paid'
-      await (supabase as any)
+      await supabase
         .from('invoices')
         .update({ payment_status: newStatus })
         .eq('id', invoiceId)

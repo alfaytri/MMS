@@ -7,7 +7,7 @@ interface ActivityLog {
   details: string | null
   performer_name: string | null
   severity: string | null
-  created_at: string
+  created_at: string | null
 }
 
 interface DotColorRule {
@@ -68,7 +68,7 @@ export function ActivityTimeline({ logs, dotColorRules = DEFAULT_RULES }: Activi
                 <span className="text-muted-foreground text-xs">· {log.performer_name}</span>
               )}
             </div>
-            <p className="text-xs text-muted-foreground mt-0.5">{formatDate(log.created_at)}</p>
+            <p className="text-xs text-muted-foreground mt-0.5">{formatDate(log.created_at ?? '')}</p>
             {log.details && (
               <p className="text-xs text-muted-foreground mt-0.5">{log.details}</p>
             )}

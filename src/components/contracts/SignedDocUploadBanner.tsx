@@ -50,7 +50,7 @@ export function SignedDocUploadBanner({ contractId, onActivate, isActivating }: 
 
     await supabase
       .from('contracts')
-      .update({ signed_doc_url: path } as any)
+      .update({ signed_doc_url: path })
       .eq('id', contractId)
 
     setUploading(false)

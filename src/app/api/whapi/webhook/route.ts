@@ -43,7 +43,7 @@ export async function POST(req: NextRequest) {
       const externalId: string = s.id
       const status = normaliseStatus(s.status ?? '')
       if (externalId) {
-        await (supabase.from('chat_messages') as any)
+        await supabase.from('chat_messages')
           .update({ delivery_status: status })
           .eq('external_id', externalId)
       }
@@ -63,24 +63,24 @@ export async function POST(req: NextRequest) {
       const emoji: string | null    = msg.reaction?.emoji ?? null
 
       if (targetId) {
-        const { data: targetRow } = await (supabase.from('chat_messages') as any)
+        const { data: targetRow } = await supabase.from('chat_messages')
           .select('id, reactions')
           .eq('external_id', targetId)
           .maybeSingle()
 
         if (targetRow) {
-          const existing: { emoji: string; from_type: string }[] = targetRow.reactions ?? []
+          const existing: { emoji: string; from_type: string }[] = (targetRow.reactions as unknown as Array<{ emoji: string; from_type: string }> | null) ?? []
           if (emoji) {
             const hasIt = existing.some((r) => r.emoji === emoji && r.from_type === 'customer')
             const updated = hasIt
               ? existing.filter((r) => !(r.emoji === emoji && r.from_type === 'customer'))
               : [...existing, { emoji, from_type: 'customer' }]
-            await (supabase.from('chat_messages') as any)
+            await supabase.from('chat_messages')
               .update({ reactions: updated })
               .eq('id', targetRow.id)
           } else {
             const updated = existing.filter((r) => r.from_type !== 'customer')
-            await (supabase.from('chat_messages') as any)
+            await supabase.from('chat_messages')
               .update({ reactions: updated })
               .eq('id', targetRow.id)
           }
@@ -147,7 +147,7 @@ export async function POST(req: NextRequest) {
 
     // Dedup check
     if (externalId) {
-      const { data: dup } = await (supabase.from('chat_messages') as any)
+      const { data: dup } = await supabase.from('chat_messages')
         .select('id')
         .eq('external_id', externalId)
         .maybeSingle()
@@ -156,13 +156,13 @@ export async function POST(req: NextRequest) {
 
     // Find or create conversation (idempotent, out-of-order timestamp guard).
     // ignoreDuplicates: false so wati_contact_name is kept fresh on every message.
-    await (supabase.from('chat_conversations') as any)
+    await supabase.from('chat_conversations')
       .upsert(
         { wati_phone: phone, provider: 'whapi', ...(contactName ? { wati_contact_name: contactName } : {}) },
         { onConflict: 'wati_phone,provider', ignoreDuplicates: false }
       )
 
-    const { data: convo } = await (supabase.from('chat_conversations') as any)
+    const { data: convo } = await supabase.from('chat_conversations')
       .update({
         last_message:    previewText,
         last_message_at: ts,
@@ -178,7 +178,7 @@ export async function POST(req: NextRequest) {
     // Fallback: get the existing conversation id if update didn't match (newer msg already there)
     let conversationId: string | null = convo?.id ?? null
     if (!conversationId) {
-      const { data: existing } = await (supabase.from('chat_conversations') as any)
+      const { data: existing } = await supabase.from('chat_conversations')
         .select('id')
         .eq('wati_phone', phone)
         .eq('provider', 'whapi')
@@ -189,7 +189,7 @@ export async function POST(req: NextRequest) {
     if (!conversationId || !externalId) continue
 
     // Insert message
-    await (supabase.from('chat_messages') as any)
+    await supabase.from('chat_messages')
       .insert({
         conversation_id: conversationId,
         from_type:       'customer',

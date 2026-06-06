@@ -17,7 +17,7 @@ export function useTeamSkills(divisionSlug: string | null) {
     staleTime: 5 * 60 * 1000,
     queryFn: async () => {
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      const supabase = createClient() as any
+      const supabase = createClient()
       // employees has a direct team_id FK — no junction table exists
       const { data, error } = await supabase
         .from('employee_services')

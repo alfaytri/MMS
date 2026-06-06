@@ -16,6 +16,29 @@ import { format } from 'date-fns'
 import { toast } from 'sonner'
 import { queryKeys } from '@/lib/queryKeys'
 
+// Extended type for stock adjustments with joined relations from the query
+type StockAdjustmentRow = {
+  id: string
+  warehouse_id: string
+  brand_variant_id: string
+  adjustment_type: string
+  qty: number
+  reason: string
+  notes: string | null
+  status: string
+  requested_by_name: string | null
+  approved_by_name: string | null
+  approved_at: string | null
+  created_at: string
+  updated_at: string
+  warehouses?: { name: string } | null
+  inventory_brand_variants?: {
+    brand?: string | null
+    inventory_items?: { name_en: string; sku?: string | null } | null
+  } | null
+  photo_urls?: string[] | null
+}
+
 const TYPE_STYLES: Record<string, string> = {
   increase:  'bg-success/10 text-success',
   decrease:  'bg-warning/10 text-warning',
@@ -39,10 +62,13 @@ export const WhAdjustmentsTab = React.memo(function WhAdjustmentsTab({ warehouse
   const qc = useQueryClient()
   const [photoUrls, setPhotoUrls] = useState<string[] | null>(null)
 
+  // Cast the query results to include joined relations
+  const typedAdjustments = adjustments as unknown as StockAdjustmentRow[]
+
   const reject = useMutation({
     mutationFn: async (id: string) => {
       const supabase = createClient()
-      const { error } = await (supabase as any)
+      const { error } = await supabase
         .from('stock_adjustments')
         .update({ status: 'rejected' })
         .eq('id', id)
@@ -51,7 +77,7 @@ export const WhAdjustmentsTab = React.memo(function WhAdjustmentsTab({ warehouse
     onSuccess: () => qc.invalidateQueries({ queryKey: queryKeys.warehouseOps.stockAdjustments }),
   })
 
-  function canApprove(adj: any) {
+  function canApprove(adj: StockAdjustmentRow) {
     const wh = warehouses.find(w => w.id === adj.warehouse_id)
     // If no manager is assigned to the warehouse, any authenticated user can approve
     if (!wh?.manager_profile_id) return true
@@ -83,16 +109,16 @@ export const WhAdjustmentsTab = React.memo(function WhAdjustmentsTab({ warehouse
                   <EmptyState title="No adjustments found" />
                 </TableCell>
               </TableRow>
-            ) : adjustments.map((adj) => (
+            ) : typedAdjustments.map((adj) => (
               <TableRow key={adj.id}>
                 <TableCell className="text-xs whitespace-nowrap">
                   {adj.created_at ? format(new Date(adj.created_at), 'dd MMM') : '—'}
                 </TableCell>
-                <TableCell className="text-xs">{(adj as any).warehouses?.name ?? '—'}</TableCell>
+                <TableCell className="text-xs">{adj.warehouses?.name ?? '—'}</TableCell>
                 <TableCell className="text-xs">
-                  {(adj as any).inventory_brand_variants?.inventory_items?.name_en ?? '—'}
-                  {(adj as any).inventory_brand_variants?.brand && (
-                    <span className="text-muted-foreground ml-1">({(adj as any).inventory_brand_variants.brand})</span>
+                  {adj.inventory_brand_variants?.inventory_items?.name_en ?? '—'}
+                  {adj.inventory_brand_variants?.brand && (
+                    <span className="text-muted-foreground ml-1">({adj.inventory_brand_variants.brand})</span>
                   )}
                 </TableCell>
                 <TableCell>
@@ -109,15 +135,15 @@ export const WhAdjustmentsTab = React.memo(function WhAdjustmentsTab({ warehouse
                   </Badge>
                 </TableCell>
                 <TableCell>
-                  {((adj as any).photo_urls?.length ?? 0) > 0 && (
+                  {(adj.photo_urls?.length ?? 0) > 0 && (
                     <Button
                       variant="ghost"
                       size="sm"
                       className="h-6 px-1.5 gap-1 text-[10px]"
-                      onClick={() => setPhotoUrls((adj as any).photo_urls)}
+                      onClick={() => setPhotoUrls(adj.photo_urls!)}
                     >
                       <Eye className="h-3 w-3" />
-                      {(adj as any).photo_urls.length}
+                      {adj.photo_urls!.length}
                     </Button>
                   )}
                 </TableCell>

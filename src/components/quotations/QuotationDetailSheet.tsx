@@ -44,8 +44,8 @@ export function QuotationDetailSheet({ quotationId, open, onOpenChange }: Props)
           division: q.division,
         })),
         notes: q.notes ?? '',
-        discountType: (q as any).discount_type ?? 'flat',
-        discountValue: (q as any).discount_value ?? 0,
+        discountType: q.discount_type ?? 'flat',
+        discountValue: q.discount_value ?? 0,
       }
     : null
 

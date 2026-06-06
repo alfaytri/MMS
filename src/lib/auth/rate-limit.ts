@@ -16,8 +16,7 @@ export async function isRateLimited(params: {
   const since = new Date(Date.now() - params.windowSeconds * 1000).toISOString()
   const admin = createAdminClient()
 
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const { count, error } = await (admin as any)
+  const { count, error } = await admin
     .from('activity_log')
     .select('id', { count: 'exact', head: true })
     .eq('action', params.action)

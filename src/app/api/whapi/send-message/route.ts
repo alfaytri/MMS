@@ -1,6 +1,7 @@
 import { type NextRequest, NextResponse } from 'next/server'
 import { requireAuth } from '@/lib/auth/require-admin'
 import { createAdminClient } from '@/lib/supabase/admin'
+import type { DBInsert } from '@/types/database.types'
 
 const WHAPI_BASE_URL = 'https://gate.whapi.cloud'
 const WHAPI_TOKEN    = process.env.WHAPI_TOKEN ?? ''
@@ -177,7 +178,7 @@ export async function POST(req: NextRequest) {
       || (documentUrl ? '[Document]' : imageUrl ? '[Image]' : videoUrl ? '[Video]' : audioUrl ? '[Voice note]' : '')
 
     // Find or create conversation row keyed by phone
-    const { data: existing } = await (supabase.from('chat_conversations') as any)
+    const { data: existing } = await supabase.from('chat_conversations')
       .select('id')
       .eq('wati_phone', phone)
       .maybeSingle()
@@ -186,7 +187,7 @@ export async function POST(req: NextRequest) {
 
     if (existing) {
       conversationId = existing.id
-      await (supabase.from('chat_conversations') as any)
+      await supabase.from('chat_conversations')
         .update({
           last_message:    lastMsg,
           last_message_at: ts,
@@ -194,7 +195,7 @@ export async function POST(req: NextRequest) {
         })
         .eq('id', conversationId)
     } else {
-      const { data: created, error: createErr } = await (supabase.from('chat_conversations') as any)
+      const { data: created, error: createErr } = await supabase.from('chat_conversations')
         .insert({
           wati_phone:      phone,
           last_message:    lastMsg,
@@ -226,8 +227,8 @@ export async function POST(req: NextRequest) {
     }
     if (messageId) insertPayload.external_id = messageId
 
-    const { error: insertErr } = await (supabase.from('chat_messages') as any)
-      .insert(insertPayload)
+    const { error: insertErr } = await supabase.from('chat_messages')
+      .insert(insertPayload as DBInsert<'chat_messages'>)
 
     if (insertErr) {
       console.error('[whapi/send-message] insert message error', insertErr)

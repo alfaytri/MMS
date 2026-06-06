@@ -33,10 +33,10 @@ export function CategoryEditDialog({ open, onOpenChange, categoryType, category,
     if (open) {
       setNameEn(category?.name_en ?? '')
       setNameAr(category?.name_ar ?? '')
-      setSku((category as any)?.sku ?? '')
+      setSku(category?.sku ?? '')
       setParentId(
         isEdit
-          ? ((category as any)?.parent_id ?? null)
+          ? (category?.parent_id ?? null)
           : (defaultParentId ?? null)
       )
     }

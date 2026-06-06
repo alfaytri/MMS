@@ -36,7 +36,7 @@ export function useSiteVisits(filter: SiteVisitsFilter = {}) {
       const from = pageParam * PAGE_SIZE
       const to = from + PAGE_SIZE - 1
 
-      const { data, error } = await (supabase as any)
+      const { data, error } = await supabase
         .from('site_visits')
         .select(`
           id, visit_id, customer_id, status, mode,

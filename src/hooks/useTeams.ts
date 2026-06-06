@@ -72,6 +72,17 @@ export interface TeamDivision {
   company_name: string
 }
 
+interface TeamQueryResult extends TeamRaw {
+  divisions: {
+    id: string
+    slug: string
+    name: string
+    short_name: string | null
+    company_id: string
+    companies?: { id: string; name_en: string }
+  } | null
+}
+
 export interface TeamFull extends Omit<TeamRaw, 'division'> {
   leader:   Employee | null
   members:  Employee[]
@@ -102,12 +113,9 @@ export function useTeams(filters?: TeamsFilters) {
       const supabase = createClient()
 
       const [teamsRes, employeesRes, vehiclesRes, schedulesRes] = await Promise.allSettled([
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        (supabase.from('teams') as any).select('*, divisions(id, slug, name, short_name, company_id, companies(id, name_en))').is('deleted_at', null).order('name_en', { nullsFirst: false }),
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        (supabase.from('employees') as any).select('*').is('deleted_at', null),
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        (supabase.from('vehicles') as any).select('*').is('deleted_at', null),
+        supabase.from('teams').select('*, divisions(id, slug, name, short_name, company_id, companies(id, name_en))').is('deleted_at', null).order('name_en', { nullsFirst: false }).returns<TeamQueryResult[]>(),
+        supabase.from('employees').select('*').is('deleted_at', null).returns<Employee[]>(),
+        supabase.from('vehicles').select('*').is('deleted_at', null).returns<Vehicle[]>(),
         supabase.from('schedules').select('*').is('deleted_at', null),
       ])
 
@@ -115,7 +123,7 @@ export function useTeams(filters?: TeamsFilters) {
         throw teamsRes.status === 'rejected' ? teamsRes.reason : teamsRes.value.error
       }
 
-      const teams     = (teamsRes.value.data ?? []) as TeamRaw[]
+      const teams     = (teamsRes.value.data ?? []) as TeamQueryResult[]
       const employees = employeesRes.status === 'fulfilled' ? ((employeesRes.value.data ?? []) as Employee[]) : []
       const vehicles  = vehiclesRes.status === 'fulfilled'  ? ((vehiclesRes.value.data ?? []) as Vehicle[])   : []
       const schedules = schedulesRes.status === 'fulfilled' ? ((schedulesRes.value.data ?? []) as Schedule[]) : []
@@ -130,8 +138,7 @@ export function useTeams(filters?: TeamsFilters) {
       const schById   = new Map(schedules.map(s => [s.id, s]))
 
       let result: TeamFull[] = teams.map(t => {
-        const raw = t as unknown as Record<string, unknown>
-        const div = raw.divisions as { id: string; slug: string; name: string; company_id: string; companies?: { id: string; name_en: string } } | null
+        const div = t.divisions
         return {
           ...t,
           leader:   t.leader_id ? (empById.get(t.leader_id) ?? null) : null,
@@ -142,7 +149,7 @@ export function useTeams(filters?: TeamsFilters) {
             id:           div.id,
             slug:         div.slug,
             name:         div.name,
-            short_name:   (div as any).short_name ?? null,
+            short_name:   div.short_name ?? null,
             company_id:   div.company_id,
             company_name: div.companies?.name_en ?? '',
           } : null,
@@ -161,13 +168,13 @@ export function useTeams(filters?: TeamsFilters) {
         const ids = filters.divisionIds
         result = result.filter(t =>
           ids.some(id =>
-            (t as unknown as Record<string, unknown>).division_id === id ||
+            t.division_id === id ||
             t.division?.slug === id
           )
         )
       } else if (filters?.divisionId) {
         result = result.filter(t =>
-          (t as unknown as Record<string, unknown>).division_id === filters.divisionId ||
+          t.division_id === filters.divisionId ||
           t.division?.slug === filters.divisionId
         )
       }
@@ -184,8 +191,7 @@ export function useEmployees(filters?: { search?: string; status?: EmployeeStatu
     queryKey: queryKeys.teams.employeesList(filters),
     queryFn: async () => {
       const supabase = createClient()
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      let query = (supabase.from('employees') as any).select('*').is('deleted_at', null).order('name')
+      let query = supabase.from('employees').select('*').is('deleted_at', null).order('name')
       if (filters?.status) query = query.eq('status', filters.status)
       const { data, error } = await query
       if (error) throw error
@@ -208,8 +214,7 @@ export function useVehicles() {
     queryKey: queryKeys.teams.vehicles,
     queryFn: async () => {
       const supabase = createClient()
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      const { data, error } = await (supabase.from('vehicles') as any).select('*').is('deleted_at', null).order('plate')
+      const { data, error } = await supabase.from('vehicles').select('*').is('deleted_at', null).order('plate')
       if (error) throw error
       return (data ?? []) as Vehicle[]
     },
@@ -242,6 +247,7 @@ export function useTeamScheduleAssignments(teamId: string | null) {
         .select('*, schedule:schedules(*)')
         .eq('team_id', teamId!)
         .order('start_date', { ascending: false })
+        .returns<(ScheduleAssignment & { schedule: Schedule })[]>()
       if (error) throw error
       return (data ?? []) as (ScheduleAssignment & { schedule: Schedule })[]
     },
@@ -254,14 +260,15 @@ export function useToolAssignments(entityType: 'team' | 'employee', entityId: st
   return useQuery({
     queryKey: queryKeys.teams.toolAssignments(entityType, entityId),
     queryFn: async () => {
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      const db = createClient() as any
-      const col = entityType === 'team' ? 'team_id' : 'employee_id'
-      const { data, error } = await db
+      const db = createClient()
+      const baseQuery = db
         .from('tool_assignments')
         .select('*, tool_unit:tool_asset_units(id, serial_number, brand, condition, status, item_id, item:tool_asset_items(id, name_en, name_ar))')
-        .eq(col, entityId!)
         .order('assigned_at', { ascending: false })
+      const filteredQuery = entityType === 'team'
+        ? baseQuery.eq('team_id', entityId!)
+        : baseQuery.eq('employee_id', entityId!)
+      const { data, error } = await filteredQuery.returns<ToolAssignment[]>()
       if (error) throw error
       return (data ?? []) as ToolAssignment[]
     },
@@ -275,13 +282,13 @@ export function useAvailableToolUnits(itemId: string | null) {
   return useQuery({
     queryKey: queryKeys.teams.availableToolUnitsByItem(itemId),
     queryFn: async () => {
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      const db = createClient() as any
+      const db = createClient()
       const { data, error } = await db
         .from('tool_asset_units')
         .select('id, serial_number, brand, condition, status, item_id, item:tool_asset_items(id, name_en, name_ar)')
         .eq('item_id', itemId!)
         .eq('status', 'available')
+        .returns<ToolAssignment['tool_unit'][]>()
       if (error) throw error
       return (data ?? []) as ToolAssignment['tool_unit'][]
     },
@@ -294,8 +301,7 @@ export function useAssignToolToTeam() {
   const qc = useQueryClient()
   return useMutation({
     mutationFn: async ({ teamId, toolUnitId }: { teamId: string; toolUnitId: string }) => {
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      const db = createClient() as any
+      const db = createClient()
       const { error } = await db.from('tool_assignments').insert({
         team_id:     teamId,
         tool_unit_id: toolUnitId,
@@ -318,8 +324,7 @@ export function useUnassignToolFromTeam() {
   const qc = useQueryClient()
   return useMutation({
     mutationFn: async ({ assignmentId, teamId }: { assignmentId: string; teamId: string }) => {
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      const db = createClient() as any
+      const db = createClient()
       const { error } = await db.from('tool_assignments').delete().eq('id', assignmentId)
       if (error) throw error
       await logActivity({ action: 'tool-removed', entityType: 'team', entityId: teamId, beforeData: { assignment_id: assignmentId } })
@@ -341,13 +346,13 @@ export function useToolCountMap(entityType: 'team' | 'employee') {
   return useQuery({
     queryKey: queryKeys.teams.toolCountMap(entityType),
     queryFn: async () => {
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      const db = createClient() as any
+      const db = createClient()
       const col = entityType === 'team' ? 'team_id' : 'employee_id'
-      const { data, error } = await db
-        .from('tool_assignments')
-        .select(col)
-        .not(col, 'is', null)
+      const { data, error } = await (
+        entityType === 'team'
+          ? db.from('tool_assignments').select('team_id').not('team_id', 'is', null)
+          : db.from('tool_assignments').select('employee_id').not('employee_id', 'is', null)
+      )
       if (error) throw error
       const counts = new Map<string, number>()
       for (const row of (data ?? []) as Record<string, string>[]) {
@@ -368,15 +373,14 @@ export function useTeamActivityLog(entityId?: string | null) {
   return useQuery({
     queryKey: queryKeys.teams.activityLogByEntity(entityId),
     queryFn: async () => {
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      const db = createClient() as any
+      const db = createClient()
       let query = db
         .from('team_activity_log')
         .select('*, actor:profiles(id,full_name)')
         .order('created_at', { ascending: false })
         .limit(500)
       if (entityId) query = query.eq('entity_id', entityId)
-      const { data, error } = await query
+      const { data, error } = await query.returns<(ActivityLogEntry & { actor: { id: string; full_name: string } | null })[]>()
       if (error) throw error
       return (data ?? []) as (ActivityLogEntry & { actor: { id: string; full_name: string } | null })[]
     },
@@ -392,8 +396,7 @@ export function useTeamActivityLogCount() {
   return useQuery({
     queryKey: queryKeys.teams.activityLogCount,
     queryFn: async () => {
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      const db = createClient() as any
+      const db = createClient()
       const { count, error } = await db
         .from('team_activity_log')
         .select('id', { count: 'exact', head: true })
@@ -427,8 +430,7 @@ async function resolveActorProfileId(): Promise<string | null> {
   _cachedAuthUserId = authUserId
   if (!authUserId) { _cachedProfileId = null; return null }
 
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const { data } = await (supabase as any)
+  const { data } = await supabase
     .from('profiles')
     .select('id')
     .eq('auth_user_id', authUserId)
@@ -446,16 +448,15 @@ export async function logActivity(params: {
   afterData?: Record<string, unknown>
 }) {
   const supabase = createClient()
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const db = supabase as any
+  const db = supabase
   const profileId = await resolveActorProfileId()
 
   await db.from('team_activity_log').insert({
     action:      params.action,
     entity_type: params.entityType,
     entity_id:   params.entityId,
-    before_data: params.beforeData ?? null,
-    after_data:  params.afterData ?? null,
+    before_data: params.beforeData as import('@/types/database.types').Json ?? null,
+    after_data:  params.afterData as import('@/types/database.types').Json ?? null,
     actor_id:    profileId,
   })
 }
@@ -505,8 +506,7 @@ export function useArchiveTeam() {
   return useMutation({
     mutationFn: async (id: string) => {
       const supabase = createClient()
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      const { error } = await supabase.from('teams').update({ deleted_at: new Date().toISOString() } as any).eq('id', id)
+      const { error } = await supabase.from('teams').update({ deleted_at: new Date().toISOString() } as DBUpdate<'teams'>).eq('id', id)
       if (error) throw error
       await logActivity({ action: 'team-archived', entityType: 'team', entityId: id })
     },
@@ -565,9 +565,8 @@ export function useDisableEmployee() {
   return useMutation({
     mutationFn: async (id: string) => {
       const supabase = createClient()
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      const { error } = await (supabase.from('employees') as any)
-        .update({ status: 'archived', team_id: null })
+      const { error } = await supabase.from('employees')
+        .update({ status: 'archived', team_id: null } as DBUpdate<'employees'>)
         .eq('id', id)
       if (error) throw error
       await logActivity({ action: 'employee-disabled', entityType: 'employee', entityId: id })
@@ -587,9 +586,8 @@ export function useEnableEmployee() {
   return useMutation({
     mutationFn: async (id: string) => {
       const supabase = createClient()
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      const { error } = await (supabase.from('employees') as any)
-        .update({ status: 'unassigned' })
+      const { error } = await supabase.from('employees')
+        .update({ status: 'unassigned' } as DBUpdate<'employees'>)
         .eq('id', id)
       if (error) throw error
       await logActivity({ action: 'employee-enabled', entityType: 'employee', entityId: id })
@@ -610,8 +608,7 @@ export function useArchiveEmployee() {
     mutationFn: async (id: string) => {
       const supabase = createClient()
       const { error } = await supabase.from('employees')
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        .update({ deleted_at: new Date().toISOString(), status: 'archived', team_id: null } as any)
+        .update({ deleted_at: new Date().toISOString(), status: 'archived', team_id: null } as DBUpdate<'employees'>)
         .eq('id', id)
       if (error) throw error
       await logActivity({ action: 'employee-removed', entityType: 'employee', entityId: id })
@@ -672,8 +669,7 @@ export function useArchiveVehicle() {
     mutationFn: async (id: string) => {
       const supabase = createClient()
       const { error } = await supabase.from('vehicles')
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        .update({ deleted_at: new Date().toISOString(), team_id: null } as any)
+        .update({ deleted_at: new Date().toISOString(), team_id: null } as DBUpdate<'vehicles'>)
         .eq('id', id)
       if (error) throw error
       await logActivity({ action: 'vehicle-archived', entityType: 'vehicle', entityId: id })
@@ -696,8 +692,7 @@ export function useAssignEmployeeToTeam() {
   return useMutation({
     mutationFn: async ({ employeeId, teamId }: { employeeId: string; teamId: string }) => {
       const supabase = createClient()
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      const { error } = await supabase.from('employees').update({ team_id: teamId, status: 'active' } as any).eq('id', employeeId)
+      const { error } = await supabase.from('employees').update({ team_id: teamId, status: 'active' } as DBUpdate<'employees'>).eq('id', employeeId)
       if (error) throw error
       await logActivity({ action: 'employee-assigned', entityType: 'employee', entityId: employeeId, afterData: { team_id: teamId } })
     },
@@ -715,8 +710,7 @@ export function useUnassignEmployee() {
   return useMutation({
     mutationFn: async ({ employeeId, fromTeamId }: { employeeId: string; fromTeamId: string }) => {
       const supabase = createClient()
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      const { error } = await supabase.from('employees').update({ team_id: null, status: 'unassigned' } as any).eq('id', employeeId)
+      const { error } = await supabase.from('employees').update({ team_id: null, status: 'unassigned' } as DBUpdate<'employees'>).eq('id', employeeId)
       if (error) throw error
       await logActivity({ action: 'employee-removed', entityType: 'employee', entityId: employeeId, beforeData: { team_id: fromTeamId } })
     },
@@ -734,8 +728,7 @@ export function useSetTeamLeader() {
   return useMutation({
     // logActivity is done inside RPC assign_team_leader
     mutationFn: async ({ teamId, employeeId }: { teamId: string; employeeId: string }) => {
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      const db = createClient() as any
+      const db = createClient()
       const { error } = await db.rpc('assign_team_leader', {
         p_team_id:     teamId,
         p_employee_id: employeeId,
@@ -759,10 +752,9 @@ export function useRemoveTeamLeader() {
       const { data: team, error: fetchError } = await supabase
         .from('teams').select('leader_id').eq('id', teamId).single()
       if (fetchError) throw fetchError
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      const { error } = await supabase.from('teams').update({ leader_id: null } as any).eq('id', teamId)
+      const { error } = await supabase.from('teams').update({ leader_id: null } as DBUpdate<'teams'>).eq('id', teamId)
       if (error) throw error
-      await logActivity({ action: 'leader-removed', entityType: 'team', entityId: teamId, beforeData: { leader_id: (team as any).leader_id } })
+      await logActivity({ action: 'leader-removed', entityType: 'team', entityId: teamId, beforeData: { leader_id: team.leader_id } })
     },
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: queryKeys.teams.all })
@@ -777,8 +769,7 @@ export function useAssignVehicleToTeam() {
   return useMutation({
     mutationFn: async ({ vehicleId, teamId }: { vehicleId: string; teamId: string }) => {
       const supabase = createClient()
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      const { error } = await supabase.from('vehicles').update({ team_id: teamId } as any).eq('id', vehicleId)
+      const { error } = await supabase.from('vehicles').update({ team_id: teamId } as DBUpdate<'vehicles'>).eq('id', vehicleId)
       if (error) throw error
       await logActivity({ action: 'vehicle-assigned', entityType: 'vehicle', entityId: vehicleId, afterData: { team_id: teamId } })
     },
@@ -838,8 +829,7 @@ export function useUnassignVehicle() {
   return useMutation({
     mutationFn: async ({ vehicleId, fromTeamId }: { vehicleId: string; fromTeamId: string }) => {
       const supabase = createClient()
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      const { error } = await supabase.from('vehicles').update({ team_id: null } as any).eq('id', vehicleId)
+      const { error } = await supabase.from('vehicles').update({ team_id: null } as DBUpdate<'vehicles'>).eq('id', vehicleId)
       if (error) throw error
       await logActivity({ action: 'vehicle-removed', entityType: 'vehicle', entityId: vehicleId, beforeData: { team_id: fromTeamId } })
     },
@@ -887,8 +877,7 @@ export function useSetEmployeeStatus() {
       const supabase = createClient()
       const patch: Record<string, unknown> = { status }
       if (status === 'unassigned' || status === 'vacation' || status === 'archived') patch.team_id = null
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      const { error } = await supabase.from('employees').update(patch as any).eq('id', employeeId)
+      const { error } = await supabase.from('employees').update(patch as DBUpdate<'employees'>).eq('id', employeeId)
       if (error) throw error
       await logActivity({ action: 'employee-status-changed', entityType: 'employee', entityId: employeeId, afterData: { status } })
     },
@@ -942,8 +931,7 @@ export function useDeleteSchedule() {
   const qc = useQueryClient()
   return useMutation({
     mutationFn: async (id: string) => {
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      const supabase = createClient() as any
+      const supabase = createClient()
 
       // 1. Find all teams that have an assignment to this schedule
       const { data: affected } = await supabase
@@ -984,8 +972,7 @@ export function useAttachSchedule() {
   return useMutation({
     mutationFn: async (input: { teamId: string; scheduleId: string; startDate: string; endDate?: string | null }) => {
       const supabase = createClient()
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      const db = createClient() as any
+      const db = createClient()
       const { data, error } = await supabase.from('team_schedule_assignments').insert({
         team_id:     input.teamId,
         schedule_id: input.scheduleId,
@@ -1012,8 +999,7 @@ export function useDetachSchedule() {
   return useMutation({
     mutationFn: async ({ assignmentId, teamId }: { assignmentId: string; teamId: string }) => {
       const supabase = createClient()
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      const db = createClient() as any
+      const db = createClient()
       const { error } = await supabase.from('team_schedule_assignments').delete().eq('id', assignmentId)
       if (error) throw error
       const { error: syncError } = await db.rpc('sync_team_active_schedule', { p_team_id: teamId })

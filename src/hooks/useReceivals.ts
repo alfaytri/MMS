@@ -72,7 +72,7 @@ export function useReceivals(filters?: { status?: ReceivalStatus | '' }) {
     queryKey: queryKeys.receivals.list(filters),
     queryFn: async () => {
       const supabase = createClient()
-      let q = (supabase as any)
+      let q = supabase
         .from('receivals')
         .select(`
           id,receival_number,po_id,warehouse_id,date,status,notes,received_by_name,created_at,
@@ -100,14 +100,14 @@ export function useReceival(id: string | null) {
     enabled: !!id,
     queryFn: async () => {
       const supabase = createClient()
-      const { data, error } = await (supabase as any)
+      const { data, error } = await supabase
         .from('receivals')
         .select(`
           id,receival_number,po_id,warehouse_id,date,status,notes,received_by_name,created_at,
           receival_items(id,receival_id,po_line_item_id,item_name,sku,qty_received,unit_cost,is_free,brand_variant_id),
           purchase_orders!receivals_po_id_fkey(po_number,supplier_name,po_line_items(id,qty))
         `)
-        .eq('id', id)
+        .eq('id', id!)
         .single()
       if (error) throw error
       // Attach ordered_qty from PO line items
@@ -132,24 +132,24 @@ export function useCreateReceival() {
       // Resolve user display name and count in parallel (count has no user dependency)
       const [{ data: { user } }, { count }] = await Promise.all([
         supabase.auth.getUser(),
-        (supabase as any).from('receivals').select('*', { count: 'exact', head: true }),
+        supabase.from('receivals').select('*', { count: 'exact', head: true }),
       ])
       let receivedByName: string | null = null
       if (user) {
-        const { data: profile } = await (supabase as any)
+        const { data: profile } = await supabase
           .from('profiles').select('full_name').eq('auth_user_id', user.id).maybeSingle()
         receivedByName = profile?.full_name ?? user.email ?? null
       }
       const receival_number = `RCV-${String((count ?? 0) + 1).padStart(5, '0')}`
 
       // Single atomic RPC — insert + FIFO + stock_level all in one transaction
-      const { data, error } = await (supabase as any).rpc('create_and_approve_receival', {
+      const { data, error } = await supabase.rpc('create_and_approve_receival', {
         p_po_id:            payload.po_id,
         p_warehouse_id:     payload.warehouse_id,
         p_date:             payload.date,
-        p_received_by_name: receivedByName,
+        p_received_by_name: receivedByName ?? '',
         p_receival_number:  receival_number,
-        p_notes:            payload.notes || null,
+        p_notes:            payload.notes || '',
         p_items:            payload.items.map(it => ({
           po_line_item_id:  it.po_line_item_id,
           brand_variant_id: it.brand_variant_id,
@@ -197,10 +197,10 @@ export function useReceivalEditRequests(receival_id: string | null) {
     enabled: !!receival_id,
     queryFn: async () => {
       const supabase = createClient()
-      const { data, error } = await (supabase as any)
+      const { data, error } = await supabase
         .from('receival_edit_requests')
         .select('*')
-        .eq('receival_id', receival_id)
+        .eq('receival_id', receival_id!)
         .order('created_at', { ascending: false })
       if (error) throw error
       return (data ?? []) as ReceivalEditRequest[]
@@ -214,20 +214,20 @@ export function useRequestReceivalEdit() {
     mutationFn: async ({ receival_id, reason }: { receival_id: string; reason: string }) => {
       const supabase = createClient()
       const { data: { user } } = await supabase.auth.getUser()
-      const { data: profile } = await (supabase as any)
-        .from('profiles').select('id').eq('auth_user_id', user?.id).maybeSingle()
+      const { data: profile } = await supabase
+        .from('profiles').select('id').eq('auth_user_id', user?.id ?? '').maybeSingle()
       if (!profile?.id) throw new Error('Profile not found')
 
-      const { data, error } = await (supabase as any)
+      const { data, error } = await supabase
         .from('receival_edit_requests')
         .insert({ receival_id, requested_by: profile.id, reason, status: 'pending' })
         .select().single()
       if (error) throw error
 
       // Notify all admin profiles
-      const { data: admins } = await (supabase as any)
-        .from('profiles').select('id').eq('role', 'admin')
-      const notifications = (admins ?? []).map((a: any) => ({
+      const { data: admins } = await supabase
+        .from('profiles').select('id').eq('user_type', 'internal')
+      const notifications = (admins ?? []).map((a: { id: string }) => ({
         user_id: a.id,
         title: 'Receival Edit Requested',
         body: `A receival edit was requested: ${reason}`,
@@ -235,7 +235,7 @@ export function useRequestReceivalEdit() {
         reference_id: data.id,
       }))
       if (notifications.length > 0) {
-        await (supabase as any).from('notifications').insert(notifications)
+        await supabase.from('notifications').insert(notifications as unknown as import('@/types/database.types').DBInsert<'notifications'>[])
       }
 
       return data as ReceivalEditRequest
@@ -254,8 +254,8 @@ export function useApproveReceivalEdit() {
     }: { request_id: string; action: 'approved' | 'rejected'; rejection_note?: string }) => {
       const supabase = createClient()
       const { data: { user } } = await supabase.auth.getUser()
-      const { data: profile } = await (supabase as any)
-        .from('profiles').select('id').eq('auth_user_id', user?.id).maybeSingle()
+      const { data: profile } = await supabase
+        .from('profiles').select('id').eq('auth_user_id', user?.id ?? '').maybeSingle()
 
       const patch: Record<string, unknown> = {
         status: action,
@@ -270,16 +270,16 @@ export function useApproveReceivalEdit() {
         patch.rejection_note = rejection_note
       }
 
-      const { data, error } = await (supabase as any)
+      const { data, error } = await supabase
         .from('receival_edit_requests')
-        .update(patch)
+        .update(patch as import('@/types/database.types').DBUpdate<'receival_edit_requests'>)
         .eq('id', request_id)
         .select('*, receival_id, requested_by').single()
       if (error) throw error
 
       // Notify the requestor (requested_by comes from the update select above)
       if (data?.requested_by) {
-        await (supabase as any).from('notifications').insert({
+        await supabase.from('notifications').insert({
           user_id: data.requested_by,
           title: action === 'approved' ? 'Edit Request Approved' : 'Edit Request Rejected',
           body: action === 'approved'
@@ -287,7 +287,7 @@ export function useApproveReceivalEdit() {
             : `Your receival edit was rejected. ${rejection_note ?? ''}`,
           type: 'receival_edit_response',
           reference_id: request_id,
-        })
+        } as unknown as import('@/types/database.types').DBInsert<'notifications'>)
       }
 
       return data as ReceivalEditRequest
@@ -310,7 +310,7 @@ export function useSaveReceivalEdit() {
       items: { receival_item_id: string; new_qty: number; new_unit_cost: number }[]
     }) => {
       const supabase = createClient()
-      const { data, error } = await (supabase as any)
+      const { data, error } = await supabase
         .rpc('apply_receival_edit', { p_edit_request_id: edit_request_id, p_items: items })
       if (error) throw error
       return data as { ok: boolean }
@@ -342,7 +342,7 @@ export function useReceivalsForLcSelector({ search = '' }: { search?: string } =
     queryKey: queryKeys.receivals.lcSelector(search),
     queryFn: async () => {
       const supabase = createClient()
-      let q = (supabase as any)
+      let q = supabase
         .from('receivals')
         .select('id, receival_number, po_id, date, status, purchase_orders!receivals_po_id_fkey(po_number, supplier_name)')
         .order('date', { ascending: false })
@@ -383,12 +383,12 @@ export function useReceivalItemsWithFifo(receivalId: string | null) {
     queryFn: async () => {
       const supabase = createClient()
       const [{ data: items, error: iErr }, { data: layers, error: lErr }] = await Promise.all([
-        (supabase as any)
+        supabase
           .from('receival_items')
           .select('id, item_name, sku, qty_received, unit_cost, brand_variant_id')
           .eq('receival_id', receivalId!)
           .eq('is_free', false),
-        (supabase as any)
+        supabase
           .from('fifo_cost_layers')
           .select('brand_variant_id, remaining_qty')
           .eq('receival_id', receivalId!)

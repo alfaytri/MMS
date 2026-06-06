@@ -106,7 +106,7 @@ export async function POST(request: Request) {
   }
 
   // Insert batch
-  const { data: batch, error: batchErr } = await (supabase as any)
+  const { data: batch, error: batchErr } = await supabase
     .from('tl_payment_batches')
     .insert({
       customer_phone,
@@ -128,7 +128,7 @@ export async function POST(request: Request) {
     amount: Number(inv.total_amount ?? 0),
   }))
 
-  const { error: itemsErr } = await (supabase as any)
+  const { error: itemsErr } = await supabase
     .from('tl_payment_batch_items')
     .insert(batchItems)
 
@@ -172,7 +172,7 @@ export async function POST(request: Request) {
   }
 
   // Update batch with Dibsy details
-  const { error: updateErr } = await (supabase as any)
+  const { error: updateErr } = await supabase
     .from('tl_payment_batches')
     .update({
       dibsy_payment_id: payment.id,

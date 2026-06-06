@@ -22,7 +22,7 @@ export function useTeamOvertimeReport(year: number) {
     queryKey: queryKeys.teams.overtimeReport(year),
     queryFn: async (): Promise<TeamOvertimeRow[]> => {
       const supabase = createClient()
-      const { data, error } = await (supabase as any)
+      const { data, error } = await supabase
         .from('v_team_monthly_overtime')
         .select('*')
         .gte('month', `${year}-01-01`)

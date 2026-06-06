@@ -134,6 +134,7 @@ export type Database = {
       }
       approval_chains: {
         Row: {
+          archived_at: string | null
           created_at: string | null
           division_id: string | null
           id: string
@@ -141,6 +142,7 @@ export type Database = {
           name: string
         }
         Insert: {
+          archived_at?: string | null
           created_at?: string | null
           division_id?: string | null
           id?: string
@@ -148,6 +150,7 @@ export type Database = {
           name: string
         }
         Update: {
+          archived_at?: string | null
           created_at?: string | null
           division_id?: string | null
           id?: string
@@ -716,18 +719,18 @@ export type Database = {
           condition: string | null
           condition_factor: number
           contract_id: string
+          contract_type: string | null
           created_at: string
+          discount: number | null
+          discount_scope: string | null
           divisions: string[] | null
           frequency: string
           id: string
           is_general: boolean
-          contract_type: string
-          item_kind: string
-          pricing_mode: string
-          discount: number
-          discount_scope: string
-          price_unit: string | null
+          item_kind: string | null
           note: string | null
+          price_unit: string | null
+          pricing_mode: string | null
           quantity: number
           reliability_factor: number
           service_id: string | null
@@ -745,18 +748,18 @@ export type Database = {
           condition?: string | null
           condition_factor?: number
           contract_id: string
+          contract_type?: string | null
           created_at?: string
+          discount?: number | null
+          discount_scope?: string | null
           divisions?: string[] | null
           frequency?: string
           id?: string
           is_general?: boolean
-          contract_type?: string
-          item_kind?: string
-          pricing_mode?: string
-          discount?: number
-          discount_scope?: string
-          price_unit?: string | null
+          item_kind?: string | null
           note?: string | null
+          price_unit?: string | null
+          pricing_mode?: string | null
           quantity?: number
           reliability_factor?: number
           service_id?: string | null
@@ -774,18 +777,18 @@ export type Database = {
           condition?: string | null
           condition_factor?: number
           contract_id?: string
+          contract_type?: string | null
           created_at?: string
+          discount?: number | null
+          discount_scope?: string | null
           divisions?: string[] | null
           frequency?: string
           id?: string
           is_general?: boolean
-          contract_type?: string
-          item_kind?: string
-          pricing_mode?: string
-          discount?: number
-          discount_scope?: string
-          price_unit?: string | null
+          item_kind?: string | null
           note?: string | null
+          price_unit?: string | null
+          pricing_mode?: string | null
           quantity?: number
           reliability_factor?: number
           service_id?: string | null
@@ -883,6 +886,7 @@ export type Database = {
       }
       contracts: {
         Row: {
+          address: string | null
           agent_name: string | null
           approved_at: string | null
           approved_by: string | null
@@ -891,10 +895,11 @@ export type Database = {
           cancel_reason: string | null
           cancelled_date: string | null
           completed_visits: number | null
-          contract_id: string
+          contract_id: string | null
           created_at: string | null
           created_by: string | null
-          customer_id: string
+          customer_id: string | null
+          customer_name: string | null
           discount: number
           divisions: string[] | null
           end_date: string
@@ -907,6 +912,7 @@ export type Database = {
           payment_frequency: string
           payment_mode: string
           payment_schedule: string | null
+          phone: string | null
           phone_id: string | null
           quotation_number: string | null
           rejected_at: string | null
@@ -928,6 +934,7 @@ export type Database = {
           updated_at: string | null
         }
         Insert: {
+          address?: string | null
           agent_name?: string | null
           approved_at?: string | null
           approved_by?: string | null
@@ -936,10 +943,11 @@ export type Database = {
           cancel_reason?: string | null
           cancelled_date?: string | null
           completed_visits?: number | null
-          contract_id: string
+          contract_id?: string | null
           created_at?: string | null
           created_by?: string | null
-          customer_id: string
+          customer_id?: string | null
+          customer_name?: string | null
           discount?: number
           divisions?: string[] | null
           end_date: string
@@ -952,6 +960,7 @@ export type Database = {
           payment_frequency?: string
           payment_mode?: string
           payment_schedule?: string | null
+          phone?: string | null
           phone_id?: string | null
           quotation_number?: string | null
           rejected_at?: string | null
@@ -961,7 +970,7 @@ export type Database = {
           service_customer_id?: string | null
           services_summary?: string | null
           signed_doc_url?: string | null
-          site_name: string
+          site_name?: string
           source_type?: string
           start_date: string
           status?: Database["public"]["Enums"]["contract_status"] | null
@@ -973,6 +982,7 @@ export type Database = {
           updated_at?: string | null
         }
         Update: {
+          address?: string | null
           agent_name?: string | null
           approved_at?: string | null
           approved_by?: string | null
@@ -981,10 +991,11 @@ export type Database = {
           cancel_reason?: string | null
           cancelled_date?: string | null
           completed_visits?: number | null
-          contract_id?: string
+          contract_id?: string | null
           created_at?: string | null
           created_by?: string | null
-          customer_id?: string
+          customer_id?: string | null
+          customer_name?: string | null
           discount?: number
           divisions?: string[] | null
           end_date?: string
@@ -997,6 +1008,7 @@ export type Database = {
           payment_frequency?: string
           payment_mode?: string
           payment_schedule?: string | null
+          phone?: string | null
           phone_id?: string | null
           quotation_number?: string | null
           rejected_at?: string | null
@@ -8657,6 +8669,7 @@ export type Database = {
           waze_link: string
         }[]
       }
+      is_contract_visible: { Args: { p_contract_id: string }; Returns: boolean }
       is_division_visible: {
         Args: { row_division_id: string }
         Returns: boolean

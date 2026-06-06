@@ -13,7 +13,7 @@ import { OrderDetailDialog } from '@/components/orders/OrderDetailDialog'
 import { SiteVisitDetailSheet } from '@/components/orders/SiteVisitDetailSheet'
 import { useOrders, useOrderCounts } from '@/hooks/useOrders'
 import { useSiteVisits } from '@/hooks/useSiteVisits'
-import { useTeams } from '@/hooks/useTeams'
+import { useTeams, type TeamFull } from '@/hooks/useTeams'
 import type { OrdersFilter } from '@/types/orders'
 import { cn } from '@/lib/utils'
 
@@ -106,7 +106,7 @@ export default function OrdersPage() {
     observer.observe(sentinelRef.current)
     return () => observer.disconnect()
   }, [ordersQuery.hasNextPage, ordersQuery.isFetchingNextPage, ordersQuery.fetchNextPage, siteVisitsQuery.hasNextPage, siteVisitsQuery.isFetchingNextPage, siteVisitsQuery.fetchNextPage])
-  const teams = teamsRaw as unknown as Array<{ id: string; name_en: string | null; name: string }>
+  const teams: TeamFull[] = teamsRaw
 
   function toggleStatus(val: string) {
     setSearch((s) => ({

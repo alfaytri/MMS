@@ -40,7 +40,7 @@ export function usePurchaseReturnsByPO(poId: string | null) {
     enabled: !!poId,
     queryFn: async () => {
       const supabase = createClient()
-      const { data, error } = await (supabase as any)
+      const { data, error } = await supabase
         .from('returns')
         .select('*')
         .eq('source_type', 'purchase_order')
@@ -51,19 +51,22 @@ export function usePurchaseReturnsByPO(poId: string | null) {
       // Fetch linked debit notes separately to avoid PostgREST ambiguity
       // (both returns.credit_note_id→credit_notes and credit_notes.source_return_id→returns exist)
       const rows = data ?? []
-      const noteIds = rows.map((r: any) => r.credit_note_id).filter(Boolean)
-      let noteMap: Record<string, any> = {}
+      const noteIds = rows.map((r) => (r as Record<string, unknown>).credit_note_id as string | null).filter(Boolean) as string[]
+      let noteMap: Record<string, Record<string, unknown>> = {}
       if (noteIds.length > 0) {
-        const { data: notes } = await (supabase as any)
+        const { data: notes } = await supabase
           .from('credit_notes')
           .select('*')
           .in('id', noteIds)
         for (const n of (notes ?? [])) noteMap[n.id] = n
       }
-      return rows.map((r: any) => ({
-        ...r,
-        debit_note: r.credit_note_id ? (noteMap[r.credit_note_id] ?? null) : null,
-      })) as POReturn[]
+      return rows.map((r) => {
+        const row = r as Record<string, unknown>
+        return {
+          ...r,
+          debit_note: row.credit_note_id ? (noteMap[row.credit_note_id as string] ?? null) : null,
+        }
+      }) as unknown as POReturn[]
     },
     staleTime: 30 * 1000,
   })
@@ -74,20 +77,20 @@ export function usePurchaseReturns(filters: { search?: string; status?: string }
     queryKey: queryKeys.purchaseReturns.list(filters),
     queryFn: async () => {
       const supabase = createClient()
-      let q = (supabase as any)
+      let q = supabase
         .from('returns')
         .select('*')
         .eq('source_type', 'purchase_order')
         .is('deleted_at', null)
         .order('created_at', { ascending: false })
-      if (filters.status) q = q.eq('status', filters.status)
+      if (filters.status) q = q.eq('status', filters.status as 'pending' | 'dispatched' | 'supplier_confirmed' | 'closed' | 'cancelled' | 'received' | 'restocked')
       if (filters.search) {
         const safe = filters.search.replace(/%/g, '\\%')
         q = q.ilike('return_number', `%${safe}%`)
       }
       const { data, error } = await q
       if (error) throw error
-      return data as POReturn[]
+      return (data ?? []) as unknown as POReturn[]
     },
     staleTime: 30 * 1000,
   })
@@ -105,13 +108,13 @@ export function useCreatePurchaseReturn() {
       notes: string | null
     }) => {
       const supabase = createClient()
-      const { count } = await (supabase as any)
+      const { count } = await supabase
         .from('returns')
         .select('*', { count: 'exact', head: true })
         .eq('source_type', 'purchase_order')
       const return_number = `PR-${String((count ?? 0) + 1).padStart(5, '0')}`
 
-      const { data, error } = await (supabase as any)
+      const { data, error } = await supabase
         .from('returns')
         .insert({
           return_number,
@@ -127,7 +130,7 @@ export function useCreatePurchaseReturn() {
         .select()
         .single()
       if (error) throw error
-      return data as POReturn
+      return data as unknown as POReturn
     },
     onSuccess: (data) => {
       queryClient.invalidateQueries({ queryKey: queryKeys.purchaseReturns.all })
@@ -146,7 +149,7 @@ export function useCreatePurchaseReturn() {
 }
 
 async function createDebitNoteForReturn(
-  supabase: any,
+  supabase: ReturnType<typeof createClient>,
   returnId: string,
   ret: { source_id: string; return_number: string; items: POReturnItem[]; reason: string }
 ) {
@@ -156,12 +159,13 @@ async function createDebitNoteForReturn(
     .select('supplier_name, total_qar, po_number, po_line_items(*)')
     .eq('id', ret.source_id)
     .single()
-  const poLineArr: any[] = po?.po_line_items ?? []
+  type PoLineRow = { item_name: string; sku: string | null; brand_variant_id: string | null; unit_price: number; qty: number; total_price?: number }
+  const poLineArr = (po?.po_line_items ?? []) as PoLineRow[]
 
   // 2. Build returned lines — resolve unit price from PO line items
   const returnedLines = ret.items.map((item: POReturnItem) => {
     const poLine = poLineArr.find(
-      (l: any) =>
+      (l) =>
         (item.brand_variant_id && l.brand_variant_id === item.brand_variant_id) ||
         (item.sku && l.sku === item.sku) ||
         l.item_name === item.item_name
@@ -179,7 +183,7 @@ async function createDebitNoteForReturn(
   })
 
   // 3. Build original lines from PO line items
-  const originalLines = poLineArr.map((l: any) => ({
+  const originalLines = poLineArr.map((l) => ({
     item_name:  l.item_name,
     sku:        l.sku ?? null,
     qty:        l.qty,
@@ -187,7 +191,7 @@ async function createDebitNoteForReturn(
     total:      l.total_price ?? l.qty * l.unit_price,
   }))
 
-  const dnTotal = returnedLines.reduce((s: number, l: any) => s + l.total, 0)
+  const dnTotal = returnedLines.reduce((s, l) => s + l.total, 0)
   const originalTotal = po?.total_qar ?? 0
   const newTotal = originalTotal - dnTotal
 
@@ -236,7 +240,7 @@ export function useUpdatePOReturnStatus() {
     }) => {
       const supabase = createClient()
 
-      const { data: ret, error: fetchErr } = await (supabase as any)
+      const { data: ret, error: fetchErr } = await supabase
         .from('returns')
         .select('return_number, dispatched_at, source_id, items, reason')
         .eq('id', id)
@@ -245,21 +249,21 @@ export function useUpdatePOReturnStatus() {
 
       if (status === 'dispatched') {
         // Update status first (RPC validates status = 'dispatched')
-        const { error } = await (supabase as any)
+        const { error } = await supabase
           .from('returns').update({ status }).eq('id', id)
         if (error) throw error
         // Call RPC — revert status if it fails. The RPC runs atomically in PG
         // so dispatched_at is either NULL (failure) or set (success); we only
         // need to revert status.
-        const { error: rpcErr } = await (supabase as any)
+        const { error: rpcErr } = await supabase
           .rpc('rpc_process_po_return_dispatch', { p_return_id: id })
         if (rpcErr) {
-          await (supabase as any)
+          await supabase
             .from('returns').update({ status: 'pending' }).eq('id', id)
           throw rpcErr
         }
         // Auto-create debit note
-        await createDebitNoteForReturn(supabase as any, id, {
+        await createDebitNoteForReturn(supabase, id, {
           source_id:     ret.source_id,
           return_number: ret.return_number,
           items:         ret.items as POReturnItem[],
@@ -270,14 +274,14 @@ export function useUpdatePOReturnStatus() {
         // Assumes dispatched_at IS NOT NULL whenever status='dispatched'; any
         // record missing dispatched_at with status='dispatched' would skip the
         // RPC and leave inventory unreversed (data-corruption scenario).
-        const { error: rpcErr } = await (supabase as any)
+        const { error: rpcErr } = await supabase
           .rpc('rpc_cancel_po_return_dispatch', { p_return_id: id })
         if (rpcErr) throw rpcErr
-        const { error } = await (supabase as any)
+        const { error } = await supabase
           .from('returns').update({ status }).eq('id', id)
         if (error) throw error
       } else {
-        const { error } = await (supabase as any)
+        const { error } = await supabase
           .from('returns').update({ status }).eq('id', id)
         if (error) throw error
       }

@@ -17,10 +17,10 @@ export function useDateAvailability(
   return useQuery<DateAvailability[]>({
     queryKey: queryKeys.calendar.dateAvailability(dates, fromTime, toTime),
     queryFn: async () => {
-      const { data, error } = await (supabase as any).rpc('get_date_team_availability', {
+      const { data, error } = await supabase.rpc('get_date_team_availability', {
         p_dates: dates,
-        p_from_time: fromTime,
-        p_to_time: toTime,
+        p_from_time: fromTime ?? '',
+        p_to_time: toTime ?? '',
       })
       if (error) throw error
       return (data ?? []) as DateAvailability[]

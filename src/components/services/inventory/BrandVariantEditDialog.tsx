@@ -70,13 +70,11 @@ export function BrandVariantEditDialog({ open, onOpenChange, itemId, variant }: 
 
   useEffect(() => {
     if (open) {
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      const v = variant as any
-      setBrand(v?.brand ?? '')
-      setCode(v?.code ?? '')
-      setSellingPrice(v?.selling_price != null ? String(v.selling_price) : '')
-      setMarginPercent(v?.margin_percent != null ? String(v.margin_percent) : '0')
-      setReorderPoint(v ? String(v.reorder_point ?? 0) : '0')
+      setBrand(variant?.brand ?? '')
+      setCode(variant?.code ?? '')
+      setSellingPrice(variant?.selling_price != null ? String(variant.selling_price) : '')
+      setMarginPercent(variant?.margin_percent != null ? String(variant.margin_percent) : '0')
+      setReorderPoint(variant ? String(variant.reorder_point ?? 0) : '0')
       setAvgCost(variant?.average_cost != null ? String(variant.average_cost) : '')
     }
   }, [open, variant])
@@ -123,8 +121,7 @@ export function BrandVariantEditDialog({ open, onOpenChange, itemId, variant }: 
     setAllocating(true)
     try {
       for (const { warehouseId, targetQty } of changed) {
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        const { error } = await (supabase as any).rpc('allocate_warehouse_stock', {
+          const { error } = await supabase.rpc('allocate_warehouse_stock', {
           p_brand_variant_id: variantId,
           p_warehouse_id: warehouseId,
           p_target_qty: targetQty,
@@ -181,8 +178,7 @@ export function BrandVariantEditDialog({ open, onOpenChange, itemId, variant }: 
         { item_id: itemId, ...payload },
         {
           onSuccess: async (data) => {
-            // eslint-disable-next-line @typescript-eslint/no-explicit-any
-            const newId = (data as any)?.id
+            const newId = (data as { id?: string } | undefined)?.id
             try {
               if (newId) await applyAllocations(newId, unitCost)
               toast.success('Variant added')

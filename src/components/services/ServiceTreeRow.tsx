@@ -226,10 +226,10 @@ export function ServiceTreeRow({
               isBranch ? 'font-semibold' : 'font-medium',
             )}>
               {service.name_en}
-              {(service as any).has_pending_change && (
+              {service.has_pending_change && (
                 <span className="h-2 w-2 rounded-full bg-orange-500 shrink-0" title="Change pending approval" />
               )}
-              {!isExpanded && hasDescendantPending && !(service as any).has_pending_change && (
+              {!isExpanded && hasDescendantPending && !service.has_pending_change && (
                 <span className="h-2 w-2 rounded-full border border-orange-500 bg-orange-500/30 shrink-0" title="Child service has pending change" />
               )}
             </div>

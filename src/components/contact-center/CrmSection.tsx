@@ -121,11 +121,12 @@ export function CrmSection({ customerData, onCustomerResolved, pendingPhone }: P
     if (!canonical) { toast.error('Invalid phone number'); return }
     const supabase = (await import('@/lib/supabase/client')).createClient()
     try {
-      const { data, error } = await (supabase as any).rpc('create_service_customer', {
-        p_name: createName.trim(), p_phone: canonical, p_link_phone: null,
+      const { data, error } = await supabase.rpc('create_service_customer', {
+        p_name: createName.trim(), p_phone: canonical, p_link_phone: undefined,
       })
       if (error) throw error
-      onCustomerResolved?.(data.customer_id, data.customer_name, canonical)
+      const result = data as { customer_id: string; customer_name: string } | null
+      onCustomerResolved?.(result?.customer_id ?? '', result?.customer_name ?? '', canonical)
       toast.success('Customer created')
     } catch {
       toast.error('Failed to create customer')

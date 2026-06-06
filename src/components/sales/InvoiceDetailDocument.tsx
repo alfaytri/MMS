@@ -85,8 +85,8 @@ export function InvoiceDetailDocument({
             {division && (
               <p className="text-sm font-medium text-muted-foreground mt-0.5">{division.name}</p>
             )}
-            {(division as any)?.address_en && (
-              <p className="text-sm text-muted-foreground mt-1 whitespace-pre-line">{(division as any).address_en}</p>
+            {division?.address_en && (
+              <p className="text-sm text-muted-foreground mt-1 whitespace-pre-line">{division.address_en}</p>
             )}
           </div>
           <div className="text-right shrink-0">

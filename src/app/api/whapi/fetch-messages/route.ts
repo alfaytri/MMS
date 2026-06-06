@@ -90,7 +90,7 @@ export async function GET(req: NextRequest) {
     })
 
   if (toInsert.length > 0) {
-    await (supabase.from('chat_messages') as any)
+    await supabase.from('chat_messages')
       .upsert(toInsert, { onConflict: 'external_id', ignoreDuplicates: false })
   }
 

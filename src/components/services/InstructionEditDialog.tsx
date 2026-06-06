@@ -78,15 +78,12 @@ export function InstructionEditDialog({
       const payload = {
         name_en: values.name_en,
         name_ar: values.name_ar || null,
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        type: values.type as any,
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        content_type: values.content_type as any,
+        type: values.type,
+        content_type: values.content_type,
         content_preview: values.content_preview || null,
         full_content: contentType === 'text' ? values.full_content || null : null,
         pdf_file_name: contentType === 'pdf' ? values.pdf_file_name || null : null,
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        status: values.status as any,
+        status: values.status,
       }
       if (mode === 'new') {
         await createInstruction.mutateAsync(payload)

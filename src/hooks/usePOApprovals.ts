@@ -10,7 +10,7 @@ async function getMyIdentity() {
   const supabase = createClient()
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) return null
-  const { data: profile } = await (supabase as any)
+  const { data: profile } = await supabase
     .from('profiles').select('id, division_id, full_name').eq('auth_user_id', user.id).maybeSingle()
   return {
     email: user.email ?? '',
@@ -29,7 +29,7 @@ export function usePendingApprovals() {
       const supabase = createClient()
 
       // Get current user's approval roles
-      const { data: myRoles } = await (supabase as any)
+      const { data: myRoles } = await supabase
         .from('approval_role_assignments')
         .select('role')
         .eq('profile_id', me.profileId)
@@ -37,7 +37,7 @@ export function usePendingApprovals() {
       const roles = (myRoles ?? []).map((r: { role: string }) => r.role) as string[]
       if (roles.length === 0) return [] as PurchaseOrder[]
 
-      const { data, error } = await (supabase as any)
+      const { data, error } = await supabase
         .from('purchase_orders')
         .select('*, po_line_items(*), po_approvals(*)')
         .eq('status', 'pending_approval')
@@ -72,7 +72,7 @@ export function useCompletedApprovals() {
     queryKey: queryKeys.approvals.poApprovalsCompleted,
     queryFn: async () => {
       const supabase = createClient()
-      const { data, error } = await (supabase as any)
+      const { data, error } = await supabase
         .from('purchase_orders')
         .select('*, po_approvals(*)')
         .in('status', ['approved', 'partially_received', 'received', 'cancelled'])
@@ -103,10 +103,10 @@ export function useApproveStep() {
       if (!me) throw new Error('Not authenticated')
 
       // Four-eyes check: has this user already approved a different role in the same tier+iteration?
-      const { data: thisStep, error: stepFetchErr } = await (supabase as any)
+      const { data: thisStep, error: stepFetchErr } = await supabase
         .from('po_approvals').select('tier_rank, iteration, role').eq('id', stepId).single()
       if (stepFetchErr || !thisStep) throw new Error('Approval step not found.')
-      const { data: sameUserApprovals } = await (supabase as any)
+      const { data: sameUserApprovals } = await supabase
         .from('po_approvals')
         .select('id')
         .eq('po_id', poId)
@@ -120,7 +120,7 @@ export function useApproveStep() {
       }
 
       // Approve the step
-      const { error: stepErr } = await (supabase as any)
+      const { error: stepErr } = await supabase
         .from('po_approvals').update({
           status: 'approved',
           approved_by: me.email,
@@ -139,7 +139,7 @@ export function useApproveStep() {
       })
 
       // Ghost notification cleanup
-      await (supabase as any)
+      await supabase
         .from('notifications')
         .update({ read_at: new Date().toISOString() })
         .eq('related_id', poId)
@@ -147,15 +147,15 @@ export function useApproveStep() {
         .is('read_at', null)
 
       // Advance state machine (Postgres function handles next tier / PO approval)
-      const { error: rpcErr } = await (supabase as any).rpc('advance_po_approval_tier', { p_po_id: poId })
+      const { error: rpcErr } = await supabase.rpc('advance_po_approval_tier', { p_po_id: poId })
       if (rpcErr) throw rpcErr
 
       // Check if PO is now fully approved — notify creator (created_by stores profiles.id)
-      const { data: poStatus } = await (supabase as any)
+      const { data: poStatus } = await supabase
         .from('purchase_orders').select('status, created_by, po_number').eq('id', poId).single()
       if (poStatus?.status === 'approved' && poStatus.created_by) {
         await savePoSnapshot(supabase, poId, 'approved')
-        await (supabase as any).from('notifications').insert({
+        await supabase.from('notifications').insert({
           profile_id: poStatus.created_by,
           type: 'po_approved',
           title: `PO ${poStatus.po_number} has been fully approved`,
@@ -192,7 +192,7 @@ export function useForceApproveStep() {
       const me = await getMyIdentity()
       if (!me?.profileId) throw new Error('Not authenticated')
 
-      const { data: roleRows } = await (supabase as any)
+      const { data: roleRows } = await supabase
         .from('approval_role_assignments')
         .select('role')
         .eq('profile_id', me.profileId)
@@ -201,9 +201,9 @@ export function useForceApproveStep() {
         .limit(1)
       if (!roleRows?.length) throw new Error('Only users with the Owner role can force-approve.')
 
-      const { data: forceStep } = await (supabase as any)
+      const { data: forceStep } = await supabase
         .from('po_approvals').select('role').eq('id', stepId).single()
-      const { error } = await (supabase as any)
+      const { error } = await supabase
         .from('po_approvals').update({
           status: 'approved',
           approved_by: me.email,
@@ -213,7 +213,7 @@ export function useForceApproveStep() {
         }).eq('id', stepId)
       if (error) throw error
 
-      const forceRoleName = ROLE_LABELS[forceStep?.role] ?? forceStep?.role ?? 'Approver'
+      const forceRoleName = ROLE_LABELS[forceStep?.role ?? ''] ?? forceStep?.role ?? 'Approver'
       const forcePerformer = me.fullName ?? me.email
       await logPOActivity({
         poId,
@@ -224,15 +224,15 @@ export function useForceApproveStep() {
       })
 
       // Ghost cleanup
-      await (supabase as any)
+      await supabase
         .from('notifications').update({ read_at: new Date().toISOString() })
         .eq('related_id', poId).eq('type', 'po_approval_requested').is('read_at', null)
 
       // Advance state machine
-      const { error: rpcErr } = await (supabase as any).rpc('advance_po_approval_tier', { p_po_id: poId })
+      const { error: rpcErr } = await supabase.rpc('advance_po_approval_tier', { p_po_id: poId })
       if (rpcErr) throw rpcErr
 
-      const { data: forcedPoStatus } = await (supabase as any)
+      const { data: forcedPoStatus } = await supabase
         .from('purchase_orders').select('status').eq('id', poId).single()
       if (forcedPoStatus?.status === 'approved') {
         await savePoSnapshot(supabase, poId, 'approved')
@@ -269,12 +269,12 @@ export function useRejectPO() {
       if (!me) throw new Error('Not authenticated')
 
       // Get current iteration
-      const { data: steps } = await (supabase as any)
+      const { data: steps } = await supabase
         .from('po_approvals').select('id, iteration').eq('po_id', poId).order('iteration', { ascending: false }).limit(1)
       const currentIteration = steps?.[0]?.iteration ?? 1
 
       // Reject this step
-      const { error: stepErr } = await (supabase as any)
+      const { error: stepErr } = await supabase
         .from('po_approvals').update({
           status: 'rejected',
           approved_by: me.email,
@@ -284,8 +284,8 @@ export function useRejectPO() {
       if (stepErr) throw stepErr
 
       // Cancel all other active pending steps in this iteration (not dormant future-tier steps)
-      await (supabase as any)
-        .from('po_approvals').update({ status: 'cancelled' })
+      await supabase
+        .from('po_approvals').update({ status: 'cancelled' as unknown as 'pending' | 'approved' | 'rejected' })
         .eq('po_id', poId)
         .eq('iteration', currentIteration)
         .eq('status', 'pending')
@@ -293,18 +293,18 @@ export function useRejectPO() {
         .neq('id', stepId)
 
       // Ghost notification cleanup
-      await (supabase as any)
+      await supabase
         .from('notifications').update({ read_at: new Date().toISOString() })
         .eq('related_id', poId).eq('type', 'po_approval_requested').is('read_at', null)
 
       const newStatus = mode === 'full_rejection' ? 'cancelled' : 'draft'
-      const { error: poErr } = await (supabase as any)
+      const { error: poErr } = await supabase
         .from('purchase_orders').update({ status: newStatus }).eq('id', poId)
       if (poErr) throw poErr
 
-      const { data: rejectedStep } = await (supabase as any)
+      const { data: rejectedStep } = await supabase
         .from('po_approvals').select('role').eq('id', stepId).single()
-      const rejectRoleName = ROLE_LABELS[rejectedStep?.role] ?? rejectedStep?.role ?? 'Approver'
+      const rejectRoleName = ROLE_LABELS[rejectedStep?.role ?? ''] ?? rejectedStep?.role ?? 'Approver'
       await logPOActivity({
         poId,
         action: mode === 'full_rejection'
@@ -316,10 +316,10 @@ export function useRejectPO() {
       })
 
       // Notify PO creator (created_by stores profiles.id)
-      const { data: po } = await (supabase as any)
+      const { data: po } = await supabase
         .from('purchase_orders').select('created_by, po_number').eq('id', poId).single()
       if (po?.created_by) {
-        await (supabase as any).from('notifications').insert({
+        await supabase.from('notifications').insert({
           profile_id: po.created_by,
           type: 'po_rejected',
           title: `PO ${po.po_number} was rejected by ${me.email}`,
@@ -344,7 +344,7 @@ export function useMyApprovalRoles() {
       const me = await getMyIdentity()
       if (!me?.profileId) return [] as string[]
       const supabase = createClient()
-      const { data } = await (supabase as any)
+      const { data } = await supabase
         .from('approval_role_assignments')
         .select('role')
         .eq('profile_id', me.profileId)

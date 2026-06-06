@@ -19,8 +19,8 @@ export function useServiceTree(
     queryKey: queryKeys.services.byType(treeType, divisionSlugs),
     queryFn: async () => {
       const supabase = createClient()
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      let query = (supabase.from('services') as any)
+      let query = supabase
+        .from('services')
         .select('*')
         .eq('tree_type', treeType)
         .order('sort_order', { ascending: true })
@@ -28,7 +28,7 @@ export function useServiceTree(
       if (divisionSlugs.length > 0) {
         query = query.overlaps('division', divisionSlugs)
       }
-      const { data, error } = await query
+      const { data, error } = await query.returns<Service[]>()
       if (error) throw error
       return data as Service[]
     },
@@ -80,12 +80,11 @@ export function useCreateService() {
       const { treeType, ...payload } = values
       const { data, error } = await supabase
         .from('services')
-        .insert(payload)
-        .select()
+        .insert(payload as ServiceInsert)
+        .select('*')
         .single()
       if (error) throw error
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      await (supabase.from('activity_log') as any).insert({
+      await supabase.from('activity_log').insert({
         action: 'services/service-created',
         module: 'services',
         entity_type: 'service',
@@ -115,13 +114,12 @@ export function useUpdateService() {
       const { id, treeType, changedFields, ...payload } = values
       const { data, error } = await supabase
         .from('services')
-        .update(payload)
+        .update(payload as ServiceUpdate)
         .eq('id', id)
-        .select()
+        .select('*')
         .single()
       if (error) throw error
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      await (supabase.from('activity_log') as any).insert({
+      await supabase.from('activity_log').insert({
         action: 'services/service-updated',
         module: 'services',
         entity_type: 'service',
@@ -153,8 +151,8 @@ export function useReorderServices() {
     }) => {
       const supabase = createClient()
       // Re-fetch live siblings to get authoritative sort_order values for the swap
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      let siblingsQuery = (supabase.from('services') as any)
+      let siblingsQuery = supabase
+        .from('services')
         .select('id, sort_order')
         .eq('tree_type', treeType)
         .order('sort_order', { ascending: true })
@@ -163,10 +161,10 @@ export function useReorderServices() {
       } else {
         siblingsQuery = siblingsQuery.is('parent_id', null)
       }
-      const { data: siblings, error: fetchErr } = await siblingsQuery
+      const { data: siblings, error: fetchErr } = await siblingsQuery.returns<{ id: string; sort_order: number | null }[]>()
       if (fetchErr) throw fetchErr
 
-      const sortedSiblings = (siblings as { id: string; sort_order: number | null }[])
+      const sortedSiblings = (siblings ?? [])
         .filter((s): s is { id: string; sort_order: number } => s.sort_order !== null)
 
       const idx = sortedSiblings.findIndex((s) => s.id === movedId)
@@ -178,12 +176,11 @@ export function useReorderServices() {
       const sibling = sortedSiblings[targetIdx]
 
       await Promise.all([
-        supabase.from('services').update({ sort_order: sibling.sort_order }).eq('id', moved.id),
-        supabase.from('services').update({ sort_order: moved.sort_order }).eq('id', sibling.id),
+        supabase.from('services').update({ sort_order: sibling.sort_order } as ServiceUpdate).eq('id', moved.id),
+        supabase.from('services').update({ sort_order: moved.sort_order } as ServiceUpdate).eq('id', sibling.id),
       ])
 
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      await (supabase.from('activity_log') as any).insert({
+      await supabase.from('activity_log').insert({
         action: 'services/service-reordered',
         module: 'services',
         entity_type: 'service',
@@ -298,11 +295,10 @@ export function useArchiveService() {
         .update({
           deleted_at: archivedAt,
           status: 'inactive',
-        })
+        } as ServiceUpdate)
         .eq('id', id)
       if (error) throw error
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      await (supabase.from('activity_log') as any).insert({
+      await supabase.from('activity_log').insert({
         action: 'services/service-archived',
         module: 'services',
         entity_type: 'service',
@@ -325,7 +321,7 @@ export function useCreateInstruction() {
       const { data, error } = await supabase
         .from('instructions')
         .insert(values)
-        .select()
+        .select('*')
         .single()
       if (error) throw error
       return data
@@ -345,7 +341,7 @@ export function useUpdateInstruction() {
         .from('instructions')
         .update(values)
         .eq('id', id)
-        .select()
+        .select('*')
         .single()
       if (error) throw error
       return data
@@ -361,9 +357,9 @@ export function useArchiveInstruction() {
   return useMutation({
     mutationFn: async (id: string) => {
       const supabase = createClient()
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      const { error } = await (supabase.from('instructions') as any)
-        .update({ deleted_at: new Date().toISOString(), status: 'inactive' })
+      const { error } = await supabase
+        .from('instructions')
+        .update({ deleted_at: new Date().toISOString(), status: 'inactive' } as DBUpdate<'instructions'>)
         .eq('id', id)
       if (error) throw error
     },
@@ -387,10 +383,11 @@ export function useServiceInstructions(serviceId: string | null, enabled = true)
     enabled: enabled && !!serviceId,
     queryFn: async () => {
       const supabase = createClient()
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      const { data, error } = await (supabase as any).from('service_instructions')
+      const { data, error } = await supabase
+        .from('service_instructions')
         .select('service_id, instruction_id, created_at, instructions(id, name_en, type, content_type)')
-        .eq('service_id', serviceId)
+        .eq('service_id', serviceId as string)
+        .returns<ServiceInstructionLink[]>()
       if (error) throw error
       return (data ?? []) as ServiceInstructionLink[]
     },
@@ -404,8 +401,8 @@ export function useAllServiceInstructionLinks(enabled = true) {
     enabled,
     queryFn: async () => {
       const supabase = createClient()
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      const { data, error } = await (supabase as any).from('service_instructions')
+      const { data, error } = await supabase
+        .from('service_instructions')
         .select(`
           service_id,
           instruction_id,
@@ -414,6 +411,7 @@ export function useAllServiceInstructionLinks(enabled = true) {
           services(id, name_en, tree_type)
         `)
         .order('created_at', { ascending: false })
+        .returns<ServiceInstructionLink[]>()
       if (error) throw error
       return (data ?? []) as ServiceInstructionLink[]
     },
@@ -426,8 +424,8 @@ export function useLinkInstruction() {
   return useMutation({
     mutationFn: async ({ serviceId, instructionId }: { serviceId: string; instructionId: string }) => {
       const supabase = createClient()
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      const { error } = await (supabase as any).from('service_instructions')
+      const { error } = await supabase
+        .from('service_instructions')
         .insert({ service_id: serviceId, instruction_id: instructionId })
       if (error && error.code !== '23505') throw error // 23505 = duplicate key, ignore
     },
@@ -442,8 +440,8 @@ export function useUnlinkInstruction() {
   return useMutation({
     mutationFn: async ({ serviceId, instructionId }: { serviceId: string; instructionId: string }) => {
       const supabase = createClient()
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      const { error } = await (supabase as any).from('service_instructions')
+      const { error } = await supabase
+        .from('service_instructions')
         .delete()
         .eq('service_id', serviceId)
         .eq('instruction_id', instructionId)

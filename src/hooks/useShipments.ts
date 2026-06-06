@@ -58,7 +58,7 @@ export function useShipments({ archived = false, search = '' }: { archived?: boo
     queryKey: queryKeys.shipments.list(archived, search),
     queryFn: async () => {
       const supabase = createClient()
-      let q = (supabase as any)
+      let q = supabase
         .from('shipments')
         .select('*, purchase_orders(po_number, supplier_name)')
         .eq('archived', archived)
@@ -79,7 +79,7 @@ export function useCreateShipment() {
   return useMutation({
     mutationFn: async (payload: CreateShipmentPayload) => {
       const supabase = createClient()
-      const { data, error } = await (supabase as any)
+      const { data, error } = await supabase
         .from('shipments')
         .insert({ ...payload, events: [], archived: false, status: 'booked' })
         .select()
@@ -96,7 +96,7 @@ export function useUpdateShipmentStatus() {
   return useMutation({
     mutationFn: async ({ id, status }: { id: string; status: ShipmentStatus }) => {
       const supabase = createClient()
-      const { error } = await (supabase as any)
+      const { error } = await supabase
         .from('shipments')
         .update({ status })
         .eq('id', id)
@@ -111,7 +111,7 @@ export function useAddShipmentEvent() {
   return useMutation({
     mutationFn: async ({ id, event, currentEvents }: { id: string; event: ShipmentEvent; currentEvents: ShipmentEvent[] }) => {
       const supabase = createClient()
-      const { error } = await (supabase as any)
+      const { error } = await supabase
         .from('shipments')
         .update({ events: [...currentEvents, event] })
         .eq('id', id)
@@ -126,7 +126,7 @@ export function useArchiveShipment() {
   return useMutation({
     mutationFn: async (id: string) => {
       const supabase = createClient()
-      const { error } = await (supabase as any)
+      const { error } = await supabase
         .from('shipments')
         .update({ archived: true })
         .eq('id', id)

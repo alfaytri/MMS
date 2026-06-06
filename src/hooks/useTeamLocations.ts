@@ -49,7 +49,7 @@ export function useTeamLocations() {
     queryKey: queryKeys.teams.locations,
     queryFn: async (): Promise<TeamLocation[]> => {
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      const supabase = createClient() as any
+      const supabase = createClient()
 
       // Parallel fetch: teams (with leader + vehicles) and live locations
       const [teamsRes, locsRes] = await Promise.all([
@@ -66,12 +66,17 @@ export function useTeamLocations() {
       if (teamsRes.error) throw teamsRes.error
 
       // Build location lookup by team_id
-      const locMap = new Map<string, any>()
-      for (const loc of (locsRes.data ?? [])) {
+      type LocRow = { team_id: string; lat: number | null; lng: number | null; speed: number | null; heading: number | null; updated_at: string | null }
+      const locMap = new Map<string, LocRow>()
+      for (const loc of (locsRes.data ?? []) as LocRow[]) {
         locMap.set(loc.team_id, loc)
       }
 
-      return ((teamsRes.data ?? []) as any[]).map((t) => {
+      type TeamRow = (typeof teamsRes.data extends (infer R)[] | null ? R : never) & {
+        employees: { name?: string } | null
+        vehicles: { plate?: string }[] | null
+      }
+      return ((teamsRes.data ?? []) as TeamRow[]).map((t) => {
         const loc = locMap.get(t.id) ?? null
         // leader is a single object (many-to-one via FK)
         const leaderName = t.employees?.name ?? 'No leader'

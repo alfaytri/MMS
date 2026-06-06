@@ -62,7 +62,7 @@ export function useLandedCosts({ search = '' }: { search?: string } = {}) {
     queryKey: queryKeys.landedCosts.list(search),
     queryFn: async () => {
       const supabase = createClient()
-      let q = (supabase as any)
+      let q = supabase
         .from('landed_costs')
         .select('*')
         .order('date', { ascending: false })
@@ -82,7 +82,7 @@ export function useLandedCost(id: string) {
     queryKey: queryKeys.landedCosts.detail(id),
     queryFn: async () => {
       const supabase = createClient()
-      const { data, error } = await (supabase as any)
+      const { data, error } = await supabase
         .from('landed_costs')
         .select('*')
         .eq('id', id)
@@ -101,8 +101,8 @@ export function useCreateLandedCost() {
     mutationFn: async (payload: CreateLandedCostPayload) => {
       const supabase = createClient()
       // total_amount computed in Postgres NUMERIC — no JS float rounding
-      const { data, error } = await (supabase as any).rpc('create_landed_cost', {
-        p_description:           payload.description ?? null,
+      const { data, error } = await supabase.rpc('create_landed_cost', {
+        p_description:           payload.description ?? '',
         p_date:                  payload.date,
         p_currency:              payload.currency,
         p_lines:                 payload.lines,
@@ -121,7 +121,7 @@ export function useVoidLandedCost() {
   return useMutation({
     mutationFn: async ({ id, reason }: { id: string; reason: string }) => {
       const supabase = createClient()
-      const { error } = await (supabase as any)
+      const { error } = await supabase
         .from('landed_costs')
         .update({ voided_at: new Date().toISOString(), voided_reason: reason })
         .eq('id', id)
@@ -136,7 +136,7 @@ export function useApplyLandedCost() {
   return useMutation({
     mutationFn: async (id: string) => {
       const supabase = createClient()
-      const { data, error } = await (supabase as any)
+      const { data, error } = await supabase
         .rpc('allocate_landed_cost', { p_lc_id: id })
       if (error) throw error
       return data as LandedCostItemAllocation[]
@@ -154,11 +154,11 @@ export function useRevertLandedCost() {
       const { data: { user } } = await supabase.auth.getUser()
       let performerName = 'System'
       if (user) {
-        const { data: profile } = await (supabase as any)
+        const { data: profile } = await supabase
           .from('profiles').select('full_name').eq('auth_user_id', user.id).maybeSingle()
         performerName = profile?.full_name ?? user.email ?? 'System'
       }
-      const { error } = await (supabase as any)
+      const { error } = await supabase
         .rpc('revert_landed_cost', { p_lc_id: id, p_performer_name: performerName })
       if (error) throw error
     },
@@ -181,8 +181,8 @@ export function useValidateLcAllocation(lcId: string | null | undefined, enabled
     enabled: !!lcId && enabled,
     queryFn: async () => {
       const supabase = createClient()
-      const { data, error } = await (supabase as any)
-        .rpc('validate_lc_allocation', { p_lc_id: lcId })
+      const { data, error } = await supabase
+        .rpc('validate_lc_allocation', { p_lc_id: lcId! })
       if (error) throw error
       return (data ?? []) as LcValidationItem[]
     },

@@ -12,7 +12,7 @@ import { CustomerHistoryPanel } from '@/components/orders/CustomerHistoryPanel'
 import { SelectedServiceCard } from '@/components/orders/SelectedServiceCard'
 import { SiteVisitCard, SITE_VISIT_SERVICE_ID, makeSiteVisitDraft } from '@/components/orders/SiteVisitCard'
 import { useEditOrder } from '@/hooks/useEditOrder'
-import { useTeams } from '@/hooks/useTeams'
+import { useTeams, type TeamFull } from '@/hooks/useTeams'
 import type { OrderServiceDraft, OrderType } from '@/types/orders'
 
 export default function EditOrderPage() {
@@ -69,11 +69,8 @@ export default function EditOrderPage() {
     if (!dropData?.teamId) return
 
     const { teamId, hour } = dropData
-    const match = (teams as unknown as Array<Record<string, unknown>>)?.find((t) => t['id'] === teamId)
-    const teamName =
-      (match?.['name_en'] as string | null | undefined) ??
-      (match?.['name'] as string | null | undefined) ??
-      teamId
+    const match = (teams as TeamFull[] | undefined)?.find((t) => t.id === teamId)
+    const teamName = match?.name_en ?? match?.name ?? teamId
 
     // ── Day-window drag: assign ALL services at the day's time window ────────
     if (active.data.current.type === 'day-window') {

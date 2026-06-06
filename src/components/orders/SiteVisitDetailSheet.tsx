@@ -60,10 +60,10 @@ export function SiteVisitDetailSheet({ visitId, open, onOpenChange }: Props) {
 
   const confirmMutation = useMutation({
     mutationFn: async () => {
-      const { error } = await (supabase as any)
+      const { error } = await supabase
         .from('site_visits')
         .update({ status: 'confirmed' })
-        .eq('id', visitId)
+        .eq('id', visitId!)
       if (error) throw error
     },
     onSuccess: () => {
@@ -76,10 +76,10 @@ export function SiteVisitDetailSheet({ visitId, open, onOpenChange }: Props) {
 
   const cancelMutation = useMutation({
     mutationFn: async () => {
-      const { error } = await (supabase as any)
+      const { error } = await supabase
         .from('site_visits')
         .update({ status: 'cancelled' })
-        .eq('id', visitId)
+        .eq('id', visitId!)
       if (error) throw error
     },
     onSuccess: () => {

@@ -33,7 +33,7 @@ export function useCreditGroups() {
     queryKey: queryKeys.creditGroups.all,
     queryFn:  async () => {
       const supabase = createClient()
-      const { data, error } = await (supabase as any)
+      const { data, error } = await supabase
         .from('credit_groups')
         .select('*')
         .order('name')
@@ -54,7 +54,7 @@ export function useCreateCreditGroup() {
       max_days:         number | null
     }) => {
       const supabase = createClient()
-      const { data, error } = await (supabase as any)
+      const { data, error } = await supabase
         .from('credit_groups')
         .insert(payload)
         .select()
@@ -74,7 +74,7 @@ export function useUpdateCreditGroup() {
   return useMutation({
     mutationFn: async ({ id, ...patch }: Partial<CreditGroup> & { id: string }) => {
       const supabase = createClient()
-      const { error } = await (supabase as any)
+      const { error } = await supabase
         .from('credit_groups')
         .update(patch)
         .eq('id', id)
@@ -91,7 +91,7 @@ export function useDeleteCreditGroup() {
   return useMutation({
     mutationFn: async (id: string) => {
       const supabase = createClient()
-      const { error } = await (supabase as any)
+      const { error } = await supabase
         .from('credit_groups')
         .delete()
         .eq('id', id)
@@ -110,13 +110,13 @@ export function useCreditGroupCustomerCounts() {
     queryKey: queryKeys.creditGroups.counts,
     queryFn:  async () => {
       const supabase = createClient()
-      const { data, error } = await (supabase as any)
+      const { data, error } = await supabase
         .from('credit_group_customer_counts')
         .select('credit_group_id, customer_count')
       if (error) throw error
       const counts: Record<string, number> = {}
       for (const row of (data ?? [])) {
-        counts[row.credit_group_id] = Number(row.customer_count)
+        counts[row.credit_group_id ?? ''] = Number(row.customer_count)
       }
       return counts
     },
@@ -130,7 +130,7 @@ export function useAssignCreditGroup() {
   return useMutation({
     mutationFn: async ({ customerId, groupId, groupName }: { customerId: string; groupId: string; groupName?: string }) => {
       const supabase = createClient()
-      const { data, error } = await (supabase as any)
+      const { data, error } = await supabase
         .from('customers')
         .update({ credit_group_id: groupId, customer_type: 'credit' })
         .eq('id', customerId)

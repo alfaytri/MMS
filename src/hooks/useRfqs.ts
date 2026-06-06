@@ -2,6 +2,7 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { createClient } from '@/lib/supabase/client'
 import { queryKeys } from '@/lib/queryKeys'
+import type { Json } from '@/types/database.types'
 
 export type RfqStatus = 'draft' | 'sent' | 'received' | 'cancelled'
 
@@ -56,14 +57,14 @@ export function useRfqs(filters?: { status?: RfqStatus | '' }) {
     queryKey: queryKeys.rfqs.list(filters),
     queryFn: async () => {
       const supabase = createClient()
-      let q = (supabase as any)
+      let q = supabase
         .from('rfqs')
         .select('*, rfq_line_items(*), rfq_quotes(*)')
         .order('created_at', { ascending: false })
       if (filters?.status) q = q.eq('status', filters.status)
       const { data, error } = await q
       if (error) throw error
-      return (data ?? []) as Rfq[]
+      return (data ?? []) as unknown as Rfq[]
     },
   })
 }
@@ -74,13 +75,13 @@ export function useRfq(id: string | null) {
     enabled: !!id,
     queryFn: async () => {
       const supabase = createClient()
-      const { data, error } = await (supabase as any)
+      const { data, error } = await supabase
         .from('rfqs')
         .select('*, rfq_line_items(*), rfq_quotes(*)')
-        .eq('id', id)
+        .eq('id', id!)
         .single()
       if (error) throw error
-      return data as Rfq
+      return data as unknown as Rfq
     },
   })
 }
@@ -92,13 +93,13 @@ export function useCreateRfq() {
   return useMutation({
     mutationFn: async (payload: CreateRfqPayload) => {
       const supabase = createClient()
-      const { count } = await (supabase as any)
+      const { count } = await supabase
         .from('rfqs')
         .select('*', { count: 'exact', head: true })
       const rfq_number = `RFQ-${String((count ?? 0) + 1).padStart(5, '0')}`
       const today = new Date().toISOString().split('T')[0]
 
-      const { data: rfq, error } = await (supabase as any)
+      const { data: rfq, error } = await supabase
         .from('rfqs')
         .insert({
           rfq_number,
@@ -113,7 +114,7 @@ export function useCreateRfq() {
       if (error) throw error
 
       if (payload.line_items.length > 0) {
-        const { error: liErr } = await (supabase as any)
+        const { error: liErr } = await supabase
           .from('rfq_line_items')
           .insert(payload.line_items.map((li) => ({ rfq_id: rfq.id, ...li })))
         if (liErr) throw liErr
@@ -133,9 +134,9 @@ export function useUpdateRfq() {
       ...rest
     }: Partial<CreateRfqPayload> & { id: string; status?: RfqStatus }) => {
       const supabase = createClient()
-      const { error } = await (supabase as any)
+      const { error } = await supabase
         .from('rfqs')
-        .update({ ...(status ? { status } : {}), ...rest })
+        .update({ ...(status ? { status } : {}), ...rest } as unknown as import('@/types/database.types').DBUpdate<'rfqs'>)
         .eq('id', id)
       if (error) throw error
     },
@@ -156,10 +157,13 @@ export function useCreateRfqQuote() {
       received_date: string
     }) => {
       const supabase = createClient()
-      const { error } = await (supabase as any).from('rfq_quotes').insert(payload)
+      const { error } = await supabase.from('rfq_quotes').insert({
+        ...payload,
+        items: payload.items as unknown as Json,
+      })
       if (error) throw error
       // Mark RFQ as received when a quote is added
-      await (supabase as any)
+      await supabase
         .from('rfqs')
         .update({ status: 'received' })
         .eq('id', payload.rfq_id)
@@ -176,7 +180,7 @@ export function useDeleteRfq() {
   return useMutation({
     mutationFn: async (id: string) => {
       const supabase = createClient()
-      const { error } = await (supabase as any).from('rfqs').delete().eq('id', id)
+      const { error } = await supabase.from('rfqs').delete().eq('id', id)
       if (error) throw error
     },
     onSuccess: () => queryClient.invalidateQueries({ queryKey: queryKeys.rfqs.all }),

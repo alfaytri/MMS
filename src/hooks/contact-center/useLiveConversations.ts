@@ -20,7 +20,7 @@ export function useLiveConversations(provider: 'wati' | 'whapi' = 'wati') {
     yesterdayStart.setDate(yesterdayStart.getDate() - 1)
     yesterdayStart.setHours(0, 0, 0, 0)
 
-    let query = (supabase as any)
+    let query = supabase
       .from('chat_conversations')
       .select(`
         id, customer_id, conversation_type, wati_phone, wati_contact_name,
@@ -42,28 +42,29 @@ export function useLiveConversations(provider: 'wati' | 'whapi' = 'wati') {
     if (cancelledRef.current) return
 
     if (error) {
-      console.error('[useLiveConversations] query error — code:', (error as any).code, '| message:', (error as any).message, '| details:', (error as any).details, '| raw:', JSON.stringify(error))
+      const e = error as unknown as Record<string, unknown>
+      console.error('[useLiveConversations] query error — code:', e.code, '| message:', e.message, '| details:', e.details, '| raw:', JSON.stringify(error))
       setLoading(false)
       return
     }
 
     setConversations(
-      (data as any[])
+      (data as Record<string, unknown>[])
         // The SQL query already filters to last_message_at within 3 days — every
         // row returned has recent activity. Hiding by last_message text was too
         // aggressive: WATI's /getContacts API often omits lastMessage, so real
         // conversations were invisible even though they had a valid last_message_at.
-        .filter((row: any) => row.last_message_at != null)
+        .filter((row) => row.last_message_at != null)
         .map((row) => ({
           ...row,
           // WHAPI/WATI phonebook name takes priority over CRM name — matches chat header order
-          customer_name: row.wati_contact_name ?? row.service_customers?.name ?? null,
-          unread_count: locallyReadIds.current.has(row.id) ? 0 : row.unread_count,
+          customer_name: row.wati_contact_name ?? (row.service_customers as { name?: string } | null)?.name ?? null,
+          unread_count: locallyReadIds.current.has(row.id as string) ? 0 : row.unread_count,
           // Keep locally-patched status until the DB confirms the change
-          wati_status: localStatusPatch.current.has(row.id)
-            ? localStatusPatch.current.get(row.id)
+          wati_status: localStatusPatch.current.has(row.id as string)
+            ? localStatusPatch.current.get(row.id as string)
             : row.wati_status,
-        }))
+        })) as unknown as ChatConversation[]
     )
     setLoading(false)
   }, [provider])
@@ -90,7 +91,7 @@ export function useLiveConversations(provider: 'wati' | 'whapi' = 'wati') {
     setConversations((prev) =>
       prev.map((c) => (c.id === conversationId ? { ...c, unread_count: 0 } : c))
     )
-    ;(supabase as any)
+    ;supabase
       .from('chat_conversations')
       .update({ unread_count: 0 })
       .eq('id', conversationId)
@@ -104,7 +105,7 @@ export function useLiveConversations(provider: 'wati' | 'whapi' = 'wati') {
     setConversations((prev) =>
       prev.map((c) => (c.id === conversationId ? { ...c, is_opened: true } : c))
     )
-    ;(supabase as any)
+    ;supabase
       .from('chat_conversations')
       .update({ is_opened: true })
       .eq('id', conversationId)

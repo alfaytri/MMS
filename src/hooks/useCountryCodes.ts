@@ -16,7 +16,7 @@ export function useCountryCodes() {
     queryFn: async (): Promise<CountryCode[]> => {
       const supabase = createClient()
       // country_codes may not be in generated types yet — cast to any
-      const { data, error } = await (supabase as any)
+      const { data, error } = await supabase
         .from('country_codes')
         .select('id, code, iso, flag, name')
         .eq('is_active', true)

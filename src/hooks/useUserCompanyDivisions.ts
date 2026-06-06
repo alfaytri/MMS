@@ -20,7 +20,7 @@ export function useUserCompanyDivisions() {
       if (!user) return []
 
       // profile id
-      const { data: profile } = await (supabase as any)
+      const { data: profile } = await supabase
         .from('profiles')
         .select('id')
         .eq('auth_user_id', user.id)
@@ -28,22 +28,23 @@ export function useUserCompanyDivisions() {
       if (!profile?.id) return []
 
       // collect all company_ids from the user's assigned divisions
-      const { data: ud } = await (supabase as any)
+      const { data: ud } = await supabase
         .from('user_divisions')
         .select('divisions(company_id)')
         .eq('profile_id', profile.id)
 
+      type UdRow = { divisions: { company_id: string | null } | null }
       const companyIds: string[] = [
         ...new Set(
-          ((ud ?? []) as any[])
-            .map((row: any) => row.divisions?.company_id)
+          ((ud ?? []) as UdRow[])
+            .map((row) => row.divisions?.company_id)
             .filter(Boolean) as string[]
         ),
       ]
 
       if (companyIds.length > 0) {
         // all active divisions for every company the user belongs to
-        const { data: divisions } = await (supabase as any)
+        const { data: divisions } = await supabase
           .from('divisions')
           .select('id, slug, name')
           .in('company_id', companyIds)
@@ -53,7 +54,7 @@ export function useUserCompanyDivisions() {
       }
 
       // fallback: all active divisions (admin with no explicit assignments)
-      const { data: all } = await (supabase as any)
+      const { data: all } = await supabase
         .from('divisions')
         .select('id, slug, name')
         .eq('is_active', true)

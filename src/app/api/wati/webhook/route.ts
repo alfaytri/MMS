@@ -1,5 +1,6 @@
 import { type NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@supabase/supabase-js'
+import type { Database } from '@/types/database.types'
 
 const SUPA_URL = process.env.NEXT_PUBLIC_SUPABASE_URL!
 const SUPA_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY!
@@ -177,7 +178,7 @@ export async function POST(req: NextRequest) {
   let body: any
   try { body = await req.json() } catch { return new Response('Bad JSON', { status: 400 }) }
 
-  const supabase = createClient(SUPA_URL, SUPA_KEY)
+  const supabase = createClient<Database>(SUPA_URL, SUPA_KEY)
   const eventType: string = body.eventType ?? body.type ?? ''
 
   // ── Delivery / read status update ──────────────────────────────────────────
@@ -196,7 +197,7 @@ export async function POST(req: NextRequest) {
         : eventType === 'templateMessageFailed' ? 'failed'
         : normaliseStatus(body.statusString ?? body.status)
       // MMS stores outgoing messages as wati_<id>; check both forms
-      await (supabase.from('chat_messages') as any)
+      await supabase.from('chat_messages')
         .update({ delivery_status: status })
         .in('external_id', [String(externalId), `wati_${String(externalId)}`])
     }
@@ -232,7 +233,7 @@ export async function POST(req: NextRequest) {
 
     if (targetExternalId) {
       // Check both wamid and wati_-prefixed id (agent-sent messages use prefix)
-      const { data: targetRow } = await (supabase.from('chat_messages') as any)
+      const { data: targetRow } = await supabase.from('chat_messages')
         .select('id, reactions')
         .in('external_id', [targetExternalId, `wati_${targetExternalId}`])
         .order('created_at', { ascending: false })
@@ -240,19 +241,19 @@ export async function POST(req: NextRequest) {
         .maybeSingle()
       console.log('[webhook:reaction] db lookup', { found: !!targetRow, targetExternalId })
       if (targetRow) {
-        const existing: { emoji: string; from_type: string }[] = targetRow.reactions ?? []
+        const existing: { emoji: string; from_type: string }[] = (targetRow.reactions as unknown as Array<{ emoji: string; from_type: string }> | null) ?? []
         if (emoji) {
           const hasIt = existing.some((r) => r.emoji === emoji && r.from_type === 'customer')
           const updated = hasIt
             ? existing.filter((r) => !(r.emoji === emoji && r.from_type === 'customer'))
             : [...existing, { emoji, from_type: 'customer' }]
-          await (supabase.from('chat_messages') as any)
+          await supabase.from('chat_messages')
             .update({ reactions: updated })
             .eq('id', targetRow.id)
         } else {
           // Empty emoji = customer removed all reactions
           const updated = existing.filter((r) => r.from_type !== 'customer')
-          await (supabase.from('chat_messages') as any)
+          await supabase.from('chat_messages')
             .update({ reactions: updated })
             .eq('id', targetRow.id)
         }
@@ -278,7 +279,7 @@ export async function POST(req: NextRequest) {
         (typeof body.assignedTo === 'string' ? body.assignedTo : null) ??
         body.operatorName ?? null
 
-      await (supabase.from('chat_conversations') as any)
+      await supabase.from('chat_conversations')
         .update({
           wati_status: isResolved ? 'resolved' : 'open',
           ...(assignedAgent ? { assigned_agent: assignedAgent } : {}),
@@ -335,7 +336,7 @@ export async function POST(req: NextRequest) {
   const senderName: string | null = body.senderName ?? null
 
   // Find or create conversation
-  const { data: existing } = await (supabase.from('chat_conversations') as any)
+  const { data: existing } = await supabase.from('chat_conversations')
     .select('id, unread_count')
     .eq('wati_phone', phone)
     .maybeSingle()
@@ -344,7 +345,7 @@ export async function POST(req: NextRequest) {
 
   if (existing) {
     conversationId = existing.id
-    await (supabase.from('chat_conversations') as any)
+    await supabase.from('chat_conversations')
       .update({
         ...(!isMsgEvent ? { last_message: text || `[${msgType}]`, last_message_at: ts } : {}),
         ...(senderName ? { wati_contact_name: senderName } : {}),
@@ -353,7 +354,7 @@ export async function POST(req: NextRequest) {
       })
       .eq('id', conversationId)
   } else {
-    const { data: created, error } = await (supabase.from('chat_conversations') as any)
+    const { data: created, error } = await supabase.from('chat_conversations')
       .insert({
         wati_phone:        phone,
         wati_contact_name: senderName,
@@ -369,7 +370,7 @@ export async function POST(req: NextRequest) {
       if (error.code === '23505') {
         // Race condition: a concurrent webhook created the conversation first.
         // Re-fetch the winning row and continue processing the message normally.
-        const { data: raced } = await (supabase.from('chat_conversations') as any)
+        const { data: raced } = await supabase.from('chat_conversations')
           .select('id, unread_count')
           .eq('wati_phone', phone)
           .maybeSingle()
@@ -379,7 +380,7 @@ export async function POST(req: NextRequest) {
         }
         conversationId = raced.id
         if (!isAgent && !isMsgEvent) {
-          await (supabase.from('chat_conversations') as any)
+          await supabase.from('chat_conversations')
             .update({ unread_count: (raced.unread_count ?? 0) + 1 })
             .eq('id', conversationId)
         }
@@ -409,7 +410,7 @@ export async function POST(req: NextRequest) {
         ? `text.eq.${text}`
         : 'text.is.null,text.eq.'
 
-      const { data: pendingRow } = await (supabase.from('chat_messages') as any)
+      const { data: pendingRow } = await supabase.from('chat_messages')
         .select('id')
         .eq('conversation_id', conversationId)
         .eq('from_type', 'agent')
@@ -426,7 +427,7 @@ export async function POST(req: NextRequest) {
         // stored the canonical Supabase Storage URL in the optimistic insert.
         // WATI's webhook may report its own copy at data/images/... but writing
         // that proxy URL here would clobber the working Supabase URL.
-        await (supabase.from('chat_messages') as any)
+        await supabase.from('chat_messages')
           .update({
             external_id:      externalId,
             delivery_status:  normaliseStatus(body.statusString ?? 'SENT'),
@@ -438,7 +439,7 @@ export async function POST(req: NextRequest) {
     }
 
     // Normal dup check (covers wati_ prefix written by app, and bare wamid)
-    const { data: dup } = await (supabase.from('chat_messages') as any)
+    const { data: dup } = await supabase.from('chat_messages')
       .select('id, external_id')
       .in('external_id', [externalId, `wati_${externalId}`])
       .maybeSingle()
@@ -447,7 +448,7 @@ export async function POST(req: NextRequest) {
       // If the row is stored under wati_<id> prefix, update it to the bare wamid
       // so reactions and future lookups work against the canonical ID.
       if (dup.external_id !== externalId) {
-        await (supabase.from('chat_messages') as any)
+        await supabase.from('chat_messages')
           .update({ external_id: externalId })
           .eq('id', dup.id)
       }
@@ -460,7 +461,7 @@ export async function POST(req: NextRequest) {
     // above misses it. A text+conversation+time match catches this case.
     if (isAgent && !isMsgEvent && text) {
       const cutoff2 = new Date(Date.now() - 2 * 60_000).toISOString()
-      const { data: textDup } = await (supabase.from('chat_messages') as any)
+      const { data: textDup } = await supabase.from('chat_messages')
         .select('id, external_id')
         .eq('conversation_id', conversationId)
         .eq('from_type', 'agent')
@@ -472,7 +473,7 @@ export async function POST(req: NextRequest) {
 
       if (textDup) {
         // Claim the existing row with the canonical wamid
-        await (supabase.from('chat_messages') as any)
+        await supabase.from('chat_messages')
           .update({
             external_id:     externalId,
             delivery_status: normaliseStatus(body.statusString ?? 'SENT'),
@@ -489,14 +490,14 @@ export async function POST(req: NextRequest) {
     // outbound agent files, so omit them to avoid broken placeholders.
     const insertAttachments = isAgent ? null : (attachments.length > 0 ? attachments : null)
 
-    await (supabase.from('chat_messages') as any)
+    await supabase.from('chat_messages')
       .insert({
         conversation_id:  conversationId,
         from_type:        isAgent ? 'agent' : 'customer',
         source:           'whatsapp_api',
         text:             text,
         agent_name:       isAgent ? senderName : null,
-        attachments:      insertAttachments,
+        attachments:      insertAttachments as unknown as import('@/types/database.types').Json,
         delivery_status:  isAgent ? normaliseStatus(body.statusString) : 'delivered',
         external_id:      externalId,
         created_at:       ts,

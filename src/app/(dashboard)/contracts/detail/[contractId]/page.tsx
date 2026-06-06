@@ -94,7 +94,7 @@ export default function ContractDetailPage() {
     setStartDate(contract.start_date || '')
     setEndDate(contract.end_date || '')
     setDiscount(contract.discount || 0)
-    setPaymentMode((contract.payment_mode || 'fixed') as any)
+    setPaymentMode((contract.payment_mode || 'fixed') as 'fixed' | 'milestone' | 'completion')
     setPaymentFrequency(contract.payment_frequency || 'monthly')
     setNotes(contract.notes || '')
     setDivisions(contract.divisions || [])
@@ -154,7 +154,7 @@ export default function ContractDetailPage() {
   async function handleSave() {
     if (!contract) return
     const formData: ContractFormData = {
-      sourceType: contract.source_type as any,
+      sourceType: contract.source_type as 'direct' | 'site_visit',
       customerName, phone, address, siteName,
       divisions,
       startDate, endDate, discount,
@@ -197,7 +197,7 @@ export default function ContractDetailPage() {
         updates: {},
         newStatus,
         context: {
-          userId: (profile as any).id,
+          userId: profile.id,
           userName: profile.full_name || '',
           reason,
         },

@@ -20,10 +20,10 @@ export function useCogsEntries(brandVariantId?: string) {
     enabled: !!brandVariantId,
     queryFn: async () => {
       const supabase = createClient()
-      const { data, error } = await (supabase as any)
+      const { data, error } = await supabase
         .from('cogs_entries')
         .select('*')
-        .eq('brand_variant_id', brandVariantId)
+        .eq('brand_variant_id', brandVariantId!)
         .order('date', { ascending: false })
       if (error) throw error
       return (data ?? []) as CogsEntry[]
@@ -38,10 +38,10 @@ export function useStockMovementsByVariant(brandVariantId?: string) {
     enabled: !!brandVariantId,
     queryFn: async () => {
       const supabase = createClient()
-      const { data, error } = await (supabase as any)
+      const { data, error } = await supabase
         .from('inventory_stock_movements')
         .select('*')
-        .eq('brand_variant_id', brandVariantId)
+        .eq('brand_variant_id', brandVariantId!)
         .order('created_at', { ascending: false })
         .limit(200)
       if (error) throw error
@@ -57,10 +57,10 @@ export function useServiceInventoryLinks(brandVariantId?: string) {
     enabled: !!brandVariantId,
     queryFn: async () => {
       const supabase = createClient()
-      const { data, error } = await (supabase as any)
+      const { data, error } = await supabase
         .from('service_inventory')
         .select('*')
-        .eq('brand_variant_id', brandVariantId)
+        .eq('brand_variant_id', brandVariantId!)
         .order('created_at', { ascending: false })
       if (error) throw error
       return data ?? []

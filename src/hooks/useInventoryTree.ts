@@ -102,10 +102,10 @@ export function useInventoryTree(type: string, showArchived = false) {
     queryFn: async () => {
       const supabase = createClient()
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      let q = (supabase as any)
+      let q = supabase
         .from('inventory_categories')
         .select('*')
-        .eq('type', type)
+        .eq('type', type as 'products' | 'spare-parts' | 'consumables' | 'tools')
         .order('sort_order', { ascending: true })
         .order('name_en', { ascending: true })
       if (!showArchived) q = q.neq('status', 'archived')
@@ -139,7 +139,7 @@ export function useAllCategoriesFlat() {
     queryFn: async () => {
       const supabase = createClient()
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      const { data, error } = await (supabase as any)
+      const { data, error } = await supabase
         .from('inventory_categories')
         .select('*')
         .neq('status', 'archived')

@@ -82,12 +82,10 @@ export function ContractTreeRow({
   const levelLabel = `L${depth + 1}`
   const levelColor = LEVEL_COLORS[Math.min(depth, 2)] ?? 'bg-slate-100 text-slate-700'
 
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const s = service as any
-  const itemKind: string = s.item_kind ?? 'service'
-  const contractType: string | null = s.contract_type ?? null
-  const pricingMode: string = s.pricing_mode ?? 'by_condition'
-  const discountScope: string = s.discount_scope ?? 'services_only'
+  const itemKind: string = service.item_kind ?? 'service'
+  const contractType: string | null = service.contract_type ?? null
+  const pricingMode: string = service.pricing_mode ?? 'by_condition'
+  const discountScope: string = service.discount_scope ?? 'services_only'
   const brandCount = brandCountMap.get(service.id) ?? 0
 
   function handleArchiveConfirm() {
@@ -129,7 +127,7 @@ export function ContractTreeRow({
         : <Badge variant="outline" className="text-[9px] px-1.5 py-0 h-4 bg-slate-50 text-slate-500 border-slate-200">By Condition</Badge>
     }
     if (contractType === 'area') {
-      const unit = s.price_unit || 'unit'
+      const unit = service.price_unit || 'unit'
       return <span className="text-[10px] text-muted-foreground">Per {unit}</span>
     }
     if (contractType === 'general') {
@@ -139,10 +137,10 @@ export function ContractTreeRow({
   }
 
   function renderPrice() {
-    if (contractType === 'general' && s.discount != null) {
+    if (contractType === 'general' && service.discount != null) {
       return (
         <div>
-          <div className="text-xs font-semibold">{s.discount}%</div>
+          <div className="text-xs font-semibold">{service.discount}%</div>
           <div className="text-[9px] text-muted-foreground">
             {discountScope === 'services_and_products' ? '+ products' : 'services only'}
           </div>
@@ -207,8 +205,8 @@ export function ContractTreeRow({
           <div className="min-w-0 flex-1">
             <div className={cn('text-sm truncate text-foreground leading-tight flex items-center gap-1', isBranch ? 'font-semibold' : 'font-medium')}>
               {service.name_en}
-              {s.has_pending_change && <span className="h-2 w-2 rounded-full bg-orange-500 shrink-0" title="Change pending approval" />}
-              {!isExpanded && hasDescendantPending && !s.has_pending_change && (
+              {service.has_pending_change && <span className="h-2 w-2 rounded-full bg-orange-500 shrink-0" title="Change pending approval" />}
+              {!isExpanded && hasDescendantPending && !service.has_pending_change && (
                 <span className="h-2 w-2 rounded-full border border-orange-500 bg-orange-500/30 shrink-0" title="Child service has pending change" />
               )}
             </div>

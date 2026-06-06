@@ -32,7 +32,7 @@ export function useServiceChangeRequests(filters?: {
     queryKey: queryKeys.serviceChangeRequests.list(filters),
     queryFn: async () => {
       const supabase = createClient()
-      let query = (supabase as any)
+      let query = supabase
         .from('service_change_requests')
         .select(`
           *,
@@ -43,7 +43,7 @@ export function useServiceChangeRequests(filters?: {
         .order('requested_at', { ascending: false })
 
       if (filters?.status) {
-        query = query.eq('status', filters.status)
+        query = query.eq('status', filters.status as 'pending' | 'approved' | 'rejected')
       }
       if (filters?.division) {
         query = query.contains('division', [filters.division])
@@ -51,7 +51,7 @@ export function useServiceChangeRequests(filters?: {
 
       const { data, error } = await query
       if (error) throw error
-      return (data ?? []) as ServiceChangeRequest[]
+      return (data ?? []) as unknown as ServiceChangeRequest[]
     },
     staleTime: 30 * 1000,
   })
@@ -63,17 +63,17 @@ export function useServiceChangeHistory(serviceId: string | null) {
     enabled: !!serviceId,
     queryFn: async () => {
       const supabase = createClient()
-      const { data, error } = await (supabase as any)
+      const { data, error } = await supabase
         .from('service_change_requests')
         .select(`
           *,
           requester:profiles!service_change_requests_requested_by_fkey(full_name, avatar_url),
           reviewer:profiles!service_change_requests_reviewed_by_fkey(full_name, avatar_url)
         `)
-        .eq('service_id', serviceId)
+        .eq('service_id', serviceId!)
         .order('requested_at', { ascending: false })
       if (error) throw error
-      return (data ?? []) as ServiceChangeRequest[]
+      return (data ?? []) as unknown as ServiceChangeRequest[]
     },
     staleTime: 60 * 1000,
   })
@@ -84,7 +84,7 @@ export function usePendingAddRequests() {
     queryKey: queryKeys.serviceChangeRequests.pendingAdds,
     queryFn: async () => {
       const supabase = createClient()
-      const { data, error } = await (supabase as any)
+      const { data, error } = await supabase
         .from('service_change_requests')
         .select(`
           *,
@@ -94,7 +94,7 @@ export function usePendingAddRequests() {
         .eq('status', 'pending')
         .order('requested_at', { ascending: false })
       if (error) throw error
-      return (data ?? []) as ServiceChangeRequest[]
+      return (data ?? []) as unknown as ServiceChangeRequest[]
     },
     staleTime: 30 * 1000,
   })
@@ -105,7 +105,7 @@ export function usePendingServiceChangeCount() {
     queryKey: queryKeys.serviceChangeRequests.pendingCount,
     queryFn: async () => {
       const supabase = createClient()
-      const { count, error } = await (supabase as any)
+      const { count, error } = await supabase
         .from('service_change_requests')
         .select('*', { count: 'exact', head: true })
         .eq('status', 'pending')
@@ -129,8 +129,8 @@ export function useSubmitServiceChange() {
       parent_id: string | null
     }) => {
       const supabase = createClient()
-      const { data, error } = await (supabase as any).rpc('submit_service_change', {
-        p_payload: payload,
+      const { data, error } = await supabase.rpc('submit_service_change', {
+        p_payload: payload as unknown as import('@/types/database.types').Json,
       })
       if (error) throw error
       return data as { action: 'applied' | 'pending'; id: string }
@@ -147,7 +147,7 @@ export function useApproveChangeRequest() {
   return useMutation({
     mutationFn: async (requestId: string) => {
       const supabase = createClient()
-      const { data, error } = await (supabase as any).rpc('approve_service_change', {
+      const { data, error } = await supabase.rpc('approve_service_change', {
         p_request_id: requestId,
       })
       if (error) throw error
@@ -167,7 +167,7 @@ export function useRejectChangeRequest() {
   return useMutation({
     mutationFn: async ({ requestId, reason }: { requestId: string; reason: string }) => {
       const supabase = createClient()
-      const { data, error } = await (supabase as any).rpc('reject_service_change', {
+      const { data, error } = await supabase.rpc('reject_service_change', {
         p_request_id: requestId,
         p_reason: reason,
       })
@@ -188,7 +188,7 @@ export function useWithdrawChangeRequest() {
   return useMutation({
     mutationFn: async (requestId: string) => {
       const supabase = createClient()
-      const { data, error } = await (supabase as any).rpc('withdraw_service_change', {
+      const { data, error } = await supabase.rpc('withdraw_service_change', {
         p_request_id: requestId,
       })
       if (error) throw error
@@ -210,9 +210,9 @@ export function useUpdatePendingChange() {
       changes: Record<string, { old: unknown; new: unknown }>
     }) => {
       const supabase = createClient()
-      const { data, error } = await (supabase as any).rpc('update_pending_service_change', {
+      const { data, error } = await supabase.rpc('update_pending_service_change', {
         p_request_id: requestId,
-        p_new_changes: changes,
+        p_new_changes: changes as unknown as import('@/types/database.types').Json,
       })
       if (error) throw error
       return data as { ok: boolean }

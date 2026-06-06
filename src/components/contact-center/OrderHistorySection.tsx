@@ -8,11 +8,11 @@ import { queryKeys } from '@/lib/queryKeys'
 interface OrderRow {
   id: string
   order_id: string
-  status: string
+  status: string | null
   scheduled_date: string | null
-  type: string
+  type: string | null
   total_amount: number | null
-  has_invoice: boolean
+  has_invoice: boolean | null
 }
 
 export function OrderHistorySection({ customerId }: { customerId: string | null }) {
@@ -22,7 +22,7 @@ export function OrderHistorySection({ customerId }: { customerId: string | null 
     queryKey: queryKeys.contactCenter.orderHistory(customerId),
     queryFn: async () => {
       if (!customerId) return []
-      const { data, error } = await (supabase as any)
+      const { data, error } = await supabase
         .from('orders')
         .select('id, order_id, status, scheduled_date, type, total_amount, has_invoice')
         .eq('service_customer_id', customerId)
@@ -51,7 +51,7 @@ export function OrderHistorySection({ customerId }: { customerId: string | null 
         <div key={o.id} className="flex items-start justify-between gap-2 rounded-md border border-border p-2">
           <div className="flex-1 min-w-0">
             <p className="text-xs font-mono text-muted-foreground">{o.order_id}</p>
-            <p className="text-xs capitalize text-foreground">{o.type.replace('_', ' ')}</p>
+            <p className="text-xs capitalize text-foreground">{o.type?.replace('_', ' ')}</p>
             {o.scheduled_date && (
               <p className="text-xs text-muted-foreground">{new Date(o.scheduled_date).toLocaleDateString()}</p>
             )}
@@ -61,7 +61,7 @@ export function OrderHistorySection({ customerId }: { customerId: string | null 
           </div>
           <Badge
             variant="outline"
-            className={`text-xs capitalize flex-shrink-0 ${statusColor[o.status] ?? 'text-muted-foreground'}`}
+            className={`text-xs capitalize flex-shrink-0 ${statusColor[o.status ?? ''] ?? 'text-muted-foreground'}`}
           >
             {o.status}
           </Badge>

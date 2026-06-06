@@ -134,7 +134,7 @@ export function useDivisionsWithSchedule() {
     queryFn: async (): Promise<DivisionWithSchedule[]> => {
       const supabase = createClient()
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      const { data, error } = await (supabase as any)
+      const { data, error } = await supabase
         .from('divisions')
         .select('id, slug, name, short_name, calendar_schedule_id')
         .eq('is_active', true)
@@ -159,7 +159,7 @@ export function useAssignDivisionSchedule() {
     }) => {
       const supabase = createClient()
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      const { error } = await (supabase as any)
+      const { error } = await supabase
         .from('divisions')
         .update({ calendar_schedule_id: scheduleId })
         .eq('id', divisionId)

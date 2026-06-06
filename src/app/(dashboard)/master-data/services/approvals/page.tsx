@@ -69,7 +69,7 @@ export default function ServiceApprovalsPage() {
     try {
       const result = await approveReq.mutateAsync(approveTarget.id)
       const supabase = createClient()
-      await (supabase as any).from('notifications').insert({
+      await supabase.from('notifications').insert({
         profile_id: approveTarget.requested_by,
         type: 'service_change_approved',
         title: 'Your service change has been approved',
@@ -89,7 +89,7 @@ export default function ServiceApprovalsPage() {
     try {
       await rejectReq.mutateAsync({ requestId: rejectTarget.id, reason: rejectReason.trim() })
       const supabase = createClient()
-      await (supabase as any).from('notifications').insert({
+      await supabase.from('notifications').insert({
         profile_id: rejectTarget.requested_by,
         type: 'service_change_rejected',
         title: 'Your service change was rejected',

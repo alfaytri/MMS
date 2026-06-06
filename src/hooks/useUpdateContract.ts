@@ -42,7 +42,7 @@ export function useUpdateContract() {
 
       const { error } = await supabase
         .from('contracts')
-        .update(updates as any)
+        .update(updates as import('@/types/database.types').DBUpdate<'contracts'>)
         .eq('id', contractId)
       if (error) throw error
     },
@@ -82,7 +82,7 @@ export async function saveContractFull(
       discount: formData.discount,
       payment_mode: formData.paymentMode,
       payment_frequency: formData.paymentFrequency,
-      building_tree: formData.buildingTree as any,
+      building_tree: formData.buildingTree as unknown as import('@/types/database.types').Json,
       notes: formData.notes,
       total_value: formData.totalValue,
       monthly_value: formData.monthlyValue,
@@ -90,7 +90,7 @@ export async function saveContractFull(
       area_count: formData.areaCount,
       source_type: formData.sourceType,
       last_saved_session: sessionId,
-    } as any)
+    })
     .eq('id', contractId)
   if (updateError) throw updateError
 
@@ -165,7 +165,7 @@ export async function autoSaveContract(
   const supabase = createClient()
   const { error } = await supabase
     .from('contracts')
-    .update({ ...scalarFields, last_saved_session: sessionId } as any)
+    .update({ ...scalarFields, last_saved_session: sessionId })
     .eq('id', contractId)
   if (error) throw error
 }

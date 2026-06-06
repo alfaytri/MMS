@@ -48,14 +48,14 @@ export function ItemRow({ item, categoryType, showArchived, canMoveUp, canMoveDo
     const a = variants[idx]
     const b = variants[targetIdx]
     updateVariantOrder.mutate([
-      { id: a.id, sort_order: (a as any).sort_order ?? idx },
-      { id: b.id, sort_order: (b as any).sort_order ?? targetIdx },
+      { id: a.id, sort_order: a.sort_order ?? idx },
+      { id: b.id, sort_order: b.sort_order ?? targetIdx },
     ])
   }
 
-  const totalAtp = variants.reduce((sum, v) => sum + (v.stock_level ?? 0) - ((v as any).reserved_qty ?? 0), 0)
-  const totalDamaged = variants.reduce((sum, v) => sum + ((v as any).damaged_qty ?? 0), 0)
-  const minReorder = Math.min(...variants.map((v) => (v as any).reorder_point ?? 0), Infinity)
+  const totalAtp = variants.reduce((sum, v) => sum + (v.stock_level ?? 0) - (v.reserved_qty ?? 0), 0)
+  const totalDamaged = variants.reduce((sum, v) => sum + (v.damaged_qty ?? 0), 0)
+  const minReorder = Math.min(...variants.map((v) => v.reorder_point ?? 0), Infinity)
   const reorderPoint = isFinite(minReorder) ? minReorder : 0
   const linkedCount = item.linked_services_count ?? 0
 

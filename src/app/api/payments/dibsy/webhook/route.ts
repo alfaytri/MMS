@@ -45,7 +45,7 @@ export async function POST(request: Request) {
     if (payment.status === 'paid') {
       const adminClient = createAdminClient()
 
-      const { data: items, error: fetchErr } = await (adminClient as any)
+      const { data: items, error: fetchErr } = await adminClient
         .from('tl_payment_batch_items')
         .select('tl_invoice_id')
         .eq('batch_id', batchId)
@@ -68,7 +68,7 @@ export async function POST(request: Request) {
         else console.warn(`[dibsy/webhook] invoice ${item.tl_invoice_id} skipped (already paid or not found)`)
       }
 
-      await (adminClient as any)
+      await adminClient
         .from('tl_payment_batches')
         .update({ payment_status: 'paid', updated_at: new Date().toISOString() })
         .eq('id', batchId)

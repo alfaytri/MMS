@@ -15,7 +15,7 @@ export function useAttachPaymentToBill() {
       amount: number
     }) => {
       const supabase = createClient()
-      const { error } = await (supabase as any).rpc('allocate_payment_to_bill', {
+      const { error } = await supabase.rpc('allocate_payment_to_bill', {
         p_payment_id: paymentId,
         p_bill_id:    billId,
         p_amount:     amount,

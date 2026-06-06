@@ -28,8 +28,8 @@ export function useInventoryCategories() {
     queryKey: queryKeys.inventory.categories,
     queryFn: async () => {
       const supabase = createClient()
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      const { data, error } = await (supabase.from('inventory_categories') as any)
+      const { data, error } = await supabase
+        .from('inventory_categories')
         .select('*')
         .order('name_en')
       if (error) throw error
@@ -45,14 +45,14 @@ export function useInventoryItems(categoryType?: string) {
     queryFn: async () => {
       const supabase = createClient()
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      let query = (supabase as any)
+      let query = supabase
         .from('inventory_items')
         .select('*, inventory_categories!inner(type, name_en)')
         .eq('status', 'active')
         .order('name_en')
 
       if (categoryType) {
-        query = (query as any).eq('inventory_categories.type', categoryType)
+        query = query.eq('inventory_categories.type', categoryType as 'products' | 'spare-parts' | 'consumables' | 'tools')
       }
 
       const { data, error } = await query
@@ -68,7 +68,7 @@ export function useBrandVariants(itemId: string | null) {
     queryFn: async () => {
       const supabase = createClient()
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      const { data, error } = await (supabase as any)
+      const { data, error } = await supabase
         .from('inventory_brand_variants')
         .select('*, brands(name)')
         .eq('item_id', itemId!)
@@ -127,9 +127,9 @@ export function useCreateBrandVariant() {
     mutationFn: async (values: BrandVariantInsert) => {
       const supabase = createClient()
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      const { data, error } = await (supabase as any)
+      const { data, error } = await supabase
         .from('inventory_brand_variants')
-        .insert(values)
+        .insert(values as unknown as DBInsert<'inventory_brand_variants'>)
         .select()
         .single()
       if (error) throw error
@@ -150,9 +150,9 @@ export function useUpdateBrandVariant() {
     mutationFn: async ({ id, ...values }: BrandVariantUpdate & { id: string }) => {
       const supabase = createClient()
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      const { data, error } = await (supabase as any)
+      const { data, error } = await supabase
         .from('inventory_brand_variants')
-        .update(values)
+        .update(values as unknown as import('@/types/database.types').DBUpdate<'inventory_brand_variants'>)
         .eq('id', id)
         .select()
         .single()
@@ -319,10 +319,10 @@ export function useInventoryCategoriesByType(type: string, showArchived = false)
     queryFn: async () => {
       const supabase = createClient()
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      let q = (supabase as any)
+      let q = supabase
         .from('inventory_categories')
         .select('*')
-        .eq('type', type)
+        .eq('type', type as 'products' | 'spare-parts' | 'consumables' | 'tools')
         .order('sort_order', { ascending: true })
         .order('name_en', { ascending: true })
       if (!showArchived) q = q.neq('status', 'archived')
@@ -340,9 +340,9 @@ export function useCreateInventoryCategory() {
     mutationFn: async (payload) => {
       const supabase = createClient()
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      const { data, error } = await (supabase as any)
+      const { data, error } = await supabase
         .from('inventory_categories')
-        .insert(payload)
+        .insert(payload as unknown as DBInsert<'inventory_categories'>)
         .select()
         .single()
       if (error) throw error
@@ -362,7 +362,7 @@ export function useUpdateInventoryCategory() {
     mutationFn: async ({ id, ...payload }: { id: string; name_en?: string; name_ar?: string | null; sku?: string | null; status?: string; parent_id?: string | null }) => {
       const supabase = createClient()
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      const { data, error } = await (supabase as any)
+      const { data, error } = await supabase
         .from('inventory_categories')
         .update(payload)
         .eq('id', id)
@@ -387,7 +387,7 @@ export function useInventoryItemsByCategory(categoryId: string | null, showArchi
     queryFn: async () => {
       const supabase = createClient()
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      let q = (supabase as any)
+      let q = supabase
         .from('inventory_items')
         .select('*')
         .eq('category_id', categoryId!)
@@ -408,7 +408,7 @@ export function useArchiveInventoryItem() {
     mutationFn: async (id: string) => {
       const supabase = createClient()
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      const { error } = await (supabase as any)
+      const { error } = await supabase
         .from('inventory_items')
         .update({ status: 'archived' })
         .eq('id', id)
@@ -430,7 +430,7 @@ export function useInventoryBrandVariants(itemId: string | null, showArchived = 
     queryFn: async () => {
       const supabase = createClient()
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      let q = (supabase as any)
+      let q = supabase
         .from('inventory_brand_variants')
         .select('*')
         .eq('item_id', itemId!)
@@ -451,7 +451,7 @@ export function useArchiveInventoryBrandVariant() {
     mutationFn: async (id: string) => {
       const supabase = createClient()
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      const { error } = await (supabase as any)
+      const { error } = await supabase
         .from('inventory_brand_variants')
         .update({ status: 'archived' })
         .eq('id', id)
@@ -470,7 +470,7 @@ export function useFifoLayers(brandVariantId: string | null, enabled = true) {
     queryFn: async () => {
       const supabase = createClient()
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      const { data, error } = await (supabase as any)
+      const { data, error } = await supabase
         .from('fifo_cost_layers')
         .select('id, brand_variant_id, receival_number, date, qty, remaining_qty, unit_cost, landed_cost_per_unit, total_unit_cost, created_at')
         .eq('brand_variant_id', brandVariantId!)
@@ -496,7 +496,7 @@ export function useVariantWarehouseStock(variantId: string | undefined, enabled 
       if (!variantId) return { perWarehouse: [], unassigned: 0, hasReceivals: false }
       const supabase = createClient()
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      const { data, error } = await (supabase as any)
+      const { data, error } = await supabase
         .from('fifo_cost_layers')
         .select('warehouse_id, remaining_qty, receival_id')
         .eq('brand_variant_id', variantId)
@@ -534,7 +534,7 @@ export function useToolAssetItems(search = '') {
     queryFn: async () => {
       const supabase = createClient()
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      let q = (supabase as any)
+      let q = supabase
         .from('tool_asset_items')
         .select('*')
         .order('name_en', { ascending: true })
@@ -554,7 +554,7 @@ export function useToolAssetUnits(itemId: string | null) {
     queryFn: async () => {
       const supabase = createClient()
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      const { data, error } = await (supabase as any)
+      const { data, error } = await supabase
         .from('tool_asset_units')
         .select('*')
         .eq('item_id', itemId!)
@@ -572,7 +572,7 @@ export function useCreateToolAssetItem() {
     mutationFn: async (payload: { name_en: string; name_ar?: string | null }) => {
       const supabase = createClient()
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      const { data, error } = await (supabase as any)
+      const { data, error } = await supabase
         .from('tool_asset_items')
         .insert(payload)
         .select()
@@ -590,7 +590,7 @@ export function useUpdateToolAssetItem() {
     mutationFn: async ({ id, ...payload }: { id: string; name_en?: string; name_ar?: string | null }) => {
       const supabase = createClient()
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      const { data, error } = await (supabase as any)
+      const { data, error } = await supabase
         .from('tool_asset_items')
         .update(payload)
         .eq('id', id)
@@ -609,9 +609,9 @@ export function useCreateToolAssetUnit() {
     mutationFn: async (payload) => {
       const supabase = createClient()
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      const { data, error } = await (supabase as any)
+      const { data, error } = await supabase
         .from('tool_asset_units')
-        .insert({ condition: 'Good', status: 'available', ...payload })
+        .insert({ condition: 'Good', status: 'available', ...payload } as unknown as DBInsert<'tool_asset_units'>)
         .select()
         .single()
       if (error) throw error
@@ -629,9 +629,9 @@ export function useUpdateToolAssetUnit() {
     mutationFn: async ({ id, item_id: _item_id, ...payload }) => {
       const supabase = createClient()
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      const { data, error } = await (supabase as any)
+      const { data, error } = await supabase
         .from('tool_asset_units')
-        .update(payload)
+        .update(payload as unknown as import('@/types/database.types').DBUpdate<'tool_asset_units'>)
         .eq('id', id)
         .select()
         .single()
@@ -653,7 +653,7 @@ export function useServiceInventoryLinks(brandVariantId: string | null) {
     queryFn: async () => {
       const supabase = createClient()
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      const { data, error } = await (supabase as any)
+      const { data, error } = await supabase
         .from('service_inventory')
         .select('id, service_id, brand_variant_id, quantity, notes')
         .eq('brand_variant_id', brandVariantId!)
@@ -670,7 +670,7 @@ export function useUpdateServiceInventoryLinks() {
     mutationFn: async ({ brandVariantId, serviceIds }) => {
       const supabase = createClient()
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      const { data: existing, error: fetchErr } = await (supabase as any)
+      const { data: existing, error: fetchErr } = await supabase
         .from('service_inventory')
         .select('id, service_id')
         .eq('brand_variant_id', brandVariantId)
@@ -684,7 +684,7 @@ export function useUpdateServiceInventoryLinks() {
 
       if (toRemove.length > 0) {
         // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        const { error } = await (supabase as any)
+        const { error } = await supabase
           .from('service_inventory')
           .delete()
           .in('id', toRemove)
@@ -693,7 +693,7 @@ export function useUpdateServiceInventoryLinks() {
       if (toAdd.length > 0) {
         const rows = toAdd.map((sid) => ({ service_id: sid, brand_variant_id: brandVariantId, quantity: 1 }))
         // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        const { error } = await (supabase as any).from('service_inventory').insert(rows)
+        const { error } = await supabase.from('service_inventory').insert(rows)
         if (error) throw error
       }
     },
@@ -728,7 +728,7 @@ export function useInventoryItemsFlat(enabled = true) {
     queryFn: async () => {
       const supabase = createClient()
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      const { data, error } = await (supabase as any)
+      const { data, error } = await supabase
         .from('inventory_items')
         .select('id, name_en, name_ar, sku, category_id, unit, linked_services_count')
         .neq('status', 'archived')
@@ -748,7 +748,7 @@ export function useArchiveInventoryCategory() {
     mutationFn: async (categoryId: string) => {
       const supabase = createClient()
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      const { data: items, error: fetchErr } = await (supabase as any)
+      const { data: items, error: fetchErr } = await supabase
         .from('inventory_items')
         .select('id')
         .eq('category_id', categoryId)
@@ -757,13 +757,13 @@ export function useArchiveInventoryCategory() {
       if (items && items.length > 0) {
         const itemIds = (items as { id: string }[]).map((i) => i.id)
         // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        const { error: varErr } = await (supabase as any)
+        const { error: varErr } = await supabase
           .from('inventory_brand_variants')
           .update({ status: 'archived' })
           .in('item_id', itemIds)
         if (varErr) throw varErr
         // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        const { error: itemErr } = await (supabase as any)
+        const { error: itemErr } = await supabase
           .from('inventory_items')
           .update({ status: 'archived' })
           .in('id', itemIds)
@@ -771,7 +771,7 @@ export function useArchiveInventoryCategory() {
       }
 
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      const { error } = await (supabase as any)
+      const { error } = await supabase
         .from('inventory_categories')
         .update({ status: 'archived' })
         .eq('id', categoryId)
@@ -796,7 +796,7 @@ export function useUpdateSortOrders(table: 'inventory_categories' | 'inventory_i
       const results = await Promise.all(
         updates.map(({ id, sort_order }) =>
           // eslint-disable-next-line @typescript-eslint/no-explicit-any
-          (supabase as any).from(table).update({ sort_order }).eq('id', id)
+          supabase.from(table).update({ sort_order }).eq('id', id)
         )
       )
       const failed = results.find((r: { error: unknown }) => r.error)
@@ -817,18 +817,14 @@ export function useUpsertInventoryItemAttributes() {
   return useMutation<void, Error, { itemId: string; attributes: string[] }>({
     mutationFn: async ({ itemId, attributes }) => {
       const supabase = createClient()
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      const { error: delErr } = await (supabase as any)
-        .from('inventory_item_attributes')
-        .delete()
-        .eq('item_id', itemId)
+      // inventory_item_attributes not yet in generated DB types — cast to bypass type checks
+      type AnyTable = { delete: () => { eq: (col: string, val: string) => Promise<{ error: Error | null }> }; insert: (v: unknown) => Promise<{ error: Error | null }> }
+      const attrTable = (supabase as unknown as { from: (t: string) => AnyTable }).from('inventory_item_attributes')
+      const { error: delErr } = await attrTable.delete().eq('item_id', itemId)
       if (delErr) throw delErr
       if (attributes.length > 0) {
         const rows = attributes.map((attr) => ({ item_id: itemId, attribute: attr }))
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        const { error: insErr } = await (supabase as any)
-          .from('inventory_item_attributes')
-          .insert(rows)
+        const { error: insErr } = await attrTable.insert(rows)
         if (insErr) throw insErr
       }
     },
@@ -846,7 +842,7 @@ export function useStaffProfiles() {
     queryFn: async () => {
       const supabase = createClient()
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      const { data, error } = await (supabase as any)
+      const { data, error } = await supabase
         .from('profiles')
         .select('id, full_name')
         .order('full_name')
@@ -873,7 +869,7 @@ export function useBrandVariantsByIds(ids: string[]) {
     queryFn: async () => {
       const supabase = createClient()
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      const { data, error } = await (supabase as any)
+      const { data, error } = await supabase
         .from('inventory_brand_variants')
         .select('id, selling_price, margin_percent, average_cost')
         .in('id', ids)
@@ -897,7 +893,7 @@ export function useBatchUpdateSellingPrices() {
       const supabase = createClient()
       // Single Postgres transaction via RPC — avoids N parallel HTTP requests
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      const { error } = await (supabase as any)
+      const { error } = await supabase
         .rpc('batch_update_variant_prices', { p_updates: updates })
       if (error) throw error
     },
@@ -931,7 +927,7 @@ export function useReservedOrderLines(brandVariantId: string | null) {
     queryFn: async () => {
       const supabase = createClient()
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      const { data, error } = await (supabase as any)
+      const { data, error } = await supabase
         .from('sale_order_lines')
         .select('id, qty, delivered_qty, sale_orders!inner(id, so_number, status, expected_delivery, customers(name))')
         .eq('brand_variant_id', brandVariantId!)
@@ -950,7 +946,7 @@ export function useAllBrandNames() {
     queryFn: async () => {
       const supabase = createClient()
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      const { data, error } = await (supabase as any)
+      const { data, error } = await supabase
         .from('inventory_brand_variants')
         .select('brand')
         .neq('status', 'archived')
@@ -996,7 +992,7 @@ export function useAllServiceLinks(enabled = true) {
     queryFn: async () => {
       const supabase = createClient()
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      const { data, error } = await (supabase as any)
+      const { data, error } = await supabase
         .from('service_inventory')
         .select(`
           id,
@@ -1035,7 +1031,7 @@ export function useAddServiceInventoryLink() {
     mutationFn: async (row) => {
       const supabase = createClient()
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      const { error } = await (supabase as any)
+      const { error } = await supabase
         .from('service_inventory')
         .insert(row)
       if (error) throw error
@@ -1066,7 +1062,7 @@ export function useAddBulkServiceInventoryLinks() {
       if (serviceIds.length === 0) return
       const supabase = createClient()
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      const { error } = await (supabase as any).rpc('service_inventory_bulk_upsert', {
+      const { error } = await supabase.rpc('service_inventory_bulk_upsert', {
         p_service_ids: serviceIds,
         p_brand_variant_id: brandVariantId,
         p_link_type: linkType,
@@ -1088,7 +1084,7 @@ export function useDeleteServiceInventoryLink() {
     mutationFn: async (id) => {
       const supabase = createClient()
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      const { error } = await (supabase as any)
+      const { error } = await supabase
         .from('service_inventory')
         .delete()
         .eq('id', id)
@@ -1116,7 +1112,7 @@ export function useUpdateServiceInventoryLink() {
     mutationFn: async ({ id, ...patch }) => {
       const supabase = createClient()
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      const { error } = await (supabase as any)
+      const { error } = await supabase
         .from('service_inventory')
         .update(patch)
         .eq('id', id)

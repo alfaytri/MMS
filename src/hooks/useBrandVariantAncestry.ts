@@ -30,7 +30,7 @@ export function useBrandVariantAncestry(variantId: string | null) {
     staleTime: 10 * 60 * 1000,
     queryFn: async (): Promise<BrandVariantAncestry> => {
       const supabase = createClient()
-      const { data, error } = await (supabase as any)
+      const { data, error } = await supabase
         .from('inventory_brand_variants')
         .select(`
           id, brand, code, cost_price, stock_level, reserved_qty,

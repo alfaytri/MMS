@@ -17,7 +17,7 @@ export function useUnlinkedArInvoices(customerId: string) {
     queryKey: queryKeys.unlinkedAr.invoices(customerId),
     queryFn: async () => {
       const supabase = createClient()
-      const { data, error } = await (supabase as any)
+      const { data, error } = await supabase
         .from('invoices')
         .select('id, invoice_id, total_amount, payment_status, issued_date')
         .eq('direction', 'ar')

@@ -19,7 +19,8 @@ import './map-styles.css'
 // Without this, Leaflet's bundled marker PNGs 404 under Vite.
 // We use custom DivIcons so this only matters if someone adds a
 // default marker elsewhere.
-delete (L.Icon.Default.prototype as any)._getIconUrl
+// @ts-expect-error — _getIconUrl is not in Leaflet's official type definitions but exists at runtime
+delete L.Icon.Default.prototype._getIconUrl
 L.Icon.Default.mergeOptions({
   iconRetinaUrl: 'https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/images/marker-icon-2x.png',
   iconUrl:       'https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/images/marker-icon.png',
@@ -38,7 +39,7 @@ interface MapViewProps {
   selectedTeamId: string | null
   flyTo: { lat: number; lng: number } | null
   onFlyToDone: () => void
-  onMapReady?: (map: L.Map) => void
+  onMapReady?: (map: L.Map | null) => void
 }
 
 export function MapView({
@@ -89,7 +90,7 @@ export function MapView({
     onMapReady?.(map)
 
     return () => {
-      onMapReady?.(null as any)
+      onMapReady?.(null)
       map.remove()
       mapRef.current = null
       teamClusterRef.current = null
@@ -142,10 +143,10 @@ export function MapView({
         existing.setLatLng(latLng)
 
         // Update icon if status changed (stored as data attribute)
-        const prevStatus = (existing as any)._teamStatus
+        const prevStatus = existing._teamStatus
         if (prevStatus !== team.status) {
           existing.setIcon(getTeamIcon(team.status))
-          ;(existing as any)._teamStatus = team.status
+          ;existing._teamStatus = team.status
         }
 
         // Update popup content
@@ -153,7 +154,7 @@ export function MapView({
         if (popup) popup.setContent(buildTeamPopup(team))
 
         // Update dimming
-        const el = (existing as any)._icon as HTMLElement | null
+        const el = existing._icon
         if (el) {
           el.classList.toggle('marker-dimmed', isDimmed)
         }
@@ -161,14 +162,14 @@ export function MapView({
         // Create new marker
         const marker = L.marker(latLng, { icon: getTeamIcon(team.status) })
           .bindPopup(buildTeamPopup(team))
-        ;(marker as any)._teamStatus = team.status
+        ;marker._teamStatus = team.status
         cluster.addLayer(marker)
         markerMap.set(team.id, marker)
 
         // Apply dimming to new marker after it renders
         if (isDimmed) {
           marker.on('add', () => {
-            const el = (marker as any)._icon as HTMLElement | null
+            const el = marker._icon
             if (el) el.classList.add('marker-dimmed')
           })
         }

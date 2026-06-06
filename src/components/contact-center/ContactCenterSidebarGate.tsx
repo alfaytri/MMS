@@ -18,7 +18,7 @@ export function ContactCenterSidebarGate() {
       const { data: { user } } = await supabase.auth.getUser()
       if (!user) return false
 
-      const { data: profile } = await (supabase as any)
+      const { data: profile } = await supabase
         .from('profiles')
         .select('user_custom_roles!user_custom_roles_profile_id_fkey(custom_roles(permissions))')
         .eq('auth_user_id', user.id)

@@ -48,7 +48,7 @@ export async function POST(request: Request) {
   }
 
   const supabase = createAdminClient()
-  const { error: dbError } = await (supabase as any)
+  const { error: dbError } = await supabase
     .from('customer_subscriptions')
     .update({
       dibsy_payment_id: payment.id,

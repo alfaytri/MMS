@@ -121,7 +121,7 @@ async function getMyProfileId(): Promise<string | null> {
   const supabase = createClient()
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) { cachedProfileId = null; return null }
-  const { data } = await (supabase as any)
+  const { data } = await supabase
     .from('profiles').select('id').eq('auth_user_id', user.id).maybeSingle()
   cachedProfileId = data?.id ?? null
   return cachedProfileId as string | null
@@ -138,7 +138,7 @@ export function useUnreadNotificationCount() {
       const profileId = await getMyProfileId()
       if (!profileId) return 0
       const supabase = createClient()
-      const { count, error } = await (supabase as any)
+      const { count, error } = await supabase
         .from('notifications')
         .select('*', { count: 'exact', head: true })
         .eq('profile_id', profileId)
@@ -158,7 +158,7 @@ export function useRecentNotifications() {
       const profileId = await getMyProfileId()
       if (!profileId) return [] as NotificationRow[]
       const supabase = createClient()
-      const { data, error } = await (supabase as any)
+      const { data, error } = await supabase
         .from('notifications')
         .select('*')
         .eq('profile_id', profileId)
@@ -178,7 +178,7 @@ export function useMarkNotificationRead() {
   return useMutation({
     mutationFn: async (id: string) => {
       const supabase = createClient()
-      const { error } = await (supabase as any)
+      const { error } = await supabase
         .from('notifications').update({ read_at: new Date().toISOString() }).eq('id', id)
       if (error) throw error
     },
@@ -195,7 +195,7 @@ export function useMarkAllNotificationsRead() {
       const profileId = await getMyProfileId()
       if (!profileId) throw new Error('Not authenticated')
       const supabase = createClient()
-      const { error } = await (supabase as any)
+      const { error } = await supabase
         .from('notifications')
         .update({ read_at: new Date().toISOString() })
         .eq('profile_id', profileId)

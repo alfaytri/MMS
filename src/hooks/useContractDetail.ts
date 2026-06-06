@@ -13,6 +13,34 @@ import type {
   PendingVisit,
 } from '@/types/contracts'
 
+/** Shape of the joined row returned by the contract detail query */
+interface ContractDetailRow {
+  building_tree: { nodes: unknown[] } | null
+  total_visits: number | null
+  contract_services: Array<Record<string, unknown>>
+  contract_visits: Array<{
+    id: string
+    contract_id: string
+    contract_service_id: string | null
+    service_name: string
+    scheduled_date: string
+    team_id: string | null
+    completed: boolean
+    teams: { name_en: string } | null
+    contract_services: {
+      building_node_id: string | null
+      service_path: string[] | null
+      brand_name: string | null
+      frequency: string | null
+      divisions: string[] | null
+    } | null
+    [key: string]: unknown
+  }>
+  contract_payments: Array<Record<string, unknown>>
+  contract_milestones: Array<{ sort_order: number | null; [key: string]: unknown }>
+  [key: string]: unknown
+}
+
 export function useContractDetail(contractId: string | undefined) {
   const supabase = createClient()
   const queryClient = useQueryClient()
@@ -52,25 +80,27 @@ export function useContractDetail(contractId: string | undefined) {
   // Memoize all derived values so references stay stable across renders.
   // Without this, useEffect([services]) in consumers loops infinitely because
   // `[] || ...` returns a new array reference on every render.
+  const detail = query.data as ContractDetailRow | undefined
+
   const contract: Contract | null = useMemo(
     () =>
-      query.data
+      detail
         ? {
-            ...(query.data as any),
-            building_tree: (query.data as any).building_tree || { nodes: [] },
-          }
+            ...detail,
+            building_tree: detail.building_tree || { nodes: [] },
+          } as unknown as Contract
         : null,
-    [query.data],
+    [detail],
   )
 
   const services: ContractService[] = useMemo(
-    () => (query.data as any)?.contract_services || [],
-    [query.data],
+    () => (detail?.contract_services ?? []) as unknown as ContractService[],
+    [detail],
   )
 
   const visits: ContractVisit[] = useMemo(
     () =>
-      ((query.data as any)?.contract_visits || []).map((v: any) => ({
+      (detail?.contract_visits ?? []).map((v) => ({
         id: v.id,
         contract_id: v.contract_id,
         contract_service_id: v.contract_service_id,
@@ -84,21 +114,21 @@ export function useContractDetail(contractId: string | undefined) {
         brand_name: v.contract_services?.brand_name,
         frequency: v.contract_services?.frequency,
         divisions: v.contract_services?.divisions,
-      })),
-    [query.data],
+      })) as ContractVisit[],
+    [detail],
   )
 
   const payments: ContractPayment[] = useMemo(
-    () => (query.data as any)?.contract_payments || [],
-    [query.data],
+    () => (detail?.contract_payments ?? []) as unknown as ContractPayment[],
+    [detail],
   )
 
   const milestones: ContractMilestone[] = useMemo(
     () =>
-      ((query.data as any)?.contract_milestones || [])
+      (detail?.contract_milestones ?? [])
         .slice()
-        .sort((a: any, b: any) => (a.sort_order || 0) - (b.sort_order || 0)),
-    [query.data],
+        .sort((a, b) => (a.sort_order || 0) - (b.sort_order || 0)) as unknown as ContractMilestone[],
+    [detail],
   )
 
   const createTentativeVisits = useMutation({
@@ -111,14 +141,13 @@ export function useContractDetail(contractId: string | undefined) {
         team_id: v.team_id,
         completed: false,
       }))
-      const { error } = await supabase.from('contract_visits').insert(rows as any)
+      const { error } = await supabase.from('contract_visits').insert(rows as unknown as import('@/types/database.types').DBInsert<'contract_visits'>[])
       if (error) throw error
 
+      const currentTotal = (detail?.total_visits ?? 0) as number
       await supabase
         .from('contracts')
-        .update({
-          total_visits: ((contract as any)?.total_visits || 0) + pendingVisits.length,
-        } as any)
+        .update({ total_visits: currentTotal + pendingVisits.length })
         .eq('id', contractId!)
     },
     onSuccess: () => {
@@ -138,7 +167,7 @@ export function useContractDetail(contractId: string | undefined) {
     }) => {
       const { error } = await supabase
         .from('contract_visits')
-        .update(updates as any)
+        .update(updates as import('@/types/database.types').DBUpdate<'contract_visits'>)
         .eq('id', visitId)
       if (error) throw error
     },

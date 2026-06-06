@@ -22,8 +22,7 @@ export async function GET() {
     const admin = createAdminClient()
     const [traccarGeofences, localRes] = await Promise.all([
       getTraccarGeofences(),
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      (admin as any).from('traccar_geofences').select('*'),
+      admin.from('traccar_geofences').select('*'),
     ])
 
     if (localRes.error) throw localRes.error
@@ -63,8 +62,7 @@ export async function GET() {
         }
       }
       if (orphanedIds.length > 0) {
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        await (admin as any).from('traccar_geofences').delete().in('id', orphanedIds)
+        await admin.from('traccar_geofences').delete().in('id', orphanedIds)
       }
     }
 
@@ -104,8 +102,7 @@ export async function POST(req: NextRequest) {
     })
 
     const admin = createAdminClient()
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const { data: local, error: dbError } = await (admin as any)
+    const { data: local, error: dbError } = await admin
       .from('traccar_geofences')
       .insert({
         traccar_geofence_id: traccarResult.id,

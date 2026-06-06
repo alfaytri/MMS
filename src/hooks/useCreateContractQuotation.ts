@@ -36,7 +36,7 @@ export function useCreateContractQuotation() {
           discount: data.discount,
           payment_mode: data.paymentMode,
           payment_frequency: data.paymentFrequency,
-          building_tree: data.buildingTree,
+          building_tree: data.buildingTree as unknown as import('@/types/database.types').Json,
           notes: data.notes,
           monthly_value: data.monthlyValue,
           total_value: data.totalValue,
@@ -44,7 +44,7 @@ export function useCreateContractQuotation() {
           created_by: data.createdBy,
           area_count: data.areaCount,
           services_summary: data.servicesSummary,
-        } as any)
+        })
         .select()
         .single()
       if (error) throw error
@@ -108,7 +108,7 @@ export function useCreateContractQuotation() {
         if (!uploadError) {
           await supabase
             .from('contracts')
-            .update({ terms_pdf_url: storagePath } as any)
+            .update({ terms_pdf_url: storagePath })
             .eq('id', contract.id)
         }
       }

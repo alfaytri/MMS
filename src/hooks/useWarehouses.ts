@@ -29,7 +29,7 @@ export function useWarehouses() {
         return {
           ...rest,
           manager_name: manager?.name ?? null,
-          manager_profile_id: manager_profile?.id ?? (rest as any).manager_profile_id ?? null,
+          manager_profile_id: manager_profile?.id ?? (rest as Record<string, unknown>).manager_profile_id as string | null ?? null,
           manager_profile_name: manager_profile?.full_name ?? null,
         }
       }) as Warehouse[]

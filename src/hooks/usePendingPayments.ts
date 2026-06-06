@@ -34,7 +34,7 @@ export function usePendingPayments() {
     queryKey: queryKeys.payments.pending,
     queryFn: async (): Promise<CustomerPending[]> => {
       const supabase = createClient()
-      const { data, error } = await (supabase as any).rpc(
+      const { data, error } = await supabase.rpc(
         'get_customer_pending_balances'
       )
       if (error) throw error

@@ -123,7 +123,7 @@ export function TimelineGrid({
   const divisionGroups = useMemo(() => {
     const groups = new Map<string, { slug: string; name: string; color: string; teams: TeamFull[] }>()
     for (const team of teams) {
-      const div  = (team.division as any)
+      const div  = team.division
       const slug = div?.slug ?? '__none__'
       const name = div?.name ?? div?.short_name ?? 'Unassigned'
       if (!groups.has(slug)) {

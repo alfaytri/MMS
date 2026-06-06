@@ -17,7 +17,7 @@ import {
   Table, TableBody, TableCell, TableHead, TableHeader, TableRow,
 } from '@/components/ui/table'
 import { CreditDebitNoteDownloadButton } from '@/components/sales/CreditDebitNoteDownloadButton'
-import { useCreatePurchaseReturn, useUpdatePOReturnStatus, useCreateDebitNoteForReturn, type POReturn, type POReturnItem } from '@/hooks/usePurchaseReturns'
+import { useCreatePurchaseReturn, useUpdatePOReturnStatus, useCreateDebitNoteForReturn, type POReturn, type POReturnItem, type POReturnStatus } from '@/hooks/usePurchaseReturns'
 import { useWarehouses } from '@/hooks/useWarehouses'
 import type { PurchaseOrder } from '@/hooks/usePurchaseOrders'
 import { cn } from '@/lib/utils'
@@ -145,7 +145,7 @@ export function PoReturnsTab({ po, poReturns, receivals }: PoReturnsTabProps) {
                       variant="outline"
                       disabled={updatePOReturnStatus.isPending}
                       onClick={() => updatePOReturnStatus.mutate(
-                        { id: ret.id, status: next as any, sourceId: po.id },
+                        { id: ret.id, status: next as POReturnStatus, sourceId: po.id },
                         { onSuccess: () => toast.success(PO_STATUS_LABEL[next] ?? next), onError: (e: Error) => toast.error(e.message) }
                       )}
                     >

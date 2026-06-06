@@ -58,7 +58,7 @@ export function PoReceiveTab({ po }: { po: PurchaseOrder }) {
       po_line_item_id: li.id,
       brand_variant_id: li.brand_variant_id ?? null,
       item_name: li.item_name,
-      system_name: (li as any).inventory_brand_variants?.inventory_items?.name_en ?? null,
+      system_name: (li as { inventory_brand_variants?: { inventory_items?: { name_en?: string } } }).inventory_brand_variants?.inventory_items?.name_en ?? null,
       sku: li.sku ?? null,
       unit: li.unit ?? '',
       ordered: li.qty,
@@ -109,9 +109,9 @@ export function PoReceiveTab({ po }: { po: PurchaseOrder }) {
   const { data: allItems = [] } = useInventoryItemsAll()
   const { data: variants = [] } = useInventoryBrandVariants(nonPoItemId || null)
 
-  const filteredItems = (allItems as any[]).filter((i) => !nonPoCatId || i.category_id === nonPoCatId)
-  const selectedItem = (allItems as any[]).find((i) => i.id === nonPoItemId)
-  const selectedVariant = (variants as any[]).find((v) => v.id === nonPoVariantId)
+  const filteredItems = allItems.filter((i) => !nonPoCatId || i.category_id === nonPoCatId)
+  const selectedItem = allItems.find((i) => i.id === nonPoItemId)
+  const selectedVariant = variants.find((v) => v.id === nonPoVariantId)
 
   function resetNonPo() {
     setNonPoCatId(''); setNonPoItemId(''); setNonPoVariantId(''); setNonPoQty('')
@@ -124,13 +124,13 @@ export function PoReceiveTab({ po }: { po: PurchaseOrder }) {
       return
     }
     const brandLabel = selectedVariant
-      ? ` (${(selectedVariant as any).brand ?? ''})`
+      ? ` (${selectedVariant.brand ?? ''})`
       : ''
     const name = `${selectedItem?.name_en ?? 'Free Item'}${brandLabel}`
-    const sku = (selectedVariant as any)?.code ?? selectedItem?.sku ?? null
+    const sku = selectedVariant?.code ?? selectedItem?.sku ?? null
     setExtraFreeItems((prev) => [
       ...prev,
-      { _id: crypto.randomUUID(), brand_variant_id: (selectedVariant as any)?.id ?? null, item_name: name, sku, qty },
+      { _id: crypto.randomUUID(), brand_variant_id: selectedVariant?.id ?? null, item_name: name, sku, qty },
     ])
     resetNonPo()
     setNonPoOpen(false)
@@ -366,7 +366,7 @@ export function PoReceiveTab({ po }: { po: PurchaseOrder }) {
                 <SelectTrigger><SelectValue placeholder="All Categories" /></SelectTrigger>
                 <SelectContent>
                   <SelectItem value="all">All Categories</SelectItem>
-                  {(categories as any[]).map((c) => (
+                  {categories.map((c) => (
                     <SelectItem key={c.id} value={c.id}>{getBreadcrumb(c.id, allCategories)}</SelectItem>
                   ))}
                 </SelectContent>
@@ -385,7 +385,7 @@ export function PoReceiveTab({ po }: { po: PurchaseOrder }) {
                   {filteredItems.length === 0 ? (
                     <SelectItem value="_empty" disabled>No items found</SelectItem>
                   ) : (
-                    filteredItems.map((i: any) => (
+                    filteredItems.map((i) => (
                       <SelectItem key={i.id} value={i.id}>{i.name_en}</SelectItem>
                     ))
                   )}
@@ -404,7 +404,7 @@ export function PoReceiveTab({ po }: { po: PurchaseOrder }) {
                 <SelectTrigger><SelectValue placeholder={!nonPoItemId ? 'Select item first…' : '— Select —'} /></SelectTrigger>
                 <SelectContent>
                   <SelectItem value="_any">Any brand</SelectItem>
-                  {(variants as any[]).map((v: any) => (
+                  {variants.map((v) => (
                     <SelectItem key={v.id} value={v.id}>
                       {v.brand}{v.code ? ` — ${v.code}` : ''}
                     </SelectItem>

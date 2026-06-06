@@ -106,7 +106,7 @@ export function CascadeNewItemForm({ categoryId, onCreated, onCancel }: NewItemF
         unit:        unit.trim(),
         sku:         sku.trim() || '',
         category_id: categoryId,
-      } as any,
+      },
       {
         onSuccess: (item) => { toast.success('Item created'); onCreated(item as InventoryItem) },
         onError:   (err)  => toast.error(err.message),

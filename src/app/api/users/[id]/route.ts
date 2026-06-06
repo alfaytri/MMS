@@ -3,6 +3,7 @@ import { z } from 'zod'
 import { createAdminClient } from '@/lib/supabase/admin'
 import { requireAdmin } from '@/lib/auth/require-admin'
 import { logUserEvent } from '@/lib/auth/audit'
+import type { Database } from '@/types/database.types'
 
 const bodySchema = z.object({
   full_name: z.string().trim().min(1).optional(),
@@ -45,15 +46,13 @@ export async function PATCH(
 
   // 3b. Handle team leader promotion (OFF → ON)
   if (changes.is_team_leader === true && changes.employee_id) {
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const { data: emp } = await (admin as any)
+    const { data: emp } = await admin
       .from('employees')
       .select('id, profile_id, teams!teams_leader_id_fkey(id)')
       .eq('id', changes.employee_id)
       .maybeSingle()
 
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const { data: currentProfile } = await (admin as any)
+    const { data: currentProfile } = await admin
       .from('profiles')
       .select('id')
       .eq('auth_user_id', targetAuthUserId)
@@ -61,29 +60,26 @@ export async function PATCH(
 
     if (currentProfile) {
       // Clear old employee link if switching employees
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      await (admin as any)
+      await admin
         .from('employees')
         .update({ profile_id: null })
         .eq('profile_id', currentProfile.id)
         .neq('id', changes.employee_id)
 
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      await (admin as any)
+      await admin
         .from('employees')
         .update({ profile_id: currentProfile.id })
         .eq('id', changes.employee_id)
     }
 
     const teamId = Array.isArray(emp?.teams) ? emp.teams[0]?.id
-      : (emp?.teams as { id: string } | null)?.id ?? null
+      : (emp?.teams as unknown as { id: string } | null)?.id ?? null
 
     await admin.auth.admin.updateUserById(targetAuthUserId, {
       user_metadata: { is_team_leader: true, team_id: teamId ?? undefined },
     })
 
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    await (admin as any)
+    await admin
       .from('profiles')
       .update({ user_type: 'team-leader' })
       .eq('auth_user_id', targetAuthUserId)
@@ -91,16 +87,14 @@ export async function PATCH(
 
   // 3c. Handle demotion (ON → OFF)
   if (changes.demote_team_leader === true) {
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const { data: currentProfile } = await (admin as any)
+    const { data: currentProfile } = await admin
       .from('profiles')
       .select('id')
       .eq('auth_user_id', targetAuthUserId)
       .maybeSingle()
 
     if (currentProfile) {
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      await (admin as any)
+      await admin
         .from('employees')
         .update({ profile_id: null })
         .eq('profile_id', currentProfile.id)
@@ -110,8 +104,7 @@ export async function PATCH(
       user_metadata: { is_team_leader: false },
     })
 
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    await (admin as any)
+    await admin
       .from('profiles')
       .update({ user_type: 'internal' })
       .eq('auth_user_id', targetAuthUserId)
@@ -138,8 +131,7 @@ export async function PATCH(
 
   let profileId: string | null = null
   if (Object.keys(profileUpdates).length > 0 || changes.role_ids !== undefined) {
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const { data: existingProfile, error: selErr } = await (admin as any)
+    const { data: existingProfile, error: selErr } = await admin
       .from('profiles')
       .select('id')
       .eq('auth_user_id', targetAuthUserId)
@@ -150,10 +142,9 @@ export async function PATCH(
     profileId = existingProfile.id as string
 
     if (Object.keys(profileUpdates).length > 0) {
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      const { error: updErr } = await (admin as any)
+      const { error: updErr } = await admin
         .from('profiles')
-        .update(profileUpdates)
+        .update(profileUpdates as Database['public']['Tables']['profiles']['Update'])
         .eq('auth_user_id', targetAuthUserId)
       if (updErr) return NextResponse.json({ error: `Profile update failed: ${updErr.message}` }, { status: 500 })
     }
@@ -161,8 +152,7 @@ export async function PATCH(
 
   // 6. Role replace via atomic RPC (if role_ids supplied, even empty array).
   if (changes.role_ids !== undefined && profileId) {
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const { error: rpcErr } = await (admin as any).rpc('replace_user_custom_roles', {
+    const { error: rpcErr } = await admin.rpc('replace_user_custom_roles', {
       p_user_id: profileId,
       p_role_ids: changes.role_ids,
     })

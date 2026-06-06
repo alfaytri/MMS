@@ -54,8 +54,7 @@ export function AddUserDialog({ open, onOpenChange }: Props) {
     queryKey: queryKeys.teamLeader.linkableEmployees,
     queryFn: async () => {
       const supabase = createClient()
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      const { data, error } = await (supabase as any)
+      const { data, error } = await supabase
         .from('employees')
         .select('id, name, team_id, teams!fk_employee_team(id, name)')
         .is('profile_id', null)

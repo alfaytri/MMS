@@ -73,7 +73,7 @@ export default function ViewLiveContractsPage() {
         updates: {},
         newStatus: 'cancelled',
         context: {
-          userId: (profile as any).id,
+          userId: profile.id,
           userName: profile.full_name || '',
           reason,
         },

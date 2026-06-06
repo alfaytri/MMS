@@ -25,10 +25,10 @@ function useDivisionBySlug(slug: string | null) {
     staleTime: 10 * 60 * 1000,
     queryFn: async () => {
       const supabase = createClient()
-      const { data, error } = await (supabase as any)
+      const { data, error } = await supabase
         .from('divisions')
         .select('id, name, name_ar, address_en, logo_url, stamp_url, default_currency, companies(name_en)')
-        .eq('slug', slug)
+        .eq('slug', slug!)
         .single()
       if (error) return null
       return data as DivisionRecord

@@ -59,7 +59,7 @@ function useServiceChildren(parentId: string | null, enabled: boolean) {
   return useQuery({
     queryKey: queryKeys.contracts.serviceChildren(parentId),
     queryFn: async () => {
-      let query = (supabase.from('services') as any)
+      let query = supabase.from('services')
         .select('id, name_en, price, contract_type, item_kind, pricing_mode, discount, discount_scope, price_unit')
         .eq('tree_type', 'contract')
         .is('deleted_at', null)

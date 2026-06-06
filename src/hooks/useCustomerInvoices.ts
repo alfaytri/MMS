@@ -17,7 +17,7 @@ export function useCustomerInvoices(filters?: ArFilters) {
     queryKey: queryKeys.customerInvoices.list(filters),
     queryFn: async () => {
       const supabase = createClient()
-      let q = (supabase as any)
+      let q = supabase
         .from('customer_invoices')   // queries the VIEW
         .select('*, invoice_line_items(*), customers(name), sale_orders(so_number)')
         .order('created_at', { ascending: false })
@@ -41,10 +41,10 @@ export function useCustomerInvoice(id: string | null) {
     enabled: !!id,
     queryFn: async () => {
       const supabase = createClient()
-      const { data, error } = await (supabase as any)
+      const { data, error } = await supabase
         .from('customer_invoices')
         .select('*, invoice_line_items(*), customers(name), sale_orders(so_number)')
-        .eq('id', id)
+        .eq('id', id!)
         .single()
       if (error) throw error
       return {
@@ -61,7 +61,7 @@ export function useSendInvoice() {
   return useMutation({
     mutationFn: async (id: string) => {
       const supabase = createClient()
-      const { error } = await (supabase as any)
+      const { error } = await supabase
         .from('invoices')
         .update({ doc_status: 'sent' })
         .eq('id', id)
@@ -79,7 +79,7 @@ export function useInvoicesBySO(soId: string | null) {
     staleTime: 30_000,
     queryFn: async () => {
       const supabase = createClient()
-      const { data, error } = await (supabase as any)
+      const { data, error } = await supabase
         .from('invoices')
         .select('*, invoice_line_items(*), customers(name), sale_orders(so_number)')
         .eq('sale_order_id', soId!)
@@ -102,7 +102,7 @@ export function useGenerateInvoice() {
   return useMutation({
     mutationFn: async (soId: string) => {
       const supabase = createClient()
-      const { data, error } = await (supabase as any)
+      const { data, error } = await supabase
         .rpc('generate_invoice_from_so', { p_so_id: soId })
       if (error) throw error
       return data as { id: string; invoice_id: string; invoice_type: string }
@@ -122,7 +122,7 @@ export function useDismissRefresh() {
   return useMutation({
     mutationFn: async (id: string) => {
       const supabase = createClient()
-      const { error } = await (supabase as any)
+      const { error } = await supabase
         .from('invoices')
         .update({ needs_refresh: false })
         .eq('id', id)

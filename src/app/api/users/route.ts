@@ -13,8 +13,7 @@ export async function GET() {
     if (!gate.ok) return NextResponse.json({ error: gate.message }, { status: gate.status })
 
     const admin = createAdminClient()
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const { data, error } = await (admin as any)
+    const { data, error } = await admin
       .from('profiles')
       .select('*, user_custom_roles!user_custom_roles_profile_id_fkey(role_id, custom_roles(name, color)), user_divisions!user_divisions_profile_id_fkey(division_id, divisions(name, short_name, color)), approval_role_assignments!approval_role_assignments_profile_id_fkey(role, deleted_at)')
       .order('full_name')

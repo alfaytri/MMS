@@ -95,8 +95,7 @@ export function EditUserDialog({ open, onOpenChange, profile }: Props) {
     queryFn: async () => {
       if (!profile?.id) return null
       const supabase = createClient()
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      const { data } = await (supabase as any)
+      const { data } = await supabase
         .from('employees')
         .select('id, name, team_id, teams!fk_employee_team(name)')
         .eq('profile_id', profile.id)
@@ -110,8 +109,7 @@ export function EditUserDialog({ open, onOpenChange, profile }: Props) {
     queryKey: queryKeys.teamLeader.linkableEmployeesEdit,
     queryFn: async () => {
       const supabase = createClient()
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      const { data } = await (supabase as any)
+      const { data } = await supabase
         .from('employees')
         .select('id, name, team_id, teams!fk_employee_team(id, name)')
         .is('profile_id', null)

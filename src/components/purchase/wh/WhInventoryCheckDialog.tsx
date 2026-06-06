@@ -188,14 +188,14 @@ export function WhInventoryCheckDialog({ warehouses, children }: Props) {
         })
 
       if (itemRows.length > 0) {
-        const { error } = await (supabase as any)
+        const { error } = await supabase
           .from('inventory_check_items')
           .insert(itemRows)
         if (error) throw error
       }
 
       // Step 3: Submit the check
-      await (supabase as any)
+      await supabase
         .from('inventory_checks')
         .update({ status: 'submitted' })
         .eq('id', check.id)

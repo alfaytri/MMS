@@ -76,7 +76,7 @@ export function CreateBillFromPODialog({ open, onOpenChange, poId }: Props) {
   // Sum approved received qty per PO line item
   const receivedMap = new Map<string, number>()
   for (const r of (receivals ?? []).filter((r) => r.status === 'approved')) {
-    for (const ri of (r.receival_items ?? []) as any[]) {
+    for (const ri of r.receival_items ?? []) {
       if (!ri.is_free && ri.po_line_item_id) {
         receivedMap.set(ri.po_line_item_id, (receivedMap.get(ri.po_line_item_id) ?? 0) + ri.qty_received)
       }
@@ -97,7 +97,7 @@ export function CreateBillFromPODialog({ open, onOpenChange, poId }: Props) {
     setSaving(true)
     try {
       const newBill = await createBill.mutateAsync({
-        supplier_id:       (po as any).supplier_id,
+        supplier_id:       po.supplier_id,
         purchase_order_id: poId,
         po_number:         po.po_number,
         discount_amount:   discount,

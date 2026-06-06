@@ -40,7 +40,7 @@ interface CascadeInventorySelectorProps {
 
 async function fetchLastFifoCost(variantId: string): Promise<number> {
   const supabase = createClient()
-  const { data } = await (supabase as any)
+  const { data } = await supabase
     .from('fifo_cost_layers')
     .select('total_unit_cost')
     .eq('brand_variant_id', variantId)
@@ -49,7 +49,7 @@ async function fetchLastFifoCost(variantId: string): Promise<number> {
     .order('id',         { ascending: false })
     .limit(1)
     .maybeSingle()
-  return (data as any)?.total_unit_cost ?? 0
+  return data?.total_unit_cost ?? 0
 }
 
 const triggerCls =
@@ -171,7 +171,7 @@ export function CascadeInventorySelector({
   }
 
   function handleVariantCreated(variant: BrandVariant) {
-    handleVariantSelect(variant as any)
+    handleVariantSelect(variant)
     setIsVarCreating(false)
   }
 

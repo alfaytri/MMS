@@ -170,16 +170,12 @@ export function ServiceEditDialog({
         photo_requirement: type !== 'contract' ? values.photo_requirement : null,
         instructions: false,
         reminder_days: values.has_reminders ? values.reminder_days : null,
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        inventory_items: values.has_inventory ? (values.inventory_items_list as any) : null,
+        inventory_items: values.has_inventory ? (values.inventory_items_list as ServiceFormValues['inventory_items_list']) : null,
         qc_checklist: type !== 'contract' ? values.qc_checklist : null,
         spare_parts: type !== 'contract' ? values.spare_parts : null,
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        service_type: type !== 'contract' ? (values.service_type as any) : null,
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        components: values.service_type === 'configurable' ? (values.component_service_ids as any) : null,
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        qc_items: type !== 'contract' && values.qc_items.length > 0 ? (values.qc_items as any) : null,
+        service_type: type !== 'contract' ? values.service_type : null,
+        components: values.service_type === 'configurable' ? values.component_service_ids : null,
+        qc_items: type !== 'contract' && values.qc_items.length > 0 ? values.qc_items : null,
         ...(catalogImageUrl !== undefined && { catalog_image_url: catalogImageUrl }),
       }
 
@@ -213,8 +209,7 @@ export function ServiceEditDialog({
     : mode === 'new'
       ? `New ${type === 'contract' ? 'Contract ' : type === 'mobile' ? 'Mobile App ' : ''}Service`
       : 'Edit Service'
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const currentImageUrl = (node as any)?.catalog_image_url ?? null
+  const currentImageUrl = node?.catalog_image_url ?? null
 
   return (
     <>

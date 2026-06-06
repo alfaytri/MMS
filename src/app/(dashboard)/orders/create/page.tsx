@@ -9,7 +9,7 @@ import { OrderFormPanel } from '@/components/orders/OrderFormPanel'
 import { TeamCalendarPanel } from '@/components/orders/TeamCalendarPanel'
 import { CustomerHistoryPanel } from '@/components/orders/CustomerHistoryPanel'
 import { useCreateOrder } from '@/hooks/useCreateOrder'
-import { useTeams } from '@/hooks/useTeams'
+import { useTeams, type TeamFull } from '@/hooks/useTeams'
 import { SelectedServiceCard } from '@/components/orders/SelectedServiceCard'
 import { SiteVisitCard, SITE_VISIT_SERVICE_ID, makeSiteVisitDraft } from '@/components/orders/SiteVisitCard'
 import { createClient } from '@/lib/supabase/client'
@@ -71,7 +71,7 @@ export default function CreateOrderPage() {
     let cancelled = false
     ;(async () => {
       const normalised = tryNormalisePhone(selectedCustomer.primaryPhone) ?? selectedCustomer.primaryPhone
-      const { data } = await (supabase as any)
+      const { data } = await supabase
         .from('service_customer_phones')
         .select('id')
         .eq('customer_id', selectedCustomer.customerId)
@@ -97,7 +97,7 @@ export default function CreateOrderPage() {
   useEffect(() => {
     if (!prefilledCustomerId) return
     const supabase = createClient()
-    ;(supabase as any)
+    ;supabase
       .from('customers')
       .select('id, name, customer_phones(id, phone)')
       .eq('id', prefilledCustomerId)
@@ -145,12 +145,8 @@ export default function CreateOrderPage() {
     if (!dropData?.teamId) return
 
     const { teamId, hour, minute = 0 } = dropData
-    const match = (teams as unknown as Array<Record<string, unknown>>)?.find(
-      (t) => t['id'] === teamId,
-    )
-    const teamName = (match?.['name_en'] as string | null | undefined) ??
-      (match?.['name'] as string | null | undefined) ??
-      teamId
+    const match = (teams as TeamFull[] | undefined)?.find((t) => t.id === teamId)
+    const teamName = match?.name_en ?? match?.name ?? teamId
 
     // ── Day-window drag: assign ALL services at the day's time window ────────
     if (active.data.current.type === 'day-window') {

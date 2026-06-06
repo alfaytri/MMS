@@ -27,7 +27,7 @@ export async function PATCH(request: Request) {
 
   // ── 4. Upsert into app_settings via service-role client ─────────────────────
   const admin = createAdminClient()
-  const { error } = await (admin as any).from('app_settings').upsert(
+  const { error } = await admin.from('app_settings').upsert(
     {
       key: 'cc_provider',
       value: provider,

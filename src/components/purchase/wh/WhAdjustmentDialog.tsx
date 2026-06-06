@@ -12,6 +12,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Warehouse } from '@/hooks/useWarehouses'
 import { createClient } from '@/lib/supabase/client'
 import { toast } from 'sonner'
+import type { Profile } from '@/hooks/useProfiles'
 import type { InventoryLookupResult } from '@/hooks/usePurchaseOrders'
 import {
   useInventoryItemsByCategory,
@@ -29,7 +30,7 @@ const ADJUSTMENT_TYPES = [
 
 interface Props {
   warehouses: Warehouse[]
-  currentProfile: any
+  currentProfile: Profile | null
   children: React.ReactNode
 }
 
@@ -86,13 +87,13 @@ export function WhAdjustmentDialog({ warehouses, currentProfile, children }: Pro
       brand_variant_id: variant.id,
       item_name:        `${item.name_en} · ${variant.brand}`,
       item_name_ar:     null,
-      sku:              (item as any).sku ?? null,
-      unit:             (item as any).unit ?? 'pcs',
-      cost_price:       (variant as any).cost_price ?? 0,
-      selling_price:    (variant as any).selling_price ?? 0,
+      sku:              item.sku ?? null,
+      unit:             item.unit ?? 'pcs',
+      cost_price:       variant.cost_price ?? 0,
+      selling_price:    variant.selling_price ?? 0,
       category_name:    null,
       category_name_ar: null,
-      brand:            (variant as any).brand ?? null,
+      brand:            variant.brand ?? null,
     })
   }
 
@@ -151,7 +152,7 @@ export function WhAdjustmentDialog({ warehouses, currentProfile, children }: Pro
       }
 
       // Insert adjustment record
-      const { error } = await (supabase as any).from('stock_adjustments').insert({
+      const { error } = await supabase.from('stock_adjustments').insert({
         warehouse_id: warehouseId,
         brand_variant_id: selectedItem!.brand_variant_id,
         adjustment_type: type,
@@ -167,8 +168,8 @@ export function WhAdjustmentDialog({ warehouses, currentProfile, children }: Pro
       qc.invalidateQueries({ queryKey: queryKeys.warehouseOps.stockAdjustments })
       toast.success('Adjustment submitted for approval')
       handleClose()
-    } catch (e: any) {
-      toast.error(e.message ?? 'Something went wrong')
+    } catch (e: unknown) {
+      toast.error(e instanceof Error ? e.message : 'Something went wrong')
     } finally {
       setSubmitting(false)
     }
@@ -239,7 +240,7 @@ export function WhAdjustmentDialog({ warehouses, currentProfile, children }: Pro
                     <SelectContent>
                       {variants.map((v) => (
                         <SelectItem key={v.id} value={v.id} className="text-xs">
-                          {(v as any).brand}
+                          {v.brand}
                         </SelectItem>
                       ))}
                     </SelectContent>

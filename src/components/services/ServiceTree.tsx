@@ -32,8 +32,8 @@ export interface ReorderArgs {
   treeType: string
 }
 
-export function buildTreeMap(flat: Service[]): Map<string | null, Service[]> {
-  const map = new Map<string | null, Service[]>()
+export function buildTreeMap<T extends { id: string; parent_id: string | null }>(flat: T[]): Map<string | null, T[]> {
+  const map = new Map<string | null, T[]>()
   for (const s of flat) {
     const key = s.parent_id ?? null
     if (!map.has(key)) map.set(key, [])
@@ -42,9 +42,9 @@ export function buildTreeMap(flat: Service[]): Map<string | null, Service[]> {
   return map
 }
 
-export function collectDescendantIds(
+export function collectDescendantIds<T extends { id: string }>(
   nodeId: string,
-  treeMap: Map<string | null, Service[]>,
+  treeMap: Map<string | null, T[]>,
 ): Set<string> {
   const result = new Set<string>()
   const visited = new Set<string>()
@@ -224,7 +224,7 @@ export function ServiceTree({
     const result = new Set<string>()
     const parentMap = new Map(filteredData.map((s) => [s.id, s.parent_id ?? null]))
     for (const s of filteredData) {
-      if (!(s as any).has_pending_change) continue
+      if (!s.has_pending_change) continue
       let pid = parentMap.get(s.id)
       while (pid) {
         if (result.has(pid)) break

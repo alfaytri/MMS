@@ -59,7 +59,7 @@ export function useCreateMyProfile() {
       const supabase = createClient()
       const { data: { user } } = await supabase.auth.getUser()
       if (!user) throw new Error('Not authenticated')
-      const { data, error } = await (supabase as any)
+      const { data, error } = await supabase
         .from('profiles')
         .insert({
           auth_user_id: user.id,
@@ -67,7 +67,7 @@ export function useCreateMyProfile() {
           full_name: values.full_name,
           user_type: values.user_type ?? 'internal',
           is_active: true,
-        })
+        } as unknown as import('@/types/database.types').DBInsert<'profiles'>)
         .select()
         .single()
       if (error) throw error
@@ -245,7 +245,7 @@ export function useAllProfiles() {
     queryKey: queryKeys.profiles.allSelect,
     queryFn: async () => {
       const supabase = createClient()
-      const { data, error } = await (supabase as any)
+      const { data, error } = await supabase
         .from('profiles')
         .select('id, full_name, email')
         .eq('is_active', true)

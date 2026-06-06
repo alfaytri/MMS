@@ -15,7 +15,7 @@ export function useLiveThread(conversationId: string | null, phone: string | nul
   const convIdRef     = useRef<string | null>(null)   // stable ref so event listeners can read it
 
   const loadFromDb = useCallback(async (convId: string) => {
-    const { data, error } = await (supabase as any)
+    const { data, error } = await supabase
       .from('chat_messages')
       .select(`
         id, conversation_id, from_type, source, message_kind,
@@ -33,17 +33,17 @@ export function useLiveThread(conversationId: string | null, phone: string | nul
       console.error('[useLiveThread] query error', error)
       return []
     }
-    return (data as any[]).map((row) => ({
+    return (data as Record<string, unknown>[]).map((row) => ({
       ...row,
       reactions:  row.reactions ?? [],
-      agent_name: row.profiles?.full_name ?? row.agent_name ?? null,
-    })) as ChatMessage[]
+      agent_name: (row.profiles as { full_name?: string } | null)?.full_name ?? row.agent_name ?? null,
+    })) as unknown as ChatMessage[]
   }, [])
 
   // Fetch only the last 24 h — always captures the newest messages regardless of volume
   const pollFromDb = useCallback(async (convId: string) => {
     const since = new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString()
-    const { data, error } = await (supabase as any)
+    const { data, error } = await supabase
       .from('chat_messages')
       .select(`
         id, conversation_id, from_type, source, message_kind,
@@ -61,11 +61,11 @@ export function useLiveThread(conversationId: string | null, phone: string | nul
       console.error('[useLiveThread] poll error', error)
       return []
     }
-    return (data as any[]).map((row) => ({
+    return (data as Record<string, unknown>[]).map((row) => ({
       ...row,
       reactions:  row.reactions ?? [],
-      agent_name: row.profiles?.full_name ?? row.agent_name ?? null,
-    })) as ChatMessage[]
+      agent_name: (row.profiles as { full_name?: string } | null)?.full_name ?? row.agent_name ?? null,
+    })) as unknown as ChatMessage[]
   }, [])
 
   // Shared merge: adds missed messages AND syncs reactions/delivery_status on existing ones
@@ -181,10 +181,11 @@ export function useLiveThread(conversationId: string | null, phone: string | nul
         { event: '*', schema: 'public', table: 'chat_messages', filter: `conversation_id=eq.${conversationId}` },
         (payload) => {
           if (cancelledRef.current) return
+          const newPayload = payload.new as Record<string, unknown>
           const incoming = {
-            ...(payload.new as ChatMessage),
-            reactions: (payload.new as any).reactions ?? [],
-          } as ChatMessage
+            ...newPayload,
+            reactions: (newPayload.reactions as ChatMessage['reactions']) ?? [],
+          } as unknown as ChatMessage
 
           if (payload.eventType === 'INSERT') {
             setMessages((prev) => {
@@ -204,7 +205,7 @@ export function useLiveThread(conversationId: string | null, phone: string | nul
               // fetch-messages upserts can clobber the Supabase storage URL we stored
               // on send with an empty URL when WATI hasn't returned the media link yet.
               const curHasUrl = cur.attachments?.some((a) => a.url)
-              const newHasUrl = (incoming.attachments as any[] | null)?.some((a: any) => a.url)
+              const newHasUrl = incoming.attachments?.some((a) => a.url)
               const attachments = curHasUrl && !newHasUrl ? cur.attachments : incoming.attachments
               return prev.map((m) => (m.id === incoming.id ? { ...m, ...incoming, attachments } : m))
             })
@@ -290,7 +291,7 @@ export function useLiveThread(conversationId: string | null, phone: string | nul
     const olderCutoff = new Date(Date.now() - moreDays     * 24 * 60 * 60 * 1000).toISOString()
     const newerCutoff = new Date(Date.now() - previousDays * 24 * 60 * 60 * 1000).toISOString()
 
-    const { data } = await (supabase as any)
+    const { data } = await supabase
       .from('chat_messages')
       .select(`
         id, conversation_id, from_type, source, message_kind,
@@ -306,11 +307,11 @@ export function useLiveThread(conversationId: string | null, phone: string | nul
       .limit(500)
 
     if (cancelledRef.current || !data) return
-    const older = (data as any[]).map((row) => ({
+    const older = (data as Record<string, unknown>[]).map((row) => ({
       ...row,
       reactions:  row.reactions ?? [],
-      agent_name: row.profiles?.full_name ?? row.agent_name ?? null,
-    })) as ChatMessage[]
+      agent_name: (row.profiles as { full_name?: string } | null)?.full_name ?? row.agent_name ?? null,
+    })) as unknown as ChatMessage[]
 
     setMessages((prev) => {
       const existingIds = new Set(prev.map((m) => m.id))

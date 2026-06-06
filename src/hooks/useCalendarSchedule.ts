@@ -103,7 +103,7 @@ export function useAllDivisionSchedules(): Map<string, CalendarSchedule> {
     queryFn: async (): Promise<Map<string, CalendarSchedule>> => {
       const supabase = createClient()
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      const { data: rows, error } = await (supabase as any)
+      const { data: rows, error } = await supabase
         .from('divisions')
         .select('slug, sched:calendar_schedule_id(id, name, days)')
         .eq('is_active', true)
@@ -133,7 +133,7 @@ export function useDivisionSchedule(divisionSlug: string | null) {
       if (!divisionSlug) return null
       const supabase = createClient()
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      const { data, error } = await (supabase as any)
+      const { data, error } = await supabase
         .from('divisions')
         .select('calendar_schedule_id, sched:calendar_schedule_id(id, name, days)')
         .eq('slug', divisionSlug)

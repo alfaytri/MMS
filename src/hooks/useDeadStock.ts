@@ -37,7 +37,7 @@ export function useDeadStockReport() {
     queryKey: queryKeys.deadStock.all,
     queryFn: async () => {
       const supabase = createClient()
-      const { data, error } = await (supabase as any).rpc('get_dead_stock_report')
+      const { data, error } = await supabase.rpc('get_dead_stock_report')
       if (error) throw error
       return (data ?? []) as DeadStockItem[]
     },

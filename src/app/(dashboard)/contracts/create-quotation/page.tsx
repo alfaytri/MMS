@@ -107,7 +107,7 @@ export default function CreateContractQuotationPage() {
     let cancelled = false
     ;(async () => {
       const normalised = tryNormalisePhone(selectedCustomer.primaryPhone) ?? selectedCustomer.primaryPhone
-      const { data } = await (supabase as any)
+      const { data } = await supabase
         .from('service_customer_phones')
         .select('id')
         .eq('customer_id', selectedCustomer.customerId)
@@ -211,7 +211,7 @@ export default function CreateContractQuotationPage() {
       services,
       milestones,
       agentName: profile?.full_name || '',
-      createdBy: (profile as any)?.id || '',
+      createdBy: profile?.id || '',
       areaCount,
       servicesSummary,
       totalValue: netTotal,

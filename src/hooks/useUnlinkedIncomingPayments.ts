@@ -18,7 +18,7 @@ export function useUnlinkedIncomingPayments(customerId: string) {
     queryKey: queryKeys.unlinkedAr.incomingPayments(customerId),
     queryFn: async () => {
       const supabase = createClient()
-      const { data, error } = await (supabase as any)
+      const { data, error } = await supabase
         .from('payments')
         .select('id, payment_id, amount, method, date, reference')
         .eq('direction', 'incoming')

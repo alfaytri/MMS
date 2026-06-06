@@ -23,6 +23,9 @@ interface TermItem {
   source: 'division' | 'service'
 }
 
+type DivisionTermRow = { id: string; content_en: string; division_id: string | null; divisions: { name: string } | null }
+type ServiceTermRow  = { id: string; content_en: string; document_type: string }
+
 export function ContractTermsSection({ divisions, services, termsSnapshot }: Props) {
   const supabase = createClient()
   const [expandedIds, setExpandedIds] = useState<Set<string>>(new Set())
@@ -36,7 +39,7 @@ export function ContractTermsSection({ divisions, services, termsSnapshot }: Pro
         .select('id, content_en, division_id, divisions(name)')
         .eq('document_type', 'contract')
         .in('division_id', divisions)
-      return (data || []) as any[]
+      return (data || []) as DivisionTermRow[]
     },
     enabled: divisions.length > 0,
   })
@@ -54,7 +57,7 @@ export function ContractTermsSection({ divisions, services, termsSnapshot }: Pro
         .from('document_terms')
         .select('id, content_en, document_type')
         .in('document_type', uniqueServiceIds)
-      return (data || []) as any[]
+      return (data || []) as ServiceTermRow[]
     },
     enabled: uniqueServiceIds.length > 0,
   })

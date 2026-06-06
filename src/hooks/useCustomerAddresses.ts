@@ -11,13 +11,13 @@ export function useCustomerAddresses(customerId: string | null) {
     queryKey: queryKeys.contactCenter.serviceCustomerAddresses(customerId),
     queryFn: async (): Promise<CustomerAddress[]> => {
       if (!customerId) return []
-      const { data, error } = await (supabase as any)
+      const { data, error } = await supabase
         .from('service_customer_addresses')
         .select('*')
         .eq('customer_id', customerId)
         .order('is_primary', { ascending: false })
       if (error) throw error
-      return data ?? []
+      return (data ?? []) as unknown as CustomerAddress[]
     },
     enabled: !!customerId,
   })
@@ -26,13 +26,13 @@ export function useCustomerAddresses(customerId: string | null) {
     mutationFn: async (
       input: Omit<CustomerAddress, 'id' | 'created_at'>
     ): Promise<CustomerAddress> => {
-      const { data, error } = await (supabase as any)
+      const { data, error } = await supabase
         .from('service_customer_addresses')
         .insert(input)
         .select()
         .single()
       if (error) throw error
-      return data
+      return data as unknown as CustomerAddress
     },
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: queryKeys.contactCenter.serviceCustomerAddresses(customerId) })

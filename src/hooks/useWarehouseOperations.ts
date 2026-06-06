@@ -161,7 +161,7 @@ export function useStockMovements({
     queryKey: queryKeys.warehouseOps.stockMovements(warehouseId, limit),
     queryFn: async () => {
       const supabase = createClient()
-      let q = (supabase as any)
+      let q = supabase
         .from('inventory_stock_movements')
         .select('*')
         .order('created_at', { ascending: false })
@@ -181,7 +181,7 @@ export function useWarehouseStock(warehouseId?: string) {
     queryFn: async () => {
       const supabase = createClient()
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      let q = (supabase as any)
+      let q = supabase
         .from('warehouse_stock_view')
         .select('warehouse_id, brand_variant_id, item_name, brand, sku, unit, qty, avg_cost, total_value')
         .order('item_name', { ascending: true })
@@ -211,14 +211,14 @@ export function useWarehouseTransfers({ status }: { status?: TransferStatus } = 
     queryKey: queryKeys.warehouseOps.warehouseTransfersByStatus(status),
     queryFn: async () => {
       const supabase = createClient()
-      let q = (supabase as any)
+      let q = supabase
         .from('warehouse_transfers')
         .select('*, from_warehouse:from_warehouse_id(name), to_warehouse:to_warehouse_id(name)')
         .order('created_at', { ascending: false })
       if (status) q = q.eq('status', status)
       const { data, error } = await q
       if (error) throw error
-      return (data ?? []) as WarehouseTransfer[]
+      return (data ?? []) as unknown as WarehouseTransfer[]
     },
     staleTime: 5 * 60 * 1000,
   })
@@ -229,13 +229,13 @@ export function useCreateTransfer() {
   return useMutation({
     mutationFn: async (payload: CreateTransferPayload) => {
       const supabase = createClient()
-      const { data, error } = await (supabase as any)
+      const { data, error } = await supabase
         .from('warehouse_transfers')
-        .insert({ ...payload, status: 'pending' })
+        .insert({ ...payload, status: 'pending' } as unknown as import('@/types/database.types').DBInsert<'warehouse_transfers'>)
         .select()
         .single()
       if (error) throw error
-      return data as WarehouseTransfer
+      return data as unknown as WarehouseTransfer
     },
     onSuccess: () => qc.invalidateQueries({ queryKey: queryKeys.warehouseOps.warehouseTransfers }),
   })
@@ -246,7 +246,7 @@ export function useApproveTransfer() {
   return useMutation({
     mutationFn: async ({ id, approvedByName }: { id: string; approvedByName: string }) => {
       const supabase = createClient()
-      const { error } = await (supabase as any)
+      const { error } = await supabase
         .rpc('approve_warehouse_transfer_inventory', {
           p_transfer_id: id,
           p_approved_by: approvedByName,
@@ -269,7 +269,7 @@ export function useRejectTransfer() {
   return useMutation({
     mutationFn: async (id: string) => {
       const supabase = createClient()
-      const { error } = await (supabase as any)
+      const { error } = await supabase
         .from('warehouse_transfers')
         .update({ status: 'rejected' })
         .eq('id', id)
@@ -284,7 +284,7 @@ export function useStockAdjustments({ warehouseId }: { warehouseId?: string } = 
     queryKey: queryKeys.warehouseOps.stockAdjustmentsByWarehouse(warehouseId),
     queryFn: async () => {
       const supabase = createClient()
-      let q = (supabase as any)
+      let q = supabase
         .from('stock_adjustments')
         .select(`
           *,
@@ -306,7 +306,7 @@ export function useCreateStockAdjustment() {
   return useMutation({
     mutationFn: async (payload: CreateAdjustmentPayload) => {
       const supabase = createClient()
-      const { data, error } = await (supabase as any)
+      const { data, error } = await supabase
         .from('stock_adjustments')
         .insert({ ...payload, status: 'pending_approval' })
         .select()
@@ -323,7 +323,7 @@ export function useApproveStockAdjustment() {
   return useMutation({
     mutationFn: async ({ id, approvedByName }: { id: string; approvedByName: string }) => {
       const supabase = createClient()
-      const { error } = await (supabase as any)
+      const { error } = await supabase
         .rpc('approve_stock_adjustment_inventory', {
           p_adjustment_id: id,
           p_approved_by: approvedByName,
@@ -347,7 +347,7 @@ export function useInventoryChecks({ warehouseId }: { warehouseId?: string } = {
     queryKey: queryKeys.warehouseOps.inventoryChecksByWarehouse(warehouseId),
     queryFn: async () => {
       const supabase = createClient()
-      let q = (supabase as any)
+      let q = supabase
         .from('inventory_checks')
         .select('*')
         .order('created_at', { ascending: false })
@@ -365,7 +365,7 @@ export function useInventoryCheck(id: string) {
     queryKey: queryKeys.warehouseOps.inventoryCheckDetail(id),
     queryFn: async () => {
       const supabase = createClient()
-      const { data, error } = await (supabase as any)
+      const { data, error } = await supabase
         .from('inventory_checks')
         .select('*, items:inventory_check_items(*)')
         .eq('id', id)
@@ -392,9 +392,9 @@ export function useCreateInventoryCheck() {
     }) => {
       const supabase = createClient()
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      const { data: checkNumber, error: seqErr } = await (supabase as any).rpc('generate_check_number')
+      const { data: checkNumber, error: seqErr } = await supabase.rpc('generate_check_number')
       if (seqErr) throw seqErr
-      const { data, error } = await (supabase as any)
+      const { data, error } = await supabase
         .from('inventory_checks')
         .insert({ check_number: checkNumber, warehouse_id: warehouseId, warehouse_name: warehouseName, status: 'draft', notes })
         .select()
@@ -417,7 +417,7 @@ export function useUpdateInventoryCheckItem() {
       countedQty: number
     }) => {
       const supabase = createClient()
-      const { error } = await (supabase as any)
+      const { error } = await supabase
         .from('inventory_check_items')
         .update({ counted_qty: countedQty, is_counted: true })
         .eq('id', id)
@@ -434,7 +434,7 @@ export function useSubmitInventoryCheck() {
   return useMutation({
     mutationFn: async ({ id, submittedByName }: { id: string; submittedByName: string }) => {
       const supabase = createClient()
-      const { error } = await (supabase as any)
+      const { error } = await supabase
         .from('inventory_checks')
         .update({
           status: 'submitted',
@@ -461,7 +461,7 @@ export function useReviewInventoryCheck() {
       reviewNotes?: string | null
     }) => {
       const supabase = createClient()
-      const { error } = await (supabase as any)
+      const { error } = await supabase
         .from('inventory_checks')
         .update({
           status: 'reviewed',
@@ -483,11 +483,11 @@ export function useReceivalsAndDeliveries() {
       const supabase = createClient()
 
       const [receivalsRes, deliveriesRes] = await Promise.all([
-        (supabase as any)
+        supabase
           .from('receivals')
           .select('id, receival_number, po_id, warehouse_id, date, status, received_by_name, purchase_orders(po_number), warehouses(name), receival_items(id, item_name, sku, qty_received)')
           .order('date', { ascending: false }),
-        (supabase as any)
+        supabase
           .from('sale_deliveries')
           .select('id, delivery_number, sale_order_id, warehouse_id, warehouse_name, date, items, status')
           .order('date', { ascending: false }),

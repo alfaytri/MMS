@@ -151,7 +151,7 @@ export function ServiceCustomerFormDialog({
         referral_source: customer.referral_source,
         phones: phones.map((p) => {
           const { code, digits } = splitPhone(p.phone)
-          return { id: p.id, countryCode: code, phone: digits, label: (p.label as any) ?? 'mobile' }
+          return { id: p.id, countryCode: code, phone: digits, label: (p.label ?? 'mobile') as 'home' | 'mobile' | 'work' }
         }),
         addresses: addresses.map((a) => ({
           id: a.id,

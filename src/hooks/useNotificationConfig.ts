@@ -137,8 +137,7 @@ export function useNotificationConfig(): UseNotificationConfigReturn {
     onSuccess: async (_data, { id, isActive }, context) => {
       try {
         const supabase = createClient()
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        await (supabase.from('activity_log') as any).insert({
+        await supabase.from('activity_log').insert({
           action: 'services/notification-toggled',
           module: 'services',
           entity_type: 'notification_config',

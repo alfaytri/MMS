@@ -28,19 +28,24 @@ export function useContractSchedule(contractId: string | undefined) {
       if (error) throw error
 
       const dateMap = new Map<string, ScheduleDate>()
+      type VisitRow = typeof data extends (infer R)[] | null ? R : never
       for (const visit of data || []) {
         const date = visit.scheduled_date
         if (!dateMap.has(date)) {
           dateMap.set(date, { date, services: [], allAssigned: true })
         }
         const entry = dateMap.get(date)!
+        const v = visit as VisitRow & {
+          contract_services: { service_path?: string[] | null; divisions?: string[] | null } | null
+          teams: { name_en: string } | null
+        }
         const svc = {
           visitId: visit.id,
           serviceName: visit.service_name,
-          location: (visit as any).contract_services?.service_path?.slice(-2, -1)?.[0] || '',
-          division: (visit as any).contract_services?.divisions?.[0] || '',
+          location: v.contract_services?.service_path?.slice(-2, -1)?.[0] || '',
+          division: v.contract_services?.divisions?.[0] || '',
           teamId: visit.team_id,
-          teamName: (visit as any).teams?.name_en || null,
+          teamName: v.teams?.name_en || null,
           timeSlot: null,
         }
         entry.services.push(svc)

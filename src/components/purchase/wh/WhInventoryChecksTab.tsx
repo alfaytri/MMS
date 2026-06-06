@@ -52,7 +52,7 @@ export const WhInventoryChecksTab = React.memo(function WhInventoryChecksTab({ w
       reviewNotes?: string | null
     }) => {
       const supabase = createClient()
-      const { error } = await (supabase as any)
+      const { error } = await supabase
         .from('inventory_checks')
         .update({
           status,
@@ -81,8 +81,8 @@ export const WhInventoryChecksTab = React.memo(function WhInventoryChecksTab({ w
       toast.success(action === 'approve' ? 'Inventory check approved' : 'Inventory check rejected')
       setSelectedId(null)
       setReviewNotes('')
-    } catch (e: any) {
-      toast.error(e.message ?? 'Something went wrong')
+    } catch (e: unknown) {
+      toast.error(e instanceof Error ? e.message : 'Something went wrong')
     } finally {
       setReviewing(false)
     }

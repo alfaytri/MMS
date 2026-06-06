@@ -27,8 +27,7 @@ export async function logUserEvent(params: {
       target_email: params.targetEmail,
       ...(params.changedFields ? { changed_fields: params.changedFields } : {}),
     })
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    await (admin as any).from('activity_log').insert({
+    await admin.from('activity_log').insert({
       action: params.action,
       entity_type: 'profile',
       entity_id: params.targetProfileId ?? '00000000-0000-0000-0000-000000000000',

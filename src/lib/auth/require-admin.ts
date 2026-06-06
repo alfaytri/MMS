@@ -35,8 +35,7 @@ export async function requireAdmin(): Promise<AdminGateSuccess | AdminGateFailur
   // and survives any RLS / relationship query failures.
   if (bootstrapEmail && callerEmail === bootstrapEmail) {
     // Still try to fetch profile.id for audit purposes, but don't block on failure.
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const { data: bp } = await (supabase as any)
+      const { data: bp } = await supabase
       .from('profiles')
       .select('id')
       .eq('auth_user_id', user.id)
@@ -45,8 +44,7 @@ export async function requireAdmin(): Promise<AdminGateSuccess | AdminGateFailur
   }
 
   // Non-bootstrap: require profile + master_data.users.manage permission.
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const { data: profile } = await (supabase as any)
+  const { data: profile } = await supabase
     .from('profiles')
     .select('id, user_custom_roles!user_custom_roles_profile_id_fkey(custom_roles(permissions))')
     .eq('auth_user_id', user.id)
@@ -97,8 +95,7 @@ export async function requirePermission(
   const bootstrapEmail = process.env.ADMIN_BOOTSTRAP_EMAIL?.trim().toLowerCase()
   const callerEmail = user.email?.trim().toLowerCase() ?? null
   if (bootstrapEmail && callerEmail === bootstrapEmail) {
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const { data: bp } = await (supabase as any)
+      const { data: bp } = await supabase
       .from('profiles')
       .select('id')
       .eq('auth_user_id', user.id)
@@ -106,8 +103,7 @@ export async function requirePermission(
     return { ok: true, authUserId: user.id, email: callerEmail, profileId: bp?.id ?? '' }
   }
 
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const { data: profile } = await (supabase as any)
+  const { data: profile } = await supabase
     .from('profiles')
     .select('id, user_custom_roles!user_custom_roles_profile_id_fkey(custom_roles(is_system, permissions))')
     .eq('auth_user_id', user.id)
@@ -117,7 +113,7 @@ export async function requirePermission(
     return { ok: false, status: 403, message: 'Forbidden — no profile linked to this user' }
   }
 
-  const roles: Array<{ custom_roles: { is_system: boolean; permissions: string[] } | null }> =
+  const roles: Array<{ custom_roles: { is_system: boolean | null; permissions: string[] } | null }> =
     profile.user_custom_roles ?? []
 
   const isSystemAdmin = roles.some((r) => r.custom_roles?.is_system === true)

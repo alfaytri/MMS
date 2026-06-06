@@ -39,8 +39,7 @@ interface TransferRow {
 
 interface Props {
   warehouses: Warehouse[]
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  currentProfile: any
+  currentProfile: { id?: string; full_name?: string | null; email?: string | null } | null
   children: React.ReactNode
 }
 
@@ -137,8 +136,7 @@ export function WhTransferDialog({ warehouses, currentProfile, children }: Props
     try {
       const supabase = createClient()
       // Use DB sequence to guarantee unique transfer numbers across concurrent users
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      const { data: transferNumber, error: seqError } = await (supabase as any)
+      const { data: transferNumber, error: seqError } = await supabase
         .rpc('generate_transfer_number')
       if (seqError) throw seqError
 
@@ -155,8 +153,7 @@ export function WhTransferDialog({ warehouses, currentProfile, children }: Props
           }
         })
 
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      const { data: newTransfer, error } = await (supabase as any).from('warehouse_transfers').insert({
+      const { data: newTransfer, error } = await supabase.from('warehouse_transfers').insert({
         transfer_number:          transferNumber,
         from_warehouse_id:        fromId,
         to_warehouse_id:          toId,
@@ -171,8 +168,7 @@ export function WhTransferDialog({ warehouses, currentProfile, children }: Props
 
       // Notify the destination warehouse manager (fire-and-forget — never block the happy path)
       if (managerProfileId && newTransfer?.id) {
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        ;(supabase as any).from('notifications').insert({
+        supabase.from('notifications').insert({
           profile_id:   managerProfileId,
           type:         'transfer_approval_request',
           title:        `Stock Transfer Requires Approval`,

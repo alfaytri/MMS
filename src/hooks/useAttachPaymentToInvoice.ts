@@ -14,7 +14,7 @@ export function useAttachPaymentToInvoice() {
       invoiceId: string
     }) => {
       const supabase = createClient()
-      const { error } = await (supabase as any).rpc('attach_payment_to_invoice', {
+      const { error } = await supabase.rpc('attach_payment_to_invoice', {
         p_payment_id: paymentId,
         p_invoice_id: invoiceId,
       })

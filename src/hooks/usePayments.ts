@@ -57,7 +57,7 @@ export function usePayments(filters: PaymentFilters = {}) {
       const supabase = createClient()
 
       // 1. Fetch payments page with joined relations — all filtering at DB level
-      let q = (supabase as any)
+      let q = supabase
         .from('payments')
         .select(`
           *,
@@ -71,8 +71,8 @@ export function usePayments(filters: PaymentFilters = {}) {
         })
         .range(pageParam * PAGE_SIZE, (pageParam + 1) * PAGE_SIZE - 1)
 
-      if (filters.status) q = q.eq('status', filters.status)
-      if (filters.method) q = q.eq('method', filters.method)
+      if (filters.status) q = q.eq('status', filters.status as 'pending' | 'completed' | 'failed' | 'refunded' | 'processing')
+      if (filters.method) q = q.eq('method', filters.method as 'online' | 'pay_later' | 'fawran' | 'online_transfer' | 'cheque' | 'bank_transfer' | 'cash' | 'pos')
       if (filters.agent) q = q.eq('agent_name', filters.agent)
       if (filters.dateFrom) q = q.gte('date', filters.dateFrom)
       if (filters.dateTo) q = q.lte('date', filters.dateTo)
@@ -141,7 +141,7 @@ export function usePaymentSummary() {
     queryKey: queryKeys.payments.summary,
     queryFn: async (): Promise<PaymentSummary> => {
       const supabase = createClient()
-      const { data, error } = await (supabase as any).rpc('get_payment_summary')
+      const { data, error } = await supabase.rpc('get_payment_summary')
       if (error) throw error
       return data as PaymentSummary
     },
@@ -156,7 +156,7 @@ export function useBulkQbSyncPayments() {
   return useMutation({
     mutationFn: async (paymentIds: string[]) => {
       const supabase = createClient()
-      const { error } = await (supabase as any)
+      const { error } = await supabase
         .from('payments')
         .update({ qb_synced: true })
         .in('id', paymentIds)

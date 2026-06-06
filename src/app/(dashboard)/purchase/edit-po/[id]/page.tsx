@@ -91,7 +91,7 @@ export default function EditPOPage() {
     setTerms({
       payment_terms: po.payment_terms ?? '',
       payment_terms_notes: po.payment_terms_notes ?? '',
-      payment_milestones: (po as any).payment_milestones ?? [],
+      payment_milestones: po.payment_milestones ?? [],
       delivery_terms: po.delivery_terms ?? '',
       delivery_terms_notes: po.delivery_terms_notes ?? '',
       expected_delivery: po.expected_delivery ?? '',
@@ -152,7 +152,7 @@ export default function EditPOPage() {
         item_name: item_name.trim(),
         sku, qty, unit, unit_price, total_price, brand_variant_id, tool_asset_item_id, free_qty,
       })),
-      division_id: (po as any)?.division_id ?? null,
+      division_id: po?.division_id ?? null,
     }
   }
 
@@ -188,7 +188,7 @@ export default function EditPOPage() {
       discount_label: po.discount_label ?? null,
       payment_terms: po.payment_terms ?? null,
       payment_terms_notes: po.payment_terms_notes ?? null,
-      payment_milestones: (po as any).payment_milestones ?? null,
+      payment_milestones: po.payment_milestones ?? null,
       delivery_terms: po.delivery_terms ?? null,
       delivery_terms_notes: po.delivery_terms_notes ?? null,
       expected_delivery: po.expected_delivery ?? null,

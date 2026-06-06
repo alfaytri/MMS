@@ -23,7 +23,9 @@ function Calendar({
 }: React.ComponentProps<typeof DayPicker>) {
   const [pickerView, setPickerView] = React.useState<"days" | "months" | "years">("days")
   const [viewingDate, setViewingDate] = React.useState<Date>(
-    () => (props as any).defaultMonth ?? (props as any).selected ?? new Date()
+    () => (props as { defaultMonth?: Date; selected?: Date }).defaultMonth
+       ?? (props as { defaultMonth?: Date; selected?: Date }).selected
+       ?? new Date()
   )
 
   const viewingYear = viewingDate.getFullYear()

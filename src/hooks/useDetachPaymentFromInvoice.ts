@@ -14,7 +14,7 @@ export function useDetachPaymentFromInvoice() {
       invoiceId: string
     }) => {
       const supabase = createClient()
-      const { error } = await (supabase as any).rpc('detach_payment_from_invoice', {
+      const { error } = await supabase.rpc('detach_payment_from_invoice', {
         p_payment_id: paymentId,
         p_invoice_id: invoiceId,
       })

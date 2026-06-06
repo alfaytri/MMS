@@ -1,36 +1,27 @@
 // src/components/orders/TeamCalendarPanel.tsx
 'use client'
 import { useState, useMemo, useRef, useEffect, useCallback } from 'react'
-import { useDroppable } from '@dnd-kit/core'
 import { Button } from '@/components/ui/button'
-import { ChevronLeft, ChevronRight, Phone, ClipboardList, Clock, User, X, AlignJustify, Columns2 } from 'lucide-react'
+import { ChevronLeft, ChevronRight, AlignJustify, Columns2 } from 'lucide-react'
 import { format, addDays, subDays, isToday, parseISO } from 'date-fns'
-import { useTeams } from '@/hooks/useTeams'
+import { useTeams, type TeamFull } from '@/hooks/useTeams'
 import { useCalendarVisits, type CalendarVisit } from '@/hooks/useCalendarVisits'
 import { useAllDivisionSchedules } from '@/hooks/useCalendarSchedule'
 import { AllocateQuantityDialog } from './AllocateQuantityDialog'
+import {
+  DroppableCell, DraftBlock, VisitBlock, DivisionHeaderRow,
+  assignTracks, parseHour, parseMinutes,
+  TRACK_H, SIDEBAR_W,
+  type PendingDrop, type DraftInfo,
+} from './CalendarBlocks'
 import type { OrderServiceDraft, TeamAssignmentDraft, OrderMode } from '@/types/orders'
 import { cn } from '@/lib/utils'
 
-interface TeamRow {
-  id: string
-  name: string
-  name_en: string | null
-  name_ar: string | null
-  members: Array<{ skills: string[] | null }>
-  division: { slug: string; short_name: string | null; name: string } | null
-}
-
-const OFFHOURS_STYLE = {
-  backgroundImage: 'repeating-linear-gradient(-45deg, rgb(0 0 0 / 0.04) 0px, rgb(0 0 0 / 0.04) 2px, transparent 2px, transparent 8px)',
-} as const
 
 /** Full day: 48 half-hour slots: 0, 0.5, 1, 1.5, … 23.5 */
 const SLOTS = Array.from({ length: 48 }, (_, i) => i * 0.5)
-const DEFAULT_CELL_W  = 36   // px per half-hour slot in scroll mode
-const FIT_MIN_CELL_W  = 24   // minimum cell width in fit mode
-const SIDEBAR_W       = 128  // team label column width
-const TRACK_H         = 44   // px per stacking track
+const DEFAULT_CELL_W  = 36
+const FIT_MIN_CELL_W  = 24
 
 function formatSlotLabel(slot: number): string {
   const hour = Math.floor(slot)
@@ -42,83 +33,8 @@ function formatSlotLabel(slot: number): string {
   return `${hour - 12}PM`
 }
 
-/** Parse "HH:MM" or plain integer string → integer hour */
-function parseHour(t: string | null): number | null {
-  if (!t) return null
-  const n = parseInt(t)
-  return isNaN(n) ? null : n
-}
-
-/** Parse "HH:MM" → total minutes from midnight */
-function parseMinutes(t: string | null): number | null {
-  if (!t) return null
-  const [hStr, mStr] = t.split(':')
-  const h = parseInt(hStr)
-  const m = parseInt(mStr ?? '0')
-  return isNaN(h) ? null : h * 60 + (isNaN(m) ? 0 : m)
-}
-
-function formatOvertimeDuration(overtimeMinutes: number): string {
-  const h = Math.floor(overtimeMinutes / 60)
-  const m = overtimeMinutes % 60
-  if (h === 0) return `${m}m`
-  if (m === 0) return `${h}h`
-  return `${h}h ${m}m`
-}
-
-// ---------------------------------------------------------------------------
-// Track assignment — greedy interval scheduling
-// ---------------------------------------------------------------------------
-
-interface Block {
-  id: string
-  start: number   // hour
-  end: number     // hour (exclusive)
-}
-
-/** Returns a map of block.id → track index (0-based). */
-function assignTracks(blocks: Block[]): Map<string, number> {
-  const sorted = [...blocks].sort((a, b) => a.start - b.start)
-  const trackEnds: number[] = []  // trackEnds[i] = end hour of last block on track i
-  const result = new Map<string, number>()
-
-  for (const b of sorted) {
-    let placed = false
-    for (let t = 0; t < trackEnds.length; t++) {
-      if (trackEnds[t] <= b.start) {
-        trackEnds[t] = b.end
-        result.set(b.id, t)
-        placed = true
-        break
-      }
-    }
-    if (!placed) {
-      result.set(b.id, trackEnds.length)
-      trackEnds.push(b.end)
-    }
-  }
-
-  return result
-}
-
-interface PendingDrop {
-  service: OrderServiceDraft
-  teamId: string
-  teamName: string
-  timeSlot: string
-}
-
-interface DraftInfo {
-  orderId: string
-  customerName: string
-  phone: string
-  notes: string
-  mode: OrderMode
-}
-
 interface Props {
   visitDate: string
-  /** The first date in the order's visit window — draft blocks are only rendered on this date */
   primaryVisitDate?: string
   mode: OrderMode
   onModeChange: (mode: OrderMode) => void
@@ -129,441 +45,10 @@ interface Props {
   onAssign: (assignment: Omit<TeamAssignmentDraft, 'id'>) => void
   onRemoveAssignment: (id: string) => void
   onDateChange: (date: string) => void
-  /** When editing an existing order, exclude its visits from the calendar so they don't double-render alongside the draft blocks */
   editingOrderNumber?: string | null
-  /** All selected division slugs — only teams belonging to any of these are shown */
   divisionSlugs?: string[]
-  /** When navigating from the main calendar, scroll to this team row on mount */
   initialTeamId?: string
-  /** When navigating from the main calendar, scroll the timeline to this hour on mount */
   initialHour?: number
-}
-
-// ---------------------------------------------------------------------------
-// DroppableCell — one half-hour slot per team row
-// ---------------------------------------------------------------------------
-
-interface DroppableCellProps {
-  teamId: string
-  slot: number
-  isOccupied: boolean
-  isPast: boolean
-  isSkillMatch: boolean | null
-  rowHeight: number
-  workStart: number
-  workEnd: number
-  cellW: number
-}
-
-function DroppableCell({ teamId, slot, isOccupied, isPast, isSkillMatch, rowHeight, workStart, workEnd, cellW }: DroppableCellProps) {
-  const hour = Math.floor(slot)
-  const minute = slot % 1 !== 0 ? 30 : 0
-  const blocked = isOccupied || isPast
-  const { isOver, setNodeRef } = useDroppable({
-    id: `${teamId}-${slot}`,
-    data: { teamId, hour, minute },
-    disabled: blocked,
-  })
-
-  const isWorking = slot >= workStart && slot < workEnd
-  const isHalf = slot % 1 !== 0
-
-  return (
-    <div
-      ref={setNodeRef}
-      style={{
-        width: cellW, minWidth: cellW, height: rowHeight,
-        ...(!isWorking && !blocked ? OFFHOURS_STYLE : {}),
-      }}
-      className={cn(
-        'shrink-0 transition-colors',
-        isHalf ? 'border-r border-slate-100/50' : 'border-r border-slate-100',
-        blocked && 'bg-slate-100 cursor-not-allowed',
-        isPast && !isOccupied && 'bg-slate-50',
-        !blocked && isOver && 'bg-orange-50 ring-1 ring-inset ring-orange-300',
-        !blocked && !isOver && isSkillMatch === true && 'bg-green-50',
-        !blocked && isSkillMatch === false && 'opacity-40',
-      )}
-    />
-  )
-}
-
-// ---------------------------------------------------------------------------
-// DraftBlock — hoverable assignment block with popup card
-// ---------------------------------------------------------------------------
-
-interface DraftBlockProps {
-  assignment: TeamAssignmentDraft
-  draftServices: OrderServiceDraft[]
-  draftInfo: DraftInfo
-  trackMap: Map<string, number>
-  assignmentEndFn: (a: TeamAssignmentDraft, start: number) => number
-  assignmentLabelFn: (a: TeamAssignmentDraft) => string
-  hourLeftFn: (h: number) => number
-  onRemove: (id: string) => void
-  workStart: number
-  workEnd: number
-  cellW: number
-}
-
-function fmt12(t: string): string {
-  const [hStr, mStr] = t.split(':')
-  const h = parseInt(hStr)
-  const m = mStr ?? '00'
-  const period = h < 12 ? 'AM' : 'PM'
-  const h12 = h === 0 ? 12 : h > 12 ? h - 12 : h
-  return `${h12}:${m} ${period}`
-}
-
-function DraftBlock({
-  assignment: a,
-  draftServices,
-  draftInfo,
-  trackMap,
-  assignmentEndFn,
-  assignmentLabelFn,
-  hourLeftFn,
-  onRemove,
-  workStart,
-  workEnd,
-  cellW,
-}: DraftBlockProps) {
-  const [hovered, setHovered] = useState(false)
-  const leaveTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
-
-  const start = parseHour(a.timeSlot)
-  if (start === null) return null
-
-  const end = assignmentEndFn(a, start)
-  const isEarlyStart = start < workStart
-  const isLateEnd    = end > workEnd
-  const isOvertime   = isEarlyStart || isLateEnd
-  const earlyMinutes = isEarlyStart
-    ? Math.max(0, workStart * 60 - (parseMinutes(a.timeSlot) ?? start * 60))
-    : 0
-  const lateMinutes = isLateEnd
-    ? Math.max(0, (parseMinutes(a.toTime) ?? (end - 1) * 60) - workEnd * 60)
-    : 0
-  const overtimeMinutes = earlyMinutes + lateMinutes
-  const track = trackMap.get(`a-${a.id}`) ?? 0
-  const label = assignmentLabelFn(a)
-  // cellW is per half-hour slot; (end - start) is in hours → multiply by 2
-  const blockW = (end - start) * 2 * cellW - 2
-
-  const timeLabel = a.toTime
-    ? `${fmt12(a.timeSlot)} – ${fmt12(a.toTime)}`
-    : fmt12(a.timeSlot)
-
-  const serviceLines = a.services.map((s) => {
-    const draft = draftServices.find((ds) => ds.serviceId === s.serviceId)
-    return { name: draft?.serviceName ?? 'Service', qty: s.qty, price: draft ? draft.price * s.qty : 0 }
-  })
-
-  function handleMouseEnter() {
-    if (leaveTimer.current) clearTimeout(leaveTimer.current)
-    setHovered(true)
-  }
-  function handleMouseLeave() {
-    leaveTimer.current = setTimeout(() => setHovered(false), 120)
-  }
-
-  return (
-    <div
-      className="absolute"
-      style={{
-        left: hourLeftFn(start) + 1,
-        width: blockW,
-        top: track * TRACK_H + 2,
-        height: TRACK_H - 4,
-        zIndex: hovered ? 40 : 20,
-      }}
-      onMouseEnter={handleMouseEnter}
-      onMouseLeave={handleMouseLeave}
-    >
-      {/* Block */}
-      <div className={cn(
-        'relative h-full w-full overflow-hidden rounded border px-1.5 text-[11px] font-medium flex flex-col justify-center cursor-default group/block',
-        isOvertime ? 'bg-red-100 border-red-300 text-red-900' : 'bg-orange-200 border-orange-300 text-orange-900',
-      )}>
-        <span className="truncate leading-tight font-mono pr-4">
-          {draftInfo.orderId || label}
-        </span>
-        {blockW >= 80 && (
-          <span className={cn('truncate text-[10px] leading-tight', isOvertime ? 'text-red-600' : 'text-orange-600')}>{timeLabel}</span>
-        )}
-        {isOvertime && (
-          <span className="absolute right-5 top-0.5 rounded bg-red-500 px-1 text-[8px] font-bold text-white leading-tight py-px">OT</span>
-        )}
-        <button
-          type="button"
-          onClick={(e) => { e.stopPropagation(); onRemove(a.id) }}
-          className="absolute right-0.5 top-0.5 flex h-4 w-4 items-center justify-center rounded opacity-0 transition-opacity hover:bg-orange-400 group-hover/block:opacity-100"
-          aria-label="Remove assignment"
-        >
-          <X className="h-2.5 w-2.5 text-orange-900" />
-        </button>
-      </div>
-
-      {/* Hover popup */}
-      {hovered && (
-        <div
-          className="absolute top-full left-0 mt-1 w-64 bg-white border border-slate-200 rounded-lg shadow-xl p-3 space-y-2.5 text-xs"
-          style={{ zIndex: 50 }}
-          onMouseEnter={handleMouseEnter}
-          onMouseLeave={handleMouseLeave}
-        >
-          {/* Order number + status */}
-          {draftInfo.orderId && (
-            <p className="font-mono font-bold text-slate-900 text-sm">{draftInfo.orderId}</p>
-          )}
-          <div className="flex items-center gap-2 flex-wrap">
-            <span className="rounded border border-orange-200 bg-orange-100 px-2 py-0.5 text-[10px] font-bold uppercase text-orange-700">
-              {draftInfo.mode === 'emergency' ? 'Emergency' : draftInfo.mode === 'waitlist' ? 'Waitlist' : 'Scheduled'}
-            </span>
-            <span className="rounded border border-slate-200 bg-slate-50 px-2 py-0.5 text-[10px] text-slate-500">
-              Draft
-            </span>
-          </div>
-
-          {/* Customer */}
-          {draftInfo.customerName && (
-            <div className="flex items-center gap-1.5 text-slate-700">
-              <User className="h-3 w-3 shrink-0 text-slate-400" />
-              <span className="font-medium">{draftInfo.customerName}</span>
-            </div>
-          )}
-
-          {/* Phone */}
-          {draftInfo.phone && (
-            <div className="flex items-center gap-1.5 text-slate-600">
-              <Phone className="h-3 w-3 shrink-0 text-slate-400" />
-              <span>{draftInfo.phone}</span>
-            </div>
-          )}
-
-          {/* Time */}
-          <div className="flex items-center gap-1.5 text-slate-600">
-            <Clock className="h-3 w-3 shrink-0 text-slate-400" />
-            <span>{timeLabel}</span>
-          </div>
-
-          {/* Services */}
-          <div className="flex items-start gap-1.5">
-            <ClipboardList className="h-3 w-3 shrink-0 mt-0.5 text-slate-400" />
-            <div className="space-y-0.5">
-              {serviceLines.map((s, i) => (
-                <div key={i} className="flex items-center justify-between gap-4 text-slate-700">
-                  <span>{s.qty}× {s.name}</span>
-                  {s.price > 0 && (
-                    <span className="font-semibold text-slate-900 shrink-0">QAR {s.price.toFixed(0)}</span>
-                  )}
-                </div>
-              ))}
-            </div>
-          </div>
-
-          {/* Overtime warning */}
-          {isOvertime && (
-            <div className="rounded bg-red-50 border border-red-200 px-2 py-1.5 text-red-700 flex items-start gap-1.5">
-              <span className="text-base leading-none shrink-0">⚠</span>
-              <div className="space-y-0.5">
-                <p className="font-semibold">Outside schedule ({formatOvertimeDuration(overtimeMinutes)} total)</p>
-                {isEarlyStart && <p className="text-[11px]">{formatOvertimeDuration(earlyMinutes)} before schedule start</p>}
-                {isLateEnd    && <p className="text-[11px]">{formatOvertimeDuration(lateMinutes)} past schedule end</p>}
-              </div>
-            </div>
-          )}
-
-          {/* Notes */}
-          {draftInfo.notes && (
-            <div className="rounded bg-amber-50 border border-amber-100 px-2 py-1.5 text-slate-600">
-              <span className="font-semibold text-amber-700">Note: </span>
-              {draftInfo.notes}
-            </div>
-          )}
-        </div>
-      )}
-    </div>
-  )
-}
-
-// ---------------------------------------------------------------------------
-// VisitBlock — hoverable existing calendar visit block with popup card
-// ---------------------------------------------------------------------------
-
-interface VisitBlockProps {
-  visit: CalendarVisit
-  trackMap: Map<string, number>
-  hourLeftFn: (h: number) => number
-  workStart: number
-  workEnd: number
-  cellW: number
-}
-
-function VisitBlock({ visit: v, trackMap, hourLeftFn, workStart, workEnd, cellW }: VisitBlockProps) {
-  const [hovered, setHovered] = useState(false)
-  const leaveTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
-
-  const start = parseHour(v.start_time)
-  if (start === null) return null
-  const rawEnd = v.end_time ? parseHour(v.end_time) : null
-  const end = rawEnd !== null && rawEnd > start ? rawEnd : start + 1
-  const isEarlyStart = start < workStart
-  const isLateEnd    = end > workEnd
-  const isOvertime   = isEarlyStart || isLateEnd
-  const earlyMinutes = isEarlyStart
-    ? Math.max(0, workStart * 60 - (parseMinutes(v.start_time) ?? start * 60))
-    : 0
-  const lateMinutes = isLateEnd
-    ? Math.max(0, (parseMinutes(v.end_time) ?? end * 60) - workEnd * 60)
-    : 0
-  const overtimeMinutes = earlyMinutes + lateMinutes
-
-  const track = trackMap.get(`v-${v.id}`) ?? 0
-  // cellW is per half-hour slot; (end - start) is in hours → multiply by 2
-  const blockW = (end - start) * 2 * cellW - 2
-  const isSiteVisit = v.source_type === 'site_visit'
-
-  const timeLabel = [v.start_time, v.end_time]
-    .filter(Boolean)
-    .map((t) => fmt12(t!.substring(0, 5)))
-    .join(' – ')
-
-  function handleMouseEnter() {
-    if (leaveTimer.current) clearTimeout(leaveTimer.current)
-    setHovered(true)
-  }
-  function handleMouseLeave() {
-    leaveTimer.current = setTimeout(() => setHovered(false), 120)
-  }
-
-  const colorBlock = isSiteVisit
-    ? 'bg-purple-100 border-purple-300 text-purple-900'
-    : 'bg-blue-100 border-blue-300 text-blue-900'
-  const colorNumber = isSiteVisit ? 'text-purple-600' : 'text-blue-600'
-  const colorBadge = isSiteVisit
-    ? 'border-purple-200 bg-purple-50 text-purple-700'
-    : 'border-blue-200 bg-blue-50 text-blue-700'
-
-  return (
-    <div
-      className="absolute"
-      style={{
-        left: hourLeftFn(start) + 1,
-        width: blockW,
-        top: track * TRACK_H + 2,
-        height: TRACK_H - 4,
-        zIndex: hovered ? 40 : 10,
-      }}
-      onMouseEnter={handleMouseEnter}
-      onMouseLeave={handleMouseLeave}
-    >
-      {/* Block */}
-      <div className={`relative h-full w-full overflow-hidden rounded border px-1 text-[11px] font-medium flex flex-col justify-center cursor-default ${colorBlock}`}>
-        {v.order_number && (
-          <span className={`truncate font-mono leading-none ${colorNumber}`} style={{ fontSize: 9 }}>
-            {v.order_number}
-          </span>
-        )}
-        <span className="truncate leading-none">{v.customer_name ?? '—'}</span>
-        {isOvertime && (
-          <span className="absolute right-0.5 top-0.5 rounded bg-red-500 px-1 text-[8px] font-bold text-white leading-tight py-px">OT</span>
-        )}
-      </div>
-
-      {/* Hover popup */}
-      {hovered && (
-        <div
-          className="absolute top-full left-0 mt-1 w-64 bg-white border border-slate-200 rounded-lg shadow-xl p-3 space-y-2.5 text-xs"
-          style={{ zIndex: 50 }}
-          onMouseEnter={handleMouseEnter}
-          onMouseLeave={handleMouseLeave}
-        >
-          {v.order_number && (
-            <p className="font-mono font-bold text-slate-900 text-sm">{v.order_number}</p>
-          )}
-          <div className="flex items-center gap-2 flex-wrap">
-            <span className={`rounded border px-2 py-0.5 text-[10px] font-bold uppercase ${colorBadge}`}>
-              {v.status}
-            </span>
-            {isSiteVisit && (
-              <span className="rounded border border-purple-200 bg-purple-50 px-2 py-0.5 text-[10px] text-purple-600">
-                Site Visit
-              </span>
-            )}
-          </div>
-
-          {v.customer_name && (
-            <div className="flex items-center gap-1.5 text-slate-700">
-              <User className="h-3 w-3 shrink-0 text-slate-400" />
-              <span className="font-medium">{v.customer_name}</span>
-            </div>
-          )}
-
-          {v.customer_phone && (
-            <div className="flex items-center gap-1.5 text-slate-600">
-              <Phone className="h-3 w-3 shrink-0 text-slate-400" />
-              <span>{v.customer_phone}</span>
-            </div>
-          )}
-
-          {timeLabel && (
-            <div className="flex items-center gap-1.5 text-slate-600">
-              <Clock className="h-3 w-3 shrink-0 text-slate-400" />
-              <span>{timeLabel}</span>
-            </div>
-          )}
-
-          {v.services_summary && (
-            <div className="flex items-start gap-1.5">
-              <ClipboardList className="h-3 w-3 shrink-0 mt-0.5 text-slate-400" />
-              <span className="text-slate-700">{v.services_summary}</span>
-            </div>
-          )}
-
-          {/* Overtime warning */}
-          {isOvertime && (
-            <div className="rounded bg-red-50 border border-red-200 px-2 py-1.5 text-red-700 flex items-start gap-1.5">
-              <span className="text-base leading-none shrink-0">⚠</span>
-              <div className="space-y-0.5">
-                <p className="font-semibold">Outside schedule ({formatOvertimeDuration(overtimeMinutes)} total)</p>
-                {isEarlyStart && <p className="text-[11px]">{formatOvertimeDuration(earlyMinutes)} before schedule start</p>}
-                {isLateEnd    && <p className="text-[11px]">{formatOvertimeDuration(lateMinutes)} past schedule end</p>}
-              </div>
-            </div>
-          )}
-        </div>
-      )}
-    </div>
-  )
-}
-
-// ---------------------------------------------------------------------------
-// DivisionHeaderRow
-// ---------------------------------------------------------------------------
-
-const DIVISION_HEADER_H = 32
-
-function DivisionHeaderRow({ name, scheduleLabel, cellW }: { name: string; scheduleLabel?: string; cellW: number }) {
-  // cap at content width so the row never causes extra horizontal scroll
-  const contentW = SIDEBAR_W + SLOTS.length * cellW
-  return (
-    <div style={{ height: DIVISION_HEADER_H }}>
-      <div
-        className="sticky left-0 z-10 flex items-center gap-3 px-4 bg-orange-50/80 border-y border-orange-100"
-        style={{ height: DIVISION_HEADER_H, width: `min(100vw, ${contentW}px)` }}
-      >
-        <div className="flex-1 h-px bg-orange-300/50" />
-        <div className="flex flex-col items-center shrink-0 gap-0.5">
-          <span className="text-[11px] font-bold text-orange-600 tracking-widest uppercase">{name}</span>
-          {scheduleLabel && (
-            <span className="text-[9px] text-orange-400/80">{scheduleLabel}</span>
-          )}
-        </div>
-        <div className="flex-1 h-px bg-orange-300/50" />
-      </div>
-    </div>
-  )
 }
 
 // ---------------------------------------------------------------------------
@@ -590,7 +75,7 @@ export function TeamCalendarPanel({
   const { data: teamsRaw } = useTeams(
     divisionSlugs && divisionSlugs.length > 0 ? { divisionIds: divisionSlugs } : undefined
   )
-  const teams = (teamsRaw ?? []) as unknown as TeamRow[]
+  const teams = (teamsRaw ?? []) as TeamFull[]
   const { data: visits } = useCalendarVisits(visitDate, null)
   const divisionSchedules = useAllDivisionSchedules()
   const [pendingDrop, setPendingDrop] = useState<PendingDrop | null>(null)
@@ -615,6 +100,10 @@ export function TeamCalendarPanel({
     [dateIsToday, nowMinutes],
   )
 
+  const scrollContainerRef = useRef<HTMLDivElement>(null)
+  const teamRowRefs = useRef<Map<string, HTMLDivElement>>(new Map())
+  const hasScrolled = useRef(false)
+
   useEffect(() => {
     const el = scrollContainerRef.current
     if (!el) return
@@ -632,7 +121,7 @@ export function TeamCalendarPanel({
     : DEFAULT_CELL_W
 
   const divisionGroups = useMemo(() => {
-    const groups = new Map<string, { slug: string; name: string; teams: TeamRow[] }>()
+    const groups = new Map<string, { slug: string; name: string; teams: TeamFull[] }>()
     for (const team of teams) {
       const slug = team.division?.slug ?? '__none__'
       const name = team.division?.name ?? team.division?.short_name ?? 'Unassigned'
@@ -642,17 +131,12 @@ export function TeamCalendarPanel({
     return Array.from(groups.values())
   }, [teams])
 
-  const scrollContainerRef = useRef<HTMLDivElement>(null)
-  const teamRowRefs = useRef<Map<string, HTMLDivElement>>(new Map())
-  const hasScrolled = useRef(false)
-
   useEffect(() => {
     if (hasScrolled.current || !initialTeamId || teams.length === 0) return
     hasScrolled.current = true
     const container = scrollContainerRef.current
     if (!container) return
     if (typeof initialHour === 'number') {
-      // Each hour = 2 half-hour slots
       container.scrollLeft = Math.max(0, initialHour * 2 * cellWidth - SIDEBAR_W)
     }
     const row = teamRowRefs.current.get(initialTeamId)
@@ -675,11 +159,10 @@ export function TeamCalendarPanel({
     return (teamSkillMap[teamId] ?? []).includes(draggingService.rootSkillId)
   }
 
-  function teamDisplayName(team: TeamRow): string {
+  function teamDisplayName(team: TeamFull): string {
     return team.name_en ?? team.name
   }
 
-  /** Build a human-readable label for a draft assignment block */
   function assignmentLabel(a: TeamAssignmentDraft): string {
     return a.services.map((s) => {
       const draft = draftServices.find((ds) => ds.serviceId === s.serviceId)
@@ -688,10 +171,6 @@ export function TeamCalendarPanel({
     }).join(', ')
   }
 
-  /**
-   * Compute block end hour for an assignment.
-   * toTime is INCLUSIVE: "10:00" means the 10AM cell is occupied → end = 11
-   */
   function assignmentEnd(a: TeamAssignmentDraft, start: number): number {
     if (a.toTime) {
       const h = parseHour(a.toTime)
@@ -700,7 +179,6 @@ export function TeamCalendarPanel({
     return start + Math.max(1, Math.ceil(a.duration / 60))
   }
 
-  /** Returns true if the team already has an existing visit covering this half-hour slot */
   function isSlotOccupied(teamId: string, slot: number): boolean {
     const slotMinutes = slot * 60
     const slotEndMinutes = slotMinutes + 30
@@ -715,7 +193,6 @@ export function TeamCalendarPanel({
     })
   }
 
-  /** Visits belonging to one team, excluding the order currently being edited */
   function visitsForTeam(teamId: string): CalendarVisit[] {
     return (visits ?? []).filter((v) =>
       v.team_id === teamId &&
@@ -724,26 +201,18 @@ export function TeamCalendarPanel({
     )
   }
 
-  /** Draft assignments for one team on the currently displayed date */
   function assignmentsForTeam(teamId: string): TeamAssignmentDraft[] {
     return assignments.filter((a) => {
       if (a.teamId !== teamId) return false
-      // date-stamped assignments: show only on their own day
-      // legacy (no date): show only on the primary visit date
       const assignmentDate = a.date ?? primaryVisitDate ?? visitDate
       return visitDate === assignmentDate
     })
   }
 
-  /** CSS left offset for a given hour (converts hours to half-hour slot units) */
   function hourLeft(h: number): number {
     return (h - SLOTS[0]) * 2 * cellWidth
   }
 
-  /**
-   * Compute all blocks (visits + assignments) for a team, assign tracks,
-   * and return the row height needed to fit them all.
-   */
   function computeTeamLayout(teamId: string): {
     trackMap: Map<string, number>
     rowHeight: number
@@ -751,8 +220,7 @@ export function TeamCalendarPanel({
     const teamVisits = visitsForTeam(teamId)
     const teamAssignments = assignmentsForTeam(teamId)
 
-    // Existing visits occupy the top tracks
-    const visitBlocks: Block[] = []
+    const visitBlocks: { id: string; start: number; end: number }[] = []
     for (const v of teamVisits) {
       const start = parseHour(v.start_time)
       if (start === null) continue
@@ -765,8 +233,7 @@ export function TeamCalendarPanel({
       ? -1
       : Math.max(...Array.from(visitTrackMap.values()))
 
-    // Draft assignments always go below all existing visit tracks
-    const assignmentBlocks: Block[] = []
+    const assignmentBlocks: { id: string; start: number; end: number }[] = []
     for (const a of teamAssignments) {
       const start = parseHour(a.timeSlot)
       if (start === null) continue
@@ -837,7 +304,7 @@ export function TeamCalendarPanel({
       {/* ── Grid ── */}
       <div ref={scrollContainerRef} className="flex-1 overflow-auto">
         <div className="relative flex min-w-max flex-col">
-          {/* Now indicator — red vertical line for current time */}
+          {/* Now indicator */}
           {dateIsToday && nowMinutes !== null && (
             <div
               aria-hidden="true"
@@ -849,7 +316,7 @@ export function TeamCalendarPanel({
             </div>
           )}
 
-          {/* Time header row — half-hour slots */}
+          {/* Time header row */}
           <div className="flex border-b bg-slate-50 sticky top-0 z-10">
             <div className="w-32 shrink-0 border-r px-2 py-1 text-xs font-medium text-slate-500">
               Teams / Time
@@ -880,8 +347,8 @@ export function TeamCalendarPanel({
             const workEnd   = sched?.day_end   ?? 24
             return (
               <div key={group.slug}>
-                <DivisionHeaderRow name={group.name} scheduleLabel={sched?.label} cellW={cellWidth} />
-                {group.teams.map((team: TeamRow) => {
+                <DivisionHeaderRow name={group.name} scheduleLabel={sched?.label} cellW={cellWidth} slotCount={SLOTS.length} />
+                {group.teams.map((team: TeamFull) => {
                   const { trackMap, rowHeight } = computeTeamLayout(team.id)
                   return (
                     <div

@@ -19,7 +19,7 @@ export function usePermissions() {
       if (!user) return { permissions: [], isSystemAdmin: false }
 
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      const { data: profile } = await (supabase as any)
+      const { data: profile } = await supabase
         .from('profiles')
         .select('user_custom_roles!user_custom_roles_profile_id_fkey(custom_roles(is_system, permissions))')
         .eq('auth_user_id', user.id)

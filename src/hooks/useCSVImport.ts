@@ -1,6 +1,7 @@
 import { useMutation } from '@tanstack/react-query'
 import { createClient } from '@/lib/supabase/client'
 import type { ParsedRow } from '@/lib/csv/validate'
+import type { DBInsert } from '@/types/database.types'
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -23,7 +24,7 @@ async function batchInsert(
 
   for (let i = 0; i < rows.length; i += batchSize) {
     const batch = rows.slice(i, i + batchSize)
-    const { error } = await (supabase as any).from(table).insert(batch)
+    const { error } = await supabase.from(table as 'suppliers').insert(batch as unknown as DBInsert<'suppliers'>[])
     if (error) {
       batch.forEach((_, j) => {
         errors.push({ row: i + j + 2, message: error.message })
@@ -68,7 +69,7 @@ export function useImportInventoryItems() {
       const errors: { row: number; message: string }[] = []
 
       // Load all categories once
-      const { data: categories } = await (supabase as any)
+      const { data: categories } = await supabase
         .from('inventory_categories')
         .select('id, name')
       const catMap = new Map<string, string>(
@@ -76,7 +77,7 @@ export function useImportInventoryItems() {
       )
 
       // Load existing items (name dedup)
-      const { data: existingItems } = await (supabase as any)
+      const { data: existingItems } = await supabase
         .from('inventory_items')
         .select('id, name')
       const itemMap = new Map<string, string>(
@@ -94,7 +95,7 @@ export function useImportInventoryItems() {
 
           let itemId = itemMap.get(String(row.item_name ?? '').toLowerCase())
           if (!itemId) {
-            const { data: newItem, error: itemErr } = await (supabase as any)
+            const { data: newItem, error: itemErr } = await supabase
               .from('inventory_items')
               .insert({
                 name: row.item_name,
@@ -102,7 +103,7 @@ export function useImportInventoryItems() {
                 category_id: catId,
                 unit: row.unit ?? 'pcs',
                 is_active: true,
-              })
+              } as unknown as DBInsert<'inventory_items'>)
               .select('id')
               .single()
             if (itemErr) { errors.push({ row: row._rowIndex as number, message: itemErr.message }); continue }
@@ -110,7 +111,7 @@ export function useImportInventoryItems() {
             itemMap.set(String(row.item_name ?? '').toLowerCase(), itemId!)
           }
 
-          const { error: varErr } = await (supabase as any)
+          const { error: varErr } = await supabase
             .from('inventory_brand_variants')
             .insert({
               item_id: itemId,
@@ -120,7 +121,7 @@ export function useImportInventoryItems() {
               selling_price: row.selling_price ?? 0,
               stock_level: 0,
               average_cost: row.cost_price ?? 0,
-            })
+            } as unknown as DBInsert<'inventory_brand_variants'>)
           if (varErr) { errors.push({ row: row._rowIndex as number, message: varErr.message }); continue }
 
           succeeded++
@@ -180,7 +181,7 @@ export function useImportPurchaseOrders() {
           const currency = String(firstRow.currency ?? 'QAR')
           const exchangeRate = currency === 'QAR' ? 1 : 1
 
-          const { data: po, error: poErr } = await (supabase as any)
+          const { data: po, error: poErr } = await supabase
             .from('purchase_orders')
             .insert({
               po_number: poNumber,
@@ -194,7 +195,7 @@ export function useImportPurchaseOrders() {
               created_date: firstRow.created_date ?? new Date().toISOString().split('T')[0],
               payment_terms: firstRow.payment_terms ?? null,
               approval_level: 1,
-            })
+            } as unknown as DBInsert<'purchase_orders'>)
             .select('id')
             .single()
           if (poErr) {
@@ -214,7 +215,7 @@ export function useImportPurchaseOrders() {
             received_qty: 0,
           }))
 
-          const { error: lineErr } = await (supabase as any).from('po_line_items').insert(lines)
+          const { error: lineErr } = await supabase.from('po_line_items').insert(lines as unknown as DBInsert<'po_line_items'>[])
           if (lineErr) {
             lineRows.forEach((r) => errors.push({ row: r._rowIndex as number, message: lineErr.message }))
             continue
@@ -250,7 +251,7 @@ export function useImportSaleOrders() {
         groups.get(key)!.push(row)
       }
 
-      const { data: lastSO } = await (supabase as any)
+      const { data: lastSO } = await supabase
         .from('sale_orders')
         .select('so_number')
         .order('created_at', { ascending: false })
@@ -270,7 +271,7 @@ export function useImportSaleOrders() {
           const soNumber = `SO-${String(soCounter).padStart(4, '0')}`
           soCounter++
 
-          const { data: so, error: soErr } = await (supabase as any)
+          const { data: so, error: soErr } = await supabase
             .from('sale_orders')
             .insert({
               so_number: soNumber,
@@ -282,7 +283,7 @@ export function useImportSaleOrders() {
               total: subtotal,
               notes: firstRow.notes ?? null,
               created_date: firstRow.created_date ?? new Date().toISOString().split('T')[0],
-            })
+            } as unknown as DBInsert<'sale_orders'>)
             .select('id')
             .single()
           if (soErr) {
@@ -300,7 +301,7 @@ export function useImportSaleOrders() {
             total_price: Number(r.qty) * Number(r.unit_price),
           }))
 
-          const { error: lineErr } = await (supabase as any).from('sale_order_lines').insert(lines)
+          const { error: lineErr } = await supabase.from('sale_order_lines').insert(lines as unknown as DBInsert<'sale_order_lines'>[])
           if (lineErr) {
             lineRows.forEach((r) => errors.push({ row: r._rowIndex as number, message: lineErr.message }))
             continue

@@ -8,6 +8,7 @@ import type { OrderDraft, OrderServiceDraft, TeamAssignmentDraft, CustomerAddres
 import { SITE_VISIT_SERVICE_ID } from '@/components/orders/SiteVisitCard'
 import type { CustomerLookupResult } from '@/hooks/useCustomerLookup'
 import type { PendingAttachment } from '@/components/orders/AttachmentsUpload'
+import type { Json } from '@/types/database.types'
 
 const today = new Date().toISOString().split('T')[0]
 
@@ -53,7 +54,7 @@ async function generateOrderId(supabase: ReturnType<typeof createClient>): Promi
 }
 
 async function generateVisitId(supabase: ReturnType<typeof createClient>): Promise<string> {
-  const { data: last } = await (supabase as any)
+  const { data: last } = await supabase
     .from('site_visits')
     .select('visit_id')
     .order('created_at', { ascending: false })
@@ -237,7 +238,7 @@ export function useCreateOrder() {
           }
         })
 
-        const { data: newId, error } = await (supabase as any).rpc('create_site_visit', {
+        const { data: newId, error } = await supabase.rpc('create_site_visit', {
           p_visit_id:            visitId,
           p_service_customer_id: draft.customerId,
           p_status:         status,
@@ -246,9 +247,9 @@ export function useCreateOrder() {
           p_address:        addressString ?? '',
           p_notes:          draft.notes ?? '',
           p_arrival_phone:  draft.arrivalPhone ?? '',
-          p_attachments:    uploadedAttachments.length > 0 ? uploadedAttachments : null,
-          p_visit_dates:    visitDatesPayload,
-          p_assignments:    assignmentsPayload,
+          p_attachments:    uploadedAttachments.length > 0 ? uploadedAttachments as unknown as Json : null,
+          p_visit_dates:    visitDatesPayload as unknown as Json,
+          p_assignments:    assignmentsPayload as unknown as Json,
         })
 
         if (error) {
@@ -297,7 +298,7 @@ export function useCreateOrder() {
         }
       })
 
-      const { data: newOrderId, error } = await (supabase as any).rpc('create_order_with_dates', {
+      const { data: newOrderId, error } = await supabase.rpc('create_order_with_dates', {
         p_order_id:            orderId,
         p_service_customer_id: draft.customerId,
         p_type:           draft.type,
@@ -308,11 +309,11 @@ export function useCreateOrder() {
         p_address:        addressString ?? '',
         p_notes:          draft.notes ?? '',
         p_arrival_phone:  draft.arrivalPhone ?? '',
-        p_attachments:    uploadedAttachments.length > 0 ? uploadedAttachments : null,
-        p_services:       servicesPayload,
-        p_visit_dates:    visitDatesPayload,
-        p_assignments:    assignmentsPayload,
-        p_address_id:     draft.addressId ?? null,
+        p_attachments:    uploadedAttachments.length > 0 ? uploadedAttachments as unknown as Json : null,
+        p_services:       servicesPayload as unknown as Json,
+        p_visit_dates:    visitDatesPayload as unknown as Json,
+        p_assignments:    assignmentsPayload as unknown as Json,
+        p_address_id:     draft.addressId ?? undefined,
       })
 
       if (error) {

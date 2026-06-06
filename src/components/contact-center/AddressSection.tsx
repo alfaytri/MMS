@@ -329,7 +329,7 @@ export function AddressSection({ addressState }: { addressState: AddressStateRet
       return
     }
     try {
-      await addAddress.mutateAsync({ ...form, resolvedCoords: resolved } as any)
+      await addAddress.mutateAsync({ ...form, resolvedCoords: resolved })
       toast.success('Address saved')
     } catch {
       toast.error('Failed to save address')

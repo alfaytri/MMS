@@ -13,7 +13,7 @@ import { Checkbox } from '@/components/ui/checkbox'
 import { cn } from '@/lib/utils'
 import { createClient } from '@/lib/supabase/client'
 import { useServiceTree, type Service } from '@/hooks/useServices'
-import { useCreateEmployee, useArchiveEmployee, useDisableEmployee, useEnableEmployee, logActivity } from '@/hooks/useTeams'
+import { useCreateEmployee, useArchiveEmployee, useDisableEmployee, useEnableEmployee, logActivity, type EmployeeInsert } from '@/hooks/useTeams'
 import { useDivisions } from '@/hooks/useDivisions'
 import { PhoneInputWithCode, splitPhone } from '@/components/shared/PhoneInputWithCode'
 import { useTeamsPage } from '../TeamsPageContext'
@@ -327,9 +327,8 @@ export function EmployeeEditDialog() {
       // Pre-set skillset filter to match the employee's division
       const matchedDiv = divisions.find(d => d.id === divId)
       setDivisionSlug(matchedDiv?.slug ?? '')
-      // Load existing skill IDs (employee_services not in generated types — cast required)
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      ;(createClient() as any)
+      // Load existing skill IDs
+      ;createClient()
         .from('employee_services')
         .select('service_id')
         .eq('employee_id', employee.id)
@@ -381,17 +380,16 @@ export function EmployeeEditDialog() {
 
       if (isEdit) {
         const supabase = createClient()
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        const { error } = await (supabase as any).rpc('save_employee', {
+        const { error } = await supabase.rpc('save_employee', {
           p_employee_id: employee!.id,
           p_name:        values.name,
-          p_phone:       fullPhone || null,
-          p_nationality: values.nationality || null,
-          p_join_date:   values.join_date || null,
+          p_phone:       fullPhone || '',
+          p_nationality: values.nationality || '',
+          p_join_date:   values.join_date || '',
           p_status:      employee!.status ?? 'active',
-          p_avatar_url:  avatarUrl || null,
+          p_avatar_url:  avatarUrl || '',
           p_service_ids: serviceIds,
-          p_division_id: values.division_id || null,
+          p_division_id: values.division_id || undefined,
         })
         if (error) throw error
         // Log and invalidate only after the RPC fully succeeded
@@ -413,12 +411,10 @@ export function EmployeeEditDialog() {
           avatar_url:  avatarUrl || null,
           division_id: values.division_id || null,
         }
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        const created = await createEmployee.mutateAsync(payload as any)
+        const created = await createEmployee.mutateAsync(payload as EmployeeInsert)
         if (serviceIds.length > 0) {
           const supabase = createClient()
-          // eslint-disable-next-line @typescript-eslint/no-explicit-any
-          const { error } = await (supabase as any).rpc('upsert_employee_services', {
+          const { error } = await supabase.rpc('upsert_employee_services', {
             p_employee_id: created.id,
             p_service_ids: serviceIds,
           })

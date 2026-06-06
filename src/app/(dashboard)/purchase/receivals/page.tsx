@@ -17,6 +17,7 @@ import {
   useSaveReceivalEdit,
   type Receival,
   type ReceivalEditRequest,
+  type ReceivalStatus,
 } from '@/hooks/useReceivals'
 import { useIsAdmin } from '@/hooks/useProfiles'
 import { formatDate } from '@/lib/utils/formatters'
@@ -36,7 +37,7 @@ const STATUS_CONFIG: Record<string, { label: string; className: string }> = {
   rejected: { label: 'Rejected', className: 'bg-red-100 text-red-700' },
 }
 
-const STATUSES: { value: string; label: string }[] = [
+const STATUSES: { value: ReceivalStatus | ''; label: string }[] = [
   { value: '', label: 'All' },
   { value: 'approved', label: 'Approved' },
   { value: 'rejected', label: 'Rejected' },
@@ -254,14 +255,14 @@ function ReceivalEditDialog({
 // ─── Page ─────────────────────────────────────────────────────────────────────
 
 export default function ReceivalsPage() {
-  const [statusFilter, setStatusFilter] = useState<string>('')
+  const [statusFilter, setStatusFilter] = useState<ReceivalStatus | ''>('')
   const [createOpen, setCreateOpen] = useState(false)
   const [requestEditTarget, setRequestEditTarget] = useState<Receival | null>(null)
   const [editTarget, setEditTarget] = useState<{ receival: Receival; request: ReceivalEditRequest } | null>(null)
   const [adminApproveTarget, setAdminApproveTarget] = useState<ReceivalEditRequest | null>(null)
   const [detailReceival, setDetailReceival] = useState<Receival | null>(null)
 
-  const { data: receivals, isLoading } = useReceivals({ status: statusFilter as any })
+  const { data: receivals, isLoading } = useReceivals({ status: statusFilter })
   const { data: isAdmin } = useIsAdmin()
 
   const columns = useMemo<ColumnDef<Receival>[]>(() => [

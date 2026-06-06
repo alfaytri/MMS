@@ -87,7 +87,7 @@ export function BillFormDialog({ open, onOpenChange, initialPoId }: Props) {
     setSaving(true)
     try {
       await createBill.mutateAsync({
-        supplier_id:       (selectedPO as any).supplier_id,
+        supplier_id:       selectedPO.supplier_id,
         purchase_order_id: selectedPoId,
         po_number:         selectedPO.po_number,
         discount_amount:   selectedPO.discount_amount ?? 0,
@@ -116,7 +116,7 @@ export function BillFormDialog({ open, onOpenChange, initialPoId }: Props) {
   // Compute total received per line item across approved receivals
   const receivedMap = new Map<string, number>()
   for (const r of (receivals ?? []).filter((r) => r.status === 'approved')) {
-    for (const ri of (r.receival_items ?? []) as any[]) {
+    for (const ri of r.receival_items ?? []) {
       if (!ri.is_free && ri.po_line_item_id) {
         receivedMap.set(ri.po_line_item_id, (receivedMap.get(ri.po_line_item_id) ?? 0) + ri.qty_received)
       }

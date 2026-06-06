@@ -72,7 +72,7 @@ export async function POST(request: Request) {
 
   // ── 0. Fetch invoice details for Dibsy metadata ────────────────────────────
   const supabasePre = createAdminClient()
-  const { data: invDetail } = await (supabasePre as any)
+  const { data: invDetail } = await supabasePre
     .from('tl_invoices')
     .select('invoice_number, customer_name, discount_amount')
     .eq('id', invoice_id)
@@ -105,7 +105,7 @@ export async function POST(request: Request) {
 
   // ── 2. Store Dibsy IDs on the invoice (non-blocking) ────────────────────────
   const supabase = createAdminClient()
-  const { error: dbErr } = await (supabase as any)
+  const { error: dbErr } = await supabase
     .from('tl_invoices')
     .update({
       dibsy_payment_id:   payment.id,
@@ -155,13 +155,14 @@ export async function POST(request: Request) {
       try { watiData = JSON.parse(rawText) } catch { watiData = { raw: rawText } }
 
       const watiOk = watiRes.ok && !watiData?.error && watiData?.result !== false
-      const watiMsgId: string | null = (
-        (watiData as any)?.message?.whatsappMessageId ??
-        (watiData as any)?.info?.whatsAppMessageId ??
-        (watiData as any)?.id ??
-        (watiData as any)?.messageId ??
+      const _watiMsg  = watiData?.message  as Record<string, unknown> | undefined
+      const _watiInfo = watiData?.info     as Record<string, unknown> | undefined
+      const watiMsgId: string | null =
+        (_watiMsg?.whatsappMessageId  as string | undefined) ??
+        (_watiInfo?.whatsAppMessageId as string | undefined) ??
+        (watiData?.id                 as string | undefined) ??
+        (watiData?.messageId          as string | undefined) ??
         null
-      ) as string | null
 
       if (!watiOk) {
         console.warn('[create-tl-invoice] Wati send failed:', rawText.slice(0, 500))
@@ -171,7 +172,7 @@ export async function POST(request: Request) {
       const msgText = `Payment link for order ${order_id}\n\nAmount: ${formattedAmount}\n\n${payment.checkoutUrl}`
       const phone = `+${watiPhone}`
 
-      const { data: existing } = await (supabase as any)
+      const { data: existing } = await supabase
         .from('chat_conversations')
         .select('id')
         .eq('wati_phone', phone)
@@ -180,21 +181,21 @@ export async function POST(request: Request) {
       let conversationId: string | null = existing?.id ?? null
 
       if (!conversationId) {
-        const { data: created } = await (supabase as any)
+        const { data: created } = await supabase
           .from('chat_conversations')
           .insert({ wati_phone: phone, last_message: msgText, last_message_at: new Date().toISOString(), unread_count: 0 })
           .select('id')
           .single()
         conversationId = created?.id ?? null
       } else {
-        await (supabase as any)
+        await supabase
           .from('chat_conversations')
           .update({ last_message: msgText, last_message_at: new Date().toISOString() })
           .eq('id', conversationId)
       }
 
       if (conversationId) {
-        await (supabase as any)
+        await supabase
           .from('chat_messages')
           .insert({
             conversation_id: conversationId,

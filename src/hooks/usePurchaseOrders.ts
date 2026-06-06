@@ -1,6 +1,7 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { createClient } from '@/lib/supabase/client'
 import { findApplicableTiers, validateRoles, buildApprovalSteps, getNotificationRecipients } from '@/lib/approvalChainResolution'
+import type { ApprovalChainTier, ApprovalRoleAssignmentRow } from '@/lib/approvalChainResolution'
 import { logPOActivity, resolveMyName } from '@/lib/poActivityLogger'
 import { savePoSnapshot, resolveLineItemNames } from '@/lib/poVersionHelper'
 import { queryKeys } from '@/lib/queryKeys'
@@ -85,6 +86,8 @@ export type PurchaseOrder = {
   vendor_notes: string | null
   discount_amount: number
   discount_label: string | null
+  payment_milestones: { label: string; percent: number }[] | null
+  division_id: string | null
   created_at: string
   updated_at: string
   created_by: string | null
@@ -131,6 +134,7 @@ export type POReceival = {
     qty_received: number
     unit_cost: number
     is_free: boolean
+    po_line_item_id: string | null
   }[]
 }
 
@@ -217,7 +221,7 @@ export type PaymentMethod = typeof PAYMENT_METHODS[number]
 // will produce a DB error rather than a silent duplicate.
 // TODO: replace with a server-side DB sequence when types are regenerated.
 async function generatePONumber(supabase: ReturnType<typeof createClient>): Promise<string> {
-  const { count } = await (supabase as any)
+  const { count } = await supabase
     .from('purchase_orders')
     .select('*', { count: 'exact', head: true })
   const seq = String((count ?? 0) + 1).padStart(5, '0')
@@ -243,7 +247,7 @@ export function usePurchaseOrders(filters: POFilters = {}) {
     queryKey: queryKeys.purchaseOrders.list(filters),
     queryFn: async () => {
       const supabase = createClient()
-      let query = (supabase as any)
+      let query = supabase
         .from('purchase_orders')
         .select('*, po_approvals(*), po_line_items(*)')
         .is('deleted_at', null)
@@ -277,7 +281,7 @@ export function usePurchaseOrder(id: string | null) {
     queryKey: queryKeys.purchaseOrders.detail(id),
     queryFn: async () => {
       const supabase = createClient()
-      const { data, error } = await (supabase as any)
+      const { data, error } = await supabase
         .from('purchase_orders')
         .select('*, po_line_items(*, inventory_brand_variants(inventory_items(name_en))), po_approvals(*)')
         .eq('id', id!)
@@ -294,7 +298,7 @@ export function usePOPayments(poId: string | null) {
     queryKey: queryKeys.purchaseOrders.payments(poId),
     queryFn: async () => {
       const supabase = createClient()
-      const { data, error } = await (supabase as any)
+      const { data, error } = await supabase
         .from('payments')
         .select('*')
         .eq('source_type', 'purchase_order')
@@ -314,16 +318,19 @@ export function usePOReceivalsByPO(poId: string | null) {
     queryKey: queryKeys.purchaseOrders.receivals(poId),
     queryFn: async () => {
       const supabase = createClient()
-      const { data, error } = await (supabase as any)
+      const { data, error } = await supabase
         .from('receivals')
         .select('*, receival_items(*), warehouses(name)')
         .eq('po_id', poId!)
         .order('date', { ascending: false })
       if (error) throw error
-      return (data ?? []).map((r: any) => ({
-        ...r,
-        warehouse_name: r.warehouses?.name ?? null,
-      })) as POReceival[]
+      return (data ?? []).map((r) => {
+        const rExt = r as typeof r & { warehouses?: { name?: string } | null }
+        return {
+          ...r,
+          warehouse_name: rExt.warehouses?.name ?? null,
+        }
+      }) as POReceival[]
     },
     enabled: !!poId,
     staleTime: 30 * 1000,
@@ -343,7 +350,7 @@ export function useCreatePO() {
       // namespace than auth.users(id). Resolve the profile row before inserting.
       let creatorProfileId: string | null = null
       if (user) {
-        const { data: profile } = await (supabase as any)
+        const { data: profile } = await supabase
           .from('profiles').select('id').eq('auth_user_id', user.id).maybeSingle()
         creatorProfileId = profile?.id ?? null
       }
@@ -352,7 +359,7 @@ export function useCreatePO() {
       const total_qar = (subtotal - payload.discount_amount) * payload.exchange_rate
       const approval_level = calcApprovalLevel(total_qar)
 
-      const { data: po, error: poErr } = await (supabase as any)
+      const { data: po, error: poErr } = await supabase
         .from('purchase_orders')
         .insert({
           po_number,
@@ -385,7 +392,7 @@ export function useCreatePO() {
 
       if (payload.line_items.length > 0) {
         const resolved = await resolveLineItemNames(supabase, payload.line_items)
-        const { error: liErr } = await (supabase as any)
+        const { error: liErr } = await supabase
           .from('po_line_items')
           .insert(resolved.map((li) => ({ ...li, po_id: po.id })))
         if (liErr) throw liErr
@@ -412,7 +419,7 @@ export function useSoftDeletePO() {
   return useMutation({
     mutationFn: async (id: string) => {
       const supabase = createClient()
-      const { error } = await (supabase as any)
+      const { error } = await supabase
         .from('purchase_orders')
         .update({ deleted_at: new Date().toISOString() })
         .eq('id', id)
@@ -434,23 +441,24 @@ export function useUpdatePO() {
       let extraFields: Record<string, unknown> = {}
       if (line_items) {
         const subtotal = line_items.reduce((s, li) => s + li.total_price, 0)
-        const discount = (fields as any).discount_amount ?? 0
-        const rate = (fields as any).exchange_rate ?? 1
+        const fieldMap = fields as Record<string, unknown>
+        const discount = (fieldMap.discount_amount as number) ?? 0
+        const rate = (fieldMap.exchange_rate as number) ?? 1
         const total_qar = (subtotal - discount) * rate
         extraFields = { subtotal, total_qar, approval_level: calcApprovalLevel(total_qar) }
       }
 
-      const { error: poErr } = await (supabase as any)
+      const { error: poErr } = await supabase
         .from('purchase_orders')
         .update({ ...fields, ...extraFields })
         .eq('id', id)
       if (poErr) throw poErr
 
       if (line_items) {
-        await (supabase as any).from('po_line_items').delete().eq('po_id', id)
+        await supabase.from('po_line_items').delete().eq('po_id', id)
         if (line_items.length > 0) {
           const resolved = await resolveLineItemNames(supabase, line_items)
-          const { error: liErr } = await (supabase as any)
+          const { error: liErr } = await supabase
             .from('po_line_items')
             .insert(resolved.map((li) => ({ ...li, po_id: id })))
           if (liErr) throw liErr
@@ -475,21 +483,21 @@ export function useSubmitPOForApproval() {
       if (!user) throw new Error('Not authenticated')
 
       // Get current user's profile
-      const { data: myProfile } = await (supabase as any)
+      const { data: myProfile } = await supabase
         .from('profiles').select('id, division_id').eq('auth_user_id', user.id).single()
       if (!myProfile) throw new Error('Profile not found')
 
       const divisionId: string | null = myProfile.division_id ?? null
 
       // Get PO details
-      const { data: po } = await (supabase as any)
+      const { data: po } = await supabase
         .from('purchase_orders').select('id, total_qar, po_number').eq('id', id).single()
       if (!po) throw new Error('PO not found')
 
       // Find chain (division-specific → company default)
-      let chain: { id: string; approval_chain_tiers: any[] } | null = null
+      let chain: { id: string; approval_chain_tiers: Record<string, unknown>[] } | null = null
       if (divisionId) {
-        const { data } = await (supabase as any)
+        const { data } = await supabase
           .from('approval_chains')
           .select('id, approval_chain_tiers(*)')
           .eq('division_id', divisionId)
@@ -498,7 +506,7 @@ export function useSubmitPOForApproval() {
         chain = data
       }
       if (!chain) {
-        const { data } = await (supabase as any)
+        const { data } = await supabase
           .from('approval_chains')
           .select('id, approval_chain_tiers(*)')
           .is('division_id', null)
@@ -509,33 +517,33 @@ export function useSubmitPOForApproval() {
       if (!chain) throw new Error('No approval chain configured. Contact your administrator.')
 
       // Find applicable tiers
-      const tiers = findApplicableTiers(po.total_qar, chain.approval_chain_tiers ?? [])
+      const tiers = findApplicableTiers(po.total_qar ?? 0, (chain.approval_chain_tiers ?? []) as unknown as ApprovalChainTier[])
       if (tiers.length === 0) throw new Error('No approval tiers match this PO amount. Check approval chain configuration.')
 
       // Fetch role assignments for this division (including company-wide)
-      const { data: assignments } = await (supabase as any)
+      const { data: assignments } = await supabase
         .from('approval_role_assignments')
         .select('*')
         .is('deleted_at', null)
         .or(divisionId ? `division_id.eq.${divisionId},division_id.is.null` : 'division_id.is.null')
-      const roleAssignments = assignments ?? []
+      const roleAssignments = (assignments ?? []) as ApprovalRoleAssignmentRow[]
 
       const validationError = validateRoles(tiers, roleAssignments)
       if (validationError) throw new Error(validationError)
 
       // Determine iteration
-      const { data: existingSteps, error: iterErr } = await (supabase as any)
+      const { data: existingSteps, error: iterErr } = await supabase
         .from('po_approvals').select('iteration').eq('po_id', id).order('iteration', { ascending: false }).limit(1)
       if (iterErr) throw iterErr
       const iteration = existingSteps?.[0]?.iteration ? existingSteps[0].iteration + 1 : 1
 
       // Create approval steps
       const steps = buildApprovalSteps(id, tiers, iteration)
-      const { error: stepsErr } = await (supabase as any).from('po_approvals').insert(steps)
+      const { error: stepsErr } = await supabase.from('po_approvals').insert(steps)
       if (stepsErr) throw stepsErr
 
       // Update PO status and promote to confirmed type
-      const { error: poErr } = await (supabase as any)
+      const { error: poErr } = await supabase
         .from('purchase_orders').update({ status: 'pending_approval', po_type: 'confirmed' }).eq('id', id)
       if (poErr) throw poErr
 
@@ -561,7 +569,7 @@ export function useSubmitPOForApproval() {
           related_id: id,
           related_type: 'purchase_order',
         }))
-        await (supabase as any).from('notifications').insert(notifs)
+        await supabase.from('notifications').insert(notifs)
       }
     },
     onSuccess: (_data: unknown, variables: { id: string }) => {
@@ -589,7 +597,7 @@ export function useCreatePOPayment() {
     }) => {
       const supabase = createClient()
 
-      const { data: spayMax } = await (supabase as any)
+      const { data: spayMax } = await supabase
         .from('payments')
         .select('payment_id')
         .ilike('payment_id', 'SPAY-%')
@@ -599,13 +607,13 @@ export function useCreatePOPayment() {
       const spayLast = spayMax?.payment_id ? parseInt(spayMax.payment_id.replace('SPAY-', ''), 10) : 0
       const payment_id = `SPAY-${String(spayLast + 1).padStart(5, '0')}`
 
-      const { error } = await (supabase as any).from('payments').insert({
+      const { error } = await supabase.from('payments').insert({
         payment_id,
         source_type: 'purchase_order',
         source_id: payment.po_id,
         supplier_id: payment.supplier_id,
         amount: payment.amount,
-        method: payment.method as any, // DB enum — cast needed due to stale generated types
+        method: payment.method, // DB enum — stale generated types may flag this
         date: payment.date,
         reference: payment.reference,
         notes: payment.notes,
@@ -613,11 +621,11 @@ export function useCreatePOPayment() {
         exchange_rate: payment.exchange_rate,
         amount_qar: payment.amount * payment.exchange_rate,
         direction: 'outgoing',
-        status: 'pending' as any,
-      })
+        status: 'pending',
+      } as unknown as import('@/types/database.types').DBInsert<'payments'>)
       if (error) throw error
 
-      await (supabase as any).rpc('refresh_po_status', { p_po_id: payment.po_id })
+      await supabase.rpc('refresh_po_status', { p_po_id: payment.po_id })
 
       const payPerformer = await resolveMyName()
       await logPOActivity({
@@ -639,7 +647,7 @@ export function useSubmitPO() {
   return useMutation({
     mutationFn: async (id: string) => {
       const supabase = createClient()
-      const { error } = await (supabase as any)
+      const { error } = await supabase
         .from('purchase_orders')
         .update({ status: 'pending_approval' })
         .eq('id', id)
@@ -657,7 +665,7 @@ export function useCancelPO() {
   return useMutation({
     mutationFn: async (id: string) => {
       const supabase = createClient()
-      const { error } = await (supabase as any)
+      const { error } = await supabase
         .from('purchase_orders')
         .update({ status: 'cancelled' })
         .eq('id', id)
@@ -678,7 +686,7 @@ export function useDeletePoVersion() {
   return useMutation({
     mutationFn: async ({ versionId, poId }: { versionId: string; poId: string }) => {
       const supabase = createClient()
-      const { error } = await (supabase as any)
+      const { error } = await supabase
         .from('po_versions')
         .delete()
         .eq('id', versionId)
@@ -695,13 +703,13 @@ export function usePoVersions(poId: string | null) {
     queryKey: queryKeys.purchaseOrders.versions(poId),
     queryFn: async () => {
       const supabase = createClient()
-      const { data, error } = await (supabase as any)
+      const { data, error } = await supabase
         .from('po_versions')
         .select('*')
         .eq('po_id', poId!)
         .order('version_number', { ascending: true })
       if (error) throw error
-      return data as PoVersion[]
+      return (data ?? []) as unknown as PoVersion[]
     },
     enabled: !!poId,
     staleTime: 30 * 1000,
@@ -725,7 +733,7 @@ export function useSubmitPoVersion() {
       const supabase = createClient()
 
       // 1. Snapshot current state into po_versions
-      const { error: snapErr } = await (supabase as any)
+      const { error: snapErr } = await supabase
         .from('po_versions')
         .insert({
           po_id: id,
@@ -755,7 +763,7 @@ export function useSubmitPoVersion() {
       const newVersion = currentVersionNumber + 1
 
       // 3. Update main PO record + increment version
-      const { error: poErr } = await (supabase as any)
+      const { error: poErr } = await supabase
         .from('purchase_orders')
         .update({
           supplier_id: payload.supplier_id,
@@ -781,30 +789,30 @@ export function useSubmitPoVersion() {
       if (poErr) throw poErr
 
       // 4. Replace line items
-      await (supabase as any).from('po_line_items').delete().eq('po_id', id)
+      await supabase.from('po_line_items').delete().eq('po_id', id)
       if (payload.line_items.length > 0) {
-        const { error: liErr } = await (supabase as any)
+        const { error: liErr } = await supabase
           .from('po_line_items')
           .insert(payload.line_items.map((li) => ({ ...li, po_id: id })))
         if (liErr) throw liErr
       }
 
       // 5. Reset approvals — delete old, insert chain-based fresh steps
-      await (supabase as any).from('po_approvals').delete().eq('po_id', id)
+      await supabase.from('po_approvals').delete().eq('po_id', id)
 
       // Resolve chain for the submitter's division
       const { data: { user } } = await supabase.auth.getUser()
       if (!user) throw new Error('Not authenticated')
 
-      const { data: myProfile } = await (supabase as any)
+      const { data: myProfile } = await supabase
         .from('profiles').select('id, division_id').eq('auth_user_id', user.id).single()
       if (!myProfile) throw new Error('Profile not found')
 
       const divisionId: string | null = myProfile.division_id ?? null
 
-      let chain: { id: string; approval_chain_tiers: any[] } | null = null
+      let chain: { id: string; approval_chain_tiers: Record<string, unknown>[] } | null = null
       if (divisionId) {
-        const { data } = await (supabase as any)
+        const { data } = await supabase
           .from('approval_chains')
           .select('id, approval_chain_tiers(*)')
           .eq('division_id', divisionId)
@@ -813,7 +821,7 @@ export function useSubmitPoVersion() {
         chain = data
       }
       if (!chain) {
-        const { data } = await (supabase as any)
+        const { data } = await supabase
           .from('approval_chains')
           .select('id, approval_chain_tiers(*)')
           .is('division_id', null)
@@ -823,33 +831,33 @@ export function useSubmitPoVersion() {
       }
       if (!chain) throw new Error('No approval chain configured. Contact your administrator.')
 
-      const tiers = findApplicableTiers(total_qar, chain.approval_chain_tiers ?? [])
+      const tiers = findApplicableTiers(total_qar, (chain.approval_chain_tiers ?? []) as unknown as ApprovalChainTier[])
       if (tiers.length === 0) throw new Error('No approval tiers match this PO amount. Check approval chain configuration.')
 
-      const { data: assignments } = await (supabase as any)
+      const { data: assignments } = await supabase
         .from('approval_role_assignments')
         .select('*')
         .is('deleted_at', null)
         .or(divisionId ? `division_id.eq.${divisionId},division_id.is.null` : 'division_id.is.null')
-      const roleAssignments = assignments ?? []
+      const roleAssignments = (assignments ?? []) as ApprovalRoleAssignmentRow[]
 
       const validationError = validateRoles(tiers, roleAssignments)
       if (validationError) throw new Error(validationError)
 
       // Determine iteration number
-      const { data: existingSteps, error: iterErr } = await (supabase as any)
+      const { data: existingSteps, error: iterErr } = await supabase
         .from('po_approvals').select('iteration').eq('po_id', id).order('iteration', { ascending: false }).limit(1)
       if (iterErr) throw iterErr
       const iteration = existingSteps?.[0]?.iteration ? existingSteps[0].iteration + 1 : 1
 
       const steps = buildApprovalSteps(id, tiers, iteration)
-      const { error: approvalErr } = await (supabase as any).from('po_approvals').insert(steps)
+      const { error: approvalErr } = await supabase.from('po_approvals').insert(steps)
       if (approvalErr) throw approvalErr
 
       // Fire notifications to all approvers (parallel approval)
       const recipientIds = getNotificationRecipients(tiers, roleAssignments)
       if (recipientIds.length > 0) {
-        const { data: poData } = await (supabase as any)
+        const { data: poData } = await supabase
           .from('purchase_orders').select('po_number').eq('id', id).single()
         const notifs = recipientIds.map((profileId: string) => ({
           profile_id: profileId,
@@ -859,11 +867,11 @@ export function useSubmitPoVersion() {
           related_id: id,
           related_type: 'purchase_order',
         }))
-        await (supabase as any).from('notifications').insert(notifs)
+        await supabase.from('notifications').insert(notifs)
       }
 
       const versionPerformer = myProfile
-        ? ((await (supabase as any).from('profiles').select('full_name').eq('id', myProfile.id).maybeSingle())?.data?.full_name ?? null)
+        ? ((await supabase.from('profiles').select('full_name').eq('id', myProfile.id).maybeSingle())?.data?.full_name ?? null)
         : null
       await logPOActivity({
         poId: id,
@@ -891,7 +899,7 @@ export function useSavePoAsDraft() {
       const total_qar = (subtotal - payload.discount_amount) * payload.exchange_rate
       const approval_level = calcApprovalLevel(total_qar)
 
-      const { error: poErr } = await (supabase as any)
+      const { error: poErr } = await supabase
         .from('purchase_orders')
         .update({
           supplier_id: payload.supplier_id,
@@ -914,10 +922,10 @@ export function useSavePoAsDraft() {
         .eq('id', id)
       if (poErr) throw poErr
 
-      await (supabase as any).from('po_line_items').delete().eq('po_id', id)
+      await supabase.from('po_line_items').delete().eq('po_id', id)
       if (payload.line_items.length > 0) {
         const resolved = await resolveLineItemNames(supabase, payload.line_items)
-        const { error: liErr } = await (supabase as any)
+        const { error: liErr } = await supabase
           .from('po_line_items')
           .insert(resolved.map((li) => ({ ...li, po_id: id })))
         if (liErr) throw liErr

@@ -34,7 +34,7 @@ export function useSaleDeliveries(filters?: { status?: DeliveryStatus | '' }) {
     queryKey: queryKeys.saleDeliveries.list(filters),
     queryFn: async () => {
       const supabase = createClient()
-      let q = (supabase as any)
+      let q = supabase
         .from('sale_deliveries')
         .select('*, sale_orders(so_number, customers(name))')
         .order('created_at', { ascending: false })
@@ -65,7 +65,7 @@ export function useUpdateDelivery() {
       status?: DeliveryStatus
     }) => {
       const supabase = createClient()
-      const { error } = await (supabase as any)
+      const { error } = await supabase
         .from('sale_deliveries')
         .update(updates)
         .eq('id', id)
@@ -92,19 +92,19 @@ export function useCompleteDelivery() {
       const supabase = createClient()
 
       // Single atomic RPC: marks delivered + deducts FIFO + writes COGS + movements
-      const { error } = await (supabase as any)
+      const { error } = await supabase
         .rpc('complete_delivery_inventory', { p_delivery_id: deliveryId, p_so_id: soId })
       if (error) throw new Error(error.message)
 
       // Invoice update (non-inventory concern)
       if (invoiceId) {
-        const { data: inv } = await (supabase as any)
+        const { data: inv } = await supabase
           .from('invoices')
           .select('needs_refresh, doc_status')
           .eq('id', invoiceId)
           .single()
         if (inv && !inv.needs_refresh && inv.doc_status === 'draft') {
-          await (supabase as any)
+          await supabase
             .from('invoices')
             .update({ doc_status: 'ready_to_send' })
             .eq('id', invoiceId)
@@ -113,17 +113,17 @@ export function useCompleteDelivery() {
 
       // Create follow-up delivery stub for remaining items (partial delivery)
       if (remainingItems.length > 0) {
-        const { data: orig } = await (supabase as any)
+        const { data: orig } = await supabase
           .from('sale_deliveries')
           .select('sale_order_id')
           .eq('id', deliveryId)
           .single()
         if (orig) {
-          const { count } = await (supabase as any)
+          const { count } = await supabase
             .from('sale_deliveries')
             .select('*', { count: 'exact', head: true })
           const delivery_number = `DEL-${String((count ?? 0) + 1).padStart(5, '0')}`
-          await (supabase as any).from('sale_deliveries').insert({
+          await supabase.from('sale_deliveries').insert({
             delivery_number,
             sale_order_id: orig.sale_order_id,
             warehouse_id: null,
@@ -152,7 +152,7 @@ export function useCancelDelivery() {
   return useMutation({
     mutationFn: async ({ id, soId }: { id: string; soId: string }) => {
       const supabase = createClient()
-      const { error } = await (supabase as any)
+      const { error } = await supabase
         .rpc('cancel_delivery_inventory', {
           p_delivery_id: id,
           p_so_id:       soId,

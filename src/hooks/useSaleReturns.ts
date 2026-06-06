@@ -33,14 +33,14 @@ export function useSaleReturns(filters: { search?: string; status?: string } = {
     queryKey: queryKeys.saleReturns.list(filters),
     queryFn: async () => {
       const supabase = createClient()
-      let q = (supabase as any)
+      let q = supabase
         .from('returns')
         .select('*')
         .eq('source_type', 'sale_order')
         .is('deleted_at', null)
         .order('created_at', { ascending: false })
 
-      if (filters.status) q = q.eq('status', filters.status)
+      if (filters.status) q = q.eq('status', filters.status as SaleReturn['status'])
       if (filters.search) {
         const safe = filters.search.replace(/%/g, '\\%')
         q = q.ilike('return_number', `%${safe}%`)
@@ -48,7 +48,7 @@ export function useSaleReturns(filters: { search?: string; status?: string } = {
 
       const { data, error } = await q
       if (error) throw error
-      return data as SaleReturn[]
+      return data as unknown as SaleReturn[]
     },
     staleTime: 30 * 1000,
   })
@@ -68,13 +68,13 @@ export function useCreateSaleReturn() {
       const supabase = createClient()
 
       // Generate return number
-      const { count } = await (supabase as any)
+      const { count } = await supabase
         .from('returns')
         .select('*', { count: 'exact', head: true })
         .eq('source_type', 'sale_order')
       const return_number = `SR-${String((count ?? 0) + 1).padStart(5, '0')}`
 
-      const { data, error } = await (supabase as any)
+      const { data, error } = await supabase
         .from('returns')
         .insert({
           return_number,
@@ -90,7 +90,7 @@ export function useCreateSaleReturn() {
         .select()
         .single()
       if (error) throw error
-      return data as SaleReturn
+      return data as unknown as SaleReturn
     },
     onSuccess: (data) => {
       queryClient.invalidateQueries({ queryKey: queryKeys.saleReturns.all })
@@ -113,16 +113,16 @@ export function useCreateSaleReturn() {
 }
 
 async function createCreditNoteForReturn(
-  supabase: any,
+  supabase: ReturnType<typeof createClient>,
   returnId: string,
-  ret: { source_id: string; return_number: string; items: any[]; reason: string }
+  ret: { source_id: string; return_number: string; items: SaleReturn['items']; reason: string }
 ) {
   // 1. Fetch SO lines for unit price lookup
   const { data: soLines } = await supabase
     .from('sale_order_lines')
     .select('item_name, sku, brand_variant_id, unit_price')
     .eq('sale_order_id', ret.source_id)
-  const soLineArr: any[] = soLines ?? []
+  const soLineArr = (soLines ?? []) as Array<{ item_name: string; sku: string | null; brand_variant_id: string | null; unit_price: number }>
 
   // 2. Fetch linked invoice
   const { data: inv } = await supabase
@@ -138,12 +138,12 @@ async function createCreditNoteForReturn(
     .select('customers(name)')
     .eq('id', ret.source_id)
     .single()
-  const customerName: string = (soData?.customers as any)?.name ?? 'Unknown'
+  const customerName: string = (soData?.customers as { name?: string } | null)?.name ?? 'Unknown'
 
   // 4. Build returned lines — resolve unit price from SO lines
-  const returnedLines = ret.items.map((item: any) => {
+  const returnedLines = ret.items.map((item) => {
     const soLine = soLineArr.find(
-      (l: any) =>
+      (l) =>
         (item.brand_variant_id && l.brand_variant_id === item.brand_variant_id) ||
         (item.sku && l.sku === item.sku) ||
         l.item_name === item.item_name
@@ -159,7 +159,7 @@ async function createCreditNoteForReturn(
   })
 
   // 5. Build original lines from SO
-  const originalLines = soLineArr.map((l: any) => ({
+  const originalLines = soLineArr.map((l) => ({
     item_name:  l.item_name,
     sku:        l.sku ?? null,
     qty:        0,
@@ -167,7 +167,7 @@ async function createCreditNoteForReturn(
     total:      0,
   }))
 
-  const cnTotal = returnedLines.reduce((s: number, l: any) => s + l.total, 0)
+  const cnTotal = returnedLines.reduce((s, l) => s + l.total, 0)
   const originalTotal = inv?.total_amount ?? 0
   const newTotal = originalTotal - cnTotal
 
@@ -207,29 +207,30 @@ export function useUpdateReturnStatus() {
     mutationFn: async ({ id, status }: { id: string; status: SaleReturn['status'] }) => {
       const supabase = createClient()
 
-      const { data: ret, error: fetchErr } = await (supabase as any)
+      const { data: ret, error: fetchErr } = await supabase
         .from('returns')
         .select('source_id, return_number, items, reason')
         .eq('id', id)
         .single()
       if (fetchErr) throw fetchErr
 
-      const { error } = await (supabase as any)
+      const { error } = await supabase
         .from('returns')
         .update({ status })
         .eq('id', id)
       if (error) throw error
 
       if (status === 'restocked') {
-        const { error: rpcError } = await (supabase as any)
+        const { error: rpcError } = await supabase
           .rpc('rpc_process_return_restock', { p_return_id: id })
         if (rpcError) throw rpcError
 
         // Auto-create credit note
-        await createCreditNoteForReturn(supabase as any, id, ret)
+        // ret.items is typed as Json by Supabase but is an array at runtime
+        await createCreditNoteForReturn(supabase, id, { ...ret, items: ret.items as SaleReturn['items'] })
       }
 
-      return ret as { source_id: string; return_number: string; items: any[]; reason: string }
+      return ret as { source_id: string; return_number: string; items: SaleReturn['items']; reason: string }
     },
     onSuccess: (ret, variables) => {
       queryClient.invalidateQueries({ queryKey: queryKeys.saleReturns.all })
@@ -262,29 +263,32 @@ export function useReturnsBySO(soId: string | null) {
     queryKey: queryKeys.saleReturns.bySoId(soId),
     queryFn: async () => {
       const supabase = createClient()
-      const { data, error } = await (supabase as any)
+      const { data, error } = await supabase
         .from('returns')
         .select('*')
         .eq('source_type', 'sale_order')
-        .eq('source_id', soId)
+        .eq('source_id', soId!)
         .is('deleted_at', null)
         .order('created_at', { ascending: false })
       if (error) throw error
       const rows = data ?? []
       // Batch-fetch full credit note objects so the dialog can open inline
-      const noteIds = rows.map((r: any) => r.credit_note_id).filter(Boolean)
-      let noteMap: Record<string, any> = {}
+      const noteIds = rows.map((r) => (r as Record<string, unknown>).credit_note_id as string | null).filter(Boolean) as string[]
+      let noteMap: Record<string, Record<string, unknown>> = {}
       if (noteIds.length > 0) {
-        const { data: notes } = await (supabase as any)
+        const { data: notes } = await supabase
           .from('credit_notes')
           .select('*')
           .in('id', noteIds)
         for (const n of (notes ?? [])) noteMap[n.id] = n
       }
-      return rows.map((r: any) => ({
-        ...r,
-        credit_note: r.credit_note_id ? (noteMap[r.credit_note_id] ?? null) : null,
-      })) as SaleReturn[]
+      return rows.map((r) => {
+        const row = r as Record<string, unknown>
+        return {
+          ...r,
+          credit_note: row.credit_note_id ? (noteMap[row.credit_note_id as string] ?? null) : null,
+        }
+      }) as unknown as SaleReturn[]
     },
     enabled: !!soId,
     staleTime: 30 * 1000,

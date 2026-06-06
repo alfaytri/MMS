@@ -136,7 +136,7 @@ export default function MapPage() {
     setShowOrders((prev) => !prev)
   }, [])
 
-  const handleMapReady = useCallback((map: L.Map) => setLeafletMap(map), [])
+  const handleMapReady = useCallback((map: L.Map | null) => setLeafletMap(map), [])
 
   const handleSelectVehicle = useCallback((vehicleId: string) => {
     setSelectedVehicleId(vehicleId)
