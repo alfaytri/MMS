@@ -1,17 +1,18 @@
 // src/hooks/useOrders.ts
-import { useQuery } from '@tanstack/react-query'
+import { useInfiniteQuery, useQuery } from '@tanstack/react-query'
 import { createClient } from '@/lib/supabase/client'
 import type { OrderListItem, OrdersFilter } from '@/types/orders'
 import { queryKeys } from '@/lib/queryKeys'
 
+const PAGE_SIZE = 50
 const DEFAULT_FILTER: OrdersFilter = {}
 
 export function useOrders(filter: OrdersFilter = DEFAULT_FILTER) {
   const supabase = createClient()
 
-  return useQuery({
+  return useInfiniteQuery({
     queryKey: queryKeys.orders.list(filter),
-    queryFn: async (): Promise<OrderListItem[]> => {
+    queryFn: async ({ pageParam = 0 }) => {
       let query = supabase
         .from('orders')
         .select(`
@@ -59,10 +60,12 @@ export function useOrders(filter: OrdersFilter = DEFAULT_FILTER) {
       else if (filter.sortBy === 'amount_desc') query = query.order('total_amount', { ascending: false })
       else query = query.order('scheduled_date', { ascending: false })
 
-      const { data, error } = await query.limit(200)
+      const from = pageParam * PAGE_SIZE
+      const to = from + PAGE_SIZE - 1
+      const { data, error } = await query.range(from, to)
       if (error) throw error
 
-      return (data ?? []).map((o: any) => ({
+      const items = (data ?? []).map((o: any) => ({
         ...o,
         customer_name: o.service_customers?.name ?? '',
         customer_phone: o.service_customers?.service_customer_phones?.[0]?.phone ?? '',
@@ -72,7 +75,14 @@ export function useOrders(filter: OrdersFilter = DEFAULT_FILTER) {
           .map((s: { name: string; qty: number }) => `${s.qty}× ${s.name}`)
           .join(', '),
       }))
+
+      return {
+        items,
+        nextPage: items.length === PAGE_SIZE ? pageParam + 1 : undefined,
+      }
     },
+    initialPageParam: 0,
+    getNextPageParam: (lastPage) => lastPage.nextPage,
   })
 }
 

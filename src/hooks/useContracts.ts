@@ -1,16 +1,18 @@
 'use client'
 
-import { useQuery } from '@tanstack/react-query'
+import { useInfiniteQuery } from '@tanstack/react-query'
 import { createClient } from '@/lib/supabase/client'
 import type { LiveContractSummary, ContractFilters } from '@/types/contracts'
 import { queryKeys } from '@/lib/queryKeys'
 
+const PAGE_SIZE = 50
+
 export function useContracts(filters?: ContractFilters) {
   const supabase = createClient()
 
-  return useQuery({
+  return useInfiniteQuery({
     queryKey: queryKeys.contracts.list(filters),
-    queryFn: async () => {
+    queryFn: async ({ pageParam = 0 }) => {
       let query = supabase
         .from('contracts')
         .select(`
@@ -38,7 +40,9 @@ export function useContracts(filters?: ContractFilters) {
         query = query.order('created_at', { ascending: false })
       }
 
-      const { data, error } = await query.limit(200)
+      const from = pageParam * PAGE_SIZE
+      const to = from + PAGE_SIZE - 1
+      const { data, error } = await query.range(from, to)
       if (error) throw error
 
       const today = new Date().toISOString().split('T')[0]
@@ -122,7 +126,14 @@ export function useContracts(filters?: ContractFilters) {
         statusCounts[status] = contracts.filter((c) => c.status === status).length
       }
 
-      return { data: contracts, outstandingTotal, statusCounts }
+      return {
+        items: contracts,
+        outstandingTotal,
+        statusCounts,
+        nextPage: contracts.length === PAGE_SIZE ? pageParam + 1 : undefined,
+      }
     },
+    initialPageParam: 0,
+    getNextPageParam: (lastPage) => lastPage.nextPage,
   })
 }

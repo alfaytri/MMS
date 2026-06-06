@@ -31,7 +31,7 @@ export function useLiveConversations(provider: 'wati' | 'whapi' = 'wati') {
       .eq('provider', provider)
       .not('last_message_at', 'is', null)
       .order('last_message_at', { ascending: false, nullsFirst: false })
-      .limit(500)
+      .limit(100)
 
     if (provider === 'wati') {
       query = query.gte('last_message_at', yesterdayStart.toISOString())

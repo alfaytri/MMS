@@ -1,6 +1,8 @@
-import { useQuery } from '@tanstack/react-query'
+import { useInfiniteQuery } from '@tanstack/react-query'
 import { createClient } from '@/lib/supabase/client'
 import { queryKeys } from '@/lib/queryKeys'
+
+const PAGE_SIZE = 50
 
 export interface SiteVisitListItem {
   id: string
@@ -28,9 +30,12 @@ export interface SiteVisitsFilter {
 export function useSiteVisits(filter: SiteVisitsFilter = {}) {
   const supabase = createClient()
 
-  return useQuery({
+  return useInfiniteQuery({
     queryKey: queryKeys.siteVisits.list(filter),
-    queryFn: async (): Promise<SiteVisitListItem[]> => {
+    queryFn: async ({ pageParam = 0 }) => {
+      const from = pageParam * PAGE_SIZE
+      const to = from + PAGE_SIZE - 1
+
       const { data, error } = await (supabase as any)
         .from('site_visits')
         .select(`
@@ -39,11 +44,11 @@ export function useSiteVisits(filter: SiteVisitsFilter = {}) {
           customers(name, customer_phones(phone))
         `)
         .order('scheduled_date', { ascending: false })
-        .limit(200) as { data: any[] | null; error: any }
+        .range(from, to) as { data: any[] | null; error: any }
 
       if (error) throw error
 
-      return (data ?? []).map((v: any) => ({
+      const items = (data ?? []).map((v: any) => ({
         id: v.id,
         visit_id: v.visit_id,
         customer_id: v.customer_id,
@@ -57,6 +62,13 @@ export function useSiteVisits(filter: SiteVisitsFilter = {}) {
         notes: v.notes ?? null,
         created_at: v.created_at,
       }))
+
+      return {
+        items,
+        nextPage: items.length === PAGE_SIZE ? pageParam + 1 : undefined,
+      }
     },
+    initialPageParam: 0,
+    getNextPageParam: (lastPage) => lastPage.nextPage,
   })
 }

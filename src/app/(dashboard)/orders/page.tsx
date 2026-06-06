@@ -1,6 +1,6 @@
 // src/app/(dashboard)/orders/page.tsx
 'use client'
-import { useState } from 'react'
+import { useState, useRef, useEffect, useMemo } from 'react'
 import { useRouter } from 'next/navigation'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -78,10 +78,34 @@ export default function OrdersPage() {
 
   const isSiteVisitOnly = search.orderType === 'site-visit'
   const isOrderOnly     = search.orderType === 'order'
-  const { data: orders = [], isLoading } = useOrders({ ...filter, orderType: isOrderOnly ? 'order' : undefined })
-  const { data: siteVisits = [], isLoading: isLoadingSV } = useSiteVisits()
+
+  const ordersQuery = useOrders({ ...filter, orderType: isOrderOnly ? 'order' : undefined })
+  const orders = useMemo(() => ordersQuery.data?.pages.flatMap((p) => p.items) ?? [], [ordersQuery.data])
+  const isLoading = ordersQuery.isLoading
+
+  const siteVisitsQuery = useSiteVisits()
+  const siteVisits = useMemo(() => siteVisitsQuery.data?.pages.flatMap((p) => p.items) ?? [], [siteVisitsQuery.data])
+  const isLoadingSV = siteVisitsQuery.isLoading
+
   const { data: counts } = useOrderCounts()
   const { data: teamsRaw = [] } = useTeams()
+
+  // Infinite scroll sentinel
+  const sentinelRef = useRef<HTMLDivElement>(null)
+  useEffect(() => {
+    if (!sentinelRef.current) return
+    const observer = new IntersectionObserver(
+      (entries) => {
+        if (entries[0].isIntersecting) {
+          if (ordersQuery.hasNextPage && !ordersQuery.isFetchingNextPage) ordersQuery.fetchNextPage()
+          if (siteVisitsQuery.hasNextPage && !siteVisitsQuery.isFetchingNextPage) siteVisitsQuery.fetchNextPage()
+        }
+      },
+      { rootMargin: '200px' }
+    )
+    observer.observe(sentinelRef.current)
+    return () => observer.disconnect()
+  }, [ordersQuery.hasNextPage, ordersQuery.isFetchingNextPage, ordersQuery.fetchNextPage, siteVisitsQuery.hasNextPage, siteVisitsQuery.isFetchingNextPage, siteVisitsQuery.fetchNextPage])
   const teams = teamsRaw as unknown as Array<{ id: string; name_en: string | null; name: string }>
 
   function toggleStatus(val: string) {
@@ -308,15 +332,21 @@ export default function OrdersPage() {
           }
 
           return (
-            <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-4">
-              {rows.map((row) =>
-                row.kind === 'order' ? (
-                  <OrderCard key={row.item.id} order={row.item} onClick={() => setSelectedOrderId(row.item.id)} />
-                ) : (
-                  <SiteVisitListCard key={row.item.id} visit={row.item} onClick={() => setSelectedVisitId(row.item.id)} />
-                )
+            <>
+              <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-4">
+                {rows.map((row) =>
+                  row.kind === 'order' ? (
+                    <OrderCard key={row.item.id} order={row.item} onClick={() => setSelectedOrderId(row.item.id)} />
+                  ) : (
+                    <SiteVisitListCard key={row.item.id} visit={row.item} onClick={() => setSelectedVisitId(row.item.id)} />
+                  )
+                )}
+              </div>
+              <div ref={sentinelRef} className="h-1" />
+              {(ordersQuery.isFetchingNextPage || siteVisitsQuery.isFetchingNextPage) && (
+                <p className="text-center text-xs text-muted-foreground py-4">Loading more...</p>
               )}
-            </div>
+            </>
           )
         })()}
       </div>

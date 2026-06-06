@@ -1,6 +1,6 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useMemo, useRef, useEffect } from 'react'
 import { Filter, X, Loader2 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -30,10 +30,29 @@ export default function ViewLiveContractsPage() {
     status: statusFilter.length > 0 ? statusFilter : undefined,
   }
 
-  const { data, isLoading } = useContracts(activeFilters)
-  const contracts = data?.data || []
-  const outstandingTotal = data?.outstandingTotal || 0
-  const statusCounts = data?.statusCounts || {}
+  const contractsQuery = useContracts(activeFilters)
+  const contracts = useMemo(
+    () => contractsQuery.data?.pages.flatMap((p) => p.items) ?? [],
+    [contractsQuery.data]
+  )
+  const outstandingTotal = contractsQuery.data?.pages[0]?.outstandingTotal ?? 0
+  const statusCounts = contractsQuery.data?.pages[0]?.statusCounts ?? {}
+  const isLoading = contractsQuery.isLoading
+
+  const sentinelRef = useRef<HTMLDivElement>(null)
+  useEffect(() => {
+    if (!sentinelRef.current) return
+    const observer = new IntersectionObserver(
+      (entries) => {
+        if (entries[0].isIntersecting && contractsQuery.hasNextPage && !contractsQuery.isFetchingNextPage) {
+          contractsQuery.fetchNextPage()
+        }
+      },
+      { rootMargin: '200px' }
+    )
+    observer.observe(sentinelRef.current)
+    return () => observer.disconnect()
+  }, [contractsQuery.hasNextPage, contractsQuery.isFetchingNextPage, contractsQuery.fetchNextPage])
 
   function toggleStatus(status: ContractLiveStatus) {
     setStatusFilter((prev) =>
@@ -164,6 +183,10 @@ export default function ViewLiveContractsPage() {
               onCancel={(id) => setCancelTarget(id)}
             />
           ))}
+          <div ref={sentinelRef} className="h-1" />
+          {contractsQuery.isFetchingNextPage && (
+            <p className="text-center text-xs text-muted-foreground py-4">Loading more...</p>
+          )}
         </div>
       )}
 
