@@ -162,8 +162,9 @@ Purchase & Sales▾:
 
 > Run after every module completion per the rule in `AGENTS.md`.
 
-| Date | Module / Scope | Secrets | RLS | Auth Gate | Error Handling | Notes |
-|---|---|---|---|---|---|---|
+| Date | Module / Scope | Secrets | RLS | Auth Gate | Error Handling | Layout Stability | Notes |
+|---|---|---|---|---|---|---|---|
+| 2026-06-06 | **TypeScript Hygiene (Task 8)** | ✅ | ✅ | ✅ | ✅ | ✅ | No new tables, routes, or external integrations; pure type-safety refactor across 200 files; 0 TS errors |
 | 2026-05-31 | **Map Page** | ✅ | ✅ | ✅ | ✅ | ✅ | Read-only page, no new tables, uses existing RLS on teams/orders/team_live_locations |
 | 2026-05-26 | **Quotation Enhancements** | ✅ | ✅ | ✅ | ✅ | No hardcoded secrets (WATI_TOKEN via process.env); discount columns added to existing `quotations` table (RLS inherited); `quotation-pdfs` storage bucket has INSERT/UPDATE for authenticated + public SELECT; profile title column inherits existing `profiles` RLS; Wati route protected by middleware auth; all external calls (Wati, WHAPI, Supabase Storage) throw on failure with proper error propagation to UI via toast |
 | 2026-05-25 | **Payment Portal Redesign** | ✅ | ✅ | ✅ | ✅ | No hardcoded secrets (Wati template name hardcoded as string literal, not a secret); `tl_payment_batches` + `tl_payment_batch_items` have RLS enabled with authenticated policies; `create-tl-invoice` route checks `auth.getUser()` (401); `create-batch-payment` is intentionally public (called by unauthenticated customer from WhatsApp link — validates phone+invoice ownership); webhook route has no auth (standard for Dibsy callbacks, consistent with existing pattern); all external calls wrapped in try/catch: Dibsy blocking→502, Wati non-blocking→logged, DB non-blocking→logged; idempotent webhook (`.eq('payment_status', 'unpaid')` prevents double-payment) |
@@ -201,9 +202,11 @@ Purchase & Sales▾:
 
 ## 🔄 In Progress
 
-🚀 Starting: **Codebase Health Plan Task 8: Typed Supabase Wrapper + Migrate Hooks**
+None
 
 ## ✅ Completed
+
+- [2026-06-06] **Codebase Health Plan Task 8: Eliminate as-any Casts** — `src/types/database.types.ts` (regenerated), `src/types/leaflet-augments.d.ts` (NEW), `src/types/wati.ts` (NEW), 200 files modified — Removed all 393 `as any` casts across src/; replaced with proper types, `as unknown as T` bridges, typed Supabase client usage, and Leaflet `.d.ts` augmentation; TypeScript build now reports 0 errors
 
 - [2026-06-06] **Codebase Health Plan Task 7: Split Oversized Components** — `ServiceEditBasicInfo.tsx`, `ServiceEditPricing.tsx`, `ServiceEditFeatures.tsx` (NEW), `ServiceEditSections.tsx` (1017→104 barrel), `CalendarBlocks.tsx` (NEW), `TeamCalendarPanel.tsx` (988→424), `ChatTemplateConfirmDialog.tsx`, `ChatAttachmentDialog.tsx`, `ChatInstructionsDialog.tsx` (NEW), `ChatInputBar.tsx` (786→408) — Split 3 oversized components into 10 files; no file exceeds 500 lines
 
