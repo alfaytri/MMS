@@ -54,12 +54,12 @@ export function ToolAssetItemEditDialog({ open, onOpenChange, item }: ItemProps)
         <DialogHeader><DialogTitle>{isEdit ? 'Edit Tool/Asset' : 'New Tool/Asset'}</DialogTitle></DialogHeader>
         <form onSubmit={handleSave} className="space-y-4">
           <div className="space-y-1">
-            <Label>Name (English) *</Label>
-            <Input value={nameEn} onChange={(e) => setNameEn(e.target.value)} placeholder="e.g. Power Drill" />
+            <Label htmlFor="tool-name-en">Name (English) *</Label>
+            <Input id="tool-name-en" value={nameEn} onChange={(e) => setNameEn(e.target.value)} placeholder="e.g. Power Drill" />
           </div>
           <div className="space-y-1">
-            <Label>Name (Arabic)</Label>
-            <Input value={nameAr} onChange={(e) => setNameAr(e.target.value)} dir="rtl" />
+            <Label htmlFor="tool-name-ar">Name (Arabic)</Label>
+            <Input id="tool-name-ar" value={nameAr} onChange={(e) => setNameAr(e.target.value)} dir="rtl" />
           </div>
           <DialogFooter>
             <Button type="button" variant="outline" onClick={() => onOpenChange(false)}>Cancel</Button>
@@ -137,25 +137,25 @@ export function ToolAssetUnitEditDialog({ open, onOpenChange, itemId, unit }: Un
         <DialogHeader><DialogTitle>{isEdit ? 'Edit Unit' : 'Add Unit'}</DialogTitle></DialogHeader>
         <form onSubmit={handleSave} className="space-y-4">
           <div className="space-y-1">
-            <Label>Serial Number *</Label>
-            <Input value={serial} onChange={(e) => setSerial(e.target.value)} className="font-mono" />
+            <Label htmlFor="tool-serial">Serial Number *</Label>
+            <Input id="tool-serial" value={serial} onChange={(e) => setSerial(e.target.value)} className="font-mono" />
           </div>
           <div className="space-y-1">
-            <Label>Brand *</Label>
-            <Input value={brand} onChange={(e) => setBrand(e.target.value)} />
+            <Label htmlFor="tool-brand">Brand *</Label>
+            <Input id="tool-brand" value={brand} onChange={(e) => setBrand(e.target.value)} />
           </div>
           <div className="grid grid-cols-2 gap-3">
             <div className="space-y-1">
-              <Label>Condition</Label>
+              <Label htmlFor="tool-condition">Condition</Label>
               <Select value={condition} onValueChange={(v) => { if (v !== null) setCondition(v) }}>
-                <SelectTrigger><SelectValue /></SelectTrigger>
+                <SelectTrigger id="tool-condition"><SelectValue /></SelectTrigger>
                 <SelectContent>{CONDITIONS.map((c) => <SelectItem key={c} value={c}>{c}</SelectItem>)}</SelectContent>
               </Select>
             </div>
             <div className="space-y-1">
-              <Label>Status</Label>
+              <Label htmlFor="tool-status">Status</Label>
               <Select value={status} onValueChange={(v) => { if (v !== null) { setStatus(v); if (v !== 'assigned') setAssignedTo('') } }}>
-                <SelectTrigger><SelectValue /></SelectTrigger>
+                <SelectTrigger id="tool-status"><SelectValue /></SelectTrigger>
                 <SelectContent>
                   <SelectItem value="available">Available</SelectItem>
                   <SelectItem value="assigned">Assigned</SelectItem>
@@ -167,9 +167,9 @@ export function ToolAssetUnitEditDialog({ open, onOpenChange, itemId, unit }: Un
           </div>
           {status === 'assigned' && (
             <div className="space-y-1">
-              <Label>Assigned To *</Label>
+              <Label htmlFor="tool-assigned-to">Assigned To *</Label>
               <Select value={assignedTo} onValueChange={(v) => { if (v !== null) setAssignedTo(v) }}>
-                <SelectTrigger>
+                <SelectTrigger id="tool-assigned-to">
                   <SelectValue placeholder="Select staff member…">
                     {staffProfiles.find((p) => p.id === assignedTo)?.full_name ?? 'Select staff member…'}
                   </SelectValue>
@@ -186,8 +186,8 @@ export function ToolAssetUnitEditDialog({ open, onOpenChange, itemId, unit }: Un
             </div>
           )}
           <div className="space-y-1">
-            <Label>Expiry Date</Label>
-            <Input type="date" value={expiry} onChange={(e) => setExpiry(e.target.value)} />
+            <Label htmlFor="tool-expiry">Expiry Date</Label>
+            <Input id="tool-expiry" type="date" value={expiry} onChange={(e) => setExpiry(e.target.value)} />
           </div>
           <DialogFooter>
             <Button type="button" variant="outline" onClick={() => onOpenChange(false)}>Cancel</Button>

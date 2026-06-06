@@ -26,15 +26,15 @@ const STATUS_COLORS: Record<OrderStatus, string> = {
   'in-progress': 'bg-orange-100 text-orange-800',
   cancelled: 'bg-red-100 text-red-800',
   waitlist: 'bg-yellow-100 text-yellow-800',
-  tentative: 'bg-slate-100 text-slate-600',
+  tentative: 'bg-muted text-muted-foreground',
   'pending-confirmation': 'bg-orange-100 text-orange-800',
   'pending-approval': 'bg-yellow-100 text-yellow-800',
 }
 
 const WARRANTY_COLORS = {
-  active: 'text-green-600',
+  active: 'text-success',
   expiring_soon: 'text-yellow-600',
-  expired: 'text-red-600',
+  expired: 'text-destructive',
 }
 
 const PAGE_SIZE = 4
@@ -55,10 +55,10 @@ function OrderHistoryCard({
   return (
     <Popover>
       <PopoverTrigger
-        className="w-full rounded-lg border border-slate-200 px-2.5 py-2 space-y-0.5 text-left hover:border-slate-300 hover:bg-slate-50 transition-colors cursor-pointer"
+        className="w-full rounded-lg border border-border px-2.5 py-2 space-y-0.5 text-left hover:border-border hover:bg-muted transition-colors cursor-pointer"
       >
         <div className="flex items-center justify-between">
-          <span className="text-xs font-semibold text-slate-900">{order.order_id}</span>
+          <span className="text-xs font-semibold text-foreground">{order.order_id}</span>
           <span
             className={cn(
               'rounded px-1.5 py-0.5 text-xs font-medium',
@@ -69,7 +69,7 @@ function OrderHistoryCard({
           </span>
         </div>
         {order.scheduled_date && (
-          <p className="text-xs text-slate-500">
+          <p className="text-xs text-muted-foreground">
             {format(new Date(order.scheduled_date), 'dd MMM yyyy')}
           </p>
         )}
@@ -78,20 +78,20 @@ function OrderHistoryCard({
       <PopoverContent side="left" align="start" className="w-72 p-0 gap-0" sideOffset={8}>
         {/* Services list */}
         <div className="p-3 space-y-1.5">
-          <p className="text-[11px] font-semibold uppercase tracking-wide text-slate-500">
+          <p className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">
             Requested Services
           </p>
           {order.services.length === 0 ? (
-            <p className="text-xs text-slate-400 italic">No services</p>
+            <p className="text-xs text-muted-foreground italic">No services</p>
           ) : (
             <div className="space-y-1.5">
               {order.services.map((s, i) => (
                 <div key={i} className="flex items-start justify-between gap-3">
-                  <span className="text-xs text-slate-700 leading-snug">
+                  <span className="text-xs text-foreground leading-snug">
                     {s.qty > 1 && <span className="font-semibold">{s.qty}× </span>}
                     {s.name}
                   </span>
-                  <span className="text-xs font-medium text-slate-500 shrink-0 pt-px">
+                  <span className="text-xs font-medium text-muted-foreground shrink-0 pt-px">
                     {(s.price * s.qty).toLocaleString()} QAR
                   </span>
                 </div>
@@ -102,7 +102,7 @@ function OrderHistoryCard({
 
         {/* Total + invoice badge */}
         <div className="flex items-center justify-between border-t border-slate-100 px-3 py-2">
-          <span className="text-xs font-semibold text-slate-900">
+          <span className="text-xs font-semibold text-foreground">
             Total: {order.total_amount.toLocaleString()} QAR
           </span>
           <Badge
@@ -110,7 +110,7 @@ function OrderHistoryCard({
               'text-[10px] h-5',
               order.has_invoice
                 ? 'bg-green-100 text-green-700 hover:bg-green-100'
-                : 'bg-slate-100 text-slate-500 hover:bg-slate-100'
+                : 'bg-muted text-muted-foreground hover:bg-muted'
             )}
           >
             {order.has_invoice ? 'Invoiced' : 'Not Invoiced'}
@@ -122,7 +122,7 @@ function OrderHistoryCard({
           <div className="border-t border-slate-100 px-3 py-2">
             <DropdownMenu>
               <DropdownMenuTrigger
-                className="inline-flex h-7 w-full items-center justify-center gap-1.5 rounded-md border border-slate-200 bg-white text-xs font-medium text-slate-700 hover:bg-slate-50 transition-colors"
+                className="inline-flex h-7 w-full items-center justify-center gap-1.5 rounded-md border border-border bg-white text-xs font-medium text-foreground hover:bg-muted transition-colors"
               >
                 Actions
                 <ChevronDown className="h-3 w-3" />
@@ -136,7 +136,7 @@ function OrderHistoryCard({
                   Follow Up
                 </DropdownMenuItem>
                 <DropdownMenuItem
-                  className="text-xs gap-2 cursor-pointer text-red-600 focus:text-red-600"
+                  className="text-xs gap-2 cursor-pointer text-destructive focus:text-destructive"
                   onClick={() => onCreateBackwork?.(order.id)}
                 >
                   <Wrench className="h-3.5 w-3.5" />
@@ -197,7 +197,7 @@ export function CustomerHistoryPanel({ customerId, onViewOrder, onCreateBackwork
 
   if (collapsed) {
     return (
-      <div className="flex w-8 flex-col items-center border-l bg-slate-50 pt-4">
+      <div className="flex w-8 flex-col items-center border-l bg-muted pt-4">
         <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => setCollapsed(false)}>
           <ChevronLeft className="h-4 w-4" />
         </Button>
@@ -208,14 +208,14 @@ export function CustomerHistoryPanel({ customerId, onViewOrder, onCreateBackwork
   return (
     <div className="flex w-80 shrink-0 flex-col border-l bg-white">
       <div className="flex items-center justify-between border-b px-3 py-2">
-        <span className="text-sm font-semibold text-slate-900">Customer History</span>
+        <span className="text-sm font-semibold text-foreground">Customer History</span>
         <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => setCollapsed(true)}>
           <ChevronRight className="h-4 w-4 rotate-180" />
         </Button>
       </div>
 
       {!customerId ? (
-        <div className="flex flex-1 items-center justify-center text-sm text-slate-400 p-4 text-center">
+        <div className="flex flex-1 items-center justify-center text-sm text-muted-foreground p-4 text-center">
           Lookup a customer to see their history
         </div>
       ) : (
@@ -234,7 +234,7 @@ export function CustomerHistoryPanel({ customerId, onViewOrder, onCreateBackwork
             >
               <ChevronLeft className="h-3.5 w-3.5" />
             </Button>
-            <span className="text-xs font-medium text-slate-700">{format(activeMonth, 'MMMM yyyy')}</span>
+            <span className="text-xs font-medium text-foreground">{format(activeMonth, 'MMMM yyyy')}</span>
             <Button
               variant="ghost"
               size="icon"
@@ -252,15 +252,15 @@ export function CustomerHistoryPanel({ customerId, onViewOrder, onCreateBackwork
           {/* Orders section */}
           <div className="border-b px-2 py-2">
             <div className="mb-1.5 flex items-center justify-between">
-              <span className="text-xs font-semibold uppercase tracking-wide text-slate-500">Orders</span>
+              <span className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Orders</span>
               <Badge variant="secondary" className="text-xs">
                 {orderCount}
               </Badge>
             </div>
             {orders.isLoading ? (
-              <p className="text-xs text-slate-400">Loading…</p>
+              <p className="text-xs text-muted-foreground">Loading…</p>
             ) : orderItems.length === 0 ? (
-              <p className="text-xs text-slate-400">No orders in {format(activeMonth, 'MMMM')}</p>
+              <p className="text-xs text-muted-foreground">No orders in {format(activeMonth, 'MMMM')}</p>
             ) : (
               <div className="space-y-1.5">
                 {orderItems.map((order) => (
@@ -274,7 +274,7 @@ export function CustomerHistoryPanel({ customerId, onViewOrder, onCreateBackwork
               </div>
             )}
             {orderCount > PAGE_SIZE && (
-              <div className="mt-2 flex justify-between text-xs text-slate-500">
+              <div className="mt-2 flex justify-between text-xs text-muted-foreground">
                 <button
                   onClick={() => setOrderPage((p) => Math.max(0, p - 1))}
                   disabled={orderPage === 0}
@@ -299,23 +299,23 @@ export function CustomerHistoryPanel({ customerId, onViewOrder, onCreateBackwork
           {/* Products section */}
           <div className="px-2 py-2">
             <div className="mb-2 flex items-center justify-between">
-              <span className="text-xs font-semibold uppercase tracking-wide text-slate-500">Installed Products</span>
+              <span className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Installed Products</span>
               <Badge variant="secondary" className="text-xs">
                 {productCount}
               </Badge>
             </div>
             {products.isLoading ? (
-              <p className="text-xs text-slate-400">Loading…</p>
+              <p className="text-xs text-muted-foreground">Loading…</p>
             ) : productItems.length === 0 ? (
-              <p className="text-xs text-slate-400">No products installed in {format(activeMonth, 'MMMM')}</p>
+              <p className="text-xs text-muted-foreground">No products installed in {format(activeMonth, 'MMMM')}</p>
             ) : (
               <div className="space-y-2">
                 {productItems.map((product) => {
                   const warranty = getWarrantyInfo(product.warranty_expires_at, product.warranty_months)
                   return (
-                    <div key={product.id} className="rounded-lg border border-slate-200 p-2.5 space-y-1">
-                      <p className="text-xs font-semibold text-slate-900">{product.product_name}</p>
-                      <p className="text-xs text-slate-500">
+                    <div key={product.id} className="rounded-lg border border-border p-2.5 space-y-1">
+                      <p className="text-xs font-semibold text-foreground">{product.product_name}</p>
+                      <p className="text-xs text-muted-foreground">
                         Installed: {format(new Date(product.installed_at), 'dd MMM yyyy')}
                       </p>
                       <p className={cn('text-xs font-medium', WARRANTY_COLORS[warranty.status])}>{warranty.label}</p>
@@ -325,7 +325,7 @@ export function CustomerHistoryPanel({ customerId, onViewOrder, onCreateBackwork
               </div>
             )}
             {productCount > PAGE_SIZE && (
-              <div className="mt-2 flex justify-between text-xs text-slate-500">
+              <div className="mt-2 flex justify-between text-xs text-muted-foreground">
                 <button
                   onClick={() => setProductPage((p) => Math.max(0, p - 1))}
                   disabled={productPage === 0}
@@ -350,25 +350,25 @@ export function CustomerHistoryPanel({ customerId, onViewOrder, onCreateBackwork
           {/* Quotations */}
           <div className="border-t px-2 py-2">
             <div className="mb-2 flex items-center justify-between">
-              <span className="text-xs font-semibold uppercase tracking-wide text-slate-500">Quotations</span>
+              <span className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Quotations</span>
             </div>
             {quotationsLoading ? (
-              <p className="px-4 py-2 text-xs text-slate-400">Loading…</p>
+              <p className="px-4 py-2 text-xs text-muted-foreground">Loading…</p>
             ) : (!customerQuotations || customerQuotations.length === 0) ? (
-              <p className="px-4 py-2 text-xs text-slate-400">No quotations yet</p>
+              <p className="px-4 py-2 text-xs text-muted-foreground">No quotations yet</p>
             ) : (
               customerQuotations.map((q: any) => (
                 <div
                   key={q.id}
-                  className="flex items-center justify-between px-4 py-2 hover:bg-slate-50 border-b border-slate-100 last:border-0"
+                  className="flex items-center justify-between px-4 py-2 hover:bg-muted border-b border-slate-100 last:border-0"
                 >
                   <div>
-                    <p className="text-xs font-mono font-semibold text-slate-700">
+                    <p className="text-xs font-mono font-semibold text-foreground">
                       {q.quotation_id}
                     </p>
-                    <p className="text-[11px] text-slate-400 capitalize">{q.status}</p>
+                    <p className="text-[11px] text-muted-foreground capitalize">{q.status}</p>
                   </div>
-                  <p className="text-xs font-medium text-slate-700">
+                  <p className="text-xs font-medium text-foreground">
                     QAR {(q.total_amount ?? 0).toLocaleString()}
                   </p>
                 </div>

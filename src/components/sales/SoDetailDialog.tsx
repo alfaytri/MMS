@@ -105,7 +105,7 @@ export function SoDetailDialog({ open, onOpenChange, so, onEdit, onConfirm }: So
                   variant="outline"
                   className={
                     paymentStatus === 'paid'
-                      ? 'border-green-500 text-green-700 bg-green-50'
+                      ? 'border-green-500 text-green-700 bg-success/10'
                       : paymentStatus === 'partial'
                       ? 'border-amber-500 text-amber-700 bg-amber-50'
                       : 'border-muted-foreground/40 text-muted-foreground'

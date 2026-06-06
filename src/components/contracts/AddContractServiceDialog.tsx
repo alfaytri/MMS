@@ -300,7 +300,7 @@ export function AddContractServiceDialog({
 
                 return (
                   <div key={depth} className="space-y-1.5 min-w-0">
-                    <Label className="text-xs text-muted-foreground">{labels[depth]}</Label>
+                    <Label htmlFor={`svc-level-${depth}`} className="text-xs text-muted-foreground">{labels[depth]}</Label>
                     {isLoading ? (
                       <div className="min-h-[2.5rem] flex items-center px-3 border rounded-md bg-muted/30">
                         <span className="text-sm text-muted-foreground">Loading...</span>
@@ -311,7 +311,7 @@ export function AddContractServiceDialog({
                         onValueChange={(v) => { if (v) handleLevelSelect(depth, v) }}
                         disabled={!hasItems}
                       >
-                        <SelectTrigger className={`w-full min-h-[2.5rem] h-auto whitespace-normal text-left [&>span]:line-clamp-2 ${!hasItems ? 'opacity-50' : ''}`}>
+                        <SelectTrigger id={`svc-level-${depth}`} className={`w-full min-h-[2.5rem] h-auto whitespace-normal text-left [&>span]:line-clamp-2 ${!hasItems ? 'opacity-50' : ''}`}>
                           <SelectValue placeholder={`Select ${labels[depth].toLowerCase()}`} />
                         </SelectTrigger>
                         <SelectContent>
@@ -338,7 +338,7 @@ export function AddContractServiceDialog({
 
               return (
                 <div className="space-y-1.5">
-                  <Label className="text-xs text-muted-foreground">Option</Label>
+                  <Label htmlFor="svc-level-4" className="text-xs text-muted-foreground">Option</Label>
                   {isLoading ? (
                     <div className="min-h-[2.5rem] flex items-center px-3 border rounded-md bg-muted/30">
                       <span className="text-sm text-muted-foreground">Loading...</span>
@@ -348,7 +348,7 @@ export function AddContractServiceDialog({
                       value={selectedPath[4] || ''}
                       onValueChange={(v) => { if (v) handleLevelSelect(4, v) }}
                     >
-                      <SelectTrigger className="w-full min-h-[2.5rem] h-auto whitespace-normal text-left [&>span]:line-clamp-2">
+                      <SelectTrigger id="svc-level-4" className="w-full min-h-[2.5rem] h-auto whitespace-normal text-left [&>span]:line-clamp-2">
                         <SelectValue placeholder="Select option" />
                       </SelectTrigger>
                       <SelectContent>
@@ -380,9 +380,9 @@ export function AddContractServiceDialog({
               {/* Frequency — hidden for general type */}
               {showFrequency && (
                 <div className="space-y-2">
-                  <Label>Frequency</Label>
+                  <Label htmlFor="svc-frequency">Frequency</Label>
                   <Select value={frequency} onValueChange={(v) => setFrequency(v as ServiceFrequency)}>
-                    <SelectTrigger>
+                    <SelectTrigger id="svc-frequency">
                       <SelectValue />
                     </SelectTrigger>
                     <SelectContent>
@@ -397,9 +397,9 @@ export function AddContractServiceDialog({
               {/* Brand — only for preventive + by_condition */}
               {showBrand && (
                 <div className="space-y-2">
-                  <Label>Brand (optional)</Label>
+                  <Label htmlFor="svc-brand">Brand (optional)</Label>
                   <Select value={brandId || 'none'} onValueChange={(v) => handleBrandChange(v === 'none' ? null : v)}>
-                    <SelectTrigger>
+                    <SelectTrigger id="svc-brand">
                       <SelectValue placeholder="No brand" />
                     </SelectTrigger>
                     <SelectContent>
@@ -417,9 +417,9 @@ export function AddContractServiceDialog({
               {/* Condition — only for preventive + by_condition */}
               {showCondition && (
                 <div className="space-y-2">
-                  <Label>Condition (optional)</Label>
+                  <Label htmlFor="svc-condition">Condition (optional)</Label>
                   <Select value={condition || 'none'} onValueChange={(v) => handleConditionChange(v === 'none' ? null : v)}>
-                    <SelectTrigger>
+                    <SelectTrigger id="svc-condition">
                       <SelectValue placeholder="No condition" />
                     </SelectTrigger>
                     <SelectContent>
@@ -436,12 +436,13 @@ export function AddContractServiceDialog({
 
               {/* Quantity — label adapts for area type */}
               <div className="space-y-2">
-                <Label>
+                <Label htmlFor="svc-quantity">
                   {contractType === 'area' && priceUnit
                     ? `Area (${priceUnit})`
                     : 'Quantity'}
                 </Label>
                 <Input
+                  id="svc-quantity"
                   type="number"
                   min={1}
                   value={quantity}
@@ -485,8 +486,9 @@ export function AddContractServiceDialog({
 
             {/* Note */}
             <div className="space-y-2">
-              <Label>Note (optional)</Label>
+              <Label htmlFor="svc-note">Note (optional)</Label>
               <Textarea
+                id="svc-note"
                 value={note}
                 onChange={(e) => setNote(e.target.value)}
                 rows={2}

@@ -271,8 +271,9 @@ export function WhInventoryCheckDialog({ warehouses, children }: Props) {
 
           {/* Notes */}
           <div className="space-y-1.5 flex-shrink-0">
-            <Label className="text-xs">Notes</Label>
+            <Label htmlFor="wh-check-notes" className="text-xs">Notes</Label>
             <Textarea
+              id="wh-check-notes"
               className="text-xs min-h-[60px]"
               placeholder="Optional notes…"
               value={notes}

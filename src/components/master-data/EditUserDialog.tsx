@@ -280,12 +280,12 @@ export function EditUserDialog({ open, onOpenChange, profile }: Props) {
             {/* Team Leader toggle */}
             <div className="flex items-center justify-between rounded-lg border p-3">
               <div>
-                <Label className="text-sm font-medium">Team Leader Account</Label>
+                <Label htmlFor="edit-user-is-tl" className="text-sm font-medium">Team Leader Account</Label>
                 <p className="text-xs text-muted-foreground mt-0.5">
                   Links this account to a team leader employee
                 </p>
               </div>
-              <Switch checked={isTl} onCheckedChange={setIsTl} />
+              <Switch id="edit-user-is-tl" checked={isTl} onCheckedChange={setIsTl} />
             </div>
 
             {isTl && currentEmployee && !linkedEmployeeId && (
@@ -306,12 +306,12 @@ export function EditUserDialog({ open, onOpenChange, profile }: Props) {
 
             {isTl && (!currentEmployee || linkedEmployeeId) && (
               <div className="space-y-1.5">
-                <Label>Linked Employee *</Label>
+                <Label htmlFor="edit-user-linked-employee">Linked Employee *</Label>
                 <Select
                   value={linkedEmployeeId && linkedEmployeeId !== '__change__' ? linkedEmployeeId : ''}
                   onValueChange={setLinkedEmployeeId}
                 >
-                  <SelectTrigger>
+                  <SelectTrigger id="edit-user-linked-employee">
                     <SelectValue placeholder="Select team leader employee…" />
                   </SelectTrigger>
                   <SelectContent>
@@ -331,12 +331,12 @@ export function EditUserDialog({ open, onOpenChange, profile }: Props) {
             {/* Division Manager toggle */}
             <div className="flex items-center justify-between rounded-lg border p-3">
               <div>
-                <Label className="text-sm font-medium">Division Manager</Label>
+                <Label htmlFor="edit-user-is-div-mgr" className="text-sm font-medium">Division Manager</Label>
                 <p className="text-xs text-muted-foreground mt-0.5">
                   Can access the Team Leader page for all teams in their assigned divisions
                 </p>
               </div>
-              <Switch checked={isDivMgr} onCheckedChange={setIsDivMgr} />
+              <Switch id="edit-user-is-div-mgr" checked={isDivMgr} onCheckedChange={setIsDivMgr} />
             </div>
 
             {!isTl && (
@@ -393,7 +393,7 @@ export function EditUserDialog({ open, onOpenChange, profile }: Props) {
             )}
 
             <div className="space-y-1.5">
-              <Label>Approval Role</Label>
+              <Label htmlFor="edit-user-approval-role">Approval Role</Label>
               <p className="text-xs text-muted-foreground">Determines who this user can act as in the PO approval chain and warehouse approvals.</p>
               <Select
                 value={myAssignment?.role ?? '__none__'}
@@ -406,7 +406,7 @@ export function EditUserDialog({ open, onOpenChange, profile }: Props) {
                 }}
                 disabled={addApprovalRole.isPending || removeApprovalRole.isPending}
               >
-                <SelectTrigger className="w-64 h-9 text-sm">
+                <SelectTrigger id="edit-user-approval-role" className="w-64 h-9 text-sm">
                   <SelectValue placeholder="No approval role" />
                 </SelectTrigger>
                 <SelectContent>

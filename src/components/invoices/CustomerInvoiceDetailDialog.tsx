@@ -157,7 +157,7 @@ export function CustomerInvoiceDetailDialog({ open, onOpenChange, customer }: Pr
                           {inv.source_type && (
                             <Badge className={cn(
                               'text-[10px] px-1.5 py-0',
-                              SOURCE_COLORS[inv.source_type] ?? 'bg-slate-100 text-slate-600'
+                              SOURCE_COLORS[inv.source_type] ?? 'bg-muted text-muted-foreground'
                             )}>
                               {inv.source_type}
                               {inv.source_id ? ` · ${inv.source_id.slice(0, 8)}` : ''}
@@ -167,7 +167,7 @@ export function CustomerInvoiceDetailDialog({ open, onOpenChange, customer }: Pr
 
                         <div className="flex items-center gap-3 text-xs text-muted-foreground">
                           <span>Issued {formatDate(inv.issued_date)}</span>
-                          <span className={cn(isOverdue && 'text-red-600 font-medium')}>
+                          <span className={cn(isOverdue && 'text-destructive font-medium')}>
                             Due {formatDate(inv.due_date)}
                             {isOverdue && ' (overdue)'}
                           </span>
@@ -177,7 +177,7 @@ export function CustomerInvoiceDetailDialog({ open, onOpenChange, customer }: Pr
                           <span>
                             Paid {formatCurrency(inv.paid_amount)} / {formatCurrency(inv.total_amount)}
                           </span>
-                          <span className="font-semibold text-red-600">
+                          <span className="font-semibold text-destructive">
                             {formatCurrency(remaining)} due
                           </span>
                         </div>

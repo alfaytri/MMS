@@ -35,15 +35,15 @@ export function WhatsAppSendDialog({
       >
         <DialogHeader>
           <DialogTitle>Send Quotation via WhatsApp</DialogTitle>
-          <DialogDescription className="text-xs text-slate-500">
+          <DialogDescription className="text-xs text-muted-foreground">
             Both options send the quotation as a PDF document via WhatsApp.
           </DialogDescription>
         </DialogHeader>
 
         {isSending ? (
           <div className="flex flex-col items-center gap-3 py-6">
-            <Loader2 className="h-8 w-8 animate-spin text-green-600" />
-            <p className="text-sm text-slate-600 text-center">{sendStatus ?? 'Sending…'}</p>
+            <Loader2 className="h-8 w-8 animate-spin text-success" />
+            <p className="text-sm text-muted-foreground text-center">{sendStatus ?? 'Sending…'}</p>
           </div>
         ) : (
           <div className="space-y-2 py-2">

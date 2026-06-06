@@ -236,7 +236,7 @@ export function ServiceEditDialog({
                           'h-9 text-xs flex-1 gap-1.5',
                           isCategory
                             ? 'bg-slate-700 text-white border-slate-700 hover:bg-slate-800'
-                            : 'border-slate-300 text-slate-600 hover:bg-slate-50',
+                            : 'border-border text-muted-foreground hover:bg-muted',
                         )}
                         onClick={() => setIsCategory(true)}
                       >
@@ -251,7 +251,7 @@ export function ServiceEditDialog({
                           'h-9 text-xs flex-1 gap-1.5',
                           !isCategory
                             ? 'bg-primary text-white border-primary hover:bg-primary/90'
-                            : 'border-slate-300 text-slate-600 hover:bg-slate-50',
+                            : 'border-border text-muted-foreground hover:bg-muted',
                         )}
                         onClick={() => setIsCategory(false)}
                       >

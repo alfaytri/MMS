@@ -51,7 +51,7 @@ function DiffLines({ changes, changeType }: { changes: Record<string, { old: unk
       {entries.map(([key, { old: oldVal, new: newVal }]) => (
         <div key={key} className="text-xs">
           <span className="font-medium text-muted-foreground">{FIELD_LABELS[key] ?? key}:</span>{' '}
-          <span className="text-red-600 line-through">{oldVal == null ? '—' : String(oldVal)}</span>
+          <span className="text-destructive line-through">{oldVal == null ? '—' : String(oldVal)}</span>
           {' → '}
           <span className="text-green-700 font-medium">{newVal == null ? '—' : String(newVal)}</span>
         </div>
@@ -88,7 +88,7 @@ function HistoryEntry({ req }: { req: ServiceChangeRequest }) {
       </div>
 
       {req.rejection_reason && (
-        <div className="bg-red-50 border border-red-200 rounded p-2 text-xs text-red-700">
+        <div className="bg-destructive/10 border border-red-200 rounded p-2 text-xs text-red-700">
           <span className="font-medium">Rejection reason:</span> {req.rejection_reason}
         </div>
       )}

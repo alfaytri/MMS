@@ -37,15 +37,16 @@ export function CancelContractDialog({ open, onOpenChange, contractId, onConfirm
           </AlertDialogDescription>
         </AlertDialogHeader>
         <div className="space-y-2 py-4">
-          <Label>Cancellation Reason *</Label>
+          <Label htmlFor="cancel-reason">Cancellation Reason *</Label>
           <Textarea
+            id="cancel-reason"
             value={reason}
             onChange={(e) => setReason(e.target.value)}
             rows={3}
             placeholder="Explain why this contract is being cancelled (min 10 characters)..."
           />
           {reason.length > 0 && reason.length < 10 && (
-            <p className="text-xs text-red-500">Minimum 10 characters required</p>
+            <p className="text-xs text-destructive">Minimum 10 characters required</p>
           )}
         </div>
         <AlertDialogFooter>

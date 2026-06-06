@@ -140,7 +140,7 @@ export function PaymentScheduleSection({
                 />
               ))}
             </div>
-            <p className={cn('text-xs font-medium', milestonesValid ? 'text-green-600' : 'text-red-600')}>
+            <p className={cn('text-xs font-medium', milestonesValid ? 'text-success' : 'text-destructive')}>
               Total: {milestonePercentSum.toFixed(2)}%
               {milestonesValid ? ' ✓' : ' — Must equal 100%'}
             </p>
@@ -179,7 +179,7 @@ export function PaymentScheduleSection({
                   <Button
                     variant="ghost"
                     size="sm"
-                    className="h-7 w-7 p-0 text-red-500"
+                    className="h-7 w-7 p-0 text-destructive"
                     onClick={() => handleRemoveMilestone(idx)}
                   >
                     <Trash2 className="h-3.5 w-3.5" />

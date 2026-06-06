@@ -235,9 +235,9 @@ export function PoReturnsTab({ po, poReturns, receivals }: PoReturnsTabProps) {
                 <Input id="por-date" type="date" value={returnDate} onChange={(e) => setReturnDate(e.target.value)} />
               </div>
               <div className="space-y-1">
-                <Label>Dispatch From Warehouse</Label>
+                <Label htmlFor="por-warehouse">Dispatch From Warehouse</Label>
                 <Select value={returnWarehouseId} onValueChange={(v) => setReturnWarehouseId(v ?? '')}>
-                  <SelectTrigger>
+                  <SelectTrigger id="por-warehouse">
                     <SelectValue placeholder="Select warehouse…" />
                   </SelectTrigger>
                   <SelectContent>

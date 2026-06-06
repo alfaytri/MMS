@@ -271,7 +271,7 @@ export function TeamCalendarPanel({
             {format(date, 'EEE, MMM d')}
           </span>
           {primaryVisitDate && visitDate !== primaryVisitDate && (
-            <span className="ml-1 rounded bg-slate-100 px-1.5 py-0.5 text-[10px] text-slate-500 font-medium">
+            <span className="ml-1 rounded bg-muted px-1.5 py-0.5 text-[10px] text-muted-foreground font-medium">
               Availability view
             </span>
           )}
@@ -317,8 +317,8 @@ export function TeamCalendarPanel({
           )}
 
           {/* Time header row */}
-          <div className="flex border-b bg-slate-50 sticky top-0 z-10">
-            <div className="w-32 shrink-0 border-r px-2 py-1 text-xs font-medium text-slate-500">
+          <div className="flex border-b bg-muted sticky top-0 z-10">
+            <div className="w-32 shrink-0 border-r px-2 py-1 text-xs font-medium text-muted-foreground">
               Teams / Time
             </div>
             <div className="flex">
@@ -329,7 +329,7 @@ export function TeamCalendarPanel({
                     key={slot}
                     style={{ width: cellWidth, minWidth: cellWidth }}
                     className={cn(
-                      'shrink-0 px-0.5 py-1 text-center text-[10px] text-slate-500',
+                      'shrink-0 px-0.5 py-1 text-center text-[10px] text-muted-foreground',
                       isHalf ? 'border-r border-slate-100/50' : 'border-r border-slate-100',
                     )}
                   >
@@ -364,7 +364,7 @@ export function TeamCalendarPanel({
                           draggingService && getSkillMatch(team.id) === false && 'opacity-40',
                         )}
                       >
-                        <p className="max-w-[110px] truncate text-sm font-medium text-slate-900">
+                        <p className="max-w-[110px] truncate text-sm font-medium text-foreground">
                           {teamDisplayName(team)}
                         </p>
                       </div>

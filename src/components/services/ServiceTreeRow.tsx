@@ -88,7 +88,7 @@ export function ServiceTreeRow({
     isDragging,
   } = useSortable({ id: service.id, disabled: !dragMode })
   const levelLabel = `L${depth + 1}`
-  const levelColor = LEVEL_COLORS[Math.min(depth, 2)] ?? 'bg-slate-100 text-slate-700'
+  const levelColor = LEVEL_COLORS[Math.min(depth, 2)] ?? 'bg-muted text-foreground'
 
   // Linkage flags
   const hasInventory = Array.isArray(service.inventory_items) && (service.inventory_items as unknown[]).length > 0
@@ -341,7 +341,7 @@ export function ServiceTreeRow({
             aria-label="Instructions"
           />
           <ClipboardCheck
-            className={cn('h-3.5 w-3.5', hasQC ? 'text-green-500' : 'text-muted-foreground/25')}
+            className={cn('h-3.5 w-3.5', hasQC ? 'text-success' : 'text-muted-foreground/25')}
             aria-label="QC"
           />
           <Wrench

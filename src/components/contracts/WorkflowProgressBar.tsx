@@ -26,7 +26,7 @@ export function WorkflowProgressBar({ currentStatus }: Props) {
 
   if (isRejected) {
     return (
-      <span className="inline-flex items-center gap-1.5 text-xs font-medium text-red-600">
+      <span className="inline-flex items-center gap-1.5 text-xs font-medium text-destructive">
         <span className="h-1.5 w-1.5 rounded-full bg-red-500" />
         Rejected
       </span>

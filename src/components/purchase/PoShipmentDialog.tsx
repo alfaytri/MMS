@@ -68,9 +68,9 @@ export function PoShipmentDialog({ open, onOpenChange, poId }: Props) {
         </DialogHeader>
         <div className="space-y-4">
           <div className="space-y-1">
-            <Label>Mode *</Label>
+            <Label htmlFor="pos-mode">Mode *</Label>
             <Select value={mode} onValueChange={(v) => setMode((v ?? 'air') as ShipmentMode)}>
-              <SelectTrigger><SelectValue /></SelectTrigger>
+              <SelectTrigger id="pos-mode"><SelectValue /></SelectTrigger>
               <SelectContent>
                 <SelectItem value="air">Air</SelectItem>
                 <SelectItem value="sea">Sea</SelectItem>
@@ -80,31 +80,31 @@ export function PoShipmentDialog({ open, onOpenChange, poId }: Props) {
             </Select>
           </div>
           <div className="space-y-1">
-            <Label>Tracking Number *</Label>
-            <Input value={trackingNumber} onChange={(e) => setTrackingNumber(e.target.value)} placeholder="TRK-12345" />
+            <Label htmlFor="pos-tracking">Tracking Number *</Label>
+            <Input id="pos-tracking" value={trackingNumber} onChange={(e) => setTrackingNumber(e.target.value)} placeholder="TRK-12345" />
           </div>
           <div className="space-y-1">
-            <Label>Carrier *</Label>
-            <Input value={carrier} onChange={(e) => setCarrier(e.target.value)} placeholder="DHL, FedEx…" />
+            <Label htmlFor="pos-carrier">Carrier *</Label>
+            <Input id="pos-carrier" value={carrier} onChange={(e) => setCarrier(e.target.value)} placeholder="DHL, FedEx…" />
           </div>
           <div className="grid grid-cols-2 gap-4">
             <div className="space-y-1">
-              <Label>Origin</Label>
-              <Input value={origin} onChange={(e) => setOrigin(e.target.value)} placeholder="Dubai" />
+              <Label htmlFor="pos-origin">Origin</Label>
+              <Input id="pos-origin" value={origin} onChange={(e) => setOrigin(e.target.value)} placeholder="Dubai" />
             </div>
             <div className="space-y-1">
-              <Label>Destination</Label>
-              <Input value={destination} onChange={(e) => setDestination(e.target.value)} placeholder="Doha" />
+              <Label htmlFor="pos-destination">Destination</Label>
+              <Input id="pos-destination" value={destination} onChange={(e) => setDestination(e.target.value)} placeholder="Doha" />
             </div>
           </div>
           <div className="grid grid-cols-2 gap-4">
             <div className="space-y-1">
-              <Label>ETD</Label>
-              <Input type="date" value={etd} onChange={(e) => setEtd(e.target.value)} />
+              <Label htmlFor="pos-etd">ETD</Label>
+              <Input id="pos-etd" type="date" value={etd} onChange={(e) => setEtd(e.target.value)} />
             </div>
             <div className="space-y-1">
-              <Label>ETA</Label>
-              <Input type="date" value={eta} onChange={(e) => setEta(e.target.value)} />
+              <Label htmlFor="pos-eta">ETA</Label>
+              <Input id="pos-eta" type="date" value={eta} onChange={(e) => setEta(e.target.value)} />
             </div>
           </div>
         </div>

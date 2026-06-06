@@ -280,7 +280,7 @@ export default function CreateOrderPage() {
         {draggingDayWindow ? (
           <div className="w-72 rotate-1 rounded-xl border border-orange-300 bg-white shadow-2xl ring-1 ring-orange-200 px-3 py-2.5 space-y-1.5">
             <div className="flex items-center justify-between">
-              <span className="text-[11px] font-medium text-slate-500">
+              <span className="text-[11px] font-medium text-muted-foreground">
                 {new Date(draggingDayWindow.date + 'T00:00:00').toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' })}
               </span>
               {draggingDayWindow.fromTime && (
@@ -297,8 +297,8 @@ export default function CreateOrderPage() {
             <div className="border-t border-slate-100" />
             <div className="space-y-0.5">
               {draft.services.map((s) => (
-                <p key={s.serviceId} className="truncate text-xs text-slate-700">
-                  {s.qty > 1 && <span className="font-semibold text-slate-500">{s.qty}× </span>}
+                <p key={s.serviceId} className="truncate text-xs text-foreground">
+                  {s.qty > 1 && <span className="font-semibold text-muted-foreground">{s.qty}× </span>}
                   {s.serviceName}
                 </p>
               ))}

@@ -61,7 +61,7 @@ export function CategoryRow({ node, categoryType, showArchived, canMoveUp, canMo
     <>
       {/* Category row */}
       <tr
-        className="border-b border-border bg-slate-50/80 hover:bg-slate-100/60 cursor-pointer"
+        className="border-b border-border bg-muted/80 hover:bg-muted/60 cursor-pointer"
         onClick={() => setExpanded((v) => !v)}
       >
         <td className="py-2.5 pr-2 w-1/2" style={{ paddingLeft: indent }}>
@@ -70,7 +70,7 @@ export function CategoryRow({ node, categoryType, showArchived, canMoveUp, canMo
               ? <ChevronDown className="h-4 w-4 text-muted-foreground flex-shrink-0" />
               : <ChevronRight className="h-4 w-4 text-muted-foreground flex-shrink-0" />
             }
-            <Package className="h-4 w-4 text-slate-500 flex-shrink-0" />
+            <Package className="h-4 w-4 text-muted-foreground flex-shrink-0" />
             <div>
               <button
                 className="text-sm font-semibold text-blue-600 hover:underline text-left"

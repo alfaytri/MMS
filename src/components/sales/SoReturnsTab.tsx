@@ -97,7 +97,7 @@ export function SoReturnsTab({ so, fullSO, soReturns, invoiceId }: SoReturnsTabP
                   <span className={`text-xs px-2 py-0.5 rounded-full font-medium capitalize ${
                     ret.status === 'restocked' ? 'bg-green-100 text-green-700' :
                     ret.status === 'received'  ? 'bg-blue-100 text-blue-700' :
-                    ret.status === 'closed'    ? 'bg-slate-100 text-slate-600' :
+                    ret.status === 'closed'    ? 'bg-muted text-muted-foreground' :
                                                   'bg-amber-100 text-amber-700'
                   }`}>{ret.status}</span>
                 </div>

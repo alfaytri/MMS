@@ -282,9 +282,9 @@ export default function CreateContractQuotationPage() {
       <SectionCard title="Customer Information">
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
           <div className="space-y-2">
-            <Label>Source Type</Label>
+            <Label htmlFor="cq-source-type">Source Type</Label>
             <Select value={sourceType} onValueChange={(v) => v && setSourceType(v as 'direct' | 'site_visit')}>
-              <SelectTrigger>
+              <SelectTrigger id="cq-source-type">
                 <SelectValue />
               </SelectTrigger>
               <SelectContent>
@@ -295,7 +295,7 @@ export default function CreateContractQuotationPage() {
             </Select>
           </div>
           <div className="space-y-2">
-            <Label>Customer Name *</Label>
+            <Label htmlFor="cq-customer-name">Customer Name *</Label>
             {serviceCustomerId ? (
               <div className="flex items-center gap-2">
                 <div className="flex items-center gap-2 h-9 w-full rounded-md border border-input bg-muted/50 px-3 py-1 text-sm">
@@ -314,7 +314,7 @@ export default function CreateContractQuotationPage() {
               </div>
             ) : (
               <div className="flex items-center gap-2">
-                <Input value={customerName} onChange={(e) => setCustomerName(e.target.value)} placeholder="Customer name" />
+                <Input id="cq-customer-name" value={customerName} onChange={(e) => setCustomerName(e.target.value)} placeholder="Customer name" />
                 <Button
                   variant="outline"
                   size="icon"
@@ -328,18 +328,18 @@ export default function CreateContractQuotationPage() {
             )}
           </div>
           <div className="space-y-2">
-            <Label>Phone</Label>
+            <Label htmlFor="cq-phone">Phone</Label>
             {serviceCustomerId ? (
               <div className="flex items-center gap-2 h-9 w-full rounded-md border border-input bg-muted/50 px-3 py-1 text-sm">
                 <Phone className="h-3.5 w-3.5 text-muted-foreground shrink-0" />
                 <span>{phone}</span>
               </div>
             ) : (
-              <Input value={phone} onChange={(e) => setPhone(e.target.value)} placeholder="Phone number" />
+              <Input id="cq-phone" value={phone} onChange={(e) => setPhone(e.target.value)} placeholder="Phone number" />
             )}
           </div>
           <div className="space-y-2 sm:col-span-2">
-            <Label>Address</Label>
+            <Label htmlFor="cq-address">Address</Label>
             {serviceCustomerId && phoneId ? (
               <AddressPicker
                 customerId={serviceCustomerId}
@@ -352,12 +352,12 @@ export default function CreateContractQuotationPage() {
                 }}
               />
             ) : (
-              <Input value={address} onChange={(e) => setAddress(e.target.value)} placeholder="Full address" />
+              <Input id="cq-address" value={address} onChange={(e) => setAddress(e.target.value)} placeholder="Full address" />
             )}
           </div>
           <div className="space-y-2">
-            <Label>Site Name *</Label>
-            <Input value={siteName} onChange={(e) => setSiteName(e.target.value)} placeholder="Site / building name" />
+            <Label htmlFor="cq-site-name">Site Name *</Label>
+            <Input id="cq-site-name" value={siteName} onChange={(e) => setSiteName(e.target.value)} placeholder="Site / building name" />
           </div>
         </div>
       </SectionCard>
@@ -366,15 +366,15 @@ export default function CreateContractQuotationPage() {
       <SectionCard title="Contract Details">
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
           <div className="space-y-2">
-            <Label>Start Date *</Label>
+            <Label htmlFor="cq-start-date">Start Date *</Label>
             <DatePicker value={startDate} onChange={setStartDate} placeholder="dd-mm-yyyy" />
           </div>
           <div className="space-y-2">
-            <Label>End Date *</Label>
+            <Label htmlFor="cq-end-date">End Date *</Label>
             <DatePicker value={endDate} onChange={setEndDate} placeholder="dd-mm-yyyy" />
           </div>
           <div className="space-y-2 sm:col-span-2">
-            <Label>Divisions *</Label>
+            <Label htmlFor="cq-divisions">Divisions *</Label>
             <Select
               value={divisions.length === 1 ? divisions[0] : divisions.length > 1 ? '__multiple__' : ''}
               onValueChange={(v) => {
@@ -383,7 +383,7 @@ export default function CreateContractQuotationPage() {
                 }
               }}
             >
-              <SelectTrigger>
+              <SelectTrigger id="cq-divisions">
                 <SelectValue placeholder="Select division">
                   {divisions.length === 0
                     ? 'Select division'
@@ -476,8 +476,8 @@ export default function CreateContractQuotationPage() {
           }}
         />
         {termsFile ? (
-          <div className="flex items-center gap-3 rounded-md border border-slate-200 bg-slate-50 p-3">
-            <FileText className="h-5 w-5 text-red-500 shrink-0" />
+          <div className="flex items-center gap-3 rounded-md border border-border bg-muted p-3">
+            <FileText className="h-5 w-5 text-destructive shrink-0" />
             <div className="min-w-0 flex-1">
               <p className="text-sm font-medium truncate">{termsFile.name}</p>
               <p className="text-xs text-muted-foreground">
@@ -500,7 +500,7 @@ export default function CreateContractQuotationPage() {
           <button
             type="button"
             onClick={() => termsInputRef.current?.click()}
-            className="flex w-full items-center justify-center gap-2 rounded-md border-2 border-dashed border-slate-300 py-8 text-sm text-muted-foreground transition-colors hover:border-slate-400 hover:bg-slate-50"
+            className="flex w-full items-center justify-center gap-2 rounded-md border-2 border-dashed border-border py-8 text-sm text-muted-foreground transition-colors hover:border-slate-400 hover:bg-muted"
           >
             <Upload className="h-4 w-4" />
             Upload Terms & Conditions PDF
@@ -541,8 +541,9 @@ export default function CreateContractQuotationPage() {
       <SectionCard title="Pricing Summary">
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
           <div className="space-y-2">
-            <Label>Discount (QAR)</Label>
+            <Label htmlFor="cq-discount">Discount (QAR)</Label>
             <Input
+              id="cq-discount"
               type="number"
               min={0}
               value={discount || ''}

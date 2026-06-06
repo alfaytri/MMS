@@ -323,7 +323,7 @@ function LcDetailDialog({
               {lc.lc_number}
               {statusBadge}
               {lc.all_items_sold && (
-                <Badge className="bg-slate-100 text-slate-700 border-slate-300 text-xs">
+                <Badge className="bg-muted text-foreground border-border text-xs">
                   All Items Sold
                 </Badge>
               )}
@@ -712,8 +712,9 @@ function LcDetailDialog({
               Selling price changes made after apply are <em>not</em> automatically reversed.
             </p>
             <div className="space-y-1">
-              <Label className="text-sm">Type &quot;revert&quot; to confirm</Label>
+              <Label htmlFor="lc-revert-confirm" className="text-sm">Type &quot;revert&quot; to confirm</Label>
               <Input
+                id="lc-revert-confirm"
                 value={revertConfirmText}
                 onChange={(e) => setRevertConfirmText(e.target.value)}
                 placeholder="revert"
@@ -862,12 +863,12 @@ function CreateLcDialog({ open, onOpenChange }: { open: boolean; onOpenChange: (
         <form onSubmit={handleSubmit} className="space-y-4 max-h-[70vh] overflow-y-auto pr-1">
           <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
             <div className="space-y-1 sm:col-span-2">
-              <Label>Description</Label>
-              <Input value={description} onChange={(e) => setDescription(e.target.value)} placeholder="Freight, customs fees…" />
+              <Label htmlFor="lc-description">Description</Label>
+              <Input id="lc-description" value={description} onChange={(e) => setDescription(e.target.value)} placeholder="Freight, customs fees…" />
             </div>
             <div className="space-y-1">
-              <Label>Date *</Label>
-              <Input type="date" value={date} onChange={(e) => setDate(e.target.value)} />
+              <Label htmlFor="lc-date">Date *</Label>
+              <Input id="lc-date" type="date" value={date} onChange={(e) => setDate(e.target.value)} />
             </div>
           </div>
 
@@ -932,7 +933,7 @@ function CreateLcDialog({ open, onOpenChange }: { open: boolean; onOpenChange: (
                     className={cn(
                       'flex items-center justify-center h-8 w-8 rounded border text-sm transition-colors shrink-0',
                       line.bill_path
-                        ? 'border-green-400 text-green-600 bg-green-50 hover:bg-green-100'
+                        ? 'border-green-400 text-success bg-success/10 hover:bg-green-100'
                         : 'border-input text-muted-foreground hover:text-foreground hover:bg-accent',
                       uploadingLines.has(i) && 'opacity-50 cursor-not-allowed',
                     )}

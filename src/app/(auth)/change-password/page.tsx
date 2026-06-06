@@ -40,7 +40,7 @@ export default function ChangePasswordPage() {
   }
 
   return (
-    <div className="min-h-svh flex items-center justify-center p-4 bg-slate-50">
+    <div className="min-h-svh flex items-center justify-center p-4 bg-muted">
       <div className="w-full max-w-md bg-white border rounded-lg p-6 space-y-4">
         <div>
           <h1 className="text-xl font-semibold">Set a new password</h1>

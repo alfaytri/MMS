@@ -203,16 +203,18 @@ export function BrandVariantEditDialog({ open, onOpenChange, itemId, variant }: 
         </DialogHeader>
         <form onSubmit={handleSubmit} className="space-y-4">
           <div className="space-y-1">
-            <Label>Brand *</Label>
+            <Label htmlFor="bv-brand">Brand *</Label>
             <Input
+              id="bv-brand"
               value={brand}
               onChange={(e) => setBrand(e.target.value)}
               placeholder="e.g. LG, Alfacool"
             />
           </div>
           <div className="space-y-1">
-            <Label>SKU Code</Label>
+            <Label htmlFor="bv-sku">SKU Code</Label>
             <Input
+              id="bv-sku"
               value={code}
               onChange={(e) => setCode(e.target.value)}
               placeholder="Auto-generated if blank"
@@ -221,8 +223,9 @@ export function BrandVariantEditDialog({ open, onOpenChange, itemId, variant }: 
           </div>
           <div className="grid grid-cols-2 gap-3">
             <div className="space-y-1">
-              <Label>Selling Price (QAR)</Label>
+              <Label htmlFor="bv-selling-price">Selling Price (QAR)</Label>
               <Input
+                id="bv-selling-price"
                 type="number" min="0" step="0.01"
                 value={sellingPrice}
                 onChange={(e) => setSellingPrice(e.target.value)}
@@ -230,8 +233,9 @@ export function BrandVariantEditDialog({ open, onOpenChange, itemId, variant }: 
               />
             </div>
             <div className="space-y-1">
-              <Label>Markup %</Label>
+              <Label htmlFor="bv-markup">Markup %</Label>
               <Input
+                id="bv-markup"
                 type="number" min="0" step="0.01"
                 value={marginPercent}
                 onChange={(e) => setMarginPercent(e.target.value)}
@@ -242,7 +246,7 @@ export function BrandVariantEditDialog({ open, onOpenChange, itemId, variant }: 
           </div>
           <div className="grid grid-cols-2 gap-3">
             <div className="space-y-1">
-              <Label>Avg Cost (QAR)</Label>
+              <Label htmlFor="bv-avg-cost">Avg Cost (QAR)</Label>
               {avgCostLocked ? (
                 <div className="space-y-1">
                   <Input
@@ -265,8 +269,9 @@ export function BrandVariantEditDialog({ open, onOpenChange, itemId, variant }: 
               )}
             </div>
             <div className="space-y-1">
-              <Label>Reorder Point</Label>
+              <Label htmlFor="bv-reorder-point">Reorder Point</Label>
               <Input
+                id="bv-reorder-point"
                 type="number" min="0" step="1"
                 value={reorderPoint}
                 onChange={(e) => setReorderPoint(e.target.value)}

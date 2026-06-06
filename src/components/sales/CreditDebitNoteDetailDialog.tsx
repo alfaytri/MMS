@@ -10,7 +10,7 @@ import { cn } from '@/lib/utils'
 import type { CreditNote, CreditNoteStatus, NoteLineItem, NoteDebitLineItem } from '@/hooks/useCreditNotes'
 
 const STATUS_CONFIG: Record<CreditNoteStatus, { label: string; className: string }> = {
-  draft:    { label: 'Draft',    className: 'bg-slate-100 text-slate-700' },
+  draft:    { label: 'Draft',    className: 'bg-muted text-foreground' },
   approved: { label: 'Approved', className: 'bg-blue-100 text-blue-700' },
   issued:   { label: 'Issued',   className: 'bg-amber-100 text-amber-700' },
   redeemed: { label: 'Redeemed', className: 'bg-green-100 text-green-700' },

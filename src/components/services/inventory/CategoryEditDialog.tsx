@@ -106,12 +106,12 @@ export function CategoryEditDialog({ open, onOpenChange, categoryType, category,
         </DialogHeader>
         <form onSubmit={handleSubmit} className="space-y-4">
           <div className="space-y-1">
-            <Label>Parent Category</Label>
+            <Label htmlFor="cat-parent">Parent Category</Label>
             <Select
               value={parentId ?? '__none__'}
               onValueChange={(v) => setParentId(v === '__none__' ? null : v)}
             >
-              <SelectTrigger className="text-xs">
+              <SelectTrigger id="cat-parent" className="text-xs">
                 <SelectValue placeholder="None (top-level)" />
               </SelectTrigger>
               <SelectContent>
@@ -125,16 +125,16 @@ export function CategoryEditDialog({ open, onOpenChange, categoryType, category,
             </Select>
           </div>
           <div className="space-y-1">
-            <Label>Name (English) *</Label>
-            <Input value={nameEn} onChange={(e) => setNameEn(e.target.value)} placeholder="e.g. Water Heaters" />
+            <Label htmlFor="cat-name-en">Name (English) *</Label>
+            <Input id="cat-name-en" value={nameEn} onChange={(e) => setNameEn(e.target.value)} placeholder="e.g. Water Heaters" />
           </div>
           <div className="space-y-1">
-            <Label>Name (Arabic)</Label>
-            <Input value={nameAr} onChange={(e) => setNameAr(e.target.value)} dir="rtl" placeholder="الاسم بالعربية" />
+            <Label htmlFor="cat-name-ar">Name (Arabic)</Label>
+            <Input id="cat-name-ar" value={nameAr} onChange={(e) => setNameAr(e.target.value)} dir="rtl" placeholder="الاسم بالعربية" />
           </div>
           <div className="space-y-1">
-            <Label>SKU Prefix</Label>
-            <Input value={sku} onChange={(e) => setSku(e.target.value)} placeholder="e.g. WH" className="font-mono" />
+            <Label htmlFor="cat-sku-prefix">SKU Prefix</Label>
+            <Input id="cat-sku-prefix" value={sku} onChange={(e) => setSku(e.target.value)} placeholder="e.g. WH" className="font-mono" />
           </div>
           <DialogFooter>
             <Button type="button" variant="outline" onClick={() => onOpenChange(false)}>Cancel</Button>

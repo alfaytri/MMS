@@ -102,7 +102,7 @@ export function SoInvoiceTab({ so }: SoInvoiceTabProps) {
         <Badge className={
           soInvoice.doc_status === 'sent'           ? 'bg-green-100 text-green-700' :
           soInvoice.doc_status === 'ready_to_send'  ? 'bg-blue-100 text-blue-700' :
-                                                      'bg-slate-100 text-slate-700'
+                                                      'bg-muted text-foreground'
         }>
           {soInvoice.doc_status === 'ready_to_send' ? 'Ready to Send' :
            soInvoice.doc_status === 'sent'          ? 'Sent' : 'Draft'}
@@ -111,7 +111,7 @@ export function SoInvoiceTab({ so }: SoInvoiceTabProps) {
           soInvoice.payment_status === 'paid'           ? 'bg-green-100 text-green-700' :
           soInvoice.payment_status === 'partially_paid' ? 'bg-amber-100 text-amber-700' :
           soInvoice.payment_status === 'overdue'        ? 'bg-red-100 text-red-700' :
-                                                          'bg-slate-100 text-slate-600'
+                                                          'bg-muted text-muted-foreground'
         }>
           {soInvoice.payment_status === 'partially_paid' ? 'Partially Paid' :
            soInvoice.payment_status.charAt(0).toUpperCase() + soInvoice.payment_status.slice(1)}

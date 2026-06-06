@@ -231,8 +231,9 @@ export default function CustomersPage() {
           </DialogHeader>
           <div className="space-y-4 py-2">
             <div className="space-y-1.5">
-              <Label>Name <span className="text-destructive">*</span></Label>
+              <Label htmlFor="cust-name">Name <span className="text-destructive">*</span></Label>
               <Input
+                id="cust-name"
                 placeholder="Customer name"
                 value={newName}
                 onChange={(e) => setNewName(e.target.value)}
@@ -250,8 +251,9 @@ export default function CustomersPage() {
             </div>
 
             <div className="space-y-1.5">
-              <Label>Email</Label>
+              <Label htmlFor="cust-email">Email</Label>
               <Input
+                id="cust-email"
                 type="email"
                 placeholder="customer@example.com"
                 value={newEmail}
@@ -261,9 +263,9 @@ export default function CustomersPage() {
 
             <div className="grid grid-cols-2 gap-3">
               <div className="space-y-1.5">
-                <Label>Entity Type <span className="text-destructive">*</span></Label>
+                <Label htmlFor="cust-entity-type">Entity Type <span className="text-destructive">*</span></Label>
                 <Select value={newEntity} onValueChange={(v) => setNewEntity(v as 'individual' | 'business')}>
-                  <SelectTrigger className="w-full">
+                  <SelectTrigger id="cust-entity-type" className="w-full">
                     <SelectValue />
                   </SelectTrigger>
                   <SelectContent>
@@ -273,9 +275,9 @@ export default function CustomersPage() {
                 </Select>
               </div>
               <div className="space-y-1.5">
-                <Label>Customer Type <span className="text-destructive">*</span></Label>
+                <Label htmlFor="cust-customer-type">Customer Type <span className="text-destructive">*</span></Label>
                 <Select value={newType} onValueChange={(v) => { setNewType(v as 'cash' | 'credit'); setNewGroupId('') }}>
-                  <SelectTrigger className="w-full">
+                  <SelectTrigger id="cust-customer-type" className="w-full">
                     <SelectValue />
                   </SelectTrigger>
                   <SelectContent>
@@ -288,9 +290,9 @@ export default function CustomersPage() {
 
             {newType === 'credit' && (
               <div className="space-y-1.5">
-                <Label>Credit Group <span className="text-destructive">*</span></Label>
+                <Label htmlFor="cust-credit-group">Credit Group <span className="text-destructive">*</span></Label>
                 <Select value={newGroupId} onValueChange={(v) => { if (v) setNewGroupId(v) }}>
-                  <SelectTrigger className="w-full">
+                  <SelectTrigger id="cust-credit-group" className="w-full">
                     <SelectValue placeholder="Select group…" />
                   </SelectTrigger>
                   <SelectContent>

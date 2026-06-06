@@ -397,7 +397,7 @@ export default function ReceivalsPage() {
                     <td className="py-2">
                       {item.is_free
                         ? <span className="text-xs px-1.5 py-0.5 rounded bg-purple-100 text-purple-700">Free</span>
-                        : <span className="text-xs px-1.5 py-0.5 rounded bg-slate-100 text-slate-600">Purchased</span>}
+                        : <span className="text-xs px-1.5 py-0.5 rounded bg-muted text-muted-foreground">Purchased</span>}
                     </td>
                   </tr>
                 ))}

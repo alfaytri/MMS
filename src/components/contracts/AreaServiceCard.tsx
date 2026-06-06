@@ -78,7 +78,7 @@ export function AreaServiceCard({ service, editable, onEdit, onRemove, onViewMed
             </Button>
           )}
           {editable && onRemove && (
-            <Button variant="ghost" size="sm" className="h-7 w-7 p-0 text-red-500" onClick={onRemove}>
+            <Button variant="ghost" size="sm" className="h-7 w-7 p-0 text-destructive" onClick={onRemove}>
               <Trash2 className="h-3.5 w-3.5" />
             </Button>
           )}

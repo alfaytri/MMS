@@ -122,7 +122,7 @@ export default function EditOrderPage() {
 
   if (isLoading || !draft) {
     return (
-      <div className="flex h-[calc(100vh-56px)] items-center justify-center text-sm text-slate-400">
+      <div className="flex h-[calc(100vh-56px)] items-center justify-center text-sm text-muted-foreground">
         Loading order…
       </div>
     )
@@ -133,15 +133,15 @@ export default function EditOrderPage() {
       <div className="relative overflow-x-hidden">
         {/* Back bar */}
         <div className="flex items-center gap-2 border-b bg-white px-4 py-2">
-          <Button variant="ghost" size="sm" className="gap-1.5 text-slate-600" onClick={() => router.back()}>
+          <Button variant="ghost" size="sm" className="gap-1.5 text-muted-foreground" onClick={() => router.back()}>
             <ArrowLeft className="h-4 w-4" />
             Back
           </Button>
-          <span className="text-sm font-semibold text-slate-700">
+          <span className="text-sm font-semibold text-foreground">
             Editing {draft.orderId}
           </span>
           {existingAddress && !draft.addressSnapshot && (
-            <span className="ml-auto text-xs text-slate-400 hidden sm:block">
+            <span className="ml-auto text-xs text-muted-foreground hidden sm:block">
               Address: {existingAddress}
             </span>
           )}
@@ -208,7 +208,7 @@ export default function EditOrderPage() {
         {draggingDayWindow ? (
           <div className="w-72 rotate-1 rounded-xl border border-orange-300 bg-white shadow-2xl ring-1 ring-orange-200 px-3 py-2.5 space-y-1.5">
             <div className="flex items-center justify-between">
-              <span className="text-[11px] font-medium text-slate-500">
+              <span className="text-[11px] font-medium text-muted-foreground">
                 {new Date(draggingDayWindow.date + 'T00:00:00').toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' })}
               </span>
               {draggingDayWindow.fromTime && (
@@ -225,8 +225,8 @@ export default function EditOrderPage() {
             <div className="border-t border-slate-100" />
             <div className="space-y-0.5">
               {draft.services.map((s) => (
-                <p key={s.serviceId} className="truncate text-xs text-slate-700">
-                  {s.qty > 1 && <span className="font-semibold text-slate-500">{s.qty}× </span>}
+                <p key={s.serviceId} className="truncate text-xs text-foreground">
+                  {s.qty > 1 && <span className="font-semibold text-muted-foreground">{s.qty}× </span>}
                   {s.serviceName}
                 </p>
               ))}

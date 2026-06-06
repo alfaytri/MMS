@@ -185,7 +185,7 @@ export function AttachBillDialog({ open, onOpenChange, mode, paymentId, billId, 
                     </div>
                     <div className="flex justify-between text-xs text-muted-foreground mt-1">
                       <span>{formatDate(p.date)} · {p.method.replace(/_/g, ' ')}</span>
-                      <span className="text-green-600 font-medium">
+                      <span className="text-success font-medium">
                         Remaining: {formatCurrency(p.remaining, 'QAR')}
                       </span>
                     </div>
@@ -194,8 +194,9 @@ export function AttachBillDialog({ open, onOpenChange, mode, paymentId, billId, 
               </div>
               {selectedId && (
                 <div className="space-y-1 pt-1">
-                  <Label className="text-sm">Amount to allocate (QAR)</Label>
+                  <Label htmlFor="attach-bill-amount" className="text-sm">Amount to allocate (QAR)</Label>
                   <Input
+                    id="attach-bill-amount"
                     type="number"
                     min={0.01}
                     step="0.01"

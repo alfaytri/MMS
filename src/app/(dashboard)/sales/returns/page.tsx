@@ -436,9 +436,9 @@ function ReturnsContent() {
                 <Input id="sr-date" type="date" value={srDate} onChange={(e) => setSrDate(e.target.value)} />
               </div>
               <div className="space-y-1">
-                <Label>Restock Warehouse</Label>
+                <Label htmlFor="sr-restock-warehouse">Restock Warehouse</Label>
                 <Select value={srWarehouseId} onValueChange={(v) => setSrWarehouseId(v ?? '')}>
-                  <SelectTrigger>
+                  <SelectTrigger id="sr-restock-warehouse">
                     <SelectValue placeholder="No restocking" />
                   </SelectTrigger>
                   <SelectContent>
@@ -497,9 +497,9 @@ function ReturnsContent() {
           <DialogHeader className="shrink-0"><DialogTitle>Create PO Return</DialogTitle></DialogHeader>
           <div className="flex-1 overflow-y-auto space-y-4 py-2">
             <div className="space-y-1">
-              <Label>Purchase Order (with receivals) *</Label>
+              <Label htmlFor="pr-po">Purchase Order (with receivals) *</Label>
               <Select value={poId} onValueChange={(v) => handlePOSelect(v ?? '')}>
-                <SelectTrigger>
+                <SelectTrigger id="pr-po">
                   <SelectValue placeholder="Select purchase order…" />
                 </SelectTrigger>
                 <SelectContent>
@@ -517,9 +517,9 @@ function ReturnsContent() {
                 <Input id="pr-date" type="date" value={prDate} onChange={(e) => setPrDate(e.target.value)} />
               </div>
               <div className="space-y-1">
-                <Label>Dispatch From Warehouse</Label>
+                <Label htmlFor="pr-dispatch-warehouse">Dispatch From Warehouse</Label>
                 <Select value={prWarehouseId} onValueChange={(v) => setPrWarehouseId(v ?? '')}>
-                  <SelectTrigger>
+                  <SelectTrigger id="pr-dispatch-warehouse">
                     <SelectValue placeholder="Select warehouse…" />
                   </SelectTrigger>
                   <SelectContent>

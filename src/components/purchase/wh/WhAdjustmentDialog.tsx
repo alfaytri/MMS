@@ -187,9 +187,9 @@ export function WhAdjustmentDialog({ warehouses, currentProfile, children }: Pro
           <div className="space-y-4">
             {/* Warehouse */}
             <div className="space-y-1.5">
-              <Label className="text-xs">Warehouse *</Label>
+              <Label htmlFor="wh-adj-warehouse" className="text-xs">Warehouse *</Label>
               <Select value={warehouseId} onValueChange={(v) => setWarehouseId(v ?? '')}>
-                <SelectTrigger className="h-8 text-xs">
+                <SelectTrigger id="wh-adj-warehouse" className="h-8 text-xs">
                   <SelectValue placeholder="Select warehouse…" />
                 </SelectTrigger>
                 <SelectContent>
@@ -252,9 +252,9 @@ export function WhAdjustmentDialog({ warehouses, currentProfile, children }: Pro
             {/* Type + Qty */}
             <div className="grid grid-cols-2 gap-3">
               <div className="space-y-1.5">
-                <Label className="text-xs">Type *</Label>
+                <Label htmlFor="wh-adj-type" className="text-xs">Type *</Label>
                 <Select value={type} onValueChange={(v) => setType(v ?? '')}>
-                  <SelectTrigger className="h-8 text-xs">
+                  <SelectTrigger id="wh-adj-type" className="h-8 text-xs">
                     <SelectValue placeholder="Select type…" />
                   </SelectTrigger>
                   <SelectContent>
@@ -265,8 +265,9 @@ export function WhAdjustmentDialog({ warehouses, currentProfile, children }: Pro
                 </Select>
               </div>
               <div className="space-y-1.5">
-                <Label className="text-xs">Quantity *</Label>
+                <Label htmlFor="wh-adj-qty" className="text-xs">Quantity *</Label>
                 <Input
+                  id="wh-adj-qty"
                   type="number"
                   className="h-8 text-xs"
                   min="0"
@@ -279,8 +280,9 @@ export function WhAdjustmentDialog({ warehouses, currentProfile, children }: Pro
 
             {/* Reason */}
             <div className="space-y-1.5">
-              <Label className="text-xs">Reason *</Label>
+              <Label htmlFor="wh-adj-reason" className="text-xs">Reason *</Label>
               <Input
+                id="wh-adj-reason"
                 className="h-8 text-xs"
                 placeholder="Reason for adjustment…"
                 value={reason}
@@ -290,8 +292,9 @@ export function WhAdjustmentDialog({ warehouses, currentProfile, children }: Pro
 
             {/* Notes */}
             <div className="space-y-1.5">
-              <Label className="text-xs">Notes</Label>
+              <Label htmlFor="wh-adj-notes" className="text-xs">Notes</Label>
               <Textarea
+                id="wh-adj-notes"
                 className="text-xs min-h-[60px]"
                 placeholder="Optional notes…"
                 value={notes}

@@ -222,9 +222,9 @@ export function WhTransferDialog({ warehouses, currentProfile, children }: Props
             {/* From / To */}
             <div className="grid grid-cols-2 gap-3">
               <div className="space-y-1.5">
-                <Label className="text-xs">From Warehouse *</Label>
+                <Label htmlFor="wh-transfer-from" className="text-xs">From Warehouse *</Label>
                 <Select value={fromId} onValueChange={(v) => handleFromChange(v ?? '')}>
-                  <SelectTrigger className="h-8 text-xs">
+                  <SelectTrigger id="wh-transfer-from" className="h-8 text-xs">
                     <SelectValue placeholder="Select…" />
                   </SelectTrigger>
                   <SelectContent>
@@ -239,9 +239,9 @@ export function WhTransferDialog({ warehouses, currentProfile, children }: Props
                 </Select>
               </div>
               <div className="space-y-1.5">
-                <Label className="text-xs">To Warehouse *</Label>
+                <Label htmlFor="wh-transfer-to" className="text-xs">To Warehouse *</Label>
                 <Select value={toId} onValueChange={(v) => setToId(v ?? '')}>
-                  <SelectTrigger className="h-8 text-xs">
+                  <SelectTrigger id="wh-transfer-to" className="h-8 text-xs">
                     <SelectValue placeholder="Select…" />
                   </SelectTrigger>
                   <SelectContent>
@@ -365,8 +365,9 @@ export function WhTransferDialog({ warehouses, currentProfile, children }: Props
 
             {/* Notes */}
             <div className="space-y-1.5">
-              <Label className="text-xs">Notes</Label>
+              <Label htmlFor="wh-transfer-notes" className="text-xs">Notes</Label>
               <Textarea
+                id="wh-transfer-notes"
                 className="text-xs min-h-[60px]"
                 placeholder="Optional notes…"
                 value={notes}

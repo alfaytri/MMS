@@ -125,8 +125,8 @@ function CreateShipmentDialog({ open, onOpenChange }: { open: boolean; onOpenCha
         <DialogHeader><DialogTitle>Create Shipment</DialogTitle></DialogHeader>
         <form onSubmit={handleSubmit} className="space-y-4">
           <div className="space-y-1">
-            <Label>Purchase Order *</Label>
-            <select value={form.po_id} onChange={(e) => set('po_id', e.target.value)} className="flex h-9 w-full rounded-md border border-input bg-background px-3 py-1 text-sm">
+            <Label htmlFor="ship-po">Purchase Order *</Label>
+            <select id="ship-po" value={form.po_id} onChange={(e) => set('po_id', e.target.value)} className="flex h-9 w-full rounded-md border border-input bg-background px-3 py-1 text-sm">
               <option value="">Select PO…</option>
               {approvedPos.map((p) => (
                 <option key={p.id} value={p.id}>{p.po_number} — {p.supplier_name}</option>
@@ -136,8 +136,8 @@ function CreateShipmentDialog({ open, onOpenChange }: { open: boolean; onOpenCha
 
           <div className="grid grid-cols-2 gap-3">
             <div className="space-y-1">
-              <Label>Mode *</Label>
-              <select value={form.mode} onChange={(e) => set('mode', e.target.value)} className="flex h-9 w-full rounded-md border border-input bg-background px-3 py-1 text-sm">
+              <Label htmlFor="ship-mode">Mode *</Label>
+              <select id="ship-mode" value={form.mode} onChange={(e) => set('mode', e.target.value)} className="flex h-9 w-full rounded-md border border-input bg-background px-3 py-1 text-sm">
                 <option value="air">✈️ Air</option>
                 <option value="sea">🚢 Sea</option>
                 <option value="land">🚛 Land</option>
@@ -145,35 +145,35 @@ function CreateShipmentDialog({ open, onOpenChange }: { open: boolean; onOpenCha
               </select>
             </div>
             <div className="space-y-1">
-              <Label>Carrier *</Label>
-              <Input value={form.carrier} onChange={(e) => set('carrier', e.target.value)} placeholder="DHL, FedEx…" />
+              <Label htmlFor="ship-carrier">Carrier *</Label>
+              <Input id="ship-carrier" value={form.carrier} onChange={(e) => set('carrier', e.target.value)} placeholder="DHL, FedEx…" />
             </div>
           </div>
 
           <div className="space-y-1">
-            <Label>Tracking Number *</Label>
-            <Input value={form.tracking_number} onChange={(e) => set('tracking_number', e.target.value)} placeholder="TRK-001" />
+            <Label htmlFor="ship-tracking-number">Tracking Number *</Label>
+            <Input id="ship-tracking-number" value={form.tracking_number} onChange={(e) => set('tracking_number', e.target.value)} placeholder="TRK-001" />
           </div>
 
           <div className="grid grid-cols-2 gap-3">
             <div className="space-y-1">
-              <Label>Origin</Label>
-              <Input value={form.origin} onChange={(e) => set('origin', e.target.value)} placeholder="Shanghai" />
+              <Label htmlFor="ship-origin">Origin</Label>
+              <Input id="ship-origin" value={form.origin} onChange={(e) => set('origin', e.target.value)} placeholder="Shanghai" />
             </div>
             <div className="space-y-1">
-              <Label>Destination</Label>
-              <Input value={form.destination} onChange={(e) => set('destination', e.target.value)} placeholder="Doha" />
+              <Label htmlFor="ship-destination">Destination</Label>
+              <Input id="ship-destination" value={form.destination} onChange={(e) => set('destination', e.target.value)} placeholder="Doha" />
             </div>
           </div>
 
           <div className="grid grid-cols-2 gap-3">
             <div className="space-y-1">
-              <Label>ETD</Label>
-              <Input type="date" value={form.etd} onChange={(e) => set('etd', e.target.value)} />
+              <Label htmlFor="ship-etd">ETD</Label>
+              <Input id="ship-etd" type="date" value={form.etd} onChange={(e) => set('etd', e.target.value)} />
             </div>
             <div className="space-y-1">
-              <Label>ETA</Label>
-              <Input type="date" value={form.eta} onChange={(e) => set('eta', e.target.value)} />
+              <Label htmlFor="ship-eta">ETA</Label>
+              <Input id="ship-eta" type="date" value={form.eta} onChange={(e) => set('eta', e.target.value)} />
             </div>
           </div>
 
@@ -394,21 +394,21 @@ function ShipmentDetailDialog({
               <p className="text-sm font-medium">Add Tracking Event</p>
               <div className="grid grid-cols-2 gap-2">
                 <div className="space-y-1">
-                  <Label className="text-xs">Date *</Label>
-                  <Input type="date" value={eventForm.date} onChange={(e) => setEventForm((f) => ({ ...f, date: e.target.value }))} />
+                  <Label htmlFor="ship-event-date" className="text-xs">Date *</Label>
+                  <Input id="ship-event-date" type="date" value={eventForm.date} onChange={(e) => setEventForm((f) => ({ ...f, date: e.target.value }))} />
                 </div>
                 <div className="space-y-1">
-                  <Label className="text-xs">Location *</Label>
-                  <Input value={eventForm.location} onChange={(e) => setEventForm((f) => ({ ...f, location: e.target.value }))} placeholder="Port, city…" />
+                  <Label htmlFor="ship-event-location" className="text-xs">Location *</Label>
+                  <Input id="ship-event-location" value={eventForm.location} onChange={(e) => setEventForm((f) => ({ ...f, location: e.target.value }))} placeholder="Port, city…" />
                 </div>
               </div>
               <div className="space-y-1">
-                <Label className="text-xs">Status</Label>
-                <Input value={eventForm.status} onChange={(e) => setEventForm((f) => ({ ...f, status: e.target.value }))} placeholder="Departed, Cleared customs…" />
+                <Label htmlFor="ship-event-status" className="text-xs">Status</Label>
+                <Input id="ship-event-status" value={eventForm.status} onChange={(e) => setEventForm((f) => ({ ...f, status: e.target.value }))} placeholder="Departed, Cleared customs…" />
               </div>
               <div className="space-y-1">
-                <Label className="text-xs">Notes</Label>
-                <Textarea value={eventForm.notes} onChange={(e) => setEventForm((f) => ({ ...f, notes: e.target.value }))} rows={2} />
+                <Label htmlFor="ship-event-notes" className="text-xs">Notes</Label>
+                <Textarea id="ship-event-notes" value={eventForm.notes} onChange={(e) => setEventForm((f) => ({ ...f, notes: e.target.value }))} rows={2} />
               </div>
               <div className="flex gap-2 justify-end">
                 <Button type="button" variant="outline" size="sm" onClick={() => setShowEventForm(false)}>Cancel</Button>

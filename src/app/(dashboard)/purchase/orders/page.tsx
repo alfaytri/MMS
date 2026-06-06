@@ -56,7 +56,7 @@ const PAYMENT_STATUS_OPTIONS = [
 ]
 
 const STATUS_COLORS: Record<POStatus, string> = {
-  draft: 'bg-slate-100 text-slate-700',
+  draft: 'bg-muted text-foreground',
   pending_approval: 'bg-amber-100 text-amber-700',
   approved: 'bg-blue-100 text-blue-700',
   partially_received: 'bg-purple-100 text-purple-700',
@@ -68,7 +68,7 @@ const STATUS_COLORS: Record<POStatus, string> = {
 const PO_TYPE_TABS: { value: POType | ''; label: string; color: string }[] = [
   { value: '',          label: 'All',       color: '' },
   { value: 'rfq',       label: 'RFQ',       color: 'bg-orange-100 text-orange-700 border-orange-300' },
-  { value: 'draft',     label: 'Draft',     color: 'bg-slate-100 text-slate-700 border-slate-300' },
+  { value: 'draft',     label: 'Draft',     color: 'bg-muted text-foreground border-border' },
   { value: 'confirmed', label: 'Confirmed', color: 'bg-emerald-100 text-emerald-700 border-emerald-300' },
 ]
 
@@ -250,7 +250,7 @@ export default function PurchaseOrdersPage() {
                 <p className="text-xs text-muted-foreground mt-1">All POs</p>
               </div>
               <div className="p-2 rounded-lg bg-green-500/10">
-                <DollarSign className="h-5 w-5 text-green-500" />
+                <DollarSign className="h-5 w-5 text-success" />
               </div>
             </div>
           </CardContent>
@@ -456,7 +456,7 @@ export default function PurchaseOrdersPage() {
                           'inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium',
                           po.po_type === 'rfq' ? 'bg-orange-100 text-orange-700'
                             : po.po_type === 'confirmed' ? 'bg-emerald-100 text-emerald-700'
-                            : 'bg-slate-100 text-slate-700',
+                            : 'bg-muted text-foreground',
                         )}>
                           {po.po_type === 'rfq' ? 'RFQ' : po.po_type === 'confirmed' ? 'Confirmed' : 'Draft'}
                         </span>
@@ -476,7 +476,7 @@ export default function PurchaseOrdersPage() {
                       <TableCell className="text-center">
                         <span className={cn(
                           'inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium',
-                          STATUS_COLORS[po.status] ?? 'bg-slate-100 text-slate-700'
+                          STATUS_COLORS[po.status] ?? 'bg-muted text-foreground'
                         )}>
                           {po.status.replace(/_/g, ' ')}
                         </span>

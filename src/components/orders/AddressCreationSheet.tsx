@@ -167,11 +167,12 @@ export function AddressCreationSheet({ open, onOpenChange, customerId, phoneId, 
 
           {/* Label */}
           <div className="space-y-1.5">
-            <Label>
+            <Label htmlFor="addr-sheet-label">
               Address Label{' '}
-              <span className="font-normal text-slate-400">(optional)</span>
+              <span className="font-normal text-muted-foreground">(optional)</span>
             </Label>
             <Input
+              id="addr-sheet-label"
               placeholder="e.g. Main Villa, Office Floor 3"
               value={label}
               onChange={(e) => setLabel(e.target.value)}
@@ -179,7 +180,7 @@ export function AddressCreationSheet({ open, onOpenChange, customerId, phoneId, 
           </div>
 
           {/* Mode toggle */}
-          <div className="flex rounded-lg border border-slate-200 bg-slate-50 p-1 gap-1">
+          <div className="flex rounded-lg border border-border bg-muted p-1 gap-1">
             {(['blue-plate', 'google-coords'] as const).map((m) => (
               <button
                 key={m}
@@ -188,8 +189,8 @@ export function AddressCreationSheet({ open, onOpenChange, customerId, phoneId, 
                 className={cn(
                   'flex-1 rounded-md py-1.5 text-sm font-medium transition-colors',
                   mode === m
-                    ? 'bg-white text-slate-900 shadow-sm'
-                    : 'text-slate-500 hover:text-slate-700'
+                    ? 'bg-white text-foreground shadow-sm'
+                    : 'text-muted-foreground hover:text-foreground'
                 )}
               >
                 {m === 'blue-plate' ? 'Blue Plate' : 'Coordinates'}
@@ -202,16 +203,16 @@ export function AddressCreationSheet({ open, onOpenChange, customerId, phoneId, 
             <div className="space-y-4">
               <div className="grid grid-cols-2 gap-4">
                 <div className="space-y-1.5">
-                  <Label>Zone No.</Label>
-                  <Input placeholder="35" value={zoneNo} onChange={(e) => onBluePlateChange(setZoneNo, e.target.value)} />
+                  <Label htmlFor="addr-zone-no">Zone No.</Label>
+                  <Input id="addr-zone-no" placeholder="35" value={zoneNo} onChange={(e) => onBluePlateChange(setZoneNo, e.target.value)} />
                 </div>
                 <div className="space-y-1.5">
-                  <Label>Street No.</Label>
-                  <Input placeholder="877" value={streetNo} onChange={(e) => onBluePlateChange(setStreetNo, e.target.value)} />
+                  <Label htmlFor="addr-street-no">Street No.</Label>
+                  <Input id="addr-street-no" placeholder="877" value={streetNo} onChange={(e) => onBluePlateChange(setStreetNo, e.target.value)} />
                 </div>
                 <div className="space-y-1.5 col-span-2">
-                  <Label>Building No.</Label>
-                  <Input placeholder="41" value={buildingNo} onChange={(e) => onBluePlateChange(setBuildingNo, e.target.value)} />
+                  <Label htmlFor="addr-building-no">Building No.</Label>
+                  <Input id="addr-building-no" placeholder="41" value={buildingNo} onChange={(e) => onBluePlateChange(setBuildingNo, e.target.value)} />
                 </div>
               </div>
 
@@ -233,12 +234,12 @@ export function AddressCreationSheet({ open, onOpenChange, customerId, phoneId, 
                 </Button>
 
                 {verifyState === 'found' && qnasResult && (
-                  <div className="rounded-md border border-green-200 bg-green-50 px-3 py-2 space-y-1.5">
+                  <div className="rounded-md border border-green-200 bg-success/10 px-3 py-2 space-y-1.5">
                     <div className="flex items-center gap-1.5 text-sm font-medium text-green-700">
                       <CheckCircle2 className="h-4 w-4" />
                       Address verified
                     </div>
-                    <p className="text-xs text-green-600">
+                    <p className="text-xs text-success">
                       {qnasResult.lat.toFixed(6)}, {qnasResult.lng.toFixed(6)}
                     </p>
                     <div className="flex gap-3">
@@ -265,14 +266,14 @@ export function AddressCreationSheet({ open, onOpenChange, customerId, phoneId, 
                 )}
 
                 {verifyState === 'not_found' && (
-                  <div className="flex items-center gap-1.5 rounded-md border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700">
+                  <div className="flex items-center gap-1.5 rounded-md border border-red-200 bg-destructive/10 px-3 py-2 text-sm text-red-700">
                     <XCircle className="h-4 w-4 shrink-0" />
                     Address not found in Qatar national database
                   </div>
                 )}
 
                 {verifyState === 'error' && (
-                  <p className="text-xs text-slate-500">
+                  <p className="text-xs text-muted-foreground">
                     Could not reach QNAS service. You can still save the address.
                   </p>
                 )}
@@ -289,12 +290,12 @@ export function AddressCreationSheet({ open, onOpenChange, customerId, phoneId, 
             <div className="space-y-4">
               <div className="grid grid-cols-2 gap-4">
                 <div className="space-y-1.5">
-                  <Label>Latitude</Label>
-                  <Input placeholder="25.3764" value={lat} onChange={(e) => setLat(e.target.value)} />
+                  <Label htmlFor="addr-lat">Latitude</Label>
+                  <Input id="addr-lat" placeholder="25.3764" value={lat} onChange={(e) => setLat(e.target.value)} />
                 </div>
                 <div className="space-y-1.5">
-                  <Label>Longitude</Label>
-                  <Input placeholder="51.4480" value={lng} onChange={(e) => setLng(e.target.value)} />
+                  <Label htmlFor="addr-lng">Longitude</Label>
+                  <Input id="addr-lng" placeholder="51.4480" value={lng} onChange={(e) => setLng(e.target.value)} />
                 </div>
               </div>
 

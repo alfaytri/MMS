@@ -80,7 +80,7 @@ export function ContractTreeRow({
   } = useSortable({ id: service.id, disabled: !dragMode })
 
   const levelLabel = `L${depth + 1}`
-  const levelColor = LEVEL_COLORS[Math.min(depth, 2)] ?? 'bg-slate-100 text-slate-700'
+  const levelColor = LEVEL_COLORS[Math.min(depth, 2)] ?? 'bg-muted text-foreground'
 
   const itemKind: string = service.item_kind ?? 'service'
   const contractType: string | null = service.contract_type ?? null
@@ -124,7 +124,7 @@ export function ContractTreeRow({
     if (contractType === 'preventive') {
       return pricingMode === 'fixed'
         ? <Badge variant="outline" className="text-[9px] px-1.5 py-0 h-4 bg-orange-50 text-orange-600 border-orange-200">Fixed Price</Badge>
-        : <Badge variant="outline" className="text-[9px] px-1.5 py-0 h-4 bg-slate-50 text-slate-500 border-slate-200">By Condition</Badge>
+        : <Badge variant="outline" className="text-[9px] px-1.5 py-0 h-4 bg-muted text-muted-foreground border-border">By Condition</Badge>
     }
     if (contractType === 'area') {
       const unit = service.price_unit || 'unit'
@@ -279,7 +279,7 @@ export function ContractTreeRow({
               'text-[9px] px-1.5 py-0 h-4',
               service.status === 'active'
                 ? 'bg-emerald-50 text-emerald-600 border-emerald-200'
-                : 'bg-slate-50 text-slate-400 border-slate-200',
+                : 'bg-muted text-muted-foreground border-border',
             )}>
               {service.status === 'active' ? 'Active' : 'Inactive'}
             </Badge>

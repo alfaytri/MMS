@@ -132,13 +132,13 @@ export function ContractCard({ contract, onCancel }: Props) {
                   <span>Total</span>
                   <span>{contract.total_payments.toLocaleString()} QAR</span>
                 </div>
-                <div className="flex justify-between text-green-600">
+                <div className="flex justify-between text-success">
                   <span>Paid</span>
                   <span>{contract.paid_amount.toLocaleString()} QAR</span>
                 </div>
                 <div className="flex justify-between font-semibold">
                   <span>Balance</span>
-                  <span className={balance > 0 ? 'text-red-600' : ''}>
+                  <span className={balance > 0 ? 'text-destructive' : ''}>
                     {balance.toLocaleString()} QAR
                   </span>
                 </div>

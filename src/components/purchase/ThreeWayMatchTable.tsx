@@ -27,10 +27,10 @@ function computeMatchStatus(line: Pick<MatchLine, 'ordered_qty' | 'ordered_unit_
 }
 
 const MATCH_CONFIG: Record<MatchStatus, { icon: React.ReactNode; className: string; label: string }> = {
-  matched:           { icon: <CheckCircle2 className="w-4 h-4" />, className: 'text-green-600', label: 'Matched' },
+  matched:           { icon: <CheckCircle2 className="w-4 h-4" />, className: 'text-success', label: 'Matched' },
   qty_discrepancy:   { icon: <AlertTriangle className="w-4 h-4" />, className: 'text-amber-600', label: 'Qty Discrepancy' },
   price_discrepancy: { icon: <AlertTriangle className="w-4 h-4" />, className: 'text-amber-600', label: 'Price Discrepancy' },
-  unmatched:         { icon: <XCircle className="w-4 h-4" />, className: 'text-red-600', label: 'Unmatched' },
+  unmatched:         { icon: <XCircle className="w-4 h-4" />, className: 'text-destructive', label: 'Unmatched' },
   accepted_with_note:{ icon: <CheckCircle2 className="w-4 h-4" />, className: 'text-blue-600', label: 'Accepted' },
 }
 
@@ -90,7 +90,7 @@ export function ThreeWayMatchTable({ lines, onChange, readOnly = false }: Props)
                   <td className="text-right py-2 px-2 text-muted-foreground">{line.ordered_qty}</td>
                   <td className="text-right py-2 px-2 text-muted-foreground">{line.ordered_unit_price.toFixed(2)}</td>
                   <td className="text-right py-2 px-2 text-muted-foreground">
-                    {line.received_qty ?? <span className="text-red-500">—</span>}
+                    {line.received_qty ?? <span className="text-destructive">—</span>}
                   </td>
                   <td className="py-2 px-2">
                     {readOnly ? (

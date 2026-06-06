@@ -178,7 +178,7 @@ export function OvertimeReportTable() {
                         return (
                           <td key={mi} className="px-2 py-2 text-center">
                             {mins > 0 ? (
-                              <span className="inline-flex items-center justify-center rounded-md bg-red-50 text-red-700 text-[11px] font-medium px-1.5 py-0.5">
+                              <span className="inline-flex items-center justify-center rounded-md bg-destructive/10 text-red-700 text-[11px] font-medium px-1.5 py-0.5">
                                 {fmtHours(mins)}
                               </span>
                             ) : (

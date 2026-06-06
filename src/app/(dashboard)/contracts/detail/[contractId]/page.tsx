@@ -327,20 +327,20 @@ export default function ContractDetailPage() {
           {isEditable ? (
             <>
               <div className="space-y-2">
-                <Label>Customer Name</Label>
-                <Input value={customerName} onChange={(e) => setCustomerName(e.target.value)} />
+                <Label htmlFor="cd-customer-name">Customer Name</Label>
+                <Input id="cd-customer-name" value={customerName} onChange={(e) => setCustomerName(e.target.value)} />
               </div>
               <div className="space-y-2">
-                <Label>Phone</Label>
-                <Input value={phone} onChange={(e) => setPhone(e.target.value)} />
+                <Label htmlFor="cd-phone">Phone</Label>
+                <Input id="cd-phone" value={phone} onChange={(e) => setPhone(e.target.value)} />
               </div>
               <div className="space-y-2 sm:col-span-2">
-                <Label>Address</Label>
-                <Input value={address} onChange={(e) => setAddress(e.target.value)} />
+                <Label htmlFor="cd-address">Address</Label>
+                <Input id="cd-address" value={address} onChange={(e) => setAddress(e.target.value)} />
               </div>
               <div className="space-y-2">
-                <Label>Site Name</Label>
-                <Input value={siteName} onChange={(e) => setSiteName(e.target.value)} />
+                <Label htmlFor="cd-site-name">Site Name</Label>
+                <Input id="cd-site-name" value={siteName} onChange={(e) => setSiteName(e.target.value)} />
               </div>
             </>
           ) : (
@@ -361,11 +361,11 @@ export default function ContractDetailPage() {
           {isEditable ? (
             <>
               <div className="space-y-2">
-                <Label>Start Date</Label>
+                <Label htmlFor="cd-start-date">Start Date</Label>
                 <DatePicker value={startDate} onChange={setStartDate} placeholder="dd-mm-yyyy" />
               </div>
               <div className="space-y-2">
-                <Label>End Date</Label>
+                <Label htmlFor="cd-end-date">End Date</Label>
                 <DatePicker value={endDate} onChange={setEndDate} placeholder="dd-mm-yyyy" />
               </div>
             </>
@@ -598,8 +598,9 @@ export default function ContractDetailPage() {
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
             {isEditable ? (
               <div className="space-y-2">
-                <Label>Discount (QAR)</Label>
+                <Label htmlFor="cd-discount">Discount (QAR)</Label>
                 <Input
+                  id="cd-discount"
                   type="number"
                   min={0}
                   value={discount || ''}

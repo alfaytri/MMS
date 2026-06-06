@@ -158,19 +158,19 @@ export function AddUserDialog({ open, onOpenChange }: Props) {
             {/* Team Leader toggle */}
             <div className="flex items-center justify-between rounded-lg border p-3">
               <div>
-                <Label className="text-sm font-medium">Team Leader Account</Label>
+                <Label htmlFor="add-user-is-tl" className="text-sm font-medium">Team Leader Account</Label>
                 <p className="text-xs text-muted-foreground mt-0.5">
                   Links this account to a team leader employee
                 </p>
               </div>
-              <Switch checked={isTl} onCheckedChange={setIsTl} />
+              <Switch id="add-user-is-tl" checked={isTl} onCheckedChange={setIsTl} />
             </div>
 
             {isTl && (
               <div className="space-y-1.5">
-                <Label>Linked Employee *</Label>
+                <Label htmlFor="add-user-linked-employee">Linked Employee *</Label>
                 <Select value={linkedEmployeeId ?? ''} onValueChange={setLinkedEmployeeId}>
-                  <SelectTrigger>
+                  <SelectTrigger id="add-user-linked-employee">
                     <SelectValue placeholder="Select team leader employee…" />
                   </SelectTrigger>
                   <SelectContent>

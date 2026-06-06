@@ -226,7 +226,7 @@ export function CascadeInventorySelector({
           <span
             className={cn(
               'shrink-0 font-medium',
-              stockToShow > 0 ? 'text-green-600' : 'text-muted-foreground'
+              stockToShow > 0 ? 'text-success' : 'text-muted-foreground'
             )}
           >
             {stockToShow > 0 ? `${stockToShow} in stock` : 'Out of stock'}

@@ -136,10 +136,10 @@ export function DroppableCell({ teamId, slot, isOccupied, isPast, isSkillMatch, 
       className={cn(
         'shrink-0 transition-colors',
         isHalf ? 'border-r border-slate-100/50' : 'border-r border-slate-100',
-        blocked && 'bg-slate-100 cursor-not-allowed',
-        isPast && !isOccupied && 'bg-slate-50',
+        blocked && 'bg-muted cursor-not-allowed',
+        isPast && !isOccupied && 'bg-muted',
         !blocked && isOver && 'bg-orange-50 ring-1 ring-inset ring-orange-300',
-        !blocked && !isOver && isSkillMatch === true && 'bg-green-50',
+        !blocked && !isOver && isSkillMatch === true && 'bg-success/10',
         !blocked && isSkillMatch === false && 'opacity-40',
       )}
     />
@@ -257,7 +257,7 @@ export function DraftBlock({
           {draftInfo.orderId || label}
         </span>
         {blockW >= 80 && (
-          <span className={cn('truncate text-[10px] leading-tight', isOvertime ? 'text-red-600' : 'text-orange-600')}>{timeLabel}</span>
+          <span className={cn('truncate text-[10px] leading-tight', isOvertime ? 'text-destructive' : 'text-orange-600')}>{timeLabel}</span>
         )}
         {isOvertime && (
           <span className="absolute right-5 top-0.5 rounded bg-red-500 px-1 text-[8px] font-bold text-white leading-tight py-px">OT</span>
@@ -274,50 +274,50 @@ export function DraftBlock({
 
       {hovered && (
         <div
-          className="absolute top-full left-0 mt-1 w-64 bg-white border border-slate-200 rounded-lg shadow-xl p-3 space-y-2.5 text-xs"
+          className="absolute top-full left-0 mt-1 w-64 bg-white border border-border rounded-lg shadow-xl p-3 space-y-2.5 text-xs"
           style={{ zIndex: 50 }}
           onMouseEnter={handleMouseEnter}
           onMouseLeave={handleMouseLeave}
         >
           {draftInfo.orderId && (
-            <p className="font-mono font-bold text-slate-900 text-sm">{draftInfo.orderId}</p>
+            <p className="font-mono font-bold text-foreground text-sm">{draftInfo.orderId}</p>
           )}
           <div className="flex items-center gap-2 flex-wrap">
             <span className="rounded border border-orange-200 bg-orange-100 px-2 py-0.5 text-[10px] font-bold uppercase text-orange-700">
               {draftInfo.mode === 'emergency' ? 'Emergency' : draftInfo.mode === 'waitlist' ? 'Waitlist' : 'Scheduled'}
             </span>
-            <span className="rounded border border-slate-200 bg-slate-50 px-2 py-0.5 text-[10px] text-slate-500">
+            <span className="rounded border border-border bg-muted px-2 py-0.5 text-[10px] text-muted-foreground">
               Draft
             </span>
           </div>
 
           {draftInfo.customerName && (
-            <div className="flex items-center gap-1.5 text-slate-700">
-              <User className="h-3 w-3 shrink-0 text-slate-400" />
+            <div className="flex items-center gap-1.5 text-foreground">
+              <User className="h-3 w-3 shrink-0 text-muted-foreground" />
               <span className="font-medium">{draftInfo.customerName}</span>
             </div>
           )}
 
           {draftInfo.phone && (
-            <div className="flex items-center gap-1.5 text-slate-600">
-              <Phone className="h-3 w-3 shrink-0 text-slate-400" />
+            <div className="flex items-center gap-1.5 text-muted-foreground">
+              <Phone className="h-3 w-3 shrink-0 text-muted-foreground" />
               <span>{draftInfo.phone}</span>
             </div>
           )}
 
-          <div className="flex items-center gap-1.5 text-slate-600">
-            <Clock className="h-3 w-3 shrink-0 text-slate-400" />
+          <div className="flex items-center gap-1.5 text-muted-foreground">
+            <Clock className="h-3 w-3 shrink-0 text-muted-foreground" />
             <span>{timeLabel}</span>
           </div>
 
           <div className="flex items-start gap-1.5">
-            <ClipboardList className="h-3 w-3 shrink-0 mt-0.5 text-slate-400" />
+            <ClipboardList className="h-3 w-3 shrink-0 mt-0.5 text-muted-foreground" />
             <div className="space-y-0.5">
               {serviceLines.map((s, i) => (
-                <div key={i} className="flex items-center justify-between gap-4 text-slate-700">
+                <div key={i} className="flex items-center justify-between gap-4 text-foreground">
                   <span>{s.qty}&times; {s.name}</span>
                   {s.price > 0 && (
-                    <span className="font-semibold text-slate-900 shrink-0">QAR {s.price.toFixed(0)}</span>
+                    <span className="font-semibold text-foreground shrink-0">QAR {s.price.toFixed(0)}</span>
                   )}
                 </div>
               ))}
@@ -325,7 +325,7 @@ export function DraftBlock({
           </div>
 
           {isOvertime && (
-            <div className="rounded bg-red-50 border border-red-200 px-2 py-1.5 text-red-700 flex items-start gap-1.5">
+            <div className="rounded bg-destructive/10 border border-red-200 px-2 py-1.5 text-red-700 flex items-start gap-1.5">
               <span className="text-base leading-none shrink-0">&#x26A0;</span>
               <div className="space-y-0.5">
                 <p className="font-semibold">Outside schedule ({formatOvertimeDuration(overtimeMinutes)} total)</p>
@@ -336,7 +336,7 @@ export function DraftBlock({
           )}
 
           {draftInfo.notes && (
-            <div className="rounded bg-amber-50 border border-amber-100 px-2 py-1.5 text-slate-600">
+            <div className="rounded bg-amber-50 border border-amber-100 px-2 py-1.5 text-muted-foreground">
               <span className="font-semibold text-amber-700">Note: </span>
               {draftInfo.notes}
             </div>
@@ -429,13 +429,13 @@ export function VisitBlock({ visit: v, trackMap, hourLeftFn, workStart, workEnd,
 
       {hovered && (
         <div
-          className="absolute top-full left-0 mt-1 w-64 bg-white border border-slate-200 rounded-lg shadow-xl p-3 space-y-2.5 text-xs"
+          className="absolute top-full left-0 mt-1 w-64 bg-white border border-border rounded-lg shadow-xl p-3 space-y-2.5 text-xs"
           style={{ zIndex: 50 }}
           onMouseEnter={handleMouseEnter}
           onMouseLeave={handleMouseLeave}
         >
           {v.order_number && (
-            <p className="font-mono font-bold text-slate-900 text-sm">{v.order_number}</p>
+            <p className="font-mono font-bold text-foreground text-sm">{v.order_number}</p>
           )}
           <div className="flex items-center gap-2 flex-wrap">
             <span className={`rounded border px-2 py-0.5 text-[10px] font-bold uppercase ${colorBadge}`}>
@@ -449,35 +449,35 @@ export function VisitBlock({ visit: v, trackMap, hourLeftFn, workStart, workEnd,
           </div>
 
           {v.customer_name && (
-            <div className="flex items-center gap-1.5 text-slate-700">
-              <User className="h-3 w-3 shrink-0 text-slate-400" />
+            <div className="flex items-center gap-1.5 text-foreground">
+              <User className="h-3 w-3 shrink-0 text-muted-foreground" />
               <span className="font-medium">{v.customer_name}</span>
             </div>
           )}
 
           {v.customer_phone && (
-            <div className="flex items-center gap-1.5 text-slate-600">
-              <Phone className="h-3 w-3 shrink-0 text-slate-400" />
+            <div className="flex items-center gap-1.5 text-muted-foreground">
+              <Phone className="h-3 w-3 shrink-0 text-muted-foreground" />
               <span>{v.customer_phone}</span>
             </div>
           )}
 
           {timeLabel && (
-            <div className="flex items-center gap-1.5 text-slate-600">
-              <Clock className="h-3 w-3 shrink-0 text-slate-400" />
+            <div className="flex items-center gap-1.5 text-muted-foreground">
+              <Clock className="h-3 w-3 shrink-0 text-muted-foreground" />
               <span>{timeLabel}</span>
             </div>
           )}
 
           {v.services_summary && (
             <div className="flex items-start gap-1.5">
-              <ClipboardList className="h-3 w-3 shrink-0 mt-0.5 text-slate-400" />
-              <span className="text-slate-700">{v.services_summary}</span>
+              <ClipboardList className="h-3 w-3 shrink-0 mt-0.5 text-muted-foreground" />
+              <span className="text-foreground">{v.services_summary}</span>
             </div>
           )}
 
           {isOvertime && (
-            <div className="rounded bg-red-50 border border-red-200 px-2 py-1.5 text-red-700 flex items-start gap-1.5">
+            <div className="rounded bg-destructive/10 border border-red-200 px-2 py-1.5 text-red-700 flex items-start gap-1.5">
               <span className="text-base leading-none shrink-0">&#x26A0;</span>
               <div className="space-y-0.5">
                 <p className="font-semibold">Outside schedule ({formatOvertimeDuration(overtimeMinutes)} total)</p>

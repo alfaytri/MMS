@@ -52,12 +52,12 @@ export default function PaymentPortal({
 
   if (showSuccess) {
     return (
-      <main className="min-h-screen flex items-center justify-center p-4 bg-slate-50" dir="rtl">
+      <main className="min-h-screen flex items-center justify-center p-4 bg-muted" dir="rtl">
         <div className="max-w-sm w-full rounded-xl border bg-white p-6 text-center space-y-3">
-          <CheckCircle2 className="h-14 w-14 text-green-500 mx-auto" />
-          <h1 className="text-xl font-bold text-slate-900">تم الدفع بنجاح</h1>
-          <p className="text-lg font-semibold text-slate-700">Payment Successful</p>
-          <p className="text-sm text-slate-500">شكراً لكم — Thank you for your payment</p>
+          <CheckCircle2 className="h-14 w-14 text-success mx-auto" />
+          <h1 className="text-xl font-bold text-foreground">تم الدفع بنجاح</h1>
+          <p className="text-lg font-semibold text-foreground">Payment Successful</p>
+          <p className="text-sm text-muted-foreground">شكراً لكم — Thank you for your payment</p>
         </div>
       </main>
     )
@@ -65,10 +65,10 @@ export default function PaymentPortal({
 
   if (showNotReady) {
     return (
-      <main className="min-h-screen flex items-center justify-center p-4 bg-slate-50">
+      <main className="min-h-screen flex items-center justify-center p-4 bg-muted">
         <div className="max-w-sm w-full rounded-xl border bg-white p-6 text-center space-y-3">
           <h1 className="text-lg font-bold">Payment Link Not Ready</h1>
-          <p className="text-sm text-slate-500">
+          <p className="text-sm text-muted-foreground">
             The payment link is not ready yet. Please contact us for assistance.
           </p>
         </div>
@@ -78,12 +78,12 @@ export default function PaymentPortal({
 
   if (allInvoices.length === 0) {
     return (
-      <main className="min-h-screen flex items-center justify-center p-4 bg-slate-50" dir="rtl">
+      <main className="min-h-screen flex items-center justify-center p-4 bg-muted" dir="rtl">
         <div className="max-w-sm w-full rounded-xl border bg-white p-6 text-center space-y-3">
-          <CheckCircle2 className="h-14 w-14 text-green-500 mx-auto" />
-          <h1 className="text-xl font-bold text-slate-900">تم تسوية جميع الفواتير</h1>
-          <p className="text-lg font-semibold text-slate-700">All Invoices Settled</p>
-          <p className="text-sm text-slate-500">شكراً لكم — Thank you</p>
+          <CheckCircle2 className="h-14 w-14 text-success mx-auto" />
+          <h1 className="text-xl font-bold text-foreground">تم تسوية جميع الفواتير</h1>
+          <p className="text-lg font-semibold text-foreground">All Invoices Settled</p>
+          <p className="text-sm text-muted-foreground">شكراً لكم — Thank you</p>
         </div>
       </main>
     )
@@ -170,17 +170,17 @@ export default function PaymentPortal({
   const hasMultiplePhones = phoneGroups.length > 1
 
   return (
-    <main className="min-h-screen bg-slate-50 pb-24" dir="rtl">
+    <main className="min-h-screen bg-muted pb-24" dir="rtl">
       <div className="bg-white border-b px-4 py-4 text-center">
-        <h1 className="text-lg font-bold text-slate-900">الفيتري للصيانة</h1>
-        <p className="text-xs text-slate-500">Alfaytri Maintenance</p>
+        <h1 className="text-lg font-bold text-foreground">الفيتري للصيانة</h1>
+        <p className="text-xs text-muted-foreground">Alfaytri Maintenance</p>
         {customerName && (
-          <p className="text-sm font-medium text-slate-700 mt-1">{customerName}</p>
+          <p className="text-sm font-medium text-foreground mt-1">{customerName}</p>
         )}
       </div>
 
       <div className={`mx-auto px-4 py-4 ${hasMultiplePhones ? 'max-w-3xl' : 'max-w-lg'}`}>
-        <p className="text-sm text-slate-600 font-medium mb-3">
+        <p className="text-sm text-muted-foreground font-medium mb-3">
           الفواتير المستحقة — Outstanding Invoices
         </p>
 
@@ -195,7 +195,7 @@ export default function PaymentPortal({
 
             return (
               <div key={group.phone} className={hasMultiplePhones
-                ? 'rounded-xl border border-slate-200 bg-white p-3 space-y-2'
+                ? 'rounded-xl border border-border bg-white p-3 space-y-2'
                 : 'space-y-3'
               }>
                 {hasMultiplePhones && (
@@ -205,16 +205,16 @@ export default function PaymentPortal({
                     className="w-full flex items-center justify-between gap-2 pb-2 border-b border-slate-100"
                   >
                     <div className="flex items-center gap-2">
-                      <Phone className="h-3.5 w-3.5 text-slate-400" />
-                      <span className="text-xs font-mono font-semibold text-slate-700" dir="ltr">
+                      <Phone className="h-3.5 w-3.5 text-muted-foreground" />
+                      <span className="text-xs font-mono font-semibold text-foreground" dir="ltr">
                         {formatPhone(group.phone)}
                       </span>
-                      <span className="text-[10px] text-slate-400">
+                      <span className="text-[10px] text-muted-foreground">
                         ({group.invoices.length})
                       </span>
                     </div>
                     <div className="flex items-center gap-2">
-                      <span className="text-xs font-semibold text-slate-600">
+                      <span className="text-xs font-semibold text-muted-foreground">
                         {groupTotal.toFixed(2)} QAR
                       </span>
                       <div
@@ -223,7 +223,7 @@ export default function PaymentPortal({
                             ? 'bg-orange-500 border-orange-500'
                             : someGroupSelected
                               ? 'bg-orange-200 border-orange-400'
-                              : 'border-slate-300 bg-white'
+                              : 'border-border bg-white'
                         }`}
                       >
                         {allGroupSelected && (
@@ -252,31 +252,31 @@ export default function PaymentPortal({
                         className={`w-full rounded-xl border bg-white p-4 text-right transition-colors ${
                           isChecked
                             ? 'border-orange-400 ring-2 ring-orange-100'
-                            : 'border-slate-200'
+                            : 'border-border'
                         } ${isClicked && isChecked ? 'bg-orange-50/50' : ''}`}
                       >
                         <div className="flex items-start justify-between gap-3">
                           <div className="flex-1 min-w-0 space-y-1">
                             <div className="flex items-center gap-2">
-                              <span className="font-mono text-sm font-semibold text-slate-900">
+                              <span className="font-mono text-sm font-semibold text-foreground">
                                 {inv.invoice_number}
                               </span>
                               {inv.order_id && (
-                                <span className="text-xs text-slate-400">#{inv.order_id}</span>
+                                <span className="text-xs text-muted-foreground">#{inv.order_id}</span>
                               )}
                             </div>
-                            <p className="text-xs text-slate-500">{formatDate(inv.created_at)}</p>
+                            <p className="text-xs text-muted-foreground">{formatDate(inv.created_at)}</p>
                           </div>
 
                           <div className="flex items-center gap-3">
-                            <span className="text-base font-bold text-slate-900 whitespace-nowrap">
+                            <span className="text-base font-bold text-foreground whitespace-nowrap">
                               {inv.total_amount.toFixed(2)} QAR
                             </span>
                             <div
                               className={`h-5 w-5 rounded border-2 flex items-center justify-center shrink-0 ${
                                 isChecked
                                   ? 'bg-orange-500 border-orange-500'
-                                  : 'border-slate-300 bg-white'
+                                  : 'border-border bg-white'
                               }`}
                             >
                               {isChecked && (
@@ -299,8 +299,8 @@ export default function PaymentPortal({
 
       {error && (
         <div className={`mx-auto px-4 pb-2 ${hasMultiplePhones ? 'max-w-3xl' : 'max-w-lg'}`}>
-          <div className="rounded-lg bg-red-50 border border-red-200 p-3 flex items-start gap-2">
-            <AlertCircle className="h-4 w-4 text-red-500 mt-0.5 shrink-0" />
+          <div className="rounded-lg bg-destructive/10 border border-red-200 p-3 flex items-start gap-2">
+            <AlertCircle className="h-4 w-4 text-destructive mt-0.5 shrink-0" />
             <p className="text-sm text-red-700 whitespace-pre-line">{error}</p>
           </div>
         </div>

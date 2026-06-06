@@ -310,7 +310,7 @@ export function ApprovalChainsTab() {
                           <TableCell>
                             <div className="flex gap-1">
                               <Button variant="ghost" size="icon" className="h-7 w-7" onClick={handleSaveEdit} disabled={upsertTier.isPending}>
-                                <Check className="h-3.5 w-3.5 text-green-600" />
+                                <Check className="h-3.5 w-3.5 text-success" />
                               </Button>
                               <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => setEditingTier(null)}>
                                 <X className="h-3.5 w-3.5 text-muted-foreground" />

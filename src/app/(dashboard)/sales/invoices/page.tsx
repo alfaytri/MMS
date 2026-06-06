@@ -27,13 +27,13 @@ const DOC_STATUSES = [
 ]
 
 const DOC_STATUS_CONFIG: Record<string, string> = {
-  draft:         'bg-slate-100 text-slate-700',
+  draft:         'bg-muted text-foreground',
   ready_to_send: 'bg-blue-100 text-blue-700',
   sent:          'bg-green-100 text-green-700',
 }
 
 const PAY_STATUS_CONFIG: Record<string, string> = {
-  unpaid:         'bg-slate-100 text-slate-600',
+  unpaid:         'bg-muted text-muted-foreground',
   partially_paid: 'bg-amber-100 text-amber-700',
   paid:           'bg-green-100 text-green-700',
   overdue:        'bg-red-100 text-red-700',

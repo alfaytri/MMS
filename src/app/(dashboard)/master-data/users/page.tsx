@@ -37,7 +37,7 @@ import {
 
 const ROLE_COLOR_CLASSES: Record<string, string> = {
   blue:   'bg-blue-50   text-blue-700   border-blue-200',
-  green:  'bg-green-50  text-green-700  border-green-200',
+  green:  'bg-success/10  text-green-700  border-green-200',
   orange: 'bg-orange-50 text-orange-700 border-orange-200',
   purple: 'bg-purple-50 text-purple-700 border-purple-200',
   teal:   'bg-teal-50   text-teal-700   border-teal-200',

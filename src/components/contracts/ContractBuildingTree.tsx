@@ -202,7 +202,7 @@ export function ContractBuildingTree({
                       Rename
                     </DropdownMenuItem>
                     <DropdownMenuItem
-                      className="text-red-600"
+                      className="text-destructive"
                       onClick={() => handleDeleteNode(node.id)}
                     >
                       Delete

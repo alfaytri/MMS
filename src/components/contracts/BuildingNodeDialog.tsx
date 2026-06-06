@@ -50,9 +50,9 @@ export function BuildingNodeDialog({ open, onOpenChange, parentType, onAdd }: Pr
             />
           </div>
           <div className="space-y-2">
-            <Label>Type</Label>
+            <Label htmlFor="bnode-type">Type</Label>
             <Select value={type} onValueChange={(v) => setType(v ?? '')}>
-              <SelectTrigger>
+              <SelectTrigger id="bnode-type">
                 <SelectValue placeholder="Select type" />
               </SelectTrigger>
               <SelectContent>

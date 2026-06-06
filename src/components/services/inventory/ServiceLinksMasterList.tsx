@@ -345,7 +345,7 @@ export function ServiceLinksMasterList({
 
             {/* Stats */}
             <span className="text-xs font-normal text-muted-foreground shrink-0 pr-3">
-              {nodeTotal} · <span className="text-green-600">{nodeLinked}</span>
+              {nodeTotal} · <span className="text-success">{nodeLinked}</span>
             </span>
           </div>
           {isExpanded && renderTree(children, level + 1)}
@@ -375,7 +375,7 @@ export function ServiceLinksMasterList({
         <span>
           <span className="font-medium text-foreground">{filteredLeaves.length}</span> services
           {' · '}
-          <span className="text-green-600 font-medium">{filteredLinkedCount}</span> linked
+          <span className="text-success font-medium">{filteredLinkedCount}</span> linked
           {' · '}
           <span className="text-amber-500 font-medium">{filteredNoSupplyCount}</span> no supply
         </span>

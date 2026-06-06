@@ -381,7 +381,7 @@ export default function EditPOPage() {
               <Badge variant="outline" className="text-xs font-mono">v{currentVersion}</Badge>
             </div>
             <Badge
-              className={`text-[10px] mt-0.5 ${po.status === 'draft' ? 'bg-slate-100 text-slate-700' : po.status === 'pending_approval' ? 'bg-amber-100 text-amber-700' : po.status === 'approved' ? 'bg-blue-100 text-blue-700' : 'bg-green-100 text-green-700'}`}
+              className={`text-[10px] mt-0.5 ${po.status === 'draft' ? 'bg-muted text-foreground' : po.status === 'pending_approval' ? 'bg-amber-100 text-amber-700' : po.status === 'approved' ? 'bg-blue-100 text-blue-700' : 'bg-green-100 text-green-700'}`}
               variant="outline"
             >
               {po.status.replace(/_/g, ' ')}

@@ -187,9 +187,9 @@ export function PoReceiveTab({ po }: { po: PurchaseOrder }) {
       {/* ── Toolbar ───────────────────────────────────────────────────────── */}
       <div className="flex flex-wrap items-end gap-3">
         <div className="space-y-1 flex-1 min-w-[180px]">
-          <Label>Warehouse *</Label>
+          <Label htmlFor="po-receive-warehouse">Warehouse *</Label>
           <Select value={warehouseId} onValueChange={(v) => setWarehouseId(v ?? '')}>
-            <SelectTrigger><SelectValue placeholder="Select warehouse…" /></SelectTrigger>
+            <SelectTrigger id="po-receive-warehouse"><SelectValue placeholder="Select warehouse…" /></SelectTrigger>
             <SelectContent>
               {(warehouses ?? []).map((w) => (
                 <SelectItem key={w.id} value={w.id}>{w.name}</SelectItem>
@@ -202,7 +202,7 @@ export function PoReceiveTab({ po }: { po: PurchaseOrder }) {
         </Button>
         <Button
           variant="outline" size="sm" type="button"
-          className="gap-1.5 text-green-600 border-green-300 hover:bg-green-50"
+          className="gap-1.5 text-success border-green-300 hover:bg-success/10"
           onClick={() => { resetNonPo(); setNonPoOpen(true) }}
         >
           <Gift className="h-3.5 w-3.5" /> + Free
@@ -242,17 +242,17 @@ export function PoReceiveTab({ po }: { po: PurchaseOrder }) {
                   </TableCell>
                   <TableCell className="text-right text-sm">
                     {row.freeQty > 0
-                      ? <span className="text-green-600 font-medium">{row.freeQty}</span>
+                      ? <span className="text-success font-medium">{row.freeQty}</span>
                       : <span className="text-muted-foreground">—</span>}
                   </TableCell>
                   <TableCell className="text-right text-sm">
                     {row.alreadyReceived > 0
-                      ? <span className="text-green-600">{row.alreadyReceived}</span>
+                      ? <span className="text-success">{row.alreadyReceived}</span>
                       : <span className="text-muted-foreground">0</span>}
                   </TableCell>
                   <TableCell className="text-right text-sm">
                     {done
-                      ? <span className="inline-flex items-center gap-1 text-green-600"><Check className="h-3.5 w-3.5" /></span>
+                      ? <span className="inline-flex items-center gap-1 text-success"><Check className="h-3.5 w-3.5" /></span>
                       : <>{remaining}{row.unit && <span className="text-muted-foreground ml-1 text-xs">{row.unit}</span>}</>}
                   </TableCell>
                   <TableCell className="text-right">
@@ -283,7 +283,7 @@ export function PoReceiveTab({ po }: { po: PurchaseOrder }) {
                       type="button"
                       title="Add free items for this product"
                       onClick={() => openFreeDialog(row.po_line_item_id)}
-                      className="flex items-center justify-center h-7 w-7 rounded hover:bg-green-50 text-green-500 hover:text-green-600 transition-colors"
+                      className="flex items-center justify-center h-7 w-7 rounded hover:bg-success/10 text-success hover:text-success transition-colors"
                     >
                       <Gift className="h-4 w-4" />
                     </button>
@@ -294,14 +294,14 @@ export function PoReceiveTab({ po }: { po: PurchaseOrder }) {
 
             {/* Extra non-PO free items */}
             {extraFreeItems.map((fi) => (
-              <TableRow key={fi._id} className="bg-green-50/50">
+              <TableRow key={fi._id} className="bg-success/10/50">
                 <TableCell>
                   <p className="font-medium text-sm text-green-700">{fi.item_name}</p>
                   {fi.sku && <p className="text-xs text-muted-foreground">{fi.sku}</p>}
                 </TableCell>
                 <TableCell className="text-right text-xs text-muted-foreground">—</TableCell>
-                <TableCell className="text-right text-sm text-green-600 font-medium">{fi.qty}</TableCell>
-                <TableCell colSpan={3} className="text-xs text-green-600 italic">Free (not on PO)</TableCell>
+                <TableCell className="text-right text-sm text-success font-medium">{fi.qty}</TableCell>
+                <TableCell colSpan={3} className="text-xs text-success italic">Free (not on PO)</TableCell>
                 <TableCell className="hidden sm:table-cell" />
                 <TableCell>
                   <button
@@ -320,8 +320,8 @@ export function PoReceiveTab({ po }: { po: PurchaseOrder }) {
 
       {/* ── Notes ─────────────────────────────────────────────────────────── */}
       <div className="space-y-1">
-        <Label>Notes</Label>
-        <Input value={notes} onChange={(e) => setNotes(e.target.value)} placeholder="Optional receival notes…" />
+        <Label htmlFor="po-receive-notes">Notes</Label>
+        <Input id="po-receive-notes" value={notes} onChange={(e) => setNotes(e.target.value)} placeholder="Optional receival notes…" />
       </div>
 
       {/* ── Same-product free item dialog ─────────────────────────────────── */}
@@ -333,8 +333,9 @@ export function PoReceiveTab({ po }: { po: PurchaseOrder }) {
           <div className="space-y-3">
             <Input value={freeRow?.item_name ?? ''} readOnly className="bg-muted text-sm" />
             <div className="space-y-1">
-              <Label>QTY</Label>
+              <Label htmlFor="po-free-qty">QTY</Label>
               <Input
+                id="po-free-qty"
                 type="number" min={0}
                 value={freeQtyInput}
                 onChange={(e) => setFreeQtyInput(e.target.value)}
@@ -361,9 +362,9 @@ export function PoReceiveTab({ po }: { po: PurchaseOrder }) {
           <div className="space-y-3">
             {/* Category */}
             <div className="space-y-1">
-              <Label>Category</Label>
+              <Label htmlFor="po-nonpo-category">Category</Label>
               <Select value={nonPoCatId || 'all'} onValueChange={(v) => { setNonPoCatId((v ?? '') === 'all' ? '' : (v ?? '')); setNonPoItemId(''); setNonPoVariantId('') }}>
-                <SelectTrigger><SelectValue placeholder="All Categories" /></SelectTrigger>
+                <SelectTrigger id="po-nonpo-category"><SelectValue placeholder="All Categories" /></SelectTrigger>
                 <SelectContent>
                   <SelectItem value="all">All Categories</SelectItem>
                   {categories.map((c) => (
@@ -375,12 +376,12 @@ export function PoReceiveTab({ po }: { po: PurchaseOrder }) {
 
             {/* Item */}
             <div className="space-y-1">
-              <Label>Item *</Label>
+              <Label htmlFor="po-nonpo-item">Item *</Label>
               <Select
                 value={nonPoItemId}
                 onValueChange={(v) => { setNonPoItemId(v ?? ''); setNonPoVariantId('') }}
               >
-                <SelectTrigger><SelectValue placeholder="— Select —" /></SelectTrigger>
+                <SelectTrigger id="po-nonpo-item"><SelectValue placeholder="— Select —" /></SelectTrigger>
                 <SelectContent>
                   {filteredItems.length === 0 ? (
                     <SelectItem value="_empty" disabled>No items found</SelectItem>
@@ -395,13 +396,13 @@ export function PoReceiveTab({ po }: { po: PurchaseOrder }) {
 
             {/* Brand / Variant */}
             <div className="space-y-1">
-              <Label>Brand / Variant <span className="text-muted-foreground text-xs">(optional)</span></Label>
+              <Label htmlFor="po-nonpo-variant">Brand / Variant <span className="text-muted-foreground text-xs">(optional)</span></Label>
               <Select
                 value={nonPoVariantId}
                 onValueChange={(v) => setNonPoVariantId(v ?? '')}
                 disabled={!nonPoItemId}
               >
-                <SelectTrigger><SelectValue placeholder={!nonPoItemId ? 'Select item first…' : '— Select —'} /></SelectTrigger>
+                <SelectTrigger id="po-nonpo-variant"><SelectValue placeholder={!nonPoItemId ? 'Select item first…' : '— Select —'} /></SelectTrigger>
                 <SelectContent>
                   <SelectItem value="_any">Any brand</SelectItem>
                   {variants.map((v) => (
@@ -415,8 +416,9 @@ export function PoReceiveTab({ po }: { po: PurchaseOrder }) {
 
             {/* Qty */}
             <div className="space-y-1">
-              <Label>Free QTY *</Label>
+              <Label htmlFor="po-nonpo-qty">Free QTY *</Label>
               <Input
+                id="po-nonpo-qty"
                 type="number" min={1}
                 value={nonPoQty}
                 onChange={(e) => setNonPoQty(e.target.value)}

@@ -182,24 +182,27 @@ export function CreateBillFromPODialog({ open, onOpenChange, poId }: Props) {
                   Bill Details
                 </p>
                 <div className="space-y-1">
-                  <Label>Due Date *</Label>
+                  <Label htmlFor="cbill-due-date">Due Date *</Label>
                   <Input
+                    id="cbill-due-date"
                     type="date"
                     value={dueDate}
                     onChange={(e) => setDueDate(e.target.value)}
                   />
                 </div>
                 <div className="space-y-1">
-                  <Label>Supplier Invoice # (Reference)</Label>
+                  <Label htmlFor="cbill-reference">Supplier Invoice # (Reference)</Label>
                   <Input
+                    id="cbill-reference"
                     value={reference}
                     onChange={(e) => setReference(e.target.value)}
                     placeholder="e.g. INV-2026-001"
                   />
                 </div>
                 <div className="space-y-1">
-                  <Label>Notes</Label>
+                  <Label htmlFor="cbill-notes">Notes</Label>
                   <Input
+                    id="cbill-notes"
                     value={notes}
                     onChange={(e) => setNotes(e.target.value)}
                     placeholder="Internal notes…"
@@ -271,7 +274,7 @@ export function CreateBillFromPODialog({ open, onOpenChange, poId }: Props) {
                             {showReceival && (
                               <TableCell className="text-right text-sm">
                                 {approvedReceived > 0
-                                  ? <span className="text-green-600 font-medium">{approvedReceived}</span>
+                                  ? <span className="text-success font-medium">{approvedReceived}</span>
                                   : <span className="text-muted-foreground">0</span>}
                                 <p className="text-xs text-muted-foreground">of {line.ordered_qty}</p>
                               </TableCell>

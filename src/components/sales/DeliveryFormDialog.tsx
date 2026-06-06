@@ -85,9 +85,9 @@ export function DeliveryFormDialog({ open, onOpenChange, delivery }: Props) {
         </DialogHeader>
         <div className="space-y-4">
           <div className="space-y-1">
-            <Label>Warehouse *</Label>
+            <Label htmlFor="delivery-warehouse">Warehouse *</Label>
             <Select value={warehouseId} onValueChange={(v) => setWarehouseId(v ?? '')}>
-              <SelectTrigger><SelectValue placeholder="Select warehouse" /></SelectTrigger>
+              <SelectTrigger id="delivery-warehouse"><SelectValue placeholder="Select warehouse" /></SelectTrigger>
               <SelectContent>
                 {(warehouses ?? []).map((w) => (
                   <SelectItem key={w.id} value={w.id}>{w.name}</SelectItem>

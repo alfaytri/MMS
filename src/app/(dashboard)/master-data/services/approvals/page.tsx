@@ -174,11 +174,11 @@ export default function ServiceApprovalsPage() {
                   {tab === 'pending' && (
                     <td className="px-3 py-2">
                       <div className="flex items-center justify-end gap-2">
-                        <Button size="sm" variant="outline" className="h-7 w-20 text-green-700 border-green-300 hover:bg-green-50"
+                        <Button size="sm" variant="outline" className="h-7 w-20 text-green-700 border-green-300 hover:bg-success/10"
                           onClick={() => setApproveTarget(req)}>
                           Approve
                         </Button>
-                        <Button size="sm" variant="outline" className="h-7 w-20 text-red-700 border-red-300 hover:bg-red-50"
+                        <Button size="sm" variant="outline" className="h-7 w-20 text-red-700 border-red-300 hover:bg-destructive/10"
                           onClick={() => { setRejectTarget(req); setRejectReason('') }}>
                           Reject
                         </Button>
@@ -186,7 +186,7 @@ export default function ServiceApprovalsPage() {
                     </td>
                   )}
                   {tab === 'rejected' && (
-                    <td className="px-3 py-2 text-xs text-red-600 max-w-[200px] truncate">
+                    <td className="px-3 py-2 text-xs text-destructive max-w-[200px] truncate">
                       {req.rejection_reason}
                     </td>
                   )}

@@ -14,7 +14,7 @@ interface Props {
 }
 
 const OPTIONS: { value: Status; label: string; icon: React.ElementType; color: string }[] = [
-  { value: 'done',    label: 'Done',    icon: CheckCircle2, color: 'text-green-600' },
+  { value: 'done',    label: 'Done',    icon: CheckCircle2, color: 'text-success' },
   { value: 'skipped', label: 'Skipped', icon: XCircle,      color: 'text-muted-foreground' },
   { value: 'issue',   label: 'Issue',   icon: AlertCircle,  color: 'text-destructive' },
 ]

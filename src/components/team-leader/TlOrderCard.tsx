@@ -55,7 +55,7 @@ export function TlOrderCard({ visit, teamId, isStarted, isCompleted, onStart, on
             <p className="font-medium text-sm">{visit.customer_name}</p>
             <p className="text-xs text-muted-foreground">{visit.address}</p>
           </div>
-          <Badge variant="outline" className="text-xs text-green-600 border-green-600">Completed</Badge>
+          <Badge variant="outline" className="text-xs text-success border-green-600">Completed</Badge>
         </div>
       </div>
     )

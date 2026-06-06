@@ -128,8 +128,9 @@ export function ChatAttachmentDialog({
               )}
 
               <div className="space-y-1.5">
-                <Label className="text-sm">Caption (optional)</Label>
+                <Label htmlFor="attach-caption" className="text-sm">Caption (optional)</Label>
                 <Input
+                  id="attach-caption"
                   value={caption}
                   onChange={(e) => setCaption(e.target.value)}
                   className="h-9"

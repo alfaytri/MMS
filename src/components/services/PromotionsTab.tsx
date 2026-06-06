@@ -14,8 +14,8 @@ import { usePromotionCampaigns, useVouchers, type CampaignWithRules, type Vouche
 const CAMPAIGN_STATUS_COLOR: Record<string, string> = {
   active: 'bg-green-100 text-green-700',
   scheduled: 'bg-blue-100 text-blue-700',
-  expired: 'bg-slate-100 text-slate-500',
-  disabled: 'bg-red-100 text-red-600',
+  expired: 'bg-muted text-muted-foreground',
+  disabled: 'bg-red-100 text-destructive',
 }
 
 const RULE_TYPE_LABEL: Record<string, string> = {
@@ -274,7 +274,7 @@ function VouchersSubTab({ enabled }: { enabled: boolean }) {
                       <Badge
                         variant="outline"
                         className={voucher.is_active
-                          ? 'border-green-500 text-green-600 text-[10px]'
+                          ? 'border-green-500 text-success text-[10px]'
                           : 'text-[10px] text-muted-foreground'}
                       >
                         {voucher.is_active ? 'Active' : 'Inactive'}

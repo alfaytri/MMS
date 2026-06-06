@@ -17,13 +17,13 @@ import { differenceInDays } from 'date-fns'
 import type { FinanceInvoice } from '@/hooks/useInvoices'
 
 const STATUS_CONFIG: Record<string, { label: string; color: string; icon: React.ElementType }> = {
-  draft:          { label: 'Draft',         color: 'bg-slate-100 text-slate-600',    icon: FileText },
+  draft:          { label: 'Draft',         color: 'bg-muted text-muted-foreground',    icon: FileText },
   sent:           { label: 'Sent',          color: 'bg-blue-100 text-blue-700',      icon: Send },
   partially_paid: { label: 'Partial',       color: 'bg-amber-100 text-amber-700',    icon: CreditCard },
   paid:           { label: 'Paid',          color: 'bg-emerald-100 text-emerald-700',icon: CheckCircle2 },
   overdue:        { label: 'Overdue',       color: 'bg-red-100 text-red-700',        icon: AlertTriangle },
-  cancelled:      { label: 'Cancelled',     color: 'bg-slate-100 text-slate-500',    icon: XCircle },
-  void:           { label: 'Void',          color: 'bg-slate-100 text-slate-500',    icon: Ban },
+  cancelled:      { label: 'Cancelled',     color: 'bg-muted text-muted-foreground',    icon: XCircle },
+  void:           { label: 'Void',          color: 'bg-muted text-muted-foreground',    icon: Ban },
 }
 
 const SOURCE_COLORS: Record<string, string> = {
@@ -75,7 +75,7 @@ export function InvoiceCard({ invoice, selected, onSelect, onVoid, onCreditNote 
             <span className="font-mono text-sm font-semibold">{invoice.invoice_id}</span>
             <Badge className={cn('text-[10px] px-1.5 py-0', status.color)}>{status.label}</Badge>
             {invoice.source_type && (
-              <Badge className={cn('text-[10px] px-1.5 py-0', SOURCE_COLORS[invoice.source_type] ?? 'bg-slate-100 text-slate-600')}>{invoice.source_type}</Badge>
+              <Badge className={cn('text-[10px] px-1.5 py-0', SOURCE_COLORS[invoice.source_type] ?? 'bg-muted text-muted-foreground')}>{invoice.source_type}</Badge>
             )}
             {isOverdue && overdueDays > 0 && (
               <Badge className="text-[10px] px-1.5 py-0 bg-red-100 text-red-700">{overdueDays}d overdue</Badge>
@@ -98,7 +98,7 @@ export function InvoiceCard({ invoice, selected, onSelect, onVoid, onCreditNote 
           {invoice.payment_status === 'paid' ? (
             <p className="text-[10px] text-emerald-600 font-medium">Paid in full</p>
           ) : isOverdue ? (
-            <p className="text-[10px] text-red-600 font-medium">Due {formatDate(invoice.due_date)}</p>
+            <p className="text-[10px] text-destructive font-medium">Due {formatDate(invoice.due_date)}</p>
           ) : (
             <p className="text-[10px] text-muted-foreground">Due {formatDate(invoice.due_date)}</p>
           )}
@@ -152,7 +152,7 @@ export function InvoiceCard({ invoice, selected, onSelect, onVoid, onCreditNote 
             </div>
             {isDestructible && (
               <div className="flex gap-2">
-                <Button variant="outline" size="sm" className="text-red-600 hover:text-red-700 hover:bg-red-50 text-xs h-8" onClick={(e) => { e.stopPropagation(); onVoid(invoice) }}>
+                <Button variant="outline" size="sm" className="text-destructive hover:text-red-700 hover:bg-destructive/10 text-xs h-8" onClick={(e) => { e.stopPropagation(); onVoid(invoice) }}>
                   <Ban className="h-3 w-3 mr-1" /> Void
                 </Button>
                 <Button variant="outline" size="sm" className="text-amber-600 hover:text-amber-700 hover:bg-amber-50 text-xs h-8" onClick={(e) => { e.stopPropagation(); onCreditNote(invoice) }}>

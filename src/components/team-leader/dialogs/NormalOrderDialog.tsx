@@ -148,7 +148,7 @@ export function NormalOrderDialog({ visit, profileId, onComplete, onClose }: Pro
               )}
 
               {/* Follow-up Required? */}
-              <div className="rounded-lg border border-red-200 bg-red-50/50 p-4 space-y-3">
+              <div className="rounded-lg border border-red-200 bg-destructive/10/50 p-4 space-y-3">
                 <p className="text-sm font-semibold">Follow-up Required?</p>
                 {!followUpOpen ? (
                   <Button variant="outline" size="sm" className="h-8 gap-1 text-xs" onClick={() => setFollowUpOpen(true)}>

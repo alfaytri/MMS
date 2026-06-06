@@ -67,7 +67,7 @@ export function SiteVisitSingleDialog({ visit, profileId, onComplete, onClose }:
         </div>
 
         {/* Services for Quotation */}
-        <div className="rounded-lg border border-green-200 bg-green-50/50 p-4 space-y-3">
+        <div className="rounded-lg border border-green-200 bg-success/10/50 p-4 space-y-3">
           <p className="text-sm font-semibold">Services for Quotation</p>
           <ServiceCatalogPicker onAdd={(s) => setQuotationServices((p) => [...p, s])} />
 

@@ -94,8 +94,9 @@ export function CustomerUnavailableDialog({ open, visitId, teamId, sourceType, s
                 maxPhotos={2}
               />
               <div className="space-y-1.5">
-                <Label>Notes (optional)</Label>
+                <Label htmlFor="unavailable-notes">Notes (optional)</Label>
                 <Textarea
+                  id="unavailable-notes"
                   value={notes}
                   onChange={(e) => setNotes(e.target.value)}
                   placeholder="Any additional context…"

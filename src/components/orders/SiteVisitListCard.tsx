@@ -27,33 +27,33 @@ export function SiteVisitListCard({ visit, onClick }: Props) {
       {/* Row 1: visit ID + type badge + status */}
       <div className="flex items-center gap-2 flex-wrap">
         <MapPinned className="h-3.5 w-3.5 shrink-0 text-purple-500" />
-        <span className="font-mono font-semibold text-slate-900 text-sm">{visit.visit_id}</span>
+        <span className="font-mono font-semibold text-foreground text-sm">{visit.visit_id}</span>
         <span className="rounded border border-purple-200 bg-purple-100 px-1.5 py-0.5 text-[11px] font-semibold text-purple-700">
           Site Visit
         </span>
-        <span className={cn('rounded border px-1.5 py-0.5 text-[11px] font-semibold uppercase', STATUS_STYLES[visit.status] ?? 'bg-slate-100 text-slate-600 border-slate-200')}>
+        <span className={cn('rounded border px-1.5 py-0.5 text-[11px] font-semibold uppercase', STATUS_STYLES[visit.status] ?? 'bg-muted text-muted-foreground border-border')}>
           {visit.status}
         </span>
       </div>
 
       {/* Row 2: customer name + date */}
-      <div className="flex items-center gap-3 text-xs text-slate-600 flex-wrap">
+      <div className="flex items-center gap-3 text-xs text-muted-foreground flex-wrap">
         <span className="font-medium">{visit.customer_name}</span>
         {visit.scheduled_date && (
-          <span className="text-slate-400">{format(new Date(visit.scheduled_date), 'dd MMM yyyy')}</span>
+          <span className="text-muted-foreground">{format(new Date(visit.scheduled_date), 'dd MMM yyyy')}</span>
         )}
       </div>
 
       {/* Row 3: customer phone */}
       {visit.customer_phone && (
-        <div className="flex items-center gap-1.5 text-xs text-slate-600">
-          <Phone className="h-3 w-3 shrink-0 text-slate-400" />
+        <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
+          <Phone className="h-3 w-3 shrink-0 text-muted-foreground" />
           <span>{visit.customer_phone}</span>
         </div>
       )}
 
       {arrivalDiffers && (
-        <div className="flex items-center gap-1.5 text-xs text-slate-500">
+        <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
           <Phone className="h-3 w-3 shrink-0 text-orange-400" />
           <span>{visit.arrival_phone}</span>
           <span className="text-[10px] text-orange-400 font-medium">on arrival</span>
@@ -62,7 +62,7 @@ export function SiteVisitListCard({ visit, onClick }: Props) {
 
       {/* Row 4: address */}
       {visit.address && (
-        <div className="flex items-center gap-1.5 text-xs text-slate-400">
+        <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
           <MapPin className="h-3 w-3 shrink-0" />
           <span className="truncate">{visit.address}</span>
         </div>

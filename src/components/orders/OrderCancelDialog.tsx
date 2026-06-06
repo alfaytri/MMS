@@ -52,10 +52,10 @@ export function OrderCancelDialog({
     <Dialog open={open} onOpenChange={(v) => { if (!v) handleClose() }}>
       <DialogContent className="w-full sm:max-w-md" showCloseButton={false}>
         <DialogHeader>
-          <DialogTitle className="text-red-600">Cancel Order</DialogTitle>
+          <DialogTitle className="text-destructive">Cancel Order</DialogTitle>
         </DialogHeader>
         <div className="space-y-3 py-2">
-          <p className="text-sm text-slate-600">
+          <p className="text-sm text-muted-foreground">
             <strong>{orderDisplayId}</strong> — {customerName}
           </p>
           <div className="space-y-1.5">

@@ -66,7 +66,7 @@ export function AttachmentsUpload({ attachments, onChange, disabled }: Props) {
         onDragOver={(e) => e.preventDefault()}
         onClick={() => !disabled && inputRef.current?.click()}
         className={cn(
-          'flex cursor-pointer flex-col items-center justify-center gap-1.5 rounded-md border-2 border-dashed border-slate-200 px-4 py-4 text-sm text-slate-400 transition-colors hover:border-orange-300 hover:bg-orange-50/40 hover:text-orange-500',
+          'flex cursor-pointer flex-col items-center justify-center gap-1.5 rounded-md border-2 border-dashed border-border px-4 py-4 text-sm text-muted-foreground transition-colors hover:border-orange-300 hover:bg-orange-50/40 hover:text-orange-500',
           disabled && 'pointer-events-none opacity-50'
         )}
       >
@@ -88,7 +88,7 @@ export function AttachmentsUpload({ attachments, onChange, disabled }: Props) {
       {attachments.length > 0 && (
         <div className="grid grid-cols-3 gap-2 sm:grid-cols-4">
           {attachments.map((item) => (
-            <div key={item.id} className="group relative rounded-md border border-slate-200 bg-slate-50 overflow-hidden">
+            <div key={item.id} className="group relative rounded-md border border-border bg-muted overflow-hidden">
               {item.previewUrl ? (
                 // Image preview
                 <img
@@ -102,9 +102,9 @@ export function AttachmentsUpload({ attachments, onChange, disabled }: Props) {
                   {item.file.type.includes('pdf') ? (
                     <FileText className="h-7 w-7 text-red-400" />
                   ) : (
-                    <ImageIcon className="h-7 w-7 text-slate-400" />
+                    <ImageIcon className="h-7 w-7 text-muted-foreground" />
                   )}
-                  <span className="w-full truncate text-center text-[10px] text-slate-500 px-1">
+                  <span className="w-full truncate text-center text-[10px] text-muted-foreground px-1">
                     {item.file.name}
                   </span>
                 </div>

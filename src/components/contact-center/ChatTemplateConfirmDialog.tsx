@@ -42,18 +42,18 @@ export function ChatTemplateConfirmDialog({
             </div>
             {template.headerMedia && (
               <div className="space-y-1">
-                <Label className="text-xs font-medium">
+                <Label htmlFor="tmpl-header-url" className="text-xs font-medium">
                   {template.headerMedia === 'document' ? 'Document URL' : template.headerMedia === 'image' ? 'Image URL' : 'Video URL'}
                 </Label>
-                <Input value={headerUrl} onChange={(e) => setHeaderUrl(e.target.value)} className="h-8 text-xs" placeholder="https://…" />
+                <Input id="tmpl-header-url" value={headerUrl} onChange={(e) => setHeaderUrl(e.target.value)} className="h-8 text-xs" placeholder="https://…" />
               </div>
             )}
             {template.variableCount > 0 && (
               <div className="space-y-3">
                 {template.paramNames.map((name, i) => (
                   <div key={name} className="space-y-1">
-                    <Label className="text-xs font-medium">{`{{${name}}}`}</Label>
-                    <Input value={vars[i] ?? ''} onChange={(e) => setVars((p) => p.map((v, pi) => pi === i ? e.target.value : v))} className="h-8 text-xs" placeholder={`Enter ${name}`} />
+                    <Label htmlFor={`tmpl-var-${name}`} className="text-xs font-medium">{`{{${name}}}`}</Label>
+                    <Input id={`tmpl-var-${name}`} value={vars[i] ?? ''} onChange={(e) => setVars((p) => p.map((v, pi) => pi === i ? e.target.value : v))} className="h-8 text-xs" placeholder={`Enter ${name}`} />
                   </div>
                 ))}
               </div>

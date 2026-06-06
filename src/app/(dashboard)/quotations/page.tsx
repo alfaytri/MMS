@@ -73,23 +73,23 @@ export default function QuotationsPage() {
 
       {/* ── Top bar ── */}
       <div className="flex items-center justify-between border-b px-6 py-4">
-        <h1 className="text-2xl font-bold text-slate-900">Quotations</h1>
+        <h1 className="text-2xl font-bold text-foreground">Quotations</h1>
         <Button className="gap-2" onClick={() => router.push('/quotations/create')}>
           <Plus className="h-4 w-4" /> New Quotation
         </Button>
       </div>
 
       {/* ── Search panel ── */}
-      <div className="border-b bg-slate-50">
+      <div className="border-b bg-muted">
         <button
           onClick={() => setSearchOpen((v) => !v)}
-          className="flex w-full items-center gap-2 px-6 py-3 text-sm font-semibold text-slate-700 hover:text-slate-900"
+          className="flex w-full items-center gap-2 px-6 py-3 text-sm font-semibold text-foreground hover:text-foreground"
         >
-          <Search className="h-4 w-4 text-slate-400" />
+          <Search className="h-4 w-4 text-muted-foreground" />
           <span>Search</span>
           {searchOpen
-            ? <ChevronUp className="ml-auto h-4 w-4 text-slate-400" />
-            : <ChevronDown className="ml-auto h-4 w-4 text-slate-400" />}
+            ? <ChevronUp className="ml-auto h-4 w-4 text-muted-foreground" />
+            : <ChevronDown className="ml-auto h-4 w-4 text-muted-foreground" />}
         </button>
 
         {searchOpen && (
@@ -101,7 +101,7 @@ export default function QuotationsPage() {
                 <button
                   key={b.label}
                   onClick={b.onClick}
-                  className="flex items-center gap-1.5 rounded-md border border-slate-200 bg-white px-3 py-1.5 text-xs font-medium text-slate-700 shadow-sm transition-colors hover:border-orange-400 hover:text-orange-600"
+                  className="flex items-center gap-1.5 rounded-md border border-border bg-white px-3 py-1.5 text-xs font-medium text-foreground shadow-sm transition-colors hover:border-orange-400 hover:text-orange-600"
                 >
                   {b.label}
                   {b.count !== undefined && (
@@ -115,7 +115,7 @@ export default function QuotationsPage() {
 
             {/* Status chips */}
             <div className="space-y-1.5">
-              <Label className="text-[11px] font-semibold uppercase tracking-wide text-slate-500">
+              <Label className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">
                 Status
               </Label>
               <div className="flex flex-wrap gap-1.5">
@@ -128,7 +128,7 @@ export default function QuotationsPage() {
                       'flex items-center gap-1 rounded-full border px-2.5 py-1 text-xs font-medium transition-colors',
                       search.statuses.includes(s.value)
                         ? 'border-orange-500 bg-orange-500 text-white'
-                        : 'border-slate-200 bg-white text-slate-600 hover:border-slate-300',
+                        : 'border-border bg-white text-muted-foreground hover:border-border',
                     )}
                   >
                     {s.label}
@@ -141,10 +141,11 @@ export default function QuotationsPage() {
             {/* Date + text filters */}
             <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
               <div className="space-y-1.5">
-                <Label className="text-[11px] font-semibold uppercase tracking-wide text-slate-500">
+                <Label htmlFor="quot-date-from" className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">
                   From Date
                 </Label>
                 <Input
+                  id="quot-date-from"
                   type="date"
                   className="h-9 text-sm cursor-pointer"
                   value={search.dateFrom}
@@ -153,10 +154,11 @@ export default function QuotationsPage() {
                 />
               </div>
               <div className="space-y-1.5">
-                <Label className="text-[11px] font-semibold uppercase tracking-wide text-slate-500">
+                <Label htmlFor="quot-date-to" className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">
                   To Date
                 </Label>
                 <Input
+                  id="quot-date-to"
                   type="date"
                   className="h-9 text-sm cursor-pointer"
                   value={search.dateTo}
@@ -165,10 +167,11 @@ export default function QuotationsPage() {
                 />
               </div>
               <div className="space-y-1.5">
-                <Label className="text-[11px] font-semibold uppercase tracking-wide text-slate-500">
+                <Label htmlFor="quot-customer-phone" className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">
                   Customer Phone
                 </Label>
                 <Input
+                  id="quot-customer-phone"
                   placeholder="Search phone…"
                   className="h-9 text-sm"
                   value={search.customerPhone}
@@ -176,10 +179,11 @@ export default function QuotationsPage() {
                 />
               </div>
               <div className="space-y-1.5">
-                <Label className="text-[11px] font-semibold uppercase tracking-wide text-slate-500">
+                <Label htmlFor="quot-number" className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">
                   Quotation No
                 </Label>
                 <Input
+                  id="quot-number"
                   placeholder="Q/2026/05/…"
                   className="h-9 text-sm"
                   value={search.quotationNumber}
@@ -213,9 +217,9 @@ export default function QuotationsPage() {
       {/* ── Card grid ── */}
       <div className="flex-1 overflow-y-auto p-4 sm:p-6">
         {isLoading ? (
-          <p className="py-12 text-center text-sm text-slate-400">Loading…</p>
+          <p className="py-12 text-center text-sm text-muted-foreground">Loading…</p>
         ) : quotations.length === 0 ? (
-          <p className="py-12 text-center text-sm text-slate-400">
+          <p className="py-12 text-center text-sm text-muted-foreground">
             No quotations found
           </p>
         ) : (
