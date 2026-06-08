@@ -164,6 +164,7 @@ Purchase & Sales▾:
 
 | Date | Module / Scope | Secrets | RLS | Auth Gate | Error Handling | Layout Stability | Notes |
 |---|---|---|---|---|---|---|---|
+| 2026-06-08 | **LC-COGS Attribution (Tasks 1-12)** | ✅ | ✅ | ✅ | ✅ | ✅ | No new tables (altered cogs_entries only); 4 SECURITY DEFINER RPCs (allocate, revert, get_cogs_breakdown, get_stock_value_cogs_summary); no new API routes; all data via Supabase client hooks; no external API calls; no hardcoded secrets; responsive HoverCard/Drawer pattern; no layout shifts |
 | 2026-06-06 | **Accessibility + Design Tokens (Task 9)** | ✅ | ✅ | ✅ | ✅ | ✅ | Pure UI refactor; no new tables, routes, or external integrations; 601 token substitutions across 96 files; ~180 label fixes across 38 files; 0 TS errors |
 | 2026-06-06 | **TypeScript Hygiene (Task 8)** | ✅ | ✅ | ✅ | ✅ | ✅ | No new tables, routes, or external integrations; pure type-safety refactor across 200 files; 0 TS errors |
 | 2026-05-31 | **Map Page** | ✅ | ✅ | ✅ | ✅ | ✅ | Read-only page, no new tables, uses existing RLS on teams/orders/team_live_locations |
@@ -203,10 +204,11 @@ Purchase & Sales▾:
 
 ## 🔄 In Progress
 
-🚀 Starting: **LC-COGS Attribution Tasks 11-12: Integration**
+*No active tasks.*
 
 ## ✅ Completed
 
+- [2026-06-08] **LC-COGS Attribution Tasks 11-12: Integration** — `WhStockValueTab.tsx`, `page.tsx (landed-costs)` — Wired CogsBreakdownPopover into Stock Value tab COGS cells; wired LcCogsPostedPanel into LC detail dialog; added ?open= deep-link support
 - [2026-06-08] **LC-COGS Attribution Tasks 8-10: UI Components** — `CogsBreakdownContent.tsx`, `CogsBreakdownPopover.tsx`, `LcCogsPostedPanel.tsx`, `hover-card.tsx`, `drawer.tsx` — Tooltip content, responsive HoverCard/Drawer wrapper, LC detail COGS panel
 
 - [2026-06-08] **LC-COGS Attribution Tasks 6-7: Hooks** — `src/hooks/useCogsBreakdown.ts`, `src/hooks/useStockValueCogsSummary.ts`, `src/lib/queryKeys.ts` — Two TanStack Query hooks wrapping the new RPCs + query keys
