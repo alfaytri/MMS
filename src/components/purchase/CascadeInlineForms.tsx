@@ -19,11 +19,12 @@ import type { LineType } from './PoLineItemsEditor'
 
 interface NewCategoryFormProps {
   lineType: LineType
+  parentId?: string | null
   onCreated: (category: InventoryCategory) => void
   onCancel: () => void
 }
 
-export function CascadeNewCategoryForm({ lineType, onCreated, onCancel }: NewCategoryFormProps) {
+export function CascadeNewCategoryForm({ lineType, parentId = null, onCreated, onCancel }: NewCategoryFormProps) {
   const [nameEn, setNameEn] = useState('')
   const [nameAr, setNameAr] = useState('')
   const create = useCreateInventoryCategory()
@@ -31,7 +32,12 @@ export function CascadeNewCategoryForm({ lineType, onCreated, onCancel }: NewCat
   function handleSubmit() {
     if (!nameEn.trim()) return
     create.mutate(
-      { name_en: nameEn.trim(), name_ar: nameAr.trim() || null, type: lineType },
+      {
+        name_en:   nameEn.trim(),
+        name_ar:   nameAr.trim() || null,
+        type:      lineType,
+        parent_id: parentId,
+      },
       {
         onSuccess: (cat) => { toast.success('Category created'); onCreated(cat) },
         onError:   (err) => toast.error(err.message),

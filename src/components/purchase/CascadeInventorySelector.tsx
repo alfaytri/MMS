@@ -20,7 +20,7 @@ import {
   type InventoryItem,
   type BrandVariant,
 } from '@/hooks/useInventory'
-import { useInventoryTree } from '@/hooks/useInventoryTree'
+import { useInventoryTree, type InventoryTreeNode } from '@/hooks/useInventoryTree'
 import { useBrandVariantAncestry } from '@/hooks/useBrandVariantAncestry'
 import type { InventoryLookupResult } from '@/hooks/usePurchaseOrders'
 import type { LineType } from './PoLineItemsEditor'
@@ -29,7 +29,6 @@ import {
   CascadeNewItemForm,
   CascadeNewVariantForm,
 } from './CascadeInlineForms'
-import { CascadeCategoryMenu } from './CascadeCategoryMenu'
 
 interface CascadeInventorySelectorProps {
   lineType: LineType
@@ -55,31 +54,143 @@ async function fetchLastFifoCost(variantId: string): Promise<number> {
 const triggerCls =
   'h-8 w-full inline-flex items-center justify-between rounded-md border border-input bg-background px-3 text-xs font-normal shadow-xs hover:bg-accent hover:text-accent-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring disabled:pointer-events-none disabled:opacity-50'
 
+// ─── Single-level category select (one column, searchable) ───────────────────
+
+interface CategoryLevelSelectProps {
+  placeholder: string
+  options: InventoryTreeNode[]
+  selected: InventoryTreeNode | null
+  disabled: boolean
+  loading: boolean
+  open: boolean
+  onOpenChange: (open: boolean) => void
+  onSelect: (node: InventoryTreeNode) => void
+  // Inline "Add new" form integration
+  lineType: LineType
+  parentId: string | null
+  isCreating: boolean
+  onStartCreate: () => void
+  onCancelCreate: () => void
+  onCreated: (cat: InventoryCategory) => void
+  emptyHint?: string
+}
+
+function CategoryLevelSelect({
+  placeholder,
+  options,
+  selected,
+  disabled,
+  loading,
+  open,
+  onOpenChange,
+  onSelect,
+  lineType,
+  parentId,
+  isCreating,
+  onStartCreate,
+  onCancelCreate,
+  onCreated,
+  emptyHint,
+}: CategoryLevelSelectProps) {
+  return (
+    <Popover open={open} onOpenChange={(o) => { onOpenChange(o); if (!o) onCancelCreate() }}>
+      <PopoverTrigger
+        className={cn(triggerCls, disabled && 'pointer-events-none opacity-50')}
+        render={(props) => <button type="button" disabled={disabled} {...props} />}
+      >
+        <span className="truncate">
+          {loading ? 'Loading…' : (selected?.name_en ?? placeholder)}
+        </span>
+        <ChevronsUpDown className="ml-1 h-3 w-3 shrink-0 opacity-50" />
+      </PopoverTrigger>
+      <PopoverContent className="w-64 p-0" align="start">
+        {isCreating ? (
+          <CascadeNewCategoryForm
+            lineType={lineType}
+            parentId={parentId}
+            onCreated={onCreated}
+            onCancel={onCancelCreate}
+          />
+        ) : (
+          <>
+            <Command>
+              <CommandInput placeholder="Search…" className="h-8 text-xs" />
+              <CommandEmpty className="py-2 text-xs text-center text-muted-foreground">
+                {loading ? 'Loading…' : (emptyHint ?? 'No categories found.')}
+              </CommandEmpty>
+              <CommandGroup className="max-h-60 overflow-y-auto">
+                {loading ? (
+                  <div className="px-2 py-1.5 space-y-1">
+                    {[1, 2, 3].map((n) => (
+                      <div key={n} className="h-6 rounded bg-muted animate-pulse" />
+                    ))}
+                  </div>
+                ) : (
+                  options.map((node) => (
+                    <CommandItem
+                      key={node.id}
+                      value={`${node.name_en} ${node.name_ar ?? ''}`}
+                      onSelect={() => onSelect(node)}
+                      className="text-xs"
+                    >
+                      <Check className={cn('mr-2 h-3 w-3 shrink-0', selected?.id === node.id ? 'opacity-100' : 'opacity-0')} />
+                      <div className="flex-1 min-w-0">
+                        <div className="truncate">{node.name_en}</div>
+                        {node.name_ar && <div className="text-muted-foreground truncate">{node.name_ar}</div>}
+                      </div>
+                    </CommandItem>
+                  ))
+                )}
+              </CommandGroup>
+            </Command>
+            <div className="border-t px-2 py-1.5">
+              <button
+                type="button"
+                className="w-full text-left text-xs text-muted-foreground hover:text-foreground py-1 px-2 rounded hover:bg-accent"
+                onClick={onStartCreate}
+              >
+                + Add new category
+              </button>
+            </div>
+          </>
+        )}
+      </PopoverContent>
+    </Popover>
+  )
+}
+
 export function CascadeInventorySelector({
   lineType,
   value,
   onChange,
   onPriceLoading,
 }: CascadeInventorySelectorProps) {
-  // Full objects stored directly — avoids .find() race with TanStack Query refetches
-  const [selectedCategory, setSelectedCategory] = useState<InventoryCategory | null>(null)
-  const [selectedItem,     setSelectedItem]     = useState<InventoryItem | null>(null)
+  // Three category levels — the deepest non-null wins as the effective category.
+  const [selectedL1, setSelectedL1] = useState<InventoryTreeNode | null>(null)
+  const [selectedL2, setSelectedL2] = useState<InventoryTreeNode | null>(null)
+  const [selectedL3, setSelectedL3] = useState<InventoryTreeNode | null>(null)
+  const [selectedItem, setSelectedItem] = useState<InventoryItem | null>(null)
 
-  const [catOpen,        setCatOpen]        = useState(false)
-  const [itemOpen,       setItemOpen]       = useState(false)
-  const [varOpen,        setVarOpen]        = useState(false)
+  const selectedCategory: InventoryTreeNode | null = selectedL3 ?? selectedL2 ?? selectedL1
+
+  const [l1Open, setL1Open] = useState(false)
+  const [l2Open, setL2Open] = useState(false)
+  const [l3Open, setL3Open] = useState(false)
+  const [itemOpen, setItemOpen] = useState(false)
+  const [varOpen,  setVarOpen]  = useState(false)
   const [isPriceLoading, setIsPriceLoading] = useState(false)
 
   const [selectedVariantCode,  setSelectedVariantCode]  = useState<string | null>(null)
   const [selectedVariantBrand, setSelectedVariantBrand] = useState<string | null>(null)
   const [selectedVariantStock, setSelectedVariantStock] = useState<number | null>(null)
 
-  const [isCatCreating,  setIsCatCreating]  = useState(false)
+  const [l1Creating, setL1Creating] = useState(false)
+  const [l2Creating, setL2Creating] = useState(false)
+  const [l3Creating, setL3Creating] = useState(false)
   const [isItemCreating, setIsItemCreating] = useState(false)
   const [isVarCreating,  setIsVarCreating]  = useState(false)
 
-  const { tree, flat: allCategories, breadcrumb: getBreadcrumb, isLoading: catsLoading } =
-    useInventoryTree(lineType)
+  const { tree, isLoading: catsLoading } = useInventoryTree(lineType)
   const { data: items = [], isLoading: itemsLoading } =
     useInventoryItemsByCategory(selectedCategory?.id ?? null)
   const { data: variants = [], isLoading: varsLoading } =
@@ -88,6 +199,37 @@ export function CascadeInventorySelector({
   const { data: ancestry, isLoading: ancestryLoading } = useBrandVariantAncestry(
     value && !selectedCategory ? value.brand_variant_id : null
   )
+
+  const l2Options = selectedL1?.children ?? []
+  const l3Options = selectedL2?.children ?? []
+
+  // ── Selection handlers ──────────────────────────────────────────────────────
+  function handleL1Select(node: InventoryTreeNode) {
+    setSelectedL1(node)
+    setSelectedL2(null)
+    setSelectedL3(null)
+    setSelectedItem(null)
+    onChange(null)
+    setL1Open(false)
+    // Auto-open L2 if there are children
+    if (node.children.length > 0) setTimeout(() => setL2Open(true), 0)
+  }
+
+  function handleL2Select(node: InventoryTreeNode) {
+    setSelectedL2(node)
+    setSelectedL3(null)
+    setSelectedItem(null)
+    onChange(null)
+    setL2Open(false)
+    if (node.children.length > 0) setTimeout(() => setL3Open(true), 0)
+  }
+
+  function handleL3Select(node: InventoryTreeNode) {
+    setSelectedL3(node)
+    setSelectedItem(null)
+    onChange(null)
+    setL3Open(false)
+  }
 
   async function handleVariantSelect(variant: {
     id: string
@@ -148,19 +290,30 @@ export function CascadeInventorySelector({
 
   function handleClear() {
     onChange(null)
-    setSelectedCategory(null)
+    setSelectedL1(null)
+    setSelectedL2(null)
+    setSelectedL3(null)
     setSelectedItem(null)
     setSelectedVariantCode(null)
     setSelectedVariantBrand(null)
     setSelectedVariantStock(null)
   }
 
-  function handleCategoryCreated(cat: InventoryCategory) {
-    setSelectedCategory(cat)
-    setSelectedItem(null)
-    setIsCatCreating(false)
-    setCatOpen(false)
-    setItemOpen(true)
+  // After creating a new category at a given level, slot it into that level.
+  function handleL1Created(cat: InventoryCategory) {
+    setL1Creating(false)
+    setL1Open(false)
+    handleL1Select({ ...cat, children: [] })
+  }
+  function handleL2Created(cat: InventoryCategory) {
+    setL2Creating(false)
+    setL2Open(false)
+    handleL2Select({ ...cat, children: [] })
+  }
+  function handleL3Created(cat: InventoryCategory) {
+    setL3Creating(false)
+    setL3Open(false)
+    handleL3Select({ ...cat, children: [] })
   }
 
   function handleItemCreated(item: InventoryItem) {
@@ -177,16 +330,12 @@ export function CascadeInventorySelector({
 
   // ── BREADCRUMB (compact, single-line, sits above the vendor name input) ────
   if (value) {
-    // For saved rows (no live selection), the ancestry RPC only returns the
-    // leaf category. Re-derive the full breadcrumb from the tree by id when
-    // possible so the chip shows "AC > Split > Rotary" not just "Rotary".
     const ancestryCatId = ancestry?.inventory_items?.inventory_categories?.id ?? null
     const categoryLabel =
       selectedCategory
-        ? getBreadcrumb(selectedCategory.id)
+        ? selectedCategory.name_en
         : ancestryCatId
-          ? (getBreadcrumb(ancestryCatId) ||
-              ancestry?.inventory_items?.inventory_categories?.name_en ||
+          ? (ancestry?.inventory_items?.inventory_categories?.name_en ||
               value.category_name ||
               null)
           : value.category_name ?? null
@@ -199,10 +348,8 @@ export function CascadeInventorySelector({
         : null
     const stockToShow = selectedVariantStock ?? ancestryStock
 
-    // Build a single-line dash-separated breadcrumb, e.g.
-    // "AC - Floor Ceiling - Inverter - 3.0 Ton - GREE"
     const breadcrumbParts: string[] = []
-    if (categoryLabel) breadcrumbParts.push(categoryLabel.replace(/\s*>\s*/g, ' - '))
+    if (categoryLabel) breadcrumbParts.push(categoryLabel)
     if (inventoryName) breadcrumbParts.push(inventoryName)
     if (code) breadcrumbParts.push(code)
     if (brand) breadcrumbParts.push(brand)
@@ -247,174 +394,213 @@ export function CascadeInventorySelector({
   }
 
   // ── CASCADE ────────────────────────────────────────────────────────────────
+  // Row 1: cascading category selects. Subcategory and Type slots only appear
+  // when the previous level actually has children — so picking a leaf category
+  // like "Water Heater" with no subtree gives you a single full-width select
+  // instead of two empty greyed-out boxes.
+  // Row 2: item + variant.
+  const showL2 = (selectedL1?.children.length ?? 0) > 0
+  const showL3 = showL2 && (selectedL2?.children.length ?? 0) > 0
+
   return (
-    <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
-      {/* Step 1 — Category */}
-      <Popover open={catOpen} onOpenChange={(open) => { setCatOpen(open); if (!open) setIsCatCreating(false) }}>
-        <PopoverTrigger
-          className={triggerCls}
-          render={(props) => <button type="button" {...props} />}
-        >
-          <span className="truncate">
-            {catsLoading ? 'Loading…' : (selectedCategory ? getBreadcrumb(selectedCategory.id) : 'Category…')}
-          </span>
-          <ChevronsUpDown className="ml-1 h-3 w-3 shrink-0 opacity-50" />
-        </PopoverTrigger>
-        <PopoverContent className="w-auto p-0" align="start">
-          {isCatCreating ? (
-            <CascadeNewCategoryForm
+    <div className="space-y-2">
+      {/* Row 1 — Category cascade (flex so visible columns share the width) */}
+      <div className="flex flex-col sm:flex-row gap-2">
+        <div className="flex-1 min-w-0">
+          <CategoryLevelSelect
+            placeholder="Category…"
+            options={tree}
+            selected={selectedL1}
+            disabled={false}
+            loading={catsLoading}
+            open={l1Open}
+            onOpenChange={setL1Open}
+            onSelect={handleL1Select}
+            lineType={lineType}
+            parentId={null}
+            isCreating={l1Creating}
+            onStartCreate={() => setL1Creating(true)}
+            onCancelCreate={() => setL1Creating(false)}
+            onCreated={handleL1Created}
+          />
+        </div>
+        {showL2 && (
+          <div className="flex-1 min-w-0">
+            <CategoryLevelSelect
+              placeholder="Subcategory…"
+              options={l2Options}
+              selected={selectedL2}
+              disabled={false}
+              loading={false}
+              open={l2Open}
+              onOpenChange={setL2Open}
+              onSelect={handleL2Select}
               lineType={lineType}
-              onCreated={handleCategoryCreated}
-              onCancel={() => setIsCatCreating(false)}
+              parentId={selectedL1?.id ?? null}
+              isCreating={l2Creating}
+              onStartCreate={() => setL2Creating(true)}
+              onCancelCreate={() => setL2Creating(false)}
+              onCreated={handleL2Created}
+              emptyHint="No subcategories."
             />
-          ) : (
-            <CascadeCategoryMenu
-              tree={tree}
-              flat={allCategories}
-              selectedId={selectedCategory?.id ?? null}
-              breadcrumb={getBreadcrumb}
-              onSelect={(cat) => {
-                setSelectedCategory(cat)
-                setSelectedItem(null)
-                onChange(null)
-                setCatOpen(false)
-              }}
-              onCreateNew={() => setIsCatCreating(true)}
+          </div>
+        )}
+        {showL3 && (
+          <div className="flex-1 min-w-0">
+            <CategoryLevelSelect
+              placeholder="Type…"
+              options={l3Options}
+              selected={selectedL3}
+              disabled={false}
+              loading={false}
+              open={l3Open}
+              onOpenChange={setL3Open}
+              onSelect={handleL3Select}
+              lineType={lineType}
+              parentId={selectedL2?.id ?? null}
+              isCreating={l3Creating}
+              onStartCreate={() => setL3Creating(true)}
+              onCancelCreate={() => setL3Creating(false)}
+              onCreated={handleL3Created}
+              emptyHint="No types."
             />
-          )}
-        </PopoverContent>
-      </Popover>
+          </div>
+        )}
+      </div>
 
-      {/* Step 2 — Item */}
-      <Popover open={itemOpen} onOpenChange={(open) => { setItemOpen(open); if (!open) setIsItemCreating(false) }}>
-        <PopoverTrigger
-          className={cn(triggerCls, !selectedCategory && 'pointer-events-none opacity-50')}
-          render={(props) => <button type="button" disabled={!selectedCategory} {...props} />}
-        >
-          <span className="truncate">
-            {itemsLoading ? 'Loading…' : (selectedItem?.name_en ?? 'Item…')}
-          </span>
-          <ChevronsUpDown className="ml-1 h-3 w-3 shrink-0 opacity-50" />
-        </PopoverTrigger>
-        <PopoverContent className="w-64 p-0" align="start">
-          {isItemCreating ? (
-            <CascadeNewItemForm
-              categoryId={selectedCategory!.id}
-              onCreated={handleItemCreated}
-              onCancel={() => setIsItemCreating(false)}
-            />
-          ) : (
-            <>
-              <Command>
-                <CommandInput placeholder="Search item…" className="h-8 text-xs" />
-                <CommandEmpty className="py-2 text-xs text-center text-muted-foreground">
-                  {itemsLoading ? 'Loading…' : 'No items found.'}
-                </CommandEmpty>
-                <CommandGroup>
-                  {itemsLoading ? (
-                    <div className="px-2 py-1.5 space-y-1">
-                      {[1, 2, 3].map((n) => (
-                        <div key={n} className="h-6 rounded bg-muted animate-pulse" />
-                      ))}
-                    </div>
-                  ) : (
-                    items.map((item) => (
-                      <CommandItem
-                        key={item.id}
-                        value={item.name_en}
-                        onSelect={() => {
-                          setSelectedItem(item)
-                          onChange(null)
-                          setItemOpen(false)
-                        }}
-                        className="text-xs"
-                      >
-                        <Check className={cn('mr-2 h-3 w-3 shrink-0', selectedItem?.id === item.id ? 'opacity-100' : 'opacity-0')} />
-                        <div>
-                          <div>{item.name_en}</div>
-                          {item.name_ar && <div className="text-muted-foreground">{item.name_ar}</div>}
-                        </div>
-                      </CommandItem>
-                    ))
-                  )}
-                </CommandGroup>
-              </Command>
-              <div className="border-t px-2 py-1.5">
-                <button
-                  type="button"
-                  className="w-full text-left text-xs text-muted-foreground hover:text-foreground py-1 px-2 rounded hover:bg-accent"
-                  onClick={() => setIsItemCreating(true)}
-                >
-                  + Add new item
-                </button>
-              </div>
-            </>
-          )}
-        </PopoverContent>
-      </Popover>
+      {/* Row 2 — Item + Variant */}
+      <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+        {/* Item */}
+        <Popover open={itemOpen} onOpenChange={(open) => { setItemOpen(open); if (!open) setIsItemCreating(false) }}>
+          <PopoverTrigger
+            className={cn(triggerCls, !selectedCategory && 'pointer-events-none opacity-50')}
+            render={(props) => <button type="button" disabled={!selectedCategory} {...props} />}
+          >
+            <span className="truncate">
+              {itemsLoading ? 'Loading…' : (selectedItem?.name_en ?? 'Item…')}
+            </span>
+            <ChevronsUpDown className="ml-1 h-3 w-3 shrink-0 opacity-50" />
+          </PopoverTrigger>
+          <PopoverContent className="w-64 p-0" align="start">
+            {isItemCreating ? (
+              <CascadeNewItemForm
+                categoryId={selectedCategory!.id}
+                onCreated={handleItemCreated}
+                onCancel={() => setIsItemCreating(false)}
+              />
+            ) : (
+              <>
+                <Command>
+                  <CommandInput placeholder="Search item…" className="h-8 text-xs" />
+                  <CommandEmpty className="py-2 text-xs text-center text-muted-foreground">
+                    {itemsLoading ? 'Loading…' : 'No items found.'}
+                  </CommandEmpty>
+                  <CommandGroup className="max-h-60 overflow-y-auto">
+                    {itemsLoading ? (
+                      <div className="px-2 py-1.5 space-y-1">
+                        {[1, 2, 3].map((n) => (
+                          <div key={n} className="h-6 rounded bg-muted animate-pulse" />
+                        ))}
+                      </div>
+                    ) : (
+                      items.map((item) => (
+                        <CommandItem
+                          key={item.id}
+                          value={item.name_en}
+                          onSelect={() => {
+                            setSelectedItem(item)
+                            onChange(null)
+                            setItemOpen(false)
+                          }}
+                          className="text-xs"
+                        >
+                          <Check className={cn('mr-2 h-3 w-3 shrink-0', selectedItem?.id === item.id ? 'opacity-100' : 'opacity-0')} />
+                          <div>
+                            <div>{item.name_en}</div>
+                            {item.name_ar && <div className="text-muted-foreground">{item.name_ar}</div>}
+                          </div>
+                        </CommandItem>
+                      ))
+                    )}
+                  </CommandGroup>
+                </Command>
+                <div className="border-t px-2 py-1.5">
+                  <button
+                    type="button"
+                    className="w-full text-left text-xs text-muted-foreground hover:text-foreground py-1 px-2 rounded hover:bg-accent"
+                    onClick={() => setIsItemCreating(true)}
+                  >
+                    + Add new item
+                  </button>
+                </div>
+              </>
+            )}
+          </PopoverContent>
+        </Popover>
 
-      {/* Step 3 — Brand / Variant */}
-      <Popover open={varOpen} onOpenChange={(open) => { setVarOpen(open); if (!open) setIsVarCreating(false) }}>
-        <PopoverTrigger
-          className={cn(triggerCls, !selectedItem && 'pointer-events-none opacity-50')}
-          render={(props) => <button type="button" disabled={!selectedItem} {...props} />}
-        >
-          <span className="truncate">
-            {varsLoading ? 'Loading…' : 'Brand / Variant…'}
-          </span>
-          <ChevronsUpDown className="ml-1 h-3 w-3 shrink-0 opacity-50" />
-        </PopoverTrigger>
-        <PopoverContent className="w-56 p-0" align="start">
-          {isVarCreating ? (
-            <CascadeNewVariantForm
-              itemId={selectedItem!.id}
-              onCreated={handleVariantCreated}
-              onCancel={() => setIsVarCreating(false)}
-            />
-          ) : (
-            <>
-              <Command>
-                <CommandInput placeholder="Search brand…" className="h-8 text-xs" />
-                <CommandEmpty className="py-2 text-xs text-center text-muted-foreground">
-                  {varsLoading ? 'Loading…' : 'No variants found.'}
-                </CommandEmpty>
-                <CommandGroup>
-                  {varsLoading ? (
-                    <div className="px-2 py-1.5 space-y-1">
-                      {[1, 2, 3].map((n) => (
-                        <div key={n} className="h-6 rounded bg-muted animate-pulse" />
-                      ))}
-                    </div>
-                  ) : (
-                    variants.map((v) => (
-                      <CommandItem
-                        key={v.id}
-                        value={`${v.brand} ${v.code ?? ''}`}
-                        onSelect={() => handleVariantSelect(v)}
-                        className="text-xs"
-                      >
-                        <div>
-                          <div className="font-medium">{v.brand}</div>
-                          {v.code && <div className="text-muted-foreground">{v.code}</div>}
-                        </div>
-                      </CommandItem>
-                    ))
-                  )}
-                </CommandGroup>
-              </Command>
-              <div className="border-t px-2 py-1.5">
-                <button
-                  type="button"
-                  className="w-full text-left text-xs text-muted-foreground hover:text-foreground py-1 px-2 rounded hover:bg-accent"
-                  onClick={() => setIsVarCreating(true)}
-                >
-                  + Add new brand / variant
-                </button>
-              </div>
-            </>
-          )}
-        </PopoverContent>
-      </Popover>
+        {/* Brand / Variant */}
+        <Popover open={varOpen} onOpenChange={(open) => { setVarOpen(open); if (!open) setIsVarCreating(false) }}>
+          <PopoverTrigger
+            className={cn(triggerCls, !selectedItem && 'pointer-events-none opacity-50')}
+            render={(props) => <button type="button" disabled={!selectedItem} {...props} />}
+          >
+            <span className="truncate">
+              {varsLoading ? 'Loading…' : 'Brand / Variant…'}
+            </span>
+            <ChevronsUpDown className="ml-1 h-3 w-3 shrink-0 opacity-50" />
+          </PopoverTrigger>
+          <PopoverContent className="w-56 p-0" align="start">
+            {isVarCreating ? (
+              <CascadeNewVariantForm
+                itemId={selectedItem!.id}
+                onCreated={handleVariantCreated}
+                onCancel={() => setIsVarCreating(false)}
+              />
+            ) : (
+              <>
+                <Command>
+                  <CommandInput placeholder="Search brand…" className="h-8 text-xs" />
+                  <CommandEmpty className="py-2 text-xs text-center text-muted-foreground">
+                    {varsLoading ? 'Loading…' : 'No variants found.'}
+                  </CommandEmpty>
+                  <CommandGroup className="max-h-60 overflow-y-auto">
+                    {varsLoading ? (
+                      <div className="px-2 py-1.5 space-y-1">
+                        {[1, 2, 3].map((n) => (
+                          <div key={n} className="h-6 rounded bg-muted animate-pulse" />
+                        ))}
+                      </div>
+                    ) : (
+                      variants.map((v) => (
+                        <CommandItem
+                          key={v.id}
+                          value={`${v.brand} ${v.code ?? ''}`}
+                          onSelect={() => handleVariantSelect(v)}
+                          className="text-xs"
+                        >
+                          <div>
+                            <div className="font-medium">{v.brand}</div>
+                            {v.code && <div className="text-muted-foreground">{v.code}</div>}
+                          </div>
+                        </CommandItem>
+                      ))
+                    )}
+                  </CommandGroup>
+                </Command>
+                <div className="border-t px-2 py-1.5">
+                  <button
+                    type="button"
+                    className="w-full text-left text-xs text-muted-foreground hover:text-foreground py-1 px-2 rounded hover:bg-accent"
+                    onClick={() => setIsVarCreating(true)}
+                  >
+                    + Add new brand / variant
+                  </button>
+                </div>
+              </>
+            )}
+          </PopoverContent>
+        </Popover>
+      </div>
     </div>
   )
 }
