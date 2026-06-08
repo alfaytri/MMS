@@ -208,6 +208,7 @@ Purchase & Sales▾:
 
 ## ✅ Completed
 
+- [2026-06-08] **Warehouse Module Improvements** — `WhMovementRefDialog.tsx`, `WhStockDetailDialog.tsx`, `WhInventoryCheckDetail.tsx`, `WhMovementsTab.tsx`, `useWarehouseOperations.ts` + 16 migrations — Fixed inv. check reviewed_at on final approval; counter-only count tab visibility; movement column reorder; inline Ref/Stock detail dialogs; field RP system; transfer workflow
 - [2026-06-08] **LC-COGS Attribution Tasks 11-12: Integration** — `WhStockValueTab.tsx`, `page.tsx (landed-costs)` — Wired CogsBreakdownPopover into Stock Value tab COGS cells; wired LcCogsPostedPanel into LC detail dialog; added ?open= deep-link support
 - [2026-06-08] **LC-COGS Attribution Tasks 8-10: UI Components** — `CogsBreakdownContent.tsx`, `CogsBreakdownPopover.tsx`, `LcCogsPostedPanel.tsx`, `hover-card.tsx`, `drawer.tsx` — Tooltip content, responsive HoverCard/Drawer wrapper, LC detail COGS panel
 
