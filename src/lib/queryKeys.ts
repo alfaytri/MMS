@@ -228,6 +228,8 @@ export const queryKeys = {
       ['cogs-entries', brandVariantId] as const,
     cogsBreakdown: (variantId: string) =>
       ['inventory', 'cogsBreakdown', variantId] as const,
+    stockValueCogsSummary: (variantIds: string[] | null) =>
+      ['inventory', 'stockValueCogsSummary', variantIds ? [...variantIds].sort() : null] as const,
     stockMovements: ['stock_movements'] as const,
     stockMovementsByVariant: (brandVariantId: Nullable) =>
       ['stock_movements', 'by_variant', brandVariantId] as const,
