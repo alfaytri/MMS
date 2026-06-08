@@ -226,6 +226,8 @@ export const queryKeys = {
     cogsEntries: ['cogs-entries'] as const,
     cogsEntriesByVariant: (brandVariantId: Nullable) =>
       ['cogs-entries', brandVariantId] as const,
+    cogsBreakdown: (variantId: string) =>
+      ['inventory', 'cogsBreakdown', variantId] as const,
     stockMovements: ['stock_movements'] as const,
     stockMovementsByVariant: (brandVariantId: Nullable) =>
       ['stock_movements', 'by_variant', brandVariantId] as const,
@@ -581,6 +583,16 @@ export const queryKeys = {
     inventoryCheckApprovals: (checkId: string) =>
       ['inventory_check_approvals', checkId] as const,
     receivalsDeliveries: ['receivals_deliveries'] as const,
+    warehouseFieldRPs: ['warehouse_field_rps'] as const,
+    warehouseFieldRPsByWarehouse: (warehouseId: Nullable) =>
+      ['warehouse_field_rps', { warehouseId }] as const,
+    reorderPoints: ['reorder_points'] as const,
+    reorderPointsByWarehouse: (warehouseId: Nullable) =>
+      ['reorder_points', { warehouseId }] as const,
+    transferDetail: (transferId: Nullable) =>
+      ['warehouse_transfers', 'detail', transferId] as const,
+    transferItems: (transferId: Nullable) =>
+      ['warehouse_transfer_items', transferId] as const,
   },
 
   /* ── Brand Groups (admin page) ──────────────────────────── */
