@@ -17,7 +17,7 @@ export function useStockValueCogsSummary(variantIds: string[] | null) {
     queryFn: async () => {
       const supabase = createClient()
       const { data, error } = await supabase.rpc('get_stock_value_cogs_summary', {
-        p_brand_variant_ids: variantIds,
+        p_brand_variant_ids: variantIds ?? undefined,
       })
       if (error) throw error
       const map = new Map<string, StockValueCogsRow>()

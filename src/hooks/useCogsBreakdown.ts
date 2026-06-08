@@ -24,7 +24,7 @@ export function useCogsBreakdown(variantId: string | undefined, enabled: boolean
     queryFn: async (): Promise<CogsBreakdown> => {
       const supabase = createClient()
       const { data, error } = await supabase.rpc('get_cogs_breakdown', {
-        p_brand_variant_id: variantId,
+        p_brand_variant_id: variantId!,
       })
       if (error) throw error
       return data as CogsBreakdown
