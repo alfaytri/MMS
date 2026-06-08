@@ -4,6 +4,8 @@ import { useState, useRef, useEffect } from 'react'
 import { useQuery } from '@tanstack/react-query'
 import Decimal from 'decimal.js'
 import Link from 'next/link'
+import { useSearchParams, useRouter } from 'next/navigation'
+import { LcCogsPostedPanel } from '@/components/landed-costs/LcCogsPostedPanel'
 import { toast } from 'sonner'
 import { Eye, Plus, Trash2, Paperclip, ChevronDown, ChevronRight, ExternalLink } from 'lucide-react'
 import { createClient } from '@/lib/supabase/client'
@@ -562,6 +564,13 @@ function LcDetailDialog({
                 </div>
               </div>
             )}
+
+                {/* COGS Posted (LC-after-sale adjustments) */}
+                <LcCogsPostedPanel
+                  allocations={lc.item_allocations as never}
+                  currency={lc.currency}
+                  appliedAt={lc.applied_at}
+                />
           </div>
 
           {!isVoided && !isApplied && (
@@ -1076,6 +1085,19 @@ export default function LandedCostsPage() {
   const [selected, setSelected] = useState<LandedCost | null>(null)
 
   const { data: landedCosts, isLoading } = useLandedCosts({ search })
+
+  const searchParams = useSearchParams()
+  const router = useRouter()
+
+  useEffect(() => {
+    const openId = searchParams?.get('open')
+    if (!openId) return
+    const lc = landedCosts?.find((row) => row.id === openId)
+    if (lc) {
+      setSelected(lc)
+      router.replace('/purchase/landed-costs', { scroll: false })
+    }
+  }, [searchParams, landedCosts, router, setSelected])
 
   const columns: ColumnDef<LandedCost>[] = [
     {
