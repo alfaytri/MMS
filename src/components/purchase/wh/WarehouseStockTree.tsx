@@ -3,7 +3,9 @@
 import React, { useState, useMemo, useCallback } from 'react'
 import { ChevronRight, ChevronDown } from 'lucide-react'
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip'
-import { useWarehouseStock } from '@/hooks/useWarehouseOperations'
+import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover'
+import { Input } from '@/components/ui/input'
+import { useWarehouseStock, useReorderPoints, useUpsertReorderPoint } from '@/hooks/useWarehouseOperations'
 import { Warehouse } from '@/hooks/useWarehouses'
 
 // ─── Types ────────────────────────────────────────────────────────────────────
@@ -91,6 +93,10 @@ export function WarehouseStockTree({ warehouseId, warehouses }: Props) {
     }
     return map
   }, [fullStock, warehouses])
+
+  const { data: reorderPoints = [] } = useReorderPoints(warehouseId)
+  const upsertRP = useUpsertReorderPoint()
+  const rpMap = useMemo(() => new Map(reorderPoints.map(rp => [rp.brand_variant_id, rp.reorder_point])), [reorderPoints])
 
   const tree = useMemo((): CategoryGroup[] => {
     const catMap = new Map<string, { itemType: string | null; itemMap: Map<string, Map<string, BrandEntry>> }>()
@@ -216,11 +222,33 @@ export function WarehouseStockTree({ warehouseId, warehouses }: Props) {
                           {b.sku && <span className="text-[9px] text-primary">{b.sku}</span>}
                         </div>
                         <div className="text-right w-12">
-                          <StockTooltip
-                            qty={b.qty}
-                            title="Stock by Warehouse"
-                            rows={warehouseBreakdown.get(b.brand_variant_id) ?? []}
-                          />
+                          <Popover>
+                            <PopoverTrigger className="text-xs tabular-nums hover:underline underline-offset-2 cursor-pointer">
+                                {b.qty}
+                                {rpMap.has(b.brand_variant_id) && b.qty <= (rpMap.get(b.brand_variant_id) ?? 0) && (
+                                  <span className="ml-1 text-[9px] text-warning">⚠</span>
+                                )}
+                            </PopoverTrigger>
+                            <PopoverContent className="w-48 p-3" side="right">
+                              <p className="text-xs font-medium mb-2">Reorder Point</p>
+                              <Input
+                                type="number"
+                                className="h-7 text-xs"
+                                defaultValue={rpMap.get(b.brand_variant_id) ?? 0}
+                                onBlur={(e) => {
+                                  const val = parseInt(e.target.value) || 0
+                                  upsertRP.mutate({
+                                    warehouseId,
+                                    brandVariantId: b.brand_variant_id,
+                                    reorderPoint: val,
+                                  })
+                                }}
+                              />
+                              <p className="text-[10px] text-muted-foreground mt-1">
+                                Alert when stock drops below this qty
+                              </p>
+                            </PopoverContent>
+                          </Popover>
                         </div>
                         <div className="text-right w-20 text-muted-foreground">{b.totalValue.toFixed(2)}</div>
                       </div>

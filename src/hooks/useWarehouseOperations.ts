@@ -11,8 +11,14 @@ export type StockMovementType =
   | 'transfer_in'
   | 'transfer_out'
   | 'adjustment'
-  | 'return'
+  | 'cost_adjustment'
+  | 'receival_edit'
+  | 'free_receival'
   | 'sale_return'
+  | 'sale_return_damaged'
+  | 'purchase_return'
+  | 'purchase_return_cancelled'
+  | 'transfer_shrinkage'
 
 export type StockMovement = {
   id: string
@@ -40,17 +46,27 @@ export type WarehouseStockItem = {
   avg_cost: number
   total_value: number
   category_name: string | null
+  subcategory_name: string | null
   item_type: string | null
+  allocated_qty: number
+  available_qty: number
 }
 
-export type TransferStatus = 'pending' | 'in_transit' | 'pending_approval' | 'approved' | 'rejected'
+export type TransferStatus = 'pending' | 'in_transit' | 'received' | 'rejected' | 'cancelled'
+  | 'pending_approval' | 'approved' // deprecated — kept for historical data
 
 export type TransferItem = {
+  id: string
+  transfer_id: string
   brand_variant_id: string
   item_name: string
   sku: string | null
-  qty: number
+  requested_qty: number
   unit_cost: number
+  dispatched_qty: number | null
+  received_qty: number | null
+  shrinkage_qty: number
+  shrinkage_reason: string | null
 }
 
 export type WarehouseTransfer = {
@@ -60,23 +76,31 @@ export type WarehouseTransfer = {
   to_warehouse_id: string
   status: TransferStatus
   created_by_name: string | null
-  approved_by_name: string | null
+  created_by_profile_id: string | null
+  dispatched_by_profile_id: string | null
+  dispatched_by_name: string | null
+  dispatched_at: string | null
+  received_by_profile_id: string | null
+  received_by_name: string | null
+  received_at: string | null
+  cancelled_by_name: string | null
+  cancelled_at: string | null
   date: string
-  approved_date: string | null
-  items: TransferItem[]
   notes: string | null
   created_at: string
   updated_at: string
   from_warehouse?: { name: string } | null
   to_warehouse?: { name: string } | null
+  transfer_items?: TransferItem[]
 }
 
 export type CreateTransferPayload = {
   from_warehouse_id: string
   to_warehouse_id: string
   date: string
-  items: TransferItem[]
+  items: Array<{ brand_variant_id: string; item_name: string; sku: string | null; qty: number; unit_cost: number }>
   notes?: string | null
+  created_by_profile_id?: string | null
   created_by_name?: string | null
 }
 
@@ -190,7 +214,7 @@ export type ReceivalDelivery = {
   warehouseName: string
   counterparty: string // supplier name (inbound) | customer name (outbound)
   date: string
-  items: { name: string; sku: string; qty: number }[]
+  items: { name: string; sku: string; qty: number; brand_variant_id?: string | null }[]
   itemCount: number
   status: string
 }
@@ -230,7 +254,7 @@ export function useWarehouseStock(warehouseId?: string) {
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       let q = supabase
         .from('warehouse_stock_view')
-        .select('warehouse_id, brand_variant_id, item_name, brand, sku, unit, qty, avg_cost, total_value, category_name, item_type')
+        .select('warehouse_id, brand_variant_id, item_name, brand, sku, unit, qty, avg_cost, total_value, category_name, subcategory_name, item_type, allocated_qty, available_qty')
         .order('item_name', { ascending: true })
       if (warehouseId) q = q.eq('warehouse_id', warehouseId)
       const { data, error } = await q
@@ -260,7 +284,10 @@ export function useWarehouseTransfers({ status }: { status?: TransferStatus } = 
       const supabase = createClient()
       let q = supabase
         .from('warehouse_transfers')
-        .select('*, from_warehouse:from_warehouse_id(name), to_warehouse:to_warehouse_id(name)')
+        .select(`
+  *, from_warehouse:from_warehouse_id(name), to_warehouse:to_warehouse_id(name),
+  transfer_items:warehouse_transfer_items(*)
+`)
         .order('created_at', { ascending: false })
       if (status) q = q.eq('status', status)
       const { data, error } = await q
@@ -276,28 +303,36 @@ export function useCreateTransfer() {
   return useMutation({
     mutationFn: async (payload: CreateTransferPayload) => {
       const supabase = createClient()
-      const { data, error } = await supabase
-        .from('warehouse_transfers')
-        .insert({ ...payload, status: 'pending' } as unknown as import('@/types/database.types').DBInsert<'warehouse_transfers'>)
-        .select()
-        .single()
-      if (error) throw error
-      return data as unknown as WarehouseTransfer
+      // IMPORTANT: Do NOT JSON.stringify — supabase-js auto-serializes JS objects to JSONB.
+      const { data, error } = await supabase.rpc('create_transfer_v2', {
+        p_from_warehouse_id: payload.from_warehouse_id,
+        p_to_warehouse_id: payload.to_warehouse_id,
+        p_date: payload.date,
+        p_items: payload.items,
+        p_notes: payload.notes ?? undefined,
+        p_created_by_profile_id: payload.created_by_profile_id ?? undefined,
+        p_created_by_name: payload.created_by_name ?? undefined,
+      })
+      if (error) throw new Error(error.message)
+      return data as string
     },
-    onSuccess: () => qc.invalidateQueries({ queryKey: queryKeys.warehouseOps.warehouseTransfers }),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: queryKeys.warehouseOps.warehouseTransfers })
+      qc.invalidateQueries({ queryKey: queryKeys.warehouseOps.warehouseStockAll })
+    },
   })
 }
 
-export function useApproveTransfer() {
+export function useDispatchTransfer() {
   const qc = useQueryClient()
   return useMutation({
-    mutationFn: async ({ id, approvedByName }: { id: string; approvedByName: string }) => {
+    mutationFn: async ({ id, profileId, profileName }: { id: string; profileId: string; profileName: string }) => {
       const supabase = createClient()
-      const { error } = await supabase
-        .rpc('approve_warehouse_transfer_inventory', {
-          p_transfer_id: id,
-          p_approved_by: approvedByName,
-        })
+      const { error } = await supabase.rpc('dispatch_transfer', {
+        p_transfer_id: id,
+        p_dispatched_by_profile_id: profileId,
+        p_dispatched_by_name: profileName,
+      })
       if (error) throw new Error(error.message)
     },
     onSuccess: () => {
@@ -311,18 +346,79 @@ export function useApproveTransfer() {
   })
 }
 
+export function useReceiveTransfer() {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: async ({
+      id, profileId, profileName, receivedItems,
+    }: {
+      id: string
+      profileId: string
+      profileName: string
+      receivedItems: Array<{ transfer_item_id: string; received_qty: number; shrinkage_reason?: string }>
+    }) => {
+      const supabase = createClient()
+      // Do NOT JSON.stringify — supabase-js auto-serializes to JSONB
+      const { error } = await supabase.rpc('receive_transfer', {
+        p_transfer_id: id,
+        p_received_by_profile_id: profileId,
+        p_received_by_name: profileName,
+        p_received_items: receivedItems,
+      })
+      if (error) throw new Error(error.message)
+    },
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: queryKeys.warehouseOps.warehouseTransfers })
+      qc.invalidateQueries({ queryKey: queryKeys.warehouseOps.warehouseStockAll })
+      qc.invalidateQueries({ queryKey: queryKeys.inventory.inventoryBrandVariants })
+      qc.invalidateQueries({ queryKey: queryKeys.inventory.stockMovements })
+      qc.invalidateQueries({ queryKey: queryKeys.inventory.fifoLayers })
+      qc.invalidateQueries({ queryKey: queryKeys.warehouses.all })
+    },
+  })
+}
+
+export function useCancelTransfer() {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: async ({ id, profileId, profileName }: { id: string; profileId: string; profileName: string }) => {
+      const supabase = createClient()
+      const { error } = await supabase.rpc('cancel_transfer', {
+        p_transfer_id: id,
+        p_cancelled_by_profile_id: profileId,
+        p_cancelled_by_name: profileName,
+      })
+      if (error) throw new Error(error.message)
+    },
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: queryKeys.warehouseOps.warehouseTransfers })
+      qc.invalidateQueries({ queryKey: queryKeys.warehouseOps.warehouseStockAll })
+      qc.invalidateQueries({ queryKey: queryKeys.inventory.stockMovements })
+      qc.invalidateQueries({ queryKey: queryKeys.inventory.fifoLayers })
+      qc.invalidateQueries({ queryKey: queryKeys.warehouses.all })
+    },
+  })
+}
+
 export function useRejectTransfer() {
   const qc = useQueryClient()
   return useMutation({
-    mutationFn: async (id: string) => {
+    mutationFn: async ({ id, profileId, profileName }: { id: string; profileId: string; profileName: string }) => {
       const supabase = createClient()
-      const { error } = await supabase
-        .from('warehouse_transfers')
-        .update({ status: 'rejected' })
-        .eq('id', id)
-      if (error) throw error
+      const { error } = await supabase.rpc('reject_transfer_v2', {
+        p_transfer_id: id,
+        p_rejected_by_profile_id: profileId,
+        p_rejected_by_name: profileName,
+      })
+      if (error) throw new Error(error.message)
     },
-    onSuccess: () => qc.invalidateQueries({ queryKey: queryKeys.warehouseOps.warehouseTransfers }),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: queryKeys.warehouseOps.warehouseTransfers })
+      qc.invalidateQueries({ queryKey: queryKeys.warehouseOps.warehouseStockAll })
+      qc.invalidateQueries({ queryKey: queryKeys.inventory.stockMovements })
+      qc.invalidateQueries({ queryKey: queryKeys.inventory.fifoLayers })
+      qc.invalidateQueries({ queryKey: queryKeys.warehouses.all })
+    },
   })
 }
 
@@ -532,7 +628,7 @@ export function useReceivalsAndDeliveries() {
       const [receivalsRes, deliveriesRes] = await Promise.all([
         supabase
           .from('receivals')
-          .select('id, receival_number, po_id, warehouse_id, date, status, received_by_name, purchase_orders(po_number), warehouses(name), receival_items(id, item_name, sku, qty_received)')
+          .select('id, receival_number, po_id, warehouse_id, date, status, received_by_name, purchase_orders(po_number), warehouses(name), receival_items(id, item_name, sku, qty_received, brand_variant_id)')
           .order('date', { ascending: false }),
         supabase
           .from('sale_deliveries')
@@ -553,7 +649,7 @@ export function useReceivalsAndDeliveries() {
         counterparty: r.received_by_name ?? '',
         date: r.date ?? '',
         items: Array.isArray(r.receival_items)
-          ? r.receival_items.map((ri: any) => ({ name: ri.item_name ?? '', sku: ri.sku ?? '', qty: ri.qty_received ?? 0 }))
+          ? r.receival_items.map((ri: any) => ({ name: ri.item_name ?? '', sku: ri.sku ?? '', qty: ri.qty_received ?? 0, brand_variant_id: ri.brand_variant_id ?? null }))
           : [],
         itemCount: Array.isArray(r.receival_items) ? r.receival_items.length : 0,
         status: r.status ?? 'pending',
@@ -568,7 +664,7 @@ export function useReceivalsAndDeliveries() {
         warehouseName: d.warehouse_name ?? '',
         counterparty: '', // customer name not directly available, would need join with sale_orders
         date: d.date ?? '',
-        items: Array.isArray(d.items) ? d.items : [],
+        items: Array.isArray(d.items) ? d.items.map((di: any) => ({ name: di.item_name ?? '', sku: di.sku ?? '', qty: di.qty_delivered ?? 0, brand_variant_id: di.brand_variant_id ?? null })) : [],
         itemCount: Array.isArray(d.items) ? d.items.length : 0,
         status: d.status ?? 'pending',
       }))
@@ -633,6 +729,39 @@ export function useInventoryCheckApprovals(checkId: string) {
       return (data ?? []) as InventoryCheckApprovalStep[]
     },
     enabled: !!checkId,
+    staleTime: 30_000,
+  })
+}
+
+export type PostCountMovement = {
+  id: string
+  brand_variant_id: string
+  item_name: string
+  sku: string | null
+  movement_type: string
+  qty: number
+  created_at: string
+}
+
+export function usePostCountMovements(checkId: string, warehouseId: string | undefined, countCompletedAt: string | null, approvedAt?: string | null) {
+  return useQuery({
+    queryKey: [...queryKeys.warehouseOps.inventoryCheckDetail(checkId), 'post-count-movements', approvedAt],
+    queryFn: async () => {
+      if (!warehouseId || !countCompletedAt) return []
+      const supabase = createClient()
+      let q = supabase
+        .from('inventory_stock_movements')
+        .select('id, brand_variant_id, item_name, sku, movement_type, qty, created_at')
+        .eq('warehouse_id', warehouseId)
+        .gt('created_at', countCompletedAt)
+        .neq('movement_type', 'inventory_check')
+        .order('created_at', { ascending: true })
+      if (approvedAt) q = q.lte('created_at', approvedAt)
+      const { data, error } = await q
+      if (error) throw error
+      return (data ?? []) as PostCountMovement[]
+    },
+    enabled: !!checkId && !!warehouseId && !!countCompletedAt,
     staleTime: 30_000,
   })
 }
@@ -854,14 +983,17 @@ export function useApproveCheckStep() {
       })
 
       if (action === 'rejected') {
-        await supabase.from('inventory_checks').update({ status: 'rejected' }).eq('id', checkId)
+        await supabase.from('inventory_checks').update({ status: 'rejected', reviewed_at: now, reviewed_by_name: profileName }).eq('id', checkId)
         await supabase.from('inventory_check_log').insert({ check_id: checkId, event_type: 'rejected', profile_id: profileId, profile_name: profileName })
       } else {
         const { data: allSteps } = await supabase
           .from('inventory_check_approvals').select('status').eq('check_id', checkId)
         if ((allSteps ?? []).every((s) => s.status === 'approved')) {
-          await supabase.from('inventory_checks').update({ status: 'approved' }).eq('id', checkId)
+          await supabase.from('inventory_checks').update({ status: 'approved', reviewed_at: now, reviewed_by_name: profileName }).eq('id', checkId)
           await supabase.from('inventory_check_log').insert({ check_id: checkId, event_type: 'approved', profile_id: profileId, profile_name: profileName })
+
+          const { error: adjErr } = await supabase.rpc('apply_inventory_check_adjustments', { p_check_id: checkId })
+          if (adjErr) throw adjErr
         }
       }
     },
@@ -869,6 +1001,11 @@ export function useApproveCheckStep() {
       qc.invalidateQueries({ queryKey: queryKeys.warehouseOps.inventoryChecks })
       qc.invalidateQueries({ queryKey: queryKeys.warehouseOps.inventoryCheckApprovals(vars.checkId) })
       qc.invalidateQueries({ queryKey: queryKeys.warehouseOps.inventoryCheckLog(vars.checkId) })
+      qc.invalidateQueries({ queryKey: queryKeys.warehouseOps.inventoryCheckDetail(vars.checkId) })
+      qc.invalidateQueries({ queryKey: queryKeys.inventory.stockMovements })
+      qc.invalidateQueries({ queryKey: queryKeys.inventory.fifoLayers })
+      qc.invalidateQueries({ queryKey: queryKeys.inventory.brandVariantsV2 })
+      qc.invalidateQueries({ queryKey: queryKeys.warehouseOps.warehouseStockAll })
     },
   })
 }
@@ -892,12 +1029,67 @@ export function useSaveItemCount() {
       const { error } = await supabase.rpc('save_inventory_check_item_count', {
         p_item_id:       itemId,
         p_counted_qty:   countedQty,
-        p_variance_type: varianceType,
+        p_variance_type: varianceType ?? '',
       })
       if (error) throw error
     },
     onSuccess: (_data, vars) => {
       qc.invalidateQueries({ queryKey: queryKeys.warehouseOps.inventoryCheckDetail(vars.checkId) })
+    },
+  })
+}
+
+// ─── Reorder Points ──────────────────────────────────────────────────
+
+export type ReorderPoint = {
+  id: string
+  warehouse_id: string
+  brand_variant_id: string
+  reorder_point: number
+  last_notified_at: string | null
+  created_at: string
+  updated_at: string
+}
+
+export function useReorderPoints(warehouseId?: string) {
+  return useQuery({
+    queryKey: queryKeys.warehouseOps.reorderPointsByWarehouse(warehouseId),
+    queryFn: async () => {
+      const supabase = createClient()
+      let q = supabase
+        .from('warehouse_reorder_points')
+        .select('*')
+        .order('created_at', { ascending: false })
+      if (warehouseId) q = q.eq('warehouse_id', warehouseId)
+      const { data, error } = await q
+      if (error) throw error
+      return (data ?? []) as ReorderPoint[]
+    },
+    staleTime: 5 * 60 * 1000,
+  })
+}
+
+export function useUpsertReorderPoint() {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: async ({
+      warehouseId, brandVariantId, reorderPoint,
+    }: {
+      warehouseId: string
+      brandVariantId: string
+      reorderPoint: number
+    }) => {
+      const supabase = createClient()
+      const { error } = await supabase
+        .from('warehouse_reorder_points')
+        .upsert(
+          { warehouse_id: warehouseId, brand_variant_id: brandVariantId, reorder_point: reorderPoint, updated_at: new Date().toISOString() },
+          { onConflict: 'warehouse_id,brand_variant_id' }
+        )
+      if (error) throw error
+    },
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: queryKeys.warehouseOps.reorderPoints })
     },
   })
 }

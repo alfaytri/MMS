@@ -1,11 +1,13 @@
 'use client'
 
+import { useMemo } from 'react'
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table'
 import { Package, Truck } from 'lucide-react'
-import { ReceivalDelivery } from '@/hooks/useWarehouseOperations'
+import { ItemTreeCell } from './ItemTreeCell'
+import { ReceivalDelivery, useWarehouseStock } from '@/hooks/useWarehouseOperations'
 import { format } from 'date-fns'
 
 interface Props {
@@ -14,6 +16,18 @@ interface Props {
 }
 
 export function WhReceivalDetailDialog({ item, onClose }: Props) {
+  const { data: fullStock = [] } = useWarehouseStock()
+
+  const variantMeta = useMemo(() => {
+    const map = new Map<string, { categoryName: string | null; itemType: string | null; itemName: string; brand: string | null }>()
+    for (const s of fullStock) {
+      if (!map.has(s.brand_variant_id)) {
+        map.set(s.brand_variant_id, { categoryName: s.category_name ?? null, itemType: s.item_type ?? null, itemName: s.item_name, brand: s.brand ?? null })
+      }
+    }
+    return map
+  }, [fullStock])
+
   if (!item) return null
   const isInbound = item.direction === 'inbound'
 
@@ -53,26 +67,36 @@ export function WhReceivalDetailDialog({ item, onClose }: Props) {
           <Table>
             <TableHeader>
               <TableRow>
-                <TableHead className="text-xs">Item</TableHead>
-                <TableHead className="text-xs">SKU</TableHead>
+                <TableHead className="text-xs w-[60%]">Item</TableHead>
                 <TableHead className="text-xs text-right">Qty</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
               {item.items.length === 0 ? (
                 <TableRow>
-                  <TableCell colSpan={3} className="text-center text-xs text-muted-foreground py-4">
+                  <TableCell colSpan={2} className="text-center text-xs text-muted-foreground py-4">
                     No items
                   </TableCell>
                 </TableRow>
               ) : (
-                item.items.map((i, idx) => (
-                  <TableRow key={idx}>
-                    <TableCell className="text-xs">{i.name}</TableCell>
-                    <TableCell className="text-xs text-primary">{i.sku || '—'}</TableCell>
-                    <TableCell className="text-xs text-right">{i.qty}</TableCell>
-                  </TableRow>
-                ))
+                item.items.map((i, idx) => {
+                  const meta = i.brand_variant_id ? variantMeta.get(i.brand_variant_id) : null
+                  return (
+                    <TableRow key={idx}>
+                      <TableCell className="text-xs py-2.5">
+                        <ItemTreeCell
+                          category={meta?.categoryName}
+                          itemType={meta?.itemType}
+                          itemName={meta?.itemName ?? i.name}
+                          brand={meta?.brand}
+                          sku={i.sku}
+                          showSku
+                        />
+                      </TableCell>
+                      <TableCell className="text-xs text-right py-2.5">{i.qty}</TableCell>
+                    </TableRow>
+                  )
+                })
               )}
             </TableBody>
           </Table>

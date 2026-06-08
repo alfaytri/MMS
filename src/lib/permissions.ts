@@ -3,7 +3,7 @@ import type { LucideProps } from 'lucide-react'
 import {
   Database, ShoppingCart, TrendingUp, ClipboardList,
   FileText, Receipt, Users, Settings2, CalendarDays, Headphones,
-  BarChart2, Map,
+  BarChart2, Map, Package,
 } from 'lucide-react'
 
 export type PermissionEntry = {
@@ -84,6 +84,23 @@ export const PERMISSION_GROUPS: PermissionGroup[] = [
       { key: 'purchase.bills.manage',           label: 'Manage Bills',                description: 'Create and edit purchase bills' },
       { key: 'purchase.rfq.view',               label: 'View RFQs',                   description: 'Access request for quotation records' },
       { key: 'purchase.rfq.manage',             label: 'Manage RFQs',                 description: 'Create and manage requests for quotations' },
+    ],
+  },
+  {
+    module: 'Warehouse',
+    icon: asFC(Package),
+    permissions: [
+      { key: 'warehouse.stock.view',           label: 'View Stock',              description: 'View stock levels, movements, and values across warehouses' },
+      { key: 'warehouse.transfer.create',      label: 'Create Transfers',        description: 'Initiate stock transfers between warehouses' },
+      { key: 'warehouse.transfer.dispatch',    label: 'Dispatch Transfers',      description: 'Approve items leaving a warehouse (Field RP only)' },
+      { key: 'warehouse.transfer.receive',     label: 'Receive Transfers',       description: 'Confirm items arriving at a warehouse (Field RP only)' },
+      { key: 'warehouse.transfer.approve',     label: 'Override Transfers',      description: 'Override/approve any transfer step (Inventory Manager)' },
+      { key: 'warehouse.adjustment.request',   label: 'Request Adjustments',     description: 'Submit stock adjustment requests' },
+      { key: 'warehouse.adjustment.approve',   label: 'Approve Adjustments',     description: 'Approve or reject stock adjustment requests' },
+      { key: 'warehouse.check.count',          label: 'Count Inventory',         description: 'Participate in inventory count checks' },
+      { key: 'warehouse.check.create',         label: 'Create Inv. Checks',      description: 'Create and assign inventory check sessions' },
+      { key: 'warehouse.check.approve',        label: 'Approve Inv. Checks',     description: 'Approve inventory check results' },
+      { key: 'warehouse.settings.manage',      label: 'Manage WH Settings',      description: 'Edit warehouses, assign Field RPs, configure reorder points' },
     ],
   },
   {

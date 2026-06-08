@@ -3,10 +3,13 @@ import { createClient } from '@/lib/supabase/client'
 import type { DBTable, DBInsert, DBUpdate } from '@/types/database.types'
 import { queryKeys } from '@/lib/queryKeys'
 
+export type WarehouseFieldRP = {
+  profile_id: string
+  full_name: string | null
+}
+
 export type Warehouse = DBTable<'warehouses'> & {
-  manager_name: string | null
-  manager_profile_id: string | null
-  manager_profile_name: string | null
+  field_rps: WarehouseFieldRP[]
 }
 export type WarehouseInsert = DBInsert<'warehouses'>
 export type WarehouseUpdate = DBUpdate<'warehouses'>
@@ -18,19 +21,19 @@ export function useWarehouses() {
       const supabase = createClient()
       const { data, error } = await supabase
         .from('warehouses')
-        .select('*, manager:employees!warehouses_manager_id_fkey(name), manager_profile:profiles!warehouses_manager_profile_id_fkey(id, full_name)')
+        .select('*, warehouse_field_rps(profile_id, profiles(full_name))')
         .order('name')
       if (error) throw error
       return (data ?? []).map((row) => {
-        const { manager, manager_profile, ...rest } = row as typeof row & {
-          manager: { name: string } | null
-          manager_profile: { id: string; full_name: string | null } | null
+        const { warehouse_field_rps, ...rest } = row as typeof row & {
+          warehouse_field_rps: Array<{ profile_id: string; profiles: { full_name: string | null } | null }>
         }
         return {
           ...rest,
-          manager_name: manager?.name ?? null,
-          manager_profile_id: manager_profile?.id ?? (rest as Record<string, unknown>).manager_profile_id as string | null ?? null,
-          manager_profile_name: manager_profile?.full_name ?? null,
+          field_rps: (warehouse_field_rps ?? []).map((rp) => ({
+            profile_id: rp.profile_id,
+            full_name: rp.profiles?.full_name ?? null,
+          })),
         }
       }) as Warehouse[]
     },

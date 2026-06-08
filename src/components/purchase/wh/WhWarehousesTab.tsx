@@ -66,8 +66,19 @@ export const WhWarehousesTab = React.memo(function WhWarehousesTab({ warehouses,
               </div>
               <div className="flex items-center gap-1.5 text-xs">
                 <User className="h-3 w-3 flex-shrink-0" />
-                <span className="text-muted-foreground">Manager:</span>
-                <span className="font-medium text-foreground">{wh.manager_name ?? 'Unassigned'}</span>
+                <TooltipProvider delayDuration={200}>
+                  <Tooltip>
+                    <TooltipTrigger asChild>
+                      <span className="text-muted-foreground cursor-help border-b border-dashed border-muted-foreground/40">Field RPs:</span>
+                    </TooltipTrigger>
+                    <TooltipContent side="top"><p className="text-xs">Field Responsible Persons</p></TooltipContent>
+                  </Tooltip>
+                </TooltipProvider>
+                <span className="font-medium text-foreground truncate">
+                  {wh.field_rps.length > 0
+                    ? wh.field_rps.map((rp) => rp.full_name ?? 'Unnamed').join(', ')
+                    : 'Unassigned'}
+                </span>
               </div>
               <div className="pt-2 border-t flex justify-between items-center">
                 <div className="flex items-center gap-1 text-xs">
@@ -95,7 +106,7 @@ export const WhWarehousesTab = React.memo(function WhWarehousesTab({ warehouses,
                       : <ChevronDown className="h-3 w-3" />}
                   </Button>
                   {isExpanded && (
-                    <div className="mt-2">
+                    <div className="mt-2 max-h-[320px] overflow-y-auto rounded-md">
                       <WarehouseStockTree warehouseId={wh.id} warehouses={warehouses} />
                     </div>
                   )}

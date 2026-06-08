@@ -6,7 +6,7 @@ import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs'
 import { Button } from '@/components/ui/button'
 import {
   ClipboardList, ClipboardCheck, ArrowRightLeft,
-  WarehouseIcon, Layers, Activity, Truck,
+  WarehouseIcon, Layers, Activity, Truck, TrendingUp,
 } from 'lucide-react'
 import { useWarehouses } from '@/hooks/useWarehouses'
 import { useWarehouseTransfers, useReceivalsAndDeliveries } from '@/hooks/useWarehouseOperations'
@@ -17,6 +17,7 @@ import { WhTransfersTab } from '@/components/purchase/wh/WhTransfersTab'
 import { WhAdjustmentsTab } from '@/components/purchase/wh/WhAdjustmentsTab'
 import { WhInventoryChecksTab } from '@/components/purchase/wh/WhInventoryChecksTab'
 import { WhMovementsTab } from '@/components/purchase/wh/WhMovementsTab'
+import { WhStockValueTab } from '@/components/purchase/wh/WhStockValueTab'
 import { ReceivalsDeliveriesTab } from '@/components/purchase/wh/ReceivalsDeliveriesTab'
 import { WhAdjustmentDialog } from '@/components/purchase/wh/WhAdjustmentDialog'
 import { WhTransferDialog } from '@/components/purchase/wh/WhTransferDialog'
@@ -97,6 +98,10 @@ function WarehousesPageInner() {
             <ClipboardCheck className="h-3 w-3" />
             Inv. Checks
           </TabsTrigger>
+          <TabsTrigger value="stock-value" className="text-xs gap-1">
+            <TrendingUp className="h-3 w-3" />
+            Stock Value
+          </TabsTrigger>
           <TabsTrigger value="movements" className="text-xs gap-1">
             <Activity className="h-3 w-3" />
             Movements
@@ -127,6 +132,9 @@ function WarehousesPageInner() {
           </TabsContent>
           <TabsContent value="checks" className="mt-0">
             <WhInventoryChecksTab warehouses={warehouses} currentProfile={currentProfile ?? null} />
+          </TabsContent>
+          <TabsContent value="stock-value" className="mt-0">
+            <WhStockValueTab warehouses={warehouses} />
           </TabsContent>
           <TabsContent value="movements" className="mt-0">
             <WhMovementsTab warehouses={warehouses} />

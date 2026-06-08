@@ -7,6 +7,7 @@ import { Button } from '@/components/ui/button'
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog'
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table'
 import { EmptyState } from '@/components/shared/EmptyState'
+import { ItemTreeCell } from './ItemTreeCell'
 import { useStockAdjustments, useApproveStockAdjustment, useWarehouseStock } from '@/hooks/useWarehouseOperations'
 import { useMutation, useQueryClient } from '@tanstack/react-query'
 import type { Warehouse } from '@/hooks/useWarehouses'
@@ -66,10 +67,10 @@ export const WhAdjustmentsTab = React.memo(function WhAdjustmentsTab({ warehouse
   // Use cached warehouse_stock_view to resolve category_name per brand_variant_id
   const { data: fullStock = [] } = useWarehouseStock()
   const variantMeta = useMemo(() => {
-    const map = new Map<string, { categoryName: string | null }>()
+    const map = new Map<string, { categoryName: string | null; itemType: string | null }>()
     for (const s of fullStock) {
       if (!map.has(s.brand_variant_id)) {
-        map.set(s.brand_variant_id, { categoryName: s.category_name ?? null })
+        map.set(s.brand_variant_id, { categoryName: s.category_name ?? null, itemType: s.item_type ?? null })
       }
     }
     return map
@@ -86,8 +87,8 @@ export const WhAdjustmentsTab = React.memo(function WhAdjustmentsTab({ warehouse
 
   function canApprove(adj: StockAdjustmentRow) {
     const wh = warehouses.find(w => w.id === adj.warehouse_id)
-    if (!wh?.manager_profile_id) return true
-    return currentProfile?.id === wh.manager_profile_id
+    if (!wh || wh.field_rps.length === 0) return true
+    return wh.field_rps.some(rp => rp.profile_id === currentProfile?.id)
   }
 
   return (
@@ -116,32 +117,19 @@ export const WhAdjustmentsTab = React.memo(function WhAdjustmentsTab({ warehouse
                 </TableCell>
               </TableRow>
             ) : typedAdjustments.map((adj) => {
-              const category = variantMeta.get(adj.brand_variant_id)?.categoryName
+              const meta = variantMeta.get(adj.brand_variant_id)
               const itemName = adj.inventory_brand_variants?.inventory_items?.name_en
               const brand    = adj.inventory_brand_variants?.brand
 
               return (
                 <TableRow key={adj.id}>
-                  {/* Item cell — 3-level indented hierarchy */}
                   <TableCell className="text-xs py-2.5">
-                    <div className="flex flex-col gap-1">
-                      {/* Level 1 — Category */}
-                      {category && (
-                        <div className="flex items-center gap-1">
-                          <span className="text-[10px] text-muted-foreground">{category}</span>
-                        </div>
-                      )}
-                      {/* Level 2 — Item */}
-                      <div className="flex items-center gap-1" style={{ paddingLeft: category ? '12px' : '0' }}>
-                        <span className="font-medium text-xs">{itemName ?? '—'}</span>
-                      </div>
-                      {/* Level 3 — Brand */}
-                      {brand && (
-                        <div className="flex items-center gap-1" style={{ paddingLeft: category ? '24px' : '12px' }}>
-                          <span className="text-[10px] text-primary">{brand}</span>
-                        </div>
-                      )}
-                    </div>
+                    <ItemTreeCell
+                      category={meta?.categoryName}
+                      itemType={meta?.itemType}
+                      itemName={itemName ?? '—'}
+                      brand={brand}
+                    />
                   </TableCell>
 
                   {/* Remaining columns — normal flat data */}

@@ -159,7 +159,8 @@ export const WhStockOverviewTab = React.memo(function WhStockOverviewTab({
         s.item_name?.toLowerCase().includes(q) ||
         (s.brand ?? '').toLowerCase().includes(q) ||
         (s.sku ?? '').toLowerCase().includes(q) ||
-        (s.category_name ?? '').toLowerCase().includes(q),
+        (s.category_name ?? '').toLowerCase().includes(q) ||
+        (s.subcategory_name ?? '').toLowerCase().includes(q),
     )
   }, [byType, search])
 
@@ -217,6 +218,15 @@ export const WhStockOverviewTab = React.memo(function WhStockOverviewTab({
   const totalItems = useMemo(() => tree.reduce((s, c) => s + c.items.length, 0), [tree])
   const totalQty   = useMemo(() => tree.reduce((s, c) => s + c.totalQty, 0), [tree])
   const totalValue = useMemo(() => tree.reduce((s, c) => s + c.totalValue, 0), [tree])
+
+  // Auto-expand all when searching so matches are visible
+  useEffect(() => {
+    if (!search) return
+    setExpandedCategories(new Set(tree.map((g) => g.categoryName)))
+    setExpandedItems(new Set(
+      tree.flatMap((g) => g.items.map((i) => `${g.categoryName}__${i.itemName}`))
+    ))
+  }, [search, tree])
 
   const selectedWarehouse = warehouses.find((w) => w.id === selectedWarehouseId)
 
@@ -289,7 +299,7 @@ export const WhStockOverviewTab = React.memo(function WhStockOverviewTab({
           <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-muted-foreground" />
           <Input
             className="h-8 text-xs pl-8"
-            placeholder="Search items…"
+            placeholder="Search by item, category, brand or SKU…"
             value={search}
             onChange={(e) => setSearch(e.target.value)}
           />

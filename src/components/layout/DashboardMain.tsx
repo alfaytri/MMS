@@ -11,7 +11,7 @@ export function DashboardMain({ children }: { children: React.ReactNode }) {
     ''  // 'none' — no CC sidebar, no padding
 
   return (
-    <main className={`flex-1 overflow-hidden flex flex-col print:overflow-visible transition-[padding] duration-200 ${paddingClass}`}>
+    <main className={`flex-1 min-h-0 overflow-y-auto flex flex-col print:overflow-visible transition-[padding] duration-200 ${paddingClass}`}>
       {children}
     </main>
   )

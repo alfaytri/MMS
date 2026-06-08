@@ -1,83 +1,319 @@
 'use client'
 
-import React from 'react'
-import { ArrowRight, CheckCircle2, XCircle } from 'lucide-react'
+import React, { useMemo, useState, useCallback } from 'react'
+import { ArrowRight, CheckCircle2, XCircle, Truck, PackageCheck, Ban } from 'lucide-react'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
-import { useWarehouseTransfers, useApproveTransfer, useRejectTransfer, type WarehouseTransfer } from '@/hooks/useWarehouseOperations'
+import { Input } from '@/components/ui/input'
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select'
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from '@/components/ui/alert-dialog'
+import { ItemTreeCell } from './ItemTreeCell'
+import {
+  useWarehouseTransfers,
+  useDispatchTransfer,
+  useReceiveTransfer,
+  useCancelTransfer,
+  useRejectTransfer,
+  useWarehouseStock,
+  type WarehouseTransfer,
+  type TransferItem,
+} from '@/hooks/useWarehouseOperations'
+import { useHasPermission } from '@/hooks/usePermissions'
 import type { Warehouse } from '@/hooks/useWarehouses'
 import type { Profile } from '@/hooks/useProfiles'
 import { createClient } from '@/lib/supabase/client'
 import { format } from 'date-fns'
 import { toast } from 'sonner'
 
+/* ─── Status badge styles ────────────────────────────────────────────────── */
+
 const STATUS_STYLES: Record<string, string> = {
   pending:          'bg-muted text-muted-foreground',
   in_transit:       'bg-primary/10 text-primary',
+  received:         'bg-success/10 text-success',
+  rejected:         'bg-destructive/10 text-destructive',
+  cancelled:        'bg-muted text-muted-foreground line-through',
+  // Legacy statuses (kept for historical data)
   pending_approval: 'bg-warning/10 text-warning',
   approved:         'bg-success/10 text-success',
-  rejected:         'bg-destructive/10 text-destructive',
 }
 
-// Extended type that includes created_by_profile_id from the DB row (not on the hook's base type)
-type TransferRow = WarehouseTransfer & {
-  created_by_profile_id?: string | null
-}
+const SHRINKAGE_REASONS = [
+  { value: 'damaged_in_transit', label: 'Damaged in Transit' },
+  { value: 'missing',           label: 'Missing' },
+  { value: 'wrong_item',        label: 'Wrong Item' },
+  { value: 'other',             label: 'Other' },
+] as const
+
+/* ─── Props ──────────────────────────────────────────────────────────────── */
 
 interface Props {
   warehouses: Warehouse[]
   currentProfile: Profile | null
 }
 
+/* ─── Component ──────────────────────────────────────────────────────────── */
+
 export const WhTransfersTab = React.memo(function WhTransfersTab({ warehouses, currentProfile }: Props) {
   const { data: transfers = [] } = useWarehouseTransfers()
-  const approve = useApproveTransfer()
-  const reject = useRejectTransfer()
+  const { data: fullStock = [] } = useWarehouseStock()
 
-  function canApprove(transfer: TransferRow) {
-    const toWh = warehouses.find(w => w.id === transfer.to_warehouse_id)
-    // manager_profile_id is a profiles.id — same space as currentProfile.id
-    return toWh?.manager_profile_id === currentProfile?.id
-  }
+  const dispatchMutation = useDispatchTransfer()
+  const receiveMutation  = useReceiveTransfer()
+  const cancelMutation   = useCancelTransfer()
+  const rejectMutation   = useRejectTransfer()
 
-  async function notifyCreator(transfer: TransferRow, approved: boolean) {
-    const creatorProfileId: string | null = transfer.created_by_profile_id ?? null
-    if (!creatorProfileId) return
+  const isInventoryManager = useHasPermission('warehouse.transfer.approve')
+
+  // ── Receival inline form state ──
+  const [expandedReceival, setExpandedReceival] = useState<string | null>(null)
+  const [receivalQtys, setReceivalQtys] = useState<Record<string, number>>({})
+  const [shrinkageReasons, setShrinkageReasons] = useState<Record<string, string>>({})
+
+  // ── Cancel confirmation state ──
+  const [cancelTarget, setCancelTarget] = useState<WarehouseTransfer | null>(null)
+
+  // ── Variant meta for ItemTreeCell ──
+  const variantMeta = useMemo(() => {
+    const map = new Map<string, { categoryName: string | null; itemType: string | null; itemName: string; brand: string | null; sku: string | null }>()
+    for (const s of fullStock) {
+      if (!map.has(s.brand_variant_id)) {
+        map.set(s.brand_variant_id, {
+          categoryName: s.category_name ?? null,
+          itemType: s.item_type ?? null,
+          itemName: s.item_name,
+          brand: s.brand ?? null,
+          sku: s.sku ?? null,
+        })
+      }
+    }
+    return map
+  }, [fullStock])
+
+  /* ── Authorization helpers ─────────────────────────────────────────────── */
+
+  const isFieldRPOf = useCallback((warehouseId: string): boolean => {
+    const wh = warehouses.find(w => w.id === warehouseId)
+    return wh?.field_rps.some(rp => rp.profile_id === currentProfile?.id) ?? false
+  }, [warehouses, currentProfile?.id])
+
+  const canDispatch = useCallback((t: WarehouseTransfer): boolean => {
+    return t.status === 'pending' && isFieldRPOf(t.from_warehouse_id)
+  }, [isFieldRPOf])
+
+  const canReceive = useCallback((t: WarehouseTransfer): boolean => {
+    return t.status === 'in_transit' && isFieldRPOf(t.to_warehouse_id)
+  }, [isFieldRPOf])
+
+  const canCancel = useCallback((t: WarehouseTransfer): boolean => {
+    return (t.status === 'pending' || t.status === 'in_transit') &&
+      (t.created_by_profile_id === currentProfile?.id || isInventoryManager)
+  }, [currentProfile?.id, isInventoryManager])
+
+  const canReject = useCallback((t: WarehouseTransfer): boolean => {
+    return t.status === 'pending' && isFieldRPOf(t.from_warehouse_id)
+  }, [isFieldRPOf])
+
+  /* ── Notification helpers ──────────────────────────────────────────────── */
+
+  async function sendNotification(
+    profileIds: string[],
+    type: string,
+    title: string,
+    body: string,
+    relatedId: string,
+  ) {
+    if (profileIds.length === 0) return
     const supabase = createClient()
-    await supabase.from('notifications').insert({
-      profile_id:   creatorProfileId,
-      type:         approved ? 'transfer_approved' : 'transfer_rejected',
-      title:        approved ? 'Stock Transfer Approved' : 'Stock Transfer Rejected',
-      body:         approved
-        ? `Your transfer ${transfer.transfer_number} has been approved by ${currentProfile?.full_name ?? 'the warehouse manager'}.`
-        : `Your transfer ${transfer.transfer_number} was rejected by ${currentProfile?.full_name ?? 'the warehouse manager'}.`,
-      related_id:   transfer.id,
+    const rows = profileIds.map(pid => ({
+      profile_id: pid,
+      type,
+      title,
+      body,
+      related_id: relatedId,
       related_type: 'warehouse_transfer',
-    })
+    }))
+    await supabase.from('notifications').insert(rows)
   }
 
-  function handleApprove(transfer: TransferRow) {
-    approve.mutate(
-      { id: transfer.id, approvedByName: currentProfile?.full_name ?? 'Manager' },
+  async function getFieldRPProfileIds(warehouseId: string): Promise<string[]> {
+    const supabase = createClient()
+    const { data } = await supabase
+      .from('warehouse_field_rps')
+      .select('profile_id')
+      .eq('warehouse_id', warehouseId)
+    return (data ?? []).map(r => r.profile_id)
+  }
+
+  async function getInventoryManagerProfileIds(): Promise<string[]> {
+    const supabase = createClient()
+    const { data } = await supabase
+      .from('user_custom_roles')
+      .select('profile_id, custom_roles!inner(name)')
+      .eq('custom_roles.name', 'inventory_manager')
+    return (data ?? []).map((r: { profile_id: string }) => r.profile_id)
+  }
+
+  /* ── Action handlers ───────────────────────────────────────────────────── */
+
+  function handleDispatch(t: WarehouseTransfer) {
+    if (!currentProfile) return
+    dispatchMutation.mutate(
+      { id: t.id, profileId: currentProfile.id, profileName: currentProfile.full_name ?? '' },
       {
-        onSuccess: () => {
-          toast.success('Transfer approved')
-          notifyCreator(transfer, true)
+        onSuccess: async () => {
+          toast.success('Transfer dispatched')
+          const destRPs = await getFieldRPProfileIds(t.to_warehouse_id)
+          sendNotification(
+            destRPs,
+            'transfer_dispatched',
+            'Stock Transfer Dispatched',
+            `Transfer ${t.transfer_number} has been dispatched by ${currentProfile.full_name ?? 'Source RP'}.`,
+            t.id,
+          )
         },
         onError: (e) => toast.error(e.message),
-      }
+      },
     )
   }
 
-  function handleReject(transfer: TransferRow) {
-    reject.mutate(transfer.id, {
-      onSuccess: () => {
-        toast.success('Transfer rejected')
-        notifyCreator(transfer, false)
-      },
-      onError: (e) => toast.error(e.message),
-    })
+  function handleStartReceival(t: WarehouseTransfer) {
+    const items = t.transfer_items ?? []
+    const qtys: Record<string, number> = {}
+    for (const item of items) {
+      qtys[item.id] = item.dispatched_qty ?? 0
+    }
+    setReceivalQtys(qtys)
+    setShrinkageReasons({})
+    setExpandedReceival(t.id)
   }
+
+  function handleConfirmReceival(t: WarehouseTransfer) {
+    if (!currentProfile) return
+    const items = t.transfer_items ?? []
+    const receivedItems = items.map(item => {
+      const receivedQty = receivalQtys[item.id] ?? item.dispatched_qty ?? 0
+      const dispatchedQty = item.dispatched_qty ?? 0
+      return {
+        transfer_item_id: item.id,
+        received_qty: receivedQty,
+        shrinkage_reason: receivedQty < dispatchedQty
+          ? (shrinkageReasons[item.id] ?? 'missing')
+          : undefined,
+      }
+    })
+
+    const hasShrinkage = receivedItems.some(ri => ri.shrinkage_reason)
+
+    receiveMutation.mutate(
+      {
+        id: t.id,
+        profileId: currentProfile.id,
+        profileName: currentProfile.full_name ?? '',
+        receivedItems,
+      },
+      {
+        onSuccess: async () => {
+          toast.success('Transfer received')
+          setExpandedReceival(null)
+
+          // Notify creator
+          const targets: string[] = []
+          if (t.created_by_profile_id) targets.push(t.created_by_profile_id)
+
+          if (hasShrinkage) {
+            // Also notify inventory managers on shrinkage
+            const managers = await getInventoryManagerProfileIds()
+            for (const pid of managers) {
+              if (!targets.includes(pid)) targets.push(pid)
+            }
+          }
+
+          sendNotification(
+            targets,
+            hasShrinkage ? 'transfer_received_shrinkage' : 'transfer_received',
+            hasShrinkage ? 'Transfer Received with Shrinkage' : 'Stock Transfer Received',
+            hasShrinkage
+              ? `Transfer ${t.transfer_number} was received with shrinkage by ${currentProfile.full_name ?? 'Destination RP'}.`
+              : `Transfer ${t.transfer_number} has been received by ${currentProfile.full_name ?? 'Destination RP'}.`,
+            t.id,
+          )
+        },
+        onError: (e) => toast.error(e.message),
+      },
+    )
+  }
+
+  function handleReject(t: WarehouseTransfer) {
+    if (!currentProfile) return
+    rejectMutation.mutate(
+      { id: t.id, profileId: currentProfile.id, profileName: currentProfile.full_name ?? '' },
+      {
+        onSuccess: () => {
+          toast.success('Transfer rejected')
+          if (t.created_by_profile_id) {
+            sendNotification(
+              [t.created_by_profile_id],
+              'transfer_rejected',
+              'Stock Transfer Rejected',
+              `Your transfer ${t.transfer_number} was rejected by ${currentProfile.full_name ?? 'Source RP'}.`,
+              t.id,
+            )
+          }
+        },
+        onError: (e) => toast.error(e.message),
+      },
+    )
+  }
+
+  function handleCancelConfirm() {
+    if (!currentProfile || !cancelTarget) return
+    const t = cancelTarget
+    cancelMutation.mutate(
+      { id: t.id, profileId: currentProfile.id, profileName: currentProfile.full_name ?? '' },
+      {
+        onSuccess: async () => {
+          toast.success('Transfer cancelled')
+          setCancelTarget(null)
+
+          // Notify Field RPs of both warehouses
+          const [srcRPs, destRPs] = await Promise.all([
+            getFieldRPProfileIds(t.from_warehouse_id),
+            getFieldRPProfileIds(t.to_warehouse_id),
+          ])
+          const allRPs = [...new Set([...srcRPs, ...destRPs])]
+          sendNotification(
+            allRPs,
+            'transfer_cancelled',
+            'Stock Transfer Cancelled',
+            `Transfer ${t.transfer_number} has been cancelled by ${currentProfile.full_name ?? 'User'}.`,
+            t.id,
+          )
+        },
+        onError: (e) => {
+          toast.error(e.message)
+          setCancelTarget(null)
+        },
+      },
+    )
+  }
+
+  /* ── Empty state ───────────────────────────────────────────────────────── */
 
   if (transfers.length === 0) {
     return (
@@ -87,74 +323,318 @@ export const WhTransfersTab = React.memo(function WhTransfersTab({ warehouses, c
     )
   }
 
+  /* ── Render ─────────────────────────────────────────────────────────────── */
+
   return (
-    <div className="p-4 md:p-6 space-y-3">
-      {transfers.map((t) => (
-        <div
-          key={t.id}
-          className={`rounded-lg border p-4 ${t.status === 'pending_approval' ? 'border-warning/30 bg-warning/5' : ''}`}
-        >
-          {/* Header row */}
-          <div className="flex items-start justify-between mb-2">
-            <div className="flex items-center gap-2 flex-wrap">
-              <span className="text-xs font-semibold text-primary">{t.transfer_number}</span>
-              <Badge className={`text-[10px] px-1.5 py-0 ${STATUS_STYLES[t.status] ?? 'bg-muted text-muted-foreground'}`}>
-                {t.status.replace(/_/g, ' ')}
-              </Badge>
-              <span className="text-[10px] text-muted-foreground">
-                {t.date ? format(new Date(t.date), 'dd MMM yyyy') : ''}
-              </span>
-            </div>
-            {t.status === 'pending_approval' && canApprove(t) && (
-              <div className="flex items-center gap-1 flex-shrink-0">
-                <Button
-                  size="sm"
-                  variant="outline"
-                  className="h-7 text-[10px] gap-1 text-success border-success/30 hover:bg-success/10"
-                  onClick={() => handleApprove(t)}
-                  disabled={approve.isPending}
-                >
-                  <CheckCircle2 className="h-3 w-3" /> Approve
-                </Button>
-                <Button
-                  size="sm"
-                  variant="outline"
-                  className="h-7 text-[10px] gap-1 text-destructive border-destructive/30 hover:bg-destructive/10"
-                  onClick={() => handleReject(t)}
-                  disabled={reject.isPending}
-                >
-                  <XCircle className="h-3 w-3" /> Reject
-                </Button>
+    <>
+      <div className="p-4 md:p-6 space-y-3">
+        {transfers.map((t) => {
+          const showDispatch = canDispatch(t)
+          const showReceive  = canReceive(t)
+          const showCancel   = canCancel(t)
+          const showReject   = canReject(t)
+          const isReceivalExpanded = expandedReceival === t.id
+
+          return (
+            <div
+              key={t.id}
+              className={`rounded-lg border p-4 ${
+                t.status === 'pending' ? 'border-muted-foreground/20' :
+                t.status === 'in_transit' ? 'border-primary/30 bg-primary/5' :
+                ''
+              }`}
+            >
+              {/* ── Header row ── */}
+              <div className="flex items-start justify-between gap-2 mb-2">
+                <div className="flex items-center gap-2 flex-wrap min-w-0">
+                  <span className="text-xs font-semibold text-primary">{t.transfer_number}</span>
+                  <Badge className={`text-[10px] px-1.5 py-0 ${STATUS_STYLES[t.status] ?? 'bg-muted text-muted-foreground'}`}>
+                    {t.status.replace(/_/g, ' ')}
+                  </Badge>
+                  <span className="text-[10px] text-muted-foreground">
+                    {t.date ? format(new Date(t.date), 'dd MMM yyyy') : ''}
+                  </span>
+                </div>
+
+                {/* ── Action buttons ── */}
+                <div className="flex items-center gap-1 flex-shrink-0 flex-wrap">
+                  {showDispatch && (
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      className="h-7 min-h-11 sm:min-h-0 text-[10px] gap-1 text-primary border-primary/30 hover:bg-primary/10"
+                      onClick={() => handleDispatch(t)}
+                      disabled={dispatchMutation.isPending}
+                    >
+                      <Truck className="h-3 w-3" /> Dispatch
+                    </Button>
+                  )}
+                  {showReceive && !isReceivalExpanded && (
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      className="h-7 min-h-11 sm:min-h-0 text-[10px] gap-1 text-success border-success/30 hover:bg-success/10"
+                      onClick={() => handleStartReceival(t)}
+                    >
+                      <PackageCheck className="h-3 w-3" /> Receive
+                    </Button>
+                  )}
+                  {showReject && (
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      className="h-7 min-h-11 sm:min-h-0 text-[10px] gap-1 text-destructive border-destructive/30 hover:bg-destructive/10"
+                      onClick={() => handleReject(t)}
+                      disabled={rejectMutation.isPending}
+                    >
+                      <XCircle className="h-3 w-3" /> Reject
+                    </Button>
+                  )}
+                  {showCancel && (
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      className="h-7 min-h-11 sm:min-h-0 text-[10px] gap-1 text-destructive border-destructive/30 hover:bg-destructive/10"
+                      onClick={() => setCancelTarget(t)}
+                      disabled={cancelMutation.isPending}
+                    >
+                      <Ban className="h-3 w-3" /> Cancel
+                    </Button>
+                  )}
+                </div>
               </div>
-            )}
-          </div>
 
-          {/* Route */}
-          <div className="text-xs mb-2 flex items-center gap-1.5 flex-wrap text-muted-foreground">
-            <span className="text-foreground font-medium">{t.from_warehouse?.name ?? 'Unknown'}</span>
-            <ArrowRight className="h-3 w-3" />
-            <span className="text-foreground font-medium">{t.to_warehouse?.name ?? 'Unknown'}</span>
-            {t.created_by_name && <span>· by {t.created_by_name}</span>}
-            {t.status === 'approved' && t.approved_by_name && (
-              <span className="text-[10px] text-success">• Approved by {t.approved_by_name}</span>
-            )}
-          </div>
+              {/* ── Route ── */}
+              <div className="text-xs mb-2 flex items-center gap-1.5 flex-wrap text-muted-foreground">
+                <span className="text-foreground font-medium">{t.from_warehouse?.name ?? 'Unknown'}</span>
+                <ArrowRight className="h-3 w-3" />
+                <span className="text-foreground font-medium">{t.to_warehouse?.name ?? 'Unknown'}</span>
+                {t.created_by_name && <span>· by {t.created_by_name}</span>}
+              </div>
 
-          {/* Items */}
-          <div className="flex flex-wrap gap-1.5">
-            {(t.items ?? []).map((item, i) => (
-              <Badge key={i} variant="outline" className="text-[10px]">
-                {item.qty}× {item.item_name}
-              </Badge>
-            ))}
-          </div>
+              {/* ── Timeline ── */}
+              <div className="flex flex-col gap-0.5 mb-2">
+                {t.dispatched_by_name && (
+                  <span className="text-[10px] text-primary">
+                    {'· Dispatched by '}
+                    {t.dispatched_by_name}
+                    {t.dispatched_at ? ` on ${format(new Date(t.dispatched_at), 'dd MMM')}` : ''}
+                  </span>
+                )}
+                {t.received_by_name && (
+                  <span className="text-[10px] text-success">
+                    {'· Received by '}
+                    {t.received_by_name}
+                    {t.received_at ? ` on ${format(new Date(t.received_at), 'dd MMM')}` : ''}
+                  </span>
+                )}
+                {t.cancelled_by_name && (
+                  <span className="text-[10px] text-destructive">
+                    {'· Cancelled by '}
+                    {t.cancelled_by_name}
+                    {t.cancelled_at ? ` on ${format(new Date(t.cancelled_at), 'dd MMM')}` : ''}
+                  </span>
+                )}
+              </div>
 
-          {/* Notes */}
-          {t.notes && (
-            <p className="text-[10px] text-muted-foreground mt-1.5">{t.notes}</p>
-          )}
-        </div>
-      ))}
-    </div>
+              {/* ── Items ── */}
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-1.5 mt-1">
+                {(t.transfer_items ?? []).map((item) => {
+                  const meta = variantMeta.get(item.brand_variant_id)
+                  return (
+                    <div key={item.id} className="flex items-start gap-2 border rounded px-2 py-1.5">
+                      <Badge variant="outline" className="text-[10px] mt-0.5 shrink-0">
+                        {item.requested_qty}&times;
+                      </Badge>
+                      <ItemTreeCell
+                        category={meta?.categoryName}
+                        itemType={meta?.itemType}
+                        itemName={meta?.itemName ?? item.item_name}
+                        brand={meta?.brand}
+                        sku={meta?.sku ?? item.sku}
+                        showSku
+                      />
+                      {item.shrinkage_qty > 0 && (
+                        <Badge className="text-[9px] bg-destructive/10 text-destructive ml-auto shrink-0">
+                          -{item.shrinkage_qty} shrinkage
+                        </Badge>
+                      )}
+                    </div>
+                  )
+                })}
+              </div>
+
+              {/* ── Notes ── */}
+              {t.notes && (
+                <p className="text-[10px] text-muted-foreground mt-1.5">{t.notes}</p>
+              )}
+
+              {/* ── Receival sub-form (inline expandable) ── */}
+              {isReceivalExpanded && (
+                <ReceivalSubForm
+                  transfer={t}
+                  receivalQtys={receivalQtys}
+                  shrinkageReasons={shrinkageReasons}
+                  onQtyChange={(itemId, qty) =>
+                    setReceivalQtys(prev => ({ ...prev, [itemId]: qty }))
+                  }
+                  onReasonChange={(itemId, reason) =>
+                    setShrinkageReasons(prev => ({ ...prev, [itemId]: reason }))
+                  }
+                  onConfirm={() => handleConfirmReceival(t)}
+                  onCancel={() => setExpandedReceival(null)}
+                  isPending={receiveMutation.isPending}
+                  variantMeta={variantMeta}
+                />
+              )}
+            </div>
+          )
+        })}
+      </div>
+
+      {/* ── Cancel confirmation AlertDialog ── */}
+      <AlertDialog open={!!cancelTarget} onOpenChange={(open) => { if (!open) setCancelTarget(null) }}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Cancel Transfer?</AlertDialogTitle>
+            <AlertDialogDescription>
+              This will cancel transfer <span className="font-semibold">{cancelTarget?.transfer_number}</span>.
+              {cancelTarget?.status === 'in_transit' && ' The items are currently in transit and stock will be reversed.'}
+              {' '}This action cannot be undone.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel onClick={() => setCancelTarget(null)}>Keep</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={handleCancelConfirm}
+              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+            >
+              Cancel Transfer
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+    </>
   )
 })
+
+/* ─── Receival Sub-Form ──────────────────────────────────────────────────── */
+
+function ReceivalSubForm({
+  transfer,
+  receivalQtys,
+  shrinkageReasons,
+  onQtyChange,
+  onReasonChange,
+  onConfirm,
+  onCancel,
+  isPending,
+  variantMeta,
+}: {
+  transfer: WarehouseTransfer
+  receivalQtys: Record<string, number>
+  shrinkageReasons: Record<string, string>
+  onQtyChange: (itemId: string, qty: number) => void
+  onReasonChange: (itemId: string, reason: string) => void
+  onConfirm: () => void
+  onCancel: () => void
+  isPending: boolean
+  variantMeta: Map<string, { categoryName: string | null; itemType: string | null; itemName: string; brand: string | null; sku: string | null }>
+}) {
+  const items = transfer.transfer_items ?? []
+
+  return (
+    <div className="mt-3 border-t pt-3 space-y-2">
+      <p className="text-xs font-semibold text-foreground">Confirm Receival</p>
+
+      <div className="space-y-2">
+        {items.map((item) => {
+          const meta = variantMeta.get(item.brand_variant_id)
+          const dispatchedQty = item.dispatched_qty ?? 0
+          const receivedQty = receivalQtys[item.id] ?? dispatchedQty
+          const hasShrinkage = receivedQty < dispatchedQty
+
+          return (
+            <div key={item.id} className="border rounded-lg p-2 space-y-1.5">
+              <div className="flex items-start gap-2">
+                <ItemTreeCell
+                  category={meta?.categoryName}
+                  itemType={meta?.itemType}
+                  itemName={meta?.itemName ?? item.item_name}
+                  brand={meta?.brand}
+                  sku={meta?.sku ?? item.sku}
+                  showSku
+                />
+              </div>
+
+              <div className="flex items-center gap-3 flex-wrap">
+                <div className="flex items-center gap-1.5">
+                  <span className="text-[10px] text-muted-foreground whitespace-nowrap">Dispatched:</span>
+                  <span className="text-xs font-medium">{dispatchedQty}</span>
+                </div>
+
+                <div className="flex items-center gap-1.5">
+                  <span className="text-[10px] text-muted-foreground whitespace-nowrap">Received:</span>
+                  <Input
+                    type="number"
+                    min={0}
+                    max={dispatchedQty}
+                    value={receivedQty}
+                    onChange={(e) => {
+                      const val = Math.max(0, Math.min(dispatchedQty, Number(e.target.value) || 0))
+                      onQtyChange(item.id, val)
+                    }}
+                    className="h-7 w-16 text-xs"
+                  />
+                </div>
+
+                {hasShrinkage && (
+                  <div className="flex items-center gap-1.5">
+                    <Badge className="text-[9px] bg-destructive/10 text-destructive shrink-0">
+                      -{dispatchedQty - receivedQty}
+                    </Badge>
+                    <Select
+                      value={shrinkageReasons[item.id] ?? 'missing'}
+                      onValueChange={(v) => v && onReasonChange(item.id, v)}
+                    >
+                      <SelectTrigger className="h-7 w-36 text-[10px]">
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {SHRINKAGE_REASONS.map((r) => (
+                          <SelectItem key={r.value} value={r.value} className="text-xs">
+                            {r.label}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+                )}
+              </div>
+            </div>
+          )
+        })}
+      </div>
+
+      <div className="flex items-center gap-2 pt-1">
+        <Button
+          size="sm"
+          className="h-8 min-h-11 sm:min-h-0 text-xs gap-1"
+          onClick={onConfirm}
+          disabled={isPending}
+        >
+          <CheckCircle2 className="h-3.5 w-3.5" /> Confirm Receival
+        </Button>
+        <Button
+          size="sm"
+          variant="outline"
+          className="h-8 min-h-11 sm:min-h-0 text-xs"
+          onClick={onCancel}
+          disabled={isPending}
+        >
+          Cancel
+        </Button>
+      </div>
+    </div>
+  )
+}

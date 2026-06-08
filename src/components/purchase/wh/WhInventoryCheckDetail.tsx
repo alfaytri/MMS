@@ -3,7 +3,7 @@
 import React, { useState, useMemo, useEffect } from 'react'
 import {
   CheckCircle2, Clock, XCircle, ChevronDown, ChevronRight,
-  Milestone, User, AlertCircle,
+  Milestone, User, AlertCircle, ArrowDownUp,
 } from 'lucide-react'
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
@@ -17,14 +17,31 @@ import {
   useInventoryCheckAssignments,
   useInventoryCheckLog,
   useInventoryCheckApprovals,
+  usePostCountMovements,
+  useWarehouseStock,
   useSaveItemCount,
   useCompleteAssignment,
   useApproveCheckStep,
 } from '@/hooks/useWarehouseOperations'
-import type { InventoryCheck, InventoryCheckItem } from '@/hooks/useWarehouseOperations'
+import type { InventoryCheck, InventoryCheckItem, PostCountMovement } from '@/hooks/useWarehouseOperations'
+import { ItemTreeCell } from './ItemTreeCell'
 import type { Profile } from '@/hooks/useProfiles'
 import { format } from 'date-fns'
 import { toast } from 'sonner'
+
+// ─── Movement type labels ─────────────────────────────────────────────────────
+
+const MOVEMENT_LABELS: Record<string, string> = {
+  purchase_receival: 'Purchase Receival',
+  sale_delivery: 'Sale Delivery',
+  adjustment: 'Adjustment',
+  transfer_in: 'Transfer In',
+  transfer_out: 'Transfer Out',
+  cost_adjustment: 'Cost Adjustment',
+  free_receival: 'Free Receival',
+  sale_return: 'Sale Return',
+  purchase_return: 'Purchase Return',
+}
 
 // ─── Status helpers ───────────────────────────────────────────────────────────
 
@@ -80,6 +97,7 @@ function ItemCountRow({
   readOnly,
   countMap,
   varianceTypeMap,
+  itemType,
   onCountChange,
   onVarianceTypeChange,
 }: {
@@ -88,6 +106,7 @@ function ItemCountRow({
   readOnly: boolean
   countMap: Map<string, string>
   varianceTypeMap: Map<string, string>
+  itemType?: string | null
   onCountChange: (id: string, val: string) => void
   onVarianceTypeChange: (id: string, val: string) => void
 }) {
@@ -100,19 +119,12 @@ function ItemCountRow({
   return (
     <div className={`grid grid-cols-[1fr_60px_60px_90px_80px_90px] gap-2 items-center px-3 py-1.5 border-b text-xs ${rowBg}`}>
       {/* Item (category → item → brand) */}
-      <div className="flex flex-col gap-0.5 min-w-0">
-        {item.category_name && (
-          <span className="text-[10px] text-muted-foreground truncate">{item.category_name}</span>
-        )}
-        <span className="font-medium truncate" style={{ paddingLeft: item.category_name ? 10 : 0 }}>
-          {item.item_name}
-        </span>
-        {item.brand && (
-          <span className="text-[10px] text-primary truncate" style={{ paddingLeft: item.category_name ? 20 : 10 }}>
-            {item.brand}
-          </span>
-        )}
-      </div>
+      <ItemTreeCell
+        category={item.category_name}
+        itemType={itemType}
+        itemName={item.item_name}
+        brand={item.brand}
+      />
 
       {/* SKU */}
       <span className="text-[10px] text-muted-foreground truncate">{item.sku ?? '—'}</span>
@@ -172,12 +184,14 @@ function CountingPanel({
   assignmentId,
   currentProfile,
   readOnly,
+  itemTypeMap,
 }: {
   checkId: string
   items: InventoryCheckItem[]
   assignmentId: string | null
   currentProfile: Profile | null
   readOnly: boolean
+  itemTypeMap?: Map<string, string | null>
 }) {
   const [countMap, setCountMap]               = useState<Map<string, string>>(new Map())
   const [varianceTypeMap, setVarianceTypeMap] = useState<Map<string, string>>(new Map())
@@ -273,7 +287,7 @@ function CountingPanel({
         <span>Type</span>
       </div>
 
-      <div className="border rounded-b-md overflow-hidden -mt-1">
+      <div className="border rounded-b-md overflow-hidden overflow-y-auto max-h-[300px] -mt-1">
         {Array.from(grouped.entries()).map(([cat, catItems]) => {
           const isOpen = expandedCats.has(cat)
           return (
@@ -290,6 +304,15 @@ function CountingPanel({
                   ? <ChevronDown  className="h-3 w-3 text-muted-foreground shrink-0" />
                   : <ChevronRight className="h-3 w-3 text-muted-foreground shrink-0" />}
                 {cat}
+                {(() => {
+                  const catType = itemTypeMap?.get(catItems[0]?.brand_variant_id) ?? null
+                  const TYPE_LABELS: Record<string, string> = { 'products': 'Products', 'spare-parts': 'Spare Parts', 'consumables': 'Consumables', 'tools': 'Tools' }
+                  return catType && TYPE_LABELS[catType] ? (
+                    <span className="text-[9px] font-normal text-muted-foreground border border-border rounded px-1 py-0.5">
+                      {TYPE_LABELS[catType]}
+                    </span>
+                  ) : null
+                })()}
                 <span className="text-[10px] font-normal text-muted-foreground ml-1">
                   {catItems.filter((i) => i.is_counted || countMap.has(i.id)).length}/{catItems.length}
                 </span>
@@ -302,6 +325,7 @@ function CountingPanel({
                   readOnly={readOnly}
                   countMap={countMap}
                   varianceTypeMap={varianceTypeMap}
+                  itemType={itemTypeMap?.get(item.brand_variant_id)}
                   onCountChange={(id, v) => setCountMap((m) => { const n = new Map(m); n.set(id, v); return n })}
                   onVarianceTypeChange={(id, v) => setVarianceTypeMap((m) => { const n = new Map(m); n.set(id, v); return n })}
                 />
@@ -348,18 +372,78 @@ export function WhInventoryCheckDetail({ check, open, onClose, currentProfile }:
 
   const items = detail?.items ?? []
 
+  const countCompletedAt = useMemo(() => {
+    const allCountedEntry = logEntries.find((e) => e.event_type === 'all_counted')
+    return allCountedEntry?.created_at ?? null
+  }, [logEntries])
+
+  const approvedAt = useMemo(() => {
+    if (check.reviewed_at) return check.reviewed_at
+    if (check.status === 'approved' && approvals.length > 0) {
+      const lastStep = [...approvals].reverse().find(s => s.status === 'approved')
+      if (lastStep?.action_at) return lastStep.action_at
+    }
+    return null
+  }, [check.reviewed_at, check.status, approvals])
+
+  const { data: postCountMovements = [] } = usePostCountMovements(
+    check.id,
+    check.warehouse_id,
+    countCompletedAt,
+    approvedAt,
+  )
+
+  const postCountByVariant = useMemo(() => {
+    const map = new Map<string, PostCountMovement[]>()
+    for (const m of postCountMovements) {
+      if (!map.has(m.brand_variant_id)) map.set(m.brand_variant_id, [])
+      map.get(m.brand_variant_id)!.push(m)
+    }
+    return map
+  }, [postCountMovements])
+
+  // Live stock for the check's warehouse — used in reconciliation table
+  const { data: liveStock = [] } = useWarehouseStock(check.warehouse_id)
+  const liveStockMap = useMemo(() => {
+    const map = new Map<string, number>()
+    for (const s of liveStock) map.set(s.brand_variant_id, s.qty)
+    return map
+  }, [liveStock])
+
+  // item_type lookup from stock view (check items don't store item_type)
+  const itemTypeMap = useMemo(() => {
+    const map = new Map<string, string | null>()
+    for (const s of liveStock) {
+      if (!map.has(s.brand_variant_id)) map.set(s.brand_variant_id, s.item_type ?? null)
+    }
+    return map
+  }, [liveStock])
+
   // Current user's assignment (if any)
   const myAssignment = assignments.find((a) => a.profile_id === currentProfile?.id)
-  const myItems      = myAssignment
-    ? items.filter((i) => i.assignment_id === myAssignment.id)
-    : []
+  const checkDone = check.status === 'approved' || check.status === 'pending_approval' || check.status === 'completed'
+  const isInitiator = currentProfile?.id === check.initiated_by_profile_id
+  const canSeeAll = isInitiator || !myAssignment
 
   // Group items by assignment for manager view
+  // Primary: match by assignment_id. Fallback: match by assigned_profile_id.
   const byAssignment = useMemo(() => {
     const map = new Map<string, InventoryCheckItem[]>()
     for (const a of assignments) { map.set(a.id, []) }
+    const unmatched: InventoryCheckItem[] = []
     for (const item of items) {
-      if (item.assignment_id) map.get(item.assignment_id)?.push(item)
+      if (item.assignment_id && map.has(item.assignment_id)) {
+        map.get(item.assignment_id)!.push(item)
+      } else {
+        unmatched.push(item)
+      }
+    }
+    // Fallback: match unmatched items by assigned_profile_id → assignment.profile_id
+    for (const item of unmatched) {
+      const match = assignments.find((a) => a.profile_id === item.assigned_profile_id)
+      if (match) {
+        map.get(match.id)!.push(item)
+      }
     }
     return map
   }, [items, assignments])
@@ -371,8 +455,10 @@ export function WhInventoryCheckDetail({ check, open, onClose, currentProfile }:
   useEffect(() => {
     if (myAssignment?.status === 'pending' || myAssignment?.status === 'in_progress') {
       setActiveTab('count')
-    } else if (check.status === 'pending_approval') {
+    } else if (check.status === 'pending_approval' && canSeeAll) {
       setActiveTab('approval')
+    } else if (check.status === 'pending_approval' && myAssignment) {
+      setActiveTab('count')
     } else {
       setActiveTab('timeline')
     }
@@ -417,11 +503,11 @@ export function WhInventoryCheckDetail({ check, open, onClose, currentProfile }:
           </DialogTitle>
         </DialogHeader>
 
-        {/* Assignment progress bar */}
+        {/* Assignment progress bar — scrollable when many users */}
         {assignments.length > 0 && (
-          <div className="flex gap-2 flex-shrink-0">
+          <div className="flex gap-1 flex-shrink-0 flex-wrap">
             {assignments.map((a) => (
-              <div key={a.id} className="flex-1 text-center">
+              <div key={a.id} className="flex-1 text-center min-w-0">
                 <div className={`h-1.5 rounded-full ${
                   a.status === 'completed' ? 'bg-success' :
                   a.status === 'in_progress' ? 'bg-primary' :
@@ -442,7 +528,7 @@ export function WhInventoryCheckDetail({ check, open, onClose, currentProfile }:
                 <AlertCircle className="h-3 w-3 ml-1 text-warning" />
               )}
             </TabsTrigger>
-            {(check.status === 'pending_approval' || check.status === 'approved' || check.status === 'rejected') && (
+            {canSeeAll && (check.status === 'pending_approval' || check.status === 'approved' || check.status === 'rejected') && (
               <TabsTrigger value="approval" className="text-xs h-7 px-3">Approval Chain</TabsTrigger>
             )}
           </TabsList>
@@ -477,147 +563,297 @@ export function WhInventoryCheckDetail({ check, open, onClose, currentProfile }:
 
           {/* ── Count ── */}
           <TabsContent value="count" className="flex-1 min-h-0 overflow-y-auto mt-2">
-            {myAssignment && myAssignment.status !== 'completed' ? (
-              /* Current user has active assignment */
-              <div className="space-y-2">
-                <div className="flex items-center gap-2 px-3 py-2 rounded-md bg-primary/5 border border-primary/20">
-                  <AlertCircle className="h-3.5 w-3.5 text-primary shrink-0" />
-                  <p className="text-xs text-primary">
-                    You are assigned to count: <strong>{myAssignment.assigned_categories.join(', ')}</strong>
-                  </p>
-                </div>
-                <CountingPanel
-                  checkId={check.id}
-                  items={myItems}
-                  assignmentId={myAssignment.id}
-                  currentProfile={currentProfile}
-                  readOnly={false}
-                />
-              </div>
-            ) : (
-              /* Manager view — all users' items grouped by assignment */
-              <div className="space-y-4">
-                {assignments.map((a) => {
-                  const aItems = byAssignment.get(a.id) ?? []
-                  return (
-                    <div key={a.id} className="space-y-1">
-                      <div className="flex items-center gap-2">
-                        <span className="text-xs font-semibold">{a.profile_name}</span>
-                        <Badge className={`text-[10px] px-1.5 py-0 ${
-                          a.status === 'completed' ? 'bg-success/10 text-success' :
-                          a.status === 'in_progress' ? 'bg-blue-500/10 text-blue-600' :
-                          'bg-muted text-muted-foreground'
-                        }`}>
-                          {a.status === 'completed' ? 'Done' : a.status === 'in_progress' ? 'Counting' : 'Pending'}
-                        </Badge>
-                        <span className="text-[10px] text-muted-foreground">
-                          {aItems.filter((i) => i.is_counted).length}/{aItems.length} items
-                        </span>
-                        {a.completed_at && (
-                          <span className="text-[10px] text-muted-foreground ml-auto">
-                            Completed {format(new Date(a.completed_at), 'dd MMM, HH:mm')}
-                          </span>
-                        )}
-                      </div>
-                      <CountingPanel
-                        checkId={check.id}
-                        items={aItems}
-                        assignmentId={null}
-                        currentProfile={currentProfile}
-                        readOnly
-                      />
+            {(() => {
+              const myItems = myAssignment ? (byAssignment.get(myAssignment.id) ?? []) : []
+
+              // Counter with active assignment (still counting, not canSeeAll) — show only their items with input
+              if (myAssignment && myAssignment.status !== 'completed' && !canSeeAll && !checkDone) {
+                return (
+                  <div className="space-y-2">
+                    <div className="flex items-center gap-2 px-3 py-2 rounded-md bg-primary/5 border border-primary/20">
+                      <AlertCircle className="h-3.5 w-3.5 text-primary shrink-0" />
+                      <p className="text-xs text-primary">
+                        You are assigned to count: <strong>{myAssignment.assigned_categories.join(', ')}</strong>
+                      </p>
                     </div>
-                  )
-                })}
-                {assignments.length === 0 && items.length > 0 && (
-                  /* Legacy check (old system) — show all items read-only */
-                  <CountingPanel
-                    checkId={check.id}
-                    items={items}
-                    assignmentId={null}
-                    currentProfile={currentProfile}
-                    readOnly
-                  />
-                )}
-              </div>
-            )}
+                    <CountingPanel
+                      checkId={check.id}
+                      items={myItems}
+                      assignmentId={myAssignment.id}
+                      currentProfile={currentProfile}
+                      readOnly={false}
+                      itemTypeMap={itemTypeMap}
+                    />
+                  </div>
+                )
+              }
+
+              // Regular counter (completed or check done) — show only their own items read-only
+              if (myAssignment && !canSeeAll) {
+                return (
+                  <div className="space-y-1">
+                    <div className="flex items-center gap-2">
+                      <span className="text-xs font-semibold">{myAssignment.profile_name}</span>
+                      <Badge className={`text-[10px] px-1.5 py-0 ${
+                        myAssignment.status === 'completed' ? 'bg-success/10 text-success' :
+                        'bg-blue-500/10 text-blue-600'
+                      }`}>
+                        {myAssignment.status === 'completed' ? 'Done' : 'Counting'}
+                      </Badge>
+                      <span className="text-[10px] text-muted-foreground">
+                        {myItems.filter((i) => i.is_counted).length}/{myItems.length} items
+                      </span>
+                      {myAssignment.completed_at && (
+                        <span className="text-[10px] text-muted-foreground ml-auto">
+                          Completed {format(new Date(myAssignment.completed_at), 'dd MMM, HH:mm')}
+                        </span>
+                      )}
+                    </div>
+                    <CountingPanel
+                      checkId={check.id}
+                      items={myItems}
+                      assignmentId={null}
+                      currentProfile={currentProfile}
+                      readOnly
+                      itemTypeMap={itemTypeMap}
+                    />
+                  </div>
+                )
+              }
+
+              // Initiator or non-counter (manager/owner) — sees all counters' results
+              return (
+                <div className="space-y-4">
+                  {assignments.map((a) => {
+                    const aItems = byAssignment.get(a.id) ?? []
+                    return (
+                      <div key={a.id} className="space-y-1">
+                        <div className="flex items-center gap-2">
+                          <span className="text-xs font-semibold">{a.profile_name}</span>
+                          <Badge className={`text-[10px] px-1.5 py-0 ${
+                            a.status === 'completed' ? 'bg-success/10 text-success' :
+                            a.status === 'in_progress' ? 'bg-blue-500/10 text-blue-600' :
+                            'bg-muted text-muted-foreground'
+                          }`}>
+                            {a.status === 'completed' ? 'Done' : a.status === 'in_progress' ? 'Counting' : 'Pending'}
+                          </Badge>
+                          <span className="text-[10px] text-muted-foreground">
+                            {aItems.filter((i) => i.is_counted).length}/{aItems.length} items
+                          </span>
+                          {a.completed_at && (
+                            <span className="text-[10px] text-muted-foreground ml-auto">
+                              Completed {format(new Date(a.completed_at), 'dd MMM, HH:mm')}
+                            </span>
+                          )}
+                        </div>
+                        <CountingPanel
+                          checkId={check.id}
+                          items={aItems}
+                          assignmentId={null}
+                          currentProfile={currentProfile}
+                          readOnly
+                          itemTypeMap={itemTypeMap}
+                        />
+                      </div>
+                    )
+                  })}
+                  {assignments.length === 0 && items.length > 0 && (
+                    <CountingPanel
+                      checkId={check.id}
+                      items={items}
+                      assignmentId={null}
+                      currentProfile={currentProfile}
+                      readOnly
+                      itemTypeMap={itemTypeMap}
+                    />
+                  )}
+                </div>
+              )
+            })()}
           </TabsContent>
 
           {/* ── Approval chain ── */}
           <TabsContent value="approval" className="flex-1 min-h-0 overflow-y-auto mt-2">
-            <div className="space-y-2">
-              {approvals.map((step, i) => {
-                const isActive  = step.status === 'pending' && (i === 0 || approvals[i - 1]?.status === 'approved')
-                const isPending = step.status === 'pending' && !isActive
-                return (
-                  <div
-                    key={step.id}
-                    className={`border rounded-md px-3 py-2.5 space-y-2 ${
-                      isActive  ? 'border-primary/40 bg-primary/5' :
-                      step.status === 'approved'  ? 'border-success/30 bg-success/5' :
-                      step.status === 'rejected'  ? 'border-destructive/30 bg-destructive/5' :
-                      'border-border bg-muted/10 opacity-60'
-                    }`}
-                  >
-                    <div className="flex items-center gap-2 text-xs">
-                      <span className="text-[10px] text-muted-foreground w-5 text-right">{step.step_order}.</span>
-                      <span className="font-semibold">{step.step_label}</span>
-                      <Badge className={`text-[10px] px-1.5 py-0 ml-auto ${
-                        step.status === 'approved' ? 'bg-success/10 text-success' :
-                        step.status === 'rejected' ? 'bg-destructive/10 text-destructive' :
-                        isActive ? 'bg-primary/10 text-primary' :
-                        'bg-muted text-muted-foreground'
-                      }`}>
-                        {step.status === 'approved' ? 'Approved' : step.status === 'rejected' ? 'Rejected' : isActive ? 'Awaiting' : 'Pending'}
-                      </Badge>
+            <div className="space-y-4">
+              {/* Post-count stock movements */}
+              {/* ── Post-count movement log ── */}
+              {postCountMovements.length > 0 && (
+                <div className="border border-warning/40 rounded-md bg-warning/5 p-3 space-y-3">
+                  <p className="text-xs font-semibold text-warning flex items-center gap-1.5">
+                    <ArrowDownUp className="h-3.5 w-3.5" />
+                    Stock movements since count completed
+                  </p>
+                  <div className="rounded-md border overflow-hidden bg-background">
+                    <div className="grid grid-cols-[1fr_100px_60px_110px] gap-2 px-3 py-1.5 bg-muted/30 text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">
+                      <span>Item</span>
+                      <span>Type</span>
+                      <span className="text-right">Qty</span>
+                      <span className="text-right">Date</span>
                     </div>
-
-                    {step.profile_name && (
-                      <p className="text-[10px] text-muted-foreground pl-7">
-                        {step.status === 'approved' ? 'Approved' : 'Reviewed'} by {step.profile_name}
-                        {step.action_at ? ` · ${format(new Date(step.action_at), 'dd MMM yyyy, HH:mm')}` : ''}
-                      </p>
-                    )}
-                    {step.notes && (
-                      <p className="text-[10px] text-muted-foreground pl-7 italic">{step.notes}</p>
-                    )}
-
-                    {isActive && activeApprovalStep?.id === step.id && (
-                      <div className="pl-7 space-y-2">
-                        <Textarea
-                          placeholder="Notes (optional)…"
-                          className="text-xs min-h-[52px]"
-                          value={reviewNotes}
-                          onChange={(e) => setReviewNotes(e.target.value)}
-                        />
-                        <div className="flex gap-2">
-                          <Button
-                            size="sm" variant="outline"
-                            className="h-7 text-[10px] text-destructive border-destructive/30 hover:bg-destructive/10"
-                            disabled={!!approvingStep}
-                            onClick={() => handleApproval(step.id, 'rejected')}
-                          >
-                            Reject
-                          </Button>
-                          <Button
-                            size="sm"
-                            className="h-7 text-[10px] bg-success text-success-foreground hover:bg-success/90"
-                            disabled={!!approvingStep}
-                            onClick={() => handleApproval(step.id, 'approved')}
-                          >
-                            {approvingStep === step.id ? 'Saving…' : 'Approve'}
-                          </Button>
+                    {postCountMovements.map((m) => {
+                      const checkItem = items.find((i) => i.brand_variant_id === m.brand_variant_id)
+                      return (
+                        <div key={m.id} className="grid grid-cols-[1fr_100px_60px_110px] gap-2 px-3 py-1.5 border-t text-xs items-center">
+                          <ItemTreeCell
+                            category={checkItem?.category_name}
+                            itemType={itemTypeMap.get(m.brand_variant_id)}
+                            itemName={checkItem?.item_name ?? m.item_name}
+                            brand={checkItem?.brand}
+                          />
+                          <span className="text-[10px] text-muted-foreground">{MOVEMENT_LABELS[m.movement_type] ?? m.movement_type}</span>
+                          <span className={`text-right tabular-nums font-medium ${m.qty > 0 ? 'text-success' : 'text-destructive'}`}>
+                            {m.qty > 0 ? `+${m.qty}` : m.qty}
+                          </span>
+                          <span className="text-right text-[10px] text-muted-foreground">
+                            {format(new Date(m.created_at), 'dd MMM, HH:mm')}
+                          </span>
                         </div>
-                      </div>
-                    )}
+                      )
+                    })}
+                  </div>
+                </div>
+              )}
+
+              {/* ── Reconciliation table ── */}
+              {(() => {
+                const reconItems = items.filter((i) => i.is_counted && (postCountByVariant.has(i.brand_variant_id) || (i.variance ?? 0) !== 0))
+                if (reconItems.length === 0) return null
+                return (
+                  <div className="border rounded-md p-3 space-y-2">
+                    <p className="text-xs font-semibold flex items-center gap-1.5">
+                      <CheckCircle2 className="h-3.5 w-3.5 text-primary" />
+                      Reconciliation
+                    </p>
+                    <div className="rounded-md border overflow-hidden">
+                      <table className="w-full text-xs">
+                        <thead>
+                          <tr className="bg-muted/30 text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">
+                            <th className="text-left px-3 py-1.5 font-semibold">Item</th>
+                            <th className="text-right px-2 py-1.5 font-semibold w-[65px]">Counted</th>
+                            <th className="text-right px-2 py-1.5 font-semibold w-[55px]">Moved</th>
+                            <th className="text-right px-2 py-1.5 font-semibold w-[70px]">Expected</th>
+                            <th className="text-right px-2 py-1.5 font-semibold w-[65px]">System</th>
+                            <th className="text-right px-3 py-1.5 font-semibold w-[80px]">Status</th>
+                          </tr>
+                        </thead>
+                        <tbody>
+                      {reconItems.map((item) => {
+                        const movements = postCountByVariant.get(item.brand_variant_id) ?? []
+                        const netMoved = movements.reduce((sum, m) => sum + m.qty, 0)
+                        const expectedNow = (item.counted_qty ?? 0) + netMoved
+                        const systemNow = liveStockMap.get(item.brand_variant_id) ?? (item.system_qty + netMoved)
+                        const diff = expectedNow - systemNow
+                        const isMatch = diff === 0
+
+                        return (
+                          <tr key={item.id} className={`border-t ${isMatch ? '' : 'bg-destructive/5'}`}>
+                            <td className="px-3 py-2 align-top">
+                              <ItemTreeCell
+                                category={item.category_name}
+                                itemType={itemTypeMap.get(item.brand_variant_id)}
+                                itemName={item.item_name}
+                                brand={item.brand}
+                              />
+                            </td>
+                            <td className="text-right px-2 py-2 tabular-nums align-middle">{item.counted_qty}</td>
+                            <td className={`text-right px-2 py-2 tabular-nums align-middle ${netMoved > 0 ? 'text-success' : netMoved < 0 ? 'text-destructive' : 'text-muted-foreground'}`}>
+                              {netMoved === 0 ? '—' : netMoved > 0 ? `+${netMoved}` : netMoved}
+                            </td>
+                            <td className="text-right px-2 py-2 tabular-nums font-medium align-middle">{expectedNow}</td>
+                            <td className="text-right px-2 py-2 tabular-nums align-middle">{systemNow}</td>
+                            <td className="text-right px-3 py-2 align-middle">
+                              <span className={`inline-flex items-center justify-end gap-0.5 text-[10px] font-semibold ${isMatch ? 'text-success' : 'text-destructive'}`}>
+                                {isMatch ? (
+                                  <><CheckCircle2 className="h-3 w-3 shrink-0" /> Match</>
+                                ) : (
+                                  <><XCircle className="h-3 w-3 shrink-0" /> {diff > 0 ? `+${diff}` : diff}</>
+                                )}
+                              </span>
+                            </td>
+                          </tr>
+                        )
+                      })}
+                        </tbody>
+                      </table>
+                    </div>
                   </div>
                 )
-              })}
-              {approvals.length === 0 && (
-                <p className="text-xs text-muted-foreground text-center py-8">
-                  Approval chain will appear once all counting is complete.
-                </p>
-              )}
+              })()}
+
+              {/* Approval steps */}
+              <div className="space-y-2">
+                {approvals.map((step, i) => {
+                  const isActive  = step.status === 'pending' && (i === 0 || approvals[i - 1]?.status === 'approved')
+                  return (
+                    <div
+                      key={step.id}
+                      className={`border rounded-md px-3 py-2.5 space-y-2 ${
+                        isActive  ? 'border-primary/40 bg-primary/5' :
+                        step.status === 'approved'  ? 'border-success/30 bg-success/5' :
+                        step.status === 'rejected'  ? 'border-destructive/30 bg-destructive/5' :
+                        'border-border bg-muted/10 opacity-60'
+                      }`}
+                    >
+                      <div className="flex items-center gap-2 text-xs">
+                        <span className="text-[10px] text-muted-foreground w-5 text-right">{step.step_order}.</span>
+                        <span className="font-semibold">{step.step_label}</span>
+                        <Badge className={`text-[10px] px-1.5 py-0 ml-auto ${
+                          step.status === 'approved' ? 'bg-success/10 text-success' :
+                          step.status === 'rejected' ? 'bg-destructive/10 text-destructive' :
+                          isActive ? 'bg-primary/10 text-primary' :
+                          'bg-muted text-muted-foreground'
+                        }`}>
+                          {step.status === 'approved' ? 'Approved' : step.status === 'rejected' ? 'Rejected' : isActive ? 'Awaiting' : 'Pending'}
+                        </Badge>
+                      </div>
+
+                      {step.profile_name && (
+                        <p className="text-[10px] text-muted-foreground pl-7">
+                          {step.status === 'approved' ? 'Approved' : 'Reviewed'} by {step.profile_name}
+                          {step.action_at ? ` · ${format(new Date(step.action_at), 'dd MMM yyyy, HH:mm')}` : ''}
+                        </p>
+                      )}
+                      {step.notes && (
+                        <p className="text-[10px] text-muted-foreground pl-7 italic">{step.notes}</p>
+                      )}
+
+                      {isActive && activeApprovalStep?.id === step.id && (
+                        <div className="pl-7 space-y-2">
+                          <Textarea
+                            placeholder="Notes (optional)…"
+                            className="text-xs min-h-[52px]"
+                            value={reviewNotes}
+                            onChange={(e) => setReviewNotes(e.target.value)}
+                          />
+                          <div className="flex gap-2">
+                            <Button
+                              size="sm" variant="outline"
+                              className="h-7 text-[10px] text-destructive border-destructive/30 hover:bg-destructive/10"
+                              disabled={!!approvingStep}
+                              onClick={() => handleApproval(step.id, 'rejected')}
+                            >
+                              Reject
+                            </Button>
+                            <Button
+                              size="sm"
+                              className="h-7 text-[10px] bg-success text-success-foreground hover:bg-success/90"
+                              disabled={!!approvingStep}
+                              onClick={() => handleApproval(step.id, 'approved')}
+                            >
+                              {approvingStep === step.id ? 'Saving…' : 'Approve'}
+                            </Button>
+                          </div>
+                        </div>
+                      )}
+                    </div>
+                  )
+                })}
+                {approvals.length === 0 && (
+                  <p className="text-xs text-muted-foreground text-center py-8">
+                    Approval chain will appear once all counting is complete.
+                  </p>
+                )}
+              </div>
             </div>
           </TabsContent>
         </Tabs>
