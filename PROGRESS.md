@@ -203,7 +203,7 @@ Purchase & Sales▾:
 
 ## 🔄 In Progress
 
-None
+🚀 Starting: **LC-COGS Attribution Task 1: cogs_entries schema changes**
 
 ## ✅ Completed
 
