@@ -203,9 +203,11 @@ Purchase & Sales▾:
 
 ## 🔄 In Progress
 
-🚀 Starting: **LC-COGS Attribution Tasks 6-7: Hooks**
+🚀 Starting: **LC-COGS Attribution Tasks 8-10: UI Components**
 
 ## ✅ Completed
+
+- [2026-06-08] **LC-COGS Attribution Tasks 6-7: Hooks** — `src/hooks/useCogsBreakdown.ts`, `src/hooks/useStockValueCogsSummary.ts`, `src/lib/queryKeys.ts` — Two TanStack Query hooks wrapping the new RPCs + query keys
 
 - [2026-06-08] **LC-COGS Attribution Task 5: get_stock_value_cogs_summary RPC** — `supabase/migrations/20260608010005_get_stock_value_cogs_summary_rpc.sql`, `src/types/database.types.ts` — New aggregate RPC for Stock Value tab + regenerated Supabase types
 
