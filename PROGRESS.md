@@ -203,9 +203,11 @@ Purchase & Sales▾:
 
 ## 🔄 In Progress
 
-🚀 Starting: **LC-COGS Attribution Task 5: get_stock_value_cogs_summary RPC**
+🚀 Starting: **LC-COGS Attribution Tasks 6-7: Hooks**
 
 ## ✅ Completed
+
+- [2026-06-08] **LC-COGS Attribution Task 5: get_stock_value_cogs_summary RPC** — `supabase/migrations/20260608010005_get_stock_value_cogs_summary_rpc.sql`, `src/types/database.types.ts` — New aggregate RPC for Stock Value tab + regenerated Supabase types
 
 - [2026-06-08] **LC-COGS Attribution Task 4: get_cogs_breakdown RPC** — `supabase/migrations/20260608010004_get_cogs_breakdown_rpc.sql` — New RPC returning sold_at_sale + per-LC net totals for tooltip
 
