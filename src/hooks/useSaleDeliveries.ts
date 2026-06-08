@@ -2,6 +2,7 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { createClient } from '@/lib/supabase/client'
 import { logActivity } from '@/lib/logActivity'
+import { queryKeys } from '@/lib/queryKeys'
 
 export type DeliveryStatus = 'pending' | 'in_progress' | 'delivered' | 'cancelled'
 
@@ -30,10 +31,10 @@ export type SaleDelivery = {
 
 export function useSaleDeliveries(filters?: { status?: DeliveryStatus | '' }) {
   return useQuery({
-    queryKey: ['sale-deliveries', filters],
+    queryKey: queryKeys.saleDeliveries.list(filters),
     queryFn: async () => {
       const supabase = createClient()
-      let q = (supabase as any)
+      let q = supabase
         .from('sale_deliveries')
         .select('*, sale_orders(so_number, customers(name))')
         .order('created_at', { ascending: false })
@@ -64,13 +65,13 @@ export function useUpdateDelivery() {
       status?: DeliveryStatus
     }) => {
       const supabase = createClient()
-      const { error } = await (supabase as any)
+      const { error } = await supabase
         .from('sale_deliveries')
         .update(updates)
         .eq('id', id)
       if (error) throw error
     },
-    onSuccess: () => queryClient.invalidateQueries({ queryKey: ['sale-deliveries'] }),
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: queryKeys.saleDeliveries.all }),
   })
 }
 
@@ -91,19 +92,19 @@ export function useCompleteDelivery() {
       const supabase = createClient()
 
       // Single atomic RPC: marks delivered + deducts FIFO + writes COGS + movements
-      const { error } = await (supabase as any)
+      const { error } = await supabase
         .rpc('complete_delivery_inventory', { p_delivery_id: deliveryId, p_so_id: soId })
       if (error) throw new Error(error.message)
 
       // Invoice update (non-inventory concern)
       if (invoiceId) {
-        const { data: inv } = await (supabase as any)
+        const { data: inv } = await supabase
           .from('invoices')
           .select('needs_refresh, doc_status')
           .eq('id', invoiceId)
           .single()
         if (inv && !inv.needs_refresh && inv.doc_status === 'draft') {
-          await (supabase as any)
+          await supabase
             .from('invoices')
             .update({ doc_status: 'ready_to_send' })
             .eq('id', invoiceId)
@@ -112,17 +113,17 @@ export function useCompleteDelivery() {
 
       // Create follow-up delivery stub for remaining items (partial delivery)
       if (remainingItems.length > 0) {
-        const { data: orig } = await (supabase as any)
+        const { data: orig } = await supabase
           .from('sale_deliveries')
           .select('sale_order_id')
           .eq('id', deliveryId)
           .single()
         if (orig) {
-          const { count } = await (supabase as any)
+          const { count } = await supabase
             .from('sale_deliveries')
             .select('*', { count: 'exact', head: true })
           const delivery_number = `DEL-${String((count ?? 0) + 1).padStart(5, '0')}`
-          await (supabase as any).from('sale_deliveries').insert({
+          await supabase.from('sale_deliveries').insert({
             delivery_number,
             sale_order_id: orig.sale_order_id,
             warehouse_id: null,
@@ -134,14 +135,14 @@ export function useCompleteDelivery() {
       }
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['sale-deliveries'] })
-      queryClient.invalidateQueries({ queryKey: ['sale-orders'] })
-      queryClient.invalidateQueries({ queryKey: ['customer-invoices'] })
-      queryClient.invalidateQueries({ queryKey: ['inventory-brand-variants'] })
-      queryClient.invalidateQueries({ queryKey: ['fifo-layers'] })
-      queryClient.invalidateQueries({ queryKey: ['stock_movements'] })
-      queryClient.invalidateQueries({ queryKey: ['cogs-entries'] })
-      queryClient.invalidateQueries({ queryKey: ['activity-log'] })
+      queryClient.invalidateQueries({ queryKey: queryKeys.saleDeliveries.all })
+      queryClient.invalidateQueries({ queryKey: queryKeys.saleOrders.all })
+      queryClient.invalidateQueries({ queryKey: queryKeys.customerInvoices.all })
+      queryClient.invalidateQueries({ queryKey: queryKeys.inventory.inventoryBrandVariants })
+      queryClient.invalidateQueries({ queryKey: queryKeys.inventory.fifoLayers })
+      queryClient.invalidateQueries({ queryKey: queryKeys.inventory.stockMovements })
+      queryClient.invalidateQueries({ queryKey: queryKeys.inventory.cogsEntries })
+      queryClient.invalidateQueries({ queryKey: queryKeys.activityLog.all })
     },
   })
 }
@@ -151,7 +152,7 @@ export function useCancelDelivery() {
   return useMutation({
     mutationFn: async ({ id, soId }: { id: string; soId: string }) => {
       const supabase = createClient()
-      const { error } = await (supabase as any)
+      const { error } = await supabase
         .rpc('cancel_delivery_inventory', {
           p_delivery_id: id,
           p_so_id:       soId,
@@ -159,14 +160,14 @@ export function useCancelDelivery() {
       if (error) throw new Error(error.message)
     },
     onSuccess: (_data, variables) => {
-      queryClient.invalidateQueries({ queryKey: ['sale-deliveries'] })
-      queryClient.invalidateQueries({ queryKey: ['sale-orders'] })
-      queryClient.invalidateQueries({ queryKey: ['sale-order', variables.soId] })
-      queryClient.invalidateQueries({ queryKey: ['inventory-brand-variants'] })
-      queryClient.invalidateQueries({ queryKey: ['fifo-layers'] })
-      queryClient.invalidateQueries({ queryKey: ['stock_movements'] })
-      queryClient.invalidateQueries({ queryKey: ['cogs-entries'] })
-      queryClient.invalidateQueries({ queryKey: ['activity-log'] })
+      queryClient.invalidateQueries({ queryKey: queryKeys.saleDeliveries.all })
+      queryClient.invalidateQueries({ queryKey: queryKeys.saleOrders.all })
+      queryClient.invalidateQueries({ queryKey: queryKeys.saleOrders.detail(variables.soId) })
+      queryClient.invalidateQueries({ queryKey: queryKeys.inventory.inventoryBrandVariants })
+      queryClient.invalidateQueries({ queryKey: queryKeys.inventory.fifoLayers })
+      queryClient.invalidateQueries({ queryKey: queryKeys.inventory.stockMovements })
+      queryClient.invalidateQueries({ queryKey: queryKeys.inventory.cogsEntries })
+      queryClient.invalidateQueries({ queryKey: queryKeys.activityLog.all })
       logActivity({
         action:    'Delivery Cancelled',
         module:    'sale_orders',

@@ -2,7 +2,7 @@
 
 import { useState, useRef } from 'react'
 import { toast } from 'sonner'
-import { ChevronLeft, ChevronRight, Plus } from 'lucide-react'
+import { ChevronLeft, ChevronRight, Plus, Mail } from 'lucide-react'
 import { PageHeader } from '@/components/shared/PageHeader'
 import { PageWrapper } from '@/components/shared/PageWrapper'
 import { Skeleton } from '@/components/ui/skeleton'
@@ -19,6 +19,8 @@ import {
 import {
   Table, TableBody, TableCell, TableHead, TableHeader, TableRow,
 } from '@/components/ui/table'
+import { PhoneInputWithCode } from '@/components/shared/PhoneInputWithCode'
+import { EmptyState } from '@/components/shared/EmptyState'
 import { useAllCustomers, useCreateCustomer } from '@/hooks/useSaleOrders'
 import { useCreditGroups, useAssignCreditGroup } from '@/hooks/useCreditGroups'
 
@@ -34,7 +36,10 @@ export default function CustomersPage() {
   const [createOpen, setCreateOpen]           = useState(false)
   const [newName, setNewName]                 = useState('')
   const [newPhone, setNewPhone]               = useState('')
+  const [newCountryCode, setNewCountryCode]   = useState('+974')
+  const [newEmail, setNewEmail]               = useState('')
   const [newType, setNewType]                 = useState<'cash' | 'credit'>('credit')
+  const [newEntity, setNewEntity]             = useState<'individual' | 'business'>('individual')
   const [newGroupId, setNewGroupId]           = useState('')
 
   function handleSearch(val: string) {
@@ -64,6 +69,12 @@ export default function CustomersPage() {
     )
   }
 
+  function resetForm() {
+    setNewName(''); setNewPhone(''); setNewCountryCode('+974')
+    setNewEmail(''); setNewType('credit'); setNewEntity('individual')
+    setNewGroupId('')
+  }
+
   function handleCreate() {
     if (!newName.trim() || !newPhone.trim()) {
       toast.error('Name and phone are required')
@@ -76,17 +87,17 @@ export default function CustomersPage() {
     createCustomer.mutate(
       {
         name:            newName.trim(),
-        phone:           newPhone.trim(),
-        email:           null,
+        phone:           `${newCountryCode}${newPhone.trim()}`,
+        email:           newEmail.trim() || null,
         customer_type:   newType,
+        entity_type:     newEntity,
         credit_group_id: newType === 'credit' ? newGroupId : null,
       },
       {
         onSuccess: () => {
           toast.success('Customer created')
           setCreateOpen(false)
-          setNewName(''); setNewPhone('')
-          setNewType('credit'); setNewGroupId('')
+          resetForm()
         },
         onError: (err) => toast.error(err.message),
       }
@@ -113,12 +124,13 @@ export default function CustomersPage() {
         </Button>
       </div>
 
-      <div className="rounded-md border overflow-hidden">
+      <div className="rounded-md border overflow-x-auto">
         <Table>
           <TableHeader>
             <TableRow>
               <TableHead>Name</TableHead>
               <TableHead className="hidden sm:table-cell">Phone</TableHead>
+              <TableHead className="hidden lg:table-cell">Email</TableHead>
               <TableHead className="hidden md:table-cell">Type</TableHead>
               <TableHead>Credit Group</TableHead>
             </TableRow>
@@ -129,23 +141,48 @@ export default function CustomersPage() {
                   <TableRow key={i}>
                     <TableCell><Skeleton className="h-5 w-40" /></TableCell>
                     <TableCell className="hidden sm:table-cell"><Skeleton className="h-5 w-28" /></TableCell>
+                    <TableCell className="hidden lg:table-cell"><Skeleton className="h-5 w-32" /></TableCell>
                     <TableCell className="hidden md:table-cell"><Skeleton className="h-5 w-20" /></TableCell>
                     <TableCell><Skeleton className="h-8 w-36" /></TableCell>
                   </TableRow>
                 ))
+              : customers.length === 0 ? (
+                  <TableRow>
+                    <TableCell colSpan={5} className="p-0">
+                      <EmptyState title="No customers found" />
+                    </TableCell>
+                  </TableRow>
+                )
               : customers.map((c) => (
                   <TableRow key={c.id}>
                     <TableCell>
-                      <div className="font-medium text-sm">{c.name}</div>
-                      {c.is_blocked && (
-                        <Badge variant="outline" className="text-[9px] border-destructive text-destructive mt-0.5">Blocked</Badge>
-                      )}
+                      <div className="flex items-center gap-2">
+                        <div className="min-w-0">
+                          <div className="font-medium text-sm truncate">{c.name}</div>
+                          {c.entity_type && (
+                            <span className="text-[10px] text-muted-foreground capitalize">{c.entity_type}</span>
+                          )}
+                        </div>
+                        {c.is_blocked && (
+                          <Badge variant="outline" className="text-[9px] border-destructive text-destructive shrink-0">Blocked</Badge>
+                        )}
+                      </div>
                     </TableCell>
                     <TableCell className="hidden sm:table-cell text-sm text-muted-foreground">
                       {c.phone ?? '—'}
                     </TableCell>
-                    <TableCell className="hidden md:table-cell text-sm text-muted-foreground capitalize">
-                      {c.customer_type ?? '—'}
+                    <TableCell className="hidden lg:table-cell text-sm text-muted-foreground">
+                      {c.email ? (
+                        <span className="flex items-center gap-1.5">
+                          <Mail className="h-3 w-3 shrink-0" />
+                          <span className="truncate max-w-[180px]">{c.email}</span>
+                        </span>
+                      ) : '—'}
+                    </TableCell>
+                    <TableCell className="hidden md:table-cell">
+                      <Badge variant="outline" className="text-[10px] capitalize">
+                        {c.customer_type ?? '—'}
+                      </Badge>
                     </TableCell>
                     <TableCell>
                       <Select
@@ -154,7 +191,6 @@ export default function CustomersPage() {
                         disabled={assignGroup.isPending}
                       >
                         <SelectTrigger className="h-8 w-44 text-xs">
-                          {/* Always show the resolved name — don't rely on SelectItem matching */}
                           <span className={c.credit_group_name ? '' : 'text-muted-foreground'}>
                             {c.credit_group_name ?? 'Assign group…'}
                           </span>
@@ -188,45 +224,75 @@ export default function CustomersPage() {
       )}
 
       {/* Create Customer Dialog */}
-      <Dialog open={createOpen} onOpenChange={setCreateOpen}>
-        <DialogContent className="sm:max-w-md">
+      <Dialog open={createOpen} onOpenChange={(o) => { if (!o) { setCreateOpen(false); resetForm() } else setCreateOpen(true) }}>
+        <DialogContent className="w-full max-w-full rounded-none sm:max-w-md sm:rounded-lg">
           <DialogHeader>
             <DialogTitle>New Customer</DialogTitle>
           </DialogHeader>
           <div className="space-y-4 py-2">
             <div className="space-y-1.5">
-              <Label>Name <span className="text-destructive">*</span></Label>
+              <Label htmlFor="cust-name">Name <span className="text-destructive">*</span></Label>
               <Input
+                id="cust-name"
                 placeholder="Customer name"
                 value={newName}
                 onChange={(e) => setNewName(e.target.value)}
               />
             </div>
+
             <div className="space-y-1.5">
               <Label>Phone <span className="text-destructive">*</span></Label>
-              <Input
-                placeholder="+974 xxxx xxxx"
+              <PhoneInputWithCode
                 value={newPhone}
-                onChange={(e) => setNewPhone(e.target.value)}
+                onChange={setNewPhone}
+                countryCode={newCountryCode}
+                onCountryCodeChange={setNewCountryCode}
               />
             </div>
+
             <div className="space-y-1.5">
-              <Label>Customer Type <span className="text-destructive">*</span></Label>
-              <Select value={newType} onValueChange={(v) => { setNewType(v as 'cash' | 'credit'); setNewGroupId('') }}>
-                <SelectTrigger>
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="credit">Credit</SelectItem>
-                  <SelectItem value="cash">Cash</SelectItem>
-                </SelectContent>
-              </Select>
+              <Label htmlFor="cust-email">Email</Label>
+              <Input
+                id="cust-email"
+                type="email"
+                placeholder="customer@example.com"
+                value={newEmail}
+                onChange={(e) => setNewEmail(e.target.value)}
+              />
             </div>
+
+            <div className="grid grid-cols-2 gap-3">
+              <div className="space-y-1.5">
+                <Label htmlFor="cust-entity-type">Entity Type <span className="text-destructive">*</span></Label>
+                <Select value={newEntity} onValueChange={(v) => setNewEntity(v as 'individual' | 'business')}>
+                  <SelectTrigger id="cust-entity-type" className="w-full">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="individual">Individual</SelectItem>
+                    <SelectItem value="business">Business</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+              <div className="space-y-1.5">
+                <Label htmlFor="cust-customer-type">Customer Type <span className="text-destructive">*</span></Label>
+                <Select value={newType} onValueChange={(v) => { setNewType(v as 'cash' | 'credit'); setNewGroupId('') }}>
+                  <SelectTrigger id="cust-customer-type" className="w-full">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="credit">Credit</SelectItem>
+                    <SelectItem value="cash">Cash</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+            </div>
+
             {newType === 'credit' && (
               <div className="space-y-1.5">
-                <Label>Credit Group <span className="text-destructive">*</span></Label>
+                <Label htmlFor="cust-credit-group">Credit Group <span className="text-destructive">*</span></Label>
                 <Select value={newGroupId} onValueChange={(v) => { if (v) setNewGroupId(v) }}>
-                  <SelectTrigger>
+                  <SelectTrigger id="cust-credit-group" className="w-full">
                     <SelectValue placeholder="Select group…" />
                   </SelectTrigger>
                   <SelectContent>
@@ -239,7 +305,7 @@ export default function CustomersPage() {
             )}
           </div>
           <DialogFooter>
-            <Button variant="outline" onClick={() => setCreateOpen(false)}>Cancel</Button>
+            <Button variant="outline" onClick={() => { setCreateOpen(false); resetForm() }}>Cancel</Button>
             <Button onClick={handleCreate} disabled={createCustomer.isPending}>
               {createCustomer.isPending ? 'Creating…' : 'Create Customer'}
             </Button>

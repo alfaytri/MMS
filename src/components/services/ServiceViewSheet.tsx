@@ -31,7 +31,7 @@ export function ServiceViewSheet({ open, onOpenChange, root, allServices }: Prop
   function renderNode(service: Service, depth: number): React.ReactNode {
     const children = treeMap.get(service.id) ?? []
     const isBranch = children.length > 0
-    const levelColor = LEVEL_COLORS[Math.min(depth, 3)] ?? 'bg-slate-100 text-slate-700'
+    const levelColor = LEVEL_COLORS[Math.min(depth, 3)] ?? 'bg-muted text-foreground'
 
     return (
       <div key={service.id}>

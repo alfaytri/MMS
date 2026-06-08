@@ -169,7 +169,7 @@ export function BrandVariantRow({ variant, itemId, itemName, canMoveUp, canMoveD
             </WarehouseStockTooltip>
             <span
               title={`${damagedQty} damaged unit${damagedQty !== 1 ? 's' : ''} — not sellable`}
-              className={`inline-flex items-center rounded-full px-2 py-0.5 text-[11px] font-medium cursor-default ${damagedQty > 0 ? 'bg-red-100 text-red-700' : 'bg-slate-100 text-slate-500'}`}
+              className={`inline-flex items-center rounded-full px-2 py-0.5 text-[11px] font-medium cursor-default ${damagedQty > 0 ? 'bg-red-100 text-red-700' : 'bg-muted text-muted-foreground'}`}
             >
               {damagedQty} dmg
             </span>
@@ -197,7 +197,7 @@ export function BrandVariantRow({ variant, itemId, itemName, canMoveUp, canMoveD
       </TableRow>
 
       {fifoOpen && (
-        <TableRow className="bg-slate-50/50 hover:bg-slate-50/50">
+        <TableRow className="bg-muted/50 hover:bg-muted/50">
           <TableCell colSpan={8} className="py-2 px-4">
             <FifoLayersTable brandVariantId={variant.id} />
           </TableCell>

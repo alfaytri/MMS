@@ -3,6 +3,7 @@ import { useInfiniteQuery, useQuery, useMutation, useQueryClient } from '@tansta
 import { createClient } from '@/lib/supabase/client'
 import { logActivity } from '@/lib/logActivity'
 import type { ArInvoice, InvoiceLineItem } from '@/types/invoice'
+import { queryKeys } from '@/lib/queryKeys'
 
 const PAGE_SIZE = 50
 
@@ -36,10 +37,10 @@ export type FinanceInvoice = ArInvoice & {
 
 export function useInvoices(filters: InvoiceFilters = {}) {
   return useInfiniteQuery({
-    queryKey: ['invoices', filters],
+    queryKey: queryKeys.invoices.list(filters),
     queryFn: async ({ pageParam = 0 }) => {
       const supabase = createClient()
-      let q = (supabase as any)
+      let q = supabase
         .from('invoices')
         .select(`
           *,
@@ -73,7 +74,7 @@ export function useInvoices(filters: InvoiceFilters = {}) {
       }
 
       // Source filter
-      if (filters.source) q = q.eq('source_type', filters.source)
+      if (filters.source) q = q.eq('source', filters.source as 'order' | 'contract' | 'quotation')
 
       // Agent filter
       if (filters.agent) q = q.eq('agent_name', filters.agent)
@@ -122,10 +123,10 @@ export type InvoiceSummary = {
 
 export function useInvoiceSummary() {
   return useQuery({
-    queryKey: ['invoice-summary'],
+    queryKey: queryKeys.invoices.summary,
     queryFn: async (): Promise<InvoiceSummary> => {
       const supabase = createClient()
-      const { data, error } = await (supabase as any).rpc('get_invoice_summary')
+      const { data, error } = await supabase.rpc('get_invoice_summary')
       if (error) throw error
       return data as InvoiceSummary
     },
@@ -146,7 +147,7 @@ export function useVoidInvoice() {
       notes: string | null
     }) => {
       const supabase = createClient()
-      const { error } = await (supabase as any)
+      const { error } = await supabase
         .from('invoices')
         .update({
           status: 'void',
@@ -157,10 +158,10 @@ export function useVoidInvoice() {
       if (error) throw error
     },
     onSuccess: (_, vars) => {
-      queryClient.invalidateQueries({ queryKey: ['invoices'] })
-      queryClient.invalidateQueries({ queryKey: ['invoice-summary'] })
-      queryClient.invalidateQueries({ queryKey: ['pending-payments'] })
-      queryClient.invalidateQueries({ queryKey: ['customer-invoices'] })
+      queryClient.invalidateQueries({ queryKey: queryKeys.invoices.all })
+      queryClient.invalidateQueries({ queryKey: queryKeys.invoices.summary })
+      queryClient.invalidateQueries({ queryKey: queryKeys.payments.pending })
+      queryClient.invalidateQueries({ queryKey: queryKeys.customerInvoices.all })
       logActivity({
         action: 'Invoice Voided',
         module: 'invoices',
@@ -188,14 +189,14 @@ export function useIssueCreditNote() {
       const creditNoteId = `CN-${crypto.randomUUID().slice(0, 8)}`
 
       // Fetch invoice for customer info
-      const { data: inv } = await (supabase as any)
+      const { data: inv } = await supabase
         .from('invoices')
         .select('customer_id, total_amount')
         .eq('id', payload.invoiceId)
         .single()
 
       // Insert credit note
-      const { data: cn, error: cnErr } = await (supabase as any)
+      const { data: cn, error: cnErr } = await supabase
         .from('credit_notes')
         .insert({
           credit_note_id: creditNoteId,
@@ -207,7 +208,7 @@ export function useIssueCreditNote() {
             : payload.amount,
           reason: payload.reason,
           original_total: inv?.total_amount,
-        })
+        } as unknown as import('@/types/database.types').DBInsert<'credit_notes'>)
         .select('id')
         .single()
       if (cnErr) throw cnErr
@@ -222,13 +223,13 @@ export function useIssueCreditNote() {
           unit_price: li.unit_price,
         }))
         if (lines.length > 0) {
-          const { error: lineErr } = await (supabase as any)
+          const { error: lineErr } = await supabase
             .from('credit_note_lines')
-            .insert(lines)
+            .insert(lines as unknown as import('@/types/database.types').DBInsert<'credit_note_lines'>[])
           if (lineErr) throw lineErr
         }
       } else {
-        const { error: lineErr } = await (supabase as any)
+        const { error: lineErr } = await supabase
           .from('credit_note_lines')
           .insert({
             credit_note_id: cn.id,
@@ -242,8 +243,8 @@ export function useIssueCreditNote() {
       return { creditNoteId }
     },
     onSuccess: (result, vars) => {
-      queryClient.invalidateQueries({ queryKey: ['invoices'] })
-      queryClient.invalidateQueries({ queryKey: ['customer-invoices'] })
+      queryClient.invalidateQueries({ queryKey: queryKeys.invoices.all })
+      queryClient.invalidateQueries({ queryKey: queryKeys.customerInvoices.all })
       logActivity({
         action: 'Credit Note Issued',
         module: 'invoices',
@@ -260,14 +261,14 @@ export function useBulkQbSyncInvoices() {
   return useMutation({
     mutationFn: async (invoiceIds: string[]) => {
       const supabase = createClient()
-      const { error } = await (supabase as any)
+      const { error } = await supabase
         .from('invoices')
         .update({ qb_synced: true })
         .in('id', invoiceIds)
       if (error) throw error
     },
     onSuccess: (_, ids) => {
-      queryClient.invalidateQueries({ queryKey: ['invoices'] })
+      queryClient.invalidateQueries({ queryKey: queryKeys.invoices.all })
       logActivity({
         action: 'Invoices QB Synced',
         module: 'invoices',

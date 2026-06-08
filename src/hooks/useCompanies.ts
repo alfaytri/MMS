@@ -1,5 +1,6 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { createClient } from '@/lib/supabase/client'
+import { queryKeys } from '@/lib/queryKeys'
 import type { DBTable, DBInsert, DBUpdate } from '@/types/database.types'
 
 export type Company = DBTable<'companies'>
@@ -8,7 +9,7 @@ export type CompanyUpdate = DBUpdate<'companies'>
 
 export function useCompanies() {
   return useQuery({
-    queryKey: ['companies'],
+    queryKey: queryKeys.companies.all,
     queryFn: async () => {
       const supabase = createClient()
       const { data, error } = await supabase
@@ -36,7 +37,7 @@ export function useCreateCompany() {
       return data
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['companies'] })
+      queryClient.invalidateQueries({ queryKey: queryKeys.companies.all })
     },
   })
 }
@@ -56,7 +57,7 @@ export function useUpdateCompany() {
       return data
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['companies'] })
+      queryClient.invalidateQueries({ queryKey: queryKeys.companies.all })
     },
   })
 }

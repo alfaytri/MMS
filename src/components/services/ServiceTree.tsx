@@ -19,6 +19,7 @@ import {
 } from '@dnd-kit/sortable'
 import { cn } from '@/lib/utils'
 import { ServiceTreeRow } from './ServiceTreeRow'
+import { ContractTreeRow } from './ContractTreeRow'
 import { ServiceEditDialog } from './ServiceEditDialog'
 import { useDivisions } from '@/hooks/useDivisions'
 import { useAllServiceInstructionLinks, useReorderServicesBulk } from '@/hooks/useServices'
@@ -31,8 +32,8 @@ export interface ReorderArgs {
   treeType: string
 }
 
-export function buildTreeMap(flat: Service[]): Map<string | null, Service[]> {
-  const map = new Map<string | null, Service[]>()
+export function buildTreeMap<T extends { id: string; parent_id: string | null }>(flat: T[]): Map<string | null, T[]> {
+  const map = new Map<string | null, T[]>()
   for (const s of flat) {
     const key = s.parent_id ?? null
     if (!map.has(key)) map.set(key, [])
@@ -41,9 +42,9 @@ export function buildTreeMap(flat: Service[]): Map<string | null, Service[]> {
   return map
 }
 
-export function collectDescendantIds(
+export function collectDescendantIds<T extends { id: string }>(
   nodeId: string,
-  treeMap: Map<string | null, Service[]>,
+  treeMap: Map<string | null, T[]>,
 ): Set<string> {
   const result = new Set<string>()
   const visited = new Set<string>()
@@ -145,6 +146,19 @@ const COLUMNS = [
   { label: 'Actions', width: 'w-[96px]' },
 ]
 
+const CONTRACT_COLUMNS = [
+  { label: 'Order', width: 'w-10' },
+  { label: 'Service', width: 'w-[350px]' },
+  { label: 'Kind', width: 'w-[90px]' },
+  { label: 'Type', width: 'w-[110px]' },
+  { label: 'Division', width: 'w-[100px]' },
+  { label: 'Pricing', width: 'w-[120px]' },
+  { label: 'Price', width: 'w-[120px]' },
+  { label: 'Brands', width: 'w-[80px]' },
+  { label: 'Status', width: 'w-[80px]' },
+  { label: 'Actions', width: 'w-[116px]' },
+]
+
 interface ServiceTreeProps {
   data: Service[]
   isLoading: boolean
@@ -156,6 +170,7 @@ interface ServiceTreeProps {
   onEdit: (node: Service) => void
   onAddChild: (parentId: string) => void
   onReorder: (args: ReorderArgs) => void
+  onShowHistory: (serviceId: string, serviceName: string) => void
 }
 
 export function ServiceTree({
@@ -169,6 +184,7 @@ export function ServiceTree({
   onEdit,
   onAddChild,
   onReorder,
+  onShowHistory,
 }: ServiceTreeProps) {
   const [expanded, setExpanded] = useState<Set<string>>(new Set())
   const [activeId, setActiveId] = useState<string | null>(null)
@@ -192,12 +208,32 @@ export function ServiceTree({
     [instructionLinks],
   )
 
+  const brandCountMap = useMemo(() => {
+    const map = new Map<string, number>()
+    return map
+  }, [])
+
   const filteredData = useMemo(
     () => applyFilters(data, searchQuery, linkageFilter, instructionServiceIds),
     [data, searchQuery, linkageFilter, instructionServiceIds],
   )
 
   const treeMap = useMemo(() => buildTreeMap(filteredData), [filteredData])
+
+  const descendantPendingIds = useMemo(() => {
+    const result = new Set<string>()
+    const parentMap = new Map(filteredData.map((s) => [s.id, s.parent_id ?? null]))
+    for (const s of filteredData) {
+      if (!s.has_pending_change) continue
+      let pid = parentMap.get(s.id)
+      while (pid) {
+        if (result.has(pid)) break
+        result.add(pid)
+        pid = parentMap.get(pid) ?? null
+      }
+    }
+    return result
+  }, [filteredData])
 
   // Flat ordered list of all visible IDs for SortableContext
   const allVisibleIds = useMemo(() => filteredData.map((s) => s.id), [filteredData])
@@ -279,23 +315,47 @@ export function ServiceTree({
 
     return (
       <div key={service.id}>
-        <ServiceTreeRow
-          service={service}
-          depth={depth}
-          isExpanded={isExpanded}
-          hasChildren={hasChildren}
-          isFirst={idx === 0}
-          isLast={idx === siblings.length - 1}
-          treeType={treeType}
-          dragMode={dragMode}
-          divisionMap={divisionMap}
-          instructionServiceIds={instructionServiceIds}
-          onToggleExpand={toggleExpand}
-          onEdit={onEdit}
-          onView={setViewNode}
-          onAddChild={onAddChild}
-          onReorder={onReorder}
-        />
+        {treeType === 'contract' ? (
+          <ContractTreeRow
+            service={service}
+            depth={depth}
+            isExpanded={isExpanded}
+            hasChildren={hasChildren}
+            hasDescendantPending={descendantPendingIds.has(service.id)}
+            isFirst={idx === 0}
+            isLast={idx === siblings.length - 1}
+            treeType={treeType}
+            dragMode={dragMode}
+            divisionMap={divisionMap}
+            brandCountMap={brandCountMap}
+            onToggleExpand={toggleExpand}
+            onEdit={onEdit}
+            onView={setViewNode}
+            onAddChild={onAddChild}
+            onReorder={onReorder}
+            onShowHistory={(id) => onShowHistory(id, service.name_en)}
+          />
+        ) : (
+          <ServiceTreeRow
+            service={service}
+            depth={depth}
+            isExpanded={isExpanded}
+            hasChildren={hasChildren}
+            hasDescendantPending={descendantPendingIds.has(service.id)}
+            isFirst={idx === 0}
+            isLast={idx === siblings.length - 1}
+            treeType={treeType}
+            dragMode={dragMode}
+            divisionMap={divisionMap}
+            instructionServiceIds={instructionServiceIds}
+            onToggleExpand={toggleExpand}
+            onEdit={onEdit}
+            onView={setViewNode}
+            onAddChild={onAddChild}
+            onReorder={onReorder}
+            onShowHistory={(id) => onShowHistory(id, service.name_en)}
+          />
+        )}
         {hasChildren && isExpanded && children.map((child) => renderNode(child, depth + 1))}
       </div>
     )
@@ -304,7 +364,7 @@ export function ServiceTree({
   const header = (
     <div className="sticky top-0 z-10 flex items-center bg-muted/50 border-b">
       {dragMode && <div className="w-8 shrink-0" />}
-      {COLUMNS.map((col) => (
+      {(treeType === 'contract' ? CONTRACT_COLUMNS : COLUMNS).map((col) => (
         <div
           key={col.label}
           className={cn(

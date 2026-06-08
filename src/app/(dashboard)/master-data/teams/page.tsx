@@ -61,7 +61,7 @@ function DragOverlayContent({ item }: { item: DragData }) {
   if (item.type === 'employee') {
     const emp = employees.find(e => e.id === item.employeeId)
     const initials = emp?.name?.split(' ').map((w: string) => w[0]).join('').slice(0, 2).toUpperCase() ?? '?'
-    const avatarUrl = emp ? (emp as unknown as Record<string, unknown>).avatar_url as string | null : null
+    const avatarUrl = emp?.avatar_url ?? null
     return (
       <div className="flex items-center gap-2 px-3 py-1.5 rounded-full bg-background border shadow-lg text-sm pointer-events-none">
         {avatarUrl

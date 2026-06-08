@@ -1,5 +1,6 @@
 import { useState } from 'react'
 import { useQueryClient } from '@tanstack/react-query'
+import { queryKeys } from '@/lib/queryKeys'
 import type { DragEndEvent } from '@dnd-kit/core'
 import {
   useAssignEmployeeToTeam,
@@ -52,8 +53,8 @@ export function useDnDHandlers() {
       // Guard: block archived/vacation from becoming leader
       // Try both possible cache key forms
       const cached = (
-        qc.getQueryData<Employee[]>(['employees']) ??
-        qc.getQueryData<Employee[]>(['employees', undefined]) ??
+        qc.getQueryData<Employee[]>(queryKeys.teams.employees) ??
+        qc.getQueryData<Employee[]>(queryKeys.teams.employeesList(undefined)) ??
         []
       )
       const emp = cached.find(e => e.id === drag.employeeId)

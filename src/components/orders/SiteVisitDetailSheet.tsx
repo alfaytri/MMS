@@ -22,6 +22,7 @@ import { useSiteVisitDetail } from '@/hooks/useSiteVisitDetail'
 import { createClient } from '@/lib/supabase/client'
 import { toast } from 'sonner'
 import { cn } from '@/lib/utils'
+import { queryKeys } from '@/lib/queryKeys'
 
 const STATUS_STYLES: Record<string, string> = {
   scheduled:  'bg-blue-100 text-blue-800',
@@ -59,33 +60,33 @@ export function SiteVisitDetailSheet({ visitId, open, onOpenChange }: Props) {
 
   const confirmMutation = useMutation({
     mutationFn: async () => {
-      const { error } = await (supabase as any)
+      const { error } = await supabase
         .from('site_visits')
         .update({ status: 'confirmed' })
-        .eq('id', visitId)
+        .eq('id', visitId!)
       if (error) throw error
     },
     onSuccess: () => {
       toast.success('Site visit confirmed')
-      queryClient.invalidateQueries({ queryKey: ['site-visit-detail', visitId] })
-      queryClient.invalidateQueries({ queryKey: ['site-visits'] })
+      queryClient.invalidateQueries({ queryKey: queryKeys.siteVisits.detail(visitId) })
+      queryClient.invalidateQueries({ queryKey: queryKeys.siteVisits.all })
     },
     onError: () => toast.error('Failed to confirm site visit'),
   })
 
   const cancelMutation = useMutation({
     mutationFn: async () => {
-      const { error } = await (supabase as any)
+      const { error } = await supabase
         .from('site_visits')
         .update({ status: 'cancelled' })
-        .eq('id', visitId)
+        .eq('id', visitId!)
       if (error) throw error
     },
     onSuccess: () => {
       toast.success('Site visit cancelled')
       setCancelOpen(false)
-      queryClient.invalidateQueries({ queryKey: ['site-visit-detail', visitId] })
-      queryClient.invalidateQueries({ queryKey: ['site-visits'] })
+      queryClient.invalidateQueries({ queryKey: queryKeys.siteVisits.detail(visitId) })
+      queryClient.invalidateQueries({ queryKey: queryKeys.siteVisits.all })
     },
     onError: () => toast.error('Failed to cancel site visit'),
   })
@@ -101,28 +102,28 @@ export function SiteVisitDetailSheet({ visitId, open, onOpenChange }: Props) {
       >
         <SheetContent side="right" className="w-full sm:max-w-xl flex flex-col p-0">
           {isLoading || !visit ? (
-            <div className="flex flex-1 items-center justify-center text-sm text-slate-400">
+            <div className="flex flex-1 items-center justify-center text-sm text-muted-foreground">
               Loading…
             </div>
           ) : (
             <>
               <SheetHeader className="border-b px-4 py-3">
                 <div className="flex items-center gap-2 flex-wrap">
-                  <span className="font-bold text-slate-900 font-mono">{visit.visit_id}</span>
+                  <span className="font-bold text-foreground font-mono">{visit.visit_id}</span>
                   <span className="rounded border border-purple-200 bg-purple-100 px-2 py-0.5 text-[11px] font-semibold text-purple-700">
                     Site Visit
                   </span>
-                  <Badge className={cn('text-xs capitalize', STATUS_STYLES[visit.status] ?? 'bg-slate-100 text-slate-600')}>
+                  <Badge className={cn('text-xs capitalize', STATUS_STYLES[visit.status] ?? 'bg-muted text-muted-foreground')}>
                     {visit.status}
                   </Badge>
                 </div>
 
-                <p className="text-sm text-slate-500">
+                <p className="text-sm text-muted-foreground">
                   {visit.customer_name} · {visit.customer_phone}
                 </p>
 
                 {visit.arrival_phone && visit.arrival_phone !== visit.customer_phone && (
-                  <p className="flex items-center gap-1 text-xs text-slate-500">
+                  <p className="flex items-center gap-1 text-xs text-muted-foreground">
                     <Phone className="h-3 w-3 text-orange-400" />
                     {visit.arrival_phone}
                     <span className="text-orange-500 font-medium">on arrival</span>
@@ -170,19 +171,19 @@ export function SiteVisitDetailSheet({ visitId, open, onOpenChange }: Props) {
               {/* Info summary */}
               <div className="px-4 pt-3 space-y-2">
                 {visit.scheduled_date && (
-                  <div className="flex items-center gap-2 text-sm text-slate-700">
-                    <Calendar className="h-4 w-4 shrink-0 text-slate-400" />
+                  <div className="flex items-center gap-2 text-sm text-foreground">
+                    <Calendar className="h-4 w-4 shrink-0 text-muted-foreground" />
                     <span>{format(new Date(visit.scheduled_date), 'dd MMM yyyy')}</span>
                   </div>
                 )}
                 {visit.address && (
-                  <div className="flex items-start gap-2 text-sm text-slate-700">
-                    <MapPin className="h-4 w-4 shrink-0 text-slate-400 mt-0.5" />
+                  <div className="flex items-start gap-2 text-sm text-foreground">
+                    <MapPin className="h-4 w-4 shrink-0 text-muted-foreground mt-0.5" />
                     <span>{visit.address}</span>
                   </div>
                 )}
                 {visit.notes && (
-                  <div className="flex items-start gap-2 rounded-md bg-amber-50 border border-amber-100 px-3 py-2 text-sm text-slate-700">
+                  <div className="flex items-start gap-2 rounded-md bg-amber-50 border border-amber-100 px-3 py-2 text-sm text-foreground">
                     <FileText className="h-4 w-4 shrink-0 text-amber-500 mt-0.5" />
                     <span>{visit.notes}</span>
                   </div>
@@ -190,16 +191,16 @@ export function SiteVisitDetailSheet({ visitId, open, onOpenChange }: Props) {
 
                 {/* Team assignments */}
                 <div className="space-y-1.5">
-                  <p className="text-xs font-semibold uppercase tracking-wide text-slate-400">
+                  <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
                     Team Assignments
                   </p>
                   {visit.assignments.length === 0 ? (
-                    <p className="text-sm text-slate-400">No team assigned yet</p>
+                    <p className="text-sm text-muted-foreground">No team assigned yet</p>
                   ) : (
                     visit.assignments.map((a) => (
-                      <div key={a.id} className="rounded-lg border border-slate-200 bg-slate-50 px-3 py-2.5 space-y-0.5">
-                        <p className="font-medium text-sm text-slate-900">{a.team_name}</p>
-                        <div className="flex items-center gap-3 text-xs text-slate-500">
+                      <div key={a.id} className="rounded-lg border border-border bg-muted px-3 py-2.5 space-y-0.5">
+                        <p className="font-medium text-sm text-foreground">{a.team_name}</p>
+                        <div className="flex items-center gap-3 text-xs text-muted-foreground">
                           {a.scheduled_date && <span>{a.scheduled_date}</span>}
                           {a.time_slot && (
                             <span className="flex items-center gap-1">
@@ -214,14 +215,14 @@ export function SiteVisitDetailSheet({ visitId, open, onOpenChange }: Props) {
                   )}
                 </div>
 
-                <div className="grid grid-cols-2 gap-2 rounded-md bg-slate-50 p-3 text-center text-sm">
+                <div className="grid grid-cols-2 gap-2 rounded-md bg-muted p-3 text-center text-sm">
                   <div>
                     <p className="font-bold">{visit.assignments.length}</p>
-                    <p className="text-xs text-slate-500">Teams</p>
+                    <p className="text-xs text-muted-foreground">Teams</p>
                   </div>
                   <div>
                     <p className="font-bold capitalize">{visit.mode}</p>
-                    <p className="text-xs text-slate-500">Mode</p>
+                    <p className="text-xs text-muted-foreground">Mode</p>
                   </div>
                 </div>
               </div>
@@ -244,7 +245,7 @@ export function SiteVisitDetailSheet({ visitId, open, onOpenChange }: Props) {
                   <TabsContent value="followup" className="mt-0 space-y-2">
                     {visit.status === 'completed' ? (
                       <>
-                        <p className="text-xs text-slate-500 mb-3">
+                        <p className="text-xs text-muted-foreground mb-3">
                           Create a follow-up order from this completed site visit.
                         </p>
                         <Button
@@ -264,7 +265,7 @@ export function SiteVisitDetailSheet({ visitId, open, onOpenChange }: Props) {
                         </Button>
                       </>
                     ) : (
-                      <p className="text-sm text-slate-400">
+                      <p className="text-sm text-muted-foreground">
                         Available once the site visit is marked as completed.
                       </p>
                     )}
@@ -280,7 +281,7 @@ export function SiteVisitDetailSheet({ visitId, open, onOpenChange }: Props) {
                           <p className="text-sm font-medium">
                             Site visit created
                           </p>
-                          <p className="text-xs text-slate-400">
+                          <p className="text-xs text-muted-foreground">
                             {format(new Date(visit.created_at), 'MMM d, yyyy HH:mm')}
                           </p>
                         </div>

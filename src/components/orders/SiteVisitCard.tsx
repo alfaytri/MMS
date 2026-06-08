@@ -44,7 +44,7 @@ export function SiteVisitCard({ fromTime, toTime, onTimeChange, isOverlay = fals
     <div
       ref={isOverlay ? undefined : setNodeRef}
       className={cn(
-        'relative rounded-md border border-slate-200 bg-white text-sm',
+        'relative rounded-md border border-border bg-white text-sm',
         isDragging && !isOverlay && 'opacity-40',
         isOverlay && 'shadow-2xl ring-1 ring-orange-300 cursor-grabbing',
       )}
@@ -54,7 +54,7 @@ export function SiteVisitCard({ fromTime, toTime, onTimeChange, isOverlay = fals
           <button
             {...listeners}
             {...attributes}
-            className="cursor-grab text-slate-300 hover:text-slate-500 active:cursor-grabbing"
+            className="cursor-grab text-slate-300 hover:text-muted-foreground active:cursor-grabbing"
             tabIndex={-1}
             aria-label="Drag to calendar to assign team"
           >
@@ -64,9 +64,9 @@ export function SiteVisitCard({ fromTime, toTime, onTimeChange, isOverlay = fals
       )}
 
       <div className={cn('pt-2 pb-2 space-y-1.5', isOverlay ? 'px-3' : 'pl-7 pr-3')}>
-        <p className="font-semibold leading-snug text-slate-900">Site Visit</p>
+        <p className="font-semibold leading-snug text-foreground">Site Visit</p>
         {!isOverlay && (
-          <p className="text-[11px] text-slate-400 leading-snug">
+          <p className="text-[11px] text-muted-foreground leading-snug">
             Drag onto a team row in the calendar to assign
           </p>
         )}
@@ -75,7 +75,7 @@ export function SiteVisitCard({ fromTime, toTime, onTimeChange, isOverlay = fals
 
         {!isOverlay && (
           <div className="space-y-1">
-            <span className="text-[10px] font-medium uppercase tracking-wide text-slate-400">
+            <span className="text-[10px] font-medium uppercase tracking-wide text-muted-foreground">
               Arrival Window
             </span>
             <TimeRangeSelect

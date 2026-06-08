@@ -14,7 +14,7 @@ export async function logActivity(payload: {
 }): Promise<void> {
   try {
     const supabase = createClient()
-    await (supabase as any).from('activity_log').insert({
+    await supabase.from('activity_log').insert({
       action:         payload.action,
       module:         payload.module,
       entity_id:      payload.entity_id,

@@ -16,12 +16,12 @@ import type { OrderStatus, ConfirmationStatus } from '@/types/orders'
 import { cn } from '@/lib/utils'
 
 const BANNER_STYLES: Record<ConfirmationStatus, string> = {
-  not_sent:           'border-slate-200 bg-slate-50',
+  not_sent:           'border-border bg-muted',
   msg_sent:           'border-blue-200 bg-blue-50',
-  customer_confirmed: 'border-green-200 bg-green-50',
-  agent_confirmed:    'border-green-200 bg-green-50',
-  manually_confirmed: 'border-green-200 bg-green-50',
-  no_response:        'border-red-200 bg-red-50',
+  customer_confirmed: 'border-green-200 bg-success/10',
+  agent_confirmed:    'border-green-200 bg-success/10',
+  manually_confirmed: 'border-green-200 bg-success/10',
+  no_response:        'border-red-200 bg-destructive/10',
 }
 
 interface Props {
@@ -50,14 +50,14 @@ export function OrderDetailDialog({ orderId, open, onOpenChange }: Props) {
       >
         <SheetContent side="right" className="w-full sm:max-w-xl flex flex-col p-0">
           {isLoading || !order ? (
-            <div className="flex flex-1 items-center justify-center text-sm text-slate-400">
+            <div className="flex flex-1 items-center justify-center text-sm text-muted-foreground">
               Loading…
             </div>
           ) : (
             <>
               <SheetHeader className="border-b px-4 py-3">
                 <div className="flex items-center gap-2 flex-wrap">
-                  <span className="font-bold text-slate-900">{order.order_id}</span>
+                  <span className="font-bold text-foreground">{order.order_id}</span>
                   <Badge
                     className={cn(
                       'text-xs',
@@ -69,7 +69,7 @@ export function OrderDetailDialog({ orderId, open, onOpenChange }: Props) {
                     {order.status}
                   </Badge>
                 </div>
-                <p className="text-sm text-slate-500">
+                <p className="text-sm text-muted-foreground">
                   {order.customer_name} · {order.customer_phone}
                 </p>
 
@@ -81,7 +81,7 @@ export function OrderDetailDialog({ orderId, open, onOpenChange }: Props) {
                   )}
                 >
                   <div className="flex items-center justify-between gap-2 flex-wrap">
-                    <p className="text-xs text-slate-600">
+                    <p className="text-xs text-muted-foreground">
                       {order.confirmation_status === 'not_sent' &&
                         '48hr auto-confirmation via WhatsApp before visit'}
                       {order.confirmation_status === 'msg_sent' &&
@@ -175,23 +175,23 @@ export function OrderDetailDialog({ orderId, open, onOpenChange }: Props) {
                     {order.order_team_assignments.map((a) => (
                       <div key={a.id} className="rounded-lg border p-3">
                         <p className="font-medium text-sm">{a.team_name}</p>
-                        <p className="text-xs text-slate-500 mt-0.5">
+                        <p className="text-xs text-muted-foreground mt-0.5">
                           {a.scheduled_date} · {a.time_slot} · {a.duration}h
                         </p>
                       </div>
                     ))}
-                    <div className="grid grid-cols-3 gap-2 rounded-md bg-slate-50 p-3 text-center text-sm mt-3">
+                    <div className="grid grid-cols-3 gap-2 rounded-md bg-muted p-3 text-center text-sm mt-3">
                       <div>
                         <p className="font-bold">{order.order_services.length}</p>
-                        <p className="text-xs text-slate-500">Services</p>
+                        <p className="text-xs text-muted-foreground">Services</p>
                       </div>
                       <div>
                         <p className="font-bold">{order.order_team_assignments.length}</p>
-                        <p className="text-xs text-slate-500">Teams</p>
+                        <p className="text-xs text-muted-foreground">Teams</p>
                       </div>
                       <div>
                         <p className="font-bold">QAR {(order.total_amount ?? 0).toLocaleString()}</p>
-                        <p className="text-xs text-slate-500">Total</p>
+                        <p className="text-xs text-muted-foreground">Total</p>
                       </div>
                     </div>
                   </TabsContent>
@@ -200,7 +200,7 @@ export function OrderDetailDialog({ orderId, open, onOpenChange }: Props) {
                     {order.has_invoice ? (
                       <p className="text-sm">Invoice: {order.invoice_number}</p>
                     ) : (
-                      <p className="text-sm text-slate-400">No invoice generated yet</p>
+                      <p className="text-sm text-muted-foreground">No invoice generated yet</p>
                     )}
                   </TabsContent>
 
@@ -218,7 +218,7 @@ export function OrderDetailDialog({ orderId, open, onOpenChange }: Props) {
                     <Button
                       variant="outline"
                       size="sm"
-                      className="w-full border-red-200 text-red-600 hover:bg-red-50"
+                      className="w-full border-red-200 text-destructive hover:bg-destructive/10"
                       onClick={() =>
                         window.open(`/orders/create-backwork?from=${orderId}`, '_blank')
                       }
@@ -240,14 +240,14 @@ export function OrderDetailDialog({ orderId, open, onOpenChange }: Props) {
                           <div className="pb-3">
                             <p className="text-sm font-medium">
                               {log.action}{' '}
-                              <span className="font-normal text-slate-500">
+                              <span className="font-normal text-muted-foreground">
                                 by {log.user_name}
                               </span>
                             </p>
                             {log.details && (
-                              <p className="text-xs text-slate-500">{log.details}</p>
+                              <p className="text-xs text-muted-foreground">{log.details}</p>
                             )}
-                            <p className="text-xs text-slate-400">
+                            <p className="text-xs text-muted-foreground">
                               {format(new Date(log.created_at), 'MMM d, yyyy HH:mm')}
                             </p>
                           </div>

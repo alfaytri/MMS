@@ -1,5 +1,6 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { createClient } from '@/lib/supabase/client'
+import { queryKeys } from '@/lib/queryKeys'
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -54,10 +55,10 @@ export type CreateShipmentPayload = {
 
 export function useShipments({ archived = false, search = '' }: { archived?: boolean; search?: string } = {}) {
   return useQuery({
-    queryKey: ['shipments', { archived, search }],
+    queryKey: queryKeys.shipments.list(archived, search),
     queryFn: async () => {
       const supabase = createClient()
-      let q = (supabase as any)
+      let q = supabase
         .from('shipments')
         .select('*, purchase_orders(po_number, supplier_name)')
         .eq('archived', archived)
@@ -78,7 +79,7 @@ export function useCreateShipment() {
   return useMutation({
     mutationFn: async (payload: CreateShipmentPayload) => {
       const supabase = createClient()
-      const { data, error } = await (supabase as any)
+      const { data, error } = await supabase
         .from('shipments')
         .insert({ ...payload, events: [], archived: false, status: 'booked' })
         .select()
@@ -86,7 +87,7 @@ export function useCreateShipment() {
       if (error) throw error
       return data as Shipment
     },
-    onSuccess: () => qc.invalidateQueries({ queryKey: ['shipments'] }),
+    onSuccess: () => qc.invalidateQueries({ queryKey: queryKeys.shipments.all }),
   })
 }
 
@@ -95,13 +96,13 @@ export function useUpdateShipmentStatus() {
   return useMutation({
     mutationFn: async ({ id, status }: { id: string; status: ShipmentStatus }) => {
       const supabase = createClient()
-      const { error } = await (supabase as any)
+      const { error } = await supabase
         .from('shipments')
         .update({ status })
         .eq('id', id)
       if (error) throw error
     },
-    onSuccess: () => qc.invalidateQueries({ queryKey: ['shipments'] }),
+    onSuccess: () => qc.invalidateQueries({ queryKey: queryKeys.shipments.all }),
   })
 }
 
@@ -110,13 +111,13 @@ export function useAddShipmentEvent() {
   return useMutation({
     mutationFn: async ({ id, event, currentEvents }: { id: string; event: ShipmentEvent; currentEvents: ShipmentEvent[] }) => {
       const supabase = createClient()
-      const { error } = await (supabase as any)
+      const { error } = await supabase
         .from('shipments')
         .update({ events: [...currentEvents, event] })
         .eq('id', id)
       if (error) throw error
     },
-    onSuccess: () => qc.invalidateQueries({ queryKey: ['shipments'] }),
+    onSuccess: () => qc.invalidateQueries({ queryKey: queryKeys.shipments.all }),
   })
 }
 
@@ -125,12 +126,12 @@ export function useArchiveShipment() {
   return useMutation({
     mutationFn: async (id: string) => {
       const supabase = createClient()
-      const { error } = await (supabase as any)
+      const { error } = await supabase
         .from('shipments')
         .update({ archived: true })
         .eq('id', id)
       if (error) throw error
     },
-    onSuccess: () => qc.invalidateQueries({ queryKey: ['shipments'] }),
+    onSuccess: () => qc.invalidateQueries({ queryKey: queryKeys.shipments.all }),
   })
 }

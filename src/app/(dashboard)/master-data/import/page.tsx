@@ -112,7 +112,7 @@ function ValidationSummary({ rows, entityType }: { rows: ParsedRow[]; entityType
 
   return (
     <div className="flex flex-wrap items-center gap-4 text-sm">
-      <div className="flex items-center gap-1.5 text-green-600">
+      <div className="flex items-center gap-1.5 text-success">
         <CheckCircle className="h-4 w-4" />
         <span className="font-medium">{valid} valid rows</span>
       </div>
@@ -184,7 +184,7 @@ function PreviewTable({ rows, entityType }: { rows: ParsedRow[]; entityType: Ent
                 <td className="px-2 py-1.5 text-muted-foreground">{row._rowIndex as number}</td>
                 <td className="px-2 py-1.5">
                   {row._valid ? (
-                    <CheckCircle className="h-3.5 w-3.5 text-green-500" />
+                    <CheckCircle className="h-3.5 w-3.5 text-success" />
                   ) : (
                     <XCircle className="h-3.5 w-3.5 text-destructive" />
                   )}
@@ -224,13 +224,13 @@ function ResultSummary({ result, onReset }: { result: ImportResult; onReset: () 
       <h3 className="font-semibold text-lg">Import Complete</h3>
 
       <div className="grid grid-cols-2 sm:grid-cols-3 gap-4">
-        <div className="rounded-md bg-green-50 border border-green-200 p-3 text-center">
+        <div className="rounded-md bg-success/10 border border-green-200 p-3 text-center">
           <p className="text-2xl font-bold text-green-700">{result.succeeded}</p>
-          <p className="text-xs text-green-600 mt-1">Rows imported</p>
+          <p className="text-xs text-success mt-1">Rows imported</p>
         </div>
-        <div className={cn('rounded-md border p-3 text-center', result.failed > 0 ? 'bg-red-50 border-red-200' : 'bg-gray-50 border-gray-200')}>
+        <div className={cn('rounded-md border p-3 text-center', result.failed > 0 ? 'bg-destructive/10 border-red-200' : 'bg-gray-50 border-gray-200')}>
           <p className={cn('text-2xl font-bold', result.failed > 0 ? 'text-red-700' : 'text-gray-500')}>{result.failed}</p>
-          <p className={cn('text-xs mt-1', result.failed > 0 ? 'text-red-600' : 'text-gray-500')}>Failed rows</p>
+          <p className={cn('text-xs mt-1', result.failed > 0 ? 'text-destructive' : 'text-gray-500')}>Failed rows</p>
         </div>
       </div>
 

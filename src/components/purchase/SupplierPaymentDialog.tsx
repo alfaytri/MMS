@@ -67,13 +67,13 @@ export function SupplierPaymentDialog({ open, onOpenChange, bill, onSetUpPlan }:
             <div className="col-span-2 font-semibold text-base">Outstanding: {formatCurrency(outstanding, 'QAR')}</div>
           </div>
           <div className="space-y-1">
-            <Label>Amount *</Label>
-            <Input type="number" value={amount} onChange={(e) => setAmount(e.target.value)} step="0.01" min={0.01} max={outstanding} />
+            <Label htmlFor="supp-pay-amount">Amount *</Label>
+            <Input id="supp-pay-amount" type="number" value={amount} onChange={(e) => setAmount(e.target.value)} step="0.01" min={0.01} max={outstanding} />
           </div>
           <div className="space-y-1">
-            <Label>Method *</Label>
+            <Label htmlFor="supp-pay-method">Method *</Label>
             <Select value={method} onValueChange={(v) => setMethod(v as typeof method)}>
-              <SelectTrigger><SelectValue /></SelectTrigger>
+              <SelectTrigger id="supp-pay-method"><SelectValue /></SelectTrigger>
               <SelectContent>
                 <SelectItem value="bank_transfer">Bank Transfer</SelectItem>
                 <SelectItem value="cash">Cash</SelectItem>
@@ -84,16 +84,16 @@ export function SupplierPaymentDialog({ open, onOpenChange, bill, onSetUpPlan }:
           </div>
           <div className="grid grid-cols-2 gap-4">
             <div className="space-y-1">
-              <Label>Date *</Label>
-              <Input type="date" value={date} onChange={(e) => setDate(e.target.value)} />
+              <Label htmlFor="supp-pay-date">Date *</Label>
+              <Input id="supp-pay-date" type="date" value={date} onChange={(e) => setDate(e.target.value)} />
             </div>
             <div className="space-y-1">
-              <Label>Reference</Label>
-              <Input value={reference} onChange={(e) => setReference(e.target.value)} placeholder="Ref #" />
+              <Label htmlFor="supp-pay-reference">Reference</Label>
+              <Input id="supp-pay-reference" value={reference} onChange={(e) => setReference(e.target.value)} placeholder="Ref #" />
             </div>
           </div>
           {outstanding >= PAYMENT_PLAN_THRESHOLD && onSetUpPlan && (
-            <p className="text-xs text-muted-foreground bg-slate-50 rounded p-2">
+            <p className="text-xs text-muted-foreground bg-muted rounded p-2">
               Outstanding ≥ QAR {PAYMENT_PLAN_THRESHOLD.toLocaleString()}.{' '}
               <button
                 type="button"

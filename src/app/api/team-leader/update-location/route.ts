@@ -18,8 +18,7 @@ export async function POST(req: NextRequest) {
     // when they switch to a different team via the header dropdown.
     const admin = createAdminClient()
 
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const { error } = await (admin as any)
+    const { error } = await admin
       .from('team_live_locations')
       .upsert(
         { team_id, lat, lng, accuracy: accuracy ?? null, speed: speed ?? null, heading: heading ?? null, updated_at: new Date().toISOString() },

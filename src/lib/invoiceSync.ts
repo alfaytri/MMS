@@ -26,7 +26,7 @@ export async function syncInvoiceToSalesOrder(soId: string): Promise<void> {
   const supabase = createClient()
 
   // Load SO with lines
-  const { data: so, error: soErr } = await (supabase as any)
+  const { data: so, error: soErr } = await supabase
     .from('sale_orders')
     .select('id, so_number, status, customer_id, sale_order_lines(*)')
     .eq('id', soId)
@@ -39,7 +39,7 @@ export async function syncInvoiceToSalesOrder(soId: string): Promise<void> {
   )
 
   // Find existing unpaid invoice for this SO
-  const { data: existing } = await (supabase as any)
+  const { data: existing } = await supabase
     .from('invoices')
     .select('id, doc_status, payment_status')
     .eq('sale_order_id', soId)
@@ -56,7 +56,7 @@ export async function syncInvoiceToSalesOrder(soId: string): Promise<void> {
     const needsRefresh = isAlreadySent || hasActivity
 
     // Rebuild line items
-    await (supabase as any)
+    await supabase
       .from('invoice_line_items')
       .delete()
       .eq('invoice_id', invoice.id)
@@ -69,23 +69,23 @@ export async function syncInvoiceToSalesOrder(soId: string): Promise<void> {
       total: l.total,
     }))
     if (lines.length > 0) {
-      await (supabase as any).from('invoice_line_items').insert(lines)
+      await supabase.from('invoice_line_items').insert(lines)
     }
 
-    await (supabase as any)
+    await supabase
       .from('invoices')
       .update({ total_amount: totalAmount, subtotal: totalAmount, needs_refresh: needsRefresh })
       .eq('id', invoice.id)
   } else if ((so as SORow).status === 'confirmed') {
     // Create fresh AR invoice
-    const { count } = await (supabase as any)
+    const { count } = await supabase
       .from('invoices')
       .select('*', { count: 'exact', head: true })
     const invoiceIdDisplay = `INV-${String((count ?? 0) + 1).padStart(5, '0')}`
     const today = new Date().toISOString().split('T')[0]
     const due = new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString().split('T')[0]
 
-    const { data: newInvoice, error: insErr } = await (supabase as any)
+    const { data: newInvoice, error: insErr } = await supabase
       .from('invoices')
       .insert({
         invoice_id: invoiceIdDisplay,
@@ -117,7 +117,7 @@ export async function syncInvoiceToSalesOrder(soId: string): Promise<void> {
       total: l.total,
     }))
     if (lines.length > 0) {
-      await (supabase as any).from('invoice_line_items').insert(lines)
+      await supabase.from('invoice_line_items').insert(lines)
     }
   }
 }

@@ -140,26 +140,27 @@ function AddressForm({ initial, validateBluePlate, onSave, onCancel, saving }: A
         <>
           <div className="grid grid-cols-2 gap-1.5">
             <div>
-              <Label className="text-xs">Unit</Label>
-              <Input value={form.unit} onChange={(e) => handleFieldChange('unit', e.target.value)} className="h-7 text-xs" placeholder="Optional" />
+              <Label htmlFor="addr-unit" className="text-xs">Unit</Label>
+              <Input id="addr-unit" value={form.unit} onChange={(e) => handleFieldChange('unit', e.target.value)} className="h-7 text-xs" placeholder="Optional" />
             </div>
             <div>
-              <Label className="text-xs">Building *</Label>
-              <Input value={form.building} onChange={(e) => handleFieldChange('building', e.target.value)} className="h-7 text-xs" />
+              <Label htmlFor="addr-building" className="text-xs">Building *</Label>
+              <Input id="addr-building" value={form.building} onChange={(e) => handleFieldChange('building', e.target.value)} className="h-7 text-xs" />
             </div>
             <div>
-              <Label className="text-xs">Street *</Label>
-              <Input value={form.street} onChange={(e) => handleFieldChange('street', e.target.value)} className="h-7 text-xs" />
+              <Label htmlFor="addr-street" className="text-xs">Street *</Label>
+              <Input id="addr-street" value={form.street} onChange={(e) => handleFieldChange('street', e.target.value)} className="h-7 text-xs" />
             </div>
             <div>
-              <Label className="text-xs">Zone *</Label>
-              <Input value={form.zone} onChange={(e) => handleFieldChange('zone', e.target.value)} className="h-7 text-xs" />
+              <Label htmlFor="addr-zone" className="text-xs">Zone *</Label>
+              <Input id="addr-zone" value={form.zone} onChange={(e) => handleFieldChange('zone', e.target.value)} className="h-7 text-xs" />
             </div>
           </div>
 
           <div>
-            <Label className="text-xs">Label (optional)</Label>
+            <Label htmlFor="addr-label" className="text-xs">Label (optional)</Label>
             <Input
+              id="addr-label"
               value={form.label}
               onChange={(e) => handleFieldChange('label', e.target.value)}
               className="h-7 text-xs"
@@ -205,9 +206,9 @@ function AddressForm({ initial, validateBluePlate, onSave, onCancel, saving }: A
 
           {/* Validation failure */}
           {validationFailed && (
-            <div className="rounded-md bg-red-50 border border-red-200 px-2.5 py-2 flex items-center gap-1.5">
-              <XCircle className="h-3.5 w-3.5 text-red-500 flex-shrink-0" />
-              <span className="text-xs text-red-600">Address not found — please check the details</span>
+            <div className="rounded-md bg-destructive/10 border border-red-200 px-2.5 py-2 flex items-center gap-1.5">
+              <XCircle className="h-3.5 w-3.5 text-destructive flex-shrink-0" />
+              <span className="text-xs text-destructive">Address not found — please check the details</span>
             </div>
           )}
         </>
@@ -282,15 +283,15 @@ function AddressForm({ initial, validateBluePlate, onSave, onCancel, saving }: A
 
           {/* Verification failure */}
           {validationFailed && (
-            <div className="rounded-md bg-red-50 border border-red-200 px-2.5 py-2 flex items-center gap-1.5">
-              <XCircle className="h-3.5 w-3.5 text-red-500 flex-shrink-0" />
-              <span className="text-xs text-red-600">Invalid coordinates — check the values and try again</span>
+            <div className="rounded-md bg-destructive/10 border border-red-200 px-2.5 py-2 flex items-center gap-1.5">
+              <XCircle className="h-3.5 w-3.5 text-destructive flex-shrink-0" />
+              <span className="text-xs text-destructive">Invalid coordinates — check the values and try again</span>
             </div>
           )}
 
           <div>
-            <Label className="text-xs">Label (optional)</Label>
-            <Input value={form.label} onChange={(e) => handleFieldChange('label', e.target.value)} className="h-7 text-xs" placeholder="e.g. Office" />
+            <Label htmlFor="addr-coords-label" className="text-xs">Label (optional)</Label>
+            <Input id="addr-coords-label" value={form.label} onChange={(e) => handleFieldChange('label', e.target.value)} className="h-7 text-xs" placeholder="e.g. Office" />
           </div>
         </>
       )}
@@ -329,7 +330,7 @@ export function AddressSection({ addressState }: { addressState: AddressStateRet
       return
     }
     try {
-      await addAddress.mutateAsync({ ...form, resolvedCoords: resolved } as any)
+      await addAddress.mutateAsync({ ...form, resolvedCoords: resolved })
       toast.success('Address saved')
     } catch {
       toast.error('Failed to save address')

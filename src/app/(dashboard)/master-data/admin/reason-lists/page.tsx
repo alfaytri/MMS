@@ -27,12 +27,13 @@ import { Badge } from '@/components/ui/badge'
 import {
   DropdownMenu, DropdownMenuContent, DropdownMenuGroup, DropdownMenuItem, DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu'
+import { queryKeys } from '@/lib/queryKeys'
 
 type ReasonList = DBTable<'reason_lists'>
 
 function useReasonLists() {
   return useQuery({
-    queryKey: ['reason-lists'],
+    queryKey: queryKeys.reasonLists.all,
     queryFn: async () => {
       const supabase = createClient()
       const { data, error } = await supabase
@@ -73,7 +74,7 @@ export default function ReasonListsPage() {
       if (error) throw error
       return data
     },
-    onSuccess: () => queryClient.invalidateQueries({ queryKey: ['reason-lists'] }),
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: queryKeys.reasonLists.all }),
   })
 
   const updateMutation = useMutation({
@@ -83,7 +84,7 @@ export default function ReasonListsPage() {
       if (error) throw error
       return data
     },
-    onSuccess: () => queryClient.invalidateQueries({ queryKey: ['reason-lists'] }),
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: queryKeys.reasonLists.all }),
   })
 
   const form = useForm<z.infer<typeof rlSchema>>({

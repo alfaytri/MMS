@@ -14,7 +14,7 @@ import { useAttachPaymentToInvoice } from '@/hooks/useAttachPaymentToInvoice'
 import { formatCurrency, formatDate } from '@/lib/utils/formatters'
 
 const PAY_STATUS_CLASS: Record<string, string> = {
-  unpaid:         'text-slate-600 border-slate-300',
+  unpaid:         'text-muted-foreground border-border',
   partially_paid: 'text-amber-700 border-amber-300',
 }
 

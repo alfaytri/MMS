@@ -2,6 +2,7 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { createClient } from '@/lib/supabase/client'
 import { logPOActivity } from '@/lib/poActivityLogger'
+import { queryKeys } from '@/lib/queryKeys'
 
 export type ReceivalStatus = 'pending_approval' | 'approved' | 'rejected'
 
@@ -68,10 +69,10 @@ export type CreateReceivalPayload = {
 
 export function useReceivals(filters?: { status?: ReceivalStatus | '' }) {
   return useQuery({
-    queryKey: ['receivals', filters],
+    queryKey: queryKeys.receivals.list(filters),
     queryFn: async () => {
       const supabase = createClient()
-      let q = (supabase as any)
+      let q = supabase
         .from('receivals')
         .select(`
           id,receival_number,po_id,warehouse_id,date,status,notes,received_by_name,created_at,
@@ -95,18 +96,18 @@ export function useReceivals(filters?: { status?: ReceivalStatus | '' }) {
 
 export function useReceival(id: string | null) {
   return useQuery({
-    queryKey: ['receival', id],
+    queryKey: queryKeys.receivals.detail(id),
     enabled: !!id,
     queryFn: async () => {
       const supabase = createClient()
-      const { data, error } = await (supabase as any)
+      const { data, error } = await supabase
         .from('receivals')
         .select(`
           id,receival_number,po_id,warehouse_id,date,status,notes,received_by_name,created_at,
           receival_items(id,receival_id,po_line_item_id,item_name,sku,qty_received,unit_cost,is_free,brand_variant_id),
           purchase_orders!receivals_po_id_fkey(po_number,supplier_name,po_line_items(id,qty))
         `)
-        .eq('id', id)
+        .eq('id', id!)
         .single()
       if (error) throw error
       // Attach ordered_qty from PO line items
@@ -131,24 +132,24 @@ export function useCreateReceival() {
       // Resolve user display name and count in parallel (count has no user dependency)
       const [{ data: { user } }, { count }] = await Promise.all([
         supabase.auth.getUser(),
-        (supabase as any).from('receivals').select('*', { count: 'exact', head: true }),
+        supabase.from('receivals').select('*', { count: 'exact', head: true }),
       ])
       let receivedByName: string | null = null
       if (user) {
-        const { data: profile } = await (supabase as any)
+        const { data: profile } = await supabase
           .from('profiles').select('full_name').eq('auth_user_id', user.id).maybeSingle()
         receivedByName = profile?.full_name ?? user.email ?? null
       }
       const receival_number = `RCV-${String((count ?? 0) + 1).padStart(5, '0')}`
 
       // Single atomic RPC — insert + FIFO + stock_level all in one transaction
-      const { data, error } = await (supabase as any).rpc('create_and_approve_receival', {
+      const { data, error } = await supabase.rpc('create_and_approve_receival', {
         p_po_id:            payload.po_id,
         p_warehouse_id:     payload.warehouse_id,
         p_date:             payload.date,
-        p_received_by_name: receivedByName,
+        p_received_by_name: receivedByName ?? '',
         p_receival_number:  receival_number,
-        p_notes:            payload.notes || null,
+        p_notes:            payload.notes || '',
         p_items:            payload.items.map(it => ({
           po_line_item_id:  it.po_line_item_id,
           brand_variant_id: it.brand_variant_id,
@@ -178,12 +179,12 @@ export function useCreateReceival() {
       return data as { receival_id: string; receival_number: string }
     },
     onSuccess: (_data, variables) => {
-      queryClient.invalidateQueries({ queryKey: ['receivals'] })
-      queryClient.invalidateQueries({ queryKey: ['po-receivals', variables.po_id] })
-      queryClient.invalidateQueries({ queryKey: ['purchase-order', variables.po_id] })
-      queryClient.invalidateQueries({ queryKey: ['purchase-orders'] })
-      queryClient.invalidateQueries({ queryKey: ['brand-variants-v2'] })
-      queryClient.invalidateQueries({ queryKey: ['fifo-layers'] })
+      queryClient.invalidateQueries({ queryKey: queryKeys.receivals.all })
+      queryClient.invalidateQueries({ queryKey: queryKeys.purchaseOrders.receivals(variables.po_id) })
+      queryClient.invalidateQueries({ queryKey: queryKeys.purchaseOrders.detail(variables.po_id) })
+      queryClient.invalidateQueries({ queryKey: queryKeys.purchaseOrders.all })
+      queryClient.invalidateQueries({ queryKey: queryKeys.inventory.brandVariantsV2 })
+      queryClient.invalidateQueries({ queryKey: queryKeys.inventory.fifoLayers })
     },
   })
 }
@@ -192,14 +193,14 @@ export function useCreateReceival() {
 
 export function useReceivalEditRequests(receival_id: string | null) {
   return useQuery({
-    queryKey: ['receival_edit_requests', receival_id],
+    queryKey: queryKeys.receivals.editRequestsByReceival(receival_id),
     enabled: !!receival_id,
     queryFn: async () => {
       const supabase = createClient()
-      const { data, error } = await (supabase as any)
+      const { data, error } = await supabase
         .from('receival_edit_requests')
         .select('*')
-        .eq('receival_id', receival_id)
+        .eq('receival_id', receival_id!)
         .order('created_at', { ascending: false })
       if (error) throw error
       return (data ?? []) as ReceivalEditRequest[]
@@ -213,20 +214,20 @@ export function useRequestReceivalEdit() {
     mutationFn: async ({ receival_id, reason }: { receival_id: string; reason: string }) => {
       const supabase = createClient()
       const { data: { user } } = await supabase.auth.getUser()
-      const { data: profile } = await (supabase as any)
-        .from('profiles').select('id').eq('auth_user_id', user?.id).maybeSingle()
+      const { data: profile } = await supabase
+        .from('profiles').select('id').eq('auth_user_id', user?.id ?? '').maybeSingle()
       if (!profile?.id) throw new Error('Profile not found')
 
-      const { data, error } = await (supabase as any)
+      const { data, error } = await supabase
         .from('receival_edit_requests')
         .insert({ receival_id, requested_by: profile.id, reason, status: 'pending' })
         .select().single()
       if (error) throw error
 
       // Notify all admin profiles
-      const { data: admins } = await (supabase as any)
-        .from('profiles').select('id').eq('role', 'admin')
-      const notifications = (admins ?? []).map((a: any) => ({
+      const { data: admins } = await supabase
+        .from('profiles').select('id').eq('user_type', 'internal')
+      const notifications = (admins ?? []).map((a: { id: string }) => ({
         user_id: a.id,
         title: 'Receival Edit Requested',
         body: `A receival edit was requested: ${reason}`,
@@ -234,13 +235,13 @@ export function useRequestReceivalEdit() {
         reference_id: data.id,
       }))
       if (notifications.length > 0) {
-        await (supabase as any).from('notifications').insert(notifications)
+        await supabase.from('notifications').insert(notifications as unknown as import('@/types/database.types').DBInsert<'notifications'>[])
       }
 
       return data as ReceivalEditRequest
     },
     onSuccess: (_data, variables) => {
-      qc.invalidateQueries({ queryKey: ['receival_edit_requests', variables.receival_id] })
+      qc.invalidateQueries({ queryKey: queryKeys.receivals.editRequestsByReceival(variables.receival_id) })
     },
   })
 }
@@ -253,8 +254,8 @@ export function useApproveReceivalEdit() {
     }: { request_id: string; action: 'approved' | 'rejected'; rejection_note?: string }) => {
       const supabase = createClient()
       const { data: { user } } = await supabase.auth.getUser()
-      const { data: profile } = await (supabase as any)
-        .from('profiles').select('id').eq('auth_user_id', user?.id).maybeSingle()
+      const { data: profile } = await supabase
+        .from('profiles').select('id').eq('auth_user_id', user?.id ?? '').maybeSingle()
 
       const patch: Record<string, unknown> = {
         status: action,
@@ -269,16 +270,16 @@ export function useApproveReceivalEdit() {
         patch.rejection_note = rejection_note
       }
 
-      const { data, error } = await (supabase as any)
+      const { data, error } = await supabase
         .from('receival_edit_requests')
-        .update(patch)
+        .update(patch as import('@/types/database.types').DBUpdate<'receival_edit_requests'>)
         .eq('id', request_id)
         .select('*, receival_id, requested_by').single()
       if (error) throw error
 
       // Notify the requestor (requested_by comes from the update select above)
       if (data?.requested_by) {
-        await (supabase as any).from('notifications').insert({
+        await supabase.from('notifications').insert({
           user_id: data.requested_by,
           title: action === 'approved' ? 'Edit Request Approved' : 'Edit Request Rejected',
           body: action === 'approved'
@@ -286,14 +287,14 @@ export function useApproveReceivalEdit() {
             : `Your receival edit was rejected. ${rejection_note ?? ''}`,
           type: 'receival_edit_response',
           reference_id: request_id,
-        })
+        } as unknown as import('@/types/database.types').DBInsert<'notifications'>)
       }
 
       return data as ReceivalEditRequest
     },
     onSuccess: (data) => {
-      qc.invalidateQueries({ queryKey: ['receival_edit_requests', data.receival_id] })
-      qc.invalidateQueries({ queryKey: ['receivals'] })
+      qc.invalidateQueries({ queryKey: queryKeys.receivals.editRequestsByReceival(data.receival_id) })
+      qc.invalidateQueries({ queryKey: queryKeys.receivals.all })
     },
   })
 }
@@ -309,17 +310,17 @@ export function useSaveReceivalEdit() {
       items: { receival_item_id: string; new_qty: number; new_unit_cost: number }[]
     }) => {
       const supabase = createClient()
-      const { data, error } = await (supabase as any)
+      const { data, error } = await supabase
         .rpc('apply_receival_edit', { p_edit_request_id: edit_request_id, p_items: items })
       if (error) throw error
       return data as { ok: boolean }
     },
     onSuccess: () => {
-      qc.invalidateQueries({ queryKey: ['receivals'] })
-      qc.invalidateQueries({ queryKey: ['receival_edit_requests'] })
-      qc.invalidateQueries({ queryKey: ['brand-variants-v2'] })
-      qc.invalidateQueries({ queryKey: ['fifo-layers'] })
-      qc.invalidateQueries({ queryKey: ['stock_movements'] })
+      qc.invalidateQueries({ queryKey: queryKeys.receivals.all })
+      qc.invalidateQueries({ queryKey: queryKeys.receivals.editRequests })
+      qc.invalidateQueries({ queryKey: queryKeys.inventory.brandVariantsV2 })
+      qc.invalidateQueries({ queryKey: queryKeys.inventory.fifoLayers })
+      qc.invalidateQueries({ queryKey: queryKeys.inventory.stockMovements })
     },
   })
 }
@@ -338,20 +339,19 @@ export type ReceivalForLcSelector = {
 
 export function useReceivalsForLcSelector({ search = '' }: { search?: string } = {}) {
   return useQuery({
-    queryKey: ['receivals-lc-selector', { search }],
+    queryKey: queryKeys.receivals.lcSelector(search),
     queryFn: async () => {
       const supabase = createClient()
-      let q = (supabase as any)
+      const q = supabase
         .from('receivals')
         .select('id, receival_number, po_id, date, status, purchase_orders!receivals_po_id_fkey(po_number, supplier_name)')
         .order('date', { ascending: false })
-      const safeSearch = search.replace(/%/g, '\\%').replace(/,/g, '\\,').replace(/\./g, '\\.')
-      if (safeSearch) {
-        q = q.or(`receival_number.ilike.%${safeSearch}%`)
-      }
       const { data, error } = await q
       if (error) throw error
-      return (data ?? []).map((r: any) => ({
+      // Match on receival_number, po_number, or supplier_name. We filter
+      // client-side because PostgREST .or() can't span a joined table without
+      // a view/RPC, and this list is small (recent receivals only).
+      const rows = (data ?? []).map((r: any) => ({
         id: r.id as string,
         receival_number: r.receival_number as string,
         po_id: r.po_id as string,
@@ -360,6 +360,13 @@ export function useReceivalsForLcSelector({ search = '' }: { search?: string } =
         po_number: r.purchase_orders?.po_number ?? null,
         supplier_name: r.purchase_orders?.supplier_name ?? null,
       })) as ReceivalForLcSelector[]
+      const needle = search.trim().toLowerCase()
+      if (!needle) return rows
+      return rows.filter((r) =>
+        r.receival_number.toLowerCase().includes(needle) ||
+        (r.po_number ?? '').toLowerCase().includes(needle) ||
+        (r.supplier_name ?? '').toLowerCase().includes(needle),
+      )
     },
     staleTime: 5 * 60 * 1000,
   })
@@ -375,19 +382,68 @@ export type ReceivalItemWithFifo = {
   remaining_qty: number
 }
 
+/**
+ * Batch variant: fetch billable receival items across MANY receivals in one
+ * query. Used by the Apply-LC preview to compute proposed per-item LC value
+ * before the user commits.
+ */
+export function useReceivalItemsBatch(receivalIds: string[] | null) {
+  const sortedKey = (receivalIds ?? []).slice().sort().join(',')
+  return useQuery({
+    queryKey: ['receivals', 'itemsBatch', sortedKey],
+    enabled: (receivalIds ?? []).length > 0,
+    queryFn: async () => {
+      const supabase = createClient()
+      const ids = receivalIds!
+      const [{ data: items, error: iErr }, { data: layers, error: lErr }] = await Promise.all([
+        supabase
+          .from('receival_items')
+          .select('id, receival_id, item_name, sku, qty_received, unit_cost, brand_variant_id')
+          .in('receival_id', ids)
+          .eq('is_free', false),
+        supabase
+          .from('fifo_cost_layers')
+          .select('brand_variant_id, receival_id, remaining_qty')
+          .in('receival_id', ids)
+          .gt('remaining_qty', 0),
+      ])
+      if (iErr || lErr) throw iErr ?? lErr
+      // Key by `${receival_id}|${brand_variant_id}` so two receivals of the
+      // same variant don't share a remaining count.
+      const remainingMap = new Map<string, number>()
+      for (const l of layers ?? []) {
+        if (!l.brand_variant_id) continue
+        const k = `${l.receival_id}|${l.brand_variant_id}`
+        remainingMap.set(k, (remainingMap.get(k) ?? 0) + l.remaining_qty)
+      }
+      return (items ?? []).map((item: any) => ({
+        id: item.id as string,
+        receival_id: item.receival_id as string,
+        item_name: item.item_name as string,
+        sku: item.sku as string | null,
+        qty_received: Number(item.qty_received),
+        unit_cost: Number(item.unit_cost),
+        brand_variant_id: item.brand_variant_id as string | null,
+        remaining_qty: remainingMap.get(`${item.receival_id}|${item.brand_variant_id}`) ?? 0,
+      }))
+    },
+    staleTime: 2 * 60 * 1000,
+  })
+}
+
 export function useReceivalItemsWithFifo(receivalId: string | null) {
   return useQuery({
-    queryKey: ['receival-items-fifo', receivalId],
+    queryKey: queryKeys.receivals.itemsFifo(receivalId),
     enabled: !!receivalId,
     queryFn: async () => {
       const supabase = createClient()
       const [{ data: items, error: iErr }, { data: layers, error: lErr }] = await Promise.all([
-        (supabase as any)
+        supabase
           .from('receival_items')
           .select('id, item_name, sku, qty_received, unit_cost, brand_variant_id')
           .eq('receival_id', receivalId!)
           .eq('is_free', false),
-        (supabase as any)
+        supabase
           .from('fifo_cost_layers')
           .select('brand_variant_id, remaining_qty')
           .eq('receival_id', receivalId!)

@@ -12,7 +12,7 @@ import { computeSubtotal } from '@/hooks/useCreateQuotation'
 import type { QuotationDraft } from '@/types/quotations'
 
 const STATUS_STYLES: Record<string, string> = {
-  draft: 'bg-slate-100 text-slate-600',
+  draft: 'bg-muted text-muted-foreground',
   sent:  'bg-blue-100 text-blue-800',
 }
 
@@ -44,8 +44,8 @@ export function QuotationDetailSheet({ quotationId, open, onOpenChange }: Props)
           division: q.division,
         })),
         notes: q.notes ?? '',
-        discountType: (q as any).discount_type ?? 'flat',
-        discountValue: (q as any).discount_value ?? 0,
+        discountType: q.discount_type ?? 'flat',
+        discountValue: q.discount_value ?? 0,
       }
     : null
 
@@ -59,26 +59,26 @@ export function QuotationDetailSheet({ quotationId, open, onOpenChange }: Props)
     <Sheet open={open} onOpenChange={onOpenChange}>
       <SheetContent side="right" className="w-full sm:max-w-2xl flex flex-col p-0">
         {isLoading || !q ? (
-          <div className="flex flex-1 items-center justify-center text-sm text-slate-400">
+          <div className="flex flex-1 items-center justify-center text-sm text-muted-foreground">
             Loading…
           </div>
         ) : (
           <>
             <SheetHeader className="border-b px-4 py-3">
               <div className="flex items-center gap-2 flex-wrap">
-                <SheetTitle className="font-mono font-bold text-slate-900">
+                <SheetTitle className="font-mono font-bold text-foreground">
                   {q.quotation_id}
                 </SheetTitle>
                 <Badge
                   className={cn(
                     'text-xs capitalize',
-                    STATUS_STYLES[q.status] ?? 'bg-slate-100 text-slate-600',
+                    STATUS_STYLES[q.status] ?? 'bg-muted text-muted-foreground',
                   )}
                 >
                   {q.status}
                 </Badge>
               </div>
-              <p className="text-sm text-slate-500">
+              <p className="text-sm text-muted-foreground">
                 {q.customer_name} · {q.customer_phone}
               </p>
             </SheetHeader>
@@ -116,7 +116,7 @@ export function QuotationDetailSheet({ quotationId, open, onOpenChange }: Props)
 
                 <TabsContent value="logs" className="mt-0 px-4 py-3">
                   {q.logs.length === 0 ? (
-                    <p className="text-sm text-slate-400">No log entries yet.</p>
+                    <p className="text-sm text-muted-foreground">No log entries yet.</p>
                   ) : (
                     <div className="space-y-3">
                       {q.logs.map((log, i) => (
@@ -130,14 +130,14 @@ export function QuotationDetailSheet({ quotationId, open, onOpenChange }: Props)
                           <div className="pb-3">
                             <p className="text-sm font-medium">
                               {log.action}{' '}
-                              <span className="font-normal text-slate-500">
+                              <span className="font-normal text-muted-foreground">
                                 by {log.user_name}
                               </span>
                             </p>
                             {log.details && (
-                              <p className="text-xs text-slate-500">{log.details}</p>
+                              <p className="text-xs text-muted-foreground">{log.details}</p>
                             )}
-                            <p className="text-xs text-slate-400">
+                            <p className="text-xs text-muted-foreground">
                               {format(new Date(log.created_at), 'MMM d, yyyy HH:mm')}
                             </p>
                           </div>

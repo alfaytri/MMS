@@ -56,12 +56,20 @@
 @layer base {
   * {
     @apply border-border;
+    scrollbar-width: thin;
+    scrollbar-color: hsl(var(--border)) transparent;
   }
   body {
     @apply bg-background text-foreground;
     font-feature-settings: "rlig" 1, "calt" 1;
   }
 }
+
+/* Webkit thin scrollbar — Chrome, Edge, Safari */
+::-webkit-scrollbar { width: 6px; height: 6px; }
+::-webkit-scrollbar-track { background: transparent; }
+::-webkit-scrollbar-thumb { background: hsl(var(--border)); border-radius: 3px; }
+::-webkit-scrollbar-thumb:hover { background: hsl(var(--muted-foreground) / 0.4); }
 
 @layer utilities {
   .text-success { color: hsl(var(--success)); }
@@ -70,6 +78,22 @@
   .bg-warning { background-color: hsl(var(--warning)); }
   .bg-success\/10 { background-color: hsl(var(--success) / 0.1); }
   .bg-warning\/10 { background-color: hsl(var(--warning) / 0.1); }
+}
+
+/* View Transition — smooth cross-fade between routes */
+::view-transition-old(root) {
+  animation: fade-out 150ms ease-in forwards;
+}
+::view-transition-new(root) {
+  animation: fade-in 150ms ease-out forwards;
+}
+@keyframes fade-out {
+  from { opacity: 1; }
+  to   { opacity: 0; }
+}
+@keyframes fade-in {
+  from { opacity: 0; }
+  to   { opacity: 1; }
 }
 
 @media print {

@@ -184,22 +184,23 @@ export function PackageEditDialog({
           {/* Names */}
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
             <div className="space-y-1.5">
-              <Label className="text-xs">Name (EN) *</Label>
-              <Input className="h-8 text-xs" {...form.register('name')} />
+              <Label htmlFor="pkg-name-en" className="text-xs">Name (EN) *</Label>
+              <Input id="pkg-name-en" className="h-8 text-xs" {...form.register('name')} />
               {form.formState.errors.name && (
                 <p className="text-[10px] text-destructive">{form.formState.errors.name.message}</p>
               )}
             </div>
             <div className="space-y-1.5">
-              <Label className="text-xs">Name (AR)</Label>
-              <Input className="h-8 text-xs text-right" dir="rtl" {...form.register('name_ar')} />
+              <Label htmlFor="pkg-name-ar" className="text-xs">Name (AR)</Label>
+              <Input id="pkg-name-ar" className="h-8 text-xs text-right" dir="rtl" {...form.register('name_ar')} />
             </div>
           </div>
 
           {/* Description */}
           <div className="space-y-1.5">
-            <Label className="text-xs">Description</Label>
+            <Label htmlFor="pkg-description" className="text-xs">Description</Label>
             <Textarea
+              id="pkg-description"
               className="text-xs min-h-[60px]"
               placeholder="Optional description…"
               {...form.register('description')}
@@ -209,29 +210,29 @@ export function PackageEditDialog({
           {/* Numbers row */}
           <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
             <div className="space-y-1.5">
-              <Label className="text-xs">Discount % *</Label>
-              <Input type="number" min={0} max={100} step={0.5} className="h-8 text-xs" {...form.register('discount_percent')} />
+              <Label htmlFor="pkg-discount-pct" className="text-xs">Discount % *</Label>
+              <Input id="pkg-discount-pct" type="number" min={0} max={100} step={0.5} className="h-8 text-xs" {...form.register('discount_percent')} />
               {form.formState.errors.discount_percent && (
                 <p className="text-[10px] text-destructive">{form.formState.errors.discount_percent.message}</p>
               )}
             </div>
             <div className="space-y-1.5">
-              <Label className="text-xs">Initial Fee (QAR) *</Label>
-              <Input type="number" min={0} step={0.01} className="h-8 text-xs" {...form.register('initial_fee')} />
+              <Label htmlFor="pkg-initial-fee" className="text-xs">Initial Fee (QAR) *</Label>
+              <Input id="pkg-initial-fee" type="number" min={0} step={0.01} className="h-8 text-xs" {...form.register('initial_fee')} />
               {form.formState.errors.initial_fee && (
                 <p className="text-[10px] text-destructive">{form.formState.errors.initial_fee.message}</p>
               )}
             </div>
             <div className="space-y-1.5">
-              <Label className="text-xs">Duration (months) *</Label>
-              <Input type="number" min={1} className="h-8 text-xs" {...form.register('duration_months')} />
+              <Label htmlFor="pkg-duration-months" className="text-xs">Duration (months) *</Label>
+              <Input id="pkg-duration-months" type="number" min={1} className="h-8 text-xs" {...form.register('duration_months')} />
             </div>
           </div>
 
           {/* Priority + Response Hours */}
           <div className="flex flex-wrap gap-3">
             <div className="space-y-1.5 flex-1 min-w-[160px]">
-              <Label className="text-xs">Priority Response</Label>
+              <Label htmlFor="pkg-priority-response" className="text-xs">Priority Response</Label>
               <Select
                 value={priorityResponse}
                 onValueChange={(v) => {
@@ -239,7 +240,7 @@ export function PackageEditDialog({
                   if (v === 'none') form.setValue('response_hours', null)
                 }}
               >
-                <SelectTrigger className="h-8 text-xs">
+                <SelectTrigger id="pkg-priority-response" className="h-8 text-xs">
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
@@ -251,13 +252,14 @@ export function PackageEditDialog({
             </div>
             {priorityResponse !== 'none' && (
               <div className="space-y-1.5 flex-1 min-w-[160px]">
-                <Label className="text-xs">
+                <Label htmlFor="pkg-response-hours" className="text-xs">
                   Response Hours *{' '}
                   <span className="text-muted-foreground">
                     ({priorityResponse === '24_48hr' ? '25–48' : '1–24'})
                   </span>
                 </Label>
                 <Input
+                  id="pkg-response-hours"
                   type="number"
                   min={priorityResponse === '24_48hr' ? 25 : 1}
                   max={priorityResponse === '24_48hr' ? 48 : 24}

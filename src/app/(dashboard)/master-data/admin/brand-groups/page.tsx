@@ -23,6 +23,7 @@ import { Badge } from '@/components/ui/badge'
 import { Checkbox } from '@/components/ui/checkbox'
 import { ConfirmDialog } from '@/components/shared/ConfirmDialog'
 import { PageWrapper } from '@/components/shared/PageWrapper'
+import { queryKeys } from '@/lib/queryKeys'
 
 // ─── Types ───────────────────────────────────────────────────────────────────
 
@@ -62,7 +63,7 @@ const SCOPES = [
 
 function useBrandGroups() {
   return useQuery({
-    queryKey: ['brand-groups'],
+    queryKey: queryKeys.brandGroups.all,
     queryFn: async () => {
       const supabase = createClient() as AnyClient
       const { data, error } = await supabase
@@ -78,7 +79,7 @@ function useBrandGroups() {
 
 function useBrands() {
   return useQuery({
-    queryKey: ['brands'],
+    queryKey: queryKeys.brandGroups.brands,
     queryFn: async () => {
       const supabase = createClient() as AnyClient
       const { data, error } = await supabase
@@ -144,7 +145,7 @@ function ManageBrandsDialog({
       }
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['brand-groups'] })
+      queryClient.invalidateQueries({ queryKey: queryKeys.brandGroups.all })
       toast.success('Brands updated')
       onClose()
     },
@@ -261,7 +262,7 @@ function GroupFormDialog({
       }
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['brand-groups'] })
+      queryClient.invalidateQueries({ queryKey: queryKeys.brandGroups.all })
       toast.success(editing ? 'Brand group updated' : 'Brand group created')
       onClose()
     },
@@ -443,7 +444,7 @@ export default function BrandGroupsPage() {
       if (error) throw error
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['brand-groups'] })
+      queryClient.invalidateQueries({ queryKey: queryKeys.brandGroups.all })
       toast.success('Brand group deleted')
       setDeleteTarget(null)
     },

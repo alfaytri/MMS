@@ -42,8 +42,8 @@ export function CategoryRow({ node, categoryType, showArchived, canMoveUp, canMo
     const a = items[idx]
     const b = items[targetIdx]
     updateItemOrder.mutate([
-      { id: a.id, sort_order: (a as any).sort_order ?? idx },
-      { id: b.id, sort_order: (b as any).sort_order ?? targetIdx },
+      { id: a.id, sort_order: a.sort_order ?? idx },
+      { id: b.id, sort_order: b.sort_order ?? targetIdx },
     ])
   }
 
@@ -52,8 +52,8 @@ export function CategoryRow({ node, categoryType, showArchived, canMoveUp, canMo
     const a = node.children[idx]
     const b = node.children[targetIdx]
     updateChildCategoryOrder.mutate([
-      { id: a.id, sort_order: (a as any).sort_order ?? idx },
-      { id: b.id, sort_order: (b as any).sort_order ?? targetIdx },
+      { id: a.id, sort_order: a.sort_order ?? idx },
+      { id: b.id, sort_order: b.sort_order ?? targetIdx },
     ])
   }
 
@@ -61,7 +61,7 @@ export function CategoryRow({ node, categoryType, showArchived, canMoveUp, canMo
     <>
       {/* Category row */}
       <tr
-        className="border-b border-border bg-slate-50/80 hover:bg-slate-100/60 cursor-pointer"
+        className="border-b border-border bg-muted/80 hover:bg-muted/60 cursor-pointer"
         onClick={() => setExpanded((v) => !v)}
       >
         <td className="py-2.5 pr-2 w-1/2" style={{ paddingLeft: indent }}>
@@ -70,7 +70,7 @@ export function CategoryRow({ node, categoryType, showArchived, canMoveUp, canMo
               ? <ChevronDown className="h-4 w-4 text-muted-foreground flex-shrink-0" />
               : <ChevronRight className="h-4 w-4 text-muted-foreground flex-shrink-0" />
             }
-            <Package className="h-4 w-4 text-slate-500 flex-shrink-0" />
+            <Package className="h-4 w-4 text-muted-foreground flex-shrink-0" />
             <div>
               <button
                 className="text-sm font-semibold text-blue-600 hover:underline text-left"
@@ -84,7 +84,7 @@ export function CategoryRow({ node, categoryType, showArchived, canMoveUp, canMo
             </div>
           </div>
         </td>
-        <td className="py-2.5 px-2 text-[11px] font-mono text-muted-foreground">{(node as any).sku ?? '---'}</td>
+        <td className="py-2.5 px-2 text-[11px] font-mono text-muted-foreground">{node.sku ?? '---'}</td>
         <td className="py-2.5 px-2 text-[11px] text-muted-foreground">---</td>
         <td className="py-2.5 px-2 text-[11px] text-muted-foreground">---</td>
         <td className="py-2.5 px-2 text-[11px] text-muted-foreground">---</td>

@@ -48,9 +48,8 @@ export function GeofenceDrawer({ map, active, onDrawComplete, onCancel }: Geofen
       map.addControl(drawControl)
       drawControlRef.current = drawControl
 
-      const handleCreated = (e: L.LeafletEvent) => {
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        const layer = (e as any).layer
+      const handleCreated = (e: L.DrawCreatedEvent) => {
+        const layer = e.layer
         if (layer instanceof L.Polygon) {
           const latLngs = (layer.getLatLngs()[0] as L.LatLng[])
           onDrawComplete({
@@ -68,9 +67,11 @@ export function GeofenceDrawer({ map, active, onDrawComplete, onCancel }: Geofen
         drawnLayerRef.current?.clearLayers()
       }
 
+      // @ts-expect-error — leaflet-draw types not fully compatible with leaflet event system
       map.on(L.Draw.Event.CREATED, handleCreated)
 
       return () => {
+        // @ts-expect-error — leaflet-draw types not fully compatible with leaflet event system
         map.off(L.Draw.Event.CREATED, handleCreated)
         map.removeControl(drawControl)
         drawControlRef.current = null

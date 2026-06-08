@@ -114,7 +114,7 @@ export default function InventoryPage() {
 
         {INVENTORY_TABS.map((tab) => (
           <TabsContent key={tab.value} value={tab.value}>
-            <DataTable columns={columns} data={(items as InventoryItem[] | undefined) ?? []} isLoading={isLoading} globalFilter={search} />
+            <DataTable columns={columns} data={(items as InventoryItem[] | undefined) ?? []} isLoading={isLoading} globalFilter={search} emptyState={{ title: 'No inventory items found', description: 'Add an item to get started' }} />
           </TabsContent>
         ))}
       </Tabs>

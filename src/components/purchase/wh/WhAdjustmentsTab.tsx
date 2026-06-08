@@ -1,18 +1,43 @@
 'use client'
 
-import React, { useState } from 'react'
+import React, { useState, useMemo } from 'react'
 import { Eye } from 'lucide-react'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog'
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table'
-import { useStockAdjustments, useApproveStockAdjustment } from '@/hooks/useWarehouseOperations'
+import { EmptyState } from '@/components/shared/EmptyState'
+import { ItemTreeCell } from './ItemTreeCell'
+import { useStockAdjustments, useApproveStockAdjustment, useWarehouseStock } from '@/hooks/useWarehouseOperations'
 import { useMutation, useQueryClient } from '@tanstack/react-query'
 import type { Warehouse } from '@/hooks/useWarehouses'
 import type { Profile } from '@/hooks/useProfiles'
 import { createClient } from '@/lib/supabase/client'
 import { format } from 'date-fns'
 import { toast } from 'sonner'
+import { queryKeys } from '@/lib/queryKeys'
+
+type StockAdjustmentRow = {
+  id: string
+  warehouse_id: string
+  brand_variant_id: string
+  adjustment_type: string
+  qty: number
+  reason: string
+  notes: string | null
+  status: string
+  requested_by_name: string | null
+  approved_by_name: string | null
+  approved_at: string | null
+  created_at: string
+  updated_at: string
+  warehouses?: { name: string } | null
+  inventory_brand_variants?: {
+    brand?: string | null
+    inventory_items?: { name_en: string; sku?: string | null } | null
+  } | null
+  photo_urls?: string[] | null
+}
 
 const TYPE_STYLES: Record<string, string> = {
   increase:  'bg-success/10 text-success',
@@ -37,31 +62,33 @@ export const WhAdjustmentsTab = React.memo(function WhAdjustmentsTab({ warehouse
   const qc = useQueryClient()
   const [photoUrls, setPhotoUrls] = useState<string[] | null>(null)
 
+  const typedAdjustments = adjustments as unknown as StockAdjustmentRow[]
+
+  // Use cached warehouse_stock_view to resolve category_name per brand_variant_id
+  const { data: fullStock = [] } = useWarehouseStock()
+  const variantMeta = useMemo(() => {
+    const map = new Map<string, { categoryName: string | null; itemType: string | null }>()
+    for (const s of fullStock) {
+      if (!map.has(s.brand_variant_id)) {
+        map.set(s.brand_variant_id, { categoryName: s.category_name ?? null, itemType: s.item_type ?? null })
+      }
+    }
+    return map
+  }, [fullStock])
+
   const reject = useMutation({
     mutationFn: async (id: string) => {
       const supabase = createClient()
-      const { error } = await (supabase as any)
-        .from('stock_adjustments')
-        .update({ status: 'rejected' })
-        .eq('id', id)
+      const { error } = await supabase.from('stock_adjustments').update({ status: 'rejected' }).eq('id', id)
       if (error) throw error
     },
-    onSuccess: () => qc.invalidateQueries({ queryKey: ['stock_adjustments'] }),
+    onSuccess: () => qc.invalidateQueries({ queryKey: queryKeys.warehouseOps.stockAdjustments }),
   })
 
-  function canApprove(adj: any) {
+  function canApprove(adj: StockAdjustmentRow) {
     const wh = warehouses.find(w => w.id === adj.warehouse_id)
-    // If no manager is assigned to the warehouse, any authenticated user can approve
-    if (!wh?.manager_profile_id) return true
-    return currentProfile?.id === wh.manager_profile_id
-  }
-
-  if (adjustments.length === 0) {
-    return (
-      <div className="p-4 md:p-6 flex items-center justify-center h-40">
-        <p className="text-xs text-muted-foreground">No stock adjustments yet.</p>
-      </div>
-    )
+    if (!wh || wh.field_rps.length === 0) return true
+    return wh.field_rps.some(rp => rp.profile_id === currentProfile?.id)
   }
 
   return (
@@ -70,9 +97,9 @@ export const WhAdjustmentsTab = React.memo(function WhAdjustmentsTab({ warehouse
         <Table>
           <TableHeader>
             <TableRow>
+              <TableHead className="text-xs w-[22%]">Item</TableHead>
               <TableHead className="text-xs">Date</TableHead>
               <TableHead className="text-xs">Warehouse</TableHead>
-              <TableHead className="text-xs">Item</TableHead>
               <TableHead className="text-xs">Type</TableHead>
               <TableHead className="text-xs text-right">Qty</TableHead>
               <TableHead className="text-xs">Reason</TableHead>
@@ -83,85 +110,98 @@ export const WhAdjustmentsTab = React.memo(function WhAdjustmentsTab({ warehouse
             </TableRow>
           </TableHeader>
           <TableBody>
-            {adjustments.map((adj) => (
-              <TableRow key={adj.id}>
-                <TableCell className="text-xs whitespace-nowrap">
-                  {adj.created_at ? format(new Date(adj.created_at), 'dd MMM') : '—'}
-                </TableCell>
-                <TableCell className="text-xs">{(adj as any).warehouses?.name ?? '—'}</TableCell>
-                <TableCell className="text-xs">
-                  {(adj as any).inventory_brand_variants?.inventory_items?.name_en ?? '—'}
-                  {(adj as any).inventory_brand_variants?.brand && (
-                    <span className="text-muted-foreground ml-1">({(adj as any).inventory_brand_variants.brand})</span>
-                  )}
-                </TableCell>
-                <TableCell>
-                  <Badge className={`text-[10px] px-1.5 py-0 capitalize ${TYPE_STYLES[adj.adjustment_type] ?? ''}`}>
-                    {adj.adjustment_type?.replace(/_/g, ' ')}
-                  </Badge>
-                </TableCell>
-                <TableCell className="text-xs text-right">{adj.qty}</TableCell>
-                <TableCell className="text-xs max-w-[120px] truncate">{adj.reason}</TableCell>
-                <TableCell className="text-xs">{adj.requested_by_name ?? '—'}</TableCell>
-                <TableCell>
-                  <Badge className={`text-[10px] px-1.5 py-0 ${STATUS_STYLES[adj.status] ?? 'bg-muted text-muted-foreground'}`}>
-                    {adj.status?.replace(/_/g, ' ')}
-                  </Badge>
-                </TableCell>
-                <TableCell>
-                  {((adj as any).photo_urls?.length ?? 0) > 0 && (
-                    <Button
-                      variant="ghost"
-                      size="sm"
-                      className="h-6 px-1.5 gap-1 text-[10px]"
-                      onClick={() => setPhotoUrls((adj as any).photo_urls)}
-                    >
-                      <Eye className="h-3 w-3" />
-                      {(adj as any).photo_urls.length}
-                    </Button>
-                  )}
-                </TableCell>
-                <TableCell className="text-right">
-                  {adj.status === 'pending_approval' && canApprove(adj) ? (
-                    <div className="flex items-center justify-end gap-1">
-                      <Button
-                        size="sm"
-                        variant="outline"
-                        className="h-6 text-[10px] text-success border-success/30 hover:bg-success/10"
-                        onClick={() => approve.mutate(
-                          { id: adj.id, approvedByName: currentProfile?.full_name ?? 'Manager' },
-                          { onSuccess: () => toast.success('Approved'), onError: (e) => toast.error(e.message) }
-                        )}
-                        disabled={approve.isPending}
-                      >
-                        Approve
-                      </Button>
-                      <Button
-                        size="sm"
-                        variant="outline"
-                        className="h-6 text-[10px] text-destructive border-destructive/30 hover:bg-destructive/10"
-                        onClick={() => reject.mutate(adj.id, {
-                          onSuccess: () => toast.success('Rejected'),
-                          onError: (e) => toast.error(e.message),
-                        })}
-                        disabled={reject.isPending}
-                      >
-                        Reject
-                      </Button>
-                    </div>
-                  ) : (
-                    <span className="text-[10px] text-muted-foreground">
-                      {adj.status === 'pending_approval' ? 'Awaiting approval' : adj.approved_by_name ?? '—'}
-                    </span>
-                  )}
+            {typedAdjustments.length === 0 ? (
+              <TableRow>
+                <TableCell colSpan={10} className="p-0">
+                  <EmptyState title="No adjustments found" />
                 </TableCell>
               </TableRow>
-            ))}
+            ) : typedAdjustments.map((adj) => {
+              const meta = variantMeta.get(adj.brand_variant_id)
+              const itemName = adj.inventory_brand_variants?.inventory_items?.name_en
+              const brand    = adj.inventory_brand_variants?.brand
+
+              return (
+                <TableRow key={adj.id}>
+                  <TableCell className="text-xs py-2.5">
+                    <ItemTreeCell
+                      category={meta?.categoryName}
+                      itemType={meta?.itemType}
+                      itemName={itemName ?? '—'}
+                      brand={brand}
+                    />
+                  </TableCell>
+
+                  {/* Remaining columns — normal flat data */}
+                  <TableCell className="text-xs whitespace-nowrap py-2.5">
+                    {adj.created_at ? format(new Date(adj.created_at), 'dd MMM') : '—'}
+                  </TableCell>
+                  <TableCell className="text-xs py-2.5">{adj.warehouses?.name ?? '—'}</TableCell>
+                  <TableCell className="py-2.5">
+                    <Badge className={`text-[10px] px-1.5 py-0 capitalize ${TYPE_STYLES[adj.adjustment_type] ?? ''}`}>
+                      {adj.adjustment_type?.replace(/_/g, ' ')}
+                    </Badge>
+                  </TableCell>
+                  <TableCell className="text-xs text-right py-2.5">{adj.qty}</TableCell>
+                  <TableCell className="text-xs max-w-[120px] truncate py-2.5">{adj.reason}</TableCell>
+                  <TableCell className="text-xs py-2.5">{adj.requested_by_name ?? '—'}</TableCell>
+                  <TableCell className="py-2.5">
+                    <Badge className={`text-[10px] px-1.5 py-0 ${STATUS_STYLES[adj.status] ?? 'bg-muted text-muted-foreground'}`}>
+                      {adj.status?.replace(/_/g, ' ')}
+                    </Badge>
+                  </TableCell>
+                  <TableCell className="py-2.5">
+                    {(adj.photo_urls?.length ?? 0) > 0 && (
+                      <Button
+                        variant="ghost" size="sm"
+                        className="h-6 px-1.5 gap-1 text-[10px]"
+                        onClick={() => setPhotoUrls(adj.photo_urls!)}
+                      >
+                        <Eye className="h-3 w-3" />
+                        {adj.photo_urls!.length}
+                      </Button>
+                    )}
+                  </TableCell>
+                  <TableCell className="text-right py-2.5">
+                    {adj.status === 'pending_approval' && canApprove(adj) ? (
+                      <div className="flex items-center justify-end gap-1">
+                        <Button
+                          size="sm" variant="outline"
+                          className="h-6 text-[10px] text-success border-success/30 hover:bg-success/10"
+                          onClick={() => approve.mutate(
+                            { id: adj.id, approvedByName: currentProfile?.full_name ?? 'Manager' },
+                            { onSuccess: () => toast.success('Approved'), onError: (e) => toast.error(e.message) }
+                          )}
+                          disabled={approve.isPending}
+                        >
+                          Approve
+                        </Button>
+                        <Button
+                          size="sm" variant="outline"
+                          className="h-6 text-[10px] text-destructive border-destructive/30 hover:bg-destructive/10"
+                          onClick={() => reject.mutate(adj.id, {
+                            onSuccess: () => toast.success('Rejected'),
+                            onError:  (e) => toast.error(e.message),
+                          })}
+                          disabled={reject.isPending}
+                        >
+                          Reject
+                        </Button>
+                      </div>
+                    ) : (
+                      <span className="text-[10px] text-muted-foreground">
+                        {adj.status === 'pending_approval' ? 'Awaiting approval' : adj.approved_by_name ?? '—'}
+                      </span>
+                    )}
+                  </TableCell>
+                </TableRow>
+              )
+            })}
           </TableBody>
         </Table>
       </div>
 
-      {/* Inline photo preview dialog */}
+      {/* Photo preview dialog */}
       <Dialog open={!!photoUrls} onOpenChange={() => setPhotoUrls(null)}>
         <DialogContent className="max-w-lg">
           <DialogHeader>
@@ -169,12 +209,7 @@ export const WhAdjustmentsTab = React.memo(function WhAdjustmentsTab({ warehouse
           </DialogHeader>
           <div className="grid grid-cols-2 gap-2">
             {(photoUrls ?? []).map((url, i) => (
-              <img
-                key={i}
-                src={url}
-                alt={`Evidence ${i + 1}`}
-                className="aspect-square w-full object-cover rounded-md border"
-              />
+              <img key={i} src={url} alt={`Evidence ${i + 1}`} className="aspect-square w-full object-cover rounded-md border" />
             ))}
           </div>
         </DialogContent>

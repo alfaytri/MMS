@@ -1,20 +1,9 @@
 import { useQuery } from '@tanstack/react-query'
 import { createClient } from '@/lib/supabase/client'
+import { queryKeys } from '@/lib/queryKeys'
+import type { DBTable } from '@/types/database.types'
 
-export type ActivityLog = {
-  id: string
-  action: string
-  module: string | null
-  severity: string | null
-  performer_name: string | null
-  details: string | null
-  old_data: unknown
-  new_data: unknown
-  ip_address: string | null
-  created_at: string
-  entity_type: string
-  entity_id: string
-}
+export type ActivityLog = DBTable<'activity_log'>
 
 interface ActivityLogFilters {
   search?: string
@@ -25,11 +14,11 @@ interface ActivityLogFilters {
 
 export function useActivityLog(filters: ActivityLogFilters = {}) {
   return useQuery({
-    queryKey: ['activity-log', filters],
+    queryKey: queryKeys.activityLog.list(filters),
     queryFn: async () => {
       const supabase = createClient()
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      let query = (supabase.from('activity_log') as any)
+      let query = supabase
+        .from('activity_log')
         .select('*')
         .order('created_at', { ascending: false })
         .limit(500)
@@ -64,7 +53,7 @@ export const AUDIT_MODULES = [
   'profiles', 'custom_roles', 'purchase_orders', 'po_approvals',
   'receivals', 'shipments', 'landed_costs', 'sale_orders',
   'deliveries', 'payments', 'stock_adjustments', 'warehouse_transfers',
-  'inventory_checks', 'settings',
+  'inventory_checks', 'settings', 'contracts',
 ] as const
 
 export const AUDIT_SEVERITIES = ['info', 'warning', 'critical'] as const

@@ -2,6 +2,8 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { createClient } from '@/lib/supabase/client'
 import { normalisePhone, tryNormalisePhone } from '@/lib/contact-center/normalise-phone'
+import { queryKeys } from '@/lib/queryKeys'
+import type { DBUpdate } from '@/types/database.types'
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 
@@ -120,9 +122,9 @@ export function useServiceCustomers(
   const hasSearch = trimmed.length >= 2
   const hasDigit  = hasSearch && /\d/.test(trimmed)
 
-  return useQuery<ServiceCustomersPage>({
-    queryKey: ['service-customers', trimmed, page, pageSize, filters.multiplePhones ?? false],
-    queryFn: async () => {
+  return useQuery({
+    queryKey: queryKeys.serviceCustomers.list(trimmed, page, pageSize, filters.multiplePhones ?? false),
+    queryFn: async (): Promise<ServiceCustomersPage> => {
       const supabase = createClient()
       const from = page * pageSize
       const to   = from + pageSize - 1
@@ -130,13 +132,13 @@ export function useServiceCustomers(
       // 1. Pre-queries run in parallel (only when needed)
       const [phoneRes, multiRes] = await Promise.all([
         hasDigit
-          ? (supabase as any)
+          ? supabase
               .from('service_customer_phones')
               .select('customer_id')
               .ilike('phone', `%${trimmed}%`)
           : Promise.resolve({ data: null, error: null }),
         filters.multiplePhones
-          ? (supabase as any)
+          ? supabase
               .from('customers_with_multi_phones')
               .select('customer_id')
           : Promise.resolve({ data: null, error: null }),
@@ -146,16 +148,16 @@ export function useServiceCustomers(
 
       // Phone customer_ids (only populated when search has a digit)
       const phoneIds: string[] = phoneRes.data
-        ? (phoneRes.data as any[]).map((r: any) => r.customer_id)
+        ? (phoneRes.data as { customer_id: string }[]).map((r) => r.customer_id)
         : []
 
       // Multi-phone customer_ids (null = filter not active)
       const multiIds: string[] | null = multiRes.data
-        ? (multiRes.data as any[]).map((r: any) => r.customer_id)
+        ? (multiRes.data as { customer_id: string }[]).map((r) => r.customer_id)
         : null
 
       // 2. Main customer query with exact count for pagination
-      let custQuery = (supabase as any)
+      let custQuery = supabase
         .from('service_customers')
         .select(
           'id, name, name_ar, customer_type, is_blocked, referral_source, created_at, updated_at',
@@ -187,18 +189,19 @@ export function useServiceCustomers(
 
       const { data: custData, error: custErr, count } = await custQuery
       if (custErr) throw custErr
-      const customers = custData as any[]
+      interface CustRow { id: string; name: string; name_ar: string | null; customer_type: string | null; is_blocked: boolean; referral_source: string | null; created_at: string; updated_at: string }
+      const customers = (custData ?? []) as CustRow[]
       if (customers.length === 0) return { data: [], total: count ?? 0 }
 
-      const ids: string[] = customers.map((c: any) => c.id)
+      const ids: string[] = customers.map((c) => c.id)
 
       // 2. Fetch all phones for these customers in parallel with addresses
       const [phonesRes, addrsRes] = await Promise.all([
-        (supabase as any)
+        supabase
           .from('service_customer_phones')
           .select('id, customer_id, phone, label, is_primary')
           .in('customer_id', ids),
-        (supabase as any)
+        supabase
           .from('service_customer_addresses')
           .select('id, customer_id, phone_id, address_type, label, unit, building, street, zone, lat, lng, is_primary, is_geocoded, waze_link, tags, created_at')
           .in('customer_id', ids),
@@ -221,14 +224,14 @@ export function useServiceCustomers(
 
       return {
         total: count ?? 0,
-        data: customers.map((row: any) => {
+        data: customers.map((row) => {
           const phones    = phonesByCustomer.get(row.id) ?? []
           const addresses = addrsByCustomer.get(row.id) ?? []
           return {
             id:               row.id,
             name:             row.name,
             name_ar:          row.name_ar,
-            customer_type:    row.customer_type,
+            customer_type:    row.customer_type as 'individual' | 'business' | null,
             is_blocked:       row.is_blocked ?? false,
             referral_source:  row.referral_source,
             created_at:       row.created_at,
@@ -254,7 +257,7 @@ export function useCreateServiceCustomer() {
       const supabase = createClient()
 
       // 1. Insert customer
-      const { data: customer, error: custErr } = await (supabase as any)
+      const { data: customer, error: custErr } = await supabase
         .from('service_customers')
         .insert({ name: payload.name.trim(), referral_source: payload.referral_source || null })
         .select('id')
@@ -269,12 +272,12 @@ export function useCreateServiceCustomer() {
         label: p.label || null,
         is_primary: i === payload.primaryPhoneIdx,
       }))
-      const { data: insertedPhones, error: phoneErr } = await (supabase as any)
+      const { data: insertedPhones, error: phoneErr } = await supabase
         .from('service_customer_phones')
         .insert(phoneRows)
         .select('id')
       if (phoneErr) throw new Error(phoneErr.message)
-      const phoneIds: string[] = (insertedPhones as any[]).map((p) => p.id)
+      const phoneIds: string[] = (insertedPhones as { id: string }[]).map((p) => p.id)
 
       // 3. Insert addresses, resolving phoneIndex → phone_id
       if (payload.addresses.length > 0) {
@@ -300,7 +303,7 @@ export function useCreateServiceCustomer() {
               : null,
           }
         })
-        const { error: addrErr } = await (supabase as any)
+        const { error: addrErr } = await supabase
           .from('service_customer_addresses')
           .insert(addressRows)
         if (addrErr) throw new Error(addrErr.message)
@@ -308,7 +311,7 @@ export function useCreateServiceCustomer() {
 
       return customerId
     },
-    onSuccess: () => qc.invalidateQueries({ queryKey: ['service-customers'] }),
+    onSuccess: () => qc.invalidateQueries({ queryKey: queryKeys.serviceCustomers.all }),
   })
 }
 
@@ -322,14 +325,14 @@ export function useUpdateServiceCustomer() {
       const { id } = payload
 
       // 1. Update customer core fields (and blocked status if provided)
-      const coreUpdate: Record<string, unknown> = {
+      const coreUpdate: DBUpdate<'service_customers'> = {
         name: payload.name.trim(),
         referral_source: payload.referral_source || null,
       }
       if (payload.is_blocked !== undefined) {
         coreUpdate.is_blocked = payload.is_blocked
       }
-      const { error: custErr } = await (supabase as any)
+      const { error: custErr } = await supabase
         .from('service_customers')
         .update(coreUpdate)
         .eq('id', id)
@@ -338,7 +341,7 @@ export function useUpdateServiceCustomer() {
       // 2. Insert block record if blacklisting
       if (payload.is_blocked === true) {
         const { data: { user } } = await supabase.auth.getUser()
-        await (supabase as any).from('customer_blocks').insert({
+        await supabase.from('customer_blocks').insert({
           customer_id: id,
           reason: payload.block_reason?.trim() ?? 'Blacklisted via customer page',
           blocked_by: user?.id ?? null,
@@ -347,7 +350,7 @@ export function useUpdateServiceCustomer() {
 
       // 3. Upsert phones — update existing, insert new, delete removed
       //    First clear all is_primary flags to avoid the unique-index conflict during updates.
-      await (supabase as any).from('service_customer_phones').update({ is_primary: false }).eq('customer_id', id)
+      await supabase.from('service_customer_phones').update({ is_primary: false }).eq('customer_id', id)
 
       const resultPhoneIds: string[] = []
       for (let i = 0; i < payload.phones.length; i++) {
@@ -356,14 +359,14 @@ export function useUpdateServiceCustomer() {
         if (!normalised) throw new Error(`Invalid phone number: ${p.phone}`)
         if (p.id) {
           // Update existing
-          await (supabase as any)
+          await supabase
             .from('service_customer_phones')
             .update({ phone: normalised, label: p.label || null, is_primary: false })
             .eq('id', p.id)
           resultPhoneIds.push(p.id)
         } else {
           // Insert new
-          const { data: newPhone, error: pErr } = await (supabase as any)
+          const { data: newPhone, error: pErr } = await supabase
             .from('service_customer_phones')
             .insert({ customer_id: id, phone: normalised, label: p.label || null, is_primary: false })
             .select('id')
@@ -376,33 +379,33 @@ export function useUpdateServiceCustomer() {
       // Delete phones removed from the form (note: FK violations will propagate as errors)
       const keepPhoneIds = payload.phones.map((p) => p.id).filter(Boolean) as string[]
       if (keepPhoneIds.length > 0) {
-        await (supabase as any)
+        await supabase
           .from('service_customer_phones')
           .delete()
           .eq('customer_id', id)
           .not('id', 'in', `(${keepPhoneIds.join(',')})`)
       } else {
         // All phones replaced with new entries — delete old rows
-        await (supabase as any).from('service_customer_phones').delete().eq('customer_id', id)
+        await supabase.from('service_customer_phones').delete().eq('customer_id', id)
       }
 
       // Set the single primary
       const primaryId = resultPhoneIds[payload.primaryPhoneIdx]
       if (primaryId) {
-        await (supabase as any).from('service_customer_phones').update({ is_primary: true }).eq('id', primaryId)
+        await supabase.from('service_customer_phones').update({ is_primary: true }).eq('id', primaryId)
       }
 
       // 4. Diff addresses — delete removed, upsert kept (preserves created_at, avoids ID churn)
       const keepAddressIds = payload.addresses.map((a) => a.id).filter(Boolean) as string[]
       if (keepAddressIds.length > 0) {
-        await (supabase as any)
+        await supabase
           .from('service_customer_addresses')
           .delete()
           .eq('customer_id', id)
           .not('id', 'in', `(${keepAddressIds.join(',')})`)
       } else {
         // All addresses were removed
-        await (supabase as any).from('service_customer_addresses').delete().eq('customer_id', id)
+        await supabase.from('service_customer_addresses').delete().eq('customer_id', id)
       }
 
       if (payload.addresses.length > 0) {
@@ -430,16 +433,16 @@ export function useUpdateServiceCustomer() {
           }
         })
         // upsert: existing rows (with id) are updated; new rows (no id) are inserted
-        const { error: addrErr } = await (supabase as any)
+        const { error: addrErr } = await supabase
           .from('service_customer_addresses')
           .upsert(addressRows, { onConflict: 'id' })
         if (addrErr) throw new Error(addrErr.message)
       }
     },
     onSuccess: (_, vars) => {
-      qc.invalidateQueries({ queryKey: ['service-customers'] })
-      qc.invalidateQueries({ queryKey: ['service-customer', vars.id] })
-      qc.invalidateQueries({ queryKey: ['service-customer-addresses', vars.id] })
+      qc.invalidateQueries({ queryKey: queryKeys.serviceCustomers.all })
+      qc.invalidateQueries({ queryKey: queryKeys.contactCenter.serviceCustomer(vars.id) })
+      qc.invalidateQueries({ queryKey: queryKeys.contactCenter.serviceCustomerAddresses(vars.id) })
     },
   })
 }

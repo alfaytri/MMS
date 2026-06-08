@@ -1,7 +1,7 @@
 'use client'
 
 import { useState, useEffect, Suspense } from 'react'
-import { useParams, useRouter, usePathname, useSearchParams } from 'next/navigation'
+import { useParams, useRouter, useSearchParams } from 'next/navigation'
 import { ArrowLeft, Settings2 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { useBillViewModel, useBillsByPO } from '@/hooks/useSupplierBills'
@@ -17,7 +17,6 @@ function BillDetailContent() {
   const params = useParams<{ id: string }>()
   const id = params.id
   const router = useRouter()
-  const pathname = usePathname()
   const searchParams = useSearchParams()
 
   function getParam(key: string): boolean {
@@ -41,14 +40,6 @@ function BillDetailContent() {
       showQR: setShowQR,
     }
     setters[key](value)
-    const p = new URLSearchParams(searchParams.toString())
-    if (value) {
-      p.delete(key)
-    } else {
-      p.set(key, 'false')
-    }
-    const qs = p.toString()
-    router.replace(`${pathname}${qs ? '?' + qs : ''}`, { scroll: false })
   }
 
   const { data: viewModel, isLoading, isError } = useBillViewModel(id)

@@ -35,8 +35,7 @@ export async function POST(request: Request) {
 
   // Mirror to profiles (via admin client so RLS doesn't bite).
   const admin = createAdminClient()
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  await (admin as any).from('profiles')
+  await admin.from('profiles')
     .update({ must_change_password: false })
     .eq('auth_user_id', gate.authUserId)
 

@@ -15,6 +15,7 @@ import { useWarehouseStock, useCreateInventoryCheck } from '@/hooks/useWarehouse
 import { createClient } from '@/lib/supabase/client'
 import { toast } from 'sonner'
 import { useQueryClient } from '@tanstack/react-query'
+import { queryKeys } from '@/lib/queryKeys'
 
 interface StockItem {
   warehouse_id: string
@@ -187,19 +188,19 @@ export function WhInventoryCheckDialog({ warehouses, children }: Props) {
         })
 
       if (itemRows.length > 0) {
-        const { error } = await (supabase as any)
+        const { error } = await supabase
           .from('inventory_check_items')
           .insert(itemRows)
         if (error) throw error
       }
 
       // Step 3: Submit the check
-      await (supabase as any)
+      await supabase
         .from('inventory_checks')
         .update({ status: 'submitted' })
         .eq('id', check.id)
 
-      qc.invalidateQueries({ queryKey: ['inventory_checks'] })
+      qc.invalidateQueries({ queryKey: queryKeys.warehouseOps.inventoryChecks })
       toast.success(`Inventory check submitted for approval`)
       handleClose()
     } catch (e: unknown) {
@@ -270,8 +271,9 @@ export function WhInventoryCheckDialog({ warehouses, children }: Props) {
 
           {/* Notes */}
           <div className="space-y-1.5 flex-shrink-0">
-            <Label className="text-xs">Notes</Label>
+            <Label htmlFor="wh-check-notes" className="text-xs">Notes</Label>
             <Textarea
+              id="wh-check-notes"
               className="text-xs min-h-[60px]"
               placeholder="Optional notes…"
               value={notes}

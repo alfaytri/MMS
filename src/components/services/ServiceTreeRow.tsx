@@ -5,7 +5,7 @@ import { useState } from 'react'
 import {
   ChevronRight, ChevronDown, ArrowUp, ArrowDown,
   Plus, Pencil, Settings2, Bell, Shield, Clock, Archive, Wrench,
-  Package, BookOpen, ClipboardCheck, GripVertical, Eye,
+  Package, BookOpen, ClipboardCheck, GripVertical, Eye, Info,
 } from 'lucide-react'
 import { useSortable } from '@dnd-kit/sortable'
 import { CSS } from '@dnd-kit/utilities'
@@ -18,7 +18,8 @@ import {
 } from '@/components/ui/alert-dialog'
 import { cn } from '@/lib/utils'
 import { formatCurrency } from '@/lib/utils/formatters'
-import { useArchiveService, type Service } from '@/hooks/useServices'
+import { type Service } from '@/hooks/useServices'
+import { useSubmitServiceChange } from '@/hooks/useServiceChangeRequests'
 import type { ReorderArgs } from './ServiceTree'
 
 const LEVEL_COLORS: Record<number, string> = {
@@ -40,6 +41,7 @@ interface ServiceTreeRowProps {
   depth: number
   isExpanded: boolean
   hasChildren: boolean
+  hasDescendantPending?: boolean
   isFirst: boolean
   isLast: boolean
   treeType: string
@@ -51,6 +53,7 @@ interface ServiceTreeRowProps {
   onView: (node: Service) => void
   onAddChild: (parentId: string) => void
   onReorder: (args: ReorderArgs) => void
+  onShowHistory: (serviceId: string) => void
 }
 
 export function ServiceTreeRow({
@@ -58,6 +61,7 @@ export function ServiceTreeRow({
   depth,
   isExpanded,
   hasChildren,
+  hasDescendantPending = false,
   isFirst,
   isLast,
   treeType,
@@ -69,9 +73,10 @@ export function ServiceTreeRow({
   onView,
   onAddChild,
   onReorder,
+  onShowHistory,
 }: ServiceTreeRowProps) {
   const [archiveOpen, setArchiveOpen] = useState(false)
-  const archiveService = useArchiveService()
+  const submitChange = useSubmitServiceChange()
   const isBranch = hasChildren
 
   const {
@@ -83,7 +88,7 @@ export function ServiceTreeRow({
     isDragging,
   } = useSortable({ id: service.id, disabled: !dragMode })
   const levelLabel = `L${depth + 1}`
-  const levelColor = LEVEL_COLORS[Math.min(depth, 2)] ?? 'bg-slate-100 text-slate-700'
+  const levelColor = LEVEL_COLORS[Math.min(depth, 2)] ?? 'bg-muted text-foreground'
 
   // Linkage flags
   const hasInventory = Array.isArray(service.inventory_items) && (service.inventory_items as unknown[]).length > 0
@@ -93,15 +98,22 @@ export function ServiceTreeRow({
   const hasParts = service.spare_parts === true
 
   function handleArchiveConfirm() {
-    archiveService.mutate(
-      { id: service.id, treeType },
+    submitChange.mutate(
       {
-        onSuccess: () => {
-          toast.success(`"${service.name_en}" archived`)
+        service_id: service.id,
+        change_type: 'delete' as const,
+        changes: { deleted: { old: false, new: true } },
+        division: Array.isArray(service.division) ? service.division : [],
+        tree_type: treeType,
+        parent_id: service.parent_id ?? null,
+      },
+      {
+        onSuccess: (result) => {
+          toast.success(result.action === 'applied' ? `"${service.name_en}" archived` : 'Archive request submitted for approval')
           setArchiveOpen(false)
         },
-        onError: () => {
-          toast.error('Failed to archive service')
+        onError: (e) => {
+          toast.error(e.message || 'Failed to archive service')
           setArchiveOpen(false)
         },
       },
@@ -210,10 +222,16 @@ export function ServiceTreeRow({
           )}
           <div className="min-w-0 flex-1">
             <div className={cn(
-              'text-sm truncate text-foreground leading-tight',
+              'text-sm truncate text-foreground leading-tight flex items-center gap-1',
               isBranch ? 'font-semibold' : 'font-medium',
             )}>
               {service.name_en}
+              {service.has_pending_change && (
+                <span className="h-2 w-2 rounded-full bg-orange-500 shrink-0" title="Change pending approval" />
+              )}
+              {!isExpanded && hasDescendantPending && !service.has_pending_change && (
+                <span className="h-2 w-2 rounded-full border border-orange-500 bg-orange-500/30 shrink-0" title="Child service has pending change" />
+              )}
             </div>
             {service.name_ar && (
               <div className="text-xs truncate text-muted-foreground leading-tight">{service.name_ar}</div>
@@ -323,7 +341,7 @@ export function ServiceTreeRow({
             aria-label="Instructions"
           />
           <ClipboardCheck
-            className={cn('h-3.5 w-3.5', hasQC ? 'text-green-500' : 'text-muted-foreground/25')}
+            className={cn('h-3.5 w-3.5', hasQC ? 'text-success' : 'text-muted-foreground/25')}
             aria-label="QC"
           />
           <Wrench
@@ -332,8 +350,17 @@ export function ServiceTreeRow({
           />
         </div>
 
-        {/* 9. Actions — w-[96px] */}
-        <div className="w-[96px] shrink-0 flex items-center justify-end gap-0.5 px-1">
+        {/* 9. Actions — w-[116px] */}
+        <div className="w-[116px] shrink-0 flex items-center justify-end gap-0.5 px-1">
+          <Button
+            variant="ghost"
+            size="icon"
+            className="h-5 w-5"
+            aria-label="Change history"
+            onClick={(e) => { e.stopPropagation(); onShowHistory(service.id) }}
+          >
+            <Info className="h-3.5 w-3.5 text-orange-500" />
+          </Button>
           <Button
             variant="ghost"
             size="icon"
@@ -366,7 +393,7 @@ export function ServiceTreeRow({
             size="icon"
             className="h-5 w-5"
             aria-label="Archive service"
-            disabled={archiveService.isPending}
+            disabled={submitChange.isPending}
             onClick={(e) => { e.stopPropagation(); setArchiveOpen(true) }}
           >
             <Archive className="h-3.5 w-3.5 text-muted-foreground" />

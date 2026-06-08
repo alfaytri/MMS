@@ -4,7 +4,7 @@
 import { useState, useEffect, useMemo } from 'react'
 import { useForm, type Resolver } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
-import { Check, ChevronsUpDown } from 'lucide-react'
+import { Check, ChevronsUpDown, FolderOpen, Wrench } from 'lucide-react'
 import { toast } from 'sonner'
 import { createClient } from '@/lib/supabase/client'
 import {
@@ -22,11 +22,13 @@ import {
 import { Form } from '@/components/ui/form'
 import { cn } from '@/lib/utils'
 import { useServiceTree, useCreateService, useUpdateService, type Service } from '@/hooks/useServices'
+import { useSubmitServiceChange } from '@/hooks/useServiceChangeRequests'
 import { collectDescendantIds, buildTreeMap } from './ServiceTree'
 import {
   serviceSchema, toDefaults, type ServiceFormValues,
   CoreSection, CatalogImageSection, StatusSection, DivisionSection,
-  ContractSection, PricingSection, DurationWarrantySection,
+  ItemKindSection, ContractSection, PricingModeSection, DiscountScopeSection,
+  PricingSection, DurationWarrantySection,
   InvoiceTextSection, PhotoRequirementSection, FeatureFieldsSection,
 } from './ServiceEditSections'
 
@@ -52,8 +54,10 @@ export function ServiceEditDialog({
   const [confirmDiscardOpen, setConfirmDiscardOpen] = useState(false)
   const [parentOpen, setParentOpen] = useState(false)
   const [pendingFile, setPendingFile] = useState<File | null>(null)
+  const [isCategory, setIsCategory] = useState(false)
   const createService = useCreateService()
   const updateService = useUpdateService()
+  const submitChange = useSubmitServiceChange()
   const { data: treeData = [] } = useServiceTree(type, [], open)
 
   const parentDivision = useMemo(
@@ -70,6 +74,8 @@ export function ServiceEditDialog({
     if (open) {
       form.reset(toDefaults(node, type, parentId, parentDivision))
       setPendingFile(null)
+      const hasChildren = node ? treeData.some((s) => s.parent_id === node.id) : false
+      setIsCategory(hasChildren)
     }
   }, [open, node, parentId, type, parentDivision]) // eslint-disable-line react-hooks/exhaustive-deps
 
@@ -97,6 +103,19 @@ export function ServiceEditDialog({
     }
     return traverse(null, 0, '')
   }, [treeData, node])
+
+  function buildChangesDiff(
+    payload: Record<string, unknown>,
+    existing: Service | null,
+  ): Record<string, { old: unknown; new: unknown }> {
+    const diff: Record<string, { old: unknown; new: unknown }> = {}
+    for (const [key, newVal] of Object.entries(payload)) {
+      if (key === 'treeType' || key === 'id' || key === 'sort_order') continue
+      const oldVal = existing ? (existing as Record<string, unknown>)[key] ?? null : null
+      diff[key] = { old: oldVal, new: newVal }
+    }
+    return diff
+  }
 
   function handleOpenChange(nextOpen: boolean) {
     if (!readOnly && !nextOpen && form.formState.isDirty) {
@@ -135,10 +154,15 @@ export function ServiceEditDialog({
         parent_id: values.parent_id,
         tree_type: type,
         price: values.price,
-        emergency_price: type !== 'contract' ? values.emergency_price : null,
+        emergency_price: type !== 'contract'
+          ? values.emergency_price
+          : (values.contract_type === 'preventive' ? values.emergency_price : null),
         discount: type === 'contract' ? values.discount : null,
         price_unit: values.contract_type === 'area' ? values.price_unit : null,
         contract_type: type === 'contract' ? values.contract_type : null,
+        item_kind: type === 'contract' ? values.item_kind : null,
+        pricing_mode: type === 'contract' && values.item_kind === 'service' && values.contract_type === 'preventive' ? values.pricing_mode : null,
+        discount_scope: type === 'contract' && values.contract_type === 'general' ? values.discount_scope : null,
         duration: values.duration,
         warranty: values.warranty,
         invoice_text_en: type !== 'contract' ? values.invoice_text_en || null : null,
@@ -146,41 +170,46 @@ export function ServiceEditDialog({
         photo_requirement: type !== 'contract' ? values.photo_requirement : null,
         instructions: false,
         reminder_days: values.has_reminders ? values.reminder_days : null,
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        inventory_items: values.has_inventory ? (values.inventory_items_list as any) : null,
+        inventory_items: values.has_inventory ? (values.inventory_items_list as ServiceFormValues['inventory_items_list']) : null,
         qc_checklist: type !== 'contract' ? values.qc_checklist : null,
         spare_parts: type !== 'contract' ? values.spare_parts : null,
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        service_type: type !== 'contract' ? (values.service_type as any) : null,
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        components: values.service_type === 'configurable' ? (values.component_service_ids as any) : null,
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        qc_items: type !== 'contract' && values.qc_items.length > 0 ? (values.qc_items as any) : null,
+        service_type: type !== 'contract' ? values.service_type : null,
+        components: values.service_type === 'configurable' ? values.component_service_ids : null,
+        qc_items: type !== 'contract' && values.qc_items.length > 0 ? values.qc_items : null,
         ...(catalogImageUrl !== undefined && { catalog_image_url: catalogImageUrl }),
       }
 
-      if (mode === 'new') {
-        await createService.mutateAsync({ ...payload, id: serviceId, sort_order: 0, treeType: type })
+      const changes = buildChangesDiff(payload, mode === 'edit' ? node : null)
+
+      const result = await submitChange.mutateAsync({
+        service_id: mode === 'edit' && node ? node.id : null,
+        change_type: mode === 'new' ? 'add' : 'edit',
+        changes,
+        division: Array.isArray(values.division) ? values.division : [values.division].filter(Boolean),
+        tree_type: type,
+        parent_id: values.parent_id,
+      })
+
+      if (result.action === 'applied') {
+        toast.success('Service saved')
       } else {
-        const changedFields = Object.keys(form.formState.dirtyFields)
-        await updateService.mutateAsync({ id: serviceId, ...payload, treeType: type, changedFields })
+        toast.success('Change submitted for approval')
       }
-      toast.success('Service saved')
       onOpenChange(false)
-    } catch (err) {
-      toast.error('Failed to save service')
+    } catch (err: unknown) {
+      const msg = err instanceof Error ? err.message : 'Failed to save service'
+      toast.error(msg)
       console.error(err)
     }
   }
 
-  const isSaving = createService.isPending || updateService.isPending
+  const isSaving = createService.isPending || updateService.isPending || submitChange.isPending
   const title = readOnly
     ? 'View Service'
     : mode === 'new'
       ? `New ${type === 'contract' ? 'Contract ' : type === 'mobile' ? 'Mobile App ' : ''}Service`
       : 'Edit Service'
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const currentImageUrl = (node as any)?.catalog_image_url ?? null
+  const currentImageUrl = node?.catalog_image_url ?? null
 
   return (
     <>
@@ -195,12 +224,56 @@ export function ServiceEditDialog({
               <fieldset disabled={readOnly} className={cn(readOnly && 'opacity-70 pointer-events-none')}>
 
                 <div className="space-y-5">
+                  {/* Node type toggle */}
+                  <div className="space-y-2">
+                    <label className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">Node Type</label>
+                    <div className="flex gap-2">
+                      <Button
+                        type="button"
+                        size="sm"
+                        variant={isCategory ? 'default' : 'outline'}
+                        className={cn(
+                          'h-9 text-xs flex-1 gap-1.5',
+                          isCategory
+                            ? 'bg-slate-700 text-white border-slate-700 hover:bg-slate-800'
+                            : 'border-border text-muted-foreground hover:bg-muted',
+                        )}
+                        onClick={() => setIsCategory(true)}
+                      >
+                        <FolderOpen className="h-3.5 w-3.5" />
+                        Category / Heading
+                      </Button>
+                      <Button
+                        type="button"
+                        size="sm"
+                        variant={!isCategory ? 'default' : 'outline'}
+                        className={cn(
+                          'h-9 text-xs flex-1 gap-1.5',
+                          !isCategory
+                            ? 'bg-primary text-white border-primary hover:bg-primary/90'
+                            : 'border-border text-muted-foreground hover:bg-muted',
+                        )}
+                        onClick={() => setIsCategory(false)}
+                      >
+                        <Wrench className="h-3.5 w-3.5" />
+                        Service Item
+                      </Button>
+                    </div>
+                    {isCategory && (
+                      <p className="text-[11px] text-muted-foreground">
+                        Categories are headings that group child services. Pricing and detail fields are hidden.
+                      </p>
+                    )}
+                  </div>
+
                   <CoreSection form={form} />
-                  <CatalogImageSection
-                    pendingFile={pendingFile}
-                    currentUrl={currentImageUrl}
-                    onFileChange={setPendingFile}
-                  />
+                  {!isCategory && (
+                    <CatalogImageSection
+                      pendingFile={pendingFile}
+                      currentUrl={currentImageUrl}
+                      onFileChange={setPendingFile}
+                    />
+                  )}
                   <div className="grid grid-cols-2 gap-3">
                     <StatusSection form={form} />
                     <DivisionSection form={form} mode={mode} hasParent={parentId !== null} />
@@ -263,17 +336,36 @@ export function ServiceEditDialog({
                     </Popover>
                   </div>
 
-                  {type === 'contract' && <ContractSection form={form} />}
-                  <PricingSection form={form} type={type} />
-                  <DurationWarrantySection form={form} />
-                  {type !== 'contract' && <InvoiceTextSection form={form} />}
-                  {type !== 'contract' && <PhotoRequirementSection form={form} />}
-                  {type !== 'contract' && (
-                    <FeatureFieldsSection
-                      form={form}
-                      treeData={treeData}
-                      currentServiceId={node?.id ?? null}
-                    />
+                  {!isCategory && (
+                    <>
+                      {type === 'contract' && (
+                        <>
+                          <ItemKindSection form={form} />
+                          {form.watch('item_kind') !== 'product' && (
+                            <ContractSection form={form} />
+                          )}
+                          {form.watch('item_kind') !== 'product' &&
+                           form.watch('contract_type') === 'preventive' && (
+                            <PricingModeSection form={form} />
+                          )}
+                        </>
+                      )}
+                      <PricingSection form={form} type={type} />
+                      {type === 'contract' && form.watch('contract_type') === 'general' &&
+                       form.watch('item_kind') !== 'product' && (
+                        <DiscountScopeSection form={form} />
+                      )}
+                      <DurationWarrantySection form={form} />
+                      {type !== 'contract' && <InvoiceTextSection form={form} />}
+                      {type !== 'contract' && <PhotoRequirementSection form={form} />}
+                      {type !== 'contract' && (
+                        <FeatureFieldsSection
+                          form={form}
+                          treeData={treeData}
+                          currentServiceId={node?.id ?? null}
+                        />
+                      )}
+                    </>
                   )}
                 </div>
               </fieldset>

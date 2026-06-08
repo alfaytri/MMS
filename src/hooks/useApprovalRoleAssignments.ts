@@ -2,6 +2,7 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { createClient } from '@/lib/supabase/client'
 import type { ApprovalRole, ApprovalRoleAssignmentRow } from '@/lib/approvalChainResolution'
+import { queryKeys } from '@/lib/queryKeys'
 
 export type ApprovalRoleAssignmentWithProfile = ApprovalRoleAssignmentRow & {
   profiles: { id: string; full_name: string; email: string | null } | null
@@ -9,16 +10,17 @@ export type ApprovalRoleAssignmentWithProfile = ApprovalRoleAssignmentRow & {
 
 export function useApprovalRoleAssignments() {
   return useQuery({
-    queryKey: ['approval-role-assignments'],
+    queryKey: queryKeys.approvals.roleAssignments,
     queryFn: async () => {
       const supabase = createClient()
-      const { data, error } = await (supabase as any)
+      const { data, error } = await supabase
         .from('approval_role_assignments')
         .select('*, profiles(id, full_name, email)')
         .is('deleted_at', null)
         .order('created_at', { ascending: true })
+        .returns<ApprovalRoleAssignmentWithProfile[]>()
       if (error) throw error
-      return data as ApprovalRoleAssignmentWithProfile[]
+      return data ?? []
     },
     staleTime: 60 * 1000,
   })
@@ -26,18 +28,19 @@ export function useApprovalRoleAssignments() {
 
 export function useApprovalRoleAssignmentsForDivision(divisionId: string | null | undefined) {
   return useQuery({
-    queryKey: ['approval-role-assignments', divisionId],
+    queryKey: queryKeys.approvals.roleAssignmentsByDivision(divisionId),
     queryFn: async () => {
       const supabase = createClient()
-      const query = (supabase as any)
+      const base = supabase
         .from('approval_role_assignments')
         .select('*')
         .is('deleted_at', null)
-      const { data, error } = divisionId
-        ? await query.or(`division_id.eq.${divisionId},division_id.is.null`)
-        : await query.is('division_id', null)
+      const query = divisionId
+        ? base.or(`division_id.eq.${divisionId},division_id.is.null`)
+        : base.is('division_id', null)
+      const { data, error } = await query.returns<ApprovalRoleAssignmentRow[]>()
       if (error) throw error
-      return data as ApprovalRoleAssignmentRow[]
+      return data ?? []
     },
     enabled: divisionId !== undefined,
     staleTime: 60 * 1000,
@@ -46,15 +49,15 @@ export function useApprovalRoleAssignmentsForDivision(divisionId: string | null 
 
 export function useCurrentUserApprovalRoles() {
   return useQuery({
-    queryKey: ['my-approval-roles'],
+    queryKey: queryKeys.approvals.myRoles,
     queryFn: async () => {
       const supabase = createClient()
       const { data: { user } } = await supabase.auth.getUser()
       if (!user) return [] as ApprovalRole[]
-      const { data: profile } = await (supabase as any)
+      const { data: profile } = await supabase
         .from('profiles').select('id').eq('auth_user_id', user.id).maybeSingle()
       if (!profile) return [] as ApprovalRole[]
-      const { data, error } = await (supabase as any)
+      const { data, error } = await supabase
         .from('approval_role_assignments')
         .select('role')
         .eq('profile_id', profile.id)
@@ -73,7 +76,7 @@ export function useAddApprovalRoleAssignment() {
       const supabase = createClient()
 
       // Check if a row already exists (including soft-deleted) to avoid unique index violation
-      const existingQuery = (supabase as any)
+      const existingQuery = supabase
         .from('approval_role_assignments')
         .select('id')
         .eq('profile_id', payload.profile_id)
@@ -86,7 +89,7 @@ export function useAddApprovalRoleAssignment() {
 
       if (existing) {
         // Restore soft-deleted row instead of inserting a duplicate
-        const { data, error } = await (supabase as any)
+        const { data, error } = await supabase
           .from('approval_role_assignments')
           .update({ deleted_at: null })
           .eq('id', existing.id)
@@ -96,7 +99,7 @@ export function useAddApprovalRoleAssignment() {
         return data
       }
 
-      const { data, error } = await (supabase as any)
+      const { data, error } = await supabase
         .from('approval_role_assignments')
         .insert(payload)
         .select()
@@ -105,8 +108,8 @@ export function useAddApprovalRoleAssignment() {
       return data
     },
     onSuccess: () => {
-      qc.invalidateQueries({ queryKey: ['approval-role-assignments'] })
-      qc.invalidateQueries({ queryKey: ['my-approval-roles'] })
+      qc.invalidateQueries({ queryKey: queryKeys.approvals.roleAssignments })
+      qc.invalidateQueries({ queryKey: queryKeys.approvals.myRoles })
     },
   })
 }
@@ -116,15 +119,15 @@ export function useSoftDeleteApprovalRoleAssignment() {
   return useMutation({
     mutationFn: async (id: string) => {
       const supabase = createClient()
-      const { error } = await (supabase as any)
+      const { error } = await supabase
         .from('approval_role_assignments')
         .update({ deleted_at: new Date().toISOString() })
         .eq('id', id)
       if (error) throw error
     },
     onSuccess: () => {
-      qc.invalidateQueries({ queryKey: ['approval-role-assignments'] })
-      qc.invalidateQueries({ queryKey: ['my-approval-roles'] })
+      qc.invalidateQueries({ queryKey: queryKeys.approvals.roleAssignments })
+      qc.invalidateQueries({ queryKey: queryKeys.approvals.myRoles })
     },
   })
 }

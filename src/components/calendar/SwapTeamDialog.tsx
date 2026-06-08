@@ -16,6 +16,7 @@ import { cn } from '@/lib/utils'
 import { getVisitTypeConfig } from './VisitBlock'
 import type { CalendarVisit } from '@/hooks/useCalendarVisits'
 import type { TeamFull } from '@/hooks/useTeams'
+import { queryKeys } from '@/lib/queryKeys'
 
 export interface TeamEligibility {
   team: TeamFull
@@ -132,8 +133,7 @@ export function SwapTeamDialog({
     if (!selectedId) return
     setSaving(true)
     try {
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      const supabase = createClient() as any
+      const supabase = createClient()
       const { data, error } = await supabase.rpc('swap_visit_team', {
         p_assignment_id: assignmentId,
         p_new_team_id: selectedId,
@@ -142,8 +142,8 @@ export function SwapTeamDialog({
       const result = data as { success: boolean; error?: string }
       if (!result.success) throw new Error(result.error ?? 'Swap failed')
       toast.success('Team reassigned successfully')
-      queryClient.invalidateQueries({ queryKey: ['calendar-visits'] })
-      queryClient.invalidateQueries({ queryKey: ['week-capacity'] })
+      queryClient.invalidateQueries({ queryKey: queryKeys.calendar.visitsAll })
+      queryClient.invalidateQueries({ queryKey: queryKeys.calendar.weekCapacityAll })
       onClose()
     } catch (err) {
       toast.error(err instanceof Error ? err.message : 'Failed to swap team')

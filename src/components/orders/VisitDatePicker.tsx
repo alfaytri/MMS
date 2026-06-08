@@ -41,11 +41,11 @@ export function VisitDatePicker({ selected, onChange }: Props) {
     <div className="space-y-1.5">
       <Popover open={open} onOpenChange={setOpen}>
         <PopoverTrigger
-          className="flex min-h-[44px] w-full items-center gap-2 rounded-md border border-slate-200 bg-white px-3 py-2 text-left text-sm transition-colors hover:border-slate-300 hover:bg-slate-50"
+          className="flex min-h-[44px] w-full items-center gap-2 rounded-md border border-border bg-white px-3 py-2 text-left text-sm transition-colors hover:border-border hover:bg-muted"
           render={(props) => (
             <button type="button" {...props}>
-              <CalendarIcon className="h-4 w-4 shrink-0 text-slate-400" />
-              <span className={selected.length === 0 ? 'text-slate-400' : 'text-slate-900'}>
+              <CalendarIcon className="h-4 w-4 shrink-0 text-muted-foreground" />
+              <span className={selected.length === 0 ? 'text-muted-foreground' : 'text-foreground'}>
                 {formatSummary(selected)}
               </span>
             </button>
@@ -55,6 +55,7 @@ export function VisitDatePicker({ selected, onChange }: Props) {
         <PopoverContent
           className="w-auto p-0"
           align="start"
+          side="bottom"
           sideOffset={4}
         >
           <DayPicker

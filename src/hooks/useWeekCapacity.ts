@@ -1,6 +1,7 @@
 import { useQuery } from '@tanstack/react-query'
 import { createClient } from '@/lib/supabase/client'
 import { addDays, format, startOfWeek } from 'date-fns'
+import { queryKeys } from '@/lib/queryKeys'
 
 export interface CapacityVisitRow {
   start_time: string | null
@@ -72,7 +73,7 @@ export function useWeekCapacity(
   activeVisitTypes: Set<string>,
 ) {
   return useQuery({
-    queryKey: ['week-capacity', weekStart, divisionSlug, [...activeVisitTypes].sort().join(',')],
+    queryKey: queryKeys.calendar.weekCapacity(weekStart, divisionSlug, [...activeVisitTypes].sort().join(',')),
     queryFn: async (): Promise<Record<string, CapacityVisitRow[]>> => {
       const supabase = createClient()
       const dates = buildWeekDates(weekStart)

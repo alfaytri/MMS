@@ -68,7 +68,7 @@ function MemberAvatar({ employee, teamId, hasTools }: {
     data: { type: 'employee', employeeId: employee.id, fromTeamId: teamId } satisfies DragData,
   })
   const initials = employee.name?.split(' ').map((w: string) => w[0]).join('').slice(0, 2).toUpperCase() ?? '?'
-  const avatarUrl = (employee as unknown as { avatar_url?: string | null }).avatar_url ?? null
+  const avatarUrl = employee.avatar_url ?? null
 
   return (
     <div

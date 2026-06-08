@@ -122,10 +122,11 @@ export function OrderEditDialog({ open, onOpenChange, order }: Props) {
 
           {/* Visit Date */}
           <div className="space-y-1.5">
-            <Label className="text-xs font-semibold uppercase tracking-wide text-slate-500">
+            <Label htmlFor="order-edit-visit-date" className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
               Visit Date
             </Label>
             <Input
+              id="order-edit-visit-date"
               type="date"
               value={scheduledDate}
               onChange={(e) => setScheduledDate(e.target.value)}
@@ -135,10 +136,11 @@ export function OrderEditDialog({ open, onOpenChange, order }: Props) {
 
           {/* Notes */}
           <div className="space-y-1.5">
-            <Label className="text-xs font-semibold uppercase tracking-wide text-slate-500">
+            <Label htmlFor="order-edit-notes" className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
               Notes
             </Label>
             <Textarea
+              id="order-edit-notes"
               placeholder="Add notes…"
               value={notes}
               onChange={(e) => setNotes(e.target.value)}
@@ -149,12 +151,12 @@ export function OrderEditDialog({ open, onOpenChange, order }: Props) {
 
           {/* Arrival Phone */}
           <div className="space-y-1.5">
-            <Label className="text-xs font-semibold uppercase tracking-wide text-slate-500">
+            <Label className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
               Phone on Arrival
             </Label>
             <div className="flex h-10 rounded-md border border-input shadow-sm focus-within:ring-1 focus-within:ring-ring">
               <Select value={arrivalCountryCode} onValueChange={(v) => { if (v) setArrivalCountryCode(v) }}>
-                <SelectTrigger className="w-28 shrink-0 rounded-r-none border-0 shadow-none focus:ring-0 h-full bg-slate-50 text-xs font-medium">
+                <SelectTrigger className="w-28 shrink-0 rounded-r-none border-0 shadow-none focus:ring-0 h-full bg-muted text-xs font-medium">
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
@@ -176,17 +178,18 @@ export function OrderEditDialog({ open, onOpenChange, order }: Props) {
           {/* Team Assignments */}
           {assignments.length > 0 && (
             <div className="space-y-3">
-              <Label className="text-xs font-semibold uppercase tracking-wide text-slate-500">
+              <Label className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
                 Team Assignments
               </Label>
               {assignments.map((a) => (
                 <div key={a.id} className="rounded-lg border p-3 space-y-2.5">
-                  <p className="text-sm font-medium text-slate-800">{a.teamName}</p>
+                  <p className="text-sm font-medium text-foreground">{a.teamName}</p>
 
                   {/* Date per assignment */}
                   <div className="space-y-1">
-                    <Label className="text-xs text-slate-500">Date</Label>
+                    <Label htmlFor={`order-edit-assign-date-${a.id}`} className="text-xs text-muted-foreground">Date</Label>
                     <Input
+                      id={`order-edit-assign-date-${a.id}`}
                       type="date"
                       value={a.scheduledDate}
                       onChange={(e) => updateAssignment(a.id, { scheduledDate: e.target.value })}
@@ -197,12 +200,12 @@ export function OrderEditDialog({ open, onOpenChange, order }: Props) {
                   <div className="grid grid-cols-2 gap-2">
                     {/* Start time */}
                     <div className="space-y-1">
-                      <Label className="text-xs text-slate-500">Start Time</Label>
+                      <Label htmlFor={`order-edit-assign-time-${a.id}`} className="text-xs text-muted-foreground">Start Time</Label>
                       <Select
                         value={a.timeSlot}
                         onValueChange={(v) => { if (v) updateAssignment(a.id, { timeSlot: v }) }}
                       >
-                        <SelectTrigger className="h-8 text-sm">
+                        <SelectTrigger id={`order-edit-assign-time-${a.id}`} className="h-8 text-sm">
                           <SelectValue placeholder="Select…" />
                         </SelectTrigger>
                         <SelectContent>
@@ -215,8 +218,9 @@ export function OrderEditDialog({ open, onOpenChange, order }: Props) {
 
                     {/* Duration */}
                     <div className="space-y-1">
-                      <Label className="text-xs text-slate-500">Duration (hrs)</Label>
+                      <Label htmlFor={`order-edit-assign-dur-${a.id}`} className="text-xs text-muted-foreground">Duration (hrs)</Label>
                       <Input
+                        id={`order-edit-assign-dur-${a.id}`}
                         type="number"
                         min={1}
                         max={12}

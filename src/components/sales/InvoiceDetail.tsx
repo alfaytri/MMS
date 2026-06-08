@@ -31,13 +31,13 @@ type Props = {
 }
 
 const DOC_STATUS_CONFIG: Record<string, { label: string; className: string }> = {
-  draft:          { label: 'Draft',          className: 'bg-slate-100 text-slate-700' },
+  draft:          { label: 'Draft',          className: 'bg-muted text-foreground' },
   ready_to_send:  { label: 'Ready to Send',  className: 'bg-blue-100 text-blue-700' },
   sent:           { label: 'Sent',           className: 'bg-green-100 text-green-700' },
 }
 
 const PAY_STATUS_CONFIG: Record<string, { label: string; className: string }> = {
-  unpaid:         { label: 'Unpaid',         className: 'bg-slate-100 text-slate-600' },
+  unpaid:         { label: 'Unpaid',         className: 'bg-muted text-muted-foreground' },
   partially_paid: { label: 'Partially Paid', className: 'bg-amber-100 text-amber-700' },
   paid:           { label: 'Paid',           className: 'bg-green-100 text-green-700' },
   overdue:        { label: 'Overdue',        className: 'bg-red-100 text-red-700' },

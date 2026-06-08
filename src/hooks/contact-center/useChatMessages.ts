@@ -3,6 +3,7 @@
 import { useState, useCallback } from 'react'
 import { createClient } from '@/lib/supabase/client'
 import type { ChatMessage, WatiTemplate } from '@/types/contact-center'
+import type { Json } from '@/types/database.types'
 
 export type AttachmentCategory = 'image' | 'video' | 'document' | 'audio'
 
@@ -29,6 +30,34 @@ interface SendTemplateParams {
   variables: string[]
   headerUrl?: string
   agentProfileId?: string | null
+}
+
+/** Shape of the JSON returned by the api-wati Supabase edge function */
+interface WatiSendResponse {
+  message?: { whatsappMessageId?: string }
+  info?: { whatsAppMessageId?: string }
+  id?: string
+  messageId?: string
+  result?: boolean
+  error?: string
+  detail?: string
+  messageTemplates?: WatiRawTemplate[]
+}
+
+/** Raw template object returned by Wati's list-templates API */
+interface WatiRawTemplate {
+  id?: string
+  elementName: string
+  body?: string
+  bodyOriginal?: string
+  components?: WatiRawComponent[]
+  header?: { headerTypeString?: string; typeString?: string; link?: string }
+}
+
+interface WatiRawComponent {
+  type?: string
+  text?: string
+  format?: string
 }
 
 export function useChatMessages(
@@ -65,12 +94,12 @@ export function useChatMessages(
 
     let profileId: string | null = agentProfileId ?? null
     if (profileId === null) {
-      const { data: profile } = await (supabase as any)
+      const { data: profile } = await supabase
         .from('profiles').select('id').eq('auth_user_id', user.id).maybeSingle()
       profileId = profile?.id ?? null
     }
 
-    const { data: inserted, error: insertErr } = await (supabase as any)
+    const { data: inserted, error: insertErr } = await supabase
       .from('chat_messages')
       .insert({
         conversation_id:    conversationId,
@@ -93,10 +122,10 @@ export function useChatMessages(
     onOptimisticInsert?.(tempId)
     addMessage?.({
       ...inserted,
-      reactions: inserted.reactions ?? [],
-      attachments: inserted.attachments ?? null,
+      reactions: (inserted.reactions as unknown as ChatMessage['reactions']) ?? [],
+      attachments: inserted.attachments as unknown as ChatMessage['attachments'],
       message_kind: inserted.message_kind ?? 'message',
-    } as ChatMessage)
+    } as unknown as ChatMessage)
     setInputText('')
 
     try {
@@ -112,19 +141,20 @@ export function useChatMessages(
         const patch = whapiId
           ? { external_id: whapiId, delivery_status: 'sent' as const }
           : { delivery_status: 'sent' as const }
-        await (supabase as any).from('chat_messages').update(patch).eq('id', tempId)
+        await supabase.from('chat_messages').update(patch).eq('id', tempId)
         patchMessage(tempId, patch)
       } else {
         const { data: fnData, error: fnErr } = await supabase.functions.invoke('api-wati', {
           body: { action: 'send_session_message', phone, text: text.trim() },
         })
         if (fnErr) throw fnErr
-        const watiId = (fnData as any)?.message?.whatsappMessageId
-          ?? (fnData as any)?.info?.whatsAppMessageId
-          ?? (fnData as any)?.id
-          ?? (fnData as any)?.messageId
+        const resp = fnData as WatiSendResponse | null
+        const watiId = resp?.message?.whatsappMessageId
+          ?? resp?.info?.whatsAppMessageId
+          ?? resp?.id
+          ?? resp?.messageId
         if (watiId) {
-          await (supabase as any)
+          await supabase
             .from('chat_messages')
             .update({ external_id: `wati_${watiId}`, delivery_status: 'sent' })
             .eq('id', tempId)
@@ -134,7 +164,7 @@ export function useChatMessages(
         }
       }
     } catch (err) {
-      await (supabase as any)
+      await supabase
         .from('chat_messages')
         .update({ delivery_status: 'failed' })
         .eq('id', tempId)
@@ -169,7 +199,7 @@ export function useChatMessages(
 
     let profileId: string | null = agentProfileId ?? null
     if (profileId === null) {
-      const { data: profile } = await (supabase as any)
+      const { data: profile } = await supabase
         .from('profiles').select('id').eq('auth_user_id', user.id).maybeSingle()
       profileId = profile?.id ?? null
     }
@@ -179,7 +209,7 @@ export function useChatMessages(
       template.bodyOriginal || template.elementName
     )
 
-    const { data: inserted, error: insertErr } = await (supabase as any)
+    const { data: inserted, error: insertErr } = await supabase
       .from('chat_messages')
       .insert({
         conversation_id:    conversationId,
@@ -201,10 +231,10 @@ export function useChatMessages(
     const tempId: string = inserted.id
     addMessage?.({
       ...inserted,
-      reactions: inserted.reactions ?? [],
-      attachments: inserted.attachments ?? null,
+      reactions: (inserted.reactions as unknown as ChatMessage['reactions']) ?? [],
+      attachments: inserted.attachments as unknown as ChatMessage['attachments'],
       message_kind: inserted.message_kind ?? 'message',
-    } as ChatMessage)
+    } as unknown as ChatMessage)
     const bodyParams = template.paramNames.length > 0
       ? template.paramNames.map((name, i) => ({ name, value: variables[i] ?? '' }))
       : variables.map((v, i) => ({ name: `${i + 1}`, value: v }))
@@ -224,17 +254,18 @@ export function useChatMessages(
         },
       })
       if (fnErr) throw fnErr
-      const watiId = (fnData as any)?.message?.whatsappMessageId
-        ?? (fnData as any)?.info?.whatsAppMessageId
-        ?? (fnData as any)?.id
-        ?? (fnData as any)?.messageId
+      const tResp = fnData as WatiSendResponse | null
+      const watiId = tResp?.message?.whatsappMessageId
+        ?? tResp?.info?.whatsAppMessageId
+        ?? tResp?.id
+        ?? tResp?.messageId
       const patch = watiId
         ? { external_id: `wati_${watiId}`, delivery_status: 'sent' as const }
         : { delivery_status: 'sent' as const }
-      await (supabase as any).from('chat_messages').update(patch).eq('id', tempId)
+      await supabase.from('chat_messages').update(patch).eq('id', tempId)
       patchMessage(tempId, patch)
     } catch {
-      await (supabase as any).from('chat_messages').update({ delivery_status: 'failed' }).eq('id', tempId)
+      await supabase.from('chat_messages').update({ delivery_status: 'failed' }).eq('id', tempId)
       patchMessage(tempId, { delivery_status: 'failed' })
     } finally {
       setSending(false)
@@ -247,11 +278,12 @@ export function useChatMessages(
     setTemplates([])
     try {
       const { data } = await supabase.functions.invoke('api-wati', { body: { action: 'get_templates' } })
-      const raw: any[] = (data as any)?.messageTemplates ?? []
-      const parsed: WatiTemplate[] = raw.map((t) => {
-        const comps: any[] = t.components ?? []
-        const bodyComp   = comps.find((c: any) => (c.type ?? '').toUpperCase() === 'BODY')
-        const headerComp = comps.find((c: any) => (c.type ?? '').toUpperCase() === 'HEADER')
+      const templatesResp = data as WatiSendResponse | null
+      const raw: WatiRawTemplate[] = templatesResp?.messageTemplates ?? []
+      const parsed = raw.map((t) => {
+        const comps: WatiRawComponent[] = t.components ?? []
+        const bodyComp   = comps.find((c) => (c.type ?? '').toUpperCase() === 'BODY')
+        const headerComp = comps.find((c) => (c.type ?? '').toUpperCase() === 'HEADER')
         // Prefer bodyOriginal (named variables like {{booking_number}}) over
         // body (positional {{1}}) — the API needs the named param names.
         const bodyText = t.bodyOriginal ?? t.body ?? bodyComp?.text ?? ''
@@ -280,16 +312,16 @@ export function useChatMessages(
           headerParamName,
         }
       })
-      setTemplates(parsed)
+      setTemplates(parsed as unknown as WatiTemplate[])
     } finally {
       setTemplatesLoading(false)
     }
   }, [templates.length, supabase])
 
   const reactToMessage = useCallback(async (messageId: string, emoji: string, phone?: string) => {
-    const { data: row } = await (supabase as any)
+    const { data: row } = await supabase
       .from('chat_messages').select('reactions, external_id').eq('id', messageId).maybeSingle()
-    const existing: { emoji: string; from_type: string }[] = row?.reactions ?? []
+    const existing: { emoji: string; from_type: string }[] = (row?.reactions as unknown as { emoji: string; from_type: string }[]) ?? []
     const hasIt = existing.some((r) => r.emoji === emoji && r.from_type === 'agent')
     const updated = hasIt
       ? existing.filter((r) => !(r.emoji === emoji && r.from_type === 'agent'))
@@ -304,19 +336,19 @@ export function useChatMessages(
       }).catch(() => {/* non-fatal */})
     }
 
-    const { error: updateErr } = await (supabase as any)
-      .from('chat_messages').update({ reactions: updated }).eq('id', messageId)
+    const { error: updateErr } = await supabase
+      .from('chat_messages').update({ reactions: updated as unknown as Json }).eq('id', messageId)
     if (updateErr) {
       console.error('[reactToMessage] update failed', updateErr)
       return
     }
-    patchMessage(messageId, { reactions: updated } as any)
+    patchMessage(messageId, { reactions: updated as ChatMessage['reactions'] })
   }, [provider, supabase, patchMessage])
 
   const retryMessage = useCallback(async (message: ChatMessage, phone: string) => {
     if (!message.text) return
     patchMessage(message.id, { delivery_status: 'sending' })
-    await (supabase as any).from('chat_messages').update({ delivery_status: 'sending' }).eq('id', message.id)
+    await supabase.from('chat_messages').update({ delivery_status: 'sending' }).eq('id', message.id)
     try {
       if (provider === 'whapi') {
         const res = await fetch('/api/whapi/send-message', {
@@ -330,24 +362,25 @@ export function useChatMessages(
         const patch = whapiId
           ? { external_id: whapiId, delivery_status: 'sent' as const }
           : { delivery_status: 'sent' as const }
-        await (supabase as any).from('chat_messages').update(patch).eq('id', message.id)
+        await supabase.from('chat_messages').update(patch).eq('id', message.id)
         patchMessage(message.id, patch)
       } else {
         const { data: fnData } = await supabase.functions.invoke('api-wati', {
           body: { action: 'send_session_message', phone, text: message.text },
         })
-        const watiId = (fnData as any)?.message?.whatsappMessageId
-          ?? (fnData as any)?.info?.whatsAppMessageId
-          ?? (fnData as any)?.id
-          ?? (fnData as any)?.messageId
+        const retryResp = fnData as WatiSendResponse | null
+        const watiId = retryResp?.message?.whatsappMessageId
+          ?? retryResp?.info?.whatsAppMessageId
+          ?? retryResp?.id
+          ?? retryResp?.messageId
         const patch = watiId
           ? { external_id: `wati_${watiId}`, delivery_status: 'sent' as const }
           : { delivery_status: 'sent' as const }
-        await (supabase as any).from('chat_messages').update(patch).eq('id', message.id)
+        await supabase.from('chat_messages').update(patch).eq('id', message.id)
         patchMessage(message.id, patch)
       }
     } catch {
-      await (supabase as any).from('chat_messages').update({ delivery_status: 'failed' }).eq('id', message.id)
+      await supabase.from('chat_messages').update({ delivery_status: 'failed' }).eq('id', message.id)
       patchMessage(message.id, { delivery_status: 'failed' })
     }
   }, [provider, supabase, patchMessage])
@@ -379,11 +412,11 @@ export function useChatMessages(
     // 2. Insert a placeholder message row
     let fileProfileId: string | null = agentProfileId ?? null
     if (fileProfileId === null) {
-      const { data: profile } = await (supabase as any)
+      const { data: profile } = await supabase
         .from('profiles').select('id').eq('auth_user_id', user.id).maybeSingle()
       fileProfileId = profile?.id ?? null
     }
-    const { data: inserted } = await (supabase as any)
+    const { data: inserted } = await supabase
       .from('chat_messages')
       .insert({
         conversation_id:    conversationId,
@@ -407,7 +440,7 @@ export function useChatMessages(
         const isImage = file.type.startsWith('image/')
         const isVideo = file.type.startsWith('video/')
         const isAudio = file.type.startsWith('audio/')
-        const reqBody: any = { phone, skipDbInsert: true }
+        const reqBody: Record<string, unknown> = { phone, skipDbInsert: true }
         if (caption) reqBody.text = caption
         if (isImage)      reqBody.imageUrl    = publicUrl
         else if (isVideo) reqBody.videoUrl    = publicUrl
@@ -425,7 +458,7 @@ export function useChatMessages(
           const patch = whapiId
             ? { external_id: whapiId, delivery_status: 'sent' as const }
             : { delivery_status: 'sent' as const }
-          await (supabase as any).from('chat_messages').update(patch).eq('id', inserted.id)
+          await supabase.from('chat_messages').update(patch).eq('id', inserted.id)
           patchMessage(inserted.id, patch)
         }
       } else {
@@ -442,10 +475,10 @@ export function useChatMessages(
             mime_type: file.type,
           }),
         })
-        const watiResp = await fileRes.json().catch(() => ({})) as any
+        const watiResp = await fileRes.json().catch(() => ({})) as WatiSendResponse
         if (!fileRes.ok) throw new Error(watiResp?.detail ?? watiResp?.error ?? 'WATI rejected the file')
         if (watiResp?.result === false || watiResp?.error) {
-          throw new Error(watiResp?.info ?? watiResp?.error ?? 'WATI rejected the file')
+          throw new Error(watiResp?.error ?? 'WATI rejected the file')
         }
         const watiId = watiResp?.message?.whatsappMessageId
           ?? watiResp?.info?.whatsAppMessageId ?? null
@@ -453,13 +486,13 @@ export function useChatMessages(
           const patch = watiId
             ? { external_id: `wati_${watiId}`, delivery_status: 'sent' as const }
             : { delivery_status: 'sent' as const }
-          await (supabase as any).from('chat_messages').update(patch).eq('id', inserted.id)
+          await supabase.from('chat_messages').update(patch).eq('id', inserted.id)
           patchMessage(inserted.id, patch)
         }
       }
     } catch (err) {
       if (inserted) {
-        await (supabase as any).from('chat_messages').update({ delivery_status: 'failed' }).eq('id', inserted.id)
+        await supabase.from('chat_messages').update({ delivery_status: 'failed' }).eq('id', inserted.id)
         patchMessage(inserted.id, { delivery_status: 'failed' })
       }
       throw err

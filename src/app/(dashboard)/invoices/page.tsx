@@ -46,7 +46,7 @@ const STATUS_CHIPS = [
   { key: 'overdue',        label: 'Overdue', icon: AlertTriangle, color: 'bg-red-100 text-red-700 border-red-300' },
   { key: 'sent',           label: 'Sent',    icon: Send,          color: 'bg-blue-100 text-blue-700 border-blue-300' },
   { key: 'partially_paid', label: 'Partial', icon: CreditCard,    color: 'bg-amber-100 text-amber-700 border-amber-300' },
-  { key: 'draft',          label: 'Draft',   icon: FileText,      color: 'bg-slate-100 text-slate-600 border-slate-300' },
+  { key: 'draft',          label: 'Draft',   icon: FileText,      color: 'bg-muted text-muted-foreground border-border' },
   { key: 'paid',           label: 'Paid',    icon: CheckCircle2,  color: 'bg-emerald-100 text-emerald-700 border-emerald-300' },
 ] as const
 

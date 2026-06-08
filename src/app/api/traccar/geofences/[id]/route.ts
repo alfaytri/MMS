@@ -40,8 +40,7 @@ export async function PUT(
     })
 
     const admin = createAdminClient()
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    await (admin as any)
+    await admin
       .from('traccar_geofences')
       .update({
         name: body.name,
@@ -78,8 +77,7 @@ export async function DELETE(
     await deleteTraccarGeofence(traccarId)
 
     const admin = createAdminClient()
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    await (admin as any)
+    await admin
       .from('traccar_geofences')
       .delete()
       .eq('traccar_geofence_id', traccarId)

@@ -93,9 +93,9 @@ export function CreditNoteFormDialog({ open, onOpenChange }: Props) {
         </DialogHeader>
         <div className="space-y-4">
           <div className="space-y-1">
-            <Label>Original Invoice *</Label>
+            <Label htmlFor="cn-form-invoice">Original Invoice *</Label>
             <Select value={selectedInvoiceId} onValueChange={(v) => setSelectedInvoiceId(v ?? '')}>
-              <SelectTrigger><SelectValue placeholder="Select invoice" /></SelectTrigger>
+              <SelectTrigger id="cn-form-invoice"><SelectValue placeholder="Select invoice" /></SelectTrigger>
               <SelectContent>
                 {eligibleInvoices.map((inv) => (
                   <SelectItem key={inv.id} value={inv.id}>
@@ -107,8 +107,8 @@ export function CreditNoteFormDialog({ open, onOpenChange }: Props) {
           </div>
 
           <div className="space-y-1">
-            <Label>Reason *</Label>
-            <Input value={reason} onChange={(e) => setReason(e.target.value)} placeholder="Reason for credit note" />
+            <Label htmlFor="cn-form-reason">Reason *</Label>
+            <Input id="cn-form-reason" value={reason} onChange={(e) => setReason(e.target.value)} placeholder="Reason for credit note" />
           </div>
 
           <div className="space-y-2">

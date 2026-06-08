@@ -1,5 +1,6 @@
 import { type NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@supabase/supabase-js'
+import type { Database } from '@/types/database.types'
 
 const WATI_URL   = (process.env.WATI_API_URL ?? '').replace(/\/$/, '')
 const WATI_TOKEN = (process.env.WATI_API_TOKEN ?? '').replace(/^Bearer\s+/i, '')
@@ -65,7 +66,7 @@ async function watiGet(path: string, retries = 3): Promise<{ ok: true; data: any
   return { ok: false, status: 429, text: 'Rate limit — retries exhausted' }
 }
 
-async function upsertContacts(allContacts: any[], supabase: ReturnType<typeof createClient<any>>) {
+async function upsertContacts(allContacts: any[], supabase: ReturnType<typeof createClient<Database>>) {
   const phoneMap = new Map<string, any>()
   for (const contact of allContacts) {
     const raw: string = contact.phone ?? contact.wAid ?? ''
@@ -142,33 +143,33 @@ async function upsertContacts(allContacts: any[], supabase: ReturnType<typeof cr
   // Contacts with a date AND a lastMessage: write both fields
   for (let i = 0; i < rowsWithDateAndMsg.length; i += CHUNK) {
     const chunk = rowsWithDateAndMsg.slice(i, i + CHUNK)
-    const { error } = await (supabase.from('chat_conversations') as any)
+    const { error } = await supabase.from('chat_conversations')
       .upsert(chunk, { onConflict: 'wati_phone,provider', ignoreDuplicates: false })
-    if (error) throw new Error((error as any).message)
+    if (error) throw new Error(error.message)
     synced += chunk.length
   }
 
   // Contacts with a date but no lastMessage: update last_message_at only (don't touch last_message)
   for (let i = 0; i < rowsWithDateNoMsg.length; i += CHUNK) {
     const chunk = rowsWithDateNoMsg.slice(i, i + CHUNK)
-    const { error } = await (supabase.from('chat_conversations') as any)
+    const { error } = await supabase.from('chat_conversations')
       .upsert(chunk, { onConflict: 'wati_phone,provider', ignoreDuplicates: false })
-    if (error) throw new Error((error as any).message)
+    if (error) throw new Error(error.message)
     synced += chunk.length
   }
 
   // Contacts without a date: insert new only — never overwrite last_message_at on existing rows
   for (let i = 0; i < rowsNoDate.length; i += CHUNK) {
     const chunk = rowsNoDate.slice(i, i + CHUNK)
-    const { error } = await (supabase.from('chat_conversations') as any)
+    const { error } = await supabase.from('chat_conversations')
       .upsert(chunk, { onConflict: 'wati_phone,provider', ignoreDuplicates: true })
-    if (error) throw new Error((error as any).message)
+    if (error) throw new Error(error.message)
     synced += chunk.length
   }
 
   // Backfill last_message from chat_messages for conversations where Wati's
   // /getContacts API didn't return lastMessage text.
-  await (supabase as any).rpc('backfill_conversation_last_messages')
+  await supabase.rpc('backfill_conversation_last_messages')
 
   return synced
 }
@@ -186,7 +187,7 @@ export async function GET(req: NextRequest) {
     d.setHours(0, 0, 0, 0)
     return d
   })()
-  const supabase = createClient(SUPA_URL, SUPA_KEY)
+  const supabase = createClient<Database>(SUPA_URL, SUPA_KEY)
 
   const stream = new TransformStream()
   const writer = stream.writable.getWriter()
@@ -243,7 +244,7 @@ export async function GET(req: NextRequest) {
       // is empty), fetch 1 page from Wati's getMessages to populate the preview text.
       // Cap at 50 and use the same date window as the contact sync.
       const msgCutoff = cutoff ?? new Date(Date.now() - RECENT_DAYS * 24 * 60 * 60 * 1000)
-      const { data: nullMsgConvos } = await (supabase as any)
+      const { data: nullMsgConvos } = await supabase
         .from('chat_conversations')
         .select('id, wati_phone')
         .is('last_message', null)
@@ -264,7 +265,7 @@ export async function GET(req: NextRequest) {
         })
         if (!msgItem) continue
         const text = (msgItem.finalText ?? msgItem.text ?? '').trim() || '[message]'
-        await (supabase as any)
+        await supabase
           .from('chat_conversations')
           .update({ last_message: text })
           .eq('id', convo.id)

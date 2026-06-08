@@ -105,9 +105,9 @@ export function SupplierFormDialog({ open, onOpenChange, supplier }: SupplierFor
       form.reset({
         name: supplier.name,
         category: supplier.category ?? '',
-        supplier_type: (supplier as any).supplier_type ?? 'local',
-        currency_id: (supplier as any).currency_id ?? '',
-        country: (supplier as any).country ?? '',
+        supplier_type: (supplier.supplier_type ?? 'local') as 'local' | 'international',
+        currency_id: supplier.currency_id ?? '',
+        country: supplier.country ?? '',
         contact_name: supplier.contact_name ?? '',
         phone: digits,
         email: supplier.email ?? '',

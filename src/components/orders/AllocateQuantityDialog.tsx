@@ -52,13 +52,13 @@ export function AllocateQuantityDialog({
           <DialogTitle>Allocate Quantity</DialogTitle>
         </DialogHeader>
         <div className="space-y-3 py-2">
-          <p className="text-sm text-slate-600">
+          <p className="text-sm text-muted-foreground">
             Assigning <strong>{service.serviceName}</strong> (total qty:{' '}
             {service.qty}) to <strong>{teamName}</strong> at{' '}
             <strong>{timeSlot}</strong>
           </p>
           <div className="flex items-center gap-3">
-            <label className="w-24 text-sm text-slate-500">Qty to assign</label>
+            <label className="w-24 text-sm text-muted-foreground">Qty to assign</label>
             <Input
               type="number"
               min={1}
@@ -74,7 +74,7 @@ export function AllocateQuantityDialog({
               }
               className="w-20 text-center"
             />
-            <span className="text-sm text-slate-400">/ {service.qty}</span>
+            <span className="text-sm text-muted-foreground">/ {service.qty}</span>
           </div>
         </div>
         <DialogFooter>

@@ -53,14 +53,14 @@ export const NAV_ITEMS: NavEntry[] = [
       {
         items: [
           { label: 'View Orders',  href: '/orders',        icon: 'List',     permission: 'orders.view' },
-          { label: 'Create Order', href: '/orders/create',  icon: 'PlusCircle', permission: 'orders.create' },
+          { label: 'Create Order', href: '/orders/create',  icon: 'PlusCircle', permission: 'orders.manage' },
         ],
       },
       {
         label: 'Quotations',
         items: [
           { label: 'View Quotations',  href: '/quotations',        icon: 'FileSearch',  permission: 'quotations.view' },
-          { label: 'Create Quotation', href: '/quotations/create',  icon: 'FilePlus',    permission: 'quotations.create' },
+          { label: 'Create Quotation', href: '/quotations/create',  icon: 'FilePlus',    permission: 'quotations.manage' },
         ],
       },
     ],
@@ -82,9 +82,16 @@ export const NAV_ITEMS: NavEntry[] = [
   {
     label: 'Contracts',
     icon: 'FileText',
-    comingSoon: true,
-    permission: 'contracts.view',
-    groups: [],
+    permission: ['contracts.quotations.view', 'contracts.live.view'],
+    groups: [
+      {
+        items: [
+          { label: 'Draft Quotations', href: '/contracts/quotations',       icon: 'FileSearch',  permission: 'contracts.quotations.view' },
+          { label: 'Live Contracts',  href: '/contracts',                  icon: 'FileCheck',   permission: 'contracts.live.view' },
+          { label: 'Create Quotation', href: '/contracts/create-quotation', icon: 'FilePlus',   permission: 'contracts.quotations.manage' },
+        ],
+      },
+    ],
   },
   {
     label: 'Purchase & Sales',
@@ -114,7 +121,7 @@ export const NAV_ITEMS: NavEntry[] = [
         label: 'SALES',
         items: [
           { label: 'Sale Orders',  href: '/sales/orders',       icon: 'ShoppingBag',  permission: 'sales.orders.view' },
-          { label: 'Invoices',     href: '/sales/invoices',      icon: 'FileText',     permission: 'sales.orders.view' },
+          { label: 'Invoices',     href: '/sales/invoices',      icon: 'FileText',     permission: 'sales.invoices.view' },
           { label: 'Returns',      href: '/sales/returns',       icon: 'RotateCcw',    permission: 'sales.returns.view' },
           { label: 'Deliveries',   href: '/sales/deliveries',    icon: 'PackageCheck', permission: 'sales.deliveries.view' },
           { label: 'Credit Notes', href: '/sales/credit-notes',  icon: 'FileX',        permission: 'sales.credit_notes.view' },
@@ -122,8 +129,8 @@ export const NAV_ITEMS: NavEntry[] = [
       },
       {
         items: [
-          { label: 'Receivals', href: '/purchase/receivals', icon: 'PackageOpen', permission: 'purchase.orders.view' },
-          { label: 'Payments',  href: '/purchase/payments',  icon: 'Wallet',      permission: 'purchase.orders.view' },
+          { label: 'Receivals', href: '/purchase/receivals', icon: 'PackageOpen', permission: 'purchase.receivals.view' },
+          { label: 'Payments',  href: '/purchase/payments',  icon: 'Wallet',      permission: 'purchase.payments.view' },
         ],
       },
     ],

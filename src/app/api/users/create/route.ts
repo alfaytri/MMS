@@ -60,8 +60,7 @@ export async function POST(request: Request) {
   const authUserId = created.user.id
 
   // 5. Insert profile.
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const { data: profile, error: profErr } = await (admin as any)
+  const { data: profile, error: profErr } = await admin
     .from('profiles')
     .insert({
       auth_user_id: authUserId,
@@ -82,18 +81,16 @@ export async function POST(request: Request) {
 
   // 6a. Link employee if team leader.
   if (is_team_leader && employee_id) {
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const { data: emp } = await (admin as any)
+    const { data: emp } = await admin
       .from('employees')
       .select('id, teams!teams_leader_id_fkey(id)')
       .eq('id', employee_id)
       .maybeSingle()
 
     const teamId = Array.isArray(emp?.teams) ? emp.teams[0]?.id
-      : (emp?.teams as { id: string } | null)?.id ?? null
+      : (emp?.teams as unknown as { id: string } | null)?.id ?? null
 
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    await (admin as any)
+    await admin
       .from('employees')
       .update({ profile_id: profile.id })
       .eq('id', employee_id)
@@ -108,8 +105,7 @@ export async function POST(request: Request) {
   // 6b. Assign roles via atomic RPC (non-fatal on failure, skip for TL).
   let roleWarning: string | null = null
   if (!is_team_leader && role_ids.length > 0) {
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const { error: rpcErr } = await (admin as any).rpc('replace_user_custom_roles', {
+    const { error: rpcErr } = await admin.rpc('replace_user_custom_roles', {
       p_user_id: profile.id,
       p_role_ids: role_ids,
     })

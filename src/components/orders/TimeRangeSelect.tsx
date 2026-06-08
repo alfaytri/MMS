@@ -89,7 +89,7 @@ export function TimeRangeSelect({
       {/* From */}
       <div className="flex-1 min-w-0">
         {!compact && (
-          <span className="mb-1 block text-[10px] font-medium uppercase tracking-wide text-slate-500">
+          <span className="mb-1 block text-[10px] font-medium uppercase tracking-wide text-muted-foreground">
             From
           </span>
         )}
@@ -120,12 +120,12 @@ export function TimeRangeSelect({
       </div>
 
       {/* Arrow */}
-      <span className={cn('shrink-0 text-slate-400', compact ? 'text-xs pt-0' : 'text-sm pt-4')}>→</span>
+      <span className={cn('shrink-0 text-muted-foreground', compact ? 'text-xs pt-0' : 'text-sm pt-4')}>→</span>
 
       {/* To */}
       <div className="flex-1 min-w-0">
         {!compact && (
-          <span className="mb-1 block text-[10px] font-medium uppercase tracking-wide text-slate-500">
+          <span className="mb-1 block text-[10px] font-medium uppercase tracking-wide text-muted-foreground">
             To
           </span>
         )}
@@ -153,7 +153,7 @@ export function TimeRangeSelect({
           type="button"
           onClick={() => onChange(null, null)}
           className={cn(
-            'shrink-0 rounded p-1 text-slate-400 hover:text-red-500 transition-colors',
+            'shrink-0 rounded p-1 text-muted-foreground hover:text-destructive transition-colors',
             compact ? 'mt-0' : 'mt-4',
           )}
           aria-label="Clear time range"

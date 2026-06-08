@@ -1,8 +1,14 @@
 import { NextResponse } from 'next/server'
 import { createAdminClient } from '@/lib/supabase/admin'
 import { createDibsyPayment } from '@/lib/dibsy'
+import { requireAuth } from '@/lib/auth/require-admin'
 
 export async function POST(request: Request) {
+  const auth = await requireAuth()
+  if (!auth.ok) {
+    return NextResponse.json({ error: auth.message }, { status: auth.status })
+  }
+
   let body: {
     subscription_id: string
     amount: number
@@ -42,7 +48,7 @@ export async function POST(request: Request) {
   }
 
   const supabase = createAdminClient()
-  const { error: dbError } = await (supabase as any)
+  const { error: dbError } = await supabase
     .from('customer_subscriptions')
     .update({
       dibsy_payment_id: payment.id,

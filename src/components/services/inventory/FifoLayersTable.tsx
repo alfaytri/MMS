@@ -9,17 +9,17 @@ export function FifoLayersTable({ brandVariantId }: { brandVariantId: string }) 
   const { data: layers = [], isLoading } = useFifoLayers(brandVariantId, true)
 
   return (
-    <div className="rounded border border-border bg-slate-50 overflow-x-auto">
+    <div className="rounded border border-border bg-muted overflow-x-auto">
       <Table>
         <TableHeader>
-          <TableRow className="bg-slate-100">
-            <TableHead className="text-[10px] h-7 font-semibold text-slate-600">RECEIVAL #</TableHead>
-            <TableHead className="text-[10px] h-7 font-semibold text-slate-600">DATE</TableHead>
-            <TableHead className="text-[10px] h-7 font-semibold text-slate-600 text-right">QTY IN</TableHead>
-            <TableHead className="text-[10px] h-7 font-semibold text-slate-600 text-right">REMAINING</TableHead>
-            <TableHead className="text-[10px] h-7 font-semibold text-slate-600 text-right">UNIT COST</TableHead>
-            <TableHead className="text-[10px] h-7 font-semibold text-slate-600 text-right">LANDED</TableHead>
-            <TableHead className="text-[10px] h-7 font-semibold text-slate-600 text-right">TOTAL/UNIT</TableHead>
+          <TableRow className="bg-muted">
+            <TableHead className="text-[10px] h-7 font-semibold text-muted-foreground">RECEIVAL #</TableHead>
+            <TableHead className="text-[10px] h-7 font-semibold text-muted-foreground">DATE</TableHead>
+            <TableHead className="text-[10px] h-7 font-semibold text-muted-foreground text-right">QTY IN</TableHead>
+            <TableHead className="text-[10px] h-7 font-semibold text-muted-foreground text-right">REMAINING</TableHead>
+            <TableHead className="text-[10px] h-7 font-semibold text-muted-foreground text-right">UNIT COST</TableHead>
+            <TableHead className="text-[10px] h-7 font-semibold text-muted-foreground text-right">LANDED</TableHead>
+            <TableHead className="text-[10px] h-7 font-semibold text-muted-foreground text-right">TOTAL/UNIT</TableHead>
           </TableRow>
         </TableHeader>
         <TableBody>
@@ -67,7 +67,7 @@ export function FifoLayersTable({ brandVariantId }: { brandVariantId: string }) 
                 <TableCell className="text-right text-[11px]">{layer.qty}</TableCell>
                 <TableCell className="text-right">
                   <span
-                    className={`text-[11px] font-medium ${layer.remaining_qty > 0 ? 'text-green-600' : 'text-slate-400'}`}
+                    className={`text-[11px] font-medium ${layer.remaining_qty > 0 ? 'text-success' : 'text-muted-foreground'}`}
                   >
                     {layer.remaining_qty}
                   </span>

@@ -89,7 +89,7 @@ function DivisionCard({
         <div className="mt-2">
           <Badge
             variant={division.stamp_url ? 'default' : 'outline'}
-            className={`text-xs px-1.5 py-0 ${division.stamp_url ? 'bg-green-50 text-green-700 border-green-200' : ''}`}
+            className={`text-xs px-1.5 py-0 ${division.stamp_url ? 'bg-success/10 text-green-700 border-green-200' : ''}`}
           >
             {division.stamp_url ? 'Has stamp' : 'No stamp'}
           </Badge>

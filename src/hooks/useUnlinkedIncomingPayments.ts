@@ -1,6 +1,7 @@
 // src/hooks/useUnlinkedIncomingPayments.ts
 import { useQuery } from '@tanstack/react-query'
 import { createClient } from '@/lib/supabase/client'
+import { queryKeys } from '@/lib/queryKeys'
 
 export type UnlinkedIncomingPayment = {
   id: string
@@ -14,10 +15,10 @@ export type UnlinkedIncomingPayment = {
 // customerId is required — prevents cross-customer data leak
 export function useUnlinkedIncomingPayments(customerId: string) {
   return useQuery({
-    queryKey: ['unlinked-incoming-payments', customerId],
+    queryKey: queryKeys.unlinkedAr.incomingPayments(customerId),
     queryFn: async () => {
       const supabase = createClient()
-      const { data, error } = await (supabase as any)
+      const { data, error } = await supabase
         .from('payments')
         .select('id, payment_id, amount, method, date, reference')
         .eq('direction', 'incoming')

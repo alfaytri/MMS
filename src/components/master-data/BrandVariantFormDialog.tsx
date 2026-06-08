@@ -45,10 +45,10 @@ export function BrandVariantFormDialog({ open, onOpenChange, variant, itemId }: 
   useEffect(() => {
     if (open && variant) {
       form.reset({
-        brand: (variant as any).brand ?? '',
-        code: (variant as any).code ?? '',
-        cost_price: Number((variant as any).cost_price ?? 0),
-        selling_price: Number((variant as any).selling_price ?? 0),
+        brand: variant.brand ?? '',
+        code: variant.code ?? '',
+        cost_price: Number(variant.cost_price ?? 0),
+        selling_price: Number(variant.selling_price ?? 0),
       })
     } else if (open) {
       form.reset({ brand: '', code: '', cost_price: 0, selling_price: 0 })

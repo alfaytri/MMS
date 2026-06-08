@@ -12,7 +12,7 @@ export async function resolveLineItemNames(
   if (needsResolve.length === 0) return items
 
   const ids = needsResolve.map((li) => li.brand_variant_id!)
-  const { data: rows } = await (supabase as any)
+  const { data: rows } = await supabase
     .from('inventory_brand_variants')
     .select('id, inventory_items(name_en)')
     .in('id', ids)
@@ -39,14 +39,14 @@ export async function savePoSnapshot(
   label: string,
 ) {
   try {
-    const { data: po } = await (supabase as any)
+    const { data: po } = await supabase
       .from('purchase_orders')
       .select('*, po_line_items(*)')
       .eq('id', poId)
       .single()
     if (!po) return
 
-    const { data: latest } = await (supabase as any)
+    const { data: latest } = await supabase
       .from('po_versions')
       .select('version_number')
       .eq('po_id', poId)
@@ -55,7 +55,7 @@ export async function savePoSnapshot(
       .maybeSingle()
     const nextVersion = (latest?.version_number ?? 0) + 1
 
-    await (supabase as any).from('po_versions').insert({
+    await supabase.from('po_versions').insert({
       po_id: poId,
       version_number: nextVersion,
       snapshot_label: label,
@@ -74,7 +74,7 @@ export async function savePoSnapshot(
       expected_delivery: po.expected_delivery ?? null,
       vendor_notes: po.vendor_notes ?? null,
       line_items: po.po_line_items ?? [],
-    })
+    } as unknown as import('@/types/database.types').DBInsert<'po_versions'>)
   } catch {
     // Non-critical — snapshot failure must never block the main operation
   }

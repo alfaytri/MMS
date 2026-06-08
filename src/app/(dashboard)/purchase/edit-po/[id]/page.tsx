@@ -91,7 +91,7 @@ export default function EditPOPage() {
     setTerms({
       payment_terms: po.payment_terms ?? '',
       payment_terms_notes: po.payment_terms_notes ?? '',
-      payment_milestones: (po as any).payment_milestones ?? [],
+      payment_milestones: po.payment_milestones ?? [],
       delivery_terms: po.delivery_terms ?? '',
       delivery_terms_notes: po.delivery_terms_notes ?? '',
       expected_delivery: po.expected_delivery ?? '',
@@ -152,7 +152,7 @@ export default function EditPOPage() {
         item_name: item_name.trim(),
         sku, qty, unit, unit_price, total_price, brand_variant_id, tool_asset_item_id, free_qty,
       })),
-      division_id: (po as any)?.division_id ?? null,
+      division_id: po?.division_id ?? null,
     }
   }
 
@@ -188,7 +188,7 @@ export default function EditPOPage() {
       discount_label: po.discount_label ?? null,
       payment_terms: po.payment_terms ?? null,
       payment_terms_notes: po.payment_terms_notes ?? null,
-      payment_milestones: (po as any).payment_milestones ?? null,
+      payment_milestones: po.payment_milestones ?? null,
       delivery_terms: po.delivery_terms ?? null,
       delivery_terms_notes: po.delivery_terms_notes ?? null,
       expected_delivery: po.expected_delivery ?? null,
@@ -381,7 +381,7 @@ export default function EditPOPage() {
               <Badge variant="outline" className="text-xs font-mono">v{currentVersion}</Badge>
             </div>
             <Badge
-              className={`text-[10px] mt-0.5 ${po.status === 'draft' ? 'bg-slate-100 text-slate-700' : po.status === 'pending_approval' ? 'bg-amber-100 text-amber-700' : po.status === 'approved' ? 'bg-blue-100 text-blue-700' : 'bg-green-100 text-green-700'}`}
+              className={`text-[10px] mt-0.5 ${po.status === 'draft' ? 'bg-muted text-foreground' : po.status === 'pending_approval' ? 'bg-amber-100 text-amber-700' : po.status === 'approved' ? 'bg-blue-100 text-blue-700' : 'bg-green-100 text-green-700'}`}
               variant="outline"
             >
               {po.status.replace(/_/g, ' ')}

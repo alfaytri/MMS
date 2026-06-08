@@ -1,6 +1,6 @@
 // src/app/(dashboard)/orders/page.tsx
 'use client'
-import { useState } from 'react'
+import { useState, useRef, useEffect, useMemo } from 'react'
 import { useRouter } from 'next/navigation'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -13,7 +13,7 @@ import { OrderDetailDialog } from '@/components/orders/OrderDetailDialog'
 import { SiteVisitDetailSheet } from '@/components/orders/SiteVisitDetailSheet'
 import { useOrders, useOrderCounts } from '@/hooks/useOrders'
 import { useSiteVisits } from '@/hooks/useSiteVisits'
-import { useTeams } from '@/hooks/useTeams'
+import { useTeams, type TeamFull } from '@/hooks/useTeams'
 import type { OrdersFilter } from '@/types/orders'
 import { cn } from '@/lib/utils'
 
@@ -78,11 +78,35 @@ export default function OrdersPage() {
 
   const isSiteVisitOnly = search.orderType === 'site-visit'
   const isOrderOnly     = search.orderType === 'order'
-  const { data: orders = [], isLoading } = useOrders({ ...filter, orderType: isOrderOnly ? 'order' : undefined })
-  const { data: siteVisits = [], isLoading: isLoadingSV } = useSiteVisits()
+
+  const ordersQuery = useOrders({ ...filter, orderType: isOrderOnly ? 'order' : undefined })
+  const orders = useMemo(() => ordersQuery.data?.pages.flatMap((p) => p.items) ?? [], [ordersQuery.data])
+  const isLoading = ordersQuery.isLoading
+
+  const siteVisitsQuery = useSiteVisits()
+  const siteVisits = useMemo(() => siteVisitsQuery.data?.pages.flatMap((p) => p.items) ?? [], [siteVisitsQuery.data])
+  const isLoadingSV = siteVisitsQuery.isLoading
+
   const { data: counts } = useOrderCounts()
   const { data: teamsRaw = [] } = useTeams()
-  const teams = teamsRaw as unknown as Array<{ id: string; name_en: string | null; name: string }>
+
+  // Infinite scroll sentinel
+  const sentinelRef = useRef<HTMLDivElement>(null)
+  useEffect(() => {
+    if (!sentinelRef.current) return
+    const observer = new IntersectionObserver(
+      (entries) => {
+        if (entries[0].isIntersecting) {
+          if (ordersQuery.hasNextPage && !ordersQuery.isFetchingNextPage) ordersQuery.fetchNextPage()
+          if (siteVisitsQuery.hasNextPage && !siteVisitsQuery.isFetchingNextPage) siteVisitsQuery.fetchNextPage()
+        }
+      },
+      { rootMargin: '200px' }
+    )
+    observer.observe(sentinelRef.current)
+    return () => observer.disconnect()
+  }, [ordersQuery.hasNextPage, ordersQuery.isFetchingNextPage, ordersQuery.fetchNextPage, siteVisitsQuery.hasNextPage, siteVisitsQuery.isFetchingNextPage, siteVisitsQuery.fetchNextPage])
+  const teams: TeamFull[] = teamsRaw
 
   function toggleStatus(val: string) {
     setSearch((s) => ({
@@ -116,22 +140,22 @@ export default function OrdersPage() {
 
       {/* ── Top bar ── */}
       <div className="flex items-center justify-between border-b px-6 py-4">
-        <h1 className="text-2xl font-bold text-slate-900">Orders</h1>
+        <h1 className="text-2xl font-bold text-foreground">Orders</h1>
         <Button className="gap-2" onClick={() => router.push('/orders/create')}>
           <Plus className="h-4 w-4" /> New Order
         </Button>
       </div>
 
       {/* ── Search panel ── */}
-      <div className="border-b bg-slate-50">
+      <div className="border-b bg-muted">
         {/* Panel header */}
         <button
           onClick={() => setSearchOpen((v) => !v)}
-          className="flex w-full items-center gap-2 px-6 py-3 text-sm font-semibold text-slate-700 hover:text-slate-900"
+          className="flex w-full items-center gap-2 px-6 py-3 text-sm font-semibold text-foreground hover:text-foreground"
         >
-          <Search className="h-4 w-4 text-slate-400" />
+          <Search className="h-4 w-4 text-muted-foreground" />
           <span>Search</span>
-          {searchOpen ? <ChevronUp className="ml-auto h-4 w-4 text-slate-400" /> : <ChevronDown className="ml-auto h-4 w-4 text-slate-400" />}
+          {searchOpen ? <ChevronUp className="ml-auto h-4 w-4 text-muted-foreground" /> : <ChevronDown className="ml-auto h-4 w-4 text-muted-foreground" />}
         </button>
 
         {searchOpen && (
@@ -143,7 +167,7 @@ export default function OrdersPage() {
                 <button
                   key={b.label}
                   onClick={b.onClick}
-                  className="flex items-center gap-1.5 rounded-md border border-slate-200 bg-white px-3 py-1.5 text-xs font-medium text-slate-700 shadow-sm transition-colors hover:border-orange-400 hover:text-orange-600"
+                  className="flex items-center gap-1.5 rounded-md border border-border bg-white px-3 py-1.5 text-xs font-medium text-foreground shadow-sm transition-colors hover:border-orange-400 hover:text-orange-600"
                 >
                   {b.label}
                   {b.count !== undefined && (
@@ -158,9 +182,9 @@ export default function OrdersPage() {
             {/* Row 1: type / status chips / address missing */}
             <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
               <div className="space-y-1.5">
-                <Label className="text-[11px] font-semibold uppercase tracking-wide text-slate-500">Order Type</Label>
+                <Label htmlFor="orders-order-type" className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">Order Type</Label>
                 <Select value={search.orderType} onValueChange={(v) => setSearch((s) => ({ ...s, orderType: v === 'all' ? '' : (v ?? '') }))}>
-                  <SelectTrigger className="h-9 text-sm">
+                  <SelectTrigger id="orders-order-type" className="h-9 text-sm">
                     <SelectValue placeholder="All" />
                   </SelectTrigger>
                   <SelectContent>
@@ -172,7 +196,7 @@ export default function OrdersPage() {
               </div>
 
               <div className="space-y-1.5 sm:col-span-2">
-                <Label className="text-[11px] font-semibold uppercase tracking-wide text-slate-500">Order Status</Label>
+                <Label className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">Order Status</Label>
                 <div className="flex flex-wrap gap-1.5">
                   {ALL_STATUSES.map((s) => (
                     <button
@@ -183,7 +207,7 @@ export default function OrdersPage() {
                         'flex items-center gap-1 rounded-full border px-2.5 py-1 text-xs font-medium transition-colors',
                         search.statuses.includes(s.value)
                           ? 'border-orange-500 bg-orange-500 text-white'
-                          : 'border-slate-200 bg-white text-slate-600 hover:border-slate-300'
+                          : 'border-border bg-white text-muted-foreground hover:border-border'
                       )}
                     >
                       {s.label}
@@ -199,26 +223,26 @@ export default function OrdersPage() {
             {/* Row 2: dates */}
             <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
               <div className="space-y-1.5">
-                <Label className="text-[11px] font-semibold uppercase tracking-wide text-slate-500">From Order Date</Label>
-                <Input type="date" className="h-9 text-sm cursor-pointer" value={search.bookingDateFrom}
+                <Label htmlFor="orders-booking-date-from" className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">From Order Date</Label>
+                <Input id="orders-booking-date-from" type="date" className="h-9 text-sm cursor-pointer" value={search.bookingDateFrom}
                   onClick={(e) => { try { (e.target as HTMLInputElement).showPicker() } catch {} }}
                   onChange={(e) => setSearch((s) => ({ ...s, bookingDateFrom: e.target.value }))} />
               </div>
               <div className="space-y-1.5">
-                <Label className="text-[11px] font-semibold uppercase tracking-wide text-slate-500">To Order Date</Label>
-                <Input type="date" className="h-9 text-sm cursor-pointer" value={search.bookingDateTo}
+                <Label htmlFor="orders-booking-date-to" className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">To Order Date</Label>
+                <Input id="orders-booking-date-to" type="date" className="h-9 text-sm cursor-pointer" value={search.bookingDateTo}
                   onClick={(e) => { try { (e.target as HTMLInputElement).showPicker() } catch {} }}
                   onChange={(e) => setSearch((s) => ({ ...s, bookingDateTo: e.target.value }))} />
               </div>
               <div className="space-y-1.5">
-                <Label className="text-[11px] font-semibold uppercase tracking-wide text-slate-500">From Visit Date</Label>
-                <Input type="date" className="h-9 text-sm cursor-pointer" value={search.visitDateFrom}
+                <Label htmlFor="orders-visit-date-from" className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">From Visit Date</Label>
+                <Input id="orders-visit-date-from" type="date" className="h-9 text-sm cursor-pointer" value={search.visitDateFrom}
                   onClick={(e) => { try { (e.target as HTMLInputElement).showPicker() } catch {} }}
                   onChange={(e) => setSearch((s) => ({ ...s, visitDateFrom: e.target.value }))} />
               </div>
               <div className="space-y-1.5">
-                <Label className="text-[11px] font-semibold uppercase tracking-wide text-slate-500">To Visit Date</Label>
-                <Input type="date" className="h-9 text-sm cursor-pointer" value={search.visitDateTo}
+                <Label htmlFor="orders-visit-date-to" className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">To Visit Date</Label>
+                <Input id="orders-visit-date-to" type="date" className="h-9 text-sm cursor-pointer" value={search.visitDateTo}
                   onClick={(e) => { try { (e.target as HTMLInputElement).showPicker() } catch {} }}
                   onChange={(e) => setSearch((s) => ({ ...s, visitDateTo: e.target.value }))} />
               </div>
@@ -227,19 +251,19 @@ export default function OrdersPage() {
             {/* Row 3: text filters */}
             <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-4">
               <div className="space-y-1.5">
-                <Label className="text-[11px] font-semibold uppercase tracking-wide text-slate-500">Customer Phone</Label>
-                <Input placeholder="Search phone…" className="h-9 text-sm" value={search.customerPhone}
+                <Label htmlFor="orders-customer-phone" className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">Customer Phone</Label>
+                <Input id="orders-customer-phone" placeholder="Search phone…" className="h-9 text-sm" value={search.customerPhone}
                   onChange={(e) => setSearch((s) => ({ ...s, customerPhone: e.target.value }))} />
               </div>
               <div className="space-y-1.5">
-                <Label className="text-[11px] font-semibold uppercase tracking-wide text-slate-500">Order No</Label>
-                <Input placeholder="N/2026/05/…" className="h-9 text-sm" value={search.orderNumber}
+                <Label htmlFor="orders-order-number" className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">Order No</Label>
+                <Input id="orders-order-number" placeholder="N/2026/05/…" className="h-9 text-sm" value={search.orderNumber}
                   onChange={(e) => setSearch((s) => ({ ...s, orderNumber: e.target.value }))} />
               </div>
               <div className="space-y-1.5">
-                <Label className="text-[11px] font-semibold uppercase tracking-wide text-slate-500">Address Missing</Label>
+                <Label htmlFor="orders-address-missing" className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">Address Missing</Label>
                 <Select value={search.addressMissing || 'all'} onValueChange={(v) => setSearch((s) => ({ ...s, addressMissing: v === 'all' ? '' : (v ?? '') }))}>
-                  <SelectTrigger className="h-9 text-sm">
+                  <SelectTrigger id="orders-address-missing" className="h-9 text-sm">
                     <SelectValue placeholder="All" />
                   </SelectTrigger>
                   <SelectContent>
@@ -249,12 +273,12 @@ export default function OrdersPage() {
                 </Select>
               </div>
               <div className="space-y-1.5">
-                <Label className="text-[11px] font-semibold uppercase tracking-wide text-slate-500">Team</Label>
+                <Label htmlFor="orders-team" className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">Team</Label>
                 <Select
                   value={search.team || '__all__'}
                   onValueChange={(v) => setSearch((s) => ({ ...s, team: v === '__all__' ? '' : (v ?? '') }))}
                 >
-                  <SelectTrigger className="h-9 w-full text-sm">
+                  <SelectTrigger id="orders-team" className="h-9 w-full text-sm">
                     <SelectValue placeholder="All teams" />
                   </SelectTrigger>
                   <SelectContent>
@@ -285,7 +309,7 @@ export default function OrdersPage() {
       {/* ── Order / Site Visit grid ── */}
       <div className="flex-1 overflow-y-auto p-4 sm:p-6">
         {(isLoading || isLoadingSV) ? (
-          <p className="py-12 text-center text-sm text-slate-400">Loading…</p>
+          <p className="py-12 text-center text-sm text-muted-foreground">Loading…</p>
         ) : (() => {
           // Build a unified sorted list based on type filter
           type Row =
@@ -304,19 +328,25 @@ export default function OrdersPage() {
           })
 
           if (rows.length === 0) {
-            return <p className="py-12 text-center text-sm text-slate-400">No orders found</p>
+            return <p className="py-12 text-center text-sm text-muted-foreground">No orders found</p>
           }
 
           return (
-            <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-4">
-              {rows.map((row) =>
-                row.kind === 'order' ? (
-                  <OrderCard key={row.item.id} order={row.item} onClick={() => setSelectedOrderId(row.item.id)} />
-                ) : (
-                  <SiteVisitListCard key={row.item.id} visit={row.item} onClick={() => setSelectedVisitId(row.item.id)} />
-                )
+            <>
+              <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-4">
+                {rows.map((row) =>
+                  row.kind === 'order' ? (
+                    <OrderCard key={row.item.id} order={row.item} onClick={() => setSelectedOrderId(row.item.id)} />
+                  ) : (
+                    <SiteVisitListCard key={row.item.id} visit={row.item} onClick={() => setSelectedVisitId(row.item.id)} />
+                  )
+                )}
+              </div>
+              <div ref={sentinelRef} className="h-1" />
+              {(ordersQuery.isFetchingNextPage || siteVisitsQuery.isFetchingNextPage) && (
+                <p className="text-center text-xs text-muted-foreground py-4">Loading more...</p>
               )}
-            </div>
+            </>
           )
         })()}
       </div>

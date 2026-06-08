@@ -1,5 +1,26 @@
 import { type NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@supabase/supabase-js'
+import type { Database, DBInsert, Json } from '@/types/database.types'
+
+// Staging row type — concrete non-null fields matching what messageItems.map builds,
+// plus the temporary _isBroadcast marker stripped before DB upsert.
+interface ChatMessageRow {
+  conversation_id: string
+  from_type: string
+  source: 'whatsapp_api'
+  text: string
+  agent_name: string | null
+  attachments: Attachment[] | null
+  delivery_status: string
+  external_id: string
+  created_at: string
+  message_kind: string
+  _isBroadcast?: boolean
+}
+
+// Row shape after _isBroadcast is stripped, ready for DB upsert.
+// attachments is cast to Json at the upsert callsite.
+type ChatMessageUpsert = Omit<ChatMessageRow, '_isBroadcast'>
 
 const WATI_URL   = (process.env.WATI_API_URL ?? '').replace(/\/$/, '')
 const WATI_TOKEN = (process.env.WATI_API_TOKEN ?? '').replace(/^Bearer\s+/i, '')
@@ -209,7 +230,7 @@ export async function GET(req: NextRequest) {
     return NextResponse.json({ error: 'WATI credentials not configured' }, { status: 500 })
   }
 
-  const supabase = createClient(SUPA_URL, SUPA_KEY)
+  const supabase = createClient<Database>(SUPA_URL, SUPA_KEY)
   const cutoff   = new Date(Date.now() - days * 24 * 60 * 60 * 1000)
 
   // WATI expects the number without the leading +
@@ -280,7 +301,7 @@ export async function GET(req: NextRequest) {
   }
 
   // Build message rows
-  const rows = messageItems.map((item) => {
+  const rows: ChatMessageRow[] = messageItems.map((item) => {
     // broadcastMessage = sent from system/agent (no owner field on broadcast items)
     const isAgent = item.owner === true || item.eventType === 'message_sent' || item.eventType === 'broadcastMessage'
     const ts        = item.created
@@ -345,14 +366,14 @@ export async function GET(req: NextRequest) {
   const bareIds = rows.map((r) => r.external_id).filter(Boolean)
   if (bareIds.length > 0) {
     const watiPrefixIds = bareIds.map((id) => `wati_${id}`)
-    const { data: prefixedRows } = await (supabase.from('chat_messages') as any)
+    const { data: prefixedRows } = await supabase.from('chat_messages')
       .select('id, external_id')
       .in('external_id', watiPrefixIds)
       .eq('conversation_id', conversationId)
     if (prefixedRows?.length) {
       for (const pr of prefixedRows as { id: string; external_id: string }[]) {
         const bareId = pr.external_id.replace(/^wati_/, '')
-        await (supabase.from('chat_messages') as any)
+        await supabase.from('chat_messages')
           .update({ external_id: bareId })
           .eq('id', pr.id)
         resolvedExternalIds.add(bareId)
@@ -374,7 +395,7 @@ export async function GET(req: NextRequest) {
 
     if (row.text?.trim()) {
       // Text match: find an agent row with matching text within ±5 min
-      const { data: textMatch } = await (supabase.from('chat_messages') as any)
+      const { data: textMatch } = await supabase.from('chat_messages')
         .select('id, external_id')
         .eq('conversation_id', conversationId)
         .eq('from_type', 'agent')
@@ -385,7 +406,7 @@ export async function GET(req: NextRequest) {
         .maybeSingle()
 
       if (textMatch) {
-        await (supabase.from('chat_messages') as any)
+        await supabase.from('chat_messages')
           .update({ external_id: row.external_id })
           .eq('id', (textMatch as { id: string }).id)
         resolvedExternalIds.add(row.external_id)
@@ -396,7 +417,7 @@ export async function GET(req: NextRequest) {
       // then fall back to null external_id (sendSessionFileViaUrl returned nothing).
       let fileMatchId: string | null = null
 
-      const { data: pm } = await (supabase.from('chat_messages') as any)
+      const { data: pm } = await supabase.from('chat_messages')
         .select('id')
         .eq('conversation_id', conversationId)
         .eq('from_type', 'agent')
@@ -408,7 +429,7 @@ export async function GET(req: NextRequest) {
       fileMatchId = (pm as { id: string } | null)?.id ?? null
 
       if (!fileMatchId) {
-        const { data: nm } = await (supabase.from('chat_messages') as any)
+        const { data: nm } = await supabase.from('chat_messages')
           .select('id')
           .eq('conversation_id', conversationId)
           .eq('from_type', 'agent')
@@ -422,7 +443,7 @@ export async function GET(req: NextRequest) {
       }
 
       if (fileMatchId) {
-        await (supabase.from('chat_messages') as any)
+        await supabase.from('chat_messages')
           .update({ external_id: row.external_id })
           .eq('id', fileMatchId)
         resolvedExternalIds.add(row.external_id)
@@ -439,7 +460,7 @@ export async function GET(req: NextRequest) {
 
   const existingAgentRows = new Set<string>()
   if (agentExternalIds.length > 0) {
-    const { data: existing } = await (supabase.from('chat_messages') as any)
+    const { data: existing } = await supabase.from('chat_messages')
       .select('external_id')
       .in('external_id', agentExternalIds)
       .eq('conversation_id', conversationId)
@@ -467,37 +488,36 @@ export async function GET(req: NextRequest) {
   //   • noAttachments    — agent rows + customer rows without a URL
   // Each stream is upserted separately so PostgREST's column normalisation
   // doesn't bleed across them.
-  const withAttachments: typeof rows = []
-  const noAttachments: typeof rows = []
+  const withAttachments: ChatMessageUpsert[] = []
+  const noAttachments:   ChatMessageUpsert[] = []
 
   for (const row of rows) {
-    const isBroadcast = (row as any)._isBroadcast === true
-    if ((row as any).from_type === 'agent') {
+    const isBroadcast = row._isBroadcast === true
+    if (row.from_type === 'agent') {
       const isNew = !existingAgentRows.has(row.external_id)
       // Skip agent rows not already in DB unless they're Wati-native broadcasts
       // (broadcasts were never pre-inserted by MMS, so they have no existing row).
       if (isNew && !isBroadcast) continue
-      const { attachments, _isBroadcast: _mb, ...rest } = row as any
+      const { attachments, _isBroadcast: _mb, ...rest } = row
       if (isNew) {
         // New broadcast row — treat attachments the same as customer messages
-        const hasRealUrl = (attachments as any[] | null)?.some((a: any) => a.url)
+        const hasRealUrl = (attachments as Array<{ url?: string }> | null)?.some((a) => a.url)
         if (hasRealUrl) {
           withAttachments.push({ ...rest, attachments })
         } else {
-          noAttachments.push(rest)
+          noAttachments.push({ ...rest, attachments: null })
         }
       } else {
         // Existing MMS-sent row — omit attachments to preserve stored URLs
-        noAttachments.push(rest)
+        noAttachments.push({ ...rest, attachments: null })
       }
     } else {
-      const { _isBroadcast: _mb, ...rowClean } = row as any
-      const hasRealUrl = (row.attachments as any[] | null)?.some((a: any) => a.url)
+      const { _isBroadcast: _mb, ...rowClean } = row
+      const hasRealUrl = (row.attachments as Array<{ url?: string }> | null)?.some((a) => a.url)
       if (hasRealUrl) {
         withAttachments.push(rowClean)
       } else {
-        const { attachments: _omit, ...rest } = rowClean
-        noAttachments.push(rest)
+        noAttachments.push({ ...rowClean, attachments: null })
       }
     }
   }
@@ -509,8 +529,11 @@ export async function GET(req: NextRequest) {
     for (let i = 0; i < stream.length; i += CHUNK) {
       const chunk = stream.slice(i, i + CHUNK)
       if (chunk.length === 0) continue
-      const { error } = await (supabase.from('chat_messages') as any)
-        .upsert(chunk, { onConflict: 'external_id', ignoreDuplicates: false })
+      const { error } = await supabase.from('chat_messages')
+        .upsert(
+          chunk.map((r) => ({ ...r, attachments: r.attachments as unknown as Json })),
+          { onConflict: 'external_id', ignoreDuplicates: false },
+        )
       if (error) {
         console.error('[fetch-messages] upsert error', error)
         return NextResponse.json({ error: error.message }, { status: 500 })
@@ -577,14 +600,14 @@ export async function GET(req: NextRequest) {
   // Write reactions to DB
   for (const [targetId, reactions] of reactionsByTarget) {
     // Search by wamid AND legacy wati_<id> prefix used by the chat send flow
-    const { data: targetRow } = await (supabase.from('chat_messages') as any)
+    const { data: targetRow } = await supabase.from('chat_messages')
       .select('id')
       .eq('conversation_id', conversationId)
       .in('external_id', [targetId, `wati_${targetId}`])
       .maybeSingle()
 
     if (targetRow) {
-      await (supabase.from('chat_messages') as any)
+      await supabase.from('chat_messages')
         .update({ reactions })
         .eq('id', targetRow.id)
     }
@@ -595,7 +618,7 @@ export async function GET(req: NextRequest) {
     const newest = rows.reduce((a, b) =>
       new Date(a.created_at) > new Date(b.created_at) ? a : b
     )
-    await (supabase.from('chat_conversations') as any)
+    await supabase.from('chat_conversations')
       .update({
         last_message:    newest.text || `[${newest.from_type === 'agent' ? 'sent' : 'received'}]`,
         last_message_at: newest.created_at,

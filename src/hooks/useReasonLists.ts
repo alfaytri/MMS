@@ -1,6 +1,7 @@
 // src/hooks/useReasonLists.ts
 import { useQuery } from '@tanstack/react-query'
 import { createClient } from '@/lib/supabase/client'
+import { queryKeys } from '@/lib/queryKeys'
 
 export interface ReasonListItem {
   id: string
@@ -10,7 +11,7 @@ export interface ReasonListItem {
 export function useReasonLists(category: string) {
   const supabase = createClient()
   const { data: reasons = [], isLoading } = useQuery({
-    queryKey: ['reason-lists', category],
+    queryKey: queryKeys.reasonLists.byCategory(category),
     queryFn: async (): Promise<ReasonListItem[]> => {
       const { data, error } = await supabase
         .from('reason_lists')

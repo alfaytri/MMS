@@ -57,8 +57,8 @@ export function AddressPicker({ customerId, phoneId, selected, onSelect, classNa
       <Popover open={open} onOpenChange={setOpen}>
         <PopoverTrigger
           className={cn(
-            'flex min-h-11 w-full items-center gap-2 rounded-md border border-dashed border-slate-300 px-3 py-2 text-left text-sm transition-colors hover:border-slate-400 hover:bg-slate-50',
-            selected && 'border-solid border-slate-200 bg-white',
+            'flex min-h-11 w-full items-center gap-2 rounded-md border border-dashed border-border px-3 py-2 text-left text-sm transition-colors hover:border-slate-400 hover:bg-muted',
+            selected && 'border-solid border-border bg-white',
             isDragOver && 'border-solid border-orange-400 bg-orange-50 ring-2 ring-orange-300 ring-offset-1',
             className
           )}
@@ -70,14 +70,14 @@ export function AddressPicker({ customerId, phoneId, selected, onSelect, classNa
               onDragLeave={handleDragLeave}
               onDrop={handleDrop}
             >
-              <MapPin className={cn('h-4 w-4 shrink-0', isDragOver ? 'text-orange-500' : 'text-slate-400')} />
+              <MapPin className={cn('h-4 w-4 shrink-0', isDragOver ? 'text-orange-500' : 'text-muted-foreground')} />
               {selected ? (
                 <div>
-                  <p className="font-medium text-slate-900">{selected.label ?? 'Address'}</p>
-                  <p className="text-xs text-slate-500">{formatAddressLine(selected)}</p>
+                  <p className="font-medium text-foreground">{selected.label ?? 'Address'}</p>
+                  <p className="text-xs text-muted-foreground">{formatAddressLine(selected)}</p>
                 </div>
               ) : (
-                <span className={isDragOver ? 'text-orange-500 font-medium' : 'text-slate-400'}>
+                <span className={isDragOver ? 'text-orange-500 font-medium' : 'text-muted-foreground'}>
                   {isDragOver ? 'Release to set address' : 'Drop address here, or click to select'}
                 </span>
               )}
@@ -86,9 +86,9 @@ export function AddressPicker({ customerId, phoneId, selected, onSelect, classNa
         />
         <PopoverContent className="w-80 p-2" align="start">
           {isLoading ? (
-            <p className="p-2 text-sm text-slate-500">Loading addresses…</p>
+            <p className="p-2 text-sm text-muted-foreground">Loading addresses…</p>
           ) : addresses.length === 0 ? (
-            <p className="p-2 text-sm text-slate-500">No saved addresses</p>
+            <p className="p-2 text-sm text-muted-foreground">No saved addresses</p>
           ) : (
             <div className="space-y-1">
               {addresses.map((addr) => (
@@ -96,14 +96,14 @@ export function AddressPicker({ customerId, phoneId, selected, onSelect, classNa
                   key={addr.id}
                   onClick={() => { onSelect(addr); setOpen(false) }}
                   className={cn(
-                    'flex w-full items-start gap-2 rounded-md px-3 py-2 text-left text-sm hover:bg-slate-50',
+                    'flex w-full items-start gap-2 rounded-md px-3 py-2 text-left text-sm hover:bg-muted',
                     selected?.id === addr.id && 'bg-orange-50'
                   )}
                 >
-                  <Navigation className="mt-0.5 h-4 w-4 shrink-0 text-slate-400" />
+                  <Navigation className="mt-0.5 h-4 w-4 shrink-0 text-muted-foreground" />
                   <div>
                     <p className="font-medium">{addr.label ?? 'Address'}</p>
-                    <p className="text-xs text-slate-500">{formatAddressLine(addr)}</p>
+                    <p className="text-xs text-muted-foreground">{formatAddressLine(addr)}</p>
                   </div>
                   <Badge variant="outline" className="ml-auto shrink-0 text-xs">
                     {addr.address_type === 'blue-plate' ? 'BP' : 'GPS'}
@@ -115,7 +115,7 @@ export function AddressPicker({ customerId, phoneId, selected, onSelect, classNa
           <div className="mt-1 border-t pt-1">
             <button
               onClick={() => { setOpen(false); setSheetOpen(true) }}
-              className="flex w-full items-center gap-2 rounded-md px-3 py-2 text-sm text-slate-600 hover:bg-slate-50"
+              className="flex w-full items-center gap-2 rounded-md px-3 py-2 text-sm text-muted-foreground hover:bg-muted"
             >
               <Plus className="h-4 w-4" />
               Add New Address

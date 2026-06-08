@@ -17,7 +17,7 @@ import { Button } from '@/components/ui/button'
 import { cn } from '@/lib/utils'
 
 const PAY_STATUS_CONFIG: Record<string, string> = {
-  unpaid:          'bg-slate-100 text-slate-600',
+  unpaid:          'bg-muted text-muted-foreground',
   partially_paid:  'bg-amber-100 text-amber-700',
   paid:            'bg-green-100 text-green-700',
   overdue:         'bg-red-100 text-red-700',

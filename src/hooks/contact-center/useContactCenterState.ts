@@ -131,7 +131,7 @@ export function useContactCenterState() {
       // 1. Resolve the customer from the phone if we don't have one yet.
       // Catches the case where the WATI sync ran before the customer was added to MMS.
       if (!resolvedCustomerId) {
-        const { data } = await (supabase as any)
+        const { data } = await supabase
           .from('service_customer_phones')
           .select('customer_id')
           .eq('phone', normalised)
@@ -144,7 +144,7 @@ export function useContactCenterState() {
       // leaves activeConversationId null — useLiveThread then short-circuits and
       // never shows the WhatsApp thread.
       if (!resolvedConversationId) {
-        const { data: existing } = await (supabase as any)
+        const { data: existing } = await supabase
           .from('chat_conversations')
           .select('id, customer_id')
           .eq('wati_phone', normalised)
@@ -154,13 +154,13 @@ export function useContactCenterState() {
         if (existing?.id) {
           resolvedConversationId = existing.id
           if (resolvedCustomerId && !existing.customer_id) {
-            await (supabase as any)
+            await supabase
               .from('chat_conversations')
               .update({ customer_id: resolvedCustomerId })
               .eq('id', existing.id)
           }
         } else {
-          const { data: created, error: createErr } = await (supabase as any)
+          const { data: created, error: createErr } = await supabase
             .from('chat_conversations')
             .insert({
               wati_phone:        normalised,
@@ -178,7 +178,7 @@ export function useContactCenterState() {
         }
       } else if (resolvedCustomerId) {
         // Existing conversation row, but it may still be missing customer_id.
-        await (supabase as any)
+        await supabase
           .from('chat_conversations')
           .update({ customer_id: resolvedCustomerId })
           .eq('id', resolvedConversationId)
@@ -214,7 +214,7 @@ export function useContactCenterState() {
     if (!activeConversationId || !activePhone) return
     patchConversation(activeConversationId, { wati_status: status })
     const supabase = createClient()
-    const { error } = await (supabase as any)
+    const { error } = await supabase
       .from('chat_conversations')
       .update({ wati_status: status })
       .eq('id', activeConversationId)

@@ -2,6 +2,7 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { createClient } from '@/lib/supabase/client'
 import type { DBTable, DBInsert, DBUpdate } from '@/types/database.types'
+import { queryKeys } from '@/lib/queryKeys'
 
 export type Service = DBTable<'services'>
 export type ServiceInsert = DBInsert<'services'>
@@ -15,11 +16,11 @@ export function useServiceTree(
   enabled = true,
 ) {
   return useQuery({
-    queryKey: ['services', treeType, divisionSlugs],
+    queryKey: queryKeys.services.byType(treeType, divisionSlugs),
     queryFn: async () => {
       const supabase = createClient()
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      let query = (supabase.from('services') as any)
+      let query = supabase
+        .from('services')
         .select('*')
         .eq('tree_type', treeType)
         .order('sort_order', { ascending: true })
@@ -27,7 +28,7 @@ export function useServiceTree(
       if (divisionSlugs.length > 0) {
         query = query.overlaps('division', divisionSlugs)
       }
-      const { data, error } = await query
+      const { data, error } = await query.returns<Service[]>()
       if (error) throw error
       return data as Service[]
     },
@@ -38,7 +39,7 @@ export function useServiceTree(
 
 export function useInstructions(enabled = true) {
   return useQuery({
-    queryKey: ['instructions'],
+    queryKey: queryKeys.services.instructions,
     queryFn: async () => {
       const supabase = createClient()
       const { data, error } = await supabase
@@ -55,7 +56,7 @@ export function useInstructions(enabled = true) {
 
 export function useInstructionsFull(enabled = true) {
   return useQuery({
-    queryKey: ['instructions', 'full'],
+    queryKey: queryKeys.services.instructionsFull,
     enabled,
     queryFn: async () => {
       const supabase = createClient()
@@ -79,12 +80,11 @@ export function useCreateService() {
       const { treeType, ...payload } = values
       const { data, error } = await supabase
         .from('services')
-        .insert(payload)
-        .select()
+        .insert(payload as ServiceInsert)
+        .select('*')
         .single()
       if (error) throw error
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      await (supabase.from('activity_log') as any).insert({
+      await supabase.from('activity_log').insert({
         action: 'services/service-created',
         module: 'services',
         entity_type: 'service',
@@ -99,7 +99,7 @@ export function useCreateService() {
     },
     onSuccess: (data) => {
       // Prefix match — invalidates all divisionSlug variants for this treeType
-      queryClient.invalidateQueries({ queryKey: ['services', data.treeType] })
+      queryClient.invalidateQueries({ queryKey: queryKeys.services.byType(data.treeType) })
     },
   })
 }
@@ -114,13 +114,12 @@ export function useUpdateService() {
       const { id, treeType, changedFields, ...payload } = values
       const { data, error } = await supabase
         .from('services')
-        .update(payload)
+        .update(payload as ServiceUpdate)
         .eq('id', id)
-        .select()
+        .select('*')
         .single()
       if (error) throw error
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      await (supabase.from('activity_log') as any).insert({
+      await supabase.from('activity_log').insert({
         action: 'services/service-updated',
         module: 'services',
         entity_type: 'service',
@@ -131,7 +130,7 @@ export function useUpdateService() {
     },
     onSuccess: (data) => {
       // Prefix match — invalidates all divisionSlug variants for this treeType
-      queryClient.invalidateQueries({ queryKey: ['services', data.treeType] })
+      queryClient.invalidateQueries({ queryKey: queryKeys.services.byType(data.treeType) })
     },
   })
 }
@@ -152,8 +151,8 @@ export function useReorderServices() {
     }) => {
       const supabase = createClient()
       // Re-fetch live siblings to get authoritative sort_order values for the swap
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      let siblingsQuery = (supabase.from('services') as any)
+      let siblingsQuery = supabase
+        .from('services')
         .select('id, sort_order')
         .eq('tree_type', treeType)
         .order('sort_order', { ascending: true })
@@ -162,10 +161,10 @@ export function useReorderServices() {
       } else {
         siblingsQuery = siblingsQuery.is('parent_id', null)
       }
-      const { data: siblings, error: fetchErr } = await siblingsQuery
+      const { data: siblings, error: fetchErr } = await siblingsQuery.returns<{ id: string; sort_order: number | null }[]>()
       if (fetchErr) throw fetchErr
 
-      const sortedSiblings = (siblings as { id: string; sort_order: number | null }[])
+      const sortedSiblings = (siblings ?? [])
         .filter((s): s is { id: string; sort_order: number } => s.sort_order !== null)
 
       const idx = sortedSiblings.findIndex((s) => s.id === movedId)
@@ -177,12 +176,11 @@ export function useReorderServices() {
       const sibling = sortedSiblings[targetIdx]
 
       await Promise.all([
-        supabase.from('services').update({ sort_order: sibling.sort_order }).eq('id', moved.id),
-        supabase.from('services').update({ sort_order: moved.sort_order }).eq('id', sibling.id),
+        supabase.from('services').update({ sort_order: sibling.sort_order } as ServiceUpdate).eq('id', moved.id),
+        supabase.from('services').update({ sort_order: moved.sort_order } as ServiceUpdate).eq('id', sibling.id),
       ])
 
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      await (supabase.from('activity_log') as any).insert({
+      await supabase.from('activity_log').insert({
         action: 'services/service-reordered',
         module: 'services',
         entity_type: 'service',
@@ -200,13 +198,13 @@ export function useReorderServices() {
 
     onMutate: async ({ movedId, parentId, direction, treeType }) => {
       // Cancel any in-flight refetches so they don't overwrite the optimistic update
-      await queryClient.cancelQueries({ queryKey: ['services', treeType] })
+      await queryClient.cancelQueries({ queryKey: queryKeys.services.byType(treeType) })
 
       // Snapshot all matching queries for rollback on error
-      const previousQueries = queryClient.getQueriesData<Service[]>({ queryKey: ['services', treeType] })
+      const previousQueries = queryClient.getQueriesData<Service[]>({ queryKey: queryKeys.services.byType(treeType) })
 
       // Optimistically swap sort_order in every cached variant of this tree
-      queryClient.setQueriesData<Service[]>({ queryKey: ['services', treeType] }, (old) => {
+      queryClient.setQueriesData<Service[]>({ queryKey: queryKeys.services.byType(treeType) }, (old) => {
         if (!old) return old
         const siblings = old
           .filter((s) => (s.parent_id ?? null) === parentId && s.sort_order !== null)
@@ -232,12 +230,12 @@ export function useReorderServices() {
       context?.previousQueries.forEach(([queryKey, data]) => {
         queryClient.setQueryData(queryKey, data)
       })
-      queryClient.invalidateQueries({ queryKey: ['services', treeType] })
+      queryClient.invalidateQueries({ queryKey: queryKeys.services.byType(treeType) })
     },
 
     onSettled: (_data, _err, { treeType }) => {
       // Sync with server once the mutation has settled (success or error)
-      queryClient.invalidateQueries({ queryKey: ['services', treeType] })
+      queryClient.invalidateQueries({ queryKey: queryKeys.services.byType(treeType) })
     },
   })
 }
@@ -261,10 +259,10 @@ export function useReorderServicesBulk() {
       return { treeType }
     },
     onMutate: async ({ updates, treeType }) => {
-      await queryClient.cancelQueries({ queryKey: ['services', treeType] })
-      const previous = queryClient.getQueriesData<Service[]>({ queryKey: ['services', treeType] })
+      await queryClient.cancelQueries({ queryKey: queryKeys.services.byType(treeType) })
+      const previous = queryClient.getQueriesData<Service[]>({ queryKey: queryKeys.services.byType(treeType) })
       const orderMap = new Map(updates.map(({ id, sort_order }) => [id, sort_order]))
-      queryClient.setQueriesData<Service[]>({ queryKey: ['services', treeType] }, (old) => {
+      queryClient.setQueriesData<Service[]>({ queryKey: queryKeys.services.byType(treeType) }, (old) => {
         if (!old) return old
         return old.map((s) => (orderMap.has(s.id) ? { ...s, sort_order: orderMap.get(s.id)! } : s))
       })
@@ -272,10 +270,10 @@ export function useReorderServicesBulk() {
     },
     onError: (_err, { treeType }, context) => {
       context?.previous.forEach(([key, data]) => queryClient.setQueryData(key, data))
-      queryClient.invalidateQueries({ queryKey: ['services', treeType] })
+      queryClient.invalidateQueries({ queryKey: queryKeys.services.byType(treeType) })
     },
     onSettled: (_data, _err, { treeType }) => {
-      queryClient.invalidateQueries({ queryKey: ['services', treeType] })
+      queryClient.invalidateQueries({ queryKey: queryKeys.services.byType(treeType) })
     },
   })
 }
@@ -297,11 +295,10 @@ export function useArchiveService() {
         .update({
           deleted_at: archivedAt,
           status: 'inactive',
-        })
+        } as ServiceUpdate)
         .eq('id', id)
       if (error) throw error
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      await (supabase.from('activity_log') as any).insert({
+      await supabase.from('activity_log').insert({
         action: 'services/service-archived',
         module: 'services',
         entity_type: 'service',
@@ -311,7 +308,7 @@ export function useArchiveService() {
       return { treeType }
     },
     onSuccess: (data) => {
-      queryClient.invalidateQueries({ queryKey: ['services', data.treeType] })
+      queryClient.invalidateQueries({ queryKey: queryKeys.services.byType(data.treeType) })
     },
   })
 }
@@ -324,13 +321,13 @@ export function useCreateInstruction() {
       const { data, error } = await supabase
         .from('instructions')
         .insert(values)
-        .select()
+        .select('*')
         .single()
       if (error) throw error
       return data
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['instructions'] })
+      queryClient.invalidateQueries({ queryKey: queryKeys.services.instructions })
     },
   })
 }
@@ -344,13 +341,13 @@ export function useUpdateInstruction() {
         .from('instructions')
         .update(values)
         .eq('id', id)
-        .select()
+        .select('*')
         .single()
       if (error) throw error
       return data
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['instructions'] })
+      queryClient.invalidateQueries({ queryKey: queryKeys.services.instructions })
     },
   })
 }
@@ -360,14 +357,14 @@ export function useArchiveInstruction() {
   return useMutation({
     mutationFn: async (id: string) => {
       const supabase = createClient()
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      const { error } = await (supabase.from('instructions') as any)
-        .update({ deleted_at: new Date().toISOString(), status: 'inactive' })
+      const { error } = await supabase
+        .from('instructions')
+        .update({ deleted_at: new Date().toISOString(), status: 'inactive' } as DBUpdate<'instructions'>)
         .eq('id', id)
       if (error) throw error
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['instructions'] })
+      queryClient.invalidateQueries({ queryKey: queryKeys.services.instructions })
     },
   })
 }
@@ -382,14 +379,15 @@ export type ServiceInstructionLink = {
 
 export function useServiceInstructions(serviceId: string | null, enabled = true) {
   return useQuery({
-    queryKey: ['service_instructions', serviceId],
+    queryKey: queryKeys.services.serviceInstructionsByService(serviceId),
     enabled: enabled && !!serviceId,
     queryFn: async () => {
       const supabase = createClient()
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      const { data, error } = await (supabase as any).from('service_instructions')
+      const { data, error } = await supabase
+        .from('service_instructions')
         .select('service_id, instruction_id, created_at, instructions(id, name_en, type, content_type)')
-        .eq('service_id', serviceId)
+        .eq('service_id', serviceId as string)
+        .returns<ServiceInstructionLink[]>()
       if (error) throw error
       return (data ?? []) as ServiceInstructionLink[]
     },
@@ -399,12 +397,12 @@ export function useServiceInstructions(serviceId: string | null, enabled = true)
 
 export function useAllServiceInstructionLinks(enabled = true) {
   return useQuery({
-    queryKey: ['service_instructions', 'all'],
+    queryKey: queryKeys.services.serviceInstructionsAll,
     enabled,
     queryFn: async () => {
       const supabase = createClient()
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      const { data, error } = await (supabase as any).from('service_instructions')
+      const { data, error } = await supabase
+        .from('service_instructions')
         .select(`
           service_id,
           instruction_id,
@@ -413,6 +411,7 @@ export function useAllServiceInstructionLinks(enabled = true) {
           services(id, name_en, tree_type)
         `)
         .order('created_at', { ascending: false })
+        .returns<ServiceInstructionLink[]>()
       if (error) throw error
       return (data ?? []) as ServiceInstructionLink[]
     },
@@ -425,13 +424,13 @@ export function useLinkInstruction() {
   return useMutation({
     mutationFn: async ({ serviceId, instructionId }: { serviceId: string; instructionId: string }) => {
       const supabase = createClient()
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      const { error } = await (supabase as any).from('service_instructions')
+      const { error } = await supabase
+        .from('service_instructions')
         .insert({ service_id: serviceId, instruction_id: instructionId })
       if (error && error.code !== '23505') throw error // 23505 = duplicate key, ignore
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['service_instructions'] })
+      queryClient.invalidateQueries({ queryKey: queryKeys.services.serviceInstructions })
     },
   })
 }
@@ -441,15 +440,15 @@ export function useUnlinkInstruction() {
   return useMutation({
     mutationFn: async ({ serviceId, instructionId }: { serviceId: string; instructionId: string }) => {
       const supabase = createClient()
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      const { error } = await (supabase as any).from('service_instructions')
+      const { error } = await supabase
+        .from('service_instructions')
         .delete()
         .eq('service_id', serviceId)
         .eq('instruction_id', instructionId)
       if (error) throw error
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['service_instructions'] })
+      queryClient.invalidateQueries({ queryKey: queryKeys.services.serviceInstructions })
     },
   })
 }

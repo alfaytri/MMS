@@ -107,9 +107,9 @@ export function ReceivalFormDialog({ open, onOpenChange }: Props) {
         <div className="space-y-4">
           <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
             <div className="space-y-1">
-              <Label>Purchase Order *</Label>
+              <Label htmlFor="recv-po">Purchase Order *</Label>
               <Select value={selectedPoId} onValueChange={(v) => setSelectedPoId(v ?? '')}>
-                <SelectTrigger>
+                <SelectTrigger id="recv-po">
                   <SelectValue placeholder="Select PO" />
                 </SelectTrigger>
                 <SelectContent>
@@ -122,9 +122,9 @@ export function ReceivalFormDialog({ open, onOpenChange }: Props) {
               </Select>
             </div>
             <div className="space-y-1">
-              <Label>Warehouse *</Label>
+              <Label htmlFor="recv-warehouse">Warehouse *</Label>
               <Select value={warehouseId} onValueChange={(v) => setWarehouseId(v ?? '')}>
-                <SelectTrigger>
+                <SelectTrigger id="recv-warehouse">
                   <SelectValue placeholder="Select warehouse" />
                 </SelectTrigger>
                 <SelectContent>
@@ -135,14 +135,14 @@ export function ReceivalFormDialog({ open, onOpenChange }: Props) {
               </Select>
             </div>
             <div className="space-y-1">
-              <Label>Date *</Label>
-              <Input type="date" value={date} onChange={(e) => setDate(e.target.value)} />
+              <Label htmlFor="recv-date">Date *</Label>
+              <Input id="recv-date" type="date" value={date} onChange={(e) => setDate(e.target.value)} />
             </div>
           </div>
 
           <div className="space-y-1">
-            <Label>Notes</Label>
-            <Input value={notes} onChange={(e) => setNotes(e.target.value)} placeholder="Optional notes" />
+            <Label htmlFor="recv-notes">Notes</Label>
+            <Input id="recv-notes" value={notes} onChange={(e) => setNotes(e.target.value)} placeholder="Optional notes" />
           </div>
 
           {lines.length > 0 && (

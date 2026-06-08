@@ -1,35 +1,38 @@
 'use client'
 
-import { Suspense } from 'react'
-import { useSearchParams, useRouter } from 'next/navigation'
+import { useState, Suspense } from 'react'
+import { useSearchParams } from 'next/navigation'
 import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs'
 import { Button } from '@/components/ui/button'
 import {
   ClipboardList, ClipboardCheck, ArrowRightLeft,
-  WarehouseIcon, Layers, Activity, Truck,
+  WarehouseIcon, Layers, Activity, Truck, TrendingUp,
 } from 'lucide-react'
 import { useWarehouses } from '@/hooks/useWarehouses'
 import { useWarehouseTransfers, useReceivalsAndDeliveries } from '@/hooks/useWarehouseOperations'
 import { useCurrentUserProfile } from '@/hooks/useProfiles'
-// Tab components (will exist after later tasks):
 import { WhWarehousesTab } from '@/components/purchase/wh/WhWarehousesTab'
 import { WhStockOverviewTab } from '@/components/purchase/wh/WhStockOverviewTab'
 import { WhTransfersTab } from '@/components/purchase/wh/WhTransfersTab'
 import { WhAdjustmentsTab } from '@/components/purchase/wh/WhAdjustmentsTab'
 import { WhInventoryChecksTab } from '@/components/purchase/wh/WhInventoryChecksTab'
 import { WhMovementsTab } from '@/components/purchase/wh/WhMovementsTab'
+import { WhStockValueTab } from '@/components/purchase/wh/WhStockValueTab'
 import { ReceivalsDeliveriesTab } from '@/components/purchase/wh/ReceivalsDeliveriesTab'
 import { WhAdjustmentDialog } from '@/components/purchase/wh/WhAdjustmentDialog'
-import { WhInventoryCheckDialog } from '@/components/purchase/wh/WhInventoryCheckDialog'
 import { WhTransferDialog } from '@/components/purchase/wh/WhTransferDialog'
 
 function WarehousesPageInner() {
   const searchParams = useSearchParams()
-  const router = useRouter()
-  const activeTab    = searchParams.get('tab')       ?? 'warehouses'
-  const warehouseParam = searchParams.get('warehouse') ?? undefined
-  const setActiveTab = (val: string) =>
-    router.replace(`/purchase/warehouses?tab=${val}`, { scroll: false })
+  const [activeTab, setActiveTab] = useState(searchParams.get('tab') ?? 'warehouses')
+  const [selectedWarehouseId, setSelectedWarehouseId] = useState<string | undefined>(
+    searchParams.get('warehouse') ?? undefined,
+  )
+
+  function handleViewStock(warehouseId: string) {
+    setSelectedWarehouseId(warehouseId)
+    setActiveTab('stock')
+  }
 
   const { data: warehouses = [] } = useWarehouses()
   const { data: currentProfile } = useCurrentUserProfile()
@@ -58,12 +61,6 @@ function WarehousesPageInner() {
               Stock Adjustment
             </Button>
           </WhAdjustmentDialog>
-          <WhInventoryCheckDialog warehouses={warehouses}>
-            <Button size="sm" variant="outline" className="gap-1.5">
-              <ClipboardCheck className="h-3.5 w-3.5" />
-              Inventory Check
-            </Button>
-          </WhInventoryCheckDialog>
           <WhTransferDialog warehouses={warehouses} currentProfile={currentProfile ?? null}>
             <Button size="sm" variant="outline" className="gap-1.5">
               <ArrowRightLeft className="h-3.5 w-3.5" />
@@ -101,6 +98,10 @@ function WarehousesPageInner() {
             <ClipboardCheck className="h-3 w-3" />
             Inv. Checks
           </TabsTrigger>
+          <TabsTrigger value="stock-value" className="text-xs gap-1">
+            <TrendingUp className="h-3 w-3" />
+            Stock Value
+          </TabsTrigger>
           <TabsTrigger value="movements" className="text-xs gap-1">
             <Activity className="h-3 w-3" />
             Movements
@@ -118,10 +119,10 @@ function WarehousesPageInner() {
 
         <div className="flex-1 overflow-auto">
           <TabsContent value="warehouses" className="mt-0 p-4 md:p-6">
-            <WhWarehousesTab warehouses={warehouses} />
+            <WhWarehousesTab warehouses={warehouses} onViewStock={handleViewStock} />
           </TabsContent>
           <TabsContent value="stock" className="mt-0">
-            <WhStockOverviewTab warehouses={warehouses} initialWarehouseId={warehouseParam} />
+            <WhStockOverviewTab warehouses={warehouses} initialWarehouseId={selectedWarehouseId} />
           </TabsContent>
           <TabsContent value="transfers" className="mt-0">
             <WhTransfersTab warehouses={warehouses} currentProfile={currentProfile ?? null} />
@@ -131,6 +132,9 @@ function WarehousesPageInner() {
           </TabsContent>
           <TabsContent value="checks" className="mt-0">
             <WhInventoryChecksTab warehouses={warehouses} currentProfile={currentProfile ?? null} />
+          </TabsContent>
+          <TabsContent value="stock-value" className="mt-0">
+            <WhStockValueTab warehouses={warehouses} />
           </TabsContent>
           <TabsContent value="movements" className="mt-0">
             <WhMovementsTab warehouses={warehouses} />

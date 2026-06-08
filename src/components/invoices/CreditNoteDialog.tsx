@@ -78,14 +78,14 @@ export function CreditNoteDialog({ open, onOpenChange, invoice }: Props) {
           </div>
           {type === 'partial' && (
             <div className="space-y-2">
-              <Label>Amount (max {formatCurrency(total)})</Label>
-              <Input type="number" min={0.01} max={total} step={0.01} value={amount} onChange={(e) => setAmount(e.target.value)} placeholder="0.00" />
+              <Label htmlFor="cn-amount">Amount (max {formatCurrency(total)})</Label>
+              <Input id="cn-amount" type="number" min={0.01} max={total} step={0.01} value={amount} onChange={(e) => setAmount(e.target.value)} placeholder="0.00" />
             </div>
           )}
           <div className="space-y-2">
-            <Label>Reason *</Label>
+            <Label htmlFor="cn-reason">Reason *</Label>
             <Select value={reason} onValueChange={(v) => setReason(v ?? '')} disabled={loadingReasons}>
-              <SelectTrigger><SelectValue placeholder="Select reason..." /></SelectTrigger>
+              <SelectTrigger id="cn-reason"><SelectValue placeholder="Select reason..." /></SelectTrigger>
               <SelectContent>
                 {reasons.map((r) => (<SelectItem key={r.id} value={r.label}>{r.label}</SelectItem>))}
               </SelectContent>

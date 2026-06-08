@@ -57,7 +57,7 @@ interface Props {
 
 function SectionLabel({ children }: { children: React.ReactNode }) {
   return (
-    <p className="text-[11px] font-semibold uppercase tracking-widest text-slate-400">
+    <p className="text-[11px] font-semibold uppercase tracking-widest text-muted-foreground">
       {children}
     </p>
   )
@@ -141,18 +141,18 @@ export function OrderFormPanel({
         {/* ── Customer ── */}
         <div className="px-5 pt-5 pb-4">
           {draft.customerId ? (
-            <div className="flex items-center gap-3 rounded-xl border border-slate-100 bg-slate-50 px-4 py-3 shadow-sm">
+            <div className="flex items-center gap-3 rounded-xl border border-slate-100 bg-muted px-4 py-3 shadow-sm">
               <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-orange-100">
                 <User className="h-4 w-4 text-orange-500" />
               </div>
               <div className="min-w-0 flex-1">
-                <p className="truncate text-sm font-semibold text-slate-900">{draft.customerName}</p>
-                <p className="truncate text-xs text-slate-400">{draft.phone}</p>
+                <p className="truncate text-sm font-semibold text-foreground">{draft.customerName}</p>
+                <p className="truncate text-xs text-muted-foreground">{draft.phone}</p>
               </div>
               <button
                 type="button"
                 onClick={onLookupCustomer}
-                className="flex shrink-0 items-center gap-1.5 rounded-lg border border-slate-200 bg-white px-2.5 py-1.5 text-[11px] font-medium text-slate-500 hover:border-slate-300 hover:text-slate-700 transition-colors shadow-sm"
+                className="flex shrink-0 items-center gap-1.5 rounded-lg border border-border bg-white px-2.5 py-1.5 text-[11px] font-medium text-muted-foreground hover:border-border hover:text-foreground transition-colors shadow-sm"
               >
                 <Search className="h-3 w-3" />
                 Change
@@ -198,7 +198,7 @@ export function OrderFormPanel({
                     onChange={(e) => { setMultiDivision(e.target.checked); setSelectedDivisions([]); onUpdate({ division: '' }) }}
                     className="rounded accent-orange-500"
                   />
-                  <span className="text-xs text-slate-400">Multi-division</span>
+                  <span className="text-xs text-muted-foreground">Multi-division</span>
                 </label>
               </div>
               <div className="flex flex-wrap gap-2">
@@ -212,7 +212,7 @@ export function OrderFormPanel({
                         'rounded-full px-4 py-1.5 text-sm font-medium transition-all',
                         selectedDivisions[0] === d.slug
                           ? 'bg-orange-500 text-white shadow-sm shadow-orange-200'
-                          : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
+                          : 'bg-muted text-muted-foreground hover:bg-slate-200'
                       )}
                     >
                       {d.name}
@@ -224,7 +224,7 @@ export function OrderFormPanel({
                         'flex cursor-pointer items-center gap-1.5 rounded-full px-4 py-1.5 text-sm font-medium transition-all',
                         selectedDivisions.includes(d.slug)
                           ? 'bg-orange-500 text-white shadow-sm shadow-orange-200'
-                          : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
+                          : 'bg-muted text-muted-foreground hover:bg-slate-200'
                       )}
                     >
                       <input type="checkbox" className="sr-only" checked={selectedDivisions.includes(d.slug)} onChange={() => toggleDivision(d.slug)} />
@@ -249,7 +249,7 @@ export function OrderFormPanel({
 
             {draft.type === 'order' && (
               selectedDivisions.length === 0 ? (
-                <p className="text-xs text-slate-400">Select a division first</p>
+                <p className="text-xs text-muted-foreground">Select a division first</p>
               ) : (
                 <div className="space-y-2">
                   <ServiceSelector onAdd={onAddService} divisionFilters={selectedDivisions} />
@@ -325,7 +325,7 @@ export function OrderFormPanel({
               }}
             />
           ) : (
-            <p className="text-xs text-slate-400">Look up a customer first</p>
+            <p className="text-xs text-muted-foreground">Look up a customer first</p>
           )}
         </div>
 
@@ -354,7 +354,7 @@ export function OrderFormPanel({
               setArrivalCountryCode(v)
               if (arrivalLocalNumber) onUpdate({ arrivalPhone: `${v}${arrivalLocalNumber}` })
             }}>
-              <SelectTrigger className="w-28 shrink-0 rounded-r-none border-0 shadow-none focus:ring-0 h-full bg-slate-50 text-xs font-medium">
+              <SelectTrigger className="w-28 shrink-0 rounded-r-none border-0 shadow-none focus:ring-0 h-full bg-muted text-xs font-medium">
                 <SelectValue />
               </SelectTrigger>
               <SelectContent>
@@ -404,8 +404,8 @@ export function OrderFormPanel({
         {/* ── Total ── */}
         {draft.services.length > 0 && (
           <div className="mx-5 mb-5 rounded-xl bg-gradient-to-r from-orange-50 to-amber-50 border border-orange-100 px-4 py-3 flex items-center justify-between">
-            <span className="text-sm text-slate-500 font-medium">Total</span>
-            <span className="text-lg font-bold text-slate-900">
+            <span className="text-sm text-muted-foreground font-medium">Total</span>
+            <span className="text-lg font-bold text-foreground">
               QAR {draft.services.reduce((sum, s) => sum + s.price * s.qty, 0).toFixed(0)}
             </span>
           </div>

@@ -87,7 +87,7 @@ export function BillFormDialog({ open, onOpenChange, initialPoId }: Props) {
     setSaving(true)
     try {
       await createBill.mutateAsync({
-        supplier_id:       (selectedPO as any).supplier_id,
+        supplier_id:       selectedPO.supplier_id,
         purchase_order_id: selectedPoId,
         po_number:         selectedPO.po_number,
         discount_amount:   selectedPO.discount_amount ?? 0,
@@ -116,7 +116,7 @@ export function BillFormDialog({ open, onOpenChange, initialPoId }: Props) {
   // Compute total received per line item across approved receivals
   const receivedMap = new Map<string, number>()
   for (const r of (receivals ?? []).filter((r) => r.status === 'approved')) {
-    for (const ri of (r.receival_items ?? []) as any[]) {
+    for (const ri of r.receival_items ?? []) {
       if (!ri.is_free && ri.po_line_item_id) {
         receivedMap.set(ri.po_line_item_id, (receivedMap.get(ri.po_line_item_id) ?? 0) + ri.qty_received)
       }
@@ -136,12 +136,12 @@ export function BillFormDialog({ open, onOpenChange, initialPoId }: Props) {
             {/* PO selector */}
             {!initialPoId ? (
               <div className="space-y-1 lg:col-span-2">
-                <Label>Purchase Order *</Label>
+                <Label htmlFor="bill-po">Purchase Order *</Label>
                 <Select
                   value={selectedPoId || 'none'}
                   onValueChange={(v) => setSelectedPoId(v === 'none' || v === null ? '' : v)}
                 >
-                  <SelectTrigger><SelectValue placeholder="Select PO…" /></SelectTrigger>
+                  <SelectTrigger id="bill-po"><SelectValue placeholder="Select PO…" /></SelectTrigger>
                   <SelectContent>
                     {(orders ?? [])
                       .filter((o) => !['draft', 'cancelled'].includes(o.status))
@@ -167,13 +167,14 @@ export function BillFormDialog({ open, onOpenChange, initialPoId }: Props) {
             )}
 
             <div className="space-y-1">
-              <Label>Due Date *</Label>
-              <Input type="date" value={dueDate} onChange={(e) => setDueDate(e.target.value)} />
+              <Label htmlFor="bill-due-date">Due Date *</Label>
+              <Input id="bill-due-date" type="date" value={dueDate} onChange={(e) => setDueDate(e.target.value)} />
             </div>
 
             <div className="space-y-1">
-              <Label>Reference / Invoice #</Label>
+              <Label htmlFor="bill-reference">Reference / Invoice #</Label>
               <Input
+                id="bill-reference"
                 value={reference}
                 onChange={(e) => setReference(e.target.value)}
                 placeholder="Supplier's invoice number"
@@ -181,8 +182,9 @@ export function BillFormDialog({ open, onOpenChange, initialPoId }: Props) {
             </div>
 
             <div className="space-y-1 sm:col-span-2 lg:col-span-4">
-              <Label>Notes</Label>
+              <Label htmlFor="bill-notes">Notes</Label>
               <Input
+                id="bill-notes"
                 value={notes}
                 onChange={(e) => setNotes(e.target.value)}
                 placeholder="Internal notes…"
@@ -254,7 +256,7 @@ export function BillFormDialog({ open, onOpenChange, initialPoId }: Props) {
                           {showReceival && (
                             <TableCell className="text-right text-sm">
                               {approvedReceived > 0
-                                ? <span className="text-green-600 font-medium">{approvedReceived}</span>
+                                ? <span className="text-success font-medium">{approvedReceived}</span>
                                 : <span className="text-muted-foreground">0</span>}
                               <p className="text-xs text-muted-foreground">
                                 of {line.ordered_qty}

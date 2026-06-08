@@ -121,11 +121,12 @@ export function CrmSection({ customerData, onCustomerResolved, pendingPhone }: P
     if (!canonical) { toast.error('Invalid phone number'); return }
     const supabase = (await import('@/lib/supabase/client')).createClient()
     try {
-      const { data, error } = await (supabase as any).rpc('create_service_customer', {
-        p_name: createName.trim(), p_phone: canonical, p_link_phone: null,
+      const { data, error } = await supabase.rpc('create_service_customer', {
+        p_name: createName.trim(), p_phone: canonical, p_link_phone: undefined,
       })
       if (error) throw error
-      onCustomerResolved?.(data.customer_id, data.customer_name, canonical)
+      const result = data as { customer_id: string; customer_name: string } | null
+      onCustomerResolved?.(result?.customer_id ?? '', result?.customer_name ?? '', canonical)
       toast.success('Customer created')
     } catch {
       toast.error('Failed to create customer')
@@ -153,9 +154,10 @@ export function CrmSection({ customerData, onCustomerResolved, pendingPhone }: P
 
         {unknownStep === 'attach' && (
           <div className="space-y-2">
-            <Label className="text-xs">Search by phone</Label>
+            <Label htmlFor="crm-attach-search" className="text-xs">Search by phone</Label>
             <div className="flex gap-1.5">
               <Input
+                id="crm-attach-search"
                 value={attachSearch}
                 onChange={(e) => setAttachSearch(e.target.value)}
                 placeholder="+974XXXXXXXX"
@@ -169,8 +171,8 @@ export function CrmSection({ customerData, onCustomerResolved, pendingPhone }: P
 
         {unknownStep === 'create' && (
           <div className="space-y-2">
-            <Label className="text-xs">Name</Label>
-            <Input value={createName} onChange={(e) => setCreateName(e.target.value)} className="h-8 text-xs" placeholder="Full name" />
+            <Label htmlFor="crm-create-name" className="text-xs">Name</Label>
+            <Input id="crm-create-name" value={createName} onChange={(e) => setCreateName(e.target.value)} className="h-8 text-xs" placeholder="Full name" />
             <Label className="text-xs">Phone</Label>
             <PhoneInputWithCode
               value={createPhone}
@@ -321,14 +323,14 @@ export function CrmSection({ customerData, onCustomerResolved, pendingPhone }: P
       <p className="text-xs font-medium text-muted-foreground uppercase tracking-wide">Edit Customer</p>
 
       <div className="space-y-1">
-        <Label className="text-xs">Name</Label>
-        <Input value={editName} onChange={(e) => setEditName(e.target.value)} className="h-8 text-xs" />
+        <Label htmlFor="crm-edit-name" className="text-xs">Name</Label>
+        <Input id="crm-edit-name" value={editName} onChange={(e) => setEditName(e.target.value)} className="h-8 text-xs" />
       </div>
 
       <div className="space-y-1">
-        <Label className="text-xs">Type</Label>
+        <Label htmlFor="crm-edit-type" className="text-xs">Type</Label>
         <Select value={editType} onValueChange={(v) => setEditType(v as 'individual' | 'business')}>
-          <SelectTrigger className="h-8 text-xs">
+          <SelectTrigger id="crm-edit-type" className="h-8 text-xs">
             <SelectValue />
           </SelectTrigger>
           <SelectContent>

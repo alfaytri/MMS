@@ -2,6 +2,7 @@
 
 import { useState, Suspense } from 'react'
 import { useRouter, useSearchParams } from 'next/navigation'
+import { useQueryClient } from '@tanstack/react-query'
 import { createClient } from '@/lib/supabase/client'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -15,6 +16,7 @@ const REASON_MESSAGES: Record<string, string> = {
 
 function LoginForm() {
   const router       = useRouter()
+  const queryClient  = useQueryClient()
   const searchParams = useSearchParams()
   const reason       = searchParams.get('reason')
   const next         = searchParams.get('next') ?? '/'
@@ -37,6 +39,7 @@ function LoginForm() {
       setLoading(false)
       return
     }
+    queryClient.clear()
     router.push(next)
     router.refresh()
   }
@@ -61,7 +64,7 @@ function LoginForm() {
             <Input
               id="username"
               type="text"
-              placeholder="mismail"
+              placeholder=""
               value={username}
               onChange={(e) => setUsername(e.target.value)}
               required

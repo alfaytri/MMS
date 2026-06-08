@@ -2,6 +2,7 @@
 
 import { useQuery } from '@tanstack/react-query'
 import { createClient } from '@/lib/supabase/client'
+import { queryKeys } from '@/lib/queryKeys'
 
 type PermissionsResult = {
   permissions: string[]
@@ -10,7 +11,7 @@ type PermissionsResult = {
 
 export function usePermissions() {
   return useQuery<PermissionsResult>({
-    queryKey: ['user-permissions'],
+    queryKey: queryKeys.permissions.user,
     staleTime: 5 * 60 * 1000,
     queryFn: async () => {
       const supabase = createClient()
@@ -18,7 +19,7 @@ export function usePermissions() {
       if (!user) return { permissions: [], isSystemAdmin: false }
 
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      const { data: profile } = await (supabase as any)
+      const { data: profile } = await supabase
         .from('profiles')
         .select('user_custom_roles!user_custom_roles_profile_id_fkey(custom_roles(is_system, permissions))')
         .eq('auth_user_id', user.id)

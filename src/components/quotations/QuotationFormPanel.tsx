@@ -88,13 +88,13 @@ export function QuotationFormPanel({
             <div className="min-w-0 flex-1">
               {hasCustomer ? (
                 <>
-                  <p className="truncate font-semibold text-slate-900 text-sm">
+                  <p className="truncate font-semibold text-foreground text-sm">
                     {draft.customerName}
                   </p>
-                  <p className="truncate text-xs text-slate-500">{draft.phone}</p>
+                  <p className="truncate text-xs text-muted-foreground">{draft.phone}</p>
                 </>
               ) : (
-                <p className="text-sm text-slate-400 italic">No customer selected</p>
+                <p className="text-sm text-muted-foreground italic">No customer selected</p>
               )}
             </div>
             <Button
@@ -113,19 +113,19 @@ export function QuotationFormPanel({
         <div className="flex-1 overflow-y-auto px-4 py-3 space-y-3">
           {/* Division selector */}
           <div className="space-y-1.5">
-            <Label className="text-[11px] font-semibold uppercase tracking-wide text-slate-400">
+            <Label htmlFor="quot-form-division" className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">
               Division
             </Label>
             <Select
               value={draft.division || null}
               onValueChange={(v) => v && onDivisionChange(v)}
             >
-              <SelectTrigger className="h-9 w-full text-sm min-h-[44px] sm:min-h-0">
+              <SelectTrigger id="quot-form-division" className="h-9 w-full text-sm min-h-[44px] sm:min-h-0">
                 <SelectValue placeholder="Select division…" />
               </SelectTrigger>
               <SelectContent alignItemWithTrigger={false}>
                 {divisions.length === 0 ? (
-                  <div className="px-3 py-2 text-sm text-slate-400">No divisions found</div>
+                  <div className="px-3 py-2 text-sm text-muted-foreground">No divisions found</div>
                 ) : (
                   divisions.map((d) => (
                     <SelectItem key={d.id} value={d.slug}>
@@ -139,7 +139,7 @@ export function QuotationFormPanel({
 
           {/* Service tree browser */}
           <div className="space-y-1.5">
-            <Label className="text-[11px] font-semibold uppercase tracking-wide text-slate-400">
+            <Label className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">
               Services
             </Label>
             <ServiceSelector
@@ -175,10 +175,11 @@ export function QuotationFormPanel({
 
           {/* Notes */}
           <div className="space-y-1.5">
-            <Label className="text-[11px] font-semibold uppercase tracking-wide text-slate-400">
+            <Label htmlFor="quot-form-notes" className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">
               Notes
             </Label>
             <Textarea
+              id="quot-form-notes"
               placeholder="Optional notes for the customer…"
               className="resize-none text-sm min-h-[80px]"
               value={draft.notes}
@@ -190,11 +191,12 @@ export function QuotationFormPanel({
           {draft.services.length > 0 && (
             <div className="space-y-2">
               <div className="space-y-1.5">
-                <Label className="text-[11px] font-semibold uppercase tracking-wide text-slate-400">
+                <Label htmlFor="quot-form-discount" className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">
                   Discount
                 </Label>
                 <div className="flex items-center gap-2">
                   <Input
+                    id="quot-form-discount"
                     type="number"
                     min={0}
                     step={discountType === 'percent' ? 1 : 0.01}
@@ -210,7 +212,7 @@ export function QuotationFormPanel({
                       className={`px-3 py-1.5 text-xs font-medium transition-colors min-h-[36px] ${
                         discountType === 'flat'
                           ? 'bg-slate-900 text-white'
-                          : 'bg-white text-slate-600 hover:bg-slate-50'
+                          : 'bg-white text-muted-foreground hover:bg-muted'
                       }`}
                       onClick={() => onDiscountTypeChange('flat')}
                     >
@@ -221,7 +223,7 @@ export function QuotationFormPanel({
                       className={`px-3 py-1.5 text-xs font-medium transition-colors min-h-[36px] border-l ${
                         discountType === 'percent'
                           ? 'bg-slate-900 text-white'
-                          : 'bg-white text-slate-600 hover:bg-slate-50'
+                          : 'bg-white text-muted-foreground hover:bg-muted'
                       }`}
                       onClick={() => onDiscountTypeChange('percent')}
                     >
@@ -232,14 +234,14 @@ export function QuotationFormPanel({
               </div>
 
               {/* Totals strip */}
-              <div className="rounded-md bg-slate-50 p-2 space-y-0.5">
+              <div className="rounded-md bg-muted p-2 space-y-0.5">
                 {discountAmount > 0 && (
                   <>
-                    <div className="flex justify-between text-xs text-slate-500">
+                    <div className="flex justify-between text-xs text-muted-foreground">
                       <span>Subtotal</span>
                       <span>QAR {subtotal.toLocaleString()}</span>
                     </div>
-                    <div className="flex justify-between text-xs text-red-500">
+                    <div className="flex justify-between text-xs text-destructive">
                       <span>
                         Discount{' '}
                         ({discountType === 'percent' ? `${discountValue}%` : `QAR ${discountValue}`})
@@ -249,8 +251,8 @@ export function QuotationFormPanel({
                   </>
                 )}
                 <div className="flex justify-between">
-                  <span className="text-xs font-semibold text-slate-900">Total</span>
-                  <span className="font-semibold text-slate-900">
+                  <span className="text-xs font-semibold text-foreground">Total</span>
+                  <span className="font-semibold text-foreground">
                     QAR {total.toLocaleString()}
                   </span>
                 </div>

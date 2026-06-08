@@ -2,12 +2,13 @@
 import { useQuery } from '@tanstack/react-query'
 import { createClient } from '@/lib/supabase/client'
 import type { QuotationDetail } from '@/types/quotations'
+import { queryKeys } from '@/lib/queryKeys'
 
 export function useQuotationDetail(quotationId: string | null) {
   const supabase = createClient()
 
   return useQuery<QuotationDetail>({
-    queryKey: ['quotation-detail', quotationId],
+    queryKey: queryKeys.quotations.detail(quotationId),
     enabled: !!quotationId,
     queryFn: async () => {
       const { data, error } = await supabase
@@ -24,7 +25,12 @@ export function useQuotationDetail(quotationId: string | null) {
 
       if (error) throw error
 
-      const d = data as any
+      type D = typeof data & {
+        customers: { name?: string; customer_phones?: { phone: string }[] } | null
+        quotation_line_items: { id: string; service_id: string | null; name: string; path: string[] | null; qty: number; price: number; duration: number | null }[]
+        quotation_log: { id: string; action: string; user_name: string | null; details: string | null; created_at: string }[]
+      }
+      const d = data as D
       return {
         id:             d.id,
         quotation_id:   d.quotation_id,
@@ -38,7 +44,7 @@ export function useQuotationDetail(quotationId: string | null) {
         created_date:   d.created_date ?? '',
         expiry_date:    d.expiry_date ?? null,
         sent_date:      d.sent_date ?? null,
-        line_items: (d.quotation_line_items ?? []).map((li: any) => ({
+        line_items: (d.quotation_line_items ?? []).map((li) => ({
           id:         li.id,
           service_id: li.service_id,
           name:       li.name,
@@ -47,7 +53,7 @@ export function useQuotationDetail(quotationId: string | null) {
           price:      li.price,
           duration:   li.duration ?? null,
         })),
-        logs: (d.quotation_log ?? []).map((l: any) => ({
+        logs: (d.quotation_log ?? []).map((l) => ({
           id:         l.id,
           action:     l.action,
           user_name:  l.user_name ?? 'System',

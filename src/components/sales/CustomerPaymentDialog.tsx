@@ -74,13 +74,13 @@ export function CustomerPaymentDialog({ open, onOpenChange, invoice, alreadyPaid
           )}
 
           <div className="space-y-1">
-            <Label>Amount *</Label>
-            <Input type="number" value={amount} onChange={(e) => setAmount(e.target.value)} step="0.01" min={0.01} max={outstanding} />
+            <Label htmlFor="cust-pay-amount">Amount *</Label>
+            <Input id="cust-pay-amount" type="number" value={amount} onChange={(e) => setAmount(e.target.value)} step="0.01" min={0.01} max={outstanding} />
           </div>
           <div className="space-y-1">
-            <Label>Method *</Label>
+            <Label htmlFor="cust-pay-method">Method *</Label>
             <Select value={method} onValueChange={(v) => setMethod(v as typeof method)}>
-              <SelectTrigger><SelectValue /></SelectTrigger>
+              <SelectTrigger id="cust-pay-method"><SelectValue /></SelectTrigger>
               <SelectContent>
                 <SelectItem value="bank_transfer">Bank Transfer</SelectItem>
                 <SelectItem value="cash">Cash</SelectItem>
@@ -92,12 +92,12 @@ export function CustomerPaymentDialog({ open, onOpenChange, invoice, alreadyPaid
           </div>
           <div className="grid grid-cols-2 gap-4">
             <div className="space-y-1">
-              <Label>Date *</Label>
-              <Input type="date" value={date} onChange={(e) => setDate(e.target.value)} />
+              <Label htmlFor="cust-pay-date">Date *</Label>
+              <Input id="cust-pay-date" type="date" value={date} onChange={(e) => setDate(e.target.value)} />
             </div>
             <div className="space-y-1">
-              <Label>Reference</Label>
-              <Input value={reference} onChange={(e) => setReference(e.target.value)} placeholder="Ref #" />
+              <Label htmlFor="cust-pay-reference">Reference</Label>
+              <Input id="cust-pay-reference" value={reference} onChange={(e) => setReference(e.target.value)} placeholder="Ref #" />
             </div>
           </div>
         </div>

@@ -30,9 +30,9 @@ export function QcDialog({ visit, profileId, onComplete, onClose }: Props) {
   const total = Object.values(scores).reduce((a, b) => a + b, 0)
   const maxTotal = items.reduce((a, b) => a + b.maxScore, 0)
   const pct = maxTotal > 0 ? Math.round((total / maxTotal) * 100) : 0
-  const pctColor = pct >= 80 ? 'text-green-600 bg-green-50 border-green-200'
+  const pctColor = pct >= 80 ? 'text-success bg-success/10 border-green-200'
     : pct >= 50 ? 'text-amber-600 bg-amber-50 border-amber-200'
-    : 'text-red-600 bg-red-50 border-red-200'
+    : 'text-destructive bg-destructive/10 border-red-200'
 
   function handleSubmit() {
     const data: OrderCompletionData = {

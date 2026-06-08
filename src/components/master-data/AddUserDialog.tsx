@@ -24,6 +24,7 @@ import { passwordSchema } from '@/lib/auth/password-policy'
 import { useCreateUser } from '@/hooks/useProfiles'
 import { useRoles } from '@/hooks/useRoles'
 import { createClient } from '@/lib/supabase/client'
+import { queryKeys } from '@/lib/queryKeys'
 
 const schema = z.object({
   full_name: z.string().min(1, 'Name is required'),
@@ -50,11 +51,10 @@ export function AddUserDialog({ open, onOpenChange }: Props) {
   const [linkedEmployeeId, setLinkedEmployeeId] = useState<string | null>(null)
 
   const { data: tlEmployees = [] } = useQuery({
-    queryKey: ['tl-linkable-employees'],
+    queryKey: queryKeys.teamLeader.linkableEmployees,
     queryFn: async () => {
       const supabase = createClient()
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      const { data, error } = await (supabase as any)
+      const { data, error } = await supabase
         .from('employees')
         .select('id, name, team_id, teams!fk_employee_team(id, name)')
         .is('profile_id', null)
@@ -158,19 +158,19 @@ export function AddUserDialog({ open, onOpenChange }: Props) {
             {/* Team Leader toggle */}
             <div className="flex items-center justify-between rounded-lg border p-3">
               <div>
-                <Label className="text-sm font-medium">Team Leader Account</Label>
+                <Label htmlFor="add-user-is-tl" className="text-sm font-medium">Team Leader Account</Label>
                 <p className="text-xs text-muted-foreground mt-0.5">
                   Links this account to a team leader employee
                 </p>
               </div>
-              <Switch checked={isTl} onCheckedChange={setIsTl} />
+              <Switch id="add-user-is-tl" checked={isTl} onCheckedChange={setIsTl} />
             </div>
 
             {isTl && (
               <div className="space-y-1.5">
-                <Label>Linked Employee *</Label>
+                <Label htmlFor="add-user-linked-employee">Linked Employee *</Label>
                 <Select value={linkedEmployeeId ?? ''} onValueChange={setLinkedEmployeeId}>
-                  <SelectTrigger>
+                  <SelectTrigger id="add-user-linked-employee">
                     <SelectValue placeholder="Select team leader employee…" />
                   </SelectTrigger>
                   <SelectContent>

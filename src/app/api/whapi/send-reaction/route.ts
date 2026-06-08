@@ -47,18 +47,18 @@ export async function POST(req: NextRequest) {
 
   // 2. Update local reactions JSONB
   const supabase = createAdminClient()
-  const { data: targetRow } = await (supabase.from('chat_messages') as any)
+  const { data: targetRow } = await supabase.from('chat_messages')
     .select('id, reactions')
     .eq('external_id', messageId)
     .maybeSingle()
 
   if (targetRow) {
-    const existing: { emoji: string; from_type: string }[] = targetRow.reactions ?? []
+    const existing: { emoji: string; from_type: string }[] = (targetRow.reactions as unknown as Array<{ emoji: string; from_type: string }> | null) ?? []
     const hasIt = existing.some((r) => r.emoji === emoji && r.from_type === 'agent')
     const updated = hasIt
       ? existing.filter((r) => !(r.emoji === emoji && r.from_type === 'agent'))
       : [...existing, { emoji, from_type: 'agent' }]
-    await (supabase.from('chat_messages') as any).update({ reactions: updated }).eq('id', targetRow.id)
+    await supabase.from('chat_messages').update({ reactions: updated }).eq('id', targetRow.id)
   }
 
   return NextResponse.json({ ok: true })

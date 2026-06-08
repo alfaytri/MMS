@@ -38,7 +38,7 @@ export function ToolAssetLookup({
       setLoading(true)
       const supabase = createClient()
       const safe = query.replace(/%/g, '\\%')
-      const { data, error } = await (supabase as any)
+      const { data, error } = await supabase
         .from('tool_asset_items')
         .select('id, name_en, name_ar')
         .or(`name_en.ilike.%${safe}%,name_ar.ilike.%${safe}%`)

@@ -1,7 +1,6 @@
 'use client'
 
-import { useCallback } from 'react'
-import { useRouter, useSearchParams } from 'next/navigation'
+import { useState } from 'react'
 import { ItemsListView } from './inventory/ItemsListView'
 import { ToolsAssetsView } from './inventory/ToolsAssetsView'
 import { ServiceLinksView } from './inventory/ServiceLinksView'
@@ -21,19 +20,7 @@ interface InventoryTabProps {
 }
 
 export function InventoryTab({ enabled }: InventoryTabProps) {
-  const router = useRouter()
-  const searchParams = useSearchParams()
-  const raw = searchParams.get('subtab') as SubTab | null
-  const activeTab: SubTab = raw && TABS.some((t) => t.key === raw) ? raw : 'products'
-
-  const setTab = useCallback(
-    (tab: SubTab) => {
-      const params = new URLSearchParams(searchParams.toString())
-      params.set('subtab', tab)
-      router.replace(`?${params.toString()}`, { scroll: false })
-    },
-    [router, searchParams],
-  )
+  const [activeTab, setTab] = useState<SubTab>('products')
 
   return (
     <div className="flex flex-col h-full">

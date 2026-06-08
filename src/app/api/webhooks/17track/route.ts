@@ -46,7 +46,7 @@ export async function POST(request: Request) {
     updates
       .filter((u): u is TrackUpdate => !!(u as TrackUpdate).number)
       .map(async u => {
-        const { data: shipment } = await (supabase as any)
+        const { data: shipment } = await supabase
           .from('shipments')
           .select('id')
           .eq('tracking_number', u.number)
@@ -56,7 +56,7 @@ export async function POST(request: Request) {
 
         const events = mapRawEvents(u.track?.z0?.a ?? [])
         if (events.length > 0) {
-          await (supabase as any).rpc('append_shipment_events', {
+          await supabase.rpc('append_shipment_events', {
             p_shipment_id: shipment.id,
             p_events: events,
             p_status_map: STATUS_MAP_JSON,

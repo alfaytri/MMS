@@ -4,6 +4,8 @@ import { useState, useRef, useEffect } from 'react'
 import { useQuery } from '@tanstack/react-query'
 import Decimal from 'decimal.js'
 import Link from 'next/link'
+import { useSearchParams, useRouter } from 'next/navigation'
+import { LcCogsPostedPanel } from '@/components/landed-costs/LcCogsPostedPanel'
 import { toast } from 'sonner'
 import { Eye, Plus, Trash2, Paperclip, ChevronDown, ChevronRight, ExternalLink } from 'lucide-react'
 import { createClient } from '@/lib/supabase/client'
@@ -28,26 +30,27 @@ import { cn } from '@/lib/utils'
 import { formatCurrency, formatDate } from '@/lib/utils/formatters'
 import {
   useLandedCosts, useCreateLandedCost, useVoidLandedCost, useApplyLandedCost,
-  useRevertLandedCost, useValidateLcAllocation, useBillSignedUrls,
+  useRevertLandedCost, useValidateLcAllocation, useBillSignedUrls, useLcUsedReceivalMap,
   type LandedCost, type LandedCostLine, type LandedCostItemAllocation,
 } from '@/hooks/useLandedCosts'
 import {
-  useReceivalsForLcSelector, useReceivalItemsWithFifo,
+  useReceivalsForLcSelector, useReceivalItemsWithFifo, useReceivalItemsBatch,
 } from '@/hooks/useReceivals'
 import {
   useBrandVariantsByIds, useBatchUpdateSellingPrices,
 } from '@/hooks/useInventory'
 import type { ColumnDef } from '@tanstack/react-table'
+import { queryKeys } from '@/lib/queryKeys'
 
 // ─── Local hooks for detail dialog ───────────────────────────────────────────
 
 function useAttachedReceivals(receivalIds: string[]) {
   return useQuery({
-    queryKey: ['lc-attached-receivals', receivalIds.slice().sort().join(',')],
+    queryKey: queryKeys.lcAttached.receivals(receivalIds.slice().sort().join(',')),
     enabled: receivalIds.length > 0,
     queryFn: async () => {
       const supabase = createClient()
-      const { data, error } = await (supabase as any)
+      const { data, error } = await supabase
         .from('receivals')
         .select('id, receival_number, date, purchase_orders!receivals_po_id_fkey(supplier_name)')
         .in('id', receivalIds)
@@ -66,11 +69,11 @@ function useAttachedReceivals(receivalIds: string[]) {
 
 function useAttachedPOs(poIds: string[]) {
   return useQuery({
-    queryKey: ['lc-attached-pos', poIds.slice().sort().join(',')],
+    queryKey: queryKeys.lcAttached.pos(poIds.slice().sort().join(',')),
     enabled: poIds.length > 0,
     queryFn: async () => {
       const supabase = createClient()
-      const { data, error } = await (supabase as any)
+      const { data, error } = await supabase
         .from('purchase_orders')
         .select('id, po_number, supplier_name')
         .in('id', poIds)
@@ -302,6 +305,40 @@ function LcDetailDialog({
     applyOpen,
   )
 
+  // For the Apply preview: pull every billable item across the attached
+  // receivals so we can show how much landed-cost value will land on each.
+  // Allocation is proportional to (qty_received × unit_cost), same as the
+  // server-side allocate_landed_cost RPC.
+  const { data: previewItems, isLoading: loadingPreview } = useReceivalItemsBatch(
+    applyOpen && lc ? lc.attached_receival_ids : null,
+  )
+  const previewTotalValueShare = (previewItems ?? []).reduce(
+    (sum, item) => sum + item.qty_received * item.unit_cost,
+    0,
+  )
+  // Map brand_variant_id → unit_cost so we can compute per-unit LC for each
+  // validation row (validation RPC returns variant-level rollups, not
+  // receival_items rows). For variants split across multiple receivals we
+  // weight by qty_received.
+  const previewLcPerUnitByVariant = (() => {
+    const map = new Map<string, number>()
+    if (!lc || previewTotalValueShare <= 0) return map
+    // group items by variant
+    const grouped = new Map<string, { totalQty: number; totalValueShare: number }>()
+    for (const it of previewItems ?? []) {
+      if (!it.brand_variant_id) continue
+      const g = grouped.get(it.brand_variant_id) ?? { totalQty: 0, totalValueShare: 0 }
+      g.totalQty += it.qty_received
+      g.totalValueShare += it.qty_received * it.unit_cost
+      grouped.set(it.brand_variant_id, g)
+    }
+    for (const [bvId, g] of grouped.entries()) {
+      const lcValue = lc.total_amount * (g.totalValueShare / previewTotalValueShare)
+      map.set(bvId, g.totalQty > 0 ? lcValue / g.totalQty : 0)
+    }
+    return map
+  })()
+
   if (!lc) return null
 
   const isVoided = !!lc.voided_at
@@ -322,7 +359,7 @@ function LcDetailDialog({
               {lc.lc_number}
               {statusBadge}
               {lc.all_items_sold && (
-                <Badge className="bg-slate-100 text-slate-700 border-slate-300 text-xs">
+                <Badge className="bg-muted text-foreground border-border text-xs">
                   All Items Sold
                 </Badge>
               )}
@@ -561,6 +598,13 @@ function LcDetailDialog({
                 </div>
               </div>
             )}
+
+                {/* COGS Posted (LC-after-sale adjustments) */}
+                <LcCogsPostedPanel
+                  allocations={lc.item_allocations as never}
+                  currency={lc.currency}
+                  appliedAt={lc.applied_at}
+                />
           </div>
 
           {!isVoided && !isApplied && (
@@ -592,18 +636,31 @@ function LcDetailDialog({
         </DialogContent>
       </Dialog>
 
-      {/* Apply confirm — shows pre-flight validation before destructive action */}
+      {/* Apply confirm — shows pre-flight validation + value-impact preview */}
       <Dialog open={applyOpen} onOpenChange={setApplyOpen}>
-        <DialogContent className="w-full max-w-full rounded-none sm:max-w-lg sm:rounded-lg">
+        <DialogContent className="w-full max-w-full h-full sm:h-auto sm:max-h-[90vh] rounded-none sm:max-w-2xl sm:rounded-lg flex flex-col p-0">
           {lc && (
             <>
-              <DialogHeader><DialogTitle>Apply Landed Cost to Inventory</DialogTitle></DialogHeader>
-              <div className="space-y-3">
+              <DialogHeader className="px-6 pt-6 pb-2 shrink-0">
+                <DialogTitle>Apply Landed Cost to Inventory</DialogTitle>
+              </DialogHeader>
+              <div className="space-y-3 px-6 pb-2 overflow-y-auto flex-1">
+                {/* Value-impact banner */}
+                <div className="rounded-md border border-blue-200 bg-blue-50 p-3 space-y-1">
+                  <p className="text-xs uppercase tracking-wider text-blue-700 font-semibold">
+                    Inventory value to be added
+                  </p>
+                  <p className="text-xl font-bold text-blue-900">
+                    +{formatCurrency(lc.total_amount, lc.currency)}
+                  </p>
+                  <p className="text-xs text-blue-700">
+                    across <strong>{(validationItems ?? []).length}</strong> item{(validationItems ?? []).length !== 1 ? 's' : ''}
+                    {' '}in <strong>{lc.attached_receival_ids.length}</strong> receival{lc.attached_receival_ids.length !== 1 ? 's' : ''}
+                  </p>
+                </div>
                 <p className="text-sm text-muted-foreground">
-                  This will distribute{' '}
-                  <strong>{formatCurrency(lc.total_amount, lc.currency)}</strong> across the FIFO
-                  layers of all items in the attached receivals, and update average costs.
-                  You can revert this later using the Revert Apply button.
+                  This will distribute the amount across FIFO layers proportionally to each item&apos;s value share
+                  ({'qty × unit cost'}), and update average costs. You can revert this later using the Revert Apply button.
                 </p>
                 {validating ? (
                   <Skeleton className="h-28 w-full" />
@@ -615,29 +672,45 @@ function LcDetailDialog({
                           <TableHead>Item</TableHead>
                           <TableHead className="text-right">Received</TableHead>
                           <TableHead className="text-right">Remaining</TableHead>
+                          <TableHead className="text-right">+LC / unit</TableHead>
+                          <TableHead className="text-right">+Value</TableHead>
                         </TableRow>
                       </TableHeader>
                       <TableBody>
-                        {(validationItems ?? []).map((item, idx) => (
-                          <TableRow key={idx} className={item.warning ? 'bg-amber-50' : ''}>
-                            <TableCell className="text-sm">
-                              {item.item_name}
-                              {item.warning && (
-                                <p className="text-xs text-amber-600 mt-0.5">{item.warning}</p>
-                              )}
-                            </TableCell>
-                            <TableCell className="text-right text-sm">{item.qty_received}</TableCell>
-                            <TableCell className={cn('text-right text-sm font-medium', item.qty_remaining_in_layers === 0 && 'text-amber-600')}>
-                              {item.qty_remaining_in_layers}
-                            </TableCell>
-                          </TableRow>
-                        ))}
+                        {(validationItems ?? []).map((item, idx) => {
+                          const lcPerUnit = previewLcPerUnitByVariant.get(item.brand_variant_id) ?? 0
+                          const totalAdded = lcPerUnit * item.qty_received
+                          return (
+                            <TableRow key={idx} className={item.warning ? 'bg-amber-50' : ''}>
+                              <TableCell className="text-sm">
+                                {item.item_name}
+                                {item.warning && (
+                                  <p className="text-xs text-amber-600 mt-0.5">{item.warning}</p>
+                                )}
+                              </TableCell>
+                              <TableCell className="text-right text-sm">{item.qty_received}</TableCell>
+                              <TableCell className={cn('text-right text-sm font-medium', item.qty_remaining_in_layers === 0 && 'text-amber-600')}>
+                                {item.qty_remaining_in_layers}
+                              </TableCell>
+                              <TableCell className="text-right text-sm text-blue-700 tabular-nums whitespace-nowrap">
+                                {loadingPreview
+                                  ? <span className="text-muted-foreground">…</span>
+                                  : `+${formatCurrency(lcPerUnit, lc.currency)}`}
+                              </TableCell>
+                              <TableCell className="text-right text-sm font-semibold tabular-nums whitespace-nowrap">
+                                {loadingPreview
+                                  ? <span className="text-muted-foreground">…</span>
+                                  : `+${formatCurrency(totalAdded, lc.currency)}`}
+                              </TableCell>
+                            </TableRow>
+                          )
+                        })}
                       </TableBody>
                     </Table>
                   </div>
                 ) : null}
               </div>
-              <DialogFooter>
+              <DialogFooter className="px-6 pb-6 pt-2 border-t shrink-0">
                 <Button variant="outline" onClick={() => setApplyOpen(false)}>Cancel</Button>
                 <Button
                   disabled={applyLc.isPending || validating}
@@ -711,8 +784,9 @@ function LcDetailDialog({
               Selling price changes made after apply are <em>not</em> automatically reversed.
             </p>
             <div className="space-y-1">
-              <Label className="text-sm">Type &quot;revert&quot; to confirm</Label>
+              <Label htmlFor="lc-revert-confirm" className="text-sm">Type &quot;revert&quot; to confirm</Label>
               <Input
+                id="lc-revert-confirm"
                 value={revertConfirmText}
                 onChange={(e) => setRevertConfirmText(e.target.value)}
                 placeholder="revert"
@@ -763,11 +837,37 @@ function CreateLcDialog({ open, onOpenChange }: { open: boolean; onOpenChange: (
   const [selectedReceivalIds, setSelectedReceivalIds] = useState<string[]>([])
   const [receivalSearch, setReceivalSearch] = useState('')
   const [expandedReceivalId, setExpandedReceivalId] = useState<string | null>(null)
+  const [collapsedPoIds, setCollapsedPoIds] = useState<Set<string>>(new Set())
   const [uploadingLines, setUploadingLines] = useState<Set<number>>(new Set())
   const fileInputRefs = useRef<(HTMLInputElement | null)[]>([])
 
   const { data: receivals } = useReceivalsForLcSelector({ search: receivalSearch })
   const { data: expandedItems, isLoading: loadingExpanded } = useReceivalItemsWithFifo(expandedReceivalId)
+  const { data: usedReceivalMap } = useLcUsedReceivalMap()
+
+  // Group receivals under their PO so the user sees one card per PO with
+  // its child receivals nested below.
+  const poGroups = (() => {
+    const map = new Map<string, {
+      po_id: string
+      po_number: string
+      supplier_name: string
+      receivals: NonNullable<typeof receivals>
+    }>()
+    for (const r of receivals ?? []) {
+      const key = r.po_id
+      if (!map.has(key)) {
+        map.set(key, {
+          po_id: r.po_id,
+          po_number: r.po_number ?? '—',
+          supplier_name: r.supplier_name ?? 'Unknown',
+          receivals: [],
+        })
+      }
+      map.get(key)!.receivals.push(r)
+    }
+    return Array.from(map.values()).sort((a, b) => a.po_number.localeCompare(b.po_number))
+  })()
 
   function addLine() { setLines((l) => [...l, { description: '', amount: 0, currency: 'QAR', exchange_rate: 1 }]) }
   function removeLine(i: number) { setLines((l) => l.filter((_, idx) => idx !== i)) }
@@ -781,6 +881,28 @@ function CreateLcDialog({ open, onOpenChange }: { open: boolean; onOpenChange: (
   }
   function toggleReceival(id: string) {
     setSelectedReceivalIds((ids) => ids.includes(id) ? ids.filter((x) => x !== id) : [...ids, id])
+  }
+  function togglePoCollapsed(poId: string) {
+    setCollapsedPoIds((prev) => {
+      const next = new Set(prev)
+      if (next.has(poId)) next.delete(poId)
+      else next.add(poId)
+      return next
+    })
+  }
+  function togglePoSelectAll(group: { receivals: { id: string }[] }) {
+    const ids = group.receivals.map((r) => r.id)
+    const allSelected = ids.every((id) => selectedReceivalIds.includes(id))
+    setSelectedReceivalIds((prev) => {
+      if (allSelected) {
+        // Deselect all in this PO
+        return prev.filter((id) => !ids.includes(id))
+      }
+      // Select all in this PO (without duplicating)
+      const set = new Set(prev)
+      ids.forEach((id) => set.add(id))
+      return Array.from(set)
+    })
   }
 
   const total = lines
@@ -847,6 +969,7 @@ function CreateLcDialog({ open, onOpenChange }: { open: boolean; onOpenChange: (
           setSelectedReceivalIds([])
           setReceivalSearch('')
           setExpandedReceivalId(null)
+          setCollapsedPoIds(new Set())
           setUploadingLines(new Set())
         },
         onError: (err) => toast.error(err.message),
@@ -861,12 +984,12 @@ function CreateLcDialog({ open, onOpenChange }: { open: boolean; onOpenChange: (
         <form onSubmit={handleSubmit} className="space-y-4 max-h-[70vh] overflow-y-auto pr-1">
           <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
             <div className="space-y-1 sm:col-span-2">
-              <Label>Description</Label>
-              <Input value={description} onChange={(e) => setDescription(e.target.value)} placeholder="Freight, customs fees…" />
+              <Label htmlFor="lc-description">Description</Label>
+              <Input id="lc-description" value={description} onChange={(e) => setDescription(e.target.value)} placeholder="Freight, customs fees…" />
             </div>
             <div className="space-y-1">
-              <Label>Date *</Label>
-              <Input type="date" value={date} onChange={(e) => setDate(e.target.value)} />
+              <Label htmlFor="lc-date">Date *</Label>
+              <Input id="lc-date" type="date" value={date} onChange={(e) => setDate(e.target.value)} />
             </div>
           </div>
 
@@ -931,7 +1054,7 @@ function CreateLcDialog({ open, onOpenChange }: { open: boolean; onOpenChange: (
                     className={cn(
                       'flex items-center justify-center h-8 w-8 rounded border text-sm transition-colors shrink-0',
                       line.bill_path
-                        ? 'border-green-400 text-green-600 bg-green-50 hover:bg-green-100'
+                        ? 'border-green-400 text-success bg-success/10 hover:bg-green-100'
                         : 'border-input text-muted-foreground hover:text-foreground hover:bg-accent',
                       uploadingLines.has(i) && 'opacity-50 cursor-not-allowed',
                     )}
@@ -967,84 +1090,143 @@ function CreateLcDialog({ open, onOpenChange }: { open: boolean; onOpenChange: (
 
           <Separator />
 
-          {/* Receival Selector */}
+          {/* Receival Selector — grouped by PO */}
           <div className="space-y-2">
-            <p className="text-sm font-medium">Attach Receivals</p>
+            <div className="flex items-baseline justify-between gap-2 flex-wrap">
+              <p className="text-sm font-medium">Attach Receivals</p>
+              <p className="text-xs text-muted-foreground">
+                {selectedReceivalIds.length > 0
+                  ? `${selectedReceivalIds.length} selected`
+                  : 'None selected'}
+              </p>
+            </div>
             <Input
-              placeholder="Search by receival number…"
+              placeholder="Search PO #, Receival #, or supplier…"
               value={receivalSearch}
               onChange={(e) => setReceivalSearch(e.target.value)}
               className="h-8 text-sm"
             />
-            {(receivals ?? []).length === 0 ? (
-              <p className="text-sm text-muted-foreground">
+            {poGroups.length === 0 ? (
+              <p className="rounded-md border border-dashed p-4 text-center text-sm text-muted-foreground">
                 {receivalSearch ? 'No receivals match your search' : 'No receivals found'}
               </p>
             ) : (
-              <div className="max-h-64 overflow-y-auto rounded-md border divide-y">
-                {(receivals ?? []).map((r) => {
-                  const isExpanded = expandedReceivalId === r.id
-                  const isChecked = selectedReceivalIds.includes(r.id)
+              <div className="max-h-72 overflow-y-auto rounded-md border divide-y">
+                {poGroups.map((group) => {
+                  const ids = group.receivals.map((r) => r.id)
+                  const selectedInGroup = ids.filter((id) => selectedReceivalIds.includes(id)).length
+                  const allChecked = selectedInGroup === ids.length
+                  const someChecked = selectedInGroup > 0 && selectedInGroup < ids.length
+                  const collapsed = collapsedPoIds.has(group.po_id)
+
                   return (
-                    <div key={r.id}>
-                      {/* Row header */}
-                      <div className="flex items-center gap-2 px-2 py-1.5 hover:bg-muted/50">
+                    <div key={group.po_id} className="bg-card">
+                      {/* PO header */}
+                      <div className="flex items-center gap-2 px-2 py-2 bg-muted/40 sticky top-0 z-10">
                         <input
                           type="checkbox"
-                          checked={isChecked}
-                          onChange={() => toggleReceival(r.id)}
+                          checked={allChecked}
+                          ref={(el) => { if (el) el.indeterminate = someChecked }}
+                          onChange={() => togglePoSelectAll(group)}
                           className="h-4 w-4 shrink-0"
+                          aria-label={`Select all receivals in ${group.po_number}`}
                         />
                         <button
                           type="button"
-                          onClick={() => setExpandedReceivalId(isExpanded ? null : r.id)}
+                          onClick={() => togglePoCollapsed(group.po_id)}
                           className="flex items-center gap-1.5 flex-1 text-left text-sm min-w-0"
                         >
                           <span className="text-muted-foreground w-4 shrink-0">
-                            {isExpanded
-                              ? <ChevronDown className="h-3.5 w-3.5" />
-                              : <ChevronRight className="h-3.5 w-3.5" />}
+                            {collapsed
+                              ? <ChevronRight className="h-3.5 w-3.5" />
+                              : <ChevronDown className="h-3.5 w-3.5" />}
                           </span>
-                          <span className="font-mono shrink-0">{r.receival_number}</span>
-                          <span className="text-muted-foreground truncate">
-                            — {r.supplier_name ?? 'Unknown'} · {formatDate(r.date)}
-                          </span>
+                          <span className="font-mono font-semibold shrink-0 text-blue-700">{group.po_number}</span>
+                          <span className="text-muted-foreground truncate">— {group.supplier_name}</span>
+                          <Badge variant="outline" className="ml-auto text-[10px] shrink-0">
+                            {group.receivals.length} receival{group.receivals.length !== 1 ? 's' : ''}
+                          </Badge>
                         </button>
                       </div>
 
-                      {/* Expanded items */}
-                      {isExpanded && (
-                        <div className="bg-muted/30 px-4 pb-2">
-                          {loadingExpanded ? (
-                            <div className="space-y-1 pt-2">
-                              {[1, 2].map((n) => <div key={n} className="h-5 rounded bg-muted animate-pulse" />)}
-                            </div>
-                          ) : (expandedItems ?? []).length === 0 ? (
-                            <p className="text-xs text-muted-foreground pt-2">No billable items</p>
-                          ) : (
-                            <table className="w-full text-xs mt-2">
-                              <thead>
-                                <tr className="text-muted-foreground border-b">
-                                  <th className="text-left py-1 font-medium">Item</th>
-                                  <th className="text-right py-1 font-medium">Received</th>
-                                  <th className="text-right py-1 font-medium">Remaining</th>
-                                  <th className="text-right py-1 font-medium">Unit Cost</th>
-                                </tr>
-                              </thead>
-                              <tbody>
-                                {(expandedItems ?? []).map((item) => (
-                                  <tr key={item.id} className="border-b last:border-0">
-                                    <td className="py-1 pr-2">{item.item_name}</td>
-                                    <td className="text-right py-1">{item.qty_received}</td>
-                                    <td className={cn('text-right py-1 font-medium', item.remaining_qty === 0 && 'text-amber-600')}>
-                                      {item.remaining_qty}
-                                    </td>
-                                    <td className="text-right py-1">{formatCurrency(item.unit_cost, 'QAR')}</td>
-                                  </tr>
-                                ))}
-                              </tbody>
-                            </table>
-                          )}
+                      {/* Receivals inside this PO */}
+                      {!collapsed && (
+                        <div className="divide-y">
+                          {group.receivals.map((r) => {
+                            const isExpanded = expandedReceivalId === r.id
+                            const isChecked = selectedReceivalIds.includes(r.id)
+                            const existingLcs = usedReceivalMap?.get(r.id)
+                            const hasExistingLc = (existingLcs?.length ?? 0) > 0
+                            return (
+                              <div key={r.id}>
+                                <div className="flex items-center gap-2 px-2 py-1.5 pl-8 hover:bg-muted/30">
+                                  <input
+                                    type="checkbox"
+                                    checked={isChecked}
+                                    onChange={() => toggleReceival(r.id)}
+                                    className="h-4 w-4 shrink-0"
+                                  />
+                                  <button
+                                    type="button"
+                                    onClick={() => setExpandedReceivalId(isExpanded ? null : r.id)}
+                                    className={cn(
+                                      "flex items-center gap-1.5 flex-1 text-left text-sm min-w-0",
+                                      hasExistingLc && "opacity-60",
+                                    )}
+                                  >
+                                    <span className="text-muted-foreground w-4 shrink-0">
+                                      {isExpanded
+                                        ? <ChevronDown className="h-3.5 w-3.5" />
+                                        : <ChevronRight className="h-3.5 w-3.5" />}
+                                    </span>
+                                    <span className={cn("font-mono shrink-0", hasExistingLc && "line-through")}>{r.receival_number}</span>
+                                    <span className={cn("text-muted-foreground truncate", hasExistingLc && "line-through")}>· {formatDate(r.date)}</span>
+                                    {hasExistingLc && (
+                                      <Badge variant="secondary" className="ml-auto text-[10px] shrink-0 bg-amber-100 text-amber-700 border-amber-200">
+                                        {existingLcs!.join(', ')}
+                                      </Badge>
+                                    )}
+                                  </button>
+                                </div>
+
+                                {/* Expanded items */}
+                                {isExpanded && (
+                                  <div className="bg-muted/20 px-4 pb-2 pl-12">
+                                    {loadingExpanded ? (
+                                      <div className="space-y-1 pt-2">
+                                        {[1, 2].map((n) => <div key={n} className="h-5 rounded bg-muted animate-pulse" />)}
+                                      </div>
+                                    ) : (expandedItems ?? []).length === 0 ? (
+                                      <p className="text-xs text-muted-foreground pt-2">No billable items</p>
+                                    ) : (
+                                      <table className="w-full text-xs mt-2">
+                                        <thead>
+                                          <tr className="text-muted-foreground border-b">
+                                            <th className="text-left py-1 font-medium">Item</th>
+                                            <th className="text-right py-1 font-medium">Received</th>
+                                            <th className="text-right py-1 font-medium">Remaining</th>
+                                            <th className="text-right py-1 font-medium">Unit Cost</th>
+                                          </tr>
+                                        </thead>
+                                        <tbody>
+                                          {(expandedItems ?? []).map((item) => (
+                                            <tr key={item.id} className="border-b last:border-0">
+                                              <td className="py-1 pr-2">{item.item_name}</td>
+                                              <td className="text-right py-1">{item.qty_received}</td>
+                                              <td className={cn('text-right py-1 font-medium', item.remaining_qty === 0 && 'text-amber-600')}>
+                                                {item.remaining_qty}
+                                              </td>
+                                              <td className="text-right py-1">{formatCurrency(item.unit_cost, 'QAR')}</td>
+                                            </tr>
+                                          ))}
+                                        </tbody>
+                                      </table>
+                                    )}
+                                  </div>
+                                )}
+                              </div>
+                            )
+                          })}
                         </div>
                       )}
                     </div>
@@ -1074,6 +1256,19 @@ export default function LandedCostsPage() {
   const [selected, setSelected] = useState<LandedCost | null>(null)
 
   const { data: landedCosts, isLoading } = useLandedCosts({ search })
+
+  const searchParams = useSearchParams()
+  const router = useRouter()
+
+  useEffect(() => {
+    const openId = searchParams?.get('open')
+    if (!openId) return
+    const lc = landedCosts?.find((row) => row.id === openId)
+    if (lc) {
+      setSelected(lc)
+      router.replace('/purchase/landed-costs', { scroll: false })
+    }
+  }, [searchParams, landedCosts, router, setSelected])
 
   const columns: ColumnDef<LandedCost>[] = [
     {
@@ -1127,7 +1322,7 @@ export default function LandedCostsPage() {
       <PageHeader
         title="Landed Costs"
         description="Allocate freight, customs and other costs to received goods"
-        action={{ label: '+ Create Landed Cost', onClick: () => setCreateOpen(true) }}
+        action={{ label: 'Create Landed Cost', onClick: () => setCreateOpen(true) }}
       />
 
       <SearchInput value={search} onChange={setSearch} placeholder="Search LC number or description…" />
@@ -1135,7 +1330,7 @@ export default function LandedCostsPage() {
       {isLoading ? (
         <div className="space-y-3">{Array.from({ length: 3 }).map((_, i) => <Skeleton key={i} className="h-12 w-full rounded-md" />)}</div>
       ) : (
-        <DataTable columns={columns} data={landedCosts ?? []} />
+        <DataTable columns={columns} data={landedCosts ?? []} emptyState={{ title: 'No landed costs found', description: 'Create a landed cost to allocate freight, customs and other costs to received goods' }} />
       )}
 
       <CreateLcDialog open={createOpen} onOpenChange={setCreateOpen} />

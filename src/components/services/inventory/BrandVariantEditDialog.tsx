@@ -11,6 +11,7 @@ import { useCreateBrandVariant, useUpdateBrandVariant, useVariantWarehouseStock,
 import { useWarehouses } from '@/hooks/useWarehouses'
 import { createClient } from '@/lib/supabase/client'
 import { useQueryClient } from '@tanstack/react-query'
+import { queryKeys } from '@/lib/queryKeys'
 
 type Props = {
   open: boolean
@@ -69,13 +70,11 @@ export function BrandVariantEditDialog({ open, onOpenChange, itemId, variant }: 
 
   useEffect(() => {
     if (open) {
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      const v = variant as any
-      setBrand(v?.brand ?? '')
-      setCode(v?.code ?? '')
-      setSellingPrice(v?.selling_price != null ? String(v.selling_price) : '')
-      setMarginPercent(v?.margin_percent != null ? String(v.margin_percent) : '0')
-      setReorderPoint(v ? String(v.reorder_point ?? 0) : '0')
+      setBrand(variant?.brand ?? '')
+      setCode(variant?.code ?? '')
+      setSellingPrice(variant?.selling_price != null ? String(variant.selling_price) : '')
+      setMarginPercent(variant?.margin_percent != null ? String(variant.margin_percent) : '0')
+      setReorderPoint(variant ? String(variant.reorder_point ?? 0) : '0')
       setAvgCost(variant?.average_cost != null ? String(variant.average_cost) : '')
     }
   }, [open, variant])
@@ -122,8 +121,7 @@ export function BrandVariantEditDialog({ open, onOpenChange, itemId, variant }: 
     setAllocating(true)
     try {
       for (const { warehouseId, targetQty } of changed) {
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        const { error } = await (supabase as any).rpc('allocate_warehouse_stock', {
+          const { error } = await supabase.rpc('allocate_warehouse_stock', {
           p_brand_variant_id: variantId,
           p_warehouse_id: warehouseId,
           p_target_qty: targetQty,
@@ -131,10 +129,10 @@ export function BrandVariantEditDialog({ open, onOpenChange, itemId, variant }: 
         })
         if (error) throw new Error(error.message ?? 'allocate_warehouse_stock failed')
       }
-      qc.invalidateQueries({ queryKey: ['variant_warehouse_stock'] })
-      qc.invalidateQueries({ queryKey: ['warehouse_stock'] })
-      qc.invalidateQueries({ queryKey: ['warehouses'] })
-      qc.invalidateQueries({ queryKey: ['brand_variants'] })
+      qc.invalidateQueries({ queryKey: queryKeys.inventory.variantWarehouseStock })
+      qc.invalidateQueries({ queryKey: queryKeys.warehouseOps.warehouseStockAll })
+      qc.invalidateQueries({ queryKey: queryKeys.warehouses.all })
+      qc.invalidateQueries({ queryKey: queryKeys.misc.brandVariantsUnderscore })
     } finally {
       setAllocating(false)
     }
@@ -180,8 +178,7 @@ export function BrandVariantEditDialog({ open, onOpenChange, itemId, variant }: 
         { item_id: itemId, ...payload },
         {
           onSuccess: async (data) => {
-            // eslint-disable-next-line @typescript-eslint/no-explicit-any
-            const newId = (data as any)?.id
+            const newId = (data as { id?: string } | undefined)?.id
             try {
               if (newId) await applyAllocations(newId, unitCost)
               toast.success('Variant added')
@@ -206,16 +203,18 @@ export function BrandVariantEditDialog({ open, onOpenChange, itemId, variant }: 
         </DialogHeader>
         <form onSubmit={handleSubmit} className="space-y-4">
           <div className="space-y-1">
-            <Label>Brand *</Label>
+            <Label htmlFor="bv-brand">Brand *</Label>
             <Input
+              id="bv-brand"
               value={brand}
               onChange={(e) => setBrand(e.target.value)}
               placeholder="e.g. LG, Alfacool"
             />
           </div>
           <div className="space-y-1">
-            <Label>SKU Code</Label>
+            <Label htmlFor="bv-sku">SKU Code</Label>
             <Input
+              id="bv-sku"
               value={code}
               onChange={(e) => setCode(e.target.value)}
               placeholder="Auto-generated if blank"
@@ -224,8 +223,9 @@ export function BrandVariantEditDialog({ open, onOpenChange, itemId, variant }: 
           </div>
           <div className="grid grid-cols-2 gap-3">
             <div className="space-y-1">
-              <Label>Selling Price (QAR)</Label>
+              <Label htmlFor="bv-selling-price">Selling Price (QAR)</Label>
               <Input
+                id="bv-selling-price"
                 type="number" min="0" step="0.01"
                 value={sellingPrice}
                 onChange={(e) => setSellingPrice(e.target.value)}
@@ -233,8 +233,9 @@ export function BrandVariantEditDialog({ open, onOpenChange, itemId, variant }: 
               />
             </div>
             <div className="space-y-1">
-              <Label>Markup %</Label>
+              <Label htmlFor="bv-markup">Markup %</Label>
               <Input
+                id="bv-markup"
                 type="number" min="0" step="0.01"
                 value={marginPercent}
                 onChange={(e) => setMarginPercent(e.target.value)}
@@ -245,7 +246,7 @@ export function BrandVariantEditDialog({ open, onOpenChange, itemId, variant }: 
           </div>
           <div className="grid grid-cols-2 gap-3">
             <div className="space-y-1">
-              <Label>Avg Cost (QAR)</Label>
+              <Label htmlFor="bv-avg-cost">Avg Cost (QAR)</Label>
               {avgCostLocked ? (
                 <div className="space-y-1">
                   <Input
@@ -268,8 +269,9 @@ export function BrandVariantEditDialog({ open, onOpenChange, itemId, variant }: 
               )}
             </div>
             <div className="space-y-1">
-              <Label>Reorder Point</Label>
+              <Label htmlFor="bv-reorder-point">Reorder Point</Label>
               <Input
+                id="bv-reorder-point"
                 type="number" min="0" step="1"
                 value={reorderPoint}
                 onChange={(e) => setReorderPoint(e.target.value)}

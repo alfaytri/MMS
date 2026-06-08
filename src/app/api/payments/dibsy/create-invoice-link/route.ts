@@ -1,8 +1,14 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createAdminClient } from '@/lib/supabase/admin'
 import { createDibsyPayment } from '@/lib/dibsy'
+import { requireAuth } from '@/lib/auth/require-admin'
 
 export async function POST(req: NextRequest) {
+  const auth = await requireAuth()
+  if (!auth.ok) {
+    return NextResponse.json({ error: auth.message }, { status: auth.status })
+  }
+
   try {
     const { invoice_ids } = (await req.json()) as {
       invoice_ids: string[]

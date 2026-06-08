@@ -22,6 +22,7 @@ import {
 } from '@/components/ui/table'
 import { Skeleton } from '@/components/ui/skeleton'
 import { DataTablePagination } from './DataTablePagination'
+import { EmptyState } from './EmptyState'
 import { cn } from '@/lib/utils'
 
 export interface ManualPaginationProps {
@@ -39,6 +40,12 @@ interface DataTableProps<TData, TValue> {
   pageSize?: number
   onRowClick?: (row: TData) => void
   manualPagination?: ManualPaginationProps
+  emptyState?: {
+    title?: string
+    description?: string
+    icon?: React.ReactNode
+    action?: React.ReactNode
+  }
 }
 
 export function DataTable<TData, TValue>({
@@ -49,6 +56,7 @@ export function DataTable<TData, TValue>({
   pageSize = 20,
   onRowClick,
   manualPagination,
+  emptyState,
 }: DataTableProps<TData, TValue>) {
   const [sorting, setSorting] = useState<SortingState>([])
   const [columnFilters, setColumnFilters] = useState<ColumnFiltersState>([])
@@ -151,8 +159,13 @@ export function DataTable<TData, TValue>({
               ))
             ) : (
               <TableRow>
-                <TableCell colSpan={columns.length} className="h-24 text-center text-muted-foreground">
-                  No results found.
+                <TableCell colSpan={columns.length} className="p-0">
+                  <EmptyState
+                    title={emptyState?.title}
+                    description={emptyState?.description}
+                    icon={emptyState?.icon}
+                    action={emptyState?.action}
+                  />
                 </TableCell>
               </TableRow>
             )}

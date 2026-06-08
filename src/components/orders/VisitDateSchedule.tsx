@@ -118,7 +118,7 @@ export function VisitDateSchedule({ windows, onChange, services = [] }: Props) {
 
   return (
     <div className="space-y-1.5">
-      <Label className="text-xs font-semibold uppercase tracking-wide text-slate-500">
+      <Label className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
         Requested Arrival Window
       </Label>
 
@@ -139,7 +139,7 @@ export function VisitDateSchedule({ windows, onChange, services = [] }: Props) {
             <div
               key={w.date}
               className={cn(
-                'rounded-lg border border-slate-200 bg-white',
+                'rounded-lg border border-border bg-white',
                 isMultiDay && 'overflow-hidden',
               )}
             >
@@ -147,13 +147,13 @@ export function VisitDateSchedule({ windows, onChange, services = [] }: Props) {
               <div
                 className={cn(
                   'flex items-center gap-1 px-2 py-1.5',
-                  isMultiDay && 'cursor-pointer hover:bg-slate-50 transition-colors',
+                  isMultiDay && 'cursor-pointer hover:bg-muted transition-colors',
                 )}
                 onClick={() => isMultiDay && toggleOpen(w.date)}
               >
                 {/* Accordion chevron */}
                 {isMultiDay && (
-                  <span className="shrink-0 text-slate-400">
+                  <span className="shrink-0 text-muted-foreground">
                     {isOpen
                       ? <ChevronDown className="h-3.5 w-3.5" />
                       : <ChevronRight className="h-3.5 w-3.5" />
@@ -162,7 +162,7 @@ export function VisitDateSchedule({ windows, onChange, services = [] }: Props) {
                 )}
 
                 {/* Date + time label */}
-                <span className="shrink-0 text-xs font-semibold text-slate-700">
+                <span className="shrink-0 text-xs font-semibold text-foreground">
                   {format(parseISO(w.date), 'd MMM yyyy')}
                 </span>
                 {rangeLabel && (
@@ -191,7 +191,7 @@ export function VisitDateSchedule({ windows, onChange, services = [] }: Props) {
                         type="button"
                         disabled={i === 0}
                         onClick={() => swapTimeWindows(i, i - 1)}
-                        className="rounded p-0.5 text-slate-400 hover:text-slate-600 disabled:opacity-20"
+                        className="rounded p-0.5 text-muted-foreground hover:text-muted-foreground disabled:opacity-20"
                         title="Move window up"
                       >
                         <ArrowUp className="h-3 w-3" />
@@ -200,7 +200,7 @@ export function VisitDateSchedule({ windows, onChange, services = [] }: Props) {
                         type="button"
                         disabled={i === sorted.length - 1}
                         onClick={() => swapTimeWindows(i, i + 1)}
-                        className="rounded p-0.5 text-slate-400 hover:text-slate-600 disabled:opacity-20"
+                        className="rounded p-0.5 text-muted-foreground hover:text-muted-foreground disabled:opacity-20"
                         title="Move window down"
                       >
                         <ArrowDown className="h-3 w-3" />
@@ -214,7 +214,7 @@ export function VisitDateSchedule({ windows, onChange, services = [] }: Props) {
                     <button
                       type="button"
                       onClick={() => updateWindow(w.date, { fromTime: null, toTime: null })}
-                      className="rounded p-0.5 text-slate-400 hover:text-red-500"
+                      className="rounded p-0.5 text-muted-foreground hover:text-destructive"
                       aria-label="Clear time window"
                     >
                       <X className="h-3 w-3" />
@@ -239,8 +239,8 @@ export function VisitDateSchedule({ windows, onChange, services = [] }: Props) {
                       {services.map((s) => (
                         <div key={s.serviceId} className="flex items-center gap-1.5">
                           <Check className="h-3 w-3 shrink-0 text-orange-400" />
-                          <span className="truncate text-[11px] text-slate-600">
-                            {s.qty > 1 && <span className="font-semibold text-slate-500">{s.qty}× </span>}
+                          <span className="truncate text-[11px] text-muted-foreground">
+                            {s.qty > 1 && <span className="font-semibold text-muted-foreground">{s.qty}× </span>}
                             {s.serviceName}
                           </span>
                         </div>

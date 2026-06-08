@@ -3,12 +3,13 @@
 
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import type { TraccarDevice, TraccarPosition, GeofenceResponse, LeafletGeometry } from '@/lib/traccar'
+import { queryKeys } from '@/lib/queryKeys'
 
 // ── Devices ─────────────────────────────────────────────────────
 
 export function useTraccarDevices() {
   return useQuery({
-    queryKey: ['traccar-devices'],
+    queryKey: queryKeys.traccar.devices,
     queryFn: async (): Promise<TraccarDevice[]> => {
       const res = await fetch('/api/traccar/devices')
       if (!res.ok) throw new Error('Failed to fetch Traccar devices')
@@ -22,7 +23,7 @@ export function useTraccarDevices() {
 
 export function useTraccarPositions(deviceIds: number[]) {
   return useQuery({
-    queryKey: ['traccar-positions', deviceIds],
+    queryKey: queryKeys.traccar.positions(deviceIds),
     queryFn: async (): Promise<TraccarPosition[]> => {
       if (deviceIds.length === 0) return []
       const params = deviceIds.join(',')
@@ -44,7 +45,7 @@ export function useTraccarHistory(
   to: string | null
 ) {
   return useQuery({
-    queryKey: ['traccar-history', deviceId, from, to],
+    queryKey: queryKeys.traccar.history(deviceId, from, to),
     queryFn: async (): Promise<TraccarPosition[]> => {
       const res = await fetch(
         `/api/traccar/positions/history?deviceId=${deviceId}&from=${encodeURIComponent(from!)}&to=${encodeURIComponent(to!)}`
@@ -61,7 +62,7 @@ export function useTraccarHistory(
 
 export function useTraccarGeofences() {
   return useQuery({
-    queryKey: ['traccar-geofences'],
+    queryKey: queryKeys.traccar.geofences,
     queryFn: async (): Promise<GeofenceResponse[]> => {
       const res = await fetch('/api/traccar/geofences')
       if (!res.ok) throw new Error('Failed to fetch geofences')
@@ -92,7 +93,7 @@ export function useCreateGeofence() {
       return res.json() as Promise<GeofenceResponse>
     },
     onSuccess: () => {
-      qc.invalidateQueries({ queryKey: ['traccar-geofences'] })
+      qc.invalidateQueries({ queryKey: queryKeys.traccar.geofences })
     },
   })
 }
@@ -118,7 +119,7 @@ export function useUpdateGeofence() {
       }
     },
     onSuccess: () => {
-      qc.invalidateQueries({ queryKey: ['traccar-geofences'] })
+      qc.invalidateQueries({ queryKey: queryKeys.traccar.geofences })
     },
   })
 }
@@ -136,7 +137,7 @@ export function useDeleteGeofence() {
       }
     },
     onSuccess: () => {
-      qc.invalidateQueries({ queryKey: ['traccar-geofences'] })
+      qc.invalidateQueries({ queryKey: queryKeys.traccar.geofences })
     },
   })
 }

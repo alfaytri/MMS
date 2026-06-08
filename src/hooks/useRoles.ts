@@ -1,6 +1,7 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { createClient } from '@/lib/supabase/client'
 import type { DBTable, DBInsert, DBUpdate } from '@/types/database.types'
+import { queryKeys } from '@/lib/queryKeys'
 
 export type CustomRole = DBTable<'custom_roles'>
 export type CustomRoleInsert = DBInsert<'custom_roles'>
@@ -8,7 +9,7 @@ export type CustomRoleUpdate = DBUpdate<'custom_roles'>
 
 export function useRoles() {
   return useQuery({
-    queryKey: ['custom-roles'],
+    queryKey: queryKeys.roles.custom,
     queryFn: async () => {
       const supabase = createClient()
       const { data, error } = await supabase.from('custom_roles').select('*').is('deleted_at', null).order('name')
@@ -27,7 +28,7 @@ export function useCreateRole() {
       if (error) throw error
       return data
     },
-    onSuccess: () => { queryClient.invalidateQueries({ queryKey: ['custom-roles'] }) },
+    onSuccess: () => { queryClient.invalidateQueries({ queryKey: queryKeys.roles.custom }) },
   })
 }
 
@@ -40,7 +41,7 @@ export function useUpdateRole() {
       if (error) throw error
       return data
     },
-    onSuccess: () => { queryClient.invalidateQueries({ queryKey: ['custom-roles'] }) },
+    onSuccess: () => { queryClient.invalidateQueries({ queryKey: queryKeys.roles.custom }) },
   })
 }
 
@@ -52,13 +53,13 @@ export function useDeleteRole() {
       const { error } = await supabase.from('custom_roles').delete().eq('id', id)
       if (error) throw error
     },
-    onSuccess: () => { queryClient.invalidateQueries({ queryKey: ['custom-roles'] }) },
+    onSuccess: () => { queryClient.invalidateQueries({ queryKey: queryKeys.roles.custom }) },
   })
 }
 
 export function useUserRoles(profileId: string | null) {
   return useQuery({
-    queryKey: ['user-roles', profileId],
+    queryKey: queryKeys.roles.userRoles(profileId),
     queryFn: async () => {
       const supabase = createClient()
       const { data, error } = await supabase
@@ -82,8 +83,8 @@ export function useAssignRole() {
       return data
     },
     onSuccess: (_, variables) => {
-      queryClient.invalidateQueries({ queryKey: ['user-roles', variables.profile_id] })
-      queryClient.invalidateQueries({ queryKey: ['profiles'] })
+      queryClient.invalidateQueries({ queryKey: queryKeys.roles.userRoles(variables.profile_id) })
+      queryClient.invalidateQueries({ queryKey: queryKeys.profiles.all })
     },
   })
 }
@@ -98,8 +99,8 @@ export function useRemoveRole() {
       return profileId
     },
     onSuccess: (profileId) => {
-      queryClient.invalidateQueries({ queryKey: ['user-roles', profileId] })
-      queryClient.invalidateQueries({ queryKey: ['profiles'] })
+      queryClient.invalidateQueries({ queryKey: queryKeys.roles.userRoles(profileId) })
+      queryClient.invalidateQueries({ queryKey: queryKeys.profiles.all })
     },
   })
 }

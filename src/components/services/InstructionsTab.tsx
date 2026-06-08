@@ -30,8 +30,8 @@ const CONTENT_ICON: Record<string, React.ReactNode> = {
 }
 
 const CONTENT_COLOR: Record<string, string> = {
-  text: 'bg-slate-100 text-slate-600',
-  pdf: 'bg-red-100 text-red-600',
+  text: 'bg-muted text-muted-foreground',
+  pdf: 'bg-red-100 text-destructive',
   image: 'bg-purple-100 text-purple-600',
   video: 'bg-orange-100 text-orange-600',
 }
@@ -178,7 +178,7 @@ function MaterialsSubTab({ enabled, onNew, onEdit }: MaterialsSubTabProps) {
                     <Badge
                       variant="outline"
                       className={instruction.status === 'active'
-                        ? 'border-green-500 text-green-600 text-[10px]'
+                        ? 'border-green-500 text-success text-[10px]'
                         : 'text-[10px] text-muted-foreground'}
                     >
                       {instruction.status ?? 'active'}

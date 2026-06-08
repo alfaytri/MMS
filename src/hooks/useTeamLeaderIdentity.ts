@@ -4,17 +4,18 @@
 import { useQuery } from '@tanstack/react-query'
 import { createClient } from '@/lib/supabase/client'
 import type { TlIdentity, TlTeamOption } from '@/types/team-leader'
+import { queryKeys } from '@/lib/queryKeys'
 
 export function useTeamLeaderIdentity() {
   return useQuery<TlIdentity | null>({
-    queryKey: ['tl-identity'],
+    queryKey: queryKeys.teamLeader.identity,
     queryFn: async (): Promise<TlIdentity | null> => {
       const supabase = createClient()
       const { data: { user } } = await supabase.auth.getUser()
       if (!user) return null
 
       // Resolve profile
-      const { data: profile, error: profileError } = await (supabase as any)
+      const { data: profile, error: profileError } = await supabase
         .from('profiles')
         .select('id, user_type, user_custom_roles!user_custom_roles_profile_id_fkey(custom_roles(permissions))')
         .eq('auth_user_id', user.id)
@@ -32,7 +33,7 @@ export function useTeamLeaderIdentity() {
       // Resolve teamId via DB join — never use user_metadata.team_id
       let teamId: string | null = null
       if (profile.user_type === 'team-leader') {
-        const { data: emp } = await (supabase as any)
+        const { data: emp } = await supabase
           .from('employees')
           .select('id, team_id')
           .eq('profile_id', profile.id)
@@ -42,14 +43,14 @@ export function useTeamLeaderIdentity() {
       }
 
       // Use RPC to bypass PostgREST schema cache for new column
-      const { data: isDmFlag } = await (supabase as any)
+      const { data: isDmFlag } = await supabase
         .rpc('check_is_division_manager', { p_profile_id: profile.id })
       const isDivisionManager = isDmFlag === true
 
       // Fetch user's division IDs for multi-team access (only if division manager)
       let divisionIds: string[] = []
       if (isDivisionManager) {
-        const { data: userDivs } = await (supabase as any)
+        const { data: userDivs } = await supabase
           .from('user_divisions')
           .select('division_id')
           .eq('profile_id', profile.id)
@@ -65,10 +66,10 @@ export function useTeamLeaderIdentity() {
 
 export function useAllTeamsForSelect(divisionIds?: string[]) {
   return useQuery<TlTeamOption[]>({
-    queryKey: ['tl-all-teams-select', divisionIds ?? 'all'],
+    queryKey: queryKeys.teamLeader.allTeamsSelect(divisionIds),
     queryFn: async () => {
       const supabase = createClient()
-      let query = (supabase as any)
+      let query = supabase
         .from('teams')
         .select('id, name, division_id, divisions(name)')
         .is('deleted_at', null)

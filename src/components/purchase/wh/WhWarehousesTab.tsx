@@ -1,15 +1,16 @@
 'use client'
 
-import React, { useMemo } from 'react'
-import { useRouter } from 'next/navigation'
+import React, { useMemo, useState } from 'react'
 import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip'
-import { WarehouseIcon, MapPin, User, Package, DollarSign, ArrowRight } from 'lucide-react'
+import { WarehouseIcon, MapPin, User, Package, DollarSign, ArrowRight, ChevronDown, ChevronUp } from 'lucide-react'
 import { Warehouse } from '@/hooks/useWarehouses'
+import { WarehouseStockTree } from '@/components/purchase/wh/WarehouseStockTree'
 
 interface Props {
   warehouses: Warehouse[]
+  onViewStock?: (warehouseId: string) => void
 }
 
 const SEGMENT_COLORS = [
@@ -18,16 +19,20 @@ const SEGMENT_COLORS = [
   'bg-indigo-500', 'bg-pink-500', 'bg-lime-500', 'bg-sky-500',
 ]
 
-export const WhWarehousesTab = React.memo(function WhWarehousesTab({ warehouses }: Props) {
-  const router = useRouter()
-
+export const WhWarehousesTab = React.memo(function WhWarehousesTab({ warehouses, onViewStock }: Props) {
   const totalValue = useMemo(
     () => warehouses.reduce((sum, wh) => sum + (wh.total_value ?? 0), 0),
     [warehouses],
   )
+  // Track which warehouse cards have their stock tree expanded
+  const [expandedWh, setExpandedWh] = useState<Set<string>>(new Set())
+
+  function toggleExpand(id: string) {
+    setExpandedWh((prev) => { const n = new Set(prev); n.has(id) ? n.delete(id) : n.add(id); return n })
+  }
 
   function viewStock(warehouseId: string) {
-    router.replace(`/purchase/warehouses?tab=stock&warehouse=${warehouseId}`, { scroll: false })
+    onViewStock?.(warehouseId)
   }
 
   if (warehouses.length === 0) {
@@ -44,7 +49,9 @@ export const WhWarehousesTab = React.memo(function WhWarehousesTab({ warehouses 
     <div className="space-y-6">
       {/* ── Warehouse cards ── */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-        {warehouses.map((wh) => (
+        {warehouses.map((wh) => {
+          const isExpanded = expandedWh.has(wh.id)
+          return (
           <Card key={wh.id} className="hover:shadow-md transition-shadow">
             <CardHeader className="pb-2">
               <CardTitle className="text-sm flex items-center gap-2">
@@ -59,8 +66,19 @@ export const WhWarehousesTab = React.memo(function WhWarehousesTab({ warehouses 
               </div>
               <div className="flex items-center gap-1.5 text-xs">
                 <User className="h-3 w-3 flex-shrink-0" />
-                <span className="text-muted-foreground">Manager:</span>
-                <span className="font-medium text-foreground">{wh.manager_name ?? 'Unassigned'}</span>
+                <TooltipProvider delayDuration={200}>
+                  <Tooltip>
+                    <TooltipTrigger asChild>
+                      <span className="text-muted-foreground cursor-help border-b border-dashed border-muted-foreground/40">Field RPs:</span>
+                    </TooltipTrigger>
+                    <TooltipContent side="top"><p className="text-xs">Field Responsible Persons</p></TooltipContent>
+                  </Tooltip>
+                </TooltipProvider>
+                <span className="font-medium text-foreground truncate">
+                  {wh.field_rps.length > 0
+                    ? wh.field_rps.map((rp) => rp.full_name ?? 'Unnamed').join(', ')
+                    : 'Unassigned'}
+                </span>
               </div>
               <div className="pt-2 border-t flex justify-between items-center">
                 <div className="flex items-center gap-1 text-xs">
@@ -72,20 +90,44 @@ export const WhWarehousesTab = React.memo(function WhWarehousesTab({ warehouses 
                   QR {(wh.total_value ?? 0).toLocaleString()}
                 </div>
               </div>
-              <div className="pt-1">
+
+              {/* Expand / collapse stock tree */}
+              {(wh.item_count ?? 0) > 0 && (
+                <div className="pt-1">
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    className="h-7 text-xs w-full justify-between gap-1 text-muted-foreground hover:text-foreground"
+                    onClick={() => toggleExpand(wh.id)}
+                  >
+                    <span>{isExpanded ? 'Hide items' : 'Show items'}</span>
+                    {isExpanded
+                      ? <ChevronUp   className="h-3 w-3" />
+                      : <ChevronDown className="h-3 w-3" />}
+                  </Button>
+                  {isExpanded && (
+                    <div className="mt-2 max-h-[320px] overflow-y-auto rounded-md">
+                      <WarehouseStockTree warehouseId={wh.id} warehouses={warehouses} />
+                    </div>
+                  )}
+                </div>
+              )}
+
+              <div>
                 <Button
                   variant="ghost"
                   size="sm"
                   className="h-7 text-xs w-full justify-end gap-1 text-muted-foreground hover:text-foreground"
                   onClick={() => viewStock(wh.id)}
                 >
-                  View Stock
+                  View in Stock Overview
                   <ArrowRight className="h-3 w-3" />
                 </Button>
               </div>
             </CardContent>
           </Card>
-        ))}
+          )
+        })}
       </div>
 
       {/* ── Value comparison bar ── */}

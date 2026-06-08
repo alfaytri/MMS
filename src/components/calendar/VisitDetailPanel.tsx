@@ -93,7 +93,7 @@ export function VisitDetailPanel({
               {visit.status}
             </span>
             {visit.source_type === 'site_visit' && (
-              <span className="inline-flex items-center rounded-full border border-green-200 bg-green-50 px-3 py-1 text-xs font-semibold text-green-700">
+              <span className="inline-flex items-center rounded-full border border-green-200 bg-success/10 px-3 py-1 text-xs font-semibold text-green-700">
                 Site Visit
               </span>
             )}

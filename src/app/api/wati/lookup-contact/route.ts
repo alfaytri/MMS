@@ -1,5 +1,6 @@
 import { type NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@supabase/supabase-js'
+import type { Database } from '@/types/database.types'
 
 const WATI_URL   = (process.env.WATI_API_URL ?? '').replace(/\/$/, '')
 const WATI_TOKEN = (process.env.WATI_API_TOKEN ?? '').replace(/^Bearer\s+/i, '')
@@ -54,10 +55,10 @@ export async function GET(req: NextRequest) {
 
   const contact = await watiRes.json()
 
-  const supabase = createClient(SUPA_URL, SUPA_KEY)
+  const supabase = createClient<Database>(SUPA_URL, SUPA_KEY)
 
   // Resolve customer_id via phone lookup
-  const { data: phoneLookup } = await (supabase as any)
+  const { data: phoneLookup } = await supabase
     .from('service_customer_phones')
     .select('customer_id')
     .eq('phone', phone)
@@ -77,14 +78,14 @@ export async function GET(req: NextRequest) {
     row.last_message_at = date
   }
 
-  const { error: upsertErr } = await (supabase.from('chat_conversations') as any)
-    .upsert(row, { onConflict: 'wati_phone', ignoreDuplicates: false })
+  const { error: upsertErr } = await supabase.from('chat_conversations')
+    .upsert(row as Database['public']['Tables']['chat_conversations']['Insert'], { onConflict: 'wati_phone', ignoreDuplicates: false })
 
   if (upsertErr)
     return NextResponse.json({ error: upsertErr.message }, { status: 500 })
 
   // Return the full conversation row (with customer name join)
-  const { data: convo, error: fetchErr } = await (supabase as any)
+  const { data: convo, error: fetchErr } = await supabase
     .from('chat_conversations')
     .select(`
       id, customer_id, conversation_type, wati_phone, wati_contact_name,

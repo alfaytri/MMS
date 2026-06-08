@@ -16,9 +16,10 @@ interface Props {
   open: boolean
   onOpenChange: (open: boolean) => void
   onConfirm: (result: CustomerLookupResult) => void
+  title?: string
 }
 
-export function PhoneLookupModal({ open, onOpenChange, onConfirm }: Props) {
+export function PhoneLookupModal({ open, onOpenChange, onConfirm, title = 'New Order' }: Props) {
   const [step, setStep] = useState<Step>('phone')
   const [countryCode, setCountryCode] = useState('+974')
   const [phone, setPhone] = useState('')
@@ -81,7 +82,7 @@ export function PhoneLookupModal({ open, onOpenChange, onConfirm }: Props) {
     <Dialog open={open} onOpenChange={(v) => { onOpenChange(v); if (!v) handleReset() }}>
       <DialogContent className="sm:max-w-md">
         <DialogHeader>
-          <DialogTitle>New Order</DialogTitle>
+          <DialogTitle>{title}</DialogTitle>
         </DialogHeader>
 
         {step === 'phone' && (
@@ -114,11 +115,11 @@ export function PhoneLookupModal({ open, onOpenChange, onConfirm }: Props) {
 
         {step === 'found' && lookupResult && (
           <div className="space-y-4">
-            <div className="flex items-start gap-3 rounded-lg border border-green-200 bg-green-50 p-4">
-              <CheckCircle className="mt-0.5 h-5 w-5 shrink-0 text-green-600" />
+            <div className="flex items-start gap-3 rounded-lg border border-green-200 bg-success/10 p-4">
+              <CheckCircle className="mt-0.5 h-5 w-5 shrink-0 text-success" />
               <div>
-                <p className="font-semibold text-slate-900">{lookupResult.customerName}</p>
-                <p className="text-sm text-slate-500">
+                <p className="font-semibold text-foreground">{lookupResult.customerName}</p>
+                <p className="text-sm text-muted-foreground">
                   {lookupResult.addressCount} address{lookupResult.addressCount !== 1 ? 'es' : ''} ·{' '}
                   {lookupResult.orderCount} past order{lookupResult.orderCount !== 1 ? 's' : ''}
                 </p>
@@ -135,7 +136,7 @@ export function PhoneLookupModal({ open, onOpenChange, onConfirm }: Props) {
 
         {step === 'new-customer' && (
           <div className="space-y-4">
-            <div className="flex items-center gap-2 text-sm text-slate-500">
+            <div className="flex items-center gap-2 text-sm text-muted-foreground">
               <UserPlus className="h-4 w-4" />
               New customer — {fullPhone}
             </div>
@@ -162,7 +163,7 @@ export function PhoneLookupModal({ open, onOpenChange, onConfirm }: Props) {
               </div>
             </div>
             <div className="space-y-2">
-              <p className="text-sm text-slate-600">
+              <p className="text-sm text-muted-foreground">
                 Does this customer use another number for service requests?
               </p>
               <div className="flex gap-4 text-sm">

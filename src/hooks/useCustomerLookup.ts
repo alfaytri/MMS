@@ -24,7 +24,7 @@ export function useCustomerLookup() {
     mutationFn: async (phone: string): Promise<LookupResult> => {
       const normalizedPhone = phone.replace(/\s+/g, '')
 
-      const { data, error } = await (supabase as any)
+      const { data, error } = await supabase
         .from('service_customer_phones')
         .select(`
           id,
@@ -35,8 +35,8 @@ export function useCustomerLookup() {
         .single()
 
       if (!error && data) {
-        const customer = data.service_customers as any
-        const { count: orderCount } = await (supabase as any)
+        const customer = data.service_customers as { name: string; service_customer_addresses: { id: string }[] }
+        const { count: orderCount } = await supabase
           .from('orders')
           .select('id', { count: 'exact', head: true })
           .eq('service_customer_id', data.customer_id)
@@ -47,7 +47,7 @@ export function useCustomerLookup() {
           phoneId: data.id,
           customerName: customer.name,
           phone: normalizedPhone,
-          addressCount: (customer.service_customer_addresses as any[]).length,
+          addressCount: customer.service_customer_addresses.length,
           orderCount: orderCount ?? 0,
         }
       }
@@ -67,14 +67,14 @@ export function useCustomerLookup() {
       linkPhone?: string | null
       entityType?: 'individual' | 'business'
     }): Promise<CustomerLookupResult> => {
-      const { data, error } = await (supabase as any).rpc('create_service_customer', {
+      const { data, error } = await supabase.rpc('create_service_customer', {
         p_name:       name.trim(),
         p_phone:      phone.trim(),
-        p_link_phone: linkPhone?.trim() ?? null,
+        p_link_phone: linkPhone?.trim() ?? undefined,
       })
       if (error || !data) throw new Error(error?.message ?? 'Failed to create customer')
 
-      const result = data as any
+      const result = data as { customer_id: string; phone_id: string; customer_name: string }
       return {
         found: true,
         customerId: result.customer_id,

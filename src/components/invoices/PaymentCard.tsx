@@ -25,7 +25,7 @@ const PAYMENT_STATUS_CONFIG: Record<string, {
   pending:   { label: 'Pending',   color: 'bg-amber-100 text-amber-700',     icon: Clock },
   processing:{ label: 'Processing',color: 'bg-blue-100 text-blue-700',       icon: Clock },
   failed:    { label: 'Failed',    color: 'bg-red-100 text-red-700',         icon: XCircle },
-  refunded:  { label: 'Refunded',  color: 'bg-slate-100 text-slate-600',     icon: XCircle },
+  refunded:  { label: 'Refunded',  color: 'bg-muted text-muted-foreground',     icon: XCircle },
 }
 
 const METHOD_CONFIG: Record<string, {
@@ -108,7 +108,7 @@ export function PaymentCard({ payment, selected, onSelect }: Props) {
               <MethodIcon className="h-3 w-3 mr-0.5" /> {method.label}
             </Badge>
             {payment.invoice_source_type && (
-              <Badge className={cn('text-[10px] px-1.5 py-0', SOURCE_COLORS[payment.invoice_source_type] ?? 'bg-slate-100 text-slate-600')}>
+              <Badge className={cn('text-[10px] px-1.5 py-0', SOURCE_COLORS[payment.invoice_source_type] ?? 'bg-muted text-muted-foreground')}>
                 {payment.invoice_source_type}
               </Badge>
             )}
@@ -156,7 +156,7 @@ export function PaymentCard({ payment, selected, onSelect }: Props) {
         <div className="text-right shrink-0">
           <p className={cn(
             'text-sm font-semibold',
-            isFailed && 'line-through text-red-500'
+            isFailed && 'line-through text-destructive'
           )}>
             {formatCurrency(payment.amount)}
           </p>

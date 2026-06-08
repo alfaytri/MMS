@@ -87,8 +87,9 @@ export function GeofencePanel({
         <h3 className="text-xs font-semibold">New Geofence</h3>
         <div className="space-y-2">
           <div>
-            <Label className="text-[10px]">Name</Label>
+            <Label htmlFor="geo-new-name" className="text-[10px]">Name</Label>
             <Input
+              id="geo-new-name"
               className="h-7 text-xs"
               value={name}
               onChange={e => setName(e.target.value)}
@@ -96,8 +97,9 @@ export function GeofencePanel({
             />
           </div>
           <div>
-            <Label className="text-[10px]">Description</Label>
+            <Label htmlFor="geo-new-description" className="text-[10px]">Description</Label>
             <Input
+              id="geo-new-description"
               className="h-7 text-xs"
               value={description}
               onChange={e => setDescription(e.target.value)}
@@ -105,8 +107,9 @@ export function GeofencePanel({
             />
           </div>
           <div>
-            <Label className="text-[10px]">Color</Label>
+            <Label htmlFor="geo-new-color" className="text-[10px]">Color</Label>
             <input
+              id="geo-new-color"
               type="color"
               value={color}
               onChange={e => setColor(e.target.value)}
@@ -142,24 +145,27 @@ export function GeofencePanel({
         <h3 className="text-xs font-semibold">Edit Geofence</h3>
         <div className="space-y-2">
           <div>
-            <Label className="text-[10px]">Name</Label>
+            <Label htmlFor="geo-edit-name" className="text-[10px]">Name</Label>
             <Input
+              id="geo-edit-name"
               className="h-7 text-xs"
               value={name}
               onChange={e => setName(e.target.value)}
             />
           </div>
           <div>
-            <Label className="text-[10px]">Description</Label>
+            <Label htmlFor="geo-edit-description" className="text-[10px]">Description</Label>
             <Input
+              id="geo-edit-description"
               className="h-7 text-xs"
               value={description}
               onChange={e => setDescription(e.target.value)}
             />
           </div>
           <div>
-            <Label className="text-[10px]">Color</Label>
+            <Label htmlFor="geo-edit-color" className="text-[10px]">Color</Label>
             <input
+              id="geo-edit-color"
               type="color"
               value={color}
               onChange={e => setColor(e.target.value)}

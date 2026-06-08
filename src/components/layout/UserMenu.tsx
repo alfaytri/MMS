@@ -1,6 +1,7 @@
 'use client'
 
 import { useRouter } from 'next/navigation'
+import { useQueryClient } from '@tanstack/react-query'
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -13,6 +14,8 @@ import {
 import { Avatar, AvatarFallback } from '@/components/ui/avatar'
 import { LogOut, User } from 'lucide-react'
 import { createClient } from '@/lib/supabase/client'
+import { resetSessionVerified } from '@/components/auth/SessionGuard'
+import { resetCachedProfileId } from '@/hooks/useNotifications'
 
 interface UserMenuProps {
   email: string
@@ -21,6 +24,7 @@ interface UserMenuProps {
 
 export function UserMenu({ email, name }: UserMenuProps) {
   const router = useRouter()
+  const queryClient = useQueryClient()
   const initials = name
     ? name.split(' ').map((n) => n[0]).join('').toUpperCase().slice(0, 2)
     : email.slice(0, 2).toUpperCase()
@@ -28,6 +32,9 @@ export function UserMenu({ email, name }: UserMenuProps) {
   async function handleSignOut() {
     const supabase = createClient()
     await supabase.auth.signOut()
+    queryClient.clear()
+    resetSessionVerified()
+    resetCachedProfileId()
     router.push('/login')
     router.refresh()
   }

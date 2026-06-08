@@ -24,13 +24,11 @@ export async function POST(req: NextRequest) {
     while (formData.has(`building_${i}`)) {
       const blob = formData.get(`building_${i}`) as File
       const path = `escalations/${visitId}/building_${i}_${Date.now()}.jpg`
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      const { error } = await (supabase as any).storage
+      const { error } = await supabase.storage
         .from('team-escalations')
         .upload(path, blob, { contentType: 'image/jpeg', upsert: true })
       if (!error) {
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        const { data: { publicUrl } } = (supabase as any).storage
+        const { data: { publicUrl } } = supabase.storage
           .from('team-escalations').getPublicUrl(path)
         buildingUrls.push(publicUrl)
       }
@@ -43,13 +41,11 @@ export async function POST(req: NextRequest) {
     while (formData.has(`call_${i}`)) {
       const blob = formData.get(`call_${i}`) as File
       const path = `escalations/${visitId}/call_${i}_${Date.now()}.jpg`
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      const { error } = await (supabase as any).storage
+      const { error } = await supabase.storage
         .from('team-escalations')
         .upload(path, blob, { contentType: 'image/jpeg', upsert: true })
       if (!error) {
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        const { data: { publicUrl } } = (supabase as any).storage
+        const { data: { publicUrl } } = supabase.storage
           .from('team-escalations').getPublicUrl(path)
         callUrls.push(publicUrl)
       }
@@ -58,22 +54,20 @@ export async function POST(req: NextRequest) {
 
     // Update the source record's status
     if (sourceType === 'order' && sourceId) {
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      await (supabase as any)
+      await supabase
         .from('orders')
         .update({ status: 'customer-unavailable' })
         .eq('id', sourceId)
     } else if (sourceType === 'site_visit' && sourceId) {
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      await (supabase as any)
+      await supabase
         .from('site_visits')
         .update({ status: 'customer-unavailable' })
         .eq('id', sourceId)
     }
 
-    // Create CC escalation task
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const { error: taskErr } = await (supabase as any)
+    // Create CC escalation task — contact_center_tasks not yet in generated DB types
+    const supabaseAny = supabase as unknown as { from: (t: string) => { insert: (v: unknown) => Promise<{ error: Error | null }> } }
+    const { error: taskErr } = await supabaseAny
       .from('contact_center_tasks')
       .insert({
         visit_id:              visitId,

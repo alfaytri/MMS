@@ -38,13 +38,11 @@ export function DeliveryFormDialog({ open, onOpenChange, delivery }: Props) {
     setLines(
       items.map((item) => {
         const soLine = (so?.sale_order_lines ?? []).find(
-          // eslint-disable-next-line @typescript-eslint/no-explicit-any
-          (l: any) => l.item_name === item.item_name && l.brand_variant_id === item.brand_variant_id
+          (l) => l.item_name === item.item_name && l.brand_variant_id === item.brand_variant_id
         )
         return {
           ...item,
-          // eslint-disable-next-line @typescript-eslint/no-explicit-any
-          so_qty: (soLine as any)?.qty ?? 0,
+          so_qty: soLine?.qty ?? 0,
           delivered_qty_input: item.qty_delivered,
         }
       })
@@ -87,9 +85,9 @@ export function DeliveryFormDialog({ open, onOpenChange, delivery }: Props) {
         </DialogHeader>
         <div className="space-y-4">
           <div className="space-y-1">
-            <Label>Warehouse *</Label>
+            <Label htmlFor="delivery-warehouse">Warehouse *</Label>
             <Select value={warehouseId} onValueChange={(v) => setWarehouseId(v ?? '')}>
-              <SelectTrigger><SelectValue placeholder="Select warehouse" /></SelectTrigger>
+              <SelectTrigger id="delivery-warehouse"><SelectValue placeholder="Select warehouse" /></SelectTrigger>
               <SelectContent>
                 {(warehouses ?? []).map((w) => (
                   <SelectItem key={w.id} value={w.id}>{w.name}</SelectItem>

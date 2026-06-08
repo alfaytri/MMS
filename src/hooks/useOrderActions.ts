@@ -2,6 +2,7 @@
 import { useMutation, useQueryClient } from '@tanstack/react-query'
 import { createClient } from '@/lib/supabase/client'
 import type { OrderStatus } from '@/types/orders'
+import { queryKeys } from '@/lib/queryKeys'
 
 const VALID_TRANSITIONS: Record<OrderStatus, OrderStatus[]> = {
   tentative:              ['scheduled', 'cancelled'],
@@ -25,8 +26,8 @@ export function useOrderActions(orderId: string | null) {
 
   async function invalidate() {
     await Promise.all([
-      qc.invalidateQueries({ queryKey: ['orders'] }),
-      qc.invalidateQueries({ queryKey: ['order-detail', orderId] }),
+      qc.invalidateQueries({ queryKey: queryKeys.orders.all }),
+      qc.invalidateQueries({ queryKey: queryKeys.orders.detail(orderId) }),
     ])
   }
 

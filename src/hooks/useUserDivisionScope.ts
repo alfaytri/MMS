@@ -2,6 +2,7 @@ import { useQuery } from '@tanstack/react-query'
 import { createClient } from '@/lib/supabase/client'
 import { useCompanies, type Company } from '@/hooks/useCompanies'
 import { useAllDivisions, type Division } from '@/hooks/useDivisions'
+import { queryKeys } from '@/lib/queryKeys'
 
 interface UserDivisionScope {
   isSuperViewer:   boolean
@@ -23,7 +24,7 @@ export function useUserDivisionScope(): UserDivisionScope {
   const { data: allDivisions = [] } = useAllDivisions()
 
   const { data: claims } = useQuery({
-    queryKey: ['jwt-claims'],
+    queryKey: queryKeys.userDivisionScope.jwtClaims,
     queryFn: async () => {
       const supabase = createClient()
       const { data: { session } } = await supabase.auth.getSession()

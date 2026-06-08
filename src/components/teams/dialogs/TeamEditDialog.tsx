@@ -85,26 +85,20 @@ export function TeamEditDialog() {
   useEffect(() => {
     setSaveError(null)
     if (team) {
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      const parsed = splitPhone((team as any).phone ?? '')
+      const parsed = splitPhone(team.phone ?? '')
       form.reset({
         name_en:           team.name_en ?? team.name ?? '',
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        name_ar:           (team as any).name_ar ?? '',
+        name_ar:           team.name_ar ?? '',
         company_id:        team.division?.company_id ?? '',
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        division_id:       ((team as any).division_id as string) ?? '',
+        division_id:       team.division_id ?? '',
         countryCode:       parsed.code,
         phoneNumber:       parsed.digits,
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        is_normal:            (team as any).is_normal            ?? !(team.is_qc ?? false),
-        is_emergency:         team.is_emergency                  ?? false,
-        is_qc:                team.is_qc                         ?? false,
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        site_visit_order:     (team as any).site_visit_order     ?? false,
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        site_visit_quotation: (team as any).site_visit_quotation ?? false,
-        traccar_device_id:    team.traccar_device_id             ?? '',
+        is_normal:            team.is_normal            ?? !(team.is_qc ?? false),
+        is_emergency:         team.is_emergency         ?? false,
+        is_qc:                team.is_qc                ?? false,
+        site_visit_order:     team.site_visit_order     ?? false,
+        site_visit_quotation: team.site_visit_quotation ?? false,
+        traccar_device_id:    team.traccar_device_id    ?? '',
       })
     } else {
       form.reset({
@@ -142,12 +136,10 @@ export function TeamEditDialog() {
         await updateTeam.mutateAsync({
           id:     team!.id,
           before: team as unknown as Record<string, unknown>,
-          // eslint-disable-next-line @typescript-eslint/no-explicit-any
-          ...(payload as any),
+          ...payload,
         })
       } else {
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        await createTeam.mutateAsync(payload as any)
+        await createTeam.mutateAsync(payload)
       }
 
       closeTeamDialog()

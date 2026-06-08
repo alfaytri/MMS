@@ -18,6 +18,11 @@ import { useRoles, useDeleteRole, type CustomRole } from '@/hooks/useRoles'
 import {
   useProfiles, useCurrentUserProfile, useCreateMyProfile, type Profile,
 } from '@/hooks/useProfiles'
+
+type ProfileWithRelations = Profile & {
+  approval_role_assignments?: Array<{ role: string; deleted_at: string | null }>
+  user_custom_roles?: Array<{ role_id: string; custom_roles: { name: string; color?: string } | null }>
+}
 import { PERMISSION_GROUPS, ALL_PERMISSIONS, roleColor } from '@/lib/permissions'
 import { PermissionGate } from '@/components/shared/PermissionGate'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
@@ -32,7 +37,7 @@ import {
 
 const ROLE_COLOR_CLASSES: Record<string, string> = {
   blue:   'bg-blue-50   text-blue-700   border-blue-200',
-  green:  'bg-green-50  text-green-700  border-green-200',
+  green:  'bg-success/10  text-green-700  border-green-200',
   orange: 'bg-orange-50 text-orange-700 border-orange-200',
   purple: 'bg-purple-50 text-purple-700 border-purple-200',
   teal:   'bg-teal-50   text-teal-700   border-teal-200',
@@ -178,7 +183,7 @@ export default function UsersRolesPage() {
       id: 'approval_role',
       header: 'Approval Role',
       cell: ({ row }) => {
-        const assignments = (row.original as any).approval_role_assignments as Array<{ role: string; deleted_at: string | null }> | undefined
+        const assignments = (row.original as ProfileWithRelations).approval_role_assignments
         const active = assignments?.find((a) => !a.deleted_at)
         if (!active) return <span className="text-muted-foreground text-xs">—</span>
         const label: Record<string, string> = {

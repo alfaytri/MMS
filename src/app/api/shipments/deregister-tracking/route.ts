@@ -1,9 +1,9 @@
 import { NextResponse } from 'next/server'
-import { requireAdmin } from '@/lib/auth/require-admin'
+import { requirePermission } from '@/lib/auth/require-admin'
 import { stopTracking } from '@/lib/tracking/client17track'
 
 export async function POST(request: Request) {
-  const gate = await requireAdmin()
+  const gate = await requirePermission('purchase.shipments.manage')
   if (!gate.ok) return NextResponse.json({ error: gate.message }, { status: gate.status })
 
   const { tracking_number } = await request.json()

@@ -18,17 +18,17 @@ function ToolUnitRows({ itemId }: { itemId: string }) {
     available: 'bg-green-100 text-green-700',
     assigned: 'bg-blue-100 text-blue-700',
     maintenance: 'bg-amber-100 text-amber-700',
-    retired: 'bg-slate-100 text-slate-500',
+    retired: 'bg-muted text-muted-foreground',
   }
 
   return (
     <>
-      <tr className="bg-slate-50/50">
+      <tr className="bg-muted/50">
         <td colSpan={6} className="py-2 pl-12 pr-4">
           <div className="rounded border border-border overflow-x-auto">
             <table className="w-full text-xs">
               <thead>
-                <tr className="bg-slate-100">
+                <tr className="bg-muted">
                   <th className="text-left text-[10px] font-semibold py-1.5 px-2">SERIAL #</th>
                   <th className="text-left text-[10px] font-semibold py-1.5 px-2">BRAND</th>
                   <th className="text-left text-[10px] font-semibold py-1.5 px-2">CONDITION</th>
@@ -48,7 +48,7 @@ function ToolUnitRows({ itemId }: { itemId: string }) {
                     <td className="py-1.5 px-2">{unit.brand}</td>
                     <td className="py-1.5 px-2">{unit.condition}</td>
                     <td className="py-1.5 px-2">
-                      <span className={`rounded-full px-2 py-0.5 text-[10px] font-medium ${statusColor[unit.status] ?? 'bg-slate-100 text-slate-600'}`}>
+                      <span className={`rounded-full px-2 py-0.5 text-[10px] font-medium ${statusColor[unit.status] ?? 'bg-muted text-muted-foreground'}`}>
                         {unit.status}
                       </span>
                     </td>

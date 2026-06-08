@@ -18,6 +18,7 @@ import { useAttachPaymentToBill } from '@/hooks/useAttachPaymentToBill'
 import { formatCurrency, formatDate } from '@/lib/utils/formatters'
 import { createClient } from '@/lib/supabase/client'
 import { cn } from '@/lib/utils'
+import { queryKeys } from '@/lib/queryKeys'
 
 type Props = {
   open: boolean
@@ -53,26 +54,27 @@ export function AttachBillDialog({ open, onOpenChange, mode, paymentId, billId, 
 
   // link-payment mode: fetch all outgoing payments for this supplier with their allocated amounts
   const { data: availablePayments = [], isLoading: loadingAvailable } = useQuery<AvailablePayment[]>({
-    queryKey: ['supplier-payments-available', supplierId],
+    queryKey: queryKeys.supplierPayments.available(supplierId),
     queryFn: async () => {
       const supabase = createClient()
-      const { data, error } = await (supabase as any)
+      const { data, error } = await supabase
         .from('payments')
         .select(`
           id, payment_id, amount, method, date, reference,
           payment_bill_allocations(amount)
         `)
-        .eq('supplier_id', supplierId)
+        .eq('supplier_id', supplierId!)
         .eq('direction', 'outgoing')
         .order('date', { ascending: false })
       if (error) throw error
       type RawPayment = { id: string; payment_id: string; amount: number; method: string; date: string; reference: string | null; payment_bill_allocations: { amount: number }[] }
-      return (data ?? []).map((p: RawPayment) => {
-        const allocated = (p.payment_bill_allocations ?? []).reduce((s: number, a: { amount: number }) => s + a.amount, 0)
+      return (data ?? []).map((p) => {
+        const rp = p as unknown as RawPayment
+        const allocated = (rp.payment_bill_allocations ?? []).reduce((s: number, a: { amount: number }) => s + a.amount, 0)
         return {
-          ...p,
+          ...rp,
           allocated,
-          remaining: p.amount - allocated,
+          remaining: rp.amount - allocated,
         }
       }).filter((p: RawPayment & { remaining: number }) => p.remaining > 0.001)
     },
@@ -81,13 +83,13 @@ export function AttachBillDialog({ open, onOpenChange, mode, paymentId, billId, 
 
   // attach-bill mode: fetch the payment's full amount so we can pass it to allocate_payment_to_bill
   const { data: paymentForAmount } = useQuery({
-    queryKey: ['payment-amount', paymentId],
+    queryKey: queryKeys.payments.paymentAmount(paymentId),
     queryFn: async () => {
       const supabase = createClient()
-      const { data } = await (supabase as any)
+      const { data } = await supabase
         .from('payments')
         .select('amount')
-        .eq('id', paymentId)
+        .eq('id', paymentId!)
         .single()
       return data?.amount ?? 0
     },
@@ -183,7 +185,7 @@ export function AttachBillDialog({ open, onOpenChange, mode, paymentId, billId, 
                     </div>
                     <div className="flex justify-between text-xs text-muted-foreground mt-1">
                       <span>{formatDate(p.date)} · {p.method.replace(/_/g, ' ')}</span>
-                      <span className="text-green-600 font-medium">
+                      <span className="text-success font-medium">
                         Remaining: {formatCurrency(p.remaining, 'QAR')}
                       </span>
                     </div>
@@ -192,8 +194,9 @@ export function AttachBillDialog({ open, onOpenChange, mode, paymentId, billId, 
               </div>
               {selectedId && (
                 <div className="space-y-1 pt-1">
-                  <Label className="text-sm">Amount to allocate (QAR)</Label>
+                  <Label htmlFor="attach-bill-amount" className="text-sm">Amount to allocate (QAR)</Label>
                   <Input
+                    id="attach-bill-amount"
                     type="number"
                     min={0.01}
                     step="0.01"

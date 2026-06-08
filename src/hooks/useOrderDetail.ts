@@ -2,11 +2,12 @@
 import { useQuery } from '@tanstack/react-query'
 import { createClient } from '@/lib/supabase/client'
 import type { OrderDetail } from '@/types/orders'
+import { queryKeys } from '@/lib/queryKeys'
 
 export function useOrderDetail(orderId: string | null) {
   const supabase = createClient()
   return useQuery({
-    queryKey: ['order-detail', orderId],
+    queryKey: queryKeys.orders.detail(orderId),
     queryFn: async (): Promise<OrderDetail | null> => {
       if (!orderId) return null
       const { data, error } = await supabase
@@ -24,18 +25,25 @@ export function useOrderDetail(orderId: string | null) {
         .eq('id', orderId)
         .single()
       if (error) throw error
+      const sc = data.service_customers as { name?: string; service_customer_phones?: { phone: string }[] } | null
+      const assignments = (data.order_team_assignments ?? []).map((a) => {
+        const aExt = a as typeof a & { teams?: { name?: string } | null }
+        return {
+          ...a,
+          team_name: aExt.teams?.name ?? '',
+        }
+      })
+      const logs = (data.order_log ?? []).slice().sort(
+        (a: { created_at: string | null }, b: { created_at: string | null }) =>
+          new Date(b.created_at ?? 0).getTime() - new Date(a.created_at ?? 0).getTime()
+      )
       return {
         ...data,
-        customer_name: (data.service_customers as any)?.name ?? '',
-        customer_phone: (data.service_customers as any)?.service_customer_phones?.[0]?.phone ?? '',
+        customer_name: sc?.name ?? '',
+        customer_phone: sc?.service_customer_phones?.[0]?.phone ?? '',
         services_summary: '',
-        order_team_assignments: (data.order_team_assignments ?? []).map((a: any) => ({
-          ...a,
-          team_name: a.teams?.name ?? '',
-        })),
-        order_log: (data.order_log ?? []).sort(
-          (a: any, b: any) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime()
-        ),
+        order_team_assignments: assignments,
+        order_log: logs,
       } as unknown as OrderDetail
     },
     enabled: !!orderId,

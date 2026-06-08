@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server'
 import { createAdminClient } from '@/lib/supabase/admin'
 import { createDibsyPayment } from '@/lib/dibsy'
+import { requireAuth } from '@/lib/auth/require-admin'
 
 const UUID_RE =
   /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
@@ -16,6 +17,11 @@ interface RequestBody {
 }
 
 export async function POST(request: Request) {
+  const auth = await requireAuth()
+  if (!auth.ok) {
+    return NextResponse.json({ error: auth.message }, { status: auth.status })
+  }
+
   let body: RequestBody
   try {
     body = await request.json()
@@ -100,7 +106,7 @@ export async function POST(request: Request) {
   }
 
   // Insert batch
-  const { data: batch, error: batchErr } = await (supabase as any)
+  const { data: batch, error: batchErr } = await supabase
     .from('tl_payment_batches')
     .insert({
       customer_phone,
@@ -122,7 +128,7 @@ export async function POST(request: Request) {
     amount: Number(inv.total_amount ?? 0),
   }))
 
-  const { error: itemsErr } = await (supabase as any)
+  const { error: itemsErr } = await supabase
     .from('tl_payment_batch_items')
     .insert(batchItems)
 
@@ -166,7 +172,7 @@ export async function POST(request: Request) {
   }
 
   // Update batch with Dibsy details
-  const { error: updateErr } = await (supabase as any)
+  const { error: updateErr } = await supabase
     .from('tl_payment_batches')
     .update({
       dibsy_payment_id: payment.id,

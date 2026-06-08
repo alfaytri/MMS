@@ -60,8 +60,7 @@ export function VehicleEditDialog() {
     setPlateError(null)
     try {
       const supabase = createClient()
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      const { count } = await (supabase.from('vehicles') as any)
+      const { count } = await supabase.from('vehicles')
         .select('id', { count: 'exact', head: true })
         .eq('plate', plate)
         .is('deleted_at', null)
@@ -85,8 +84,7 @@ export function VehicleEditDialog() {
     // Check for duplicate Traccar device assignment
     if (values.traccar_device_id) {
       const supabase = createClient()
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      const { count } = await (supabase.from('vehicles') as any)
+      const { count } = await supabase.from('vehicles')
         .select('id', { count: 'exact', head: true })
         .eq('traccar_device_id', values.traccar_device_id)
         .is('deleted_at', null)
@@ -105,11 +103,9 @@ export function VehicleEditDialog() {
       traccar_device_id: values.traccar_device_id || null,
     }
     if (isEdit) {
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      await updateVehicle.mutateAsync({ id: vehicle!.id, before: vehicle as unknown as Record<string, unknown>, ...payload } as any)
+      await updateVehicle.mutateAsync({ id: vehicle!.id, before: vehicle as Record<string, unknown>, ...payload })
     } else {
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      await createVehicle.mutateAsync(payload as any)
+      await createVehicle.mutateAsync(payload)
     }
     closeVehicleDialog()
   }

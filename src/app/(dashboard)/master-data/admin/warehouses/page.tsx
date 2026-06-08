@@ -30,6 +30,7 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from '@/components/ui/alert-dialog'
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip'
 
 export default function WarehousesPage() {
   const [search, setSearch] = useState('')
@@ -68,11 +69,26 @@ export default function WarehousesPage() {
           row.getValue('location') || <span className="text-muted-foreground">—</span>,
       },
       {
-        accessorKey: 'manager_name',
-        header: 'Manager',
+        id: 'field_rps',
+        header: () => (
+          <TooltipProvider delayDuration={200}>
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <span className="cursor-help border-b border-dashed border-muted-foreground/40">Field RPs</span>
+              </TooltipTrigger>
+              <TooltipContent side="top"><p className="text-xs">Field Responsible Persons</p></TooltipContent>
+            </Tooltip>
+          </TooltipProvider>
+        ),
         cell: ({ row }) => {
-          const name = row.getValue('manager_name') as string | null
-          return name ?? <span className="text-muted-foreground">Unassigned</span>
+          const wh = row.original
+          return (
+            <span className="text-xs">
+              {wh.field_rps.length > 0
+                ? wh.field_rps.map(rp => rp.full_name).filter(Boolean).join(', ')
+                : <span className="text-muted-foreground">Unassigned</span>}
+            </span>
+          )
         },
       },
       {

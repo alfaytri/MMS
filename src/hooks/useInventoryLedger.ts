@@ -1,5 +1,6 @@
 import { useQuery } from '@tanstack/react-query'
 import { createClient } from '@/lib/supabase/client'
+import { queryKeys } from '@/lib/queryKeys'
 
 export type CogsEntry = {
   id: string
@@ -15,14 +16,14 @@ export type CogsEntry = {
 
 export function useCogsEntries(brandVariantId?: string) {
   return useQuery({
-    queryKey: ['cogs-entries', brandVariantId],
+    queryKey: queryKeys.inventory.cogsEntriesByVariant(brandVariantId),
     enabled: !!brandVariantId,
     queryFn: async () => {
       const supabase = createClient()
-      const { data, error } = await (supabase as any)
+      const { data, error } = await supabase
         .from('cogs_entries')
         .select('*')
-        .eq('brand_variant_id', brandVariantId)
+        .eq('brand_variant_id', brandVariantId!)
         .order('date', { ascending: false })
       if (error) throw error
       return (data ?? []) as CogsEntry[]
@@ -33,14 +34,14 @@ export function useCogsEntries(brandVariantId?: string) {
 
 export function useStockMovementsByVariant(brandVariantId?: string) {
   return useQuery({
-    queryKey: ['stock_movements', 'by_variant', brandVariantId],
+    queryKey: queryKeys.inventory.stockMovementsByVariant(brandVariantId),
     enabled: !!brandVariantId,
     queryFn: async () => {
       const supabase = createClient()
-      const { data, error } = await (supabase as any)
+      const { data, error } = await supabase
         .from('inventory_stock_movements')
         .select('*')
-        .eq('brand_variant_id', brandVariantId)
+        .eq('brand_variant_id', brandVariantId!)
         .order('created_at', { ascending: false })
         .limit(200)
       if (error) throw error
@@ -52,14 +53,14 @@ export function useStockMovementsByVariant(brandVariantId?: string) {
 
 export function useServiceInventoryLinks(brandVariantId?: string) {
   return useQuery({
-    queryKey: ['service-inventory', brandVariantId],
+    queryKey: queryKeys.inventory.serviceInventory(brandVariantId),
     enabled: !!brandVariantId,
     queryFn: async () => {
       const supabase = createClient()
-      const { data, error } = await (supabase as any)
+      const { data, error } = await supabase
         .from('service_inventory')
         .select('*')
-        .eq('brand_variant_id', brandVariantId)
+        .eq('brand_variant_id', brandVariantId!)
         .order('created_at', { ascending: false })
       if (error) throw error
       return data ?? []

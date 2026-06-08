@@ -18,6 +18,7 @@ import { createClient } from '@/lib/supabase/client'
 import { useQuery } from '@tanstack/react-query'
 import { buildTreeMap, collectDescendantIds } from '@/components/services/ServiceTree'
 import type { PackageServiceEntry } from '@/hooks/useSubscriptionPackages'
+import { queryKeys } from '@/lib/queryKeys'
 
 // Re-export so consumers can import alongside this component if needed
 export type { PackageServiceEntry }
@@ -32,10 +33,10 @@ type PickerService = {
 
 function useAllServicesForPicker() {
   return useQuery({
-    queryKey: ['services-all-picker'],
+    queryKey: queryKeys.services.allPicker,
     queryFn: async () => {
       const supabase = createClient()
-      const { data, error } = await (supabase as any)
+      const { data, error } = await supabase
         .from('services')
         .select('id, name_en, parent_id, tree_type, division')
         .is('deleted_at', null)
@@ -57,7 +58,7 @@ function getCheckState(
   treeMap: Map<string | null, PickerService[]>,
   selectedSet: Set<string>,
 ): 'checked' | 'unchecked' {
-  const descendants = collectDescendantIds(nodeId, treeMap as any)
+  const descendants = collectDescendantIds(nodeId, treeMap)
   if (descendants.size === 0) {
     return selectedSet.has(nodeId) ? 'checked' : 'unchecked'
   }
@@ -86,7 +87,7 @@ export function ServicePickerTree({
   const [collapsed, setCollapsed] = useState<Set<string>>(new Set())
   const [selectedDivision, setSelectedDivision] = useState<string | null>(null)
 
-  const treeMap = useMemo(() => buildTreeMap(services as any), [services])
+  const treeMap = useMemo(() => buildTreeMap(services), [services])
   const selectedSet = useMemo(() => new Set(selectedIds), [selectedIds])
 
   const allDivisions = useMemo(() => {
@@ -133,7 +134,7 @@ export function ServicePickerTree({
   }, [services, search, selectedDivision])
 
   const filteredTreeMap = useMemo(
-    () => buildTreeMap(filteredServices as any),
+    () => buildTreeMap(filteredServices),
     [filteredServices],
   )
 
@@ -141,7 +142,7 @@ export function ServicePickerTree({
   // Toggle a node — any-selected → deselect all; none → select all
   // -------------------------------------------------------------------------
   function toggleNode(nodeId: string) {
-    const descendants = [...collectDescendantIds(nodeId, treeMap as any)]
+    const descendants = [...collectDescendantIds(nodeId, treeMap)]
     const isLeaf = descendants.length === 0
     const targets = isLeaf ? [nodeId] : descendants
     const anySelected = targets.some((id) => selectedSet.has(id))
@@ -165,7 +166,7 @@ export function ServicePickerTree({
         if ((treeMap.get(s.id) ?? []).length === 0) next.add(s.id)
       })
     } else {
-      const descendants = collectDescendantIds(nodeId, treeMap as any)
+      const descendants = collectDescendantIds(nodeId, treeMap)
       const isLeaf = descendants.size === 0
       if (isLeaf) {
         next.add(nodeId)
@@ -200,7 +201,7 @@ export function ServicePickerTree({
   // -------------------------------------------------------------------------
   function renderNode(service: PickerService, depth: number) {
     const children = filteredTreeMap.get(service.id) ?? []
-    const checkState = getCheckState(service.id, treeMap as any, selectedSet)
+    const checkState = getCheckState(service.id, treeMap, selectedSet)
     const isLeaf = (treeMap.get(service.id) ?? []).length === 0
 
     const isCollapsed = !isLeaf && collapsed.has(service.id)

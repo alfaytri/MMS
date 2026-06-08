@@ -18,7 +18,7 @@ import { Badge } from '@/components/ui/badge'
 import { cn } from '@/lib/utils'
 
 const STATUS_CONFIG: Record<RfqStatus, { label: string; className: string }> = {
-  draft:      { label: 'Draft',     className: 'bg-slate-100 text-slate-700' },
+  draft:      { label: 'Draft',     className: 'bg-muted text-foreground' },
   sent:       { label: 'Sent',      className: 'bg-blue-100 text-blue-700' },
   received:   { label: 'Received',  className: 'bg-amber-100 text-amber-700' },
   cancelled:  { label: 'Cancelled', className: 'bg-red-100 text-red-700' },

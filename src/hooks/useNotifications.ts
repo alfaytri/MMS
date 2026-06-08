@@ -4,6 +4,7 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { createClient } from '@/lib/supabase/client'
 import type { DBTable, DBInsert } from '@/types/database.types'
+import { queryKeys } from '@/lib/queryKeys'
 
 type NotificationTemplate = DBTable<'notification_templates'>
 type ReminderCategory = DBTable<'reminder_categories'>
@@ -15,7 +16,7 @@ export type { NotificationTemplate, ReminderCategory, Reminder }
 
 export function useNotificationTemplates() {
   return useQuery({
-    queryKey: ['notification_templates'],
+    queryKey: queryKeys.notifications.templates,
     queryFn: async () => {
       const supabase = createClient()
       const { data, error } = await supabase
@@ -31,7 +32,7 @@ export function useNotificationTemplates() {
 
 export function useReminderCategories() {
   return useQuery({
-    queryKey: ['reminder_categories'],
+    queryKey: queryKeys.notifications.reminderCategories,
     queryFn: async () => {
       const supabase = createClient()
       const { data, error } = await supabase
@@ -47,7 +48,7 @@ export function useReminderCategories() {
 
 export function useReminders() {
   return useQuery({
-    queryKey: ['reminders'],
+    queryKey: queryKeys.notifications.reminders,
     queryFn: async () => {
       const supabase = createClient()
       const { data, error } = await supabase
@@ -74,7 +75,7 @@ export function useCreateReminder() {
       if (error) throw error
       return data
     },
-    onSuccess: () => queryClient.invalidateQueries({ queryKey: ['reminders'] }),
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: queryKeys.notifications.reminders }),
   })
 }
 
@@ -91,7 +92,7 @@ export function useUpdateReminder() {
       if (error) throw error
       return data
     },
-    onSuccess: () => queryClient.invalidateQueries({ queryKey: ['reminders'] }),
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: queryKeys.notifications.reminders }),
   })
 }
 
@@ -111,23 +112,33 @@ export type NotificationRow = {
   created_at: string
 }
 
+// Cache profile ID in-memory — avoids 2 network calls per notification poll.
+// Reset on page reload (module re-evaluates) which handles user switching.
+let cachedProfileId: string | null | undefined = undefined
+
 async function getMyProfileId(): Promise<string | null> {
+  if (cachedProfileId !== undefined) return cachedProfileId as string | null
   const supabase = createClient()
   const { data: { user } } = await supabase.auth.getUser()
-  if (!user) return null
-  const { data } = await (supabase as any)
+  if (!user) { cachedProfileId = null; return null }
+  const { data } = await supabase
     .from('profiles').select('id').eq('auth_user_id', user.id).maybeSingle()
-  return data?.id ?? null
+  cachedProfileId = data?.id ?? null
+  return cachedProfileId as string | null
+}
+
+export function resetCachedProfileId() {
+  cachedProfileId = undefined
 }
 
 export function useUnreadNotificationCount() {
   return useQuery({
-    queryKey: ['notifications', 'unread-count'],
+    queryKey: queryKeys.notifications.unreadCount,
     queryFn: async () => {
       const profileId = await getMyProfileId()
       if (!profileId) return 0
       const supabase = createClient()
-      const { count, error } = await (supabase as any)
+      const { count, error } = await supabase
         .from('notifications')
         .select('*', { count: 'exact', head: true })
         .eq('profile_id', profileId)
@@ -142,12 +153,12 @@ export function useUnreadNotificationCount() {
 
 export function useRecentNotifications() {
   return useQuery({
-    queryKey: ['notifications', 'recent'],
+    queryKey: queryKeys.notifications.recent,
     queryFn: async () => {
       const profileId = await getMyProfileId()
       if (!profileId) return [] as NotificationRow[]
       const supabase = createClient()
-      const { data, error } = await (supabase as any)
+      const { data, error } = await supabase
         .from('notifications')
         .select('*')
         .eq('profile_id', profileId)
@@ -167,12 +178,12 @@ export function useMarkNotificationRead() {
   return useMutation({
     mutationFn: async (id: string) => {
       const supabase = createClient()
-      const { error } = await (supabase as any)
+      const { error } = await supabase
         .from('notifications').update({ read_at: new Date().toISOString() }).eq('id', id)
       if (error) throw error
     },
     onSuccess: () => {
-      qc.invalidateQueries({ queryKey: ['notifications'] })
+      qc.invalidateQueries({ queryKey: queryKeys.notifications.all })
     },
   })
 }
@@ -184,13 +195,13 @@ export function useMarkAllNotificationsRead() {
       const profileId = await getMyProfileId()
       if (!profileId) throw new Error('Not authenticated')
       const supabase = createClient()
-      const { error } = await (supabase as any)
+      const { error } = await supabase
         .from('notifications')
         .update({ read_at: new Date().toISOString() })
         .eq('profile_id', profileId)
         .is('read_at', null)
       if (error) throw error
     },
-    onSuccess: () => qc.invalidateQueries({ queryKey: ['notifications'] }),
+    onSuccess: () => qc.invalidateQueries({ queryKey: queryKeys.notifications.all }),
   })
 }

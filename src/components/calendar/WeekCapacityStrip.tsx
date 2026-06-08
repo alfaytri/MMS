@@ -76,7 +76,7 @@ function DayColumn({ date, capacity, isSelected, onSelect }: DayColumnProps) {
           capacity.isOff
             ? 'text-muted-foreground'
             : capacity.percentage >= 100
-            ? 'text-red-500 font-medium'
+            ? 'text-destructive font-medium'
             : 'text-muted-foreground',
         )}
       >

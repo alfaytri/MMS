@@ -105,23 +105,23 @@ export function ItemEditDialog({ open, onOpenChange, categoryId, categoryType, i
         <form onSubmit={handleSubmit} className="space-y-4">
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
             <div className="space-y-1">
-              <Label>Name (English) *</Label>
-              <Input value={nameEn} onChange={(e) => setNameEn(e.target.value)} placeholder="e.g. Alfaheat" />
+              <Label htmlFor="item-name-en">Name (English) *</Label>
+              <Input id="item-name-en" value={nameEn} onChange={(e) => setNameEn(e.target.value)} placeholder="e.g. Alfaheat" />
             </div>
             <div className="space-y-1">
-              <Label>Name (Arabic)</Label>
-              <Input value={nameAr} onChange={(e) => setNameAr(e.target.value)} dir="rtl" placeholder="الاسم بالعربية" />
+              <Label htmlFor="item-name-ar">Name (Arabic)</Label>
+              <Input id="item-name-ar" value={nameAr} onChange={(e) => setNameAr(e.target.value)} dir="rtl" placeholder="الاسم بالعربية" />
             </div>
           </div>
           <div className="grid grid-cols-2 gap-3">
             <div className="space-y-1">
-              <Label>SKU *</Label>
-              <Input value={sku} onChange={(e) => setSku(e.target.value)} className="font-mono" placeholder="PRD-HT-001" />
+              <Label htmlFor="item-sku">SKU *</Label>
+              <Input id="item-sku" value={sku} onChange={(e) => setSku(e.target.value)} className="font-mono" placeholder="PRD-HT-001" />
             </div>
             <div className="space-y-1">
-              <Label>Unit</Label>
+              <Label htmlFor="item-unit">Unit</Label>
               <Select value={unit} onValueChange={(v) => { if (v !== null) setUnit(v) }}>
-                <SelectTrigger><SelectValue /></SelectTrigger>
+                <SelectTrigger id="item-unit"><SelectValue /></SelectTrigger>
                 <SelectContent>
                   {UNITS.map((u) => <SelectItem key={u} value={u}>{u}</SelectItem>)}
                 </SelectContent>
@@ -129,13 +129,14 @@ export function ItemEditDialog({ open, onOpenChange, categoryId, categoryType, i
             </div>
           </div>
           <div className="space-y-1">
-            <Label>Item Type</Label>
-            <Input value={categoryType} disabled className="bg-muted text-muted-foreground capitalize" />
+            <Label htmlFor="item-type">Item Type</Label>
+            <Input id="item-type" value={categoryType} disabled className="bg-muted text-muted-foreground capitalize" />
           </div>
           <div className="space-y-2">
-            <Label>Attributes (optional chips)</Label>
+            <Label htmlFor="item-attribute-input">Attributes (optional chips)</Label>
             <div className="flex gap-2">
               <Input
+                id="item-attribute-input"
                 value={chipInput}
                 onChange={(e) => setChipInput(e.target.value)}
                 onKeyDown={(e) => { if (e.key === 'Enter') { e.preventDefault(); addChip() } }}

@@ -79,17 +79,17 @@ export function VehicleMarkerLayer({
 
       if (existing) {
         existing.setLatLng(latLng)
-        const prevStatus = (existing as any)._vehicleStatus as VehicleTrackingStatus | undefined
+        const prevStatus = existing._vehicleStatus as VehicleTrackingStatus | undefined
         if (prevStatus !== status) {
           existing.setIcon(getVehicleIcon(status))
-          ;(existing as any)._vehicleStatus = status
+          ;existing._vehicleStatus = status
         }
         const popup = existing.getPopup()
         if (popup) popup.setContent(buildVehiclePopup(popupData))
       } else {
         const marker = L.marker(latLng, { icon: getVehicleIcon(status) })
           .bindPopup(buildVehiclePopup(popupData))
-        ;(marker as any)._vehicleStatus = status
+        ;marker._vehicleStatus = status
         const vehicleId = v.vehicleId
         marker.on('click', () => onSelectVehicle(vehicleId))
         layer.addLayer(marker)

@@ -139,7 +139,7 @@ export function ServiceSelector({ onAdd, divisionFilters = [], treeType = 'norma
 
       {/* Add panel — shows when a leaf node is selected */}
       {isLeaf && lastSelected && (
-        <div className="rounded-md border border-slate-200 bg-slate-50 p-2">
+        <div className="rounded-md border border-border bg-muted p-2">
           <div className="flex items-center gap-2">
             {/* Qty free input */}
             <input
@@ -147,12 +147,12 @@ export function ServiceSelector({ onAdd, divisionFilters = [], treeType = 'norma
               min={1}
               value={qty}
               onChange={(e) => setQty(Math.max(1, parseInt(e.target.value) || 1))}
-              className="w-14 rounded border border-slate-200 bg-white px-2 py-1 text-center text-xs font-medium text-slate-900 focus:outline-none focus:ring-1 focus:ring-orange-400"
+              className="w-14 rounded border border-border bg-white px-2 py-1 text-center text-xs font-medium text-foreground focus:outline-none focus:ring-1 focus:ring-orange-400"
               aria-label="Quantity"
             />
 
             {/* Total price updates as qty changes */}
-            <span className="flex-1 text-right text-xs text-slate-500">
+            <span className="flex-1 text-right text-xs text-muted-foreground">
               QAR {((lastSelected.price ?? 0) * qty).toFixed(0)}
             </span>
 

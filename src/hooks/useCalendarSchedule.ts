@@ -1,5 +1,6 @@
 import { useQuery } from '@tanstack/react-query'
 import { createClient } from '@/lib/supabase/client'
+import { queryKeys } from '@/lib/queryKeys'
 
 // ---------------------------------------------------------------------------
 // Types
@@ -76,7 +77,7 @@ export function parseCalendarSchedule(raw: CalendarScheduleRaw | null | undefine
 /** Global calendar schedule from app_settings. Used as fallback. */
 export function useCalendarSchedule() {
   return useQuery({
-    queryKey: ['calendar-schedule'],
+    queryKey: queryKeys.calendar.schedule,
     queryFn: async (): Promise<CalendarSchedule> => {
       const supabase = createClient()
       const { data, error } = await supabase
@@ -98,11 +99,11 @@ export function useCalendarSchedule() {
  */
 export function useAllDivisionSchedules(): Map<string, CalendarSchedule> {
   const { data } = useQuery({
-    queryKey: ['all-division-schedules'],
+    queryKey: queryKeys.calendar.allDivisionSchedules,
     queryFn: async (): Promise<Map<string, CalendarSchedule>> => {
       const supabase = createClient()
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      const { data: rows, error } = await (supabase as any)
+      const { data: rows, error } = await supabase
         .from('divisions')
         .select('slug, sched:calendar_schedule_id(id, name, days)')
         .eq('is_active', true)
@@ -127,12 +128,12 @@ export function useAllDivisionSchedules(): Map<string, CalendarSchedule> {
  */
 export function useDivisionSchedule(divisionSlug: string | null) {
   return useQuery({
-    queryKey: ['division-schedule', divisionSlug],
+    queryKey: queryKeys.calendar.divisionSchedule(divisionSlug),
     queryFn: async (): Promise<CalendarSchedule | null> => {
       if (!divisionSlug) return null
       const supabase = createClient()
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      const { data, error } = await (supabase as any)
+      const { data, error } = await supabase
         .from('divisions')
         .select('calendar_schedule_id, sched:calendar_schedule_id(id, name, days)')
         .eq('slug', divisionSlug)

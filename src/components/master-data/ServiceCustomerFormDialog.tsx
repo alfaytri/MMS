@@ -151,7 +151,7 @@ export function ServiceCustomerFormDialog({
         referral_source: customer.referral_source,
         phones: phones.map((p) => {
           const { code, digits } = splitPhone(p.phone)
-          return { id: p.id, countryCode: code, phone: digits, label: (p.label as any) ?? 'mobile' }
+          return { id: p.id, countryCode: code, phone: digits, label: (p.label ?? 'mobile') as 'home' | 'mobile' | 'work' }
         }),
         addresses: addresses.map((a) => ({
           id: a.id,
@@ -548,11 +548,11 @@ export function ServiceCustomerFormDialog({
                               </Button>
 
                               {qState === 'found' && qResult && (
-                                <div className="rounded-md border border-green-200 bg-green-50 px-3 py-2 space-y-1.5">
+                                <div className="rounded-md border border-green-200 bg-success/10 px-3 py-2 space-y-1.5">
                                   <div className="flex items-center gap-1.5 text-sm font-medium text-green-700">
                                     <CheckCircle2 className="h-4 w-4" /> Address verified
                                   </div>
-                                  <p className="text-xs text-green-600">{qResult.lat.toFixed(6)}, {qResult.lng.toFixed(6)}</p>
+                                  <p className="text-xs text-success">{qResult.lat.toFixed(6)}, {qResult.lng.toFixed(6)}</p>
                                   <div className="flex gap-3">
                                     <a href={`https://www.google.com/maps?q=${qResult.lat},${qResult.lng}`} target="_blank" rel="noopener noreferrer" className="inline-flex items-center gap-1 text-xs text-green-700 hover:underline">
                                       <ExternalLink className="h-3 w-3" /> Google Maps
@@ -565,7 +565,7 @@ export function ServiceCustomerFormDialog({
                               )}
 
                               {qState === 'not_found' && (
-                                <div className="flex items-center gap-1.5 rounded-md border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700">
+                                <div className="flex items-center gap-1.5 rounded-md border border-red-200 bg-destructive/10 px-3 py-2 text-sm text-red-700">
                                   <XCircle className="h-4 w-4 shrink-0" /> Address not found in Qatar national database
                                 </div>
                               )}

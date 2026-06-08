@@ -42,7 +42,7 @@ export function SelectedServiceCard({
     <div
       ref={isOverlay ? undefined : setNodeRef}
       className={cn(
-        'relative rounded-md border border-slate-200 bg-white text-sm',
+        'relative rounded-md border border-border bg-white text-sm',
         isDragging && !isOverlay && 'opacity-40',
         isOverlay && 'shadow-2xl ring-1 ring-orange-300 cursor-grabbing',
       )}
@@ -52,7 +52,7 @@ export function SelectedServiceCard({
           <button
             {...listeners}
             {...attributes}
-            className="cursor-grab text-slate-300 hover:text-slate-500 active:cursor-grabbing"
+            className="cursor-grab text-slate-300 hover:text-muted-foreground active:cursor-grabbing"
             tabIndex={-1}
             aria-label="Drag to reorder"
           >
@@ -64,7 +64,7 @@ export function SelectedServiceCard({
       {!isOverlay && (
         <button
           onClick={() => onRemove(service.serviceId)}
-          className="absolute right-1.5 top-1.5 text-slate-400 hover:text-red-500"
+          className="absolute right-1.5 top-1.5 text-muted-foreground hover:text-destructive"
           aria-label="Remove service"
         >
           <X className="h-3.5 w-3.5" />
@@ -73,9 +73,9 @@ export function SelectedServiceCard({
 
       <div className={cn('pt-2 pb-2 space-y-1.5', isOverlay ? 'px-3' : 'pl-7 pr-7')}>
         {pathLabel && (
-          <p className="truncate text-[11px] leading-none text-slate-400">{pathLabel}</p>
+          <p className="truncate text-[11px] leading-none text-muted-foreground">{pathLabel}</p>
         )}
-        <p className="break-words pr-1 font-semibold leading-snug text-slate-900">
+        <p className="break-words pr-1 font-semibold leading-snug text-foreground">
           {service.serviceName}
         </p>
 
@@ -89,18 +89,18 @@ export function SelectedServiceCard({
             value={service.qty}
             disabled={isOverlay}
             onChange={(e) => onQtyChange(service.serviceId, Math.max(1, parseInt(e.target.value) || 1))}
-            className="w-14 rounded border border-slate-200 px-2 py-1 text-center text-xs font-medium text-slate-900 focus:outline-none focus:ring-1 focus:ring-orange-400 disabled:opacity-50"
+            className="w-14 rounded border border-border px-2 py-1 text-center text-xs font-medium text-foreground focus:outline-none focus:ring-1 focus:ring-orange-400 disabled:opacity-50"
             aria-label="Quantity"
           />
 
           {hasDuration && (
-            <span className="flex items-center gap-0.5 text-xs text-slate-500">
+            <span className="flex items-center gap-0.5 text-xs text-muted-foreground">
               <Clock className="h-3 w-3" />
               {service.duration} min
             </span>
           )}
 
-          <span className="ml-auto text-xs font-semibold text-slate-900">
+          <span className="ml-auto text-xs font-semibold text-foreground">
             QAR {(service.price * service.qty).toFixed(0)}
           </span>
         </div>
@@ -110,7 +110,7 @@ export function SelectedServiceCard({
           <>
             <div className="border-t border-slate-100" />
             <div className="space-y-1">
-              <span className="text-[10px] font-medium uppercase tracking-wide text-slate-400">
+              <span className="text-[10px] font-medium uppercase tracking-wide text-muted-foreground">
                 Arrival Window
               </span>
               <TimeRangeSelect

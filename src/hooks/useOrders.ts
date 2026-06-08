@@ -1,29 +1,31 @@
 // src/hooks/useOrders.ts
-import { useQuery } from '@tanstack/react-query'
+import { useInfiniteQuery, useQuery } from '@tanstack/react-query'
 import { createClient } from '@/lib/supabase/client'
 import type { OrderListItem, OrdersFilter } from '@/types/orders'
+import { queryKeys } from '@/lib/queryKeys'
 
+const PAGE_SIZE = 50
 const DEFAULT_FILTER: OrdersFilter = {}
 
 export function useOrders(filter: OrdersFilter = DEFAULT_FILTER) {
   const supabase = createClient()
 
-  return useQuery({
-    queryKey: ['orders', filter],
-    queryFn: async (): Promise<OrderListItem[]> => {
+  return useInfiniteQuery({
+    queryKey: queryKeys.orders.list(filter),
+    queryFn: async ({ pageParam = 0 }) => {
       let query = supabase
         .from('orders')
         .select(`
           id, order_id, service_customer_id, type, division, status, confirmation_status,
           scheduled_date, scheduled_time, total_amount, agent_name, address, arrival_phone,
-          has_invoice, invoice_number, created_at,
+          has_invoice, invoice_number, created_at, notes,
           service_customers(name, service_customer_phones(phone)),
           order_services(name, qty)
         `)
 
       // Multi-status filter takes precedence over legacy statusChip
       if (filter.statuses?.length) {
-        query = query.in('status', filter.statuses as any)
+        query = query.in('status', filter.statuses as ('scheduled' | 'confirmed' | 'cancelled' | 'completed' | 'in-progress' | 'pending-approval' | 'waitlist' | 'pending-confirmation' | 'customer-unavailable')[])
       } else if (filter.statusChip === 'scheduled') {
         query = query.eq('status', 'scheduled')
       } else if (filter.statusChip === 'pending_approval') {
@@ -50,7 +52,7 @@ export function useOrders(filter: OrdersFilter = DEFAULT_FILTER) {
         const ph = filter.customerPhone.replace(/\s+/g, '')
         query = query.or(`arrival_phone.ilike.%${ph}%,service_customers.phone.ilike.%${ph}%`)
       }
-      if (filter.division)        query = query.eq('division', filter.division as any)
+      if (filter.division)        query = query.eq('division', filter.division)
 
       if (filter.sortBy === 'date_asc')         query = query.order('scheduled_date', { ascending: true })
       else if (filter.sortBy === 'date_desc')   query = query.order('scheduled_date', { ascending: false })
@@ -58,20 +60,36 @@ export function useOrders(filter: OrdersFilter = DEFAULT_FILTER) {
       else if (filter.sortBy === 'amount_desc') query = query.order('total_amount', { ascending: false })
       else query = query.order('scheduled_date', { ascending: false })
 
-      const { data, error } = await query.limit(200)
+      const from = pageParam * PAGE_SIZE
+      const to = from + PAGE_SIZE - 1
+      const { data, error } = await query.range(from, to)
       if (error) throw error
 
-      return (data ?? []).map((o: any) => ({
-        ...o,
-        customer_name: o.service_customers?.name ?? '',
-        customer_phone: o.service_customers?.service_customer_phones?.[0]?.phone ?? '',
-        arrival_phone: o.arrival_phone ?? null,
-        scheduled_time: o.scheduled_time ?? null,
-        services_summary: (o.order_services ?? [])
-          .map((s: { name: string; qty: number }) => `${s.qty}× ${s.name}`)
-          .join(', '),
-      }))
+      const items = (data ?? []).map((o) => {
+        const oExt = o as typeof o & {
+          service_customers: { name?: string; service_customer_phones?: { phone: string }[] } | null
+        }
+        return {
+          ...o,
+          customer_id: o.service_customer_id,
+          customer_name: oExt.service_customers?.name ?? '',
+          customer_phone: oExt.service_customers?.service_customer_phones?.[0]?.phone ?? '',
+          arrival_phone: o.arrival_phone ?? null,
+          scheduled_time: o.scheduled_time ?? null,
+          notes: o.notes ?? null,
+          services_summary: (o.order_services ?? [])
+            .map((s: { name: string; qty: number | null }) => `${s.qty ?? 1}× ${s.name}`)
+            .join(', '),
+        } as import('@/types/orders').OrderListItem
+      })
+
+      return {
+        items,
+        nextPage: items.length === PAGE_SIZE ? pageParam + 1 : undefined,
+      }
     },
+    initialPageParam: 0,
+    getNextPageParam: (lastPage) => lastPage.nextPage,
   })
 }
 
@@ -79,7 +97,7 @@ export function useOrderCounts() {
   const supabase = createClient()
 
   return useQuery({
-    queryKey: ['order-counts'],
+    queryKey: queryKeys.orders.counts,
     queryFn: async () => {
       const today = new Date().toISOString().split('T')[0]
       const [all, active, noAddress, notConfirmed, notInvoiced] = await Promise.all([

@@ -4,6 +4,7 @@ import { useMutation, useQueryClient } from '@tanstack/react-query'
 import { createClient } from '@/lib/supabase/client'
 import { SITE_VISIT_SERVICE_ID } from '@/components/orders/SiteVisitCard'
 import { useOrderDetail } from './useOrderDetail'
+import { queryKeys } from '@/lib/queryKeys'
 import type {
   OrderDraft,
   OrderServiceDraft,
@@ -53,16 +54,19 @@ export function useEditOrder(orderId: string) {
       }
     })
 
-    const services: OrderServiceDraft[] = order.order_services.map((s) => ({
-      serviceId: s.service_id ?? s.id,
-      serviceName: s.name,
-      path: s.path ?? [],
-      qty: s.qty,
-      price: s.price,
-      duration: s.duration,
-      fromTime: (s as any).from_time ? (s as any).from_time.substring(0, 5) : null,
-      toTime: (s as any).to_time ? (s as any).to_time.substring(0, 5) : null,
-    }))
+    const services: OrderServiceDraft[] = order.order_services.map((s) => {
+      const svc = s as typeof s & { from_time?: string | null; to_time?: string | null }
+      return {
+        serviceId: s.service_id ?? s.id,
+        serviceName: s.name,
+        path: s.path ?? [],
+        qty: s.qty,
+        price: s.price,
+        duration: s.duration,
+        fromTime: svc.from_time ? svc.from_time.substring(0, 5) : null,
+        toTime: svc.to_time ? svc.to_time.substring(0, 5) : null,
+      }
+    })
 
     const visitDates: VisitDateWindow[] = (order.order_visit_dates ?? []).length > 0
       ? order.order_visit_dates.map((v) => ({
@@ -76,11 +80,20 @@ export function useEditOrder(orderId: string) {
 
     // Pre-populate the address from the joined service_customer_addresses
     // record so the user doesn't have to re-select it just to edit other fields.
-    const addrRow = (order as any).service_customer_addresses ?? null
+    const orderExt = order as typeof order & {
+      service_customer_addresses?: {
+        id: string; label?: string | null; building?: string | null; street?: string | null;
+        zone?: string | null; lat?: number | null; lng?: number | null; is_primary?: boolean;
+        is_geocoded?: boolean; waze_link?: string | null; tags?: string[]; created_at?: string
+      } | null
+      service_customer_id?: string | null
+      address_id?: string | null
+    }
+    const addrRow = orderExt.service_customer_addresses ?? null
     const addressSnapshot: CustomerAddress | null = addrRow
       ? {
           id:           addrRow.id,
-          customer_id:  (order as any).service_customer_id ?? '',
+          customer_id:  orderExt.service_customer_id ?? '',
           phone_id:     null,
           label:        addrRow.label ?? null,
           address_type: 'blue-plate',
@@ -100,11 +113,11 @@ export function useEditOrder(orderId: string) {
 
     setDraft({
       orderId: order.order_id,
-      customerId: (order as any).service_customer_id ?? order.customer_id,
+      customerId: orderExt.service_customer_id ?? order.customer_id,
       phoneId: '',
       customerName: order.customer_name,
       phone: order.customer_phone,
-      addressId:       (order as any).address_id ?? null,
+      addressId:       orderExt.address_id ?? null,
       addressSnapshot: addressSnapshot,
       type: order.type as OrderType,
       division: order.division ?? '',
@@ -237,7 +250,7 @@ export function useEditOrder(orderId: string) {
       const { error: orderErr } = await supabase
         .from('orders')
         .update({
-          division:             (draft.division || null) as any,
+          division:             draft.division || undefined,
           scheduled_date:       primaryDate,
           notes:                draft.notes || null,
           arrival_phone:        draft.arrivalPhone || null,
@@ -253,7 +266,7 @@ export function useEditOrder(orderId: string) {
       const { error: delSvcErr } = await supabase.from('order_services').delete().eq('order_id', orderId)
       if (delSvcErr) throw delSvcErr
       if (draft.services.length > 0) {
-        const { error: insSvcErr } = await (supabase as any).from('order_services').insert(
+        const { error: insSvcErr } = await supabase.from('order_services').insert(
           draft.services.map((s) => ({
             order_id: orderId,
             service_id: s.serviceId === SITE_VISIT_SERVICE_ID ? null : s.serviceId,
@@ -300,13 +313,13 @@ export function useEditOrder(orderId: string) {
       }
 
       // 4. Replace visit dates
-      const { error: delDatesErr } = await (supabase as any)
+      const { error: delDatesErr } = await supabase
         .from('order_visit_dates')
         .delete()
         .eq('order_id', orderId)
       if (delDatesErr) throw delDatesErr
       if (sortedWindows.length > 0) {
-        const { error: insDatesErr } = await (supabase as any).from('order_visit_dates').insert(
+        const { error: insDatesErr } = await supabase.from('order_visit_dates').insert(
           sortedWindows.map((w, i) => ({
             order_id: orderId,
             visit_date: w.date,
@@ -329,9 +342,9 @@ export function useEditOrder(orderId: string) {
       return { orderReadableId: draft.orderId, primaryDate }
     },
     onSuccess: async (result) => {
-      qc.invalidateQueries({ queryKey: ['orders'] })
-      qc.invalidateQueries({ queryKey: ['order-detail', orderId] })
-      qc.invalidateQueries({ queryKey: ['site-visits'] })
+      qc.invalidateQueries({ queryKey: queryKeys.orders.all })
+      qc.invalidateQueries({ queryKey: queryKeys.orders.detail(orderId) })
+      qc.invalidateQueries({ queryKey: queryKeys.siteVisits.all })
 
       // Re-send confirmation immediately if visit is within 2 days;
       // for far-future orders the cron will pick it up (confirmation_sent_at is now null).

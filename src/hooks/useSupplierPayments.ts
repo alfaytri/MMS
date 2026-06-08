@@ -1,6 +1,7 @@
 // src/hooks/useSupplierPayments.ts
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { createClient } from '@/lib/supabase/client'
+import { queryKeys } from '@/lib/queryKeys'
 
 export type SupplierPayment = {
   id: string
@@ -24,12 +25,12 @@ export type SupplierPayment = {
 
 export function useSupplierPayments(billId?: string) {
   return useQuery({
-    queryKey: ['supplier-payments', billId],
+    queryKey: queryKeys.supplierPayments.byBill(billId),
     queryFn: async () => {
       const supabase = createClient()
 
       // Step 1: plain payments fetch — no nested joins to avoid PostgREST ambiguity
-      let q = (supabase as any)
+      let q = supabase
         .from('payments')
         .select('*')
         .eq('direction', 'outgoing')
@@ -43,7 +44,7 @@ export function useSupplierPayments(billId?: string) {
       const invoiceIds = [...new Set(rows.filter((p) => p.invoice_id).map((p) => p.invoice_id as string))]
       const invoiceMap: Record<string, { invoice_id: string; purchase_order_id: string | null; supplier_id: string | null }> = {}
       if (invoiceIds.length > 0) {
-        const { data: invoices, error: invErr } = await (supabase as any)
+        const { data: invoices, error: invErr } = await supabase
           .from('invoices')
           .select('id, invoice_id, purchase_order_id, supplier_id')
           .in('id', invoiceIds)
@@ -64,7 +65,7 @@ export function useSupplierPayments(billId?: string) {
 
       const poMap: Record<string, { po_number: string; supplier_name: string | null }> = {}
       if (poIds.length > 0) {
-        const { data: pos, error: poErr } = await (supabase as any)
+        const { data: pos, error: poErr } = await supabase
           .from('purchase_orders')
           .select('id, po_number, supplier_name')
           .in('id', poIds)
@@ -82,7 +83,7 @@ export function useSupplierPayments(billId?: string) {
       const supplierIds = [...new Set([...supplierIdsFromInvoices, ...supplierIdsFromPayments])]
       const supplierMap: Record<string, string> = {}
       if (supplierIds.length > 0) {
-        const { data: suppliers, error: supErr } = await (supabase as any)
+        const { data: suppliers, error: supErr } = await supabase
           .from('suppliers')
           .select('id, name')
           .in('id', supplierIds)
@@ -124,7 +125,7 @@ export function useCreateSupplierPayment() {
       notes: string | null
     }) => {
       const supabase = createClient()
-      const { data: spayMax } = await (supabase as any)
+      const { data: spayMax } = await supabase
         .from('payments')
         .select('payment_id')
         .ilike('payment_id', 'SPAY-%')
@@ -134,7 +135,7 @@ export function useCreateSupplierPayment() {
       const spayLast = spayMax?.payment_id ? parseInt(spayMax.payment_id.replace('SPAY-', ''), 10) : 0
       const payment_id = `SPAY-${String(spayLast + 1).padStart(5, '0')}`
 
-      const { data, error } = await (supabase as any)
+      const { data, error } = await supabase
         .from('payments')
         .insert({
           payment_id,
@@ -152,14 +153,14 @@ export function useCreateSupplierPayment() {
       if (error) throw error
 
       // Recompute bill payment_status
-      const { data: allPayments } = await (supabase as any)
+      const { data: allPayments } = await supabase
         .from('payments')
         .select('amount')
         .eq('invoice_id', payload.invoice_id)
         .eq('direction', 'outgoing')
       const totalPaid = (allPayments ?? []).reduce((s: number, p: any) => s + p.amount, 0)
 
-      const { data: bill } = await (supabase as any)
+      const { data: bill } = await supabase
         .from('invoices')
         .select('total_amount')
         .eq('id', payload.invoice_id)
@@ -171,7 +172,7 @@ export function useCreateSupplierPayment() {
           ? 'partially_paid'
           : 'unpaid'
 
-      await (supabase as any)
+      await supabase
         .from('invoices')
         .update({ payment_status: newStatus })
         .eq('id', payload.invoice_id)
@@ -179,8 +180,8 @@ export function useCreateSupplierPayment() {
       return data
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['supplier-payments'] })
-      queryClient.invalidateQueries({ queryKey: ['supplier-bills'] })
+      queryClient.invalidateQueries({ queryKey: queryKeys.supplierPayments.all })
+      queryClient.invalidateQueries({ queryKey: queryKeys.supplierBills.all })
     },
   })
 }
@@ -195,10 +196,10 @@ export type UnlinkedPayment = {
 
 export function useUnlinkedOutgoingPayments(supplierId: string | null | undefined) {
   return useQuery({
-    queryKey: ['unlinked-outgoing-payments', supplierId ?? null],
+    queryKey: queryKeys.supplierPayments.unlinkedOutgoing(supplierId),
     queryFn: async () => {
       const supabase = createClient()
-      let q = (supabase as any)
+      let q = supabase
         .from('payments')
         .select('id, payment_id, amount, method, date')
         .eq('direction', 'outgoing')

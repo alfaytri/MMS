@@ -94,7 +94,7 @@ export async function POST(req: NextRequest) {
   // ── Build query ──────────────────────────────────────────────────────────────
   let targetDate: string | undefined
 
-  let query = (supabase as any)
+  let query = supabase
     .from('orders')
     .select(`
       id,
@@ -134,7 +134,7 @@ export async function POST(req: NextRequest) {
 
     try {
       // ── 1. Primary phone + customer name ──────────────────────────────────
-      const { data: phoneRow } = await (supabase as any)
+      const { data: phoneRow } = await supabase
         .from('service_customer_phones')
         .select('phone')
         .eq('customer_id', order.service_customer_id)
@@ -146,7 +146,7 @@ export async function POST(req: NextRequest) {
         continue
       }
 
-      const { data: customerRow } = await (supabase as any)
+      const { data: customerRow } = await supabase
         .from('service_customers')
         .select('name')
         .eq('id', order.service_customer_id)
@@ -160,10 +160,11 @@ export async function POST(req: NextRequest) {
       let wazeLink: string = ''
 
       if (order.service_customer_addresses) {
-        addressLabel = order.service_customer_addresses.label ?? order.address ?? ''
-        wazeLink     = order.service_customer_addresses.waze_link ?? ''
+        const addrJoin = order.service_customer_addresses as unknown as { label: string | null; waze_link: string | null } | null
+        addressLabel = addrJoin?.label ?? order.address ?? ''
+        wazeLink     = addrJoin?.waze_link ?? ''
       } else if (order.address_id) {
-        const { data: addr } = await (supabase as any)
+        const { data: addr } = await supabase
           .from('service_customer_addresses')
           .select('label, waze_link')
           .eq('id', order.address_id)
@@ -231,13 +232,14 @@ export async function POST(req: NextRequest) {
       }
 
       // v2 response shape: { result: true, info: "...", message: { whatsappMessageId } }
-      const watiMsgId: string | null = (
-        (watiData as any)?.message?.whatsappMessageId ??
-        (watiData as any)?.info?.whatsAppMessageId ??
-        (watiData as any)?.id ??
-        (watiData as any)?.messageId ??
+      const _watiMsg  = watiData?.message  as Record<string, unknown> | undefined
+      const _watiInfo = watiData?.info     as Record<string, unknown> | undefined
+      const watiMsgId: string | null =
+        (_watiMsg?.whatsappMessageId  as string | undefined) ??
+        (_watiInfo?.whatsAppMessageId as string | undefined) ??
+        (watiData?.id                 as string | undefined) ??
+        (watiData?.messageId          as string | undefined) ??
         null
-      ) as string | null
 
       const watiOk = !fnError && !watiData?.error && watiData?.result !== false
 
@@ -269,7 +271,7 @@ export async function POST(req: NextRequest) {
 
       const phone = `+${watiPhone}`
 
-      const { data: existing } = await (supabase as any)
+      const { data: existing } = await supabase
         .from('chat_conversations')
         .select('id')
         .eq('wati_phone', phone)
@@ -278,14 +280,14 @@ export async function POST(req: NextRequest) {
       let conversationId: string | null = existing?.id ?? null
 
       if (!conversationId) {
-        const { data: created } = await (supabase as any)
+        const { data: created } = await supabase
           .from('chat_conversations')
           .insert({ wati_phone: phone, last_message: msgText, last_message_at: new Date().toISOString(), unread_count: 0 })
           .select('id')
           .single()
         conversationId = created?.id ?? null
       } else {
-        await (supabase as any)
+        await supabase
           .from('chat_conversations')
           .update({ last_message: msgText, last_message_at: new Date().toISOString() })
           .eq('id', conversationId)
@@ -296,7 +298,7 @@ export async function POST(req: NextRequest) {
           ? [{ url: PDF_URL, type: 'application/pdf', name: 'booking-confirmation.pdf' }]
           : []
 
-        await (supabase as any)
+        await supabase
           .from('chat_messages')
           .insert({
             conversation_id: conversationId,
@@ -312,7 +314,7 @@ export async function POST(req: NextRequest) {
 
       // ── 7. Mark order confirmation sent + auto-confirm if WATI succeeded ───
       const now = new Date().toISOString()
-      await (supabase as any)
+      await supabase
         .from('orders')
         .update({
           confirmation_status:  watiOk ? 'sent' : 'failed',

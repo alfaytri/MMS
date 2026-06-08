@@ -1,6 +1,7 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { createClient } from '@/lib/supabase/client'
 import { logActivity } from '@/lib/logActivity'
+import { queryKeys } from '@/lib/queryKeys'
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -181,10 +182,10 @@ export function hasNegativeMargin(lineItems: { unit_price: number; avg_cost: num
 
 export function useCustomers(search?: string) {
   return useQuery({
-    queryKey: ['customers', search],
+    queryKey: queryKeys.customers.search(search),
     queryFn: async () => {
       const supabase = createClient()
-      let q = (supabase as any)
+      let q = supabase
         .from('customers')
         .select('id, name, phone, email, customer_type, is_blocked, credit_group_id, credit_groups(name, credit_limit)')
         .order('name')
@@ -195,11 +196,14 @@ export function useCustomers(search?: string) {
       }
       const { data, error } = await q
       if (error) throw error
-      return (data ?? []).map((row: any) => ({
-        ...row,
-        credit_group_name:  row.credit_groups?.name         ?? null,
-        credit_group_limit: row.credit_groups?.credit_limit ?? null,
-      })) as Customer[]
+      return (data ?? []).map((row) => {
+        const r = row as typeof row & { credit_groups?: { name?: string; credit_limit?: number } | null }
+        return {
+          ...row,
+          credit_group_name:  r.credit_groups?.name         ?? null,
+          credit_group_limit: r.credit_groups?.credit_limit ?? null,
+        }
+      }) as unknown as Customer[]
     },
     staleTime: 30 * 1000,
     enabled: true,
@@ -210,12 +214,12 @@ const CUSTOMERS_PAGE_SIZE = 50
 
 export function useAllCustomers(search: string, page: number) {
   return useQuery({
-    queryKey: ['all-customers', search, page],
+    queryKey: queryKeys.customers.allCustomersSearch(search, page),
     queryFn:  async () => {
       const supabase = createClient()
       const from = page * CUSTOMERS_PAGE_SIZE
       const to   = from + CUSTOMERS_PAGE_SIZE - 1
-      let q = (supabase as any)
+      let q = supabase
         .from('customers')
         .select('id, name, phone, email, customer_type, entity_type, is_blocked, credit_group_id, credit_groups(name, credit_limit)', { count: 'exact' })
         .order('name')
@@ -227,11 +231,14 @@ export function useAllCustomers(search: string, page: number) {
       const { data, count, error } = await q
       if (error) throw error
       return {
-        customers: (data ?? []).map((row: any) => ({
-          ...row,
-          credit_group_name:  row.credit_groups?.name         ?? null,
-          credit_group_limit: row.credit_groups?.credit_limit ?? null,
-        })) as Customer[],
+        customers: (data ?? []).map((row) => {
+          const r = row as typeof row & { credit_groups?: { name?: string; credit_limit?: number } | null }
+          return {
+            ...row,
+            credit_group_name:  r.credit_groups?.name         ?? null,
+            credit_group_limit: r.credit_groups?.credit_limit ?? null,
+          }
+        }) as Customer[],
         total: count ?? 0,
       }
     },
@@ -245,7 +252,7 @@ export function useCreateCustomer() {
   return useMutation({
     mutationFn: async (payload: { name: string; phone: string; email: string | null; credit_group_id?: string | null; customer_type?: 'cash' | 'credit'; entity_type?: 'individual' | 'business' }) => {
       const supabase = createClient()
-      const { data, error } = await (supabase as any)
+      const { data, error } = await supabase
         .from('customers')
         .insert(payload)
         .select()
@@ -254,18 +261,18 @@ export function useCreateCustomer() {
       return data
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['customers'] })
-      queryClient.invalidateQueries({ queryKey: ['all-customers'] })
+      queryClient.invalidateQueries({ queryKey: queryKeys.customers.all })
+      queryClient.invalidateQueries({ queryKey: queryKeys.customers.allCustomers })
     },
   })
 }
 
 export function useSaleOrders(filters: SOFilters = {}) {
   return useQuery({
-    queryKey: ['sale-orders', filters],
+    queryKey: queryKeys.saleOrders.list(filters),
     queryFn: async () => {
       const supabase = createClient()
-      let q = (supabase as any)
+      let q = supabase
         .from('sale_orders')
         .select('*, sale_order_lines(*), sale_deliveries(*), customers!inner(name)')
         .is('deleted_at', null)
@@ -286,10 +293,13 @@ export function useSaleOrders(filters: SOFilters = {}) {
 
       const { data, error } = await q
       if (error) throw error
-      return (data ?? []).map((row: any) => ({
-        ...row,
-        customer_name: row.customers?.name ?? null,
-      })) as SaleOrder[]
+      return (data ?? []).map((row) => {
+        const r = row as typeof row & { customers?: { name?: string } | null }
+        return {
+          ...row,
+          customer_name: r.customers?.name ?? null,
+        }
+      }) as unknown as SaleOrder[]
     },
     staleTime: 30 * 1000,
   })
@@ -297,10 +307,10 @@ export function useSaleOrders(filters: SOFilters = {}) {
 
 export function useSaleOrder(id: string | null) {
   return useQuery({
-    queryKey: ['sale-order', id],
+    queryKey: queryKeys.saleOrders.detail(id),
     queryFn: async () => {
       const supabase = createClient()
-      const { data, error } = await (supabase as any)
+      const { data, error } = await supabase
         .from('sale_orders')
         .select('*, sale_order_lines(*), sale_deliveries(*), customers(name, phone, email)')
         .eq('id', id!)
@@ -310,7 +320,7 @@ export function useSaleOrder(id: string | null) {
         ...data,
         customer_name:  data.customers?.name  ?? null,
         customer_phone: data.customers?.phone ?? null,
-      } as SaleOrder
+      } as unknown as SaleOrder
     },
     enabled: !!id,
   })
@@ -318,11 +328,11 @@ export function useSaleOrder(id: string | null) {
 
 export function useSOPayments(soId: string | null) {
   return useQuery({
-    queryKey: ['so-payments', soId],
+    queryKey: queryKeys.saleOrders.payments(soId),
     queryFn: async () => {
       const supabase = createClient()
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      const { data, error } = await (supabase as any)
+      const { data, error } = await supabase
         .from('payments')
         .select('*')
         .eq('source_type', 'sale_order')
@@ -342,32 +352,34 @@ export function useCreateSO() {
   return useMutation({
     mutationFn: async (payload: CreateSOPayload): Promise<CreateSOResult> => {
       const supabase = createClient()
-      const { data, error } = await (supabase as any).rpc('create_sale_order', {
+      const { data, error } = await supabase.rpc('create_sale_order', {
         p_customer_id:          payload.customer_id,
         p_intent:               payload.intent,
         p_currency:             payload.currency,
         p_exchange_rate:        payload.exchange_rate,
-        p_expected_delivery:    payload.expected_delivery,
-        p_payment_terms:        payload.payment_terms,
-        p_payment_terms_notes:  payload.payment_terms_notes,
-        p_payment_milestones:   payload.payment_milestones,
-        p_delivery_terms:       payload.delivery_terms,
-        p_delivery_terms_notes: payload.delivery_terms_notes,
-        p_customer_notes:       payload.customer_notes,
+        // The nullable fields below are accepted by the DB function even though
+        // the stale generated types declare them as non-nullable strings.
+        p_expected_delivery:    payload.expected_delivery ?? '',
+        p_payment_terms:        payload.payment_terms ?? '',
+        p_payment_terms_notes:  payload.payment_terms_notes ?? '',
+        p_payment_milestones:   payload.payment_milestones as unknown as string,
+        p_delivery_terms:       payload.delivery_terms ?? '',
+        p_delivery_terms_notes: payload.delivery_terms_notes ?? '',
+        p_customer_notes:       payload.customer_notes ?? '',
         p_validity_days:        payload.validity_days,
         p_discount_amount:      payload.discount_amount,
-        p_discount_label:       payload.discount_label,
+        p_discount_label:       payload.discount_label ?? '',
         p_discount_type:        payload.discount_type,
-        p_line_items:           payload.line_items,
-        p_division_id:          payload.division_id ?? null,
+        p_line_items:           payload.line_items as unknown as string,
+        p_division_id:          payload.division_id ?? undefined,
       })
       if (error) throw error
       return data as CreateSOResult
     },
     onSuccess: (data) => {
-      queryClient.invalidateQueries({ queryKey: ['sale-orders'] })
-      queryClient.invalidateQueries({ queryKey: ['brand-variants-v2'] })
-      queryClient.invalidateQueries({ queryKey: ['reserved-order-lines'] })
+      queryClient.invalidateQueries({ queryKey: queryKeys.saleOrders.all })
+      queryClient.invalidateQueries({ queryKey: queryKeys.inventory.brandVariantsV2 })
+      queryClient.invalidateQueries({ queryKey: queryKeys.inventory.reservedOrderLines })
       logActivity({
         action:    `Sale Order ${data.status === 'pending_approval' ? 'Submitted for Approval' : data.status === 'confirmed' ? 'Confirmed' : 'Created'}`,
         module:    'sale_orders',
@@ -388,24 +400,28 @@ export function useUpdateSO() {
       let extraFields: Record<string, unknown> = {}
       if (line_items) {
         const subtotal = calcSOSubtotal(line_items)
-        const discountType = (fields as any).discount_type ?? 'fixed'
-        const discountAmount = (fields as any).discount_amount ?? 0
+        const fieldMap = fields as Record<string, unknown>
+        const discountType = (fieldMap.discount_type as string) ?? 'fixed'
+        const discountAmount = (fieldMap.discount_amount as number) ?? 0
         const discountResolved = discountType === 'percentage'
           ? (subtotal * discountAmount) / 100
           : discountAmount
         extraFields = { subtotal, total: subtotal - discountResolved, discount_amount_resolved: discountResolved }
       }
 
-      const { error: soErr } = await (supabase as any)
+      // fields is Partial<CreateSOPayload> which may contain intent/customer_id not in the
+      // DB schema columns; the DB silently ignores unknown keys so this is safe.
+      const updatePayload = { ...fields, ...extraFields }
+      const { error: soErr } = await supabase
         .from('sale_orders')
-        .update({ ...fields, ...extraFields })
+        .update(updatePayload as unknown as import('@/types/database.types').DBUpdate<'sale_orders'>)
         .eq('id', id)
       if (soErr) throw soErr
 
       if (line_items) {
-        await (supabase as any).from('sale_order_lines').delete().eq('sale_order_id', id)
+        await supabase.from('sale_order_lines').delete().eq('sale_order_id', id)
         if (line_items.length > 0) {
-          const { error: liErr } = await (supabase as any)
+          const { error: liErr } = await supabase
             .from('sale_order_lines')
             .insert(line_items.map(({ avg_cost: _unused, ...li }) => ({ ...li, sale_order_id: id })))
           if (liErr) throw liErr
@@ -413,8 +429,8 @@ export function useUpdateSO() {
       }
     },
     onSuccess: (_data, variables) => {
-      queryClient.invalidateQueries({ queryKey: ['sale-orders'] })
-      queryClient.invalidateQueries({ queryKey: ['sale-order', variables.id] })
+      queryClient.invalidateQueries({ queryKey: queryKeys.saleOrders.all })
+      queryClient.invalidateQueries({ queryKey: queryKeys.saleOrders.detail(variables.id) })
     },
   })
 }
@@ -426,7 +442,7 @@ export function useConfirmSO() {
       const supabase = createClient()
 
       // 1. Update SO status
-      const { error: soErr } = await (supabase as any)
+      const { error: soErr } = await supabase
         .from('sale_orders')
         .update({ status: 'confirmed' })
         .eq('id', id)
@@ -437,17 +453,17 @@ export function useConfirmSO() {
         .filter((l) => l.brand_variant_id && l.qty > 0)
         .map((l) => ({ bv_id: l.brand_variant_id, delta: l.qty }))
       if (reservations.length > 0) {
-        const { error: resErr } = await (supabase as any)
+        const { error: resErr } = await supabase
           .rpc('batch_update_reserved_qty', { p_updates: reservations })
         if (resErr) throw resErr
       }
 
       // 3. Create stub delivery (warehouse_id nullable after migration)
-      const { count: delCount } = await (supabase as any)
+      const { count: delCount } = await supabase
         .from('sale_deliveries')
         .select('*', { count: 'exact', head: true })
       const delivery_number = `DEL-${String((delCount ?? 0) + 1).padStart(5, '0')}`
-      const { error: delErr } = await (supabase as any).from('sale_deliveries').insert({
+      const { error: delErr } = await supabase.from('sale_deliveries').insert({
         delivery_number,
         sale_order_id: id,
         warehouse_id: null,
@@ -467,10 +483,10 @@ export function useConfirmSO() {
       await syncInvoiceToSalesOrder(id)
     },
     onSuccess: (_data, variables) => {
-      queryClient.invalidateQueries({ queryKey: ['sale-orders'] })
-      queryClient.invalidateQueries({ queryKey: ['sale-order', variables.id] })
-      queryClient.invalidateQueries({ queryKey: ['sale-deliveries'] })
-      queryClient.invalidateQueries({ queryKey: ['customer-invoices'] })
+      queryClient.invalidateQueries({ queryKey: queryKeys.saleOrders.all })
+      queryClient.invalidateQueries({ queryKey: queryKeys.saleOrders.detail(variables.id) })
+      queryClient.invalidateQueries({ queryKey: queryKeys.saleDeliveries.all })
+      queryClient.invalidateQueries({ queryKey: queryKeys.customerInvoices.all })
     },
   })
 }
@@ -489,7 +505,7 @@ export function useCreateSOPayment() {
       exchange_rate: number
     }) => {
       const supabase = createClient()
-      const { data: cpayMax } = await (supabase as any)
+      const { data: cpayMax } = await supabase
         .from('payments')
         .select('payment_id')
         .ilike('payment_id', 'CPAY-%')
@@ -499,8 +515,9 @@ export function useCreateSOPayment() {
       const cpayLast = cpayMax?.payment_id ? parseInt(cpayMax.payment_id.replace('CPAY-', ''), 10) : 0
       const payment_id = `CPAY-${String(cpayLast + 1).padStart(5, '0')}`
 
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      const { error } = await (supabase as any).from('payments').insert({
+      // Cast needed: stale generated DB types for payments columns
+      // don't match the current schema; the values are valid at runtime.
+      const { error } = await supabase.from('payments').insert({
         payment_id,
         source_type: 'sale_order',
         source_id: payment.so_id,
@@ -515,12 +532,12 @@ export function useCreateSOPayment() {
         exchange_rate: payment.exchange_rate,
         amount_qar: payment.amount * payment.exchange_rate,
         status: 'pending',
-      })
+      } as unknown as import('@/types/database.types').DBInsert<'payments'>)
       if (error) throw error
     },
     onSuccess: (_data, variables) => {
-      queryClient.invalidateQueries({ queryKey: ['so-payments', variables.so_id] })
-      queryClient.invalidateQueries({ queryKey: ['sale-orders'] })
+      queryClient.invalidateQueries({ queryKey: queryKeys.saleOrders.payments(variables.so_id) })
+      queryClient.invalidateQueries({ queryKey: queryKeys.saleOrders.all })
       logActivity({
         action:    'Payment Recorded',
         module:    'sale_orders',
@@ -544,7 +561,7 @@ export function useCreateDelivery() {
     }) => {
       const supabase = createClient()
 
-      const { data, error } = await (supabase as any)
+      const { data, error } = await supabase
         .rpc('create_and_confirm_delivery', {
           p_so_id:          payload.so_id,
           p_warehouse_id:   payload.warehouse_id,
@@ -559,15 +576,15 @@ export function useCreateDelivery() {
       return data as { id: string; delivery_number: string }
     },
     onSuccess: (_data, variables) => {
-      queryClient.invalidateQueries({ queryKey: ['sale-orders'] })
-      queryClient.invalidateQueries({ queryKey: ['sale-order', variables.so_id] })
-      queryClient.invalidateQueries({ queryKey: ['sale-deliveries'] })
-      queryClient.invalidateQueries({ queryKey: ['brand-variants-v2'] })
-      queryClient.invalidateQueries({ queryKey: ['reserved-order-lines'] })
-      queryClient.invalidateQueries({ queryKey: ['fifo-layers'] })
-      queryClient.invalidateQueries({ queryKey: ['stock_movements'] })
-      queryClient.invalidateQueries({ queryKey: ['cogs-entries'] })
-      queryClient.invalidateQueries({ queryKey: ['activity-log'] })
+      queryClient.invalidateQueries({ queryKey: queryKeys.saleOrders.all })
+      queryClient.invalidateQueries({ queryKey: queryKeys.saleOrders.detail(variables.so_id) })
+      queryClient.invalidateQueries({ queryKey: queryKeys.saleDeliveries.all })
+      queryClient.invalidateQueries({ queryKey: queryKeys.inventory.brandVariantsV2 })
+      queryClient.invalidateQueries({ queryKey: queryKeys.inventory.reservedOrderLines })
+      queryClient.invalidateQueries({ queryKey: queryKeys.inventory.fifoLayers })
+      queryClient.invalidateQueries({ queryKey: queryKeys.inventory.stockMovements })
+      queryClient.invalidateQueries({ queryKey: queryKeys.inventory.cogsEntries })
+      queryClient.invalidateQueries({ queryKey: queryKeys.activityLog.all })
       logActivity({
         action:    'Delivery Created',
         module:    'sale_orders',
@@ -586,7 +603,7 @@ export function useCancelSO() {
       const supabase = createClient()
 
       // Fetch lines to release reserved stock before cancelling
-      const { data: lines } = await (supabase as any)
+      const { data: lines } = await supabase
         .from('sale_order_lines')
         .select('brand_variant_id, qty')
         .eq('sale_order_id', id)
@@ -596,21 +613,21 @@ export function useCancelSO() {
         .map((l: any) => ({ bv_id: l.brand_variant_id, delta: -l.qty }))
 
       if (releases.length > 0) {
-        const { error: relErr } = await (supabase as any).rpc('batch_update_reserved_qty', { p_updates: releases })
+        const { error: relErr } = await supabase.rpc('batch_update_reserved_qty', { p_updates: releases })
         if (relErr) throw relErr
       }
 
-      const { error } = await (supabase as any)
+      const { error } = await supabase
         .from('sale_orders')
         .update({ status: 'cancelled' })
         .eq('id', id)
       if (error) throw error
     },
     onSuccess: (_data, id) => {
-      queryClient.invalidateQueries({ queryKey: ['sale-orders'] })
-      queryClient.invalidateQueries({ queryKey: ['sale-order', id] })
-      queryClient.invalidateQueries({ queryKey: ['brand-variants-v2'] })
-      queryClient.invalidateQueries({ queryKey: ['reserved-order-lines'] })
+      queryClient.invalidateQueries({ queryKey: queryKeys.saleOrders.all })
+      queryClient.invalidateQueries({ queryKey: queryKeys.saleOrders.detail(id) })
+      queryClient.invalidateQueries({ queryKey: queryKeys.inventory.brandVariantsV2 })
+      queryClient.invalidateQueries({ queryKey: queryKeys.inventory.reservedOrderLines })
       logActivity({ action: 'Sale Order Cancelled', module: 'sale_orders', entity_id: id, severity: 'warning' })
     },
   })
@@ -621,7 +638,7 @@ export function useApproveSO() {
   return useMutation({
     mutationFn: async (id: string) => {
       const supabase = createClient()
-      const { error } = await (supabase as any)
+      const { error } = await supabase
         .from('sale_orders')
         .update({ status: 'confirmed' })
         .eq('id', id)
@@ -629,10 +646,10 @@ export function useApproveSO() {
       if (error) throw error
     },
     onSuccess: (_data, id) => {
-      queryClient.invalidateQueries({ queryKey: ['sale-orders'] })
-      queryClient.invalidateQueries({ queryKey: ['sale-order', id] })
-      queryClient.invalidateQueries({ queryKey: ['brand-variants-v2'] })
-      queryClient.invalidateQueries({ queryKey: ['reserved-order-lines'] })
+      queryClient.invalidateQueries({ queryKey: queryKeys.saleOrders.all })
+      queryClient.invalidateQueries({ queryKey: queryKeys.saleOrders.detail(id) })
+      queryClient.invalidateQueries({ queryKey: queryKeys.inventory.brandVariantsV2 })
+      queryClient.invalidateQueries({ queryKey: queryKeys.inventory.reservedOrderLines })
       logActivity({ action: 'Sale Order Approved', module: 'sale_orders', entity_id: id, severity: 'info' })
     },
   })

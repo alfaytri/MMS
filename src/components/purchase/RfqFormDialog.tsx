@@ -97,20 +97,20 @@ export function RfqFormDialog({ open, onOpenChange, rfq }: Props) {
         <form onSubmit={handleSubmit(onSubmit as never)} className="space-y-4">
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             <div className="space-y-1">
-              <Label>Title *</Label>
-              <Input {...register('title')} placeholder="e.g. Office Supplies Q2" />
+              <Label htmlFor="rfq-title">Title *</Label>
+              <Input id="rfq-title" {...register('title')} placeholder="e.g. Office Supplies Q2" />
               {errors.title && <p className="text-xs text-destructive">{errors.title.message}</p>}
             </div>
             <div className="space-y-1">
-              <Label>Due Date *</Label>
-              <Input type="date" {...register('due_date')} />
+              <Label htmlFor="rfq-due-date">Due Date *</Label>
+              <Input id="rfq-due-date" type="date" {...register('due_date')} />
               {errors.due_date && <p className="text-xs text-destructive">{errors.due_date.message}</p>}
             </div>
           </div>
 
           <div className="space-y-1">
-            <Label>Suppliers (comma-separated names) *</Label>
-            <Input {...register('suppliers')} placeholder="ABC Supplies, XYZ Trading" />
+            <Label htmlFor="rfq-suppliers">Suppliers (comma-separated names) *</Label>
+            <Input id="rfq-suppliers" {...register('suppliers')} placeholder="ABC Supplies, XYZ Trading" />
             {errors.suppliers && <p className="text-xs text-destructive">{errors.suppliers.message}</p>}
           </div>
 

@@ -1,5 +1,6 @@
 import { useQuery } from '@tanstack/react-query'
 import { createClient } from '@/lib/supabase/client'
+import { queryKeys } from '@/lib/queryKeys'
 
 export interface SiteVisitDetail {
   id: string
@@ -28,10 +29,10 @@ export function useSiteVisitDetail(visitId: string | null) {
   const supabase = createClient()
 
   return useQuery({
-    queryKey: ['site-visit-detail', visitId],
+    queryKey: queryKeys.siteVisits.detail(visitId),
     enabled: !!visitId,
     queryFn: async (): Promise<SiteVisitDetail> => {
-      const { data, error } = await (supabase as any)
+      const { data, error } = await supabase
         .from('site_visits')
         .select(`
           id, visit_id, customer_id, status, mode,
@@ -39,7 +40,7 @@ export function useSiteVisitDetail(visitId: string | null) {
           customers(name, customer_phones(id, phone)),
           site_visit_team_assignments(id, scheduled_date, time_slot, duration, teams(name_en, name))
         `)
-        .eq('id', visitId)
+        .eq('id', visitId!)
         .single()
 
       if (error) throw error
@@ -48,7 +49,7 @@ export function useSiteVisitDetail(visitId: string | null) {
       return {
         id: data.id,
         visit_id: data.visit_id,
-        customer_id: data.customer_id,
+        customer_id: data.customer_id ?? '',
         customer_name: data.customers?.name ?? '',
         customer_phone: primaryPhone?.phone ?? '',
         customer_phone_id: primaryPhone?.id ?? null,
@@ -58,7 +59,7 @@ export function useSiteVisitDetail(visitId: string | null) {
         scheduled_date: data.scheduled_date,
         address: data.address ?? null,
         notes: data.notes ?? null,
-        created_at: data.created_at,
+        created_at: data.created_at ?? '',
         assignments: (data.site_visit_team_assignments ?? []).map((a: any) => ({
           id: a.id,
           team_name: a.teams?.name_en ?? a.teams?.name ?? '—',

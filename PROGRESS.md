@@ -162,8 +162,12 @@ Purchase & Sales▾:
 
 > Run after every module completion per the rule in `AGENTS.md`.
 
-| Date | Module / Scope | Secrets | RLS | Auth Gate | Error Handling | Notes |
-|---|---|---|---|---|---|---|
+| Date | Module / Scope | Secrets | RLS | Auth Gate | Error Handling | Layout Stability | Notes |
+|---|---|---|---|---|---|---|---|
+| 2026-06-08 | **Purchase UX Polish Batch** | ✅ | ✅ | ✅ | ✅ | ⚠️ | Pure UI changes: no secrets, no new tables / RLS, no new API routes. New `useForceApproveAllSteps` reuses existing `advance_po_approval_tier` RPC and re-runs the same owner-role guard as `useForceApproveStep`. `useReceivalItemsBatch` issues two scoped Supabase `.in()` queries — same RLS surface as existing per-receival hook. All mutations have `onError → toast.error`. **Layout-stability exception:** Subcategory/Type selects now appear/disappear conditionally per user's explicit request, which intentionally overrides the layout-stability rule. Accepted gap. |
+| 2026-06-08 | **LC-COGS Attribution (Tasks 1-12)** | ✅ | ✅ | ✅ | ✅ | ✅ | No new tables (altered cogs_entries only); 4 SECURITY DEFINER RPCs (allocate, revert, get_cogs_breakdown, get_stock_value_cogs_summary); no new API routes; all data via Supabase client hooks; no external API calls; no hardcoded secrets; responsive HoverCard/Drawer pattern; no layout shifts |
+| 2026-06-06 | **Accessibility + Design Tokens (Task 9)** | ✅ | ✅ | ✅ | ✅ | ✅ | Pure UI refactor; no new tables, routes, or external integrations; 601 token substitutions across 96 files; ~180 label fixes across 38 files; 0 TS errors |
+| 2026-06-06 | **TypeScript Hygiene (Task 8)** | ✅ | ✅ | ✅ | ✅ | ✅ | No new tables, routes, or external integrations; pure type-safety refactor across 200 files; 0 TS errors |
 | 2026-05-31 | **Map Page** | ✅ | ✅ | ✅ | ✅ | ✅ | Read-only page, no new tables, uses existing RLS on teams/orders/team_live_locations |
 | 2026-05-26 | **Quotation Enhancements** | ✅ | ✅ | ✅ | ✅ | No hardcoded secrets (WATI_TOKEN via process.env); discount columns added to existing `quotations` table (RLS inherited); `quotation-pdfs` storage bucket has INSERT/UPDATE for authenticated + public SELECT; profile title column inherits existing `profiles` RLS; Wati route protected by middleware auth; all external calls (Wati, WHAPI, Supabase Storage) throw on failure with proper error propagation to UI via toast |
 | 2026-05-25 | **Payment Portal Redesign** | ✅ | ✅ | ✅ | ✅ | No hardcoded secrets (Wati template name hardcoded as string literal, not a secret); `tl_payment_batches` + `tl_payment_batch_items` have RLS enabled with authenticated policies; `create-tl-invoice` route checks `auth.getUser()` (401); `create-batch-payment` is intentionally public (called by unauthenticated customer from WhatsApp link — validates phone+invoice ownership); webhook route has no auth (standard for Dibsy callbacks, consistent with existing pattern); all external calls wrapped in try/catch: Dibsy blocking→502, Wati non-blocking→logged, DB non-blocking→logged; idempotent webhook (`.eq('payment_status', 'unpaid')` prevents double-payment) |
@@ -201,9 +205,48 @@ Purchase & Sales▾:
 
 ## 🔄 In Progress
 
-None
+*No active tasks.*
 
 ## ✅ Completed
+
+- [2026-06-08] **Purchase UX Polish Batch** — `PoLineItemsEditor.tsx`, `CascadeInventorySelector.tsx`, `CascadeInlineForms.tsx`, `CascadeCategoryMenu.tsx` (deleted), `usePOApprovals.ts`, `approvals/page.tsx`, `landed-costs/page.tsx`, `useReceivals.ts` — Six fixes in one batch: (1) widened PO line-item Total column so `QAR 54,750.00` no longer clips; (2) replaced the cramped 3-column category popover with cascading category Selects that hide subcategory/type slots when the parent has no children; (3) made Force-Approve dialog scrollable (`max-h-[90vh]` + flex column body) and bumped width to `max-w-2xl`; (4) added `useForceApproveAllSteps` so an owner can force-approve every remaining step (PM+AC+OW) in one click with a single audit comment; (5) Create-LC dialog now groups receivals under collapsible PO headers with a PO-level "select all" checkbox and searches PO# / RCV# / supplier; (6) Apply-LC confirm dialog now shows a prominent "+QAR X to inventory" banner plus per-item `+LC/unit` and `+Value` columns (computed client-side from receival items so the user sees the impact before committing)
+- [2026-06-08] **Warehouse Module Improvements** — `WhMovementRefDialog.tsx`, `WhStockDetailDialog.tsx`, `WhInventoryCheckDetail.tsx`, `WhMovementsTab.tsx`, `useWarehouseOperations.ts` + 16 migrations — Fixed inv. check reviewed_at on final approval; counter-only count tab visibility; movement column reorder; inline Ref/Stock detail dialogs; field RP system; transfer workflow
+- [2026-06-08] **LC-COGS Attribution Tasks 11-12: Integration** — `WhStockValueTab.tsx`, `page.tsx (landed-costs)` — Wired CogsBreakdownPopover into Stock Value tab COGS cells; wired LcCogsPostedPanel into LC detail dialog; added ?open= deep-link support
+- [2026-06-08] **LC-COGS Attribution Tasks 8-10: UI Components** — `CogsBreakdownContent.tsx`, `CogsBreakdownPopover.tsx`, `LcCogsPostedPanel.tsx`, `hover-card.tsx`, `drawer.tsx` — Tooltip content, responsive HoverCard/Drawer wrapper, LC detail COGS panel
+
+- [2026-06-08] **LC-COGS Attribution Tasks 6-7: Hooks** — `src/hooks/useCogsBreakdown.ts`, `src/hooks/useStockValueCogsSummary.ts`, `src/lib/queryKeys.ts` — Two TanStack Query hooks wrapping the new RPCs + query keys
+
+- [2026-06-08] **LC-COGS Attribution Task 5: get_stock_value_cogs_summary RPC** — `supabase/migrations/20260608010005_get_stock_value_cogs_summary_rpc.sql`, `src/types/database.types.ts` — New aggregate RPC for Stock Value tab + regenerated Supabase types
+
+- [2026-06-08] **LC-COGS Attribution Task 4: get_cogs_breakdown RPC** — `supabase/migrations/20260608010004_get_cogs_breakdown_rpc.sql` — New RPC returning sold_at_sale + per-LC net totals for tooltip
+
+- [2026-06-08] **LC-COGS Attribution Task 3: revert_landed_cost v3** — `supabase/migrations/20260608010003_revert_landed_cost_v3.sql` — Replaced revert RPC to also insert reversing cogs_entries rows (negative qty/total_cost)
+
+- [2026-06-08] **LC-COGS Attribution Task 2: allocate_landed_cost v3** — `supabase/migrations/20260608010002_allocate_landed_cost_v3.sql` — Replaced allocate RPC to split LC across sold (COGS insert) and remaining (FIFO update) units with penny-safe split
+
+- [2026-06-08] **LC-COGS Attribution Task 1: cogs_entries schema changes** — `supabase/migrations/20260608010001_cogs_entries_lc_columns.sql` — Added landed_cost_id and notes columns, dropped sign checks, added loose mutual-exclusivity constraint, retuned indexes
+
+- [2026-06-06] **Inventory Check Module Redesign** — `supabase/migrations/20260606210000_inventory_check_redesign.sql`, `src/types/database.types.ts`, `src/lib/queryKeys.ts`, `src/hooks/useWarehouseOperations.ts`, `WhInventoryCheckStartDialog.tsx` (NEW), `WhInventoryCheckDetail.tsx` (NEW), `WhInventoryChecksTab.tsx` (rewrite), `page.tsx` — Full rebuild: 3 new DB tables (assignments, log, approvals), 2-step start wizard with user selection + auto category distribution, tabbed detail view (Timeline / Count tree / Approval chain), 8 new hooks; 0 TS errors
+
+- [2026-06-06] **Codebase Health Plan Task 9: Label Accessibility + Design Tokens** — 38 TSX files (label fixes), 96 TSX files (token migration) — Added htmlFor to ~180 Labels with matching input ids; skipped 35 display-only labels (chip groups, composite inputs); migrated 601 raw Tailwind classes to design tokens (text-slate-* → text-muted-foreground/foreground, bg-slate-* → bg-muted, border-slate-* → border-border, text-red-* → text-destructive, text-green-* → text-success); 0 TS errors
+
+- [2026-06-06] **Codebase Health Plan Task 8: Eliminate as-any Casts** — `src/types/database.types.ts` (regenerated), `src/types/leaflet-augments.d.ts` (NEW), `src/types/wati.ts` (NEW), 200 files modified — Removed all 393 `as any` casts across src/; replaced with proper types, `as unknown as T` bridges, typed Supabase client usage, and Leaflet `.d.ts` augmentation; TypeScript build now reports 0 errors
+
+- [2026-06-06] **Codebase Health Plan Task 7: Split Oversized Components** — `ServiceEditBasicInfo.tsx`, `ServiceEditPricing.tsx`, `ServiceEditFeatures.tsx` (NEW), `ServiceEditSections.tsx` (1017→104 barrel), `CalendarBlocks.tsx` (NEW), `TeamCalendarPanel.tsx` (988→424), `ChatTemplateConfirmDialog.tsx`, `ChatAttachmentDialog.tsx`, `ChatInstructionsDialog.tsx` (NEW), `ChatInputBar.tsx` (786→408) — Split 3 oversized components into 10 files; no file exceeds 500 lines
+
+- [2026-06-06] **Codebase Health Plan Task 6: Deduplicate PO/SO Dialogs** — `PaymentFormDialog.tsx`, `ActivityTimeline.tsx`, `PaymentSummaryTab.tsx` (NEW shared), `PoReturnsTab.tsx`, `SoReturnsTab.tsx`, `SoInvoiceTab.tsx` (NEW extracted tabs), `PoDetailDialog.tsx` (797→408), `SoDetailDialog.tsx` (895→330), `PoPaymentDialog.tsx` (136→56), `SoPaymentDialog.tsx` (148→61) — Extracted 3 shared components and 3 entity-specific tab components; payment dialogs now thin wrappers around PaymentFormDialog
+
+- [2026-06-06] **Codebase Health Plan Task 5: Pagination** — `src/hooks/useOrders.ts`, `src/hooks/useContracts.ts`, `src/hooks/useSiteVisits.ts`, `src/hooks/contact-center/useLiveConversations.ts`, `src/app/(dashboard)/orders/page.tsx`, `src/app/(dashboard)/contracts/page.tsx` — Converted orders/contracts/siteVisits from useQuery+limit(200) to useInfiniteQuery with PAGE_SIZE=50 and IntersectionObserver infinite scroll; reduced live conversations poll limit from 500 to 100
+
+- [2026-06-06] **Codebase Health Plan Task 4: Query Key Factory** — `src/lib/queryKeys.ts` (NEW), 117 files migrated (86 hooks, 27 components, 4 pages) — Created centralized query key factory with ~200 key definitions across 40+ modules; migrated every inline query key string in the codebase to use the factory; zero inline keys remain
+
+- [2026-06-06] **Codebase Health Plan Task 3: Empty State + Retry Config** — `src/components/shared/EmptyState.tsx` (NEW), `src/components/shared/DataTable.tsx`, `src/components/providers/QueryProvider.tsx`, 10 custom table pages — Reusable EmptyState component with icon/title/description/action props; DataTable enhanced with emptyState prop; retry config changed to 3 retries with exponential backoff
+
+- [2026-06-06] **Codebase Health Plan Task 2: Error Boundaries** — `src/app/error.tsx` (NEW), `src/app/(dashboard)/error.tsx` (NEW), `src/app/(dashboard)/not-found.tsx` (NEW) — Global error boundary with inline styles, dashboard error boundary with AlertTriangle icon and digest display, dashboard 404 with FileQuestion icon
+
+- [2026-06-06] **Codebase Health Plan Task 1: Security Quick Fixes** — `src/lib/webhooks/verify.ts` (NEW), 3 Dibsy API routes, 1 WHAPI webhook route, `ContractTermsSection.tsx` — Added requireAuth() to 3 unprotected payment routes; HMAC-SHA256 webhook signature verification for Dibsy; timing-safe shared secret validation for WHAPI; DOMPurify sanitization for XSS fix
+
+- [2026-06-03] **Contract Services V2 Task 1: Database Migration** — `supabase/migrations/20260603115450_contract_services_v2.sql`, `src/types/database.types.ts` — Added item_kind, pricing_mode, discount_scope columns to services table; applied via supabase db push; regenerated TypeScript types
 
 - [2026-05-31] **Traccar Fleet Module Task 13: Wire Everything in the Map Page** — `src/app/(dashboard)/map/page.tsx` — Replaced all stub props with real data hooks (useVehicles, useTraccarPositions, useTraccarGeofences, useTraccarHistory); added dynamic imports for VehicleMarkerLayer, VehicleTrail, GeofenceLayer, GeofenceDrawer; wired onMapReady to capture L.Map instance; added handleViewHistory (today's date range), handleFlyToVehicle, handleDrawComplete callbacks; wrapped map area in relative div with floating "Close History" button
 

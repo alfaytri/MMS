@@ -1,11 +1,10 @@
 import { NextResponse } from 'next/server'
-import { createClient as createServerClient } from '@/lib/supabase/server'
 import { createAdminClient } from '@/lib/supabase/admin'
-import { requireAuth } from '@/lib/auth/require-admin'
+import { requirePermission } from '@/lib/auth/require-admin'
 
 export async function PATCH(request: Request) {
-  // ── 1. Verify authenticated session ──────────────────────────────────────────
-  const gate = await requireAuth()
+  // ── 1. Gate: admin-settings permission (this toggle affects ALL users) ──────
+  const gate = await requirePermission('master_data.admin.manage')
   if (!gate.ok) return NextResponse.json({ error: gate.message }, { status: gate.status })
 
   // ── 2. Parse and validate request body ──────────────────────────────────────
@@ -28,7 +27,7 @@ export async function PATCH(request: Request) {
 
   // ── 4. Upsert into app_settings via service-role client ─────────────────────
   const admin = createAdminClient()
-  const { error } = await (admin as any).from('app_settings').upsert(
+  const { error } = await admin.from('app_settings').upsert(
     {
       key: 'cc_provider',
       value: provider,

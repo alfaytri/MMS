@@ -40,7 +40,7 @@ const ADMIN_SECTIONS: SidebarSection[] = [
     items: [
       { label: 'Companies & Divisions', href: '/master-data/admin/companies', icon: Users },
       { label: 'Warehouses', href: '/master-data/admin/warehouses', icon: Warehouse },
-      { label: 'Work Schedule', href: '/master-data/admin/work-schedule', icon: Clock, comingSoon: true },
+      { label: 'Work Schedule', href: '/master-data/admin/work-schedule', icon: Clock },
     ],
   },
   {

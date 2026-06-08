@@ -1,6 +1,7 @@
 // src/hooks/useOrderLocations.ts
 import { useQuery } from '@tanstack/react-query'
 import { createClient } from '@/lib/supabase/client'
+import { queryKeys } from '@/lib/queryKeys'
 
 export type OrderLocationStatus = 'scheduled' | 'in-progress' | 'completed' | 'pending'
 
@@ -60,12 +61,12 @@ export function useOrderLocations(opts?: UseOrderLocationsOptions) {
   const dateTo = opts?.dateTo ?? undefined
 
   return useQuery({
-    queryKey: ['order-locations', dateFrom, dateTo],
+    queryKey: queryKeys.orders.locations(dateFrom, dateTo),
     queryFn: async (): Promise<OrderLocation[]> => {
       const supabase = createClient()
 
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      let query = (supabase as any)
+      let query = supabase
         .from('orders')
         .select(`
           id, order_id, address, status, scheduled_date,
@@ -85,7 +86,12 @@ export function useOrderLocations(opts?: UseOrderLocationsOptions) {
       const { data, error } = await query.limit(500)
       if (error) throw error
 
-      return ((data ?? []) as any[])
+      type OrderRow = (typeof data extends (infer R)[] | null ? R : never) & {
+        service_customers: { name?: string } | null
+        order_services: { name?: string }[] | null
+        service_customer_addresses: { lat: number | null; lng: number | null } | null
+      }
+      return ((data ?? []) as OrderRow[])
         .filter((o) => {
           const addr = o.service_customer_addresses
           return addr && addr.lat != null && addr.lng != null
@@ -96,8 +102,8 @@ export function useOrderLocations(opts?: UseOrderLocationsOptions) {
           customerName: o.service_customers?.name ?? '',
           service: o.order_services?.[0]?.name ?? '',
           address: o.address ?? '',
-          lat: o.service_customer_addresses.lat,
-          lng: o.service_customer_addresses.lng,
+          lat: o.service_customer_addresses!.lat!,
+          lng: o.service_customer_addresses!.lng!,
           status: toMapStatus(o.status),
           visitDate: o.scheduled_date ?? null,
         }))

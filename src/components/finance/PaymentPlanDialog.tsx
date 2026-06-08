@@ -149,7 +149,7 @@ export function PaymentPlanDialog({
               </div>
             ))}
             {planType === 'schedule' && (
-              <p className={`text-xs ${balanceOk ? 'text-green-600' : 'text-amber-600'}`}>
+              <p className={`text-xs ${balanceOk ? 'text-success' : 'text-amber-600'}`}>
                 Total defined: {formatCurrency(totalDefined, 'QAR')} /{' '}
                 {formatCurrency(outstanding, 'QAR')} outstanding
               </p>

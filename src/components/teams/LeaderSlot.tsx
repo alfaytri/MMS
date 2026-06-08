@@ -28,7 +28,7 @@ export function LeaderSlot({ team }: { team: TeamFull }) {
   }
 
   const initials = leader.name?.split(' ').map((w: string) => w[0]).join('').slice(0, 2).toUpperCase() ?? '?'
-  const avatarUrl = (leader as unknown as { avatar_url?: string | null }).avatar_url ?? null
+  const avatarUrl = leader.avatar_url ?? null
 
   return (
     <div

@@ -1,5 +1,6 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { createClient } from '@/lib/supabase/client'
+import { queryKeys } from '@/lib/queryKeys'
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -58,10 +59,10 @@ export type CreateLandedCostPayload = {
 
 export function useLandedCosts({ search = '' }: { search?: string } = {}) {
   return useQuery({
-    queryKey: ['landed_costs', { search }],
+    queryKey: queryKeys.landedCosts.list(search),
     queryFn: async () => {
       const supabase = createClient()
-      let q = (supabase as any)
+      let q = supabase
         .from('landed_costs')
         .select('*')
         .order('date', { ascending: false })
@@ -76,12 +77,40 @@ export function useLandedCosts({ search = '' }: { search?: string } = {}) {
   })
 }
 
-export function useLandedCost(id: string) {
+/**
+ * Returns a Map<receival_id, lc_number[]> for every receival attached to a
+ * non-voided landed cost. Used by the Create LC dialog to cross out receivals
+ * that already have an LC while still allowing re-use.
+ */
+export function useLcUsedReceivalMap() {
   return useQuery({
-    queryKey: ['landed_costs', id],
+    queryKey: queryKeys.landedCosts.usedReceivalIds,
     queryFn: async () => {
       const supabase = createClient()
-      const { data, error } = await (supabase as any)
+      const { data, error } = await supabase
+        .from('landed_costs')
+        .select('lc_number, attached_receival_ids')
+        .is('voided_at', null)
+      if (error) throw error
+      const map = new Map<string, string[]>()
+      for (const lc of data ?? []) {
+        for (const rid of (lc.attached_receival_ids as string[]) ?? []) {
+          if (!map.has(rid)) map.set(rid, [])
+          map.get(rid)!.push(lc.lc_number as string)
+        }
+      }
+      return map
+    },
+    staleTime: 2 * 60 * 1000,
+  })
+}
+
+export function useLandedCost(id: string) {
+  return useQuery({
+    queryKey: queryKeys.landedCosts.detail(id),
+    queryFn: async () => {
+      const supabase = createClient()
+      const { data, error } = await supabase
         .from('landed_costs')
         .select('*')
         .eq('id', id)
@@ -100,8 +129,8 @@ export function useCreateLandedCost() {
     mutationFn: async (payload: CreateLandedCostPayload) => {
       const supabase = createClient()
       // total_amount computed in Postgres NUMERIC — no JS float rounding
-      const { data, error } = await (supabase as any).rpc('create_landed_cost', {
-        p_description:           payload.description ?? null,
+      const { data, error } = await supabase.rpc('create_landed_cost', {
+        p_description:           payload.description ?? '',
         p_date:                  payload.date,
         p_currency:              payload.currency,
         p_lines:                 payload.lines,
@@ -111,7 +140,7 @@ export function useCreateLandedCost() {
       if (error) throw error
       return data as LandedCost
     },
-    onSuccess: () => qc.invalidateQueries({ queryKey: ['landed_costs'] }),
+    onSuccess: () => qc.invalidateQueries({ queryKey: queryKeys.landedCosts.all }),
   })
 }
 
@@ -120,13 +149,13 @@ export function useVoidLandedCost() {
   return useMutation({
     mutationFn: async ({ id, reason }: { id: string; reason: string }) => {
       const supabase = createClient()
-      const { error } = await (supabase as any)
+      const { error } = await supabase
         .from('landed_costs')
         .update({ voided_at: new Date().toISOString(), voided_reason: reason })
         .eq('id', id)
       if (error) throw error
     },
-    onSuccess: () => qc.invalidateQueries({ queryKey: ['landed_costs'] }),
+    onSuccess: () => qc.invalidateQueries({ queryKey: queryKeys.landedCosts.all }),
   })
 }
 
@@ -135,12 +164,12 @@ export function useApplyLandedCost() {
   return useMutation({
     mutationFn: async (id: string) => {
       const supabase = createClient()
-      const { data, error } = await (supabase as any)
+      const { data, error } = await supabase
         .rpc('allocate_landed_cost', { p_lc_id: id })
       if (error) throw error
       return data as LandedCostItemAllocation[]
     },
-    onSuccess: () => qc.invalidateQueries({ queryKey: ['landed_costs'] }),
+    onSuccess: () => qc.invalidateQueries({ queryKey: queryKeys.landedCosts.all }),
   })
 }
 
@@ -153,15 +182,15 @@ export function useRevertLandedCost() {
       const { data: { user } } = await supabase.auth.getUser()
       let performerName = 'System'
       if (user) {
-        const { data: profile } = await (supabase as any)
+        const { data: profile } = await supabase
           .from('profiles').select('full_name').eq('auth_user_id', user.id).maybeSingle()
         performerName = profile?.full_name ?? user.email ?? 'System'
       }
-      const { error } = await (supabase as any)
+      const { error } = await supabase
         .rpc('revert_landed_cost', { p_lc_id: id, p_performer_name: performerName })
       if (error) throw error
     },
-    onSuccess: () => qc.invalidateQueries({ queryKey: ['landed_costs'] }),
+    onSuccess: () => qc.invalidateQueries({ queryKey: queryKeys.landedCosts.all }),
   })
 }
 
@@ -176,12 +205,12 @@ export type LcValidationItem = {
 
 export function useValidateLcAllocation(lcId: string | null | undefined, enabled: boolean) {
   return useQuery({
-    queryKey: ['validate-lc-allocation', lcId],
+    queryKey: queryKeys.landedCosts.validateAllocation(lcId),
     enabled: !!lcId && enabled,
     queryFn: async () => {
       const supabase = createClient()
-      const { data, error } = await (supabase as any)
-        .rpc('validate_lc_allocation', { p_lc_id: lcId })
+      const { data, error } = await supabase
+        .rpc('validate_lc_allocation', { p_lc_id: lcId! })
       if (error) throw error
       return (data ?? []) as LcValidationItem[]
     },
@@ -192,7 +221,7 @@ export function useValidateLcAllocation(lcId: string | null | undefined, enabled
 export function useBillSignedUrls(paths: (string | null | undefined)[]) {
   const validPaths = (paths.filter(Boolean) as string[]).slice().sort()
   return useQuery({
-    queryKey: ['bill-signed-urls', validPaths],
+    queryKey: queryKeys.landedCosts.billSignedUrls(validPaths),
     enabled: validPaths.length > 0,
     queryFn: async () => {
       const supabase = createClient()

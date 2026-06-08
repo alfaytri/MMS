@@ -1,5 +1,6 @@
 import { type NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@supabase/supabase-js'
+import type { Database } from '@/types/database.types'
 
 const SUPA_URL    = process.env.NEXT_PUBLIC_SUPABASE_URL!
 const SUPA_KEY    = process.env.SUPABASE_SERVICE_ROLE_KEY!
@@ -108,7 +109,7 @@ export async function POST(req: NextRequest) {
   }
 
   // ── 2. Save to chat_messages ────────────────────────────────────────────────
-  const supabase = createClient(SUPA_URL, SUPA_KEY)
+  const supabase = createClient<Database>(SUPA_URL, SUPA_KEY)
   const ts = new Date().toISOString()
 
   const attachments: Array<{ url: string; type: string; name: string }> = []
@@ -123,7 +124,7 @@ export async function POST(req: NextRequest) {
     attachments.push({ url: imageUrl, type: 'image/jpeg', name: 'image' })
   }
 
-  const { data: existing } = await (supabase.from('chat_conversations') as any)
+  const { data: existing } = await supabase.from('chat_conversations')
     .select('id')
     .eq('wati_phone', phone)
     .maybeSingle()
@@ -132,7 +133,7 @@ export async function POST(req: NextRequest) {
 
   if (existing) {
     conversationId = existing.id
-    await (supabase.from('chat_conversations') as any)
+    await supabase.from('chat_conversations')
       .update({
         last_message:    text,
         last_message_at: ts,
@@ -140,7 +141,7 @@ export async function POST(req: NextRequest) {
       })
       .eq('id', conversationId)
   } else {
-    const { data: created, error } = await (supabase.from('chat_conversations') as any)
+    const { data: created, error } = await supabase.from('chat_conversations')
       .insert({
         wati_phone:      phone,
         last_message:    text,
@@ -170,7 +171,7 @@ export async function POST(req: NextRequest) {
   }
   if (watiMessageId) insertPayload.external_id = watiMessageId
 
-  const { error: insertError } = await (supabase.from('chat_messages') as any)
+  const { error: insertError } = await supabase.from('chat_messages')
     .insert(insertPayload)
 
   if (insertError) {

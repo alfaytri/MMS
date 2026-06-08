@@ -1,7 +1,7 @@
 'use client'
 
 import { useState, Suspense } from 'react'
-import { useRouter, useSearchParams } from 'next/navigation'
+import { useSearchParams } from 'next/navigation'
 import { toast } from 'sonner'
 import { PageHeader } from '@/components/shared/PageHeader'
 import { PageWrapper } from '@/components/shared/PageWrapper'
@@ -21,6 +21,7 @@ import {
 import {
   Table, TableBody, TableCell, TableHead, TableHeader, TableRow,
 } from '@/components/ui/table'
+import { EmptyState } from '@/components/shared/EmptyState'
 import {
   useSaleReturns,
   useCreateSaleReturn,
@@ -79,15 +80,10 @@ const PR_STATUS_LABEL: Record<string, string> = {
 
 // ─── Inner component (uses useSearchParams — requires Suspense wrapper) ───────
 function ReturnsContent() {
-  const router = useRouter()
   const searchParams = useSearchParams()
-  const returnType = (searchParams.get('type') ?? 'sale') as 'sale' | 'po'
-
-  function setReturnType(t: 'sale' | 'po') {
-    const params = new URLSearchParams(searchParams.toString())
-    params.set('type', t)
-    router.replace(`?${params.toString()}`)
-  }
+  const [returnType, setReturnType] = useState<'sale' | 'po'>(
+    (searchParams.get('type') ?? 'sale') as 'sale' | 'po'
+  )
 
   // ── Sale return state ──
   const [srSearch, setSrSearch] = useState('')
@@ -252,7 +248,9 @@ function ReturnsContent() {
         srLoading ? (
           <div className="space-y-3">{Array.from({ length: 3 }).map((_, i) => <Skeleton key={i} className="h-24 w-full rounded-lg" />)}</div>
         ) : (saleReturns ?? []).length === 0 ? (
-          <div className="rounded-lg border border-dashed p-8 text-center text-muted-foreground text-sm">No sale returns found</div>
+          <div className="rounded-lg border border-dashed">
+            <EmptyState title="No returns found" />
+          </div>
         ) : (
           <div className="space-y-3">
             {(saleReturns ?? []).map((ret) => {
@@ -300,7 +298,9 @@ function ReturnsContent() {
         prLoading ? (
           <div className="space-y-3">{Array.from({ length: 3 }).map((_, i) => <Skeleton key={i} className="h-24 w-full rounded-lg" />)}</div>
         ) : (poReturns ?? []).length === 0 ? (
-          <div className="rounded-lg border border-dashed p-8 text-center text-muted-foreground text-sm">No PO returns found</div>
+          <div className="rounded-lg border border-dashed">
+            <EmptyState title="No returns found" />
+          </div>
         ) : (
           <div className="space-y-3">
             {(poReturns ?? []).map((ret) => {
@@ -436,9 +436,9 @@ function ReturnsContent() {
                 <Input id="sr-date" type="date" value={srDate} onChange={(e) => setSrDate(e.target.value)} />
               </div>
               <div className="space-y-1">
-                <Label>Restock Warehouse</Label>
+                <Label htmlFor="sr-restock-warehouse">Restock Warehouse</Label>
                 <Select value={srWarehouseId} onValueChange={(v) => setSrWarehouseId(v ?? '')}>
-                  <SelectTrigger>
+                  <SelectTrigger id="sr-restock-warehouse">
                     <SelectValue placeholder="No restocking" />
                   </SelectTrigger>
                   <SelectContent>
@@ -497,9 +497,9 @@ function ReturnsContent() {
           <DialogHeader className="shrink-0"><DialogTitle>Create PO Return</DialogTitle></DialogHeader>
           <div className="flex-1 overflow-y-auto space-y-4 py-2">
             <div className="space-y-1">
-              <Label>Purchase Order (with receivals) *</Label>
+              <Label htmlFor="pr-po">Purchase Order (with receivals) *</Label>
               <Select value={poId} onValueChange={(v) => handlePOSelect(v ?? '')}>
-                <SelectTrigger>
+                <SelectTrigger id="pr-po">
                   <SelectValue placeholder="Select purchase order…" />
                 </SelectTrigger>
                 <SelectContent>
@@ -517,9 +517,9 @@ function ReturnsContent() {
                 <Input id="pr-date" type="date" value={prDate} onChange={(e) => setPrDate(e.target.value)} />
               </div>
               <div className="space-y-1">
-                <Label>Dispatch From Warehouse</Label>
+                <Label htmlFor="pr-dispatch-warehouse">Dispatch From Warehouse</Label>
                 <Select value={prWarehouseId} onValueChange={(v) => setPrWarehouseId(v ?? '')}>
-                  <SelectTrigger>
+                  <SelectTrigger id="pr-dispatch-warehouse">
                     <SelectValue placeholder="Select warehouse…" />
                   </SelectTrigger>
                   <SelectContent>

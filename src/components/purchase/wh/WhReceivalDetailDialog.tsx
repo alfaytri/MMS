@@ -1,86 +1,142 @@
 'use client'
 
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog'
+import { useMemo } from 'react'
+import { Dialog, DialogContent } from '@/components/ui/dialog'
 import { Badge } from '@/components/ui/badge'
-import { Button } from '@/components/ui/button'
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table'
-import { Package, Truck } from 'lucide-react'
-import { ReceivalDelivery } from '@/hooks/useWarehouseOperations'
+import { Separator } from '@/components/ui/separator'
+import { Package, Truck, Calendar, Warehouse, User } from 'lucide-react'
+import { ItemTreeCell } from './ItemTreeCell'
+import { ReceivalDelivery, useWarehouseStock } from '@/hooks/useWarehouseOperations'
 import { format } from 'date-fns'
+
+const STATUS_STYLES: Record<string, string> = {
+  approved:         'bg-success/10 text-success border-success/20',
+  delivered:        'bg-success/10 text-success border-success/20',
+  pending:          'bg-warning/10 text-warning border-warning/20',
+  pending_approval: 'bg-warning/10 text-warning border-warning/20',
+  dispatched:       'bg-primary/10 text-primary border-primary/20',
+}
 
 interface Props {
   item: ReceivalDelivery | null
   onClose: () => void
 }
 
+function MetaRow({ icon, label, value }: { icon: React.ReactNode; label: string; value: string }) {
+  return (
+    <div className="flex items-center gap-3 min-w-0">
+      <div className="h-8 w-8 rounded-lg bg-muted/40 flex items-center justify-center flex-shrink-0">
+        {icon}
+      </div>
+      <div className="min-w-0">
+        <p className="text-[10px] text-muted-foreground uppercase tracking-wide leading-none mb-0.5">{label}</p>
+        <p className="text-sm font-medium truncate">{value}</p>
+      </div>
+    </div>
+  )
+}
+
 export function WhReceivalDetailDialog({ item, onClose }: Props) {
+  const { data: fullStock = [] } = useWarehouseStock()
+
+  const variantMeta = useMemo(() => {
+    const map = new Map<string, { categoryName: string | null; itemType: string | null; itemName: string; brand: string | null }>()
+    for (const s of fullStock) {
+      if (!map.has(s.brand_variant_id)) {
+        map.set(s.brand_variant_id, { categoryName: s.category_name ?? null, itemType: s.item_type ?? null, itemName: s.item_name, brand: s.brand ?? null })
+      }
+    }
+    return map
+  }, [fullStock])
+
   if (!item) return null
   const isInbound = item.direction === 'inbound'
 
   return (
     <Dialog open={!!item} onOpenChange={onClose}>
-      <DialogContent className="max-w-md">
-        <DialogHeader>
-          <DialogTitle className="text-sm flex items-center gap-2">
-            {item.docNumber}
-            <Badge className={`text-[10px] px-1.5 py-0 flex items-center gap-1 ${isInbound ? 'bg-success/10 text-success' : 'bg-primary/10 text-primary'}`}>
-              {isInbound ? <Package className="h-2.5 w-2.5" /> : <Truck className="h-2.5 w-2.5" />}
-              {isInbound ? 'Receival' : 'Delivery'}
-            </Badge>
-          </DialogTitle>
-        </DialogHeader>
+      <DialogContent className="max-w-xl max-h-[85vh] overflow-y-auto p-0">
+        <div className="px-6 pt-6 pb-4 space-y-4">
+          {/* Header */}
+          <div className="flex items-center gap-3">
+            <div className={`h-10 w-10 rounded-xl flex items-center justify-center flex-shrink-0 ${isInbound ? 'bg-success/10' : 'bg-destructive/10'}`}>
+              {isInbound
+                ? <Package className="h-5 w-5 text-success" />
+                : <Truck className="h-5 w-5 text-destructive" />}
+            </div>
+            <div className="min-w-0 flex-1">
+              <div className="flex items-center gap-2">
+                <h3 className="text-base font-semibold">{item.docNumber}</h3>
+                <Badge className={`text-[10px] px-2 py-0.5 capitalize ${STATUS_STYLES[item.status] ?? 'bg-muted text-muted-foreground'}`}>
+                  {item.status.replace(/_/g, ' ')}
+                </Badge>
+              </div>
+              <p className="text-xs text-muted-foreground mt-0.5">
+                {isInbound ? 'PO Receival' : 'Sale Delivery'}{item.reference ? ` — ${item.reference}` : ''}
+              </p>
+            </div>
+          </div>
 
-        <div className="grid grid-cols-2 gap-x-4 gap-y-2 text-xs">
-          <div>
-            <p className="text-muted-foreground">Reference</p>
-            <p className="font-medium">{item.reference || '—'}</p>
-          </div>
-          <div>
-            <p className="text-muted-foreground">Warehouse</p>
-            <p className="font-medium">{item.warehouseName || '—'}</p>
-          </div>
-          <div>
-            <p className="text-muted-foreground">Date</p>
-            <p className="font-medium">{item.date ? format(new Date(item.date), 'dd MMM yyyy') : '—'}</p>
-          </div>
-          <div>
-            <p className="text-muted-foreground">{isInbound ? 'Supplier' : 'Customer'}</p>
-            <p className="font-medium">{item.counterparty || '—'}</p>
+          <Separator />
+
+          {/* Meta grid */}
+          <div className="grid grid-cols-2 gap-4">
+            {item.counterparty && (
+              <MetaRow
+                icon={<User className="h-3.5 w-3.5 text-muted-foreground" />}
+                label={isInbound ? 'Supplier' : 'Customer'}
+                value={item.counterparty}
+              />
+            )}
+            <MetaRow
+              icon={<Warehouse className="h-3.5 w-3.5 text-muted-foreground" />}
+              label="Warehouse"
+              value={item.warehouseName || '—'}
+            />
+            <MetaRow
+              icon={<Calendar className="h-3.5 w-3.5 text-muted-foreground" />}
+              label="Date"
+              value={item.date ? format(new Date(item.date), 'dd MMM yyyy') : '—'}
+            />
+            <MetaRow
+              icon={<Package className="h-3.5 w-3.5 text-muted-foreground" />}
+              label="Items"
+              value={`${item.itemCount} item${item.itemCount !== 1 ? 's' : ''}`}
+            />
           </div>
         </div>
 
-        <div className="rounded-md border mt-2">
-          <Table>
-            <TableHeader>
-              <TableRow>
-                <TableHead className="text-xs">Item</TableHead>
-                <TableHead className="text-xs">SKU</TableHead>
-                <TableHead className="text-xs text-right">Qty</TableHead>
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              {item.items.length === 0 ? (
-                <TableRow>
-                  <TableCell colSpan={3} className="text-center text-xs text-muted-foreground py-4">
-                    No items
-                  </TableCell>
-                </TableRow>
-              ) : (
-                item.items.map((i, idx) => (
-                  <TableRow key={idx}>
-                    <TableCell className="text-xs">{i.name}</TableCell>
-                    <TableCell className="text-xs text-primary">{i.sku || '—'}</TableCell>
-                    <TableCell className="text-xs text-right">{i.qty}</TableCell>
-                  </TableRow>
-                ))
-              )}
-            </TableBody>
-          </Table>
-        </div>
-
-        <DialogFooter>
-          <Button variant="outline" size="sm" className="text-xs" onClick={onClose}>Close</Button>
-        </DialogFooter>
+        {/* Items table */}
+        {item.items.length > 0 && (
+          <div className="px-6 pb-6">
+            <p className="text-[10px] font-semibold uppercase tracking-wide text-muted-foreground mb-2">
+              {isInbound ? 'Received Items' : 'Delivered Items'}
+            </p>
+            <div className="rounded-lg border overflow-hidden">
+              <div className="grid grid-cols-[1fr_80px] gap-2 px-4 py-2 bg-muted/30 text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">
+                <span>Item</span>
+                <span className="text-right">Qty</span>
+              </div>
+              <div className="max-h-[220px] overflow-y-auto divide-y">
+                {item.items.map((i, idx) => {
+                  const meta = i.brand_variant_id ? variantMeta.get(i.brand_variant_id) : null
+                  return (
+                    <div key={idx} className="grid grid-cols-[1fr_80px] gap-2 px-4 py-2.5 items-center">
+                      <ItemTreeCell
+                        category={meta?.categoryName}
+                        itemType={meta?.itemType}
+                        itemName={meta?.itemName ?? i.name}
+                        brand={meta?.brand}
+                        sku={i.sku}
+                        showSku
+                      />
+                      <span className="text-sm text-right tabular-nums font-medium">{i.qty}</span>
+                    </div>
+                  )
+                })}
+              </div>
+            </div>
+          </div>
+        )}
       </DialogContent>
     </Dialog>
   )

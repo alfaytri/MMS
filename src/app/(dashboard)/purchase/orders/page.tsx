@@ -24,6 +24,7 @@ import { usePurchaseOrders, useCancelPO, type PurchaseOrder, type POStatus, type
 import { useSuppliers } from '@/hooks/useSuppliers'
 import { formatCurrency, formatDate } from '@/lib/utils/formatters'
 import { cn } from '@/lib/utils'
+import { EmptyState } from '@/components/shared/EmptyState'
 import { PageWrapper } from '@/components/shared/PageWrapper'
 import { DivisionFilter, type DivisionFilterValue } from '@/components/shared/DivisionFilter'
 import { useUserDivisionScope } from '@/hooks/useUserDivisionScope'
@@ -55,7 +56,7 @@ const PAYMENT_STATUS_OPTIONS = [
 ]
 
 const STATUS_COLORS: Record<POStatus, string> = {
-  draft: 'bg-slate-100 text-slate-700',
+  draft: 'bg-muted text-foreground',
   pending_approval: 'bg-amber-100 text-amber-700',
   approved: 'bg-blue-100 text-blue-700',
   partially_received: 'bg-purple-100 text-purple-700',
@@ -67,7 +68,7 @@ const STATUS_COLORS: Record<POStatus, string> = {
 const PO_TYPE_TABS: { value: POType | ''; label: string; color: string }[] = [
   { value: '',          label: 'All',       color: '' },
   { value: 'rfq',       label: 'RFQ',       color: 'bg-orange-100 text-orange-700 border-orange-300' },
-  { value: 'draft',     label: 'Draft',     color: 'bg-slate-100 text-slate-700 border-slate-300' },
+  { value: 'draft',     label: 'Draft',     color: 'bg-muted text-foreground border-border' },
   { value: 'confirmed', label: 'Confirmed', color: 'bg-emerald-100 text-emerald-700 border-emerald-300' },
 ]
 
@@ -249,7 +250,7 @@ export default function PurchaseOrdersPage() {
                 <p className="text-xs text-muted-foreground mt-1">All POs</p>
               </div>
               <div className="p-2 rounded-lg bg-green-500/10">
-                <DollarSign className="h-5 w-5 text-green-500" />
+                <DollarSign className="h-5 w-5 text-success" />
               </div>
             </div>
           </CardContent>
@@ -424,14 +425,16 @@ export default function PurchaseOrdersPage() {
                 ))
               ) : filtered.length === 0 ? (
                 <TableRow>
-                  <TableCell colSpan={9} className="text-center py-12">
-                    <div className="flex flex-col items-center gap-3 text-muted-foreground">
-                      <FileText className="h-12 w-12" />
-                      <p className="font-medium">No purchase orders found</p>
-                      <Button variant="outline" size="sm" onClick={() => router.push('/purchase/create-po')}>
-                        Create your first PO
-                      </Button>
-                    </div>
+                  <TableCell colSpan={9} className="p-0">
+                    <EmptyState
+                      title="No purchase orders found"
+                      icon={<FileText className="h-6 w-6 text-muted-foreground" />}
+                      action={
+                        <Button variant="outline" size="sm" onClick={() => router.push('/purchase/create-po')}>
+                          Create your first PO
+                        </Button>
+                      }
+                    />
                   </TableCell>
                 </TableRow>
               ) : (
@@ -453,7 +456,7 @@ export default function PurchaseOrdersPage() {
                           'inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium',
                           po.po_type === 'rfq' ? 'bg-orange-100 text-orange-700'
                             : po.po_type === 'confirmed' ? 'bg-emerald-100 text-emerald-700'
-                            : 'bg-slate-100 text-slate-700',
+                            : 'bg-muted text-foreground',
                         )}>
                           {po.po_type === 'rfq' ? 'RFQ' : po.po_type === 'confirmed' ? 'Confirmed' : 'Draft'}
                         </span>
@@ -473,7 +476,7 @@ export default function PurchaseOrdersPage() {
                       <TableCell className="text-center">
                         <span className={cn(
                           'inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium',
-                          STATUS_COLORS[po.status] ?? 'bg-slate-100 text-slate-700'
+                          STATUS_COLORS[po.status] ?? 'bg-muted text-foreground'
                         )}>
                           {po.status.replace(/_/g, ' ')}
                         </span>

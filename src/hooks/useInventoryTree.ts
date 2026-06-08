@@ -2,6 +2,7 @@ import { useMemo } from 'react'
 import { useQuery } from '@tanstack/react-query'
 import { createClient } from '@/lib/supabase/client'
 import type { InventoryCategory } from '@/hooks/useInventory'
+import { queryKeys } from '@/lib/queryKeys'
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -97,14 +98,14 @@ export function allDescendantIds(id: string, flat: InventoryCategory[]): string[
  */
 export function useInventoryTree(type: string, showArchived = false) {
   const query = useQuery({
-    queryKey: ['inventory-categories-tree', type, showArchived],
+    queryKey: queryKeys.inventory.categoriesTreeByType(type, showArchived),
     queryFn: async () => {
       const supabase = createClient()
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      let q = (supabase as any)
+      let q = supabase
         .from('inventory_categories')
         .select('*')
-        .eq('type', type)
+        .eq('type', type as 'products' | 'spare-parts' | 'consumables' | 'tools')
         .order('sort_order', { ascending: true })
         .order('name_en', { ascending: true })
       if (!showArchived) q = q.neq('status', 'archived')
@@ -134,11 +135,11 @@ export function useInventoryTree(type: string, showArchived = false) {
  */
 export function useAllCategoriesFlat() {
   return useQuery({
-    queryKey: ['inventory-categories-all-flat'],
+    queryKey: queryKeys.inventory.categoriesAllFlat,
     queryFn: async () => {
       const supabase = createClient()
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      const { data, error } = await (supabase as any)
+      const { data, error } = await supabase
         .from('inventory_categories')
         .select('*')
         .neq('status', 'archived')

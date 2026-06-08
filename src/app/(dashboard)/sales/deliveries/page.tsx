@@ -13,7 +13,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/u
 import { cn } from '@/lib/utils'
 
 const STATUS_CONFIG: Record<DeliveryStatus, { label: string; className: string }> = {
-  pending:     { label: 'Pending',     className: 'bg-slate-100 text-slate-700' },
+  pending:     { label: 'Pending',     className: 'bg-muted text-foreground' },
   in_progress: { label: 'In Progress', className: 'bg-blue-100 text-blue-700' },
   delivered:   { label: 'Delivered',   className: 'bg-green-100 text-green-700' },
   cancelled:   { label: 'Cancelled',   className: 'bg-red-100 text-red-700' },

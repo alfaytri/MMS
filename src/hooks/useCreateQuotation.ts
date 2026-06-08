@@ -3,6 +3,7 @@
 import { useState, useEffect } from 'react'
 import { useMutation, useQueryClient } from '@tanstack/react-query'
 import { createClient } from '@/lib/supabase/client'
+import { queryKeys } from '@/lib/queryKeys'
 import type { QuotationDraft, QuotationLineDraft } from '@/types/quotations'
 import type { CustomerLookupResult } from '@/hooks/useCustomerLookup'
 import type { OrderServiceDraft } from '@/types/orders'
@@ -42,7 +43,7 @@ export function useCreateQuotation() {
 
   // Generate Q/YYYY/MM/NNNN via DB sequence — race-condition-free
   useEffect(() => {
-    ;(supabase as any)
+    ;supabase
       .rpc('generate_quotation_id')
       .then(({ data, error }: { data: string | null; error: PostgrestError | null }) => {
         if (error) {
@@ -129,7 +130,7 @@ export function useCreateQuotation() {
     const expiry = new Date()
     expiry.setDate(expiry.getDate() + 30)
 
-    const { data: quotUuid, error } = await (supabase as any).rpc('save_quotation', {
+    const { data: quotUuid, error } = await supabase.rpc('save_quotation', {
       p_quotation_id:        draft.quotationId,
       p_service_customer_id: draft.customerId,
       p_division:            draft.division,
@@ -137,7 +138,7 @@ export function useCreateQuotation() {
       p_total_amount:        finalTotal,
       p_notes:               draft.notes || '',
       p_expiry_date:         expiry.toISOString().split('T')[0],
-      p_sent_date:           status === 'sent' ? new Date().toISOString() : null,
+      p_sent_date:           status === 'sent' ? new Date().toISOString() : '',
       p_line_items:          JSON.stringify(
         draft.services.map((s) => ({
           service_id: s.serviceId || null,
@@ -152,7 +153,7 @@ export function useCreateQuotation() {
       p_discount_value: draft.discountValue,
     })
     if (error) throw error
-    qc.invalidateQueries({ queryKey: ['quotations'] })
+    qc.invalidateQueries({ queryKey: queryKeys.quotations.all })
     return quotUuid as string
   }
 
@@ -205,7 +206,7 @@ export function useCreateQuotation() {
       })
       if (!sendRes.ok) {
         const errJson = await sendRes.json().catch(() => ({}))
-        throw new Error((errJson as any).error ?? 'Wati file send failed')
+        throw new Error((errJson as Record<string, string>).error ?? 'Wati file send failed')
       }
       // 6. Mark as sent
       await saveToDb('sent')

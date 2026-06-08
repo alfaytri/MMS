@@ -1,6 +1,7 @@
 // src/hooks/useCustomerPayments.ts
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { createClient } from '@/lib/supabase/client'
+import { queryKeys } from '@/lib/queryKeys'
 
 export type CustomerPayment = {
   id: string
@@ -25,10 +26,10 @@ export type CustomerPayment = {
 
 export function useCustomerPayments(invoiceId?: string) {
   return useQuery({
-    queryKey: ['customer-payments', invoiceId],
+    queryKey: queryKeys.customerPayments.byInvoice(invoiceId),
     queryFn: async () => {
       const supabase = createClient()
-      let q = (supabase as any)
+      let q = supabase
         .from('payments')
         .select('*, customer_id, invoices(invoice_id, customers(name))')
         .eq('direction', 'incoming')
@@ -44,7 +45,7 @@ export function useCustomerPayments(invoiceId?: string) {
 
       const soMap: Record<string, { so_number: string; customer_name: string | null }> = {}
       if (soIds.length > 0) {
-        const { data: sos } = await (supabase as any)
+        const { data: sos } = await supabase
           .from('sale_orders')
           .select('id, so_number, customers(name)')
           .in('id', soIds)
@@ -82,7 +83,7 @@ export function useCreateCustomerPayment() {
       notes: string | null
     }) => {
       const supabase = createClient()
-      const { data: maxRow } = await (supabase as any)
+      const { data: maxRow } = await supabase
         .from('payments')
         .select('payment_id')
         .ilike('payment_id', 'CPAY-%')
@@ -94,7 +95,7 @@ export function useCreateCustomerPayment() {
         : 0
       const payment_id = `CPAY-${String(lastNum + 1).padStart(5, '0')}`
 
-      const { data, error } = await (supabase as any)
+      const { data, error } = await supabase
         .from('payments')
         .insert({
           payment_id,
@@ -113,14 +114,14 @@ export function useCreateCustomerPayment() {
       if (error) throw error
 
       // Recompute invoice payment_status (belt-and-suspenders alongside the DB trigger)
-      const { data: allPayments } = await (supabase as any)
+      const { data: allPayments } = await supabase
         .from('payments')
         .select('amount')
         .eq('invoice_id', payload.invoice_id)
         .eq('direction', 'incoming')
       const totalPaid = (allPayments ?? []).reduce((s: number, p: any) => s + p.amount, 0)
 
-      const { data: inv } = await (supabase as any)
+      const { data: inv } = await supabase
         .from('invoices')
         .select('total_amount')
         .eq('id', payload.invoice_id)
@@ -130,7 +131,7 @@ export function useCreateCustomerPayment() {
         : totalPaid > 0 ? 'partially_paid'
         : 'unpaid'
 
-      await (supabase as any)
+      await supabase
         .from('invoices')
         .update({ payment_status: newStatus })
         .eq('id', payload.invoice_id)
@@ -138,9 +139,9 @@ export function useCreateCustomerPayment() {
       return data
     },
     onSuccess: (_, variables) => {
-      queryClient.invalidateQueries({ queryKey: ['customer-payments'] })
-      queryClient.invalidateQueries({ queryKey: ['customer-payments', variables.invoice_id] })
-      queryClient.invalidateQueries({ queryKey: ['customer-invoices'] })
+      queryClient.invalidateQueries({ queryKey: queryKeys.customerPayments.all })
+      queryClient.invalidateQueries({ queryKey: queryKeys.customerPayments.byInvoice(variables.invoice_id) })
+      queryClient.invalidateQueries({ queryKey: queryKeys.customerInvoices.all })
     },
   })
 }

@@ -71,7 +71,7 @@ export function TeamDaySheet({
                 <div className="flex items-start justify-between gap-2">
                   <div className="min-w-0">
                     {visit.order_number && (
-                      <p className="text-[11px] font-mono font-medium text-slate-700 truncate">
+                      <p className="text-[11px] font-mono font-medium text-foreground truncate">
                         {visit.order_number}
                       </p>
                     )}
@@ -84,7 +84,7 @@ export function TeamDaySheet({
                       'shrink-0 text-[10px] font-semibold uppercase px-2 py-0.5',
                       visit.status === 'scheduled'   && 'bg-orange-100 text-orange-700 border-orange-200',
                       visit.status === 'confirmed'   && 'bg-green-100 text-green-700 border-green-200',
-                      visit.status === 'completed'   && 'bg-slate-100 text-slate-600 border-slate-200',
+                      visit.status === 'completed'   && 'bg-muted text-muted-foreground border-border',
                       visit.status === 'in-progress' && 'bg-blue-100 text-blue-700 border-blue-200',
                       visit.status === 'cancelled'   && 'bg-red-100 text-red-700 border-red-200',
                     )}
@@ -96,16 +96,16 @@ export function TeamDaySheet({
 
                 {/* Row 2: phone */}
                 {visit.customer_phone && (
-                  <div className="flex items-center gap-1.5 text-xs text-slate-600">
-                    <Phone className="h-3 w-3 shrink-0 text-slate-400" />
+                  <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
+                    <Phone className="h-3 w-3 shrink-0 text-muted-foreground" />
                     <span className="font-medium">{visit.customer_phone}</span>
                   </div>
                 )}
 
                 {/* Row 3: services */}
                 {visit.services_summary && (
-                  <div className="flex items-start gap-1.5 text-xs text-slate-600">
-                    <ClipboardList className="h-3 w-3 shrink-0 mt-0.5 text-slate-400" />
+                  <div className="flex items-start gap-1.5 text-xs text-muted-foreground">
+                    <ClipboardList className="h-3 w-3 shrink-0 mt-0.5 text-muted-foreground" />
                     <span className="leading-snug">{visit.services_summary}</span>
                   </div>
                 )}

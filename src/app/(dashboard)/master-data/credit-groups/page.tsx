@@ -16,6 +16,7 @@ import {
 import {
   Table, TableBody, TableCell, TableHead, TableHeader, TableRow,
 } from '@/components/ui/table'
+import { EmptyState } from '@/components/shared/EmptyState'
 import {
   useCreditGroups,
   useDeleteCreditGroup,
@@ -97,6 +98,13 @@ export default function CreditGroupsPage() {
                     <TableCell />
                   </TableRow>
                 ))
+              : groups.length === 0 ? (
+                  <TableRow>
+                    <TableCell colSpan={6} className="p-0">
+                      <EmptyState title="No credit groups found" />
+                    </TableCell>
+                  </TableRow>
+                )
               : groups.map((g) => (
                   <TableRow key={g.id}>
                     <TableCell className="font-medium">{g.name}</TableCell>

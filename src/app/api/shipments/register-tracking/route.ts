@@ -1,6 +1,6 @@
 import { NextResponse } from 'next/server'
 import { createAdminClient } from '@/lib/supabase/admin'
-import { requireAdmin } from '@/lib/auth/require-admin'
+import { requirePermission } from '@/lib/auth/require-admin'
 import {
   registerTracking, getTrackInfo,
   ERR_QUOTA_EXCEEDED, ERR_AMBIGUOUS_CARRIER,
@@ -22,7 +22,7 @@ async function fetchWithBackoff(trackingNumber: string, carrierCode?: number) {
 
 
 export async function POST(request: Request) {
-  const gate = await requireAdmin()
+  const gate = await requirePermission('purchase.shipments.manage')
   if (!gate.ok) return NextResponse.json({ error: gate.message }, { status: gate.status })
 
   const { tracking_number, shipment_id, carrier_code } = await request.json()
@@ -36,7 +36,7 @@ export async function POST(request: Request) {
   // Atomic semaphore: only acquires the lock if is_syncing is currently false.
   // Prevents race conditions in serverless environments where two requests can
   // both read is_syncing: false before either sets it to true.
-  const { data: lockedShipment, error: lockError } = await (supabase as any)
+  const { data: lockedShipment, error: lockError } = await supabase
     .from('shipments')
     .update({ is_syncing: true })
     .eq('id', shipment_id)
@@ -61,7 +61,7 @@ export async function POST(request: Request) {
 
     if (rejected) {
       if (rejected.error.code === ERR_QUOTA_EXCEEDED) {
-        await (supabase as any)
+        await supabase
           .from('shipments')
           .update({ sync_error: 'quota_exceeded' })
           .eq('id', shipment_id)
@@ -76,7 +76,7 @@ export async function POST(request: Request) {
     }
 
     if (carrier_code !== undefined) {
-      await (supabase as any)
+      await supabase
         .from('shipments')
         .update({ carrier_code: String(carrier_code) })
         .eq('id', shipment_id)
@@ -87,14 +87,14 @@ export async function POST(request: Request) {
     const events = mapRawEvents(rawEvents)
 
     if (events.length > 0) {
-      await (supabase as any).rpc('append_shipment_events', {
+      await supabase.rpc('append_shipment_events', {
         p_shipment_id: shipment_id,
         p_events: events,
         p_status_map: STATUS_MAP_JSON,
       })
     }
 
-    await (supabase as any)
+    await supabase
       .from('shipments')
       .update({ sync_error: null })
       .eq('id', shipment_id)
@@ -105,6 +105,6 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: 'Internal server error' }, { status: 500 })
   } finally {
     // Always release the semaphore — runs on every exit path including early returns
-    await (supabase as any).from('shipments').update({ is_syncing: false }).eq('id', shipment_id)
+    await supabase.from('shipments').update({ is_syncing: false }).eq('id', shipment_id)
   }
 }

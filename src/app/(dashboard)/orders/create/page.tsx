@@ -9,7 +9,7 @@ import { OrderFormPanel } from '@/components/orders/OrderFormPanel'
 import { TeamCalendarPanel } from '@/components/orders/TeamCalendarPanel'
 import { CustomerHistoryPanel } from '@/components/orders/CustomerHistoryPanel'
 import { useCreateOrder } from '@/hooks/useCreateOrder'
-import { useTeams } from '@/hooks/useTeams'
+import { useTeams, type TeamFull } from '@/hooks/useTeams'
 import { SelectedServiceCard } from '@/components/orders/SelectedServiceCard'
 import { SiteVisitCard, SITE_VISIT_SERVICE_ID, makeSiteVisitDraft } from '@/components/orders/SiteVisitCard'
 import { createClient } from '@/lib/supabase/client'
@@ -71,7 +71,7 @@ export default function CreateOrderPage() {
     let cancelled = false
     ;(async () => {
       const normalised = tryNormalisePhone(selectedCustomer.primaryPhone) ?? selectedCustomer.primaryPhone
-      const { data } = await (supabase as any)
+      const { data } = await supabase
         .from('service_customer_phones')
         .select('id')
         .eq('customer_id', selectedCustomer.customerId)
@@ -97,7 +97,7 @@ export default function CreateOrderPage() {
   useEffect(() => {
     if (!prefilledCustomerId) return
     const supabase = createClient()
-    ;(supabase as any)
+    ;supabase
       .from('customers')
       .select('id, name, customer_phones(id, phone)')
       .eq('id', prefilledCustomerId)
@@ -145,12 +145,8 @@ export default function CreateOrderPage() {
     if (!dropData?.teamId) return
 
     const { teamId, hour, minute = 0 } = dropData
-    const match = (teams as unknown as Array<Record<string, unknown>>)?.find(
-      (t) => t['id'] === teamId,
-    )
-    const teamName = (match?.['name_en'] as string | null | undefined) ??
-      (match?.['name'] as string | null | undefined) ??
-      teamId
+    const match = (teams as TeamFull[] | undefined)?.find((t) => t.id === teamId)
+    const teamName = match?.name_en ?? match?.name ?? teamId
 
     // ── Day-window drag: assign ALL services at the day's time window ────────
     if (active.data.current.type === 'day-window') {
@@ -284,7 +280,7 @@ export default function CreateOrderPage() {
         {draggingDayWindow ? (
           <div className="w-72 rotate-1 rounded-xl border border-orange-300 bg-white shadow-2xl ring-1 ring-orange-200 px-3 py-2.5 space-y-1.5">
             <div className="flex items-center justify-between">
-              <span className="text-[11px] font-medium text-slate-500">
+              <span className="text-[11px] font-medium text-muted-foreground">
                 {new Date(draggingDayWindow.date + 'T00:00:00').toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' })}
               </span>
               {draggingDayWindow.fromTime && (
@@ -301,8 +297,8 @@ export default function CreateOrderPage() {
             <div className="border-t border-slate-100" />
             <div className="space-y-0.5">
               {draft.services.map((s) => (
-                <p key={s.serviceId} className="truncate text-xs text-slate-700">
-                  {s.qty > 1 && <span className="font-semibold text-slate-500">{s.qty}× </span>}
+                <p key={s.serviceId} className="truncate text-xs text-foreground">
+                  {s.qty > 1 && <span className="font-semibold text-muted-foreground">{s.qty}× </span>}
                   {s.serviceName}
                 </p>
               ))}

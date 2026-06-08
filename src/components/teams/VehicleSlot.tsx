@@ -64,7 +64,7 @@ function DraggableVehicleChip({ vehicle, teamId, onUnassign, onLog, onEdit }: {
     id: `vehicle-draggable-${vehicle.id}`,
     data: { type: 'vehicle', vehicleId: vehicle.id, fromTeamId: teamId } satisfies DragData,
   })
-  const traccarId = (vehicle as unknown as { traccar_device_id?: string | null }).traccar_device_id ?? null
+  const traccarId = vehicle.traccar_device_id ?? null
 
   return (
     <div

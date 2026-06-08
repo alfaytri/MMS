@@ -2,6 +2,7 @@
 
 import { useQuery } from '@tanstack/react-query'
 import { createClient } from '@/lib/supabase/client'
+import { queryKeys } from '@/lib/queryKeys'
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -33,10 +34,10 @@ export function classifyDeadStock(days: number): DeadStockStatus {
 
 export function useDeadStockReport() {
   return useQuery({
-    queryKey: ['dead_stock'],
+    queryKey: queryKeys.deadStock.all,
     queryFn: async () => {
       const supabase = createClient()
-      const { data, error } = await (supabase as any).rpc('get_dead_stock_report')
+      const { data, error } = await supabase.rpc('get_dead_stock_report')
       if (error) throw error
       return (data ?? []) as DeadStockItem[]
     },

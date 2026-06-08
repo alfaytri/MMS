@@ -12,10 +12,8 @@ import type { TeamFull } from '@/hooks/useTeams'
 export function TeamCard({ team }: { team: TeamFull }) {
   const { openTeamDialog, openScheduleDialog, openLogPanel, openToolsSheet, teamToolCounts } = useTeamsPage()
   const toolCount = teamToolCounts.get(team.id) ?? 0
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const hasSVO = (team as any).site_visit_order     ?? false
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const hasSVC = (team as any).site_visit_quotation ?? false
+  const hasSVO = team.site_visit_order     ?? false
+  const hasSVC = team.site_visit_quotation ?? false
 
   return (
     <div className="rounded-lg border bg-card shadow-sm flex flex-col gap-2 p-3">
