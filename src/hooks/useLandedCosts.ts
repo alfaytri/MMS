@@ -77,6 +77,34 @@ export function useLandedCosts({ search = '' }: { search?: string } = {}) {
   })
 }
 
+/**
+ * Returns a Map<receival_id, lc_number[]> for every receival attached to a
+ * non-voided landed cost. Used by the Create LC dialog to cross out receivals
+ * that already have an LC while still allowing re-use.
+ */
+export function useLcUsedReceivalMap() {
+  return useQuery({
+    queryKey: queryKeys.landedCosts.usedReceivalIds,
+    queryFn: async () => {
+      const supabase = createClient()
+      const { data, error } = await supabase
+        .from('landed_costs')
+        .select('lc_number, attached_receival_ids')
+        .is('voided_at', null)
+      if (error) throw error
+      const map = new Map<string, string[]>()
+      for (const lc of data ?? []) {
+        for (const rid of (lc.attached_receival_ids as string[]) ?? []) {
+          if (!map.has(rid)) map.set(rid, [])
+          map.get(rid)!.push(lc.lc_number as string)
+        }
+      }
+      return map
+    },
+    staleTime: 2 * 60 * 1000,
+  })
+}
+
 export function useLandedCost(id: string) {
   return useQuery({
     queryKey: queryKeys.landedCosts.detail(id),

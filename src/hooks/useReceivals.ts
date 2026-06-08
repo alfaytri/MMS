@@ -342,17 +342,16 @@ export function useReceivalsForLcSelector({ search = '' }: { search?: string } =
     queryKey: queryKeys.receivals.lcSelector(search),
     queryFn: async () => {
       const supabase = createClient()
-      let q = supabase
+      const q = supabase
         .from('receivals')
         .select('id, receival_number, po_id, date, status, purchase_orders!receivals_po_id_fkey(po_number, supplier_name)')
         .order('date', { ascending: false })
-      const safeSearch = search.replace(/%/g, '\\%').replace(/,/g, '\\,').replace(/\./g, '\\.')
-      if (safeSearch) {
-        q = q.or(`receival_number.ilike.%${safeSearch}%`)
-      }
       const { data, error } = await q
       if (error) throw error
-      return (data ?? []).map((r: any) => ({
+      // Match on receival_number, po_number, or supplier_name. We filter
+      // client-side because PostgREST .or() can't span a joined table without
+      // a view/RPC, and this list is small (recent receivals only).
+      const rows = (data ?? []).map((r: any) => ({
         id: r.id as string,
         receival_number: r.receival_number as string,
         po_id: r.po_id as string,
@@ -361,6 +360,13 @@ export function useReceivalsForLcSelector({ search = '' }: { search?: string } =
         po_number: r.purchase_orders?.po_number ?? null,
         supplier_name: r.purchase_orders?.supplier_name ?? null,
       })) as ReceivalForLcSelector[]
+      const needle = search.trim().toLowerCase()
+      if (!needle) return rows
+      return rows.filter((r) =>
+        r.receival_number.toLowerCase().includes(needle) ||
+        (r.po_number ?? '').toLowerCase().includes(needle) ||
+        (r.supplier_name ?? '').toLowerCase().includes(needle),
+      )
     },
     staleTime: 5 * 60 * 1000,
   })
@@ -374,6 +380,55 @@ export type ReceivalItemWithFifo = {
   unit_cost: number
   brand_variant_id: string | null
   remaining_qty: number
+}
+
+/**
+ * Batch variant: fetch billable receival items across MANY receivals in one
+ * query. Used by the Apply-LC preview to compute proposed per-item LC value
+ * before the user commits.
+ */
+export function useReceivalItemsBatch(receivalIds: string[] | null) {
+  const sortedKey = (receivalIds ?? []).slice().sort().join(',')
+  return useQuery({
+    queryKey: ['receivals', 'itemsBatch', sortedKey],
+    enabled: (receivalIds ?? []).length > 0,
+    queryFn: async () => {
+      const supabase = createClient()
+      const ids = receivalIds!
+      const [{ data: items, error: iErr }, { data: layers, error: lErr }] = await Promise.all([
+        supabase
+          .from('receival_items')
+          .select('id, receival_id, item_name, sku, qty_received, unit_cost, brand_variant_id')
+          .in('receival_id', ids)
+          .eq('is_free', false),
+        supabase
+          .from('fifo_cost_layers')
+          .select('brand_variant_id, receival_id, remaining_qty')
+          .in('receival_id', ids)
+          .gt('remaining_qty', 0),
+      ])
+      if (iErr || lErr) throw iErr ?? lErr
+      // Key by `${receival_id}|${brand_variant_id}` so two receivals of the
+      // same variant don't share a remaining count.
+      const remainingMap = new Map<string, number>()
+      for (const l of layers ?? []) {
+        if (!l.brand_variant_id) continue
+        const k = `${l.receival_id}|${l.brand_variant_id}`
+        remainingMap.set(k, (remainingMap.get(k) ?? 0) + l.remaining_qty)
+      }
+      return (items ?? []).map((item: any) => ({
+        id: item.id as string,
+        receival_id: item.receival_id as string,
+        item_name: item.item_name as string,
+        sku: item.sku as string | null,
+        qty_received: Number(item.qty_received),
+        unit_cost: Number(item.unit_cost),
+        brand_variant_id: item.brand_variant_id as string | null,
+        remaining_qty: remainingMap.get(`${item.receival_id}|${item.brand_variant_id}`) ?? 0,
+      }))
+    },
+    staleTime: 2 * 60 * 1000,
+  })
 }
 
 export function useReceivalItemsWithFifo(receivalId: string | null) {

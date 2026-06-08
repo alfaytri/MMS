@@ -260,6 +260,7 @@ export const queryKeys = {
       ['validate-lc-allocation', lcId] as const,
     billSignedUrls: (paths: string[]) =>
       ['bill-signed-urls', paths] as const,
+    usedReceivalIds: ['landed_costs', 'used_receival_ids'] as const,
   },
 
   /* ── Notification Config ──────────────────────────────── */
