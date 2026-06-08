@@ -203,9 +203,11 @@ Purchase & Sales▾:
 
 ## 🔄 In Progress
 
-🚀 Starting: **LC-COGS Attribution Task 2: allocate_landed_cost v3**
+🚀 Starting: **LC-COGS Attribution Task 3: revert_landed_cost v3**
 
 ## ✅ Completed
+
+- [2026-06-08] **LC-COGS Attribution Task 2: allocate_landed_cost v3** — `supabase/migrations/20260608010002_allocate_landed_cost_v3.sql` — Replaced allocate RPC to split LC across sold (COGS insert) and remaining (FIFO update) units with penny-safe split
 
 - [2026-06-08] **LC-COGS Attribution Task 1: cogs_entries schema changes** — `supabase/migrations/20260608010001_cogs_entries_lc_columns.sql` — Added landed_cost_id and notes columns, dropped sign checks, added loose mutual-exclusivity constraint, retuned indexes
 
