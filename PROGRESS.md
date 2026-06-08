@@ -203,9 +203,11 @@ Purchase & Sales▾:
 
 ## 🔄 In Progress
 
-🚀 Starting: **LC-COGS Attribution Tasks 8-10: UI Components**
+🚀 Starting: **LC-COGS Attribution Tasks 11-12: Integration**
 
 ## ✅ Completed
+
+- [2026-06-08] **LC-COGS Attribution Tasks 8-10: UI Components** — `CogsBreakdownContent.tsx`, `CogsBreakdownPopover.tsx`, `LcCogsPostedPanel.tsx`, `hover-card.tsx`, `drawer.tsx` — Tooltip content, responsive HoverCard/Drawer wrapper, LC detail COGS panel
 
 - [2026-06-08] **LC-COGS Attribution Tasks 6-7: Hooks** — `src/hooks/useCogsBreakdown.ts`, `src/hooks/useStockValueCogsSummary.ts`, `src/lib/queryKeys.ts` — Two TanStack Query hooks wrapping the new RPCs + query keys
 
