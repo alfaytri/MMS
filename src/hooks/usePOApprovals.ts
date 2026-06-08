@@ -250,6 +250,120 @@ export function useForceApproveStep() {
   })
 }
 
+/**
+ * Force-approve EVERY remaining active+pending step on a PO in the current
+ * iteration in a single click. Owner-only. Records one combined audit entry
+ * listing every role that was force-approved.
+ *
+ * This is the "approve all" version of useForceApproveStep — instead of going
+ * PM, then AC, then OW one-by-one, the owner can clear the whole chain at once.
+ */
+export function useForceApproveAllSteps() {
+  const queryClient = useQueryClient()
+  return useMutation({
+    mutationFn: async ({
+      poId,
+      forceComment,
+    }: {
+      poId: string
+      forceComment: string
+    }) => {
+      if (!forceComment.trim()) throw new Error('A comment is required for force-approve.')
+      const supabase = createClient()
+      const me = await getMyIdentity()
+      if (!me?.profileId) throw new Error('Not authenticated')
+
+      // Owner role check
+      const { data: roleRows } = await supabase
+        .from('approval_role_assignments')
+        .select('role')
+        .eq('profile_id', me.profileId)
+        .eq('role', 'owner')
+        .is('deleted_at', null)
+        .limit(1)
+      if (!roleRows?.length) throw new Error('Only users with the Owner role can force-approve.')
+
+      // Find the current iteration and every still-pending active step in it
+      const { data: allSteps, error: stepsErr } = await supabase
+        .from('po_approvals')
+        .select('id, role, iteration, is_active, status')
+        .eq('po_id', poId)
+      if (stepsErr) throw stepsErr
+      if (!allSteps || allSteps.length === 0) throw new Error('No approval steps found for this PO.')
+
+      const maxIteration = Math.max(
+        ...allSteps.map((s: { iteration: number | null }) => s.iteration ?? 1),
+        1,
+      )
+      const pendingSteps = (allSteps as Array<{ id: string; role: string; iteration: number | null; is_active: boolean; status: string }>)
+        .filter((s) => s.status === 'pending' && s.is_active === true && (s.iteration ?? 1) === maxIteration)
+      if (pendingSteps.length === 0) throw new Error('No pending steps to force-approve.')
+
+      const today = new Date().toISOString().split('T')[0]
+      const ids = pendingSteps.map((s) => s.id)
+
+      // Bulk-approve every pending step at once
+      const { error: updateErr } = await supabase
+        .from('po_approvals')
+        .update({
+          status: 'approved',
+          approved_by: me.email,
+          date: today,
+          force_approved: true,
+          force_comment: forceComment,
+        })
+        .in('id', ids)
+      if (updateErr) throw updateErr
+
+      const roleLabels = pendingSteps
+        .map((s) => ROLE_LABELS[s.role] ?? s.role)
+        .join(', ')
+      const performerName = me.fullName ?? me.email
+      await logPOActivity({
+        poId,
+        action: `Force Approved all remaining: ${roleLabels}`,
+        details: forceComment,
+        performerName,
+        severity: 'critical',
+      })
+
+      // Ghost cleanup
+      await supabase
+        .from('notifications')
+        .update({ read_at: new Date().toISOString() })
+        .eq('related_id', poId)
+        .eq('type', 'po_approval_requested')
+        .is('read_at', null)
+
+      // Advance the state machine — Postgres function will see that every step
+      // in the current tier(s) is now approved and promote PO to "approved".
+      const { error: rpcErr } = await supabase.rpc('advance_po_approval_tier', { p_po_id: poId })
+      if (rpcErr) throw rpcErr
+
+      const { data: poStatus } = await supabase
+        .from('purchase_orders').select('status').eq('id', poId).single()
+      if (poStatus?.status === 'approved') {
+        await savePoSnapshot(supabase, poId, 'approved')
+        await logPOActivity({
+          poId,
+          action: 'PO Fully Approved (Force)',
+          performerName,
+          severity: 'critical',
+        })
+      }
+
+      return { approvedCount: pendingSteps.length }
+    },
+    onSuccess: (_data, variables: { poId: string; forceComment: string }) => {
+      queryClient.invalidateQueries({ queryKey: queryKeys.approvals.poApprovals })
+      queryClient.invalidateQueries({ queryKey: queryKeys.purchaseOrders.all })
+      queryClient.invalidateQueries({ queryKey: queryKeys.purchaseOrders.detail(variables.poId) })
+      queryClient.invalidateQueries({ queryKey: queryKeys.notifications.all })
+      queryClient.invalidateQueries({ queryKey: queryKeys.inventory.brandVariantsV2 })
+    },
+  })
+}
+
 export function useRejectPO() {
   const queryClient = useQueryClient()
   return useMutation({

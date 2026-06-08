@@ -9,7 +9,7 @@ import { PoStatusBadge } from '@/components/purchase/PoStatusBadge'
 import { PoApprovalChain } from '@/components/purchase/PoApprovalChain'
 import {
   usePendingApprovals, useCompletedApprovals,
-  useApproveStep, useRejectPO, useForceApproveStep, useMyApprovalRoles,
+  useApproveStep, useRejectPO, useForceApproveAllSteps, useMyApprovalRoles,
 } from '@/hooks/usePOApprovals'
 import { useIsAdmin } from '@/hooks/useProfiles'
 import { type PurchaseOrder, type POApprovalStep } from '@/hooks/usePurchaseOrders'
@@ -51,7 +51,7 @@ export default function ApprovalsPage() {
   const { data: myRoles = [] } = useMyApprovalRoles()
   const approveStep = useApproveStep()
   const rejectPO = useRejectPO()
-  const forceApprove = useForceApproveStep()
+  const forceApprove = useForceApproveAllSteps()
 
   function openDialog(po: PurchaseOrder, mode: 'approve' | 'force' = 'approve') {
     const allSteps = po.po_approvals ?? []
@@ -73,8 +73,15 @@ export default function ApprovalsPage() {
     if (mode === 'force') {
       if (!comment.trim()) { toast.error('Comment is required for force-approve'); return }
       forceApprove.mutate(
-        { stepId: step.id, poId: po.id, forceComment: comment },
-        { onSuccess: () => { toast.success('Step force-approved'); setDialogState(null) }, onError: (e) => toast.error(e.message) }
+        { poId: po.id, forceComment: comment },
+        {
+          onSuccess: (data) => {
+            const n = data?.approvedCount ?? 0
+            toast.success(n > 1 ? `Force-approved ${n} remaining steps` : 'Force-approved')
+            setDialogState(null)
+          },
+          onError: (e) => toast.error(e.message),
+        },
       )
       return
     }
@@ -211,15 +218,22 @@ export default function ApprovalsPage() {
       </section>
 
       <Dialog open={!!dialogState} onOpenChange={(open) => { if (!open) setDialogState(null) }}>
-        <DialogContent className="w-full max-w-full rounded-none sm:max-w-lg sm:rounded-lg">
-          {dialogState && (
+        <DialogContent className="w-full max-w-full h-full sm:h-auto sm:max-h-[90vh] rounded-none sm:max-w-2xl sm:rounded-lg flex flex-col p-0">
+          {dialogState && (() => {
+            // For force mode: collect every pending step so the user sees what they're approving
+            const allSteps = dialogState.po.po_approvals ?? []
+            const maxIteration = Math.max(...allSteps.map((s: any) => s.iteration ?? 1), 1)
+            const forcePendingSteps = allSteps.filter(
+              (s: any) => s.status === 'pending' && s.is_active && (s.iteration ?? 1) === maxIteration,
+            )
+            return (
             <>
-              <DialogHeader>
+              <DialogHeader className="px-6 pt-6 pb-2 shrink-0">
                 <DialogTitle>
                   {dialogState.mode === 'force' ? '⚠ Force Approve' : 'Approve / Reject'} — {dialogState.po.po_number}
                 </DialogTitle>
               </DialogHeader>
-              <div className="space-y-4">
+              <div className="space-y-4 px-6 pb-2 overflow-y-auto flex-1">
                 <div className="rounded-md bg-muted p-3 space-y-1 text-sm">
                   <div className="flex justify-between">
                     <span className="text-muted-foreground">Supplier</span>
@@ -229,9 +243,19 @@ export default function ApprovalsPage() {
                     <span className="text-muted-foreground">Total (QAR)</span>
                     <span className="font-semibold">{formatCurrency(dialogState.po.total_qar, 'QAR')}</span>
                   </div>
-                  <div className="flex justify-between">
-                    <span className="text-muted-foreground">Approval step</span>
-                    <Badge variant="outline">{ROLE_LABELS[dialogState.step.role] ?? dialogState.step.role}</Badge>
+                  <div className="flex justify-between gap-2">
+                    <span className="text-muted-foreground shrink-0">
+                      {dialogState.mode === 'force' ? 'Steps to approve' : 'Approval step'}
+                    </span>
+                    <div className="flex flex-wrap gap-1 justify-end">
+                      {dialogState.mode === 'force'
+                        ? forcePendingSteps.map((s: any) => (
+                            <Badge key={s.id} variant="outline" className="text-amber-700 border-amber-300 bg-amber-50">
+                              {ROLE_LABELS[s.role] ?? s.role}
+                            </Badge>
+                          ))
+                        : <Badge variant="outline">{ROLE_LABELS[dialogState.step.role] ?? dialogState.step.role}</Badge>}
+                    </div>
                   </div>
                 </div>
 
@@ -309,10 +333,12 @@ export default function ApprovalsPage() {
                 )}
               </div>
 
-              <DialogFooter className="flex-col sm:flex-row gap-2">
+              <DialogFooter className="flex-col sm:flex-row gap-2 px-6 pb-6 pt-2 border-t shrink-0">
                 {dialogState.mode === 'force' ? (
                   <Button onClick={handleApprove} disabled={isMutating} className="bg-amber-500 hover:bg-amber-600 text-white">
-                    {forceApprove.isPending ? 'Force Approving…' : '⚠ Confirm Force Approve'}
+                    {forceApprove.isPending
+                      ? 'Force Approving…'
+                      : `⚠ Confirm Force Approve${forcePendingSteps.length > 1 ? ` (${forcePendingSteps.length} steps)` : ''}`}
                   </Button>
                 ) : !showRejectOptions ? (
                   <>
@@ -333,7 +359,8 @@ export default function ApprovalsPage() {
                 )}
               </DialogFooter>
             </>
-          )}
+            )
+          })()}
         </DialogContent>
       </Dialog>
     </PageWrapper>
