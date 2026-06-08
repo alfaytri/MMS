@@ -212,13 +212,13 @@ export function PoLineItemsEditor({ value, onChange, currency, readOnly = false,
             </div>
 
             {/* Column headers */}
-            <div className="grid grid-cols-[minmax(0,1.2fr)_minmax(0,0.8fr)_65px_60px_85px_70px] gap-2 px-3 py-1.5 bg-muted/30 text-[10px] font-medium text-muted-foreground uppercase tracking-wider">
+            <div className="grid grid-cols-[minmax(0,1.2fr)_minmax(0,0.8fr)_65px_60px_85px_minmax(110px,auto)] gap-2 px-3 py-1.5 bg-muted/30 text-[10px] font-medium text-muted-foreground uppercase tracking-wider">
               <span>Vendor Item Name</span>
               <span>SKU</span>
               <span>Qty *</span>
               <span>Unit</span>
               <span>Unit Price *</span>
-              <span>Total</span>
+              <span className="text-right">Total</span>
             </div>
 
             {/* Rows */}
@@ -284,7 +284,7 @@ export function PoLineItemsEditor({ value, onChange, currency, readOnly = false,
                     </div>
 
                     {/* Row B: editable fields */}
-                    <div className="grid grid-cols-[minmax(0,1.2fr)_minmax(0,0.8fr)_65px_60px_85px_70px] gap-2 items-center">
+                    <div className="grid grid-cols-[minmax(0,1.2fr)_minmax(0,0.8fr)_65px_60px_85px_minmax(110px,auto)] gap-2 items-center">
                       <Input
                         className="h-7 text-xs"
                         placeholder="Vendor item name (optional)"
@@ -317,7 +317,7 @@ export function PoLineItemsEditor({ value, onChange, currency, readOnly = false,
                         value={row.unit_price}
                         onChange={(e) => updateRow(row._key, { unit_price: Number(e.target.value) })}
                       />
-                      <span className="text-xs font-medium">
+                      <span className="text-xs font-medium text-right whitespace-nowrap tabular-nums">
                         {row.qty > 0 && row.unit_price > 0
                           ? formatCurrency(row.total_price, currency)
                           : '—'}
