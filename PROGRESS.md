@@ -203,9 +203,11 @@ Purchase & Sales▾:
 
 ## 🔄 In Progress
 
-🚀 Starting: **LC-COGS Attribution Task 4: get_cogs_breakdown RPC**
+🚀 Starting: **LC-COGS Attribution Task 5: get_stock_value_cogs_summary RPC**
 
 ## ✅ Completed
+
+- [2026-06-08] **LC-COGS Attribution Task 4: get_cogs_breakdown RPC** — `supabase/migrations/20260608010004_get_cogs_breakdown_rpc.sql` — New RPC returning sold_at_sale + per-LC net totals for tooltip
 
 - [2026-06-08] **LC-COGS Attribution Task 3: revert_landed_cost v3** — `supabase/migrations/20260608010003_revert_landed_cost_v3.sql` — Replaced revert RPC to also insert reversing cogs_entries rows (negative qty/total_cost)
 
