@@ -118,7 +118,7 @@ export const ReceivalsDeliveriesTab = React.memo(function ReceivalsDeliveriesTab
                     </Badge>
                   </TableCell>
                   <TableCell className="text-xs font-medium">{item.docNumber}</TableCell>
-                  <TableCell className="text-xs text-muted-foreground">{item.reference || '—'}</TableCell>
+                  <TableCell className="text-xs font-medium text-primary">{item.reference || '—'}</TableCell>
                   <TableCell className="text-xs">{item.warehouseName}</TableCell>
                   <TableCell className="text-xs">{item.counterparty}</TableCell>
                   <TableCell className="text-xs whitespace-nowrap">

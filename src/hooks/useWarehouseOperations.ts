@@ -628,11 +628,11 @@ export function useReceivalsAndDeliveries() {
       const [receivalsRes, deliveriesRes] = await Promise.all([
         supabase
           .from('receivals')
-          .select('id, receival_number, po_id, warehouse_id, date, status, received_by_name, purchase_orders(po_number), warehouses(name), receival_items(id, item_name, sku, qty_received, brand_variant_id)')
+          .select('id, receival_number, po_id, warehouse_id, date, status, received_by_name, purchase_orders(po_number, supplier_name), warehouses(name), receival_items(id, item_name, sku, qty_received, brand_variant_id)')
           .order('date', { ascending: false }),
         supabase
           .from('sale_deliveries')
-          .select('id, delivery_number, sale_order_id, warehouse_id, warehouse_name, date, items, status')
+          .select('id, delivery_number, sale_order_id, warehouse_id, warehouse_name, date, items, status, sale_orders(so_number, customers(name))')
           .order('date', { ascending: false }),
       ])
 
@@ -646,7 +646,7 @@ export function useReceivalsAndDeliveries() {
         reference: r.purchase_orders?.po_number ?? '',
         warehouseId: r.warehouse_id ?? '',
         warehouseName: r.warehouses?.name ?? '',
-        counterparty: r.received_by_name ?? '',
+        counterparty: r.purchase_orders?.supplier_name ?? '',
         date: r.date ?? '',
         items: Array.isArray(r.receival_items)
           ? r.receival_items.map((ri: any) => ({ name: ri.item_name ?? '', sku: ri.sku ?? '', qty: ri.qty_received ?? 0, brand_variant_id: ri.brand_variant_id ?? null }))
@@ -659,10 +659,10 @@ export function useReceivalsAndDeliveries() {
         id: d.id,
         direction: 'outbound' as const,
         docNumber: d.delivery_number ?? '',
-        reference: d.sale_order_id ?? '',
+        reference: d.sale_orders?.so_number ?? '',
         warehouseId: d.warehouse_id ?? '',
         warehouseName: d.warehouse_name ?? '',
-        counterparty: '', // customer name not directly available, would need join with sale_orders
+        counterparty: d.sale_orders?.customers?.name ?? '',
         date: d.date ?? '',
         items: Array.isArray(d.items) ? d.items.map((di: any) => ({ name: di.item_name ?? '', sku: di.sku ?? '', qty: di.qty_delivered ?? 0, brand_variant_id: di.brand_variant_id ?? null })) : [],
         itemCount: Array.isArray(d.items) ? d.items.length : 0,

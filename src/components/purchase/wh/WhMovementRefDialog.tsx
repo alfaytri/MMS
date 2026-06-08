@@ -2,9 +2,8 @@
 
 import { useMemo } from 'react'
 import { useQuery } from '@tanstack/react-query'
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog'
+import { Dialog, DialogContent } from '@/components/ui/dialog'
 import { Badge } from '@/components/ui/badge'
-import { Button } from '@/components/ui/button'
 import { Separator } from '@/components/ui/separator'
 import {
   Package, Truck, ArrowRightLeft, ClipboardList,
@@ -47,8 +46,9 @@ function useRefDetail(referenceType: string, referenceId: string, enabled: boole
             .from('sale_deliveries')
             .select('id, delivery_number, sale_order_id, warehouse_id, warehouse_name, date, items, status, sale_orders(so_number, customers(name))')
             .eq('id', referenceId)
-            .single()
+            .maybeSingle()
           if (error) throw error
+          if (!data) return null
           return { type: 'sale_delivery' as const, data }
         }
         case 'receival':
@@ -57,8 +57,9 @@ function useRefDetail(referenceType: string, referenceId: string, enabled: boole
             .from('receivals')
             .select('id, receival_number, po_id, warehouse_id, date, status, received_by_name, purchase_orders(po_number, supplier_name), warehouses(name), receival_items(id, item_name, sku, qty_received, brand_variant_id)')
             .eq('id', referenceId)
-            .single()
+            .maybeSingle()
           if (error) throw error
+          if (!data) return null
           return { type: 'receival' as const, data }
         }
         case 'transfer': {
@@ -66,8 +67,9 @@ function useRefDetail(referenceType: string, referenceId: string, enabled: boole
             .from('warehouse_transfers')
             .select('*, from_warehouse:from_warehouse_id(name), to_warehouse:to_warehouse_id(name), transfer_items:warehouse_transfer_items(*)')
             .eq('id', referenceId)
-            .single()
+            .maybeSingle()
           if (error) throw error
+          if (!data) return null
           return { type: 'transfer' as const, data }
         }
         case 'adjustment': {
@@ -75,8 +77,9 @@ function useRefDetail(referenceType: string, referenceId: string, enabled: boole
             .from('stock_adjustments')
             .select('*, warehouses(name), inventory_brand_variants(brand, inventory_items(name_en, sku))')
             .eq('id', referenceId)
-            .single()
+            .maybeSingle()
           if (error) throw error
+          if (!data) return null
           return { type: 'adjustment' as const, data }
         }
         case 'landed_cost': {
@@ -84,8 +87,9 @@ function useRefDetail(referenceType: string, referenceId: string, enabled: boole
             .from('landed_costs')
             .select('id, lc_number, status, vendor_invoice_no, total_landed_cost, created_at, suppliers(company_name)')
             .eq('id', referenceId)
-            .single()
+            .maybeSingle()
           if (error) throw error
+          if (!data) return null
           return { type: 'landed_cost' as const, data }
         }
         case 'inventory_check': {
@@ -93,8 +97,9 @@ function useRefDetail(referenceType: string, referenceId: string, enabled: boole
             .from('inventory_checks')
             .select('id, check_number, warehouse_name, status, started_at, reviewed_at')
             .eq('id', referenceId)
-            .single()
+            .maybeSingle()
           if (error) throw error
+          if (!data) return null
           return { type: 'inventory_check' as const, data }
         }
         default:
@@ -140,7 +145,7 @@ export function WhMovementRefDialog({ referenceType, referenceId, open, onClose 
 
   return (
     <Dialog open={open} onOpenChange={onClose}>
-      <DialogContent className="max-w-xl max-h-[85vh] flex flex-col gap-0 p-0">
+      <DialogContent className="max-w-xl max-h-[85vh] overflow-y-auto p-0">
         {isLoading ? (
           <div className="flex items-center justify-center py-16">
             <div className="flex flex-col items-center gap-2">
@@ -162,9 +167,6 @@ export function WhMovementRefDialog({ referenceType, referenceId, open, onClose 
             {result.type === 'inventory_check' && <InventoryCheckView data={result.data} />}
           </>
         )}
-        <DialogFooter className="px-6 py-4 border-t">
-          <Button variant="outline" size="sm" onClick={onClose}>Close</Button>
-        </DialogFooter>
       </DialogContent>
     </Dialog>
   )

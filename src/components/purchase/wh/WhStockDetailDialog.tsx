@@ -1,7 +1,6 @@
 'use client'
 
-import { Dialog, DialogContent, DialogFooter } from '@/components/ui/dialog'
-import { Button } from '@/components/ui/button'
+import { Dialog, DialogContent } from '@/components/ui/dialog'
 import { Separator } from '@/components/ui/separator'
 import { Layers, Warehouse } from 'lucide-react'
 import { ItemTreeCell } from './ItemTreeCell'
@@ -26,7 +25,7 @@ interface Props {
 export function WhStockDetailDialog({ open, onClose, itemName, category, itemType, brand, sku, breakdown }: Props) {
   return (
     <Dialog open={open} onOpenChange={onClose}>
-      <DialogContent className="max-w-xl max-h-[85vh] flex flex-col gap-0 p-0">
+      <DialogContent className="max-w-xl max-h-[85vh] overflow-y-auto p-0">
         <div className="px-6 pt-6 pb-4 space-y-4">
           {/* Header */}
           <div className="flex items-center gap-3">
@@ -101,10 +100,6 @@ export function WhStockDetailDialog({ open, onClose, itemName, category, itemTyp
             </div>
           </div>
         </div>
-
-        <DialogFooter className="px-6 py-4 border-t">
-          <Button variant="outline" size="sm" onClick={onClose}>Close</Button>
-        </DialogFooter>
       </DialogContent>
     </Dialog>
   )
