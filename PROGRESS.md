@@ -203,9 +203,11 @@ Purchase & Sales▾:
 
 ## 🔄 In Progress
 
-🚀 Starting: **LC-COGS Attribution Task 1: cogs_entries schema changes**
+🚀 Starting: **LC-COGS Attribution Task 2: allocate_landed_cost v3**
 
 ## ✅ Completed
+
+- [2026-06-08] **LC-COGS Attribution Task 1: cogs_entries schema changes** — `supabase/migrations/20260608010001_cogs_entries_lc_columns.sql` — Added landed_cost_id and notes columns, dropped sign checks, added loose mutual-exclusivity constraint, retuned indexes
 
 - [2026-06-06] **Inventory Check Module Redesign** — `supabase/migrations/20260606210000_inventory_check_redesign.sql`, `src/types/database.types.ts`, `src/lib/queryKeys.ts`, `src/hooks/useWarehouseOperations.ts`, `WhInventoryCheckStartDialog.tsx` (NEW), `WhInventoryCheckDetail.tsx` (NEW), `WhInventoryChecksTab.tsx` (rewrite), `page.tsx` — Full rebuild: 3 new DB tables (assignments, log, approvals), 2-step start wizard with user selection + auto category distribution, tabbed detail view (Timeline / Count tree / Approval chain), 8 new hooks; 0 TS errors
 
