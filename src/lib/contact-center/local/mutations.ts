@@ -320,6 +320,20 @@ export async function removePhoneLocal(db: MmsCcDb, phoneId: string): Promise<vo
   })
 }
 
+export async function markReadLocal(db: MmsCcDb, conversationId: string): Promise<void> {
+  await db.transaction('rw', db.conversations, db.pendingWrites, async () => {
+    await db.conversations.update(conversationId, { unread_count: 0 })
+    await q.enqueue(db, { kind: 'mark_read', payload: { conversationId } })
+  })
+}
+
+export async function markOpenedLocal(db: MmsCcDb, conversationId: string): Promise<void> {
+  await db.transaction('rw', db.conversations, db.pendingWrites, async () => {
+    await db.conversations.update(conversationId, { is_opened: true })
+    await q.enqueue(db, { kind: 'mark_opened', payload: { conversationId } })
+  })
+}
+
 export async function sendMessageLocal(db: MmsCcDb, args: SendMessageArgs): Promise<string> {
   const id = newId()
   const now = new Date().toISOString()

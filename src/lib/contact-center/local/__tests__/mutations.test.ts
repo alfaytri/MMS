@@ -1,7 +1,7 @@
 import { describe, it, expect, beforeEach } from 'vitest'
 import 'fake-indexeddb/auto'
 import { getDb, resetDb } from '../db'
-import { sendMessageLocal, sendFileLocal, sendTemplateLocal, reactLocal, updateCustomerLocal, addAddressLocal, updateAddressLocal, addPhoneLocal, removePhoneLocal } from '../mutations'
+import { sendMessageLocal, sendFileLocal, sendTemplateLocal, reactLocal, updateCustomerLocal, addAddressLocal, updateAddressLocal, addPhoneLocal, removePhoneLocal, markReadLocal, markOpenedLocal } from '../mutations'
 
 beforeEach(() => { resetDb() })
 
@@ -159,5 +159,37 @@ it('removePhoneLocal deletes from Dexie and enqueues remove_phone', async () => 
   const phone = await db.phones.get('p1')
   expect(phone).toBeUndefined()
   const pw = await db.pendingWrites.where('kind').equals('remove_phone').toArray()
+  expect(pw.length).toBeGreaterThanOrEqual(1)
+})
+
+it('markReadLocal sets unread_count to 0 and enqueues mark_read', async () => {
+  const db = getDb('u')
+  await db.conversations.add({
+    id: 'conv-1', customer_id: null, customer_id_v2: null,
+    conversation_type: null, wati_phone: '+x', wati_contact_name: null,
+    last_message: null, last_message_at: null, unread_count: 5,
+    assigned_agent: null, is_opened: false, wati_status: null,
+    provider: 'wati', created_at: new Date().toISOString(),
+  })
+  await markReadLocal(db, 'conv-1')
+  const conv = await db.conversations.get('conv-1')
+  expect(conv?.unread_count).toBe(0)
+  const pw = await db.pendingWrites.where('kind').equals('mark_read').toArray()
+  expect(pw.length).toBeGreaterThanOrEqual(1)
+})
+
+it('markOpenedLocal sets is_opened to true and enqueues mark_opened', async () => {
+  const db = getDb('u')
+  await db.conversations.add({
+    id: 'conv-2', customer_id: null, customer_id_v2: null,
+    conversation_type: null, wati_phone: '+x', wati_contact_name: null,
+    last_message: null, last_message_at: null, unread_count: 0,
+    assigned_agent: null, is_opened: false, wati_status: null,
+    provider: 'wati', created_at: new Date().toISOString(),
+  })
+  await markOpenedLocal(db, 'conv-2')
+  const conv = await db.conversations.get('conv-2')
+  expect(conv?.is_opened).toBe(true)
+  const pw = await db.pendingWrites.where('kind').equals('mark_opened').toArray()
   expect(pw.length).toBeGreaterThanOrEqual(1)
 })

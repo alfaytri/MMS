@@ -14,7 +14,7 @@ import { createClient as createSupabaseClient } from '@/lib/supabase/client'
 import { useContactCenterContext } from '@/contexts/ContactCenterContext'
 import { useLocalMessages } from '@/hooks/contact-center/local/useLocalMessages'
 import { useProviderSuggest } from '@/hooks/contact-center/useProviderSuggest'
-import { sendMessageLocal, sendFileLocal, sendTemplateLocal, reactLocal, addAddressLocal, updateAddressLocal } from '@/lib/contact-center/local/mutations'
+import { sendMessageLocal, sendFileLocal, sendTemplateLocal, reactLocal, addAddressLocal, updateAddressLocal, markReadLocal, markOpenedLocal } from '@/lib/contact-center/local/mutations'
 import { getDb } from '@/lib/contact-center/local/db'
 import { ChatAttachmentDialog } from '@/components/contact-center/ChatAttachmentDialog'
 import { ChatInstructionsDialog } from '@/components/contact-center/ChatInstructionsDialog'
@@ -182,7 +182,13 @@ export function ContactCenterSidebarV2() {
           <ChatListV2
             conversations={conversations}
             loading={convsLoading}
-            onSelectConversation={(c) => openConversation(c.id, c.customer_id, c.wati_phone)}
+            onSelectConversation={(c) => {
+              openConversation(c.id, c.customer_id, c.wati_phone)
+              if (authUserId && c.id) {
+                void markReadLocal(getDb(authUserId), c.id)
+                if (!c.is_opened) void markOpenedLocal(getDb(authUserId), c.id)
+              }
+            }}
             onStartNewChat={handleStartNewChat}
             onSync={syncFromProvider}
             syncProgress={syncProgress}

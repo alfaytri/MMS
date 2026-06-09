@@ -185,6 +185,12 @@ export class SyncWorker {
         case 'remove_phone':
           await this.pushPhoneDelete(row)
           break
+        case 'mark_read':
+          await this.pushMarkRead(row)
+          break
+        case 'mark_opened':
+          await this.pushMarkOpened(row)
+          break
         default:
           throw new Error(`Unknown pending-write kind: ${row.kind}`)
       }
@@ -362,6 +368,24 @@ export class SyncWorker {
       .from('service_customer_phones')
       .delete()
       .eq('id', phoneId)
+    if (error) throw new Error(error.message)
+  }
+
+  private async pushMarkRead(row: PendingWrite): Promise<void> {
+    const { conversationId } = row.payload as { conversationId: string }
+    const { error } = await this.supabase
+      .from('chat_conversations')
+      .update({ unread_count: 0 })
+      .eq('id', conversationId)
+    if (error) throw new Error(error.message)
+  }
+
+  private async pushMarkOpened(row: PendingWrite): Promise<void> {
+    const { conversationId } = row.payload as { conversationId: string }
+    const { error } = await this.supabase
+      .from('chat_conversations')
+      .update({ is_opened: true })
+      .eq('id', conversationId)
     if (error) throw new Error(error.message)
   }
 }
