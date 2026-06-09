@@ -164,6 +164,7 @@ Purchase & Sales▾:
 
 | Date | Module / Scope | Secrets | RLS | Auth Gate | Error Handling | Layout Stability | Notes |
 |---|---|---|---|---|---|---|---|
+| 2026-06-09 | **CC Local-First Phase C (Tasks 22-29)** | ✅ | ✅ | ✅ | ✅ | ✅ | All v2 sidebar writes now write-through Dexie. No new tables/migrations. All writes via authenticated browser client. Failed sends surfaced via SyncBanner + retry. 67 tests passing. |
 | 2026-06-09 | **CC Local-First Phase B (Tasks 17-21)** | ✅ | ✅ | ✅ | ✅ | ✅ | All 4 reads Dexie-backed (conversations, messages, customer, orders); no new tables or API routes; all hooks use browser-bound createClient(); lazy fetch swallows errors gracefully; no DOM shape changes |
 | 2026-06-09 | **CC Local-First Phase A (Tasks 1-16)** | ✅ | ✅ | ✅ | ✅ | ✅ | No secrets in any local/ files; only new migration is chat_messages_insert_strict (tightened INSERT policy); no new API routes — SyncWorker uses browser cookie-bound createClient(); drain loop wraps all sends in try/catch with transient/terminal failure mapping; SyncBanner in min-h-[20px] container prevents layout shift |
 | 2026-06-09 | **CC Local Task 4** | ✅ | ✅ | n/a | n/a | n/a | Pre-change: `cc_messages_insert` was `WITH CHECK (true)` — any authenticated user could insert. Post-change: `chat_messages_insert_strict` now validates conversation_id exists + user has `contact_centre.view` permission via `user_custom_roles → custom_roles.permissions`. Webhook routes use service-role key (bypass RLS). Fixed column name: `role_id` not `custom_role_id` in `user_custom_roles`. |
@@ -208,10 +209,11 @@ Purchase & Sales▾:
 
 ## 🔄 In Progress
 
-🚀 Starting: **CC Local-First Mirror Task 30: Phase C security audit**
+🚀 Starting: **CC Local-First Mirror Task 31: Feature flag gate**
 
 ## ✅ Completed
 
+- [2026-06-09] **CC Local-First Mirror Task 30: Phase C security audit** — ✅ Secrets, ✅ RLS, ✅ Auth Gate, ✅ Error Handling, ✅ Layout Stability. All writes now Dexie write-through.
 - [2026-06-09] **CC Local-First Mirror Task 29: markReadLocal / markOpenedLocal + wire ChatListV2** — `mutations.ts`, `sync-worker.ts`, `ContactCenterSidebarV2.tsx` — Optimistic unread clear + open mark, 67 tests passing
 - [2026-06-09] **CC Local-First Mirror Task 28: addPhoneLocal / removePhoneLocal + worker handlers** — `mutations.ts`, `sync-worker.ts` — Optimistic phone add/delete, 65 tests passing
 - [2026-06-09] **CC Local-First Mirror Task 27: addAddressLocal / updateAddressLocal + wire AddressForm** — `mutations.ts`, `sync-worker.ts`, `ContactCenterSidebarV2.tsx` — Optimistic address add/update, SyncWorker pushes to service_customer_addresses, 63 tests passing
