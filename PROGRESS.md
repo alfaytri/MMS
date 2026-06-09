@@ -164,6 +164,7 @@ Purchase & Sales▾:
 
 | Date | Module / Scope | Secrets | RLS | Auth Gate | Error Handling | Layout Stability | Notes |
 |---|---|---|---|---|---|---|---|
+| 2026-06-09 | **CC Local Task 4** | ✅ | ✅ | n/a | n/a | n/a | Pre-change: `cc_messages_insert` was `WITH CHECK (true)` — any authenticated user could insert. Post-change: `chat_messages_insert_strict` now validates conversation_id exists + user has `contact_centre.view` permission via `user_custom_roles → custom_roles.permissions`. Webhook routes use service-role key (bypass RLS). Fixed column name: `role_id` not `custom_role_id` in `user_custom_roles`. |
 | 2026-06-08 | **Purchase UX Polish Batch** | ✅ | ✅ | ✅ | ✅ | ⚠️ | Pure UI changes: no secrets, no new tables / RLS, no new API routes. New `useForceApproveAllSteps` reuses existing `advance_po_approval_tier` RPC and re-runs the same owner-role guard as `useForceApproveStep`. `useReceivalItemsBatch` issues two scoped Supabase `.in()` queries — same RLS surface as existing per-receival hook. All mutations have `onError → toast.error`. **Layout-stability exception:** Subcategory/Type selects now appear/disappear conditionally per user's explicit request, which intentionally overrides the layout-stability rule. Accepted gap. |
 | 2026-06-08 | **LC-COGS Attribution (Tasks 1-12)** | ✅ | ✅ | ✅ | ✅ | ✅ | No new tables (altered cogs_entries only); 4 SECURITY DEFINER RPCs (allocate, revert, get_cogs_breakdown, get_stock_value_cogs_summary); no new API routes; all data via Supabase client hooks; no external API calls; no hardcoded secrets; responsive HoverCard/Drawer pattern; no layout shifts |
 | 2026-06-06 | **Accessibility + Design Tokens (Task 9)** | ✅ | ✅ | ✅ | ✅ | ✅ | Pure UI refactor; no new tables, routes, or external integrations; 601 token substitutions across 96 files; ~180 label fixes across 38 files; 0 TS errors |
@@ -205,10 +206,11 @@ Purchase & Sales▾:
 
 ## 🔄 In Progress
 
-🚀 Starting: **CC Local-First Mirror Task 4: RLS audit — tighten chat_messages INSERT policy**
+🚀 Starting: **CC Local-First Mirror Task 5: Repo — conversations.ts (CRUD + lazyFetch)**
 
 ## ✅ Completed
 
+- [2026-06-09] **CC Local-First Mirror Task 4: RLS audit — tighten chat_messages INSERT policy** — `supabase/migrations/20260609150000_chat_messages_insert_rls.sql` — Replaced permissive WITH CHECK (true) INSERT policy with strict check: conversation_id must exist + auth user must have contact_centre.view permission
 - [2026-06-09] **CC Local-First Mirror Task 3: Define Dexie DB instance + schema v1** — `src/lib/contact-center/local/db.ts`, `__tests__/db.test.ts` — MmsCcDb class with 9 tables, per-auth-user singleton, compound indexes on messages and orders, 7 tests passing
 - [2026-06-09] **CC Local-First Mirror Task 2: Mirror Supabase types into local/schema.ts** — `src/lib/contact-center/local/schema.ts` — Local Dexie row types for messages, conversations, customers, phones, addresses, products, orders, pendingWrites, sync
 - [2026-06-09] **CC Local-First Mirror Task 1: Create feature branch + install Dexie + add crypto.randomUUID helper** — `package.json`, `src/lib/contact-center/local/ids.ts`, `__tests__/ids.test.ts` — Installed dexie@^4, implemented newId() wrapping crypto.randomUUID with RFC4122 v4 fallback
