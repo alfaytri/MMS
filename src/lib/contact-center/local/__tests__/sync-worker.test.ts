@@ -3,6 +3,7 @@ import 'fake-indexeddb/auto'
 import { getDb, resetDb } from '../db'
 import { SyncWorker } from '../sync-worker'
 import * as messagesRepo from '../repos/messages'
+import * as q from '../pending-writes'
 
 beforeEach(() => { resetDb(); vi.useFakeTimers() })
 afterEach(()  => { vi.useRealTimers() })
@@ -32,6 +33,7 @@ describe('SyncWorker lifecycle', () => {
     const w = new SyncWorker(getDb('test'), mkSupabaseStub(), 'wati')
     w.start(); w.start()
     expect(w.isRunning).toBe(true)
+    w.stop()
   })
 
   it('fileMap.set + delete + has', () => {
@@ -66,6 +68,7 @@ describe('SyncWorker Realtime → Dexie', () => {
     const w = new SyncWorker(getDb('test'), supa, 'wati')
     w.start()
     expect(supa.channel).toHaveBeenCalledWith(expect.stringContaining('cc-sync'))
+    w.stop()
   })
 
   it('buffers UPDATE events for 50ms then flushes via bulkPut', async () => {
@@ -105,5 +108,91 @@ describe('SyncWorker Realtime → Dexie', () => {
 
     expect(bulkSpy).toHaveBeenCalledTimes(1)
     expect(bulkSpy.mock.calls[0][1].length).toBe(10)
+  })
+})
+
+describe('SyncWorker drain (text)', () => {
+  beforeEach(async () => {
+    vi.useRealTimers()
+    await getDb('test').pendingWrites.clear()
+    await getDb('test').messages.clear()
+  })
+
+  it('drains a queued send_message via supabase.functions.invoke', async () => {
+    const invoke = vi.fn().mockResolvedValue({
+      data: { message: { whatsappMessageId: 'WAMID-1' } },
+      error: null,
+    })
+    const supa = { ...mkSupabaseStub(), functions: { invoke } } as any
+
+    const w = new SyncWorker(getDb('test'), supa, 'wati')
+    await getDb('test').messages.put({
+      id: 'msg-x', conversation_id: 'c1', from_type: 'agent',
+      source: 'whatsapp_api', message_kind: 'message', message_type: 'text',
+      text: 'hi', agent_name: null, attachments: null, reactions: [],
+      delivery_status: 'sending', external_id: null,
+      reply_to_external_id: null, sent_by_profile_id: null, phone_id: null,
+      deleted_at: null, created_at: '2026-06-09T12:00:00Z',
+      _localOnly: true,
+    })
+    const pwId = await q.enqueue(getDb('test'), {
+      kind: 'send_message',
+      payload: { id: 'msg-x', conversationId: 'c1', phone: '+97411111111', text: 'hi' },
+      localMessageId: 'msg-x',
+    })
+
+    w.start()
+    await w.drainOnce()
+
+    expect(invoke).toHaveBeenCalledWith('api-wati', expect.objectContaining({
+      body: expect.objectContaining({
+        action: 'send_session_message',
+        text: 'hi',
+        message_id: 'msg-x',
+      }),
+    }))
+    expect(await getDb('test').pendingWrites.get(pwId)).toBeUndefined()
+    const m = await getDb('test').messages.get('msg-x')
+    expect(m?.external_id).toBe('wati_WAMID-1')
+    expect(m?.delivery_status).toBe('sent')
+  })
+
+  it('retries a 500-class failure with backoff (transient)', async () => {
+    const invoke = vi.fn().mockResolvedValue({
+      data: null, error: { message: 'server error', status: 500 },
+    })
+    const supa = { ...mkSupabaseStub(), functions: { invoke } } as any
+    const w = new SyncWorker(getDb('test'), supa, 'wati')
+
+    const pwId = await q.enqueue(getDb('test'), {
+      kind: 'send_message',
+      payload: { id: 'msg-y', conversationId: 'c1', phone: '+x', text: 'hi' },
+      localMessageId: 'msg-y',
+    })
+
+    w.start()
+    await w.drainOnce()
+
+    const row = await getDb('test').pendingWrites.get(pwId)
+    expect(row?.status).toBe('queued')
+    expect(row?.retryCount).toBe(1)
+  })
+
+  it('marks terminal failure after MAX_RETRIES', async () => {
+    const invoke = vi.fn().mockResolvedValue({ data: null, error: { message: 'oops', status: 500 } })
+    const supa = { ...mkSupabaseStub(), functions: { invoke } } as any
+    const w = new SyncWorker(getDb('test'), supa, 'wati')
+
+    const pwId = await q.enqueue(getDb('test'), {
+      kind: 'send_message', payload: { id: 'mz', conversationId: 'c1', phone: '+x', text: 'h' },
+      localMessageId: 'mz',
+    })
+    await getDb('test').pendingWrites.update(pwId, { retryCount: q.MAX_RETRIES })
+
+    w.start()
+    await w.drainOnce()
+
+    const row = await getDb('test').pendingWrites.get(pwId)
+    expect(row?.status).toBe('failed')
   })
 })

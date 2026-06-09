@@ -1,7 +1,8 @@
 import type { SupabaseClient } from '@supabase/supabase-js'
 import type { MmsCcDb } from './db'
-import type { LocalMessage } from './schema'
+import type { LocalMessage, PendingWrite } from './schema'
 import * as messagesRepo from './repos/messages'
+import * as q from './pending-writes'
 
 type Status = 'connected' | 'reconnecting' | 'offline'
 
@@ -28,7 +29,8 @@ export class SyncWorker {
     if (this.isRunning) return
     this.isRunning = true
     this.subscribeRealtime()
-    // Task 11 starts the drain loop here
+    this.drainTimer = setInterval(() => { void this.drainOnce() }, 1_000)
+    void this.drainOnce()
   }
 
   stop(): void {
@@ -100,5 +102,68 @@ export class SyncWorker {
     this.flushTimer = null
     if (batch.length === 0) return
     await messagesRepo.upsertMany(this.db, batch)
+  }
+
+  /* ── Drain loop (Task 11) ────────────────────────────── */
+
+  async drainOnce(): Promise<void> {
+    if (!this.isRunning) return
+    try {
+      const rows = await q.listQueued(this.db)
+      for (const row of rows) {
+        if (!this.isRunning) return
+        await this.runOne(row)
+      }
+    } catch {
+      // DB may have been closed between ticks — swallow gracefully
+    }
+  }
+
+  private async runOne(row: PendingWrite): Promise<void> {
+    await q.markInFlight(this.db, row.id!)
+    try {
+      switch (row.kind) {
+        case 'send_message':
+          await this.sendText(row)
+          break
+        case 'send_template':
+          await this.sendTemplate(row)
+          break
+        case 'send_file':
+          throw new Error('send_file not implemented yet')
+        default:
+          throw new Error(`Unknown pending-write kind: ${row.kind}`)
+      }
+      await q.markSuccess(this.db, row.id!)
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : String(err)
+      if (row.retryCount >= q.MAX_RETRIES) {
+        await q.markFailedTerminal(this.db, row.id!, msg, (ref) => this.fileMap.delete(ref))
+      } else {
+        await q.markFailedTransient(this.db, row.id!, msg)
+      }
+    }
+  }
+
+  private async sendText(row: PendingWrite): Promise<void> {
+    const { id, phone, text } = row.payload as {
+      id: string; conversationId: string; phone: string; text: string
+    }
+    const { data, error } = await this.supabase.functions.invoke('api-wati', {
+      body: { action: 'send_session_message', phone, text, message_id: id },
+    })
+    if (error) throw new Error(error.message ?? 'send_message failed')
+    const watiId = data?.message?.whatsappMessageId
+    if (watiId) {
+      await this.db.messages.update(id, {
+        external_id: `wati_${watiId}`,
+        delivery_status: 'sent',
+        _localOnly: false,
+      })
+    }
+  }
+
+  private async sendTemplate(_row: PendingWrite): Promise<void> {
+    throw new Error('sendTemplate not wired until Task 24')
   }
 }
