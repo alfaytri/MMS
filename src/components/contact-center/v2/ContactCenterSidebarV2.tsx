@@ -339,7 +339,7 @@ export function ContactCenterSidebarV2() {
             <ProductsList products={local.products} />
           </SectionAccordion>
           <SectionAccordion id="orders" label="Orders" icon={<ListOrdered className="h-3 w-3 text-muted-foreground" />}>
-            <OrderHistoryV2 customerId={activeCustomerId} />
+            <OrderHistoryV2 authUserId={authUserId} customerId={activeCustomerId} />
           </SectionAccordion>
         </div>
       )}
