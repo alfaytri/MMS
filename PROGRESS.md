@@ -206,10 +206,11 @@ Purchase & Sales▾:
 
 ## 🔄 In Progress
 
-🚀 Starting: **CC Local-First Mirror Task 11: SyncWorker drain loop for text/template sends**
+🚀 Starting: **CC Local-First Mirror Task 12: SyncWorker drain loop for file sends**
 
 ## ✅ Completed
 
+- [2026-06-09] **CC Local-First Mirror Task 11: SyncWorker drain loop for text/template sends** — `sync-worker.ts`, `__tests__/sync-worker.test.ts` — drainOnce() walks queued writes FIFO, sendText calls api-wati edge function with client-generated message_id, patches Dexie message with external_id + delivery_status on success, retries 5xx with backoff up to MAX_RETRIES then terminal failure, 10 tests passing (44 total)
 - [2026-06-09] **CC Local-First Mirror Task 10: SyncWorker Realtime + 50ms debounce** — `sync-worker.ts`, `__tests__/sync-worker.test.ts` — Realtime subscription on chat_messages + chat_conversations, 50ms debounce buffer collapses status storms into single bulkPut, 7 tests passing
 - [2026-06-09] **CC Local-First Mirror Task 9: SyncWorker skeleton** — `sync-worker.ts`, `__tests__/sync-worker.test.ts` — start/stop lifecycle, fileMap, status transitions, 5 tests passing
 - [2026-06-09] **CC Local-First Mirror Task 8: pending-writes.ts queue** — `pending-writes.ts`, `__tests__/pending-writes.test.ts` — enqueue/listQueued/markInFlight/markSuccess/markFailedTransient/markFailedTerminal/discard with fileMap cleanup, 9 tests passing
