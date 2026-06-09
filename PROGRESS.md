@@ -208,10 +208,11 @@ Purchase & Sales▾:
 
 ## 🔄 In Progress
 
-🚀 Starting: **CC Local-First Mirror Task 22: sendMessageLocal + wire ComposerV2**
+🚀 Starting: **CC Local-First Mirror Task 23: sendFileLocal + wire attachment dialog and voice note**
 
 ## ✅ Completed
 
+- [2026-06-09] **CC Local-First Mirror Task 22: sendMessageLocal + wire ComposerV2** — `mutations.ts`, `__tests__/mutations.test.ts`, `ContactCenterSidebarV2.tsx` — Optimistic text send via Dexie transaction (message + pending_write), ComposerV2 wired to local-first path, 56 tests passing
 - [2026-06-09] **CC Local-First Mirror Task 21: Phase B security audit** — ✅ Secrets, ✅ RLS, ✅ Auth Gate, ✅ Error Handling, ✅ Layout Stability. All 4 reads now Dexie-backed.
 - [2026-06-09] **CC Local-First Mirror Task 20: useLocalOrders + swap into OrderHistoryV2** — `useLocalOrders.ts`, `__tests__/useLocalOrders.test.ts`, `OrderHistoryV2.tsx`, `ContactCenterSidebarV2.tsx` — Orders now from Dexie, authUserId prop threaded, 55 tests passing
 - [2026-06-09] **CC Local-First Mirror Task 19: useLocalCustomer + swap into sidebar** — `useLocalCustomer.ts`, `__tests__/useLocalCustomer.test.ts`, `ContactCenterSidebarV2.tsx` — customer/phones/addresses/products from Dexie liveQuery, lazy fetch on mount, 54 tests passing
