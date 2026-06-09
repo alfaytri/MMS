@@ -11,7 +11,7 @@ import { useLocalConversations } from '@/hooks/contact-center/local/useLocalConv
 import { SyncBanner } from './SyncBanner'
 import { createClient as createSupabaseClient } from '@/lib/supabase/client'
 import { useContactCenterContext } from '@/contexts/ContactCenterContext'
-import { useUnifiedConversation } from '@/hooks/contact-center/useUnifiedConversation'
+import { useLocalMessages } from '@/hooks/contact-center/local/useLocalMessages'
 import { useProviderSuggest } from '@/hooks/contact-center/useProviderSuggest'
 import { ChatAttachmentDialog } from '@/components/contact-center/ChatAttachmentDialog'
 import { ChatInstructionsDialog } from '@/components/contact-center/ChatInstructionsDialog'
@@ -50,10 +50,7 @@ export function ContactCenterSidebarV2() {
   useSyncWorker(authUserId, provider)
   const { conversations, loading: convsLoading } = useLocalConversations(authUserId, provider)
 
-  const { messages: unifiedMessages, loading: unifiedLoading } = useUnifiedConversation(
-    activeCustomerId,
-    activeConversationId,
-  )
+  const { messages: unifiedMessages, loading: unifiedLoading } = useLocalMessages(authUserId, activeCustomerId)
   const [composerFocused, setComposerFocused] = useState(false)
 
   const providerSuggest = useProviderSuggest({
