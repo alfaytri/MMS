@@ -280,8 +280,13 @@ export function ContactCenterSidebarV2() {
             customerData={customerData}
             pendingPhone={activePhone}
             onCustomerResolved={(id, name, phone) => {
-              // Link the resolved/new customer to the active conversation,
-              // close the unknown-caller form, and broadcast to peer modules.
+              if (authUserId) {
+                void getDb(authUserId).customers.put({
+                  id, name, name_ar: null, customer_type: 'individual',
+                  is_blocked: false, pending_payment_amount: 0,
+                  created_at: new Date().toISOString(),
+                })
+              }
               openConversation(activeConversationId ?? '', id, phone)
               customerData.setCrmMode('view')
               openCustomerById(id, name, phone)

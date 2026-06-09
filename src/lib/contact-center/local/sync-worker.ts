@@ -66,6 +66,26 @@ export class SyncWorker {
         { event: '*', schema: 'public', table: 'chat_conversations' },
         (payload: { eventType: string; new?: unknown; old?: unknown }) => this.onConversationPayload(payload),
       )
+      .on(
+        'postgres_changes',
+        { event: '*', schema: 'public', table: 'service_customers' },
+        (payload: { eventType: string; new?: unknown; old?: unknown }) => this.onCrmPayload('customers', payload),
+      )
+      .on(
+        'postgres_changes',
+        { event: '*', schema: 'public', table: 'service_customer_addresses' },
+        (payload: { eventType: string; new?: unknown; old?: unknown }) => this.onCrmPayload('addresses', payload),
+      )
+      .on(
+        'postgres_changes',
+        { event: '*', schema: 'public', table: 'service_customer_phones' },
+        (payload: { eventType: string; new?: unknown; old?: unknown }) => this.onCrmPayload('phones', payload),
+      )
+      .on(
+        'postgres_changes',
+        { event: '*', schema: 'public', table: 'service_customer_products' },
+        (payload: { eventType: string; new?: unknown; old?: unknown }) => this.onCrmPayload('products', payload),
+      )
       .subscribe((channelStatus: string) => {
         if (channelStatus === 'SUBSCRIBED')        this.setStatus('connected')
         else if (channelStatus === 'CHANNEL_ERROR') this.setStatus('offline')
@@ -85,6 +105,19 @@ export class SyncWorker {
     this.updateBuffer.set(row.id, row)
     if (this.flushTimer == null) {
       this.flushTimer = setTimeout(() => this.flush(), FLUSH_WINDOW_MS)
+    }
+  }
+
+  private onCrmPayload(
+    table: 'customers' | 'addresses' | 'phones' | 'products',
+    payload: { eventType: string; new?: unknown; old?: unknown },
+  ): void {
+    const row = (payload.new ?? payload.old) as { id: string } | undefined
+    if (!row?.id) return
+    if (payload.eventType === 'DELETE') {
+      void this.db[table].delete(row.id)
+    } else {
+      void this.db[table].put(row as never)
     }
   }
 
@@ -136,6 +169,9 @@ export class SyncWorker {
           break
         case 'react':
           await this.sendReaction(row)
+          break
+        case 'update_customer':
+          await this.pushCustomerUpdate(row)
           break
         default:
           throw new Error(`Unknown pending-write kind: ${row.kind}`)
@@ -272,5 +308,14 @@ export class SyncWorker {
       if (err instanceof Error && err.message.startsWith('send-reaction 4')) return
       throw err
     }
+  }
+
+  private async pushCustomerUpdate(row: PendingWrite): Promise<void> {
+    const { customerId, ...patch } = row.payload as { customerId: string; [k: string]: unknown }
+    const { error } = await this.supabase
+      .from('service_customers')
+      .update(patch)
+      .eq('id', customerId)
+    if (error) throw new Error(error.message)
   }
 }

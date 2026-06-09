@@ -1,7 +1,7 @@
 import { describe, it, expect, beforeEach } from 'vitest'
 import 'fake-indexeddb/auto'
 import { getDb, resetDb } from '../db'
-import { sendMessageLocal, sendFileLocal, sendTemplateLocal, reactLocal } from '../mutations'
+import { sendMessageLocal, sendFileLocal, sendTemplateLocal, reactLocal, updateCustomerLocal } from '../mutations'
 
 beforeEach(() => { resetDb() })
 
@@ -94,4 +94,19 @@ it('reactLocal skips pending_write for wati provider', async () => {
   expect(msg?.reactions).toEqual([{ emoji: '❤️', from_type: 'agent' }])
   const afterCount = await db.pendingWrites.where('kind').equals('react').count()
   expect(afterCount).toBe(beforeCount)
+})
+
+it('updateCustomerLocal patches Dexie and enqueues update_customer', async () => {
+  const db = getDb('u')
+  await db.customers.add({
+    id: 'cust-1', name: 'Old Name', name_ar: null, customer_type: 'individual',
+    is_blocked: false, pending_payment_amount: 0, created_at: new Date().toISOString(),
+  })
+
+  await updateCustomerLocal(db, { customerId: 'cust-1', name: 'New Name' })
+  const cust = await db.customers.get('cust-1')
+  expect(cust?.name).toBe('New Name')
+  const pw = await db.pendingWrites.where('kind').equals('update_customer').toArray()
+  expect(pw.length).toBeGreaterThanOrEqual(1)
+  expect((pw[pw.length - 1].payload as any).customerId).toBe('cust-1')
 })

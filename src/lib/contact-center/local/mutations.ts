@@ -160,6 +160,30 @@ export async function reactLocal(db: MmsCcDb, args: ReactArgs): Promise<void> {
   })
 }
 
+export interface UpdateCustomerArgs {
+  customerId: string
+  name?: string
+  nameAr?: string | null
+  customerType?: 'individual' | 'business'
+  isBlocked?: boolean
+}
+
+export async function updateCustomerLocal(db: MmsCcDb, args: UpdateCustomerArgs): Promise<void> {
+  const patch: Record<string, unknown> = {}
+  if (args.name !== undefined) patch.name = args.name
+  if (args.nameAr !== undefined) patch.name_ar = args.nameAr
+  if (args.customerType !== undefined) patch.customer_type = args.customerType
+  if (args.isBlocked !== undefined) patch.is_blocked = args.isBlocked
+
+  await db.transaction('rw', db.customers, db.pendingWrites, async () => {
+    await db.customers.update(args.customerId, patch)
+    await q.enqueue(db, {
+      kind: 'update_customer',
+      payload: { customerId: args.customerId, ...patch },
+    })
+  })
+}
+
 export async function sendMessageLocal(db: MmsCcDb, args: SendMessageArgs): Promise<string> {
   const id = newId()
   const now = new Date().toISOString()
