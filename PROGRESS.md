@@ -206,10 +206,11 @@ Purchase & Sales▾:
 
 ## 🔄 In Progress
 
-🚀 Starting: **CC Local-First Mirror Task 13: Retention sweep**
+🚀 Starting: **CC Local-First Mirror Task 14: CcLocalProvider React context**
 
 ## ✅ Completed
 
+- [2026-06-09] **CC Local-First Mirror Task 13: Retention sweep** — `retention.ts`, `__tests__/retention.test.ts` — 30-day message prune with keep-20-per-conversation carve-out, stale conversation cleanup, CRM orphan cascade, pendingWrites never pruned, 3 tests passing (49 total)
 - [2026-06-09] **CC Local-First Mirror Task 12: SyncWorker drain loop for file sends** — `sync-worker.ts`, `__tests__/sync-worker.test.ts` — Three-step sendFile: upload to Supabase Storage, patch Dexie blob→publicUrl, send via WATI. TerminalError class for non-retryable failures (file lost on reload). RAM cleanup on success and terminal failure. 12 tests passing (46 total)
 - [2026-06-09] **CC Local-First Mirror Task 11: SyncWorker drain loop for text/template sends** — `sync-worker.ts`, `__tests__/sync-worker.test.ts` — drainOnce() walks queued writes FIFO, sendText calls api-wati edge function with client-generated message_id, patches Dexie message with external_id + delivery_status on success, retries 5xx with backoff up to MAX_RETRIES then terminal failure, 10 tests passing (44 total)
 - [2026-06-09] **CC Local-First Mirror Task 10: SyncWorker Realtime + 50ms debounce** — `sync-worker.ts`, `__tests__/sync-worker.test.ts` — Realtime subscription on chat_messages + chat_conversations, 50ms debounce buffer collapses status storms into single bulkPut, 7 tests passing
