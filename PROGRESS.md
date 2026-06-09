@@ -205,10 +205,11 @@ Purchase & Sales▾:
 
 ## 🔄 In Progress
 
-🚀 Starting: **CC Local-First Mirror Task 3: Define Dexie DB instance + schema v1**
+🚀 Starting: **CC Local-First Mirror Task 4: RLS audit — tighten chat_messages INSERT policy**
 
 ## ✅ Completed
 
+- [2026-06-09] **CC Local-First Mirror Task 3: Define Dexie DB instance + schema v1** — `src/lib/contact-center/local/db.ts`, `__tests__/db.test.ts` — MmsCcDb class with 9 tables, per-auth-user singleton, compound indexes on messages and orders, 7 tests passing
 - [2026-06-09] **CC Local-First Mirror Task 2: Mirror Supabase types into local/schema.ts** — `src/lib/contact-center/local/schema.ts` — Local Dexie row types for messages, conversations, customers, phones, addresses, products, orders, pendingWrites, sync
 - [2026-06-09] **CC Local-First Mirror Task 1: Create feature branch + install Dexie + add crypto.randomUUID helper** — `package.json`, `src/lib/contact-center/local/ids.ts`, `__tests__/ids.test.ts` — Installed dexie@^4, implemented newId() wrapping crypto.randomUUID with RFC4122 v4 fallback
 
