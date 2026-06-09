@@ -208,10 +208,11 @@ Purchase & Sales▾:
 
 ## 🔄 In Progress
 
-🚀 Starting: **CC Local-First Mirror Task 25: reactLocal + wire MessageBubble emoji picker**
+🚀 Starting: **CC Local-First Mirror Task 26: updateCustomerLocal + wire CrmSection**
 
 ## ✅ Completed
 
+- [2026-06-09] **CC Local-First Mirror Task 25: reactLocal + wire MessageBubble emoji picker** — `mutations.ts`, `sync-worker.ts`, `ContactCenterSidebarV2.tsx` — Toggle reaction in Dexie, WHAPI sends via SyncWorker, WATI UI-only, 60 tests passing
 - [2026-06-09] **CC Local-First Mirror Task 24: sendTemplateLocal + wire template selector** — `mutations.ts`, `sync-worker.ts`, `ContactCenterSidebarV2.tsx` — Optimistic template send with rendered body text, SyncWorker pushes to api-wati, 58 tests passing
 - [2026-06-09] **CC Local-First Mirror Task 23: sendFileLocal + wire attachment dialog and voice note** — `mutations.ts`, `__tests__/mutations.test.ts`, `useSyncWorker.ts`, `ContactCenterSidebarV2.tsx` — Optimistic file send with blob: URL, fileMap exposed from useSyncWorker, 57 tests passing
 - [2026-06-09] **CC Local-First Mirror Task 22: sendMessageLocal + wire ComposerV2** — `mutations.ts`, `__tests__/mutations.test.ts`, `ContactCenterSidebarV2.tsx` — Optimistic text send via Dexie transaction (message + pending_write), ComposerV2 wired to local-first path, 56 tests passing
