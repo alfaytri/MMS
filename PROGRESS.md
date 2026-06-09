@@ -210,7 +210,7 @@ Purchase & Sales▾:
 
 ## 🔄 In Progress
 
-No active task.
+🚀 Starting: **CC Rework Plan 3 (3CX Integration) Task 1: Migration — profiles.threecx_extension**
 
 ## ✅ Completed
 
