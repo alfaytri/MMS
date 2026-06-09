@@ -1,0 +1,28 @@
+<?xml version="1.0" encoding="utf-8"?>
+<Crm xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xmlns:xsd="http://www.w3.org/2001/XMLSchema" Country="US" Name="MMS Contact Centre" Version="1" SupportsEmojis="false" SupportsTranscription="false" ListPageSize="0">
+  <Number Prefix="AsIs" MaxLength="[MaxLength]" />
+  <Connection MaxConcurrentRequests="2" />
+  <Parameters>
+    <Parameter Name="WebhookUrl" Type="String" Parent="General Configuration" Editor="String" Title="Webhook URL:" Validation="" Default="https://mms.alfaytri.com/api/3cx/webhook/event" ListValues="" RequestUrl="" RequestUrlParameters="" ResponseScenario="" />
+    <Parameter Name="WebhookSecret" Type="Password" Parent="General Configuration" Editor="String" Title="Webhook Secret:" Validation="" Default="" ListValues="" RequestUrl="" RequestUrlParameters="" ResponseScenario="" />
+    <Parameter Name="ReportCallEnabled" Type="Boolean" Parent="" Editor="String" Title="Enable Call Journaling" Validation="" Default="True" ListValues="" RequestUrl="" RequestUrlParameters="" ResponseScenario="" />
+  </Parameters>
+  <Authentication Type="No" />
+  <Scenarios>
+    <Scenario Id="" Type="REST" EntityId="Contacts" EntityOrder="0">
+      <Request SkipIf="" Url="[WebhookUrl]" MessagePasses="0" Message="" RequestContentType="" RequestEncoding="UrlEncoded" RequestType="Get" ResponseType="Json" />
+      <Rules>
+        <Rule Type="Any" Ethalon="">ok</Rule>
+      </Rules>
+      <Variables />
+      <Outputs Next="" AllowEmpty="true">
+        <Output Type="PhoneMobile" Passes="0" Value="[Number]" />
+      </Outputs>
+    </Scenario>
+    <Scenario Id="ReportCall" Type="REST" EntityId="" EntityOrder="">
+      <Request SkipIf="[ReportCallEnabled]!=True" Url="[WebhookUrl]?secret=[WebhookSecret]" MessagePasses="0" Message="{{ ^^event^^: ^^[IIf([CallDirection]==Inbound,incoming,outgoing)]^^, ^^callerid^^: ^^[Number]^^, ^^user^^: ^^[Agent]^^, ^^usertype^^: ^^ext^^, ^^finishtype^^: ^^[IIf([DurationTimespan].get_TotalSeconds()&gt;0,Ok,Missed)]^^, ^^call_id1^^: ^^[CallId]^^, ^^call_id2^^: ^^^^, ^^title^^: ^^[CallDirection] — [Number]^^, ^^recording_url^^: ^^[RecordingUrl]^^, ^^transfer^^: ^^False^^, ^^breakside^^: ^^Undef^^ }}" RequestContentType="application/json" RequestEncoding="Json" RequestType="Post" ResponseType="Json" />
+      <Variables />
+      <Outputs AllowEmpty="false" />
+    </Scenario>
+  </Scenarios>
+</Crm>

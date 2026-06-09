@@ -62,7 +62,10 @@ export function normaliseEvent(body: Record<string, unknown>): NormalisedEvent |
 
   const direction: 'inbound' | 'outbound' = ev === 'incoming' ? 'inbound' : 'outbound'
   const filesRaw = Array.isArray(body.FILES) ? body.FILES : []
-  const recording_urls = filesRaw.filter((u): u is string => typeof u === 'string')
+  let recording_urls = filesRaw.filter((u): u is string => typeof u === 'string')
+  if (recording_urls.length === 0 && typeof body.recording_url === 'string' && body.recording_url) {
+    recording_urls = [body.recording_url]
+  }
 
   return {
     ...common,
