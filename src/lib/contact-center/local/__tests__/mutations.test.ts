@@ -1,7 +1,7 @@
 import { describe, it, expect, beforeEach } from 'vitest'
 import 'fake-indexeddb/auto'
 import { getDb, resetDb } from '../db'
-import { sendMessageLocal, sendFileLocal } from '../mutations'
+import { sendMessageLocal, sendFileLocal, sendTemplateLocal } from '../mutations'
 
 beforeEach(() => { resetDb() })
 
@@ -36,4 +36,23 @@ it('writes a sending file row + pending_write and registers the blob in the file
   expect(pw[0].fileRef).toBeTruthy()
   expect(fileMap.has(pw[0].fileRef!)).toBe(true)
   expect(fileMap.get(pw[0].fileRef!)).toBe(file)
+})
+
+it('writes a sending template message + pending_write', async () => {
+  const id = await sendTemplateLocal(getDb('u'), {
+    conversationId: 'c1',
+    phone: '+97412345678',
+    templateName: 'booking_confirm',
+    broadcastName: 'mms_booking_confirm_123',
+    bodyText: 'Your booking 42 is confirmed for June 10',
+    variables: ['42', 'June 10'],
+  })
+  const msg = await getDb('u').messages.get(id)
+  expect(msg?.message_type).toBe('template')
+  expect(msg?.text).toBe('Your booking 42 is confirmed for June 10')
+  expect(msg?.delivery_status).toBe('sending')
+  const pw = await getDb('u').pendingWrites.where('kind').equals('send_template').toArray()
+  expect(pw.length).toBe(1)
+  expect((pw[0].payload as any).templateName).toBe('booking_confirm')
+  expect((pw[0].payload as any).parameters).toEqual(['42', 'June 10'])
 })

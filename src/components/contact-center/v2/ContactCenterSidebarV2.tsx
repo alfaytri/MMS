@@ -14,7 +14,7 @@ import { createClient as createSupabaseClient } from '@/lib/supabase/client'
 import { useContactCenterContext } from '@/contexts/ContactCenterContext'
 import { useLocalMessages } from '@/hooks/contact-center/local/useLocalMessages'
 import { useProviderSuggest } from '@/hooks/contact-center/useProviderSuggest'
-import { sendMessageLocal, sendFileLocal } from '@/lib/contact-center/local/mutations'
+import { sendMessageLocal, sendFileLocal, sendTemplateLocal } from '@/lib/contact-center/local/mutations'
 import { getDb } from '@/lib/contact-center/local/db'
 import { ChatAttachmentDialog } from '@/components/contact-center/ChatAttachmentDialog'
 import { ChatInstructionsDialog } from '@/components/contact-center/ChatInstructionsDialog'
@@ -120,17 +120,23 @@ export function ContactCenterSidebarV2() {
   }
 
   async function handleSendTemplate(vars: string[], headerUrl: string) {
-    if (!confirmTemplate || !activeConversationId || !activePhone) return
+    if (!confirmTemplate || !activeConversationId || !activePhone || !authUserId) return
     try {
-      await chatMessages.sendTemplate({
+      const bodyText = confirmTemplate.paramNames.reduce(
+        (t, name, i) => t.replace(`{{${name}}}`, vars[i] ?? ''),
+        confirmTemplate.bodyOriginal || confirmTemplate.elementName,
+      )
+      await sendTemplateLocal(getDb(authUserId), {
         conversationId: activeConversationId,
         phone: activePhone,
-        template: confirmTemplate,
+        templateName: confirmTemplate.elementName,
+        broadcastName: `mms_${confirmTemplate.elementName}_${Date.now()}`,
+        bodyText,
         variables: vars,
         headerUrl: headerUrl || undefined,
       })
       setConfirmTemplate(null)
-      toast.success('Template sent')
+      toast.success('Template queued for send')
     } catch {
       toast.error('Failed to send template')
     }

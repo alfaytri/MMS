@@ -221,7 +221,31 @@ export class SyncWorker {
     this.fileMap.delete(row.fileRef)
   }
 
-  private async sendTemplate(_row: PendingWrite): Promise<void> {
-    throw new Error('sendTemplate not wired until Task 24')
+  private async sendTemplate(row: PendingWrite): Promise<void> {
+    const p = row.payload as {
+      id: string; conversationId: string; phone: string
+      templateName: string; broadcastName: string
+      parameters: string[]; headerUrl: string | null
+    }
+    const { data, error } = await this.supabase.functions.invoke('api-wati', {
+      body: {
+        action: 'send_template',
+        phone: p.phone,
+        template_name: p.templateName,
+        broadcast_name: p.broadcastName,
+        parameters: p.parameters,
+        header_url: p.headerUrl || undefined,
+        message_id: p.id,
+      },
+    })
+    if (error) throw new Error(error.message ?? 'send_template failed')
+    const watiId = data?.message?.whatsappMessageId
+    if (watiId) {
+      await this.db.messages.update(p.id, {
+        external_id: `wati_${watiId}`,
+        delivery_status: 'sent',
+        _localOnly: false,
+      })
+    }
   }
 }

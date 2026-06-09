@@ -79,6 +79,59 @@ export async function sendFileLocal(
   return id
 }
 
+export interface SendTemplateArgs {
+  conversationId: string
+  phone: string
+  templateName: string
+  broadcastName: string
+  bodyText: string
+  variables: string[]
+  headerUrl?: string
+}
+
+export async function sendTemplateLocal(db: MmsCcDb, args: SendTemplateArgs): Promise<string> {
+  const id = newId()
+  const now = new Date().toISOString()
+
+  await db.transaction('rw', db.messages, db.pendingWrites, async () => {
+    await db.messages.add({
+      id,
+      conversation_id: args.conversationId,
+      from_type: 'agent',
+      source: 'whatsapp_api',
+      message_kind: 'message',
+      message_type: 'template' as MessageType,
+      text: args.bodyText,
+      agent_name: null,
+      attachments: null,
+      reactions: [],
+      delivery_status: 'sending',
+      external_id: null,
+      reply_to_external_id: null,
+      sent_by_profile_id: null,
+      phone_id: null,
+      deleted_at: null,
+      created_at: now,
+      _localOnly: true,
+    })
+    await q.enqueue(db, {
+      kind: 'send_template',
+      payload: {
+        id,
+        conversationId: args.conversationId,
+        phone: args.phone,
+        templateName: args.templateName,
+        broadcastName: args.broadcastName,
+        parameters: args.variables,
+        headerUrl: args.headerUrl ?? null,
+      },
+      localMessageId: id,
+    })
+  })
+
+  return id
+}
+
 export async function sendMessageLocal(db: MmsCcDb, args: SendMessageArgs): Promise<string> {
   const id = newId()
   const now = new Date().toISOString()
