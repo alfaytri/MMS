@@ -164,6 +164,7 @@ Purchase & Sales▾:
 
 | Date | Module / Scope | Secrets | RLS | Auth Gate | Error Handling | Layout Stability | Notes |
 |---|---|---|---|---|---|---|---|
+| 2026-06-09 | **CC Local-First Phase B (Tasks 17-21)** | ✅ | ✅ | ✅ | ✅ | ✅ | All 4 reads Dexie-backed (conversations, messages, customer, orders); no new tables or API routes; all hooks use browser-bound createClient(); lazy fetch swallows errors gracefully; no DOM shape changes |
 | 2026-06-09 | **CC Local-First Phase A (Tasks 1-16)** | ✅ | ✅ | ✅ | ✅ | ✅ | No secrets in any local/ files; only new migration is chat_messages_insert_strict (tightened INSERT policy); no new API routes — SyncWorker uses browser cookie-bound createClient(); drain loop wraps all sends in try/catch with transient/terminal failure mapping; SyncBanner in min-h-[20px] container prevents layout shift |
 | 2026-06-09 | **CC Local Task 4** | ✅ | ✅ | n/a | n/a | n/a | Pre-change: `cc_messages_insert` was `WITH CHECK (true)` — any authenticated user could insert. Post-change: `chat_messages_insert_strict` now validates conversation_id exists + user has `contact_centre.view` permission via `user_custom_roles → custom_roles.permissions`. Webhook routes use service-role key (bypass RLS). Fixed column name: `role_id` not `custom_role_id` in `user_custom_roles`. |
 | 2026-06-08 | **Purchase UX Polish Batch** | ✅ | ✅ | ✅ | ✅ | ⚠️ | Pure UI changes: no secrets, no new tables / RLS, no new API routes. New `useForceApproveAllSteps` reuses existing `advance_po_approval_tier` RPC and re-runs the same owner-role guard as `useForceApproveStep`. `useReceivalItemsBatch` issues two scoped Supabase `.in()` queries — same RLS surface as existing per-receival hook. All mutations have `onError → toast.error`. **Layout-stability exception:** Subcategory/Type selects now appear/disappear conditionally per user's explicit request, which intentionally overrides the layout-stability rule. Accepted gap. |
@@ -207,10 +208,12 @@ Purchase & Sales▾:
 
 ## 🔄 In Progress
 
-🚀 Starting: **CC Local-First Mirror Task 20: useLocalOrders + swap into OrderHistoryV2**
+🚀 Starting: **CC Local-First Mirror Task 22: sendMessageLocal + wire ComposerV2**
 
 ## ✅ Completed
 
+- [2026-06-09] **CC Local-First Mirror Task 21: Phase B security audit** — ✅ Secrets, ✅ RLS, ✅ Auth Gate, ✅ Error Handling, ✅ Layout Stability. All 4 reads now Dexie-backed.
+- [2026-06-09] **CC Local-First Mirror Task 20: useLocalOrders + swap into OrderHistoryV2** — `useLocalOrders.ts`, `__tests__/useLocalOrders.test.ts`, `OrderHistoryV2.tsx`, `ContactCenterSidebarV2.tsx` — Orders now from Dexie, authUserId prop threaded, 55 tests passing
 - [2026-06-09] **CC Local-First Mirror Task 19: useLocalCustomer + swap into sidebar** — `useLocalCustomer.ts`, `__tests__/useLocalCustomer.test.ts`, `ContactCenterSidebarV2.tsx` — customer/phones/addresses/products from Dexie liveQuery, lazy fetch on mount, 54 tests passing
 - [2026-06-09] **CC Local-First Mirror Task 18: useLocalMessages + swap into UnifiedThread** — `useLocalMessages.ts`, `__tests__/useLocalMessages.test.ts`, `ContactCenterSidebarV2.tsx` — cross-provider message merge via compound index, lazy fetch per conversation
 - [2026-06-09] **CC Local-First Mirror Task 17: useLocalConversations + swap into ChatListV2** — `useLocalConversations.ts`, `__tests__/useLocalConversations.test.ts`, `ContactCenterSidebarV2.tsx` — Dexie liveQuery reads conversations sorted by last_message_at desc, lazy fetch on mount, swapped into sidebar replacing Supabase direct reads, 52 tests passing
