@@ -6,6 +6,8 @@ import * as q from './pending-writes'
 
 type Status = 'connected' | 'reconnecting' | 'offline'
 
+class TerminalError extends Error {}
+
 const FLUSH_WINDOW_MS = 50
 
 export class SyncWorker {
@@ -130,14 +132,15 @@ export class SyncWorker {
           await this.sendTemplate(row)
           break
         case 'send_file':
-          throw new Error('send_file not implemented yet')
+          await this.sendFile(row)
+          break
         default:
           throw new Error(`Unknown pending-write kind: ${row.kind}`)
       }
       await q.markSuccess(this.db, row.id!)
     } catch (err) {
       const msg = err instanceof Error ? err.message : String(err)
-      if (row.retryCount >= q.MAX_RETRIES) {
+      if (err instanceof TerminalError || row.retryCount >= q.MAX_RETRIES) {
         await q.markFailedTerminal(this.db, row.id!, msg, (ref) => this.fileMap.delete(ref))
       } else {
         await q.markFailedTransient(this.db, row.id!, msg)
@@ -161,6 +164,61 @@ export class SyncWorker {
         _localOnly: false,
       })
     }
+  }
+
+  private async sendFile(row: PendingWrite): Promise<void> {
+    if (!row.fileRef) throw new TerminalError('send_file row missing fileRef')
+    const file = this.fileMap.get(row.fileRef)
+    if (!file) throw new TerminalError('file lost on reload — re-upload required')
+
+    const p = row.payload as {
+      id: string; conversationId: string; phone: string
+      caption: string; filename: string; mime: string
+    }
+
+    const ext = p.filename.split('.').pop() ?? 'bin'
+    const path = `${p.conversationId}/${p.id}.${ext}`
+    const contentType = p.mime.split(';')[0]
+    const { error: upErr } = await this.supabase.storage
+      .from('chat-attachments')
+      .upload(path, file, { contentType, upsert: false })
+    if (upErr) throw new Error(upErr.message)
+
+    const { data: { publicUrl } } = this.supabase.storage
+      .from('chat-attachments').getPublicUrl(path)
+
+    const m = await this.db.messages.get(p.id)
+    if (m?.attachments?.[0]?.url?.startsWith('blob:')) {
+      URL.revokeObjectURL(m.attachments[0].url)
+    }
+    await this.db.messages.update(p.id, {
+      attachments: [{ url: publicUrl, type: p.mime, name: p.filename }],
+    })
+
+    const { data, error } = await this.supabase.functions.invoke('api-wati', {
+      body: {
+        action: 'send_file',
+        phone: p.phone,
+        url: publicUrl,
+        caption: p.caption || undefined,
+        filename: p.filename,
+        mime_type: p.mime,
+        message_id: p.id,
+      },
+    })
+    if (error) throw new Error(error.message ?? 'send_file failed')
+
+    const watiId = (data as any)?.message?.whatsappMessageId
+                ?? (data as any)?.info?.whatsAppMessageId
+    const externalId = watiId ? `wati_${watiId}` : null
+
+    await this.db.messages.update(p.id, {
+      external_id: externalId,
+      delivery_status: 'sent',
+      _localOnly: false,
+    })
+
+    this.fileMap.delete(row.fileRef)
   }
 
   private async sendTemplate(_row: PendingWrite): Promise<void> {

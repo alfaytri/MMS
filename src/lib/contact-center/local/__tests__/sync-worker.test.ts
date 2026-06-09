@@ -196,3 +196,76 @@ describe('SyncWorker drain (text)', () => {
     expect(row?.status).toBe('failed')
   })
 })
+
+describe('SyncWorker drain (file)', () => {
+  beforeEach(async () => {
+    vi.useRealTimers()
+    await getDb('test').pendingWrites.clear()
+    await getDb('test').messages.clear()
+  })
+
+  it('uploads to Storage first, then patches Dexie with the public URL, then sends', async () => {
+    const upload = vi.fn().mockResolvedValue({ data: { path: 'c1/msg-f.pdf' }, error: null })
+    const getPublicUrl = vi.fn().mockReturnValue({ data: { publicUrl: 'https://x.test/c1/msg-f.pdf' } })
+    const invoke = vi.fn().mockResolvedValue({
+      data: { message: { whatsappMessageId: 'WAMID-F' } }, error: null,
+    })
+
+    const supa = {
+      ...mkSupabaseStub(),
+      storage: { from: () => ({ upload, getPublicUrl }) },
+      functions: { invoke },
+    } as any
+
+    const w = new SyncWorker(getDb('test'), supa, 'wati')
+
+    const file = new File([new Blob(['%PDF-1.4'])], 'doc.pdf', { type: 'application/pdf' })
+    w.fileMap.set('ref-f', file)
+    await getDb('test').messages.put({
+      id: 'msg-f', conversation_id: 'c1', from_type: 'agent', source: 'whatsapp_api',
+      message_kind: 'message', message_type: 'document',
+      text: null, agent_name: null,
+      attachments: [{ url: 'blob:http://test/abc', type: 'application/pdf', name: 'doc.pdf', status: 'local' }],
+      reactions: [], delivery_status: 'sending', external_id: null,
+      reply_to_external_id: null, sent_by_profile_id: null, phone_id: null,
+      deleted_at: null, created_at: '2026-06-09T12:00:00Z', _localOnly: true,
+    })
+    const pwId = await q.enqueue(getDb('test'), {
+      kind: 'send_file',
+      payload: { id: 'msg-f', conversationId: 'c1', phone: '+x', caption: '', filename: 'doc.pdf', mime: 'application/pdf' },
+      localMessageId: 'msg-f',
+      fileRef: 'ref-f',
+    })
+
+    w.start()
+    await w.drainOnce()
+
+    expect(upload).toHaveBeenCalledWith(expect.stringContaining('c1/msg-f.pdf'), file, expect.objectContaining({ contentType: 'application/pdf' }))
+    expect(invoke).toHaveBeenCalledWith('api-wati', expect.objectContaining({
+      body: expect.objectContaining({ action: 'send_file', message_id: 'msg-f' }),
+    }))
+    expect(await getDb('test').pendingWrites.get(pwId)).toBeUndefined()
+    expect(w.fileMap.has('ref-f')).toBe(false)
+    const m = await getDb('test').messages.get('msg-f')
+    expect(m?.attachments?.[0].url).toBe('https://x.test/c1/msg-f.pdf')
+    expect(m?.delivery_status).toBe('sent')
+  })
+
+  it('marks terminal failure with file-lost when fileMap has no ref (post-reload)', async () => {
+    const supa = { ...mkSupabaseStub(), storage: { from: () => ({ upload: vi.fn(), getPublicUrl: vi.fn() }) }, functions: { invoke: vi.fn() } } as any
+    const w = new SyncWorker(getDb('test'), supa, 'wati')
+
+    const pwId = await q.enqueue(getDb('test'), {
+      kind: 'send_file',
+      payload: { id: 'msg-g', conversationId: 'c1', phone: '+x', caption: '', filename: 'x.png', mime: 'image/png' },
+      localMessageId: 'msg-g',
+      fileRef: 'lost-ref',
+    })
+    w.start()
+    await w.drainOnce()
+
+    const row = await getDb('test').pendingWrites.get(pwId)
+    expect(row?.status).toBe('failed')
+    expect(row?.lastError).toMatch(/file lost/i)
+  })
+})
