@@ -281,6 +281,45 @@ export async function updateAddressLocal(db: MmsCcDb, args: UpdateAddressArgs): 
   })
 }
 
+export interface AddPhoneArgs {
+  customerId: string
+  phone: string
+  label?: string
+  isPrimary?: boolean
+}
+
+export async function addPhoneLocal(db: MmsCcDb, args: AddPhoneArgs): Promise<string> {
+  const id = newId()
+  const now = new Date().toISOString()
+
+  await db.transaction('rw', db.phones, db.pendingWrites, async () => {
+    await db.phones.add({
+      id,
+      customer_id: args.customerId,
+      phone: args.phone,
+      is_primary: args.isPrimary ?? false,
+      label: args.label ?? null,
+      created_at: now,
+    })
+    await q.enqueue(db, {
+      kind: 'add_phone',
+      payload: { id, customer_id: args.customerId, phone: args.phone, is_primary: args.isPrimary ?? false, label: args.label ?? null },
+    })
+  })
+
+  return id
+}
+
+export async function removePhoneLocal(db: MmsCcDb, phoneId: string): Promise<void> {
+  await db.transaction('rw', db.phones, db.pendingWrites, async () => {
+    await db.phones.delete(phoneId)
+    await q.enqueue(db, {
+      kind: 'remove_phone',
+      payload: { phoneId },
+    })
+  })
+}
+
 export async function sendMessageLocal(db: MmsCcDb, args: SendMessageArgs): Promise<string> {
   const id = newId()
   const now = new Date().toISOString()

@@ -1,7 +1,7 @@
 import { describe, it, expect, beforeEach } from 'vitest'
 import 'fake-indexeddb/auto'
 import { getDb, resetDb } from '../db'
-import { sendMessageLocal, sendFileLocal, sendTemplateLocal, reactLocal, updateCustomerLocal, addAddressLocal, updateAddressLocal } from '../mutations'
+import { sendMessageLocal, sendFileLocal, sendTemplateLocal, reactLocal, updateCustomerLocal, addAddressLocal, updateAddressLocal, addPhoneLocal, removePhoneLocal } from '../mutations'
 
 beforeEach(() => { resetDb() })
 
@@ -136,5 +136,28 @@ it('updateAddressLocal patches Dexie and enqueues update_address', async () => {
   const addr = await db.addresses.get('a1')
   expect(addr?.unit).toBe('99')
   const pw = await db.pendingWrites.where('kind').equals('update_address').toArray()
+  expect(pw.length).toBeGreaterThanOrEqual(1)
+})
+
+it('addPhoneLocal writes phone to Dexie and enqueues add_phone', async () => {
+  const db = getDb('u')
+  const id = await addPhoneLocal(db, { customerId: 'cust-1', phone: '+97412345678' })
+  const phone = await db.phones.get(id)
+  expect(phone?.phone).toBe('+97412345678')
+  expect(phone?.customer_id).toBe('cust-1')
+  const pw = await db.pendingWrites.where('kind').equals('add_phone').toArray()
+  expect(pw.length).toBeGreaterThanOrEqual(1)
+})
+
+it('removePhoneLocal deletes from Dexie and enqueues remove_phone', async () => {
+  const db = getDb('u')
+  await db.phones.add({
+    id: 'p1', customer_id: 'cust-1', phone: '+97499999999',
+    is_primary: false, label: null, created_at: new Date().toISOString(),
+  })
+  await removePhoneLocal(db, 'p1')
+  const phone = await db.phones.get('p1')
+  expect(phone).toBeUndefined()
+  const pw = await db.pendingWrites.where('kind').equals('remove_phone').toArray()
   expect(pw.length).toBeGreaterThanOrEqual(1)
 })

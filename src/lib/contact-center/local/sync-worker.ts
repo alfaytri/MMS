@@ -179,6 +179,12 @@ export class SyncWorker {
         case 'update_address':
           await this.pushAddressUpdate(row)
           break
+        case 'add_phone':
+          await this.pushPhoneInsert(row)
+          break
+        case 'remove_phone':
+          await this.pushPhoneDelete(row)
+          break
         default:
           throw new Error(`Unknown pending-write kind: ${row.kind}`)
       }
@@ -339,6 +345,23 @@ export class SyncWorker {
       .from('service_customer_addresses')
       .update(patch)
       .eq('id', addressId)
+    if (error) throw new Error(error.message)
+  }
+
+  private async pushPhoneInsert(row: PendingWrite): Promise<void> {
+    const p = row.payload as Record<string, unknown>
+    const { error } = await this.supabase
+      .from('service_customer_phones')
+      .insert(p)
+    if (error) throw new Error(error.message)
+  }
+
+  private async pushPhoneDelete(row: PendingWrite): Promise<void> {
+    const { phoneId } = row.payload as { phoneId: string }
+    const { error } = await this.supabase
+      .from('service_customer_phones')
+      .delete()
+      .eq('id', phoneId)
     if (error) throw new Error(error.message)
   }
 }
