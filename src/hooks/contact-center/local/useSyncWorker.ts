@@ -6,8 +6,9 @@ import { getDb } from '@/lib/contact-center/local/db'
 import { SyncWorker } from '@/lib/contact-center/local/sync-worker'
 import { prune } from '@/lib/contact-center/local/retention'
 
-export function useSyncWorker(authUserId: string | null, provider: 'wati' | 'whapi'): void {
+export function useSyncWorker(authUserId: string | null, provider: 'wati' | 'whapi'): { fileMap: Map<string, File> | null } {
   const workerRef = useRef<SyncWorker | null>(null)
+  const fileMapRef = useRef<Map<string, File> | null>(null)
 
   useEffect(() => {
     if (!authUserId) return
@@ -16,6 +17,7 @@ export function useSyncWorker(authUserId: string | null, provider: 'wati' | 'wha
     const supabase = createClient()
     const w = new SyncWorker(db, supabase, provider)
     workerRef.current = w
+    fileMapRef.current = w.fileMap
     w.start()
 
     const pruneTimer = setTimeout(() => { void prune(db) }, 5_000)
@@ -26,6 +28,9 @@ export function useSyncWorker(authUserId: string | null, provider: 'wati' | 'wha
       clearInterval(hourly)
       w.stop()
       workerRef.current = null
+      fileMapRef.current = null
     }
   }, [authUserId, provider])
+
+  return { fileMap: fileMapRef.current }
 }

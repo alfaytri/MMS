@@ -14,7 +14,7 @@ import { createClient as createSupabaseClient } from '@/lib/supabase/client'
 import { useContactCenterContext } from '@/contexts/ContactCenterContext'
 import { useLocalMessages } from '@/hooks/contact-center/local/useLocalMessages'
 import { useProviderSuggest } from '@/hooks/contact-center/useProviderSuggest'
-import { sendMessageLocal } from '@/lib/contact-center/local/mutations'
+import { sendMessageLocal, sendFileLocal } from '@/lib/contact-center/local/mutations'
 import { getDb } from '@/lib/contact-center/local/db'
 import { ChatAttachmentDialog } from '@/components/contact-center/ChatAttachmentDialog'
 import { ChatInstructionsDialog } from '@/components/contact-center/ChatInstructionsDialog'
@@ -50,7 +50,7 @@ export function ContactCenterSidebarV2() {
     })
   }, [])
 
-  useSyncWorker(authUserId, provider)
+  const { fileMap } = useSyncWorker(authUserId, provider)
   const { conversations, loading: convsLoading } = useLocalConversations(authUserId, provider)
   const local = useLocalCustomer(authUserId, activeCustomerId)
 
@@ -91,18 +91,18 @@ export function ContactCenterSidebarV2() {
   }
 
   async function handleSendFile(file: File, caption: string) {
-    if (!activeConversationId || !activePhone) return
+    if (!activeConversationId || !activePhone || !authUserId || !fileMap) return
     try {
-      await chatMessages.sendFile({
+      await sendFileLocal(getDb(authUserId), fileMap, {
         conversationId: activeConversationId,
         phone: activePhone,
         file,
         caption: caption || undefined,
       })
       setShowAttach(false)
-      toast.success('File sent')
+      toast.success('File queued for send')
     } catch (e: any) {
-      toast.error(e?.message ?? 'Failed to send file')
+      toast.error(e?.message ?? 'Failed to queue file')
     }
   }
 
@@ -137,8 +137,8 @@ export function ContactCenterSidebarV2() {
   }
 
   async function handleVoiceNote(file: File) {
-    if (!activeConversationId || !activePhone) return
-    await chatMessages.sendFile({
+    if (!activeConversationId || !activePhone || !authUserId || !fileMap) return
+    await sendFileLocal(getDb(authUserId), fileMap, {
       conversationId: activeConversationId,
       phone: activePhone,
       file,
