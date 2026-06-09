@@ -17,7 +17,8 @@ export interface ChatConversation {
   unread_count: number
   assigned_agent: string | null
   is_opened: boolean
-  wati_status: string
+  wati_status: string | null
+  provider?: 'wati' | 'whapi'
   created_at: string
   // joined
   customer_name?: string | null
@@ -38,7 +39,7 @@ export interface ChatMessage {
   id: string
   conversation_id: string
   from_type: 'customer' | 'agent'
-  source: 'whatsapp_api' | 'manual'
+  source: 'whatsapp_api' | 'whatsapp_whapi' | '3cx_call' | 'manual'
   message_kind: 'message' | 'event'
   text: string | null
   agent_name: string | null

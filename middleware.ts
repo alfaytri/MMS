@@ -8,7 +8,7 @@ const ALLOWED_PATHS = new Set<string>([
 // Inbound webhooks from external services (Wati, 17track) carry no session
 // cookie — they must bypass the auth gate. Each route validates its own
 // shared secret / signature instead.
-const WEBHOOK_PREFIXES = ['/api/wati/webhook', '/api/whapi/webhook', '/api/webhooks/', '/api/payments/dibsy/webhook', '/api/payments/dibsy/create-batch-payment']
+const WEBHOOK_PREFIXES = ['/api/wati/webhook', '/api/whapi/webhook', '/api/webhooks/', '/api/payments/dibsy/webhook', '/api/payments/dibsy/create-batch-payment', '/api/3cx/']
 
 const PUBLIC_PREFIXES = ['/pay/']
 
