@@ -164,6 +164,7 @@ Purchase & Sales▾:
 
 | Date | Module / Scope | Secrets | RLS | Auth Gate | Error Handling | Layout Stability | Notes |
 |---|---|---|---|---|---|---|---|
+| 2026-06-09 | **CC Local-First Phase A (Tasks 1-16)** | ✅ | ✅ | ✅ | ✅ | ✅ | No secrets in any local/ files; only new migration is chat_messages_insert_strict (tightened INSERT policy); no new API routes — SyncWorker uses browser cookie-bound createClient(); drain loop wraps all sends in try/catch with transient/terminal failure mapping; SyncBanner in min-h-[20px] container prevents layout shift |
 | 2026-06-09 | **CC Local Task 4** | ✅ | ✅ | n/a | n/a | n/a | Pre-change: `cc_messages_insert` was `WITH CHECK (true)` — any authenticated user could insert. Post-change: `chat_messages_insert_strict` now validates conversation_id exists + user has `contact_centre.view` permission via `user_custom_roles → custom_roles.permissions`. Webhook routes use service-role key (bypass RLS). Fixed column name: `role_id` not `custom_role_id` in `user_custom_roles`. |
 | 2026-06-08 | **Purchase UX Polish Batch** | ✅ | ✅ | ✅ | ✅ | ⚠️ | Pure UI changes: no secrets, no new tables / RLS, no new API routes. New `useForceApproveAllSteps` reuses existing `advance_po_approval_tier` RPC and re-runs the same owner-role guard as `useForceApproveStep`. `useReceivalItemsBatch` issues two scoped Supabase `.in()` queries — same RLS surface as existing per-receival hook. All mutations have `onError → toast.error`. **Layout-stability exception:** Subcategory/Type selects now appear/disappear conditionally per user's explicit request, which intentionally overrides the layout-stability rule. Accepted gap. |
 | 2026-06-08 | **LC-COGS Attribution (Tasks 1-12)** | ✅ | ✅ | ✅ | ✅ | ✅ | No new tables (altered cogs_entries only); 4 SECURITY DEFINER RPCs (allocate, revert, get_cogs_breakdown, get_stock_value_cogs_summary); no new API routes; all data via Supabase client hooks; no external API calls; no hardcoded secrets; responsive HoverCard/Drawer pattern; no layout shifts |
@@ -206,10 +207,11 @@ Purchase & Sales▾:
 
 ## 🔄 In Progress
 
-🚀 Starting: **CC Local-First Mirror Task 16: Phase A security audit**
+🚀 Starting: **CC Local-First Mirror Task 17: useLocalConversations hook**
 
 ## ✅ Completed
 
+- [2026-06-09] **CC Local-First Mirror Task 16: Phase A security audit** — Security checklist: ✅ Secrets, ✅ RLS, ✅ Auth Gate, ✅ Error Handling, ✅ Layout Stability. Phase A complete.
 - [2026-06-09] **CC Local-First Mirror Task 15: Mount SyncWorker in v2 sidebar** — `useSyncWorker.ts`, `ContactCenterSidebarV2.tsx` — SyncWorker spawns per (authUserId, provider), retention.prune() on 5s delay + hourly, SyncBanner in list + detail views with min-h-[20px] layout stability, 51 tests passing
 - [2026-06-09] **CC Local-First Mirror Task 14: useSyncStatus + SyncBanner** — `useSyncStatus.ts`, `SyncBanner.tsx`, `__tests__/useSyncStatus.test.ts` — dexie-react-hooks liveQuery for realtime status + pending/failed counts, conditional banner UI (offline/syncing/failed), 2 tests passing (51 total)
 - [2026-06-09] **CC Local-First Mirror Task 13: Retention sweep** — `retention.ts`, `__tests__/retention.test.ts` — 30-day message prune with keep-20-per-conversation carve-out, stale conversation cleanup, CRM orphan cascade, pendingWrites never pruned, 3 tests passing (49 total)
