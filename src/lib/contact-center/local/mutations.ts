@@ -184,6 +184,103 @@ export async function updateCustomerLocal(db: MmsCcDb, args: UpdateCustomerArgs)
   })
 }
 
+export interface AddAddressArgs {
+  customerId: string
+  type: 'blue_plate' | 'google_coords'
+  unit?: string
+  building?: string
+  street?: string
+  zone?: string
+  lat?: number | null
+  lng?: number | null
+  label?: string
+  wazeLink?: string
+  isPrimary?: boolean
+}
+
+export async function addAddressLocal(db: MmsCcDb, args: AddAddressArgs): Promise<string> {
+  const id = newId()
+  const now = new Date().toISOString()
+
+  await db.transaction('rw', db.addresses, db.pendingWrites, async () => {
+    await db.addresses.add({
+      id,
+      customer_id: args.customerId,
+      address_type: args.type,
+      label: args.label ?? null,
+      unit: args.unit ?? null,
+      building: args.building ?? null,
+      street: args.street ?? null,
+      zone: args.zone ?? null,
+      lat: args.lat ?? null,
+      lng: args.lng ?? null,
+      is_primary: args.isPrimary ?? false,
+      is_geocoded: !!(args.lat && args.lng),
+      waze_link: args.wazeLink ?? null,
+      tags: [],
+      created_at: now,
+    })
+    await q.enqueue(db, {
+      kind: 'add_address',
+      payload: {
+        id,
+        customer_id: args.customerId,
+        address_type: args.type,
+        label: args.label ?? null,
+        unit: args.unit ?? null,
+        building: args.building ?? null,
+        street: args.street ?? null,
+        zone: args.zone ?? null,
+        lat: args.lat ?? null,
+        lng: args.lng ?? null,
+        is_primary: args.isPrimary ?? false,
+        waze_link: args.wazeLink ?? null,
+      },
+    })
+  })
+
+  return id
+}
+
+export interface UpdateAddressArgs {
+  addressId: string
+  patch: Partial<{
+    label: string | null
+    unit: string | null
+    building: string | null
+    street: string | null
+    zone: string | null
+    lat: number | null
+    lng: number | null
+    wazeLink: string | null
+    isPrimary: boolean
+  }>
+}
+
+export async function updateAddressLocal(db: MmsCcDb, args: UpdateAddressArgs): Promise<void> {
+  const dbPatch: Record<string, unknown> = {}
+  if (args.patch.label !== undefined) dbPatch.label = args.patch.label
+  if (args.patch.unit !== undefined) dbPatch.unit = args.patch.unit
+  if (args.patch.building !== undefined) dbPatch.building = args.patch.building
+  if (args.patch.street !== undefined) dbPatch.street = args.patch.street
+  if (args.patch.zone !== undefined) dbPatch.zone = args.patch.zone
+  if (args.patch.lat !== undefined) dbPatch.lat = args.patch.lat
+  if (args.patch.lng !== undefined) dbPatch.lng = args.patch.lng
+  if (args.patch.wazeLink !== undefined) dbPatch.waze_link = args.patch.wazeLink
+  if (args.patch.isPrimary !== undefined) dbPatch.is_primary = args.patch.isPrimary
+  if (args.patch.lat !== undefined || args.patch.lng !== undefined) {
+    dbPatch.is_geocoded = !!(args.patch.lat && args.patch.lng)
+  }
+
+  await db.transaction('rw', db.addresses, db.pendingWrites, async () => {
+    await db.addresses.update(args.addressId, dbPatch)
+    await q.enqueue(db, {
+      kind: 'update_address',
+      payload: { addressId: args.addressId, ...dbPatch },
+    })
+  })
+}
+
 export async function sendMessageLocal(db: MmsCcDb, args: SendMessageArgs): Promise<string> {
   const id = newId()
   const now = new Date().toISOString()

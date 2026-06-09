@@ -14,7 +14,7 @@ import { createClient as createSupabaseClient } from '@/lib/supabase/client'
 import { useContactCenterContext } from '@/contexts/ContactCenterContext'
 import { useLocalMessages } from '@/hooks/contact-center/local/useLocalMessages'
 import { useProviderSuggest } from '@/hooks/contact-center/useProviderSuggest'
-import { sendMessageLocal, sendFileLocal, sendTemplateLocal, reactLocal } from '@/lib/contact-center/local/mutations'
+import { sendMessageLocal, sendFileLocal, sendTemplateLocal, reactLocal, addAddressLocal, updateAddressLocal } from '@/lib/contact-center/local/mutations'
 import { getDb } from '@/lib/contact-center/local/db'
 import { ChatAttachmentDialog } from '@/components/contact-center/ChatAttachmentDialog'
 import { ChatInstructionsDialog } from '@/components/contact-center/ChatInstructionsDialog'
@@ -312,8 +312,17 @@ export function ContactCenterSidebarV2() {
                   saving={addressState.addAddress.isPending}
                   onCancel={() => addressState.setAddingAddress(false)}
                   onSave={async (form, resolved) => {
+                    if (!authUserId || !activeCustomerId) return
                     try {
-                      await addressState.addAddress.mutateAsync({ ...form, resolvedCoords: resolved })
+                      await addAddressLocal(getDb(authUserId), {
+                        customerId: activeCustomerId,
+                        type: form.type,
+                        unit: form.unit, building: form.building,
+                        street: form.street, zone: form.zone,
+                        lat: resolved?.lat, lng: resolved?.lng,
+                        label: form.label, wazeLink: resolved?.waze_link,
+                        isPrimary: addresses.length === 0,
+                      })
                       addressState.setAddingAddress(false)
                       toast.success('Address saved')
                     } catch {
@@ -335,8 +344,18 @@ export function ContactCenterSidebarV2() {
                     saving={addressState.updateAddress.isPending}
                     onCancel={() => addressState.setEditingId(null)}
                     onSave={async (form, resolved) => {
+                      if (!authUserId) return
                       try {
-                        await addressState.updateAddress.mutateAsync({ id: editAddr.id, form, resolvedCoords: resolved })
+                        await updateAddressLocal(getDb(authUserId), {
+                          addressId: editAddr.id,
+                          patch: {
+                            label: form.label ?? null,
+                            unit: form.unit ?? null, building: form.building ?? null,
+                            street: form.street ?? null, zone: form.zone ?? null,
+                            lat: resolved?.lat ?? null, lng: resolved?.lng ?? null,
+                            wazeLink: resolved?.waze_link ?? null,
+                          },
+                        })
                         addressState.setEditingId(null)
                         toast.success('Address updated')
                       } catch {

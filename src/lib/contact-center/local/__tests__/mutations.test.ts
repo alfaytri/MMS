@@ -1,7 +1,7 @@
 import { describe, it, expect, beforeEach } from 'vitest'
 import 'fake-indexeddb/auto'
 import { getDb, resetDb } from '../db'
-import { sendMessageLocal, sendFileLocal, sendTemplateLocal, reactLocal, updateCustomerLocal } from '../mutations'
+import { sendMessageLocal, sendFileLocal, sendTemplateLocal, reactLocal, updateCustomerLocal, addAddressLocal, updateAddressLocal } from '../mutations'
 
 beforeEach(() => { resetDb() })
 
@@ -109,4 +109,32 @@ it('updateCustomerLocal patches Dexie and enqueues update_customer', async () =>
   const pw = await db.pendingWrites.where('kind').equals('update_customer').toArray()
   expect(pw.length).toBeGreaterThanOrEqual(1)
   expect((pw[pw.length - 1].payload as any).customerId).toBe('cust-1')
+})
+
+it('addAddressLocal writes to Dexie and enqueues add_address', async () => {
+  const db = getDb('u')
+  const id = await addAddressLocal(db, {
+    customerId: 'cust-1', type: 'blue_plate',
+    zone: '45', street: '100', building: '12', unit: '3A',
+  })
+  const addr = await db.addresses.get(id)
+  expect(addr?.zone).toBe('45')
+  expect(addr?.customer_id).toBe('cust-1')
+  const pw = await db.pendingWrites.where('kind').equals('add_address').toArray()
+  expect(pw.length).toBeGreaterThanOrEqual(1)
+})
+
+it('updateAddressLocal patches Dexie and enqueues update_address', async () => {
+  const db = getDb('u')
+  await db.addresses.add({
+    id: 'a1', customer_id: 'cust-1', address_type: 'blue_plate',
+    label: null, unit: '1', building: '2', street: '3', zone: '4',
+    lat: null, lng: null, is_primary: false, is_geocoded: false,
+    waze_link: null, tags: [], created_at: new Date().toISOString(),
+  })
+  await updateAddressLocal(db, { addressId: 'a1', patch: { unit: '99' } })
+  const addr = await db.addresses.get('a1')
+  expect(addr?.unit).toBe('99')
+  const pw = await db.pendingWrites.where('kind').equals('update_address').toArray()
+  expect(pw.length).toBeGreaterThanOrEqual(1)
 })
