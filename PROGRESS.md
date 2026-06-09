@@ -206,10 +206,11 @@ Purchase & Sales▾:
 
 ## 🔄 In Progress
 
-🚀 Starting: **CC Local-First Mirror Task 15: Mount SyncWorker in v2 sidebar**
+🚀 Starting: **CC Local-First Mirror Task 16: Phase A security audit**
 
 ## ✅ Completed
 
+- [2026-06-09] **CC Local-First Mirror Task 15: Mount SyncWorker in v2 sidebar** — `useSyncWorker.ts`, `ContactCenterSidebarV2.tsx` — SyncWorker spawns per (authUserId, provider), retention.prune() on 5s delay + hourly, SyncBanner in list + detail views with min-h-[20px] layout stability, 51 tests passing
 - [2026-06-09] **CC Local-First Mirror Task 14: useSyncStatus + SyncBanner** — `useSyncStatus.ts`, `SyncBanner.tsx`, `__tests__/useSyncStatus.test.ts` — dexie-react-hooks liveQuery for realtime status + pending/failed counts, conditional banner UI (offline/syncing/failed), 2 tests passing (51 total)
 - [2026-06-09] **CC Local-First Mirror Task 13: Retention sweep** — `retention.ts`, `__tests__/retention.test.ts` — 30-day message prune with keep-20-per-conversation carve-out, stale conversation cleanup, CRM orphan cascade, pendingWrites never pruned, 3 tests passing (49 total)
 - [2026-06-09] **CC Local-First Mirror Task 12: SyncWorker drain loop for file sends** — `sync-worker.ts`, `__tests__/sync-worker.test.ts` — Three-step sendFile: upload to Supabase Storage, patch Dexie blob→publicUrl, send via WATI. TerminalError class for non-retryable failures (file lost on reload). RAM cleanup on success and terminal failure. 12 tests passing (46 total)
