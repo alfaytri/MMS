@@ -210,10 +210,11 @@ Purchase & Sales▾:
 
 ## 🔄 In Progress
 
-🚀 Starting: **CC Rework Plan 3 (3CX Integration) Task 1: Migration — profiles.threecx_extension**
+🚀 Starting: **CC Rework Plan 3 (3CX Integration) Task 2: Add /api/3cx/ to WEBHOOK_PREFIXES**
 
 ## ✅ Completed
 
+- [2026-06-09] **CC Rework Plan 3 Task 1: Migration — profiles.threecx_extension** — `supabase/migrations/20260609140000_cc_v2_profiles_threecx_extension.sql`, `src/types/database.types.ts` — Added threecx_extension column with partial unique index for agent mapping
 - [2026-06-09] **CC Local-First Mirror Task 33: Final security audit + perf budget verification** — All 5 checks pass across full feature. 67 tests / 14 files passing. Plan complete.
 - [2026-06-09] **CC Local-First Mirror Task 32: Remove chat_messages INSERT sub from useLiveConversations** — Already done: file uses 5s polling, no Realtime subscription present. No code change needed.
 - [2026-06-09] **CC Local-First Mirror Task 31: Remove Realtime sub from useUnifiedConversation** — File is unused (0 imports, untracked). No code change needed; file excluded from commits.
