@@ -14,7 +14,7 @@ import { createClient as createSupabaseClient } from '@/lib/supabase/client'
 import { useContactCenterContext } from '@/contexts/ContactCenterContext'
 import { useLocalMessages } from '@/hooks/contact-center/local/useLocalMessages'
 import { useProviderSuggest } from '@/hooks/contact-center/useProviderSuggest'
-import { sendMessageLocal, sendFileLocal, sendTemplateLocal } from '@/lib/contact-center/local/mutations'
+import { sendMessageLocal, sendFileLocal, sendTemplateLocal, reactLocal } from '@/lib/contact-center/local/mutations'
 import { getDb } from '@/lib/contact-center/local/db'
 import { ChatAttachmentDialog } from '@/components/contact-center/ChatAttachmentDialog'
 import { ChatInstructionsDialog } from '@/components/contact-center/ChatInstructionsDialog'
@@ -359,14 +359,10 @@ export function ContactCenterSidebarV2() {
           loading={unifiedLoading}
           phones={phones}
           onReact={(msgId, _extId, emoji) => {
-            chatMessages.reactToMessage(msgId, emoji, activePhone ?? '')
-            // WATI's REST API has no reaction endpoint — the emoji stays internal.
-            // Flag it once so the agent isn't surprised it didn't reach WhatsApp.
-            if (provider === 'wati') {
-              toast.message('Reaction saved internally', {
-                description: "WATI doesn't support sending reactions — switch to WHAPI for native delivery.",
-              })
-            }
+            if (!authUserId || !activePhone) return
+            void reactLocal(getDb(authUserId), {
+              messageId: msgId, emoji, phone: activePhone, provider,
+            })
           }}
         />
         <ComposerV2

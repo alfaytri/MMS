@@ -134,6 +134,9 @@ export class SyncWorker {
         case 'send_file':
           await this.sendFile(row)
           break
+        case 'react':
+          await this.sendReaction(row)
+          break
         default:
           throw new Error(`Unknown pending-write kind: ${row.kind}`)
       }
@@ -246,6 +249,28 @@ export class SyncWorker {
         delivery_status: 'sent',
         _localOnly: false,
       })
+    }
+  }
+
+  private async sendReaction(row: PendingWrite): Promise<void> {
+    const p = row.payload as {
+      messageId: string; emoji: string; phone: string; provider: 'whapi'
+    }
+    const msg = await this.db.messages.get(p.messageId)
+    const externalId = msg?.external_id
+    if (!externalId) return
+
+    try {
+      const res = await fetch('/api/whapi/send-reaction', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ messageId: externalId, emoji: p.emoji, phone: p.phone }),
+      })
+      if (!res.ok && res.status >= 400 && res.status < 500) return
+      if (!res.ok) throw new Error(`send-reaction ${res.status}`)
+    } catch (err) {
+      if (err instanceof Error && err.message.startsWith('send-reaction 4')) return
+      throw err
     }
   }
 }

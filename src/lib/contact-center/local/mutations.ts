@@ -132,6 +132,34 @@ export async function sendTemplateLocal(db: MmsCcDb, args: SendTemplateArgs): Pr
   return id
 }
 
+export interface ReactArgs {
+  messageId: string
+  emoji: string
+  phone: string
+  provider: 'wati' | 'whapi'
+}
+
+export async function reactLocal(db: MmsCcDb, args: ReactArgs): Promise<void> {
+  const m = await db.messages.get(args.messageId)
+  if (!m) return
+  const existing = m.reactions ?? []
+  const hasIt = existing.some((r) => r.emoji === args.emoji && r.from_type === 'agent')
+  const updated = hasIt
+    ? existing.filter((r) => !(r.emoji === args.emoji && r.from_type === 'agent'))
+    : [...existing, { emoji: args.emoji, from_type: 'agent' as const }]
+
+  await db.transaction('rw', db.messages, db.pendingWrites, async () => {
+    await db.messages.update(args.messageId, { reactions: updated })
+    if (args.provider === 'whapi') {
+      await q.enqueue(db, {
+        kind: 'react',
+        payload: { messageId: args.messageId, emoji: args.emoji, phone: args.phone, provider: args.provider },
+        localMessageId: args.messageId,
+      })
+    }
+  })
+}
+
 export async function sendMessageLocal(db: MmsCcDb, args: SendMessageArgs): Promise<string> {
   const id = newId()
   const now = new Date().toISOString()

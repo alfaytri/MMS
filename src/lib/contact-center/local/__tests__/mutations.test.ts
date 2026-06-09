@@ -1,7 +1,7 @@
 import { describe, it, expect, beforeEach } from 'vitest'
 import 'fake-indexeddb/auto'
 import { getDb, resetDb } from '../db'
-import { sendMessageLocal, sendFileLocal, sendTemplateLocal } from '../mutations'
+import { sendMessageLocal, sendFileLocal, sendTemplateLocal, reactLocal } from '../mutations'
 
 beforeEach(() => { resetDb() })
 
@@ -55,4 +55,43 @@ it('writes a sending template message + pending_write', async () => {
   expect(pw.length).toBe(1)
   expect((pw[0].payload as any).templateName).toBe('booking_confirm')
   expect((pw[0].payload as any).parameters).toEqual(['42', 'June 10'])
+})
+
+it('reactLocal toggles agent reaction and enqueues for whapi only', async () => {
+  const db = getDb('u')
+  await db.messages.add({
+    id: 'm1', conversation_id: 'c1', from_type: 'customer', source: 'whatsapp_api',
+    message_kind: 'message', message_type: 'text', text: 'hello', agent_name: null,
+    attachments: null, reactions: [], delivery_status: 'delivered', external_id: 'ext1',
+    reply_to_external_id: null, sent_by_profile_id: null, phone_id: null,
+    deleted_at: null, created_at: new Date().toISOString(),
+  })
+
+  await reactLocal(db, { messageId: 'm1', emoji: '👍', phone: '+x', provider: 'whapi' })
+  let msg = await db.messages.get('m1')
+  expect(msg?.reactions).toEqual([{ emoji: '👍', from_type: 'agent' }])
+  let pw = await db.pendingWrites.where('kind').equals('react').toArray()
+  expect(pw.length).toBe(1)
+
+  await reactLocal(db, { messageId: 'm1', emoji: '👍', phone: '+x', provider: 'whapi' })
+  msg = await db.messages.get('m1')
+  expect(msg?.reactions).toEqual([])
+})
+
+it('reactLocal skips pending_write for wati provider', async () => {
+  const db = getDb('u')
+  await db.messages.add({
+    id: 'm2', conversation_id: 'c1', from_type: 'customer', source: 'whatsapp_api',
+    message_kind: 'message', message_type: 'text', text: 'hi', agent_name: null,
+    attachments: null, reactions: [], delivery_status: 'delivered', external_id: 'ext2',
+    reply_to_external_id: null, sent_by_profile_id: null, phone_id: null,
+    deleted_at: null, created_at: new Date().toISOString(),
+  })
+
+  const beforeCount = await db.pendingWrites.where('kind').equals('react').count()
+  await reactLocal(db, { messageId: 'm2', emoji: '❤️', phone: '+x', provider: 'wati' })
+  const msg = await db.messages.get('m2')
+  expect(msg?.reactions).toEqual([{ emoji: '❤️', from_type: 'agent' }])
+  const afterCount = await db.pendingWrites.where('kind').equals('react').count()
+  expect(afterCount).toBe(beforeCount)
 })
