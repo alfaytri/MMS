@@ -7,6 +7,7 @@ import { Badge } from '@/components/ui/badge'
 import { toast } from 'sonner'
 import { useContactCenterState } from '@/hooks/contact-center/useContactCenterState'
 import { useSyncWorker } from '@/hooks/contact-center/local/useSyncWorker'
+import { useLocalConversations } from '@/hooks/contact-center/local/useLocalConversations'
 import { SyncBanner } from './SyncBanner'
 import { createClient as createSupabaseClient } from '@/lib/supabase/client'
 import { useContactCenterContext } from '@/contexts/ContactCenterContext'
@@ -30,7 +31,7 @@ export function ContactCenterSidebarV2() {
   const state = useContactCenterState()
   const { setCcSidebar, pendingPhone, openCustomerById } = useContactCenterContext()
   const {
-    sidebarView, conversations, convsLoading,
+    sidebarView,
     windowStatus, customerData, chatMessages, addressState,
     activeConversationId, activeCustomerId, activePhone,
     openConversation, goToList, expandSidebar, collapseSidebar,
@@ -47,6 +48,7 @@ export function ContactCenterSidebarV2() {
   }, [])
 
   useSyncWorker(authUserId, provider)
+  const { conversations, loading: convsLoading } = useLocalConversations(authUserId, provider)
 
   const { messages: unifiedMessages, loading: unifiedLoading } = useUnifiedConversation(
     activeCustomerId,
