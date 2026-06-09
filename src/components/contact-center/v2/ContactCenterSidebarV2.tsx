@@ -8,6 +8,7 @@ import { toast } from 'sonner'
 import { useContactCenterState } from '@/hooks/contact-center/useContactCenterState'
 import { useSyncWorker } from '@/hooks/contact-center/local/useSyncWorker'
 import { useLocalConversations } from '@/hooks/contact-center/local/useLocalConversations'
+import { useLocalCustomer } from '@/hooks/contact-center/local/useLocalCustomer'
 import { SyncBanner } from './SyncBanner'
 import { createClient as createSupabaseClient } from '@/lib/supabase/client'
 import { useContactCenterContext } from '@/contexts/ContactCenterContext'
@@ -49,6 +50,7 @@ export function ContactCenterSidebarV2() {
 
   useSyncWorker(authUserId, provider)
   const { conversations, loading: convsLoading } = useLocalConversations(authUserId, provider)
+  const local = useLocalCustomer(authUserId, activeCustomerId)
 
   const { messages: unifiedMessages, loading: unifiedLoading } = useLocalMessages(authUserId, activeCustomerId)
   const [composerFocused, setComposerFocused] = useState(false)
@@ -185,12 +187,12 @@ export function ContactCenterSidebarV2() {
 
   // Detail view
   const activeConversation = conversations.find((c) => c.id === activeConversationId)
-  const customer = customerData.customer
+  const customer = local.customer
   const displayName = customer?.name ?? activeConversation?.wati_contact_name ?? activePhone ?? 'Unknown'
-  const phones = customerData.phones ?? []
+  const phones = local.phones
   const primaryPhone = phones.find((p) => p.is_primary) ?? phones[0]
   const secondaryPhones = phones.filter((p) => p.id !== primaryPhone?.id)
-  const addresses = customerData.addresses ?? []
+  const addresses = local.addresses
   const headerPhone = primaryPhone?.phone ?? activePhone
 
   return (
@@ -334,7 +336,7 @@ export function ContactCenterSidebarV2() {
             })()}
           </SectionAccordion>
           <SectionAccordion id="products" label="Products" icon={<Package className="h-3 w-3 text-muted-foreground" />}>
-            <ProductsList products={customerData.products ?? []} />
+            <ProductsList products={local.products} />
           </SectionAccordion>
           <SectionAccordion id="orders" label="Orders" icon={<ListOrdered className="h-3 w-3 text-muted-foreground" />}>
             <OrderHistoryV2 customerId={activeCustomerId} />
