@@ -206,10 +206,13 @@ Purchase & Sales▾:
 
 ## 🔄 In Progress
 
-🚀 Starting: **CC Local-First Mirror Task 5: Repo — conversations.ts (CRUD + lazyFetch)**
+🚀 Starting: **CC Local-First Mirror Task 8: pending-writes.ts queue**
 
 ## ✅ Completed
 
+- [2026-06-09] **CC Local-First Mirror Task 7: CRM repos** — `repos/customers.ts`, `repos/phones.ts`, `repos/addresses.ts`, `repos/products.ts`, `repos/orders.ts`, `__tests__/crm.test.ts` — Five repos with identical shape (getById/listByCustomer/upsert/upsertMany/deleteById/lazyFetch), phones+addresses sort primary first, orders sort by scheduled_date desc, 5 tests passing
+- [2026-06-09] **CC Local-First Mirror Task 6: messages.ts repo** — `repos/messages.ts`, `__tests__/messages.test.ts` — Compound-index reads, getByExternalId for webhook reconciliation, bulkPut, lazyFetch with 30s cursor, 6 tests passing
+- [2026-06-09] **CC Local-First Mirror Task 5: conversations.ts repo** — `repos/conversations.ts`, `__tests__/conversations.test.ts` — CRUD + lazyFetch with 30s staleness cursor, listByProvider sorted by last_message_at desc, 5 tests passing
 - [2026-06-09] **CC Local-First Mirror Task 4: RLS audit — tighten chat_messages INSERT policy** — `supabase/migrations/20260609150000_chat_messages_insert_rls.sql` — Replaced permissive WITH CHECK (true) INSERT policy with strict check: conversation_id must exist + auth user must have contact_centre.view permission
 - [2026-06-09] **CC Local-First Mirror Task 3: Define Dexie DB instance + schema v1** — `src/lib/contact-center/local/db.ts`, `__tests__/db.test.ts` — MmsCcDb class with 9 tables, per-auth-user singleton, compound indexes on messages and orders, 7 tests passing
 - [2026-06-09] **CC Local-First Mirror Task 2: Mirror Supabase types into local/schema.ts** — `src/lib/contact-center/local/schema.ts` — Local Dexie row types for messages, conversations, customers, phones, addresses, products, orders, pendingWrites, sync
