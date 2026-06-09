@@ -205,10 +205,11 @@ Purchase & Sales▾:
 
 ## 🔄 In Progress
 
-🚀 Starting: **CC Local-First Mirror Task 2: Mirror Supabase types into local/schema.ts**
+🚀 Starting: **CC Local-First Mirror Task 3: Define Dexie DB instance + schema v1**
 
 ## ✅ Completed
 
+- [2026-06-09] **CC Local-First Mirror Task 2: Mirror Supabase types into local/schema.ts** — `src/lib/contact-center/local/schema.ts` — Local Dexie row types for messages, conversations, customers, phones, addresses, products, orders, pendingWrites, sync
 - [2026-06-09] **CC Local-First Mirror Task 1: Create feature branch + install Dexie + add crypto.randomUUID helper** — `package.json`, `src/lib/contact-center/local/ids.ts`, `__tests__/ids.test.ts` — Installed dexie@^4, implemented newId() wrapping crypto.randomUUID with RFC4122 v4 fallback
 
 
