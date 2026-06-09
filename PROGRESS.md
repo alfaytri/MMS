@@ -207,10 +207,11 @@ Purchase & Sales▾:
 
 ## 🔄 In Progress
 
-🚀 Starting: **CC Local-First Mirror Task 17: useLocalConversations hook**
+🚀 Starting: **CC Local-First Mirror Task 18: useLocalMessages + swap into UnifiedThread**
 
 ## ✅ Completed
 
+- [2026-06-09] **CC Local-First Mirror Task 17: useLocalConversations + swap into ChatListV2** — `useLocalConversations.ts`, `__tests__/useLocalConversations.test.ts`, `ContactCenterSidebarV2.tsx` — Dexie liveQuery reads conversations sorted by last_message_at desc, lazy fetch on mount, swapped into sidebar replacing Supabase direct reads, 52 tests passing
 - [2026-06-09] **CC Local-First Mirror Task 16: Phase A security audit** — Security checklist: ✅ Secrets, ✅ RLS, ✅ Auth Gate, ✅ Error Handling, ✅ Layout Stability. Phase A complete.
 - [2026-06-09] **CC Local-First Mirror Task 15: Mount SyncWorker in v2 sidebar** — `useSyncWorker.ts`, `ContactCenterSidebarV2.tsx` — SyncWorker spawns per (authUserId, provider), retention.prune() on 5s delay + hourly, SyncBanner in list + detail views with min-h-[20px] layout stability, 51 tests passing
 - [2026-06-09] **CC Local-First Mirror Task 14: useSyncStatus + SyncBanner** — `useSyncStatus.ts`, `SyncBanner.tsx`, `__tests__/useSyncStatus.test.ts` — dexie-react-hooks liveQuery for realtime status + pending/failed counts, conditional banner UI (offline/syncing/failed), 2 tests passing (51 total)
