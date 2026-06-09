@@ -208,10 +208,11 @@ Purchase & Sales▾:
 
 ## 🔄 In Progress
 
-🚀 Starting: **CC Local-First Mirror Task 29: markReadLocal / markOpenedLocal + wire ChatListV2**
+🚀 Starting: **CC Local-First Mirror Task 30: Phase C security audit**
 
 ## ✅ Completed
 
+- [2026-06-09] **CC Local-First Mirror Task 29: markReadLocal / markOpenedLocal + wire ChatListV2** — `mutations.ts`, `sync-worker.ts`, `ContactCenterSidebarV2.tsx` — Optimistic unread clear + open mark, 67 tests passing
 - [2026-06-09] **CC Local-First Mirror Task 28: addPhoneLocal / removePhoneLocal + worker handlers** — `mutations.ts`, `sync-worker.ts` — Optimistic phone add/delete, 65 tests passing
 - [2026-06-09] **CC Local-First Mirror Task 27: addAddressLocal / updateAddressLocal + wire AddressForm** — `mutations.ts`, `sync-worker.ts`, `ContactCenterSidebarV2.tsx` — Optimistic address add/update, SyncWorker pushes to service_customer_addresses, 63 tests passing
 - [2026-06-09] **CC Local-First Mirror Task 26: updateCustomerLocal + wire CrmSection** — `mutations.ts`, `sync-worker.ts`, `ContactCenterSidebarV2.tsx` — Optimistic customer update + CRM Realtime listeners on single channel, 61 tests passing
