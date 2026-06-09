@@ -164,6 +164,7 @@ Purchase & Sales▾:
 
 | Date | Module / Scope | Secrets | RLS | Auth Gate | Error Handling | Layout Stability | Notes |
 |---|---|---|---|---|---|---|---|
+| 2026-06-09 | **CC Local-First Final (Tasks 1-33)** | ✅ | ✅ | ✅ | ✅ | ✅ | Full local-first mirror complete. 67 tests across 14 files. No secrets in any local/ code. All writes via authenticated browser client. SyncWorker owns single Realtime channel per provider. Failed sends surfaced via SyncBanner. |
 | 2026-06-09 | **CC Local-First Phase C (Tasks 22-29)** | ✅ | ✅ | ✅ | ✅ | ✅ | All v2 sidebar writes now write-through Dexie. No new tables/migrations. All writes via authenticated browser client. Failed sends surfaced via SyncBanner + retry. 67 tests passing. |
 | 2026-06-09 | **CC Local-First Phase B (Tasks 17-21)** | ✅ | ✅ | ✅ | ✅ | ✅ | All 4 reads Dexie-backed (conversations, messages, customer, orders); no new tables or API routes; all hooks use browser-bound createClient(); lazy fetch swallows errors gracefully; no DOM shape changes |
 | 2026-06-09 | **CC Local-First Phase A (Tasks 1-16)** | ✅ | ✅ | ✅ | ✅ | ✅ | No secrets in any local/ files; only new migration is chat_messages_insert_strict (tightened INSERT policy); no new API routes — SyncWorker uses browser cookie-bound createClient(); drain loop wraps all sends in try/catch with transient/terminal failure mapping; SyncBanner in min-h-[20px] container prevents layout shift |
@@ -209,10 +210,11 @@ Purchase & Sales▾:
 
 ## 🔄 In Progress
 
-🚀 Starting: **CC Local-First Mirror Task 33: Final security audit + perf budget verification**
+No active task.
 
 ## ✅ Completed
 
+- [2026-06-09] **CC Local-First Mirror Task 33: Final security audit + perf budget verification** — All 5 checks pass across full feature. 67 tests / 14 files passing. Plan complete.
 - [2026-06-09] **CC Local-First Mirror Task 32: Remove chat_messages INSERT sub from useLiveConversations** — Already done: file uses 5s polling, no Realtime subscription present. No code change needed.
 - [2026-06-09] **CC Local-First Mirror Task 31: Remove Realtime sub from useUnifiedConversation** — File is unused (0 imports, untracked). No code change needed; file excluded from commits.
 - [2026-06-09] **CC Local-First Mirror Task 30: Phase C security audit** — ✅ Secrets, ✅ RLS, ✅ Auth Gate, ✅ Error Handling, ✅ Layout Stability. All writes now Dexie write-through.
