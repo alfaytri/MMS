@@ -408,6 +408,62 @@ export type Database = {
           },
         ]
       }
+      call_records: {
+        Row: {
+          agent_extension: string | null
+          agent_name: string | null
+          call_id: string
+          created_at: string
+          customer_phone: string
+          direction: string | null
+          duration_seconds: number | null
+          ended_at: string | null
+          id: string
+          message_id: string
+          recording_url: string | null
+          started_at: string
+          status: string | null
+        }
+        Insert: {
+          agent_extension?: string | null
+          agent_name?: string | null
+          call_id: string
+          created_at?: string
+          customer_phone: string
+          direction?: string | null
+          duration_seconds?: number | null
+          ended_at?: string | null
+          id?: string
+          message_id: string
+          recording_url?: string | null
+          started_at: string
+          status?: string | null
+        }
+        Update: {
+          agent_extension?: string | null
+          agent_name?: string | null
+          call_id?: string
+          created_at?: string
+          customer_phone?: string
+          direction?: string | null
+          duration_seconds?: number | null
+          ended_at?: string | null
+          id?: string
+          message_id?: string
+          recording_url?: string | null
+          started_at?: string
+          status?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "call_records_message_id_fkey"
+            columns: ["message_id"]
+            isOneToOne: false
+            referencedRelation: "chat_messages"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       chat_conversations: {
         Row: {
           assigned_agent: string | null
@@ -415,11 +471,16 @@ export type Database = {
           conversation_type: string
           created_at: string | null
           customer_id: string | null
+          customer_id_v2: string | null
+          deleted_at: string | null
+          deleted_by: string | null
           id: string
+          is_deleted: boolean
           is_opened: boolean
           last_message: string | null
           last_message_at: string | null
           provider: string
+          unknown_phone: string | null
           unread_count: number | null
           updated_at: string | null
           wati_contact_name: string | null
@@ -432,11 +493,16 @@ export type Database = {
           conversation_type?: string
           created_at?: string | null
           customer_id?: string | null
+          customer_id_v2?: string | null
+          deleted_at?: string | null
+          deleted_by?: string | null
           id?: string
+          is_deleted?: boolean
           is_opened?: boolean
           last_message?: string | null
           last_message_at?: string | null
           provider?: string
+          unknown_phone?: string | null
           unread_count?: number | null
           updated_at?: string | null
           wati_contact_name?: string | null
@@ -449,11 +515,16 @@ export type Database = {
           conversation_type?: string
           created_at?: string | null
           customer_id?: string | null
+          customer_id_v2?: string | null
+          deleted_at?: string | null
+          deleted_by?: string | null
           id?: string
+          is_deleted?: boolean
           is_opened?: boolean
           last_message?: string | null
           last_message_at?: string | null
           provider?: string
+          unknown_phone?: string | null
           unread_count?: number | null
           updated_at?: string | null
           wati_contact_name?: string | null
@@ -468,6 +539,20 @@ export type Database = {
             referencedRelation: "service_customers"
             referencedColumns: ["id"]
           },
+          {
+            foreignKeyName: "chat_conversations_customer_id_v2_fkey"
+            columns: ["customer_id_v2"]
+            isOneToOne: false
+            referencedRelation: "service_customers"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "chat_conversations_deleted_by_fkey"
+            columns: ["deleted_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
         ]
       }
       chat_messages: {
@@ -477,16 +562,21 @@ export type Database = {
           call_metadata: Json | null
           conversation_id: string
           created_at: string | null
+          deleted_at: string | null
+          deleted_by: string | null
           delivery_status: string | null
           external_id: string | null
           from_type: string
           id: string
           message_kind: string
+          phone_id: string | null
+          purge_batch_id: string | null
           reactions: Json
           reply_to_external_id: string | null
           sent_by_profile_id: string | null
           source: Database["public"]["Enums"]["message_source"]
           text: string | null
+          wamid: string | null
         }
         Insert: {
           agent_name?: string | null
@@ -494,16 +584,21 @@ export type Database = {
           call_metadata?: Json | null
           conversation_id: string
           created_at?: string | null
+          deleted_at?: string | null
+          deleted_by?: string | null
           delivery_status?: string | null
           external_id?: string | null
           from_type: string
           id?: string
           message_kind?: string
+          phone_id?: string | null
+          purge_batch_id?: string | null
           reactions?: Json
           reply_to_external_id?: string | null
           sent_by_profile_id?: string | null
           source: Database["public"]["Enums"]["message_source"]
           text?: string | null
+          wamid?: string | null
         }
         Update: {
           agent_name?: string | null
@@ -511,16 +606,21 @@ export type Database = {
           call_metadata?: Json | null
           conversation_id?: string
           created_at?: string | null
+          deleted_at?: string | null
+          deleted_by?: string | null
           delivery_status?: string | null
           external_id?: string | null
           from_type?: string
           id?: string
           message_kind?: string
+          phone_id?: string | null
+          purge_batch_id?: string | null
           reactions?: Json
           reply_to_external_id?: string | null
           sent_by_profile_id?: string | null
           source?: Database["public"]["Enums"]["message_source"]
           text?: string | null
+          wamid?: string | null
         }
         Relationships: [
           {
@@ -528,6 +628,27 @@ export type Database = {
             columns: ["conversation_id"]
             isOneToOne: false
             referencedRelation: "chat_conversations"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "chat_messages_deleted_by_fkey"
+            columns: ["deleted_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "chat_messages_phone_id_fkey"
+            columns: ["phone_id"]
+            isOneToOne: false
+            referencedRelation: "service_customer_phones"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "chat_messages_purge_batch_id_fkey"
+            columns: ["purge_batch_id"]
+            isOneToOne: false
+            referencedRelation: "purge_batches"
             referencedColumns: ["id"]
           },
           {
@@ -3034,6 +3155,53 @@ export type Database = {
         }
         Relationships: []
       }
+      media_download_jobs: {
+        Row: {
+          attachment_index: number
+          attempts: number
+          claimed_at: string | null
+          created_at: string
+          done_at: string | null
+          id: string
+          last_error: string | null
+          message_id: string
+          scheduled_for: string
+          status: string
+        }
+        Insert: {
+          attachment_index: number
+          attempts?: number
+          claimed_at?: string | null
+          created_at?: string
+          done_at?: string | null
+          id?: string
+          last_error?: string | null
+          message_id: string
+          scheduled_for?: string
+          status?: string
+        }
+        Update: {
+          attachment_index?: number
+          attempts?: number
+          claimed_at?: string | null
+          created_at?: string
+          done_at?: string | null
+          id?: string
+          last_error?: string | null
+          message_id?: string
+          scheduled_for?: string
+          status?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "media_download_jobs_message_id_fkey"
+            columns: ["message_id"]
+            isOneToOne: false
+            referencedRelation: "chat_messages"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       notification_config: {
         Row: {
           category: string
@@ -4388,6 +4556,7 @@ export type Database = {
           cx_extension: string | null
           division_id: string | null
           email: string | null
+          feature_flags: string[]
           full_name: string
           full_name_ar: string | null
           id: string
@@ -4395,6 +4564,7 @@ export type Database = {
           is_division_manager: boolean
           must_change_password: boolean
           phone: string | null
+          threecx_extension: string | null
           title: string
           updated_at: string
           user_type: Database["public"]["Enums"]["user_type"]
@@ -4407,6 +4577,7 @@ export type Database = {
           cx_extension?: string | null
           division_id?: string | null
           email?: string | null
+          feature_flags?: string[]
           full_name: string
           full_name_ar?: string | null
           id?: string
@@ -4414,6 +4585,7 @@ export type Database = {
           is_division_manager?: boolean
           must_change_password?: boolean
           phone?: string | null
+          threecx_extension?: string | null
           title?: string
           updated_at?: string
           user_type?: Database["public"]["Enums"]["user_type"]
@@ -4426,6 +4598,7 @@ export type Database = {
           cx_extension?: string | null
           division_id?: string | null
           email?: string | null
+          feature_flags?: string[]
           full_name?: string
           full_name_ar?: string | null
           id?: string
@@ -4433,6 +4606,7 @@ export type Database = {
           is_division_manager?: boolean
           must_change_password?: boolean
           phone?: string | null
+          threecx_extension?: string | null
           title?: string
           updated_at?: string
           user_type?: Database["public"]["Enums"]["user_type"]
@@ -4671,6 +4845,47 @@ export type Database = {
             columns: ["warehouse_id"]
             isOneToOne: false
             referencedRelation: "warehouses"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      purge_batches: {
+        Row: {
+          attachment_bytes: number
+          filter_payload: Json
+          hard_deleted_at: string | null
+          id: string
+          message_count: number
+          performed_by: string
+          restored_at: string | null
+          soft_deleted_at: string
+        }
+        Insert: {
+          attachment_bytes?: number
+          filter_payload: Json
+          hard_deleted_at?: string | null
+          id?: string
+          message_count: number
+          performed_by: string
+          restored_at?: string | null
+          soft_deleted_at?: string
+        }
+        Update: {
+          attachment_bytes?: number
+          filter_payload?: Json
+          hard_deleted_at?: string | null
+          id?: string
+          message_count?: number
+          performed_by?: string
+          restored_at?: string | null
+          soft_deleted_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "purge_batches_performed_by_fkey"
+            columns: ["performed_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
             referencedColumns: ["id"]
           },
         ]
@@ -8904,6 +9119,15 @@ export type Database = {
         Args: { p_profile_id: string }
         Returns: boolean
       }
+      claim_media_jobs: {
+        Args: { p_limit: number }
+        Returns: {
+          attachment_index: number
+          attempts: number
+          id: string
+          message_id: string
+        }[]
+      }
       complete_delivery_inventory: {
         Args: { p_delivery_id: string; p_so_id: string }
         Returns: undefined
@@ -9438,7 +9662,15 @@ export type Database = {
         | "overdue"
         | "cancelled"
         | "void"
-      message_source: "whatsapp" | "whatsapp_api" | "phone" | "sms" | "email"
+      message_source:
+        | "whatsapp"
+        | "whatsapp_api"
+        | "phone"
+        | "sms"
+        | "email"
+        | "whatsapp_whapi"
+        | "3cx_call"
+        | "manual"
       notification_category:
         | "order"
         | "contract"
@@ -9748,7 +9980,16 @@ export const Constants = {
         "cancelled",
         "void",
       ],
-      message_source: ["whatsapp", "whatsapp_api", "phone", "sms", "email"],
+      message_source: [
+        "whatsapp",
+        "whatsapp_api",
+        "phone",
+        "sms",
+        "email",
+        "whatsapp_whapi",
+        "3cx_call",
+        "manual",
+      ],
       notification_category: [
         "order",
         "contract",
@@ -9893,8 +10134,3 @@ export const Constants = {
     },
   },
 } as const
-
-
-export type DBTable<T extends keyof DefaultSchema["Tables"] & keyof (DefaultSchema["Tables"] & DefaultSchema["Views"])> = Tables<T>
-export type DBInsert<T extends keyof DefaultSchema["Tables"]> = TablesInsert<T>
-export type DBUpdate<T extends keyof DefaultSchema["Tables"]> = TablesUpdate<T>
