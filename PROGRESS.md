@@ -208,10 +208,11 @@ Purchase & Sales▾:
 
 ## 🔄 In Progress
 
-🚀 Starting: **CC Local-First Mirror Task 27: addAddressLocal / updateAddressLocal + wire AddressForm**
+🚀 Starting: **CC Local-First Mirror Task 28: addPhoneLocal / removePhoneLocal + wire phone editor**
 
 ## ✅ Completed
 
+- [2026-06-09] **CC Local-First Mirror Task 27: addAddressLocal / updateAddressLocal + wire AddressForm** — `mutations.ts`, `sync-worker.ts`, `ContactCenterSidebarV2.tsx` — Optimistic address add/update, SyncWorker pushes to service_customer_addresses, 63 tests passing
 - [2026-06-09] **CC Local-First Mirror Task 26: updateCustomerLocal + wire CrmSection** — `mutations.ts`, `sync-worker.ts`, `ContactCenterSidebarV2.tsx` — Optimistic customer update + CRM Realtime listeners on single channel, 61 tests passing
 - [2026-06-09] **CC Local-First Mirror Task 25: reactLocal + wire MessageBubble emoji picker** — `mutations.ts`, `sync-worker.ts`, `ContactCenterSidebarV2.tsx` — Toggle reaction in Dexie, WHAPI sends via SyncWorker, WATI UI-only, 60 tests passing
 - [2026-06-09] **CC Local-First Mirror Task 24: sendTemplateLocal + wire template selector** — `mutations.ts`, `sync-worker.ts`, `ContactCenterSidebarV2.tsx` — Optimistic template send with rendered body text, SyncWorker pushes to api-wati, 58 tests passing
