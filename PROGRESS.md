@@ -205,9 +205,13 @@ Purchase & Sales▾:
 
 ## 🔄 In Progress
 
-*No active tasks.*
+🚀 Starting: **CC Local-First Mirror Task 2: Mirror Supabase types into local/schema.ts**
 
 ## ✅ Completed
+
+- [2026-06-09] **CC Local-First Mirror Task 1: Create feature branch + install Dexie + add crypto.randomUUID helper** — `package.json`, `src/lib/contact-center/local/ids.ts`, `__tests__/ids.test.ts` — Installed dexie@^4, implemented newId() wrapping crypto.randomUUID with RFC4122 v4 fallback
+
+
 
 - [2026-06-08] **Purchase UX Polish Batch** — `PoLineItemsEditor.tsx`, `CascadeInventorySelector.tsx`, `CascadeInlineForms.tsx`, `CascadeCategoryMenu.tsx` (deleted), `usePOApprovals.ts`, `approvals/page.tsx`, `landed-costs/page.tsx`, `useReceivals.ts` — Six fixes in one batch: (1) widened PO line-item Total column so `QAR 54,750.00` no longer clips; (2) replaced the cramped 3-column category popover with cascading category Selects that hide subcategory/type slots when the parent has no children; (3) made Force-Approve dialog scrollable (`max-h-[90vh]` + flex column body) and bumped width to `max-w-2xl`; (4) added `useForceApproveAllSteps` so an owner can force-approve every remaining step (PM+AC+OW) in one click with a single audit comment; (5) Create-LC dialog now groups receivals under collapsible PO headers with a PO-level "select all" checkbox and searches PO# / RCV# / supplier; (6) Apply-LC confirm dialog now shows a prominent "+QAR X to inventory" banner plus per-item `+LC/unit` and `+Value` columns (computed client-side from receival items so the user sees the impact before committing)
 - [2026-06-08] **Warehouse Module Improvements** — `WhMovementRefDialog.tsx`, `WhStockDetailDialog.tsx`, `WhInventoryCheckDetail.tsx`, `WhMovementsTab.tsx`, `useWarehouseOperations.ts` + 16 migrations — Fixed inv. check reviewed_at on final approval; counter-only count tab visibility; movement column reorder; inline Ref/Stock detail dialogs; field RP system; transfer workflow
