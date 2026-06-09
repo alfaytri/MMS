@@ -14,6 +14,8 @@ import { createClient as createSupabaseClient } from '@/lib/supabase/client'
 import { useContactCenterContext } from '@/contexts/ContactCenterContext'
 import { useLocalMessages } from '@/hooks/contact-center/local/useLocalMessages'
 import { useProviderSuggest } from '@/hooks/contact-center/useProviderSuggest'
+import { sendMessageLocal } from '@/lib/contact-center/local/mutations'
+import { getDb } from '@/lib/contact-center/local/db'
 import { ChatAttachmentDialog } from '@/components/contact-center/ChatAttachmentDialog'
 import { ChatInstructionsDialog } from '@/components/contact-center/ChatInstructionsDialog'
 import { ChatTemplateConfirmDialog } from '@/components/contact-center/ChatTemplateConfirmDialog'
@@ -370,8 +372,12 @@ export function ContactCenterSidebarV2() {
           windowStatus={windowStatus}
           sending={chatMessages.sending}
           onSend={(t) => {
-            if (!activeConversationId || !activePhone) return
-            chatMessages.sendSessionMessage({ conversationId: activeConversationId, phone: activePhone, text: t })
+            if (!activeConversationId || !activePhone || !authUserId) return
+            void sendMessageLocal(getDb(authUserId), {
+              conversationId: activeConversationId,
+              phone: activePhone,
+              text: t,
+            })
           }}
           onAttachment={() => setShowAttach(true)}
           onInstructions={() => setShowInstructions(true)}
