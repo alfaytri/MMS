@@ -209,10 +209,11 @@ Purchase & Sales▾:
 
 ## 🔄 In Progress
 
-🚀 Starting: **CC Local-First Mirror Task 32: Remove chat_messages INSERT sub from useLiveConversations**
+🚀 Starting: **CC Local-First Mirror Task 33: Final security audit + perf budget verification**
 
 ## ✅ Completed
 
+- [2026-06-09] **CC Local-First Mirror Task 32: Remove chat_messages INSERT sub from useLiveConversations** — Already done: file uses 5s polling, no Realtime subscription present. No code change needed.
 - [2026-06-09] **CC Local-First Mirror Task 31: Remove Realtime sub from useUnifiedConversation** — File is unused (0 imports, untracked). No code change needed; file excluded from commits.
 - [2026-06-09] **CC Local-First Mirror Task 30: Phase C security audit** — ✅ Secrets, ✅ RLS, ✅ Auth Gate, ✅ Error Handling, ✅ Layout Stability. All writes now Dexie write-through.
 - [2026-06-09] **CC Local-First Mirror Task 29: markReadLocal / markOpenedLocal + wire ChatListV2** — `mutations.ts`, `sync-worker.ts`, `ContactCenterSidebarV2.tsx` — Optimistic unread clear + open mark, 67 tests passing
