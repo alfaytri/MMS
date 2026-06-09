@@ -206,10 +206,13 @@ Purchase & Sales▾:
 
 ## 🔄 In Progress
 
-🚀 Starting: **CC Local-First Mirror Task 8: pending-writes.ts queue**
+🚀 Starting: **CC Local-First Mirror Task 11: SyncWorker drain loop for text/template sends**
 
 ## ✅ Completed
 
+- [2026-06-09] **CC Local-First Mirror Task 10: SyncWorker Realtime + 50ms debounce** — `sync-worker.ts`, `__tests__/sync-worker.test.ts` — Realtime subscription on chat_messages + chat_conversations, 50ms debounce buffer collapses status storms into single bulkPut, 7 tests passing
+- [2026-06-09] **CC Local-First Mirror Task 9: SyncWorker skeleton** — `sync-worker.ts`, `__tests__/sync-worker.test.ts` — start/stop lifecycle, fileMap, status transitions, 5 tests passing
+- [2026-06-09] **CC Local-First Mirror Task 8: pending-writes.ts queue** — `pending-writes.ts`, `__tests__/pending-writes.test.ts` — enqueue/listQueued/markInFlight/markSuccess/markFailedTransient/markFailedTerminal/discard with fileMap cleanup, 9 tests passing
 - [2026-06-09] **CC Local-First Mirror Task 7: CRM repos** — `repos/customers.ts`, `repos/phones.ts`, `repos/addresses.ts`, `repos/products.ts`, `repos/orders.ts`, `__tests__/crm.test.ts` — Five repos with identical shape (getById/listByCustomer/upsert/upsertMany/deleteById/lazyFetch), phones+addresses sort primary first, orders sort by scheduled_date desc, 5 tests passing
 - [2026-06-09] **CC Local-First Mirror Task 6: messages.ts repo** — `repos/messages.ts`, `__tests__/messages.test.ts` — Compound-index reads, getByExternalId for webhook reconciliation, bulkPut, lazyFetch with 30s cursor, 6 tests passing
 - [2026-06-09] **CC Local-First Mirror Task 5: conversations.ts repo** — `repos/conversations.ts`, `__tests__/conversations.test.ts` — CRUD + lazyFetch with 30s staleness cursor, listByProvider sorted by last_message_at desc, 5 tests passing
