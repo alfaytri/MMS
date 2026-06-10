@@ -51,6 +51,7 @@ export class SyncWorker {
 
   setStatus(next: Status): void {
     this.status = next
+    void this.db.sync.put({ key: 'realtimeStatus', value: next, updatedAt: Date.now() })
   }
 
   private subscribeRealtime(): void {
@@ -83,7 +84,7 @@ export class SyncWorker {
       )
       .on(
         'postgres_changes',
-        { event: '*', schema: 'public', table: 'service_customer_products' },
+        { event: '*', schema: 'public', table: 'installed_products' },
         (payload: { eventType: string; new?: unknown; old?: unknown }) => this.onCrmPayload('products', payload),
       )
       .subscribe((channelStatus: string) => {
@@ -155,7 +156,10 @@ export class SyncWorker {
   }
 
   private async runOne(row: PendingWrite): Promise<void> {
-    await q.markInFlight(this.db, row.id!)
+    // Atomic claim: only one tab/worker can claim a row.
+    // Prevents duplicate sends when multiple tabs share the same IndexedDB.
+    const claimed = await q.claimForFlight(this.db, row.id!)
+    if (!claimed) return // another tab already claimed it
     try {
       switch (row.kind) {
         case 'send_message':
@@ -206,20 +210,39 @@ export class SyncWorker {
   }
 
   private async sendText(row: PendingWrite): Promise<void> {
-    const { id, phone, text } = row.payload as {
+    const { id, conversationId, phone, text } = row.payload as {
       id: string; conversationId: string; phone: string; text: string
     }
+    // Push to Supabase FIRST (before Wati API) so the webhook's dedup can find
+    // this row via the existing 'external_id is null' / 'wati_%' filter. This
+    // also guarantees the row carries our agent_name + sent_by_profile_id —
+    // otherwise a webhook insert race creates a duplicate row without them.
+    await this.pushFullMessage(id, conversationId, null)
+
     const { data, error } = await this.supabase.functions.invoke('api-wati', {
       body: { action: 'send_session_message', phone, text, message_id: id },
     })
     if (error) throw new Error(error.message ?? 'send_message failed')
+    // Wati uses several different field names for the message ID across endpoints
     const watiId = data?.message?.whatsappMessageId
+                ?? data?.message?.whatsAppMessageId
+                ?? data?.info?.whatsAppMessageId
+                ?? data?.whatsappMessageId
+                ?? data?.id
+                ?? null
     if (watiId) {
       await this.db.messages.update(id, {
         external_id: `wati_${watiId}`,
         delivery_status: 'sent',
         _localOnly: false,
       })
+      // Conditional update: only set external_id if it's still null or
+      // wati_-prefixed. Never overwrite a real wamid that the webhook may
+      // have already written between pushFullMessage and now.
+      await this.supabase.from('chat_messages')
+        .update({ external_id: `wati_${watiId}`, delivery_status: 'sent' })
+        .eq('id', id)
+        .or('external_id.is.null,external_id.like.wati_%')
     }
   }
 
@@ -252,6 +275,10 @@ export class SyncWorker {
       attachments: [{ url: publicUrl, type: p.mime, name: p.filename }],
     })
 
+    // Push to Supabase BEFORE calling Wati so the webhook dedup can find it
+    // (carries agent_name + sent_by_profile_id) instead of inserting a duplicate.
+    await this.pushFullMessage(p.id, p.conversationId, null)
+
     const { data, error } = await this.supabase.functions.invoke('api-wati', {
       body: {
         action: 'send_file',
@@ -266,7 +293,11 @@ export class SyncWorker {
     if (error) throw new Error(error.message ?? 'send_file failed')
 
     const watiId = (data as any)?.message?.whatsappMessageId
+                ?? (data as any)?.message?.whatsAppMessageId
                 ?? (data as any)?.info?.whatsAppMessageId
+                ?? (data as any)?.whatsappMessageId
+                ?? (data as any)?.id
+                ?? null
     const externalId = watiId ? `wati_${watiId}` : null
 
     await this.db.messages.update(p.id, {
@@ -276,6 +307,14 @@ export class SyncWorker {
     })
 
     this.fileMap.delete(row.fileRef)
+    // Only update Supabase external_id if a wamid hasn't already been set by
+    // the webhook. Never overwrite a real wamid.
+    if (watiId) {
+      await this.supabase.from('chat_messages')
+        .update({ external_id: externalId, delivery_status: 'sent' })
+        .eq('id', p.id)
+        .or('external_id.is.null,external_id.like.wati_%')
+    }
   }
 
   private async sendTemplate(row: PendingWrite): Promise<void> {
@@ -284,6 +323,10 @@ export class SyncWorker {
       templateName: string; broadcastName: string
       parameters: string[]; headerUrl: string | null
     }
+    // Push to Supabase BEFORE calling Wati so the webhook dedup can find it
+    // (carries agent_name + sent_by_profile_id) instead of inserting a duplicate.
+    await this.pushFullMessage(p.id, p.conversationId, null)
+
     const { data, error } = await this.supabase.functions.invoke('api-wati', {
       body: {
         action: 'send_template',
@@ -297,12 +340,58 @@ export class SyncWorker {
     })
     if (error) throw new Error(error.message ?? 'send_template failed')
     const watiId = data?.message?.whatsappMessageId
+                ?? data?.message?.whatsAppMessageId
+                ?? data?.info?.whatsAppMessageId
+                ?? data?.whatsappMessageId
+                ?? data?.id
+                ?? null
     if (watiId) {
       await this.db.messages.update(p.id, {
         external_id: `wati_${watiId}`,
         delivery_status: 'sent',
         _localOnly: false,
       })
+      await this.supabase.from('chat_messages')
+        .update({ external_id: `wati_${watiId}`, delivery_status: 'sent' })
+        .eq('id', p.id)
+        .or('external_id.is.null,external_id.like.wati_%')
+    }
+  }
+
+  /**
+   * Upsert the full message row to Supabase so:
+   *  1. The Wati webhook's dedup path can find it (via external_id LIKE 'wati_%')
+   *     and update it with the real wamid + delivery status.
+   *  2. Delivery status webhooks (delivered/read) can match by external_id.
+   *  3. Reactions can match by wamid once the webhook backfills it.
+   * Uses onConflict:'id' so re-drains don't create duplicates.
+   */
+  private async pushFullMessage(
+    messageId: string,
+    conversationId: string,
+    watiId: string | null | undefined,
+  ): Promise<void> {
+    try {
+      const m = await this.db.messages.get(messageId)
+      if (!m) return
+      const externalId = watiId ? `wati_${watiId}` : null
+      await this.supabase.from('chat_messages')
+        .upsert({
+          id:               messageId,
+          conversation_id:  conversationId,
+          from_type:        'agent',
+          source:           m.source ?? 'whatsapp_api',
+          text:             m.text ?? '',
+          agent_name:       m.agent_name ?? null,
+          sent_by_profile_id: m.sent_by_profile_id ?? null,
+          attachments:      (m.attachments ?? null) as unknown as import('@/types/database.types').Json,
+          delivery_status:  m.delivery_status ?? 'sent',
+          external_id:      externalId,
+          created_at:       m.created_at,
+          message_kind:     m.message_kind ?? 'message',
+        }, { onConflict: 'id', ignoreDuplicates: false })
+    } catch {
+      // Non-critical — the webhook insert path will create the row as a fallback
     }
   }
 

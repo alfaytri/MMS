@@ -15,6 +15,7 @@ import { useContactCenterContext } from '@/contexts/ContactCenterContext'
 import { useLocalMessages } from '@/hooks/contact-center/local/useLocalMessages'
 import { useProviderSuggest } from '@/hooks/contact-center/useProviderSuggest'
 import { sendMessageLocal, sendFileLocal, sendTemplateLocal, reactLocal, addAddressLocal, updateAddressLocal, markReadLocal, markOpenedLocal } from '@/lib/contact-center/local/mutations'
+import { useCurrentUserProfile } from '@/hooks/useProfiles'
 import { getDb } from '@/lib/contact-center/local/db'
 import { ChatAttachmentDialog } from '@/components/contact-center/ChatAttachmentDialog'
 import { ChatInstructionsDialog } from '@/components/contact-center/ChatInstructionsDialog'
@@ -26,6 +27,7 @@ import { SectionAccordion } from './SectionAccordion'
 import { AddressStrip } from './AddressStrip'
 import { UnifiedThread } from './UnifiedThread'
 import { ComposerV2 } from './ComposerV2'
+import { PhoneNumber } from './PhoneNumber'
 import { ProductsList } from '@/components/contact-center/ProductsList'
 import { OrderHistoryV2 } from './OrderHistoryV2'
 import type { WatiTemplate } from '@/types/contact-center'
@@ -51,10 +53,11 @@ export function ContactCenterSidebarV2() {
   }, [])
 
   const { fileMap } = useSyncWorker(authUserId, provider)
-  const { conversations, loading: convsLoading } = useLocalConversations(authUserId, provider)
+  const { conversations, loading: convsLoading } = useLocalConversations(authUserId)
   const local = useLocalCustomer(authUserId, activeCustomerId)
+  const { data: myProfile } = useCurrentUserProfile()
 
-  const { messages: unifiedMessages, loading: unifiedLoading } = useLocalMessages(authUserId, activeCustomerId)
+  const { messages: unifiedMessages, loading: unifiedLoading } = useLocalMessages(authUserId, activeCustomerId, activeConversationId)
   const [composerFocused, setComposerFocused] = useState(false)
 
   const providerSuggest = useProviderSuggest({
@@ -98,6 +101,8 @@ export function ContactCenterSidebarV2() {
         phone: activePhone,
         file,
         caption: caption || undefined,
+        agentProfileId: myProfile?.id ?? null,
+        agentName: myProfile?.full_name ?? null,
       })
       setShowAttach(false)
       toast.success('File queued for send')
@@ -148,13 +153,15 @@ export function ContactCenterSidebarV2() {
       conversationId: activeConversationId,
       phone: activePhone,
       file,
+      agentProfileId: myProfile?.id ?? null,
+      agentName: myProfile?.full_name ?? null,
     })
   }
 
   // Collapsed strip
   if (sidebarView === 'collapsed') {
     return (
-      <div className="hidden lg:flex fixed left-0 top-0 bottom-0 w-10 border-r border-border bg-background z-50 flex-col items-center pt-3 gap-3">
+      <div className="hidden lg:flex fixed left-0 top-0 bottom-0 w-10 border-r border-border bg-background z-[60] flex-col items-center pt-3 gap-3">
         <Button size="icon" variant="ghost" className="h-8 w-8" onClick={handleExpand}>
           <ChevronRight className="h-4 w-4" />
         </Button>
@@ -168,7 +175,7 @@ export function ContactCenterSidebarV2() {
   // List view
   if (sidebarView === 'list' || !activeConversationId) {
     return (
-      <div className="hidden lg:flex fixed left-0 top-0 bottom-0 w-80 border-r border-border bg-background z-50 flex-col">
+      <div className="hidden lg:flex fixed left-0 top-0 bottom-0 w-80 border-r border-border bg-background z-[60] flex-col">
         <div className="flex items-center justify-between px-3 py-2 border-b border-border h-10">
           <span className="text-xs font-semibold">Contact Centre</span>
           <Button size="icon" variant="ghost" className="h-7 w-7" onClick={handleCollapse}>
@@ -183,6 +190,7 @@ export function ContactCenterSidebarV2() {
             conversations={conversations}
             loading={convsLoading}
             onSelectConversation={(c) => {
+              if (c.provider && c.provider !== provider) setProvider(c.provider)
               openConversation(c.id, c.customer_id, c.wati_phone)
               if (authUserId && c.id) {
                 void markReadLocal(getDb(authUserId), c.id)
@@ -247,11 +255,11 @@ export function ContactCenterSidebarV2() {
           {headerPhone && (
             <span className="text-[11px] font-mono bg-primary/10 text-primary px-1.5 py-0.5 rounded inline-flex items-center gap-1">
               <span className="h-1.5 w-1.5 rounded-full bg-primary" aria-label="primary" />
-              {headerPhone}
+              <PhoneNumber number={headerPhone} className="text-[11px] font-mono text-primary" />
             </span>
           )}
           {secondaryPhones.map((p) => (
-            <span key={p.id} className="text-[11px] font-mono text-muted-foreground">{p.phone}</span>
+            <PhoneNumber key={p.id} number={p.phone} className="text-[11px] font-mono text-muted-foreground" />
           ))}
           {activeConversation?.wati_status && (
             <span className={`text-[10px] px-1.5 py-0.5 rounded-full font-medium ml-auto ${
@@ -409,7 +417,10 @@ export function ContactCenterSidebarV2() {
               conversationId: activeConversationId,
               phone: activePhone,
               text: t,
+              agentName: myProfile?.full_name ?? null,
+              agentProfileId: myProfile?.id ?? null,
             })
+            chatMessages.setInputText('')
           }}
           onAttachment={() => setShowAttach(true)}
           onInstructions={() => setShowInstructions(true)}

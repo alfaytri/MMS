@@ -13,6 +13,7 @@ interface ChatMessageRow {
   attachments: Attachment[] | null
   delivery_status: string
   external_id: string
+  wamid: string | null
   created_at: string
   message_kind: string
   _isBroadcast?: boolean
@@ -301,7 +302,7 @@ export async function GET(req: NextRequest) {
   }
 
   // Build message rows
-  const rows: ChatMessageRow[] = messageItems.map((item) => {
+  let rows: ChatMessageRow[] = messageItems.map((item) => {
     // broadcastMessage = sent from system/agent (no owner field on broadcast items)
     const isAgent = item.owner === true || item.eventType === 'message_sent' || item.eventType === 'broadcastMessage'
     const ts        = item.created
@@ -330,6 +331,11 @@ export async function GET(req: NextRequest) {
     // the API response doesn't include whatsappMessageId.
     const externalId = item.whatsappMessageId ?? String(item.id)
 
+    // Store the WhatsApp wamid separately so the reaction webhook can
+    // find messages by wamid even when external_id holds the numeric ID.
+    const rowWamid: string | null =
+      (typeof item.whatsappMessageId === 'string' && item.whatsappMessageId.startsWith('wamid.') ? item.whatsappMessageId : null)
+
     return {
       conversation_id: conversationId,
       from_type:       isAgent ? 'agent' : 'customer',
@@ -339,6 +345,7 @@ export async function GET(req: NextRequest) {
       attachments:     attachments.length > 0 ? attachments : null,
       delivery_status: isAgent ? normaliseStatus(item.statusString) : 'delivered',
       external_id:     externalId,
+      wamid:           rowWamid,
       created_at:      ts,
       message_kind:    isEvent ? 'event' : 'message',
       // marker only — never written to DB; stripped before upsert
@@ -470,6 +477,54 @@ export async function GET(req: NextRequest) {
     }
   }
 
+  // ── Customer-row dedup by wamid ──────────────────────────────────────────────
+  // The Wati webhook may have already inserted the customer message with
+  // external_id = wamid. If fetch-messages then runs and the Wati getMessages
+  // API returns a different ID (e.g. numeric instead of wamid), the row would
+  // get inserted twice with two different external_ids. To prevent this, pre-
+  // load every existing customer message in this conversation by wamid and
+  // external_id, and skip any incoming row that already exists.
+  const customerWamids = rows
+    .filter((r) => r.from_type === 'customer' && r.wamid)
+    .map((r) => r.wamid as string)
+  const customerExternalIds = rows
+    .filter((r) => r.from_type === 'customer' && r.external_id)
+    .map((r) => r.external_id)
+
+  const existingCustomerKeys = new Set<string>()
+  if (customerWamids.length > 0) {
+    const { data: byWamid } = await supabase.from('chat_messages')
+      .select('wamid')
+      .in('wamid', customerWamids)
+      .eq('conversation_id', conversationId)
+      .eq('from_type', 'customer')
+    for (const r of (byWamid ?? []) as { wamid: string }[]) {
+      if (r.wamid) existingCustomerKeys.add(`wamid:${r.wamid}`)
+    }
+  }
+  if (customerExternalIds.length > 0) {
+    const { data: byExternal } = await supabase.from('chat_messages')
+      .select('external_id, wamid')
+      .in('external_id', customerExternalIds)
+      .eq('conversation_id', conversationId)
+      .eq('from_type', 'customer')
+    for (const r of (byExternal ?? []) as { external_id: string; wamid: string | null }[]) {
+      existingCustomerKeys.add(`ext:${r.external_id}`)
+      if (r.wamid) existingCustomerKeys.add(`wamid:${r.wamid}`)
+    }
+  }
+
+  // Drop any incoming customer row whose wamid OR external_id already exists.
+  // This prevents the webhook+fetch race from creating duplicate rows.
+  if (existingCustomerKeys.size > 0) {
+    rows = rows.filter((r) => {
+      if (r.from_type !== 'customer') return true
+      if (r.wamid && existingCustomerKeys.has(`wamid:${r.wamid}`)) return false
+      if (r.external_id && existingCustomerKeys.has(`ext:${r.external_id}`)) return false
+      return true
+    })
+  }
+
   // Upsert — now safe: wati_-prefixed rows were renamed to bare ids above,
   // so onConflict:'external_id' will UPDATE them instead of inserting duplicates.
   //
@@ -480,6 +535,23 @@ export async function GET(req: NextRequest) {
   // valid Supabase Storage URL we wrote when the agent originally sent the file.
   // Omitting the column leaves the existing DB value untouched on UPDATE while
   // still inserting null for genuinely new rows with no URL.
+  // ── Deduplicate rows by external_id ──────────────────────────────────────────
+  // Wati's getMessages API can return the same message twice under different
+  // pagination windows. Passing duplicates into a single upsert batch causes
+  // "ON CONFLICT DO UPDATE command cannot affect row a second time". Keep the
+  // last occurrence (most recently fetched = freshest metadata).
+  {
+    const seen = new Set<string>()
+    const unique: typeof rows = []
+    for (let i = rows.length - 1; i >= 0; i--) {
+      if (!seen.has(rows[i].external_id)) {
+        seen.add(rows[i].external_id)
+        unique.unshift(rows[i])
+      }
+    }
+    rows = unique
+  }
+
   // PostgREST normalises bulk upsert payloads: if ANY object in the array has
   // the `attachments` key, PostgREST adds `attachments = NULL` to every object
   // that omitted it, and the ON CONFLICT UPDATE then overwrites the existing DB
@@ -488,8 +560,13 @@ export async function GET(req: NextRequest) {
   //   • noAttachments    — agent rows + customer rows without a URL
   // Each stream is upserted separately so PostgREST's column normalisation
   // doesn't bleed across them.
-  const withAttachments: ChatMessageUpsert[] = []
-  const noAttachments:   ChatMessageUpsert[] = []
+  //
+  // The `wamid` column is NOT included in the upsert payload — a null wamid in
+  // the batch would overwrite an existing non-null wamid on the DB row. Instead,
+  // wamid is backfilled in a separate pass after the upsert.
+  type UpsertRow = Omit<ChatMessageUpsert, 'wamid'>
+  const withAttachments: UpsertRow[] = []
+  const noAttachments:   UpsertRow[] = []
 
   for (const row of rows) {
     const isBroadcast = row._isBroadcast === true
@@ -498,21 +575,27 @@ export async function GET(req: NextRequest) {
       // Skip agent rows not already in DB unless they're Wati-native broadcasts
       // (broadcasts were never pre-inserted by MMS, so they have no existing row).
       if (isNew && !isBroadcast) continue
-      const { attachments, _isBroadcast: _mb, ...rest } = row
-      if (isNew) {
-        // New broadcast row — treat attachments the same as customer messages
-        const hasRealUrl = (attachments as Array<{ url?: string }> | null)?.some((a) => a.url)
-        if (hasRealUrl) {
-          withAttachments.push({ ...rest, attachments })
-        } else {
-          noAttachments.push({ ...rest, attachments: null })
-        }
+      // Existing MMS-sent rows: SKIP ENTIRELY. The row already has the canonical
+      // Supabase Storage URL in attachments and the correct delivery_status.
+      // Including it in any upsert stream forces PostgREST to write
+      // attachments=null on the existing row (because every object in a bulk
+      // upsert ends up with the same keys), which would wipe the video URL and
+      // make the message render as "[empty message]" — i.e. it would disappear.
+      // Delivery-status escalation (sent → delivered → read) is handled by the
+      // dedicated delivery-status webhook, not by this batch path.
+      if (!isNew) continue
+
+      // Only broadcast rows reach here. Treat their attachments the same as
+      // customer rows: real URL → withAttachments, no URL → noAttachments.
+      const { attachments, _isBroadcast: _mb, wamid: _w, ...rest } = row
+      const hasRealUrl = (attachments as Array<{ url?: string }> | null)?.some((a) => a.url)
+      if (hasRealUrl) {
+        withAttachments.push({ ...rest, attachments })
       } else {
-        // Existing MMS-sent row — omit attachments to preserve stored URLs
         noAttachments.push({ ...rest, attachments: null })
       }
     } else {
-      const { _isBroadcast: _mb, ...rowClean } = row
+      const { _isBroadcast: _mb, wamid: _w, ...rowClean } = row
       const hasRealUrl = (row.attachments as Array<{ url?: string }> | null)?.some((a) => a.url)
       if (hasRealUrl) {
         withAttachments.push(rowClean)
@@ -539,6 +622,19 @@ export async function GET(req: NextRequest) {
         return NextResponse.json({ error: error.message }, { status: 500 })
       }
       inserted += chunk.length
+    }
+  }
+
+  // ── Backfill wamid column ────────────────────────────────────────────────────
+  // The wamid was excluded from the upsert to avoid overwriting existing values
+  // with null. Now update only rows that have a wamid from the getMessages API.
+  const wamidRows = rows.filter((r) => r.wamid)
+  if (wamidRows.length > 0) {
+    for (const wr of wamidRows) {
+      await supabase.from('chat_messages')
+        .update({ wamid: wr.wamid })
+        .eq('external_id', wr.external_id)
+        .eq('conversation_id', conversationId)
     }
   }
 
@@ -599,12 +695,20 @@ export async function GET(req: NextRequest) {
 
   // Write reactions to DB
   for (const [targetId, reactions] of reactionsByTarget) {
-    // Search by wamid AND legacy wati_<id> prefix used by the chat send flow
-    const { data: targetRow } = await supabase.from('chat_messages')
+    // Search by external_id, wati_<id> prefix, AND the dedicated wamid column
+    let targetRow = (await supabase.from('chat_messages')
       .select('id')
       .eq('conversation_id', conversationId)
       .in('external_id', [targetId, `wati_${targetId}`])
-      .maybeSingle()
+      .maybeSingle()).data
+
+    if (!targetRow) {
+      targetRow = (await supabase.from('chat_messages')
+        .select('id')
+        .eq('conversation_id', conversationId)
+        .eq('wamid', targetId)
+        .maybeSingle()).data
+    }
 
     if (targetRow) {
       await supabase.from('chat_messages')

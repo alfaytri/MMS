@@ -20,6 +20,14 @@ export async function listByProvider(
     .then((rows) => rows.slice(0, limit))
 }
 
+export async function listAll(db: MmsCcDb, limit = 300): Promise<LocalConversation[]> {
+  return db.conversations
+    .orderBy('last_message_at')
+    .reverse()
+    .limit(limit)
+    .toArray()
+}
+
 export async function upsert(db: MmsCcDb, row: LocalConversation): Promise<void> {
   await db.conversations.put(row)
 }

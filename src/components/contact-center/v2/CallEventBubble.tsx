@@ -13,7 +13,7 @@ function fmtDuration(seconds: number): string {
 
 export function CallEventBubble({ message: m }: { message: ChatMessage }) {
   const isLive = m.delivery_status === 'sending'
-  const isMissed = m.delivery_status === 'failed'
+  const isMissed = m.delivery_status === 'failed' || /^missed call/i.test(m.text ?? '')
   const direction = m.from_type === 'agent' ? 'outbound' : 'inbound'
 
   const [tick, setTick] = useState(0)
@@ -32,12 +32,19 @@ export function CallEventBubble({ message: m }: { message: ChatMessage }) {
                : isLive   ? 'text-emerald-600'
                :            'text-muted-foreground'
 
+  const wrapperClasses = isMissed
+    ? 'flex items-start gap-2 rounded-md border border-destructive/40 p-2 my-1 bg-destructive/10'
+    : 'flex items-start gap-2 rounded-md border border-border p-2 my-1 bg-muted/30'
+  const titleClasses = isMissed
+    ? 'text-xs font-semibold text-destructive'
+    : 'text-xs font-medium'
+
   return (
-    <div className="flex items-start gap-2 rounded-md border border-border p-2 my-1 bg-muted/30">
+    <div className={wrapperClasses}>
       <Icon className={`h-3.5 w-3.5 mt-0.5 flex-shrink-0 ${colour}`} />
       <div className="flex-1 min-w-0 space-y-1">
         <div className="flex items-center gap-2 flex-wrap">
-          <span className="text-xs font-medium">{m.text ?? 'Call'}</span>
+          <span className={titleClasses}>{m.text ?? 'Call'}</span>
           {isLive && (
             <span className="text-xs font-mono text-emerald-600 inline-flex items-center gap-1">
               <span className="h-1.5 w-1.5 rounded-full bg-emerald-500 animate-pulse" />

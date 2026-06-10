@@ -28,7 +28,7 @@ export async function lazyFetch(db: MmsCcDb, supabase: SupabaseClient, customerI
     if (Date.now() - new Date(cursor.value).getTime() < STALE_MS) return
   }
   const { data, error } = await supabase
-    .from('service_customer_products')
+    .from('installed_products')
     .select('*')
     .eq('customer_id', customerId)
   if (error) { console.error('[products.lazyFetch]', error); return }

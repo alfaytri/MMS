@@ -46,7 +46,20 @@ export async function upsert(db: MmsCcDb, row: LocalMessage): Promise<void> {
 
 export async function upsertMany(db: MmsCcDb, rows: LocalMessage[]): Promise<void> {
   if (rows.length === 0) return
-  await db.messages.bulkPut(rows)
+  // Defensive merge: never let a realtime payload with null attachments wipe
+  // an attachment that already lives in Dexie. The webhook/fetch-messages can
+  // briefly emit a row with attachments=null before the canonical URL lands;
+  // bulkPut'ing that directly would make the user's just-sent video flicker
+  // to "[empty message]" until the next refresh.
+  const merged = await Promise.all(rows.map(async (row) => {
+    if (row.attachments != null && (row.attachments as unknown as unknown[]).length > 0) return row
+    const existing = await db.messages.get(row.id)
+    if (existing?.attachments && existing.attachments.length > 0) {
+      return { ...row, attachments: existing.attachments }
+    }
+    return row
+  }))
+  await db.messages.bulkPut(merged)
 }
 
 export async function deleteById(db: MmsCcDb, id: string): Promise<void> {

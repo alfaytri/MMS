@@ -14,18 +14,26 @@ export interface UseLocalConversationsResult {
 
 export function useLocalConversations(
   authUserId: string | null,
-  provider: 'wati' | 'whapi',
+  provider?: 'wati' | 'whapi',
 ): UseLocalConversationsResult {
   const db = useMemo(() => authUserId ? getDb(authUserId) : null, [authUserId])
 
   useEffect(() => {
     if (!db) return
     const supabase = createClient()
-    void repo.lazyFetch(db, supabase, provider)
+    if (provider) {
+      void repo.lazyFetch(db, supabase, provider)
+    } else {
+      void repo.lazyFetch(db, supabase, 'wati')
+      void repo.lazyFetch(db, supabase, 'whapi')
+    }
   }, [db, provider])
 
   const rows = useLiveQuery(
-    () => (db ? repo.listByProvider(db, provider) : Promise.resolve([])),
+    () => {
+      if (!db) return Promise.resolve([])
+      return provider ? repo.listByProvider(db, provider) : repo.listAll(db)
+    },
     [db, provider],
   )
 

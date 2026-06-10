@@ -18,6 +18,7 @@ export interface SendFileArgs {
   file: File
   caption?: string
   agentProfileId?: string | null
+  agentName?: string | null
 }
 
 function inferMessageType(mime: string): MessageType {
@@ -49,7 +50,7 @@ export async function sendFileLocal(
       message_kind: 'message',
       message_type: inferMessageType(args.file.type),
       text: args.caption ?? null,
-      agent_name: null,
+      agent_name: args.agentName ?? null,
       attachments: [{ url: objectUrl, type: args.file.type, name: args.file.name, status: 'local' }],
       reactions: [],
       delivery_status: 'sending',
@@ -87,6 +88,8 @@ export interface SendTemplateArgs {
   bodyText: string
   variables: string[]
   headerUrl?: string
+  agentProfileId?: string | null
+  agentName?: string | null
 }
 
 export async function sendTemplateLocal(db: MmsCcDb, args: SendTemplateArgs): Promise<string> {
@@ -102,13 +105,13 @@ export async function sendTemplateLocal(db: MmsCcDb, args: SendTemplateArgs): Pr
       message_kind: 'message',
       message_type: 'template' as MessageType,
       text: args.bodyText,
-      agent_name: null,
+      agent_name: args.agentName ?? null,
       attachments: null,
       reactions: [],
       delivery_status: 'sending',
       external_id: null,
       reply_to_external_id: null,
-      sent_by_profile_id: null,
+      sent_by_profile_id: args.agentProfileId ?? null,
       phone_id: null,
       deleted_at: null,
       created_at: now,

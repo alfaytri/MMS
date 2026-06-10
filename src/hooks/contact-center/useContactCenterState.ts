@@ -101,6 +101,16 @@ export function useContactCenterState() {
     let channel: ReturnType<typeof supabase.channel> | null = null
     let cancelled = false
 
+    // Track each message's last-known customer-reaction count so we can detect
+    // a NEW reaction (count went up) on UPDATE events. Updates that only
+    // change delivery status or remove a reaction don't trigger the sound.
+    const reactionCounts = new Map<string, number>()
+
+    function customerReactionCount(reactions: unknown): number {
+      if (!Array.isArray(reactions)) return 0
+      return (reactions as Array<{ from_type?: string }>).filter((r) => r?.from_type === 'customer').length
+    }
+
     const timer = setTimeout(() => {
       if (cancelled) return
       channel = supabase
@@ -109,6 +119,18 @@ export function useContactCenterState() {
           'postgres_changes',
           { event: 'INSERT', schema: 'public', table: 'chat_messages', filter: 'from_type=eq.customer' },
           () => { playNotificationSound() }
+        )
+        .on(
+          'postgres_changes',
+          { event: 'UPDATE', schema: 'public', table: 'chat_messages' },
+          (payload: { new?: Record<string, unknown> }) => {
+            const row = payload.new as { id?: string; reactions?: unknown } | undefined
+            if (!row?.id) return
+            const next = customerReactionCount(row.reactions)
+            const prev = reactionCounts.get(row.id) ?? 0
+            reactionCounts.set(row.id, next)
+            if (next > prev) playNotificationSound()
+          }
         )
         .subscribe()
     }, 0)

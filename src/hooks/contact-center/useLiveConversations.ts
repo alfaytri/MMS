@@ -26,7 +26,7 @@ export function useLiveConversations(provider: 'wati' | 'whapi' = 'wati') {
         id, customer_id, conversation_type, wati_phone, wati_contact_name,
         last_message, last_message_at, unread_count,
         assigned_agent, is_opened, wati_status, created_at,
-        service_customers(name)
+        service_customers!chat_conversations_customer_id_fkey(name)
       `)
       .eq('provider', provider)
       .not('last_message_at', 'is', null)

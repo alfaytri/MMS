@@ -2,8 +2,9 @@ import { type NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@supabase/supabase-js'
 import type { Database } from '@/types/database.types'
 
-const SUPA_URL = process.env.NEXT_PUBLIC_SUPABASE_URL!
-const SUPA_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY!
+const SUPA_URL    = process.env.NEXT_PUBLIC_SUPABASE_URL!
+const SUPA_KEY    = process.env.SUPABASE_SERVICE_ROLE_KEY!
+const WATI_TOKEN  = (process.env.WATI_API_TOKEN ?? '').replace(/^Bearer\s+/i, '')
 
 type DeliveryStatus = 'sending' | 'sent' | 'delivered' | 'read' | 'failed'
 
@@ -28,6 +29,33 @@ interface Attachment {
 }
 
 const WATI_URL_WEBHOOK = (process.env.WATI_API_URL ?? '').replace(/\/$/, '')
+
+/**
+ * Resolve a wamid to the Wati numeric ID by querying Wati's getMessages API.
+ * Returns the numeric id if found, null otherwise.
+ */
+async function resolveWamidViaWati(phone: string, targetWamid: string): Promise<string | null> {
+  if (!WATI_URL_WEBHOOK || !WATI_TOKEN) return null
+  try {
+    const watiPhone = phone.replace(/^\+/, '').replace(/\D/g, '')
+    const res = await fetch(
+      `${WATI_URL_WEBHOOK}/api/v1/getMessages/${encodeURIComponent(watiPhone)}?pageSize=50`,
+      { headers: { Authorization: `Bearer ${WATI_TOKEN}` } },
+    )
+    if (!res.ok) return null
+    const data = await res.json()
+    const items: any[] = data?.messages?.items ?? []
+    for (const item of items) {
+      // getMessages returns the wamid in whatsappMessageId
+      if (item.whatsappMessageId === targetWamid) {
+        return String(item.id) // the Wati numeric ID
+      }
+    }
+    return null
+  } catch {
+    return null
+  }
+}
 
 // Inbound WATI media URLs require a Bearer token — the browser can't supply that in
 // <img src> or <video src>. Convert any URL that lives on the WATI server to our proxy
@@ -196,10 +224,61 @@ export async function POST(req: NextRequest) {
         : eventType === 'sentMessageREAD_v2'    ? 'read'
         : eventType === 'templateMessageFailed' ? 'failed'
         : normaliseStatus(body.statusString ?? body.status)
-      // MMS stores outgoing messages as wati_<id>; check both forms
-      await supabase.from('chat_messages')
-        .update({ delivery_status: status })
+      // If the delivery status ID is a wamid, backfill the wamid column
+      const statusWamid = String(externalId).startsWith('wamid.') ? String(externalId) : null
+
+      // Try matching by external_id first (covers wati_ prefix + bare ID)
+      const { data: updatedRows } = await supabase.from('chat_messages')
+        .update({ delivery_status: status, ...(statusWamid ? { wamid: statusWamid } : {}) })
         .in('external_id', [String(externalId), `wati_${String(externalId)}`])
+        .select('id')
+
+      // Fallback: also try matching by wamid column (covers backfilled wamids)
+      if ((!updatedRows || updatedRows.length === 0) && statusWamid) {
+        const { data: updatedByWamid } = await supabase.from('chat_messages')
+          .update({ delivery_status: status })
+          .eq('wamid', statusWamid)
+          .select('id')
+
+        // Last resort: time-based fallback. Find the OLDEST agent message in the
+        // conversation that's still in 'sent' status with no wamid. Delivery
+        // events typically arrive in send order, so claiming the oldest unclaimed
+        // 'sent' message is the safest match. We only escalate from 'sent';
+        // never downgrade an already 'delivered' or 'read' message.
+        if ((!updatedByWamid || updatedByWamid.length === 0) && body.waId && (status === 'delivered' || status === 'read')) {
+          const phone = `+${body.waId.replace(/\D/g, '')}`
+          const { data: conv } = await supabase.from('chat_conversations')
+            .select('id')
+            .eq('wati_phone', phone)
+            .maybeSingle()
+          if (conv?.id) {
+            const cutoff = new Date(Date.now() - 24 * 60 * 60_000).toISOString()
+            // For 'delivered': claim oldest message still in 'sent' (no later state)
+            // For 'read':      claim oldest message in 'sent' or 'delivered'
+            const claimableStates = status === 'read' ? ['sent', 'delivered'] : ['sent']
+            const { data: oldest } = await supabase.from('chat_messages')
+              .select('id')
+              .eq('conversation_id', conv.id)
+              .eq('from_type', 'agent')
+              .eq('message_kind', 'message')
+              .in('delivery_status', claimableStates)
+              .is('wamid', null)
+              .gte('created_at', cutoff)
+              .order('created_at', { ascending: true })
+              .limit(1)
+              .maybeSingle()
+            if (oldest) {
+              await supabase.from('chat_messages')
+                .update({
+                  delivery_status: status,
+                  ...(statusWamid ? { wamid: statusWamid } : {}),
+                })
+                .eq('id', oldest.id)
+              console.log('[webhook:status] strategy-4 claim', { rowId: oldest.id, status, statusWamid })
+            }
+          }
+        }
+      }
     }
     return NextResponse.json({ ok: true })
   }
@@ -232,30 +311,123 @@ export async function POST(req: NextRequest) {
     console.log('[webhook:reaction] extracted', { targetExternalId, emoji, waId: body.waId })
 
     if (targetExternalId) {
-      // Check both wamid and wati_-prefixed id (agent-sent messages use prefix)
-      const { data: targetRow } = await supabase.from('chat_messages')
+      // Strategy 1: Look up by external_id (covers bare wamid + wati_ prefix)
+      let targetRow = (await supabase.from('chat_messages')
         .select('id, reactions')
         .in('external_id', [targetExternalId, `wati_${targetExternalId}`])
         .order('created_at', { ascending: false })
         .limit(1)
-        .maybeSingle()
+        .maybeSingle()).data
+
+      // Strategy 2: Look up by the dedicated wamid column
+      if (!targetRow) {
+        targetRow = (await supabase.from('chat_messages')
+          .select('id, reactions')
+          .eq('wamid', targetExternalId)
+          .order('created_at', { ascending: false })
+          .limit(1)
+          .maybeSingle()).data
+      }
+
+      // Strategy 3: Resolve wamid → Wati numeric ID via Wati API, then look up
+      // by that numeric ID. This handles the case where external_id is the Wati
+      // numeric ID and the wamid column hasn't been populated yet.
+      if (!targetRow && body.waId) {
+        const phone = body.waId.replace(/\D/g, '')
+        const numericId = await resolveWamidViaWati(phone, targetExternalId)
+        console.log('[webhook:reaction] wamid resolve fallback', { numericId, targetExternalId })
+        if (numericId) {
+          targetRow = (await supabase.from('chat_messages')
+            .select('id, reactions')
+            .in('external_id', [numericId, `wati_${numericId}`])
+            .order('created_at', { ascending: false })
+            .limit(1)
+            .maybeSingle()).data
+
+          // Also backfill the wamid column so future reactions don't need the API call
+          if (targetRow) {
+            await supabase.from('chat_messages')
+              .update({ wamid: targetExternalId })
+              .eq('id', targetRow.id)
+          }
+        }
+      }
+
+      // Strategy 4: Time-based fallback. If all ID lookups failed, find the most
+      // recent agent message in the conversation that does NOT yet have a wamid
+      // and claim it. Reactions almost always target a recent message, so this
+      // catches the common case where MMS sent a message and Wati never linked
+      // its wamid to the row (either because the send response returned only the
+      // numeric ID, or because Wati doesn't fire a sent_message webhook for
+      // outbound API-sent messages).
+      if (!targetRow && body.waId) {
+        const phone = `+${body.waId.replace(/\D/g, '')}`
+        const { data: conv } = await supabase.from('chat_conversations')
+          .select('id')
+          .eq('wati_phone', phone)
+          .maybeSingle()
+        if (conv?.id) {
+          const cutoff = new Date(Date.now() - 24 * 60 * 60_000).toISOString()
+          const { data: recent } = await supabase.from('chat_messages')
+            .select('id, reactions')
+            .eq('conversation_id', conv.id)
+            .eq('from_type', 'agent')
+            .eq('message_kind', 'message')
+            .is('wamid', null)
+            .gte('created_at', cutoff)
+            .order('created_at', { ascending: false })
+            .limit(1)
+            .maybeSingle()
+          if (recent) {
+            targetRow = recent
+            // Backfill the wamid so subsequent reaction edits (toggle/remove)
+            // can find this exact row without falling through to strategy 4 again
+            await supabase.from('chat_messages')
+              .update({ wamid: targetExternalId })
+              .eq('id', recent.id)
+            console.log('[webhook:reaction] strategy-4 claim', { rowId: recent.id, targetExternalId })
+          }
+        }
+      }
+
       console.log('[webhook:reaction] db lookup', { found: !!targetRow, targetExternalId })
+
       if (targetRow) {
         const existing: { emoji: string; from_type: string }[] = (targetRow.reactions as unknown as Array<{ emoji: string; from_type: string }> | null) ?? []
+        let isNewReaction = false
         if (emoji) {
           const hasIt = existing.some((r) => r.emoji === emoji && r.from_type === 'customer')
           const updated = hasIt
             ? existing.filter((r) => !(r.emoji === emoji && r.from_type === 'customer'))
             : [...existing, { emoji, from_type: 'customer' }]
+          isNewReaction = !hasIt
           await supabase.from('chat_messages')
             .update({ reactions: updated })
             .eq('id', targetRow.id)
         } else {
-          // Empty emoji = customer removed all reactions
+          // Empty/null emoji = customer removed the reaction
           const updated = existing.filter((r) => r.from_type !== 'customer')
           await supabase.from('chat_messages')
             .update({ reactions: updated })
             .eq('id', targetRow.id)
+        }
+
+        // Bump the conversation so the chat list resorts and shows recent activity.
+        // For a NEW customer reaction, surface it in last_message so the user sees
+        // "Reacted 👍 to your message" in the conversation list — and the existing
+        // global sound subscription will fire because a chat_messages UPDATE event
+        // includes the now-modified reactions array.
+        if (body.waId) {
+          const phone = `+${String(body.waId).replace(/\D/g, '')}`
+          await supabase.from('chat_conversations')
+            .update({
+              last_message_at: new Date().toISOString(),
+              ...(isNewReaction && emoji
+                ? { last_message: `Reacted ${emoji} to your message` }
+                : {}),
+            })
+            .eq('wati_phone', phone)
+            .eq('provider', 'wati')
         }
       }
     }
@@ -325,6 +497,16 @@ export async function POST(req: NextRequest) {
   // This is critical for reaction lookups: body.reaction.messageId is always the wamid.
   const externalId: string | null = body.whatsappMessageId ?? body.id ?? null
 
+  // Extract the WhatsApp wamid if available in the payload.
+  // Wati inconsistently places this in different fields depending on API version.
+  // The send API returns a numeric ID in whatsappMessageId, while the webhook for
+  // customer messages may include the real wamid in key.id or whatsappMessageId itself.
+  const wamid: string | null =
+    (typeof externalId === 'string' && externalId.startsWith('wamid.') ? externalId : null) ??
+    (typeof body.key?.id === 'string' && String(body.key.id).startsWith('wamid.') ? String(body.key.id) : null) ??
+    (typeof body.messageKey?.id === 'string' && String(body.messageKey.id).startsWith('wamid.') ? String(body.messageKey.id) : null) ??
+    null
+
   // Prefer body.timestamp (Unix epoch of actual WhatsApp delivery) over body.created.
   // body.created on bot auto-replies is often the customer's trigger-message time,
   // not the bot's reply time, causing auto-replies to appear before earlier agent messages.
@@ -334,11 +516,15 @@ export async function POST(req: NextRequest) {
     ? new Date(body.created).toISOString()
     : new Date().toISOString()
   const senderName: string | null = body.senderName ?? null
+  // For agent messages, Wati sends the operator identity separately
+  const operatorName: string | null =
+    body.operatorName ?? body.operator?.name ?? body.operatorEmail ?? null
 
-  // Find or create conversation
+  // Find or create conversation (wati provider only — whapi has its own row)
   const { data: existing } = await supabase.from('chat_conversations')
     .select('id, unread_count')
     .eq('wati_phone', phone)
+    .eq('provider', 'wati')
     .maybeSingle()
 
   let conversationId: string
@@ -370,9 +556,12 @@ export async function POST(req: NextRequest) {
       if (error.code === '23505') {
         // Race condition: a concurrent webhook created the conversation first.
         // Re-fetch the winning row and continue processing the message normally.
+        // MUST filter by provider — otherwise multiple rows exist (wati + whapi)
+        // and maybeSingle() returns null, dropping the message.
         const { data: raced } = await supabase.from('chat_conversations')
           .select('id, unread_count')
           .eq('wati_phone', phone)
+          .eq('provider', 'wati')
           .maybeSingle()
         if (!raced) {
           console.error('[webhook] create conversation error (race recovery failed)', error)
@@ -431,7 +620,8 @@ export async function POST(req: NextRequest) {
           .update({
             external_id:      externalId,
             delivery_status:  normaliseStatus(body.statusString ?? 'SENT'),
-            ...(senderName ? { agent_name: senderName } : {}),
+            ...(operatorName ? { agent_name: operatorName } : {}),
+            ...(wamid ? { wamid } : {}),
           })
           .eq('id', pendingRow.id)
         return NextResponse.json({ ok: true })
@@ -445,11 +635,17 @@ export async function POST(req: NextRequest) {
       .maybeSingle()
 
     if (dup) {
-      // If the row is stored under wati_<id> prefix, update it to the bare wamid
+      // If the row is stored under wati_<id> prefix, update it to the bare ID
       // so reactions and future lookups work against the canonical ID.
-      if (dup.external_id !== externalId) {
+      // Also backfill the wamid column whenever we have one.
+      const needsExternalIdUpdate = dup.external_id !== externalId
+      const needsWamidUpdate = !!wamid
+      if (needsExternalIdUpdate || needsWamidUpdate) {
         await supabase.from('chat_messages')
-          .update({ external_id: externalId })
+          .update({
+            ...(needsExternalIdUpdate ? { external_id: externalId! } : {}),
+            ...(needsWamidUpdate ? { wamid } : {}),
+          })
           .eq('id', dup.id)
       }
       return NextResponse.json({ ok: true })
@@ -472,15 +668,44 @@ export async function POST(req: NextRequest) {
         .maybeSingle()
 
       if (textDup) {
-        // Claim the existing row with the canonical wamid
+        // Claim the existing row with the canonical ID
         await supabase.from('chat_messages')
           .update({
             external_id:     externalId,
             delivery_status: normaliseStatus(body.statusString ?? 'SENT'),
+            ...(wamid ? { wamid } : {}),
           })
           .eq('id', textDup.id)
         return NextResponse.json({ ok: true })
       }
+    }
+
+    // Last-resort dup check by wamid for inbound customer messages: a previous
+    // fetch-messages run may have inserted this row with external_id = numeric
+    // Wati id, while the webhook arrives with external_id = wamid. The earlier
+    // dup-by-external_id check misses it; a wamid lookup catches it.
+    if (wamid && !isAgent && !isMsgEvent) {
+      const { data: wamidDup } = await supabase.from('chat_messages')
+        .select('id')
+        .eq('conversation_id', conversationId)
+        .or(`wamid.eq.${wamid},external_id.eq.${wamid}`)
+        .maybeSingle()
+      if (wamidDup) {
+        await supabase.from('chat_messages')
+          .update({ external_id: externalId, wamid })
+          .eq('id', wamidDup.id)
+        return NextResponse.json({ ok: true })
+      }
+    }
+
+    // Guard against creating empty agent ghost rows.
+    // If this is an outbound (agent) message and we have nothing meaningful to
+    // insert — no text, no attachments, no system-event marker — skip the
+    // insert entirely. The original message exists in Supabase via the SyncWorker's
+    // pushFullMessage; this stray webhook would otherwise create a phantom row
+    // that renders as "[empty message]" in the chat.
+    if (isAgent && !isMsgEvent && !text && attachments.length === 0) {
+      return NextResponse.json({ ok: true, skipped: 'empty agent message' })
     }
 
     // For agent messages, NEVER include attachments in the insert — the MMS
@@ -496,12 +721,13 @@ export async function POST(req: NextRequest) {
         from_type:        isAgent ? 'agent' : 'customer',
         source:           'whatsapp_api',
         text:             text,
-        agent_name:       isAgent ? senderName : null,
+        agent_name:       isAgent ? (operatorName ?? senderName) : null,
         attachments:      insertAttachments as unknown as import('@/types/database.types').Json,
         delivery_status:  isAgent ? normaliseStatus(body.statusString) : 'delivered',
         external_id:      externalId,
         created_at:       ts,
         message_kind:     isMsgEvent ? 'event' : 'message',
+        ...(wamid ? { wamid } : {}),
       })
   }
 

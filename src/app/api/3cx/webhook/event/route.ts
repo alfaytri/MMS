@@ -12,6 +12,39 @@ const SUPA_URL     = process.env.NEXT_PUBLIC_SUPABASE_URL!
 const SUPA_KEY     = process.env.SUPABASE_SERVICE_ROLE_KEY!
 const WHOOK_SECRET = process.env['3CX_WEBHOOK_SECRET'] ?? ''
 
+function tryParseJson(raw: string): Record<string, unknown> | null {
+  const trimmed = raw.trim()
+
+  // Normal JSON object
+  try { return JSON.parse(trimmed) } catch { /* fall through */ }
+
+  // 3CX CRM templates render {{ }} as [ ] — bracket-wrapped key:value
+  if (trimmed.startsWith('[') && trimmed.endsWith(']') && trimmed.includes('":')) {
+    try { return JSON.parse('{' + trimmed.slice(1, -1) + '}') } catch { /* fall through */ }
+  }
+
+  return null
+}
+
+async function parseBody(req: NextRequest): Promise<Record<string, unknown> | null> {
+  const raw = await req.text()
+  console.log('[3cx/webhook] content-type:', req.headers.get('content-type'))
+  console.log('[3cx/webhook] raw body:', raw.slice(0, 2000))
+
+  const parsed = tryParseJson(raw)
+  if (parsed) return parsed
+
+  // form-urlencoded fallback
+  if (raw.includes('=') && !raw.trim().startsWith('{') && !raw.trim().startsWith('[')) {
+    const params = new URLSearchParams(raw)
+    const obj: Record<string, unknown> = {}
+    params.forEach((v, k) => { obj[k] = v })
+    if (Object.keys(obj).length > 0) return obj
+  }
+
+  return null
+}
+
 export async function POST(req: NextRequest) {
   const url = new URL(req.url)
   const secret = url.searchParams.get('secret') ?? ''
@@ -19,8 +52,12 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
   }
 
-  let body: Record<string, unknown>
-  try { body = await req.json() } catch { return NextResponse.json({ error: 'Bad JSON' }, { status: 400 }) }
+  const body = await parseBody(req)
+  if (!body) {
+    console.error('[3cx/webhook] could not parse body')
+    return NextResponse.json({ error: 'Bad body' }, { status: 400 })
+  }
+  console.log('[3cx/webhook] parsed body:', JSON.stringify(body).slice(0, 2000))
 
   const event = normaliseEvent(body)
   if (!event) return NextResponse.json({ ok: true, ignored: 'unknown event' })
@@ -30,7 +67,11 @@ export async function POST(req: NextRequest) {
   const { conversation_id, phone_id } = await resolveConversation(supabase, event.caller_phone)
   const agent = await resolveAgentByExtension(supabase, event.extension)
 
-  const externalId = `3cx_${event.call_id1 || event.call_id2}`
+  // 3CX CRM template doesn't expose call_id — synthesize one from caller + extension + minute bucket
+  // (one row per call; minute bucket prevents duplicate inserts if 3CX retries the same event)
+  const callIdSeed = event.call_id1 || event.call_id2
+                  || `${event.caller_phone}_${event.extension}_${Math.floor(Date.now() / 60_000)}`
+  const externalId = `3cx_${callIdSeed}`
 
   if (event.kind === 'ringing' || event.kind === 'dialing' || event.kind === 'answered') {
     const text =
@@ -73,10 +114,15 @@ export async function POST(req: NextRequest) {
   }
 
   // event.kind === 'hangup'
-  const finishLabel = event.finish === 'Missed'
-    ? 'Missed'
-    : `${event.direction === 'inbound' ? 'Inbound' : 'Outbound'} answered`
-  const text = event.title || `${finishLabel} call — ${event.caller_phone}`
+  // 3CX CRM template can't reliably distinguish missed from short calls — use the
+  // recording presence as the signal: an inbound call with no recording was never
+  // answered (3CX only records connected calls).
+  const isMissed = event.finish === 'Missed'
+                || (event.direction === 'inbound' && event.recording_urls.length === 0)
+
+  const text = isMissed
+    ? `Missed call — ${event.caller_phone}`
+    : (event.title || `${event.direction === 'inbound' ? 'Inbound' : 'Outbound'} call — ${event.caller_phone}`)
 
   const { data: existing } = await supabase
     .from('chat_messages')
@@ -89,7 +135,7 @@ export async function POST(req: NextRequest) {
     messageId = existing.id
     await supabase.from('chat_messages').update({
       text,
-      delivery_status: event.finish === 'Missed' ? 'failed' : 'delivered',
+      delivery_status: isMissed ? 'failed' : 'delivered',
       agent_name:      agent?.name ?? null,
     }).eq('id', messageId)
   } else {
@@ -114,12 +160,12 @@ export async function POST(req: NextRequest) {
 
   await supabase.from('call_records').upsert({
     message_id:       messageId,
-    call_id:          event.call_id1 || event.call_id2,
+    call_id:          callIdSeed,
     agent_extension:  event.extension,
     agent_name:       agent?.name ?? null,
     customer_phone:   event.caller_phone,
     direction:        event.direction,
-    status:           event.finish === 'Missed' ? 'missed' : 'answered',
+    status:           isMissed ? 'missed' : 'answered',
     started_at:       new Date(Date.now() - 30_000).toISOString(),
     ended_at:         new Date().toISOString(),
     duration_seconds: null,

@@ -419,6 +419,7 @@ export type Database = {
           duration_seconds: number | null
           ended_at: string | null
           id: string
+          initiated_by: string | null
           message_id: string
           recording_url: string | null
           started_at: string
@@ -434,6 +435,7 @@ export type Database = {
           duration_seconds?: number | null
           ended_at?: string | null
           id?: string
+          initiated_by?: string | null
           message_id: string
           recording_url?: string | null
           started_at: string
@@ -449,12 +451,20 @@ export type Database = {
           duration_seconds?: number | null
           ended_at?: string | null
           id?: string
+          initiated_by?: string | null
           message_id?: string
           recording_url?: string | null
           started_at?: string
           status?: string | null
         }
         Relationships: [
+          {
+            foreignKeyName: "call_records_initiated_by_fkey"
+            columns: ["initiated_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
           {
             foreignKeyName: "call_records_message_id_fkey"
             columns: ["message_id"]
@@ -4149,125 +4159,6 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "suppliers"
             referencedColumns: ["id"]
-          },
-        ]
-      }
-      phone_line_permissions_3cx: {
-        Row: {
-          can_call: boolean
-          can_receive: boolean
-          created_at: string
-          created_by: string | null
-          id: string
-          phone_line_id: string
-          profile_id: string
-          updated_at: string
-        }
-        Insert: {
-          can_call?: boolean
-          can_receive?: boolean
-          created_at?: string
-          created_by?: string | null
-          id?: string
-          phone_line_id: string
-          profile_id: string
-          updated_at?: string
-        }
-        Update: {
-          can_call?: boolean
-          can_receive?: boolean
-          created_at?: string
-          created_by?: string | null
-          id?: string
-          phone_line_id?: string
-          profile_id?: string
-          updated_at?: string
-        }
-        Relationships: [
-          {
-            foreignKeyName: "phone_line_permissions_3cx_created_by_fkey"
-            columns: ["created_by"]
-            isOneToOne: false
-            referencedRelation: "profiles"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "phone_line_permissions_3cx_phone_line_id_fkey"
-            columns: ["phone_line_id"]
-            isOneToOne: false
-            referencedRelation: "phone_lines_3cx"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "phone_line_permissions_3cx_profile_id_fkey"
-            columns: ["profile_id"]
-            isOneToOne: false
-            referencedRelation: "profiles"
-            referencedColumns: ["id"]
-          },
-        ]
-      }
-      phone_lines_3cx: {
-        Row: {
-          created_at: string
-          created_by: string | null
-          cx_dn: string | null
-          division_id: string | null
-          id: string
-          is_active: boolean
-          is_emergency: boolean
-          label: string
-          number: string
-          sort_order: number
-          updated_at: string
-        }
-        Insert: {
-          created_at?: string
-          created_by?: string | null
-          cx_dn?: string | null
-          division_id?: string | null
-          id?: string
-          is_active?: boolean
-          is_emergency?: boolean
-          label: string
-          number: string
-          sort_order?: number
-          updated_at?: string
-        }
-        Update: {
-          created_at?: string
-          created_by?: string | null
-          cx_dn?: string | null
-          division_id?: string | null
-          id?: string
-          is_active?: boolean
-          is_emergency?: boolean
-          label?: string
-          number?: string
-          sort_order?: number
-          updated_at?: string
-        }
-        Relationships: [
-          {
-            foreignKeyName: "phone_lines_3cx_created_by_fkey"
-            columns: ["created_by"]
-            isOneToOne: false
-            referencedRelation: "profiles"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "phone_lines_3cx_division_id_fkey"
-            columns: ["division_id"]
-            isOneToOne: false
-            referencedRelation: "divisions"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "phone_lines_3cx_division_id_fkey"
-            columns: ["division_id"]
-            isOneToOne: false
-            referencedRelation: "v_team_monthly_overtime"
-            referencedColumns: ["division_id"]
           },
         ]
       }
@@ -8040,6 +7931,35 @@ export type Database = {
           },
         ]
       }
+      user_ui_preferences: {
+        Row: {
+          created_at: string
+          hide_3cx_mobile_note: boolean
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          hide_3cx_mobile_note?: boolean
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          hide_3cx_mobile_note?: boolean
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "user_ui_preferences_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: true
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       vehicles: {
         Row: {
           created_at: string | null
@@ -10134,3 +10054,5 @@ export const Constants = {
     },
   },
 } as const
+A new version of Supabase CLI is available: v2.105.0 (currently installed v2.91.3)
+We recommend updating regularly for new features and bug fixes: https://supabase.com/docs/guides/cli/getting-started#updating-the-supabase-cli

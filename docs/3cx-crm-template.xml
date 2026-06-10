@@ -3,7 +3,7 @@
   <Number Prefix="AsIs" MaxLength="[MaxLength]" />
   <Connection MaxConcurrentRequests="2" />
   <Parameters>
-    <Parameter Name="WebhookUrl" Type="String" Parent="General Configuration" Editor="String" Title="Webhook URL:" Validation="" Default="https://mms.alfaytri.com/api/3cx/webhook/event" ListValues="" RequestUrl="" RequestUrlParameters="" ResponseScenario="" />
+    <Parameter Name="WebhookUrl" Type="String" Parent="General Configuration" Editor="String" Title="Webhook URL:" Validation="" Default="https://freight-tinsmith-flashcard.ngrok-free.dev/api/3cx/webhook/event" ListValues="" RequestUrl="" RequestUrlParameters="" ResponseScenario="" />
     <Parameter Name="WebhookSecret" Type="Password" Parent="General Configuration" Editor="String" Title="Webhook Secret:" Validation="" Default="" ListValues="" RequestUrl="" RequestUrlParameters="" ResponseScenario="" />
     <Parameter Name="ReportCallEnabled" Type="Boolean" Parent="" Editor="String" Title="Enable Call Journaling" Validation="" Default="True" ListValues="" RequestUrl="" RequestUrlParameters="" ResponseScenario="" />
   </Parameters>

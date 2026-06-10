@@ -32,9 +32,13 @@ function asString(v: unknown): string {
   return typeof v === 'string' ? v : v == null ? '' : String(v)
 }
 
+// Qatar local numbers are 8 digits and start with 3, 5, 6, 7, or 8.
+// 3CX strips the country code on local calls — re-attach +974.
 function normalisePhone(raw: string): string {
   const digits = raw.replace(/\D/g, '')
   if (!digits) return ''
+  if (digits.length === 8 && /^[35678]/.test(digits)) return `+974${digits}`
+  if (digits.startsWith('974')) return `+${digits}`
   return `+${digits}`
 }
 

@@ -42,6 +42,21 @@ export async function markInFlight(db: MmsCcDb, id: number): Promise<void> {
   await db.pendingWrites.update(id, { status: 'in_flight' })
 }
 
+/**
+ * Atomically claim a queued pending write for processing.
+ * Uses a Dexie readwrite transaction so that only ONE tab/worker
+ * can claim each row — prevents the duplicate-send bug when
+ * multiple tabs share the same IndexedDB.
+ */
+export async function claimForFlight(db: MmsCcDb, id: number): Promise<boolean> {
+  return db.transaction('rw', db.pendingWrites, async () => {
+    const row = await db.pendingWrites.get(id)
+    if (!row || row.status !== 'queued') return false
+    await db.pendingWrites.update(id, { status: 'in_flight' })
+    return true
+  })
+}
+
 export async function markSuccess(db: MmsCcDb, id: number): Promise<void> {
   await db.pendingWrites.delete(id)
 }
