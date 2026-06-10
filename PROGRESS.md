@@ -212,10 +212,11 @@ Purchase & Sales▾:
 
 ## 🔄 In Progress
 
-🚀 Starting: **3CX Dialer & Receiver Plan Task 1: Foundation — env vars + OAuth helper**
+🚀 Starting: **3CX Dialer & Receiver Plan Task 14: extend webhook to write live_calls**
 
 ## ✅ Completed
 
+- [2026-06-10] **3CX Dialer & Receiver Plan Tasks 1–12: Foundation** — `src/lib/3cx/auth.ts`, `format-phone.ts`, `api-client.ts`, `call-controller.ts`, `providers/{rest,webrtc}-provider.ts`, `supabase/migrations/*live_calls*.sql`, `supabase/migrations/*call_records_initiated_by*.sql`, `supabase/migrations/*user_ui_preferences*.sql`, `supabase/migrations/*live_calls_cleanup_cron*.sql` — OAuth token cache, E.164 normalization (7 tests), typed 3CX REST wrapper, CallController abstraction + WebRTC stub, live_calls table with RLS + pg_cron cleanup, call_records.initiated_by column, user_ui_preferences table. Task 10 (preflight CLI) deferred until 3CX admin provides OAuth credentials.
 - [2026-06-10] **CC Rework Plan 4 Tasks 1-10: Admin Purge Page complete** — `purge-filter.ts`, `confirm-phrase.ts`, preview/purge/restore/history/sweep API routes, `vercel.json` cron, admin page UI — Full purge module with soft-delete, typed confirmation gate, 7-day restore window, nightly Storage sweep
 - [2026-06-09] **CC Rework Plan 3 Tasks 1-8: 3CX Integration complete** — Migration (`profiles.threecx_extension`), middleware webhook bypass, `normalise-event.ts`, `resolve-customer.ts`, `extension-map.ts`, webhook route `/api/3cx/webhook/event`, `CallEventBubble` live ticker, security audit pass
 - [2026-06-09] **CC Rework Plan 3 Task 1: Migration — profiles.threecx_extension** — `supabase/migrations/20260609140000_cc_v2_profiles_threecx_extension.sql`, `src/types/database.types.ts` — Added threecx_extension column with partial unique index for agent mapping
