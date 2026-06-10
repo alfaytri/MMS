@@ -164,6 +164,7 @@ Purchase & Sales▾:
 
 | Date | Module / Scope | Secrets | RLS | Auth Gate | Error Handling | Layout Stability | Notes |
 |---|---|---|---|---|---|---|---|
+| 2026-06-10 | **CC Rework Plan 4 — Admin Purge** | ✅ | ✅ | ✅ (perm + cron) | ✅ | ✅ | Strict byte-equal phrase match. 7-day restore window; nightly hard-delete sweep. All routes check `contact_centre.admin.purge` permission. Sweep route validates CRON_SECRET. No hardcoded secrets. |
 | 2026-06-09 | **CC Rework Plan 3 — 3CX Integration** | ✅ | ✅ (inherits) | ✅ (?secret=) | ✅ | ✅ | Webhook validates URL secret against 3CX_WEBHOOK_SECRET env. No new tables — profiles.threecx_extension inherits existing RLS. Recording URLs stored in attachments + media_download_jobs enqueued. CallEventBubble has fixed layout (border+padding, monospace ticker). |
 | 2026-06-09 | **CC Local-First Final (Tasks 1-33)** | ✅ | ✅ | ✅ | ✅ | ✅ | Full local-first mirror complete. 67 tests across 14 files. No secrets in any local/ code. All writes via authenticated browser client. SyncWorker owns single Realtime channel per provider. Failed sends surfaced via SyncBanner. |
 | 2026-06-09 | **CC Local-First Phase C (Tasks 22-29)** | ✅ | ✅ | ✅ | ✅ | ✅ | All v2 sidebar writes now write-through Dexie. No new tables/migrations. All writes via authenticated browser client. Failed sends surfaced via SyncBanner + retry. 67 tests passing. |
@@ -211,10 +212,11 @@ Purchase & Sales▾:
 
 ## 🔄 In Progress
 
-No active task.
+🚀 Starting: **3CX Dialer & Receiver Plan Task 1: Foundation — env vars + OAuth helper**
 
 ## ✅ Completed
 
+- [2026-06-10] **CC Rework Plan 4 Tasks 1-10: Admin Purge Page complete** — `purge-filter.ts`, `confirm-phrase.ts`, preview/purge/restore/history/sweep API routes, `vercel.json` cron, admin page UI — Full purge module with soft-delete, typed confirmation gate, 7-day restore window, nightly Storage sweep
 - [2026-06-09] **CC Rework Plan 3 Tasks 1-8: 3CX Integration complete** — Migration (`profiles.threecx_extension`), middleware webhook bypass, `normalise-event.ts`, `resolve-customer.ts`, `extension-map.ts`, webhook route `/api/3cx/webhook/event`, `CallEventBubble` live ticker, security audit pass
 - [2026-06-09] **CC Rework Plan 3 Task 1: Migration — profiles.threecx_extension** — `supabase/migrations/20260609140000_cc_v2_profiles_threecx_extension.sql`, `src/types/database.types.ts` — Added threecx_extension column with partial unique index for agent mapping
 - [2026-06-09] **CC Local-First Mirror Task 33: Final security audit + perf budget verification** — All 5 checks pass across full feature. 67 tests / 14 files passing. Plan complete.
