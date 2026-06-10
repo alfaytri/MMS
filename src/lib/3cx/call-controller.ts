@@ -3,7 +3,6 @@ export type DialError =
   | 'extension_busy'
   | 'invalid_number'
   | 'pbx_unreachable'
-  | 'auto_answer_not_supported'
   | 'no_extension_assigned'
 
 export type ClaimError = 'already_claimed' | 'expired' | 'pbx_unreachable' | 'softphone_offline'

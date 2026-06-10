@@ -58,42 +58,73 @@ async function callThreeCx<T>(
   return { ok: true, data }
 }
 
-export const threeCx = {
-  async makeCall(extension: string, destinationE164: string): Promise<ApiResult<{ callId: string }>> {
-    return callThreeCx<{ callId: string }>(`/callcontrol/${extension}/makecall`, {
-      method: 'POST',
-      body: JSON.stringify({
-        destination: destinationE164,
-        auto_answer: true,
-      }),
-    })
-  },
+// 3CX V20 response envelope
+interface ThreeCxEnvelope {
+  finalstatus: string
+  reason: string
+  reasontext: string
+  result: Record<string, unknown>
+}
 
-  async answer(extension: string, callId: string): Promise<ApiResult<void>> {
-    return callThreeCx<void>(`/callcontrol/${extension}/answer`, {
+// 3CX extension info shape
+interface ThreeCxExtInfo {
+  dn: string
+  type: string
+  devices: Array<{ device_id: string; user_agent: string }>
+}
+
+export const threeCx = {
+  /**
+   * Place an outbound call. Returns the PBX call ID as a string.
+   * The agent's softphone will ring — they must answer manually.
+   * (3CX V20 Call Control API has no programmatic answer endpoint.)
+   */
+  async makeCall(extension: string, destinationE164: string): Promise<ApiResult<{ callId: string }>> {
+    const raw = await callThreeCx<ThreeCxEnvelope>(`/callcontrol/${extension}/makecall`, {
       method: 'POST',
-      body: JSON.stringify({ callId }),
+      body: JSON.stringify({ destination: destinationE164 }),
     })
+    if (!raw.ok) return raw
+    const id = raw.data.result?.callid ?? raw.data.result?.id
+    if (id == null) {
+      return { ok: false, error: { kind: 'unknown', status: 200, body: 'no callid in response' } }
+    }
+    return { ok: true, data: { callId: String(id) } }
   },
 
   async drop(extension: string, callId: string): Promise<ApiResult<void>> {
     return callThreeCx<void>(`/callcontrol/${extension}/drop`, {
       method: 'POST',
-      body: JSON.stringify({ callId }),
+      body: JSON.stringify({ callid: callId }),
     })
   },
 
+  /**
+   * Poll the extension for active participants. The call's state
+   * comes from the participants array in the extension info.
+   */
   async getStatus(extension: string, callId: string): Promise<ApiResult<{ state: string }>> {
-    return callThreeCx<{ state: string }>(
-      `/callcontrol/${extension}/calls/${encodeURIComponent(callId)}`,
-      { method: 'GET' },
-    )
-  },
-
-  async getExtension(extension: string): Promise<ApiResult<{ registered: boolean; endpoint?: string }>> {
-    return callThreeCx<{ registered: boolean; endpoint?: string }>(
+    const raw = await callThreeCx<ThreeCxExtInfo & { participants?: Array<{ callid: number; status: string }> }>(
       `/callcontrol/${extension}`,
       { method: 'GET' },
     )
+    if (!raw.ok) return raw
+    const p = raw.data.participants?.find(
+      (x: { callid: number }) => String(x.callid) === callId,
+    )
+    return { ok: true, data: { state: p?.status ?? 'ended' } }
+  },
+
+  async getExtension(extension: string): Promise<ApiResult<{ registered: boolean; endpoint?: string }>> {
+    const raw = await callThreeCx<ThreeCxExtInfo>(`/callcontrol/${extension}`, { method: 'GET' })
+    if (!raw.ok) return raw
+    const devices = raw.data.devices ?? []
+    return {
+      ok: true,
+      data: {
+        registered: devices.length > 0,
+        endpoint: devices[0]?.user_agent,
+      },
+    }
   },
 }
