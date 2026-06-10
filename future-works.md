@@ -29,7 +29,7 @@ Built: WhatsApp dual-provider (WATI + WHAPI), chat sidebar, CRM section, address
 - Agent Resources panel — searchable Q&A + file library (agent_resources + agent_qa tables, no UI)
 - Task Queue panel — real-time task cards for cancel/reschedule/follow-up/unavailable (contact_center_tasks, escalation API exists but no queue UI)
 - Products & Warranty section — customer products panel with warranty countdown
-- 3CX Dialer integration — softphone UI for live calls (phone_lines_3cx table exists, no UI)
+- 3CX Dialer integration — outbound from MMS (WebRTC or different provider; experiment in feature/cc-dialer-webrtc)
 - Auto-message controls — per-customer toggle for block/unblock + reminder stop
 - WhatsApp 24h window enforcement — template-only mode when window closed (WATI channel)
 

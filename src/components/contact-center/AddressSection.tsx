@@ -26,7 +26,7 @@ interface AddressFormProps {
   saving: boolean
 }
 
-function AddressForm({ initial, validateBluePlate, onSave, onCancel, saving }: AddressFormProps) {
+export function AddressForm({ initial, validateBluePlate, onSave, onCancel, saving }: AddressFormProps) {
   const defaultType = initial
     ? (initial.address_type === 'blue_plate' ? 'blue_plate' : 'google_coords')
     : 'blue_plate'

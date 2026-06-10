@@ -4,7 +4,7 @@ import { useEffect } from 'react'
 import { useQuery } from '@tanstack/react-query'
 import { createClient } from '@/lib/supabase/client'
 import { useContactCenterContext } from '@/contexts/ContactCenterContext'
-import { ContactCenterSidebar } from './ContactCenterSidebar'
+import { ContactCenterSidebarV2 } from './v2/ContactCenterSidebarV2'
 import { queryKeys } from '@/lib/queryKeys'
 
 export function ContactCenterSidebarGate() {
@@ -38,5 +38,5 @@ export function ContactCenterSidebarGate() {
   }, [hasPermission, isLoading, setCcSidebar])
 
   if (isLoading || !hasPermission) return null
-  return <ContactCenterSidebar />
+  return <ContactCenterSidebarV2 />
 }

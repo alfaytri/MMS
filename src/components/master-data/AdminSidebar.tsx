@@ -9,7 +9,6 @@ import {
   Tag,
   List,
   FileText,
-  Phone,
   Radio,
   Users,
   Warehouse,
@@ -64,7 +63,6 @@ const ADMIN_SECTIONS: SidebarSection[] = [
   {
     label: 'Integrations',
     items: [
-      { label: 'Call Center', href: '/master-data/admin/call-center', icon: Phone, comingSoon: true },
       { label: 'Traccar Devices', href: '/master-data/admin/traccar', icon: Radio, comingSoon: true },
       { label: 'Agent Resources', href: '/master-data/admin/agent-resources', icon: Bot, comingSoon: true },
     ],

@@ -29,10 +29,14 @@ export function ChatAttachmentDialog({
   const [file, setFile]     = useState<File | null>(null)
   const [caption, setCaption] = useState('')
   const [dragging, setDragging] = useState(false)
+  // Local guard against rapid double-clicks: the parent's `sending` prop may
+  // never flip to true with the local-first send flow (queueing is sync), so
+  // we track our own in-flight flag and reset it when the dialog closes.
+  const [submitting, setSubmitting] = useState(false)
   const inputRef            = useRef<HTMLInputElement>(null)
 
   useEffect(() => {
-    if (!open) { setFile(null); setCaption('') }
+    if (!open) { setFile(null); setCaption(''); setSubmitting(false) }
   }, [open])
 
   const activeTab = ATTACH_TABS.find((t) => t.key === tab)!
@@ -144,10 +148,14 @@ export function ChatAttachmentDialog({
         <DialogFooter className="px-5 pb-5 gap-2">
           <Button variant="ghost" onClick={handleClose}>Cancel</Button>
           <Button
-            disabled={!file || sending}
-            onClick={() => { if (file) onSend(file, caption) }}
+            disabled={!file || sending || submitting}
+            onClick={() => {
+              if (!file || submitting) return
+              setSubmitting(true)
+              onSend(file, caption)
+            }}
           >
-            {sending
+            {(sending || submitting)
               ? <><Loader2 className="h-4 w-4 animate-spin mr-1.5" />Sending…</>
               : <><Send className="h-4 w-4 mr-1.5" />Send</>}
           </Button>

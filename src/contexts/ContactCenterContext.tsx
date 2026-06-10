@@ -8,8 +8,8 @@ import type { SelectedCustomer } from '@/types/contact-center'
 // 'expanded'  — sidebar shows at full 320 px width
 export type CCSidebarState = 'none' | 'collapsed' | 'expanded'
 
-// Wraps the phone in an object so the useEffect in ContactCenterSidebar always
-// fires — even when the same phone is looked up twice in a row (e.g. Change → same number).
+// Wraps the phone in an object so the sidebar useEffect fires every time —
+// even when the same phone is looked up twice in a row (e.g. Change → same number).
 export interface PendingPhoneTrigger { phone: string; nonce: number }
 
 interface ContactCenterContextValue {

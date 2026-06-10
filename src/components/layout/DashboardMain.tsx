@@ -6,8 +6,8 @@ export function DashboardMain({ children }: { children: React.ReactNode }) {
   const { ccSidebar } = useContactCenterContext()
 
   const paddingClass =
-    ccSidebar === 'expanded'  ? 'lg:pl-80' :
-    ccSidebar === 'collapsed' ? 'lg:pl-10' :
+    ccSidebar === 'expanded'  ? 'lg:pl-[328px]' :
+    ccSidebar === 'collapsed' ? 'lg:pl-12' :
     ''  // 'none' — no CC sidebar, no padding
 
   return (

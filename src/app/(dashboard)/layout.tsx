@@ -9,6 +9,7 @@ import { SessionGuard } from '@/components/auth/SessionGuard'
 import { ContactCenterProvider } from '@/contexts/ContactCenterContext'
 import { ContactCenterSidebarGate } from '@/components/contact-center/ContactCenterSidebarGate'
 import { DashboardMain } from '@/components/layout/DashboardMain'
+import { TopNavV2Offset } from '@/components/layout/TopNavV2Offset'
 
 export default async function DashboardLayout({
   children,
@@ -37,11 +38,11 @@ export default async function DashboardLayout({
         <div className="h-screen bg-muted/30 flex flex-col overflow-hidden">
           <InactivityGuard />
           <RealtimeSync />
-          <div className="print:hidden">
+          <TopNavV2Offset>
             <Suspense fallback={<TopNavSkeleton />}>
               <TopNav />
             </Suspense>
-          </div>
+          </TopNavV2Offset>
           <DashboardMain>
             {children}
           </DashboardMain>
