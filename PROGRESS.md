@@ -164,6 +164,7 @@ Purchase & Sales▾:
 
 | Date | Module / Scope | Secrets | RLS | Auth Gate | Error Handling | Layout Stability | Notes |
 |---|---|---|---|---|---|---|---|
+| 2026-06-11 | **Admin RLS Tightening** | ✅ | ✅ | ✅ | n/a | n/a | Created `has_admin_permission()` SECURITY DEFINER function; profiles UPDATE restricted to own-row + admins; DELETE admin-only; SELECT stays open for lookups; admin layout server-side gate added |
 | 2026-06-11 | **CC Dialer (3CX XAPI)** | ✅ | ✅ | ✅ | ✅ | ✅ | No new tables; OAuth token + MakeCall use process.env only; API route checks auth.getUser(); banner is fixed-position (no layout shift); all external calls wrapped in try/catch |
 | 2026-06-10 | **CC Rework Plan 4 — Admin Purge** | ✅ | ✅ | ✅ (perm + cron) | ✅ | ✅ | Strict byte-equal phrase match. 7-day restore window; nightly hard-delete sweep. All routes check `contact_centre.admin.purge` permission. Sweep route validates CRON_SECRET. No hardcoded secrets. |
 | 2026-06-09 | **CC Rework Plan 3 — 3CX Integration** | ✅ | ✅ (inherits) | ✅ (?secret=) | ✅ | ✅ | Webhook validates URL secret against 3CX_WEBHOOK_SECRET env. No new tables — profiles.threecx_extension inherits existing RLS. Recording URLs stored in attachments + media_download_jobs enqueued. CallEventBubble has fixed layout (border+padding, monospace ticker). |
@@ -213,10 +214,11 @@ Purchase & Sales▾:
 
 ## 🔄 In Progress
 
-🚀 Starting: **Admin RLS Tightening** — Restrict profiles UPDATE/DELETE to admins, add admin layout role gate
+(none)
 
 ## ✅ Completed
 
+- [2026-06-11] **Admin RLS Tightening** — `supabase/migrations/20260611200000_profiles_admin_rls.sql`, `src/app/(dashboard)/admin/layout.tsx` — Created `has_admin_permission()` SQL function; replaced wide-open `FOR ALL USING(true)` profiles policy with granular SELECT/INSERT/UPDATE/DELETE policies (admins-only for UPDATE others + DELETE); added server-side admin layout role gate.
 - [2026-06-11] **CC Dialer (3CX XAPI) Task 6: Inbound Call Banner** — `src/hooks/contact-center/useInboundCallAlerts.ts`, `src/components/contact-center/v2/InboundCallBanner.tsx`, `src/app/(dashboard)/layout.tsx` — Realtime Supabase subscription for 3CX ringing events; top-right banner with customer name lookup, 12s auto-dismiss, and "Open chat" action.
 - [2026-06-11] **CC Dialer (3CX XAPI) Task 5: Dial Pad Component** — `src/components/contact-center/v2/DialPad.tsx`, mounted in `src/components/contact-center/v2/ContactCenterSidebarV2.tsx` — Collapsible dial pad with PhoneInputWithCode + Call button that hits `/api/3cx/call/make`.
 - [2026-06-11] **CC Dialer (3CX XAPI) Task 4: Extension Assignment Admin Page** — `src/app/(dashboard)/admin/contact-centre/extensions/page.tsx` — Admin page that lists every profile and lets admins inline-edit the 3CX extension number.
