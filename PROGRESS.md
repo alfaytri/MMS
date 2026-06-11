@@ -212,7 +212,7 @@ Purchase & Sales▾:
 
 ## 🔄 In Progress
 
-🚀 Starting: **CC Dialer WebRTC Plan Task 0.1: SIP.js Preflight Spike** — `scripts/3cx-preflight/index.html` + README — Proves SIP.js + WebRTC registers against live 3CX V20, exchanges two-way audio, and survives concurrent desktop+browser registration on the same extension. HARD GATE: no other build tasks proceed until preflight passes.
+🚀 Starting: **CC Dialer (3CX XAPI) Plan Step 0: Preflight Script**
 
 ## ✅ Completed
 
