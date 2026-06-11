@@ -13,10 +13,18 @@ export function DialPad() {
   const { dial, loading } = useClickToCall()
 
   async function handleCall() {
-    const e164 = `${code}${digits.replace(/\D/g, '')}`
-    if (digits.replace(/\D/g, '').length < 6) return
-    await dial(e164)
-    setDigits('')
+    const cleaned        = digits.replace(/\D/g, '')
+    if (cleaned.length < 6) return
+
+    // Paste safety: if the agent pasted a number that already includes the
+    // country code (e.g. "+97455123456" → digits="97455123456" after the
+    // PhoneInputWithCode strips the +), don't double the country code.
+    const codeWithoutPlus = code.slice(1)
+    const finalDigits     = cleaned.startsWith(codeWithoutPlus) ? cleaned.slice(codeWithoutPlus.length) : cleaned
+    const e164            = `${code}${finalDigits}`
+
+    const ok = await dial(e164)
+    if (ok) setDigits('')
   }
 
   return (

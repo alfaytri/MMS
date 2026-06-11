@@ -183,7 +183,7 @@ export function ContactCenterSidebarV2() {
             <ChevronLeft className="h-3.5 w-3.5" />
           </Button>
         </div>
-        <DialPad />
+        {myProfile?.threecx_extension && <DialPad />}
         <div className="min-h-[20px]">
           {authUserId && <SyncBanner authUserId={authUserId} />}
         </div>
@@ -288,7 +288,7 @@ export function ContactCenterSidebarV2() {
         )}
       </div>
 
-      <DialPad />
+      {myProfile?.threecx_extension && <DialPad />}
 
       {/* When no customer is linked OR we're in unknown-caller flow,
           render the v1 CrmSection's attach/create flow inline */}

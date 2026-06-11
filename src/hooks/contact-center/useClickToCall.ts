@@ -4,17 +4,17 @@ import { useCallback, useState } from 'react'
 import { toast } from 'sonner'
 
 interface UseClickToCallResult {
-  dial:    (phoneE164: string) => Promise<void>
+  dial:    (phoneE164: string) => Promise<boolean>
   loading: boolean
 }
 
 export function useClickToCall(): UseClickToCallResult {
   const [loading, setLoading] = useState(false)
 
-  const dial = useCallback(async (phoneE164: string) => {
+  const dial = useCallback(async (phoneE164: string): Promise<boolean> => {
     if (!phoneE164) {
       toast.error('No phone number')
-      return
+      return false
     }
     setLoading(true)
     try {
@@ -26,11 +26,13 @@ export function useClickToCall(): UseClickToCallResult {
       const json = await res.json().catch(() => ({}))
       if (!res.ok) {
         toast.error(json?.error ?? `Call failed (${res.status})`)
-        return
+        return false
       }
       toast.success('Calling — answer your softphone to connect')
+      return true
     } catch (e) {
       toast.error(e instanceof Error ? e.message : 'Call failed')
+      return false
     } finally {
       setLoading(false)
     }
