@@ -212,10 +212,11 @@ Purchase & Sales▾:
 
 ## 🔄 In Progress
 
-🚀 Starting: **CC Dialer (3CX XAPI) Plan Task 1: OAuth Token Client** — `src/lib/3cx/auth.ts`
+🚀 Starting: **CC Dialer (3CX XAPI) Plan Task 2: MakeCall Helper + API Route** — `src/lib/3cx/make-call.ts` + `src/app/api/3cx/call/make/route.ts`
 
 ## ✅ Completed
 
+- [2026-06-11] **CC Dialer (3CX XAPI) Task 1: OAuth Token Client** — `src/lib/3cx/auth.ts`, `src/lib/3cx/__tests__/auth.test.ts` — Module-level token cache for the 3CX XAPI with a 5 s refresh margin (60 s TTL).
 - [2026-06-11] **CC Dialer (3CX XAPI) Step 0: Preflight Script** — `scripts/3cx-xapi-preflight.ts` — Throwaway script that hits OAuth + MakeCall against the live PBX so the engineer can lock down the verified URL + body shape before writing lib code.
 - [2026-06-10] **Call Centre cleanup — rip out in-app 3CX dialer + admin** — Deleted `src/components/contact-center/v2/{DialerPanel,DialerExpanded,DialerCollapsedBar,IncomingCallPopup,InCallBanner}.tsx`, `src/components/master-data/CallCenterAdmin.tsx`, `src/app/(dashboard)/master-data/admin/call-center/`, `src/app/api/3cx/call/`, `src/app/api/admin/{3cx-extensions,call-center}/`, `src/lib/3cx/{api-client,auth,call-controller,format-phone,providers}/`, `src/hooks/contact-center/{useLiveCalls,usePreflight}.ts`, V1 leftovers (Sidebar/ChatListView/ChatSection/ChatInputBar/useFeatureFlag), `scripts/3cx-list-extensions.mjs`. Stripped `live_calls` writes from webhook (keeps `chat_messages` + `call_records`). Removed Call Center entry from `AdminSidebar`, IncomingCallPopup from `ContactCenterSidebarGate`, DialerPanel + InCallBanner from `ContactCenterSidebarV2`, `phoneLines` keys from `queryKeys`, click-to-call from `PhoneNumber` (display-only). New migration `20260610182146_drop_dialer_tables.sql` drops `live_calls` + `phone_lines_3cx` + `phone_line_permissions_3cx` + unschedules the live_calls pg_cron jobs. Types regenerated. Reason: 3CX V20 Call Control API requires the agent's softphone to ring first before the customer is dialed; users will use the 3CX app directly until WebRTC spike lands.
 - [2026-06-10] **3CX Dialer & Receiver Plan Task 10: Preflight CLI + API fixes** — `scripts/3cx-preflight.ts`, `src/lib/3cx/api-client.ts`, `src/lib/3cx/call-controller.ts` — Preflight verified OAuth token + extension + outbound call. Fixed `result.callid` (lowercase) mapping. Removed dead answer endpoint. **Limitation documented**: 3CX V20 has no programmatic answer API — agent answers outbound calls on softphone (standard CRM+PBX behavior).
