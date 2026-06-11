@@ -46,4 +46,10 @@ describe('makeCall', () => {
     await expect(makeCall({ extension: '101', destination: '' }))
       .rejects.toThrow(/destination/)
   })
+
+  it('throws a readable error when 3CX_PBX_URL is missing', async () => {
+    delete process.env['3CX_PBX_URL']
+    await expect(makeCall({ extension: '101', destination: '+97455123456' }))
+      .rejects.toThrow(/3CX_PBX_URL/)
+  })
 })

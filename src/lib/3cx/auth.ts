@@ -13,7 +13,7 @@ let cached: CachedToken | null = null
 // boundary still has a valid token by the time the MakeCall round-trips.
 const REFRESH_MARGIN_MS = 5_000
 
-function requireEnv(name: string): string {
+export function requireEnv(name: string): string {
   const v = process.env[name]
   if (!v) throw new Error(`Missing required env var: ${name}`)
   return v

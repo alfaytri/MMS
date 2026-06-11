@@ -64,4 +64,13 @@ describe('POST /api/3cx/call/make', () => {
     const res = await POST(req({ destination: '+97455123456' }))
     expect(res.status).toBe(502)
   })
+
+  it('strips spaces, dashes, and parens from destination before validation', async () => {
+    mockSupabase.auth.getUser.mockResolvedValue({ data: { user: { id: 'u1' } } })
+    mockSupabase.maybeSingle.mockResolvedValue({ data: { threecx_extension: '101' } })
+    const spy = vi.spyOn(makeCallMod, 'makeCall').mockResolvedValue()
+    const res = await POST(req({ destination: '+974 (5512)-3456' }))
+    expect(res.status).toBe(200)
+    expect(spy).toHaveBeenCalledWith({ extension: '101', destination: '+97455123456' })
+  })
 })

@@ -1,4 +1,4 @@
-import { getAccessToken } from './auth'
+import { getAccessToken, requireEnv } from './auth'
 
 interface MakeCallArgs {
   extension:   string  // the 3CX extension (DN) that should ring first
@@ -9,7 +9,7 @@ export async function makeCall({ extension, destination }: MakeCallArgs): Promis
   if (!extension)   throw new Error('extension is required')
   if (!destination) throw new Error('destination is required')
 
-  const pbx   = process.env['3CX_PBX_URL']!.replace(/\/$/, '')
+  const pbx   = requireEnv('3CX_PBX_URL').replace(/\/$/, '')
   const token = await getAccessToken()
 
   const res = await fetch(`${pbx}/xapi/v1/Users/Pbx.MakeCall`, {
