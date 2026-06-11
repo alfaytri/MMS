@@ -23,6 +23,7 @@ import { ChatTemplateConfirmDialog } from '@/components/contact-center/ChatTempl
 import { CrmSection } from '@/components/contact-center/CrmSection'
 import { AddressForm } from '@/components/contact-center/AddressSection'
 import { ChatListV2 } from './ChatListV2'
+import { DialPad } from './DialPad'
 import { SectionAccordion } from './SectionAccordion'
 import { AddressStrip } from './AddressStrip'
 import { UnifiedThread } from './UnifiedThread'
@@ -182,6 +183,7 @@ export function ContactCenterSidebarV2() {
             <ChevronLeft className="h-3.5 w-3.5" />
           </Button>
         </div>
+        <DialPad />
         <div className="min-h-[20px]">
           {authUserId && <SyncBanner authUserId={authUserId} />}
         </div>
@@ -285,6 +287,8 @@ export function ContactCenterSidebarV2() {
           </div>
         )}
       </div>
+
+      <DialPad />
 
       {/* When no customer is linked OR we're in unknown-caller flow,
           render the v1 CrmSection's attach/create flow inline */}
