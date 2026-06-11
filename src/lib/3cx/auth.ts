@@ -43,6 +43,9 @@ async function fetchToken(): Promise<CachedToken> {
   return { token: json.access_token, expiresAt: Date.now() + expiresInMs }
 }
 
+// No in-flight promise dedup: concurrent callers during a cold cache will
+// each fetch a token; the last write wins. Acceptable for the dialer's low
+// concurrency profile (one user, one button click at a time).
 export async function getAccessToken(): Promise<string> {
   if (cached && cached.expiresAt - Date.now() > REFRESH_MARGIN_MS) {
     return cached.token
