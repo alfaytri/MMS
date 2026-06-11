@@ -8,6 +8,7 @@ import { InactivityGuard } from '@/components/auth/InactivityGuard'
 import { SessionGuard } from '@/components/auth/SessionGuard'
 import { ContactCenterProvider } from '@/contexts/ContactCenterContext'
 import { ContactCenterSidebarGate } from '@/components/contact-center/ContactCenterSidebarGate'
+import { InboundCallBanner } from '@/components/contact-center/v2/InboundCallBanner'
 import { DashboardMain } from '@/components/layout/DashboardMain'
 import { TopNavV2Offset } from '@/components/layout/TopNavV2Offset'
 
@@ -43,6 +44,7 @@ export default async function DashboardLayout({
               <TopNav />
             </Suspense>
           </TopNavV2Offset>
+          <InboundCallBanner />
           <DashboardMain>
             {children}
           </DashboardMain>
