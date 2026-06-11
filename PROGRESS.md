@@ -212,10 +212,11 @@ Purchase & Sales▾:
 
 ## 🔄 In Progress
 
-🚀 Starting: **CC Dialer (3CX XAPI) Plan Task 3: useClickToCall Hook** — `src/hooks/contact-center/useClickToCall.ts`
+🚀 Starting: **CC Dialer (3CX XAPI) Plan Task 4: Extension Assignment Admin Page** — `src/app/(dashboard)/admin/contact-centre/extensions/page.tsx`
 
 ## ✅ Completed
 
+- [2026-06-11] **CC Dialer (3CX XAPI) Task 3: useClickToCall Hook** — `src/hooks/contact-center/useClickToCall.ts` — Client hook that POSTs to `/api/3cx/call/make` and surfaces success/failure via sonner toasts.
 - [2026-06-11] **CC Dialer (3CX XAPI) Task 2: MakeCall Helper + API Route** — `src/lib/3cx/make-call.ts`, `src/lib/3cx/__tests__/make-call.test.ts`, `src/app/api/3cx/call/make/route.ts`, `src/app/api/3cx/call/__tests__/make.test.ts` — Server-side helper + auth-gated API route that triggers a 3CX MakeCall using the signed-in user's assigned extension.
 - [2026-06-11] **CC Dialer (3CX XAPI) Task 1: OAuth Token Client** — `src/lib/3cx/auth.ts`, `src/lib/3cx/__tests__/auth.test.ts` — Module-level token cache for the 3CX XAPI with a 5 s refresh margin (60 s TTL).
 - [2026-06-11] **CC Dialer (3CX XAPI) Step 0: Preflight Script** — `scripts/3cx-xapi-preflight.ts` — Throwaway script that hits OAuth + MakeCall against the live PBX so the engineer can lock down the verified URL + body shape before writing lib code.
