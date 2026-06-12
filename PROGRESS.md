@@ -214,7 +214,7 @@ Purchase & Sales▾:
 
 ## 🔄 In Progress
 
-🚀 Starting: **CC Live Call Polling Task 1: fetchRingingCalls helper**
+🚀 Starting: **CC Live Call Polling Task 2: GET /api/3cx/active-calls route**
 
 ## ✅ Completed
 
