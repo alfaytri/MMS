@@ -1,4 +1,4 @@
-import { getAccessToken } from './auth'
+import { getAccessToken, requireEnv } from './auth'
 
 export interface RingingCall {
   callId:            number
@@ -39,7 +39,7 @@ function normalisePhone(raw: string | null | undefined): string {
 }
 
 export async function fetchRingingCalls(): Promise<RingingCall[]> {
-  const pbx   = process.env['3CX_PBX_URL']!.replace(/\/$/, '')
+  const pbx   = requireEnv('3CX_PBX_URL').replace(/\/$/, '')
   const token = await getAccessToken()
   // Next.js fetch cache with 1s revalidate — collapses concurrent polls across
   // serverless instances (Vercel / Cloudflare via OpenNext) down to ~1 req/sec

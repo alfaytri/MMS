@@ -24,6 +24,20 @@ describe('fetchRingingCalls', () => {
     expect(await fetchRingingCalls()).toEqual([])
   })
 
+  it('calls /callcontrol on the configured PBX with a Bearer auth header', async () => {
+    const fetchMock = vi.fn().mockResolvedValue({
+      ok: true, status: 200,
+      json: async () => [],
+      text: async () => '[]',
+    })
+    global.fetch = fetchMock as unknown as typeof fetch
+    await fetchRingingCalls()
+    expect(fetchMock).toHaveBeenCalledOnce()
+    const [url, init] = fetchMock.mock.calls[0] as [string, RequestInit]
+    expect(url).toBe('https://pbx.test/callcontrol')
+    expect((init.headers as Record<string, string>)['Authorization']).toBe('Bearer tok-test')
+  })
+
   it('groups multiple ringing extensions under one call by callid', async () => {
     mockCallControlResponse([
       {
