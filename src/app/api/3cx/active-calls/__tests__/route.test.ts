@@ -31,15 +31,32 @@ describe('GET /api/3cx/active-calls', () => {
 
   it('returns empty array when caller has no extension assigned', async () => {
     mockSupabase.auth.getUser.mockResolvedValue({ data: { user: { id: 'u1' } } })
-    mockSupabase.maybeSingle.mockResolvedValue({ data: { threecx_extension: null } })
+    mockSupabase.maybeSingle.mockResolvedValue({ data: { threecx_extension: null }, error: null })
     const res = await GET(req())
     expect(res.status).toBe(200)
     expect(await res.json()).toEqual({ calls: [] })
   })
 
+  it('returns empty array when no profile row exists for the caller', async () => {
+    mockSupabase.auth.getUser.mockResolvedValue({ data: { user: { id: 'u1' } } })
+    mockSupabase.maybeSingle.mockResolvedValue({ data: null, error: null })
+    const res = await GET(req())
+    expect(res.status).toBe(200)
+    expect(await res.json()).toEqual({ calls: [] })
+  })
+
+  it('500 when the profile lookup itself errors (RLS / connection blip)', async () => {
+    mockSupabase.auth.getUser.mockResolvedValue({ data: { user: { id: 'u1' } } })
+    mockSupabase.maybeSingle.mockResolvedValue({ data: null, error: { message: 'permission denied' } })
+    const res = await GET(req())
+    expect(res.status).toBe(500)
+    const body = await res.json()
+    expect(body.error).toBe('Profile lookup failed')
+  })
+
   it('returns only ringing calls that include the caller extension', async () => {
     mockSupabase.auth.getUser.mockResolvedValue({ data: { user: { id: 'u1' } } })
-    mockSupabase.maybeSingle.mockResolvedValue({ data: { threecx_extension: '112' } })
+    mockSupabase.maybeSingle.mockResolvedValue({ data: { threecx_extension: '112' }, error: null })
     vi.spyOn(activeCalls, 'fetchRingingCalls').mockResolvedValue([
       { callId: 40, customerPhone: '+97472195504', ringingExtensions: ['101', '112'], startedAt: '2026-06-12T20:35:21Z' },
       { callId: 41, customerPhone: '+97455000000', ringingExtensions: ['101'],        startedAt: '2026-06-12T20:35:25Z' },
@@ -53,7 +70,7 @@ describe('GET /api/3cx/active-calls', () => {
 
   it('502 when upstream /callcontrol fails', async () => {
     mockSupabase.auth.getUser.mockResolvedValue({ data: { user: { id: 'u1' } } })
-    mockSupabase.maybeSingle.mockResolvedValue({ data: { threecx_extension: '112' } })
+    mockSupabase.maybeSingle.mockResolvedValue({ data: { threecx_extension: '112' }, error: null })
     vi.spyOn(activeCalls, 'fetchRingingCalls').mockRejectedValue(new Error('3CX /callcontrol failed: 500'))
     const res = await GET(req())
     expect(res.status).toBe(502)

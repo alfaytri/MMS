@@ -15,11 +15,16 @@ export async function GET(_req: Request): Promise<Response> {
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
 
-  const { data: profile } = await supabase
+  const { data: profile, error: profileErr } = await supabase
     .from('profiles')
     .select('threecx_extension')
     .eq('auth_user_id', user.id)
     .maybeSingle()
+
+  if (profileErr) {
+    console.error('[3cx/active-calls] profile lookup failed:', profileErr.message)
+    return NextResponse.json({ error: 'Profile lookup failed' }, { status: 500 })
+  }
 
   const extension = profile?.threecx_extension ?? null
   if (!extension) return NextResponse.json({ calls: [] })
