@@ -30,7 +30,7 @@ export async function POST(req: Request): Promise<Response> {
   const { data: profile } = await supabase
     .from('profiles')
     .select('threecx_extension')
-    .eq('id', user.id)
+    .eq('auth_user_id', user.id)
     .maybeSingle()
 
   if (!profile?.threecx_extension) {

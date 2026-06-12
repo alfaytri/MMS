@@ -1,0 +1,72 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  MMS Contact Centre — v2 template with speculative live-call scenarios.
+  Adds OnRinging / OnAnswered / OnDialing scenarios alongside the existing
+  ReportCall. If 3CX V20 recognises these Scenario Ids, the MMS inbound banner
+  fires the moment a call rings. If 3CX does NOT recognise them, the scenarios
+  are simply ignored and the existing ReportCall (hangup + recording) behaviour
+  is unchanged.
+
+  Test plan:
+    1. Upload this XML in 3CX Admin → Integrations → CRM
+    2. Make a real inbound call to ext 112
+    3. Watch MMS dev server logs for [3cx/webhook] raw body: lines
+       — if you see event=ringing arrive BEFORE the call ends, success.
+    4. If only event=incoming arrives at hangup, the speculative scenarios
+       didn't fire → fall back to XAPI WebSocket approach (Option 3).
+-->
+<Crm xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xmlns:xsd="http://www.w3.org/2001/XMLSchema" Country="US" Name="MMS Contact Centre" Version="2" SupportsEmojis="false" SupportsTranscription="false" ListPageSize="0">
+  <Number Prefix="AsIs" MaxLength="[MaxLength]" />
+  <Connection MaxConcurrentRequests="4" />
+  <Parameters>
+    <Parameter Name="WebhookUrl" Type="String" Parent="General Configuration" Editor="String" Title="Webhook URL:" Validation="" Default="https://freight-tinsmith-flashcard.ngrok-free.dev/api/3cx/webhook/event" ListValues="" RequestUrl="" RequestUrlParameters="" ResponseScenario="" />
+    <Parameter Name="WebhookSecret" Type="Password" Parent="General Configuration" Editor="String" Title="Webhook Secret:" Validation="" Default="" ListValues="" RequestUrl="" RequestUrlParameters="" ResponseScenario="" />
+    <Parameter Name="ReportCallEnabled" Type="Boolean" Parent="" Editor="String" Title="Enable Call Journaling" Validation="" Default="True" ListValues="" RequestUrl="" RequestUrlParameters="" ResponseScenario="" />
+    <Parameter Name="LiveCallEnabled" Type="Boolean" Parent="" Editor="String" Title="Enable Live Call Notifications" Validation="" Default="True" ListValues="" RequestUrl="" RequestUrlParameters="" ResponseScenario="" />
+  </Parameters>
+  <Authentication Type="No" />
+  <Scenarios>
+    <!-- Contact lookup (unchanged) -->
+    <Scenario Id="" Type="REST" EntityId="Contacts" EntityOrder="0">
+      <Request SkipIf="" Url="[WebhookUrl]" MessagePasses="0" Message="" RequestContentType="" RequestEncoding="UrlEncoded" RequestType="Get" ResponseType="Json" />
+      <Rules>
+        <Rule Type="Any" Ethalon="">ok</Rule>
+      </Rules>
+      <Variables />
+      <Outputs Next="" AllowEmpty="true">
+        <Output Type="PhoneMobile" Passes="0" Value="[Number]" />
+      </Outputs>
+    </Scenario>
+
+    <!-- Speculative: fires when the agent's extension starts ringing on an inbound call.
+         Sends event=ringing → MMS InboundCallBanner picks this up via realtime. -->
+    <Scenario Id="OnRinging" Type="REST" EntityId="" EntityOrder="">
+      <Request SkipIf="[LiveCallEnabled]!=True" Url="[WebhookUrl]?secret=[WebhookSecret]" MessagePasses="0" Message="{{ ^^event^^: ^^ringing^^, ^^callerid^^: ^^[Number]^^, ^^user^^: ^^[Agent]^^, ^^usertype^^: ^^ext^^, ^^call_id1^^: ^^[CallId]^^, ^^call_id2^^: ^^^^, ^^did^^: ^^[Did]^^, ^^sip_displayname^^: ^^[CallerName]^^ }}" RequestContentType="application/json" RequestEncoding="Json" RequestType="Post" ResponseType="Json" />
+      <Variables />
+      <Outputs AllowEmpty="false" />
+    </Scenario>
+
+    <!-- Speculative: fires when the agent picks up an inbound call.
+         Sends event=pickupincoming. -->
+    <Scenario Id="OnAnswered" Type="REST" EntityId="" EntityOrder="">
+      <Request SkipIf="[LiveCallEnabled]!=True" Url="[WebhookUrl]?secret=[WebhookSecret]" MessagePasses="0" Message="{{ ^^event^^: ^^[IIf([CallDirection]==Inbound,pickupincoming,pickupoutgoing)]^^, ^^callerid^^: ^^[Number]^^, ^^user^^: ^^[Agent]^^, ^^usertype^^: ^^ext^^, ^^call_id1^^: ^^[CallId]^^, ^^call_id2^^: ^^^^ }}" RequestContentType="application/json" RequestEncoding="Json" RequestType="Post" ResponseType="Json" />
+      <Variables />
+      <Outputs AllowEmpty="false" />
+    </Scenario>
+
+    <!-- Speculative: fires when MMS triggers MakeCall → 3CX rings the agent → agent's
+         softphone is in "dialing" state. Sends event=dialing. -->
+    <Scenario Id="OnDialing" Type="REST" EntityId="" EntityOrder="">
+      <Request SkipIf="[LiveCallEnabled]!=True" Url="[WebhookUrl]?secret=[WebhookSecret]" MessagePasses="0" Message="{{ ^^event^^: ^^dialing^^, ^^callerid^^: ^^[Number]^^, ^^user^^: ^^[Agent]^^, ^^usertype^^: ^^ext^^, ^^call_id1^^: ^^[CallId]^^, ^^call_id2^^: ^^^^ }}" RequestContentType="application/json" RequestEncoding="Json" RequestType="Post" ResponseType="Json" />
+      <Variables />
+      <Outputs AllowEmpty="false" />
+    </Scenario>
+
+    <!-- Call ended (UNCHANGED from v1 — call journaling + recording) -->
+    <Scenario Id="ReportCall" Type="REST" EntityId="" EntityOrder="">
+      <Request SkipIf="[ReportCallEnabled]!=True" Url="[WebhookUrl]?secret=[WebhookSecret]" MessagePasses="0" Message="{{ ^^event^^: ^^[IIf([CallDirection]==Inbound,incoming,outgoing)]^^, ^^callerid^^: ^^[Number]^^, ^^user^^: ^^[Agent]^^, ^^usertype^^: ^^ext^^, ^^finishtype^^: ^^[IIf([DurationTimespan].get_TotalSeconds()&gt;0,Ok,Missed)]^^, ^^call_id1^^: ^^[CallId]^^, ^^call_id2^^: ^^^^, ^^title^^: ^^[CallDirection] — [Number]^^, ^^recording_url^^: ^^[RecordingUrl]^^, ^^transfer^^: ^^False^^, ^^breakside^^: ^^Undef^^ }}" RequestContentType="application/json" RequestEncoding="Json" RequestType="Post" ResponseType="Json" />
+      <Variables />
+      <Outputs AllowEmpty="false" />
+    </Scenario>
+  </Scenarios>
+</Crm>
