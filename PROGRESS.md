@@ -214,7 +214,7 @@ Purchase & Sales▾:
 
 ## 🔄 In Progress
 
-🚀 Starting: **CC Live Call Polling Task 3: useLivePolledInboundCalls hook**
+🚀 Starting: **CC Live Call Polling Task 4: Rewire InboundCallBanner + delete realtime hook**
 
 ## ✅ Completed
 
