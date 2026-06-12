@@ -164,6 +164,7 @@ Purchase & Sales▾:
 
 | Date | Module / Scope | Secrets | RLS | Auth Gate | Error Handling | Layout Stability | Notes |
 |---|---|---|---|---|---|---|---|
+| 2026-06-13 | **CC Live Call Polling** | ✅ | ✅ (no new tables) | ✅ | ✅ | ✅ | Bearer token via runtime OAuth helper, no hardcoded secrets; framework fetch cache collapses concurrent polls to ~1 req/sec to 3CX; route self-gates auth + surfaces Supabase profile-query errors with 500; non-2xx upstream returns 502; banner is fixed-position with per-row min-h-16 + flex-col gap-2 stack — no layout shift on appear/disappear; mobile touch targets bumped to 44px |
 | 2026-06-11 | **Admin RLS Tightening** | ✅ | ✅ | ✅ | n/a | n/a | Created `has_admin_permission()` SECURITY DEFINER function; profiles UPDATE restricted to own-row + admins; DELETE admin-only; SELECT stays open for lookups; admin layout server-side gate added |
 | 2026-06-11 | **CC Dialer (3CX XAPI)** | ✅ | ✅ | ✅ | ✅ | ✅ | No new tables; OAuth token + MakeCall use process.env only; API route checks auth.getUser(); banner is fixed-position (no layout shift); all external calls wrapped in try/catch |
 | 2026-06-10 | **CC Rework Plan 4 — Admin Purge** | ✅ | ✅ | ✅ (perm + cron) | ✅ | ✅ | Strict byte-equal phrase match. 7-day restore window; nightly hard-delete sweep. All routes check `contact_centre.admin.purge` permission. Sweep route validates CRON_SECRET. No hardcoded secrets. |
@@ -214,10 +215,11 @@ Purchase & Sales▾:
 
 ## 🔄 In Progress
 
-🚀 Starting: **CC Live Call Polling Task 4: Rewire InboundCallBanner + delete realtime hook**
+(none)
 
 ## ✅ Completed
 
+- [2026-06-13] **CC Live Call Polling: full delivery** — `src/lib/3cx/active-calls.ts`, `src/app/api/3cx/active-calls/route.ts`, `src/hooks/contact-center/useLivePolledInboundCalls.ts`, `src/components/contact-center/v2/InboundCallBanner.tsx` (rewritten), `src/hooks/contact-center/useInboundCallAlerts.ts` (deleted) — Replaced Supabase-realtime banner with polling against 3CX `/callcontrol`. Banner now mirrors live PBX state, auto-dissolves within ~2s when call is answered/ended, and stacks multiple concurrent rings. Framework fetch cache + `next: { revalidate: 1 }` keeps upstream 3CX load at ~1 req/sec regardless of agents online. 15 tests across the helper + route.
 - [2026-06-11] **Admin RLS Tightening** — `supabase/migrations/20260611200000_profiles_admin_rls.sql`, `src/app/(dashboard)/admin/layout.tsx` — Created `has_admin_permission()` SQL function; replaced wide-open `FOR ALL USING(true)` profiles policy with granular SELECT/INSERT/UPDATE/DELETE policies (admins-only for UPDATE others + DELETE); added server-side admin layout role gate.
 - [2026-06-11] **CC Dialer (3CX XAPI) Task 6: Inbound Call Banner** — `src/hooks/contact-center/useInboundCallAlerts.ts`, `src/components/contact-center/v2/InboundCallBanner.tsx`, `src/app/(dashboard)/layout.tsx` — Realtime Supabase subscription for 3CX ringing events; top-right banner with customer name lookup, 12s auto-dismiss, and "Open chat" action.
 - [2026-06-11] **CC Dialer (3CX XAPI) Task 5: Dial Pad Component** — `src/components/contact-center/v2/DialPad.tsx`, mounted in `src/components/contact-center/v2/ContactCenterSidebarV2.tsx` — Collapsible dial pad with PhoneInputWithCode + Call button that hits `/api/3cx/call/make`.
