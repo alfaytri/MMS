@@ -17,6 +17,8 @@ function BannerRow({ call, onOpen, onDismiss }: BannerRowProps) {
   const [customerName, setCustomerName] = useState<string | null>(null)
   const isAnonymous = call.customerPhone === 'Unknown'
 
+  // Deps are primitives on purpose — `calls` gets a new identity on every poll tick;
+  // depending on `call` directly would re-fire the Supabase lookup every 2s.
   useEffect(() => {
     if (isAnonymous) return  // no point looking up "Unknown" in service_customer_phones
     let cancelled = false
@@ -56,7 +58,7 @@ function BannerRow({ call, onOpen, onDismiss }: BannerRowProps) {
             <Button
               size="sm"
               onClick={() => onOpen(call.customerPhone)}
-              className="h-8"
+              className="h-11 sm:h-8"
               disabled={isAnonymous}
             >
               Open chat
@@ -66,7 +68,7 @@ function BannerRow({ call, onOpen, onDismiss }: BannerRowProps) {
         <Button
           size="icon"
           variant="ghost"
-          className="h-6 w-6 -mr-1 -mt-1"
+          className="h-11 w-11 sm:h-6 sm:w-6 sm:-mr-1 sm:-mt-1"
           onClick={() => onDismiss(call.callId)}
           aria-label="Dismiss"
         >
