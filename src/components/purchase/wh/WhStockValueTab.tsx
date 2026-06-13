@@ -1,7 +1,7 @@
 'use client'
 
-import React, { useState, useMemo, useEffect, useRef, useCallback } from 'react'
-import { Search, X, Wifi, WifiOff, TrendingUp, ChevronRight, ChevronDown } from 'lucide-react'
+import React, { useState, useMemo, useCallback } from 'react'
+import { Search, X, RefreshCw, TrendingUp, ChevronRight, ChevronDown } from 'lucide-react'
 import { Input } from '@/components/ui/input'
 import { Button } from '@/components/ui/button'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
@@ -213,7 +213,6 @@ export const WhStockValueTab = React.memo(function WhStockValueTab({ warehouses 
   const [activeType, setActiveType] = useState<ItemTypeValue>('__all__')
   const [sortField, setSortField] = useState<SortField>('category_name')
   const [sortDir, setSortDir] = useState<SortDir>('asc')
-  const [realtimeConnected, setRealtimeConnected] = useState(false)
   const [expandedRows, setExpandedRows] = useState<Set<string>>(new Set())
 
   const queryClient = useQueryClient()
@@ -236,39 +235,10 @@ export const WhStockValueTab = React.memo(function WhStockValueTab({ warehouses 
     })
   }, [])
 
-  // ── Realtime subscription ──────────────────────────────────────────────────
-  const channelRef = useRef<ReturnType<ReturnType<typeof createClient>['channel']> | null>(null)
-
-  useEffect(() => {
-    const supabase = createClient()
-    const channel = supabase
-      .channel('stock-value-live')
-      .on(
-        'postgres_changes',
-        { event: '*', schema: 'public', table: 'fifo_cost_layers' },
-        () => {
-          queryClient.invalidateQueries({ queryKey: queryKeys.warehouseOps.warehouseStockAll })
-          queryClient.invalidateQueries({ queryKey: queryKeys.inventory.fifoLayers })
-        },
-      )
-      .on(
-        'postgres_changes',
-        { event: '*', schema: 'public', table: 'cogs_entries' },
-        () => {
-          queryClient.invalidateQueries({ queryKey: queryKeys.inventory.cogsEntries })
-        },
-      )
-      .subscribe((status) => {
-        setRealtimeConnected(status === 'SUBSCRIBED')
-      })
-
-    channelRef.current = channel
-
-    return () => {
-      supabase.removeChannel(channel)
-      channelRef.current = null
-    }
-  }, [queryClient])
+  // QUOTA REMEDIATION (2026-06-13): A5 — stock-value-live realtime channel
+  // dropped. Stock Value is a report screen; the Refresh button below plus
+  // refetchOnWindowFocus on useWarehouseStock / fifoLayers / cogsEntries
+  // queries cover the update path.
 
   // ── Filter ─────────────────────────────────────────────────────────────────
 
@@ -402,7 +372,7 @@ export const WhStockValueTab = React.memo(function WhStockValueTab({ warehouses 
   return (
     <TooltipProvider delayDuration={150}>
       <div className="p-4 md:p-6 space-y-4">
-        {/* Realtime indicator + summary cards */}
+        {/* Summary cards + refresh */}
         <div className="flex items-center justify-between gap-3">
           <div className="grid grid-cols-3 gap-3 flex-1">
             {[
@@ -419,13 +389,19 @@ export const WhStockValueTab = React.memo(function WhStockValueTab({ warehouses 
               </div>
             ))}
           </div>
-          <Badge
+          <Button
             variant="outline"
-            className={`gap-1 text-[10px] shrink-0 ${realtimeConnected ? 'text-emerald-600 border-emerald-200' : 'text-muted-foreground'}`}
+            size="sm"
+            className="gap-1 text-[10px] h-7 shrink-0"
+            onClick={() => {
+              queryClient.invalidateQueries({ queryKey: queryKeys.warehouseOps.warehouseStockAll })
+              queryClient.invalidateQueries({ queryKey: queryKeys.inventory.fifoLayers })
+              queryClient.invalidateQueries({ queryKey: queryKeys.inventory.cogsEntries })
+            }}
           >
-            {realtimeConnected ? <Wifi className="h-3 w-3" /> : <WifiOff className="h-3 w-3" />}
-            {realtimeConnected ? 'Live' : 'Connecting…'}
-          </Badge>
+            <RefreshCw className="h-3 w-3" />
+            Refresh
+          </Button>
         </div>
 
         {/* Item type tabs */}
