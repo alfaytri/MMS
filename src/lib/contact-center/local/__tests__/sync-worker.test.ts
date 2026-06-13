@@ -62,6 +62,61 @@ describe('SyncWorker lifecycle', () => {
   })
 })
 
+describe('SyncWorker.subscribeRealtime', () => {
+  let onCalls: Array<{ event: string; cfg: Record<string, unknown> }>
+  let supabaseMock: any
+  let dbMock: any
+
+  beforeEach(() => {
+    onCalls = []
+    const channel = {
+      on: vi.fn((event: string, cfg: Record<string, unknown>) => {
+        onCalls.push({ event, cfg })
+        return channel
+      }),
+      subscribe: vi.fn(() => channel),
+    }
+    supabaseMock = {
+      channel: vi.fn(() => channel),
+      removeChannel: vi.fn(),
+    }
+    dbMock = { sync: { put: vi.fn() } } // minimal — start() only touches sync.put for status
+  })
+
+  it('subscribes to exactly one channel filtered to chat_messages where from_type=customer', () => {
+    const worker = new SyncWorker(dbMock, supabaseMock, 'wati')
+    worker.start()
+
+    expect(supabaseMock.channel).toHaveBeenCalledTimes(1)
+    expect(onCalls).toHaveLength(1)
+    expect(onCalls[0]).toEqual({
+      event: 'postgres_changes',
+      cfg: {
+        event: 'INSERT',
+        schema: 'public',
+        table: 'chat_messages',
+        filter: 'from_type=eq.customer',
+      },
+    })
+
+    worker.stop()
+  })
+
+  it('does not subscribe to chat_conversations, service_customers, _addresses, _phones, or installed_products', () => {
+    const worker = new SyncWorker(dbMock, supabaseMock, 'wati')
+    worker.start()
+
+    const tables = onCalls.map((c) => (c.cfg as { table: string }).table)
+    expect(tables).not.toContain('chat_conversations')
+    expect(tables).not.toContain('service_customers')
+    expect(tables).not.toContain('service_customer_addresses')
+    expect(tables).not.toContain('service_customer_phones')
+    expect(tables).not.toContain('installed_products')
+
+    worker.stop()
+  })
+})
+
 describe('SyncWorker Realtime → Dexie', () => {
   it('subscribes to chat_messages on start', () => {
     const supa = mkSupabaseStub()

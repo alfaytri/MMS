@@ -55,42 +55,33 @@ export class SyncWorker {
   }
 
   private subscribeRealtime(): void {
+    // QUOTA REMEDIATION (2026-06-13): see docs/superpowers/specs/2026-06-13-supabase-quota-remediation-design.md
+    //
+    // Was 6 unfiltered `event: '*'` subscriptions across chat_messages,
+    // chat_conversations, service_customers, _addresses, _phones, installed_products
+    // — consumed ~70% of the project's Realtime quota.
+    //
+    // Now: ONE filtered subscription on chat_messages INSERT where from_type='customer'.
+    //   • Inbound customer messages still hydrate the local Dexie cache for
+    //     background conversations.
+    //   • Agent-side message UPDATEs (sending → sent → delivered → read) are
+    //     covered by useLiveThread (filtered by conversation_id) for the active
+    //     thread; they no longer wake every browser.
+    //   • chat_conversations is polled every 20s by useLiveConversations.
+    //   • CRM tables (service_customers / _addresses / _phones / installed_products)
+    //     are lazy-fetched on demand by repos/*; refetchOnWindowFocus keeps them
+    //     fresh enough for the single-user editing pattern.
     this.channel = this.supabase
       .channel(`cc-sync-${this.provider}`)
       .on(
         'postgres_changes',
-        { event: '*', schema: 'public', table: 'chat_messages' },
+        { event: 'INSERT', schema: 'public', table: 'chat_messages', filter: 'from_type=eq.customer' },
         (payload: { eventType: string; new?: unknown; old?: unknown }) => this.onMessagePayload(payload),
       )
-      .on(
-        'postgres_changes',
-        { event: '*', schema: 'public', table: 'chat_conversations' },
-        (payload: { eventType: string; new?: unknown; old?: unknown }) => this.onConversationPayload(payload),
-      )
-      .on(
-        'postgres_changes',
-        { event: '*', schema: 'public', table: 'service_customers' },
-        (payload: { eventType: string; new?: unknown; old?: unknown }) => this.onCrmPayload('customers', payload),
-      )
-      .on(
-        'postgres_changes',
-        { event: '*', schema: 'public', table: 'service_customer_addresses' },
-        (payload: { eventType: string; new?: unknown; old?: unknown }) => this.onCrmPayload('addresses', payload),
-      )
-      .on(
-        'postgres_changes',
-        { event: '*', schema: 'public', table: 'service_customer_phones' },
-        (payload: { eventType: string; new?: unknown; old?: unknown }) => this.onCrmPayload('phones', payload),
-      )
-      .on(
-        'postgres_changes',
-        { event: '*', schema: 'public', table: 'installed_products' },
-        (payload: { eventType: string; new?: unknown; old?: unknown }) => this.onCrmPayload('products', payload),
-      )
       .subscribe((channelStatus: string) => {
-        if (channelStatus === 'SUBSCRIBED')        this.setStatus('connected')
+        if (channelStatus === 'SUBSCRIBED')         this.setStatus('connected')
         else if (channelStatus === 'CHANNEL_ERROR') this.setStatus('offline')
-        else if (channelStatus === 'TIMED_OUT')    this.setStatus('reconnecting')
+        else if (channelStatus === 'TIMED_OUT')     this.setStatus('reconnecting')
       })
   }
 
@@ -106,29 +97,6 @@ export class SyncWorker {
     this.updateBuffer.set(row.id, row)
     if (this.flushTimer == null) {
       this.flushTimer = setTimeout(() => this.flush(), FLUSH_WINDOW_MS)
-    }
-  }
-
-  private onCrmPayload(
-    table: 'customers' | 'addresses' | 'phones' | 'products',
-    payload: { eventType: string; new?: unknown; old?: unknown },
-  ): void {
-    const row = (payload.new ?? payload.old) as { id: string } | undefined
-    if (!row?.id) return
-    if (payload.eventType === 'DELETE') {
-      void this.db[table].delete(row.id)
-    } else {
-      void this.db[table].put(row as never)
-    }
-  }
-
-  private onConversationPayload(payload: { eventType: string; new?: unknown; old?: unknown }): void {
-    const row = (payload.new ?? payload.old) as { id: string } | undefined
-    if (!row?.id) return
-    if (payload.eventType === 'DELETE') {
-      void this.db.conversations.delete(row.id)
-    } else {
-      void this.db.conversations.put(row as never)
     }
   }
 
