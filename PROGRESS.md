@@ -215,7 +215,7 @@ Purchase & Sales▾:
 
 ## 🔄 In Progress
 
-🚀 Starting: **CC Call Controls Task 3: call-control helpers + /decline and /hangup routes**
+🚀 Starting: **CC Call Controls Task 4: surface status in polling hook**
 
 ## ✅ Completed
 
