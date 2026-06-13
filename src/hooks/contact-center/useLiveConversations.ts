@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useCallback, useRef } from 'react'
 import { createClient } from '@/lib/supabase/client'
+import { useIntervalWhenVisible } from '@/hooks/useIntervalWhenVisible'
 import type { ChatConversation } from '@/types/contact-center'
 
 export function useLiveConversations(provider: 'wati' | 'whapi' = 'wati') {
@@ -72,19 +73,10 @@ export function useLiveConversations(provider: 'wati' | 'whapi' = 'wati') {
   useEffect(() => {
     cancelledRef.current = false
     load()
-
-    // Poll every 5 seconds instead of using a Realtime subscription.
-    // The previous postgres_changes channel on chat_conversations (no filter)
-    // was one of the top consumers of the Realtime message quota.
-    const poll = setInterval(() => {
-      if (!cancelledRef.current) load()
-    }, 5_000)
-
-    return () => {
-      cancelledRef.current = true
-      clearInterval(poll)
-    }
+    return () => { cancelledRef.current = true }
   }, [load])
+
+  useIntervalWhenVisible(() => { if (!cancelledRef.current) load() }, 20_000)
 
   function markRead(conversationId: string) {
     locallyReadIds.current.add(conversationId)
