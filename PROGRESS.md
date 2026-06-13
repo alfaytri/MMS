@@ -216,12 +216,13 @@ Purchase & Sales▾:
 
 ## 🔄 In Progress
 
-🚀 Starting: **Supabase Quota Remediation Track A: Task 4 — Calendar realtime → 30s polling**
+🚀 Starting: **Supabase Quota Remediation Track A: Task 5 — Drop fifo_cost_layers realtime from WhStockValueTab**
 
 ⏸️  **CC Call Controls — pending live end-to-end verification.** Code complete on `feature/cc-dialer-webrtc` (not pushed). Awaiting the user's manual smoke test of Decline (during ring) + Connected timer + Hangup against a real inbound call. **Do not resume work on this until the user explicitly requests it.**
 
 ## ✅ Completed
 
+- [2026-06-13] **Supabase Quota Remediation Task 4 (A4): Calendar realtime → 30s polling** — `src/components/calendar/CalendarPage.tsx`, `src/hooks/useCalendarVisits.ts`, `src/hooks/useWeekCapacity.ts` — Removed unfiltered `calendar_visits` postgres_changes subscription. Both hooks now poll at 30s with `refetchOnWindowFocus`. Pruned dead `useQueryClient` import + local.
 - [2026-06-13] **Supabase Quota Remediation Task 3 (A3): Drop UPDATE branch in useContactCenterState** — `src/hooks/contact-center/useContactCenterState.ts` — Plan called for adding `from_type=eq.customer` filter to the UPDATE branch; pre-flight investigation showed customer reactions are written to AGENT rows by the Wati/Whapi webhooks, so the filter would have silently broken the reaction-chime feature. User-approved alternative: deleted the entire UPDATE branch (plus `reactionCounts` Map and `customerReactionCount` helper). Visual reactions still render in open threads via `useLiveThread`; audible chime on reactions is the accepted cost. INSERT branch (customer-message chime) preserved.
 - [2026-06-13] **Supabase Quota Remediation Task 2 (A2): Delete orphan useUnifiedConversation hook** — `src/hooks/contact-center/useUnifiedConversation.ts` (deleted) — Plan called for filtering its channel; grep showed zero importers (leftover from earlier CC redesign), so the channel never opens at runtime. Deleted the 113-line file instead of cosmetically filtering it. Filtered-channel pattern lives in sync-worker.ts (A1) as reference if the UI returns.
 - [2026-06-13] **Supabase Quota Remediation Task 1 (A1): Trim sync-worker realtime** — `src/lib/contact-center/local/sync-worker.ts`, `src/lib/contact-center/local/__tests__/sync-worker.test.ts` — Dropped 5 of 6 channel subscriptions; kept only one filtered `chat_messages` INSERT where `from_type=eq.customer`. CRM tables now lazy-fetched via `repos/*`; `chat_conversations` deltas come from the (soon-to-be-tuned) polling in `useLiveConversations`. TDD: 2 new tests cover channel count + dropped tables.
