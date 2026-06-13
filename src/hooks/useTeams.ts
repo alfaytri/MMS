@@ -114,9 +114,9 @@ export function useTeams(filters?: TeamsFilters) {
 
       const [teamsRes, employeesRes, vehiclesRes, schedulesRes] = await Promise.allSettled([
         supabase.from('teams').select('*, divisions(id, slug, name, short_name, company_id, companies(id, name_en))').is('deleted_at', null).order('name_en', { nullsFirst: false }).returns<TeamQueryResult[]>(),
-        supabase.from('employees').select('*').is('deleted_at', null).returns<Employee[]>(),
-        supabase.from('vehicles').select('*').is('deleted_at', null).returns<Vehicle[]>(),
-        supabase.from('schedules').select('*').is('deleted_at', null),
+        supabase.from('employees').select('id, name, name_ar, avatar_url, status, phone, division_id, team_id, nationality, join_date, profile_id, skills').is('deleted_at', null).returns<Employee[]>(),
+        supabase.from('vehicles').select('id, name, plate, team_id, type, traccar_device_id, deleted_at, created_at').is('deleted_at', null).returns<Vehicle[]>(),
+        supabase.from('schedules').select('id, name, days, deleted_at, created_at').is('deleted_at', null),
       ])
 
       if (teamsRes.status === 'rejected' || teamsRes.value.error) {
