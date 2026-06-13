@@ -1,7 +1,7 @@
 'use client'
 
 import { useState } from 'react'
-import { ChevronLeft, ChevronRight, ChevronDown, Filter, Plus } from 'lucide-react'
+import { ChevronLeft, ChevronRight, Filter, Plus } from 'lucide-react'
 import { format, addDays, subDays, parseISO, isToday } from 'date-fns'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
@@ -119,14 +119,16 @@ export function CalendarToolbar({
         {/* Division selector — owner only, single-select */}
         {isSuperViewer && divisions.length > 1 && (
           <Select
-            value={activeDivisionSlug ?? ''}
-            onValueChange={(v) => { if (v !== null) onDivisionChange(v) }}
+            value={activeDivisionSlug ?? '__all__'}
+            onValueChange={(v) => onDivisionChange(v === '__all__' ? '' : v)}
           >
             <SelectTrigger className="h-7 w-36 text-xs gap-1">
               <SelectValue placeholder="All divisions" />
-              <ChevronDown className="h-3 w-3 opacity-50" />
             </SelectTrigger>
             <SelectContent>
+              <SelectItem value="__all__" className="text-xs font-medium">
+                All
+              </SelectItem>
               {divisions.map(d => (
                 <SelectItem key={d.id} value={d.slug} className="text-xs">
                   {d.short_name ?? d.name}

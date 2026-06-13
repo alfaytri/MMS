@@ -71,12 +71,14 @@ export function CalendarPage() {
 
   const { isSuperViewer, divisions } = useUserDivisionScope()
   const [activeDivisionSlug, setActiveDivisionSlug] = useState<string | null>(null)
+  const initialized = useRef(false)
 
   useEffect(() => {
-    if (!activeDivisionSlug && divisions.length > 0) {
+    if (!initialized.current && divisions.length > 0) {
+      initialized.current = true
       setActiveDivisionSlug(divisions[0].slug)
     }
-  }, [divisions, activeDivisionSlug])
+  }, [divisions])
 
   // Derived week window
   const { weekStart, weekDates } = useMemo(() => {
