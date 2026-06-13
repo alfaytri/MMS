@@ -217,10 +217,11 @@ Purchase & Sales▾:
 
 ## 🔄 In Progress
 
-⏸️  **CC Call Controls — pending live end-to-end verification.** Code complete on `feature/cc-dialer-webrtc` (not pushed). Awaiting the user's manual smoke test of Decline (during ring) + Connected timer + Hangup against a real inbound call. **Do not resume work on this until the user explicitly requests it.**
+None.
 
 ## ✅ Completed
 
+- [2026-06-13] **CC Call Controls — live E2E verified** — Decline (during ring), Connected timer, Hangup all confirmed working against real inbound call. Build fixes committed: 7 type errors resolved across types, joins, tsconfig, and component props.
 - [2026-06-13] **Supabase Quota Remediation Track B complete (B1-B5)** — `src/hooks/useIntervalWhenVisible.ts` (new), `src/hooks/__tests__/useIntervalWhenVisible.test.ts` (new, 4 tests), `src/hooks/contact-center/useLiveConversations.ts` (5s→20s + visibility-aware), `src/hooks/usePurchaseOrders.ts`, `useReceivals.ts`, `useActivityLog.ts`, `useTeamLocations.ts`, `useTraccar.ts` (30s→60s refetchInterval), `src/hooks/useTeams.ts`, `useInventory.ts`, `useWarehouseOperations.ts`, `useServices.ts`, `usePurchaseOrders.ts` (select('*')→explicit columns), `useActivityLog.ts`, `useNotifications.ts`, `useReceivals.ts` (.limit(200))
 - [2026-06-13] **Supabase Quota Remediation Task 5 (A5): Drop stock-value-live realtime + add Refresh button** — `src/components/purchase/wh/WhStockValueTab.tsx` — Removed the postgres_changes channel covering `fifo_cost_layers` + `cogs_entries` (plan only listed the first; both lived on one channel). Replaced the now-meaningless Live/Connecting badge with a Refresh button that invalidates all three relevant query keys. Pruned dead imports (`useEffect`, `useRef`, `Wifi`, `WifiOff`). Code review caught that the global QueryProvider disables `refetchOnWindowFocus` — comment corrected to cite the real update path (60s staleTime + remount + manual Refresh).
 - [2026-06-13] **Supabase Quota Remediation Task 4 (A4): Calendar realtime → 30s polling** — `src/components/calendar/CalendarPage.tsx`, `src/hooks/useCalendarVisits.ts`, `src/hooks/useWeekCapacity.ts` — Removed unfiltered `calendar_visits` postgres_changes subscription. Both hooks now poll at 30s with `refetchOnWindowFocus`. Pruned dead `useQueryClient` import + local.
