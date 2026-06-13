@@ -15,7 +15,7 @@ function formatDuration(seconds: number): string {
   return `${mm}:${ss}`
 }
 
-async function callAction(verb: 'decline' | 'hangup', callId: number): Promise<void> {
+async function callAction(verb: 'decline' | 'hangup', callId: number): Promise<boolean> {
   try {
     const res = await fetch(`/api/3cx/call/${verb}`, {
       method:  'POST',
@@ -26,9 +26,11 @@ async function callAction(verb: 'decline' | 'hangup', callId: number): Promise<v
       const body = await res.json().catch(() => ({})) as { error?: string }
       throw new Error(body.error ?? `HTTP ${res.status}`)
     }
+    return true
   } catch (e) {
     const label = verb === 'decline' ? 'Decline' : 'Hangup'
     toast.error(`${label} failed: ${e instanceof Error ? e.message : String(e)}`)
+    return false
   }
 }
 
@@ -41,9 +43,16 @@ interface BannerRowProps {
 
 function BannerRow({ call, connectedSince, onOpen, onDismiss }: BannerRowProps) {
   const [customerName, setCustomerName] = useState<string | null>(null)
+  const [pending, setPending] = useState<'decline' | 'hangup' | null>(null)
   const isAnonymous = call.customerPhone === 'Unknown'
   const isRinging   = call.status === 'ringing'
   const isConnected = call.status === 'connected'
+
+  async function runAction(verb: 'decline' | 'hangup') {
+    if (pending) return
+    setPending(verb)
+    try { await callAction(verb, call.callId) } finally { setPending(null) }
+  }
 
   // Deps are primitives on purpose — `calls` gets a new identity on every poll tick;
   // depending on `call` directly would re-fire the Supabase lookup every 2s.
@@ -79,10 +88,11 @@ function BannerRow({ call, connectedSince, onOpen, onDismiss }: BannerRowProps) 
   const duration = isConnected && connectedSince ? Math.floor((now - connectedSince) / 1000) : 0
 
   const headline = customerName ?? (isAnonymous ? 'Anonymous caller' : 'Unknown caller')
-  const phoneIconTint = isConnected ? 'text-green-700' : 'text-green-600 animate-pulse'
+  // Amber pulse for incoming ring, solid green for live call — conventional phone-UI semantics.
+  const phoneIconTint = isConnected ? 'text-green-600' : 'text-amber-500 animate-pulse'
 
   return (
-    <div className="w-80 max-w-[calc(100vw-1rem)] rounded-md border border-border bg-background shadow-lg p-3 min-h-16">
+    <div className="w-80 max-w-[calc(100vw-1rem)] rounded-md border border-border bg-background shadow-lg p-3 min-h-[100px]">
       <div className="flex items-start gap-2">
         <Phone className={`h-4 w-4 mt-0.5 ${phoneIconTint}`} />
         <div className="flex-1 min-w-0">
@@ -90,53 +100,56 @@ function BannerRow({ call, connectedSince, onOpen, onDismiss }: BannerRowProps) 
           <div className="text-xs text-muted-foreground truncate">
             {isAnonymous ? 'Number withheld' : call.customerPhone}
           </div>
-          {isConnected && (
-            <div className="mt-1 text-sm font-mono tabular-nums text-green-700">
-              {formatDuration(duration)}
+          {isRinging && (
+            <div className="mt-2 flex gap-2 flex-wrap">
+              <Button
+                size="sm"
+                onClick={() => onOpen(call.customerPhone)}
+                className="h-11 sm:h-8"
+                disabled={isAnonymous}
+              >
+                Open chat
+              </Button>
+              <Button
+                size="sm"
+                variant="destructive"
+                className="h-11 sm:h-9"
+                onClick={() => void runAction('decline')}
+                disabled={pending === 'decline'}
+              >
+                <PhoneOff className="h-4 w-4 mr-1" /> {pending === 'decline' ? 'Declining…' : 'Decline'}
+              </Button>
             </div>
           )}
-          <div className="mt-2 flex gap-2 flex-wrap">
-            {isRinging && (
-              <>
-                <Button
-                  size="sm"
-                  onClick={() => onOpen(call.customerPhone)}
-                  className="h-11 sm:h-8"
-                  disabled={isAnonymous}
-                >
-                  Open chat
-                </Button>
-                <Button
-                  size="sm"
-                  variant="destructive"
-                  className="h-11 sm:h-9"
-                  onClick={() => callAction('decline', call.callId)}
-                >
-                  <PhoneOff className="h-4 w-4 mr-1" /> Decline
-                </Button>
-              </>
-            )}
-            {isConnected && (
+          {isConnected && (
+            <div className="mt-2 flex items-center gap-3">
+              <span className="text-sm font-mono tabular-nums text-green-700">
+                {formatDuration(duration)}
+              </span>
               <Button
                 size="sm"
                 variant="destructive"
                 className="h-11 sm:h-9 ml-auto"
-                onClick={() => callAction('hangup', call.callId)}
+                onClick={() => void runAction('hangup')}
+                disabled={pending === 'hangup'}
               >
-                <PhoneOff className="h-4 w-4 mr-1" /> Hangup
+                <PhoneOff className="h-4 w-4 mr-1" /> {pending === 'hangup' ? 'Ending…' : 'Hangup'}
               </Button>
-            )}
-          </div>
+            </div>
+          )}
         </div>
-        <Button
-          size="icon"
-          variant="ghost"
-          className="h-11 w-11 sm:h-6 sm:w-6 sm:-mr-1 sm:-mt-1"
-          onClick={() => onDismiss(call.callId)}
-          aria-label="Dismiss"
-        >
-          <X className="h-3 w-3" />
-        </Button>
+        {/* Hide Dismiss while connected — dismissing a live call you're on is a footgun. */}
+        {!isConnected && (
+          <Button
+            size="icon"
+            variant="ghost"
+            className="h-11 w-11 sm:h-6 sm:w-6 sm:-mr-1 sm:-mt-1"
+            onClick={() => onDismiss(call.callId)}
+            aria-label="Dismiss"
+          >
+            <X className="h-3 w-3" />
+          </Button>
+        )}
       </div>
     </div>
   )
@@ -152,30 +165,37 @@ export function InboundCallBanner() {
 
   // Track the first poll-tick when each callid is observed as Connected.
   // Stays stable across re-renders so the duration timer doesn't reset every 2 s.
-  // GC'd in lockstep with the active call list.
+  // Populated synchronously during render (not in useEffect) so the very first
+  // render of a Connected row sees a non-null value — avoids a 1-tick "00:00"
+  // flash. Refs are safe to mutate during render when the mutation is
+  // idempotent and not based on prior render state in a way that would tear
+  // concurrent renders.
   const connectedSinceRef = useRef<Map<number, number>>(new Map())
-
-  useEffect(() => {
-    const active = new Set(calls.map((c) => c.callId))
-    // Record new connected calls
-    for (const c of calls) {
-      if (c.status === 'connected' && !connectedSinceRef.current.has(c.callId)) {
+  const active = new Set(calls.map((c) => c.callId))
+  for (const c of calls) {
+    if (c.status === 'connected') {
+      if (!connectedSinceRef.current.has(c.callId)) {
         connectedSinceRef.current.set(c.callId, Date.now())
       }
+    } else {
+      // Reset on any non-connected status so a transfer-recall (connected →
+      // ringing → connected) restarts the timer from the new pickup time.
+      connectedSinceRef.current.delete(c.callId)
     }
-    // GC: drop entries whose callid is no longer active
-    for (const id of Array.from(connectedSinceRef.current.keys())) {
-      if (!active.has(id)) connectedSinceRef.current.delete(id)
-    }
-  }, [calls])
+  }
+  for (const id of Array.from(connectedSinceRef.current.keys())) {
+    if (!active.has(id)) connectedSinceRef.current.delete(id)
+  }
 
+  // GC dismissed ids that are no longer active. Uses the same `active` set
+  // computed above for the connectedSinceRef pass — single source of truth.
   useEffect(() => {
     setDismissed((prev) => {
-      const active = new Set(calls.map((c) => c.callId))
       const next = new Set<number>()
       prev.forEach((id) => { if (active.has(id)) next.add(id) })
       return next.size === prev.size ? prev : next
     })
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- `active` is derived from `calls` every render; depending on calls is correct.
   }, [calls])
 
   const visible = calls.filter((c) => !dismissed.has(c.callId))
