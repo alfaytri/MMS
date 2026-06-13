@@ -47,7 +47,7 @@ export function useInventoryItems(categoryType?: string) {
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       let query = supabase
         .from('inventory_items')
-        .select('*, inventory_categories!inner(type, name_en)')
+        .select('id, category_id, name_en, name_ar, sku, unit, cost_price, markup_percent, sort_order, status, total_stock, linked_services_count, inventory_categories!inner(type, name_en)')
         .eq('status', 'active')
         .order('name_en')
 
