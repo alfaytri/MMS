@@ -9,7 +9,7 @@ export type SidebarView = 'collapsed' | 'list' | 'detail'
 export interface ChatConversation {
   id: string
   customer_id: string | null
-  conversation_type: ConversationType
+  conversation_type: ConversationType | null
   wati_phone: string | null
   wati_contact_name: string | null
   last_message: string | null
@@ -49,6 +49,7 @@ export interface ChatMessage {
   external_id: string | null
   reply_to_external_id: string | null
   sent_by_profile_id: string | null
+  phone_id: string | null
   created_at: string
 }
 

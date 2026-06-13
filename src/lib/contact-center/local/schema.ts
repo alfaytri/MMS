@@ -45,7 +45,7 @@ export interface LocalConversation {
   id: string
   customer_id: string | null
   customer_id_v2: string | null
-  conversation_type: string | null
+  conversation_type: 'customer' | 'team' | null
   wati_phone: string | null
   wati_contact_name: string | null
   last_message: string | null

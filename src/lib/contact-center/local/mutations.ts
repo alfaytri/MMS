@@ -1,7 +1,7 @@
 import type { MmsCcDb } from './db'
 import { newId } from './ids'
 import * as q from './pending-writes'
-import type { MessageType } from './schema'
+import type { LocalAddress, MessageType } from './schema'
 
 export interface SendMessageArgs {
   conversationId: string
@@ -261,7 +261,7 @@ export interface UpdateAddressArgs {
 }
 
 export async function updateAddressLocal(db: MmsCcDb, args: UpdateAddressArgs): Promise<void> {
-  const dbPatch: Record<string, unknown> = {}
+  const dbPatch: Partial<LocalAddress> = {}
   if (args.patch.label !== undefined) dbPatch.label = args.patch.label
   if (args.patch.unit !== undefined) dbPatch.unit = args.patch.unit
   if (args.patch.building !== undefined) dbPatch.building = args.patch.building

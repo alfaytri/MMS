@@ -246,7 +246,7 @@ export function ContactCenterSidebarV2() {
             </Badge>
           )}
           {customer?.is_blocked && (
-            <AlertTriangle className="h-3.5 w-3.5 text-destructive flex-shrink-0" title="Blocked" />
+            <span title="Blocked"><AlertTriangle className="h-3.5 w-3.5 text-destructive flex-shrink-0" /></span>
           )}
           {customer ? (
             <Button size="icon" variant="ghost" className="h-5 w-5 flex-shrink-0" onClick={() => customerData.setCrmMode('edit')} title="Edit customer">

@@ -165,9 +165,6 @@ export function MessageBubble({ message: m, phoneLast4, onReact }: Props) {
               type={att.type}
               name={att.name}
               isAgent={isAgent}
-              messageId={m.id}
-              index={i}
-              attachment={att as unknown as import('@/types/contact-center').ChatAttachment}
             />
           ))}
           {/* Fallback when text is empty AND no attachment rendered — keeps the

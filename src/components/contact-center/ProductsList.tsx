@@ -2,9 +2,15 @@
 
 import { Shield, ShieldAlert, ShieldOff } from 'lucide-react'
 import { Badge } from '@/components/ui/badge'
-import type { InstalledProduct } from '@/types/orders'
+interface ProductItem {
+  id: string
+  product_name: string
+  brand?: string | null
+  model?: string | null
+  warranty_expires_at?: string | null
+}
 
-function warrantyStatus(expiresAt: string | null): 'active' | 'expiring' | 'expired' {
+function warrantyStatus(expiresAt: string | null | undefined): 'active' | 'expiring' | 'expired' {
   if (!expiresAt) return 'expired'
   const diff = new Date(expiresAt).getTime() - Date.now()
   if (diff < 0) return 'expired'
@@ -12,7 +18,7 @@ function warrantyStatus(expiresAt: string | null): 'active' | 'expiring' | 'expi
   return 'active'
 }
 
-export function ProductsList({ products }: { products: InstalledProduct[] }) {
+export function ProductsList({ products }: { products: ProductItem[] }) {
   if (products.length === 0) {
     return <p className="text-xs text-muted-foreground px-3 py-2">No installed products</p>
   }
