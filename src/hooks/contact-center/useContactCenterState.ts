@@ -240,7 +240,8 @@ export function useContactCenterState() {
     if (!res.ok || !res.body) {
       const err = await res.json().catch(() => ({}))
       setSyncProgress({ stage: 'error', error: err.error ?? 'Sync failed' })
-      throw new Error(err.error ?? 'Sync failed')
+      setTimeout(() => setSyncProgress({ stage: 'idle' }), 4000)
+      return
     }
 
     const reader  = res.body.getReader()
