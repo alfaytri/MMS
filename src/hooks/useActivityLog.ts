@@ -44,7 +44,7 @@ export function useActivityLog(filters: ActivityLogFilters = {}) {
     },
     enabled: !!(filters.module || filters.entity_id || filters.search),
     staleTime: 30 * 1000,
-    refetchInterval: 30 * 1000,
+    refetchInterval: 60_000,
   })
 }
 

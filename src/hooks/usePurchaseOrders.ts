@@ -272,7 +272,7 @@ export function usePurchaseOrders(filters: POFilters = {}) {
       return data as PurchaseOrder[]
     },
     staleTime: 30 * 1000,
-    refetchInterval: 30 * 1000,
+    refetchInterval: 60_000,
   })
 }
 

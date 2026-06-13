@@ -31,7 +31,7 @@ export function useTraccarPositions(deviceIds: number[]) {
       if (!res.ok) throw new Error('Failed to fetch positions')
       return res.json()
     },
-    refetchInterval: 30_000,
+    refetchInterval: 60_000,
     staleTime: 15_000,
     enabled: deviceIds.length > 0,
   })

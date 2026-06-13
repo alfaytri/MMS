@@ -90,7 +90,7 @@ export function useReceivals(filters?: { status?: ReceivalStatus | '' }) {
       })) as Receival[]
     },
     staleTime: 30 * 1000,
-    refetchInterval: 30 * 1000,
+    refetchInterval: 60_000,
   })
 }
 
