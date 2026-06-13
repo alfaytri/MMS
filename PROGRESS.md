@@ -216,12 +216,13 @@ Purchase & Sales▾:
 
 ## 🔄 In Progress
 
-🚀 Starting: **Supabase Quota Remediation Track A: Task 5 — Drop fifo_cost_layers realtime from WhStockValueTab**
+🚀 Starting: **Supabase Quota Remediation Track A: Task 6 — verification gate (awaiting user smoke test + PR decision)**
 
 ⏸️  **CC Call Controls — pending live end-to-end verification.** Code complete on `feature/cc-dialer-webrtc` (not pushed). Awaiting the user's manual smoke test of Decline (during ring) + Connected timer + Hangup against a real inbound call. **Do not resume work on this until the user explicitly requests it.**
 
 ## ✅ Completed
 
+- [2026-06-13] **Supabase Quota Remediation Task 5 (A5): Drop stock-value-live realtime + add Refresh button** — `src/components/purchase/wh/WhStockValueTab.tsx` — Removed the postgres_changes channel covering `fifo_cost_layers` + `cogs_entries` (plan only listed the first; both lived on one channel). Replaced the now-meaningless Live/Connecting badge with a Refresh button that invalidates all three relevant query keys. Pruned dead imports (`useEffect`, `useRef`, `Wifi`, `WifiOff`). Code review caught that the global QueryProvider disables `refetchOnWindowFocus` — comment corrected to cite the real update path (60s staleTime + remount + manual Refresh).
 - [2026-06-13] **Supabase Quota Remediation Task 4 (A4): Calendar realtime → 30s polling** — `src/components/calendar/CalendarPage.tsx`, `src/hooks/useCalendarVisits.ts`, `src/hooks/useWeekCapacity.ts` — Removed unfiltered `calendar_visits` postgres_changes subscription. Both hooks now poll at 30s with `refetchOnWindowFocus`. Pruned dead `useQueryClient` import + local.
 - [2026-06-13] **Supabase Quota Remediation Task 3 (A3): Drop UPDATE branch in useContactCenterState** — `src/hooks/contact-center/useContactCenterState.ts` — Plan called for adding `from_type=eq.customer` filter to the UPDATE branch; pre-flight investigation showed customer reactions are written to AGENT rows by the Wati/Whapi webhooks, so the filter would have silently broken the reaction-chime feature. User-approved alternative: deleted the entire UPDATE branch (plus `reactionCounts` Map and `customerReactionCount` helper). Visual reactions still render in open threads via `useLiveThread`; audible chime on reactions is the accepted cost. INSERT branch (customer-message chime) preserved.
 - [2026-06-13] **Supabase Quota Remediation Task 2 (A2): Delete orphan useUnifiedConversation hook** — `src/hooks/contact-center/useUnifiedConversation.ts` (deleted) — Plan called for filtering its channel; grep showed zero importers (leftover from earlier CC redesign), so the channel never opens at runtime. Deleted the 113-line file instead of cosmetically filtering it. Filtered-channel pattern lives in sync-worker.ts (A1) as reference if the UI returns.
