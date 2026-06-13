@@ -67,7 +67,7 @@ export class SyncWorker {
     //   • Agent-side message UPDATEs (sending → sent → delivered → read) are
     //     covered by useLiveThread (filtered by conversation_id) for the active
     //     thread; they no longer wake every browser.
-    //   • chat_conversations is polled every 20s by useLiveConversations.
+    //   • chat_conversations is polled by useLiveConversations.
     //   • CRM tables (service_customers / _addresses / _phones / installed_products)
     //     are lazy-fetched on demand by repos/*; refetchOnWindowFocus keeps them
     //     fresh enough for the single-user editing pattern.
