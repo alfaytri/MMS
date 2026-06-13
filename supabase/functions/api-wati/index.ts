@@ -234,6 +234,17 @@ serve(async (req) => {
       return json({ synced: totalSynced })
     }
 
+    case 'send_reaction': {
+      const { emoji, message_id } = body as { emoji?: string; message_id?: string }
+      if (!phone || !emoji || !message_id) return json({ error: 'phone, emoji, and message_id required' }, 400)
+      const waId = phone.replace(/^\+/, '')
+      const data = await wati('/api/v1/conversations/whatsapp/sendReaction', {
+        method: 'POST',
+        body: JSON.stringify({ emoji, waId, messageId: message_id }),
+      })
+      return json(data)
+    }
+
     case 'set_status': {
       const { status } = body as any
       const VALID = new Set(['open', 'resolved', 'pending'])

@@ -365,20 +365,27 @@ export class SyncWorker {
 
   private async sendReaction(row: PendingWrite): Promise<void> {
     const p = row.payload as {
-      messageId: string; emoji: string; phone: string; provider: 'whapi'
+      messageId: string; emoji: string; phone: string; provider: 'wati' | 'whapi'
     }
     const msg = await this.db.messages.get(p.messageId)
     const externalId = msg?.external_id
     if (!externalId) return
 
     try {
-      const res = await fetch('/api/whapi/send-reaction', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ messageId: externalId, emoji: p.emoji, phone: p.phone }),
-      })
-      if (!res.ok && res.status >= 400 && res.status < 500) return
-      if (!res.ok) throw new Error(`send-reaction ${res.status}`)
+      if (p.provider === 'wati') {
+        const res = await this.supabase.functions.invoke('api-wati', {
+          body: { action: 'send_reaction', phone: p.phone, emoji: p.emoji, message_id: externalId },
+        })
+        if (res.error) throw new Error(res.error.message)
+      } else {
+        const res = await fetch('/api/whapi/send-reaction', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ messageId: externalId, emoji: p.emoji, phone: p.phone }),
+        })
+        if (!res.ok && res.status >= 400 && res.status < 500) return
+        if (!res.ok) throw new Error(`send-reaction ${res.status}`)
+      }
     } catch (err) {
       if (err instanceof Error && err.message.startsWith('send-reaction 4')) return
       throw err

@@ -153,13 +153,11 @@ export async function reactLocal(db: MmsCcDb, args: ReactArgs): Promise<void> {
 
   await db.transaction('rw', db.messages, db.pendingWrites, async () => {
     await db.messages.update(args.messageId, { reactions: updated })
-    if (args.provider === 'whapi') {
-      await q.enqueue(db, {
-        kind: 'react',
-        payload: { messageId: args.messageId, emoji: args.emoji, phone: args.phone, provider: args.provider },
-        localMessageId: args.messageId,
-      })
-    }
+    await q.enqueue(db, {
+      kind: 'react',
+      payload: { messageId: args.messageId, emoji: args.emoji, phone: args.phone, provider: args.provider },
+      localMessageId: args.messageId,
+    })
   })
 }
 

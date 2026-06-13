@@ -40,16 +40,11 @@ function ReactionBubbles({ reactions, onClick }: { reactions: ChatMessage['react
         <button
           key={emoji}
           onClick={() => onClick?.(emoji)}
-          title={g.hasCustomer ? 'Reacted on WhatsApp — click to toggle yours' : 'MMS only — click to toggle yours'}
-          className={`inline-flex items-center gap-0.5 border rounded-full px-1.5 py-0.5 text-[11px] leading-none transition-transform hover:scale-105 ${
-            g.hasCustomer
-              ? 'bg-background border-border shadow-sm'
-              : 'bg-muted/50 border-dashed border-border/60 opacity-70'
-          }`}
+          title="Click to toggle yours"
+          className="inline-flex items-center gap-0.5 border rounded-full px-1.5 py-0.5 text-[11px] leading-none transition-transform hover:scale-105 bg-background border-border shadow-sm"
         >
           {emoji}
           {g.count > 1 && <span className="text-muted-foreground">{g.count}</span>}
-          {!g.hasCustomer && <span className="text-[9px] text-muted-foreground ml-0.5">MMS</span>}
         </button>
       ))}
     </div>
