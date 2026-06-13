@@ -234,7 +234,7 @@ export function useStockMovements({
       const supabase = createClient()
       let q = supabase
         .from('inventory_stock_movements')
-        .select('*')
+        .select('id, warehouse_id, brand_variant_id, item_name, sku, movement_type, qty, unit_cost, reference_type, reference_id, notes, created_at')
         .order('created_at', { ascending: false })
         .limit(limit)
       if (warehouseId) q = q.eq('warehouse_id', warehouseId)
@@ -492,7 +492,7 @@ export function useInventoryChecks({ warehouseId }: { warehouseId?: string } = {
       const supabase = createClient()
       let q = supabase
         .from('inventory_checks')
-        .select('*')
+        .select('id, check_number, warehouse_id, warehouse_name, status, submitted_by_name, submitted_at, reviewed_by_name, reviewed_at, review_notes, notes, created_at, initiated_by_profile_id, initiated_by_name, started_at')
         .order('created_at', { ascending: false })
       if (warehouseId) q = q.eq('warehouse_id', warehouseId)
       const { data, error } = await q
