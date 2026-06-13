@@ -215,8 +215,7 @@ Purchase & Sales▾:
 
 ## 🔄 In Progress
 
-🚀 Starting: **CC Call Controls Task 2: Expand active-calls to surface Connected + participantId**
-(Preflight finding: 3CX direct_control=false on all available device classes for this deployment — Answer button removed from scope; Decline + Hangup + Connected timer proceed.)
+🚀 Starting: **CC Call Controls Task 3: call-control helpers + /decline and /hangup routes**
 
 ## ✅ Completed
 
