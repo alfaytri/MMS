@@ -5,6 +5,8 @@ import { ChevronLeft, ChevronRight, MessageSquare, MapPin, Package, ListOrdered,
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
 import { toast } from 'sonner'
+import { useCountryCodes } from '@/hooks/useCountryCodes'
+import { splitPhone } from '@/components/shared/PhoneInputWithCode'
 import { useContactCenterState } from '@/hooks/contact-center/useContactCenterState'
 import { useSyncWorker } from '@/hooks/contact-center/local/useSyncWorker'
 import { useLocalConversations } from '@/hooks/contact-center/local/useLocalConversations'
@@ -28,7 +30,6 @@ import { SectionAccordion } from './SectionAccordion'
 import { AddressStrip } from './AddressStrip'
 import { UnifiedThread } from './UnifiedThread'
 import { ComposerV2 } from './ComposerV2'
-import { PhoneNumber } from './PhoneNumber'
 import { ProductsList } from '@/components/contact-center/ProductsList'
 import { OrderHistoryV2 } from './OrderHistoryV2'
 import type { WatiTemplate } from '@/types/contact-center'
@@ -57,6 +58,7 @@ export function ContactCenterSidebarV2() {
   const { conversations, loading: convsLoading } = useLocalConversations(authUserId)
   const local = useLocalCustomer(authUserId, activeCustomerId)
   const { data: myProfile } = useCurrentUserProfile()
+  const { data: countryCodes = [] } = useCountryCodes()
 
   const { messages: unifiedMessages, loading: unifiedLoading } = useLocalMessages(authUserId, activeCustomerId, activeConversationId)
   const [composerFocused, setComposerFocused] = useState(false)
@@ -218,6 +220,11 @@ export function ContactCenterSidebarV2() {
   const secondaryPhones = phones.filter((p) => p.id !== primaryPhone?.id)
   const addresses = local.addresses
   const headerPhone = primaryPhone?.phone ?? activePhone
+  function flagFor(phone: string | null | undefined): string | null {
+    if (!phone) return null
+    const { code } = splitPhone(phone)
+    return countryCodes.find((c) => c.code === code)?.flag ?? null
+  }
 
   return (
     <div className="hidden lg:flex fixed left-0 top-0 bottom-0 w-80 border-r border-border bg-background z-50 flex-col">
@@ -225,27 +232,31 @@ export function ContactCenterSidebarV2() {
       <div className="min-h-[20px]">
         {authUserId && <SyncBanner authUserId={authUserId} />}
       </div>
-      {/* Header — name + phone inline */}
-      <div className="flex flex-col px-3 py-2 border-b border-border flex-shrink-0 gap-0.5">
-        <div className="flex items-center gap-1.5 min-h-[28px]">
-          <Button size="icon" variant="ghost" className="h-7 w-7 flex-shrink-0" onClick={goToList}>
+      {/* Header — compact: name row, then phone+status inline (no left indent) */}
+      <div className="flex flex-col px-2 py-1 border-b border-border flex-shrink-0 gap-0.5">
+        {/* Row 1: back + name + type badge + edit */}
+        <div className="flex items-center gap-1 min-h-[24px]">
+          <Button size="icon" variant="ghost" className="h-6 w-6 flex-shrink-0" onClick={goToList}>
             <ChevronLeft className="h-3.5 w-3.5" />
           </Button>
-          <span className="text-xs font-semibold truncate flex-1">{displayName}</span>
+          <span className="text-xs font-semibold truncate flex-1 min-w-0">{displayName}</span>
           {customer?.customer_type && (
             <Badge variant="outline" className="text-[10px] px-1 py-0 uppercase flex-shrink-0">
               {customer.customer_type === 'business' ? 'BIZ' : 'IND'}
             </Badge>
           )}
+          {customer?.is_blocked && (
+            <AlertTriangle className="h-3.5 w-3.5 text-destructive flex-shrink-0" title="Blocked" />
+          )}
           {customer ? (
-            <Button size="icon" variant="ghost" className="h-6 w-6 flex-shrink-0" onClick={() => customerData.setCrmMode('edit')} title="Edit customer">
+            <Button size="icon" variant="ghost" className="h-5 w-5 flex-shrink-0" onClick={() => customerData.setCrmMode('edit')} title="Edit customer">
               <Edit2 className="h-3 w-3" />
             </Button>
           ) : (
             <Button
               size="sm"
               variant="outline"
-              className="h-6 px-2 text-[10px] gap-1 flex-shrink-0"
+              className="h-5 px-1.5 text-[10px] gap-1 flex-shrink-0"
               onClick={() => customerData.setCrmMode('unknown')}
               title="Add customer"
             >
@@ -253,18 +264,37 @@ export function ContactCenterSidebarV2() {
             </Button>
           )}
         </div>
-        <div className="flex items-center gap-1.5 pl-9 flex-wrap">
-          {headerPhone && (
-            <span className="text-[11px] font-mono bg-primary/10 text-primary px-1.5 py-0.5 rounded inline-flex items-center gap-1">
-              <span className="h-1.5 w-1.5 rounded-full bg-primary" aria-label="primary" />
-              <PhoneNumber number={headerPhone} className="text-[11px] font-mono text-primary" />
-            </span>
-          )}
-          {secondaryPhones.map((p) => (
-            <PhoneNumber key={p.id} number={p.phone} className="text-[11px] font-mono text-muted-foreground" />
-          ))}
+        {/* Row 2: flag + phone + status (tight, no big indent) */}
+        <div className="flex items-center gap-1 pl-7 min-h-[18px]">
+          {(() => {
+            const phoneForFlag = activePhone ?? headerPhone
+            const flag = flagFor(phoneForFlag)
+            return flag ? <span className="text-sm leading-none">{flag}</span> : null
+          })()}
+          {phones.length > 1 ? (
+            <select
+              className="text-[11px] font-mono text-muted-foreground bg-transparent border rounded px-1 py-0 h-5 outline-none cursor-pointer"
+              value={activePhone ?? headerPhone ?? ''}
+              onChange={(e) => {
+                const phone = e.target.value
+                if (phone && phone !== activePhone) {
+                  const conv = conversations.find((c) => c.wati_phone === phone)
+                  if (conv) {
+                    if (conv.provider && conv.provider !== provider) setProvider(conv.provider)
+                    openConversation(conv.id, conv.customer_id, phone)
+                  }
+                }
+              }}
+            >
+              {phones.map((p) => (
+                <option key={p.id} value={p.phone}>{p.phone}</option>
+              ))}
+            </select>
+          ) : headerPhone ? (
+            <span className="text-[11px] font-mono text-muted-foreground">{headerPhone}</span>
+          ) : null}
           {activeConversation?.wati_status && (
-            <span className={`text-[10px] px-1.5 py-0.5 rounded-full font-medium ml-auto ${
+            <span className={`text-[10px] px-1.5 py-0.5 rounded-full font-medium ${
               activeConversation.wati_status === 'open'    ? 'bg-emerald-100 text-emerald-700' :
               activeConversation.wati_status === 'pending' ? 'bg-amber-100 text-amber-700' :
               'bg-muted text-muted-foreground'
@@ -272,27 +302,19 @@ export function ContactCenterSidebarV2() {
               {activeConversation.wati_status}
             </span>
           )}
-        </div>
-        {customer?.is_blocked && (
-          <div className="flex items-center gap-1.5 pl-9 mt-0.5">
-            <AlertTriangle className="h-3 w-3 text-destructive flex-shrink-0" />
-            <span className="text-[10px] text-destructive font-medium">Blocked</span>
-          </div>
-        )}
-        {customer && customer.pending_payment_amount > 0 && (
-          <div className="pl-9 mt-0.5">
+          {customer && customer.pending_payment_amount > 0 && (
             <Badge variant="outline" className="text-[10px] text-amber-600 border-amber-300 px-1 py-0">
-              Pending: QAR {customer.pending_payment_amount.toFixed(2)}
+              QAR {customer.pending_payment_amount.toFixed(2)}
             </Badge>
-          </div>
-        )}
+          )}
+        </div>
       </div>
 
       {myProfile?.threecx_extension && <DialPad />}
 
       {/* When no customer is linked OR we're in unknown-caller flow,
           render the v1 CrmSection's attach/create flow inline */}
-      {(!customer || customerData.crmMode === 'unknown') && activePhone && (
+      {(!customer || customerData.crmMode === 'unknown' || customerData.crmMode === 'edit') && activePhone && (
         <div className="flex-shrink-0 border-b border-border">
           <CrmSection
             customerData={customerData}
