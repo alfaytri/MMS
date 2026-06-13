@@ -21,7 +21,7 @@ export function useServiceTree(
       const supabase = createClient()
       let query = supabase
         .from('services')
-        .select('*')
+        .select('id, name_en, name_ar, parent_id, division, price, price_unit, duration, warranty, reminder_days, service_type, invoice_text_en, invoice_text_ar, emergency_price, inventory_items, qc_checklist, qc_items, spare_parts, contract_type, item_kind, pricing_mode, discount_scope, discount, status, has_pending_change, sort_order, tree_type, deleted_at')
         .eq('tree_type', treeType)
         .order('sort_order', { ascending: true })
       query = query.is('deleted_at', null)
