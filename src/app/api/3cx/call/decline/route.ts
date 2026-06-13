@@ -22,8 +22,8 @@ async function handleDrop(req: Request, verb: 'decline' | 'hangup'): Promise<Res
   if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
 
   const body = await req.json().catch(() => null) as { callId?: number } | null
-  if (!body || typeof body.callId !== 'number') {
-    return NextResponse.json({ error: 'callId is required' }, { status: 400 })
+  if (!body || !Number.isInteger(body.callId)) {
+    return NextResponse.json({ error: 'callId is required and must be an integer' }, { status: 400 })
   }
 
   const { data: profile, error: profileErr } = await supabase
@@ -51,7 +51,19 @@ async function handleDrop(req: Request, verb: 'decline' | 'hangup'): Promise<Res
     return NextResponse.json({ ok: true })
   } catch (e) {
     const msg = e instanceof Error ? e.message : 'unknown'
+    // Race-safe idempotency: if the call is now gone from active-calls, the drop
+    // either succeeded racily or the call ended naturally during our request.
+    // Either way the user's intent is satisfied — return 200 instead of an
+    // unhelpful 502 toast. Detailed error stays in the server log.
+    try {
+      const stillActive = await fetchActiveCalls()
+      if (!stillActive.some((c) => c.callId === body.callId)) {
+        console.info(`[3cx/call/${verb}] call already gone (callId=${body.callId}); reporting success`)
+        return NextResponse.json({ ok: true })
+      }
+    } catch { /* re-fetch failed — fall through to the 502 below */ }
+
     console.error(`[3cx/call/${verb}] failed:`, msg)
-    return NextResponse.json({ error: `${verb} failed: ${msg}` }, { status: 502 })
+    return NextResponse.json({ error: `Call could not be ${verb === 'decline' ? 'declined' : 'hung up'}` }, { status: 502 })
   }
 }

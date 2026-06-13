@@ -65,12 +65,52 @@ describe('POST /api/3cx/call/decline', () => {
         callId:        40,
         customerPhone: '+97472195504',
         status:        'ringing',
-        participants:  [{ extension: '101', participantId: 502 }],
+        participants:  [
+          { extension: '101', participantId: 502 },
+          { extension: '103', participantId: 504 },
+        ],
         startedAt:     '2026-06-13T08:10:00Z',
       },
     ])
     const res = await POST(req({ callId: 40 }))
     expect(res.status).toBe(403)
+  })
+
+  it('400 when callId is a float', async () => {
+    mockSupabase.auth.getUser.mockResolvedValue({ data: { user: { id: 'u1' } } })
+    const res = await POST(req({ callId: 40.5 }))
+    expect(res.status).toBe(400)
+  })
+
+  it('502 when dropCall throws and the call is still active', async () => {
+    mockSupabase.auth.getUser.mockResolvedValue({ data: { user: { id: 'u1' } } })
+    mockSupabase.maybeSingle.mockResolvedValue({ data: { threecx_extension: '112' }, error: null })
+    const activeWithCall = [
+      { callId: 40, customerPhone: '+97472195504', status: 'ringing', participants: [{ extension: '112', participantId: 508 }], startedAt: 'x' },
+    ]
+    vi.spyOn(activeCalls, 'fetchActiveCalls')
+      .mockResolvedValueOnce(activeWithCall)   // first call: resolve participant
+      .mockResolvedValueOnce(activeWithCall)   // second call: race-check inside catch — still present
+    vi.spyOn(callControl, 'dropCall').mockRejectedValue(new Error('3CX drop returned non-success: Failed'))
+    const res = await POST(req({ callId: 40 }))
+    expect(res.status).toBe(502)
+    expect(await res.json()).toEqual({ error: 'Call could not be declined' })
+  })
+
+  it('returns 200 (idempotent) when dropCall throws but the call has already ended', async () => {
+    mockSupabase.auth.getUser.mockResolvedValue({ data: { user: { id: 'u1' } } })
+    mockSupabase.maybeSingle.mockResolvedValue({ data: { threecx_extension: '112' }, error: null })
+    const activeWithCall = [
+      { callId: 40, customerPhone: '+97472195504', status: 'ringing', participants: [{ extension: '112', participantId: 508 }], startedAt: 'x' },
+    ]
+    const activeAfterDrop: typeof activeWithCall = []  // call is gone
+    vi.spyOn(activeCalls, 'fetchActiveCalls')
+      .mockResolvedValueOnce(activeWithCall)   // first call: resolve participant
+      .mockResolvedValueOnce(activeAfterDrop)  // second call: race-check inside catch
+    vi.spyOn(callControl, 'dropCall').mockRejectedValue(new Error('3CX drop returned non-success: Failed'))
+    const res = await POST(req({ callId: 40 }))
+    expect(res.status).toBe(200)
+    expect(await res.json()).toEqual({ ok: true })
   })
 
   it('200 when drop succeeds — and dropCall was called with the agent\'s ext + participantId', async () => {
