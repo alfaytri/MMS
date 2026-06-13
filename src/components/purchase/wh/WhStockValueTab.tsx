@@ -236,9 +236,9 @@ export const WhStockValueTab = React.memo(function WhStockValueTab({ warehouses 
   }, [])
 
   // QUOTA REMEDIATION (2026-06-13): A5 — stock-value-live realtime channel
-  // dropped. Stock Value is a report screen; the Refresh button below plus
-  // refetchOnWindowFocus on useWarehouseStock / fifoLayers / cogsEntries
-  // queries cover the update path.
+  // dropped. Stock Value is a report screen; the Refresh button (below) plus
+  // React Query's 60s staleTime + remount/navigation refetches cover the
+  // update path. (Global QueryProvider disables refetchOnWindowFocus.)
 
   // ── Filter ─────────────────────────────────────────────────────────────────
 
