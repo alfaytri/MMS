@@ -107,5 +107,7 @@ export function useWeekCapacity(
     },
     enabled: !!weekStart,
     staleTime: 60 * 1000,
+    refetchInterval: 30_000,
+    refetchOnWindowFocus: true,
   })
 }

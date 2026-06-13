@@ -76,5 +76,7 @@ export function useCalendarVisits(date: string, divisionSlug: string | null) {
     },
     enabled: !!date,
     staleTime: 60 * 1000,
+    refetchInterval: 30_000,
+    refetchOnWindowFocus: true,
   })
 }

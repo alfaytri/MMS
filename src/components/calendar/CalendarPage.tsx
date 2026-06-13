@@ -2,7 +2,7 @@
 
 import { useState, useRef, useEffect, useMemo } from 'react'
 import { format } from 'date-fns'
-import { useQuery, useQueryClient } from '@tanstack/react-query'
+import { useQuery } from '@tanstack/react-query'
 import { createClient } from '@/lib/supabase/client'
 import { useCalendarSchedule, useDivisionSchedule, useAllDivisionSchedules } from '@/hooks/useCalendarSchedule'
 import { useCalendarVisits, groupVisitsByTeam, filterVisitsByType } from '@/hooks/useCalendarVisits'
@@ -60,7 +60,6 @@ function useCalendarPermissions() {
 
 export function CalendarPage() {
   const router = useRouter()
-  const queryClient = useQueryClient()
 
   const [date, setDate] = useState(() => format(new Date(), 'yyyy-MM-dd'))
   const [fitMode, setFitMode] = useState(false)
@@ -174,22 +173,8 @@ export function CalendarPage() {
     }
   }, [])
 
-  // Realtime: invalidate on any calendar_visits change
-  useEffect(() => {
-    const supabase = createClient()
-    const channel = supabase
-      .channel('calendar-realtime')
-      .on(
-        'postgres_changes',
-        { event: '*', schema: 'public', table: 'calendar_visits' },
-        () => {
-          queryClient.invalidateQueries({ queryKey: queryKeys.calendar.visitsAll })
-          queryClient.invalidateQueries({ queryKey: queryKeys.calendar.weekCapacityAll })
-        },
-      )
-      .subscribe()
-    return () => { supabase.removeChannel(channel) }
-  }, [queryClient])
+  // QUOTA REMEDIATION (2026-06-13): A4 — calendar_visits realtime
+  // replaced by 30s refetchInterval on useCalendarVisits + useWeekCapacity.
 
   function toggleVisitType(type: string) {
     setActiveVisitTypes(prev => {
