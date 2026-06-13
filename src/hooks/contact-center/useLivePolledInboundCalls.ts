@@ -2,9 +2,12 @@
 
 import { useEffect, useRef, useState } from 'react'
 
+export type CallStatus = 'ringing' | 'connected'
+
 export interface LiveInboundCall {
   callId:        number
   customerPhone: string
+  status:        CallStatus
   startedAt:     string
 }
 
