@@ -1,13 +1,17 @@
 import { getAccessToken, requireEnv } from './auth'
 
-export interface RingingCall {
-  callId:            number
-  customerPhone:     string   // E.164, e.g. "+97472195504"
-  ringingExtensions: string[] // sorted ascending — extensions currently ringing for this call
-  startedAt:         string   // ISO; first time we saw this callid
+export type CallStatus = 'ringing' | 'connected'
+
+export interface ActiveCall {
+  callId:        number
+  customerPhone: string                      // E.164, e.g. "+97472195504"
+  status:        CallStatus                  // 'connected' wins over 'ringing' for the same callid
+  participants:  Array<{ extension: string, participantId: number }>
+  startedAt:     string                      // ISO; first time we saw this callid
 }
 
 interface CallControlParticipant {
+  id:              number
   callid:          number
   status:          string
   party_caller_id: string
@@ -38,7 +42,7 @@ function normalisePhone(raw: string | null | undefined): string {
   return `+${digits}`
 }
 
-export async function fetchRingingCalls(): Promise<RingingCall[]> {
+export async function fetchActiveCalls(): Promise<ActiveCall[]> {
   const pbx   = requireEnv('3CX_PBX_URL').replace(/\/$/, '')
   const token = await getAccessToken()
   // Next.js fetch cache with 1s revalidate — collapses concurrent polls across
@@ -57,29 +61,35 @@ export async function fetchRingingCalls(): Promise<RingingCall[]> {
   }
   const entries = await res.json() as CallControlEntry[]
 
-  // Flatten into ringing-call rows grouped by callid
-  const byCallId = new Map<number, RingingCall>()
+  // Flatten into active-call rows grouped by callid. We include both Ringing and
+  // Connected participants so the banner can keep showing the call after pickup.
+  const byCallId = new Map<number, ActiveCall>()
   for (const entry of entries) {
     if (entry.type !== 'Wextension') continue
     for (const p of entry.participants ?? []) {
-      if (p.status !== 'Ringing') continue
+      const isRinging   = p.status === 'Ringing'
+      const isConnected = p.status === 'Connected'
+      if (!isRinging && !isConnected) continue
       const existing = byCallId.get(p.callid)
       if (existing) {
-        existing.ringingExtensions.push(p.dn)
+        existing.participants.push({ extension: p.dn, participantId: p.id })
+        // Connected wins over ringing for the call-level status
+        if (isConnected) existing.status = 'connected'
       } else {
         byCallId.set(p.callid, {
-          callId:            p.callid,
-          customerPhone:     normalisePhone(p.party_caller_id),
-          ringingExtensions: [p.dn],
-          startedAt:         new Date().toISOString(),
+          callId:        p.callid,
+          customerPhone: normalisePhone(p.party_caller_id),
+          status:        isConnected ? 'connected' : 'ringing',
+          participants:  [{ extension: p.dn, participantId: p.id }],
+          startedAt:     new Date().toISOString(),
         })
       }
     }
   }
 
-  // Sort extensions per call for stable comparison
+  // Sort participants by extension ascending for stable comparison in tests + UI.
   return Array.from(byCallId.values()).map((c) => ({
     ...c,
-    ringingExtensions: [...c.ringingExtensions].sort(),
+    participants: [...c.participants].sort((a, b) => a.extension.localeCompare(b.extension)),
   }))
 }

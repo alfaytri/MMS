@@ -54,24 +54,67 @@ describe('GET /api/3cx/active-calls', () => {
     expect(body.error).toBe('Profile lookup failed')
   })
 
-  it('returns only ringing calls that include the caller extension', async () => {
+  it('returns only ringing calls that include the caller extension and projects to per-agent shape', async () => {
     mockSupabase.auth.getUser.mockResolvedValue({ data: { user: { id: 'u1' } } })
     mockSupabase.maybeSingle.mockResolvedValue({ data: { threecx_extension: '112' }, error: null })
-    vi.spyOn(activeCalls, 'fetchRingingCalls').mockResolvedValue([
-      { callId: 40, customerPhone: '+97472195504', ringingExtensions: ['101', '112'], startedAt: '2026-06-12T20:35:21Z' },
-      { callId: 41, customerPhone: '+97455000000', ringingExtensions: ['101'],        startedAt: '2026-06-12T20:35:25Z' },
+    vi.spyOn(activeCalls, 'fetchActiveCalls').mockResolvedValue([
+      {
+        callId:        40,
+        customerPhone: '+97472195504',
+        status:        'ringing',
+        participants:  [
+          { extension: '101', participantId: 502 },
+          { extension: '112', participantId: 501 },
+        ],
+        startedAt:     '2026-06-12T20:35:21Z',
+      },
+      {
+        callId:        41,
+        customerPhone: '+97455000000',
+        status:        'ringing',
+        participants:  [{ extension: '101', participantId: 503 }],
+        startedAt:     '2026-06-12T20:35:25Z',
+      },
     ])
     const res = await GET(req())
     expect(res.status).toBe(200)
     const body = await res.json()
     expect(body.calls).toHaveLength(1)
-    expect(body.calls[0].callId).toBe(40)
+    expect(body.calls[0]).toEqual({
+      callId:          40,
+      customerPhone:   '+97472195504',
+      status:          'ringing',
+      myParticipantId: 501,
+      startedAt:       '2026-06-12T20:35:21Z',
+    })
+    // Other agents' participant ids must NOT leak through
+    expect(JSON.stringify(body)).not.toContain('502')
+  })
+
+  it('surfaces a Connected call to the agent on the call', async () => {
+    mockSupabase.auth.getUser.mockResolvedValue({ data: { user: { id: 'u1' } } })
+    mockSupabase.maybeSingle.mockResolvedValue({ data: { threecx_extension: '112' }, error: null })
+    vi.spyOn(activeCalls, 'fetchActiveCalls').mockResolvedValue([
+      {
+        callId:        50,
+        customerPhone: '+97472195504',
+        status:        'connected',
+        participants:  [{ extension: '112', participantId: 700 }],
+        startedAt:     '2026-06-13T08:10:00Z',
+      },
+    ])
+    const res = await GET(req())
+    expect(res.status).toBe(200)
+    const body = await res.json()
+    expect(body.calls).toHaveLength(1)
+    expect(body.calls[0].status).toBe('connected')
+    expect(body.calls[0].myParticipantId).toBe(700)
   })
 
   it('502 when upstream /callcontrol fails', async () => {
     mockSupabase.auth.getUser.mockResolvedValue({ data: { user: { id: 'u1' } } })
     mockSupabase.maybeSingle.mockResolvedValue({ data: { threecx_extension: '112' }, error: null })
-    vi.spyOn(activeCalls, 'fetchRingingCalls').mockRejectedValue(new Error('3CX /callcontrol failed: 500'))
+    vi.spyOn(activeCalls, 'fetchActiveCalls').mockRejectedValue(new Error('3CX /callcontrol failed: 500'))
     const res = await GET(req())
     expect(res.status).toBe(502)
   })
