@@ -215,7 +215,7 @@ Purchase & Sales▾:
 
 ## 🔄 In Progress
 
-🚀 Starting: **CC Call Controls Task 4: surface status in polling hook**
+🚀 Starting: **CC Call Controls Task 5: banner state machine (Decline/Hangup, no Answer)**
 
 ## ✅ Completed
 
