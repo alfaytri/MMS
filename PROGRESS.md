@@ -216,7 +216,7 @@ Purchase & Sales▾:
 
 ## 🔄 In Progress
 
-(none)
+⏸️  **CC Call Controls — pending live end-to-end verification.** Code complete on `feature/cc-dialer-webrtc` (not pushed). Awaiting the user's manual smoke test of Decline (during ring) + Connected timer + Hangup against a real inbound call. **Do not resume work on this until the user explicitly requests it.**
 
 ## ✅ Completed
 
