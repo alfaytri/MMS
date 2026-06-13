@@ -300,7 +300,7 @@ export function usePOPayments(poId: string | null) {
       const supabase = createClient()
       const { data, error } = await supabase
         .from('payments')
-        .select('*')
+        .select('id, date, amount, amount_qar, method, reference, status, currency, exchange_rate, source_type, source_id, supplier_id, direction, notes, deleted_at, created_at')
         .eq('source_type', 'purchase_order')
         .eq('source_id', poId!)
         .is('deleted_at', null)
