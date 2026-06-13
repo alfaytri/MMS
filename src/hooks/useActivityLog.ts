@@ -21,7 +21,7 @@ export function useActivityLog(filters: ActivityLogFilters = {}) {
         .from('activity_log')
         .select('*')
         .order('created_at', { ascending: false })
-        .limit(500)
+        .limit(200)
 
       if (filters.module) {
         query = query.eq('module', filters.module)

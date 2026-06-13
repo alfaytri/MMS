@@ -80,6 +80,7 @@ export function useReceivals(filters?: { status?: ReceivalStatus | '' }) {
           purchase_orders!receivals_po_id_fkey(po_number,supplier_name)
         `)
         .order('created_at', { ascending: false })
+        .limit(200)
       if (filters?.status) q = q.eq('status', filters.status)
       const { data, error } = await q
       if (error) throw error

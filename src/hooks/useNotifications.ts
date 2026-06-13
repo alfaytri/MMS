@@ -56,6 +56,7 @@ export function useReminders() {
         .select('*')
         .order('category_id')
         .order('created_at')
+        .limit(200)
       if (error) throw error
       return (data ?? []) as Reminder[]
     },
