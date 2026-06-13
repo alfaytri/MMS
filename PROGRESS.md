@@ -217,7 +217,7 @@ Purchase & Sales▾:
 
 ## 🔄 In Progress
 
-🚀 Starting: **Supabase Quota Remediation Track A: Task 6 — verification gate (awaiting user smoke test + PR decision)**
+🚀 Starting: **Supabase Quota Remediation Track B: Task 7 — useIntervalWhenVisible helper**
 
 ⏸️  **CC Call Controls — pending live end-to-end verification.** Code complete on `feature/cc-dialer-webrtc` (not pushed). Awaiting the user's manual smoke test of Decline (during ring) + Connected timer + Hangup against a real inbound call. **Do not resume work on this until the user explicitly requests it.**
 
