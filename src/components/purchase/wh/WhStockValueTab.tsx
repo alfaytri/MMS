@@ -1,7 +1,7 @@
 'use client'
 
 import React, { useState, useMemo, useCallback } from 'react'
-import { Search, X, RefreshCw, TrendingUp, ChevronRight, ChevronDown } from 'lucide-react'
+import { Search, X, RefreshCw, TrendingUp, ChevronRight, ChevronDown, ArrowUpDown } from 'lucide-react'
 import { Input } from '@/components/ui/input'
 import { Button } from '@/components/ui/button'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
@@ -44,6 +44,7 @@ interface MergedRow {
   cogsTotalCost: number
   cogsLcAdjustmentCount: number
   warehouses: WarehouseBreakdown[]
+  latestReceivalAt: string | null
 }
 
 type FifoLayerRow = {
@@ -67,7 +68,7 @@ const ITEM_TYPE_TABS = [
 ] as const
 
 type ItemTypeValue = typeof ITEM_TYPE_TABS[number]['value']
-type SortField = 'category_name' | 'item_name' | 'brand' | 'qty' | 'avg_cost' | 'total_value' | 'cogs'
+type SortField = 'latest_receival' | 'category_name' | 'item_name' | 'brand' | 'qty' | 'avg_cost' | 'total_value' | 'cogs'
 type SortDir = 'asc' | 'desc'
 
 function formatCurrency(val: number): string {
@@ -88,7 +89,8 @@ function FifoDetail({
   brandVariantId: string
   warehouseMap: Map<string, string>
 }) {
-  const { data: layers = [], isLoading } = useQuery({
+  const [sortNewest, setSortNewest] = useState(true)
+  const { data: rawLayers = [], isLoading } = useQuery({
     queryKey: [...queryKeys.inventory.fifoLayersByVariant(brandVariantId), 'with-warehouse'],
     queryFn: async () => {
       const supabase = createClient()
@@ -104,6 +106,7 @@ function FifoDetail({
     },
     staleTime: 2 * 60 * 1000,
   })
+  const layers = sortNewest ? [...rawLayers].reverse() : rawLayers
 
   if (isLoading) {
     return (
@@ -137,9 +140,19 @@ function FifoDetail({
     <TableRow>
       <TableCell colSpan={8} className="bg-muted/20 p-0">
         <div className="px-6 py-3">
-          <p className="text-[10px] font-semibold uppercase tracking-wide text-muted-foreground mb-2">
-            Receival Layers ({layers.length})
-          </p>
+          <div className="flex items-center justify-between mb-2">
+            <p className="text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">
+              Receival Layers ({layers.length})
+            </p>
+            <button
+              type="button"
+              onClick={() => setSortNewest((s) => !s)}
+              className="inline-flex items-center gap-1 text-[10px] text-muted-foreground hover:text-foreground transition-colors"
+            >
+              <ArrowUpDown className="h-3 w-3" />
+              {sortNewest ? 'Newest first' : 'Oldest first'}
+            </button>
+          </div>
           <div className="rounded-md border bg-background overflow-hidden">
             <Table>
               <TableHeader>
@@ -211,8 +224,9 @@ export const WhStockValueTab = React.memo(function WhStockValueTab({ warehouses 
   const [search, setSearch] = useState('')
   const [selectedWarehouseId, setSelectedWarehouseId] = useState<string | undefined>(undefined)
   const [activeType, setActiveType] = useState<ItemTypeValue>('__all__')
-  const [sortField, setSortField] = useState<SortField>('category_name')
-  const [sortDir, setSortDir] = useState<SortDir>('asc')
+  // Default: products with the most recently created receival float to the top.
+  const [sortField, setSortField] = useState<SortField>('latest_receival')
+  const [sortDir, setSortDir] = useState<SortDir>('desc')
   const [expandedRows, setExpandedRows] = useState<Set<string>>(new Set())
 
   const queryClient = useQueryClient()
@@ -220,6 +234,25 @@ export const WhStockValueTab = React.memo(function WhStockValueTab({ warehouses 
   const { data: allStock = [], isLoading } = useWarehouseStock(selectedWarehouseId)
   const { data: cogsMap } = useStockValueCogsSummary(null)
   const router = useRouter()
+
+  // Per-variant latest receival (created_at of newest FIFO layer) for sort ordering.
+  const { data: latestReceivalMap } = useQuery({
+    queryKey: [...queryKeys.inventory.fifoLayers, 'latest-by-variant'],
+    queryFn: async () => {
+      const supabase = createClient()
+      const { data, error } = await supabase
+        .from('fifo_cost_layers')
+        .select('brand_variant_id, created_at')
+        .order('created_at', { ascending: false })
+      if (error) throw error
+      const map = new Map<string, string>()
+      for (const r of (data ?? []) as { brand_variant_id: string; created_at: string }[]) {
+        if (!map.has(r.brand_variant_id)) map.set(r.brand_variant_id, r.created_at)
+      }
+      return map
+    },
+    staleTime: 60 * 1000,
+  })
 
   const warehouseMap = useMemo(() => {
     const map = new Map<string, string>()
@@ -287,6 +320,7 @@ export const WhStockValueTab = React.memo(function WhStockValueTab({ warehouses 
           cogsTotalCost: 0,
           cogsLcAdjustmentCount: 0,
           warehouses: [],
+          latestReceivalAt: latestReceivalMap?.get(row.brand_variant_id) ?? null,
         }
         map.set(row.brand_variant_id, entry)
       }
@@ -310,7 +344,7 @@ export const WhStockValueTab = React.memo(function WhStockValueTab({ warehouses 
     }
 
     return Array.from(map.values())
-  }, [filtered, warehouseMap, cogsMap])
+  }, [filtered, warehouseMap, cogsMap, latestReceivalMap])
 
   // ── Sort ───────────────────────────────────────────────────────────────────
 
@@ -319,6 +353,14 @@ export const WhStockValueTab = React.memo(function WhStockValueTab({ warehouses 
     rows.sort((a, b) => {
       let cmp = 0
       switch (sortField) {
+        case 'latest_receival': {
+          // Variants without any receival yet sort to the bottom regardless of dir.
+          const aHas = a.latestReceivalAt !== null
+          const bHas = b.latestReceivalAt !== null
+          if (aHas !== bHas) return aHas ? -1 : 1
+          cmp = (a.latestReceivalAt ?? '').localeCompare(b.latestReceivalAt ?? '')
+          break
+        }
         case 'category_name':
           cmp = (a.category_name ?? '').localeCompare(b.category_name ?? '')
           break
@@ -457,6 +499,33 @@ export const WhStockValueTab = React.memo(function WhStockValueTab({ warehouses 
               </Button>
             </div>
           )}
+
+          {/* Sort toggle: newest receival (default) vs A–Z by category */}
+          <div className="ml-auto flex items-center gap-1">
+            <button
+              type="button"
+              onClick={() => { setSortField('latest_receival'); setSortDir('desc') }}
+              className={`inline-flex items-center gap-1 h-7 px-2 rounded-md border text-[11px] transition-colors ${
+                sortField === 'latest_receival'
+                  ? 'bg-primary text-primary-foreground border-primary'
+                  : 'bg-background hover:bg-muted'
+              }`}
+            >
+              <ArrowUpDown className="h-3 w-3" />
+              Newest receival
+            </button>
+            <button
+              type="button"
+              onClick={() => { setSortField('category_name'); setSortDir('asc') }}
+              className={`inline-flex items-center gap-1 h-7 px-2 rounded-md border text-[11px] transition-colors ${
+                sortField === 'category_name'
+                  ? 'bg-primary text-primary-foreground border-primary'
+                  : 'bg-background hover:bg-muted'
+              }`}
+            >
+              A–Z by category
+            </button>
+          </div>
         </div>
 
         {/* Data table */}
