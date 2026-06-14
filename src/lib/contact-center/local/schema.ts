@@ -50,6 +50,8 @@ export interface LocalConversation {
   wati_contact_name: string | null
   last_message: string | null
   last_message_at: string | null
+  last_message_from_type: 'agent' | 'customer' | null
+  unanswered_dismissed_at: string | null
   unread_count: number
   assigned_agent: string | null
   is_opened: boolean

@@ -489,7 +489,9 @@ export type Database = {
           is_opened: boolean
           last_message: string | null
           last_message_at: string | null
+          last_message_from_type: string | null
           provider: string
+          unanswered_dismissed_at: string | null
           unknown_phone: string | null
           unread_count: number | null
           updated_at: string | null
@@ -511,7 +513,9 @@ export type Database = {
           is_opened?: boolean
           last_message?: string | null
           last_message_at?: string | null
+          last_message_from_type?: string | null
           provider?: string
+          unanswered_dismissed_at?: string | null
           unknown_phone?: string | null
           unread_count?: number | null
           updated_at?: string | null
@@ -533,7 +537,9 @@ export type Database = {
           is_opened?: boolean
           last_message?: string | null
           last_message_at?: string | null
+          last_message_from_type?: string | null
           provider?: string
+          unanswered_dismissed_at?: string | null
           unknown_phone?: string | null
           unread_count?: number | null
           updated_at?: string | null
@@ -9281,6 +9287,7 @@ export type Database = {
           waze_link: string
         }[]
       }
+      has_admin_permission: { Args: never; Returns: boolean }
       has_inventory_manager_role: {
         Args: { p_profile_id: string }
         Returns: boolean
