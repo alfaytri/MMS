@@ -70,12 +70,15 @@ export async function lazyFetch(
   db: MmsCcDb,
   supabase: SupabaseClient,
   conversationId: string,
+  options?: { force?: boolean },
 ): Promise<void> {
   const cursorKey = `lastMessageSync:${conversationId}`
-  const cursor = await db.sync.get(cursorKey)
-  if (cursor && typeof cursor.value === 'string') {
-    const age = Date.now() - new Date(cursor.value).getTime()
-    if (age < STALE_MS) return
+  if (!options?.force) {
+    const cursor = await db.sync.get(cursorKey)
+    if (cursor && typeof cursor.value === 'string') {
+      const age = Date.now() - new Date(cursor.value).getTime()
+      if (age < STALE_MS) return
+    }
   }
 
   const { data, error } = await supabase

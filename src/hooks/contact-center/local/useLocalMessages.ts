@@ -36,13 +36,16 @@ export function useLocalMessages(
   }, [db, customerId, conversationId], [] as string[])
 
   // Kick off a lazy network fetch for any conversation we don't have cached yet.
+  // The active conversation always force-refreshes so a previously-broken
+  // Dexie row (e.g. mis-classified from_type) gets healed from Supabase on open;
+  // background conversations stay on the 30s stale cache.
   useEffect(() => {
     if (!db) return
     const supabase = createClient()
     for (const cid of convIds ?? []) {
-      void msgRepo.lazyFetch(db, supabase, cid)
+      void msgRepo.lazyFetch(db, supabase, cid, { force: cid === conversationId })
     }
-  }, [db, convIds])
+  }, [db, convIds, conversationId])
 
   const rows = useLiveQuery(
     () => (db ? msgRepo.listByConversations(db, convIds ?? []) : Promise.resolve([])),

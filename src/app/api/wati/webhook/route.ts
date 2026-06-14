@@ -466,7 +466,21 @@ export async function POST(req: NextRequest) {
   if (!rawWaId) return NextResponse.json({ ok: true })
 
   const phone    = normalisePhone(rawWaId)
-  const isAgent  = body.owner === true || eventType === 'message_sent' || eventType === 'sent_message' || eventType === 'broadcastMessage'
+  // Wati uses several different shapes to mark agent-direction depending on the
+  // message type and event source. Accept any of them so dashboard-sent and
+  // template messages aren't mis-classified as customer messages.
+  const AGENT_EVENT_TYPES = new Set([
+    'message_sent',
+    'sent_message',
+    'broadcastMessage',
+    'sessionMessageSent',
+    'templateMessageSent',
+    'newSessionMessage',
+  ])
+  const ownerIsTrue =
+    body.owner === true ||
+    (typeof body.owner === 'string' && body.owner.toLowerCase() === 'true')
+  const isAgent = ownerIsTrue || AGENT_EVENT_TYPES.has(eventType)
 
   // Wati's older API returns numeric type codes — map them to string names so
   // extractAttachments and extractWebhookText work correctly.

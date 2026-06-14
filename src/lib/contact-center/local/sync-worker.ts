@@ -61,21 +61,20 @@ export class SyncWorker {
     // chat_conversations, service_customers, _addresses, _phones, installed_products
     // — consumed ~70% of the project's Realtime quota.
     //
-    // Now: ONE filtered subscription on chat_messages INSERT where from_type='customer'.
-    //   • Inbound customer messages still hydrate the local Dexie cache for
-    //     background conversations.
-    //   • Agent-side message UPDATEs (sending → sent → delivered → read) are
-    //     covered by useLiveThread (filtered by conversation_id) for the active
-    //     thread; they no longer wake every browser.
-    //   • chat_conversations is polled by useLiveConversations.
-    //   • CRM tables (service_customers / _addresses / _phones / installed_products)
-    //     are lazy-fetched on demand by repos/*; refetchOnWindowFocus keeps them
-    //     fresh enough for the single-user editing pattern.
+    // Tightened to ONE filtered INSERT subscription (from_type=customer).
+    //
+    // UPDATE (2026-06-14): customer-only filter broke the V2 sidebar — the UI reads
+    // from Dexie via useLocalMessages, so agent INSERTs from fetch-messages (Wati
+    // dashboard replies, broadcast templates) and from_type heal UPDATEs never
+    // reached the cache and the chat appeared empty / mis-sided. Restored full
+    // chat_messages event coverage. Still ONE subscription — far below the
+    // original six. Other quota optimisations (chat_conversations polling, CRM
+    // lazy-fetch) remain in effect.
     this.channel = this.supabase
       .channel(`cc-sync-${this.provider}`)
       .on(
         'postgres_changes',
-        { event: 'INSERT', schema: 'public', table: 'chat_messages', filter: 'from_type=eq.customer' },
+        { event: '*', schema: 'public', table: 'chat_messages' },
         (payload: { eventType: string; new?: unknown; old?: unknown }) => this.onMessagePayload(payload),
       )
       .subscribe((channelStatus: string) => {

@@ -301,10 +301,33 @@ export async function GET(req: NextRequest) {
     '4': 'document', '5': 'sticker', '6': 'location', '7': 'contacts',
   }
 
+  // Wati's getMessages API returns the operator/agent direction in several
+  // different shapes depending on the message type:
+  //   • Session message sent from Wati UI: item.owner === true
+  //   • Same but JSON-stringified by some Wati edges: item.owner === 'true'
+  //   • Broadcast/template messages: no owner field, eventType = 'broadcastMessage'
+  //   • Some Wati event payloads use 'sessionMessageSent' / 'templateMessageSent'
+  // Treat any of these as agent-direction so dashboard-sent and template messages
+  // don't get mis-classified as customer messages.
+  const AGENT_EVENT_TYPES = new Set([
+    'message_sent',
+    'sent_message',
+    'broadcastMessage',
+    'sessionMessageSent',
+    'templateMessageSent',
+    'newSessionMessage',
+  ])
+  function itemIsAgent(item: any): boolean {
+    if (item.owner === true) return true
+    if (typeof item.owner === 'string' && item.owner.toLowerCase() === 'true') return true
+    if (item.eventType && AGENT_EVENT_TYPES.has(String(item.eventType))) return true
+    return false
+  }
+
   // Build message rows
   let rows: ChatMessageRow[] = messageItems.map((item) => {
     // broadcastMessage = sent from system/agent (no owner field on broadcast items)
-    const isAgent = item.owner === true || item.eventType === 'message_sent' || item.eventType === 'broadcastMessage'
+    const isAgent = itemIsAgent(item)
     const ts        = item.created
       ? new Date(item.created).toISOString()
       : item.timestamp
@@ -525,6 +548,52 @@ export async function GET(req: NextRequest) {
     })
   }
 
+  // Safety net against direction-flip duplicates: if an incoming customer row
+  // happens to match an existing AGENT row by exact text within ±5 minutes,
+  // drop it. This catches the case where Wati's response shape causes our
+  // direction classifier to mis-label an outbound message as inbound — without
+  // this, the user sees the same message twice (once on the left as customer,
+  // once on the right as agent from MMS's own insert).
+  const candidateCustomerRows = rows.filter(
+    (r) => r.from_type === 'customer' && r.message_kind === 'message' && r.text?.trim(),
+  )
+  if (candidateCustomerRows.length > 0) {
+    const minTs = candidateCustomerRows.reduce(
+      (acc, r) => Math.min(acc, new Date(r.created_at).getTime() - 5 * 60_000),
+      Infinity,
+    )
+    const maxTs = candidateCustomerRows.reduce(
+      (acc, r) => Math.max(acc, new Date(r.created_at).getTime() + 5 * 60_000),
+      -Infinity,
+    )
+    const { data: nearbyAgentRows } = await supabase.from('chat_messages')
+      .select('text, created_at')
+      .eq('conversation_id', conversationId)
+      .eq('from_type', 'agent')
+      .eq('message_kind', 'message')
+      .gte('created_at', new Date(minTs).toISOString())
+      .lte('created_at', new Date(maxTs).toISOString())
+
+    const agentByText = new Map<string, number[]>()
+    for (const a of (nearbyAgentRows ?? []) as { text: string | null; created_at: string }[]) {
+      const t = (a.text ?? '').trim()
+      if (!t) continue
+      const list = agentByText.get(t) ?? []
+      list.push(new Date(a.created_at).getTime())
+      agentByText.set(t, list)
+    }
+
+    if (agentByText.size > 0) {
+      rows = rows.filter((r) => {
+        if (r.from_type !== 'customer' || !r.text?.trim()) return true
+        const matches = agentByText.get(r.text.trim())
+        if (!matches) return true
+        const rowTs = new Date(r.created_at).getTime()
+        return !matches.some((at) => Math.abs(at - rowTs) <= 5 * 60_000)
+      })
+    }
+  }
+
   // Upsert — now safe: wati_-prefixed rows were renamed to bare ids above,
   // so onConflict:'external_id' will UPDATE them instead of inserting duplicates.
   //
@@ -572,9 +641,6 @@ export async function GET(req: NextRequest) {
     const isBroadcast = row._isBroadcast === true
     if (row.from_type === 'agent') {
       const isNew = !existingAgentRows.has(row.external_id)
-      // Skip agent rows not already in DB unless they're Wati-native broadcasts
-      // (broadcasts were never pre-inserted by MMS, so they have no existing row).
-      if (isNew && !isBroadcast) continue
       // Existing MMS-sent rows: SKIP ENTIRELY. The row already has the canonical
       // Supabase Storage URL in attachments and the correct delivery_status.
       // Including it in any upsert stream forces PostgREST to write
@@ -585,8 +651,10 @@ export async function GET(req: NextRequest) {
       // dedicated delivery-status webhook, not by this batch path.
       if (!isNew) continue
 
-      // Only broadcast rows reach here. Treat their attachments the same as
-      // customer rows: real URL → withAttachments, no URL → noAttachments.
+      // NEW agent rows: Wati-native broadcasts OR messages sent from the Wati
+      // web/mobile dashboard (which MMS never pre-inserted, and whose webhook
+      // may have been dropped). Treat their attachments like customer rows:
+      // real URL → withAttachments, no URL → noAttachments.
       const { attachments, _isBroadcast: _mb, wamid: _w, ...rest } = row
       const hasRealUrl = (attachments as Array<{ url?: string }> | null)?.some((a) => a.url)
       if (hasRealUrl) {
@@ -666,7 +734,7 @@ export async function GET(req: NextRequest) {
       item.reactionEmoji ?? null
 
     if (!targetId || !emoji) continue
-    const isAgent = item.owner === true || item.eventType === 'message_sent'
+    const isAgent = itemIsAgent(item)
     const key = String(targetId)
     const list = reactionsByTarget.get(key) ?? []
     list.push({ emoji, from_type: isAgent ? 'agent' : 'customer' })

@@ -83,7 +83,12 @@ describe('SyncWorker.subscribeRealtime', () => {
     dbMock = { sync: { put: vi.fn() } } // minimal — start() only touches sync.put for status
   })
 
-  it('subscribes to exactly one channel filtered to chat_messages where from_type=customer', () => {
+  it('subscribes to exactly one channel covering all chat_messages events', () => {
+    // 2026-06-14: filter relaxed from `from_type=eq.customer` INSERT to `*`.
+    // The customer-only filter prevented agent INSERTs and from_type heal UPDATEs
+    // from reaching Dexie, which broke the V2 sidebar (showed messages on the
+    // wrong side or hid them entirely). Still ONE subscription — far less than
+    // the original six unfiltered channels that prompted the tightening.
     const worker = new SyncWorker(dbMock, supabaseMock, 'wati')
     worker.start()
 
@@ -92,10 +97,9 @@ describe('SyncWorker.subscribeRealtime', () => {
     expect(onCalls[0]).toEqual({
       event: 'postgres_changes',
       cfg: {
-        event: 'INSERT',
+        event: '*',
         schema: 'public',
         table: 'chat_messages',
-        filter: 'from_type=eq.customer',
       },
     })
 
