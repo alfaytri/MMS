@@ -24,6 +24,30 @@ describe('normalisePhone — Qatar numbers', () => {
   })
 })
 
+describe('normalisePhone — spec phone shapes for Teams tab', () => {
+  it("strips parentheses and mixed separators '(+974) 5555 1234'", () => {
+    expect(normalisePhone('(+974) 5555 1234')).toBe('+97455551234')
+  })
+
+  it("'+974-5555-1234' (dashed) → +97455551234", () => {
+    expect(normalisePhone('+974-5555-1234')).toBe('+97455551234')
+  })
+
+  it("'00974 5555 1234' (00 prefix with spaces) → +97455551234", () => {
+    expect(normalisePhone('00974 5555 1234')).toBe('+97455551234')
+  })
+
+  it("'974 55551234' (bare 974 prefix) → +97455551234", () => {
+    expect(normalisePhone('974 55551234')).toBe('+97455551234')
+  })
+
+  it('is idempotent on already-normalised input', () => {
+    const n1 = normalisePhone('+974-5555-1234')
+    const n2 = normalisePhone(n1)
+    expect(n2).toBe(n1)
+  })
+})
+
 describe('normalisePhone — international numbers', () => {
   it('+44 UK number returned unchanged', () => {
     expect(normalisePhone('+447911123456')).toBe('+447911123456')
