@@ -217,7 +217,7 @@ Purchase & Sales▾:
 
 ## 🔄 In Progress
 
-None.
+🚀 Starting: **Chat List Filter Tabs + Teams Tab Plan Task 1: Add supporting index on chat_messages**
 
 ## ✅ Completed
 
