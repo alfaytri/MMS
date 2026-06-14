@@ -44,6 +44,8 @@ export function ContactCenterSidebarV2() {
     openConversation, goToList, expandSidebar, collapseSidebar,
     syncFromProvider, syncProgress,
     provider, setProvider,
+    teamPhones, divisions,
+    ensureAndOpenTeamConversation, markConversationResolved,
   } = state
 
   const [authUserId, setAuthUserId] = useState<string | null>(null)
@@ -205,6 +207,28 @@ export function ContactCenterSidebarV2() {
             onSync={syncFromProvider}
             syncProgress={syncProgress}
             provider={provider}
+            teamPhones={teamPhones}
+            divisions={divisions}
+            onOpenTeam={async (team) => {
+              if (!team.phone) return
+              try {
+                await ensureAndOpenTeamConversation({
+                  id:      team.id,
+                  phone:   team.phone,
+                  name_en: team.name_en,
+                })
+              } catch (err) {
+                toast.error(err instanceof Error ? err.message : 'Could not open team chat')
+              }
+            }}
+            onMarkResolved={async (conversationId) => {
+              try {
+                await markConversationResolved(conversationId, authUserId)
+              } catch (err) {
+                toast.error(err instanceof Error ? err.message : "Couldn't mark as resolved")
+                throw err
+              }
+            }}
           />
         </div>
       </div>
