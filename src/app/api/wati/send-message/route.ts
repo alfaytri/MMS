@@ -135,18 +135,20 @@ export async function POST(req: NextRequest) {
     conversationId = existing.id
     await supabase.from('chat_conversations')
       .update({
-        last_message:    text,
-        last_message_at: ts,
+        last_message:           text,
+        last_message_at:        ts,
+        last_message_from_type: 'agent',
         ...(senderName ? { assigned_agent: senderName } : {}),
       })
       .eq('id', conversationId)
   } else {
     const { data: created, error } = await supabase.from('chat_conversations')
       .insert({
-        wati_phone:      phone,
-        last_message:    text,
-        last_message_at: ts,
-        unread_count:    0,
+        wati_phone:             phone,
+        last_message:           text,
+        last_message_at:        ts,
+        last_message_from_type: 'agent',
+        unread_count:           0,
         ...(senderName ? { assigned_agent: senderName } : {}),
       })
       .select('id')

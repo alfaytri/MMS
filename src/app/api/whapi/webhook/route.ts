@@ -164,9 +164,10 @@ export async function POST(req: NextRequest) {
 
     const { data: convo } = await supabase.from('chat_conversations')
       .update({
-        last_message:    previewText,
-        last_message_at: ts,
-        unread_count:    1,
+        last_message:           previewText,
+        last_message_at:        ts,
+        last_message_from_type: 'customer',
+        unread_count:           1,
         ...(contactName ? { wati_contact_name: contactName } : {}),
       })
       .eq('wati_phone', phone)

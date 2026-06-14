@@ -785,17 +785,23 @@ export async function GET(req: NextRequest) {
     }
   }
 
-  // Update conversation last_message / last_message_at from the most recent message
+  // Update conversation last_message / last_message_at from the most recent real message
   if (rows.length > 0) {
-    const newest = rows.reduce((a, b) =>
-      new Date(a.created_at) > new Date(b.created_at) ? a : b
-    )
-    await supabase.from('chat_conversations')
-      .update({
-        last_message:    newest.text || `[${newest.from_type === 'agent' ? 'sent' : 'received'}]`,
-        last_message_at: newest.created_at,
-      })
-      .eq('id', conversationId)
+    const realMessages = rows.filter((r) => r.message_kind === 'message')
+    if (realMessages.length > 0) {
+      const newest = realMessages.reduce((a, b) =>
+        new Date(a.created_at) > new Date(b.created_at) ? a : b
+      )
+      const fromType: 'agent' | 'customer' =
+        newest.from_type === 'agent' ? 'agent' : 'customer'
+      await supabase.from('chat_conversations')
+        .update({
+          last_message:           newest.text || `[${fromType === 'agent' ? 'sent' : 'received'}]`,
+          last_message_at:        newest.created_at,
+          last_message_from_type: fromType,
+        })
+        .eq('id', conversationId)
+    }
   }
 
   return NextResponse.json({ fetched: inserted })

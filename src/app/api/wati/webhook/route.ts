@@ -547,7 +547,7 @@ export async function POST(req: NextRequest) {
     conversationId = existing.id
     await supabase.from('chat_conversations')
       .update({
-        ...(!isMsgEvent ? { last_message: text || `[${msgType}]`, last_message_at: ts } : {}),
+        ...(!isMsgEvent ? { last_message: text || `[${msgType}]`, last_message_at: ts, last_message_from_type: isAgent ? 'agent' : 'customer' } : {}),
         ...(senderName ? { wati_contact_name: senderName } : {}),
         ...(assignedAgentInMsg ? { assigned_agent: assignedAgentInMsg } : {}),
         ...(!isAgent && !isMsgEvent ? { unread_count: (existing.unread_count ?? 0) + 1 } : {}),
@@ -556,11 +556,12 @@ export async function POST(req: NextRequest) {
   } else {
     const { data: created, error } = await supabase.from('chat_conversations')
       .insert({
-        wati_phone:        phone,
-        wati_contact_name: senderName,
-        last_message:      text || `[${msgType}]`,
-        last_message_at:   ts,
-        unread_count:      isAgent ? 0 : 1,
+        wati_phone:             phone,
+        wati_contact_name:      senderName,
+        last_message:           text || `[${msgType}]`,
+        last_message_at:        ts,
+        last_message_from_type: isAgent ? 'agent' : 'customer',
+        unread_count:           isAgent ? 0 : 1,
         ...(assignedAgentInMsg ? { assigned_agent: assignedAgentInMsg } : {}),
       })
       .select('id')

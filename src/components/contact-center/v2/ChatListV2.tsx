@@ -1,7 +1,7 @@
 'use client'
 
 import { useState, useMemo } from 'react'
-import { Search, MessageSquare, RefreshCw, Headphones, Bot, Plus } from 'lucide-react'
+import { Search, RefreshCw, Headphones, Bot, Plus, Check } from 'lucide-react'
 import { Input } from '@/components/ui/input'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
@@ -9,8 +9,17 @@ import {
   Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
 } from '@/components/ui/select'
 import { useCountryCodes } from '@/hooks/useCountryCodes'
+import { ChatListFilterTabs, readPersistedFilter, persistFilter } from './ChatListFilterTabs'
+import { TeamGroupedList } from './TeamGroupedList'
+import { ChatListEmptyState } from './ChatListEmptyState'
+import { tryNormalisePhone } from '@/lib/contact-center/normalise-phone'
+import type { FilterKey } from './ChatListEmptyState'
+import type { FilterCounts } from './ChatListFilterTabs'
 import type { ChatConversation } from '@/types/contact-center'
 import type { SyncProgress } from '@/hooks/contact-center/useContactCenterState'
+import type { UseTeamPhonesResult } from '@/hooks/contact-center/local/useTeamPhones'
+import type { DivisionSlim } from './TeamGroupedList'
+import type { TeamSlim } from '@/hooks/contact-center/local/useTeamPhones'
 
 interface Props {
   conversations:        ChatConversation[]
@@ -20,6 +29,10 @@ interface Props {
   onSync?:              () => Promise<void>
   syncProgress?:        SyncProgress
   provider:             'wati' | 'whapi'
+  teamPhones:           UseTeamPhonesResult
+  divisions:            DivisionSlim[]
+  onOpenTeam:           (team: TeamSlim) => void
+  onMarkResolved:       (conversationId: string) => Promise<void>
 }
 
 function looksLikePhone(s: string): boolean {
@@ -29,9 +42,7 @@ function looksLikePhone(s: string): boolean {
 function normalisePhone(raw: string, countryCode: string): string {
   const digits = raw.replace(/[^\d]/g, '')
   if (!digits) return ''
-  // If the user typed a full international number, use it as-is
   if (raw.trim().startsWith('+') && digits.length >= 10) return `+${digits}`
-  // Otherwise prepend the selected country code
   return `${countryCode}${digits}`
 }
 
@@ -48,62 +59,86 @@ function ProviderTag({ provider }: { provider?: 'wati' | 'whapi' }) {
   )
 }
 
-function ConversationRow({ c, onClick }: { c: ChatConversation; onClick: () => void }) {
+function ConversationRow({
+  c, onClick, onMarkResolved,
+}: {
+  c: ChatConversation
+  onClick: () => void
+  onMarkResolved?: () => void
+}) {
   const isBot = c.assigned_agent?.toLowerCase() === 'bot' || c.assigned_agent?.toLowerCase() === 'chatbot'
   const isResolved = c.wati_status === 'resolved'
   return (
-    <button
-      onClick={onClick}
-      className={`w-full flex items-start gap-2.5 px-3 py-2 hover:bg-muted/50 transition-colors border-b border-border/50 text-left ${
+    <div
+      className={`group w-full flex items-start gap-2.5 px-3 py-2 hover:bg-muted/50 transition-colors border-b border-border/50 ${
         isResolved ? 'opacity-60' : ''
       }`}
     >
-      <div className="flex-shrink-0 w-8 h-8 rounded-full bg-primary/10 flex items-center justify-center text-xs font-semibold text-primary mt-0.5">
-        {(c.customer_name ?? c.wati_contact_name ?? c.wati_phone ?? '?')[0]?.toUpperCase()}
-      </div>
-      <div className="flex-1 min-w-0">
-        <div className="flex items-center justify-between gap-1">
-          <div className="flex items-center gap-1 min-w-0">
-            <ProviderTag provider={c.provider} />
-            <span className={`text-xs font-semibold truncate ${!c.is_opened && c.unread_count > 0 ? 'text-foreground' : 'text-foreground/80'}`}>
-              {c.customer_name ?? c.wati_contact_name ?? c.wati_phone ?? 'Unknown'}
-            </span>
-          </div>
-          {c.last_message_at && (
-            <span className="text-[10px] text-muted-foreground flex-shrink-0">
-              {new Date(c.last_message_at).toLocaleString([], { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' })}
-            </span>
-          )}
+      <button onClick={onClick} className="flex-1 flex items-start gap-2.5 text-left min-w-0">
+        <div className="flex-shrink-0 w-8 h-8 rounded-full bg-primary/10 flex items-center justify-center text-xs font-semibold text-primary mt-0.5">
+          {(c.customer_name ?? c.wati_contact_name ?? c.wati_phone ?? '?')[0]?.toUpperCase()}
         </div>
-        {c.assigned_agent && (
-          <div className="flex items-center gap-1 mt-0.5">
-            {isBot ? <Bot className="h-3 w-3 text-muted-foreground" /> : <Headphones className="h-3 w-3 text-muted-foreground" />}
-            <span className="text-[11px] text-muted-foreground truncate">{c.assigned_agent}</span>
-          </div>
-        )}
-        <div className="flex items-center justify-between gap-1 mt-0.5">
-          <span className="text-[11px] text-muted-foreground truncate">{c.last_message ?? 'No messages yet'}</span>
-          <div className="flex items-center gap-1 flex-shrink-0">
-            {c.unread_count > 0 && (
-              <Badge className="h-4 min-w-4 text-[10px] px-1 py-0">
-                {c.unread_count > 99 ? '99+' : c.unread_count}
-              </Badge>
+        <div className="flex-1 min-w-0">
+          <div className="flex items-center justify-between gap-1">
+            <div className="flex items-center gap-1 min-w-0">
+              <ProviderTag provider={c.provider} />
+              <span className={`text-xs font-semibold truncate ${!c.is_opened && c.unread_count > 0 ? 'text-foreground' : 'text-foreground/80'}`}>
+                {c.customer_name ?? c.wati_contact_name ?? c.wati_phone ?? 'Unknown'}
+              </span>
+            </div>
+            {c.last_message_at && (
+              <span className="text-[10px] text-muted-foreground flex-shrink-0">
+                {new Date(c.last_message_at).toLocaleString([], { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' })}
+              </span>
             )}
           </div>
+          {c.assigned_agent && (
+            <div className="flex items-center gap-1 mt-0.5">
+              {isBot ? <Bot className="h-3 w-3 text-muted-foreground" /> : <Headphones className="h-3 w-3 text-muted-foreground" />}
+              <span className="text-[11px] text-muted-foreground truncate">{c.assigned_agent}</span>
+            </div>
+          )}
+          <div className="flex items-center justify-between gap-1 mt-0.5">
+            <span className="text-[11px] text-muted-foreground truncate">{c.last_message ?? 'No messages yet'}</span>
+            <div className="flex items-center gap-1 flex-shrink-0">
+              {c.unread_count > 0 && (
+                <Badge className="h-4 min-w-4 text-[10px] px-1 py-0">
+                  {c.unread_count > 99 ? '99+' : c.unread_count}
+                </Badge>
+              )}
+            </div>
+          </div>
         </div>
-      </div>
-    </button>
+      </button>
+      {onMarkResolved && (
+        <button
+          onClick={(e) => { e.stopPropagation(); onMarkResolved() }}
+          title="Mark as resolved"
+          className="opacity-0 group-hover:opacity-100 max-md:opacity-100 transition-opacity flex-shrink-0 self-center h-7 w-7 rounded-full hover:bg-primary/10 flex items-center justify-center"
+        >
+          <Check className="h-3.5 w-3.5 text-primary" />
+        </button>
+      )}
+    </div>
   )
 }
 
 export function ChatListV2({
   conversations, loading, onSelectConversation, onStartNewChat,
-  onSync, syncProgress, provider,
+  onSync, syncProgress, provider, teamPhones, divisions, onOpenTeam, onMarkResolved,
 }: Props) {
   const [search, setSearch] = useState('')
   const [syncing, setSyncing] = useState(false)
   const [countryCode, setCountryCode] = useState('+974')
   const { data: codes = [] } = useCountryCodes()
+
+  const [filter, setFilter] = useState<FilterKey>(() => readPersistedFilter())
+
+  function changeFilter(next: FilterKey) {
+    setFilter(next)
+    persistFilter(next)
+    setSearch('')
+  }
 
   const isSearchingPhone = !!(search.trim() && looksLikePhone(search))
 
@@ -113,32 +148,66 @@ export function ChatListV2({
     try { await onSync() } finally { setSyncing(false) }
   }
 
-  // Flat list — no day grouping. Already sorted by last_message_at desc upstream.
+  const isTeamConv = useMemo(() => {
+    return (c: ChatConversation): boolean => {
+      if (c.provider !== 'whapi' || !c.wati_phone) return false
+      const n = tryNormalisePhone(c.wati_phone)
+      if (!n) return false
+      return teamPhones.byPhone.has(n)
+    }
+  }, [teamPhones.byPhone])
+
+  const customerChats = useMemo(
+    () => conversations.filter((c) => !isTeamConv(c)),
+    [conversations, isTeamConv],
+  )
+
+  const counts: FilterCounts = useMemo(() => ({
+    all:        customerChats.length,
+    unanswered: customerChats.filter((c) =>
+      c.last_message_from_type === 'customer' &&
+      (c.unanswered_dismissed_at == null ||
+       (c.last_message_at != null && c.unanswered_dismissed_at < c.last_message_at)),
+    ).length,
+    tasks: 0,
+    teams: teamPhones.teams.length,
+  }), [customerChats, teamPhones.teams.length])
+
+  const baseList: ChatConversation[] = useMemo(() => {
+    if (filter === 'unanswered') {
+      return customerChats.filter((c) =>
+        c.last_message_from_type === 'customer' &&
+        (c.unanswered_dismissed_at == null ||
+         (c.last_message_at != null && c.unanswered_dismissed_at < c.last_message_at)),
+      )
+    }
+    return customerChats
+  }, [filter, customerChats])
+
   const filtered = useMemo(() => {
     const term = search.trim().toLowerCase()
-    if (!term) return conversations
+    if (!term) return baseList
 
-    // When searching by phone, build a full international number to match against
     if (isSearchingPhone) {
-      const digits = search.replace(/[^\d]/g, '')
+      const digits   = search.replace(/[^\d]/g, '')
       const fullPhone = normalisePhone(search, countryCode)
-      return conversations.filter((c) =>
+      return baseList.filter((c) =>
         (c.wati_phone ?? '').includes(digits) ||
         (c.wati_phone ?? '').includes(fullPhone) ||
         (c.customer_name ?? '').toLowerCase().includes(term) ||
-        (c.wati_contact_name ?? '').toLowerCase().includes(term)
+        (c.wati_contact_name ?? '').toLowerCase().includes(term),
       )
     }
 
-    return conversations.filter((c) =>
+    return baseList.filter((c) =>
       (c.customer_name ?? '').toLowerCase().includes(term) ||
       (c.wati_contact_name ?? '').toLowerCase().includes(term) ||
       (c.wati_phone ?? '').includes(search) ||
-      (c.last_message ?? '').toLowerCase().includes(term)
+      (c.last_message ?? '').toLowerCase().includes(term),
     )
-  }, [conversations, search, countryCode, isSearchingPhone])
+  }, [baseList, search, countryCode, isSearchingPhone])
 
-  const showStartNewChat = isSearchingPhone && filtered.length === 0
+  const showStartNewChat = isSearchingPhone && filtered.length === 0 && filter === 'all'
   const normalisedNew = showStartNewChat ? normalisePhone(search, countryCode) : ''
 
   const currentCodeEntry = codes.find((c) => c.code === countryCode)
@@ -149,6 +218,9 @@ export function ChatListV2({
 
   return (
     <div className="flex flex-col h-full">
+      {/* Filter tabs */}
+      <ChatListFilterTabs value={filter} onChange={changeFilter} counts={counts} />
+
       {/* Search + sync */}
       <div className="px-3 py-2 border-b border-border flex flex-col gap-1.5">
         <div className="flex gap-2">
@@ -159,6 +231,7 @@ export function ChatListV2({
               onChange={(e) => setSearch(e.target.value)}
               placeholder="Search by name or phone…"
               className="pl-8 h-8 text-xs"
+              disabled={filter === 'tasks'}
             />
           </div>
           {onSync && (
@@ -174,7 +247,7 @@ export function ChatListV2({
             </Button>
           )}
         </div>
-        {isSearchingPhone && (
+        {isSearchingPhone && filter !== 'teams' && filter !== 'tasks' && (
           <div className="flex items-center gap-1.5">
             <Select value={countryCode} onValueChange={(v) => { if (v) setCountryCode(v) }}>
               <SelectTrigger className="h-7 w-[90px] text-[11px] px-2 shrink-0">
@@ -212,16 +285,58 @@ export function ChatListV2({
         </div>
       )}
 
-      {/* List */}
+      {/* List — branched by filter */}
       <div className="flex-1 overflow-y-auto overscroll-contain">
         {loading && (
           <div className="px-3 py-4 text-xs text-muted-foreground text-center">Loading…</div>
         )}
 
-        {!loading && filtered.length > 0 && filtered.map((c) => (
-          <ConversationRow key={c.id} c={c} onClick={() => onSelectConversation(c)} />
-        ))}
+        {/* Tasks placeholder */}
+        {!loading && filter === 'tasks' && (
+          <ChatListEmptyState variant="empty" filter="tasks" />
+        )}
 
+        {/* Teams branch */}
+        {!loading && filter === 'teams' && (
+          <TeamGroupedList
+            teams={teamPhones.teams}
+            divisions={divisions}
+            conversationsByPhone={
+              new Map(
+                conversations
+                  .filter((c) => c.wati_phone)
+                  .map((c) => [c.wati_phone as string, c]),
+              )
+            }
+            search={search}
+            onClickTeam={(t) => onOpenTeam(t)}
+          />
+        )}
+
+        {/* ALL / Unanswered branch */}
+        {!loading && (filter === 'all' || filter === 'unanswered') && filtered.length > 0 && (
+          filtered.map((c) => (
+            <ConversationRow
+              key={c.id}
+              c={c}
+              onClick={() => onSelectConversation(c)}
+              onMarkResolved={
+                filter === 'unanswered'
+                  ? () => onMarkResolved(c.id).catch(() => {})
+                  : undefined
+              }
+            />
+          ))
+        )}
+
+        {/* ALL / Unanswered empty states */}
+        {!loading && (filter === 'all' || filter === 'unanswered') && filtered.length === 0 && !showStartNewChat && (
+          search.trim()
+            ? <ChatListEmptyState variant="no-match" filter={filter} searchTerm={search} />
+            : <ChatListEmptyState variant="empty"    filter={filter} />
+        )}
+
+        {/* "Start new chat" placeholder when searching an absent phone */}
         {!loading && showStartNewChat && (
           <div className="flex flex-col gap-2 px-3 py-4">
             <p className="text-xs text-muted-foreground text-center">
@@ -229,32 +344,15 @@ export function ChatListV2({
             </p>
             <p className="text-[11px] text-muted-foreground text-center">Start a new chat:</p>
             <div className="flex gap-2">
-              <Button
-                size="sm"
-                variant="outline"
-                className="flex-1 h-8 text-xs gap-1.5"
-                onClick={() => onStartNewChat(normalisedNew, 'wati')}
-              >
+              <Button size="sm" variant="outline" className="flex-1 h-8 text-xs gap-1.5"
+                onClick={() => onStartNewChat(normalisedNew, 'wati')}>
                 <Plus className="h-3 w-3" /> WATI
               </Button>
-              <Button
-                size="sm"
-                variant="outline"
-                className="flex-1 h-8 text-xs gap-1.5"
-                onClick={() => onStartNewChat(normalisedNew, 'whapi')}
-              >
+              <Button size="sm" variant="outline" className="flex-1 h-8 text-xs gap-1.5"
+                onClick={() => onStartNewChat(normalisedNew, 'whapi')}>
                 <Plus className="h-3 w-3" /> WHAPI
               </Button>
             </div>
-          </div>
-        )}
-
-        {!loading && filtered.length === 0 && !showStartNewChat && (
-          <div className="flex flex-col items-center justify-center py-8 gap-2 text-muted-foreground">
-            <MessageSquare className="h-8 w-8 opacity-30" />
-            <p className="text-xs">
-              {search.trim() ? 'No conversations found' : 'No conversations yet'}
-            </p>
           </div>
         )}
       </div>

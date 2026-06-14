@@ -2,6 +2,7 @@
 'use client'
 
 import { useState, useCallback, useEffect, useRef } from 'react'
+import { useQuery } from '@tanstack/react-query'
 import { createClient } from '@/lib/supabase/client'
 import { tryNormalisePhone } from '@/lib/contact-center/normalise-phone'
 import { useLiveConversations }  from './useLiveConversations'
@@ -12,7 +13,12 @@ import { useChatMessages }       from './useChatMessages'
 import { useAddressState }       from './useAddressState'
 import { useProviderSetting }    from '@/hooks/useProviderSetting'
 import { playNotificationSound } from '@/lib/contact-center/notification-sound'
+import { ensureTeamConversation } from '@/lib/contact-center/ensure-team-conversation'
+import { markResolved }           from '@/lib/contact-center/mark-resolved'
+import { useTeamPhones }          from './local/useTeamPhones'
+import { getDb }                  from '@/lib/contact-center/local/db'
 import type { SidebarView }      from '@/types/contact-center'
+import type { DivisionSlim }     from '@/components/contact-center/v2/TeamGroupedList'
 
 export interface SyncProgress {
   stage: 'idle' | 'fetching' | 'resolving' | 'upserting' | 'done' | 'error'
@@ -296,6 +302,45 @@ export function useContactCenterState() {
 
   const syncFromProvider = provider === 'whapi' ? syncFromWhapi : syncFromWati
 
+  const teamPhones = useTeamPhones()
+
+  const { data: divisions = [] } = useQuery<DivisionSlim[]>({
+    queryKey: ['cc', 'divisions-slim'],
+    queryFn: async () => {
+      const sb = createClient()
+      const { data, error } = await sb
+        .from('divisions')
+        .select('id, name, short_name, sort_order')
+        .eq('is_active', true)
+        .order('sort_order', { ascending: true })
+      if (error) throw error
+      return (data ?? []) as DivisionSlim[]
+    },
+    staleTime: 5 * 60_000,
+  })
+
+  const ensureAndOpenTeamConversation = useCallback(
+    async (team: { id: string; phone: string; name_en: string | null }) => {
+      const sb = createClient()
+      const id = await ensureTeamConversation(sb, {
+        phone:    team.phone,
+        teamName: team.name_en,
+      })
+      setActiveConversationId(id)
+      setActivePhone(team.phone)
+      setActiveCustomerId(null)
+      return id
+    },
+    [],
+  )
+
+  const markConversationResolved = useCallback(async (conversationId: string, authUserId: string | null) => {
+    const sb = createClient()
+    const db = authUserId ? getDb(authUserId) : null
+    if (!db) throw new Error('No authenticated user')
+    await markResolved(sb, db, conversationId)
+  }, [])
+
   return {
     sidebarView,
     activeConversationId,
@@ -324,5 +369,9 @@ export function useContactCenterState() {
     syncFromWati,
     syncFromProvider,
     updateConversationStatus,
+    teamPhones,
+    divisions,
+    ensureAndOpenTeamConversation,
+    markConversationResolved,
   }
 }
