@@ -1,4 +1,4 @@
-export type ApprovalRole = 'purchase_manager' | 'accountant' | 'owner' | 'employee' | 'warehouse_manager'
+export type ApprovalRole = 'purchase_manager' | 'accountant' | 'owner' | 'employee' | 'warehouse_manager' | 'brand_manager'
 
 export type ApprovalChainTier = {
   id: string
@@ -34,6 +34,7 @@ const ROLE_LABELS: Record<ApprovalRole, string> = {
   owner:             'Owner',
   employee:          'Employee',
   warehouse_manager: 'Warehouse Manager',
+  brand_manager:     'Brand Manager',
 }
 
 export function findApplicableTiers(amount: number, tiers: ApprovalChainTier[]): ApprovalChainTier[] {

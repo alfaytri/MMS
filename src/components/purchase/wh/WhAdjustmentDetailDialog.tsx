@@ -1,0 +1,291 @@
+'use client'
+
+import React, { useMemo, useState } from 'react'
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog'
+import { Badge } from '@/components/ui/badge'
+import { Button } from '@/components/ui/button'
+import { Textarea } from '@/components/ui/textarea'
+import { format } from 'date-fns'
+import { toast } from 'sonner'
+import { ItemTreeCell } from './ItemTreeCell'
+import {
+  useActionStockAdjustmentStep,
+  type StockAdjustmentApprovalStep,
+} from '@/hooks/useWarehouseOperations'
+import type { Profile } from '@/hooks/useProfiles'
+import type { Warehouse } from '@/hooks/useWarehouses'
+import { useCurrentUserApprovalRoles } from '@/hooks/useApprovalRoleAssignments'
+import { usePermissions } from '@/hooks/usePermissions'
+
+type AdjustmentRow = {
+  id: string
+  warehouse_id: string
+  brand_variant_id: string
+  adjustment_type: string
+  qty: number
+  reason: string
+  notes: string | null
+  status: string
+  requested_by_name: string | null
+  approved_by_name: string | null
+  approved_at: string | null
+  created_at: string
+  warehouses?: { name: string } | null
+  inventory_brand_variants?: {
+    brand?: string | null
+    inventory_items?: {
+      name_en: string
+      sku?: string | null
+      inventory_categories?: { name_en: string | null; type: string | null } | null
+    } | null
+  } | null
+  photo_urls?: string[] | null
+  stock_adjustment_approvals?: StockAdjustmentApprovalStep[] | null
+}
+
+const TYPE_STYLES: Record<string, string> = {
+  increase:  'bg-success/10 text-success',
+  decrease:  'bg-warning/10 text-warning',
+  damage:    'bg-destructive/10 text-destructive',
+  write_off: 'bg-destructive/10 text-destructive',
+}
+const STATUS_STYLES: Record<string, string> = {
+  pending_approval: 'bg-warning/10 text-warning',
+  approved:         'bg-success/10 text-success',
+  rejected:         'bg-destructive/10 text-destructive',
+}
+
+interface Props {
+  adjustment: AdjustmentRow | null
+  currentProfile: Profile | null
+  warehouses: Warehouse[]
+  open: boolean
+  onOpenChange: (open: boolean) => void
+}
+
+export function WhAdjustmentDetailDialog({ adjustment, currentProfile, warehouses, open, onOpenChange }: Props) {
+  const action = useActionStockAdjustmentStep()
+  const { data: myApprovalRoles = [] } = useCurrentUserApprovalRoles()
+  const { data: permissionsData } = usePermissions()
+  const [reviewNotes, setReviewNotes] = useState('')
+  const [actioningId, setActioningId] = useState<string | null>(null)
+
+  // 'system.admin' is uniquely held by the Admin custom role — using it (rather
+  // than isSystemAdmin, which is true for any is_system role like field_rp) keeps
+  // the override scoped to actual administrators.
+  const isAdmin = useMemo(
+    () => (permissionsData?.permissions ?? []).includes('system.admin'),
+    [permissionsData],
+  )
+
+  const isFieldRpHere = useMemo(() => {
+    if (!adjustment || !currentProfile) return false
+    const wh = warehouses.find(w => w.id === adjustment.warehouse_id)
+    return !!wh?.field_rps.some(rp => rp.profile_id === currentProfile.id)
+  }, [adjustment, currentProfile, warehouses])
+
+  function canActOnStep(stepRole: string): boolean {
+    if (isAdmin) return true
+    switch (stepRole) {
+      case 'accounting_manager': return myApprovalRoles.includes('accountant')
+      case 'inventory_manager':  return (permissionsData?.permissions ?? []).includes('warehouse.adjustment.approve')
+      case 'responsible_person': return isFieldRpHere
+      case 'brand_manager':      return myApprovalRoles.includes('brand_manager')
+      case 'owner':              return myApprovalRoles.includes('owner')
+      default:                   return false
+    }
+  }
+
+  const steps = useMemo(() => {
+    const arr = adjustment?.stock_adjustment_approvals ?? []
+    return [...arr].sort((a, b) => a.step_order - b.step_order)
+  }, [adjustment])
+
+  if (!adjustment) return null
+
+  const item     = adjustment.inventory_brand_variants?.inventory_items
+  const itemName = item?.name_en ?? '—'
+  const brand    = adjustment.inventory_brand_variants?.brand ?? null
+  const category = item?.inventory_categories?.name_en ?? null
+  const itemType = item?.inventory_categories?.type ?? null
+
+  async function handleAction(stepId: string, verdict: 'approved' | 'rejected') {
+    if (!currentProfile) return
+    setActioningId(stepId)
+    try {
+      await action.mutateAsync({
+        stepId,
+        action: verdict,
+        profileId: currentProfile.id,
+        profileName: currentProfile.full_name ?? 'Reviewer',
+        notes: reviewNotes,
+      })
+      toast.success(verdict === 'approved' ? 'Step approved' : 'Adjustment rejected')
+      setReviewNotes('')
+    } catch (e) {
+      toast.error((e as Error).message)
+    } finally {
+      setActioningId(null)
+    }
+  }
+
+  const overallPending = adjustment.status === 'pending_approval'
+
+  return (
+    <Dialog open={open} onOpenChange={onOpenChange}>
+      <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
+        <DialogHeader>
+          <DialogTitle className="text-sm flex items-center gap-2 flex-wrap">
+            <span>Stock Adjustment</span>
+            <Badge className={`text-[10px] px-1.5 py-0 capitalize ${TYPE_STYLES[adjustment.adjustment_type] ?? ''}`}>
+              {adjustment.adjustment_type?.replace(/_/g, ' ')}
+            </Badge>
+            <Badge className={`text-[10px] px-1.5 py-0 ${STATUS_STYLES[adjustment.status] ?? 'bg-muted text-muted-foreground'}`}>
+              {adjustment.status?.replace(/_/g, ' ')}
+            </Badge>
+          </DialogTitle>
+        </DialogHeader>
+
+        <div className="space-y-4">
+          {/* Item & quantity */}
+          <div className="rounded-md border p-3 space-y-2">
+            <ItemTreeCell category={category} itemType={itemType} itemName={itemName} brand={brand} />
+            <div className="flex items-center justify-between text-xs">
+              <span className="text-muted-foreground">Warehouse</span>
+              <span className="font-medium">{adjustment.warehouses?.name ?? '—'}</span>
+            </div>
+            <div className="flex items-center justify-between text-xs">
+              <span className="text-muted-foreground">Quantity</span>
+              <span className="font-medium">{adjustment.qty}</span>
+            </div>
+            <div className="flex items-center justify-between text-xs">
+              <span className="text-muted-foreground">Requested by</span>
+              <span className="font-medium">
+                {adjustment.requested_by_name ?? '—'}
+                {adjustment.created_at && (
+                  <span className="text-muted-foreground ml-2">
+                    {format(new Date(adjustment.created_at), 'dd MMM yyyy, HH:mm')}
+                  </span>
+                )}
+              </span>
+            </div>
+          </div>
+
+          {/* Reason & notes */}
+          <div className="rounded-md border p-3 space-y-2">
+            <div className="text-[10px] uppercase tracking-wide text-muted-foreground">Reason</div>
+            <p className="text-xs">{adjustment.reason || '—'}</p>
+            {adjustment.notes && (
+              <>
+                <div className="text-[10px] uppercase tracking-wide text-muted-foreground pt-2">Notes</div>
+                <p className="text-xs">{adjustment.notes}</p>
+              </>
+            )}
+          </div>
+
+          {/* Photos */}
+          {(adjustment.photo_urls?.length ?? 0) > 0 && (
+            <div className="rounded-md border p-3 space-y-2">
+              <div className="text-[10px] uppercase tracking-wide text-muted-foreground">Evidence Photos</div>
+              <div className="grid grid-cols-3 gap-2">
+                {(adjustment.photo_urls ?? []).map((url, i) => (
+                  <a key={i} href={url} target="_blank" rel="noopener noreferrer">
+                    <img
+                      src={url}
+                      alt={`Evidence ${i + 1}`}
+                      className="aspect-square w-full object-cover rounded-md border hover:opacity-80 transition"
+                    />
+                  </a>
+                ))}
+              </div>
+            </div>
+          )}
+
+          {/* Approval chain */}
+          <div className="rounded-md border p-3 space-y-2">
+            <div className="text-[10px] uppercase tracking-wide text-muted-foreground">Approval Chain</div>
+
+            {steps.length === 0 && (
+              <p className="text-xs text-muted-foreground text-center py-4">
+                This adjustment was created before approval chains were introduced — no chain history is available.
+              </p>
+            )}
+
+            {steps.length > 0 && (
+              <div className="space-y-2">
+                {steps.map((step) => {
+                  const isPending = step.status === 'pending'
+                  const userCanAct = overallPending && isPending && canActOnStep(step.step_role)
+                  return (
+                    <div
+                      key={step.id}
+                      className={`border rounded-md px-3 py-2.5 space-y-2 ${
+                        step.status === 'approved' ? 'border-success/30 bg-success/5' :
+                        step.status === 'rejected' ? 'border-destructive/30 bg-destructive/5' :
+                        userCanAct ? 'border-primary/40 bg-primary/5' :
+                        'border-border bg-muted/10'
+                      }`}
+                    >
+                      <div className="flex items-center gap-2 text-xs">
+                        <span className="text-[10px] text-muted-foreground w-5 text-right">{step.step_order}.</span>
+                        <span className="font-semibold">{step.step_label}</span>
+                        <Badge className={`text-[10px] px-1.5 py-0 ml-auto ${
+                          step.status === 'approved' ? 'bg-success/10 text-success' :
+                          step.status === 'rejected' ? 'bg-destructive/10 text-destructive' :
+                          'bg-warning/10 text-warning'
+                        }`}>
+                          {step.status === 'approved' ? 'Approved'
+                            : step.status === 'rejected' ? 'Rejected'
+                            : 'Pending'}
+                        </Badge>
+                      </div>
+
+                      {step.profile_name && (
+                        <p className="text-[10px] text-muted-foreground pl-7">
+                          {step.status === 'approved' ? 'Approved' : 'Reviewed'} by {step.profile_name}
+                          {step.action_at ? ` · ${format(new Date(step.action_at), 'dd MMM yyyy, HH:mm')}` : ''}
+                        </p>
+                      )}
+                      {step.notes && (
+                        <p className="text-[10px] text-muted-foreground pl-7 italic">{step.notes}</p>
+                      )}
+
+                      {userCanAct && (
+                        <div className="pl-7 space-y-2">
+                          <Textarea
+                            placeholder="Notes (optional)..."
+                            className="text-xs min-h-[52px]"
+                            value={reviewNotes}
+                            onChange={(e) => setReviewNotes(e.target.value)}
+                          />
+                          <div className="flex gap-2">
+                            <Button
+                              size="sm" variant="outline"
+                              className="h-7 text-[10px] text-destructive border-destructive/30 hover:bg-destructive/10"
+                              disabled={!!actioningId}
+                              onClick={() => handleAction(step.id, 'rejected')}
+                            >
+                              Reject
+                            </Button>
+                            <Button
+                              size="sm"
+                              className="h-7 text-[10px] bg-success text-success-foreground hover:bg-success/90"
+                              disabled={!!actioningId}
+                              onClick={() => handleAction(step.id, 'approved')}
+                            >
+                              {actioningId === step.id ? 'Saving...' : 'Approve'}
+                            </Button>
+                          </div>
+                        </div>
+                      )}
+                    </div>
+                  )
+                })}
+              </div>
+            )}
+          </div>
+        </div>
+      </DialogContent>
+    </Dialog>
+  )
+}

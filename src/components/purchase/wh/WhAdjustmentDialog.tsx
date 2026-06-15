@@ -1,7 +1,6 @@
 'use client'
 
 import { useState, useRef, useMemo } from 'react'
-import { useQueryClient } from '@tanstack/react-query'
 import { Camera, X, ChevronsUpDown } from 'lucide-react'
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog'
 import { Button } from '@/components/ui/button'
@@ -23,7 +22,7 @@ import { createClient } from '@/lib/supabase/client'
 import { toast } from 'sonner'
 import type { Profile } from '@/hooks/useProfiles'
 import { useAllBrandVariantsGrouped, type BrandVariantGrouped } from '@/hooks/useInventory'
-import { queryKeys } from '@/lib/queryKeys'
+import { useCreateStockAdjustmentV2 } from '@/hooks/useWarehouseOperations'
 
 const ADJUSTMENT_TYPES = [
   { value: 'increase',  label: 'Increase (Found/Returned)' },
@@ -51,7 +50,7 @@ export function WhAdjustmentDialog({ warehouses, currentProfile, children }: Pro
   const [previews, setPreviews] = useState<string[]>([])
   const [submitting, setSubmitting] = useState(false)
   const fileRef = useRef<HTMLInputElement>(null)
-  const qc = useQueryClient()
+  const createAdjustment = useCreateStockAdjustmentV2()
 
   const { data: allVariants = [] } = useAllBrandVariantsGrouped(open)
 
@@ -108,20 +107,17 @@ export function WhAdjustmentDialog({ warehouses, currentProfile, children }: Pro
         if (signed?.signedUrl) photoUrls.push(signed.signedUrl)
       }
 
-      const { error } = await supabase.from('stock_adjustments').insert({
-        warehouse_id: warehouseId,
-        brand_variant_id: selectedVariant.variantId,
-        adjustment_type: type,
-        qty: parseFloat(qty),
+      await createAdjustment.mutateAsync({
+        warehouseId:      warehouseId,
+        brandVariantId:   selectedVariant.variantId,
+        adjustmentType:   type as 'increase' | 'decrease' | 'damage' | 'write_off',
+        qty:              parseFloat(qty),
         reason,
-        notes: notes || null,
-        photo_urls: photoUrls,
-        status: 'pending_approval',
-        requested_by_name: currentProfile.full_name ?? currentProfile.email,
+        notes:            notes || null,
+        photoUrls,
+        requestedBy:      currentProfile.id,
+        requestedByName:  currentProfile.full_name,
       })
-      if (error) throw error
-
-      qc.invalidateQueries({ queryKey: queryKeys.warehouseOps.stockAdjustments })
       toast.success('Adjustment submitted for approval')
       handleClose()
     } catch (e: unknown) {

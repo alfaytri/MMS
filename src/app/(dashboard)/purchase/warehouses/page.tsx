@@ -9,7 +9,7 @@ import {
   WarehouseIcon, Layers, Activity, Truck, TrendingUp,
 } from 'lucide-react'
 import { useWarehouses } from '@/hooks/useWarehouses'
-import { useWarehouseTransfers, useReceivalsAndDeliveries } from '@/hooks/useWarehouseOperations'
+import { useWarehouseTransfers, useReceivalsAndDeliveries, useStockAdjustments } from '@/hooks/useWarehouseOperations'
 import { useCurrentUserProfile } from '@/hooks/useProfiles'
 import { WhWarehousesTab } from '@/components/purchase/wh/WhWarehousesTab'
 import { WhStockOverviewTab } from '@/components/purchase/wh/WhStockOverviewTab'
@@ -38,11 +38,13 @@ function WarehousesPageInner() {
   const { data: currentProfile } = useCurrentUserProfile()
   const { data: transfers = [] } = useWarehouseTransfers()
   const { data: receivalsDeliveries = [] } = useReceivalsAndDeliveries()
+  const { data: adjustments = [] } = useStockAdjustments()
 
   const pendingTransferCount = transfers.filter(t => t.status === 'pending_approval').length
   const pendingReceivalCount = receivalsDeliveries.filter(
     r => r.direction === 'inbound' && r.status === 'pending_approval'
   ).length
+  const pendingAdjustmentCount = adjustments.filter(a => a.status === 'pending_approval').length
 
   return (
     <div className="flex flex-col h-full">
@@ -93,6 +95,11 @@ function WarehousesPageInner() {
           <TabsTrigger value="adjustments" className="text-xs gap-1">
             <ClipboardList className="h-3 w-3" />
             Adjustments
+            {pendingAdjustmentCount > 0 && (
+              <span className="ml-1 h-4 px-1 text-[9px] bg-warning/20 text-warning rounded inline-flex items-center">
+                {pendingAdjustmentCount}
+              </span>
+            )}
           </TabsTrigger>
           <TabsTrigger value="checks" className="text-xs gap-1">
             <ClipboardCheck className="h-3 w-3" />

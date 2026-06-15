@@ -6,9 +6,11 @@ import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog'
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table'
+import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { EmptyState } from '@/components/shared/EmptyState'
 import { ItemTreeCell } from './ItemTreeCell'
-import { useStockAdjustments, useApproveStockAdjustment, useWarehouseStock } from '@/hooks/useWarehouseOperations'
+import { useStockAdjustments, useApproveStockAdjustment, type StockAdjustmentApprovalStep } from '@/hooks/useWarehouseOperations'
+import { WhAdjustmentDetailDialog } from './WhAdjustmentDetailDialog'
 import { useMutation, useQueryClient } from '@tanstack/react-query'
 import type { Warehouse } from '@/hooks/useWarehouses'
 import type { Profile } from '@/hooks/useProfiles'
@@ -34,9 +36,14 @@ type StockAdjustmentRow = {
   warehouses?: { name: string } | null
   inventory_brand_variants?: {
     brand?: string | null
-    inventory_items?: { name_en: string; sku?: string | null } | null
+    inventory_items?: {
+      name_en: string
+      sku?: string | null
+      inventory_categories?: { name_en: string | null; type: string | null } | null
+    } | null
   } | null
   photo_urls?: string[] | null
+  stock_adjustment_approvals?: StockAdjustmentApprovalStep[] | null
 }
 
 const TYPE_STYLES: Record<string, string> = {
@@ -51,6 +58,8 @@ const STATUS_STYLES: Record<string, string> = {
   rejected:         'bg-destructive/10 text-destructive',
 }
 
+type StatusFilter = 'all' | 'pending_approval' | 'approved' | 'rejected'
+
 interface Props {
   warehouses: Warehouse[]
   currentProfile: Profile | null
@@ -61,20 +70,30 @@ export const WhAdjustmentsTab = React.memo(function WhAdjustmentsTab({ warehouse
   const approve = useApproveStockAdjustment()
   const qc = useQueryClient()
   const [photoUrls, setPhotoUrls] = useState<string[] | null>(null)
+  const [statusFilter, setStatusFilter] = useState<StatusFilter>('all')
+  const [detailId, setDetailId] = useState<string | null>(null)
 
   const typedAdjustments = adjustments as unknown as StockAdjustmentRow[]
 
-  // Use cached warehouse_stock_view to resolve category_name per brand_variant_id
-  const { data: fullStock = [] } = useWarehouseStock()
-  const variantMeta = useMemo(() => {
-    const map = new Map<string, { categoryName: string | null; itemType: string | null }>()
-    for (const s of fullStock) {
-      if (!map.has(s.brand_variant_id)) {
-        map.set(s.brand_variant_id, { categoryName: s.category_name ?? null, itemType: s.item_type ?? null })
-      }
+  const detailRow = useMemo(
+    () => (detailId ? typedAdjustments.find(a => a.id === detailId) ?? null : null),
+    [detailId, typedAdjustments],
+  )
+
+  const counts = useMemo(() => {
+    const c = { all: typedAdjustments.length, pending_approval: 0, approved: 0, rejected: 0 }
+    for (const a of typedAdjustments) {
+      if (a.status === 'pending_approval') c.pending_approval++
+      else if (a.status === 'approved')    c.approved++
+      else if (a.status === 'rejected')    c.rejected++
     }
-    return map
-  }, [fullStock])
+    return c
+  }, [typedAdjustments])
+
+  const filteredAdjustments = useMemo(() => {
+    if (statusFilter === 'all') return typedAdjustments
+    return typedAdjustments.filter(a => a.status === statusFilter)
+  }, [typedAdjustments, statusFilter])
 
   const reject = useMutation({
     mutationFn: async (id: string) => {
@@ -91,8 +110,36 @@ export const WhAdjustmentsTab = React.memo(function WhAdjustmentsTab({ warehouse
     return wh.field_rps.some(rp => rp.profile_id === currentProfile?.id)
   }
 
+  const FILTER_TABS: Array<{ value: StatusFilter; label: string; count: number }> = [
+    { value: 'all',              label: 'All',      count: counts.all },
+    { value: 'pending_approval', label: 'Pending',  count: counts.pending_approval },
+    { value: 'approved',         label: 'Approved', count: counts.approved },
+    { value: 'rejected',         label: 'Rejected', count: counts.rejected },
+  ]
+
   return (
-    <div className="p-4 md:p-6">
+    <div className="p-4 md:p-6 space-y-3">
+      <Tabs value={statusFilter} onValueChange={(v) => setStatusFilter(v as StatusFilter)}>
+        <TabsList className="h-8 text-xs">
+          {FILTER_TABS.map((t) => (
+            <TabsTrigger key={t.value} value={t.value} className="text-xs px-3 h-7 gap-1">
+              {t.label}
+              {t.count > 0 && (
+                <span
+                  className={`ml-1 h-4 min-w-4 px-1 text-[9px] rounded inline-flex items-center justify-center ${
+                    t.value === 'pending_approval'
+                      ? 'bg-warning/20 text-warning'
+                      : 'bg-muted text-muted-foreground'
+                  }`}
+                >
+                  {t.count}
+                </span>
+              )}
+            </TabsTrigger>
+          ))}
+        </TabsList>
+      </Tabs>
+
       <div className="rounded-md border overflow-x-auto">
         <Table>
           <TableHeader>
@@ -110,29 +157,50 @@ export const WhAdjustmentsTab = React.memo(function WhAdjustmentsTab({ warehouse
             </TableRow>
           </TableHeader>
           <TableBody>
-            {typedAdjustments.length === 0 ? (
+            {filteredAdjustments.length === 0 ? (
               <TableRow>
                 <TableCell colSpan={10} className="p-0">
-                  <EmptyState title="No adjustments found" />
+                  <EmptyState
+                    title={
+                      statusFilter === 'all'
+                        ? 'No adjustments found'
+                        : `No ${statusFilter === 'pending_approval' ? 'pending' : statusFilter} adjustments`
+                    }
+                  />
                 </TableCell>
               </TableRow>
-            ) : typedAdjustments.map((adj) => {
-              const meta = variantMeta.get(adj.brand_variant_id)
-              const itemName = adj.inventory_brand_variants?.inventory_items?.name_en
-              const brand    = adj.inventory_brand_variants?.brand
+            ) : filteredAdjustments.map((adj) => {
+              const item     = adj.inventory_brand_variants?.inventory_items
+              const itemName = item?.name_en ?? '—'
+              const brand    = adj.inventory_brand_variants?.brand ?? null
+              const category = item?.inventory_categories?.name_en ?? null
+              const itemType = item?.inventory_categories?.type ?? null
+
+              const chainSteps = [...(adj.stock_adjustment_approvals ?? [])]
+                .sort((a, b) => a.step_order - b.step_order)
+              const hasChain      = chainSteps.length > 0
+              const totalSteps    = chainSteps.length
+              const approvedSteps = chainSteps.filter(s => s.status === 'approved').length
+              const stepCounter   =
+                hasChain && adj.status === 'pending_approval'
+                  ? ` · ${approvedSteps}/${totalSteps}`
+                  : ''
 
               return (
-                <TableRow key={adj.id}>
+                <TableRow
+                  key={adj.id}
+                  className="cursor-pointer hover:bg-muted/40"
+                  onClick={() => setDetailId(adj.id)}
+                >
                   <TableCell className="text-xs py-2.5">
                     <ItemTreeCell
-                      category={meta?.categoryName}
-                      itemType={meta?.itemType}
-                      itemName={itemName ?? '—'}
+                      category={category}
+                      itemType={itemType}
+                      itemName={itemName}
                       brand={brand}
                     />
                   </TableCell>
 
-                  {/* Remaining columns — normal flat data */}
                   <TableCell className="text-xs whitespace-nowrap py-2.5">
                     {adj.created_at ? format(new Date(adj.created_at), 'dd MMM') : '—'}
                   </TableCell>
@@ -147,10 +215,10 @@ export const WhAdjustmentsTab = React.memo(function WhAdjustmentsTab({ warehouse
                   <TableCell className="text-xs py-2.5">{adj.requested_by_name ?? '—'}</TableCell>
                   <TableCell className="py-2.5">
                     <Badge className={`text-[10px] px-1.5 py-0 ${STATUS_STYLES[adj.status] ?? 'bg-muted text-muted-foreground'}`}>
-                      {adj.status?.replace(/_/g, ' ')}
+                      {adj.status?.replace(/_/g, ' ')}{stepCounter}
                     </Badge>
                   </TableCell>
-                  <TableCell className="py-2.5">
+                  <TableCell className="py-2.5" onClick={(e) => e.stopPropagation()}>
                     {(adj.photo_urls?.length ?? 0) > 0 && (
                       <Button
                         variant="ghost" size="sm"
@@ -162,15 +230,24 @@ export const WhAdjustmentsTab = React.memo(function WhAdjustmentsTab({ warehouse
                       </Button>
                     )}
                   </TableCell>
-                  <TableCell className="text-right py-2.5">
-                    {adj.status === 'pending_approval' && canApprove(adj) ? (
+                  <TableCell className="text-right py-2.5" onClick={(e) => e.stopPropagation()}>
+                    {hasChain ? (
+                      <Button
+                        size="sm" variant="ghost"
+                        className="h-6 px-1.5 gap-1 text-[10px]"
+                        onClick={() => setDetailId(adj.id)}
+                      >
+                        <Eye className="h-3 w-3" />
+                        View
+                      </Button>
+                    ) : adj.status === 'pending_approval' && canApprove(adj) ? (
                       <div className="flex items-center justify-end gap-1">
                         <Button
                           size="sm" variant="outline"
                           className="h-6 text-[10px] text-success border-success/30 hover:bg-success/10"
                           onClick={() => approve.mutate(
                             { id: adj.id, approvedByName: currentProfile?.full_name ?? 'Manager' },
-                            { onSuccess: () => toast.success('Approved'), onError: (e) => toast.error(e.message) }
+                            { onSuccess: () => toast.success('Approved'), onError: (e) => toast.error(e.message) },
                           )}
                           disabled={approve.isPending}
                         >
@@ -200,6 +277,14 @@ export const WhAdjustmentsTab = React.memo(function WhAdjustmentsTab({ warehouse
           </TableBody>
         </Table>
       </div>
+
+      <WhAdjustmentDetailDialog
+        adjustment={detailRow}
+        currentProfile={currentProfile}
+        warehouses={warehouses}
+        open={!!detailRow}
+        onOpenChange={(open) => { if (!open) setDetailId(null) }}
+      />
 
       {/* Photo preview dialog */}
       <Dialog open={!!photoUrls} onOpenChange={() => setPhotoUrls(null)}>

@@ -120,6 +120,20 @@ export type StockAdjustment = {
   updated_at: string
 }
 
+export type StockAdjustmentApprovalStep = {
+  id: string
+  adjustment_id: string
+  step_order: number
+  step_role: 'accounting_manager' | 'inventory_manager' | 'responsible_person' | 'brand_manager' | 'owner'
+  step_label: string
+  status: 'pending' | 'approved' | 'rejected'
+  profile_id: string | null
+  profile_name: string | null
+  action_at: string | null
+  notes: string | null
+  created_at: string
+}
+
 export type CreateAdjustmentPayload = {
   warehouse_id: string
   brand_variant_id: string
@@ -432,7 +446,11 @@ export function useStockAdjustments({ warehouseId }: { warehouseId?: string } = 
         .select(`
           *,
           warehouses(name),
-          inventory_brand_variants(brand, inventory_items(name_en, sku))
+          inventory_brand_variants(brand, inventory_items(name_en, sku, inventory_categories(name_en, type))),
+          stock_adjustment_approvals(
+            id, adjustment_id, step_order, step_role, step_label, status,
+            profile_id, profile_name, action_at, notes, created_at
+          )
         `)
         .order('created_at', { ascending: false })
       if (warehouseId) q = q.eq('warehouse_id', warehouseId)
@@ -461,6 +479,44 @@ export function useCreateStockAdjustment() {
   })
 }
 
+export type CreateAdjustmentV2Payload = {
+  warehouseId: string
+  brandVariantId: string
+  adjustmentType: 'increase' | 'decrease' | 'damage' | 'write_off'
+  qty: number
+  reason: string
+  notes?: string | null
+  photoUrls: string[]
+  requestedBy: string | null
+  requestedByName: string | null
+}
+
+export function useCreateStockAdjustmentV2() {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: async (payload: CreateAdjustmentV2Payload) => {
+      const supabase = createClient()
+      const { data, error } = await supabase.rpc('create_stock_adjustment_v2', {
+        p_warehouse_id:      payload.warehouseId,
+        p_brand_variant_id:  payload.brandVariantId,
+        p_adjustment_type:   payload.adjustmentType,
+        p_qty:               payload.qty,
+        p_reason:            payload.reason,
+        p_notes:             payload.notes ?? null,
+        p_photo_urls:        payload.photoUrls,
+        p_requested_by:      payload.requestedBy,
+        p_requested_by_name: payload.requestedByName,
+      })
+      if (error) {
+        const cleanMessage = error.message.replace(/^P\d{4}:\s*/, '')
+        throw new Error(cleanMessage)
+      }
+      return data as string
+    },
+    onSuccess: () => qc.invalidateQueries({ queryKey: queryKeys.warehouseOps.stockAdjustments }),
+  })
+}
+
 export function useApproveStockAdjustment() {
   const qc = useQueryClient()
   return useMutation({
@@ -481,6 +537,46 @@ export function useApproveStockAdjustment() {
       qc.invalidateQueries({ queryKey: queryKeys.warehouseOps.warehouseStockAll })
       qc.invalidateQueries({ queryKey: queryKeys.inventory.stockMovements })
       qc.invalidateQueries({ queryKey: queryKeys.inventory.fifoLayers })
+    },
+  })
+}
+
+export function useActionStockAdjustmentStep() {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: async ({
+      stepId, action, profileId, profileName, notes,
+    }: {
+      stepId: string
+      action: 'approved' | 'rejected'
+      profileId: string | null
+      profileName: string
+      notes?: string | null
+    }) => {
+      const supabase = createClient()
+      const { data, error } = await supabase.rpc('action_stock_adjustment_step', {
+        p_step_id:      stepId,
+        p_action:       action,
+        p_profile_id:   profileId,
+        p_profile_name: profileName,
+        p_notes:        notes ?? null,
+      })
+      if (error) {
+        const cleanMessage = error.message.replace(/^P\d{4}:\s*/, '')
+        throw new Error(cleanMessage)
+      }
+      return data as string
+    },
+    onSuccess: (result) => {
+      qc.invalidateQueries({ queryKey: queryKeys.warehouseOps.stockAdjustments })
+      // Only invalidate heavy inventory caches when the chain actually completed
+      // (i.e. the last step was approved and stock movement was committed)
+      if (result === 'chain_completed') {
+        qc.invalidateQueries({ queryKey: queryKeys.warehouseOps.warehouseStockAll })
+        qc.invalidateQueries({ queryKey: queryKeys.inventory.stockMovements })
+        qc.invalidateQueries({ queryKey: queryKeys.inventory.fifoLayers })
+        qc.invalidateQueries({ queryKey: queryKeys.inventory.brandVariantsV2 })
+      }
     },
   })
 }
