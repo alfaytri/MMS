@@ -219,9 +219,11 @@ Purchase & Sales▾:
 
 ## 🔄 In Progress
 
-🚀 Starting: **Unified Roles & Users Page (brainstorm phase)** — on branch `improvement`
+🚀 Starting: **Dynamic Approval Chain Management Task 2** — (next task after Task 1)
 
 ## ✅ Completed
+
+- [2026-06-15] **Dynamic Approval Chain Management Task 1: workflow_approval_steps table** — `supabase/migrations/20260615140000_workflow_approval_steps.sql` — Created `workflow_approval_steps` table with RLS (authenticated SELECT policy). Seeded with 3 workflows: PO (3 steps: Purchase Manager → Accountant → Owner), Inventory Check (5 steps including conditional Brand Manager for damage/write_off), Stock Adjustment (same 5 steps as inv_check). All role references resolved via SELECT from `custom_roles` with `is_approval_slot = true` guard.
 
 - [2026-06-15] **Stock Adjustment Approval Chain** — `supabase/migrations/20260614205613_adjustment_photos_bucket.sql`, `supabase/migrations/20260615074316_stock_adjustment_approvals_table.sql`, `supabase/migrations/20260615074447_create_stock_adjustment_v2_rpc.sql`, `supabase/migrations/20260615074728_action_stock_adjustment_step_rpc.sql`, `supabase/migrations/20260615094150_add_brand_manager_approval_role.sql`, `supabase/migrations/20260615094226_gate_stock_adjustment_step_actions.sql`, `supabase/migrations/20260615104823_make_adjustment_steps_parallel.sql`, `src/components/purchase/wh/WhAdjustmentDetailDialog.tsx`, `src/components/purchase/wh/WhAdjustmentsTab.tsx`, `src/components/purchase/wh/WhAdjustmentDialog.tsx`, `src/hooks/useWarehouseOperations.ts`, `src/lib/approvalChainResolution.ts`, `src/app/(dashboard)/purchase/warehouses/page.tsx` — Multi-step parallel approval chain for stock adjustments. New `stock_adjustment_approvals` table holds per-step state. `create_stock_adjustment_v2` RPC inserts header + chain atomically (4 steps for increase/decrease, 5 for damage/write_off with Brand Manager). `action_stock_adjustment_step` RPC enforces role gating + auto-rejects remaining pending steps on rejection + delegates final approval to existing `approve_stock_adjustment_inventory`. New detail dialog opens on row click — shows item tree, reason, photos, full chain with inline Approve/Reject on steps the current user holds the role for. Filter tabs (All/Pending/Approved/Rejected) added with counts. Pending count badge added to parent Adjustments tab. Photo bucket `adjustment-photos` created with authenticated RLS.
 
