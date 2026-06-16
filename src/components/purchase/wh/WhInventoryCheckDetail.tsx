@@ -741,7 +741,10 @@ export function WhInventoryCheckDetail({ check, open, onClose, currentProfile }:
                         const movements = postCountByVariant.get(item.brand_variant_id) ?? []
                         const netMoved = movements.reduce((sum, m) => sum + m.qty, 0)
                         const expectedNow = (item.counted_qty ?? 0) + netMoved
-                        const systemNow = liveStockMap.get(item.brand_variant_id) ?? (item.system_qty + netMoved)
+                        const checkClosed = check.status === 'approved' || check.status === 'rejected'
+                        const systemNow = checkClosed && item.system_qty_at_close != null
+                          ? item.system_qty_at_close
+                          : liveStockMap.get(item.brand_variant_id) ?? (item.system_qty + netMoved)
                         const diff = expectedNow - systemNow
                         const isMatch = diff === 0
 
@@ -820,7 +823,7 @@ export function WhInventoryCheckDetail({ check, open, onClose, currentProfile }:
                       {isActive && activeApprovalStep?.id === step.id && (
                         <div className="pl-7 space-y-2">
                           <Textarea
-                            placeholder="Notes (optional)…"
+                            placeholder="Reason (required for rejection)..."
                             className="text-xs min-h-[52px]"
                             value={reviewNotes}
                             onChange={(e) => setReviewNotes(e.target.value)}
@@ -829,7 +832,7 @@ export function WhInventoryCheckDetail({ check, open, onClose, currentProfile }:
                             <Button
                               size="sm" variant="outline"
                               className="h-7 text-[10px] text-destructive border-destructive/30 hover:bg-destructive/10"
-                              disabled={!!approvingStep}
+                              disabled={!!approvingStep || !reviewNotes.trim()}
                               onClick={() => handleApproval(step.id, 'rejected')}
                             >
                               Reject

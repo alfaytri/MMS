@@ -180,6 +180,7 @@ export type InventoryCheckItem = {
   category_name: string | null
   assigned_profile_id: string | null
   assigned_profile_name: string | null
+  system_qty_at_close: number | null
 }
 
 export type InventoryCheckAssignment = {
@@ -1071,6 +1072,8 @@ export function useApproveCheckStep() {
       if (action === 'rejected') {
         await supabase.from('inventory_checks').update({ status: 'rejected', reviewed_at: now, reviewed_by_name: profileName }).eq('id', checkId)
         await supabase.from('inventory_check_log').insert({ check_id: checkId, event_type: 'rejected', profile_id: profileId, profile_name: profileName })
+        const { error: snapErr } = await supabase.rpc('snapshot_inventory_check_system_qty', { p_check_id: checkId })
+        if (snapErr) throw snapErr
       } else {
         const { data: allSteps } = await supabase
           .from('inventory_check_approvals').select('status').eq('check_id', checkId)
