@@ -954,20 +954,6 @@ export function useStartInventoryCheck() {
   })
 }
 
-function buildApprovalChain(hasDamageOrWriteOff: boolean) {
-  const steps = [
-    { step_order: 1, step_role: 'accounting_manager', step_label: 'Accounting Manager' },
-    { step_order: 2, step_role: 'inventory_manager',  step_label: 'Inventory Manager'  },
-    { step_order: 3, step_role: 'responsible_person', step_label: 'Responsible Person' },
-  ]
-  if (hasDamageOrWriteOff) {
-    steps.push({ step_order: 4, step_role: 'brand_manager', step_label: 'Brand Manager' })
-    steps.push({ step_order: 5, step_role: 'owner',         step_label: 'Owner'         })
-  } else {
-    steps.push({ step_order: 4, step_role: 'owner',         step_label: 'Owner'         })
-  }
-  return steps
-}
 
 export function useCompleteAssignment() {
   const qc = useQueryClient()
@@ -1017,12 +1003,16 @@ export function useCompleteAssignment() {
           (i) => i.variance_type === 'damage' || i.variance_type === 'write_off',
         )
 
-        const steps = hasVariance
-          ? buildApprovalChain(hasDamage)
-          : [{ step_order: 1, step_role: 'inventory_manager', step_label: 'Inventory Manager' }]
+        const { data: chainSteps, error: chainErr } = await supabase.rpc(
+          'build_inv_check_approval_chain',
+          { p_has_damage_or_writeoff: hasDamage, p_has_variance: hasVariance },
+        )
+        if (chainErr) throw chainErr
+        const steps = (chainSteps ?? []) as Array<{ step_order: number; step_role: string; step_label: string }>
+        if (steps.length === 0) throw new Error('No approval steps configured for inv_check workflow')
 
         await supabase.from('inventory_check_approvals').insert(
-          steps.map((s) => ({ check_id: checkId, ...s, status: 'pending' })),
+          steps.map((s) => ({ check_id: checkId, ...s, status: 'pending' as const })),
         )
 
         await supabase.from('inventory_checks').update({ status: 'pending_approval' }).eq('id', checkId)
