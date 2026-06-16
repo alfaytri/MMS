@@ -14,8 +14,10 @@ import {
 } from '@/hooks/useWarehouseOperations'
 import type { Profile } from '@/hooks/useProfiles'
 import type { Warehouse } from '@/hooks/useWarehouses'
-import { useCurrentUserApprovalRoles } from '@/hooks/useApprovalRoleAssignments'
+import { useMyApprovalSlotRoles } from '@/hooks/useRoles'
 import { usePermissions } from '@/hooks/usePermissions'
+import { useWorkflowSteps } from '@/hooks/useWorkflowSteps'
+import { useAllCategoriesFlat, breadcrumb as categoryBreadcrumb } from '@/hooks/useInventoryTree'
 
 type AdjustmentRow = {
   id: string
@@ -36,7 +38,7 @@ type AdjustmentRow = {
     inventory_items?: {
       name_en: string
       sku?: string | null
-      inventory_categories?: { name_en: string | null; type: string | null } | null
+      inventory_categories?: { id: string | null; name_en: string | null; type: string | null } | null
     } | null
   } | null
   photo_urls?: string[] | null
@@ -65,8 +67,11 @@ interface Props {
 
 export function WhAdjustmentDetailDialog({ adjustment, currentProfile, warehouses, open, onOpenChange }: Props) {
   const action = useActionStockAdjustmentStep()
-  const { data: myApprovalRoles = [] } = useCurrentUserApprovalRoles()
+  const { data: mySlots = [] } = useMyApprovalSlotRoles()
+  const myApprovalRolesByName = useMemo(() => new Set(mySlots.map((s) => s.name)), [mySlots])
   const { data: permissionsData } = usePermissions()
+  const { data: workflowSteps = [] } = useWorkflowSteps()
+  const { data: categoriesFlat = [] } = useAllCategoriesFlat()
   const [reviewNotes, setReviewNotes] = useState('')
   const [actioningId, setActioningId] = useState<string | null>(null)
 
@@ -86,14 +91,11 @@ export function WhAdjustmentDetailDialog({ adjustment, currentProfile, warehouse
 
   function canActOnStep(stepRole: string): boolean {
     if (isAdmin) return true
-    switch (stepRole) {
-      case 'accounting_manager': return myApprovalRoles.includes('accountant')
-      case 'inventory_manager':  return (permissionsData?.permissions ?? []).includes('warehouse.adjustment.approve')
-      case 'responsible_person': return isFieldRpHere
-      case 'brand_manager':      return myApprovalRoles.includes('brand_manager')
-      case 'owner':              return myApprovalRoles.includes('owner')
-      default:                   return false
-    }
+    if (stepRole === 'responsible_person') return isFieldRpHere
+    const step = workflowSteps.find((s) => s.step_key === stepRole)
+    if (!step) return false
+    const roleName = step.custom_roles?.name ?? step.step_label
+    return myApprovalRolesByName.has(roleName)
   }
 
   const steps = useMemo(() => {
@@ -106,8 +108,11 @@ export function WhAdjustmentDetailDialog({ adjustment, currentProfile, warehouse
   const item     = adjustment.inventory_brand_variants?.inventory_items
   const itemName = item?.name_en ?? '—'
   const brand    = adjustment.inventory_brand_variants?.brand ?? null
-  const category = item?.inventory_categories?.name_en ?? null
-  const itemType = item?.inventory_categories?.type ?? null
+  const categoryId = item?.inventory_categories?.id ?? null
+  const itemType   = item?.inventory_categories?.type ?? null
+  const category   = categoryId && categoriesFlat.length
+    ? categoryBreadcrumb(categoryId, categoriesFlat)
+    : item?.inventory_categories?.name_en ?? null
 
   async function handleAction(stepId: string, verdict: 'approved' | 'rejected') {
     if (!currentProfile) return
@@ -253,7 +258,7 @@ export function WhAdjustmentDetailDialog({ adjustment, currentProfile, warehouse
                       {userCanAct && (
                         <div className="pl-7 space-y-2">
                           <Textarea
-                            placeholder="Notes (optional)..."
+                            placeholder="Reason (required for rejection)..."
                             className="text-xs min-h-[52px]"
                             value={reviewNotes}
                             onChange={(e) => setReviewNotes(e.target.value)}
@@ -262,7 +267,7 @@ export function WhAdjustmentDetailDialog({ adjustment, currentProfile, warehouse
                             <Button
                               size="sm" variant="outline"
                               className="h-7 text-[10px] text-destructive border-destructive/30 hover:bg-destructive/10"
-                              disabled={!!actioningId}
+                              disabled={!!actioningId || !reviewNotes.trim()}
                               onClick={() => handleAction(step.id, 'rejected')}
                             >
                               Reject

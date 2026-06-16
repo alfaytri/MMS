@@ -520,13 +520,29 @@ export function useSubmitPOForApproval() {
       const tiers = findApplicableTiers(po.total_qar ?? 0, (chain.approval_chain_tiers ?? []) as unknown as ApprovalChainTier[])
       if (tiers.length === 0) throw new Error('No approval tiers match this PO amount. Check approval chain configuration.')
 
-      // Fetch role assignments for this division (including company-wide)
-      const { data: assignments } = await supabase
-        .from('approval_role_assignments')
-        .select('*')
-        .is('deleted_at', null)
-        .or(divisionId ? `division_id.eq.${divisionId},division_id.is.null` : 'division_id.is.null')
-      const roleAssignments = (assignments ?? []) as ApprovalRoleAssignmentRow[]
+      // Fetch role assignments for this division (including company-wide).
+      // Source: user_custom_roles + custom_roles (filtered to approval-slot roles).
+      // We re-shape the rows into ApprovalRoleAssignmentRow so validateRoles / getNotificationRecipients
+      // (which only read role + profile_id + division_id + deleted_at) keep working unchanged.
+      // NOTE: user_custom_roles has no division_id today — division scoping for approval
+      // slots is not modeled in the new schema, so we treat every approval-slot assignment
+      // as company-wide (division_id = null). This matches the .or() clause below which
+      // also accepts company-wide rows.
+      const { data: rawAssignments } = await supabase
+        .from('user_custom_roles')
+        .select('id, profile_id, created_at, custom_roles!inner(name, is_approval_slot, deleted_at)')
+        .eq('custom_roles.is_approval_slot', true)
+        .is('custom_roles.deleted_at', null)
+      const roleAssignments = (rawAssignments ?? [])
+        .map((r: { id: string; profile_id: string; created_at: string; custom_roles: { name: string; deleted_at: string | null } | null }) => ({
+          id: r.id,
+          profile_id: r.profile_id,
+          role: r.custom_roles?.name ?? '',
+          division_id: null as string | null,
+          created_at: r.created_at,
+          deleted_at: r.custom_roles?.deleted_at ?? null,
+        }))
+        .filter((a) => !!a.role) as ApprovalRoleAssignmentRow[]
 
       const validationError = validateRoles(tiers, roleAssignments)
       if (validationError) throw new Error(validationError)
@@ -834,12 +850,22 @@ export function useSubmitPoVersion() {
       const tiers = findApplicableTiers(total_qar, (chain.approval_chain_tiers ?? []) as unknown as ApprovalChainTier[])
       if (tiers.length === 0) throw new Error('No approval tiers match this PO amount. Check approval chain configuration.')
 
-      const { data: assignments } = await supabase
-        .from('approval_role_assignments')
-        .select('*')
-        .is('deleted_at', null)
-        .or(divisionId ? `division_id.eq.${divisionId},division_id.is.null` : 'division_id.is.null')
-      const roleAssignments = (assignments ?? []) as ApprovalRoleAssignmentRow[]
+      // See useSubmitPOForApproval above for the schema/shape rationale.
+      const { data: rawAssignments } = await supabase
+        .from('user_custom_roles')
+        .select('id, profile_id, created_at, custom_roles!inner(name, is_approval_slot, deleted_at)')
+        .eq('custom_roles.is_approval_slot', true)
+        .is('custom_roles.deleted_at', null)
+      const roleAssignments = (rawAssignments ?? [])
+        .map((r: { id: string; profile_id: string; created_at: string; custom_roles: { name: string; deleted_at: string | null } | null }) => ({
+          id: r.id,
+          profile_id: r.profile_id,
+          role: r.custom_roles?.name ?? '',
+          division_id: null as string | null,
+          created_at: r.created_at,
+          deleted_at: r.custom_roles?.deleted_at ?? null,
+        }))
+        .filter((a) => !!a.role) as ApprovalRoleAssignmentRow[]
 
       const validationError = validateRoles(tiers, roleAssignments)
       if (validationError) throw new Error(validationError)

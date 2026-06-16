@@ -20,10 +20,10 @@ export function ItemTreeCell({ category, itemType, itemName, brand, sku, showSku
   return (
     <div className="flex flex-col gap-0.5 min-w-0">
       {category && (
-        <span className="text-[10px] text-muted-foreground truncate flex items-center gap-1">
-          {category}
+        <span className="text-[10px] text-muted-foreground flex flex-wrap items-center gap-x-1 gap-y-0.5 leading-tight">
+          <span className="break-words">{category}</span>
           {itemType && TYPE_SHORT_LABEL[itemType] && (
-            <span className="text-[9px] font-normal text-muted-foreground border border-border rounded px-1 py-0 leading-tight">
+            <span className="text-[9px] font-normal text-muted-foreground border border-border rounded px-1 py-0 leading-tight whitespace-nowrap">
               {TYPE_SHORT_LABEL[itemType]}
             </span>
           )}

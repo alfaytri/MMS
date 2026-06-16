@@ -295,7 +295,9 @@ export default function ApprovalsPage() {
 
                 <div className="space-y-1">
                   <label htmlFor="approval-comment" className="text-sm font-medium">
-                    Comment {dialogState.mode === 'force' && <span className="text-destructive">*</span>}
+                    {showRejectOptions
+                      ? <>Reason for rejection <span className="text-destructive">*</span></>
+                      : <>Comment {dialogState.mode === 'force' && <span className="text-destructive">*</span>}{dialogState.mode !== 'force' && <span className="text-muted-foreground"> (optional)</span>}</>}
                   </label>
                   <Textarea
                     id="approval-comment"
@@ -352,7 +354,7 @@ export default function ApprovalsPage() {
                 ) : (
                   <>
                     <Button variant="outline" onClick={() => setShowRejectOptions(false)} disabled={isMutating}>Back</Button>
-                    <Button variant="destructive" onClick={handleReject} disabled={isMutating}>
+                    <Button variant="destructive" onClick={handleReject} disabled={isMutating || !comment.trim()}>
                       {rejectPO.isPending ? 'Rejecting…' : `Confirm — ${rejectMode === 'full_rejection' ? 'Cancel PO' : 'Send to Draft'}`}
                     </Button>
                   </>

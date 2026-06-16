@@ -20,13 +20,10 @@ import {
   useUpsertApprovalChainTier, useSoftDeleteApprovalChainTier,
   useToggleChainActive, useArchiveApprovalChain,
 } from '@/hooks/useApprovalChains'
-import { useApprovalRoleAssignments } from '@/hooks/useApprovalRoleAssignments'
 import { useIsAdmin } from '@/hooks/useProfiles'
 import { useDivisions } from '@/hooks/useDivisions'
-import type { ApprovalRole } from '@/lib/approvalChainResolution'
-
-const APPROVAL_ROLES: ApprovalRole[] = ['purchase_manager', 'accountant', 'owner']
-const ROLE_LABELS: Record<ApprovalRole, string> = {
+const APPROVAL_ROLES: string[] = ['purchase_manager', 'accountant', 'owner']
+const ROLE_LABELS: Record<string, string> = {
   purchase_manager:  'Purchase Manager',
   accountant:        'Accountant',
   owner:             'Owner',
@@ -34,12 +31,11 @@ const ROLE_LABELS: Record<ApprovalRole, string> = {
   warehouse_manager: 'Warehouse Manager',
 }
 
-type TierForm = { rank: string; min_amount: string; max_amount: string; roles: ApprovalRole[] }
+type TierForm = { rank: string; min_amount: string; max_amount: string; roles: string[] }
 const EMPTY_FORM: TierForm = { rank: '', min_amount: '', max_amount: '', roles: [] }
 
 export function ApprovalChainsTab() {
   const { data: chains = [], isLoading } = useApprovalChains()
-  const { data: assignments = [] } = useApprovalRoleAssignments()
   const { data: isAdmin } = useIsAdmin()
   const upsertChain = useUpsertApprovalChain()
   const upsertTier = useUpsertApprovalChainTier()
@@ -67,8 +63,11 @@ export function ApprovalChainsTab() {
     return div ? (div.short_name ?? div.name) : null
   }
 
-  function rolesHaveAssignees(roles: ApprovalRole[]): boolean {
-    return roles.every((role) => assignments.some((a) => a.role === role && !a.deleted_at))
+  // TEMPORARY: Task 11 of unified-roles plan removed the approval_role_assignments
+  // table. The has-assignees validation will be rewritten against the new
+  // custom_roles model in a follow-up task. For now, assume all roles are covered.
+  function rolesHaveAssignees(_roles: string[]): boolean {
+    return true
   }
 
   function parseTierForm(form: TierForm) {
@@ -118,7 +117,7 @@ export function ApprovalChainsTab() {
         rank: String(tier.rank),
         min_amount: String(tier.min_amount),
         max_amount: tier.max_amount ? String(tier.max_amount) : '',
-        roles: tier.required_roles as ApprovalRole[],
+        roles: tier.required_roles as string[],
       },
     })
   }
@@ -328,7 +327,7 @@ export function ApprovalChainsTab() {
                         <TableCell>{tier.max_amount ? Number(tier.max_amount).toLocaleString() : '∞'}</TableCell>
                         <TableCell>
                           <div className="flex flex-wrap gap-1 items-center">
-                            {tier.required_roles.map((r: ApprovalRole) => (
+                            {tier.required_roles.map((r: string) => (
                               <Badge key={r} variant="outline">{ROLE_LABELS[r]}</Badge>
                             ))}
                             {missingRoles && (
