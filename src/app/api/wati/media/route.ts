@@ -12,8 +12,11 @@ export async function GET(req: NextRequest) {
   const path = req.nextUrl.searchParams.get('path')
   if (!path) return new NextResponse('path required', { status: 400 })
 
-  // Only allow WATI media paths (prevents open-proxy abuse)
-  if (!/^data\/(images|documents|videos|audios?|voice|stickers)\/[a-zA-Z0-9_\-\.]+$/.test(path)) {
+  // Only allow WATI media paths (prevents open-proxy abuse). Accepts both
+  // singular and plural folder names — Wati's API serves customer media at
+  // singular paths (data/image/, data/video/) while older content sometimes
+  // used plural. Webhook URLs from real chats use singular.
+  if (!/^data\/(images?|documents?|videos?|audios?|voice|stickers?)\/[a-zA-Z0-9_\-\.]+$/.test(path)) {
     return new NextResponse('invalid path', { status: 400 })
   }
 
