@@ -113,6 +113,8 @@ export interface LocalOrder {
   scheduled_date: string | null
   type: string | null
   total_amount: number | null
+  service_count: number
+  paid_amount: number
 }
 
 export type PendingWriteKind =

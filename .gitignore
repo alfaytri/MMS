@@ -61,6 +61,7 @@ supabase/.temp/
 *.pdf
 DEMO-PREP.md
 /docs/Specification and Tables/
+/docs/Meeting_Script_IT_Company.md
 
 # One-time / maintenance scripts (not application code)
 /scripts/

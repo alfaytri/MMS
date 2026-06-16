@@ -14,11 +14,29 @@ function fmtDuration(seconds: number): string {
 export function CallEventBubble({ message: m }: { message: ChatMessage }) {
   const isLive = m.delivery_status === 'sending'
   const text = m.text ?? ''
-  const isNoAnswer = /^no answer/i.test(text)
-  const isMissed = !isNoAnswer && (m.delivery_status === 'failed' || /^missed call/i.test(text))
-  const isReceived = !isMissed && !isNoAnswer && /^received call/i.test(text)
-  const isConnected = !isMissed && !isNoAnswer && /^connected call/i.test(text)
   const direction = m.from_type === 'agent' ? 'outbound' : 'inbound'
+
+  // Determine the call state from structural signals (direction + delivery_status
+  // + attachments) so existing DB rows with the legacy "Outbound — <phone>" /
+  // "Inbound — <phone>" text still light up correctly. Text prefix is used as a
+  // tie-breaker for new rows or edge cases.
+  const hasRecording = (m.attachments?.length ?? 0) > 0
+  const isUnanswered = m.delivery_status === 'failed' || /^(missed call|no answer)/i.test(text)
+
+  const isMissed    = !isLive && isUnanswered  && direction === 'inbound'
+  const isNoAnswer  = !isLive && isUnanswered  && direction === 'outbound'
+  const isReceived  = !isLive && !isUnanswered && direction === 'inbound'  && hasRecording
+  const isConnected = !isLive && !isUnanswered && direction === 'outbound' && hasRecording
+
+  // Build the displayed title from the detected state so legacy DB rows
+  // ("Outbound — <phone>", "Inbound — <phone>") render with the current naming
+  // scheme. The phone is preserved verbatim from whatever was stored.
+  const phoneFromText = text.split('—')[1]?.trim() ?? ''
+  const displayTitle = isMissed    ? `Missed call${phoneFromText ? ` — ${phoneFromText}` : ''}`
+                     : isNoAnswer  ? `No answer${phoneFromText ? ` — ${phoneFromText}` : ''}`
+                     : isReceived  ? `Received call${phoneFromText ? ` — ${phoneFromText}` : ''}`
+                     : isConnected ? `Connected call${phoneFromText ? ` — ${phoneFromText}` : ''}`
+                     : (text || 'Call')
 
   const [tick, setTick] = useState(0)
   useEffect(() => {
@@ -63,7 +81,7 @@ export function CallEventBubble({ message: m }: { message: ChatMessage }) {
       <Icon className={`h-3.5 w-3.5 mt-0.5 flex-shrink-0 ${colour}`} />
       <div className="flex-1 min-w-0 space-y-1">
         <div className="flex items-center gap-2 flex-wrap">
-          <span className={titleClasses}>{m.text ?? 'Call'}</span>
+          <span className={titleClasses}>{displayTitle}</span>
           {isLive && (
             <span className="text-xs font-mono text-emerald-600 inline-flex items-center gap-1">
               <span className="h-1.5 w-1.5 rounded-full bg-emerald-500 animate-pulse" />

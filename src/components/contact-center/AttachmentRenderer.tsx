@@ -3,6 +3,18 @@
 import { useState } from 'react'
 import { FileText, Download, ImageOff } from 'lucide-react'
 
+// 3CX recording URLs require Bearer-token auth and rate-limit anonymous
+// requests with 429. Route them through our backend proxy at /api/3cx/recording
+// so the audio player gets a cacheable, authenticated stream.
+// Pattern matches https://alfaytri.3cx.asia:5001/recording/... and any other
+// 3CX-hosted tenant.
+function resolveAttachmentUrl(url: string): string {
+  if (/^https:\/\/[^/]+\.3cx\.[^/]+\/recording\//.test(url)) {
+    return `/api/3cx/recording?url=${encodeURIComponent(url)}`
+  }
+  return url
+}
+
 function truncateFilename(name: string, max = 22): string {
   if (name.length <= max) return name
   const dot = name.lastIndexOf('.')
@@ -92,25 +104,29 @@ export function AttachmentRenderer({ url, type, name, isAgent }: Props) {
   }
   if (!url) return null
 
+  // Rewrite 3CX recording URLs to our authenticated proxy so the browser
+  // doesn't hammer 3CX anonymously and get 429'd.
+  const resolvedUrl = resolveAttachmentUrl(url)
+
   const mime = type ?? ''
   const isImage = mime.startsWith('image/') || /\.(jpg|jpeg|png|gif|webp|sticker)$/i.test(url)
   const isVideo = mime.startsWith('video/') || /\.(mp4|mov|avi|webm)$/i.test(url)
   const isAudio = mime.startsWith('audio/') || /\.(ogg|mp3|m4a|aac|wav|opus)$/i.test(url)
 
   if (isImage) {
-    return <ImageAttachment url={url} name={name} isAgent={isAgent} />
+    return <ImageAttachment url={resolvedUrl} name={name} isAgent={isAgent} />
   }
 
   if (isVideo) {
     return (
       <div className="mt-1">
         <video
-          src={url}
+          src={resolvedUrl}
           controls
           className="max-w-[220px] max-h-[160px] rounded-md border border-border/50"
           preload="metadata"
         >
-          <a href={url} target="_blank" rel="noopener noreferrer" className="text-xs underline">
+          <a href={resolvedUrl} target="_blank" rel="noopener noreferrer" className="text-xs underline">
             {name ?? 'video'}
           </a>
         </video>
@@ -122,7 +138,7 @@ export function AttachmentRenderer({ url, type, name, isAgent }: Props) {
     return (
       <div className="mt-1 rounded-lg overflow-hidden">
         <audio
-          src={url}
+          src={resolvedUrl}
           controls
           className="h-10 w-[240px] max-w-full block"
           preload="metadata"
@@ -134,7 +150,7 @@ export function AttachmentRenderer({ url, type, name, isAgent }: Props) {
   return (
     <button
       type="button"
-      onClick={() => downloadBlob(url, name ?? 'file')}
+      onClick={() => downloadBlob(resolvedUrl, name ?? 'file')}
       className={`flex items-center gap-2 mt-1 w-full px-2.5 py-2 rounded-lg border text-xs transition-colors text-left ${
         isAgent
           ? 'bg-black/25 border-white/20 text-white hover:bg-black/35'
