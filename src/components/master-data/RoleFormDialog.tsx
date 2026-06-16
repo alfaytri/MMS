@@ -15,14 +15,15 @@ import {
 import { Input } from '@/components/ui/input'
 import { Textarea } from '@/components/ui/textarea'
 import { Checkbox } from '@/components/ui/checkbox'
+import { Switch } from '@/components/ui/switch'
 import { Button } from '@/components/ui/button'
 import { useCreateRole, useUpdateRole, type CustomRole } from '@/hooks/useRoles'
 import { PERMISSION_GROUPS, ALL_PERMISSIONS } from '@/lib/permissions'
-
 const roleSchema = z.object({
-  name:        z.string().min(1, 'Name is required'),
-  description: z.string().optional().default(''),
-  permissions: z.array(z.string()).default([]),
+  name:             z.string().min(1, 'Name is required'),
+  description:      z.string().optional().default(''),
+  permissions:      z.array(z.string()).default([]),
+  is_approval_slot: z.boolean().default(false),
 })
 
 type RoleFormValues = z.infer<typeof roleSchema>
@@ -42,12 +43,17 @@ export function RoleFormDialog({ open, onOpenChange, role }: RoleFormDialogProps
 
   const form = useForm<RoleFormValues>({
     resolver: zodResolver(roleSchema) as never,
-    defaultValues: { name: '', description: '', permissions: [] },
+    defaultValues: { name: '', description: '', permissions: [], is_approval_slot: false },
   })
 
   useEffect(() => {
     if (open && role) {
-      form.reset({ name: role.name, description: role.description ?? '', permissions: (role.permissions as string[]) ?? [] })
+      form.reset({
+        name: role.name,
+        description: role.description ?? '',
+        permissions: (role.permissions as string[]) ?? [],
+        is_approval_slot: Boolean((role as CustomRole & { is_approval_slot?: boolean }).is_approval_slot),
+      })
       setExpandedModules(new Set())
     } else if (open) {
       form.reset()
@@ -89,8 +95,9 @@ export function RoleFormDialog({ open, onOpenChange, role }: RoleFormDialogProps
         </DialogHeader>
 
         <Form {...form}>
-          <form onSubmit={form.handleSubmit(onSubmit)} className="flex flex-col flex-1 min-h-0 gap-4">
+          <form onSubmit={form.handleSubmit(onSubmit)} className="flex flex-col flex-1 min-h-0">
 
+            <div className="flex-1 overflow-y-auto overflow-x-hidden min-h-0 space-y-4">
             {/* Name + Description */}
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 px-1">
               <FormField control={form.control} name="name" render={({ field }) => (
@@ -109,6 +116,28 @@ export function RoleFormDialog({ open, onOpenChange, role }: RoleFormDialogProps
               )} />
             </div>
 
+            {/* Approval-slot toggle */}
+            <div className="px-1">
+              <FormField
+                control={form.control}
+                name="is_approval_slot"
+                render={({ field }) => (
+                  <FormItem className="flex items-center justify-between rounded-md border border-border p-3 bg-card">
+                    <div className="space-y-0.5 pr-3">
+                      <FormLabel className="text-sm">Can be used in approval chains</FormLabel>
+                      <p className="text-xs text-muted-foreground">
+                        Mark this role as an approval-slot so users holding it can fill steps in PO,
+                        Inventory Check, and Stock Adjustment approval chains.
+                      </p>
+                    </div>
+                    <FormControl>
+                      <Switch checked={field.value} onCheckedChange={field.onChange} />
+                    </FormControl>
+                  </FormItem>
+                )}
+              />
+            </div>
+
             {/* Permissions header */}
             <div className="flex items-center justify-between px-1">
               <span className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">
@@ -121,7 +150,7 @@ export function RoleFormDialog({ open, onOpenChange, role }: RoleFormDialogProps
             </div>
 
             {/* Accordion permission list */}
-            <div className="flex-1 overflow-y-auto border rounded-md divide-y divide-border">
+            <div className="border rounded-md divide-y divide-border">
               {PERMISSION_GROUPS.map((group) => {
                 const groupKeys = group.permissions.map((p) => p.key)
                 const selectedInGroup = groupKeys.filter((k) => selectedPermissions.includes(k))
@@ -198,8 +227,9 @@ export function RoleFormDialog({ open, onOpenChange, role }: RoleFormDialogProps
                 )
               })}
             </div>
+            </div>
 
-            <DialogFooter className="shrink-0">
+            <DialogFooter className="shrink-0 pt-4">
               <Button type="button" variant="outline" onClick={() => onOpenChange(false)} disabled={isPending}>Cancel</Button>
               <Button type="submit" disabled={isPending || !form.formState.isValid}>
                 {isPending ? 'Saving…' : isEditing ? 'Update Role' : 'Create Role'}

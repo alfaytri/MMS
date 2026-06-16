@@ -5,7 +5,7 @@ import { useForm } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { z } from 'zod'
 import { toast } from 'sonner'
-import { X } from 'lucide-react'
+import { X, Shield, KeyRound, UserPlus2, Building2 } from 'lucide-react'
 import { useQuery } from '@tanstack/react-query'
 import {
   Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter,
@@ -25,48 +25,35 @@ import {
 import {
   useUpdateUser, useUserDivisions, useAssignDivision, useRemoveDivision, type Profile,
 } from '@/hooks/useProfiles'
-import { useRoles } from '@/hooks/useRoles'
+import { useRoles, type CustomRole } from '@/hooks/useRoles'
 import { useAllDivisions } from '@/hooks/useDivisions'
 import { useCompanies } from '@/hooks/useCompanies'
-import {
-  useApprovalRoleAssignments,
-  useAddApprovalRoleAssignment,
-  useSoftDeleteApprovalRoleAssignment,
-} from '@/hooks/useApprovalRoleAssignments'
-import type { ApprovalRole } from '@/lib/approvalChainResolution'
 import { createClient } from '@/lib/supabase/client'
 import { queryKeys } from '@/lib/queryKeys'
 
-const APPROVAL_ROLES: { role: ApprovalRole; label: string }[] = [
-  { role: 'purchase_manager',  label: 'Purchase Manager' },
-  { role: 'accountant',        label: 'Accountant' },
-  { role: 'owner',             label: 'Owner' },
-  { role: 'employee',          label: 'Employee' },
-  { role: 'warehouse_manager', label: 'Warehouse Manager' },
-]
+const ROLE_ASSIGNMENT = z.object({
+  role_id: z.string().uuid(),
+})
 
 const schema = z.object({
   full_name: z.string().min(1, 'Name is required'),
-  username: z.string().min(1, 'Username is required')
-    .regex(/^[a-zA-Z0-9._@-]+$/, 'Only letters, numbers, dots, hyphens, and underscores'),
+  username:  z.string().min(1, 'Username is required').regex(/^[a-zA-Z0-9._@-]+$/, 'Only letters, numbers, dots, hyphens, and underscores'),
   is_active: z.boolean(),
-  role_ids: z.array(z.string().uuid()).default([]),
+  role_assignments: z.array(ROLE_ASSIGNMENT).default([]),
 })
 
 type Values = z.infer<typeof schema>
+type RoleAssignment = z.infer<typeof ROLE_ASSIGNMENT>
 
 interface Props {
   open: boolean
   onOpenChange: (v: boolean) => void
-  profile: (Profile & { user_custom_roles?: Array<{ role_id: string }> }) | null
+  profile: (Profile & { user_custom_roles?: Array<{ role_id: string; approval_scopes?: string[] | null }> }) | null
 }
 
 export function EditUserDialog({ open, onOpenChange, profile }: Props) {
   const updateUser = useUpdateUser()
   const { data: roles } = useRoles()
-  const { data: allAssignments = [] } = useApprovalRoleAssignments()
-  const addApprovalRole = useAddApprovalRoleAssignment()
-  const removeApprovalRole = useSoftDeleteApprovalRoleAssignment()
 
   // ── Division assignment ──────────────────────────────────────────────
   const { data: allDivisions = [] } = useAllDivisions()
@@ -161,67 +148,43 @@ export function EditUserDialog({ open, onOpenChange, profile }: Props) {
     )
   }
 
-  // Find this user's current approval role assignment (if any)
-  const myAssignment = profile
-    ? allAssignments.find((a) => a.profile_id === profile.id)
-    : undefined
-
-  function handleApprovalRoleToggle(role: ApprovalRole) {
-    if (!profile) return
-    if (myAssignment?.role === role) {
-      // Clicking the active role → remove it
-      removeApprovalRole.mutate(myAssignment.id, {
-        onError: (e) => toast.error(e.message),
-      })
-    } else {
-      // Switch to a different role: remove existing first (if any), then add new
-      const doAdd = () =>
-        addApprovalRole.mutate(
-          { profile_id: profile.id, role, division_id: null },
-          { onError: (e) => toast.error(e.message) }
-        )
-      if (myAssignment) {
-        removeApprovalRole.mutate(myAssignment.id, {
-          onSuccess: doAdd,
-          onError: (e) => toast.error(e.message),
-        })
-      } else {
-        doAdd()
-      }
-    }
-  }
-
   const form = useForm<Values>({
     resolver: zodResolver(schema) as never,
     defaultValues: {
-      full_name: '', username: '', is_active: true, role_ids: [],
+      full_name: '', username: '', is_active: true, role_assignments: [],
     },
   })
 
   useEffect(() => {
     if (profile && open) {
+      const initialAssignments: RoleAssignment[] = (profile?.user_custom_roles ?? [])
+        .map((r) => ({ role_id: r.role_id }))
       form.reset({
         full_name: profile.full_name ?? '',
         username: (profile.email ?? '').replace(/@mms\.local$/, ''),
         is_active: profile.is_active ?? true,
-        role_ids: (profile.user_custom_roles ?? []).map((r: { role_id: string }) => r.role_id),
+        role_assignments: initialAssignments,
       })
     }
   }, [profile, open, form])
 
-  const selectedRoles = form.watch('role_ids') ?? []
   const isActive = form.watch('is_active')
 
   function onSubmit(values: Values) {
     if (!profile) return
-    const { username, ...rest } = values
-    const email = username.includes('@') ? username : `${username}@mms.local`
+    const email = values.username.includes('@') ? values.username : `${values.username}@mms.local`
     updateUser.mutate(
       {
         auth_user_id: profile.auth_user_id,
-        ...rest,
+        full_name: values.full_name,
         email,
-        role_ids: isTl ? [] : values.role_ids,
+        is_active: values.is_active,
+        role_assignments: isTl
+          ? []
+          : values.role_assignments.map((a) => ({
+              role_id: a.role_id,
+              approval_scopes: null,
+            })),
         is_team_leader: isTl,
         employee_id: linkedEmployeeId && linkedEmployeeId !== '__change__'
           ? linkedEmployeeId
@@ -340,108 +303,166 @@ export function EditUserDialog({ open, onOpenChange, profile }: Props) {
             </div>
 
             {!isTl && (
-            <div className="space-y-1.5">
-              <Label>Roles</Label>
-              {/* Selected roles as removable badges */}
-              <div className="flex flex-wrap gap-1.5 min-h-[2rem]">
-                {selectedRoles.length === 0 && (
-                  <p className="text-xs text-muted-foreground">No roles assigned.</p>
-                )}
-                {selectedRoles.map((id) => {
-                  const role = (roles ?? []).find((r) => r.id === id)
-                  if (!role) return null
-                  return (
-                    <Badge key={id} variant="secondary" className="gap-1 pr-1">
-                      {role.name}
-                      <button
-                        type="button"
-                        className="rounded-full hover:bg-muted p-0.5"
-                        onClick={() => {
-                          const current = form.getValues('role_ids')
-                          form.setValue('role_ids', current.filter((r) => r !== id))
-                        }}
-                      >
-                        <X className="h-3 w-3" />
-                      </button>
-                    </Badge>
+              <div className="space-y-2.5">
+                <div className="space-y-0.5">
+                  <Label className="text-sm font-medium">Roles</Label>
+                  <p className="text-xs text-muted-foreground">
+                    Grants permissions and/or makes this user eligible to fill approval-chain steps.
+                  </p>
+                </div>
+
+                <div className="flex flex-wrap gap-1.5 min-h-[2rem] items-center">
+                  {form.watch('role_assignments').length === 0 ? (
+                    <p className="text-xs text-muted-foreground italic">No roles assigned.</p>
+                  ) : (
+                    form.watch('role_assignments').map((assignment, idx) => {
+                      const role = (roles ?? []).find((r) => r.id === assignment.role_id)
+                      if (!role) return null
+
+                      const isAS = Boolean((role as CustomRole & { is_approval_slot?: boolean }).is_approval_slot)
+                      const hasPerms = ((role.permissions as string[] | null)?.length ?? 0) > 0
+
+                      function removeAssignment() {
+                        const updated = form.getValues('role_assignments').filter((_, i) => i !== idx)
+                        form.setValue('role_assignments', updated, { shouldDirty: true })
+                      }
+
+                      // Pick chip color: approval-only = primary, has perms = secondary tone
+                      const chipClass = isAS
+                        ? 'border-primary/30 bg-primary/5 text-primary hover:bg-primary/10'
+                        : 'border-border bg-muted/40 text-foreground hover:bg-muted/70'
+
+                      const Icon = isAS ? Shield : KeyRound
+
+                      return (
+                        <span
+                          key={assignment.role_id}
+                          className={`group inline-flex items-center gap-1.5 rounded-full border pl-2 pr-1 py-0.5 text-xs font-medium transition-colors ${chipClass}`}
+                          title={isAS && hasPerms ? 'Permissions + approval slot' : isAS ? 'Approval slot' : 'Permission role'}
+                        >
+                          <Icon className="h-3 w-3 shrink-0 opacity-70" />
+                          <span>{role.name}</span>
+                          <button
+                            type="button"
+                            className="rounded-full p-0.5 opacity-60 hover:opacity-100 hover:bg-background/80 transition"
+                            onClick={removeAssignment}
+                            aria-label={`Remove ${role.name}`}
+                          >
+                            <X className="h-3 w-3" />
+                          </button>
+                        </span>
+                      )
+                    })
+                  )}
+                </div>
+
+                {/* Add-role dropdown */}
+                {(roles ?? []).filter((r) =>
+                  !form.watch('role_assignments').some((a) => a.role_id === r.id)
+                ).length > 0 && (() => {
+                  const available = (roles ?? []).filter(
+                    (r) => !form.watch('role_assignments').some((a) => a.role_id === r.id)
                   )
-                })}
+                  const approvalRoles   = available.filter((r) => Boolean((r as CustomRole & { is_approval_slot?: boolean }).is_approval_slot))
+                  const permissionRoles = available.filter((r) => !Boolean((r as CustomRole & { is_approval_slot?: boolean }).is_approval_slot))
+
+                  return (
+                    <Select
+                      value=""
+                      onValueChange={(id) => {
+                        if (!id) return
+                        const current = form.getValues('role_assignments')
+                        if (current.some((a) => a.role_id === id)) return
+                        form.setValue('role_assignments', [...current, { role_id: id }], { shouldDirty: true })
+                      }}
+                    >
+                      <SelectTrigger className="w-full sm:w-72 h-9 text-sm">
+                        <UserPlus2 className="h-3.5 w-3.5 text-muted-foreground mr-1" />
+                        <SelectValue placeholder="Add role…" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {approvalRoles.length > 0 && (
+                          <SelectGroup>
+                            <SelectLabel className="flex items-center gap-1.5 text-[10px] uppercase tracking-wider text-muted-foreground">
+                              <Shield className="h-3 w-3" />
+                              Approval Roles
+                            </SelectLabel>
+                            {approvalRoles.map((r) => {
+                              const hasPerms = ((r.permissions as string[] | null)?.length ?? 0) > 0
+                              return (
+                                <SelectItem key={r.id} value={r.id} className="text-sm">
+                                  <span className="flex items-center gap-2">
+                                    <Shield className="h-3 w-3 text-primary/70" />
+                                    <span>{r.name}</span>
+                                    {hasPerms && (
+                                      <span className="text-[10px] text-muted-foreground">+ perms</span>
+                                    )}
+                                  </span>
+                                </SelectItem>
+                              )
+                            })}
+                          </SelectGroup>
+                        )}
+                        {permissionRoles.length > 0 && (
+                          <SelectGroup>
+                            <SelectLabel className="flex items-center gap-1.5 text-[10px] uppercase tracking-wider text-muted-foreground">
+                              <KeyRound className="h-3 w-3" />
+                              Permission Roles
+                            </SelectLabel>
+                            {permissionRoles.map((r) => (
+                              <SelectItem key={r.id} value={r.id} className="text-sm">
+                                <span className="flex items-center gap-2">
+                                  <KeyRound className="h-3 w-3 text-muted-foreground" />
+                                  <span>{r.name}</span>
+                                </span>
+                              </SelectItem>
+                            ))}
+                          </SelectGroup>
+                        )}
+                      </SelectContent>
+                    </Select>
+                  )
+                })()}
               </div>
-              {/* Dropdown to add a role */}
-              {(roles ?? []).filter((r) => !selectedRoles.includes(r.id)).length > 0 && (
-                <Select
-                  value=""
-                  onValueChange={(id) => {
-                    if (!id) return
-                    const current = form.getValues('role_ids')
-                    if (!current.includes(id)) form.setValue('role_ids', [...current, id])
-                  }}
-                >
-                  <SelectTrigger className="w-64 h-9 text-sm">
-                    <SelectValue placeholder="Add role…" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {(roles ?? [])
-                      .filter((r) => !selectedRoles.includes(r.id))
-                      .map((r) => (
-                        <SelectItem key={r.id} value={r.id}>{r.name}</SelectItem>
-                      ))}
-                  </SelectContent>
-                </Select>
-              )}
-            </div>
             )}
 
-            <div className="space-y-1.5">
-              <Label htmlFor="edit-user-approval-role">Approval Role</Label>
-              <p className="text-xs text-muted-foreground">Determines who this user can act as in the PO approval chain and warehouse approvals.</p>
-              <Select
-                value={myAssignment?.role ?? '__none__'}
-                onValueChange={(v) => {
-                  if (v === '__none__') {
-                    if (myAssignment) removeApprovalRole.mutate(myAssignment.id, { onError: (e) => toast.error(e.message) })
-                  } else {
-                    handleApprovalRoleToggle(v as ApprovalRole)
-                  }
-                }}
-                disabled={addApprovalRole.isPending || removeApprovalRole.isPending}
-              >
-                <SelectTrigger id="edit-user-approval-role" className="w-64 h-9 text-sm">
-                  <SelectValue placeholder="No approval role" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="__none__">— No approval role —</SelectItem>
-                  {APPROVAL_ROLES.map(({ role, label }) => (
-                    <SelectItem key={role} value={role}>{label}</SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
-
             {/* ── Divisions ── */}
-            <div className="space-y-2 pt-2">
-              <p className="text-sm font-semibold">Divisions</p>
+            <div className="space-y-2.5 pt-2">
+              <div className="space-y-0.5">
+                <Label className="text-sm font-medium">Divisions</Label>
+                <p className="text-xs text-muted-foreground">
+                  Determines which divisions this user can create orders for.
+                </p>
+              </div>
 
-              <div className="flex flex-wrap gap-1.5 min-h-[2rem]">
-                {userDivisions.length === 0 && (
-                  <p className="text-xs text-muted-foreground">No divisions assigned — user cannot create orders.</p>
-                )}
-                {userDivisions.map((ud) => {
-                  const divName = allDivisions.find((d) => d.id === ud.division_id)?.name ?? ud.division_id
-                  return (
-                    <Badge key={ud.id} variant="secondary" className="gap-1 pr-1">
-                      {divName}
-                      <button
-                        type="button"
-                        className="rounded-full hover:bg-muted p-0.5"
-                        onClick={() => handleRemoveDivision(ud.id)}
-                        disabled={removeDivision.isPending}
+              <div className="flex flex-wrap gap-1.5 min-h-[2rem] items-center">
+                {userDivisions.length === 0 ? (
+                  <p className="text-xs text-muted-foreground italic">
+                    No divisions assigned — user cannot create orders.
+                  </p>
+                ) : (
+                  userDivisions.map((ud) => {
+                    const divName = allDivisions.find((d) => d.id === ud.division_id)?.name ?? ud.division_id
+                    return (
+                      <span
+                        key={ud.id}
+                        className="group inline-flex items-center gap-1.5 rounded-full border border-border bg-muted/40 pl-2 pr-1 py-0.5 text-xs font-medium text-foreground hover:bg-muted/70 transition-colors"
                       >
-                        <X className="h-3 w-3" />
-                      </button>
-                    </Badge>
-                  )
-                })}
+                        <Building2 className="h-3 w-3 shrink-0 opacity-70" />
+                        <span>{divName}</span>
+                        <button
+                          type="button"
+                          className="rounded-full p-0.5 opacity-60 hover:opacity-100 hover:bg-background/80 transition disabled:opacity-30"
+                          onClick={() => handleRemoveDivision(ud.id)}
+                          disabled={removeDivision.isPending}
+                          aria-label={`Remove ${divName}`}
+                        >
+                          <X className="h-3 w-3" />
+                        </button>
+                      </span>
+                    )
+                  })
+                )}
               </div>
 
               {companiesWithUnassigned.length > 0 && (
@@ -449,15 +470,24 @@ export function EditUserDialog({ open, onOpenChange, profile }: Props) {
                   value={divisionPickValue}
                   onValueChange={(v) => { if (v) { setDivisionPickValue(v); handleAssignDivision(v) } }}
                 >
-                  <SelectTrigger className="w-64 h-8 text-xs">
+                  <SelectTrigger className="w-full sm:w-72 h-9 text-sm">
+                    <Building2 className="h-3.5 w-3.5 text-muted-foreground mr-1" />
                     <SelectValue placeholder="Add division…" />
                   </SelectTrigger>
                   <SelectContent>
                     {companiesWithUnassigned.map((group) => (
                       <SelectGroup key={group.companyName}>
-                        <SelectLabel>{group.companyName}</SelectLabel>
+                        <SelectLabel className="flex items-center gap-1.5 text-[10px] uppercase tracking-wider text-muted-foreground">
+                          <Building2 className="h-3 w-3" />
+                          {group.companyName}
+                        </SelectLabel>
                         {group.items.map((d) => (
-                          <SelectItem key={d.id} value={d.id}>{d.name}</SelectItem>
+                          <SelectItem key={d.id} value={d.id} className="text-sm">
+                            <span className="flex items-center gap-2">
+                              <Building2 className="h-3 w-3 text-muted-foreground" />
+                              <span>{d.name}</span>
+                            </span>
+                          </SelectItem>
                         ))}
                       </SelectGroup>
                     ))}

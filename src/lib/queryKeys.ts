@@ -380,6 +380,8 @@ export const queryKeys = {
   roles: {
     custom: ['custom-roles'] as const,
     userRoles: (profileId: Nullable) => ['user-roles', profileId] as const,
+    myApprovalSlots: ['roles','my-approval-slots'] as const,
+    workflowSteps: ['workflow-approval-steps'] as const,
   },
 
   /* ── Sale Deliveries ──────────────────────────────────── */

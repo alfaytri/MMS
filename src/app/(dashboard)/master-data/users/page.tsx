@@ -11,6 +11,7 @@ import { DataTableColumnHeader } from '@/components/shared/DataTableColumnHeader
 import { StatusBadge } from '@/components/shared/StatusBadge'
 import { ConfirmDialog } from '@/components/shared/ConfirmDialog'
 import { RoleFormDialog } from '@/components/master-data/RoleFormDialog'
+import { ApprovalChainManagement } from '@/components/master-data/ApprovalChainConfig'
 import { AddUserDialog } from '@/components/master-data/AddUserDialog'
 import { EditUserDialog } from '@/components/master-data/EditUserDialog'
 import { ResetPasswordDialog } from '@/components/master-data/ResetPasswordDialog'
@@ -19,10 +20,6 @@ import {
   useProfiles, useCurrentUserProfile, useCreateMyProfile, type Profile,
 } from '@/hooks/useProfiles'
 
-type ProfileWithRelations = Profile & {
-  approval_role_assignments?: Array<{ role: string; deleted_at: string | null }>
-  user_custom_roles?: Array<{ role_id: string; custom_roles: { name: string; color?: string } | null }>
-}
 import { PERMISSION_GROUPS, ALL_PERMISSIONS, roleColor } from '@/lib/permissions'
 import { PermissionGate } from '@/components/shared/PermissionGate'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
@@ -76,16 +73,14 @@ function RoleCard({ role, onEdit, onDelete }: { role: CustomRole; onEdit: () => 
             <Badge variant="outline" className="text-xs px-1.5 py-0">System</Badge>
           )}
         </div>
-        {!role.is_system && (
-          <div className="flex items-center gap-0.5 shrink-0">
-            <Button variant="ghost" size="icon" className="h-7 w-7" onClick={onEdit}>
-              <Pencil className="h-3.5 w-3.5" />
-            </Button>
-            <Button variant="ghost" size="icon" className="h-7 w-7 text-destructive hover:text-destructive" onClick={onDelete}>
-              <Trash2 className="h-3.5 w-3.5" />
-            </Button>
-          </div>
-        )}
+        <div className="flex items-center gap-0.5 shrink-0">
+          <Button variant="ghost" size="icon" className="h-7 w-7" onClick={onEdit}>
+            <Pencil className="h-3.5 w-3.5" />
+          </Button>
+          <Button variant="ghost" size="icon" className="h-7 w-7 text-destructive hover:text-destructive" onClick={onDelete}>
+            <Trash2 className="h-3.5 w-3.5" />
+          </Button>
+        </div>
       </div>
 
       {/* Description */}
@@ -111,6 +106,20 @@ function RoleCard({ role, onEdit, onDelete }: { role: CustomRole; onEdit: () => 
       <p className="text-xs text-muted-foreground mt-auto">
         {permissions.length} / {ALL_PERMISSIONS.length} permissions
       </p>
+
+      {/* Capability badges row */}
+      <div className="flex flex-wrap gap-1 mt-1">
+        {permissions.length > 0 && (
+          <Badge variant="outline" className="text-[10px] gap-1 px-1.5 py-0">
+            🔑 {permissions.length} permissions
+          </Badge>
+        )}
+        {(role as CustomRole & { is_approval_slot?: boolean }).is_approval_slot && (
+          <Badge variant="outline" className="text-[10px] gap-1 px-1.5 py-0 border-primary/40 bg-primary/5 text-primary">
+            ✅ Approval slot
+          </Badge>
+        )}
+      </div>
     </div>
   )
 }
@@ -180,33 +189,42 @@ export default function UsersRolesPage() {
       },
     },
     {
-      id: 'approval_role',
-      header: 'Approval Role',
-      cell: ({ row }) => {
-        const assignments = (row.original as ProfileWithRelations).approval_role_assignments
-        const active = assignments?.find((a) => !a.deleted_at)
-        if (!active) return <span className="text-muted-foreground text-xs">—</span>
-        const label: Record<string, string> = {
-          owner: 'Owner',
-          accountant: 'Accountant',
-          purchase_manager: 'Purchase Manager',
-          employee: 'Employee',
-        }
-        return <Badge variant="outline" className="text-xs">{label[active.role] ?? active.role}</Badge>
-      },
-    },
-    {
       id: 'roles',
       header: 'Roles',
       cell: ({ row }) => {
-        const userRoles = (row.original as Profile & { user_custom_roles?: Array<{ custom_roles: { name: string } | null }> }).user_custom_roles
-        if (!userRoles?.length) return <span className="text-muted-foreground">None</span>
+        const userRoles = (row.original as Profile & {
+          user_custom_roles?: Array<{
+            role_id: string
+            approval_scopes: string[] | null
+            custom_roles: { name: string; color: string | null; is_approval_slot: boolean } | null
+          }>
+        }).user_custom_roles
+        if (!userRoles?.length) return <span className="text-muted-foreground text-xs">None</span>
+
+        const SHORT_SCOPE: Record<string, string> = { po: 'PO', inv_check: 'Inv', stock_adj: 'Adj' }
+
         return (
           <div className="flex gap-1 flex-wrap">
-            {userRoles.slice(0, 2).map((ur: { custom_roles: { name: string } | null }, i: number) => (
-              <Badge key={i} variant="outline" className="text-xs">{ur.custom_roles?.name}</Badge>
-            ))}
-            {userRoles.length > 2 && <Badge variant="outline" className="text-xs">+{userRoles.length - 2}</Badge>}
+            {userRoles.slice(0, 3).map((ur, i) => {
+              const cr = ur.custom_roles
+              if (!cr) return null
+              const isAS = cr.is_approval_slot
+              const scopeSuffix =
+                isAS && ur.approval_scopes && ur.approval_scopes.length < 3
+                  ? ` (${ur.approval_scopes.map((s) => SHORT_SCOPE[s] ?? s).join(', ')})`
+                  : ''
+              return (
+                <Badge
+                  key={i}
+                  variant="outline"
+                  className={`text-xs ${isAS ? 'border-primary/40 bg-primary/5 text-primary' : ''}`}
+                  title={isAS ? 'Approval slot' : 'Permission role'}
+                >
+                  {cr.name}{scopeSuffix}
+                </Badge>
+              )
+            })}
+            {userRoles.length > 3 && <Badge variant="outline" className="text-xs">+{userRoles.length - 3}</Badge>}
           </div>
         )
       },
@@ -403,6 +421,22 @@ export default function UsersRolesPage() {
                 ))}
               </div>
             )}
+
+            {/* Approval Chain Management */}
+            <div className="rounded-lg border border-border bg-card p-4 space-y-3 shadow-sm">
+              <div className="flex items-center gap-2">
+                <div className="flex h-8 w-8 items-center justify-center rounded-md bg-primary/10 shrink-0">
+                  <Shield className="h-4 w-4 text-primary" />
+                </div>
+                <div>
+                  <h3 className="text-sm font-semibold">Approval Chain Management</h3>
+                  <p className="text-xs text-muted-foreground">
+                    Configure which steps are active in each approval workflow.
+                  </p>
+                </div>
+              </div>
+              <ApprovalChainManagement />
+            </div>
           </div>
         </TabsContent>
 
