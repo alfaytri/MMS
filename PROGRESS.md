@@ -219,7 +219,7 @@ Purchase & Sales▾:
 
 ## 🔄 In Progress
 
-🚀 Starting: **Supabase Quota Remediation v2 — Phase 2: Master-Data Tax** — plan at `docs/superpowers/plans/2026-06-16-supabase-quota-remediation-v2.md`
+🚀 Starting: **Supabase Quota Remediation v2 — Phase 3: Guardrails** — plan at `docs/superpowers/plans/2026-06-16-supabase-quota-remediation-v2.md`
 
 ## 🔋 Quota Watch
 
@@ -230,6 +230,10 @@ Purchase & Sales▾:
 | 2026-06-16 | Pre-Phase-1 baseline | 2,983,378 / 2M (149%) | 7.076 / 5 GB (142%) | End of cycle May 16 – Jun 16; new cycle just started, dashboard hadn't yet refreshed when captured |
 
 ## ✅ Completed
+
+- [2026-06-16] **Wati Media Proxy — Customer Images / Videos Fix** — `src/app/api/wati/media/route.ts` — Path validation regex required plural folder names (`images`, `videos`) but real Wati webhook URLs use singular (`image`, `video`), so customer media in chats hit 400 before reaching Wati. One-line regex fix accepts both shapes.
+
+- [2026-06-16] **Supabase Quota Remediation v2 — Phase 2: Master-Data Tax** — `src/hooks/useNotifications.ts`, `src/hooks/useTeams.ts`, `src/hooks/useInventory.ts`, `src/hooks/usePurchaseOrders.ts` — Added defensive `.limit()` caps to 9 unbounded master-data list queries (notification_templates, employees, vehicles, schedules, inventory_items, inventory_brand_variants, tool_asset_items, tool_asset_units, po_versions). Deliberately deferred the wildcard→explicit column conversion — risky because downstream UI reads arbitrary columns from full-row types.
 
 - [2026-06-16] **Supabase Quota Remediation v2 — Phase 1: Polling Firehoses** — `src/hooks/contact-center/useLiveThread.ts`, `src/hooks/contact-center/useLivePolledInboundCalls.ts` — Stretched DB poll 2s→10s, Wati sync 5/15s→15/30s, active-calls poll 2s→5s; all three now paused when tab is hidden. Also fixed a zombie-poller leak in useLivePolledInboundCalls (shared `useRef` for liveness was letting in-flight fetches from stale mounts reschedule themselves and leave orphaned timers). Plan: `docs/superpowers/plans/2026-06-16-supabase-quota-remediation-v2.md`.
 
