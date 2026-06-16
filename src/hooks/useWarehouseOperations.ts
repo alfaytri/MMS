@@ -446,7 +446,7 @@ export function useStockAdjustments({ warehouseId }: { warehouseId?: string } = 
         .select(`
           *,
           warehouses(name),
-          inventory_brand_variants(brand, inventory_items(name_en, sku, inventory_categories(name_en, type))),
+          inventory_brand_variants(brand, inventory_items(name_en, sku, inventory_categories(id, name_en, type))),
           stock_adjustment_approvals(
             id, adjustment_id, step_order, step_role, step_label, status,
             profile_id, profile_name, action_at, notes, created_at

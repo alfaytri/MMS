@@ -10,6 +10,7 @@ import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { EmptyState } from '@/components/shared/EmptyState'
 import { ItemTreeCell } from './ItemTreeCell'
 import { useStockAdjustments, useApproveStockAdjustment, type StockAdjustmentApprovalStep } from '@/hooks/useWarehouseOperations'
+import { useAllCategoriesFlat, breadcrumb as categoryBreadcrumb } from '@/hooks/useInventoryTree'
 import { WhAdjustmentDetailDialog } from './WhAdjustmentDetailDialog'
 import { useMutation, useQueryClient } from '@tanstack/react-query'
 import type { Warehouse } from '@/hooks/useWarehouses'
@@ -39,7 +40,7 @@ type StockAdjustmentRow = {
     inventory_items?: {
       name_en: string
       sku?: string | null
-      inventory_categories?: { name_en: string | null; type: string | null } | null
+      inventory_categories?: { id: string | null; name_en: string | null; type: string | null } | null
     } | null
   } | null
   photo_urls?: string[] | null
@@ -67,6 +68,7 @@ interface Props {
 
 export const WhAdjustmentsTab = React.memo(function WhAdjustmentsTab({ warehouses, currentProfile }: Props) {
   const { data: adjustments = [] } = useStockAdjustments()
+  const { data: categoriesFlat = [] } = useAllCategoriesFlat()
   const approve = useApproveStockAdjustment()
   const qc = useQueryClient()
   const [photoUrls, setPhotoUrls] = useState<string[] | null>(null)
@@ -173,8 +175,11 @@ export const WhAdjustmentsTab = React.memo(function WhAdjustmentsTab({ warehouse
               const item     = adj.inventory_brand_variants?.inventory_items
               const itemName = item?.name_en ?? '—'
               const brand    = adj.inventory_brand_variants?.brand ?? null
-              const category = item?.inventory_categories?.name_en ?? null
-              const itemType = item?.inventory_categories?.type ?? null
+              const categoryId = item?.inventory_categories?.id ?? null
+              const itemType   = item?.inventory_categories?.type ?? null
+              const category   = categoryId && categoriesFlat.length
+                ? categoryBreadcrumb(categoryId, categoriesFlat)
+                : item?.inventory_categories?.name_en ?? null
 
               const chainSteps = [...(adj.stock_adjustment_approvals ?? [])]
                 .sort((a, b) => a.step_order - b.step_order)
