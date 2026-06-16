@@ -219,7 +219,7 @@ Purchase & Sales▾:
 
 ## 🔄 In Progress
 
-🚀 Starting: **Supabase Quota Remediation v2 — Phase 3: Guardrails** — plan at `docs/superpowers/plans/2026-06-16-supabase-quota-remediation-v2.md`
+🚀 Awaiting next module assignment. Quota Remediation v2 (all 3 phases) shipped; watching dashboard for the next 48 h to attribute the drop.
 
 ## 🔋 Quota Watch
 
@@ -230,6 +230,8 @@ Purchase & Sales▾:
 | 2026-06-16 | Pre-Phase-1 baseline | 2,983,378 / 2M (149%) | 7.076 / 5 GB (142%) | End of cycle May 16 – Jun 16; new cycle just started, dashboard hadn't yet refreshed when captured |
 
 ## ✅ Completed
+
+- [2026-06-16] **Supabase Quota Remediation v2 — Phase 3: Guardrails** — `docs/supabase-budget.md`, `AGENTS.md` — Authored a one-page Supabase budget reference (monthly caps, three-pillar rules for Realtime/Polling/Queries, good vs bad examples, debugging playbook) and wired it into `AGENTS.md` so every session reads it at start. Deferred ESLint rule + helper hooks: there are 76 existing `select('*')` calls across 42 files; a strict rule would break the build, and helper hooks don't enforce anything. The doc + checklist gives the same outcome at lower cost.
 
 - [2026-06-16] **Wati Media Proxy — Customer Images / Videos Fix** — `src/app/api/wati/media/route.ts` — Path validation regex required plural folder names (`images`, `videos`) but real Wati webhook URLs use singular (`image`, `video`), so customer media in chats hit 400 before reaching Wati. One-line regex fix accepts both shapes.
 
