@@ -221,23 +221,31 @@ export function useLiveThread(conversationId: string | null, phone: string | nul
         }
       })
 
-    // ── Periodic DB poll: every 2 s ──────────────────────────────────────────
-    // Catches anything the Realtime WebSocket misses.
-    const poll = setInterval(triggerPoll, 2_000)
+    // ── Periodic DB poll: every 10 s, paused when tab hidden ─────────────────
+    // Realtime WebSocket is the primary delivery channel; this poll is a
+    // safety net for missed events. 10 s is plenty — and we skip it entirely
+    // when the tab is hidden since the user isn't watching anyway. The
+    // existing visibilitychange handler below triggers an immediate poll on
+    // focus return, so no message is lost.
+    const poll = setInterval(() => {
+      if (document.hidden) return
+      triggerPoll()
+    }, 10_000)
 
     // ── Periodic Wati API sync ────────────────────────────────────────────────
     // Polls Wati's getMessages API on a schedule so incoming customer messages
     // appear without needing the webhook to reach this machine.
-    // Local dev: 5 s interval — fast enough to feel responsive without a tunnel.
-    // Production: 15 s interval — webhook handles instant delivery; polling is
+    // Local dev: 15 s interval — fast enough to feel responsive without a tunnel.
+    // Production: 30 s interval — webhook handles instant delivery; polling is
     //   just a safety net for missed events.
-    const WATI_SYNC_MS = process.env.NODE_ENV === 'development' ? 5_000 : 15_000
+    const WATI_SYNC_MS = process.env.NODE_ENV === 'development' ? 15_000 : 30_000
 
     let watiSyncing = false
     async function syncFromWati() {
       const convId = convIdRef.current
       const ph     = phone
       if (!convId || !ph || watiSyncing || cancelledRef.current || provider !== 'wati') return
+      if (document.hidden) return  // skip when tab hidden — webhook will deliver; visibilitychange handler triggers a sync on focus
       watiSyncing = true
       try {
         const res = await fetch(
