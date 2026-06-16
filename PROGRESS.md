@@ -219,9 +219,19 @@ Purchase & Sales▾:
 
 ## 🔄 In Progress
 
-🚀 Starting: **Dynamic Approval Chain Management Task 2** — (next task after Task 1)
+🚀 Starting: **Supabase Quota Remediation v2 — Phase 2: Master-Data Tax** — plan at `docs/superpowers/plans/2026-06-16-supabase-quota-remediation-v2.md`
+
+## 🔋 Quota Watch
+
+> Track Supabase Realtime + Egress monthly usage after each remediation phase.
+
+| Date | Phase | Realtime msgs (cycle) | Egress GB (cycle) | Notes |
+|---|---|---|---|---|
+| 2026-06-16 | Pre-Phase-1 baseline | 2,983,378 / 2M (149%) | 7.076 / 5 GB (142%) | End of cycle May 16 – Jun 16; new cycle just started, dashboard hadn't yet refreshed when captured |
 
 ## ✅ Completed
+
+- [2026-06-16] **Supabase Quota Remediation v2 — Phase 1: Polling Firehoses** — `src/hooks/contact-center/useLiveThread.ts`, `src/hooks/contact-center/useLivePolledInboundCalls.ts` — Stretched DB poll 2s→10s, Wati sync 5/15s→15/30s, active-calls poll 2s→5s; all three now paused when tab is hidden. Also fixed a zombie-poller leak in useLivePolledInboundCalls (shared `useRef` for liveness was letting in-flight fetches from stale mounts reschedule themselves and leave orphaned timers). Plan: `docs/superpowers/plans/2026-06-16-supabase-quota-remediation-v2.md`.
 
 - [2026-06-15] **Dynamic Approval Chain Management Task 1: workflow_approval_steps table** — `supabase/migrations/20260615140000_workflow_approval_steps.sql` — Created `workflow_approval_steps` table with RLS (authenticated SELECT policy). Seeded with 3 workflows: PO (3 steps: Purchase Manager → Accountant → Owner), Inventory Check (5 steps including conditional Brand Manager for damage/write_off), Stock Adjustment (same 5 steps as inv_check). All role references resolved via SELECT from `custom_roles` with `is_approval_slot = true` guard.
 
