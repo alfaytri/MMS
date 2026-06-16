@@ -724,6 +724,7 @@ export function usePoVersions(poId: string | null) {
         .select('*')
         .eq('po_id', poId!)
         .order('version_number', { ascending: true })
+        .limit(100)
       if (error) throw error
       return (data ?? []) as unknown as PoVersion[]
     },

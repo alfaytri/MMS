@@ -191,7 +191,7 @@ export function useEmployees(filters?: { search?: string; status?: EmployeeStatu
     queryKey: queryKeys.teams.employeesList(filters),
     queryFn: async () => {
       const supabase = createClient()
-      let query = supabase.from('employees').select('*').is('deleted_at', null).order('name')
+      let query = supabase.from('employees').select('*').is('deleted_at', null).order('name').limit(2000)
       if (filters?.status) query = query.eq('status', filters.status)
       const { data, error } = await query
       if (error) throw error
@@ -214,7 +214,7 @@ export function useVehicles() {
     queryKey: queryKeys.teams.vehicles,
     queryFn: async () => {
       const supabase = createClient()
-      const { data, error } = await supabase.from('vehicles').select('*').is('deleted_at', null).order('plate')
+      const { data, error } = await supabase.from('vehicles').select('*').is('deleted_at', null).order('plate').limit(1000)
       if (error) throw error
       return (data ?? []) as Vehicle[]
     },
@@ -228,7 +228,7 @@ export function useSchedules() {
     queryKey: queryKeys.teams.schedules,
     queryFn: async () => {
       const supabase = createClient()
-      const { data, error } = await supabase.from('schedules').select('*').is('deleted_at', null).order('name')
+      const { data, error } = await supabase.from('schedules').select('*').is('deleted_at', null).order('name').limit(500)
       if (error) throw error
       return (data ?? []) as Schedule[]
     },

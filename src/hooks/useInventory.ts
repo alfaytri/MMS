@@ -393,6 +393,7 @@ export function useInventoryItemsByCategory(categoryId: string | null, showArchi
         .eq('category_id', categoryId!)
         .order('sort_order', { ascending: true })
         .order('name_en', { ascending: true })
+        .limit(1000)
       if (!showArchived) q = q.neq('status', 'archived')
       const { data, error } = await q
       if (error) throw error
@@ -436,6 +437,7 @@ export function useInventoryBrandVariants(itemId: string | null, showArchived = 
         .eq('item_id', itemId!)
         .order('sort_order', { ascending: true })
         .order('brand', { ascending: true })
+        .limit(500)
       if (!showArchived) q = q.neq('status', 'archived')
       const { data, error } = await q
       if (error) throw error
@@ -538,6 +540,7 @@ export function useToolAssetItems(search = '') {
         .from('tool_asset_items')
         .select('*')
         .order('name_en', { ascending: true })
+        .limit(1000)
       if (search) q = q.ilike('name_en', `%${search}%`)
       const { data, error } = await q
       if (error) throw error
@@ -559,6 +562,7 @@ export function useToolAssetUnits(itemId: string | null) {
         .select('*')
         .eq('item_id', itemId!)
         .order('created_at', { ascending: true })
+        .limit(500)
       if (error) throw error
       return (data ?? []) as ToolAssetUnit[]
     },

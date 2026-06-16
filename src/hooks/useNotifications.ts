@@ -23,6 +23,7 @@ export function useNotificationTemplates() {
         .from('notification_templates')
         .select('*')
         .order('slug')
+        .limit(500)
       if (error) throw error
       return (data ?? []) as NotificationTemplate[]
     },
