@@ -139,6 +139,19 @@ Every phone number input in the app **must** use `PhoneInputWithCode` from `src/
 
 ---
 
+# Supabase Budget — Mandatory Rule
+
+Every Supabase Realtime channel, polling hook, or list query MUST follow the rules in [`docs/supabase-budget.md`](docs/supabase-budget.md). The project hit the Free-plan quota twice in 2026-05 / 2026-06; that doc captures the lessons.
+
+**Checklist (run before writing any of these patterns):**
+- Adding `.channel(...)` → default to `event: 'INSERT'` with a `filter:`. Use `'*'` only if a local cache requires UPDATE propagation, and explain why in a comment.
+- Adding `setInterval` / `setTimeout` / `refetchInterval` → pause via `document.hidden`, never poll faster than 5 s without justification, scope `alive`/`timeoutId` as local `let` variables (not `useRef`) for self-rescheduling polls.
+- Adding `.select(...)` → always include `.limit(N)`. Prefer explicit columns over `select('*')` for list reads.
+
+**Current state:** see the `## 🔋 Quota Watch` table in `PROGRESS.md` for this month's usage and recent remediation phases.
+
+---
+
 # Database Migrations — Mandatory Rule
 
 **Always use the Supabase CLI to apply migrations. Never ask the user to run SQL manually.**
