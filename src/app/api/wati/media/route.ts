@@ -22,9 +22,11 @@ export async function GET(req: NextRequest) {
 
   // Try multiple WATI media URL formats — different WATI tenant configurations
   // serve media at different paths. We try each until one returns 200.
+  // `/api/file/showFile` is the format the current Wati tenant returns 200 for;
+  // the others stay as fallbacks for older tenants / migrated content.
   const candidates = [
-    `${WATI_URL}/${path}`,
     `${WATI_URL}/api/file/showFile?fileName=${encodeURIComponent(path)}`,
+    `${WATI_URL}/${path}`,
     `${WATI_URL}/api/v1/getMedia?fileName=${encodeURIComponent(path)}`,
   ]
 
