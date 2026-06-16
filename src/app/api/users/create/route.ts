@@ -105,9 +105,9 @@ export async function POST(request: Request) {
   // 6b. Assign roles via atomic RPC (non-fatal on failure, skip for TL).
   let roleWarning: string | null = null
   if (!is_team_leader && role_ids.length > 0) {
-    const { error: rpcErr } = await admin.rpc('replace_user_custom_roles', {
+    const { error: rpcErr } = await admin.rpc('replace_user_custom_roles_v2', {
       p_user_id: profile.id,
-      p_role_ids: role_ids,
+      p_assignments: (role_ids ?? []).map((role_id: string) => ({ role_id, approval_scopes: null })),
     })
     if (rpcErr) roleWarning = `Roles not assigned: ${rpcErr.message}`
   }

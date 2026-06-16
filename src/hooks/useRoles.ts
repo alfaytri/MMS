@@ -3,7 +3,9 @@ import { createClient } from '@/lib/supabase/client'
 import type { DBTable, DBInsert, DBUpdate } from '@/types/database.types'
 import { queryKeys } from '@/lib/queryKeys'
 
-export type CustomRole = DBTable<'custom_roles'>
+// is_approval_slot was added in migration 20260615125619_unified_roles_columns.sql.
+// Widening manually until database.types.ts is regenerated post-Task-8.
+export type CustomRole = DBTable<'custom_roles'> & { is_approval_slot?: boolean }
 export type CustomRoleInsert = DBInsert<'custom_roles'>
 export type CustomRoleUpdate = DBUpdate<'custom_roles'>
 
@@ -102,5 +104,31 @@ export function useRemoveRole() {
       queryClient.invalidateQueries({ queryKey: queryKeys.roles.userRoles(profileId) })
       queryClient.invalidateQueries({ queryKey: queryKeys.profiles.all })
     },
+  })
+}
+
+/** Returns the names + scopes of approval-slot custom_roles the current user holds.
+ *  Replaces the old useCurrentUserApprovalRoles hook. */
+export function useMyApprovalSlotRoles() {
+  return useQuery({
+    queryKey: queryKeys.roles.myApprovalSlots,
+    queryFn: async () => {
+      const supabase = createClient()
+      const { data: { user } } = await supabase.auth.getUser()
+      if (!user) return [] as { name: string; scopes: string[] | null }[]
+      const { data: profile } = await supabase
+        .from('profiles').select('id').eq('auth_user_id', user.id).maybeSingle()
+      if (!profile) return [] as { name: string; scopes: string[] | null }[]
+      const { data, error } = await supabase
+        .from('user_custom_roles')
+        .select('approval_scopes, custom_roles!inner(name, is_approval_slot, deleted_at)')
+        .eq('profile_id', profile.id)
+      if (error) throw error
+      type Row = { approval_scopes: string[] | null; custom_roles: { name: string; is_approval_slot: boolean; deleted_at: string | null } | null }
+      return (data as unknown as Row[] | null ?? [])
+        .filter((r) => r.custom_roles?.is_approval_slot && !r.custom_roles?.deleted_at)
+        .map((r) => ({ name: r.custom_roles!.name, scopes: r.approval_scopes }))
+    },
+    staleTime: 5 * 60 * 1000,
   })
 }

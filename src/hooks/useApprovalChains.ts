@@ -1,7 +1,7 @@
 // src/hooks/useApprovalChains.ts
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { createClient } from '@/lib/supabase/client'
-import type { ApprovalRole, ApprovalChainTier } from '@/lib/approvalChainResolution'
+import type { ApprovalChainTier } from '@/lib/approvalChainResolution'
 import { queryKeys } from '@/lib/queryKeys'
 
 export type ApprovalChain = {
@@ -93,7 +93,7 @@ export function useUpsertApprovalChainTier() {
       rank: number
       min_amount: number
       max_amount: number | null
-      required_roles: ApprovalRole[]
+      required_roles: string[]
     }) => {
       const supabase = createClient()
       if (payload.id) {

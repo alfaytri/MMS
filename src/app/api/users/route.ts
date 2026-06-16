@@ -15,7 +15,11 @@ export async function GET() {
     const admin = createAdminClient()
     const { data, error } = await admin
       .from('profiles')
-      .select('*, user_custom_roles!user_custom_roles_profile_id_fkey(role_id, custom_roles(name, color)), user_divisions!user_divisions_profile_id_fkey(division_id, divisions(name, short_name, color)), approval_role_assignments!approval_role_assignments_profile_id_fkey(role, deleted_at)')
+      // user_custom_roles now carries BOTH the general role info AND the approval-slot info
+      // (approval_scopes + custom_roles.is_approval_slot). Downstream code that previously read
+      // profile.approval_role_assignments should now filter user_custom_roles by
+      // custom_roles.is_approval_slot === true (and custom_roles.deleted_at === null).
+      .select('*, user_custom_roles!user_custom_roles_profile_id_fkey(role_id, approval_scopes, custom_roles(name, color, is_approval_slot, deleted_at)), user_divisions!user_divisions_profile_id_fkey(division_id, divisions(name, short_name, color))')
       .order('full_name')
 
     if (error) {

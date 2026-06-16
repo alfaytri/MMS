@@ -10,6 +10,10 @@ const bodySchema = z.object({
   email: z.string().trim().toLowerCase().email().optional(),
   is_active: z.boolean().optional(),
   role_ids: z.array(z.string().uuid()).optional(),
+  role_assignments: z.array(z.object({
+    role_id:         z.string().uuid(),
+    approval_scopes: z.array(z.enum(['po','inv_check','stock_adj'])).nullable().optional(),
+  })).optional(),
   is_team_leader: z.boolean().optional(),
   employee_id: z.string().uuid().optional(),
   demote_team_leader: z.boolean().optional(),
@@ -130,7 +134,7 @@ export async function PATCH(
   if (changes.is_division_manager !== undefined) profileUpdates.is_division_manager = changes.is_division_manager
 
   let profileId: string | null = null
-  if (Object.keys(profileUpdates).length > 0 || changes.role_ids !== undefined) {
+  if (Object.keys(profileUpdates).length > 0 || changes.role_ids !== undefined || changes.role_assignments !== undefined) {
     const { data: existingProfile, error: selErr } = await admin
       .from('profiles')
       .select('id')
@@ -150,11 +154,15 @@ export async function PATCH(
     }
   }
 
-  // 6. Role replace via atomic RPC (if role_ids supplied, even empty array).
-  if (changes.role_ids !== undefined && profileId) {
-    const { error: rpcErr } = await admin.rpc('replace_user_custom_roles', {
-      p_user_id: profileId,
-      p_role_ids: changes.role_ids,
+  // 6. Role replace via atomic RPC (if role_ids or role_assignments supplied, even empty array).
+  if ((changes.role_assignments !== undefined || changes.role_ids !== undefined) && profileId) {
+    const assignments =
+      changes.role_assignments ??
+      (changes.role_ids ?? []).map((role_id) => ({ role_id, approval_scopes: null }))
+
+    const { error: rpcErr } = await admin.rpc('replace_user_custom_roles_v2', {
+      p_user_id:     profileId,
+      p_assignments: assignments,
     })
     if (rpcErr) return NextResponse.json({ error: `Role replace failed: ${rpcErr.message}` }, { status: 500 })
   }

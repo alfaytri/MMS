@@ -1,4 +1,15 @@
-export type ApprovalRole = 'purchase_manager' | 'accountant' | 'owner' | 'employee' | 'warehouse_manager' | 'brand_manager'
+// Unified-roles era: approval roles are now custom_roles rows with
+// is_approval_slot = true. The hard-coded enum union and label map are
+// gone — role names are dynamic. Workflow scope values are the only
+// remaining closed set.
+
+export type WorkflowScope = 'po' | 'inv_check' | 'stock_adj'
+
+export const WORKFLOW_SCOPE_LABELS: Record<WorkflowScope, string> = {
+  po:         'Purchase Orders',
+  inv_check:  'Inventory Checks',
+  stock_adj:  'Stock Adjustments',
+}
 
 export type ApprovalChainTier = {
   id: string
@@ -6,14 +17,14 @@ export type ApprovalChainTier = {
   rank: number
   min_amount: number
   max_amount: number | null
-  required_roles: ApprovalRole[]
+  required_roles: string[]      // role names (custom_roles.name)
   deleted_at: string | null
 }
 
 export type ApprovalRoleAssignmentRow = {
   id: string
   profile_id: string
-  role: ApprovalRole
+  role: string                  // role name (custom_roles.name) — kept for any legacy callers during transition
   division_id: string | null
   created_at: string
   deleted_at: string | null
@@ -21,20 +32,11 @@ export type ApprovalRoleAssignmentRow = {
 
 export type ApprovalStepInsert = {
   po_id: string
-  role: ApprovalRole
+  role: string                  // custom_roles.name
   tier_rank: number
   status: 'pending'
   is_active: boolean
   iteration: number
-}
-
-const ROLE_LABELS: Record<ApprovalRole, string> = {
-  purchase_manager:  'Purchase Manager',
-  accountant:        'Accountant',
-  owner:             'Owner',
-  employee:          'Employee',
-  warehouse_manager: 'Warehouse Manager',
-  brand_manager:     'Brand Manager',
 }
 
 export function findApplicableTiers(amount: number, tiers: ApprovalChainTier[]): ApprovalChainTier[] {
@@ -43,6 +45,9 @@ export function findApplicableTiers(amount: number, tiers: ApprovalChainTier[]):
     .sort((a, b) => a.rank - b.rank)
 }
 
+// validateRoles helper kept in case any tier-builder UI still calls it.
+// Roles list is now plain strings — just checks that every required role
+// has at least one assignee in the assignments array.
 export function validateRoles(
   tiers: ApprovalChainTier[],
   assignments: ApprovalRoleAssignmentRow[],
@@ -51,7 +56,7 @@ export function validateRoles(
   const allRoles = new Set(tiers.flatMap((t) => t.required_roles))
   for (const role of allRoles) {
     if (!activeAssignments.some((a) => a.role === role)) {
-      return `No approver assigned for role: ${ROLE_LABELS[role] ?? role}. Go to Approval Settings → Role Assignments to add one.`
+      return `No user assigned to required role: ${role}`
     }
   }
   return null

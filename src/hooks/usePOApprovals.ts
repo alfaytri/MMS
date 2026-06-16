@@ -28,13 +28,18 @@ export function usePendingApprovals() {
       if (!me?.profileId) return [] as PurchaseOrder[]
       const supabase = createClient()
 
-      // Get current user's approval roles
+      // Get current user's approval roles.
+      // Source: user_custom_roles joined to custom_roles (filtered to approval-slot roles).
+      // Returned shape is still string[] of role NAMES (custom_roles.name), e.g. ['Owner', 'Accountant'].
       const { data: myRoles } = await supabase
-        .from('approval_role_assignments')
-        .select('role')
+        .from('user_custom_roles')
+        .select('custom_roles!inner(name, is_approval_slot, deleted_at)')
         .eq('profile_id', me.profileId)
-        .is('deleted_at', null)
-      const roles = (myRoles ?? []).map((r: { role: string }) => r.role) as string[]
+        .eq('custom_roles.is_approval_slot', true)
+        .is('custom_roles.deleted_at', null)
+      const roles = (myRoles ?? [])
+        .map((r: { custom_roles: { name: string } | null }) => r.custom_roles?.name)
+        .filter((n: string | undefined): n is string => !!n)
       if (roles.length === 0) return [] as PurchaseOrder[]
 
       const { data, error } = await supabase
@@ -47,8 +52,9 @@ export function usePendingApprovals() {
 
       const pos = (data ?? []) as PurchaseOrder[]
 
-      // Owners see all pending POs so they can approve any chain
-      if (roles.includes('owner')) return pos
+      // Owners see all pending POs so they can approve any chain.
+      // Role names are now human-readable (custom_roles.name), e.g. 'Owner'.
+      if (roles.includes('Owner')) return pos
 
       // Others see only POs where they have an active pending step in their role
       return pos.filter((po) => {
@@ -192,12 +198,14 @@ export function useForceApproveStep() {
       const me = await getMyIdentity()
       if (!me?.profileId) throw new Error('Not authenticated')
 
+      // Source: user_custom_roles joined to custom_roles where name = 'Owner' and is_approval_slot = true.
       const { data: roleRows } = await supabase
-        .from('approval_role_assignments')
-        .select('role')
+        .from('user_custom_roles')
+        .select('custom_roles!inner(name, is_approval_slot, deleted_at)')
         .eq('profile_id', me.profileId)
-        .eq('role', 'owner')
-        .is('deleted_at', null)
+        .eq('custom_roles.name', 'Owner')
+        .eq('custom_roles.is_approval_slot', true)
+        .is('custom_roles.deleted_at', null)
         .limit(1)
       if (!roleRows?.length) throw new Error('Only users with the Owner role can force-approve.')
 
@@ -273,13 +281,14 @@ export function useForceApproveAllSteps() {
       const me = await getMyIdentity()
       if (!me?.profileId) throw new Error('Not authenticated')
 
-      // Owner role check
+      // Owner role check — read from user_custom_roles + custom_roles (name = 'Owner').
       const { data: roleRows } = await supabase
-        .from('approval_role_assignments')
-        .select('role')
+        .from('user_custom_roles')
+        .select('custom_roles!inner(name, is_approval_slot, deleted_at)')
         .eq('profile_id', me.profileId)
-        .eq('role', 'owner')
-        .is('deleted_at', null)
+        .eq('custom_roles.name', 'Owner')
+        .eq('custom_roles.is_approval_slot', true)
+        .is('custom_roles.deleted_at', null)
         .limit(1)
       if (!roleRows?.length) throw new Error('Only users with the Owner role can force-approve.')
 
@@ -458,12 +467,18 @@ export function useMyApprovalRoles() {
       const me = await getMyIdentity()
       if (!me?.profileId) return [] as string[]
       const supabase = createClient()
+      // Returns the human-readable role names (custom_roles.name) for every
+      // approval-slot role the user holds — same shape as before (string[]),
+      // but values are now names like 'Owner' / 'Accountant' instead of enum values.
       const { data } = await supabase
-        .from('approval_role_assignments')
-        .select('role')
+        .from('user_custom_roles')
+        .select('custom_roles!inner(name, is_approval_slot, deleted_at)')
         .eq('profile_id', me.profileId)
-        .is('deleted_at', null)
-      return (data ?? []).map((r: { role: string }) => r.role) as string[]
+        .eq('custom_roles.is_approval_slot', true)
+        .is('custom_roles.deleted_at', null)
+      return (data ?? [])
+        .map((r: { custom_roles: { name: string } | null }) => r.custom_roles?.name)
+        .filter((n: string | undefined): n is string => !!n)
     },
     staleTime: 60 * 1000,
   })

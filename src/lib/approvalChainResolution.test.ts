@@ -4,16 +4,15 @@ import {
   validateRoles,
   buildApprovalSteps,
   getNotificationRecipients,
-  type ApprovalRole,
   type ApprovalChainTier,
   type ApprovalRoleAssignmentRow,
 } from './approvalChainResolution'
 
-function tier(rank: number, minAmount: number, roles: ApprovalRole[]): ApprovalChainTier {
+function tier(rank: number, minAmount: number, roles: string[]): ApprovalChainTier {
   return { id: `t${rank}`, chain_id: 'c1', rank, min_amount: minAmount, max_amount: null, required_roles: roles, deleted_at: null }
 }
 
-function assign(profileId: string, role: ApprovalRole, divisionId: string | null = null): ApprovalRoleAssignmentRow {
+function assign(profileId: string, role: string, divisionId: string | null = null): ApprovalRoleAssignmentRow {
   return { id: `a-${profileId}-${role}`, profile_id: profileId, role, division_id: divisionId, deleted_at: null, created_at: '' }
 }
 
