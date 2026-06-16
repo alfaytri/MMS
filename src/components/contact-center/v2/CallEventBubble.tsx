@@ -13,7 +13,11 @@ function fmtDuration(seconds: number): string {
 
 export function CallEventBubble({ message: m }: { message: ChatMessage }) {
   const isLive = m.delivery_status === 'sending'
-  const isMissed = m.delivery_status === 'failed' || /^missed call/i.test(m.text ?? '')
+  const text = m.text ?? ''
+  const isNoAnswer = /^no answer/i.test(text)
+  const isMissed = !isNoAnswer && (m.delivery_status === 'failed' || /^missed call/i.test(text))
+  const isReceived = !isMissed && !isNoAnswer && /^received call/i.test(text)
+  const isConnected = !isMissed && !isNoAnswer && /^connected call/i.test(text)
   const direction = m.from_type === 'agent' ? 'outbound' : 'inbound'
 
   const [tick, setTick] = useState(0)
@@ -24,20 +28,35 @@ export function CallEventBubble({ message: m }: { message: ChatMessage }) {
     return () => clearInterval(timer)
   }, [isLive, m.created_at])
 
-  const Icon = isMissed ? PhoneMissed
-             : isLive   ? PhoneCall
+  const Icon = isMissed || isNoAnswer ? PhoneMissed
+             : isLive                  ? PhoneCall
              : direction === 'inbound' ? PhoneIncoming : PhoneOutgoing
 
-  const colour = isMissed ? 'text-destructive'
-               : isLive   ? 'text-emerald-600'
-               :            'text-muted-foreground'
+  const colour = isMissed    ? 'text-destructive'
+               : isNoAnswer  ? 'text-yellow-700 dark:text-yellow-500'
+               : isLive      ? 'text-emerald-600'
+               : isReceived  ? 'text-emerald-700 dark:text-emerald-500'
+               : isConnected ? 'text-sky-700 dark:text-sky-500'
+               :               'text-muted-foreground'
 
   const wrapperClasses = isMissed
     ? 'flex items-start gap-2 rounded-md border border-destructive/40 p-2 my-1 bg-destructive/10'
-    : 'flex items-start gap-2 rounded-md border border-border p-2 my-1 bg-muted/30'
+    : isNoAnswer
+      ? 'flex items-start gap-2 rounded-md border border-yellow-600/40 p-2 my-1 bg-yellow-500/10'
+      : isReceived
+        ? 'flex items-start gap-2 rounded-md border border-emerald-600/40 p-2 my-1 bg-emerald-500/10'
+        : isConnected
+          ? 'flex items-start gap-2 rounded-md border border-sky-600/40 p-2 my-1 bg-sky-500/10'
+          : 'flex items-start gap-2 rounded-md border border-border p-2 my-1 bg-muted/30'
   const titleClasses = isMissed
     ? 'text-xs font-semibold text-destructive'
-    : 'text-xs font-medium'
+    : isNoAnswer
+      ? 'text-xs font-semibold text-yellow-700 dark:text-yellow-500'
+      : isReceived
+        ? 'text-xs font-semibold text-emerald-700 dark:text-emerald-500'
+        : isConnected
+          ? 'text-xs font-semibold text-sky-700 dark:text-sky-500'
+          : 'text-xs font-medium'
 
   return (
     <div className={wrapperClasses}>

@@ -115,14 +115,20 @@ export async function POST(req: NextRequest) {
 
   // event.kind === 'hangup'
   // 3CX CRM template can't reliably distinguish missed from short calls — use the
-  // recording presence as the signal: an inbound call with no recording was never
-  // answered (3CX only records connected calls).
-  const isMissed = event.finish === 'Missed'
-                || (event.direction === 'inbound' && event.recording_urls.length === 0)
+  // recording presence as the signal: a call with no recording was never answered
+  // (3CX only records connected calls). Inbound + no answer → "Missed call";
+  // outbound + no answer → "No answer" (customer didn't pick up).
+  const isUnanswered = event.finish === 'Missed' || event.recording_urls.length === 0
+  const isMissed     = isUnanswered && event.direction === 'inbound'
+  const isNoAnswer   = isUnanswered && event.direction === 'outbound'
 
-  const text = isMissed
-    ? `Missed call — ${event.caller_phone}`
-    : (event.title || `${event.direction === 'inbound' ? 'Inbound' : 'Outbound'} call — ${event.caller_phone}`)
+  const text = isMissed   ? `Missed call — ${event.caller_phone}`
+             : isNoAnswer ? `No answer — ${event.caller_phone}`
+             : event.title
+               ? event.title
+               : event.direction === 'inbound'
+                 ? `Received call — ${event.caller_phone}`
+                 : `Connected call — ${event.caller_phone}`
 
   const { data: existing } = await supabase
     .from('chat_messages')
@@ -135,7 +141,7 @@ export async function POST(req: NextRequest) {
     messageId = existing.id
     await supabase.from('chat_messages').update({
       text,
-      delivery_status: isMissed ? 'failed' : 'delivered',
+      delivery_status: isUnanswered ? 'failed' : 'delivered',
       agent_name:      agent?.name ?? null,
     }).eq('id', messageId)
   } else {
@@ -148,7 +154,7 @@ export async function POST(req: NextRequest) {
       agent_name:         agent?.name ?? null,
       sent_by_profile_id: agent?.profile_id ?? null,
       external_id:        externalId,
-      delivery_status:    event.finish === 'Missed' ? 'failed' : 'delivered',
+      delivery_status:    isUnanswered ? 'failed' : 'delivered',
       phone_id,
     }).select('id').single()
     if (error || !inserted) {
@@ -165,7 +171,7 @@ export async function POST(req: NextRequest) {
     agent_name:       agent?.name ?? null,
     customer_phone:   event.caller_phone,
     direction:        event.direction,
-    status:           isMissed ? 'missed' : 'answered',
+    status:           isUnanswered ? 'missed' : 'answered',
     started_at:       new Date(Date.now() - 30_000).toISOString(),
     ended_at:         new Date().toISOString(),
     duration_seconds: null,
