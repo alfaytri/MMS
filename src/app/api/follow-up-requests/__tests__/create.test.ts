@@ -1,15 +1,15 @@
 // src/app/api/follow-up-requests/__tests__/create.test.ts
 import { describe, it, expect, vi, beforeEach } from 'vitest'
 
-vi.mock('@/lib/supabase/server', () => ({
-  createClient: vi.fn(),
+vi.mock('@/lib/auth/require-admin', () => ({
+  requirePermission: vi.fn(),
 }))
 vi.mock('@/lib/supabase/admin', () => ({
   createAdminClient: vi.fn(),
 }))
 
 import { POST } from '../route'
-import { createClient } from '@/lib/supabase/server'
+import { requirePermission } from '@/lib/auth/require-admin'
 import { createAdminClient } from '@/lib/supabase/admin'
 
 type AnyFn = (...a: unknown[]) => unknown
@@ -29,17 +29,22 @@ describe('POST /api/follow-up-requests', () => {
 
   beforeEach(() => {
     vi.resetAllMocks()
-    ;(createClient as AnyFn) = vi.fn().mockResolvedValue({
-      auth: { getUser: vi.fn().mockResolvedValue({ data: { user: { id: userId } } }) },
+    ;(requirePermission as AnyFn) = vi.fn().mockResolvedValue({
+      ok: true,
+      authUserId: userId,
+      email: 'test@example.com',
+      profileId: 'pid',
     })
   })
 
-  it('returns 401 when not authenticated', async () => {
-    ;(createClient as AnyFn) = vi.fn().mockResolvedValue({
-      auth: { getUser: vi.fn().mockResolvedValue({ data: { user: null } }) },
+  it('returns 403 when caller lacks follow_ups.request', async () => {
+    ;(requirePermission as AnyFn) = vi.fn().mockResolvedValue({
+      ok: false,
+      status: 403,
+      message: 'Forbidden — required permission: follow_ups.request',
     })
     const res = await POST(makeReq({}))
-    expect(res.status).toBe(401)
+    expect(res.status).toBe(403)
   })
 
   it('returns 409 when team is busy', async () => {

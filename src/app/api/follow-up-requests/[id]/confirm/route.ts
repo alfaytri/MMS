@@ -1,13 +1,12 @@
 import { NextResponse } from 'next/server'
-import { createClient } from '@/lib/supabase/server'
 import { createAdminClient } from '@/lib/supabase/admin'
+import { requirePermission } from '@/lib/auth/require-admin'
 import type { ConfirmFollowUpBody } from '@/types/follow-ups'
 
 export async function POST(req: Request, ctx: { params: Promise<{ id: string }> }) {
   try {
-    const supabase = await createClient()
-    const { data: { user } } = await supabase.auth.getUser()
-    if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+    const gate = await requirePermission('follow_ups.confirm')
+    if (!gate.ok) return NextResponse.json({ error: gate.message }, { status: gate.status })
 
     const { id: requestId } = await ctx.params
     const body = (await req.json()) as ConfirmFollowUpBody
@@ -41,7 +40,7 @@ export async function POST(req: Request, ctx: { params: Promise<{ id: string }> 
       .from('follow_up_requests')
       .update({
         status:               'confirmed',
-        confirmed_by_user_id: user.id,
+        confirmed_by_user_id: gate.authUserId,
         confirmed_at:         new Date().toISOString(),
         resulting_order_id:   order_id,
       })

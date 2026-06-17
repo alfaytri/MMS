@@ -1,6 +1,6 @@
 import { NextResponse } from 'next/server'
-import { createClient } from '@/lib/supabase/server'
 import { createAdminClient } from '@/lib/supabase/admin'
+import { requirePermission } from '@/lib/auth/require-admin'
 import { computeAvailability, type Booking } from '@/lib/follow-ups/availability'
 import type { CreateFollowUpRequestBody } from '@/types/follow-ups'
 
@@ -12,9 +12,8 @@ function parseTimeSlot(slot: string | null): { from: string; to: string } | null
 
 export async function POST(req: Request) {
   try {
-    const supabase = await createClient()
-    const { data: { user } } = await supabase.auth.getUser()
-    if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+    const gate = await requirePermission('follow_ups.request')
+    if (!gate.ok) return NextResponse.json({ error: gate.message }, { status: gate.status })
 
     const body = (await req.json()) as CreateFollowUpRequestBody
     if (!body.parent_order_id || !Array.isArray(body.services_to_followup) || body.services_to_followup.length === 0) {
@@ -98,7 +97,7 @@ export async function POST(req: Request) {
       .insert({
         request_number:        requestNumber,
         parent_order_id:       body.parent_order_id,
-        requested_by_user_id:  user.id,
+        requested_by_user_id:  gate.authUserId,
         requested_team_id:     teamId,
         requested_date:        body.requested_date,
         requested_time_from:   body.requested_time_from,
@@ -120,9 +119,8 @@ export async function POST(req: Request) {
 
 export async function GET(req: Request) {
   try {
-    const supabase = await createClient()
-    const { data: { user } } = await supabase.auth.getUser()
-    if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+    const gate = await requirePermission('follow_ups.confirm')
+    if (!gate.ok) return NextResponse.json({ error: gate.message }, { status: gate.status })
 
     const url = new URL(req.url)
     const status = url.searchParams.get('status') ?? 'pending'

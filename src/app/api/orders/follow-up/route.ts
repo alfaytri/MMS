@@ -1,6 +1,6 @@
 import { NextResponse } from 'next/server'
-import { createClient } from '@/lib/supabase/server'
 import { createAdminClient } from '@/lib/supabase/admin'
+import { requirePermission } from '@/lib/auth/require-admin'
 import { buildFollowUpOrderRows } from '@/lib/follow-ups/createFollowUpOrder'
 import type { ConfirmFollowUpBody } from '@/types/follow-ups'
 
@@ -29,9 +29,8 @@ async function generateOrderId(admin: AdminClient): Promise<string> {
 
 export async function POST(req: Request) {
   try {
-    const supabase = await createClient()
-    const { data: { user } } = await supabase.auth.getUser()
-    if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+    const gate = await requirePermission('follow_ups.confirm')
+    if (!gate.ok) return NextResponse.json({ error: gate.message }, { status: gate.status })
 
     const body = (await req.json()) as Body
     if (!body.parent_order_id) {
@@ -97,7 +96,7 @@ export async function POST(req: Request) {
     await admin.from('order_log').insert({
       order_id: order.id,
       action:   'created',
-      user_name: user.email ?? user.id,
+      user_name: gate.email ?? gate.authUserId,
       details:  body.follow_up_request_id
         ? `Follow-up created from request ${body.follow_up_request_id}`
         : 'Follow-up created directly from parent order',
