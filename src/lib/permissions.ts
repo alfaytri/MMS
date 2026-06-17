@@ -122,6 +122,8 @@ export const PERMISSION_GROUPS: PermissionGroup[] = [
     permissions: [
       { key: 'orders.view',   label: 'View Orders',   description: 'Access the orders list and details' },
       { key: 'orders.manage', label: 'Manage Orders', description: 'Create, edit, and assign service orders' },
+      { key: 'follow_ups.request',  label: 'Request Follow-up',  description: 'Submit a follow-up request from the field after completing a job' },
+      { key: 'follow_ups.confirm',  label: 'Confirm Follow-up',  description: 'Confirm or reject team-leader follow-up requests and schedule the follow-up order' },
     ],
   },
   {
