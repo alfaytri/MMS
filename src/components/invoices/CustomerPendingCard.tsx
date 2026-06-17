@@ -27,8 +27,15 @@ export function CustomerPendingCard({ customer, onView }: Props) {
       <div className="p-4 space-y-3">
         <div>
           <p className="font-semibold truncate">{customer.customer_name}</p>
-          {customer.phone && (
-            <p className="text-xs text-muted-foreground mt-0.5">{customer.phone}</p>
+          {customer.phones.length > 0 && (
+            <p className="text-xs text-muted-foreground mt-0.5 truncate">
+              {customer.phones[0].phone}
+              {customer.phones.length > 1 && (
+                <span className="ml-1 text-muted-foreground/70">
+                  +{customer.phones.length - 1} more
+                </span>
+              )}
+            </p>
           )}
         </div>
 
