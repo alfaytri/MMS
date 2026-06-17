@@ -80,6 +80,16 @@
   .bg-warning\/10 { background-color: hsl(var(--warning) / 0.1); }
 }
 
+@layer components {
+  .form-grid {
+    @apply grid grid-cols-1 md:grid-cols-2 gap-4;
+  }
+
+  .form-actions {
+    @apply flex flex-col-reverse sm:flex-row sm:justify-end gap-2;
+  }
+}
+
 /* View Transition — smooth cross-fade between routes */
 ::view-transition-old(root) {
   animation: fade-out 150ms ease-in forwards;
