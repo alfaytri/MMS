@@ -2,6 +2,7 @@
 'use client'
 import { useState } from 'react'
 import { useRouter } from 'next/navigation'
+import { useQuery } from '@tanstack/react-query'
 import { Dialog, DialogContent } from '@/components/ui/dialog'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { Button } from '@/components/ui/button'
@@ -10,6 +11,7 @@ import { CheckCircle, RotateCcw, XCircle, Pencil, ExternalLink, MessageSquare, T
 import { useOrderDetail } from '@/hooks/useOrderDetail'
 import { useOrderActions, canTransition } from '@/hooks/useOrderActions'
 import { OrderCancelDialog } from './OrderCancelDialog'
+import { createClient } from '@/lib/supabase/client'
 import { toast } from 'sonner'
 import type { OrderStatus, ConfirmationStatus } from '@/types/orders'
 import { cn } from '@/lib/utils'
@@ -46,6 +48,42 @@ export function OrderDetailDialog({ orderId, open, onOpenChange }: Props) {
   const { data: order, isLoading } = useOrderDetail(orderId)
   const { confirmManually, rollback, cancel } = useOrderActions(orderId)
   const router = useRouter()
+
+  const { data: followUps = [] } = useQuery<Array<{
+    id: string; order_id: string; scheduled_date: string | null; status: string; total_amount: number | null
+  }>>({
+    queryKey: ['follow-ups-of', orderId],
+    enabled: !!orderId,
+    queryFn: async () => {
+      if (!orderId) return []
+      const supabase = createClient()
+      const { data } = await supabase
+        .from('orders')
+        .select('id, order_id, scheduled_date, status, total_amount')
+        .eq('parent_order_id', orderId)
+        .order('scheduled_date', { ascending: false })
+        .limit(20)
+      return data ?? []
+    },
+  })
+
+  const { data: pendingReqs = [] } = useQuery<Array<{
+    id: string; request_number: string; requested_date: string | null
+  }>>({
+    queryKey: ['pending-follow-up-requests-for', orderId],
+    enabled: !!orderId,
+    queryFn: async () => {
+      if (!orderId) return []
+      const supabase = createClient()
+      const { data } = await supabase
+        .from('follow_up_requests')
+        .select('id, request_number, requested_date')
+        .eq('parent_order_id', orderId)
+        .eq('status', 'pending')
+        .limit(20)
+      return data ?? []
+    },
+  })
 
   const EDITABLE_STATUSES: OrderStatus[] = ['scheduled', 'pending-confirmation', 'waitlist', 'tentative']
 
@@ -336,6 +374,25 @@ export function OrderDetailDialog({ orderId, open, onOpenChange }: Props) {
                     >
                       + Backwork
                     </Button>
+
+                    {pendingReqs.length > 0 && (
+                      <div className="rounded-lg border border-amber-200 bg-amber-50 p-3 text-xs">
+                        {pendingReqs.length} pending follow-up request{pendingReqs.length === 1 ? '' : 's'} —
+                        review in <span className="font-medium">Contact Centre → Tasks</span>.
+                      </div>
+                    )}
+
+                    {followUps.length > 0 && (
+                      <div className="space-y-1.5 pt-2">
+                        <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Follow-ups on this order</p>
+                        {followUps.map((f) => (
+                          <div key={f.id} className="rounded-lg border bg-card p-2 text-xs flex items-center justify-between gap-2">
+                            <span className="truncate">{f.order_id} · {f.scheduled_date ?? '—'} · {f.status}</span>
+                            <span className="text-muted-foreground shrink-0">{f.total_amount ?? 0} QAR</span>
+                          </div>
+                        ))}
+                      </div>
+                    )}
                   </TabsContent>
 
                   {/* Logs */}
