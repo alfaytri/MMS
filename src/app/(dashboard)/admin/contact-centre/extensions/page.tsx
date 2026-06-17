@@ -5,6 +5,7 @@ import { toast } from 'sonner'
 import { createClient } from '@/lib/supabase/client'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
+import { DesktopOnlyGate } from '@/components/shared/DesktopOnlyGate'
 
 interface Row {
   id:                string
@@ -56,9 +57,10 @@ export default function ExtensionsPage() {
     toast.success('Saved')
   }
 
-  if (loading) return <div className="p-6">Loading…</div>
+  if (loading) return <DesktopOnlyGate><div className="p-6">Loading…</div></DesktopOnlyGate>
 
   return (
+    <DesktopOnlyGate>
     <div className="p-6 w-full max-w-3xl">
       <h1 className="text-xl font-semibold mb-1">3CX Extension Assignment</h1>
       <p className="text-sm text-muted-foreground mb-6">
@@ -107,5 +109,6 @@ export default function ExtensionsPage() {
         })}
       </div>
     </div>
+    </DesktopOnlyGate>
   )
 }
