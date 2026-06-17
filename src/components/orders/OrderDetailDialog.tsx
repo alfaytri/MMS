@@ -199,6 +199,19 @@ export function OrderDetailDialog({ orderId, open, onOpenChange }: Props) {
                       <XCircle className="h-3.5 w-3.5" /> Cancel Order
                     </Button>
                   )}
+                  {order.status === 'completed' && (
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      className="gap-1.5 h-8 text-xs"
+                      onClick={() => {
+                        onOpenChange(false)
+                        router.push(`/orders/${orderId}/request-follow-up`)
+                      }}
+                    >
+                      Request Follow-up
+                    </Button>
+                  )}
                 </div>
               </div>
               )}
