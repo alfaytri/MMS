@@ -1,0 +1,119 @@
+import { NextResponse } from 'next/server'
+import { createClient } from '@/lib/supabase/server'
+import { createAdminClient } from '@/lib/supabase/admin'
+import { computeAvailability, type Booking } from '@/lib/follow-ups/availability'
+import type { CreateFollowUpRequestBody } from '@/types/follow-ups'
+
+function parseTimeSlot(slot: string | null): { from: string; to: string } | null {
+  if (!slot) return null
+  const m = /^(\d{2}:\d{2})\s*[-–]\s*(\d{2}:\d{2})$/.exec(slot.trim())
+  return m ? { from: m[1], to: m[2] } : null
+}
+
+export async function POST(req: Request) {
+  try {
+    const supabase = await createClient()
+    const { data: { user } } = await supabase.auth.getUser()
+    if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+
+    const body = (await req.json()) as CreateFollowUpRequestBody
+    if (!body.parent_order_id || !Array.isArray(body.services_to_followup) || body.services_to_followup.length === 0) {
+      return NextResponse.json({ error: 'parent_order_id and services_to_followup required' }, { status: 400 })
+    }
+    const hasSlot = body.requested_date && body.requested_time_from && body.requested_time_to
+    const hasNote = !!body.time_note
+    if (!hasSlot && !hasNote) {
+      return NextResponse.json({ error: 'requested_date+time or time_note required' }, { status: 400 })
+    }
+
+    const admin = createAdminClient()
+
+    // 1. Look up the parent order — we need its team for the conflict check.
+    const { data: parent, error: pErr } = await admin
+      .from('orders')
+      .select('id, status')
+      .eq('id', body.parent_order_id)
+      .single()
+    if (pErr || !parent) return NextResponse.json({ error: 'parent_order_not_found' }, { status: 404 })
+    if (parent.status !== 'completed') {
+      return NextResponse.json({ error: 'parent_order_not_completed' }, { status: 422 })
+    }
+
+    // Find the team that did the parent order (first assignment row).
+    const { data: parentAssign } = await admin
+      .from('order_team_assignments')
+      .select('team_id')
+      .eq('order_id', body.parent_order_id)
+      .limit(1)
+      .single()
+    if (!parentAssign?.team_id) {
+      return NextResponse.json({ error: 'parent_order_has_no_team' }, { status: 422 })
+    }
+    const teamId = parentAssign.team_id as string
+
+    // 2. If a slot was requested, run conflict detection.
+    if (hasSlot) {
+      const { data: team } = await admin
+        .from('teams')
+        .select('schedule_start, schedule_end')
+        .eq('id', teamId)
+        .single()
+      const workingFrom = `${String(team?.schedule_start ?? 8).padStart(2, '0')}:00`
+      const workingTo   = `${String(team?.schedule_end   ?? 18).padStart(2, '0')}:00`
+
+      const nextDayISO = (d: string) => {
+        const x = new Date(`${d}T00:00:00Z`); x.setUTCDate(x.getUTCDate() + 1)
+        return x.toISOString().slice(0, 10)
+      }
+      const { data: ota } = await admin
+        .from('order_team_assignments')
+        .select('scheduled_date, time_slot')
+        .eq('team_id', teamId)
+        .in('scheduled_date', [body.requested_date!, nextDayISO(body.requested_date!)])
+
+      const bookings: Booking[] = (ota ?? [])
+        .map((row: { scheduled_date: string; time_slot: string | null }) => {
+          const parsed = parseTimeSlot(row.time_slot)
+          return parsed ? { date: row.scheduled_date, from: parsed.from, to: parsed.to } : null
+        })
+        .filter((b): b is Booking => b !== null)
+
+      const result = computeAvailability({
+        team: { working_from: workingFrom, working_to: workingTo },
+        bookings,
+        requested: { date: body.requested_date!, from: body.requested_time_from!, to: body.requested_time_to! },
+      })
+      if (!result.ok) {
+        return NextResponse.json({ error: 'team_busy', free_slots: result.free_slots }, { status: 409 })
+      }
+    }
+
+    // 3. Insert the request.
+    const { data: numRow, error: nErr } = await admin.rpc('next_follow_up_request_number')
+    if (nErr) throw nErr
+    const requestNumber = numRow as unknown as string
+
+    const { data: inserted, error: iErr } = await admin
+      .from('follow_up_requests')
+      .insert({
+        request_number:        requestNumber,
+        parent_order_id:       body.parent_order_id,
+        requested_by_user_id:  user.id,
+        requested_team_id:     teamId,
+        requested_date:        body.requested_date,
+        requested_time_from:   body.requested_time_from,
+        requested_time_to:     body.requested_time_to,
+        time_note:             body.time_note,
+        services_to_followup:  body.services_to_followup,
+        notes:                 body.notes,
+        status:                'pending',
+      })
+      .select('id, request_number')
+      .single()
+    if (iErr) throw iErr
+
+    return NextResponse.json({ ok: true, request_id: inserted.id, request_number: inserted.request_number }, { status: 201 })
+  } catch (err) {
+    return NextResponse.json({ error: (err as Error).message }, { status: 500 })
+  }
+}
