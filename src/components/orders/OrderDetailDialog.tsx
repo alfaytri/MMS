@@ -158,7 +158,7 @@ export function OrderDetailDialog({ orderId, open, onOpenChange }: Props) {
               </SheetHeader>
 
               <Tabs defaultValue="services" className="flex flex-1 flex-col overflow-hidden">
-                <TabsList className="mx-4 mt-3 w-auto justify-start rounded-none border-b bg-transparent p-0">
+                <TabsList className="mx-4 mt-3 w-auto max-w-full justify-start rounded-none border-b bg-transparent p-0 overflow-x-auto whitespace-nowrap scroll-x-fade">
                   {(['services', 'invoice', 'followup', 'logs'] as const).map((tab) => (
                     <TabsTrigger
                       key={tab}
