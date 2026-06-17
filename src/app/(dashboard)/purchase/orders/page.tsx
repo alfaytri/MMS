@@ -186,12 +186,12 @@ export default function PurchaseOrdersPage() {
   return (
     <PageWrapper>
       {/* ── Header ─────────────────────────────────────────────────────────── */}
-      <div className="flex items-center justify-between">
+      <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
         <div>
-          <h1 className="text-3xl font-bold text-foreground">Purchase Orders</h1>
+          <h1 className="text-2xl sm:text-3xl 2xl:text-4xl font-bold text-foreground">Purchase Orders</h1>
           <p className="text-sm text-muted-foreground mt-1">Manage purchase orders, receivals &amp; payments</p>
         </div>
-        <Button onClick={() => router.push('/purchase/create-po')}>
+        <Button onClick={() => router.push('/purchase/create-po')} className="w-full sm:w-auto">
           <Plus className="h-4 w-4 mr-2" />
           Create PO
         </Button>

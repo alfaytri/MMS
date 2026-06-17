@@ -9,6 +9,7 @@ import { Plus, Search, X, ChevronDown, ChevronUp } from 'lucide-react'
 import { QuotationListCard } from '@/components/quotations/QuotationListCard'
 import { QuotationDetailSheet } from '@/components/quotations/QuotationDetailSheet'
 import { useQuotations, useQuotationCounts } from '@/hooks/useQuotations'
+import { ResponsivePageHeader } from '@/components/shared/ResponsivePageHeader'
 import { cn } from '@/lib/utils'
 import type { QuotationsFilter, QuotationStatus } from '@/types/quotations'
 
@@ -72,12 +73,16 @@ export default function QuotationsPage() {
     <div className="flex h-full flex-col">
 
       {/* ── Top bar ── */}
-      <div className="flex items-center justify-between border-b px-6 py-4">
-        <h1 className="text-2xl font-bold text-foreground">Quotations</h1>
-        <Button className="gap-2" onClick={() => router.push('/quotations/create')}>
-          <Plus className="h-4 w-4" /> New Quotation
-        </Button>
-      </div>
+      <ResponsivePageHeader
+        title="Quotations"
+        actions={
+          <Button className="gap-1.5 h-9" onClick={() => router.push('/quotations/create')}>
+            <Plus className="h-4 w-4" />
+            <span className="hidden sm:inline">New Quotation</span>
+            <span className="sm:hidden">New</span>
+          </Button>
+        }
+      />
 
       {/* ── Search panel ── */}
       <div className="border-b bg-muted">
