@@ -2,7 +2,7 @@
 
 import { useState, useRef } from 'react'
 import { useDroppable } from '@dnd-kit/core'
-import { Phone, ClipboardList, Clock, User, X } from 'lucide-react'
+import { AlertTriangle, Phone, ClipboardList, Clock, User, X } from 'lucide-react'
 import type { CalendarVisit } from '@/hooks/useCalendarVisits'
 import type { OrderServiceDraft, TeamAssignmentDraft } from '@/types/orders'
 import { cn } from '@/lib/utils'
@@ -11,10 +11,25 @@ import { cn } from '@/lib/utils'
 
 export const TRACK_H = 44
 export const SIDEBAR_W = 128
-export const DIVISION_HEADER_H = 32
+export const DIVISION_HEADER_H = 36
 
+/**
+ * Off-hours cell background — a clear neutral fill so users can see
+ * at a glance which slots are inside the team's work window.
+ */
 export const OFFHOURS_STYLE = {
-  backgroundImage: 'repeating-linear-gradient(-45deg, rgb(0 0 0 / 0.04) 0px, rgb(0 0 0 / 0.04) 2px, transparent 2px, transparent 8px)',
+  backgroundColor: 'hsl(220 14% 95%)',
+  backgroundImage:
+    'repeating-linear-gradient(-45deg, hsl(220 9% 80% / 0.35) 0px, hsl(220 9% 80% / 0.35) 1px, transparent 1px, transparent 6px)',
+} as const
+
+/**
+ * Past-slot background for today's view — has to be visibly darker than
+ * off-hours so "the day is gone" reads at a glance, and darker than the
+ * occupied-slot muted background too.
+ */
+export const PAST_SLOT_STYLE = {
+  backgroundColor: 'hsl(220 13% 88%)',
 } as const
 
 // ─── Shared Helpers ───────────────────────────────────────────────────────────
@@ -116,7 +131,10 @@ interface DroppableCellProps {
 export function DroppableCell({ teamId, slot, isOccupied, isPast, isSkillMatch, rowHeight, workStart, workEnd, cellW }: DroppableCellProps) {
   const hour = Math.floor(slot)
   const minute = slot % 1 !== 0 ? 30 : 0
-  const blocked = isOccupied || isPast
+  // Only occupied cells block drops — past slots stay droppable so the user can
+  // drop the day-window pill anywhere on a team row; the actual start time comes
+  // from the pill's fromTime, not from which cell the cursor landed on.
+  const blocked = isOccupied
   const { isOver, setNodeRef } = useDroppable({
     id: `${teamId}-${slot}`,
     data: { teamId, hour, minute },
@@ -125,22 +143,38 @@ export function DroppableCell({ teamId, slot, isOccupied, isPast, isSkillMatch, 
 
   const isWorking = slot >= workStart && slot < workEnd
   const isHalf = slot % 1 !== 0
+  // Work-zone boundary markers — a stronger left border on the cell that
+  // opens the work window and the cell that closes it. Lets the eye snap
+  // straight to "this is where the day starts/ends".
+  const isWorkStart = slot === workStart
+  const isWorkEnd   = slot === workEnd
+
+  // Layered backgrounds: past beats off-hours; both lose to dnd hover.
+  const cellStyle: React.CSSProperties = {
+    width: cellW, minWidth: cellW, height: rowHeight,
+  }
+  if (isPast && !isOccupied) {
+    Object.assign(cellStyle, PAST_SLOT_STYLE)
+  } else if (!isWorking && !blocked) {
+    Object.assign(cellStyle, OFFHOURS_STYLE)
+  }
 
   return (
     <div
       ref={setNodeRef}
-      style={{
-        width: cellW, minWidth: cellW, height: rowHeight,
-        ...(!isWorking && !blocked ? OFFHOURS_STYLE : {}),
-      }}
+      style={cellStyle}
       className={cn(
         'shrink-0 transition-colors',
-        isHalf ? 'border-r border-slate-100/50' : 'border-r border-slate-100',
-        blocked && 'bg-muted cursor-not-allowed',
-        isPast && !isOccupied && 'bg-muted',
-        !blocked && isOver && 'bg-orange-50 ring-1 ring-inset ring-orange-300',
-        !blocked && !isOver && isSkillMatch === true && 'bg-success/10',
-        !blocked && isSkillMatch === false && 'opacity-40',
+        // Default cell separators
+        isHalf ? 'border-r border-slate-100/60' : 'border-r border-slate-200/70',
+        // Stronger separators at the work window's edges
+        isWorkStart && 'border-l-2 border-l-emerald-400/70',
+        isWorkEnd   && 'border-r-2 border-r-emerald-400/70',
+        // Past + occupied states already handled by inline styles above.
+        blocked && 'bg-muted/80 cursor-not-allowed',
+        !blocked && isOver && 'bg-orange-100 ring-1 ring-inset ring-orange-400',
+        !blocked && !isOver && isSkillMatch === true && 'bg-emerald-50',
+        !blocked && isSkillMatch === false && 'opacity-30',
       )}
     />
   )
@@ -153,17 +187,19 @@ export function DivisionHeaderRow({ name, scheduleLabel, cellW, slotCount }: { n
   return (
     <div style={{ height: DIVISION_HEADER_H }}>
       <div
-        className="sticky left-0 z-10 flex items-center gap-3 px-4 bg-orange-50/80 border-y border-orange-100"
+        className="sticky left-0 z-10 flex items-center gap-3 px-4 bg-orange-100/80 border-y border-orange-200"
         style={{ height: DIVISION_HEADER_H, width: `min(100vw, ${contentW}px)` }}
       >
-        <div className="flex-1 h-px bg-orange-300/50" />
-        <div className="flex flex-col items-center shrink-0 gap-0.5">
-          <span className="text-[11px] font-bold text-orange-600 tracking-widest uppercase">{name}</span>
-          {scheduleLabel && (
-            <span className="text-[9px] text-orange-400/80">{scheduleLabel}</span>
-          )}
-        </div>
-        <div className="flex-1 h-px bg-orange-300/50" />
+        <span className="text-xs font-bold text-orange-700 tracking-wider uppercase shrink-0">
+          {name}
+        </span>
+        {scheduleLabel && (
+          <span className="flex items-center gap-1 text-[11px] text-orange-700/80 font-medium shrink-0">
+            <Clock className="h-3 w-3" />
+            {scheduleLabel}
+          </span>
+        )}
+        <div className="flex-1 h-px bg-orange-300/60" />
       </div>
     </div>
   )
@@ -219,6 +255,12 @@ export function DraftBlock({
   const label = assignmentLabelFn(a)
   const blockW = (end - start) * 2 * cellW - 2
 
+  // Width of the OT portion at each end of the block — used to overlay a
+  // red diagonal stripe ONLY on the segment that's outside work hours,
+  // instead of staining the whole block red.
+  const earlyOtPx = isEarlyStart ? (workStart - start) * 2 * cellW : 0
+  const lateOtPx  = isLateEnd ? (end - workEnd) * 2 * cellW : 0
+
   const timeLabel = a.toTime
     ? `${fmt12(a.timeSlot)} – ${fmt12(a.toTime)}`
     : fmt12(a.timeSlot)
@@ -251,21 +293,51 @@ export function DraftBlock({
     >
       <div className={cn(
         'relative h-full w-full overflow-hidden rounded border px-1.5 text-[11px] font-medium flex flex-col justify-center cursor-default group/block',
-        isOvertime ? 'bg-red-100 border-red-300 text-red-900' : 'bg-orange-200 border-orange-300 text-orange-900',
+        isOvertime
+          ? 'bg-orange-200 border-red-400 text-orange-900 shadow-[inset_0_0_0_1px_rgb(239_68_68_/_0.4)]'
+          : 'bg-orange-200 border-orange-300 text-orange-900',
       )}>
-        <span className="truncate leading-tight font-mono pr-4">
+        {/* Red diagonal stripe ONLY on the segment outside work hours */}
+        {earlyOtPx > 0 && (
+          <div
+            aria-hidden
+            className="pointer-events-none absolute inset-y-0 left-0"
+            style={{
+              width: earlyOtPx,
+              backgroundImage:
+                'repeating-linear-gradient(-45deg, rgb(220 38 38 / 0.35) 0px, rgb(220 38 38 / 0.35) 3px, transparent 3px, transparent 7px)',
+            }}
+          />
+        )}
+        {lateOtPx > 0 && (
+          <div
+            aria-hidden
+            className="pointer-events-none absolute inset-y-0 right-0"
+            style={{
+              width: lateOtPx,
+              backgroundImage:
+                'repeating-linear-gradient(-45deg, rgb(220 38 38 / 0.35) 0px, rgb(220 38 38 / 0.35) 3px, transparent 3px, transparent 7px)',
+            }}
+          />
+        )}
+
+        {isOvertime && blockW >= 60 && (
+          <span className="absolute left-1 top-0.5 flex items-center gap-0.5 rounded bg-red-600 px-1 py-px text-[9px] font-bold text-white leading-none z-10">
+            <AlertTriangle className="h-2.5 w-2.5" />
+            OT
+          </span>
+        )}
+
+        <span className={cn('truncate leading-tight font-mono pr-4 relative z-[1]', isOvertime && 'pl-7')}>
           {draftInfo.orderId || label}
         </span>
         {blockW >= 80 && (
-          <span className={cn('truncate text-[10px] leading-tight', isOvertime ? 'text-destructive' : 'text-orange-600')}>{timeLabel}</span>
-        )}
-        {isOvertime && (
-          <span className="absolute right-5 top-0.5 rounded bg-red-500 px-1 text-[8px] font-bold text-white leading-tight py-px">OT</span>
+          <span className={cn('truncate text-[10px] leading-tight relative z-[1]', isOvertime ? 'text-red-700 font-semibold' : 'text-orange-600', isOvertime && 'pl-7')}>{timeLabel}</span>
         )}
         <button
           type="button"
           onClick={(e) => { e.stopPropagation(); onRemove(a.id) }}
-          className="absolute right-0.5 top-0.5 flex h-4 w-4 items-center justify-center rounded opacity-0 transition-opacity hover:bg-orange-400 group-hover/block:opacity-100"
+          className="absolute right-0.5 top-0.5 flex h-4 w-4 items-center justify-center rounded opacity-0 transition-opacity hover:bg-orange-400 group-hover/block:opacity-100 z-10"
           aria-label="Remove assignment"
         >
           <X className="h-2.5 w-2.5 text-orange-900" />
@@ -381,6 +453,10 @@ export function VisitBlock({ visit: v, trackMap, hourLeftFn, workStart, workEnd,
   const blockW = (end - start) * 2 * cellW - 2
   const isSiteVisit = v.source_type === 'site_visit'
 
+  // OT segment widths in px — see DraftBlock for the rationale.
+  const earlyOtPx = isEarlyStart ? (workStart - start) * 2 * cellW : 0
+  const lateOtPx  = isLateEnd ? (end - workEnd) * 2 * cellW : 0
+
   const timeLabel = [v.start_time, v.end_time]
     .filter(Boolean)
     .map((t) => fmt12(t!.substring(0, 5)))
@@ -415,16 +491,48 @@ export function VisitBlock({ visit: v, trackMap, hourLeftFn, workStart, workEnd,
       onMouseEnter={handleMouseEnter}
       onMouseLeave={handleMouseLeave}
     >
-      <div className={`relative h-full w-full overflow-hidden rounded border px-1 text-[11px] font-medium flex flex-col justify-center cursor-default ${colorBlock}`}>
+      <div className={cn(
+        'relative h-full w-full overflow-hidden rounded border px-1 text-[11px] font-medium flex flex-col justify-center cursor-default',
+        colorBlock,
+        isOvertime && 'border-red-400 shadow-[inset_0_0_0_1px_rgb(239_68_68_/_0.4)]',
+      )}>
+        {/* OT stripes — only on the portion outside the team's work window */}
+        {earlyOtPx > 0 && (
+          <div
+            aria-hidden
+            className="pointer-events-none absolute inset-y-0 left-0"
+            style={{
+              width: earlyOtPx,
+              backgroundImage:
+                'repeating-linear-gradient(-45deg, rgb(220 38 38 / 0.35) 0px, rgb(220 38 38 / 0.35) 3px, transparent 3px, transparent 7px)',
+            }}
+          />
+        )}
+        {lateOtPx > 0 && (
+          <div
+            aria-hidden
+            className="pointer-events-none absolute inset-y-0 right-0"
+            style={{
+              width: lateOtPx,
+              backgroundImage:
+                'repeating-linear-gradient(-45deg, rgb(220 38 38 / 0.35) 0px, rgb(220 38 38 / 0.35) 3px, transparent 3px, transparent 7px)',
+            }}
+          />
+        )}
+
+        {isOvertime && blockW >= 60 && (
+          <span className="absolute left-1 top-0.5 flex items-center gap-0.5 rounded bg-red-600 px-1 py-px text-[9px] font-bold text-white leading-none z-10">
+            <AlertTriangle className="h-2.5 w-2.5" />
+            OT
+          </span>
+        )}
+
         {v.order_number && (
-          <span className={`truncate font-mono leading-none ${colorNumber}`} style={{ fontSize: 9 }}>
+          <span className={cn(`truncate font-mono leading-none relative z-[1]`, colorNumber, isOvertime && 'pl-7')} style={{ fontSize: 9 }}>
             {v.order_number}
           </span>
         )}
-        <span className="truncate leading-none">{v.customer_name ?? '—'}</span>
-        {isOvertime && (
-          <span className="absolute right-0.5 top-0.5 rounded bg-red-500 px-1 text-[8px] font-bold text-white leading-tight py-px">OT</span>
-        )}
+        <span className={cn('truncate leading-none relative z-[1]', isOvertime && 'pl-7')}>{v.customer_name ?? '—'}</span>
       </div>
 
       {hovered && (

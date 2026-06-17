@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import { ChevronLeft, ChevronRight, MessageSquare, MapPin, Package, ListOrdered, Edit2, AlertTriangle, UserPlus } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
@@ -23,6 +23,7 @@ import { ChatAttachmentDialog } from '@/components/contact-center/ChatAttachment
 import { ChatInstructionsDialog } from '@/components/contact-center/ChatInstructionsDialog'
 import { ChatTemplateConfirmDialog } from '@/components/contact-center/ChatTemplateConfirmDialog'
 import { CrmSection } from '@/components/contact-center/CrmSection'
+import { tryNormalisePhone } from '@/lib/contact-center/normalise-phone'
 import { AddressForm } from '@/components/contact-center/AddressSection'
 import { ChatListV2 } from './ChatListV2'
 import { DialPad } from './DialPad'
@@ -79,14 +80,30 @@ export function ContactCenterSidebarV2() {
   const [showInstructions, setShowInstructions] = useState(false)
   const [confirmTemplate,  setConfirmTemplate]  = useState<WatiTemplate | null>(null)
 
-  // Handle external "open customer" triggers from other modules
+  // Handle external "open customer" triggers from other modules.
+  // We track the last-handled trigger nonce so the auto-expand fires ONCE per
+  // lookup — if we depended on `conversations` here, every realtime sync tick
+  // would re-expand the sidebar and the user couldn't collapse it.
+  const handledNonceRef = useRef<number | null>(null)
   useEffect(() => {
     if (!pendingPhone) return
-    const match = conversations.find((c) => c.wati_phone === pendingPhone.phone)
+    if (handledNonceRef.current === pendingPhone.nonce) return
+    handledNonceRef.current = pendingPhone.nonce
+
+    // Normalise both sides — wati_phone may be stored without the leading "+".
+    const target = tryNormalisePhone(pendingPhone.phone) ?? pendingPhone.phone
+    const match = conversations.find((c) => {
+      const cNorm = tryNormalisePhone(c.wati_phone ?? '') ?? c.wati_phone
+      return cNorm === target
+    })
     if (match) {
       openConversation(match.id, match.customer_id, match.wati_phone)
-      setCcSidebar('expanded')
+    } else {
+      // No existing conversation — open with empty conversationId so the
+      // sidebar enters the "unknown caller / attach" flow with this phone.
+      openConversation('', null, target)
     }
+    setCcSidebar('expanded')
   }, [pendingPhone, conversations, openConversation, setCcSidebar])
 
   function handleExpand()   { setCcSidebar('expanded');  expandSidebar() }

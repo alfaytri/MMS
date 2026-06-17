@@ -7,7 +7,6 @@ import { toast } from 'sonner'
 import { PhoneLookupModal } from '@/components/orders/PhoneLookupModal'
 import { OrderFormPanel } from '@/components/orders/OrderFormPanel'
 import { TeamCalendarPanel } from '@/components/orders/TeamCalendarPanel'
-import { CustomerHistoryPanel } from '@/components/orders/CustomerHistoryPanel'
 import { useCreateOrder } from '@/hooks/useCreateOrder'
 import { useTeams, type TeamFull } from '@/hooks/useTeams'
 import { SelectedServiceCard } from '@/components/orders/SelectedServiceCard'
@@ -208,10 +207,9 @@ export default function CreateOrderPage() {
         }}
       />
 
-      {/* Three-panel layout:
-          - OrderFormPanel: fixed 340 px on sm+, full-width on mobile
+      {/* Two-panel layout:
+          - OrderFormPanel: fixed 340 px on md+, full-width on mobile
           - TeamCalendarPanel: flex-1, scrollable
-          - CustomerHistoryPanel: fixed 320 px, collapsible
       */}
       <div className="flex flex-col overflow-hidden md:h-[calc(100vh-56px)] md:flex-row">
         <OrderFormPanel
@@ -265,13 +263,6 @@ export default function CreateOrderPage() {
             initialHour={prefilledHour}
           />
         </div>
-
-        <CustomerHistoryPanel
-          customerId={draft.customerId || null}
-          onViewOrder={(id) => window.open(`/orders/${id}`, '_blank')}
-          onCreateBackwork={(id) => router.push(`/orders/create-backwork?from=${id}`)}
-          onCreateFollowUp={(id) => router.push(`/orders/create?from=${id}&type=follow-up`)}
-        />
       </div>
       </div>
 

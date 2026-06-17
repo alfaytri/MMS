@@ -11,8 +11,7 @@ describe('PageContainer', () => {
   it('applies default container classes', () => {
     const { container } = render(<PageContainer><span /></PageContainer>)
     const div = container.firstChild as HTMLElement
-    expect(div.className).toContain('max-w-screen-2xl')
-    expect(div.className).toContain('mx-auto')
+    expect(div.className).toContain('w-full')
     expect(div.className).toContain('px-4')
     expect(div.className).toContain('py-4')
   })

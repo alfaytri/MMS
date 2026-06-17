@@ -311,8 +311,8 @@ export function TeamCalendarPanel({
               className="absolute top-0 bottom-0 pointer-events-none z-[25]"
               style={{ left: SIDEBAR_W + (nowMinutes / 30) * cellWidth }}
             >
-              <div className="absolute -top-1 -left-1 h-2 w-2 rounded-full bg-red-500" />
-              <div className="absolute top-0 left-0 w-px h-full bg-red-500 opacity-70" />
+              <div className="absolute -top-1.5 -left-1.5 h-3 w-3 rounded-full bg-red-500 ring-2 ring-red-200" />
+              <div className="absolute top-0 left-0 w-0.5 h-full bg-red-500/85" />
             </div>
           )}
 

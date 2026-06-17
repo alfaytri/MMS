@@ -8,7 +8,6 @@ import { ArrowLeft } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { OrderFormPanel } from '@/components/orders/OrderFormPanel'
 import { TeamCalendarPanel } from '@/components/orders/TeamCalendarPanel'
-import { CustomerHistoryPanel } from '@/components/orders/CustomerHistoryPanel'
 import { SelectedServiceCard } from '@/components/orders/SelectedServiceCard'
 import { SiteVisitCard, SITE_VISIT_SERVICE_ID, makeSiteVisitDraft } from '@/components/orders/SiteVisitCard'
 import { useEditOrder } from '@/hooks/useEditOrder'
@@ -195,13 +194,6 @@ export default function EditOrderPage() {
               divisionSlugs={selectedDivisions}
             />
           </div>
-
-          <CustomerHistoryPanel
-            customerId={draft.customerId || null}
-            onViewOrder={(id) => window.open(`/orders/${id}`, '_blank')}
-            onCreateBackwork={(id) => router.push(`/orders/create-backwork?from=${id}`)}
-            onCreateFollowUp={(id) => router.push(`/orders/create?from=${id}&type=follow-up`)}
-          />
         </div>
       </PageContainer>
 
