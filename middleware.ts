@@ -10,7 +10,7 @@ const ALLOWED_PATHS = new Set<string>([
 // shared secret / signature instead.
 const WEBHOOK_PREFIXES = ['/api/wati/webhook', '/api/whapi/webhook', '/api/webhooks/', '/api/payments/dibsy/webhook', '/api/payments/dibsy/create-batch-payment', '/api/3cx/']
 
-const PUBLIC_PREFIXES = ['/pay/']
+const PUBLIC_PREFIXES = ['/pay/', '/monitoring']
 
 export async function middleware(request: NextRequest) {
   let supabaseResponse = NextResponse.next({ request })
