@@ -141,7 +141,7 @@ export function SoDetailDialog({ open, onOpenChange, so, onEdit, onConfirm }: So
             <div className="p-4 text-sm text-destructive">Failed to load sale order details.</div>
           ) : (
             <Tabs defaultValue="items" className="flex-1 overflow-hidden flex flex-col min-h-0">
-              <TabsList className="shrink-0 mx-0 overflow-x-auto">
+              <TabsList className="shrink-0 mx-0 max-w-full overflow-x-auto whitespace-nowrap scroll-x-fade">
                 <TabsTrigger value="items">Items</TabsTrigger>
                 <TabsTrigger value="deliveries">Deliveries</TabsTrigger>
                 <TabsTrigger value="payments">Payments</TabsTrigger>

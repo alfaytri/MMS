@@ -275,8 +275,8 @@ export default function UsersRolesPage() {
             <Shield className="h-5 w-5 text-primary" />
           </div>
           <div>
-            <h1 className="text-xl font-semibold">Users &amp; Roles</h1>
-            <p className="text-sm text-muted-foreground">
+            <h1 className="text-xl 2xl:text-2xl font-semibold">Users &amp; Roles</h1>
+            <p className="text-sm 2xl:text-base text-muted-foreground">
               {usersCount} users · {rolesCount} roles · {permCount} permissions
             </p>
           </div>

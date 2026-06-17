@@ -42,7 +42,7 @@ export default function PendingPaymentsPage() {
       {/* ── Header ─────────────────────────────────────────────────── */}
       <div className="space-y-3">
         <div>
-          <h1 className="text-2xl font-bold">Pending Payments</h1>
+          <h1 className="text-2xl 2xl:text-3xl font-bold">Pending Payments</h1>
           <p className="text-sm text-muted-foreground mt-1">
             {filtered.length} customer{filtered.length !== 1 ? 's' : ''} ·{' '}
             {formatCurrency(totalOutstanding)} outstanding
