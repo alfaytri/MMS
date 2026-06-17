@@ -6,7 +6,9 @@ import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
-import { Plus, Search, X, ChevronDown, ChevronUp } from 'lucide-react'
+import { Sheet, SheetClose, SheetContent, SheetHeader, SheetTitle, SheetTrigger } from '@/components/ui/sheet'
+import { Plus, Search, X, ChevronDown, ChevronUp, Filter as FilterIcon } from 'lucide-react'
+import { PageContainer } from '@/components/shared/PageContainer'
 import { OrderCard } from '@/components/orders/OrderCard'
 import { SiteVisitListCard } from '@/components/orders/SiteVisitListCard'
 import { OrderDetailDialog } from '@/components/orders/OrderDetailDialog'
@@ -73,8 +75,21 @@ export default function OrdersPage() {
   const [filter, setFilter] = useState<OrdersFilter>({})
   const [search, setSearch] = useState<SearchState>(EMPTY_SEARCH)
   const [searchOpen, setSearchOpen] = useState(true)
+  const [mobileFiltersOpen, setMobileFiltersOpen] = useState(false)
   const [selectedOrderId, setSelectedOrderId] = useState<string | null>(null)
   const [selectedVisitId, setSelectedVisitId] = useState<string | null>(null)
+
+  const activeFilterCount = useMemo(() => {
+    let n = 0
+    if (search.statuses.length) n++
+    if (search.orderType) n++
+    if (search.addressMissing) n++
+    if (search.bookingDateFrom || search.bookingDateTo) n++
+    if (search.visitDateFrom || search.visitDateTo) n++
+    if (search.customerPhone) n++
+    if (search.team) n++
+    return n
+  }, [search])
 
   const isSiteVisitOnly = search.orderType === 'site-visit'
   const isOrderOnly     = search.orderType === 'order'
@@ -136,18 +151,169 @@ export default function OrdersPage() {
   ]
 
   return (
-    <div className="flex h-full flex-col">
+    <PageContainer compact className="flex flex-col h-full">
 
       {/* ── Top bar ── */}
-      <div className="flex items-center justify-between border-b px-6 py-4">
-        <h1 className="text-2xl font-bold text-foreground">Orders</h1>
-        <Button className="gap-2" onClick={() => router.push('/orders/create')}>
-          <Plus className="h-4 w-4" /> New Order
-        </Button>
+      <div className="flex items-center justify-between gap-2 border-b px-4 sm:px-6 py-3 sm:py-4">
+        <h1 className="text-xl sm:text-2xl font-bold text-foreground">Orders</h1>
+        <div className="flex items-center gap-2">
+          {/* Mobile filter trigger */}
+          <Sheet open={mobileFiltersOpen} onOpenChange={setMobileFiltersOpen}>
+            <SheetTrigger
+              render={
+                <Button variant="outline" size="sm" className="md:hidden gap-1.5 h-9">
+                  <FilterIcon className="h-4 w-4" />
+                  Filters
+                  {activeFilterCount > 0 && (
+                    <span className="rounded-full bg-primary text-primary-foreground px-1.5 text-xs">
+                      {activeFilterCount}
+                    </span>
+                  )}
+                </Button>
+              }
+            />
+            <SheetContent side="bottom" className="h-[85vh] flex flex-col p-0">
+              <SheetHeader className="px-4 py-3 border-b">
+                <SheetTitle>Filters</SheetTitle>
+              </SheetHeader>
+              <div className="flex-1 overflow-y-auto px-4 py-4 space-y-4">
+                {/* Order type */}
+                <div className="space-y-1.5">
+                  <Label htmlFor="m-order-type" className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">Order Type</Label>
+                  <Select value={search.orderType || 'all'} onValueChange={(v) => setSearch((s) => ({ ...s, orderType: v === 'all' ? '' : (v ?? '') }))}>
+                    <SelectTrigger id="m-order-type" className="h-10 text-sm w-full">
+                      <SelectValue placeholder="All" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="all">All</SelectItem>
+                      <SelectItem value="order">Order</SelectItem>
+                      <SelectItem value="site-visit">Site Visit</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+
+                {/* Status chips */}
+                <div className="space-y-1.5">
+                  <Label className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">Order Status</Label>
+                  <div className="flex flex-wrap gap-1.5">
+                    {ALL_STATUSES.map((s) => (
+                      <button
+                        key={s.value}
+                        type="button"
+                        onClick={() => toggleStatus(s.value)}
+                        className={cn(
+                          'flex items-center gap-1 rounded-full border px-2.5 py-1.5 text-xs font-medium min-h-9',
+                          search.statuses.includes(s.value)
+                            ? 'border-orange-500 bg-orange-500 text-white'
+                            : 'border-border bg-white text-muted-foreground'
+                        )}
+                      >
+                        {s.label}
+                        {search.statuses.includes(s.value) && <X className="h-3 w-3" />}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+
+                {/* Dates */}
+                <div className="grid grid-cols-2 gap-3">
+                  <div className="space-y-1.5">
+                    <Label htmlFor="m-booking-from" className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">From Order Date</Label>
+                    <Input id="m-booking-from" type="date" className="h-10" value={search.bookingDateFrom}
+                      onChange={(e) => setSearch((s) => ({ ...s, bookingDateFrom: e.target.value }))} />
+                  </div>
+                  <div className="space-y-1.5">
+                    <Label htmlFor="m-booking-to" className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">To Order Date</Label>
+                    <Input id="m-booking-to" type="date" className="h-10" value={search.bookingDateTo}
+                      onChange={(e) => setSearch((s) => ({ ...s, bookingDateTo: e.target.value }))} />
+                  </div>
+                  <div className="space-y-1.5">
+                    <Label htmlFor="m-visit-from" className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">From Visit Date</Label>
+                    <Input id="m-visit-from" type="date" className="h-10" value={search.visitDateFrom}
+                      onChange={(e) => setSearch((s) => ({ ...s, visitDateFrom: e.target.value }))} />
+                  </div>
+                  <div className="space-y-1.5">
+                    <Label htmlFor="m-visit-to" className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">To Visit Date</Label>
+                    <Input id="m-visit-to" type="date" className="h-10" value={search.visitDateTo}
+                      onChange={(e) => setSearch((s) => ({ ...s, visitDateTo: e.target.value }))} />
+                  </div>
+                </div>
+
+                {/* Text + Team */}
+                <div className="space-y-1.5">
+                  <Label htmlFor="m-phone" className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">Customer Phone</Label>
+                  <Input id="m-phone" placeholder="Search phone…" className="h-10" value={search.customerPhone}
+                    onChange={(e) => setSearch((s) => ({ ...s, customerPhone: e.target.value }))} />
+                </div>
+                <div className="space-y-1.5">
+                  <Label htmlFor="m-addr" className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">Address Missing</Label>
+                  <Select value={search.addressMissing || 'all'} onValueChange={(v) => setSearch((s) => ({ ...s, addressMissing: v === 'all' ? '' : (v ?? '') }))}>
+                    <SelectTrigger id="m-addr" className="h-10 w-full">
+                      <SelectValue placeholder="All" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="all">All</SelectItem>
+                      <SelectItem value="yes">Missing</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div className="space-y-1.5">
+                  <Label htmlFor="m-team" className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">Team</Label>
+                  <Select
+                    value={search.team || '__all__'}
+                    onValueChange={(v) => setSearch((s) => ({ ...s, team: v === '__all__' ? '' : (v ?? '') }))}
+                  >
+                    <SelectTrigger id="m-team" className="h-10 w-full">
+                      <SelectValue placeholder="All teams" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="__all__">All teams</SelectItem>
+                      {teams.map((t) => (
+                        <SelectItem key={t.id} value={t.name_en ?? t.name}>
+                          {t.name_en ?? t.name}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+              </div>
+              <div className="flex gap-2 border-t px-4 py-3">
+                <Button variant="outline" className="flex-1 h-10" onClick={handleClear}>
+                  Reset
+                </Button>
+                <SheetClose
+                  render={
+                    <Button className="flex-1 h-10" onClick={handleSearch}>
+                      Apply
+                    </Button>
+                  }
+                />
+              </div>
+            </SheetContent>
+          </Sheet>
+
+          <Button className="gap-1.5 h-9" onClick={() => router.push('/orders/create')}>
+            <Plus className="h-4 w-4" /> <span className="hidden sm:inline">New Order</span><span className="sm:hidden">New</span>
+          </Button>
+        </div>
       </div>
 
-      {/* ── Search panel ── */}
-      <div className="border-b bg-muted">
+      {/* Mobile sticky search bar */}
+      <div className="md:hidden sticky top-0 z-20 border-b bg-background px-4 py-2">
+        <Input
+          placeholder="Search order no…"
+          value={search.orderNumber}
+          onChange={(e) => {
+            const v = e.target.value
+            setSearch((s) => ({ ...s, orderNumber: v }))
+            setFilter((f) => ({ ...f, orderNumber: v || undefined }))
+          }}
+          className="h-10 w-full"
+        />
+      </div>
+
+      {/* ── Search panel (desktop) ── */}
+      <div className="hidden md:block border-b bg-muted">
         {/* Panel header */}
         <button
           onClick={() => setSearchOpen((v) => !v)}
@@ -361,6 +527,6 @@ export default function OrdersPage() {
         open={!!selectedVisitId}
         onOpenChange={(v) => { if (!v) setSelectedVisitId(null) }}
       />
-    </div>
+    </PageContainer>
   )
 }
