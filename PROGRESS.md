@@ -223,7 +223,9 @@ Purchase & Sales▾:
 
 ## 🔄 In Progress
 
-🚀 Awaiting verification. Pending Payments Redesign (Phone-grouped invoices + batch link) shipped on `feature/payment-link` (11 tasks, 10 commits). Plan: `docs/superpowers/plans/2026-06-17-pending-payments-redesign.md`. Branch pushed, awaiting manual test before merging to develop.
+🚀 Starting: **Orders View Polish — Compact Search Bar + Centered Detail Popup**. Replacing the bulky desktop search panel with a compact search bar + Filters popover, and converting `OrderDetailDialog` / `SiteVisitDetailSheet` from right-side sheets to centered Dialog popups (brand orange).
+
+Previously: Pending Payments Redesign shipped on `feature/payment-link` (11 tasks, 10 commits) — branch pushed, awaiting manual verification before merging to develop.
 
 ## 🔋 Quota Watch
 
