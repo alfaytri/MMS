@@ -16,14 +16,14 @@ interface PageHeaderProps {
 export function PageHeader({ title, description, action, actions }: PageHeaderProps) {
   return (
     <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
-      <div>
-        <h1 className="text-2xl font-bold text-foreground">{title}</h1>
+      <div className="min-w-0">
+        <h1 className="text-2xl 2xl:text-3xl font-bold text-foreground">{title}</h1>
         {description && (
-          <p className="text-sm text-muted-foreground mt-1">{description}</p>
+          <p className="text-sm 2xl:text-base text-muted-foreground mt-1">{description}</p>
         )}
       </div>
       {(action || actions) && (
-        <div className="flex items-center gap-2">
+        <div className="flex flex-wrap items-center gap-2 sm:flex-shrink-0">
           {actions}
           {action && (
             <Button onClick={action.onClick} className="w-full sm:w-auto">
