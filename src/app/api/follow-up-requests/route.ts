@@ -117,3 +117,55 @@ export async function POST(req: Request) {
     return NextResponse.json({ error: (err as Error).message }, { status: 500 })
   }
 }
+
+export async function GET(req: Request) {
+  try {
+    const supabase = await createClient()
+    const { data: { user } } = await supabase.auth.getUser()
+    if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+
+    const url = new URL(req.url)
+    const status = url.searchParams.get('status') ?? 'pending'
+
+    const admin = createAdminClient()
+    const { data, error } = await admin
+      .from('follow_up_requests')
+      .select(`
+        *,
+        parent:orders!follow_up_requests_parent_order_id_fkey ( order_id, customer_id, address ),
+        team:teams!follow_up_requests_requested_team_id_fkey ( name )
+      `)
+      .eq('status', status)
+      .order('requested_date', { ascending: true })
+      .limit(100)
+    if (error) throw error
+
+    type ParentJoin = { order_id: string | null; customer_id: string | null; address: string | null } | null
+    type TeamJoin = { name: string | null } | null
+    type Row = Record<string, unknown> & { parent?: ParentJoin; team?: TeamJoin }
+
+    const rows = (data ?? []) as Row[]
+    const customerIds = Array.from(
+      new Set(rows.map((r) => r.parent?.customer_id).filter((id): id is string => !!id))
+    )
+    const { data: customers } = customerIds.length
+      ? await admin.from('customers').select('id, name, phone').in('id', customerIds)
+      : { data: [] as Array<{ id: string; name: string; phone: string | null }> }
+    const custMap = new Map((customers ?? []).map((c) => [c.id, c]))
+
+    const flattened = rows.map((r) => {
+      const c = r.parent?.customer_id ? custMap.get(r.parent.customer_id) : null
+      return {
+        ...r,
+        parent_order_number: r.parent?.order_id ?? null,
+        customer_name:       c?.name ?? null,
+        customer_phone:      c?.phone ?? null,
+        team_name:           r.team?.name ?? null,
+      }
+    })
+
+    return NextResponse.json({ rows: flattened })
+  } catch (err) {
+    return NextResponse.json({ error: (err as Error).message }, { status: 500 })
+  }
+}
