@@ -25,7 +25,7 @@ export default async function DashboardLayout({
   if (isTeamLeader) {
     return (
       <SessionGuard>
-        <div className="min-h-screen bg-background flex flex-col">
+        <div className="min-h-screen bg-background flex flex-col text-sm 2xl:text-base">
           {children}
         </div>
       </SessionGuard>
@@ -36,7 +36,7 @@ export default async function DashboardLayout({
   return (
     <SessionGuard>
       <ContactCenterProvider>
-        <div className="h-screen bg-muted/30 flex flex-col overflow-hidden">
+        <div className="h-screen bg-muted/30 flex flex-col overflow-hidden text-sm 2xl:text-base">
           <InactivityGuard />
           <RealtimeSync />
           <TopNavV2Offset>

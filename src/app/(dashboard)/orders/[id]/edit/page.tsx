@@ -13,6 +13,7 @@ import { SelectedServiceCard } from '@/components/orders/SelectedServiceCard'
 import { SiteVisitCard, SITE_VISIT_SERVICE_ID, makeSiteVisitDraft } from '@/components/orders/SiteVisitCard'
 import { useEditOrder } from '@/hooks/useEditOrder'
 import { useTeams, type TeamFull } from '@/hooks/useTeams'
+import { PageContainer } from '@/components/shared/PageContainer'
 import type { OrderServiceDraft, OrderType } from '@/types/orders'
 
 export default function EditOrderPage() {
@@ -130,7 +131,7 @@ export default function EditOrderPage() {
 
   return (
     <DndContext autoScroll={false} collisionDetection={pointerWithin} onDragStart={handleDragStart} onDragEnd={handleDragEnd}>
-      <div className="relative overflow-x-hidden">
+      <PageContainer compact className="relative overflow-x-hidden">
         {/* Back bar */}
         <div className="flex items-center gap-2 border-b bg-white px-4 py-2">
           <Button variant="ghost" size="sm" className="gap-1.5 text-muted-foreground" onClick={() => router.back()}>
@@ -147,7 +148,7 @@ export default function EditOrderPage() {
           )}
         </div>
 
-        <div className="flex h-[calc(100vh-56px-41px)] flex-col overflow-hidden sm:flex-row">
+        <div className="flex flex-col overflow-hidden md:h-[calc(100vh-56px-41px)] md:flex-row">
           <OrderFormPanel
             draft={draft}
             pendingFiles={pendingFiles}
@@ -202,7 +203,7 @@ export default function EditOrderPage() {
             onCreateFollowUp={(id) => router.push(`/orders/create?from=${id}&type=follow-up`)}
           />
         </div>
-      </div>
+      </PageContainer>
 
       <DragOverlay dropAnimation={null} style={{ zIndex: 9999 }}>
         {draggingDayWindow ? (

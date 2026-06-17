@@ -6,10 +6,12 @@ import { createClient } from '@/lib/supabase/client'
 import { useContactCenterContext } from '@/contexts/ContactCenterContext'
 import { ContactCenterSidebarV2 } from './v2/ContactCenterSidebarV2'
 import { queryKeys } from '@/lib/queryKeys'
+import { useIsLgUp } from '@/hooks/useIsLgUp'
 
 export function ContactCenterSidebarGate() {
   const supabase = createClient()
   const { setCcSidebar } = useContactCenterContext()
+  const isLgUp = useIsLgUp()
 
   const { data: hasPermission, isLoading } = useQuery({
     queryKey: queryKeys.contactCenter.permission,
@@ -31,12 +33,11 @@ export function ContactCenterSidebarGate() {
     },
   })
 
-  // Tell DashboardMain how much left-padding to apply
   useEffect(() => {
     if (isLoading) return
-    setCcSidebar(hasPermission ? 'collapsed' : 'none')
-  }, [hasPermission, isLoading, setCcSidebar])
+    setCcSidebar(isLgUp && hasPermission ? 'collapsed' : 'none')
+  }, [hasPermission, isLoading, isLgUp, setCcSidebar])
 
-  if (isLoading || !hasPermission) return null
+  if (isLoading || !hasPermission || !isLgUp) return null
   return <ContactCenterSidebarV2 />
 }

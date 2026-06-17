@@ -11,6 +11,7 @@ import {
 import { useWarehouses } from '@/hooks/useWarehouses'
 import { useWarehouseTransfers, useReceivalsAndDeliveries, useStockAdjustments } from '@/hooks/useWarehouseOperations'
 import { useCurrentUserProfile } from '@/hooks/useProfiles'
+import { ResponsivePageHeader } from '@/components/shared/ResponsivePageHeader'
 import { WhWarehousesTab } from '@/components/purchase/wh/WhWarehousesTab'
 import { WhStockOverviewTab } from '@/components/purchase/wh/WhStockOverviewTab'
 import { WhTransfersTab } from '@/components/purchase/wh/WhTransfersTab'
@@ -48,33 +49,33 @@ function WarehousesPageInner() {
 
   return (
     <div className="flex flex-col h-full">
-      {/* Sticky Header */}
-      <div className="sticky top-0 z-10 bg-background flex items-start justify-between gap-2 px-4 md:px-6 py-4 border-b border-border">
-        <div>
-          <h1 className="text-lg font-semibold">Warehouses</h1>
-          <p className="text-xs text-muted-foreground">
-            Stock overview, transfers, adjustments &amp; movements
-          </p>
-        </div>
-        <div className="flex items-center gap-1.5 flex-shrink-0">
-          <WhAdjustmentDialog warehouses={warehouses} currentProfile={currentProfile ?? null}>
-            <Button size="sm" variant="outline" className="gap-1.5">
-              <ClipboardList className="h-3.5 w-3.5" />
-              Stock Adjustment
-            </Button>
-          </WhAdjustmentDialog>
-          <WhTransferDialog warehouses={warehouses} currentProfile={currentProfile ?? null}>
-            <Button size="sm" variant="outline" className="gap-1.5">
-              <ArrowRightLeft className="h-3.5 w-3.5" />
-              Transfer Stock
-            </Button>
-          </WhTransferDialog>
-        </div>
-      </div>
+      <ResponsivePageHeader
+        sticky
+        title="Warehouses"
+        description="Stock overview, transfers, adjustments & movements"
+        actions={
+          <>
+            <WhAdjustmentDialog warehouses={warehouses} currentProfile={currentProfile ?? null}>
+              <Button size="sm" variant="outline" className="gap-1.5">
+                <ClipboardList className="h-3.5 w-3.5" />
+                <span className="hidden sm:inline">Stock Adjustment</span>
+                <span className="sm:hidden">Adjust</span>
+              </Button>
+            </WhAdjustmentDialog>
+            <WhTransferDialog warehouses={warehouses} currentProfile={currentProfile ?? null}>
+              <Button size="sm" variant="outline" className="gap-1.5">
+                <ArrowRightLeft className="h-3.5 w-3.5" />
+                <span className="hidden sm:inline">Transfer Stock</span>
+                <span className="sm:hidden">Transfer</span>
+              </Button>
+            </WhTransferDialog>
+          </>
+        }
+      />
 
       {/* Tabs */}
       <Tabs value={activeTab} onValueChange={setActiveTab} className="flex flex-col flex-1 min-h-0">
-        <TabsList className="h-8 overflow-x-auto whitespace-nowrap px-4 md:px-6 border-b rounded-none justify-start bg-background flex-shrink-0">
+        <TabsList className="h-8 max-w-full overflow-x-auto whitespace-nowrap px-4 md:px-6 border-b rounded-none justify-start bg-background flex-shrink-0 scroll-x-fade">
           <TabsTrigger value="warehouses" className="text-xs gap-1">
             <WarehouseIcon className="h-3 w-3" />
             Warehouses

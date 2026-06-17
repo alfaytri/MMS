@@ -8,6 +8,7 @@ import { Button } from '@/components/ui/button'
 import { Checkbox } from '@/components/ui/checkbox'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
+import { DesktopOnlyGate } from '@/components/shared/DesktopOnlyGate'
 import { confirmPhrase } from '@/lib/contact-center/confirm-phrase'
 import type { PurgeFilter, PurgeSource } from '@/lib/contact-center/purge-filter'
 
@@ -206,6 +207,7 @@ export default function PurgePage() {
   // ---------------------------------------------------------------------------
 
   return (
+    <DesktopOnlyGate>
     <div className="max-w-3xl mx-auto px-4 py-6 space-y-8">
       <h1 className="text-xl font-semibold">Purge Messages</h1>
 
@@ -449,5 +451,6 @@ export default function PurgePage() {
         })}
       </section>
     </div>
+    </DesktopOnlyGate>
   )
 }
