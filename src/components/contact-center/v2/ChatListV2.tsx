@@ -12,6 +12,9 @@ import { useCountryCodes } from '@/hooks/useCountryCodes'
 import { ChatListFilterTabs, readPersistedFilter, persistFilter } from './ChatListFilterTabs'
 import { TeamGroupedList } from './TeamGroupedList'
 import { ChatListEmptyState } from './ChatListEmptyState'
+import { FollowUpRequestCard } from './FollowUpRequestCard'
+import { useFollowUpRequests } from '@/hooks/useFollowUpRequests'
+import type { FollowUpRequestWithContext } from '@/types/follow-ups'
 import { tryNormalisePhone } from '@/lib/contact-center/normalise-phone'
 import type { FilterKey } from './ChatListEmptyState'
 import type { FilterCounts } from './ChatListFilterTabs'
@@ -162,6 +165,23 @@ export function ChatListV2({
     [conversations, isTeamConv],
   )
 
+  const { data: followUps = [], refetch: refetchFollowUps } = useFollowUpRequests('pending')
+
+  const sortedFollowUps = useMemo(() => {
+    const tier = (r: FollowUpRequestWithContext) => {
+      if (!r.requested_date) return 3
+      const hrs = (new Date(`${r.requested_date}T00:00:00`).getTime() - Date.now()) / (1000 * 60 * 60)
+      if (hrs <= 24) return 0
+      if (hrs <= 48) return 1
+      return 2
+    }
+    return [...followUps].sort((a, b) => {
+      const ta = tier(a), tb = tier(b)
+      if (ta !== tb) return ta - tb
+      return (a.requested_date ?? '').localeCompare(b.requested_date ?? '')
+    })
+  }, [followUps])
+
   const counts: FilterCounts = useMemo(() => ({
     all:        customerChats.length,
     unanswered: customerChats.filter((c) =>
@@ -169,9 +189,9 @@ export function ChatListV2({
       (c.unanswered_dismissed_at == null ||
        (c.last_message_at != null && c.unanswered_dismissed_at < c.last_message_at)),
     ).length,
-    tasks: 0,
+    tasks: sortedFollowUps.length,
     teams: teamPhones.teams.length,
-  }), [customerChats, teamPhones.teams.length])
+  }), [customerChats, teamPhones.teams.length, sortedFollowUps.length])
 
   const baseList: ChatConversation[] = useMemo(() => {
     if (filter === 'unanswered') {
@@ -291,9 +311,17 @@ export function ChatListV2({
           <div className="px-3 py-4 text-xs text-muted-foreground text-center">Loading…</div>
         )}
 
-        {/* Tasks placeholder */}
+        {/* Tasks — follow-up requests + future task types */}
         {!loading && filter === 'tasks' && (
-          <ChatListEmptyState variant="empty" filter="tasks" />
+          sortedFollowUps.length === 0 ? (
+            <ChatListEmptyState variant="empty" filter="tasks" />
+          ) : (
+            <div className="p-2 space-y-2">
+              {sortedFollowUps.map((r) => (
+                <FollowUpRequestCard key={r.id} req={r} onChanged={() => { void refetchFollowUps() }} />
+              ))}
+            </div>
+          )
         )}
 
         {/* Teams branch */}
