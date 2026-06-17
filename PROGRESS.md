@@ -220,7 +220,7 @@ Purchase & Sales▾:
 
 ## 🔄 In Progress
 
-🚀 Awaiting next module assignment. Responsive Foundation (Phase 0) shipped; Quota Remediation v2 (all 3 phases) shipped earlier; watching dashboard to attribute the drop.
+🚀 Starting: **Pending Payments Redesign Task 1: Migration — add `phone_id` to invoices + index** on `feature/payment-link`. Plan: `docs/superpowers/plans/2026-06-17-pending-payments-redesign.md`. 11 tasks: schema migration → backfill → RPC updates → shared content component → dual-entry (desktop dialog + mobile page) → batch-link wiring.
 
 ## 🔋 Quota Watch
 
