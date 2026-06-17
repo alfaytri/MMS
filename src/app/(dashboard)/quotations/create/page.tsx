@@ -117,7 +117,7 @@ export default function CreateQuotationPage() {
 
   return (
     <>
-      <div className="flex h-[calc(100vh-56px)] flex-col overflow-hidden sm:flex-row">
+      <div className="flex flex-col overflow-hidden md:h-[calc(100vh-56px)] md:flex-row">
         <QuotationFormPanel
           draft={draft}
           divisions={divisions}

@@ -198,7 +198,7 @@ export default function CreateOrderPage() {
 
   return (
     <DndContext autoScroll={false} collisionDetection={pointerWithin} onDragStart={handleDragStart} onDragEnd={handleDragEnd}>
-      <div className="relative h-[calc(100vh-56px)] overflow-hidden">
+      <div className="relative overflow-hidden md:h-[calc(100vh-56px)]">
       <PhoneLookupModal
         open={lookupOpen}
         onOpenChange={setLookupOpen}
@@ -213,7 +213,7 @@ export default function CreateOrderPage() {
           - TeamCalendarPanel: flex-1, scrollable
           - CustomerHistoryPanel: fixed 320 px, collapsible
       */}
-      <div className="flex h-[calc(100vh-56px)] flex-col overflow-hidden sm:flex-row">
+      <div className="flex flex-col overflow-hidden md:h-[calc(100vh-56px)] md:flex-row">
         <OrderFormPanel
           draft={draft}
           pendingFiles={pendingFiles}
