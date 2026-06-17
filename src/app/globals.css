@@ -88,6 +88,30 @@
   .form-actions {
     @apply flex flex-col-reverse sm:flex-row sm:justify-end gap-2;
   }
+
+  /*
+   * .scroll-x-fade
+   *
+   * Apply to a horizontally-scrollable container (e.g. a TabsList strip
+   * on mobile) so a soft shadow appears at the left/right edges only when
+   * the content overflows. Uses the background-attachment:local technique
+   * — CSS-only, no JS, no scroll listeners. Also hides the scrollbar.
+   *
+   * Required on the element itself: overflow-x:auto + whitespace-nowrap.
+   */
+  .scroll-x-fade {
+    -ms-overflow-style: none;
+    scrollbar-width: none;
+    background:
+      /* Solid mask at each end (in-flow) */
+      linear-gradient(to right, hsl(var(--background)) 30%, hsl(var(--background) / 0)) left center / 24px 100% no-repeat,
+      linear-gradient(to left, hsl(var(--background)) 30%, hsl(var(--background) / 0)) right center / 24px 100% no-repeat,
+      /* Shadow gradients (scroll with content) */
+      linear-gradient(to right, hsl(var(--foreground) / 0.08), hsl(var(--foreground) / 0)) left center / 14px 100% no-repeat,
+      linear-gradient(to left,  hsl(var(--foreground) / 0.08), hsl(var(--foreground) / 0)) right center / 14px 100% no-repeat;
+    background-attachment: local, local, scroll, scroll;
+  }
+  .scroll-x-fade::-webkit-scrollbar { display: none; }
 }
 
 /* View Transition — smooth cross-fade between routes */
