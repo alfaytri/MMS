@@ -22,14 +22,32 @@ export async function resolveConversation(
   const customerId = phoneRow?.customer_id ?? null
   const phoneId    = phoneRow?.id ?? null
 
+  // Prefer a conversation already linked to the customer (any provider).
   if (customerId) {
-    const { data: existing } = await supabase
+    const { data: byCustomer } = await supabase
       .from('chat_conversations')
       .select('id')
       .eq('customer_id_v2', customerId)
+      .order('last_message_at', { ascending: false, nullsFirst: false })
+      .limit(1)
       .maybeSingle()
-    if (existing) return { conversation_id: existing.id, customer_id: customerId, phone_id: phoneId }
+    if (byCustomer) return { conversation_id: byCustomer.id, customer_id: customerId, phone_id: phoneId }
+  }
 
+  // Fall back to ANY existing row keyed by this phone (WATI/WHAPI/etc.)
+  // so a 3cx call attaches to the customer's existing thread instead of
+  // colliding on the (wati_phone, provider) unique constraint.
+  const { data: byPhone } = await supabase
+    .from('chat_conversations')
+    .select('id')
+    .eq('wati_phone', callerPhone)
+    .order('last_message_at', { ascending: false, nullsFirst: false })
+    .limit(1)
+    .maybeSingle()
+  if (byPhone) return { conversation_id: byPhone.id, customer_id: customerId, phone_id: phoneId }
+
+  // No existing conversation anywhere — insert.
+  if (customerId) {
     const { data: created, error } = await supabase
       .from('chat_conversations')
       .insert({
@@ -42,16 +60,6 @@ export async function resolveConversation(
       .single()
     if (error || !created) throw new Error(error?.message ?? 'create conversation failed')
     return { conversation_id: created.id, customer_id: customerId, phone_id: phoneId }
-  }
-
-  const { data: existingUnknown } = await supabase
-    .from('chat_conversations')
-    .select('id')
-    .is('customer_id_v2', null)
-    .eq('unknown_phone', callerPhone)
-    .maybeSingle()
-  if (existingUnknown) {
-    return { conversation_id: existingUnknown.id, customer_id: null, phone_id: null }
   }
 
   const { data: createdUnknown, error: err2 } = await supabase

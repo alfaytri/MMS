@@ -4,7 +4,6 @@ import { useRouter } from 'next/navigation'
 import { toast } from 'sonner'
 import { QuotationFormPanel } from '@/components/quotations/QuotationFormPanel'
 import { QuotationPdfPreview } from '@/components/quotations/QuotationPdfPreview'
-import { CustomerHistoryPanel } from '@/components/orders/CustomerHistoryPanel'
 import { WhatsAppSendDialog } from '@/components/quotations/WhatsAppSendDialog'
 import { useCreateQuotation, WindowClosedError } from '@/hooks/useCreateQuotation'
 import { useUserCompanyDivisions } from '@/hooks/useUserCompanyDivisions'
@@ -153,12 +152,6 @@ export default function CreateQuotationPage() {
             creatorName={creatorName}
           />
         </div>
-
-        <CustomerHistoryPanel
-          customerId={draft.customerId || null}
-          onViewOrder={(id) => window.open(`/orders/${id}`, '_blank')}
-          onCreateBackwork={(id) => window.open(`/orders/create-backwork?from=${id}`, '_blank')}
-        />
       </div>
 
       {/* Hidden off-screen PDF render target for consistent capture.

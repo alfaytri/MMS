@@ -1,6 +1,6 @@
 import { NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
-import { makeCall } from '@/lib/3cx/make-call'
+import { makeCall, SoftphoneOfflineError } from '@/lib/3cx/make-call'
 
 export const runtime = 'nodejs'
 export const dynamic = 'force-dynamic'
@@ -44,6 +44,12 @@ export async function POST(req: Request): Promise<Response> {
     await makeCall({ extension: profile.threecx_extension, destination })
     return NextResponse.json({ ok: true })
   } catch (e) {
+    if (e instanceof SoftphoneOfflineError) {
+      return NextResponse.json(
+        { error: 'Please open your 3CX softphone and sign in, then try again.' },
+        { status: 409 },
+      )
+    }
     const msg = e instanceof Error ? e.message : 'unknown'
     console.error('[3cx/call/make] upstream failed:', msg)
     return NextResponse.json({ error: `Call initiation failed: ${msg}` }, { status: 502 })

@@ -18,15 +18,19 @@ interface Props {
 }
 
 export function OrderDetailDispatch({ visit, profileId, onComplete, onClose }: Props) {
+  // key={visit.id} forces React to unmount + remount the dialog when the
+  // selected visit changes, so per-dialog state (photos, statuses, notes,
+  // follow-up draft) is reset to its initial values for each new visit
+  // instead of leaking from the previous one.
   const shared = { visit, profileId, onComplete, onClose }
 
   switch (visit.type) {
-    case 'backwork':            return <BackworkDialog           {...shared} />
-    case 'follow-up':           return <FollowUpDialog           {...shared} />
-    case 'site-visit-single':   return <SiteVisitSingleDialog    {...shared} />
-    case 'site-visit-contract': return <SiteVisitContractDialog  {...shared} />
-    case 'contract':            return <ContractVisitDialog      {...shared} />
-    case 'qc':                  return <QcDialog                 {...shared} />
-    default:                    return <NormalOrderDialog         {...shared} />
+    case 'backwork':            return <BackworkDialog           key={visit.id} {...shared} />
+    case 'follow-up':           return <FollowUpDialog           key={visit.id} {...shared} />
+    case 'site-visit-single':   return <SiteVisitSingleDialog    key={visit.id} {...shared} />
+    case 'site-visit-contract': return <SiteVisitContractDialog  key={visit.id} {...shared} />
+    case 'contract':            return <ContractVisitDialog      key={visit.id} {...shared} />
+    case 'qc':                  return <QcDialog                 key={visit.id} {...shared} />
+    default:                    return <NormalOrderDialog         key={visit.id} {...shared} />
   }
 }

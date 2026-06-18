@@ -69,15 +69,25 @@ async function generateVisitId(supabase: ReturnType<typeof createClient>): Promi
   return `V/${year}/${month}/${String(lastNum + 1).padStart(4, '0')}`
 }
 
-export function useCreateOrder() {
+export function useCreateOrder(options?: { kind?: 'order' | 'follow-up' }) {
+  const kind = options?.kind ?? 'order'
   const [draft, setDraft] = useState<OrderDraft>(INITIAL_DRAFT)
   const [pendingFiles, setPendingFiles] = useState<PendingAttachment[]>([])
   const supabase = createClient()
   const qc = useQueryClient()
 
+  async function generateIdForKind(): Promise<string> {
+    if (kind === 'follow-up') {
+      const { data, error } = await supabase.rpc('next_follow_up_order_id')
+      if (error || !data) throw new Error(error?.message ?? 'next_follow_up_order_id failed')
+      return data as unknown as string
+    }
+    return generateOrderId(supabase)
+  }
+
   // Pre-generate the order ID on mount so it can be displayed before submit
   useEffect(() => {
-    generateOrderId(supabase).then((id) => {
+    generateIdForKind().then((id) => {
       setDraft((d) => ({ ...d, orderId: id }))
     })
   // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -265,7 +275,7 @@ export function useCreateOrder() {
       }
 
       // ── Regular order path ──────────────────────────────────────────────────
-      const orderId = await generateOrderId(supabase)
+      const orderId = await generateIdForKind()
       const totalAmount = draft.services.reduce((sum, s) => sum + s.price * s.qty, 0) - draft.voucherDiscount
 
       const servicesPayload = draft.services.map((s) => ({

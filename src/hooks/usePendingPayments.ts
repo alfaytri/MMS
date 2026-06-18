@@ -3,9 +3,18 @@ import { useQuery } from '@tanstack/react-query'
 import { createClient } from '@/lib/supabase/client'
 import { queryKeys } from '@/lib/queryKeys'
 
+export type CustomerPhone = {
+  id: string
+  phone: string
+  is_primary: boolean
+  label: string | null
+}
+
 export type PendingInvoice = {
   id: string
   invoice_id: string
+  /** FK to customer_phones.id. NULL when no phone trail exists (manual or sale-order invoices). */
+  phone_id: string | null
   division_id: string | null
   division_name: string | null
   source_type: string | null
@@ -20,7 +29,8 @@ export type PendingInvoice = {
 export type CustomerPending = {
   customer_id: string
   customer_name: string
-  phone: string | null
+  /** All phones for this customer, ordered primary-first. */
+  phones: CustomerPhone[]
   division_id: string | null
   division_name: string | null
   total_pending: number

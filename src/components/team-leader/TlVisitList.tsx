@@ -29,7 +29,7 @@ export function TlVisitList({
     return (
       <div className="flex flex-col items-center justify-center flex-1 gap-3 py-16 text-center px-6">
         <p className="font-medium">No visits scheduled</p>
-        <p className="text-sm text-muted-foreground">Check back later or switch to All Upcoming.</p>
+        <p className="text-sm text-muted-foreground">Check back later or pick a different date.</p>
       </div>
     )
   }
@@ -63,7 +63,7 @@ export function TlVisitList({
                   visit={visit}
                   teamId={teamId}
                   isStarted={startedVisits.has(visit.id)}
-                  isCompleted={completedVisits.has(visit.id)}
+                  isCompleted={visit.status === 'completed' || completedVisits.has(visit.id)}
                   onStart={onStart}
                   onTapCard={onTapCard}
                 />

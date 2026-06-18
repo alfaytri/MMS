@@ -5,6 +5,14 @@ interface MakeCallArgs {
   destination: string  // E.164, e.g. "+97455123456"
 }
 
+/** Thrown when 3CX can't reach the user's softphone (extension not registered). */
+export class SoftphoneOfflineError extends Error {
+  constructor() {
+    super('Softphone offline')
+    this.name = 'SoftphoneOfflineError'
+  }
+}
+
 export async function makeCall({ extension, destination }: MakeCallArgs): Promise<void> {
   if (!extension)   throw new Error('extension is required')
   if (!destination) throw new Error('destination is required')
@@ -22,6 +30,9 @@ export async function makeCall({ extension, destination }: MakeCallArgs): Promis
   })
 
   if (!res.ok) {
+    // 404 from MakeCall means 3CX can't find a registered endpoint for this DN —
+    // i.e., the softphone app isn't running / signed in.
+    if (res.status === 404) throw new SoftphoneOfflineError()
     const text = await res.text()
     throw new Error(`3CX MakeCall failed: ${res.status} ${text.slice(0, 200)}`)
   }

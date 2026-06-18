@@ -2,9 +2,8 @@
 import { useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { useMutation, useQueryClient } from '@tanstack/react-query'
-import { Sheet, SheetContent, SheetHeader } from '@/components/ui/sheet'
+import { Dialog, DialogContent } from '@/components/ui/dialog'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
-import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import {
   AlertDialog,
@@ -16,7 +15,9 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from '@/components/ui/alert-dialog'
-import { MapPin, Phone, FileText, Calendar, Clock, CheckCircle, XCircle, Pencil, Plus } from 'lucide-react'
+import {
+  MessageSquare, MapPin, CheckCircle, XCircle, Pencil, Plus, Truck,
+} from 'lucide-react'
 import { format } from 'date-fns'
 import { useSiteVisitDetail } from '@/hooks/useSiteVisitDetail'
 import { createClient } from '@/lib/supabase/client'
@@ -25,11 +26,11 @@ import { cn } from '@/lib/utils'
 import { queryKeys } from '@/lib/queryKeys'
 
 const STATUS_STYLES: Record<string, string> = {
-  scheduled:  'bg-blue-100 text-blue-800',
-  confirmed:  'bg-green-100 text-green-800',
-  completed:  'bg-green-100 text-green-800',
-  cancelled:  'bg-red-100 text-red-800',
-  waitlist:   'bg-yellow-100 text-yellow-800',
+  scheduled:  'bg-blue-100 text-blue-700',
+  confirmed:  'bg-green-100 text-green-700',
+  completed:  'bg-green-100 text-green-700',
+  cancelled:  'bg-red-100 text-red-700',
+  waitlist:   'bg-amber-100 text-amber-700',
 }
 
 function fmt12(t: string): string {
@@ -93,155 +94,209 @@ export function SiteVisitDetailSheet({ visitId, open, onOpenChange }: Props) {
 
   return (
     <>
-      <Sheet
+      <Dialog
         open={open}
         onOpenChange={(newOpen: boolean) => {
           if (cancelOpen) return
           onOpenChange(newOpen)
         }}
       >
-        <SheetContent side="right" className="w-full sm:max-w-xl flex flex-col p-0">
+        <DialogContent className="w-[96vw] max-w-3xl p-0 gap-0 max-h-[90vh] flex flex-col overflow-hidden">
           {isLoading || !visit ? (
-            <div className="flex flex-1 items-center justify-center text-sm text-muted-foreground">
+            <div className="flex items-center justify-center py-16 text-sm text-muted-foreground">
               Loading…
             </div>
           ) : (
             <>
-              <SheetHeader className="border-b px-4 py-3">
-                <div className="flex items-center gap-2 flex-wrap">
-                  <span className="font-bold text-foreground font-mono">{visit.visit_id}</span>
-                  <span className="rounded border border-purple-200 bg-purple-100 px-2 py-0.5 text-[11px] font-semibold text-purple-700">
+              {/* Header */}
+              <div className="px-5 pt-5 pb-4 border-b">
+                <div className="flex items-start gap-3 flex-wrap pr-8">
+                  <span className="font-bold text-lg text-foreground font-mono">{visit.visit_id}</span>
+                  <span className={cn(
+                    'rounded-full px-2.5 py-0.5 text-xs font-semibold capitalize',
+                    STATUS_STYLES[visit.status] ?? 'bg-muted text-muted-foreground'
+                  )}>
+                    {visit.status}
+                  </span>
+                  <span className="rounded-full bg-purple-100 text-purple-700 px-2.5 py-0.5 text-xs font-semibold">
                     Site Visit
                   </span>
-                  <Badge className={cn('text-xs capitalize', STATUS_STYLES[visit.status] ?? 'bg-muted text-muted-foreground')}>
-                    {visit.status}
-                  </Badge>
+                  {visit.scheduled_date && (
+                    <span className="rounded-full bg-muted text-muted-foreground px-2.5 py-0.5 text-xs font-medium">
+                      Visit: {visit.scheduled_date}
+                    </span>
+                  )}
+                  <p className="text-sm text-muted-foreground ml-auto truncate">
+                    {visit.customer_name}
+                    {visit.customer_phone && (
+                      <span className="text-orange-600"> · {visit.customer_phone}</span>
+                    )}
+                  </p>
                 </div>
-
-                <p className="text-sm text-muted-foreground">
-                  {visit.customer_name} · {visit.customer_phone}
-                </p>
-
                 {visit.arrival_phone && visit.arrival_phone !== visit.customer_phone && (
-                  <p className="flex items-center gap-1 text-xs text-muted-foreground">
-                    <Phone className="h-3 w-3 text-orange-400" />
-                    {visit.arrival_phone}
-                    <span className="text-orange-500 font-medium">on arrival</span>
+                  <p className="text-xs text-muted-foreground mt-1">
+                    Arrival contact: <span className="text-orange-600">{visit.arrival_phone}</span>
                   </p>
                 )}
+              </div>
 
-                {/* Action buttons */}
-                <div className="flex items-center gap-2 flex-wrap pt-1">
+              {/* Confirmation banner — hidden for terminal statuses */}
+              {(() => {
+                const isTerminal = visit.status === 'completed' || visit.status === 'cancelled'
+                const hasAnyAction =
+                  !isTerminal &&
+                  (CONFIRMABLE.includes(visit.status) ||
+                    EDITABLE.includes(visit.status) ||
+                    CANCELLABLE.includes(visit.status))
+                if (isTerminal && !hasAnyAction) return null
+                return (
+              <div className="mx-5 mt-4 rounded-lg border bg-muted/40 p-3 flex items-start gap-3 flex-wrap">
+                {!isTerminal && (
+                  <div className="flex items-start gap-2.5 flex-1 min-w-[200px]">
+                    <MessageSquare className="h-4 w-4 text-muted-foreground mt-0.5 shrink-0" />
+                    <div className="min-w-0">
+                      <p className="text-sm font-semibold text-foreground">
+                        {visit.status === 'confirmed' ? 'Confirmed' : 'Not Sent'}
+                      </p>
+                      <p className="text-xs text-muted-foreground">
+                        {visit.status === 'confirmed'
+                          ? 'Site visit confirmed'
+                          : '48hr auto-confirmation via WhatsApp before scheduled date'}
+                      </p>
+                    </div>
+                  </div>
+                )}
+                <div className="flex flex-wrap gap-1.5">
+                  {CONFIRMABLE.includes(visit.status) && (
+                    <Button
+                      size="sm"
+                      className="gap-1.5 h-8 text-xs"
+                      onClick={() => confirmMutation.mutate()}
+                      disabled={confirmMutation.isPending}
+                    >
+                      <CheckCircle className="h-3.5 w-3.5" /> Confirm Manually
+                    </Button>
+                  )}
                   {EDITABLE.includes(visit.status) && (
                     <Button
                       size="sm"
                       variant="outline"
-                      className="min-h-11 sm:h-7 gap-1 text-xs"
+                      className="gap-1.5 h-8 text-xs"
                       onClick={() => {
                         onOpenChange(false)
                         router.push(`/orders/site-visits/${visitId}/edit`)
                       }}
                     >
-                      <Pencil className="h-3 w-3" /> Edit
-                    </Button>
-                  )}
-                  {CONFIRMABLE.includes(visit.status) && (
-                    <Button
-                      size="sm"
-                      className="min-h-11 sm:h-7 gap-1 text-xs"
-                      onClick={() => confirmMutation.mutate()}
-                      disabled={confirmMutation.isPending}
-                    >
-                      <CheckCircle className="h-3 w-3" /> Confirm
+                      <Pencil className="h-3.5 w-3.5" /> Edit Order
                     </Button>
                   )}
                   {CANCELLABLE.includes(visit.status) && (
                     <Button
                       size="sm"
-                      variant="destructive"
-                      className="min-h-11 sm:h-7 gap-1 text-xs"
+                      variant="outline"
+                      className="gap-1.5 h-8 text-xs border-red-200 text-red-600 hover:bg-red-50 hover:text-red-700"
                       onClick={() => setCancelOpen(true)}
                     >
-                      <XCircle className="h-3 w-3" /> Cancel
+                      <XCircle className="h-3.5 w-3.5" /> Cancel Order
                     </Button>
                   )}
                 </div>
-              </SheetHeader>
-
-              {/* Info summary */}
-              <div className="px-4 pt-3 space-y-2">
-                {visit.scheduled_date && (
-                  <div className="flex items-center gap-2 text-sm text-foreground">
-                    <Calendar className="h-4 w-4 shrink-0 text-muted-foreground" />
-                    <span>{format(new Date(visit.scheduled_date), 'dd MMM yyyy')}</span>
-                  </div>
-                )}
-                {visit.address && (
-                  <div className="flex items-start gap-2 text-sm text-foreground">
-                    <MapPin className="h-4 w-4 shrink-0 text-muted-foreground mt-0.5" />
-                    <span>{visit.address}</span>
-                  </div>
-                )}
-                {visit.notes && (
-                  <div className="flex items-start gap-2 rounded-md bg-amber-50 border border-amber-100 px-3 py-2 text-sm text-foreground">
-                    <FileText className="h-4 w-4 shrink-0 text-amber-500 mt-0.5" />
-                    <span>{visit.notes}</span>
-                  </div>
-                )}
-
-                {/* Team assignments */}
-                <div className="space-y-1.5">
-                  <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
-                    Team Assignments
-                  </p>
-                  {visit.assignments.length === 0 ? (
-                    <p className="text-sm text-muted-foreground">No team assigned yet</p>
-                  ) : (
-                    visit.assignments.map((a) => (
-                      <div key={a.id} className="rounded-lg border border-border bg-muted px-3 py-2.5 space-y-0.5">
-                        <p className="font-medium text-sm text-foreground">{a.team_name}</p>
-                        <div className="flex items-center gap-3 text-xs text-muted-foreground">
-                          {a.scheduled_date && <span>{a.scheduled_date}</span>}
-                          {a.time_slot && (
-                            <span className="flex items-center gap-1">
-                              <Clock className="h-3 w-3" />
-                              {fmt12(a.time_slot)}
-                            </span>
-                          )}
-                          <span>{a.duration}h</span>
-                        </div>
-                      </div>
-                    ))
-                  )}
-                </div>
-
-                <div className="grid grid-cols-2 gap-2 rounded-md bg-muted p-3 text-center text-sm">
-                  <div>
-                    <p className="font-bold">{visit.assignments.length}</p>
-                    <p className="text-xs text-muted-foreground">Teams</p>
-                  </div>
-                  <div>
-                    <p className="font-bold capitalize">{visit.mode}</p>
-                    <p className="text-xs text-muted-foreground">Mode</p>
-                  </div>
-                </div>
               </div>
+                )
+              })()}
 
               {/* Tabs */}
-              <Tabs defaultValue="followup" className="flex flex-1 flex-col overflow-hidden mt-2">
-                <TabsList className="mx-4 w-auto justify-start rounded-none border-b bg-transparent p-0">
-                  {(['followup', 'logs'] as const).map((tab) => (
-                    <TabsTrigger
-                      key={tab}
-                      value={tab}
-                      className="rounded-none border-b-2 border-transparent data-[state=active]:border-orange-500 capitalize px-3 py-1.5 text-sm"
-                    >
-                      {tab === 'followup' ? 'Follow-Up' : 'Logs'}
-                    </TabsTrigger>
-                  ))}
+              <Tabs defaultValue="services" className="flex flex-1 flex-col overflow-hidden mt-3">
+                <TabsList className="mx-5 w-auto justify-start rounded-none border-b bg-transparent p-0 overflow-x-auto whitespace-nowrap scroll-x-fade gap-1">
+                  <TabsTrigger
+                    value="services"
+                    className="rounded-none border-b-2 border-transparent data-[state=active]:border-orange-500 data-[state=active]:text-foreground text-muted-foreground px-3 py-1.5 text-sm font-medium"
+                  >
+                    Booked Services
+                  </TabsTrigger>
+                  <TabsTrigger
+                    value="invoice"
+                    className="rounded-none border-b-2 border-transparent data-[state=active]:border-orange-500 data-[state=active]:text-foreground text-muted-foreground px-3 py-1.5 text-sm font-medium"
+                  >
+                    Invoiced &amp; Report
+                  </TabsTrigger>
+                  <TabsTrigger
+                    value="followup"
+                    className="rounded-none border-b-2 border-transparent data-[state=active]:border-orange-500 data-[state=active]:text-foreground text-muted-foreground px-3 py-1.5 text-sm font-medium"
+                  >
+                    Follow-up &amp; Backwork
+                  </TabsTrigger>
+                  <TabsTrigger
+                    value="logs"
+                    className="rounded-none border-b-2 border-transparent data-[state=active]:border-orange-500 data-[state=active]:text-foreground text-muted-foreground px-3 py-1.5 text-sm font-medium"
+                  >
+                    Logs (0)
+                  </TabsTrigger>
                 </TabsList>
 
-                <div className="flex-1 overflow-y-auto px-4 py-3">
+                <div className="flex-1 overflow-y-auto px-5 py-4">
+                  {/* Booked Services */}
+                  <TabsContent value="services" className="mt-0 space-y-4">
+                    {visit.assignments.length === 0 ? (
+                      <div className="rounded-lg border border-dashed bg-muted/30 p-6 text-center text-sm text-muted-foreground">
+                        No team assigned yet
+                      </div>
+                    ) : (
+                      <div className="space-y-2">
+                        {visit.assignments.map((a) => (
+                          <div key={a.id} className="flex items-center gap-3 rounded-lg border bg-card p-3">
+                            <div className="rounded-lg bg-blue-50 p-2 shrink-0">
+                              <Truck className="h-4 w-4 text-blue-600" />
+                            </div>
+                            <div className="min-w-0 flex-1">
+                              <p className="text-sm font-medium text-foreground">{a.team_name}</p>
+                              <p className="text-xs text-muted-foreground">
+                                {a.scheduled_date ?? ''}
+                                {a.time_slot && <> · {fmt12(a.time_slot)}</>}
+                                {a.duration ? <> · {a.duration}h</> : null}
+                              </p>
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    )}
+
+                    {visit.address && (
+                      <div className="rounded-lg border bg-card p-3 flex items-start gap-2.5">
+                        <MapPin className="h-4 w-4 text-muted-foreground mt-0.5 shrink-0" />
+                        <p className="text-sm text-foreground">{visit.address}</p>
+                      </div>
+                    )}
+
+                    {/* Order Summary */}
+                    <div className="pt-2">
+                      <h3 className="text-sm font-semibold text-foreground mb-2">Order Summary</h3>
+                      <div className="grid grid-cols-3 gap-2">
+                        <StatCard label="Services" value="0" />
+                        <StatCard label="Teams" value={visit.assignments.length.toString()} />
+                        <StatCard label="Total" value="0 QAR" accent />
+                      </div>
+                    </div>
+
+                    {/* Notes */}
+                    {visit.notes && (
+                      <div className="rounded-lg border bg-card p-3">
+                        <p className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground mb-1">
+                          Notes
+                        </p>
+                        <p className="text-sm text-foreground whitespace-pre-wrap">{visit.notes}</p>
+                      </div>
+                    )}
+                  </TabsContent>
+
+                  {/* Invoice — site visits don't generate invoices directly */}
+                  <TabsContent value="invoice" className="mt-0">
+                    <div className="rounded-lg border border-dashed bg-muted/30 p-6 text-center text-sm text-muted-foreground">
+                      No invoice generated yet
+                    </div>
+                  </TabsContent>
+
+                  {/* Follow-up & Backwork */}
                   <TabsContent value="followup" className="mt-0 space-y-2">
                     {visit.status === 'completed' ? (
                       <>
@@ -265,20 +320,21 @@ export function SiteVisitDetailSheet({ visitId, open, onOpenChange }: Props) {
                         </Button>
                       </>
                     ) : (
-                      <p className="text-sm text-muted-foreground">
+                      <div className="rounded-lg border border-dashed bg-muted/30 p-6 text-center text-sm text-muted-foreground">
                         Available once the site visit is marked as completed.
-                      </p>
+                      </div>
                     )}
                   </TabsContent>
 
+                  {/* Logs */}
                   <TabsContent value="logs" className="mt-0">
                     <div className="space-y-3">
                       <div className="flex gap-3">
                         <div className="flex flex-col items-center">
-                          <div className="h-2 w-2 rounded-full bg-slate-300 mt-1" />
+                          <div className="h-2 w-2 rounded-full bg-orange-400 mt-1.5" />
                         </div>
                         <div>
-                          <p className="text-sm font-medium">
+                          <p className="text-sm font-medium text-foreground">
                             Site visit created
                           </p>
                           <p className="text-xs text-muted-foreground">
@@ -292,8 +348,8 @@ export function SiteVisitDetailSheet({ visitId, open, onOpenChange }: Props) {
               </Tabs>
             </>
           )}
-        </SheetContent>
-      </Sheet>
+        </DialogContent>
+      </Dialog>
 
       {/* Cancel confirmation dialog */}
       <AlertDialog open={cancelOpen} onOpenChange={setCancelOpen}>
@@ -318,5 +374,19 @@ export function SiteVisitDetailSheet({ visitId, open, onOpenChange }: Props) {
         </AlertDialogContent>
       </AlertDialog>
     </>
+  )
+}
+
+function StatCard({ label, value, accent = false }: { label: string; value: string; accent?: boolean }) {
+  return (
+    <div className="rounded-lg border bg-card px-3 py-2.5">
+      <p className="text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">{label}</p>
+      <p className={cn(
+        'mt-0.5 text-base font-bold',
+        accent ? 'text-orange-600' : 'text-foreground'
+      )}>
+        {value}
+      </p>
+    </div>
   )
 }
