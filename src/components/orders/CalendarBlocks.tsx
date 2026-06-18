@@ -472,27 +472,70 @@ export function VisitBlock({ visit: v, trackMap, hourLeftFn, workStart, workEnd,
     leaveTimer.current = setTimeout(() => setHovered(false), 120)
   }
 
-  const colorBlock = isFollowUpRequest
-    ? 'bg-yellow-50 border-yellow-400 border-dashed text-yellow-900'
-    : isFollowUp
-    ? 'bg-yellow-100 border-yellow-400 text-yellow-900'
-    : isSiteVisit
-    ? 'bg-purple-100 border-purple-300 text-purple-900'
-    : 'bg-blue-100 border-blue-300 text-blue-900'
-  const colorNumber = isFollowUpRequest
-    ? 'text-yellow-700'
-    : isFollowUp
-    ? 'text-yellow-700'
-    : isSiteVisit
-    ? 'text-purple-600'
-    : 'text-blue-600'
-  const colorBadge = isFollowUpRequest
-    ? 'border-yellow-300 bg-yellow-100 text-yellow-800'
-    : isFollowUp
-    ? 'border-yellow-300 bg-yellow-50 text-yellow-800'
-    : isSiteVisit
-    ? 'border-purple-200 bg-purple-50 text-purple-700'
-    : 'border-blue-200 bg-blue-50 text-blue-700'
+  // Hue per visit_type — soft palette for booking calendar blocks.
+  // Stays in sync with the solid palette in src/components/calendar/VisitBlock.tsx.
+  // normal_order → orange, follow_up → yellow, follow_up_request → dashed yellow,
+  // site_visit → green, contract_visit → purple, backwork → rose, emergency → red,
+  // qc_visit → indigo.
+  const styles = (() => {
+    if (isFollowUpRequest) return {
+      block:  'bg-yellow-50 border-yellow-400 border-dashed text-yellow-900',
+      number: 'text-yellow-700',
+      badge:  'border-yellow-300 bg-yellow-100 text-yellow-800',
+    }
+    if (isFollowUp) return {
+      block:  'bg-yellow-100 border-yellow-400 text-yellow-900',
+      number: 'text-yellow-700',
+      badge:  'border-yellow-300 bg-yellow-50 text-yellow-800',
+    }
+    if (isSiteVisit) return {
+      block:  'bg-green-100 border-green-300 text-green-900',
+      number: 'text-green-700',
+      badge:  'border-green-200 bg-green-50 text-green-700',
+    }
+    switch (v.visit_type) {
+      case 'emergency':
+        return {
+          block:  'bg-red-100 border-red-300 text-red-900',
+          number: 'text-red-700',
+          badge:  'border-red-200 bg-red-50 text-red-700',
+        }
+      case 'backwork':
+        return {
+          block:  'bg-rose-100 border-rose-300 text-rose-900',
+          number: 'text-rose-700',
+          badge:  'border-rose-200 bg-rose-50 text-rose-700',
+        }
+      case 'contract_visit':
+        return {
+          block:  'bg-purple-100 border-purple-300 text-purple-900',
+          number: 'text-purple-700',
+          badge:  'border-purple-200 bg-purple-50 text-purple-700',
+        }
+      case 'site_visit_contract':
+        return {
+          block:  'bg-teal-100 border-teal-300 text-teal-900',
+          number: 'text-teal-700',
+          badge:  'border-teal-200 bg-teal-50 text-teal-700',
+        }
+      case 'qc_visit':
+        return {
+          block:  'bg-indigo-100 border-indigo-300 text-indigo-900',
+          number: 'text-indigo-700',
+          badge:  'border-indigo-200 bg-indigo-50 text-indigo-700',
+        }
+      default:
+        // normal_order and unknown types — orange.
+        return {
+          block:  'bg-orange-100 border-orange-300 text-orange-900',
+          number: 'text-orange-700',
+          badge:  'border-orange-200 bg-orange-50 text-orange-700',
+        }
+    }
+  })()
+  const colorBlock = styles.block
+  const colorNumber = styles.number
+  const colorBadge = styles.badge
 
   return (
     <div
