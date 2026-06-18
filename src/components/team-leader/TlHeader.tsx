@@ -1,6 +1,7 @@
 // src/components/team-leader/TlHeader.tsx
 'use client'
 
+import { useRef } from 'react'
 import { format, addDays, subDays, parseISO, isToday } from 'date-fns'
 import { ChevronLeft, ChevronRight } from 'lucide-react'
 import { Badge } from '@/components/ui/badge'
@@ -40,9 +41,22 @@ export function TlHeader({
   const divisionNames = Array.from(new Set(allTeams.map((t) => t.division_name).filter(Boolean)))
   const hasManyDivisions = divisionNames.length > 1
 
+  const dateInputRef = useRef<HTMLInputElement>(null)
+
   function shiftDate(days: number) {
     const next = format(addDays(parseISO(selectedDate), days), 'yyyy-MM-dd')
     onSelectedDateChange(next)
+  }
+
+  function openDatePicker() {
+    // showPicker() lets us trigger the native date picker from anywhere on
+    // the input (not just the small calendar icon). Chrome 99+, Edge, Safari 16+.
+    const input = dateInputRef.current
+    if (input && typeof input.showPicker === 'function') {
+      try { input.showPicker() } catch { input.focus() }
+    } else if (input) {
+      input.focus()
+    }
   }
 
   const dateLabel = isToday(parseISO(selectedDate))
@@ -107,10 +121,12 @@ export function TlHeader({
           </Button>
 
           <Input
+            ref={dateInputRef}
             type="date"
             value={selectedDate}
             onChange={(e) => onSelectedDateChange(e.target.value)}
-            className="h-11 flex-1 min-w-0"
+            onClick={openDatePicker}
+            className="h-11 flex-1 min-w-0 cursor-pointer"
             aria-label="Pick a date"
           />
 
@@ -122,10 +138,6 @@ export function TlHeader({
           >
             <ChevronRight className="h-4 w-4" />
           </Button>
-
-          <Badge variant="outline" className="text-xs h-6 shrink-0 whitespace-nowrap">
-            {dateCount}
-          </Badge>
         </div>
       )}
 
