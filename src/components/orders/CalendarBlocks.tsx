@@ -452,6 +452,7 @@ export function VisitBlock({ visit: v, trackMap, hourLeftFn, workStart, workEnd,
   const track = trackMap.get(`v-${v.id}`) ?? 0
   const blockW = (end - start) * 2 * cellW - 2
   const isSiteVisit = v.source_type === 'site_visit'
+  const isFollowUp  = v.visit_type === 'follow_up' || v.visit_type === 'follow-up'
 
   // OT segment widths in px — see DraftBlock for the rationale.
   const earlyOtPx = isEarlyStart ? (workStart - start) * 2 * cellW : 0
@@ -470,11 +471,19 @@ export function VisitBlock({ visit: v, trackMap, hourLeftFn, workStart, workEnd,
     leaveTimer.current = setTimeout(() => setHovered(false), 120)
   }
 
-  const colorBlock = isSiteVisit
+  const colorBlock = isFollowUp
+    ? 'bg-yellow-100 border-yellow-400 text-yellow-900'
+    : isSiteVisit
     ? 'bg-purple-100 border-purple-300 text-purple-900'
     : 'bg-blue-100 border-blue-300 text-blue-900'
-  const colorNumber = isSiteVisit ? 'text-purple-600' : 'text-blue-600'
-  const colorBadge = isSiteVisit
+  const colorNumber = isFollowUp
+    ? 'text-yellow-700'
+    : isSiteVisit
+    ? 'text-purple-600'
+    : 'text-blue-600'
+  const colorBadge = isFollowUp
+    ? 'border-yellow-300 bg-yellow-50 text-yellow-800'
+    : isSiteVisit
     ? 'border-purple-200 bg-purple-50 text-purple-700'
     : 'border-blue-200 bg-blue-50 text-blue-700'
 
