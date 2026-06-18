@@ -2,10 +2,40 @@
 
 import { useState } from 'react'
 import {
-  Briefcase, Zap, RefreshCw, Wrench, MapPin, FileText, ClipboardList, ShieldCheck, Phone,
+  Briefcase, Zap, RefreshCw, Wrench, MapPin, FileText, ClipboardList, ShieldCheck,
+  Phone, CheckCircle2, Circle,
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
+import { useVisitPaymentStatus } from '@/hooks/useVisitPaymentStatus'
 import type { CalendarVisit } from '@/hooks/useCalendarVisits'
+
+function parseServices(summary: string | null): string[] {
+  if (!summary) return []
+  const out: string[] = []
+  let depth = 0
+  let buf = ''
+  for (const ch of summary) {
+    if (ch === '[' || ch === '(') depth++
+    else if (ch === ']' || ch === ')') depth = Math.max(0, depth - 1)
+    if (ch === ',' && depth === 0) {
+      const s = buf.trim()
+      if (s) out.push(s)
+      buf = ''
+    } else {
+      buf += ch
+    }
+  }
+  const tail = buf.trim()
+  if (tail) out.push(tail)
+  return out
+}
+
+function kindLabel(visit: CalendarVisit): string {
+  if (visit.source_type === 'site_visit') return 'Site Visit'
+  if (visit.source_type === 'contract_visit') return 'Contract Visit'
+  if (visit.source_type === 'follow_up_request') return 'Follow-up Request'
+  return 'Order'
+}
 
 export interface VisitTypeDisplayConfig {
   key: string
@@ -15,17 +45,39 @@ export interface VisitTypeDisplayConfig {
   icon: React.ComponentType<{ className?: string }>
 }
 
+// Visit type keys reflect the actual values emitted by the calendar_visits view.
+// Orders source uses orders.type literally (e.g. 'order', 'follow-up', 'site-visit')
+// with 'normal_order' as the COALESCE fallback. Hyphenated and underscored
+// variants both appear in the wild, so each gets its own entry pointing at
+// the same config.
 const VISIT_TYPE_CONFIGS: VisitTypeDisplayConfig[] = [
+  // Normal order — orders.type='order' OR the COALESCE fallback 'normal_order'
+  { key: 'order',               label: 'Normal Order',          color: 'bg-orange-500', iconColor: 'text-orange-100', icon: Briefcase },
   { key: 'normal_order',        label: 'Normal Order',          color: 'bg-orange-500', iconColor: 'text-orange-100', icon: Briefcase },
+
   { key: 'emergency',           label: 'Emergency',             color: 'bg-red-500',    iconColor: 'text-red-100',    icon: Zap },
-  { key: 'follow_up',           label: 'Follow Up',             color: 'bg-yellow-500', iconColor: 'text-yellow-100', icon: RefreshCw },
+
+  // Follow-up order — orders.type='follow-up' (hyphen) is what the link endpoint sets.
   { key: 'follow-up',           label: 'Follow Up',             color: 'bg-yellow-500', iconColor: 'text-yellow-100', icon: RefreshCw },
+  { key: 'follow_up',           label: 'Follow Up',             color: 'bg-yellow-500', iconColor: 'text-yellow-100', icon: RefreshCw },
+
+  // Follow-up REQUEST (still pending, not yet a real order) — emitted by the FUR source.
   { key: 'follow_up_request',   label: 'Follow-up Requested',   color: 'bg-amber-500',  iconColor: 'text-amber-100',  icon: RefreshCw },
+
   { key: 'backwork',            label: 'Backwork',              color: 'bg-rose-500',   iconColor: 'text-rose-100',   icon: Wrench },
+
+  // Site visit — site_visits source emits 'site_visit', orders.type='site-visit' emits 'site-visit'.
   { key: 'site_visit',          label: 'Site Visit',            color: 'bg-green-500',  iconColor: 'text-green-100',  icon: MapPin },
+  { key: 'site-visit',          label: 'Site Visit',            color: 'bg-green-500',  iconColor: 'text-green-100',  icon: MapPin },
+
   { key: 'site_visit_contract', label: 'Site Visit (Contract)', color: 'bg-teal-500',   iconColor: 'text-teal-100',   icon: FileText },
+  { key: 'site-visit-contract', label: 'Site Visit (Contract)', color: 'bg-teal-500',   iconColor: 'text-teal-100',   icon: FileText },
+
   { key: 'contract_visit',      label: 'Contract Visit',        color: 'bg-purple-500', iconColor: 'text-purple-100', icon: ClipboardList },
+  { key: 'contract',            label: 'Contract Visit',        color: 'bg-purple-500', iconColor: 'text-purple-100', icon: ClipboardList },
+
   { key: 'qc_visit',            label: 'QC Visit',              color: 'bg-indigo-500', iconColor: 'text-indigo-100', icon: ShieldCheck },
+  { key: 'qc',                  label: 'QC Visit',              color: 'bg-indigo-500', iconColor: 'text-indigo-100', icon: ShieldCheck },
 ]
 
 const FALLBACK_CONFIG: Omit<VisitTypeDisplayConfig, 'key'> = {
@@ -143,68 +195,141 @@ export function VisitBlock({
 
       {/* Hover popup */}
       {hovered && (
-        <div
-          className="absolute top-full left-0 mt-1 min-w-[220px] bg-popover border border-border rounded-lg shadow-xl p-3 z-30 space-y-2"
+        <HoverPopup
+          visit={visit}
+          cfg={cfg}
+          Icon={Icon}
+          timeLabel={timeLabel}
+          isOvertime={isOvertime}
+          canEdit={canEdit}
+          canSwap={canSwap}
+          onEdit={onEdit}
+          onSwap={onSwap}
           onMouseEnter={() => setHovered(true)}
           onMouseLeave={() => setHovered(false)}
-        >
-          {/* Order number */}
-          {visit.order_number && (
-            <p className="font-mono font-bold text-foreground text-sm">{visit.order_number}</p>
+        />
+      )}
+    </div>
+  )
+}
+
+interface HoverPopupProps {
+  visit: CalendarVisit
+  cfg: VisitTypeDisplayConfig
+  Icon: React.ComponentType<{ className?: string }>
+  timeLabel: string
+  isOvertime: boolean
+  canEdit: boolean
+  canSwap: boolean
+  onEdit: (visit: CalendarVisit) => void
+  onSwap: (visit: CalendarVisit) => void
+  onMouseEnter: () => void
+  onMouseLeave: () => void
+}
+
+function HoverPopup({
+  visit, cfg, Icon, timeLabel, isOvertime,
+  canEdit, canSwap, onEdit, onSwap,
+  onMouseEnter, onMouseLeave,
+}: HoverPopupProps) {
+  const isCompleted = visit.status === 'completed'
+  const payment = useVisitPaymentStatus(visit.id, isCompleted)
+  const paymentInfo = payment.data
+  const showPayment = isCompleted && paymentInfo
+  const services = parseServices(visit.services_summary)
+  const previewServices = services.slice(0, 4)
+  const moreCount = Math.max(0, services.length - previewServices.length)
+
+  return (
+    <div
+      className="absolute top-full left-0 mt-1 min-w-[240px] max-w-[300px] bg-popover border border-border rounded-lg shadow-xl p-3 z-30 space-y-2"
+      onMouseEnter={onMouseEnter}
+      onMouseLeave={onMouseLeave}
+    >
+      {/* Entity kind + order/visit number */}
+      <div>
+        <p className="text-[9px] font-semibold uppercase tracking-widest text-muted-foreground">
+          {kindLabel(visit)}
+        </p>
+        {visit.order_number && (
+          <p className="font-mono font-bold text-foreground text-sm leading-tight">{visit.order_number}</p>
+        )}
+      </div>
+
+      {/* Type pill + status + payment */}
+      <div className="flex items-center gap-1.5 flex-wrap">
+        <span className={cn('inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[10px] font-semibold text-white', cfg.color)}>
+          <Icon className="h-2.5 w-2.5" />
+          {cfg.label}
+        </span>
+        <span className={cn(
+          'rounded-full border px-2 py-0.5 text-[10px] font-medium capitalize',
+          isCompleted ? 'border-green-300 bg-green-50 text-green-800' : 'border-foreground/15 text-muted-foreground',
+        )}>
+          {visit.status}
+        </span>
+        {showPayment && paymentInfo.status === 'paid' && (
+          <span className="inline-flex items-center gap-1 rounded-full border border-green-300 bg-green-50 px-2 py-0.5 text-[10px] font-semibold text-green-800">
+            <CheckCircle2 className="h-2.5 w-2.5" /> Paid
+          </span>
+        )}
+        {showPayment && paymentInfo.status === 'unpaid' && (
+          <span className="inline-flex items-center gap-1 rounded-full border border-amber-300 bg-amber-50 px-2 py-0.5 text-[10px] font-semibold text-amber-800">
+            <Circle className="h-2.5 w-2.5" /> Unpaid
+          </span>
+        )}
+        {isOvertime && (
+          <span className="inline-flex items-center gap-0.5 rounded-full bg-orange-100 px-2 py-0.5 text-[10px] font-semibold text-orange-700">
+            ⚠ Overtime
+          </span>
+        )}
+      </div>
+
+      {/* Details */}
+      <div className="space-y-1">
+        {visit.customer_name && (
+          <p className="text-[11px] font-semibold text-foreground">{visit.customer_name}</p>
+        )}
+        {visit.customer_phone && (
+          <div className="flex items-center gap-1 text-[11px] text-muted-foreground">
+            <Phone className="h-3 w-3" />
+            {visit.customer_phone}
+          </div>
+        )}
+        <p className="text-[11px] text-muted-foreground">{timeLabel}</p>
+      </div>
+
+      {/* Services as a tight list */}
+      {previewServices.length > 0 && (
+        <div className="border-t pt-1.5 space-y-0.5">
+          {previewServices.map((s, i) => (
+            <p key={i} className="text-[11px] text-foreground leading-snug">• {s}</p>
+          ))}
+          {moreCount > 0 && (
+            <p className="text-[10px] text-muted-foreground italic">+ {moreCount} more</p>
           )}
+        </div>
+      )}
 
-          {/* Type + status */}
-          <div className="flex items-center gap-1.5 flex-wrap">
-            <span className={cn('inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[10px] font-semibold text-white', cfg.color)}>
-              <Icon className="h-2.5 w-2.5" />
-              {cfg.label}
-            </span>
-            <span className="rounded-full border px-2 py-0.5 text-[10px] font-medium capitalize text-muted-foreground">
-              {visit.status}
-            </span>
-            {isOvertime && (
-              <span className="inline-flex items-center gap-0.5 rounded-full bg-orange-100 px-2 py-0.5 text-[10px] font-semibold text-orange-700">
-                ⚠ Overtime
-              </span>
-            )}
-          </div>
-
-          {/* Details */}
-          <div className="space-y-1">
-            {visit.customer_name && (
-              <p className="text-[11px] font-semibold text-foreground">{visit.customer_name}</p>
-            )}
-            {visit.customer_phone && (
-              <div className="flex items-center gap-1 text-[11px] text-muted-foreground">
-                <Phone className="h-3 w-3" />
-                {visit.customer_phone}
-              </div>
-            )}
-            <p className="text-[11px] text-muted-foreground">{timeLabel}</p>
-            {visit.services_summary && (
-              <p className="text-[11px] text-muted-foreground border-t pt-1.5">{visit.services_summary}</p>
-            )}
-          </div>
-
-          {/* Actions */}
-          <div className="flex gap-1 pt-0.5 border-t">
-            {canEdit && (
-              <button
-                className="flex-1 text-[11px] font-medium px-2 py-1 rounded border hover:bg-muted transition-colors"
-                onClick={e => { e.stopPropagation(); onEdit(visit) }}
-              >
-                View Details
-              </button>
-            )}
-            {canSwap && visit.source_type === 'order' && (
-              <button
-                className="flex-1 text-[11px] font-medium px-2 py-1 rounded border hover:bg-muted transition-colors"
-                onClick={e => { e.stopPropagation(); onSwap(visit) }}
-              >
-                Swap Team
-              </button>
-            )}
-          </div>
+      {/* Actions */}
+      {(canEdit || (canSwap && visit.source_type === 'order')) && (
+        <div className="flex gap-1 pt-0.5 border-t">
+          {canEdit && (
+            <button
+              className="flex-1 text-[11px] font-medium px-2 py-1 rounded border hover:bg-muted transition-colors"
+              onClick={e => { e.stopPropagation(); onEdit(visit) }}
+            >
+              View Details
+            </button>
+          )}
+          {canSwap && visit.source_type === 'order' && (
+            <button
+              className="flex-1 text-[11px] font-medium px-2 py-1 rounded border hover:bg-muted transition-colors"
+              onClick={e => { e.stopPropagation(); onSwap(visit) }}
+            >
+              Swap Team
+            </button>
+          )}
         </div>
       )}
     </div>

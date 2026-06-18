@@ -451,7 +451,7 @@ export function VisitBlock({ visit: v, trackMap, hourLeftFn, workStart, workEnd,
 
   const track = trackMap.get(`v-${v.id}`) ?? 0
   const blockW = (end - start) * 2 * cellW - 2
-  const isSiteVisit       = v.source_type === 'site_visit'
+  const isSiteVisit       = v.source_type === 'site_visit' || v.visit_type === 'site-visit' || v.visit_type === 'site_visit'
   const isFollowUpRequest = v.visit_type === 'follow_up_request'
   const isFollowUp        = !isFollowUpRequest && (v.visit_type === 'follow_up' || v.visit_type === 'follow-up')
 
@@ -507,25 +507,28 @@ export function VisitBlock({ visit: v, trackMap, hourLeftFn, workStart, workEnd,
           badge:  'border-rose-200 bg-rose-50 text-rose-700',
         }
       case 'contract_visit':
+      case 'contract':
         return {
           block:  'bg-purple-100 border-purple-300 text-purple-900',
           number: 'text-purple-700',
           badge:  'border-purple-200 bg-purple-50 text-purple-700',
         }
       case 'site_visit_contract':
+      case 'site-visit-contract':
         return {
           block:  'bg-teal-100 border-teal-300 text-teal-900',
           number: 'text-teal-700',
           badge:  'border-teal-200 bg-teal-50 text-teal-700',
         }
       case 'qc_visit':
+      case 'qc':
         return {
           block:  'bg-indigo-100 border-indigo-300 text-indigo-900',
           number: 'text-indigo-700',
           badge:  'border-indigo-200 bg-indigo-50 text-indigo-700',
         }
       default:
-        // normal_order and unknown types — orange.
+        // 'order', 'normal_order', or unknown — orange.
         return {
           block:  'bg-orange-100 border-orange-300 text-orange-900',
           number: 'text-orange-700',
