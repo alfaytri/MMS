@@ -63,7 +63,7 @@ export function TlVisitList({
                   visit={visit}
                   teamId={teamId}
                   isStarted={startedVisits.has(visit.id)}
-                  isCompleted={completedVisits.has(visit.id)}
+                  isCompleted={visit.status === 'completed' || completedVisits.has(visit.id)}
                   onStart={onStart}
                   onTapCard={onTapCard}
                 />
