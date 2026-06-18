@@ -6,7 +6,7 @@ import {
 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { cn } from '@/lib/utils'
-import { getVisitTypeConfig } from './VisitBlock'
+import { getVisitTypeConfig, solidColor } from './VisitBlock'
 import { useVisitPaymentStatus } from '@/hooks/useVisitPaymentStatus'
 import type { CalendarVisit } from '@/hooks/useCalendarVisits'
 
@@ -105,7 +105,7 @@ export function VisitDetailPanel({
       {/* Panel */}
       <div className="fixed inset-y-0 right-0 z-50 w-80 bg-background shadow-2xl border-l flex flex-col">
         {/* Coloured header */}
-        <div className={cn('flex items-center justify-between px-4 py-3 text-white', cfg.color)}>
+        <div className={cn('flex items-center justify-between px-4 py-3 text-white', solidColor(cfg.color))}>
           <div className="flex items-center gap-2">
             <Icon className="h-4 w-4 opacity-90" />
             <span className="text-sm font-semibold">{cfg.label}</span>

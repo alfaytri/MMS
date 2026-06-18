@@ -50,35 +50,46 @@ export interface VisitTypeDisplayConfig {
 // with 'normal_order' as the COALESCE fallback. Hyphenated and underscored
 // variants both appear in the wild, so each gets its own entry pointing at
 // the same config.
+// Block colors use /60 opacity so the calendar grid (and any off-hours stripes)
+// remains visible behind the cards. Solid /500 is reserved for the small
+// pills/badges inside the popup where contrast on white is what we want.
 const VISIT_TYPE_CONFIGS: VisitTypeDisplayConfig[] = [
   // Normal order — orders.type='order' OR the COALESCE fallback 'normal_order'
-  { key: 'order',               label: 'Normal Order',          color: 'bg-orange-500', iconColor: 'text-orange-100', icon: Briefcase },
-  { key: 'normal_order',        label: 'Normal Order',          color: 'bg-orange-500', iconColor: 'text-orange-100', icon: Briefcase },
+  { key: 'order',               label: 'Normal Order',          color: 'bg-orange-500/60', iconColor: 'text-orange-50',  icon: Briefcase },
+  { key: 'normal_order',        label: 'Normal Order',          color: 'bg-orange-500/60', iconColor: 'text-orange-50',  icon: Briefcase },
 
-  { key: 'emergency',           label: 'Emergency',             color: 'bg-red-500',    iconColor: 'text-red-100',    icon: Zap },
+  { key: 'emergency',           label: 'Emergency',             color: 'bg-red-500/60',    iconColor: 'text-red-50',     icon: Zap },
 
   // Follow-up order — orders.type='follow-up' (hyphen) is what the link endpoint sets.
-  { key: 'follow-up',           label: 'Follow Up',             color: 'bg-yellow-500', iconColor: 'text-yellow-100', icon: RefreshCw },
-  { key: 'follow_up',           label: 'Follow Up',             color: 'bg-yellow-500', iconColor: 'text-yellow-100', icon: RefreshCw },
+  { key: 'follow-up',           label: 'Follow Up',             color: 'bg-yellow-500/60', iconColor: 'text-yellow-50',  icon: RefreshCw },
+  { key: 'follow_up',           label: 'Follow Up',             color: 'bg-yellow-500/60', iconColor: 'text-yellow-50',  icon: RefreshCw },
 
   // Follow-up REQUEST (still pending, not yet a real order) — emitted by the FUR source.
-  { key: 'follow_up_request',   label: 'Follow-up Requested',   color: 'bg-amber-500',  iconColor: 'text-amber-100',  icon: RefreshCw },
+  { key: 'follow_up_request',   label: 'Follow-up Requested',   color: 'bg-amber-500/60',  iconColor: 'text-amber-50',   icon: RefreshCw },
 
-  { key: 'backwork',            label: 'Backwork',              color: 'bg-rose-500',   iconColor: 'text-rose-100',   icon: Wrench },
+  { key: 'backwork',            label: 'Backwork',              color: 'bg-rose-500/60',   iconColor: 'text-rose-50',    icon: Wrench },
 
   // Site visit — site_visits source emits 'site_visit', orders.type='site-visit' emits 'site-visit'.
-  { key: 'site_visit',          label: 'Site Visit',            color: 'bg-green-500',  iconColor: 'text-green-100',  icon: MapPin },
-  { key: 'site-visit',          label: 'Site Visit',            color: 'bg-green-500',  iconColor: 'text-green-100',  icon: MapPin },
+  { key: 'site_visit',          label: 'Site Visit',            color: 'bg-green-500/60',  iconColor: 'text-green-50',   icon: MapPin },
+  { key: 'site-visit',          label: 'Site Visit',            color: 'bg-green-500/60',  iconColor: 'text-green-50',   icon: MapPin },
 
-  { key: 'site_visit_contract', label: 'Site Visit (Contract)', color: 'bg-teal-500',   iconColor: 'text-teal-100',   icon: FileText },
-  { key: 'site-visit-contract', label: 'Site Visit (Contract)', color: 'bg-teal-500',   iconColor: 'text-teal-100',   icon: FileText },
+  { key: 'site_visit_contract', label: 'Site Visit (Contract)', color: 'bg-teal-500/60',   iconColor: 'text-teal-50',    icon: FileText },
+  { key: 'site-visit-contract', label: 'Site Visit (Contract)', color: 'bg-teal-500/60',   iconColor: 'text-teal-50',    icon: FileText },
 
-  { key: 'contract_visit',      label: 'Contract Visit',        color: 'bg-purple-500', iconColor: 'text-purple-100', icon: ClipboardList },
-  { key: 'contract',            label: 'Contract Visit',        color: 'bg-purple-500', iconColor: 'text-purple-100', icon: ClipboardList },
+  { key: 'contract_visit',      label: 'Contract Visit',        color: 'bg-purple-500/60', iconColor: 'text-purple-50',  icon: ClipboardList },
+  { key: 'contract',            label: 'Contract Visit',        color: 'bg-purple-500/60', iconColor: 'text-purple-50',  icon: ClipboardList },
 
-  { key: 'qc_visit',            label: 'QC Visit',              color: 'bg-indigo-500', iconColor: 'text-indigo-100', icon: ShieldCheck },
-  { key: 'qc',                  label: 'QC Visit',              color: 'bg-indigo-500', iconColor: 'text-indigo-100', icon: ShieldCheck },
+  { key: 'qc_visit',            label: 'QC Visit',              color: 'bg-indigo-500/60', iconColor: 'text-indigo-50',  icon: ShieldCheck },
+  { key: 'qc',                  label: 'QC Visit',              color: 'bg-indigo-500/60', iconColor: 'text-indigo-50',  icon: ShieldCheck },
 ]
+
+/** Solid (no opacity) variant — used for the colored pills and the panel header where
+ *  the colour sits over white and needs maximum contrast. Derived from VISIT_TYPE_CONFIGS
+ *  by swapping `/60` out.
+ */
+export function solidColor(c: string): string {
+  return c.replace('/60', '')
+}
 
 const FALLBACK_CONFIG: Omit<VisitTypeDisplayConfig, 'key'> = {
   label: 'Visit',
@@ -258,7 +269,7 @@ function HoverPopup({
 
       {/* Type pill + status + payment */}
       <div className="flex items-center gap-1.5 flex-wrap">
-        <span className={cn('inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[10px] font-semibold text-white', cfg.color)}>
+        <span className={cn('inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[10px] font-semibold text-white', solidColor(cfg.color))}>
           <Icon className="h-2.5 w-2.5" />
           {cfg.label}
         </span>
@@ -313,10 +324,11 @@ function HoverPopup({
 
       {/* Actions */}
       {(canEdit || (canSwap && visit.source_type === 'order')) && (
-        <div className="flex gap-1 pt-0.5 border-t">
+        <div className="flex gap-1 pt-1.5 border-t">
           {canEdit && (
             <button
-              className="flex-1 text-[11px] font-medium px-2 py-1 rounded border hover:bg-muted transition-colors"
+              type="button"
+              className="flex-1 text-[11px] font-medium px-2 py-1.5 rounded border border-border bg-background text-foreground hover:bg-muted transition-colors"
               onClick={e => { e.stopPropagation(); onEdit(visit) }}
             >
               View Details
@@ -324,7 +336,8 @@ function HoverPopup({
           )}
           {canSwap && visit.source_type === 'order' && (
             <button
-              className="flex-1 text-[11px] font-medium px-2 py-1 rounded border hover:bg-muted transition-colors"
+              type="button"
+              className="flex-1 text-[11px] font-medium px-2 py-1.5 rounded border border-border bg-background text-foreground hover:bg-muted transition-colors"
               onClick={e => { e.stopPropagation(); onSwap(visit) }}
             >
               Swap Team
