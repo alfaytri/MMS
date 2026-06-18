@@ -3,7 +3,7 @@
 
 import { useState, useMemo, useEffect } from 'react'
 import { Loader2, AlertTriangle, Users } from 'lucide-react'
-import { isToday, parseISO } from 'date-fns'
+import { isToday, parseISO, format, addDays } from 'date-fns'
 import { useTeamLeaderIdentity, useAllTeamsForSelect } from '@/hooks/useTeamLeaderIdentity'
 import { useTeamLeaderOrders } from '@/hooks/useTeamLeaderOrders'
 import { useDeductOrderStock } from '@/hooks/useDeductOrderStock'
@@ -32,7 +32,10 @@ export default function TeamLeaderPage() {
   )
 
   const [adminOverride, setAdminOverride]       = useState<string | null>(null)
-  const [viewMode, setViewMode]                 = useState<'today' | 'all'>('today')
+  const [viewMode, setViewMode]                 = useState<'today' | 'date'>('today')
+  const [selectedDate, setSelectedDate]         = useState<string>(
+    () => format(addDays(new Date(), 1), 'yyyy-MM-dd')
+  )
   const [startedVisits, setStartedVisits]       = useState<Set<string>>(new Set())
   const [completedVisits, setCompletedVisits]   = useState<Set<string>>(new Set())
   const [activeVisit, setActiveVisit]           = useState<TlVisit | null>(null)
@@ -93,12 +96,17 @@ export default function TeamLeaderPage() {
     if (viewMode === 'today') {
       return allVisits.filter((v) => isToday(parseISO(v.date)))
     }
-    return allVisits
-  }, [allVisits, viewMode])
+    return allVisits.filter((v) => v.date === selectedDate)
+  }, [allVisits, viewMode, selectedDate])
 
   const todayCount = useMemo(
     () => allVisits.filter((v) => isToday(parseISO(v.date))).length,
     [allVisits]
+  )
+
+  const dateCount = useMemo(
+    () => allVisits.filter((v) => v.date === selectedDate).length,
+    [allVisits, selectedDate]
   )
 
   function handleStart(visitId: string) {
@@ -180,9 +188,11 @@ export default function TeamLeaderPage() {
         effectiveTeamId={effectiveTeamId}
         onTeamChange={setAdminOverride}
         todayCount={todayCount}
-        totalCount={allVisits.length}
+        dateCount={dateCount}
         viewMode={viewMode}
         onViewModeChange={setViewMode}
+        selectedDate={selectedDate}
+        onSelectedDateChange={setSelectedDate}
       />
 
       {visitsLoading ? (
