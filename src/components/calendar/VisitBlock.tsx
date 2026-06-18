@@ -16,14 +16,16 @@ export interface VisitTypeDisplayConfig {
 }
 
 const VISIT_TYPE_CONFIGS: VisitTypeDisplayConfig[] = [
-  { key: 'normal_order',        label: 'Normal Order',          color: 'bg-blue-500',   iconColor: 'text-blue-100',   icon: Briefcase },
+  { key: 'normal_order',        label: 'Normal Order',          color: 'bg-orange-500', iconColor: 'text-orange-100', icon: Briefcase },
   { key: 'emergency',           label: 'Emergency',             color: 'bg-red-500',    iconColor: 'text-red-100',    icon: Zap },
-  { key: 'follow_up',           label: 'Follow Up',             color: 'bg-orange-400', iconColor: 'text-orange-100', icon: RefreshCw },
-  { key: 'backwork',            label: 'Backwork',              color: 'bg-yellow-500', iconColor: 'text-yellow-100', icon: Wrench },
+  { key: 'follow_up',           label: 'Follow Up',             color: 'bg-yellow-500', iconColor: 'text-yellow-100', icon: RefreshCw },
+  { key: 'follow-up',           label: 'Follow Up',             color: 'bg-yellow-500', iconColor: 'text-yellow-100', icon: RefreshCw },
+  { key: 'follow_up_request',   label: 'Follow-up Requested',   color: 'bg-amber-500',  iconColor: 'text-amber-100',  icon: RefreshCw },
+  { key: 'backwork',            label: 'Backwork',              color: 'bg-rose-500',   iconColor: 'text-rose-100',   icon: Wrench },
   { key: 'site_visit',          label: 'Site Visit',            color: 'bg-green-500',  iconColor: 'text-green-100',  icon: MapPin },
   { key: 'site_visit_contract', label: 'Site Visit (Contract)', color: 'bg-teal-500',   iconColor: 'text-teal-100',   icon: FileText },
   { key: 'contract_visit',      label: 'Contract Visit',        color: 'bg-purple-500', iconColor: 'text-purple-100', icon: ClipboardList },
-  { key: 'qc_visit',            label: 'QC Visit',              color: 'bg-pink-500',   iconColor: 'text-pink-100',   icon: ShieldCheck },
+  { key: 'qc_visit',            label: 'QC Visit',              color: 'bg-indigo-500', iconColor: 'text-indigo-100', icon: ShieldCheck },
 ]
 
 const FALLBACK_CONFIG: Omit<VisitTypeDisplayConfig, 'key'> = {
