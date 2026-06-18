@@ -33,6 +33,14 @@ const SLOT_OPTIONS: string[] = (() => {
   return out
 })()
 
+function formatSlotLabel(hhmm: string): string {
+  const [hStr, mStr] = hhmm.split(':')
+  const h = parseInt(hStr, 10)
+  const period = h < 12 ? 'AM' : 'PM'
+  const h12 = h === 0 ? 12 : h > 12 ? h - 12 : h
+  return `${h12}:${mStr} ${period}`
+}
+
 interface Props {
   visit: TlVisit
   profileId: string
@@ -259,8 +267,10 @@ export function NormalOrderDialog({ visit, profileId, onComplete, onClose }: Pro
                           }}
                         >
                           <SelectTrigger className="h-11 bg-white"><SelectValue placeholder="Start" /></SelectTrigger>
-                          <SelectContent>
-                            {SLOT_OPTIONS.map((s) => <SelectItem key={s} value={s}>{s}</SelectItem>)}
+                          <SelectContent className="max-h-64">
+                            {SLOT_OPTIONS.map((s) => (
+                              <SelectItem key={s} value={s}>{formatSlotLabel(s)}</SelectItem>
+                            ))}
                           </SelectContent>
                         </Select>
                       </div>
@@ -274,9 +284,9 @@ export function NormalOrderDialog({ visit, profileId, onComplete, onClose }: Pro
                           <SelectTrigger className="h-11 bg-white">
                             <SelectValue placeholder={followUpFrom ? 'End' : 'Pick From'} />
                           </SelectTrigger>
-                          <SelectContent>
+                          <SelectContent className="max-h-64">
                             {SLOT_OPTIONS.filter((s) => s > followUpFrom).map((s) => (
-                              <SelectItem key={s} value={s}>{s}</SelectItem>
+                              <SelectItem key={s} value={s}>{formatSlotLabel(s)}</SelectItem>
                             ))}
                           </SelectContent>
                         </Select>

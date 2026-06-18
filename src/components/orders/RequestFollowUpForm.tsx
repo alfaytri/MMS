@@ -30,6 +30,14 @@ const SLOT_OPTIONS: string[] = (() => {
   return out
 })()
 
+function formatSlotLabel(hhmm: string): string {
+  const [hStr, mStr] = hhmm.split(':')
+  const h = parseInt(hStr, 10)
+  const period = h < 12 ? 'AM' : 'PM'
+  const h12 = h === 0 ? 12 : h > 12 ? h - 12 : h
+  return `${h12}:${mStr} ${period}`
+}
+
 function isAfter(a: string, b: string): boolean {
   return a > b // 'HH:MM' strings sort correctly lexicographically
 }
@@ -132,9 +140,9 @@ export function RequestFollowUpForm({ parentOrderId, parentOrderNumber, customer
             <SelectTrigger id="fur-from" className="h-11">
               <SelectValue placeholder="Pick start time" />
             </SelectTrigger>
-            <SelectContent>
+            <SelectContent className="max-h-64">
               {SLOT_OPTIONS.map((s) => (
-                <SelectItem key={s} value={s}>{s}</SelectItem>
+                <SelectItem key={s} value={s}>{formatSlotLabel(s)}</SelectItem>
               ))}
             </SelectContent>
           </Select>
@@ -145,9 +153,9 @@ export function RequestFollowUpForm({ parentOrderId, parentOrderNumber, customer
             <SelectTrigger id="fur-to" className="h-11">
               <SelectValue placeholder={from ? 'Pick end time' : 'Pick From first'} />
             </SelectTrigger>
-            <SelectContent>
+            <SelectContent className="max-h-64">
               {toOptions.map((s) => (
-                <SelectItem key={s} value={s}>{s}</SelectItem>
+                <SelectItem key={s} value={s}>{formatSlotLabel(s)}</SelectItem>
               ))}
             </SelectContent>
           </Select>

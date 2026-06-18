@@ -34,8 +34,12 @@ export async function POST(req: Request) {
       .eq('id', body.parent_order_id)
       .single()
     if (pErr || !parent) return NextResponse.json({ error: 'parent_order_not_found' }, { status: 404 })
-    if (parent.status !== 'completed') {
-      return NextResponse.json({ error: 'parent_order_not_completed' }, { status: 422 })
+    // Reject only fully-dead orders. Team leaders submit follow-ups DURING the
+    // completion flow, so the parent is usually still 'scheduled' or 'in-progress'
+    // when this hits. UX layers above (the team-leader dialog, the standalone
+    // /orders/[id]/request-follow-up page) decide which statuses to surface.
+    if (parent.status === 'cancelled') {
+      return NextResponse.json({ error: 'parent_order_cancelled' }, { status: 422 })
     }
 
     // Find the team that did the parent order (first assignment row).
