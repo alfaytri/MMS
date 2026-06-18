@@ -18,6 +18,14 @@ export function usePermissions() {
       const { data: { user } } = await supabase.auth.getUser()
       if (!user) return { permissions: [], isSystemAdmin: false }
 
+      // Bootstrap shortcut: mirrors requireAdmin/requirePermission on the server.
+      // Lets the very first user (no profile / no roles yet) see the full nav.
+      const bootstrapEmail = process.env.NEXT_PUBLIC_ADMIN_BOOTSTRAP_EMAIL?.trim().toLowerCase()
+      const callerEmail = user.email?.trim().toLowerCase() ?? null
+      if (bootstrapEmail && callerEmail === bootstrapEmail) {
+        return { permissions: [], isSystemAdmin: true }
+      }
+
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       const { data: profile } = await supabase
         .from('profiles')
