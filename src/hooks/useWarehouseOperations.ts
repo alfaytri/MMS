@@ -503,10 +503,10 @@ export function useCreateStockAdjustmentV2() {
         p_adjustment_type:   payload.adjustmentType,
         p_qty:               payload.qty,
         p_reason:            payload.reason,
-        p_notes:             payload.notes ?? null,
+        p_notes:             (payload.notes ?? null) as string,
         p_photo_urls:        payload.photoUrls,
-        p_requested_by:      payload.requestedBy,
-        p_requested_by_name: payload.requestedByName,
+        p_requested_by:      payload.requestedBy as string,
+        p_requested_by_name: payload.requestedByName as string,
       })
       if (error) {
         const cleanMessage = error.message.replace(/^P\d{4}:\s*/, '')
@@ -558,9 +558,9 @@ export function useActionStockAdjustmentStep() {
       const { data, error } = await supabase.rpc('action_stock_adjustment_step', {
         p_step_id:      stepId,
         p_action:       action,
-        p_profile_id:   profileId,
+        p_profile_id:   profileId as string,
         p_profile_name: profileName,
-        p_notes:        notes ?? null,
+        p_notes:        (notes ?? null) as string,
       })
       if (error) {
         const cleanMessage = error.message.replace(/^P\d{4}:\s*/, '')

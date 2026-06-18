@@ -50,7 +50,7 @@ export function OrderDetailDialog({ orderId, open, onOpenChange }: Props) {
   const router = useRouter()
 
   const { data: followUps = [] } = useQuery<Array<{
-    id: string; order_id: string; scheduled_date: string | null; status: string; total_amount: number | null
+    id: string; order_id: string; scheduled_date: string | null; status: string | null; total_amount: number | null
   }>>({
     queryKey: ['follow-ups-of', orderId],
     enabled: !!orderId,

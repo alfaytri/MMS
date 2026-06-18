@@ -41,7 +41,7 @@ export async function POST(req: Request) {
 
     const { data: parent, error: pErr } = await admin
       .from('orders')
-      .select('division, customer_id')
+      .select('division, customer_id, service_customer_id')
       .eq('id', body.parent_order_id)
       .single()
     if (pErr || !parent) return NextResponse.json({ error: 'parent_order_not_found' }, { status: 404 })
@@ -53,6 +53,7 @@ export async function POST(req: Request) {
       .insert({
         order_id:       orderIdHuman,
         customer_id:    body.customer_id,
+        service_customer_id: parent.service_customer_id ?? body.customer_id,
         type:           'follow-up',
         division:       parent.division,
         status:         'scheduled',

@@ -136,7 +136,7 @@ export function RequestFollowUpForm({ parentOrderId, parentOrderNumber, customer
       <div className="grid grid-cols-2 gap-2">
         <div className="space-y-1">
           <Label htmlFor="fur-from" className="text-sm font-semibold">From</Label>
-          <Select value={from} onValueChange={(v) => { setFrom(v); if (to && !isAfter(to, v)) setTo(''); setConflictMsg(null) }}>
+          <Select value={from} onValueChange={(v) => { if (!v) return; setFrom(v); if (to && !isAfter(to, v)) setTo(''); setConflictMsg(null) }}>
             <SelectTrigger id="fur-from" className="h-11">
               <SelectValue placeholder="Pick start time" />
             </SelectTrigger>
@@ -149,7 +149,7 @@ export function RequestFollowUpForm({ parentOrderId, parentOrderNumber, customer
         </div>
         <div className="space-y-1">
           <Label htmlFor="fur-to" className="text-sm font-semibold">To</Label>
-          <Select value={to} onValueChange={(v) => { setTo(v); setConflictMsg(null) }} disabled={!from}>
+          <Select value={to} onValueChange={(v) => { if (!v) return; setTo(v); setConflictMsg(null) }} disabled={!from}>
             <SelectTrigger id="fur-to" className="h-11">
               <SelectValue placeholder={from ? 'Pick end time' : 'Pick From first'} />
             </SelectTrigger>

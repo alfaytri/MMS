@@ -45,7 +45,7 @@ interface AddStepRowProps {
 function AddStepRow({ workflow, availableRoles, onDone }: AddStepRowProps) {
   const add = useAddWorkflowStepForRole()
 
-  function handlePick(roleId: string) {
+  function handlePick(roleId: string | null) {
     if (!roleId) return
     add.mutateAsync({ workflow, role_id: roleId })
       .then(() => {
@@ -120,8 +120,8 @@ function StepRow({ step, index, isOwner, profileId, approvalRoles }: StepRowProp
       .catch((err: Error) => toast.error(err.message))
   }
 
-  function handleRoleChange(roleId: string) {
-    if (roleId === step.role_id) return
+  function handleRoleChange(roleId: string | null) {
+    if (!roleId || roleId === step.role_id) return
     updateRole.mutateAsync({ stepId: step.id, roleId })
       .then(() => toast.success('Step role updated'))
       .catch((err: Error) => toast.error(err.message))

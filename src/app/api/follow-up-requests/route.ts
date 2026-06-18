@@ -3,6 +3,7 @@ import { createAdminClient } from '@/lib/supabase/admin'
 import { requirePermission } from '@/lib/auth/require-admin'
 import { computeAvailability, type Booking } from '@/lib/follow-ups/availability'
 import type { CreateFollowUpRequestBody } from '@/types/follow-ups'
+import type { Json } from '@/types/database.types'
 
 function parseTimeSlot(slot: string | null): { from: string; to: string } | null {
   if (!slot) return null
@@ -132,7 +133,7 @@ export async function POST(req: Request) {
         requested_time_from:   body.requested_time_from,
         requested_time_to:     body.requested_time_to,
         time_note:             body.time_note,
-        services_to_followup:  body.services_to_followup,
+        services_to_followup:  body.services_to_followup as unknown as Json,
         notes:                 body.notes,
         status:                'pending',
       })
@@ -152,7 +153,7 @@ export async function GET(req: Request) {
     if (!gate.ok) return NextResponse.json({ error: gate.message }, { status: gate.status })
 
     const url = new URL(req.url)
-    const status = url.searchParams.get('status') ?? 'pending'
+    const status = (url.searchParams.get('status') ?? 'pending') as 'pending' | 'confirmed' | 'rejected' | 'cancelled'
 
     const admin = createAdminClient()
     const { data, error } = await admin

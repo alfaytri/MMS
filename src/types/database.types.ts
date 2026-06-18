@@ -102,7 +102,7 @@ export type Database = {
           max_amount: number | null
           min_amount: number
           rank: number
-          required_roles: Database["public"]["Enums"]["approval_role"][]
+          required_roles: string[]
         }
         Insert: {
           chain_id: string
@@ -111,7 +111,7 @@ export type Database = {
           max_amount?: number | null
           min_amount: number
           rank: number
-          required_roles: Database["public"]["Enums"]["approval_role"][]
+          required_roles: string[]
         }
         Update: {
           chain_id?: string
@@ -120,7 +120,7 @@ export type Database = {
           max_amount?: number | null
           min_amount?: number
           rank?: number
-          required_roles?: Database["public"]["Enums"]["approval_role"][]
+          required_roles?: string[]
         }
         Relationships: [
           {
@@ -228,55 +228,6 @@ export type Database = {
           {
             foreignKeyName: "approval_requests_requested_by_fkey"
             columns: ["requested_by"]
-            isOneToOne: false
-            referencedRelation: "profiles"
-            referencedColumns: ["id"]
-          },
-        ]
-      }
-      approval_role_assignments: {
-        Row: {
-          created_at: string | null
-          deleted_at: string | null
-          division_id: string | null
-          id: string
-          profile_id: string
-          role: Database["public"]["Enums"]["approval_role"]
-        }
-        Insert: {
-          created_at?: string | null
-          deleted_at?: string | null
-          division_id?: string | null
-          id?: string
-          profile_id: string
-          role: Database["public"]["Enums"]["approval_role"]
-        }
-        Update: {
-          created_at?: string | null
-          deleted_at?: string | null
-          division_id?: string | null
-          id?: string
-          profile_id?: string
-          role?: Database["public"]["Enums"]["approval_role"]
-        }
-        Relationships: [
-          {
-            foreignKeyName: "approval_role_assignments_division_id_fkey"
-            columns: ["division_id"]
-            isOneToOne: false
-            referencedRelation: "divisions"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "approval_role_assignments_division_id_fkey"
-            columns: ["division_id"]
-            isOneToOne: false
-            referencedRelation: "v_team_monthly_overtime"
-            referencedColumns: ["division_id"]
-          },
-          {
-            foreignKeyName: "approval_role_assignments_profile_id_fkey"
-            columns: ["profile_id"]
             isOneToOne: false
             referencedRelation: "profiles"
             referencedColumns: ["id"]
@@ -1484,6 +1435,7 @@ export type Database = {
           deleted_at: string | null
           description: string | null
           id: string
+          is_approval_slot: boolean
           is_system: boolean | null
           name: string
           permissions: string[]
@@ -1496,6 +1448,7 @@ export type Database = {
           deleted_at?: string | null
           description?: string | null
           id?: string
+          is_approval_slot?: boolean
           is_system?: boolean | null
           name: string
           permissions?: string[]
@@ -1508,6 +1461,7 @@ export type Database = {
           deleted_at?: string | null
           description?: string | null
           id?: string
+          is_approval_slot?: boolean
           is_system?: boolean | null
           name?: string
           permissions?: string[]
@@ -2151,6 +2105,98 @@ export type Database = {
           },
         ]
       }
+      follow_up_requests: {
+        Row: {
+          cancelled_reason: string | null
+          confirmed_at: string | null
+          confirmed_by_user_id: string | null
+          created_at: string
+          id: string
+          notes: string | null
+          parent_order_id: string
+          request_number: string
+          requested_by_user_id: string
+          requested_date: string | null
+          requested_team_id: string
+          requested_time_from: string | null
+          requested_time_to: string | null
+          resulting_order_id: string | null
+          services_to_followup: Json
+          status: Database["public"]["Enums"]["follow_up_request_status"]
+          time_note: string | null
+          updated_at: string
+        }
+        Insert: {
+          cancelled_reason?: string | null
+          confirmed_at?: string | null
+          confirmed_by_user_id?: string | null
+          created_at?: string
+          id?: string
+          notes?: string | null
+          parent_order_id: string
+          request_number: string
+          requested_by_user_id: string
+          requested_date?: string | null
+          requested_team_id: string
+          requested_time_from?: string | null
+          requested_time_to?: string | null
+          resulting_order_id?: string | null
+          services_to_followup: Json
+          status?: Database["public"]["Enums"]["follow_up_request_status"]
+          time_note?: string | null
+          updated_at?: string
+        }
+        Update: {
+          cancelled_reason?: string | null
+          confirmed_at?: string | null
+          confirmed_by_user_id?: string | null
+          created_at?: string
+          id?: string
+          notes?: string | null
+          parent_order_id?: string
+          request_number?: string
+          requested_by_user_id?: string
+          requested_date?: string | null
+          requested_team_id?: string
+          requested_time_from?: string | null
+          requested_time_to?: string | null
+          resulting_order_id?: string | null
+          services_to_followup?: Json
+          status?: Database["public"]["Enums"]["follow_up_request_status"]
+          time_note?: string | null
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "follow_up_requests_parent_order_id_fkey"
+            columns: ["parent_order_id"]
+            isOneToOne: false
+            referencedRelation: "orders"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "follow_up_requests_requested_team_id_fkey"
+            columns: ["requested_team_id"]
+            isOneToOne: false
+            referencedRelation: "teams"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "follow_up_requests_requested_team_id_fkey"
+            columns: ["requested_team_id"]
+            isOneToOne: false
+            referencedRelation: "v_team_monthly_overtime"
+            referencedColumns: ["team_id"]
+          },
+          {
+            foreignKeyName: "follow_up_requests_resulting_order_id_fkey"
+            columns: ["resulting_order_id"]
+            isOneToOne: false
+            referencedRelation: "orders"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       installed_products: {
         Row: {
           address_id: string | null
@@ -2531,6 +2577,7 @@ export type Database = {
           notes: string | null
           sku: string | null
           system_qty: number
+          system_qty_at_close: number | null
           updated_at: string
           variance: number | null
           variance_type: string | null
@@ -2551,6 +2598,7 @@ export type Database = {
           notes?: string | null
           sku?: string | null
           system_qty?: number
+          system_qty_at_close?: number | null
           updated_at?: string
           variance?: number | null
           variance_type?: string | null
@@ -2571,6 +2619,7 @@ export type Database = {
           notes?: string | null
           sku?: string | null
           system_qty?: number
+          system_qty_at_close?: number | null
           updated_at?: string
           variance?: number | null
           variance_type?: string | null
@@ -2979,6 +3028,7 @@ export type Database = {
           notes: string | null
           paid_amount: number | null
           payment_status: string
+          phone_id: string | null
           purchase_order_id: string | null
           qb_synced: boolean | null
           receival_id: string | null
@@ -3015,6 +3065,7 @@ export type Database = {
           notes?: string | null
           paid_amount?: number | null
           payment_status?: string
+          phone_id?: string | null
           purchase_order_id?: string | null
           qb_synced?: boolean | null
           receival_id?: string | null
@@ -3051,6 +3102,7 @@ export type Database = {
           notes?: string | null
           paid_amount?: number | null
           payment_status?: string
+          phone_id?: string | null
           purchase_order_id?: string | null
           qb_synced?: boolean | null
           receival_id?: string | null
@@ -3072,6 +3124,13 @@ export type Database = {
             columns: ["customer_id"]
             isOneToOne: false
             referencedRelation: "customers"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "invoices_phone_id_fkey"
+            columns: ["phone_id"]
+            isOneToOne: false
+            referencedRelation: "customer_phones"
             referencedColumns: ["id"]
           },
           {
@@ -3687,11 +3746,13 @@ export type Database = {
           created_at: string | null
           customer_id: string | null
           division: string
+          follow_up_request_id: string | null
           has_invoice: boolean | null
           id: string
           invoice_number: string | null
           notes: string | null
           order_id: string
+          parent_order_id: string | null
           scheduled_date: string
           scheduled_end_date: string | null
           scheduled_time: string | null
@@ -3717,11 +3778,13 @@ export type Database = {
           created_at?: string | null
           customer_id?: string | null
           division: string
+          follow_up_request_id?: string | null
           has_invoice?: boolean | null
           id?: string
           invoice_number?: string | null
           notes?: string | null
           order_id: string
+          parent_order_id?: string | null
           scheduled_date: string
           scheduled_end_date?: string | null
           scheduled_time?: string | null
@@ -3747,11 +3810,13 @@ export type Database = {
           created_at?: string | null
           customer_id?: string | null
           division?: string
+          follow_up_request_id?: string | null
           has_invoice?: boolean | null
           id?: string
           invoice_number?: string | null
           notes?: string | null
           order_id?: string
+          parent_order_id?: string | null
           scheduled_date?: string
           scheduled_end_date?: string | null
           scheduled_time?: string | null
@@ -3782,6 +3847,20 @@ export type Database = {
             columns: ["customer_id"]
             isOneToOne: false
             referencedRelation: "customers"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "orders_follow_up_request_id_fkey"
+            columns: ["follow_up_request_id"]
+            isOneToOne: false
+            referencedRelation: "follow_up_requests"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "orders_parent_order_id_fkey"
+            columns: ["parent_order_id"]
+            isOneToOne: false
+            referencedRelation: "orders"
             referencedColumns: ["id"]
           },
           {
@@ -4180,7 +4259,7 @@ export type Database = {
           is_active: boolean
           iteration: number
           po_id: string
-          role: Database["public"]["Enums"]["approval_role"]
+          role: string
           status: Database["public"]["Enums"]["approval_status"] | null
           tier_rank: number
         }
@@ -4195,7 +4274,7 @@ export type Database = {
           is_active?: boolean
           iteration?: number
           po_id: string
-          role: Database["public"]["Enums"]["approval_role"]
+          role: string
           status?: Database["public"]["Enums"]["approval_status"] | null
           tier_rank?: number
         }
@@ -4210,7 +4289,7 @@ export type Database = {
           is_active?: boolean
           iteration?: number
           po_id?: string
-          role?: Database["public"]["Enums"]["approval_role"]
+          role?: string
           status?: Database["public"]["Enums"]["approval_status"] | null
           tier_rank?: number
         }
@@ -6948,6 +7027,63 @@ export type Database = {
           },
         ]
       }
+      stock_adjustment_approvals: {
+        Row: {
+          action_at: string | null
+          adjustment_id: string
+          created_at: string
+          id: string
+          notes: string | null
+          profile_id: string | null
+          profile_name: string | null
+          status: string
+          step_label: string
+          step_order: number
+          step_role: string
+        }
+        Insert: {
+          action_at?: string | null
+          adjustment_id: string
+          created_at?: string
+          id?: string
+          notes?: string | null
+          profile_id?: string | null
+          profile_name?: string | null
+          status?: string
+          step_label: string
+          step_order: number
+          step_role: string
+        }
+        Update: {
+          action_at?: string | null
+          adjustment_id?: string
+          created_at?: string
+          id?: string
+          notes?: string | null
+          profile_id?: string | null
+          profile_name?: string | null
+          status?: string
+          step_label?: string
+          step_order?: number
+          step_role?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "stock_adjustment_approvals_adjustment_id_fkey"
+            columns: ["adjustment_id"]
+            isOneToOne: false
+            referencedRelation: "stock_adjustments"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "stock_adjustment_approvals_profile_id_fkey"
+            columns: ["profile_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       stock_adjustments: {
         Row: {
           adjustment_type: string
@@ -7840,6 +7976,7 @@ export type Database = {
       }
       user_custom_roles: {
         Row: {
+          approval_scopes: string[] | null
           created_at: string
           created_by: string | null
           id: string
@@ -7847,6 +7984,7 @@ export type Database = {
           role_id: string
         }
         Insert: {
+          approval_scopes?: string[] | null
           created_at?: string
           created_by?: string | null
           id?: string
@@ -7854,6 +7992,7 @@ export type Database = {
           role_id: string
         }
         Update: {
+          approval_scopes?: string[] | null
           created_at?: string
           created_by?: string | null
           id?: string
@@ -8535,6 +8674,66 @@ export type Database = {
           },
         ]
       }
+      workflow_approval_steps: {
+        Row: {
+          archived_at: string | null
+          archived_by: string | null
+          condition_types: string[] | null
+          created_at: string
+          id: string
+          is_active: boolean
+          is_conditional: boolean
+          role_id: string
+          step_key: string
+          step_label: string
+          step_order: number
+          workflow: string
+        }
+        Insert: {
+          archived_at?: string | null
+          archived_by?: string | null
+          condition_types?: string[] | null
+          created_at?: string
+          id?: string
+          is_active?: boolean
+          is_conditional?: boolean
+          role_id: string
+          step_key: string
+          step_label: string
+          step_order: number
+          workflow: string
+        }
+        Update: {
+          archived_at?: string | null
+          archived_by?: string | null
+          condition_types?: string[] | null
+          created_at?: string
+          id?: string
+          is_active?: boolean
+          is_conditional?: boolean
+          role_id?: string
+          step_key?: string
+          step_label?: string
+          step_order?: number
+          workflow?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "workflow_approval_steps_archived_by_fkey"
+            columns: ["archived_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "workflow_approval_steps_role_id_fkey"
+            columns: ["role_id"]
+            isOneToOne: false
+            referencedRelation: "custom_roles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
     }
     Views: {
       calendar_visits: {
@@ -8549,6 +8748,7 @@ export type Database = {
           order_number: string | null
           service_id: string | null
           services_summary: string | null
+          source_id: string | null
           source_type: string | null
           start_time: string | null
           status: string | null
@@ -8961,6 +9161,35 @@ export type Database = {
         Args: { p_permission: string; p_profile_id: string }
         Returns: boolean
       }
+      action_stock_adjustment_step: {
+        Args: {
+          p_action: string
+          p_notes: string
+          p_profile_id: string
+          p_profile_name: string
+          p_step_id: string
+        }
+        Returns: string
+      }
+      add_workflow_step: {
+        Args: {
+          p_condition_types?: string[]
+          p_is_conditional?: boolean
+          p_role_desc?: string
+          p_role_name: string
+          p_workflow: string
+        }
+        Returns: Json
+      }
+      add_workflow_step_for_role: {
+        Args: {
+          p_condition_types?: string[]
+          p_is_conditional?: boolean
+          p_role_id: string
+          p_workflow: string
+        }
+        Returns: Json
+      }
       advance_po_approval_tier: {
         Args: { p_po_id: string }
         Returns: undefined
@@ -9004,6 +9233,10 @@ export type Database = {
         Args: { p_approved_by: string; p_transfer_id: string }
         Returns: undefined
       }
+      archive_workflow_step: {
+        Args: { p_profile_id: string; p_step_id: string }
+        Returns: undefined
+      }
       assign_team_leader: {
         Args: { p_employee_id: string; p_team_id: string }
         Returns: undefined
@@ -9028,6 +9261,10 @@ export type Database = {
       batch_update_variant_prices: {
         Args: { p_updates: Json }
         Returns: undefined
+      }
+      build_inv_check_approval_chain: {
+        Args: { p_has_damage_or_writeoff?: boolean; p_has_variance?: boolean }
+        Returns: Json
       }
       cancel_delivery_inventory: {
         Args: { p_delivery_id: string; p_so_id: string }
@@ -9182,6 +9419,20 @@ export type Database = {
         }
         Returns: string
       }
+      create_stock_adjustment_v2: {
+        Args: {
+          p_adjustment_type: string
+          p_brand_variant_id: string
+          p_notes: string
+          p_photo_urls: string[]
+          p_qty: number
+          p_reason: string
+          p_requested_by: string
+          p_requested_by_name: string
+          p_warehouse_id: string
+        }
+        Returns: string
+      }
       create_transfer_v2: {
         Args: {
           p_created_by_name?: string
@@ -9302,6 +9553,8 @@ export type Database = {
         Returns: boolean
       }
       mark_overdue_invoices: { Args: never; Returns: undefined }
+      next_follow_up_order_id: { Args: never; Returns: string }
+      next_follow_up_request_number: { Args: never; Returns: string }
       recalc_average_cost: { Args: { p_bv_id: string }; Returns: undefined }
       recalculate_ar_invoice_payment_status: {
         Args: { p_invoice_id: string }
@@ -9331,6 +9584,10 @@ export type Database = {
       }
       replace_user_custom_roles: {
         Args: { p_role_ids: string[]; p_user_id: string }
+        Returns: undefined
+      }
+      replace_user_custom_roles_v2: {
+        Args: { p_assignments: Json; p_user_id: string }
         Returns: undefined
       }
       replace_warehouse_field_rps: {
@@ -9509,6 +9766,10 @@ export type Database = {
         }
         Returns: undefined
       }
+      snapshot_inventory_check_system_qty: {
+        Args: { p_check_id: string }
+        Returns: undefined
+      }
       storage_lc_bills_write_allowed: { Args: never; Returns: boolean }
       submit_service_change: { Args: { p_payload: Json }; Returns: Json }
       swap_visit_team: {
@@ -9519,12 +9780,20 @@ export type Database = {
         Args: { p_team_id: string }
         Returns: undefined
       }
+      toggle_workflow_step: {
+        Args: { p_active: boolean; p_step_id: string }
+        Returns: undefined
+      }
       update_pending_service_change: {
         Args: { p_new_changes: Json; p_request_id: string }
         Returns: Json
       }
       update_reserved_qty: {
         Args: { p_bv_id: string; p_delta: number }
+        Returns: undefined
+      }
+      update_workflow_step_role: {
+        Args: { p_role_id: string; p_step_id: string }
         Returns: undefined
       }
       upsert_employee_services: {
@@ -9535,17 +9804,23 @@ export type Database = {
         Args: { p_package: Json; p_services: Json }
         Returns: string
       }
+      user_can_action_adjustment_step: {
+        Args: {
+          p_profile_id: string
+          p_step_role: string
+          p_warehouse_id: string
+        }
+        Returns: boolean
+      }
+      user_has_approval_role_in_scope: {
+        Args: { p_profile_id: string; p_role_names: string[]; p_scope: string }
+        Returns: boolean
+      }
       validate_lc_allocation: { Args: { p_lc_id: string }; Returns: Json }
       withdraw_service_change: { Args: { p_request_id: string }; Returns: Json }
     }
     Enums: {
       address_type: "blue-plate" | "google-coords"
-      approval_role:
-        | "purchase_manager"
-        | "accountant"
-        | "owner"
-        | "employee"
-        | "warehouse_manager"
       approval_source_type: "sale_order" | "order"
       approval_status: "pending" | "approved" | "rejected"
       approval_type: "margin" | "credit"
@@ -9577,6 +9852,11 @@ export type Database = {
         | "archived"
         | "unassigned"
         | "on-task"
+      follow_up_request_status:
+        | "pending"
+        | "confirmed"
+        | "cancelled"
+        | "rejected"
       instruction_content_type: "text" | "pdf"
       instruction_type: "pre-service" | "post-service"
       inventory_type: "products" | "spare-parts" | "consumables" | "tools"
@@ -9853,13 +10133,6 @@ export const Constants = {
   public: {
     Enums: {
       address_type: ["blue-plate", "google-coords"],
-      approval_role: [
-        "purchase_manager",
-        "accountant",
-        "owner",
-        "employee",
-        "warehouse_manager",
-      ],
       approval_source_type: ["sale_order", "order"],
       approval_status: ["pending", "approved", "rejected"],
       approval_type: ["margin", "credit"],
@@ -9893,6 +10166,12 @@ export const Constants = {
         "archived",
         "unassigned",
         "on-task",
+      ],
+      follow_up_request_status: [
+        "pending",
+        "confirmed",
+        "cancelled",
+        "rejected",
       ],
       instruction_content_type: ["text", "pdf"],
       instruction_type: ["pre-service", "post-service"],

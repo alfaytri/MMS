@@ -261,6 +261,7 @@ export function NormalOrderDialog({ visit, profileId, onComplete, onClose }: Pro
                         <Select
                           value={followUpFrom}
                           onValueChange={(v) => {
+                            if (!v) return
                             setFollowUpFrom(v)
                             if (followUpTo && followUpTo <= v) setFollowUpTo('')
                             setFollowUpConflict(null)
@@ -278,7 +279,7 @@ export function NormalOrderDialog({ visit, profileId, onComplete, onClose }: Pro
                         <Label className="text-xs font-semibold">To</Label>
                         <Select
                           value={followUpTo}
-                          onValueChange={(v) => { setFollowUpTo(v); setFollowUpConflict(null) }}
+                          onValueChange={(v) => { if (!v) return; setFollowUpTo(v); setFollowUpConflict(null) }}
                           disabled={!followUpFrom}
                         >
                           <SelectTrigger className="h-11 bg-white">

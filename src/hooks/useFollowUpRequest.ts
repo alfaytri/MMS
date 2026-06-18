@@ -15,7 +15,7 @@ export function useFollowUpRequest(requestId: string | null) {
         .eq('id', requestId)
         .single()
       if (error) throw error
-      return data as FollowUpRequest
+      return data as unknown as FollowUpRequest
     },
   })
 }
