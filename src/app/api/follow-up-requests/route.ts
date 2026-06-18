@@ -64,18 +64,43 @@ export async function POST(req: Request) {
         const x = new Date(`${d}T00:00:00Z`); x.setUTCDate(x.getUTCDate() + 1)
         return x.toISOString().slice(0, 10)
       }
+      const dateRange = [body.requested_date!, nextDayISO(body.requested_date!)]
+
       const { data: ota } = await admin
         .from('order_team_assignments')
         .select('scheduled_date, time_slot')
         .eq('team_id', teamId)
-        .in('scheduled_date', [body.requested_date!, nextDayISO(body.requested_date!)])
+        .in('scheduled_date', dateRange)
 
-      const bookings: Booking[] = (ota ?? [])
+      // Pending follow-up requests also reserve the team's time — merge them
+      // into the bookings array so a fresh request can't double-book a slot
+      // another team-leader already asked for.
+      const { data: pendingFur } = await admin
+        .from('follow_up_requests')
+        .select('requested_date, requested_time_from, requested_time_to')
+        .eq('requested_team_id', teamId)
+        .eq('status', 'pending')
+        .in('requested_date', dateRange)
+
+      const otaBookings: Booking[] = (ota ?? [])
         .map((row: { scheduled_date: string; time_slot: string | null }) => {
           const parsed = parseTimeSlot(row.time_slot)
           return parsed ? { date: row.scheduled_date, from: parsed.from, to: parsed.to } : null
         })
         .filter((b): b is Booking => b !== null)
+
+      const furBookings: Booking[] = (pendingFur ?? [])
+        .map((row: { requested_date: string | null; requested_time_from: string | null; requested_time_to: string | null }) => {
+          if (!row.requested_date || !row.requested_time_from || !row.requested_time_to) return null
+          return {
+            date: row.requested_date,
+            from: row.requested_time_from.slice(0, 5),
+            to:   row.requested_time_to.slice(0, 5),
+          }
+        })
+        .filter((b): b is Booking => b !== null)
+
+      const bookings: Booking[] = [...otaBookings, ...furBookings]
 
       const result = computeAvailability({
         team: { working_from: workingFrom, working_to: workingTo },
