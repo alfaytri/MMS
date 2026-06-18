@@ -29,11 +29,20 @@ export async function middleware(request: NextRequest) {
   const { data: { user } } = await supabase.auth.getUser()
 
   const isTeamLeader = user?.user_metadata?.is_team_leader === true
+  // Bootstrap admin bypass: when the logged-in email matches ADMIN_BOOTSTRAP_EMAIL,
+  // treat the user as admin and skip the team-leader redirect even if the
+  // user_metadata.is_team_leader flag is left over from earlier testing.
+  // Same pattern as requireAdmin / requirePermission in src/lib/auth/require-admin.ts.
+  const bootstrapEmail = process.env.ADMIN_BOOTSTRAP_EMAIL?.trim().toLowerCase()
+  const callerEmail = user?.email?.trim().toLowerCase() ?? null
+  const isBootstrapAdmin = !!bootstrapEmail && callerEmail === bootstrapEmail
   const path = request.nextUrl.pathname
 
-  // Fix 1: never redirect API, Next.js internal routes, or the public pay page
+  // Fix 1: never redirect API, Next.js internal routes, or the public pay page.
+  // Fix 2: bootstrap admin always passes through, even with is_team_leader set.
   if (
     isTeamLeader &&
+    !isBootstrapAdmin &&
     !path.startsWith('/team-leader') &&
     !path.startsWith('/api/') &&
     !path.startsWith('/_next/') &&
@@ -42,8 +51,9 @@ export async function middleware(request: NextRequest) {
     return NextResponse.redirect(new URL('/team-leader', request.url))
   }
 
-  // Signal to layout that this is a team leader session (stripped layout)
-  if (isTeamLeader) {
+  // Signal to layout that this is a team leader session (stripped layout).
+  // Bootstrap admin keeps the full layout even if the metadata flag is set.
+  if (isTeamLeader && !isBootstrapAdmin) {
     response.headers.set('x-is-team-leader', '1')
   }
 
