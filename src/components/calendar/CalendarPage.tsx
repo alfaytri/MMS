@@ -22,6 +22,7 @@ import { TimelineGrid } from './TimelineGrid'
 import { TeamCardList } from './TeamCardList'
 import { SwapTeamDialog } from './SwapTeamDialog'
 import { VisitDetailPanel } from './VisitDetailPanel'
+import { OrderDetailDialog } from '@/components/orders/OrderDetailDialog'
 import type { CalendarVisit } from '@/hooks/useCalendarVisits'
 import type { TeamFull } from '@/hooks/useTeams'
 import { useRouter } from 'next/navigation'
@@ -66,6 +67,7 @@ export function CalendarPage() {
   const [activeVisitTypes, setActiveVisitTypes] = useState<Set<string>>(new Set())
   const [swapVisit, setSwapVisit] = useState<CalendarVisit | null>(null)
   const [selectedVisit, setSelectedVisit] = useState<CalendarVisit | null>(null)
+  const [orderToView, setOrderToView] = useState<string | null>(null)
   const gridContainerRef = useRef<HTMLDivElement>(null)
   const [gridWidth, setGridWidth] = useState(0)
 
@@ -187,14 +189,24 @@ export function CalendarPage() {
     })
   }
 
-  /** Open detail panel instead of navigating away. */
+  /** Click on a visit block opens the right view for its kind:
+   *  - Order/follow-up visits → OrderDetailDialog popup (matches the /orders page)
+   *  - Site visits, contract visits, follow-up requests → VisitDetailPanel sidebar
+   */
   function handleEdit(visit: CalendarVisit) {
+    if (visit.source_type === 'order' && visit.source_id) {
+      setOrderToView(visit.source_id)
+      return
+    }
     setSelectedVisit(visit)
   }
 
-  /** Navigate to the order edit page from the detail panel. */
+  /** "Edit Order" button inside the legacy side-panel — opens the popup. */
   function handleEditNavigate(visit: CalendarVisit) {
-    if (visit.order_number) {
+    if (visit.source_type === 'order' && visit.source_id) {
+      setSelectedVisit(null)
+      setOrderToView(visit.source_id)
+    } else if (visit.order_number) {
       router.push(`/orders?q=${encodeURIComponent(visit.order_number)}`)
     }
   }
@@ -311,6 +323,13 @@ export function CalendarPage() {
           onClose={() => setSwapVisit(null)}
         />
       )}
+
+      {/* Order detail popup — for visit blocks whose source_type === 'order' */}
+      <OrderDetailDialog
+        orderId={orderToView}
+        open={orderToView !== null}
+        onOpenChange={(v) => { if (!v) setOrderToView(null) }}
+      />
     </div>
   )
 }

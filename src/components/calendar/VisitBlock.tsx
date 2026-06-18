@@ -326,7 +326,7 @@ function HoverPopup({
       )}
 
       {/* Actions */}
-      {(canEdit || (canSwap && visit.source_type === 'order')) && (
+      {(canEdit || (canSwap && visit.source_type === 'order' && visit.status !== 'completed' && visit.status !== 'cancelled')) && (
         <div className="flex gap-1 pt-1.5 border-t">
           {canEdit && (
             <button
@@ -337,7 +337,7 @@ function HoverPopup({
               View Details
             </button>
           )}
-          {canSwap && visit.source_type === 'order' && (
+          {canSwap && visit.source_type === 'order' && visit.status !== 'completed' && visit.status !== 'cancelled' && (
             <button
               type="button"
               className="flex-1 text-[11px] font-medium px-2 py-1.5 rounded border border-border bg-background text-foreground hover:bg-muted transition-colors"

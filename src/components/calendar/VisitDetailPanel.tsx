@@ -217,7 +217,7 @@ export function VisitDetailPanel({
                 Edit Order
               </Button>
             )}
-            {canSwap && visit.source_type === 'order' && (
+            {canSwap && visit.source_type === 'order' && visit.status !== 'completed' && visit.status !== 'cancelled' && (
               <Button
                 variant="outline"
                 className="w-full gap-2 h-10"
