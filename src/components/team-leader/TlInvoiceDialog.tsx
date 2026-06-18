@@ -10,7 +10,9 @@ import { Textarea } from '@/components/ui/textarea'
 import { ScrollArea } from '@/components/ui/scroll-area'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { toast } from 'sonner'
+import { useQueryClient } from '@tanstack/react-query'
 import { createClient } from '@/lib/supabase/client'
+import { queryKeys } from '@/lib/queryKeys'
 import type { TlVisit, OrderCompletionData, AddedBillableService } from '@/types/team-leader'
 
 type PaymentMethod = {
@@ -38,6 +40,7 @@ export function TlInvoiceDialog({ visit, data, profileId, onDone, onClose }: Pro
   const [submitting, setSubmitting]           = useState(false)
 
   const supabase = useMemo(() => createClient(), [])
+  const qc = useQueryClient()
 
   // Load active payment methods on mount
   useEffect(() => {
@@ -79,6 +82,11 @@ export function TlInvoiceDialog({ visit, data, profileId, onDone, onClose }: Pro
   // A zero-amount invoice is always treated as paid regardless of method
   const effectivePaid = isCash || totalAmount === 0
 
+  function finish() {
+    qc.invalidateQueries({ queryKey: queryKeys.teamLeader.orders(visit.team_id) })
+    onDone(visit.id)
+  }
+
   async function handleConfirm() {
     if (!paymentMethodId) { toast.error('Select a payment method'); return }
 
@@ -118,7 +126,7 @@ export function TlInvoiceDialog({ visit, data, profileId, onDone, onClose }: Pro
       if (visitErr) throw visitErr
       if (!updated || updated.length === 0) {
         toast.error('This visit was already completed by another team')
-        onDone(visit.id)
+        finish()
         return
       }
 
@@ -153,7 +161,7 @@ export function TlInvoiceDialog({ visit, data, profileId, onDone, onClose }: Pro
           ? `${invoiceNumber} created — marked as paid`
           : `${invoiceNumber} created — awaiting ${selectedMethod?.name ?? 'payment'}`
         toast.success(msg)
-        onDone(visit.id)
+        finish()
         return
       }
 
@@ -176,7 +184,7 @@ export function TlInvoiceDialog({ visit, data, profileId, onDone, onClose }: Pro
         toast.success(`${invoiceNumber} created — payment link sent`)
       }
 
-      onDone(visit.id)
+      finish()
     } catch (err) {
       toast.error(err instanceof Error ? err.message : 'Something went wrong')
     } finally {

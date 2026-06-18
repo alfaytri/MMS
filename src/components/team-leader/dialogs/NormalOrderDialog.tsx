@@ -6,18 +6,32 @@ import { Dialog, DialogContent } from '@/components/ui/dialog'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
 import { Textarea } from '@/components/ui/textarea'
+import { Input } from '@/components/ui/input'
+import { Label } from '@/components/ui/label'
+import { Checkbox } from '@/components/ui/checkbox'
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { cn } from '@/lib/utils'
-import { X, Users, Info, AlertTriangle, Plus } from 'lucide-react'
+import { X, Users, Info, AlertTriangle, Plus, Check } from 'lucide-react'
 import { toast } from 'sonner'
 import { ServiceStatusList } from '../shared/ServiceStatusList'
 import { PhotoCapture } from '../shared/PhotoCapture'
 import { DamageReportDialog } from '../shared/DamageReportDialog'
 import { TeamNotesSection } from '../shared/TeamNotesSection'
 import { ServiceCatalogPicker } from '../shared/ServiceCatalogPicker'
+import { useCreateFollowUpRequest } from '@/hooks/useCreateFollowUpRequest'
 import type {
   TlVisit, TlService, OrderCompletionData,
   DamageReportEntry, AddedBillableService,
 } from '@/types/team-leader'
+
+const SLOT_OPTIONS: string[] = (() => {
+  const out: string[] = []
+  for (let h = 7; h <= 21; h++) {
+    out.push(`${String(h).padStart(2, '0')}:00`)
+    if (h !== 21) out.push(`${String(h).padStart(2, '0')}:30`)
+  }
+  return out
+})()
 
 interface Props {
   visit: TlVisit
@@ -34,8 +48,55 @@ export function NormalOrderDialog({ visit, profileId, onComplete, onClose }: Pro
   const [teamNotes, setTeamNotes] = useState('')
   const [teamPhotos, setTeamPhotos] = useState<Blob[]>([])
   const [followUpOpen, setFollowUpOpen] = useState(false)
+  const [followUpSubmitted, setFollowUpSubmitted] = useState<string | null>(null) // request_number once created
+  const [followUpServices, setFollowUpServices] = useState<Set<string>>(new Set())
+  const [followUpDate, setFollowUpDate] = useState('')
+  const [followUpFrom, setFollowUpFrom] = useState('')
+  const [followUpTo, setFollowUpTo]     = useState('')
   const [followUpNote, setFollowUpNote] = useState('')
+  const [followUpConflict, setFollowUpConflict] = useState<string | null>(null)
+  const followUpMut = useCreateFollowUpRequest()
   const [addedServices, setAddedServices] = useState<AddedBillableService[]>([])
+
+  function toggleFollowUpService(id: string) {
+    setFollowUpServices((prev) => {
+      const next = new Set(prev)
+      if (next.has(id)) next.delete(id)
+      else next.add(id)
+      return next
+    })
+  }
+
+  async function submitFollowUp() {
+    setFollowUpConflict(null)
+    if (followUpServices.size === 0) { toast.error('Pick at least one service'); return }
+    if (!followUpDate) { toast.error('Pick a date'); return }
+    if (!followUpFrom || !followUpTo) { toast.error('Pick From and To time'); return }
+    if (followUpTo <= followUpFrom) { toast.error('To time must be after From time'); return }
+
+    try {
+      const res = await followUpMut.mutateAsync({
+        parent_order_id: visit.source_id,
+        services_to_followup: visit.services
+          .filter((s) => followUpServices.has(s.id))
+          .map((s) => ({ order_service_id: s.id, name: s.name })),
+        requested_date: followUpDate,
+        requested_time_from: followUpFrom,
+        requested_time_to:   followUpTo,
+        time_note: null,
+        notes: followUpNote.trim() || null,
+      })
+      if (res.ok) {
+        setFollowUpSubmitted(res.request_number)
+        setFollowUpOpen(false)
+        toast.success(`Follow-up requested: ${res.request_number}`)
+        return
+      }
+      setFollowUpConflict('Team time occupied — please pick another time.')
+    } catch (err) {
+      toast.error((err as Error).message || 'Failed to submit follow-up')
+    }
+  }
 
   const allServices: TlService[] = [
     ...visit.services,
@@ -148,26 +209,103 @@ export function NormalOrderDialog({ visit, profileId, onComplete, onClose }: Pro
               )}
 
               {/* Follow-up Required? */}
-              <div className="rounded-lg border border-red-200 bg-destructive/10/50 p-4 space-y-3">
+              <div className="rounded-lg border border-yellow-300 bg-yellow-50 p-4 space-y-3">
                 <p className="text-sm font-semibold">Follow-up Required?</p>
-                {!followUpOpen ? (
-                  <Button variant="outline" size="sm" className="h-8 gap-1 text-xs" onClick={() => setFollowUpOpen(true)}>
+
+                {followUpSubmitted ? (
+                  <div className="flex items-center gap-2 rounded-md border border-green-300 bg-green-50 p-2 text-xs text-green-900">
+                    <Check className="h-4 w-4" />
+                    Follow-up requested: <span className="font-mono font-semibold">{followUpSubmitted}</span>
+                  </div>
+                ) : !followUpOpen ? (
+                  <Button variant="outline" size="sm" className="h-9 gap-1 text-xs" onClick={() => setFollowUpOpen(true)}>
                     <Plus className="h-3 w-3" /> Add Follow-up
                   </Button>
                 ) : (
-                  <div className="space-y-2">
+                  <div className="space-y-3">
+                    <div className="space-y-1.5">
+                      <Label className="text-xs font-semibold">Services needing follow-up</Label>
+                      {visit.services.map((s) => (
+                        <label key={s.id} className="flex items-center gap-2 rounded border bg-white p-2 min-h-11 cursor-pointer">
+                          <Checkbox
+                            checked={followUpServices.has(s.id)}
+                            onCheckedChange={() => toggleFollowUpService(s.id)}
+                          />
+                          <span className="text-sm">{s.name}</span>
+                        </label>
+                      ))}
+                    </div>
+
+                    <div className="space-y-1">
+                      <Label htmlFor="fu-date" className="text-xs font-semibold">Date</Label>
+                      <Input
+                        id="fu-date"
+                        type="date"
+                        value={followUpDate}
+                        onChange={(e) => { setFollowUpDate(e.target.value); setFollowUpConflict(null) }}
+                        className="h-11 bg-white"
+                      />
+                    </div>
+
+                    <div className="grid grid-cols-2 gap-2">
+                      <div className="space-y-1">
+                        <Label className="text-xs font-semibold">From</Label>
+                        <Select
+                          value={followUpFrom}
+                          onValueChange={(v) => {
+                            setFollowUpFrom(v)
+                            if (followUpTo && followUpTo <= v) setFollowUpTo('')
+                            setFollowUpConflict(null)
+                          }}
+                        >
+                          <SelectTrigger className="h-11 bg-white"><SelectValue placeholder="Start" /></SelectTrigger>
+                          <SelectContent>
+                            {SLOT_OPTIONS.map((s) => <SelectItem key={s} value={s}>{s}</SelectItem>)}
+                          </SelectContent>
+                        </Select>
+                      </div>
+                      <div className="space-y-1">
+                        <Label className="text-xs font-semibold">To</Label>
+                        <Select
+                          value={followUpTo}
+                          onValueChange={(v) => { setFollowUpTo(v); setFollowUpConflict(null) }}
+                          disabled={!followUpFrom}
+                        >
+                          <SelectTrigger className="h-11 bg-white">
+                            <SelectValue placeholder={followUpFrom ? 'End' : 'Pick From'} />
+                          </SelectTrigger>
+                          <SelectContent>
+                            {SLOT_OPTIONS.filter((s) => s > followUpFrom).map((s) => (
+                              <SelectItem key={s} value={s}>{s}</SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
+                      </div>
+                    </div>
+
+                    {followUpConflict && (
+                      <div className="rounded-md border border-red-200 bg-red-50 p-2 text-xs text-red-900">
+                        {followUpConflict}
+                      </div>
+                    )}
+
                     <Textarea
-                      placeholder="Describe what follow-up is needed..."
+                      placeholder="Notes for the office (optional)"
                       value={followUpNote}
                       onChange={(e) => setFollowUpNote(e.target.value)}
-                      rows={3}
+                      rows={2}
+                      className="bg-white"
                     />
+
                     <div className="flex gap-2">
-                      <Button variant="outline" size="sm" onClick={() => { setFollowUpOpen(false); setFollowUpNote('') }}>
+                      <Button
+                        variant="outline" size="sm"
+                        onClick={() => { setFollowUpOpen(false); setFollowUpConflict(null) }}
+                      >
                         Cancel
                       </Button>
-                      <Button size="sm" onClick={() => toast.success('Follow-up queued')} disabled={!followUpNote.trim()}>
-                        Confirm Follow-up
+                      <Button size="sm" onClick={submitFollowUp} disabled={followUpMut.isPending}>
+                        {followUpMut.isPending ? 'Submitting…' : 'Submit Follow-up'}
                       </Button>
                     </div>
                   </div>
