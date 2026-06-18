@@ -15,6 +15,7 @@ export type VisitType =
 export interface CalendarVisit {
   id: string
   source_type: string
+  source_id: string | null
   team_id: string
   division: string
   is_qc: boolean
