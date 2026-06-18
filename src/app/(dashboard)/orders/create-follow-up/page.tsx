@@ -71,15 +71,20 @@ export default function CreateFollowUpPage() {
     }
 
     // Pre-fill services from parent at 0 QAR (reused).
-    // Use a synthetic prefix so they don't collide with real services the user adds.
+    // serviceId must be a real FK to services.id (the RPC casts it to UUID and
+    // order_services.service_id has a FK constraint). When the parent's
+    // service_id is null (orphaned/legacy row) we send empty string — the RPC's
+    // NULLIF + ::uuid cast resolves that to NULL, which the FK allows.
+    // Note: if two reused services share the same service_id, draft-array
+    // operations (remove/qty update) will affect both — uncommon but documented.
     for (const s of parent.services) {
       addService({
-        serviceId:   `reused-${s.id}`,
+        serviceId:   s.service_id ?? '',
         serviceName: s.name,
         qty:         s.qty,
         price:       0,
         duration:    s.duration ?? 60,
-        path:        [],
+        path:        s.path ?? [],
         fromTime:    null,
         toTime:      null,
       })
