@@ -5,6 +5,7 @@ import {
   CheckCircle2, Circle, FileText,
 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
+import { Dialog, DialogContent } from '@/components/ui/dialog'
 import { cn } from '@/lib/utils'
 import { getVisitTypeConfig } from './VisitBlock'
 import { useVisitPaymentStatus } from '@/hooks/useVisitPaymentStatus'
@@ -95,15 +96,11 @@ export function VisitDetailPanel({
   const showPayment = isCompleted && paymentInfo
 
   return (
-    <>
-      {/* Backdrop */}
-      <div
-        className="fixed inset-0 z-40 bg-black/20 backdrop-blur-[1px]"
-        onClick={onClose}
-      />
-
-      {/* Panel */}
-      <div className="fixed inset-y-0 right-0 z-50 w-80 bg-background shadow-2xl border-l flex flex-col">
+    <Dialog open={!!visit} onOpenChange={(v) => { if (!v) onClose() }}>
+      <DialogContent
+        className="p-0 gap-0 w-full max-w-md sm:max-w-md max-h-[90vh] overflow-hidden flex flex-col"
+        showCloseButton={false}
+      >
         {/* Coloured header */}
         <div className={cn('flex items-center justify-between px-4 py-3 text-white', cfg.solidClass)}>
           <div className="flex items-center gap-2">
@@ -214,7 +211,7 @@ export function VisitDetailPanel({
                 onClick={() => { onEdit(visit); onClose() }}
               >
                 <ExternalLink className="h-4 w-4" />
-                Edit Order
+                {visit.source_type === 'follow_up_request' ? 'Confirm & Schedule' : 'Edit Order'}
               </Button>
             )}
             {canSwap && visit.source_type === 'order' && visit.status !== 'completed' && visit.status !== 'cancelled' && (
@@ -229,7 +226,7 @@ export function VisitDetailPanel({
             )}
           </div>
         )}
-      </div>
-    </>
+      </DialogContent>
+    </Dialog>
   )
 }

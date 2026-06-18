@@ -201,11 +201,13 @@ export function CalendarPage() {
     setSelectedVisit(visit)
   }
 
-  /** "Edit Order" button inside the legacy side-panel — opens the popup. */
+  /** Action button inside the detail popup — routes to the right view per visit kind. */
   function handleEditNavigate(visit: CalendarVisit) {
     if (visit.source_type === 'order' && visit.source_id) {
       setSelectedVisit(null)
       setOrderToView(visit.source_id)
+    } else if (visit.source_type === 'follow_up_request' && visit.source_id) {
+      router.push(`/orders/create-follow-up?request=${visit.source_id}`)
     } else if (visit.order_number) {
       router.push(`/orders?q=${encodeURIComponent(visit.order_number)}`)
     }
