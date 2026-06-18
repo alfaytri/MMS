@@ -451,8 +451,9 @@ export function VisitBlock({ visit: v, trackMap, hourLeftFn, workStart, workEnd,
 
   const track = trackMap.get(`v-${v.id}`) ?? 0
   const blockW = (end - start) * 2 * cellW - 2
-  const isSiteVisit = v.source_type === 'site_visit'
-  const isFollowUp  = v.visit_type === 'follow_up' || v.visit_type === 'follow-up'
+  const isSiteVisit       = v.source_type === 'site_visit'
+  const isFollowUpRequest = v.visit_type === 'follow_up_request'
+  const isFollowUp        = !isFollowUpRequest && (v.visit_type === 'follow_up' || v.visit_type === 'follow-up')
 
   // OT segment widths in px — see DraftBlock for the rationale.
   const earlyOtPx = isEarlyStart ? (workStart - start) * 2 * cellW : 0
@@ -471,17 +472,23 @@ export function VisitBlock({ visit: v, trackMap, hourLeftFn, workStart, workEnd,
     leaveTimer.current = setTimeout(() => setHovered(false), 120)
   }
 
-  const colorBlock = isFollowUp
+  const colorBlock = isFollowUpRequest
+    ? 'bg-yellow-50 border-yellow-400 border-dashed text-yellow-900'
+    : isFollowUp
     ? 'bg-yellow-100 border-yellow-400 text-yellow-900'
     : isSiteVisit
     ? 'bg-purple-100 border-purple-300 text-purple-900'
     : 'bg-blue-100 border-blue-300 text-blue-900'
-  const colorNumber = isFollowUp
+  const colorNumber = isFollowUpRequest
+    ? 'text-yellow-700'
+    : isFollowUp
     ? 'text-yellow-700'
     : isSiteVisit
     ? 'text-purple-600'
     : 'text-blue-600'
-  const colorBadge = isFollowUp
+  const colorBadge = isFollowUpRequest
+    ? 'border-yellow-300 bg-yellow-100 text-yellow-800'
+    : isFollowUp
     ? 'border-yellow-300 bg-yellow-50 text-yellow-800'
     : isSiteVisit
     ? 'border-purple-200 bg-purple-50 text-purple-700'
@@ -536,8 +543,13 @@ export function VisitBlock({ visit: v, trackMap, hourLeftFn, workStart, workEnd,
           </span>
         )}
 
+        {isFollowUpRequest && blockW >= 60 && (
+          <span className="absolute right-1 top-0.5 rounded bg-yellow-200 px-1 py-px text-[9px] font-bold uppercase leading-none text-yellow-900 ring-1 ring-yellow-400 z-10">
+            Requested
+          </span>
+        )}
         {v.order_number && (
-          <span className={cn(`truncate font-mono leading-none relative z-[1]`, colorNumber, isOvertime && 'pl-7')} style={{ fontSize: 9 }}>
+          <span className={cn(`truncate font-mono leading-none relative z-[1]`, colorNumber, isOvertime && 'pl-7', isFollowUpRequest && blockW >= 60 && 'pr-16')} style={{ fontSize: 9 }}>
             {v.order_number}
           </span>
         )}
@@ -561,6 +573,11 @@ export function VisitBlock({ visit: v, trackMap, hourLeftFn, workStart, workEnd,
             {isSiteVisit && (
               <span className="rounded border border-purple-200 bg-purple-50 px-2 py-0.5 text-[10px] text-purple-600">
                 Site Visit
+              </span>
+            )}
+            {isFollowUpRequest && (
+              <span className="rounded border border-yellow-300 bg-yellow-100 px-2 py-0.5 text-[10px] font-semibold text-yellow-800">
+                Customer Follow-Up Request
               </span>
             )}
           </div>
