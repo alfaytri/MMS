@@ -45,7 +45,7 @@ export default function CreateFollowUpPage() {
     update,
     isValid,
     submit,
-  } = useCreateOrder()
+  } = useCreateOrder({ kind: 'follow-up' })
 
   const { data: teams } = useTeams()
 
