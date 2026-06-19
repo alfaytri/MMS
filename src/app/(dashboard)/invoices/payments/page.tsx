@@ -3,9 +3,9 @@
 
 import { useState, useMemo, useRef, useEffect } from 'react'
 import {
-  Banknote, BookOpen, Building2, CheckCircle2, Clock,
+  Banknote, BookOpen, Building2, CalendarRange, CheckCircle2, Clock,
   CreditCard, FileText, Filter, QrCode, Receipt,
-  RotateCcw, Smartphone, XCircle,
+  RotateCcw, Search, Smartphone, Tag, X, XCircle,
 } from 'lucide-react'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
@@ -27,6 +27,24 @@ import {
 import { formatCurrency } from '@/lib/utils/formatters'
 import { cn } from '@/lib/utils'
 import { toast } from 'sonner'
+
+// ── Active-filter chip ──────────────────────────────────────────────────
+
+function FilterChip({ label, onClear }: { label: string; onClear: () => void }) {
+  return (
+    <span className="inline-flex items-center gap-1 rounded-full border bg-background px-2 py-0.5 text-[11px] font-medium text-foreground shadow-sm">
+      {label}
+      <button
+        type="button"
+        onClick={onClear}
+        className="-mr-0.5 rounded-full p-0.5 text-muted-foreground hover:bg-muted hover:text-foreground transition-colors"
+        aria-label={`Remove ${label} filter`}
+      >
+        <X className="h-3 w-3" />
+      </button>
+    </span>
+  )
+}
 
 // ── Debounce ────────────────────────────────────────────────────────────
 
@@ -287,30 +305,126 @@ export default function ViewPaymentsPage() {
 
       {/* ── Filter panel ───────────────────────────────────────────── */}
       {filtersOpen && (
-        <div className="grid grid-cols-2 md:grid-cols-4 xl:grid-cols-7 gap-3 p-4 rounded-lg border bg-muted/30">
-          <Input type="date" placeholder="Date From" value={dateFrom} onChange={(e) => setDateFrom(e.target.value)} />
-          <Input type="date" placeholder="Date To" value={dateTo} onChange={(e) => setDateTo(e.target.value)} />
-          <Input placeholder="Invoice #" value={invoiceSearch} onChange={(e) => setInvoiceSearch(e.target.value)} />
-          <Input placeholder="Customer" value={customerSearch} onChange={(e) => setCustomerSearch(e.target.value)} />
-          <Input placeholder="Reference / Txn" value={refSearch} onChange={(e) => setRefSearch(e.target.value)} />
-          <Select value={methodFilter} onValueChange={(v) => { setMethodFilter(v ?? ''); setActiveMethod(undefined) }}>
-            <SelectTrigger><SelectValue placeholder="Method" /></SelectTrigger>
-            <SelectContent>
-              <SelectItem value="">All</SelectItem>
-              {METHOD_CHIPS.map((m) => (
-                <SelectItem key={m.key} value={m.key}>{m.label}</SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
-          <Select value={agent} onValueChange={(v) => setAgent(v ?? '')}>
-            <SelectTrigger><SelectValue placeholder="Agent" /></SelectTrigger>
-            <SelectContent>
-              <SelectItem value="">All</SelectItem>
-              {uniqueAgents.map((a) => (
-                <SelectItem key={a} value={a}>{a}</SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
+        <div className="rounded-xl border bg-card shadow-sm overflow-hidden animate-in slide-in-from-top-1 fade-in duration-200">
+          {/* Active filters bar */}
+          {activeFilterCount > 0 && (
+            <div className="flex flex-wrap items-center gap-1.5 border-b bg-muted/40 px-4 py-2.5">
+              <span className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">Active</span>
+              {invoiceSearch && (
+                <FilterChip label={`Invoice: ${invoiceSearch}`} onClear={() => setInvoiceSearch('')} />
+              )}
+              {customerSearch && (
+                <FilterChip label={`Customer: ${customerSearch}`} onClear={() => setCustomerSearch('')} />
+              )}
+              {refSearch && (
+                <FilterChip label={`Ref: ${refSearch}`} onClear={() => setRefSearch('')} />
+              )}
+              {dateFrom && (
+                <FilterChip label={`Date ≥ ${dateFrom}`} onClear={() => setDateFrom('')} />
+              )}
+              {dateTo && (
+                <FilterChip label={`Date ≤ ${dateTo}`} onClear={() => setDateTo('')} />
+              )}
+              {methodFilter && (
+                <FilterChip label={`Method: ${METHOD_CHIPS.find((m) => m.key === methodFilter)?.label ?? methodFilter}`} onClear={() => setMethodFilter('')} />
+              )}
+              {agent && (
+                <FilterChip label={`Agent: ${agent}`} onClear={() => setAgent('')} />
+              )}
+              <button
+                type="button"
+                onClick={handleReset}
+                className="ml-auto text-xs font-medium text-muted-foreground hover:text-foreground transition-colors"
+              >
+                Clear all
+              </button>
+            </div>
+          )}
+
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-x-6 gap-y-4 p-4">
+            {/* Search section */}
+            <div className="space-y-2">
+              <div className="flex items-center gap-1.5 text-xs font-semibold uppercase tracking-wider text-muted-foreground">
+                <Search className="h-3.5 w-3.5" />
+                Search
+              </div>
+              <div className="space-y-2">
+                <Input
+                  placeholder="Invoice number…"
+                  value={invoiceSearch}
+                  onChange={(e) => setInvoiceSearch(e.target.value)}
+                  className="h-9"
+                  aria-label="Invoice number"
+                />
+                <Input
+                  placeholder="Customer name…"
+                  value={customerSearch}
+                  onChange={(e) => setCustomerSearch(e.target.value)}
+                  className="h-9"
+                  aria-label="Customer name"
+                />
+                <Input
+                  placeholder="Reference / Txn ID…"
+                  value={refSearch}
+                  onChange={(e) => setRefSearch(e.target.value)}
+                  className="h-9"
+                  aria-label="Reference or transaction ID"
+                />
+              </div>
+            </div>
+
+            {/* Date range section */}
+            <div className="space-y-2">
+              <div className="flex items-center gap-1.5 text-xs font-semibold uppercase tracking-wider text-muted-foreground">
+                <CalendarRange className="h-3.5 w-3.5" />
+                Date range
+              </div>
+              <div className="space-y-1">
+                <label className="text-[11px] text-muted-foreground mb-1 block">Payment date</label>
+                <div className="flex items-center gap-1.5">
+                  <Input
+                    type="date" aria-label="Date from"
+                    value={dateFrom} onChange={(e) => setDateFrom(e.target.value)}
+                    className="h-9 flex-1 min-w-0"
+                  />
+                  <span className="text-muted-foreground text-xs shrink-0">→</span>
+                  <Input
+                    type="date" aria-label="Date to"
+                    value={dateTo} onChange={(e) => setDateTo(e.target.value)}
+                    className="h-9 flex-1 min-w-0"
+                  />
+                </div>
+              </div>
+            </div>
+
+            {/* Categorisation section */}
+            <div className="space-y-2">
+              <div className="flex items-center gap-1.5 text-xs font-semibold uppercase tracking-wider text-muted-foreground">
+                <Tag className="h-3.5 w-3.5" />
+                Categorise
+              </div>
+              <div className="space-y-2">
+                <Select value={methodFilter} onValueChange={(v) => { setMethodFilter(v ?? ''); setActiveMethod(undefined) }}>
+                  <SelectTrigger className="h-9"><SelectValue placeholder="Any method" /></SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="">Any method</SelectItem>
+                    {METHOD_CHIPS.map((m) => (
+                      <SelectItem key={m.key} value={m.key}>{m.label}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+                <Select value={agent} onValueChange={(v) => setAgent(v ?? '')}>
+                  <SelectTrigger className="h-9"><SelectValue placeholder="Any agent" /></SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="">Any agent</SelectItem>
+                    {uniqueAgents.map((a) => (
+                      <SelectItem key={a} value={a}>{a}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+            </div>
+          </div>
         </div>
       )}
 
