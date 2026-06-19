@@ -9792,6 +9792,14 @@ export type Database = {
         Args: { p_bv_id: string; p_delta: number }
         Returns: undefined
       }
+      update_workflow_step_conditions: {
+        Args: {
+          p_condition_types: string[]
+          p_is_conditional: boolean
+          p_step_id: string
+        }
+        Returns: undefined
+      }
       update_workflow_step_role: {
         Args: { p_role_id: string; p_step_id: string }
         Returns: undefined

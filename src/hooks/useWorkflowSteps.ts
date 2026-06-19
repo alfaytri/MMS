@@ -122,6 +122,28 @@ export function useUpdateWorkflowStepRole() {
   })
 }
 
+export function useUpdateWorkflowStepConditions() {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: async (args: {
+      stepId: string
+      isConditional: boolean
+      conditionTypes: string[]
+    }) => {
+      const supabase = createClient()
+      const { error } = await supabase.rpc('update_workflow_step_conditions', {
+        p_step_id:         args.stepId,
+        p_is_conditional:  args.isConditional,
+        p_condition_types: args.conditionTypes,
+      })
+      if (error) throw error
+    },
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: queryKeys.roles.workflowSteps })
+    },
+  })
+}
+
 export function useArchiveWorkflowStep() {
   const qc = useQueryClient()
   return useMutation({
