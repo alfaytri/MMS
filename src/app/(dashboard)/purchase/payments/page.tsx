@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useMemo, useState, useCallback } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import { CalendarRange, Eye, Filter, Paperclip, RotateCcw, Search, Tag, X } from 'lucide-react'
 import { type ColumnDef } from '@tanstack/react-table'
 import { PageHeader } from '@/components/shared/PageHeader'
@@ -12,17 +12,22 @@ import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { useSupplierPayments, type SupplierPayment } from '@/hooks/useSupplierPayments'
-import { useCustomerPayments, type CustomerPayment } from '@/hooks/useCustomerPayments'
-import { SoDetailDialog } from '@/components/sales/SoDetailDialog'
 import { PoDetailDialog } from '@/components/purchase/PoDetailDialog'
 import { AttachBillDialog } from '@/components/purchase/AttachBillDialog'
-import { SelectInvoiceDialog } from '@/components/sales/SelectInvoiceDialog'
 import { formatCurrency, formatDate } from '@/lib/utils/formatters'
-import type { SaleOrder } from '@/hooks/useSaleOrders'
-
-type PaymentType = 'purchase' | 'invoice'
 
 const DEFAULT_CURRENCY = 'QAR'
+
+const METHOD_LABELS: Record<string, string> = {
+  bank_transfer:   'Bank Transfer',
+  cash:            'Cash',
+  cheque:          'Cheque',
+  online:          'Online',
+  online_transfer: 'Online Transfer',
+  pay_later:       'Pay Later',
+  fawran:          'Fawran',
+  pos:             'POS',
+}
 
 // ── Debounce ────────────────────────────────────────────────────────────
 
@@ -53,123 +58,55 @@ function FilterChip({ label, onClear }: { label: string; onClear: () => void }) 
   )
 }
 
-const METHOD_LABELS: Record<string, string> = {
-  bank_transfer:   'Bank Transfer',
-  cash:            'Cash',
-  cheque:          'Cheque',
-  online:          'Online',
-  online_transfer: 'Online Transfer',
-  pay_later:       'Pay Later',
-  fawran:          'Fawran',
-  pos:             'POS',
-}
+export default function SupplierPaymentsPage() {
+  const { data: supplierPayments, isLoading } = useSupplierPayments()
 
-export default function PaymentsPage() {
-  const [paymentType, setPaymentType] = useState<PaymentType>('purchase')
-
-  const { data: supplierPayments, isLoading: loadingSupplier } = useSupplierPayments()
-  const { data: customerPayments, isLoading: loadingCustomer } = useCustomerPayments()
+  const [poDetailOpen, setPoDetailOpen]         = useState(false)
+  const [selectedPoId, setSelectedPoId]         = useState<string | null>(null)
+  const [attachBillOpen, setAttachBillOpen]     = useState(false)
+  const [attachPaymentId, setAttachPaymentId]   = useState<string | null>(null)
+  const [attachSupplierId, setAttachSupplierId] = useState<string | null>(null)
 
   // ── Filter state ────────────────────────────────────────────────────
   const [filtersOpen, setFiltersOpen] = useState(false)
   const [dateFrom, setDateFrom] = useState('')
   const [dateTo, setDateTo] = useState('')
   const [paymentIdSearch, setPaymentIdSearch] = useState('')
-  const [partySearch, setPartySearch] = useState('') // supplier OR customer name
+  const [supplierSearch, setSupplierSearch] = useState('')
   const [refSearch, setRefSearch] = useState('')
   const [methodFilter, setMethodFilter] = useState('')
 
   const debouncedPaymentId = useDebounce(paymentIdSearch, 200)
-  const debouncedParty     = useDebounce(partySearch, 200)
+  const debouncedSupplier  = useDebounce(supplierSearch, 200)
   const debouncedRef       = useDebounce(refSearch, 200)
 
   const activeFilterCount = [
-    dateFrom, dateTo, debouncedPaymentId, debouncedParty, debouncedRef, methodFilter,
+    dateFrom, dateTo, debouncedPaymentId, debouncedSupplier, debouncedRef, methodFilter,
   ].filter(Boolean).length
 
   function handleReset() {
     setDateFrom(''); setDateTo('')
-    setPaymentIdSearch(''); setPartySearch(''); setRefSearch('')
+    setPaymentIdSearch(''); setSupplierSearch(''); setRefSearch('')
     setMethodFilter('')
   }
 
-  // Helper to apply filters to either supplier or customer payment array
-  function applyFilters<T extends {
-    payment_id?: string | null
-    reference?: string | null
-    method?: string
-    date: string
-    amount?: number
-  } & ({ supplier_name?: string | null } | { customer_name?: string | null })>(rows: T[] | undefined): T[] {
-    if (!rows) return []
+  const filtered = useMemo(() => {
+    if (!supplierPayments) return []
     const pid = debouncedPaymentId.trim().toLowerCase()
-    const party = debouncedParty.trim().toLowerCase()
+    const sup = debouncedSupplier.trim().toLowerCase()
     const ref = debouncedRef.trim().toLowerCase()
-    return rows.filter((r) => {
+    return supplierPayments.filter((r) => {
       if (dateFrom && r.date < dateFrom) return false
       if (dateTo && r.date > dateTo) return false
       if (methodFilter && r.method !== methodFilter) return false
       if (pid && !(r.payment_id ?? '').toLowerCase().includes(pid)) return false
       if (ref && !(r.reference ?? '').toLowerCase().includes(ref)) return false
-      if (party) {
-        const name = 'supplier_name' in r
-          ? (r.supplier_name ?? '')
-          : (r as { customer_name?: string | null }).customer_name ?? ''
-        if (!name.toLowerCase().includes(party)) return false
-      }
+      if (sup && !(r.supplier_name ?? '').toLowerCase().includes(sup)) return false
       return true
     })
-  }
+  }, [supplierPayments, dateFrom, dateTo, debouncedPaymentId, debouncedSupplier, debouncedRef, methodFilter])
 
-  const filteredSupplier = useMemo(() => applyFilters(supplierPayments), [supplierPayments, dateFrom, dateTo, debouncedPaymentId, debouncedParty, debouncedRef, methodFilter])
-  const filteredCustomer = useMemo(() => applyFilters(customerPayments), [customerPayments, dateFrom, dateTo, debouncedPaymentId, debouncedParty, debouncedRef, methodFilter])
-
-  const [selectedSO, setSelectedSO] = useState<SaleOrder | null>(null)
-  const [detailOpen, setDetailOpen] = useState(false)
-  const [poDetailOpen, setPoDetailOpen]         = useState(false)
-  const [selectedPoId, setSelectedPoId]         = useState<string | null>(null)
-  const [attachBillOpen, setAttachBillOpen]     = useState(false)
-  const [attachPaymentId, setAttachPaymentId]   = useState<string | null>(null)
-  const [attachSupplierId, setAttachSupplierId] = useState<string | null>(null)
-  const [linkInvoiceOpen, setLinkInvoiceOpen]   = useState(false)
-  const [linkPaymentId, setLinkPaymentId]       = useState<string | null>(null)
-  const [linkCustomerId, setLinkCustomerId]     = useState<string | null>(null)
-
-  const openSO = useCallback(function openSO(payment: CustomerPayment) {
-    if (!payment.source_id || payment.source_type !== 'sale_order') return
-    setSelectedSO({
-      id:                       payment.source_id,
-      so_number:                payment.so_number ?? '…',
-      customer_id:              payment.source_id,
-      status:                   'confirmed' as const,
-      subtotal:                 payment.amount,
-      tax:                      0,
-      total:                    payment.amount,
-      discount_amount:          0,
-      discount_label:           null,
-      discount_type:            null,
-      discount_amount_resolved: 0,
-      currency:                 DEFAULT_CURRENCY,
-      exchange_rate:            1,
-      expected_delivery:        null,
-      payment_terms:            null,
-      payment_terms_notes:      null,
-      payment_milestones:       null,
-      delivery_terms:           null,
-      delivery_terms_notes:     null,
-      customer_notes:           null,
-      validity_days:            0,
-      notes:                    null,
-      created_by_name:          null,
-      created_at:               payment.date,
-      updated_at:               payment.date,
-      deleted_at:               null,
-      customer_name:            payment.customer_name ?? undefined,
-    })
-    setDetailOpen(true)
-  }, [])
-
-  const purchaseColumns = useMemo<ColumnDef<SupplierPayment>[]>(() => [
+  const columns = useMemo<ColumnDef<SupplierPayment>[]>(() => [
     {
       accessorKey: 'payment_id',
       header: ({ column }) => <DataTableColumnHeader column={column} title="Payment #" />,
@@ -266,125 +203,11 @@ export default function PaymentsPage() {
     },
   ], [])
 
-  const invoiceColumns = useMemo<ColumnDef<CustomerPayment>[]>(() => [
-    {
-      accessorKey: 'payment_id',
-      header: ({ column }) => <DataTableColumnHeader column={column} title="Payment #" />,
-      cell: ({ row }) => (
-        <span className="font-mono text-sm font-medium">
-          {row.original.payment_id ?? '—'}
-        </span>
-      ),
-    },
-    {
-      id: 'customer',
-      header: 'Customer',
-      cell: ({ row }) => row.original.customer_name ?? '—',
-    },
-    {
-      id: 'so_number',
-      header: 'SO #',
-      cell: ({ row }) => {
-        const so = row.original.so_number
-        if (!so) return <span className="text-muted-foreground">—</span>
-        return (
-          <button
-            type="button"
-            aria-label={`View sale order ${so}`}
-            onClick={() => openSO(row.original)}
-            className="font-mono text-sm text-primary hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 rounded-sm"
-          >
-            {so}
-          </button>
-        )
-      },
-    },
-    {
-      id: 'invoice',
-      header: 'Invoice #',
-      cell: ({ row }) => row.original.invoice_display ?? '—',
-    },
-    {
-      accessorKey: 'amount',
-      header: ({ column }) => <DataTableColumnHeader column={column} title="Amount" />,
-      cell: ({ row }) => (
-        <span className="font-medium tabular-nums">
-          {formatCurrency(row.original.amount, DEFAULT_CURRENCY)}
-        </span>
-      ),
-    },
-    {
-      accessorKey: 'method',
-      header: 'Method',
-      cell: ({ row }) => (
-        <Badge variant="outline" className="text-xs">
-          {METHOD_LABELS[row.original.method] ?? row.original.method}
-        </Badge>
-      ),
-    },
-    {
-      accessorKey: 'date',
-      header: ({ column }) => <DataTableColumnHeader column={column} title="Date" />,
-      cell: ({ row }) => formatDate(row.original.date),
-    },
-    {
-      id: 'actions',
-      header: '',
-      cell: ({ row }) => {
-        const p = row.original
-        return (
-          <div className="flex items-center gap-1">
-            {p.source_type === 'sale_order' && p.source_id && (
-              <Button
-                size="icon"
-                variant="ghost"
-                className="h-7 w-7"
-                aria-label="View sale order"
-                onClick={() => openSO(p)}
-              >
-                <Eye className="h-3.5 w-3.5" />
-              </Button>
-            )}
-            {!p.invoice_id && p.customer_id && (
-              <Button
-                size="icon"
-                variant="ghost"
-                className="h-7 w-7"
-                aria-label="Link to invoice"
-                onClick={() => {
-                  setLinkPaymentId(p.id)
-                  setLinkCustomerId(p.customer_id!)
-                  setLinkInvoiceOpen(true)
-                }}
-              >
-                <Paperclip className="h-3.5 w-3.5" />
-              </Button>
-            )}
-          </div>
-        )
-      },
-    },
-  ], [openSO])
-
-  const partyLabel = paymentType === 'purchase' ? 'Supplier' : 'Customer'
-
   return (
     <PageWrapper>
-      <PageHeader title="Payments" description="Purchase and invoice payment records" />
+      <PageHeader title="Supplier Payments" description="Payments recorded against supplier bills and purchase orders" />
 
       <div className="flex flex-wrap items-center gap-2 mb-3">
-        <Select value={paymentType} onValueChange={(v) => { if (v === 'purchase' || v === 'invoice') setPaymentType(v) }}>
-          <SelectTrigger className="w-full sm:w-56">
-            <SelectValue>
-              {paymentType === 'purchase' ? 'Purchase Payments' : 'Invoice Payments'}
-            </SelectValue>
-          </SelectTrigger>
-          <SelectContent>
-            <SelectItem value="purchase">Purchase Payments</SelectItem>
-            <SelectItem value="invoice">Invoice Payments</SelectItem>
-          </SelectContent>
-        </Select>
-
         <div className="ml-auto flex items-center gap-1.5">
           <Button
             variant="outline" size="sm"
@@ -405,18 +228,17 @@ export default function PaymentsPage() {
         </div>
       </div>
 
-      {/* Filter panel */}
       {filtersOpen && (
         <div className="rounded-xl border bg-card shadow-sm overflow-hidden animate-in slide-in-from-top-1 fade-in duration-200 mb-3">
           {activeFilterCount > 0 && (
             <div className="flex flex-wrap items-center gap-1.5 border-b bg-muted/40 px-4 py-2.5">
               <span className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">Active</span>
               {paymentIdSearch && <FilterChip label={`Payment: ${paymentIdSearch}`} onClear={() => setPaymentIdSearch('')} />}
-              {partySearch    && <FilterChip label={`${partyLabel}: ${partySearch}`} onClear={() => setPartySearch('')} />}
-              {refSearch      && <FilterChip label={`Ref: ${refSearch}`} onClear={() => setRefSearch('')} />}
-              {dateFrom       && <FilterChip label={`Date ≥ ${dateFrom}`} onClear={() => setDateFrom('')} />}
-              {dateTo         && <FilterChip label={`Date ≤ ${dateTo}`} onClear={() => setDateTo('')} />}
-              {methodFilter   && <FilterChip label={`Method: ${METHOD_LABELS[methodFilter] ?? methodFilter}`} onClear={() => setMethodFilter('')} />}
+              {supplierSearch  && <FilterChip label={`Supplier: ${supplierSearch}`} onClear={() => setSupplierSearch('')} />}
+              {refSearch       && <FilterChip label={`Ref: ${refSearch}`} onClear={() => setRefSearch('')} />}
+              {dateFrom        && <FilterChip label={`Date ≥ ${dateFrom}`} onClear={() => setDateFrom('')} />}
+              {dateTo          && <FilterChip label={`Date ≤ ${dateTo}`} onClear={() => setDateTo('')} />}
+              {methodFilter    && <FilterChip label={`Method: ${METHOD_LABELS[methodFilter] ?? methodFilter}`} onClear={() => setMethodFilter('')} />}
               <button
                 type="button"
                 onClick={handleReset}
@@ -428,7 +250,6 @@ export default function PaymentsPage() {
           )}
 
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-x-6 gap-y-4 p-4">
-            {/* Search section */}
             <div className="space-y-2">
               <div className="flex items-center gap-1.5 text-xs font-semibold uppercase tracking-wider text-muted-foreground">
                 <Search className="h-3.5 w-3.5" />
@@ -443,11 +264,11 @@ export default function PaymentsPage() {
                   aria-label="Payment number"
                 />
                 <Input
-                  placeholder={`${partyLabel} name…`}
-                  value={partySearch}
-                  onChange={(e) => setPartySearch(e.target.value)}
+                  placeholder="Supplier name…"
+                  value={supplierSearch}
+                  onChange={(e) => setSupplierSearch(e.target.value)}
                   className="h-9"
-                  aria-label={`${partyLabel} name`}
+                  aria-label="Supplier name"
                 />
                 <Input
                   placeholder="Reference / Txn ID…"
@@ -459,7 +280,6 @@ export default function PaymentsPage() {
               </div>
             </div>
 
-            {/* Date range section */}
             <div className="space-y-2">
               <div className="flex items-center gap-1.5 text-xs font-semibold uppercase tracking-wider text-muted-foreground">
                 <CalendarRange className="h-3.5 w-3.5" />
@@ -483,7 +303,6 @@ export default function PaymentsPage() {
               </div>
             </div>
 
-            {/* Categorise section */}
             <div className="space-y-2">
               <div className="flex items-center gap-1.5 text-xs font-semibold uppercase tracking-wider text-muted-foreground">
                 <Tag className="h-3.5 w-3.5" />
@@ -503,28 +322,14 @@ export default function PaymentsPage() {
         </div>
       )}
 
-      <p className="text-xs text-muted-foreground mb-2">
-        {paymentType === 'purchase' ? filteredSupplier.length : filteredCustomer.length} results
-      </p>
+      <p className="text-xs text-muted-foreground mb-2">{filtered.length} results</p>
 
-      {paymentType === 'purchase' ? (
-        <DataTable
-          columns={purchaseColumns}
-          data={filteredSupplier}
-          isLoading={loadingSupplier}
-        />
-      ) : (
-        <DataTable
-          columns={invoiceColumns}
-          data={filteredCustomer}
-          isLoading={loadingCustomer}
-        />
-      )}
-      <SoDetailDialog
-        open={detailOpen}
-        onOpenChange={setDetailOpen}
-        so={selectedSO}
+      <DataTable
+        columns={columns}
+        data={filtered}
+        isLoading={isLoading}
       />
+
       <PoDetailDialog
         open={poDetailOpen}
         onOpenChange={setPoDetailOpen}
@@ -537,14 +342,6 @@ export default function PaymentsPage() {
         paymentId={attachPaymentId ?? undefined}
         supplierId={attachSupplierId}
       />
-      {linkInvoiceOpen && linkPaymentId && linkCustomerId && (
-        <SelectInvoiceDialog
-          open
-          onOpenChange={setLinkInvoiceOpen}
-          paymentId={linkPaymentId}
-          customerId={linkCustomerId}
-        />
-      )}
     </PageWrapper>
   )
 }
