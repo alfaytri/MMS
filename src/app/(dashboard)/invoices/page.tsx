@@ -3,8 +3,8 @@
 
 import { useState, useMemo, useRef, useEffect } from 'react'
 import {
-  AlertTriangle, BookOpen, CheckCircle2, CreditCard,
-  FileText, Filter, Receipt, RotateCcw, Send, X,
+  AlertTriangle, BookOpen, CheckCircle2, CalendarRange, CreditCard,
+  FileText, Filter, Receipt, RotateCcw, Search, Send, Tag, X,
 } from 'lucide-react'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
@@ -28,6 +28,24 @@ import {
 import { formatCurrency } from '@/lib/utils/formatters'
 import { cn } from '@/lib/utils'
 import { toast } from 'sonner'
+
+// ── Active-filter chip ──────────────────────────────────────────────────
+
+function FilterChip({ label, onClear }: { label: string; onClear: () => void }) {
+  return (
+    <span className="inline-flex items-center gap-1 rounded-full border bg-background px-2 py-0.5 text-[11px] font-medium text-foreground shadow-sm">
+      {label}
+      <button
+        type="button"
+        onClick={onClear}
+        className="-mr-0.5 rounded-full p-0.5 text-muted-foreground hover:bg-muted hover:text-foreground transition-colors"
+        aria-label={`Remove ${label} filter`}
+      >
+        <X className="h-3 w-3" />
+      </button>
+    </span>
+  )
+}
 
 // ── Debounce hook ───────────────────────────────────────────────────────
 
@@ -266,32 +284,145 @@ export default function ViewInvoicesPage() {
 
       {/* ── Filter panel ───────────────────────────────────────────── */}
       {filtersOpen && (
-        <div className="grid grid-cols-2 md:grid-cols-4 xl:grid-cols-8 gap-3 p-4 rounded-lg border bg-muted/30">
-          <Input type="date" placeholder="Issued From" value={issuedFrom} onChange={(e) => setIssuedFrom(e.target.value)} />
-          <Input type="date" placeholder="Issued To" value={issuedTo} onChange={(e) => setIssuedTo(e.target.value)} />
-          <Input type="date" placeholder="Due From" value={dueFrom} onChange={(e) => setDueFrom(e.target.value)} />
-          <Input type="date" placeholder="Due To" value={dueTo} onChange={(e) => setDueTo(e.target.value)} />
-          <Input placeholder="Invoice #" value={invoiceSearch} onChange={(e) => setInvoiceSearch(e.target.value)} />
-          <Input placeholder="Customer" value={customerSearch} onChange={(e) => setCustomerSearch(e.target.value)} />
-          <Select value={source} onValueChange={(v) => setSource(v ?? '')}>
-            <SelectTrigger><SelectValue placeholder="Source" /></SelectTrigger>
-            <SelectContent>
-              <SelectItem value="all">All</SelectItem>
-              <SelectItem value="order">Orders</SelectItem>
-              <SelectItem value="contract">Contracts</SelectItem>
-              <SelectItem value="sale">Sales</SelectItem>
-              <SelectItem value="purchase">Purchase</SelectItem>
-            </SelectContent>
-          </Select>
-          <Select value={agent} onValueChange={(v) => setAgent(v ?? '')}>
-            <SelectTrigger><SelectValue placeholder="Agent" /></SelectTrigger>
-            <SelectContent>
-              <SelectItem value="all">All</SelectItem>
-              {uniqueAgents.map((a) => (
-                <SelectItem key={a} value={a}>{a}</SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
+        <div className="rounded-xl border bg-card shadow-sm overflow-hidden animate-in slide-in-from-top-1 fade-in duration-200">
+          {/* Active filters bar */}
+          {activeFilterCount > 0 && (
+            <div className="flex flex-wrap items-center gap-1.5 border-b bg-muted/40 px-4 py-2.5">
+              <span className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">Active</span>
+              {invoiceSearch && (
+                <FilterChip label={`Invoice: ${invoiceSearch}`} onClear={() => setInvoiceSearch('')} />
+              )}
+              {customerSearch && (
+                <FilterChip label={`Customer: ${customerSearch}`} onClear={() => setCustomerSearch('')} />
+              )}
+              {issuedFrom && (
+                <FilterChip label={`Issued ≥ ${issuedFrom}`} onClear={() => setIssuedFrom('')} />
+              )}
+              {issuedTo && (
+                <FilterChip label={`Issued ≤ ${issuedTo}`} onClear={() => setIssuedTo('')} />
+              )}
+              {dueFrom && (
+                <FilterChip label={`Due ≥ ${dueFrom}`} onClear={() => setDueFrom('')} />
+              )}
+              {dueTo && (
+                <FilterChip label={`Due ≤ ${dueTo}`} onClear={() => setDueTo('')} />
+              )}
+              {source && (
+                <FilterChip label={`Source: ${source === 'all' ? 'Any' : source}`} onClear={() => setSource('')} />
+              )}
+              {agent && (
+                <FilterChip label={`Agent: ${agent === 'all' ? 'Any' : agent}`} onClear={() => setAgent('')} />
+              )}
+              <button
+                type="button"
+                onClick={handleReset}
+                className="ml-auto text-xs font-medium text-muted-foreground hover:text-foreground transition-colors"
+              >
+                Clear all
+              </button>
+            </div>
+          )}
+
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-x-6 gap-y-4 p-4">
+            {/* Search section */}
+            <div className="space-y-2">
+              <div className="flex items-center gap-1.5 text-xs font-semibold uppercase tracking-wider text-muted-foreground">
+                <Search className="h-3.5 w-3.5" />
+                Search
+              </div>
+              <div className="space-y-2">
+                <label className="block">
+                  <span className="sr-only">Invoice number</span>
+                  <Input
+                    placeholder="Invoice number…"
+                    value={invoiceSearch}
+                    onChange={(e) => setInvoiceSearch(e.target.value)}
+                    className="h-9"
+                  />
+                </label>
+                <label className="block">
+                  <span className="sr-only">Customer name</span>
+                  <Input
+                    placeholder="Customer name…"
+                    value={customerSearch}
+                    onChange={(e) => setCustomerSearch(e.target.value)}
+                    className="h-9"
+                  />
+                </label>
+              </div>
+            </div>
+
+            {/* Date ranges section */}
+            <div className="space-y-2 md:col-span-2 lg:col-span-1">
+              <div className="flex items-center gap-1.5 text-xs font-semibold uppercase tracking-wider text-muted-foreground">
+                <CalendarRange className="h-3.5 w-3.5" />
+                Date ranges
+              </div>
+              <div className="space-y-2">
+                <div>
+                  <label className="text-[11px] text-muted-foreground mb-1 block">Issued date</label>
+                  <div className="flex items-center gap-1.5">
+                    <Input
+                      type="date" aria-label="Issued from"
+                      value={issuedFrom} onChange={(e) => setIssuedFrom(e.target.value)}
+                      className="h-9 flex-1 min-w-0"
+                    />
+                    <span className="text-muted-foreground text-xs shrink-0">→</span>
+                    <Input
+                      type="date" aria-label="Issued to"
+                      value={issuedTo} onChange={(e) => setIssuedTo(e.target.value)}
+                      className="h-9 flex-1 min-w-0"
+                    />
+                  </div>
+                </div>
+                <div>
+                  <label className="text-[11px] text-muted-foreground mb-1 block">Due date</label>
+                  <div className="flex items-center gap-1.5">
+                    <Input
+                      type="date" aria-label="Due from"
+                      value={dueFrom} onChange={(e) => setDueFrom(e.target.value)}
+                      className="h-9 flex-1 min-w-0"
+                    />
+                    <span className="text-muted-foreground text-xs shrink-0">→</span>
+                    <Input
+                      type="date" aria-label="Due to"
+                      value={dueTo} onChange={(e) => setDueTo(e.target.value)}
+                      className="h-9 flex-1 min-w-0"
+                    />
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            {/* Categorisation section */}
+            <div className="space-y-2">
+              <div className="flex items-center gap-1.5 text-xs font-semibold uppercase tracking-wider text-muted-foreground">
+                <Tag className="h-3.5 w-3.5" />
+                Categorise
+              </div>
+              <div className="space-y-2">
+                <Select value={source} onValueChange={(v) => setSource(v ?? '')}>
+                  <SelectTrigger className="h-9"><SelectValue placeholder="Any source" /></SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="all">Any source</SelectItem>
+                    <SelectItem value="order">Orders</SelectItem>
+                    <SelectItem value="contract">Contracts</SelectItem>
+                    <SelectItem value="sale">Sales</SelectItem>
+                    <SelectItem value="purchase">Purchase</SelectItem>
+                  </SelectContent>
+                </Select>
+                <Select value={agent} onValueChange={(v) => setAgent(v ?? '')}>
+                  <SelectTrigger className="h-9"><SelectValue placeholder="Any agent" /></SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="all">Any agent</SelectItem>
+                    {uniqueAgents.map((a) => (
+                      <SelectItem key={a} value={a}>{a}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+            </div>
+          </div>
         </div>
       )}
 
