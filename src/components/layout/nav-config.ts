@@ -72,9 +72,10 @@ export const NAV_ITEMS: NavEntry[] = [
     groups: [
       {
         items: [
-          { label: 'View Invoices',    href: '/invoices',                  icon: 'FileText',    permission: 'invoices.view' },
-          { label: 'View Payments',    href: '/invoices/payments',         icon: 'CreditCard',  permission: 'payments.view' },
-          { label: 'Pending Payments', href: '/invoices/pending-payments', icon: 'Clock',       permission: 'payments.view' },
+          { label: 'View Invoices',     href: '/invoices',                  icon: 'FileText',    permission: 'invoices.view' },
+          { label: 'Customer Payments', href: '/invoices/payments',         icon: 'CreditCard',  permission: 'payments.view' },
+          { label: 'Pending Payments',  href: '/invoices/pending-payments', icon: 'Clock',       permission: 'payments.view' },
+          { label: 'Supplier Payments', href: '/purchase/payments',         icon: 'Wallet',      permission: 'purchase.payments.view' },
         ],
       },
     ],
@@ -108,29 +109,24 @@ export const NAV_ITEMS: NavEntry[] = [
       {
         label: 'PURCHASE',
         items: [
-          { label: 'Purchase Orders', href: '/purchase/orders',       icon: 'ClipboardList', permission: 'purchase.orders.view' },
-          { label: 'Approvals',       href: '/purchase/approvals',    icon: 'CheckCircle',   permission: 'purchase.approvals.view' },
-          { label: 'Shipments',       href: '/purchase/shipments',    icon: 'Ship',          permission: 'purchase.shipments.view' },
-          { label: 'Landed Costs',    href: '/purchase/landed-costs', icon: 'Calculator',    permission: 'purchase.landed_costs.view' },
-          { label: 'Bills',           href: '/purchase/bills',        icon: 'Receipt',       permission: 'purchase.bills.view' },
-          { label: 'RFQ',             href: '/purchase/rfq',          icon: 'FileQuestion',  permission: 'purchase.rfq.view' },
-          { label: 'Dead Stock Report', href: '/purchase/dead-stock', icon: 'BarChart3',     permission: 'purchase.dead_stock.view' },
+          { label: 'Purchase Orders',   href: '/purchase/orders',       icon: 'ClipboardList', permission: 'purchase.orders.view' },
+          { label: 'Approvals',         href: '/purchase/approvals',    icon: 'CheckCircle',   permission: 'purchase.approvals.view' },
+          { label: 'Shipments',         href: '/purchase/shipments',    icon: 'Ship',          permission: 'purchase.shipments.view' },
+          { label: 'Receivals',         href: '/purchase/receivals',    icon: 'PackageOpen',   permission: 'purchase.receivals.view' },
+          { label: 'Landed Costs',      href: '/purchase/landed-costs', icon: 'Calculator',    permission: 'purchase.landed_costs.view' },
+          { label: 'Bills',             href: '/purchase/bills',        icon: 'Receipt',       permission: 'purchase.bills.view' },
+          { label: 'RFQ',               href: '/purchase/rfq',          icon: 'FileQuestion',  permission: 'purchase.rfq.view' },
+          { label: 'Dead Stock Report', href: '/purchase/dead-stock',   icon: 'BarChart3',     permission: 'purchase.dead_stock.view' },
         ],
       },
       {
         label: 'SALES',
         items: [
-          { label: 'Sale Orders',  href: '/sales/orders',       icon: 'ShoppingBag',  permission: 'sales.orders.view' },
+          { label: 'Sale Orders',  href: '/sales/orders',        icon: 'ShoppingBag',  permission: 'sales.orders.view' },
           { label: 'Invoices',     href: '/sales/invoices',      icon: 'FileText',     permission: 'sales.invoices.view' },
           { label: 'Returns',      href: '/sales/returns',       icon: 'RotateCcw',    permission: 'sales.returns.view' },
           { label: 'Deliveries',   href: '/sales/deliveries',    icon: 'PackageCheck', permission: 'sales.deliveries.view' },
           { label: 'Credit Notes', href: '/sales/credit-notes',  icon: 'FileX',        permission: 'sales.credit_notes.view' },
-        ],
-      },
-      {
-        items: [
-          { label: 'Receivals', href: '/purchase/receivals', icon: 'PackageOpen', permission: 'purchase.receivals.view' },
-          { label: 'Payments',  href: '/purchase/payments',  icon: 'Wallet',      permission: 'purchase.payments.view' },
         ],
       },
     ],
