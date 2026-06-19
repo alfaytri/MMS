@@ -71,7 +71,11 @@ export function BillDetailDocument({
   const supplier = bill.suppliers
   const po = bill.purchase_orders
   const currency = po?.currency ?? 'QAR'
-  const balance = (bill.total_amount ?? 0) - (bill.paid_amount ?? 0)
+  // Derive paid total from the allocations table directly. The bill row's
+  // paid_amount column can lag behind (e.g. payment_bill_allocations was
+  // inserted without an UPDATE on invoices.paid_amount), so trust the source.
+  const totalPaid = payments.reduce((sum, p) => sum + (p.amount ?? 0), 0)
+  const balance = (bill.total_amount ?? 0) - totalPaid
 
   return (
     <div className="relative bg-white rounded-lg shadow-lg border max-w-3xl mx-auto p-10 space-y-7 print:shadow-none print:border-none print:p-0 print:max-w-none print:rounded-none print:space-y-3">
@@ -261,7 +265,7 @@ export function BillDetailDocument({
             </div>
             <div className="flex justify-between text-green-600 font-medium">
               <span>Total Paid:</span>
-              <span>{formatCurrency(bill.paid_amount ?? 0, 'QAR')}</span>
+              <span>{formatCurrency(totalPaid, 'QAR')}</span>
             </div>
             <div className={cn(
               'flex justify-between font-bold',
