@@ -18635,3 +18635,21 @@ CREATE POLICY workflow_steps_select ON public.workflow_approval_steps FOR SELECT
 --
 
 
+
+-- ============================================================================
+-- ROLE GRANTS  -  required for PostgREST / Supabase API access
+-- ============================================================================
+-- pg_dump --no-acl strips these; on a fresh Supabase project the standard
+-- anon/authenticated/service_role roles need explicit grants on every table,
+-- sequence, and routine, otherwise PostgREST returns 403 (PG error 42501)
+-- before RLS policies are even evaluated.
+
+GRANT USAGE ON SCHEMA public TO postgres, anon, authenticated, service_role;
+
+GRANT ALL ON ALL TABLES    IN SCHEMA public TO postgres, anon, authenticated, service_role;
+GRANT ALL ON ALL ROUTINES  IN SCHEMA public TO postgres, anon, authenticated, service_role;
+GRANT ALL ON ALL SEQUENCES IN SCHEMA public TO postgres, anon, authenticated, service_role;
+
+ALTER DEFAULT PRIVILEGES FOR ROLE postgres IN SCHEMA public GRANT ALL ON TABLES    TO postgres, anon, authenticated, service_role;
+ALTER DEFAULT PRIVILEGES FOR ROLE postgres IN SCHEMA public GRANT ALL ON ROUTINES  TO postgres, anon, authenticated, service_role;
+ALTER DEFAULT PRIVILEGES FOR ROLE postgres IN SCHEMA public GRANT ALL ON SEQUENCES TO postgres, anon, authenticated, service_role;
