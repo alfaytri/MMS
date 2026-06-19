@@ -71,10 +71,16 @@ export const NAV_ITEMS: NavEntry[] = [
     permission: 'invoices.view',
     groups: [
       {
+        label: 'SALES',
         items: [
           { label: 'View Invoices',     href: '/invoices',                  icon: 'FileText',    permission: 'invoices.view' },
           { label: 'Customer Payments', href: '/invoices/payments',         icon: 'CreditCard',  permission: 'payments.view' },
           { label: 'Pending Payments',  href: '/invoices/pending-payments', icon: 'Clock',       permission: 'payments.view' },
+        ],
+      },
+      {
+        label: 'PURCHASE',
+        items: [
           { label: 'Supplier Payments', href: '/purchase/payments',         icon: 'Wallet',      permission: 'purchase.payments.view' },
         ],
       },
