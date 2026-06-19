@@ -1,7 +1,7 @@
 'use client'
 
-import { useMemo, useState, useCallback } from 'react'
-import { Eye, Paperclip } from 'lucide-react'
+import { useEffect, useMemo, useState, useCallback } from 'react'
+import { CalendarRange, Eye, Filter, Paperclip, RotateCcw, Search, Tag, X } from 'lucide-react'
 import { type ColumnDef } from '@tanstack/react-table'
 import { PageHeader } from '@/components/shared/PageHeader'
 import { PageWrapper } from '@/components/shared/PageWrapper'
@@ -10,6 +10,7 @@ import { DataTableColumnHeader } from '@/components/shared/DataTableColumnHeader
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
+import { Input } from '@/components/ui/input'
 import { useSupplierPayments, type SupplierPayment } from '@/hooks/useSupplierPayments'
 import { useCustomerPayments, type CustomerPayment } from '@/hooks/useCustomerPayments'
 import { SoDetailDialog } from '@/components/sales/SoDetailDialog'
@@ -22,6 +23,35 @@ import type { SaleOrder } from '@/hooks/useSaleOrders'
 type PaymentType = 'purchase' | 'invoice'
 
 const DEFAULT_CURRENCY = 'QAR'
+
+// ── Debounce ────────────────────────────────────────────────────────────
+
+function useDebounce<T>(value: T, delay: number): T {
+  const [debounced, setDebounced] = useState(value)
+  useEffect(() => {
+    const t = setTimeout(() => setDebounced(value), delay)
+    return () => clearTimeout(t)
+  }, [value, delay])
+  return debounced
+}
+
+// ── Active-filter chip ──────────────────────────────────────────────────
+
+function FilterChip({ label, onClear }: { label: string; onClear: () => void }) {
+  return (
+    <span className="inline-flex items-center gap-1 rounded-full border bg-background px-2 py-0.5 text-[11px] font-medium text-foreground shadow-sm">
+      {label}
+      <button
+        type="button"
+        onClick={onClear}
+        className="-mr-0.5 rounded-full p-0.5 text-muted-foreground hover:bg-muted hover:text-foreground transition-colors"
+        aria-label={`Remove ${label} filter`}
+      >
+        <X className="h-3 w-3" />
+      </button>
+    </span>
+  )
+}
 
 const METHOD_LABELS: Record<string, string> = {
   bank_transfer:   'Bank Transfer',
@@ -39,6 +69,60 @@ export default function PaymentsPage() {
 
   const { data: supplierPayments, isLoading: loadingSupplier } = useSupplierPayments()
   const { data: customerPayments, isLoading: loadingCustomer } = useCustomerPayments()
+
+  // ── Filter state ────────────────────────────────────────────────────
+  const [filtersOpen, setFiltersOpen] = useState(false)
+  const [dateFrom, setDateFrom] = useState('')
+  const [dateTo, setDateTo] = useState('')
+  const [paymentIdSearch, setPaymentIdSearch] = useState('')
+  const [partySearch, setPartySearch] = useState('') // supplier OR customer name
+  const [refSearch, setRefSearch] = useState('')
+  const [methodFilter, setMethodFilter] = useState('')
+
+  const debouncedPaymentId = useDebounce(paymentIdSearch, 200)
+  const debouncedParty     = useDebounce(partySearch, 200)
+  const debouncedRef       = useDebounce(refSearch, 200)
+
+  const activeFilterCount = [
+    dateFrom, dateTo, debouncedPaymentId, debouncedParty, debouncedRef, methodFilter,
+  ].filter(Boolean).length
+
+  function handleReset() {
+    setDateFrom(''); setDateTo('')
+    setPaymentIdSearch(''); setPartySearch(''); setRefSearch('')
+    setMethodFilter('')
+  }
+
+  // Helper to apply filters to either supplier or customer payment array
+  function applyFilters<T extends {
+    payment_id?: string | null
+    reference?: string | null
+    method?: string
+    date: string
+    amount?: number
+  } & ({ supplier_name?: string | null } | { customer_name?: string | null })>(rows: T[] | undefined): T[] {
+    if (!rows) return []
+    const pid = debouncedPaymentId.trim().toLowerCase()
+    const party = debouncedParty.trim().toLowerCase()
+    const ref = debouncedRef.trim().toLowerCase()
+    return rows.filter((r) => {
+      if (dateFrom && r.date < dateFrom) return false
+      if (dateTo && r.date > dateTo) return false
+      if (methodFilter && r.method !== methodFilter) return false
+      if (pid && !(r.payment_id ?? '').toLowerCase().includes(pid)) return false
+      if (ref && !(r.reference ?? '').toLowerCase().includes(ref)) return false
+      if (party) {
+        const name = 'supplier_name' in r
+          ? (r.supplier_name ?? '')
+          : (r as { customer_name?: string | null }).customer_name ?? ''
+        if (!name.toLowerCase().includes(party)) return false
+      }
+      return true
+    })
+  }
+
+  const filteredSupplier = useMemo(() => applyFilters(supplierPayments), [supplierPayments, dateFrom, dateTo, debouncedPaymentId, debouncedParty, debouncedRef, methodFilter])
+  const filteredCustomer = useMemo(() => applyFilters(customerPayments), [customerPayments, dateFrom, dateTo, debouncedPaymentId, debouncedParty, debouncedRef, methodFilter])
 
   const [selectedSO, setSelectedSO] = useState<SaleOrder | null>(null)
   const [detailOpen, setDetailOpen] = useState(false)
@@ -282,32 +366,157 @@ export default function PaymentsPage() {
     },
   ], [openSO])
 
+  const partyLabel = paymentType === 'purchase' ? 'Supplier' : 'Customer'
+
   return (
     <PageWrapper>
       <PageHeader title="Payments" description="Purchase and invoice payment records" />
-      <div className="mb-4">
+
+      <div className="flex flex-wrap items-center gap-2 mb-3">
         <Select value={paymentType} onValueChange={(v) => { if (v === 'purchase' || v === 'invoice') setPaymentType(v) }}>
           <SelectTrigger className="w-full sm:w-56">
             <SelectValue>
-            {paymentType === 'purchase' ? 'Purchase Payments' : 'Invoice Payments'}
-          </SelectValue>
+              {paymentType === 'purchase' ? 'Purchase Payments' : 'Invoice Payments'}
+            </SelectValue>
           </SelectTrigger>
           <SelectContent>
             <SelectItem value="purchase">Purchase Payments</SelectItem>
             <SelectItem value="invoice">Invoice Payments</SelectItem>
           </SelectContent>
         </Select>
+
+        <div className="ml-auto flex items-center gap-1.5">
+          <Button
+            variant="outline" size="sm"
+            onClick={() => setFiltersOpen((v) => !v)}
+            className="gap-1.5 h-8"
+          >
+            <Filter className="h-3.5 w-3.5" />
+            Filters
+            {activeFilterCount > 0 && (
+              <Badge className="h-4 px-1 text-[10px]">{activeFilterCount}</Badge>
+            )}
+          </Button>
+          {activeFilterCount > 0 && (
+            <Button variant="ghost" size="icon" className="h-8 w-8" onClick={handleReset}>
+              <RotateCcw className="h-3.5 w-3.5" />
+            </Button>
+          )}
+        </div>
       </div>
+
+      {/* Filter panel */}
+      {filtersOpen && (
+        <div className="rounded-xl border bg-card shadow-sm overflow-hidden animate-in slide-in-from-top-1 fade-in duration-200 mb-3">
+          {activeFilterCount > 0 && (
+            <div className="flex flex-wrap items-center gap-1.5 border-b bg-muted/40 px-4 py-2.5">
+              <span className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">Active</span>
+              {paymentIdSearch && <FilterChip label={`Payment: ${paymentIdSearch}`} onClear={() => setPaymentIdSearch('')} />}
+              {partySearch    && <FilterChip label={`${partyLabel}: ${partySearch}`} onClear={() => setPartySearch('')} />}
+              {refSearch      && <FilterChip label={`Ref: ${refSearch}`} onClear={() => setRefSearch('')} />}
+              {dateFrom       && <FilterChip label={`Date ≥ ${dateFrom}`} onClear={() => setDateFrom('')} />}
+              {dateTo         && <FilterChip label={`Date ≤ ${dateTo}`} onClear={() => setDateTo('')} />}
+              {methodFilter   && <FilterChip label={`Method: ${METHOD_LABELS[methodFilter] ?? methodFilter}`} onClear={() => setMethodFilter('')} />}
+              <button
+                type="button"
+                onClick={handleReset}
+                className="ml-auto text-xs font-medium text-muted-foreground hover:text-foreground transition-colors"
+              >
+                Clear all
+              </button>
+            </div>
+          )}
+
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-x-6 gap-y-4 p-4">
+            {/* Search section */}
+            <div className="space-y-2">
+              <div className="flex items-center gap-1.5 text-xs font-semibold uppercase tracking-wider text-muted-foreground">
+                <Search className="h-3.5 w-3.5" />
+                Search
+              </div>
+              <div className="space-y-2">
+                <Input
+                  placeholder="Payment number…"
+                  value={paymentIdSearch}
+                  onChange={(e) => setPaymentIdSearch(e.target.value)}
+                  className="h-9"
+                  aria-label="Payment number"
+                />
+                <Input
+                  placeholder={`${partyLabel} name…`}
+                  value={partySearch}
+                  onChange={(e) => setPartySearch(e.target.value)}
+                  className="h-9"
+                  aria-label={`${partyLabel} name`}
+                />
+                <Input
+                  placeholder="Reference / Txn ID…"
+                  value={refSearch}
+                  onChange={(e) => setRefSearch(e.target.value)}
+                  className="h-9"
+                  aria-label="Reference or transaction ID"
+                />
+              </div>
+            </div>
+
+            {/* Date range section */}
+            <div className="space-y-2">
+              <div className="flex items-center gap-1.5 text-xs font-semibold uppercase tracking-wider text-muted-foreground">
+                <CalendarRange className="h-3.5 w-3.5" />
+                Date range
+              </div>
+              <div className="space-y-1">
+                <label className="text-[11px] text-muted-foreground mb-1 block">Payment date</label>
+                <div className="flex items-center gap-1.5">
+                  <Input
+                    type="date" aria-label="Date from"
+                    value={dateFrom} onChange={(e) => setDateFrom(e.target.value)}
+                    className="h-9 flex-1 min-w-0"
+                  />
+                  <span className="text-muted-foreground text-xs shrink-0">→</span>
+                  <Input
+                    type="date" aria-label="Date to"
+                    value={dateTo} onChange={(e) => setDateTo(e.target.value)}
+                    className="h-9 flex-1 min-w-0"
+                  />
+                </div>
+              </div>
+            </div>
+
+            {/* Categorise section */}
+            <div className="space-y-2">
+              <div className="flex items-center gap-1.5 text-xs font-semibold uppercase tracking-wider text-muted-foreground">
+                <Tag className="h-3.5 w-3.5" />
+                Categorise
+              </div>
+              <Select value={methodFilter} onValueChange={(v) => setMethodFilter(v ?? '')}>
+                <SelectTrigger className="h-9"><SelectValue placeholder="Any method" /></SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="">Any method</SelectItem>
+                  {Object.entries(METHOD_LABELS).map(([key, label]) => (
+                    <SelectItem key={key} value={key}>{label}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+          </div>
+        </div>
+      )}
+
+      <p className="text-xs text-muted-foreground mb-2">
+        {paymentType === 'purchase' ? filteredSupplier.length : filteredCustomer.length} results
+      </p>
+
       {paymentType === 'purchase' ? (
         <DataTable
           columns={purchaseColumns}
-          data={supplierPayments ?? []}
+          data={filteredSupplier}
           isLoading={loadingSupplier}
         />
       ) : (
         <DataTable
           columns={invoiceColumns}
-          data={customerPayments ?? []}
+          data={filteredCustomer}
           isLoading={loadingCustomer}
         />
       )}
