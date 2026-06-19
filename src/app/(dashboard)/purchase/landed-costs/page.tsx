@@ -11,6 +11,7 @@ import { Eye, Plus, Trash2, Paperclip, ChevronDown, ChevronRight, ExternalLink }
 import { createClient } from '@/lib/supabase/client'
 import { PageHeader } from '@/components/shared/PageHeader'
 import { PageWrapper } from '@/components/shared/PageWrapper'
+import { InfoPopover } from '@/components/shared/InfoPopover'
 import { SearchInput } from '@/components/shared/SearchInput'
 import { DataTable } from '@/components/shared/DataTable'
 import { Button } from '@/components/ui/button'
@@ -1322,6 +1323,95 @@ export default function LandedCostsPage() {
       <PageHeader
         title="Landed Costs"
         description="Allocate freight, customs and other costs to received goods"
+        titleAfter={
+          <InfoPopover title="How Landed Cost is calculated" widthClass="w-[420px]">
+            <div className="space-y-2">
+              <p className="font-semibold text-foreground">Allocation by value, not quantity</p>
+              <p>
+                The LC total (freight, customs, clearance, etc.) is split across attached
+                receival items in proportion to each item&apos;s total <em>value</em>:
+              </p>
+              <pre className="bg-muted rounded p-2 text-xs leading-relaxed whitespace-pre-wrap">{`per-item share = LC_total
+                  × (qty_received × unit_cost)
+                  / Σ(qty_received × unit_cost)`}</pre>
+            </div>
+
+            <div className="space-y-2">
+              <p className="font-semibold text-foreground">Example</p>
+              <p>LC total = <strong>$100</strong>, two received items:</p>
+              <table className="w-full text-xs border rounded">
+                <thead className="bg-muted/50">
+                  <tr>
+                    <th className="px-2 py-1 text-left">Item</th>
+                    <th className="px-2 py-1 text-right">Qty</th>
+                    <th className="px-2 py-1 text-right">Unit cost</th>
+                    <th className="px-2 py-1 text-right">Value</th>
+                    <th className="px-2 py-1 text-right">LC share</th>
+                    <th className="px-2 py-1 text-right">Per unit</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  <tr className="border-t">
+                    <td className="px-2 py-1">Widget A</td>
+                    <td className="px-2 py-1 text-right">10</td>
+                    <td className="px-2 py-1 text-right">$5</td>
+                    <td className="px-2 py-1 text-right">$50</td>
+                    <td className="px-2 py-1 text-right">$33.33</td>
+                    <td className="px-2 py-1 text-right">$3.33</td>
+                  </tr>
+                  <tr className="border-t">
+                    <td className="px-2 py-1">Widget B</td>
+                    <td className="px-2 py-1 text-right">5</td>
+                    <td className="px-2 py-1 text-right">$20</td>
+                    <td className="px-2 py-1 text-right">$100</td>
+                    <td className="px-2 py-1 text-right">$66.67</td>
+                    <td className="px-2 py-1 text-right">$13.33</td>
+                  </tr>
+                  <tr className="border-t font-semibold bg-muted/30">
+                    <td className="px-2 py-1">Total</td>
+                    <td className="px-2 py-1 text-right">—</td>
+                    <td className="px-2 py-1 text-right">—</td>
+                    <td className="px-2 py-1 text-right">$150</td>
+                    <td className="px-2 py-1 text-right">$100.00</td>
+                    <td className="px-2 py-1 text-right">—</td>
+                  </tr>
+                </tbody>
+              </table>
+              <p className="text-xs text-muted-foreground">
+                Widget B carries twice the share of Widget A even though it has half the quantity —
+                because its total value is twice as large.
+              </p>
+            </div>
+
+            <div className="space-y-2">
+              <p className="font-semibold text-foreground">Inventory vs COGS split</p>
+              <p>
+                After the per-item share is known, it&apos;s split based on FIFO inventory at the
+                moment LC is applied:
+              </p>
+              <ul className="list-disc pl-5 space-y-1 text-xs">
+                <li><strong>Units still in stock</strong> → cost added to inventory (raises avg cost / sell-price guidance)</li>
+                <li><strong>Units already sold</strong> → cost posts to <strong>COGS</strong> as a retroactive adjustment (does not change past invoices, only margins)</li>
+              </ul>
+            </div>
+
+            <div className="space-y-2 border-t pt-3">
+              <p className="font-semibold text-foreground">What if the item is already sold out?</p>
+              <p>
+                If <em>all</em> received units of an item have been sold by the time the LC is
+                applied (FIFO layers all empty):
+              </p>
+              <ul className="list-disc pl-5 space-y-1 text-xs">
+                <li>Inventory portion = <strong>$0</strong> — there&apos;s no stock left to capitalize cost into.</li>
+                <li>COGS portion = <strong>100% of the item&apos;s LC share</strong>.</li>
+                <li>The full amount posts as a back-dated COGS adjustment — visible in the
+                  &ldquo;LC COGS Postings&rdquo; panel under each landed cost.</li>
+                <li>Reported margin for the period of those sales is corrected downward; the
+                  customer invoice itself is untouched.</li>
+              </ul>
+            </div>
+          </InfoPopover>
+        }
         action={{ label: 'Create Landed Cost', onClick: () => setCreateOpen(true) }}
       />
 

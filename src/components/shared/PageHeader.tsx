@@ -5,6 +5,7 @@ import { Plus } from 'lucide-react'
 interface PageHeaderProps {
   title: string
   description?: string
+  titleAfter?: ReactNode
   action?: {
     label: string
     onClick: () => void
@@ -13,11 +14,14 @@ interface PageHeaderProps {
   actions?: ReactNode
 }
 
-export function PageHeader({ title, description, action, actions }: PageHeaderProps) {
+export function PageHeader({ title, description, titleAfter, action, actions }: PageHeaderProps) {
   return (
     <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
       <div className="min-w-0">
-        <h1 className="text-2xl 2xl:text-3xl font-bold text-foreground">{title}</h1>
+        <div className="flex items-center gap-1.5">
+          <h1 className="text-2xl 2xl:text-3xl font-bold text-foreground">{title}</h1>
+          {titleAfter}
+        </div>
         {description && (
           <p className="text-sm 2xl:text-base text-muted-foreground mt-1">{description}</p>
         )}
