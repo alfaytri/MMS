@@ -2,10 +2,28 @@
 import { createServerClient } from '@supabase/ssr'
 import { NextResponse, type NextRequest } from 'next/server'
 
+// External webhook endpoints called by third-party services (3CX, Wati, WhAPI,
+// 17track, Dibsy). These requests never carry a Supabase session cookie, so
+// running supabase.auth.getUser() against them only logs noisy
+// "refresh_token_not_found" errors. Each route validates its own shared
+// secret / signature internally — see the matching route files.
+const WEBHOOK_PREFIXES = [
+  '/api/3cx/webhook/',
+  '/api/wati/webhook/',
+  '/api/whapi/webhook/',
+  '/api/webhooks/',
+  '/api/payments/dibsy/webhook/',
+]
+
 export async function middleware(request: NextRequest) {
   const response = NextResponse.next({
     request: { headers: request.headers },
   })
+
+  const path = request.nextUrl.pathname
+  if (WEBHOOK_PREFIXES.some((p) => path.startsWith(p))) {
+    return response
+  }
 
   const supabase = createServerClient(
     process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -36,7 +54,6 @@ export async function middleware(request: NextRequest) {
   const bootstrapEmail = process.env.ADMIN_BOOTSTRAP_EMAIL?.trim().toLowerCase()
   const callerEmail = user?.email?.trim().toLowerCase() ?? null
   const isBootstrapAdmin = !!bootstrapEmail && callerEmail === bootstrapEmail
-  const path = request.nextUrl.pathname
 
   // Fix 1: never redirect API, Next.js internal routes, or the public pay page.
   // Fix 2: bootstrap admin always passes through, even with is_team_leader set.

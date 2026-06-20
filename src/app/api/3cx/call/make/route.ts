@@ -11,9 +11,10 @@ function isE164(s: string): boolean {
 
 export async function POST(req: Request): Promise<Response> {
   const supabase = await createClient()
-  // NOTE: middleware.ts lists /api/3cx/ in WEBHOOK_PREFIXES (skips auth for inbound
-  // webhooks). This route enforces the session itself — do not assume the middleware
-  // gate is doing it. Future routes under /api/3cx/call/* must do the same.
+  // The middleware bypasses /api/3cx/webhook/ (and other external-webhook prefixes)
+  // for the noisy refresh-token errors, but it does NOT gate /api/3cx/call/* — these
+  // routes are called by the authenticated dashboard, so they enforce the session
+  // themselves. Future /api/3cx/call/* routes must do the same.
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
 
