@@ -43,7 +43,10 @@ export function useUpdateRole() {
       if (error) throw error
       return data
     },
-    onSuccess: () => { queryClient.invalidateQueries({ queryKey: queryKeys.roles.custom }) },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: queryKeys.roles.custom })
+      queryClient.invalidateQueries({ queryKey: queryKeys.roles.approvalCoverage })
+    },
   })
 }
 
@@ -55,7 +58,10 @@ export function useDeleteRole() {
       const { error } = await supabase.from('custom_roles').delete().eq('id', id)
       if (error) throw error
     },
-    onSuccess: () => { queryClient.invalidateQueries({ queryKey: queryKeys.roles.custom }) },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: queryKeys.roles.custom })
+      queryClient.invalidateQueries({ queryKey: queryKeys.roles.approvalCoverage })
+    },
   })
 }
 
@@ -87,6 +93,7 @@ export function useAssignRole() {
     onSuccess: (_, variables) => {
       queryClient.invalidateQueries({ queryKey: queryKeys.roles.userRoles(variables.profile_id) })
       queryClient.invalidateQueries({ queryKey: queryKeys.profiles.all })
+      queryClient.invalidateQueries({ queryKey: queryKeys.roles.approvalCoverage })
     },
   })
 }
@@ -103,7 +110,32 @@ export function useRemoveRole() {
     onSuccess: (profileId) => {
       queryClient.invalidateQueries({ queryKey: queryKeys.roles.userRoles(profileId) })
       queryClient.invalidateQueries({ queryKey: queryKeys.profiles.all })
+      queryClient.invalidateQueries({ queryKey: queryKeys.roles.approvalCoverage })
     },
+  })
+}
+
+/** Returns the set of approval-slot role NAMES that have at least one assignee.
+ *  Used by the approval-chain editor to flag tiers whose required_roles have no users. */
+export function useApprovalRoleCoverage() {
+  return useQuery({
+    queryKey: queryKeys.roles.approvalCoverage,
+    queryFn: async () => {
+      const supabase = createClient()
+      const { data, error } = await supabase
+        .from('user_custom_roles')
+        .select('custom_roles!inner(name, is_approval_slot, deleted_at)')
+        .limit(2000)
+      if (error) throw error
+      type Row = { custom_roles: { name: string; is_approval_slot: boolean; deleted_at: string | null } | null }
+      const covered = new Set<string>()
+      for (const row of (data as unknown as Row[] | null ?? [])) {
+        const r = row.custom_roles
+        if (r?.is_approval_slot && !r.deleted_at) covered.add(r.name)
+      }
+      return covered
+    },
+    staleTime: 60 * 1000,
   })
 }
 

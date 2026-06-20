@@ -3,9 +3,13 @@
 
 import { useState, useMemo } from 'react'
 import { toast } from 'sonner'
-import { Plus, Trash2, Pencil, Check, X, AlertTriangle, Archive } from 'lucide-react'
+import {
+  Plus, Trash2, Pencil, Check, X, AlertTriangle, Archive,
+  Hash, Wallet, Infinity as InfinityIcon, ShieldCheck, Users2,
+} from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
+import { Label } from '@/components/ui/label'
 import { Badge } from '@/components/ui/badge'
 import { Switch } from '@/components/ui/switch'
 import {
@@ -15,6 +19,7 @@ import {
   Table, TableBody, TableCell, TableHead, TableHeader, TableRow,
 } from '@/components/ui/table'
 import { ConfirmDialog } from '@/components/shared/ConfirmDialog'
+import { cn } from '@/lib/utils'
 import {
   useApprovalChains, useUpsertApprovalChain,
   useUpsertApprovalChainTier, useSoftDeleteApprovalChainTier,
@@ -22,21 +27,18 @@ import {
 } from '@/hooks/useApprovalChains'
 import { useIsAdmin } from '@/hooks/useProfiles'
 import { useDivisions } from '@/hooks/useDivisions'
-const APPROVAL_ROLES: string[] = ['purchase_manager', 'accountant', 'owner']
-const ROLE_LABELS: Record<string, string> = {
-  purchase_manager:  'Purchase Manager',
-  accountant:        'Accountant',
-  owner:             'Owner',
-  employee:          'Employee',
-  warehouse_manager: 'Warehouse Manager',
-}
+import { useRoles, useApprovalRoleCoverage } from '@/hooks/useRoles'
 
 type TierForm = { rank: string; min_amount: string; max_amount: string; roles: string[] }
 const EMPTY_FORM: TierForm = { rank: '', min_amount: '', max_amount: '', roles: [] }
 
+const FALLBACK_ROLE_COLOR = 'bg-muted text-muted-foreground border-border'
+
 export function ApprovalChainsTab() {
   const { data: chains = [], isLoading } = useApprovalChains()
   const { data: isAdmin } = useIsAdmin()
+  const { data: allRoles = [], isLoading: rolesLoading } = useRoles()
+  const { data: coveredRoles } = useApprovalRoleCoverage()
   const upsertChain = useUpsertApprovalChain()
   const upsertTier = useUpsertApprovalChainTier()
   const deleteTier = useSoftDeleteApprovalChainTier()
@@ -44,6 +46,16 @@ export function ApprovalChainsTab() {
   const archiveChain = useArchiveApprovalChain()
 
   const { data: divisions = [] } = useDivisions()
+
+  const approvalRoles = useMemo(
+    () => allRoles.filter((r) => r.is_approval_slot && !r.deleted_at),
+    [allRoles],
+  )
+  const roleColorByName = useMemo(() => {
+    const m = new Map<string, string>()
+    for (const r of approvalRoles) m.set(r.name, r.color ?? FALLBACK_ROLE_COLOR)
+    return m
+  }, [approvalRoles])
 
   const [newChainName, setNewChainName] = useState('')
   const [newChainDivision, setNewChainDivision] = useState<string>('')
@@ -63,11 +75,9 @@ export function ApprovalChainsTab() {
     return div ? (div.short_name ?? div.name) : null
   }
 
-  // TEMPORARY: Task 11 of unified-roles plan removed the approval_role_assignments
-  // table. The has-assignees validation will be rewritten against the new
-  // custom_roles model in a follow-up task. For now, assume all roles are covered.
-  function rolesHaveAssignees(_roles: string[]): boolean {
-    return true
+  function missingAssigneeRoles(roles: string[]): string[] {
+    if (!coveredRoles) return []
+    return roles.filter((r) => !coveredRoles.has(r))
   }
 
   function parseTierForm(form: TierForm) {
@@ -76,6 +86,12 @@ export function ApprovalChainsTab() {
       min_amount: parseFloat(form.min_amount),
       max_amount: form.max_amount ? parseFloat(form.max_amount) : null,
     }
+  }
+
+  function toggleRoleIn(roles: string[], roleName: string): string[] {
+    return roles.includes(roleName)
+      ? roles.filter((r) => r !== roleName)
+      : [...roles, roleName]
   }
 
   function handleAddChain() {
@@ -90,7 +106,7 @@ export function ApprovalChainsTab() {
       {
         onSuccess: () => { setNewChainName(''); setNewChainDivision(''); toast.success('Chain created') },
         onError: (e) => toast.error(e.message),
-      }
+      },
     )
   }
 
@@ -105,7 +121,7 @@ export function ApprovalChainsTab() {
       {
         onSuccess: () => { setAddingTierFor(null); setTierForm(EMPTY_FORM); toast.success('Tier added') },
         onError: (e) => toast.error(e.message),
-      }
+      },
     )
   }
 
@@ -141,7 +157,7 @@ export function ApprovalChainsTab() {
       {
         onSuccess: () => { setEditingTier(null); toast.success('Tier updated') },
         onError: (e) => toast.error(e.message),
-      }
+      },
     )
   }
 
@@ -155,11 +171,11 @@ export function ApprovalChainsTab() {
           toast.success(
             newActive
               ? `"${chain.name}" is now active for ${divName ?? 'company'}`
-              : `${divName ?? 'Division'} will use Company Default`
+              : `${divName ?? 'Division'} will use Company Default`,
           )
         },
         onError: (e) => toast.error(e.message),
-      }
+      },
     )
   }
 
@@ -184,7 +200,10 @@ export function ApprovalChainsTab() {
         return (
           <div
             key={chain.id}
-            className={`rounded-lg border p-4 space-y-3 transition-opacity ${!isActive && !isGlobal ? 'opacity-60 border-dashed' : ''}`}
+            className={cn(
+              'rounded-lg border p-4 space-y-3 transition-opacity',
+              !isActive && !isGlobal && 'opacity-60 border-dashed',
+            )}
           >
             {/* Header */}
             <div className="flex items-center justify-between gap-2">
@@ -204,7 +223,6 @@ export function ApprovalChainsTab() {
                 )}
               </div>
               <div className="flex items-center gap-2 shrink-0">
-                {/* Toggle: use this chain vs company default (only for division chains) */}
                 {!isGlobal && isAdmin && (
                   <div className="flex items-center gap-1.5">
                     <span className="text-[10px] text-muted-foreground whitespace-nowrap">
@@ -222,7 +240,6 @@ export function ApprovalChainsTab() {
                     <Plus className="h-3 w-3 mr-1" /> Add Tier
                   </Button>
                 )}
-                {/* Archive (only for division chains) */}
                 {!isGlobal && isAdmin && (
                   <Button
                     size="sm"
@@ -256,55 +273,44 @@ export function ApprovalChainsTab() {
                 ) : (
                   tiers.map((tier: any) => {
                     const isEditing = editingTier?.tierId === tier.id
-                    const missingRoles = !rolesHaveAssignees(tier.required_roles)
+                    const missing = missingAssigneeRoles(tier.required_roles as string[])
 
                     if (isEditing) {
                       return (
                         <TableRow key={tier.id} className="bg-muted/30">
                           <TableCell>
                             <Input
-                              className="h-7 w-16 text-xs"
+                              className="h-8 w-16 text-xs"
                               value={editingTier!.form.rank}
                               onChange={(e) => setEditingTier((s) => s ? { ...s, form: { ...s.form, rank: e.target.value } } : s)}
                             />
                           </TableCell>
                           <TableCell>
                             <Input
-                              className="h-7 w-28 text-xs"
+                              className="h-8 w-28 text-xs"
                               value={editingTier!.form.min_amount}
                               onChange={(e) => setEditingTier((s) => s ? { ...s, form: { ...s.form, min_amount: e.target.value } } : s)}
                             />
                           </TableCell>
                           <TableCell>
                             <Input
-                              className="h-7 w-28 text-xs"
+                              className="h-8 w-28 text-xs"
                               placeholder="∞"
                               value={editingTier!.form.max_amount}
                               onChange={(e) => setEditingTier((s) => s ? { ...s, form: { ...s.form, max_amount: e.target.value } } : s)}
                             />
                           </TableCell>
                           <TableCell>
-                            <div className="flex flex-wrap gap-1">
-                              {APPROVAL_ROLES.map((role) => {
-                                const active = editingTier!.form.roles.includes(role)
-                                return (
-                                  <button
-                                    key={role}
-                                    type="button"
-                                    onClick={() => setEditingTier((s) => {
-                                      if (!s) return s
-                                      const roles = active
-                                        ? s.form.roles.filter((r) => r !== role)
-                                        : [...s.form.roles, role]
-                                      return { ...s, form: { ...s.form, roles } }
-                                    })}
-                                    className={`rounded border px-2 py-0.5 text-xs transition-colors ${active ? 'border-primary bg-primary/10 text-primary' : 'border-muted-foreground/30 hover:bg-muted'}`}
-                                  >
-                                    {ROLE_LABELS[role]}
-                                  </button>
-                                )
-                              })}
-                            </div>
+                            <RoleChipGroup
+                              roles={approvalRoles}
+                              loading={rolesLoading}
+                              selected={editingTier!.form.roles}
+                              coveredRoles={coveredRoles}
+                              onToggle={(name) => setEditingTier((s) =>
+                                s ? { ...s, form: { ...s.form, roles: toggleRoleIn(s.form.roles, name) } } : s,
+                              )}
+                              size="sm"
+                            />
                           </TableCell>
                           <TableCell>
                             <div className="flex gap-1">
@@ -324,17 +330,35 @@ export function ApprovalChainsTab() {
                       <TableRow key={tier.id}>
                         <TableCell className="font-mono">{tier.rank}</TableCell>
                         <TableCell>{Number(tier.min_amount).toLocaleString()}</TableCell>
-                        <TableCell>{tier.max_amount ? Number(tier.max_amount).toLocaleString() : '∞'}</TableCell>
                         <TableCell>
-                          <div className="flex flex-wrap gap-1 items-center">
-                            {tier.required_roles.map((r: string) => (
-                              <Badge key={r} variant="outline">{ROLE_LABELS[r]}</Badge>
-                            ))}
-                            {missingRoles && (
-                              <span title="Some roles have no assignees">
-                                <AlertTriangle className="h-3.5 w-3.5 text-amber-500" />
-                              </span>
-                            )}
+                          {tier.max_amount ? (
+                            Number(tier.max_amount).toLocaleString()
+                          ) : (
+                            <span className="inline-flex items-center gap-1 text-muted-foreground">
+                              <InfinityIcon className="h-3.5 w-3.5" />
+                            </span>
+                          )}
+                        </TableCell>
+                        <TableCell>
+                          <div className="flex flex-wrap gap-1.5 items-center">
+                            {tier.required_roles.map((r: string) => {
+                              const isMissing = missing.includes(r)
+                              return (
+                                <span
+                                  key={r}
+                                  className={cn(
+                                    'inline-flex items-center gap-1 rounded-full border px-2 py-0.5 text-[11px] font-medium',
+                                    isMissing
+                                      ? 'bg-amber-50 text-amber-800 border-amber-300'
+                                      : roleColorByName.get(r) ?? FALLBACK_ROLE_COLOR,
+                                  )}
+                                  title={isMissing ? `${r} has no assignees — assign a user in Users & Roles` : undefined}
+                                >
+                                  {isMissing && <AlertTriangle className="h-3 w-3" />}
+                                  {r}
+                                </span>
+                              )
+                            })}
                           </div>
                         </TableCell>
                         {isAdmin && (
@@ -360,35 +384,16 @@ export function ApprovalChainsTab() {
             </Table>
 
             {addingTierFor === chain.id && isAdmin && (
-              <div className="rounded-md border p-3 space-y-3 bg-muted/30">
-                <p className="text-sm font-medium">New Tier</p>
-                <div className="grid grid-cols-3 gap-2">
-                  <Input placeholder="Rank (e.g. 1)" value={tierForm.rank} onChange={(e) => setTierForm((f) => ({ ...f, rank: e.target.value }))} />
-                  <Input placeholder="Min Amount (QAR)" value={tierForm.min_amount} onChange={(e) => setTierForm((f) => ({ ...f, min_amount: e.target.value }))} />
-                  <Input placeholder="Max Amount (optional)" value={tierForm.max_amount} onChange={(e) => setTierForm((f) => ({ ...f, max_amount: e.target.value }))} />
-                </div>
-                <div className="flex flex-wrap gap-2">
-                  {APPROVAL_ROLES.map((role) => (
-                    <button
-                      key={role}
-                      type="button"
-                      onClick={() => setTierForm((f) => ({
-                        ...f,
-                        roles: f.roles.includes(role) ? f.roles.filter((r) => r !== role) : [...f.roles, role],
-                      }))}
-                      className={`rounded-md border px-3 py-1 text-sm transition-colors ${
-                        tierForm.roles.includes(role) ? 'border-primary bg-primary/10 text-primary' : 'border-muted-foreground/30 hover:bg-muted'
-                      }`}
-                    >
-                      {ROLE_LABELS[role]}
-                    </button>
-                  ))}
-                </div>
-                <div className="flex gap-2">
-                  <Button size="sm" onClick={() => handleAddTier(chain.id)} disabled={upsertTier.isPending}>Save Tier</Button>
-                  <Button size="sm" variant="outline" onClick={() => setAddingTierFor(null)}>Cancel</Button>
-                </div>
-              </div>
+              <NewTierCard
+                form={tierForm}
+                onChange={setTierForm}
+                roles={approvalRoles}
+                rolesLoading={rolesLoading}
+                coveredRoles={coveredRoles}
+                onCancel={() => { setAddingTierFor(null); setTierForm(EMPTY_FORM) }}
+                onSave={() => handleAddTier(chain.id)}
+                saving={upsertTier.isPending}
+              />
             )}
           </div>
         )
@@ -422,7 +427,6 @@ export function ApprovalChainsTab() {
         </div>
       )}
 
-      {/* Archive confirm dialog */}
       <ConfirmDialog
         open={!!archiveTarget}
         title="Archive approval chain"
@@ -439,6 +443,215 @@ export function ApprovalChainsTab() {
           }
         }}
         onOpenChange={(o) => { if (!o) setArchiveTarget(null) }}
+      />
+    </div>
+  )
+}
+
+/* ─────────────────────────── helpers ─────────────────────────── */
+
+type Role = { id: string; name: string; color: string | null; is_approval_slot?: boolean; deleted_at: string | null }
+
+function RoleChipGroup({
+  roles, loading, selected, coveredRoles, onToggle, size = 'md',
+}: {
+  roles: Role[]
+  loading: boolean
+  selected: string[]
+  coveredRoles?: Set<string>
+  onToggle: (name: string) => void
+  size?: 'sm' | 'md'
+}) {
+  if (loading) {
+    return <span className="text-xs text-muted-foreground">Loading roles…</span>
+  }
+  if (roles.length === 0) {
+    return (
+      <span className="text-xs text-muted-foreground">
+        No approval roles defined. Add one under Users &amp; Roles.
+      </span>
+    )
+  }
+  return (
+    <div className="flex flex-wrap gap-1.5">
+      {roles.map((r) => {
+        const active = selected.includes(r.name)
+        const color = r.color ?? FALLBACK_ROLE_COLOR
+        const unassigned = !!coveredRoles && !coveredRoles.has(r.name)
+        return (
+          <button
+            key={r.id}
+            type="button"
+            onClick={() => onToggle(r.name)}
+            className={cn(
+              'group inline-flex items-center gap-1 rounded-full border font-medium transition-all duration-150',
+              size === 'sm' ? 'h-6 px-2 text-[11px]' : 'h-7 px-2.5 text-xs',
+              active
+                ? cn(color, 'ring-2 ring-offset-1 ring-primary/40 shadow-sm')
+                : 'bg-background text-muted-foreground border-border hover:border-primary/40 hover:text-foreground',
+            )}
+            aria-pressed={active}
+            title={unassigned ? `${r.name} has no users assigned in Users & Roles` : r.name}
+          >
+            <Check
+              className={cn(
+                'h-3 w-3 transition-all',
+                active ? 'opacity-100 scale-100' : 'opacity-0 scale-75 -ml-3.5',
+              )}
+            />
+            <span>{r.name}</span>
+            {unassigned && (
+              <AlertTriangle className={cn(
+                'h-3 w-3 shrink-0',
+                active ? 'text-amber-700' : 'text-amber-500',
+              )} />
+            )}
+          </button>
+        )
+      })}
+    </div>
+  )
+}
+
+function NewTierCard({
+  form, onChange, roles, rolesLoading, coveredRoles, onCancel, onSave, saving,
+}: {
+  form: TierForm
+  onChange: (next: TierForm) => void
+  roles: Role[]
+  rolesLoading: boolean
+  coveredRoles?: Set<string>
+  onCancel: () => void
+  onSave: () => void
+  saving: boolean
+}) {
+  function patch<K extends keyof TierForm>(key: K, value: TierForm[K]) {
+    onChange({ ...form, [key]: value })
+  }
+  function toggleRole(name: string) {
+    onChange({
+      ...form,
+      roles: form.roles.includes(name)
+        ? form.roles.filter((r) => r !== name)
+        : [...form.roles, name],
+    })
+  }
+
+  const canSave =
+    form.rank.trim() !== '' &&
+    form.min_amount.trim() !== '' &&
+    form.roles.length > 0 &&
+    !saving
+
+  return (
+    <div className="relative rounded-xl border bg-gradient-to-b from-primary/5 via-background to-background p-4 sm:p-5 shadow-sm space-y-4">
+      <div className="flex items-center justify-between">
+        <div className="flex items-center gap-2">
+          <span className="flex h-7 w-7 items-center justify-center rounded-full bg-primary/10 text-primary">
+            <ShieldCheck className="h-4 w-4" />
+          </span>
+          <div>
+            <p className="text-sm font-semibold leading-none">New Tier</p>
+            <p className="text-[11px] text-muted-foreground mt-0.5">
+              Set the amount band and pick who must approve.
+            </p>
+          </div>
+        </div>
+        <Button
+          size="icon"
+          variant="ghost"
+          className="h-7 w-7 text-muted-foreground"
+          onClick={onCancel}
+          aria-label="Close"
+        >
+          <X className="h-4 w-4" />
+        </Button>
+      </div>
+
+      <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+        <FieldWithIcon
+          id="tier-rank"
+          label="Rank"
+          icon={<Hash className="h-3.5 w-3.5" />}
+          placeholder="1"
+          value={form.rank}
+          onChange={(v) => patch('rank', v)}
+        />
+        <FieldWithIcon
+          id="tier-min"
+          label="Min Amount (QAR)"
+          icon={<Wallet className="h-3.5 w-3.5" />}
+          placeholder="0"
+          value={form.min_amount}
+          onChange={(v) => patch('min_amount', v)}
+        />
+        <FieldWithIcon
+          id="tier-max"
+          label="Max Amount"
+          icon={<InfinityIcon className="h-3.5 w-3.5" />}
+          placeholder="Leave empty for ∞"
+          value={form.max_amount}
+          onChange={(v) => patch('max_amount', v)}
+        />
+      </div>
+
+      <div className="space-y-1.5">
+        <div className="flex items-center justify-between">
+          <Label className="text-xs font-medium text-muted-foreground inline-flex items-center gap-1.5">
+            <Users2 className="h-3.5 w-3.5" />
+            Approvers required at this tier
+          </Label>
+          <span className="text-[10px] text-muted-foreground">
+            {form.roles.length} selected
+          </span>
+        </div>
+        <RoleChipGroup
+          roles={roles}
+          loading={rolesLoading}
+          selected={form.roles}
+          coveredRoles={coveredRoles}
+          onToggle={toggleRole}
+        />
+      </div>
+
+      <div className="flex items-center gap-2 pt-1">
+        <Button size="sm" onClick={onSave} disabled={!canSave}>
+          {saving ? 'Saving…' : 'Save Tier'}
+        </Button>
+        <Button size="sm" variant="outline" onClick={onCancel} disabled={saving}>
+          Cancel
+        </Button>
+      </div>
+    </div>
+  )
+}
+
+function FieldWithIcon({
+  id, label, icon, placeholder, value, onChange,
+}: {
+  id: string
+  label: string
+  icon: React.ReactNode
+  placeholder: string
+  value: string
+  onChange: (v: string) => void
+}) {
+  return (
+    <div className="space-y-1">
+      <Label
+        htmlFor={id}
+        className="text-[11px] font-medium text-muted-foreground inline-flex items-center gap-1.5"
+      >
+        {icon}
+        {label}
+      </Label>
+      <Input
+        id={id}
+        inputMode="decimal"
+        placeholder={placeholder}
+        value={value}
+        onChange={(e) => onChange(e.target.value)}
+        className="h-9"
       />
     </div>
   )
