@@ -20,6 +20,7 @@ import {
   Bot,
   CheckSquare,
   Coins,
+  Globe,
 } from 'lucide-react'
 
 type SidebarItem = {
@@ -58,6 +59,7 @@ const ADMIN_SECTIONS: SidebarSection[] = [
       { label: 'Reason Lists',       href: '/master-data/admin/reason-lists',       icon: List,        permission: 'master_data.admin.view' },
       { label: 'Payment Methods',    href: '/master-data/admin/payment-methods',    icon: Banknote,    permission: 'master_data.admin.view' },
       { label: 'Currencies',         href: '/master-data/admin/currencies',         icon: Coins,       permission: 'master_data.admin.view' },
+      { label: 'Country Codes',      href: '/master-data/admin/country-codes',      icon: Globe,       permission: 'master_data.admin.view' },
       { label: 'Approval Settings',  href: '/master-data/admin/approval-settings',  icon: CheckSquare, permission: 'purchase.approvals.chain.manage' },
       { label: 'Document T&C',       href: '/master-data/admin/document-terms',     icon: FileText,    comingSoon: true },
     ],
