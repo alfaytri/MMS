@@ -228,9 +228,9 @@ Purchase & Sales▾:
 
 ## 🔄 In Progress
 
-🚀 Page-level permission enforcement — adds a blanket `<RoutePermissionGuard>` inside `(dashboard)/layout.tsx` so every URL requires the matching permission key from a central `route-permissions.ts` map. Also filters the Admin Settings sidebar by permission. Awaiting user verification.
+🚀 Starting: **Approval Settings — Live wiring to Users & Roles** complete; next up TBD.
 
-Previously: Staging environment setup — fresh Supabase project (`kfykuifatnmsdcziaybk`) provisioned; migration history squashed into a single baseline file so any fresh DB push reproduces prod exactly.
+Previously: Page-level permission enforcement — blanket `<RoutePermissionGuard>` inside `(dashboard)/layout.tsx`, central `route-permissions.ts` map, sidebar filtered by permission.
 
 ## 🔋 Quota Watch
 
@@ -241,6 +241,8 @@ Previously: Staging environment setup — fresh Supabase project (`kfykuifatnmsd
 | 2026-06-16 | Pre-Phase-1 baseline | 2,983,378 / 2M (149%) | 7.076 / 5 GB (142%) | End of cycle May 16 – Jun 16; new cycle just started, dashboard hadn't yet refreshed when captured |
 
 ## ✅ Completed
+
+- [2026-06-20] **Approval Settings — Live wiring to Users & Roles** — `src/components/purchase/ApprovalChainsTab.tsx` (replaced hardcoded `purchase_manager`/`accountant`/`owner` list with a live query against `custom_roles` filtered by `is_approval_slot && !deleted_at`; chips render in each role's saved color; uncovered roles render amber with a warning icon both in saved tier rows and in the New Tier / edit chip pickers; modernized New Tier card with gradient surface, labeled icon fields, live "N selected" counter, animated chip toggle), `src/hooks/useRoles.ts` (new `useApprovalRoleCoverage()` hook — queries `user_custom_roles` joined to `custom_roles` and returns a `Set<string>` of approval-slot role names that have at least one assignee; replaces the always-true stub; cache invalidation added to `useAssignRole`/`useRemoveRole`/`useUpdateRole`/`useDeleteRole` so the warning clears the instant a user is assigned in Users & Roles), `src/lib/queryKeys.ts` (added `roles.approvalCoverage` key). The old `ROLE_LABELS` lookup was already silently broken for live data (tiers store display names, not slugs), so this fixes the broken badge labels at the same time.
 
 - [2026-06-20] **`system.admin` permission grants full-access bypass** — `src/lib/permissions.ts` (renamed `system.admin` label to "Full System Access (Owner)" with clearer description), `src/hooks/usePermissions.ts` (sets `isSystemAdmin = true` if user holds `system.admin` OR if any role has `is_system = true`), `src/lib/auth/require-admin.ts` (same dual check in `requirePermission`), `src/app/(dashboard)/admin/layout.tsx` (Contact-Centre admin pages also recognise `system.admin`), `supabase/migrations/20260620143410_seed_system_admin_on_owner_roles.sql` (seeds the new permission key on every role that currently has `is_system = true`, so Owner/Admin/Developer keep working immediately). Owners can now be authored entirely from the role-edit UI by toggling one checkbox instead of needing DB-level `is_system` flipping. Both mechanisms remain in place — backwards-compatible.
 
