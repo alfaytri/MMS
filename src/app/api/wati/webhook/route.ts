@@ -205,12 +205,15 @@ export async function GET() {
 
 // POST — called by WATI for every incoming/outgoing message and status change
 export async function POST(req: NextRequest) {
-  // Shared-secret gate (timing-safe). Configure WATI_WEBHOOK_SECRET in env and
-  // set the matching value as a custom header in the Wati dashboard:
-  //   Wati → Settings → Webhooks → Add Header → Name: x-webhook-secret, Value: <secret>
-  // If WATI_WEBHOOK_SECRET is empty the helper returns true (dev / unconfigured)
-  // — set it in production to actually gate inbound calls.
-  if (!verifySharedSecret(req.headers.get('x-webhook-secret'), WEBHOOK_SECRET || undefined)) {
+  // Shared-secret gate (timing-safe). Wati's webhook edit dialog has no custom-header
+  // field — only URL / Status / Events — so we accept the secret as a query string
+  // on the URL itself, matching the 3CX pattern. Configure WATI_WEBHOOK_SECRET in env
+  // and set the webhook URL in the Wati dashboard to:
+  //   https://<host>/api/wati/webhook?secret=<WATI_WEBHOOK_SECRET>
+  // If WATI_WEBHOOK_SECRET is empty the helper fails open (dev / unconfigured) —
+  // set it in production to actually gate inbound calls.
+  const providedSecret = req.nextUrl.searchParams.get('secret')
+  if (!verifySharedSecret(providedSecret, WEBHOOK_SECRET || undefined)) {
     return new Response('Unauthorized', { status: 401 })
   }
 
