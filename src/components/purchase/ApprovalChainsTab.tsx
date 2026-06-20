@@ -28,6 +28,7 @@ import {
 import { useIsAdmin } from '@/hooks/useProfiles'
 import { useDivisions } from '@/hooks/useDivisions'
 import { useRoles, useApprovalRoleCoverage } from '@/hooks/useRoles'
+import { useWorkflowSteps } from '@/hooks/useWorkflowSteps'
 
 type TierForm = { rank: string; min_amount: string; max_amount: string; roles: string[] }
 const EMPTY_FORM: TierForm = { rank: '', min_amount: '', max_amount: '', roles: [] }
@@ -39,6 +40,7 @@ export function ApprovalChainsTab() {
   const { data: isAdmin } = useIsAdmin()
   const { data: allRoles = [], isLoading: rolesLoading } = useRoles()
   const { data: coveredRoles } = useApprovalRoleCoverage()
+  const { data: workflowSteps = [], isLoading: stepsLoading } = useWorkflowSteps()
   const upsertChain = useUpsertApprovalChain()
   const upsertTier = useUpsertApprovalChainTier()
   const deleteTier = useSoftDeleteApprovalChainTier()
@@ -47,10 +49,20 @@ export function ApprovalChainsTab() {
 
   const { data: divisions = [] } = useDivisions()
 
-  const approvalRoles = useMemo(
-    () => allRoles.filter((r) => r.is_approval_slot && !r.deleted_at),
-    [allRoles],
-  )
+  // PO-chain roles = roles bound to an ACTIVE step in the "po" workflow
+  // (Approval Chain Management → PO Approvals). Order follows step_order so
+  // chips read in the same sequence as the workflow.
+  const approvalRoles = useMemo(() => {
+    const poStepRoleIds = workflowSteps
+      .filter((s) => s.workflow === 'po' && s.is_active)
+      .sort((a, b) => a.step_order - b.step_order)
+      .map((s) => s.role_id)
+    const byId = new Map(allRoles.map((r) => [r.id, r]))
+    return poStepRoleIds
+      .map((id) => byId.get(id))
+      .filter((r): r is NonNullable<typeof r> => !!r && !r.deleted_at)
+  }, [allRoles, workflowSteps])
+
   const roleColorByName = useMemo(() => {
     const m = new Map<string, string>()
     for (const r of approvalRoles) m.set(r.name, r.color ?? FALLBACK_ROLE_COLOR)
@@ -303,7 +315,7 @@ export function ApprovalChainsTab() {
                           <TableCell>
                             <RoleChipGroup
                               roles={approvalRoles}
-                              loading={rolesLoading}
+                              loading={rolesLoading || stepsLoading}
                               selected={editingTier!.form.roles}
                               coveredRoles={coveredRoles}
                               onToggle={(name) => setEditingTier((s) =>
@@ -388,7 +400,7 @@ export function ApprovalChainsTab() {
                 form={tierForm}
                 onChange={setTierForm}
                 roles={approvalRoles}
-                rolesLoading={rolesLoading}
+                rolesLoading={rolesLoading || stepsLoading}
                 coveredRoles={coveredRoles}
                 onCancel={() => { setAddingTierFor(null); setTierForm(EMPTY_FORM) }}
                 onSave={() => handleAddTier(chain.id)}
@@ -468,7 +480,7 @@ function RoleChipGroup({
   if (roles.length === 0) {
     return (
       <span className="text-xs text-muted-foreground">
-        No approval roles defined. Add one under Users &amp; Roles.
+        No active roles in the PO Approvals workflow. Add a step in Users &amp; Roles → Approval Chain Management.
       </span>
     )
   }
