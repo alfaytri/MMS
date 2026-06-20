@@ -1,10 +1,12 @@
 import { type NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@supabase/supabase-js'
 import type { Database } from '@/types/database.types'
+import { verifySharedSecret } from '@/lib/webhooks/verify'
 
-const SUPA_URL    = process.env.NEXT_PUBLIC_SUPABASE_URL!
-const SUPA_KEY    = process.env.SUPABASE_SERVICE_ROLE_KEY!
-const WATI_TOKEN  = (process.env.WATI_API_TOKEN ?? '').replace(/^Bearer\s+/i, '')
+const SUPA_URL        = process.env.NEXT_PUBLIC_SUPABASE_URL!
+const SUPA_KEY        = process.env.SUPABASE_SERVICE_ROLE_KEY!
+const WATI_TOKEN      = (process.env.WATI_API_TOKEN ?? '').replace(/^Bearer\s+/i, '')
+const WEBHOOK_SECRET  = process.env.WATI_WEBHOOK_SECRET ?? ''
 
 type DeliveryStatus = 'sending' | 'sent' | 'delivered' | 'read' | 'failed'
 
@@ -203,6 +205,15 @@ export async function GET() {
 
 // POST — called by WATI for every incoming/outgoing message and status change
 export async function POST(req: NextRequest) {
+  // Shared-secret gate (timing-safe). Configure WATI_WEBHOOK_SECRET in env and
+  // set the matching value as a custom header in the Wati dashboard:
+  //   Wati → Settings → Webhooks → Add Header → Name: x-webhook-secret, Value: <secret>
+  // If WATI_WEBHOOK_SECRET is empty the helper returns true (dev / unconfigured)
+  // — set it in production to actually gate inbound calls.
+  if (!verifySharedSecret(req.headers.get('x-webhook-secret'), WEBHOOK_SECRET || undefined)) {
+    return new Response('Unauthorized', { status: 401 })
+  }
+
   let body: any
   try { body = await req.json() } catch { return new Response('Bad JSON', { status: 400 }) }
 
