@@ -116,12 +116,15 @@ export async function requirePermission(
   const roles: Array<{ custom_roles: { is_system: boolean | null; permissions: string[] } | null }> =
     profile.user_custom_roles ?? []
 
-  const isSystemAdmin = roles.some((r) => r.custom_roles?.is_system === true)
+  const perms: string[] = roles.flatMap((r) => r.custom_roles?.permissions ?? [])
+  // System admin = is_system=true seeded role OR system.admin permission grant.
+  const isSystemAdmin =
+    roles.some((r) => r.custom_roles?.is_system === true) ||
+    perms.includes('system.admin')
   if (isSystemAdmin) {
     return { ok: true, authUserId: user.id, email: callerEmail, profileId: profile.id }
   }
 
-  const perms: string[] = roles.flatMap((r) => r.custom_roles?.permissions ?? [])
   if (required.some((p) => perms.includes(p))) {
     return { ok: true, authUserId: user.id, email: callerEmail, profileId: profile.id }
   }

@@ -11,6 +11,7 @@ import { ContactCenterSidebarGate } from '@/components/contact-center/ContactCen
 import { InboundCallBanner } from '@/components/contact-center/v2/InboundCallBanner'
 import { DashboardMain } from '@/components/layout/DashboardMain'
 import { TopNavV2Offset } from '@/components/layout/TopNavV2Offset'
+import { RoutePermissionGuard } from '@/components/auth/RoutePermissionGuard'
 
 export default async function DashboardLayout({
   children,
@@ -46,7 +47,7 @@ export default async function DashboardLayout({
           </TopNavV2Offset>
           <InboundCallBanner />
           <DashboardMain>
-            {children}
+            <RoutePermissionGuard>{children}</RoutePermissionGuard>
           </DashboardMain>
           <ContactCenterSidebarGate />
         </div>

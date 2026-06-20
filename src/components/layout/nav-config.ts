@@ -24,10 +24,11 @@ export const NAV_ITEMS: NavEntry[] = [
   {
     label: 'Master Data',
     icon: 'Database',
+    permission: 'master_data.access',
     groups: [
       {
         items: [
-          { label: 'Warehouses',    href: '/purchase/warehouses',      icon: 'Warehouse',   permission: 'master_data.warehouses.view' },
+          { label: 'Warehouses',    href: '/purchase/warehouses',      icon: 'Warehouse',   permission: 'warehouse.access' },
           { label: 'Users & Roles', href: '/master-data/users',        icon: 'UserCog',     permission: ['master_data.users.view', 'master_data.roles.view'] },
           { label: 'Audit Trail',   href: '/master-data/audit-trail',  icon: 'ScrollText',  permission: 'master_data.audit.view' },
           { label: 'Admin',         href: '/master-data/admin',        icon: 'Settings',    permission: 'master_data.admin.view' },
@@ -48,7 +49,7 @@ export const NAV_ITEMS: NavEntry[] = [
   {
     label: 'Orders',
     icon: 'ShoppingCart',
-    permission: 'orders.view',
+    permission: 'orders.access',
     groups: [
       {
         items: [
@@ -68,7 +69,7 @@ export const NAV_ITEMS: NavEntry[] = [
   {
     label: 'Invoices',
     icon: 'Receipt',
-    permission: 'invoices.view',
+    permission: 'invoices.access',
     groups: [
       {
         label: 'ORDERS & CONTRACTS',
@@ -89,7 +90,7 @@ export const NAV_ITEMS: NavEntry[] = [
   {
     label: 'Contracts',
     icon: 'FileText',
-    permission: ['contracts.quotations.view', 'contracts.live.view'],
+    permission: 'contracts.access',
     groups: [
       {
         items: [
@@ -103,7 +104,7 @@ export const NAV_ITEMS: NavEntry[] = [
   {
     label: 'Purchase & Sales',
     icon: 'ShoppingBag',
-    permission: ['purchase.orders.view', 'sales.orders.view'],
+    permission: 'purchase_sales.access',
     groups: [
       {
         label: 'Vendors & Clients',
@@ -140,7 +141,7 @@ export const NAV_ITEMS: NavEntry[] = [
   {
     label: 'Teams',
     icon: 'Users',
-    permission: 'teams.view',
+    permission: 'teams.access',
     groups: [
       {
         items: [
@@ -154,7 +155,7 @@ export const NAV_ITEMS: NavEntry[] = [
   {
     label: 'Reports',
     icon: 'BarChart2',
-    permission: 'reports.view',
+    permission: 'reports.access',
     groups: [
       {
         items: [

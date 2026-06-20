@@ -38,8 +38,13 @@ export function usePermissions() {
         custom_roles: { is_system: boolean; permissions: string[] } | null
       }>
 
-      const isSystemAdmin = roles.some((r) => r.custom_roles?.is_system === true)
       const permissions = roles.flatMap((r) => r.custom_roles?.permissions ?? [])
+      // A user is a system admin if any of their roles either:
+      //   - is the seeded system role (is_system = true on Owner / Admin), OR
+      //   - holds the `system.admin` permission key (the UI-toggleable bypass).
+      const isSystemAdmin =
+        roles.some((r) => r.custom_roles?.is_system === true) ||
+        permissions.includes('system.admin')
 
       return { permissions, isSystemAdmin }
     },

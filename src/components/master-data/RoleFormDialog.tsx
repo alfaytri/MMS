@@ -18,7 +18,7 @@ import { Checkbox } from '@/components/ui/checkbox'
 import { Switch } from '@/components/ui/switch'
 import { Button } from '@/components/ui/button'
 import { useCreateRole, useUpdateRole, type CustomRole } from '@/hooks/useRoles'
-import { PERMISSION_GROUPS, ALL_PERMISSIONS } from '@/lib/permissions'
+import { PERMISSION_GROUPS, ALL_PERMISSIONS, groupKeys, type PermissionEntry } from '@/lib/permissions'
 const roleSchema = z.object({
   name:             z.string().min(1, 'Name is required'),
   description:      z.string().optional().default(''),
@@ -152,9 +152,9 @@ export function RoleFormDialog({ open, onOpenChange, role }: RoleFormDialogProps
             {/* Accordion permission list */}
             <div className="border rounded-md divide-y divide-border">
               {PERMISSION_GROUPS.map((group) => {
-                const groupKeys = group.permissions.map((p) => p.key)
-                const selectedInGroup = groupKeys.filter((k) => selectedPermissions.includes(k))
-                const allSelected = selectedInGroup.length === groupKeys.length
+                const allKeys = groupKeys(group)
+                const selectedInGroup = allKeys.filter((k) => selectedPermissions.includes(k))
+                const allSelected = selectedInGroup.length === allKeys.length
                 const someSelected = selectedInGroup.length > 0 && !allSelected
                 const isExpanded = expandedModules.has(group.module)
                 const Icon = group.icon
@@ -162,10 +162,35 @@ export function RoleFormDialog({ open, onOpenChange, role }: RoleFormDialogProps
                 function toggleGroupAll() {
                   const current = form.getValues('permissions')
                   if (allSelected) {
-                    form.setValue('permissions', current.filter((k) => !groupKeys.includes(k)))
+                    form.setValue('permissions', current.filter((k) => !allKeys.includes(k)))
                   } else {
-                    form.setValue('permissions', Array.from(new Set([...current, ...groupKeys])))
+                    form.setValue('permissions', Array.from(new Set([...current, ...allKeys])))
                   }
+                }
+
+                function renderPermRow(perm: PermissionEntry) {
+                  return (
+                    <label
+                      key={perm.key}
+                      className="flex items-start gap-3 px-8 py-2 cursor-pointer hover:bg-muted/40"
+                    >
+                      <Checkbox
+                        className="mt-0.5 shrink-0"
+                        checked={selectedPermissions.includes(perm.key)}
+                        onCheckedChange={(checked) => {
+                          const current = form.getValues('permissions')
+                          form.setValue(
+                            'permissions',
+                            checked ? [...current, perm.key] : current.filter((k) => k !== perm.key)
+                          )
+                        }}
+                      />
+                      <div className="flex-1 min-w-0">
+                        <span className="text-sm font-medium block">{perm.label}</span>
+                        <span className="text-xs text-muted-foreground">{perm.description}</span>
+                      </div>
+                    </label>
+                  )
                 }
 
                 return (
@@ -191,7 +216,7 @@ export function RoleFormDialog({ open, onOpenChange, role }: RoleFormDialogProps
                         <Icon className="h-4 w-4 text-muted-foreground shrink-0" />
                         <span className="text-sm font-medium flex-1">{group.module}</span>
                         <span className="text-xs text-muted-foreground tabular-nums">
-                          {selectedInGroup.length}/{groupKeys.length}
+                          {selectedInGroup.length}/{allKeys.length}
                         </span>
                       </button>
                     </div>
@@ -199,28 +224,42 @@ export function RoleFormDialog({ open, onOpenChange, role }: RoleFormDialogProps
                     {/* Permission rows */}
                     {isExpanded && (
                       <div className="bg-muted/20 divide-y divide-border/50">
-                        {group.permissions.map((perm) => (
-                          <label
-                            key={perm.key}
-                            className="flex items-start gap-3 px-8 py-2 cursor-pointer hover:bg-muted/40"
-                          >
-                            <Checkbox
-                              className="mt-0.5 shrink-0"
-                              checked={selectedPermissions.includes(perm.key)}
-                              onCheckedChange={(checked) => {
-                                const current = form.getValues('permissions')
-                                form.setValue(
-                                  'permissions',
-                                  checked ? [...current, perm.key] : current.filter((k) => k !== perm.key)
-                                )
-                              }}
-                            />
-                            <div className="flex-1 min-w-0">
-                              <span className="text-sm font-medium block">{perm.label}</span>
-                              <span className="text-xs text-muted-foreground">{perm.description}</span>
+                        {group.permissions.map(renderPermRow)}
+                        {(group.sections ?? []).map((section) => {
+                          const sectionKeys = section.permissions.map((p) => p.key)
+                          const sectionSelected = sectionKeys.filter((k) => selectedPermissions.includes(k))
+                          const sectionAll = sectionSelected.length === sectionKeys.length
+                          const sectionSome = sectionSelected.length > 0 && !sectionAll
+
+                          function toggleSectionAll() {
+                            const current = form.getValues('permissions')
+                            if (sectionAll) {
+                              form.setValue('permissions', current.filter((k) => !sectionKeys.includes(k)))
+                            } else {
+                              form.setValue('permissions', Array.from(new Set([...current, ...sectionKeys])))
+                            }
+                          }
+
+                          return (
+                            <div key={section.label}>
+                              <div className="flex items-center gap-2 px-6 py-1.5 bg-muted/40 border-y border-border/40">
+                                <Checkbox
+                                  checked={sectionAll}
+                                  indeterminate={sectionSome}
+                                  onCheckedChange={toggleSectionAll}
+                                  className="shrink-0"
+                                />
+                                <span className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground flex-1">
+                                  {section.label}
+                                </span>
+                                <span className="text-[10px] text-muted-foreground tabular-nums">
+                                  {sectionSelected.length}/{sectionKeys.length}
+                                </span>
+                              </div>
+                              {section.permissions.map(renderPermRow)}
                             </div>
-                          </label>
-                        ))}
+                          )
+                        })}
                       </div>
                     )}
                   </div>

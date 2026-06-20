@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, Suspense } from 'react'
+import { useState, useMemo, useEffect, Suspense } from 'react'
 import { useSearchParams } from 'next/navigation'
 import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs'
 import { Button } from '@/components/ui/button'
@@ -11,6 +11,7 @@ import {
 import { useWarehouses } from '@/hooks/useWarehouses'
 import { useWarehouseTransfers, useReceivalsAndDeliveries, useStockAdjustments } from '@/hooks/useWarehouseOperations'
 import { useCurrentUserProfile } from '@/hooks/useProfiles'
+import { usePermissions } from '@/hooks/usePermissions'
 import { ResponsivePageHeader } from '@/components/shared/ResponsivePageHeader'
 import { WhWarehousesTab } from '@/components/purchase/wh/WhWarehousesTab'
 import { WhStockOverviewTab } from '@/components/purchase/wh/WhStockOverviewTab'
@@ -22,6 +23,22 @@ import { WhStockValueTab } from '@/components/purchase/wh/WhStockValueTab'
 import { ReceivalsDeliveriesTab } from '@/components/purchase/wh/ReceivalsDeliveriesTab'
 import { WhAdjustmentDialog } from '@/components/purchase/wh/WhAdjustmentDialog'
 import { WhTransferDialog } from '@/components/purchase/wh/WhTransferDialog'
+
+// Per-tab permission keys. ANY-of semantics: if the user holds any one of
+// the listed perms, the tab is shown. System admins always see every tab.
+// Each tab is gated by its own *.view key (declared in lib/permissions.ts
+// Warehouse module) — action keys (create/dispatch/etc.) imply view via the
+// migration that seeds the view-key alongside any action key.
+const TAB_PERMISSIONS: Record<string, string[]> = {
+  warehouses:    ['warehouse.warehouses.view', 'warehouse.settings.manage'],
+  stock:         ['warehouse.stock.view'],
+  transfers:     ['warehouse.transfers.view'],
+  adjustments:   ['warehouse.adjustments.view'],
+  checks:        ['warehouse.checks.view'],
+  'stock-value': ['warehouse.stock_value.view'],
+  movements:     ['warehouse.movements.view'],
+  receivals:     ['warehouse.receivals.view'],
+}
 
 function WarehousesPageInner() {
   const searchParams = useSearchParams()
@@ -40,6 +57,30 @@ function WarehousesPageInner() {
   const { data: transfers = [] } = useWarehouseTransfers()
   const { data: receivalsDeliveries = [] } = useReceivalsAndDeliveries()
   const { data: adjustments = [] } = useStockAdjustments()
+  const { data: permData } = usePermissions()
+
+  const visibleTabs = useMemo(() => {
+    const isSystemAdmin = permData?.isSystemAdmin ?? false
+    const userPerms = permData?.permissions ?? []
+    const order = ['warehouses', 'stock', 'transfers', 'adjustments', 'checks', 'stock-value', 'movements', 'receivals']
+    return new Set(
+      order.filter((key) => {
+        if (isSystemAdmin) return true
+        const required = TAB_PERMISSIONS[key] ?? []
+        return required.length === 0 || required.some((p) => userPerms.includes(p))
+      })
+    )
+  }, [permData])
+
+  // If the current activeTab is hidden for this user (e.g. they landed on
+  // ?tab=warehouses without master_data perms), fall back to the first one
+  // they CAN see.
+  useEffect(() => {
+    if (visibleTabs.size === 0) return
+    if (!visibleTabs.has(activeTab)) {
+      setActiveTab(Array.from(visibleTabs)[0])
+    }
+  }, [visibleTabs, activeTab])
 
   const pendingTransferCount = transfers.filter(t => t.status === 'pending_approval').length
   const pendingReceivalCount = receivalsDeliveries.filter(
@@ -55,20 +96,24 @@ function WarehousesPageInner() {
         description="Stock overview, transfers, adjustments & movements"
         actions={
           <>
-            <WhAdjustmentDialog warehouses={warehouses} currentProfile={currentProfile ?? null}>
-              <Button size="sm" variant="outline" className="gap-1.5">
-                <ClipboardList className="h-3.5 w-3.5" />
-                <span className="hidden sm:inline">Stock Adjustment</span>
-                <span className="sm:hidden">Adjust</span>
-              </Button>
-            </WhAdjustmentDialog>
-            <WhTransferDialog warehouses={warehouses} currentProfile={currentProfile ?? null}>
-              <Button size="sm" variant="outline" className="gap-1.5">
-                <ArrowRightLeft className="h-3.5 w-3.5" />
-                <span className="hidden sm:inline">Transfer Stock</span>
-                <span className="sm:hidden">Transfer</span>
-              </Button>
-            </WhTransferDialog>
+            {visibleTabs.has('adjustments') && (
+              <WhAdjustmentDialog warehouses={warehouses} currentProfile={currentProfile ?? null}>
+                <Button size="sm" variant="outline" className="gap-1.5">
+                  <ClipboardList className="h-3.5 w-3.5" />
+                  <span className="hidden sm:inline">Stock Adjustment</span>
+                  <span className="sm:hidden">Adjust</span>
+                </Button>
+              </WhAdjustmentDialog>
+            )}
+            {visibleTabs.has('transfers') && (
+              <WhTransferDialog warehouses={warehouses} currentProfile={currentProfile ?? null}>
+                <Button size="sm" variant="outline" className="gap-1.5">
+                  <ArrowRightLeft className="h-3.5 w-3.5" />
+                  <span className="hidden sm:inline">Transfer Stock</span>
+                  <span className="sm:hidden">Transfer</span>
+                </Button>
+              </WhTransferDialog>
+            )}
           </>
         }
       />
@@ -76,80 +121,112 @@ function WarehousesPageInner() {
       {/* Tabs */}
       <Tabs value={activeTab} onValueChange={setActiveTab} className="flex flex-col flex-1 min-h-0">
         <TabsList className="h-8 max-w-full overflow-x-auto whitespace-nowrap px-4 md:px-6 border-b rounded-none justify-start bg-background flex-shrink-0 scroll-x-fade">
-          <TabsTrigger value="warehouses" className="text-xs gap-1">
-            <WarehouseIcon className="h-3 w-3" />
-            Warehouses
-          </TabsTrigger>
-          <TabsTrigger value="stock" className="text-xs gap-1">
-            <Layers className="h-3 w-3" />
-            Stock Overview
-          </TabsTrigger>
-          <TabsTrigger value="transfers" className="text-xs gap-1">
-            <ArrowRightLeft className="h-3 w-3" />
-            Transfers
-            {pendingTransferCount > 0 && (
-              <span className="ml-1 h-4 px-1 text-[9px] bg-warning/20 text-warning rounded inline-flex items-center">
-                {pendingTransferCount}
-              </span>
-            )}
-          </TabsTrigger>
-          <TabsTrigger value="adjustments" className="text-xs gap-1">
-            <ClipboardList className="h-3 w-3" />
-            Adjustments
-            {pendingAdjustmentCount > 0 && (
-              <span className="ml-1 h-4 px-1 text-[9px] bg-warning/20 text-warning rounded inline-flex items-center">
-                {pendingAdjustmentCount}
-              </span>
-            )}
-          </TabsTrigger>
-          <TabsTrigger value="checks" className="text-xs gap-1">
-            <ClipboardCheck className="h-3 w-3" />
-            Inv. Checks
-          </TabsTrigger>
-          <TabsTrigger value="stock-value" className="text-xs gap-1">
-            <TrendingUp className="h-3 w-3" />
-            Stock Value
-          </TabsTrigger>
-          <TabsTrigger value="movements" className="text-xs gap-1">
-            <Activity className="h-3 w-3" />
-            Movements
-          </TabsTrigger>
-          <TabsTrigger value="receivals" className="text-xs gap-1">
-            <Truck className="h-3 w-3" />
-            Receivals &amp; Deliveries
-            {pendingReceivalCount > 0 && (
-              <span className="ml-1 h-4 px-1 text-[9px] bg-warning/20 text-warning rounded inline-flex items-center">
-                {pendingReceivalCount}
-              </span>
-            )}
-          </TabsTrigger>
+          {visibleTabs.has('warehouses') && (
+            <TabsTrigger value="warehouses" className="text-xs gap-1">
+              <WarehouseIcon className="h-3 w-3" />
+              Warehouses
+            </TabsTrigger>
+          )}
+          {visibleTabs.has('stock') && (
+            <TabsTrigger value="stock" className="text-xs gap-1">
+              <Layers className="h-3 w-3" />
+              Stock Overview
+            </TabsTrigger>
+          )}
+          {visibleTabs.has('transfers') && (
+            <TabsTrigger value="transfers" className="text-xs gap-1">
+              <ArrowRightLeft className="h-3 w-3" />
+              Transfers
+              {pendingTransferCount > 0 && (
+                <span className="ml-1 h-4 px-1 text-[9px] bg-warning/20 text-warning rounded inline-flex items-center">
+                  {pendingTransferCount}
+                </span>
+              )}
+            </TabsTrigger>
+          )}
+          {visibleTabs.has('adjustments') && (
+            <TabsTrigger value="adjustments" className="text-xs gap-1">
+              <ClipboardList className="h-3 w-3" />
+              Adjustments
+              {pendingAdjustmentCount > 0 && (
+                <span className="ml-1 h-4 px-1 text-[9px] bg-warning/20 text-warning rounded inline-flex items-center">
+                  {pendingAdjustmentCount}
+                </span>
+              )}
+            </TabsTrigger>
+          )}
+          {visibleTabs.has('checks') && (
+            <TabsTrigger value="checks" className="text-xs gap-1">
+              <ClipboardCheck className="h-3 w-3" />
+              Inv. Checks
+            </TabsTrigger>
+          )}
+          {visibleTabs.has('stock-value') && (
+            <TabsTrigger value="stock-value" className="text-xs gap-1">
+              <TrendingUp className="h-3 w-3" />
+              Stock Value
+            </TabsTrigger>
+          )}
+          {visibleTabs.has('movements') && (
+            <TabsTrigger value="movements" className="text-xs gap-1">
+              <Activity className="h-3 w-3" />
+              Movements
+            </TabsTrigger>
+          )}
+          {visibleTabs.has('receivals') && (
+            <TabsTrigger value="receivals" className="text-xs gap-1">
+              <Truck className="h-3 w-3" />
+              Receivals &amp; Deliveries
+              {pendingReceivalCount > 0 && (
+                <span className="ml-1 h-4 px-1 text-[9px] bg-warning/20 text-warning rounded inline-flex items-center">
+                  {pendingReceivalCount}
+                </span>
+              )}
+            </TabsTrigger>
+          )}
         </TabsList>
 
         <div className="flex-1 overflow-auto">
-          <TabsContent value="warehouses" className="mt-0 p-4 md:p-6">
-            <WhWarehousesTab warehouses={warehouses} onViewStock={handleViewStock} />
-          </TabsContent>
-          <TabsContent value="stock" className="mt-0">
-            <WhStockOverviewTab warehouses={warehouses} initialWarehouseId={selectedWarehouseId} />
-          </TabsContent>
-          <TabsContent value="transfers" className="mt-0">
-            <WhTransfersTab warehouses={warehouses} currentProfile={currentProfile ?? null} />
-          </TabsContent>
-          <TabsContent value="adjustments" className="mt-0">
-            <WhAdjustmentsTab warehouses={warehouses} currentProfile={currentProfile ?? null} />
-          </TabsContent>
-          <TabsContent value="checks" className="mt-0">
-            <WhInventoryChecksTab warehouses={warehouses} currentProfile={currentProfile ?? null} />
-          </TabsContent>
-          <TabsContent value="stock-value" className="mt-0">
-            <WhStockValueTab warehouses={warehouses} />
-          </TabsContent>
-          <TabsContent value="movements" className="mt-0">
-            <WhMovementsTab warehouses={warehouses} />
-          </TabsContent>
-          <TabsContent value="receivals" className="mt-0">
-            <ReceivalsDeliveriesTab warehouses={warehouses} currentProfile={currentProfile ?? null} />
-          </TabsContent>
+          {visibleTabs.has('warehouses') && (
+            <TabsContent value="warehouses" className="mt-0 p-4 md:p-6">
+              <WhWarehousesTab warehouses={warehouses} onViewStock={handleViewStock} />
+            </TabsContent>
+          )}
+          {visibleTabs.has('stock') && (
+            <TabsContent value="stock" className="mt-0">
+              <WhStockOverviewTab warehouses={warehouses} initialWarehouseId={selectedWarehouseId} />
+            </TabsContent>
+          )}
+          {visibleTabs.has('transfers') && (
+            <TabsContent value="transfers" className="mt-0">
+              <WhTransfersTab warehouses={warehouses} currentProfile={currentProfile ?? null} />
+            </TabsContent>
+          )}
+          {visibleTabs.has('adjustments') && (
+            <TabsContent value="adjustments" className="mt-0">
+              <WhAdjustmentsTab warehouses={warehouses} currentProfile={currentProfile ?? null} />
+            </TabsContent>
+          )}
+          {visibleTabs.has('checks') && (
+            <TabsContent value="checks" className="mt-0">
+              <WhInventoryChecksTab warehouses={warehouses} currentProfile={currentProfile ?? null} />
+            </TabsContent>
+          )}
+          {visibleTabs.has('stock-value') && (
+            <TabsContent value="stock-value" className="mt-0">
+              <WhStockValueTab warehouses={warehouses} />
+            </TabsContent>
+          )}
+          {visibleTabs.has('movements') && (
+            <TabsContent value="movements" className="mt-0">
+              <WhMovementsTab warehouses={warehouses} />
+            </TabsContent>
+          )}
+          {visibleTabs.has('receivals') && (
+            <TabsContent value="receivals" className="mt-0">
+              <ReceivalsDeliveriesTab warehouses={warehouses} currentProfile={currentProfile ?? null} />
+            </TabsContent>
+          )}
         </div>
       </Tabs>
     </div>

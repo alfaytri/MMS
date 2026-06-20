@@ -136,11 +136,12 @@ export function NavDropdown({ entry }: NavDropdownProps) {
       .filter((group) => group.items.length > 0)
   }, [entry.groups, userPerms, isSystemAdmin])
 
-  if (!canAccess(entry.permission, userPerms, isSystemAdmin) && !entry.comingSoon) {
+  // Strict gate — match MobileNavDrawer. Top-level permission must be granted
+  // AND at least one inner item must be visible. comingSoon entries always show.
+  if (!entry.comingSoon) {
+    if (!canAccess(entry.permission, userPerms, isSystemAdmin)) return null
     if (filteredGroups.length === 0) return null
   }
-
-  if (filteredGroups.length === 0 && !entry.comingSoon) return null
 
   const allHrefs = filteredGroups.flatMap((g) => g.items.map((i: NavItem) => i.href))
 

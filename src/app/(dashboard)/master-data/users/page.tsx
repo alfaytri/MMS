@@ -20,7 +20,7 @@ import {
   useProfiles, useCurrentUserProfile, useCreateMyProfile, type Profile,
 } from '@/hooks/useProfiles'
 
-import { PERMISSION_GROUPS, ALL_PERMISSIONS, roleColor } from '@/lib/permissions'
+import { PERMISSION_GROUPS, ALL_PERMISSIONS, groupKeys, groupEntries, roleColor } from '@/lib/permissions'
 import { PermissionGate } from '@/components/shared/PermissionGate'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { Badge } from '@/components/ui/badge'
@@ -53,9 +53,10 @@ function RoleCard({ role, onEdit, onDelete }: { role: CustomRole; onEdit: () => 
   const coverageChips = useMemo(() =>
     PERMISSION_GROUPS
       .map((g) => {
-        const assigned = g.permissions.filter((p) => permissions.includes(p.key)).length
+        const all = groupKeys(g)
+        const assigned = all.filter((k) => permissions.includes(k)).length
         if (assigned === 0) return null
-        return { module: g.module, assigned, total: g.permissions.length }
+        return { module: g.module, assigned, total: all.length }
       })
       .filter(Boolean) as Array<{ module: string; assigned: number; total: number }>,
     [permissions]
@@ -348,12 +349,19 @@ export default function UsersRolesPage() {
               {PERMISSION_GROUPS.map((group) => {
                 const isExpanded = expandedModules.has(group.module)
                 const Icon = group.icon
-                const filtered = group.permissions.filter((p) =>
+                const allEntries = groupEntries(group)
+                const matchesSearch = (label: string, key: string) =>
                   !permSearch ||
-                  p.label.toLowerCase().includes(permSearch.toLowerCase()) ||
-                  p.key.toLowerCase().includes(permSearch.toLowerCase())
-                )
-                if (permSearch && filtered.length === 0) return null
+                  label.toLowerCase().includes(permSearch.toLowerCase()) ||
+                  key.toLowerCase().includes(permSearch.toLowerCase())
+                const filteredFlat = group.permissions.filter((p) => matchesSearch(p.label, p.key))
+                const filteredSections = (group.sections ?? []).map((s) => ({
+                  label: s.label,
+                  permissions: s.permissions.filter((p) => matchesSearch(p.label, p.key)),
+                })).filter((s) => s.permissions.length > 0)
+
+                const totalVisible = filteredFlat.length + filteredSections.reduce((n, s) => n + s.permissions.length, 0)
+                if (permSearch && totalVisible === 0) return null
 
                 return (
                   <div key={group.module}>
@@ -368,12 +376,12 @@ export default function UsersRolesPage() {
                       }
                       <Icon className="h-4 w-4 text-primary shrink-0" />
                       <span className="font-semibold text-sm flex-1">{group.module}</span>
-                      <Badge variant="outline" className="text-xs tabular-nums">{group.permissions.length}</Badge>
+                      <Badge variant="outline" className="text-xs tabular-nums">{allEntries.length}</Badge>
                     </button>
 
                     {isExpanded && (
                       <div className="divide-y divide-border/50 bg-muted/10">
-                        {filtered.map((perm) => (
+                        {filteredFlat.map((perm) => (
                           <div key={perm.key} className="flex items-start gap-3 px-6 py-2.5">
                             <Lock className="h-3.5 w-3.5 text-muted-foreground mt-0.5 shrink-0" />
                             <div className="flex-1 min-w-0">
@@ -383,6 +391,27 @@ export default function UsersRolesPage() {
                             <code className="text-xs text-muted-foreground font-mono shrink-0 hidden sm:block">
                               {perm.key}
                             </code>
+                          </div>
+                        ))}
+                        {filteredSections.map((section) => (
+                          <div key={section.label}>
+                            <div className="px-6 py-1.5 bg-muted/40 border-y border-border/40">
+                              <span className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">
+                                {section.label}
+                              </span>
+                            </div>
+                            {section.permissions.map((perm) => (
+                              <div key={perm.key} className="flex items-start gap-3 px-6 py-2.5">
+                                <Lock className="h-3.5 w-3.5 text-muted-foreground mt-0.5 shrink-0" />
+                                <div className="flex-1 min-w-0">
+                                  <span className="text-sm font-medium text-primary block">{perm.label}</span>
+                                  <span className="text-xs text-muted-foreground">{perm.description}</span>
+                                </div>
+                                <code className="text-xs text-muted-foreground font-mono shrink-0 hidden sm:block">
+                                  {perm.key}
+                                </code>
+                              </div>
+                            ))}
                           </div>
                         ))}
                       </div>

@@ -29,10 +29,14 @@ export default async function AdminLayout({
   const roles: Array<{ custom_roles: { is_system: boolean | null; permissions: string[] } | null }> =
     (profile as any).user_custom_roles ?? []
 
-  const isAdmin = roles.some((r) =>
-    r.custom_roles?.is_system === true ||
-    (r.custom_roles?.permissions ?? []).includes('master_data.users.manage')
-  )
+  const isAdmin = roles.some((r) => {
+    const perms = r.custom_roles?.permissions ?? []
+    return (
+      r.custom_roles?.is_system === true ||
+      perms.includes('system.admin') ||
+      perms.includes('master_data.users.manage')
+    )
+  })
 
   if (!isAdmin) redirect('/')
 

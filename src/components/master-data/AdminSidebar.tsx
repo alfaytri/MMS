@@ -4,6 +4,7 @@ import Link from 'next/link'
 import { usePathname } from 'next/navigation'
 import { cn } from '@/lib/utils'
 import { Badge } from '@/components/ui/badge'
+import { usePermissions } from '@/hooks/usePermissions'
 import {
   Settings2,
   Tag,
@@ -26,6 +27,7 @@ type SidebarItem = {
   href: string
   icon: React.ElementType
   comingSoon?: boolean
+  permission?: string | string[]
 }
 
 type SidebarSection = {
@@ -37,40 +39,63 @@ const ADMIN_SECTIONS: SidebarSection[] = [
   {
     label: 'Organization',
     items: [
-      { label: 'Companies & Divisions', href: '/master-data/admin/companies', icon: Users },
-      { label: 'Warehouses', href: '/master-data/admin/warehouses', icon: Warehouse },
-      { label: 'Work Schedule', href: '/master-data/admin/work-schedule', icon: Clock },
+      { label: 'Companies & Divisions', href: '/master-data/admin/companies',     icon: Users,     permission: 'master_data.admin.view' },
+      { label: 'Warehouses',            href: '/master-data/admin/warehouses',    icon: Warehouse, permission: 'master_data.warehouses.manage' },
+      { label: 'Work Schedule',         href: '/master-data/admin/work-schedule', icon: Clock,     permission: 'master_data.admin.view' },
     ],
   },
   {
     label: 'Catalog & Pricing',
     items: [
-      { label: 'Brand Groups', href: '/master-data/admin/brand-groups', icon: Tag },
-      { label: 'Pricing Factors', href: '/master-data/admin/pricing-factors', icon: Percent, comingSoon: true },
-      { label: 'Credit Groups', href: '/master-data/admin/credit-groups', icon: CreditCard },
+      { label: 'Brand Groups',     href: '/master-data/admin/brand-groups',    icon: Tag,        permission: 'master_data.admin.view' },
+      { label: 'Pricing Factors',  href: '/master-data/admin/pricing-factors', icon: Percent,    comingSoon: true },
+      { label: 'Credit Groups',    href: '/master-data/admin/credit-groups',   icon: CreditCard, permission: 'master_data.admin.view' },
     ],
   },
   {
     label: 'Operations',
     items: [
-      { label: 'Reason Lists', href: '/master-data/admin/reason-lists', icon: List },
-      { label: 'Payment Methods', href: '/master-data/admin/payment-methods', icon: Banknote },
-      { label: 'Currencies', href: '/master-data/admin/currencies', icon: Coins },
-      { label: 'Approval Settings', href: '/master-data/admin/approval-settings', icon: CheckSquare },
-      { label: 'Document T&C', href: '/master-data/admin/document-terms', icon: FileText, comingSoon: true },
+      { label: 'Reason Lists',       href: '/master-data/admin/reason-lists',       icon: List,        permission: 'master_data.admin.view' },
+      { label: 'Payment Methods',    href: '/master-data/admin/payment-methods',    icon: Banknote,    permission: 'master_data.admin.view' },
+      { label: 'Currencies',         href: '/master-data/admin/currencies',         icon: Coins,       permission: 'master_data.admin.view' },
+      { label: 'Approval Settings',  href: '/master-data/admin/approval-settings',  icon: CheckSquare, permission: 'purchase.approvals.chain.manage' },
+      { label: 'Document T&C',       href: '/master-data/admin/document-terms',     icon: FileText,    comingSoon: true },
     ],
   },
   {
     label: 'Integrations',
     items: [
-      { label: 'Traccar Devices', href: '/master-data/admin/traccar', icon: Radio, comingSoon: true },
-      { label: 'Agent Resources', href: '/master-data/admin/agent-resources', icon: Bot, comingSoon: true },
+      { label: 'Traccar Devices',  href: '/master-data/admin/traccar',         icon: Radio, comingSoon: true },
+      { label: 'Agent Resources',  href: '/master-data/admin/agent-resources', icon: Bot,   comingSoon: true },
     ],
   },
 ]
 
+function canAccess(
+  permission: string | string[] | undefined,
+  userPerms: string[],
+  isSystemAdmin: boolean,
+): boolean {
+  if (!permission) return true
+  if (isSystemAdmin) return true
+  const required = Array.isArray(permission) ? permission : [permission]
+  return required.some((p) => userPerms.includes(p))
+}
+
 export function AdminSidebar() {
   const pathname = usePathname()
+  const { data: permData } = usePermissions()
+  const userPerms = permData?.permissions ?? []
+  const isSystemAdmin = permData?.isSystemAdmin ?? false
+
+  const visibleSections = ADMIN_SECTIONS
+    .map((section) => ({
+      ...section,
+      items: section.items.filter(
+        (item) => item.comingSoon || canAccess(item.permission, userPerms, isSystemAdmin)
+      ),
+    }))
+    .filter((section) => section.items.length > 0)
 
   return (
     <nav className="w-full lg:w-56 shrink-0 outline-none">
@@ -81,7 +106,7 @@ export function AdminSidebar() {
       </div>
 
       <div className="space-y-4 pt-3">
-        {ADMIN_SECTIONS.map((section) => (
+        {visibleSections.map((section) => (
           <div key={section.label}>
             <h3 className="text-[10px] font-semibold text-muted-foreground uppercase tracking-widest px-2 mb-1">
               {section.label}
