@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect, type ReactNode } from 'react'
+import { useState, type ReactNode } from 'react'
 import { ChevronRight } from 'lucide-react'
 
 interface Props {
@@ -11,30 +11,16 @@ interface Props {
   children:     ReactNode
 }
 
-const STORAGE_KEY = 'cc-v2-section-open'
-
-function readMap(): Record<string, boolean> {
-  if (typeof window === 'undefined') return {}
-  try { return JSON.parse(localStorage.getItem(STORAGE_KEY) ?? '{}') } catch { return {} }
-}
-function writeMap(map: Record<string, boolean>) {
-  try { localStorage.setItem(STORAGE_KEY, JSON.stringify(map)) } catch { /* ignore */ }
-}
-
-export function SectionAccordion({ id, label, icon, defaultOpen = false, children }: Props) {
+// Sections always start collapsed when a chat is opened — the parent uses
+// `key={activeConversationId}` on the accordion container to force a fresh
+// mount on every chat switch. No cross-chat persistence (was previously
+// localStorage-backed, but that worked against the "every expandable starts
+// collapsed" behaviour the user wants).
+export function SectionAccordion({ id: _id, label, icon, defaultOpen = false, children }: Props) {
   const [open, setOpen] = useState(defaultOpen)
 
-  useEffect(() => {
-    const map = readMap()
-    if (Object.prototype.hasOwnProperty.call(map, id)) setOpen(map[id])
-  }, [id])
-
   function toggle() {
-    const next = !open
-    setOpen(next)
-    const map = readMap()
-    map[id] = next
-    writeMap(map)
+    setOpen((o) => !o)
   }
 
   return (

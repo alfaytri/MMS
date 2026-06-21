@@ -367,7 +367,12 @@ export function ContactCenterSidebarV2() {
 
       <InboundCallStrip calls={liveCalls} />
 
-      {myProfile?.threecx_extension && <DialPad />}
+      {/* DialPad keyed by conversation so it remounts closed every time the
+          user opens a new chat — answer/follow-up shouldn't have the dial pad
+          dropped in their face. */}
+      {myProfile?.threecx_extension && (
+        <DialPad key={`dialpad-detail-${activeConversationId ?? 'none'}`} />
+      )}
 
       {/* When no customer is linked OR we're in unknown-caller flow,
           render the v1 CrmSection's attach/create flow inline */}
@@ -392,9 +397,14 @@ export function ContactCenterSidebarV2() {
         </div>
       )}
 
-      {/* CRM sections — Addresses, Products, Orders (only when customer is linked) */}
+      {/* CRM sections — Addresses, Products, Orders (only when customer is linked).
+          Keyed by conversation so each new chat starts with everything collapsed —
+          the user expands the section they actually need. */}
       {customer && (
-        <div className="flex-shrink-0 max-h-[38vh] overflow-y-auto overscroll-contain">
+        <div
+          key={`cc-sections-${activeConversationId ?? 'none'}`}
+          className="flex-shrink-0 max-h-[38vh] overflow-y-auto overscroll-contain"
+        >
           <SectionAccordion id="addresses" label="Addresses" icon={<MapPin className="h-3 w-3 text-muted-foreground" />}>
             <AddressStrip
               addresses={addresses}

@@ -1,7 +1,7 @@
 'use client'
 
-import { useState, useMemo } from 'react'
-import { Search, RefreshCw, Headphones, Bot, Plus, Check } from 'lucide-react'
+import { useState, useMemo, useEffect } from 'react'
+import { Search, RefreshCw, Bot, Plus, Check, MessageSquareText } from 'lucide-react'
 import { Input } from '@/components/ui/input'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
@@ -62,15 +62,37 @@ function ProviderTag({ provider }: { provider?: 'wati' | 'whapi' }) {
   )
 }
 
+// Window during which an outbound (agent → customer) reply still counts as
+// "this agent is actively chatting in here." After this the indicator clears
+// even if no new messages arrive — keeps the list honest when an agent steps
+// away mid-conversation.
+const AGENT_ACTIVE_WINDOW_MS = 30 * 60 * 1000
+
 function ConversationRow({
-  c, onClick, onMarkResolved,
+  c, now, onClick, onMarkResolved,
 }: {
   c: ChatConversation
+  now: number
   onClick: () => void
   onMarkResolved?: () => void
 }) {
   const isBot = c.assigned_agent?.toLowerCase() === 'bot' || c.assigned_agent?.toLowerCase() === 'chatbot'
   const isResolved = c.wati_status === 'resolved'
+
+  // "Agent is chatting" badge appears only while:
+  //   • last message in the chat came from our side (an agent reply)
+  //   • we know who that agent is (assigned_agent populated)
+  //   • the reply is fresh (< 30 min old by `now`)
+  // The `now` prop ticks every 60 s in the parent so the badge auto-clears
+  // without anyone reloading the page.
+  const lastMsgAgeMs = c.last_message_at
+    ? now - new Date(c.last_message_at).getTime()
+    : Number.POSITIVE_INFINITY
+  const agentChatting =
+    c.last_message_from_type === 'agent' &&
+    !!c.assigned_agent &&
+    lastMsgAgeMs < AGENT_ACTIVE_WINDOW_MS
+
   return (
     <div
       className={`group w-full flex items-start gap-2.5 px-3 py-2 hover:bg-muted/50 transition-colors border-b border-border/50 ${
@@ -82,25 +104,37 @@ function ConversationRow({
           {(c.customer_name ?? c.wati_contact_name ?? c.wati_phone ?? '?')[0]?.toUpperCase()}
         </div>
         <div className="flex-1 min-w-0">
-          <div className="flex items-center justify-between gap-1">
+          {/* Top row: provider tag + name on the left,
+              ephemeral "[agent] chatting" pill above the timestamp on the right. */}
+          <div className="flex items-start justify-between gap-1">
             <div className="flex items-center gap-1 min-w-0">
               <ProviderTag provider={c.provider} />
               <span className={`text-xs font-semibold truncate ${!c.is_opened && c.unread_count > 0 ? 'text-foreground' : 'text-foreground/80'}`}>
                 {c.customer_name ?? c.wati_contact_name ?? c.wati_phone ?? 'Unknown'}
               </span>
             </div>
-            {c.last_message_at && (
-              <span className="text-[10px] text-muted-foreground flex-shrink-0">
-                {new Date(c.last_message_at).toLocaleString([], { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' })}
-              </span>
-            )}
-          </div>
-          {c.assigned_agent && (
-            <div className="flex items-center gap-1 mt-0.5">
-              {isBot ? <Bot className="h-3 w-3 text-muted-foreground" /> : <Headphones className="h-3 w-3 text-muted-foreground" />}
-              <span className="text-[11px] text-muted-foreground truncate">{c.assigned_agent}</span>
+            <div className="flex flex-col items-end gap-0.5 flex-shrink-0">
+              {agentChatting && (
+                <span
+                  className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded-full text-[10px] font-medium bg-emerald-100 text-emerald-700 dark:bg-emerald-900/40 dark:text-emerald-300 max-w-[140px]"
+                  title={`${c.assigned_agent} is chatting in this conversation`}
+                >
+                  {isBot
+                    ? <Bot className="h-2.5 w-2.5 flex-shrink-0" />
+                    : <MessageSquareText className="h-2.5 w-2.5 flex-shrink-0" />}
+                  <span className="truncate">{c.assigned_agent} chatting</span>
+                </span>
+              )}
+              {c.last_message_at && (
+                <span className="text-[10px] text-muted-foreground">
+                  {new Date(c.last_message_at).toLocaleString([], { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' })}
+                </span>
+              )}
             </div>
-          )}
+          </div>
+          {/* Bottom row: last message preview + unread count badge.
+              Unread badge stays as-is — the webhook only increments it on
+              inbound customer messages, so it never lights up for agent replies. */}
           <div className="flex items-center justify-between gap-1 mt-0.5">
             <span className="text-[11px] text-muted-foreground truncate">{c.last_message ?? 'No messages yet'}</span>
             <div className="flex items-center gap-1 flex-shrink-0">
@@ -136,6 +170,15 @@ export function ChatListV2({
   const { data: codes = [] } = useCountryCodes()
 
   const [filter, setFilter] = useState<FilterKey>(() => readPersistedFilter())
+
+  // Re-render every 60 s so the "[agent] chatting" pill on each row clears
+  // automatically once the 30-min window lapses — without it the badge would
+  // linger until something else triggered a re-render.
+  const [now, setNow] = useState(() => Date.now())
+  useEffect(() => {
+    const id = setInterval(() => setNow(Date.now()), 60_000)
+    return () => clearInterval(id)
+  }, [])
 
   function changeFilter(next: FilterKey) {
     setFilter(next)
@@ -347,6 +390,7 @@ export function ChatListV2({
             <ConversationRow
               key={c.id}
               c={c}
+              now={now}
               onClick={() => onSelectConversation(c)}
               onMarkResolved={
                 filter === 'unanswered'
