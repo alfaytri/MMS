@@ -27,6 +27,7 @@ import { tryNormalisePhone } from '@/lib/contact-center/normalise-phone'
 import { AddressForm } from '@/components/contact-center/AddressSection'
 import { ChatListV2 } from './ChatListV2'
 import { DialPad } from './DialPad'
+import { InboundCallStrip, useLivePolledInboundCalls } from './InboundCallStrip'
 import { SectionAccordion } from './SectionAccordion'
 import { AddressStrip } from './AddressStrip'
 import { UnifiedThread } from './UnifiedThread'
@@ -79,6 +80,18 @@ export function ContactCenterSidebarV2() {
   const [showAttach,       setShowAttach]       = useState(false)
   const [showInstructions, setShowInstructions] = useState(false)
   const [confirmTemplate,  setConfirmTemplate]  = useState<WatiTemplate | null>(null)
+
+  // Single polling instance shared by the strip + the auto-expand effect.
+  const liveCalls = useLivePolledInboundCalls()
+  // Auto-expand the sidebar from the 40 px collapsed strip the moment a call
+  // arrives — otherwise the inline call row would be hidden and the user would
+  // miss the ring.
+  useEffect(() => {
+    if (liveCalls.length > 0 && sidebarView === 'collapsed') {
+      setCcSidebar('expanded')
+      expandSidebar()
+    }
+  }, [liveCalls.length, sidebarView, setCcSidebar, expandSidebar])
 
   // Handle external "open customer" triggers from other modules.
   // We track the last-handled trigger nonce so the auto-expand fires ONCE per
@@ -204,6 +217,7 @@ export function ContactCenterSidebarV2() {
             <ChevronLeft className="h-3.5 w-3.5" />
           </Button>
         </div>
+        <InboundCallStrip calls={liveCalls} />
         {myProfile?.threecx_extension && <DialPad />}
         <div className="min-h-[20px]">
           {authUserId && <SyncBanner authUserId={authUserId} />}
@@ -350,6 +364,8 @@ export function ContactCenterSidebarV2() {
           )}
         </div>
       </div>
+
+      <InboundCallStrip calls={liveCalls} />
 
       {myProfile?.threecx_extension && <DialPad />}
 
