@@ -22,10 +22,13 @@ export function ContactCenterSidebarGate() {
 
       const { data: profile } = await supabase
         .from('profiles')
-        .select('user_custom_roles!user_custom_roles_profile_id_fkey(custom_roles(permissions))')
+        .select('has_contact_centre_access, user_custom_roles!user_custom_roles_profile_id_fkey(custom_roles(permissions))')
         .eq('auth_user_id', user.id)
         .maybeSingle()
       if (!profile) return false
+
+      // Either source unlocks the sidebar — direct toggle OR role-granted permission.
+      if (profile.has_contact_centre_access === true) return true
 
       const perms: string[] = ((profile.user_custom_roles ?? []) as Array<{ custom_roles: { permissions: string[] } | null }>)
         .flatMap((r) => r.custom_roles?.permissions ?? [])

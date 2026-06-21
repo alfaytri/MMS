@@ -15,6 +15,9 @@ const bodySchema = z.object({
   role_ids: z.array(z.string().uuid()).default([]),
   is_team_leader: z.boolean().default(false),
   employee_id: z.string().uuid().optional(),
+  is_division_manager: z.boolean().default(false),
+  has_contact_centre_access: z.boolean().default(false),
+  threecx_extension: z.string().trim().regex(/^\d{2,8}$|^$/, 'Extension must be 2-8 digits').optional(),
 })
 
 export async function POST(request: Request) {
@@ -31,7 +34,10 @@ export async function POST(request: Request) {
   if (!parsed.success) {
     return NextResponse.json({ error: parsed.error.issues[0]?.message ?? 'Invalid body' }, { status: 400 })
   }
-  const { full_name, username, password, role_ids, is_team_leader, employee_id } = parsed.data
+  const {
+    full_name, username, password, role_ids, is_team_leader, employee_id,
+    is_division_manager, has_contact_centre_access, threecx_extension,
+  } = parsed.data
   const email = `${username}@mms.local`
 
   // 3. Rate limit.
@@ -69,10 +75,18 @@ export async function POST(request: Request) {
       user_type: is_team_leader ? 'team-leader' : 'internal',
       is_active: true,
       created_by: gate.authUserId,
+      is_division_manager,
+      has_contact_centre_access,
+      threecx_extension: threecx_extension && threecx_extension.length > 0 ? threecx_extension : null,
     })
     .select('id')
     .single()
   if (profErr) {
+    if (/duplicate|unique/i.test(profErr.message) && /threecx|extension/i.test(profErr.message)) {
+      // Roll back the orphan auth user so the admin can retry cleanly.
+      await admin.auth.admin.deleteUser(authUserId)
+      return NextResponse.json({ error: 'That extension is already assigned to another user' }, { status: 409 })
+    }
     return NextResponse.json(
       { error: `Auth user created but profile insert failed: ${profErr.message}` },
       { status: 500 }

@@ -154,6 +154,9 @@ export function useCreateUser() {
       role_ids?: string[]
       is_team_leader?: boolean
       employee_id?: string
+      is_division_manager?: boolean
+      has_contact_centre_access?: boolean
+      threecx_extension?: string
     }) => {
       const res = await fetch('/api/users/create', {
         method: 'POST',
@@ -187,6 +190,8 @@ export function useUpdateUser() {
       employee_id?: string
       demote_team_leader?: boolean
       is_division_manager?: boolean
+      has_contact_centre_access?: boolean
+      threecx_extension?: string | null
     }) => {
       const { auth_user_id, ...body } = payload
       const res = await fetch(`/api/users/${auth_user_id}`, {

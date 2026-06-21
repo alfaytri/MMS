@@ -6,6 +6,7 @@ import { zodResolver } from '@hookform/resolvers/zod'
 import { z } from 'zod'
 import { toast } from 'sonner'
 import { useQuery } from '@tanstack/react-query'
+import { Users2, Headphones } from 'lucide-react'
 import {
   Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter,
 } from '@/components/ui/dialog'
@@ -48,6 +49,10 @@ export function AddUserDialog({ open, onOpenChange }: Props) {
   const createUser = useCreateUser()
   const { data: roles } = useRoles()
   const [isTl, setIsTl] = useState(false)
+  const [isDivMgr, setIsDivMgr] = useState(false)
+  const [hasCcAccess, setHasCcAccess] = useState(false)
+  const [extension, setExtension] = useState('')
+  const [extensionError, setExtensionError] = useState<string | null>(null)
   const [linkedEmployeeId, setLinkedEmployeeId] = useState<string | null>(null)
 
   const { data: tlEmployees = [] } = useQuery({
@@ -80,6 +85,11 @@ export function AddUserDialog({ open, onOpenChange }: Props) {
   const selectedRoles = form.watch('role_ids') ?? []
 
   function onSubmit(values: Values) {
+    if (hasCcAccess && extension.trim() !== '' && !/^\d{2,8}$/.test(extension.trim())) {
+      setExtensionError('Extension must be 2-8 digits')
+      return
+    }
+    setExtensionError(null)
     createUser.mutate(
       {
         full_name: values.full_name,
@@ -88,6 +98,9 @@ export function AddUserDialog({ open, onOpenChange }: Props) {
         role_ids: isTl ? [] : values.role_ids,
         employee_id: isTl ? linkedEmployeeId ?? undefined : undefined,
         is_team_leader: isTl,
+        is_division_manager: isDivMgr,
+        has_contact_centre_access: hasCcAccess,
+        threecx_extension: extension.trim() === '' ? undefined : extension.trim(),
       },
       {
         onSuccess: (res) => {
@@ -95,6 +108,11 @@ export function AddUserDialog({ open, onOpenChange }: Props) {
           else toast.success(`User "${values.username}" created successfully`)
           onOpenChange(false)
           form.reset()
+          setIsTl(false)
+          setIsDivMgr(false)
+          setHasCcAccess(false)
+          setExtension('')
+          setLinkedEmployeeId(null)
         },
         onError: (err) => toast.error(err.message),
       }
@@ -155,39 +173,98 @@ export function AddUserDialog({ open, onOpenChange }: Props) {
               )}
             />
 
-            {/* Team Leader toggle */}
-            <div className="flex items-center justify-between rounded-lg border p-3">
-              <div>
-                <Label htmlFor="add-user-is-tl" className="text-sm font-medium">Team Leader Account</Label>
-                <p className="text-xs text-muted-foreground mt-0.5">
-                  Links this account to a team leader employee
-                </p>
+            {/* ─── Teams Operation Control ────────────────────────────── */}
+            <section className="rounded-xl border bg-card overflow-hidden shadow-sm">
+              <header className="flex items-center gap-2 px-3.5 py-2 border-b bg-muted/40">
+                <Users2 className="h-3.5 w-3.5 text-muted-foreground" />
+                <span className="text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">
+                  Teams Operation Control
+                </span>
+              </header>
+              <div className="divide-y divide-border">
+                <div className="flex items-center justify-between px-3.5 py-3 gap-3">
+                  <div className="min-w-0">
+                    <Label htmlFor="add-user-is-tl" className="text-sm font-medium">Team Leader Account</Label>
+                    <p className="text-xs text-muted-foreground mt-0.5">
+                      Links this account to a team leader employee
+                    </p>
+                  </div>
+                  <Switch id="add-user-is-tl" checked={isTl} onCheckedChange={setIsTl} />
+                </div>
+                {isTl && (
+                  <div className="px-3.5 py-2.5 bg-muted/30 space-y-1.5">
+                    <Label htmlFor="add-user-linked-employee" className="text-xs">Linked Employee *</Label>
+                    <Select value={linkedEmployeeId ?? ''} onValueChange={setLinkedEmployeeId}>
+                      <SelectTrigger id="add-user-linked-employee" className="h-9">
+                        <SelectValue placeholder="Select team leader employee…" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {tlEmployees.map((e) => (
+                          <SelectItem key={e.id} value={e.id}>
+                            {e.name} — {e.teams?.name ?? 'Unknown Team'}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                    {tlEmployees.length === 0 && (
+                      <p className="text-xs text-muted-foreground">No unlinked team leaders found.</p>
+                    )}
+                  </div>
+                )}
+                <div className="flex items-center justify-between px-3.5 py-3 gap-3">
+                  <div className="min-w-0">
+                    <Label htmlFor="add-user-is-div-mgr" className="text-sm font-medium">Division Manager</Label>
+                    <p className="text-xs text-muted-foreground mt-0.5">
+                      Can access the Team Leader page for all teams in their assigned divisions
+                    </p>
+                  </div>
+                  <Switch id="add-user-is-div-mgr" checked={isDivMgr} onCheckedChange={setIsDivMgr} />
+                </div>
               </div>
-              <Switch id="add-user-is-tl" checked={isTl} onCheckedChange={setIsTl} />
-            </div>
+            </section>
 
-            {isTl && (
-              <div className="space-y-1.5">
-                <Label htmlFor="add-user-linked-employee">Linked Employee *</Label>
-                <Select value={linkedEmployeeId ?? ''} onValueChange={setLinkedEmployeeId}>
-                  <SelectTrigger id="add-user-linked-employee">
-                    <SelectValue placeholder="Select team leader employee…" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {tlEmployees.map((e) => (
-                      <SelectItem key={e.id} value={e.id}>
-                        {e.name} — {e.teams?.name ?? 'Unknown Team'}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-                {tlEmployees.length === 0 && (
-                  <p className="text-xs text-muted-foreground">
-                    No unlinked team leaders found.
-                  </p>
+            {/* ─── Contact Centre ─────────────────────────────────────── */}
+            <section className="rounded-xl border bg-card overflow-hidden shadow-sm">
+              <header className="flex items-center gap-2 px-3.5 py-2 border-b bg-muted/40">
+                <Headphones className="h-3.5 w-3.5 text-muted-foreground" />
+                <span className="text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">
+                  Contact Centre
+                </span>
+              </header>
+              <div className="divide-y divide-border">
+                <div className="flex items-center justify-between px-3.5 py-3 gap-3">
+                  <div className="min-w-0">
+                    <Label htmlFor="add-user-cc-access" className="text-sm font-medium">Contact Centre Access</Label>
+                    <p className="text-xs text-muted-foreground mt-0.5">
+                      Grants access to WhatsApp inbox + live 3CX call panel
+                    </p>
+                  </div>
+                  <Switch id="add-user-cc-access" checked={hasCcAccess} onCheckedChange={setHasCcAccess} />
+                </div>
+                {hasCcAccess && (
+                  <div className="px-3.5 py-3 bg-muted/30 space-y-1.5">
+                    <Label htmlFor="add-user-extension" className="text-xs">3CX Extension</Label>
+                    <Input
+                      id="add-user-extension"
+                      value={extension}
+                      onChange={(e) => {
+                        setExtension(e.target.value)
+                        if (extensionError) setExtensionError(null)
+                      }}
+                      placeholder="e.g. 101"
+                      inputMode="numeric"
+                      maxLength={8}
+                      className="h-9 max-w-[200px] font-mono tabular-nums"
+                    />
+                    {extensionError ? (
+                      <p className="text-xs text-destructive">{extensionError}</p>
+                    ) : (
+                      <p className="text-xs text-muted-foreground">2–8 digits. Must be unique across users.</p>
+                    )}
+                  </div>
                 )}
               </div>
-            )}
+            </section>
 
             {!isTl && (
             <div>
