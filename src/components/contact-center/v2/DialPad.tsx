@@ -25,7 +25,9 @@ const KEYS = [
 ] as const
 
 export function DialPad() {
-  const [open, setOpen] = useState(true)
+  // Closed by default — opening a chat shouldn't drop the dial pad in the
+  // user's face. They expand it explicitly when they want to dial out.
+  const [open, setOpen] = useState(false)
   const [code, setCode] = useState('+974')
   const [digits, setDigits] = useState('')
   const { dial, loading } = useClickToCall()

@@ -27,6 +27,7 @@ import { tryNormalisePhone } from '@/lib/contact-center/normalise-phone'
 import { AddressForm } from '@/components/contact-center/AddressSection'
 import { ChatListV2 } from './ChatListV2'
 import { DialPad } from './DialPad'
+import { InboundCallStrip, useLivePolledInboundCalls } from './InboundCallStrip'
 import { SectionAccordion } from './SectionAccordion'
 import { AddressStrip } from './AddressStrip'
 import { UnifiedThread } from './UnifiedThread'
@@ -79,6 +80,18 @@ export function ContactCenterSidebarV2() {
   const [showAttach,       setShowAttach]       = useState(false)
   const [showInstructions, setShowInstructions] = useState(false)
   const [confirmTemplate,  setConfirmTemplate]  = useState<WatiTemplate | null>(null)
+
+  // Single polling instance shared by the strip + the auto-expand effect.
+  const liveCalls = useLivePolledInboundCalls()
+  // Auto-expand the sidebar from the 40 px collapsed strip the moment a call
+  // arrives — otherwise the inline call row would be hidden and the user would
+  // miss the ring.
+  useEffect(() => {
+    if (liveCalls.length > 0 && sidebarView === 'collapsed') {
+      setCcSidebar('expanded')
+      expandSidebar()
+    }
+  }, [liveCalls.length, sidebarView, setCcSidebar, expandSidebar])
 
   // Handle external "open customer" triggers from other modules.
   // We track the last-handled trigger nonce so the auto-expand fires ONCE per
@@ -204,6 +217,7 @@ export function ContactCenterSidebarV2() {
             <ChevronLeft className="h-3.5 w-3.5" />
           </Button>
         </div>
+        <InboundCallStrip calls={liveCalls} />
         {myProfile?.threecx_extension && <DialPad />}
         <div className="min-h-[20px]">
           {authUserId && <SyncBanner authUserId={authUserId} />}
@@ -351,7 +365,14 @@ export function ContactCenterSidebarV2() {
         </div>
       </div>
 
-      {myProfile?.threecx_extension && <DialPad />}
+      <InboundCallStrip calls={liveCalls} />
+
+      {/* DialPad keyed by conversation so it remounts closed every time the
+          user opens a new chat — answer/follow-up shouldn't have the dial pad
+          dropped in their face. */}
+      {myProfile?.threecx_extension && (
+        <DialPad key={`dialpad-detail-${activeConversationId ?? 'none'}`} />
+      )}
 
       {/* When no customer is linked OR we're in unknown-caller flow,
           render the v1 CrmSection's attach/create flow inline */}
@@ -376,9 +397,14 @@ export function ContactCenterSidebarV2() {
         </div>
       )}
 
-      {/* CRM sections — Addresses, Products, Orders (only when customer is linked) */}
+      {/* CRM sections — Addresses, Products, Orders (only when customer is linked).
+          Keyed by conversation so each new chat starts with everything collapsed —
+          the user expands the section they actually need. */}
       {customer && (
-        <div className="flex-shrink-0 max-h-[38vh] overflow-y-auto overscroll-contain">
+        <div
+          key={`cc-sections-${activeConversationId ?? 'none'}`}
+          className="flex-shrink-0 max-h-[38vh] overflow-y-auto overscroll-contain"
+        >
           <SectionAccordion id="addresses" label="Addresses" icon={<MapPin className="h-3 w-3 text-muted-foreground" />}>
             <AddressStrip
               addresses={addresses}

@@ -4535,6 +4535,7 @@ export type Database = {
           feature_flags: string[]
           full_name: string
           full_name_ar: string | null
+          has_contact_centre_access: boolean
           id: string
           is_active: boolean | null
           is_division_manager: boolean
@@ -4556,6 +4557,7 @@ export type Database = {
           feature_flags?: string[]
           full_name: string
           full_name_ar?: string | null
+          has_contact_centre_access?: boolean
           id?: string
           is_active?: boolean | null
           is_division_manager?: boolean
@@ -4577,6 +4579,7 @@ export type Database = {
           feature_flags?: string[]
           full_name?: string
           full_name_ar?: string | null
+          has_contact_centre_access?: boolean
           id?: string
           is_active?: boolean | null
           is_division_manager?: boolean

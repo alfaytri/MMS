@@ -18,6 +18,9 @@ const bodySchema = z.object({
   employee_id: z.string().uuid().optional(),
   demote_team_leader: z.boolean().optional(),
   is_division_manager: z.boolean().optional(),
+  has_contact_centre_access: z.boolean().optional(),
+  // 3CX extension: empty string clears it. 2–8 digits when set.
+  threecx_extension: z.string().trim().regex(/^\d{2,8}$|^$/, 'Extension must be 2-8 digits').nullable().optional(),
 })
 
 export async function PATCH(
@@ -132,6 +135,13 @@ export async function PATCH(
   if (changes.email !== undefined) profileUpdates.email = changes.email
   if (changes.is_active !== undefined) profileUpdates.is_active = changes.is_active
   if (changes.is_division_manager !== undefined) profileUpdates.is_division_manager = changes.is_division_manager
+  if (changes.has_contact_centre_access !== undefined) profileUpdates.has_contact_centre_access = changes.has_contact_centre_access
+  if (changes.threecx_extension !== undefined) {
+    // Empty string ↔ null in storage — keeps the unique-index check happy.
+    profileUpdates.threecx_extension = changes.threecx_extension && changes.threecx_extension.length > 0
+      ? changes.threecx_extension
+      : null
+  }
 
   let profileId: string | null = null
   if (Object.keys(profileUpdates).length > 0 || changes.role_ids !== undefined || changes.role_assignments !== undefined) {
@@ -150,7 +160,15 @@ export async function PATCH(
         .from('profiles')
         .update(profileUpdates as Database['public']['Tables']['profiles']['Update'])
         .eq('auth_user_id', targetAuthUserId)
-      if (updErr) return NextResponse.json({ error: `Profile update failed: ${updErr.message}` }, { status: 500 })
+      if (updErr) {
+        // Duplicate 3CX extension surfaces as a unique-constraint violation;
+        // map it to a friendlier message so the dialog can show "That extension
+        // is already assigned" instead of raw Postgres text.
+        if (/duplicate|unique/i.test(updErr.message) && /threecx|extension/i.test(updErr.message)) {
+          return NextResponse.json({ error: 'That extension is already assigned to another user' }, { status: 409 })
+        }
+        return NextResponse.json({ error: `Profile update failed: ${updErr.message}` }, { status: 500 })
+      }
     }
   }
 

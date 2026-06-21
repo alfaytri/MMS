@@ -21,6 +21,7 @@ import {
   CheckSquare,
   Coins,
   Globe,
+  Headphones,
 } from 'lucide-react'
 
 type SidebarItem = {
@@ -62,6 +63,12 @@ const ADMIN_SECTIONS: SidebarSection[] = [
       { label: 'Country Codes',      href: '/master-data/admin/country-codes',      icon: Globe,       permission: 'master_data.admin.view' },
       { label: 'Approval Settings',  href: '/master-data/admin/approval-settings',  icon: CheckSquare, permission: 'purchase.approvals.chain.manage' },
       { label: 'Document T&C',       href: '/master-data/admin/document-terms',     icon: FileText,    comingSoon: true },
+    ],
+  },
+  {
+    label: 'Contact Centre',
+    items: [
+      { label: 'Extensions', href: '/master-data/admin/contact-centre-extensions', icon: Headphones, permission: 'master_data.users.manage' },
     ],
   },
   {

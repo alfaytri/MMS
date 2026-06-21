@@ -548,6 +548,59 @@ export async function GET(req: NextRequest) {
     })
   }
 
+  // Text-based customer dedup — the wamid/external_id checks above miss the
+  // common case where Wati uses DIFFERENT IDs across firings for the same
+  // logical WhatsApp message:
+  //   • the webhook stored the row with external_id = wamid.HBgL... (wamid=null)
+  //   • the Wati getMessages API later returns the same message with
+  //     external_id = "9876543210" (numeric Wati id) → ID-based dedup misses
+  //     because neither external_id nor wamid matches.
+  // Without this guard the user sees the same customer bubble twice in the
+  // chat thread. Match on conversation + customer direction + identical text
+  // within ±5 minutes — wider window than the webhook because fetch can run
+  // long after the original message landed.
+  const customerTextCandidates = rows.filter(
+    (r) => r.from_type === 'customer' && r.message_kind === 'message' && r.text?.trim(),
+  )
+  if (customerTextCandidates.length > 0) {
+    const minTs = customerTextCandidates.reduce(
+      (acc, r) => Math.min(acc, new Date(r.created_at).getTime() - 5 * 60_000),
+      Infinity,
+    )
+    const maxTs = customerTextCandidates.reduce(
+      (acc, r) => Math.max(acc, new Date(r.created_at).getTime() + 5 * 60_000),
+      -Infinity,
+    )
+    const { data: nearbyCustomerRows } = await supabase.from('chat_messages')
+      .select('text, created_at')
+      .eq('conversation_id', conversationId)
+      .eq('from_type', 'customer')
+      .eq('message_kind', 'message')
+      .gte('created_at', new Date(minTs).toISOString())
+      .lte('created_at', new Date(maxTs).toISOString())
+
+    const existingCustomerByText = new Map<string, number[]>()
+    for (const e of (nearbyCustomerRows ?? []) as { text: string | null; created_at: string }[]) {
+      const t = (e.text ?? '').trim()
+      if (!t) continue
+      const list = existingCustomerByText.get(t) ?? []
+      list.push(new Date(e.created_at).getTime())
+      existingCustomerByText.set(t, list)
+    }
+
+    if (existingCustomerByText.size > 0) {
+      rows = rows.filter((r) => {
+        if (r.from_type !== 'customer' || !r.text?.trim()) return true
+        const matches = existingCustomerByText.get(r.text.trim())
+        if (!matches) return true
+        const rowTs = new Date(r.created_at).getTime()
+        // Drop the incoming row if there's already a customer message with the
+        // same exact text within 5 minutes.
+        return !matches.some((at) => Math.abs(at - rowTs) <= 5 * 60_000)
+      })
+    }
+  }
+
   // Safety net against direction-flip duplicates: if an incoming customer row
   // happens to match an existing AGENT row by exact text within ±5 minutes,
   // drop it. This catches the case where Wati's response shape causes our

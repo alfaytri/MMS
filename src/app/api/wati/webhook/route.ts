@@ -680,16 +680,26 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ ok: true })
     }
 
-    // Broad text-based dedup for agent messages:
-    // The app may have stored the message with wati_<numericId> while the
-    // webhook arrives with the wamid — different external_ids, so the check
-    // above misses it. A text+conversation+time match catches this case.
-    if (isAgent && !isMsgEvent && text) {
+    // Broad text-based dedup for BOTH directions:
+    //
+    // Wati's webhook can fire twice for a single logical WhatsApp message with
+    // different external_ids — typically the numeric Wati id on the first
+    // firing and the canonical `wamid.*` on the second (or vice-versa). When
+    // that happens the external_id / wamid dedup checks above both miss the
+    // first row, and a duplicate gets inserted.
+    //
+    // Previously this protection only covered agent (outbound) messages; the
+    // app's optimistic insert made the duplication easy to spot. Inbound
+    // customer messages had no app-side row to compare against, so the same
+    // double-firing produced two visible customer bubbles in the chat thread.
+    // Match by text + conversation + direction + recent time to catch both.
+    if (!isMsgEvent && text) {
       const cutoff2 = new Date(Date.now() - 2 * 60_000).toISOString()
+      const fromType = isAgent ? 'agent' : 'customer'
       const { data: textDup } = await supabase.from('chat_messages')
-        .select('id, external_id')
+        .select('id, external_id, wamid')
         .eq('conversation_id', conversationId)
-        .eq('from_type', 'agent')
+        .eq('from_type', fromType)
         .eq('text', text)
         .gte('created_at', cutoff2)
         .order('created_at', { ascending: false })
@@ -697,14 +707,17 @@ export async function POST(req: NextRequest) {
         .maybeSingle()
 
       if (textDup) {
-        // Claim the existing row with the canonical ID
-        await supabase.from('chat_messages')
-          .update({
-            external_id:     externalId,
-            delivery_status: normaliseStatus(body.statusString ?? 'SENT'),
-            ...(wamid ? { wamid } : {}),
-          })
-          .eq('id', textDup.id)
+        // Backfill canonical IDs on the existing row so future lookups —
+        // reaction-by-wamid, status updates, reply context — hit the same
+        // record. Only patch fields that are actually changing to avoid
+        // unnecessary UPDATEs (which also count against realtime quota).
+        const patch: import('@/types/database.types').Database['public']['Tables']['chat_messages']['Update'] = {}
+        if (externalId && textDup.external_id !== externalId) patch.external_id = externalId
+        if (wamid && !textDup.wamid) patch.wamid = wamid
+        if (isAgent) patch.delivery_status = normaliseStatus(body.statusString ?? 'SENT')
+        if (Object.keys(patch).length > 0) {
+          await supabase.from('chat_messages').update(patch).eq('id', textDup.id)
+        }
         return NextResponse.json({ ok: true })
       }
     }
