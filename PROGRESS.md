@@ -228,9 +228,9 @@ Purchase & Sales▾:
 
 ## 🔄 In Progress
 
-🚀 Starting: **Contact Centre — Inline Inbound Call Strip** — replace floating top-right call popup with a one-line row inside the Contact Centre sidebar (name · number · Open chat · Decline/Hangup); auto-expand sidebar from collapsed mode when a call rings.
+🚀 Starting: **Contact Centre Access toggle + 3CX Extension on User dialogs** — promote CC access from a role permission to a per-user toggle; add Extension input next to it; group with TL + DivMgr toggles inside two labeled section cards (Teams Operation Control / Contact Centre); move the standalone Extensions admin page under master-data admin sidebar with a modernized UI.
 
-Previously: Approval Settings — Live wiring to Users & Roles.
+Previously: Contact Centre — Inline Inbound Call Strip (replaced floating popup with elegant inline row inside sidebar; stacked layout, gradient bg + ping ring, auto-expand on ring).
 
 ## 🔋 Quota Watch
 
@@ -241,6 +241,8 @@ Previously: Approval Settings — Live wiring to Users & Roles.
 | 2026-06-16 | Pre-Phase-1 baseline | 2,983,378 / 2M (149%) | 7.076 / 5 GB (142%) | End of cycle May 16 – Jun 16; new cycle just started, dashboard hadn't yet refreshed when captured |
 
 ## ✅ Completed
+
+- [2026-06-21] **Contact Centre — Inline Inbound Call Strip** — `src/components/contact-center/v2/InboundCallStrip.tsx` (new — single-line row component: circular phone icon with ping ring, stacked name + number/duration, pill `Open chat` + round red decline/hangup icon, amber/green gradient + left-edge accent), `src/components/contact-center/v2/ContactCenterSidebarV2.tsx` (mounts strip between header and DialPad in list + detail views; auto-expand effect: when calls.length > 0 AND sidebarView === 'collapsed', force `setCcSidebar('expanded') + expandSidebar()` so the row is always visible when a call rings; single shared `useLivePolledInboundCalls()` instance feeds both the strip and the auto-expand effect — avoids duplicate polls), `src/app/(dashboard)/layout.tsx` (removed `<InboundCallBanner />` mount), `src/components/contact-center/v2/InboundCallBanner.tsx` deleted (no remaining imports). Replaces the floating top-right `+974…` popup with a sidebar-integrated row that matches the rest of the contact-centre UI.
 
 - [2026-06-20] **Wati inbound webhook — add shared-secret check** — `src/app/api/wati/webhook/route.ts` now calls `verifySharedSecret(req.nextUrl.searchParams.get('secret'), WATI_WEBHOOK_SECRET)` at the top of POST. Without this any anonymous caller who knew the URL could post arbitrary inbound-message payloads (every other inbound webhook — 3CX, 17track, Dibsy, WhAPI — already validated itself). First pass used the `x-webhook-secret` header pattern (matching WhAPI) but the Wati dashboard exposes only URL / Status / Events — no custom-header field — so the gate was reworked to read from a `?secret=…` query string instead (matching the 3CX pattern). Production rollout = (1) set `WATI_WEBHOOK_SECRET` in env, (2) Wati dashboard → Edit Webhook → append `?secret=<WATI_WEBHOOK_SECRET>` to the URL. Fails open when the env var is empty so deploying doesn't break dev. No `.env.example` exists in the repo so a documented placeholder was added to `.env.local` only.
 
