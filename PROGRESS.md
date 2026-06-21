@@ -228,9 +228,9 @@ Purchase & Sales▾:
 
 ## 🔄 In Progress
 
-🚀 Starting: **Approval Settings — Live wiring to Users & Roles** complete; next up TBD.
+🚀 Starting: **Contact Centre — Inline Inbound Call Strip** — replace floating top-right call popup with a one-line row inside the Contact Centre sidebar (name · number · Open chat · Decline/Hangup); auto-expand sidebar from collapsed mode when a call rings.
 
-Previously: Page-level permission enforcement — blanket `<RoutePermissionGuard>` inside `(dashboard)/layout.tsx`, central `route-permissions.ts` map, sidebar filtered by permission.
+Previously: Approval Settings — Live wiring to Users & Roles.
 
 ## 🔋 Quota Watch
 
