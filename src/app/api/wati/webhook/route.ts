@@ -648,169 +648,46 @@ export async function POST(req: NextRequest) {
     }
   }
 
-  // Insert message (or update pending optimistic row from the app)
+  // Dedup + insert via Postgres RPC. All historical dedup branches (exact
+  // external_id, agent optimistic-row match, broad text-based dedup, wamid
+  // dedup) now live inside `cc_dedup_insert_message`, guarded by an advisory
+  // lock keyed on (conversation_id, from_type, text). This serialises the
+  // parallel WATI webhook firings that previously each missed each other's
+  // SELECT and inserted side-by-side duplicate rows. See migration
+  // 20260622103234_chat_messages_dedup_rpc.sql.
   if (externalId) {
-    // Race-condition guard: if the app sent this message, it already inserted a row.
-    // The webhook may fire before OR after the send API response, so we need to
-    // match both cases:
-    //   - still 'sending' with null external_id  (webhook raced ahead of API response)
-    //   - already 'sent'/'sending' with null or wati_<numericId> external_id
-    //     (API responded first but before the wamid could be stored)
-    if (isAgent && !isMsgEvent) {
-      const cutoff = new Date(Date.now() - 60_000).toISOString()
-
-      // For file/media messages the app inserts text=null; the webhook produces
-      // text='' (empty caption). Use an OR filter so both cases match.
-      const textFilter = text
-        ? `text.eq.${text}`
-        : 'text.is.null,text.eq.'
-
-      const { data: pendingRow } = await supabase.from('chat_messages')
-        .select('id')
-        .eq('conversation_id', conversationId)
-        .eq('from_type', 'agent')
-        .in('delivery_status', ['sending', 'sent'])
-        .or('external_id.is.null,external_id.like.wati_%')
-        .or(textFilter)
-        .gte('created_at', cutoff)
-        .order('created_at', { ascending: false })
-        .limit(1)
-        .maybeSingle()
-
-      if (pendingRow) {
-        // Never touch attachments for agent messages — the send flow has already
-        // stored the canonical Supabase Storage URL in the optimistic insert.
-        // WATI's webhook may report its own copy at data/images/... but writing
-        // that proxy URL here would clobber the working Supabase URL.
-        await supabase.from('chat_messages')
-          .update({
-            external_id:      externalId,
-            delivery_status:  normaliseStatus(body.statusString ?? 'SENT'),
-            ...(operatorName ? { agent_name: operatorName } : {}),
-            ...(wamid  ? { wamid }     : {}),
-            ...(watiId ? { wati_id: watiId } : {}),
-          })
-          .eq('id', pendingRow.id)
-        return NextResponse.json({ ok: true })
-      }
-    }
-
-    // Normal dup check (covers wati_ prefix written by app, and bare wamid)
-    const { data: dup } = await supabase.from('chat_messages')
-      .select('id, external_id')
-      .in('external_id', [externalId, `wati_${externalId}`])
-      .maybeSingle()
-
-    if (dup) {
-      // If the row is stored under wati_<id> prefix, update it to the bare ID
-      // so reactions and future lookups work against the canonical ID.
-      // Also backfill the wamid column whenever we have one.
-      const needsExternalIdUpdate = dup.external_id !== externalId
-      const needsWamidUpdate = !!wamid
-      if (needsExternalIdUpdate || needsWamidUpdate || watiId) {
-        await supabase.from('chat_messages')
-          .update({
-            ...(needsExternalIdUpdate ? { external_id: externalId! } : {}),
-            ...(needsWamidUpdate      ? { wamid }                    : {}),
-            ...(watiId                ? { wati_id: watiId }          : {}),
-          })
-          .eq('id', dup.id)
-      }
-      return NextResponse.json({ ok: true })
-    }
-
-    // Broad text-based dedup for BOTH directions:
-    //
-    // Wati's webhook can fire twice for a single logical WhatsApp message with
-    // different external_ids — typically the numeric Wati id on the first
-    // firing and the canonical `wamid.*` on the second (or vice-versa). When
-    // that happens the external_id / wamid dedup checks above both miss the
-    // first row, and a duplicate gets inserted.
-    //
-    // Previously this protection only covered agent (outbound) messages; the
-    // app's optimistic insert made the duplication easy to spot. Inbound
-    // customer messages had no app-side row to compare against, so the same
-    // double-firing produced two visible customer bubbles in the chat thread.
-    // Match by text + conversation + direction + recent time to catch both.
-    if (!isMsgEvent && text) {
-      const cutoff2 = new Date(Date.now() - 2 * 60_000).toISOString()
-      const fromType = isAgent ? 'agent' : 'customer'
-      const { data: textDup } = await supabase.from('chat_messages')
-        .select('id, external_id, wamid')
-        .eq('conversation_id', conversationId)
-        .eq('from_type', fromType)
-        .eq('text', text)
-        .gte('created_at', cutoff2)
-        .order('created_at', { ascending: false })
-        .limit(1)
-        .maybeSingle()
-
-      if (textDup) {
-        // Backfill canonical IDs on the existing row so future lookups —
-        // reaction-by-wamid, status updates, reply context — hit the same
-        // record. Only patch fields that are actually changing to avoid
-        // unnecessary UPDATEs (which also count against realtime quota).
-        const patch: import('@/types/database.types').Database['public']['Tables']['chat_messages']['Update'] = {}
-        if (externalId && textDup.external_id !== externalId) patch.external_id = externalId
-        if (wamid && !textDup.wamid) patch.wamid = wamid
-        if (isAgent) patch.delivery_status = normaliseStatus(body.statusString ?? 'SENT')
-        if (Object.keys(patch).length > 0) {
-          await supabase.from('chat_messages').update(patch).eq('id', textDup.id)
-        }
-        return NextResponse.json({ ok: true })
-      }
-    }
-
-    // Last-resort dup check by wamid for inbound customer messages: a previous
-    // fetch-messages run may have inserted this row with external_id = numeric
-    // Wati id, while the webhook arrives with external_id = wamid. The earlier
-    // dup-by-external_id check misses it; a wamid lookup catches it.
-    if (wamid && !isAgent && !isMsgEvent) {
-      const { data: wamidDup } = await supabase.from('chat_messages')
-        .select('id')
-        .eq('conversation_id', conversationId)
-        .or(`wamid.eq.${wamid},external_id.eq.${wamid}`)
-        .maybeSingle()
-      if (wamidDup) {
-        await supabase.from('chat_messages')
-          .update({ external_id: externalId, wamid })
-          .eq('id', wamidDup.id)
-        return NextResponse.json({ ok: true })
-      }
-    }
-
-    // Guard against creating empty agent ghost rows.
-    // If this is an outbound (agent) message and we have nothing meaningful to
-    // insert — no text, no attachments, no system-event marker — skip the
-    // insert entirely. The original message exists in Supabase via the SyncWorker's
-    // pushFullMessage; this stray webhook would otherwise create a phantom row
-    // that renders as "[empty message]" in the chat.
+    // Guard against creating empty agent ghost rows. The app's local-first
+    // sync worker already inserted the canonical row via pushFullMessage;
+    // a stray webhook with no content would otherwise show as "[empty message]".
     if (isAgent && !isMsgEvent && !text && attachments.length === 0) {
       return NextResponse.json({ ok: true, skipped: 'empty agent message' })
     }
 
-    // For agent messages, NEVER include attachments in the insert — the MMS
-    // send flow already inserted the row with the canonical Supabase Storage URL.
-    // If we reach this point for an agent message, all dedup checks above failed,
-    // meaning we'd be creating a NEW row. WATI's attachment URLs don't work for
-    // outbound agent files, so omit them to avoid broken placeholders.
+    // Agent messages never carry WATI's own attachment URLs to the insert —
+    // the canonical Supabase Storage URL was written by the send flow. For
+    // dedup-and-backfill on an existing agent row the RPC also leaves the
+    // attachments column untouched.
     const insertAttachments = isAgent ? null : (attachments.length > 0 ? attachments : null)
 
-    await supabase.from('chat_messages')
-      .insert({
-        conversation_id:  conversationId,
-        from_type:        isAgent ? 'agent' : 'customer',
-        source:           'whatsapp_api',
-        text:             text,
-        agent_name:       isAgent ? (operatorName ?? senderName) : null,
-        attachments:      insertAttachments as unknown as import('@/types/database.types').Json,
-        delivery_status:  isAgent ? normaliseStatus(body.statusString) : 'delivered',
-        external_id:      externalId,
-        created_at:       ts,
-        message_kind:     isMsgEvent ? 'event' : 'message',
-        ...(wamid  ? { wamid }            : {}),
-        ...(watiId ? { wati_id: watiId } : {}),
-      })
+    const { error: rpcErr } = await supabase.rpc('cc_dedup_insert_message', {
+      p_conversation_id: conversationId,
+      p_from_type:       isAgent ? 'agent' : 'customer',
+      p_source:          'whatsapp_api',
+      p_text:            text || null,
+      p_agent_name:      isAgent ? (operatorName ?? senderName) : null,
+      p_attachments:     insertAttachments as unknown as import('@/types/database.types').Json,
+      p_delivery_status: isAgent ? normaliseStatus(body.statusString) : 'delivered',
+      p_external_id:     externalId,
+      p_wamid:           wamid,
+      p_wati_id:         watiId,
+      p_created_at:      ts,
+      p_message_kind:    isMsgEvent ? 'event' : 'message',
+    })
+
+    if (rpcErr) {
+      console.error('[webhook] cc_dedup_insert_message failed', rpcErr)
+      return NextResponse.json({ error: rpcErr.message }, { status: 500 })
+    }
   }
 
   return NextResponse.json({ ok: true })
