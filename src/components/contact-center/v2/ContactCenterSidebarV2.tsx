@@ -138,6 +138,7 @@ export function ContactCenterSidebarV2() {
         caption: caption || undefined,
         agentProfileId: myProfile?.id ?? null,
         agentName: myProfile?.full_name ?? null,
+        provider,
       })
       setShowAttach(false)
       toast.success('File queued for send')
@@ -190,6 +191,7 @@ export function ContactCenterSidebarV2() {
       file,
       agentProfileId: myProfile?.id ?? null,
       agentName: myProfile?.full_name ?? null,
+      provider,
     })
   }
 
@@ -512,6 +514,7 @@ export function ContactCenterSidebarV2() {
               text: t,
               agentName: myProfile?.full_name ?? null,
               agentProfileId: myProfile?.id ?? null,
+              provider,
             })
             chatMessages.setInputText('')
           }}

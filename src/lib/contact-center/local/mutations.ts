@@ -10,6 +10,7 @@ export interface SendMessageArgs {
   agentProfileId?: string | null
   agentName?: string | null
   source?: 'whatsapp_api' | 'whatsapp_whapi'
+  provider?: 'wati' | 'whapi'
 }
 
 export interface SendFileArgs {
@@ -19,6 +20,7 @@ export interface SendFileArgs {
   caption?: string
   agentProfileId?: string | null
   agentName?: string | null
+  provider?: 'wati' | 'whapi'
 }
 
 function inferMessageType(mime: string): MessageType {
@@ -38,6 +40,8 @@ export async function sendFileLocal(
   const fileRef = newId()
   const now = new Date().toISOString()
   const objectUrl = URL.createObjectURL(args.file)
+  const provider = args.provider ?? 'wati'
+  const source: 'whatsapp_api' | 'whatsapp_whapi' = provider === 'whapi' ? 'whatsapp_whapi' : 'whatsapp_api'
 
   fileMap.set(fileRef, args.file)
 
@@ -46,7 +50,7 @@ export async function sendFileLocal(
       id,
       conversation_id: args.conversationId,
       from_type: 'agent',
-      source: 'whatsapp_api',
+      source,
       message_kind: 'message',
       message_type: inferMessageType(args.file.type),
       text: args.caption ?? null,
@@ -72,6 +76,7 @@ export async function sendFileLocal(
         caption: args.caption ?? '',
         filename: args.file.name,
         mime: args.file.type,
+        provider,
       },
       localMessageId: id,
       fileRef,
@@ -356,13 +361,15 @@ export async function markOpenedLocal(db: MmsCcDb, conversationId: string): Prom
 export async function sendMessageLocal(db: MmsCcDb, args: SendMessageArgs): Promise<string> {
   const id = newId()
   const now = new Date().toISOString()
+  const provider = args.provider ?? 'wati'
+  const source = args.source ?? (provider === 'whapi' ? 'whatsapp_whapi' : 'whatsapp_api')
 
   await db.transaction('rw', db.messages, db.pendingWrites, async () => {
     await db.messages.add({
       id,
       conversation_id: args.conversationId,
       from_type: 'agent',
-      source: args.source ?? 'whatsapp_api',
+      source,
       message_kind: 'message',
       message_type: 'text' as MessageType,
       text: args.text,
@@ -386,6 +393,7 @@ export async function sendMessageLocal(db: MmsCcDb, args: SendMessageArgs): Prom
         conversationId: args.conversationId,
         phone: args.phone,
         text: args.text,
+        provider,
       },
       localMessageId: id,
     })
