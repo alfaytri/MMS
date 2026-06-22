@@ -37,6 +37,31 @@ async function wati(path: string, init?: RequestInit) {
   return res.json()
 }
 
+// In-memory cache (per warm instance) of wamid → WATI ObjectID lookups.
+// Used only for messages that pre-date the wati_id column being captured by
+// the webhook — fresh messages skip this and read straight from the DB.
+const wamidCache = new Map<string, string>()
+
+async function resolveWatiObjectId(waId: string, wamid: string): Promise<string | null> {
+  const cached = wamidCache.get(wamid)
+  if (cached) return cached
+
+  const digits = waId.replace(/\D/g, '')
+  const data = await wati(`/api/v1/getMessages/${encodeURIComponent(digits)}?pageSize=50`) as any
+  if (data?.error) return null
+  const items: any[] = data?.messages?.items ?? []
+  for (const item of items) {
+    const itemWamid = item.whatsappMessageId ?? item.whatsAppMessageId ?? null
+    // WATI's getMessages returns the MongoDB ObjectID in `id`. Some payloads
+    // additionally expose it as `_id` — accept either.
+    const itemId    = item.id ?? item._id ?? null
+    if (itemWamid && itemId && /^[a-f0-9]{24}$/i.test(String(itemId))) {
+      wamidCache.set(itemWamid, String(itemId))
+    }
+  }
+  return wamidCache.get(wamid) ?? null
+}
+
 serve(async (req) => {
   if (req.method === 'OPTIONS') {
     return new Response(null, { headers: { 'Access-Control-Allow-Origin': '*', 'Access-Control-Allow-Headers': 'authorization, content-type, x-client-info, apikey' } })
@@ -236,12 +261,51 @@ serve(async (req) => {
 
     case 'send_reaction': {
       const { emoji, message_id } = body as { emoji?: string; message_id?: string }
-      if (!phone || !emoji || !message_id) return json({ error: 'phone, emoji, and message_id required' }, 400)
+      if (!phone || !message_id) return json({ error: 'phone and message_id required' }, 400)
       const waId = phone.replace(/^\+/, '')
+      const remoteEmoji = typeof emoji === 'string' ? emoji : ''
+
+      // WATI identifies messages by their internal MongoDB ObjectID
+      // (24-char hex). Captured by the webhook into chat_messages.wati_id —
+      // look it up via Supabase rather than calling WATI's getMessages every
+      // time. message_id arriving from the SyncWorker is the wamid (or rarely
+      // a 'wati_<numericId>' legacy prefix).
+      let watiObjectId: string | null = null
+
+      if (/^[a-f0-9]{24}$/i.test(message_id)) {
+        // Already the ObjectID (e.g. the app sent us the right thing directly).
+        watiObjectId = message_id
+      } else {
+        const { data: row } = await supaAdmin
+          .from('chat_messages')
+          .select('wati_id')
+          .or(`external_id.eq.${message_id},wamid.eq.${message_id}`)
+          .maybeSingle()
+        if (row?.wati_id) watiObjectId = row.wati_id
+      }
+
+      // Fallback for messages that pre-date the wati_id column: resolve via
+      // WATI's getMessages and scan the items list for a matching wamid.
+      if (!watiObjectId && message_id.startsWith('wamid.')) {
+        const resolved = await resolveWatiObjectId(waId, message_id)
+        if (resolved) watiObjectId = resolved
+      }
+
+      if (!watiObjectId) {
+        console.warn('[api-wati:send_reaction] could not resolve wati_id', { message_id, waId })
+        return json({
+          error: 'wati_id not found',
+          detail: 'No wati_id column value for this external_id/wamid, and getMessages fallback found nothing. Message may pre-date the wati_id capture or be older than 50 messages on this phone.',
+          original_message_id: message_id,
+        }, 404)
+      }
+
+      console.log('[api-wati:send_reaction] →', { messageId: watiObjectId, emoji: remoteEmoji || '(remove)' })
       const data = await wati('/api/v1/conversations/whatsapp/sendReaction', {
         method: 'POST',
-        body: JSON.stringify({ emoji, waId, messageId: message_id }),
+        body: JSON.stringify({ emoji: remoteEmoji, waId, messageId: watiObjectId }),
       })
+      console.log('[api-wati:send_reaction] ←', JSON.stringify(data).slice(0, 300))
       return json(data)
     }
 

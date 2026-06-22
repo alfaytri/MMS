@@ -59,6 +59,7 @@ export async function sendFileLocal(
       sent_by_profile_id: args.agentProfileId ?? null,
       phone_id: null,
       deleted_at: null,
+      revoked_at: null,
       created_at: now,
       _localOnly: true,
     })
@@ -114,6 +115,7 @@ export async function sendTemplateLocal(db: MmsCcDb, args: SendTemplateArgs): Pr
       sent_by_profile_id: args.agentProfileId ?? null,
       phone_id: null,
       deleted_at: null,
+      revoked_at: null,
       created_at: now,
       _localOnly: true,
     })
@@ -146,16 +148,32 @@ export async function reactLocal(db: MmsCcDb, args: ReactArgs): Promise<void> {
   const m = await db.messages.get(args.messageId)
   if (!m) return
   const existing = m.reactions ?? []
-  const hasIt = existing.some((r) => r.emoji === args.emoji && r.from_type === 'agent')
-  const updated = hasIt
-    ? existing.filter((r) => !(r.emoji === args.emoji && r.from_type === 'agent'))
-    : [...existing, { emoji: args.emoji, from_type: 'agent' as const }]
+
+  // WhatsApp allows exactly one reaction per sender per message. Three cases:
+  //   • agent has no reaction yet → add the new one
+  //   • agent clicked the same emoji again → remove it (toggle off)
+  //   • agent picked a different emoji → REPLACE the old one (drop + add)
+  // The old code only handled the first two and stacked on the third.
+  const currentAgentEmoji = existing.find((r) => r.from_type === 'agent')?.emoji ?? null
+  const isToggleOff = currentAgentEmoji === args.emoji
+
+  const updated = isToggleOff
+    ? existing.filter((r) => r.from_type !== 'agent')
+    : [
+        ...existing.filter((r) => r.from_type !== 'agent'),
+        { emoji: args.emoji, from_type: 'agent' as const },
+      ]
+
+  // Upstream contract: empty emoji = remove the agent's reaction. WhatsApp
+  // Cloud (which both WATI and WHAPI proxy) auto-replaces when a sender posts
+  // a new emoji, so for the switch case we just send the new emoji.
+  const remoteEmoji = isToggleOff ? '' : args.emoji
 
   await db.transaction('rw', db.messages, db.pendingWrites, async () => {
     await db.messages.update(args.messageId, { reactions: updated })
     await q.enqueue(db, {
       kind: 'react',
-      payload: { messageId: args.messageId, emoji: args.emoji, phone: args.phone, provider: args.provider },
+      payload: { messageId: args.messageId, emoji: remoteEmoji, phone: args.phone, provider: args.provider },
       localMessageId: args.messageId,
     })
   })
@@ -357,6 +375,7 @@ export async function sendMessageLocal(db: MmsCcDb, args: SendMessageArgs): Prom
       sent_by_profile_id: args.agentProfileId ?? null,
       phone_id: null,
       deleted_at: null,
+      revoked_at: null,
       created_at: now,
       _localOnly: true,
     })

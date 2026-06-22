@@ -368,26 +368,52 @@ export class SyncWorker {
     }
     const msg = await this.db.messages.get(p.messageId)
     const externalId = msg?.external_id
-    if (!externalId) return
+    if (!externalId) {
+      console.warn('[sync-worker:react] no external_id for message', p.messageId)
+      throw new TerminalError('message has no external_id; cannot react')
+    }
 
-    try {
-      if (p.provider === 'wati') {
-        const res = await this.supabase.functions.invoke('api-wati', {
-          body: { action: 'send_reaction', phone: p.phone, emoji: p.emoji, message_id: externalId },
+    // The provider call MUST surface failures — historically a silent `return`
+    // on 4xx made the pending_write look successful when WHAPI/WATI actually
+    // rejected, so the customer's WhatsApp never saw the agent reaction.
+    if (p.provider === 'wati') {
+      const res = await this.supabase.functions.invoke('api-wati', {
+        body: { action: 'send_reaction', phone: p.phone, emoji: p.emoji, message_id: externalId },
+      })
+      // Two failure shapes: transport-level (res.error from the SDK) and
+      // application-level (the function returned {error: ...} per wati() helper).
+      const appErr = (res.data as { error?: string; detail?: string } | null)?.error
+      if (res.error || appErr) {
+        const detail = (res.data as { detail?: string } | null)?.detail ?? ''
+        const msgText = `api-wati send_reaction failed: ${res.error?.message ?? appErr} ${detail}`.trim()
+        // Dump the full payload — when the edge function tries multiple body
+        // shapes the `attempts` array is the diagnostic gold.
+        console.warn('[sync-worker:react:wati]', {
+          messageId: externalId,
+          emoji: p.emoji,
+          err: msgText,
+          data: res.data,
         })
-        if (res.error) throw new Error(res.error.message)
-      } else {
-        const res = await fetch('/api/whapi/send-reaction', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ messageId: externalId, emoji: p.emoji, phone: p.phone }),
-        })
-        if (!res.ok && res.status >= 400 && res.status < 500) return
-        if (!res.ok) throw new Error(`send-reaction ${res.status}`)
+        if (typeof appErr === 'string' && /4\d\d/.test(appErr)) throw new TerminalError(msgText)
+        throw new Error(msgText)
       }
-    } catch (err) {
-      if (err instanceof Error && err.message.startsWith('send-reaction 4')) return
-      throw err
+    } else {
+      const res = await fetch('/api/whapi/send-reaction', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ messageId: externalId, emoji: p.emoji, phone: p.phone }),
+      })
+      if (!res.ok) {
+        const errBody = await res.text().catch(() => '')
+        console.warn('[sync-worker:react:whapi]', {
+          messageId: externalId, emoji: p.emoji, status: res.status, body: errBody.slice(0, 300),
+        })
+        // 4xx = WHAPI rejected (bad id, expired token, etc.). Don't burn retries.
+        if (res.status >= 400 && res.status < 500) {
+          throw new TerminalError(`whapi send-reaction ${res.status}: ${errBody.slice(0, 200)}`)
+        }
+        throw new Error(`whapi send-reaction ${res.status}`)
+      }
     }
   }
 

@@ -223,6 +223,17 @@ export async function POST(req: NextRequest) {
   const supabase = createClient<Database>(SUPA_URL, SUPA_KEY)
   const eventType: string = body.eventType ?? body.type ?? ''
 
+  // ── No "Delete for Everyone" on WATI ──────────────────────────────────────
+  // WhatsApp Business API recipients (which is what WATI uses on the agent
+  // side) are treated by Meta as customer-service systems of record. The
+  // "Delete for Everyone" button is hidden in both directions:
+  //   • customer → business: only "Delete for me" appears in the customer's app
+  //   • business → customer: same restriction in WATI / WhatsApp Business
+  // So WATI never fires a deletion webhook in practice. If Meta ever relaxes
+  // this for Business accounts, add a handler here that mirrors the WHAPI
+  // statuses=deleted branch in src/app/api/whapi/webhook/route.ts and sets
+  // chat_messages.revoked_at + clears text/attachments.
+
   // ── Delivery / read status update ──────────────────────────────────────────
   if (
     eventType === 'status_changed' ||
@@ -322,7 +333,18 @@ export async function POST(req: NextRequest) {
       body.emoji ??
       body.reactionEmoji ?? null
 
-    console.log('[webhook:reaction] extracted', { targetExternalId, emoji, waId: body.waId })
+    // Wati echoes the agent's OWN reactions back to us as webhooks with
+    // owner:true (or eventType=sessionMessageSent with type=reaction). If we
+    // treat those as customer reactions, Supabase ends up with from_type:
+    // 'customer' and Realtime overwrites the agent's local Dexie row — so
+    // the reaction visually "disappears" from the agent's side and reappears
+    // as the customer's. Always check owner here.
+    const reactionOwnerIsTrue =
+      body.owner === true ||
+      (typeof body.owner === 'string' && body.owner.toLowerCase() === 'true')
+    const reactionFromType: 'agent' | 'customer' = reactionOwnerIsTrue ? 'agent' : 'customer'
+
+    console.log('[webhook:reaction] extracted', { targetExternalId, emoji, waId: body.waId, fromType: reactionFromType })
 
     if (targetExternalId) {
       // Strategy 1: Look up by external_id (covers bare wamid + wati_ prefix)
@@ -408,19 +430,29 @@ export async function POST(req: NextRequest) {
 
       if (targetRow) {
         const existing: { emoji: string; from_type: string }[] = (targetRow.reactions as unknown as Array<{ emoji: string; from_type: string }> | null) ?? []
+        // Webhook semantics: emoji = "sender's current reaction is this".
+        // Empty/null = "sender has no reaction". This is idempotent — the
+        // same emoji arriving twice (WATI fires sessionMessageSent and
+        // sessionMessageSent_v2 for the same reaction) leaves state unchanged
+        // instead of toggling it off.
+        const currentEmojiForSender = existing.find((r) => r.from_type === reactionFromType)?.emoji ?? null
+
+        let updated = existing
         let isNewReaction = false
         if (emoji) {
-          const hasIt = existing.some((r) => r.emoji === emoji && r.from_type === 'customer')
-          const updated = hasIt
-            ? existing.filter((r) => !(r.emoji === emoji && r.from_type === 'customer'))
-            : [...existing, { emoji, from_type: 'customer' }]
-          isNewReaction = !hasIt
-          await supabase.from('chat_messages')
-            .update({ reactions: updated })
-            .eq('id', targetRow.id)
-        } else {
-          // Empty/null emoji = customer removed the reaction
-          const updated = existing.filter((r) => r.from_type !== 'customer')
+          if (currentEmojiForSender !== emoji) {
+            updated = [
+              ...existing.filter((r) => r.from_type !== reactionFromType),
+              { emoji, from_type: reactionFromType },
+            ]
+            // Surface "Reacted ..." preview only for genuine new customer reactions.
+            isNewReaction = reactionFromType === 'customer'
+          }
+        } else if (currentEmojiForSender !== null) {
+          updated = existing.filter((r) => r.from_type !== reactionFromType)
+        }
+
+        if (updated !== existing) {
           await supabase.from('chat_messages')
             .update({ reactions: updated })
             .eq('id', targetRow.id)
@@ -534,6 +566,11 @@ export async function POST(req: NextRequest) {
     (typeof body.key?.id === 'string' && String(body.key.id).startsWith('wamid.') ? String(body.key.id) : null) ??
     (typeof body.messageKey?.id === 'string' && String(body.messageKey.id).startsWith('wamid.') ? String(body.messageKey.id) : null) ??
     null
+
+  // WATI's internal MongoDB ObjectID — needed by their sendReaction endpoint.
+  // body.id is the ObjectID when it's a 24-char hex string (not a wamid).
+  const watiId: string | null =
+    (typeof body.id === 'string' && /^[a-f0-9]{24}$/i.test(body.id)) ? body.id : null
 
   // Prefer body.timestamp (Unix epoch of actual WhatsApp delivery) over body.created.
   // body.created on bot auto-replies is often the customer's trigger-message time,
@@ -650,7 +687,8 @@ export async function POST(req: NextRequest) {
             external_id:      externalId,
             delivery_status:  normaliseStatus(body.statusString ?? 'SENT'),
             ...(operatorName ? { agent_name: operatorName } : {}),
-            ...(wamid ? { wamid } : {}),
+            ...(wamid  ? { wamid }     : {}),
+            ...(watiId ? { wati_id: watiId } : {}),
           })
           .eq('id', pendingRow.id)
         return NextResponse.json({ ok: true })
@@ -669,11 +707,12 @@ export async function POST(req: NextRequest) {
       // Also backfill the wamid column whenever we have one.
       const needsExternalIdUpdate = dup.external_id !== externalId
       const needsWamidUpdate = !!wamid
-      if (needsExternalIdUpdate || needsWamidUpdate) {
+      if (needsExternalIdUpdate || needsWamidUpdate || watiId) {
         await supabase.from('chat_messages')
           .update({
             ...(needsExternalIdUpdate ? { external_id: externalId! } : {}),
-            ...(needsWamidUpdate ? { wamid } : {}),
+            ...(needsWamidUpdate      ? { wamid }                    : {}),
+            ...(watiId                ? { wati_id: watiId }          : {}),
           })
           .eq('id', dup.id)
       }
@@ -769,7 +808,8 @@ export async function POST(req: NextRequest) {
         external_id:      externalId,
         created_at:       ts,
         message_kind:     isMsgEvent ? 'event' : 'message',
-        ...(wamid ? { wamid } : {}),
+        ...(wamid  ? { wamid }            : {}),
+        ...(watiId ? { wati_id: watiId } : {}),
       })
   }
 

@@ -57,43 +57,83 @@ it('writes a sending template message + pending_write', async () => {
   expect((pw[0].payload as any).parameters).toEqual(['42', 'June 10'])
 })
 
-it('reactLocal toggles agent reaction and enqueues for whapi only', async () => {
+it('reactLocal toggles agent reaction and enqueues with empty emoji on removal', async () => {
   const db = getDb('u')
   await db.messages.add({
     id: 'm1', conversation_id: 'c1', from_type: 'customer', source: 'whatsapp_api',
     message_kind: 'message', message_type: 'text', text: 'hello', agent_name: null,
     attachments: null, reactions: [], delivery_status: 'delivered', external_id: 'ext1',
     reply_to_external_id: null, sent_by_profile_id: null, phone_id: null,
-    deleted_at: null, created_at: new Date().toISOString(),
+    deleted_at: null, revoked_at: null, created_at: new Date().toISOString(),
   })
 
+  // First click — add the reaction. Upstream payload carries the emoji.
   await reactLocal(db, { messageId: 'm1', emoji: '👍', phone: '+x', provider: 'whapi' })
   let msg = await db.messages.get('m1')
   expect(msg?.reactions).toEqual([{ emoji: '👍', from_type: 'agent' }])
   let pw = await db.pendingWrites.where('kind').equals('react').toArray()
   expect(pw.length).toBe(1)
+  expect((pw[0].payload as any).emoji).toBe('👍')
 
+  // Second click — toggle off. Upstream payload must carry empty emoji so the
+  // customer's WhatsApp clears the reaction; otherwise we re-add the same one.
   await reactLocal(db, { messageId: 'm1', emoji: '👍', phone: '+x', provider: 'whapi' })
   msg = await db.messages.get('m1')
   expect(msg?.reactions).toEqual([])
+  pw = await db.pendingWrites.where('kind').equals('react').toArray()
+  expect(pw.length).toBe(2)
+  expect((pw[1].payload as any).emoji).toBe('')
 })
 
-it('reactLocal skips pending_write for wati provider', async () => {
-  const db = getDb('u')
+it('reactLocal replaces the agent reaction when picking a different emoji (no stacking)', async () => {
+  // WhatsApp allows exactly one reaction per sender. Picking a second emoji
+  // must drop the first one locally and send the NEW emoji upstream — not
+  // append a second bubble or fire a removal.
+  const db = getDb('u-switch')
+  await db.messages.add({
+    id: 'm3', conversation_id: 'c1', from_type: 'customer', source: 'whatsapp_api',
+    message_kind: 'message', message_type: 'text', text: 'yo', agent_name: null,
+    attachments: null, reactions: [], delivery_status: 'delivered', external_id: 'ext3',
+    reply_to_external_id: null, sent_by_profile_id: null, phone_id: null,
+    deleted_at: null, revoked_at: null, created_at: new Date().toISOString(),
+  })
+
+  await reactLocal(db, { messageId: 'm3', emoji: '👍', phone: '+x', provider: 'whapi' })
+  await reactLocal(db, { messageId: 'm3', emoji: '❤️', phone: '+x', provider: 'whapi' })
+
+  const msg = await db.messages.get('m3')
+  expect(msg?.reactions).toEqual([{ emoji: '❤️', from_type: 'agent' }])
+
+  const pw = await db.pendingWrites.where('kind').equals('react').toArray()
+  expect(pw.length).toBe(2)
+  expect((pw[0].payload as any).emoji).toBe('👍')
+  expect((pw[1].payload as any).emoji).toBe('❤️')   // NEW emoji, not '' (not a removal)
+})
+
+it('reactLocal enqueues for wati provider with the same empty-emoji removal contract', async () => {
+  // Use a fresh user id so the underlying IndexedDB store starts empty —
+  // resetDb() only closes handles, fake-indexeddb keeps the data per db name.
+  const db = getDb('u-wati-react')
   await db.messages.add({
     id: 'm2', conversation_id: 'c1', from_type: 'customer', source: 'whatsapp_api',
     message_kind: 'message', message_type: 'text', text: 'hi', agent_name: null,
     attachments: null, reactions: [], delivery_status: 'delivered', external_id: 'ext2',
     reply_to_external_id: null, sent_by_profile_id: null, phone_id: null,
-    deleted_at: null, created_at: new Date().toISOString(),
+    deleted_at: null, revoked_at: null, created_at: new Date().toISOString(),
   })
 
-  const beforeCount = await db.pendingWrites.where('kind').equals('react').count()
+  await reactLocal(db, { messageId: 'm2', emoji: '❤️', phone: '+x', provider: 'wati' })
+  let pw = await db.pendingWrites.where('kind').equals('react').toArray()
+  expect(pw.length).toBe(1)
+  expect((pw[0].payload as any).provider).toBe('wati')
+  expect((pw[0].payload as any).emoji).toBe('❤️')
+
   await reactLocal(db, { messageId: 'm2', emoji: '❤️', phone: '+x', provider: 'wati' })
   const msg = await db.messages.get('m2')
-  expect(msg?.reactions).toEqual([{ emoji: '❤️', from_type: 'agent' }])
-  const afterCount = await db.pendingWrites.where('kind').equals('react').count()
-  expect(afterCount).toBe(beforeCount)
+  expect(msg?.reactions).toEqual([])
+  pw = await db.pendingWrites.where('kind').equals('react').toArray()
+  expect(pw.length).toBe(2)
+  expect((pw[1].payload as any).emoji).toBe('')
 })
 
 it('updateCustomerLocal patches Dexie and enqueues update_customer', async () => {
