@@ -140,9 +140,24 @@ export async function POST(req: NextRequest) {
     })
 
     if (res.ok) {
-      const data = await res.json().catch(() => null)
+      const data = await res.json().catch(() => null) as
+        | { sent?: boolean; message?: { id?: string }; id?: string; error?: { message?: string } | string }
+        | null
       messageId = data?.message?.id ?? data?.id ?? null
-      whapiOk   = true
+      // WHAPI returns HTTP 200 even when its async media-URL fetch failed.
+      // The real success signal is the `sent` boolean. Without this check we
+      // optimistically marked the message 'sent' and the customer never got it.
+      if (data?.sent === false) {
+        whapiStatusCode = 502
+        const errDetail = typeof data.error === 'string'
+          ? data.error
+          : data.error?.message ?? 'WHAPI reported sent:false'
+        whapiError = `WHAPI sent:false — ${errDetail}`
+        console.warn('[whapi/send-message] WHAPI 200 but sent:false', JSON.stringify(data).slice(0, 500))
+      } else {
+        whapiOk = true
+        console.log('[whapi/send-message] WHAPI response', JSON.stringify(data).slice(0, 300))
+      }
     } else {
       const errText = await res.text().catch(() => '')
       whapiStatusCode = res.status
@@ -177,10 +192,13 @@ export async function POST(req: NextRequest) {
     const lastMsg = text
       || (documentUrl ? '[Document]' : imageUrl ? '[Image]' : videoUrl ? '[Video]' : audioUrl ? '[Voice note]' : '')
 
-    // Find or create conversation row keyed by phone
+    // Find or create the WHAPI-scoped conversation. Without the provider filter
+    // we'd write outbound rows into the WATI conversation for the same phone,
+    // mixing the threads in the sidebar.
     const { data: existing } = await supabase.from('chat_conversations')
       .select('id')
       .eq('wati_phone', phone)
+      .eq('provider', 'whapi')
       .maybeSingle()
 
     let conversationId: string
@@ -199,6 +217,7 @@ export async function POST(req: NextRequest) {
       const { data: created, error: createErr } = await supabase.from('chat_conversations')
         .insert({
           wati_phone:             phone,
+          provider:               'whapi',
           last_message:           lastMsg,
           last_message_at:        ts,
           last_message_from_type: 'agent',
@@ -219,7 +238,7 @@ export async function POST(req: NextRequest) {
     const insertPayload: Record<string, unknown> = {
       conversation_id: conversationId,
       from_type:       'agent',
-      source:          'whatsapp_api',
+      source:          'whatsapp_whapi',
       text:            text || null,
       agent_name:      senderName ?? 'Agent',
       attachments:     attachments.length > 0 ? attachments : null,

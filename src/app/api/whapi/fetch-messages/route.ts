@@ -75,7 +75,7 @@ export async function GET(req: NextRequest) {
         conversation_id: conversationId,
         external_id:     m.id,
         from_type:       m.from_me ? 'agent' : 'customer',
-        source:          'whatsapp_api',
+        source:          'whatsapp_whapi',
         text:            text || null,
         attachments:     attachments.length > 0 ? attachments : null,
         delivery_status: m.status ?? 'delivered',

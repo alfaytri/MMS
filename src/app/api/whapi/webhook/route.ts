@@ -40,10 +40,12 @@ export async function GET() {
 
 // POST — WHAPI event handler
 export async function POST(req: NextRequest) {
-  // Verify shared secret via header (timing-safe comparison)
-  // NOTE: After deploying, update the WHAPI webhook URL configuration
-  // to send the secret as an 'x-webhook-secret' header instead of a query parameter.
-  if (!verifySharedSecret(req.headers.get('x-webhook-secret'), WEBHOOK_SECRET || undefined)) {
+  // Verify shared secret — accept either an 'x-webhook-secret' header
+  // or a '?secret=' query parameter. WHAPI's webhook UI does not always
+  // expose custom-header config, so the query param is the reliable channel.
+  const provided = req.headers.get('x-webhook-secret')
+    ?? new URL(req.url).searchParams.get('secret')
+  if (!verifySharedSecret(provided, WEBHOOK_SECRET || undefined)) {
     return new Response('Unauthorized', { status: 401 })
   }
 
@@ -108,6 +110,20 @@ export async function POST(req: NextRequest) {
           .eq('external_id', targetId)
           .maybeSingle()
 
+        // Diagnostic: when a reaction arrives for a target we don't yet have a
+        // row for (or stored with a different id format) the update silently
+        // no-ops. Log the miss so the cause is visible — common culprits are
+        // WHAPI returning the wamid in a slightly different shape, or the
+        // target message landing in chat_messages a moment later.
+        if (!targetRow) {
+          console.warn('[whapi/webhook] reaction target not found', {
+            targetId,
+            emoji,
+            reactionFromType,
+            msgKeys: Object.keys(msg),
+          })
+        }
+
         if (targetRow) {
           const existing: { emoji: string; from_type: string }[] = (targetRow.reactions as unknown as Array<{ emoji: string; from_type: string }> | null) ?? []
           // Webhook semantics: emoji = current state, empty = cleared.
@@ -137,7 +153,13 @@ export async function POST(req: NextRequest) {
     }
 
     // ── Regular message ────────────────────────────────────────────────────────
-    const phone = normalisePhone(msg.from ?? '')
+    // WHAPI echoes the agent's own outbound messages back with from_me:true.
+    // For inbound (customer→us) msg.from is the customer; for echoed outbound
+    // msg.from is OUR business number, and msg.chat_id holds the customer @-id.
+    // Without this branch an echo races past dedup and lands as a 'customer'
+    // row keyed on our own number — a ghost conversation in the sidebar.
+    const fromMe = msg.from_me === true
+    const phone = normalisePhone(fromMe ? (msg.chat_id ?? msg.to ?? '') : (msg.from ?? ''))
     if (!phone || phone === '+') continue
 
     // chat_name = name saved in WHAPI phonebook; from_name = WhatsApp push name
@@ -196,8 +218,9 @@ export async function POST(req: NextRequest) {
       .update({
         last_message:           previewText,
         last_message_at:        ts,
-        last_message_from_type: 'customer',
-        unread_count:           1,
+        last_message_from_type: fromMe ? 'agent' : 'customer',
+        // Only bump unread on inbound — agent echoes shouldn't notify ourselves.
+        ...(fromMe ? {} : { unread_count: 1 }),
         ...(contactName ? { wati_contact_name: contactName } : {}),
       })
       .eq('wati_phone', phone)
@@ -223,11 +246,11 @@ export async function POST(req: NextRequest) {
     const { data: inserted, error: insertErr } = await supabase.from('chat_messages')
       .insert({
         conversation_id: conversationId,
-        from_type:       'customer',
-        source:          'whatsapp_api',
+        from_type:       fromMe ? 'agent' : 'customer',
+        source:          'whatsapp_whapi',
         text:            text || null,
         attachments:     attachments.length > 0 ? attachments : null,
-        delivery_status: 'delivered',
+        delivery_status: fromMe ? 'sent' : 'delivered',
         external_id:     externalId,
         created_at:      ts,
         message_kind:    'message',
