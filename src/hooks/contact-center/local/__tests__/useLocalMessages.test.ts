@@ -36,12 +36,12 @@ it('reads messages for all conversations of the customer', async () => {
       message_kind: 'message', message_type: 'text', text: 'wati hi',
       agent_name: null, attachments: null, reactions: [], delivery_status: 'sent',
       external_id: 'e-a', reply_to_external_id: null, sent_by_profile_id: null,
-      phone_id: null, deleted_at: null, created_at: '2026-06-09T12:00:01Z' },
+      phone_id: null, deleted_at: null, revoked_at: null, created_at: '2026-06-09T12:00:01Z' },
     { id: 'b', conversation_id: 'c-whapi', from_type: 'customer', source: 'whatsapp_whapi',
       message_kind: 'message', message_type: 'text', text: 'whapi hi',
       agent_name: null, attachments: null, reactions: [], delivery_status: 'sent',
       external_id: 'e-b', reply_to_external_id: null, sent_by_profile_id: null,
-      phone_id: null, deleted_at: null, created_at: '2026-06-09T12:30:01Z' },
+      phone_id: null, deleted_at: null, revoked_at: null, created_at: '2026-06-09T12:30:01Z' },
   ])
 
   const { result } = renderHook(() => useLocalMessages('u', 'cust-1'))

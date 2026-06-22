@@ -99,17 +99,19 @@ function parseAttachments(raw: unknown): { url: string | null; type: string | nu
 
 export function MessageBubble({ message: m, phoneLast4, onReact }: Props) {
   const isAgent = m.from_type === 'agent'
+  const isRevoked = !!m.revoked_at
   const triggerRef = useRef<HTMLButtonElement>(null)
   const [picker, setPicker] = useState<{ x: number; y: number } | null>(null)
   const closeTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
-  const attachments = parseAttachments(m.attachments)
+  const attachments = isRevoked ? [] : parseAttachments(m.attachments)
   const hasContent = !!m.text?.trim() || attachments.length > 0
 
   // Skip empty ghost rows. A real in-flight send is still 'sending' (don't hide
   // those — the user needs to see them), and a row with no content that landed
   // as 'sent'/'delivered'/'read' is almost certainly a stray Wati webhook insert
-  // that has nothing to do with what the user sent. Hide it.
-  if (isAgent && !hasContent && m.delivery_status !== 'sending') {
+  // that has nothing to do with what the user sent. Hide it. Revoked messages
+  // always render (as a placeholder) regardless of having content or not.
+  if (isAgent && !hasContent && !isRevoked && m.delivery_status !== 'sending') {
     return null
   }
 
@@ -149,38 +151,54 @@ export function MessageBubble({ message: m, phoneLast4, onReact }: Props) {
             )}
           </div>
         )}
-        <div className={`relative rounded-lg px-2.5 py-1.5 text-xs ${isAgent ? 'bg-primary text-primary-foreground' : 'bg-muted text-foreground'}`}>
-          {m.text && (
-            <span dir="auto" className="whitespace-pre-wrap break-words">{m.text}</span>
-          )}
-          {attachments.map((att, i) => (
-            <AttachmentRenderer
-              key={i}
-              url={att.url}
-              type={att.type}
-              name={att.name}
-              isAgent={isAgent}
-            />
-          ))}
-          {/* Fallback when text is empty AND no attachment rendered — keeps the
-              bubble from collapsing to a tiny orange dot (e.g. WATI media still
-              syncing, or attachments arrived as a stringified JSON). */}
-          {!hasContent && (
-            <span className="text-[10px] italic opacity-70">[empty message]</span>
-          )}
+        <div className={`relative rounded-lg px-2.5 py-1.5 text-xs ${
+          isRevoked
+            ? 'bg-muted/60 text-muted-foreground italic'
+            : isAgent
+              ? 'bg-primary text-primary-foreground'
+              : 'bg-muted text-foreground'
+        }`}>
+          {isRevoked ? (
+            <span className="inline-flex items-center gap-1 opacity-80">
+              <span aria-hidden>🚫</span>
+              <span>{isAgent ? 'You deleted this message' : 'This message was deleted'}</span>
+            </span>
+          ) : (
+            <>
+              {m.text && (
+                <span dir="auto" className="whitespace-pre-wrap break-words">{m.text}</span>
+              )}
+              {attachments.map((att, i) => (
+                <AttachmentRenderer
+                  key={i}
+                  url={att.url}
+                  type={att.type}
+                  name={att.name}
+                  isAgent={isAgent}
+                />
+              ))}
+              {/* Fallback when text is empty AND no attachment rendered — keeps the
+                  bubble from collapsing to a tiny orange dot (e.g. WATI media still
+                  syncing, or attachments arrived as a stringified JSON). */}
+              {!hasContent && (
+                <span className="text-[10px] italic opacity-70">[empty message]</span>
+              )}
 
-          {/* React button — appears on hover */}
-          {onReact && (
-            <button
-              ref={triggerRef}
-              onClick={openPicker}
-              onMouseEnter={cancelPickerClose}
-              onMouseLeave={schedulePickerClose}
-              title="React"
-              className={`absolute -top-2 ${isAgent ? '-left-6' : '-right-6'} h-5 w-5 rounded-full bg-background border border-border shadow-sm flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity`}
-            >
-              <Smile className="h-3 w-3 text-muted-foreground" />
-            </button>
+              {/* React button — appears on hover. Suppressed on revoked messages
+                  since WhatsApp doesn't allow reacting to deleted content. */}
+              {onReact && (
+                <button
+                  ref={triggerRef}
+                  onClick={openPicker}
+                  onMouseEnter={cancelPickerClose}
+                  onMouseLeave={schedulePickerClose}
+                  title="React"
+                  className={`absolute -top-2 ${isAgent ? '-left-6' : '-right-6'} h-5 w-5 rounded-full bg-background border border-border shadow-sm flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity`}
+                >
+                  <Smile className="h-3 w-3 text-muted-foreground" />
+                </button>
+              )}
+            </>
           )}
         </div>
         <ReactionBubbles reactions={m.reactions ?? []} onClick={handlePick} />

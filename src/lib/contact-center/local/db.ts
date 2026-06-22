@@ -29,6 +29,14 @@ export class MmsCcDb extends Dexie {
       pendingWrites:  '++id, kind, status, createdAt',
       sync:           '&key',
     })
+
+    // v2: revoked_at added to messages (WhatsApp "delete for everyone").
+    // No index needed — the field is only read on the rendering path, not queried.
+    this.version(2).upgrade(async (tx) => {
+      await tx.table('messages').toCollection().modify((m: { revoked_at?: string | null }) => {
+        if (m.revoked_at === undefined) m.revoked_at = null
+      })
+    })
   }
 }
 

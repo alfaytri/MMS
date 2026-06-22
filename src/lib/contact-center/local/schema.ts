@@ -36,6 +36,10 @@ export interface LocalMessage {
   sent_by_profile_id: string | null
   phone_id: string | null
   deleted_at: string | null
+  // When the sender deleted this message via WhatsApp ("delete for everyone").
+  // Distinct from deleted_at, which is the purge-admin soft-delete. The chat
+  // UI renders revoked messages as a placeholder; purged messages are hidden.
+  revoked_at: string | null
   created_at: string
   _pendingWriteId?: number | null
   _localOnly?: boolean

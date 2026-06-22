@@ -21,7 +21,7 @@ export function useLiveThread(conversationId: string | null, phone: string | nul
         id, conversation_id, from_type, source, message_kind,
         text, agent_name, attachments, reactions,
         delivery_status, external_id, reply_to_external_id,
-        sent_by_profile_id, created_at,
+        sent_by_profile_id, revoked_at, created_at,
         profiles!sent_by_profile_id(full_name)
       `)
       .eq('conversation_id', convId)
@@ -49,7 +49,7 @@ export function useLiveThread(conversationId: string | null, phone: string | nul
         id, conversation_id, from_type, source, message_kind,
         text, agent_name, attachments, reactions,
         delivery_status, external_id, reply_to_external_id,
-        sent_by_profile_id, created_at,
+        sent_by_profile_id, revoked_at, created_at,
         profiles!sent_by_profile_id(full_name)
       `)
       .eq('conversation_id', convId)
@@ -305,7 +305,7 @@ export function useLiveThread(conversationId: string | null, phone: string | nul
         id, conversation_id, from_type, source, message_kind,
         text, agent_name, attachments, reactions,
         delivery_status, external_id, reply_to_external_id,
-        sent_by_profile_id, created_at,
+        sent_by_profile_id, revoked_at, created_at,
         profiles!sent_by_profile_id(full_name)
       `)
       .eq('conversation_id', conversationId)

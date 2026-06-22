@@ -52,6 +52,8 @@ export interface ChatMessage {
   reply_to_external_id: string | null
   sent_by_profile_id: string | null
   phone_id: string | null
+  /** Set when the sender deleted the message via WhatsApp ("delete for everyone"). */
+  revoked_at?: string | null
   created_at: string
 }
 
