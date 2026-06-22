@@ -1,11 +1,23 @@
-import { type NextRequest, NextResponse } from 'next/server'
+import { type NextRequest, NextResponse, after } from 'next/server'
 import { createClient } from '@supabase/supabase-js'
 import { requireAuth } from '@/lib/auth/require-admin'
+import { buildAttachmentSkeleton, mirrorWhapiMedia, type StoredAttachment } from '@/lib/whapi/store-media'
+import { createAdminClient } from '@/lib/supabase/admin'
 
 const WHAPI_URL   = 'https://gate.whapi.cloud'
 const WHAPI_TOKEN = process.env.WHAPI_TOKEN ?? ''
 const SUPA_URL    = process.env.NEXT_PUBLIC_SUPABASE_URL!
 const SUPA_KEY    = process.env.SUPABASE_SERVICE_ROLE_KEY!
+
+type MediaKey = 'image' | 'video' | 'audio' | 'voice' | 'document' | 'sticker'
+const MEDIA_KEYS: MediaKey[] = ['image', 'video', 'audio', 'voice', 'document', 'sticker']
+
+interface MirrorJob {
+  externalId: string
+  phone:      string
+  mediaKey:   MediaKey
+  media:      Record<string, unknown>
+}
 
 function phoneToWhapiId(phone: string): string {
   return `${phone.replace(/\D/g, '')}@s.whatsapp.net`
@@ -39,15 +51,7 @@ export async function GET(req: NextRequest) {
   const data    = await res.json()
   const msgs: any[] = data?.messages ?? []
   const supabase = createClient(SUPA_URL, SUPA_KEY)
-
-  const mediaSpec = [
-    { key: 'image',    defaultMime: 'image/jpeg',               defaultName: 'image'    },
-    { key: 'video',    defaultMime: 'video/mp4',                defaultName: 'video'    },
-    { key: 'audio',    defaultMime: 'audio/ogg',                defaultName: 'audio'    },
-    { key: 'voice',    defaultMime: 'audio/ogg; codecs=opus',   defaultName: 'voice'    },
-    { key: 'document', defaultMime: 'application/octet-stream', defaultName: 'document' },
-    { key: 'sticker',  defaultMime: 'image/webp',               defaultName: 'sticker'  },
-  ]
+  const mirrorJobs: MirrorJob[] = []
 
   const toInsert = msgs
     .filter((m: any) => m.type !== 'reaction' && m.id)
@@ -56,24 +60,15 @@ export async function GET(req: NextRequest) {
       const msgType = (m.type ?? 'text').toLowerCase()
       const text    = m.text?.body?.trim() || m.caption?.trim() || null
 
-      const attachments: { url: string; type: string; name: string }[] = []
-      for (const { key, defaultMime, defaultName } of mediaSpec) {
+      const attachments: StoredAttachment[] = []
+      for (const key of MEDIA_KEYS) {
         if (msgType !== key) continue
         const media = m[key]
         if (!media) continue
-        const rawUrl: string | null = media.link
-          ?? (media.id ? `${WHAPI_URL}/media/${media.id}` : null)
-        if (!rawUrl) continue
-        // Proxy through our server — browser can't supply the Bearer token on <img>/<video> src.
-        // Guard against double-wrapping if rawUrl is already a proxy path.
-        const url = rawUrl.startsWith('/api/whapi/media')
-          ? rawUrl
-          : `/api/whapi/media?url=${encodeURIComponent(rawUrl)}`
-        attachments.push({
-          url,
-          type: media.mime_type ?? defaultMime,
-          name: media.file_name ?? media.filename ?? defaultName,
-        })
+        const skeleton = buildAttachmentSkeleton(media, key)
+        if (!skeleton) continue
+        attachments.push(skeleton)
+        mirrorJobs.push({ externalId: m.id, phone, mediaKey: key, media })
       }
 
       return {
@@ -92,6 +87,38 @@ export async function GET(req: NextRequest) {
   if (toInsert.length > 0) {
     await supabase.from('chat_messages')
       .upsert(toInsert, { onConflict: 'external_id', ignoreDuplicates: false })
+  }
+
+  // Mirror media to Supabase Storage after the response goes out. Each file
+  // hits WHAPI exactly once; thereafter renders use the public Supabase URL.
+  if (mirrorJobs.length > 0) {
+    after(async () => {
+      const admin = createAdminClient()
+      for (const job of mirrorJobs) {
+        const stored = await mirrorWhapiMedia(job.media, {
+          externalId: job.externalId,
+          phone:      job.phone,
+          mediaKey:   job.mediaKey,
+        })
+        if (!stored) continue
+
+        const { data: row } = await admin.from('chat_messages')
+          .select('id, attachments')
+          .eq('external_id', job.externalId)
+          .maybeSingle()
+        if (!row) continue
+
+        const current = (row.attachments as StoredAttachment[] | null) ?? []
+        const next = current.map((att) => {
+          if (att.storage_path) return att
+          const isProxy = typeof att.url === 'string' && att.url.startsWith('/api/whapi/media')
+          return isProxy ? stored : att
+        })
+        await admin.from('chat_messages')
+          .update({ attachments: next })
+          .eq('id', row.id)
+      }
+    })
   }
 
   return NextResponse.json({ ok: true, count: toInsert.length })

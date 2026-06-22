@@ -27,7 +27,13 @@ export async function GET(req: NextRequest) {
     }
     const contentType = upstream.headers.get('content-type') ?? 'application/octet-stream'
     const contentDisposition = upstream.headers.get('content-disposition')
-    const headers: Record<string, string> = { 'Content-Type': contentType }
+    const headers: Record<string, string> = {
+      'Content-Type':  contentType,
+      // WHAPI media ids are immutable so each URL is safe to cache forever.
+      // Without this header every <img>/<video> re-render hits WHAPI and
+      // burns the request quota.
+      'Cache-Control': 'public, max-age=31536000, immutable',
+    }
     if (contentDisposition) headers['Content-Disposition'] = contentDisposition
     return new Response(upstream.body, { status: 200, headers })
   } catch (err: any) {
