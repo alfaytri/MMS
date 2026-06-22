@@ -57,7 +57,8 @@ export async function lazyFetch(
     .select(`
       id, customer_id, customer_id_v2, conversation_type, wati_phone, wati_contact_name,
       last_message, last_message_at, unread_count, assigned_agent, is_opened,
-      wati_status, provider, created_at
+      wati_status, provider, created_at,
+      service_customers:customer_id_v2 ( name )
     `)
     .eq('provider', provider)
     .not('last_message_at', 'is', null)
@@ -70,7 +71,16 @@ export async function lazyFetch(
   }
 
   if (data && data.length > 0) {
-    await db.conversations.bulkPut(data as unknown as LocalConversation[])
+    // Flatten the joined service_customers.name into customer_name so Dexie
+    // stays a flat shape (no nested objects in the row), matching the rest
+    // of the LocalConversation interface.
+    const rows: LocalConversation[] = (data as unknown as Array<LocalConversation & {
+      service_customers?: { name?: string | null } | null
+    }>).map((r) => {
+      const { service_customers, ...rest } = r
+      return { ...rest, customer_name: service_customers?.name ?? null }
+    })
+    await db.conversations.bulkPut(rows)
   }
 
   await db.sync.put({

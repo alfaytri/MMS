@@ -52,6 +52,10 @@ export interface LocalConversation {
   conversation_type: 'customer' | 'team' | null
   wati_phone: string | null
   wati_contact_name: string | null
+  // Denormalised from service_customers.name at lazyFetch time so the chat
+  // list can render the canonical CRM name without an N+1 join per row.
+  // Null when the conversation has no linked service customer.
+  customer_name: string | null
   last_message: string | null
   last_message_at: string | null
   last_message_from_type: 'agent' | 'customer' | null
