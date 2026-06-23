@@ -540,10 +540,12 @@ export type Database = {
           purge_batch_id: string | null
           reactions: Json
           reply_to_external_id: string | null
+          revoked_at: string | null
           sent_by_profile_id: string | null
           source: Database["public"]["Enums"]["message_source"]
           text: string | null
           wamid: string | null
+          wati_id: string | null
         }
         Insert: {
           agent_name?: string | null
@@ -562,10 +564,12 @@ export type Database = {
           purge_batch_id?: string | null
           reactions?: Json
           reply_to_external_id?: string | null
+          revoked_at?: string | null
           sent_by_profile_id?: string | null
           source: Database["public"]["Enums"]["message_source"]
           text?: string | null
           wamid?: string | null
+          wati_id?: string | null
         }
         Update: {
           agent_name?: string | null
@@ -584,10 +588,12 @@ export type Database = {
           purge_batch_id?: string | null
           reactions?: Json
           reply_to_external_id?: string | null
+          revoked_at?: string | null
           sent_by_profile_id?: string | null
           source?: Database["public"]["Enums"]["message_source"]
           text?: string | null
           wamid?: string | null
+          wati_id?: string | null
         }
         Relationships: [
           {
@@ -3739,6 +3745,7 @@ export type Database = {
           attachments: Json | null
           completed_at: string | null
           completed_by: string | null
+          confirmation_pdf_url: string | null
           confirmation_sent_at: string | null
           confirmation_status:
             | Database["public"]["Enums"]["confirmation_status"]
@@ -3771,6 +3778,7 @@ export type Database = {
           attachments?: Json | null
           completed_at?: string | null
           completed_by?: string | null
+          confirmation_pdf_url?: string | null
           confirmation_sent_at?: string | null
           confirmation_status?:
             | Database["public"]["Enums"]["confirmation_status"]
@@ -3803,6 +3811,7 @@ export type Database = {
           attachments?: Json | null
           completed_at?: string | null
           completed_by?: string | null
+          confirmation_pdf_url?: string | null
           confirmation_sent_at?: string | null
           confirmation_status?:
             | Database["public"]["Enums"]["confirmation_status"]
@@ -9280,6 +9289,23 @@ export type Database = {
           p_transfer_id: string
         }
         Returns: undefined
+      }
+      cc_dedup_insert_message: {
+        Args: {
+          p_agent_name: string
+          p_attachments: Json
+          p_conversation_id: string
+          p_created_at: string
+          p_delivery_status: string
+          p_external_id: string
+          p_from_type: string
+          p_message_kind: string
+          p_source: string
+          p_text: string
+          p_wamid: string
+          p_wati_id: string
+        }
+        Returns: string
       }
       check_is_division_manager: {
         Args: { p_profile_id: string }

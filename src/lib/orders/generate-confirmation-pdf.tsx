@@ -121,9 +121,11 @@ async function launchBrowser(): Promise<Browser> {
   if (isServerlessEnv()) {
     // Lazy-import so local dev never loads the Lambda chromium tarball.
     const chromium = (await import('@sparticuz/chromium')).default
+    // `defaultViewport` was removed from @sparticuz/chromium in v149 — let
+    // Puppeteer fall back to its own default (800×600). Page-level layout
+    // for the PDF is driven by @page in the HTML, not by Chromium's viewport.
     return puppeteer.launch({
       args:            chromium.args,
-      defaultViewport: chromium.defaultViewport,
       executablePath:  await chromium.executablePath(),
       headless:        true,
     })

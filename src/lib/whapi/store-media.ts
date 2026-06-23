@@ -26,6 +26,9 @@ export interface StoredAttachment {
   storage_path?: string | null
   type:          string
   name:          string
+  // Index signature lets Supabase's `Json`-typed columns accept this
+  // interface directly without needing a `Json` cast at every insert site.
+  [key: string]: string | null | undefined
 }
 
 interface StoreCtx {

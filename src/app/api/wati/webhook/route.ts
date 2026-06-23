@@ -669,7 +669,13 @@ export async function POST(req: NextRequest) {
     // attachments column untouched.
     const insertAttachments = isAgent ? null : (attachments.length > 0 ? attachments : null)
 
-    const { error: rpcErr } = await supabase.rpc('cc_dedup_insert_message', {
+    // The RPC signature was declared without DEFAULT NULL on the nullable
+    // params (p_text, p_agent_name, p_external_id, p_wamid, p_wati_id), so
+    // Supabase typegen marks them all as required `string`. The function body
+    // explicitly handles NULL for each of these (IS NULL / COALESCE branches),
+    // so passing null at runtime is correct — we cast through `unknown` only
+    // to silence the typegen mismatch without rewriting the migration.
+    const rpcArgs = {
       p_conversation_id: conversationId,
       p_from_type:       isAgent ? 'agent' : 'customer',
       p_source:          'whatsapp_api',
@@ -682,7 +688,11 @@ export async function POST(req: NextRequest) {
       p_wati_id:         watiId,
       p_created_at:      ts,
       p_message_kind:    isMsgEvent ? 'event' : 'message',
-    })
+    }
+    const { error: rpcErr } = await supabase.rpc(
+      'cc_dedup_insert_message',
+      rpcArgs as unknown as Database['public']['Functions']['cc_dedup_insert_message']['Args'],
+    )
 
     if (rpcErr) {
       console.error('[webhook] cc_dedup_insert_message failed', rpcErr)
