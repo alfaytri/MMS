@@ -72,3 +72,5 @@ temp_*.sql
 /skills-lock.json
 
 /EOD
+
+/docs/Design
