@@ -1,8 +1,24 @@
-import { type NextRequest, NextResponse } from 'next/server'
+import { type NextRequest, NextResponse, after } from 'next/server'
 import { createAdminClient } from '@/lib/supabase/admin'
 import { verifySharedSecret } from '@/lib/webhooks/verify'
+import { buildAttachmentSkeleton, mirrorWhapiMedia, type StoredAttachment } from '@/lib/whapi/store-media'
 
 const WEBHOOK_SECRET = process.env.WHAPI_WEBHOOK_SECRET ?? ''
+
+type MediaKey = 'image' | 'video' | 'audio' | 'voice' | 'document' | 'sticker'
+const MEDIA_KEYS: MediaKey[] = ['image', 'video', 'audio', 'voice', 'document', 'sticker']
+
+// Pending mirror jobs collected during webhook processing. After the response
+// goes out we download each file from WHAPI once, upload to Supabase Storage,
+// and UPDATE chat_messages.attachments. The realtime UPDATE event swaps the
+// URL in the open chat without the user noticing.
+interface MirrorJob {
+  messageRowId: string
+  externalId:   string
+  phone:        string
+  mediaKey:     MediaKey
+  media:        Record<string, unknown>
+}
 
 function normalisePhone(raw: string): string {
   return `+${raw.replace(/\D/g, '')}`
@@ -24,10 +40,12 @@ export async function GET() {
 
 // POST — WHAPI event handler
 export async function POST(req: NextRequest) {
-  // Verify shared secret via header (timing-safe comparison)
-  // NOTE: After deploying, update the WHAPI webhook URL configuration
-  // to send the secret as an 'x-webhook-secret' header instead of a query parameter.
-  if (!verifySharedSecret(req.headers.get('x-webhook-secret'), WEBHOOK_SECRET || undefined)) {
+  // Verify shared secret — accept either an 'x-webhook-secret' header
+  // or a '?secret=' query parameter. WHAPI's webhook UI does not always
+  // expose custom-header config, so the query param is the reliable channel.
+  const provided = req.headers.get('x-webhook-secret')
+    ?? new URL(req.url).searchParams.get('secret')
+  if (!verifySharedSecret(provided, WEBHOOK_SECRET || undefined)) {
     return new Response('Unauthorized', { status: 401 })
   }
 
@@ -36,17 +54,31 @@ export async function POST(req: NextRequest) {
 
   const supabase = createAdminClient()
   const eventType = body?.event?.type
+  const mirrorJobs: MirrorJob[] = []
 
   // ── Status updates ───────────────────────────────────────────────────────────
   if (eventType === 'statuses') {
     for (const s of (body.statuses ?? [])) {
       const externalId: string = s.id
-      const status = normaliseStatus(s.status ?? '')
-      if (externalId) {
+      if (!externalId) continue
+
+      const rawStatus = (s.status ?? '').toString().toLowerCase()
+      if (rawStatus === 'deleted') {
+        // WhatsApp "delete for everyone": clear the message body but keep the
+        // row so the UI can render a "deleted" placeholder. Reactions stay.
         await supabase.from('chat_messages')
-          .update({ delivery_status: status })
+          .update({
+            revoked_at:  new Date().toISOString(),
+            text:        null,
+            attachments: null,
+          })
           .eq('external_id', externalId)
+        continue
       }
+
+      await supabase.from('chat_messages')
+        .update({ delivery_status: normaliseStatus(s.status ?? '') })
+        .eq('external_id', externalId)
     }
     return NextResponse.json({ ok: true })
   }
@@ -58,9 +90,19 @@ export async function POST(req: NextRequest) {
     const msgType: string = (msg.type ?? 'text').toLowerCase()
 
     // ── Reaction ───────────────────────────────────────────────────────────────
-    if (msgType === 'reaction') {
-      const targetId: string | null = msg.reaction?.message_id ?? null
-      const emoji: string | null    = msg.reaction?.emoji ?? null
+    // WHAPI sends reactions as type='action' with action.type='reaction'.
+    // Older WHAPI builds used type='reaction' — accept both for safety.
+    const isReaction =
+      msgType === 'reaction' ||
+      (msgType === 'action' && (msg.action?.type ?? '').toLowerCase() === 'reaction')
+
+    if (isReaction) {
+      const targetId: string | null = msg.action?.target ?? msg.reaction?.message_id ?? null
+      const emoji:    string | null = msg.action?.emoji  ?? msg.reaction?.emoji      ?? null
+      // WHAPI echoes the agent's own reactions back with from_me:true. Without
+      // this attribution check we'd overwrite the agent's Dexie reaction with
+      // a 'customer' one and the emoji would visually disappear from their side.
+      const reactionFromType: 'agent' | 'customer' = msg.from_me === true ? 'agent' : 'customer'
 
       if (targetId) {
         const { data: targetRow } = await supabase.from('chat_messages')
@@ -68,18 +110,39 @@ export async function POST(req: NextRequest) {
           .eq('external_id', targetId)
           .maybeSingle()
 
+        // Diagnostic: when a reaction arrives for a target we don't yet have a
+        // row for (or stored with a different id format) the update silently
+        // no-ops. Log the miss so the cause is visible — common culprits are
+        // WHAPI returning the wamid in a slightly different shape, or the
+        // target message landing in chat_messages a moment later.
+        if (!targetRow) {
+          console.warn('[whapi/webhook] reaction target not found', {
+            targetId,
+            emoji,
+            reactionFromType,
+            msgKeys: Object.keys(msg),
+          })
+        }
+
         if (targetRow) {
           const existing: { emoji: string; from_type: string }[] = (targetRow.reactions as unknown as Array<{ emoji: string; from_type: string }> | null) ?? []
+          // Webhook semantics: emoji = current state, empty = cleared.
+          // Idempotent — duplicate webhooks don't toggle.
+          const currentEmojiForSender = existing.find((r) => r.from_type === reactionFromType)?.emoji ?? null
+
+          let updated = existing
           if (emoji) {
-            const hasIt = existing.some((r) => r.emoji === emoji && r.from_type === 'customer')
-            const updated = hasIt
-              ? existing.filter((r) => !(r.emoji === emoji && r.from_type === 'customer'))
-              : [...existing, { emoji, from_type: 'customer' }]
-            await supabase.from('chat_messages')
-              .update({ reactions: updated })
-              .eq('id', targetRow.id)
-          } else {
-            const updated = existing.filter((r) => r.from_type !== 'customer')
+            if (currentEmojiForSender !== emoji) {
+              updated = [
+                ...existing.filter((r) => r.from_type !== reactionFromType),
+                { emoji, from_type: reactionFromType },
+              ]
+            }
+          } else if (currentEmojiForSender !== null) {
+            updated = existing.filter((r) => r.from_type !== reactionFromType)
+          }
+
+          if (updated !== existing) {
             await supabase.from('chat_messages')
               .update({ reactions: updated })
               .eq('id', targetRow.id)
@@ -90,7 +153,13 @@ export async function POST(req: NextRequest) {
     }
 
     // ── Regular message ────────────────────────────────────────────────────────
-    const phone = normalisePhone(msg.from ?? '')
+    // WHAPI echoes the agent's own outbound messages back with from_me:true.
+    // For inbound (customer→us) msg.from is the customer; for echoed outbound
+    // msg.from is OUR business number, and msg.chat_id holds the customer @-id.
+    // Without this branch an echo races past dedup and lands as a 'customer'
+    // row keyed on our own number — a ghost conversation in the sidebar.
+    const fromMe = msg.from_me === true
+    const phone = normalisePhone(fromMe ? (msg.chat_id ?? msg.to ?? '') : (msg.from ?? ''))
     if (!phone || phone === '+') continue
 
     // chat_name = name saved in WHAPI phonebook; from_name = WhatsApp push name
@@ -109,37 +178,20 @@ export async function POST(req: NextRequest) {
       text = msg.caption.trim()
     }
 
-    // Extract attachments — WHAPI's `link` field only arrives when Auto Download
-    // is enabled in the channel settings. When it's off we only get `id`, so
-    // fall back to the /media/{id} endpoint (the /api/whapi/media proxy adds
-    // the bearer token at fetch time).
-    const attachments: { url: string; type: string; name: string }[] = []
-    const mediaSpec: Array<{ key: string; defaultMime: string; defaultName: string }> = [
-      { key: 'image',    defaultMime: 'image/jpeg',               defaultName: 'image' },
-      { key: 'video',    defaultMime: 'video/mp4',                defaultName: 'video' },
-      { key: 'audio',    defaultMime: 'audio/ogg',                defaultName: 'audio' },
-      { key: 'voice',    defaultMime: 'audio/ogg; codecs=opus',   defaultName: 'voice' },
-      { key: 'document', defaultMime: 'application/octet-stream', defaultName: 'document' },
-      { key: 'sticker',  defaultMime: 'image/webp',               defaultName: 'sticker' },
-    ]
-    for (const { key, defaultMime, defaultName } of mediaSpec) {
+    // Build attachment skeletons with the /api/whapi/media proxy URL — instant,
+    // no network. After the webhook responds, mirrorWhapiMedia() downloads each
+    // file once and UPDATEs the row to point at Supabase Storage, after which
+    // WHAPI is never hit again for that message.
+    const attachments: StoredAttachment[] = []
+    const pendingMedia: { key: MediaKey; media: Record<string, unknown> }[] = []
+    for (const key of MEDIA_KEYS) {
       if (msgType !== key) continue
       const media = msg[key]
       if (!media) continue
-      const rawUrl: string | null = media.link
-        ?? (media.id ? `https://gate.whapi.cloud/media/${media.id}` : null)
-      if (!rawUrl) continue
-      // Proxy through our server — browser can't add the Bearer token on <img>/<video> src.
-      // Guard against double-wrapping if rawUrl is already a proxy path.
-      const url = rawUrl.startsWith('/api/whapi/media')
-        ? rawUrl
-        : `/api/whapi/media?url=${encodeURIComponent(rawUrl)}`
-      attachments.push({
-        url,
-        type: media.mime_type ?? defaultMime,
-        name: media.file_name ?? media.filename ?? defaultName,
-      })
-      // Caption inside media object is more accurate than root-level for WHAPI
+      const skeleton = buildAttachmentSkeleton(media, key)
+      if (!skeleton) continue
+      attachments.push(skeleton)
+      pendingMedia.push({ key, media })
       if (!text && typeof media.caption === 'string') text = media.caption.trim()
     }
 
@@ -166,8 +218,9 @@ export async function POST(req: NextRequest) {
       .update({
         last_message:           previewText,
         last_message_at:        ts,
-        last_message_from_type: 'customer',
-        unread_count:           1,
+        last_message_from_type: fromMe ? 'agent' : 'customer',
+        // Only bump unread on inbound — agent echoes shouldn't notify ourselves.
+        ...(fromMe ? {} : { unread_count: 1 }),
         ...(contactName ? { wati_contact_name: contactName } : {}),
       })
       .eq('wati_phone', phone)
@@ -190,18 +243,74 @@ export async function POST(req: NextRequest) {
     if (!conversationId || !externalId) continue
 
     // Insert message
-    await supabase.from('chat_messages')
+    const { data: inserted, error: insertErr } = await supabase.from('chat_messages')
       .insert({
         conversation_id: conversationId,
-        from_type:       'customer',
-        source:          'whatsapp_api',
+        from_type:       fromMe ? 'agent' : 'customer',
+        source:          'whatsapp_whapi',
         text:            text || null,
         attachments:     attachments.length > 0 ? attachments : null,
-        delivery_status: 'delivered',
+        delivery_status: fromMe ? 'sent' : 'delivered',
         external_id:     externalId,
         created_at:      ts,
         message_kind:    'message',
       })
+      .select('id')
+      .single()
+
+    if (insertErr) {
+      console.error('[whapi/webhook] insert message error', insertErr)
+      continue
+    }
+
+    if (inserted && pendingMedia.length > 0) {
+      for (const { key, media } of pendingMedia) {
+        mirrorJobs.push({
+          messageRowId: inserted.id,
+          externalId,
+          phone,
+          mediaKey:     key,
+          media:        media as Record<string, unknown>,
+        })
+      }
+    }
+  }
+
+  // Schedule background mirroring so the webhook returns immediately. The chat
+  // already has the message via realtime (using the proxy URL); the UPDATE
+  // below swaps the URL to a permanent Supabase Storage URL that costs zero
+  // WHAPI requests on future renders.
+  if (mirrorJobs.length > 0) {
+    after(async () => {
+      const admin = createAdminClient()
+      for (const job of mirrorJobs) {
+        const stored = await mirrorWhapiMedia(job.media, {
+          externalId: job.externalId,
+          phone:      job.phone,
+          mediaKey:   job.mediaKey,
+        })
+        if (!stored) continue
+
+        const { data: row } = await admin.from('chat_messages')
+          .select('attachments')
+          .eq('id', job.messageRowId)
+          .maybeSingle()
+        if (!row) continue
+
+        const current = (row.attachments as StoredAttachment[] | null) ?? []
+        // Replace the matching skeleton (same kind) with the mirrored copy.
+        // We can identify it by the original proxy URL containing the WHAPI media id.
+        const next = current.map((att) => {
+          if (att.storage_path) return att                 // already mirrored
+          const isProxy = typeof att.url === 'string' && att.url.startsWith('/api/whapi/media')
+          if (!isProxy) return att
+          return stored
+        })
+        await admin.from('chat_messages')
+          .update({ attachments: next })
+          .eq('id', job.messageRowId)
+      }
+    })
   }
 
   return NextResponse.json({ ok: true })

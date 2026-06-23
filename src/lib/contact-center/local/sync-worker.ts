@@ -177,14 +177,48 @@ export class SyncWorker {
   }
 
   private async sendText(row: PendingWrite): Promise<void> {
-    const { id, conversationId, phone, text } = row.payload as {
+    const { id, conversationId, phone, text, provider } = row.payload as {
       id: string; conversationId: string; phone: string; text: string
+      provider?: 'wati' | 'whapi'
     }
-    // Push to Supabase FIRST (before Wati API) so the webhook's dedup can find
-    // this row via the existing 'external_id is null' / 'wati_%' filter. This
-    // also guarantees the row carries our agent_name + sent_by_profile_id —
-    // otherwise a webhook insert race creates a duplicate row without them.
+    // Push to Supabase FIRST (before provider API) so the inbound webhook's
+    // dedup can find this row and update it with the real external_id +
+    // delivery status. Also guarantees the row carries our agent_name +
+    // sent_by_profile_id — otherwise a webhook insert race creates a
+    // duplicate row without them.
     await this.pushFullMessage(id, conversationId, null)
+
+    if ((provider ?? this.provider) === 'whapi') {
+      const res = await fetch('/api/whapi/send-message', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ phone, text, skipDbInsert: true }),
+      })
+      const data = await res.json().catch(() => ({} as { messageId?: string; error?: string }))
+      if (!res.ok) {
+        const errMsg = (data as { error?: string }).error ?? `whapi send-message ${res.status}`
+        if (res.status >= 400 && res.status < 500) throw new TerminalError(errMsg)
+        throw new Error(errMsg)
+      }
+      const whapiId = (data as { messageId?: string }).messageId ?? null
+      const patch = whapiId
+        ? { external_id: whapiId, delivery_status: 'sent' as const, _localOnly: false }
+        : { delivery_status: 'sent' as const, _localOnly: false }
+      await this.db.messages.update(id, patch)
+      if (whapiId) {
+        // Only set external_id if not already a real wamid from an inbound
+        // webhook race. WHAPI ids don't share the wati_ prefix, so match nulls.
+        await this.supabase.from('chat_messages')
+          .update({ external_id: whapiId, delivery_status: 'sent' })
+          .eq('id', id)
+          .is('external_id', null)
+      } else {
+        await this.supabase.from('chat_messages')
+          .update({ delivery_status: 'sent' })
+          .eq('id', id)
+      }
+      return
+    }
 
     const { data, error } = await this.supabase.functions.invoke('api-wati', {
       body: { action: 'send_session_message', phone, text, message_id: id },
@@ -197,20 +231,25 @@ export class SyncWorker {
                 ?? data?.whatsappMessageId
                 ?? data?.id
                 ?? null
-    if (watiId) {
-      await this.db.messages.update(id, {
-        external_id: `wati_${watiId}`,
+    // Always promote the local bubble out of 'sending' once api-wati returned
+    // without error — some response shapes omit the wamid and the row would
+    // otherwise stick at the clock icon forever. The webhook will fill in
+    // external_id when WATI echoes the message back.
+    await this.db.messages.update(id, {
+      delivery_status: 'sent',
+      _localOnly: false,
+      ...(watiId ? { external_id: `wati_${watiId}` } : {}),
+    })
+    // Conditional update: only set external_id if it's still null or
+    // wati_-prefixed. Never overwrite a real wamid that the webhook may
+    // have already written between pushFullMessage and now.
+    await this.supabase.from('chat_messages')
+      .update({
         delivery_status: 'sent',
-        _localOnly: false,
+        ...(watiId ? { external_id: `wati_${watiId}` } : {}),
       })
-      // Conditional update: only set external_id if it's still null or
-      // wati_-prefixed. Never overwrite a real wamid that the webhook may
-      // have already written between pushFullMessage and now.
-      await this.supabase.from('chat_messages')
-        .update({ external_id: `wati_${watiId}`, delivery_status: 'sent' })
-        .eq('id', id)
-        .or('external_id.is.null,external_id.like.wati_%')
-    }
+      .eq('id', id)
+      .or('external_id.is.null,external_id.like.wati_%')
   }
 
   private async sendFile(row: PendingWrite): Promise<void> {
@@ -221,7 +260,9 @@ export class SyncWorker {
     const p = row.payload as {
       id: string; conversationId: string; phone: string
       caption: string; filename: string; mime: string
+      provider?: 'wati' | 'whapi'
     }
+    const provider = p.provider ?? this.provider
 
     const ext = p.filename.split('.').pop() ?? 'bin'
     const path = `${p.conversationId}/${p.id}.${ext}`
@@ -242,9 +283,57 @@ export class SyncWorker {
       attachments: [{ url: publicUrl, type: p.mime, name: p.filename }],
     })
 
-    // Push to Supabase BEFORE calling Wati so the webhook dedup can find it
-    // (carries agent_name + sent_by_profile_id) instead of inserting a duplicate.
+    // Push to Supabase BEFORE calling the provider so the webhook dedup can find
+    // the row (carries agent_name + sent_by_profile_id) instead of inserting a
+    // duplicate when the inbound echo lands.
     await this.pushFullMessage(p.id, p.conversationId, null)
+
+    if (provider === 'whapi') {
+      // WHAPI accepts a public media URL; pick the endpoint by mime family.
+      // Anything we can't classify (PDF, docx, zip) goes through /messages/document.
+      const mediaField =
+        p.mime.startsWith('image/') ? 'imageUrl' :
+        p.mime.startsWith('video/') ? 'videoUrl' :
+        p.mime.startsWith('audio/') ? 'audioUrl' :
+        'documentUrl'
+
+      const res = await fetch('/api/whapi/send-message', {
+        method:  'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body:    JSON.stringify({
+          phone:        p.phone,
+          text:         p.caption || undefined,
+          [mediaField]: publicUrl,
+          ...(mediaField === 'documentUrl' ? { documentName: p.filename } : {}),
+          skipDbInsert: true,
+        }),
+      })
+      const data = await res.json().catch(() => ({} as { messageId?: string; error?: string }))
+      if (!res.ok) {
+        const errMsg = (data as { error?: string }).error ?? `whapi send-file ${res.status}`
+        if (res.status >= 400 && res.status < 500) throw new TerminalError(errMsg)
+        throw new Error(errMsg)
+      }
+      const whapiId = (data as { messageId?: string }).messageId ?? null
+      await this.db.messages.update(p.id, {
+        external_id:     whapiId ?? null,
+        delivery_status: 'sent',
+        _localOnly:      false,
+      })
+      this.fileMap.delete(row.fileRef)
+      if (whapiId) {
+        // Don't overwrite a real wamid the inbound webhook may have already set.
+        await this.supabase.from('chat_messages')
+          .update({ external_id: whapiId, delivery_status: 'sent' })
+          .eq('id', p.id)
+          .is('external_id', null)
+      } else {
+        await this.supabase.from('chat_messages')
+          .update({ delivery_status: 'sent' })
+          .eq('id', p.id)
+      }
+      return
+    }
 
     const { data, error } = await this.supabase.functions.invoke('api-wati', {
       body: {
@@ -312,17 +401,22 @@ export class SyncWorker {
                 ?? data?.whatsappMessageId
                 ?? data?.id
                 ?? null
-    if (watiId) {
-      await this.db.messages.update(p.id, {
-        external_id: `wati_${watiId}`,
+    // Always promote the local bubble out of 'sending' after a successful
+    // invoke — template responses often omit the wamid, and leaving the row
+    // at 'sending' was the cause of the perpetual clock icon. The webhook
+    // will backfill external_id later when WATI echoes the message.
+    await this.db.messages.update(p.id, {
+      delivery_status: 'sent',
+      _localOnly: false,
+      ...(watiId ? { external_id: `wati_${watiId}` } : {}),
+    })
+    await this.supabase.from('chat_messages')
+      .update({
         delivery_status: 'sent',
-        _localOnly: false,
+        ...(watiId ? { external_id: `wati_${watiId}` } : {}),
       })
-      await this.supabase.from('chat_messages')
-        .update({ external_id: `wati_${watiId}`, delivery_status: 'sent' })
-        .eq('id', p.id)
-        .or('external_id.is.null,external_id.like.wati_%')
-    }
+      .eq('id', p.id)
+      .or('external_id.is.null,external_id.like.wati_%')
   }
 
   /**
@@ -368,26 +462,52 @@ export class SyncWorker {
     }
     const msg = await this.db.messages.get(p.messageId)
     const externalId = msg?.external_id
-    if (!externalId) return
+    if (!externalId) {
+      console.warn('[sync-worker:react] no external_id for message', p.messageId)
+      throw new TerminalError('message has no external_id; cannot react')
+    }
 
-    try {
-      if (p.provider === 'wati') {
-        const res = await this.supabase.functions.invoke('api-wati', {
-          body: { action: 'send_reaction', phone: p.phone, emoji: p.emoji, message_id: externalId },
+    // The provider call MUST surface failures — historically a silent `return`
+    // on 4xx made the pending_write look successful when WHAPI/WATI actually
+    // rejected, so the customer's WhatsApp never saw the agent reaction.
+    if (p.provider === 'wati') {
+      const res = await this.supabase.functions.invoke('api-wati', {
+        body: { action: 'send_reaction', phone: p.phone, emoji: p.emoji, message_id: externalId },
+      })
+      // Two failure shapes: transport-level (res.error from the SDK) and
+      // application-level (the function returned {error: ...} per wati() helper).
+      const appErr = (res.data as { error?: string; detail?: string } | null)?.error
+      if (res.error || appErr) {
+        const detail = (res.data as { detail?: string } | null)?.detail ?? ''
+        const msgText = `api-wati send_reaction failed: ${res.error?.message ?? appErr} ${detail}`.trim()
+        // Dump the full payload — when the edge function tries multiple body
+        // shapes the `attempts` array is the diagnostic gold.
+        console.warn('[sync-worker:react:wati]', {
+          messageId: externalId,
+          emoji: p.emoji,
+          err: msgText,
+          data: res.data,
         })
-        if (res.error) throw new Error(res.error.message)
-      } else {
-        const res = await fetch('/api/whapi/send-reaction', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ messageId: externalId, emoji: p.emoji, phone: p.phone }),
-        })
-        if (!res.ok && res.status >= 400 && res.status < 500) return
-        if (!res.ok) throw new Error(`send-reaction ${res.status}`)
+        if (typeof appErr === 'string' && /4\d\d/.test(appErr)) throw new TerminalError(msgText)
+        throw new Error(msgText)
       }
-    } catch (err) {
-      if (err instanceof Error && err.message.startsWith('send-reaction 4')) return
-      throw err
+    } else {
+      const res = await fetch('/api/whapi/send-reaction', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ messageId: externalId, emoji: p.emoji, phone: p.phone }),
+      })
+      if (!res.ok) {
+        const errBody = await res.text().catch(() => '')
+        console.warn('[sync-worker:react:whapi]', {
+          messageId: externalId, emoji: p.emoji, status: res.status, body: errBody.slice(0, 300),
+        })
+        // 4xx = WHAPI rejected (bad id, expired token, etc.). Don't burn retries.
+        if (res.status >= 400 && res.status < 500) {
+          throw new TerminalError(`whapi send-reaction ${res.status}: ${errBody.slice(0, 200)}`)
+        }
+        throw new Error(`whapi send-reaction ${res.status}`)
+      }
     }
   }
 

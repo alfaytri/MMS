@@ -322,17 +322,21 @@ export function useChatMessages(
     const { data: row } = await supabase
       .from('chat_messages').select('reactions, external_id').eq('id', messageId).maybeSingle()
     const existing: { emoji: string; from_type: string }[] = (row?.reactions as unknown as { emoji: string; from_type: string }[]) ?? []
-    const hasIt = existing.some((r) => r.emoji === emoji && r.from_type === 'agent')
-    const updated = hasIt
-      ? existing.filter((r) => !(r.emoji === emoji && r.from_type === 'agent'))
-      : [...existing, { emoji, from_type: 'agent' }]
 
-    if (provider === 'whapi' && row?.external_id && phone) {
-      // Fire-and-forget: send-reaction route handles DB update via external_id
+    // One reaction per sender, per WhatsApp's contract. Same emoji = toggle off;
+    // different emoji = replace the agent's prior reaction (don't stack).
+    const currentAgentEmoji = existing.find((r) => r.from_type === 'agent')?.emoji ?? null
+    const isToggleOff = currentAgentEmoji === emoji
+    const updated = isToggleOff
+      ? existing.filter((r) => r.from_type !== 'agent')
+      : [...existing.filter((r) => r.from_type !== 'agent'), { emoji, from_type: 'agent' }]
+
+    if (provider === 'whapi' && row?.external_id) {
+      const remoteEmoji = isToggleOff ? '' : emoji
       fetch('/api/whapi/send-reaction', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ to: phone, messageId: row.external_id, emoji }),
+        body: JSON.stringify({ messageId: row.external_id, emoji: remoteEmoji }),
       }).catch(() => {/* non-fatal */})
     }
 

@@ -28,6 +28,7 @@ describe('retention.prune', () => {
         attachments: null, reactions: [], delivery_status: 'sent' as const,
         external_id: null, reply_to_external_id: null, sent_by_profile_id: null,
         phone_id: null, deleted_at: null,
+        revoked_at: null,
         created_at: isoDaysAgo(45 + i),
       })),
       ...Array.from({ length: 25 }, (_, i) => ({
@@ -37,6 +38,7 @@ describe('retention.prune', () => {
         attachments: null, reactions: [], delivery_status: 'sent' as const,
         external_id: null, reply_to_external_id: null, sent_by_profile_id: null,
         phone_id: null, deleted_at: null,
+        revoked_at: null,
         created_at: isoDaysAgo(5 + i * 0.01),
       })),
     ]
@@ -64,6 +66,7 @@ describe('retention.prune', () => {
       attachments: null, reactions: [], delivery_status: 'sent' as const,
       external_id: null, reply_to_external_id: null, sent_by_profile_id: null,
       phone_id: null, deleted_at: null,
+      revoked_at: null,
       created_at: isoDaysAgo(60 + i),
     }))
     await getDb('test').messages.bulkPut(rows)

@@ -101,7 +101,7 @@ function ConversationRow({
     >
       <button onClick={onClick} className="flex-1 flex items-start gap-2.5 text-left min-w-0">
         <div className="flex-shrink-0 w-8 h-8 rounded-full bg-primary/10 flex items-center justify-center text-xs font-semibold text-primary mt-0.5">
-          {(c.customer_name ?? c.wati_contact_name ?? c.wati_phone ?? '?')[0]?.toUpperCase()}
+          {(c.customer_name ?? c.wati_phone ?? '?')[0]?.toUpperCase()}
         </div>
         <div className="flex-1 min-w-0">
           {/* Top row: provider tag + name on the left,
@@ -110,7 +110,7 @@ function ConversationRow({
             <div className="flex items-center gap-1 min-w-0">
               <ProviderTag provider={c.provider} />
               <span className={`text-xs font-semibold truncate ${!c.is_opened && c.unread_count > 0 ? 'text-foreground' : 'text-foreground/80'}`}>
-                {c.customer_name ?? c.wati_contact_name ?? c.wati_phone ?? 'Unknown'}
+                {c.customer_name ?? c.wati_phone ?? 'Unknown'}
               </span>
             </div>
             <div className="flex flex-col items-end gap-0.5 flex-shrink-0">

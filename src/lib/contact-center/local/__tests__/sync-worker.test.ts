@@ -191,7 +191,7 @@ describe('SyncWorker drain (text)', () => {
       text: 'hi', agent_name: null, attachments: null, reactions: [],
       delivery_status: 'sending', external_id: null,
       reply_to_external_id: null, sent_by_profile_id: null, phone_id: null,
-      deleted_at: null, created_at: '2026-06-09T12:00:00Z',
+      deleted_at: null, revoked_at: null, created_at: '2026-06-09T12:00:00Z',
       _localOnly: true,
     })
     const pwId = await q.enqueue(getDb('test'), {
@@ -287,7 +287,7 @@ describe('SyncWorker drain (file)', () => {
       attachments: [{ url: 'blob:http://test/abc', type: 'application/pdf', name: 'doc.pdf', status: 'local' }],
       reactions: [], delivery_status: 'sending', external_id: null,
       reply_to_external_id: null, sent_by_profile_id: null, phone_id: null,
-      deleted_at: null, created_at: '2026-06-09T12:00:00Z', _localOnly: true,
+      deleted_at: null, revoked_at: null, created_at: '2026-06-09T12:00:00Z', _localOnly: true,
     })
     const pwId = await q.enqueue(getDb('test'), {
       kind: 'send_file',

@@ -2,50 +2,60 @@ import { type NextRequest, NextResponse } from 'next/server'
 import { requireAuth } from '@/lib/auth/require-admin'
 import { createAdminClient } from '@/lib/supabase/admin'
 
-const WHAPI_BASE = 'https://gate.whapi.cloud'
+const WHAPI_BASE  = 'https://gate.whapi.cloud'
 const WHAPI_TOKEN = process.env.WHAPI_TOKEN ?? ''
 
-function formatWhapiPhone(phone: string): string {
-  return `${phone.replace(/\D/g, '')}@s.whatsapp.net`
-}
-
+/**
+ * POST /api/whapi/send-reaction
+ *
+ * Body:
+ *   messageId  string  — WHAPI message id of the target (chat_messages.external_id)
+ *   emoji      string  — emoji to react with. Pass "" to remove the agent's reaction.
+ */
 export async function POST(req: NextRequest) {
   const gate = await requireAuth()
   if (!gate.ok) return NextResponse.json({ error: gate.message }, { status: gate.status })
 
   let body: any
-  try {
-    body = await req.json()
-  } catch {
+  try { body = await req.json() } catch {
     return NextResponse.json({ error: 'Invalid JSON' }, { status: 400 })
   }
 
-  const { to, messageId, emoji } = body
-  if (!to || !messageId || !emoji) {
-    return NextResponse.json({ error: 'to, messageId, and emoji are required' }, { status: 400 })
+  const messageId: string | undefined = body?.messageId
+  // Emoji is intentionally optional — empty string means "remove reaction".
+  const emoji: string = typeof body?.emoji === 'string' ? body.emoji : ''
+
+  if (!messageId) {
+    return NextResponse.json({ error: 'messageId is required' }, { status: 400 })
+  }
+  if (!WHAPI_TOKEN) {
+    return NextResponse.json({ error: 'WHAPI not configured' }, { status: 500 })
   }
 
-  const whapiPhone = formatWhapiPhone(to)
-
-  // 1. Send reaction via WHAPI
+  // WHAPI: PUT /messages/{MessageID}/reaction  body: { emoji }
+  console.log('[whapi/send-reaction] →', { messageId, emoji: emoji || '(remove)' })
   try {
-    const res = await fetch(`${WHAPI_BASE}/messages/reaction`, {
-      method: 'POST',
+    const res = await fetch(`${WHAPI_BASE}/messages/${encodeURIComponent(messageId)}/reaction`, {
+      method:  'PUT',
       headers: {
-        Authorization: `Bearer ${WHAPI_TOKEN}`,
+        Authorization:  `Bearer ${WHAPI_TOKEN}`,
         'Content-Type': 'application/json',
       },
-      body: JSON.stringify({ to: whapiPhone, messageId, emoji }),
+      body: JSON.stringify({ emoji }),
     })
+    const responseText = await res.text().catch(() => '')
     if (!res.ok) {
-      const errText = await res.text().catch(() => '')
-      return NextResponse.json({ ok: false, error: `WHAPI ${res.status}: ${errText}` }, { status: 500 })
+      console.warn('[whapi/send-reaction] ← WHAPI rejected:', res.status, responseText.slice(0, 500))
+      return NextResponse.json({ ok: false, error: `WHAPI ${res.status}: ${responseText.slice(0, 300)}` }, { status: res.status })
     }
+    console.log('[whapi/send-reaction] ← ok:', responseText.slice(0, 200))
   } catch (err: any) {
-    return NextResponse.json({ ok: false, error: err.message }, { status: 500 })
+    console.error('[whapi/send-reaction] threw:', err)
+    return NextResponse.json({ ok: false, error: err.message ?? 'Network error' }, { status: 500 })
   }
 
-  // 2. Update local reactions JSONB
+  // Mirror the change locally so the chat UI stays in sync even if the realtime
+  // webhook arrives a few seconds later (or never, for outbound reactions).
   const supabase = createAdminClient()
   const { data: targetRow } = await supabase.from('chat_messages')
     .select('id, reactions')
@@ -53,11 +63,19 @@ export async function POST(req: NextRequest) {
     .maybeSingle()
 
   if (targetRow) {
-    const existing: { emoji: string; from_type: string }[] = (targetRow.reactions as unknown as Array<{ emoji: string; from_type: string }> | null) ?? []
-    const hasIt = existing.some((r) => r.emoji === emoji && r.from_type === 'agent')
-    const updated = hasIt
-      ? existing.filter((r) => !(r.emoji === emoji && r.from_type === 'agent'))
-      : [...existing, { emoji, from_type: 'agent' }]
+    const existing: { emoji: string; from_type: string }[] =
+      (targetRow.reactions as unknown as Array<{ emoji: string; from_type: string }> | null) ?? []
+    let updated: { emoji: string; from_type: string }[]
+
+    if (!emoji) {
+      // Remove ALL agent reactions on this message (WhatsApp only allows one per sender).
+      updated = existing.filter((r) => r.from_type !== 'agent')
+    } else {
+      // Replace any existing agent reaction with the new one.
+      const withoutAgent = existing.filter((r) => r.from_type !== 'agent')
+      updated = [...withoutAgent, { emoji, from_type: 'agent' }]
+    }
+
     await supabase.from('chat_messages').update({ reactions: updated }).eq('id', targetRow.id)
   }
 

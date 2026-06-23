@@ -60,19 +60,19 @@ describe('mms-cc-cache Dexie DB', () => {
         message_type: 'text', text: 'three', agent_name: null, attachments: null,
         reactions: [], delivery_status: 'sent', external_id: null,
         reply_to_external_id: null, sent_by_profile_id: null, phone_id: null,
-        deleted_at: null },
+        deleted_at: null, revoked_at: null },
       { id: 'm1', conversation_id: 'c1', created_at: '2026-06-09T12:00:01Z',
         from_type: 'agent', source: 'whatsapp_api', message_kind: 'message',
         message_type: 'text', text: 'one', agent_name: null, attachments: null,
         reactions: [], delivery_status: 'sent', external_id: null,
         reply_to_external_id: null, sent_by_profile_id: null, phone_id: null,
-        deleted_at: null },
+        deleted_at: null, revoked_at: null },
       { id: 'm2', conversation_id: 'c1', created_at: '2026-06-09T12:00:02Z',
         from_type: 'agent', source: 'whatsapp_api', message_kind: 'message',
         message_type: 'text', text: 'two', agent_name: null, attachments: null,
         reactions: [], delivery_status: 'sent', external_id: null,
         reply_to_external_id: null, sent_by_profile_id: null, phone_id: null,
-        deleted_at: null },
+        deleted_at: null, revoked_at: null },
     ])
     const rows = await db.messages
       .where('[conversation_id+created_at]')
@@ -89,7 +89,7 @@ describe('mms-cc-cache Dexie DB', () => {
       from_type: 'agent', source: 'whatsapp_api', message_kind: 'message',
       message_type: 'text', text: 'hi', agent_name: null, attachments: null,
       reactions: [], reply_to_external_id: null, sent_by_profile_id: null,
-      phone_id: null, deleted_at: null, created_at: '2026-06-09T12:00:00Z',
+      phone_id: null, deleted_at: null, revoked_at: null, created_at: '2026-06-09T12:00:00Z',
     })
     const got = await db.messages.where('external_id').equals('wamid.ABC123').first()
     expect(got?.id).toBe('msg-uuid-1')

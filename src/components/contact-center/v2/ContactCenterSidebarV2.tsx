@@ -138,6 +138,7 @@ export function ContactCenterSidebarV2() {
         caption: caption || undefined,
         agentProfileId: myProfile?.id ?? null,
         agentName: myProfile?.full_name ?? null,
+        provider,
       })
       setShowAttach(false)
       toast.success('File queued for send')
@@ -190,6 +191,7 @@ export function ContactCenterSidebarV2() {
       file,
       agentProfileId: myProfile?.id ?? null,
       agentName: myProfile?.full_name ?? null,
+      provider,
     })
   }
 
@@ -269,7 +271,9 @@ export function ContactCenterSidebarV2() {
   // Detail view
   const activeConversation = conversations.find((c) => c.id === activeConversationId)
   const customer = local.customer
-  const displayName = customer?.name ?? activeConversation?.wati_contact_name ?? activePhone ?? 'Unknown'
+  // CRM name first, phone number otherwise — the WhatsApp display name is
+  // skipped intentionally so the sidebar matches the service_customers view.
+  const displayName = customer?.name ?? activePhone ?? 'Unknown'
   const phones = local.phones
   const primaryPhone = phones.find((p) => p.is_primary) ?? phones[0]
   const secondaryPhones = phones.filter((p) => p.id !== primaryPhone?.id)
@@ -512,6 +516,7 @@ export function ContactCenterSidebarV2() {
               text: t,
               agentName: myProfile?.full_name ?? null,
               agentProfileId: myProfile?.id ?? null,
+              provider,
             })
             chatMessages.setInputText('')
           }}

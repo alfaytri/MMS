@@ -36,6 +36,10 @@ export interface LocalMessage {
   sent_by_profile_id: string | null
   phone_id: string | null
   deleted_at: string | null
+  // When the sender deleted this message via WhatsApp ("delete for everyone").
+  // Distinct from deleted_at, which is the purge-admin soft-delete. The chat
+  // UI renders revoked messages as a placeholder; purged messages are hidden.
+  revoked_at: string | null
   created_at: string
   _pendingWriteId?: number | null
   _localOnly?: boolean
@@ -48,6 +52,10 @@ export interface LocalConversation {
   conversation_type: 'customer' | 'team' | null
   wati_phone: string | null
   wati_contact_name: string | null
+  // Denormalised from service_customers.name at lazyFetch time so the chat
+  // list can render the canonical CRM name without an N+1 join per row.
+  // Null when the conversation has no linked service customer.
+  customer_name: string | null
   last_message: string | null
   last_message_at: string | null
   last_message_from_type: 'agent' | 'customer' | null

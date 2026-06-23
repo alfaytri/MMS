@@ -25,14 +25,19 @@ export function useProviderSuggest({ messages, provider, setProvider, composer }
     if (last.source === 'whatsapp_api'   && provider === 'whapi') want = 'wati'
     if (!want) { setSuggested(null); return }
 
+    // Once we've already auto-switched or been dismissed for this message,
+    // never re-trigger — otherwise a manual provider toggle gets fought by
+    // the effect on every re-render.
+    if (dismissedAt === last.id) { setSuggested(null); return }
+
     const isTyping = composer.isFocused || composer.text.trim().length > 0
     if (!isTyping) {
       setProvider(want)
       setSuggested(null)
+      setDismissedAt(last.id)
       return
     }
 
-    if (dismissedAt === last.id) return
     setSuggested(want)
 
     const timer = setTimeout(() => { setSuggested(null); setDismissedAt(last.id) }, 30_000)
