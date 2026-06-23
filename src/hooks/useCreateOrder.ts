@@ -10,7 +10,18 @@ import type { CustomerLookupResult } from '@/hooks/useCustomerLookup'
 import type { PendingAttachment } from '@/components/orders/AttachmentsUpload'
 import type { Json } from '@/types/database.types'
 
-const today = new Date().toISOString().split('T')[0]
+// Use LOCAL date components, not toISOString() — the latter returns UTC and
+// flips to "yesterday" for any local time between 00:00 and the UTC offset
+// (e.g. 00:00–03:00 in Qatar / UTC+3), making the form default to yesterday
+// and the date picker treat past dates as today.
+function todayLocal(): string {
+  const d = new Date()
+  const yyyy = d.getFullYear()
+  const mm   = String(d.getMonth() + 1).padStart(2, '0')
+  const dd   = String(d.getDate()).padStart(2, '0')
+  return `${yyyy}-${mm}-${dd}`
+}
+const today = todayLocal()
 
 const INITIAL_DRAFT: OrderDraft = {
   orderId: '',

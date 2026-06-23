@@ -7,7 +7,7 @@ import { Dialog, DialogContent } from '@/components/ui/dialog'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { Button } from '@/components/ui/button'
 import { format } from 'date-fns'
-import { CheckCircle, RotateCcw, XCircle, Pencil, ExternalLink, MessageSquare, Truck, FileText } from 'lucide-react'
+import { CheckCircle, RotateCcw, XCircle, Pencil, ExternalLink, MessageSquare, Truck, FileText, FileDown } from 'lucide-react'
 import { useOrderDetail } from '@/hooks/useOrderDetail'
 import { useOrderActions, canTransition } from '@/hooks/useOrderActions'
 import { OrderCancelDialog } from './OrderCancelDialog'
@@ -45,9 +45,36 @@ interface Props {
 
 export function OrderDetailDialog({ orderId, open, onOpenChange }: Props) {
   const [cancelOpen, setCancelOpen] = useState(false)
+  const [pdfPending, setPdfPending] = useState(false)
   const { data: order, isLoading } = useOrderDetail(orderId)
   const { confirmManually, rollback, cancel } = useOrderActions(orderId)
   const router = useRouter()
+
+  async function openConfirmationPdf() {
+    if (!orderId) return
+    setPdfPending(true)
+    const toastId = toast.loading('Generating confirmation PDF…')
+    try {
+      const supabase = createClient()
+      const { data: { session } } = await supabase.auth.getSession()
+      if (!session?.access_token) throw new Error('Not authenticated')
+      const res = await fetch(`/api/orders/${orderId}/generate-confirmation-pdf?force=true`, {
+        method:  'POST',
+        headers: { Authorization: `Bearer ${session.access_token}` },
+      })
+      const body = await res.json().catch(() => ({}))
+      if (!res.ok || !body.url) {
+        throw new Error(body?.error ?? `HTTP ${res.status}`)
+      }
+      window.open(body.url, '_blank', 'noopener,noreferrer')
+      toast.success(body.regenerated ? 'PDF generated' : 'PDF opened (cached)', { id: toastId })
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : String(err)
+      toast.error(`PDF failed: ${msg}`, { id: toastId })
+    } finally {
+      setPdfPending(false)
+    }
+  }
 
   const { data: followUps = [] } = useQuery<Array<{
     id: string; order_id: string; scheduled_date: string | null; status: string | null; total_amount: number | null
@@ -178,6 +205,15 @@ export function OrderDetailDialog({ orderId, open, onOpenChange }: Props) {
                   </div>
                 )}
                 <div className="flex flex-wrap gap-1.5">
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    className="gap-1.5 h-8 text-xs"
+                    onClick={openConfirmationPdf}
+                    disabled={pdfPending}
+                  >
+                    <FileDown className="h-3.5 w-3.5" /> Confirmation PDF
+                  </Button>
                   {canTransition(order.status as OrderStatus, 'confirmed') && (
                     <Button
                       size="sm"

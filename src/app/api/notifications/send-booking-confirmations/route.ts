@@ -15,9 +15,19 @@
  *
  * Template: normal_booking_conformation_utility
  * Parameters: booking_number, date (Arabic), time (Arabic), address_label, address_link
+ *
+ * Chat-thread order: the chat_messages row (with the PDF attachment) is INSERTED
+ * BEFORE the WATI call so the inbound `templateMessageSent` webhook — which
+ * fires ~50ms later — finds the row via cc_dedup_insert_message's text-based
+ * Strategy-2 dedup and updates external_id in place instead of inserting a
+ * second row that lacks attachments.
  */
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@supabase/supabase-js'
+import { generateOrderConfirmationPdf } from '@/lib/orders/generate-confirmation-pdf'
+
+// React-PDF (called via generateOrderConfirmationPdf) needs Node APIs (fs).
+export const runtime = 'nodejs'
 
 // This route forwards the actual WATI call to the api-wati Edge Function,
 // because direct WATI calls from Node.js are silently filtered. WATI creds
@@ -26,7 +36,10 @@ const SUPA_URL    = process.env.NEXT_PUBLIC_SUPABASE_URL!
 const SUPA_KEY    = process.env.SUPABASE_SERVICE_ROLE_KEY!
 const SUPA_ANON   = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
 const CRON_SECRET = process.env.CRON_SECRET ?? ''
-const PDF_URL     = process.env.BOOKING_CONFIRMATION_PDF_URL ?? ''
+
+// Fallback if per-order PDF generation fails — keeps the WhatsApp send going
+// with the static legacy PDF rather than aborting. Optional.
+const FALLBACK_PDF_URL = process.env.BOOKING_CONFIRMATION_PDF_URL ?? ''
 
 const TEMPLATE_NAME = 'normal_booking_conformation_utility'
 
@@ -104,6 +117,7 @@ export async function POST(req: NextRequest) {
       address,
       address_id,
       service_customer_id,
+      confirmation_pdf_url,
       order_team_assignments ( time_slot, scheduled_date ),
       service_customer_addresses ( label, waze_link )
     `)
@@ -181,7 +195,25 @@ export async function POST(req: NextRequest) {
         .sort((a, b) => a.time_slot.localeCompare(b.time_slot))
       const timeSlot = sorted[0]?.time_slot ?? null
 
-      // ── 4. Build template parameters ─────────────────────────────────────
+      // ── 4. Ensure per-order PDF exists ───────────────────────────────────
+      // Either reuse the cached URL on the order row, or render-and-upload
+      // now. We never block the WhatsApp send entirely on PDF failure — if the
+      // generator throws, fall back to the legacy static URL so the customer
+      // still receives the confirmation message (the PDF is non-blocking).
+      let pdfUrl: string = order.confirmation_pdf_url ?? ''
+      if (!pdfUrl) {
+        try {
+          const pdfResult = await generateOrderConfirmationPdf(order.id, supabase)
+          pdfUrl = pdfResult.url
+        } catch (pdfErr) {
+          const msg   = pdfErr instanceof Error ? pdfErr.message : String(pdfErr)
+          const stack = pdfErr instanceof Error ? pdfErr.stack   : ''
+          console.warn('[booking-confirm] PDF generation failed for', orderId, msg, '\n', stack)
+          pdfUrl = FALLBACK_PDF_URL
+        }
+      }
+
+      // ── 5. Build template parameters ─────────────────────────────────────
       // Use NAMED params matching the template's variable names — this is
       // the format the contact centre uses successfully via the same Edge
       // Function. English-formatted values match the approved sample structure.
@@ -193,11 +225,84 @@ export async function POST(req: NextRequest) {
         { name: 'address_label',  value: safe(addressLabel) },
         { name: 'address_link',   value: safe(wazeLink) },
       ]
-      const parameters = PDF_URL
-        ? [{ name: 'pdflink', value: PDF_URL }, ...bodyParams]
+      const parameters = pdfUrl
+        ? [{ name: 'pdflink', value: pdfUrl }, ...bodyParams]
         : bodyParams
 
-      // ── 5. Send via the api-wati Edge Function ───────────────────────────
+      // ── 6. Build the Arabic message + insert chat_messages BEFORE calling WATI ──
+      // The WATI webhook fires `templateMessageSent` ~50ms after the send and
+      // dedups by text via `cc_dedup_insert_message`. If we insert AFTER the
+      // WATI call, the webhook arrives first and inserts a row WITHOUT our
+      // PDF attachment (the webhook never carries our Storage URL). Pushing
+      // first matches the local sync worker's pattern in
+      // src/lib/contact-center/local/sync-worker.ts → sendTemplate.
+      const msgText = [
+        `تم تأكيد موعد الخدمة رقم ${orderId}`,
+        '',
+        `بتاريخ ${formatDate(order.scheduled_date)}`,
+        timeSlot ? `في الساعة ${formatTime(timeSlot)}` : '',
+        '',
+        `العنوان: ${addressLabel}`,
+        wazeLink,
+        '',
+        'يرجى مراجعة تفاصيل الخدمات في المستند المرفق.',
+      ].filter(Boolean).join('\n').trim()
+
+      const phone = `+${watiPhone}`
+
+      const { data: existing } = await supabase
+        .from('chat_conversations')
+        .select('id')
+        .eq('wati_phone', phone)
+        .maybeSingle()
+
+      let conversationId: string | null = existing?.id ?? null
+
+      if (!conversationId) {
+        const { data: created } = await supabase
+          .from('chat_conversations')
+          .insert({ wati_phone: phone, last_message: msgText, last_message_at: new Date().toISOString(), unread_count: 0 })
+          .select('id')
+          .single()
+        conversationId = created?.id ?? null
+      } else {
+        await supabase
+          .from('chat_conversations')
+          .update({ last_message: msgText, last_message_at: new Date().toISOString() })
+          .eq('id', conversationId)
+      }
+
+      // Insert chat row with the PDF attachment + 'sending' status. After WATI
+      // returns we'll update external_id + delivery_status. The dedup RPC's
+      // Strategy-2 branch (agent + delivery_status IN ('sending','sent') +
+      // text match) lets the inbound webhook update this same row without
+      // touching attachments.
+      const attachmentName = `${orderId.replace(/[^A-Za-z0-9._-]/g, '_')}.pdf`
+      const attachmentsForChat = pdfUrl
+        ? [{ url: pdfUrl, type: 'application/pdf', name: attachmentName }]
+        : []
+      const placeholderExternalId = `booking_${orderId.replace(/[^A-Za-z0-9._-]/g, '_')}_${Date.now()}`
+
+      let insertedMessageId: string | null = null
+      if (conversationId) {
+        const { data: insertedRow } = await supabase
+          .from('chat_messages')
+          .insert({
+            conversation_id: conversationId,
+            from_type:       'agent',
+            source:          'whatsapp_api',
+            text:            msgText,
+            agent_name:      'System',
+            attachments:     attachmentsForChat.length > 0 ? attachmentsForChat : null,
+            external_id:     placeholderExternalId,
+            delivery_status: 'sending',
+          })
+          .select('id')
+          .maybeSingle()
+        insertedMessageId = insertedRow?.id ?? null
+      }
+
+      // ── 7. Send via the api-wati Edge Function ───────────────────────────
       // Match the contact centre's exact invocation: same client, same
       // headers, same payload shape, same phone format (with + prefix).
       let watiData: Record<string, unknown> | null = null
@@ -256,63 +361,24 @@ export async function POST(req: NextRequest) {
         console.log('[booking-confirm] wati send ok', orderId, 'msgId:', watiMsgId, 'body:', JSON.stringify(watiData).slice(0, 300))
       }
 
-      // ── 6. Save to chat_messages for Contact Centre visibility ────────────
-      const msgText = [
-        `تم تأكيد موعد الخدمة رقم ${orderId}`,
-        '',
-        `بتاريخ ${formatDate(order.scheduled_date)}`,
-        timeSlot ? `في الساعة ${formatTime(timeSlot)}` : '',
-        '',
-        `العنوان: ${addressLabel}`,
-        wazeLink,
-        '',
-        'يرجى مراجعة تفاصيل الخدمات في المستند المرفق.',
-      ].filter(Boolean).join('\n').trim()
-
-      const phone = `+${watiPhone}`
-
-      const { data: existing } = await supabase
-        .from('chat_conversations')
-        .select('id')
-        .eq('wati_phone', phone)
-        .maybeSingle()
-
-      let conversationId: string | null = existing?.id ?? null
-
-      if (!conversationId) {
-        const { data: created } = await supabase
-          .from('chat_conversations')
-          .insert({ wati_phone: phone, last_message: msgText, last_message_at: new Date().toISOString(), unread_count: 0 })
-          .select('id')
-          .single()
-        conversationId = created?.id ?? null
-      } else {
-        await supabase
-          .from('chat_conversations')
-          .update({ last_message: msgText, last_message_at: new Date().toISOString() })
-          .eq('id', conversationId)
-      }
-
-      if (conversationId) {
-        const attachments = PDF_URL
-          ? [{ url: PDF_URL, type: 'application/pdf', name: 'booking-confirmation.pdf' }]
-          : []
-
+      // ── 8. Backfill chat row with WATI id + final delivery status ─────────
+      // The webhook may have already arrived between the INSERT above and now,
+      // matched our row via Strategy 2 text dedup, and stamped its own
+      // external_id/wamid onto it. Only overwrite the external_id while it
+      // still equals our placeholder so we never clobber a real wamid.
+      if (insertedMessageId) {
+        const finalExternalId = watiMsgId ? `wati_${watiMsgId}` : null
         await supabase
           .from('chat_messages')
-          .insert({
-            conversation_id: conversationId,
-            from_type:       'agent',
-            source:          'whatsapp_api',
-            text:            msgText,
-            agent_name:      'System',
-            attachments:     attachments.length > 0 ? attachments : null,
-            external_id:     watiMsgId ? `wati_${watiMsgId}` : `booking_${orderId}_${Date.now()}`,
+          .update({
             delivery_status: watiOk ? 'sent' : 'failed',
+            ...(finalExternalId ? { external_id: finalExternalId } : {}),
           })
+          .eq('id', insertedMessageId)
+          .eq('external_id', placeholderExternalId)
       }
 
-      // ── 7. Mark order confirmation sent + auto-confirm if WATI succeeded ───
+      // ── 9. Mark order confirmation sent + auto-confirm if WATI succeeded ───
       const now = new Date().toISOString()
       await supabase
         .from('orders')

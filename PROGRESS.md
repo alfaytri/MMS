@@ -233,9 +233,11 @@ Purchase & Sales▾:
 
 ## 🔄 In Progress
 
-🚀 Starting: TBD — WHAPI outbound text/media + provider source separation + WATI parallel-webhook dedup + conversation-list CRM-name preference all complete on `feature/upgrade-whapi`.
+🚀 Starting: **Order Confirmation PDF Plan Task 1: DB migration — `orders.confirmation_pdf_url` + Storage bucket `booking-confirmations`**
 
-Previously: WHAPI media mirror to Supabase Storage (zero re-fetches per attachment after first hit), reactions fixed across both providers, and message-revocation column + UI placeholder with WHAPI handler.
+Plan: 5-step build to generate a branded per-order confirmation PDF, upload it to Supabase Storage, save the URL on the order row, and pass that URL as the `pdflink` template parameter in `send-booking-confirmations` so the WhatsApp confirmation message ships with a real per-order PDF. HTML preview already approved at `public/brand/order-confirmation-preview.html`.
+
+Previously: WHAPI outbound text/media + provider source separation + WATI parallel-webhook dedup + conversation-list CRM-name preference all complete on `feature/upgrade-whapi`.
 
 ## 🔋 Quota Watch
 

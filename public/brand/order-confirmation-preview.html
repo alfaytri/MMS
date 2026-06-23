@@ -1,0 +1,373 @@
+<!DOCTYPE html>
+<html lang="en" dir="ltr">
+<head>
+<meta charset="UTF-8">
+<title>Al Faytri — Order Confirmation Preview</title>
+<style>
+  @page { size: A4; margin: 0; }
+
+  @font-face { font-family: 'InfieldRound'; src: url('Font/Infield/Infield-Rounded.ttf') format('truetype'); }
+  @font-face { font-family: 'InfieldBlock'; src: url('Font/Infield/Infield-Block.ttf')   format('truetype'); }
+  @font-face { font-family: 'Noor'; src: url('Font/Noor/Noor Regular.ttf') format('truetype'); font-weight: 400; }
+  @font-face { font-family: 'Noor'; src: url('Font/Noor/Noor Bold.ttf')    format('truetype'); font-weight: 700; }
+
+  :root {
+    --orange:    #ED7C2C;
+    --dark:      #2f2f33;
+    --grey-bg:   #efefef;
+    --grey-rule: #d0d0d0;
+    --link-blue: #1d63d8;
+    --text:      #111;
+    --muted:     #6b7280;
+  }
+
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  html, body {
+    background: #f3f4f6;
+    color: var(--text);
+    font-family: 'InfieldRound', sans-serif;
+    -webkit-print-color-adjust: exact;
+    print-color-adjust: exact;
+  }
+  body { padding: 24px 0; display: flex; justify-content: center; }
+  .page {
+    width: 210mm;
+    min-height: 297mm;
+    background: #fff;
+    box-shadow: 0 4px 20px rgba(0,0,0,0.12);
+    padding: 14mm 0 10mm;
+  }
+
+  /* ─────────── Top: logo + addresses ─────────── */
+  .top-row {
+    display: grid;
+    grid-template-columns: 1fr auto 1fr;
+    align-items: start;
+    column-gap: 0;
+    padding: 0 14mm;
+    margin-bottom: 6mm;
+  }
+  .top-row .logo {
+    width: 130px;
+    height: auto;
+    display: block;
+    align-self: center;
+    margin: 0 8mm;
+  }
+  .addr-en {
+    font-family: 'InfieldRound', sans-serif;
+    font-size: 16.5px;
+    line-height: 1.7;
+    color: #111;
+    text-align: left;
+    padding-right: 0;
+  }
+  .addr-en .brand {
+    font-family: 'InfieldBlock', sans-serif;
+    font-size: 27px;
+    letter-spacing: 0.5px;
+    margin-bottom: 6px;
+    line-height: 1;
+  }
+  .addr-en .tagline {
+    font-family: 'InfieldRound', sans-serif;
+    font-weight: 400;
+    font-size: 17px;
+    margin-bottom: 8px;
+    letter-spacing: 0.1px;
+    line-height: 1.35;
+  }
+  .addr-ar {
+    font-family: 'Noor', sans-serif;
+    direction: rtl;
+    text-align: right;
+    font-size: 17px;
+    line-height: 1.7;
+    color: #111;
+    font-weight: 400;
+    padding-left: 0;
+  }
+  .addr-ar .brand {
+    font-weight: 700;
+    font-size: 29px;
+    margin-bottom: 6px;
+    line-height: 1;
+  }
+  .addr-ar .tagline {
+    font-weight: 400;
+    font-size: 18px;
+    margin-bottom: 8px;
+    line-height: 1.35;
+  }
+
+  /* ─────────── Mid bar: contact + dark strip + ribbon ─────────── */
+  .midbar { position: relative; margin-top: 4mm; }
+  .contact-strip {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 6mm 14mm 6mm;
+  }
+  .contact-strip .left, .contact-strip .right {
+    display: flex;
+    gap: 10mm;
+    align-items: center;
+  }
+  .contact-strip a {
+    color: var(--link-blue);
+    text-decoration: none;
+    font-family: 'InfieldRound', sans-serif;
+    font-size: 11px;
+  }
+  .dark-strip { background: var(--dark); height: 9mm; }
+  .ribbon {
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    background: var(--orange);
+    color: #fff;
+    padding: 3.5mm 8mm 3mm;
+    text-align: center;
+    line-height: 1.2;
+    width: 58mm;
+  }
+  .ribbon .ar-title { font-family: 'Noor', sans-serif; font-weight: 700; font-size: 15px; margin-bottom: 0.8mm; }
+  .ribbon .en-title { font-family: 'InfieldBlock', sans-serif; font-size: 11px; letter-spacing: 0.4px; }
+  .ribbon .order-no { font-family: 'InfieldRound', sans-serif; font-size: 9px; margin-top: 1mm; letter-spacing: 0.3px; opacity: 0.95; }
+
+  /* ─────────── Customer details ─────────── */
+  .meta {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 0 18mm;
+    padding: 7mm 14mm 4mm;
+  }
+  .meta-block {
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-start;
+    border-bottom: 0.7px solid var(--grey-rule);
+    padding: 3.5mm 0 3.5mm;
+  }
+  .meta-value { font-family: 'InfieldRound', sans-serif; font-size: 12px; color: var(--text); }
+  .meta-label { text-align: right; }
+  .meta-label .ar { font-family: 'Noor', sans-serif; font-weight: 700; font-size: 13px; }
+  .meta-label .en { font-family: 'InfieldRound', sans-serif; font-size: 9.5px; color: var(--muted); margin-top: 1px; }
+
+  /* ─────────── Services table ─────────── */
+  .services-wrap { padding: 4mm 14mm 0; }
+  table.services {
+    width: 100%;
+    border-collapse: collapse;
+    direction: rtl;
+    border: 0.7px solid var(--text);
+  }
+  table.services th {
+    background: var(--orange);
+    color: #fff;
+    padding: 3.5mm 3mm;
+    text-align: center;
+    vertical-align: middle;
+    font-family: 'Noor', sans-serif;
+    font-weight: 700;
+    font-size: 13.5px;
+    border-right: 0.7px solid var(--text);
+  }
+  table.services th:first-child { border-right: 0; }
+  table.services th .en {
+    display: block;
+    font-family: 'InfieldRound', sans-serif;
+    font-size: 9.5px;
+    margin-top: 1px;
+    opacity: 0.95;
+  }
+  table.services td {
+    border-top: 0.7px solid var(--text);
+    padding: 4mm 3mm;
+    vertical-align: middle;
+  }
+  table.services td.cell-num { text-align: center; font-family: 'InfieldRound', sans-serif; font-size: 11px; }
+  table.services td.cell-service {
+    text-align: right;
+    font-family: 'Noor', sans-serif;
+    font-weight: 400;
+    font-size: 11.5px;
+    line-height: 1.55;
+  }
+
+  /* ─────────── Totals (horizontal 3-column row) ─────────── */
+  .totals-wrap { padding: 0 14mm; }
+  table.totals {
+    width: 100%;
+    border-collapse: collapse;
+    direction: rtl;
+    border: 0.7px solid var(--text);
+    border-top: 0;
+  }
+  table.totals th {
+    background: var(--orange);
+    color: #fff;
+    padding: 3.5mm 3mm;
+    text-align: center;
+    vertical-align: middle;
+    font-family: 'Noor', sans-serif;
+    font-weight: 700;
+    font-size: 12.5px;
+    border-right: 0.7px solid var(--text);
+    width: 33.33%;
+  }
+  table.totals th:first-child { border-right: 0; }
+  table.totals th .en {
+    display: block;
+    font-family: 'InfieldRound', sans-serif;
+    font-size: 9px;
+    margin-top: 1px;
+    opacity: 0.95;
+  }
+  table.totals td {
+    padding: 4mm 3mm;
+    text-align: center;
+    vertical-align: middle;
+    background: var(--grey-bg);
+    font-family: 'InfieldBlock', sans-serif;
+    font-size: 13px;
+    border-right: 0.7px solid var(--text);
+    border-top: 0.7px solid var(--text);
+  }
+  table.totals td:first-child { border-right: 0; }
+
+  /* ─────────── Footer ─────────── */
+  .footer { padding-top: 6mm; text-align: center; }
+  .footer img { height: 55px; width: auto; }
+
+  @media print {
+    body { background: #fff; padding: 0; }
+    .page { box-shadow: none; min-height: auto; }
+  }
+</style>
+</head>
+<body>
+
+<div class="page">
+
+  <!-- ─────────── Top: logo + addresses ─────────── -->
+  <div class="top-row">
+    <div class="addr-en">
+      <div class="brand">ALFAYTRI</div>
+      <div class="tagline">For trading and building maintenance W.L.L</div>
+      <div>Office 14, Building 54, Street 185, Zone 55 Doha,</div>
+      <div>Qatar | P.O. Box 45069</div>
+    </div>
+    <img class="logo" src="Company logo.png" alt="Al Faytri">
+    <div class="addr-ar">
+      <div class="brand">الفيتري</div>
+      <div class="tagline">للتجارة وصيانة المباني ذ.م.م</div>
+      <div>مكتب 14 مبنى 54 شارع 185 منطقة 55 الدوحة قطر</div>
+      <div>ص.ب 45069</div>
+    </div>
+  </div>
+
+  <!-- ─────────── Mid bar ─────────── -->
+  <div class="midbar">
+    <div class="contact-strip">
+      <div class="left">
+        <a href="https://instagram.com/alfaytri">Instagram</a>
+        <a href="https://www.alfaytri.com">www.alfaytri.com</a>
+      </div>
+      <div class="right">
+        <a href="mailto:info@alfaytri.com">info@alfaytri.com</a>
+        <a href="tel:+97444106900">+97444106900</a>
+      </div>
+    </div>
+    <div class="dark-strip"></div>
+    <div class="ribbon">
+      <div class="ar-title">الخدمات المحجوزة</div>
+      <div class="en-title">Requested Service</div>
+      <div class="order-no">N/2026/01/00088</div>
+    </div>
+  </div>
+
+  <!-- ─────────── Customer details ─────────── -->
+  <div class="meta">
+    <div class="meta-block">
+      <div class="meta-value">13 Jan 2026</div>
+      <div class="meta-label">
+        <div class="ar">تاريخ الإصدار</div>
+        <div class="en">(Issuing Date)</div>
+      </div>
+    </div>
+    <div class="meta-block">
+      <div class="meta-value">13 Jan 2026</div>
+      <div class="meta-label">
+        <div class="ar">تاريخ موعد الخدمة</div>
+        <div class="en">(Service Schedule Date)</div>
+      </div>
+    </div>
+    <div class="meta-block">
+      <div class="meta-value">+974 7219 5504</div>
+      <div class="meta-label">
+        <div class="ar">هاتف الزبون</div>
+        <div class="en">(Customer Phone)</div>
+      </div>
+    </div>
+    <div class="meta-block">
+      <div class="meta-value">IT Mohamed Ismail</div>
+      <div class="meta-label">
+        <div class="ar">اسم الزبون</div>
+        <div class="en">(Customer Name)</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ─────────── Services table ─────────── -->
+  <div class="services-wrap">
+    <table class="services">
+      <thead>
+        <tr>
+          <th style="width:18%">إجمالي الخدمات<span class="en">(Service Subtotal)</span></th>
+          <th style="width:18%">قيمة الوحدة<span class="en">(Unit Price)</span></th>
+          <th style="width:12%">الكمية<span class="en">(QTY)</span></th>
+          <th style="width:52%">الخدمات المحجوزة<span class="en">(Requested Service)</span></th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td class="cell-num">QAR 100.00</td>
+          <td class="cell-num">QAR 100.00</td>
+          <td class="cell-num">1</td>
+          <td class="cell-service">Air Conditioning / Split / Cleaning [Indoor: Water — Outdoor: Water]<br>تكييف/سبلت/تنظيف (الوحدة الداخلية: بالماء - الوحدة الخارجية: بالماء)</td>
+        </tr>
+      </tbody>
+    </table>
+  </div>
+
+  <!-- ─────────── Totals: horizontal 3-column row ─────────── -->
+  <div class="totals-wrap">
+    <table class="totals">
+      <thead>
+        <tr>
+          <th>قيمة الخدمات المحجوزة بعد الخصم<span class="en">(Total After Discount)</span></th>
+          <th>قيمة الخصم<span class="en">(Discount)</span></th>
+          <th>قيمة الخدمات<span class="en">(Services Subtotal)</span></th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td>QAR 100.00</td>
+          <td>QAR 0.00</td>
+          <td>QAR 100.00</td>
+        </tr>
+      </tbody>
+    </table>
+  </div>
+
+  <!-- ─────────── Footer ─────────── -->
+  <div class="footer">
+    <img src="Footer.png" alt="أهلها — Bringing comfort to your space.">
+  </div>
+
+</div>
+
+</body>
+</html>

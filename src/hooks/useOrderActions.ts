@@ -59,7 +59,12 @@ export function useOrderActions(orderId: string | null) {
       if (!orderId) throw new Error('orderId is required')
       const { error } = await supabase
         .from('orders')
-        .update({ status: 'scheduled', confirmation_status: 'not_sent', confirmation_sent_at: null })
+        .update({
+          status:               'scheduled',
+          confirmation_status:  'not_sent',
+          confirmation_sent_at: null,
+          confirmation_pdf_url: null,  // re-issue PDF with fresh issuing date on next send
+        })
         .eq('id', orderId!)
       if (error) throw error
       await logAction('rollback', 'Confirmation rolled back to scheduled')
@@ -97,6 +102,7 @@ export function useOrderActions(orderId: string | null) {
           arrival_phone:        payload.arrivalPhone || null,
           confirmation_sent_at: null,
           confirmation_status:  'not_sent',
+          confirmation_pdf_url: null,  // scheduled_date changed → PDF must be regenerated
         })
         .eq('id', orderId)
       if (orderErr) throw orderErr
