@@ -3,7 +3,7 @@ import { createClient } from '@/lib/supabase/client'
 import { findApplicableTiers, validateRoles, buildApprovalSteps, getNotificationRecipients } from '@/lib/approvalChainResolution'
 import type { ApprovalChainTier, ApprovalRoleAssignmentRow } from '@/lib/approvalChainResolution'
 import { logPOActivity, resolveMyName } from '@/lib/poActivityLogger'
-import { savePoSnapshot, resolveLineItemNames } from '@/lib/poVersionHelper'
+import { savePoSnapshot, stageOf, resolveLineItemNames } from '@/lib/poVersionHelper'
 import { queryKeys } from '@/lib/queryKeys'
 
 // ─── Types ────────────────────────────────────────────────────────────────────
@@ -176,6 +176,7 @@ export type PoVersion = {
   id: string
   po_id: string
   version_number: number
+  stage: 'rfq' | 'draft' | 'po'
   submitted_at: string
   submitted_by: string | null
   supplier_id: string
@@ -406,6 +407,10 @@ export function useCreatePO() {
         performerName,
       })
 
+      // Snapshot the just-created PO.
+      // stageOf maps: rfq→'rfq', draft→'draft', confirmed→'po'.
+      await savePoSnapshot(supabase, po.id, stageOf(payload.po_type ?? 'draft'))
+
       return po as PurchaseOrder
     },
     onSuccess: () => {
@@ -465,6 +470,16 @@ export function useUpdatePO() {
         }
       }
 
+      // Snapshot this revision. Each save creates a new version of the current
+      // stage (rfq → rfq-v(n+1), draft → draft-v(n+1)). Lookup is cheap (PK).
+      const { data: poForStage } = await supabase
+        .from('purchase_orders')
+        .select('po_type')
+        .eq('id', id)
+        .single()
+      if (poForStage?.po_type) {
+        await savePoSnapshot(supabase, id, stageOf(poForStage.po_type as POType))
+      }
     },
     onSuccess: (_data, variables) => {
       queryClient.invalidateQueries({ queryKey: queryKeys.purchaseOrders.all })
@@ -563,8 +578,9 @@ export function useSubmitPOForApproval() {
         .from('purchase_orders').update({ status: 'pending_approval', po_type: 'confirmed' }).eq('id', id)
       if (poErr) throw poErr
 
-      // Snapshot the PO state at submission time
-      await savePoSnapshot(supabase, id, 'submitted')
+      // Submission is the moment a PO is "born" — this becomes po-v1
+      // (or po-v(n+1) on resubmit after a rejection).
+      await savePoSnapshot(supabase, id, 'po')
 
       const submitPerformer = await resolveMyName()
       await logPOActivity({

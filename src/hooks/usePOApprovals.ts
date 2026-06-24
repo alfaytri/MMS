@@ -3,7 +3,6 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { createClient } from '@/lib/supabase/client'
 import type { PurchaseOrder } from './usePurchaseOrders'
 import { logPOActivity, ROLE_LABELS } from '@/lib/poActivityLogger'
-import { savePoSnapshot } from '@/lib/poVersionHelper'
 import { queryKeys } from '@/lib/queryKeys'
 
 async function getMyIdentity() {
@@ -160,7 +159,6 @@ export function useApproveStep() {
       const { data: poStatus } = await supabase
         .from('purchase_orders').select('status, created_by, po_number').eq('id', poId).single()
       if (poStatus?.status === 'approved' && poStatus.created_by) {
-        await savePoSnapshot(supabase, poId, 'approved')
         await supabase.from('notifications').insert({
           profile_id: poStatus.created_by,
           type: 'po_approved',
@@ -243,7 +241,6 @@ export function useForceApproveStep() {
       const { data: forcedPoStatus } = await supabase
         .from('purchase_orders').select('status').eq('id', poId).single()
       if (forcedPoStatus?.status === 'approved') {
-        await savePoSnapshot(supabase, poId, 'approved')
         await logPOActivity({ poId, action: 'PO Fully Approved (Force)', performerName: forcePerformer, severity: 'critical' })
       }
 
@@ -354,7 +351,6 @@ export function useForceApproveAllSteps() {
       const { data: poStatus } = await supabase
         .from('purchase_orders').select('status').eq('id', poId).single()
       if (poStatus?.status === 'approved') {
-        await savePoSnapshot(supabase, poId, 'approved')
         await logPOActivity({
           poId,
           action: 'PO Fully Approved (Force)',

@@ -1,5 +1,17 @@
 import { createClient } from '@/lib/supabase/client'
-import type { POLineItemDraft } from '@/hooks/usePurchaseOrders'
+import type { POLineItemDraft, POType } from '@/hooks/usePurchaseOrders'
+
+export type Stage = 'rfq' | 'draft' | 'po'
+
+/**
+ * Map a po_type to the corresponding snapshot stage.
+ * 'rfq' / 'draft' map directly; 'confirmed' (submitted-or-later) → 'po'.
+ */
+export function stageOf(poType: POType): Stage {
+  if (poType === 'rfq') return 'rfq'
+  if (poType === 'draft') return 'draft'
+  return 'po'
+}
 
 /**
  * For line items with an empty item_name, resolve from the inventory via brand_variant_id.
@@ -30,13 +42,13 @@ export async function resolveLineItemNames(
 
 /**
  * Saves a read-only snapshot of the PO's current state into po_versions.
- * label: 'submitted' | 'approved' | 'manual'
+ * Caller passes the stage; we compute the next per-stage version_number.
  * Non-critical — silently swallows errors so it never blocks the main flow.
  */
 export async function savePoSnapshot(
   supabase: ReturnType<typeof createClient>,
   poId: string,
-  label: string,
+  stage: Stage,
 ) {
   try {
     const { data: po } = await supabase
@@ -50,6 +62,7 @@ export async function savePoSnapshot(
       .from('po_versions')
       .select('version_number')
       .eq('po_id', poId)
+      .eq('stage', stage)
       .order('version_number', { ascending: false })
       .limit(1)
       .maybeSingle()
@@ -58,7 +71,8 @@ export async function savePoSnapshot(
     await supabase.from('po_versions').insert({
       po_id: poId,
       version_number: nextVersion,
-      snapshot_label: label,
+      stage,
+      snapshot_label: stage,
       supplier_id: po.supplier_id ?? po.supplier_name,
       supplier_name: po.supplier_name,
       currency: po.currency,
