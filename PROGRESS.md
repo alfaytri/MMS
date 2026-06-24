@@ -233,7 +233,9 @@ Purchase & Sales▾:
 
 ## 🔄 In Progress
 
-🚀 Next: **Supabase Perf Cleanup Wave 3: consolidate 9 overlapping permissive policies + switch `warehouse_stock_view` to `SECURITY INVOKER`** — gated on Wave 2 deploy confirmation.
+🚀 Starting: **PO Approvals — one-click Force Approve for owners** — replace the multi-step Force Approve dialog with an inline AlertDialog confirm popover, drop the mandatory comment, and rewrite the activity log to one `Force Approved: <role>` entry per step. Spec: `docs/superpowers/specs/2026-06-24-purchase-one-click-force-approve-design.md`.
+
+Next: **Supabase Perf Cleanup Wave 3: consolidate 9 overlapping permissive policies + switch `warehouse_stock_view` to `SECURITY INVOKER`** — gated on Wave 2 deploy confirmation.
 
 Plan: 5-step build to generate a branded per-order confirmation PDF, upload it to Supabase Storage, save the URL on the order row, and pass that URL as the `pdflink` template parameter in `send-booking-confirmations` so the WhatsApp confirmation message ships with a real per-order PDF. HTML preview already approved at `public/brand/order-confirmation-preview.html`.
 
