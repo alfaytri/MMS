@@ -64,7 +64,7 @@ export default function QuotationsPage() {
   }
 
   const BADGES = [
-    { label: 'All Quotations', count: counts?.all,   onClick: () => { setSearch(EMPTY); setFilter({}) } },
+    { label: 'All Order Quotations', count: counts?.all,   onClick: () => { setSearch(EMPTY); setFilter({}) } },
     { label: 'Drafts',         count: counts?.draft, onClick: () => { const s = { ...EMPTY, statuses: ['draft' as QuotationStatus] }; setSearch(s); setFilter(toFilter(s)) } },
     { label: 'Sent',           count: counts?.sent,  onClick: () => { const s = { ...EMPTY, statuses: ['sent'  as QuotationStatus] }; setSearch(s); setFilter(toFilter(s)) } },
   ]
@@ -74,11 +74,11 @@ export default function QuotationsPage() {
 
       {/* ── Top bar ── */}
       <ResponsivePageHeader
-        title="Quotations"
+        title="Order Quotations"
         actions={
           <Button className="gap-1.5 h-9" onClick={() => router.push('/quotations/create')}>
             <Plus className="h-4 w-4" />
-            <span className="hidden sm:inline">New Quotation</span>
+            <span className="hidden sm:inline">New Order Quotation</span>
             <span className="sm:hidden">New</span>
           </Button>
         }

@@ -4,7 +4,6 @@ import { useRouter } from 'next/navigation'
 import { toast } from 'sonner'
 import { QuotationFormPanel } from '@/components/quotations/QuotationFormPanel'
 import { QuotationPdfPreview } from '@/components/quotations/QuotationPdfPreview'
-import { WhatsAppSendDialog } from '@/components/quotations/WhatsAppSendDialog'
 import { useCreateQuotation, WindowClosedError } from '@/hooks/useCreateQuotation'
 import { useUserCompanyDivisions } from '@/hooks/useUserCompanyDivisions'
 import { useCurrentUserProfile } from '@/hooks/useProfiles'
@@ -14,8 +13,7 @@ export default function CreateQuotationPage() {
   const pdfRef = useRef<HTMLDivElement>(null)
   const hiddenPdfRef = useRef<HTMLDivElement>(null)
 
-  const [sendDialogOpen, setSendDialogOpen] = useState(false)
-  const [sendStatus, setSendStatus] = useState<string | null>(null)
+  const [, setSendStatus] = useState<string | null>(null)
   const [isSending, setIsSending] = useState(false)
 
   const { data: divisions = [] } = useUserCompanyDivisions()
@@ -69,7 +67,6 @@ export default function CreateQuotationPage() {
       setSendStatus('Sending via Wati…')
       await sendViaWati.mutateAsync(el)
       toast.success('Quotation sent via Wati (PDF)')
-      setSendDialogOpen(false)
       router.push('/quotations')
     } catch (err) {
       if (err instanceof WindowClosedError) {
@@ -127,7 +124,7 @@ export default function CreateQuotationPage() {
           onUpdateQty={updateQty}
           onNotesChange={(notes) => update({ notes })}
           onSaveDraft={handleSaveDraft}
-          onSendWhatsApp={() => setSendDialogOpen(true)}
+          onSend={(channel) => (channel === 'wati' ? handleSendWati() : handleSendWhapi())}
           isSaving={saveDraft.isPending}
           isSending={isSending}
           isValid={isValid()}
@@ -175,14 +172,6 @@ export default function CreateQuotationPage() {
         />
       </div>
 
-      <WhatsAppSendDialog
-        open={sendDialogOpen}
-        onOpenChange={setSendDialogOpen}
-        onSendWati={handleSendWati}
-        onSendWhapi={handleSendWhapi}
-        isSending={isSending}
-        sendStatus={sendStatus}
-      />
     </>
   )
 }

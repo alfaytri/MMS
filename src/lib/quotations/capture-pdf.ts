@@ -36,6 +36,13 @@ export async function capturePdfBlob(element: HTMLElement): Promise<Blob> {
   // 1. Ensure all images inside the element are fully painted
   await waitForImages(element)
 
+  // 1a. Wait for @font-face declarations (Infield, Noor) to finish loading.
+  // Without this, html2canvas may snapshot before the brand fonts paint and
+  // the captured PDF falls back to a generic sans/serif.
+  if (typeof document !== 'undefined' && 'fonts' in document) {
+    try { await document.fonts.ready } catch { /* non-fatal */ }
+  }
+
   // Dynamic-import the heavy libs so they're only fetched when a PDF is
   // actually being captured — not on initial page load.
   const [{ default: html2canvas }, { jsPDF }] = await Promise.all([

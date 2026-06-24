@@ -12,13 +12,13 @@ export function useQuotationDetail(quotationId: string | null) {
     enabled: !!quotationId,
     queryFn: async () => {
       const { data, error } = await supabase
-        .from('quotations')
+        .from('order_quotations')
         .select(`
           id, quotation_id, customer_id, division, status,
           total_amount, notes, created_date, expiry_date, sent_date,
           customers(name, customer_phones(phone)),
-          quotation_line_items(id, service_id, name, path, qty, price, duration),
-          quotation_log(id, action, user_name, details, created_at)
+          order_quotation_line_items(id, service_id, name, path, qty, price, duration),
+          order_quotation_log(id, action, user_name, details, created_at)
         `)
         .eq('id', quotationId!)
         .single()
@@ -27,8 +27,8 @@ export function useQuotationDetail(quotationId: string | null) {
 
       type D = typeof data & {
         customers: { name?: string; customer_phones?: { phone: string }[] } | null
-        quotation_line_items: { id: string; service_id: string | null; name: string; path: string[] | null; qty: number; price: number; duration: number | null }[]
-        quotation_log: { id: string; action: string; user_name: string | null; details: string | null; created_at: string }[]
+        order_quotation_line_items: { id: string; service_id: string | null; name: string; path: string[] | null; qty: number; price: number; duration: number | null }[]
+        order_quotation_log: { id: string; action: string; user_name: string | null; details: string | null; created_at: string }[]
       }
       const d = data as D
       return {
@@ -44,7 +44,7 @@ export function useQuotationDetail(quotationId: string | null) {
         created_date:   d.created_date ?? '',
         expiry_date:    d.expiry_date ?? null,
         sent_date:      d.sent_date ?? null,
-        line_items: (d.quotation_line_items ?? []).map((li) => ({
+        line_items: (d.order_quotation_line_items ?? []).map((li) => ({
           id:         li.id,
           service_id: li.service_id,
           name:       li.name,
@@ -53,7 +53,7 @@ export function useQuotationDetail(quotationId: string | null) {
           price:      li.price,
           duration:   li.duration ?? null,
         })),
-        logs: (d.quotation_log ?? []).map((l) => ({
+        logs: (d.order_quotation_log ?? []).map((l) => ({
           id:         l.id,
           action:     l.action,
           user_name:  l.user_name ?? 'System',

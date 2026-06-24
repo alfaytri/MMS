@@ -17,7 +17,7 @@ export function useQuotations(filter: QuotationsFilter = {}) {
     queryKey: queryKeys.quotations.list(filter),
     queryFn: async () => {
       let q = supabase
-        .from('quotations')
+        .from('order_quotations')
         .select(`
           id, quotation_id, division, status, total_amount, created_date,
           customers(name, customer_phones(phone))
@@ -66,13 +66,13 @@ export function useQuotationCounts() {
     queryKey: queryKeys.quotations.counts,
     queryFn: async () => {
       const [all, draft, sent] = await Promise.all([
-        supabase.from('quotations').select('id', { count: 'exact', head: true }),
+        supabase.from('order_quotations').select('id', { count: 'exact', head: true }),
         supabase
-          .from('quotations')
+          .from('order_quotations')
           .select('id', { count: 'exact', head: true })
           .eq('status', 'draft'),
         supabase
-          .from('quotations')
+          .from('order_quotations')
           .select('id', { count: 'exact', head: true })
           .eq('status', 'sent'),
       ])

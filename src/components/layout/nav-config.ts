@@ -58,10 +58,10 @@ export const NAV_ITEMS: NavEntry[] = [
         ],
       },
       {
-        label: 'Quotations',
+        label: 'Order Quotations',
         items: [
-          { label: 'View Quotations',  href: '/quotations',        icon: 'FileSearch',  permission: 'quotations.view' },
-          { label: 'Create Quotation', href: '/quotations/create',  icon: 'FilePlus',    permission: 'quotations.manage' },
+          { label: 'View Order Quotations',  href: '/quotations',        icon: 'FileSearch',  permission: 'quotations.view' },
+          { label: 'Create Order Quotation', href: '/quotations/create',  icon: 'FilePlus',    permission: 'quotations.manage' },
         ],
       },
     ],
