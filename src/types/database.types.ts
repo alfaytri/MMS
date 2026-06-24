@@ -4597,6 +4597,7 @@ export type Database = {
           payment_terms_notes: string | null
           po_id: string
           snapshot_label: string
+          stage: string
           submitted_at: string
           submitted_by: string | null
           subtotal: number
@@ -4620,6 +4621,7 @@ export type Database = {
           payment_terms_notes?: string | null
           po_id: string
           snapshot_label?: string
+          stage: string
           submitted_at?: string
           submitted_by?: string | null
           subtotal: number
@@ -4643,6 +4645,7 @@ export type Database = {
           payment_terms_notes?: string | null
           po_id?: string
           snapshot_label?: string
+          stage?: string
           submitted_at?: string
           submitted_by?: string | null
           subtotal?: number
