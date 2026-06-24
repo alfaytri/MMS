@@ -1,7 +1,7 @@
 // src/app/(dashboard)/orders/page.tsx
 'use client'
 import { useState, useRef, useEffect, useMemo } from 'react'
-import { useRouter } from 'next/navigation'
+import { useRouter, useSearchParams } from 'next/navigation'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
@@ -77,6 +77,7 @@ function searchToFilter(s: SearchState): OrdersFilter {
 
 export default function OrdersPage() {
   const router = useRouter()
+  const searchParams = useSearchParams()
   const [filter, setFilter] = useState<OrdersFilter>({})
   const [search, setSearch] = useState<SearchState>(EMPTY_SEARCH)
   const [quickQuery, setQuickQuery] = useState('')
@@ -84,6 +85,22 @@ export default function OrdersPage() {
   const [mobileFiltersOpen, setMobileFiltersOpen] = useState(false)
   const [selectedOrderId, setSelectedOrderId] = useState<string | null>(null)
   const [selectedVisitId, setSelectedVisitId] = useState<string | null>(null)
+
+  // Open the detail dialog / visit sheet automatically when arriving with
+  // ?openOrderId=<uuid> or ?openVisitId=<uuid> — used after order/site-visit
+  // creation. Clear the query string once handled so refreshes don't replay it.
+  useEffect(() => {
+    const openOrderId = searchParams.get('openOrderId')
+    const openVisitId = searchParams.get('openVisitId')
+    if (openOrderId && openOrderId !== selectedOrderId) {
+      setSelectedOrderId(openOrderId)
+      router.replace('/orders', { scroll: false })
+    } else if (openVisitId && openVisitId !== selectedVisitId) {
+      setSelectedVisitId(openVisitId)
+      router.replace('/orders', { scroll: false })
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [searchParams])
 
   // ── Active filter chips ────────────────────────────────────────────────
   type Chip = { key: string; label: string; onRemove: () => void }

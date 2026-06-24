@@ -4,6 +4,7 @@ import { useState, useEffect } from 'react'
 import { useRouter, useSearchParams } from 'next/navigation'
 import { DndContext, DragOverlay, pointerWithin, type DragEndEvent, type DragStartEvent } from '@dnd-kit/core'
 import { toast } from 'sonner'
+import { Loader2 } from 'lucide-react'
 import { PhoneLookupModal } from '@/components/orders/PhoneLookupModal'
 import { OrderFormPanel } from '@/components/orders/OrderFormPanel'
 import { TeamCalendarPanel } from '@/components/orders/TeamCalendarPanel'
@@ -154,6 +155,12 @@ export default function CreateOrderPage() {
       const timeSlot = dayData.fromTime ?? `${String(hour).padStart(2, '0')}:${String(minute).padStart(2, '0')}`
       const toTime   = dayData.toTime ?? null
       const totalDuration = draft.services.reduce((sum, s) => sum + s.duration, 0)
+      // Idempotent per (teamId, date): replace existing instead of duplicating.
+      // Cross-team is still allowed — different team = different assignment.
+      const existing = draft.assignments.find(
+        (a) => a.teamId === teamId && (a.date ?? dayData.date) === dayData.date,
+      )
+      if (existing) removeAssignment(existing.id)
       addAssignment({
         teamId,
         teamName,
@@ -186,9 +193,10 @@ export default function CreateOrderPage() {
 
   async function handleSubmit() {
     try {
-      await submit.mutateAsync()
+      const result = await submit.mutateAsync()
       toast.success('Order created successfully')
-      router.push('/orders')
+      const param = result.type === 'site-visit' ? 'openVisitId' : 'openOrderId'
+      router.push(`/orders?${param}=${result.id}`)
     } catch (err: unknown) {
       const message = err instanceof Error ? err.message : 'Failed to create order'
       toast.error(message)
@@ -265,6 +273,18 @@ export default function CreateOrderPage() {
         </div>
       </div>
       </div>
+
+      {/* Full-screen overlay during submit — file uploads + RPC take 3-5s,
+          so block the form and show a clear progress indicator. */}
+      {submit.isPending && (
+        <div className="fixed inset-0 z-[9000] flex items-center justify-center bg-background/70 backdrop-blur-sm">
+          <div className="flex flex-col items-center gap-3 rounded-xl border border-border bg-white px-6 py-5 shadow-xl">
+            <Loader2 className="h-7 w-7 animate-spin text-orange-500" />
+            <p className="text-sm font-medium text-foreground">Creating order…</p>
+            <p className="text-[11px] text-muted-foreground">Uploading attachments and saving</p>
+          </div>
+        </div>
+      )}
 
       {/* Portal-rendered drag ghost — renders at document.body, never clipped by sidebar overflow */}
       <DragOverlay dropAnimation={null} style={{ zIndex: 9999 }}>

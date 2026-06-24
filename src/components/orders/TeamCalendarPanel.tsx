@@ -172,11 +172,11 @@ export function TeamCalendarPanel({
   }
 
   function assignmentEnd(a: TeamAssignmentDraft, start: number): number {
-    if (a.toTime) {
-      const h = parseHour(a.toTime)
-      return h !== null ? h + 1 : start + Math.max(1, Math.ceil(a.duration / 60))
-    }
-    return start + Math.max(1, Math.ceil(a.duration / 60))
+    // toTime is the actual end of the window (e.g. "10:30" means ends at 10:30,
+    // NOT "ends at 11"). Use minute-precise hours so 1h blocks render as 1h.
+    const endHour = parseHour(a.toTime)
+    if (endHour !== null && endHour > start) return endHour
+    return start + Math.max(0.5, a.duration / 60)
   }
 
   function isSlotOccupied(teamId: string, slot: number): boolean {

@@ -215,6 +215,19 @@ export function useCreateOrder(options?: { kind?: 'order' | 'follow-up' }) {
       const sortedWindows = [...draft.visitDates].sort((a, b) => a.date.localeCompare(b.date))
       const primaryDate = sortedWindows.length > 0 ? sortedWindows[0].date : draft.visitDate
 
+      // Resolve the MMS user behind this order so we can store created_by.
+      // Falls back to NULL if the profile lookup fails — never blocks creation.
+      const { data: { user: authUser } } = await supabase.auth.getUser()
+      let createdBy: string | null = null
+      if (authUser) {
+        const { data: profileRow } = await supabase
+          .from('profiles')
+          .select('id')
+          .eq('auth_user_id', authUser.id)
+          .maybeSingle()
+        createdBy = (profileRow as { id: string } | null)?.id ?? null
+      }
+
       const visitDatesPayload = sortedWindows.map((w, i) => ({
         visit_date: w.date,
         from_time: w.fromTime ?? null,
@@ -271,6 +284,7 @@ export function useCreateOrder(options?: { kind?: 'order' | 'follow-up' }) {
           p_attachments:    uploadedAttachments.length > 0 ? uploadedAttachments as unknown as Json : null,
           p_visit_dates:    visitDatesPayload as unknown as Json,
           p_assignments:    assignmentsPayload as unknown as Json,
+          p_created_by:     createdBy ?? undefined,
         })
 
         if (error) {
@@ -282,7 +296,7 @@ export function useCreateOrder(options?: { kind?: 'order' | 'follow-up' }) {
           throw new Error([error.message ?? 'Failed to create site visit', detail, hint].filter(Boolean).join(' — '))
         }
 
-        return { orderId: visitId, primaryDate, type: 'site-visit' as const }
+        return { id: newId as unknown as string, orderId: visitId, primaryDate, type: 'site-visit' as const }
       }
 
       // ── Regular order path ──────────────────────────────────────────────────
@@ -335,6 +349,7 @@ export function useCreateOrder(options?: { kind?: 'order' | 'follow-up' }) {
         p_visit_dates:    visitDatesPayload as unknown as Json,
         p_assignments:    assignmentsPayload as unknown as Json,
         p_address_id:     draft.addressId ?? undefined,
+        p_created_by:     createdBy ?? undefined,
       })
 
       if (error) {
@@ -346,41 +361,42 @@ export function useCreateOrder(options?: { kind?: 'order' | 'follow-up' }) {
         throw new Error([error.message ?? 'Failed to create order', detail, hint].filter(Boolean).join(' — '))
       }
 
-      return { orderId, primaryDate, type: draft.type }
+      return { id: newOrderId as unknown as string, orderId, primaryDate, type: draft.type }
     },
-    onSuccess: async (result) => {
+    onSuccess: (result) => {
       qc.invalidateQueries({ queryKey: queryKeys.orders.all })
       qc.invalidateQueries({ queryKey: queryKeys.siteVisits.all })
       reset()
 
-      // Send confirmation immediately if the visit is within 2 days (cron would miss it)
+      // Send confirmation immediately if the visit is within 2 days (cron would miss it).
+      // IMPORTANT: this MUST stay fully fire-and-forget — mutateAsync() resolves only
+      // after onSuccess finishes, so any awaited work here delays the navigation
+      // away from the create page.
       if (result.type !== 'site-visit') {
         const todayMs        = new Date().setHours(0, 0, 0, 0)
         const visitMs        = new Date(result.primaryDate + 'T00:00:00').getTime()
         const daysUntilVisit = Math.round((visitMs - todayMs) / 86_400_000)
 
         if (daysUntilVisit <= 2) {
-          const { data: { session } } = await supabase.auth.getSession()
-          if (session?.access_token) {
-            fetch('/api/notifications/send-booking-confirmations', {
-              method:  'POST',
-              headers: {
-                'Content-Type': 'application/json',
-                Authorization:  `Bearer ${session.access_token}`,
-              },
-              body: JSON.stringify({ orderId: result.orderId }),
-            })
-              .then(async (res) => {
-                if (!res.ok) {
-                  const body = await res.json().catch(() => ({}))
-                  console.warn('[booking-confirm] route error', res.status, body)
-                } else {
-                  const body = await res.json().catch(() => ({}))
-                  console.log('[booking-confirm] sent', body)
-                }
+          void (async () => {
+            const { data: { session } } = await supabase.auth.getSession()
+            if (!session?.access_token) return
+            try {
+              const res = await fetch('/api/notifications/send-booking-confirmations', {
+                method:  'POST',
+                headers: {
+                  'Content-Type': 'application/json',
+                  Authorization:  `Bearer ${session.access_token}`,
+                },
+                body: JSON.stringify({ orderId: result.orderId }),
               })
-              .catch((err) => console.error('[booking-confirm] fetch failed', err))
-          }
+              const body = await res.json().catch(() => ({}))
+              if (!res.ok) console.warn('[booking-confirm] route error', res.status, body)
+              else console.log('[booking-confirm] sent', body)
+            } catch (err) {
+              console.error('[booking-confirm] fetch failed', err)
+            }
+          })()
         }
       }
     },

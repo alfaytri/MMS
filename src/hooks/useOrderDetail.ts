@@ -20,7 +20,8 @@ export function useOrderDetail(orderId: string | null) {
           order_services(id, service_id, name, qty, price, duration, path, from_time, to_time),
           order_team_assignments(id, team_id, services, scheduled_date, time_slot, duration, teams(name)),
           order_visit_dates(id, visit_date, from_time, to_time, sort_order),
-          order_log(id, action, user_name, details, created_at)
+          order_log(id, action, user_name, details, created_at),
+          creator:created_by(full_name)
         `)
         .eq('id', orderId)
         .single()
@@ -37,6 +38,7 @@ export function useOrderDetail(orderId: string | null) {
         (a: { created_at: string | null }, b: { created_at: string | null }) =>
           new Date(b.created_at ?? 0).getTime() - new Date(a.created_at ?? 0).getTime()
       )
+      const creator = (data as typeof data & { creator?: { full_name?: string | null } | null }).creator ?? null
       return {
         ...data,
         customer_name: sc?.name ?? '',
@@ -44,6 +46,7 @@ export function useOrderDetail(orderId: string | null) {
         services_summary: '',
         order_team_assignments: assignments,
         order_log: logs,
+        created_by_name: creator?.full_name ?? null,
       } as unknown as OrderDetail
     },
     enabled: !!orderId,

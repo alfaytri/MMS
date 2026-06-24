@@ -34,18 +34,20 @@ export const PAST_SLOT_STYLE = {
 
 // ─── Shared Helpers ───────────────────────────────────────────────────────────
 
-export function parseHour(t: string | null): number | null {
-  if (!t) return null
-  const n = parseInt(t)
-  return isNaN(n) ? null : n
-}
-
 export function parseMinutes(t: string | null): number | null {
   if (!t) return null
   const [hStr, mStr] = t.split(':')
   const h = parseInt(hStr)
   const m = parseInt(mStr ?? '0')
   return isNaN(h) ? null : h * 60 + (isNaN(m) ? 0 : m)
+}
+
+// Fractional hour — "09:30" → 9.5. The timeline grid is half-hour resolution,
+// so positions must be minute-precise; rounding to the hour was making 9:00
+// and 9:30 render at the same x position.
+export function parseHour(t: string | null): number | null {
+  const min = parseMinutes(t)
+  return min === null ? null : min / 60
 }
 
 function formatOvertimeDuration(overtimeMinutes: number): string {
@@ -143,11 +145,10 @@ export function DroppableCell({ teamId, slot, isOccupied, isPast, isSkillMatch, 
 
   const isWorking = slot >= workStart && slot < workEnd
   const isHalf = slot % 1 !== 0
-  // Work-zone boundary markers — a stronger left border on the cell that
-  // opens the work window and the cell that closes it. Lets the eye snap
-  // straight to "this is where the day starts/ends".
-  const isWorkStart = slot === workStart
-  const isWorkEnd   = slot === workEnd
+  // Work-zone boundary markers — left border on the first working cell
+  // (workStart) and left border on the first off-hours cell (workEnd) so the
+  // green line sits exactly at the working / hatched transition.
+  const isWorkBoundary = slot === workStart || slot === workEnd
 
   // Layered backgrounds: past beats off-hours; both lose to dnd hover.
   const cellStyle: React.CSSProperties = {
@@ -167,9 +168,8 @@ export function DroppableCell({ teamId, slot, isOccupied, isPast, isSkillMatch, 
         'shrink-0 transition-colors',
         // Default cell separators
         isHalf ? 'border-r border-slate-100/60' : 'border-r border-slate-200/70',
-        // Stronger separators at the work window's edges
-        isWorkStart && 'border-l-2 border-l-emerald-400/70',
-        isWorkEnd   && 'border-r-2 border-r-emerald-400/70',
+        // Stronger separator at each edge of the work window
+        isWorkBoundary && 'border-l-2 border-l-emerald-400/70',
         // Past + occupied states already handled by inline styles above.
         blocked && 'bg-muted/80 cursor-not-allowed',
         !blocked && isOver && 'bg-orange-100 ring-1 ring-inset ring-orange-400',
@@ -653,6 +653,12 @@ export function VisitBlock({ visit: v, trackMap, hourLeftFn, workStart, workEnd,
             <div className="flex items-start gap-1.5">
               <ClipboardList className="h-3 w-3 shrink-0 mt-0.5 text-muted-foreground" />
               <span className="text-foreground">{v.services_summary}</span>
+            </div>
+          )}
+
+          {v.created_by_name && (
+            <div className="border-t border-slate-100 pt-1.5 text-[10px] text-muted-foreground text-right">
+              Created by <span className="font-medium text-foreground">{v.created_by_name}</span>
             </div>
           )}
 

@@ -79,6 +79,12 @@ export default function EditOrderPage() {
       const timeSlot = dayData.fromTime ?? `${String(hour).padStart(2, '0')}:00`
       const toTime   = dayData.toTime ?? null
       const totalDuration = draft.services.reduce((sum, s) => sum + s.duration, 0)
+      // Idempotent per (teamId, date): replace existing instead of duplicating.
+      // Cross-team is still allowed — different team = different assignment.
+      const existing = draft.assignments.find(
+        (a) => a.teamId === teamId && (a.date ?? dayData.date) === dayData.date,
+      )
+      if (existing) removeAssignment(existing.id)
       addAssignment({
         teamId,
         teamName,
