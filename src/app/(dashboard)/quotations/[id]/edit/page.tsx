@@ -1,14 +1,61 @@
+// src/app/(dashboard)/quotations/[id]/edit/page.tsx
 'use client'
-import { useState } from 'react'
+import { use, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { toast } from 'sonner'
 import { QuotationFormPanel } from '@/components/quotations/QuotationFormPanel'
 import { QuotationPdfPreviewIframe } from '@/components/quotations/QuotationPdfPreviewIframe'
 import { useCreateQuotation, WindowClosedError } from '@/hooks/useCreateQuotation'
+import { useQuotationDetail } from '@/hooks/useQuotationDetail'
 import { useUserCompanyDivisions } from '@/hooks/useUserCompanyDivisions'
 import { useCurrentUserProfile } from '@/hooks/useProfiles'
+import type { QuotationDetail, QuotationDraft } from '@/types/quotations'
 
-export default function CreateQuotationPage() {
+export default function EditQuotationPage({ params }: { params: Promise<{ id: string }> }) {
+  const { id } = use(params)
+  const { data: q, isLoading } = useQuotationDetail(id)
+
+  if (isLoading || !q) {
+    return (
+      <div className="flex h-full items-center justify-center text-sm text-muted-foreground">
+        Loading…
+      </div>
+    )
+  }
+
+  return <EditQuotationClient quotationRowId={id} detail={q} />
+}
+
+function detailToDraft(q: QuotationDetail): QuotationDraft {
+  return {
+    quotationId:   q.quotation_id,
+    customerId:    q.customer_id,
+    phoneId:       '',
+    customerName:  q.customer_name,
+    phone:         q.customer_phone,
+    division:      q.division,
+    services: q.line_items.map((li) => ({
+      serviceId: li.service_id ?? '',
+      name:      li.name,
+      path:      li.path,
+      qty:       li.qty,
+      price:     li.price,
+      duration:  li.duration,
+      division:  q.division,
+    })),
+    notes:         q.notes ?? '',
+    discountType:  q.discount_type ?? 'flat',
+    discountValue: q.discount_value ?? 0,
+  }
+}
+
+function EditQuotationClient({
+  quotationRowId,
+  detail,
+}: {
+  quotationRowId: string
+  detail: QuotationDetail
+}) {
   const router = useRouter()
 
   const [, setSendStatus] = useState<string | null>(null)
@@ -16,6 +63,8 @@ export default function CreateQuotationPage() {
 
   const { data: divisions = [] } = useUserCompanyDivisions()
   const { data: profile } = useCurrentUserProfile()
+
+  const initialDraft = detailToDraft(detail)
 
   const {
     draft,
@@ -34,7 +83,7 @@ export default function CreateQuotationPage() {
     subtotal,
     discountAmount,
     total,
-  } = useCreateQuotation()
+  } = useCreateQuotation(initialDraft)
 
   const creatorName = profile
     ? `${profile.title ?? 'Mr.'} ${profile.full_name}`
@@ -43,8 +92,8 @@ export default function CreateQuotationPage() {
   async function handleSaveDraft() {
     try {
       await saveDraft.mutateAsync()
-      toast.success('Quotation saved as draft')
-      router.push('/quotations')
+      toast.success('Quotation updated')
+      router.push(`/quotations/${quotationRowId}`)
     } catch {
       toast.error('Failed to save quotation')
     }
@@ -58,7 +107,7 @@ export default function CreateQuotationPage() {
       setSendStatus('Sending via Wati…')
       await sendViaWati.mutateAsync()
       toast.success('Quotation sent via Wati (PDF)')
-      router.push('/quotations')
+      router.push(`/quotations/${quotationRowId}`)
     } catch (err) {
       if (err instanceof WindowClosedError) {
         toast.info('Wati window closed — sending via WHAPI instead')
@@ -94,7 +143,7 @@ export default function CreateQuotationPage() {
     setSendStatus('Sending via WHAPI…')
     await sendViaWhapi.mutateAsync()
     toast.success('Quotation sent via WHAPI (PDF)')
-    router.push('/quotations')
+    router.push(`/quotations/${quotationRowId}`)
   }
 
   return (

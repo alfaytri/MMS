@@ -344,7 +344,7 @@ export const queryKeys = {
   /* ── Quotations ───────────────────────────────────────── */
   quotations: {
     all: ['quotations'] as const,
-    list: (filter: unknown) => ['quotations', filter] as const,
+    list: (filter: unknown) => ['quotations', 'list', filter] as const,
     counts: ['quotation-counts'] as const,
     detail: (id: Nullable) => ['quotation-detail', id] as const,
   },

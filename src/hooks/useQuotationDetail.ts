@@ -14,9 +14,9 @@ export function useQuotationDetail(quotationId: string | null) {
       const { data, error } = await supabase
         .from('order_quotations')
         .select(`
-          id, quotation_id, customer_id, division, status,
+          id, quotation_id, service_customer_id, division, status,
           total_amount, notes, created_date, expiry_date, sent_date,
-          customers(name, customer_phones(phone)),
+          service_customers(name, service_customer_phones(phone)),
           order_quotation_line_items(id, service_id, name, path, qty, price, duration),
           order_quotation_log(id, action, user_name, details, created_at)
         `)
@@ -26,7 +26,7 @@ export function useQuotationDetail(quotationId: string | null) {
       if (error) throw error
 
       type D = typeof data & {
-        customers: { name?: string; customer_phones?: { phone: string }[] } | null
+        service_customers: { name?: string; service_customer_phones?: { phone: string }[] } | null
         order_quotation_line_items: { id: string; service_id: string | null; name: string; path: string[] | null; qty: number; price: number; duration: number | null }[]
         order_quotation_log: { id: string; action: string; user_name: string | null; details: string | null; created_at: string }[]
       }
@@ -34,9 +34,9 @@ export function useQuotationDetail(quotationId: string | null) {
       return {
         id:             d.id,
         quotation_id:   d.quotation_id,
-        customer_id:    d.customer_id,
-        customer_name:  d.customers?.name ?? '—',
-        customer_phone: d.customers?.customer_phones?.[0]?.phone ?? '—',
+        customer_id:    d.service_customer_id,
+        customer_name:  d.service_customers?.name ?? '—',
+        customer_phone: d.service_customers?.service_customer_phones?.[0]?.phone ?? '—',
         division:       d.division ?? '',
         status:         d.status,
         total_amount:   d.total_amount ?? 0,

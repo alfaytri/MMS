@@ -9,7 +9,27 @@ import type { CustomerLookupResult } from '@/hooks/useCustomerLookup'
 import type { OrderServiceDraft } from '@/types/orders'
 import type { PostgrestError } from '@supabase/supabase-js'
 import { roundMoney, computeDiscount } from '@/lib/money'
-import { capturePdfBlob } from '@/lib/quotations/capture-pdf'
+
+// Fetch the quotation PDF URL from the server-side generator. Replaces the
+// old DOM-screenshot pipeline (html2canvas + jspdf + manual storage upload)
+// with a single API call — Puppeteer renders the same HTML the editor's
+// iframe preview shows, uploads to Storage, and returns the public URL.
+async function fetchGeneratedPdfUrl(
+  quotationUuid: string,
+  supabase: ReturnType<typeof createClient>,
+): Promise<string> {
+  const { data: { session } } = await supabase.auth.getSession()
+  if (!session?.access_token) throw new Error('Not authenticated')
+  const res = await fetch(`/api/quotations/${quotationUuid}/generate-pdf`, {
+    method:  'POST',
+    headers: { Authorization: `Bearer ${session.access_token}` },
+  })
+  const body = await res.json().catch(() => ({}))
+  if (!res.ok || !body.url) {
+    throw new Error(body?.error ?? `PDF generation failed (HTTP ${res.status})`)
+  }
+  return body.url as string
+}
 
 const INITIAL: QuotationDraft = {
   quotationId: '',
@@ -35,14 +55,17 @@ export function computeSubtotal(services: QuotationLineDraft[]): number {
   return roundMoney(services.reduce((sum, s) => sum + s.price * s.qty, 0))
 }
 
-export function useCreateQuotation() {
-  const [draft, setDraft] = useState<QuotationDraft>(INITIAL)
+export function useCreateQuotation(initialDraft?: QuotationDraft | null) {
+  const [draft, setDraft] = useState<QuotationDraft>(initialDraft ?? INITIAL)
   const [quotationIdError, setQuotationIdError] = useState<PostgrestError | null>(null)
   const supabase = createClient()
   const qc = useQueryClient()
 
-  // Generate Q/YYYY/MM/NNNN via DB sequence — race-condition-free
+  // For new quotations, generate Q/YYYY/MM/NNNN via DB sequence — race-condition-free.
+  // For edits (initialDraft.quotationId is set), skip generation and reuse the
+  // existing id so save_order_quotation upserts the same row.
   useEffect(() => {
+    if (initialDraft?.quotationId) return
     ;supabase
       .rpc('generate_order_quotation_id')
       .then(({ data, error }: { data: string | null; error: PostgrestError | null }) => {
@@ -186,6 +209,8 @@ export function useCreateQuotation() {
       throw new Error(parts.join(' — ') || 'Failed to save order quotation')
     }
     qc.invalidateQueries({ queryKey: queryKeys.quotations.all })
+    qc.invalidateQueries({ queryKey: queryKeys.quotations.counts })
+    qc.invalidateQueries({ queryKey: ['quotation-detail'] })
     return quotUuid as string
   }
 
@@ -194,25 +219,11 @@ export function useCreateQuotation() {
   })
 
   const sendViaWati = useMutation({
-    mutationFn: async (pdfElement: HTMLElement) => {
-      await saveToDb('draft')
-      // 1. Capture PDF from DOM
-      const blob = await capturePdfBlob(pdfElement)
-      // 2. Upload to Supabase Storage
-      const fileName = `${draft.quotationId}.pdf`
-      const { error: uploadError } = await supabase.storage
-        .from('quotation-pdfs')
-        .upload(fileName, blob, {
-          contentType: 'application/pdf',
-          upsert: true,
-        })
-      if (uploadError) throw new Error(`PDF upload failed: ${uploadError.message}`)
-      // 3. Get public URL
-      const { data: urlData } = supabase.storage
-        .from('quotation-pdfs')
-        .getPublicUrl(fileName)
-      const publicUrl = urlData.publicUrl
-      // 4. Check Wati conversation window + send PDF
+    mutationFn: async () => {
+      // 1. Save draft + generate PDF server-side
+      const uuid = await saveToDb('draft')
+      const publicUrl = await fetchGeneratedPdfUrl(uuid, supabase)
+      // 2. Check Wati conversation window
       const digits = draft.phone.replace(/\D/g, '')
       const checkRes = await fetch('/api/wati/send-quotation', {
         method: 'POST',
@@ -221,7 +232,7 @@ export function useCreateQuotation() {
       })
       const checkJson = await checkRes.json()
       if (checkJson.windowClosed) throw new WindowClosedError()
-      // 5. Send PDF file via Wati
+      // 3. Send PDF file via Wati
       const sub = computeSubtotal(draft.services)
       const disc = computeDiscount(sub, draft.discountType, draft.discountValue)
       const finalTotal = roundMoney(sub - disc)
@@ -240,31 +251,17 @@ export function useCreateQuotation() {
         const errJson = await sendRes.json().catch(() => ({}))
         throw new Error((errJson as Record<string, string>).error ?? 'Wati file send failed')
       }
-      // 6. Mark as sent
+      // 4. Mark as sent
       await saveToDb('sent')
     },
   })
 
   const sendViaWhapi = useMutation({
-    mutationFn: async (pdfElement: HTMLElement) => {
-      await saveToDb('draft')
-      // 1. Capture PDF from DOM
-      const blob = await capturePdfBlob(pdfElement)
-      // 2. Upload to Supabase Storage
-      const fileName = `${draft.quotationId}.pdf`
-      const { error: uploadError } = await supabase.storage
-        .from('quotation-pdfs')
-        .upload(fileName, blob, {
-          contentType: 'application/pdf',
-          upsert: true,
-        })
-      if (uploadError) throw new Error(`PDF upload failed: ${uploadError.message}`)
-      // 3. Get public URL
-      const { data: urlData } = supabase.storage
-        .from('quotation-pdfs')
-        .getPublicUrl(fileName)
-      const publicUrl = urlData.publicUrl
-      // 4. Send via WHAPI
+    mutationFn: async () => {
+      // 1. Save draft + generate PDF server-side
+      const uuid = await saveToDb('draft')
+      const publicUrl = await fetchGeneratedPdfUrl(uuid, supabase)
+      // 2. Send via WHAPI
       const sub = computeSubtotal(draft.services)
       const disc = computeDiscount(sub, draft.discountType, draft.discountValue)
       const finalTotal = roundMoney(sub - disc)
@@ -280,7 +277,7 @@ export function useCreateQuotation() {
       })
       const json = await res.json()
       if (!res.ok || !json.ok) throw new Error(json.error ?? 'WHAPI send failed')
-      // 5. Mark as sent
+      // 3. Mark as sent
       await saveToDb('sent')
     },
   })
