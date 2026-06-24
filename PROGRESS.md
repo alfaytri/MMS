@@ -233,7 +233,7 @@ Purchase & Sales▾:
 
 ## 🔄 In Progress
 
-🚀 Next: **Supabase Perf Cleanup Wave 2: rewrite 14 RLS policies to use `(SELECT auth.<fn>())` for per-row eval fix** — gated on Wave 1 deploy confirmation.
+🚀 Next: **Supabase Perf Cleanup Wave 3: consolidate 9 overlapping permissive policies + switch `warehouse_stock_view` to `SECURITY INVOKER`** — gated on Wave 2 deploy confirmation.
 
 Plan: 5-step build to generate a branded per-order confirmation PDF, upload it to Supabase Storage, save the URL on the order row, and pass that URL as the `pdflink` template parameter in `send-booking-confirmations` so the WhatsApp confirmation message ships with a real per-order PDF. HTML preview already approved at `public/brand/order-confirmation-preview.html`.
 
@@ -248,6 +248,8 @@ Previously: WHAPI outbound text/media + provider source separation + WATI parall
 | 2026-06-16 | Pre-Phase-1 baseline | 2,983,378 / 2M (149%) | 7.076 / 5 GB (142%) | End of cycle May 16 – Jun 16; new cycle just started, dashboard hadn't yet refreshed when captured |
 
 ## ✅ Completed
+
+- [2026-06-24] **Supabase Perf Cleanup Wave 2: rewrite 14 RLS policies to wrap `auth.<fn>()` in `(SELECT …)`** — `supabase/migrations/20260624110000_perf_rls_init_plan.sql` (DROP + CREATE for all 14 policies flagged by Supabase lint `0003_auth_rls_initplan`: `service_brands."Manage services write service_brands"`, `traccar_geofences` × 4 (read/insert/update/delete), `user_ui_preferences` × 3 (self_select/self_upsert/self_update), `service_change_requests.scr_select`, `purge_batches."Admins read purge batches"`, `team_live_locations` × 2 (tll_insert/tll_update), `chat_messages.chat_messages_insert_strict`, `follow_up_requests.fur_insert`). Every `auth.uid()` and `auth.role()` call now wrapped as `(SELECT auth.uid())` / `(SELECT auth.role())` so Postgres evaluates them once per query as a stable initplan instead of recomputing per row. Pure evaluation-order change — same row visibility for the same users, just faster scans on these tables. Migration applied via `npx supabase db push`.
 
 - [2026-06-24] **Supabase Perf Cleanup Wave 1: drop duplicate indexes + conditional `backfill_conversation_last_messages` call** — `supabase/migrations/20260624100000_perf_drop_duplicate_indexes.sql` (DROP INDEX `chat_messages_conv_created_idx` and `idx_tsa_team` — both were identical duplicates of `idx_chat_messages_conversation_created` / `idx_team_sched_team_id`; kept the descriptive `idx_<table>_<col>` names. Wastes-no-writes cleanup flagged by Supabase lint `0009_duplicate_index`), `src/app/api/wati/sync-contacts/route.ts` (made the `backfill_conversation_last_messages` RPC call conditional — runs a cheap `head:true count:'exact' limit:1` on `chat_conversations WHERE last_message IS NULL AND last_message_at IS NOT NULL` first; only calls the RPC when there's at least one candidate row. The RPC scans the whole chat_conversations × chat_messages join, so skipping it when there's nothing to do cuts ~77 ms × every empty sync — the query-performance CSV showed it being called 1119 times). Migration applied via `npx supabase db push`.
 
