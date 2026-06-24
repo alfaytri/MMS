@@ -233,7 +233,7 @@ Purchase & Sales▾:
 
 ## 🔄 In Progress
 
-🚀 Next: **PO Version Tabs — relabel V1/V2/Current chips to meaningful state labels** (`Submitted`, `Approved`, `Current`) and surface the hidden first snapshot. Per-user concern: tabs currently hide the V1 'submitted' snapshot because the live PO is also at `version_number=1`, so the user sees `V2 approved` + `V1 Current` and the submitted snapshot disappears.
+🚀 Starting: **PO Version Tabs Redesign — per-stage snapshots (RFQ/Draft/PO) + segmented tab UI** — wipe `po_versions`, add `stage` column, snapshot on every Save + at submission (which is when PO-v1 is born), rewrite `PoVersionTabs.tsx` with state tabs row + version chips row + live-state ✓ marker. Spec: `docs/superpowers/specs/2026-06-25-po-version-tabs-redesign-design.md`. Plan: `docs/superpowers/plans/2026-06-25-po-version-tabs-redesign.md`.
 
 Then: **Supabase Perf Cleanup Wave 3: consolidate 9 overlapping permissive policies + switch `warehouse_stock_view` to `SECURITY INVOKER`** — gated on Wave 2 deploy confirmation.
 
