@@ -233,9 +233,9 @@ Purchase & Sales▾:
 
 ## 🔄 In Progress
 
-🚀 Starting: **PO Approvals — one-click Force Approve for owners** — replace the multi-step Force Approve dialog with an inline AlertDialog confirm popover, drop the mandatory comment, and rewrite the activity log to one `Force Approved: <role>` entry per step. Spec: `docs/superpowers/specs/2026-06-24-purchase-one-click-force-approve-design.md`.
+🚀 Next: **PO Version Tabs — relabel V1/V2/Current chips to meaningful state labels** (`Submitted`, `Approved`, `Current`) and surface the hidden first snapshot. Per-user concern: tabs currently hide the V1 'submitted' snapshot because the live PO is also at `version_number=1`, so the user sees `V2 approved` + `V1 Current` and the submitted snapshot disappears.
 
-Next: **Supabase Perf Cleanup Wave 3: consolidate 9 overlapping permissive policies + switch `warehouse_stock_view` to `SECURITY INVOKER`** — gated on Wave 2 deploy confirmation.
+Then: **Supabase Perf Cleanup Wave 3: consolidate 9 overlapping permissive policies + switch `warehouse_stock_view` to `SECURITY INVOKER`** — gated on Wave 2 deploy confirmation.
 
 Plan: 5-step build to generate a branded per-order confirmation PDF, upload it to Supabase Storage, save the URL on the order row, and pass that URL as the `pdflink` template parameter in `send-booking-confirmations` so the WhatsApp confirmation message ships with a real per-order PDF. HTML preview already approved at `public/brand/order-confirmation-preview.html`.
 
@@ -250,6 +250,8 @@ Previously: WHAPI outbound text/media + provider source separation + WATI parall
 | 2026-06-16 | Pre-Phase-1 baseline | 2,983,378 / 2M (149%) | 7.076 / 5 GB (142%) | End of cycle May 16 – Jun 16; new cycle just started, dashboard hadn't yet refreshed when captured |
 
 ## ✅ Completed
+
+- [2026-06-24] **PO Approvals — one-click Force Approve for owners + role-slug case-mismatch fix** — `src/hooks/usePOApprovals.ts` (made `forceComment` optional in `useForceApproveAllSteps`, dropped the mandatory-comment guard, rewrote the activity log to write one `Force Approved: <Role>` entry per step instead of a single consolidated entry — keeps the trailing `PO Fully Approved (Force)` summary; **fixed pre-existing case mismatch** in `useMyApprovalRoles` by normalising DB role names (`'Owner'`, `'Purchase Manager'`) to the lowercase snake_case slug format that matches `po_approvals.role` and every existing comparison site), `src/app/(dashboard)/purchase/approvals/page.tsx` (replaced the multi-step Force Approve dialog with an inline shadcn `AlertDialog` confirm popover summarising the role count + names, added separate `handleForceApprove` function, stripped every `'force'`-mode branch from `openDialog`, the bottom dialog header/body/footer, and the `ApprovalDialogState` interface — those branches were always dead code beyond the now-deleted force-mode entry point). The role-slug fix means the existing `myRoles.includes('owner')` visibility check and the own-step preference inside `openDialog` finally fire correctly; without it, the Force Approve button would never have shown for anyone.
 
 - [2026-06-24] **Supabase Perf Cleanup Wave 2: rewrite 14 RLS policies to wrap `auth.<fn>()` in `(SELECT …)`** — `supabase/migrations/20260624110000_perf_rls_init_plan.sql` (DROP + CREATE for all 14 policies flagged by Supabase lint `0003_auth_rls_initplan`: `service_brands."Manage services write service_brands"`, `traccar_geofences` × 4 (read/insert/update/delete), `user_ui_preferences` × 3 (self_select/self_upsert/self_update), `service_change_requests.scr_select`, `purge_batches."Admins read purge batches"`, `team_live_locations` × 2 (tll_insert/tll_update), `chat_messages.chat_messages_insert_strict`, `follow_up_requests.fur_insert`). Every `auth.uid()` and `auth.role()` call now wrapped as `(SELECT auth.uid())` / `(SELECT auth.role())` so Postgres evaluates them once per query as a stable initplan instead of recomputing per row. Pure evaluation-order change — same row visibility for the same users, just faster scans on these tables. Migration applied via `npx supabase db push`.
 
