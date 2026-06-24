@@ -233,7 +233,7 @@ Purchase & Sales▾:
 
 ## 🔄 In Progress
 
-🚀 Starting: **Order Confirmation PDF Plan Task 1: DB migration — `orders.confirmation_pdf_url` + Storage bucket `booking-confirmations`**
+🚀 Starting: **Supabase Perf Cleanup Wave 1: drop duplicate indexes + conditional `backfill_conversation_last_messages` call**
 
 Plan: 5-step build to generate a branded per-order confirmation PDF, upload it to Supabase Storage, save the URL on the order row, and pass that URL as the `pdflink` template parameter in `send-booking-confirmations` so the WhatsApp confirmation message ships with a real per-order PDF. HTML preview already approved at `public/brand/order-confirmation-preview.html`.
 
