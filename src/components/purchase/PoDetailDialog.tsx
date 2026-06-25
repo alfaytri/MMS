@@ -8,7 +8,7 @@ import {
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { Button } from '@/components/ui/button'
 import { Skeleton } from '@/components/ui/skeleton'
-import { Printer, Send, XCircle } from 'lucide-react'
+import { Printer, Send, XCircle, Pencil } from 'lucide-react'
 import { toast } from 'sonner'
 import { PoApprovalChain } from './PoApprovalChain'
 import { CreateBillFromPODialog } from './CreateBillFromPODialog'
@@ -31,6 +31,7 @@ import {
 import { useBillsByPO } from '@/hooks/useSupplierBills'
 import { usePurchaseReturnsByPO } from '@/hooks/usePurchaseReturns'
 import { useActivityLog } from '@/hooks/useActivityLog'
+import { useMyApprovalRoles } from '@/hooks/usePOApprovals'
 import { formatCurrency, formatDate } from '@/lib/utils/formatters'
 import { cn } from '@/lib/utils'
 import {
@@ -63,8 +64,11 @@ export function PoDetailDialog({ open, onOpenChange, po, poId, onEdit }: Props) 
   const { data: poReturns = [] } = usePurchaseReturnsByPO(open ? resolvedId : null)
   const submitPO = useSubmitPOForApproval()
   const cancelPO = useCancelPO()
+  const { data: myRoles = [] } = useMyApprovalRoles()
 
   const current = fullPO ?? po
+  const canEdit = current?.status === 'approved' && myRoles.includes('owner')
+  const isApprovedLive = current?.status === 'approved'
   const liveStage: Stage = current?.po_type ? stageOf(current.po_type) : 'draft'
   const [activeStage, setActiveStage] = useState<Stage>(liveStage)
   const [activeVersion, setActiveVersion] = useState<number | null>(null)
@@ -162,6 +166,19 @@ export function PoDetailDialog({ open, onOpenChange, po, poId, onEdit }: Props) 
                     <Printer className="h-3.5 w-3.5 mr-1.5" />
                     Print
                   </Button>
+                  {!isViewingSnapshot && canEdit && (
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => {
+                        onOpenChange(false)
+                        router.push(`/purchase/edit-po/${current.id}`)
+                      }}
+                    >
+                      <Pencil className="h-3.5 w-3.5 mr-1.5" />
+                      Edit
+                    </Button>
+                  )}
                   {!isViewingSnapshot && !['received', 'cancelled'].includes(current.status) && (
                     <Button
                       variant="destructive"
@@ -182,7 +199,7 @@ export function PoDetailDialog({ open, onOpenChange, po, poId, onEdit }: Props) 
                       Cancel PO
                     </Button>
                   )}
-                  {!isViewingSnapshot && current.status !== 'cancelled' && (
+                  {!isViewingSnapshot && isApprovedLive && (
                     existingBills.length > 0 ? (
                       <Button variant="outline" size="sm" onClick={() => { onOpenChange(false); router.push(`/purchase/bills/${existingBills[0].id}`) }}>
                         View Bill ({existingBills[0].invoice_id})
