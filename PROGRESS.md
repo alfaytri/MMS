@@ -233,9 +233,11 @@ Purchase & Sales▾:
 
 ## 🔄 In Progress
 
-🚀 Next: **PO Version Tabs Phase C — edit-after-approval flow** — approvers can edit an approved PO; warning dialog before save; PO drops back to `pending_approval` after the edit; new `po-vN+1` snapshot created.
+🚀 Starting: **Supabase Perf Cleanup Wave 3 — consolidate 9 overlapping permissive policies + `warehouse_stock_view` SECURITY INVOKER** — 9 tables have two permissive policies firing on every read (employee_services, installed_products, invoices, service_brands, service_customer_addresses, service_customer_phones, service_customers, service_instructions, tool_assignments); merge each pair into one. Plus the SECURITY DEFINER view flagged by lint 0010.
 
-Then: **Supabase Perf Cleanup Wave 3: consolidate 9 overlapping permissive policies + switch `warehouse_stock_view` to `SECURITY INVOKER`** — gated on Wave 2 deploy confirmation.
+Then: **PO Version Tabs Phase C — edit-after-approval flow** — approvers can edit an approved PO; warning dialog before save; PO drops back to `pending_approval` after the edit; new `po-vN+1` snapshot created.
+
+Then: **PO Version Tabs Phase D — edit-request workflow** for non-approvers.
 
 Plan: 5-step build to generate a branded per-order confirmation PDF, upload it to Supabase Storage, save the URL on the order row, and pass that URL as the `pdflink` template parameter in `send-booking-confirmations` so the WhatsApp confirmation message ships with a real per-order PDF. HTML preview already approved at `public/brand/order-confirmation-preview.html`.
 
