@@ -958,12 +958,26 @@ export function useSubmitPoVersion() {
         details: `${payload.line_items.length} line item(s) · New total: ${total_qar.toLocaleString()} QAR`,
         performerName: versionPerformer,
       })
+
+      // Phase D: consume any approved-unused edit-request for this PO.
+      // Best-effort; the amend itself has already succeeded so we swallow
+      // any failure (e.g. RLS rejection if the caller isn't an approver).
+      try {
+        await supabase
+          .from('po_edit_requests')
+          .update({ status: 'used', used_at: new Date().toISOString() })
+          .eq('po_id', id)
+          .eq('status', 'approved')
+      } catch {
+        // non-blocking
+      }
     },
     onSuccess: (_data, variables) => {
       queryClient.invalidateQueries({ queryKey: queryKeys.purchaseOrders.all })
       queryClient.invalidateQueries({ queryKey: queryKeys.purchaseOrders.detail(variables.id) })
       queryClient.invalidateQueries({ queryKey: queryKeys.purchaseOrders.versions(variables.id) })
       queryClient.invalidateQueries({ queryKey: queryKeys.notifications.all })
+      queryClient.invalidateQueries({ queryKey: queryKeys.poEditRequests.byPo(variables.id) })
     },
   })
 }
