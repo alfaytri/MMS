@@ -306,6 +306,12 @@ export const queryKeys = {
     user: ['user-permissions'] as const,
   },
 
+  /* ── PO Edit Requests (Phase D) ───────────────────────── */
+  poEditRequests: {
+    all:  ['po-edit-requests'] as const,
+    byPo: (poId: Nullable) => ['po-edit-requests', 'by-po', poId] as const,
+  },
+
   /* ── Profiles ─────────────────────────────────────────── */
   profiles: {
     all: ['profiles'] as const,
