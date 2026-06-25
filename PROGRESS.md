@@ -233,7 +233,7 @@ Purchase & Sales▾:
 
 ## 🔄 In Progress
 
-🚀 Next: **PO Phase D — edit-request workflow** for non-approvers (non-approver clicks "Request Edit" on a locked PO → creates a `po_edit_requests` row → Owner approves → PO unlocks for the requester for a limited window). Spec to be written.
+🚀 Starting: **PO Phase D — Edit Request Workflow for non-approvers** — new `po_edit_requests` table, inline amber/green banner on the PO detail dialog, Request Edit dialog for non-Owners, single-use broadcast unlock on approval, consumption on first amend. Spec: `docs/superpowers/specs/2026-06-25-po-phase-d-edit-request-workflow-design.md`. Plan: `docs/superpowers/plans/2026-06-25-po-phase-d-edit-request-workflow.md`.
 
 Plan: 5-step build to generate a branded per-order confirmation PDF, upload it to Supabase Storage, save the URL on the order row, and pass that URL as the `pdflink` template parameter in `send-booking-confirmations` so the WhatsApp confirmation message ships with a real per-order PDF. HTML preview already approved at `public/brand/order-confirmation-preview.html`.
 
