@@ -233,7 +233,7 @@ Purchase & Sales▾:
 
 ## 🔄 In Progress
 
-🚀 Starting: **Teams UI Rework Task 2: Extend TeamsPageContext** — add `selectedTeamId` (URL-synced `?team=`), `poolsDrawerOpen`, and toggle helper to the existing provider. Plan: [`docs/superpowers/plans/2026-06-25-teams-page-ui-rework.md`](docs/superpowers/plans/2026-06-25-teams-page-ui-rework.md).
+🚀 Starting: **Teams UI Rework Task 3: TopBar v2** — new top bar with title + counter text + search input + `New ▾` dropdown + Schedules/Activity/Pools icon buttons. Plan: [`docs/superpowers/plans/2026-06-25-teams-page-ui-rework.md`](docs/superpowers/plans/2026-06-25-teams-page-ui-rework.md).
 
 Plan: 5-step build to generate a branded per-order confirmation PDF, upload it to Supabase Storage, save the URL on the order row, and pass that URL as the `pdflink` template parameter in `send-booking-confirmations` so the WhatsApp confirmation message ships with a real per-order PDF. HTML preview already approved at `public/brand/order-confirmation-preview.html`.
 
@@ -248,6 +248,8 @@ Previously: WHAPI outbound text/media + provider source separation + WATI parall
 | 2026-06-16 | Pre-Phase-1 baseline | 2,983,378 / 2M (149%) | 7.076 / 5 GB (142%) | End of cycle May 16 – Jun 16; new cycle just started, dashboard hadn't yet refreshed when captured |
 
 ## ✅ Completed
+
+- [2026-06-25] **Teams UI Rework Task 2: Extend TeamsPageContext** — `src/components/teams/TeamsPageContext.tsx` (added URL-synced `selectedTeamId` read from `?team=` via `useSearchParams`, written via `router.replace(..., { scroll: false })`; added `poolsDrawerOpen` local state with `setPoolsDrawerOpen` / `togglePoolsDrawer`; all existing dialog/search/density/tool-count fields and callbacks preserved verbatim). No consumer changes yet — existing page renders unchanged.
 
 - [2026-06-25] **Teams UI Rework Task 1: Foundation helpers** — `src/components/teams/v2/teamStatus.ts` (pure `teamStatus(team) → 'green'|'amber'|'red'|'gray'` + `STATUS_CLASS` Tailwind map; treats soft-deleted rows via `deleted_at` as gray since `TeamFull` has no `archived` field), `src/components/teams/v2/activitySentences.ts` (pure `formatActivity(log) → string` mapping every team/employee/vehicle/tool action to a human sentence with UUID filtering and changed-field summary). No UI wired yet. Plan: [`docs/superpowers/plans/2026-06-25-teams-page-ui-rework.md`](docs/superpowers/plans/2026-06-25-teams-page-ui-rework.md).
 
