@@ -168,8 +168,18 @@ async function upsertContacts(allContacts: any[], supabase: ReturnType<typeof cr
   }
 
   // Backfill last_message from chat_messages for conversations where Wati's
-  // /getContacts API didn't return lastMessage text.
-  await supabase.rpc('backfill_conversation_last_messages')
+  // /getContacts API didn't return lastMessage text. The RPC scans the whole
+  // chat_conversations table, so skip it when there are no candidate rows.
+  const { count: needsBackfill } = await supabase
+    .from('chat_conversations')
+    .select('id', { head: true, count: 'exact' })
+    .is('last_message', null)
+    .not('last_message_at', 'is', null)
+    .limit(1)
+
+  if ((needsBackfill ?? 0) > 0) {
+    await supabase.rpc('backfill_conversation_last_messages')
+  }
 
   return synced
 }

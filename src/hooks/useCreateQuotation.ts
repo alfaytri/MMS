@@ -9,7 +9,27 @@ import type { CustomerLookupResult } from '@/hooks/useCustomerLookup'
 import type { OrderServiceDraft } from '@/types/orders'
 import type { PostgrestError } from '@supabase/supabase-js'
 import { roundMoney, computeDiscount } from '@/lib/money'
-import { capturePdfBlob } from '@/lib/quotations/capture-pdf'
+
+// Fetch the quotation PDF URL from the server-side generator. Replaces the
+// old DOM-screenshot pipeline (html2canvas + jspdf + manual storage upload)
+// with a single API call — Puppeteer renders the same HTML the editor's
+// iframe preview shows, uploads to Storage, and returns the public URL.
+async function fetchGeneratedPdfUrl(
+  quotationUuid: string,
+  supabase: ReturnType<typeof createClient>,
+): Promise<string> {
+  const { data: { session } } = await supabase.auth.getSession()
+  if (!session?.access_token) throw new Error('Not authenticated')
+  const res = await fetch(`/api/quotations/${quotationUuid}/generate-pdf`, {
+    method:  'POST',
+    headers: { Authorization: `Bearer ${session.access_token}` },
+  })
+  const body = await res.json().catch(() => ({}))
+  if (!res.ok || !body.url) {
+    throw new Error(body?.error ?? `PDF generation failed (HTTP ${res.status})`)
+  }
+  return body.url as string
+}
 
 const INITIAL: QuotationDraft = {
   quotationId: '',
@@ -35,16 +55,19 @@ export function computeSubtotal(services: QuotationLineDraft[]): number {
   return roundMoney(services.reduce((sum, s) => sum + s.price * s.qty, 0))
 }
 
-export function useCreateQuotation() {
-  const [draft, setDraft] = useState<QuotationDraft>(INITIAL)
+export function useCreateQuotation(initialDraft?: QuotationDraft | null) {
+  const [draft, setDraft] = useState<QuotationDraft>(initialDraft ?? INITIAL)
   const [quotationIdError, setQuotationIdError] = useState<PostgrestError | null>(null)
   const supabase = createClient()
   const qc = useQueryClient()
 
-  // Generate Q/YYYY/MM/NNNN via DB sequence — race-condition-free
+  // For new quotations, generate Q/YYYY/MM/NNNN via DB sequence — race-condition-free.
+  // For edits (initialDraft.quotationId is set), skip generation and reuse the
+  // existing id so save_order_quotation upserts the same row.
   useEffect(() => {
+    if (initialDraft?.quotationId) return
     ;supabase
-      .rpc('generate_quotation_id')
+      .rpc('generate_order_quotation_id')
       .then(({ data, error }: { data: string | null; error: PostgrestError | null }) => {
         if (error) {
           setQuotationIdError(error)
@@ -127,10 +150,22 @@ export function useCreateQuotation() {
     const sub = computeSubtotal(draft.services)
     const disc = computeDiscount(sub, draft.discountType, draft.discountValue)
     const finalTotal = roundMoney(sub - disc)
-    const expiry = new Date()
-    expiry.setDate(expiry.getDate() + 30)
 
-    const { data: quotUuid, error } = await supabase.rpc('save_quotation', {
+    // Read the admin-configurable validity (days) from app_settings.
+    // Falls back to 30 if the row is missing or value is malformed.
+    const { data: validityRow } = await supabase
+      .from('app_settings')
+      .select('value')
+      .eq('key', 'order_quotation_validity_days')
+      .maybeSingle()
+    const validityDays = Number(
+      (validityRow?.value as { days?: number } | null)?.days,
+    )
+    const days = Number.isFinite(validityDays) && validityDays > 0 ? validityDays : 30
+    const expiry = new Date()
+    expiry.setDate(expiry.getDate() + days)
+
+    const { data: quotUuid, error } = await supabase.rpc('save_order_quotation', {
       p_quotation_id:        draft.quotationId,
       p_service_customer_id: draft.customerId,
       p_division:            draft.division,
@@ -138,22 +173,44 @@ export function useCreateQuotation() {
       p_total_amount:        finalTotal,
       p_notes:               draft.notes || '',
       p_expiry_date:         expiry.toISOString().split('T')[0],
-      p_sent_date:           status === 'sent' ? new Date().toISOString() : '',
-      p_line_items:          JSON.stringify(
-        draft.services.map((s) => ({
-          service_id: s.serviceId || null,
-          name:       s.name,
-          path:       s.path,
-          qty:        s.qty,
-          price:      s.price,
-          duration:   s.duration ?? null,
-        })),
-      ),
+      // sent_date is only meaningful when status === 'sent'. For drafts we
+      // pass NULL — PostgREST rejects empty strings on timestamptz params.
+      p_sent_date:           (status === 'sent' ? new Date().toISOString() : null) as unknown as string,
+      // Pass the array directly — NOT JSON.stringify'd. PostgREST serialises
+      // it into jsonb itself; pre-stringifying made it a scalar string and
+      // jsonb_array_elements() threw 22023 "cannot extract elements from a scalar".
+      p_line_items: draft.services.map((s) => ({
+        service_id: s.serviceId || null,
+        name:       s.name,
+        path:       s.path,
+        qty:        s.qty,
+        price:      s.price,
+        duration:   s.duration ?? null,
+      })),
       p_discount_type:  draft.discountType,
       p_discount_value: draft.discountValue,
     })
-    if (error) throw error
+    if (error) {
+      // Surface the full PostgREST error in the console so the actual
+      // database message (missing column, type mismatch, RLS, etc.) is visible
+      // — the supabase-js wrapper otherwise hides it in `error.message`.
+      console.error('[save_order_quotation] failed', {
+        message:  error.message,
+        details:  (error as { details?: string }).details,
+        hint:     (error as { hint?: string }).hint,
+        code:     (error as { code?: string }).code,
+        sentArgs: { quotation_id: draft.quotationId, status, sub: finalTotal },
+      })
+      const parts = [
+        error.message,
+        (error as { details?: string }).details,
+        (error as { hint?: string }).hint,
+      ].filter(Boolean)
+      throw new Error(parts.join(' — ') || 'Failed to save order quotation')
+    }
     qc.invalidateQueries({ queryKey: queryKeys.quotations.all })
+    qc.invalidateQueries({ queryKey: queryKeys.quotations.counts })
+    qc.invalidateQueries({ queryKey: ['quotation-detail'] })
     return quotUuid as string
   }
 
@@ -162,25 +219,11 @@ export function useCreateQuotation() {
   })
 
   const sendViaWati = useMutation({
-    mutationFn: async (pdfElement: HTMLElement) => {
-      await saveToDb('draft')
-      // 1. Capture PDF from DOM
-      const blob = await capturePdfBlob(pdfElement)
-      // 2. Upload to Supabase Storage
-      const fileName = `${draft.quotationId}.pdf`
-      const { error: uploadError } = await supabase.storage
-        .from('quotation-pdfs')
-        .upload(fileName, blob, {
-          contentType: 'application/pdf',
-          upsert: true,
-        })
-      if (uploadError) throw new Error(`PDF upload failed: ${uploadError.message}`)
-      // 3. Get public URL
-      const { data: urlData } = supabase.storage
-        .from('quotation-pdfs')
-        .getPublicUrl(fileName)
-      const publicUrl = urlData.publicUrl
-      // 4. Check Wati conversation window + send PDF
+    mutationFn: async () => {
+      // 1. Save draft + generate PDF server-side
+      const uuid = await saveToDb('draft')
+      const publicUrl = await fetchGeneratedPdfUrl(uuid, supabase)
+      // 2. Check Wati conversation window
       const digits = draft.phone.replace(/\D/g, '')
       const checkRes = await fetch('/api/wati/send-quotation', {
         method: 'POST',
@@ -189,7 +232,7 @@ export function useCreateQuotation() {
       })
       const checkJson = await checkRes.json()
       if (checkJson.windowClosed) throw new WindowClosedError()
-      // 5. Send PDF file via Wati
+      // 3. Send PDF file via Wati
       const sub = computeSubtotal(draft.services)
       const disc = computeDiscount(sub, draft.discountType, draft.discountValue)
       const finalTotal = roundMoney(sub - disc)
@@ -208,31 +251,17 @@ export function useCreateQuotation() {
         const errJson = await sendRes.json().catch(() => ({}))
         throw new Error((errJson as Record<string, string>).error ?? 'Wati file send failed')
       }
-      // 6. Mark as sent
+      // 4. Mark as sent
       await saveToDb('sent')
     },
   })
 
   const sendViaWhapi = useMutation({
-    mutationFn: async (pdfElement: HTMLElement) => {
-      await saveToDb('draft')
-      // 1. Capture PDF from DOM
-      const blob = await capturePdfBlob(pdfElement)
-      // 2. Upload to Supabase Storage
-      const fileName = `${draft.quotationId}.pdf`
-      const { error: uploadError } = await supabase.storage
-        .from('quotation-pdfs')
-        .upload(fileName, blob, {
-          contentType: 'application/pdf',
-          upsert: true,
-        })
-      if (uploadError) throw new Error(`PDF upload failed: ${uploadError.message}`)
-      // 3. Get public URL
-      const { data: urlData } = supabase.storage
-        .from('quotation-pdfs')
-        .getPublicUrl(fileName)
-      const publicUrl = urlData.publicUrl
-      // 4. Send via WHAPI
+    mutationFn: async () => {
+      // 1. Save draft + generate PDF server-side
+      const uuid = await saveToDb('draft')
+      const publicUrl = await fetchGeneratedPdfUrl(uuid, supabase)
+      // 2. Send via WHAPI
       const sub = computeSubtotal(draft.services)
       const disc = computeDiscount(sub, draft.discountType, draft.discountValue)
       const finalTotal = roundMoney(sub - disc)
@@ -248,7 +277,7 @@ export function useCreateQuotation() {
       })
       const json = await res.json()
       if (!res.ok || !json.ok) throw new Error(json.error ?? 'WHAPI send failed')
-      // 5. Mark as sent
+      // 3. Mark as sent
       await saveToDb('sent')
     },
   })

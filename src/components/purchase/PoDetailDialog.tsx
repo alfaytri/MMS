@@ -8,13 +8,14 @@ import {
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { Button } from '@/components/ui/button'
 import { Skeleton } from '@/components/ui/skeleton'
-import { Printer, Send, XCircle } from 'lucide-react'
+import { Printer, Send, XCircle, Pencil, Undo2 } from 'lucide-react'
 import { toast } from 'sonner'
 import { PoApprovalChain } from './PoApprovalChain'
 import { CreateBillFromPODialog } from './CreateBillFromPODialog'
 import { PoPaymentDialog } from './PoPaymentDialog'
 import { PoReceiveTab } from './PoReceiveTab'
 import { PoVersionTabs } from './PoVersionTabs'
+import { stageOf, type Stage } from '@/lib/poVersionHelper'
 import { PoReturnsTab } from './PoReturnsTab'
 import { ActivityTimeline } from '@/components/shared/ActivityTimeline'
 import { PaymentSummaryTab } from '@/components/shared/PaymentSummaryTab'
@@ -25,11 +26,16 @@ import {
   usePoVersions,
   useSubmitPOForApproval,
   useCancelPO,
+  useRecallPOToDraft,
   type PurchaseOrder,
 } from '@/hooks/usePurchaseOrders'
 import { useBillsByPO } from '@/hooks/useSupplierBills'
 import { usePurchaseReturnsByPO } from '@/hooks/usePurchaseReturns'
 import { useActivityLog } from '@/hooks/useActivityLog'
+import { useMyApprovalRoles } from '@/hooks/usePOApprovals'
+import { usePoEditRequest } from '@/hooks/usePoEditRequests'
+import { EditRequestBanner } from './EditRequestBanner'
+import { RequestEditDialog } from './RequestEditDialog'
 import { formatCurrency, formatDate } from '@/lib/utils/formatters'
 import { cn } from '@/lib/utils'
 import {
@@ -48,6 +54,7 @@ export function PoDetailDialog({ open, onOpenChange, po, poId, onEdit }: Props) 
   const router = useRouter()
   const [paymentOpen, setPaymentOpen] = useState(false)
   const [createBillOpen, setCreateBillOpen] = useState(false)
+  const [requestEditOpen, setRequestEditOpen] = useState(false)
 
   const resolvedId = po?.id ?? poId ?? null
 
@@ -62,17 +69,43 @@ export function PoDetailDialog({ open, onOpenChange, po, poId, onEdit }: Props) 
   const { data: poReturns = [] } = usePurchaseReturnsByPO(open ? resolvedId : null)
   const submitPO = useSubmitPOForApproval()
   const cancelPO = useCancelPO()
+  const recallPO = useRecallPOToDraft()
+  const { data: myRoles = [] } = useMyApprovalRoles()
+  const { data: editRequest = null } = usePoEditRequest(open ? resolvedId : null)
 
   const current = fullPO ?? po
-  const currentVersionNumber = current?.version_number ?? 1
-  const [activeVersionTab, setActiveVersionTab] = useState(currentVersionNumber)
+  const hasOpenRequest    = !!editRequest
+  const hasApprovedUnlock = editRequest?.status === 'approved'
+  const hasApprovalRole   = myRoles.length > 0  // any approval-slot holder
+
+  // Edit visibility: Owner always sees it on approved/pending POs (Phase C).
+  // ANY user sees it when an approved-unused request unlocks the PO (Phase D).
+  const canEdit =
+    ['approved', 'pending_approval'].includes(current?.status ?? '') &&
+    (myRoles.includes('owner') || hasApprovedUnlock)
+  // Owner can also recall a pending PO straight back to draft without editing.
+  const canRecall = current?.status === 'pending_approval' && myRoles.includes('owner')
+  // Non-Owners see Request Edit when the PO is locked AND no open request exists yet.
+  const canRequestEdit =
+    ['approved', 'pending_approval'].includes(current?.status ?? '') &&
+    !myRoles.includes('owner') &&
+    !hasOpenRequest
+  const isApprovedLive = current?.status === 'approved'
+  const liveStage: Stage = current?.po_type ? stageOf(current.po_type) : 'draft'
+  const [activeStage, setActiveStage] = useState<Stage>(liveStage)
+  const [activeVersion, setActiveVersion] = useState<number | null>(null)
 
   useEffect(() => {
-    if (open) setActiveVersionTab(currentVersionNumber)
-  }, [open, currentVersionNumber])
+    if (open) {
+      setActiveStage(liveStage)
+      setActiveVersion(null)
+    }
+  }, [open, liveStage])
 
-  const isViewingSnapshot = activeVersionTab !== currentVersionNumber
-  const snapshotVersion = versions.find((v) => v.version_number === activeVersionTab) ?? null
+  const isViewingSnapshot = activeVersion !== null
+  const snapshotVersion = isViewingSnapshot
+    ? versions.find((v) => v.stage === activeStage && v.version_number === activeVersion) ?? null
+    : null
 
   if (open && !current && isLoading) {
     return (
@@ -155,6 +188,48 @@ export function PoDetailDialog({ open, onOpenChange, po, poId, onEdit }: Props) 
                     <Printer className="h-3.5 w-3.5 mr-1.5" />
                     Print
                   </Button>
+                  {!isViewingSnapshot && canEdit && (
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => {
+                        onOpenChange(false)
+                        router.push(`/purchase/edit-po/${current.id}`)
+                      }}
+                    >
+                      <Pencil className="h-3.5 w-3.5 mr-1.5" />
+                      Edit
+                    </Button>
+                  )}
+                  {!isViewingSnapshot && canRequestEdit && (
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => setRequestEditOpen(true)}
+                    >
+                      <Pencil className="h-3.5 w-3.5 mr-1.5" />
+                      Request Edit
+                    </Button>
+                  )}
+                  {!isViewingSnapshot && canRecall && (
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      disabled={recallPO.isPending}
+                      onClick={async () => {
+                        if (!confirm('Recall this PO to Draft? The pending approval will be cancelled.')) return
+                        try {
+                          await recallPO.mutateAsync(current.id)
+                          toast.success('PO recalled to Draft')
+                        } catch (e) {
+                          toast.error(e instanceof Error ? e.message : 'Failed to recall PO')
+                        }
+                      }}
+                    >
+                      <Undo2 className="h-3.5 w-3.5 mr-1.5" />
+                      {recallPO.isPending ? 'Recalling…' : 'Recall to Draft'}
+                    </Button>
+                  )}
                   {!isViewingSnapshot && !['received', 'cancelled'].includes(current.status) && (
                     <Button
                       variant="destructive"
@@ -175,7 +250,7 @@ export function PoDetailDialog({ open, onOpenChange, po, poId, onEdit }: Props) 
                       Cancel PO
                     </Button>
                   )}
-                  {!isViewingSnapshot && current.status !== 'cancelled' && (
+                  {!isViewingSnapshot && isApprovedLive && (
                     existingBills.length > 0 ? (
                       <Button variant="outline" size="sm" onClick={() => { onOpenChange(false); router.push(`/purchase/bills/${existingBills[0].id}`) }}>
                         View Bill ({existingBills[0].invoice_id})
@@ -194,13 +269,21 @@ export function PoDetailDialog({ open, onOpenChange, po, poId, onEdit }: Props) 
             )}
           </DialogHeader>
 
-          {versions.length > 0 && current && (
+          {editRequest && (
+            <EditRequestBanner request={editRequest} canReview={hasApprovalRole} />
+          )}
+
+          {current && (
             <div className="-mx-4">
               <PoVersionTabs
                 versions={versions}
-                currentVersionNumber={currentVersionNumber}
-                activeTab={activeVersionTab}
-                onTabChange={setActiveVersionTab}
+                currentPoType={current.po_type ?? 'draft'}
+                activeStage={activeStage}
+                activeVersion={activeVersion}
+                onChange={(stage, version) => {
+                  setActiveStage(stage)
+                  setActiveVersion(version)
+                }}
               />
             </div>
           )}
@@ -403,6 +486,14 @@ export function PoDetailDialog({ open, onOpenChange, po, poId, onEdit }: Props) 
         onOpenChange={setCreateBillOpen}
         poId={current?.id ?? ''}
       />
+      {current && (
+        <RequestEditDialog
+          open={requestEditOpen}
+          onOpenChange={setRequestEditOpen}
+          poId={current.id}
+          poNumber={current.po_number ?? null}
+        />
+      )}
     </>
   )
 }

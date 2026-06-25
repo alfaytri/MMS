@@ -178,6 +178,7 @@ export interface OrderDetail extends OrderListItem {
     details: string | null
     created_at: string
   }>
+  created_by_name: string | null
 }
 
 export type WarrantyStatus = 'active' | 'expiring_soon' | 'expired'

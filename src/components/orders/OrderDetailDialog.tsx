@@ -468,6 +468,19 @@ export function OrderDetailDialog({ orderId, open, onOpenChange }: Props) {
                   </TabsContent>
                 </div>
               </Tabs>
+
+              {/* Created-by footer — always visible at the dialog's bottom-right */}
+              <div className="border-t bg-muted/30 px-5 py-2 flex justify-end">
+                <span className="text-[11px] text-muted-foreground">
+                  Created by{' '}
+                  <span className="font-medium text-foreground">
+                    {order.created_by_name ?? 'Unknown'}
+                  </span>
+                  {order.created_at && (
+                    <> · {format(new Date(order.created_at), 'd MMM yyyy, HH:mm')}</>
+                  )}
+                </span>
+              </div>
             </>
           )}
         </DialogContent>

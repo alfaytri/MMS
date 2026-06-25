@@ -3573,6 +3573,189 @@ export type Database = {
           },
         ]
       }
+      order_quotation_line_items: {
+        Row: {
+          created_at: string | null
+          duration: number | null
+          id: string
+          name: string
+          path: string[]
+          price: number
+          qty: number
+          quotation_id: string
+          service_id: string | null
+        }
+        Insert: {
+          created_at?: string | null
+          duration?: number | null
+          id?: string
+          name: string
+          path?: string[]
+          price: number
+          qty?: number
+          quotation_id: string
+          service_id?: string | null
+        }
+        Update: {
+          created_at?: string | null
+          duration?: number | null
+          id?: string
+          name?: string
+          path?: string[]
+          price?: number
+          qty?: number
+          quotation_id?: string
+          service_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "order_quotation_line_items_quotation_id_fkey"
+            columns: ["quotation_id"]
+            isOneToOne: false
+            referencedRelation: "order_quotations"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "quotation_line_items_service_id_fkey"
+            columns: ["service_id"]
+            isOneToOne: false
+            referencedRelation: "services"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      order_quotation_log: {
+        Row: {
+          action: string
+          created_at: string | null
+          details: string | null
+          id: string
+          quotation_id: string
+          user_name: string | null
+        }
+        Insert: {
+          action: string
+          created_at?: string | null
+          details?: string | null
+          id?: string
+          quotation_id: string
+          user_name?: string | null
+        }
+        Update: {
+          action?: string
+          created_at?: string | null
+          details?: string | null
+          id?: string
+          quotation_id?: string
+          user_name?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "order_quotation_log_quotation_id_fkey"
+            columns: ["quotation_id"]
+            isOneToOne: false
+            referencedRelation: "order_quotations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      order_quotations: {
+        Row: {
+          agent_name: string | null
+          approved_by_customer: boolean | null
+          approved_by_manager: boolean | null
+          converted_order_id: string | null
+          created_at: string | null
+          created_date: string
+          customer_id: string | null
+          discount_type: string
+          discount_value: number
+          division: string | null
+          expiry_date: string
+          has_configurable: boolean | null
+          id: string
+          line_item_count: number | null
+          notes: string | null
+          quotation_id: string
+          sent_date: string | null
+          service_customer_id: string
+          services_summary: string | null
+          status: Database["public"]["Enums"]["order_quotation_status"] | null
+          total_amount: number | null
+          updated_at: string | null
+        }
+        Insert: {
+          agent_name?: string | null
+          approved_by_customer?: boolean | null
+          approved_by_manager?: boolean | null
+          converted_order_id?: string | null
+          created_at?: string | null
+          created_date: string
+          customer_id?: string | null
+          discount_type?: string
+          discount_value?: number
+          division?: string | null
+          expiry_date: string
+          has_configurable?: boolean | null
+          id?: string
+          line_item_count?: number | null
+          notes?: string | null
+          quotation_id: string
+          sent_date?: string | null
+          service_customer_id: string
+          services_summary?: string | null
+          status?: Database["public"]["Enums"]["order_quotation_status"] | null
+          total_amount?: number | null
+          updated_at?: string | null
+        }
+        Update: {
+          agent_name?: string | null
+          approved_by_customer?: boolean | null
+          approved_by_manager?: boolean | null
+          converted_order_id?: string | null
+          created_at?: string | null
+          created_date?: string
+          customer_id?: string | null
+          discount_type?: string
+          discount_value?: number
+          division?: string | null
+          expiry_date?: string
+          has_configurable?: boolean | null
+          id?: string
+          line_item_count?: number | null
+          notes?: string | null
+          quotation_id?: string
+          sent_date?: string | null
+          service_customer_id?: string
+          services_summary?: string | null
+          status?: Database["public"]["Enums"]["order_quotation_status"] | null
+          total_amount?: number | null
+          updated_at?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "order_quotations_converted_order_id_fkey"
+            columns: ["converted_order_id"]
+            isOneToOne: false
+            referencedRelation: "orders"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "order_quotations_customer_id_fkey"
+            columns: ["customer_id"]
+            isOneToOne: false
+            referencedRelation: "customers"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "order_quotations_service_customer_id_fkey"
+            columns: ["service_customer_id"]
+            isOneToOne: false
+            referencedRelation: "service_customers"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       order_services: {
         Row: {
           configuration: Json | null
@@ -3751,6 +3934,7 @@ export type Database = {
             | Database["public"]["Enums"]["confirmation_status"]
             | null
           created_at: string | null
+          created_by: string | null
           customer_id: string | null
           division: string
           follow_up_request_id: string | null
@@ -3784,6 +3968,7 @@ export type Database = {
             | Database["public"]["Enums"]["confirmation_status"]
             | null
           created_at?: string | null
+          created_by?: string | null
           customer_id?: string | null
           division: string
           follow_up_request_id?: string | null
@@ -3817,6 +4002,7 @@ export type Database = {
             | Database["public"]["Enums"]["confirmation_status"]
             | null
           created_at?: string | null
+          created_by?: string | null
           customer_id?: string | null
           division?: string
           follow_up_request_id?: string | null
@@ -3847,6 +4033,13 @@ export type Database = {
           {
             foreignKeyName: "orders_completed_by_fkey"
             columns: ["completed_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "orders_created_by_fkey"
+            columns: ["created_by"]
             isOneToOne: false
             referencedRelation: "profiles"
             referencedColumns: ["id"]
@@ -4312,6 +4505,67 @@ export type Database = {
           },
         ]
       }
+      po_edit_requests: {
+        Row: {
+          created_at: string
+          id: string
+          po_id: string
+          reason: string
+          requested_by: string
+          review_comment: string | null
+          reviewed_at: string | null
+          reviewed_by: string | null
+          status: string
+          used_at: string | null
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          po_id: string
+          reason: string
+          requested_by: string
+          review_comment?: string | null
+          reviewed_at?: string | null
+          reviewed_by?: string | null
+          status?: string
+          used_at?: string | null
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          po_id?: string
+          reason?: string
+          requested_by?: string
+          review_comment?: string | null
+          reviewed_at?: string | null
+          reviewed_by?: string | null
+          status?: string
+          used_at?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "po_edit_requests_po_id_fkey"
+            columns: ["po_id"]
+            isOneToOne: false
+            referencedRelation: "purchase_orders"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "po_edit_requests_requested_by_fkey"
+            columns: ["requested_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "po_edit_requests_reviewed_by_fkey"
+            columns: ["reviewed_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       po_line_items: {
         Row: {
           brand_id: string | null
@@ -4404,6 +4658,7 @@ export type Database = {
           payment_terms_notes: string | null
           po_id: string
           snapshot_label: string
+          stage: string
           submitted_at: string
           submitted_by: string | null
           subtotal: number
@@ -4427,6 +4682,7 @@ export type Database = {
           payment_terms_notes?: string | null
           po_id: string
           snapshot_label?: string
+          stage: string
           submitted_at?: string
           submitted_by?: string | null
           subtotal: number
@@ -4450,6 +4706,7 @@ export type Database = {
           payment_terms_notes?: string | null
           po_id?: string
           snapshot_label?: string
+          stage?: string
           submitted_at?: string
           submitted_by?: string | null
           subtotal?: number
@@ -5266,189 +5523,6 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "v_team_monthly_overtime"
             referencedColumns: ["team_id"]
-          },
-        ]
-      }
-      quotation_line_items: {
-        Row: {
-          created_at: string | null
-          duration: number | null
-          id: string
-          name: string
-          path: string[]
-          price: number
-          qty: number
-          quotation_id: string
-          service_id: string | null
-        }
-        Insert: {
-          created_at?: string | null
-          duration?: number | null
-          id?: string
-          name: string
-          path?: string[]
-          price: number
-          qty?: number
-          quotation_id: string
-          service_id?: string | null
-        }
-        Update: {
-          created_at?: string | null
-          duration?: number | null
-          id?: string
-          name?: string
-          path?: string[]
-          price?: number
-          qty?: number
-          quotation_id?: string
-          service_id?: string | null
-        }
-        Relationships: [
-          {
-            foreignKeyName: "quotation_line_items_quotation_id_fkey"
-            columns: ["quotation_id"]
-            isOneToOne: false
-            referencedRelation: "quotations"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "quotation_line_items_service_id_fkey"
-            columns: ["service_id"]
-            isOneToOne: false
-            referencedRelation: "services"
-            referencedColumns: ["id"]
-          },
-        ]
-      }
-      quotation_log: {
-        Row: {
-          action: string
-          created_at: string | null
-          details: string | null
-          id: string
-          quotation_id: string
-          user_name: string | null
-        }
-        Insert: {
-          action: string
-          created_at?: string | null
-          details?: string | null
-          id?: string
-          quotation_id: string
-          user_name?: string | null
-        }
-        Update: {
-          action?: string
-          created_at?: string | null
-          details?: string | null
-          id?: string
-          quotation_id?: string
-          user_name?: string | null
-        }
-        Relationships: [
-          {
-            foreignKeyName: "quotation_log_quotation_id_fkey"
-            columns: ["quotation_id"]
-            isOneToOne: false
-            referencedRelation: "quotations"
-            referencedColumns: ["id"]
-          },
-        ]
-      }
-      quotations: {
-        Row: {
-          agent_name: string | null
-          approved_by_customer: boolean | null
-          approved_by_manager: boolean | null
-          converted_order_id: string | null
-          created_at: string | null
-          created_date: string
-          customer_id: string | null
-          discount_type: string
-          discount_value: number
-          division: string | null
-          expiry_date: string
-          has_configurable: boolean | null
-          id: string
-          line_item_count: number | null
-          notes: string | null
-          quotation_id: string
-          sent_date: string | null
-          service_customer_id: string
-          services_summary: string | null
-          status: Database["public"]["Enums"]["quotation_status"] | null
-          total_amount: number | null
-          updated_at: string | null
-        }
-        Insert: {
-          agent_name?: string | null
-          approved_by_customer?: boolean | null
-          approved_by_manager?: boolean | null
-          converted_order_id?: string | null
-          created_at?: string | null
-          created_date: string
-          customer_id?: string | null
-          discount_type?: string
-          discount_value?: number
-          division?: string | null
-          expiry_date: string
-          has_configurable?: boolean | null
-          id?: string
-          line_item_count?: number | null
-          notes?: string | null
-          quotation_id: string
-          sent_date?: string | null
-          service_customer_id: string
-          services_summary?: string | null
-          status?: Database["public"]["Enums"]["quotation_status"] | null
-          total_amount?: number | null
-          updated_at?: string | null
-        }
-        Update: {
-          agent_name?: string | null
-          approved_by_customer?: boolean | null
-          approved_by_manager?: boolean | null
-          converted_order_id?: string | null
-          created_at?: string | null
-          created_date?: string
-          customer_id?: string | null
-          discount_type?: string
-          discount_value?: number
-          division?: string | null
-          expiry_date?: string
-          has_configurable?: boolean | null
-          id?: string
-          line_item_count?: number | null
-          notes?: string | null
-          quotation_id?: string
-          sent_date?: string | null
-          service_customer_id?: string
-          services_summary?: string | null
-          status?: Database["public"]["Enums"]["quotation_status"] | null
-          total_amount?: number | null
-          updated_at?: string | null
-        }
-        Relationships: [
-          {
-            foreignKeyName: "quotations_converted_order_id_fkey"
-            columns: ["converted_order_id"]
-            isOneToOne: false
-            referencedRelation: "orders"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "quotations_customer_id_fkey"
-            columns: ["customer_id"]
-            isOneToOne: false
-            referencedRelation: "customers"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "quotations_service_customer_id_fkey"
-            columns: ["service_customer_id"]
-            isOneToOne: false
-            referencedRelation: "service_customers"
-            referencedColumns: ["id"]
           },
         ]
       }
@@ -6961,6 +7035,7 @@ export type Database = {
           completed_at: string | null
           completed_by: string | null
           created_at: string | null
+          created_by: string | null
           customer_id: string | null
           id: string
           mode: string
@@ -6979,6 +7054,7 @@ export type Database = {
           completed_at?: string | null
           completed_by?: string | null
           created_at?: string | null
+          created_by?: string | null
           customer_id?: string | null
           id?: string
           mode?: string
@@ -6997,6 +7073,7 @@ export type Database = {
           completed_at?: string | null
           completed_by?: string | null
           created_at?: string | null
+          created_by?: string | null
           customer_id?: string | null
           id?: string
           mode?: string
@@ -7012,6 +7089,13 @@ export type Database = {
           {
             foreignKeyName: "site_visits_completed_by_fkey"
             columns: ["completed_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "site_visits_created_by_fkey"
+            columns: ["created_by"]
             isOneToOne: false
             referencedRelation: "profiles"
             referencedColumns: ["id"]
@@ -8750,6 +8834,7 @@ export type Database = {
     Views: {
       calendar_visits: {
         Row: {
+          created_by_name: string | null
           customer_id: string | null
           customer_name: string | null
           customer_phone: string | null
@@ -9371,6 +9456,7 @@ export type Database = {
           p_arrival_phone: string
           p_assignments: Json
           p_attachments: Json
+          p_created_by?: string
           p_division: string
           p_notes: string
           p_order_id: string
@@ -9438,6 +9524,7 @@ export type Database = {
           p_arrival_phone: string
           p_assignments: Json
           p_attachments: Json
+          p_created_by?: string
           p_mode: string
           p_notes: string
           p_scheduled_date: string
@@ -9504,7 +9591,7 @@ export type Database = {
       generate_check_number: { Args: never; Returns: string }
       generate_contract_id: { Args: never; Returns: string }
       generate_invoice_from_so: { Args: { p_so_id: string }; Returns: Json }
-      generate_quotation_id: { Args: never; Returns: string }
+      generate_order_quotation_id: { Args: never; Returns: string }
       generate_quotation_number: { Args: never; Returns: string }
       generate_transfer_number: { Args: never; Returns: string }
       get_cogs_breakdown: {
@@ -9767,7 +9854,7 @@ export type Database = {
         }
         Returns: undefined
       }
-      save_quotation: {
+      save_order_quotation: {
         Args: {
           p_discount_type?: string
           p_discount_value?: number
@@ -9925,6 +10012,16 @@ export type Database = {
       notification_channel: "whatsapp" | "sms" | "email" | "push"
       notification_status: "sent" | "failed" | "pending" | "delivered"
       notification_trigger: "manual" | "scheduled" | "event" | "reminder"
+      order_quotation_status:
+        | "draft"
+        | "sent"
+        | "pending_approval"
+        | "approved"
+        | "customer_approved"
+        | "rejected"
+        | "expired"
+        | "converted"
+        | "cancelled"
       order_status:
         | "scheduled"
         | "confirmed"
@@ -9967,16 +10064,6 @@ export type Database = {
         | "buy_x_discount_get_y"
       qc_priority: "high" | "medium" | "low"
       qc_schedule_status: "pending" | "in-progress" | "completed" | "missed"
-      quotation_status:
-        | "draft"
-        | "sent"
-        | "pending_approval"
-        | "approved"
-        | "customer_approved"
-        | "rejected"
-        | "expired"
-        | "converted"
-        | "cancelled"
       receival_status: "pending_approval" | "approved" | "rejected"
       reminder_channel: "Email" | "SMS" | "WhatsApp"
       return_source_type: "sale_order" | "order" | "purchase_order"
@@ -10244,6 +10331,17 @@ export const Constants = {
       notification_channel: ["whatsapp", "sms", "email", "push"],
       notification_status: ["sent", "failed", "pending", "delivered"],
       notification_trigger: ["manual", "scheduled", "event", "reminder"],
+      order_quotation_status: [
+        "draft",
+        "sent",
+        "pending_approval",
+        "approved",
+        "customer_approved",
+        "rejected",
+        "expired",
+        "converted",
+        "cancelled",
+      ],
       order_status: [
         "scheduled",
         "confirmed",
@@ -10291,17 +10389,6 @@ export const Constants = {
       ],
       qc_priority: ["high", "medium", "low"],
       qc_schedule_status: ["pending", "in-progress", "completed", "missed"],
-      quotation_status: [
-        "draft",
-        "sent",
-        "pending_approval",
-        "approved",
-        "customer_approved",
-        "rejected",
-        "expired",
-        "converted",
-        "cancelled",
-      ],
       receival_status: ["pending_approval", "approved", "rejected"],
       reminder_channel: ["Email", "SMS", "WhatsApp"],
       return_source_type: ["sale_order", "order", "purchase_order"],
@@ -10377,8 +10464,5 @@ export const Constants = {
     },
   },
 } as const
-
-type PublicSchema = Database['public']
-export type DBTable<T extends keyof PublicSchema['Tables']> = PublicSchema['Tables'][T]['Row']
-export type DBInsert<T extends keyof PublicSchema['Tables']> = PublicSchema['Tables'][T]['Insert']
-export type DBUpdate<T extends keyof PublicSchema['Tables']> = PublicSchema['Tables'][T]['Update']
+A new version of Supabase CLI is available: v2.107.0 (currently installed v2.91.3)
+We recommend updating regularly for new features and bug fixes: https://supabase.com/docs/guides/cli/getting-started#updating-the-supabase-cli

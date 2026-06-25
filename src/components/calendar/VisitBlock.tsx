@@ -325,6 +325,13 @@ function HoverPopup({
         </div>
       )}
 
+      {/* Created by — orders / site visits only (other sources don't track a creator) */}
+      {visit.created_by_name && (
+        <p className="border-t pt-1.5 text-[10px] text-muted-foreground text-right">
+          Created by <span className="font-medium text-foreground">{visit.created_by_name}</span>
+        </p>
+      )}
+
       {/* Actions */}
       {(canEdit || (canSwap && visit.source_type === 'order' && visit.status !== 'completed' && visit.status !== 'cancelled')) && (
         <div className="flex gap-1 pt-1.5 border-t">

@@ -3,7 +3,7 @@ import { createClient } from '@/lib/supabase/client'
 import { findApplicableTiers, validateRoles, buildApprovalSteps, getNotificationRecipients } from '@/lib/approvalChainResolution'
 import type { ApprovalChainTier, ApprovalRoleAssignmentRow } from '@/lib/approvalChainResolution'
 import { logPOActivity, resolveMyName } from '@/lib/poActivityLogger'
-import { savePoSnapshot, resolveLineItemNames } from '@/lib/poVersionHelper'
+import { savePoSnapshot, stageOf, resolveLineItemNames } from '@/lib/poVersionHelper'
 import { queryKeys } from '@/lib/queryKeys'
 
 // ─── Types ────────────────────────────────────────────────────────────────────
@@ -176,6 +176,7 @@ export type PoVersion = {
   id: string
   po_id: string
   version_number: number
+  stage: 'rfq' | 'draft' | 'po'
   submitted_at: string
   submitted_by: string | null
   supplier_id: string
@@ -406,6 +407,10 @@ export function useCreatePO() {
         performerName,
       })
 
+      // Snapshot the just-created PO.
+      // stageOf maps: rfq→'rfq', draft→'draft', confirmed→'po'.
+      await savePoSnapshot(supabase, po.id, stageOf(payload.po_type ?? 'draft'))
+
       return po as PurchaseOrder
     },
     onSuccess: () => {
@@ -465,6 +470,16 @@ export function useUpdatePO() {
         }
       }
 
+      // Snapshot this revision. Each save creates a new version of the current
+      // stage (rfq → rfq-v(n+1), draft → draft-v(n+1)). Lookup is cheap (PK).
+      const { data: poForStage } = await supabase
+        .from('purchase_orders')
+        .select('po_type')
+        .eq('id', id)
+        .single()
+      if (poForStage?.po_type) {
+        await savePoSnapshot(supabase, id, stageOf(poForStage.po_type as POType))
+      }
     },
     onSuccess: (_data, variables) => {
       queryClient.invalidateQueries({ queryKey: queryKeys.purchaseOrders.all })
@@ -563,8 +578,9 @@ export function useSubmitPOForApproval() {
         .from('purchase_orders').update({ status: 'pending_approval', po_type: 'confirmed' }).eq('id', id)
       if (poErr) throw poErr
 
-      // Snapshot the PO state at submission time
-      await savePoSnapshot(supabase, id, 'submitted')
+      // Submission is the moment a PO is "born" — this becomes po-v1
+      // (or po-v(n+1) on resubmit after a rejection).
+      await savePoSnapshot(supabase, id, 'po')
 
       const submitPerformer = await resolveMyName()
       await logPOActivity({
@@ -697,6 +713,60 @@ export function useCancelPO() {
   })
 }
 
+// Owner-initiated rollback of a pending_approval PO back to draft. Cleans up
+// the in-flight approval chain so it's no longer waiting on approvers, and
+// also dismisses any unread po_approval_requested notifications so the
+// approvers' bell doesn't keep nagging them about a PO that's been recalled.
+export function useRecallPOToDraft() {
+  const queryClient = useQueryClient()
+  return useMutation({
+    mutationFn: async (id: string) => {
+      const supabase = createClient()
+
+      // 1. Update status + po_type back to draft
+      const { error: poErr } = await supabase
+        .from('purchase_orders')
+        .update({ status: 'draft', po_type: 'draft' })
+        .eq('id', id)
+      if (poErr) throw poErr
+
+      // 2. Clear pending approval steps for this PO. Past iterations (already
+      //    approved or rejected) stay for audit; only the active pending row(s)
+      //    in the current iteration are deleted so a clean iteration starts on
+      //    next submission.
+      const { error: stepsErr } = await supabase
+        .from('po_approvals')
+        .delete()
+        .eq('po_id', id)
+        .eq('status', 'pending')
+      if (stepsErr) throw stepsErr
+
+      // 3. Mark any unread po_approval_requested notifications for this PO as read
+      await supabase
+        .from('notifications')
+        .update({ read_at: new Date().toISOString() })
+        .eq('related_id', id)
+        .eq('type', 'po_approval_requested')
+        .is('read_at', null)
+
+      const recallPerformer = await resolveMyName()
+      await logPOActivity({
+        poId: id,
+        action: 'PO Recalled to Draft',
+        details: 'Pending approval cancelled by Owner',
+        performerName: recallPerformer,
+        severity: 'warning',
+      })
+    },
+    onSuccess: (_, id) => {
+      queryClient.invalidateQueries({ queryKey: queryKeys.purchaseOrders.all })
+      queryClient.invalidateQueries({ queryKey: queryKeys.purchaseOrders.detail(id) })
+      queryClient.invalidateQueries({ queryKey: queryKeys.approvals.poApprovals })
+      queryClient.invalidateQueries({ queryKey: queryKeys.notifications.all })
+    },
+  })
+}
+
 export function useDeletePoVersion() {
   const queryClient = useQueryClient()
   return useMutation({
@@ -749,29 +819,11 @@ export function useSubmitPoVersion() {
     }) => {
       const supabase = createClient()
 
-      // 1. Snapshot current state into po_versions
-      const { error: snapErr } = await supabase
-        .from('po_versions')
-        .insert({
-          po_id: id,
-          version_number: currentVersionNumber,
-          supplier_id: currentSnapshot.supplier_id,
-          supplier_name: currentSnapshot.supplier_name,
-          currency: currentSnapshot.currency,
-          exchange_rate: currentSnapshot.exchange_rate,
-          subtotal: currentSnapshot.subtotal,
-          discount_amount: currentSnapshot.discount_amount,
-          discount_label: currentSnapshot.discount_label,
-          payment_terms: currentSnapshot.payment_terms,
-          payment_terms_notes: currentSnapshot.payment_terms_notes,
-          payment_milestones: currentSnapshot.payment_milestones,
-          delivery_terms: currentSnapshot.delivery_terms,
-          delivery_terms_notes: currentSnapshot.delivery_terms_notes,
-          expected_delivery: currentSnapshot.expected_delivery,
-          vendor_notes: currentSnapshot.vendor_notes,
-          line_items: currentSnapshot.line_items,
-        })
-      if (snapErr) throw snapErr
+      // 1. Snapshot current (pre-amend) PO state. This is the amend flow used
+      //    by useSubmitPoVersion for post-approval edits — the live PO is
+      //    po_type='confirmed', so we snapshot it as the next 'po' version.
+      //    savePoSnapshot computes the per-stage version_number automatically.
+      await savePoSnapshot(supabase, id, 'po')
 
       // 2. Recalculate totals
       const subtotal = payload.line_items.reduce((s, li) => s + li.total_price, 0)
@@ -906,12 +958,26 @@ export function useSubmitPoVersion() {
         details: `${payload.line_items.length} line item(s) · New total: ${total_qar.toLocaleString()} QAR`,
         performerName: versionPerformer,
       })
+
+      // Phase D: consume any approved-unused edit-request for this PO.
+      // Best-effort; the amend itself has already succeeded so we swallow
+      // any failure (e.g. RLS rejection if the caller isn't an approver).
+      try {
+        await supabase
+          .from('po_edit_requests')
+          .update({ status: 'used', used_at: new Date().toISOString() })
+          .eq('po_id', id)
+          .eq('status', 'approved')
+      } catch {
+        // non-blocking
+      }
     },
     onSuccess: (_data, variables) => {
       queryClient.invalidateQueries({ queryKey: queryKeys.purchaseOrders.all })
       queryClient.invalidateQueries({ queryKey: queryKeys.purchaseOrders.detail(variables.id) })
       queryClient.invalidateQueries({ queryKey: queryKeys.purchaseOrders.versions(variables.id) })
       queryClient.invalidateQueries({ queryKey: queryKeys.notifications.all })
+      queryClient.invalidateQueries({ queryKey: queryKeys.poEditRequests.byPo(variables.id) })
     },
   })
 }
@@ -965,6 +1031,19 @@ export function useSavePoAsDraft() {
         details: `${payload.line_items.length} line item(s) · Supplier: ${payload.supplier_name}`,
         performerName: draftPerformer,
       })
+
+      // Snapshot this revision under the current stage. For Save-as-Draft this
+      // is almost always 'draft' (or 'rfq' for an RFQ being saved as a draft
+      // before submission). Per-stage version_number is computed inside the
+      // helper.
+      const { data: poForStage } = await supabase
+        .from('purchase_orders')
+        .select('po_type')
+        .eq('id', id)
+        .single()
+      if (poForStage?.po_type) {
+        await savePoSnapshot(supabase, id, stageOf(poForStage.po_type as POType))
+      }
     },
     onSuccess: (_data, variables) => {
       queryClient.invalidateQueries({ queryKey: queryKeys.purchaseOrders.all })

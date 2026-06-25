@@ -187,54 +187,52 @@ export function OrderFormPanel({
         {/* ── Division + Services ── */}
         <div className={cn('px-5 py-4 space-y-4', !draft.customerId && 'pointer-events-none opacity-40 select-none')}>
 
-          {draft.type === 'order' && (
-            <div className="space-y-2.5">
-              <div className="flex items-center justify-between">
-                <SectionLabel>Division</SectionLabel>
-                <label className="flex items-center gap-1.5 cursor-pointer select-none">
-                  <input
-                    type="checkbox"
-                    checked={multiDivision}
-                    onChange={(e) => { setMultiDivision(e.target.checked); setSelectedDivisions([]); onUpdate({ division: '' }) }}
-                    className="rounded accent-orange-500"
-                  />
-                  <span className="text-xs text-muted-foreground">Multi-division</span>
-                </label>
-              </div>
-              <div className="flex flex-wrap gap-2">
-                {divisions.map((d) =>
-                  !multiDivision ? (
-                    <button
-                      key={d.slug}
-                      type="button"
-                      onClick={() => handleSingleDivision(selectedDivisions[0] === d.slug ? '' : d.slug)}
-                      className={cn(
-                        'rounded-full px-4 py-1.5 text-sm font-medium transition-all',
-                        selectedDivisions[0] === d.slug
-                          ? 'bg-orange-500 text-white shadow-sm shadow-orange-200'
-                          : 'bg-muted text-muted-foreground hover:bg-slate-200'
-                      )}
-                    >
-                      {d.name}
-                    </button>
-                  ) : (
-                    <label
-                      key={d.slug}
-                      className={cn(
-                        'flex cursor-pointer items-center gap-1.5 rounded-full px-4 py-1.5 text-sm font-medium transition-all',
-                        selectedDivisions.includes(d.slug)
-                          ? 'bg-orange-500 text-white shadow-sm shadow-orange-200'
-                          : 'bg-muted text-muted-foreground hover:bg-slate-200'
-                      )}
-                    >
-                      <input type="checkbox" className="sr-only" checked={selectedDivisions.includes(d.slug)} onChange={() => toggleDivision(d.slug)} />
-                      {d.name}
-                    </label>
-                  )
-                )}
-              </div>
+          <div className="space-y-2.5">
+            <div className="flex items-center justify-between">
+              <SectionLabel>Division</SectionLabel>
+              <label className="flex items-center gap-1.5 cursor-pointer select-none">
+                <input
+                  type="checkbox"
+                  checked={multiDivision}
+                  onChange={(e) => { setMultiDivision(e.target.checked); setSelectedDivisions([]); onUpdate({ division: '' }) }}
+                  className="rounded accent-orange-500"
+                />
+                <span className="text-xs text-muted-foreground">Multi-division</span>
+              </label>
             </div>
-          )}
+            <div className="flex flex-wrap gap-2">
+              {divisions.map((d) =>
+                !multiDivision ? (
+                  <button
+                    key={d.slug}
+                    type="button"
+                    onClick={() => handleSingleDivision(selectedDivisions[0] === d.slug ? '' : d.slug)}
+                    className={cn(
+                      'rounded-full px-4 py-1.5 text-sm font-medium transition-all',
+                      selectedDivisions[0] === d.slug
+                        ? 'bg-orange-500 text-white shadow-sm shadow-orange-200'
+                        : 'bg-muted text-muted-foreground hover:bg-slate-200'
+                    )}
+                  >
+                    {d.name}
+                  </button>
+                ) : (
+                  <label
+                    key={d.slug}
+                    className={cn(
+                      'flex cursor-pointer items-center gap-1.5 rounded-full px-4 py-1.5 text-sm font-medium transition-all',
+                      selectedDivisions.includes(d.slug)
+                        ? 'bg-orange-500 text-white shadow-sm shadow-orange-200'
+                        : 'bg-muted text-muted-foreground hover:bg-slate-200'
+                    )}
+                  >
+                    <input type="checkbox" className="sr-only" checked={selectedDivisions.includes(d.slug)} onChange={() => toggleDivision(d.slug)} />
+                    {d.name}
+                  </label>
+                )
+              )}
+            </div>
+          </div>
 
           {/* ── Requested Services ── */}
           <div className="space-y-2.5">
@@ -299,7 +297,23 @@ export function OrderFormPanel({
           {draft.visitDates.length > 0 && (
             <VisitDateSchedule
               windows={draft.visitDates}
-              onChange={(windows) => onUpdate({ visitDates: windows })}
+              onChange={(windows) => {
+                // The arrival window is the source of truth for placed assignments
+                // on that date — sync their timeSlot/toTime so the calendar block
+                // moves when the user edits the From/To dropdowns after dropping.
+                const winByDate = new Map(windows.map((w) => [w.date, w]))
+                const updatedAssignments = draft.assignments.map((a) => {
+                  const aDate = a.date ?? draft.visitDate
+                  const w = winByDate.get(aDate)
+                  if (!w) return a
+                  return {
+                    ...a,
+                    timeSlot: w.fromTime ?? a.timeSlot,
+                    toTime:   w.toTime,
+                  }
+                })
+                onUpdate({ visitDates: windows, assignments: updatedAssignments })
+              }}
               services={draft.services.map((s) => ({
                 serviceId:   s.serviceId,
                 serviceName: s.serviceName,

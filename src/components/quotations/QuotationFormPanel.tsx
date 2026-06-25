@@ -9,7 +9,13 @@ import { PhoneLookupModal } from '@/components/orders/PhoneLookupModal'
 import { ServiceSelector } from '@/components/orders/ServiceSelector'
 import { SelectedServiceCard } from '@/components/orders/SelectedServiceCard'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
-import { Send, Save, User } from 'lucide-react'
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from '@/components/ui/dropdown-menu'
+import { Send, Save, User, ChevronDown } from 'lucide-react'
 import type { QuotationDraft } from '@/types/quotations'
 import type { CustomerLookupResult } from '@/hooks/useCustomerLookup'
 import type { OrderServiceDraft } from '@/types/orders'
@@ -25,7 +31,10 @@ interface Props {
   onUpdateQty: (serviceId: string, qty: number) => void
   onNotesChange: (notes: string) => void
   onSaveDraft: () => void
-  onSendWhatsApp: () => void
+  // Split-button: clicking the main button uses the default channel;
+  // dropdown lets the user pick explicitly. We expose a single onSend
+  // callback that takes the channel id.
+  onSend: (channel: 'whapi' | 'wati') => void
   isSaving: boolean
   isSending: boolean
   isValid: boolean
@@ -39,6 +48,11 @@ interface Props {
   total: number
 }
 
+// Default send channel. Wati is the business account — primary sender for
+// customer-facing quotations. WHAPI remains as a personal-account fallback
+// available from the dropdown.
+const DEFAULT_SEND_CHANNEL: 'whapi' | 'wati' = 'wati'
+
 export function QuotationFormPanel({
   draft,
   divisions,
@@ -49,7 +63,7 @@ export function QuotationFormPanel({
   onUpdateQty,
   onNotesChange,
   onSaveDraft,
-  onSendWhatsApp,
+  onSend,
   isSaving,
   isSending,
   isValid,
@@ -263,14 +277,49 @@ export function QuotationFormPanel({
 
         {/* Actions */}
         <div className="border-t px-4 py-3 space-y-2">
-          <Button
-            className="w-full gap-2 bg-green-600 hover:bg-green-700 text-white min-h-11"
-            onClick={onSendWhatsApp}
-            disabled={!isValid || isSending || isSaving}
-          >
-            <Send className="h-4 w-4" />
-            {isSending ? 'Sending…' : 'Send via WhatsApp'}
-          </Button>
+          {/* Split-button: main click sends via the default channel, dropdown
+              arrow lets the user override with the alternate channel. The
+              chevron uses a thin left border to read as one connected control. */}
+          <div className="flex w-full">
+            <Button
+              className="flex-1 gap-2 bg-green-600 hover:bg-green-700 text-white min-h-11 rounded-r-none"
+              onClick={() => onSend(DEFAULT_SEND_CHANNEL)}
+              disabled={!isValid || isSending || isSaving}
+            >
+              <Send className="h-4 w-4" />
+              {isSending
+                ? 'Sending…'
+                : `Send via ${DEFAULT_SEND_CHANNEL === 'whapi' ? 'WhatsApp' : 'Wati'}`}
+            </Button>
+            <DropdownMenu>
+              <DropdownMenuTrigger
+                disabled={!isValid || isSending || isSaving}
+                aria-label="Choose send channel"
+                className="inline-flex items-center justify-center min-h-11 px-2 bg-green-600 hover:bg-green-700 text-white rounded-md rounded-l-none border-l border-l-green-700 disabled:opacity-50 disabled:pointer-events-none transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-green-400"
+              >
+                <ChevronDown className="h-4 w-4" />
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="end" className="w-56">
+                <DropdownMenuItem onSelect={() => onSend('whapi')}>
+                  <div className="flex flex-col">
+                    <span className="text-sm font-medium">WhatsApp</span>
+                    <span className="text-[11px] text-muted-foreground">
+                      Direct via WHAPI{DEFAULT_SEND_CHANNEL === 'whapi' && ' · default'}
+                    </span>
+                  </div>
+                </DropdownMenuItem>
+                <DropdownMenuItem onSelect={() => onSend('wati')}>
+                  <div className="flex flex-col">
+                    <span className="text-sm font-medium">Wati</span>
+                    <span className="text-[11px] text-muted-foreground">
+                      Business channel · uses template
+                      {DEFAULT_SEND_CHANNEL === 'wati' && ' · default'}
+                    </span>
+                  </div>
+                </DropdownMenuItem>
+              </DropdownMenuContent>
+            </DropdownMenu>
+          </div>
           <Button
             variant="outline"
             className="w-full gap-2 min-h-11"

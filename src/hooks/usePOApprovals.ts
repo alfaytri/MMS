@@ -3,7 +3,6 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { createClient } from '@/lib/supabase/client'
 import type { PurchaseOrder } from './usePurchaseOrders'
 import { logPOActivity, ROLE_LABELS } from '@/lib/poActivityLogger'
-import { savePoSnapshot } from '@/lib/poVersionHelper'
 import { queryKeys } from '@/lib/queryKeys'
 
 async function getMyIdentity() {
@@ -160,7 +159,6 @@ export function useApproveStep() {
       const { data: poStatus } = await supabase
         .from('purchase_orders').select('status, created_by, po_number').eq('id', poId).single()
       if (poStatus?.status === 'approved' && poStatus.created_by) {
-        await savePoSnapshot(supabase, poId, 'approved')
         await supabase.from('notifications').insert({
           profile_id: poStatus.created_by,
           type: 'po_approved',
@@ -243,7 +241,6 @@ export function useForceApproveStep() {
       const { data: forcedPoStatus } = await supabase
         .from('purchase_orders').select('status').eq('id', poId).single()
       if (forcedPoStatus?.status === 'approved') {
-        await savePoSnapshot(supabase, poId, 'approved')
         await logPOActivity({ poId, action: 'PO Fully Approved (Force)', performerName: forcePerformer, severity: 'critical' })
       }
 
@@ -274,9 +271,8 @@ export function useForceApproveAllSteps() {
       forceComment,
     }: {
       poId: string
-      forceComment: string
+      forceComment?: string
     }) => {
-      if (!forceComment.trim()) throw new Error('A comment is required for force-approve.')
       const supabase = createClient()
       const me = await getMyIdentity()
       if (!me?.profileId) throw new Error('Not authenticated')
@@ -319,22 +315,25 @@ export function useForceApproveAllSteps() {
           approved_by: me.email,
           date: today,
           force_approved: true,
-          force_comment: forceComment,
+          force_comment: forceComment?.trim() ? forceComment : null,
         })
         .in('id', ids)
       if (updateErr) throw updateErr
 
-      const roleLabels = pendingSteps
-        .map((s) => ROLE_LABELS[s.role] ?? s.role)
-        .join(', ')
+      // One activity entry per role so a reader can tell at a glance which
+      // roles were bypassed. The `Force Approved:` prefix distinguishes these
+      // from normal `Approved:` entries written by useApproveStep.
       const performerName = me.fullName ?? me.email
-      await logPOActivity({
-        poId,
-        action: `Force Approved all remaining: ${roleLabels}`,
-        details: forceComment,
-        performerName,
-        severity: 'critical',
-      })
+      for (const step of pendingSteps) {
+        const roleLabel = ROLE_LABELS[step.role] ?? step.role
+        await logPOActivity({
+          poId,
+          action: `Force Approved: ${roleLabel}`,
+          details: forceComment?.trim() || undefined,
+          performerName,
+          severity: 'critical',
+        })
+      }
 
       // Ghost cleanup
       await supabase
@@ -352,7 +351,6 @@ export function useForceApproveAllSteps() {
       const { data: poStatus } = await supabase
         .from('purchase_orders').select('status').eq('id', poId).single()
       if (poStatus?.status === 'approved') {
-        await savePoSnapshot(supabase, poId, 'approved')
         await logPOActivity({
           poId,
           action: 'PO Fully Approved (Force)',
@@ -363,7 +361,7 @@ export function useForceApproveAllSteps() {
 
       return { approvedCount: pendingSteps.length }
     },
-    onSuccess: (_data, variables: { poId: string; forceComment: string }) => {
+    onSuccess: (_data, variables: { poId: string; forceComment?: string }) => {
       queryClient.invalidateQueries({ queryKey: queryKeys.approvals.poApprovals })
       queryClient.invalidateQueries({ queryKey: queryKeys.purchaseOrders.all })
       queryClient.invalidateQueries({ queryKey: queryKeys.purchaseOrders.detail(variables.poId) })
@@ -467,9 +465,10 @@ export function useMyApprovalRoles() {
       const me = await getMyIdentity()
       if (!me?.profileId) return [] as string[]
       const supabase = createClient()
-      // Returns the human-readable role names (custom_roles.name) for every
-      // approval-slot role the user holds — same shape as before (string[]),
-      // but values are now names like 'Owner' / 'Accountant' instead of enum values.
+      // Normalise to the same slug format as `po_approvals.role` so callers
+      // can do `myRoles.includes(step.role)` directly. The DB stores names
+      // capitalised ('Owner', 'Purchase Manager'); approval steps store the
+      // matching slug ('owner', 'purchase_manager'). Lowercase + spaces → '_'.
       const { data } = await supabase
         .from('user_custom_roles')
         .select('custom_roles!inner(name, is_approval_slot, deleted_at)')
@@ -479,6 +478,7 @@ export function useMyApprovalRoles() {
       return (data ?? [])
         .map((r: { custom_roles: { name: string } | null }) => r.custom_roles?.name)
         .filter((n: string | undefined): n is string => !!n)
+        .map((name) => name.toLowerCase().replace(/\s+/g, '_'))
     },
     staleTime: 60 * 1000,
   })

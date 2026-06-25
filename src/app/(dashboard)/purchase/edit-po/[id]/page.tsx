@@ -20,10 +20,15 @@ import {
   Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList,
 } from '@/components/ui/command'
 import { Skeleton } from '@/components/ui/skeleton'
+import {
+  AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent,
+  AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle,
+} from '@/components/ui/alert-dialog'
 import { PoLineItemsEditor, type LineItemRow, type LineType } from '@/components/purchase/PoLineItemsEditor'
 import { PoTermsSection, DEFAULT_TERMS, type PoTermsValues } from '@/components/purchase/PoTermsSection'
 import { AddSupplierDialog } from '@/components/purchase/AddSupplierDialog'
 import { PoVersionTabs } from '@/components/purchase/PoVersionTabs'
+import { stageOf, type Stage } from '@/lib/poVersionHelper'
 import { PoVersionBanner } from '@/components/purchase/PoVersionBanner'
 import {
   usePurchaseOrder,
@@ -77,7 +82,9 @@ export default function EditPOPage() {
 
   // ── Tab state ─────────────────────────────────────────────────────────────
   const currentVersion = po?.version_number ?? 1
-  const [activeTab, setActiveTab] = useState<number>(currentVersion)
+  const liveStage: Stage = po?.po_type ? stageOf(po.po_type) : 'draft'
+  const [activeStage, setActiveStage] = useState<Stage>(liveStage)
+  const [activeVersionNumber, setActiveVersionNumber] = useState<number | null>(null)
 
   // ── Hydrate form from live PO on load ─────────────────────────────────────
   useEffect(() => {
@@ -110,7 +117,8 @@ export default function EditPOPage() {
         free_qty: li.free_qty,
       }))
     ))
-    setActiveTab(po.version_number ?? 1)
+    setActiveStage(liveStage)
+    setActiveVersionNumber(null)
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [po?.id])
 
@@ -163,18 +171,21 @@ export default function EditPOPage() {
     return true
   }
 
-  function handleSaveDraft() {
+  function doSaveDraft() {
     if (!validate()) return
     savePoAsDraft.mutate(
       { id, payload: buildPayload() },
       {
-        onSuccess: () => toast.success('Draft saved'),
+        onSuccess: () => {
+          toast.success('Draft saved')
+          router.push('/purchase/orders')
+        },
         onError: (err) => toast.error(err.message),
       }
     )
   }
 
-  function handleSubmit() {
+  function doSubmit() {
     if (!validate()) return
     if (!po) return
     const currentSnapshot = {
@@ -222,6 +233,30 @@ export default function EditPOPage() {
     )
   }
 
+  // When the live PO is approved OR already pending approval, wrap save
+  // actions in a confirm dialog so the user understands the consequences
+  // (new version, chain reset / re-approval, downstream creates locked).
+  const needsAmendWarning = po?.status === 'approved' || po?.status === 'pending_approval'
+  const wasApproved = po?.status === 'approved'
+  const [pendingSave, setPendingSave] = useState<null | 'draft' | 'submit'>(null)
+
+  function requestSave(kind: 'draft' | 'submit') {
+    if (!validate()) return
+    if (needsAmendWarning) {
+      setPendingSave(kind)
+    } else {
+      if (kind === 'draft') doSaveDraft()
+      else doSubmit()
+    }
+  }
+
+  function confirmSave() {
+    const k = pendingSave
+    setPendingSave(null)
+    if (k === 'draft') doSaveDraft()
+    if (k === 'submit') doSubmit()
+  }
+
   function handleRestore(version: PoVersion) {
     setSupplierId(version.supplier_id)
     setSupplierName(version.supplier_name)
@@ -239,7 +274,8 @@ export default function EditPOPage() {
       vendor_notes: version.vendor_notes ?? '',
     })
     setLineItems(draftToLineItemRows(version.line_items))
-    setActiveTab(currentVersion)
+    setActiveStage(liveStage)
+    setActiveVersionNumber(null)
     toast.success(`Restored V${version.version_number} values — review and submit`)
   }
 
@@ -281,8 +317,10 @@ export default function EditPOPage() {
   }
 
   const isPending = submitPoVersion.isPending || savePoAsDraft.isPending
-  const isViewingOldVersion = activeTab !== currentVersion
-  const activeVersion = versions.find((v) => v.version_number === activeTab) ?? null
+  const isViewingOldVersion = activeVersionNumber !== null
+  const activeVersion = isViewingOldVersion
+    ? versions.find((v) => v.stage === activeStage && v.version_number === activeVersionNumber) ?? null
+    : null
 
   // ── Read-only form for old version tabs ────────────────────────────────────
   function renderReadOnlyForm(version: PoVersion) {
@@ -390,11 +428,11 @@ export default function EditPOPage() {
         </div>
         {!isViewingOldVersion && (
           <div className="flex items-center gap-2">
-            <Button variant="outline" size="sm" className="gap-1.5" onClick={handleSaveDraft} disabled={isPending}>
+            <Button variant="outline" size="sm" className="gap-1.5" onClick={() => requestSave('draft')} disabled={isPending}>
               <Save className="h-3.5 w-3.5" />
               {savePoAsDraft.isPending ? 'Saving…' : 'Save as Draft'}
             </Button>
-            <Button size="sm" className="gap-1.5" onClick={handleSubmit} disabled={isPending}>
+            <Button size="sm" className="gap-1.5" onClick={() => requestSave('submit')} disabled={isPending}>
               <CheckCircle2 className="h-3.5 w-3.5" />
               {submitPoVersion.isPending ? 'Submitting…' : 'Submit for Approval'}
             </Button>
@@ -405,9 +443,13 @@ export default function EditPOPage() {
       {/* ── Version Tab Strip ── */}
       <PoVersionTabs
         versions={versions}
-        currentVersionNumber={currentVersion}
-        activeTab={activeTab}
-        onTabChange={setActiveTab}
+        currentPoType={po?.po_type ?? 'draft'}
+        activeStage={activeStage}
+        activeVersion={activeVersionNumber}
+        onChange={(stage, version) => {
+          setActiveStage(stage)
+          setActiveVersionNumber(version)
+        }}
       />
 
       {/* ── Old Version View ── */}
@@ -422,7 +464,8 @@ export default function EditPOPage() {
                   { versionId: activeVersion.id, poId: id },
                   {
                     onSuccess: () => {
-                      setActiveTab(currentVersion)
+                      setActiveStage(liveStage)
+                      setActiveVersionNumber(null)
                       toast.success(`V${activeVersion.version_number} deleted`)
                     },
                     onError: (err) => toast.error(err.message),
@@ -576,6 +619,36 @@ export default function EditPOPage() {
       )}
 
       <AddSupplierDialog open={addSupplierOpen} onOpenChange={setAddSupplierOpen} onCreated={handleSelectSupplier} />
+
+      <AlertDialog open={pendingSave !== null} onOpenChange={(open) => { if (!open) setPendingSave(null) }}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>{wasApproved ? 'Edit Approved PO' : 'Amend Pending PO'}</AlertDialogTitle>
+            <AlertDialogDescription asChild>
+              <div className="space-y-2">
+                <p>Saving this change will:</p>
+                <ul className="list-disc pl-5 space-y-1 text-sm">
+                  <li>Create a new version (PO-v{(po?.version_number ?? 1) + 1})</li>
+                  {wasApproved && <li>Drop the PO back to <strong>Pending Approval</strong></li>}
+                  <li>{wasApproved ? 'Require all approvers to approve again' : 'Reset the approval chain — every approver re-approves'}</li>
+                  {wasApproved && <li><strong>Block new receivals, bills, and payments</strong> until re-approved</li>}
+                </ul>
+                {wasApproved && (
+                  <p className="text-xs text-muted-foreground pt-1">
+                    Existing receivals, bills, and payments will stay as-is.
+                  </p>
+                )}
+              </div>
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction onClick={confirmSave} className="bg-amber-500 hover:bg-amber-600 text-white">
+              Confirm
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   )
 }

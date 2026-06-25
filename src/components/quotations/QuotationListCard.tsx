@@ -1,4 +1,5 @@
 // src/components/quotations/QuotationListCard.tsx
+import Link from 'next/link'
 import { format } from 'date-fns'
 import { cn } from '@/lib/utils'
 import type { QuotationListItem } from '@/types/quotations'
@@ -10,15 +11,13 @@ const STATUS_STYLES: Record<string, string> = {
 
 interface Props {
   quotation: QuotationListItem
-  onClick: () => void
+  href?: string
+  onClick?: () => void
 }
 
-export function QuotationListCard({ quotation, onClick }: Props) {
-  return (
-    <button
-      onClick={onClick}
-      className="w-full min-h-11 rounded-lg border border-border bg-white p-3 text-left transition-colors hover:border-orange-300 hover:bg-orange-50 space-y-2"
-    >
+export function QuotationListCard({ quotation, href, onClick }: Props) {
+  const inner = (
+    <>
       <div className="flex items-center gap-2 flex-wrap">
         <span className="font-mono font-semibold text-foreground text-sm">
           {quotation.quotation_id}
@@ -47,6 +46,22 @@ export function QuotationListCard({ quotation, onClick }: Props) {
           <span>{format(new Date(quotation.created_date), 'dd MMM yyyy')}</span>
         )}
       </div>
+    </>
+  )
+
+  const cls = 'block w-full min-h-11 rounded-lg border border-border bg-white p-3 text-left transition-colors hover:border-orange-300 hover:bg-orange-50 space-y-2'
+
+  if (href) {
+    return (
+      <Link href={href} prefetch className={cls}>
+        {inner}
+      </Link>
+    )
+  }
+
+  return (
+    <button onClick={onClick} className={cls}>
+      {inner}
     </button>
   )
 }

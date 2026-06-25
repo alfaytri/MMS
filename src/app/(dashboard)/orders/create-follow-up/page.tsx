@@ -3,6 +3,7 @@ import { useEffect, useState } from 'react'
 import { useRouter, useSearchParams } from 'next/navigation'
 import { DndContext, DragOverlay, pointerWithin, type DragEndEvent, type DragStartEvent } from '@dnd-kit/core'
 import { toast } from 'sonner'
+import { Loader2 } from 'lucide-react'
 import { OrderFormPanel } from '@/components/orders/OrderFormPanel'
 import { TeamCalendarPanel } from '@/components/orders/TeamCalendarPanel'
 import { SelectedServiceCard } from '@/components/orders/SelectedServiceCard'
@@ -141,6 +142,12 @@ export default function CreateFollowUpPage() {
       const timeSlot = dayData.fromTime ?? `${String(hour).padStart(2, '0')}:${String(minute).padStart(2, '0')}`
       const toTime   = dayData.toTime ?? null
       const totalDuration = draft.services.reduce((sum, s) => sum + s.duration, 0)
+      // Idempotent per (teamId, date): replace existing instead of duplicating.
+      // Cross-team is still allowed — different team = different assignment.
+      const existing = draft.assignments.find(
+        (a) => a.teamId === teamId && (a.date ?? dayData.date) === dayData.date,
+      )
+      if (existing) removeAssignment(existing.id)
       addAssignment({
         teamId,
         teamName,
@@ -191,7 +198,7 @@ export default function CreateFollowUpPage() {
         return
       }
       toast.success('Follow-up scheduled')
-      router.push('/orders')
+      router.push(`/orders?openOrderId=${result.id}`)
     } catch (err) {
       toast.error((err as Error).message || 'Failed to create follow-up')
     }
@@ -207,6 +214,15 @@ export default function CreateFollowUpPage() {
 
   return (
     <DndContext autoScroll={false} collisionDetection={pointerWithin} onDragStart={handleDragStart} onDragEnd={handleDragEnd}>
+      {submit.isPending && (
+        <div className="fixed inset-0 z-[9000] flex items-center justify-center bg-background/70 backdrop-blur-sm">
+          <div className="flex flex-col items-center gap-3 rounded-xl border border-border bg-white px-6 py-5 shadow-xl">
+            <Loader2 className="h-7 w-7 animate-spin text-orange-500" />
+            <p className="text-sm font-medium text-foreground">Creating follow-up…</p>
+            <p className="text-[11px] text-muted-foreground">Uploading attachments and saving</p>
+          </div>
+        </div>
+      )}
       <div className="relative overflow-hidden md:h-[calc(100vh-56px)]">
         {/* Follow-up context banner (Path A only) */}
         {req && (
