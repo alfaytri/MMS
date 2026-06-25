@@ -19,10 +19,10 @@ export function LeaderSlot({ team }: { team: TeamFull }) {
   if (!leader) {
     return (
       <div ref={setNodeRef} className={cn(
-        'h-10 rounded border-2 border-dashed flex items-center justify-center text-xs text-muted-foreground transition-colors',
-        isOver && 'border-primary bg-primary/5 ring-2 ring-primary'
+        'h-20 rounded-md border border-dashed border-border/70 flex items-center justify-center text-xs text-muted-foreground transition-colors',
+        isOver && 'border-primary border-2 bg-primary/5',
       )}>
-        <Crown className="h-3 w-3 mr-1" /> Drop leader
+        <Crown className="h-3.5 w-3.5 mr-1.5" /> Drop leader here
       </div>
     )
   }
@@ -34,41 +34,36 @@ export function LeaderSlot({ team }: { team: TeamFull }) {
     <div
       ref={setNodeRef}
       className={cn(
-        'group flex items-center gap-2 h-10 px-2 rounded border bg-amber-50 dark:bg-amber-950/20 text-sm',
-        isOver && 'ring-2 ring-primary bg-primary/5'
+        'group flex items-center gap-3 h-20 px-3 rounded-md border border-border/60 bg-background text-sm transition-colors',
+        isOver && 'ring-2 ring-primary border-primary',
       )}
     >
-      <Crown className="h-3 w-3 text-amber-500 shrink-0" />
       {avatarUrl
-        ? <img src={avatarUrl} alt={leader.name ?? ''} className="h-6 w-6 rounded-full object-cover" />
+        ? <img src={avatarUrl} alt={leader.name ?? ''} className="h-10 w-10 rounded-full object-cover" />
         : (
-          <div className="h-6 w-6 rounded-full bg-muted flex items-center justify-center text-[10px] font-semibold">
+          <div className="h-10 w-10 rounded-full bg-muted flex items-center justify-center text-xs font-semibold">
             {initials}
           </div>
         )
       }
-      <span className="flex-1 truncate text-xs">{leader.name}</span>
-      <div className="hidden group-hover:flex items-center gap-1">
-        <button
-          onClick={() => openLogPanel(leader.id, 'employee')}
-          className="p-0.5 hover:text-primary"
-          type="button"
-        >
-          <Clock className="h-3 w-3" />
+      <div className="flex-1 min-w-0">
+        <div className="flex items-center gap-1.5">
+          <Crown className="h-3 w-3 text-amber-500 shrink-0" />
+          <span className="font-medium truncate">{leader.name}</span>
+        </div>
+        {leader.phone && (
+          <p className="text-xs text-muted-foreground truncate">{leader.phone}</p>
+        )}
+      </div>
+      <div className="hidden group-hover:flex items-center gap-0.5">
+        <button onClick={() => openLogPanel(leader.id, 'employee')} className="p-1.5 hover:text-foreground text-muted-foreground" type="button">
+          <Clock className="h-3.5 w-3.5" />
         </button>
-        <button
-          onClick={() => openEmployeeDialog(leader)}
-          className="p-0.5 hover:text-primary"
-          type="button"
-        >
-          <Pencil className="h-3 w-3" />
+        <button onClick={() => openEmployeeDialog(leader)} className="p-1.5 hover:text-foreground text-muted-foreground" type="button">
+          <Pencil className="h-3.5 w-3.5" />
         </button>
-        <button
-          onClick={() => removeLeader.mutate({ teamId: team.id })}
-          className="p-0.5 hover:text-destructive"
-          type="button"
-        >
-          <UserMinus className="h-3 w-3" />
+        <button onClick={() => removeLeader.mutate({ teamId: team.id })} className="p-1.5 hover:text-destructive text-muted-foreground" type="button">
+          <UserMinus className="h-3.5 w-3.5" />
         </button>
       </div>
     </div>
