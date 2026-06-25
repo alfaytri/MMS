@@ -33,6 +33,9 @@ import { useBillsByPO } from '@/hooks/useSupplierBills'
 import { usePurchaseReturnsByPO } from '@/hooks/usePurchaseReturns'
 import { useActivityLog } from '@/hooks/useActivityLog'
 import { useMyApprovalRoles } from '@/hooks/usePOApprovals'
+import { usePoEditRequest } from '@/hooks/usePoEditRequests'
+import { EditRequestBanner } from './EditRequestBanner'
+import { RequestEditDialog } from './RequestEditDialog'
 import { formatCurrency, formatDate } from '@/lib/utils/formatters'
 import { cn } from '@/lib/utils'
 import {
@@ -51,6 +54,7 @@ export function PoDetailDialog({ open, onOpenChange, po, poId, onEdit }: Props) 
   const router = useRouter()
   const [paymentOpen, setPaymentOpen] = useState(false)
   const [createBillOpen, setCreateBillOpen] = useState(false)
+  const [requestEditOpen, setRequestEditOpen] = useState(false)
 
   const resolvedId = po?.id ?? poId ?? null
 
@@ -67,14 +71,25 @@ export function PoDetailDialog({ open, onOpenChange, po, poId, onEdit }: Props) 
   const cancelPO = useCancelPO()
   const recallPO = useRecallPOToDraft()
   const { data: myRoles = [] } = useMyApprovalRoles()
+  const { data: editRequest = null } = usePoEditRequest(open ? resolvedId : null)
 
   const current = fullPO ?? po
-  // Owner can edit an approved OR pending-approval PO. Approved → edit
-  // re-pends the chain (Phase C amend). Pending-approval → edit recycles
-  // the in-flight chain to a fresh iteration without needing rejection.
-  const canEdit = ['approved', 'pending_approval'].includes(current?.status ?? '') && myRoles.includes('owner')
+  const hasOpenRequest    = !!editRequest
+  const hasApprovedUnlock = editRequest?.status === 'approved'
+  const hasApprovalRole   = myRoles.length > 0  // any approval-slot holder
+
+  // Edit visibility: Owner always sees it on approved/pending POs (Phase C).
+  // ANY user sees it when an approved-unused request unlocks the PO (Phase D).
+  const canEdit =
+    ['approved', 'pending_approval'].includes(current?.status ?? '') &&
+    (myRoles.includes('owner') || hasApprovedUnlock)
   // Owner can also recall a pending PO straight back to draft without editing.
   const canRecall = current?.status === 'pending_approval' && myRoles.includes('owner')
+  // Non-Owners see Request Edit when the PO is locked AND no open request exists yet.
+  const canRequestEdit =
+    ['approved', 'pending_approval'].includes(current?.status ?? '') &&
+    !myRoles.includes('owner') &&
+    !hasOpenRequest
   const isApprovedLive = current?.status === 'approved'
   const liveStage: Stage = current?.po_type ? stageOf(current.po_type) : 'draft'
   const [activeStage, setActiveStage] = useState<Stage>(liveStage)
@@ -186,6 +201,16 @@ export function PoDetailDialog({ open, onOpenChange, po, poId, onEdit }: Props) 
                       Edit
                     </Button>
                   )}
+                  {!isViewingSnapshot && canRequestEdit && (
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => setRequestEditOpen(true)}
+                    >
+                      <Pencil className="h-3.5 w-3.5 mr-1.5" />
+                      Request Edit
+                    </Button>
+                  )}
                   {!isViewingSnapshot && canRecall && (
                     <Button
                       variant="outline"
@@ -243,6 +268,10 @@ export function PoDetailDialog({ open, onOpenChange, po, poId, onEdit }: Props) 
               <PoApprovalChain steps={current.po_approvals} />
             )}
           </DialogHeader>
+
+          {editRequest && (
+            <EditRequestBanner request={editRequest} canReview={hasApprovalRole} />
+          )}
 
           {current && (
             <div className="-mx-4">
@@ -457,6 +486,14 @@ export function PoDetailDialog({ open, onOpenChange, po, poId, onEdit }: Props) 
         onOpenChange={setCreateBillOpen}
         poId={current?.id ?? ''}
       />
+      {current && (
+        <RequestEditDialog
+          open={requestEditOpen}
+          onOpenChange={setRequestEditOpen}
+          poId={current.id}
+          poNumber={current.po_number ?? null}
+        />
+      )}
     </>
   )
 }
