@@ -233,7 +233,7 @@ Purchase & Sales▾:
 
 ## 🔄 In Progress
 
-🚀 Starting: **Teams UI Rework Task 7: ActivityLog v2** — day-grouped accordion timeline with sentence mapper, filter chips, and per-entity view. Plan: [`docs/superpowers/plans/2026-06-25-teams-page-ui-rework.md`](docs/superpowers/plans/2026-06-25-teams-page-ui-rework.md).
+🚀 Starting: **Teams UI Rework Task 8: Wire it all into page.tsx** — swap to v2 TopBar/TeamList/TeamDetail/PoolsDrawer/ActivityLog, add KeyboardSensor. First visible behavior change of this plan. Plan: [`docs/superpowers/plans/2026-06-25-teams-page-ui-rework.md`](docs/superpowers/plans/2026-06-25-teams-page-ui-rework.md).
 
 Plan: 5-step build to generate a branded per-order confirmation PDF, upload it to Supabase Storage, save the URL on the order row, and pass that URL as the `pdflink` template parameter in `send-booking-confirmations` so the WhatsApp confirmation message ships with a real per-order PDF. HTML preview already approved at `public/brand/order-confirmation-preview.html`.
 
@@ -248,6 +248,8 @@ Previously: WHAPI outbound text/media + provider source separation + WATI parall
 | 2026-06-16 | Pre-Phase-1 baseline | 2,983,378 / 2M (149%) | 7.076 / 5 GB (142%) | End of cycle May 16 – Jun 16; new cycle just started, dashboard hadn't yet refreshed when captured |
 
 ## ✅ Completed
+
+- [2026-06-25] **Teams UI Rework Task 7: ActivityLog v2 (day-grouped accordion timeline)** — `src/components/teams/v2/ActivityLog.tsx` (right-side Sheet `w-[420px]` controlled by the existing `logPanel` context state; filter row All/Team/Employee/Vehicle/Schedule as underline-on-active text links; body groups events by `startOfDay(parseISO(created_at))` and renders one collapsed accordion header per day with `Today / Yesterday / MMM d, EEE` labels and event count; clicking a header expands to a vertical 1px-line timeline with `formatActivity` sentences; each event time toggles between relative and `HH:mm` on click. Old `dialogs/ActivityLogPanel.tsx` left untouched — Task 8 swaps the page, Task 9 deletes the old file).
 
 - [2026-06-25] **Teams UI Rework Task 6: PoolsDrawer** — `src/components/teams/v2/PoolsDrawer.tsx` (right-edge non-modal Sheet `w-[380px]` controlled by `poolsDrawerOpen`; two tabs `Employees (count) | Vehicles (count)` styled as underline-on-active text links; per-tab search filtering name + phone for employees, plate + type + name for vehicles; draggable rows reuse the existing `DragData` shape so `'team-members'` / `'team-vehicle'` drops still work. Inline fixes vs the plan template: dropped `onInteractOutside` since Base UI's Dialog has no such prop — `modal={false}` already keeps the page behind interactive so drag-to-detail-pane works; replaced `employee.role` with `employee.phone` as the secondary label since `role` is not a column on the employees table). Not yet wired — Task 8 will mount it.
 
