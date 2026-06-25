@@ -2,18 +2,20 @@ import { useQuery } from '@tanstack/react-query'
 import { createClient } from '@/lib/supabase/client'
 import { queryKeys } from '@/lib/queryKeys'
 
-// Stable empty map returned when the hook is disabled or data is loading
+// Stable empty map returned as placeholder while data is loading
 const EMPTY_SKILLS_MAP = new Map<string, string[]>()
 
 /**
  * Returns a Map<teamId, serviceId[]> for teams accessible to the current user.
- * Used by SwapTeamDialog for client-side skill eligibility display.
  * Source: employee_services → employees (direct team_id FK).
+ *
+ * @param divisionSlug  Pass a string to scope by division (used by CalendarPage),
+ *                      or `null` to fetch all divisions (used by TeamCalendarPanel
+ *                      during order creation).
  */
 export function useTeamSkills(divisionSlug: string | null) {
   return useQuery({
     queryKey: queryKeys.teams.skills(divisionSlug),
-    enabled: !!divisionSlug,
     staleTime: 5 * 60 * 1000,
     queryFn: async () => {
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
