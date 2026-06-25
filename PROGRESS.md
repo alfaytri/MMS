@@ -233,7 +233,7 @@ Purchase & Sales▾:
 
 ## 🔄 In Progress
 
-🚀 Next: TBD per user direction. PO workflow phases (Force Approve, Version Tabs Redesign, Phase C edit-after-approval, Phase D edit-request) all complete. Three Supabase perf cleanup waves all shipped.
+🚀 Starting: **Teams UI Rework Task 1: Foundation helpers** — pure-function utilities `teamStatus` and `formatActivity` under `src/components/teams/v2/`. Plan: [`docs/superpowers/plans/2026-06-25-teams-page-ui-rework.md`](docs/superpowers/plans/2026-06-25-teams-page-ui-rework.md).
 
 Plan: 5-step build to generate a branded per-order confirmation PDF, upload it to Supabase Storage, save the URL on the order row, and pass that URL as the `pdflink` template parameter in `send-booking-confirmations` so the WhatsApp confirmation message ships with a real per-order PDF. HTML preview already approved at `public/brand/order-confirmation-preview.html`.
 
