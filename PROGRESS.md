@@ -233,7 +233,7 @@ Purchase & Sales▾:
 
 ## 🔄 In Progress
 
-🚀 Starting: **Teams UI Rework Task 4: TeamList + TeamListRow (left rail)** — grouped, selectable team rows with status dot, plate, member count, and drop-target affordance. Plan: [`docs/superpowers/plans/2026-06-25-teams-page-ui-rework.md`](docs/superpowers/plans/2026-06-25-teams-page-ui-rework.md).
+🚀 Starting: **Teams UI Rework Task 5: TeamDetail + restyle slots** — right-pane TeamDetail (hero, vehicle/leader slots, members grid, action footer) and restyled LeaderSlot/VehicleSlot/MembersGrid in flat neutral. Plan: [`docs/superpowers/plans/2026-06-25-teams-page-ui-rework.md`](docs/superpowers/plans/2026-06-25-teams-page-ui-rework.md).
 
 Plan: 5-step build to generate a branded per-order confirmation PDF, upload it to Supabase Storage, save the URL on the order row, and pass that URL as the `pdflink` template parameter in `send-booking-confirmations` so the WhatsApp confirmation message ships with a real per-order PDF. HTML preview already approved at `public/brand/order-confirmation-preview.html`.
 
@@ -248,6 +248,8 @@ Previously: WHAPI outbound text/media + provider source separation + WATI parall
 | 2026-06-16 | Pre-Phase-1 baseline | 2,983,378 / 2M (149%) | 7.076 / 5 GB (142%) | End of cycle May 16 – Jun 16; new cycle just started, dashboard hadn't yet refreshed when captured |
 
 ## ✅ Completed
+
+- [2026-06-25] **Teams UI Rework Task 4: TeamList + TeamListRow (left rail)** — `src/components/teams/v2/TeamListRow.tsx` (single h-11 row: status dot from `teamStatus`, name with `name_ar` tooltip, vehicle plate in mono, member count; whole row is a `'team-members'` drop zone with primary ring on valid hover), `src/components/teams/v2/TeamList.tsx` (300px rail, groups Company → Division headers — company header hidden when only one company exists — sorted alphabetically inside each level; honours `searchQuery` from context; selection drives `setSelectedTeamId`; footer `+ Add team` opens `TeamEditDialog`). Not yet wired into `page.tsx`.
 
 - [2026-06-25] **Teams UI Rework Task 3: TopBar v2** — `src/components/teams/v2/TopBar.tsx` (new compact 48px header — page icon + title + inline counter text on the left; right cluster: search input, `New ▾` primary button with Team/Employee/Vehicle items, Schedules/Activity/Pools ghost icon buttons. Activity icon shows a `secondary` badge for the global log count (`99+` cap); Pools icon shows a badge for `unassigned employees + unassigned vehicles` and toggles `togglePoolsDrawer` from the v2 context fields). Not wired into `page.tsx` yet — Task 8 swaps it in.
 
