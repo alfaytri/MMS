@@ -765,29 +765,11 @@ export function useSubmitPoVersion() {
     }) => {
       const supabase = createClient()
 
-      // 1. Snapshot current state into po_versions
-      const { error: snapErr } = await supabase
-        .from('po_versions')
-        .insert({
-          po_id: id,
-          version_number: currentVersionNumber,
-          supplier_id: currentSnapshot.supplier_id,
-          supplier_name: currentSnapshot.supplier_name,
-          currency: currentSnapshot.currency,
-          exchange_rate: currentSnapshot.exchange_rate,
-          subtotal: currentSnapshot.subtotal,
-          discount_amount: currentSnapshot.discount_amount,
-          discount_label: currentSnapshot.discount_label,
-          payment_terms: currentSnapshot.payment_terms,
-          payment_terms_notes: currentSnapshot.payment_terms_notes,
-          payment_milestones: currentSnapshot.payment_milestones,
-          delivery_terms: currentSnapshot.delivery_terms,
-          delivery_terms_notes: currentSnapshot.delivery_terms_notes,
-          expected_delivery: currentSnapshot.expected_delivery,
-          vendor_notes: currentSnapshot.vendor_notes,
-          line_items: currentSnapshot.line_items,
-        })
-      if (snapErr) throw snapErr
+      // 1. Snapshot current (pre-amend) PO state. This is the amend flow used
+      //    by useSubmitPoVersion for post-approval edits — the live PO is
+      //    po_type='confirmed', so we snapshot it as the next 'po' version.
+      //    savePoSnapshot computes the per-stage version_number automatically.
+      await savePoSnapshot(supabase, id, 'po')
 
       // 2. Recalculate totals
       const subtotal = payload.line_items.reduce((s, li) => s + li.total_price, 0)
@@ -981,6 +963,19 @@ export function useSavePoAsDraft() {
         details: `${payload.line_items.length} line item(s) · Supplier: ${payload.supplier_name}`,
         performerName: draftPerformer,
       })
+
+      // Snapshot this revision under the current stage. For Save-as-Draft this
+      // is almost always 'draft' (or 'rfq' for an RFQ being saved as a draft
+      // before submission). Per-stage version_number is computed inside the
+      // helper.
+      const { data: poForStage } = await supabase
+        .from('purchase_orders')
+        .select('po_type')
+        .eq('id', id)
+        .single()
+      if (poForStage?.po_type) {
+        await savePoSnapshot(supabase, id, stageOf(poForStage.po_type as POType))
+      }
     },
     onSuccess: (_data, variables) => {
       queryClient.invalidateQueries({ queryKey: queryKeys.purchaseOrders.all })

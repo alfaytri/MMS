@@ -15,6 +15,7 @@ import { CreateBillFromPODialog } from './CreateBillFromPODialog'
 import { PoPaymentDialog } from './PoPaymentDialog'
 import { PoReceiveTab } from './PoReceiveTab'
 import { PoVersionTabs } from './PoVersionTabs'
+import { stageOf, type Stage } from '@/lib/poVersionHelper'
 import { PoReturnsTab } from './PoReturnsTab'
 import { ActivityTimeline } from '@/components/shared/ActivityTimeline'
 import { PaymentSummaryTab } from '@/components/shared/PaymentSummaryTab'
@@ -64,15 +65,21 @@ export function PoDetailDialog({ open, onOpenChange, po, poId, onEdit }: Props) 
   const cancelPO = useCancelPO()
 
   const current = fullPO ?? po
-  const currentVersionNumber = current?.version_number ?? 1
-  const [activeVersionTab, setActiveVersionTab] = useState(currentVersionNumber)
+  const liveStage: Stage = current?.po_type ? stageOf(current.po_type) : 'draft'
+  const [activeStage, setActiveStage] = useState<Stage>(liveStage)
+  const [activeVersion, setActiveVersion] = useState<number | null>(null)
 
   useEffect(() => {
-    if (open) setActiveVersionTab(currentVersionNumber)
-  }, [open, currentVersionNumber])
+    if (open) {
+      setActiveStage(liveStage)
+      setActiveVersion(null)
+    }
+  }, [open, liveStage])
 
-  const isViewingSnapshot = activeVersionTab !== currentVersionNumber
-  const snapshotVersion = versions.find((v) => v.version_number === activeVersionTab) ?? null
+  const isViewingSnapshot = activeVersion !== null
+  const snapshotVersion = isViewingSnapshot
+    ? versions.find((v) => v.stage === activeStage && v.version_number === activeVersion) ?? null
+    : null
 
   if (open && !current && isLoading) {
     return (
@@ -194,13 +201,17 @@ export function PoDetailDialog({ open, onOpenChange, po, poId, onEdit }: Props) 
             )}
           </DialogHeader>
 
-          {versions.length > 0 && current && (
+          {current && (
             <div className="-mx-4">
               <PoVersionTabs
                 versions={versions}
-                currentVersionNumber={currentVersionNumber}
-                activeTab={activeVersionTab}
-                onTabChange={setActiveVersionTab}
+                currentPoType={current.po_type ?? 'draft'}
+                activeStage={activeStage}
+                activeVersion={activeVersion}
+                onChange={(stage, version) => {
+                  setActiveStage(stage)
+                  setActiveVersion(version)
+                }}
               />
             </div>
           )}

@@ -24,6 +24,7 @@ import { PoLineItemsEditor, type LineItemRow, type LineType } from '@/components
 import { PoTermsSection, DEFAULT_TERMS, type PoTermsValues } from '@/components/purchase/PoTermsSection'
 import { AddSupplierDialog } from '@/components/purchase/AddSupplierDialog'
 import { PoVersionTabs } from '@/components/purchase/PoVersionTabs'
+import { stageOf, type Stage } from '@/lib/poVersionHelper'
 import { PoVersionBanner } from '@/components/purchase/PoVersionBanner'
 import {
   usePurchaseOrder,
@@ -77,7 +78,9 @@ export default function EditPOPage() {
 
   // ── Tab state ─────────────────────────────────────────────────────────────
   const currentVersion = po?.version_number ?? 1
-  const [activeTab, setActiveTab] = useState<number>(currentVersion)
+  const liveStage: Stage = po?.po_type ? stageOf(po.po_type) : 'draft'
+  const [activeStage, setActiveStage] = useState<Stage>(liveStage)
+  const [activeVersionNumber, setActiveVersionNumber] = useState<number | null>(null)
 
   // ── Hydrate form from live PO on load ─────────────────────────────────────
   useEffect(() => {
@@ -110,7 +113,8 @@ export default function EditPOPage() {
         free_qty: li.free_qty,
       }))
     ))
-    setActiveTab(po.version_number ?? 1)
+    setActiveStage(liveStage)
+    setActiveVersionNumber(null)
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [po?.id])
 
@@ -168,7 +172,10 @@ export default function EditPOPage() {
     savePoAsDraft.mutate(
       { id, payload: buildPayload() },
       {
-        onSuccess: () => toast.success('Draft saved'),
+        onSuccess: () => {
+          toast.success('Draft saved')
+          router.push('/purchase/orders')
+        },
         onError: (err) => toast.error(err.message),
       }
     )
@@ -239,7 +246,8 @@ export default function EditPOPage() {
       vendor_notes: version.vendor_notes ?? '',
     })
     setLineItems(draftToLineItemRows(version.line_items))
-    setActiveTab(currentVersion)
+    setActiveStage(liveStage)
+    setActiveVersionNumber(null)
     toast.success(`Restored V${version.version_number} values — review and submit`)
   }
 
@@ -281,8 +289,10 @@ export default function EditPOPage() {
   }
 
   const isPending = submitPoVersion.isPending || savePoAsDraft.isPending
-  const isViewingOldVersion = activeTab !== currentVersion
-  const activeVersion = versions.find((v) => v.version_number === activeTab) ?? null
+  const isViewingOldVersion = activeVersionNumber !== null
+  const activeVersion = isViewingOldVersion
+    ? versions.find((v) => v.stage === activeStage && v.version_number === activeVersionNumber) ?? null
+    : null
 
   // ── Read-only form for old version tabs ────────────────────────────────────
   function renderReadOnlyForm(version: PoVersion) {
@@ -405,9 +415,13 @@ export default function EditPOPage() {
       {/* ── Version Tab Strip ── */}
       <PoVersionTabs
         versions={versions}
-        currentVersionNumber={currentVersion}
-        activeTab={activeTab}
-        onTabChange={setActiveTab}
+        currentPoType={po?.po_type ?? 'draft'}
+        activeStage={activeStage}
+        activeVersion={activeVersionNumber}
+        onChange={(stage, version) => {
+          setActiveStage(stage)
+          setActiveVersionNumber(version)
+        }}
       />
 
       {/* ── Old Version View ── */}
@@ -422,7 +436,8 @@ export default function EditPOPage() {
                   { versionId: activeVersion.id, poId: id },
                   {
                     onSuccess: () => {
-                      setActiveTab(currentVersion)
+                      setActiveStage(liveStage)
+                      setActiveVersionNumber(null)
                       toast.success(`V${activeVersion.version_number} deleted`)
                     },
                     onError: (err) => toast.error(err.message),
