@@ -233,7 +233,7 @@ Purchase & Sales▾:
 
 ## 🔄 In Progress
 
-🚀 Starting: **Teams UI Rework Task 5: TeamDetail + restyle slots** — right-pane TeamDetail (hero, vehicle/leader slots, members grid, action footer) and restyled LeaderSlot/VehicleSlot/MembersGrid in flat neutral. Plan: [`docs/superpowers/plans/2026-06-25-teams-page-ui-rework.md`](docs/superpowers/plans/2026-06-25-teams-page-ui-rework.md).
+🚀 Starting: **Teams UI Rework Task 6: PoolsDrawer** — collapsible right-edge Sheet with Employees/Vehicles tabs, search, and draggable rows. Plan: [`docs/superpowers/plans/2026-06-25-teams-page-ui-rework.md`](docs/superpowers/plans/2026-06-25-teams-page-ui-rework.md).
 
 Plan: 5-step build to generate a branded per-order confirmation PDF, upload it to Supabase Storage, save the URL on the order row, and pass that URL as the `pdflink` template parameter in `send-booking-confirmations` so the WhatsApp confirmation message ships with a real per-order PDF. HTML preview already approved at `public/brand/order-confirmation-preview.html`.
 
@@ -248,6 +248,8 @@ Previously: WHAPI outbound text/media + provider source separation + WATI parall
 | 2026-06-16 | Pre-Phase-1 baseline | 2,983,378 / 2M (149%) | 7.076 / 5 GB (142%) | End of cycle May 16 – Jun 16; new cycle just started, dashboard hadn't yet refreshed when captured |
 
 ## ✅ Completed
+
+- [2026-06-25] **Teams UI Rework Task 5: TeamDetail + restyle Leader/Vehicle/Members slots** — `src/components/teams/v2/TeamDetail.tsx` (right-pane: hero with team name + flat outlined role badges NRM/EMR/QC/SVO/SVC, 2-col Vehicle+Leader slot grid, full-width Members section, ghost-icon action footer with Phone/Schedule/Tools/Activity/Edit; reads `selectedTeamId` and finds team from `useTeams` cache), `src/components/teams/v2/TeamDetailEmpty.tsx` (centered empty state with `Users` icon + "Select a team" copy), `src/components/teams/LeaderSlot.tsx` (restyled to flat h-20 card with h-10 avatar, neutral bg, ghost hover actions), `src/components/teams/VehicleSlot.tsx` (h-20 card with mono plate primary + type/name muted secondary), `src/components/teams/MembersGrid.tsx` (3/4/6-col avatar grid with name labels and hover-remove `×`; uses `useUnassignEmployee` for the remove mutation). Restyled slots are also imported by the old `TeamCard.tsx`, so the existing card-grid picks up the new visual language until Task 8 swaps the page.
 
 - [2026-06-25] **Teams UI Rework Task 4: TeamList + TeamListRow (left rail)** — `src/components/teams/v2/TeamListRow.tsx` (single h-11 row: status dot from `teamStatus`, name with `name_ar` tooltip, vehicle plate in mono, member count; whole row is a `'team-members'` drop zone with primary ring on valid hover), `src/components/teams/v2/TeamList.tsx` (300px rail, groups Company → Division headers — company header hidden when only one company exists — sorted alphabetically inside each level; honours `searchQuery` from context; selection drives `setSelectedTeamId`; footer `+ Add team` opens `TeamEditDialog`). Not yet wired into `page.tsx`.
 
