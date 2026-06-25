@@ -233,9 +233,9 @@ Purchase & Sales▾:
 
 ## 🔄 In Progress
 
-🚀 Next: **PO Version Tabs Phase C — edit-after-approval flow** — approvers can edit an approved PO; warning dialog before save; PO drops back to `pending_approval` after the edit; new `po-vN+1` snapshot created. Spec to be written before implementation.
+🚀 Starting: **PO Phase C — Edit-after-approval for Owners** — Owner-only Edit button on the detail dialog of approved POs; warning AlertDialog before save explains the consequences (new version + drop to pending_approval + re-approval needed + downstream creates locked); existing `useSubmitPoVersion` mutation already handles the snapshot+status+chain mechanics. Spec: `docs/superpowers/specs/2026-06-25-po-phase-c-edit-after-approval-design.md`. Plan: `docs/superpowers/plans/2026-06-25-po-phase-c-edit-after-approval.md`.
 
-Then: **PO Version Tabs Phase D — edit-request workflow** for non-approvers (non-approver clicks "Request Edit" → `po_edit_requests` row → approver approves → PO unlocks for the requester).
+Then: **PO Phase D — edit-request workflow** for non-approvers (non-approver clicks "Request Edit" → `po_edit_requests` row → approver approves → PO unlocks for the requester).
 
 Plan: 5-step build to generate a branded per-order confirmation PDF, upload it to Supabase Storage, save the URL on the order row, and pass that URL as the `pdflink` template parameter in `send-booking-confirmations` so the WhatsApp confirmation message ships with a real per-order PDF. HTML preview already approved at `public/brand/order-confirmation-preview.html`.
 
