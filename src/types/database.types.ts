@@ -4505,6 +4505,67 @@ export type Database = {
           },
         ]
       }
+      po_edit_requests: {
+        Row: {
+          created_at: string
+          id: string
+          po_id: string
+          reason: string
+          requested_by: string
+          review_comment: string | null
+          reviewed_at: string | null
+          reviewed_by: string | null
+          status: string
+          used_at: string | null
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          po_id: string
+          reason: string
+          requested_by: string
+          review_comment?: string | null
+          reviewed_at?: string | null
+          reviewed_by?: string | null
+          status?: string
+          used_at?: string | null
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          po_id?: string
+          reason?: string
+          requested_by?: string
+          review_comment?: string | null
+          reviewed_at?: string | null
+          reviewed_by?: string | null
+          status?: string
+          used_at?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "po_edit_requests_po_id_fkey"
+            columns: ["po_id"]
+            isOneToOne: false
+            referencedRelation: "purchase_orders"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "po_edit_requests_requested_by_fkey"
+            columns: ["requested_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "po_edit_requests_reviewed_by_fkey"
+            columns: ["reviewed_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       po_line_items: {
         Row: {
           brand_id: string | null
