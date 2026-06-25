@@ -20,8 +20,8 @@ export function MembersGrid({ team }: { team: TeamFull }) {
     <div
       ref={setNodeRef}
       className={cn(
-        'rounded-md border border-dashed border-transparent p-2 transition-colors',
-        isOver && 'border-primary bg-primary/5',
+        'rounded-md border border-orange-200 bg-orange-50/50 p-3 transition-colors',
+        isOver && 'border-primary bg-primary/10',
       )}
     >
       {members.length === 0 && !isOver && (
@@ -71,9 +71,9 @@ function MemberTile({ employee, teamId, hasTools }: {
     >
       <div className="relative">
         {avatarUrl
-          ? <img src={avatarUrl} alt={employee.name ?? ''} className="h-10 w-10 rounded-full object-cover" />
+          ? <img src={avatarUrl} alt={employee.name ?? ''} className="h-10 w-10 rounded-full object-cover ring-2 ring-background" />
           : (
-            <div className="h-10 w-10 rounded-full bg-muted flex items-center justify-center text-xs font-semibold">
+            <div className="h-10 w-10 rounded-full bg-background border border-border flex items-center justify-center text-xs font-semibold">
               {initials}
             </div>
           )

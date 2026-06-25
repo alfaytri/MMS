@@ -5,9 +5,9 @@ import { format, formatDistanceToNow, isToday, isYesterday, parseISO, startOfDay
 import { ChevronRight, ChevronDown } from 'lucide-react'
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from '@/components/ui/sheet'
 import { cn } from '@/lib/utils'
-import { useTeamActivityLog } from '@/hooks/useTeams'
+import { useTeamActivityLog, useTeams, useEmployees, useVehicles } from '@/hooks/useTeams'
 import { useTeamsPage } from '../TeamsPageContext'
-import { formatActivity } from './activitySentences'
+import { formatActivity, type ActivityResolvers, type Segment } from './activitySentences'
 
 const FILTERS = ['all', 'team', 'employee', 'vehicle', 'schedule'] as const
 type Filter = (typeof FILTERS)[number]
@@ -24,7 +24,15 @@ export function ActivityLog() {
   const [filter, setFilter] = useState<Filter>('all')
   const [expandedDays, setExpandedDays] = useState<Set<string>>(new Set())
 
-  const { data: logs = [] } = useTeamActivityLog(entityId ?? undefined)
+  const { data: logs      = [] } = useTeamActivityLog(entityId ?? undefined)
+  const { data: teams     = [] } = useTeams()
+  const { data: employees = [] } = useEmployees()
+  const { data: vehicles  = [] } = useVehicles()
+
+  const resolvers: ActivityResolvers = useMemo(
+    () => ({ teams, employees, vehicles }),
+    [teams, employees, vehicles],
+  )
 
   const visible = filter === 'all' ? logs : logs.filter(l => l.entity_type === filter)
 
@@ -101,7 +109,7 @@ export function ActivityLog() {
                   <div className="relative px-4 py-3 border-b border-border/60">
                     <div className="absolute left-[22px] top-0 bottom-0 w-px bg-border/60" aria-hidden />
                     <div className="space-y-3">
-                      {day.items.map(log => <Event key={log.id} log={log} />)}
+                      {day.items.map(log => <Event key={log.id} log={log} resolvers={resolvers} />)}
                     </div>
                   </div>
                 )}
@@ -114,14 +122,30 @@ export function ActivityLog() {
   )
 }
 
-function Event({ log }: { log: Parameters<typeof formatActivity>[0] }) {
+const SEGMENT_CLASS: Record<Segment['kind'], string> = {
+  plain:    'text-muted-foreground',
+  actor:    'text-foreground font-medium',
+  employee: 'text-orange-600 font-medium',
+  team:     'text-blue-600 font-medium',
+  vehicle:  'text-emerald-600 font-medium',
+}
+
+function Event({ log, resolvers }: {
+  log: Parameters<typeof formatActivity>[0]
+  resolvers: ActivityResolvers
+}) {
   const [showExact, setShowExact] = useState(false)
   if (!log.created_at) return null
   const d = parseISO(log.created_at)
+  const segments = formatActivity(log, resolvers)
   return (
     <div className="relative pl-8 flex items-start justify-between gap-3">
       <span className="absolute left-1 top-1.5 h-2 w-2 rounded-full bg-muted-foreground/50" aria-hidden />
-      <p className="text-sm leading-5 flex-1">{formatActivity(log)}</p>
+      <p className="text-sm leading-5 flex-1">
+        {segments.map((s, i) => (
+          <span key={i} className={SEGMENT_CLASS[s.kind]}>{s.text}</span>
+        ))}
+      </p>
       <button
         type="button"
         onClick={() => setShowExact(s => !s)}

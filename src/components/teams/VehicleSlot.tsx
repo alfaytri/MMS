@@ -71,11 +71,11 @@ function VehicleChip({ vehicle, teamId, onUnassign, onLog, onEdit }: {
       {...listeners}
       {...attributes}
       className={cn(
-        'group flex items-center gap-3 h-20 px-3 rounded-md border border-border/60 bg-background text-sm transition-opacity cursor-grab touch-none',
+        'group flex items-center gap-3 h-20 px-3 rounded-md border border-blue-200 bg-blue-50/60 text-sm transition-opacity cursor-grab touch-none',
         isDragging && 'opacity-50',
       )}
     >
-      <Truck className="h-5 w-5 text-muted-foreground shrink-0" />
+      <Truck className="h-5 w-5 text-blue-600 shrink-0" />
       <div className="flex-1 min-w-0">
         <p className="font-mono text-base font-medium truncate">{vehicle.plate}</p>
         <p className="text-xs text-muted-foreground truncate">

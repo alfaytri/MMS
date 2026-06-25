@@ -34,7 +34,7 @@ export function LeaderSlot({ team }: { team: TeamFull }) {
     <div
       ref={setNodeRef}
       className={cn(
-        'group flex items-center gap-3 h-20 px-3 rounded-md border border-border/60 bg-background text-sm transition-colors',
+        'group flex items-center gap-3 h-20 px-3 rounded-md border border-amber-200 bg-amber-50/60 text-sm transition-colors',
         isOver && 'ring-2 ring-primary border-primary',
       )}
     >
