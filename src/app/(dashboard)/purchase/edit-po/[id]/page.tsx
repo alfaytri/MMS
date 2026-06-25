@@ -20,6 +20,10 @@ import {
   Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList,
 } from '@/components/ui/command'
 import { Skeleton } from '@/components/ui/skeleton'
+import {
+  AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent,
+  AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle,
+} from '@/components/ui/alert-dialog'
 import { PoLineItemsEditor, type LineItemRow, type LineType } from '@/components/purchase/PoLineItemsEditor'
 import { PoTermsSection, DEFAULT_TERMS, type PoTermsValues } from '@/components/purchase/PoTermsSection'
 import { AddSupplierDialog } from '@/components/purchase/AddSupplierDialog'
@@ -167,7 +171,7 @@ export default function EditPOPage() {
     return true
   }
 
-  function handleSaveDraft() {
+  function doSaveDraft() {
     if (!validate()) return
     savePoAsDraft.mutate(
       { id, payload: buildPayload() },
@@ -181,7 +185,7 @@ export default function EditPOPage() {
     )
   }
 
-  function handleSubmit() {
+  function doSubmit() {
     if (!validate()) return
     if (!po) return
     const currentSnapshot = {
@@ -227,6 +231,30 @@ export default function EditPOPage() {
         onError: (err) => toast.error(err.message),
       }
     )
+  }
+
+  // When the live PO is approved OR already pending approval, wrap save
+  // actions in a confirm dialog so the user understands the consequences
+  // (new version, chain reset / re-approval, downstream creates locked).
+  const needsAmendWarning = po?.status === 'approved' || po?.status === 'pending_approval'
+  const wasApproved = po?.status === 'approved'
+  const [pendingSave, setPendingSave] = useState<null | 'draft' | 'submit'>(null)
+
+  function requestSave(kind: 'draft' | 'submit') {
+    if (!validate()) return
+    if (needsAmendWarning) {
+      setPendingSave(kind)
+    } else {
+      if (kind === 'draft') doSaveDraft()
+      else doSubmit()
+    }
+  }
+
+  function confirmSave() {
+    const k = pendingSave
+    setPendingSave(null)
+    if (k === 'draft') doSaveDraft()
+    if (k === 'submit') doSubmit()
   }
 
   function handleRestore(version: PoVersion) {
@@ -400,11 +428,11 @@ export default function EditPOPage() {
         </div>
         {!isViewingOldVersion && (
           <div className="flex items-center gap-2">
-            <Button variant="outline" size="sm" className="gap-1.5" onClick={handleSaveDraft} disabled={isPending}>
+            <Button variant="outline" size="sm" className="gap-1.5" onClick={() => requestSave('draft')} disabled={isPending}>
               <Save className="h-3.5 w-3.5" />
               {savePoAsDraft.isPending ? 'Saving…' : 'Save as Draft'}
             </Button>
-            <Button size="sm" className="gap-1.5" onClick={handleSubmit} disabled={isPending}>
+            <Button size="sm" className="gap-1.5" onClick={() => requestSave('submit')} disabled={isPending}>
               <CheckCircle2 className="h-3.5 w-3.5" />
               {submitPoVersion.isPending ? 'Submitting…' : 'Submit for Approval'}
             </Button>
@@ -591,6 +619,36 @@ export default function EditPOPage() {
       )}
 
       <AddSupplierDialog open={addSupplierOpen} onOpenChange={setAddSupplierOpen} onCreated={handleSelectSupplier} />
+
+      <AlertDialog open={pendingSave !== null} onOpenChange={(open) => { if (!open) setPendingSave(null) }}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>{wasApproved ? 'Edit Approved PO' : 'Amend Pending PO'}</AlertDialogTitle>
+            <AlertDialogDescription asChild>
+              <div className="space-y-2">
+                <p>Saving this change will:</p>
+                <ul className="list-disc pl-5 space-y-1 text-sm">
+                  <li>Create a new version (PO-v{(po?.version_number ?? 1) + 1})</li>
+                  {wasApproved && <li>Drop the PO back to <strong>Pending Approval</strong></li>}
+                  <li>{wasApproved ? 'Require all approvers to approve again' : 'Reset the approval chain — every approver re-approves'}</li>
+                  {wasApproved && <li><strong>Block new receivals, bills, and payments</strong> until re-approved</li>}
+                </ul>
+                {wasApproved && (
+                  <p className="text-xs text-muted-foreground pt-1">
+                    Existing receivals, bills, and payments will stay as-is.
+                  </p>
+                )}
+              </div>
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction onClick={confirmSave} className="bg-amber-500 hover:bg-amber-600 text-white">
+              Confirm
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   )
 }

@@ -713,6 +713,60 @@ export function useCancelPO() {
   })
 }
 
+// Owner-initiated rollback of a pending_approval PO back to draft. Cleans up
+// the in-flight approval chain so it's no longer waiting on approvers, and
+// also dismisses any unread po_approval_requested notifications so the
+// approvers' bell doesn't keep nagging them about a PO that's been recalled.
+export function useRecallPOToDraft() {
+  const queryClient = useQueryClient()
+  return useMutation({
+    mutationFn: async (id: string) => {
+      const supabase = createClient()
+
+      // 1. Update status + po_type back to draft
+      const { error: poErr } = await supabase
+        .from('purchase_orders')
+        .update({ status: 'draft', po_type: 'draft' })
+        .eq('id', id)
+      if (poErr) throw poErr
+
+      // 2. Clear pending approval steps for this PO. Past iterations (already
+      //    approved or rejected) stay for audit; only the active pending row(s)
+      //    in the current iteration are deleted so a clean iteration starts on
+      //    next submission.
+      const { error: stepsErr } = await supabase
+        .from('po_approvals')
+        .delete()
+        .eq('po_id', id)
+        .eq('status', 'pending')
+      if (stepsErr) throw stepsErr
+
+      // 3. Mark any unread po_approval_requested notifications for this PO as read
+      await supabase
+        .from('notifications')
+        .update({ read_at: new Date().toISOString() })
+        .eq('related_id', id)
+        .eq('type', 'po_approval_requested')
+        .is('read_at', null)
+
+      const recallPerformer = await resolveMyName()
+      await logPOActivity({
+        poId: id,
+        action: 'PO Recalled to Draft',
+        details: 'Pending approval cancelled by Owner',
+        performerName: recallPerformer,
+        severity: 'warning',
+      })
+    },
+    onSuccess: (_, id) => {
+      queryClient.invalidateQueries({ queryKey: queryKeys.purchaseOrders.all })
+      queryClient.invalidateQueries({ queryKey: queryKeys.purchaseOrders.detail(id) })
+      queryClient.invalidateQueries({ queryKey: queryKeys.approvals.poApprovals })
+      queryClient.invalidateQueries({ queryKey: queryKeys.notifications.all })
+    },
+  })
+}
+
 export function useDeletePoVersion() {
   const queryClient = useQueryClient()
   return useMutation({

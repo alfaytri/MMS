@@ -8,7 +8,7 @@ import {
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { Button } from '@/components/ui/button'
 import { Skeleton } from '@/components/ui/skeleton'
-import { Printer, Send, XCircle, Pencil } from 'lucide-react'
+import { Printer, Send, XCircle, Pencil, Undo2 } from 'lucide-react'
 import { toast } from 'sonner'
 import { PoApprovalChain } from './PoApprovalChain'
 import { CreateBillFromPODialog } from './CreateBillFromPODialog'
@@ -26,6 +26,7 @@ import {
   usePoVersions,
   useSubmitPOForApproval,
   useCancelPO,
+  useRecallPOToDraft,
   type PurchaseOrder,
 } from '@/hooks/usePurchaseOrders'
 import { useBillsByPO } from '@/hooks/useSupplierBills'
@@ -64,10 +65,16 @@ export function PoDetailDialog({ open, onOpenChange, po, poId, onEdit }: Props) 
   const { data: poReturns = [] } = usePurchaseReturnsByPO(open ? resolvedId : null)
   const submitPO = useSubmitPOForApproval()
   const cancelPO = useCancelPO()
+  const recallPO = useRecallPOToDraft()
   const { data: myRoles = [] } = useMyApprovalRoles()
 
   const current = fullPO ?? po
-  const canEdit = current?.status === 'approved' && myRoles.includes('owner')
+  // Owner can edit an approved OR pending-approval PO. Approved → edit
+  // re-pends the chain (Phase C amend). Pending-approval → edit recycles
+  // the in-flight chain to a fresh iteration without needing rejection.
+  const canEdit = ['approved', 'pending_approval'].includes(current?.status ?? '') && myRoles.includes('owner')
+  // Owner can also recall a pending PO straight back to draft without editing.
+  const canRecall = current?.status === 'pending_approval' && myRoles.includes('owner')
   const isApprovedLive = current?.status === 'approved'
   const liveStage: Stage = current?.po_type ? stageOf(current.po_type) : 'draft'
   const [activeStage, setActiveStage] = useState<Stage>(liveStage)
@@ -177,6 +184,25 @@ export function PoDetailDialog({ open, onOpenChange, po, poId, onEdit }: Props) 
                     >
                       <Pencil className="h-3.5 w-3.5 mr-1.5" />
                       Edit
+                    </Button>
+                  )}
+                  {!isViewingSnapshot && canRecall && (
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      disabled={recallPO.isPending}
+                      onClick={async () => {
+                        if (!confirm('Recall this PO to Draft? The pending approval will be cancelled.')) return
+                        try {
+                          await recallPO.mutateAsync(current.id)
+                          toast.success('PO recalled to Draft')
+                        } catch (e) {
+                          toast.error(e instanceof Error ? e.message : 'Failed to recall PO')
+                        }
+                      }}
+                    >
+                      <Undo2 className="h-3.5 w-3.5 mr-1.5" />
+                      {recallPO.isPending ? 'Recalling…' : 'Recall to Draft'}
                     </Button>
                   )}
                   {!isViewingSnapshot && !['received', 'cancelled'].includes(current.status) && (
