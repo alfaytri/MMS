@@ -179,42 +179,57 @@ export type Database = {
           approval_type: Database["public"]["Enums"]["approval_type"]
           comment: string | null
           created_at: string
+          decided_at: string | null
           decided_by: string | null
           decided_by_name: string | null
           id: string
+          is_active: boolean
+          iteration: number
           reason: string | null
           requested_by: string | null
           source_id: string
           source_type: Database["public"]["Enums"]["approval_source_type"]
           status: Database["public"]["Enums"]["approval_status"] | null
+          step_order: number
+          step_role: string | null
           updated_at: string
         }
         Insert: {
           approval_type: Database["public"]["Enums"]["approval_type"]
           comment?: string | null
           created_at?: string
+          decided_at?: string | null
           decided_by?: string | null
           decided_by_name?: string | null
           id?: string
+          is_active?: boolean
+          iteration?: number
           reason?: string | null
           requested_by?: string | null
           source_id: string
           source_type: Database["public"]["Enums"]["approval_source_type"]
           status?: Database["public"]["Enums"]["approval_status"] | null
+          step_order?: number
+          step_role?: string | null
           updated_at?: string
         }
         Update: {
           approval_type?: Database["public"]["Enums"]["approval_type"]
           comment?: string | null
           created_at?: string
+          decided_at?: string | null
           decided_by?: string | null
           decided_by_name?: string | null
           id?: string
+          is_active?: boolean
+          iteration?: number
           reason?: string | null
           requested_by?: string | null
           source_id?: string
           source_type?: Database["public"]["Enums"]["approval_source_type"]
           status?: Database["public"]["Enums"]["approval_status"] | null
+          step_order?: number
+          step_role?: string | null
           updated_at?: string
         }
         Relationships: [

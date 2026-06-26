@@ -184,7 +184,7 @@ export function useUpdateUser() {
       role_ids?: string[]
       role_assignments?: Array<{
         role_id: string
-        approval_scopes: ('po' | 'inv_check' | 'stock_adj')[] | null
+        approval_scopes: ('po' | 'inv_check' | 'stock_adj' | 'sales_margin' | 'sales_credit')[] | null
       }>
       is_team_leader?: boolean
       employee_id?: string

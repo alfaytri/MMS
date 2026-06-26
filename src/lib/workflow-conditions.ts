@@ -19,20 +19,24 @@ export type WorkflowConditionOption = {
   label: string
 }
 
-export type WorkflowKey = 'po' | 'inv_check' | 'stock_adj'
+export type WorkflowKey = 'po' | 'inv_check' | 'stock_adj' | 'sales_margin' | 'sales_credit'
 
 /** Human-readable name shown in the Approval Chain panel section header. */
 export const WORKFLOW_LABELS: Record<WorkflowKey, string> = {
-  po:         'PO Approvals',
-  inv_check:  'Inventory Check',
-  stock_adj:  'Stock Adjustment',
+  po:            'PO Approvals',
+  inv_check:     'Inventory Check',
+  stock_adj:     'Stock Adjustment',
+  sales_margin:  'Sales — Margin',
+  sales_credit:  'Sales — Credit',
 }
 
 /** What the runtime discriminator is called for each workflow — for UI hints. */
 export const WORKFLOW_DISCRIMINATOR_LABEL: Record<WorkflowKey, string> = {
-  po:         'PO type',
-  inv_check:  'Adjustment type',
-  stock_adj:  'Adjustment type',
+  po:            'PO type',
+  inv_check:     'Adjustment type',
+  stock_adj:     'Adjustment type',
+  sales_margin:  'Trigger',
+  sales_credit:  'Trigger',
 }
 
 /**
@@ -52,7 +56,9 @@ export const WORKFLOW_CONDITIONS: Record<WorkflowKey, WorkflowConditionOption[]>
     { value: 'damage',    label: 'Damage' },
     { value: 'write_off', label: 'Write-off' },
   ],
-  po: [],
+  po:            [],
+  sales_margin:  [],
+  sales_credit:  [],
 }
 
 export function conditionLabel(workflow: string, value: string): string {
