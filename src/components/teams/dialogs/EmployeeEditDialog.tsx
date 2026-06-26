@@ -324,9 +324,6 @@ export function EmployeeEditDialog() {
         division_id: divId,
       })
       setPreviewUrl(employee.avatar_url ?? null)
-      // Pre-set skillset filter to match the employee's division
-      const matchedDiv = divisions.find(d => d.id === divId)
-      setDivisionSlug(matchedDiv?.slug ?? '')
       // Load existing skill IDs
       ;createClient()
         .from('employee_services')
@@ -342,6 +339,16 @@ export function EmployeeEditDialog() {
       })
     }
   }, [employee, open]) // eslint-disable-line react-hooks/exhaustive-deps
+
+  // Sync division slug for skillset filter once divisions load
+  useEffect(() => {
+    if (!open || !employee || divisions.length === 0) return
+    const divId = employee.division_id ?? ''
+    const matchedDiv = divisions.find(d => d.id === divId)
+    if (matchedDiv?.slug && divisionSlug !== matchedDiv.slug) {
+      setDivisionSlug(matchedDiv.slug)
+    }
+  }, [open, employee, divisions]) // eslint-disable-line react-hooks/exhaustive-deps
 
   // ─── Avatar upload ──────────────────────────────────────────────────────────
   function handleFileChange(e: React.ChangeEvent<HTMLInputElement>) {
@@ -389,7 +396,7 @@ export function EmployeeEditDialog() {
           p_status:      employee!.status ?? 'active',
           p_avatar_url:  avatarUrl || '',
           p_service_ids: serviceIds,
-          p_division_id: values.division_id || undefined,
+          p_division_id: values.division_id || null,
         })
         if (error) throw error
         // Log and invalidate only after the RPC fully succeeded

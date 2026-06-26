@@ -1,6 +1,7 @@
 'use client'
 
-import { createContext, useContext, useState, type ReactNode } from 'react'
+import { createContext, useContext, useState, useCallback, useMemo, type ReactNode } from 'react'
+import { useRouter, useSearchParams, usePathname } from 'next/navigation'
 import type { TeamFull, Employee, Vehicle } from '@/hooks/useTeams'
 import { useToolCountMap } from '@/hooks/useTeams'
 
@@ -23,7 +24,9 @@ interface TeamsPageContextValue {
   divisionFilter: string | null
   density:        'card' | 'list'
 
-  // Batch tool count maps — avoids N+1 per-employee/per-team queries
+  // v2: selection
+  selectedTeamId: string | null
+
   employeeToolCounts: Map<string, number>
   teamToolCounts:     Map<string, number>
 
@@ -42,11 +45,18 @@ interface TeamsPageContextValue {
   setSearch:          (q: string) => void
   setDivisionFilter:  (id: string | null) => void
   setDensity:         (d: 'card' | 'list') => void
+
+  // v2
+  setSelectedTeamId:  (id: string | null) => void
 }
 
 const TeamsPageContext = createContext<TeamsPageContextValue | null>(null)
 
 export function TeamsPageProvider({ children }: { children: ReactNode }) {
+  const router       = useRouter()
+  const pathname     = usePathname()
+  const searchParams = useSearchParams()
+
   const [teamDialog,     setTeamDialog]     = useState<TeamDialogState>({ open: false, team: null })
   const [employeeDialog, setEmployeeDialog] = useState<EmployeeDialogState>({ open: false, employee: null })
   const [vehicleDialog,  setVehicleDialog]  = useState<VehicleDialogState>({ open: false, vehicle: null })
@@ -57,38 +67,56 @@ export function TeamsPageProvider({ children }: { children: ReactNode }) {
   const [divisionFilter, setDivisionFilter] = useState<string | null>(null)
   const [density,        setDensity]        = useState<'card' | 'list'>('card')
 
+  const selectedTeamId = searchParams.get('team')
+
+  const setSelectedTeamId = useCallback((id: string | null) => {
+    const params = new URLSearchParams(searchParams.toString())
+    if (id) params.set('team', id)
+    else    params.delete('team')
+    const qs = params.toString()
+    router.replace(qs ? `${pathname}?${qs}` : pathname, { scroll: false })
+  }, [pathname, router, searchParams])
+
   const { data: employeeToolCounts = new Map() } = useToolCountMap('employee')
   const { data: teamToolCounts     = new Map() } = useToolCountMap('team')
 
+  const value = useMemo<TeamsPageContextValue>(() => ({
+    teamDialog,
+    employeeDialog,
+    vehicleDialog,
+    scheduleDialog,
+    logPanel,
+    toolsSheet,
+    searchQuery,
+    divisionFilter,
+    density,
+    selectedTeamId,
+    employeeToolCounts,
+    teamToolCounts,
+    openTeamDialog:      (team)     => setTeamDialog({ open: true, team: team ?? null }),
+    closeTeamDialog:     ()         => setTeamDialog({ open: false, team: null }),
+    openEmployeeDialog:  (employee) => setEmployeeDialog({ open: true, employee: employee ?? null }),
+    closeEmployeeDialog: ()         => setEmployeeDialog({ open: false, employee: null }),
+    openVehicleDialog:   (vehicle)  => setVehicleDialog({ open: true, vehicle: vehicle ?? null }),
+    closeVehicleDialog:  ()         => setVehicleDialog({ open: false, vehicle: null }),
+    openScheduleDialog:  (teamId)   => setScheduleDialog({ open: true, teamId: teamId ?? null }),
+    closeScheduleDialog: ()         => setScheduleDialog({ open: false, teamId: null }),
+    openLogPanel:        (id, type) => setLogPanel({ open: true, entityId: id ?? null, entityType: type ?? null }),
+    closeLogPanel:       ()         => setLogPanel({ open: false, entityId: null, entityType: null }),
+    openToolsSheet:      (teamId, teamName) => setToolsSheet({ open: true, teamId, teamName }),
+    closeToolsSheet:     ()         => setToolsSheet({ open: false, teamId: null, teamName: null }),
+    setSearch,
+    setDivisionFilter,
+    setDensity,
+    setSelectedTeamId,
+  }), [
+    teamDialog, employeeDialog, vehicleDialog, scheduleDialog, logPanel, toolsSheet,
+    searchQuery, divisionFilter, density, selectedTeamId,
+    employeeToolCounts, teamToolCounts, setSelectedTeamId,
+  ])
+
   return (
-    <TeamsPageContext.Provider value={{
-      teamDialog,
-      employeeDialog,
-      vehicleDialog,
-      scheduleDialog,
-      logPanel,
-      toolsSheet,
-      searchQuery,
-      divisionFilter,
-      density,
-      employeeToolCounts,
-      teamToolCounts,
-      openTeamDialog:      (team)     => setTeamDialog({ open: true, team: team ?? null }),
-      closeTeamDialog:     ()         => setTeamDialog({ open: false, team: null }),
-      openEmployeeDialog:  (employee) => setEmployeeDialog({ open: true, employee: employee ?? null }),
-      closeEmployeeDialog: ()         => setEmployeeDialog({ open: false, employee: null }),
-      openVehicleDialog:   (vehicle)  => setVehicleDialog({ open: true, vehicle: vehicle ?? null }),
-      closeVehicleDialog:  ()         => setVehicleDialog({ open: false, vehicle: null }),
-      openScheduleDialog:  (teamId)   => setScheduleDialog({ open: true, teamId: teamId ?? null }),
-      closeScheduleDialog: ()         => setScheduleDialog({ open: false, teamId: null }),
-      openLogPanel:        (id, type) => setLogPanel({ open: true, entityId: id ?? null, entityType: type ?? null }),
-      closeLogPanel:       ()         => setLogPanel({ open: false, entityId: null, entityType: null }),
-      openToolsSheet:      (teamId, teamName) => setToolsSheet({ open: true, teamId, teamName }),
-      closeToolsSheet:     ()         => setToolsSheet({ open: false, teamId: null, teamName: null }),
-      setSearch,
-      setDivisionFilter,
-      setDensity,
-    }}>
+    <TeamsPageContext.Provider value={value}>
       {children}
     </TeamsPageContext.Provider>
   )

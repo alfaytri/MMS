@@ -20,18 +20,18 @@ export function VehicleSlot({ team }: { team: TeamFull }) {
   if (!vehicles.length) {
     return (
       <div ref={setNodeRef} className={cn(
-        'h-10 rounded border-2 border-dashed flex items-center justify-center text-xs text-muted-foreground transition-colors',
-        isOver && 'border-primary bg-primary/5 ring-2 ring-primary'
+        'h-20 rounded-md border border-dashed border-border/70 flex items-center justify-center text-xs text-muted-foreground transition-colors',
+        isOver && 'border-primary border-2 bg-primary/5',
       )}>
-        <Truck className="h-3 w-3 mr-1" /> Drop vehicle
+        <Truck className="h-3.5 w-3.5 mr-1.5" /> Drop vehicle here
       </div>
     )
   }
 
   return (
-    <div className="flex flex-col gap-1">
+    <div className="flex flex-col gap-2">
       {vehicles.map(vehicle => (
-        <DraggableVehicleChip
+        <VehicleChip
           key={vehicle.id}
           vehicle={vehicle}
           teamId={team.id}
@@ -43,17 +43,17 @@ export function VehicleSlot({ team }: { team: TeamFull }) {
       <div
         ref={setNodeRef}
         className={cn(
-          'h-7 rounded border border-dashed flex items-center justify-center text-xs text-muted-foreground transition-colors',
-          isOver && 'border-primary bg-primary/5 ring-2 ring-primary'
+          'h-9 rounded border border-dashed border-border/70 flex items-center justify-center text-xs text-muted-foreground transition-colors',
+          isOver && 'border-primary border-2 bg-primary/5',
         )}
       >
-        <Truck className="h-3 w-3 mr-1" /> Drop vehicle
+        <Truck className="h-3 w-3 mr-1" /> Drop another vehicle
       </div>
     </div>
   )
 }
 
-function DraggableVehicleChip({ vehicle, teamId, onUnassign, onLog, onEdit }: {
+function VehicleChip({ vehicle, teamId, onUnassign, onLog, onEdit }: {
   vehicle: Vehicle
   teamId: string
   onUnassign: () => void
@@ -64,7 +64,6 @@ function DraggableVehicleChip({ vehicle, teamId, onUnassign, onLog, onEdit }: {
     id: `vehicle-draggable-${vehicle.id}`,
     data: { type: 'vehicle', vehicleId: vehicle.id, fromTeamId: teamId } satisfies DragData,
   })
-  const traccarId = vehicle.traccar_device_id ?? null
 
   return (
     <div
@@ -72,27 +71,27 @@ function DraggableVehicleChip({ vehicle, teamId, onUnassign, onLog, onEdit }: {
       {...listeners}
       {...attributes}
       className={cn(
-        'group flex items-center gap-2 h-10 px-2 rounded border bg-muted/50 text-sm transition-opacity cursor-grab touch-none',
+        'group flex items-center gap-3 h-20 px-3 rounded-md border border-blue-200 bg-blue-50/60 text-sm transition-opacity cursor-grab touch-none',
         isDragging && 'opacity-50',
       )}
     >
-      <Truck className="h-3 w-3 text-muted-foreground shrink-0" />
-      <span className="flex-1 truncate text-xs">
-        {vehicle.name ? <><span className="font-medium">{vehicle.name}</span> <span className="text-muted-foreground font-mono">({vehicle.plate})</span></> : <span className="font-mono">{vehicle.plate}</span>}
-      </span>
-      {traccarId && <Satellite className="h-3 w-3 text-blue-500" />}
-      <div
-        className="hidden group-hover:flex items-center gap-1"
-        onPointerDown={e => e.stopPropagation()}
-      >
-        <button onClick={onEdit} className="p-0.5 hover:text-primary" type="button">
-          <Pencil className="h-3 w-3" />
+      <Truck className="h-5 w-5 text-blue-600 shrink-0" />
+      <div className="flex-1 min-w-0">
+        <p className="font-mono text-base font-medium truncate">{vehicle.plate}</p>
+        <p className="text-xs text-muted-foreground truncate">
+          {vehicle.name ?? vehicle.type ?? 'Vehicle'}
+        </p>
+      </div>
+      {vehicle.traccar_device_id && <Satellite className="h-4 w-4 text-blue-500" />}
+      <div className="hidden group-hover:flex items-center gap-0.5" onPointerDown={e => e.stopPropagation()}>
+        <button onClick={onEdit} className="p-1.5 hover:text-foreground text-muted-foreground" type="button">
+          <Pencil className="h-3.5 w-3.5" />
         </button>
-        <button onClick={onLog} className="p-0.5 hover:text-primary" type="button">
-          <Clock className="h-3 w-3" />
+        <button onClick={onLog} className="p-1.5 hover:text-foreground text-muted-foreground" type="button">
+          <Clock className="h-3.5 w-3.5" />
         </button>
-        <button onClick={onUnassign} className="p-0.5 hover:text-destructive" type="button">
-          <X className="h-3 w-3" />
+        <button onClick={onUnassign} className="p-1.5 hover:text-destructive text-muted-foreground" type="button">
+          <X className="h-3.5 w-3.5" />
         </button>
       </div>
     </div>

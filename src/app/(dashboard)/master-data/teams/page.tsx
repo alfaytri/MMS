@@ -1,17 +1,18 @@
 'use client'
 
-import { DndContext, DragOverlay, PointerSensor, useSensor, useSensors, pointerWithin, type DragStartEvent } from '@dnd-kit/core'
+import { DndContext, DragOverlay, PointerSensor, KeyboardSensor, useSensor, useSensors, pointerWithin, type DragStartEvent } from '@dnd-kit/core'
 import { TooltipProvider } from '@/components/ui/tooltip'
 import { TeamsPageProvider } from '@/components/teams/TeamsPageContext'
 import { useDnDHandlers, type DragData } from '@/components/teams/useDnDHandlers'
-import { TopBar } from '@/components/teams/TopBar'
-import { TeamGrid } from '@/components/teams/TeamGrid'
-import { PoolSidebar } from '@/components/teams/PoolSidebar'
+import { TopBar } from '@/components/teams/v2/TopBar'
+import { TeamList } from '@/components/teams/v2/TeamList'
+import { TeamDetail } from '@/components/teams/v2/TeamDetail'
+import { PoolsPanel } from '@/components/teams/v2/PoolsPanel'
+import { ActivityLog } from '@/components/teams/v2/ActivityLog'
 import { TeamEditDialog } from '@/components/teams/dialogs/TeamEditDialog'
 import { EmployeeEditDialog } from '@/components/teams/dialogs/EmployeeEditDialog'
 import { VehicleEditDialog } from '@/components/teams/dialogs/VehicleEditDialog'
 import { ScheduleDialog } from '@/components/teams/dialogs/ScheduleDialog'
-import { ActivityLogPanel } from '@/components/teams/dialogs/ActivityLogPanel'
 import { TeamToolsSheet } from '@/components/teams/dialogs/TeamToolsSheet'
 import { Truck } from 'lucide-react'
 import { useEmployees, useVehicles } from '@/hooks/useTeams'
@@ -20,9 +21,8 @@ function TeamsPageInner() {
   const { handleDragStart, handleDragEnd, activeItem } = useDnDHandlers()
 
   const sensors = useSensors(
-    useSensor(PointerSensor, {
-      activationConstraint: { distance: 6 },
-    })
+    useSensor(PointerSensor, { activationConstraint: { distance: 6 } }),
+    useSensor(KeyboardSensor),
   )
 
   function onDragStart(event: DragStartEvent) {
@@ -34,12 +34,13 @@ function TeamsPageInner() {
       <div className="flex flex-col h-full">
         <TopBar />
         <div className="flex flex-1 min-h-0 overflow-hidden">
-          <TeamGrid />
-          <PoolSidebar />
+          <TeamList />
+          <TeamDetail />
+          <PoolsPanel />
         </div>
       </div>
 
-      {/* Errata 8: zIndex 9999 so overlay renders above all dialogs/sheets */}
+      {/* zIndex 9999 so overlay renders above all dialogs/sheets */}
       <DragOverlay style={{ zIndex: 9999 }}>
         {activeItem && <DragOverlayContent item={activeItem} />}
       </DragOverlay>
@@ -48,7 +49,7 @@ function TeamsPageInner() {
       <EmployeeEditDialog />
       <VehicleEditDialog />
       <ScheduleDialog />
-      <ActivityLogPanel />
+      <ActivityLog />
       <TeamToolsSheet />
     </DndContext>
   )
@@ -61,12 +62,11 @@ function DragOverlayContent({ item }: { item: DragData }) {
   if (item.type === 'employee') {
     const emp = employees.find(e => e.id === item.employeeId)
     const initials = emp?.name?.split(' ').map((w: string) => w[0]).join('').slice(0, 2).toUpperCase() ?? '?'
-    const avatarUrl = emp?.avatar_url ?? null
     return (
-      <div className="flex items-center gap-2 px-3 py-1.5 rounded-full bg-background border shadow-lg text-sm pointer-events-none">
-        {avatarUrl
-          ? <img src={avatarUrl} alt="" className="h-6 w-6 rounded-full object-cover" />
-          : <div className="h-6 w-6 rounded-full bg-primary/20 flex items-center justify-center text-[10px] font-semibold">{initials}</div>
+      <div className="flex items-center gap-2 px-3 py-1.5 rounded-full bg-background border border-border/60 shadow-sm ring-1 ring-black/5 text-sm pointer-events-none">
+        {emp?.avatar_url
+          ? <img src={emp.avatar_url} alt="" className="h-5 w-5 rounded-full object-cover" />
+          : <div className="h-5 w-5 rounded-full bg-muted flex items-center justify-center text-[10px] font-semibold">{initials}</div>
         }
         <span>{emp?.name ?? 'Employee'}</span>
       </div>
@@ -76,7 +76,7 @@ function DragOverlayContent({ item }: { item: DragData }) {
   if (item.type === 'vehicle') {
     const veh = vehicles.find(v => v.id === item.vehicleId)
     return (
-      <div className="flex items-center gap-2 px-3 py-1.5 rounded-full bg-background border shadow-lg text-sm pointer-events-none">
+      <div className="flex items-center gap-2 px-3 py-1.5 rounded-full bg-background border border-border/60 shadow-sm ring-1 ring-black/5 text-sm pointer-events-none">
         <Truck className="h-4 w-4" />
         <span className="font-mono">{veh?.plate ?? 'Vehicle'}</span>
       </div>

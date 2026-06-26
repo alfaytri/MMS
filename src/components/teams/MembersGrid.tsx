@@ -1,13 +1,12 @@
 'use client'
 
 import { useDroppable, useDraggable } from '@dnd-kit/core'
-import { Wrench } from 'lucide-react'
+import { Wrench, X } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { useTeamsPage } from './TeamsPageContext'
+import { useUnassignEmployee } from '@/hooks/useTeams'
 import type { TeamFull, Employee } from '@/hooks/useTeams'
 import type { DragData } from './useDnDHandlers'
-
-const MAX_VISIBLE = 8
 
 export function MembersGrid({ team }: { team: TeamFull }) {
   const { employeeToolCounts } = useTeamsPage()
@@ -15,54 +14,47 @@ export function MembersGrid({ team }: { team: TeamFull }) {
     id: `members-grid-${team.id}`,
     data: { zone: 'team-members', teamId: team.id },
   })
-  const members  = team.members.filter(m => m.id !== team.leader_id)
-  const visible  = members.slice(0, MAX_VISIBLE)
-  const overflow = members.length - MAX_VISIBLE
-
-  if (members.length === 0) {
-    return (
-      <div
-        ref={setNodeRef}
-        className={cn(
-          'min-h-[2.5rem] rounded border-2 border-dashed flex items-center justify-center text-xs text-muted-foreground p-2 transition-colors',
-          isOver && 'border-primary bg-primary/5 ring-2 ring-primary'
-        )}
-      >
-        Drop employees here
-      </div>
-    )
-  }
+  const members = team.members.filter(m => m.id !== team.leader_id)
 
   return (
     <div
       ref={setNodeRef}
       className={cn(
-        'flex flex-wrap gap-1 p-1 min-h-[2.5rem] rounded border-2 border-transparent transition-colors',
-        isOver && 'border-primary bg-primary/5 ring-2 ring-primary'
+        'rounded-md border border-orange-200 bg-orange-50/50 p-3 transition-colors',
+        isOver && 'border-primary bg-primary/10',
       )}
     >
-      {visible.map(emp => (
-        <MemberAvatar
-          key={emp.id}
-          employee={emp}
-          teamId={team.id}
-          hasTools={employeeToolCounts.has(emp.id)}
-        />
-      ))}
-      {overflow > 0 && (
-        <div className="h-6 w-6 rounded-full bg-muted flex items-center justify-center text-[9px] font-medium">
-          +{overflow}
+      {members.length === 0 && !isOver && (
+        <p className="text-xs text-muted-foreground text-center py-6">
+          No members. Drag employees here to add.
+        </p>
+      )}
+      {(members.length > 0 || isOver) && (
+        <div className="grid grid-cols-3 sm:grid-cols-4 md:grid-cols-6 gap-3">
+          {members.map(emp => (
+            <MemberTile
+              key={emp.id}
+              employee={emp}
+              teamId={team.id}
+              hasTools={employeeToolCounts.has(emp.id)}
+            />
+          ))}
+          <div className="flex flex-col items-center gap-1 opacity-50">
+            <div className="h-10 w-10 rounded-full border border-dashed border-border flex items-center justify-center text-muted-foreground text-lg">+</div>
+            <span className="text-[10px] text-muted-foreground">Drop here</span>
+          </div>
         </div>
       )}
     </div>
   )
 }
 
-function MemberAvatar({ employee, teamId, hasTools }: {
+function MemberTile({ employee, teamId, hasTools }: {
   employee: Employee
   teamId: string
   hasTools: boolean
 }) {
+  const removeFromTeam = useUnassignEmployee()
   const { attributes, listeners, setNodeRef, isDragging } = useDraggable({
     id: `member-${employee.id}-team-${teamId}`,
     data: { type: 'employee', employeeId: employee.id, fromTeamId: teamId } satisfies DragData,
@@ -75,20 +67,30 @@ function MemberAvatar({ employee, teamId, hasTools }: {
       ref={setNodeRef}
       {...listeners}
       {...attributes}
-      className={cn('relative cursor-grab', isDragging && 'opacity-50')}
-      title={employee.name ?? ''}
+      className={cn('group relative flex flex-col items-center gap-1 cursor-grab', isDragging && 'opacity-50')}
     >
-      {avatarUrl
-        ? <img src={avatarUrl} alt={employee.name ?? ''} className="h-6 w-6 rounded-full object-cover" />
-        : (
-          <div className="h-6 w-6 rounded-full bg-primary/20 flex items-center justify-center text-[9px] font-semibold">
-            {initials}
-          </div>
-        )
-      }
-      {hasTools && (
-        <Wrench className="absolute -bottom-0.5 -right-0.5 h-2.5 w-2.5 text-orange-500" />
-      )}
+      <div className="relative">
+        {avatarUrl
+          ? <img src={avatarUrl} alt={employee.name ?? ''} className="h-10 w-10 rounded-full object-cover ring-2 ring-background" />
+          : (
+            <div className="h-10 w-10 rounded-full bg-background border border-border flex items-center justify-center text-xs font-semibold">
+              {initials}
+            </div>
+          )
+        }
+        {hasTools && (
+          <Wrench className="absolute -bottom-0.5 -right-0.5 h-3 w-3 text-orange-500 bg-background rounded-full p-0.5" />
+        )}
+        <button
+          type="button"
+          onPointerDown={e => e.stopPropagation()}
+          onClick={() => removeFromTeam.mutate({ employeeId: employee.id, fromTeamId: teamId })}
+          className="opacity-0 group-hover:opacity-100 absolute -top-1 -right-1 h-4 w-4 rounded-full bg-background border border-border text-muted-foreground hover:text-destructive flex items-center justify-center transition-opacity"
+        >
+          <X className="h-2.5 w-2.5" />
+        </button>
+      </div>
+      <span className="text-[10px] text-muted-foreground truncate max-w-full">{employee.name?.split(' ')[0]}</span>
     </div>
   )
 }

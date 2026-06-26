@@ -16,6 +16,10 @@ import {
 } from './CalendarBlocks'
 import type { OrderServiceDraft, TeamAssignmentDraft, OrderMode } from '@/types/orders'
 import { cn } from '@/lib/utils'
+import { useTeamSkills } from '@/hooks/useTeamSkills'
+import { useServiceTree } from '@/hooks/useServices'
+import { useTeamServiceFilter } from '@/hooks/useTeamServiceFilter'
+import { deriveCalendarScheduleRaw } from '@/hooks/useCalendarSchedule'
 
 
 /** Full day: 48 half-hour slots: 0, 0.5, 1, 1.5, … 23.5 */
@@ -76,6 +80,29 @@ export function TeamCalendarPanel({
     divisionSlugs && divisionSlugs.length > 0 ? { divisionIds: divisionSlugs } : undefined
   )
   const teams = (teamsRaw ?? []) as TeamFull[]
+
+  const { data: teamSkillsMap = new Map<string, string[]>() } = useTeamSkills(null)
+  const { data: serviceTreeAll } = useServiceTree('normal', [], draftServices.length > 0)
+
+  const assignedTeamIds = useMemo(
+    () => assignments.map(a => a.teamId),
+    [assignments],
+  )
+
+  const capableTeamIds = useTeamServiceFilter(
+    draftServices,
+    serviceTreeAll,
+    teamSkillsMap,
+    assignedTeamIds,
+  )
+
+  const filteredTeams = useMemo(
+    () => capableTeamIds.size === 0
+      ? teams
+      : teams.filter(t => capableTeamIds.has(t.id)),
+    [teams, capableTeamIds],
+  )
+
   const { data: visits } = useCalendarVisits(visitDate, null)
   const divisionSchedules = useAllDivisionSchedules()
   const [pendingDrop, setPendingDrop] = useState<PendingDrop | null>(null)
@@ -122,14 +149,14 @@ export function TeamCalendarPanel({
 
   const divisionGroups = useMemo(() => {
     const groups = new Map<string, { slug: string; name: string; teams: TeamFull[] }>()
-    for (const team of teams) {
+    for (const team of filteredTeams) {
       const slug = team.division?.slug ?? '__none__'
       const name = team.division?.name ?? team.division?.short_name ?? 'Unassigned'
       if (!groups.has(slug)) groups.set(slug, { slug, name, teams: [] })
       groups.get(slug)!.teams.push(team)
     }
     return Array.from(groups.values())
-  }, [teams])
+  }, [filteredTeams])
 
   useEffect(() => {
     if (hasScrolled.current || !initialTeamId || teams.length === 0) return
@@ -150,9 +177,9 @@ export function TeamCalendarPanel({
 
   const teamSkillMap = useMemo<Record<string, string[]>>(() => {
     const map: Record<string, string[]> = {}
-    teams.forEach((t) => { map[t.id] = t.members.flatMap((e) => e.skills ?? []) })
+    filteredTeams.forEach((t) => { map[t.id] = t.members.flatMap((e) => e.skills ?? []) })
     return map
-  }, [teams])
+  }, [filteredTeams])
 
   function getSkillMatch(teamId: string): boolean | null {
     if (!draggingService?.rootSkillId) return null
@@ -342,13 +369,16 @@ export function TeamCalendarPanel({
 
           {/* Team rows — grouped by division */}
           {divisionGroups.map((group) => {
-            const sched = divisionSchedules.get(group.slug)
-            const workStart = sched?.day_start ?? 0
-            const workEnd   = sched?.day_end   ?? 24
+            const divSched = divisionSchedules.get(group.slug)
             return (
               <div key={group.slug}>
-                <DivisionHeaderRow name={group.name} scheduleLabel={sched?.label} cellW={cellWidth} slotCount={SLOTS.length} />
+                <DivisionHeaderRow name={group.name} scheduleLabel={divSched?.label} cellW={cellWidth} slotCount={SLOTS.length} />
                 {group.teams.map((team: TeamFull) => {
+                  const teamSched = team.schedule?.days
+                    ? deriveCalendarScheduleRaw(team.schedule.days as Record<string, { enabled: boolean; start: string; end: string }>)
+                    : null
+                  const workStart = teamSched?.day_start ?? 0
+                  const workEnd   = teamSched?.day_end   ?? 24
                   const { trackMap, rowHeight } = computeTeamLayout(team.id)
                   return (
                     <div
