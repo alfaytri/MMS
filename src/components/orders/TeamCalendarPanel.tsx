@@ -19,6 +19,7 @@ import { cn } from '@/lib/utils'
 import { useTeamSkills } from '@/hooks/useTeamSkills'
 import { useServiceTree } from '@/hooks/useServices'
 import { useTeamServiceFilter } from '@/hooks/useTeamServiceFilter'
+import { deriveCalendarScheduleRaw } from '@/hooks/useCalendarSchedule'
 
 
 /** Full day: 48 half-hour slots: 0, 0.5, 1, 1.5, … 23.5 */
@@ -368,13 +369,16 @@ export function TeamCalendarPanel({
 
           {/* Team rows — grouped by division */}
           {divisionGroups.map((group) => {
-            const sched = divisionSchedules.get(group.slug)
-            const workStart = sched?.day_start ?? 0
-            const workEnd   = sched?.day_end   ?? 24
+            const divSched = divisionSchedules.get(group.slug)
             return (
               <div key={group.slug}>
-                <DivisionHeaderRow name={group.name} scheduleLabel={sched?.label} cellW={cellWidth} slotCount={SLOTS.length} />
+                <DivisionHeaderRow name={group.name} scheduleLabel={divSched?.label} cellW={cellWidth} slotCount={SLOTS.length} />
                 {group.teams.map((team: TeamFull) => {
+                  const teamSched = team.schedule?.days
+                    ? deriveCalendarScheduleRaw(team.schedule.days as Record<string, { enabled: boolean; start: string; end: string }>)
+                    : null
+                  const workStart = teamSched?.day_start ?? 0
+                  const workEnd   = teamSched?.day_end   ?? 24
                   const { trackMap, rowHeight } = computeTeamLayout(team.id)
                   return (
                     <div

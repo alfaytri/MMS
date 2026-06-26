@@ -6,7 +6,7 @@ import { TeamRow, computeTeamRowLayout } from './TeamRow'
 import { NowIndicator } from './NowIndicator'
 import type { CalendarVisit } from '@/hooks/useCalendarVisits'
 import type { TeamFull } from '@/hooks/useTeams'
-import type { CalendarSchedule } from '@/hooks/useCalendarSchedule'
+import { deriveCalendarScheduleRaw, type CalendarSchedule } from '@/hooks/useCalendarSchedule'
 
 /** Width per half-hour slot (scroll mode). 48 slots × 40 = 1920 px total. */
 const SCROLL_CELL_WIDTH = 40
@@ -201,7 +201,9 @@ export function TimelineGrid({
                   scheduleLabel={groupSchedule?.label}
                 />
                 {group.teams.map(team => {
-                  const teamSchedule = groupSchedule
+                  const teamSched = team.schedule?.days
+                    ? deriveCalendarScheduleRaw(team.schedule.days as Record<string, { enabled: boolean; start: string; end: string }>)
+                    : null
                   return (
                     <TeamRow
                       key={team.id}
@@ -209,8 +211,8 @@ export function TimelineGrid({
                       visits={visitsByTeam.get(team.id) ?? []}
                       slots={slots}
                       dayStart={0}
-                      workStart={teamSchedule?.day_start ?? 0}
-                      workEnd={teamSchedule?.day_end ?? 24}
+                      workStart={teamSched?.day_start ?? 0}
+                      workEnd={teamSched?.day_end ?? 24}
                       cellWidth={cellWidth}
                       divisionColor={group.color}
                       canEdit={canEdit}
