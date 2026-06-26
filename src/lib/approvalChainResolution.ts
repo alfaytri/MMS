@@ -6,9 +6,11 @@
 export type WorkflowScope = 'po' | 'inv_check' | 'stock_adj' | 'sales_margin' | 'sales_credit'
 
 export const WORKFLOW_SCOPE_LABELS: Record<WorkflowScope, string> = {
-  po:         'Purchase Orders',
-  inv_check:  'Inventory Checks',
-  stock_adj:  'Stock Adjustments',
+  po:            'Purchase Orders',
+  inv_check:     'Inventory Checks',
+  stock_adj:     'Stock Adjustments',
+  sales_margin:  'Sales — Margin',
+  sales_credit:  'Sales — Credit',
 }
 
 export type ApprovalChainTier = {
