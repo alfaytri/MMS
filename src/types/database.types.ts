@@ -10464,5 +10464,8 @@ export const Constants = {
     },
   },
 } as const
-A new version of Supabase CLI is available: v2.107.0 (currently installed v2.91.3)
-We recommend updating regularly for new features and bug fixes: https://supabase.com/docs/guides/cli/getting-started#updating-the-supabase-cli
+
+type PublicSchema = Database['public']
+export type DBTable<T extends keyof PublicSchema['Tables']> = PublicSchema['Tables'][T]['Row']
+export type DBInsert<T extends keyof PublicSchema['Tables']> = PublicSchema['Tables'][T]['Insert']
+export type DBUpdate<T extends keyof PublicSchema['Tables']> = PublicSchema['Tables'][T]['Update']

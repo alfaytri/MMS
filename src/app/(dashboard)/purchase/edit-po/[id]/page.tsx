@@ -190,6 +190,7 @@ export default function EditPOPage() {
     if (!po) return
     const currentSnapshot = {
       version_number: currentVersion,
+      stage: liveStage,
       supplier_id: po.supplier_id,
       supplier_name: po.supplier_name,
       currency: po.currency,
