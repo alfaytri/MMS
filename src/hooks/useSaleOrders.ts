@@ -107,6 +107,9 @@ export type Customer = {
   credit_group_id:     string | null
   credit_group_name?:  string | null
   credit_group_limit?: number | null
+  cr_url?:                  string | null
+  establishment_id_url?:    string | null
+  signed_credit_form_url?:  string | null
 }
 
 export type SOLineItemDraft = {
@@ -221,7 +224,7 @@ export function useAllCustomers(search: string, page: number) {
       const to   = from + CUSTOMERS_PAGE_SIZE - 1
       let q = supabase
         .from('customers')
-        .select('id, name, phone, email, customer_type, entity_type, is_blocked, credit_group_id, credit_groups(name, credit_limit)', { count: 'exact' })
+        .select('id, name, phone, email, customer_type, entity_type, is_blocked, credit_group_id, cr_url, establishment_id_url, signed_credit_form_url, credit_groups(name, credit_limit)', { count: 'exact' })
         .order('name')
         .range(from, to)
       if (search) {
@@ -250,15 +253,137 @@ export function useAllCustomers(search: string, page: number) {
 export function useCreateCustomer() {
   const queryClient = useQueryClient()
   return useMutation({
-    mutationFn: async (payload: { name: string; phone: string; email: string | null; credit_group_id?: string | null; customer_type?: 'cash' | 'credit'; entity_type?: 'individual' | 'business' }) => {
+    mutationFn: async (payload: {
+      name: string
+      phone: string
+      email: string | null
+      credit_group_id?: string | null
+      customer_type?: 'cash' | 'credit'
+      entity_type?: 'individual' | 'business'
+      cr_url?: string | null
+      establishment_id_url?: string | null
+      signed_credit_form_url?: string | null
+    }) => {
       const supabase = createClient()
+      const now = new Date().toISOString()
+      const row = {
+        ...payload,
+        cr_uploaded_at:                 payload.cr_url                 ? now : null,
+        establishment_id_uploaded_at:   payload.establishment_id_url   ? now : null,
+        signed_credit_form_uploaded_at: payload.signed_credit_form_url ? now : null,
+      }
       const { data, error } = await supabase
         .from('customers')
-        .insert(payload)
+        .insert(row)
         .select()
         .single()
       if (error) throw error
       return data
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: queryKeys.customers.all })
+      queryClient.invalidateQueries({ queryKey: queryKeys.customers.allCustomers })
+    },
+  })
+}
+
+export function useUpdateCustomer() {
+  const queryClient = useQueryClient()
+  return useMutation({
+    mutationFn: async (args: {
+      id:    string
+      patch: {
+        name?:                   string
+        phone?:                  string
+        email?:                  string | null
+        customer_type?:          'cash' | 'credit'
+        entity_type?:            'individual' | 'business'
+        credit_group_id?:        string | null
+        cr_url?:                 string | null
+        establishment_id_url?:   string | null
+        signed_credit_form_url?: string | null
+      }
+      // Old values for audit diff; only fields present here are checked
+      previous: {
+        name?:                   string
+        phone?:                  string | null
+        email?:                  string | null
+        customer_type?:          string | null
+        entity_type?:            string | null
+        credit_group_id?:        string | null
+        credit_group_name?:      string | null
+        cr_url?:                 string | null
+        establishment_id_url?:   string | null
+        signed_credit_form_url?: string | null
+      }
+      new_credit_group_name?: string | null
+    }) => {
+      const supabase = createClient()
+      const now = new Date().toISOString()
+
+      // Stamp uploaded_at for any newly-uploaded doc (path changed AND non-null)
+      const update: Record<string, unknown> = { ...args.patch }
+      if (args.patch.cr_url && args.patch.cr_url !== args.previous.cr_url) {
+        update.cr_uploaded_at = now
+      }
+      if (args.patch.establishment_id_url && args.patch.establishment_id_url !== args.previous.establishment_id_url) {
+        update.establishment_id_uploaded_at = now
+      }
+      if (args.patch.signed_credit_form_url && args.patch.signed_credit_form_url !== args.previous.signed_credit_form_url) {
+        update.signed_credit_form_uploaded_at = now
+      }
+
+      const { data, error } = await supabase
+        .from('customers')
+        .update(update)
+        .eq('id', args.id)
+        .select('id, name')
+      if (error) throw error
+      if (!data || data.length === 0) throw new Error('Customer not found or update blocked')
+
+      // Build a diff for the audit log — only include fields that actually changed.
+      const diff: Array<{ field: string; from: unknown; to: unknown }> = []
+      const cmp = <K extends keyof typeof args.patch>(
+        key: K,
+        prev: unknown,
+        label?: string,
+      ) => {
+        if (args.patch[key] === undefined) return
+        if (args.patch[key] !== prev) {
+          diff.push({ field: label ?? (key as string), from: prev ?? null, to: args.patch[key] ?? null })
+        }
+      }
+      cmp('name',                   args.previous.name)
+      cmp('phone',                  args.previous.phone)
+      cmp('email',                  args.previous.email)
+      cmp('customer_type',          args.previous.customer_type)
+      cmp('entity_type',            args.previous.entity_type)
+      cmp('cr_url',                 args.previous.cr_url,                'cr_doc')
+      cmp('establishment_id_url',   args.previous.establishment_id_url,  'establishment_id_doc')
+      cmp('signed_credit_form_url', args.previous.signed_credit_form_url,'signed_credit_form_doc')
+      // Special-case credit group so we can log human names rather than UUIDs
+      if (
+        args.patch.credit_group_id !== undefined &&
+        args.patch.credit_group_id !== args.previous.credit_group_id
+      ) {
+        diff.push({
+          field: 'credit_group',
+          from: args.previous.credit_group_name ?? args.previous.credit_group_id ?? null,
+          to:   args.new_credit_group_name      ?? args.patch.credit_group_id    ?? null,
+        })
+      }
+
+      if (diff.length > 0) {
+        void logActivity({
+          action:      'Customer Updated',
+          module:      'customers',
+          entity_id:   args.id,
+          entity_type: 'customer',
+          details:     JSON.stringify({ customer_name: data[0]?.name ?? null, changes: diff }),
+        })
+      }
+
+      return { id: args.id }
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: queryKeys.customers.all })

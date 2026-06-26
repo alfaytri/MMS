@@ -2,27 +2,24 @@
 
 import { useState, useRef } from 'react'
 import { toast } from 'sonner'
-import { ChevronLeft, ChevronRight, Plus, Mail } from 'lucide-react'
+import { ChevronLeft, ChevronRight, Plus, Mail, Pencil } from 'lucide-react'
 import { PageHeader } from '@/components/shared/PageHeader'
 import { PageWrapper } from '@/components/shared/PageWrapper'
 import { Skeleton } from '@/components/ui/skeleton'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
-import { Label } from '@/components/ui/label'
-import {
-  Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter,
-} from '@/components/ui/dialog'
 import {
   Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
 } from '@/components/ui/select'
 import {
   Table, TableBody, TableCell, TableHead, TableHeader, TableRow,
 } from '@/components/ui/table'
-import { PhoneInputWithCode } from '@/components/shared/PhoneInputWithCode'
 import { EmptyState } from '@/components/shared/EmptyState'
-import { useAllCustomers, useCreateCustomer } from '@/hooks/useSaleOrders'
+import { CustomerDialog } from '@/components/master-data/CustomerDialog'
+import { useAllCustomers, type Customer } from '@/hooks/useSaleOrders'
 import { useCreditGroups, useAssignCreditGroup } from '@/hooks/useCreditGroups'
+import { useHasPermission } from '@/hooks/usePermissions'
 
 const PAGE_SIZE = 50
 
@@ -32,15 +29,8 @@ export default function CustomersPage() {
   const [page, setPage]                       = useState(0)
   const debounceRef                           = useRef<ReturnType<typeof setTimeout> | null>(null)
 
-  // Create customer dialog state
-  const [createOpen, setCreateOpen]           = useState(false)
-  const [newName, setNewName]                 = useState('')
-  const [newPhone, setNewPhone]               = useState('')
-  const [newCountryCode, setNewCountryCode]   = useState('+974')
-  const [newEmail, setNewEmail]               = useState('')
-  const [newType, setNewType]                 = useState<'cash' | 'credit'>('credit')
-  const [newEntity, setNewEntity]             = useState<'individual' | 'business'>('individual')
-  const [newGroupId, setNewGroupId]           = useState('')
+  const [createOpen, setCreateOpen]   = useState(false)
+  const [editing, setEditing]         = useState<Customer | null>(null)
 
   function handleSearch(val: string) {
     setSearch(val)
@@ -56,50 +46,22 @@ export default function CustomersPage() {
 
   const { data: groups = [] }  = useCreditGroups()
   const assignGroup            = useAssignCreditGroup()
-  const createCustomer         = useCreateCustomer()
+  const canChangeCreditGroup   = useHasPermission('master_data.customers.change_credit_group')
+  const canEditCustomer        = useHasPermission('master_data.customers.manage')
 
-  function handleAssign(customerId: string, groupId: string) {
+  function handleAssign(
+    customerId: string,
+    groupId: string,
+    fromGroupId: string | null,
+    fromGroupName: string | null,
+  ) {
     const groupName = groups.find((g) => g.id === groupId)?.name
+    if (fromGroupId === groupId) return
     assignGroup.mutate(
-      { customerId, groupId, groupName },
+      { customerId, groupId, groupName, fromGroupId, fromGroupName },
       {
         onSuccess: () => toast.success('Credit group updated'),
         onError:   (err) => toast.error(err.message),
-      }
-    )
-  }
-
-  function resetForm() {
-    setNewName(''); setNewPhone(''); setNewCountryCode('+974')
-    setNewEmail(''); setNewType('credit'); setNewEntity('individual')
-    setNewGroupId('')
-  }
-
-  function handleCreate() {
-    if (!newName.trim() || !newPhone.trim()) {
-      toast.error('Name and phone are required')
-      return
-    }
-    if (newType === 'credit' && !newGroupId) {
-      toast.error('Select a credit group for credit customers')
-      return
-    }
-    createCustomer.mutate(
-      {
-        name:            newName.trim(),
-        phone:           `${newCountryCode}${newPhone.trim()}`,
-        email:           newEmail.trim() || null,
-        customer_type:   newType,
-        entity_type:     newEntity,
-        credit_group_id: newType === 'credit' ? newGroupId : null,
-      },
-      {
-        onSuccess: () => {
-          toast.success('Customer created')
-          setCreateOpen(false)
-          resetForm()
-        },
-        onError: (err) => toast.error(err.message),
       }
     )
   }
@@ -133,6 +95,7 @@ export default function CustomersPage() {
               <TableHead className="hidden lg:table-cell">Email</TableHead>
               <TableHead className="hidden md:table-cell">Type</TableHead>
               <TableHead>Credit Group</TableHead>
+              <TableHead className="w-12" />
             </TableRow>
           </TableHeader>
           <TableBody>
@@ -144,11 +107,12 @@ export default function CustomersPage() {
                     <TableCell className="hidden lg:table-cell"><Skeleton className="h-5 w-32" /></TableCell>
                     <TableCell className="hidden md:table-cell"><Skeleton className="h-5 w-20" /></TableCell>
                     <TableCell><Skeleton className="h-8 w-36" /></TableCell>
+                    <TableCell><Skeleton className="h-8 w-8" /></TableCell>
                   </TableRow>
                 ))
               : customers.length === 0 ? (
                   <TableRow>
-                    <TableCell colSpan={5} className="p-0">
+                    <TableCell colSpan={6} className="p-0">
                       <EmptyState title="No customers found" />
                     </TableCell>
                   </TableRow>
@@ -185,22 +149,41 @@ export default function CustomersPage() {
                       </Badge>
                     </TableCell>
                     <TableCell>
-                      <Select
-                        value={c.credit_group_id ?? ''}
-                        onValueChange={(val) => { if (val) handleAssign(c.id, val) }}
-                        disabled={assignGroup.isPending}
-                      >
-                        <SelectTrigger className="h-8 w-44 text-xs">
-                          <span className={c.credit_group_name ? '' : 'text-muted-foreground'}>
-                            {c.credit_group_name ?? 'Assign group…'}
-                          </span>
-                        </SelectTrigger>
-                        <SelectContent>
-                          {groups.map((g) => (
-                            <SelectItem key={g.id} value={g.id}>{g.name}</SelectItem>
-                          ))}
-                        </SelectContent>
-                      </Select>
+                      {canChangeCreditGroup ? (
+                        <Select
+                          value={c.credit_group_id ?? ''}
+                          onValueChange={(val) => { if (val) handleAssign(c.id, val, c.credit_group_id ?? null, c.credit_group_name ?? null) }}
+                          disabled={assignGroup.isPending}
+                        >
+                          <SelectTrigger className="h-8 w-44 text-xs">
+                            <span className={c.credit_group_name ? '' : 'text-muted-foreground'}>
+                              {c.credit_group_name ?? 'Assign group…'}
+                            </span>
+                          </SelectTrigger>
+                          <SelectContent>
+                            {groups.map((g) => (
+                              <SelectItem key={g.id} value={g.id}>{g.name}</SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
+                      ) : (
+                        <span className="text-xs text-muted-foreground">
+                          {c.credit_group_name ?? '—'}
+                        </span>
+                      )}
+                    </TableCell>
+                    <TableCell className="text-right">
+                      {canEditCustomer && (
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          className="h-7 w-7"
+                          onClick={() => setEditing(c)}
+                          title="Edit customer"
+                        >
+                          <Pencil className="h-3.5 w-3.5" />
+                        </Button>
+                      )}
                     </TableCell>
                   </TableRow>
                 ))}
@@ -223,95 +206,19 @@ export default function CustomersPage() {
         </div>
       )}
 
-      {/* Create Customer Dialog */}
-      <Dialog open={createOpen} onOpenChange={(o) => { if (!o) { setCreateOpen(false); resetForm() } else setCreateOpen(true) }}>
-        <DialogContent className="w-full max-w-full rounded-none sm:max-w-md sm:rounded-lg">
-          <DialogHeader>
-            <DialogTitle>New Customer</DialogTitle>
-          </DialogHeader>
-          <div className="space-y-4 py-2">
-            <div className="space-y-1.5">
-              <Label htmlFor="cust-name">Name <span className="text-destructive">*</span></Label>
-              <Input
-                id="cust-name"
-                placeholder="Customer name"
-                value={newName}
-                onChange={(e) => setNewName(e.target.value)}
-              />
-            </div>
-
-            <div className="space-y-1.5">
-              <Label>Phone <span className="text-destructive">*</span></Label>
-              <PhoneInputWithCode
-                value={newPhone}
-                onChange={setNewPhone}
-                countryCode={newCountryCode}
-                onCountryCodeChange={setNewCountryCode}
-              />
-            </div>
-
-            <div className="space-y-1.5">
-              <Label htmlFor="cust-email">Email</Label>
-              <Input
-                id="cust-email"
-                type="email"
-                placeholder="customer@example.com"
-                value={newEmail}
-                onChange={(e) => setNewEmail(e.target.value)}
-              />
-            </div>
-
-            <div className="grid grid-cols-2 gap-3">
-              <div className="space-y-1.5">
-                <Label htmlFor="cust-entity-type">Entity Type <span className="text-destructive">*</span></Label>
-                <Select value={newEntity} onValueChange={(v) => setNewEntity(v as 'individual' | 'business')}>
-                  <SelectTrigger id="cust-entity-type" className="w-full">
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="individual">Individual</SelectItem>
-                    <SelectItem value="business">Business</SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
-              <div className="space-y-1.5">
-                <Label htmlFor="cust-customer-type">Customer Type <span className="text-destructive">*</span></Label>
-                <Select value={newType} onValueChange={(v) => { setNewType(v as 'cash' | 'credit'); setNewGroupId('') }}>
-                  <SelectTrigger id="cust-customer-type" className="w-full">
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="credit">Credit</SelectItem>
-                    <SelectItem value="cash">Cash</SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
-            </div>
-
-            {newType === 'credit' && (
-              <div className="space-y-1.5">
-                <Label htmlFor="cust-credit-group">Credit Group <span className="text-destructive">*</span></Label>
-                <Select value={newGroupId} onValueChange={(v) => { if (v) setNewGroupId(v) }}>
-                  <SelectTrigger id="cust-credit-group" className="w-full">
-                    <SelectValue placeholder="Select group…" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {groups.filter((g) => g.name !== 'Cash Customers').map((g) => (
-                      <SelectItem key={g.id} value={g.id}>{g.name}</SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
-            )}
-          </div>
-          <DialogFooter>
-            <Button variant="outline" onClick={() => { setCreateOpen(false); resetForm() }}>Cancel</Button>
-            <Button onClick={handleCreate} disabled={createCustomer.isPending}>
-              {createCustomer.isPending ? 'Creating…' : 'Create Customer'}
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
+      <CustomerDialog
+        mode="create"
+        open={createOpen}
+        onOpenChange={setCreateOpen}
+        groups={groups}
+      />
+      <CustomerDialog
+        mode="edit"
+        open={!!editing}
+        onOpenChange={(o) => { if (!o) setEditing(null) }}
+        groups={groups}
+        customer={editing}
+      />
     </PageWrapper>
   )
 }

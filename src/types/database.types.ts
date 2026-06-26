@@ -1702,6 +1702,8 @@ export type Database = {
       customers: {
         Row: {
           block_reason: string | null
+          cr_uploaded_at: string | null
+          cr_url: string | null
           created_at: string | null
           credit_balance: number
           credit_group_id: string | null
@@ -1709,17 +1711,23 @@ export type Database = {
           customer_type: string | null
           email: string | null
           entity_type: string | null
+          establishment_id_uploaded_at: string | null
+          establishment_id_url: string | null
           id: string
           is_blocked: boolean | null
           name: string
           name_ar: string | null
           pending_balance: number | null
           phone: string
+          signed_credit_form_uploaded_at: string | null
+          signed_credit_form_url: string | null
           subscription_tag: string | null
           updated_at: string | null
         }
         Insert: {
           block_reason?: string | null
+          cr_uploaded_at?: string | null
+          cr_url?: string | null
           created_at?: string | null
           credit_balance?: number
           credit_group_id?: string | null
@@ -1727,17 +1735,23 @@ export type Database = {
           customer_type?: string | null
           email?: string | null
           entity_type?: string | null
+          establishment_id_uploaded_at?: string | null
+          establishment_id_url?: string | null
           id?: string
           is_blocked?: boolean | null
           name: string
           name_ar?: string | null
           pending_balance?: number | null
           phone: string
+          signed_credit_form_uploaded_at?: string | null
+          signed_credit_form_url?: string | null
           subscription_tag?: string | null
           updated_at?: string | null
         }
         Update: {
           block_reason?: string | null
+          cr_uploaded_at?: string | null
+          cr_url?: string | null
           created_at?: string | null
           credit_balance?: number
           credit_group_id?: string | null
@@ -1745,12 +1759,16 @@ export type Database = {
           customer_type?: string | null
           email?: string | null
           entity_type?: string | null
+          establishment_id_uploaded_at?: string | null
+          establishment_id_url?: string | null
           id?: string
           is_blocked?: boolean | null
           name?: string
           name_ar?: string | null
           pending_balance?: number | null
           phone?: string
+          signed_credit_form_uploaded_at?: string | null
+          signed_credit_form_url?: string | null
           subscription_tag?: string | null
           updated_at?: string | null
         }

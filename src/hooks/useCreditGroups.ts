@@ -4,6 +4,7 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { createClient } from '@/lib/supabase/client'
 import { queryKeys } from '@/lib/queryKeys'
+import { logActivity } from '@/lib/logActivity'
 
 export type CreditGroup = {
   id:               string
@@ -128,15 +129,37 @@ export function useCreditGroupCustomerCounts() {
 export function useAssignCreditGroup() {
   const queryClient = useQueryClient()
   return useMutation({
-    mutationFn: async ({ customerId, groupId, groupName }: { customerId: string; groupId: string; groupName?: string }) => {
+    mutationFn: async ({
+      customerId, groupId, groupName, fromGroupId, fromGroupName,
+    }: {
+      customerId:     string
+      groupId:        string
+      groupName?:     string
+      fromGroupId?:   string | null
+      fromGroupName?: string | null
+    }) => {
       const supabase = createClient()
       const { data, error } = await supabase
         .from('customers')
         .update({ credit_group_id: groupId, customer_type: 'credit' })
         .eq('id', customerId)
-        .select('id, credit_group_id')
+        .select('id, credit_group_id, name')
       if (error) throw error
       if (!data || data.length === 0) throw new Error('Customer not found or update blocked')
+
+      // Fire-and-forget audit. Never blocks the mutation.
+      void logActivity({
+        action:      'Credit Group Changed',
+        module:      'customers',
+        entity_id:   customerId,
+        entity_type: 'customer',
+        details: JSON.stringify({
+          customer_name: data[0]?.name ?? null,
+          from: { id: fromGroupId ?? null, name: fromGroupName ?? null },
+          to:   { id: groupId,             name: groupName     ?? null },
+        }),
+      })
+
       return { groupName }
     },
     onMutate: async ({ customerId, groupId, groupName }) => {

@@ -90,8 +90,10 @@ export const PERMISSION_GROUPS: PermissionGroup[] = [
       {
         label: 'Customers',
         permissions: [
-          { key: 'master_data.customers.view',   label: 'View Customers',   description: 'Access the customers list and details' },
-          { key: 'master_data.customers.manage', label: 'Manage Customers', description: 'Create, edit, and delete customer records' },
+          { key: 'master_data.customers.view',                label: 'View Customers',           description: 'Access the customers list and details' },
+          { key: 'master_data.customers.manage',              label: 'Manage Customers',         description: 'Create, edit, and delete customer records' },
+          { key: 'master_data.customers.change_credit_group', label: 'Change Credit Group',      description: 'Move a customer between credit groups (typically Accounting Manager / Owner)' },
+          { key: 'master_data.customers.change_type',         label: 'Change Customer Type',     description: 'Switch Cash ↔ Credit or Individual ↔ Business (financial classification — requires updated docs)' },
         ],
       },
       {
