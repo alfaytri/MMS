@@ -12,7 +12,7 @@ const bodySchema = z.object({
   role_ids: z.array(z.string().uuid()).optional(),
   role_assignments: z.array(z.object({
     role_id:         z.string().uuid(),
-    approval_scopes: z.array(z.enum(['po','inv_check','stock_adj'])).nullable().optional(),
+    approval_scopes: z.array(z.enum(['po','inv_check','stock_adj','sales_margin','sales_credit'])).nullable().optional(),
   })).optional(),
   is_team_leader: z.boolean().optional(),
   employee_id: z.string().uuid().optional(),
