@@ -24,6 +24,7 @@ const roleSchema = z.object({
   description:      z.string().optional().default(''),
   permissions:      z.array(z.string()).default([]),
   is_approval_slot: z.boolean().default(false),
+  is_field_rp:      z.boolean().default(false),
 })
 
 type RoleFormValues = z.infer<typeof roleSchema>
@@ -43,7 +44,7 @@ export function RoleFormDialog({ open, onOpenChange, role }: RoleFormDialogProps
 
   const form = useForm<RoleFormValues>({
     resolver: zodResolver(roleSchema) as never,
-    defaultValues: { name: '', description: '', permissions: [], is_approval_slot: false },
+    defaultValues: { name: '', description: '', permissions: [], is_approval_slot: false, is_field_rp: false },
   })
 
   useEffect(() => {
@@ -53,6 +54,7 @@ export function RoleFormDialog({ open, onOpenChange, role }: RoleFormDialogProps
         description: role.description ?? '',
         permissions: (role.permissions as string[]) ?? [],
         is_approval_slot: Boolean((role as CustomRole & { is_approval_slot?: boolean }).is_approval_slot),
+        is_field_rp:      Boolean((role as CustomRole & { is_field_rp?: boolean }).is_field_rp),
       })
       setExpandedModules(new Set())
     } else if (open) {
@@ -117,7 +119,7 @@ export function RoleFormDialog({ open, onOpenChange, role }: RoleFormDialogProps
             </div>
 
             {/* Approval-slot toggle */}
-            <div className="px-1">
+            <div className="px-1 space-y-2">
               <FormField
                 control={form.control}
                 name="is_approval_slot"
@@ -128,6 +130,25 @@ export function RoleFormDialog({ open, onOpenChange, role }: RoleFormDialogProps
                       <p className="text-xs text-muted-foreground">
                         Mark this role as an approval-slot so users holding it can fill steps in PO,
                         Inventory Check, and Stock Adjustment approval chains.
+                      </p>
+                    </div>
+                    <FormControl>
+                      <Switch checked={field.value} onCheckedChange={field.onChange} />
+                    </FormControl>
+                  </FormItem>
+                )}
+              />
+
+              <FormField
+                control={form.control}
+                name="is_field_rp"
+                render={({ field }) => (
+                  <FormItem className="flex items-center justify-between rounded-md border border-border p-3 bg-card">
+                    <div className="space-y-0.5 pr-3">
+                      <FormLabel className="text-sm">Field Responsible Person (RP)</FormLabel>
+                      <p className="text-xs text-muted-foreground">
+                        Mark this role as a Field RP so users holding it appear as
+                        candidates in the Warehouse dialog&apos;s Field RPs picker.
                       </p>
                     </div>
                     <FormControl>

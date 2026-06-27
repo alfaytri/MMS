@@ -1504,6 +1504,7 @@ export type Database = {
           description: string | null
           id: string
           is_approval_slot: boolean
+          is_field_rp: boolean
           is_system: boolean | null
           name: string
           permissions: string[]
@@ -1517,6 +1518,7 @@ export type Database = {
           description?: string | null
           id?: string
           is_approval_slot?: boolean
+          is_field_rp?: boolean
           is_system?: boolean | null
           name: string
           permissions?: string[]
@@ -1530,6 +1532,7 @@ export type Database = {
           description?: string | null
           id?: string
           is_approval_slot?: boolean
+          is_field_rp?: boolean
           is_system?: boolean | null
           name?: string
           permissions?: string[]

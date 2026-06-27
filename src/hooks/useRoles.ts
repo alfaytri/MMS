@@ -4,8 +4,12 @@ import type { DBTable, DBInsert, DBUpdate } from '@/types/database.types'
 import { queryKeys } from '@/lib/queryKeys'
 
 // is_approval_slot was added in migration 20260615125619_unified_roles_columns.sql.
-// Widening manually until database.types.ts is regenerated post-Task-8.
-export type CustomRole = DBTable<'custom_roles'> & { is_approval_slot?: boolean }
+// is_field_rp was added in migration 20260627117000_custom_roles_is_field_rp.sql.
+// Widened manually until database.types.ts is regenerated.
+export type CustomRole = DBTable<'custom_roles'> & {
+  is_approval_slot?: boolean
+  is_field_rp?:      boolean
+}
 export type CustomRoleInsert = DBInsert<'custom_roles'>
 export type CustomRoleUpdate = DBUpdate<'custom_roles'>
 
