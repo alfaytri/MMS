@@ -1,40 +1,17 @@
 'use client'
 
-import { useEffect, useState } from 'react'
 import { AlertTriangle, CheckCircle2, XCircle, Loader2, RefreshCw } from 'lucide-react'
 import { toast } from 'sonner'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
-import { createClient } from '@/lib/supabase/client'
 import { useResubmitSaleOrder } from '@/hooks/useSaleOrders'
-
-type Row = {
-  id: string; approval_type: 'margin' | 'credit'; status: string;
-  step_role: string | null; step_order: number; is_active: boolean;
-  iteration: number; decided_by_name: string | null; created_at: string;
-}
+import { useSoApprovalRows, type SoApprovalRow } from '@/hooks/useSalesApprovals'
 
 interface Props { soId: string; soStatus: string }
 
 export function SoApprovalBanner({ soId, soStatus }: Props) {
-  const [rows, setRows] = useState<Row[] | null>(null)
+  const { data: rows } = useSoApprovalRows(soId)
   const resubmit = useResubmitSaleOrder()
-
-  useEffect(() => {
-    let cancelled = false
-    void (async () => {
-      const supabase = createClient()
-      const { data } = await supabase
-        .from('approval_requests')
-        .select('id, approval_type, status, step_role, step_order, is_active, iteration, decided_by_name, created_at')
-        .eq('source_type', 'sale_order')
-        .eq('source_id', soId)
-        .order('created_at', { ascending: false })
-        .limit(50)
-      if (!cancelled) setRows((data as unknown as Row[]) ?? [])
-    })()
-    return () => { cancelled = true }
-  }, [soId])
 
   if (!rows || rows.length === 0) return null
 
@@ -48,7 +25,7 @@ export function SoApprovalBanner({ soId, soStatus }: Props) {
   const margin = latest('margin')
   const credit = latest('credit')
 
-  function summary(group: Row[] | null, label: string) {
+  function summary(group: SoApprovalRow[] | null, label: string) {
     if (!group) return null
     const rejected = group.find((r) => r.status === 'rejected')
     const allApproved = group.every((r) => r.status === 'approved')
@@ -63,9 +40,10 @@ export function SoApprovalBanner({ soId, soStatus }: Props) {
 
   if (items.length === 0) return null
 
-  const allRejected =
-    (margin && margin.find((r) => r.status === 'rejected')) ||
-    (credit && credit.find((r) => r.status === 'rejected'))
+  const anyRejected = Boolean(
+    (margin && margin.some((r) => r.status === 'rejected')) ||
+    (credit && credit.some((r) => r.status === 'rejected')),
+  )
 
   return (
     <div className="rounded-md border bg-muted/30 p-3 text-xs space-y-2">
@@ -88,7 +66,7 @@ export function SoApprovalBanner({ soId, soStatus }: Props) {
           </Badge>
         ))}
       </div>
-      {soStatus === 'quotation' && allRejected && (
+      {soStatus === 'quotation' && anyRejected && (
         <Button
           size="sm"
           variant="default"

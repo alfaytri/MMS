@@ -140,6 +140,38 @@ export function usePendingSalesApprovals() {
   })
 }
 
+export type SoApprovalRow = {
+  id:              string
+  approval_type:   'margin' | 'credit'
+  status:          string
+  step_role:       string | null
+  step_order:      number
+  is_active:       boolean
+  iteration:       number
+  decided_by_name: string | null
+  created_at:      string
+}
+
+export function useSoApprovalRows(soId: string | null | undefined) {
+  return useQuery({
+    queryKey: queryKeys.approvals.salesBySo(soId ?? null),
+    enabled: !!soId,
+    queryFn: async () => {
+      const supabase = createClient()
+      const { data, error } = await supabase
+        .from('approval_requests')
+        .select('id, approval_type, status, step_role, step_order, is_active, iteration, decided_by_name, created_at')
+        .eq('source_type', 'sale_order')
+        .eq('source_id', soId!)
+        .order('created_at', { ascending: false })
+        .limit(50)
+      if (error) throw error
+      return (data ?? []) as unknown as SoApprovalRow[]
+    },
+    staleTime: 30 * 1000,
+  })
+}
+
 export function useApproveSalesRequest() {
   const qc = useQueryClient()
   return useMutation({
@@ -151,7 +183,7 @@ export function useApproveSalesRequest() {
       if (error) throw error
     },
     onSuccess: () => {
-      qc.invalidateQueries({ queryKey: queryKeys.approvals.salesPending })
+      qc.invalidateQueries({ queryKey: queryKeys.approvals.sales })
       qc.invalidateQueries({ queryKey: queryKeys.saleOrders.all })
     },
   })
@@ -168,7 +200,7 @@ export function useRejectSalesRequest() {
       if (error) throw error
     },
     onSuccess: () => {
-      qc.invalidateQueries({ queryKey: queryKeys.approvals.salesPending })
+      qc.invalidateQueries({ queryKey: queryKeys.approvals.sales })
       qc.invalidateQueries({ queryKey: queryKeys.saleOrders.all })
     },
   })

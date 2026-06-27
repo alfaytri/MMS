@@ -791,7 +791,7 @@ export function useResubmitSaleOrder() {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: queryKeys.saleOrders.all })
-      queryClient.invalidateQueries({ queryKey: queryKeys.approvals.salesPending })
+      queryClient.invalidateQueries({ queryKey: queryKeys.approvals.sales })
     },
   })
 }

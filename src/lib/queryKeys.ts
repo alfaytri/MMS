@@ -35,9 +35,11 @@ export const queryKeys = {
     poApprovals: ['po-approvals'] as const,
     poApprovalsPending: ['po-approvals', 'pending'] as const,
     poApprovalsCompleted: ['po-approvals', 'completed'] as const,
-    salesPending:   ['approvals', 'sales', 'pending']  as const,
+    sales:          ['approvals', 'sales'] as const,
+    salesPending:   ['approvals', 'sales', 'pending']   as const,
     salesCompleted: ['approvals', 'sales', 'completed'] as const,
-    salesDetail:    (id: string) => ['approvals', 'sales', 'detail', id] as const,
+    salesDetail:    (id: Nullable) => ['approvals', 'sales', 'detail', id] as const,
+    salesBySo:      (soId: Nullable) => ['approvals', 'sales', 'so', soId] as const,
   },
 
   /* ── Calendar ─────────────────────────────────────────── */
