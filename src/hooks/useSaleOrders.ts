@@ -458,15 +458,34 @@ export function useSOPayments(soId: string | null) {
     queryKey: queryKeys.saleOrders.payments(soId),
     queryFn: async () => {
       const supabase = createClient()
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      // After invoice generation, the `20260627105100` + `20260627106000`
+      // migrations rehome every SO payment onto the AR invoice
+      // (source_type='invoice', source_id=<invoice.id>) and a BEFORE-INSERT
+      // trigger redirects new ones the same way. So payments live in one of
+      // three shapes — query all of them so the SO Payments tab and the
+      // Invoice tab agree:
+      //   • source_type='sale_order', source_id=<so.id>           (pre-invoice)
+      //   • source_type='invoice',    source_id=<invoice.id>      (post-invoice)
+      //   • invoice_id=<invoice.id>                               (legacy invoice-tab path)
+      const { data: invRow } = await supabase
+        .from('invoices')
+        .select('id')
+        .eq('sale_order_id', soId!)
+        .eq('direction', 'ar')
+        .maybeSingle()
+      const invoiceId = invRow?.id ?? null
+
+      const orClause = invoiceId
+        ? `and(source_type.eq.sale_order,source_id.eq.${soId}),and(source_type.eq.invoice,source_id.eq.${invoiceId}),invoice_id.eq.${invoiceId}`
+        : `and(source_type.eq.sale_order,source_id.eq.${soId})`
+
       const { data, error } = await supabase
         .from('payments')
         .select('*')
-        .eq('source_type', 'sale_order')
-        .eq('source_id', soId!)
+        .or(orClause)
         .is('deleted_at', null)
         .order('date', { ascending: false })
-      if (error) return [] as SalePayment[] // columns may not exist until migration 20260422000002 is applied
+      if (error) return [] as SalePayment[]
       return data as SalePayment[]
     },
     enabled: !!soId,
