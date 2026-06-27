@@ -82,13 +82,13 @@ export function PoDetailDialog({ open, onOpenChange, po, poId, onEdit }: Props) 
   // ANY user sees it when an approved-unused request unlocks the PO (Phase D).
   const canEdit =
     ['approved', 'pending_approval'].includes(current?.status ?? '') &&
-    (myRoles.includes('owner') || hasApprovedUnlock)
+    (myRoles.includes('Owner') || hasApprovedUnlock)
   // Owner can also recall a pending PO straight back to draft without editing.
-  const canRecall = current?.status === 'pending_approval' && myRoles.includes('owner')
+  const canRecall = current?.status === 'pending_approval' && myRoles.includes('Owner')
   // Non-Owners see Request Edit when the PO is locked AND no open request exists yet.
   const canRequestEdit =
     ['approved', 'pending_approval'].includes(current?.status ?? '') &&
-    !myRoles.includes('owner') &&
+    !myRoles.includes('Owner') &&
     !hasOpenRequest
   const isApprovedLive = current?.status === 'approved'
   const liveStage: Stage = current?.po_type ? stageOf(current.po_type) : 'draft'

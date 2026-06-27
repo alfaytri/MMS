@@ -465,10 +465,10 @@ export function useMyApprovalRoles() {
       const me = await getMyIdentity()
       if (!me?.profileId) return [] as string[]
       const supabase = createClient()
-      // Normalise to the same slug format as `po_approvals.role` so callers
-      // can do `myRoles.includes(step.role)` directly. The DB stores names
-      // capitalised ('Owner', 'Purchase Manager'); approval steps store the
-      // matching slug ('owner', 'purchase_manager'). Lowercase + spaces → '_'.
+      // Return role names verbatim ('Owner', 'Purchase Manager') so callers can
+      // do `myRoles.includes(step.role)` directly — `po_approvals.role` was
+      // converted to the capitalised human-readable form in migration
+      // 20260615131936_convert_po_approvals_role_and_drop_legacy.sql.
       const { data } = await supabase
         .from('user_custom_roles')
         .select('custom_roles!inner(name, is_approval_slot, deleted_at)')
@@ -478,7 +478,6 @@ export function useMyApprovalRoles() {
       return (data ?? [])
         .map((r: { custom_roles: { name: string } | null }) => r.custom_roles?.name)
         .filter((n: string | undefined): n is string => !!n)
-        .map((name) => name.toLowerCase().replace(/\s+/g, '_'))
     },
     staleTime: 60 * 1000,
   })

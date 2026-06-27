@@ -43,10 +43,14 @@ interface ApprovalDialogState {
   matchingSteps: POApprovalStep[]
 }
 
+// po_approvals.role is stored as the capitalised human-readable name
+// (migration 20260615131936). The dialog and chain badges read these
+// values directly — this map only exists to translate any legacy slug
+// values that might still appear in older rows.
 const ROLE_LABELS: Record<string, string> = {
   purchase_manager: 'Purchase Manager',
-  accountant: 'Accountant',
-  owner: 'Owner',
+  accountant:       'Accountant',
+  owner:            'Owner',
 }
 
 export default function ApprovalsPage() {
@@ -159,7 +163,7 @@ export default function ApprovalsPage() {
                   )}
                   <div className="flex gap-2 flex-wrap">
                     <Button size="sm" onClick={() => openDialog(po)}>Review</Button>
-                    {myRoles.includes('owner') && pendingSteps.length > 0 && (
+                    {myRoles.includes('Owner') && pendingSteps.length > 0 && (
                       <AlertDialog>
                         <AlertDialogTrigger asChild>
                           <Button

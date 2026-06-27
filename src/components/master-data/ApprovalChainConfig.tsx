@@ -38,7 +38,7 @@ type Workflow = WorkflowKey
 
 const WORKFLOW_LABELS = WORKFLOW_LABELS_CATALOG
 
-const WORKFLOWS: Workflow[] = ['po', 'inv_check', 'stock_adj', 'sales_margin', 'sales_credit']
+const WORKFLOWS: Workflow[] = ['po', 'inv_check', 'stock_adj', 'sales_margin', 'sales_credit', 'credit_group']
 
 // ─── Step conditional popover ─────────────────────────────────────────────────
 

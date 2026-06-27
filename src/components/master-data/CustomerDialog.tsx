@@ -16,13 +16,17 @@ import {
 import { PhoneInputWithCode, splitPhone } from '@/components/shared/PhoneInputWithCode'
 import { useHasPermission } from '@/hooks/usePermissions'
 import { useCreateCustomer, useUpdateCustomer, type Customer } from '@/hooks/useSaleOrders'
+import { useSubmitCreditGroupChange } from '@/hooks/useCreditGroupApprovals'
 
 const BUCKET = 'customer-credit-docs'
 
 type UploadedDoc = { path: string; name: string }
 type Slot = 'cr' | 'establishment' | 'signed'
 
-type GroupOption = { id: string; name: string }
+// credit_limit is needed so the dialog can decide whether the chosen group
+// triggers the PM → AM → Owner approval chain (non-zero limit) or is a
+// direct assignment (zero-limit / cash group).
+type GroupOption = { id: string; name: string; credit_limit?: number }
 
 interface CustomerDialogProps {
   mode:         'create' | 'edit'
@@ -58,9 +62,10 @@ export function CustomerDialog({
   const [signedFormDoc, setSignedFormDoc]       = useState<UploadedDoc | null>(null)
   const [uploading, setUploading]       = useState<Slot | null>(null)
 
-  const createCustomer = useCreateCustomer()
-  const updateCustomer = useUpdateCustomer()
-  const submitting = createCustomer.isPending || updateCustomer.isPending
+  const createCustomer    = useCreateCustomer()
+  const updateCustomer    = useUpdateCustomer()
+  const submitGroupChange = useSubmitCreditGroupChange()
+  const submitting = createCustomer.isPending || updateCustomer.isPending || submitGroupChange.isPending
 
   // Seed form from `customer` when opening in edit mode (or clear it on close).
   useEffect(() => {
@@ -176,7 +181,21 @@ export function CustomerDialog({
 
     const fullPhone = `${countryCode}${phone.trim()}`
 
+    // A non-zero-limit credit group must go through the configurable
+    // credit_group approval workflow. Cash group (limit = 0) assigns directly.
+    const newGroupNeedsApproval =
+      customerType === 'credit'
+      && !!selectedGroup
+      && (selectedGroup.credit_limit ?? 0) > 0
+
     if (isEdit && customer) {
+      // If the user picked a different non-zero-limit group, save every other
+      // change directly but keep the old group on the row — the new group is
+      // submitted for approval. The list dropdown uses the same RPC; the two
+      // entry points share one chain so there's no double-routing.
+      const groupIsChanging = (customer.credit_group_id ?? null) !== (groupId || null)
+      const routeGroupViaApproval = groupIsChanging && newGroupNeedsApproval
+
       updateCustomer.mutate(
         {
           id: customer.id,
@@ -186,7 +205,9 @@ export function CustomerDialog({
             email:                  email.trim() || null,
             customer_type:          customerType,
             entity_type:            entityType,
-            credit_group_id:        customerType === 'credit' ? groupId : null,
+            credit_group_id:        routeGroupViaApproval
+              ? (customer.credit_group_id ?? null)
+              : (customerType === 'credit' ? groupId : null),
             cr_url:                 docsRequired ? crDoc?.path              ?? null : null,
             establishment_id_url:   docsRequired ? establishmentIdDoc?.path ?? null : null,
             signed_credit_form_url: docsRequired ? signedFormDoc?.path      ?? null : null,
@@ -207,8 +228,30 @@ export function CustomerDialog({
         },
         {
           onSuccess: () => {
-            toast.success('Customer updated')
-            onOpenChange(false)
+            if (!routeGroupViaApproval) {
+              toast.success('Customer updated')
+              onOpenChange(false)
+              return
+            }
+            submitGroupChange.mutate(
+              { customerId: customer.id, groupId },
+              {
+                onSuccess: (data) => {
+                  if (data.status === 'approved') {
+                    toast.success(`Customer updated; assigned to ${selectedGroup?.name} (no approval needed)`)
+                  } else {
+                    toast.success(`Customer updated; credit group sent for approval`)
+                  }
+                  onOpenChange(false)
+                },
+                onError: (err) => {
+                  // Other fields already saved — surface the approval-submit
+                  // error so the user knows the group is still on the old value.
+                  toast.error(`Saved, but credit group not sent: ${err.message}`)
+                  onOpenChange(false)
+                },
+              },
+            )
           },
           onError: (err) => toast.error(err.message),
         }
@@ -216,6 +259,10 @@ export function CustomerDialog({
       return
     }
 
+    // Create: insert the customer first (with all docs + everything except the
+    // pending group), then submit the credit-group change for approval if the
+    // picked group needs it. The customer exists either way — they just can't
+    // place credit SOs until the chain approves the group.
     createCustomer.mutate(
       {
         name:                   name.trim(),
@@ -223,15 +270,37 @@ export function CustomerDialog({
         email:                  email.trim() || null,
         customer_type:          customerType,
         entity_type:            entityType,
-        credit_group_id:        customerType === 'credit' ? groupId : null,
+        credit_group_id:        newGroupNeedsApproval
+          ? null
+          : (customerType === 'credit' ? groupId : null),
         cr_url:                 docsRequired ? crDoc?.path              ?? null : null,
         establishment_id_url:   docsRequired ? establishmentIdDoc?.path ?? null : null,
         signed_credit_form_url: docsRequired ? signedFormDoc?.path      ?? null : null,
       },
       {
-        onSuccess: () => {
-          toast.success('Customer created')
-          onOpenChange(false)
+        onSuccess: (created: { id: string }) => {
+          if (!newGroupNeedsApproval) {
+            toast.success('Customer created')
+            onOpenChange(false)
+            return
+          }
+          submitGroupChange.mutate(
+            { customerId: created.id, groupId },
+            {
+              onSuccess: (data) => {
+                if (data.status === 'approved') {
+                  toast.success(`Customer created; assigned to ${selectedGroup?.name} (no approval needed)`)
+                } else {
+                  toast.success(`Customer created; credit group sent for approval`)
+                }
+                onOpenChange(false)
+              },
+              onError: (err) => {
+                toast.error(`Customer created, but credit group not sent: ${err.message}`)
+                onOpenChange(false)
+              },
+            },
+          )
         },
         onError: (err) => toast.error(err.message),
       }

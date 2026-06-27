@@ -4,7 +4,7 @@ import { queryKeys } from '@/lib/queryKeys'
 
 export type WorkflowStep = {
   id: string
-  workflow: 'po' | 'inv_check' | 'stock_adj' | 'sales_margin' | 'sales_credit'
+  workflow: 'po' | 'inv_check' | 'stock_adj' | 'sales_margin' | 'sales_credit' | 'credit_group'
   role_id: string
   step_key: string
   step_label: string
