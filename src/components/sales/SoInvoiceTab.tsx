@@ -2,7 +2,6 @@
 
 import { useState } from 'react'
 import dynamic from 'next/dynamic'
-import { useRouter } from 'next/navigation'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import {
@@ -34,7 +33,6 @@ interface SoInvoiceTabProps {
 export function SoInvoiceTab({ so }: SoInvoiceTabProps) {
   const [invoicePayOpen, setInvoicePayOpen] = useState(false)
   const [invoicePlanOpen, setInvoicePlanOpen] = useState(false)
-  const router = useRouter()
 
   const generateInvoice = useGenerateInvoice()
   const sendInvoice = useSendInvoice()
@@ -204,20 +202,17 @@ export function SoInvoiceTab({ so }: SoInvoiceTabProps) {
             Record Payment
           </Button>
         )}
+        {/* Only offer the invoice-level plan when the SO didn't already carry
+            payment_milestones. If the SO has milestones, those are the agreed
+            schedule — duplicating the prompt on the invoice is confusing. */}
         {soInvoice.invoice_type === 'credit' &&
           invoiceOutstanding >= PAYMENT_PLAN_THRESHOLD &&
-          !hasActivePlan && (
+          !hasActivePlan &&
+          !(so.payment_milestones && so.payment_milestones.length > 0) && (
           <Button variant="outline" size="sm" onClick={() => setInvoicePlanOpen(true)}>
             Set Up Payment Plan
           </Button>
         )}
-        <Button
-          variant="outline"
-          size="sm"
-          onClick={() => router.push(`/sales/invoices/${soInvoice.id}`)}
-        >
-          View Invoice ({soInvoice.invoice_id})
-        </Button>
       </div>
 
       {invoicePayOpen && (
