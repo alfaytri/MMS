@@ -51,7 +51,7 @@ export function useTeamLeaderIdentity() {
       let divisionIds: string[] = []
       if (isDivisionManager) {
         const { data: userDivs } = await supabase
-          .from('user_divisions')
+          .from('user_company_divisions')
           .select('division_id')
           .eq('profile_id', profile.id)
         divisionIds = (userDivs ?? []).map((ud: { division_id: string }) => ud.division_id)
@@ -71,7 +71,7 @@ export function useAllTeamsForSelect(divisionIds?: string[]) {
       const supabase = createClient()
       let query = supabase
         .from('teams')
-        .select('id, name, division_id, divisions(name)')
+        .select('id, name, division_id, divisions:company_divisions(name)')
         .is('deleted_at', null)
         .order('name', { ascending: true })
 

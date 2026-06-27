@@ -29,8 +29,8 @@ export function useUserCompanyDivisions() {
 
       // collect all company_ids from the user's assigned divisions
       const { data: ud } = await supabase
-        .from('user_divisions')
-        .select('divisions(company_id)')
+        .from('user_company_divisions')
+        .select('divisions:company_divisions(company_id)')
         .eq('profile_id', profile.id)
 
       type UdRow = { divisions: { company_id: string | null } | null }
@@ -45,7 +45,7 @@ export function useUserCompanyDivisions() {
       if (companyIds.length > 0) {
         // all active divisions for every company the user belongs to
         const { data: divisions } = await supabase
-          .from('divisions')
+          .from('company_divisions')
           .select('id, slug, name')
           .in('company_id', companyIds)
           .eq('is_active', true)
@@ -55,7 +55,7 @@ export function useUserCompanyDivisions() {
 
       // fallback: all active divisions (admin with no explicit assignments)
       const { data: all } = await supabase
-        .from('divisions')
+        .from('company_divisions')
         .select('id, slug, name')
         .eq('is_active', true)
         .order('sort_order')

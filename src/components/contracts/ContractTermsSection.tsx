@@ -36,7 +36,7 @@ export function ContractTermsSection({ divisions, services, termsSnapshot }: Pro
       if (divisions.length === 0) return []
       const { data } = await supabase
         .from('document_terms')
-        .select('id, content_en, division_id, divisions(name)')
+        .select('id, content_en, division_id, divisions:company_divisions(name)')
         .eq('document_type', 'contract')
         .in('division_id', divisions)
       return (data || []) as DivisionTermRow[]

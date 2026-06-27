@@ -309,7 +309,7 @@ export function useContactCenterState() {
     queryFn: async () => {
       const sb = createClient()
       const { data, error } = await sb
-        .from('divisions')
+        .from('company_divisions')
         .select('id, name, short_name, sort_order')
         .eq('is_active', true)
         .order('sort_order', { ascending: true })

@@ -3,9 +3,9 @@ import { createClient } from '@/lib/supabase/client'
 import type { DBTable, DBInsert, DBUpdate } from '@/types/database.types'
 import { queryKeys } from '@/lib/queryKeys'
 
-export type Division = DBTable<'divisions'>
-export type DivisionInsert = DBInsert<'divisions'>
-export type DivisionUpdate = DBUpdate<'divisions'>
+export type Division = DBTable<'company_divisions'>
+export type DivisionInsert = DBInsert<'company_divisions'>
+export type DivisionUpdate = DBUpdate<'company_divisions'>
 
 /** Active divisions only — used across the app for DivisionFilter, selectors, etc. */
 export function useDivisions() {
@@ -14,7 +14,7 @@ export function useDivisions() {
     queryFn: async () => {
       const supabase = createClient()
       const { data, error } = await supabase
-        .from('divisions')
+        .from('company_divisions')
         .select('id,slug,name,short_name')
         .eq('is_active', true)
         .order('sort_order')
@@ -32,7 +32,7 @@ export function useAllDivisions() {
     queryFn: async () => {
       const supabase = createClient()
       const { data, error } = await supabase
-        .from('divisions')
+        .from('company_divisions')
         .select('*')
         .order('sort_order')
       if (error) throw error
@@ -48,7 +48,7 @@ export function useDivisionsByCompany(companyId: string | null) {
     queryFn: async () => {
       const supabase = createClient()
       const { data, error } = await supabase
-        .from('divisions')
+        .from('company_divisions')
         .select('*')
         .eq('company_id', companyId!)
         .order('sort_order')
@@ -65,7 +65,7 @@ export function useCreateDivision() {
     mutationFn: async (values: DivisionInsert) => {
       const supabase = createClient()
       const { data, error } = await supabase
-        .from('divisions')
+        .from('company_divisions')
         .insert(values)
         .select()
         .single()
@@ -84,7 +84,7 @@ export function useUpdateDivision() {
     mutationFn: async ({ id, ...values }: DivisionUpdate & { id: string }) => {
       const supabase = createClient()
       const { data, error } = await supabase
-        .from('divisions')
+        .from('company_divisions')
         .update(values)
         .eq('id', id)
         .select()
@@ -104,7 +104,7 @@ export function useDeleteDivision() {
     mutationFn: async (id: string) => {
       const supabase = createClient()
       const { error } = await supabase
-        .from('divisions')
+        .from('company_divisions')
         .delete()
         .eq('id', id)
       if (error) throw error
@@ -135,7 +135,7 @@ export function useDivisionsWithSchedule() {
       const supabase = createClient()
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       const { data, error } = await supabase
-        .from('divisions')
+        .from('company_divisions')
         .select('id, slug, name, short_name, calendar_schedule_id')
         .eq('is_active', true)
         .order('sort_order')
@@ -160,7 +160,7 @@ export function useAssignDivisionSchedule() {
       const supabase = createClient()
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       const { error } = await supabase
-        .from('divisions')
+        .from('company_divisions')
         .update({ calendar_schedule_id: scheduleId })
         .eq('id', divisionId)
       if (error) throw error

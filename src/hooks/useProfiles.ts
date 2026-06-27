@@ -100,8 +100,8 @@ export function useUserDivisions(profileId: string | null) {
     queryFn: async () => {
       const supabase = createClient()
       const { data, error } = await supabase
-        .from('user_divisions')
-        .select('*, divisions(name, short_name, color)')
+        .from('user_company_divisions')
+        .select('*, divisions:company_divisions(name, short_name, color)')
         .eq('profile_id', profileId!)
       if (error) throw error
       return data
@@ -115,7 +115,7 @@ export function useAssignDivision() {
   return useMutation({
     mutationFn: async (values: { profile_id: string; division_id: string }) => {
       const supabase = createClient()
-      const { data, error } = await supabase.from('user_divisions').insert(values).select().single()
+      const { data, error } = await supabase.from('user_company_divisions').insert(values).select().single()
       if (error) throw error
       return data
     },
@@ -131,7 +131,7 @@ export function useRemoveDivision() {
   return useMutation({
     mutationFn: async ({ id, profileId }: { id: string; profileId: string }) => {
       const supabase = createClient()
-      const { error } = await supabase.from('user_divisions').delete().eq('id', id)
+      const { error } = await supabase.from('user_company_divisions').delete().eq('id', id)
       if (error) throw error
       return profileId
     },
