@@ -779,3 +779,19 @@ export function useApproveSO() {
     },
   })
 }
+
+export function useResubmitSaleOrder() {
+  const queryClient = useQueryClient()
+  return useMutation({
+    mutationFn: async (soId: string) => {
+      const supabase = createClient()
+      const { data, error } = await supabase.rpc('resubmit_sale_order', { p_so_id: soId })
+      if (error) throw error
+      return data
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: queryKeys.saleOrders.all })
+      queryClient.invalidateQueries({ queryKey: queryKeys.approvals.salesPending })
+    },
+  })
+}

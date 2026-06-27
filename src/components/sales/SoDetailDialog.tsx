@@ -21,6 +21,7 @@ import { SoReturnsTab } from './SoReturnsTab'
 import { SoInvoiceTab } from './SoInvoiceTab'
 import { ActivityTimeline } from '@/components/shared/ActivityTimeline'
 import { PaymentSummaryTab } from '@/components/shared/PaymentSummaryTab'
+import { SoApprovalBanner } from '@/components/sales/SoApprovalBanner'
 import {
   useSaleOrder,
   useSOPayments,
@@ -129,6 +130,12 @@ export function SoDetailDialog({ open, onOpenChange, so, onEdit, onConfirm }: So
             <div className="shrink-0 rounded-md bg-yellow-50 border border-yellow-200 px-4 py-2.5 text-sm text-yellow-800 flex items-center gap-2">
               <span className="font-medium">Pending Owner Approval</span>
               <span className="text-yellow-700">— this order exceeded the customer's credit limit.</span>
+            </div>
+          )}
+
+          {current && (
+            <div className="shrink-0">
+              <SoApprovalBanner soId={current.id} soStatus={current.status} />
             </div>
           )}
 
