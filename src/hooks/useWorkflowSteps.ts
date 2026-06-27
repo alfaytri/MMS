@@ -24,7 +24,7 @@ export function useWorkflowSteps() {
     queryFn: async () => {
       const supabase = createClient()
       const { data, error } = await supabase
-        .from('workflow_approval_steps')
+        .from('approval_workflow_steps')
         .select('*, custom_roles(name)')
         .is('archived_at', null)
         .order('workflow')

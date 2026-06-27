@@ -19,8 +19,8 @@ export function useApprovalChains() {
     queryFn: async () => {
       const supabase = createClient()
       const { data, error } = await supabase
-        .from('approval_chains')
-        .select('*, approval_chain_tiers(*), divisions(name, short_name)')
+        .from('po_approval_chains')
+        .select('*, approval_chain_tiers:po_approval_chain_tiers(*), divisions:company_divisions(name, short_name)')
         .is('archived_at', null)
         .order('created_at', { ascending: true })
       if (error) throw error
@@ -38,8 +38,8 @@ export function useChainForDivision(divisionId: string | null | undefined) {
       // Try division-specific chain first
       if (divisionId) {
         const { data, error } = await supabase
-          .from('approval_chains')
-          .select('*, approval_chain_tiers(*)')
+          .from('po_approval_chains')
+          .select('*, approval_chain_tiers:po_approval_chain_tiers(*)')
           .eq('division_id', divisionId)
           .eq('is_active', true)
           .maybeSingle()
@@ -48,8 +48,8 @@ export function useChainForDivision(divisionId: string | null | undefined) {
       }
       // Fall back to company default
       const { data, error } = await supabase
-        .from('approval_chains')
-        .select('*, approval_chain_tiers(*)')
+        .from('po_approval_chains')
+        .select('*, approval_chain_tiers:po_approval_chain_tiers(*)')
         .is('division_id', null)
         .eq('is_active', true)
         .maybeSingle()
@@ -68,12 +68,12 @@ export function useUpsertApprovalChain() {
       const supabase = createClient()
       if (payload.id) {
         const { data, error } = await supabase
-          .from('approval_chains').update({ name: payload.name }).eq('id', payload.id).select().single()
+          .from('po_approval_chains').update({ name: payload.name }).eq('id', payload.id).select().single()
         if (error) throw error
         return data as ApprovalChain
       }
       const { data, error } = await supabase
-        .from('approval_chains').insert({ division_id: payload.division_id, name: payload.name, is_active: true }).select().single()
+        .from('po_approval_chains').insert({ division_id: payload.division_id, name: payload.name, is_active: true }).select().single()
       if (error) throw error
       return data as ApprovalChain
     },
@@ -98,7 +98,7 @@ export function useUpsertApprovalChainTier() {
       const supabase = createClient()
       if (payload.id) {
         const { data, error } = await supabase
-          .from('approval_chain_tiers').update({
+          .from('po_approval_chain_tiers').update({
             rank: payload.rank,
             min_amount: payload.min_amount,
             max_amount: payload.max_amount,
@@ -108,7 +108,7 @@ export function useUpsertApprovalChainTier() {
         return data
       }
       const { data, error } = await supabase
-        .from('approval_chain_tiers').insert({
+        .from('po_approval_chain_tiers').insert({
           chain_id: payload.chain_id,
           rank: payload.rank,
           min_amount: payload.min_amount,
@@ -131,7 +131,7 @@ export function useToggleChainActive() {
     mutationFn: async ({ id, is_active }: { id: string; is_active: boolean }) => {
       const supabase = createClient()
       const { error } = await supabase
-        .from('approval_chains')
+        .from('po_approval_chains')
         .update({ is_active })
         .eq('id', id)
       if (error) throw error
@@ -149,7 +149,7 @@ export function useArchiveApprovalChain() {
     mutationFn: async (id: string) => {
       const supabase = createClient()
       const { error } = await supabase
-        .from('approval_chains')
+        .from('po_approval_chains')
         .update({ is_active: false, archived_at: new Date().toISOString() })
         .eq('id', id)
       if (error) throw error
@@ -176,7 +176,7 @@ export function useSoftDeleteApprovalChainTier() {
         throw new Error('Cannot delete tier: there are POs currently pending approval.')
       }
       const { error } = await supabase
-        .from('approval_chain_tiers')
+        .from('po_approval_chain_tiers')
         .update({ deleted_at: new Date().toISOString() })
         .eq('id', tierId)
       if (error) throw error

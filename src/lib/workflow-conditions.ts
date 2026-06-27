@@ -1,7 +1,7 @@
 /**
  * Per-workflow catalog of condition values that an approval step can be gated on.
  *
- * A step in `workflow_approval_steps` can be marked `is_conditional = true` with
+ * A step in `approval_workflow_steps` can be marked `is_conditional = true` with
  * `condition_types = ['damage', 'write_off']`. At runtime the workflow engine
  * builds the active chain by including non-conditional steps unconditionally
  * and conditional steps only when the workflow's discriminator value (e.g.
@@ -9,7 +9,7 @@
  *
  * To add a new workflow:
  *   1. Add an entry below with its condition options.
- *   2. Loosen the CHECK constraint on workflow_approval_steps.workflow if needed.
+ *   2. Loosen the CHECK constraint on approval_workflow_steps.workflow if needed.
  *   3. Wire the runtime engine to evaluate condition_types against the workflow's
  *      discriminator field (e.g. the gate function for stock_adj already does this).
  */

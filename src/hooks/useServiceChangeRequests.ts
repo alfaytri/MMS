@@ -33,7 +33,7 @@ export function useServiceChangeRequests(filters?: {
     queryFn: async () => {
       const supabase = createClient()
       let query = supabase
-        .from('service_change_requests')
+        .from('service_edit_requests')
         .select(`
           *,
           requester:profiles!service_change_requests_requested_by_fkey(full_name, avatar_url),
@@ -64,7 +64,7 @@ export function useServiceChangeHistory(serviceId: string | null) {
     queryFn: async () => {
       const supabase = createClient()
       const { data, error } = await supabase
-        .from('service_change_requests')
+        .from('service_edit_requests')
         .select(`
           *,
           requester:profiles!service_change_requests_requested_by_fkey(full_name, avatar_url),
@@ -85,7 +85,7 @@ export function usePendingAddRequests() {
     queryFn: async () => {
       const supabase = createClient()
       const { data, error } = await supabase
-        .from('service_change_requests')
+        .from('service_edit_requests')
         .select(`
           *,
           requester:profiles!service_change_requests_requested_by_fkey(full_name, avatar_url)
@@ -106,7 +106,7 @@ export function usePendingServiceChangeCount() {
     queryFn: async () => {
       const supabase = createClient()
       const { count, error } = await supabase
-        .from('service_change_requests')
+        .from('service_edit_requests')
         .select('*', { count: 'exact', head: true })
         .eq('status', 'pending')
       if (error) throw error

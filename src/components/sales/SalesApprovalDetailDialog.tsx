@@ -10,7 +10,7 @@ import {
 } from '@/components/ui/dialog'
 import { Badge } from '@/components/ui/badge'
 import {
-  useApproveSalesRequest, useRejectSalesRequest,
+  useApproveSalesRequest, useRejectSalesRequest, useMyApprovalRoleNames,
   type SalesApprovalSlip,
 } from '@/hooks/useSalesApprovals'
 
@@ -20,11 +20,20 @@ export function SalesApprovalDetailDialog({ slip, onClose }: Props) {
   const [comment, setComment] = useState('')
   const approve = useApproveSalesRequest()
   const reject  = useRejectSalesRequest()
+  const { data: myRoles = [] } = useMyApprovalRoleNames()
 
   if (!slip) return null
 
-  const currentRow = slip.rows.find((r) => r.is_active && r.status === 'pending')
-  // Reason was stored as the full JSON payload in approval_requests.reason on slip creation
+  // Parallel chains: every step is active; pick the row matching one of the
+  // caller's roles. Fall back to the first pending row if none matches (the
+  // caller is e.g. an Owner viewing a slip that's not assigned to them) — the
+  // RPC's role check will reject the action server-side.
+  const mySet = new Set(myRoles)
+  const currentRow =
+    slip.rows.find(
+      (r) => r.status === 'pending' && r.step_role !== null && mySet.has(r.step_role),
+    ) ?? slip.rows.find((r) => r.status === 'pending')
+  // Reason was stored as the full JSON payload in sale_order_approvals.reason on slip creation
   const payload: { available?: number; overage?: number; lines?: Array<{ item_name?: string; unit_price?: number; avg_cost?: number }> } = (() => {
     try { return JSON.parse(currentRow?.reason ?? '{}') } catch { return {} }
   })()

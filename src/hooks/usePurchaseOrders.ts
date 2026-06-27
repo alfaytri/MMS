@@ -513,8 +513,8 @@ export function useSubmitPOForApproval() {
       let chain: { id: string; approval_chain_tiers: Record<string, unknown>[] } | null = null
       if (divisionId) {
         const { data } = await supabase
-          .from('approval_chains')
-          .select('id, approval_chain_tiers(*)')
+          .from('po_approval_chains')
+          .select('id, approval_chain_tiers:po_approval_chain_tiers(*)')
           .eq('division_id', divisionId)
           .eq('is_active', true)
           .maybeSingle()
@@ -522,8 +522,8 @@ export function useSubmitPOForApproval() {
       }
       if (!chain) {
         const { data } = await supabase
-          .from('approval_chains')
-          .select('id, approval_chain_tiers(*)')
+          .from('po_approval_chains')
+          .select('id, approval_chain_tiers:po_approval_chain_tiers(*)')
           .is('division_id', null)
           .eq('is_active', true)
           .maybeSingle()
@@ -882,8 +882,8 @@ export function useSubmitPoVersion() {
       let chain: { id: string; approval_chain_tiers: Record<string, unknown>[] } | null = null
       if (divisionId) {
         const { data } = await supabase
-          .from('approval_chains')
-          .select('id, approval_chain_tiers(*)')
+          .from('po_approval_chains')
+          .select('id, approval_chain_tiers:po_approval_chain_tiers(*)')
           .eq('division_id', divisionId)
           .eq('is_active', true)
           .maybeSingle()
@@ -891,8 +891,8 @@ export function useSubmitPoVersion() {
       }
       if (!chain) {
         const { data } = await supabase
-          .from('approval_chains')
-          .select('id, approval_chain_tiers(*)')
+          .from('po_approval_chains')
+          .select('id, approval_chain_tiers:po_approval_chain_tiers(*)')
           .is('division_id', null)
           .eq('is_active', true)
           .maybeSingle()
