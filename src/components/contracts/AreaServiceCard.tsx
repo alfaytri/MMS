@@ -68,8 +68,8 @@ export function AreaServiceCard({ service, editable, onEdit, onRemove, onViewMed
         <span className="text-sm font-medium">
           Qty {service.quantity}
           {service.contract_type === 'area' && service.price_unit ? ` ${service.price_unit}` : ''}
-          {' × '}{service.unit_price.toLocaleString()} QAR ={' '}
-          <span className="font-bold">{service.total_price.toLocaleString()} QAR</span>
+          {' × '}{service.unit_price.toLocaleString('en-QA')} QAR ={' '}
+          <span className="font-bold">{service.total_price.toLocaleString('en-QA')} QAR</span>
         </span>
         <div className="flex items-center gap-1">
           {editable && onEdit && (

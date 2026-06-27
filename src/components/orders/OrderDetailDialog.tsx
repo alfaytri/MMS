@@ -354,7 +354,7 @@ export function OrderDetailDialog({ orderId, open, onOpenChange }: Props) {
                         <StatCard label="Teams" value={order.order_team_assignments.length.toString()} />
                         <StatCard
                           label="Total"
-                          value={`${(order.total_amount ?? 0).toLocaleString()} QAR`}
+                          value={`${(order.total_amount ?? 0).toLocaleString('en-QA')} QAR`}
                           accent
                         />
                       </div>

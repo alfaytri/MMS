@@ -500,7 +500,7 @@ export function AddContractServiceDialog({
             <div className="rounded-lg bg-blue-50 p-4 space-y-1 text-sm">
               <div className="flex justify-between">
                 <span>Base Price</span>
-                <span>{basePrice.toLocaleString()} QAR</span>
+                <span>{basePrice.toLocaleString('en-QA')} QAR</span>
               </div>
               {showBrand && reliabilityFactor !== 1.0 && (
                 <div className="flex justify-between text-muted-foreground">
@@ -516,13 +516,13 @@ export function AddContractServiceDialog({
               )}
               <div className="flex justify-between border-t pt-1">
                 <span>Unit Price</span>
-                <span className="font-medium">{unitPrice.toLocaleString()} QAR</span>
+                <span className="font-medium">{unitPrice.toLocaleString('en-QA')} QAR</span>
               </div>
               <div className="flex justify-between font-bold text-base">
                 <span>
                   Total ({quantity} {contractType === 'area' && priceUnit ? priceUnit : 'units'})
                 </span>
-                <span>{totalPrice.toLocaleString()} QAR</span>
+                <span>{totalPrice.toLocaleString('en-QA')} QAR</span>
               </div>
             </div>
           </div>

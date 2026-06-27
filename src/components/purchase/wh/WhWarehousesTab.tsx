@@ -83,11 +83,11 @@ export const WhWarehousesTab = React.memo(function WhWarehousesTab({ warehouses,
               <div className="pt-2 border-t flex justify-between items-center">
                 <div className="flex items-center gap-1 text-xs">
                   <Package className="h-3.5 w-3.5 text-primary" />
-                  {(wh.item_count ?? 0).toLocaleString()} items
+                  {(wh.item_count ?? 0).toLocaleString('en-QA')} items
                 </div>
                 <div className="flex items-center gap-1 text-xs">
                   <DollarSign className="h-3.5 w-3.5 text-success" />
-                  QR {(wh.total_value ?? 0).toLocaleString()}
+                  QR {(wh.total_value ?? 0).toLocaleString('en-QA')}
                 </div>
               </div>
 
@@ -159,7 +159,7 @@ export const WhWarehousesTab = React.memo(function WhWarehousesTab({ warehouses,
                       </TooltipTrigger>
                       <TooltipContent side="bottom" className="text-xs">
                         <p className="font-medium">{wh.name}</p>
-                        <p>QR {(wh.total_value ?? 0).toLocaleString()} · {(wh.item_count ?? 0).toLocaleString()} items</p>
+                        <p>QR {(wh.total_value ?? 0).toLocaleString('en-QA')} · {(wh.item_count ?? 0).toLocaleString('en-QA')} items</p>
                       </TooltipContent>
                     </Tooltip>
                   )

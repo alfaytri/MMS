@@ -90,7 +90,7 @@ export function ContractCard({ contract, onCancel }: Props) {
         </div>
 
         <div className="text-right shrink-0">
-          <span className="text-sm font-bold">{contract.monthly_value.toLocaleString()} QAR/mo</span>
+          <span className="text-sm font-bold">{contract.monthly_value.toLocaleString('en-QA')} QAR/mo</span>
           <div className="text-xs text-muted-foreground">{contract.end_date}</div>
         </div>
 
@@ -130,16 +130,16 @@ export function ContractCard({ contract, onCancel }: Props) {
               <div className="space-y-1 text-sm">
                 <div className="flex justify-between">
                   <span>Total</span>
-                  <span>{contract.total_payments.toLocaleString()} QAR</span>
+                  <span>{contract.total_payments.toLocaleString('en-QA')} QAR</span>
                 </div>
                 <div className="flex justify-between text-success">
                   <span>Paid</span>
-                  <span>{contract.paid_amount.toLocaleString()} QAR</span>
+                  <span>{contract.paid_amount.toLocaleString('en-QA')} QAR</span>
                 </div>
                 <div className="flex justify-between font-semibold">
                   <span>Balance</span>
                   <span className={balance > 0 ? 'text-destructive' : ''}>
-                    {balance.toLocaleString()} QAR
+                    {balance.toLocaleString('en-QA')} QAR
                   </span>
                 </div>
               </div>
@@ -155,7 +155,7 @@ export function ContractCard({ contract, onCancel }: Props) {
                 </div>
                 <div className="flex justify-between">
                   <span>Total Value</span>
-                  <span>{contract.total_value.toLocaleString()} QAR</span>
+                  <span>{contract.total_value.toLocaleString('en-QA')} QAR</span>
                 </div>
                 <div className="flex justify-between">
                   <span>Areas</span>

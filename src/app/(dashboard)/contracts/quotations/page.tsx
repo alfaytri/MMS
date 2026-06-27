@@ -50,7 +50,7 @@ export default function ViewQuotationsPage() {
         actions={
           <div className="flex items-center gap-2">
             <Badge variant="outline" className="text-sm">
-              Pipeline: {pipelineValue.toLocaleString()} QAR
+              Pipeline: {pipelineValue.toLocaleString('en-QA')} QAR
             </Badge>
             <Button onClick={() => router.push('/contracts/create-quotation')}>
               <Plus className="h-4 w-4 mr-1" />

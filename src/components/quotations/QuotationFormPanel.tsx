@@ -253,21 +253,21 @@ export function QuotationFormPanel({
                   <>
                     <div className="flex justify-between text-xs text-muted-foreground">
                       <span>Subtotal</span>
-                      <span>QAR {subtotal.toLocaleString()}</span>
+                      <span>QAR {subtotal.toLocaleString('en-QA')}</span>
                     </div>
                     <div className="flex justify-between text-xs text-destructive">
                       <span>
                         Discount{' '}
                         ({discountType === 'percent' ? `${discountValue}%` : `QAR ${discountValue}`})
                       </span>
-                      <span>-QAR {discountAmount.toLocaleString()}</span>
+                      <span>-QAR {discountAmount.toLocaleString('en-QA')}</span>
                     </div>
                   </>
                 )}
                 <div className="flex justify-between">
                   <span className="text-xs font-semibold text-foreground">Total</span>
                   <span className="font-semibold text-foreground">
-                    QAR {total.toLocaleString()}
+                    QAR {total.toLocaleString('en-QA')}
                   </span>
                 </div>
               </div>

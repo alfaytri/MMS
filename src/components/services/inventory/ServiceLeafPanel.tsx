@@ -214,7 +214,7 @@ export function ServiceLeafPanel({
           </p>
           {(link.inventory_brand_variants?.selling_price ?? 0) > 0 && (
             <p className="text-[10px] text-emerald-700 mt-0.5">
-              QAR {link.inventory_brand_variants!.selling_price!.toLocaleString()}
+              QAR {link.inventory_brand_variants!.selling_price!.toLocaleString('en-QA')}
             </p>
           )}
         </div>

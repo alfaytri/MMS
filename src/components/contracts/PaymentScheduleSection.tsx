@@ -110,7 +110,7 @@ export function PaymentScheduleSection({
           </div>
           <div className="bg-blue-50 rounded-lg p-4">
             <p className="font-medium">
-              Payment Amount ({FREQUENCIES.find((f) => f.value === frequency)?.label || frequency}): {paymentAmount.toLocaleString()} QAR
+              Payment Amount ({FREQUENCIES.find((f) => f.value === frequency)?.label || frequency}): {paymentAmount.toLocaleString('en-QA')} QAR
             </p>
             <p className="text-sm text-muted-foreground">
               {periodCount} payment{periodCount !== 1 ? 's' : ''} over the contract period
@@ -167,7 +167,7 @@ export function PaymentScheduleSection({
                   />
                   <span className="text-xs">%</span>
                 </div>
-                <span className="text-sm w-24 text-right">{m.amount.toLocaleString()} QAR</span>
+                <span className="text-sm w-24 text-right">{m.amount.toLocaleString('en-QA')} QAR</span>
                 <DatePicker
                   className="h-8 text-sm w-36"
                   value={m.due_date || ''}
@@ -195,7 +195,7 @@ export function PaymentScheduleSection({
         <div className="bg-yellow-50 rounded-lg p-4">
           <p className="font-medium">Full payment due upon contract completion</p>
           <p className="text-sm text-muted-foreground">
-            Total: {netTotal.toLocaleString()} QAR
+            Total: {netTotal.toLocaleString('en-QA')} QAR
           </p>
           <p className="text-sm text-muted-foreground">
             Due: {endDate} (contract end date)

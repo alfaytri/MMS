@@ -550,9 +550,9 @@ export default function CreateContractQuotationPage() {
               onChange={(e) => setDiscount(Math.max(0, Number(e.target.value)))}
             />
           </div>
-          <FieldDisplay label="Subtotal" value={`${subtotal.toLocaleString()} QAR`} />
-          <FieldDisplay label="Net Total" value={`${netTotal.toLocaleString()} QAR`} />
-          <FieldDisplay label={`${frequencyLabel[paymentFrequency] || 'Monthly'} Value`} value={`${paymentValue.toLocaleString()} QAR`} />
+          <FieldDisplay label="Subtotal" value={`${subtotal.toLocaleString('en-QA')} QAR`} />
+          <FieldDisplay label="Net Total" value={`${netTotal.toLocaleString('en-QA')} QAR`} />
+          <FieldDisplay label={`${frequencyLabel[paymentFrequency] || 'Monthly'} Value`} value={`${paymentValue.toLocaleString('en-QA')} QAR`} />
         </div>
       </SectionCard>
 

@@ -95,7 +95,7 @@ export default function ViewLiveContractsPage() {
         actions={
           outstandingTotal > 0 ? (
             <Badge variant="destructive" className="text-sm">
-              Outstanding: {outstandingTotal.toLocaleString()} QAR
+              Outstanding: {outstandingTotal.toLocaleString('en-QA')} QAR
             </Badge>
           ) : undefined
         }

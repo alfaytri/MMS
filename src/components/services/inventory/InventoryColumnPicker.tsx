@@ -187,7 +187,7 @@ export function InventoryColumnPicker({
                       <p className="text-xs font-semibold">{v.brand}</p>
                       {v.costPrice > 0 && (
                         <p className="text-[10px] text-muted-foreground">
-                          {v.costPrice.toLocaleString()} QAR
+                          {v.costPrice.toLocaleString('en-QA')} QAR
                         </p>
                       )}
                     </div>
@@ -288,7 +288,7 @@ export function InventoryColumnPicker({
                       <span className="text-xs font-medium">{v.brand}</span>
                       {v.costPrice > 0 && (
                         <span className="text-[10px] text-muted-foreground shrink-0">
-                          {v.costPrice.toLocaleString()} QAR
+                          {v.costPrice.toLocaleString('en-QA')} QAR
                         </span>
                       )}
                     </button>

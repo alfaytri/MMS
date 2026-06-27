@@ -373,8 +373,8 @@ export default function ContractDetailPage() {
             <>
               <FieldDisplay label="Start Date" value={contract.start_date} />
               <FieldDisplay label="End Date" value={contract.end_date} />
-              <FieldDisplay label="Total Value" value={`${contract.total_value.toLocaleString()} QAR`} />
-              <FieldDisplay label={`${frequencyLabel[contract.payment_frequency || 'monthly'] || 'Monthly'} Value`} value={`${contract.monthly_value.toLocaleString()} QAR`} />
+              <FieldDisplay label="Total Value" value={`${contract.total_value.toLocaleString('en-QA')} QAR`} />
+              <FieldDisplay label={`${frequencyLabel[contract.payment_frequency || 'monthly'] || 'Monthly'} Value`} value={`${contract.monthly_value.toLocaleString('en-QA')} QAR`} />
             </>
           )}
         </div>
@@ -535,7 +535,7 @@ export default function ContractDetailPage() {
                 {payments.map((p) => (
                   <tr key={p.id} className="border-b border-dashed">
                     <td className="py-2 pr-4">{p.due_date}</td>
-                    <td className="py-2 pr-4 text-right">{p.amount.toLocaleString()} QAR</td>
+                    <td className="py-2 pr-4 text-right">{p.amount.toLocaleString('en-QA')} QAR</td>
                     <td className="py-2 pr-4">
                       <Badge className={
                         p.status === 'paid'
@@ -608,11 +608,11 @@ export default function ContractDetailPage() {
                 />
               </div>
             ) : (
-              <FieldDisplay label="Discount" value={`${discount.toLocaleString()} QAR`} />
+              <FieldDisplay label="Discount" value={`${discount.toLocaleString('en-QA')} QAR`} />
             )}
-            <FieldDisplay label="Subtotal" value={`${subtotal.toLocaleString()} QAR`} />
-            <FieldDisplay label="Net Total" value={`${netTotal.toLocaleString()} QAR`} />
-            <FieldDisplay label={`${frequencyLabel[paymentFrequency] || 'Monthly'} Value`} value={`${paymentValue.toLocaleString()} QAR`} />
+            <FieldDisplay label="Subtotal" value={`${subtotal.toLocaleString('en-QA')} QAR`} />
+            <FieldDisplay label="Net Total" value={`${netTotal.toLocaleString('en-QA')} QAR`} />
+            <FieldDisplay label={`${frequencyLabel[paymentFrequency] || 'Monthly'} Value`} value={`${paymentValue.toLocaleString('en-QA')} QAR`} />
           </div>
         </SectionCard>
       )}

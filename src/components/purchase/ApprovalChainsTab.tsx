@@ -341,10 +341,10 @@ export function ApprovalChainsTab() {
                     return (
                       <TableRow key={tier.id}>
                         <TableCell className="font-mono">{tier.rank}</TableCell>
-                        <TableCell>{Number(tier.min_amount).toLocaleString()}</TableCell>
+                        <TableCell>{Number(tier.min_amount).toLocaleString('en-QA')}</TableCell>
                         <TableCell>
                           {tier.max_amount ? (
-                            Number(tier.max_amount).toLocaleString()
+                            Number(tier.max_amount).toLocaleString('en-QA')
                           ) : (
                             <span className="inline-flex items-center gap-1 text-muted-foreground">
                               <InfinityIcon className="h-3.5 w-3.5" />

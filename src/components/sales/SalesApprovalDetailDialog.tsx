@@ -71,7 +71,7 @@ export function SalesApprovalDetailDialog({ slip, onClose }: Props) {
               <Badge variant="outline">Iteration #{slip.iteration}</Badge>
             </div>
             <div className="mt-1 text-xs text-muted-foreground">
-              Total: {slip.so.total.toLocaleString()}
+              Total: {slip.so.total.toLocaleString('en-QA')}
             </div>
           </div>
 
@@ -79,9 +79,9 @@ export function SalesApprovalDetailDialog({ slip, onClose }: Props) {
           <div className="rounded-md border-l-4 border-amber-500 bg-amber-500/5 p-3 text-xs space-y-1">
             {slip.approval_type === 'credit' ? (
               <>
-                <div>Available credit: {Number(payload.available ?? 0).toLocaleString()}</div>
+                <div>Available credit: {Number(payload.available ?? 0).toLocaleString('en-QA')}</div>
                 <div className="font-medium text-amber-700">
-                  Over limit by: {Number(payload.overage ?? 0).toLocaleString()}
+                  Over limit by: {Number(payload.overage ?? 0).toLocaleString('en-QA')}
                 </div>
               </>
             ) : (
@@ -89,7 +89,7 @@ export function SalesApprovalDetailDialog({ slip, onClose }: Props) {
                 <div className="font-medium">Below-cost lines:</div>
                 {(Array.isArray(payload.lines) ? payload.lines : []).map((l, i) => (
                   <div key={i} className="text-amber-700">
-                    {l.item_name}: unit {Number(l.unit_price).toLocaleString()} &lt; avg cost {Number(l.avg_cost).toLocaleString()}
+                    {l.item_name}: unit {Number(l.unit_price).toLocaleString('en-QA')} &lt; avg cost {Number(l.avg_cost).toLocaleString('en-QA')}
                   </div>
                 ))}
               </>

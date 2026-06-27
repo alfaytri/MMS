@@ -60,7 +60,7 @@ export function OrderCard({ order, onClick }: Props) {
           {CONFIRMATION_LABELS[order.confirmation_status as ConfirmationStatus] ?? order.confirmation_status}
         </span>
         <span className="ml-auto font-semibold text-foreground text-sm">
-          QAR {(order.total_amount ?? 0).toLocaleString()}
+          QAR {(order.total_amount ?? 0).toLocaleString('en-QA')}
         </span>
       </div>
 

@@ -44,7 +44,7 @@ function bytes(n: number): string {
 }
 
 function formatDate(iso: string): string {
-  return new Date(iso).toLocaleString()
+  return new Date(iso).toLocaleString('en-QA')
 }
 
 const SOURCE_OPTIONS: { label: string; value: PurgeSource }[] = [
@@ -409,7 +409,7 @@ export default function PurgePage() {
               <div className="min-w-[110px]">
                 <p className="text-xs text-muted-foreground">Messages</p>
                 <p className="text-sm font-medium">
-                  {batch.message_count.toLocaleString()}
+                  {batch.message_count.toLocaleString('en-QA')}
                 </p>
               </div>
 

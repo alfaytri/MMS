@@ -56,7 +56,7 @@ export function OrderHistorySection({ customerId }: { customerId: string | null 
               <p className="text-xs text-muted-foreground">{new Date(o.scheduled_date).toLocaleDateString()}</p>
             )}
             {o.total_amount != null && o.total_amount > 0 && (
-              <p className="text-xs text-muted-foreground">QAR {o.total_amount.toLocaleString()}</p>
+              <p className="text-xs text-muted-foreground">QAR {o.total_amount.toLocaleString('en-QA')}</p>
             )}
           </div>
           <Badge

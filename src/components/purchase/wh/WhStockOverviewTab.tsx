@@ -268,8 +268,8 @@ export const WhStockOverviewTab = React.memo(function WhStockOverviewTab({
       {/* Summary mini-cards */}
       <div className="grid grid-cols-3 gap-3">
         {[
-          { icon: <Layers   className="h-4 w-4 text-primary" />, label: 'Total Items', value: totalItems.toLocaleString() },
-          { icon: <Package  className="h-4 w-4 text-primary" />, label: 'Total Qty',   value: totalQty.toLocaleString()   },
+          { icon: <Layers   className="h-4 w-4 text-primary" />, label: 'Total Items', value: totalItems.toLocaleString('en-QA') },
+          { icon: <Package  className="h-4 w-4 text-primary" />, label: 'Total Qty',   value: totalQty.toLocaleString('en-QA')   },
           { icon: <DollarSign className="h-4 w-4 text-success" />, label: 'Total Value', value: `QR ${totalValue.toFixed(2)}` },
         ].map((card) => (
           <div key={card.label} className="p-3 rounded-md border flex items-center gap-2">

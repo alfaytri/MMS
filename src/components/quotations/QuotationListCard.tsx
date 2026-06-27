@@ -41,7 +41,7 @@ export function QuotationListCard({ quotation, href, onClick }: Props) {
       </div>
 
       <div className="flex items-center justify-between text-xs text-muted-foreground">
-        <span>QAR {quotation.total_amount.toLocaleString()}</span>
+        <span>QAR {quotation.total_amount.toLocaleString('en-QA')}</span>
         {quotation.created_date && (
           <span>{format(new Date(quotation.created_date), 'dd MMM yyyy')}</span>
         )}

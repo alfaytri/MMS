@@ -80,10 +80,10 @@ export function ContractQuotationCard({ quotation }: Props) {
         {/* Right column - values */}
         <div className="flex flex-row sm:flex-col items-end gap-1 sm:min-w-[140px] text-right">
           <span className="text-lg font-bold">
-            {quotation.total_value.toLocaleString()} QAR
+            {quotation.total_value.toLocaleString('en-QA')} QAR
           </span>
           <span className="text-xs text-muted-foreground">
-            {quotation.monthly_value.toLocaleString()} QAR/mo
+            {quotation.monthly_value.toLocaleString('en-QA')} QAR/mo
           </span>
           <div className="flex items-center gap-1 text-xs text-muted-foreground mt-1">
             <Calendar className="h-3 w-3" />

@@ -418,8 +418,8 @@ export const WhStockValueTab = React.memo(function WhStockValueTab({ warehouses 
         <div className="flex items-center justify-between gap-3">
           <div className="grid grid-cols-3 gap-3 flex-1">
             {[
-              { label: 'Unique Items', value: sorted.length.toLocaleString() },
-              { label: 'Total Qty', value: totalQty.toLocaleString() },
+              { label: 'Unique Items', value: sorted.length.toLocaleString('en-QA') },
+              { label: 'Total Qty', value: totalQty.toLocaleString('en-QA') },
               { label: 'Total Value (QR)', value: formatCurrency(totalValue) },
             ].map((card) => (
               <div key={card.label} className="p-3 rounded-md border flex items-center gap-2">

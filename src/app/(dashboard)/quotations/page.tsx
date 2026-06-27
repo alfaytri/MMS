@@ -287,7 +287,7 @@ export default function QuotationsPage() {
                     'rounded-full px-1.5 py-0.5 text-[10px] font-semibold leading-none',
                     b.active ? 'bg-orange-500 text-white' : 'bg-muted text-muted-foreground'
                   )}>
-                    {b.count.toLocaleString()}
+                    {b.count.toLocaleString('en-QA')}
                   </span>
                 )}
               </button>
@@ -439,7 +439,7 @@ export default function QuotationsPage() {
                   'rounded-full px-1.5 py-0.5 text-[10px] font-semibold leading-none',
                   b.active ? 'bg-orange-500 text-white' : 'bg-muted text-muted-foreground'
                 )}>
-                  {b.count.toLocaleString()}
+                  {b.count.toLocaleString('en-QA')}
                 </span>
               )}
             </button>

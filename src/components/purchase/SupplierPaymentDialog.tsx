@@ -94,7 +94,7 @@ export function SupplierPaymentDialog({ open, onOpenChange, bill, onSetUpPlan }:
           </div>
           {outstanding >= PAYMENT_PLAN_THRESHOLD && onSetUpPlan && (
             <p className="text-xs text-muted-foreground bg-muted rounded p-2">
-              Outstanding ≥ QAR {PAYMENT_PLAN_THRESHOLD.toLocaleString()}.{' '}
+              Outstanding ≥ QAR {PAYMENT_PLAN_THRESHOLD.toLocaleString('en-QA')}.{' '}
               <button
                 type="button"
                 className="text-primary underline underline-offset-2"
