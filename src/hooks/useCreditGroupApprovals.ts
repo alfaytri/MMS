@@ -27,6 +27,8 @@ export type CreditGroupApprovalRow = {
   decided_at:      string | null
   comment:         string | null
   reason:          string | null
+  force_approved:  boolean
+  force_comment:   string | null
   created_at:      string
 }
 
@@ -44,6 +46,7 @@ export type CreditGroupRequest = {
   customer_name?:      string | null
   requested_group_name?: string | null
   previous_group_name?:  string | null
+  requested_group_limit?: number | null
   rows?:               CreditGroupApprovalRow[]
 }
 
@@ -58,7 +61,7 @@ export function usePendingCreditGroupRequests() {
         .select(`
           *,
           customer:customers(name),
-          requested_group:credit_groups!customer_credit_group_requests_requested_group_id_fkey(name),
+          requested_group:credit_groups!customer_credit_group_requests_requested_group_id_fkey(name, credit_limit),
           previous_group:credit_groups!customer_credit_group_requests_previous_group_id_fkey(name),
           rows:customer_credit_group_approvals(*)
         `)
@@ -69,12 +72,45 @@ export function usePendingCreditGroupRequests() {
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       return (data ?? []).map((r: any) => ({
         ...r,
-        customer_name:        r.customer?.name ?? null,
-        requested_group_name: r.requested_group?.name ?? null,
-        previous_group_name:  r.previous_group?.name ?? null,
+        customer_name:         r.customer?.name ?? null,
+        requested_group_name:  r.requested_group?.name ?? null,
+        requested_group_limit: r.requested_group?.credit_limit ?? null,
+        previous_group_name:   r.previous_group?.name ?? null,
       })) as CreditGroupRequest[]
     },
     staleTime: 30_000,
+  })
+}
+
+export function useCompletedCreditGroupRequests() {
+  return useQuery({
+    queryKey: queryKeys.creditGroupApprovals.completed,
+    queryFn: async (): Promise<CreditGroupRequest[]> => {
+      const supabase = createClient()
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const { data, error } = await (supabase as any)
+        .from('customer_credit_group_requests')
+        .select(`
+          *,
+          customer:customers(name),
+          requested_group:credit_groups!customer_credit_group_requests_requested_group_id_fkey(name, credit_limit),
+          previous_group:credit_groups!customer_credit_group_requests_previous_group_id_fkey(name),
+          rows:customer_credit_group_approvals(*)
+        `)
+        .in('status', ['approved', 'rejected', 'cancelled'])
+        .order('decided_at', { ascending: false, nullsFirst: false })
+        .limit(50)
+      if (error) throw error
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      return (data ?? []).map((r: any) => ({
+        ...r,
+        customer_name:         r.customer?.name ?? null,
+        requested_group_name:  r.requested_group?.name ?? null,
+        requested_group_limit: r.requested_group?.credit_limit ?? null,
+        previous_group_name:   r.previous_group?.name ?? null,
+      })) as CreditGroupRequest[]
+    },
+    staleTime: 60_000,
   })
 }
 
@@ -135,7 +171,7 @@ export function useApproveCreditGroupChange() {
       if (error) throw new Error(error.message)
     },
     onSuccess: () => {
-      qc.invalidateQueries({ queryKey: queryKeys.creditGroupApprovals.pending })
+      qc.invalidateQueries({ queryKey: queryKeys.creditGroupApprovals.all })
       qc.invalidateQueries({ queryKey: queryKeys.creditGroupApprovals.byCustomerAll })
       qc.invalidateQueries({ queryKey: ['customer-credit-summary'] })
       qc.invalidateQueries({ queryKey: ['customers'] })
@@ -156,8 +192,30 @@ export function useRejectCreditGroupChange() {
       if (error) throw new Error(error.message)
     },
     onSuccess: () => {
-      qc.invalidateQueries({ queryKey: queryKeys.creditGroupApprovals.pending })
+      qc.invalidateQueries({ queryKey: queryKeys.creditGroupApprovals.all })
       qc.invalidateQueries({ queryKey: queryKeys.creditGroupApprovals.byCustomerAll })
+    },
+  })
+}
+
+export function useForceApproveCreditGroupChange() {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: async ({ requestId, comment }: { requestId: string; comment?: string }) => {
+      const supabase = createClient()
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const { data, error } = await (supabase as any).rpc('force_approve_credit_group_change', {
+        p_request_id: requestId,
+        p_comment:    comment?.trim() ? comment : null,
+      })
+      if (error) throw new Error(error.message)
+      return data as number
+    },
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: queryKeys.creditGroupApprovals.all })
+      qc.invalidateQueries({ queryKey: queryKeys.creditGroupApprovals.byCustomerAll })
+      qc.invalidateQueries({ queryKey: ['customer-credit-summary'] })
+      qc.invalidateQueries({ queryKey: ['customers'] })
     },
   })
 }

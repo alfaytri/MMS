@@ -119,7 +119,9 @@ export const queryKeys = {
 
   /* ── Credit Group Approval Workflow ────────────────────── */
   creditGroupApprovals: {
+    all:                ['credit-group-approvals'] as const,
     pending:            ['credit-group-approvals', 'pending'] as const,
+    completed:          ['credit-group-approvals', 'completed'] as const,
     byCustomerAll:      ['credit-group-approvals', 'by-customer'] as const,
     byCustomer: (id: string | null) => ['credit-group-approvals', 'by-customer', id ?? null] as const,
   },
