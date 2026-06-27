@@ -28,10 +28,11 @@ export const NAV_ITEMS: NavEntry[] = [
     groups: [
       {
         items: [
-          { label: 'Warehouses',    href: '/purchase/warehouses',      icon: 'Warehouse',   permission: 'warehouse.access' },
-          { label: 'Users & Roles', href: '/master-data/users',        icon: 'UserCog',     permission: ['master_data.users.view', 'master_data.roles.view'] },
-          { label: 'Audit Trail',   href: '/master-data/audit-trail',  icon: 'ScrollText',  permission: 'master_data.audit.view' },
-          { label: 'Admin',         href: '/master-data/admin',        icon: 'Settings',    permission: 'master_data.admin.view' },
+          { label: 'Warehouses',              href: '/purchase/warehouses',               icon: 'Warehouse',   permission: 'warehouse.access' },
+          { label: 'Users & Roles',           href: '/master-data/users',                 icon: 'UserCog',     permission: ['master_data.users.view', 'master_data.roles.view'] },
+          { label: 'Credit Group Approvals',  href: '/master-data/credit-group-approvals', icon: 'CheckSquare', permission: 'master_data.customers.view' },
+          { label: 'Audit Trail',             href: '/master-data/audit-trail',           icon: 'ScrollText',  permission: 'master_data.audit.view' },
+          { label: 'Admin',                   href: '/master-data/admin',                 icon: 'Settings',    permission: 'master_data.admin.view' },
         ],
       },
       {

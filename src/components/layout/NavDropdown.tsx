@@ -56,6 +56,7 @@ import {
   Calendar,
   Crown,
   ShieldCheck,
+  CheckSquare,
   type LucideIcon,
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
@@ -103,6 +104,7 @@ const ICON_MAP: Record<string, LucideIcon> = {
   Calendar,
   Crown,
   ShieldCheck,
+  CheckSquare,
 }
 
 function canAccess(

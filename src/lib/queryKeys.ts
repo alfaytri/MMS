@@ -117,6 +117,13 @@ export const queryKeys = {
     counts: ['credit-group-counts'] as const,
   },
 
+  /* ── Credit Group Approval Workflow ────────────────────── */
+  creditGroupApprovals: {
+    pending:            ['credit-group-approvals', 'pending'] as const,
+    byCustomerAll:      ['credit-group-approvals', 'by-customer'] as const,
+    byCustomer: (id: string | null) => ['credit-group-approvals', 'by-customer', id ?? null] as const,
+  },
+
   /* ── Credit / Debit Notes ─────────────────────────────── */
   creditNotes: {
     all: ['credit-notes'] as const,

@@ -1666,6 +1666,151 @@ export type Database = {
           },
         ]
       }
+      customer_credit_group_approvals: {
+        Row: {
+          comment: string | null
+          created_at: string
+          decided_at: string | null
+          decided_by: string | null
+          decided_by_name: string | null
+          id: string
+          is_active: boolean
+          iteration: number
+          reason: string | null
+          request_id: string
+          status: string
+          step_order: number
+          step_role: string
+        }
+        Insert: {
+          comment?: string | null
+          created_at?: string
+          decided_at?: string | null
+          decided_by?: string | null
+          decided_by_name?: string | null
+          id?: string
+          is_active?: boolean
+          iteration?: number
+          reason?: string | null
+          request_id: string
+          status?: string
+          step_order: number
+          step_role: string
+        }
+        Update: {
+          comment?: string | null
+          created_at?: string
+          decided_at?: string | null
+          decided_by?: string | null
+          decided_by_name?: string | null
+          id?: string
+          is_active?: boolean
+          iteration?: number
+          reason?: string | null
+          request_id?: string
+          status?: string
+          step_order?: number
+          step_role?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "customer_credit_group_approvals_decided_by_fkey"
+            columns: ["decided_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "customer_credit_group_approvals_request_id_fkey"
+            columns: ["request_id"]
+            isOneToOne: false
+            referencedRelation: "customer_credit_group_requests"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      customer_credit_group_requests: {
+        Row: {
+          created_at: string
+          customer_id: string
+          decided_at: string | null
+          decided_by: string | null
+          id: string
+          previous_group_id: string | null
+          requested_by: string | null
+          requested_group_id: string
+          status: string
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          customer_id: string
+          decided_at?: string | null
+          decided_by?: string | null
+          id?: string
+          previous_group_id?: string | null
+          requested_by?: string | null
+          requested_group_id: string
+          status?: string
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          customer_id?: string
+          decided_at?: string | null
+          decided_by?: string | null
+          id?: string
+          previous_group_id?: string | null
+          requested_by?: string | null
+          requested_group_id?: string
+          status?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "customer_credit_group_requests_customer_id_fkey"
+            columns: ["customer_id"]
+            isOneToOne: false
+            referencedRelation: "customer_credit_summary"
+            referencedColumns: ["customer_id"]
+          },
+          {
+            foreignKeyName: "customer_credit_group_requests_customer_id_fkey"
+            columns: ["customer_id"]
+            isOneToOne: false
+            referencedRelation: "customers"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "customer_credit_group_requests_decided_by_fkey"
+            columns: ["decided_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "customer_credit_group_requests_previous_group_id_fkey"
+            columns: ["previous_group_id"]
+            isOneToOne: false
+            referencedRelation: "credit_groups"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "customer_credit_group_requests_requested_by_fkey"
+            columns: ["requested_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "customer_credit_group_requests_requested_group_id_fkey"
+            columns: ["requested_group_id"]
+            isOneToOne: false
+            referencedRelation: "credit_groups"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       customer_phones: {
         Row: {
           created_at: string
@@ -9556,6 +9701,10 @@ export type Database = {
         Args: { p_edit_request_id: string; p_items: Json }
         Returns: Json
       }
+      approve_credit_group_change: {
+        Args: { p_approval_id: string; p_comment?: string }
+        Returns: undefined
+      }
       approve_receival_inventory: {
         Args: { p_action: string; p_receival_id: string }
         Returns: string
@@ -9951,6 +10100,10 @@ export type Database = {
         Returns: undefined
       }
       refresh_po_status: { Args: { p_po_id: string }; Returns: undefined }
+      reject_credit_group_change: {
+        Args: { p_approval_id: string; p_reason: string }
+        Returns: undefined
+      }
       reject_sales_request: {
         Args: { p_reason: string; p_request_id: string }
         Returns: undefined
@@ -10094,6 +10247,10 @@ export type Database = {
         Returns: boolean
       }
       storage_lc_bills_write_allowed: { Args: never; Returns: boolean }
+      submit_credit_group_change: {
+        Args: { p_customer_id: string; p_requested_group_id: string }
+        Returns: Json
+      }
       submit_service_change: { Args: { p_payload: Json }; Returns: Json }
       swap_visit_team: {
         Args: { p_assignment_id: string; p_new_team_id: string }

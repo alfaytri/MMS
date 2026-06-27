@@ -20,6 +20,9 @@ import { CustomerDialog } from '@/components/master-data/CustomerDialog'
 import { useAllCustomers, type Customer } from '@/hooks/useSaleOrders'
 import { useCreditGroups, useAssignCreditGroup } from '@/hooks/useCreditGroups'
 import { useHasPermission } from '@/hooks/usePermissions'
+import { useAllCustomerCredit } from '@/hooks/useCustomerCredit'
+import { CreditUtilizationBar } from '@/components/shared/CreditUtilizationBar'
+import { useSubmitCreditGroupChange } from '@/hooks/useCreditGroupApprovals'
 
 const PAGE_SIZE = 50
 
@@ -45,7 +48,10 @@ export default function CustomersPage() {
   const totalPages             = Math.ceil(total / PAGE_SIZE)
 
   const { data: groups = [] }  = useCreditGroups()
+  const { data: creditRows = [] } = useAllCustomerCredit()
+  const creditByCustomer = new Map(creditRows.map((r) => [r.customer_id, r]))
   const assignGroup            = useAssignCreditGroup()
+  const submitGroupChange      = useSubmitCreditGroupChange()
   const canChangeCreditGroup   = useHasPermission('master_data.customers.change_credit_group')
   const canEditCustomer        = useHasPermission('master_data.customers.manage')
 
@@ -55,8 +61,29 @@ export default function CustomersPage() {
     fromGroupId: string | null,
     fromGroupName: string | null,
   ) {
-    const groupName = groups.find((g) => g.id === groupId)?.name
     if (fromGroupId === groupId) return
+    const group = groups.find((g) => g.id === groupId)
+    const groupName = group?.name
+    // Approval gate: groups with a non-zero credit limit go through the
+    // PM → AM → Owner workflow. Zero-limit (cash) groups are assigned
+    // directly because there's no credit risk to approve.
+    const needsApproval = (group?.credit_limit ?? 0) > 0
+    if (needsApproval) {
+      submitGroupChange.mutate(
+        { customerId, groupId },
+        {
+          onSuccess: (data) => {
+            if (data.status === 'approved') {
+              toast.success(`Assigned to ${groupName} (no approval needed)`)
+            } else {
+              toast.success(`Sent for approval: PM → AM → Owner`)
+            }
+          },
+          onError: (err) => toast.error(err.message),
+        }
+      )
+      return
+    }
     assignGroup.mutate(
       { customerId, groupId, groupName, fromGroupId, fromGroupName },
       {
@@ -95,6 +122,7 @@ export default function CustomersPage() {
               <TableHead className="hidden lg:table-cell">Email</TableHead>
               <TableHead className="hidden md:table-cell">Type</TableHead>
               <TableHead>Credit Group</TableHead>
+              <TableHead className="hidden lg:table-cell">Credit Used</TableHead>
               <TableHead className="w-12" />
             </TableRow>
           </TableHeader>
@@ -107,12 +135,13 @@ export default function CustomersPage() {
                     <TableCell className="hidden lg:table-cell"><Skeleton className="h-5 w-32" /></TableCell>
                     <TableCell className="hidden md:table-cell"><Skeleton className="h-5 w-20" /></TableCell>
                     <TableCell><Skeleton className="h-8 w-36" /></TableCell>
+                    <TableCell className="hidden lg:table-cell"><Skeleton className="h-6 w-32" /></TableCell>
                     <TableCell><Skeleton className="h-8 w-8" /></TableCell>
                   </TableRow>
                 ))
               : customers.length === 0 ? (
                   <TableRow>
-                    <TableCell colSpan={6} className="p-0">
+                    <TableCell colSpan={7} className="p-0">
                       <EmptyState title="No customers found" />
                     </TableCell>
                   </TableRow>
@@ -153,7 +182,7 @@ export default function CustomersPage() {
                         <Select
                           value={c.credit_group_id ?? ''}
                           onValueChange={(val) => { if (val) handleAssign(c.id, val, c.credit_group_id ?? null, c.credit_group_name ?? null) }}
-                          disabled={assignGroup.isPending}
+                          disabled={assignGroup.isPending || submitGroupChange.isPending}
                         >
                           <SelectTrigger className="h-8 w-44 text-xs">
                             <span className={c.credit_group_name ? '' : 'text-muted-foreground'}>
@@ -171,6 +200,20 @@ export default function CustomersPage() {
                           {c.credit_group_name ?? '—'}
                         </span>
                       )}
+                    </TableCell>
+                    <TableCell className="hidden lg:table-cell">
+                      {(() => {
+                        const cr = creditByCustomer.get(c.id)
+                        if (!cr) return <span className="text-xs text-muted-foreground">—</span>
+                        return (
+                          <CreditUtilizationBar
+                            used={Number(cr.credit_used    ?? 0)}
+                            limit={Number(cr.credit_limit  ?? 0)}
+                            pct={cr.credit_utilization_pct}
+                            compact
+                          />
+                        )
+                      })()}
                     </TableCell>
                     <TableCell className="text-right">
                       {canEditCustomer && (
