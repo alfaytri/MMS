@@ -130,6 +130,7 @@ export const NAV_ITEMS: NavEntry[] = [
         label: 'SALES',
         items: [
           { label: 'Sale Orders',  href: '/sales/orders',        icon: 'ShoppingBag',  permission: 'sales.orders.view' },
+          { label: 'Approvals',    href: '/sales/approvals',     icon: 'ShieldCheck',  permission: 'sales.approvals.view' },
           { label: 'Invoices',     href: '/sales/invoices',      icon: 'FileText',     permission: 'sales.invoices.view' },
           { label: 'Returns',      href: '/sales/returns',       icon: 'RotateCcw',    permission: 'sales.returns.view' },
           { label: 'Deliveries',   href: '/sales/deliveries',    icon: 'PackageCheck', permission: 'sales.deliveries.view' },

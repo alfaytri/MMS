@@ -3,6 +3,7 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { createClient } from '@/lib/supabase/client'
 import { queryKeys } from '@/lib/queryKeys'
+import { logActivity } from '@/lib/logActivity'
 
 export type SalesApprovalRow = {
   id:              string
@@ -181,6 +182,35 @@ export function useApproveSalesRequest() {
         p_request_id: id, p_comment: comment,
       })
       if (error) throw error
+
+      const { data: req } = await supabase
+        .from('approval_requests')
+        .select('source_id, approval_type, step_role')
+        .eq('id', id)
+        .maybeSingle()
+      if (req) {
+        void logActivity({
+          action:      'Sales Approval Approved',
+          module:      'sales',
+          entity_id:   req.source_id,
+          entity_type: 'sale_order',
+          details:     JSON.stringify({ type: req.approval_type, step_role: req.step_role, comment }),
+        })
+        const { data: so } = await supabase
+          .from('sale_orders')
+          .select('id, so_number, status, created_by')
+          .eq('id', req.source_id)
+          .maybeSingle()
+        if (so?.status === 'confirmed' && so.created_by) {
+          await supabase.from('notifications').insert({
+            profile_id:   so.created_by,
+            type:         'so_approved',
+            title:        `SO ${so.so_number} fully approved`,
+            related_id:   so.id,
+            related_type: 'sale_order',
+          })
+        }
+      }
     },
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: queryKeys.approvals.sales })
@@ -198,6 +228,36 @@ export function useRejectSalesRequest() {
         p_request_id: id, p_reason: reason,
       })
       if (error) throw error
+
+      const { data: req } = await supabase
+        .from('approval_requests')
+        .select('source_id, approval_type, step_role')
+        .eq('id', id)
+        .maybeSingle()
+      if (req) {
+        void logActivity({
+          action:      'Sales Approval Rejected',
+          module:      'sales',
+          entity_id:   req.source_id,
+          entity_type: 'sale_order',
+          details:     JSON.stringify({ type: req.approval_type, step_role: req.step_role, reason }),
+          severity:    'warning',
+        })
+        const { data: so } = await supabase
+          .from('sale_orders')
+          .select('id, so_number, created_by')
+          .eq('id', req.source_id)
+          .maybeSingle()
+        if (so?.created_by) {
+          await supabase.from('notifications').insert({
+            profile_id:   so.created_by,
+            type:         'so_rejected',
+            title:        `SO ${so.so_number} approval rejected — please review`,
+            related_id:   so.id,
+            related_type: 'sale_order',
+          })
+        }
+      }
     },
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: queryKeys.approvals.sales })

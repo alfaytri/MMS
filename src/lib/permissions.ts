@@ -234,6 +234,13 @@ export const PERMISSION_GROUPS: PermissionGroup[] = [
         ],
       },
       {
+        label: 'Sales Approvals',
+        permissions: [
+          { key: 'sales.approvals.view',   label: 'View Sales Approvals',   description: 'Access the sales approvals queue (margin + credit)' },
+          { key: 'sales.approvals.manage', label: 'Act on Sales Approvals', description: 'Approve or reject sales approval slips (requires sales_margin or sales_credit scope on a role to actually act)' },
+        ],
+      },
+      {
         label: 'Sales Invoices',
         permissions: [
           { key: 'sales.invoices.view',   label: 'View Sales Invoices',   description: 'Access sales invoice records' },
