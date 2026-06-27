@@ -107,6 +107,7 @@ export type Customer = {
   credit_group_id:     string | null
   credit_group_name?:  string | null
   credit_group_limit?: number | null
+  credit_group_default_terms?: string | null
   cr_url?:                  string | null
   establishment_id_url?:    string | null
   signed_credit_form_url?:  string | null
@@ -190,7 +191,7 @@ export function useCustomers(search?: string) {
       const supabase = createClient()
       let q = supabase
         .from('customers')
-        .select('id, name, phone, email, customer_type, is_blocked, credit_group_id, credit_groups(name, credit_limit)')
+        .select('id, name, phone, email, customer_type, is_blocked, credit_group_id, credit_groups(name, credit_limit, default_payment_terms)')
         .order('name')
         .limit(50)
       if (search) {
@@ -200,11 +201,12 @@ export function useCustomers(search?: string) {
       const { data, error } = await q
       if (error) throw error
       return (data ?? []).map((row) => {
-        const r = row as typeof row & { credit_groups?: { name?: string; credit_limit?: number } | null }
+        const r = row as typeof row & { credit_groups?: { name?: string; credit_limit?: number; default_payment_terms?: string | null } | null }
         return {
           ...row,
-          credit_group_name:  r.credit_groups?.name         ?? null,
-          credit_group_limit: r.credit_groups?.credit_limit ?? null,
+          credit_group_name:           r.credit_groups?.name                  ?? null,
+          credit_group_limit:          r.credit_groups?.credit_limit          ?? null,
+          credit_group_default_terms:  r.credit_groups?.default_payment_terms ?? null,
         }
       }) as unknown as Customer[]
     },

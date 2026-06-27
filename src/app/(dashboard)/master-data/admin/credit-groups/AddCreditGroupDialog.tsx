@@ -30,6 +30,7 @@ export function AddCreditGroupDialog({ open, onOpenChange, group }: CreditGroupD
   const [selectedMethods, setSelectedMethods] = useState<string[]>([])
   const [maxAmount, setMaxAmount]             = useState('')
   const [maxDays, setMaxDays]                 = useState('')
+  const [defaultPaymentTerms, setDefaultPaymentTerms] = useState<string>('')
 
   useEffect(() => {
     if (open) {
@@ -37,8 +38,18 @@ export function AddCreditGroupDialog({ open, onOpenChange, group }: CreditGroupD
       setSelectedMethods(group?.payment_methods ?? [])
       setMaxAmount(group?.credit_limit != null ? String(group.credit_limit) : '')
       setMaxDays(group?.max_days != null ? String(group.max_days) : '')
+      setDefaultPaymentTerms(group?.default_payment_terms ?? '')
     }
   }, [open, group])
+
+  const PAYMENT_TERM_OPTIONS = [
+    '100% Advance',
+    '100% After Delivery',
+    '50/50',
+    'Net 30',
+    'Net 60',
+    'Custom',
+  ] as const
 
   function toggleMethod(key: string) {
     setSelectedMethods((prev) =>
@@ -53,9 +64,11 @@ export function AddCreditGroupDialog({ open, onOpenChange, group }: CreditGroupD
     const max_days = maxDays !== '' ? parseInt(maxDays, 10) : null
     if (max_days !== null && (isNaN(max_days) || max_days < 1)) { toast.error('Enter a valid number of days'); return }
 
+    const default_payment_terms = defaultPaymentTerms || null
+
     if (isEdit) {
       update.mutate(
-        { id: group.id, name: name.trim(), credit_limit, payment_methods: selectedMethods, max_days },
+        { id: group.id, name: name.trim(), credit_limit, payment_methods: selectedMethods, max_days, default_payment_terms },
         {
           onSuccess: () => { toast.success('Credit group updated'); onOpenChange(false) },
           onError:   (err) => toast.error(err.message),
@@ -63,7 +76,7 @@ export function AddCreditGroupDialog({ open, onOpenChange, group }: CreditGroupD
       )
     } else {
       create.mutate(
-        { name: name.trim(), credit_limit, payment_methods: selectedMethods, max_days },
+        { name: name.trim(), credit_limit, payment_methods: selectedMethods, max_days, default_payment_terms },
         {
           onSuccess: () => { toast.success('Credit group added'); onOpenChange(false) },
           onError:   (err) => toast.error(err.message),
@@ -128,6 +141,23 @@ export function AddCreditGroupDialog({ open, onOpenChange, group }: CreditGroupD
               <label className="text-sm font-medium">Max Days</label>
               <Input type="number" min="1" placeholder="—" value={maxDays} onChange={(e) => setMaxDays(e.target.value)} />
             </div>
+          </div>
+
+          <div className="space-y-1.5">
+            <label className="text-sm font-medium">Default Payment Terms</label>
+            <select
+              value={defaultPaymentTerms}
+              onChange={(e) => setDefaultPaymentTerms(e.target.value)}
+              className="flex h-9 w-full rounded-md border border-input bg-background px-3 py-1 text-sm focus:outline-none focus:ring-1 focus:ring-ring"
+            >
+              <option value="">No default — user picks per order</option>
+              {PAYMENT_TERM_OPTIONS.map((opt) => (
+                <option key={opt} value={opt}>{opt}</option>
+              ))}
+            </select>
+            <p className="text-[10px] text-muted-foreground">
+              Pre-selected on the SO create page when a customer in this group is chosen.
+            </p>
           </div>
         </div>
 

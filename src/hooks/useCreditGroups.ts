@@ -7,13 +7,14 @@ import { queryKeys } from '@/lib/queryKeys'
 import { logActivity } from '@/lib/logActivity'
 
 export type CreditGroup = {
-  id:               string
-  name:             string
-  credit_limit:     number
-  payment_methods:  string[]
-  max_days:         number | null
-  created_at:       string
-  updated_at:       string
+  id:                     string
+  name:                   string
+  credit_limit:           number
+  payment_methods:        string[]
+  max_days:               number | null
+  default_payment_terms:  string | null
+  created_at:             string
+  updated_at:             string
 }
 
 export const PAYMENT_METHODS = [
@@ -49,10 +50,11 @@ export function useCreateCreditGroup() {
   const queryClient = useQueryClient()
   return useMutation({
     mutationFn: async (payload: {
-      name:             string
-      credit_limit:     number
-      payment_methods:  string[]
-      max_days:         number | null
+      name:                   string
+      credit_limit:           number
+      payment_methods:        string[]
+      max_days:               number | null
+      default_payment_terms?: string | null
     }) => {
       const supabase = createClient()
       const { data, error } = await supabase

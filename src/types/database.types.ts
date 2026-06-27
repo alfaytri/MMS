@@ -1230,6 +1230,7 @@ export type Database = {
         Row: {
           created_at: string
           credit_limit: number
+          default_payment_terms: string | null
           id: string
           max_days: number | null
           name: string
@@ -1239,6 +1240,7 @@ export type Database = {
         Insert: {
           created_at?: string
           credit_limit?: number
+          default_payment_terms?: string | null
           id?: string
           max_days?: number | null
           name: string
@@ -1248,6 +1250,7 @@ export type Database = {
         Update: {
           created_at?: string
           credit_limit?: number
+          default_payment_terms?: string | null
           id?: string
           max_days?: number | null
           name?: string
