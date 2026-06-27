@@ -5652,6 +5652,36 @@ export type Database = {
           },
         ]
       }
+      reason_list_categories: {
+        Row: {
+          active: boolean
+          created_at: string
+          deleted_at: string | null
+          id: string
+          label: string
+          slug: string
+          sort_order: number
+        }
+        Insert: {
+          active?: boolean
+          created_at?: string
+          deleted_at?: string | null
+          id?: string
+          label: string
+          slug: string
+          sort_order?: number
+        }
+        Update: {
+          active?: boolean
+          created_at?: string
+          deleted_at?: string | null
+          id?: string
+          label?: string
+          slug?: string
+          sort_order?: number
+        }
+        Relationships: []
+      }
       reason_lists: {
         Row: {
           active: boolean | null
