@@ -242,7 +242,7 @@ export function SoLineItemsEditor({
 
                     {/* Row 2: field grid — responsive flex-wrap, generous gap, fixed widths */}
                     <div className="flex flex-wrap gap-3 pl-1">
-                      <div className="space-y-0.5 w-[120px]">
+                      <div className="space-y-0.5 w-[110px]">
                         <label className="text-[10px] font-medium text-muted-foreground uppercase tracking-wider">SKU</label>
                         <Input
                           className="h-9 text-sm"
@@ -252,7 +252,7 @@ export function SoLineItemsEditor({
                           onChange={(e) => updateRow(row._key, { sku: e.target.value })}
                         />
                       </div>
-                      <div className="space-y-0.5 w-[80px]">
+                      <div className="space-y-0.5 w-[70px]">
                         <label className="text-[10px] font-medium text-muted-foreground uppercase tracking-wider">Qty *</label>
                         <Input
                           type="number"
@@ -263,7 +263,7 @@ export function SoLineItemsEditor({
                           onChange={(e) => updateRow(row._key, { qty: Math.max(1, Number(e.target.value)) })}
                         />
                       </div>
-                      <div className="space-y-0.5 w-[80px]">
+                      <div className="space-y-0.5 w-[70px]">
                         <label className="text-[10px] font-medium text-muted-foreground uppercase tracking-wider">Unit</label>
                         <Input
                           className="h-9 text-sm"
@@ -273,8 +273,21 @@ export function SoLineItemsEditor({
                           onChange={(e) => updateRow(row._key, { unit: e.target.value })}
                         />
                       </div>
-                      <div className="space-y-0.5 w-[130px]">
-                        <label className="text-[10px] font-medium text-muted-foreground uppercase tracking-wider">Unit Price *</label>
+                      {/* Unit Cost — sourced from inventory avg_cost, never editable.
+                          Drives the margin gate in approval chains. */}
+                      <div className="space-y-0.5 w-[115px]">
+                        <label className="text-[10px] font-medium text-muted-foreground uppercase tracking-wider flex items-center gap-1">
+                          Unit Cost <span aria-hidden className="text-muted-foreground/60">🔒</span>
+                        </label>
+                        <div
+                          className="h-9 px-3 flex items-center justify-end rounded-md border bg-muted/30 text-sm tabular-nums text-muted-foreground"
+                          title="Average cost from inventory (locked)"
+                        >
+                          {formatCurrency(row.avg_cost ?? 0, currency)}
+                        </div>
+                      </div>
+                      <div className="space-y-0.5 w-[115px]">
+                        <label className="text-[10px] font-medium text-muted-foreground uppercase tracking-wider">Sale Price *</label>
                         <Input
                           type="number"
                           min={0}
@@ -285,7 +298,7 @@ export function SoLineItemsEditor({
                           onChange={(e) => updateRow(row._key, { unit_price: Number(e.target.value) })}
                         />
                       </div>
-                      <div className="space-y-0.5 flex-1 min-w-[140px]">
+                      <div className="space-y-0.5 flex-1 min-w-[130px]">
                         <label className="text-[10px] font-medium text-muted-foreground uppercase tracking-wider">Total</label>
                         <div className="h-9 px-3 flex items-center justify-end rounded-md border bg-muted/30 text-sm font-semibold tabular-nums">
                           {formatCurrency(row.total, currency)}

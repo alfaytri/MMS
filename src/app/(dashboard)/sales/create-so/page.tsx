@@ -14,6 +14,8 @@ import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, Command
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog'
 import { SoLineItemsEditor, type SoLineItemRow } from '@/components/sales/SoLineItemsEditor'
 import { SoTermsSection, DEFAULT_TERMS, PAYMENT_PRESETS, type SoTermsValues } from '@/components/sales/SoTermsSection'
+import { useCustomerCredit } from '@/hooks/useCustomerCredit'
+import { CreditUtilizationBar } from '@/components/shared/CreditUtilizationBar'
 import {
   useCreateSO, useCustomers, useCreateCustomer,
   calcSOSubtotal, calcSOTotal, hasNegativeMargin,
@@ -89,6 +91,7 @@ export default function CreateSOPage() {
   const [isPriceLoading, setIsPriceLoading] = useState(false)
 
   const { data: customers } = useCustomers(customerSearch || undefined)
+  const { data: creditInfo } = useCustomerCredit(customerId || null)
 
   const subtotal       = calcSOSubtotal(lineItems)
   const total          = calcSOTotal(subtotal, discountAmount, 'fixed')
@@ -345,9 +348,36 @@ export default function CreateSOPage() {
             </div>
           )}
           {customerId && !isCash && customerCreditGroupName && (
-            <div className="flex items-center gap-3 text-xs text-muted-foreground">
-              <Badge variant="outline" className="text-xs">{customerCreditGroupName}</Badge>
-              <span>Limit: {fmtAmt(customerCreditLimit ?? 0, 'QAR')}</span>
+            <div className="flex flex-wrap items-center gap-4 rounded-md border bg-muted/20 px-3 py-2">
+              <div className="flex items-center gap-2 text-xs text-muted-foreground">
+                <Badge variant="outline" className="text-xs">{customerCreditGroupName}</Badge>
+                <span>Limit: {fmtAmt(customerCreditLimit ?? 0, 'QAR')}</span>
+              </div>
+              {creditInfo && (
+                <>
+                  <div className="h-4 w-px bg-border" />
+                  <div className="flex items-center gap-3">
+                    <span className="text-[10px] font-medium text-muted-foreground uppercase tracking-wider">
+                      Live utilization
+                    </span>
+                    <CreditUtilizationBar
+                      used={Number(creditInfo.credit_used      ?? 0)}
+                      limit={Number(creditInfo.credit_limit    ?? 0)}
+                      pct={creditInfo.credit_utilization_pct}
+                    />
+                    <span className="text-xs">
+                      Available:{' '}
+                      <span className={
+                        creditInfo.credit_available <= 0    ? 'font-semibold text-destructive' :
+                        (creditInfo.credit_utilization_pct ?? 0) >= 70 ? 'font-semibold text-amber-700' :
+                                                                          'font-semibold text-emerald-700'
+                      }>
+                        {fmtAmt(Number(creditInfo.credit_available ?? 0), 'QAR')}
+                      </span>
+                    </span>
+                  </div>
+                </>
+              )}
             </div>
           )}
         </section>

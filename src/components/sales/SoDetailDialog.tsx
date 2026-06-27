@@ -1,15 +1,10 @@
 'use client'
 
 import { useState } from 'react'
-import dynamic from 'next/dynamic'
 import {
   Dialog, DialogContent, DialogHeader, DialogTitle,
 } from '@/components/ui/dialog'
-
-const SoPdfButton = dynamic(
-  () => import('./SoPdfButton').then((m) => m.SoPdfButton),
-  { ssr: false, loading: () => <Button variant="outline" size="sm" disabled>Loading PDF…</Button> }
-)
+import { SoPdfButton } from './SoPdfButton'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
@@ -25,7 +20,6 @@ import { SoApprovalBanner } from '@/components/sales/SoApprovalBanner'
 import {
   useSaleOrder,
   useSOPayments,
-  useApproveSO,
   type SaleOrder,
 } from '@/hooks/useSaleOrders'
 import { useCancelDelivery } from '@/hooks/useSaleDeliveries'
@@ -50,7 +44,6 @@ export function SoDetailDialog({ open, onOpenChange, so, onEdit, onConfirm }: So
   const [paymentOpen, setPaymentOpen] = useState(false)
   const [deliveryOpen, setDeliveryOpen] = useState(false)
 
-  const approveSO = useApproveSO()
   const cancelDelivery = useCancelDelivery()
   const { data: fullSO, isLoading, isError } = useSaleOrder(open ? (so?.id ?? null) : null)
   const { data: soInvoice } = useInvoicesBySO(open ? (so?.id ?? null) : null)
@@ -66,21 +59,12 @@ export function SoDetailDialog({ open, onOpenChange, so, onEdit, onConfirm }: So
   const canDeliver = current && ['confirmed', 'partial_delivery'].includes(current.status)
   const canConfirm = current?.status === 'quotation'
   const canEdit = current?.status === 'quotation'
-  const canApprove = current?.status === 'pending_approval'
 
   const totalPaid = (payments ?? []).reduce((s, p) => s + (p.amount_qar ?? p.amount), 0)
   const paymentStatus: 'paid' | 'partial' | 'unpaid' =
     payments !== undefined && current
       ? totalPaid >= current.total ? 'paid' : totalPaid > 0 ? 'partial' : 'unpaid'
       : 'unpaid'
-
-  function handleApprove() {
-    if (!current) return
-    approveSO.mutate(current.id, {
-      onSuccess: () => toast.success('Order approved and confirmed'),
-      onError: (err) => toast.error((err as Error).message),
-    })
-  }
 
   function handleCancelDelivery(deliveryId: string) {
     if (!current) return
@@ -125,13 +109,6 @@ export function SoDetailDialog({ open, onOpenChange, so, onEdit, onConfirm }: So
               </div>
             )}
           </DialogHeader>
-
-          {canApprove && (
-            <div className="shrink-0 rounded-md bg-yellow-50 border border-yellow-200 px-4 py-2.5 text-sm text-yellow-800 flex items-center gap-2">
-              <span className="font-medium">Pending Owner Approval</span>
-              <span className="text-yellow-700">— this order exceeded the customer's credit limit.</span>
-            </div>
-          )}
 
           {current && (
             <div className="shrink-0">
@@ -290,16 +267,6 @@ export function SoDetailDialog({ open, onOpenChange, so, onEdit, onConfirm }: So
           {/* Action buttons */}
           {current && !isLoading && (
             <div className="shrink-0 flex flex-wrap gap-2 pt-2 border-t justify-end">
-              {canApprove && (
-                <Button
-                  size="sm"
-                  className="bg-yellow-600 hover:bg-yellow-700 text-white"
-                  disabled={approveSO.isPending}
-                  onClick={handleApprove}
-                >
-                  {approveSO.isPending ? 'Approving…' : 'Approve Order'}
-                </Button>
-              )}
               {canConfirm && onConfirm && (
                 <Button size="sm" onClick={() => { onConfirm(current); onOpenChange(false) }}>
                   Confirm Order
