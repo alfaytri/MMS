@@ -11,7 +11,6 @@ import { DataTableColumnHeader } from '@/components/shared/DataTableColumnHeader
 import { StatusBadge } from '@/components/shared/StatusBadge'
 import { ConfirmDialog } from '@/components/shared/ConfirmDialog'
 import { RoleFormDialog } from '@/components/master-data/RoleFormDialog'
-import { ApprovalChainManagement } from '@/components/master-data/ApprovalChainConfig'
 import { AddUserDialog } from '@/components/master-data/AddUserDialog'
 import { EditUserDialog } from '@/components/master-data/EditUserDialog'
 import { ResetPasswordDialog } from '@/components/master-data/ResetPasswordDialog'
@@ -457,21 +456,6 @@ export default function UsersRolesPage() {
               </div>
             )}
 
-            {/* Approval Chain Management */}
-            <div className="rounded-lg border border-border bg-card p-4 space-y-3 shadow-sm">
-              <div className="flex items-center gap-2">
-                <div className="flex h-8 w-8 items-center justify-center rounded-md bg-primary/10 shrink-0">
-                  <Shield className="h-4 w-4 text-primary" />
-                </div>
-                <div>
-                  <h3 className="text-sm font-semibold">Approval Chain Management</h3>
-                  <p className="text-xs text-muted-foreground">
-                    Configure which steps are active in each approval workflow.
-                  </p>
-                </div>
-              </div>
-              <ApprovalChainManagement />
-            </div>
           </div>
         </TabsContent>
 
