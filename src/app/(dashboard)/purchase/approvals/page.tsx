@@ -34,6 +34,13 @@ import { EmptyState } from '@/components/shared/EmptyState'
 interface ApprovalDialogState {
   po: PurchaseOrder
   step: POApprovalStep
+  // Pending steps in this PO's latest iteration where the caller holds the
+  // approval-slot role. >1 means the dialog shows a role chooser; the caller
+  // (e.g. an Owner who also holds Purchase Manager / Accountant slots) must
+  // explicitly pick which role they're acting as before the Approve click
+  // commits — otherwise we'd silently approve whichever step happened to be
+  // first in the chain.
+  matchingSteps: POApprovalStep[]
 }
 
 const ROLE_LABELS: Record<string, string> = {
@@ -61,11 +68,18 @@ export default function ApprovalsPage() {
     const allSteps = po.po_approvals ?? []
     const maxIteration = Math.max(...allSteps.map((s: any) => s.iteration ?? 1), 1)
     const activePending = (s: any) => s.status === 'pending' && s.is_active && (s.iteration ?? 1) === maxIteration
-    const step =
-      allSteps.find((s: any) => activePending(s) && myRoles.includes(s.role))
-      ?? allSteps.find(activePending)
+    const matchingSteps = (allSteps as POApprovalStep[])
+      .filter((s) => activePending(s) && myRoles.includes(s.role))
+    // No matching role: fall back to the first pending step so an Owner viewing
+    // a PO outside their role set still sees the chain context (the Approve
+    // button stays disabled via the matchingSteps.length === 0 guard below).
+    const fallback = (allSteps as POApprovalStep[]).find(activePending)
+    // Default to the LAST matching step (Owner usually sits at chain bottom).
+    // The user can pick a different one in the dialog if they hold more than
+    // one role on this chain.
+    const step = matchingSteps[matchingSteps.length - 1] ?? fallback
     if (!step) return
-    setDialogState({ po, step })
+    setDialogState({ po, step, matchingSteps })
     setComment('')
     setShowRejectOptions(false)
     setRejectMode('full_rejection')
@@ -266,12 +280,40 @@ export default function ApprovalsPage() {
                     <span className="font-semibold">{formatCurrency(dialogState.po.total_qar, 'QAR')}</span>
                   </div>
                   <div className="flex justify-between gap-2">
-                    <span className="text-muted-foreground shrink-0">Approval step</span>
+                    <span className="text-muted-foreground shrink-0">
+                      {dialogState.matchingSteps.length > 1 ? 'Approving as' : 'Approval step'}
+                    </span>
                     <div className="flex flex-wrap gap-1 justify-end">
-                      <Badge variant="outline">{ROLE_LABELS[dialogState.step.role] ?? dialogState.step.role}</Badge>
+                      {dialogState.matchingSteps.length > 1 ? (
+                        dialogState.matchingSteps.map((s) => {
+                          const isPicked = s.id === dialogState.step.id
+                          return (
+                            <button
+                              key={s.id}
+                              type="button"
+                              onClick={() => setDialogState({ ...dialogState, step: s })}
+                              className={`rounded-md border px-2 py-0.5 text-xs font-medium transition-colors ${
+                                isPicked
+                                  ? 'border-primary bg-primary text-primary-foreground'
+                                  : 'border-input bg-background hover:bg-muted'
+                              }`}
+                              aria-pressed={isPicked}
+                            >
+                              {ROLE_LABELS[s.role] ?? s.role}
+                            </button>
+                          )
+                        })
+                      ) : (
+                        <Badge variant="outline">{ROLE_LABELS[dialogState.step.role] ?? dialogState.step.role}</Badge>
+                      )}
                     </div>
                   </div>
                 </div>
+                {dialogState.matchingSteps.length === 0 && (
+                  <div className="rounded-md border border-amber-300 bg-amber-50 px-3 py-2 text-xs text-amber-800">
+                    You don&apos;t hold any of the pending roles on this chain. Approve is disabled — use Force Approve from the list if you need to push it through as Owner.
+                  </div>
+                )}
 
                 {(dialogState.po.po_line_items ?? []).length > 0 && (
                   <div className="rounded-md border overflow-x-auto">
@@ -349,7 +391,11 @@ export default function ApprovalsPage() {
                     <Button variant="outline" className="text-destructive border-destructive hover:bg-destructive/5" onClick={() => setShowRejectOptions(true)} disabled={isMutating}>
                       ✗ Reject
                     </Button>
-                    <Button onClick={handleApprove} disabled={isMutating} className="bg-success hover:bg-success/90 text-white">
+                    <Button
+                      onClick={handleApprove}
+                      disabled={isMutating || dialogState.matchingSteps.length === 0}
+                      className="bg-success hover:bg-success/90 text-white"
+                    >
                       {approveStep.isPending ? 'Approving…' : '✓ Approve'}
                     </Button>
                   </>
