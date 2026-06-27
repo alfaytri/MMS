@@ -195,27 +195,17 @@ export function SoLineItemsEditor({
               </div>
             </div>
 
-            {/* Column labels */}
-            <div className="grid grid-cols-[minmax(0,2fr)_80px_65px_60px_85px_70px] gap-2 px-3 py-1.5 bg-muted/30 text-[10px] font-medium text-muted-foreground uppercase tracking-wider">
-              <span>Item Name</span>
-              <span>SKU</span>
-              <span>Qty *</span>
-              <span>Unit</span>
-              <span>Unit Price *</span>
-              <span>Total</span>
-            </div>
-
             {/* Rows */}
             <div className="divide-y">
               {rows.map((row) => {
                 const isInventory = lineType !== 'tools'
                 return (
-                  <div key={row._key} className="px-3 py-2 space-y-1.5">
-                    {/* Selector row */}
-                    <div className="flex items-center gap-2">
-                      <div className="flex-1">
+                  <div key={row._key} className="px-3 py-2.5 space-y-2">
+                    {/* Row 1: item picker + delete */}
+                    <div className="flex items-start gap-2">
+                      <div className="flex-1 min-w-0">
                         {readOnly ? (
-                          <div className="h-8 px-2 flex items-center rounded-md border bg-muted/30 text-sm font-medium truncate">
+                          <div className="h-9 px-2 flex items-center rounded-md border bg-muted/30 text-sm font-medium truncate">
                             {row.item_name || '—'}
                           </div>
                         ) : isInventory ? (
@@ -241,50 +231,65 @@ export function SoLineItemsEditor({
                           type="button"
                           variant="ghost"
                           size="icon"
-                          className="h-7 w-7 text-destructive/60 hover:text-destructive shrink-0"
+                          className="h-9 w-9 text-destructive/60 hover:text-destructive shrink-0"
                           onClick={() => removeRow(row._key)}
+                          aria-label="Remove line"
                         >
-                          <Trash2 className="h-3.5 w-3.5" />
+                          <Trash2 className="h-4 w-4" />
                         </Button>
                       )}
                     </div>
 
-                    {/* Field grid */}
-                    <div className="grid grid-cols-[minmax(0,2fr)_80px_65px_60px_85px_70px] gap-2 items-center">
-                      <div />
-                      <Input
-                        className="h-7 text-xs"
-                        placeholder="SKU"
-                        value={row.sku}
-                        readOnly={readOnly}
-                        onChange={(e) => updateRow(row._key, { sku: e.target.value })}
-                      />
-                      <Input
-                        type="number"
-                        min={1}
-                        className="h-7 text-xs text-right"
-                        value={row.qty}
-                        readOnly={readOnly}
-                        onChange={(e) => updateRow(row._key, { qty: Math.max(1, Number(e.target.value)) })}
-                      />
-                      <Input
-                        className="h-7 text-xs"
-                        placeholder="pcs"
-                        value={row.unit}
-                        readOnly={readOnly}
-                        onChange={(e) => updateRow(row._key, { unit: e.target.value })}
-                      />
-                      <Input
-                        type="number"
-                        min={0}
-                        step="0.01"
-                        className="h-7 text-xs text-right"
-                        value={row.unit_price}
-                        readOnly={readOnly}
-                        onChange={(e) => updateRow(row._key, { unit_price: Number(e.target.value) })}
-                      />
-                      <div className="h-7 px-2 flex items-center justify-end rounded-md bg-muted/30 text-xs font-medium tabular-nums">
-                        {formatCurrency(row.total, currency)}
+                    {/* Row 2: field grid — responsive flex-wrap, generous gap, fixed widths */}
+                    <div className="flex flex-wrap gap-3 pl-1">
+                      <div className="space-y-0.5 w-[120px]">
+                        <label className="text-[10px] font-medium text-muted-foreground uppercase tracking-wider">SKU</label>
+                        <Input
+                          className="h-9 text-sm"
+                          placeholder="SKU"
+                          value={row.sku}
+                          readOnly={readOnly}
+                          onChange={(e) => updateRow(row._key, { sku: e.target.value })}
+                        />
+                      </div>
+                      <div className="space-y-0.5 w-[80px]">
+                        <label className="text-[10px] font-medium text-muted-foreground uppercase tracking-wider">Qty *</label>
+                        <Input
+                          type="number"
+                          min={1}
+                          className="h-9 text-sm text-right tabular-nums"
+                          value={row.qty}
+                          readOnly={readOnly}
+                          onChange={(e) => updateRow(row._key, { qty: Math.max(1, Number(e.target.value)) })}
+                        />
+                      </div>
+                      <div className="space-y-0.5 w-[80px]">
+                        <label className="text-[10px] font-medium text-muted-foreground uppercase tracking-wider">Unit</label>
+                        <Input
+                          className="h-9 text-sm"
+                          placeholder="pcs"
+                          value={row.unit}
+                          readOnly={readOnly}
+                          onChange={(e) => updateRow(row._key, { unit: e.target.value })}
+                        />
+                      </div>
+                      <div className="space-y-0.5 w-[130px]">
+                        <label className="text-[10px] font-medium text-muted-foreground uppercase tracking-wider">Unit Price *</label>
+                        <Input
+                          type="number"
+                          min={0}
+                          step="0.01"
+                          className="h-9 text-sm text-right tabular-nums"
+                          value={row.unit_price}
+                          readOnly={readOnly}
+                          onChange={(e) => updateRow(row._key, { unit_price: Number(e.target.value) })}
+                        />
+                      </div>
+                      <div className="space-y-0.5 flex-1 min-w-[140px]">
+                        <label className="text-[10px] font-medium text-muted-foreground uppercase tracking-wider">Total</label>
+                        <div className="h-9 px-3 flex items-center justify-end rounded-md border bg-muted/30 text-sm font-semibold tabular-nums">
+                          {formatCurrency(row.total, currency)}
+                        </div>
                       </div>
                     </div>
                   </div>
