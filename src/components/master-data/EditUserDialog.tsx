@@ -23,6 +23,9 @@ import {
   Select, SelectContent, SelectGroup, SelectItem, SelectLabel, SelectTrigger, SelectValue,
 } from '@/components/ui/select'
 import {
+  Popover, PopoverContent, PopoverTrigger,
+} from '@/components/ui/popover'
+import {
   useUpdateUser, useUserDivisions, useAssignDivision, useRemoveDivision, type Profile,
 } from '@/hooks/useProfiles'
 import { useRoles, type CustomRole } from '@/hooks/useRoles'
@@ -31,8 +34,20 @@ import { useCompanies } from '@/hooks/useCompanies'
 import { createClient } from '@/lib/supabase/client'
 import { queryKeys } from '@/lib/queryKeys'
 
+const SCOPE_VALUES = ['po', 'inv_check', 'stock_adj', 'sales_margin', 'sales_credit'] as const
+type ScopeValue = typeof SCOPE_VALUES[number]
+
+const SCOPE_LABELS: Record<ScopeValue, string> = {
+  po:           'PO',
+  inv_check:    'Inv Check',
+  stock_adj:    'Stock Adj',
+  sales_margin: 'Sales Margin',
+  sales_credit: 'Sales Credit',
+}
+
 const ROLE_ASSIGNMENT = z.object({
   role_id: z.string().uuid(),
+  approval_scopes: z.array(z.enum(SCOPE_VALUES)).nullable().default(null),
 })
 
 const schema = z.object({
@@ -49,6 +64,76 @@ interface Props {
   open: boolean
   onOpenChange: (v: boolean) => void
   profile: (Profile & { user_custom_roles?: Array<{ role_id: string; approval_scopes?: string[] | null }> }) | null
+}
+
+function RoleScopePicker({
+  scopes,
+  onChange,
+}: {
+  scopes: ScopeValue[] | null
+  onChange: (next: ScopeValue[] | null) => void
+}) {
+  const [open, setOpen] = useState(false)
+  const allMode = scopes === null
+  const summary =
+    allMode ? 'All scopes' :
+    scopes.length === 0 ? 'No scopes' :
+    scopes.map((s) => SCOPE_LABELS[s]).join(', ')
+  const tone =
+    allMode ? 'text-muted-foreground' :
+    scopes.length === 0 ? 'text-destructive' :
+    'text-foreground'
+
+  function toggle(scope: ScopeValue) {
+    const current = scopes ?? [...SCOPE_VALUES]
+    const next = current.includes(scope)
+      ? current.filter((s) => s !== scope)
+      : [...current, scope]
+    onChange(next)
+  }
+
+  function setAllMode(on: boolean) {
+    onChange(on ? null : [])
+  }
+
+  return (
+    <Popover open={open} onOpenChange={setOpen}>
+      <PopoverTrigger asChild>
+        <button
+          type="button"
+          className={`rounded-full bg-background/80 px-1.5 py-0.5 text-[10px] font-medium border border-border/60 hover:bg-background max-w-[180px] truncate ${tone}`}
+          title="Approval scopes"
+        >
+          {summary}
+        </button>
+      </PopoverTrigger>
+      <PopoverContent className="w-56 p-2 space-y-1" align="start">
+        <label className="flex items-center gap-2 text-xs cursor-pointer py-1 px-1 rounded hover:bg-muted/50">
+          <Checkbox
+            checked={allMode}
+            onCheckedChange={(c) => setAllMode(Boolean(c))}
+          />
+          <span className="font-medium">All scopes</span>
+        </label>
+        <div className="border-t my-1" />
+        {SCOPE_VALUES.map((s) => (
+          <label
+            key={s}
+            className={`flex items-center gap-2 text-xs cursor-pointer py-1 px-1 rounded hover:bg-muted/50 ${
+              allMode ? 'opacity-50 pointer-events-none' : ''
+            }`}
+          >
+            <Checkbox
+              checked={!allMode && (scopes ?? []).includes(s)}
+              onCheckedChange={() => toggle(s)}
+              disabled={allMode}
+            />
+            <span>{SCOPE_LABELS[s]}</span>
+          </label>
+        ))}
+      </PopoverContent>
+    </Popover>
+  )
 }
 
 export function EditUserDialog({ open, onOpenChange, profile }: Props) {
@@ -166,7 +251,10 @@ export function EditUserDialog({ open, onOpenChange, profile }: Props) {
   useEffect(() => {
     if (profile && open) {
       const initialAssignments: RoleAssignment[] = (profile?.user_custom_roles ?? [])
-        .map((r) => ({ role_id: r.role_id }))
+        .map((r) => ({
+          role_id: r.role_id,
+          approval_scopes: (r.approval_scopes ?? null) as ScopeValue[] | null,
+        }))
       form.reset({
         full_name: profile.full_name ?? '',
         username: (profile.email ?? '').replace(/@mms\.local$/, ''),
@@ -198,7 +286,7 @@ export function EditUserDialog({ open, onOpenChange, profile }: Props) {
           ? []
           : values.role_assignments.map((a) => ({
               role_id: a.role_id,
-              approval_scopes: null,
+              approval_scopes: a.approval_scopes ?? null,
             })),
         is_team_leader: isTl,
         employee_id: linkedEmployeeId && linkedEmployeeId !== '__change__'
@@ -413,6 +501,16 @@ export function EditUserDialog({ open, onOpenChange, profile }: Props) {
                         >
                           <Icon className="h-3 w-3 shrink-0 opacity-70" />
                           <span>{role.name}</span>
+                          {isAS && (
+                            <RoleScopePicker
+                              scopes={(assignment.approval_scopes ?? null) as ScopeValue[] | null}
+                              onChange={(next) => {
+                                const updated = [...form.getValues('role_assignments')]
+                                updated[idx] = { ...updated[idx], approval_scopes: next }
+                                form.setValue('role_assignments', updated, { shouldDirty: true })
+                              }}
+                            />
+                          )}
                           <button
                             type="button"
                             className="rounded-full p-0.5 opacity-60 hover:opacity-100 hover:bg-background/80 transition"
@@ -444,7 +542,7 @@ export function EditUserDialog({ open, onOpenChange, profile }: Props) {
                         if (!id) return
                         const current = form.getValues('role_assignments')
                         if (current.some((a) => a.role_id === id)) return
-                        form.setValue('role_assignments', [...current, { role_id: id }], { shouldDirty: true })
+                        form.setValue('role_assignments', [...current, { role_id: id, approval_scopes: null }], { shouldDirty: true })
                       }}
                     >
                       <SelectTrigger className="w-full sm:w-72 h-9 text-sm">

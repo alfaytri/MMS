@@ -202,7 +202,13 @@ export default function UsersRolesPage() {
         }).user_custom_roles
         if (!userRoles?.length) return <span className="text-muted-foreground text-xs">None</span>
 
-        const SHORT_SCOPE: Record<string, string> = { po: 'PO', inv_check: 'Inv', stock_adj: 'Adj' }
+        const SHORT_SCOPE: Record<string, string> = {
+          po:           'PO',
+          inv_check:    'Inv',
+          stock_adj:    'Adj',
+          sales_margin: 'S-Margin',
+          sales_credit: 'S-Credit',
+        }
 
         return (
           <div className="flex gap-1 flex-wrap">
@@ -211,7 +217,7 @@ export default function UsersRolesPage() {
               if (!cr) return null
               const isAS = cr.is_approval_slot
               const scopeSuffix =
-                isAS && ur.approval_scopes && ur.approval_scopes.length < 3
+                isAS && ur.approval_scopes && ur.approval_scopes.length < 5
                   ? ` (${ur.approval_scopes.map((s) => SHORT_SCOPE[s] ?? s).join(', ')})`
                   : ''
               return (
