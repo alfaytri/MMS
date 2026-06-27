@@ -30,7 +30,7 @@ export const DEFAULT_TERMS: SoTermsValues = {
   validity_days:        30,
 }
 
-const PAYMENT_PRESETS: { label: string; milestones: PaymentMilestone[] }[] = [
+export const PAYMENT_PRESETS: { label: string; milestones: PaymentMilestone[] }[] = [
   { label: '100% Advance',       milestones: [{ label: 'Advance Payment', percent: 100 }] },
   { label: '100% After Delivery', milestones: [{ label: 'Upon Delivery', percent: 100 }] },
   { label: '50/50',              milestones: [{ label: 'Advance Payment', percent: 50 }, { label: 'Upon Delivery', percent: 50 }] },

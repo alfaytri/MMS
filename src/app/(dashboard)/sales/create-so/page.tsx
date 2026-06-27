@@ -13,7 +13,7 @@ import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover
 import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from '@/components/ui/command'
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog'
 import { SoLineItemsEditor, type SoLineItemRow } from '@/components/sales/SoLineItemsEditor'
-import { SoTermsSection, DEFAULT_TERMS, type SoTermsValues } from '@/components/sales/SoTermsSection'
+import { SoTermsSection, DEFAULT_TERMS, PAYMENT_PRESETS, type SoTermsValues } from '@/components/sales/SoTermsSection'
 import {
   useCreateSO, useCustomers, useCreateCustomer,
   calcSOSubtotal, calcSOTotal, hasNegativeMargin,
@@ -95,11 +95,27 @@ export default function CreateSOPage() {
   const negativeMargin = hasNegativeMargin(lineItems)
   const isCash         = customerType === 'cash'
 
+  // Approval pre-check — does this SO look like it'll trip a gate when confirmed?
+  // (UI hint only; the SQL still authoritatively decides on submit.)
+  //   margin gate: any line priced below avg_cost (client-side, exact)
+  //   credit gate: customer total > credit_limit (approx — ignores other open SOs)
+  const wouldNeedApproval = useMemo(() => {
+    if (!customerId || lineItems.length === 0) return false
+    const hasBelowCost = lineItems.some((li) => li.avg_cost > 0 && li.unit_price < li.avg_cost)
+    const totalQar     = total * (exchangeRate || 1)
+    const exceedsCredit = !isCash
+      && customerCreditLimit !== null
+      && customerCreditLimit > 0
+      && totalQar > customerCreditLimit
+    return hasBelowCost || exceedsCredit
+  }, [customerId, lineItems, total, exchangeRate, isCash, customerCreditLimit])
+
   function handleSelectCustomer(c: {
     id: string; name: string
     credit_group_id: string | null
     credit_group_name?: string | null
     credit_group_limit?: number | null
+    credit_group_default_terms?: string | null
     customer_type?: string | null
   }) {
     setCustomerId(c.id); setCustomerName(c.name); setCustomerSearch(c.name)
@@ -108,6 +124,19 @@ export default function CreateSOPage() {
     setCustomerCreditLimit(c.credit_group_limit ?? null)
     setCustomerType((c.customer_type as 'cash' | 'credit') ?? 'credit')
     setCustomerOpen(false)
+
+    // Auto-select payment terms from the credit group's default (credit only)
+    const defaultTerms = c.credit_group_default_terms ?? null
+    if (defaultTerms && c.customer_type !== 'cash') {
+      const preset = PAYMENT_PRESETS.find((p) => p.label === defaultTerms)
+      setTerms((prev) => ({
+        ...prev,
+        payment_terms: defaultTerms,
+        payment_milestones: preset
+          ? preset.milestones.map((m) => ({ ...m, _key: crypto.randomUUID() }))
+          : [],
+      }))
+    }
   }
 
   function handleAddCustomer() {
@@ -121,12 +150,13 @@ export default function CreateSOPage() {
           toast.success('Customer added')
           const group = creditGroups.find((g) => g.id === groupId)
           handleSelectCustomer({
-            id:                 data.id,
-            name:               data.name,
-            credit_group_id:    groupId,
-            credit_group_name:  group?.name  ?? null,
-            credit_group_limit: group?.credit_limit ?? null,
-            customer_type:      newCustomerType,
+            id:                         data.id,
+            name:                       data.name,
+            credit_group_id:            groupId,
+            credit_group_name:          group?.name  ?? null,
+            credit_group_limit:         group?.credit_limit ?? null,
+            credit_group_default_terms: group?.default_payment_terms ?? null,
+            customer_type:              newCustomerType,
           })
           setAddOpen(false); setNewName(''); setNewPhone(''); setNewEmail(''); setNewCreditGroupId(''); setNewCustomerType('credit')
         },
@@ -216,9 +246,23 @@ export default function CreateSOPage() {
             <Save className="h-3.5 w-3.5" />
             <span className="hidden sm:inline">{isPending ? 'Saving…' : 'Save as Quotation'}</span>
           </Button>
-          <Button size="sm" className="gap-1.5" onClick={confirmOrder} disabled={isPending || isPriceLoading}>
-            <CheckCircle2 className="h-3.5 w-3.5" />
-            <span className="hidden sm:inline">{isPending ? 'Confirming…' : 'Confirm Order'}</span>
+          <Button
+            size="sm"
+            className={
+              wouldNeedApproval
+                ? 'gap-1.5 bg-amber-500 text-white hover:bg-amber-600 focus-visible:ring-amber-500'
+                : 'gap-1.5'
+            }
+            onClick={confirmOrder}
+            disabled={isPending || isPriceLoading}
+            title={wouldNeedApproval ? 'This order trips an approval gate — it will be sent to the Sales Approvals queue instead of being confirmed.' : undefined}
+          >
+            {wouldNeedApproval ? <AlertTriangle className="h-3.5 w-3.5" /> : <CheckCircle2 className="h-3.5 w-3.5" />}
+            <span className="hidden sm:inline">
+              {isPending
+                ? (wouldNeedApproval ? 'Submitting…' : 'Confirming…')
+                : (wouldNeedApproval ? 'Submit for Approval' : 'Confirm Order')}
+            </span>
           </Button>
         </div>
       </div>
