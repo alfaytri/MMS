@@ -313,3 +313,29 @@ export function useCreateCreditNoteForReturn() {
     },
   })
 }
+
+export function useUnresolvedReturns(soId: string | null) {
+  const supabase = createClient()
+
+  return useQuery({
+    queryKey: ['saleReturns', 'unresolved', soId],
+    enabled: !!soId,
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from('returns')
+        .select('*, credit_notes!returns_credit_note_id_fkey(id, resolution_type)')
+        .eq('source_type', 'sale_order')
+        .eq('source_id', soId!)
+        .eq('status', 'restocked')
+        .is('deleted_at', null)
+
+      if (error) throw error
+
+      return (data ?? []).filter((r: any) => {
+        const cn = r.credit_notes
+        return cn && cn.resolution_type === null
+      }) as (SaleReturn & { credit_notes: { id: string; resolution_type: string | null } })[]
+    },
+    staleTime: 30_000,
+  })
+}

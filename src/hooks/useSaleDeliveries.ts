@@ -24,6 +24,8 @@ export type SaleDelivery = {
   status: DeliveryStatus | null
   created_by_name: string | null
   created_at: string
+  type: 'standard' | 'replacement'
+  return_id: string | null
   // joined
   so_number?: string
   customer_name?: string
@@ -174,6 +176,72 @@ export function useCancelDelivery() {
         entity_id: variables.soId,
         severity:  'warning',
       })
+    },
+  })
+}
+
+export function useCreateReplacementDelivery() {
+  const qc = useQueryClient()
+  const supabase = createClient()
+
+  return useMutation({
+    mutationFn: async (input: {
+      soId: string
+      warehouseId: string
+      warehouseName: string
+      returnData: { items: { item_name: string; sku: string | null; qty: number; brand_variant_id: string | null }[] }
+      returnId: string
+      creditNoteId: string
+    }) => {
+      const items = input.returnData.items.map((item) => ({
+        item_name: item.item_name,
+        sku: item.sku,
+        qty_delivered: item.qty,
+        brand_variant_id: item.brand_variant_id,
+      }))
+
+      // Generate delivery number
+      const { count } = await supabase
+        .from('sale_deliveries')
+        .select('*', { count: 'exact', head: true })
+      const delivery_number = `DEL-${String((count ?? 0) + 1).padStart(5, '0')}`
+
+      const today = new Date().toISOString().split('T')[0]
+
+      // Create the replacement delivery (starts as pending like normal deliveries)
+      const { data, error } = await supabase
+        .from('sale_deliveries')
+        .insert({
+          delivery_number,
+          sale_order_id: input.soId,
+          warehouse_id: input.warehouseId,
+          warehouse_name: input.warehouseName,
+          date: today,
+          items,
+          status: 'pending',
+          type: 'replacement',
+          return_id: input.returnId,
+        })
+        .select()
+        .single()
+
+      if (error) throw error
+
+      // Mark credit note as resolved
+      const { error: cnErr } = await supabase
+        .from('credit_notes')
+        .update({ resolution_type: 'replacement' })
+        .eq('id', input.creditNoteId)
+
+      if (cnErr) throw cnErr
+
+      return data
+    },
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: queryKeys.saleDeliveries.all })
+      qc.invalidateQueries({ queryKey: queryKeys.saleOrders.all })
+      qc.invalidateQueries({ queryKey: ['saleReturns'] })
+      qc.invalidateQueries({ queryKey: queryKeys.creditNotes.all })
     },
   })
 }

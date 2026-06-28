@@ -12,6 +12,7 @@ import { Skeleton } from '@/components/ui/skeleton'
 import { SoStatusBadge } from './SoStatusBadge'
 import { SoPaymentDialog } from './SoPaymentDialog'
 import { SoDeliveryDialog } from './SoDeliveryDialog'
+import { ReplacementDeliveryDialog } from '@/components/sales/ReplacementDeliveryDialog'
 import { SoReturnsTab } from './SoReturnsTab'
 import { SoInvoiceTab } from './SoInvoiceTab'
 import { ActivityTimeline } from '@/components/shared/ActivityTimeline'
@@ -22,9 +23,9 @@ import {
   useSOPayments,
   type SaleOrder,
 } from '@/hooks/useSaleOrders'
-import { useCancelDelivery } from '@/hooks/useSaleDeliveries'
+import { useCancelDelivery, useCreateReplacementDelivery } from '@/hooks/useSaleDeliveries'
 import { useInvoicesBySO } from '@/hooks/useCustomerInvoices'
-import { useReturnsBySO } from '@/hooks/useSaleReturns'
+import { useReturnsBySO, useUnresolvedReturns } from '@/hooks/useSaleReturns'
 import { useActivityLog } from '@/hooks/useActivityLog'
 import { formatCurrency, formatDate } from '@/lib/utils/formatters'
 import {
@@ -52,6 +53,11 @@ export function SoDetailDialog({ open, onOpenChange, so, onEdit, onConfirm }: So
     open && so?.id ? { module: 'sale_orders', entity_id: so.id } : {}
   )
   const { data: soReturns = [] } = useReturnsBySO(open ? (so?.id ?? null) : null)
+
+  const [replacementOpen, setReplacementOpen] = useState(false)
+  const [selectedReturn, setSelectedReturn] = useState<any>(null)
+  const { data: unresolvedReturns = [] } = useUnresolvedReturns(open ? (so?.id ?? null) : null)
+  const createReplacement = useCreateReplacementDelivery()
 
   const current = fullSO ?? so
 
@@ -180,13 +186,39 @@ export function SoDetailDialog({ open, onOpenChange, so, onEdit, onConfirm }: So
 
               {/* ── Deliveries ───────────────────────────────────── */}
               <TabsContent value="deliveries" className="flex-1 overflow-y-auto space-y-3">
-                {(fullSO?.sale_deliveries ?? []).length === 0 ? (
+                {/* Send Replacement for unresolved returns */}
+                {unresolvedReturns.length > 0 && (
+                  <div className="space-y-2">
+                    {unresolvedReturns.map((ret: any) => (
+                      <div key={ret.id} className="flex items-center justify-between rounded-md border border-amber-200 bg-amber-50 px-3 py-2">
+                        <span className="text-sm">
+                          Return <span className="font-medium">{ret.return_number}</span> needs resolution
+                        </span>
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          onClick={() => { setSelectedReturn(ret); setReplacementOpen(true) }}
+                        >
+                          Send Replacement
+                        </Button>
+                      </div>
+                    ))}
+                  </div>
+                )}
+                {(fullSO?.sale_deliveries ?? []).length === 0 && unresolvedReturns.length === 0 ? (
                   <p className="text-sm text-muted-foreground py-4 text-center">No deliveries yet</p>
                 ) : (
                   (fullSO?.sale_deliveries ?? []).map((d) => (
                     <div key={d.id} className="rounded-md border p-3 space-y-2">
                       <div className="flex items-center justify-between">
-                        <span className="font-medium text-sm">{d.delivery_number}</span>
+                        <div className="flex items-center gap-2">
+                          <span className="font-medium text-sm">{d.delivery_number}</span>
+                          {(d as any).type === 'replacement' && (
+                            <span className="rounded bg-amber-100 px-1.5 py-0.5 text-xs font-medium text-amber-800">
+                              Replacement
+                            </span>
+                          )}
+                        </div>
                         <div className="flex items-center gap-2">
                           <Badge variant="outline" className="text-xs capitalize">{d.status}</Badge>
                           {(d.status === 'pending' || d.status === 'in_progress' || d.status === 'delivered') && (
@@ -297,6 +329,32 @@ export function SoDetailDialog({ open, onOpenChange, so, onEdit, onConfirm }: So
         <>
           <SoPaymentDialog open={paymentOpen} onOpenChange={setPaymentOpen} so={current} />
           <SoDeliveryDialog open={deliveryOpen} onOpenChange={setDeliveryOpen} so={current} />
+          {selectedReturn && (
+            <ReplacementDeliveryDialog
+              open={replacementOpen}
+              onOpenChange={setReplacementOpen}
+              returnData={selectedReturn}
+              soId={current.id}
+              isPending={createReplacement.isPending}
+              onConfirm={(warehouseId, warehouseName) => {
+                createReplacement.mutate({
+                  soId: current.id,
+                  warehouseId,
+                  warehouseName,
+                  returnData: selectedReturn,
+                  returnId: selectedReturn.id,
+                  creditNoteId: selectedReturn.credit_notes?.id ?? selectedReturn.credit_note_id,
+                }, {
+                  onSuccess: () => {
+                    toast.success('Replacement delivery created')
+                    setReplacementOpen(false)
+                    setSelectedReturn(null)
+                  },
+                  onError: (e) => { toast.error((e as Error).message) },
+                })
+              }}
+            />
+          )}
         </>
       )}
     </>
