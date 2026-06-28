@@ -240,7 +240,7 @@ export function useCreateReplacementDelivery() {
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: queryKeys.saleDeliveries.all })
       qc.invalidateQueries({ queryKey: queryKeys.saleOrders.all })
-      qc.invalidateQueries({ queryKey: ['saleReturns'] })
+      qc.invalidateQueries({ queryKey: queryKeys.saleReturns.all })
       qc.invalidateQueries({ queryKey: queryKeys.creditNotes.all })
     },
   })

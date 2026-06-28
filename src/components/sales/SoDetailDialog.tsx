@@ -213,7 +213,7 @@ export function SoDetailDialog({ open, onOpenChange, so, onEdit, onConfirm }: So
                       <div className="flex items-center justify-between">
                         <div className="flex items-center gap-2">
                           <span className="font-medium text-sm">{d.delivery_number}</span>
-                          {(d as any).type === 'replacement' && (
+                          {d.type === 'replacement' && (
                             <span className="rounded bg-amber-100 px-1.5 py-0.5 text-xs font-medium text-amber-800">
                               Replacement
                             </span>

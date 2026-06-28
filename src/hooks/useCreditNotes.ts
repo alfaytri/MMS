@@ -49,6 +49,8 @@ export type CreditNote = {
   new_total: number | null
   source_return_id: string | null
   resolution_type: 'refund' | 'replacement' | 'store_credit' | null
+  refund_method: string | null
+  refund_reference: string | null
   line_items: NotePdfData | null
   created_at: string
   updated_at: string
@@ -246,7 +248,7 @@ export function useResolveCreditNoteRefund() {
   return useMutation({
     mutationFn: async (input: {
       creditNoteId: string
-      refundMethod: string
+      refundMethod: 'cash' | 'bank_transfer' | 'cheque' | 'online_transfer' | 'pos' | 'online' | 'pay_later' | 'fawran'
       refundReference: string
     }) => {
       const { error } = await supabase
@@ -284,7 +286,6 @@ export function useResolveCreditNoteStoreCredit() {
 
       if (!inv?.customer_id) throw new Error('Could not resolve customer')
 
-      // @ts-expect-error — increment_credit_balance not yet in generated DB types
       const { error: rpcError } = await supabase.rpc('increment_credit_balance', {
         p_customer_id: inv.customer_id,
         p_amount: input.amount,

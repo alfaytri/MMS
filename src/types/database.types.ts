@@ -1,4 +1,3 @@
-Initialising login role...
 export type Json =
   | string
   | number
@@ -12,31 +11,6 @@ export type Database = {
   // instead of createClient<Database, { PostgrestVersion: 'XX' }>(URL, KEY)
   __InternalSupabase: {
     PostgrestVersion: "14.5"
-  }
-  graphql_public: {
-    Tables: {
-      [_ in never]: never
-    }
-    Views: {
-      [_ in never]: never
-    }
-    Functions: {
-      graphql: {
-        Args: {
-          extensions?: Json
-          operationName?: string
-          query?: string
-          variables?: Json
-        }
-        Returns: Json
-      }
-    }
-    Enums: {
-      [_ in never]: never
-    }
-    CompositeTypes: {
-      [_ in never]: never
-    }
   }
   public: {
     Tables: {
@@ -1367,6 +1341,7 @@ export type Database = {
           reason: string
           refund_method: Database["public"]["Enums"]["payment_method"] | null
           refund_reference: string | null
+          resolution_type: string | null
           source_return_id: string | null
           status: Database["public"]["Enums"]["credit_note_status"] | null
           supplier_name: string | null
@@ -1392,6 +1367,7 @@ export type Database = {
           reason: string
           refund_method?: Database["public"]["Enums"]["payment_method"] | null
           refund_reference?: string | null
+          resolution_type?: string | null
           source_return_id?: string | null
           status?: Database["public"]["Enums"]["credit_note_status"] | null
           supplier_name?: string | null
@@ -1417,6 +1393,7 @@ export type Database = {
           reason?: string
           refund_method?: Database["public"]["Enums"]["payment_method"] | null
           refund_reference?: string | null
+          resolution_type?: string | null
           source_return_id?: string | null
           status?: Database["public"]["Enums"]["credit_note_status"] | null
           supplier_name?: string | null
@@ -1673,6 +1650,8 @@ export type Database = {
           decided_at: string | null
           decided_by: string | null
           decided_by_name: string | null
+          force_approved: boolean
+          force_comment: string | null
           id: string
           is_active: boolean
           iteration: number
@@ -1688,6 +1667,8 @@ export type Database = {
           decided_at?: string | null
           decided_by?: string | null
           decided_by_name?: string | null
+          force_approved?: boolean
+          force_comment?: string | null
           id?: string
           is_active?: boolean
           iteration?: number
@@ -1703,6 +1684,8 @@ export type Database = {
           decided_at?: string | null
           decided_by?: string | null
           decided_by_name?: string | null
+          force_approved?: boolean
+          force_comment?: string | null
           id?: string
           is_active?: boolean
           iteration?: number
@@ -6369,8 +6352,10 @@ export type Database = {
           delivery_number: string
           id: string
           items: Json
+          return_id: string | null
           sale_order_id: string
           status: Database["public"]["Enums"]["sale_delivery_status"] | null
+          type: string
           updated_at: string
           warehouse_id: string | null
           warehouse_name: string | null
@@ -6383,8 +6368,10 @@ export type Database = {
           delivery_number: string
           id?: string
           items?: Json
+          return_id?: string | null
           sale_order_id: string
           status?: Database["public"]["Enums"]["sale_delivery_status"] | null
+          type?: string
           updated_at?: string
           warehouse_id?: string | null
           warehouse_name?: string | null
@@ -6397,8 +6384,10 @@ export type Database = {
           delivery_number?: string
           id?: string
           items?: Json
+          return_id?: string | null
           sale_order_id?: string
           status?: Database["public"]["Enums"]["sale_delivery_status"] | null
+          type?: string
           updated_at?: string
           warehouse_id?: string | null
           warehouse_name?: string | null
@@ -6409,6 +6398,13 @@ export type Database = {
             columns: ["created_by"]
             isOneToOne: false
             referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "sale_deliveries_return_id_fkey"
+            columns: ["return_id"]
+            isOneToOne: false
+            referencedRelation: "returns"
             referencedColumns: ["id"]
           },
           {
@@ -9994,6 +9990,10 @@ export type Database = {
       }
       fn_refresh_incoming_qty: { Args: { p_bv_id: string }; Returns: undefined }
       fn_refresh_reserved_qty: { Args: { p_bv_id: string }; Returns: undefined }
+      force_approve_credit_group_change: {
+        Args: { p_comment?: string; p_request_id: string }
+        Returns: number
+      }
       force_approve_sales_request: {
         Args: {
           p_approval_type: Database["public"]["Enums"]["approval_type"]
@@ -10072,6 +10072,10 @@ export type Database = {
       has_inventory_manager_role: {
         Args: { p_profile_id: string }
         Returns: boolean
+      }
+      increment_credit_balance: {
+        Args: { p_amount: number; p_customer_id: string }
+        Returns: undefined
       }
       is_contract_visible: { Args: { p_contract_id: string }; Returns: boolean }
       is_division_visible: {
@@ -10618,9 +10622,6 @@ export type CompositeTypes<
     : never
 
 export const Constants = {
-  graphql_public: {
-    Enums: {},
-  },
   public: {
     Enums: {
       address_type: ["blue-plate", "google-coords"],
@@ -10831,5 +10832,3 @@ export const Constants = {
     },
   },
 } as const
-A new version of Supabase CLI is available: v2.108.0 (currently installed v2.91.3)
-We recommend updating regularly for new features and bug fixes: https://supabase.com/docs/guides/cli/getting-started#updating-the-supabase-cli

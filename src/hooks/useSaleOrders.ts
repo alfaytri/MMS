@@ -48,6 +48,8 @@ export type SaleDelivery = {
   status: string
   created_by_name: string | null
   created_at: string
+  type: 'standard' | 'replacement'
+  return_id: string | null
 }
 
 export type SaleOrder = {

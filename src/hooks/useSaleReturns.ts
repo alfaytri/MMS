@@ -318,7 +318,7 @@ export function useUnresolvedReturns(soId: string | null) {
   const supabase = createClient()
 
   return useQuery({
-    queryKey: ['saleReturns', 'unresolved', soId],
+    queryKey: queryKeys.saleReturns.unresolved(soId),
     enabled: !!soId,
     queryFn: async () => {
       const { data, error } = await supabase
@@ -331,10 +331,10 @@ export function useUnresolvedReturns(soId: string | null) {
 
       if (error) throw error
 
-      return (data ?? []).filter((r: any) => {
+      return (data ?? []).filter((r) => {
         const cn = r.credit_notes
         return cn && cn.resolution_type === null
-      }) as (SaleReturn & { credit_notes: { id: string; resolution_type: string | null } })[]
+      }) as unknown as (SaleReturn & { credit_notes: { id: string; resolution_type: string | null } })[]
     },
     staleTime: 30_000,
   })

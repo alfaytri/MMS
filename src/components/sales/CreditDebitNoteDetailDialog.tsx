@@ -40,7 +40,7 @@ export function CreditDebitNoteDetailDialog({ note, referenceNumber, open, onOpe
   if (!note) return null
 
   const [showRefundForm, setShowRefundForm] = useState(false)
-  const [refundMethod, setRefundMethod] = useState('')
+  const [refundMethod, setRefundMethod] = useState<string>('')
   const [refundReference, setRefundReference] = useState('')
 
   const resolveRefund = useResolveCreditNoteRefund()
@@ -270,7 +270,7 @@ export function CreditDebitNoteDetailDialog({ note, referenceNumber, open, onOpe
                 <div className="grid grid-cols-2 gap-3">
                   <div>
                     <label className="text-xs text-muted-foreground">Method *</label>
-                    <Select value={refundMethod} onValueChange={setRefundMethod}>
+                    <Select value={refundMethod} onValueChange={(v) => setRefundMethod(v ?? '')}>
                       <SelectTrigger><SelectValue placeholder="Select method" /></SelectTrigger>
                       <SelectContent>
                         <SelectItem value="cash">Cash</SelectItem>
@@ -297,7 +297,7 @@ export function CreditDebitNoteDetailDialog({ note, referenceNumber, open, onOpe
                     onClick={() => {
                       resolveRefund.mutate({
                         creditNoteId: note.id,
-                        refundMethod,
+                        refundMethod: refundMethod as 'cash' | 'bank_transfer' | 'cheque' | 'online',
                         refundReference,
                       }, {
                         onSuccess: () => {
@@ -321,7 +321,7 @@ export function CreditDebitNoteDetailDialog({ note, referenceNumber, open, onOpe
           <div className="border-t pt-4">
             <div className="rounded-md bg-muted/50 px-3 py-2 text-sm">
               {note.resolution_type === 'refund' && (
-                <span>Refunded via {(note as any).refund_method?.replace(/_/g, ' ')} — Ref: {(note as any).refund_reference || '—'}</span>
+                <span>Refunded via {note.refund_method?.replace(/_/g, ' ')} — Ref: {note.refund_reference || '—'}</span>
               )}
               {note.resolution_type === 'replacement' && (
                 <span>Replacement sent</span>

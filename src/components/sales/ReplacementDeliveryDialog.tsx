@@ -67,7 +67,7 @@ export function ReplacementDeliveryDialog({
 
         <div>
           <label className="text-sm font-medium">Source Warehouse *</label>
-          <Select value={warehouseId} onValueChange={setWarehouseId}>
+          <Select value={warehouseId} onValueChange={(v) => setWarehouseId(v ?? '')}>
             <SelectTrigger className="mt-1">
               <SelectValue placeholder="Select warehouse" />
             </SelectTrigger>
