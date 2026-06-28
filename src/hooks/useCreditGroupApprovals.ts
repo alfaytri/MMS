@@ -44,9 +44,16 @@ export type CreditGroupRequest = {
   created_at:          string
   // joined
   customer_name?:      string | null
+  customer_phone?:     string | null
+  customer_email?:     string | null
+  customer_entity_type?: string | null
+  customer_type?:      string | null
   requested_group_name?: string | null
   previous_group_name?:  string | null
   requested_group_limit?: number | null
+  cr_url?:             string | null
+  establishment_id_url?: string | null
+  signed_credit_form_url?: string | null
   rows?:               CreditGroupApprovalRow[]
 }
 
@@ -60,7 +67,7 @@ export function usePendingCreditGroupRequests() {
         .from('customer_credit_group_requests')
         .select(`
           *,
-          customer:customers(name),
+          customer:customers(name, phone, email, entity_type, customer_type, cr_url, establishment_id_url, signed_credit_form_url),
           requested_group:credit_groups!customer_credit_group_requests_requested_group_id_fkey(name, credit_limit),
           previous_group:credit_groups!customer_credit_group_requests_previous_group_id_fkey(name),
           rows:customer_credit_group_approvals(*)
@@ -72,10 +79,17 @@ export function usePendingCreditGroupRequests() {
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       return (data ?? []).map((r: any) => ({
         ...r,
-        customer_name:         r.customer?.name ?? null,
-        requested_group_name:  r.requested_group?.name ?? null,
-        requested_group_limit: r.requested_group?.credit_limit ?? null,
-        previous_group_name:   r.previous_group?.name ?? null,
+        customer_name:           r.customer?.name ?? null,
+        customer_phone:          r.customer?.phone ?? null,
+        customer_email:          r.customer?.email ?? null,
+        customer_entity_type:    r.customer?.entity_type ?? null,
+        customer_type:           r.customer?.customer_type ?? null,
+        cr_url:                  r.customer?.cr_url ?? null,
+        establishment_id_url:    r.customer?.establishment_id_url ?? null,
+        signed_credit_form_url:  r.customer?.signed_credit_form_url ?? null,
+        requested_group_name:    r.requested_group?.name ?? null,
+        requested_group_limit:   r.requested_group?.credit_limit ?? null,
+        previous_group_name:     r.previous_group?.name ?? null,
       })) as CreditGroupRequest[]
     },
     staleTime: 30_000,
@@ -92,7 +106,7 @@ export function useCompletedCreditGroupRequests() {
         .from('customer_credit_group_requests')
         .select(`
           *,
-          customer:customers(name),
+          customer:customers(name, phone, email, entity_type, customer_type, cr_url, establishment_id_url, signed_credit_form_url),
           requested_group:credit_groups!customer_credit_group_requests_requested_group_id_fkey(name, credit_limit),
           previous_group:credit_groups!customer_credit_group_requests_previous_group_id_fkey(name),
           rows:customer_credit_group_approvals(*)
@@ -104,10 +118,17 @@ export function useCompletedCreditGroupRequests() {
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       return (data ?? []).map((r: any) => ({
         ...r,
-        customer_name:         r.customer?.name ?? null,
-        requested_group_name:  r.requested_group?.name ?? null,
-        requested_group_limit: r.requested_group?.credit_limit ?? null,
-        previous_group_name:   r.previous_group?.name ?? null,
+        customer_name:           r.customer?.name ?? null,
+        customer_phone:          r.customer?.phone ?? null,
+        customer_email:          r.customer?.email ?? null,
+        customer_entity_type:    r.customer?.entity_type ?? null,
+        customer_type:           r.customer?.customer_type ?? null,
+        cr_url:                  r.customer?.cr_url ?? null,
+        establishment_id_url:    r.customer?.establishment_id_url ?? null,
+        signed_credit_form_url:  r.customer?.signed_credit_form_url ?? null,
+        requested_group_name:    r.requested_group?.name ?? null,
+        requested_group_limit:   r.requested_group?.credit_limit ?? null,
+        previous_group_name:     r.previous_group?.name ?? null,
       })) as CreditGroupRequest[]
     },
     staleTime: 60_000,

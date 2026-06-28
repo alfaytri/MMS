@@ -11,9 +11,10 @@
  * Completed requests show in a compact table beneath.
  */
 
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { toast } from 'sonner'
-import { Check, X, AlertTriangle, ShieldAlert, CheckCircle2, XCircle } from 'lucide-react'
+import { Check, X, AlertTriangle, ShieldAlert, CheckCircle2, XCircle, FileText, ExternalLink, User } from 'lucide-react'
+import { createClient } from '@/lib/supabase/client'
 import { PageHeader } from '@/components/shared/PageHeader'
 import { PageWrapper } from '@/components/shared/PageWrapper'
 import { Skeleton } from '@/components/ui/skeleton'
@@ -176,6 +177,28 @@ export default function CreditGroupApprovalsPage() {
     )
   }
 
+  const [docUrls, setDocUrls] = useState<Record<string, string>>({})
+  useEffect(() => {
+    if (!dialogState) { setDocUrls({}); return }
+    const req = dialogState.request
+    const paths: { key: string; path: string }[] = []
+    if (req.cr_url) paths.push({ key: 'cr', path: req.cr_url })
+    if (req.establishment_id_url) paths.push({ key: 'establishment', path: req.establishment_id_url })
+    if (req.signed_credit_form_url) paths.push({ key: 'signed', path: req.signed_credit_form_url })
+    if (paths.length === 0) return
+    const supabase = createClient()
+    Promise.all(
+      paths.map(async ({ key, path }) => {
+        const { data } = await supabase.storage.from('customer-credit-docs').createSignedUrl(path, 3600)
+        return { key, url: data?.signedUrl ?? '' }
+      }),
+    ).then((results) => {
+      const map: Record<string, string> = {}
+      for (const r of results) if (r.url) map[r.key] = r.url
+      setDocUrls(map)
+    })
+  }, [dialogState?.request.id])
+
   const isMutating = approve.isPending || reject.isPending || forceApprove.isPending
 
   return (
@@ -221,7 +244,7 @@ export default function CreditGroupApprovalsPage() {
 
                   <div className="flex flex-wrap items-center justify-between gap-2">
                     <span className="text-sm text-muted-foreground">
-                      <span className="text-muted-foreground">{r.previous_group_name ?? 'Cash'}</span>
+                      <span className="text-muted-foreground">{r.previous_group_name ?? (r.previous_group_id ? 'Cash' : 'New')}</span>
                       <span className="mx-1.5">→</span>
                       <span className="font-medium text-foreground">{r.requested_group_name ?? '—'}</span>
                       <> · {formatDate(r.created_at)}</>
@@ -316,7 +339,7 @@ export default function CreditGroupApprovalsPage() {
                     <TableRow key={r.id}>
                       <TableCell className="font-medium">{r.customer_name ?? '—'}</TableCell>
                       <TableCell className="text-sm">
-                        <span className="text-muted-foreground">{r.previous_group_name ?? 'Cash'}</span>
+                        <span className="text-muted-foreground">{r.previous_group_name ?? (r.previous_group_id ? 'Cash' : 'New')}</span>
                         <span className="mx-1">→</span>
                         <span className="font-medium">{r.requested_group_name ?? '—'}</span>
                       </TableCell>
@@ -354,7 +377,7 @@ export default function CreditGroupApprovalsPage() {
 
       {/* ── Review Dialog ───────────────────────────────────── */}
       <Dialog open={!!dialogState} onOpenChange={(o) => { if (!o) setDialogState(null) }}>
-        <DialogContent className="w-full max-w-full h-full sm:h-auto sm:max-h-[90vh] rounded-none sm:max-w-2xl sm:rounded-lg flex flex-col p-0">
+        <DialogContent className="w-full max-w-full h-full sm:h-auto sm:max-h-[90vh] rounded-none sm:max-w-2xl sm:rounded-lg flex flex-col p-0 gap-0">
           {dialogState && (
             <>
               <DialogHeader className="px-6 pt-6 pb-2 shrink-0">
@@ -368,7 +391,7 @@ export default function CreditGroupApprovalsPage() {
                 <div className="rounded-md bg-muted p-3 space-y-1 text-sm">
                   <div className="flex justify-between">
                     <span className="text-muted-foreground">From</span>
-                    <span>{dialogState.request.previous_group_name ?? 'Cash'}</span>
+                    <span>{dialogState.request.previous_group_name ?? (dialogState.request.previous_group_id ? 'Cash' : 'New Customer')}</span>
                   </div>
                   <div className="flex justify-between">
                     <span className="text-muted-foreground">To</span>
@@ -414,6 +437,41 @@ export default function CreditGroupApprovalsPage() {
                   </div>
                 </div>
 
+                {/* Customer Details */}
+                {(dialogState.request.customer_phone || dialogState.request.customer_email || dialogState.request.customer_entity_type || dialogState.request.customer_type) && (
+                  <div className="space-y-2">
+                    <div className="text-sm font-medium flex items-center gap-1.5">
+                      <User className="h-4 w-4 text-primary" /> Customer Details
+                    </div>
+                    <div className="rounded-md border p-3 grid grid-cols-1 sm:grid-cols-2 gap-x-4 gap-y-2 text-sm">
+                      {dialogState.request.customer_entity_type && (
+                        <div className="flex justify-between sm:flex-col sm:gap-0.5">
+                          <span className="text-muted-foreground text-xs">Entity Type</span>
+                          <span className="font-medium capitalize">{dialogState.request.customer_entity_type.replace(/_/g, ' ')}</span>
+                        </div>
+                      )}
+                      {dialogState.request.customer_type && (
+                        <div className="flex justify-between sm:flex-col sm:gap-0.5">
+                          <span className="text-muted-foreground text-xs">Customer Type</span>
+                          <span className="font-medium capitalize">{dialogState.request.customer_type.replace(/_/g, ' ')}</span>
+                        </div>
+                      )}
+                      {dialogState.request.customer_phone && (
+                        <div className="flex justify-between sm:flex-col sm:gap-0.5">
+                          <span className="text-muted-foreground text-xs">Phone</span>
+                          <span className="font-medium">{dialogState.request.customer_phone}</span>
+                        </div>
+                      )}
+                      {dialogState.request.customer_email && (
+                        <div className="flex justify-between sm:flex-col sm:gap-0.5">
+                          <span className="text-muted-foreground text-xs">Email</span>
+                          <span className="font-medium">{dialogState.request.customer_email}</span>
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                )}
+
                 {dialogState.matchingSteps.length === 0 && (
                   <div className="rounded-md border border-amber-300 bg-amber-50 px-3 py-2 text-xs text-amber-800">
                     You don&apos;t hold any of the pending roles on this chain. Approve is disabled — use Force Approve from the list if you need to push it through as Owner.
@@ -431,6 +489,42 @@ export default function CreditGroupApprovalsPage() {
                     )}.
                   </div>
                 </div>
+
+                {/* Documents */}
+                {(dialogState.request.cr_url || dialogState.request.establishment_id_url || dialogState.request.signed_credit_form_url) && (
+                  <div className="space-y-2">
+                    <div className="text-sm font-medium flex items-center gap-1.5">
+                      <FileText className="h-4 w-4 text-primary" /> Submitted Documents
+                    </div>
+                    <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
+                      {([
+                        { key: 'cr', label: 'Commercial Registration', path: dialogState.request.cr_url },
+                        { key: 'establishment', label: 'Establishment ID', path: dialogState.request.establishment_id_url },
+                        { key: 'signed', label: 'Signed Credit Form', path: dialogState.request.signed_credit_form_url },
+                      ] as const).map((doc) => (
+                        <div key={doc.key} className="rounded-md border p-2.5 text-xs space-y-1">
+                          <div className="font-medium text-muted-foreground">{doc.label}</div>
+                          {doc.path ? (
+                            docUrls[doc.key] ? (
+                              <a
+                                href={docUrls[doc.key]}
+                                target="_blank"
+                                rel="noopener noreferrer"
+                                className="inline-flex items-center gap-1 text-primary hover:underline font-medium"
+                              >
+                                View <ExternalLink className="h-3 w-3" />
+                              </a>
+                            ) : (
+                              <span className="text-muted-foreground">Loading...</span>
+                            )
+                          ) : (
+                            <span className="text-destructive">Not uploaded</span>
+                          )}
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
 
                 {/* Chain visual */}
                 <div className="flex items-center gap-2">
@@ -480,7 +574,7 @@ export default function CreditGroupApprovalsPage() {
                 </div>
               </div>
 
-              <DialogFooter className="flex-col sm:flex-row gap-2 px-6 pb-6 pt-2 border-t shrink-0">
+              <DialogFooter className="!mx-0 !mb-0 flex-col sm:flex-row gap-2 px-6 pb-4 pt-3 border-t shrink-0 rounded-b-lg">
                 {!showRejectMode ? (
                   <>
                     <Button
