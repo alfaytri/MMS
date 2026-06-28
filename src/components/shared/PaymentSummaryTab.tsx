@@ -31,7 +31,7 @@ export function PaymentSummaryTab({
 
   return (
     <div className="space-y-4">
-      {canRecord && onRecordPayment && (
+      {canRecord && onRecordPayment && totalPaid < totalAmount && (
         <div className="flex justify-end">
           <Button size="sm" onClick={onRecordPayment}>+ Record Payment</Button>
         </div>
