@@ -15,6 +15,7 @@ import { formatCurrency, formatDate } from '@/lib/utils/formatters'
 import { cn } from '@/lib/utils'
 import type { CreditNote, CreditNoteStatus, NoteLineItem, NoteDebitLineItem } from '@/hooks/useCreditNotes'
 import { useResolveCreditNoteRefund, useResolveCreditNoteStoreCredit } from '@/hooks/useCreditNotes'
+import { usePaymentMethods } from '@/hooks/usePaymentMethods'
 
 const STATUS_CONFIG: Record<CreditNoteStatus, { label: string; className: string }> = {
   draft:    { label: 'Draft',    className: 'bg-muted text-foreground' },
@@ -45,6 +46,7 @@ export function CreditDebitNoteDetailDialog({ note, referenceNumber, open, onOpe
 
   const resolveRefund = useResolveCreditNoteRefund()
   const resolveStoreCredit = useResolveCreditNoteStoreCredit()
+  const { data: dbMethods = [] } = usePaymentMethods()
 
   const isCredit = note.note_type === 'credit'
   const isUnresolved = isCredit && note.status === 'issued' && !note.resolution_type
@@ -273,10 +275,9 @@ export function CreditDebitNoteDetailDialog({ note, referenceNumber, open, onOpe
                     <Select value={refundMethod} onValueChange={(v) => setRefundMethod(v ?? '')}>
                       <SelectTrigger><SelectValue placeholder="Select method" /></SelectTrigger>
                       <SelectContent>
-                        <SelectItem value="cash">Cash</SelectItem>
-                        <SelectItem value="bank_transfer">Bank Transfer</SelectItem>
-                        <SelectItem value="cheque">Cheque</SelectItem>
-                        <SelectItem value="online">Online</SelectItem>
+                        {dbMethods.map((m) => (
+                          <SelectItem key={m.id} value={m.slug}>{m.name}</SelectItem>
+                        ))}
                       </SelectContent>
                     </Select>
                   </div>

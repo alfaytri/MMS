@@ -2,12 +2,8 @@
 
 import { toast } from 'sonner'
 import { PaymentFormDialog, type PaymentFormValues } from '@/components/shared/PaymentFormDialog'
-import { useCreatePOPayment, usePOPayments, PAYMENT_METHODS, type PurchaseOrder, type PaymentMethod } from '@/hooks/usePurchaseOrders'
-
-const PO_METHODS = PAYMENT_METHODS.map((m) => ({
-  value: m,
-  label: m.replace(/_/g, ' ').replace(/\b\w/g, (c) => c.toUpperCase()),
-}))
+import { useCreatePOPayment, usePOPayments, type PurchaseOrder, type PaymentMethod } from '@/hooks/usePurchaseOrders'
+import { usePaymentMethods } from '@/hooks/usePaymentMethods'
 
 interface PoPaymentDialogProps {
   open: boolean
@@ -18,6 +14,9 @@ interface PoPaymentDialogProps {
 export function PoPaymentDialog({ open, onOpenChange, po }: PoPaymentDialogProps) {
   const createPayment = useCreatePOPayment()
   const { data: payments = [] } = usePOPayments(po.id)
+  const { data: dbMethods = [] } = usePaymentMethods()
+
+  const methods = dbMethods.map((m) => ({ value: m.slug, label: m.name }))
 
   const totalPaidQar = payments.reduce((s, p) => s + ((p as any).amount_qar ?? p.amount), 0)
   const showExchangeRate = po.currency !== 'QAR'
@@ -60,8 +59,8 @@ export function PoPaymentDialog({ open, onOpenChange, po }: PoPaymentDialogProps
       onOpenChange={onOpenChange}
       title={`Record Payment — ${po.po_number}`}
       currency={po.currency}
-      methods={PO_METHODS}
-      defaultMethod="bank_transfer"
+      methods={methods}
+      defaultMethod={methods[0]?.value ?? 'bank_transfer'}
       isPending={createPayment.isPending}
       onSubmit={handleSubmit}
       totalAmount={totalInCurrency}

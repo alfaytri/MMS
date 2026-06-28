@@ -3,17 +3,7 @@
 import { toast } from 'sonner'
 import { PaymentFormDialog, type PaymentFormValues } from '@/components/shared/PaymentFormDialog'
 import { useCreateSOPayment, useSOPayments, type SaleOrder } from '@/hooks/useSaleOrders'
-
-const SO_METHODS = [
-  { value: 'cash',            label: 'Cash' },
-  { value: 'bank_transfer',   label: 'Bank Transfer' },
-  { value: 'cheque',          label: 'Cheque' },
-  { value: 'online',          label: 'Online' },
-  { value: 'online_transfer', label: 'Online Transfer' },
-  { value: 'pay_later',       label: 'Pay Later' },
-  { value: 'fawran',          label: 'Fawran' },
-  { value: 'pos',             label: 'POS' },
-]
+import { usePaymentMethods } from '@/hooks/usePaymentMethods'
 
 interface SoPaymentDialogProps {
   open: boolean
@@ -24,6 +14,9 @@ interface SoPaymentDialogProps {
 export function SoPaymentDialog({ open, onOpenChange, so }: SoPaymentDialogProps) {
   const createPayment = useCreateSOPayment()
   const { data: payments = [] } = useSOPayments(so.id)
+  const { data: dbMethods = [] } = usePaymentMethods()
+
+  const methods = dbMethods.map((m) => ({ value: m.slug, label: m.name }))
 
   const totalPaid = payments.reduce((s, p) => s + ((p as any).amount_qar ?? p.amount), 0)
 
@@ -55,8 +48,8 @@ export function SoPaymentDialog({ open, onOpenChange, so }: SoPaymentDialogProps
       onOpenChange={onOpenChange}
       title={`Record Payment — ${so.so_number}`}
       currency="QAR"
-      methods={SO_METHODS}
-      defaultMethod="cash"
+      methods={methods}
+      defaultMethod={methods[0]?.value ?? 'cash'}
       isPending={createPayment.isPending}
       onSubmit={handleSubmit}
       totalAmount={so.total}
