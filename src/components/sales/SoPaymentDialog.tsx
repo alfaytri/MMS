@@ -2,7 +2,7 @@
 
 import { toast } from 'sonner'
 import { PaymentFormDialog, type PaymentFormValues } from '@/components/shared/PaymentFormDialog'
-import { useCreateSOPayment, type SaleOrder } from '@/hooks/useSaleOrders'
+import { useCreateSOPayment, useSOPayments, type SaleOrder } from '@/hooks/useSaleOrders'
 
 const SO_METHODS = [
   { value: 'cash',            label: 'Cash' },
@@ -23,6 +23,9 @@ interface SoPaymentDialogProps {
 
 export function SoPaymentDialog({ open, onOpenChange, so }: SoPaymentDialogProps) {
   const createPayment = useCreateSOPayment()
+  const { data: payments = [] } = useSOPayments(so.id)
+
+  const totalPaid = payments.reduce((s, p) => s + ((p as any).amount_qar ?? p.amount), 0)
 
   function handleSubmit(values: PaymentFormValues) {
     createPayment.mutate(
@@ -56,6 +59,8 @@ export function SoPaymentDialog({ open, onOpenChange, so }: SoPaymentDialogProps
       defaultMethod="cash"
       isPending={createPayment.isPending}
       onSubmit={handleSubmit}
+      totalAmount={so.total}
+      paidAmount={totalPaid}
     />
   )
 }

@@ -661,6 +661,29 @@ export function useCreateSOPayment() {
       const cpayLast = cpayMax?.payment_id ? parseInt(cpayMax.payment_id.replace('CPAY-', ''), 10) : 0
       const payment_id = `CPAY-${String(cpayLast + 1).padStart(5, '0')}`
 
+      // Overpayment guard
+      const { data: soData } = await supabase
+        .from('sale_orders')
+        .select('total')
+        .eq('id', payment.so_id)
+        .single()
+
+      const { data: existingPayments } = await supabase
+        .from('payments')
+        .select('amount_qar, amount')
+        .or(`and(source_type.eq.sale_order,source_id.eq.${payment.so_id})`)
+        .is('deleted_at', null)
+
+      const totalPaid = (existingPayments ?? []).reduce(
+        (s: number, p: any) => s + (p.amount_qar ?? p.amount ?? 0), 0
+      )
+      const outstanding = (soData?.total ?? 0) - totalPaid
+      const paymentAmountQar = payment.amount * (payment.exchange_rate ?? 1)
+
+      if (paymentAmountQar > outstanding + 0.01) {
+        throw new Error(`Payment exceeds outstanding balance (QAR ${outstanding.toFixed(2)})`)
+      }
+
       // Cast needed: stale generated DB types for payments columns
       // don't match the current schema; the values are valid at runtime.
       const { error } = await supabase.from('payments').insert({
