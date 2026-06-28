@@ -12,16 +12,6 @@ import {
 import { Input } from '@/components/ui/input'
 import { Button } from '@/components/ui/button'
 
-const paymentSchema = z.object({
-  amount: z.coerce.number().positive('Amount must be positive'),
-  method: z.string().min(1, 'Select a method'),
-  date: z.string().min(1, 'Date is required'),
-  reference: z.string().optional().default(''),
-  notes: z.string().optional().default(''),
-})
-
-export type PaymentFormValues = z.infer<typeof paymentSchema>
-
 export interface PaymentMethod {
   value: string
   label: string
@@ -36,26 +26,62 @@ interface PaymentFormDialogProps {
   defaultMethod?: string
   isPending: boolean
   onSubmit: (values: PaymentFormValues) => void
+  totalAmount: number
+  paidAmount: number
+  exchangeRate?: number
+  showExchangeRate?: boolean
+}
+
+export type PaymentFormValues = {
+  amount: number
+  method: string
+  date: string
+  reference: string
+  notes: string
+  exchange_rate?: number
 }
 
 export function PaymentFormDialog({
   open, onOpenChange, title, currency, methods,
   defaultMethod, isPending, onSubmit,
+  totalAmount, paidAmount, exchangeRate: defaultExchangeRate,
+  showExchangeRate = false,
 }: PaymentFormDialogProps) {
-  const form = useForm<PaymentFormValues>({
+  const outstanding = Math.max(0, totalAmount - paidAmount)
+  const progressPct = totalAmount > 0 ? Math.min(100, (paidAmount / totalAmount) * 100) : 0
+
+  const paymentSchema = z.object({
+    amount: z.coerce.number()
+      .positive('Amount must be positive')
+      .max(outstanding + 0.01, `Amount exceeds outstanding (${currency} ${outstanding.toLocaleString('en', { minimumFractionDigits: 2 })})`),
+    method: z.string().min(1, 'Select a method'),
+    date: z.string().min(1, 'Date is required'),
+    reference: z.string().optional().default(''),
+    notes: z.string().optional().default(''),
+    exchange_rate: z.coerce.number().positive().optional(),
+  })
+
+  const form = useForm<z.infer<typeof paymentSchema>>({
     resolver: zodResolver(paymentSchema) as never,
     defaultValues: {
-      amount: 0,
+      amount: outstanding > 0 ? Number(outstanding.toFixed(2)) : 0,
       method: defaultMethod ?? methods[0]?.value ?? '',
       date: new Date().toISOString().split('T')[0],
       reference: '',
       notes: '',
+      exchange_rate: defaultExchangeRate ?? 1,
     },
   })
 
-  function handleSubmit(values: PaymentFormValues) {
-    onSubmit(values)
-    form.reset()
+  const watchedAmount = form.watch('amount') || 0
+  const watchedRate = form.watch('exchange_rate') || 1
+  const qarEquivalent = watchedAmount * watchedRate
+  const newPaidPct = totalAmount > 0
+    ? Math.min(100, ((paidAmount + watchedAmount) / totalAmount) * 100)
+    : 0
+
+  function handleSubmit(values: z.infer<typeof paymentSchema>) {
+    onSubmit(values as PaymentFormValues)
   }
 
   return (
@@ -64,57 +90,136 @@ export function PaymentFormDialog({
         <DialogHeader>
           <DialogTitle>{title}</DialogTitle>
         </DialogHeader>
+
+        {/* Payment Summary Header */}
+        <div className="rounded-lg border bg-muted/30 p-3 space-y-2">
+          <div className="flex justify-between text-sm gap-2">
+            <span className="whitespace-nowrap">Total: <span className="font-semibold">{currency} {totalAmount.toLocaleString('en', { minimumFractionDigits: 2 })}</span></span>
+            <span className="whitespace-nowrap">Paid: <span className="font-semibold">{currency} {paidAmount.toLocaleString('en', { minimumFractionDigits: 2 })}</span></span>
+            <span className="whitespace-nowrap">Due: <span className="font-semibold text-orange-600">{currency} {outstanding.toLocaleString('en', { minimumFractionDigits: 2 })}</span></span>
+          </div>
+          <div className="relative h-2 rounded-full bg-muted overflow-hidden">
+            <div
+              className="absolute inset-y-0 left-0 rounded-full bg-green-500 transition-all"
+              style={{ width: `${progressPct}%` }}
+            />
+            {watchedAmount > 0 && (
+              <div
+                className="absolute inset-y-0 rounded-full bg-green-300 transition-all"
+                style={{
+                  left: `${progressPct}%`,
+                  width: `${Math.max(0, Math.min(newPaidPct - progressPct, 100 - progressPct))}%`,
+                }}
+              />
+            )}
+          </div>
+        </div>
+
         <Form {...form}>
-          <form onSubmit={form.handleSubmit(handleSubmit)} className="space-y-4">
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+          <form onSubmit={form.handleSubmit(handleSubmit)} className="space-y-3">
+            {/* Row 1: Amount + Date */}
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
               <FormField control={form.control} name="amount" render={({ field }) => (
                 <FormItem>
                   <FormLabel>Amount ({currency}) *</FormLabel>
-                  <FormControl><Input type="number" step="0.01" min="0" {...field} /></FormControl>
+                  <div className="relative">
+                    <FormControl>
+                      <Input type="number" step="0.01" min="0" max={outstanding + 0.01} {...field} />
+                    </FormControl>
+                    {Number(field.value) !== Number(outstanding.toFixed(2)) && outstanding > 0 && (
+                      <button
+                        type="button"
+                        className="absolute right-2 top-1/2 -translate-y-1/2 rounded bg-orange-100 px-1.5 py-0.5 text-[10px] font-medium text-orange-700 hover:bg-orange-200"
+                        onClick={() => form.setValue('amount', Number(outstanding.toFixed(2)))}
+                      >
+                        Pay Full
+                      </button>
+                    )}
+                  </div>
                   <FormMessage />
                 </FormItem>
               )} />
+
               <FormField control={form.control} name="date" render={({ field }) => (
                 <FormItem>
                   <FormLabel>Date *</FormLabel>
-                  <FormControl><Input type="date" {...field} /></FormControl>
+                  <FormControl>
+                    <Input type="date" {...field} />
+                  </FormControl>
                   <FormMessage />
                 </FormItem>
               )} />
             </div>
-            <FormField control={form.control} name="method" render={({ field }) => (
-              <FormItem>
-                <FormLabel>Payment Method *</FormLabel>
-                <FormControl>
-                  <select {...field} className="flex h-9 w-full rounded-md border border-input bg-background px-3 py-1 text-sm">
-                    {methods.map((m) => (
-                      <option key={m.value} value={m.value}>{m.label}</option>
-                    ))}
-                  </select>
-                </FormControl>
-                <FormMessage />
-              </FormItem>
-            )} />
-            <FormField control={form.control} name="reference" render={({ field }) => (
-              <FormItem>
-                <FormLabel>Reference</FormLabel>
-                <FormControl><Input placeholder="Transaction / cheque number" {...field} /></FormControl>
-                <FormMessage />
-              </FormItem>
-            )} />
+
+            {/* Row 2: Exchange Rate (PO only) */}
+            {showExchangeRate && (
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                <FormField control={form.control} name="exchange_rate" render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Exchange Rate *</FormLabel>
+                    <FormControl>
+                      <Input type="number" step="0.0001" min="0" {...field} />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )} />
+
+                <div>
+                  <p className="text-sm font-medium mb-1">QAR Equivalent</p>
+                  <div className="flex h-9 items-center rounded-md border bg-muted/50 px-3 text-sm font-semibold">
+                    = QAR {qarEquivalent.toLocaleString('en', { minimumFractionDigits: 2 })}
+                  </div>
+                </div>
+              </div>
+            )}
+
+            {/* Row 3: Method + Reference */}
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+              <FormField control={form.control} name="method" render={({ field }) => (
+                <FormItem>
+                  <FormLabel>Payment Method *</FormLabel>
+                  <FormControl>
+                    <select
+                      className="flex h-9 w-full rounded-md border border-input bg-background px-3 py-1 text-sm"
+                      value={field.value}
+                      onChange={field.onChange}
+                    >
+                      <option value="">Select...</option>
+                      {methods.map((m) => (
+                        <option key={m.value} value={m.value}>{m.label}</option>
+                      ))}
+                    </select>
+                  </FormControl>
+                  <FormMessage />
+                </FormItem>
+              )} />
+
+              <FormField control={form.control} name="reference" render={({ field }) => (
+                <FormItem>
+                  <FormLabel>Reference</FormLabel>
+                  <FormControl>
+                    <Input placeholder="Transaction / cheque #" {...field} />
+                  </FormControl>
+                </FormItem>
+              )} />
+            </div>
+
+            {/* Row 4: Notes */}
             <FormField control={form.control} name="notes" render={({ field }) => (
               <FormItem>
                 <FormLabel>Notes</FormLabel>
-                <FormControl><Input {...field} /></FormControl>
-                <FormMessage />
+                <FormControl>
+                  <Input placeholder="Optional notes" {...field} />
+                </FormControl>
               </FormItem>
             )} />
+
             <DialogFooter>
               <Button type="button" variant="outline" onClick={() => onOpenChange(false)} disabled={isPending}>
                 Cancel
               </Button>
-              <Button type="submit" disabled={isPending}>
-                {isPending ? 'Saving…' : 'Record Payment'}
+              <Button type="submit" disabled={isPending || outstanding <= 0}>
+                {isPending ? 'Recording…' : 'Record Payment'}
               </Button>
             </DialogFooter>
           </form>
