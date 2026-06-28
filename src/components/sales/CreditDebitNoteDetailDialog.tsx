@@ -1,13 +1,20 @@
 'use client'
 
+import { useState } from 'react'
+import { toast } from 'sonner'
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog'
 import { Badge } from '@/components/ui/badge'
+import { Button } from '@/components/ui/button'
+import { Input } from '@/components/ui/input'
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
+import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from '@/components/ui/alert-dialog'
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table'
 import { Separator } from '@/components/ui/separator'
 import { CreditDebitNoteDownloadButton } from './CreditDebitNoteDownloadButton'
 import { formatCurrency, formatDate } from '@/lib/utils/formatters'
 import { cn } from '@/lib/utils'
 import type { CreditNote, CreditNoteStatus, NoteLineItem, NoteDebitLineItem } from '@/hooks/useCreditNotes'
+import { useResolveCreditNoteRefund, useResolveCreditNoteStoreCredit } from '@/hooks/useCreditNotes'
 
 const STATUS_CONFIG: Record<CreditNoteStatus, { label: string; className: string }> = {
   draft:    { label: 'Draft',    className: 'bg-muted text-foreground' },
@@ -31,6 +38,16 @@ interface Props {
 
 export function CreditDebitNoteDetailDialog({ note, referenceNumber, open, onOpenChange }: Props) {
   if (!note) return null
+
+  const [showRefundForm, setShowRefundForm] = useState(false)
+  const [refundMethod, setRefundMethod] = useState('')
+  const [refundReference, setRefundReference] = useState('')
+
+  const resolveRefund = useResolveCreditNoteRefund()
+  const resolveStoreCredit = useResolveCreditNoteStoreCredit()
+
+  const isCredit = note.note_type === 'credit'
+  const isUnresolved = isCredit && note.status === 'issued' && !note.resolution_type
 
   const isDebit = note.note_type === 'debit'
   const pdfData = note.line_items ?? { original_lines: [], returned_lines: [] }
@@ -190,6 +207,129 @@ export function CreditDebitNoteDetailDialog({ note, referenceNumber, open, onOpe
               referenceNumber={referenceNumber}
               returnNumber={note.return_number ?? '—'}
             />
+          </div>
+        )}
+
+        {/* ── Resolution Actions ── */}
+        {isUnresolved && (
+          <div className="space-y-3 border-t pt-4">
+            <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">Resolution</p>
+
+            {!showRefundForm ? (
+              <div className="flex flex-wrap gap-2">
+                <Button
+                  size="sm"
+                  variant="outline"
+                  onClick={() => setShowRefundForm(true)}
+                >
+                  Refund
+                </Button>
+                <Button
+                  size="sm"
+                  variant="outline"
+                  onClick={() => onOpenChange(false)}
+                >
+                  Go to Deliveries
+                </Button>
+                <AlertDialog>
+                  <AlertDialogTrigger asChild>
+                    <Button size="sm" variant="outline">Store Credit</Button>
+                  </AlertDialogTrigger>
+                  <AlertDialogContent>
+                    <AlertDialogHeader>
+                      <AlertDialogTitle>Add to Customer Credit Balance?</AlertDialogTitle>
+                      <AlertDialogDescription>
+                        This will add {formatCurrency(note.total_amount, 'QAR')} to the
+                        customer&apos;s credit balance for use on future orders.
+                      </AlertDialogDescription>
+                    </AlertDialogHeader>
+                    <AlertDialogFooter>
+                      <AlertDialogCancel>Cancel</AlertDialogCancel>
+                      <AlertDialogAction
+                        disabled={resolveStoreCredit.isPending}
+                        onClick={() => {
+                          resolveStoreCredit.mutate({
+                            creditNoteId: note.id,
+                            invoiceId: note.invoice_id ?? '',
+                            amount: note.total_amount,
+                          }, {
+                            onSuccess: () => { toast.success('Credit added to customer balance') },
+                            onError: (e) => { toast.error(e.message) },
+                          })
+                        }}
+                      >
+                        Confirm
+                      </AlertDialogAction>
+                    </AlertDialogFooter>
+                  </AlertDialogContent>
+                </AlertDialog>
+              </div>
+            ) : (
+              <div className="space-y-3 rounded-md border p-3">
+                <p className="text-sm font-medium">Record Refund</p>
+                <div className="grid grid-cols-2 gap-3">
+                  <div>
+                    <label className="text-xs text-muted-foreground">Method *</label>
+                    <Select value={refundMethod} onValueChange={setRefundMethod}>
+                      <SelectTrigger><SelectValue placeholder="Select method" /></SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="cash">Cash</SelectItem>
+                        <SelectItem value="bank_transfer">Bank Transfer</SelectItem>
+                        <SelectItem value="cheque">Cheque</SelectItem>
+                        <SelectItem value="online">Online</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+                  <div>
+                    <label className="text-xs text-muted-foreground">Reference</label>
+                    <Input
+                      placeholder="Transaction / cheque #"
+                      value={refundReference}
+                      onChange={(e) => setRefundReference(e.target.value)}
+                    />
+                  </div>
+                </div>
+                <div className="flex gap-2 justify-end">
+                  <Button size="sm" variant="ghost" onClick={() => setShowRefundForm(false)}>Cancel</Button>
+                  <Button
+                    size="sm"
+                    disabled={!refundMethod || resolveRefund.isPending}
+                    onClick={() => {
+                      resolveRefund.mutate({
+                        creditNoteId: note.id,
+                        refundMethod,
+                        refundReference,
+                      }, {
+                        onSuccess: () => {
+                          toast.success('Refund recorded')
+                          setShowRefundForm(false)
+                        },
+                        onError: (e) => { toast.error(e.message) },
+                      })
+                    }}
+                  >
+                    Record Refund
+                  </Button>
+                </div>
+              </div>
+            )}
+          </div>
+        )}
+
+        {/* ── Resolved State Badge ── */}
+        {note.resolution_type && (
+          <div className="border-t pt-4">
+            <div className="rounded-md bg-muted/50 px-3 py-2 text-sm">
+              {note.resolution_type === 'refund' && (
+                <span>Refunded via {(note as any).refund_method?.replace(/_/g, ' ')} — Ref: {(note as any).refund_reference || '—'}</span>
+              )}
+              {note.resolution_type === 'replacement' && (
+                <span>Replacement sent</span>
+              )}
+              {note.resolution_type === 'store_credit' && (
+                <span>Added to customer credit balance</span>
+              )}
+            </div>
           </div>
         )}
 
