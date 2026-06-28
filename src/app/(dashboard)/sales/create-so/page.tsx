@@ -307,7 +307,7 @@ export default function CreateSOPage() {
           <div className="flex gap-2 items-end">
             <div className="flex-1 space-y-1">
               <label className="text-[10px] font-medium text-muted-foreground uppercase tracking-wider">CUSTOMER *</label>
-              <Popover open={customerOpen} onOpenChange={setCustomerOpen}>
+              <Popover open={customerOpen} onOpenChange={(open) => { if (open) setCustomerSearch(''); setCustomerOpen(open) }}>
                 <PopoverTrigger
                   className="h-9 w-full inline-flex items-center justify-between rounded-md border border-input bg-background px-3 py-2 text-sm font-normal shadow-xs hover:bg-accent hover:text-accent-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
                 >
