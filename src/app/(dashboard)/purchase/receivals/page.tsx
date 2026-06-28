@@ -19,7 +19,7 @@ import {
   type ReceivalEditRequest,
   type ReceivalStatus,
 } from '@/hooks/useReceivals'
-import { useIsAdmin } from '@/hooks/useProfiles'
+import { useMyApprovalSlotRoles } from '@/hooks/useRoles'
 import { formatDate } from '@/lib/utils/formatters'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
@@ -47,22 +47,46 @@ const STATUSES: { value: ReceivalStatus | ''; label: string }[] = [
 
 function ReceivalRowActions({
   receival,
+  isAdmin,
   onRequestEdit,
+  onAdminApprove,
+  onEditApproved,
 }: {
   receival: Receival
+  isAdmin: boolean
   onRequestEdit: (r: Receival) => void
+  onAdminApprove: (req: ReceivalEditRequest) => void
+  onEditApproved: (target: { receival: Receival; request: ReceivalEditRequest }) => void
 }) {
   const { data: editRequests = [] } = useReceivalEditRequests(receival.id)
   const active = editRequests.find(r => r.status === 'pending' || r.status === 'approved')
+
+  if (active?.status === 'pending' && isAdmin) {
+    return (
+      <Button size="sm" variant="outline" className="text-amber-600 border-amber-300 hover:bg-amber-50"
+        onClick={(e) => { e.stopPropagation(); onAdminApprove(active) }}>
+        Review Edit
+      </Button>
+    )
+  }
+
+  if (active?.status === 'pending') {
+    return <Button size="sm" variant="outline" disabled>Edit Pending…</Button>
+  }
+
+  if (active?.status === 'approved') {
+    return (
+      <Button size="sm" variant="outline" className="text-green-600 border-green-300 hover:bg-green-50"
+        onClick={(e) => { e.stopPropagation(); onEditApproved({ receival, request: active }) }}>
+        Edit Now
+      </Button>
+    )
+  }
+
   return (
-    <Button
-      size="sm" variant="outline"
-      disabled={!!active}
-      onClick={() => onRequestEdit(receival)}
-    >
-      {active?.status === 'pending' ? 'Edit Pending…' :
-       active?.status === 'approved' ? 'Edit Approved' :
-       'Request Edit'}
+    <Button size="sm" variant="outline"
+      onClick={(e) => { e.stopPropagation(); onRequestEdit(receival) }}>
+      Request Edit
     </Button>
   )
 }
@@ -215,10 +239,9 @@ function ReceivalEditDialog({
                 </div>
                 <div className="col-span-3">
                   <label className="text-xs text-muted-foreground">Unit Cost</label>
-                  <Input type="number" min={0} step="0.0001" disabled={expired}
-                    value={item.new_unit_cost}
-                    onChange={(e) => setItems(its => its.map((it, i) =>
-                      i === idx ? { ...it, new_unit_cost: parseFloat(e.target.value) || 0 } : it))} />
+                  <div className="h-9 flex items-center px-3 rounded-md border bg-muted text-sm tabular-nums">
+                    {item.new_unit_cost.toLocaleString('en', { minimumFractionDigits: 2 })}
+                  </div>
                 </div>
                 <div className="col-span-2 text-xs text-muted-foreground pt-4">
                   {ri && ri.qty_received !== item.new_qty && (
@@ -263,7 +286,10 @@ export default function ReceivalsPage() {
   const [detailReceival, setDetailReceival] = useState<Receival | null>(null)
 
   const { data: receivals, isLoading } = useReceivals({ status: statusFilter })
-  const { data: isAdmin } = useIsAdmin()
+  const { data: myRoles = [] } = useMyApprovalSlotRoles()
+  const canApproveEdit = myRoles.some(
+    (r) => (r.scopes === null || r.scopes.includes('receival_edit'))
+  )
 
   const columns = useMemo<ColumnDef<Receival>[]>(() => [
     {
@@ -305,11 +331,14 @@ export default function ReceivalsPage() {
       cell: ({ row }) => (
         <ReceivalRowActions
           receival={row.original}
+          isAdmin={canApproveEdit}
           onRequestEdit={setRequestEditTarget}
+          onAdminApprove={setAdminApproveTarget}
+          onEditApproved={setEditTarget}
         />
       ),
     },
-  ], [])
+  ], [canApproveEdit])
 
   return (
     <PageWrapper>
@@ -357,7 +386,7 @@ export default function ReceivalsPage() {
       <AdminEditApprovalDialog
         request={adminApproveTarget}
         onClose={() => setAdminApproveTarget(null)}
-        isAdmin={!!isAdmin}
+        isAdmin={canApproveEdit}
       />
 
       <ReceivalEditDialog

@@ -26,6 +26,7 @@ export type WorkflowKey =
   | 'sales_margin'
   | 'sales_credit'
   | 'credit_group'
+  | 'receival_edit'
 
 /** Human-readable name shown in the Approval Chain panel section header. */
 export const WORKFLOW_LABELS: Record<WorkflowKey, string> = {
@@ -35,6 +36,7 @@ export const WORKFLOW_LABELS: Record<WorkflowKey, string> = {
   sales_margin:  'Sales — Margin',
   sales_credit:  'Sales — Credit',
   credit_group:  'Customer — Credit Group',
+  receival_edit: 'Receival — Edit Approval',
 }
 
 /** What the runtime discriminator is called for each workflow — for UI hints. */
@@ -45,6 +47,7 @@ export const WORKFLOW_DISCRIMINATOR_LABEL: Record<WorkflowKey, string> = {
   sales_margin:  'Trigger',
   sales_credit:  'Trigger',
   credit_group:  'Trigger',
+  receival_edit: 'Trigger',
 }
 
 /**
@@ -68,6 +71,7 @@ export const WORKFLOW_CONDITIONS: Record<WorkflowKey, WorkflowConditionOption[]>
   sales_margin:  [],
   sales_credit:  [],
   credit_group:  [],
+  receival_edit: [],
 }
 
 export function conditionLabel(workflow: string, value: string): string {

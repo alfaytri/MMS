@@ -10,7 +10,7 @@ export default function ApprovalSettingsPage() {
     <PageWrapper>
       <PageHeader
         title="Approval Settings"
-        description="Configure the approval chain for purchase orders by amount band."
+        description="Configure approval workflows and PO approval chains by amount band."
       />
       <ApprovalChainsTab />
     </PageWrapper>
