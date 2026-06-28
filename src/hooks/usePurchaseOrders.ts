@@ -639,6 +639,30 @@ export function useCreatePOPayment() {
       const spayLast = spayMax?.payment_id ? parseInt(spayMax.payment_id.replace('SPAY-', ''), 10) : 0
       const payment_id = `SPAY-${String(spayLast + 1).padStart(5, '0')}`
 
+      // Overpayment guard
+      const { data: poData } = await supabase
+        .from('purchase_orders')
+        .select('total_qar')
+        .eq('id', payment.po_id)
+        .single()
+
+      const { data: existingPayments } = await supabase
+        .from('payments')
+        .select('amount_qar, amount')
+        .eq('source_type', 'purchase_order')
+        .eq('source_id', payment.po_id)
+        .is('deleted_at', null)
+
+      const totalPaidQar = (existingPayments ?? []).reduce(
+        (s: number, p: any) => s + (p.amount_qar ?? p.amount ?? 0), 0
+      )
+      const outstandingQar = (poData?.total_qar ?? 0) - totalPaidQar
+      const paymentAmountQar = payment.amount * (payment.exchange_rate ?? 1)
+
+      if (paymentAmountQar > outstandingQar + 0.01) {
+        throw new Error(`Payment exceeds outstanding balance (QAR ${outstandingQar.toFixed(2)})`)
+      }
+
       const { error } = await supabase.from('payments').insert({
         payment_id,
         source_type: 'purchase_order',

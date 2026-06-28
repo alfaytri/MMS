@@ -2,11 +2,11 @@
 
 import { toast } from 'sonner'
 import { PaymentFormDialog, type PaymentFormValues } from '@/components/shared/PaymentFormDialog'
-import { useCreatePOPayment, PAYMENT_METHODS, type PurchaseOrder, type PaymentMethod } from '@/hooks/usePurchaseOrders'
+import { useCreatePOPayment, usePOPayments, PAYMENT_METHODS, type PurchaseOrder, type PaymentMethod } from '@/hooks/usePurchaseOrders'
 
 const PO_METHODS = PAYMENT_METHODS.map((m) => ({
   value: m,
-  label: m.replace(/_/g, ' '),
+  label: m.replace(/_/g, ' ').replace(/\b\w/g, (c) => c.toUpperCase()),
 }))
 
 interface PoPaymentDialogProps {
@@ -17,8 +17,21 @@ interface PoPaymentDialogProps {
 
 export function PoPaymentDialog({ open, onOpenChange, po }: PoPaymentDialogProps) {
   const createPayment = useCreatePOPayment()
+  const { data: payments = [] } = usePOPayments(po.id)
+
+  const totalPaidQar = payments.reduce((s, p) => s + ((p as any).amount_qar ?? p.amount), 0)
+  const showExchangeRate = po.currency !== 'QAR'
+
+  const totalInCurrency = showExchangeRate && po.exchange_rate > 0
+    ? po.total_qar / po.exchange_rate
+    : po.total_qar
+  const paidInCurrency = showExchangeRate && po.exchange_rate > 0
+    ? totalPaidQar / po.exchange_rate
+    : totalPaidQar
 
   function handleSubmit(values: PaymentFormValues) {
+    const rate = values.exchange_rate ?? po.exchange_rate ?? 1
+
     createPayment.mutate(
       {
         po_id: po.id,
@@ -29,7 +42,7 @@ export function PoPaymentDialog({ open, onOpenChange, po }: PoPaymentDialogProps
         reference: values.reference || null,
         notes: values.notes || null,
         currency: po.currency,
-        exchange_rate: po.exchange_rate,
+        exchange_rate: rate,
       },
       {
         onSuccess: () => {
@@ -51,6 +64,10 @@ export function PoPaymentDialog({ open, onOpenChange, po }: PoPaymentDialogProps
       defaultMethod="bank_transfer"
       isPending={createPayment.isPending}
       onSubmit={handleSubmit}
+      totalAmount={totalInCurrency}
+      paidAmount={paidInCurrency}
+      exchangeRate={po.exchange_rate}
+      showExchangeRate={showExchangeRate}
     />
   )
 }
