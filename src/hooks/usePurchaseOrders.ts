@@ -212,10 +212,7 @@ function getApprovalRoles(level: number): string[] {
   return ['purchase_manager', 'accountant', 'owner']
 }
 
-export const PAYMENT_METHODS = [
-  'cash', 'bank_transfer', 'cheque', 'credit_card', 'debit_card', 'online', 'other',
-] as const
-export type PaymentMethod = typeof PAYMENT_METHODS[number]
+export type PaymentMethod = string
 
 // NOTE: count+1 approach is race-prone under concurrent creates.
 // The DB has a UNIQUE constraint on po_number, so concurrent collisions

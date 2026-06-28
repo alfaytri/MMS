@@ -248,7 +248,7 @@ export function useResolveCreditNoteRefund() {
   return useMutation({
     mutationFn: async (input: {
       creditNoteId: string
-      refundMethod: 'cash' | 'bank_transfer' | 'cheque' | 'online_transfer' | 'pos' | 'online' | 'pay_later' | 'fawran'
+      refundMethod: string
       refundReference: string
     }) => {
       const { error } = await supabase

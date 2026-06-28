@@ -72,7 +72,7 @@ export function usePayments(filters: PaymentFilters = {}) {
         .range(pageParam * PAGE_SIZE, (pageParam + 1) * PAGE_SIZE - 1)
 
       if (filters.status) q = q.eq('status', filters.status as 'pending' | 'completed' | 'failed' | 'refunded' | 'processing')
-      if (filters.method) q = q.eq('method', filters.method as 'online' | 'pay_later' | 'fawran' | 'online_transfer' | 'cheque' | 'bank_transfer' | 'cash' | 'pos')
+      if (filters.method) q = q.eq('method', filters.method)
       if (filters.agent) q = q.eq('agent_name', filters.agent)
       if (filters.dateFrom) q = q.gte('date', filters.dateFrom)
       if (filters.dateTo) q = q.lte('date', filters.dateTo)

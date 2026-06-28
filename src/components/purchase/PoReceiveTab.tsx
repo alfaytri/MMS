@@ -270,13 +270,8 @@ export function PoReceiveTab({ po }: { po: PurchaseOrder }) {
                         />
                       )}
                   </TableCell>
-                  <TableCell className="hidden sm:table-cell">
-                    <Input
-                      type="number" min={0} step="0.01"
-                      value={row.unitCost}
-                      onChange={(e) => setRows((prev) => prev.map((r) => r.po_line_item_id === row.po_line_item_id ? { ...r, unitCost: Number(e.target.value) } : r))}
-                      className="h-7 w-24 text-right ml-auto"
-                    />
+                  <TableCell className="hidden sm:table-cell text-right text-sm tabular-nums">
+                    {row.unitCost.toLocaleString('en', { minimumFractionDigits: 2 })}
                   </TableCell>
                   <TableCell>
                     <button

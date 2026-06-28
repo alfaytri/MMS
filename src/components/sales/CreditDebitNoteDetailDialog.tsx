@@ -298,7 +298,7 @@ export function CreditDebitNoteDetailDialog({ note, referenceNumber, open, onOpe
                     onClick={() => {
                       resolveRefund.mutate({
                         creditNoteId: note.id,
-                        refundMethod: refundMethod as 'cash' | 'bank_transfer' | 'cheque' | 'online',
+                        refundMethod,
                         refundReference,
                       }, {
                         onSuccess: () => {
