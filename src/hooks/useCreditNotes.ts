@@ -48,6 +48,7 @@ export type CreditNote = {
   original_total: number | null
   new_total: number | null
   source_return_id: string | null
+  resolution_type: 'refund' | 'replacement' | 'store_credit' | null
   line_items: NotePdfData | null
   created_at: string
   updated_at: string
@@ -216,13 +217,7 @@ export function useApplyCreditNote() {
         status: 'completed',
       })
 
-      if (excess > 0 && inv?.customer_id) {
-        // @ts-expect-error — increment_credit_balance not yet in generated DB types
-        await supabase.rpc('increment_credit_balance', {
-          p_customer_id: inv.customer_id,
-          p_amount: excess,
-        })
-      }
+      // Excess credit is now handled via explicit "Store Credit" resolution action
 
       await supabase
         .from('credit_notes')
@@ -240,6 +235,90 @@ export function useApplyCreditNote() {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: queryKeys.creditNotes.all })
       queryClient.invalidateQueries({ queryKey: queryKeys.customerInvoices.all })
+    },
+  })
+}
+
+export function useResolveCreditNoteRefund() {
+  const qc = useQueryClient()
+  const supabase = createClient()
+
+  return useMutation({
+    mutationFn: async (input: {
+      creditNoteId: string
+      refundMethod: string
+      refundReference: string
+    }) => {
+      const { error } = await supabase
+        .from('credit_notes')
+        .update({
+          resolution_type: 'refund',
+          refund_method: input.refundMethod,
+          refund_reference: input.refundReference,
+        })
+        .eq('id', input.creditNoteId)
+
+      if (error) throw error
+    },
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: queryKeys.creditNotes.all })
+    },
+  })
+}
+
+export function useResolveCreditNoteStoreCredit() {
+  const qc = useQueryClient()
+  const supabase = createClient()
+
+  return useMutation({
+    mutationFn: async (input: {
+      creditNoteId: string
+      invoiceId: string
+      amount: number
+    }) => {
+      const { data: inv } = await supabase
+        .from('invoices')
+        .select('customer_id')
+        .eq('id', input.invoiceId)
+        .single()
+
+      if (!inv?.customer_id) throw new Error('Could not resolve customer')
+
+      // @ts-expect-error — increment_credit_balance not yet in generated DB types
+      const { error: rpcError } = await supabase.rpc('increment_credit_balance', {
+        p_customer_id: inv.customer_id,
+        p_amount: input.amount,
+      })
+      if (rpcError) throw rpcError
+
+      const { error } = await supabase
+        .from('credit_notes')
+        .update({ resolution_type: 'store_credit' })
+        .eq('id', input.creditNoteId)
+
+      if (error) throw error
+    },
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: queryKeys.creditNotes.all })
+    },
+  })
+}
+
+export function useResolveCreditNoteReplacement() {
+  const qc = useQueryClient()
+  const supabase = createClient()
+
+  return useMutation({
+    mutationFn: async (creditNoteId: string) => {
+      const { error } = await supabase
+        .from('credit_notes')
+        .update({ resolution_type: 'replacement' })
+        .eq('id', creditNoteId)
+
+      if (error) throw error
+    },
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: queryKeys.creditNotes.all })
     },
   })
 }
