@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useMemo } from 'react'
+import { useState } from 'react'
 import { toast } from 'sonner'
 import { Gift, Check } from 'lucide-react'
 import { Button } from '@/components/ui/button'
@@ -17,11 +17,9 @@ import {
 } from '@/components/ui/dialog'
 import { useWarehouses } from '@/hooks/useWarehouses'
 import { useCreateReceival } from '@/hooks/useReceivals'
-import {
-  useInventoryItemsAll, useInventoryBrandVariants,
-} from '@/hooks/useInventory'
-import { useAllCategoriesFlat, breadcrumb as getBreadcrumb } from '@/hooks/useInventoryTree'
-import type { PurchaseOrder } from '@/hooks/usePurchaseOrders'
+import { CascadeInventorySelector } from '@/components/purchase/CascadeInventorySelector'
+import type { LineType } from '@/components/purchase/PoLineItemsEditor'
+import type { PurchaseOrder, InventoryLookupResult } from '@/hooks/usePurchaseOrders'
 
 type ReceiveRow = {
   po_line_item_id: string
@@ -43,6 +41,7 @@ type ExtraFreeItem = {
   item_name: string
   sku: string | null
   qty: number
+  unitCost: number
 }
 
 export function PoReceiveTab({ po }: { po: PurchaseOrder }) {
@@ -93,44 +92,25 @@ export function PoReceiveTab({ po }: { po: PurchaseOrder }) {
 
   // ── Non-PO free item dialog ──────────────────────────────────────────────────
   const [nonPoOpen, setNonPoOpen] = useState(false)
-  const [nonPoCatId, setNonPoCatId] = useState('')
-  const [nonPoItemId, setNonPoItemId] = useState('')
-  const [nonPoVariantId, setNonPoVariantId] = useState('')
+  const [nonPoLookup, setNonPoLookup] = useState<InventoryLookupResult | null>(null)
+  const [nonPoLineType, setNonPoLineType] = useState<LineType>('products')
   const [nonPoQty, setNonPoQty] = useState('')
 
-  const { data: allCategories = [] } = useAllCategoriesFlat()
-  const categories = useMemo(
-    () => allCategories.filter((c) => {
-      const hasChildren = allCategories.some((child) => child.parent_id === c.id)
-      return !hasChildren
-    }),
-    [allCategories],
-  )
-  const { data: allItems = [] } = useInventoryItemsAll()
-  const { data: variants = [] } = useInventoryBrandVariants(nonPoItemId || null)
-
-  const filteredItems = allItems.filter((i) => !nonPoCatId || i.category_id === nonPoCatId)
-  const selectedItem = allItems.find((i) => i.id === nonPoItemId)
-  const selectedVariant = variants.find((v) => v.id === nonPoVariantId)
-
   function resetNonPo() {
-    setNonPoCatId(''); setNonPoItemId(''); setNonPoVariantId(''); setNonPoQty('')
+    setNonPoLookup(null); setNonPoQty(''); setNonPoLineType('products')
   }
 
   function addNonPoFree() {
+    if (!nonPoLookup) { toast.error('Select an item first'); return }
     const qty = parseInt(nonPoQty)
-    if (!nonPoItemId || isNaN(qty) || qty <= 0) {
-      toast.error('Select an item and enter a valid quantity')
-      return
-    }
-    const brandLabel = selectedVariant
-      ? ` (${selectedVariant.brand ?? ''})`
-      : ''
-    const name = `${selectedItem?.name_en ?? 'Free Item'}${brandLabel}`
-    const sku = selectedVariant?.code ?? selectedItem?.sku ?? null
+    if (isNaN(qty) || qty <= 0) { toast.error('Enter a valid quantity'); return }
+    const cost = nonPoLookup.cost_price
+    if (cost <= 0) { toast.error('Unit cost is required'); return }
+    const brandLabel = nonPoLookup.brand ? ` (${nonPoLookup.brand})` : ''
+    const name = `${nonPoLookup.item_name}${brandLabel}`
     setExtraFreeItems((prev) => [
       ...prev,
-      { _id: crypto.randomUUID(), brand_variant_id: selectedVariant?.id ?? null, item_name: name, sku, qty },
+      { _id: crypto.randomUUID(), brand_variant_id: nonPoLookup.brand_variant_id, item_name: name, sku: nonPoLookup.sku, qty, unitCost: cost },
     ])
     resetNonPo()
     setNonPoOpen(false)
@@ -156,10 +136,10 @@ export function PoReceiveTab({ po }: { po: PurchaseOrder }) {
     const items: NonNullable<Parameters<typeof createReceival.mutateAsync>[0]['items']> = []
     for (const r of rows) {
       if (r.receiveNow > 0) items.push({ po_line_item_id: r.po_line_item_id, brand_variant_id: r.brand_variant_id, item_name: r.item_name, sku: r.sku, qty_received: r.receiveNow, unit_cost: r.unitCost, is_free: false })
-      if (r.freeQty > 0) items.push({ po_line_item_id: r.po_line_item_id, brand_variant_id: r.brand_variant_id, item_name: r.item_name, sku: r.sku, qty_received: r.freeQty, unit_cost: 0, is_free: true })
+      if (r.freeQty > 0) items.push({ po_line_item_id: r.po_line_item_id, brand_variant_id: r.brand_variant_id, item_name: r.item_name, sku: r.sku, qty_received: r.freeQty, unit_cost: r.unitCost, is_free: true })
     }
     for (const fi of extraFreeItems) {
-      items.push({ po_line_item_id: null, brand_variant_id: fi.brand_variant_id, item_name: fi.item_name, sku: fi.sku, qty_received: fi.qty, unit_cost: 0, is_free: true })
+      items.push({ po_line_item_id: null, brand_variant_id: fi.brand_variant_id, item_name: fi.item_name, sku: fi.sku, qty_received: fi.qty, unit_cost: fi.unitCost, is_free: true })
     }
 
     const regularItems = items.filter((i) => !i.is_free)
@@ -297,7 +277,9 @@ export function PoReceiveTab({ po }: { po: PurchaseOrder }) {
                 <TableCell className="text-right text-xs text-muted-foreground">—</TableCell>
                 <TableCell className="text-right text-sm text-success font-medium">{fi.qty}</TableCell>
                 <TableCell colSpan={3} className="text-xs text-success italic">Free (not on PO)</TableCell>
-                <TableCell className="hidden sm:table-cell" />
+                <TableCell className="hidden sm:table-cell text-right text-sm tabular-nums">
+                  {fi.unitCost.toLocaleString('en', { minimumFractionDigits: 2 })}
+                </TableCell>
                 <TableCell>
                   <button
                     type="button"
@@ -350,81 +332,73 @@ export function PoReceiveTab({ po }: { po: PurchaseOrder }) {
 
       {/* ── Non-PO free item dialog ────────────────────────────────────────── */}
       <Dialog open={nonPoOpen} onOpenChange={(open) => { if (!open) { resetNonPo(); setNonPoOpen(false) } }}>
-        <DialogContent className="max-w-md">
+        <DialogContent className="max-w-lg gap-0">
           <DialogHeader>
-            <DialogTitle>Add Free Item (not on PO)</DialogTitle>
+            <DialogTitle className="flex items-center gap-2">
+              <Gift className="h-4 w-4 text-blue-600" />
+              Add Free Item
+            </DialogTitle>
           </DialogHeader>
-          <div className="space-y-3">
-            {/* Category */}
-            <div className="space-y-1">
-              <Label htmlFor="po-nonpo-category">Category</Label>
-              <Select value={nonPoCatId || 'all'} onValueChange={(v) => { setNonPoCatId((v ?? '') === 'all' ? '' : (v ?? '')); setNonPoItemId(''); setNonPoVariantId('') }}>
-                <SelectTrigger id="po-nonpo-category"><SelectValue placeholder="All Categories" /></SelectTrigger>
+
+          <div className="space-y-4 py-4">
+            {/* ── Inventory type selector ── */}
+            <div className="space-y-1.5">
+              <Label className="text-xs font-medium text-muted-foreground uppercase tracking-wide">Type</Label>
+              <Select value={nonPoLineType} onValueChange={(v) => { setNonPoLineType(v as LineType); setNonPoLookup(null) }}>
+                <SelectTrigger className="h-9">
+                  <SelectValue />
+                </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="all">All Categories</SelectItem>
-                  {categories.map((c) => (
-                    <SelectItem key={c.id} value={c.id}>{getBreadcrumb(c.id, allCategories)}</SelectItem>
-                  ))}
+                  <SelectItem value="products">Products</SelectItem>
+                  <SelectItem value="spare-parts">Spare Parts</SelectItem>
+                  <SelectItem value="consumables">Consumables</SelectItem>
+                  <SelectItem value="tools">Tools</SelectItem>
                 </SelectContent>
               </Select>
             </div>
 
-            {/* Item */}
-            <div className="space-y-1">
-              <Label htmlFor="po-nonpo-item">Item *</Label>
-              <Select
-                value={nonPoItemId}
-                onValueChange={(v) => { setNonPoItemId(v ?? ''); setNonPoVariantId('') }}
-              >
-                <SelectTrigger id="po-nonpo-item"><SelectValue placeholder="— Select —" /></SelectTrigger>
-                <SelectContent>
-                  {filteredItems.length === 0 ? (
-                    <SelectItem value="_empty" disabled>No items found</SelectItem>
-                  ) : (
-                    filteredItems.map((i) => (
-                      <SelectItem key={i.id} value={i.id}>{i.name_en}</SelectItem>
-                    ))
-                  )}
-                </SelectContent>
-              </Select>
-            </div>
-
-            {/* Brand / Variant */}
-            <div className="space-y-1">
-              <Label htmlFor="po-nonpo-variant">Brand / Variant <span className="text-muted-foreground text-xs">(optional)</span></Label>
-              <Select
-                value={nonPoVariantId}
-                onValueChange={(v) => setNonPoVariantId(v ?? '')}
-                disabled={!nonPoItemId}
-              >
-                <SelectTrigger id="po-nonpo-variant"><SelectValue placeholder={!nonPoItemId ? 'Select item first…' : '— Select —'} /></SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="_any">Any brand</SelectItem>
-                  {variants.map((v) => (
-                    <SelectItem key={v.id} value={v.id}>
-                      {v.brand}{v.code ? ` — ${v.code}` : ''}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
-
-            {/* Qty */}
-            <div className="space-y-1">
-              <Label htmlFor="po-nonpo-qty">Free QTY *</Label>
-              <Input
-                id="po-nonpo-qty"
-                type="number" min={1}
-                value={nonPoQty}
-                onChange={(e) => setNonPoQty(e.target.value)}
-                placeholder="0"
+            {/* ── Cascade selector (Category → Subcategory → Type → Item → Brand) ── */}
+            <div className="space-y-1.5">
+              <Label className="text-xs font-medium text-muted-foreground uppercase tracking-wide">
+                Select Item *
+              </Label>
+              <CascadeInventorySelector
+                lineType={nonPoLineType}
+                value={nonPoLookup}
+                onChange={setNonPoLookup}
               />
             </div>
+
+            {/* ── Qty + Unit Cost side-by-side (after item selected) ── */}
+            {nonPoLookup && (
+              <div className="grid grid-cols-2 gap-3">
+                <div className="space-y-1.5">
+                  <Label className="text-xs font-medium text-muted-foreground uppercase tracking-wide">Qty *</Label>
+                  <Input
+                    type="number" min={1}
+                    value={nonPoQty}
+                    onChange={(e) => setNonPoQty(e.target.value)}
+                    placeholder="0"
+                    className="h-10"
+                  />
+                </div>
+                <div className="space-y-1.5">
+                  <Label className="text-xs font-medium text-muted-foreground uppercase tracking-wide">
+                    Unit Cost
+                    <span className="font-normal normal-case ml-1">(from inventory)</span>
+                  </Label>
+                  <div className="h-10 flex items-center px-3 rounded-md border bg-muted text-sm tabular-nums">
+                    {nonPoLookup.cost_price.toLocaleString('en-QA', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                  </div>
+                </div>
+              </div>
+            )}
           </div>
-          <DialogFooter className="gap-2 sm:gap-0">
+
+          <DialogFooter className="gap-2 sm:gap-0 !mx-0 !mb-0">
             <Button variant="outline" onClick={() => { resetNonPo(); setNonPoOpen(false) }}>Cancel</Button>
-            <Button onClick={addNonPoFree} className="gap-1.5 bg-blue-600 hover:bg-blue-700">
-              <Gift className="h-3.5 w-3.5" /> Add
+            <Button onClick={addNonPoFree} disabled={!nonPoLookup} className="gap-1.5 bg-blue-600 hover:bg-blue-700">
+              <Gift className="h-3.5 w-3.5" /> Add Item
             </Button>
           </DialogFooter>
         </DialogContent>
