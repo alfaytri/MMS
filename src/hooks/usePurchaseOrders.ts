@@ -49,6 +49,19 @@ export type POLineItem = {
   tool_asset_item_id: string | null
   brand_id: string | null
   created_at: string
+  inventory_brand_variants?: {
+    brand: string
+    inventory_items?: {
+      name_en: string
+      inventory_categories?: {
+        id: string
+        name_en: string
+        parent_id: string | null
+        type: string
+        ancestor_chain?: string[]
+      } | null
+    } | null
+  } | null
 }
 
 export type POApprovalStep = {
@@ -281,11 +294,70 @@ export function usePurchaseOrder(id: string | null) {
       const supabase = createClient()
       const { data, error } = await supabase
         .from('purchase_orders')
-        .select('*, po_line_items(*, inventory_brand_variants(inventory_items(name_en))), po_approvals(*)')
+        .select(`
+          *,
+          po_line_items(
+            *,
+            inventory_brand_variants(
+              brand,
+              inventory_items(
+                name_en,
+                inventory_categories(id, name_en, parent_id, type)
+              )
+            )
+          ),
+          po_approvals(*)
+        `)
         .eq('id', id!)
         .single()
       if (error) throw error
-      return data as PurchaseOrder
+
+      const catIds = new Set<string>()
+      for (const li of data.po_line_items ?? []) {
+        const cat = (li as any).inventory_brand_variants?.inventory_items?.inventory_categories
+        if (cat?.id) catIds.add(cat.id)
+        if (cat?.parent_id) catIds.add(cat.parent_id)
+      }
+
+      let catMap: Record<string, { name_en: string; parent_id: string | null }> = {}
+      if (catIds.size > 0) {
+        const { data: cats } = await supabase
+          .from('inventory_categories')
+          .select('id, name_en, parent_id')
+          .in('id', [...catIds])
+        if (cats) {
+          const grandparentIds = cats
+            .filter((c: any) => c.parent_id && !catIds.has(c.parent_id))
+            .map((c: any) => c.parent_id as string)
+          if (grandparentIds.length > 0) {
+            const { data: gps } = await supabase
+              .from('inventory_categories')
+              .select('id, name_en, parent_id')
+              .in('id', grandparentIds)
+            if (gps) cats.push(...gps)
+          }
+          catMap = Object.fromEntries(cats.map((c: any) => [c.id, { name_en: c.name_en, parent_id: c.parent_id }]))
+        }
+      }
+
+      function getAncestorChain(catId: string): string[] {
+        const chain: string[] = []
+        let cur = catMap[catId]
+        while (cur) {
+          chain.unshift(cur.name_en)
+          cur = cur.parent_id ? catMap[cur.parent_id] : undefined!
+        }
+        return chain
+      }
+
+      const po = data as PurchaseOrder
+      for (const li of po.po_line_items ?? []) {
+        const cat = li.inventory_brand_variants?.inventory_items?.inventory_categories
+        if (cat?.id) {
+          (cat as any).ancestor_chain = getAncestorChain(cat.id)
+        }
+      }
+      return po
     },
     enabled: !!id,
   })

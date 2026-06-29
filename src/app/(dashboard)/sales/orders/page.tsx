@@ -18,10 +18,27 @@ import {
   type SOStatus,
 } from '@/hooks/useSaleOrders'
 import { formatCurrency, formatDate } from '@/lib/utils/formatters'
+import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
+import { Progress } from '@/components/ui/progress'
 import { cn } from '@/lib/utils'
 import { DivisionFilter, type DivisionFilterValue } from '@/components/shared/DivisionFilter'
 import { useUserDivisionScope } from '@/hooks/useUserDivisionScope'
+
+function getDeliveryPct(so: SaleOrder): number {
+  const lines = so.sale_order_lines ?? []
+  const totalOrdered = lines.reduce((s, l) => s + l.qty, 0)
+  const totalDelivered = lines.reduce((s, l) => s + l.delivered_qty, 0)
+  if (totalOrdered === 0) return 0
+  return Math.min(100, Math.round((totalDelivered / totalOrdered) * 100))
+}
+
+function getDeliveryText(so: SaleOrder): string {
+  const lines = so.sale_order_lines ?? []
+  const totalOrdered = lines.reduce((s, l) => s + l.qty, 0)
+  const totalDelivered = lines.reduce((s, l) => s + l.delivered_qty, 0)
+  return `${totalDelivered}/${totalOrdered}`
+}
 
 const STATUSES: { value: SOStatus | ''; label: string }[] = [
   { value: '', label: 'All' },
@@ -124,6 +141,14 @@ export default function SaleOrdersPage() {
       cell: ({ row }) => <SoStatusBadge status={row.getValue('status')} />,
     },
     {
+      id: 'items',
+      header: 'Items',
+      cell: ({ row }) => {
+        const count = (row.original.sale_order_lines ?? []).length
+        return <Badge variant="secondary" className="tabular-nums">{count}</Badge>
+      },
+    },
+    {
       accessorKey: 'subtotal',
       header: ({ column }) => <DataTableColumnHeader column={column} title="Subtotal" />,
       cell: ({ row }) => <span className="text-sm">{formatCurrency(row.getValue('subtotal'), 'QAR')}</span>,
@@ -132,6 +157,21 @@ export default function SaleOrdersPage() {
       accessorKey: 'total',
       header: ({ column }) => <DataTableColumnHeader column={column} title="Total (QAR)" />,
       cell: ({ row }) => <span className="font-medium">{formatCurrency(row.getValue('total'), 'QAR')}</span>,
+    },
+    {
+      id: 'delivery',
+      header: 'Delivery',
+      size: 110,
+      cell: ({ row }) => {
+        const pct = getDeliveryPct(row.original)
+        const text = getDeliveryText(row.original)
+        return (
+          <div className="space-y-1 w-[90px]">
+            <Progress value={pct} className="h-1.5" />
+            <p className="text-xs text-muted-foreground text-center tabular-nums">{text}</p>
+          </div>
+        )
+      },
     },
     {
       accessorKey: 'created_at',

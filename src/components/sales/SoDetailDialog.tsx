@@ -27,11 +27,19 @@ import { useCancelDelivery, useCreateReplacementDelivery } from '@/hooks/useSale
 import { useInvoicesBySO } from '@/hooks/useCustomerInvoices'
 import { useReturnsBySO, useUnresolvedReturns } from '@/hooks/useSaleReturns'
 import { useActivityLog } from '@/hooks/useActivityLog'
+import { cn } from '@/lib/utils'
 import { formatCurrency, formatDate } from '@/lib/utils/formatters'
 import {
   Table, TableBody, TableCell, TableHead, TableHeader, TableRow,
 } from '@/components/ui/table'
 import { toast } from 'sonner'
+
+const inventoryTypeBadge: Record<string, { label: string; className: string }> = {
+  'products':    { label: 'Product',    className: 'bg-blue-100 text-blue-700 dark:bg-blue-900/40 dark:text-blue-300' },
+  'spare-parts': { label: 'Spare Part', className: 'bg-amber-100 text-amber-700 dark:bg-amber-900/40 dark:text-amber-300' },
+  'consumables': { label: 'Consumable', className: 'bg-green-100 text-green-700 dark:bg-green-900/40 dark:text-green-300' },
+  'tools':       { label: 'Tool',       className: 'bg-purple-100 text-purple-700 dark:bg-purple-900/40 dark:text-purple-300' },
+}
 
 interface SoDetailDialogProps {
   open: boolean
@@ -155,16 +163,48 @@ export function SoDetailDialog({ open, onOpenChange, so, onEdit, onConfirm }: So
                       </TableRow>
                     </TableHeader>
                     <TableBody>
-                      {(fullSO?.sale_order_lines ?? []).map((li) => (
+                      {(fullSO?.sale_order_lines ?? []).map((li) => {
+                        const bv = li.inventory_brand_variants
+                        const cat = bv?.inventory_items?.inventory_categories
+                        const chain = cat?.ancestor_chain ?? []
+                        const itemType = cat?.type ?? null
+                        const typeBadge = itemType ? inventoryTypeBadge[itemType] : null
+                        const brandName = bv?.brand ?? null
+                        return (
                         <TableRow key={li.id}>
-                          <TableCell className="font-medium">{li.item_name}</TableCell>
+                          <TableCell className="py-2.5">
+                            <div className="space-y-0.5">
+                              {chain.length > 0 && (
+                                <div className="flex items-center gap-1 text-[11px] text-muted-foreground leading-tight flex-wrap">
+                                  {chain.map((name, i) => (
+                                    <span key={i} className="flex items-center gap-1">
+                                      {i > 0 && <span className="text-muted-foreground/40">›</span>}
+                                      <span>{name}</span>
+                                    </span>
+                                  ))}
+                                  {typeBadge && (
+                                    <Badge variant="secondary" className={cn('h-4 text-[10px] px-1.5 border-0 ml-1', typeBadge.className)}>
+                                      {typeBadge.label}
+                                    </Badge>
+                                  )}
+                                </div>
+                              )}
+                              <div className="flex items-center gap-1.5">
+                                <span className="font-medium">{li.item_name}</span>
+                                {brandName && (
+                                  <span className="text-xs text-muted-foreground">— {brandName}</span>
+                                )}
+                              </div>
+                            </div>
+                          </TableCell>
                           <TableCell className="hidden sm:table-cell text-muted-foreground text-xs">{li.sku ?? '—'}</TableCell>
                           <TableCell className="text-right">{li.qty}</TableCell>
                           <TableCell className="text-right">{formatCurrency(li.unit_price, 'QAR')}</TableCell>
                           <TableCell className="hidden md:table-cell text-right">{li.delivered_qty}</TableCell>
                           <TableCell className="text-right font-medium">{formatCurrency(li.total, 'QAR')}</TableCell>
                         </TableRow>
-                      ))}
+                        )
+                      })}
                     </TableBody>
                   </Table>
                 </div>
