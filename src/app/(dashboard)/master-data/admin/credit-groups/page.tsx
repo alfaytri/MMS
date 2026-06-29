@@ -23,10 +23,10 @@ import { usePaymentMethods, type PaymentMethodRow } from '@/hooks/usePaymentMeth
 import { formatCurrency } from '@/lib/utils/formatters'
 import { AddCreditGroupDialog } from './AddCreditGroupDialog'
 
-function resolveMethodLabels(keys: string[], methods: PaymentMethodRow[]): string {
-  if (!keys || keys.length === 0) return '—'
-  return keys
-    .map((k) => methods.find((m) => m.slug === k)?.name ?? k)
+function resolveMethodLabels(ids: string[], methods: PaymentMethodRow[]): string {
+  if (!ids || ids.length === 0) return '—'
+  return ids
+    .map((id) => methods.find((m) => m.id === id)?.name ?? '?')
     .join(', ')
 }
 
@@ -93,7 +93,7 @@ export default function CreditGroupsPage() {
                     <TableCell className="font-medium">{g.name}</TableCell>
                     <TableCell className="text-right tabular-nums">{formatCurrency(g.credit_limit, 'QAR')}</TableCell>
                     <TableCell className="hidden md:table-cell text-xs text-muted-foreground max-w-[200px] truncate">
-                      {resolveMethodLabels(g.payment_methods, paymentMethods)}
+                      {resolveMethodLabels(g.payment_method_ids, paymentMethods)}
                     </TableCell>
                     <TableCell className="hidden md:table-cell text-right text-sm text-muted-foreground">
                       {g.max_days ?? '—'}

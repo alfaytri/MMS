@@ -10,25 +10,36 @@ export type CreditGroup = {
   id:                     string
   name:                   string
   credit_limit:           number
-  payment_methods:        string[]
+  payment_method_ids:     string[]
   max_days:               number | null
   default_payment_terms:  string | null
   created_at:             string
   updated_at:             string
 }
 
-export const PAYMENT_METHODS = [
-  { key: 'cash',          label: 'Cash' },
-  { key: 'online',        label: 'Online' },
-  { key: 'pay_later',     label: 'Pay Later' },
-  { key: 'fawran',        label: 'Fawran' },
-  { key: 'bank_transfer', label: 'Bank Transfer' },
-  { key: 'cdc',           label: 'CDC (Current-Dated Cheque)' },
-  { key: 'pdc',           label: 'PDC (Post-Dated Cheque)' },
-  { key: 'pos',           label: 'POS' },
-] as const
+type RawCreditGroupRow = {
+  id: string
+  name: string
+  credit_limit: number
+  max_days: number | null
+  default_payment_terms: string | null
+  created_at: string
+  updated_at: string
+  credit_group_payment_methods: { payment_method_id: string }[]
+}
 
-export type PaymentMethodKey = (typeof PAYMENT_METHODS)[number]['key']
+function mapRow(row: RawCreditGroupRow): CreditGroup {
+  return {
+    id:                    row.id,
+    name:                  row.name,
+    credit_limit:          row.credit_limit,
+    payment_method_ids:    (row.credit_group_payment_methods ?? []).map(j => j.payment_method_id),
+    max_days:              row.max_days,
+    default_payment_terms: row.default_payment_terms,
+    created_at:            row.created_at,
+    updated_at:            row.updated_at,
+  }
+}
 
 export function useCreditGroups() {
   return useQuery({
@@ -37,13 +48,35 @@ export function useCreditGroups() {
       const supabase = createClient()
       const { data, error } = await supabase
         .from('credit_groups')
-        .select('*')
+        .select('*, credit_group_payment_methods(payment_method_id)')
         .order('name')
       if (error) throw error
-      return data as CreditGroup[]
+      return (data as unknown as RawCreditGroupRow[]).map(mapRow)
     },
     staleTime: 60 * 1000,
   })
+}
+
+async function syncJunctionRows(
+  supabase: ReturnType<typeof createClient>,
+  creditGroupId: string,
+  paymentMethodIds: string[],
+) {
+  await supabase
+    .from('credit_group_payment_methods')
+    .delete()
+    .eq('credit_group_id', creditGroupId)
+
+  if (paymentMethodIds.length > 0) {
+    const rows = paymentMethodIds.map(pmId => ({
+      credit_group_id: creditGroupId,
+      payment_method_id: pmId,
+    }))
+    const { error } = await supabase
+      .from('credit_group_payment_methods')
+      .insert(rows)
+    if (error) throw error
+  }
 }
 
 export function useCreateCreditGroup() {
@@ -52,18 +85,20 @@ export function useCreateCreditGroup() {
     mutationFn: async (payload: {
       name:                   string
       credit_limit:           number
-      payment_methods:        string[]
+      payment_method_ids:     string[]
       max_days:               number | null
       default_payment_terms?: string | null
     }) => {
       const supabase = createClient()
+      const { payment_method_ids, ...groupFields } = payload
       const { data, error } = await supabase
         .from('credit_groups')
-        .insert(payload)
+        .insert(groupFields)
         .select()
         .single()
       if (error) throw error
-      return data as CreditGroup
+      await syncJunctionRows(supabase, data.id, payment_method_ids)
+      return data
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: queryKeys.creditGroups.all })
@@ -75,13 +110,25 @@ export function useCreateCreditGroup() {
 export function useUpdateCreditGroup() {
   const queryClient = useQueryClient()
   return useMutation({
-    mutationFn: async ({ id, ...patch }: Partial<CreditGroup> & { id: string }) => {
+    mutationFn: async ({ id, payment_method_ids, ...patch }: {
+      id: string
+      payment_method_ids?: string[]
+      name?: string
+      credit_limit?: number
+      max_days?: number | null
+      default_payment_terms?: string | null
+    }) => {
       const supabase = createClient()
-      const { error } = await supabase
-        .from('credit_groups')
-        .update(patch)
-        .eq('id', id)
-      if (error) throw error
+      if (Object.keys(patch).length > 0) {
+        const { error } = await supabase
+          .from('credit_groups')
+          .update(patch)
+          .eq('id', id)
+        if (error) throw error
+      }
+      if (payment_method_ids) {
+        await syncJunctionRows(supabase, id, payment_method_ids)
+      }
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: queryKeys.creditGroups.all })

@@ -109,7 +109,6 @@ export function PaymentMethodsAdmin() {
     },
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: queryKeys.payments.methods })
-      qc.invalidateQueries({ queryKey: queryKeys.creditGroups.all })
       setEditingId(null)
       toast.success('Renamed')
     },

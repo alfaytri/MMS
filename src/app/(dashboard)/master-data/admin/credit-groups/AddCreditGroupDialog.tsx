@@ -42,7 +42,7 @@ export function AddCreditGroupDialog({ open, onOpenChange, group }: CreditGroupD
   useEffect(() => {
     if (open) {
       setName(group?.name ?? '')
-      setSelectedMethods(group?.payment_methods ?? [])
+      setSelectedMethods(group?.payment_method_ids ?? [])
       setMaxAmount(group?.credit_limit != null ? String(group.credit_limit) : '')
       setMaxDays(group?.max_days != null ? String(group.max_days) : '')
       setDefaultPaymentTerms(group?.default_payment_terms ?? '')
@@ -75,7 +75,7 @@ export function AddCreditGroupDialog({ open, onOpenChange, group }: CreditGroupD
 
     if (isEdit) {
       update.mutate(
-        { id: group.id, name: name.trim(), credit_limit, payment_methods: selectedMethods, max_days, default_payment_terms },
+        { id: group.id, name: name.trim(), credit_limit, payment_method_ids: selectedMethods, max_days, default_payment_terms },
         {
           onSuccess: () => { toast.success('Credit group updated'); onOpenChange(false) },
           onError:   (err) => toast.error(err.message),
@@ -83,7 +83,7 @@ export function AddCreditGroupDialog({ open, onOpenChange, group }: CreditGroupD
       )
     } else {
       create.mutate(
-        { name: name.trim(), credit_limit, payment_methods: selectedMethods, max_days, default_payment_terms },
+        { name: name.trim(), credit_limit, payment_method_ids: selectedMethods, max_days, default_payment_terms },
         {
           onSuccess: () => { toast.success('Credit group added'); onOpenChange(false) },
           onError:   (err) => toast.error(err.message),
@@ -119,12 +119,12 @@ export function AddCreditGroupDialog({ open, onOpenChange, group }: CreditGroupD
             <label className="text-sm font-medium">Payment Methods</label>
             <div className="grid grid-cols-2 gap-2">
               {paymentMethods.map((pm) => {
-                const selected = selectedMethods.includes(pm.slug)
+                const selected = selectedMethods.includes(pm.id)
                 return (
                   <button
                     key={pm.id}
                     type="button"
-                    onClick={() => toggleMethod(pm.slug)}
+                    onClick={() => toggleMethod(pm.id)}
                     className={`flex items-center gap-1.5 rounded-md border px-3 py-2 text-sm text-left transition-colors ${
                       selected
                         ? 'border-blue-400 bg-blue-50 text-blue-700 dark:border-blue-500 dark:bg-blue-950 dark:text-blue-300'

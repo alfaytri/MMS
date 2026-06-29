@@ -1241,6 +1241,39 @@ export type Database = {
         }
         Relationships: []
       }
+      credit_group_payment_methods: {
+        Row: {
+          credit_group_id: string
+          payment_method_id: string
+          created_at: string | null
+        }
+        Insert: {
+          credit_group_id: string
+          payment_method_id: string
+          created_at?: string | null
+        }
+        Update: {
+          credit_group_id?: string
+          payment_method_id?: string
+          created_at?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "credit_group_payment_methods_credit_group_id_fkey"
+            columns: ["credit_group_id"]
+            isOneToOne: false
+            referencedRelation: "credit_groups"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "credit_group_payment_methods_payment_method_id_fkey"
+            columns: ["payment_method_id"]
+            isOneToOne: false
+            referencedRelation: "payment_methods"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       credit_groups: {
         Row: {
           created_at: string
@@ -1249,7 +1282,6 @@ export type Database = {
           id: string
           max_days: number | null
           name: string
-          payment_methods: string[]
           updated_at: string
         }
         Insert: {
@@ -1259,7 +1291,6 @@ export type Database = {
           id?: string
           max_days?: number | null
           name: string
-          payment_methods?: string[]
           updated_at?: string
         }
         Update: {
@@ -1269,7 +1300,6 @@ export type Database = {
           id?: string
           max_days?: number | null
           name?: string
-          payment_methods?: string[]
           updated_at?: string
         }
         Relationships: []
