@@ -11,9 +11,15 @@ import {
 import {
   useCreateCreditGroup,
   useUpdateCreditGroup,
-  PAYMENT_METHODS,
   type CreditGroup,
 } from '@/hooks/useCreditGroups'
+import { usePaymentMethods } from '@/hooks/usePaymentMethods'
+
+function formatCompact(n: number): string {
+  if (n >= 1_000_000) return `${+(n / 1_000_000).toFixed(1)}M`
+  if (n >= 1_000) return `${+(n / 1_000).toFixed(1)}K`
+  return ''
+}
 
 interface CreditGroupDialogProps {
   open:         boolean
@@ -25,6 +31,7 @@ export function AddCreditGroupDialog({ open, onOpenChange, group }: CreditGroupD
   const isEdit = !!group
   const create = useCreateCreditGroup()
   const update = useUpdateCreditGroup()
+  const { data: paymentMethods = [] } = usePaymentMethods()
 
   const [name, setName]                       = useState('')
   const [selectedMethods, setSelectedMethods] = useState<string[]>([])
@@ -105,13 +112,13 @@ export function AddCreditGroupDialog({ open, onOpenChange, group }: CreditGroupD
           <div className="space-y-2">
             <label className="text-sm font-medium">Payment Methods</label>
             <div className="grid grid-cols-2 gap-2">
-              {PAYMENT_METHODS.map(({ key, label }) => {
-                const selected = selectedMethods.includes(key)
+              {paymentMethods.map((pm) => {
+                const selected = selectedMethods.includes(pm.slug)
                 return (
                   <button
-                    key={key}
+                    key={pm.id}
                     type="button"
-                    onClick={() => toggleMethod(key)}
+                    onClick={() => toggleMethod(pm.slug)}
                     className={`flex items-center gap-1.5 rounded-md border px-3 py-2 text-sm text-left transition-colors ${
                       selected
                         ? 'border-blue-400 bg-blue-50 text-blue-700 dark:border-blue-500 dark:bg-blue-950 dark:text-blue-300'
@@ -119,7 +126,7 @@ export function AddCreditGroupDialog({ open, onOpenChange, group }: CreditGroupD
                     }`}
                   >
                     {selected && <Check className="h-3.5 w-3.5 shrink-0" />}
-                    <span className={selected ? '' : 'ml-5'}>{label}</span>
+                    <span className={selected ? '' : 'ml-5'}>{pm.name}</span>
                   </button>
                 )
               })}
@@ -131,13 +138,15 @@ export function AddCreditGroupDialog({ open, onOpenChange, group }: CreditGroupD
             <div className="space-y-1.5">
               <label className="text-sm font-medium">Max Amount (QAR)</label>
               <Input
-                type="number"
-                min="0"
-                step="0.01"
+                type="text"
+                inputMode="decimal"
                 placeholder="0"
-                value={maxAmount}
-                onChange={(e) => setMaxAmount(e.target.value)}
+                value={maxAmount ? Number(maxAmount).toLocaleString('en-US', { maximumFractionDigits: 2 }) : ''}
+                onChange={(e) => setMaxAmount(e.target.value.replace(/,/g, ''))}
               />
+              {maxAmount && Number(maxAmount) >= 1000 && (
+                <p className="text-[10px] text-muted-foreground/60">{formatCompact(Number(maxAmount))}</p>
+              )}
             </div>
             <div className="space-y-1.5">
               <label className="text-sm font-medium">Max Days</label>

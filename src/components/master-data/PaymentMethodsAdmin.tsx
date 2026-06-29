@@ -9,7 +9,10 @@ import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Badge } from '@/components/ui/badge'
-import { Loader2, Plus } from 'lucide-react'
+import {
+  Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter,
+} from '@/components/ui/dialog'
+import { Loader2, Plus, Pencil, Check, X } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { queryKeys } from '@/lib/queryKeys'
 
@@ -30,8 +33,12 @@ export function PaymentMethodsAdmin() {
   const supabase = createClient()
   const qc = useQueryClient()
 
+  const [addOpen, setAddOpen] = useState(false)
   const [newName, setNewName] = useState('')
   const newSlug = slugify(newName)
+
+  const [editingId, setEditingId] = useState<string | null>(null)
+  const [editName, setEditName] = useState('')
 
   const { data: methods = [], isLoading, isError } = useQuery<PaymentMethod[]>({
     queryKey: queryKeys.payments.methods,
@@ -82,10 +89,29 @@ export function PaymentMethodsAdmin() {
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: queryKeys.payments.methods })
       setNewName('')
+      setAddOpen(false)
       toast.success('Payment method added')
     },
     onError: (err) => {
       toast.error(err instanceof Error ? err.message : 'Failed to add payment method')
+    },
+  })
+
+  const renameMutation = useMutation({
+    mutationFn: async ({ id, name }: { id: string; name: string }) => {
+      const { error } = await supabase
+        .from('payment_methods')
+        .update({ name })
+        .eq('id', id)
+      if (error) throw error
+    },
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: queryKeys.payments.methods })
+      setEditingId(null)
+      toast.success('Renamed')
+    },
+    onError: (err) => {
+      toast.error(err instanceof Error ? err.message : 'Failed to rename')
     },
   })
 
@@ -98,6 +124,16 @@ export function PaymentMethodsAdmin() {
       return
     }
     addMutation.mutate({ name: trimmed, slug: newSlug })
+  }
+
+  function startRename(m: PaymentMethod) {
+    setEditingId(m.id)
+    setEditName(m.name)
+  }
+
+  function confirmRename() {
+    if (!editingId || !editName.trim()) return
+    renameMutation.mutate({ id: editingId, name: editName.trim() })
   }
 
   if (isLoading) {
@@ -117,22 +153,63 @@ export function PaymentMethodsAdmin() {
   }
 
   return (
-    <div className="space-y-6 max-w-lg">
-      {/* List */}
+    <div className="space-y-4 max-w-lg">
       <div className="rounded-lg border divide-y">
         {methods.map((m) => (
           <div
             key={m.id}
             className={cn(
-              'flex items-center justify-between px-4 py-3',
+              'group/row flex items-center justify-between px-4 py-3 gap-2',
               !m.is_active && 'opacity-40'
             )}
           >
-            <div className="flex items-center gap-3">
-              <span className="text-sm font-medium">{m.name}</span>
-              <Badge variant="outline" className="text-[10px] font-mono">{m.slug}</Badge>
-              {m.requires_payment_link && (
-                <Badge variant="secondary" className="text-[10px]">Online Link</Badge>
+            <div className="flex items-center gap-2 min-w-0 flex-1">
+              {editingId === m.id ? (
+                <div className="flex items-center gap-1.5 flex-1">
+                  <Input
+                    className="h-7 text-sm"
+                    value={editName}
+                    onChange={(e) => setEditName(e.target.value)}
+                    onKeyDown={(e) => {
+                      if (e.key === 'Enter') confirmRename()
+                      if (e.key === 'Escape') setEditingId(null)
+                    }}
+                    autoFocus
+                  />
+                  <Button
+                    size="icon"
+                    variant="ghost"
+                    className="h-7 w-7 shrink-0 text-green-600"
+                    onClick={confirmRename}
+                    disabled={renameMutation.isPending}
+                  >
+                    <Check className="h-3.5 w-3.5" />
+                  </Button>
+                  <Button
+                    size="icon"
+                    variant="ghost"
+                    className="h-7 w-7 shrink-0"
+                    onClick={() => setEditingId(null)}
+                  >
+                    <X className="h-3.5 w-3.5" />
+                  </Button>
+                </div>
+              ) : (
+                <>
+                  <span className="text-sm font-medium truncate">{m.name}</span>
+                  <Badge variant="outline" className="text-[10px] font-mono shrink-0">{m.slug}</Badge>
+                  {m.requires_payment_link && (
+                    <Badge variant="secondary" className="text-[10px] shrink-0">Online Link</Badge>
+                  )}
+                  <Button
+                    size="icon"
+                    variant="ghost"
+                    className="h-6 w-6 shrink-0 opacity-0 group-hover/row:opacity-100 hover:opacity-100 focus:opacity-100"
+                    onClick={() => startRename(m)}
+                  >
+                    <Pencil className="h-3 w-3" />
+                  </Button>
+                </>
               )}
             </div>
             <Switch
@@ -151,36 +228,46 @@ export function PaymentMethodsAdmin() {
         )}
       </div>
 
-      {/* Add form */}
-      <div className="rounded-lg border p-4 space-y-3">
-        <p className="text-sm font-semibold">Add Payment Method</p>
-        <div className="space-y-1.5">
-          <Label htmlFor="pm-name">Name</Label>
-          <Input
-            id="pm-name"
-            placeholder="e.g. Cheque"
-            value={newName}
-            onChange={(e) => setNewName(e.target.value)}
-            onKeyDown={(e) => { if (e.key === 'Enter') handleAdd() }}
-          />
-          {newName && (
-            <p className="text-xs text-muted-foreground">
-              Slug: <span className="font-mono">{newSlug}</span>
-            </p>
-          )}
-        </div>
-        <Button
-          size="sm"
-          className="gap-1.5"
-          onClick={handleAdd}
-          disabled={!newName.trim() || addMutation.isPending}
-        >
-          {addMutation.isPending
-            ? <Loader2 className="h-3.5 w-3.5 animate-spin" />
-            : <Plus className="h-3.5 w-3.5" />}
-          Add Method
-        </Button>
-      </div>
+      <Button variant="outline" size="sm" className="gap-1.5" onClick={() => setAddOpen(true)}>
+        <Plus className="h-4 w-4" /> Add Payment Method
+      </Button>
+
+      <Dialog open={addOpen} onOpenChange={(o) => { setAddOpen(o); if (!o) setNewName('') }}>
+        <DialogContent className="w-full max-w-full rounded-none sm:max-w-sm sm:rounded-lg">
+          <DialogHeader>
+            <DialogTitle>Add Payment Method</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-3 py-2">
+            <div className="space-y-1.5">
+              <Label htmlFor="pm-name">Name</Label>
+              <Input
+                id="pm-name"
+                placeholder="e.g. Cheque"
+                value={newName}
+                onChange={(e) => setNewName(e.target.value)}
+                onKeyDown={(e) => { if (e.key === 'Enter') handleAdd() }}
+              />
+              {newName && (
+                <p className="text-xs text-muted-foreground">
+                  Slug: <span className="font-mono">{newSlug}</span>
+                </p>
+              )}
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => { setAddOpen(false); setNewName('') }}>Cancel</Button>
+            <Button
+              onClick={handleAdd}
+              disabled={!newName.trim() || addMutation.isPending}
+            >
+              {addMutation.isPending
+                ? <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                : <Plus className="h-3.5 w-3.5" />}
+              Add Method
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   )
 }

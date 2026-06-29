@@ -17,22 +17,23 @@ import {
   useCreditGroups,
   useDeleteCreditGroup,
   useCreditGroupCustomerCounts,
-  PAYMENT_METHODS,
   type CreditGroup,
 } from '@/hooks/useCreditGroups'
+import { usePaymentMethods, type PaymentMethodRow } from '@/hooks/usePaymentMethods'
 import { formatCurrency } from '@/lib/utils/formatters'
 import { AddCreditGroupDialog } from './AddCreditGroupDialog'
 
-function resolveMethodLabels(keys: string[]): string {
+function resolveMethodLabels(keys: string[], methods: PaymentMethodRow[]): string {
   if (!keys || keys.length === 0) return '—'
   return keys
-    .map((k) => PAYMENT_METHODS.find((m) => m.key === k)?.label ?? k)
+    .map((k) => methods.find((m) => m.slug === k)?.name ?? k)
     .join(', ')
 }
 
 export default function CreditGroupsPage() {
   const { data: groups = [], isLoading } = useCreditGroups()
   const { data: counts = {} }            = useCreditGroupCustomerCounts()
+  const { data: paymentMethods = [] }    = usePaymentMethods()
   const remove = useDeleteCreditGroup()
 
   const [dialogOpen, setDialogOpen]     = useState(false)
@@ -92,7 +93,7 @@ export default function CreditGroupsPage() {
                     <TableCell className="font-medium">{g.name}</TableCell>
                     <TableCell className="text-right tabular-nums">{formatCurrency(g.credit_limit, 'QAR')}</TableCell>
                     <TableCell className="hidden md:table-cell text-xs text-muted-foreground max-w-[200px] truncate">
-                      {resolveMethodLabels(g.payment_methods)}
+                      {resolveMethodLabels(g.payment_methods, paymentMethods)}
                     </TableCell>
                     <TableCell className="hidden md:table-cell text-right text-sm text-muted-foreground">
                       {g.max_days ?? '—'}
