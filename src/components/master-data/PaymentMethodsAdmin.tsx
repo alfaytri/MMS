@@ -99,14 +99,17 @@ export function PaymentMethodsAdmin() {
 
   const renameMutation = useMutation({
     mutationFn: async ({ id, name }: { id: string; name: string }) => {
-      const { error } = await supabase
-        .from('payment_methods')
-        .update({ name })
-        .eq('id', id)
+      const newSlugVal = slugify(name)
+      const { error } = await supabase.rpc('rename_payment_method', {
+        p_id: id,
+        p_new_name: name,
+        p_new_slug: newSlugVal,
+      })
       if (error) throw error
     },
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: queryKeys.payments.methods })
+      qc.invalidateQueries({ queryKey: queryKeys.creditGroups.all })
       setEditingId(null)
       toast.success('Renamed')
     },
@@ -133,7 +136,14 @@ export function PaymentMethodsAdmin() {
 
   function confirmRename() {
     if (!editingId || !editName.trim()) return
-    renameMutation.mutate({ id: editingId, name: editName.trim() })
+    const trimmed = editName.trim()
+    const newSlugVal = slugify(trimmed)
+    const currentMethods = qc.getQueryData<PaymentMethod[]>(queryKeys.payments.methods) ?? []
+    if (currentMethods.some((m) => m.slug === newSlugVal && m.id !== editingId)) {
+      toast.error(`A method with slug "${newSlugVal}" already exists`)
+      return
+    }
+    renameMutation.mutate({ id: editingId, name: trimmed })
   }
 
   if (isLoading) {
@@ -165,7 +175,8 @@ export function PaymentMethodsAdmin() {
           >
             <div className="flex items-center gap-2 min-w-0 flex-1">
               {editingId === m.id ? (
-                <div className="flex items-center gap-1.5 flex-1">
+                <div className="flex flex-col gap-1 flex-1">
+                  <div className="flex items-center gap-1.5">
                   <Input
                     className="h-7 text-sm"
                     value={editName}
@@ -193,6 +204,12 @@ export function PaymentMethodsAdmin() {
                   >
                     <X className="h-3.5 w-3.5" />
                   </Button>
+                  </div>
+                  {editName && slugify(editName) !== m.slug && (
+                    <p className="text-[10px] text-muted-foreground">
+                      Slug: <span className="font-mono">{m.slug}</span> → <span className="font-mono">{slugify(editName)}</span>
+                    </p>
+                  )}
                 </div>
               ) : (
                 <>
