@@ -1,12 +1,16 @@
 'use client'
 
 import { useState } from 'react'
-import { ChevronDown, ChevronRight, Plus, Archive, Star, Zap, Loader2, Shield, Pencil } from 'lucide-react'
+import {
+  ChevronDown, ChevronRight, Plus, Archive, Star, Zap, Loader2,
+  Shield, Pencil, GitBranch, Trash2, Check, X,
+} from 'lucide-react'
 import { toast } from 'sonner'
 import { Switch } from '@/components/ui/switch'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { Checkbox } from '@/components/ui/checkbox'
+import { Input } from '@/components/ui/input'
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover'
 import {
   Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
@@ -21,6 +25,13 @@ import {
   useUpdateWorkflowStepConditions,
   type WorkflowStep,
 } from '@/hooks/useWorkflowSteps'
+import {
+  useWorkflowGroups,
+  useCreateWorkflowGroup,
+  useUpdateWorkflowGroup,
+  useDeleteWorkflowGroup,
+  type WorkflowGroup,
+} from '@/hooks/useWorkflowGroups'
 import { useRoles, type CustomRole } from '@/hooks/useRoles'
 import { useCurrentUserProfile } from '@/hooks/useProfiles'
 import { usePermissions } from '@/hooks/usePermissions'
@@ -58,7 +69,6 @@ function StepConditionPopover({ step, canEdit }: StepConditionPopoverProps) {
   const options = WORKFLOW_CONDITIONS[workflowKey] ?? []
   const isConditional = step.is_conditional && (step.condition_types?.length ?? 0) > 0
 
-  // Reset draft when popover opens
   function handleOpenChange(next: boolean) {
     if (next) {
       setDraftConditional(step.is_conditional)
@@ -87,7 +97,6 @@ function StepConditionPopover({ step, canEdit }: StepConditionPopoverProps) {
       .catch((err: Error) => toast.error(err.message))
   }
 
-  // Read-only display for non-admins
   if (!canEdit) {
     if (!isConditional) return null
     return (
@@ -217,16 +226,17 @@ function StepConditionPopover({ step, canEdit }: StepConditionPopoverProps) {
 
 interface AddStepRowProps {
   workflow:       Workflow
+  groupId:        string
   availableRoles: CustomRole[]
   onDone:         () => void
 }
 
-function AddStepRow({ workflow, availableRoles, onDone }: AddStepRowProps) {
+function AddStepRow({ workflow, groupId, availableRoles, onDone }: AddStepRowProps) {
   const add = useAddWorkflowStepForRole()
 
   function handlePick(roleId: string | null) {
     if (!roleId) return
-    add.mutateAsync({ workflow, role_id: roleId })
+    add.mutateAsync({ workflow, role_id: roleId, group_id: groupId })
       .then(() => {
         toast.success('Step added')
         onDone()
@@ -385,47 +395,123 @@ function StepRow({ step, index, isOwner, profileId, approvalRoles }: StepRowProp
   )
 }
 
-// ─── Workflow section ─────────────────────────────────────────────────────────
+// ─── Group section (path within a workflow) ──────────────────────────────────
 
-interface WorkflowSectionProps {
-  workflow:      Workflow
-  steps:         WorkflowStep[]
-  isOwner:       boolean
-  profileId:     string | null
-  approvalRoles: CustomRole[]
+interface GroupSectionProps {
+  group:            WorkflowGroup
+  steps:            WorkflowStep[]
+  allWorkflowSteps: WorkflowStep[]
+  isOwner:          boolean
+  profileId:        string | null
+  approvalRoles:    CustomRole[]
+  groupCount:       number
 }
 
-function WorkflowSection({ workflow, steps, isOwner, profileId, approvalRoles }: WorkflowSectionProps) {
-  const [expanded,   setExpanded]   = useState(true)
+function GroupSection({ group, steps, allWorkflowSteps, isOwner, profileId, approvalRoles, groupCount }: GroupSectionProps) {
   const [addingStep, setAddingStep] = useState(false)
+  const [editingLabel, setEditingLabel] = useState(false)
+  const [draftLabel, setDraftLabel] = useState(group.group_label)
+  const [confirmDelete, setConfirmDelete] = useState(false)
 
-  const activeCount = steps.filter((s) => s.is_active).length
-  const totalCount  = steps.length
-  const label       = WORKFLOW_LABELS[workflow]
+  const updateGroup = useUpdateWorkflowGroup()
+  const deleteGroup = useDeleteWorkflowGroup()
 
-  // Roles not yet used in this workflow
-  const usedRoleIds  = new Set(steps.map((s) => s.role_id))
+  const usedRoleIds = new Set(allWorkflowSteps.map((s) => s.role_id))
   const availableRoles = approvalRoles.filter((r) => !usedRoleIds.has(r.id))
+  const activeCount = steps.filter((s) => s.is_active).length
+
+  function handleModeChange(mode: string) {
+    updateGroup.mutateAsync({ id: group.id, mode: mode as 'any_one' | 'all_must' })
+      .then(() => toast.success('Path mode updated'))
+      .catch((err: Error) => toast.error(err.message))
+  }
+
+  function handleRenameConfirm() {
+    const trimmed = draftLabel.trim()
+    if (!trimmed || trimmed === group.group_label) {
+      setEditingLabel(false)
+      return
+    }
+    updateGroup.mutateAsync({ id: group.id, group_label: trimmed })
+      .then(() => { toast.success('Path renamed'); setEditingLabel(false) })
+      .catch((err: Error) => toast.error(err.message))
+  }
+
+  function handleDeleteConfirm() {
+    deleteGroup.mutateAsync(group.id)
+      .then(() => { toast.success('Path deleted'); setConfirmDelete(false) })
+      .catch((err: Error) => { toast.error(err.message); setConfirmDelete(false) })
+  }
 
   return (
-    <div className="border border-border rounded-md overflow-hidden">
-      <button
-        type="button"
-        className="flex w-full items-center gap-2 px-3 py-2 bg-muted/40 hover:bg-muted/60 transition-colors text-left"
-        onClick={() => setExpanded((v) => !v)}
-      >
-        {expanded
-          ? <ChevronDown className="h-3.5 w-3.5 text-muted-foreground shrink-0" />
-          : <ChevronRight className="h-3.5 w-3.5 text-muted-foreground shrink-0" />
-        }
-        <span className="text-xs font-semibold flex-1">{label}</span>
-        <span className="text-[10px] text-muted-foreground tabular-nums">
-          ({activeCount}/{totalCount})
-        </span>
-      </button>
+    <>
+      <div className="border-l-2 border-primary/20 ml-3">
+        {/* Group header */}
+        <div className="flex items-center gap-2 px-3 py-1.5 bg-muted/20">
+          <GitBranch className="h-3 w-3 text-primary/60 shrink-0" />
 
-      {expanded && (
-        <div className="py-1 divide-y divide-border/50">
+          {editingLabel ? (
+            <div className="flex items-center gap-1 flex-1">
+              <Input
+                className="h-6 text-xs w-32"
+                value={draftLabel}
+                onChange={(e) => setDraftLabel(e.target.value)}
+                onKeyDown={(e) => {
+                  if (e.key === 'Enter') handleRenameConfirm()
+                  if (e.key === 'Escape') setEditingLabel(false)
+                }}
+                autoFocus
+              />
+              <Button size="icon" variant="ghost" className="h-5 w-5 text-green-600" onClick={handleRenameConfirm}>
+                <Check className="h-3 w-3" />
+              </Button>
+              <Button size="icon" variant="ghost" className="h-5 w-5" onClick={() => setEditingLabel(false)}>
+                <X className="h-3 w-3" />
+              </Button>
+            </div>
+          ) : (
+            <button
+              type="button"
+              className="text-xs font-medium text-foreground/80 hover:text-foreground flex items-center gap-1"
+              onClick={() => { setDraftLabel(group.group_label); setEditingLabel(true) }}
+              disabled={!isOwner}
+            >
+              {group.group_label}
+              {isOwner && <Pencil className="h-2.5 w-2.5 text-muted-foreground" />}
+            </button>
+          )}
+
+          <Select value={group.mode} onValueChange={handleModeChange} disabled={!isOwner}>
+            <SelectTrigger className="h-6 text-[10px] w-auto min-w-[130px] gap-1 border-dashed">
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="any_one" className="text-xs">Any one approves</SelectItem>
+              <SelectItem value="all_must" className="text-xs">All must approve</SelectItem>
+            </SelectContent>
+          </Select>
+
+          <span className="text-[10px] text-muted-foreground tabular-nums ml-auto">
+            {activeCount}/{steps.length}
+          </span>
+
+          {isOwner && groupCount > 1 && steps.length === 0 && (
+            <Button
+              type="button"
+              size="icon"
+              variant="ghost"
+              className="h-5 w-5 text-muted-foreground hover:text-destructive"
+              onClick={() => setConfirmDelete(true)}
+              disabled={deleteGroup.isPending}
+              aria-label="Delete path"
+            >
+              <Trash2 className="h-3 w-3" />
+            </Button>
+          )}
+        </div>
+
+        {/* Steps */}
+        <div className="divide-y divide-border/30">
           {steps.map((step, i) => (
             <StepRow
               key={step.id}
@@ -438,7 +524,12 @@ function WorkflowSection({ workflow, steps, isOwner, profileId, approvalRoles }:
           ))}
 
           {addingStep ? (
-            <AddStepRow workflow={workflow} availableRoles={availableRoles} onDone={() => setAddingStep(false)} />
+            <AddStepRow
+              workflow={group.workflow as Workflow}
+              groupId={group.id}
+              availableRoles={availableRoles}
+              onDone={() => setAddingStep(false)}
+            />
           ) : (
             <div className="pl-5 pr-1 py-1">
               <Button
@@ -454,6 +545,123 @@ function WorkflowSection({ workflow, steps, isOwner, profileId, approvalRoles }:
             </div>
           )}
         </div>
+      </div>
+
+      <ConfirmDialog
+        open={confirmDelete}
+        onOpenChange={setConfirmDelete}
+        title="Delete path?"
+        description={`This will remove the "${group.group_label}" path. Steps must be archived first.`}
+        confirmLabel="Delete"
+        variant="destructive"
+        isPending={deleteGroup.isPending}
+        onConfirm={handleDeleteConfirm}
+      />
+    </>
+  )
+}
+
+// ─── Workflow section ─────────────────────────────────────────────────────────
+
+interface WorkflowSectionProps {
+  workflow:      Workflow
+  groups:        WorkflowGroup[]
+  steps:         WorkflowStep[]
+  isOwner:       boolean
+  profileId:     string | null
+  approvalRoles: CustomRole[]
+}
+
+function WorkflowSection({ workflow, groups, steps, isOwner, profileId, approvalRoles }: WorkflowSectionProps) {
+  const [expanded, setExpanded] = useState(true)
+  const createGroup = useCreateWorkflowGroup()
+
+  const label = WORKFLOW_LABELS[workflow]
+  const activeSteps = steps.filter((s) => s.is_active).length
+  const totalSteps  = steps.length
+
+  function stepsByGroup(groupId: string) {
+    return steps.filter((s) => s.group_id === groupId)
+  }
+
+  function handleAddPath() {
+    createGroup.mutateAsync({
+      workflow,
+      group_label: `Path ${groups.length + 1}`,
+      mode: 'any_one',
+    })
+      .then(() => toast.success('New path added'))
+      .catch((err: Error) => toast.error(err.message))
+  }
+
+  return (
+    <div className="border border-border rounded-md overflow-hidden">
+      <button
+        type="button"
+        className="flex w-full items-center gap-2 px-3 py-2 bg-muted/40 hover:bg-muted/60 transition-colors text-left"
+        onClick={() => setExpanded((v) => !v)}
+      >
+        {expanded
+          ? <ChevronDown className="h-3.5 w-3.5 text-muted-foreground shrink-0" />
+          : <ChevronRight className="h-3.5 w-3.5 text-muted-foreground shrink-0" />
+        }
+        <span className="text-xs font-semibold flex-1">{label}</span>
+        {groups.length > 1 && (
+          <Badge variant="secondary" className="text-[10px] py-0 px-1.5 h-4">
+            {groups.length} paths
+          </Badge>
+        )}
+        <span className="text-[10px] text-muted-foreground tabular-nums">
+          ({activeSteps}/{totalSteps})
+        </span>
+      </button>
+
+      {expanded && (
+        <div className="py-1 space-y-1">
+          {groups.length > 1 && (
+            <p className="px-3 py-0.5 text-[10px] text-muted-foreground italic">
+              Any path completing = approved
+            </p>
+          )}
+
+          {groups.length === 0 && totalSteps === 0 && !isOwner && (
+            <p className="px-3 py-3 text-xs text-muted-foreground text-center">
+              No approval steps configured for this workflow.
+            </p>
+          )}
+
+          {groups.map((g) => (
+            <GroupSection
+              key={g.id}
+              group={g}
+              steps={stepsByGroup(g.id)}
+              allWorkflowSteps={steps}
+              isOwner={isOwner}
+              profileId={profileId}
+              approvalRoles={approvalRoles}
+              groupCount={groups.length}
+            />
+          ))}
+
+          {isOwner && (
+            <div className="px-3 py-1">
+              <Button
+                type="button"
+                size="sm"
+                variant="ghost"
+                className="h-7 text-xs text-muted-foreground hover:text-foreground gap-1"
+                onClick={handleAddPath}
+                disabled={createGroup.isPending}
+              >
+                {createGroup.isPending
+                  ? <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                  : <GitBranch className="h-3.5 w-3.5" />
+                }
+                Add path
+              </Button>
+            </div>
+          )}
+        </div>
       )}
     </div>
   )
@@ -462,10 +670,11 @@ function WorkflowSection({ workflow, steps, isOwner, profileId, approvalRoles }:
 // ─── Global chain management view ─────────────────────────────────────────────
 
 export function ApprovalChainManagement() {
-  const { data: steps, isLoading } = useWorkflowSteps()
-  const { data: roles }            = useRoles()
-  const { data: profile }          = useCurrentUserProfile()
-  const { data: permissions }      = usePermissions()
+  const { data: steps, isLoading: stepsLoading }   = useWorkflowSteps()
+  const { data: groups, isLoading: groupsLoading }  = useWorkflowGroups()
+  const { data: roles }                             = useRoles()
+  const { data: profile }                           = useCurrentUserProfile()
+  const { data: permissions }                       = usePermissions()
 
   const isOwner = permissions?.isSystemAdmin === true ||
     (permissions?.permissions ?? []).includes('system.admin')
@@ -474,6 +683,8 @@ export function ApprovalChainManagement() {
   const approvalRoles = (roles ?? []).filter(
     (r) => Boolean((r as CustomRole & { is_approval_slot?: boolean }).is_approval_slot)
   )
+
+  const isLoading = stepsLoading || groupsLoading
 
   if (isLoading) {
     return (
@@ -484,8 +695,14 @@ export function ApprovalChainManagement() {
     )
   }
 
-  const allSteps   = steps ?? []
-  const byWorkflow = (w: Workflow) => allSteps.filter((s) => s.workflow === w)
+  const allSteps  = steps ?? []
+  const allGroups = groups ?? []
+
+  const groupsByWorkflow = (w: Workflow) =>
+    allGroups.filter((g) => g.workflow === w).sort((a, b) => a.group_order - b.group_order)
+
+  const stepsByWorkflow = (w: Workflow) =>
+    allSteps.filter((s) => s.workflow === w)
 
   return (
     <div className="flex flex-col gap-3">
@@ -493,21 +710,25 @@ export function ApprovalChainManagement() {
         <WorkflowSection
           key={w}
           workflow={w}
-          steps={byWorkflow(w)}
+          groups={groupsByWorkflow(w)}
+          steps={stepsByWorkflow(w)}
           isOwner={isOwner}
           profileId={profileId}
           approvalRoles={approvalRoles}
         />
       ))}
 
-      <p className="text-[10px] text-muted-foreground leading-relaxed">
-        <Star className="inline h-2.5 w-2.5 text-amber-500 mr-0.5 -mt-0.5" />
-        Owner step.{' '}
-        <Zap className="inline h-2.5 w-2.5 mr-0.5 -mt-0.5" />
-        Conditional steps only apply for matching types. Use the role dropdown to
-        bind each step to any approval-slot role.
-        {!isOwner && ' Only owners can archive steps.'}
-      </p>
+      <div className="text-[10px] text-muted-foreground leading-relaxed space-y-1">
+        <p>
+          <Star className="inline h-2.5 w-2.5 text-amber-500 mr-0.5 -mt-0.5" />
+          Owner step.{' '}
+          <Zap className="inline h-2.5 w-2.5 mr-0.5 -mt-0.5" />
+          Conditional steps only apply for matching types.{' '}
+          <GitBranch className="inline h-2.5 w-2.5 mr-0.5 -mt-0.5" />
+          Paths are OR — any path completing approves the request.
+          {!isOwner && ' Only owners can manage paths and archive steps.'}
+        </p>
+      </div>
     </div>
   )
 }

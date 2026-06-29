@@ -402,6 +402,7 @@ export const queryKeys = {
     userRoles: (profileId: Nullable) => ['user-roles', profileId] as const,
     myApprovalSlots: ['roles','my-approval-slots'] as const,
     workflowSteps: ['workflow-approval-steps'] as const,
+    workflowGroups: ['workflow-approval-groups'] as const,
     approvalCoverage: ['roles', 'approval-coverage'] as const,
   },
 

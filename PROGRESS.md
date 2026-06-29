@@ -239,7 +239,7 @@ Purchase & Sales▾:
 
 ## 🔄 In Progress
 
-None — Credit Note Resolution + Payment Redesign plan complete (all 9 tasks done).
+Multi-path approval groups — configuration layer complete (migration, types, hooks, UI). Pending user verification.
 
 ## 🔋 Quota Watch
 

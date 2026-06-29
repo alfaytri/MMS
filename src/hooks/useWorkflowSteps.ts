@@ -12,6 +12,7 @@ export type WorkflowStep = {
   is_active: boolean
   is_conditional: boolean
   condition_types: string[]
+  group_id: string | null
   archived_at: string | null
   archived_by: string | null
   created_at: string
@@ -86,6 +87,7 @@ export function useAddWorkflowStepForRole() {
     mutationFn: async (args: {
       workflow: string
       role_id: string
+      group_id?: string
       is_conditional?: boolean
       condition_types?: string[]
     }) => {
@@ -93,6 +95,7 @@ export function useAddWorkflowStepForRole() {
       const { data, error } = await supabase.rpc('add_workflow_step_for_role', {
         p_workflow: args.workflow,
         p_role_id: args.role_id,
+        p_group_id: args.group_id ?? null,
         p_is_conditional: args.is_conditional ?? false,
         p_condition_types: args.condition_types ?? [],
       })
@@ -136,6 +139,23 @@ export function useUpdateWorkflowStepConditions() {
         p_is_conditional:  args.isConditional,
         p_condition_types: args.conditionTypes,
       })
+      if (error) throw error
+    },
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: queryKeys.roles.workflowSteps })
+    },
+  })
+}
+
+export function useMoveStepToGroup() {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: async ({ stepId, groupId }: { stepId: string; groupId: string }) => {
+      const supabase = createClient()
+      const { error } = await supabase
+        .from('approval_workflow_steps')
+        .update({ group_id: groupId })
+        .eq('id', stepId)
       if (error) throw error
     },
     onSuccess: () => {

@@ -94,12 +94,43 @@ export type Database = {
           },
         ]
       }
+      approval_workflow_groups: {
+        Row: {
+          id: string
+          workflow: string
+          group_label: string
+          group_order: number
+          mode: string
+          is_active: boolean
+          created_at: string
+        }
+        Insert: {
+          id?: string
+          workflow: string
+          group_label?: string
+          group_order?: number
+          mode?: string
+          is_active?: boolean
+          created_at?: string
+        }
+        Update: {
+          id?: string
+          workflow?: string
+          group_label?: string
+          group_order?: number
+          mode?: string
+          is_active?: boolean
+          created_at?: string
+        }
+        Relationships: []
+      }
       approval_workflow_steps: {
         Row: {
           archived_at: string | null
           archived_by: string | null
           condition_types: string[] | null
           created_at: string
+          group_id: string | null
           id: string
           is_active: boolean
           is_conditional: boolean
@@ -114,6 +145,7 @@ export type Database = {
           archived_by?: string | null
           condition_types?: string[] | null
           created_at?: string
+          group_id?: string | null
           id?: string
           is_active?: boolean
           is_conditional?: boolean
@@ -128,6 +160,7 @@ export type Database = {
           archived_by?: string | null
           condition_types?: string[] | null
           created_at?: string
+          group_id?: string | null
           id?: string
           is_active?: boolean
           is_conditional?: boolean
@@ -150,6 +183,13 @@ export type Database = {
             columns: ["role_id"]
             isOneToOne: false
             referencedRelation: "custom_roles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "approval_workflow_steps_group_id_fkey"
+            columns: ["group_id"]
+            isOneToOne: false
+            referencedRelation: "approval_workflow_groups"
             referencedColumns: ["id"]
           },
         ]
@@ -9674,6 +9714,7 @@ export type Database = {
       add_workflow_step: {
         Args: {
           p_condition_types?: string[]
+          p_group_id?: string | null
           p_is_conditional?: boolean
           p_role_desc?: string
           p_role_name: string
@@ -9684,6 +9725,7 @@ export type Database = {
       add_workflow_step_for_role: {
         Args: {
           p_condition_types?: string[]
+          p_group_id?: string | null
           p_is_conditional?: boolean
           p_role_id: string
           p_workflow: string
