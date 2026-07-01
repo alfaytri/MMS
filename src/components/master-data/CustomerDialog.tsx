@@ -15,7 +15,7 @@ import {
 } from '@/components/ui/select'
 import { PhoneInputWithCode, splitPhone } from '@/components/shared/PhoneInputWithCode'
 import { useHasPermission } from '@/hooks/usePermissions'
-import { useCreateCustomer, useUpdateCustomer, type Customer } from '@/hooks/useSaleOrders'
+import { useCreateCustomer, useUpdateCustomer, useToggleCustomerActive, type Customer } from '@/hooks/useSaleOrders'
 import { useSubmitCreditGroupChange } from '@/hooks/useCreditGroupApprovals'
 
 const BUCKET = 'customer-credit-docs'
@@ -62,9 +62,10 @@ export function CustomerDialog({
   const [signedFormDoc, setSignedFormDoc]       = useState<UploadedDoc | null>(null)
   const [uploading, setUploading]       = useState<Slot | null>(null)
 
-  const createCustomer    = useCreateCustomer()
-  const updateCustomer    = useUpdateCustomer()
-  const submitGroupChange = useSubmitCreditGroupChange()
+  const createCustomer      = useCreateCustomer()
+  const updateCustomer      = useUpdateCustomer()
+  const toggleActive        = useToggleCustomerActive()
+  const submitGroupChange   = useSubmitCreditGroupChange()
   const submitting = createCustomer.isPending || updateCustomer.isPending || submitGroupChange.isPending
 
   // Seed form from `customer` when opening in edit mode (or clear it on close).
@@ -203,7 +204,9 @@ export function CustomerDialog({
             name:                   name.trim(),
             phone:                  fullPhone,
             email:                  email.trim() || null,
-            customer_type:          customerType,
+            customer_type:          routeGroupViaApproval
+              ? (customer.customer_type as 'cash' | 'credit') ?? 'cash'
+              : customerType,
             entity_type:            entityType,
             credit_group_id:        routeGroupViaApproval
               ? (customer.credit_group_id ?? null)
@@ -268,7 +271,7 @@ export function CustomerDialog({
         name:                   name.trim(),
         phone:                  fullPhone,
         email:                  email.trim() || null,
-        customer_type:          customerType,
+        customer_type:          newGroupNeedsApproval ? 'cash' : customerType,
         entity_type:            entityType,
         credit_group_id:        newGroupNeedsApproval
           ? null
@@ -475,6 +478,48 @@ export function CustomerDialog({
                   This customer is in the &quot;Cash Customers&quot; group but is set to Credit type. Pick a real credit group before saving.
                 </p>
               )}
+            </div>
+          )}
+
+          {isEdit && customer && (
+            <div className={`flex items-center justify-between rounded-md border p-3 ${
+              customer.is_active ? 'bg-muted/30' : 'bg-destructive/5 border-destructive/30'
+            }`}>
+              <div className="space-y-0.5">
+                <div className="text-xs font-medium">
+                  {customer.is_active ? 'Customer is Active' : 'Customer is Disabled'}
+                </div>
+                <p className="text-[10px] text-muted-foreground">
+                  {customer.is_active
+                    ? 'Disable to prevent this customer from being used in new sale orders'
+                    : 'This customer cannot be selected for new sale orders'}
+                </p>
+              </div>
+              <Button
+                type="button"
+                variant={customer.is_active ? 'outline' : 'default'}
+                size="sm"
+                className={customer.is_active
+                  ? 'text-destructive border-destructive/40 hover:bg-destructive/10 text-xs'
+                  : 'text-xs'}
+                disabled={toggleActive.isPending}
+                onClick={() => {
+                  toggleActive.mutate(
+                    { id: customer.id, is_active: !customer.is_active },
+                    {
+                      onSuccess: () => {
+                        toast.success(customer.is_active ? 'Customer disabled' : 'Customer enabled')
+                        onOpenChange(false)
+                      },
+                      onError: (err) => toast.error(err.message),
+                    },
+                  )
+                }}
+              >
+                {toggleActive.isPending
+                  ? (customer.is_active ? 'Disabling…' : 'Enabling…')
+                  : (customer.is_active ? 'Disable Customer' : 'Enable Customer')}
+              </Button>
             </div>
           )}
 

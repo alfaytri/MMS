@@ -147,7 +147,7 @@ export default function CustomersPage() {
                   </TableRow>
                 )
               : customers.map((c) => (
-                  <TableRow key={c.id}>
+                  <TableRow key={c.id} className={c.is_active === false ? 'opacity-50' : ''}>
                     <TableCell>
                       <div className="flex items-center gap-2">
                         <div className="min-w-0">
@@ -156,6 +156,9 @@ export default function CustomersPage() {
                             <span className="text-[10px] text-muted-foreground capitalize">{c.entity_type}</span>
                           )}
                         </div>
+                        {c.is_active === false && (
+                          <Badge variant="outline" className="text-[9px] border-muted-foreground text-muted-foreground shrink-0">Disabled</Badge>
+                        )}
                         {c.is_blocked && (
                           <Badge variant="outline" className="text-[9px] border-destructive text-destructive shrink-0">Blocked</Badge>
                         )}

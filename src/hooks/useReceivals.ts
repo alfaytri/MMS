@@ -465,3 +465,26 @@ export function useReceivalItemsWithFifo(receivalId: string | null) {
     staleTime: 2 * 60 * 1000,
   })
 }
+
+export function useLcLockedReceivalIds() {
+  return useQuery({
+    queryKey: ['receivals', 'lcLocked'],
+    queryFn: async () => {
+      const supabase = createClient()
+      const { data, error } = await supabase
+        .from('landed_costs')
+        .select('attached_receival_ids')
+        .not('applied_at', 'is', null)
+        .is('voided_at', null)
+      if (error) throw error
+      const ids = new Set<string>()
+      for (const lc of data ?? []) {
+        for (const rid of (lc.attached_receival_ids as string[]) ?? []) {
+          ids.add(rid)
+        }
+      }
+      return ids
+    },
+    staleTime: 60 * 1000,
+  })
+}

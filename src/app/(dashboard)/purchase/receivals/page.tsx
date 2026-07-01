@@ -15,6 +15,7 @@ import {
   useRequestReceivalEdit,
   useApproveReceivalEdit,
   useSaveReceivalEdit,
+  useLcLockedReceivalIds,
   type Receival,
   type ReceivalEditRequest,
   type ReceivalStatus,
@@ -48,12 +49,14 @@ const STATUSES: { value: ReceivalStatus | ''; label: string }[] = [
 function ReceivalRowActions({
   receival,
   isAdmin,
+  lcLocked,
   onRequestEdit,
   onAdminApprove,
   onEditApproved,
 }: {
   receival: Receival
   isAdmin: boolean
+  lcLocked: boolean
   onRequestEdit: (r: Receival) => void
   onAdminApprove: (req: ReceivalEditRequest) => void
   onEditApproved: (target: { receival: Receival; request: ReceivalEditRequest }) => void
@@ -79,6 +82,14 @@ function ReceivalRowActions({
       <Button size="sm" variant="outline" className="text-green-600 border-green-300 hover:bg-green-50"
         onClick={(e) => { e.stopPropagation(); onEditApproved({ receival, request: active }) }}>
         Edit Now
+      </Button>
+    )
+  }
+
+  if (lcLocked) {
+    return (
+      <Button size="sm" variant="outline" disabled className="opacity-50" title="Landed Cost applied — edit not available">
+        LC Applied
       </Button>
     )
   }
@@ -286,6 +297,7 @@ export default function ReceivalsPage() {
   const [detailReceival, setDetailReceival] = useState<Receival | null>(null)
 
   const { data: receivals, isLoading } = useReceivals({ status: statusFilter })
+  const { data: lcLockedIds } = useLcLockedReceivalIds()
   const { data: myRoles = [] } = useMyApprovalSlotRoles()
   const canApproveEdit = myRoles.some(
     (r) => (r.scopes === null || r.scopes.includes('receival_edit'))
@@ -332,6 +344,7 @@ export default function ReceivalsPage() {
         <ReceivalRowActions
           receival={row.original}
           isAdmin={canApproveEdit}
+          lcLocked={lcLockedIds?.has(row.original.id) ?? false}
           onRequestEdit={setRequestEditTarget}
           onAdminApprove={setAdminApproveTarget}
           onEditApproved={setEditTarget}

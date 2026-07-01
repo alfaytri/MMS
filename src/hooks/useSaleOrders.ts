@@ -119,6 +119,7 @@ export type Customer = {
   customer_type:       string | null
   entity_type:         'individual' | 'business' | null
   is_blocked:          boolean
+  is_active:           boolean
   credit_group_id:     string | null
   credit_group_name?:  string | null
   credit_group_limit?: number | null
@@ -206,7 +207,8 @@ export function useCustomers(search?: string) {
       const supabase = createClient()
       let q = supabase
         .from('customers')
-        .select('id, name, phone, email, customer_type, is_blocked, credit_group_id, credit_groups(name, credit_limit, default_payment_terms)')
+        .select('id, name, phone, email, customer_type, is_blocked, is_active, credit_group_id, credit_groups(name, credit_limit, default_payment_terms)')
+        .eq('is_active', true)
         .order('name')
         .limit(50)
       if (search) {
@@ -241,7 +243,7 @@ export function useAllCustomers(search: string, page: number) {
       const to   = from + CUSTOMERS_PAGE_SIZE - 1
       let q = supabase
         .from('customers')
-        .select('id, name, phone, email, customer_type, entity_type, is_blocked, credit_group_id, cr_url, establishment_id_url, signed_credit_form_url, credit_groups(name, credit_limit)', { count: 'exact' })
+        .select('id, name, phone, email, customer_type, entity_type, is_blocked, is_active, credit_group_id, cr_url, establishment_id_url, signed_credit_form_url, credit_groups(name, credit_limit)', { count: 'exact' })
         .order('name')
         .range(from, to)
       if (search) {
@@ -401,6 +403,30 @@ export function useUpdateCustomer() {
       }
 
       return { id: args.id }
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: queryKeys.customers.all })
+      queryClient.invalidateQueries({ queryKey: queryKeys.customers.allCustomers })
+    },
+  })
+}
+
+export function useToggleCustomerActive() {
+  const queryClient = useQueryClient()
+  return useMutation({
+    mutationFn: async ({ id, is_active }: { id: string; is_active: boolean }) => {
+      const supabase = createClient()
+      const { error } = await supabase
+        .from('customers')
+        .update({ is_active })
+        .eq('id', id)
+      if (error) throw error
+      void logActivity({
+        action:      is_active ? 'Customer Enabled' : 'Customer Disabled',
+        module:      'customers',
+        entity_id:   id,
+        entity_type: 'customer',
+      })
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: queryKeys.customers.all })
