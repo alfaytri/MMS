@@ -449,13 +449,15 @@ export function PoDetailDialog({ open, onOpenChange, po, poId, onEdit }: Props) 
 
               {/* ── Receivals ────────────────────────────────────── */}
               <TabsContent value="receivals" className="flex-1 overflow-y-auto space-y-3">
-                <div className="flex items-center justify-end">
-                  <ReceivalCheckButton
-                    poId={current.id}
-                    poNumber={current.po_number}
-                    mode="blank"
-                  />
-                </div>
+                {current && (
+                  <div className="flex items-center justify-end">
+                    <ReceivalCheckButton
+                      poId={current.id}
+                      poNumber={current.po_number}
+                      mode="blank"
+                    />
+                  </div>
+                )}
                 {(receivals ?? []).length === 0 ? (
                   <p className="text-sm text-muted-foreground py-4 text-center">No receivals yet</p>
                 ) : (
@@ -465,13 +467,15 @@ export function PoDetailDialog({ open, onOpenChange, po, poId, onEdit }: Props) 
                         <span className="font-medium text-sm">{r.receival_number}</span>
                         <div className="flex items-center gap-2">
                           <span className="text-xs px-2 py-0.5 rounded-full bg-muted font-medium">{r.status}</span>
-                          <ReceivalCheckButton
-                            poId={current.id}
-                            poNumber={current.po_number}
-                            mode="per_receival"
-                            receivalId={r.id}
-                            receivalNumber={r.receival_number}
-                          />
+                          {current && (
+                            <ReceivalCheckButton
+                              poId={current.id}
+                              poNumber={current.po_number}
+                              mode="per_receival"
+                              receivalId={r.id}
+                              receivalNumber={r.receival_number}
+                            />
+                          )}
                         </div>
                       </div>
                       <div className="text-xs text-muted-foreground">
