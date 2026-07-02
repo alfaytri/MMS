@@ -240,7 +240,7 @@ Purchase & Sales▾:
 
 ## 🔄 In Progress
 
-🚀 Starting: **Receival Check PDF Task 5: Button component**
+🚀 Starting: **Receival Check PDF Task 6: PoDetailDialog Receivals tab integration**
 
 ## 🔋 Quota Watch
 
@@ -256,6 +256,7 @@ Purchase & Sales▾:
 
 ## ✅ Completed
 
+- [2026-07-02] **Receival Check PDF Task 5: Button component** — `src/components/purchase/ReceivalCheckButton.tsx` — single Print button, two modes, opens URL in new tab
 - [2026-07-02] **Receival Check PDF Task 4: API route** — `src/app/api/purchase/po/[id]/receival-check-pdf/route.ts` — POST + GET; mode + optional receivalId; 400/404/500 error mapping
 - [2026-07-02] **Receival Check PDF Task 3: Generator** — `src/lib/purchase/generate-receival-check-pdf.ts` — per-receival cached; blank always fresh; free/loose items handled
 - [2026-07-02] **Receival Check PDF Task 2: HTML template** — `src/lib/purchase/receival-check-pdf-html.ts` — bilingual ribbon, handwritten header, item table (2 modes), signature block
