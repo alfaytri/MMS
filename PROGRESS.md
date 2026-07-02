@@ -239,7 +239,7 @@ Purchase & Sales▾:
 
 ## 🔄 In Progress
 
-🚀 Starting: **PO PDF Multi-Variant Cache Task 4: API route — variant param, snapshot response**
+🚀 Starting: **PO PDF Multi-Variant Cache Task 5: PoPdfButton — variant prop + blob handling**
 
 ## 🔋 Quota Watch
 
@@ -255,6 +255,7 @@ Purchase & Sales▾:
 
 ## ✅ Completed
 
+- [2026-07-02] **PO PDF Multi-Variant Cache Task 4: API route — variant param, snapshot response** — `src/app/api/purchase/po/[id]/pdf/route.ts` — variant param required; snapshot returns raw PDF bytes
 - [2026-07-02] **PO PDF Multi-Variant Cache Task 3: Generator — cache logic, payment hash, snapshot renderer** — `src/lib/purchase/generate-po-pdf.ts` — per-variant URL cache + payment-hash gating + on-demand snapshot from po_versions
 - [2026-07-02] **PO PDF Multi-Variant Cache Task 2: HTML template — variant enum + conditional sections** — `src/lib/purchase/po-pdf-html.ts` — 4 ribbon variants, payments hidden for rfq/draft, discount row hidden when 0
 - [2026-07-02] **PO PDF Multi-Variant Cache Task 1: DB migration** — `supabase/migrations/20260702084615_po_pdf_multi_variant_cache.sql`, `src/types/database.types.ts` — 4 per-variant URL columns + payment hash + variant-aware RPC
