@@ -34,6 +34,7 @@ export type Receival = {
   // joined
   po_number?: string
   supplier_name?: string
+  warehouse_name?: string
 }
 
 export type ReceivalEditRequest = {
@@ -77,7 +78,8 @@ export function useReceivals(filters?: { status?: ReceivalStatus | '' }) {
         .select(`
           id,receival_number,po_id,warehouse_id,date,status,notes,received_by_name,created_at,
           receival_items(id,receival_id,po_line_item_id,item_name,sku,qty_received,unit_cost,is_free,brand_variant_id),
-          purchase_orders!receivals_po_id_fkey(po_number,supplier_name)
+          purchase_orders!receivals_po_id_fkey(po_number,supplier_name),
+          warehouses!receivals_warehouse_id_fkey(name)
         `)
         .order('created_at', { ascending: false })
         .limit(200)
@@ -88,6 +90,7 @@ export function useReceivals(filters?: { status?: ReceivalStatus | '' }) {
         ...r,
         po_number: r.purchase_orders?.po_number ?? null,
         supplier_name: r.purchase_orders?.supplier_name ?? null,
+        warehouse_name: r.warehouses?.name ?? null,
       })) as Receival[]
     },
     staleTime: 30 * 1000,
