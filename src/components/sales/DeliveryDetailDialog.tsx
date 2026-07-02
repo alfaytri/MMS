@@ -85,7 +85,12 @@ export function DeliveryDetailDialog({ delivery, onClose }: Props) {
                 <Truck className="h-5 w-5" />
               </div>
               <div>
-                <h2 className="text-lg font-semibold font-mono tracking-tight">{delivery.delivery_number}</h2>
+                <div className="flex items-center gap-2">
+                  <h2 className="text-lg font-semibold font-mono tracking-tight">{delivery.delivery_number}</h2>
+                  {delivery.type === 'replacement' && (
+                    <Badge className="text-xs bg-purple-100 text-purple-700">Replacement</Badge>
+                  )}
+                </div>
                 <p className="text-sm text-muted-foreground">
                   {delivery.so_number ?? '—'}
                   {delivery.customer_name ? ` · ${delivery.customer_name}` : ''}
@@ -148,7 +153,14 @@ export function DeliveryDetailDialog({ delivery, onClose }: Props) {
                   <tbody className="divide-y">
                     {items.map((item, i) => (
                       <tr key={i} className="hover:bg-muted/20">
-                        <td className="px-3 py-2.5 font-medium">{item.item_name}</td>
+                        <td className="px-3 py-2.5 font-medium">
+                          <div className="flex items-center gap-1.5">
+                            <span>{item.item_name}</span>
+                            {item.is_gift && (
+                              <Badge variant="outline" className="text-[10px] border-amber-200 bg-amber-50 text-amber-700">Gift</Badge>
+                            )}
+                          </div>
+                        </td>
                         <td className="px-3 py-2.5 text-muted-foreground font-mono text-xs">{item.sku ?? '—'}</td>
                         <td className="px-3 py-2.5 text-right tabular-nums">{item.qty_delivered}</td>
                       </tr>

@@ -89,7 +89,12 @@ export function ReceivalDetailDialog({ receival, onClose }: Props) {
                 <Package className="h-5 w-5" />
               </div>
               <div>
-                <h2 className="text-lg font-semibold font-mono tracking-tight">{receival.receival_number}</h2>
+                <div className="flex items-center gap-2">
+                  <h2 className="text-lg font-semibold font-mono tracking-tight">{receival.receival_number}</h2>
+                  {receival.is_replacement && (
+                    <Badge className="text-xs bg-purple-100 text-purple-700">Replacement</Badge>
+                  )}
+                </div>
                 <p className="text-sm text-muted-foreground">
                   {receival.po_number ?? '—'}
                   {receival.supplier_name ? ` · ${receival.supplier_name}` : ''}
