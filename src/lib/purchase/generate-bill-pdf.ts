@@ -63,7 +63,7 @@ export async function generateBillPdf(
   const amountPaid = payments.reduce((s, p) => s + p.amount, 0)
   const totalAmount = (bill as any).total_amount ?? 0
   const outstanding = Math.max(0, totalAmount - amountPaid)
-  const isPaid = (bill as any).payment_status === 'paid'
+  const isPaid = outstanding <= 0
 
   const [fonts, assets] = await Promise.all([loadPdfFonts(), loadPdfAssets()])
 

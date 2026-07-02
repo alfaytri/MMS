@@ -113,7 +113,18 @@ export function buildBillHtml(input: BuildBillHtmlInput): string {
   if (supplierRef) {
     metaBlocks.push(metaBlock(escapeHtml(supplierRef), 'مرجع المورد', 'Supplier Ref'))
   }
-  metaBlocks.push(metaBlock(fmtDate(dueDate), 'تاريخ الاستحقاق', 'Due Date'))
+  const dueDateObj = new Date(dueDate)
+  const now = new Date()
+  now.setUTCHours(0, 0, 0, 0)
+  dueDateObj.setUTCHours(0, 0, 0, 0)
+  const diffDays = Math.round((dueDateObj.getTime() - now.getTime()) / (1000 * 60 * 60 * 24))
+  let dueSuffix = ''
+  if (!Number.isNaN(diffDays)) {
+    if (diffDays > 0) dueSuffix = ` (${diffDays} day${diffDays > 1 ? 's' : ''} left)`
+    else if (diffDays === 0) dueSuffix = ' (today)'
+    else dueSuffix = ` (overdue ${Math.abs(diffDays)} day${Math.abs(diffDays) > 1 ? 's' : ''})`
+  }
+  metaBlocks.push(metaBlock(fmtDate(dueDate) + dueSuffix, 'تاريخ الاستحقاق', 'Due Date'))
 
   const paymentRows = payments.length > 0
     ? payments.map((p) => `

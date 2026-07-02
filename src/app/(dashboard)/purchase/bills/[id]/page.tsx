@@ -1,28 +1,39 @@
 'use client'
 
-import { useState, Suspense } from 'react'
+import { useState, useEffect, Suspense } from 'react'
 import { useParams, useRouter } from 'next/navigation'
-import { ArrowLeft, Printer, Loader2 } from 'lucide-react'
+import { ArrowLeft, Printer, Loader2, RefreshCw } from 'lucide-react'
 import { Button } from '@/components/ui/button'
+import { Badge } from '@/components/ui/badge'
 import { toast } from 'sonner'
 import { createClient } from '@/lib/supabase/client'
-import { useBillViewModel, useBillsByPO } from '@/hooks/useSupplierBills'
-import { BillDetailDocument } from '@/components/purchase/BillDetailDocument'
+import {
+  useBillViewModel,
+  useMarkBillPaymentStatus,
+} from '@/hooks/useSupplierBills'
+import { cn } from '@/lib/utils'
+
+const PAY_STATUS_COLORS: Record<string, string> = {
+  unpaid:         'bg-slate-100 text-slate-600',
+  partially_paid: 'bg-amber-100 text-amber-700',
+  paid:           'bg-green-100 text-green-700',
+  overdue:        'bg-red-100 text-red-700',
+}
 
 function BillDetailContent() {
   const params = useParams<{ id: string }>()
   const id = params.id
   const router = useRouter()
-  const [printing, setPrinting] = useState(false)
+  const [pdfUrl, setPdfUrl] = useState<string | null>(null)
+  const [loading, setLoading] = useState(true)
+  const [error, setError] = useState<string | null>(null)
+  const markPaid = useMarkBillPaymentStatus()
 
-  const { data: viewModel, isLoading, isError } = useBillViewModel(id)
-  const { data: relatedBills = [] } = useBillsByPO(
-    viewModel?.bill.purchase_order_id ?? null
-  )
+  const { data: viewModel } = useBillViewModel(id)
 
-  async function handlePrint() {
-    if (printing) return
-    setPrinting(true)
+  async function generatePdf() {
+    setLoading(true)
+    setError(null)
     try {
       const supabase = createClient()
       const { data: { session } } = await supabase.auth.getSession()
@@ -37,64 +48,107 @@ function BillDetailContent() {
         throw new Error(body.error ?? `Request failed (${res.status})`)
       }
       const json = await res.json() as { url: string }
-      window.open(json.url, '_blank', 'noopener,noreferrer')
+      setPdfUrl(json.url)
     } catch (err) {
-      toast.error(err instanceof Error ? err.message : 'Failed to generate bill PDF')
+      const msg = err instanceof Error ? err.message : 'Failed to generate bill PDF'
+      setError(msg)
+      toast.error(msg)
     } finally {
-      setPrinting(false)
+      setLoading(false)
     }
   }
 
-  if (isLoading) {
-    return (
-      <div className="flex min-h-screen items-center justify-center text-muted-foreground text-sm">
-        Loading bill…
-      </div>
-    )
-  }
+  useEffect(() => {
+    if (id) generatePdf()
+  }, [id])
 
-  if (isError || !viewModel) {
-    return (
-      <div className="flex min-h-screen flex-col items-center justify-center gap-4">
-        <p className="text-muted-foreground">Bill not found.</p>
-        <Button variant="outline" size="sm" onClick={() => router.push('/purchase/bills')}>
-          Back to Bills
-        </Button>
-      </div>
-    )
-  }
+  const bill = viewModel?.bill
+  const paymentStatus = bill?.payment_status ?? 'unpaid'
 
   return (
-    <div className="min-h-screen bg-muted/30 p-4 lg:p-8 print:p-0 print:bg-white">
-      <div className="flex items-center justify-between gap-3 mb-4 lg:mb-6 print:hidden max-w-3xl mx-auto">
-        <Button
-          variant="ghost"
-          size="sm"
-          onClick={() => router.push('/purchase/bills')}
-        >
-          <ArrowLeft className="h-4 w-4 mr-1.5" />
-          Back
-        </Button>
-        <div className="flex items-center gap-2">
-          <Button
-            variant="default"
-            size="sm"
-            onClick={handlePrint}
-            disabled={printing}
-          >
-            {printing
-              ? <Loader2 className="h-3.5 w-3.5 animate-spin mr-1.5" />
-              : <Printer className="h-3.5 w-3.5 mr-1.5" />}
-            Print Bill
+    <div className="flex flex-col h-[calc(100vh-3.5rem)]">
+      {/* Slim toolbar */}
+      <div className="flex items-center justify-between gap-3 px-4 py-2 border-b bg-white shrink-0">
+        <div className="flex items-center gap-3">
+          <Button variant="ghost" size="sm" onClick={() => router.push('/purchase/bills')}>
+            <ArrowLeft className="h-4 w-4 mr-1.5" />
+            Back
           </Button>
+          {bill && (
+            <>
+              <span className="text-sm font-mono font-bold">{bill.invoice_id}</span>
+              <Badge className={cn('text-xs', PAY_STATUS_COLORS[paymentStatus] ?? '')}>
+                {paymentStatus.replace(/_/g, ' ')}
+              </Badge>
+            </>
+          )}
+        </div>
+        <div className="flex items-center gap-2">
+          {bill && paymentStatus !== 'paid' && (
+            <Button
+              size="sm"
+              variant="outline"
+              onClick={() => markPaid.mutate({ billId: bill.id, status: 'paid' })}
+              disabled={markPaid.isPending}
+            >
+              {markPaid.isPending ? 'Marking…' : 'Mark as Paid'}
+            </Button>
+          )}
+          {bill && paymentStatus === 'paid' && (
+            <Button
+              size="sm"
+              variant="ghost"
+              onClick={() => markPaid.mutate({ billId: bill.id, status: 'unpaid' })}
+              disabled={markPaid.isPending}
+            >
+              {markPaid.isPending ? 'Updating…' : 'Mark as Unpaid'}
+            </Button>
+          )}
+          <Button
+            size="sm"
+            variant="outline"
+            onClick={() => generatePdf()}
+            disabled={loading}
+          >
+            <RefreshCw className={cn('h-3.5 w-3.5 mr-1.5', loading && 'animate-spin')} />
+            Refresh
+          </Button>
+          {pdfUrl && (
+            <Button
+              size="sm"
+              onClick={() => window.open(pdfUrl, '_blank', 'noopener,noreferrer')}
+            >
+              <Printer className="h-3.5 w-3.5 mr-1.5" />
+              Open PDF
+            </Button>
+          )}
         </div>
       </div>
-      <BillDetailDocument
-        viewModel={viewModel}
-        relatedBills={relatedBills}
-        currentBillId={id}
-        onNavigate={(billId) => router.push(`/purchase/bills/${billId}`)}
-      />
+
+      {/* PDF viewer area */}
+      <div className="flex-1 bg-muted/40">
+        {loading && (
+          <div className="flex items-center justify-center h-full text-muted-foreground text-sm gap-2">
+            <Loader2 className="h-5 w-5 animate-spin" />
+            Generating bill PDF…
+          </div>
+        )}
+        {error && !loading && (
+          <div className="flex flex-col items-center justify-center h-full gap-3">
+            <p className="text-sm text-destructive">{error}</p>
+            <Button size="sm" variant="outline" onClick={() => generatePdf()}>
+              Retry
+            </Button>
+          </div>
+        )}
+        {pdfUrl && !loading && (
+          <iframe
+            src={pdfUrl}
+            className="w-full h-full border-0"
+            title="Purchase Bill PDF"
+          />
+        )}
+      </div>
     </div>
   )
 }
