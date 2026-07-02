@@ -2,7 +2,7 @@
  * Shared Puppeteer pipeline for rendering self-contained HTML to a PDF buffer.
  *
  * Used by:
- *  - src/lib/orders/generate-confirmation-pdf.tsx   (order booking confirmation)
+ *  - src/lib/orders/generate-confirmation-pdf.ts    (order booking confirmation)
  *  - src/lib/sales/generate-quotation-pdf.ts        (SO quotation)
  *  - src/lib/sales/generate-invoice-pdf.ts          (AR invoice)
  *  - src/lib/sales/generate-credit-debit-note-pdf.ts (credit / debit note)

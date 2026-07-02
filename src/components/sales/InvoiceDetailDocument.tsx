@@ -59,7 +59,6 @@ export function InvoiceDetailDocument({
 }: Props) {
   const [origin, setOrigin] = useState('')
   const watermark = getWatermark(invoice)
-  const printTimestamp = new Date().toLocaleDateString('en-GB')
 
   useEffect(() => { setOrigin(window.location.origin) }, [])
 
@@ -117,7 +116,6 @@ export function InvoiceDetailDocument({
             <p className="font-medium text-foreground font-mono">{invoice.invoice_id}</p>
             <p>Issued: <span className="text-foreground">{formatDate(invoice.issued_date)}</span></p>
             <p>Due: <span className="text-foreground">{formatDate(invoice.due_date)}</span></p>
-            <p>Print Date: {printTimestamp}</p>
           </div>
         </div>
       </BillDetailSection>

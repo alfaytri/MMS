@@ -137,17 +137,23 @@ export function PaymentFormDialog({
     exchange_rate: z.coerce.number().positive().optional(),
   })
 
+  const freshDefaults = () => ({
+    amount: outstanding > 0 ? Number(outstanding.toFixed(2)) : 0,
+    method: defaultMethod ?? methods[0]?.value ?? '',
+    date: new Date().toISOString().split('T')[0],
+    reference: '',
+    notes: '',
+    exchange_rate: defaultExchangeRate ?? 1,
+  })
+
   const form = useForm<z.infer<typeof paymentSchema>>({
     resolver: zodResolver(paymentSchema) as never,
-    defaultValues: {
-      amount: outstanding > 0 ? Number(outstanding.toFixed(2)) : 0,
-      method: defaultMethod ?? methods[0]?.value ?? '',
-      date: new Date().toISOString().split('T')[0],
-      reference: '',
-      notes: '',
-      exchange_rate: defaultExchangeRate ?? 1,
-    },
+    defaultValues: freshDefaults(),
   })
+
+  useEffect(() => {
+    if (open) form.reset(freshDefaults())
+  }, [open])
 
   const watchedAmount = form.watch('amount') || 0
   const watchedRate = form.watch('exchange_rate') || 1
