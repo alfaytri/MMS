@@ -38,6 +38,7 @@ import { useMyApprovalRoles } from '@/hooks/usePOApprovals'
 import { usePoEditRequest } from '@/hooks/usePoEditRequests'
 import { EditRequestBanner } from './EditRequestBanner'
 import { RequestEditDialog } from './RequestEditDialog'
+import { RfqQuotesTab } from './RfqQuotesTab'
 import { ReceivalCheckButton } from './ReceivalCheckButton'
 import { formatCurrency, formatDate } from '@/lib/utils/formatters'
 import { cn } from '@/lib/utils'
@@ -327,6 +328,9 @@ export function PoDetailDialog({ open, onOpenChange, po, poId, onEdit }: Props) 
                     Returns{poReturns.length > 0 ? ` (${poReturns.length})` : ''}
                   </TabsTrigger>
                 )}
+                {!isViewingSnapshot && current?.po_type === 'rfq' && (
+                  <TabsTrigger value="quotes">Quotes</TabsTrigger>
+                )}
               </TabsList>
 
               {/* ── Line Items ───────────────────────────────────── */}
@@ -536,6 +540,24 @@ export function PoDetailDialog({ open, onOpenChange, po, poId, onEdit }: Props) 
               {showReturns && fullPO && (
                 <TabsContent value="returns" className="flex-1 overflow-y-auto">
                   <PoReturnsTab po={fullPO} poReturns={poReturns} receivals={receivals} />
+                </TabsContent>
+              )}
+
+              {/* ── Quotes (RFQ only) ────────────────────────────── */}
+              {!isViewingSnapshot && current?.po_type === 'rfq' && (
+                <TabsContent value="quotes" className="flex-1 overflow-y-auto p-4">
+                  <RfqQuotesTab
+                    poId={current.id}
+                    poNumber={current.po_number}
+                    currency={current.currency ?? 'QAR'}
+                    lineItems={(fullPO?.po_line_items ?? []).map((li: any) => ({
+                      id: li.id,
+                      item_name: li.item_name,
+                      qty: li.qty,
+                      unit: li.unit,
+                      unit_price: li.unit_price,
+                    }))}
+                  />
                 </TabsContent>
               )}
             </Tabs>
