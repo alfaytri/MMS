@@ -1,0 +1,641 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>Al Faytri — Document Template Designer</title>
+<style>
+/* ── Font-face declarations ─────────────────────────────────────── */
+/* IBM Plex Sans (EN) */
+@font-face{font-family:'PlexEN';src:url('Font/IBM_Plex_Sans,IBM_Plex_Sans_Arabic,Rajdhani,Tajawal,Teko/IBM_Plex_Sans/static/IBMPlexSans-Regular.ttf') format('truetype');font-weight:400;}
+@font-face{font-family:'PlexEN';src:url('Font/IBM_Plex_Sans,IBM_Plex_Sans_Arabic,Rajdhani,Tajawal,Teko/IBM_Plex_Sans/static/IBMPlexSans-Medium.ttf') format('truetype');font-weight:500;}
+@font-face{font-family:'PlexEN';src:url('Font/IBM_Plex_Sans,IBM_Plex_Sans_Arabic,Rajdhani,Tajawal,Teko/IBM_Plex_Sans/static/IBMPlexSans-SemiBold.ttf') format('truetype');font-weight:600;}
+@font-face{font-family:'PlexEN';src:url('Font/IBM_Plex_Sans,IBM_Plex_Sans_Arabic,Rajdhani,Tajawal,Teko/IBM_Plex_Sans/static/IBMPlexSans-Bold.ttf') format('truetype');font-weight:700;}
+@font-face{font-family:'PlexEN';src:url('Font/IBM_Plex_Sans,IBM_Plex_Sans_Arabic,Rajdhani,Tajawal,Teko/IBM_Plex_Sans/static/IBMPlexSans-Light.ttf') format('truetype');font-weight:300;}
+/* IBM Plex Sans Arabic (AR) */
+@font-face{font-family:'PlexAR';src:url('Font/IBM_Plex_Sans,IBM_Plex_Sans_Arabic,Rajdhani,Tajawal,Teko/IBM_Plex_Sans_Arabic/IBMPlexSansArabic-Regular.ttf') format('truetype');font-weight:400;}
+@font-face{font-family:'PlexAR';src:url('Font/IBM_Plex_Sans,IBM_Plex_Sans_Arabic,Rajdhani,Tajawal,Teko/IBM_Plex_Sans_Arabic/IBMPlexSansArabic-Medium.ttf') format('truetype');font-weight:500;}
+@font-face{font-family:'PlexAR';src:url('Font/IBM_Plex_Sans,IBM_Plex_Sans_Arabic,Rajdhani,Tajawal,Teko/IBM_Plex_Sans_Arabic/IBMPlexSansArabic-SemiBold.ttf') format('truetype');font-weight:600;}
+@font-face{font-family:'PlexAR';src:url('Font/IBM_Plex_Sans,IBM_Plex_Sans_Arabic,Rajdhani,Tajawal,Teko/IBM_Plex_Sans_Arabic/IBMPlexSansArabic-Bold.ttf') format('truetype');font-weight:700;}
+@font-face{font-family:'PlexAR';src:url('Font/IBM_Plex_Sans,IBM_Plex_Sans_Arabic,Rajdhani,Tajawal,Teko/IBM_Plex_Sans_Arabic/IBMPlexSansArabic-Light.ttf') format('truetype');font-weight:300;}
+/* Rajdhani (EN) */
+@font-face{font-family:'Rajdhani';src:url('Font/IBM_Plex_Sans,IBM_Plex_Sans_Arabic,Rajdhani,Tajawal,Teko/Rajdhani/Rajdhani-Regular.ttf') format('truetype');font-weight:400;}
+@font-face{font-family:'Rajdhani';src:url('Font/IBM_Plex_Sans,IBM_Plex_Sans_Arabic,Rajdhani,Tajawal,Teko/Rajdhani/Rajdhani-Medium.ttf') format('truetype');font-weight:500;}
+@font-face{font-family:'Rajdhani';src:url('Font/IBM_Plex_Sans,IBM_Plex_Sans_Arabic,Rajdhani,Tajawal,Teko/Rajdhani/Rajdhani-SemiBold.ttf') format('truetype');font-weight:600;}
+@font-face{font-family:'Rajdhani';src:url('Font/IBM_Plex_Sans,IBM_Plex_Sans_Arabic,Rajdhani,Tajawal,Teko/Rajdhani/Rajdhani-Bold.ttf') format('truetype');font-weight:700;}
+@font-face{font-family:'Rajdhani';src:url('Font/IBM_Plex_Sans,IBM_Plex_Sans_Arabic,Rajdhani,Tajawal,Teko/Rajdhani/Rajdhani-Light.ttf') format('truetype');font-weight:300;}
+/* Tajawal (AR) */
+@font-face{font-family:'Tajawal';src:url('Font/IBM_Plex_Sans,IBM_Plex_Sans_Arabic,Rajdhani,Tajawal,Teko/Tajawal/Tajawal-Regular.ttf') format('truetype');font-weight:400;}
+@font-face{font-family:'Tajawal';src:url('Font/IBM_Plex_Sans,IBM_Plex_Sans_Arabic,Rajdhani,Tajawal,Teko/Tajawal/Tajawal-Medium.ttf') format('truetype');font-weight:500;}
+@font-face{font-family:'Tajawal';src:url('Font/IBM_Plex_Sans,IBM_Plex_Sans_Arabic,Rajdhani,Tajawal,Teko/Tajawal/Tajawal-Bold.ttf') format('truetype');font-weight:700;}
+@font-face{font-family:'Tajawal';src:url('Font/IBM_Plex_Sans,IBM_Plex_Sans_Arabic,Rajdhani,Tajawal,Teko/Tajawal/Tajawal-ExtraBold.ttf') format('truetype');font-weight:800;}
+@font-face{font-family:'Tajawal';src:url('Font/IBM_Plex_Sans,IBM_Plex_Sans_Arabic,Rajdhani,Tajawal,Teko/Tajawal/Tajawal-Light.ttf') format('truetype');font-weight:300;}
+/* Teko (EN display) */
+@font-face{font-family:'Teko';src:url('Font/IBM_Plex_Sans,IBM_Plex_Sans_Arabic,Rajdhani,Tajawal,Teko/Teko/static/Teko-Regular.ttf') format('truetype');font-weight:400;}
+@font-face{font-family:'Teko';src:url('Font/IBM_Plex_Sans,IBM_Plex_Sans_Arabic,Rajdhani,Tajawal,Teko/Teko/static/Teko-Medium.ttf') format('truetype');font-weight:500;}
+@font-face{font-family:'Teko';src:url('Font/IBM_Plex_Sans,IBM_Plex_Sans_Arabic,Rajdhani,Tajawal,Teko/Teko/static/Teko-SemiBold.ttf') format('truetype');font-weight:600;}
+@font-face{font-family:'Teko';src:url('Font/IBM_Plex_Sans,IBM_Plex_Sans_Arabic,Rajdhani,Tajawal,Teko/Teko/static/Teko-Bold.ttf') format('truetype');font-weight:700;}
+@font-face{font-family:'Teko';src:url('Font/IBM_Plex_Sans,IBM_Plex_Sans_Arabic,Rajdhani,Tajawal,Teko/Teko/static/Teko-Light.ttf') format('truetype');font-weight:300;}
+/* Noor (AR) */
+@font-face{font-family:'Noor';src:url('Font/IBM_Plex_Sans,IBM_Plex_Sans_Arabic,Rajdhani,Tajawal,Teko/Noor/Noor Regular.ttf') format('truetype');font-weight:400;}
+@font-face{font-family:'Noor';src:url('Font/IBM_Plex_Sans,IBM_Plex_Sans_Arabic,Rajdhani,Tajawal,Teko/Noor/Noor Bold.ttf') format('truetype');font-weight:700;}
+/* Infield (EN original) */
+@font-face{font-family:'InfieldRound';src:url('Font/Infield/Infield-Rounded.ttf') format('truetype');}
+@font-face{font-family:'InfieldBlock';src:url('Font/Infield/Infield-Block.ttf') format('truetype');}
+/* Myriad Arabic */
+@font-face{font-family:'MyriadArabic';src:url('Font/MyriadArabic/ArbFONTS-MyriadArabic-Regular.otf') format('opentype');font-weight:400;}
+@font-face{font-family:'MyriadArabic';src:url('Font/MyriadArabic/ArbFONTS-MyriadArabic-Bold.otf') format('opentype');font-weight:700;}
+
+/* ── Designer UI ────────────────────────────────────────────────── */
+*{box-sizing:border-box;margin:0;padding:0;}
+html,body{background:#f1f5f9;font-family:'PlexEN',system-ui,sans-serif;color:#0f172a;}
+.toolbar{position:sticky;top:0;z-index:100;background:#fff;border-bottom:1px solid #e2e8f0;padding:12px 24px;display:flex;flex-wrap:wrap;gap:16px;align-items:center;}
+.toolbar label{font-size:11px;font-weight:600;text-transform:uppercase;letter-spacing:.5px;color:#64748b;display:flex;flex-direction:column;gap:4px;}
+.toolbar select,.toolbar input[type=color]{height:36px;border:1px solid #cbd5e1;border-radius:6px;padding:0 10px;font-size:13px;font-family:inherit;cursor:pointer;}
+.toolbar input[type=color]{width:44px;padding:2px;cursor:pointer;}
+.toolbar .fmt-group{display:flex;gap:0;}
+.toolbar .fmt-btn{padding:6px 14px;font-size:12px;font-weight:600;border:1px solid #cbd5e1;background:#fff;cursor:pointer;font-family:inherit;transition:.15s;}
+.toolbar .fmt-btn:first-child{border-radius:6px 0 0 6px;}
+.toolbar .fmt-btn:last-child{border-radius:0 6px 6px 0;}
+.toolbar .fmt-btn:not(:first-child){border-left:0;}
+.toolbar .fmt-btn.active{background:#0f172a;color:#fff;border-color:#0f172a;}
+.toolbar .dl-btn{margin-left:auto;padding:8px 20px;background:#ED7C2C;color:#fff;border:0;border-radius:6px;font-size:13px;font-weight:600;cursor:pointer;font-family:inherit;}
+.toolbar .dl-btn:hover{background:#d96a1e;}
+.preview-area{display:flex;justify-content:center;padding:32px 24px 60px;}
+
+/* ── A4 page ────────────────────────────────────────────────────── */
+.page{width:210mm;min-height:297mm;background:#fff;box-shadow:0 4px 24px rgba(0,0,0,.12);-webkit-print-color-adjust:exact;print-color-adjust:exact;}
+
+/* ── Format A: Ribbon ───────────────────────────────────────────── */
+.fmt-a .pg-top{display:grid;grid-template-columns:1fr auto 1fr;align-items:start;padding:14mm 14mm 0;}
+.fmt-a .pg-logo{width:120px;height:auto;align-self:center;margin:0 6mm;}
+.fmt-a .pg-en{text-align:left;}
+.fmt-a .pg-ar{text-align:right;direction:rtl;}
+.fmt-a .pg-brand{font-weight:700;margin-bottom:4px;line-height:1.1;}
+.fmt-a .pg-tagline{font-weight:400;margin-bottom:6px;line-height:1.3;}
+.fmt-a .pg-addr{line-height:1.6;}
+.fmt-a .midbar{position:relative;margin-top:4mm;}
+.fmt-a .contact-strip{display:flex;justify-content:space-between;padding:5mm 14mm;}
+.fmt-a .contact-strip a{text-decoration:none;font-size:10px;}
+.fmt-a .dark-strip{height:9mm;}
+.fmt-a .ribbon{position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);color:#fff;padding:3.5mm 8mm 3mm;text-align:center;line-height:1.2;width:58mm;}
+.fmt-a .ribbon .ar-title{font-weight:700;margin-bottom:.8mm;}
+.fmt-a .ribbon .en-title{font-weight:600;letter-spacing:.4px;}
+.fmt-a .ribbon .doc-no{font-size:9px;margin-top:1mm;opacity:.9;}
+.fmt-a .meta{display:grid;grid-template-columns:1fr 1fr;gap:0 18mm;padding:6mm 14mm 4mm;}
+.fmt-a .meta-block{display:flex;justify-content:space-between;align-items:flex-start;border-bottom:.7px solid #d0d0d0;padding:3mm 0;}
+.fmt-a .meta-label{text-align:right;}
+.fmt-a .meta-label .en{color:#6b7280;margin-top:1px;}
+.fmt-a .tbl-wrap{padding:4mm 14mm 0;}
+.fmt-a table.doc-table{width:100%;border-collapse:collapse;direction:rtl;border:.7px solid #111;}
+.fmt-a table.doc-table th{color:#fff;padding:3.5mm 3mm;text-align:center;vertical-align:middle;font-weight:700;border-right:.7px solid #111;}
+.fmt-a table.doc-table th:first-child{border-right:0;}
+.fmt-a table.doc-table th .en{display:block;font-weight:400;margin-top:1px;opacity:.9;}
+.fmt-a table.doc-table td{border-top:.7px solid #111;padding:3.5mm 3mm;vertical-align:middle;}
+.fmt-a table.doc-table td.cn{text-align:center;}
+.fmt-a table.doc-table td.ri{text-align:right;}
+.fmt-a .totals-wrap{padding:0 14mm;}
+.fmt-a table.totals{width:100%;border-collapse:collapse;direction:rtl;border:.7px solid #111;border-top:0;}
+.fmt-a table.totals th{color:#fff;padding:3mm 3mm;text-align:center;font-weight:700;border-right:.7px solid #111;}
+.fmt-a table.totals th:first-child{border-right:0;}
+.fmt-a table.totals th .en{display:block;font-weight:400;margin-top:1px;opacity:.9;}
+.fmt-a table.totals td{padding:3.5mm 3mm;text-align:center;background:#efefef;font-weight:700;border-right:.7px solid #111;border-top:.7px solid #111;}
+.fmt-a table.totals td:first-child{border-right:0;}
+.fmt-a .terms{padding:5mm 14mm 0;}
+.fmt-a .terms-row{display:grid;grid-template-columns:48mm 1fr;gap:4mm;margin-bottom:1.5mm;}
+.fmt-a .terms-key{font-weight:600;}
+.fmt-a .terms-val{color:#6b7280;}
+.fmt-a .pg-footer{padding:5mm 14mm 10mm;text-align:center;}
+.fmt-a .pg-footer img{height:50px;}
+
+/* ── Format B: Clean Band ───────────────────────────────────────── */
+.fmt-b .pg-header{display:flex;align-items:center;padding:10mm 14mm 8mm;gap:6mm;}
+.fmt-b .pg-logo{height:60px;width:auto;}
+.fmt-b .pg-co-info{flex:1;}
+.fmt-b .pg-brand{font-weight:700;line-height:1.1;}
+.fmt-b .pg-tagline{font-weight:300;margin-top:2px;}
+.fmt-b .pg-addr{margin-top:4px;color:#6b7280;line-height:1.5;}
+.fmt-b .pg-ar-side{text-align:right;direction:rtl;flex:1;}
+.fmt-b .doc-band{padding:4mm 14mm;color:#fff;display:flex;justify-content:space-between;align-items:center;}
+.fmt-b .doc-band .doc-title{font-weight:700;}
+.fmt-b .doc-band .doc-title-ar{font-weight:700;direction:rtl;}
+.fmt-b .doc-band .doc-num{font-weight:400;opacity:.9;}
+.fmt-b .meta{display:grid;grid-template-columns:1fr 1fr;gap:0 14mm;padding:6mm 14mm 4mm;}
+.fmt-b .meta-block{display:flex;justify-content:space-between;align-items:center;border-bottom:.7px solid #e2e8f0;padding:3mm 0;}
+.fmt-b .meta-label{text-align:right;color:#6b7280;}
+.fmt-b .tbl-wrap{padding:4mm 14mm 0;}
+.fmt-b table.doc-table{width:100%;border-collapse:collapse;direction:rtl;}
+.fmt-b table.doc-table th{border-bottom:2px solid #111;padding:3mm 3mm;text-align:center;font-weight:600;color:#111;}
+.fmt-b table.doc-table th .en{display:none;}
+.fmt-b table.doc-table td{border-bottom:.7px solid #e2e8f0;padding:3.5mm 3mm;vertical-align:middle;}
+.fmt-b table.doc-table td.cn{text-align:center;}
+.fmt-b table.doc-table td.ri{text-align:right;}
+.fmt-b .totals-wrap{padding:4mm 14mm 0;display:flex;justify-content:flex-start;direction:rtl;}
+.fmt-b .totals-block{display:grid;grid-template-columns:auto auto;gap:2mm 12mm;font-weight:600;}
+.fmt-b .totals-block .tot-label{text-align:right;color:#6b7280;font-weight:400;}
+.fmt-b .totals-block .tot-val{text-align:right;}
+.fmt-b .totals-block .tot-grand{font-weight:700;padding-top:2mm;border-top:2px solid #111;}
+.fmt-b .terms{padding:5mm 14mm 0;}
+.fmt-b .terms-row{display:grid;grid-template-columns:48mm 1fr;gap:4mm;margin-bottom:1.5mm;}
+.fmt-b .terms-key{font-weight:600;}
+.fmt-b .terms-val{color:#6b7280;}
+.fmt-b .pg-footer{padding:6mm 14mm 10mm;display:flex;justify-content:space-between;align-items:center;border-top:.7px solid #e2e8f0;margin-top:6mm;}
+.fmt-b .pg-footer .motto{font-weight:300;color:#6b7280;}
+.fmt-b .pg-footer img{height:40px;}
+
+/* ── Format C: Side-Panel ───────────────────────────────────────── */
+.fmt-c{display:grid;grid-template-columns:52mm 1fr;min-height:297mm;}
+.fmt-c .side-panel{color:#fff;padding:12mm 6mm;display:flex;flex-direction:column;align-items:center;gap:6mm;}
+.fmt-c .side-panel .pg-logo{width:80px;height:auto;filter:brightness(0) invert(1);}
+.fmt-c .side-panel .doc-type{text-align:center;margin-top:4mm;}
+.fmt-c .side-panel .doc-type .ar-title{font-weight:700;margin-bottom:2mm;}
+.fmt-c .side-panel .doc-type .en-title{font-weight:600;letter-spacing:.5px;opacity:.9;}
+.fmt-c .side-panel .doc-type .doc-no{font-weight:300;margin-top:3mm;opacity:.8;}
+.fmt-c .side-panel .side-contact{margin-top:auto;text-align:center;font-weight:300;opacity:.8;line-height:1.8;}
+.fmt-c .side-panel .side-contact a{color:#fff;text-decoration:none;}
+.fmt-c .main-body{padding:12mm 12mm 10mm 8mm;}
+.fmt-c .pg-co-line{display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:6mm;padding-bottom:4mm;border-bottom:.7px solid #d0d0d0;}
+.fmt-c .pg-co-line .pg-brand{font-weight:700;}
+.fmt-c .pg-co-line .pg-addr{color:#6b7280;margin-top:2px;line-height:1.5;}
+.fmt-c .pg-co-line .ar-side{text-align:right;direction:rtl;}
+.fmt-c .meta{display:grid;grid-template-columns:1fr 1fr;gap:0 12mm;margin-bottom:4mm;}
+.fmt-c .meta-block{display:flex;justify-content:space-between;border-bottom:.7px solid #e2e8f0;padding:2.5mm 0;}
+.fmt-c .meta-label{color:#6b7280;text-align:right;}
+.fmt-c .tbl-wrap{margin-top:2mm;}
+.fmt-c table.doc-table{width:100%;border-collapse:collapse;direction:rtl;}
+.fmt-c table.doc-table th{padding:3mm;text-align:center;font-weight:600;color:#fff;border-right:.7px solid rgba(255,255,255,.3);}
+.fmt-c table.doc-table th:first-child{border-right:0;}
+.fmt-c table.doc-table th .en{display:block;font-weight:400;opacity:.85;}
+.fmt-c table.doc-table td{border-top:.7px solid #e2e8f0;padding:3mm;vertical-align:middle;}
+.fmt-c table.doc-table td.cn{text-align:center;}
+.fmt-c table.doc-table td.ri{text-align:right;}
+.fmt-c .totals-wrap{margin-top:3mm;display:flex;justify-content:flex-start;direction:rtl;}
+.fmt-c .totals-block{display:grid;grid-template-columns:auto auto;gap:2mm 10mm;font-weight:600;}
+.fmt-c .totals-block .tot-label{text-align:right;color:#6b7280;font-weight:400;}
+.fmt-c .totals-block .tot-grand{font-weight:700;padding-top:2mm;border-top:2px solid #111;}
+.fmt-c .terms{margin-top:5mm;}
+.fmt-c .terms-row{display:grid;grid-template-columns:44mm 1fr;gap:3mm;margin-bottom:1.5mm;}
+.fmt-c .terms-key{font-weight:600;}
+.fmt-c .terms-val{color:#6b7280;}
+.fmt-c .pg-footer{margin-top:auto;padding-top:5mm;text-align:center;}
+.fmt-c .pg-footer img{height:40px;}
+
+/* ── Print ──────────────────────────────────────────────────────── */
+@media print{
+  .toolbar{display:none!important;}
+  .preview-area{padding:0!important;}
+  body{background:#fff;}
+  .page{box-shadow:none;width:210mm;min-height:297mm;}
+  @page{size:A4;margin:0;}
+}
+</style>
+</head>
+<body>
+
+<div class="toolbar">
+  <label>Document
+    <select id="docType">
+      <option value="po">Purchase Order</option>
+      <option value="rfq">RFQ</option>
+      <option value="bill">Supplier Bill</option>
+      <option value="invoice">Sales Invoice</option>
+      <option value="quotation">SO Quotation</option>
+      <option value="credit">Credit Note</option>
+      <option value="debit">Debit Note</option>
+      <option value="service">Service Quotation</option>
+    </select>
+  </label>
+  <label>Font Pairing
+    <select id="fontPair">
+      <option value="plex">IBM Plex Sans + Plex Arabic</option>
+      <option value="rajdhani">Rajdhani + Tajawal</option>
+      <option value="teko">Teko + Tajawal</option>
+      <option value="infield">Infield + Noor (original)</option>
+      <option value="myriad">Myriad Arabic (Classic)</option>
+    </select>
+  </label>
+  <label>Format
+    <div class="fmt-group">
+      <button class="fmt-btn active" data-fmt="a">A — Ribbon</button>
+      <button class="fmt-btn" data-fmt="b">B — Clean Band</button>
+      <button class="fmt-btn" data-fmt="c">C — Side Panel</button>
+    </div>
+  </label>
+  <label>Brand Color
+    <input type="color" id="brandColor" value="#ED7C2C">
+  </label>
+  <button class="dl-btn" onclick="window.print()">Download PDF</button>
+</div>
+
+<div class="preview-area">
+  <div class="page" id="pageRoot"></div>
+</div>
+
+<script>
+/* ── Font config ─────────────────────────────────────────────── */
+const FONTS = {
+  plex: {
+    en: "'PlexEN', sans-serif",
+    ar: "'PlexAR', sans-serif",
+    headEN: "'PlexEN', sans-serif",
+    headAR: "'PlexAR', sans-serif",
+    enSizes: { brand: '24px', tagline: '14px', body: '11px', meta: '11.5px', thAr: '12px', thEn: '9px', ribbon: '14px', ribbonEn: '10px' },
+  },
+  rajdhani: {
+    en: "'Rajdhani', sans-serif",
+    ar: "'Tajawal', sans-serif",
+    headEN: "'Rajdhani', sans-serif",
+    headAR: "'Tajawal', sans-serif",
+    enSizes: { brand: '26px', tagline: '15px', body: '11.5px', meta: '12px', thAr: '13px', thEn: '9.5px', ribbon: '15px', ribbonEn: '11px' },
+  },
+  teko: {
+    en: "'Teko', sans-serif",
+    ar: "'Tajawal', sans-serif",
+    headEN: "'Teko', sans-serif",
+    headAR: "'Tajawal', sans-serif",
+    enSizes: { brand: '30px', tagline: '16px', body: '13px', meta: '13px', thAr: '13px', thEn: '10px', ribbon: '16px', ribbonEn: '12px' },
+  },
+  infield: {
+    en: "'InfieldRound', sans-serif",
+    ar: "'Noor', sans-serif",
+    headEN: "'InfieldBlock', sans-serif",
+    headAR: "'Noor', sans-serif",
+    enSizes: { brand: '27px', tagline: '17px', body: '11px', meta: '12px', thAr: '13.5px', thEn: '9.5px', ribbon: '15px', ribbonEn: '11px' },
+  },
+  myriad: {
+    en: "'MyriadArabic', sans-serif",
+    ar: "'MyriadArabic', sans-serif",
+    headEN: "'MyriadArabic', sans-serif",
+    headAR: "'MyriadArabic', sans-serif",
+    enSizes: { brand: '26px', tagline: '16px', body: '12px', meta: '12px', thAr: '13px', thEn: '9.5px', ribbon: '15px', ribbonEn: '11px' },
+  },
+};
+
+/* ── Document data ───────────────────────────────────────────── */
+const DOCS = {
+  po: {
+    arTitle: 'أمر شراء', enTitle: 'Purchase Order', num: 'PO-2026-00042',
+    meta: [
+      { val: '28 Jun 2026', ar: 'تاريخ الطلب', en: 'Order Date' },
+      { val: '12 Jul 2026', ar: 'تاريخ التسليم المتوقع', en: 'Expected Delivery' },
+      { val: '+974 5512 3456', ar: 'هاتف المورد', en: 'Supplier Phone' },
+      { val: 'Gulf Trading & Supply Co.', ar: 'اسم المورد', en: 'Supplier Name' },
+    ],
+    cols: [
+      { ar: 'الإجمالي', en: 'Total', w: '16%' },
+      { ar: 'سعر الوحدة', en: 'Unit Price', w: '16%' },
+      { ar: 'الكمية', en: 'Qty', w: '10%' },
+      { ar: 'الوحدة', en: 'Unit', w: '10%' },
+      { ar: 'الصنف', en: 'Item', w: '48%' },
+    ],
+    rows: [
+      ['QAR 12,000.00','QAR 120.00','100','Pcs','Split AC Unit — 2 Ton Inverter|SKU-AC-2T-INV'],
+      ['QAR 2,500.00','QAR 50.00','50','Meter','Copper Pipe — 1/4" Insulated|SKU-CP-025'],
+      ['QAR 750.00','QAR 15.00','50','Pcs','Drain Pipe — 16mm PVC|SKU-DP-16'],
+    ],
+    totals: [['QAR 14,750.00','الإجمالي النهائي','Grand Total'],['QAR 500.00','قيمة الخصم','Discount'],['QAR 15,250.00','المجموع الفرعي','Subtotal']],
+    terms: [['Payment Terms','Net 30 — Payment due within 30 days of delivery'],['Delivery Terms','FOB Doha — Supplier delivers to our warehouse']],
+  },
+  rfq: {
+    arTitle: 'طلب عرض سعر', enTitle: 'Request for Quotation', num: 'RFQ-2026-00015',
+    meta: [
+      { val: '28 Jun 2026', ar: 'تاريخ الإصدار', en: 'Issue Date' },
+      { val: '05 Jul 2026', ar: 'آخر موعد للرد', en: 'Response Deadline' },
+      { val: '+974 5512 3456', ar: 'هاتف المورد', en: 'Supplier Phone' },
+      { val: 'Gulf Trading & Supply Co.', ar: 'اسم المورد', en: 'Supplier Name' },
+    ],
+    cols: [
+      { ar: 'الوحدة', en: 'Unit', w: '12%' },
+      { ar: 'الكمية المطلوبة', en: 'Required Qty', w: '14%' },
+      { ar: 'الصنف / المواصفات', en: 'Item / Specs', w: '74%' },
+    ],
+    rows: [
+      ['Pcs','100','Split AC Unit — 2 Ton Inverter|SKU-AC-2T-INV'],
+      ['Meter','500','Copper Pipe — 1/4" Insulated|SKU-CP-025'],
+      ['Pcs','200','Drain Pipe — 16mm PVC|SKU-DP-16'],
+    ],
+    totals: [],
+    terms: [['Delivery Location','Alfaytri Warehouse — Industrial Area, Doha'],['Instructions','Partial deliveries accepted. Samples required for first-time items.']],
+  },
+  bill: {
+    arTitle: 'فاتورة مورد', enTitle: 'Supplier Bill', num: 'BILL-2026-00089',
+    meta: [
+      { val: '25 Jun 2026', ar: 'تاريخ الفاتورة', en: 'Bill Date' },
+      { val: '25 Jul 2026', ar: 'تاريخ الاستحقاق', en: 'Due Date' },
+      { val: 'PO-2026-00042', ar: 'رقم أمر الشراء', en: 'PO Reference' },
+      { val: 'Gulf Trading & Supply Co.', ar: 'اسم المورد', en: 'Supplier Name' },
+    ],
+    cols: [
+      { ar: 'الإجمالي', en: 'Total', w: '16%' },
+      { ar: 'سعر الوحدة', en: 'Unit Price', w: '16%' },
+      { ar: 'الكمية', en: 'Qty', w: '10%' },
+      { ar: 'الوحدة', en: 'Unit', w: '10%' },
+      { ar: 'الصنف', en: 'Item', w: '48%' },
+    ],
+    rows: [
+      ['QAR 12,000.00','QAR 120.00','100','Pcs','Split AC Unit — 2 Ton Inverter|SKU-AC-2T-INV'],
+      ['QAR 2,500.00','QAR 50.00','50','Meter','Copper Pipe — 1/4" Insulated|SKU-CP-025'],
+    ],
+    totals: [['QAR 14,000.00','الإجمالي النهائي','Grand Total'],['QAR 500.00','قيمة الخصم','Discount'],['QAR 14,500.00','المجموع الفرعي','Subtotal']],
+    terms: [['Payment Terms','Net 30'],['Supplier Invoice #','GTS-INV-2026-1847']],
+  },
+  invoice: {
+    arTitle: 'فاتورة مبيعات', enTitle: 'Sales Invoice', num: 'INV-00004',
+    meta: [
+      { val: '27 Jun 2026', ar: 'تاريخ الإصدار', en: 'Issued Date' },
+      { val: '27 Jul 2026', ar: 'تاريخ الاستحقاق', en: 'Due Date' },
+      { val: '+974 7219 5504', ar: 'هاتف الزبون', en: 'Customer Phone' },
+      { val: 'IT Mohamed Ismail', ar: 'اسم الزبون', en: 'Customer Name' },
+    ],
+    cols: [
+      { ar: 'الإجمالي', en: 'Total', w: '18%' },
+      { ar: 'سعر الوحدة', en: 'Unit Price', w: '18%' },
+      { ar: 'الكمية', en: 'Qty', w: '12%' },
+      { ar: 'الصنف', en: 'Description', w: '52%' },
+    ],
+    rows: [
+      ['QAR 36,000.00','QAR 3,000.00','12','80 Gallon Water Heater — Industrial Grade'],
+      ['QAR 4,500.00','QAR 150.00','30','Thermostat Digital Controller — 220V'],
+    ],
+    totals: [['QAR 35,000.00','الإجمالي النهائي','Grand Total'],['QAR 5,500.00','قيمة الخصم','Discount'],['QAR 40,500.00','المجموع الفرعي','Subtotal']],
+    terms: [],
+  },
+  quotation: {
+    arTitle: 'عرض سعر', enTitle: 'Quotation', num: 'SO-00003',
+    meta: [
+      { val: '25 Jun 2026', ar: 'تاريخ عرض السعر', en: 'Quote Date' },
+      { val: '30 days', ar: 'مدة الصلاحية', en: 'Validity' },
+      { val: '+974 7219 5504', ar: 'هاتف الزبون', en: 'Customer Phone' },
+      { val: 'IT Mohamed Ismail', ar: 'اسم الزبون', en: 'Customer Name' },
+    ],
+    cols: [
+      { ar: 'الإجمالي', en: 'Total', w: '18%' },
+      { ar: 'سعر الوحدة', en: 'Unit Price', w: '18%' },
+      { ar: 'الكمية', en: 'Qty', w: '12%' },
+      { ar: 'العنصر', en: 'Item', w: '52%' },
+    ],
+    rows: [
+      ['QAR 36,000.00','QAR 3,000.00','12','80 Gallon Water Heater|SKU-WH-80G'],
+      ['QAR 4,500.00','QAR 150.00','30','Thermostat Controller|SKU-TH-220'],
+      ['QAR 7,200.00','QAR 240.00','30','Pressure Relief Valve|SKU-PRV-34'],
+    ],
+    totals: [['QAR 42,200.00','الإجمالي النهائي','Grand Total'],['QAR 5,500.00','قيمة الخصم','Discount'],['QAR 47,700.00','المجموع الفرعي','Subtotal']],
+    terms: [['Payment Terms','Net 30'],['Delivery Terms','Delivered within 5 business days']],
+  },
+  credit: {
+    arTitle: 'إشعار دائن', enTitle: 'Credit Note', num: 'CN-2026-00007', accent: '#dc2626',
+    meta: [
+      { val: '28 Jun 2026', ar: 'تاريخ الإصدار', en: 'Issue Date' },
+      { val: 'INV-00004', ar: 'رقم الفاتورة الأصلية', en: 'Original Invoice' },
+      { val: '+974 7219 5504', ar: 'هاتف الزبون', en: 'Customer Phone' },
+      { val: 'IT Mohamed Ismail', ar: 'اسم الزبون', en: 'Customer Name' },
+    ],
+    cols: [
+      { ar: 'المبلغ المسترد', en: 'Credit Amount', w: '18%' },
+      { ar: 'سعر الوحدة', en: 'Unit Price', w: '18%' },
+      { ar: 'الكمية', en: 'Qty', w: '12%' },
+      { ar: 'الصنف', en: 'Description', w: '52%' },
+    ],
+    rows: [
+      ['QAR 6,000.00','QAR 3,000.00','2','80 Gallon Water Heater'],
+      ['QAR 450.00','QAR 150.00','3','Thermostat Controller — 220V'],
+    ],
+    totals: [['- QAR 6,450.00','إجمالي المبلغ المسترد','Total Credit']],
+    terms: [],
+  },
+  debit: {
+    arTitle: 'إشعار مدين', enTitle: 'Debit Note', num: 'DN-2026-00003', accent: '#2f2f33',
+    meta: [
+      { val: '28 Jun 2026', ar: 'تاريخ الإصدار', en: 'Issue Date' },
+      { val: 'PO-2026-00042', ar: 'رقم أمر الشراء', en: 'PO Reference' },
+      { val: '+974 5512 3456', ar: 'هاتف المورد', en: 'Supplier Phone' },
+      { val: 'Gulf Trading & Supply Co.', ar: 'اسم المورد', en: 'Supplier Name' },
+    ],
+    cols: [
+      { ar: 'المبلغ المخصوم', en: 'Debit Amount', w: '18%' },
+      { ar: 'سعر الوحدة', en: 'Unit Price', w: '18%' },
+      { ar: 'الكمية', en: 'Qty', w: '12%' },
+      { ar: 'الصنف', en: 'Description', w: '52%' },
+    ],
+    rows: [
+      ['QAR 1,200.00','QAR 120.00','10','Split AC — Defective|SKU-AC-2T-INV'],
+      ['QAR 250.00','QAR 50.00','5','Copper Pipe — Wrong size|SKU-CP-025'],
+    ],
+    totals: [['QAR 1,450.00','إجمالي المبلغ المخصوم','Total Debit']],
+    terms: [],
+  },
+  service: {
+    arTitle: 'عرض سعر خدمات', enTitle: 'Service Quotation', num: 'SQ-2026-00103',
+    meta: [
+      { val: '28 Jun 2026', ar: 'تاريخ عرض السعر', en: 'Quote Date' },
+      { val: '15 days', ar: 'مدة الصلاحية', en: 'Validity' },
+      { val: '+974 3312 7890', ar: 'هاتف الزبون', en: 'Customer Phone' },
+      { val: 'Al Jazeera Towers', ar: 'اسم الزبون', en: 'Customer Name' },
+    ],
+    cols: [
+      { ar: 'الإجمالي', en: 'Total', w: '16%' },
+      { ar: 'سعر الوحدة', en: 'Unit Price', w: '14%' },
+      { ar: 'الكمية', en: 'Qty', w: '8%' },
+      { ar: 'التكرار', en: 'Freq', w: '10%' },
+      { ar: 'الخدمة', en: 'Service', w: '52%' },
+    ],
+    rows: [
+      ['QAR 24,000','QAR 2,000','12','Monthly','Central AC Maintenance|صيانة تكييف مركزي'],
+      ['QAR 3,600','QAR 300','12','Monthly','Pest Control — Spraying|مكافحة حشرات'],
+      ['QAR 1,800','QAR 150','12','Monthly','Plumbing Maintenance|صيانة سباكة'],
+    ],
+    totals: [['QAR 27,400.00','الإجمالي النهائي','Grand Total'],['QAR 2,000.00','قيمة الخصم','Discount'],['QAR 29,400.00','المجموع الفرعي','Subtotal']],
+    terms: [['Payment Terms','Monthly invoice, due within 15 days'],['Contract Duration','12 months — auto-renewal']],
+  },
+};
+
+/* ── Render helpers ──────────────────────────────────────────── */
+function esc(s) { return s.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;'); }
+function renderCell(val, isLast) {
+  const parts = val.split('|');
+  if (isLast) {
+    let h = `<div style="line-height:1.4">${esc(parts[0])}</div>`;
+    if (parts[1]) h += `<div style="opacity:.6;margin-top:1px">${esc(parts[1])}</div>`;
+    return `<td class="ri">${h}</td>`;
+  }
+  return `<td class="cn">${esc(val)}</td>`;
+}
+
+/* ── Format A renderer ───────────────────────────────────────── */
+function renderA(doc, color, font) {
+  const s = font.enSizes;
+  const accent = doc.accent || color;
+  const thRows = doc.cols.map(c => `<th style="width:${c.w}">${c.ar}<span class="en">(${c.en})</span></th>`).join('');
+  const bodyRows = doc.rows.map(r => '<tr>' + r.map((v,i) => renderCell(v, i===r.length-1)).join('') + '</tr>').join('');
+  const totalsHtml = doc.totals.length ? `
+    <div class="totals-wrap"><table class="totals"><thead><tr>
+      ${doc.totals.map(t => `<th style="width:${Math.floor(100/doc.totals.length)}%;background:${accent};font-family:${font.ar};font-size:${s.thAr}">${t[1]}<span class="en" style="font-family:${font.en};font-size:${s.thEn}">(${t[2]})</span></th>`).join('')}
+    </tr></thead><tbody><tr>
+      ${doc.totals.map(t => `<td style="font-family:${font.headEN};font-size:13px">${esc(t[0])}</td>`).join('')}
+    </tr></tbody></table></div>` : '';
+  const termsHtml = doc.terms.length ? `<div class="terms">${doc.terms.map(t => `<div class="terms-row"><div class="terms-key" style="font-size:${s.body}">${esc(t[0])}</div><div class="terms-val" style="font-size:${s.body}">${esc(t[1])}</div></div>`).join('')}</div>` : '';
+
+  return `<div class="fmt-a">
+    <div class="pg-top">
+      <div class="pg-en" style="font-family:${font.en};font-size:${s.body}">
+        <div class="pg-brand" style="font-family:${font.headEN};font-size:${s.brand}">ALFAYTRI</div>
+        <div class="pg-tagline" style="font-size:${s.tagline}">For trading and building maintenance W.L.L</div>
+        <div class="pg-addr">Office 14, Building 54, Street 185, Zone 55<br>Doha, Qatar | P.O. Box 45069</div>
+      </div>
+      <img class="pg-logo" src="Company logo.png" alt="Al Faytri">
+      <div class="pg-ar" style="font-family:${font.ar}">
+        <div class="pg-brand" style="font-size:29px">الفيتري</div>
+        <div class="pg-tagline" style="font-size:18px">للتجارة وصيانة المباني ذ.م.م</div>
+        <div class="pg-addr" style="font-size:16px">مكتب 14 مبنى 54 شارع 185 منطقة 55 الدوحة قطر<br>ص.ب 45069</div>
+      </div>
+    </div>
+    <div class="midbar">
+      <div class="contact-strip" style="font-family:${font.en}">
+        <div style="display:flex;gap:10mm"><a href="#" style="color:#1d63d8">Instagram</a><a href="#" style="color:#1d63d8">www.alfaytri.com</a></div>
+        <div style="display:flex;gap:10mm"><a href="#" style="color:#1d63d8">info@alfaytri.com</a><a href="#" style="color:#1d63d8">+97444106900</a></div>
+      </div>
+      <div class="dark-strip" style="background:#2f2f33"></div>
+      <div class="ribbon" style="background:${accent}">
+        <div class="ar-title" style="font-family:${font.ar};font-size:${s.ribbon}">${doc.arTitle}</div>
+        <div class="en-title" style="font-family:${font.headEN};font-size:${s.ribbonEn}">${doc.enTitle}</div>
+        <div class="doc-no" style="font-family:${font.en}">${doc.num}</div>
+      </div>
+    </div>
+    <div class="meta" style="font-family:${font.en};font-size:${s.meta}">
+      ${doc.meta.map(m => `<div class="meta-block"><div class="meta-value">${esc(m.val)}</div><div class="meta-label"><div class="ar" style="font-family:${font.ar};font-weight:700;font-size:${s.thAr}">${m.ar}</div><div class="en" style="font-size:${s.thEn}">(${m.en})</div></div></div>`).join('')}
+    </div>
+    <div class="tbl-wrap">
+      <table class="doc-table" style="font-family:${font.en};font-size:${s.body}">
+        <thead><tr style="font-family:${font.ar};font-size:${s.thAr};background:${accent}">${thRows}</tr></thead>
+        <tbody>${bodyRows}</tbody>
+      </table>
+    </div>
+    ${totalsHtml}
+    ${termsHtml}
+    <div class="pg-footer"><img src="Footer.png" alt="أهلها"></div>
+  </div>`;
+}
+
+/* ── Format B renderer ───────────────────────────────────────── */
+function renderB(doc, color, font) {
+  const s = font.enSizes;
+  const accent = doc.accent || color;
+  const thRows = doc.cols.map(c => `<th style="width:${c.w}">${c.ar}</th>`).join('');
+  const bodyRows = doc.rows.map(r => '<tr>' + r.map((v,i) => renderCell(v, i===r.length-1)).join('') + '</tr>').join('');
+  const totalsHtml = doc.totals.length ? `<div class="totals-wrap"><div class="totals-block" style="font-family:${font.en};font-size:${s.meta}">${doc.totals.map((t,i) => `<div class="tot-val ${i===0?'tot-grand':''}">${esc(t[0])}</div><div class="tot-label ${i===0?'tot-grand':''}">${t[1]}</div>`).join('')}</div></div>` : '';
+  const termsHtml = doc.terms.length ? `<div class="terms">${doc.terms.map(t => `<div class="terms-row"><div class="terms-key" style="font-size:${s.body}">${esc(t[0])}</div><div class="terms-val" style="font-size:${s.body}">${esc(t[1])}</div></div>`).join('')}</div>` : '';
+
+  return `<div class="fmt-b" style="padding:0">
+    <div class="pg-header">
+      <img class="pg-logo" src="Company logo.png" alt="Al Faytri">
+      <div class="pg-co-info" style="font-family:${font.en}">
+        <div class="pg-brand" style="font-family:${font.headEN};font-size:${s.brand}">ALFAYTRI</div>
+        <div class="pg-tagline" style="font-size:${s.tagline}">For trading and building maintenance W.L.L</div>
+        <div class="pg-addr" style="font-size:${s.body}">Office 14, Building 54, Street 185, Zone 55, Doha, Qatar</div>
+      </div>
+      <div class="pg-ar-side" style="font-family:${font.ar}">
+        <div class="pg-brand" style="font-size:28px">الفيتري</div>
+        <div class="pg-tagline" style="font-size:16px">للتجارة وصيانة المباني ذ.م.م</div>
+        <div class="pg-addr" style="font-size:14px;color:#6b7280">مكتب 14 مبنى 54 شارع 185 منطقة 55 الدوحة</div>
+      </div>
+    </div>
+    <div class="doc-band" style="background:${accent}">
+      <div>
+        <div class="doc-title" style="font-family:${font.headEN};font-size:18px">${doc.enTitle}</div>
+        <div class="doc-num" style="font-family:${font.en};font-size:12px">${doc.num}</div>
+      </div>
+      <div class="doc-title-ar" style="font-family:${font.ar};font-size:20px">${doc.arTitle}</div>
+    </div>
+    <div class="meta" style="font-family:${font.en};font-size:${s.meta}">
+      ${doc.meta.map(m => `<div class="meta-block"><div style="font-weight:500">${esc(m.val)}</div><div class="meta-label"><span style="font-family:${font.ar};font-weight:600">${m.ar}</span> <span style="font-size:${s.thEn}">(${m.en})</span></div></div>`).join('')}
+    </div>
+    <div class="tbl-wrap">
+      <table class="doc-table" style="font-family:${font.ar};font-size:${s.body}">
+        <thead><tr style="font-size:${s.thAr}">${thRows}</tr></thead>
+        <tbody style="font-family:${font.en}">${bodyRows}</tbody>
+      </table>
+    </div>
+    ${totalsHtml}
+    ${termsHtml}
+    <div class="pg-footer">
+      <div class="motto" style="font-family:${font.en};font-size:11px">Quality Service Since 2010</div>
+      <img src="Footer.png" alt="أهلها">
+    </div>
+  </div>`;
+}
+
+/* ── Format C renderer ───────────────────────────────────────── */
+function renderC(doc, color, font) {
+  const s = font.enSizes;
+  const accent = doc.accent || color;
+  const thRows = doc.cols.map(c => `<th style="width:${c.w};background:${accent}">${c.ar}<span class="en">(${c.en})</span></th>`).join('');
+  const bodyRows = doc.rows.map(r => '<tr>' + r.map((v,i) => renderCell(v, i===r.length-1)).join('') + '</tr>').join('');
+  const totalsHtml = doc.totals.length ? `<div class="totals-wrap"><div class="totals-block" style="font-family:${font.en};font-size:${s.meta}">${doc.totals.map((t,i) => `<div class="tot-val ${i===0?'tot-grand':''}">${esc(t[0])}</div><div class="tot-label ${i===0?'tot-grand':''}">${t[1]}</div>`).join('')}</div></div>` : '';
+  const termsHtml = doc.terms.length ? `<div class="terms">${doc.terms.map(t => `<div class="terms-row"><div class="terms-key" style="font-size:${s.body}">${esc(t[0])}</div><div class="terms-val" style="font-size:${s.body}">${esc(t[1])}</div></div>`).join('')}</div>` : '';
+
+  return `<div class="fmt-c" style="font-family:${font.en};font-size:${s.body}">
+    <div class="side-panel" style="background:${accent}">
+      <img class="pg-logo" src="Company logo.png" alt="Al Faytri">
+      <div class="doc-type">
+        <div class="ar-title" style="font-family:${font.ar};font-size:18px">${doc.arTitle}</div>
+        <div class="en-title" style="font-family:${font.headEN};font-size:14px">${doc.enTitle}</div>
+        <div class="doc-no" style="font-size:12px">${doc.num}</div>
+      </div>
+      <div class="side-contact" style="font-size:10px">
+        <a href="#">info@alfaytri.com</a><br>
+        <a href="#">+974 4410 6900</a><br>
+        <a href="#">www.alfaytri.com</a>
+      </div>
+    </div>
+    <div class="main-body">
+      <div class="pg-co-line">
+        <div>
+          <div class="pg-brand" style="font-family:${font.headEN};font-size:${s.brand}">ALFAYTRI</div>
+          <div class="pg-addr" style="font-size:${s.body}">Office 14, Building 54, Street 185<br>Zone 55, Doha, Qatar</div>
+        </div>
+        <div class="ar-side" style="font-family:${font.ar}">
+          <div class="pg-brand" style="font-size:24px">الفيتري</div>
+          <div class="pg-addr" style="font-size:14px;color:#6b7280">مكتب 14 مبنى 54 شارع 185<br>منطقة 55 الدوحة</div>
+        </div>
+      </div>
+      <div class="meta" style="font-size:${s.meta}">
+        ${doc.meta.map(m => `<div class="meta-block"><div style="font-weight:500">${esc(m.val)}</div><div class="meta-label" style="font-family:${font.ar};font-weight:600;font-size:${s.thAr}">${m.ar}</div></div>`).join('')}
+      </div>
+      <div class="tbl-wrap">
+        <table class="doc-table" style="font-size:${s.body}">
+          <thead><tr style="font-family:${font.ar};font-size:${s.thAr}">${thRows}</tr></thead>
+          <tbody>${bodyRows}</tbody>
+        </table>
+      </div>
+      ${totalsHtml}
+      ${termsHtml}
+      <div class="pg-footer"><img src="Footer.png" alt="أهلها"></div>
+    </div>
+  </div>`;
+}
+
+/* ── State & render loop ─────────────────────────────────────── */
+let state = { doc: 'po', font: 'plex', fmt: 'a', color: '#ED7C2C' };
+
+function render() {
+  const doc = DOCS[state.doc];
+  const font = FONTS[state.font];
+  const renderers = { a: renderA, b: renderB, c: renderC };
+  document.getElementById('pageRoot').innerHTML = renderers[state.fmt](doc, state.color, font);
+}
+
+document.getElementById('docType').onchange = e => { state.doc = e.target.value; render(); };
+document.getElementById('fontPair').onchange = e => { state.font = e.target.value; render(); };
+document.getElementById('brandColor').oninput = e => { state.color = e.target.value; render(); };
+document.querySelectorAll('.fmt-btn').forEach(btn => {
+  btn.onclick = () => {
+    document.querySelectorAll('.fmt-btn').forEach(b => b.classList.remove('active'));
+    btn.classList.add('active');
+    state.fmt = btn.dataset.fmt;
+    render();
+  };
+});
+
+render();
+</script>
+</body>
+</html>
