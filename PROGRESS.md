@@ -239,7 +239,7 @@ Purchase & Sales▾:
 
 ## 🔄 In Progress
 
-🚀 Starting: **PO PDF Multi-Variant Cache Task 3: Generator — cache logic, payment hash, snapshot flow**
+🚀 Starting: **PO PDF Multi-Variant Cache Task 4: API route — variant param, snapshot response**
 
 ## 🔋 Quota Watch
 
@@ -255,6 +255,7 @@ Purchase & Sales▾:
 
 ## ✅ Completed
 
+- [2026-07-02] **PO PDF Multi-Variant Cache Task 3: Generator — cache logic, payment hash, snapshot renderer** — `src/lib/purchase/generate-po-pdf.ts` — per-variant URL cache + payment-hash gating + on-demand snapshot from po_versions
 - [2026-07-02] **PO PDF Multi-Variant Cache Task 2: HTML template — variant enum + conditional sections** — `src/lib/purchase/po-pdf-html.ts` — 4 ribbon variants, payments hidden for rfq/draft, discount row hidden when 0
 - [2026-07-02] **PO PDF Multi-Variant Cache Task 1: DB migration** — `supabase/migrations/20260702084615_po_pdf_multi_variant_cache.sql`, `src/types/database.types.ts` — 4 per-variant URL columns + payment hash + variant-aware RPC
 - [2026-06-28] **Credit Note Resolution Task 9: Hide Record Payment When Fully Paid** — `src/components/shared/PaymentSummaryTab.tsx` — Added `totalPaid < totalAmount` guard to the Record Payment button visibility condition so the button disappears when outstanding balance reaches zero.
