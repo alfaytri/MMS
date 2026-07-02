@@ -1,4 +1,3 @@
-Initialising login role...
 export type Json =
   | string
   | number
@@ -6095,6 +6094,7 @@ export type Database = {
       }
       receivals: {
         Row: {
+          check_sheet_pdf_url: string | null
           created_at: string | null
           date: string
           id: string
@@ -6109,6 +6109,7 @@ export type Database = {
           warehouse_id: string
         }
         Insert: {
+          check_sheet_pdf_url?: string | null
           created_at?: string | null
           date: string
           id?: string
@@ -6123,6 +6124,7 @@ export type Database = {
           warehouse_id: string
         }
         Update: {
+          check_sheet_pdf_url?: string | null
           created_at?: string | null
           date?: string
           id?: string
@@ -10388,6 +10390,10 @@ export type Database = {
         }
         Returns: undefined
       }
+      set_receival_check_pdf_url: {
+        Args: { p_id: string; p_url: string }
+        Returns: undefined
+      }
       set_sale_order_pdf_url: {
         Args: { p_id: string; p_url: string }
         Returns: undefined
@@ -10966,5 +10972,3 @@ export const Constants = {
     },
   },
 } as const
-A new version of Supabase CLI is available: v2.109.0 (currently installed v2.91.3)
-We recommend updating regularly for new features and bug fixes: https://supabase.com/docs/guides/cli/getting-started#updating-the-supabase-cli
