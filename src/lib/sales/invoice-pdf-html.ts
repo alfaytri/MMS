@@ -46,6 +46,8 @@ export interface BuildInvoiceHtmlInput {
   outstanding:     number
   payments:        InvoicePayment[]
   payment_terms:   string | null
+  notes:           string | null
+  isPaid:          boolean
   assets:          PdfAssets
   fonts:           PdfFonts
 }
@@ -117,6 +119,14 @@ export function buildInvoiceHtml(input: BuildInvoiceHtmlInput): string {
 
   const outstandingClass = input.outstanding > 0 ? ' s-outstanding' : ''
 
+  const paidStampHtml = input.isPaid
+    ? `<div class="paid-stamp">PAID</div>`
+    : ''
+
+  const notesHtml = input.notes
+    ? `<div class="notes-block"><span class="notes-label">Notes:</span> ${escapeHtml(input.notes)}</div>`
+    : ''
+
   return `<!DOCTYPE html>
 <html lang="en" dir="ltr">
 <head>
@@ -146,9 +156,33 @@ export function buildInvoiceHtml(input: BuildInvoiceHtmlInput): string {
   /* ─── Invoice-specific: outstanding highlight ─── */
   .summary-row .s-outstanding { color: #dc2626; font-size: 10px; }
   .summary-divider { height: 0.7px; background: var(--text); }
+
+  .notes-block {
+    margin: 3mm 14mm 0; padding: 2mm 3mm;
+    font-family: 'IBMPlexSans', sans-serif; font-size: 9px;
+    font-style: italic; color: var(--muted);
+    border-left: 2px solid var(--orange);
+  }
+  .notes-block .notes-label { font-weight: 600; color: var(--text); font-style: normal; }
+
+  .paid-stamp {
+    position: absolute; top: 45%; left: 50%;
+    transform: translate(-50%, -50%) rotate(-30deg);
+    font-family: 'IBMPlexSans', sans-serif; font-weight: 900;
+    font-size: 80px; color: rgba(34, 197, 94, 0.12);
+    letter-spacing: 8px; pointer-events: none; user-select: none;
+    z-index: 10;
+  }
+
+  /* LTR line-items table for invoices */
+  table.lines { direction: ltr; }
+  table.lines td.cell-item { text-align: left; }
+  table.lines th { text-align: center; }
 </style>
 </head>
 <body>
+
+  ${paidStampHtml}
 
   ${brandHeaderHtml(input.assets.logo)}
 
@@ -156,8 +190,8 @@ export function buildInvoiceHtml(input: BuildInvoiceHtmlInput): string {
     ${contactStripHtml()}
     <div class="dark-strip"></div>
     <div class="ribbon">
-      <div class="ar-title">فاتورة</div>
-      <div class="en-title">Invoice</div>
+      <div class="ar-title">فاتورة مبيعات</div>
+      <div class="en-title">Sales Invoice</div>
       <div class="doc-no">${escapeHtml(input.invoice_id)}</div>
     </div>
   </div>
@@ -276,6 +310,8 @@ export function buildInvoiceHtml(input: BuildInvoiceHtmlInput): string {
       </div>
     </div>
   </div>
+
+  ${notesHtml}
 
   ${footerHtml(input.assets.footer)}
 

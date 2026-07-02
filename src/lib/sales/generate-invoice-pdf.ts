@@ -22,20 +22,22 @@ function storageKeyFor(invoiceDisplayId: string): string {
 }
 
 interface InvoiceRow {
-  id:             string
-  invoice_id:     string
-  invoice_type:   'cash' | 'credit'
-  issued_date:    string
-  due_date:       string
-  subtotal:       number | null
+  id:              string
+  invoice_id:      string
+  invoice_type:    'cash' | 'credit'
+  issued_date:     string
+  due_date:        string
+  subtotal:        number | null
   discount_amount: number | null
-  total_amount:   number | null
-  paid_amount:    number | null
-  pdf_url:        string | null
-  sale_order_id:  string | null
-  customers:      { name: string | null; phone: string | null } | null
+  total_amount:    number | null
+  paid_amount:     number | null
+  payment_status:  string | null
+  notes:           string | null
+  pdf_url:         string | null
+  sale_order_id:   string | null
+  customers:       { name: string | null; phone: string | null } | null
   invoice_line_items: InvoiceLineItem[] | null
-  sale_orders:    { so_number: string; payment_terms: string | null } | null
+  sale_orders:     { so_number: string; payment_terms: string | null } | null
 }
 
 export interface GenerateInvoicePdfResult {
@@ -57,8 +59,8 @@ export async function generateInvoicePdf(
     .from('invoices')
     .select(`
       id, invoice_id, invoice_type, issued_date, due_date,
-      subtotal, discount_amount, total_amount, paid_amount, pdf_url,
-      sale_order_id,
+      subtotal, discount_amount, total_amount, paid_amount, payment_status,
+      notes, pdf_url, sale_order_id,
       customers(name, phone),
       invoice_line_items(description, qty, unit_price, total),
       sale_orders(so_number, payment_terms)
@@ -90,9 +92,19 @@ export async function generateInvoicePdf(
   const paid        = Number(inv.paid_amount     ?? 0)
   const outstanding = Math.max(0, totalAmount - paid)
 
-  // Payment records are not yet stored per-invoice — pass empty array.
-  // When an `invoice_payments` table is added, populate this from a join.
-  const payments: InvoicePayment[] = []
+  const { data: payRows } = await supabase
+    .from('payments')
+    .select('date, amount, method, reference')
+    .eq('invoice_id', inv.id)
+    .eq('direction', 'incoming')
+    .order('date', { ascending: true })
+
+  const payments: InvoicePayment[] = (payRows ?? []).map((p: any) => ({
+    date:      p.date,
+    amount:    Number(p.amount ?? 0),
+    method:    p.method ?? '—',
+    reference: p.reference,
+  }))
 
   const html = buildInvoiceHtml({
     invoice_id:     inv.invoice_id,
@@ -110,6 +122,8 @@ export async function generateInvoicePdf(
     outstanding,
     payments,
     payment_terms:  inv.sale_orders?.payment_terms ?? null,
+    notes:          inv.notes,
+    isPaid:         inv.payment_status === 'paid',
     assets,
     fonts,
   })
