@@ -240,7 +240,7 @@ Purchase & Sales▾:
 
 ## 🔄 In Progress
 
-_(none)_
+🚀 Starting: **Receival Check PDF Task 1: DB migration**
 
 ## 🔋 Quota Watch
 
