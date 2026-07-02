@@ -12,31 +12,6 @@ export type Database = {
   __InternalSupabase: {
     PostgrestVersion: "14.5"
   }
-  graphql_public: {
-    Tables: {
-      [_ in never]: never
-    }
-    Views: {
-      [_ in never]: never
-    }
-    Functions: {
-      graphql: {
-        Args: {
-          extensions?: Json
-          operationName?: string
-          query?: string
-          variables?: Json
-        }
-        Returns: Json
-      }
-    }
-    Enums: {
-      [_ in never]: never
-    }
-    CompositeTypes: {
-      [_ in never]: never
-    }
-  }
   public: {
     Tables: {
       activity_log: {
@@ -1433,6 +1408,7 @@ export type Database = {
           original_total: number | null
           pdf_url: string | null
           phone: string | null
+          purchase_order_id: string | null
           reason: string
           refund_method: string | null
           refund_reference: string | null
@@ -1459,6 +1435,7 @@ export type Database = {
           original_total?: number | null
           pdf_url?: string | null
           phone?: string | null
+          purchase_order_id?: string | null
           reason: string
           refund_method?: string | null
           refund_reference?: string | null
@@ -1485,6 +1462,7 @@ export type Database = {
           original_total?: number | null
           pdf_url?: string | null
           phone?: string | null
+          purchase_order_id?: string | null
           reason?: string
           refund_method?: string | null
           refund_reference?: string | null
@@ -1523,6 +1501,13 @@ export type Database = {
             columns: ["invoice_id"]
             isOneToOne: false
             referencedRelation: "supplier_bills"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "credit_notes_purchase_order_id_fkey"
+            columns: ["purchase_order_id"]
+            isOneToOne: false
+            referencedRelation: "purchase_orders"
             referencedColumns: ["id"]
           },
           {
@@ -4994,6 +4979,99 @@ export type Database = {
           },
         ]
       }
+      po_rfq_quote_items: {
+        Row: {
+          id: string
+          notes: string | null
+          po_line_item_id: string
+          quote_id: string
+          quoted_price: number
+          quoted_qty: number | null
+        }
+        Insert: {
+          id?: string
+          notes?: string | null
+          po_line_item_id: string
+          quote_id: string
+          quoted_price?: number
+          quoted_qty?: number | null
+        }
+        Update: {
+          id?: string
+          notes?: string | null
+          po_line_item_id?: string
+          quote_id?: string
+          quoted_price?: number
+          quoted_qty?: number | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "po_rfq_quote_items_po_line_item_id_fkey"
+            columns: ["po_line_item_id"]
+            isOneToOne: false
+            referencedRelation: "po_line_items"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "po_rfq_quote_items_quote_id_fkey"
+            columns: ["quote_id"]
+            isOneToOne: false
+            referencedRelation: "po_rfq_quotes"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      po_rfq_quotes: {
+        Row: {
+          created_at: string | null
+          currency: string
+          id: string
+          notes: string | null
+          po_id: string
+          received_date: string | null
+          status: string
+          supplier_id: string
+          total_amount: number | null
+        }
+        Insert: {
+          created_at?: string | null
+          currency?: string
+          id?: string
+          notes?: string | null
+          po_id: string
+          received_date?: string | null
+          status?: string
+          supplier_id: string
+          total_amount?: number | null
+        }
+        Update: {
+          created_at?: string | null
+          currency?: string
+          id?: string
+          notes?: string | null
+          po_id?: string
+          received_date?: string | null
+          status?: string
+          supplier_id?: string
+          total_amount?: number | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "po_rfq_quotes_po_id_fkey"
+            columns: ["po_id"]
+            isOneToOne: false
+            referencedRelation: "purchase_orders"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "po_rfq_quotes_supplier_id_fkey"
+            columns: ["supplier_id"]
+            isOneToOne: false
+            referencedRelation: "suppliers"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       po_versions: {
         Row: {
           currency: string
@@ -5341,6 +5419,7 @@ export type Database = {
           po_number: string
           po_type: Database["public"]["Enums"]["po_type"]
           rfq_id: string | null
+          rfq_supplier_ids: string[] | null
           status: Database["public"]["Enums"]["po_status"] | null
           subtotal: number | null
           supplier_id: string
@@ -5377,6 +5456,7 @@ export type Database = {
           po_number: string
           po_type?: Database["public"]["Enums"]["po_type"]
           rfq_id?: string | null
+          rfq_supplier_ids?: string[] | null
           status?: Database["public"]["Enums"]["po_status"] | null
           subtotal?: number | null
           supplier_id: string
@@ -5413,6 +5493,7 @@ export type Database = {
           po_number?: string
           po_type?: Database["public"]["Enums"]["po_type"]
           rfq_id?: string | null
+          rfq_supplier_ids?: string[] | null
           status?: Database["public"]["Enums"]["po_status"] | null
           subtotal?: number | null
           supplier_id?: string
@@ -6098,12 +6179,15 @@ export type Database = {
           created_at: string | null
           date: string
           id: string
+          is_replacement: boolean
           landed_cost_id: string | null
           notes: string | null
           po_id: string
+          receipt_pdf_url: string | null
           receival_number: string
           received_by: string | null
           received_by_name: string | null
+          source_debit_note_id: string | null
           status: Database["public"]["Enums"]["receival_status"] | null
           updated_at: string | null
           warehouse_id: string
@@ -6113,12 +6197,15 @@ export type Database = {
           created_at?: string | null
           date: string
           id?: string
+          is_replacement?: boolean
           landed_cost_id?: string | null
           notes?: string | null
           po_id: string
+          receipt_pdf_url?: string | null
           receival_number: string
           received_by?: string | null
           received_by_name?: string | null
+          source_debit_note_id?: string | null
           status?: Database["public"]["Enums"]["receival_status"] | null
           updated_at?: string | null
           warehouse_id: string
@@ -6128,12 +6215,15 @@ export type Database = {
           created_at?: string | null
           date?: string
           id?: string
+          is_replacement?: boolean
           landed_cost_id?: string | null
           notes?: string | null
           po_id?: string
+          receipt_pdf_url?: string | null
           receival_number?: string
           received_by?: string | null
           received_by_name?: string | null
+          source_debit_note_id?: string | null
           status?: Database["public"]["Enums"]["receival_status"] | null
           updated_at?: string | null
           warehouse_id?: string
@@ -6151,6 +6241,13 @@ export type Database = {
             columns: ["received_by"]
             isOneToOne: false
             referencedRelation: "employees"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "receivals_source_debit_note_id_fkey"
+            columns: ["source_debit_note_id"]
+            isOneToOne: false
+            referencedRelation: "credit_notes"
             referencedColumns: ["id"]
           },
           {
@@ -6249,6 +6346,7 @@ export type Database = {
           id: string
           items: Json
           notes: string | null
+          pdf_url: string | null
           reason: string
           restock_warehouse_id: string | null
           restocked_at: string | null
@@ -6270,6 +6368,7 @@ export type Database = {
           id?: string
           items?: Json
           notes?: string | null
+          pdf_url?: string | null
           reason?: string
           restock_warehouse_id?: string | null
           restocked_at?: string | null
@@ -6291,6 +6390,7 @@ export type Database = {
           id?: string
           items?: Json
           notes?: string | null
+          pdf_url?: string | null
           reason?: string
           restock_warehouse_id?: string | null
           restocked_at?: string | null
@@ -6468,6 +6568,7 @@ export type Database = {
           delivery_number: string
           id: string
           items: Json
+          pdf_url: string | null
           return_id: string | null
           sale_order_id: string
           status: Database["public"]["Enums"]["sale_delivery_status"] | null
@@ -6484,6 +6585,7 @@ export type Database = {
           delivery_number: string
           id?: string
           items?: Json
+          pdf_url?: string | null
           return_id?: string | null
           sale_order_id: string
           status?: Database["public"]["Enums"]["sale_delivery_status"] | null
@@ -6500,6 +6602,7 @@ export type Database = {
           delivery_number?: string
           id?: string
           items?: Json
+          pdf_url?: string | null
           return_id?: string | null
           sale_order_id?: string
           status?: Database["public"]["Enums"]["sale_delivery_status"] | null
@@ -7363,7 +7466,7 @@ export type Database = {
       shipments: {
         Row: {
           archived: boolean | null
-          carrier: string
+          carrier: string | null
           carrier_code: string | null
           created_at: string | null
           destination: string | null
@@ -7384,7 +7487,7 @@ export type Database = {
         }
         Insert: {
           archived?: boolean | null
-          carrier: string
+          carrier?: string | null
           carrier_code?: string | null
           created_at?: string | null
           destination?: string | null
@@ -7405,7 +7508,7 @@ export type Database = {
         }
         Update: {
           archived?: boolean | null
-          carrier?: string
+          carrier?: string | null
           carrier_code?: string | null
           created_at?: string | null
           destination?: string | null
@@ -10398,6 +10501,10 @@ export type Database = {
         Args: { p_id: string; p_url: string }
         Returns: undefined
       }
+      sku_abbreviation: {
+        Args: { input: string; len?: number }
+        Returns: string
+      }
       snapshot_inventory_check_system_qty: {
         Args: { p_check_id: string }
         Returns: undefined
@@ -10769,9 +10876,6 @@ export type CompositeTypes<
     : never
 
 export const Constants = {
-  graphql_public: {
-    Enums: {},
-  },
   public: {
     Enums: {
       address_type: ["blue-plate", "google-coords"],
@@ -10972,3 +11076,5 @@ export const Constants = {
     },
   },
 } as const
+A new version of Supabase CLI is available: v2.109.0 (currently installed v2.91.3)
+We recommend updating regularly for new features and bug fixes: https://supabase.com/docs/guides/cli/getting-started#updating-the-supabase-cli

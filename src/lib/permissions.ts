@@ -213,6 +213,12 @@ export const PERMISSION_GROUPS: PermissionGroup[] = [
         ],
       },
       {
+        label: 'Debit Notes',
+        permissions: [
+          { key: 'purchase.debit_notes.view', label: 'View Debit Notes', description: 'Access the purchase debit notes page' },
+        ],
+      },
+      {
         label: 'Supplier Payments',
         permissions: [
           { key: 'purchase.payments.view',   label: 'View Purchase Payments',   description: 'Access purchase payment records' },
