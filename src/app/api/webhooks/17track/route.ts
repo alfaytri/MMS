@@ -1,7 +1,8 @@
 import { NextResponse } from 'next/server'
 import { createHmac, timingSafeEqual } from 'crypto'
 import { createAdminClient } from '@/lib/supabase/admin'
-import { mapRawEvents, type Raw17trackEvent } from '@/lib/tracking/normalize'
+import type { Track17Event } from '@/lib/tracking/client17track'
+import { mapRawEvents } from '@/lib/tracking/normalize'
 import { STATUS_MAP_JSON } from '@/lib/tracking/statusMap'
 
 // 17track sends the HMAC-SHA256 signature in the `17track-signature` header.
@@ -37,11 +38,13 @@ export async function POST(request: Request) {
 
   type TrackUpdate = {
     number: string
-    track?: { z0?: { a?: Raw17trackEvent[] } }
+    track_info?: {
+      tracking?: {
+        providers?: Array<{ events: Track17Event[] }>
+      }
+    }
   }
 
-  // allSettled so a single-shipment failure doesn't reject the whole batch.
-  // 17track retries on non-200 responses — returning 200 with partial errors is correct.
   const results = await Promise.allSettled(
     updates
       .filter((u): u is TrackUpdate => !!(u as TrackUpdate).number)
@@ -52,9 +55,10 @@ export async function POST(request: Request) {
           .eq('tracking_number', u.number)
           .maybeSingle()
 
-        if (!shipment) return // ghost tracking — acknowledge and ignore
+        if (!shipment) return
 
-        const events = mapRawEvents(u.track?.z0?.a ?? [])
+        const rawEvents = u.track_info?.tracking?.providers?.[0]?.events ?? []
+        const events = mapRawEvents(rawEvents)
         if (events.length > 0) {
           await supabase.rpc('append_shipment_events', {
             p_shipment_id: shipment.id,

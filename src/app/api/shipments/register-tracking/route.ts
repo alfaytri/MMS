@@ -2,24 +2,43 @@ import { NextResponse } from 'next/server'
 import { createAdminClient } from '@/lib/supabase/admin'
 import { requirePermission } from '@/lib/auth/require-admin'
 import {
-  registerTracking, getTrackInfo,
+  registerTracking, getTrackInfo, extractEvents, extractCarrierName,
   ERR_QUOTA_EXCEEDED, ERR_AMBIGUOUS_CARRIER,
 } from '@/lib/tracking/client17track'
 import { mapRawEvents } from '@/lib/tracking/normalize'
 import { STATUS_MAP_JSON } from '@/lib/tracking/statusMap'
 
-// Kept short to stay within Vercel Hobby 10s limit (total delay ≤ 5s + API call time)
-const BACKOFF_DELAYS_MS = [500, 1500, 3000]
+async function storeEvents(
+  supabase: ReturnType<typeof createAdminClient>,
+  shipmentId: string,
+  trackingNumber: string,
+  info: Awaited<ReturnType<typeof getTrackInfo>>,
+) {
+  const rawEvents = info ? extractEvents(info) : []
+  const carrierName = info ? extractCarrierName(info) : null
+  console.log(`[register-tracking] ${trackingNumber}: ${rawEvents.length} raw events, carrier=${carrierName ?? info?.carrier ?? 'none'}`)
+  const events = mapRawEvents(rawEvents)
 
-async function fetchWithBackoff(trackingNumber: string, carrierCode?: number) {
-  for (const delay of BACKOFF_DELAYS_MS) {
-    await new Promise(r => setTimeout(r, delay))
-    const info = await getTrackInfo(trackingNumber, carrierCode)
-    if (info?.track?.z0?.a?.length) return info
+  if (events.length > 0) {
+    await supabase.rpc('append_shipment_events', {
+      p_shipment_id: shipmentId,
+      p_events: events,
+      p_status_map: STATUS_MAP_JSON,
+    })
   }
-  return null
-}
 
+  if (info?.carrier || carrierName) {
+    await supabase
+      .from('shipments')
+      .update({
+        carrier: carrierName ?? String(info!.carrier),
+        carrier_code: String(info!.carrier),
+      })
+      .eq('id', shipmentId)
+  }
+
+  return events
+}
 
 export async function POST(request: Request) {
   const gate = await requirePermission('purchase.shipments.manage')
@@ -33,9 +52,6 @@ export async function POST(request: Request) {
 
   const supabase = createAdminClient()
 
-  // Atomic semaphore: only acquires the lock if is_syncing is currently false.
-  // Prevents race conditions in serverless environments where two requests can
-  // both read is_syncing: false before either sets it to true.
   const { data: lockedShipment, error: lockError } = await supabase
     .from('shipments')
     .update({ is_syncing: true })
@@ -56,10 +72,25 @@ export async function POST(request: Request) {
         : undefined
 
   try {
+    // Step 1: Try fetching events directly first (works if already registered via API)
+    const existingInfo = await getTrackInfo(tracking_number, resolvedCarrierCode)
+    if (existingInfo && extractEvents(existingInfo).length > 0) {
+      console.log(`[register-tracking] found existing data, skipping register`)
+      const events = await storeEvents(supabase, shipment_id, tracking_number, existingInfo)
+      await supabase
+        .from('shipments')
+        .update({ sync_error: null, last_synced_at: new Date().toISOString() })
+        .eq('id', shipment_id)
+      return NextResponse.json({ events })
+    }
+
+    // Step 2: Not yet registered or no events — register and wait for data
     const result = await registerTracking(tracking_number, resolvedCarrierCode)
+    console.log(`[register-tracking] register response:`, JSON.stringify(result))
     const rejected = result.rejected.find(r => r.number === tracking_number)
 
     if (rejected) {
+      console.log(`[register-tracking] rejected: code=${rejected.error.code} msg=${rejected.error.message}`)
       if (rejected.error.code === ERR_QUOTA_EXCEEDED) {
         await supabase
           .from('shipments')
@@ -68,11 +99,9 @@ export async function POST(request: Request) {
         return NextResponse.json({ error: 'quota_exceeded' }, { status: 429 })
       }
       if (rejected.error.code === ERR_AMBIGUOUS_CARRIER) {
-        // rejected.error.data contains candidate carrier code numbers per 17track API docs
         const candidates: number[] = rejected.error.data ?? []
         return NextResponse.json({ ambiguous: true, candidates })
       }
-      // Other rejections (not found yet) are non-fatal — webhook fires when carrier scans
     }
 
     if (carrier_code !== undefined) {
@@ -82,21 +111,19 @@ export async function POST(request: Request) {
         .eq('id', shipment_id)
     }
 
-    const info = await fetchWithBackoff(tracking_number, resolvedCarrierCode)
-    const rawEvents = info?.track?.z0?.a ?? []
-    const events = mapRawEvents(rawEvents)
-
-    if (events.length > 0) {
-      await supabase.rpc('append_shipment_events', {
-        p_shipment_id: shipment_id,
-        p_events: events,
-        p_status_map: STATUS_MAP_JSON,
-      })
+    // Step 3: Backoff poll — 17track needs time to fetch from the carrier after registration
+    let info: Awaited<ReturnType<typeof getTrackInfo>> = null
+    for (const delay of [1000, 2000, 3000]) {
+      await new Promise(r => setTimeout(r, delay))
+      info = await getTrackInfo(tracking_number, resolvedCarrierCode)
+      if (info && extractEvents(info).length > 0) break
     }
+
+    const events = await storeEvents(supabase, shipment_id, tracking_number, info)
 
     await supabase
       .from('shipments')
-      .update({ sync_error: null })
+      .update({ sync_error: null, last_synced_at: new Date().toISOString() })
       .eq('id', shipment_id)
 
     return NextResponse.json({ events })
@@ -104,7 +131,6 @@ export async function POST(request: Request) {
     console.error('[register-tracking]', err)
     return NextResponse.json({ error: 'Internal server error' }, { status: 500 })
   } finally {
-    // Always release the semaphore — runs on every exit path including early returns
     await supabase.from('shipments').update({ is_syncing: false }).eq('id', shipment_id)
   }
 }

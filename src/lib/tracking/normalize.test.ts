@@ -44,41 +44,43 @@ describe('mapRawEvents', () => {
     expect(mapRawEvents([])).toEqual([])
   })
 
-  it('drops events with unmapped 17track tags', () => {
+  it('maps v2.2 events with stage field', () => {
     const events = mapRawEvents([
-      { a: '2024-01-15T10:30:00Z', b: 'Shanghai', c: 'Info received', z: 'InfoReceived' },
-      { a: '2024-01-15T11:00:00Z', b: 'Shanghai', c: 'Picked up', z: 'Pickup' },
+      { time_iso: '2024-01-15T13:30:00+03:00', time_utc: '2024-01-15T10:30:00Z', location: 'Doha', description: 'Delivered to recipient', stage: 'Delivered', sub_status: 'Delivered_Other' },
     ])
-    expect(events).toHaveLength(0)
+    expect(events).toHaveLength(1)
+    expect(events[0].status).toBe('delivered')
+    expect(events[0].location).toBe('Doha')
+    expect(events[0].notes).toBe('Delivered to recipient')
   })
 
-  it('maps InTransit events and sets status correctly', () => {
+  it('falls back to sub_status prefix when stage is null', () => {
     const events = mapRawEvents([
-      { a: '2024-01-15T10:30:00Z', b: 'Shanghai', c: 'In transit', z: 'InTransit' },
+      { time_iso: '2024-01-15T08:09:10+03:00', time_utc: '2024-01-15T05:09:10Z', location: 'Al Rayyan', description: 'Parcel arrived at station', stage: null, sub_status: 'InTransit_Other' },
     ])
     expect(events).toHaveLength(1)
     expect(events[0].status).toBe('in_transit')
   })
 
-  it('aliases date to normalizedTimestamp for display compatibility', () => {
+  it('uses time_utc for normalization', () => {
     const events = mapRawEvents([
-      { a: '2024-01-15T13:30:00+03:00', b: 'Doha', c: 'Delivered', z: 'Delivered' },
+      { time_iso: '2024-01-15T13:30:00+03:00', time_utc: '2024-01-15T10:30:00Z', location: 'Doha', description: 'Test', stage: 'Delivered', sub_status: 'Delivered_Other' },
     ])
-    expect(events[0].date).toBe(events[0].normalizedTimestamp)
     expect(events[0].date).toBe('2024-01-15T10:30:00.000Z')
+  })
+
+  it('handles null location', () => {
+    const events = mapRawEvents([
+      { time_iso: '2024-01-15T10:00:00Z', time_utc: '2024-01-15T10:00:00Z', location: null, description: 'order created', stage: 'InfoReceived', sub_status: 'InfoReceived' },
+    ])
+    expect(events[0].location).toBe('')
+    expect(events[0].status).toBe('info_received')
   })
 
   it('computes a 64-character hash for each event', () => {
     const events = mapRawEvents([
-      { a: '2024-01-15T10:30:00Z', b: 'Dubai', c: 'Customs cleared', z: 'Customs' },
+      { time_iso: '2024-01-15T10:30:00Z', time_utc: '2024-01-15T10:30:00Z', location: 'Dubai', description: 'Customs cleared', stage: 'Customs', sub_status: 'Customs_Other' },
     ])
     expect(events[0].hash).toMatch(/^[a-f0-9]{64}$/)
-  })
-
-  it('maps notes from description field', () => {
-    const events = mapRawEvents([
-      { a: '2024-01-15T10:30:00Z', b: 'Riyadh', c: 'Delivery delayed', z: 'Exception' },
-    ])
-    expect(events[0].notes).toBe('Delivery delayed')
   })
 })
