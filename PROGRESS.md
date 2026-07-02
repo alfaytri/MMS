@@ -240,7 +240,7 @@ Purchase & Sales▾:
 
 ## 🔄 In Progress
 
-🚀 Starting: **Receival Check PDF Task 1: DB migration**
+🚀 Starting: **Receival Check PDF Task 2: HTML template**
 
 ## 🔋 Quota Watch
 
@@ -256,6 +256,7 @@ Purchase & Sales▾:
 
 ## ✅ Completed
 
+- [2026-07-02] **Receival Check PDF Task 1: DB migration** — `supabase/migrations/20260702100808_receival_check_pdf_cache.sql`, `src/types/database.types.ts` — cache column + triggers + bucket + RPC
 - [2026-07-02] **PO PDF Multi-Variant Cache — feature complete** — 4 variants (RFQ / Draft PO / PO / Confirmed PO) with smart per-variant caching, payment-hash regen detection, and on-demand snapshot rendering. Verified all 11 manual scenarios; Security Audit Log entry recorded.
 - [2026-07-02] **PO PDF Multi-Variant Cache Task 6: PoDetailDialog — derive variant from activeStage/status** — `src/components/purchase/PoDetailDialog.tsx` — Print/Download buttons produce the correct PDF per stage tab + version chip
 - [2026-07-02] **PO PDF Multi-Variant Cache Task 5: PoPdfButton — variant prop + blob handling** — `src/components/purchase/PoPdfButton.tsx` — variant/snapshotVersion props, blob response handling for snapshots, per-variant filename
