@@ -14,8 +14,12 @@ import { CreditDebitNoteDownloadButton } from './CreditDebitNoteDownloadButton'
 import { formatCurrency, formatDate } from '@/lib/utils/formatters'
 import { cn } from '@/lib/utils'
 import type { CreditNote, CreditNoteStatus, NoteLineItem, NoteDebitLineItem } from '@/hooks/useCreditNotes'
-import { useResolveCreditNoteRefund, useResolveCreditNoteStoreCredit } from '@/hooks/useCreditNotes'
+import {
+  useResolveCreditNoteRefund, useResolveCreditNoteStoreCredit,
+  useResolveDebitNoteSupplierCredit, useResolveDebitNoteReplacement,
+} from '@/hooks/useCreditNotes'
 import { usePaymentMethods } from '@/hooks/usePaymentMethods'
+import { ReplacementReceivalDialog } from '@/components/purchase/ReplacementReceivalDialog'
 
 const STATUS_CONFIG: Record<CreditNoteStatus, { label: string; className: string }> = {
   draft:    { label: 'Draft',    className: 'bg-muted text-foreground' },
@@ -52,6 +56,12 @@ export function CreditDebitNoteDetailDialog({ note, referenceNumber, open, onOpe
   const isUnresolved = isCredit && note.status === 'issued' && !note.resolution_type
 
   const isDebit = note.note_type === 'debit'
+  const isDebitUnresolved = isDebit && note.status === 'issued' && !note.resolution_type
+  const [showReplacementReceival, setShowReplacementReceival] = useState(false)
+
+  const resolveSupplierCredit = useResolveDebitNoteSupplierCredit()
+  const resolveDebitReplacement = useResolveDebitNoteReplacement()
+
   const pdfData = note.line_items ?? { original_lines: [], returned_lines: [] }
   const status = (note.status ?? 'draft') as CreditNoteStatus
   const cfg = STATUS_CONFIG[status] ?? STATUS_CONFIG.draft
@@ -317,6 +327,60 @@ export function CreditDebitNoteDetailDialog({ note, referenceNumber, open, onOpe
           </div>
         )}
 
+        {/* ── Debit Note Resolution ── */}
+        {isDebitUnresolved && (
+          <div className="space-y-3 border-t pt-4">
+            <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">Resolution</p>
+            <div className="flex flex-wrap gap-2">
+              <AlertDialog>
+                <AlertDialogTrigger asChild>
+                  <Button size="sm" variant="outline">Supplier Credit</Button>
+                </AlertDialogTrigger>
+                <AlertDialogContent>
+                  <AlertDialogHeader>
+                    <AlertDialogTitle>Mark as Supplier Credit?</AlertDialogTitle>
+                    <AlertDialogDescription>
+                      Mark {note.credit_note_id} ({formatCurrency(note.total_amount, 'QAR')}) as supplier credit.
+                      This amount will be tracked for deduction from future bills.
+                    </AlertDialogDescription>
+                  </AlertDialogHeader>
+                  <AlertDialogFooter>
+                    <AlertDialogCancel>Cancel</AlertDialogCancel>
+                    <AlertDialogAction
+                      disabled={resolveSupplierCredit.isPending}
+                      onClick={() => {
+                        resolveSupplierCredit.mutate(note.id, {
+                          onSuccess: () => { toast.success('Marked as supplier credit') },
+                          onError: (e) => { toast.error(e.message) },
+                        })
+                      }}
+                    >
+                      Confirm
+                    </AlertDialogAction>
+                  </AlertDialogFooter>
+                </AlertDialogContent>
+              </AlertDialog>
+
+              <Button
+                size="sm"
+                variant="outline"
+                onClick={() => {
+                  resolveDebitReplacement.mutate(note.id, {
+                    onSuccess: () => {
+                      toast.success('Marked as replacement')
+                      setShowReplacementReceival(true)
+                    },
+                    onError: (e) => { toast.error(e.message) },
+                  })
+                }}
+                disabled={resolveDebitReplacement.isPending}
+              >
+                {resolveDebitReplacement.isPending ? 'Processing…' : 'Replacement'}
+              </Button>
+            </div>
+          </div>
+        )}
+
         {/* ── Resolved State Badge ── */}
         {note.resolution_type && (
           <div className="border-t pt-4">
@@ -330,8 +394,23 @@ export function CreditDebitNoteDetailDialog({ note, referenceNumber, open, onOpe
               {note.resolution_type === 'store_credit' && (
                 <span>Added to customer credit balance</span>
               )}
+              {note.resolution_type === 'supplier_credit' && (
+                <span>Supplier credit — deduct from future bills</span>
+              )}
             </div>
           </div>
+        )}
+
+        {showReplacementReceival && note.purchase_order_id && (
+          <ReplacementReceivalDialog
+            open={showReplacementReceival}
+            onOpenChange={(v) => { if (!v) setShowReplacementReceival(false) }}
+            debitNote={note}
+            onSuccess={() => {
+              setShowReplacementReceival(false)
+              onOpenChange(false)
+            }}
+          />
         )}
 
       </DialogContent>
