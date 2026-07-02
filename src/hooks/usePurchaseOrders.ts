@@ -181,6 +181,7 @@ export type CreatePOPayload = {
   division_id: string | null
   po_type?: POType
   rfq_id?: string | null
+  rfq_supplier_ids?: string[]
 }
 
 export type UpdatePOPayload = Partial<CreatePOPayload> & { id: string }
@@ -455,6 +456,7 @@ export function useCreatePO() {
           division_id: payload.division_id ?? null,
           po_type: payload.po_type ?? 'draft',
           rfq_id: payload.rfq_id ?? null,
+          rfq_supplier_ids: payload.rfq_supplier_ids ?? [],
         })
         .select()
         .single()
@@ -466,6 +468,19 @@ export function useCreatePO() {
           .from('po_line_items')
           .insert(resolved.map((li) => ({ ...li, po_id: po.id })))
         if (liErr) throw liErr
+      }
+
+      if (payload.po_type === 'rfq' && payload.rfq_supplier_ids?.length) {
+        const quoteRows = payload.rfq_supplier_ids.map((sid) => ({
+          po_id: po.id,
+          supplier_id: sid,
+          currency: payload.currency,
+          status: 'pending',
+        }))
+        const { error: quoteErr } = await supabase
+          .from('po_rfq_quotes')
+          .insert(quoteRows)
+        if (quoteErr) throw quoteErr
       }
 
       const performerName = await resolveMyName()
