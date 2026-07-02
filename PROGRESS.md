@@ -239,7 +239,7 @@ Purchase & Sales▾:
 
 ## 🔄 In Progress
 
-Multi-path approval groups — configuration layer complete (migration, types, hooks, UI). Pending user verification.
+🚀 Starting: **PO PDF Multi-Variant Cache Task 1: DB migration**
 
 ## 🔋 Quota Watch
 
