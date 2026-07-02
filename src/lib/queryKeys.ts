@@ -130,6 +130,7 @@ export const queryKeys = {
   creditNotes: {
     all: ['credit-notes'] as const,
     debitNotes: ['debit-notes'] as const,
+    debitDetail: (id: Nullable) => ['debit-notes', 'detail', id] as const,
   },
 
   /* ── Currencies ───────────────────────────────────────── */

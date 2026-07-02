@@ -206,6 +206,7 @@ async function createDebitNoteForReturn(
       invoice_id:       null,
       customer_name:    null,
       supplier_name:    po?.supplier_name ?? null,
+      purchase_order_id: ret.source_id,
       source_return_id: returnId,
       reason:           ret.reason,
       type:             'auto',
