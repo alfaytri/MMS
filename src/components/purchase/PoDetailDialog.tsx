@@ -8,7 +8,7 @@ import {
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { Button } from '@/components/ui/button'
 import { Skeleton } from '@/components/ui/skeleton'
-import { Printer, Send, XCircle, Pencil, Undo2 } from 'lucide-react'
+import { Send, XCircle, Pencil, Undo2 } from 'lucide-react'
 import { toast } from 'sonner'
 import { PoApprovalChain } from './PoApprovalChain'
 import { CreateBillFromPODialog } from './CreateBillFromPODialog'
@@ -17,6 +17,8 @@ import { PoReceiveTab } from './PoReceiveTab'
 import { PoVersionTabs } from './PoVersionTabs'
 import { stageOf, type Stage } from '@/lib/poVersionHelper'
 import { PoReturnsTab } from './PoReturnsTab'
+import { PoPdfButton } from './PoPdfButton'
+import type { PoPdfVariant } from '@/lib/purchase/generate-po-pdf'
 import { ActivityTimeline } from '@/components/shared/ActivityTimeline'
 import { PaymentSummaryTab } from '@/components/shared/PaymentSummaryTab'
 import {
@@ -188,14 +190,20 @@ export function PoDetailDialog({ open, onOpenChange, po, poId, onEdit }: Props) 
                       Submit for Approval
                     </Button>
                   )}
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    onClick={() => { toast.info('Print functionality coming soon') }}
-                  >
-                    <Printer className="h-3.5 w-3.5 mr-1.5" />
-                    Print
-                  </Button>
+                  {(() => {
+                    const variant: PoPdfVariant =
+                      activeStage === 'rfq'   ? 'rfq'   :
+                      activeStage === 'draft' ? 'draft' :
+                      current.status === 'approved' ? 'confirmed' : 'po'
+                    return (
+                      <PoPdfButton
+                        poId={current.id}
+                        poNumber={current.po_number}
+                        variant={variant}
+                        snapshotVersion={isViewingSnapshot ? activeVersion ?? undefined : undefined}
+                      />
+                    )
+                  })()}
                   {!isViewingSnapshot && canEdit && (
                     <Button
                       variant="outline"
