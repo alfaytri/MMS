@@ -124,6 +124,7 @@ export const NAV_ITEMS: NavEntry[] = [
           { label: 'Landed Costs',      href: '/purchase/landed-costs', icon: 'Calculator',    permission: 'purchase.landed_costs.view' },
           { label: 'Bills',             href: '/purchase/bills',        icon: 'Receipt',       permission: 'purchase.bills.view' },
           { label: 'Returns',           href: '/purchase/returns',      icon: 'RotateCcw',     permission: 'purchase.returns.view' },
+          { label: 'Debit Notes',       href: '/purchase/debit-notes',  icon: 'FileX2',        permission: 'purchase.debit_notes.view' },
           { label: 'Dead Stock Report', href: '/purchase/dead-stock',   icon: 'BarChart3',     permission: 'purchase.dead_stock.view' },
         ],
       },

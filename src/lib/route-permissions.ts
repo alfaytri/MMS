@@ -57,6 +57,7 @@ export const ROUTE_PERMISSIONS: RoutePermission[] = [
   { pathPrefix: '/purchase/landed-costs',      permission: 'purchase.landed_costs.view' },
   { pathPrefix: '/purchase/bills',             permission: 'purchase.bills.view' },
   { pathPrefix: '/purchase/returns',           permission: 'purchase.returns.view' },
+  { pathPrefix: '/purchase/debit-notes',       permission: 'purchase.debit_notes.view' },
   { pathPrefix: '/purchase/dead-stock',        permission: 'purchase.dead_stock.view' },
   { pathPrefix: '/purchase/payments',          permission: 'purchase.payments.view' },
   { pathPrefix: '/purchase/warehouses',        permission: 'warehouse.access' },
