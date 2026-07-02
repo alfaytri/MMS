@@ -1,3 +1,4 @@
+Initialising login role...
 export type Json =
   | string
   | number
@@ -11,6 +12,31 @@ export type Database = {
   // instead of createClient<Database, { PostgrestVersion: 'XX' }>(URL, KEY)
   __InternalSupabase: {
     PostgrestVersion: "14.5"
+  }
+  graphql_public: {
+    Tables: {
+      [_ in never]: never
+    }
+    Views: {
+      [_ in never]: never
+    }
+    Functions: {
+      graphql: {
+        Args: {
+          extensions?: Json
+          operationName?: string
+          query?: string
+          variables?: Json
+        }
+        Returns: Json
+      }
+    }
+    Enums: {
+      [_ in never]: never
+    }
+    CompositeTypes: {
+      [_ in never]: never
+    }
   }
   public: {
     Tables: {
@@ -96,31 +122,31 @@ export type Database = {
       }
       approval_workflow_groups: {
         Row: {
-          id: string
-          workflow: string
+          created_at: string
           group_label: string
           group_order: number
-          mode: string
+          id: string
           is_active: boolean
-          created_at: string
+          mode: string
+          workflow: string
         }
         Insert: {
-          id?: string
-          workflow: string
+          created_at?: string
           group_label?: string
           group_order?: number
-          mode?: string
+          id?: string
           is_active?: boolean
-          created_at?: string
+          mode?: string
+          workflow: string
         }
         Update: {
-          id?: string
-          workflow?: string
+          created_at?: string
           group_label?: string
           group_order?: number
-          mode?: string
+          id?: string
           is_active?: boolean
-          created_at?: string
+          mode?: string
+          workflow?: string
         }
         Relationships: []
       }
@@ -172,6 +198,13 @@ export type Database = {
         }
         Relationships: [
           {
+            foreignKeyName: "approval_workflow_steps_group_id_fkey"
+            columns: ["group_id"]
+            isOneToOne: false
+            referencedRelation: "approval_workflow_groups"
+            referencedColumns: ["id"]
+          },
+          {
             foreignKeyName: "workflow_approval_steps_archived_by_fkey"
             columns: ["archived_by"]
             isOneToOne: false
@@ -183,13 +216,6 @@ export type Database = {
             columns: ["role_id"]
             isOneToOne: false
             referencedRelation: "custom_roles"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "approval_workflow_steps_group_id_fkey"
-            columns: ["group_id"]
-            isOneToOne: false
-            referencedRelation: "approval_workflow_groups"
             referencedColumns: ["id"]
           },
         ]
@@ -1283,19 +1309,19 @@ export type Database = {
       }
       credit_group_payment_methods: {
         Row: {
+          created_at: string | null
           credit_group_id: string
           payment_method_id: string
-          created_at: string | null
         }
         Insert: {
+          created_at?: string | null
           credit_group_id: string
           payment_method_id: string
-          created_at?: string | null
         }
         Update: {
+          created_at?: string | null
           credit_group_id?: string
           payment_method_id?: string
-          created_at?: string | null
         }
         Relationships: [
           {
@@ -1409,7 +1435,7 @@ export type Database = {
           pdf_url: string | null
           phone: string | null
           reason: string
-          refund_method: Database["public"]["Enums"]["payment_method"] | null
+          refund_method: string | null
           refund_reference: string | null
           resolution_type: string | null
           source_return_id: string | null
@@ -1435,7 +1461,7 @@ export type Database = {
           pdf_url?: string | null
           phone?: string | null
           reason: string
-          refund_method?: Database["public"]["Enums"]["payment_method"] | null
+          refund_method?: string | null
           refund_reference?: string | null
           resolution_type?: string | null
           source_return_id?: string | null
@@ -1461,7 +1487,7 @@ export type Database = {
           pdf_url?: string | null
           phone?: string | null
           reason?: string
-          refund_method?: Database["public"]["Enums"]["payment_method"] | null
+          refund_method?: string | null
           refund_reference?: string | null
           resolution_type?: string | null
           source_return_id?: string | null
@@ -1998,6 +2024,7 @@ export type Database = {
           establishment_id_uploaded_at: string | null
           establishment_id_url: string | null
           id: string
+          is_active: boolean
           is_blocked: boolean | null
           name: string
           name_ar: string | null
@@ -2022,6 +2049,7 @@ export type Database = {
           establishment_id_uploaded_at?: string | null
           establishment_id_url?: string | null
           id?: string
+          is_active?: boolean
           is_blocked?: boolean | null
           name: string
           name_ar?: string | null
@@ -2046,6 +2074,7 @@ export type Database = {
           establishment_id_uploaded_at?: string | null
           establishment_id_url?: string | null
           id?: string
+          is_active?: boolean
           is_blocked?: boolean | null
           name?: string
           name_ar?: string | null
@@ -4580,7 +4609,7 @@ export type Database = {
           exchange_rate: number
           id: string
           invoice_id: string | null
-          method: Database["public"]["Enums"]["payment_method"]
+          method: string
           notes: string | null
           payment_id: string | null
           qb_synced: boolean | null
@@ -4608,7 +4637,7 @@ export type Database = {
           exchange_rate?: number
           id?: string
           invoice_id?: string | null
-          method: Database["public"]["Enums"]["payment_method"]
+          method: string
           notes?: string | null
           payment_id?: string | null
           qb_synced?: boolean | null
@@ -4636,7 +4665,7 @@ export type Database = {
           exchange_rate?: number
           id?: string
           invoice_id?: string | null
-          method?: Database["public"]["Enums"]["payment_method"]
+          method?: string
           notes?: string | null
           payment_id?: string | null
           qb_synced?: boolean | null
@@ -5305,6 +5334,11 @@ export type Database = {
           payment_milestones: Json | null
           payment_terms: string | null
           payment_terms_notes: string | null
+          pdf_confirmed_url: string | null
+          pdf_draft_url: string | null
+          pdf_payment_hash: string | null
+          pdf_po_url: string | null
+          pdf_rfq_url: string | null
           po_number: string
           po_type: Database["public"]["Enums"]["po_type"]
           rfq_id: string | null
@@ -5336,6 +5370,11 @@ export type Database = {
           payment_milestones?: Json | null
           payment_terms?: string | null
           payment_terms_notes?: string | null
+          pdf_confirmed_url?: string | null
+          pdf_draft_url?: string | null
+          pdf_payment_hash?: string | null
+          pdf_po_url?: string | null
+          pdf_rfq_url?: string | null
           po_number: string
           po_type?: Database["public"]["Enums"]["po_type"]
           rfq_id?: string | null
@@ -5367,6 +5406,11 @@ export type Database = {
           payment_milestones?: Json | null
           payment_terms?: string | null
           payment_terms_notes?: string | null
+          pdf_confirmed_url?: string | null
+          pdf_draft_url?: string | null
+          pdf_payment_hash?: string | null
+          pdf_po_url?: string | null
+          pdf_rfq_url?: string | null
           po_number?: string
           po_type?: Database["public"]["Enums"]["po_type"]
           rfq_id?: string | null
@@ -9711,27 +9755,48 @@ export type Database = {
         }
         Returns: string
       }
-      add_workflow_step: {
-        Args: {
-          p_condition_types?: string[]
-          p_group_id?: string | null
-          p_is_conditional?: boolean
-          p_role_desc?: string
-          p_role_name: string
-          p_workflow: string
-        }
-        Returns: Json
-      }
-      add_workflow_step_for_role: {
-        Args: {
-          p_condition_types?: string[]
-          p_group_id?: string | null
-          p_is_conditional?: boolean
-          p_role_id: string
-          p_workflow: string
-        }
-        Returns: Json
-      }
+      add_workflow_step:
+        | {
+            Args: {
+              p_condition_types?: string[]
+              p_is_conditional?: boolean
+              p_role_desc?: string
+              p_role_name: string
+              p_workflow: string
+            }
+            Returns: Json
+          }
+        | {
+            Args: {
+              p_condition_types?: string[]
+              p_group_id?: string
+              p_is_conditional?: boolean
+              p_role_desc?: string
+              p_role_name: string
+              p_workflow: string
+            }
+            Returns: Json
+          }
+      add_workflow_step_for_role:
+        | {
+            Args: {
+              p_condition_types?: string[]
+              p_is_conditional?: boolean
+              p_role_id: string
+              p_workflow: string
+            }
+            Returns: Json
+          }
+        | {
+            Args: {
+              p_condition_types?: string[]
+              p_group_id?: string
+              p_is_conditional?: boolean
+              p_role_id: string
+              p_workflow: string
+            }
+            Returns: Json
+          }
       advance_po_approval_tier: {
         Args: { p_po_id: string }
         Returns: undefined
@@ -10196,6 +10261,10 @@ export type Database = {
         }
         Returns: undefined
       }
+      rename_payment_method: {
+        Args: { p_id: string; p_new_name: string; p_new_slug: string }
+        Returns: undefined
+      }
       replace_user_custom_roles: {
         Args: { p_role_ids: string[]; p_user_id: string }
         Returns: undefined
@@ -10308,6 +10377,15 @@ export type Database = {
       }
       set_invoice_pdf_url: {
         Args: { p_id: string; p_url: string }
+        Returns: undefined
+      }
+      set_po_pdf_url: {
+        Args: {
+          p_id: string
+          p_payment_hash?: string
+          p_url: string
+          p_variant: string
+        }
         Returns: undefined
       }
       set_sale_order_pdf_url: {
@@ -10472,15 +10550,6 @@ export type Database = {
         | "waitlist"
         | "pending-confirmation"
         | "customer-unavailable"
-      payment_method:
-        | "online"
-        | "pay_later"
-        | "fawran"
-        | "online_transfer"
-        | "cheque"
-        | "bank_transfer"
-        | "cash"
-        | "pos"
       payment_status:
         | "completed"
         | "pending"
@@ -10694,6 +10763,9 @@ export type CompositeTypes<
     : never
 
 export const Constants = {
+  graphql_public: {
+    Enums: {},
+  },
   public: {
     Enums: {
       address_type: ["blue-plate", "google-coords"],
@@ -10792,16 +10864,6 @@ export const Constants = {
         "waitlist",
         "pending-confirmation",
         "customer-unavailable",
-      ],
-      payment_method: [
-        "online",
-        "pay_later",
-        "fawran",
-        "online_transfer",
-        "cheque",
-        "bank_transfer",
-        "cash",
-        "pos",
       ],
       payment_status: [
         "completed",
@@ -10904,3 +10966,5 @@ export const Constants = {
     },
   },
 } as const
+A new version of Supabase CLI is available: v2.109.0 (currently installed v2.91.3)
+We recommend updating regularly for new features and bug fixes: https://supabase.com/docs/guides/cli/getting-started#updating-the-supabase-cli
