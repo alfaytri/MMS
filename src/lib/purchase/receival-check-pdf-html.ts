@@ -130,6 +130,15 @@ export function buildReceivalCheckHtml(input: BuildReceivalCheckHtmlInput): stri
     `
     : ''
 
+  const BLANK_ROWS = 8
+  const blankRowHtml = Array.from({ length: BLANK_ROWS }, (_, i) => {
+    const n = rowIdx + i + 1
+    const cols = isPerReceival
+      ? `<td class="cell-num">${n}</td><td class="cell-item cell-writable"></td><td class="cell-num cell-writable"></td><td class="cell-num cell-writable"></td><td class="cell-num cell-writable"></td><td class="cell-num cell-writable"></td><td class="cell-check">☐</td>`
+      : `<td class="cell-num">${n}</td><td class="cell-item cell-writable"></td><td class="cell-num cell-writable"></td><td class="cell-num cell-writable"></td><td class="cell-num cell-writable"></td><td class="cell-actual"></td><td class="cell-check">☐</td>`
+    return `<tr>${cols}</tr>`
+  }).join('')
+
   const notesHtml = (isPerReceival && receivalNotes && receivalNotes.trim())
     ? `<div class="notes-block"><span class="notes-label">Notes:</span> ${escapeHtml(receivalNotes)}</div>`
     : ''
@@ -177,6 +186,7 @@ export function buildReceivalCheckHtml(input: BuildReceivalCheckHtmlInput): stri
   .rcv-header-block .value { border-bottom: 0.7px solid var(--text); flex: 1; padding-left: 4px; min-height: 4mm; }
   .rcv-header-block .value.blank { border-bottom: 0.7px solid var(--text); }
 
+  table.lines td.cell-writable { height: 7mm; }
   table.lines td.cell-check { text-align: center; font-size: 14px; }
   table.lines td.cell-actual { border: 0.7px solid var(--text); background: #fafafa; height: 7mm; }
   table.lines td.subheader {
@@ -255,6 +265,7 @@ export function buildReceivalCheckHtml(input: BuildReceivalCheckHtmlInput): stri
       <tbody>
         ${linkedHtml}
         ${looseHtml}
+        ${blankRowHtml}
       </tbody>
     </table>
   </div>
