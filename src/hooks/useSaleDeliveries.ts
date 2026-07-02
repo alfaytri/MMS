@@ -11,6 +11,7 @@ export type DeliveryItem = {
   sku: string | null
   qty_delivered: number
   brand_variant_id: string | null
+  is_gift?: boolean
 }
 
 export type SaleDelivery = {
@@ -192,13 +193,24 @@ export function useCreateReplacementDelivery() {
       returnData: { items: { item_name: string; sku: string | null; qty: number; brand_variant_id: string | null }[] }
       returnId: string
       creditNoteId: string
+      giftItems?: { item_name: string; sku: string | null; qty: number; brand_variant_id: string | null }[]
     }) => {
-      const items = input.returnData.items.map((item) => ({
-        item_name: item.item_name,
-        sku: item.sku,
-        qty_delivered: item.qty,
-        brand_variant_id: item.brand_variant_id,
-      }))
+      const items: DeliveryItem[] = [
+        ...input.returnData.items.map((item) => ({
+          item_name: item.item_name,
+          sku: item.sku,
+          qty_delivered: item.qty,
+          brand_variant_id: item.brand_variant_id,
+          is_gift: false,
+        })),
+        ...(input.giftItems ?? []).map((gift) => ({
+          item_name: gift.item_name,
+          sku: gift.sku,
+          qty_delivered: gift.qty,
+          brand_variant_id: gift.brand_variant_id,
+          is_gift: true,
+        })),
+      ]
 
       // Generate delivery number
       const { count } = await supabase

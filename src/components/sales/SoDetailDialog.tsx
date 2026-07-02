@@ -376,7 +376,7 @@ export function SoDetailDialog({ open, onOpenChange, so, onEdit, onConfirm }: So
               returnData={selectedReturn}
               soId={current.id}
               isPending={createReplacement.isPending}
-              onConfirm={(warehouseId, warehouseName) => {
+              onConfirm={(warehouseId, warehouseName, giftItems) => {
                 createReplacement.mutate({
                   soId: current.id,
                   warehouseId,
@@ -384,6 +384,12 @@ export function SoDetailDialog({ open, onOpenChange, so, onEdit, onConfirm }: So
                   returnData: selectedReturn,
                   returnId: selectedReturn.id,
                   creditNoteId: selectedReturn.credit_notes?.id ?? selectedReturn.credit_note_id,
+                  giftItems: giftItems.map((g) => ({
+                    item_name: g.item_name,
+                    sku: g.sku,
+                    qty: g.qty,
+                    brand_variant_id: g.brand_variant_id,
+                  })),
                 }, {
                   onSuccess: () => {
                     toast.success('Replacement delivery created')
