@@ -239,7 +239,7 @@ Purchase & Sales▾:
 
 ## 🔄 In Progress
 
-🚀 Starting: **PO PDF Multi-Variant Cache Task 1: DB migration**
+🚀 Starting: **PO PDF Multi-Variant Cache Task 2: HTML template — variant enum + conditional sections**
 
 ## 🔋 Quota Watch
 
@@ -255,6 +255,7 @@ Purchase & Sales▾:
 
 ## ✅ Completed
 
+- [2026-07-02] **PO PDF Multi-Variant Cache Task 1: DB migration** — `supabase/migrations/20260702084615_po_pdf_multi_variant_cache.sql`, `src/types/database.types.ts` — 4 per-variant URL columns + payment hash + variant-aware RPC
 - [2026-06-28] **Credit Note Resolution Task 9: Hide Record Payment When Fully Paid** — `src/components/shared/PaymentSummaryTab.tsx` — Added `totalPaid < totalAmount` guard to the Record Payment button visibility condition so the button disappears when outstanding balance reaches zero.
 - [2026-06-28] **Credit Note Resolution Task 8: PO Payment Dialog — Multi-Currency + Overpayment Guard** — `src/components/purchase/PoPaymentDialog.tsx`, `src/hooks/usePurchaseOrders.ts` — Integrated `usePOPayments` to calculate `totalPaidQar`, converted amounts to original currency for display, passed `totalAmount`/`paidAmount`/`exchangeRate`/`showExchangeRate` to `PaymentFormDialog`, capitalized method labels. Added hook-level overpayment guard in `useCreatePOPayment` that fetches PO `total_qar`, sums existing payments, and rejects if `paymentAmountQar > outstandingQar + 0.01`.
 - [2026-06-28] **Credit Note Resolution Task 7: SO Payment Dialog — Wire Summary + Overpayment Guard** — `src/components/sales/SoPaymentDialog.tsx`, `src/hooks/useSaleOrders.ts` — Added `useSOPayments` import and `totalPaid` calculation, passed `totalAmount={so.total}` and `paidAmount={totalPaid}` to `PaymentFormDialog`. Added hook-level overpayment guard in `useCreateSOPayment` that fetches SO total, sums existing payments in QAR, and rejects if `paymentAmountQar > outstanding + 0.01`.
