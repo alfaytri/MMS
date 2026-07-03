@@ -17,15 +17,15 @@ import {
 import { Pencil, Check } from 'lucide-react'
 import { useWarehouses } from '@/hooks/useWarehouses'
 import { useCreateReplacementReceival, type ReplacementReceivalItem } from '@/hooks/useReceivals'
-import type { CreditNote } from '@/hooks/useCreditNotes'
+import type { CreditNote, NoteDebitLineItem } from '@/hooks/useCreditNotes'
 import { formatCurrency } from '@/lib/utils/formatters'
-import { createClient } from '@/lib/supabase/client'
 
 type DraftItem = {
   item_name: string
   sku: string | null
   qty: number
   unit_price: number
+  brand_variant_id: string | null
   locked: boolean
 }
 
@@ -40,13 +40,14 @@ export function ReplacementReceivalDialog({ open, onOpenChange, debitNote, onSuc
   const { data: warehouses = [] } = useWarehouses()
   const createReplacement = useCreateReplacementReceival()
 
-  const returnedLines = debitNote.line_items?.returned_lines ?? []
+  const returnedLines = (debitNote.line_items?.returned_lines ?? []) as NoteDebitLineItem[]
   const [items, setItems] = useState<DraftItem[]>(() =>
     returnedLines.map((line) => ({
       item_name: line.item_name,
       sku: line.sku ?? null,
       qty: line.qty,
       unit_price: line.unit_price,
+      brand_variant_id: line.brand_variant_id ?? null,
       locked: true,
     }))
   )
@@ -83,21 +84,8 @@ export function ReplacementReceivalDialog({ open, onOpenChange, debitNote, onSuc
 
     setSaving(true)
     try {
-      const supabase = createClient()
-
-      // Resolve brand_variant_id for each item via SKU (stored as `code`) lookup, best-effort.
-      const skus = items.map((it) => it.sku).filter((s): s is string => !!s)
-      let variantBySkuMap = new Map<string, string>()
-      if (skus.length > 0) {
-        const { data: variants } = await supabase
-          .from('inventory_brand_variants')
-          .select('id, code')
-          .in('code', skus)
-        variantBySkuMap = new Map((variants ?? []).map((v) => [v.code as string, v.id as string]))
-      }
-
       const payloadItems: ReplacementReceivalItem[] = items.map((it) => ({
-        brand_variant_id: it.sku ? (variantBySkuMap.get(it.sku) ?? null) : null,
+        brand_variant_id: it.brand_variant_id,
         item_name: it.item_name,
         sku: it.sku,
         qty_received: it.qty,

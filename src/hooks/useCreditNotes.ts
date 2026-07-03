@@ -25,6 +25,7 @@ export type NoteLineItem = {
 }
 
 export type NoteDebitLineItem = NoteLineItem & {
+  brand_variant_id?: string | null
   condition?: 'defective' | 'damaged' | 'other'
   condition_notes?: string | null
 }
@@ -101,6 +102,7 @@ export function useCreditNotes() {
         .select('*, credit_note_lines(*), invoices(invoice_id), returns!source_return_id(return_number)')
         .eq('note_type', 'credit')
         .order('created_at', { ascending: false })
+        .limit(200)
       if (error) throw error
       return (data ?? []).map((cn: any) => ({
         ...cn,
@@ -108,6 +110,7 @@ export function useCreditNotes() {
         return_number: cn.returns?.return_number ?? null,
       })) as CreditNote[]
     },
+    staleTime: 30 * 1000,
   })
 }
 
@@ -121,6 +124,7 @@ export function useDebitNotes() {
         .select('*, returns!source_return_id(return_number), purchase_orders!credit_notes_purchase_order_id_fkey(po_number)')
         .eq('note_type', 'debit')
         .order('created_at', { ascending: false })
+        .limit(200)
       if (error) throw error
       return (data ?? []).map((cn: any) => ({
         ...cn,
@@ -128,6 +132,7 @@ export function useDebitNotes() {
         po_number: cn.purchase_orders?.po_number ?? null,
       })) as CreditNote[]
     },
+    staleTime: 30 * 1000,
   })
 }
 

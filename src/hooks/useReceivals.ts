@@ -136,9 +136,9 @@ export function useCreateReceival() {
       const supabase = createClient()
 
       // Resolve user display name and count in parallel (count has no user dependency)
-      const [{ data: { user } }, { count }] = await Promise.all([
+      const [{ data: { user } }, { data: lastRcv }] = await Promise.all([
         supabase.auth.getUser(),
-        supabase.from('receivals').select('*', { count: 'exact', head: true }),
+        supabase.from('receivals').select('receival_number').ilike('receival_number', 'RCV-%').order('receival_number', { ascending: false }).limit(1).maybeSingle(),
       ])
       let receivedByName: string | null = null
       if (user) {
@@ -146,7 +146,8 @@ export function useCreateReceival() {
           .from('profiles').select('full_name').eq('auth_user_id', user.id).maybeSingle()
         receivedByName = profile?.full_name ?? user.email ?? null
       }
-      const receival_number = `RCV-${String((count ?? 0) + 1).padStart(5, '0')}`
+      const lastNum = lastRcv?.receival_number ? parseInt((lastRcv.receival_number as string).replace('RCV-', ''), 10) : 0
+      const receival_number = `RCV-${String(lastNum + 1).padStart(5, '0')}`
 
       // Single atomic RPC — insert + FIFO + stock_level all in one transaction
       const { data, error } = await supabase.rpc('create_and_approve_receival', {
@@ -352,9 +353,9 @@ export function useCreateReplacementReceival() {
     }) => {
       const supabase = createClient()
 
-      const [{ data: { user } }, { count }] = await Promise.all([
+      const [{ data: { user } }, { data: lastRcv }] = await Promise.all([
         supabase.auth.getUser(),
-        supabase.from('receivals').select('*', { count: 'exact', head: true }),
+        supabase.from('receivals').select('receival_number').ilike('receival_number', 'RCV-%').order('receival_number', { ascending: false }).limit(1).maybeSingle(),
       ])
       let receivedByName: string | null = null
       if (user) {
@@ -362,7 +363,8 @@ export function useCreateReplacementReceival() {
           .from('profiles').select('full_name').eq('auth_user_id', user.id).maybeSingle()
         receivedByName = profile?.full_name ?? user.email ?? null
       }
-      const receival_number = `RCV-${String((count ?? 0) + 1).padStart(5, '0')}`
+      const lastNum = lastRcv?.receival_number ? parseInt((lastRcv.receival_number as string).replace('RCV-', ''), 10) : 0
+      const receival_number = `RCV-${String(lastNum + 1).padStart(5, '0')}`
       const today = new Date().toISOString().split('T')[0]
 
       const { data, error } = await supabase.rpc('create_and_approve_receival', {
@@ -386,10 +388,11 @@ export function useCreateReplacementReceival() {
 
       // Mark receival as replacement
       const receivalId = (data as { receival_id: string }).receival_id
-      await supabase
+      const { error: flagErr } = await supabase
         .from('receivals')
         .update({ is_replacement: true, source_debit_note_id: payload.debit_note_id })
         .eq('id', receivalId)
+      if (flagErr) throw flagErr
 
       return { receival_id: receivalId, receival_number }
     },

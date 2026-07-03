@@ -172,13 +172,14 @@ async function createDebitNoteForReturn(
     )
     const unitPrice = poLine?.unit_price ?? 0
     return {
-      item_name:       item.item_name,
-      sku:             item.sku,
-      qty:             item.qty,
-      unit_price:      unitPrice,
-      total:           item.qty * unitPrice,
-      condition:       item.condition,
-      condition_notes: item.condition_notes,
+      item_name:        item.item_name,
+      sku:              item.sku,
+      qty:              item.qty,
+      unit_price:       unitPrice,
+      total:            item.qty * unitPrice,
+      brand_variant_id: item.brand_variant_id ?? poLine?.brand_variant_id ?? null,
+      condition:        item.condition,
+      condition_notes:  item.condition_notes,
     }
   })
 

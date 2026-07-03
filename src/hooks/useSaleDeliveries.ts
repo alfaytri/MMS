@@ -27,6 +27,7 @@ export type SaleDelivery = {
   created_at: string
   type: 'standard' | 'replacement'
   return_id: string | null
+  source_credit_note_id: string | null
   // joined
   so_number?: string
   customer_name?: string
@@ -122,10 +123,15 @@ export function useCompleteDelivery() {
           .eq('id', deliveryId)
           .single()
         if (orig) {
-          const { count } = await supabase
+          const { data: lastDel } = await supabase
             .from('sale_deliveries')
-            .select('*', { count: 'exact', head: true })
-          const delivery_number = `DEL-${String((count ?? 0) + 1).padStart(5, '0')}`
+            .select('delivery_number')
+            .ilike('delivery_number', 'DEL-%')
+            .order('delivery_number', { ascending: false })
+            .limit(1)
+            .maybeSingle()
+          const lastDelNum = lastDel?.delivery_number ? parseInt((lastDel.delivery_number as string).replace('DEL-', ''), 10) : 0
+          const delivery_number = `DEL-${String(lastDelNum + 1).padStart(5, '0')}`
           await supabase.from('sale_deliveries').insert({
             delivery_number,
             sale_order_id: orig.sale_order_id,
@@ -212,11 +218,16 @@ export function useCreateReplacementDelivery() {
         })),
       ]
 
-      // Generate delivery number
-      const { count } = await supabase
+      // Generate delivery number (max-based)
+      const { data: lastDel } = await supabase
         .from('sale_deliveries')
-        .select('*', { count: 'exact', head: true })
-      const delivery_number = `DEL-${String((count ?? 0) + 1).padStart(5, '0')}`
+        .select('delivery_number')
+        .ilike('delivery_number', 'DEL-%')
+        .order('delivery_number', { ascending: false })
+        .limit(1)
+        .maybeSingle()
+      const lastDelNum = lastDel?.delivery_number ? parseInt((lastDel.delivery_number as string).replace('DEL-', ''), 10) : 0
+      const delivery_number = `DEL-${String(lastDelNum + 1).padStart(5, '0')}`
 
       const today = new Date().toISOString().split('T')[0]
 
@@ -233,6 +244,7 @@ export function useCreateReplacementDelivery() {
           status: 'pending',
           type: 'replacement',
           return_id: input.returnId,
+          source_credit_note_id: input.creditNoteId,
         })
         .select()
         .single()

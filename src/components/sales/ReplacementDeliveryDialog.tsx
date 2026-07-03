@@ -190,7 +190,7 @@ export function ReplacementDeliveryDialog({
                         />
                       </TableCell>
                       <TableCell className="text-right text-sm">
-                        {formatCurrency(gift.unit_price)}
+                        {formatCurrency(gift.unit_price, 'QAR')}
                       </TableCell>
                       <TableCell>
                         <Button
@@ -211,7 +211,7 @@ export function ReplacementDeliveryDialog({
 
             {giftItems.length > 0 && (
               <p className="text-sm text-muted-foreground text-right">
-                Goodwill cost: <span className="font-medium text-foreground">{formatCurrency(goodwillCost)}</span>
+                Goodwill cost: <span className="font-medium text-foreground">{formatCurrency(goodwillCost, 'QAR')}</span>
               </p>
             )}
           </div>

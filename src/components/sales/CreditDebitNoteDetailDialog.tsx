@@ -42,25 +42,24 @@ interface Props {
 }
 
 export function CreditDebitNoteDetailDialog({ note, referenceNumber, open, onOpenChange }: Props) {
-  if (!note) return null
-
   const [showRefundForm, setShowRefundForm] = useState(false)
   const [refundMethod, setRefundMethod] = useState<string>('')
   const [refundReference, setRefundReference] = useState('')
+  const [showReplacementReceival, setShowReplacementReceival] = useState(false)
 
   const resolveRefund = useResolveCreditNoteRefund()
   const resolveStoreCredit = useResolveCreditNoteStoreCredit()
+  const resolveSupplierCredit = useResolveDebitNoteSupplierCredit()
+  const resolveDebitReplacement = useResolveDebitNoteReplacement()
   const { data: dbMethods = [] } = usePaymentMethods()
+
+  if (!note) return null
 
   const isCredit = note.note_type === 'credit'
   const isUnresolved = isCredit && note.status === 'issued' && !note.resolution_type
 
   const isDebit = note.note_type === 'debit'
   const isDebitUnresolved = isDebit && note.status === 'issued' && !note.resolution_type
-  const [showReplacementReceival, setShowReplacementReceival] = useState(false)
-
-  const resolveSupplierCredit = useResolveDebitNoteSupplierCredit()
-  const resolveDebitReplacement = useResolveDebitNoteReplacement()
 
   const pdfData = note.line_items ?? { original_lines: [], returned_lines: [] }
   const status = (note.status ?? 'draft') as CreditNoteStatus
@@ -72,7 +71,7 @@ export function CreditDebitNoteDetailDialog({ note, referenceNumber, open, onOpe
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="w-fit min-w-[900px] max-w-[98vw] max-h-[90vh] overflow-y-auto overflow-x-visible p-8">
+      <DialogContent className="w-full max-w-full rounded-none sm:max-w-4xl sm:rounded-lg max-h-[90vh] overflow-y-auto p-4 sm:p-8">
 
         {/* ── Header ── */}
         <DialogHeader className="pb-3">

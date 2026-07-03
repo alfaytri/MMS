@@ -6571,6 +6571,7 @@ export type Database = {
           pdf_url: string | null
           return_id: string | null
           sale_order_id: string
+          source_credit_note_id: string | null
           status: Database["public"]["Enums"]["sale_delivery_status"] | null
           type: string
           updated_at: string
@@ -6588,6 +6589,7 @@ export type Database = {
           pdf_url?: string | null
           return_id?: string | null
           sale_order_id: string
+          source_credit_note_id?: string | null
           status?: Database["public"]["Enums"]["sale_delivery_status"] | null
           type?: string
           updated_at?: string
@@ -6605,6 +6607,7 @@ export type Database = {
           pdf_url?: string | null
           return_id?: string | null
           sale_order_id?: string
+          source_credit_note_id?: string | null
           status?: Database["public"]["Enums"]["sale_delivery_status"] | null
           type?: string
           updated_at?: string
@@ -6631,6 +6634,13 @@ export type Database = {
             columns: ["sale_order_id"]
             isOneToOne: false
             referencedRelation: "sale_orders"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "sale_deliveries_source_credit_note_id_fkey"
+            columns: ["source_credit_note_id"]
+            isOneToOne: false
+            referencedRelation: "credit_notes"
             referencedColumns: ["id"]
           },
           {
