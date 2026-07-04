@@ -178,6 +178,13 @@ export const queryKeys = {
     all: ['dead_stock'] as const,
   },
 
+  /* ── Finance ─────────────────────────────────────────── */
+  finance: {
+    dashboard: ['finance-dashboard'] as const,
+    purchaseAging: ['purchase-aging-report'] as const,
+    salesAging: ['sales-aging-report'] as const,
+  },
+
   /* ── Divisions ────────────────────────────────────────── */
   divisions: {
     all: ['divisions'] as const,
