@@ -7,23 +7,15 @@ import { Badge } from '@/components/ui/badge'
 import { usePermissions } from '@/hooks/usePermissions'
 import {
   Settings2,
-  Tag,
   List,
-  FileText,
-  Radio,
   Users,
   Warehouse,
-  Clock,
-  Percent,
   CreditCard,
   Banknote,
-  Bot,
   CheckSquare,
   Workflow,
   Coins,
   Globe,
-  Headphones,
-  Receipt,
 } from 'lucide-react'
 
 type SidebarItem = {
@@ -43,17 +35,14 @@ const ADMIN_SECTIONS: SidebarSection[] = [
   {
     label: 'Organization',
     items: [
-      { label: 'Companies & Divisions', href: '/master-data/admin/companies',     icon: Users,     permission: 'master_data.admin.view' },
-      { label: 'Warehouses',            href: '/master-data/admin/warehouses',    icon: Warehouse, permission: 'master_data.warehouses.manage' },
-      { label: 'Work Schedule',         href: '/master-data/admin/work-schedule', icon: Clock,     permission: 'master_data.admin.view' },
+      { label: 'Companies & Divisions', href: '/master-data/admin/companies',  icon: Users,     permission: 'master_data.admin.view' },
+      { label: 'Warehouses',            href: '/master-data/admin/warehouses', icon: Warehouse, permission: 'master_data.warehouses.manage' },
     ],
   },
   {
     label: 'Catalog & Pricing',
     items: [
-      { label: 'Brand Groups',     href: '/master-data/admin/brand-groups',    icon: Tag,        permission: 'master_data.admin.view' },
-      { label: 'Pricing Factors',  href: '/master-data/admin/pricing-factors', icon: Percent,    comingSoon: true },
-      { label: 'Credit Groups',    href: '/master-data/admin/credit-groups',   icon: CreditCard, permission: 'master_data.admin.view' },
+      { label: 'Credit Groups', href: '/master-data/admin/credit-groups', icon: CreditCard, permission: 'master_data.admin.view' },
     ],
   },
   {
@@ -65,21 +54,6 @@ const ADMIN_SECTIONS: SidebarSection[] = [
       { label: 'Country Codes',      href: '/master-data/admin/country-codes',      icon: Globe,       permission: 'master_data.admin.view' },
       { label: 'PO Approval Chains', href: '/master-data/admin/approval-settings',  icon: CheckSquare, permission: 'purchase.approvals.chain.manage' },
       { label: 'Approval Workflows', href: '/master-data/admin/approval-workflows', icon: Workflow,    permission: 'master_data.admin.view' },
-      { label: 'Order Quotation',    href: '/master-data/admin/order-quotation',    icon: Receipt,     permission: 'master_data.admin.view' },
-      { label: 'Document T&C',       href: '/master-data/admin/document-terms',     icon: FileText,    comingSoon: true },
-    ],
-  },
-  {
-    label: 'Contact Centre',
-    items: [
-      { label: 'Extensions', href: '/master-data/admin/contact-centre-extensions', icon: Headphones, permission: 'master_data.users.manage' },
-    ],
-  },
-  {
-    label: 'Integrations',
-    items: [
-      { label: 'Traccar Devices',  href: '/master-data/admin/traccar',         icon: Radio, comingSoon: true },
-      { label: 'Agent Resources',  href: '/master-data/admin/agent-resources', icon: Bot,   comingSoon: true },
     ],
   },
 ]

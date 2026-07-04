@@ -8,9 +8,6 @@ import { NextResponse, type NextRequest } from 'next/server'
 // "refresh_token_not_found" errors. Each route validates its own shared
 // secret / signature internally — see the matching route files.
 const WEBHOOK_PREFIXES = [
-  '/api/3cx/webhook/',
-  '/api/wati/webhook/',
-  '/api/whapi/webhook/',
   '/api/webhooks/',
   '/api/payments/dibsy/webhook/',
 ]
