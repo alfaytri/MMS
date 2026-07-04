@@ -31,9 +31,12 @@ export type Receival = {
   received_by_name: string | null
   created_at: string | null
   receival_items?: ReceivalItem[]
+  is_replacement?: boolean
+  source_debit_note_id?: string | null
   // joined
   po_number?: string
   supplier_name?: string
+  warehouse_name?: string
 }
 
 export type ReceivalEditRequest = {
@@ -75,9 +78,10 @@ export function useReceivals(filters?: { status?: ReceivalStatus | '' }) {
       let q = supabase
         .from('receivals')
         .select(`
-          id,receival_number,po_id,warehouse_id,date,status,notes,received_by_name,created_at,
+          id,receival_number,po_id,warehouse_id,date,status,notes,received_by_name,created_at,is_replacement,source_debit_note_id,
           receival_items(id,receival_id,po_line_item_id,item_name,sku,qty_received,unit_cost,is_free,brand_variant_id),
-          purchase_orders!receivals_po_id_fkey(po_number,supplier_name)
+          purchase_orders!receivals_po_id_fkey(po_number,supplier_name),
+          warehouses!receivals_warehouse_id_fkey(name)
         `)
         .order('created_at', { ascending: false })
         .limit(200)
@@ -88,6 +92,7 @@ export function useReceivals(filters?: { status?: ReceivalStatus | '' }) {
         ...r,
         po_number: r.purchase_orders?.po_number ?? null,
         supplier_name: r.purchase_orders?.supplier_name ?? null,
+        warehouse_name: r.warehouses?.name ?? null,
       })) as Receival[]
     },
     staleTime: 30 * 1000,
@@ -104,7 +109,7 @@ export function useReceival(id: string | null) {
       const { data, error } = await supabase
         .from('receivals')
         .select(`
-          id,receival_number,po_id,warehouse_id,date,status,notes,received_by_name,created_at,
+          id,receival_number,po_id,warehouse_id,date,status,notes,received_by_name,created_at,is_replacement,source_debit_note_id,
           receival_items(id,receival_id,po_line_item_id,item_name,sku,qty_received,unit_cost,is_free,brand_variant_id),
           purchase_orders!receivals_po_id_fkey(po_number,supplier_name,po_line_items(id,qty))
         `)
@@ -131,9 +136,9 @@ export function useCreateReceival() {
       const supabase = createClient()
 
       // Resolve user display name and count in parallel (count has no user dependency)
-      const [{ data: { user } }, { count }] = await Promise.all([
+      const [{ data: { user } }, { data: lastRcv }] = await Promise.all([
         supabase.auth.getUser(),
-        supabase.from('receivals').select('*', { count: 'exact', head: true }),
+        supabase.from('receivals').select('receival_number').ilike('receival_number', 'RCV-%').order('receival_number', { ascending: false }).limit(1).maybeSingle(),
       ])
       let receivedByName: string | null = null
       if (user) {
@@ -141,7 +146,8 @@ export function useCreateReceival() {
           .from('profiles').select('full_name').eq('auth_user_id', user.id).maybeSingle()
         receivedByName = profile?.full_name ?? user.email ?? null
       }
-      const receival_number = `RCV-${String((count ?? 0) + 1).padStart(5, '0')}`
+      const lastNum = lastRcv?.receival_number ? parseInt((lastRcv.receival_number as string).replace('RCV-', ''), 10) : 0
+      const receival_number = `RCV-${String(lastNum + 1).padStart(5, '0')}`
 
       // Single atomic RPC — insert + FIFO + stock_level all in one transaction
       const { data, error } = await supabase.rpc('create_and_approve_receival', {
@@ -322,6 +328,82 @@ export function useSaveReceivalEdit() {
       qc.invalidateQueries({ queryKey: queryKeys.inventory.brandVariantsV2 })
       qc.invalidateQueries({ queryKey: queryKeys.inventory.fifoLayers })
       qc.invalidateQueries({ queryKey: queryKeys.inventory.stockMovements })
+    },
+  })
+}
+
+// ─── Replacement Receival ─────────────────────────────────────────────────────
+
+export type ReplacementReceivalItem = {
+  brand_variant_id: string | null
+  item_name: string
+  sku: string | null
+  qty_received: number
+  unit_cost: number
+}
+
+export function useCreateReplacementReceival() {
+  const queryClient = useQueryClient()
+  return useMutation({
+    mutationFn: async (payload: {
+      po_id: string
+      warehouse_id: string
+      debit_note_id: string
+      items: ReplacementReceivalItem[]
+    }) => {
+      const supabase = createClient()
+
+      const [{ data: { user } }, { data: lastRcv }] = await Promise.all([
+        supabase.auth.getUser(),
+        supabase.from('receivals').select('receival_number').ilike('receival_number', 'RCV-%').order('receival_number', { ascending: false }).limit(1).maybeSingle(),
+      ])
+      let receivedByName: string | null = null
+      if (user) {
+        const { data: profile } = await supabase
+          .from('profiles').select('full_name').eq('auth_user_id', user.id).maybeSingle()
+        receivedByName = profile?.full_name ?? user.email ?? null
+      }
+      const lastNum = lastRcv?.receival_number ? parseInt((lastRcv.receival_number as string).replace('RCV-', ''), 10) : 0
+      const receival_number = `RCV-${String(lastNum + 1).padStart(5, '0')}`
+      const today = new Date().toISOString().split('T')[0]
+
+      const { data, error } = await supabase.rpc('create_and_approve_receival', {
+        p_po_id:            payload.po_id,
+        p_warehouse_id:     payload.warehouse_id,
+        p_date:             today,
+        p_received_by_name: receivedByName ?? '',
+        p_receival_number:  receival_number,
+        p_notes:            'Replacement receival',
+        p_items:            payload.items.map(it => ({
+          po_line_item_id:  null,
+          brand_variant_id: it.brand_variant_id,
+          item_name:        it.item_name,
+          sku:              it.sku,
+          qty_received:     it.qty_received,
+          unit_cost:        it.unit_cost,
+          is_free:          false,
+        })),
+      })
+      if (error) throw error
+
+      // Mark receival as replacement
+      const receivalId = (data as { receival_id: string }).receival_id
+      const { error: flagErr } = await supabase
+        .from('receivals')
+        .update({ is_replacement: true, source_debit_note_id: payload.debit_note_id })
+        .eq('id', receivalId)
+      if (flagErr) throw flagErr
+
+      return { receival_id: receivalId, receival_number }
+    },
+    onSuccess: (_data, variables) => {
+      queryClient.invalidateQueries({ queryKey: queryKeys.receivals.all })
+      queryClient.invalidateQueries({ queryKey: queryKeys.purchaseOrders.receivals(variables.po_id) })
+      queryClient.invalidateQueries({ queryKey: queryKeys.purchaseOrders.detail(variables.po_id) })
+      queryClient.invalidateQueries({ queryKey: queryKeys.purchaseOrders.all })
+      queryClient.invalidateQueries({ queryKey: queryKeys.inventory.brandVariantsV2 })
+      queryClient.invalidateQueries({ queryKey: queryKeys.inventory.fifoLayers })
+      queryClient.invalidateQueries({ queryKey: queryKeys.creditNotes.debitNotes })
     },
   })
 }

@@ -25,6 +25,7 @@ export type NoteLineItem = {
 }
 
 export type NoteDebitLineItem = NoteLineItem & {
+  brand_variant_id?: string | null
   condition?: 'defective' | 'damaged' | 'other'
   condition_notes?: string | null
 }
@@ -48,7 +49,8 @@ export type CreditNote = {
   original_total: number | null
   new_total: number | null
   source_return_id: string | null
-  resolution_type: 'refund' | 'replacement' | 'store_credit' | null
+  purchase_order_id?: string | null
+  resolution_type: 'refund' | 'replacement' | 'store_credit' | 'supplier_credit' | null
   refund_method: string | null
   refund_reference: string | null
   line_items: NotePdfData | null
@@ -58,6 +60,7 @@ export type CreditNote = {
   // joined
   invoice_display?: string | null
   return_number?: string | null
+  po_number?: string | null
 }
 
 export type CreateCreditNotePayload = {
@@ -99,6 +102,7 @@ export function useCreditNotes() {
         .select('*, credit_note_lines(*), invoices(invoice_id), returns!source_return_id(return_number)')
         .eq('note_type', 'credit')
         .order('created_at', { ascending: false })
+        .limit(200)
       if (error) throw error
       return (data ?? []).map((cn: any) => ({
         ...cn,
@@ -106,6 +110,7 @@ export function useCreditNotes() {
         return_number: cn.returns?.return_number ?? null,
       })) as CreditNote[]
     },
+    staleTime: 30 * 1000,
   })
 }
 
@@ -116,15 +121,18 @@ export function useDebitNotes() {
       const supabase = createClient()
       const { data, error } = await supabase
         .from('credit_notes')
-        .select('*, returns!source_return_id(return_number)')
+        .select('*, returns!source_return_id(return_number), purchase_orders!credit_notes_purchase_order_id_fkey(po_number)')
         .eq('note_type', 'debit')
         .order('created_at', { ascending: false })
+        .limit(200)
       if (error) throw error
       return (data ?? []).map((cn: any) => ({
         ...cn,
         return_number: cn.returns?.return_number ?? null,
+        po_number: cn.purchase_orders?.po_number ?? null,
       })) as CreditNote[]
     },
+    staleTime: 30 * 1000,
   })
 }
 
@@ -320,6 +328,42 @@ export function useResolveCreditNoteReplacement() {
     },
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: queryKeys.creditNotes.all })
+    },
+  })
+}
+
+export function useResolveDebitNoteSupplierCredit() {
+  const qc = useQueryClient()
+  const supabase = createClient()
+
+  return useMutation({
+    mutationFn: async (debitNoteId: string) => {
+      const { error } = await supabase
+        .from('credit_notes')
+        .update({ resolution_type: 'supplier_credit' })
+        .eq('id', debitNoteId)
+      if (error) throw error
+    },
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: queryKeys.creditNotes.debitNotes })
+    },
+  })
+}
+
+export function useResolveDebitNoteReplacement() {
+  const qc = useQueryClient()
+  const supabase = createClient()
+
+  return useMutation({
+    mutationFn: async (debitNoteId: string) => {
+      const { error } = await supabase
+        .from('credit_notes')
+        .update({ resolution_type: 'replacement' })
+        .eq('id', debitNoteId)
+      if (error) throw error
+    },
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: queryKeys.creditNotes.debitNotes })
     },
   })
 }

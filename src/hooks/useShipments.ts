@@ -37,14 +37,14 @@ export type Shipment = {
   sync_error: string | null
   created_at: string
   updated_at: string
-  purchase_orders?: { po_number: string; supplier_name: string } | null
+  purchase_orders?: { po_number: string; supplier_name: string; expected_delivery: string | null } | null
 }
 
 export type CreateShipmentPayload = {
   po_id: string
   mode: ShipmentMode
-  carrier: string
   tracking_number: string
+  carrier?: string | null
   origin?: string | null
   destination?: string | null
   etd?: string | null
@@ -60,7 +60,7 @@ export function useShipments({ archived = false, search = '' }: { archived?: boo
       const supabase = createClient()
       let q = supabase
         .from('shipments')
-        .select('*, purchase_orders(po_number, supplier_name)')
+        .select('*, purchase_orders(po_number, supplier_name, expected_delivery)')
         .eq('archived', archived)
         .order('created_at', { ascending: false })
       if (search) {

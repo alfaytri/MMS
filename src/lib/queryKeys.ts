@@ -130,6 +130,7 @@ export const queryKeys = {
   creditNotes: {
     all: ['credit-notes'] as const,
     debitNotes: ['debit-notes'] as const,
+    debitDetail: (id: Nullable) => ['debit-notes', 'detail', id] as const,
   },
 
   /* ── Currencies ───────────────────────────────────────── */
@@ -255,6 +256,8 @@ export const queryKeys = {
       ['tool-asset-items', search] as const,
     toolAssetUnits: (itemId: Nullable) =>
       ['tool-asset-units', itemId] as const,
+    categoryStockAggregates: (type: string) =>
+      ['category-stock-aggregates', type] as const,
   },
 
   /* ── Invoices ─────────────────────────────────────────── */

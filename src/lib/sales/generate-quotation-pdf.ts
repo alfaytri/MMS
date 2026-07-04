@@ -16,62 +16,13 @@
  * back (via `app.skip_pdf_invalidation` GUC inside the RPC).
  */
 
-import { promises as fs } from 'node:fs'
-import path from 'node:path'
 import type { SupabaseClient } from '@supabase/supabase-js'
 import {
   buildQuotationHtml,
-  type QuotationAssets,
-  type QuotationFonts,
   type QuotationLineItem,
 } from '@/lib/sales/quotation-pdf-html'
+import { loadPdfFonts, loadPdfAssets } from '@/lib/pdf/pdf-fonts'
 import { htmlToPdfBuffer } from '@/lib/pdf/html-to-pdf'
-
-const BRAND_DIR = path.join(process.cwd(), 'public', 'brand')
-const FONT_DIR  = path.join(BRAND_DIR, 'Font')
-
-async function readAsBase64(filePath: string): Promise<string> {
-  const buf = await fs.readFile(filePath)
-  return buf.toString('base64')
-}
-
-async function readAsDataUrl(filename: string, mime: string): Promise<string> {
-  const b64 = await readAsBase64(path.join(BRAND_DIR, filename))
-  return `data:${mime};base64,${b64}`
-}
-
-let cachedAssets: QuotationAssets | null = null
-async function loadBrandAssets(): Promise<QuotationAssets> {
-  if (cachedAssets) return cachedAssets
-  const [logo, footer] = await Promise.all([
-    readAsDataUrl('Company logo.png', 'image/png'),
-    readAsDataUrl('Footer.png',       'image/png'),
-  ])
-  cachedAssets = { logo, footer }
-  return cachedAssets
-}
-
-let cachedFonts: QuotationFonts | null = null
-async function loadFonts(): Promise<QuotationFonts> {
-  if (cachedFonts) return cachedFonts
-  async function readFont(rel: string, mime: string): Promise<string> {
-    const b64 = await readAsBase64(path.join(FONT_DIR, rel))
-    return `data:${mime};base64,${b64}`
-  }
-  const [block, rounded, noorR, noorB] = await Promise.all([
-    readFont('Infield/Infield-Block.ttf',   'font/ttf'),
-    readFont('Infield/Infield-Rounded.ttf', 'font/ttf'),
-    readFont('Noor/Noor Regular.ttf',       'font/ttf'),
-    readFont('Noor/Noor Bold.ttf',          'font/ttf'),
-  ])
-  cachedFonts = {
-    infieldBlock:   block,
-    infieldRounded: rounded,
-    noorRegular:    noorR,
-    noorBold:       noorB,
-  }
-  return cachedFonts
-}
 
 // SO numbers like "SO-00088" don't contain slashes, but normalise anyway.
 function storageKeyFor(soNumber: string): string {
@@ -122,7 +73,7 @@ export async function generateQuotationPdf(
       delivery_terms, delivery_terms_notes,
       customer_notes, created_at, quotation_pdf_url,
       customers(name, phone),
-      sale_order_lines(item_name, sku, qty, unit, unit_price, total, line_type)
+      sale_order_lines(item_name, item_name_ar, sku, qty, unit, unit_price, total, line_type)
     `)
     .eq('id', saleOrderId)
     .single<SaleOrderRow>()
@@ -142,10 +93,7 @@ export async function generateQuotationPdf(
   }
 
   // ── 2. Build HTML ──────────────────────────────────────────────────────
-  // Company branding is hard-coded in the HTML template now to match the
-  // order-confirmation PDF visual exactly (the bilingual ALFAYTRI / الفيتري
-  // header). The `companies` table is no longer queried here.
-  const [assets, fonts] = await Promise.all([loadBrandAssets(), loadFonts()])
+  const [assets, fonts] = await Promise.all([loadPdfAssets(), loadPdfFonts()])
 
   const html = buildQuotationHtml({
     so_number:                so.so_number,

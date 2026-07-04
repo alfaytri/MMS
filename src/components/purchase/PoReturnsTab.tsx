@@ -1,6 +1,6 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useMemo } from 'react'
 import { toast } from 'sonner'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
@@ -19,6 +19,7 @@ import {
 import { CreditDebitNoteDownloadButton } from '@/components/sales/CreditDebitNoteDownloadButton'
 import { useCreatePurchaseReturn, useUpdatePOReturnStatus, useCreateDebitNoteForReturn, type POReturn, type POReturnItem, type POReturnStatus } from '@/hooks/usePurchaseReturns'
 import { useWarehouses } from '@/hooks/useWarehouses'
+import { useWarehouseStockByItems } from '@/hooks/useWarehouseOperations'
 import type { PurchaseOrder } from '@/hooks/usePurchaseOrders'
 import { cn } from '@/lib/utils'
 
@@ -59,6 +60,8 @@ export function PoReturnsTab({ po, poReturns, receivals }: PoReturnsTabProps) {
   const updatePOReturnStatus = useUpdatePOReturnStatus()
   const createDebitNote = useCreateDebitNoteForReturn()
   const { data: warehouses = [] } = useWarehouses()
+  const bvIds = useMemo(() => returnItems.map((i) => i.brand_variant_id).filter(Boolean) as string[], [returnItems])
+  const { data: whStockMap } = useWarehouseStockByItems(bvIds)
 
   function openCreateReturn() {
     const receivedLines = (po.po_line_items ?? []).filter((li) => li.received_qty > 0)
@@ -267,6 +270,23 @@ export function PoReturnsTab({ po, poReturns, receivals }: PoReturnsTabProps) {
                         <div className="text-sm font-medium truncate">{item.item_name}</div>
                         {item.sku && <div className="text-xs text-muted-foreground">{item.sku}</div>}
                         <div className="text-xs text-muted-foreground">Max returnable: {item._max}</div>
+                        {item.brand_variant_id && (() => {
+                          const whEntries = whStockMap.get(item.brand_variant_id!) ?? []
+                          return whEntries.length > 0 ? (
+                            <div className="flex flex-wrap gap-x-3 gap-y-0.5 mt-0.5">
+                              {whEntries.map((w) => {
+                                const whName = warehouses.find((wh) => wh.id === w.warehouse_id)?.name ?? 'Unknown'
+                                return (
+                                  <span key={w.warehouse_id} className="text-[10px] text-muted-foreground">
+                                    {whName}: <span className="font-medium text-foreground">{w.qty}</span>
+                                  </span>
+                                )
+                              })}
+                            </div>
+                          ) : (
+                            <div className="text-[10px] text-amber-600 mt-0.5">No stock in any warehouse</div>
+                          )
+                        })()}
                       </div>
                       <Input
                         type="number"

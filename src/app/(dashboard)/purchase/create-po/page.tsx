@@ -22,6 +22,7 @@ import {
 import { PoLineItemsEditor, type LineItemRow } from '@/components/purchase/PoLineItemsEditor'
 import { PoTermsSection, DEFAULT_TERMS, type PoTermsValues } from '@/components/purchase/PoTermsSection'
 import { AddSupplierDialog } from '@/components/purchase/AddSupplierDialog'
+import { SupplierMultiSelect } from '@/components/purchase/SupplierMultiSelect'
 import { useCreatePO, useSubmitPOForApproval } from '@/hooks/usePurchaseOrders'
 import { useSuppliers, type SupplierWithCurrency } from '@/hooks/useSuppliers'
 import { useCurrencies } from '@/hooks/useCurrencies'
@@ -54,6 +55,9 @@ export default function CreatePOPage() {
       setDivisionId(userDivisionIds[0])
     }
   }, [userDivisionIds, divisionId])
+
+  const [rfqMode, setRfqMode] = useState(false)
+  const [rfqSupplierIds, setRfqSupplierIds] = useState<string[]>([])
 
   const [supplierId, setSupplierId] = useState('')
   const [supplierName, setSupplierName] = useState('')
@@ -123,7 +127,11 @@ export default function CreatePOPage() {
 
   function validate() {
     if (isMultiDivision && !divisionId) { toast.error('Select a division before creating the order.'); return false }
-    if (!supplierId) { toast.error('Please select a supplier'); return false }
+    if (rfqMode) {
+      if (rfqSupplierIds.length === 0) { toast.error('Select at least one supplier for the RFQ'); return false }
+    } else {
+      if (!supplierId) { toast.error('Please select a supplier'); return false }
+    }
     if (lineItems.length === 0) { toast.error('Add at least one line item'); return false }
     if (discountAmount > subtotal) { toast.error('Discount cannot exceed subtotal'); return false }
     return true
@@ -131,7 +139,13 @@ export default function CreatePOPage() {
 
   function saveAsType(poType: 'draft' | 'rfq') {
     if (!validate()) return
-    createPO.mutate({ ...buildPayload(), po_type: poType }, {
+    const payload = buildPayload()
+    if (poType === 'rfq' && rfqMode) {
+      payload.supplier_id = rfqSupplierIds[0] ?? ''
+      payload.supplier_name = ''
+      ;(payload as any).rfq_supplier_ids = rfqSupplierIds
+    }
+    createPO.mutate({ ...payload, po_type: poType }, {
       onSuccess: () => { toast.success(poType === 'rfq' ? 'Saved as RFQ' : 'Saved as Draft'); router.push('/purchase/orders') },
       onError: (err) => toast.error(err.message),
     })
@@ -170,18 +184,34 @@ export default function CreatePOPage() {
           </div>
         </div>
         <div className="flex items-center gap-2">
-          <Button variant="outline" size="sm" className="gap-1.5" onClick={() => saveAsType('rfq')} disabled={isPending || isPriceLoading}>
-            <Save className="h-3.5 w-3.5" />
-            {isPending ? 'Please wait…' : 'Save as RFQ'}
-          </Button>
-          <Button variant="outline" size="sm" className="gap-1.5" onClick={() => saveAsType('draft')} disabled={isPending || isPriceLoading}>
-            <Save className="h-3.5 w-3.5" />
-            {isPending ? 'Please wait…' : 'Save as Draft'}
-          </Button>
-          <Button size="sm" className="gap-1.5" onClick={submitApproval} disabled={isPending || isPriceLoading}>
-            <CheckCircle2 className="h-3.5 w-3.5" />
-            {isPending ? 'Submitting…' : isPriceLoading ? 'Fetching price…' : 'Submit for Approval'}
-          </Button>
+          {!rfqMode ? (
+            <Button variant="outline" size="sm" className="gap-1.5" onClick={() => setRfqMode(true)} disabled={isPending || isPriceLoading}>
+              <Save className="h-3.5 w-3.5" />
+              Save as RFQ
+            </Button>
+          ) : (
+            <Button variant="outline" size="sm" className="gap-1.5 border-orange-300 text-orange-700 hover:bg-orange-50" onClick={() => saveAsType('rfq')} disabled={isPending || isPriceLoading || rfqSupplierIds.length < 1}>
+              <Save className="h-3.5 w-3.5" />
+              {isPending ? 'Please wait…' : `Save RFQ (${rfqSupplierIds.length} suppliers)`}
+            </Button>
+          )}
+          {rfqMode && (
+            <Button variant="ghost" size="sm" onClick={() => { setRfqMode(false); setRfqSupplierIds([]) }}>
+              Cancel RFQ
+            </Button>
+          )}
+          {!rfqMode && (
+            <>
+              <Button variant="outline" size="sm" className="gap-1.5" onClick={() => saveAsType('draft')} disabled={isPending || isPriceLoading}>
+                <Save className="h-3.5 w-3.5" />
+                {isPending ? 'Please wait…' : 'Save as Draft'}
+              </Button>
+              <Button size="sm" className="gap-1.5" onClick={submitApproval} disabled={isPending || isPriceLoading}>
+                <CheckCircle2 className="h-3.5 w-3.5" />
+                {isPending ? 'Submitting…' : isPriceLoading ? 'Fetching price…' : 'Submit for Approval'}
+              </Button>
+            </>
+          )}
         </div>
       </div>
 
@@ -218,59 +248,71 @@ export default function CreatePOPage() {
           )}
 
           <div className="grid grid-cols-1 md:grid-cols-[1fr_auto_auto_auto] gap-3 items-end">
-            {/* Supplier combobox */}
-            <div className="space-y-1">
-              <label className="text-[10px] font-medium text-muted-foreground uppercase tracking-wider">
-                SUPPLIER *
-              </label>
-              <div className="flex gap-2">
-                <Popover open={supplierOpen} onOpenChange={setSupplierOpen}>
-                  <PopoverTrigger
-                    className="h-9 flex-1 inline-flex items-center justify-between rounded-md border border-input bg-background px-3 py-2 text-sm font-normal shadow-xs hover:bg-accent hover:text-accent-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
-                    render={(props) => <button type="button" {...props} />}
-                  >
-                    <span className={supplierName ? '' : 'text-muted-foreground'}>
-                      {supplierName || 'Search suppliers…'}
-                    </span>
-                    <ChevronsUpDown className="h-4 w-4 opacity-50" />
-                  </PopoverTrigger>
-                  <PopoverContent className="w-[400px] p-0">
-                    <Command>
-                      <CommandInput placeholder="Search suppliers..." />
-                      <CommandList>
-                        <CommandEmpty>No suppliers found.</CommandEmpty>
-                        <CommandGroup>
-                          {(suppliers ?? []).map((s) => (
-                            <CommandItem
-                              key={s.id}
-                              value={s.name}
-                              onSelect={() => handleSelectSupplier(s)}
-                            >
-                              <Check
-                                className={`mr-2 h-4 w-4 ${supplierId === s.id ? 'opacity-100' : 'opacity-0'}`}
-                              />
-                              <span>{s.name}</span>
-                              {s.category && (
-                                <span className="ml-2 text-xs text-muted-foreground">({s.category})</span>
-                              )}
-                            </CommandItem>
-                          ))}
-                        </CommandGroup>
-                      </CommandList>
-                    </Command>
-                  </PopoverContent>
-                </Popover>
-                <Button
-                  variant="outline"
-                  size="icon"
-                  className="h-9 w-9 shrink-0"
-                  title="Add new supplier"
-                  onClick={() => setAddSupplierOpen(true)}
-                >
-                  <Plus className="h-4 w-4" />
-                </Button>
+            {/* Supplier — single combobox or multi-select in RFQ mode */}
+            {rfqMode ? (
+              <div className="space-y-1">
+                <label className="text-[10px] font-medium text-muted-foreground uppercase tracking-wider">
+                  SUPPLIERS * <span className="text-orange-600">(RFQ — select multiple)</span>
+                </label>
+                <SupplierMultiSelect
+                  value={rfqSupplierIds}
+                  onChange={setRfqSupplierIds}
+                />
               </div>
-            </div>
+            ) : (
+              <div className="space-y-1">
+                <label className="text-[10px] font-medium text-muted-foreground uppercase tracking-wider">
+                  SUPPLIER *
+                </label>
+                <div className="flex gap-2">
+                  <Popover open={supplierOpen} onOpenChange={setSupplierOpen}>
+                    <PopoverTrigger
+                      className="h-9 flex-1 inline-flex items-center justify-between rounded-md border border-input bg-background px-3 py-2 text-sm font-normal shadow-xs hover:bg-accent hover:text-accent-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
+                      render={(props) => <button type="button" {...props} />}
+                    >
+                      <span className={supplierName ? '' : 'text-muted-foreground'}>
+                        {supplierName || 'Search suppliers…'}
+                      </span>
+                      <ChevronsUpDown className="h-4 w-4 opacity-50" />
+                    </PopoverTrigger>
+                    <PopoverContent className="w-[400px] p-0">
+                      <Command>
+                        <CommandInput placeholder="Search suppliers..." />
+                        <CommandList>
+                          <CommandEmpty>No suppliers found.</CommandEmpty>
+                          <CommandGroup>
+                            {(suppliers ?? []).map((s) => (
+                              <CommandItem
+                                key={s.id}
+                                value={s.name}
+                                onSelect={() => handleSelectSupplier(s)}
+                              >
+                                <Check
+                                  className={`mr-2 h-4 w-4 ${supplierId === s.id ? 'opacity-100' : 'opacity-0'}`}
+                                />
+                                <span>{s.name}</span>
+                                {s.category && (
+                                  <span className="ml-2 text-xs text-muted-foreground">({s.category})</span>
+                                )}
+                              </CommandItem>
+                            ))}
+                          </CommandGroup>
+                        </CommandList>
+                      </Command>
+                    </PopoverContent>
+                  </Popover>
+                  <Button
+                    variant="outline"
+                    size="icon"
+                    className="h-9 w-9 shrink-0"
+                    title="Add new supplier"
+                    onClick={() => setAddSupplierOpen(true)}
+                  >
+                    <Plus className="h-4 w-4" />
+                  </Button>
+                </div>
+              </div>
+            )}
 
             {/* Currency */}
             <div className="space-y-1">
@@ -384,7 +426,9 @@ export default function CreatePOPage() {
         <Separator />
 
         {/* ④⑤ Payment & Delivery Terms */}
-        <PoTermsSection value={terms} onChange={setTerms} />
+        {!rfqMode && (
+          <PoTermsSection value={terms} onChange={setTerms} />
+        )}
 
         <Separator />
 

@@ -11,7 +11,7 @@ import { Label } from '@/components/ui/label'
 import {
   Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
 } from '@/components/ui/select'
-import { useCreateShipment, type ShipmentMode, type CreateShipmentPayload } from '@/hooks/useShipments'
+import { useCreateShipment, type ShipmentMode } from '@/hooks/useShipments'
 
 type Props = {
   open: boolean
@@ -24,32 +24,21 @@ export function PoShipmentDialog({ open, onOpenChange, poId }: Props) {
 
   const [mode, setMode] = useState<ShipmentMode>('air')
   const [trackingNumber, setTrackingNumber] = useState('')
-  const [carrier, setCarrier] = useState('')
-  const [origin, setOrigin] = useState('')
-  const [destination, setDestination] = useState('')
-  const [etd, setEtd] = useState('')
-  const [eta, setEta] = useState('')
   const [saving, setSaving] = useState(false)
 
   function reset() {
-    setMode('air'); setTrackingNumber(''); setCarrier('')
-    setOrigin(''); setDestination(''); setEtd(''); setEta('')
+    setMode('air'); setTrackingNumber('')
   }
 
   async function submit() {
+    if (!trackingNumber.trim()) { toast.error('Tracking number is required'); return }
     setSaving(true)
     try {
-      const payload: CreateShipmentPayload = {
+      await createShipment.mutateAsync({
         po_id: poId,
         mode,
         tracking_number: trackingNumber,
-        carrier,
-        origin: origin || null,
-        destination: destination || null,
-        etd: etd || null,
-        eta: eta || null,
-      }
-      await createShipment.mutateAsync(payload)
+      })
       toast.success('Shipment created')
       reset()
       onOpenChange(false)
@@ -82,30 +71,6 @@ export function PoShipmentDialog({ open, onOpenChange, poId }: Props) {
           <div className="space-y-1">
             <Label htmlFor="pos-tracking">Tracking Number *</Label>
             <Input id="pos-tracking" value={trackingNumber} onChange={(e) => setTrackingNumber(e.target.value)} placeholder="TRK-12345" />
-          </div>
-          <div className="space-y-1">
-            <Label htmlFor="pos-carrier">Carrier *</Label>
-            <Input id="pos-carrier" value={carrier} onChange={(e) => setCarrier(e.target.value)} placeholder="DHL, FedEx…" />
-          </div>
-          <div className="grid grid-cols-2 gap-4">
-            <div className="space-y-1">
-              <Label htmlFor="pos-origin">Origin</Label>
-              <Input id="pos-origin" value={origin} onChange={(e) => setOrigin(e.target.value)} placeholder="Dubai" />
-            </div>
-            <div className="space-y-1">
-              <Label htmlFor="pos-destination">Destination</Label>
-              <Input id="pos-destination" value={destination} onChange={(e) => setDestination(e.target.value)} placeholder="Doha" />
-            </div>
-          </div>
-          <div className="grid grid-cols-2 gap-4">
-            <div className="space-y-1">
-              <Label htmlFor="pos-etd">ETD</Label>
-              <Input id="pos-etd" type="date" value={etd} onChange={(e) => setEtd(e.target.value)} />
-            </div>
-            <div className="space-y-1">
-              <Label htmlFor="pos-eta">ETA</Label>
-              <Input id="pos-eta" type="date" value={eta} onChange={(e) => setEta(e.target.value)} />
-            </div>
           </div>
         </div>
         <DialogFooter>

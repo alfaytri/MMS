@@ -462,7 +462,13 @@ export default function PurchaseOrdersPage() {
                         </span>
                       </TableCell>
                       <TableCell>
-                        <span className="font-medium">{po.supplier_name}</span>
+                        {po.po_type === 'rfq' && (po as any).rfq_supplier_ids?.length ? (
+                          <Badge variant="secondary" className="text-xs">
+                            {(po as any).rfq_supplier_ids.length} supplier{(po as any).rfq_supplier_ids.length > 1 ? 's' : ''}
+                          </Badge>
+                        ) : (
+                          <span className="font-medium">{po.supplier_name}</span>
+                        )}
                       </TableCell>
                       <TableCell className="text-sm text-muted-foreground">
                         {formatDate(po.created_date)}

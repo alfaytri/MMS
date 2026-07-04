@@ -5,6 +5,8 @@ import { Separator } from '@/components/ui/separator'
 import { Layers, Warehouse } from 'lucide-react'
 import { ItemTreeCell } from './ItemTreeCell'
 
+const fmtVal = (n: number) => n.toLocaleString('en-QA', { minimumFractionDigits: 2, maximumFractionDigits: 2 })
+
 interface StockBreakdown {
   totalQty: number
   totalValue: number
@@ -16,13 +18,14 @@ interface Props {
   onClose: () => void
   itemName: string
   category: string | null
+  subcategory?: string | null
   itemType: string | null
   brand: string | null
   sku: string | null
   breakdown: StockBreakdown
 }
 
-export function WhStockDetailDialog({ open, onClose, itemName, category, itemType, brand, sku, breakdown }: Props) {
+export function WhStockDetailDialog({ open, onClose, itemName, category, subcategory, itemType, brand, sku, breakdown }: Props) {
   return (
     <Dialog open={open} onOpenChange={onClose}>
       <DialogContent className="max-w-xl max-h-[85vh] overflow-y-auto p-0">
@@ -44,6 +47,7 @@ export function WhStockDetailDialog({ open, onClose, itemName, category, itemTyp
           <div className="rounded-lg border bg-muted/20 px-4 py-3">
             <ItemTreeCell
               category={category}
+              subcategory={subcategory}
               itemType={itemType}
               itemName={itemName}
               brand={brand}
@@ -60,7 +64,7 @@ export function WhStockDetailDialog({ open, onClose, itemName, category, itemTyp
             </div>
             <div className="rounded-lg border px-4 py-3 text-center">
               <p className="text-[10px] text-muted-foreground uppercase tracking-wide font-semibold">Total Value</p>
-              <p className="text-xl font-bold tabular-nums mt-1">{breakdown.totalValue.toFixed(2)}</p>
+              <p className="text-xl font-bold tabular-nums mt-1">{fmtVal(breakdown.totalValue)}</p>
             </div>
           </div>
 
@@ -82,8 +86,8 @@ export function WhStockDetailDialog({ open, onClose, itemName, category, itemTyp
                       <span className="text-sm font-medium truncate">{w.name}</span>
                     </div>
                     <span className="text-sm text-right tabular-nums">{w.qty}</span>
-                    <span className="text-sm text-right tabular-nums">{w.qty > 0 ? (w.value / w.qty).toFixed(2) : '—'}</span>
-                    <span className="text-sm text-right tabular-nums font-medium">{w.value.toFixed(2)}</span>
+                    <span className="text-sm text-right tabular-nums">{w.qty > 0 ? fmtVal(w.value / w.qty) : '—'}</span>
+                    <span className="text-sm text-right tabular-nums font-medium">{fmtVal(w.value)}</span>
                   </div>
                 ))}
                 {breakdown.warehouses.length > 1 && (
@@ -91,9 +95,9 @@ export function WhStockDetailDialog({ open, onClose, itemName, category, itemTyp
                     <span className="text-sm">Total</span>
                     <span className="text-sm text-right tabular-nums">{breakdown.totalQty}</span>
                     <span className="text-sm text-right tabular-nums">
-                      {breakdown.totalQty > 0 ? (breakdown.totalValue / breakdown.totalQty).toFixed(2) : '—'}
+                      {breakdown.totalQty > 0 ? fmtVal(breakdown.totalValue / breakdown.totalQty) : '—'}
                     </span>
-                    <span className="text-sm text-right tabular-nums">{breakdown.totalValue.toFixed(2)}</span>
+                    <span className="text-sm text-right tabular-nums">{fmtVal(breakdown.totalValue)}</span>
                   </div>
                 )}
               </div>

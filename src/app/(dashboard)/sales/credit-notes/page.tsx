@@ -14,7 +14,6 @@ import { CreditDebitNoteDownloadButton } from '@/components/sales/CreditDebitNot
 import { CreditDebitNoteDetailDialog } from '@/components/sales/CreditDebitNoteDetailDialog'
 import {
   useCreditNotes,
-  useDebitNotes,
   useApplyCreditNote,
   type CreditNote,
   type CreditNoteStatus,
@@ -22,7 +21,6 @@ import {
 import { formatCurrency, formatDate } from '@/lib/utils/formatters'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { cn } from '@/lib/utils'
 
 const STATUS_CONFIG: Record<CreditNoteStatus, { label: string; className: string }> = {
@@ -33,17 +31,12 @@ const STATUS_CONFIG: Record<CreditNoteStatus, { label: string; className: string
 }
 
 export default function CreditNotesPage() {
-  const [noteType, setNoteType] = useState<'credit' | 'debit'>('credit')
   const [createOpen, setCreateOpen] = useState(false)
   const [applyTarget, setApplyTarget] = useState<CreditNote | null>(null)
   const [detailNote, setDetailNote] = useState<CreditNote | null>(null)
 
   const { data: creditNotes = [], isLoading: cnLoading } = useCreditNotes()
-  const { data: debitNotes  = [], isLoading: dnLoading  } = useDebitNotes()
   const applyCreditNote = useApplyCreditNote()
-
-  const rows    = noteType === 'credit' ? creditNotes : debitNotes
-  const loading = noteType === 'credit' ? cnLoading   : dnLoading
 
   const detailRefNumber = detailNote
     ? detailNote.note_type === 'credit'
@@ -131,108 +124,25 @@ export default function CreditNotesPage() {
     },
   ], [])
 
-  const debitColumns = useMemo<ColumnDef<CreditNote>[]>(() => [
-    {
-      accessorKey: 'credit_note_id',
-      header: ({ column }) => <DataTableColumnHeader column={column} title="DN #" />,
-      cell: ({ row }) => (
-        <button
-          type="button"
-          className="font-mono text-sm font-medium text-primary hover:underline underline-offset-2"
-          onClick={() => setDetailNote(row.original)}
-        >
-          {row.getValue('credit_note_id')}
-        </button>
-      ),
-    },
-    {
-      accessorKey: 'supplier_name',
-      header: 'Supplier',
-      cell: ({ row }) => row.original.supplier_name ?? '—',
-    },
-    {
-      id: 'return_ref',
-      header: 'Return #',
-      cell: ({ row }) => row.original.return_number ?? '—',
-    },
-    {
-      accessorKey: 'total_amount',
-      header: ({ column }) => <DataTableColumnHeader column={column} title="Debit Amount" />,
-      cell: ({ row }) => formatCurrency(row.getValue('total_amount'), 'QAR'),
-    },
-    {
-      accessorKey: 'new_total',
-      header: 'New PO Total',
-      cell: ({ row }) => {
-        const v = row.original.new_total
-        return v != null ? formatCurrency(v, 'QAR') : '—'
-      },
-    },
-    {
-      accessorKey: 'status',
-      header: 'Status',
-      cell: ({ row }) => {
-        const s = (row.getValue('status') ?? 'issued') as CreditNoteStatus
-        const cfg = STATUS_CONFIG[s] ?? STATUS_CONFIG.issued
-        return <Badge className={cn('text-xs', cfg.className)}>{cfg.label}</Badge>
-      },
-    },
-    {
-      accessorKey: 'created_at',
-      header: ({ column }) => <DataTableColumnHeader column={column} title="Created" />,
-      cell: ({ row }) => formatDate(row.getValue('created_at')),
-    },
-    {
-      id: 'actions',
-      cell: ({ row }) => {
-        const note = row.original
-        if (!note.line_items) return null
-        return (
-          <CreditDebitNoteDownloadButton
-            note={note}
-            referenceNumber="—"
-            returnNumber={note.return_number ?? '—'}
-          />
-        )
-      },
-    },
-  ], [])
-
   return (
     <PageWrapper>
       <PageHeader
-        title="Credit & Debit Notes"
-        description="Auto-generated notes from customer and supplier returns"
+        title="Credit Notes"
+        description="Credit notes from customer returns"
         actions={
-          noteType === 'credit' ? (
-            <Button onClick={() => setCreateOpen(true)}>
-              <Plus className="w-4 h-4 mr-2" /> Create Credit Note
-            </Button>
-          ) : null
+          <Button onClick={() => setCreateOpen(true)}>
+            <Plus className="w-4 h-4 mr-2" /> Create Credit Note
+          </Button>
         }
       />
 
-      <div className="mb-4 w-48">
-        <Select value={noteType} onValueChange={(v) => setNoteType(v as 'credit' | 'debit')}>
-          <SelectTrigger>
-            <SelectValue />
-          </SelectTrigger>
-          <SelectContent>
-            <SelectItem value="credit">Credit Notes</SelectItem>
-            <SelectItem value="debit">Debit Notes</SelectItem>
-          </SelectContent>
-        </Select>
-      </div>
-
       <DataTable
-        columns={noteType === 'credit' ? creditColumns : debitColumns}
-        data={rows}
-        isLoading={loading}
+        columns={creditColumns}
+        data={creditNotes}
+        isLoading={cnLoading}
       />
 
-      {noteType === 'credit' && (
-        <CreditNoteFormDialog open={createOpen} onOpenChange={setCreateOpen} />
-      )}
+      <CreditNoteFormDialog open={createOpen} onOpenChange={setCreateOpen} />
 
       <CreditDebitNoteDetailDialog
         note={detailNote}

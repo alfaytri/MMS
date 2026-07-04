@@ -1,0 +1,202 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>Al Faytri — Document Templates Review</title>
+<style>
+  @font-face { font-family: 'InfieldRound'; src: url('Font/Infield/Infield-Rounded.ttf') format('truetype'); }
+  @font-face { font-family: 'InfieldBlock'; src: url('Font/Infield/Infield-Block.ttf')   format('truetype'); }
+  @font-face { font-family: 'Noor'; src: url('Font/Noor/Noor Regular.ttf') format('truetype'); font-weight: 400; }
+  @font-face { font-family: 'Noor'; src: url('Font/Noor/Noor Bold.ttf')    format('truetype'); font-weight: 700; }
+
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body {
+    font-family: 'InfieldRound', sans-serif;
+    background: #f3f4f6; color: #111;
+    padding: 40px 24px;
+  }
+
+  .header {
+    max-width: 900px; margin: 0 auto 40px;
+    text-align: center;
+  }
+  .header img { height: 80px; margin-bottom: 16px; }
+  .header h1 {
+    font-family: 'InfieldBlock', sans-serif;
+    font-size: 28px; letter-spacing: 0.5px;
+    margin-bottom: 8px;
+  }
+  .header .ar-title {
+    font-family: 'Noor', sans-serif; font-weight: 700;
+    font-size: 24px; direction: rtl; margin-bottom: 12px;
+  }
+  .header p {
+    font-size: 14px; color: #6b7280; max-width: 600px;
+    margin: 0 auto; line-height: 1.6;
+  }
+
+  .grid {
+    max-width: 900px; margin: 0 auto;
+    display: grid; grid-template-columns: 1fr 1fr;
+    gap: 20px;
+  }
+
+  .section-title {
+    grid-column: 1 / -1;
+    font-family: 'InfieldBlock', sans-serif;
+    font-size: 13px; letter-spacing: 1px;
+    text-transform: uppercase; color: #6b7280;
+    border-bottom: 1px solid #d0d0d0;
+    padding-bottom: 6px; margin-top: 12px;
+  }
+
+  .card {
+    background: #fff; border: 1px solid #e2e8f0;
+    border-radius: 8px; padding: 20px;
+    text-decoration: none; color: #111;
+    transition: box-shadow 0.15s, border-color 0.15s;
+    display: flex; flex-direction: column; gap: 8px;
+  }
+  .card:hover {
+    box-shadow: 0 4px 16px rgba(0,0,0,0.1);
+    border-color: #ED7C2C;
+  }
+  .card .badge {
+    display: inline-block; padding: 2px 10px;
+    border-radius: 12px; font-size: 10px;
+    font-family: 'InfieldBlock', sans-serif;
+    letter-spacing: 0.3px; width: fit-content;
+  }
+  .badge.new { background: #dcfce7; color: #166534; }
+  .badge.live { background: #dbeafe; color: #1e40af; }
+  .badge.redesigned { background: #fef3c7; color: #92400e; }
+
+  .card h3 {
+    font-family: 'InfieldBlock', sans-serif;
+    font-size: 16px; letter-spacing: 0.3px;
+  }
+  .card .ar-name {
+    font-family: 'Noor', sans-serif; font-weight: 700;
+    font-size: 15px; direction: rtl; text-align: right;
+  }
+  .card p {
+    font-size: 12px; color: #6b7280; line-height: 1.5;
+  }
+  .card .audience {
+    font-size: 11px; font-family: 'InfieldBlock', sans-serif;
+    color: #9ca3af; letter-spacing: 0.3px;
+  }
+
+  .footer-note {
+    max-width: 900px; margin: 40px auto 0;
+    text-align: center; font-size: 12px; color: #9ca3af;
+    line-height: 1.6;
+  }
+</style>
+</head>
+<body>
+
+<div class="header">
+  <img src="Company logo.png" alt="Al Faytri">
+  <h1>Document Templates — Review</h1>
+  <div class="ar-title">مراجعة قوالب المستندات</div>
+  <p>Click any document to see its full A4 preview with the branded bilingual design. All templates use the same header, contact bar, and footer. Open in browser and press Ctrl+P to test the print layout.</p>
+</div>
+
+<div class="grid">
+
+  <a class="card" href="template-designer.html" style="grid-column:1/-1;border:2px solid #ED7C2C;background:linear-gradient(135deg,#fff 80%,#fef3c7);">
+    <span class="badge" style="background:#ED7C2C;color:#fff;">INTERACTIVE</span>
+    <h3>Template Designer</h3>
+    <div class="ar-name">مصمم القوالب</div>
+    <p>Switch fonts, formats (Ribbon / Clean Band / Side Panel), and brand colors live. Download any combination as PDF. All 8 document types in one tool.</p>
+    <div class="audience">TOOL: Boss Review &amp; Approval</div>
+  </a>
+
+  <div class="section-title">Purchase Documents — مستندات المشتريات</div>
+
+  <a class="card" href="po-preview.html">
+    <span class="badge new">NEW</span>
+    <h3>Purchase Order</h3>
+    <div class="ar-name">أمر شراء</div>
+    <p>Sent to suppliers to confirm an order. Includes items, quantities, unit prices, totals, payment and delivery terms.</p>
+    <div class="audience">AUDIENCE: Supplier (External)</div>
+  </a>
+
+  <a class="card" href="rfq-preview.html">
+    <span class="badge new">NEW</span>
+    <h3>Request for Quotation</h3>
+    <div class="ar-name">طلب عرض سعر</div>
+    <p>Sent to suppliers requesting price quotes. No prices shown — just items, specs, quantities, and a response deadline.</p>
+    <div class="audience">AUDIENCE: Supplier (External)</div>
+  </a>
+
+  <a class="card" href="bill-preview.html">
+    <span class="badge new">NEW</span>
+    <h3>Supplier Bill</h3>
+    <div class="ar-name">فاتورة مورد</div>
+    <p>Internal payable voucher recording a supplier invoice. Shows items received, amounts, PO reference, and payment status.</p>
+    <div class="audience">AUDIENCE: Internal / Accounting</div>
+  </a>
+
+  <a class="card" href="debit-note-preview.html">
+    <span class="badge redesigned">REDESIGNED</span>
+    <h3>Debit Note</h3>
+    <div class="ar-name">إشعار مدين</div>
+    <p>Issued to suppliers for purchase returns. Dark-themed ribbon and table headers distinguish it from sales credit notes.</p>
+    <div class="audience">AUDIENCE: Supplier (External)</div>
+  </a>
+
+  <div class="section-title">Sales Documents — مستندات المبيعات</div>
+
+  <a class="card" href="so-quotation-preview.html">
+    <span class="badge redesigned">REDESIGNED</span>
+    <h3>SO Quotation</h3>
+    <div class="ar-name">عرض سعر</div>
+    <p>Price quote sent to customers for inventory items. Includes line items with SKUs, discount, and payment/delivery terms.</p>
+    <div class="audience">AUDIENCE: Customer (External)</div>
+  </a>
+
+  <a class="card" href="invoice-preview.html">
+    <span class="badge redesigned">REDESIGNED</span>
+    <h3>Sales Invoice</h3>
+    <div class="ar-name">فاتورة مبيعات</div>
+    <p>AR invoice sent to customers. Shows line items, totals, and a dark payment strip with Total / Paid / Outstanding.</p>
+    <div class="audience">AUDIENCE: Customer (External)</div>
+  </a>
+
+  <a class="card" href="credit-note-preview.html">
+    <span class="badge redesigned">REDESIGNED</span>
+    <h3>Credit Note</h3>
+    <div class="ar-name">إشعار دائن</div>
+    <p>Issued to customers for returns/refunds. Red-themed ribbon, table headers, and totals to visually distinguish from invoices.</p>
+    <div class="audience">AUDIENCE: Customer (External)</div>
+  </a>
+
+  <div class="section-title">Service Documents — مستندات الخدمات</div>
+
+  <a class="card" href="service-quotation-preview.html">
+    <span class="badge new">NEW</span>
+    <h3>Service Quotation</h3>
+    <div class="ar-name">عرض سعر خدمات</div>
+    <p>Contract/service quotes for facility management customers. Includes frequency column, bilingual service names, scope of work, and contract terms.</p>
+    <div class="audience">AUDIENCE: Customer (External)</div>
+  </a>
+
+  <a class="card" href="order-confirmation-preview.html">
+    <span class="badge live">LIVE — APPROVED</span>
+    <h3>Order Confirmation</h3>
+    <div class="ar-name">تأكيد الحجز</div>
+    <p>Booking confirmation sent via WhatsApp. The original branded design — all other templates follow this pattern.</p>
+    <div class="audience">AUDIENCE: Customer (WhatsApp)</div>
+  </a>
+
+</div>
+
+<div class="footer-note">
+  All templates follow the approved Order Confirmation design: bilingual header (EN left / AR right), company logo centered, contact strip, dark bar with orange ribbon, bilingual column headers, and branded footer.<br>
+  Open each preview in Chrome → Ctrl+P → see the exact A4 print layout.
+</div>
+
+</body>
+</html>

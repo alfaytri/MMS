@@ -1,4 +1,6 @@
 import { createHash } from 'crypto'
+import type { Track17Event } from './client17track'
+import { map17trackTag } from './statusMap'
 
 export function normalizeTimestamp(raw: string): string {
   const d = new Date(raw)
@@ -15,21 +17,17 @@ export function computeEventHash(
     .digest('hex')
 }
 
-export type Raw17trackEvent = { a: string; b: string; c: string; z: string }
+// Keep old type alias for webhook compatibility
+export type Raw17trackEvent = Track17Event
 
-import { map17trackTag } from './statusMap'
-
-export function mapRawEvents(rawEvents: Raw17trackEvent[]) {
-  return rawEvents
-    .map(e => {
-      const normalizedTimestamp = normalizeTimestamp(e.a)
-      const location = e.b ?? ''
-      const description = e.c ?? ''
-      const status = map17trackTag(e.z)
-      if (!status) return null
-      const hash = computeEventHash(normalizedTimestamp, location, description)
-      // `date` mirrors normalizedTimestamp so existing display code (ev.date) works
-      return { hash, normalizedTimestamp, date: normalizedTimestamp, location, notes: description, status }
-    })
-    .filter((e): e is NonNullable<typeof e> => e !== null)
+export function mapRawEvents(rawEvents: Track17Event[]) {
+  return rawEvents.map(e => {
+    const normalizedTimestamp = normalizeTimestamp(e.time_utc || e.time_iso)
+    const location = e.location ?? ''
+    const description = e.description ?? ''
+    const tag = e.stage || e.sub_status?.split('_')[0] || ''
+    const status = map17trackTag(tag)
+    const hash = computeEventHash(normalizedTimestamp, location, description)
+    return { hash, normalizedTimestamp, date: normalizedTimestamp, location, notes: description, status }
+  })
 }

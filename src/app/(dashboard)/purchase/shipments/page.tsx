@@ -3,13 +3,15 @@
 import { useState, useMemo } from 'react'
 import { useQueryClient } from '@tanstack/react-query'
 import { toast } from 'sonner'
-import { Plane, Ship, Truck, PenLine, Eye, Archive, Plus } from 'lucide-react'
+import {
+  Plane, Ship, Truck, PenLine, Eye, Archive, Plus, RefreshCw,
+  Package, MapPin, Clock, CheckCircle2, AlertTriangle, CircleDot,
+} from 'lucide-react'
 import { PageHeader } from '@/components/shared/PageHeader'
 import { PageWrapper } from '@/components/shared/PageWrapper'
 import { SearchInput } from '@/components/shared/SearchInput'
 import { DataTable } from '@/components/shared/DataTable'
 import { Button } from '@/components/ui/button'
-import { Badge } from '@/components/ui/badge'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Textarea } from '@/components/ui/textarea'
@@ -29,42 +31,83 @@ import {
 import { usePurchaseOrders } from '@/hooks/usePurchaseOrders'
 import type { ColumnDef } from '@tanstack/react-table'
 import { queryKeys } from '@/lib/queryKeys'
+import { cn } from '@/lib/utils'
 
 // ─── Constants ────────────────────────────────────────────────────────────────
 
-const MODE_ICONS: Record<ShipmentMode, { icon: React.ReactNode; label: string }> = {
-  air:    { icon: <Plane className="h-4 w-4" />,    label: 'Air'    },
-  sea:    { icon: <Ship className="h-4 w-4" />,     label: 'Sea'    },
-  land:   { icon: <Truck className="h-4 w-4" />,   label: 'Land'   },
-  manual: { icon: <PenLine className="h-4 w-4" />, label: 'Manual' },
+const MODE_META: Record<ShipmentMode, { icon: typeof Plane; label: string; color: string }> = {
+  air:    { icon: Plane,   label: 'Air',    color: 'text-sky-600'    },
+  sea:    { icon: Ship,    label: 'Sea',    color: 'text-blue-600'   },
+  land:   { icon: Truck,   label: 'Land',   color: 'text-amber-600'  },
+  manual: { icon: PenLine, label: 'Manual', color: 'text-slate-500'  },
 }
 
-const STATUS_COLORS: Record<ShipmentStatus, string> = {
-  booked:     'bg-blue-100 text-blue-800',
-  in_transit: 'bg-orange-100 text-orange-800',
-  customs:    'bg-yellow-100 text-yellow-800',
-  delivered:  'bg-green-100 text-green-800',
-  delayed:    'bg-red-100 text-red-800',
+const STATUS_CONFIG: Record<ShipmentStatus, { label: string; color: string; bg: string; icon: typeof Package }> = {
+  booked:     { label: 'Booked',     color: 'text-blue-700',   bg: 'bg-blue-50 border-blue-200',     icon: Package        },
+  in_transit: { label: 'In Transit', color: 'text-orange-700', bg: 'bg-orange-50 border-orange-200', icon: RefreshCw      },
+  customs:    { label: 'Customs',    color: 'text-yellow-700', bg: 'bg-yellow-50 border-yellow-200', icon: Clock          },
+  delivered:  { label: 'Delivered',  color: 'text-green-700',  bg: 'bg-green-50 border-green-200',   icon: CheckCircle2   },
+  delayed:    { label: 'Delayed',    color: 'text-red-700',    bg: 'bg-red-50 border-red-200',       icon: AlertTriangle  },
 }
 
-const STATUS_LABELS: Record<ShipmentStatus, string> = {
-  booked:     'Booked',
+const EVENT_STATUS_LABELS: Record<string, string> = {
   in_transit: 'In Transit',
-  customs:    'Customs',
-  delivered:  'Delivered',
-  delayed:    'Delayed',
+  delivered: 'Delivered',
+  delayed: 'Delayed',
+  customs: 'Customs',
+  booked: 'Booked',
+  info_received: 'Info Received',
+  out_for_delivery: 'Out for Delivery',
+  available_for_pickup: 'Available for Pickup',
+  picked_up: 'Picked Up',
+  expired: 'Expired',
+  not_found: 'Not Found',
 }
 
 const ALL_STATUSES: ShipmentStatus[] = ['booked', 'in_transit', 'customs', 'delivered', 'delayed']
 
-// ─── Sub-components ────────────────────────────────────────────────────────────
+// ─── Helpers ──────────────────────────────────────────────────────────────────
 
-function ShipmentStatusBadge({ status }: { status: ShipmentStatus }) {
+function StatusBadge({ status }: { status: ShipmentStatus }) {
+  const cfg = STATUS_CONFIG[status]
+  const Icon = cfg.icon
   return (
-    <span className={`inline-flex items-center rounded-full px-2 py-0.5 text-xs font-medium ${STATUS_COLORS[status]}`}>
-      {STATUS_LABELS[status]}
+    <span className={cn('inline-flex items-center gap-1 rounded-full border px-2.5 py-0.5 text-xs font-medium', cfg.bg, cfg.color)}>
+      <Icon className="h-3 w-3" />
+      {cfg.label}
     </span>
   )
+}
+
+function ModeBadge({ mode }: { mode: ShipmentMode }) {
+  const m = MODE_META[mode]
+  const Icon = m.icon
+  return (
+    <span className={cn('inline-flex items-center gap-1.5 text-sm font-medium', m.color)}>
+      <Icon className="h-4 w-4" />
+      {m.label}
+    </span>
+  )
+}
+
+function deriveEta(events: ShipmentEvent[]): string | null {
+  if (!events || events.length === 0) return null
+  const sorted = [...events].sort((a, b) => {
+    const ta = new Date(a.normalizedTimestamp ?? a.date ?? 0).getTime()
+    const tb = new Date(b.normalizedTimestamp ?? b.date ?? 0).getTime()
+    return tb - ta
+  })
+  const latest = sorted[0]
+  if (latest.status === 'delivered') return latest.normalizedTimestamp ?? latest.date ?? null
+  return null
+}
+
+function daysFromNow(dateStr: string | null): string {
+  if (!dateStr) return ''
+  const diff = Math.ceil((new Date(dateStr).getTime() - Date.now()) / 86400000)
+  if (diff === 0) return '(today)'
+  if (diff > 0) return `(${diff}d away)`
+  return `(${Math.abs(diff)}d ago)`
 }
 
 // ─── Create Shipment Dialog ───────────────────────────────────────────────────
@@ -73,8 +116,7 @@ function CreateShipmentDialog({ open, onOpenChange }: { open: boolean; onOpenCha
   const { data: pos } = usePurchaseOrders({ status: undefined })
   const createShipment = useCreateShipment()
   const [form, setForm] = useState({
-    po_id: '', mode: 'air' as ShipmentMode, carrier: '', tracking_number: '',
-    origin: '', destination: '', etd: '', eta: '',
+    po_id: '', mode: 'air' as ShipmentMode, tracking_number: '',
   })
 
   function set(k: string, v: string) { setForm((f) => ({ ...f, [k]: v })) }
@@ -82,26 +124,18 @@ function CreateShipmentDialog({ open, onOpenChange }: { open: boolean; onOpenCha
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault()
     if (!form.po_id) { toast.error('Select a PO'); return }
-    if (!form.carrier) { toast.error('Carrier is required'); return }
     if (!form.tracking_number) { toast.error('Tracking number is required'); return }
     createShipment.mutate(
       {
         po_id: form.po_id,
         mode: form.mode,
-        carrier: form.carrier,
         tracking_number: form.tracking_number,
-        origin: form.origin || null,
-        destination: form.destination || null,
-        etd: form.etd || null,
-        eta: form.eta || null,
       },
       {
         onSuccess: (newShipment) => {
           toast.success('Shipment created')
           onOpenChange(false)
-          setForm({ po_id: '', mode: 'air', carrier: '', tracking_number: '', origin: '', destination: '', etd: '', eta: '' })
-          // Fire-and-forget: keepalive ensures the request completes even if the user
-          // navigates away immediately after the toast.
+          setForm({ po_id: '', mode: 'air', tracking_number: '' })
           fetch('/api/shipments/register-tracking', {
             method: 'POST',
             keepalive: true,
@@ -121,12 +155,12 @@ function CreateShipmentDialog({ open, onOpenChange }: { open: boolean; onOpenCha
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="w-full max-w-full rounded-none sm:max-w-lg sm:rounded-lg">
+      <DialogContent className="w-full max-w-full rounded-none sm:max-w-md sm:rounded-lg">
         <DialogHeader><DialogTitle>Create Shipment</DialogTitle></DialogHeader>
         <form onSubmit={handleSubmit} className="space-y-4">
-          <div className="space-y-1">
-            <Label htmlFor="ship-po">Purchase Order *</Label>
-            <select id="ship-po" value={form.po_id} onChange={(e) => set('po_id', e.target.value)} className="flex h-9 w-full rounded-md border border-input bg-background px-3 py-1 text-sm">
+          <div className="space-y-1.5">
+            <Label htmlFor="ship-po">Purchase Order</Label>
+            <select id="ship-po" value={form.po_id} onChange={(e) => set('po_id', e.target.value)} className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2">
               <option value="">Select PO…</option>
               {approvedPos.map((p) => (
                 <option key={p.id} value={p.id}>{p.po_number} — {p.supplier_name}</option>
@@ -134,50 +168,22 @@ function CreateShipmentDialog({ open, onOpenChange }: { open: boolean; onOpenCha
             </select>
           </div>
 
-          <div className="grid grid-cols-2 gap-3">
-            <div className="space-y-1">
-              <Label htmlFor="ship-mode">Mode *</Label>
-              <select id="ship-mode" value={form.mode} onChange={(e) => set('mode', e.target.value)} className="flex h-9 w-full rounded-md border border-input bg-background px-3 py-1 text-sm">
-                <option value="air">✈️ Air</option>
-                <option value="sea">🚢 Sea</option>
-                <option value="land">🚛 Land</option>
-                <option value="manual">✏️ Manual</option>
-              </select>
-            </div>
-            <div className="space-y-1">
-              <Label htmlFor="ship-carrier">Carrier *</Label>
-              <Input id="ship-carrier" value={form.carrier} onChange={(e) => set('carrier', e.target.value)} placeholder="DHL, FedEx…" />
-            </div>
+          <div className="space-y-1.5">
+            <Label htmlFor="ship-mode">Mode</Label>
+            <select id="ship-mode" value={form.mode} onChange={(e) => set('mode', e.target.value)} className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2">
+              <option value="air">✈️ Air</option>
+              <option value="sea">🚢 Sea</option>
+              <option value="land">🚛 Land</option>
+              <option value="manual">✏️ Manual</option>
+            </select>
           </div>
 
-          <div className="space-y-1">
-            <Label htmlFor="ship-tracking-number">Tracking Number *</Label>
-            <Input id="ship-tracking-number" value={form.tracking_number} onChange={(e) => set('tracking_number', e.target.value)} placeholder="TRK-001" />
+          <div className="space-y-1.5">
+            <Label htmlFor="ship-tracking-number">Tracking Number</Label>
+            <Input id="ship-tracking-number" className="h-10" value={form.tracking_number} onChange={(e) => set('tracking_number', e.target.value)} placeholder="Enter tracking number" />
           </div>
 
-          <div className="grid grid-cols-2 gap-3">
-            <div className="space-y-1">
-              <Label htmlFor="ship-origin">Origin</Label>
-              <Input id="ship-origin" value={form.origin} onChange={(e) => set('origin', e.target.value)} placeholder="Shanghai" />
-            </div>
-            <div className="space-y-1">
-              <Label htmlFor="ship-destination">Destination</Label>
-              <Input id="ship-destination" value={form.destination} onChange={(e) => set('destination', e.target.value)} placeholder="Doha" />
-            </div>
-          </div>
-
-          <div className="grid grid-cols-2 gap-3">
-            <div className="space-y-1">
-              <Label htmlFor="ship-etd">ETD</Label>
-              <Input id="ship-etd" type="date" value={form.etd} onChange={(e) => set('etd', e.target.value)} />
-            </div>
-            <div className="space-y-1">
-              <Label htmlFor="ship-eta">ETA</Label>
-              <Input id="ship-eta" type="date" value={form.eta} onChange={(e) => set('eta', e.target.value)} />
-            </div>
-          </div>
-
-          <DialogFooter>
+          <DialogFooter className="pt-2">
             <Button type="button" variant="outline" onClick={() => onOpenChange(false)}>Cancel</Button>
             <Button type="submit" disabled={createShipment.isPending}>
               {createShipment.isPending ? 'Creating…' : 'Create Shipment'}
@@ -235,20 +241,20 @@ function ShipmentDetailDialog({
         }),
       })
       const data = await res.json()
-      if (!res.ok && !data.ambiguous && !data.error) {
-        toast.error('Sync failed — try again')
-        return
-      }
       if (data.ambiguous) {
         setSyncAmbiguous({ candidates: data.candidates })
         return
       }
-      if (data.error === 'quota_exceeded') {
-        toast.error('Auto-sync unavailable: monthly tracking limit reached')
+      if (!res.ok) {
+        if (data.error === 'quota_exceeded') {
+          toast.error('Auto-sync unavailable: monthly tracking limit reached')
+        } else {
+          toast.error(data.error ?? 'Sync failed — try again')
+        }
         return
       }
       await queryClient.invalidateQueries({ queryKey: queryKeys.shipments.all })
-      toast.success('Tracking synced')
+      toast.success(`Tracking synced — ${data.events?.length ?? 0} events`)
     } catch {
       toast.error('Sync failed — try again')
     } finally {
@@ -271,49 +277,65 @@ function ShipmentDetailDialog({
     )
   }
 
-  const modeInfo = MODE_ICONS[shipment.mode]
+  const modeMeta = MODE_META[shipment.mode]
+  const ModeIcon = modeMeta.icon
+  const etd = shipment.purchase_orders?.expected_delivery ?? null
+  const deliveredAt = deriveEta(shipment.events ?? [])
+  const lastSyncMin = shipment.last_synced_at
+    ? Math.round((Date.now() - new Date(shipment.last_synced_at).getTime()) / 60000)
+    : null
 
   return (
     <Dialog open={!!shipment} onOpenChange={(open) => { if (!open) onClose() }}>
-      <DialogContent className="w-full max-w-full rounded-none sm:max-w-2xl sm:rounded-lg">
-        <DialogHeader>
-          <DialogTitle className="flex items-center gap-2 flex-wrap">
-            <span className="text-muted-foreground">{modeInfo.icon}</span>
-            {shipment.tracking_number}
-            <ShipmentStatusBadge status={shipment.status} />
-          </DialogTitle>
-        </DialogHeader>
-
-        <div className="space-y-4 max-h-[60vh] overflow-y-auto pr-1">
-          {/* Quota warning */}
-          {shipment.sync_error === 'quota_exceeded' && (
-            <div className="rounded-md bg-yellow-50 border border-yellow-200 px-3 py-2 text-sm text-yellow-800">
-              Auto-sync unavailable — monthly tracking limit reached
+      <DialogContent className="w-full max-w-full rounded-none sm:max-w-2xl sm:rounded-lg p-0 gap-0 overflow-hidden">
+        {/* Header */}
+        <div className="px-6 pt-6 pb-4 space-y-3">
+          <div className="flex items-start justify-between">
+            <div className="space-y-1">
+              <div className="flex items-center gap-3">
+                <div className={cn('flex items-center justify-center h-10 w-10 rounded-lg bg-muted', modeMeta.color)}>
+                  <ModeIcon className="h-5 w-5" />
+                </div>
+                <div>
+                  <h2 className="text-lg font-semibold font-mono tracking-tight">{shipment.tracking_number}</h2>
+                  <p className="text-sm text-muted-foreground">
+                    {shipment.purchase_orders?.po_number ?? '—'}
+                    {shipment.carrier ? ` · ${shipment.carrier}` : ''}
+                  </p>
+                </div>
+              </div>
             </div>
-          )}
+            <StatusBadge status={shipment.status} />
+          </div>
 
-          {/* Sync controls */}
-          <div className="flex items-center gap-3 text-sm text-muted-foreground">
-            {shipment.last_synced_at ? (
-              <span>
-                Last synced{' '}
-                {Math.round((Date.now() - new Date(shipment.last_synced_at).getTime()) / 60000)} min ago
-              </span>
-            ) : (
-              <span>Never synced</span>
-            )}
+          {/* Sync bar */}
+          <div className="flex items-center gap-2 text-xs text-muted-foreground">
+            <CircleDot className={cn('h-3 w-3', shipment.last_synced_at ? 'text-green-500' : 'text-slate-400')} />
+            {lastSyncMin !== null ? `Synced ${lastSyncMin}m ago` : 'Never synced'}
             <button
               onClick={() => handleSyncNow()}
               disabled={isSyncing}
-              className="text-primary underline underline-offset-2 disabled:opacity-50 disabled:cursor-not-allowed"
+              className="ml-1 text-primary font-medium hover:underline disabled:opacity-50"
             >
               {isSyncing ? 'Syncing…' : 'Sync Now'}
             </button>
           </div>
+        </div>
+
+        <Separator />
+
+        {/* Body */}
+        <div className="px-6 py-4 space-y-4 max-h-[55vh] overflow-y-auto">
+          {/* Quota warning */}
+          {shipment.sync_error === 'quota_exceeded' && (
+            <div className="rounded-lg bg-yellow-50 border border-yellow-200 px-3 py-2 text-sm text-yellow-800">
+              Auto-sync unavailable — monthly tracking limit reached
+            </div>
+          )}
 
           {/* Carrier picker — shown when 17track returns ambiguous result */}
           {syncAmbiguous && (
-            <div className="rounded-md border border-border p-3 space-y-2">
+            <div className="rounded-lg border p-3 space-y-2">
               <p className="text-sm font-medium">Multiple carriers matched. Select the correct one:</p>
               <div className="flex items-center gap-2">
                 <select
@@ -339,76 +361,100 @@ function ShipmentDetailDialog({
             </div>
           )}
 
-          {/* Summary */}
-          <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 text-sm">
-            <div>
-              <p className="text-muted-foreground text-xs">PO</p>
-              <p className="font-medium">{shipment.purchase_orders?.po_number ?? '—'}</p>
+          {/* Date cards */}
+          <div className="grid grid-cols-2 gap-3">
+            <div className="rounded-lg border bg-muted/30 p-3 space-y-0.5">
+              <p className="text-xs font-medium text-muted-foreground uppercase tracking-wider">ETD</p>
+              <p className="text-sm font-semibold">
+                {etd ? formatDate(etd) : '—'}
+                {etd && <span className="ml-1 text-xs font-normal text-muted-foreground">{daysFromNow(etd)}</span>}
+              </p>
+              <p className="text-xs text-muted-foreground">From PO</p>
             </div>
-            <div>
-              <p className="text-muted-foreground text-xs">Carrier</p>
-              <p className="font-medium">{shipment.carrier}</p>
-            </div>
-            <div>
-              <p className="text-muted-foreground text-xs">Route</p>
-              <p className="font-medium">{shipment.origin ?? '—'} → {shipment.destination ?? '—'}</p>
-            </div>
-            <div>
-              <p className="text-muted-foreground text-xs">ETD / ETA</p>
-              <p className="font-medium">{formatDate(shipment.etd)} / {formatDate(shipment.eta)}</p>
+            <div className="rounded-lg border bg-muted/30 p-3 space-y-0.5">
+              <p className="text-xs font-medium text-muted-foreground uppercase tracking-wider">
+                {deliveredAt ? 'Delivered' : 'ETA'}
+              </p>
+              <p className="text-sm font-semibold">
+                {deliveredAt ? formatDate(deliveredAt) : '—'}
+                {deliveredAt && <span className="ml-1 text-xs font-normal text-muted-foreground">{daysFromNow(deliveredAt)}</span>}
+              </p>
+              <p className="text-xs text-muted-foreground">{deliveredAt ? 'From tracking' : 'Pending tracking'}</p>
             </div>
           </div>
 
-          <Separator />
-
           {/* Tracking Timeline */}
           <div>
-            <h3 className="text-sm font-semibold mb-2">Tracking Timeline</h3>
+            <h3 className="text-sm font-semibold mb-3">Tracking Timeline</h3>
             {sortedEvents.length === 0 ? (
-              <p className="text-sm text-muted-foreground">No events yet</p>
+              <div className="text-center py-8 text-muted-foreground">
+                <MapPin className="h-8 w-8 mx-auto mb-2 opacity-40" />
+                <p className="text-sm">No tracking events yet</p>
+                <p className="text-xs">Events will appear once the carrier updates tracking</p>
+              </div>
             ) : (
-              <div className="space-y-2">
-                {sortedEvents.map((ev, i) => (
-                  <div key={ev.hash ?? `${ev.date}-${ev.location}-${i}`} className="flex gap-3 text-sm">
-                    <div className="w-24 shrink-0 text-muted-foreground">
-                      {ev.date ? new Date(ev.date).toLocaleDateString() : '—'}
+              <div className="relative pl-6 space-y-0">
+                {/* Timeline line */}
+                <div className="absolute left-[9px] top-1 bottom-1 w-px bg-border" />
+                {sortedEvents.map((ev, i) => {
+                  const isFirst = i === 0
+                  return (
+                    <div key={ev.hash ?? `${ev.date}-${ev.location}-${i}`} className="relative pb-4 last:pb-0">
+                      {/* Dot */}
+                      <div className={cn(
+                        'absolute -left-6 top-0.5 h-[18px] w-[18px] rounded-full border-2 bg-background flex items-center justify-center',
+                        isFirst ? 'border-primary' : 'border-muted-foreground/30',
+                      )}>
+                        <div className={cn('h-2 w-2 rounded-full', isFirst ? 'bg-primary' : 'bg-muted-foreground/30')} />
+                      </div>
+                      <div className="min-w-0">
+                        <div className="flex items-baseline gap-2 flex-wrap">
+                          <span className="text-sm font-medium">{ev.location || 'Unknown'}</span>
+                          {ev.status && (
+                            <span className={cn(
+                              'text-xs px-1.5 py-0.5 rounded',
+                              ev.status === 'delivered' ? 'bg-green-50 text-green-700' :
+                              ev.status === 'out_for_delivery' ? 'bg-blue-50 text-blue-700' :
+                              ev.status === 'delayed' ? 'bg-red-50 text-red-700' :
+                              'text-muted-foreground'
+                            )}>
+                              {EVENT_STATUS_LABELS[ev.status] ?? ev.status}
+                            </span>
+                          )}
+                        </div>
+                        <p className="text-xs text-muted-foreground mt-0.5">
+                          {ev.date ? new Date(ev.date).toLocaleString('en-GB', { day: '2-digit', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' }) : '—'}
+                        </p>
+                        {ev.notes && <p className="text-xs text-muted-foreground/80 mt-0.5">{ev.notes}</p>}
+                      </div>
                     </div>
-                    <div>
-                      <span className="font-medium">{ev.location}</span>
-                      {ev.status && (
-                        <span className="ml-2 text-muted-foreground">
-                          · {STATUS_LABELS[ev.status as ShipmentStatus] ?? ev.status}
-                        </span>
-                      )}
-                      {ev.notes && <p className="text-xs text-muted-foreground">{ev.notes}</p>}
-                    </div>
-                  </div>
-                ))}
+                  )
+                })}
               </div>
             )}
           </div>
 
           {/* Add event form */}
           {showEventForm && (
-            <form onSubmit={handleAddEvent} className="rounded-md border p-3 space-y-3 bg-muted/30">
-              <p className="text-sm font-medium">Add Tracking Event</p>
-              <div className="grid grid-cols-2 gap-2">
+            <form onSubmit={handleAddEvent} className="rounded-lg border p-4 space-y-3 bg-muted/20">
+              <p className="text-sm font-semibold">Add Manual Event</p>
+              <div className="grid grid-cols-2 gap-3">
                 <div className="space-y-1">
-                  <Label htmlFor="ship-event-date" className="text-xs">Date *</Label>
-                  <Input id="ship-event-date" type="date" value={eventForm.date} onChange={(e) => setEventForm((f) => ({ ...f, date: e.target.value }))} />
+                  <Label htmlFor="ev-date" className="text-xs">Date *</Label>
+                  <Input id="ev-date" type="date" value={eventForm.date} onChange={(e) => setEventForm((f) => ({ ...f, date: e.target.value }))} />
                 </div>
                 <div className="space-y-1">
-                  <Label htmlFor="ship-event-location" className="text-xs">Location *</Label>
-                  <Input id="ship-event-location" value={eventForm.location} onChange={(e) => setEventForm((f) => ({ ...f, location: e.target.value }))} placeholder="Port, city…" />
+                  <Label htmlFor="ev-loc" className="text-xs">Location *</Label>
+                  <Input id="ev-loc" value={eventForm.location} onChange={(e) => setEventForm((f) => ({ ...f, location: e.target.value }))} placeholder="Port, city…" />
                 </div>
               </div>
               <div className="space-y-1">
-                <Label htmlFor="ship-event-status" className="text-xs">Status</Label>
-                <Input id="ship-event-status" value={eventForm.status} onChange={(e) => setEventForm((f) => ({ ...f, status: e.target.value }))} placeholder="Departed, Cleared customs…" />
+                <Label htmlFor="ev-status" className="text-xs">Status</Label>
+                <Input id="ev-status" value={eventForm.status} onChange={(e) => setEventForm((f) => ({ ...f, status: e.target.value }))} placeholder="Departed, Cleared customs…" />
               </div>
               <div className="space-y-1">
-                <Label htmlFor="ship-event-notes" className="text-xs">Notes</Label>
-                <Textarea id="ship-event-notes" value={eventForm.notes} onChange={(e) => setEventForm((f) => ({ ...f, notes: e.target.value }))} rows={2} />
+                <Label htmlFor="ev-notes" className="text-xs">Notes</Label>
+                <Textarea id="ev-notes" value={eventForm.notes} onChange={(e) => setEventForm((f) => ({ ...f, notes: e.target.value }))} rows={2} />
               </div>
               <div className="flex gap-2 justify-end">
                 <Button type="button" variant="outline" size="sm" onClick={() => setShowEventForm(false)}>Cancel</Button>
@@ -418,35 +464,46 @@ function ShipmentDetailDialog({
           )}
         </div>
 
-        <DialogFooter className="flex-wrap gap-2">
-          <Button variant="outline" size="sm" onClick={() => setShowEventForm(true)} disabled={showEventForm}>
-            <Plus className="h-4 w-4 mr-1" /> Add Event
-          </Button>
-          {/* Update Status dropdown */}
-          <DropdownMenu>
-            <DropdownMenuTrigger className="inline-flex items-center justify-center rounded-md border border-input bg-background px-3 py-1.5 text-sm font-medium hover:bg-accent h-9">
-              Update Status
-            </DropdownMenuTrigger>
-            <DropdownMenuContent>
-              <DropdownMenuGroup>
-                {ALL_STATUSES.filter((s) => s !== shipment.status).map((s) => (
-                  <DropdownMenuItem
-                    key={s}
-                    onClick={() => updateStatus.mutate(
-                      { id: shipment.id, status: s },
-                      { onSuccess: () => toast.success('Status updated'), onError: (err) => toast.error(err.message) }
-                    )}
-                  >
-                    {STATUS_LABELS[s]}
-                  </DropdownMenuItem>
-                ))}
-              </DropdownMenuGroup>
-            </DropdownMenuContent>
-          </DropdownMenu>
+        {/* Footer actions */}
+        <Separator />
+        <div className="px-6 py-3 flex items-center justify-between gap-2 flex-wrap">
+          <div className="flex items-center gap-2">
+            {!showEventForm && (
+              <Button variant="outline" size="sm" onClick={() => setShowEventForm(true)}>
+                <Plus className="h-3.5 w-3.5 mr-1.5" /> Add Event
+              </Button>
+            )}
+            <DropdownMenu>
+              <DropdownMenuTrigger className="inline-flex items-center justify-center gap-2 whitespace-nowrap text-sm font-medium rounded-md border border-input bg-background shadow-xs hover:bg-accent hover:text-accent-foreground h-8 px-3 cursor-default">
+                Update Status
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="start">
+                <DropdownMenuGroup>
+                  {ALL_STATUSES.filter((s) => s !== shipment.status).map((s) => {
+                    const cfg = STATUS_CONFIG[s]
+                    const Icon = cfg.icon
+                    return (
+                      <DropdownMenuItem
+                        key={s}
+                        onClick={() => updateStatus.mutate(
+                          { id: shipment.id, status: s },
+                          { onSuccess: () => toast.success('Status updated'), onError: (err) => toast.error(err.message) }
+                        )}
+                      >
+                        <Icon className={cn('h-4 w-4 mr-2', cfg.color)} />
+                        {cfg.label}
+                      </DropdownMenuItem>
+                    )
+                  })}
+                </DropdownMenuGroup>
+              </DropdownMenuContent>
+            </DropdownMenu>
+          </div>
           {!shipment.archived && (
             <Button
-              variant="outline"
+              variant="ghost"
               size="sm"
+              className="text-muted-foreground hover:text-destructive"
               onClick={() => archiveShipment.mutate(
                 shipment.id,
                 {
@@ -464,10 +521,10 @@ function ShipmentDetailDialog({
                 }
               )}
             >
-              <Archive className="h-4 w-4 mr-1" /> Archive
+              <Archive className="h-3.5 w-3.5 mr-1.5" /> Archive
             </Button>
           )}
-        </DialogFooter>
+        </div>
       </DialogContent>
     </Dialog>
   )
@@ -491,49 +548,53 @@ export default function ShipmentsPage() {
     {
       accessorKey: 'tracking_number',
       header: 'Tracking #',
-      cell: ({ row }) => <span className="font-mono text-sm font-medium">{row.original.tracking_number}</span>,
+      cell: ({ row }) => (
+        <span className="font-mono text-sm font-semibold">{row.original.tracking_number}</span>
+      ),
     },
     {
       id: 'po_number',
-      header: 'PO #',
-      cell: ({ row }) => <span className="text-sm">{row.original.purchase_orders?.po_number ?? '—'}</span>,
+      header: 'PO',
+      cell: ({ row }) => (
+        <div className="text-sm">
+          <span className="font-medium">{row.original.purchase_orders?.po_number ?? '—'}</span>
+          {row.original.purchase_orders?.supplier_name && (
+            <p className="text-xs text-muted-foreground truncate max-w-[150px]">
+              {row.original.purchase_orders.supplier_name}
+            </p>
+          )}
+        </div>
+      ),
     },
     {
       accessorKey: 'mode',
       header: 'Mode',
-      cell: ({ row }) => {
-        const m = MODE_ICONS[row.original.mode]
-        return <span className="flex items-center gap-1 text-sm">{m.icon} {m.label}</span>
-      },
-    },
-    {
-      accessorKey: 'carrier',
-      header: 'Carrier',
-      cell: ({ row }) => <span className="text-sm">{row.original.carrier}</span>,
+      cell: ({ row }) => <ModeBadge mode={row.original.mode} />,
     },
     {
       accessorKey: 'status',
       header: 'Status',
-      cell: ({ row }) => <ShipmentStatusBadge status={row.original.status} />,
+      cell: ({ row }) => <StatusBadge status={row.original.status} />,
     },
     {
-      id: 'route',
-      header: 'Route',
-      cell: ({ row }) => (
-        <span className="text-sm text-muted-foreground">
-          {row.original.origin ?? '—'} → {row.original.destination ?? '—'}
-        </span>
-      ),
-    },
-    {
-      accessorKey: 'etd',
+      id: 'etd',
       header: 'ETD',
-      cell: ({ row }) => <span className="text-sm">{formatDate(row.original.etd)}</span>,
+      cell: ({ row }) => {
+        const etd = row.original.purchase_orders?.expected_delivery
+        return <span className="text-sm">{etd ? formatDate(etd) : '—'}</span>
+      },
     },
     {
-      accessorKey: 'eta',
-      header: 'ETA',
-      cell: ({ row }) => <span className="text-sm">{formatDate(row.original.eta)}</span>,
+      id: 'events',
+      header: 'Events',
+      cell: ({ row }) => {
+        const count = row.original.events?.length ?? 0
+        return (
+          <span className={cn('text-sm', count > 0 ? 'font-medium' : 'text-muted-foreground')}>
+            {count > 0 ? count : '—'}
+          </span>
+        )
+      },
     },
     {
       id: 'actions',
@@ -555,26 +616,28 @@ export default function ShipmentsPage() {
       />
 
       <div className="flex flex-col sm:flex-row gap-3 items-start sm:items-center">
-        {/* Active / Archived tabs */}
-        <div className="flex rounded-md border overflow-hidden">
+        <div className="flex rounded-lg border overflow-hidden">
           {[false, true].map((isArchived) => (
             <button
               key={String(isArchived)}
               type="button"
               onClick={() => setArchived(isArchived)}
-              className={`px-4 py-2 text-sm font-medium transition-colors ${
-                archived === isArchived ? 'bg-primary text-primary-foreground' : 'hover:bg-muted'
-              }`}
+              className={cn(
+                'px-4 py-2 text-sm font-medium transition-colors',
+                archived === isArchived
+                  ? 'bg-primary text-primary-foreground'
+                  : 'hover:bg-muted text-muted-foreground',
+              )}
             >
               {isArchived ? 'Archived' : 'Active'}
             </button>
           ))}
         </div>
-        <SearchInput value={search} onChange={setSearch} placeholder="Search tracking, carrier…" />
+        <SearchInput value={search} onChange={setSearch} placeholder="Search tracking number…" />
       </div>
 
       {isLoading ? (
-        <div className="space-y-3">{Array.from({ length: 4 }).map((_, i) => <Skeleton key={i} className="h-12 w-full rounded-md" />)}</div>
+        <div className="space-y-3">{Array.from({ length: 4 }).map((_, i) => <Skeleton key={i} className="h-14 w-full rounded-lg" />)}</div>
       ) : (
         <DataTable columns={columns} data={shipments ?? []} />
       )}

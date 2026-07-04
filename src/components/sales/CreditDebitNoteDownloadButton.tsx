@@ -42,34 +42,39 @@ async function fetchPdfUrl(noteId: string): Promise<{ url: string; noteId: strin
 }
 
 export function CreditDebitNoteDownloadButton({ note }: Props) {
-  const [busy, setBusy] = useState<'view' | 'download' | null>(null)
+  const [busy, setBusy] = useState<'generate' | 'download' | null>(null)
+  const [pdfUrl, setPdfUrl] = useState<string | null>(null)
   const prefix = note.note_type === 'credit' ? 'CreditNote' : 'DebitNote'
 
-  async function handleView() {
+  async function handleGenerate() {
     if (busy) return
-    setBusy('view')
+    setBusy('generate')
     try {
       const { url } = await fetchPdfUrl(note.id)
-      window.open(url, '_blank', 'noopener,noreferrer')
+      setPdfUrl(url)
+      toast.success('PDF generated')
     } catch (err) {
-      toast.error(err instanceof Error ? err.message : 'Failed to open PDF')
+      toast.error(err instanceof Error ? err.message : 'Failed to generate PDF')
     } finally {
       setBusy(null)
     }
   }
 
+  function handleView() {
+    if (pdfUrl) window.open(pdfUrl, '_blank', 'noopener,noreferrer')
+  }
+
   async function handleDownload() {
-    if (busy) return
+    if (!pdfUrl || busy) return
     setBusy('download')
     try {
-      const { url, noteId } = await fetchPdfUrl(note.id)
-      const pdfRes = await fetch(url)
+      const pdfRes = await fetch(pdfUrl)
       if (!pdfRes.ok) throw new Error(`Failed to fetch PDF (${pdfRes.status})`)
       const blob = await pdfRes.blob()
       const objectUrl = URL.createObjectURL(blob)
       const a = document.createElement('a')
       a.href = objectUrl
-      a.download = `${prefix}-${noteId}.pdf`
+      a.download = `${prefix}-${note.id}.pdf`
       document.body.appendChild(a)
       a.click()
       document.body.removeChild(a)
@@ -81,12 +86,21 @@ export function CreditDebitNoteDownloadButton({ note }: Props) {
     }
   }
 
-  return (
-    <>
-      <Button variant="outline" size="sm" onClick={handleView} disabled={busy !== null} className="gap-1.5">
-        {busy === 'view'
+  if (!pdfUrl) {
+    return (
+      <Button variant="outline" size="sm" onClick={handleGenerate} disabled={busy !== null} className="gap-1.5">
+        {busy === 'generate'
           ? <Loader2 className="h-3.5 w-3.5 animate-spin" />
           : <Eye className="h-3.5 w-3.5" />}
+        {busy === 'generate' ? 'Generating…' : 'Generate PDF'}
+      </Button>
+    )
+  }
+
+  return (
+    <>
+      <Button variant="outline" size="sm" onClick={handleView} className="gap-1.5">
+        <Eye className="h-3.5 w-3.5" />
         View PDF
       </Button>
       <Button variant="outline" size="sm" onClick={handleDownload} disabled={busy !== null} className="gap-1.5">

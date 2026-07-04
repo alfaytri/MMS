@@ -9,7 +9,7 @@ import { Label } from '@/components/ui/label'
 import { Skeleton } from '@/components/ui/skeleton'
 import { CategoryRow } from './CategoryRow'
 import { CategoryEditDialog } from './CategoryEditDialog'
-import { useUpdateSortOrders } from '@/hooks/useInventory'
+import { useUpdateSortOrders, useCategoryStockAggregates, type CategoryStockAggregate } from '@/hooks/useInventory'
 import { useInventoryTree, type InventoryTreeNode } from '@/hooks/useInventoryTree'
 
 type InventorySubType = 'products' | 'spare-parts' | 'consumables'
@@ -46,6 +46,7 @@ export function ItemsListView({ type, enabled }: Props) {
   const [createCategoryOpen, setCreateCategoryOpen] = useState(false)
 
   const { tree, isLoading } = useInventoryTree(type, showArchived)
+  const { data: stockAggregates } = useCategoryStockAggregates(type)
   const updateCategoryOrder = useUpdateSortOrders('inventory_categories')
 
   const filtered = useMemo(() => filterTree(tree, search), [tree, search])
@@ -115,6 +116,7 @@ export function ItemsListView({ type, enabled }: Props) {
                   canMoveDown={idx < filtered.length - 1}
                   onMoveUp={() => handleCategoryMove(idx, 'up')}
                   onMoveDown={() => handleCategoryMove(idx, 'down')}
+                  stockAggregates={stockAggregates}
                 />
               ))}
             </tbody>

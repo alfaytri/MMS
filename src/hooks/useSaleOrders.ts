@@ -177,6 +177,7 @@ export type UpdateSOPayload = Partial<CreateSOPayload> & { id: string }
 export interface SOFilters {
   search?: string
   status?: SOStatus | ''
+  statuses?: SOStatus[]
   dateFrom?: string
   dateTo?: string
   divisionId?:  string | null
@@ -446,7 +447,11 @@ export function useSaleOrders(filters: SOFilters = {}) {
         .is('deleted_at', null)
         .order('created_at', { ascending: false })
 
-      if (filters.status) q = q.eq('status', filters.status)
+      if (filters.statuses && filters.statuses.length > 0) {
+        q = q.in('status', filters.statuses)
+      } else if (filters.status) {
+        q = q.eq('status', filters.status)
+      }
       if (filters.dateFrom) q = q.gte('created_at', filters.dateFrom)
       if (filters.dateTo) q = q.lte('created_at', filters.dateTo)
       if (filters.search) {
@@ -707,10 +712,8 @@ export function useConfirmSO() {
       }
 
       // 3. Create stub delivery (warehouse_id nullable after migration)
-      const { count: delCount } = await supabase
-        .from('sale_deliveries')
-        .select('*', { count: 'exact', head: true })
-      const delivery_number = `DEL-${String((delCount ?? 0) + 1).padStart(5, '0')}`
+      const { data: seqRow } = await supabase.rpc('next_delivery_number')
+      const delivery_number = (seqRow as unknown as string) ?? `DEL-${Date.now()}`
       const { error: delErr } = await supabase.from('sale_deliveries').insert({
         delivery_number,
         sale_order_id: id,

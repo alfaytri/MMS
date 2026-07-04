@@ -11,6 +11,7 @@ export type DeliveryItem = {
   sku: string | null
   qty_delivered: number
   brand_variant_id: string | null
+  is_gift?: boolean
 }
 
 export type SaleDelivery = {
@@ -26,6 +27,7 @@ export type SaleDelivery = {
   created_at: string
   type: 'standard' | 'replacement'
   return_id: string | null
+  source_credit_note_id: string | null
   // joined
   so_number?: string
   customer_name?: string
@@ -73,7 +75,10 @@ export function useUpdateDelivery() {
         .eq('id', id)
       if (error) throw error
     },
-    onSuccess: () => queryClient.invalidateQueries({ queryKey: queryKeys.saleDeliveries.all }),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: queryKeys.saleDeliveries.all })
+      queryClient.invalidateQueries({ queryKey: queryKeys.saleOrders.all })
+    },
   })
 }
 
@@ -121,10 +126,8 @@ export function useCompleteDelivery() {
           .eq('id', deliveryId)
           .single()
         if (orig) {
-          const { count } = await supabase
-            .from('sale_deliveries')
-            .select('*', { count: 'exact', head: true })
-          const delivery_number = `DEL-${String((count ?? 0) + 1).padStart(5, '0')}`
+          const { data: seqRow } = await supabase.rpc('next_delivery_number')
+          const delivery_number = (seqRow as unknown as string) ?? `DEL-${Date.now()}`
           await supabase.from('sale_deliveries').insert({
             delivery_number,
             sale_order_id: orig.sale_order_id,
@@ -192,19 +195,28 @@ export function useCreateReplacementDelivery() {
       returnData: { items: { item_name: string; sku: string | null; qty: number; brand_variant_id: string | null }[] }
       returnId: string
       creditNoteId: string
+      giftItems?: { item_name: string; sku: string | null; qty: number; brand_variant_id: string | null }[]
     }) => {
-      const items = input.returnData.items.map((item) => ({
-        item_name: item.item_name,
-        sku: item.sku,
-        qty_delivered: item.qty,
-        brand_variant_id: item.brand_variant_id,
-      }))
+      const items: DeliveryItem[] = [
+        ...input.returnData.items.map((item) => ({
+          item_name: item.item_name,
+          sku: item.sku,
+          qty_delivered: item.qty,
+          brand_variant_id: item.brand_variant_id,
+          is_gift: false,
+        })),
+        ...(input.giftItems ?? []).map((gift) => ({
+          item_name: gift.item_name,
+          sku: gift.sku,
+          qty_delivered: gift.qty,
+          brand_variant_id: gift.brand_variant_id,
+          is_gift: true,
+        })),
+      ]
 
-      // Generate delivery number
-      const { count } = await supabase
-        .from('sale_deliveries')
-        .select('*', { count: 'exact', head: true })
-      const delivery_number = `DEL-${String((count ?? 0) + 1).padStart(5, '0')}`
+      // Generate delivery number (sequence-based)
+      const { data: seqRow } = await supabase.rpc('next_delivery_number')
+      const delivery_number = (seqRow as unknown as string) ?? `DEL-${Date.now()}`
 
       const today = new Date().toISOString().split('T')[0]
 
@@ -221,6 +233,7 @@ export function useCreateReplacementDelivery() {
           status: 'pending',
           type: 'replacement',
           return_id: input.returnId,
+          source_credit_note_id: input.creditNoteId,
         })
         .select()
         .single()

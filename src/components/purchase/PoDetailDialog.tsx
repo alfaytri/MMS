@@ -8,7 +8,7 @@ import {
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { Button } from '@/components/ui/button'
 import { Skeleton } from '@/components/ui/skeleton'
-import { Printer, Send, XCircle, Pencil, Undo2 } from 'lucide-react'
+import { Send, XCircle, Pencil, Undo2 } from 'lucide-react'
 import { toast } from 'sonner'
 import { PoApprovalChain } from './PoApprovalChain'
 import { CreateBillFromPODialog } from './CreateBillFromPODialog'
@@ -17,6 +17,8 @@ import { PoReceiveTab } from './PoReceiveTab'
 import { PoVersionTabs } from './PoVersionTabs'
 import { stageOf, type Stage } from '@/lib/poVersionHelper'
 import { PoReturnsTab } from './PoReturnsTab'
+import { PoPdfButton } from './PoPdfButton'
+import type { PoPdfVariant } from '@/lib/purchase/generate-po-pdf'
 import { ActivityTimeline } from '@/components/shared/ActivityTimeline'
 import { PaymentSummaryTab } from '@/components/shared/PaymentSummaryTab'
 import {
@@ -36,6 +38,8 @@ import { useMyApprovalRoles } from '@/hooks/usePOApprovals'
 import { usePoEditRequest } from '@/hooks/usePoEditRequests'
 import { EditRequestBanner } from './EditRequestBanner'
 import { RequestEditDialog } from './RequestEditDialog'
+import { RfqQuotesTab } from './RfqQuotesTab'
+import { ReceivalCheckButton } from './ReceivalCheckButton'
 import { formatCurrency, formatDate } from '@/lib/utils/formatters'
 import { cn } from '@/lib/utils'
 import { Badge } from '@/components/ui/badge'
@@ -188,14 +192,20 @@ export function PoDetailDialog({ open, onOpenChange, po, poId, onEdit }: Props) 
                       Submit for Approval
                     </Button>
                   )}
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    onClick={() => { toast.info('Print functionality coming soon') }}
-                  >
-                    <Printer className="h-3.5 w-3.5 mr-1.5" />
-                    Print
-                  </Button>
+                  {(() => {
+                    const variant: PoPdfVariant =
+                      activeStage === 'rfq'   ? 'rfq'   :
+                      activeStage === 'draft' ? 'draft' :
+                      current.status === 'approved' ? 'confirmed' : 'po'
+                    return (
+                      <PoPdfButton
+                        poId={current.id}
+                        poNumber={current.po_number}
+                        variant={variant}
+                        snapshotVersion={isViewingSnapshot ? activeVersion ?? undefined : undefined}
+                      />
+                    )
+                  })()}
                   {!isViewingSnapshot && canEdit && (
                     <Button
                       variant="outline"
@@ -317,6 +327,9 @@ export function PoDetailDialog({ open, onOpenChange, po, poId, onEdit }: Props) 
                   <TabsTrigger value="returns">
                     Returns{poReturns.length > 0 ? ` (${poReturns.length})` : ''}
                   </TabsTrigger>
+                )}
+                {!isViewingSnapshot && current?.po_type === 'rfq' && (
+                  <TabsTrigger value="quotes">Quotes</TabsTrigger>
                 )}
               </TabsList>
 
@@ -440,6 +453,15 @@ export function PoDetailDialog({ open, onOpenChange, po, poId, onEdit }: Props) 
 
               {/* ── Receivals ────────────────────────────────────── */}
               <TabsContent value="receivals" className="flex-1 overflow-y-auto space-y-3">
+                {current && (
+                  <div className="flex items-center justify-end">
+                    <ReceivalCheckButton
+                      poId={current.id}
+                      poNumber={current.po_number}
+                      mode="blank"
+                    />
+                  </div>
+                )}
                 {(receivals ?? []).length === 0 ? (
                   <p className="text-sm text-muted-foreground py-4 text-center">No receivals yet</p>
                 ) : (
@@ -447,7 +469,18 @@ export function PoDetailDialog({ open, onOpenChange, po, poId, onEdit }: Props) 
                     <div key={r.id} className="rounded-md border p-3 space-y-2">
                       <div className="flex items-center justify-between">
                         <span className="font-medium text-sm">{r.receival_number}</span>
-                        <span className="text-xs px-2 py-0.5 rounded-full bg-muted font-medium">{r.status}</span>
+                        <div className="flex items-center gap-2">
+                          <span className="text-xs px-2 py-0.5 rounded-full bg-muted font-medium">{r.status}</span>
+                          {current && (
+                            <ReceivalCheckButton
+                              poId={current.id}
+                              poNumber={current.po_number}
+                              mode="per_receival"
+                              receivalId={r.id}
+                              receivalNumber={r.receival_number}
+                            />
+                          )}
+                        </div>
                       </div>
                       <div className="text-xs text-muted-foreground">
                         {formatDate(r.date)}
@@ -507,6 +540,24 @@ export function PoDetailDialog({ open, onOpenChange, po, poId, onEdit }: Props) 
               {showReturns && fullPO && (
                 <TabsContent value="returns" className="flex-1 overflow-y-auto">
                   <PoReturnsTab po={fullPO} poReturns={poReturns} receivals={receivals} />
+                </TabsContent>
+              )}
+
+              {/* ── Quotes (RFQ only) ────────────────────────────── */}
+              {!isViewingSnapshot && current?.po_type === 'rfq' && (
+                <TabsContent value="quotes" className="flex-1 overflow-y-auto p-4">
+                  <RfqQuotesTab
+                    poId={current.id}
+                    poNumber={current.po_number}
+                    currency={current.currency ?? 'QAR'}
+                    lineItems={(fullPO?.po_line_items ?? []).map((li: any) => ({
+                      id: li.id,
+                      item_name: li.item_name,
+                      qty: li.qty,
+                      unit: li.unit,
+                      unit_price: li.unit_price,
+                    }))}
+                  />
                 </TabsContent>
               )}
             </Tabs>

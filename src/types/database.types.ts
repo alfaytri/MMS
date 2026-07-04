@@ -96,31 +96,31 @@ export type Database = {
       }
       approval_workflow_groups: {
         Row: {
-          id: string
-          workflow: string
+          created_at: string
           group_label: string
           group_order: number
-          mode: string
+          id: string
           is_active: boolean
-          created_at: string
+          mode: string
+          workflow: string
         }
         Insert: {
-          id?: string
-          workflow: string
+          created_at?: string
           group_label?: string
           group_order?: number
-          mode?: string
+          id?: string
           is_active?: boolean
-          created_at?: string
+          mode?: string
+          workflow: string
         }
         Update: {
-          id?: string
-          workflow?: string
+          created_at?: string
           group_label?: string
           group_order?: number
-          mode?: string
+          id?: string
           is_active?: boolean
-          created_at?: string
+          mode?: string
+          workflow?: string
         }
         Relationships: []
       }
@@ -172,6 +172,13 @@ export type Database = {
         }
         Relationships: [
           {
+            foreignKeyName: "approval_workflow_steps_group_id_fkey"
+            columns: ["group_id"]
+            isOneToOne: false
+            referencedRelation: "approval_workflow_groups"
+            referencedColumns: ["id"]
+          },
+          {
             foreignKeyName: "workflow_approval_steps_archived_by_fkey"
             columns: ["archived_by"]
             isOneToOne: false
@@ -183,13 +190,6 @@ export type Database = {
             columns: ["role_id"]
             isOneToOne: false
             referencedRelation: "custom_roles"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "approval_workflow_steps_group_id_fkey"
-            columns: ["group_id"]
-            isOneToOne: false
-            referencedRelation: "approval_workflow_groups"
             referencedColumns: ["id"]
           },
         ]
@@ -1283,19 +1283,19 @@ export type Database = {
       }
       credit_group_payment_methods: {
         Row: {
+          created_at: string | null
           credit_group_id: string
           payment_method_id: string
-          created_at: string | null
         }
         Insert: {
+          created_at?: string | null
           credit_group_id: string
           payment_method_id: string
-          created_at?: string | null
         }
         Update: {
+          created_at?: string | null
           credit_group_id?: string
           payment_method_id?: string
-          created_at?: string | null
         }
         Relationships: [
           {
@@ -1408,8 +1408,9 @@ export type Database = {
           original_total: number | null
           pdf_url: string | null
           phone: string | null
+          purchase_order_id: string | null
           reason: string
-          refund_method: Database["public"]["Enums"]["payment_method"] | null
+          refund_method: string | null
           refund_reference: string | null
           resolution_type: string | null
           source_return_id: string | null
@@ -1434,8 +1435,9 @@ export type Database = {
           original_total?: number | null
           pdf_url?: string | null
           phone?: string | null
+          purchase_order_id?: string | null
           reason: string
-          refund_method?: Database["public"]["Enums"]["payment_method"] | null
+          refund_method?: string | null
           refund_reference?: string | null
           resolution_type?: string | null
           source_return_id?: string | null
@@ -1460,8 +1462,9 @@ export type Database = {
           original_total?: number | null
           pdf_url?: string | null
           phone?: string | null
+          purchase_order_id?: string | null
           reason?: string
-          refund_method?: Database["public"]["Enums"]["payment_method"] | null
+          refund_method?: string | null
           refund_reference?: string | null
           resolution_type?: string | null
           source_return_id?: string | null
@@ -1498,6 +1501,13 @@ export type Database = {
             columns: ["invoice_id"]
             isOneToOne: false
             referencedRelation: "supplier_bills"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "credit_notes_purchase_order_id_fkey"
+            columns: ["purchase_order_id"]
+            isOneToOne: false
+            referencedRelation: "purchase_orders"
             referencedColumns: ["id"]
           },
           {
@@ -1998,6 +2008,7 @@ export type Database = {
           establishment_id_uploaded_at: string | null
           establishment_id_url: string | null
           id: string
+          is_active: boolean
           is_blocked: boolean | null
           name: string
           name_ar: string | null
@@ -2022,6 +2033,7 @@ export type Database = {
           establishment_id_uploaded_at?: string | null
           establishment_id_url?: string | null
           id?: string
+          is_active?: boolean
           is_blocked?: boolean | null
           name: string
           name_ar?: string | null
@@ -2046,6 +2058,7 @@ export type Database = {
           establishment_id_uploaded_at?: string | null
           establishment_id_url?: string | null
           id?: string
+          is_active?: boolean
           is_blocked?: boolean | null
           name?: string
           name_ar?: string | null
@@ -4580,7 +4593,7 @@ export type Database = {
           exchange_rate: number
           id: string
           invoice_id: string | null
-          method: Database["public"]["Enums"]["payment_method"]
+          method: string
           notes: string | null
           payment_id: string | null
           qb_synced: boolean | null
@@ -4608,7 +4621,7 @@ export type Database = {
           exchange_rate?: number
           id?: string
           invoice_id?: string | null
-          method: Database["public"]["Enums"]["payment_method"]
+          method: string
           notes?: string | null
           payment_id?: string | null
           qb_synced?: boolean | null
@@ -4636,7 +4649,7 @@ export type Database = {
           exchange_rate?: number
           id?: string
           invoice_id?: string | null
-          method?: Database["public"]["Enums"]["payment_method"]
+          method?: string
           notes?: string | null
           payment_id?: string | null
           qb_synced?: boolean | null
@@ -4962,6 +4975,99 @@ export type Database = {
             columns: ["tool_asset_item_id"]
             isOneToOne: false
             referencedRelation: "tool_asset_items"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      po_rfq_quote_items: {
+        Row: {
+          id: string
+          notes: string | null
+          po_line_item_id: string
+          quote_id: string
+          quoted_price: number
+          quoted_qty: number | null
+        }
+        Insert: {
+          id?: string
+          notes?: string | null
+          po_line_item_id: string
+          quote_id: string
+          quoted_price?: number
+          quoted_qty?: number | null
+        }
+        Update: {
+          id?: string
+          notes?: string | null
+          po_line_item_id?: string
+          quote_id?: string
+          quoted_price?: number
+          quoted_qty?: number | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "po_rfq_quote_items_po_line_item_id_fkey"
+            columns: ["po_line_item_id"]
+            isOneToOne: false
+            referencedRelation: "po_line_items"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "po_rfq_quote_items_quote_id_fkey"
+            columns: ["quote_id"]
+            isOneToOne: false
+            referencedRelation: "po_rfq_quotes"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      po_rfq_quotes: {
+        Row: {
+          created_at: string | null
+          currency: string
+          id: string
+          notes: string | null
+          po_id: string
+          received_date: string | null
+          status: string
+          supplier_id: string
+          total_amount: number | null
+        }
+        Insert: {
+          created_at?: string | null
+          currency?: string
+          id?: string
+          notes?: string | null
+          po_id: string
+          received_date?: string | null
+          status?: string
+          supplier_id: string
+          total_amount?: number | null
+        }
+        Update: {
+          created_at?: string | null
+          currency?: string
+          id?: string
+          notes?: string | null
+          po_id?: string
+          received_date?: string | null
+          status?: string
+          supplier_id?: string
+          total_amount?: number | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "po_rfq_quotes_po_id_fkey"
+            columns: ["po_id"]
+            isOneToOne: false
+            referencedRelation: "purchase_orders"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "po_rfq_quotes_supplier_id_fkey"
+            columns: ["supplier_id"]
+            isOneToOne: false
+            referencedRelation: "suppliers"
             referencedColumns: ["id"]
           },
         ]
@@ -5305,9 +5411,15 @@ export type Database = {
           payment_milestones: Json | null
           payment_terms: string | null
           payment_terms_notes: string | null
+          pdf_confirmed_url: string | null
+          pdf_draft_url: string | null
+          pdf_payment_hash: string | null
+          pdf_po_url: string | null
+          pdf_rfq_url: string | null
           po_number: string
           po_type: Database["public"]["Enums"]["po_type"]
           rfq_id: string | null
+          rfq_supplier_ids: string[] | null
           status: Database["public"]["Enums"]["po_status"] | null
           subtotal: number | null
           supplier_id: string
@@ -5336,9 +5448,15 @@ export type Database = {
           payment_milestones?: Json | null
           payment_terms?: string | null
           payment_terms_notes?: string | null
+          pdf_confirmed_url?: string | null
+          pdf_draft_url?: string | null
+          pdf_payment_hash?: string | null
+          pdf_po_url?: string | null
+          pdf_rfq_url?: string | null
           po_number: string
           po_type?: Database["public"]["Enums"]["po_type"]
           rfq_id?: string | null
+          rfq_supplier_ids?: string[] | null
           status?: Database["public"]["Enums"]["po_status"] | null
           subtotal?: number | null
           supplier_id: string
@@ -5367,9 +5485,15 @@ export type Database = {
           payment_milestones?: Json | null
           payment_terms?: string | null
           payment_terms_notes?: string | null
+          pdf_confirmed_url?: string | null
+          pdf_draft_url?: string | null
+          pdf_payment_hash?: string | null
+          pdf_po_url?: string | null
+          pdf_rfq_url?: string | null
           po_number?: string
           po_type?: Database["public"]["Enums"]["po_type"]
           rfq_id?: string | null
+          rfq_supplier_ids?: string[] | null
           status?: Database["public"]["Enums"]["po_status"] | null
           subtotal?: number | null
           supplier_id?: string
@@ -6051,43 +6175,55 @@ export type Database = {
       }
       receivals: {
         Row: {
+          check_sheet_pdf_url: string | null
           created_at: string | null
           date: string
           id: string
+          is_replacement: boolean
           landed_cost_id: string | null
           notes: string | null
           po_id: string
+          receipt_pdf_url: string | null
           receival_number: string
           received_by: string | null
           received_by_name: string | null
+          source_debit_note_id: string | null
           status: Database["public"]["Enums"]["receival_status"] | null
           updated_at: string | null
           warehouse_id: string
         }
         Insert: {
+          check_sheet_pdf_url?: string | null
           created_at?: string | null
           date: string
           id?: string
+          is_replacement?: boolean
           landed_cost_id?: string | null
           notes?: string | null
           po_id: string
+          receipt_pdf_url?: string | null
           receival_number: string
           received_by?: string | null
           received_by_name?: string | null
+          source_debit_note_id?: string | null
           status?: Database["public"]["Enums"]["receival_status"] | null
           updated_at?: string | null
           warehouse_id: string
         }
         Update: {
+          check_sheet_pdf_url?: string | null
           created_at?: string | null
           date?: string
           id?: string
+          is_replacement?: boolean
           landed_cost_id?: string | null
           notes?: string | null
           po_id?: string
+          receipt_pdf_url?: string | null
           receival_number?: string
           received_by?: string | null
           received_by_name?: string | null
+          source_debit_note_id?: string | null
           status?: Database["public"]["Enums"]["receival_status"] | null
           updated_at?: string | null
           warehouse_id?: string
@@ -6105,6 +6241,13 @@ export type Database = {
             columns: ["received_by"]
             isOneToOne: false
             referencedRelation: "employees"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "receivals_source_debit_note_id_fkey"
+            columns: ["source_debit_note_id"]
+            isOneToOne: false
+            referencedRelation: "credit_notes"
             referencedColumns: ["id"]
           },
           {
@@ -6203,6 +6346,7 @@ export type Database = {
           id: string
           items: Json
           notes: string | null
+          pdf_url: string | null
           reason: string
           restock_warehouse_id: string | null
           restocked_at: string | null
@@ -6224,6 +6368,7 @@ export type Database = {
           id?: string
           items?: Json
           notes?: string | null
+          pdf_url?: string | null
           reason?: string
           restock_warehouse_id?: string | null
           restocked_at?: string | null
@@ -6245,6 +6390,7 @@ export type Database = {
           id?: string
           items?: Json
           notes?: string | null
+          pdf_url?: string | null
           reason?: string
           restock_warehouse_id?: string | null
           restocked_at?: string | null
@@ -6422,8 +6568,10 @@ export type Database = {
           delivery_number: string
           id: string
           items: Json
+          pdf_url: string | null
           return_id: string | null
           sale_order_id: string
+          source_credit_note_id: string | null
           status: Database["public"]["Enums"]["sale_delivery_status"] | null
           type: string
           updated_at: string
@@ -6438,8 +6586,10 @@ export type Database = {
           delivery_number: string
           id?: string
           items?: Json
+          pdf_url?: string | null
           return_id?: string | null
           sale_order_id: string
+          source_credit_note_id?: string | null
           status?: Database["public"]["Enums"]["sale_delivery_status"] | null
           type?: string
           updated_at?: string
@@ -6454,8 +6604,10 @@ export type Database = {
           delivery_number?: string
           id?: string
           items?: Json
+          pdf_url?: string | null
           return_id?: string | null
           sale_order_id?: string
+          source_credit_note_id?: string | null
           status?: Database["public"]["Enums"]["sale_delivery_status"] | null
           type?: string
           updated_at?: string
@@ -6482,6 +6634,13 @@ export type Database = {
             columns: ["sale_order_id"]
             isOneToOne: false
             referencedRelation: "sale_orders"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "sale_deliveries_source_credit_note_id_fkey"
+            columns: ["source_credit_note_id"]
+            isOneToOne: false
+            referencedRelation: "credit_notes"
             referencedColumns: ["id"]
           },
           {
@@ -7317,7 +7476,7 @@ export type Database = {
       shipments: {
         Row: {
           archived: boolean | null
-          carrier: string
+          carrier: string | null
           carrier_code: string | null
           created_at: string | null
           destination: string | null
@@ -7338,7 +7497,7 @@ export type Database = {
         }
         Insert: {
           archived?: boolean | null
-          carrier: string
+          carrier?: string | null
           carrier_code?: string | null
           created_at?: string | null
           destination?: string | null
@@ -7359,7 +7518,7 @@ export type Database = {
         }
         Update: {
           archived?: boolean | null
-          carrier?: string
+          carrier?: string | null
           carrier_code?: string | null
           created_at?: string | null
           destination?: string | null
@@ -9711,27 +9870,48 @@ export type Database = {
         }
         Returns: string
       }
-      add_workflow_step: {
-        Args: {
-          p_condition_types?: string[]
-          p_group_id?: string | null
-          p_is_conditional?: boolean
-          p_role_desc?: string
-          p_role_name: string
-          p_workflow: string
-        }
-        Returns: Json
-      }
-      add_workflow_step_for_role: {
-        Args: {
-          p_condition_types?: string[]
-          p_group_id?: string | null
-          p_is_conditional?: boolean
-          p_role_id: string
-          p_workflow: string
-        }
-        Returns: Json
-      }
+      add_workflow_step:
+        | {
+            Args: {
+              p_condition_types?: string[]
+              p_is_conditional?: boolean
+              p_role_desc?: string
+              p_role_name: string
+              p_workflow: string
+            }
+            Returns: Json
+          }
+        | {
+            Args: {
+              p_condition_types?: string[]
+              p_group_id?: string
+              p_is_conditional?: boolean
+              p_role_desc?: string
+              p_role_name: string
+              p_workflow: string
+            }
+            Returns: Json
+          }
+      add_workflow_step_for_role:
+        | {
+            Args: {
+              p_condition_types?: string[]
+              p_is_conditional?: boolean
+              p_role_id: string
+              p_workflow: string
+            }
+            Returns: Json
+          }
+        | {
+            Args: {
+              p_condition_types?: string[]
+              p_group_id?: string
+              p_is_conditional?: boolean
+              p_role_id: string
+              p_workflow: string
+            }
+            Returns: Json
+          }
       advance_po_approval_tier: {
         Args: { p_po_id: string }
         Returns: undefined
@@ -10196,6 +10376,10 @@ export type Database = {
         }
         Returns: undefined
       }
+      rename_payment_method: {
+        Args: { p_id: string; p_new_name: string; p_new_slug: string }
+        Returns: undefined
+      }
       replace_user_custom_roles: {
         Args: { p_role_ids: string[]; p_user_id: string }
         Returns: undefined
@@ -10310,9 +10494,26 @@ export type Database = {
         Args: { p_id: string; p_url: string }
         Returns: undefined
       }
+      set_po_pdf_url: {
+        Args: {
+          p_id: string
+          p_payment_hash?: string
+          p_url: string
+          p_variant: string
+        }
+        Returns: undefined
+      }
+      set_receival_check_pdf_url: {
+        Args: { p_id: string; p_url: string }
+        Returns: undefined
+      }
       set_sale_order_pdf_url: {
         Args: { p_id: string; p_url: string }
         Returns: undefined
+      }
+      sku_abbreviation: {
+        Args: { input: string; len?: number }
+        Returns: string
       }
       snapshot_inventory_check_system_qty: {
         Args: { p_check_id: string }
@@ -10472,15 +10673,6 @@ export type Database = {
         | "waitlist"
         | "pending-confirmation"
         | "customer-unavailable"
-      payment_method:
-        | "online"
-        | "pay_later"
-        | "fawran"
-        | "online_transfer"
-        | "cheque"
-        | "bank_transfer"
-        | "cash"
-        | "pos"
       payment_status:
         | "completed"
         | "pending"
@@ -10793,16 +10985,6 @@ export const Constants = {
         "pending-confirmation",
         "customer-unavailable",
       ],
-      payment_method: [
-        "online",
-        "pay_later",
-        "fawran",
-        "online_transfer",
-        "cheque",
-        "bank_transfer",
-        "cash",
-        "pos",
-      ],
       payment_status: [
         "completed",
         "pending",
@@ -10904,3 +11086,5 @@ export const Constants = {
     },
   },
 } as const
+A new version of Supabase CLI is available: v2.109.0 (currently installed v2.91.3)
+We recommend updating regularly for new features and bug fixes: https://supabase.com/docs/guides/cli/getting-started#updating-the-supabase-cli

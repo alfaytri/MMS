@@ -2,6 +2,7 @@
 
 import React, { useState, useMemo, useEffect, useCallback } from 'react'
 import { Layers, Package, DollarSign, Search, X, ChevronRight, ChevronDown } from 'lucide-react'
+import { WarehouseReportButton } from './WarehouseReportButton'
 import { Input } from '@/components/ui/input'
 import { Button } from '@/components/ui/button'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
@@ -10,6 +11,8 @@ import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/comp
 import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { useWarehouseStock } from '@/hooks/useWarehouseOperations'
 import { Warehouse } from '@/hooks/useWarehouses'
+
+const fmtVal = (n: number) => n.toLocaleString('en-QA', { minimumFractionDigits: 2, maximumFractionDigits: 2 })
 
 interface Props {
   warehouses: Warehouse[]
@@ -32,12 +35,20 @@ interface ItemEntry {
   brands: BrandEntry[]
 }
 
+interface SubcategoryGroup {
+  subcategoryName: string
+  totalQty: number
+  totalValue: number
+  items: ItemEntry[]
+}
+
 interface CategoryGroup {
   categoryName: string
   itemType: string | null
   totalQty: number
   totalValue: number
-  items: ItemEntry[]
+  subcategories: SubcategoryGroup[]
+  directItems: ItemEntry[]
 }
 
 // ─── Item-type tab config (mirrors Master Data tabs) ─────────────────────────
@@ -50,7 +61,6 @@ const ITEM_TYPE_TABS = [
   { value: 'tools',        label: 'Tools & Assets'           },
 ] as const
 
-// Short label shown in [brackets] on the category row when "All" tab is active
 const TYPE_SHORT_LABEL: Record<string, string> = {
   'products':    'Products',
   'spare-parts': 'Spare Parts',
@@ -103,6 +113,60 @@ function StockTooltip({
   )
 }
 
+// ─── Helper: build items from a brand map ─────────────────────────────────────
+
+function buildItems(itemMap: Map<string, Map<string, BrandEntry>>): ItemEntry[] {
+  return Array.from(itemMap.entries()).map(([itemName, brandMap]) => {
+    const brands: BrandEntry[] = Array.from(brandMap.values()).map((b) => ({
+      ...b, avgCost: b.qty > 0 ? b.totalValue / b.qty : 0,
+    }))
+    return {
+      itemName,
+      totalQty: brands.reduce((s, b) => s + b.qty, 0),
+      totalValue: brands.reduce((s, b) => s + b.totalValue, 0),
+      brands,
+    }
+  })
+}
+
+function addToBrandMap(
+  itemMap: Map<string, Map<string, BrandEntry>>,
+  itemName: string,
+  entry: BrandEntry,
+) {
+  if (!itemMap.has(itemName)) itemMap.set(itemName, new Map())
+  const brandMap = itemMap.get(itemName)!
+  if (!brandMap.has(entry.brand_variant_id)) {
+    brandMap.set(entry.brand_variant_id, { ...entry })
+  } else {
+    const existing = brandMap.get(entry.brand_variant_id)!
+    existing.qty += entry.qty
+    existing.totalValue += entry.totalValue
+  }
+}
+
+// ─── Collect all expand keys for expand-all ───────────────────────────────────
+
+function collectAllKeys(tree: CategoryGroup[]) {
+  const cats = new Set<string>()
+  const subs = new Set<string>()
+  const items = new Set<string>()
+  for (const cat of tree) {
+    cats.add(cat.categoryName)
+    for (const sc of cat.subcategories) {
+      const scKey = `${cat.categoryName}__sub__${sc.subcategoryName}`
+      subs.add(scKey)
+      for (const item of sc.items) {
+        items.add(`${scKey}__${item.itemName}`)
+      }
+    }
+    for (const item of cat.directItems) {
+      items.add(`${cat.categoryName}__${item.itemName}`)
+    }
+  }
+  return { cats, subs, items, all: new Set([...cats, ...subs, ...items]) }
+}
+
 // ─── Main component ───────────────────────────────────────────────────────────
 
 export const WhStockOverviewTab = React.memo(function WhStockOverviewTab({
@@ -114,23 +178,19 @@ export const WhStockOverviewTab = React.memo(function WhStockOverviewTab({
     initialWarehouseId,
   )
   const [activeType, setActiveType] = useState<ItemTypeValue>('__all__')
-  const [expandedCategories, setExpandedCategories] = useState<Set<string>>(new Set())
-  const [expandedItems, setExpandedItems] = useState<Set<string>>(new Set())
+  const [expanded, setExpanded] = useState<Set<string>>(new Set())
 
   useEffect(() => {
     setSelectedWarehouseId(initialWarehouseId)
   }, [initialWarehouseId])
 
-  // Collapse tree whenever the type tab changes
   useEffect(() => {
-    setExpandedCategories(new Set())
-    setExpandedItems(new Set())
+    setExpanded(new Set())
   }, [activeType])
 
   const { data: allStock = [] } = useWarehouseStock(selectedWarehouseId)
-  const { data: fullStock = [] } = useWarehouseStock() // full data for warehouse tooltip
+  const { data: fullStock = [] } = useWarehouseStock()
 
-  // brand_variant_id → [{label, qty}] for brand-level warehouse tooltip
   const warehouseBreakdown = useMemo(() => {
     const map = new Map<string, { label: string; qty: number }[]>()
     for (const item of fullStock) {
@@ -144,13 +204,11 @@ export const WhStockOverviewTab = React.memo(function WhStockOverviewTab({
     return map
   }, [fullStock, warehouses])
 
-  // Step 1: filter by item type tab
   const byType = useMemo(() => {
     if (activeType === '__all__') return allStock
     return allStock.filter((s) => s.item_type === activeType)
   }, [allStock, activeType])
 
-  // Step 2: filter by search
   const filtered = useMemo(() => {
     if (!search) return byType
     const q = search.toLowerCase()
@@ -164,82 +222,70 @@ export const WhStockOverviewTab = React.memo(function WhStockOverviewTab({
     )
   }, [byType, search])
 
-  // Step 3: build 3-level tree  category → item → brand
+  // Build 4-level tree: category → subcategory → item → brand
   const tree = useMemo((): CategoryGroup[] => {
-    const catMap = new Map<string, { itemType: string | null; itemMap: Map<string, Map<string, BrandEntry>> }>()
+    const catMap = new Map<string, {
+      itemType: string | null
+      subMap: Map<string, Map<string, Map<string, BrandEntry>>>
+      directItemMap: Map<string, Map<string, BrandEntry>>
+    }>()
 
     for (const s of filtered) {
       const catKey = s.category_name ?? s.item_name ?? '—'
-      if (!catMap.has(catKey)) catMap.set(catKey, { itemType: s.item_type ?? null, itemMap: new Map() })
-      const { itemMap } = catMap.get(catKey)!
-
-      if (!itemMap.has(s.item_name)) itemMap.set(s.item_name, new Map())
-      const brandMap = itemMap.get(s.item_name)!
-
-      if (!brandMap.has(s.brand_variant_id)) {
-        brandMap.set(s.brand_variant_id, {
-          brand: s.brand,
-          sku: s.sku,
-          brand_variant_id: s.brand_variant_id,
-          qty: 0,
-          avgCost: 0,
-          totalValue: 0,
-        })
+      if (!catMap.has(catKey)) {
+        catMap.set(catKey, { itemType: s.item_type ?? null, subMap: new Map(), directItemMap: new Map() })
       }
-      const entry = brandMap.get(s.brand_variant_id)!
-      entry.qty        += s.qty ?? 0
-      entry.totalValue += s.total_value ?? 0
+      const cat = catMap.get(catKey)!
+
+      const brandEntry: BrandEntry = {
+        brand: s.brand, sku: s.sku, brand_variant_id: s.brand_variant_id,
+        qty: s.qty ?? 0, avgCost: 0, totalValue: s.total_value ?? 0,
+      }
+
+      if (s.subcategory_name) {
+        if (!cat.subMap.has(s.subcategory_name)) cat.subMap.set(s.subcategory_name, new Map())
+        addToBrandMap(cat.subMap.get(s.subcategory_name)!, s.item_name, brandEntry)
+      } else {
+        addToBrandMap(cat.directItemMap, s.item_name, brandEntry)
+      }
     }
 
-    return Array.from(catMap.entries()).map(([categoryName, { itemType, itemMap }]) => {
-      const items: ItemEntry[] = Array.from(itemMap.entries()).map(([itemName, brandMap]) => {
-        const brands: BrandEntry[] = Array.from(brandMap.values()).map((b) => ({
-          ...b,
-          avgCost: b.qty > 0 ? b.totalValue / b.qty : 0,
-        }))
+    return Array.from(catMap.entries()).map(([categoryName, { itemType, subMap, directItemMap }]) => {
+      const subcategories: SubcategoryGroup[] = Array.from(subMap.entries()).map(([subcategoryName, itemMap]) => {
+        const items = buildItems(itemMap)
         return {
-          itemName,
-          totalQty:   brands.reduce((s, b) => s + b.qty, 0),
-          totalValue: brands.reduce((s, b) => s + b.totalValue, 0),
-          brands,
+          subcategoryName,
+          totalQty: items.reduce((s, i) => s + i.totalQty, 0),
+          totalValue: items.reduce((s, i) => s + i.totalValue, 0),
+          items,
         }
       })
-      return {
-        categoryName,
-        itemType,
-        totalQty:   items.reduce((s, i) => s + i.totalQty, 0),
-        totalValue: items.reduce((s, i) => s + i.totalValue, 0),
-        items,
-      }
+      const directItems = buildItems(directItemMap)
+      const totalQty = subcategories.reduce((s, sc) => s + sc.totalQty, 0) + directItems.reduce((s, i) => s + i.totalQty, 0)
+      const totalValue = subcategories.reduce((s, sc) => s + sc.totalValue, 0) + directItems.reduce((s, i) => s + i.totalValue, 0)
+      return { categoryName, itemType, totalQty, totalValue, subcategories, directItems }
     })
   }, [filtered])
 
-  // Summary card values reflect the active type + search filter
-  const totalItems = useMemo(() => tree.reduce((s, c) => s + c.items.length, 0), [tree])
+  const totalItemCount = useMemo(() => {
+    return tree.reduce((s, c) => {
+      const subItems = c.subcategories.reduce((ss, sc) => ss + sc.items.length, 0)
+      return s + subItems + c.directItems.length
+    }, 0)
+  }, [tree])
   const totalQty   = useMemo(() => tree.reduce((s, c) => s + c.totalQty, 0), [tree])
   const totalValue = useMemo(() => tree.reduce((s, c) => s + c.totalValue, 0), [tree])
 
-  // Auto-expand all when searching so matches are visible
   useEffect(() => {
     if (!search) return
-    setExpandedCategories(new Set(tree.map((g) => g.categoryName)))
-    setExpandedItems(new Set(
-      tree.flatMap((g) => g.items.map((i) => `${g.categoryName}__${i.itemName}`))
-    ))
+    const keys = collectAllKeys(tree)
+    setExpanded(keys.all)
   }, [search, tree])
 
   const selectedWarehouse = warehouses.find((w) => w.id === selectedWarehouseId)
 
-  const toggleCategory = useCallback((key: string) => {
-    setExpandedCategories((prev) => {
-      const next = new Set(prev)
-      next.has(key) ? next.delete(key) : next.add(key)
-      return next
-    })
-  }, [])
-
-  const toggleItem = useCallback((key: string) => {
-    setExpandedItems((prev) => {
+  const toggle = useCallback((key: string) => {
+    setExpanded((prev) => {
       const next = new Set(prev)
       next.has(key) ? next.delete(key) : next.add(key)
       return next
@@ -247,30 +293,89 @@ export const WhStockOverviewTab = React.memo(function WhStockOverviewTab({
   }, [])
 
   const expandAll = useCallback(() => {
-    setExpandedCategories(new Set(tree.map((g) => g.categoryName)))
-    setExpandedItems(new Set(
-      tree.flatMap((g) => g.items.map((i) => `${g.categoryName}__${i.itemName}`))
-    ))
+    setExpanded(collectAllKeys(tree).all)
   }, [tree])
 
   const collapseAll = useCallback(() => {
-    setExpandedCategories(new Set())
-    setExpandedItems(new Set())
+    setExpanded(new Set())
   }, [])
 
-  const allExpanded =
-    tree.length > 0 &&
-    expandedCategories.size === tree.length &&
-    expandedItems.size === tree.reduce((s, g) => s + g.items.length, 0)
+  const allKeys = useMemo(() => collectAllKeys(tree), [tree])
+  const allExpanded = tree.length > 0 && expanded.size >= allKeys.all.size
+
+  // ─── Render helpers ──────────────────────────────────────────────────────────
+
+  function renderBrandRows(brands: BrandEntry[], indentClass: string) {
+    return brands.map((b) => (
+      <TableRow key={b.brand_variant_id} className="bg-muted/5 hover:bg-muted/10">
+        <TableCell className={`py-1.5 ${indentClass} text-xs text-muted-foreground`} />
+        <TableCell className="text-xs py-1.5 font-medium">{b.brand ?? '—'}</TableCell>
+        <TableCell className="text-xs py-1.5 text-primary">{b.sku ?? '—'}</TableCell>
+        <TableCell className="text-xs text-right py-1.5 font-medium">
+          <StockTooltip
+            qty={b.qty}
+            title="Stock by Warehouse"
+            rows={warehouseBreakdown.get(b.brand_variant_id) ?? []}
+          />
+        </TableCell>
+        <TableCell className="text-xs text-right py-1.5">{fmtVal(b.avgCost)}</TableCell>
+        <TableCell className="text-xs text-right py-1.5">{fmtVal(b.totalValue)}</TableCell>
+      </TableRow>
+    ))
+  }
+
+  function renderItemRows(items: ItemEntry[], parentKey: string, indentClass: string, brandIndentClass: string) {
+    return items.map((item) => {
+      const itemKey = `${parentKey}__${item.itemName}`
+      const itemExpanded = expanded.has(itemKey)
+      return (
+        <React.Fragment key={itemKey}>
+          <TableRow
+            className="cursor-pointer bg-background hover:bg-muted/20"
+            onClick={() => toggle(itemKey)}
+          >
+            <TableCell className={`text-xs font-semibold py-2 ${indentClass}`}>
+              <div className="flex items-center gap-1.5">
+                {itemExpanded
+                  ? <ChevronDown  className="h-3 w-3 text-muted-foreground shrink-0" />
+                  : <ChevronRight className="h-3 w-3 text-muted-foreground shrink-0" />}
+                {item.itemName}
+              </div>
+            </TableCell>
+            <TableCell className="text-xs text-muted-foreground py-2">
+              {item.brands.length === 1
+                ? (item.brands[0].brand ?? '—')
+                : <span className="text-[10px] italic">{item.brands.length} brands</span>}
+            </TableCell>
+            <TableCell className="text-xs text-primary py-2">
+              {item.brands.length === 1 ? (item.brands[0].sku ?? '—') : '—'}
+            </TableCell>
+            <TableCell className="text-xs text-right font-semibold py-2">
+              <StockTooltip
+                qty={item.totalQty}
+                title="Stock by Brand"
+                rows={item.brands.map((b) => ({ label: b.brand ?? '—', qty: b.qty }))}
+              />
+            </TableCell>
+            <TableCell className="py-2 text-xs text-right text-muted-foreground">—</TableCell>
+            <TableCell className="text-xs text-right py-2 font-medium">
+              {fmtVal(item.totalValue)}
+            </TableCell>
+          </TableRow>
+          {itemExpanded && renderBrandRows(item.brands, brandIndentClass)}
+        </React.Fragment>
+      )
+    })
+  }
 
   return (
     <div className="p-4 md:p-6 space-y-4">
       {/* Summary mini-cards */}
       <div className="grid grid-cols-3 gap-3">
         {[
-          { icon: <Layers   className="h-4 w-4 text-primary" />, label: 'Total Items', value: totalItems.toLocaleString('en-QA') },
+          { icon: <Layers   className="h-4 w-4 text-primary" />, label: 'Total Items', value: totalItemCount.toLocaleString('en-QA') },
           { icon: <Package  className="h-4 w-4 text-primary" />, label: 'Total Qty',   value: totalQty.toLocaleString('en-QA')   },
-          { icon: <DollarSign className="h-4 w-4 text-success" />, label: 'Total Value', value: `QR ${totalValue.toFixed(2)}` },
+          { icon: <DollarSign className="h-4 w-4 text-success" />, label: 'Total Value', value: `QR ${fmtVal(totalValue)}` },
         ].map((card) => (
           <div key={card.label} className="p-3 rounded-md border flex items-center gap-2">
             {card.icon}
@@ -336,18 +441,21 @@ export const WhStockOverviewTab = React.memo(function WhStockOverviewTab({
           </div>
         )}
 
-        {tree.length > 0 && (
-          <Button
-            variant="ghost" size="sm"
-            className="h-7 px-2 text-xs text-muted-foreground ml-auto"
-            onClick={allExpanded ? collapseAll : expandAll}
-          >
-            {allExpanded ? 'Collapse all' : 'Expand all'}
-          </Button>
-        )}
+        <div className="flex items-center gap-1.5 ml-auto">
+          {tree.length > 0 && (
+            <Button
+              variant="ghost" size="sm"
+              className="h-7 px-2 text-xs text-muted-foreground"
+              onClick={allExpanded ? collapseAll : expandAll}
+            >
+              {allExpanded ? 'Collapse all' : 'Expand all'}
+            </Button>
+          )}
+          <WarehouseReportButton reportType="stock-overview" warehouseId={selectedWarehouseId} label="Report" />
+        </div>
       </div>
 
-      {/* 3-level stock tree */}
+      {/* 4-level stock tree: category → subcategory → item → brand */}
       <TooltipProvider delayDuration={150}>
         <div className="rounded-md border overflow-x-auto">
           <Table>
@@ -370,14 +478,18 @@ export const WhStockOverviewTab = React.memo(function WhStockOverviewTab({
                 </TableRow>
               ) : (
                 tree.map((cat) => {
-                  const catExpanded = expandedCategories.has(cat.categoryName)
+                  const catExpanded = expanded.has(cat.categoryName)
+                  const childCount = cat.subcategories.length + cat.directItems.length
+                  const tooltipRows = [
+                    ...cat.subcategories.map((sc) => ({ label: sc.subcategoryName, qty: sc.totalQty })),
+                    ...cat.directItems.map((i) => ({ label: i.itemName, qty: i.totalQty })),
+                  ]
                   return (
                     <React.Fragment key={cat.categoryName}>
-
                       {/* Level 1 — Category */}
                       <TableRow
                         className="cursor-pointer bg-muted/30 hover:bg-muted/50"
-                        onClick={() => toggleCategory(cat.categoryName)}
+                        onClick={() => toggle(cat.categoryName)}
                       >
                         <TableCell className="text-xs font-bold py-2.5">
                           <div className="flex items-center gap-1.5">
@@ -385,7 +497,6 @@ export const WhStockOverviewTab = React.memo(function WhStockOverviewTab({
                               ? <ChevronDown  className="h-3.5 w-3.5 text-muted-foreground shrink-0" />
                               : <ChevronRight className="h-3.5 w-3.5 text-muted-foreground shrink-0" />}
                             {cat.categoryName}
-                            {/* Show type label in brackets only when "All" tab is active */}
                             {activeType === '__all__' && cat.itemType && TYPE_SHORT_LABEL[cat.itemType] && (
                               <span className="ml-1 text-[10px] font-normal text-muted-foreground border border-border rounded px-1 py-0.5">
                                 {TYPE_SHORT_LABEL[cat.itemType]}
@@ -395,82 +506,66 @@ export const WhStockOverviewTab = React.memo(function WhStockOverviewTab({
                         </TableCell>
                         <TableCell className="text-xs text-muted-foreground py-2.5">
                           <span className="text-[10px] italic">
-                            {cat.items.length} item{cat.items.length !== 1 ? 's' : ''}
+                            {childCount} {cat.subcategories.length > 0 ? 'sub' : 'item'}{childCount !== 1 ? 's' : ''}
                           </span>
                         </TableCell>
                         <TableCell className="py-2.5" />
                         <TableCell className="text-xs text-right font-bold py-2.5">
-                          <StockTooltip
-                            qty={cat.totalQty}
-                            title="Stock by Item"
-                            rows={cat.items.map((i) => ({ label: i.itemName, qty: i.totalQty }))}
-                          />
+                          <StockTooltip qty={cat.totalQty} title="Stock Breakdown" rows={tooltipRows} />
                         </TableCell>
                         <TableCell className="py-2.5 text-xs text-right text-muted-foreground">—</TableCell>
                         <TableCell className="text-xs text-right font-bold py-2.5">
-                          {cat.totalValue.toFixed(2)}
+                          {fmtVal(cat.totalValue)}
                         </TableCell>
                       </TableRow>
 
-                      {/* Level 2 — Items */}
-                      {catExpanded && cat.items.map((item) => {
-                        const itemKey = `${cat.categoryName}__${item.itemName}`
-                        const itemExpanded = expandedItems.has(itemKey)
-                        return (
-                          <React.Fragment key={itemKey}>
-                            <TableRow
-                              className="cursor-pointer bg-background hover:bg-muted/20"
-                              onClick={() => toggleItem(itemKey)}
-                            >
-                              <TableCell className="text-xs font-semibold py-2 pl-7">
-                                <div className="flex items-center gap-1.5">
-                                  {itemExpanded
-                                    ? <ChevronDown  className="h-3 w-3 text-muted-foreground shrink-0" />
-                                    : <ChevronRight className="h-3 w-3 text-muted-foreground shrink-0" />}
-                                  {item.itemName}
-                                </div>
-                              </TableCell>
-                              <TableCell className="text-xs text-muted-foreground py-2">
-                                {item.brands.length === 1
-                                  ? (item.brands[0].brand ?? '—')
-                                  : <span className="text-[10px] italic">{item.brands.length} brands</span>}
-                              </TableCell>
-                              <TableCell className="text-xs text-primary py-2">
-                                {item.brands.length === 1 ? (item.brands[0].sku ?? '—') : '—'}
-                              </TableCell>
-                              <TableCell className="text-xs text-right font-semibold py-2">
-                                <StockTooltip
-                                  qty={item.totalQty}
-                                  title="Stock by Brand"
-                                  rows={item.brands.map((b) => ({ label: b.brand ?? '—', qty: b.qty }))}
-                                />
-                              </TableCell>
-                              <TableCell className="py-2 text-xs text-right text-muted-foreground">—</TableCell>
-                              <TableCell className="text-xs text-right py-2 font-medium">
-                                {item.totalValue.toFixed(2)}
-                              </TableCell>
-                            </TableRow>
+                      {catExpanded && (
+                        <>
+                          {/* Level 2a — Subcategories */}
+                          {cat.subcategories.map((sc) => {
+                            const scKey = `${cat.categoryName}__sub__${sc.subcategoryName}`
+                            const scExpanded = expanded.has(scKey)
+                            return (
+                              <React.Fragment key={scKey}>
+                                <TableRow
+                                  className="cursor-pointer bg-blue-50/50 dark:bg-blue-950/20 hover:bg-blue-50/80 dark:hover:bg-blue-950/30"
+                                  onClick={() => toggle(scKey)}
+                                >
+                                  <TableCell className="text-xs font-semibold py-2 pl-7">
+                                    <div className="flex items-center gap-1.5 text-blue-700 dark:text-blue-400">
+                                      {scExpanded
+                                        ? <ChevronDown  className="h-3 w-3 shrink-0" />
+                                        : <ChevronRight className="h-3 w-3 shrink-0" />}
+                                      {sc.subcategoryName}
+                                    </div>
+                                  </TableCell>
+                                  <TableCell className="text-xs text-muted-foreground py-2">
+                                    <span className="text-[10px] italic">
+                                      {sc.items.length} item{sc.items.length !== 1 ? 's' : ''}
+                                    </span>
+                                  </TableCell>
+                                  <TableCell className="py-2" />
+                                  <TableCell className="text-xs text-right font-semibold py-2">
+                                    <StockTooltip
+                                      qty={sc.totalQty}
+                                      title="Stock by Item"
+                                      rows={sc.items.map((i) => ({ label: i.itemName, qty: i.totalQty }))}
+                                    />
+                                  </TableCell>
+                                  <TableCell className="py-2 text-xs text-right text-muted-foreground">—</TableCell>
+                                  <TableCell className="text-xs text-right font-semibold py-2">
+                                    {fmtVal(sc.totalValue)}
+                                  </TableCell>
+                                </TableRow>
+                                {scExpanded && renderItemRows(sc.items, scKey, 'pl-12', 'pl-16')}
+                              </React.Fragment>
+                            )
+                          })}
 
-                            {/* Level 3 — Brands */}
-                            {itemExpanded && item.brands.map((b) => (
-                              <TableRow key={b.brand_variant_id} className="bg-muted/5 hover:bg-muted/10">
-                                <TableCell className="py-1.5 pl-14 text-xs text-muted-foreground" />
-                                <TableCell className="text-xs py-1.5 font-medium">{b.brand ?? '—'}</TableCell>
-                                <TableCell className="text-xs py-1.5 text-primary">{b.sku ?? '—'}</TableCell>
-                                <TableCell className="text-xs text-right py-1.5 font-medium">
-                                  <StockTooltip
-                                    qty={b.qty}
-                                    title="Stock by Warehouse"
-                                    rows={warehouseBreakdown.get(b.brand_variant_id) ?? []}
-                                  />
-                                </TableCell>
-                                <TableCell className="text-xs text-right py-1.5">{b.avgCost.toFixed(2)}</TableCell>
-                                <TableCell className="text-xs text-right py-1.5">{b.totalValue.toFixed(2)}</TableCell>
-                              </TableRow>
-                            ))}
-                          </React.Fragment>
-                        )
-                      })}
+                          {/* Level 2b — Direct items (no subcategory) */}
+                          {renderItemRows(cat.directItems, cat.categoryName, 'pl-7', 'pl-14')}
+                        </>
+                      )}
                     </React.Fragment>
                   )
                 })

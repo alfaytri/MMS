@@ -5,47 +5,14 @@
  * returns the URL.
  */
 
-import { promises as fs } from 'node:fs'
-import path from 'node:path'
 import type { SupabaseClient } from '@supabase/supabase-js'
 import {
   buildCreditDebitNoteHtml,
-  type NoteAssets,
-  type NoteFonts,
   type NoteOriginalLine,
   type NoteReturnedLine,
 } from '@/lib/sales/credit-debit-note-pdf-html'
+import { loadPdfFonts, loadPdfAssets } from '@/lib/pdf/pdf-fonts'
 import { htmlToPdfBuffer } from '@/lib/pdf/html-to-pdf'
-
-const BRAND_DIR = path.join(process.cwd(), 'public', 'brand')
-const FONT_DIR  = path.join(BRAND_DIR, 'Font')
-
-async function readAsBase64(p: string): Promise<string> {
-  const buf = await fs.readFile(p)
-  return buf.toString('base64')
-}
-
-let cachedAssets: NoteAssets | null = null
-async function loadAssets(): Promise<NoteAssets> {
-  if (cachedAssets) return cachedAssets
-  const b64 = await readAsBase64(path.join(BRAND_DIR, 'Company logo.png'))
-  cachedAssets = { logo: `data:image/png;base64,${b64}` }
-  return cachedAssets
-}
-
-let cachedFonts: NoteFonts | null = null
-async function loadFonts(): Promise<NoteFonts> {
-  if (cachedFonts) return cachedFonts
-  const [block, rounded] = await Promise.all([
-    readAsBase64(path.join(FONT_DIR, 'Infield/Infield-Block.ttf')),
-    readAsBase64(path.join(FONT_DIR, 'Infield/Infield-Rounded.ttf')),
-  ])
-  cachedFonts = {
-    infieldBlock:   `data:font/ttf;base64,${block}`,
-    infieldRounded: `data:font/ttf;base64,${rounded}`,
-  }
-  return cachedFonts
-}
 
 function storageKeyFor(noteDisplayId: string): string {
   return `${noteDisplayId.replace(/[^A-Za-z0-9._-]/g, '_')}.pdf`
@@ -58,6 +25,7 @@ interface CreditNoteRow {
   invoice_id:       string | null
   customer_name:    string | null
   supplier_name:    string | null
+  phone:            string | null
   reason:           string
   created_at:       string
   original_total:   number | null
@@ -86,7 +54,7 @@ export async function generateCreditDebitNotePdf(
     .from('credit_notes')
     .select(`
       id, credit_note_id, note_type, invoice_id,
-      customer_name, supplier_name, reason, created_at,
+      customer_name, supplier_name, phone, reason, created_at,
       original_total, new_total, line_items, source_return_id, pdf_url
     `)
     .eq('id', noteUuid)
@@ -109,6 +77,7 @@ export async function generateCreditDebitNotePdf(
   // ── 2. Resolve reference & return numbers ────────────────────────────
   let referenceNumber = '—'
   let returnNumber    = '—'
+  let partyPhone      = note.phone ?? null
 
   // Return number: join the linked returns row
   if (note.source_return_id) {
@@ -120,61 +89,64 @@ export async function generateCreditDebitNotePdf(
     if (ret) {
       returnNumber = ret.return_number
       // For debit notes, the reference is the PO number — look it up via the
-      // return's source.
+      // return's source. Also resolve supplier phone if not on the note.
       if (note.note_type === 'debit' && ret.source_type === 'purchase' && ret.source_id) {
         const { data: po } = await supabase
           .from('purchase_orders')
-          .select('po_number')
+          .select('po_number, supplier_id')
           .eq('id', ret.source_id)
-          .maybeSingle<{ po_number: string }>()
+          .maybeSingle<{ po_number: string; supplier_id: string | null }>()
         if (po?.po_number) referenceNumber = po.po_number
+        // supplier_id is stored as text (UUID) without FK — separate lookup
+        if (!partyPhone && po?.supplier_id) {
+          const { data: sup } = await supabase
+            .from('suppliers')
+            .select('phone')
+            .eq('id', po.supplier_id)
+            .maybeSingle<{ phone: string | null }>()
+          if (sup?.phone) partyPhone = sup.phone
+        }
       }
     }
   }
 
-  // For credit notes, reference is the invoice display string
+  // For credit notes, reference is the invoice display string.
+  // Also resolve customer phone if not on the note.
   if (note.note_type === 'credit' && note.invoice_id) {
     const { data: inv } = await supabase
       .from('invoices')
-      .select('invoice_id')
+      .select('invoice_id, customers(phone)')
       .eq('id', note.invoice_id)
-      .maybeSingle<{ invoice_id: string }>()
+      .maybeSingle<{ invoice_id: string; customers: { phone: string | null } | null }>()
     if (inv?.invoice_id) referenceNumber = inv.invoice_id
+    if (!partyPhone && inv?.customers?.phone) partyPhone = inv.customers.phone
   }
 
-  // ── 3. Branding ──────────────────────────────────────────────────────
-  const { data: companies } = await supabase
-    .from('companies')
-    .select('name_en, address_en, vat_id, cr_number, is_active')
-    .order('is_active', { ascending: false })
-    .limit(1)
-  const c = companies?.[0]
-  const company = c
-    ? { name: c.name_en, address: c.address_en, vat_id: c.vat_id, cr_number: c.cr_number }
-    : null
-
-  // ── 4. Build & render ────────────────────────────────────────────────
-  const [assets, fonts] = await Promise.all([loadAssets(), loadFonts()])
+  // ── 3. Branding (shared loaders) ─────────────────────────────────────
+  const [assets, fonts] = await Promise.all([loadPdfAssets(), loadPdfFonts()])
 
   const partyName = note.note_type === 'credit'
     ? (note.customer_name ?? '—')
     : (note.supplier_name ?? '—')
 
   const pdfData = note.line_items ?? { original_lines: [], returned_lines: [] }
+  const returnedLines = pdfData.returned_lines ?? []
+  const creditDebitTotal = returnedLines.reduce((acc, l) => acc + l.total, 0)
 
+  // ── 4. Build & render ────────────────────────────────────────────────
   const html = buildCreditDebitNoteHtml({
     noteId:          note.credit_note_id,
     noteType:        note.note_type,
     partyName,
+    partyPhone,
     referenceNumber,
     returnNumber,
     reason:          note.reason,
     createdAt:       note.created_at,
-    originalLines:   pdfData.original_lines ?? [],
-    returnedLines:   pdfData.returned_lines ?? [],
+    returnedLines,
     originalTotal:   Number(note.original_total ?? 0),
+    creditDebitTotal,
     newTotal:        Number(note.new_total ?? 0),
-    company,
     assets,
     fonts,
   })

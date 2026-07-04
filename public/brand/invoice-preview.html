@@ -1,0 +1,348 @@
+<!DOCTYPE html>
+<html lang="en" dir="ltr">
+<head>
+<meta charset="UTF-8">
+<title>Al Faytri — Sales Invoice Preview</title>
+<style>
+  @page { size: A4; margin: 0; }
+
+  @font-face { font-family: 'IBMPlexSans'; src: url('Font/IBM_Plex_Sans,IBM_Plex_Sans_Arabic,Rajdhani,Tajawal,Teko/IBM_Plex_Sans/static/IBMPlexSans-Regular.ttf') format('truetype'); font-weight: 400; }
+  @font-face { font-family: 'IBMPlexSans'; src: url('Font/IBM_Plex_Sans,IBM_Plex_Sans_Arabic,Rajdhani,Tajawal,Teko/IBM_Plex_Sans/static/IBMPlexSans-Medium.ttf') format('truetype'); font-weight: 500; }
+  @font-face { font-family: 'IBMPlexSans'; src: url('Font/IBM_Plex_Sans,IBM_Plex_Sans_Arabic,Rajdhani,Tajawal,Teko/IBM_Plex_Sans/static/IBMPlexSans-SemiBold.ttf') format('truetype'); font-weight: 600; }
+  @font-face { font-family: 'IBMPlexSans'; src: url('Font/IBM_Plex_Sans,IBM_Plex_Sans_Arabic,Rajdhani,Tajawal,Teko/IBM_Plex_Sans/static/IBMPlexSans-Bold.ttf') format('truetype'); font-weight: 700; }
+  @font-face { font-family: 'IBMPlexAr'; src: url('Font/IBM_Plex_Sans,IBM_Plex_Sans_Arabic,Rajdhani,Tajawal,Teko/IBM_Plex_Sans_Arabic/IBMPlexSansArabic-Regular.ttf') format('truetype'); font-weight: 400; }
+  @font-face { font-family: 'IBMPlexAr'; src: url('Font/IBM_Plex_Sans,IBM_Plex_Sans_Arabic,Rajdhani,Tajawal,Teko/IBM_Plex_Sans_Arabic/IBMPlexSansArabic-SemiBold.ttf') format('truetype'); font-weight: 600; }
+  @font-face { font-family: 'IBMPlexAr'; src: url('Font/IBM_Plex_Sans,IBM_Plex_Sans_Arabic,Rajdhani,Tajawal,Teko/IBM_Plex_Sans_Arabic/IBMPlexSansArabic-Bold.ttf') format('truetype'); font-weight: 700; }
+
+  :root {
+    --orange:    #ED7C2C;
+    --dark:      #2f2f33;
+    --grey-bg:   #efefef;
+    --grey-rule: #d0d0d0;
+    --link-blue: #1d63d8;
+    --text:      #111;
+    --muted:     #6b7280;
+  }
+
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  html, body {
+    background: #f3f4f6; color: var(--text);
+    font-family: 'IBMPlexSans', sans-serif;
+    -webkit-print-color-adjust: exact; print-color-adjust: exact;
+  }
+  body { padding: 24px 0; display: flex; justify-content: center; }
+  .page {
+    width: 210mm; height: 297mm; background: #fff;
+    box-shadow: 0 4px 20px rgba(0,0,0,0.12); padding: 6mm 0 10mm; overflow: hidden;
+  }
+
+  .top-row {
+    display: grid; grid-template-columns: 1fr auto 1fr;
+    align-items: start; padding: 0 14mm; margin-bottom: 0;
+  }
+  .top-row .logo { width: 55px; height: auto; display: block; align-self: center; margin: 0 4mm; }
+  .addr-en { font-family: 'IBMPlexSans', sans-serif; font-size: 7px; line-height: 1.4; color: #111; text-align: left; }
+  .addr-en .brand { font-family: 'IBMPlexSans', sans-serif; font-weight: 700; font-size: 14px; letter-spacing: 0.5px; margin-bottom: 1px; line-height: 1; }
+  .addr-en .tagline { font-weight: 400; font-size: 7px; margin-bottom: 1px; letter-spacing: 0.1px; line-height: 1.2; }
+  .addr-ar { font-family: 'IBMPlexAr', sans-serif; direction: rtl; text-align: right; font-size: 7px; line-height: 1.4; color: #111; font-weight: 400; }
+  .addr-ar .brand { font-weight: 700; font-size: 14px; margin-bottom: 1px; line-height: 1; }
+  .addr-ar .tagline { font-weight: 400; font-size: 7px; margin-bottom: 1px; line-height: 1.2; }
+
+  .midbar { position: relative; margin-top: 1mm; }
+  .contact-strip { display: flex; justify-content: space-between; align-items: center; padding: 6mm 14mm; }
+  .contact-strip .left, .contact-strip .right { display: flex; gap: 10mm; align-items: center; }
+  .contact-strip a { color: var(--link-blue); text-decoration: none; font-family: 'IBMPlexSans', sans-serif; font-size: 11px; }
+  .dark-strip { background: var(--dark); height: 9mm; }
+  .ribbon {
+    position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%);
+    background: var(--orange); color: #fff; padding: 3.5mm 8mm 3mm;
+    text-align: center; line-height: 1.2; width: 58mm;
+  }
+  .ribbon .ar-title { font-family: 'IBMPlexAr', sans-serif; font-weight: 700; font-size: 15px; margin-bottom: 0.8mm; }
+  .ribbon .en-title { font-family: 'IBMPlexSans', sans-serif; font-weight: 700; font-size: 11px; letter-spacing: 0.4px; }
+  .ribbon .doc-no { font-family: 'IBMPlexSans', sans-serif; font-size: 9px; margin-top: 1mm; letter-spacing: 0.3px; opacity: 0.95; }
+
+  .meta { display: grid; grid-template-columns: 1fr 1fr; gap: 0 12mm; padding: 1.5mm 14mm 1mm; }
+  .meta-block {
+    display: flex; justify-content: space-between; align-items: center;
+    border-bottom: 0.5px solid var(--grey-rule); padding: 1.5mm 0;
+  }
+  .meta-value { font-family: 'IBMPlexSans', sans-serif; font-size: 8px; color: var(--text); }
+  .meta-label { text-align: right; }
+  .meta-label .ar { font-family: 'IBMPlexAr', sans-serif; font-weight: 700; font-size: 9px; }
+  .meta-label .en { font-family: 'IBMPlexSans', sans-serif; font-size: 7px; color: var(--muted); margin-top: 0; }
+
+  .lines-wrap { padding: 4mm 14mm 0; }
+  table.lines {
+    width: 100%; border-collapse: collapse; direction: rtl; border: 0.7px solid var(--text);
+  }
+  table.lines th {
+    background: var(--orange); color: #fff; padding: 3.5mm 3mm;
+    text-align: center; vertical-align: middle;
+    font-family: 'IBMPlexAr', sans-serif; font-weight: 700; font-size: 13.5px;
+    border-right: 0.7px solid var(--text);
+  }
+  table.lines th:first-child { border-right: 0; }
+  table.lines th .en { display: block; font-family: 'IBMPlexSans', sans-serif; font-size: 9.5px; margin-top: 1px; opacity: 0.95; }
+  table.lines td { border-top: 0.7px solid var(--text); padding: 2mm 3mm; vertical-align: middle; }
+  table.lines td.cell-num { text-align: center; font-family: 'IBMPlexSans', sans-serif; font-size: 11px; }
+  table.lines td.cell-item { text-align: right; }
+  table.lines td.cell-item .item-name { font-family: 'IBMPlexSans', sans-serif; font-size: 11px; color: var(--text); line-height: 1.3; }
+  table.lines td.cell-item .item-name-ar { font-family: 'IBMPlexAr', sans-serif; font-size: 10px; color: var(--text); direction: rtl; line-height: 1.3; }
+  table.lines td.cell-item .item-sku { font-family: 'IBMPlexSans', sans-serif; font-size: 8px; color: var(--muted); margin-top: 1px; }
+
+  .bottom-section {
+    display: flex; gap: 4mm; padding: 0 14mm; align-items: flex-start;
+  }
+
+  .payments-wrap { flex: 1; }
+  table.payments {
+    width: 100%; border-collapse: collapse; border: 0.7px solid var(--text);
+  }
+  table.payments th {
+    background: var(--orange); color: #fff; padding: 2mm 2.5mm;
+    font-family: 'IBMPlexSans', sans-serif; font-size: 8px; font-weight: 600;
+    text-align: left; border-right: 0.7px solid rgba(255,255,255,0.3);
+  }
+  table.payments th:last-child { border-right: 0; }
+  table.payments td {
+    padding: 2mm 2.5mm; font-family: 'IBMPlexSans', sans-serif; font-size: 8px;
+    border-top: 0.7px solid var(--grey-rule); border-right: 0.7px solid var(--grey-rule);
+  }
+  table.payments td:last-child { border-right: 0; }
+
+  .summary-inner {
+    border: 0.7px solid var(--text); white-space: nowrap;
+  }
+  .summary-row {
+    display: flex; align-items: baseline; padding: 1.5mm 3mm;
+    border-bottom: 0.7px solid var(--grey-rule); direction: rtl; gap: 1.5mm;
+  }
+  .summary-row:last-child { border-bottom: none; }
+  .summary-row .s-label {
+    font-family: 'IBMPlexAr', sans-serif; font-weight: 700; font-size: 9px;
+  }
+  .summary-row .s-en {
+    font-family: 'IBMPlexSans', sans-serif; font-size: 7px; color: var(--muted);
+  }
+  .summary-row .s-sep { font-size: 8px; color: var(--muted); }
+  .summary-row .s-amount {
+    font-family: 'IBMPlexSans', sans-serif; font-weight: 700; font-size: 9px; direction: ltr; margin-inline-start: auto;
+  }
+  .summary-row.s-grand { background: rgba(237, 124, 44, 0.12); }
+  .summary-row.s-grand .s-amount { font-size: 10px; }
+  .summary-row.s-bill-total { background: rgba(47, 47, 51, 0.08); }
+  .summary-row .s-outstanding { color: #dc2626; font-size: 10px; }
+  .summary-divider { height: 0.7px; background: var(--text); }
+
+  .terms { padding: 3mm 0 0; }
+  .terms-row { display: grid; grid-template-columns: 38mm 1fr; gap: 3mm; margin-bottom: 1mm; font-size: 9px; }
+  .terms-key { font-family: 'IBMPlexSans', sans-serif; font-weight: 700; color: var(--text); }
+  .terms-val { font-family: 'IBMPlexSans', sans-serif; color: var(--muted); }
+
+  .page { position: relative; }
+  .footer { position: absolute; bottom: 10mm; left: 0; right: 0; text-align: center; }
+  .footer img { height: 45px; width: auto; }
+
+  @media print { body { background: #fff; padding: 0; } .page { box-shadow: none; min-height: auto; } }
+</style>
+</head>
+<body>
+<div class="page">
+
+  <div class="top-row">
+    <div class="addr-en">
+      <div class="brand">ALFAYTRI</div>
+      <div class="tagline">Trading and Building Maintenance</div>
+      <div>Office 18, Building 19, Street 185, Zone 55</div>
+      <div>Doha, Qatar | P.O. Box 45069</div>
+      <div>Trading: 44214420 | Maintenance: 44190600</div>
+      <div>info@alfaytri.com | www.alfaytri.com</div>
+    </div>
+    <img class="logo" src="Company logo.png" alt="Al Faytri">
+    <div class="addr-ar">
+      <div class="brand">الفيتري</div>
+      <div class="tagline">للتجارة وصيانة المباني</div>
+      <div>مكتب ١٨ ، مبنى ١٩ ، شارع ١٨٥ ، منطقة ٥٥</div>
+      <div>الدوحة ، قطر | ص.ب ٤٥٠٦٩</div>
+      <div>التداول: ٤٤٢١٤٤٢٠ | الصيانة: ٤٤١٩٠٦٠٠</div>
+      <div>info@alfaytri.com | www.alfaytri.com</div>
+    </div>
+  </div>
+
+  <div class="midbar">
+    <div class="contact-strip">
+      <div class="left">
+        <a href="https://instagram.com/alfaytri">Instagram</a>
+        <a href="https://www.alfaytri.com">www.alfaytri.com</a>
+      </div>
+      <div class="right">
+        <a href="mailto:info@alfaytri.com">info@alfaytri.com</a>
+        <a href="tel:+97444106900">+97444106900</a>
+      </div>
+    </div>
+    <div class="dark-strip"></div>
+    <div class="ribbon">
+      <div class="ar-title">فاتورة مبيعات</div>
+      <div class="en-title">Sales Invoice</div>
+      <div class="doc-no">INV-00004</div>
+    </div>
+  </div>
+
+  <div class="meta">
+    <div class="meta-block">
+      <div class="meta-value">27 Jun 2026</div>
+      <div class="meta-label">
+        <div class="ar">تاريخ الإصدار</div>
+        <div class="en">(Issued Date)</div>
+      </div>
+    </div>
+    <div class="meta-block">
+      <div class="meta-value">27 Jul 2026</div>
+      <div class="meta-label">
+        <div class="ar">تاريخ الاستحقاق</div>
+        <div class="en">(Due Date)</div>
+      </div>
+    </div>
+    <div class="meta-block">
+      <div class="meta-value">+974 7219 5504</div>
+      <div class="meta-label">
+        <div class="ar">هاتف الزبون</div>
+        <div class="en">(Customer Phone)</div>
+      </div>
+    </div>
+    <div class="meta-block">
+      <div class="meta-value">IT Mohamed Ismail</div>
+      <div class="meta-label">
+        <div class="ar">اسم الزبون</div>
+        <div class="en">(Customer Name)</div>
+      </div>
+    </div>
+    <div class="meta-block">
+      <div class="meta-value">SO-00003</div>
+      <div class="meta-label">
+        <div class="ar">رقم أمر البيع</div>
+        <div class="en">(Sale Order #)</div>
+      </div>
+    </div>
+    <div class="meta-block">
+      <div class="meta-value">Credit</div>
+      <div class="meta-label">
+        <div class="ar">نوع الفاتورة</div>
+        <div class="en">(Invoice Type)</div>
+      </div>
+    </div>
+  </div>
+
+  <div class="lines-wrap">
+    <table class="lines">
+      <thead>
+        <tr>
+          <th style="width:48%">الوصف<span class="en">(Description)</span></th>
+          <th style="width:12%">الكمية<span class="en">(Qty)</span></th>
+          <th style="width:18%">سعر الوحدة<span class="en">(Unit Price)</span></th>
+          <th style="width:18%">الإجمالي<span class="en">(Total)</span></th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td class="cell-item">
+            <div class="item-name">80 Gallon Water Heater — Industrial Grade</div>
+            <div class="item-name-ar">سخان مياه 80 جالون — صناعي</div>
+          </td>
+          <td class="cell-num">12</td>
+          <td class="cell-num">QAR 3,000.00</td>
+          <td class="cell-num">QAR 36,000.00</td>
+        </tr>
+        <tr>
+          <td class="cell-item">
+            <div class="item-name">Thermostat Digital Controller — 220V</div>
+            <div class="item-name-ar">منظم حرارة رقمي — 220 فولت</div>
+          </td>
+          <td class="cell-num">30</td>
+          <td class="cell-num">QAR 150.00</td>
+          <td class="cell-num">QAR 4,500.00</td>
+        </tr>
+      </tbody>
+    </table>
+  </div>
+
+  <div class="bottom-section">
+    <div class="payments-wrap">
+      <table class="payments">
+        <thead>
+          <tr>
+            <th>Date</th>
+            <th>Amount</th>
+            <th>Method</th>
+            <th>Reference</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td>27 Jun 2026</td>
+            <td>QAR 35,000.00</td>
+            <td>Bank Transfer</td>
+            <td>—</td>
+          </tr>
+        </tbody>
+      </table>
+      <div class="terms">
+        <div class="terms-row">
+          <div class="terms-key">Payment Terms</div>
+          <div class="terms-val">Net 30</div>
+        </div>
+        <div class="terms-row">
+          <div class="terms-key">SO Reference</div>
+          <div class="terms-val">SO-00003</div>
+        </div>
+      </div>
+    </div>
+    <div class="summary-inner">
+      <div class="summary-row">
+        <span class="s-label">المجموع الفرعي</span>
+        <span class="s-en">Subtotal</span>
+        <span class="s-sep">:</span>
+        <span class="s-amount">QAR 40,500.00</span>
+      </div>
+      <div class="summary-row">
+        <span class="s-label">قيمة الخصم</span>
+        <span class="s-en">Discount</span>
+        <span class="s-sep">:</span>
+        <span class="s-amount">QAR 5,500.00</span>
+      </div>
+      <div class="summary-row s-grand">
+        <span class="s-label">الإجمالي النهائي</span>
+        <span class="s-en">Grand Total</span>
+        <span class="s-sep">:</span>
+        <span class="s-amount">QAR 35,000.00</span>
+      </div>
+      <div class="summary-divider"></div>
+      <div class="summary-row s-bill-total">
+        <span class="s-label">إجمالي الفاتورة</span>
+        <span class="s-en">Invoice Total</span>
+        <span class="s-sep">:</span>
+        <span class="s-amount">QAR 35,000.00</span>
+      </div>
+      <div class="summary-row">
+        <span class="s-label">المبلغ المدفوع</span>
+        <span class="s-en">Amount Paid</span>
+        <span class="s-sep">:</span>
+        <span class="s-amount">QAR 35,000.00</span>
+      </div>
+      <div class="summary-row">
+        <span class="s-label">الرصيد المتبقي</span>
+        <span class="s-en">Outstanding</span>
+        <span class="s-sep">:</span>
+        <span class="s-amount s-outstanding">QAR 0.00</span>
+      </div>
+    </div>
+  </div>
+
+  <div class="footer">
+    <img src="Footer.png" alt="أهلها — Bringing comfort to your space.">
+  </div>
+
+</div>
+</body>
+</html>

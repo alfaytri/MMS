@@ -7,10 +7,11 @@ describe('map17trackTag', () => {
   it('maps Exception to delayed',     () => expect(map17trackTag('Exception')).toBe('delayed'))
   it('maps Undelivered to delayed',   () => expect(map17trackTag('Undelivered')).toBe('delayed'))
   it('maps Customs to customs',       () => expect(map17trackTag('Customs')).toBe('customs'))
-  it('returns null for InfoReceived', () => expect(map17trackTag('InfoReceived')).toBeNull())
-  it('returns null for Pickup',       () => expect(map17trackTag('Pickup')).toBeNull())
-  it('returns null for NotFound',     () => expect(map17trackTag('NotFound')).toBeNull())
-  it('returns null for unknown tag',  () => expect(map17trackTag('FooBar')).toBeNull())
+  it('maps InfoReceived to info_received',       () => expect(map17trackTag('InfoReceived')).toBe('info_received'))
+  it('maps OutForDelivery to out_for_delivery', () => expect(map17trackTag('OutForDelivery')).toBe('out_for_delivery'))
+  it('maps PickedUp to picked_up',               () => expect(map17trackTag('PickedUp')).toBe('picked_up'))
+  it('maps NotFound to not_found',               () => expect(map17trackTag('NotFound')).toBe('not_found'))
+  it('lowercases unknown tags',                  () => expect(map17trackTag('FooBar')).toBe('foobar'))
 })
 
 describe('STATUS_WEIGHTS', () => {

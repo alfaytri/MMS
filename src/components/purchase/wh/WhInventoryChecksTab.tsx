@@ -9,6 +9,7 @@ import type { Warehouse } from '@/hooks/useWarehouses'
 import type { Profile } from '@/hooks/useProfiles'
 import { format } from 'date-fns'
 import { WhInventoryCheckStartDialog } from '@/components/purchase/wh/WhInventoryCheckStartDialog'
+import { WarehouseReportButton } from './WarehouseReportButton'
 import { WhInventoryCheckDetail }      from '@/components/purchase/wh/WhInventoryCheckDetail'
 import type { InventoryCheck }         from '@/hooks/useWarehouseOperations'
 
@@ -42,12 +43,15 @@ export const WhInventoryChecksTab = React.memo(function WhInventoryChecksTab({ w
             Team-based physical stock counts with multi-step approval
           </p>
         </div>
-        <WhInventoryCheckStartDialog warehouses={warehouses} currentProfile={currentProfile}>
-          <Button size="sm" variant="outline" className="gap-1.5 h-8 text-xs">
-            <ClipboardCheck className="h-3.5 w-3.5" />
-            New Check
-          </Button>
-        </WhInventoryCheckStartDialog>
+        <div className="flex items-center gap-2">
+          <WarehouseReportButton reportType="inventory-checks" label="Report" />
+          <WhInventoryCheckStartDialog warehouses={warehouses} currentProfile={currentProfile}>
+            <Button size="sm" variant="outline" className="gap-1.5 h-8 text-xs">
+              <ClipboardCheck className="h-3.5 w-3.5" />
+              New Check
+            </Button>
+          </WhInventoryCheckStartDialog>
+        </div>
       </div>
 
       {/* Check list */}

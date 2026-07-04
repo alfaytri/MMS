@@ -6,6 +6,7 @@ import { Button } from '@/components/ui/button'
 import { AttachBillDialog } from './AttachBillDialog'
 import { QRCodeSVG } from 'qrcode.react'
 import { Badge } from '@/components/ui/badge'
+import { Link2 } from 'lucide-react'
 import {
   Table, TableBody, TableCell, TableHead, TableHeader, TableRow,
 } from '@/components/ui/table'
@@ -14,19 +15,9 @@ import { formatCurrency, formatDate } from '@/lib/utils/formatters'
 import { cn } from '@/lib/utils'
 import { useMarkBillPaymentStatus } from '@/hooks/useSupplierBills'
 import type { BillViewModel } from '@/hooks/useSupplierBills'
-import type { Division } from '@/hooks/useDivisions'
-import type { Company } from '@/hooks/useCompanies'
-
-const FALLBACK_COMPANY = 'Alfaytri Maintenance'
 
 type Props = {
   viewModel: BillViewModel
-  company: Company | null
-  division: Division | null
-  showReceival: boolean
-  showPaymentPlan: boolean
-  showNotes: boolean
-  showQR: boolean
   relatedBills: { id: string; invoice_id: string }[]
   currentBillId: string
   onNavigate: (id: string) => void
@@ -47,12 +38,6 @@ function getWatermark(bill: BillViewModel['bill']): { text: string; colorClass: 
 
 export function BillDetailDocument({
   viewModel,
-  company,
-  division,
-  showReceival,
-  showPaymentPlan,
-  showNotes,
-  showQR,
   relatedBills,
   currentBillId,
   onNavigate,
@@ -62,7 +47,6 @@ export function BillDetailDocument({
   const [origin, setOrigin] = useState('')
   const [attachOpen, setAttachOpen] = useState(false)
   const markPaid = useMarkBillPaymentStatus()
-  const printTimestamp = new Date().toLocaleDateString('en-GB')
 
   useEffect(() => {
     setOrigin(window.location.origin)
@@ -71,9 +55,6 @@ export function BillDetailDocument({
   const supplier = bill.suppliers
   const po = bill.purchase_orders
   const currency = po?.currency ?? 'QAR'
-  // Derive paid total from the allocations table directly. The bill row's
-  // paid_amount column can lag behind (e.g. payment_bill_allocations was
-  // inserted without an UPDATE on invoices.paid_amount), so trust the source.
   const totalPaid = payments.reduce((sum, p) => sum + (p.amount ?? 0), 0)
   const balance = (bill.total_amount ?? 0) - totalPaid
 
@@ -95,19 +76,7 @@ export function BillDetailDocument({
       <BillDetailSection>
         <div className="flex items-start justify-between gap-4">
           <div>
-            <h1 className="text-xl font-bold leading-tight">
-              {company?.name_en ?? FALLBACK_COMPANY}
-            </h1>
-            {division && (
-              <p className="text-sm font-medium text-muted-foreground mt-0.5">
-                {division.name}
-              </p>
-            )}
-            {division?.address_en && (
-              <p className="text-sm text-muted-foreground mt-1 whitespace-pre-line">
-                {division.address_en}
-              </p>
-            )}
+            <h1 className="text-xl font-bold leading-tight">Alfaytri</h1>
           </div>
           <div className="text-right shrink-0">
             <h2 className="text-2xl font-bold" dir="rtl">فاتورة مشتريات</h2>
@@ -157,7 +126,6 @@ export function BillDetailDocument({
               <p>Supplier Ref: <span className="text-foreground font-mono">{bill.source_label}</span></p>
             )}
             <p>Due: <span className="text-foreground">{formatDate(bill.due_date)}</span></p>
-            <p>Print Date: {printTimestamp}</p>
           </div>
         </div>
       </BillDetailSection>
@@ -283,51 +251,54 @@ export function BillDetailDocument({
         </div>
       </BillDetailSection>
 
-      {/* 7. Link Payment (non-printable) */}
-      <BillDetailSection title="Payment" className="print:hidden">
-        <div className="flex items-center justify-between gap-3 mb-3">
-          <div className="flex gap-2">
-            {bill.payment_status !== 'paid' ? (
-              <Button
-                size="sm"
-                variant="default"
-                onClick={() => markPaid.mutate({ billId: bill.id, status: 'paid' })}
-                disabled={markPaid.isPending}
-              >
-                {markPaid.isPending ? 'Marking…' : 'Mark as Paid'}
-              </Button>
-            ) : (
-              <Button
-                size="sm"
-                variant="outline"
-                onClick={() => markPaid.mutate({ billId: bill.id, status: 'unpaid' })}
-                disabled={markPaid.isPending}
-              >
-                {markPaid.isPending ? 'Updating…' : 'Mark as Unpaid'}
+      {/* 7. Payment actions (non-printable) */}
+      <div className="print:hidden">
+        <BillDetailSection title="Payment">
+          <div className="flex items-center justify-between gap-3 mb-3">
+            <div className="flex gap-2">
+              {bill.payment_status !== 'paid' ? (
+                <Button
+                  size="sm"
+                  variant="default"
+                  onClick={() => markPaid.mutate({ billId: bill.id, status: 'paid' })}
+                  disabled={markPaid.isPending}
+                >
+                  {markPaid.isPending ? 'Marking…' : 'Mark as Paid'}
+                </Button>
+              ) : (
+                <Button
+                  size="sm"
+                  variant="outline"
+                  onClick={() => markPaid.mutate({ billId: bill.id, status: 'unpaid' })}
+                  disabled={markPaid.isPending}
+                >
+                  {markPaid.isPending ? 'Updating…' : 'Mark as Unpaid'}
+                </Button>
+              )}
+            </div>
+            {bill.payment_status !== 'paid' && (
+              <Button size="sm" variant="outline" onClick={() => setAttachOpen(true)}>
+                <Link2 className="h-3.5 w-3.5 mr-1.5" />
+                Attach Payment
               </Button>
             )}
           </div>
-          {bill.payment_status !== 'paid' && (
-            <Button size="sm" variant="outline" onClick={() => setAttachOpen(true)}>
-              Link Payment
-            </Button>
+          {payments.length > 0 ? (
+            <div className="space-y-2">
+              {payments.map((p) => (
+                <div key={p.id} className="flex items-center justify-between text-sm border rounded-md px-3 py-2 bg-muted/40">
+                  <span className="font-mono font-medium">{p.payment_id}</span>
+                  <span>{formatCurrency(p.amount, currency)}</span>
+                  <span className="text-muted-foreground">{formatDate(p.date)}</span>
+                  <span className="capitalize text-muted-foreground">{p.method.replace(/_/g, ' ')}</span>
+                </div>
+              ))}
+            </div>
+          ) : (
+            <p className="text-sm text-muted-foreground">No payment linked yet.</p>
           )}
-        </div>
-        {payments.length > 0 ? (
-          <div className="space-y-2">
-            {payments.map((p) => (
-              <div key={p.id} className="flex items-center justify-between text-sm border rounded-md px-3 py-2 bg-muted/40">
-                <span className="font-mono font-medium">{p.payment_id}</span>
-                <span>{formatCurrency(p.amount, currency)}</span>
-                <span className="text-muted-foreground">{formatDate(p.date)}</span>
-                <span className="capitalize text-muted-foreground">{p.method.replace(/_/g, ' ')}</span>
-              </div>
-            ))}
-          </div>
-        ) : (
-          <p className="text-sm text-muted-foreground">No payment linked yet.</p>
-        )}
-      </BillDetailSection>
+        </BillDetailSection>
+      </div>
 
       <AttachBillDialog
         open={attachOpen}
@@ -337,8 +308,8 @@ export function BillDetailDocument({
         supplierId={bill.supplier_id ?? undefined}
       />
 
-      {/* 8. Receival Info (toggleable) */}
-      {showReceival && receival && (
+      {/* 8. Receival Info */}
+      {receival && (
         <BillDetailSection title="Receival Info">
           <p className="text-xs text-muted-foreground mb-2">
             Ref: <span className="font-mono">{receival.receival_number}</span>
@@ -369,8 +340,8 @@ export function BillDetailDocument({
         </BillDetailSection>
       )}
 
-      {/* 8. Payment Plan (toggleable) */}
-      {showPaymentPlan && paymentPlan && (
+      {/* 9. Payment Plan */}
+      {paymentPlan && (
         <BillDetailSection title="Payment Plan">
           <p className="text-xs text-muted-foreground mb-2 capitalize">
             Type: {paymentPlan.plan_type} · Status: {paymentPlan.status}
@@ -406,42 +377,39 @@ export function BillDetailDocument({
         </BillDetailSection>
       )}
 
-      {/* 9. Notes (toggleable) */}
-      {showNotes && bill.notes && (
+      {/* 10. Notes */}
+      {bill.notes && (
         <BillDetailSection title="Notes / Remarks">
           <p className="text-sm text-muted-foreground whitespace-pre-line">{bill.notes}</p>
         </BillDetailSection>
       )}
 
-      {/* 10. QR Code (toggleable) */}
-      {showQR && (
-        <BillDetailSection>
-          <div className="flex justify-end">
-            <div className="p-3 border rounded-lg text-center space-y-1">
-              {origin ? (
-                <QRCodeSVG
-                  value={`${origin}/purchase/bills/${bill.id}`}
-                  size={96}
-                />
-              ) : (
-                <div className="w-24 h-24 bg-muted animate-pulse rounded" />
-              )}
-              <p className="text-xs font-mono text-muted-foreground">{bill.invoice_id}</p>
-            </div>
+      {/* 11. QR Code */}
+      <BillDetailSection>
+        <div className="flex justify-end">
+          <div className="p-3 border rounded-lg text-center space-y-1">
+            {origin ? (
+              <QRCodeSVG
+                value={`${origin}/purchase/bills/${bill.id}`}
+                size={96}
+              />
+            ) : (
+              <div className="w-24 h-24 bg-muted animate-pulse rounded" />
+            )}
+            <p className="text-xs font-mono text-muted-foreground">{bill.invoice_id}</p>
           </div>
-        </BillDetailSection>
-      )}
+        </div>
+      </BillDetailSection>
 
-      {/* 11. Footer */}
+      {/* 12. Footer */}
       <div className="border-t pt-4 flex items-start justify-between text-xs text-muted-foreground gap-4">
         <p>
-          {company?.name_en ?? FALLBACK_COMPANY}
-          {division ? ` · ${division.name}` : ''}
+          Alfaytri
           {' · '}
           <span dir="rtl">هذا المستند تم إنشاؤه تلقائياً</span>
         </p>
         <p className="shrink-0">
-          This document was automatically generated · {new Date().toLocaleDateString('en-GB')}
+          This document was automatically generated
         </p>
       </div>
     </div>

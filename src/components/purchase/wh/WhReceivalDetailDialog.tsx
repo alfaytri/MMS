@@ -40,10 +40,10 @@ export function WhReceivalDetailDialog({ item, onClose }: Props) {
   const { data: fullStock = [] } = useWarehouseStock()
 
   const variantMeta = useMemo(() => {
-    const map = new Map<string, { categoryName: string | null; itemType: string | null; itemName: string; brand: string | null }>()
+    const map = new Map<string, { categoryName: string | null; subcategoryName: string | null; itemType: string | null; itemName: string; brand: string | null }>()
     for (const s of fullStock) {
       if (!map.has(s.brand_variant_id)) {
-        map.set(s.brand_variant_id, { categoryName: s.category_name ?? null, itemType: s.item_type ?? null, itemName: s.item_name, brand: s.brand ?? null })
+        map.set(s.brand_variant_id, { categoryName: s.category_name ?? null, subcategoryName: s.subcategory_name ?? null, itemType: s.item_type ?? null, itemName: s.item_name, brand: s.brand ?? null })
       }
     }
     return map
@@ -123,6 +123,7 @@ export function WhReceivalDetailDialog({ item, onClose }: Props) {
                     <div key={idx} className="grid grid-cols-[1fr_80px] gap-2 px-4 py-2.5 items-center">
                       <ItemTreeCell
                         category={meta?.categoryName}
+                        subcategory={meta?.subcategoryName}
                         itemType={meta?.itemType}
                         itemName={meta?.itemName ?? i.name}
                         brand={meta?.brand}
