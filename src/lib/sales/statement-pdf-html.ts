@@ -1,10 +1,8 @@
 /**
  * Builds the self-contained HTML for the Customer Statement PDF.
- *
- * Uses the shared brand module (`@/lib/pdf/pdf-fonts`) for IBM Plex Sans /
- * Arabic fonts, company header, contact strip, footer, and base CSS.
- * Adds statement-specific sections: bilingual customer/date meta, transaction
- * ledger with running balance, and closing summary.
+ * Mirrors public/brand/customer-statement-preview.html — one row per Sale
+ * Order with Total / Paid / Outstanding / Status columns, and a summary card
+ * of Total Orders / Paid / Outstanding.
  */
 
 import type { PdfFonts, PdfAssets } from '@/lib/pdf/pdf-fonts'
@@ -16,28 +14,28 @@ import {
   BASE_CSS,
 } from '@/lib/pdf/pdf-fonts'
 
-export interface StatementTxn {
-  txn_date:    string
-  txn_type:    'invoice' | 'payment' | 'credit_note'
-  reference:   string
-  description: string
-  debit:       number
-  credit:      number
-  balance:     number
+export interface StatementOrderRow {
+  so_number:   string
+  so_date:     string
+  status:      string
+  total:       number
+  paid:        number
+  outstanding: number
 }
 
 export interface BuildStatementHtmlInput {
-  customer_name: string
-  date_from:     string | null
-  date_to:       string | null
-  generated_at:  string
-  transactions:  StatementTxn[]
-  opening_balance: number
-  total_debit:   number
-  total_credit:  number
-  closing_balance: number
-  assets: PdfAssets
-  fonts:  PdfFonts
+  customer_name:  string
+  customer_phone: string | null
+  account_type:   string
+  statement_date: string
+  open_orders:    number
+  orders:         StatementOrderRow[]
+  total_orders_value: number
+  total_paid:     number
+  total_outstanding: number
+  notes:          string | null
+  assets:         PdfAssets
+  fonts:          PdfFonts
 }
 
 // ── Helpers ─────────────────────────────────────────────────────────────────
@@ -64,52 +62,42 @@ function fmtDate(iso: string): string {
   return `${day} ${months[d.getUTCMonth()]} ${d.getUTCFullYear()}`
 }
 
-const TXN_LABEL: Record<StatementTxn['txn_type'], string> = {
-  invoice:     'Invoice',
-  payment:     'Payment',
-  credit_note: 'Credit Note',
+// Map SO status to a badge class + human label
+function statusBadge(status: string): { cls: string; label: string } {
+  switch (status) {
+    case 'quotation':        return { cls: 'badge-quotation',  label: 'Quotation' }
+    case 'pending_approval': return { cls: 'badge-pending',    label: 'Pending Approval' }
+    case 'confirmed':        return { cls: 'badge-confirmed',  label: 'Confirmed' }
+    case 'in_progress':      return { cls: 'badge-progress',   label: 'In Progress' }
+    case 'partial_delivery': return { cls: 'badge-partial',    label: 'Partial Delivery' }
+    case 'delivered':        return { cls: 'badge-delivered',  label: 'Delivered' }
+    case 'invoiced':         return { cls: 'badge-invoiced',   label: 'Invoiced' }
+    case 'closed':           return { cls: 'badge-closed',     label: 'Closed' }
+    default:                 return { cls: 'badge-confirmed',  label: status }
+  }
 }
 
 // ── Template ────────────────────────────────────────────────────────────────
 
 export function buildStatementHtml(input: BuildStatementHtmlInput): string {
-  const dateRange = input.date_from && input.date_to
-    ? `${fmtDate(input.date_from)} — ${fmtDate(input.date_to)}`
-    : input.date_from
-      ? `From ${fmtDate(input.date_from)}`
-      : input.date_to
-        ? `Until ${fmtDate(input.date_to)}`
-        : 'All transactions'
+  const orderRows = input.orders.length > 0
+    ? input.orders.map((o) => {
+        const badge = statusBadge(o.status)
+        return `
+        <tr>
+          <td class="cell-num" style="color:#dc2626; font-weight:600;">${escapeHtml(fmtMoney(o.outstanding))}</td>
+          <td class="cell-num">${escapeHtml(fmtMoney(o.paid))}</td>
+          <td class="cell-num">${escapeHtml(fmtMoney(o.total))}</td>
+          <td class="cell-status"><span class="badge ${badge.cls}">${escapeHtml(badge.label)}</span></td>
+          <td class="cell-num">${escapeHtml(fmtDate(o.so_date))}</td>
+          <td class="cell-num" style="font-weight:600; font-size:11.5px;">${escapeHtml(o.so_number)}</td>
+        </tr>`
+      }).join('')
+    : `<tr><td colspan="6" style="text-align:center; padding: 8mm 0; color: var(--muted); font-style: italic;">No open orders</td></tr>`
 
-  const openingRow = `
-    <tr class="opening-row">
-      <td class="cell-date">${escapeHtml(input.date_from ? fmtDate(input.date_from) : '—')}</td>
-      <td class="cell-type" colspan="3"><em>Opening Balance</em></td>
-      <td class="cell-num">—</td>
-      <td class="cell-num">—</td>
-      <td class="cell-num cell-balance ${input.opening_balance > 0 ? 'balance-owed' : ''}">
-        ${escapeHtml(fmtMoney(input.opening_balance))}
-      </td>
-    </tr>
-  `
-
-  const txnRows = input.transactions.length > 0
-    ? input.transactions.map((t) => `
-      <tr>
-        <td class="cell-date">${escapeHtml(fmtDate(t.txn_date))}</td>
-        <td class="cell-type">
-          <span class="type-pill type-${t.txn_type}">${escapeHtml(TXN_LABEL[t.txn_type])}</span>
-        </td>
-        <td class="cell-ref">${escapeHtml(t.reference)}</td>
-        <td class="cell-desc">${escapeHtml(t.description)}</td>
-        <td class="cell-num cell-debit">${t.debit > 0 ? escapeHtml(fmtMoney(t.debit)) : '—'}</td>
-        <td class="cell-num cell-credit">${t.credit > 0 ? escapeHtml(fmtMoney(t.credit)) : '—'}</td>
-        <td class="cell-num cell-balance ${t.balance > 0 ? 'balance-owed' : ''}">
-          ${escapeHtml(fmtMoney(t.balance))}
-        </td>
-      </tr>
-    `).join('')
-    : `<tr><td colspan="7" class="empty-cell">No transactions in this period</td></tr>`
+  const notesText = input.notes
+    ? escapeHtml(input.notes)
+    : 'This statement reflects all open and unpaid sales orders as of the statement date. Completed and fully paid orders are excluded. Please contact us for any discrepancies.'
 
   return `<!DOCTYPE html>
 <html lang="en" dir="ltr">
@@ -120,91 +108,32 @@ export function buildStatementHtml(input: BuildStatementHtmlInput): string {
   ${fontFacesCss(input.fonts)}
   ${BASE_CSS}
 
-  /* ─── Statement-specific ─── */
-  body { padding: 6mm 0 12mm; overflow: visible; height: auto; min-height: 297mm; }
+  /* ─── Statement-specific overrides ─── */
+  table.lines td.cell-status { text-align: center; }
+  table.lines td.cell-status .badge {
+    display: inline-block; padding: 1mm 2.5mm; border-radius: 3px;
+    font-family: 'IBMPlexSans', sans-serif; font-size: 8px; letter-spacing: 0.3px;
+  }
+  .badge-quotation  { background: #f3f4f6; color: #374151; }
+  .badge-pending    { background: #fef3c7; color: #92400e; }
+  .badge-confirmed  { background: #dcfce7; color: #166534; }
+  .badge-progress   { background: #dbeafe; color: #1e40af; }
+  .badge-partial    { background: #fef9c3; color: #854d0e; }
+  .badge-delivered  { background: #d1fae5; color: #065f46; }
+  .badge-invoiced   { background: #dbeafe; color: #1e40af; }
+  .badge-closed     { background: #e5e7eb; color: #4b5563; }
 
-  .statement-meta {
-    display: grid; grid-template-columns: 1fr 1fr; gap: 0 12mm;
-    padding: 1.5mm 14mm 3mm;
+  .notes-wrap { flex: 1; }
+  .notes-wrap .notes-title {
+    font-family: 'IBMPlexSans', sans-serif; font-weight: 700; font-size: 9px; color: var(--text);
+    margin-bottom: 1.5mm;
   }
-
-  .ledger-wrap { padding: 3mm 14mm 0; }
-  table.ledger {
-    width: 100%; border-collapse: collapse; border: 0.7px solid var(--text);
-    font-family: 'IBMPlexSans', sans-serif;
-  }
-  table.ledger th {
-    background: var(--orange); color: #fff; padding: 2.5mm 2mm;
-    text-align: left; vertical-align: middle;
-    font-weight: 600; font-size: 9px; letter-spacing: 0.2px;
-    border-right: 0.7px solid rgba(255,255,255,0.25);
-  }
-  table.ledger th:last-child { border-right: 0; }
-  table.ledger th.num { text-align: right; }
-  table.ledger td {
-    border-top: 0.7px solid var(--grey-rule);
-    padding: 1.8mm 2mm; vertical-align: middle;
-    font-size: 8.5px;
-  }
-  table.ledger tr:nth-child(even) td { background: #fafafa; }
-  table.ledger tr.opening-row td {
-    background: #f0f0f0; font-weight: 600;
-  }
-  .cell-date { white-space: nowrap; color: var(--muted); }
-  .cell-type { white-space: nowrap; }
-  .cell-ref { font-weight: 600; color: var(--text); }
-  .cell-desc { color: var(--muted); }
-  .cell-num { text-align: right; white-space: nowrap; font-variant-numeric: tabular-nums; }
-  .cell-debit { color: var(--text); }
-  .cell-credit { color: #059669; }
-  .cell-balance { font-weight: 700; color: var(--text); }
-  .cell-balance.balance-owed { color: #dc2626; }
-  .empty-cell { text-align: center; padding: 6mm 0; font-style: italic; color: var(--muted); }
-
-  .type-pill {
-    display: inline-block; padding: 0.5mm 1.8mm;
-    border-radius: 2mm; font-size: 7.5px; font-weight: 600;
-    text-transform: uppercase; letter-spacing: 0.3px;
-  }
-  .type-invoice     { background: #dbeafe; color: #1e40af; }
-  .type-payment     { background: #d1fae5; color: #065f46; }
-  .type-credit_note { background: #fef3c7; color: #92400e; }
-
-  /* Summary card */
-  .summary-block { padding: 4mm 14mm 0; display: flex; justify-content: flex-end; }
-  .summary-card {
-    min-width: 90mm; border: 0.7px solid var(--text);
-    font-family: 'IBMPlexSans', sans-serif;
-  }
-  .summary-card .row {
-    display: flex; justify-content: space-between; align-items: center;
-    padding: 2mm 3mm; border-bottom: 0.5px solid var(--grey-rule);
-    font-size: 9px;
-  }
-  .summary-card .row:last-child { border-bottom: 0; }
-  .summary-card .label { color: var(--muted); }
-  .summary-card .value { font-weight: 700; font-variant-numeric: tabular-nums; }
-  .summary-card .value.credit { color: #059669; }
-  .summary-card .grand {
-    background: rgba(237, 124, 44, 0.12); padding: 3mm 3mm;
-    font-size: 11px;
-  }
-  .summary-card .grand .value.owed { color: #dc2626; }
-  .summary-card .grand .value.settled { color: #059669; }
-
-  .footer-note {
-    padding: 4mm 14mm 2mm;
-    font-family: 'IBMPlexSans', sans-serif;
-    font-size: 7.5px; color: var(--muted); font-style: italic;
-    text-align: center;
+  .notes-wrap .notes-text {
+    font-family: 'IBMPlexSans', sans-serif; font-size: 8px; color: var(--muted); line-height: 1.6;
   }
 
-  .footer { position: relative; bottom: auto; margin-top: 6mm; }
-
-  @media print {
-    body { min-height: auto; }
-    tr { page-break-inside: avoid; }
-  }
+  .summary-row .s-outstanding { color: #dc2626; font-size: 10px; }
+  .summary-divider { height: 0.7px; background: var(--text); }
 </style>
 </head>
 <body>
@@ -215,13 +144,33 @@ export function buildStatementHtml(input: BuildStatementHtmlInput): string {
     ${contactStripHtml()}
     <div class="dark-strip"></div>
     <div class="ribbon">
-      <div class="ar-title">كشف حساب</div>
+      <div class="ar-title">كشف حساب الزبون</div>
       <div class="en-title">Customer Statement</div>
-      <div class="doc-no">${escapeHtml(fmtDate(input.generated_at))}</div>
     </div>
   </div>
 
-  <div class="statement-meta">
+  <div class="meta">
+    <div class="meta-block">
+      <div class="meta-value">${escapeHtml(fmtDate(input.statement_date))}</div>
+      <div class="meta-label">
+        <div class="ar">تاريخ الكشف</div>
+        <div class="en">(Statement Date)</div>
+      </div>
+    </div>
+    <div class="meta-block">
+      <div class="meta-value">${escapeHtml(input.account_type || '—')}</div>
+      <div class="meta-label">
+        <div class="ar">نوع الحساب</div>
+        <div class="en">(Account Type)</div>
+      </div>
+    </div>
+    <div class="meta-block">
+      <div class="meta-value">${escapeHtml(input.customer_phone ?? '—')}</div>
+      <div class="meta-label">
+        <div class="ar">هاتف الزبون</div>
+        <div class="en">(Customer Phone)</div>
+      </div>
+    </div>
     <div class="meta-block">
       <div class="meta-value">${escapeHtml(input.customer_name || '—')}</div>
       <div class="meta-label">
@@ -230,59 +179,58 @@ export function buildStatementHtml(input: BuildStatementHtmlInput): string {
       </div>
     </div>
     <div class="meta-block">
-      <div class="meta-value">${escapeHtml(dateRange)}</div>
+      <div class="meta-value">${escapeHtml(String(input.open_orders))}</div>
       <div class="meta-label">
-        <div class="ar">الفترة</div>
-        <div class="en">(Period)</div>
+        <div class="ar">عدد الأوامر المفتوحة</div>
+        <div class="en">(Open Orders)</div>
       </div>
     </div>
   </div>
 
-  <div class="ledger-wrap">
-    <table class="ledger">
+  <div class="lines-wrap">
+    <table class="lines">
       <thead>
         <tr>
-          <th style="width:11%">Date</th>
-          <th style="width:11%">Type</th>
-          <th style="width:12%">Reference</th>
-          <th style="width:31%">Description</th>
-          <th class="num" style="width:11%">Debit</th>
-          <th class="num" style="width:11%">Credit</th>
-          <th class="num" style="width:13%">Balance</th>
+          <th style="width:17%">المستحق<span class="en">(Outstanding)</span></th>
+          <th style="width:17%">المدفوع<span class="en">(Paid)</span></th>
+          <th style="width:17%">الإجمالي<span class="en">(Total)</span></th>
+          <th style="width:14%">الحالة<span class="en">(Status)</span></th>
+          <th style="width:16%">التاريخ<span class="en">(Date)</span></th>
+          <th style="width:19%">رقم أمر البيع<span class="en">(SO #)</span></th>
         </tr>
       </thead>
       <tbody>
-        ${openingRow}
-        ${txnRows}
+        ${orderRows}
       </tbody>
     </table>
   </div>
 
-  <div class="summary-block">
-    <div class="summary-card">
-      <div class="row">
-        <span class="label">Opening Balance</span>
-        <span class="value">${escapeHtml(fmtMoney(input.opening_balance))}</span>
+  <div class="bottom-section">
+    <div class="notes-wrap">
+      <div class="notes-title">Notes</div>
+      <div class="notes-text">${notesText}</div>
+    </div>
+    <div class="summary-inner">
+      <div class="summary-row">
+        <span class="s-label">إجمالي الأوامر</span>
+        <span class="s-en">Total Orders Value</span>
+        <span class="s-sep">:</span>
+        <span class="s-amount">${escapeHtml(fmtMoney(input.total_orders_value))}</span>
       </div>
-      <div class="row">
-        <span class="label">Total Invoiced (Debit)</span>
-        <span class="value">${escapeHtml(fmtMoney(input.total_debit))}</span>
+      <div class="summary-row">
+        <span class="s-label">إجمالي المدفوع</span>
+        <span class="s-en">Total Paid</span>
+        <span class="s-sep">:</span>
+        <span class="s-amount">${escapeHtml(fmtMoney(input.total_paid))}</span>
       </div>
-      <div class="row">
-        <span class="label">Total Paid / Credited</span>
-        <span class="value credit">${escapeHtml(fmtMoney(input.total_credit))}</span>
-      </div>
-      <div class="row grand">
-        <span class="label">Closing Balance</span>
-        <span class="value ${input.closing_balance > 0 ? 'owed' : 'settled'}">
-          ${escapeHtml(fmtMoney(input.closing_balance))}
-        </span>
+      <div class="summary-divider"></div>
+      <div class="summary-row">
+        <span class="s-label">إجمالي المستحق</span>
+        <span class="s-en">Total Outstanding</span>
+        <span class="s-sep">:</span>
+        <span class="s-amount s-outstanding">${escapeHtml(fmtMoney(input.total_outstanding))}</span>
       </div>
     </div>
-  </div>
-
-  <div class="footer-note">
-    Statement generated on ${escapeHtml(fmtDate(input.generated_at))}. For any queries please contact info@alfaytri.com.
   </div>
 
   ${footerHtml(input.assets.footer)}

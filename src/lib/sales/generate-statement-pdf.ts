@@ -1,18 +1,23 @@
 /**
  * Generates a Customer Statement PDF on demand.
- * Date-range parameterized — not cached, returns the buffer directly.
- * Mirrors the invoice-pdf pipeline for HTML/render/fonts.
+ * Calls rpc_customer_statement_v2 (SO-based, matches the mockup at
+ * public/brand/customer-statement-preview.html) and renders via the
+ * shared brand kit / htmlToPdfBuffer pipeline.
+ *
+ * Filter modes (query params on the API route):
+ *   - `open=true` (default) — only orders with outstanding > 0
+ *   - `open=false` — all orders for the customer
  */
 
 import type { SupabaseClient } from '@supabase/supabase-js'
-import { buildStatementHtml, type StatementTxn } from '@/lib/sales/statement-pdf-html'
+import { buildStatementHtml, type StatementOrderRow } from '@/lib/sales/statement-pdf-html'
 import { loadPdfFonts, loadPdfAssets } from '@/lib/pdf/pdf-fonts'
 import { htmlToPdfBuffer } from '@/lib/pdf/html-to-pdf'
 
 export interface GenerateStatementPdfInput {
-  customerId: string
-  dateFrom:   string | null
-  dateTo:     string | null
+  customerId:  string
+  openOnly?:   boolean  // default true — mirror the mockup ("open and unpaid")
+  notes?:      string | null
 }
 
 export interface GenerateStatementPdfResult {
@@ -22,13 +27,14 @@ export interface GenerateStatementPdfResult {
   bytes:        number
 }
 
-type RpcRow = {
-  txn_date:    string
-  txn_type:    'invoice' | 'payment' | 'credit_note'
-  reference:   string
-  description: string
-  debit:       number
-  credit:      number
+type StatementRpcData = {
+  customer: { name: string; phone: string | null; account_type: string }
+  orders: Array<{
+    id: string; so_number: string; created_at: string; status: string
+    total: number; paid: number; outstanding: number
+  }>
+  totals: { total_orders_value: number; total_paid: number; total_outstanding: number }
+  open_orders_count: number
 }
 
 function sanitizeFilename(s: string): string {
@@ -40,85 +46,63 @@ export async function generateStatementPdf(
   supabase: SupabaseClient,
 ): Promise<GenerateStatementPdfResult> {
 
-  // ── 1. Fetch customer + statement rows ───────────────────────────────
-  const [{ data: customer, error: custErr }, { data: statementRows, error: rpcErr }, openingRes] =
-    await Promise.all([
-      supabase.from('customers').select('name').eq('id', input.customerId).single(),
-      supabase.rpc('rpc_customer_statement', {
-        p_customer_id: input.customerId,
-        p_date_from:   input.dateFrom || null,
-        p_date_to:     input.dateTo   || null,
-      }),
-      // Opening balance = all transactions BEFORE date_from
-      input.dateFrom
-        ? supabase.rpc('rpc_customer_statement', {
-            p_customer_id: input.customerId,
-            p_date_from:   null,
-            p_date_to:     new Date(new Date(input.dateFrom).getTime() - 86_400_000)
-                              .toISOString().slice(0, 10),
-          })
-        : Promise.resolve({ data: [] as RpcRow[], error: null }),
-    ])
+  const openOnly = input.openOnly ?? true
 
-  if (custErr || !customer) {
-    throw new Error(`Customer not found: ${input.customerId} (${custErr?.message ?? 'no row'})`)
-  }
-  if (rpcErr) {
-    throw new Error(`Statement RPC failed: ${rpcErr.message}`)
-  }
-  if (openingRes.error) {
-    throw new Error(`Opening balance RPC failed: ${openingRes.error.message}`)
-  }
-
-  const rows: RpcRow[] = (statementRows ?? []) as RpcRow[]
-  const openingRows: RpcRow[] = (openingRes.data ?? []) as RpcRow[]
-  const openingBalance = openingRows.reduce((s, r) => s + Number(r.debit) - Number(r.credit), 0)
-
-  // ── 2. Compute running balance ───────────────────────────────────────
-  let balance = openingBalance
-  const transactions: StatementTxn[] = rows.map((r) => {
-    balance += Number(r.debit) - Number(r.credit)
-    return {
-      txn_date:    r.txn_date,
-      txn_type:    r.txn_type,
-      reference:   r.reference,
-      description: r.description,
-      debit:       Number(r.debit),
-      credit:      Number(r.credit),
-      balance,
-    }
+  // ── 1. Fetch statement data ──────────────────────────────────────────
+  const { data, error } = await supabase.rpc('rpc_customer_statement_v2', {
+    p_customer_id: input.customerId,
   })
+  if (error || !data) {
+    throw new Error(`Statement RPC failed: ${error?.message ?? 'no data'}`)
+  }
+  const statement = data as StatementRpcData
 
-  const totalDebit  = transactions.reduce((s, t) => s + t.debit, 0)
-  const totalCredit = transactions.reduce((s, t) => s + t.credit, 0)
-  const closingBalance = openingBalance + totalDebit - totalCredit
+  // ── 2. Filter + shape orders ─────────────────────────────────────────
+  const filteredOrders = openOnly
+    ? statement.orders.filter((o) => Number(o.outstanding) > 0)
+    : statement.orders
+
+  const rows: StatementOrderRow[] = filteredOrders.map((o) => ({
+    so_number:   o.so_number,
+    so_date:     o.created_at,
+    status:      o.status,
+    total:       Number(o.total),
+    paid:        Number(o.paid),
+    outstanding: Number(o.outstanding),
+  }))
+
+  // If we filtered to open-only, recompute totals from the filtered list.
+  // Otherwise use the RPC-reported totals (which cover all orders).
+  const totalOrders    = openOnly ? rows.reduce((s, o) => s + o.total, 0) : Number(statement.totals.total_orders_value)
+  const totalPaid      = openOnly ? rows.reduce((s, o) => s + o.paid, 0) : Number(statement.totals.total_paid)
+  const totalOutstanding = openOnly ? rows.reduce((s, o) => s + o.outstanding, 0) : Number(statement.totals.total_outstanding)
 
   // ── 3. HTML + PDF ────────────────────────────────────────────────────
   const [assets, fonts] = await Promise.all([loadPdfAssets(), loadPdfFonts()])
 
   const html = buildStatementHtml({
-    customer_name:   customer.name ?? '',
-    date_from:       input.dateFrom,
-    date_to:         input.dateTo,
-    generated_at:    new Date().toISOString(),
-    transactions,
-    opening_balance: openingBalance,
-    total_debit:     totalDebit,
-    total_credit:    totalCredit,
-    closing_balance: closingBalance,
+    customer_name:      statement.customer.name ?? '',
+    customer_phone:     statement.customer.phone ?? null,
+    account_type:       statement.customer.account_type ?? 'Cash',
+    statement_date:     new Date().toISOString(),
+    open_orders:        statement.open_orders_count,
+    orders:             rows,
+    total_orders_value: totalOrders,
+    total_paid:         totalPaid,
+    total_outstanding:  totalOutstanding,
+    notes:              input.notes ?? null,
     assets,
     fonts,
   })
 
   const buffer = await htmlToPdfBuffer(html)
 
-  const rangeSlug = [input.dateFrom, input.dateTo].filter(Boolean).join('_to_')
-  const filename = `Statement_${sanitizeFilename(customer.name ?? 'customer')}${rangeSlug ? `_${rangeSlug}` : ''}.pdf`
+  const filename = `Statement_${sanitizeFilename(statement.customer.name ?? 'customer')}.pdf`
 
   return {
     buffer,
     filename,
-    customerName: customer.name ?? '',
+    customerName: statement.customer.name ?? '',
     bytes: buffer.length,
   }
 }
