@@ -183,6 +183,8 @@ export const queryKeys = {
     dashboard: ['finance-dashboard'] as const,
     purchaseAging: ['purchase-aging-report'] as const,
     salesAging: ['sales-aging-report'] as const,
+    customerStatement: (customerId: Nullable, dateFrom: Nullable, dateTo: Nullable) =>
+      ['customer-statement', customerId, dateFrom, dateTo] as const,
   },
 
   /* ── Divisions ────────────────────────────────────────── */
