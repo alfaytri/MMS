@@ -54,6 +54,7 @@ const ADMIN_SECTIONS: SidebarSection[] = [
       { label: 'Brand Groups',     href: '/master-data/admin/brand-groups',    icon: Tag,        permission: 'master_data.admin.view' },
       { label: 'Pricing Factors',  href: '/master-data/admin/pricing-factors', icon: Percent,    comingSoon: true },
       { label: 'Credit Groups',    href: '/master-data/admin/credit-groups',   icon: CreditCard, permission: 'master_data.admin.view' },
+      { label: 'Credit Group Approvals', href: '/master-data/credit-group-approvals', icon: CheckSquare, permission: 'master_data.customers.view' },
     ],
   },
   {
