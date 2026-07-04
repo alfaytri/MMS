@@ -13,7 +13,7 @@ export function FifoLayersTable({ brandVariantId }: { brandVariantId: string }) 
       <Table>
         <TableHeader>
           <TableRow className="bg-muted">
-            <TableHead className="text-[10px] h-7 font-semibold text-muted-foreground">RECEIVAL #</TableHead>
+            <TableHead className="text-[10px] h-7 font-semibold text-muted-foreground">SOURCE</TableHead>
             <TableHead className="text-[10px] h-7 font-semibold text-muted-foreground">DATE</TableHead>
             <TableHead className="text-[10px] h-7 font-semibold text-muted-foreground text-right">QTY IN</TableHead>
             <TableHead className="text-[10px] h-7 font-semibold text-muted-foreground text-right">REMAINING</TableHead>
@@ -62,7 +62,16 @@ export function FifoLayersTable({ brandVariantId }: { brandVariantId: string }) 
           {!isLoading &&
             layers.map((layer) => (
               <TableRow key={layer.id} className="text-xs">
-                <TableCell className="font-mono text-[11px]">{layer.receival_number ?? '—'}</TableCell>
+                <TableCell className="font-mono text-[11px]">
+                  {layer.receival_number
+                    ? layer.receival_number
+                    : layer.source_type === 'adjustment' ? <span className="text-amber-600">Adjustment</span>
+                    : layer.source_type === 'transfer' ? <span className="text-blue-600">Transfer</span>
+                    : layer.source_type === 'delivery_cancel' ? <span className="text-red-600">DEL Cancel</span>
+                    : layer.source_type === 'stock_check' ? <span className="text-purple-600">Stock Check</span>
+                    : layer.source_type === 'gap_fill' ? <span className="text-muted-foreground">Gap Fill</span>
+                    : <span className="text-muted-foreground">Manual</span>}
+                </TableCell>
                 <TableCell className="text-[11px]">{formatDate(layer.date)}</TableCell>
                 <TableCell className="text-right text-[11px]">{layer.qty}</TableCell>
                 <TableCell className="text-right">

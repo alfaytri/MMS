@@ -273,6 +273,7 @@ export type FifoLayer = {
   id: string
   brand_variant_id: string
   receival_number: string | null
+  source_type: string | null
   date: string
   qty: number
   remaining_qty: number
@@ -336,7 +337,7 @@ export function useInventoryCategoriesByType(type: string, showArchived = false)
 
 export function useCreateInventoryCategory() {
   const qc = useQueryClient()
-  return useMutation<InventoryCategory, Error, { name_en: string; name_ar?: string | null; sku?: string | null; type: string; parent_id?: string | null }>({
+  return useMutation<InventoryCategory, Error, { name_en: string; name_ar?: string | null; sku?: string | null; description?: string | null; type: string; parent_id?: string | null }>({
     mutationFn: async (payload) => {
       const supabase = createClient()
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -359,7 +360,7 @@ export function useCreateInventoryCategory() {
 export function useUpdateInventoryCategory() {
   const qc = useQueryClient()
   return useMutation({
-    mutationFn: async ({ id, ...payload }: { id: string; name_en?: string; name_ar?: string | null; sku?: string | null; status?: string; parent_id?: string | null }) => {
+    mutationFn: async ({ id, ...payload }: { id: string; name_en?: string; name_ar?: string | null; sku?: string | null; description?: string | null; status?: string; parent_id?: string | null }) => {
       const supabase = createClient()
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       const { data, error } = await supabase
@@ -474,7 +475,7 @@ export function useFifoLayers(brandVariantId: string | null, enabled = true) {
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       const { data, error } = await supabase
         .from('fifo_cost_layers')
-        .select('id, brand_variant_id, receival_number, date, qty, remaining_qty, unit_cost, landed_cost_per_unit, total_unit_cost, created_at')
+        .select('id, brand_variant_id, receival_number, source_type, date, qty, remaining_qty, unit_cost, landed_cost_per_unit, total_unit_cost, created_at')
         .eq('brand_variant_id', brandVariantId!)
         .order('date', { ascending: true })
         .order('receival_number', { ascending: true })
@@ -525,6 +526,35 @@ export function useVariantWarehouseStock(variantId: string | undefined, enabled 
     },
     enabled: !!variantId && enabled,
     staleTime: 0,
+  })
+}
+
+// ─── Category stock aggregates ────────────────────────────────────────────────
+
+export type CategoryStockAggregate = {
+  category_id: string
+  total_stock: number
+  total_reserved: number
+  total_damaged: number
+  total_incoming: number
+  avg_cost: number
+  variant_count: number
+}
+
+export function useCategoryStockAggregates(categoryType: string) {
+  return useQuery({
+    queryKey: queryKeys.inventory.categoryStockAggregates(categoryType),
+    queryFn: async () => {
+      const supabase = createClient()
+      const { data, error } = await supabase.rpc('get_category_stock_aggregates', { p_type: categoryType })
+      if (error) throw error
+      const map = new Map<string, CategoryStockAggregate>()
+      for (const row of (data ?? [])) {
+        map.set(row.category_id, row as CategoryStockAggregate)
+      }
+      return map
+    },
+    staleTime: 60 * 1000,
   })
 }
 

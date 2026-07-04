@@ -256,6 +256,8 @@ export const queryKeys = {
       ['tool-asset-items', search] as const,
     toolAssetUnits: (itemId: Nullable) =>
       ['tool-asset-units', itemId] as const,
+    categoryStockAggregates: (type: string) =>
+      ['category-stock-aggregates', type] as const,
   },
 
   /* ── Invoices ─────────────────────────────────────────── */

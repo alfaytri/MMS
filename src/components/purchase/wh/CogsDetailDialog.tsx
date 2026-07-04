@@ -1,0 +1,310 @@
+'use client'
+
+import React from 'react'
+import { useQuery } from '@tanstack/react-query'
+import { createClient } from '@/lib/supabase/client'
+import { queryKeys } from '@/lib/queryKeys'
+import { Dialog, DialogContent } from '@/components/ui/dialog'
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table'
+import { Badge } from '@/components/ui/badge'
+import { Loader2, ShoppingCart, Truck, Package2 } from 'lucide-react'
+import { format } from 'date-fns'
+
+const fmtVal = (n: number) =>
+  n.toLocaleString('en-QA', { minimumFractionDigits: 2, maximumFractionDigits: 2 })
+
+interface CogsEntry {
+  id: string
+  qty: number
+  unit_cost: number
+  total_cost: number
+  date: string
+  notes: string | null
+  sale_delivery_id: string | null
+  sale_order_id: string | null
+  landed_cost_id: string | null
+  delivery_number: string | null
+  so_number: string | null
+  customer_name: string | null
+  lc_number: string | null
+  lc_applied_at: string | null
+}
+
+interface Props {
+  open: boolean
+  onClose: () => void
+  brandVariantId: string
+  itemName: string
+  brand: string | null
+  sku: string | null
+}
+
+function useCogsDetail(brandVariantId: string, enabled: boolean) {
+  return useQuery({
+    queryKey: [...queryKeys.inventory.cogsBreakdown(brandVariantId), 'detail'],
+    enabled,
+    queryFn: async (): Promise<CogsEntry[]> => {
+      const supabase = createClient()
+
+      // 1. Fetch cogs entries (landed_costs has FK, so that join works)
+      const { data: raw, error } = await supabase
+        .from('cogs_entries')
+        .select(`
+          id, qty, unit_cost, total_cost, date, notes,
+          sale_delivery_id, sale_order_id, landed_cost_id,
+          landed_costs(lc_number, applied_at)
+        `)
+        .eq('brand_variant_id', brandVariantId)
+        .order('date', { ascending: false })
+        .order('created_at', { ascending: false })
+        .limit(500)
+      if (error) throw error
+      if (!raw || raw.length === 0) return []
+
+      const entries = raw as Record<string, unknown>[]
+
+      // 2. Collect unique sale_delivery_ids and sale_order_ids for batch lookup
+      const deliveryIds = [...new Set(entries.map((e) => e.sale_delivery_id as string).filter(Boolean))]
+      const orderIds = [...new Set(entries.map((e) => e.sale_order_id as string).filter(Boolean))]
+
+      // 3. Batch-fetch sale_deliveries
+      const deliveryMap = new Map<string, string>()
+      if (deliveryIds.length > 0) {
+        const { data: deliveries } = await supabase
+          .from('sale_deliveries')
+          .select('id, delivery_number')
+          .in('id', deliveryIds)
+        for (const d of (deliveries ?? []) as { id: string; delivery_number: string }[]) {
+          deliveryMap.set(d.id, d.delivery_number)
+        }
+      }
+
+      // 4. Batch-fetch sale_orders + customer names
+      const orderMap = new Map<string, { so_number: string; customer_name: string | null }>()
+      if (orderIds.length > 0) {
+        const { data: orders } = await supabase
+          .from('sale_orders')
+          .select('id, so_number, customers(name)')
+          .in('id', orderIds)
+        for (const o of (orders ?? []) as Record<string, unknown>[]) {
+          const cust = o.customers as { name: string } | null
+          orderMap.set(o.id as string, {
+            so_number: o.so_number as string,
+            customer_name: cust?.name ?? null,
+          })
+        }
+      }
+
+      // 5. Map results
+      return entries.map((r) => {
+        const lc = r.landed_costs as { lc_number: string; applied_at: string | null } | null
+        const soInfo = orderMap.get(r.sale_order_id as string)
+        return {
+          id: r.id as string,
+          qty: r.qty as number,
+          unit_cost: r.unit_cost as number,
+          total_cost: r.total_cost as number,
+          date: r.date as string,
+          notes: r.notes as string | null,
+          sale_delivery_id: r.sale_delivery_id as string | null,
+          sale_order_id: r.sale_order_id as string | null,
+          landed_cost_id: r.landed_cost_id as string | null,
+          delivery_number: deliveryMap.get(r.sale_delivery_id as string) ?? null,
+          so_number: soInfo?.so_number ?? null,
+          customer_name: soInfo?.customer_name ?? null,
+          lc_number: lc?.lc_number ?? null,
+          lc_applied_at: lc?.applied_at ?? null,
+        }
+      })
+    },
+    staleTime: 60 * 1000,
+  })
+}
+
+export function CogsDetailDialog({ open, onClose, brandVariantId, itemName, brand, sku }: Props) {
+  const { data: entries = [], isLoading } = useCogsDetail(brandVariantId, open)
+
+  const saleEntries = entries.filter((e) => e.landed_cost_id === null)
+  const lcEntries = entries.filter((e) => e.landed_cost_id !== null)
+
+  const saleCostTotal = saleEntries.reduce((s, e) => s + e.total_cost, 0)
+  const lcCostTotal = lcEntries.reduce((s, e) => s + e.total_cost, 0)
+  const grandTotal = saleCostTotal + lcCostTotal
+
+  return (
+    <Dialog open={open} onOpenChange={(v) => { if (!v) onClose() }}>
+      <DialogContent className="max-w-3xl max-h-[85vh] flex flex-col p-0 gap-0">
+        {/* Header */}
+        <div className="px-5 pt-5 pb-3 border-b shrink-0">
+          <h2 className="text-base font-semibold flex items-center gap-2">
+            <Package2 className="h-4 w-4 text-primary" />
+            COGS Breakdown
+          </h2>
+          <p className="text-xs text-muted-foreground mt-1">
+            {itemName}
+            {brand && <span className="text-foreground font-medium"> — {brand}</span>}
+            {sku && <span className="text-primary ml-1.5">{sku}</span>}
+          </p>
+        </div>
+
+        {/* Body */}
+        <div className="flex-1 overflow-y-auto px-5 py-4 space-y-5">
+          {isLoading ? (
+            <div className="flex items-center justify-center gap-2 py-12 text-sm text-muted-foreground">
+              <Loader2 className="h-4 w-4 animate-spin" /> Loading COGS data...
+            </div>
+          ) : entries.length === 0 ? (
+            <div className="text-center text-sm text-muted-foreground py-12">
+              No COGS entries found for this item.
+            </div>
+          ) : (
+            <>
+              {/* Summary cards */}
+              <div className="grid grid-cols-3 gap-3">
+                <div className="rounded-lg border px-4 py-3 text-center">
+                  <p className="text-[10px] text-muted-foreground uppercase tracking-wide font-semibold">Sale COGS</p>
+                  <p className="text-base font-bold tabular-nums mt-1 text-destructive">{fmtVal(saleCostTotal)}</p>
+                </div>
+                <div className="rounded-lg border px-4 py-3 text-center">
+                  <p className="text-[10px] text-muted-foreground uppercase tracking-wide font-semibold">LC Adjustments</p>
+                  <p className="text-base font-bold tabular-nums mt-1">{fmtVal(lcCostTotal)}</p>
+                </div>
+                <div className="rounded-lg border px-4 py-3 text-center bg-muted/30">
+                  <p className="text-[10px] text-muted-foreground uppercase tracking-wide font-semibold">Total COGS</p>
+                  <p className="text-base font-bold tabular-nums mt-1 text-destructive">{fmtVal(grandTotal)}</p>
+                </div>
+              </div>
+
+              {/* Sale entries table */}
+              {saleEntries.length > 0 && (
+                <div>
+                  <div className="flex items-center gap-2 mb-2">
+                    <ShoppingCart className="h-3.5 w-3.5 text-muted-foreground" />
+                    <p className="text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">
+                      Sale Deliveries ({saleEntries.length})
+                    </p>
+                  </div>
+                  <div className="rounded-md border overflow-hidden">
+                    <Table>
+                      <TableHeader>
+                        <TableRow className="bg-muted/40">
+                          <TableHead className="text-[10px] py-1.5">Date</TableHead>
+                          <TableHead className="text-[10px] py-1.5">SO #</TableHead>
+                          <TableHead className="text-[10px] py-1.5">Delivery #</TableHead>
+                          <TableHead className="text-[10px] py-1.5">Customer</TableHead>
+                          <TableHead className="text-[10px] text-right py-1.5">Qty</TableHead>
+                          <TableHead className="text-[10px] text-right py-1.5">Unit Cost</TableHead>
+                          <TableHead className="text-[10px] text-right py-1.5">Total Cost</TableHead>
+                        </TableRow>
+                      </TableHeader>
+                      <TableBody>
+                        {saleEntries.map((e) => (
+                          <TableRow key={e.id} className="hover:bg-muted/10">
+                            <TableCell className="text-[11px] py-1.5">
+                              {format(new Date(e.date), 'dd MMM yy')}
+                            </TableCell>
+                            <TableCell className="text-[11px] py-1.5 font-medium text-primary">
+                              {e.so_number ?? '—'}
+                            </TableCell>
+                            <TableCell className="text-[11px] py-1.5">
+                              <div className="flex items-center gap-1">
+                                <Truck className="h-3 w-3 text-muted-foreground" />
+                                {e.delivery_number ?? '—'}
+                              </div>
+                            </TableCell>
+                            <TableCell className="text-[11px] py-1.5 max-w-[150px] truncate">
+                              {e.customer_name ?? '—'}
+                            </TableCell>
+                            <TableCell className="text-[11px] text-right py-1.5 tabular-nums">{e.qty}</TableCell>
+                            <TableCell className="text-[11px] text-right py-1.5 tabular-nums">{fmtVal(e.unit_cost)}</TableCell>
+                            <TableCell className="text-[11px] text-right py-1.5 tabular-nums font-medium text-destructive">
+                              {fmtVal(e.total_cost)}
+                            </TableCell>
+                          </TableRow>
+                        ))}
+                        {saleEntries.length > 1 && (
+                          <TableRow className="bg-muted/30 font-semibold">
+                            <TableCell colSpan={4} className="text-[11px] py-1.5">Total</TableCell>
+                            <TableCell className="text-[11px] text-right py-1.5 tabular-nums">
+                              {saleEntries.reduce((s, e) => s + e.qty, 0)}
+                            </TableCell>
+                            <TableCell className="text-[11px] py-1.5" />
+                            <TableCell className="text-[11px] text-right py-1.5 tabular-nums text-destructive">
+                              {fmtVal(saleCostTotal)}
+                            </TableCell>
+                          </TableRow>
+                        )}
+                      </TableBody>
+                    </Table>
+                  </div>
+                </div>
+              )}
+
+              {/* LC adjustment entries */}
+              {lcEntries.length > 0 && (
+                <div>
+                  <div className="flex items-center gap-2 mb-2">
+                    <Badge variant="outline" className="text-[9px] font-normal">LC</Badge>
+                    <p className="text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">
+                      Landed Cost Adjustments ({lcEntries.length})
+                    </p>
+                  </div>
+                  <div className="rounded-md border overflow-hidden">
+                    <Table>
+                      <TableHeader>
+                        <TableRow className="bg-muted/40">
+                          <TableHead className="text-[10px] py-1.5">Date</TableHead>
+                          <TableHead className="text-[10px] py-1.5">LC #</TableHead>
+                          <TableHead className="text-[10px] py-1.5">Applied</TableHead>
+                          <TableHead className="text-[10px] py-1.5">Notes</TableHead>
+                          <TableHead className="text-[10px] text-right py-1.5">Qty</TableHead>
+                          <TableHead className="text-[10px] text-right py-1.5">Unit Cost</TableHead>
+                          <TableHead className="text-[10px] text-right py-1.5">Total Cost</TableHead>
+                        </TableRow>
+                      </TableHeader>
+                      <TableBody>
+                        {lcEntries.map((e) => (
+                          <TableRow key={e.id} className="hover:bg-muted/10">
+                            <TableCell className="text-[11px] py-1.5">
+                              {format(new Date(e.date), 'dd MMM yy')}
+                            </TableCell>
+                            <TableCell className="text-[11px] py-1.5 font-medium text-primary">
+                              {e.lc_number ?? '—'}
+                            </TableCell>
+                            <TableCell className="text-[11px] py-1.5">
+                              {e.lc_applied_at ? format(new Date(e.lc_applied_at), 'dd MMM yy') : '—'}
+                            </TableCell>
+                            <TableCell className="text-[11px] py-1.5 max-w-[150px] truncate text-muted-foreground">
+                              {e.notes ?? '—'}
+                            </TableCell>
+                            <TableCell className="text-[11px] text-right py-1.5 tabular-nums">{e.qty}</TableCell>
+                            <TableCell className="text-[11px] text-right py-1.5 tabular-nums">{fmtVal(e.unit_cost)}</TableCell>
+                            <TableCell className="text-[11px] text-right py-1.5 tabular-nums font-medium">
+                              {e.total_cost >= 0 ? '+' : ''}{fmtVal(e.total_cost)}
+                            </TableCell>
+                          </TableRow>
+                        ))}
+                        {lcEntries.length > 1 && (
+                          <TableRow className="bg-muted/30 font-semibold">
+                            <TableCell colSpan={4} className="text-[11px] py-1.5">Total</TableCell>
+                            <TableCell className="text-[11px] text-right py-1.5 tabular-nums">
+                              {lcEntries.reduce((s, e) => s + e.qty, 0)}
+                            </TableCell>
+                            <TableCell className="text-[11px] py-1.5" />
+                            <TableCell className="text-[11px] text-right py-1.5 tabular-nums">
+                              {lcCostTotal >= 0 ? '+' : ''}{fmtVal(lcCostTotal)}
+                            </TableCell>
+                          </TableRow>
+                        )}
+                      </TableBody>
+                    </Table>
+                  </div>
+                </div>
+              )}
+            </>
+          )}
+        </div>
+      </DialogContent>
+    </Dialog>
+  )
+}

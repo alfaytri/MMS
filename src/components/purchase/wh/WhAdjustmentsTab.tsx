@@ -19,6 +19,7 @@ import { createClient } from '@/lib/supabase/client'
 import { format } from 'date-fns'
 import { toast } from 'sonner'
 import { queryKeys } from '@/lib/queryKeys'
+import { WarehouseReportButton } from './WarehouseReportButton'
 
 type StockAdjustmentRow = {
   id: string
@@ -121,26 +122,29 @@ export const WhAdjustmentsTab = React.memo(function WhAdjustmentsTab({ warehouse
 
   return (
     <div className="p-4 md:p-6 space-y-3">
-      <Tabs value={statusFilter} onValueChange={(v) => setStatusFilter(v as StatusFilter)}>
-        <TabsList className="h-8 text-xs">
-          {FILTER_TABS.map((t) => (
-            <TabsTrigger key={t.value} value={t.value} className="text-xs px-3 h-7 gap-1">
-              {t.label}
-              {t.count > 0 && (
-                <span
-                  className={`ml-1 h-4 min-w-4 px-1 text-[9px] rounded inline-flex items-center justify-center ${
-                    t.value === 'pending_approval'
-                      ? 'bg-warning/20 text-warning'
-                      : 'bg-muted text-muted-foreground'
-                  }`}
-                >
-                  {t.count}
-                </span>
-              )}
-            </TabsTrigger>
-          ))}
-        </TabsList>
-      </Tabs>
+      <div className="flex items-center justify-between gap-2">
+        <Tabs value={statusFilter} onValueChange={(v) => setStatusFilter(v as StatusFilter)}>
+          <TabsList className="h-8 text-xs">
+            {FILTER_TABS.map((t) => (
+              <TabsTrigger key={t.value} value={t.value} className="text-xs px-3 h-7 gap-1">
+                {t.label}
+                {t.count > 0 && (
+                  <span
+                    className={`ml-1 h-4 min-w-4 px-1 text-[9px] rounded inline-flex items-center justify-center ${
+                      t.value === 'pending_approval'
+                        ? 'bg-warning/20 text-warning'
+                        : 'bg-muted text-muted-foreground'
+                    }`}
+                  >
+                    {t.count}
+                  </span>
+                )}
+              </TabsTrigger>
+            ))}
+          </TabsList>
+        </Tabs>
+        <WarehouseReportButton reportType="adjustments" label="Report" />
+      </div>
 
       <div className="rounded-md border overflow-x-auto">
         <Table>

@@ -8,7 +8,8 @@ import { ConfirmDialog } from '@/components/shared/ConfirmDialog'
 import { ItemRow } from './ItemRow'
 import { CategoryEditDialog } from './CategoryEditDialog'
 import { ItemEditDialog } from './ItemEditDialog'
-import { useInventoryItemsByCategory, useArchiveInventoryCategory, useUpdateSortOrders } from '@/hooks/useInventory'
+import { useInventoryItemsByCategory, useArchiveInventoryCategory, useUpdateSortOrders, type CategoryStockAggregate } from '@/hooks/useInventory'
+import { formatCurrency } from '@/lib/utils/formatters'
 import type { InventoryTreeNode } from '@/hooks/useInventoryTree'
 
 type Props = {
@@ -20,9 +21,10 @@ type Props = {
   onMoveUp: () => void
   onMoveDown: () => void
   depth?: number
+  stockAggregates?: Map<string, CategoryStockAggregate>
 }
 
-export function CategoryRow({ node, categoryType, showArchived, canMoveUp, canMoveDown, onMoveUp, onMoveDown, depth = 0 }: Props) {
+export function CategoryRow({ node, categoryType, showArchived, canMoveUp, canMoveDown, onMoveUp, onMoveDown, depth = 0, stockAggregates }: Props) {
   const [expanded, setExpanded] = useState(false)
   const [editOpen, setEditOpen] = useState(false)
   const [addItemOpen, setAddItemOpen] = useState(false)
@@ -61,7 +63,12 @@ export function CategoryRow({ node, categoryType, showArchived, canMoveUp, canMo
     <>
       {/* Category row */}
       <tr
-        className="border-b border-border bg-muted/80 hover:bg-muted/60 cursor-pointer"
+        className={`border-b border-border cursor-pointer ${
+          depth === 0 ? 'bg-slate-100 hover:bg-slate-200/80 dark:bg-slate-800 dark:hover:bg-slate-700'
+          : depth === 1 ? 'bg-blue-50 hover:bg-blue-100/80 dark:bg-blue-950/40 dark:hover:bg-blue-900/40'
+          : depth === 2 ? 'bg-violet-50 hover:bg-violet-100/80 dark:bg-violet-950/40 dark:hover:bg-violet-900/40'
+          : 'bg-amber-50 hover:bg-amber-100/80 dark:bg-amber-950/40 dark:hover:bg-amber-900/40'
+        }`}
         onClick={() => setExpanded((v) => !v)}
       >
         <td className="py-2.5 pr-2 w-1/2" style={{ paddingLeft: indent }}>
@@ -85,9 +92,35 @@ export function CategoryRow({ node, categoryType, showArchived, canMoveUp, canMo
           </div>
         </td>
         <td className="py-2.5 px-2 text-[11px] font-mono text-muted-foreground">{node.sku ?? '---'}</td>
-        <td className="py-2.5 px-2 text-[11px] text-muted-foreground">---</td>
-        <td className="py-2.5 px-2 text-[11px] text-muted-foreground">---</td>
-        <td className="py-2.5 px-2 text-[11px] text-muted-foreground">---</td>
+        {(() => {
+          const agg = stockAggregates?.get(node.id)
+          if (!agg || agg.variant_count === 0) return (
+            <>
+              <td className="py-2.5 px-2 text-[11px] text-muted-foreground">---</td>
+              <td className="py-2.5 px-2 text-[11px] text-muted-foreground">---</td>
+              <td className="py-2.5 px-2 text-[11px] text-muted-foreground">---</td>
+            </>
+          )
+          const available = Number(agg.total_stock) - Number(agg.total_reserved)
+          return (
+            <>
+              <td className="py-2.5 px-2 text-[11px] text-muted-foreground">
+                {agg.variant_count} variant{Number(agg.variant_count) !== 1 ? 's' : ''}
+              </td>
+              <td className="py-2.5 px-2 text-[11px] text-muted-foreground">
+                {formatCurrency(Number(agg.avg_cost), 'QAR')}
+              </td>
+              <td className="py-2.5 px-2 text-[11px]">
+                <span className={available > 0 ? 'text-green-600 font-medium' : 'text-muted-foreground'}>
+                  {available.toLocaleString()}
+                </span>
+                {Number(agg.total_damaged) > 0 && (
+                  <span className="text-red-500 ml-1.5 text-[10px]">({agg.total_damaged} dmg)</span>
+                )}
+              </td>
+            </>
+          )
+        })()}
         <td className="py-2.5 px-2 text-right">
           <div className="flex items-center justify-end gap-1" onClick={(e) => e.stopPropagation()}>
             <Button variant="ghost" size="icon" className="h-6 w-6" disabled={!canMoveUp} onClick={() => onMoveUp()}>
@@ -126,6 +159,7 @@ export function CategoryRow({ node, categoryType, showArchived, canMoveUp, canMo
           onMoveUp={() => handleChildCategoryMove(idx, 'up')}
           onMoveDown={() => handleChildCategoryMove(idx, 'down')}
           depth={depth + 1}
+          stockAggregates={stockAggregates}
         />
       ))}
 

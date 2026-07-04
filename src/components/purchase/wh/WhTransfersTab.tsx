@@ -2,6 +2,7 @@
 
 import React, { useMemo, useState, useCallback } from 'react'
 import { ArrowRight, CheckCircle2, XCircle, Truck, PackageCheck, Ban } from 'lucide-react'
+import { WarehouseReportButton } from './WarehouseReportButton'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -90,11 +91,12 @@ export const WhTransfersTab = React.memo(function WhTransfersTab({ warehouses, c
 
   // ── Variant meta for ItemTreeCell ──
   const variantMeta = useMemo(() => {
-    const map = new Map<string, { categoryName: string | null; itemType: string | null; itemName: string; brand: string | null; sku: string | null }>()
+    const map = new Map<string, { categoryName: string | null; subcategoryName: string | null; itemType: string | null; itemName: string; brand: string | null; sku: string | null }>()
     for (const s of fullStock) {
       if (!map.has(s.brand_variant_id)) {
         map.set(s.brand_variant_id, {
           categoryName: s.category_name ?? null,
+          subcategoryName: s.subcategory_name ?? null,
           itemType: s.item_type ?? null,
           itemName: s.item_name,
           brand: s.brand ?? null,
@@ -328,6 +330,10 @@ export const WhTransfersTab = React.memo(function WhTransfersTab({ warehouses, c
   return (
     <>
       <div className="p-4 md:p-6 space-y-3">
+        <div className="flex items-center justify-between">
+          <h3 className="text-sm font-semibold">Transfers</h3>
+          <WarehouseReportButton reportType="transfers" label="Report" />
+        </div>
         {transfers.map((t) => {
           const showDispatch = canDispatch(t)
           const showReceive  = canReceive(t)
@@ -448,6 +454,7 @@ export const WhTransfersTab = React.memo(function WhTransfersTab({ warehouses, c
                       </Badge>
                       <ItemTreeCell
                         category={meta?.categoryName}
+                        subcategory={meta?.subcategoryName}
                         itemType={meta?.itemType}
                         itemName={meta?.itemName ?? item.item_name}
                         brand={meta?.brand}
@@ -539,7 +546,7 @@ function ReceivalSubForm({
   onConfirm: () => void
   onCancel: () => void
   isPending: boolean
-  variantMeta: Map<string, { categoryName: string | null; itemType: string | null; itemName: string; brand: string | null; sku: string | null }>
+  variantMeta: Map<string, { categoryName: string | null; subcategoryName: string | null; itemType: string | null; itemName: string; brand: string | null; sku: string | null }>
 }) {
   const items = transfer.transfer_items ?? []
 

@@ -59,10 +59,10 @@ export default function SaleReturnsPage() {
   const [customReason, setCustomReason] = useState('')
   const [notes, setNotes] = useState('')
   const [warehouseId, setWarehouseId] = useState('')
-  const [items, setItems] = useState<SaleReturn['items']>([])
+  const [items, setItems] = useState<(SaleReturn['items'][number] & { delivered_qty?: number })[]>([])
 
   const { data: returns, isLoading } = useSaleReturns({ search, status: statusFilter || undefined })
-  const { data: saleOrders } = useSaleOrders({ status: 'delivered' })
+  const { data: saleOrders } = useSaleOrders({ statuses: ['delivered', 'partial_delivery'] })
   const { data: warehouses = [] } = useWarehouses()
   const { data: reasons = [] } = useReturnReasons('sale_return')
 
@@ -76,7 +76,7 @@ export default function SaleReturnsPage() {
     setItems(
       (so.sale_order_lines ?? [])
         .filter((l) => l.delivered_qty > 0)
-        .map((l) => ({ item_name: l.item_name, sku: l.sku, qty: 0, condition: 'good' as const, brand_variant_id: l.brand_variant_id }))
+        .map((l) => ({ item_name: l.item_name, sku: l.sku, qty: 0, condition: 'good' as const, brand_variant_id: l.brand_variant_id, delivered_qty: l.delivered_qty }))
     )
   }
 
@@ -255,11 +255,14 @@ export default function SaleReturnsPage() {
                   <div key={idx} className="flex items-center gap-3 rounded-lg border p-3">
                     <div className="flex-1 min-w-0">
                       <div className="text-sm font-medium truncate">{item.item_name}</div>
-                      {item.sku && <div className="text-xs text-muted-foreground">{item.sku}</div>}
+                      <div className="text-xs text-muted-foreground">
+                        {item.sku && <span>{item.sku} · </span>}
+                        <span className="text-orange-600 font-medium">Delivered: {item.delivered_qty ?? 0}</span>
+                      </div>
                     </div>
                     <div className="flex items-center gap-2">
-                      <Input type="number" min="0" value={item.qty}
-                        onChange={(e) => { const u = [...items]; u[idx] = { ...u[idx], qty: Math.max(0, Number(e.target.value)) }; setItems(u) }}
+                      <Input type="number" min="0" max={item.delivered_qty ?? undefined} value={item.qty}
+                        onChange={(e) => { const u = [...items]; const maxQty = item.delivered_qty ?? Infinity; u[idx] = { ...u[idx], qty: Math.min(maxQty, Math.max(0, Number(e.target.value))) }; setItems(u) }}
                         className="w-20 text-right" />
                       <button type="button"
                         onClick={() => { const u = [...items]; u[idx] = { ...u[idx], condition: item.condition === 'good' ? 'damaged' : 'good' }; setItems(u) }}

@@ -134,10 +134,10 @@ export function WhMovementRefDialog({ referenceType, referenceId, open, onClose 
   const { data: fullStock = [] } = useWarehouseStock()
 
   const variantMeta = useMemo(() => {
-    const map = new Map<string, { categoryName: string | null; itemType: string | null; itemName: string; brand: string | null }>()
+    const map = new Map<string, { categoryName: string | null; subcategoryName: string | null; itemType: string | null; itemName: string; brand: string | null }>()
     for (const s of fullStock) {
       if (!map.has(s.brand_variant_id)) {
-        map.set(s.brand_variant_id, { categoryName: s.category_name ?? null, itemType: s.item_type ?? null, itemName: s.item_name, brand: s.brand ?? null })
+        map.set(s.brand_variant_id, { categoryName: s.category_name ?? null, subcategoryName: s.subcategory_name ?? null, itemType: s.item_type ?? null, itemName: s.item_name, brand: s.brand ?? null })
       }
     }
     return map
@@ -281,6 +281,7 @@ function ReceivalView({ data, variantMeta, isFree }: { data: any; variantMeta: M
                   <div key={i.id} className="grid grid-cols-[1fr_80px] gap-2 px-4 py-2.5 items-center">
                     <ItemTreeCell
                       category={meta?.categoryName}
+                      subcategory={meta?.subcategoryName}
                       itemType={meta?.itemType}
                       itemName={meta?.itemName ?? i.item_name}
                       brand={meta?.brand}
@@ -484,7 +485,7 @@ function LandedCostView({ data }: { data: any }) {
         <MetaRow icon={<Calendar className="h-3.5 w-3.5 text-muted-foreground" />} label="Date" value={data.created_at ? format(new Date(data.created_at), 'dd MMM yyyy') : '—'} />
         <div className="rounded-lg border px-3 py-2.5 text-center">
           <p className="text-[10px] text-muted-foreground uppercase tracking-wide mb-0.5">Total Landed Cost</p>
-          <p className="text-lg font-bold tabular-nums">{data.total_landed_cost != null ? Number(data.total_landed_cost).toFixed(2) : '—'}</p>
+          <p className="text-lg font-bold tabular-nums">{data.total_landed_cost != null ? Number(data.total_landed_cost).toLocaleString('en-QA', { minimumFractionDigits: 2, maximumFractionDigits: 2 }) : '—'}</p>
         </div>
       </div>
     </div>

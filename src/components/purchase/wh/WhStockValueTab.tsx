@@ -11,8 +11,8 @@ import { Badge } from '@/components/ui/badge'
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip'
 import { useWarehouseStock, type WarehouseStockItem } from '@/hooks/useWarehouseOperations'
 import { useStockValueCogsSummary } from '@/hooks/useStockValueCogsSummary'
-import { CogsBreakdownPopover } from './CogsBreakdownPopover'
-import { useRouter } from 'next/navigation'
+import { CogsDetailDialog } from './CogsDetailDialog'
+import { WarehouseReportButton } from './WarehouseReportButton'
 import { Warehouse } from '@/hooks/useWarehouses'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { queryKeys } from '@/lib/queryKeys'
@@ -228,12 +228,15 @@ export const WhStockValueTab = React.memo(function WhStockValueTab({ warehouses 
   const [sortField, setSortField] = useState<SortField>('latest_receival')
   const [sortDir, setSortDir] = useState<SortDir>('desc')
   const [expandedRows, setExpandedRows] = useState<Set<string>>(new Set())
+  const [cogsDialog, setCogsDialog] = useState<{
+    brandVariantId: string; itemName: string; brand: string | null; sku: string | null
+  } | null>(null)
 
   const queryClient = useQueryClient()
 
   const { data: allStock = [], isLoading } = useWarehouseStock(selectedWarehouseId)
   const { data: cogsMap } = useStockValueCogsSummary(null)
-  const router = useRouter()
+
 
   // Per-variant latest receival (created_at of newest FIFO layer) for sort ordering.
   const { data: latestReceivalMap } = useQuery({
@@ -500,6 +503,8 @@ export const WhStockValueTab = React.memo(function WhStockValueTab({ warehouses 
             </div>
           )}
 
+          <WarehouseReportButton reportType="stock-value" label="Report" />
+
           {/* Sort toggle: newest receival (default) vs A–Z by category */}
           <div className="ml-auto flex items-center gap-1">
             <button
@@ -677,18 +682,20 @@ export const WhStockValueTab = React.memo(function WhStockValueTab({ warehouses 
                         {/* COGS */}
                         <TableCell className="text-xs text-right py-2 tabular-nums">
                           {row.cogsTotalCost > 0 ? (
-                            row.cogsLcAdjustmentCount > 0 ? (
-                              <CogsBreakdownPopover
-                                variantId={row.brand_variant_id}
-                                onSelectLc={(lcId) => router.push(`/purchase/landed-costs?open=${lcId}`)}
-                              >
-                                <span className="cursor-default underline decoration-dashed underline-offset-2 text-destructive font-medium">
-                                  {formatCurrency(row.cogsTotalCost)}
-                                </span>
-                              </CogsBreakdownPopover>
-                            ) : (
-                              <span className="text-destructive font-medium">{formatCurrency(row.cogsTotalCost)}</span>
-                            )
+                            <span
+                              className="cursor-pointer underline decoration-dashed underline-offset-2 text-destructive font-medium hover:text-destructive/80"
+                              onClick={(e) => {
+                                e.stopPropagation()
+                                setCogsDialog({
+                                  brandVariantId: row.brand_variant_id,
+                                  itemName: row.item_name,
+                                  brand: row.brand,
+                                  sku: row.sku,
+                                })
+                              }}
+                            >
+                              {formatCurrency(row.cogsTotalCost)}
+                            </span>
                           ) : (
                             <span className="text-muted-foreground">—</span>
                           )}
@@ -729,6 +736,18 @@ export const WhStockValueTab = React.memo(function WhStockValueTab({ warehouses 
               Total: QR {formatCurrency(totalValue)}
             </span>
           </div>
+        )}
+
+        {/* COGS detail dialog */}
+        {cogsDialog && (
+          <CogsDetailDialog
+            open={!!cogsDialog}
+            onClose={() => setCogsDialog(null)}
+            brandVariantId={cogsDialog.brandVariantId}
+            itemName={cogsDialog.itemName}
+            brand={cogsDialog.brand}
+            sku={cogsDialog.sku}
+          />
         )}
       </div>
     </TooltipProvider>

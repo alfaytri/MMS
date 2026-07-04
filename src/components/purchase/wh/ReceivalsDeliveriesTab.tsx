@@ -8,6 +8,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table'
 import { useReceivalsAndDeliveries, ReceivalDelivery } from '@/hooks/useWarehouseOperations'
 import { WhReceivalDetailDialog } from './WhReceivalDetailDialog'
+import { WarehouseReportButton } from './WarehouseReportButton'
 import { Warehouse } from '@/hooks/useWarehouses'
 import { format } from 'date-fns'
 
@@ -80,6 +81,7 @@ export const ReceivalsDeliveriesTab = React.memo(function ReceivalsDeliveriesTab
             ))}
           </SelectContent>
         </Select>
+        <WarehouseReportButton reportType="receivals-deliveries" label="Report" />
       </div>
 
       <div className="rounded-md border">

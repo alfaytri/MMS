@@ -10,9 +10,12 @@ import { EmptyState } from '@/components/shared/EmptyState'
 import { ItemTreeCell } from './ItemTreeCell'
 import { WhMovementRefDialog } from './WhMovementRefDialog'
 import { WhStockDetailDialog } from './WhStockDetailDialog'
+import { WarehouseReportButton } from './WarehouseReportButton'
 import { useStockMovements, useWarehouseStock, StockMovement } from '@/hooks/useWarehouseOperations'
 import { Warehouse } from '@/hooks/useWarehouses'
 import { format } from 'date-fns'
+
+const fmtVal = (n: number) => n.toLocaleString('en-QA', { minimumFractionDigits: 2, maximumFractionDigits: 2 })
 
 const MOVEMENT_STYLES: Record<string, string> = {
   adjustment:                  'bg-primary/10 text-primary',
@@ -85,7 +88,7 @@ export const WhMovementsTab = React.memo(function WhMovementsTab({ warehouses }:
   const [typeFilter, setTypeFilter] = useState('all')
   const [refDialog, setRefDialog] = useState<{ type: string; id: string } | null>(null)
   const [stockDialog, setStockDialog] = useState<{
-    brandVariantId: string; itemName: string; category: string | null; itemType: string | null
+    brandVariantId: string; itemName: string; category: string | null; subcategory: string | null; itemType: string | null
     brand: string | null; sku: string | null
     breakdown: { totalQty: number; totalValue: number; warehouses: { name: string; qty: number; value: number }[] }
   } | null>(null)
@@ -96,10 +99,10 @@ export const WhMovementsTab = React.memo(function WhMovementsTab({ warehouses }:
   const warehouseMap = useMemo(() => new Map(warehouses.map(w => [w.id, w.name])), [warehouses])
 
   const variantMeta = useMemo(() => {
-    const map = new Map<string, { categoryName: string | null; itemType: string | null; itemName: string; brand: string | null }>()
+    const map = new Map<string, { categoryName: string | null; subcategoryName: string | null; itemType: string | null; itemName: string; brand: string | null }>()
     for (const s of fullStock) {
       if (!map.has(s.brand_variant_id)) {
-        map.set(s.brand_variant_id, { categoryName: s.category_name ?? null, itemType: s.item_type ?? null, itemName: s.item_name, brand: s.brand ?? null })
+        map.set(s.brand_variant_id, { categoryName: s.category_name ?? null, subcategoryName: s.subcategory_name ?? null, itemType: s.item_type ?? null, itemName: s.item_name, brand: s.brand ?? null })
       }
     }
     return map
@@ -168,6 +171,7 @@ export const WhMovementsTab = React.memo(function WhMovementsTab({ warehouses }:
             ))}
           </SelectContent>
         </Select>
+        <WarehouseReportButton reportType="movements" warehouseId={warehouseFilter === 'all' ? undefined : warehouseFilter} label="Report" />
       </div>
 
       {/* Table */}
@@ -208,6 +212,7 @@ export const WhMovementsTab = React.memo(function WhMovementsTab({ warehouses }:
                     <TableCell className="text-xs py-2.5">
                       <ItemTreeCell
                         category={meta?.categoryName}
+                        subcategory={meta?.subcategoryName}
                         itemType={meta?.itemType}
                         itemName={meta?.itemName ?? m.item_name}
                         brand={meta?.brand}
@@ -225,11 +230,11 @@ export const WhMovementsTab = React.memo(function WhMovementsTab({ warehouses }:
                     <TableCell className="text-xs text-right tabular-nums">{m.qty}</TableCell>
 
                     {/* Unit Cost */}
-                    <TableCell className="text-xs text-right tabular-nums">{m.unit_cost?.toFixed(2) ?? '—'}</TableCell>
+                    <TableCell className="text-xs text-right tabular-nums">{m.unit_cost != null ? fmtVal(m.unit_cost) : '—'}</TableCell>
 
                     {/* Movement Total */}
                     <TableCell className="text-xs text-right tabular-nums">
-                      {m.unit_cost != null && m.qty != null ? (m.unit_cost * m.qty).toFixed(2) : '—'}
+                      {m.unit_cost != null && m.qty != null ? fmtVal(m.unit_cost * m.qty) : '—'}
                     </TableCell>
 
                     {/* Stock Qty — clickable to open stock detail dialog */}
@@ -241,6 +246,7 @@ export const WhMovementsTab = React.memo(function WhMovementsTab({ warehouses }:
                             brandVariantId: m.brand_variant_id,
                             itemName: meta?.itemName ?? m.item_name,
                             category: meta?.categoryName ?? null,
+                            subcategory: meta?.subcategoryName ?? null,
                             itemType: meta?.itemType ?? null,
                             brand: meta?.brand ?? null,
                             sku: m.sku,
@@ -263,13 +269,14 @@ export const WhMovementsTab = React.memo(function WhMovementsTab({ warehouses }:
                             brandVariantId: m.brand_variant_id,
                             itemName: meta?.itemName ?? m.item_name,
                             category: meta?.categoryName ?? null,
+                            subcategory: meta?.subcategoryName ?? null,
                             itemType: meta?.itemType ?? null,
                             brand: meta?.brand ?? null,
                             sku: m.sku,
                             breakdown: stockInfo,
                           })}
                         >
-                          {stockInfo.totalValue.toFixed(2)}
+                          {fmtVal(stockInfo.totalValue)}
                         </span>
                       ) : (
                         <span>—</span>
@@ -321,6 +328,7 @@ export const WhMovementsTab = React.memo(function WhMovementsTab({ warehouses }:
           onClose={() => setStockDialog(null)}
           itemName={stockDialog.itemName}
           category={stockDialog.category}
+          subcategory={stockDialog.subcategory}
           itemType={stockDialog.itemType}
           brand={stockDialog.brand}
           sku={stockDialog.sku}
