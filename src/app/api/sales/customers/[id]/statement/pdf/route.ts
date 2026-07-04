@@ -1,6 +1,6 @@
 /**
- * GET /api/sales/customers/[id]/statement/pdf?from=YYYY-MM-DD&to=YYYY-MM-DD
- *   → returns application/pdf inline (opens in a new tab)
+ * GET /api/sales/customers/[id]/statement/pdf?open=true|false
+ *   → returns application/pdf inline
  *
  * Auth: Authorization: Bearer <supabase user JWT>
  */
@@ -31,13 +31,13 @@ export async function GET(
   const user = await requireUser(req)
   if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
 
-  const from = req.nextUrl.searchParams.get('from')
-  const to   = req.nextUrl.searchParams.get('to')
+  const openParam = req.nextUrl.searchParams.get('open')
+  const openOnly = openParam === null ? true : openParam !== 'false'
 
   const supabase = createClient(SUPA_URL, SUPA_KEY)
   try {
     const { buffer, filename } = await generateStatementPdf(
-      { customerId: id, dateFrom: from, dateTo: to },
+      { customerId: id, openOnly },
       supabase,
     )
 

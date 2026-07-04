@@ -7,7 +7,6 @@ import { Skeleton } from '@/components/ui/skeleton'
 import { EmptyState } from '@/components/shared/EmptyState'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
-import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import {
   Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
@@ -15,70 +14,48 @@ import {
 import {
   Table, TableBody, TableCell, TableHead, TableHeader, TableRow,
 } from '@/components/ui/table'
-import { useCustomerStatement, useCustomerList } from '@/hooks/useCustomerStatement'
+import { useCustomerStatement, useCustomerList, type StatementOrder } from '@/hooks/useCustomerStatement'
 import { formatCurrency, formatDate } from '@/lib/utils/formatters'
 import { cn } from '@/lib/utils'
 import { createClient } from '@/lib/supabase/client'
 import { toast } from 'sonner'
-import {
-  FileText, CreditCard, FileX, Download, Eye, Loader2, X,
-} from 'lucide-react'
+import { Download, Eye, Loader2 } from 'lucide-react'
 
-const TXN_CONFIG: Record<string, { label: string; icon: typeof FileText; badgeClass: string }> = {
-  invoice:     { label: 'Invoice',     icon: FileText,   badgeClass: 'border-blue-300 bg-blue-50 text-blue-700' },
-  payment:     { label: 'Payment',     icon: CreditCard, badgeClass: 'border-emerald-300 bg-emerald-50 text-emerald-700' },
-  credit_note: { label: 'Credit Note', icon: FileX,      badgeClass: 'border-amber-300 bg-amber-50 text-amber-700' },
+const STATUS_BADGE: Record<string, { label: string; cls: string }> = {
+  quotation:        { label: 'Quotation',        cls: 'bg-muted text-muted-foreground border-transparent' },
+  pending_approval: { label: 'Pending Approval', cls: 'bg-amber-100 text-amber-800 border-amber-200' },
+  confirmed:        { label: 'Confirmed',        cls: 'bg-emerald-100 text-emerald-800 border-emerald-200' },
+  in_progress:      { label: 'In Progress',      cls: 'bg-blue-100 text-blue-800 border-blue-200' },
+  partial_delivery: { label: 'Partial Delivery', cls: 'bg-yellow-100 text-yellow-800 border-yellow-200' },
+  delivered:        { label: 'Delivered',        cls: 'bg-teal-100 text-teal-800 border-teal-200' },
+  invoiced:         { label: 'Invoiced',         cls: 'bg-blue-100 text-blue-800 border-blue-200' },
+  closed:           { label: 'Closed',           cls: 'bg-slate-100 text-slate-700 border-slate-200' },
 }
 
 export default function CustomerStatementPage() {
   const [customerId, setCustomerId] = useState<string | null>(null)
-  const [dateFrom, setDateFrom] = useState<string>('')
-  const [dateTo, setDateTo] = useState<string>('')
-  const [search, setSearch] = useState('')
+  const [showAll, setShowAll] = useState(false)
   const [pdfBusy, setPdfBusy] = useState<'view' | 'download' | null>(null)
 
   const { data: customers = [], isLoading: loadingCustomers } = useCustomerList()
-  const { data: rows = [], isLoading: loadingStatement } = useCustomerStatement(
-    customerId,
-    dateFrom || null,
-    dateTo || null,
-  )
+  const { data: statement, isLoading: loadingStatement } = useCustomerStatement(customerId)
 
-  const customerName = useMemo(
-    () => customers.find((c) => c.id === customerId)?.name ?? '',
-    [customers, customerId],
-  )
-
-  const filtered = useMemo(() => {
-    if (!search) return rows
-    const q = search.toLowerCase()
-    return rows.filter(
-      (r) =>
-        r.reference.toLowerCase().includes(q) ||
-        r.description.toLowerCase().includes(q),
-    )
-  }, [rows, search])
+  const filteredOrders = useMemo<StatementOrder[]>(() => {
+    if (!statement) return []
+    return showAll ? statement.orders : statement.orders.filter((o) => o.outstanding > 0)
+  }, [statement, showAll])
 
   const totals = useMemo(() => ({
-    debit:  rows.reduce((s, r) => s + r.debit, 0),
-    credit: rows.reduce((s, r) => s + r.credit, 0),
-  }), [rows])
-
-  const closingBalance = totals.debit - totals.credit
-
-  const clearFilters = () => {
-    setDateFrom('')
-    setDateTo('')
-    setSearch('')
-  }
+    total_orders_value: filteredOrders.reduce((s, o) => s + o.total, 0),
+    total_paid:         filteredOrders.reduce((s, o) => s + o.paid, 0),
+    total_outstanding:  filteredOrders.reduce((s, o) => s + o.outstanding, 0),
+  }), [filteredOrders])
 
   async function buildPdfUrl(): Promise<string> {
     const supabase = createClient()
     const { data: { session } } = await supabase.auth.getSession()
     if (!session?.access_token) throw new Error('Not authenticated')
-    const qs = new URLSearchParams()
-    if (dateFrom) qs.set('from', dateFrom)
-    if (dateTo)   qs.set('to', dateTo)
+    const qs = new URLSearchParams({ open: showAll ? 'false' : 'true' })
     const res = await fetch(`/api/sales/customers/${customerId}/statement/pdf?${qs}`, {
       headers: { Authorization: `Bearer ${session.access_token}` },
     })
@@ -110,7 +87,7 @@ export default function CustomerStatementPage() {
       const url = await buildPdfUrl()
       const a = document.createElement('a')
       a.href = url
-      a.download = `Statement-${customerName || 'customer'}.pdf`
+      a.download = `Statement-${statement?.customer.name || 'customer'}.pdf`
       document.body.appendChild(a)
       a.click()
       document.body.removeChild(a)
@@ -126,13 +103,13 @@ export default function CustomerStatementPage() {
     <PageWrapper>
       <PageHeader
         title="Customer Statement"
-        description="Complete transaction history — invoices, payments, and credit notes with running balance"
+        description="Open sale orders with outstanding balance — matches the printable statement layout"
       />
 
       {/* Filter card */}
       <div className="rounded-lg border bg-card p-4 space-y-3">
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
-          <div className="space-y-1.5 lg:col-span-1">
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+          <div className="space-y-1.5">
             <Label className="text-xs font-medium">Customer *</Label>
             <Select
               value={customerId ?? ''}
@@ -149,113 +126,106 @@ export default function CustomerStatementPage() {
             </Select>
           </div>
           <div className="space-y-1.5">
-            <Label className="text-xs font-medium">From Date</Label>
-            <Input
-              type="date"
-              value={dateFrom}
-              onChange={(e) => setDateFrom(e.target.value)}
-              className="h-9"
-            />
-          </div>
-          <div className="space-y-1.5">
-            <Label className="text-xs font-medium">To Date</Label>
-            <Input
-              type="date"
-              value={dateTo}
-              onChange={(e) => setDateTo(e.target.value)}
-              className="h-9"
-            />
-          </div>
-          <div className="space-y-1.5">
-            <Label className="text-xs font-medium">Search</Label>
-            <Input
-              type="text"
-              placeholder="Reference or description…"
-              value={search}
-              onChange={(e) => setSearch(e.target.value)}
-              className="h-9"
-            />
+            <Label className="text-xs font-medium">Scope</Label>
+            <Select value={showAll ? 'all' : 'open'} onValueChange={(v) => setShowAll(v === 'all')}>
+              <SelectTrigger className="h-9">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="open">Open orders only (with outstanding)</SelectItem>
+                <SelectItem value="all">All orders</SelectItem>
+              </SelectContent>
+            </Select>
           </div>
         </div>
 
         {/* Action bar */}
-        <div className="flex flex-wrap gap-2 pt-1">
-          {(dateFrom || dateTo || search) && (
-            <Button variant="ghost" size="sm" onClick={clearFilters} className="text-muted-foreground">
-              <X className="h-3.5 w-3.5 mr-1" /> Clear filters
-            </Button>
-          )}
-          <div className="ml-auto flex gap-2">
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={handleViewPdf}
-              disabled={!customerId || rows.length === 0 || pdfBusy !== null}
-            >
-              {pdfBusy === 'view'
-                ? <Loader2 className="h-3.5 w-3.5 animate-spin mr-1.5" />
-                : <Eye className="h-3.5 w-3.5 mr-1.5" />}
-              View PDF
-            </Button>
-            <Button
-              size="sm"
-              onClick={handleDownloadPdf}
-              disabled={!customerId || rows.length === 0 || pdfBusy !== null}
-            >
-              {pdfBusy === 'download'
-                ? <Loader2 className="h-3.5 w-3.5 animate-spin mr-1.5" />
-                : <Download className="h-3.5 w-3.5 mr-1.5" />}
-              Download PDF
-            </Button>
-          </div>
+        <div className="flex justify-end gap-2 pt-1">
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={handleViewPdf}
+            disabled={!customerId || filteredOrders.length === 0 || pdfBusy !== null}
+          >
+            {pdfBusy === 'view'
+              ? <Loader2 className="h-3.5 w-3.5 animate-spin mr-1.5" />
+              : <Eye className="h-3.5 w-3.5 mr-1.5" />}
+            View PDF
+          </Button>
+          <Button
+            size="sm"
+            onClick={handleDownloadPdf}
+            disabled={!customerId || filteredOrders.length === 0 || pdfBusy !== null}
+          >
+            {pdfBusy === 'download'
+              ? <Loader2 className="h-3.5 w-3.5 animate-spin mr-1.5" />
+              : <Download className="h-3.5 w-3.5 mr-1.5" />}
+            Download PDF
+          </Button>
         </div>
       </div>
 
-      {/* Summary cards — only show when customer selected */}
-      {customerId && rows.length > 0 && (
-        <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
-          <div className="rounded-lg border border-blue-200 bg-blue-50 p-4">
-            <div className="text-xs text-muted-foreground mb-1">Total Invoiced</div>
-            <div className="text-xl font-bold tabular-nums text-blue-900">{formatCurrency(totals.debit, 'QAR')}</div>
-          </div>
-          <div className="rounded-lg border border-emerald-200 bg-emerald-50 p-4">
-            <div className="text-xs text-muted-foreground mb-1">Total Paid / Credited</div>
-            <div className="text-xl font-bold tabular-nums text-emerald-800">{formatCurrency(totals.credit, 'QAR')}</div>
-          </div>
-          <div className={cn(
-            'rounded-lg border p-4',
-            closingBalance > 0
-              ? 'border-red-200 bg-red-50'
-              : 'border-emerald-200 bg-emerald-50',
-          )}>
-            <div className="text-xs text-muted-foreground mb-1">Closing Balance</div>
-            <div className={cn(
-              'text-xl font-bold tabular-nums',
-              closingBalance > 0 ? 'text-red-700' : 'text-emerald-700',
-            )}>
-              {formatCurrency(closingBalance, 'QAR')}
+      {/* Customer meta + summary — only when customer selected */}
+      {statement && (
+        <div className="grid grid-cols-1 lg:grid-cols-5 gap-3">
+          {/* Customer meta card */}
+          <div className="lg:col-span-2 rounded-lg border bg-card p-4 space-y-2">
+            <div className="text-xs text-muted-foreground uppercase tracking-wide">Customer</div>
+            <div className="text-lg font-semibold">{statement.customer.name}</div>
+            <div className="grid grid-cols-2 gap-2 text-sm">
+              <div>
+                <div className="text-xs text-muted-foreground">Phone</div>
+                <div>{statement.customer.phone ?? '—'}</div>
+              </div>
+              <div>
+                <div className="text-xs text-muted-foreground">Account Type</div>
+                <div>{statement.customer.account_type}</div>
+              </div>
+              <div>
+                <div className="text-xs text-muted-foreground">Open Orders</div>
+                <div className="font-semibold">{statement.open_orders_count}</div>
+              </div>
+              <div>
+                <div className="text-xs text-muted-foreground">Statement Date</div>
+                <div>{formatDate(new Date().toISOString())}</div>
+              </div>
             </div>
-            <div className="text-xs text-muted-foreground mt-1">
-              {closingBalance > 0 ? 'Customer owes' : closingBalance < 0 ? 'Overpaid / credit' : 'Fully settled'}
+          </div>
+
+          {/* Totals cards */}
+          <div className="lg:col-span-3 grid grid-cols-1 sm:grid-cols-3 gap-3">
+            <div className="rounded-lg border border-blue-200 bg-blue-50 p-4">
+              <div className="text-xs text-muted-foreground mb-1">Total Orders Value</div>
+              <div className="text-lg font-bold tabular-nums text-blue-900">{formatCurrency(totals.total_orders_value, 'QAR')}</div>
+            </div>
+            <div className="rounded-lg border border-emerald-200 bg-emerald-50 p-4">
+              <div className="text-xs text-muted-foreground mb-1">Total Paid</div>
+              <div className="text-lg font-bold tabular-nums text-emerald-800">{formatCurrency(totals.total_paid, 'QAR')}</div>
+            </div>
+            <div className="rounded-lg border border-red-200 bg-red-50 p-4">
+              <div className="text-xs text-muted-foreground mb-1">Total Outstanding</div>
+              <div className="text-lg font-bold tabular-nums text-red-700">{formatCurrency(totals.total_outstanding, 'QAR')}</div>
             </div>
           </div>
         </div>
       )}
 
-      {/* Content */}
+      {/* Orders table */}
       {!customerId ? (
         <div className="rounded-lg border border-dashed">
           <EmptyState title="Select a customer" description="Choose a customer above to view their statement" />
         </div>
       ) : loadingStatement ? (
         <div className="space-y-2">
-          {Array.from({ length: 8 }).map((_, i) => <Skeleton key={i} className="h-10 w-full" />)}
+          {Array.from({ length: 5 }).map((_, i) => <Skeleton key={i} className="h-11 w-full" />)}
         </div>
-      ) : filtered.length === 0 ? (
+      ) : filteredOrders.length === 0 ? (
         <div className="rounded-lg border border-dashed">
           <EmptyState
-            title="No transactions"
-            description={`No transactions found for ${customerName} in the selected date range`}
+            title={showAll ? 'No orders' : 'No open orders'}
+            description={showAll
+              ? `${statement?.customer.name} has no sale orders`
+              : `${statement?.customer.name} has no orders with outstanding balance. Switch to "All orders" to see everything.`}
           />
         </div>
       ) : (
@@ -263,57 +233,44 @@ export default function CustomerStatementPage() {
           <Table>
             <TableHeader>
               <TableRow>
-                <TableHead>Date</TableHead>
-                <TableHead>Type</TableHead>
-                <TableHead>Reference</TableHead>
-                <TableHead className="hidden sm:table-cell">Description</TableHead>
-                <TableHead className="text-right">Debit</TableHead>
-                <TableHead className="text-right">Credit</TableHead>
-                <TableHead className="text-right">Balance</TableHead>
+                <TableHead>SO #</TableHead>
+                <TableHead className="hidden sm:table-cell">Date</TableHead>
+                <TableHead>Status</TableHead>
+                <TableHead className="text-right">Total</TableHead>
+                <TableHead className="text-right hidden md:table-cell">Paid</TableHead>
+                <TableHead className="text-right">Outstanding</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
-              {filtered.map((row, idx) => {
-                const cfg = TXN_CONFIG[row.txn_type] ?? TXN_CONFIG.invoice
+              {filteredOrders.map((o) => {
+                const s = STATUS_BADGE[o.status] ?? { label: o.status, cls: 'bg-muted text-muted-foreground' }
                 return (
-                  <TableRow key={`${row.reference}-${idx}`}>
-                    <TableCell className="text-sm whitespace-nowrap">{formatDate(row.txn_date)}</TableCell>
+                  <TableRow key={o.id}>
+                    <TableCell className="font-semibold text-primary whitespace-nowrap">{o.so_number}</TableCell>
+                    <TableCell className="hidden sm:table-cell whitespace-nowrap text-sm">{formatDate(o.created_at)}</TableCell>
                     <TableCell>
-                      <Badge variant="outline" className={cn('text-xs', cfg.badgeClass)}>
-                        {cfg.label}
-                      </Badge>
+                      <Badge variant="outline" className={cn('text-xs', s.cls)}>{s.label}</Badge>
                     </TableCell>
-                    <TableCell className="font-medium text-primary text-sm whitespace-nowrap">{row.reference}</TableCell>
-                    <TableCell className="hidden sm:table-cell text-sm text-muted-foreground max-w-[280px] truncate">
-                      {row.description}
-                    </TableCell>
-                    <TableCell className="text-right tabular-nums font-medium">
-                      {row.debit > 0 ? formatCurrency(row.debit, 'QAR') : '—'}
-                    </TableCell>
-                    <TableCell className="text-right tabular-nums font-medium text-emerald-600">
-                      {row.credit > 0 ? formatCurrency(row.credit, 'QAR') : '—'}
+                    <TableCell className="text-right tabular-nums">{formatCurrency(o.total, 'QAR')}</TableCell>
+                    <TableCell className="text-right tabular-nums hidden md:table-cell text-emerald-600">
+                      {o.paid > 0 ? formatCurrency(o.paid, 'QAR') : '—'}
                     </TableCell>
                     <TableCell className={cn(
                       'text-right tabular-nums font-bold',
-                      row.balance > 0 ? 'text-red-600' : row.balance < 0 ? 'text-emerald-600' : '',
+                      o.outstanding > 0 ? 'text-red-600' : 'text-emerald-600',
                     )}>
-                      {formatCurrency(row.balance, 'QAR')}
+                      {formatCurrency(o.outstanding, 'QAR')}
                     </TableCell>
                   </TableRow>
                 )
               })}
               {/* Totals footer */}
               <TableRow className="bg-muted/50 font-bold border-t-2">
-                <TableCell colSpan={4} className="hidden sm:table-cell">Totals</TableCell>
-                <TableCell colSpan={3} className="sm:hidden">Totals</TableCell>
-                <TableCell className="text-right tabular-nums">{formatCurrency(totals.debit, 'QAR')}</TableCell>
-                <TableCell className="text-right tabular-nums text-emerald-600">{formatCurrency(totals.credit, 'QAR')}</TableCell>
-                <TableCell className={cn(
-                  'text-right tabular-nums',
-                  closingBalance > 0 ? 'text-red-600' : 'text-emerald-600',
-                )}>
-                  {formatCurrency(closingBalance, 'QAR')}
-                </TableCell>
+                <TableCell colSpan={3} className="hidden sm:table-cell">Totals</TableCell>
+                <TableCell colSpan={2} className="sm:hidden">Totals</TableCell>
+                <TableCell className="text-right tabular-nums">{formatCurrency(totals.total_orders_value, 'QAR')}</TableCell>
+                <TableCell className="text-right tabular-nums hidden md:table-cell text-emerald-600">{formatCurrency(totals.total_paid, 'QAR')}</TableCell>
+                <TableCell className="text-right tabular-nums text-red-600">{formatCurrency(totals.total_outstanding, 'QAR')}</TableCell>
               </TableRow>
             </TableBody>
           </Table>

@@ -2,43 +2,42 @@
 
 import { useQuery } from '@tanstack/react-query'
 import { createClient } from '@/lib/supabase/client'
-import { queryKeys } from '@/lib/queryKeys'
 
-export type StatementRow = {
-  txn_date: string
-  txn_type: 'invoice' | 'payment' | 'credit_note'
-  reference: string
-  description: string
-  debit: number
-  credit: number
+export type StatementOrder = {
+  id:          string
+  so_number:   string
+  created_at:  string
+  status:      string
+  total:       number
+  paid:        number
+  outstanding: number
 }
 
-export type StatementRowWithBalance = StatementRow & {
-  balance: number
+export type StatementData = {
+  customer: {
+    name:         string
+    phone:        string | null
+    account_type: string
+  }
+  orders: StatementOrder[]
+  totals: {
+    total_orders_value: number
+    total_paid:         number
+    total_outstanding:  number
+  }
+  open_orders_count: number
 }
 
-export function useCustomerStatement(
-  customerId: string | null,
-  dateFrom: string | null,
-  dateTo: string | null,
-) {
+export function useCustomerStatement(customerId: string | null) {
   return useQuery({
-    queryKey: queryKeys.finance.customerStatement(customerId, dateFrom, dateTo),
+    queryKey: ['customer-statement-v2', customerId],
     queryFn: async () => {
       const supabase = createClient()
-      const { data, error } = await supabase.rpc('rpc_customer_statement', {
+      const { data, error } = await supabase.rpc('rpc_customer_statement_v2', {
         p_customer_id: customerId!,
-        p_date_from: dateFrom || null,
-        p_date_to: dateTo || null,
       })
       if (error) throw error
-
-      const rows = (data ?? []) as StatementRow[]
-      let balance = 0
-      return rows.map((row) => {
-        balance += row.debit - row.credit
-        return { ...row, balance } as StatementRowWithBalance
-      })
+      return data as StatementData
     },
     enabled: !!customerId,
     staleTime: 5 * 60 * 1000,
