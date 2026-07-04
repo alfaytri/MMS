@@ -11,8 +11,9 @@ import {
 } from '@/components/ui/table'
 import { CreditDebitNoteDetailDialog } from '@/components/sales/CreditDebitNoteDetailDialog'
 import type { CreditNote } from '@/hooks/useCreditNotes'
-import { useCreateSaleReturn, useUpdateReturnStatus, useCreateCreditNoteForReturn, type SaleReturn } from '@/hooks/useSaleReturns'
+import { useCreateSaleReturn, useUpdateReturnStatus, useCreateCreditNoteForReturn, useAssignWarehouseAndRestock, type SaleReturn } from '@/hooks/useSaleReturns'
 import { useWarehouses } from '@/hooks/useWarehouses'
+import { useReturnReasons, useAddReturnReason } from '@/hooks/useReturnReasons'
 import type { SaleOrder } from '@/hooks/useSaleOrders'
 import { formatDate } from '@/lib/utils/formatters'
 
@@ -21,9 +22,10 @@ interface SoReturnsTabProps {
   fullSO: SaleOrder | null
   soReturns: SaleReturn[]
   invoiceId?: string
+  onSendReplacement?: (ret: SaleReturn) => void
 }
 
-export function SoReturnsTab({ so, fullSO, soReturns, invoiceId }: SoReturnsTabProps) {
+export function SoReturnsTab({ so, fullSO, soReturns, invoiceId, onSendReplacement }: SoReturnsTabProps) {
   const [returnOpen, setReturnOpen] = useState(false)
   const [cnDetailNote, setCnDetailNote] = useState<CreditNote | null>(null)
   const [returnDate, setReturnDate] = useState(new Date().toISOString().slice(0, 10))
@@ -31,13 +33,19 @@ export function SoReturnsTab({ so, fullSO, soReturns, invoiceId }: SoReturnsTabP
   const [returnWarehouseId, setReturnWarehouseId] = useState('')
   const [returnNotes, setReturnNotes] = useState('')
   const [returnItems, setReturnItems] = useState<{ item_name: string; sku: string | null; qty: number; condition: 'good' | 'damaged'; brand_variant_id: string | null }[]>([])
+  const [restockPickerReturnId, setRestockPickerReturnId] = useState<string | null>(null)
+  const [restockWarehouseId, setRestockWarehouseId] = useState('')
+  const [customReason, setCustomReason] = useState('')
 
   const createReturn = useCreateSaleReturn()
   const updateReturnStatus = useUpdateReturnStatus()
   const createCreditNote = useCreateCreditNoteForReturn()
+  const assignAndRestock = useAssignWarehouseAndRestock()
+  const addReason = useAddReturnReason()
   const { data: warehouses = [] } = useWarehouses()
+  const { data: reasons = [] } = useReturnReasons('sale_return')
 
-  const canCreateReturn = ['delivered', 'invoiced', 'closed'].includes(so.status)
+  const canCreateReturn = ['delivered', 'partial_delivery', 'invoiced', 'closed'].includes(so.status)
 
   return (
     <div className="space-y-3">
@@ -79,20 +87,31 @@ export function SoReturnsTab({ so, fullSO, soReturns, invoiceId }: SoReturnsTabP
                 <span className="font-mono text-sm font-medium">{ret.return_number}</span>
                 <div className="flex items-center gap-2">
                   {canAdvance && (
-                    <Button
-                      size="sm"
-                      variant="outline"
-                      className="h-7 text-xs"
-                      disabled={updateReturnStatus.isPending}
-                      onClick={() =>
-                        updateReturnStatus.mutate(
-                          { id: ret.id, status: nextStatus[ret.status] },
-                          { onSuccess: () => toast.success(`${ret.return_number} marked ${nextStatus[ret.status]}`) }
-                        )
-                      }
-                    >
-                      {updateReturnStatus.isPending ? '…' : nextLabel[ret.status]}
-                    </Button>
+                    ret.status === 'received' && !ret.restock_warehouse_id ? (
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        className="h-7 text-xs"
+                        onClick={() => { setRestockPickerReturnId(ret.id); setRestockWarehouseId('') }}
+                      >
+                        Assign Warehouse & Restock
+                      </Button>
+                    ) : (
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        className="h-7 text-xs"
+                        disabled={updateReturnStatus.isPending}
+                        onClick={() =>
+                          updateReturnStatus.mutate(
+                            { id: ret.id, status: nextStatus[ret.status] },
+                            { onSuccess: () => toast.success(`${ret.return_number} marked ${nextStatus[ret.status]}`) }
+                          )
+                        }
+                      >
+                        {updateReturnStatus.isPending ? '…' : nextLabel[ret.status]}
+                      </Button>
+                    )
                   )}
                   <span className={`text-xs px-2 py-0.5 rounded-full font-medium capitalize ${
                     ret.status === 'restocked' ? 'bg-green-100 text-green-700' :
@@ -160,6 +179,16 @@ export function SoReturnsTab({ so, fullSO, soReturns, invoiceId }: SoReturnsTabP
                   >
                     {ret.credit_note.credit_note_id}
                   </button>
+                  {onSendReplacement && !ret.credit_note.resolution_type && (
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      className="h-7 text-xs ml-2"
+                      onClick={() => onSendReplacement(ret)}
+                    >
+                      Send Replacement
+                    </Button>
+                  )}
                 </div>
               ) : null}
             </div>
@@ -174,9 +203,55 @@ export function SoReturnsTab({ so, fullSO, soReturns, invoiceId }: SoReturnsTabP
         onOpenChange={(v) => { if (!v) setCnDetailNote(null) }}
       />
 
+      {/* Assign Warehouse & Restock Dialog */}
+      {restockPickerReturnId && (
+        <Dialog open onOpenChange={(o) => { if (!o) setRestockPickerReturnId(null) }}>
+          <DialogContent className="w-full max-w-full rounded-none sm:max-w-sm sm:rounded-lg">
+            <DialogHeader>
+              <DialogTitle>Assign Warehouse & Restock</DialogTitle>
+            </DialogHeader>
+            <div className="space-y-3 py-2">
+              <p className="text-sm text-muted-foreground">
+                This return was created with "Inspect first". Select a warehouse to restock the items into.
+              </p>
+              <div className="space-y-1">
+                <label className="text-xs font-medium text-muted-foreground uppercase tracking-wider">Restock Warehouse <span className="text-destructive">*</span></label>
+                <select
+                  className="flex h-9 w-full rounded-md border border-input bg-background px-3 py-1 text-sm focus:outline-none focus:ring-1 focus:ring-ring"
+                  value={restockWarehouseId}
+                  onChange={(e) => setRestockWarehouseId(e.target.value)}
+                >
+                  <option value="">Select warehouse…</option>
+                  {warehouses.map((w: any) => <option key={w.id} value={w.id}>{w.name}</option>)}
+                </select>
+              </div>
+            </div>
+            <div className="flex justify-end gap-2 pt-2 border-t">
+              <Button variant="outline" size="sm" onClick={() => setRestockPickerReturnId(null)}>Cancel</Button>
+              <Button
+                size="sm"
+                disabled={!restockWarehouseId || assignAndRestock.isPending}
+                onClick={() => {
+                  const retNum = soReturns.find((r) => r.id === restockPickerReturnId)?.return_number ?? ''
+                  assignAndRestock.mutate(
+                    { id: restockPickerReturnId!, warehouseId: restockWarehouseId },
+                    {
+                      onSuccess: () => { toast.success(`${retNum} restocked`); setRestockPickerReturnId(null) },
+                      onError: (err) => toast.error((err as Error).message),
+                    }
+                  )
+                }}
+              >
+                {assignAndRestock.isPending ? 'Processing…' : 'Restock'}
+              </Button>
+            </div>
+          </DialogContent>
+        </Dialog>
+      )}
+
       {/* Create Return Dialog */}
       {returnOpen && so && (
-        <Dialog open onOpenChange={(o) => { if (!o) { setReturnOpen(false); setReturnReason(''); setReturnNotes(''); setReturnWarehouseId('') } }}>
+        <Dialog open onOpenChange={(o) => { if (!o) { setReturnOpen(false); setReturnReason(''); setCustomReason(''); setReturnNotes(''); setReturnWarehouseId('') } }}>
           <DialogContent className="w-full max-w-full rounded-none sm:max-w-lg sm:rounded-lg max-h-[90vh] flex flex-col">
             <DialogHeader>
               <DialogTitle>Create Return — {so.so_number}</DialogTitle>
@@ -206,12 +281,25 @@ export function SoReturnsTab({ so, fullSO, soReturns, invoiceId }: SoReturnsTabP
               </div>
               <div className="space-y-1">
                 <label className="text-xs font-medium text-muted-foreground uppercase tracking-wider">Reason <span className="text-destructive">*</span></label>
-                <input
+                <select
                   className="flex h-9 w-full rounded-md border border-input bg-background px-3 py-1 text-sm focus:outline-none focus:ring-1 focus:ring-ring"
-                  placeholder="e.g. Wrong item, damaged on arrival…"
                   value={returnReason}
-                  onChange={(e) => setReturnReason(e.target.value)}
-                />
+                  onChange={(e) => { setReturnReason(e.target.value); if (e.target.value !== '__custom__') setCustomReason('') }}
+                >
+                  <option value="">Select reason…</option>
+                  {reasons.map((r) => <option key={r.id} value={r.label}>{r.label}</option>)}
+                  <option value="__custom__">Other (custom reason)…</option>
+                </select>
+                {returnReason === '__custom__' && (
+                  <input
+                    type="text"
+                    placeholder="Enter custom reason…"
+                    className="flex h-9 w-full rounded-md border border-input bg-background px-3 py-1 text-sm focus:outline-none focus:ring-1 focus:ring-ring mt-1.5"
+                    value={customReason}
+                    onChange={(e) => setCustomReason(e.target.value)}
+                    autoFocus
+                  />
+                )}
               </div>
               <div className="space-y-2">
                 <label className="text-xs font-medium text-muted-foreground uppercase tracking-wider">Items</label>
@@ -221,7 +309,7 @@ export function SoReturnsTab({ so, fullSO, soReturns, invoiceId }: SoReturnsTabP
                       <TableRow>
                         <TableHead className="text-xs">Item</TableHead>
                         <TableHead className="text-xs text-right w-20">Qty</TableHead>
-                        <TableHead className="text-xs w-28">Condition</TableHead>
+                        {returnWarehouseId && <TableHead className="text-xs w-28">Condition</TableHead>}
                       </TableRow>
                     </TableHeader>
                     <TableBody>
@@ -236,21 +324,26 @@ export function SoReturnsTab({ so, fullSO, soReturns, invoiceId }: SoReturnsTabP
                               onChange={(e) => setReturnItems((prev) => prev.map((it, j) => j === i ? { ...it, qty: Number(e.target.value) } : it))}
                             />
                           </TableCell>
-                          <TableCell>
-                            <select
-                              className="h-7 text-xs rounded border border-input bg-background px-1 focus:outline-none focus:ring-1 focus:ring-ring"
-                              value={item.condition}
-                              onChange={(e) => setReturnItems((prev) => prev.map((it, j) => j === i ? { ...it, condition: e.target.value as 'good' | 'damaged' } : it))}
-                            >
-                              <option value="good">Good</option>
-                              <option value="damaged">Damaged</option>
-                            </select>
-                          </TableCell>
+                          {returnWarehouseId && (
+                            <TableCell>
+                              <select
+                                className="h-7 text-xs rounded border border-input bg-background px-1 focus:outline-none focus:ring-1 focus:ring-ring"
+                                value={item.condition}
+                                onChange={(e) => setReturnItems((prev) => prev.map((it, j) => j === i ? { ...it, condition: e.target.value as 'good' | 'damaged' } : it))}
+                              >
+                                <option value="good">Good</option>
+                                <option value="damaged">Damaged</option>
+                              </select>
+                            </TableCell>
+                          )}
                         </TableRow>
                       ))}
                     </TableBody>
                   </Table>
                 </div>
+                {!returnWarehouseId && (
+                  <p className="text-[11px] text-muted-foreground">Condition will be set during inspection.</p>
+                )}
               </div>
               <div className="space-y-1">
                 <label className="text-xs font-medium text-muted-foreground uppercase tracking-wider">Notes</label>
@@ -267,25 +360,35 @@ export function SoReturnsTab({ so, fullSO, soReturns, invoiceId }: SoReturnsTabP
               <Button variant="outline" size="sm" onClick={() => setReturnOpen(false)}>Cancel</Button>
               <Button
                 size="sm"
-                disabled={!returnReason.trim() || createReturn.isPending || returnItems.every((it) => it.qty === 0)}
-                onClick={() => {
+                disabled={
+                  (returnReason === '__custom__' ? !customReason.trim() : !returnReason.trim()) ||
+                  createReturn.isPending || addReason.isPending ||
+                  returnItems.every((it) => it.qty === 0)
+                }
+                onClick={async () => {
+                  let finalReason = returnReason
+                  if (returnReason === '__custom__') {
+                    finalReason = customReason.trim()
+                    if (!finalReason) return
+                    addReason.mutate({ label: finalReason, category: 'sale_return' })
+                  }
                   createReturn.mutate(
                     {
                       source_id: so.id,
                       date: returnDate,
-                      reason: returnReason,
+                      reason: finalReason,
                       items: returnItems.filter((it) => it.qty > 0),
                       restock_warehouse_id: returnWarehouseId || null,
                       notes: returnNotes || null,
                     },
                     {
-                      onSuccess: () => { toast.success('Return created'); setReturnOpen(false); setReturnReason(''); setReturnNotes(''); setReturnWarehouseId('') },
+                      onSuccess: () => { toast.success('Return created'); setReturnOpen(false); setReturnReason(''); setCustomReason(''); setReturnNotes(''); setReturnWarehouseId('') },
                       onError: (err) => toast.error((err as Error).message),
                     }
                   )
                 }}
               >
-                {createReturn.isPending ? 'Creating…' : 'Create Return'}
+                {(createReturn.isPending || addReason.isPending) ? 'Creating…' : 'Create Return'}
               </Button>
             </div>
           </DialogContent>

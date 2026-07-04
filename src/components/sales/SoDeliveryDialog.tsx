@@ -1,15 +1,25 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useMemo, useEffect } from 'react'
 import { toast } from 'sonner'
 import {
   Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter,
 } from '@/components/ui/dialog'
 import { Button } from '@/components/ui/button'
+import { Badge } from '@/components/ui/badge'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
+import { cn } from '@/lib/utils'
 import { useCreateDelivery, type SaleOrder, type SOLineItem } from '@/hooks/useSaleOrders'
 import { useWarehouses } from '@/hooks/useWarehouses'
+import { useWarehouseStockByItems } from '@/hooks/useWarehouseOperations'
+
+const TYPE_BADGE: Record<string, { label: string; className: string }> = {
+  'products':    { label: 'Product',    className: 'bg-blue-100 text-blue-700' },
+  'spare-parts': { label: 'Spare Part', className: 'bg-amber-100 text-amber-700' },
+  'consumables': { label: 'Consumable', className: 'bg-green-100 text-green-700' },
+  'tools':       { label: 'Tool',       className: 'bg-purple-100 text-purple-700' },
+}
 
 interface SoDeliveryDialogProps {
   open: boolean
@@ -20,12 +30,21 @@ interface SoDeliveryDialogProps {
 export function SoDeliveryDialog({ open, onOpenChange, so }: SoDeliveryDialogProps) {
   const createDelivery = useCreateDelivery()
   const { data: warehouses } = useWarehouses()
+  const lines = so.sale_order_lines ?? []
+  const bvIds = useMemo(() => lines.map((l) => l.brand_variant_id).filter(Boolean) as string[], [lines])
+  const { data: whStockMap } = useWarehouseStockByItems(bvIds)
 
   const [warehouseId, setWarehouseId] = useState('')
   const [date, setDate] = useState(new Date().toISOString().split('T')[0])
   const [qtys, setQtys] = useState<Record<string, number>>({})
 
-  const lines = so.sale_order_lines ?? []
+  useEffect(() => {
+    if (open) {
+      setWarehouseId('')
+      setDate(new Date().toISOString().split('T')[0])
+      setQtys({})
+    }
+  }, [open])
 
   function maxDeliverable(line: SOLineItem): number {
     return Math.max(0, line.qty - line.delivered_qty)
@@ -100,13 +119,52 @@ export function SoDeliveryDialog({ open, onOpenChange, so }: SoDeliveryDialogPro
             <Label className="text-sm font-medium">Items</Label>
             {lines.map((line) => {
               const max = maxDeliverable(line)
+              const bv = line.inventory_brand_variants
+              const cat = bv?.inventory_items?.inventory_categories
+              const chain = cat?.ancestor_chain ?? []
+              const typeBadge = cat?.type ? TYPE_BADGE[cat.type] : null
               return (
                 <div key={line.id} className="flex items-center gap-3 rounded-md border p-2">
                   <div className="flex-1 min-w-0">
-                    <div className="text-sm font-medium truncate">{line.item_name}</div>
+                    {chain.length > 0 && (
+                      <div className="flex items-center gap-1 text-[10px] text-muted-foreground leading-tight flex-wrap mb-0.5">
+                        {chain.map((name, i) => (
+                          <span key={i} className="flex items-center gap-1">
+                            {i > 0 && <span className="text-muted-foreground/40">›</span>}
+                            <span>{name}</span>
+                          </span>
+                        ))}
+                        {typeBadge && (
+                          <Badge variant="secondary" className={cn('h-4 text-[9px] px-1 border-0 ml-0.5', typeBadge.className)}>
+                            {typeBadge.label}
+                          </Badge>
+                        )}
+                      </div>
+                    )}
+                    <div className="text-sm font-medium truncate">
+                      {line.item_name}
+                      {bv?.brand && <span className="text-xs text-muted-foreground font-normal"> — {bv.brand}</span>}
+                    </div>
                     <div className="text-xs text-muted-foreground">
                       Ordered: {line.qty} · Delivered: {line.delivered_qty} · Max: {max}
                     </div>
+                    {line.brand_variant_id && (() => {
+                      const whEntries = whStockMap.get(line.brand_variant_id!) ?? []
+                      return whEntries.length > 0 ? (
+                        <div className="flex flex-wrap gap-x-3 gap-y-0.5 mt-0.5">
+                          {whEntries.map((w) => {
+                            const whName = (warehouses ?? []).find((wh) => wh.id === w.warehouse_id)?.name ?? '?'
+                            return (
+                              <span key={w.warehouse_id} className="text-[10px] text-muted-foreground">
+                                {whName}: <span className="font-medium text-foreground">{w.qty}</span>
+                              </span>
+                            )
+                          })}
+                        </div>
+                      ) : (
+                        <div className="text-[10px] text-amber-600 mt-0.5">No stock in any warehouse</div>
+                      )
+                    })()}
                   </div>
                   <Input
                     type="number"

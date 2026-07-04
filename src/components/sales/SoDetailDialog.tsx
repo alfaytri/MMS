@@ -1,9 +1,11 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useEffect, useMemo } from 'react'
 import {
-  Dialog, DialogContent, DialogHeader, DialogTitle,
+  Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter,
 } from '@/components/ui/dialog'
+import { Input } from '@/components/ui/input'
+import { Label } from '@/components/ui/label'
 import { SoPdfButton } from './SoPdfButton'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { Badge } from '@/components/ui/badge'
@@ -22,8 +24,9 @@ import {
   useSaleOrder,
   useSOPayments,
   type SaleOrder,
+  type SaleDelivery,
 } from '@/hooks/useSaleOrders'
-import { useCancelDelivery, useCreateReplacementDelivery } from '@/hooks/useSaleDeliveries'
+import { useCancelDelivery, useCompleteDelivery, useUpdateDelivery, useCreateReplacementDelivery } from '@/hooks/useSaleDeliveries'
 import { useInvoicesBySO } from '@/hooks/useCustomerInvoices'
 import { useReturnsBySO, useUnresolvedReturns } from '@/hooks/useSaleReturns'
 import { useActivityLog } from '@/hooks/useActivityLog'
@@ -33,6 +36,12 @@ import {
   Table, TableBody, TableCell, TableHead, TableHeader, TableRow,
 } from '@/components/ui/table'
 import { toast } from 'sonner'
+import {
+  AlertDialog, AlertDialogAction, AlertDialogCancel,
+  AlertDialogContent, AlertDialogDescription, AlertDialogFooter,
+  AlertDialogHeader, AlertDialogTitle,
+} from '@/components/ui/alert-dialog'
+import { useWarehouses } from '@/hooks/useWarehouses'
 
 const inventoryTypeBadge: Record<string, { label: string; className: string }> = {
   'products':    { label: 'Product',    className: 'bg-blue-100 text-blue-700 dark:bg-blue-900/40 dark:text-blue-300' },
@@ -50,10 +59,19 @@ interface SoDetailDialogProps {
 }
 
 export function SoDetailDialog({ open, onOpenChange, so, onEdit, onConfirm }: SoDetailDialogProps) {
+  const [activeTab, setActiveTab] = useState('items')
   const [paymentOpen, setPaymentOpen] = useState(false)
   const [deliveryOpen, setDeliveryOpen] = useState(false)
 
+  const soId = so?.id
+  useEffect(() => { if (open) setActiveTab('items') }, [soId, open])
+
+  const [confirmDeliveryId, setConfirmDeliveryId] = useState<string | null>(null)
+  const [editDeliveryId, setEditDeliveryId] = useState<string | null>(null)
+
   const cancelDelivery = useCancelDelivery()
+  const completeDelivery = useCompleteDelivery()
+  const updateDelivery = useUpdateDelivery()
   const { data: fullSO, isLoading, isError } = useSaleOrder(open ? (so?.id ?? null) : null)
   const { data: soInvoice } = useInvoicesBySO(open ? (so?.id ?? null) : null)
   const { data: payments } = useSOPayments(open ? (so?.id ?? null) : null)
@@ -61,6 +79,7 @@ export function SoDetailDialog({ open, onOpenChange, so, onEdit, onConfirm }: So
     open && so?.id ? { module: 'sale_orders', entity_id: so.id } : {}
   )
   const { data: soReturns = [] } = useReturnsBySO(open ? (so?.id ?? null) : null)
+  const { data: warehouses = [] } = useWarehouses()
 
   const [replacementOpen, setReplacementOpen] = useState(false)
   const [selectedReturn, setSelectedReturn] = useState<any>(null)
@@ -68,6 +87,21 @@ export function SoDetailDialog({ open, onOpenChange, so, onEdit, onConfirm }: So
   const createReplacement = useCreateReplacementDelivery()
 
   const current = fullSO ?? so
+
+  const bvInfoMap = useMemo(() => {
+    const map = new Map<string, { chain: string[]; type: string | null; brand: string | null }>()
+    for (const li of fullSO?.sale_order_lines ?? []) {
+      if (!li.brand_variant_id) continue
+      const bv = li.inventory_brand_variants
+      const cat = bv?.inventory_items?.inventory_categories
+      map.set(li.brand_variant_id, {
+        chain: cat?.ancestor_chain ?? [],
+        type: cat?.type ?? null,
+        brand: bv?.brand ?? null,
+      })
+    }
+    return map
+  }, [fullSO?.sale_order_lines])
 
   const canRecordPayment = current && ['confirmed', 'partial_delivery', 'delivered', 'invoiced'].includes(current.status)
   const canDeliver = current && ['confirmed', 'partial_delivery'].includes(current.status)
@@ -138,7 +172,7 @@ export function SoDetailDialog({ open, onOpenChange, so, onEdit, onConfirm }: So
           ) : isError ? (
             <div className="p-4 text-sm text-destructive">Failed to load sale order details.</div>
           ) : (
-            <Tabs defaultValue="items" className="flex-1 overflow-hidden flex flex-col min-h-0">
+            <Tabs value={activeTab} onValueChange={setActiveTab} className="flex-1 overflow-hidden flex flex-col min-h-0">
               <TabsList className="shrink-0 mx-0 max-w-full overflow-x-auto whitespace-nowrap scroll-x-fade">
                 <TabsTrigger value="items">Items</TabsTrigger>
                 <TabsTrigger value="deliveries">Deliveries</TabsTrigger>
@@ -260,17 +294,36 @@ export function SoDetailDialog({ open, onOpenChange, so, onEdit, onConfirm }: So
                           )}
                         </div>
                         <div className="flex items-center gap-2">
-                          <Badge variant="outline" className="text-xs capitalize">{d.status}</Badge>
-                          {(d.status === 'pending' || d.status === 'in_progress' || d.status === 'delivered') && (
-                            <Button
-                              variant="ghost"
-                              size="sm"
-                              className="h-6 px-2 text-xs text-destructive hover:text-destructive hover:bg-destructive/10"
-                              disabled={cancelDelivery.isPending}
-                              onClick={() => handleCancelDelivery(d.id)}
-                            >
-                              Cancel
-                            </Button>
+                          {(d.status === 'pending' || d.status === 'in_progress') ? (
+                            <>
+                              <Button
+                                variant="outline"
+                                size="sm"
+                                className="h-7 text-xs"
+                                onClick={() => setEditDeliveryId(d.id)}
+                              >
+                                Edit
+                              </Button>
+                              <Button
+                                size="sm"
+                                className="h-7 text-xs"
+                                disabled={completeDelivery.isPending}
+                                onClick={() => setConfirmDeliveryId(d.id)}
+                              >
+                                Delivered
+                              </Button>
+                              <Button
+                                variant="ghost"
+                                size="sm"
+                                className="h-6 px-2 text-xs text-destructive hover:text-destructive hover:bg-destructive/10"
+                                disabled={cancelDelivery.isPending}
+                                onClick={() => handleCancelDelivery(d.id)}
+                              >
+                                Cancel
+                              </Button>
+                            </>
+                          ) : (
+                            <Badge variant="outline" className={cn('text-xs capitalize', d.status === 'delivered' ? 'border-green-200 bg-green-50 text-green-700' : d.status === 'cancelled' ? 'border-red-200 bg-red-50 text-red-700' : '')}>{d.status}</Badge>
                           )}
                         </div>
                       </div>
@@ -287,12 +340,38 @@ export function SoDetailDialog({ open, onOpenChange, so, onEdit, onConfirm }: So
                               </TableRow>
                             </TableHeader>
                             <TableBody>
-                              {d.items.map((item, idx) => (
-                                <TableRow key={idx}>
-                                  <TableCell className="text-xs">{item.item_name}</TableCell>
-                                  <TableCell className="text-xs text-right">{item.qty_delivered}</TableCell>
-                                </TableRow>
-                              ))}
+                              {d.items.map((item, idx) => {
+                                const info = item.brand_variant_id ? bvInfoMap.get(item.brand_variant_id) : null
+                                const typeBadge = info?.type ? inventoryTypeBadge[info.type] : null
+                                return (
+                                  <TableRow key={idx}>
+                                    <TableCell className="text-xs py-2">
+                                      <div className="space-y-0.5">
+                                        {info && info.chain.length > 0 && (
+                                          <div className="flex items-center gap-1 text-[10px] text-muted-foreground leading-tight flex-wrap">
+                                            {info.chain.map((name, i) => (
+                                              <span key={i} className="flex items-center gap-1">
+                                                {i > 0 && <span className="text-muted-foreground/40">›</span>}
+                                                <span>{name}</span>
+                                              </span>
+                                            ))}
+                                            {typeBadge && (
+                                              <Badge variant="secondary" className={cn('h-4 text-[9px] px-1 border-0 ml-0.5', typeBadge.className)}>
+                                                {typeBadge.label}
+                                              </Badge>
+                                            )}
+                                          </div>
+                                        )}
+                                        <div className="flex items-center gap-1">
+                                          <span className="font-medium">{item.item_name}</span>
+                                          {info?.brand && <span className="text-muted-foreground">— {info.brand}</span>}
+                                        </div>
+                                      </div>
+                                    </TableCell>
+                                    <TableCell className="text-xs text-right">{item.qty_delivered}</TableCell>
+                                  </TableRow>
+                                )
+                              })}
                             </TableBody>
                           </Table>
                         </div>
@@ -320,6 +399,7 @@ export function SoDetailDialog({ open, onOpenChange, so, onEdit, onConfirm }: So
                     fullSO={fullSO ?? null}
                     soReturns={soReturns}
                     invoiceId={soInvoice?.invoice_id}
+                    onSendReplacement={(ret) => { setSelectedReturn(ret); setReplacementOpen(true) }}
                   />
                 )}
               </TabsContent>
@@ -344,7 +424,7 @@ export function SoDetailDialog({ open, onOpenChange, so, onEdit, onConfirm }: So
                   Confirm Order
                 </Button>
               )}
-              {canDeliver && (
+              {canDeliver && activeTab === 'deliveries' && (
                 <Button variant="outline" size="sm" onClick={() => setDeliveryOpen(true)}>
                   + Create Delivery
                 </Button>
@@ -403,6 +483,165 @@ export function SoDetailDialog({ open, onOpenChange, so, onEdit, onConfirm }: So
           )}
         </>
       )}
+
+      {/* Confirm Delivery dialog */}
+      <AlertDialog open={!!confirmDeliveryId} onOpenChange={(o) => { if (!o) setConfirmDeliveryId(null) }}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Confirm Delivery</AlertDialogTitle>
+            <AlertDialogDescription>
+              This delivery will be marked as <span className="font-semibold text-foreground">Delivered</span>.
+              Once confirmed, the items will be deducted from warehouse stock and <span className="font-semibold text-foreground">no further editing will be possible</span>.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction
+              disabled={completeDelivery.isPending}
+              onClick={() => {
+                if (!confirmDeliveryId || !current) return
+                const del = (fullSO?.sale_deliveries ?? []).find((d) => d.id === confirmDeliveryId)
+                if (!del) return
+                const soLines = fullSO?.sale_order_lines ?? []
+                const remaining = soLines
+                  .map((li) => {
+                    const delItem = del.items.find((di) => di.brand_variant_id === li.brand_variant_id)
+                    const thisQty = delItem?.qty_delivered ?? 0
+                    const leftover = Math.max(0, li.qty - li.delivered_qty - thisQty)
+                    return leftover > 0 ? { item_name: li.item_name, sku: li.sku ?? null, qty_delivered: leftover, brand_variant_id: li.brand_variant_id ?? null } : null
+                  })
+                  .filter(Boolean) as { item_name: string; sku: string | null; qty_delivered: number; brand_variant_id: string | null }[]
+
+                completeDelivery.mutate(
+                  {
+                    deliveryId: confirmDeliveryId,
+                    soId: current.id,
+                    invoiceId: soInvoice?.id ?? null,
+                    remainingItems: remaining,
+                  },
+                  {
+                    onSuccess: () => { toast.success('Delivery marked as delivered'); setConfirmDeliveryId(null) },
+                    onError: (err) => toast.error((err as Error).message),
+                  }
+                )
+              }}
+            >
+              {completeDelivery.isPending ? 'Processing…' : 'Yes, Mark Delivered'}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
+      {/* Edit Delivery dialog */}
+      {editDeliveryId && (() => {
+        const del = (fullSO?.sale_deliveries ?? []).find((d) => d.id === editDeliveryId)
+        if (!del) return null
+        return (
+          <EditDeliveryDialog
+            key={editDeliveryId}
+            delivery={del}
+            warehouses={warehouses}
+            onClose={() => setEditDeliveryId(null)}
+            onSave={(updates) => {
+              updateDelivery.mutate(
+                { id: editDeliveryId, ...updates },
+                {
+                  onSuccess: () => { toast.success('Delivery updated'); setEditDeliveryId(null) },
+                  onError: (err) => toast.error((err as Error).message),
+                }
+              )
+            }}
+            isPending={updateDelivery.isPending}
+          />
+        )
+      })()}
     </>
+  )
+}
+
+/* ── Edit Delivery (inline dialog) ────────────────────────── */
+
+function EditDeliveryDialog({
+  delivery,
+  warehouses,
+  onClose,
+  onSave,
+  isPending,
+}: {
+  delivery: SaleDelivery
+  warehouses: { id: string; name: string }[]
+  onClose: () => void
+  onSave: (updates: { warehouse_id: string; warehouse_name: string; date: string; items: { item_name: string; sku: string | null; qty_delivered: number; brand_variant_id: string | null }[] }) => void
+  isPending: boolean
+}) {
+  const [warehouseId, setWarehouseId] = useState(delivery.warehouse_id ?? '')
+  const [date, setDate] = useState(delivery.date ?? new Date().toISOString().split('T')[0])
+  const [items, setItems] = useState(delivery.items.map((i) => ({ ...i })))
+
+  return (
+    <Dialog open onOpenChange={(o) => { if (!o) onClose() }}>
+      <DialogContent className="w-full max-w-full rounded-none sm:max-w-lg sm:rounded-lg max-h-[90vh] flex flex-col">
+        <DialogHeader>
+          <DialogTitle>Edit Delivery — {delivery.delivery_number}</DialogTitle>
+        </DialogHeader>
+        <div className="flex-1 overflow-y-auto space-y-4 py-2">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+            <div className="space-y-1">
+              <Label>Warehouse *</Label>
+              <select
+                value={warehouseId}
+                onChange={(e) => setWarehouseId(e.target.value)}
+                className="flex h-9 w-full rounded-md border border-input bg-background px-3 py-1 text-sm"
+              >
+                <option value="">Select warehouse…</option>
+                {warehouses.map((w) => (
+                  <option key={w.id} value={w.id}>{w.name}</option>
+                ))}
+              </select>
+            </div>
+            <div className="space-y-1">
+              <Label>Date *</Label>
+              <Input type="date" value={date} onChange={(e) => setDate(e.target.value)} />
+            </div>
+          </div>
+
+          <div className="space-y-2">
+            <Label className="text-sm font-medium">Items</Label>
+            {items.map((item, idx) => (
+              <div key={idx} className="flex items-center gap-3 rounded-md border p-2">
+                <div className="flex-1 min-w-0">
+                  <div className="text-sm font-medium truncate">{item.item_name}</div>
+                  {item.sku && <div className="text-xs text-muted-foreground font-mono">{item.sku}</div>}
+                </div>
+                <Input
+                  type="number"
+                  min="0"
+                  value={item.qty_delivered}
+                  onChange={(e) => setItems((prev) => prev.map((it, i) => i === idx ? { ...it, qty_delivered: Math.max(0, Number(e.target.value)) } : it))}
+                  className="w-20 text-right"
+                />
+              </div>
+            ))}
+          </div>
+        </div>
+        <DialogFooter className="shrink-0">
+          <Button variant="outline" onClick={onClose} disabled={isPending}>Cancel</Button>
+          <Button
+            disabled={!warehouseId || isPending || items.every((i) => i.qty_delivered === 0)}
+            onClick={() => {
+              const wh = warehouses.find((w) => w.id === warehouseId)
+              onSave({
+                warehouse_id: warehouseId,
+                warehouse_name: wh?.name ?? '',
+                date,
+                items: items.filter((i) => i.qty_delivered > 0),
+              })
+            }}
+          >
+            {isPending ? 'Saving…' : 'Save Changes'}
+          </Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
   )
 }

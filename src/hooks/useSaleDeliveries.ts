@@ -75,7 +75,10 @@ export function useUpdateDelivery() {
         .eq('id', id)
       if (error) throw error
     },
-    onSuccess: () => queryClient.invalidateQueries({ queryKey: queryKeys.saleDeliveries.all }),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: queryKeys.saleDeliveries.all })
+      queryClient.invalidateQueries({ queryKey: queryKeys.saleOrders.all })
+    },
   })
 }
 
@@ -123,15 +126,8 @@ export function useCompleteDelivery() {
           .eq('id', deliveryId)
           .single()
         if (orig) {
-          const { data: lastDel } = await supabase
-            .from('sale_deliveries')
-            .select('delivery_number')
-            .ilike('delivery_number', 'DEL-%')
-            .order('delivery_number', { ascending: false })
-            .limit(1)
-            .maybeSingle()
-          const lastDelNum = lastDel?.delivery_number ? parseInt((lastDel.delivery_number as string).replace('DEL-', ''), 10) : 0
-          const delivery_number = `DEL-${String(lastDelNum + 1).padStart(5, '0')}`
+          const { data: seqRow } = await supabase.rpc('next_delivery_number')
+          const delivery_number = (seqRow as unknown as string) ?? `DEL-${Date.now()}`
           await supabase.from('sale_deliveries').insert({
             delivery_number,
             sale_order_id: orig.sale_order_id,
@@ -218,16 +214,9 @@ export function useCreateReplacementDelivery() {
         })),
       ]
 
-      // Generate delivery number (max-based)
-      const { data: lastDel } = await supabase
-        .from('sale_deliveries')
-        .select('delivery_number')
-        .ilike('delivery_number', 'DEL-%')
-        .order('delivery_number', { ascending: false })
-        .limit(1)
-        .maybeSingle()
-      const lastDelNum = lastDel?.delivery_number ? parseInt((lastDel.delivery_number as string).replace('DEL-', ''), 10) : 0
-      const delivery_number = `DEL-${String(lastDelNum + 1).padStart(5, '0')}`
+      // Generate delivery number (sequence-based)
+      const { data: seqRow } = await supabase.rpc('next_delivery_number')
+      const delivery_number = (seqRow as unknown as string) ?? `DEL-${Date.now()}`
 
       const today = new Date().toISOString().split('T')[0]
 

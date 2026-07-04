@@ -74,6 +74,17 @@ export function useCreateSaleReturn() {
         .eq('source_type', 'sale_order')
       const return_number = `SR-${String((count ?? 0) + 1).padStart(5, '0')}`
 
+      const { data: { user } } = await supabase.auth.getUser()
+      let createdByName: string | null = null
+      if (user) {
+        const { data: profile } = await supabase
+          .from('profiles')
+          .select('full_name')
+          .eq('id', user.id)
+          .single()
+        createdByName = profile?.full_name ?? null
+      }
+
       const { data, error } = await supabase
         .from('returns')
         .insert({
@@ -86,6 +97,8 @@ export function useCreateSaleReturn() {
           restock_warehouse_id: payload.restock_warehouse_id,
           notes: payload.notes,
           status: 'pending',
+          created_by: user?.id ?? null,
+          created_by_name: createdByName,
         })
         .select()
         .single()
@@ -310,6 +323,56 @@ export function useCreateCreditNoteForReturn() {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: queryKeys.saleReturns.bySo })
       queryClient.invalidateQueries({ queryKey: queryKeys.creditNotes.all })
+    },
+  })
+}
+
+export function useAssignWarehouseAndRestock() {
+  const queryClient = useQueryClient()
+  return useMutation({
+    mutationFn: async ({ id, warehouseId }: { id: string; warehouseId: string }) => {
+      const supabase = createClient()
+
+      const { error: whErr } = await supabase
+        .from('returns')
+        .update({ restock_warehouse_id: warehouseId })
+        .eq('id', id)
+      if (whErr) throw whErr
+
+      const { data: ret, error: fetchErr } = await supabase
+        .from('returns')
+        .select('source_id, return_number, items, reason')
+        .eq('id', id)
+        .single()
+      if (fetchErr) throw fetchErr
+
+      const { error: statusErr } = await supabase
+        .from('returns')
+        .update({ status: 'restocked' })
+        .eq('id', id)
+      if (statusErr) throw statusErr
+
+      const { error: rpcError } = await supabase
+        .rpc('rpc_process_return_restock', { p_return_id: id })
+      if (rpcError) throw rpcError
+
+      await createCreditNoteForReturn(supabase, id, { ...ret, items: ret.items as SaleReturn['items'] })
+
+      return ret as { source_id: string; return_number: string; items: SaleReturn['items']; reason: string }
+    },
+    onSuccess: (ret) => {
+      queryClient.invalidateQueries({ queryKey: queryKeys.saleReturns.all })
+      queryClient.invalidateQueries({ queryKey: queryKeys.saleReturns.bySo })
+      queryClient.invalidateQueries({ queryKey: queryKeys.activityLog.all })
+      queryClient.invalidateQueries({ queryKey: queryKeys.inventory.brandVariantsV2 })
+      queryClient.invalidateQueries({ queryKey: queryKeys.creditNotes.all })
+      logActivity({
+        action:    'Return Restocked',
+        module:    'sale_orders',
+        entity_id: ret.source_id,
+        details:   ret.return_number,
+        severity:  'info',
+      })
     },
   })
 }

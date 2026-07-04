@@ -1,6 +1,6 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useMemo } from 'react'
 import { toast } from 'sonner'
 import { PageHeader } from '@/components/shared/PageHeader'
 import { PageWrapper } from '@/components/shared/PageWrapper'
@@ -29,6 +29,7 @@ import {
 import { useReturnReasons } from '@/hooks/useReturnReasons'
 import { usePurchaseOrders } from '@/hooks/usePurchaseOrders'
 import { useWarehouses } from '@/hooks/useWarehouses'
+import { useWarehouseStockByItems } from '@/hooks/useWarehouseOperations'
 import { POReturnDetailDialog } from '@/components/purchase/POReturnDetailDialog'
 import { formatDate } from '@/lib/utils/formatters'
 import { cn } from '@/lib/utils'
@@ -74,6 +75,8 @@ export default function PurchaseReturnsPage() {
   const { data: warehouses = [] } = useWarehouses()
   const { data: reasons = [] } = useReturnReasons('po_return')
 
+  const bvIds = useMemo(() => items.map((i) => i.brand_variant_id).filter(Boolean) as string[], [items])
+  const { data: whStockMap } = useWarehouseStockByItems(bvIds)
   const createReturn = useCreatePurchaseReturn()
   const updateStatus = useUpdatePOReturnStatus()
 
@@ -263,18 +266,37 @@ export default function PurchaseReturnsPage() {
             {items.length > 0 && (
               <div className="space-y-2">
                 <Label>Items to Return</Label>
-                {items.map((item, idx) => (
-                  <div key={idx} className="flex items-center gap-3 rounded-lg border p-3">
-                    <div className="flex-1 min-w-0">
-                      <div className="text-sm font-medium truncate">{item.item_name}</div>
-                      {item.sku && <div className="text-xs text-muted-foreground">{item.sku}</div>}
-                      <div className="text-xs text-muted-foreground">Max: {item._max}</div>
+                {items.map((item, idx) => {
+                  const whEntries = item.brand_variant_id ? (whStockMap.get(item.brand_variant_id) ?? []) : []
+                  return (
+                    <div key={idx} className="flex items-center gap-3 rounded-lg border p-3">
+                      <div className="flex-1 min-w-0">
+                        <div className="text-sm font-medium truncate">{item.item_name}</div>
+                        {item.sku && <div className="text-xs text-muted-foreground">{item.sku}</div>}
+                        <div className="text-xs text-muted-foreground">Max: {item._max}</div>
+                        {item.brand_variant_id && (
+                          whEntries.length > 0 ? (
+                            <div className="flex flex-wrap gap-x-3 gap-y-0.5 mt-0.5">
+                              {whEntries.map((w) => {
+                                const whName = warehouses.find((wh) => wh.id === w.warehouse_id)?.name ?? 'Unknown'
+                                return (
+                                  <span key={w.warehouse_id} className="text-[10px] text-muted-foreground">
+                                    {whName}: <span className="font-medium text-foreground">{w.qty}</span>
+                                  </span>
+                                )
+                              })}
+                            </div>
+                          ) : (
+                            <div className="text-[10px] text-amber-600 mt-0.5">No stock in any warehouse</div>
+                          )
+                        )}
+                      </div>
+                      <Input type="number" min="0" max={item._max} value={item.qty}
+                        onChange={(e) => { const u = [...items]; u[idx] = { ...u[idx], qty: Math.min(item._max, Math.max(0, Number(e.target.value))) }; setItems(u) }}
+                        className="w-20 text-right" />
                     </div>
-                    <Input type="number" min="0" max={item._max} value={item.qty}
-                      onChange={(e) => { const u = [...items]; u[idx] = { ...u[idx], qty: Math.min(item._max, Math.max(0, Number(e.target.value))) }; setItems(u) }}
-                      className="w-20 text-right" />
-                  </div>
-                ))}
+                  )
+                })}
               </div>
             )}
             <div className="space-y-1">

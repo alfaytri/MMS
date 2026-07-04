@@ -292,6 +292,21 @@ export function useWarehouseStockSummary(warehouseId: string | null): {
   return { data, isLoading }
 }
 
+export function useWarehouseStockByItems(brandVariantIds: string[]) {
+  const { data: allStock = [], isLoading } = useWarehouseStock()
+  const data = useMemo(() => {
+    const idSet = new Set(brandVariantIds)
+    const map = new Map<string, { warehouse_id: string; warehouse_name?: string; qty: number }[]>()
+    for (const s of allStock) {
+      if (!idSet.has(s.brand_variant_id) || s.qty <= 0) continue
+      if (!map.has(s.brand_variant_id)) map.set(s.brand_variant_id, [])
+      map.get(s.brand_variant_id)!.push({ warehouse_id: s.warehouse_id, qty: s.qty })
+    }
+    return map
+  }, [allStock, brandVariantIds])
+  return { data, isLoading }
+}
+
 export function useWarehouseTransfers({ status }: { status?: TransferStatus } = {}) {
   return useQuery({
     queryKey: queryKeys.warehouseOps.warehouseTransfersByStatus(status),

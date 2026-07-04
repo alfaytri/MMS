@@ -1,6 +1,6 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useMemo } from 'react'
 import { toast } from 'sonner'
 import {
   RotateCcw, Calendar, Warehouse, User, Hash, Loader2, Download,
@@ -13,6 +13,8 @@ import { createClient } from '@/lib/supabase/client'
 import { formatDate } from '@/lib/utils/formatters'
 import { cn } from '@/lib/utils'
 import type { POReturn } from '@/hooks/usePurchaseReturns'
+import { useWarehouseStockByItems } from '@/hooks/useWarehouseOperations'
+import { useWarehouses } from '@/hooks/useWarehouses'
 
 const STATUS_CONFIG: Record<string, { label: string; color: string; bg: string }> = {
   pending:            { label: 'Pending',            color: 'text-amber-700',  bg: 'bg-amber-50 border-amber-200' },
@@ -49,6 +51,9 @@ interface Props {
 
 export function POReturnDetailDialog({ ret, onClose }: Props) {
   const [pdfBusy, setPdfBusy] = useState(false)
+  const { data: warehouses = [] } = useWarehouses()
+  const bvIds = useMemo(() => (ret?.items ?? []).map((i) => i.brand_variant_id).filter(Boolean) as string[], [ret?.items])
+  const { data: whStockMap } = useWarehouseStockByItems(bvIds)
 
   if (!ret) return null
 
@@ -116,7 +121,7 @@ export function POReturnDetailDialog({ ret, onClose }: Props) {
             <MetaCard
               icon={<Warehouse className="h-4 w-4 text-muted-foreground" />}
               label="Warehouse"
-              value={ret.restock_warehouse_id ? 'Assigned' : 'No dispatch warehouse'}
+              value={ret.restock_warehouse_id ? (warehouses.find((w) => w.id === ret.restock_warehouse_id)?.name ?? 'Assigned') : 'No dispatch warehouse'}
             />
             <MetaCard
               icon={<User className="h-4 w-4 text-muted-foreground" />}
@@ -148,6 +153,7 @@ export function POReturnDetailDialog({ ret, onClose }: Props) {
                       <th className="px-3 py-2 text-left font-medium">SKU</th>
                       <th className="px-3 py-2 text-right font-medium">Qty</th>
                       <th className="px-3 py-2 text-center font-medium">Condition</th>
+                      <th className="px-3 py-2 text-left font-medium">Stock by Warehouse</th>
                     </tr>
                   </thead>
                   <tbody className="divide-y">
@@ -163,11 +169,28 @@ export function POReturnDetailDialog({ ret, onClose }: Props) {
                               {cond.label}
                             </Badge>
                           </td>
+                          <td className="px-3 py-2.5">
+                            {item.brand_variant_id && (() => {
+                              const whEntries = whStockMap.get(item.brand_variant_id!) ?? []
+                              return whEntries.length > 0 ? (
+                                <div className="flex flex-wrap gap-x-3 gap-y-0.5">
+                                  {whEntries.map((w) => {
+                                    const whName = warehouses.find((wh) => wh.id === w.warehouse_id)?.name ?? '?'
+                                    return (
+                                      <span key={w.warehouse_id} className="text-[10px] text-muted-foreground whitespace-nowrap">
+                                        {whName}: <span className="font-medium text-foreground">{w.qty}</span>
+                                      </span>
+                                    )
+                                  })}
+                                </div>
+                              ) : <span className="text-[10px] text-amber-600">No stock</span>
+                            })()}
+                          </td>
                         </tr>
                       )
                     })}
                     {items.length === 0 && (
-                      <tr><td colSpan={4} className="py-8 text-center text-muted-foreground">No items found</td></tr>
+                      <tr><td colSpan={5} className="py-8 text-center text-muted-foreground">No items found</td></tr>
                     )}
                   </tbody>
                 </table>

@@ -13,6 +13,7 @@ import { createClient } from '@/lib/supabase/client'
 import { formatDate } from '@/lib/utils/formatters'
 import { cn } from '@/lib/utils'
 import type { SaleReturn } from '@/hooks/useSaleReturns'
+import { useWarehouses } from '@/hooks/useWarehouses'
 
 const STATUS_CONFIG: Record<string, { label: string; color: string; bg: string }> = {
   pending:   { label: 'Pending',   color: 'text-amber-700',  bg: 'bg-amber-50 border-amber-200' },
@@ -43,6 +44,7 @@ interface Props {
 
 export function SaleReturnDetailDialog({ ret, onClose }: Props) {
   const [pdfBusy, setPdfBusy] = useState(false)
+  const { data: warehouses } = useWarehouses()
 
   if (!ret) return null
 
@@ -113,7 +115,9 @@ export function SaleReturnDetailDialog({ ret, onClose }: Props) {
             <MetaCard
               icon={<Warehouse className="h-4 w-4 text-muted-foreground" />}
               label="Warehouse"
-              value={ret.restock_warehouse_id ? 'Assigned' : 'No restocking'}
+              value={ret.restock_warehouse_id
+                ? (warehouses ?? []).find((w) => w.id === ret.restock_warehouse_id)?.name ?? 'Assigned'
+                : 'Pending inspection'}
             />
             <MetaCard
               icon={<User className="h-4 w-4 text-muted-foreground" />}
