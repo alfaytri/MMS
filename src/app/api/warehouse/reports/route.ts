@@ -69,7 +69,7 @@ function periodToFromDate(period?: string): string | undefined {
 
 // ─── Data fetchers ───────────────────────────────────────────────────────────
 
-type SupaClient = ReturnType<typeof createClient>
+type SupaClient = ReturnType<typeof createClient<any>>
 
 async function fetchStockOverview(supabase: SupaClient, warehouseId?: string) {
   let q = supabase
@@ -84,7 +84,7 @@ async function fetchStockOverview(supabase: SupaClient, warehouseId?: string) {
 
   let warehouseName = 'All Warehouses'
   if (warehouseId) {
-    const { data: wh } = await supabase.from('warehouses').select('name').eq('id', warehouseId).single()
+    const { data: wh } = await supabase.from('warehouses').select('name').eq('id', warehouseId).single() as { data: { name: string } | null }
     warehouseName = wh?.name ?? warehouseName
   }
 
@@ -244,7 +244,7 @@ async function fetchReceivalsDeliveries(supabase: SupaClient, fromDate?: string)
 
   const rows: ReceivalDeliveryReportRow[] = []
 
-  for (const r of (receivalsRes.data ?? [])) {
+  for (const r of (receivalsRes.data ?? []) as any[]) {
     const po = r.purchase_orders as { po_number: string; supplier_name: string } | null
     const wh = r.warehouses as { name: string } | null
     const items = (r.receival_items ?? []) as { id: string }[]
@@ -261,7 +261,7 @@ async function fetchReceivalsDeliveries(supabase: SupaClient, fromDate?: string)
     })
   }
 
-  for (const d of (deliveriesRes.data ?? [])) {
+  for (const d of (deliveriesRes.data ?? []) as any[]) {
     const so = d.sale_orders as { so_number: string; customers: { name: string } | null } | null
     const deliveryItems = (d.items ?? []) as unknown[]
     rows.push({
@@ -346,7 +346,7 @@ export async function POST(req: NextRequest) {
     const pdfBuffer = await htmlToPdfBuffer(html, { landscape: true })
     const filename = `${type}-report-${new Date().toISOString().slice(0, 10)}.pdf`
 
-    return new NextResponse(pdfBuffer, {
+    return new NextResponse(new Uint8Array(pdfBuffer), {
       status: 200,
       headers: {
         'Content-Type': 'application/pdf',

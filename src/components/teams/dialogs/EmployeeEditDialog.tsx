@@ -396,7 +396,7 @@ export function EmployeeEditDialog() {
           p_status:      employee!.status ?? 'active',
           p_avatar_url:  avatarUrl || '',
           p_service_ids: serviceIds,
-          p_division_id: values.division_id || null,
+          p_division_id: values.division_id || undefined,
         })
         if (error) throw error
         // Log and invalidate only after the RPC fully succeeded

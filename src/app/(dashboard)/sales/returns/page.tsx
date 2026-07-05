@@ -227,7 +227,7 @@ export default function SaleReturnsPage() {
 
             <div className="space-y-1">
               <Label htmlFor="sr-reason">Reason *</Label>
-              <Select value={reasonSelect} onValueChange={(v) => { setReasonSelect(v); if (v !== '__custom__') setCustomReason('') }}>
+              <Select value={reasonSelect} onValueChange={(v) => { setReasonSelect(v ?? ''); if (v !== '__custom__') setCustomReason('') }}>
                 <SelectTrigger id="sr-reason">
                   <SelectValue placeholder="Select reason…" />
                 </SelectTrigger>
