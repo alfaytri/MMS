@@ -66,6 +66,18 @@ export function useSupplierBill(id: string | null) {
   })
 }
 
+export type POBillRow = {
+  id: string
+  invoice_id: string
+  doc_status: string
+  payment_status: string
+  total_amount: number
+  paid_amount: number
+  due_date: string | null
+  issued_date: string | null
+  created_at: string
+}
+
 export function useBillsByPO(poId: string | null) {
   return useQuery({
     queryKey: queryKeys.supplierBills.byPo(poId),
@@ -74,12 +86,12 @@ export function useBillsByPO(poId: string | null) {
       const supabase = createClient()
       const { data, error } = await supabase
         .from('invoices')
-        .select('id, invoice_id, doc_status, payment_status, total_amount, created_at')
+        .select('id, invoice_id, doc_status, payment_status, total_amount, paid_amount, due_date, issued_date, created_at')
         .eq('purchase_order_id', poId!)
         .eq('direction', 'ap')
         .order('created_at', { ascending: false })
       if (error) throw error
-      return (data ?? []) as { id: string; invoice_id: string; doc_status: string; payment_status: string; total_amount: number; created_at: string }[]
+      return (data ?? []) as POBillRow[]
     },
   })
 }

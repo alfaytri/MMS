@@ -8,7 +8,7 @@ import {
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { Button } from '@/components/ui/button'
 import { Skeleton } from '@/components/ui/skeleton'
-import { Send, XCircle, Pencil, Undo2 } from 'lucide-react'
+import { Send, XCircle, Pencil, Undo2, Receipt, ExternalLink } from 'lucide-react'
 import { toast } from 'sonner'
 import { PoApprovalChain } from './PoApprovalChain'
 import { CreateBillFromPODialog } from './CreateBillFromPODialog'
@@ -31,7 +31,7 @@ import {
   useRecallPOToDraft,
   type PurchaseOrder,
 } from '@/hooks/usePurchaseOrders'
-import { useBillsByPO } from '@/hooks/useSupplierBills'
+import { useBillsByPO, type POBillRow } from '@/hooks/useSupplierBills'
 import { usePurchaseReturnsByPO } from '@/hooks/usePurchaseReturns'
 import { useActivityLog } from '@/hooks/useActivityLog'
 import { useMyApprovalRoles } from '@/hooks/usePOApprovals'
@@ -161,6 +161,25 @@ export function PoDetailDialog({ open, onOpenChange, po, poId, onEdit }: Props) 
                       {current.status.replace(/_/g, ' ')}
                     </span>
                   )}
+                  {current && !['draft', 'pending_approval', 'cancelled'].includes(current.status) && (() => {
+                    const billedTotal = existingBills.reduce((s, b) => s + b.total_amount, 0)
+                    const poTotal = current.total_qar ?? 0
+                    if (existingBills.length === 0) return (
+                      <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium bg-muted text-muted-foreground">
+                        <Receipt className="h-3 w-3" /> Not Billed
+                      </span>
+                    )
+                    if (billedTotal < poTotal) return (
+                      <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium bg-amber-100 text-amber-700">
+                        <Receipt className="h-3 w-3" /> Partially Billed
+                      </span>
+                    )
+                    return (
+                      <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium bg-green-100 text-green-700">
+                        <Receipt className="h-3 w-3" /> Fully Billed
+                      </span>
+                    )
+                  })()}
                 </div>
                 {current && (
                   <p className="text-sm text-muted-foreground mt-0.5">
@@ -322,6 +341,11 @@ export function PoDetailDialog({ open, onOpenChange, po, poId, onEdit }: Props) 
                   <TabsTrigger value="receive">Receive</TabsTrigger>
                 )}
                 {!isViewingSnapshot && <TabsTrigger value="payments">Payments</TabsTrigger>}
+                {!isViewingSnapshot && (
+                  <TabsTrigger value="bills">
+                    Bills{existingBills.length > 0 ? ` (${existingBills.length})` : ''}
+                  </TabsTrigger>
+                )}
                 <TabsTrigger value="activity">Activity</TabsTrigger>
                 {showReturns && (
                   <TabsTrigger value="returns">
@@ -529,6 +553,99 @@ export function PoDetailDialog({ open, onOpenChange, po, poId, onEdit }: Props) 
                   canRecord={!!canRecordPayment}
                   onRecordPayment={() => setPaymentOpen(true)}
                 />
+              </TabsContent>
+
+              {/* ── Bills ───────────────────────────────────────── */}
+              <TabsContent value="bills" className="flex-1 overflow-y-auto">
+                {existingBills.length === 0 ? (
+                  <div className="flex flex-col items-center justify-center py-12 text-center">
+                    <Receipt className="h-10 w-10 text-muted-foreground/40 mb-3" />
+                    <p className="text-sm font-medium text-muted-foreground">No bills created yet</p>
+                    <p className="text-xs text-muted-foreground mt-1">Bills are created from approved purchase orders</p>
+                  </div>
+                ) : (
+                  <div className="space-y-3">
+                    <div className="flex items-center justify-between text-sm text-muted-foreground px-1">
+                      <span>{existingBills.length} bill{existingBills.length !== 1 ? 's' : ''}</span>
+                      <span>
+                        Total billed: <span className="font-semibold text-foreground">{formatCurrency(existingBills.reduce((s, b) => s + b.total_amount, 0), current?.currency ?? 'QAR')}</span>
+                      </span>
+                    </div>
+                    <div className="rounded-md border overflow-x-auto">
+                      <Table>
+                        <TableHeader>
+                          <TableRow>
+                            <TableHead>Bill #</TableHead>
+                            <TableHead className="hidden sm:table-cell">Issued</TableHead>
+                            <TableHead className="hidden md:table-cell">Due Date</TableHead>
+                            <TableHead className="text-center">Status</TableHead>
+                            <TableHead className="text-center hidden sm:table-cell">Payment</TableHead>
+                            <TableHead className="text-right">Amount</TableHead>
+                            <TableHead className="text-right hidden sm:table-cell">Paid</TableHead>
+                          </TableRow>
+                        </TableHeader>
+                        <TableBody>
+                          {existingBills.map((bill) => (
+                              <TableRow key={bill.id} className="group">
+                                <TableCell>
+                                  <button
+                                    type="button"
+                                    onClick={() => { onOpenChange(false); router.push(`/purchase/bills/${bill.id}`) }}
+                                    className="inline-flex items-center gap-1 text-primary hover:underline font-medium text-sm cursor-pointer"
+                                  >
+                                    {bill.invoice_id}
+                                    <ExternalLink className="h-3 w-3 opacity-0 group-hover:opacity-100 transition-opacity" />
+                                  </button>
+                                </TableCell>
+                                <TableCell className="hidden sm:table-cell text-sm text-muted-foreground">
+                                  {bill.issued_date ? formatDate(bill.issued_date) : '—'}
+                                </TableCell>
+                                <TableCell className="hidden md:table-cell text-sm">
+                                  {bill.due_date ? formatDate(bill.due_date) : '—'}
+                                </TableCell>
+                                <TableCell className="text-center">
+                                  <span className={cn(
+                                    'inline-flex items-center px-2 py-0.5 rounded-full text-[11px] font-medium',
+                                    {
+                                      draft: 'bg-muted text-foreground',
+                                      pending_approval: 'bg-amber-100 text-amber-700',
+                                      approved: 'bg-blue-100 text-blue-700',
+                                      rejected: 'bg-red-100 text-red-700',
+                                    }[bill.doc_status] ?? 'bg-muted text-foreground'
+                                  )}>
+                                    {bill.doc_status.replace(/_/g, ' ')}
+                                  </span>
+                                </TableCell>
+                                <TableCell className="text-center hidden sm:table-cell">
+                                  <span className={cn(
+                                    'inline-flex items-center px-2 py-0.5 rounded-full text-[11px] font-medium',
+                                    {
+                                      unpaid: 'bg-red-100 text-red-700',
+                                      partially_paid: 'bg-amber-100 text-amber-700',
+                                      paid: 'bg-green-100 text-green-700',
+                                      overdue: 'bg-red-200 text-red-800',
+                                    }[bill.payment_status] ?? 'bg-muted text-foreground'
+                                  )}>
+                                    {bill.payment_status.replace(/_/g, ' ')}
+                                  </span>
+                                </TableCell>
+                                <TableCell className="text-right tabular-nums text-sm font-medium">
+                                  {formatCurrency(bill.total_amount, current?.currency ?? 'QAR')}
+                                </TableCell>
+                                <TableCell className="text-right tabular-nums text-sm hidden sm:table-cell">
+                                  {(bill.paid_amount ?? 0) > 0 ? (
+                                    <span className="text-emerald-600">{formatCurrency(bill.paid_amount ?? 0, current?.currency ?? 'QAR')}</span>
+                                  ) : (
+                                    <span className="text-muted-foreground">—</span>
+                                  )}
+                                </TableCell>
+                              </TableRow>
+                          ))}
+                        </TableBody>
+                      </Table>
+                    </div>
+                  </div>
+                )}
               </TabsContent>
 
               {/* ── Activity ─────────────────────────────────────── */}
