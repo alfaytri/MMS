@@ -1,8 +1,8 @@
 import React from 'react'
 import type { LucideProps } from 'lucide-react'
 import {
-  Database, ShoppingCart, ClipboardList,
-  FileText, Receipt, Users, Settings2, Headphones,
+  Database, ShoppingCart,
+  Receipt, Settings2,
   BarChart2, Package,
 } from 'lucide-react'
 
@@ -67,7 +67,7 @@ export const PERMISSION_GROUPS: PermissionGroup[] = [
         ],
       },
       {
-        label: 'Warehouses (Master Data)',
+        label: 'Warehouses',
         permissions: [
           { key: 'master_data.warehouses.view',   label: 'View Warehouses',   description: 'Access the warehouses list and details' },
           { key: 'master_data.warehouses.manage', label: 'Manage Warehouses', description: 'Create, edit, and delete warehouse records' },
@@ -93,29 +93,7 @@ export const PERMISSION_GROUPS: PermissionGroup[] = [
           { key: 'master_data.customers.view',                label: 'View Customers',           description: 'Access the customers list and details' },
           { key: 'master_data.customers.manage',              label: 'Manage Customers',         description: 'Create, edit, and delete customer records' },
           { key: 'master_data.customers.change_credit_group', label: 'Change Credit Group',      description: 'Move a customer between credit groups (typically Accounting Manager / Owner)' },
-          { key: 'master_data.customers.change_type',         label: 'Change Customer Type',     description: 'Switch Cash ↔ Credit or Individual ↔ Business (financial classification — requires updated docs)' },
-        ],
-      },
-      {
-        label: 'Service Customers',
-        permissions: [
-          { key: 'master_data.service_customers.view',   label: 'View Service Customers',   description: 'Access the service customers list and details' },
-          { key: 'master_data.service_customers.manage', label: 'Manage Service Customers', description: 'Create, edit, and delete service customer records' },
-        ],
-      },
-      {
-        label: 'Services',
-        permissions: [
-          { key: 'master_data.services.view',    label: 'View Services',           description: 'Access the services catalog and pricing' },
-          { key: 'master_data.services.manage',  label: 'Manage Services',         description: 'Create, edit, and delete service definitions' },
-          { key: 'master_data.services.approve', label: 'Approve Service Changes', description: 'Review and approve/reject service change requests' },
-        ],
-      },
-      {
-        label: 'Subscription Packages',
-        permissions: [
-          { key: 'master_data.subscriptions.view',   label: 'View Subscriptions',   description: 'Access subscription packages list and details' },
-          { key: 'master_data.subscriptions.manage', label: 'Manage Subscriptions', description: 'Create, edit, and delete subscription packages' },
+          { key: 'master_data.customers.change_type',         label: 'Change Customer Type',     description: 'Switch Cash ↔ Credit or Individual ↔ Business (financial classification)' },
         ],
       },
       {
@@ -143,7 +121,7 @@ export const PERMISSION_GROUPS: PermissionGroup[] = [
     ],
   },
   {
-    module: 'Purchase & Sales',
+    module: 'Purchase',
     icon: asFC(ShoppingCart),
     permissions: [
       { key: 'purchase_sales.access', label: 'Access Purchase & Sales', description: 'Show the Purchase & Sales dropdown in the top nav' },
@@ -193,13 +171,6 @@ export const PERMISSION_GROUPS: PermissionGroup[] = [
         ],
       },
       {
-        label: 'RFQ',
-        permissions: [
-          { key: 'purchase.rfq.view',   label: 'View RFQs',   description: 'Access request for quotation records' },
-          { key: 'purchase.rfq.manage', label: 'Manage RFQs', description: 'Create and manage requests for quotations' },
-        ],
-      },
-      {
         label: 'Dead Stock Report',
         permissions: [
           { key: 'purchase.dead_stock.view', label: 'View Dead Stock Report', description: 'Access the dead stock and slow-moving inventory report' },
@@ -225,13 +196,13 @@ export const PERMISSION_GROUPS: PermissionGroup[] = [
           { key: 'purchase.payments.manage', label: 'Manage Purchase Payments', description: 'Create and manage purchase payment transactions' },
         ],
       },
-      {
-        label: 'Warehouse Operations (legacy alias)',
-        permissions: [
-          { key: 'purchase.warehouses.view',   label: 'View Warehouse Operations',   description: 'Access stock levels, movements, and transfers' },
-          { key: 'purchase.warehouses.manage', label: 'Manage Warehouse Operations', description: 'Create transfers, adjustments, and inventory checks' },
-        ],
-      },
+    ],
+  },
+  {
+    module: 'Sales',
+    icon: asFC(Receipt),
+    permissions: [],
+    sections: [
       {
         label: 'Sale Orders',
         permissions: [
@@ -243,7 +214,7 @@ export const PERMISSION_GROUPS: PermissionGroup[] = [
         label: 'Sales Approvals',
         permissions: [
           { key: 'sales.approvals.view',   label: 'View Sales Approvals',   description: 'Access the sales approvals queue (margin + credit)' },
-          { key: 'sales.approvals.manage', label: 'Act on Sales Approvals', description: 'Approve or reject sales approval slips (requires sales_margin or sales_credit scope on a role to actually act)' },
+          { key: 'sales.approvals.manage', label: 'Act on Sales Approvals', description: 'Approve or reject sales approval slips' },
         ],
       },
       {
@@ -342,69 +313,10 @@ export const PERMISSION_GROUPS: PermissionGroup[] = [
     ],
   },
   {
-    module: 'Orders',
-    icon: asFC(ClipboardList),
+    module: 'Finance',
+    icon: asFC(BarChart2),
     permissions: [
-      { key: 'orders.access', label: 'Access Orders Dropdown', description: 'Show the Orders dropdown in the top nav' },
-    ],
-    sections: [
-      {
-        label: 'Orders',
-        permissions: [
-          { key: 'orders.view',   label: 'View Orders',   description: 'Access the orders list and details' },
-          { key: 'orders.manage', label: 'Manage Orders', description: 'Create, edit, and assign service orders' },
-        ],
-      },
-      {
-        label: 'Follow-ups',
-        permissions: [
-          { key: 'follow_ups.request', label: 'Request Follow-up', description: 'Submit a follow-up request from the field after completing a job' },
-          { key: 'follow_ups.confirm', label: 'Confirm Follow-up', description: 'Confirm or reject team-leader follow-up requests and schedule the follow-up order' },
-        ],
-      },
-      {
-        label: 'Quotations',
-        permissions: [
-          { key: 'quotations.view',   label: 'View Quotations',   description: 'Access the quotations list and details' },
-          { key: 'quotations.manage', label: 'Manage Quotations', description: 'Create, edit, and manage quotation details' },
-        ],
-      },
-    ],
-  },
-  {
-    module: 'Contracts',
-    icon: asFC(FileText),
-    permissions: [
-      { key: 'contracts.access', label: 'Access Contracts Dropdown', description: 'Show the Contracts dropdown in the top nav' },
-    ],
-    sections: [
-      {
-        label: 'Draft Quotations',
-        permissions: [
-          { key: 'contracts.quotations.view',   label: 'View Draft Quotations',   description: 'Access the contract quotations list and details' },
-          { key: 'contracts.quotations.manage', label: 'Manage Draft Quotations', description: 'Create, edit, and manage contract quotations' },
-        ],
-      },
-      {
-        label: 'Live Contracts',
-        permissions: [
-          { key: 'contracts.live.view',   label: 'View Live Contracts',   description: 'Access the live contracts list and details' },
-          { key: 'contracts.live.manage', label: 'Manage Live Contracts', description: 'Edit and manage active contract details' },
-        ],
-      },
-      {
-        label: 'Activation',
-        permissions: [
-          { key: 'contracts.activate', label: 'Activate / Manage Docs', description: 'Activate contracts and upload/delete contract documents (terms, signed PDFs)' },
-        ],
-      },
-    ],
-  },
-  {
-    module: 'Invoices & Payments',
-    icon: asFC(Receipt),
-    permissions: [
-      { key: 'invoices.access', label: 'Access Invoices Dropdown', description: 'Show the Invoices dropdown in the top nav' },
+      { key: 'invoices.access', label: 'Access Finance Module', description: 'Show the Finance dropdown in the top nav' },
     ],
     sections: [
       {
@@ -424,71 +336,12 @@ export const PERMISSION_GROUPS: PermissionGroup[] = [
     ],
   },
   {
-    module: 'Teams',
-    icon: asFC(Users),
-    permissions: [
-      { key: 'teams.access', label: 'Access Teams Dropdown', description: 'Show the Teams dropdown in the top nav' },
-    ],
-    sections: [
-      {
-        label: 'Teams & Employees',
-        permissions: [
-          { key: 'teams.view',       label: 'View Teams',       description: 'Access the teams list and details' },
-          { key: 'teams.manage',     label: 'Manage Teams',     description: 'Create, edit, and delete teams' },
-          { key: 'employees.view',   label: 'View Employees',   description: 'Access the employee directory' },
-          { key: 'employees.manage', label: 'Manage Employees', description: 'Create, edit, and manage employee records' },
-        ],
-      },
-      {
-        label: 'Team Leader',
-        permissions: [
-          { key: 'teams.team_leader.view',   label: 'View Team Leader',   description: 'Access the Team Leader field execution page and monitor any team\'s visits' },
-          { key: 'teams.team_leader.manage', label: 'Manage Team Leader', description: 'Manage team leader assignments and field execution actions' },
-        ],
-      },
-      {
-        label: 'Map',
-        permissions: [
-          { key: 'teams.map.view',   label: 'View Map',   description: 'Access the live vehicle tracking map' },
-          { key: 'teams.map.manage', label: 'Manage Map', description: 'Manage vehicle assignments and map settings' },
-        ],
-      },
-      {
-        label: 'Calendar',
-        permissions: [
-          { key: 'calendar.view',   label: 'View Calendar',   description: 'Access the Operations Calendar page' },
-          { key: 'calendar.manage', label: 'Manage Calendar', description: 'Edit visits and reassign teams from the calendar' },
-        ],
-      },
-    ],
-  },
-  {
-    module: 'Reports',
-    icon: asFC(BarChart2),
-    permissions: [
-      { key: 'reports.access', label: 'Access Reports Dropdown', description: 'Show the Reports dropdown in the top nav' },
-      { key: 'reports.view',   label: 'View Reports',            description: 'Access all report pages' },
-      { key: 'reports.manage', label: 'Manage Reports',          description: 'Export report data to CSV or PDF' },
-    ],
-  },
-  {
     module: 'System',
     icon: asFC(Settings2),
     permissions: [
       { key: 'system.admin',  label: 'Full System Access (Owner)', description: 'GRANTS EVERY PERMISSION — bypasses all access checks. Toggle this on for Owner-level roles instead of ticking every box individually. Use sparingly.' },
       { key: 'system.import', label: 'Import Data',                description: 'Access the CSV import tool for bulk data upload' },
       { key: 'system.export', label: 'Export Data',                description: 'Export data to CSV or PDF formats' },
-    ],
-  },
-  {
-    module: 'Contact Centre',
-    icon: asFC(Headphones),
-    permissions: [
-      {
-        key: 'contact_centre.view',
-        label: 'Access Contact Centre',
-        description: 'View the Contact Centre sidebar, chat threads, and customer CRM panel',
-      },
     ],
   },
 ]

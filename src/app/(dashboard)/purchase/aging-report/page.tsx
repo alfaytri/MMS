@@ -1,16 +1,24 @@
 'use client'
 
-import { useMemo, useState } from 'react'
-import { ArrowUpDown } from 'lucide-react'
+import { useMemo, useState, useCallback } from 'react'
+import { ArrowUpDown, ChevronsUpDown, Building2, X } from 'lucide-react'
 import { PageHeader } from '@/components/shared/PageHeader'
 import { PageWrapper } from '@/components/shared/PageWrapper'
-import { SearchInput } from '@/components/shared/SearchInput'
 import { Skeleton } from '@/components/ui/skeleton'
 import { EmptyState } from '@/components/shared/EmptyState'
+import { Button } from '@/components/ui/button'
+import {
+  Command, CommandInput, CommandList, CommandEmpty, CommandGroup, CommandItem,
+} from '@/components/ui/command'
+import {
+  Popover, PopoverTrigger, PopoverContent,
+} from '@/components/ui/popover'
 import {
   Table, TableBody, TableCell, TableHead, TableHeader, TableRow,
 } from '@/components/ui/table'
 import { usePurchaseAgingReport, type AgingRow } from '@/hooks/useAgingReport'
+import { AgingDrillDownDialog } from '@/components/purchase/AgingDrillDownDialog'
+import type { AgingBucket } from '@/hooks/useAgingDrillDown'
 import { formatCurrency } from '@/lib/utils/formatters'
 import { cn } from '@/lib/utils'
 
@@ -36,25 +44,37 @@ function getBucketValue(row: AgingRow, key: SortKey): number {
   }
 }
 
+type DrillDownState = {
+  supplierId: string
+  supplierName: string
+  bucket: AgingBucket
+} | null
+
 export default function PurchaseAgingReportPage() {
-  const [search, setSearch] = useState('')
+  const [selectedSupplierId, setSelectedSupplierId] = useState<string | null>(null)
+  const [comboOpen, setComboOpen] = useState(false)
   const [sortKey, setSortKey] = useState<SortKey>('total')
   const [sortDir, setSortDir] = useState<SortDir>('desc')
+  const [drillDown, setDrillDown] = useState<DrillDownState>(null)
 
   const { data: rows = [], isLoading } = usePurchaseAgingReport()
 
+  const selectedSupplierName = useMemo(
+    () => rows.find((r) => r.supplier_id === selectedSupplierId)?.supplier_name ?? null,
+    [rows, selectedSupplierId],
+  )
+
   const filtered = useMemo(() => {
     let list = rows
-    if (search) {
-      const q = search.toLowerCase()
-      list = list.filter((r) => r.supplier_name?.toLowerCase().includes(q))
+    if (selectedSupplierId) {
+      list = list.filter((r) => r.supplier_id === selectedSupplierId)
     }
     return [...list].sort((a, b) => {
       const av = getBucketValue(a, sortKey)
       const bv = getBucketValue(b, sortKey)
       return sortDir === 'desc' ? bv - av : av - bv
     })
-  }, [rows, search, sortKey, sortDir])
+  }, [rows, selectedSupplierId, sortKey, sortDir])
 
   const totals = useMemo(() => ({
     current:  rows.reduce((s, r) => s + r.current_amt, 0),
@@ -70,6 +90,15 @@ export default function PurchaseAgingReportPage() {
     else { setSortKey(key); setSortDir('desc') }
   }
 
+  const openDrillDown = useCallback((row: AgingRow, bucket: AgingBucket) => {
+    if (!row.supplier_id) return
+    setDrillDown({
+      supplierId: row.supplier_id,
+      supplierName: row.supplier_name ?? 'Unknown',
+      bucket,
+    })
+  }, [])
+
   const SortHeader = ({ label, sortId, className }: { label: string; sortId: SortKey; className?: string }) => (
     <TableHead
       className={cn('text-right cursor-pointer select-none hover:text-foreground', className)}
@@ -81,11 +110,35 @@ export default function PurchaseAgingReportPage() {
     </TableHead>
   )
 
+  function renderBucketCell(row: AgingRow, value: number, bucket: AgingBucket, colorClass: string, className?: string) {
+    if (value <= 0) {
+      return (
+        <TableCell className={cn('text-right tabular-nums', className)}>
+          <span className="text-muted-foreground">—</span>
+        </TableCell>
+      )
+    }
+    return (
+      <TableCell className={cn('text-right tabular-nums', className)}>
+        <button
+          type="button"
+          onClick={() => openDrillDown(row, bucket)}
+          className={cn(
+            'cursor-pointer hover:underline underline-offset-2 transition-colors',
+            colorClass,
+          )}
+        >
+          {formatCurrency(value, 'QAR')}
+        </button>
+      </TableCell>
+    )
+  }
+
   return (
     <PageWrapper>
       <PageHeader
         title="Purchase Aging Report"
-        description="Outstanding bills by supplier — grouped by days overdue"
+        description="Outstanding bills by supplier — grouped by days overdue. Click any amount to see individual bills."
       />
 
       {/* Summary cards */}
@@ -105,10 +158,69 @@ export default function PurchaseAgingReportPage() {
         ))}
       </div>
 
-      {/* Search */}
+      {/* Supplier filter */}
       <div className="flex flex-col sm:flex-row gap-3 items-start sm:items-center">
-        <SearchInput value={search} onChange={setSearch} placeholder="Search supplier…" />
-        <span className="ml-auto text-xs text-muted-foreground">{filtered.length} suppliers</span>
+        <div className="flex items-center gap-2">
+          <Popover open={comboOpen} onOpenChange={setComboOpen}>
+            <PopoverTrigger
+              className={cn(
+                'flex h-10 w-full sm:w-72 items-center justify-between rounded-lg border bg-background px-3 text-sm',
+                'ring-offset-background transition-colors',
+                'hover:bg-accent/50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2',
+                !selectedSupplierId && 'text-muted-foreground',
+              )}
+            >
+              <div className="flex items-center gap-2 truncate">
+                <Building2 className="h-4 w-4 shrink-0 text-muted-foreground" />
+                <span className="truncate">
+                  {selectedSupplierName ?? 'All Suppliers'}
+                </span>
+              </div>
+              <ChevronsUpDown className="h-4 w-4 shrink-0 text-muted-foreground" />
+            </PopoverTrigger>
+            <PopoverContent className="w-(--anchor-width) p-0" align="start">
+              <Command>
+                <CommandInput placeholder="Search supplier..." />
+                <CommandList>
+                  <CommandEmpty>No supplier found.</CommandEmpty>
+                  <CommandGroup>
+                    <CommandItem
+                      value="__all__"
+                      onSelect={() => { setSelectedSupplierId(null); setComboOpen(false) }}
+                      data-checked={!selectedSupplierId}
+                    >
+                      <span className="text-muted-foreground">All Suppliers</span>
+                    </CommandItem>
+                    {rows.map((r) => (
+                      <CommandItem
+                        key={r.supplier_id}
+                        value={r.supplier_name ?? ''}
+                        onSelect={() => { setSelectedSupplierId(r.supplier_id!); setComboOpen(false) }}
+                        data-checked={selectedSupplierId === r.supplier_id}
+                      >
+                        {r.supplier_name}
+                      </CommandItem>
+                    ))}
+                  </CommandGroup>
+                </CommandList>
+              </Command>
+            </PopoverContent>
+          </Popover>
+
+          {selectedSupplierId && (
+            <Button
+              variant="ghost"
+              size="icon"
+              className="h-10 w-10 shrink-0"
+              onClick={() => setSelectedSupplierId(null)}
+            >
+              <X className="h-4 w-4" />
+              <span className="sr-only">Clear filter</span>
+            </Button>
+          )}
+        </div>
+
+        <span className="ml-auto text-xs text-muted-foreground">{filtered.length} supplier{filtered.length !== 1 ? 's' : ''}</span>
       </div>
 
       {/* Table */}
@@ -142,23 +254,21 @@ export default function PurchaseAgingReportPage() {
                   <TableCell className="text-center hidden sm:table-cell text-muted-foreground">
                     {row.bill_count}
                   </TableCell>
-                  <TableCell className={cn('text-right tabular-nums hidden md:table-cell', BUCKET_COLORS.current)}>
-                    {row.current_amt > 0 ? formatCurrency(row.current_amt, 'QAR') : '—'}
-                  </TableCell>
-                  <TableCell className={cn('text-right tabular-nums hidden md:table-cell', BUCKET_COLORS.days_1_30)}>
-                    {row.days_1_30 > 0 ? formatCurrency(row.days_1_30, 'QAR') : '—'}
-                  </TableCell>
-                  <TableCell className={cn('text-right tabular-nums hidden lg:table-cell', BUCKET_COLORS.days_31_60)}>
-                    {row.days_31_60 > 0 ? formatCurrency(row.days_31_60, 'QAR') : '—'}
-                  </TableCell>
-                  <TableCell className={cn('text-right tabular-nums hidden lg:table-cell', BUCKET_COLORS.days_61_90)}>
-                    {row.days_61_90 > 0 ? formatCurrency(row.days_61_90, 'QAR') : '—'}
-                  </TableCell>
-                  <TableCell className={cn('text-right tabular-nums', BUCKET_COLORS.days_over_90)}>
-                    {row.days_over_90 > 0 ? formatCurrency(row.days_over_90, 'QAR') : '—'}
-                  </TableCell>
-                  <TableCell className="text-right tabular-nums font-bold">
-                    {formatCurrency(row.total_outstanding, 'QAR')}
+                  {renderBucketCell(row, row.current_amt, 'current', BUCKET_COLORS.current, 'hidden md:table-cell')}
+                  {renderBucketCell(row, row.days_1_30, '1_30', BUCKET_COLORS.days_1_30, 'hidden md:table-cell')}
+                  {renderBucketCell(row, row.days_31_60, '31_60', BUCKET_COLORS.days_31_60, 'hidden lg:table-cell')}
+                  {renderBucketCell(row, row.days_61_90, '61_90', BUCKET_COLORS.days_61_90, 'hidden lg:table-cell')}
+                  {renderBucketCell(row, row.days_over_90, 'over_90', BUCKET_COLORS.days_over_90)}
+                  <TableCell className="text-right tabular-nums">
+                    {row.total_outstanding > 0 ? (
+                      <button
+                        type="button"
+                        onClick={() => openDrillDown(row, 'total')}
+                        className="font-bold cursor-pointer hover:underline underline-offset-2 transition-colors"
+                      >
+                        {formatCurrency(row.total_outstanding, 'QAR')}
+                      </button>
+                    ) : '—'}
                   </TableCell>
                 </TableRow>
               ))}
@@ -179,6 +289,15 @@ export default function PurchaseAgingReportPage() {
           </Table>
         </div>
       )}
+
+      {/* Drill-down dialog */}
+      <AgingDrillDownDialog
+        open={!!drillDown}
+        onOpenChange={(open) => { if (!open) setDrillDown(null) }}
+        supplierId={drillDown?.supplierId ?? null}
+        supplierName={drillDown?.supplierName ?? ''}
+        bucket={drillDown?.bucket ?? 'total'}
+      />
     </PageWrapper>
   )
 }

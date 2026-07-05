@@ -1,59 +1,166 @@
 'use client'
 
+import Link from 'next/link'
 import { PageHeader } from '@/components/shared/PageHeader'
 import { PageWrapper } from '@/components/shared/PageWrapper'
 import { Skeleton } from '@/components/ui/skeleton'
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
+import { Card, CardContent } from '@/components/ui/card'
+import { Badge } from '@/components/ui/badge'
 import {
   Table, TableBody, TableCell, TableHead, TableHeader, TableRow,
 } from '@/components/ui/table'
-import { useFinancialDashboard } from '@/hooks/useFinancialDashboard'
+import { useFinancialDashboard, type MonthlyTrend } from '@/hooks/useFinancialDashboard'
 import { formatCurrency, formatDate } from '@/lib/utils/formatters'
 import { cn } from '@/lib/utils'
 import {
-  ArrowDownLeft, ArrowUpRight, AlertTriangle, TrendingUp,
+  ArrowDownLeft, ArrowUpRight, AlertTriangle, ArrowRight,
+  TrendingUp, TrendingDown, Wallet, CircleDollarSign, Clock,
 } from 'lucide-react'
 
-function TrendBar({ data }: { data: { label: string; invoiced: number; billed: number }[] }) {
+// ─── Utils ────────────────────────────────────────────────────────────────
+
+function compactMoney(n: number): string {
+  if (n === 0) return '0'
+  const abs = Math.abs(n)
+  if (abs >= 1_000_000) return `${(n / 1_000_000).toFixed(1)}M`
+  if (abs >= 1_000)     return `${(n / 1_000).toFixed(1)}K`
+  return n.toFixed(0)
+}
+
+function pctChange(curr: number, prev: number): number | null {
+  if (prev === 0) return curr === 0 ? 0 : null
+  return ((curr - prev) / prev) * 100
+}
+
+// ─── Trend Chart ──────────────────────────────────────────────────────────
+
+function TrendChart({ data }: { data: MonthlyTrend[] }) {
   const max = Math.max(...data.flatMap((d) => [d.invoiced, d.billed]), 1)
+  const allZero = data.every((d) => d.invoiced === 0 && d.billed === 0)
 
   return (
-    <div className="flex items-end gap-2 sm:gap-4 h-40 sm:h-48">
-      {data.map((d) => (
-        <div key={d.label} className="flex-1 flex flex-col items-center gap-1">
-          <div className="flex items-end gap-0.5 sm:gap-1 w-full h-32 sm:h-40">
-            <div
-              className="flex-1 bg-emerald-400 rounded-t transition-all min-h-[2px]"
-              style={{ height: `${(d.invoiced / max) * 100}%` }}
-              title={`Sales: ${formatCurrency(d.invoiced, 'QAR')}`}
-            />
-            <div
-              className="flex-1 bg-red-400 rounded-t transition-all min-h-[2px]"
-              style={{ height: `${(d.billed / max) * 100}%` }}
-              title={`Purchase: ${formatCurrency(d.billed, 'QAR')}`}
-            />
-          </div>
-          <span className="text-[10px] sm:text-xs text-muted-foreground">{d.label}</span>
-        </div>
-      ))}
+    <div className="space-y-3">
+      {/* Bars */}
+      <div className="flex items-end gap-3 sm:gap-6 h-48">
+        {data.map((d) => {
+          const salesPct = (d.invoiced / max) * 100
+          const purchPct = (d.billed / max) * 100
+          const isCurrent = d === data[data.length - 1]
+          return (
+            <div key={d.label} className="flex-1 flex flex-col items-center gap-2 min-w-0">
+              {/* Numbers on top */}
+              <div className="flex items-end gap-1 sm:gap-2 w-full justify-center min-h-[28px]">
+                <span className={cn(
+                  'text-[10px] sm:text-xs font-medium tabular-nums',
+                  d.invoiced > 0 ? 'text-emerald-700' : 'text-muted-foreground/40',
+                )}>
+                  {d.invoiced > 0 ? compactMoney(d.invoiced) : '—'}
+                </span>
+                <span className={cn(
+                  'text-[10px] sm:text-xs font-medium tabular-nums',
+                  d.billed > 0 ? 'text-red-700' : 'text-muted-foreground/40',
+                )}>
+                  {d.billed > 0 ? compactMoney(d.billed) : '—'}
+                </span>
+              </div>
+              {/* Bar pair */}
+              <div className="flex items-end justify-center gap-1 sm:gap-1.5 w-full h-32 border-b border-border/40">
+                <div className="flex-1 max-w-[24px] relative flex items-end">
+                  <div
+                    className="w-full bg-emerald-400 hover:bg-emerald-500 rounded-t-sm transition-all"
+                    style={{ height: `${Math.max(salesPct, d.invoiced > 0 ? 2 : 0)}%` }}
+                    title={`Sales: ${formatCurrency(d.invoiced, 'QAR')}`}
+                  />
+                </div>
+                <div className="flex-1 max-w-[24px] relative flex items-end">
+                  <div
+                    className="w-full bg-red-400 hover:bg-red-500 rounded-t-sm transition-all"
+                    style={{ height: `${Math.max(purchPct, d.billed > 0 ? 2 : 0)}%` }}
+                    title={`Purchase: ${formatCurrency(d.billed, 'QAR')}`}
+                  />
+                </div>
+              </div>
+              <span className={cn(
+                'text-[10px] sm:text-xs',
+                isCurrent ? 'font-semibold text-foreground' : 'text-muted-foreground',
+              )}>
+                {d.label}
+              </span>
+            </div>
+          )
+        })}
+      </div>
+
+      {allZero && (
+        <p className="text-center text-xs text-muted-foreground italic">
+          No invoiced or billed activity in the last 6 months
+        </p>
+      )}
     </div>
   )
 }
+
+// ─── KPI Card ─────────────────────────────────────────────────────────────
+
+function KpiCard({
+  href,
+  icon,
+  iconBg,
+  label,
+  value,
+  valueClass,
+  footer,
+}: {
+  href?: string
+  icon: React.ReactNode
+  iconBg: string
+  label: string
+  value: string
+  valueClass?: string
+  footer?: React.ReactNode
+}) {
+  const inner = (
+    <Card className={cn('h-full transition-all', href && 'hover:shadow-md hover:border-primary/30 cursor-pointer')}>
+      <CardContent className="pt-1 h-full flex flex-col">
+        <div className="flex items-start gap-3">
+          <div className={cn('flex h-10 w-10 shrink-0 items-center justify-center rounded-lg', iconBg)}>
+            {icon}
+          </div>
+          <div className="min-w-0 flex-1">
+            <div className="flex items-center justify-between gap-2">
+              <p className="text-xs text-muted-foreground">{label}</p>
+              {href && <ArrowRight className="h-3 w-3 text-muted-foreground/50" />}
+            </div>
+            <p className={cn('text-xl font-bold tabular-nums truncate mt-0.5', valueClass)}>
+              {value}
+            </p>
+          </div>
+        </div>
+        {footer && <div className="mt-3 pt-3 border-t border-border/50">{footer}</div>}
+      </CardContent>
+    </Card>
+  )
+  return href ? <Link href={href}>{inner}</Link> : inner
+}
+
+// ─── Loading Skeleton ─────────────────────────────────────────────────────
 
 function LoadingSkeleton() {
   return (
     <div className="space-y-6">
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-        {Array.from({ length: 4 }).map((_, i) => <Skeleton key={i} className="h-28 w-full rounded-lg" />)}
+        {Array.from({ length: 4 }).map((_, i) => <Skeleton key={i} className="h-32 w-full rounded-xl" />)}
       </div>
-      <Skeleton className="h-64 w-full rounded-lg" />
+      <Skeleton className="h-80 w-full rounded-xl" />
       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-        <Skeleton className="h-48 w-full rounded-lg" />
-        <Skeleton className="h-48 w-full rounded-lg" />
+        <Skeleton className="h-64 w-full rounded-xl" />
+        <Skeleton className="h-64 w-full rounded-xl" />
       </div>
     </div>
   )
 }
+
+// ─── Page ─────────────────────────────────────────────────────────────────
 
 export default function FinancialDashboardPage() {
   const { data, isLoading } = useFinancialDashboard()
@@ -61,189 +168,311 @@ export default function FinancialDashboardPage() {
   if (isLoading || !data) {
     return (
       <PageWrapper>
-        <PageHeader title="Financial Dashboard" description="Overview of receivables, payables, and cash flow" />
+        <PageHeader title="Financial Dashboard" description="Money owed to you, money you owe, and cash movement this month" />
         <LoadingSkeleton />
       </PageWrapper>
     )
   }
 
-  const { receivables, payables, monthly_trend, top_overdue_customers, top_overdue_suppliers } = data
-  const netPosition = receivables.total - payables.total
+  const { receivables, payables, cash_this_month, monthly_trend, top_overdue_customers, top_overdue_suppliers } = data
+  const cashInPct  = pctChange(cash_this_month.in,  cash_this_month.in_prev)
+  const cashOutPct = pctChange(cash_this_month.out, cash_this_month.out_prev)
+  const netCash    = cash_this_month.net
 
   return (
     <PageWrapper>
       <PageHeader
         title="Financial Dashboard"
-        description="Overview of receivables, payables, and cash flow"
+        description="Money owed to you, money you owe, and cash movement this month"
       />
 
-      {/* Summary cards */}
+      {/* ── KPI Row ────────────────────────────────────────────────── */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
         {/* Receivables */}
-        <Card>
-          <CardContent className="pt-6">
-            <div className="flex items-center gap-3">
-              <div className="rounded-full bg-emerald-100 p-2">
-                <ArrowDownLeft className="h-5 w-5 text-emerald-600" />
-              </div>
-              <div>
-                <div className="text-xs text-muted-foreground">Total Receivables</div>
-                <div className="text-xl font-bold tabular-nums">{formatCurrency(receivables.total, 'QAR')}</div>
-              </div>
-            </div>
-            {receivables.overdue > 0 && (
-              <div className="mt-3 text-xs text-red-600 flex items-center gap-1">
+        <KpiCard
+          href="/sales/aging-report"
+          icon={<ArrowDownLeft className="h-5 w-5 text-emerald-600" />}
+          iconBg="bg-emerald-100"
+          label="Money Coming In"
+          value={formatCurrency(receivables.total, 'QAR')}
+          valueClass="text-emerald-700"
+          footer={
+            receivables.overdue > 0 ? (
+              <div className="flex items-center gap-1.5 text-xs text-red-600">
                 <AlertTriangle className="h-3 w-3" />
-                {formatCurrency(receivables.overdue, 'QAR')} overdue ({receivables.overdue_count} invoices)
+                <span>{formatCurrency(receivables.overdue, 'QAR')} overdue ({receivables.overdue_count})</span>
               </div>
-            )}
-          </CardContent>
-        </Card>
+            ) : (
+              <div className="flex items-center gap-1.5 text-xs text-emerald-600">
+                <span className="h-1.5 w-1.5 rounded-full bg-emerald-500" />
+                <span>No overdue invoices</span>
+              </div>
+            )
+          }
+        />
 
         {/* Payables */}
-        <Card>
-          <CardContent className="pt-6">
-            <div className="flex items-center gap-3">
-              <div className="rounded-full bg-red-100 p-2">
-                <ArrowUpRight className="h-5 w-5 text-red-600" />
-              </div>
-              <div>
-                <div className="text-xs text-muted-foreground">Total Payables</div>
-                <div className="text-xl font-bold tabular-nums">{formatCurrency(payables.total, 'QAR')}</div>
-              </div>
-            </div>
-            {payables.overdue > 0 && (
-              <div className="mt-3 text-xs text-red-600 flex items-center gap-1">
+        <KpiCard
+          href="/purchase/aging-report"
+          icon={<ArrowUpRight className="h-5 w-5 text-red-600" />}
+          iconBg="bg-red-100"
+          label="Money Going Out"
+          value={formatCurrency(payables.total, 'QAR')}
+          valueClass="text-red-700"
+          footer={
+            payables.overdue > 0 ? (
+              <div className="flex items-center gap-1.5 text-xs text-red-600">
                 <AlertTriangle className="h-3 w-3" />
-                {formatCurrency(payables.overdue, 'QAR')} overdue ({payables.overdue_count} bills)
+                <span>{formatCurrency(payables.overdue, 'QAR')} overdue ({payables.overdue_count})</span>
               </div>
-            )}
-          </CardContent>
-        </Card>
+            ) : (
+              <div className="flex items-center gap-1.5 text-xs text-emerald-600">
+                <span className="h-1.5 w-1.5 rounded-full bg-emerald-500" />
+                <span>No overdue bills</span>
+              </div>
+            )
+          }
+        />
 
-        {/* Net Position */}
-        <Card>
-          <CardContent className="pt-6">
-            <div className="flex items-center gap-3">
-              <div className={cn('rounded-full p-2', netPosition >= 0 ? 'bg-emerald-100' : 'bg-red-100')}>
-                <TrendingUp className={cn('h-5 w-5', netPosition >= 0 ? 'text-emerald-600' : 'text-red-600')} />
-              </div>
-              <div>
-                <div className="text-xs text-muted-foreground">Net Position</div>
-                <div className={cn('text-xl font-bold tabular-nums', netPosition >= 0 ? 'text-emerald-600' : 'text-red-600')}>
-                  {formatCurrency(netPosition, 'QAR')}
-                </div>
-              </div>
+        {/* Cash In This Month */}
+        <KpiCard
+          icon={<Wallet className="h-5 w-5 text-emerald-600" />}
+          iconBg="bg-emerald-100"
+          label="Cash In (This Month)"
+          value={formatCurrency(cash_this_month.in, 'QAR')}
+          valueClass="text-emerald-700"
+          footer={
+            <div className="flex items-center justify-between text-xs">
+              <span className="text-muted-foreground">
+                Invoiced: <span className="font-medium text-foreground tabular-nums">{formatCurrency(cash_this_month.invoiced, 'QAR')}</span>
+              </span>
+              {cashInPct !== null && cashInPct !== 0 && (
+                <span className={cn(
+                  'inline-flex items-center gap-0.5 font-medium',
+                  cashInPct > 0 ? 'text-emerald-600' : 'text-red-600',
+                )}>
+                  {cashInPct > 0 ? <TrendingUp className="h-3 w-3" /> : <TrendingDown className="h-3 w-3" />}
+                  {Math.abs(cashInPct).toFixed(0)}%
+                </span>
+              )}
             </div>
-            <div className="mt-3 text-xs text-muted-foreground">
-              {netPosition >= 0 ? 'Customers owe more than you owe suppliers' : 'You owe suppliers more than customers owe you'}
-            </div>
-          </CardContent>
-        </Card>
+          }
+        />
 
-        {/* Overdue Total */}
-        <Card>
-          <CardContent className="pt-6">
-            <div className="flex items-center gap-3">
-              <div className="rounded-full bg-amber-100 p-2">
-                <AlertTriangle className="h-5 w-5 text-amber-600" />
-              </div>
-              <div>
-                <div className="text-xs text-muted-foreground">Total Overdue</div>
-                <div className="text-xl font-bold tabular-nums text-amber-600">
-                  {formatCurrency(receivables.overdue + payables.overdue, 'QAR')}
-                </div>
-              </div>
+        {/* Cash Out This Month */}
+        <KpiCard
+          icon={<CircleDollarSign className="h-5 w-5 text-red-600" />}
+          iconBg="bg-red-100"
+          label="Cash Out (This Month)"
+          value={formatCurrency(cash_this_month.out, 'QAR')}
+          valueClass="text-red-700"
+          footer={
+            <div className="flex items-center justify-between text-xs">
+              <span className="text-muted-foreground">
+                Billed: <span className="font-medium text-foreground tabular-nums">{formatCurrency(cash_this_month.billed, 'QAR')}</span>
+              </span>
+              {cashOutPct !== null && cashOutPct !== 0 && (
+                <span className={cn(
+                  'inline-flex items-center gap-0.5 font-medium',
+                  cashOutPct > 0 ? 'text-red-600' : 'text-emerald-600',
+                )}>
+                  {cashOutPct > 0 ? <TrendingUp className="h-3 w-3" /> : <TrendingDown className="h-3 w-3" />}
+                  {Math.abs(cashOutPct).toFixed(0)}%
+                </span>
+              )}
             </div>
-            <div className="mt-3 text-xs text-muted-foreground">
-              {receivables.overdue_count + payables.overdue_count} overdue documents
-            </div>
-          </CardContent>
-        </Card>
+          }
+        />
       </div>
 
-      {/* Monthly trend chart */}
+      {/* ── Net Cash Flow strip ───────────────────────────────────── */}
       <Card>
-        <CardHeader className="pb-2">
-          <CardTitle className="text-base">Monthly Trend — Last 6 Months</CardTitle>
-          <div className="flex gap-4 text-xs text-muted-foreground">
-            <span className="flex items-center gap-1"><span className="h-2 w-2 rounded-full bg-emerald-400" /> Sales Invoiced</span>
-            <span className="flex items-center gap-1"><span className="h-2 w-2 rounded-full bg-red-400" /> Purchase Billed</span>
+        <CardContent className="pt-1">
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 items-center">
+            <div className="text-center sm:text-left">
+              <p className="text-xs text-muted-foreground">Net Cash Flow (This Month)</p>
+              <p className={cn(
+                'text-2xl font-bold tabular-nums mt-1',
+                netCash >= 0 ? 'text-emerald-700' : 'text-red-700',
+              )}>
+                {netCash >= 0 ? '+' : ''}{formatCurrency(netCash, 'QAR')}
+              </p>
+              <p className="text-xs text-muted-foreground mt-0.5">
+                {netCash >= 0 ? 'More cash in than out' : 'More cash out than in'}
+              </p>
+            </div>
+
+            {/* In vs Out bar */}
+            <div className="sm:col-span-2">
+              {cash_this_month.in + cash_this_month.out === 0 ? (
+                <div className="flex items-center justify-center py-4">
+                  <p className="text-sm text-muted-foreground italic">No payments recorded this month yet</p>
+                </div>
+              ) : (
+                <div className="space-y-2">
+                  <div className="flex items-center justify-between text-xs">
+                    <span className="text-emerald-700 font-medium">In · {formatCurrency(cash_this_month.in, 'QAR')}</span>
+                    <span className="text-red-700 font-medium">Out · {formatCurrency(cash_this_month.out, 'QAR')}</span>
+                  </div>
+                  <div className="h-3 w-full rounded-full bg-muted overflow-hidden flex">
+                    {(() => {
+                      const total = cash_this_month.in + cash_this_month.out
+                      const inPct  = (cash_this_month.in  / total) * 100
+                      const outPct = (cash_this_month.out / total) * 100
+                      return (
+                        <>
+                          <div className="h-full bg-emerald-400" style={{ width: `${inPct}%` }} />
+                          <div className="h-full bg-red-400" style={{ width: `${outPct}%` }} />
+                        </>
+                      )
+                    })()}
+                  </div>
+                </div>
+              )}
+            </div>
           </div>
-        </CardHeader>
-        <CardContent>
-          <TrendBar data={monthly_trend} />
         </CardContent>
       </Card>
 
-      {/* Top overdue tables */}
+      {/* ── Monthly Trend chart ───────────────────────────────────── */}
+      <Card>
+        <CardContent className="pt-1">
+          <div className="flex flex-wrap items-center justify-between gap-2 mb-4">
+            <div>
+              <h3 className="text-base font-semibold">Monthly Trend</h3>
+              <p className="text-xs text-muted-foreground">Sales invoiced vs purchases billed — last 6 months</p>
+            </div>
+            <div className="flex gap-4 text-xs">
+              <span className="flex items-center gap-1.5">
+                <span className="h-2.5 w-2.5 rounded-sm bg-emerald-400" />
+                <span className="text-muted-foreground">Sales</span>
+              </span>
+              <span className="flex items-center gap-1.5">
+                <span className="h-2.5 w-2.5 rounded-sm bg-red-400" />
+                <span className="text-muted-foreground">Purchases</span>
+              </span>
+            </div>
+          </div>
+          <TrendChart data={monthly_trend} />
+        </CardContent>
+      </Card>
+
+      {/* ── Top Overdue tables ────────────────────────────────────── */}
       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-        {/* Top overdue customers */}
+        {/* Customers */}
         <Card>
-          <CardHeader className="pb-2">
-            <CardTitle className="text-base">Top Overdue Customers</CardTitle>
-          </CardHeader>
-          <CardContent>
+          <CardContent className="pt-1">
+            <div className="flex items-center justify-between mb-3">
+              <div>
+                <h3 className="text-base font-semibold">Customers Overdue</h3>
+                <p className="text-xs text-muted-foreground">People who owe you money past due</p>
+              </div>
+              <Link href="/sales/aging-report" className="text-xs text-primary hover:underline inline-flex items-center gap-1">
+                View all <ArrowRight className="h-3 w-3" />
+              </Link>
+            </div>
             {top_overdue_customers.length === 0 ? (
-              <p className="text-sm text-muted-foreground py-4 text-center">No overdue customer invoices</p>
+              <div className="flex flex-col items-center justify-center py-8 text-center">
+                <div className="flex h-10 w-10 items-center justify-center rounded-full bg-emerald-50 mb-2">
+                  <span className="h-2 w-2 rounded-full bg-emerald-500" />
+                </div>
+                <p className="text-sm text-muted-foreground">All customers up to date</p>
+              </div>
             ) : (
-              <Table>
-                <TableHeader>
-                  <TableRow>
-                    <TableHead>Customer</TableHead>
-                    <TableHead className="text-right">Amount</TableHead>
-                    <TableHead className="text-right hidden sm:table-cell">Oldest Due</TableHead>
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {top_overdue_customers.map((c) => (
-                    <TableRow key={c.name}>
-                      <TableCell className="font-medium">{c.name}</TableCell>
-                      <TableCell className="text-right tabular-nums text-red-600 font-semibold">
-                        {formatCurrency(c.amount, 'QAR')}
-                      </TableCell>
-                      <TableCell className="text-right text-muted-foreground hidden sm:table-cell">
-                        {formatDate(c.oldest_due)}
-                      </TableCell>
+              <div className="overflow-x-auto">
+                <Table>
+                  <TableHeader>
+                    <TableRow>
+                      <TableHead>Customer</TableHead>
+                      <TableHead className="text-right">Amount</TableHead>
+                      <TableHead className="text-center hidden sm:table-cell">Overdue</TableHead>
                     </TableRow>
-                  ))}
-                </TableBody>
-              </Table>
+                  </TableHeader>
+                  <TableBody>
+                    {top_overdue_customers.map((c) => (
+                      <TableRow key={c.id}>
+                        <TableCell>
+                          <div className="font-medium">{c.name}</div>
+                          <div className="text-xs text-muted-foreground">
+                            {c.invoice_count} invoice{c.invoice_count !== 1 ? 's' : ''} · Oldest {formatDate(c.oldest_due)}
+                          </div>
+                        </TableCell>
+                        <TableCell className="text-right tabular-nums text-red-600 font-semibold whitespace-nowrap">
+                          {formatCurrency(c.amount, 'QAR')}
+                        </TableCell>
+                        <TableCell className="text-center hidden sm:table-cell">
+                          <Badge variant="outline" className={cn('text-xs', {
+                            'border-amber-200 text-amber-700 bg-amber-50': c.days_overdue <= 30,
+                            'border-orange-200 text-orange-700 bg-orange-50': c.days_overdue > 30 && c.days_overdue <= 60,
+                            'border-red-200 text-red-700 bg-red-50': c.days_overdue > 60,
+                          })}>
+                            <Clock className="h-3 w-3 mr-1" />{c.days_overdue}d
+                          </Badge>
+                        </TableCell>
+                      </TableRow>
+                    ))}
+                  </TableBody>
+                </Table>
+              </div>
             )}
           </CardContent>
         </Card>
 
-        {/* Top overdue suppliers */}
+        {/* Suppliers */}
         <Card>
-          <CardHeader className="pb-2">
-            <CardTitle className="text-base">Top Overdue Suppliers</CardTitle>
-          </CardHeader>
-          <CardContent>
+          <CardContent className="pt-1">
+            <div className="flex items-center justify-between mb-3">
+              <div>
+                <h3 className="text-base font-semibold">Suppliers Overdue</h3>
+                <p className="text-xs text-muted-foreground">Vendors you owe money to past due</p>
+              </div>
+              <Link href="/purchase/aging-report" className="text-xs text-primary hover:underline inline-flex items-center gap-1">
+                View all <ArrowRight className="h-3 w-3" />
+              </Link>
+            </div>
             {top_overdue_suppliers.length === 0 ? (
-              <p className="text-sm text-muted-foreground py-4 text-center">No overdue supplier bills</p>
+              <div className="flex flex-col items-center justify-center py-8 text-center">
+                <div className="flex h-10 w-10 items-center justify-center rounded-full bg-emerald-50 mb-2">
+                  <span className="h-2 w-2 rounded-full bg-emerald-500" />
+                </div>
+                <p className="text-sm text-muted-foreground">All suppliers up to date</p>
+              </div>
             ) : (
-              <Table>
-                <TableHeader>
-                  <TableRow>
-                    <TableHead>Supplier</TableHead>
-                    <TableHead className="text-right">Amount</TableHead>
-                    <TableHead className="text-right hidden sm:table-cell">Oldest Due</TableHead>
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {top_overdue_suppliers.map((s) => (
-                    <TableRow key={s.name}>
-                      <TableCell className="font-medium">{s.name}</TableCell>
-                      <TableCell className="text-right tabular-nums text-red-600 font-semibold">
-                        {formatCurrency(s.amount, 'QAR')}
-                      </TableCell>
-                      <TableCell className="text-right text-muted-foreground hidden sm:table-cell">
-                        {formatDate(s.oldest_due)}
-                      </TableCell>
+              <div className="overflow-x-auto">
+                <Table>
+                  <TableHeader>
+                    <TableRow>
+                      <TableHead>Supplier</TableHead>
+                      <TableHead className="text-right">Amount</TableHead>
+                      <TableHead className="text-center hidden sm:table-cell">Overdue</TableHead>
                     </TableRow>
-                  ))}
-                </TableBody>
-              </Table>
+                  </TableHeader>
+                  <TableBody>
+                    {top_overdue_suppliers.map((s) => (
+                      <TableRow key={s.id}>
+                        <TableCell>
+                          <div className="font-medium">{s.name}</div>
+                          <div className="text-xs text-muted-foreground">
+                            {s.bill_count} bill{s.bill_count !== 1 ? 's' : ''} · Oldest {formatDate(s.oldest_due)}
+                          </div>
+                        </TableCell>
+                        <TableCell className="text-right tabular-nums text-red-600 font-semibold whitespace-nowrap">
+                          {formatCurrency(s.amount, 'QAR')}
+                        </TableCell>
+                        <TableCell className="text-center hidden sm:table-cell">
+                          <Badge variant="outline" className={cn('text-xs', {
+                            'border-amber-200 text-amber-700 bg-amber-50': s.days_overdue <= 30,
+                            'border-orange-200 text-orange-700 bg-orange-50': s.days_overdue > 30 && s.days_overdue <= 60,
+                            'border-red-200 text-red-700 bg-red-50': s.days_overdue > 60,
+                          })}>
+                            <Clock className="h-3 w-3 mr-1" />{s.days_overdue}d
+                          </Badge>
+                        </TableCell>
+                      </TableRow>
+                    ))}
+                  </TableBody>
+                </Table>
+              </div>
             )}
           </CardContent>
         </Card>

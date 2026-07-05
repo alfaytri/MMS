@@ -16,38 +16,17 @@ export type RoutePermission = {
 
 export const ROUTE_PERMISSIONS: RoutePermission[] = [
   // ── Master Data ────────────────────────────────────────────────────────
-  { pathPrefix: '/master-data/users',              permission: ['master_data.users.view', 'master_data.roles.view'] },
-  { pathPrefix: '/master-data/audit-trail',        permission: 'master_data.audit.view' },
-  { pathPrefix: '/master-data/admin',              permission: 'master_data.admin.view' },
-  { pathPrefix: '/master-data/services/approvals', permission: 'master_data.services.approve' },
-  { pathPrefix: '/master-data/services',           permission: 'master_data.services.view' },
-  { pathPrefix: '/master-data/service-customers',  permission: 'master_data.service_customers.view' },
-  { pathPrefix: '/master-data/customers',          permission: 'master_data.customers.view' },
-  { pathPrefix: '/master-data/suppliers',          permission: 'master_data.suppliers.view' },
-  { pathPrefix: '/master-data/inventory',          permission: 'master_data.inventory.view' },
-  { pathPrefix: '/master-data/teams',              permission: 'teams.view' },
-  { pathPrefix: '/master-data/subscriptions',      permission: 'master_data.subscriptions.view' },
-  { pathPrefix: '/master-data/import',             permission: 'system.import' },
-  { pathPrefix: '/master-data/credit-groups',      permission: 'master_data.admin.view' },
+  { pathPrefix: '/master-data/users',         permission: ['master_data.users.view', 'master_data.roles.view'] },
+  { pathPrefix: '/master-data/audit-trail',   permission: 'master_data.audit.view' },
+  { pathPrefix: '/master-data/admin',         permission: 'master_data.admin.view' },
+  { pathPrefix: '/master-data/customers',     permission: 'master_data.customers.view' },
+  { pathPrefix: '/master-data/suppliers',     permission: 'master_data.suppliers.view' },
+  { pathPrefix: '/master-data/inventory',     permission: 'master_data.inventory.view' },
+  { pathPrefix: '/master-data/import',        permission: 'system.import' },
+  { pathPrefix: '/master-data/credit-groups', permission: 'master_data.admin.view' },
 
-  // ── Orders ─────────────────────────────────────────────────────────────
-  { pathPrefix: '/orders/create-follow-up', permission: 'follow_ups.confirm' },
-  { pathPrefix: '/orders/create',           permission: 'orders.manage' },
-  { pathPrefix: '/orders',                  permission: 'orders.view' },
-
-  // ── Quotations ─────────────────────────────────────────────────────────
-  { pathPrefix: '/quotations/create', permission: 'quotations.manage' },
-  { pathPrefix: '/quotations',        permission: 'quotations.view' },
-
-  // ── Contracts ──────────────────────────────────────────────────────────
-  { pathPrefix: '/contracts/create-quotation', permission: 'contracts.quotations.manage' },
-  { pathPrefix: '/contracts/quotations',       permission: 'contracts.quotations.view' },
-  { pathPrefix: '/contracts',                  permission: ['contracts.live.view', 'contracts.quotations.view'] },
-
-  // ── Invoices & Payments ────────────────────────────────────────────────
-  { pathPrefix: '/invoices/pending-payments', permission: 'payments.view' },
-  { pathPrefix: '/invoices/payments',         permission: 'payments.view' },
-  { pathPrefix: '/invoices',                  permission: 'invoices.view' },
+  // ── Finance ────────────────────────────────────────────────────────────
+  { pathPrefix: '/finance', permission: 'invoices.access' },
 
   // ── Purchase ───────────────────────────────────────────────────────────
   { pathPrefix: '/purchase/approval-settings', permission: 'purchase.approvals.chain.manage' },
@@ -60,30 +39,23 @@ export const ROUTE_PERMISSIONS: RoutePermission[] = [
   { pathPrefix: '/purchase/debit-notes',       permission: 'purchase.debit_notes.view' },
   { pathPrefix: '/purchase/dead-stock',        permission: 'purchase.dead_stock.view' },
   { pathPrefix: '/purchase/payments',          permission: 'purchase.payments.view' },
+  { pathPrefix: '/purchase/aging-report',      permission: 'purchase.bills.view' },
   { pathPrefix: '/purchase/warehouses',        permission: 'warehouse.access' },
   { pathPrefix: '/purchase/edit-po',           permission: 'purchase.orders.manage' },
   { pathPrefix: '/purchase/create-po',         permission: 'purchase.orders.manage' },
   { pathPrefix: '/purchase/orders',            permission: 'purchase.orders.view' },
 
   // ── Sales ──────────────────────────────────────────────────────────────
-  { pathPrefix: '/sales/credit-notes', permission: 'sales.credit_notes.view' },
-  { pathPrefix: '/sales/deliveries',   permission: 'sales.deliveries.view' },
-  { pathPrefix: '/sales/invoices',     permission: 'sales.invoices.view' },
-  { pathPrefix: '/sales/returns',      permission: 'sales.returns.view' },
-  { pathPrefix: '/sales/edit-so',      permission: 'sales.orders.manage' },
-  { pathPrefix: '/sales/create-so',    permission: 'sales.orders.manage' },
-  { pathPrefix: '/sales/orders',       permission: 'sales.orders.view' },
-
-  // ── Teams / Map / Calendar / Team Leader ──────────────────────────────
-  { pathPrefix: '/map',         permission: 'teams.map.view' },
-  { pathPrefix: '/calendar',    permission: 'calendar.view' },
-  { pathPrefix: '/team-leader', permission: 'teams.team_leader.view' },
-
-  // ── Reports ────────────────────────────────────────────────────────────
-  { pathPrefix: '/reports', permission: 'reports.view' },
-
-  // /admin/* is already gated server-side by src/app/(dashboard)/admin/layout.tsx
-  // (Contact Centre admin pages). No entry needed here.
+  { pathPrefix: '/sales/approvals',          permission: 'sales.approvals.view' },
+  { pathPrefix: '/sales/credit-notes',       permission: 'sales.credit_notes.view' },
+  { pathPrefix: '/sales/deliveries',         permission: 'sales.deliveries.view' },
+  { pathPrefix: '/sales/invoices',           permission: 'sales.invoices.view' },
+  { pathPrefix: '/sales/returns',            permission: 'sales.returns.view' },
+  { pathPrefix: '/sales/customer-statement', permission: 'sales.invoices.view' },
+  { pathPrefix: '/sales/aging-report',       permission: 'sales.invoices.view' },
+  { pathPrefix: '/sales/edit-so',            permission: 'sales.orders.manage' },
+  { pathPrefix: '/sales/create-so',          permission: 'sales.orders.manage' },
+  { pathPrefix: '/sales/orders',             permission: 'sales.orders.view' },
 ]
 
 /** Returns the permission(s) required for `pathname`, or null if unprotected. */
