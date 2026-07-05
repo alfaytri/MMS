@@ -18,7 +18,7 @@ import { Checkbox } from '@/components/ui/checkbox'
 import { Switch } from '@/components/ui/switch'
 import { Button } from '@/components/ui/button'
 import { useCreateRole, useUpdateRole, type CustomRole } from '@/hooks/useRoles'
-import { PERMISSION_GROUPS, ALL_PERMISSIONS, groupKeys, type PermissionEntry } from '@/lib/permissions'
+import { ACTIVE_PERMISSION_GROUPS as PERMISSION_GROUPS, ALL_PERMISSIONS, groupKeys, type PermissionEntry } from '@/lib/permissions'
 const roleSchema = z.object({
   name:             z.string().min(1, 'Name is required'),
   description:      z.string().optional().default(''),

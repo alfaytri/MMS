@@ -19,7 +19,7 @@ import {
   useProfiles, useCurrentUserProfile, useCreateMyProfile, type Profile,
 } from '@/hooks/useProfiles'
 
-import { PERMISSION_GROUPS, ALL_PERMISSIONS, groupKeys, groupEntries, roleColor } from '@/lib/permissions'
+import { ACTIVE_PERMISSION_GROUPS as PERMISSION_GROUPS, ALL_PERMISSIONS, groupKeys, groupEntries, roleColor } from '@/lib/permissions'
 import { PermissionGate } from '@/components/shared/PermissionGate'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { Badge } from '@/components/ui/badge'
