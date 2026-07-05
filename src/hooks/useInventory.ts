@@ -546,7 +546,7 @@ export function useCategoryStockAggregates(categoryType: string) {
     queryKey: queryKeys.inventory.categoryStockAggregates(categoryType),
     queryFn: async () => {
       const supabase = createClient()
-      const { data, error } = await supabase.rpc('get_category_stock_aggregates', { p_type: categoryType })
+      const { data, error } = await supabase.rpc('get_category_stock_aggregates' as any, { p_type: categoryType })
       if (error) throw error
       const map = new Map<string, CategoryStockAggregate>()
       for (const row of (data ?? [])) {

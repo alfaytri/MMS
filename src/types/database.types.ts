@@ -2274,6 +2274,7 @@ export type Database = {
           receival_id: string | null
           receival_number: string | null
           remaining_qty: number
+          source_type: string | null
           total_unit_cost: number
           unit_cost: number
           warehouse_id: string | null
@@ -2288,6 +2289,7 @@ export type Database = {
           receival_id?: string | null
           receival_number?: string | null
           remaining_qty: number
+          source_type?: string | null
           total_unit_cost: number
           unit_cost: number
           warehouse_id?: string | null
@@ -2302,6 +2304,7 @@ export type Database = {
           receival_id?: string | null
           receival_number?: string | null
           remaining_qty?: number
+          source_type?: string | null
           total_unit_cost?: number
           unit_cost?: number
           warehouse_id?: string | null
@@ -2630,6 +2633,7 @@ export type Database = {
       inventory_categories: {
         Row: {
           created_at: string | null
+          description: string | null
           id: string
           name_ar: string | null
           name_en: string
@@ -2642,6 +2646,7 @@ export type Database = {
         }
         Insert: {
           created_at?: string | null
+          description?: string | null
           id?: string
           name_ar?: string | null
           name_en: string
@@ -2654,6 +2659,7 @@ export type Database = {
         }
         Update: {
           created_at?: string | null
+          description?: string | null
           id?: string
           name_ar?: string | null
           name_en?: string
@@ -9941,6 +9947,10 @@ export type Database = {
         Args: { p_events: Json; p_shipment_id: string; p_status_map: Json }
         Returns: undefined
       }
+      apply_adjustment: {
+        Args: { p_adjustment_id: string }
+        Returns: undefined
+      }
       apply_inventory_check_adjustments: {
         Args: { p_check_id: string }
         Returns: undefined
@@ -10260,6 +10270,18 @@ export type Database = {
       generate_order_quotation_id: { Args: never; Returns: string }
       generate_quotation_number: { Args: never; Returns: string }
       generate_transfer_number: { Args: never; Returns: string }
+      get_category_stock_aggregates: {
+        Args: { p_type: string }
+        Returns: {
+          avg_cost: number
+          category_id: string
+          total_damaged: number
+          total_incoming: number
+          total_reserved: number
+          total_stock: number
+          variant_count: number
+        }[]
+      }
       get_cogs_breakdown: {
         Args: { p_brand_variant_id: string }
         Returns: Json
@@ -10339,6 +10361,7 @@ export type Database = {
         Returns: boolean
       }
       mark_overdue_invoices: { Args: never; Returns: undefined }
+      next_delivery_number: { Args: never; Returns: string }
       next_follow_up_order_id: { Args: never; Returns: string }
       next_follow_up_request_number: { Args: never; Returns: string }
       recalc_average_cost: { Args: { p_bv_id: string }; Returns: undefined }
@@ -10403,6 +10426,26 @@ export type Database = {
         Args: { p_return_id: string }
         Returns: undefined
       }
+      rpc_customer_statement: {
+        Args: {
+          p_customer_id: string
+          p_date_from?: string
+          p_date_to?: string
+        }
+        Returns: {
+          credit: number
+          debit: number
+          description: string
+          reference: string
+          txn_date: string
+          txn_type: string
+        }[]
+      }
+      rpc_customer_statement_v2: {
+        Args: { p_customer_id: string }
+        Returns: Json
+      }
+      rpc_financial_dashboard: { Args: never; Returns: Json }
       rpc_process_po_return_dispatch: {
         Args: { p_return_id: string }
         Returns: undefined
@@ -10410,6 +10453,34 @@ export type Database = {
       rpc_process_return_restock: {
         Args: { p_return_id: string }
         Returns: undefined
+      }
+      rpc_purchase_aging_report: {
+        Args: never
+        Returns: {
+          bill_count: number
+          current_amt: number
+          days_1_30: number
+          days_31_60: number
+          days_61_90: number
+          days_over_90: number
+          supplier_id: string
+          supplier_name: string
+          total_outstanding: number
+        }[]
+      }
+      rpc_sales_aging_report: {
+        Args: never
+        Returns: {
+          current_amt: number
+          customer_id: string
+          customer_name: string
+          days_1_30: number
+          days_31_60: number
+          days_61_90: number
+          days_over_90: number
+          invoice_count: number
+          total_outstanding: number
+        }[]
       }
       save_employee: {
         Args: {
@@ -11086,5 +11157,7 @@ export const Constants = {
     },
   },
 } as const
-A new version of Supabase CLI is available: v2.109.0 (currently installed v2.91.3)
-We recommend updating regularly for new features and bug fixes: https://supabase.com/docs/guides/cli/getting-started#updating-the-supabase-cli
+
+export type DBTable<T extends keyof Database['public']['Tables']> = Database['public']['Tables'][T]['Row']
+export type DBInsert<T extends keyof Database['public']['Tables']> = Database['public']['Tables'][T]['Insert']
+export type DBUpdate<T extends keyof Database['public']['Tables']> = Database['public']['Tables'][T]['Update']

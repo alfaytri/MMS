@@ -165,7 +165,7 @@ export function useAwardQuote() {
         const newQty = qi.quoted_qty && qi.quoted_qty > 0 ? qi.quoted_qty : lineItem.qty
         const totalPrice = qi.quoted_price * newQty
 
-        const updatePayload: Record<string, unknown> = {
+        const updatePayload: { unit_price: number; total_price: number; qty?: number } = {
           unit_price: qi.quoted_price,
           total_price: totalPrice,
         }

@@ -10,22 +10,39 @@ export type FinancialSummary = {
   overdue_count: number
 }
 
+export type CashThisMonth = {
+  in: number
+  out: number
+  net: number
+  in_prev: number
+  out_prev: number
+  invoiced: number
+  billed: number
+}
+
 export type MonthlyTrend = {
   month: string
   label: string
   invoiced: number
   billed: number
+  collected: number
+  paid_out: number
 }
 
 export type TopOverdue = {
+  id: string
   name: string
   amount: number
+  invoice_count?: number
+  bill_count?: number
   oldest_due: string
+  days_overdue: number
 }
 
 export type FinancialDashboardData = {
   receivables: FinancialSummary
   payables: FinancialSummary
+  cash_this_month: CashThisMonth
   monthly_trend: MonthlyTrend[]
   top_overdue_customers: TopOverdue[]
   top_overdue_suppliers: TopOverdue[]
@@ -36,7 +53,7 @@ export function useFinancialDashboard() {
     queryKey: queryKeys.finance.dashboard,
     queryFn: async () => {
       const supabase = createClient()
-      const { data, error } = await supabase.rpc('rpc_financial_dashboard')
+      const { data, error } = await supabase.rpc('rpc_financial_dashboard' as any)
       if (error) throw error
       return data as FinancialDashboardData
     },

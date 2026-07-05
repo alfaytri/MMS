@@ -81,7 +81,7 @@ export function useUpdateWorkflowGroup() {
 
       const { error } = await supabase
         .from('approval_workflow_groups')
-        .update(patch)
+        .update(patch as any)
         .eq('id', args.id)
       if (error) throw error
     },

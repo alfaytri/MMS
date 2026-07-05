@@ -242,7 +242,7 @@ export default function PurchaseReturnsPage() {
 
             <div className="space-y-1">
               <Label htmlFor="pr-reason">Reason *</Label>
-              <Select value={reasonSelect} onValueChange={(v) => { setReasonSelect(v); if (v !== '__custom__') setCustomReason('') }}>
+              <Select value={reasonSelect} onValueChange={(v) => { setReasonSelect(v ?? ''); if (v !== '__custom__') setCustomReason('') }}>
                 <SelectTrigger id="pr-reason">
                   <SelectValue placeholder="Select reason…" />
                 </SelectTrigger>

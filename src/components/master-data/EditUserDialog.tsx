@@ -98,14 +98,11 @@ function RoleScopePicker({
 
   return (
     <Popover open={open} onOpenChange={setOpen}>
-      <PopoverTrigger asChild>
-        <button
-          type="button"
-          className={`rounded-full bg-background/80 px-1.5 py-0.5 text-[10px] font-medium border border-border/60 hover:bg-background max-w-[180px] truncate ${tone}`}
-          title="Approval scopes"
-        >
-          {summary}
-        </button>
+      <PopoverTrigger
+        className={`rounded-full bg-background/80 px-1.5 py-0.5 text-[10px] font-medium border border-border/60 hover:bg-background max-w-[180px] truncate ${tone}`}
+        title="Approval scopes"
+      >
+        {summary}
       </PopoverTrigger>
       <PopoverContent className="w-56 p-2 space-y-1" align="start">
         <label className="flex items-center gap-2 text-xs cursor-pointer py-1 px-1 rounded hover:bg-muted/50">

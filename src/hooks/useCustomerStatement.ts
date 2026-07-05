@@ -33,7 +33,7 @@ export function useCustomerStatement(customerId: string | null) {
     queryKey: ['customer-statement-v2', customerId],
     queryFn: async () => {
       const supabase = createClient()
-      const { data, error } = await supabase.rpc('rpc_customer_statement_v2', {
+      const { data, error } = await supabase.rpc('rpc_customer_statement_v2' as any, {
         p_customer_id: customerId!,
       })
       if (error) throw error

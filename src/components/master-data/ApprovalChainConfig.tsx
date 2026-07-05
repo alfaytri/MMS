@@ -420,7 +420,8 @@ function GroupSection({ group, steps, allWorkflowSteps, isOwner, profileId, appr
   const availableRoles = approvalRoles.filter((r) => !usedRoleIds.has(r.id))
   const activeCount = steps.filter((s) => s.is_active).length
 
-  function handleModeChange(mode: string) {
+  function handleModeChange(mode: string | null) {
+    if (!mode) return
     updateGroup.mutateAsync({ id: group.id, mode: mode as 'any_one' | 'all_must' })
       .then(() => toast.success('Path mode updated'))
       .catch((err: Error) => toast.error(err.message))

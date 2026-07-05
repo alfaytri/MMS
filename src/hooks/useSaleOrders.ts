@@ -342,7 +342,7 @@ export function useUpdateCustomer() {
       const now = new Date().toISOString()
 
       // Stamp uploaded_at for any newly-uploaded doc (path changed AND non-null)
-      const update: Record<string, unknown> = { ...args.patch }
+      const update: Record<string, any> = { ...args.patch }
       if (args.patch.cr_url && args.patch.cr_url !== args.previous.cr_url) {
         update.cr_uploaded_at = now
       }
@@ -355,7 +355,7 @@ export function useUpdateCustomer() {
 
       const { data, error } = await supabase
         .from('customers')
-        .update(update)
+        .update(update as any)
         .eq('id', args.id)
         .select('id, name')
       if (error) throw error

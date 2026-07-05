@@ -389,7 +389,7 @@ export function useForceApproveSalesRequest() {
       const { data, error } = await supabase.rpc('force_approve_sales_request', {
         p_so_id:         soId,
         p_approval_type: approvalType,
-        p_comment:       comment?.trim() ? comment.trim() : null,
+        p_comment:       comment?.trim() || undefined,
       })
       if (error) throw error
 
