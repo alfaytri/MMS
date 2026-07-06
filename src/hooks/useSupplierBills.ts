@@ -3,6 +3,7 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { createClient } from '@/lib/supabase/client'
 import type { ApInvoice, InvoiceLineItem, PaymentPlan } from '@/types/invoice'
 import { queryKeys } from '@/lib/queryKeys'
+import { logActivity } from '@/lib/logActivity'
 
 export type { ApInvoice }
 
@@ -177,6 +178,13 @@ export function useCreateBill() {
           )
         if (liErr) throw liErr
       }
+      void logActivity({
+        action: 'Bill Created',
+        module: 'bills',
+        entity_id: bill.id,
+        entity_type: 'bill',
+        new_data: bill as unknown as Record<string, unknown>,
+      })
       return bill as ApInvoice
     },
     onSuccess: () => queryClient.invalidateQueries({ queryKey: queryKeys.supplierBills.all }),
@@ -200,6 +208,14 @@ export function useApproveBill() {
         .eq('id', id)
         .eq('direction', 'ap')
       if (error) throw error
+      void logActivity({
+        action: 'Bill Approved',
+        module: 'bills',
+        entity_id: id,
+        entity_type: 'bill',
+        old_data: { doc_status: 'draft' },
+        new_data: { doc_status: action },
+      })
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: queryKeys.supplierBills.all })
@@ -346,6 +362,13 @@ export function useMarkBillPaymentStatus() {
         })
         .eq('id', billId)
       if (error) throw error
+      void logActivity({
+        action: `Bill Payment ${status}`,
+        module: 'bills',
+        entity_id: billId,
+        entity_type: 'bill',
+        new_data: { payment_status: status, manually_paid: status === 'paid' } as unknown as Record<string, unknown>,
+      })
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: queryKeys.supplierBills.all })

@@ -2,6 +2,7 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { createClient } from '@/lib/supabase/client'
 import type { DBTable, DBInsert, DBUpdate } from '@/types/database.types'
 import { queryKeys } from '@/lib/queryKeys'
+import { logActivity } from '@/lib/logActivity'
 
 // is_approval_slot was added in migration 20260615125619_unified_roles_columns.sql.
 // is_field_rp was added in migration 20260627117000_custom_roles_is_field_rp.sql.
@@ -32,6 +33,13 @@ export function useCreateRole() {
       const supabase = createClient()
       const { data, error } = await supabase.from('custom_roles').insert(values).select().single()
       if (error) throw error
+      void logActivity({
+        action: 'Role Created',
+        module: 'custom_roles',
+        entity_id: data.id,
+        entity_type: 'role',
+        new_data: data as unknown as Record<string, unknown>,
+      })
       return data
     },
     onSuccess: () => { queryClient.invalidateQueries({ queryKey: queryKeys.roles.custom }) },
@@ -43,8 +51,17 @@ export function useUpdateRole() {
   return useMutation({
     mutationFn: async ({ id, ...values }: CustomRoleUpdate & { id: string }) => {
       const supabase = createClient()
+      const { data: old } = await supabase.from('custom_roles').select('*').eq('id', id).maybeSingle()
       const { data, error } = await supabase.from('custom_roles').update(values).eq('id', id).select().single()
       if (error) throw error
+      void logActivity({
+        action: 'Role Updated',
+        module: 'custom_roles',
+        entity_id: id,
+        entity_type: 'role',
+        old_data: old as unknown as Record<string, unknown> | null,
+        new_data: data as unknown as Record<string, unknown>,
+      })
       return data
     },
     onSuccess: () => {
@@ -59,8 +76,17 @@ export function useDeleteRole() {
   return useMutation({
     mutationFn: async (id: string) => {
       const supabase = createClient()
+      const { data: old } = await supabase.from('custom_roles').select('*').eq('id', id).maybeSingle()
       const { error } = await supabase.from('custom_roles').delete().eq('id', id)
       if (error) throw error
+      void logActivity({
+        action: 'Role Deleted',
+        module: 'custom_roles',
+        entity_id: id,
+        entity_type: 'role',
+        severity: 'warning',
+        old_data: old as unknown as Record<string, unknown> | null,
+      })
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: queryKeys.roles.custom })
