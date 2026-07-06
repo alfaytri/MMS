@@ -133,7 +133,7 @@ export function AddUserDialog({ open, onOpenChange }: Props) {
               render={({ field }) => (
                 <FormItem>
                   <FormLabel>Full Name *</FormLabel>
-                  <FormControl><Input placeholder="Ahmed Al-Thani" {...field} /></FormControl>
+                  <FormControl><Input placeholder="Full name" {...field} /></FormControl>
                   <FormMessage />
                 </FormItem>
               )}
@@ -144,7 +144,7 @@ export function AddUserDialog({ open, onOpenChange }: Props) {
               render={({ field }) => (
                 <FormItem>
                   <FormLabel>Username *</FormLabel>
-                  <FormControl><Input placeholder="mismail" {...field} /></FormControl>
+                  <FormControl><Input placeholder="Username" {...field} /></FormControl>
                   <FormMessage />
                 </FormItem>
               )}
