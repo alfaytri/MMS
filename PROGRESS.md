@@ -244,6 +244,8 @@ Purchase & Sales▾:
 
 (none)
 
+
+
 ## 🔋 Quota Watch
 
 > Track Supabase Realtime + Egress monthly usage after each remediation phase.
@@ -258,6 +260,7 @@ Purchase & Sales▾:
 
 ## ✅ Completed
 
+- [2026-07-06] **Audit Trail — feature complete** — `src/lib/logActivity.ts` (old/new data support), `src/lib/utils/computeFieldDiff.ts`, `src/lib/utils/auditPermissionMap.ts`, `src/hooks/useAuditEntityNames.ts`, `src/hooks/useActivityLog.ts` (module filtering + date range), audit logging added to 11 hooks (inventory, suppliers, warehouses, companies, currencies, profiles, roles, sale orders, supplier bills, credit notes), tree UI (`src/components/audit-trail/` — SectionNode, EntityNode, ChangeEntry, FilterBar, AuditTree), audit trail page rewritten with side-by-side Group→Module dropdowns, search, date range. Merged to develop.
 - [2026-07-03] **Debit & Credit Notes Split — feature complete** — 10 tasks: DB migration (`20260703120000_debit_credit_notes_split.sql`), hooks (`useCreditNotes.ts`, `useReceivals.ts`, `usePurchaseReturns.ts`, `useSaleDeliveries.ts`), nav + route perms, dedicated Debit Notes page (`/purchase/debit-notes/page.tsx`), resolution UI in `CreditDebitNoteDetailDialog.tsx`, `ReplacementReceivalDialog.tsx`, simplified credit-only Sales page, `ReplacementDeliveryDialog.tsx` with gift items via `CascadeInventorySelector`, replacement/gift badges in `ReceivalDetailDialog` + `DeliveryDetailDialog`. Security audit passed.
 - [2026-07-02] **Receival Check PDF Task 6: Dialog integration** — `src/components/purchase/PoDetailDialog.tsx` — top toolbar for blank sheet; per-receival Print button on each card
 - [2026-07-02] **Receival Check PDF Task 5: Button component** — `src/components/purchase/ReceivalCheckButton.tsx` — single Print button, two modes, opens URL in new tab
