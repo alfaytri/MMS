@@ -298,6 +298,13 @@ export function useCreateCustomer() {
         .select()
         .single()
       if (error) throw error
+      void logActivity({
+        action: 'Customer Created',
+        module: 'customers',
+        entity_id: data.id,
+        entity_type: 'customer',
+        new_data: data as unknown as Record<string, unknown>,
+      })
       return data
     },
     onSuccess: () => {

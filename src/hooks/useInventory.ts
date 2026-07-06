@@ -3,6 +3,7 @@ import { createClient } from '@/lib/supabase/client'
 import type { DBTable, DBInsert, DBUpdate } from '@/types/database.types'
 import type { ServiceNode, ServiceInventoryLinkFull, LinkType } from '@/components/services/inventory/serviceInventoryHelpers'
 import { queryKeys } from '@/lib/queryKeys'
+import { logActivity } from '@/lib/logActivity'
 
 export type InventoryCategory = DBTable<'inventory_categories'>
 export type InventoryItem = DBTable<'inventory_items'>
@@ -92,6 +93,13 @@ export function useCreateInventoryItem() {
         .select()
         .single()
       if (error) throw error
+      void logActivity({
+        action: 'Item Created',
+        module: 'inventory',
+        entity_id: data.id,
+        entity_type: 'item',
+        new_data: data as unknown as Record<string, unknown>,
+      })
       return data
     },
     onSuccess: () => {
@@ -106,6 +114,11 @@ export function useUpdateInventoryItem() {
   return useMutation({
     mutationFn: async ({ id, ...values }: InventoryItemUpdate & { id: string }) => {
       const supabase = createClient()
+      const { data: old } = await supabase
+        .from('inventory_items')
+        .select('*')
+        .eq('id', id)
+        .maybeSingle()
       const { data, error } = await supabase
         .from('inventory_items')
         .update(values)
@@ -113,6 +126,14 @@ export function useUpdateInventoryItem() {
         .select()
         .single()
       if (error) throw error
+      void logActivity({
+        action: 'Item Updated',
+        module: 'inventory',
+        entity_id: id,
+        entity_type: 'item',
+        old_data: old as unknown as Record<string, unknown> | null,
+        new_data: data as unknown as Record<string, unknown>,
+      })
       return data
     },
     onSuccess: () => {
@@ -133,6 +154,13 @@ export function useCreateBrandVariant() {
         .select()
         .single()
       if (error) throw error
+      void logActivity({
+        action: 'Brand Variant Created',
+        module: 'inventory',
+        entity_id: data.id,
+        entity_type: 'brand_variant',
+        new_data: data as unknown as Record<string, unknown>,
+      })
       return data
     },
     onSuccess: (_: unknown, variables: BrandVariantInsert) => {
@@ -149,6 +177,11 @@ export function useUpdateBrandVariant() {
   return useMutation({
     mutationFn: async ({ id, ...values }: BrandVariantUpdate & { id: string }) => {
       const supabase = createClient()
+      const { data: old } = await supabase
+        .from('inventory_brand_variants')
+        .select('*')
+        .eq('id', id)
+        .maybeSingle()
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       const { data, error } = await supabase
         .from('inventory_brand_variants')
@@ -157,6 +190,14 @@ export function useUpdateBrandVariant() {
         .select()
         .single()
       if (error) throw error
+      void logActivity({
+        action: 'Brand Variant Updated',
+        module: 'inventory',
+        entity_id: id,
+        entity_type: 'brand_variant',
+        old_data: old as unknown as Record<string, unknown> | null,
+        new_data: data as unknown as Record<string, unknown>,
+      })
       return data
     },
     onSuccess: () => {
@@ -347,6 +388,13 @@ export function useCreateInventoryCategory() {
         .select()
         .single()
       if (error) throw error
+      void logActivity({
+        action: 'Category Created',
+        module: 'inventory',
+        entity_id: data.id,
+        entity_type: 'category',
+        new_data: data as unknown as Record<string, unknown>,
+      })
       return data as InventoryCategory
     },
     onSuccess: (_, v) => {
@@ -362,6 +410,11 @@ export function useUpdateInventoryCategory() {
   return useMutation({
     mutationFn: async ({ id, ...payload }: { id: string; name_en?: string; name_ar?: string | null; sku?: string | null; description?: string | null; status?: string; parent_id?: string | null }) => {
       const supabase = createClient()
+      const { data: old } = await supabase
+        .from('inventory_categories')
+        .select('*')
+        .eq('id', id)
+        .maybeSingle()
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       const { data, error } = await supabase
         .from('inventory_categories')
@@ -370,6 +423,14 @@ export function useUpdateInventoryCategory() {
         .select()
         .single()
       if (error) throw error
+      void logActivity({
+        action: 'Category Updated',
+        module: 'inventory',
+        entity_id: id,
+        entity_type: 'category',
+        old_data: old as unknown as Record<string, unknown> | null,
+        new_data: data as unknown as Record<string, unknown>,
+      })
       return data as InventoryCategory
     },
     onSuccess: () => {
@@ -409,12 +470,24 @@ export function useArchiveInventoryItem() {
   return useMutation({
     mutationFn: async (id: string) => {
       const supabase = createClient()
+      const { data: old } = await supabase
+        .from('inventory_items').select('*').eq('id', id).maybeSingle()
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       const { error } = await supabase
         .from('inventory_items')
         .update({ status: 'archived' })
         .eq('id', id)
       if (error) throw error
+      const name = (old as { name?: string } | null)?.name ?? null
+      void logActivity({
+        action: 'Item Archived',
+        module: 'inventory',
+        entity_id: id,
+        entity_type: 'item',
+        severity: 'warning',
+        old_data: { name, status: 'active' },
+        new_data: { name, status: 'archived' },
+      })
     },
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: queryKeys.inventory.itemsByCategory })
@@ -453,12 +526,24 @@ export function useArchiveInventoryBrandVariant() {
   return useMutation({
     mutationFn: async (id: string) => {
       const supabase = createClient()
+      const { data: old } = await supabase
+        .from('inventory_brand_variants').select('*').eq('id', id).maybeSingle()
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       const { error } = await supabase
         .from('inventory_brand_variants')
         .update({ status: 'archived' })
         .eq('id', id)
       if (error) throw error
+      const brand = (old as { brand?: string } | null)?.brand ?? null
+      void logActivity({
+        action: 'Brand Variant Archived',
+        module: 'inventory',
+        entity_id: id,
+        entity_type: 'brand_variant',
+        severity: 'warning',
+        old_data: { name: brand, status: 'active' },
+        new_data: { name: brand, status: 'archived' },
+      })
     },
     onSuccess: () => qc.invalidateQueries({ queryKey: queryKeys.inventory.brandVariantsV2 }),
   })
@@ -612,6 +697,13 @@ export function useCreateToolAssetItem() {
         .select()
         .single()
       if (error) throw error
+      void logActivity({
+        action: 'Tool/Asset Created',
+        module: 'inventory',
+        entity_id: data.id,
+        entity_type: 'tool_asset',
+        new_data: data as unknown as Record<string, unknown>,
+      })
       return data as ToolAssetItem
     },
     onSuccess: () => qc.invalidateQueries({ queryKey: queryKeys.inventory.toolAssetItems }),
@@ -623,6 +715,11 @@ export function useUpdateToolAssetItem() {
   return useMutation({
     mutationFn: async ({ id, ...payload }: { id: string; name_en?: string; name_ar?: string | null }) => {
       const supabase = createClient()
+      const { data: old } = await supabase
+        .from('tool_asset_items')
+        .select('*')
+        .eq('id', id)
+        .maybeSingle()
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       const { data, error } = await supabase
         .from('tool_asset_items')
@@ -631,6 +728,14 @@ export function useUpdateToolAssetItem() {
         .select()
         .single()
       if (error) throw error
+      void logActivity({
+        action: 'Tool/Asset Updated',
+        module: 'inventory',
+        entity_id: id,
+        entity_type: 'tool_asset',
+        old_data: old as unknown as Record<string, unknown> | null,
+        new_data: data as unknown as Record<string, unknown>,
+      })
       return data as ToolAssetItem
     },
     onSuccess: () => qc.invalidateQueries({ queryKey: queryKeys.inventory.toolAssetItems }),
@@ -781,6 +886,8 @@ export function useArchiveInventoryCategory() {
   return useMutation({
     mutationFn: async (categoryId: string) => {
       const supabase = createClient()
+      const { data: cat } = await supabase
+        .from('inventory_categories').select('*').eq('id', categoryId).maybeSingle()
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       const { data: items, error: fetchErr } = await supabase
         .from('inventory_items')
@@ -810,6 +917,17 @@ export function useArchiveInventoryCategory() {
         .update({ status: 'archived' })
         .eq('id', categoryId)
       if (error) throw error
+      const catName = (cat as { name_en?: string; name?: string } | null)?.name_en
+        ?? (cat as { name_en?: string; name?: string } | null)?.name ?? null
+      void logActivity({
+        action: 'Category Archived',
+        module: 'inventory',
+        entity_id: categoryId,
+        entity_type: 'category',
+        severity: 'warning',
+        old_data: { name: catName, status: 'active' },
+        new_data: { name: catName, status: 'archived' },
+      })
     },
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: queryKeys.inventory.categories })

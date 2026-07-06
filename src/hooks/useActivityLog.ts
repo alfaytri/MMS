@@ -5,11 +5,27 @@ import type { DBTable } from '@/types/database.types'
 
 export type ActivityLog = DBTable<'activity_log'>
 
+export const AUDIT_MODULES = [
+  'inventory', 'warehouses', 'profiles', 'custom_roles',
+  'companies', 'currencies', 'payment_methods', 'country_codes',
+  'brand_groups', 'reason_lists', 'approval_settings', 'work_schedules',
+  'suppliers', 'customers',
+  'purchase_orders', 'po_approvals', 'receivals', 'bills',
+  'purchase_returns', 'debit_notes',
+  'sale_orders', 'sale_approvals', 'invoices', 'sale_returns',
+  'deliveries', 'credit_notes',
+] as const
+
+export const AUDIT_SEVERITIES = ['info', 'warning', 'critical'] as const
+
 interface ActivityLogFilters {
   search?: string
   module?: string
   severity?: string
   entity_id?: string
+  dateFrom?: string
+  dateTo?: string
+  allowedModules?: string[]
 }
 
 export function useActivityLog(filters: ActivityLogFilters = {}) {
@@ -21,10 +37,12 @@ export function useActivityLog(filters: ActivityLogFilters = {}) {
         .from('activity_log')
         .select('*')
         .order('created_at', { ascending: false })
-        .limit(200)
+        .limit(500)
 
       if (filters.module) {
         query = query.eq('module', filters.module)
+      } else {
+        query = query.in('module', AUDIT_MODULES as unknown as string[])
       }
       if (filters.entity_id) {
         query = query.eq('entity_id', filters.entity_id)
@@ -32,8 +50,13 @@ export function useActivityLog(filters: ActivityLogFilters = {}) {
       if (filters.severity) {
         query = query.eq('severity', filters.severity)
       }
+      if (filters.dateFrom) {
+        query = query.gte('created_at', `${filters.dateFrom}T00:00:00`)
+      }
+      if (filters.dateTo) {
+        query = query.lte('created_at', `${filters.dateTo}T23:59:59`)
+      }
       if (filters.search) {
-        // Escape % and special PostgREST characters to prevent filter injection
         const safe = filters.search.replace(/%/g, '\\%').replace(/,/g, '\\,').replace(/\./g, '\\.')
         query = query.or(`action.ilike.%${safe}%,details.ilike.%${safe}%,performer_name.ilike.%${safe}%`)
       }
@@ -42,18 +65,8 @@ export function useActivityLog(filters: ActivityLogFilters = {}) {
       if (error) throw error
       return data as ActivityLog[]
     },
-    enabled: !!(filters.module || filters.entity_id || filters.search),
+    enabled: true,
     staleTime: 30 * 1000,
     refetchInterval: 60_000,
   })
 }
-
-export const AUDIT_MODULES = [
-  'companies', 'divisions', 'warehouses', 'inventory', 'suppliers',
-  'profiles', 'custom_roles', 'purchase_orders', 'po_approvals',
-  'receivals', 'shipments', 'landed_costs', 'sale_orders',
-  'deliveries', 'payments', 'stock_adjustments', 'warehouse_transfers',
-  'inventory_checks', 'settings', 'contracts',
-] as const
-
-export const AUDIT_SEVERITIES = ['info', 'warning', 'critical'] as const

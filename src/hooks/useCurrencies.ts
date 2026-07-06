@@ -2,6 +2,7 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { createClient } from '@/lib/supabase/client'
 import type { DBTable } from '@/types/database.types'
 import { queryKeys } from '@/lib/queryKeys'
+import { logActivity } from '@/lib/logActivity'
 
 export type Currency = DBTable<'currencies'>
 
@@ -33,6 +34,14 @@ export function useToggleCurrency() {
         .update({ is_active })
         .eq('id', id)
       if (error) throw error
+      void logActivity({
+        action: is_active ? 'Currency Activated' : 'Currency Deactivated',
+        module: 'currencies',
+        entity_id: id,
+        entity_type: 'currency',
+        old_data: { is_active: !is_active },
+        new_data: { is_active },
+      })
     },
     onMutate: async ({ id, is_active }) => {
       await qc.cancelQueries({ queryKey: queryKeys.currencies.all })
@@ -62,6 +71,13 @@ export function useAddCurrency() {
         .from('currencies')
         .insert({ ...values, sort_order: maxOrder + 1 })
       if (error) throw error
+      void logActivity({
+        action: 'Currency Added',
+        module: 'currencies',
+        entity_id: values.code,
+        entity_type: 'currency',
+        new_data: values as unknown as Record<string, unknown>,
+      })
     },
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: queryKeys.currencies.all })

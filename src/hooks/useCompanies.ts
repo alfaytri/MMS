@@ -1,6 +1,7 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { createClient } from '@/lib/supabase/client'
 import { queryKeys } from '@/lib/queryKeys'
+import { logActivity } from '@/lib/logActivity'
 import type { DBTable, DBInsert, DBUpdate } from '@/types/database.types'
 
 export type Company = DBTable<'companies'>
@@ -34,6 +35,13 @@ export function useCreateCompany() {
         .select()
         .single()
       if (error) throw error
+      void logActivity({
+        action: 'Company Created',
+        module: 'companies',
+        entity_id: data.id,
+        entity_type: 'company',
+        new_data: data as unknown as Record<string, unknown>,
+      })
       return data
     },
     onSuccess: () => {
@@ -47,6 +55,11 @@ export function useUpdateCompany() {
   return useMutation({
     mutationFn: async ({ id, ...values }: CompanyUpdate & { id: string }) => {
       const supabase = createClient()
+      const { data: oldData } = await supabase
+        .from('companies')
+        .select('*')
+        .eq('id', id)
+        .single()
       const { data, error } = await supabase
         .from('companies')
         .update(values)
@@ -54,6 +67,14 @@ export function useUpdateCompany() {
         .select()
         .single()
       if (error) throw error
+      void logActivity({
+        action: 'Company Updated',
+        module: 'companies',
+        entity_id: id,
+        entity_type: 'company',
+        old_data: oldData as unknown as Record<string, unknown> | null,
+        new_data: data as unknown as Record<string, unknown>,
+      })
       return data
     },
     onSuccess: () => {
