@@ -2,6 +2,7 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { createClient } from '@/lib/supabase/client'
 import { queryKeys } from '@/lib/queryKeys'
+import { logActivity } from '@/lib/logActivity'
 
 export type CreditNoteStatus = 'draft' | 'approved' | 'issued' | 'redeemed'
 
@@ -174,6 +175,13 @@ export function useCreateCreditNote() {
           )
         if (lErr) throw lErr
       }
+      void logActivity({
+        action: 'Credit Note Created',
+        module: 'credit_notes',
+        entity_id: cn.id,
+        entity_type: 'credit_note',
+        new_data: cn as unknown as Record<string, unknown>,
+      })
       return cn as CreditNote
     },
     onSuccess: () => queryClient.invalidateQueries({ queryKey: queryKeys.creditNotes.all }),
@@ -241,6 +249,14 @@ export function useApplyCreditNote() {
         .from('invoices')
         .update({ payment_status: newStatus })
         .eq('id', invoiceId)
+
+      void logActivity({
+        action: 'refund Resolution Applied',
+        module: 'credit_notes',
+        entity_id: id,
+        entity_type: 'credit_note',
+        new_data: { resolution_type: 'refund' } as unknown as Record<string, unknown>,
+      })
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: queryKeys.creditNotes.all })
@@ -269,6 +285,14 @@ export function useResolveCreditNoteRefund() {
         .eq('id', input.creditNoteId)
 
       if (error) throw error
+
+      void logActivity({
+        action: 'refund Resolution Applied',
+        module: 'credit_notes',
+        entity_id: input.creditNoteId,
+        entity_type: 'credit_note',
+        new_data: { resolution_type: 'refund' } as unknown as Record<string, unknown>,
+      })
     },
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: queryKeys.creditNotes.all })
@@ -306,6 +330,14 @@ export function useResolveCreditNoteStoreCredit() {
         .eq('id', input.creditNoteId)
 
       if (error) throw error
+
+      void logActivity({
+        action: 'store_credit Resolution Applied',
+        module: 'credit_notes',
+        entity_id: input.creditNoteId,
+        entity_type: 'credit_note',
+        new_data: { resolution_type: 'store_credit' } as unknown as Record<string, unknown>,
+      })
     },
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: queryKeys.creditNotes.all })
@@ -325,6 +357,14 @@ export function useResolveCreditNoteReplacement() {
         .eq('id', creditNoteId)
 
       if (error) throw error
+
+      void logActivity({
+        action: 'replacement Resolution Applied',
+        module: 'credit_notes',
+        entity_id: creditNoteId,
+        entity_type: 'credit_note',
+        new_data: { resolution_type: 'replacement' } as unknown as Record<string, unknown>,
+      })
     },
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: queryKeys.creditNotes.all })
@@ -343,6 +383,14 @@ export function useResolveDebitNoteSupplierCredit() {
         .update({ resolution_type: 'supplier_credit' })
         .eq('id', debitNoteId)
       if (error) throw error
+
+      void logActivity({
+        action: 'supplier_credit Resolution Applied',
+        module: 'debit_notes',
+        entity_id: debitNoteId,
+        entity_type: 'debit_note',
+        new_data: { resolution_type: 'supplier_credit' } as unknown as Record<string, unknown>,
+      })
     },
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: queryKeys.creditNotes.debitNotes })
@@ -361,6 +409,14 @@ export function useResolveDebitNoteReplacement() {
         .update({ resolution_type: 'replacement' })
         .eq('id', debitNoteId)
       if (error) throw error
+
+      void logActivity({
+        action: 'replacement Resolution Applied',
+        module: 'debit_notes',
+        entity_id: debitNoteId,
+        entity_type: 'debit_note',
+        new_data: { resolution_type: 'replacement' } as unknown as Record<string, unknown>,
+      })
     },
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: queryKeys.creditNotes.debitNotes })

@@ -42,7 +42,7 @@ const ADMIN_SECTIONS: SidebarSection[] = [
   {
     label: 'Catalog & Pricing',
     items: [
-      { label: 'Credit Groups',          href: '/master-data/admin/credit-groups',          icon: CreditCard, permission: 'master_data.admin.view' },
+      { label: 'Credit Groups',    href: '/master-data/admin/credit-groups',   icon: CreditCard, permission: 'master_data.admin.view' },
       { label: 'Credit Group Approvals', href: '/master-data/credit-group-approvals', icon: CheckSquare, permission: 'master_data.customers.view' },
     ],
   },

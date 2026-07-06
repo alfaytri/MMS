@@ -1,5 +1,6 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { createClient } from '@/lib/supabase/client'
+import { logActivity } from '@/lib/logActivity'
 import type { DBTable, DBInsert, DBUpdate } from '@/types/database.types'
 import { queryKeys } from '@/lib/queryKeys'
 
@@ -52,6 +53,13 @@ export function useCreateWarehouse() {
         .select()
         .single()
       if (error) throw error
+      void logActivity({
+        action: 'Warehouse Created',
+        module: 'warehouses',
+        entity_id: data.id,
+        entity_type: 'warehouse',
+        new_data: data as unknown as Record<string, unknown>,
+      })
       return data
     },
     onSuccess: () => {
@@ -65,6 +73,11 @@ export function useUpdateWarehouse() {
   return useMutation({
     mutationFn: async ({ id, ...values }: WarehouseUpdate & { id: string }) => {
       const supabase = createClient()
+      const { data: old } = await supabase
+        .from('warehouses')
+        .select('*')
+        .eq('id', id)
+        .maybeSingle()
       const { data, error } = await supabase
         .from('warehouses')
         .update(values)
@@ -72,6 +85,14 @@ export function useUpdateWarehouse() {
         .select()
         .single()
       if (error) throw error
+      void logActivity({
+        action: 'Warehouse Updated',
+        module: 'warehouses',
+        entity_id: id,
+        entity_type: 'warehouse',
+        old_data: old as unknown as Record<string, unknown> | null,
+        new_data: data as unknown as Record<string, unknown>,
+      })
       return data
     },
     onSuccess: () => {
@@ -85,8 +106,21 @@ export function useDeleteWarehouse() {
   return useMutation({
     mutationFn: async (id: string) => {
       const supabase = createClient()
+      const { data: old } = await supabase
+        .from('warehouses')
+        .select('*')
+        .eq('id', id)
+        .maybeSingle()
       const { error } = await supabase.from('warehouses').delete().eq('id', id)
       if (error) throw error
+      void logActivity({
+        action: 'Warehouse Deleted',
+        module: 'warehouses',
+        entity_id: id,
+        entity_type: 'warehouse',
+        severity: 'warning',
+        old_data: old as unknown as Record<string, unknown> | null,
+      })
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: queryKeys.warehouses.all })

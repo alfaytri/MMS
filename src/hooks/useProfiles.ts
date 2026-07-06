@@ -3,6 +3,7 @@ import { createClient } from '@/lib/supabase/client'
 import { usePermissions } from '@/hooks/usePermissions'
 import type { DBTable, DBUpdate } from '@/types/database.types'
 import { queryKeys } from '@/lib/queryKeys'
+import { logActivity } from '@/lib/logActivity'
 
 export type Profile = DBTable<'profiles'>
 export type ProfileUpdate = DBUpdate<'profiles'>
@@ -86,8 +87,17 @@ export function useUpdateProfile() {
   return useMutation({
     mutationFn: async ({ id, ...values }: ProfileUpdate & { id: string }) => {
       const supabase = createClient()
+      const { data: old } = await supabase.from('profiles').select('*').eq('id', id).maybeSingle()
       const { data, error } = await supabase.from('profiles').update(values).eq('id', id).select().single()
       if (error) throw error
+      void logActivity({
+        action: 'Profile Updated',
+        module: 'profiles',
+        entity_id: id,
+        entity_type: 'profile',
+        old_data: old as unknown as Record<string, unknown> | null,
+        new_data: data as unknown as Record<string, unknown>,
+      })
       return data
     },
     onSuccess: () => { queryClient.invalidateQueries({ queryKey: queryKeys.profiles.all }) },
@@ -165,6 +175,13 @@ export function useCreateUser() {
       })
       const json = await res.json()
       if (!res.ok) throw new Error(json.error ?? 'Create failed')
+      void logActivity({
+        action: 'User Created',
+        module: 'profiles',
+        entity_id: json.profile.id,
+        entity_type: 'profile',
+        new_data: json.profile as unknown as Record<string, unknown>,
+      })
       return json as { profile: Profile; assigned_role_ids: string[]; warning?: string }
     },
     onSuccess: () => {
@@ -201,6 +218,13 @@ export function useUpdateUser() {
       })
       const json = await res.json()
       if (!res.ok) throw new Error(json.error ?? 'Update failed')
+      void logActivity({
+        action: 'User Updated',
+        module: 'profiles',
+        entity_id: auth_user_id,
+        entity_type: 'profile',
+        new_data: { ...body } as unknown as Record<string, unknown>,
+      })
       return json
     },
     onSuccess: () => {
@@ -222,6 +246,13 @@ export function useResetUserPassword() {
       })
       const json = await res.json()
       if (!res.ok) throw new Error(json.error ?? 'Reset failed')
+      void logActivity({
+        action: 'Password Reset',
+        module: 'profiles',
+        entity_id: payload.user_id,
+        entity_type: 'profile',
+        severity: 'warning',
+      })
       return json
     },
   })

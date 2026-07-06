@@ -44,6 +44,9 @@ export const ROUTE_PERMISSIONS: RoutePermission[] = [
   { pathPrefix: '/contracts/quotations',       permission: 'contracts.quotations.view' },
   { pathPrefix: '/contracts',                  permission: ['contracts.live.view', 'contracts.quotations.view'] },
 
+  // ── Finance ────────────────────────────────────────────────────────────
+  { pathPrefix: '/finance', permission: 'invoices.access' },
+
   // ── Invoices & Payments ────────────────────────────────────────────────
   { pathPrefix: '/invoices/pending-payments', permission: 'payments.view' },
   { pathPrefix: '/invoices/payments',         permission: 'payments.view' },
@@ -60,17 +63,21 @@ export const ROUTE_PERMISSIONS: RoutePermission[] = [
   { pathPrefix: '/purchase/debit-notes',       permission: 'purchase.debit_notes.view' },
   { pathPrefix: '/purchase/dead-stock',        permission: 'purchase.dead_stock.view' },
   { pathPrefix: '/purchase/payments',          permission: 'purchase.payments.view' },
+  { pathPrefix: '/purchase/aging-report',      permission: 'purchase.bills.view' },
   { pathPrefix: '/purchase/warehouses',        permission: 'warehouse.access' },
   { pathPrefix: '/purchase/edit-po',           permission: 'purchase.orders.manage' },
   { pathPrefix: '/purchase/create-po',         permission: 'purchase.orders.manage' },
   { pathPrefix: '/purchase/orders',            permission: 'purchase.orders.view' },
 
   // ── Sales ──────────────────────────────────────────────────────────────
-  { pathPrefix: '/sales/credit-notes', permission: 'sales.credit_notes.view' },
-  { pathPrefix: '/sales/deliveries',   permission: 'sales.deliveries.view' },
-  { pathPrefix: '/sales/invoices',     permission: 'sales.invoices.view' },
-  { pathPrefix: '/sales/returns',      permission: 'sales.returns.view' },
-  { pathPrefix: '/sales/edit-so',      permission: 'sales.orders.manage' },
+  { pathPrefix: '/sales/approvals',          permission: 'sales.approvals.view' },
+  { pathPrefix: '/sales/credit-notes',       permission: 'sales.credit_notes.view' },
+  { pathPrefix: '/sales/deliveries',         permission: 'sales.deliveries.view' },
+  { pathPrefix: '/sales/invoices',           permission: 'sales.invoices.view' },
+  { pathPrefix: '/sales/returns',            permission: 'sales.returns.view' },
+  { pathPrefix: '/sales/customer-statement', permission: 'sales.invoices.view' },
+  { pathPrefix: '/sales/aging-report',       permission: 'sales.invoices.view' },
+  { pathPrefix: '/sales/edit-so',            permission: 'sales.orders.manage' },
   { pathPrefix: '/sales/create-so',    permission: 'sales.orders.manage' },
   { pathPrefix: '/sales/orders',       permission: 'sales.orders.view' },
 
