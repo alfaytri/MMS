@@ -1,7 +1,7 @@
 -- ==========================================================================
 -- AUTO-GENERATED: database/final_schema.sql
 -- Source: supabase/migrations/*.sql (concatenated + patched)
--- Generated: 2026-07-07T09:08:23.151Z
+-- Generated: 2026-07-07T09:11:37.862Z
 -- Safe to re-run: uses IF NOT EXISTS / CREATE OR REPLACE / DROP … IF EXISTS
 -- ==========================================================================
 
@@ -16181,6 +16181,7 @@ ALTER TABLE ONLY public.workflow_approval_steps
 -- Name: credit_notes Accounting/admin can insert credit_notes; Type: POLICY; Schema: public; Owner: -
 --
 
+DROP POLICY IF EXISTS "Accounting/admin can insert credit_notes" ON public.credit_notes;
 CREATE POLICY "Accounting/admin can insert credit_notes" ON public.credit_notes FOR INSERT TO authenticated WITH CHECK ((EXISTS ( SELECT 1
    FROM ((public.profiles p
      JOIN public.user_custom_roles ucr ON ((ucr.profile_id = p.id)))
@@ -16192,6 +16193,7 @@ CREATE POLICY "Accounting/admin can insert credit_notes" ON public.credit_notes 
 -- Name: invoices Accounting/admin can void invoices; Type: POLICY; Schema: public; Owner: -
 --
 
+DROP POLICY IF EXISTS "Accounting/admin can void invoices" ON public.invoices;
 CREATE POLICY "Accounting/admin can void invoices" ON public.invoices FOR UPDATE TO authenticated USING (true) WITH CHECK (((status = 'void'::public.invoice_status) AND (EXISTS ( SELECT 1
    FROM ((public.profiles p
      JOIN public.user_custom_roles ucr ON ((ucr.profile_id = p.id)))
@@ -16203,6 +16205,7 @@ CREATE POLICY "Accounting/admin can void invoices" ON public.invoices FOR UPDATE
 -- Name: divisions Admin can delete divisions; Type: POLICY; Schema: public; Owner: -
 --
 
+DROP POLICY IF EXISTS "Admin can delete divisions" ON public.divisions;
 CREATE POLICY "Admin can delete divisions" ON public.divisions FOR DELETE TO authenticated USING (true);
 
 
@@ -16210,6 +16213,7 @@ CREATE POLICY "Admin can delete divisions" ON public.divisions FOR DELETE TO aut
 -- Name: app_settings Admin can insert app_settings; Type: POLICY; Schema: public; Owner: -
 --
 
+DROP POLICY IF EXISTS "Admin can insert app_settings" ON public.app_settings;
 CREATE POLICY "Admin can insert app_settings" ON public.app_settings FOR INSERT TO authenticated WITH CHECK (true);
 
 
@@ -16217,6 +16221,7 @@ CREATE POLICY "Admin can insert app_settings" ON public.app_settings FOR INSERT 
 -- Name: companies Admin can insert companies; Type: POLICY; Schema: public; Owner: -
 --
 
+DROP POLICY IF EXISTS "Admin can insert companies" ON public.companies;
 CREATE POLICY "Admin can insert companies" ON public.companies FOR INSERT TO authenticated WITH CHECK (true);
 
 
@@ -16224,6 +16229,7 @@ CREATE POLICY "Admin can insert companies" ON public.companies FOR INSERT TO aut
 -- Name: divisions Admin can insert divisions; Type: POLICY; Schema: public; Owner: -
 --
 
+DROP POLICY IF EXISTS "Admin can insert divisions" ON public.divisions;
 CREATE POLICY "Admin can insert divisions" ON public.divisions FOR INSERT TO authenticated WITH CHECK (true);
 
 
@@ -16231,6 +16237,7 @@ CREATE POLICY "Admin can insert divisions" ON public.divisions FOR INSERT TO aut
 -- Name: document_terms Admin can manage document_terms; Type: POLICY; Schema: public; Owner: -
 --
 
+DROP POLICY IF EXISTS "Admin can manage document_terms" ON public.document_terms;
 CREATE POLICY "Admin can manage document_terms" ON public.document_terms TO authenticated USING (true) WITH CHECK (true);
 
 
@@ -16238,6 +16245,7 @@ CREATE POLICY "Admin can manage document_terms" ON public.document_terms TO auth
 -- Name: qb_accounts Admin can manage qb_accounts; Type: POLICY; Schema: public; Owner: -
 --
 
+DROP POLICY IF EXISTS "Admin can manage qb_accounts" ON public.qb_accounts;
 CREATE POLICY "Admin can manage qb_accounts" ON public.qb_accounts TO authenticated USING (true) WITH CHECK (true);
 
 
@@ -16245,6 +16253,7 @@ CREATE POLICY "Admin can manage qb_accounts" ON public.qb_accounts TO authentica
 -- Name: qb_division_mappings Admin can manage qb_division_mappings; Type: POLICY; Schema: public; Owner: -
 --
 
+DROP POLICY IF EXISTS "Admin can manage qb_division_mappings" ON public.qb_division_mappings;
 CREATE POLICY "Admin can manage qb_division_mappings" ON public.qb_division_mappings TO authenticated USING (true) WITH CHECK (true);
 
 
@@ -16252,6 +16261,7 @@ CREATE POLICY "Admin can manage qb_division_mappings" ON public.qb_division_mapp
 -- Name: qb_items Admin can manage qb_items; Type: POLICY; Schema: public; Owner: -
 --
 
+DROP POLICY IF EXISTS "Admin can manage qb_items" ON public.qb_items;
 CREATE POLICY "Admin can manage qb_items" ON public.qb_items TO authenticated USING (true) WITH CHECK (true);
 
 
@@ -16259,6 +16269,7 @@ CREATE POLICY "Admin can manage qb_items" ON public.qb_items TO authenticated US
 -- Name: reason_lists Admin can manage reason_lists; Type: POLICY; Schema: public; Owner: -
 --
 
+DROP POLICY IF EXISTS "Admin can manage reason_lists" ON public.reason_lists;
 CREATE POLICY "Admin can manage reason_lists" ON public.reason_lists TO authenticated USING (true) WITH CHECK (true);
 
 
@@ -16266,6 +16277,7 @@ CREATE POLICY "Admin can manage reason_lists" ON public.reason_lists TO authenti
 -- Name: app_settings Admin can update app_settings; Type: POLICY; Schema: public; Owner: -
 --
 
+DROP POLICY IF EXISTS "Admin can update app_settings" ON public.app_settings;
 CREATE POLICY "Admin can update app_settings" ON public.app_settings FOR UPDATE TO authenticated USING (true);
 
 
@@ -16273,6 +16285,7 @@ CREATE POLICY "Admin can update app_settings" ON public.app_settings FOR UPDATE 
 -- Name: companies Admin can update companies; Type: POLICY; Schema: public; Owner: -
 --
 
+DROP POLICY IF EXISTS "Admin can update companies" ON public.companies;
 CREATE POLICY "Admin can update companies" ON public.companies FOR UPDATE TO authenticated USING (true);
 
 
@@ -16280,6 +16293,7 @@ CREATE POLICY "Admin can update companies" ON public.companies FOR UPDATE TO aut
 -- Name: divisions Admin can update divisions; Type: POLICY; Schema: public; Owner: -
 --
 
+DROP POLICY IF EXISTS "Admin can update divisions" ON public.divisions;
 CREATE POLICY "Admin can update divisions" ON public.divisions FOR UPDATE TO authenticated USING (true);
 
 
@@ -16287,6 +16301,7 @@ CREATE POLICY "Admin can update divisions" ON public.divisions FOR UPDATE TO aut
 -- Name: webhook_logs Admin can view webhook_logs; Type: POLICY; Schema: public; Owner: -
 --
 
+DROP POLICY IF EXISTS "Admin can view webhook_logs" ON public.webhook_logs;
 CREATE POLICY "Admin can view webhook_logs" ON public.webhook_logs FOR SELECT TO authenticated USING (true);
 
 
@@ -16294,6 +16309,7 @@ CREATE POLICY "Admin can view webhook_logs" ON public.webhook_logs FOR SELECT TO
 -- Name: custom_roles Admins can manage custom_roles; Type: POLICY; Schema: public; Owner: -
 --
 
+DROP POLICY IF EXISTS "Admins can manage custom_roles" ON public.custom_roles;
 CREATE POLICY "Admins can manage custom_roles" ON public.custom_roles TO authenticated USING (true) WITH CHECK (true);
 
 
@@ -16301,6 +16317,7 @@ CREATE POLICY "Admins can manage custom_roles" ON public.custom_roles TO authent
 -- Name: notification_config Admins can manage notification_config; Type: POLICY; Schema: public; Owner: -
 --
 
+DROP POLICY IF EXISTS "Admins can manage notification_config" ON public.notification_config;
 CREATE POLICY "Admins can manage notification_config" ON public.notification_config TO authenticated USING (true) WITH CHECK (true);
 
 
@@ -16308,6 +16325,7 @@ CREATE POLICY "Admins can manage notification_config" ON public.notification_con
 -- Name: notification_templates Admins can manage notification_templates; Type: POLICY; Schema: public; Owner: -
 --
 
+DROP POLICY IF EXISTS "Admins can manage notification_templates" ON public.notification_templates;
 CREATE POLICY "Admins can manage notification_templates" ON public.notification_templates TO authenticated USING (true) WITH CHECK (true);
 
 
@@ -16315,6 +16333,7 @@ CREATE POLICY "Admins can manage notification_templates" ON public.notification_
 -- Name: user_custom_roles Admins can manage user_custom_roles; Type: POLICY; Schema: public; Owner: -
 --
 
+DROP POLICY IF EXISTS "Admins can manage user_custom_roles" ON public.user_custom_roles;
 CREATE POLICY "Admins can manage user_custom_roles" ON public.user_custom_roles TO authenticated USING (true) WITH CHECK (true);
 
 
@@ -16322,6 +16341,7 @@ CREATE POLICY "Admins can manage user_custom_roles" ON public.user_custom_roles 
 -- Name: user_divisions Admins can manage user_divisions; Type: POLICY; Schema: public; Owner: -
 --
 
+DROP POLICY IF EXISTS "Admins can manage user_divisions" ON public.user_divisions;
 CREATE POLICY "Admins can manage user_divisions" ON public.user_divisions TO authenticated USING (true) WITH CHECK (true);
 
 
@@ -16329,6 +16349,7 @@ CREATE POLICY "Admins can manage user_divisions" ON public.user_divisions TO aut
 -- Name: purge_batches Admins read purge batches; Type: POLICY; Schema: public; Owner: -
 --
 
+DROP POLICY IF EXISTS "Admins read purge batches" ON public.purge_batches;
 CREATE POLICY "Admins read purge batches" ON public.purge_batches FOR SELECT TO authenticated USING ((EXISTS ( SELECT 1
    FROM (public.user_custom_roles ur
      JOIN public.custom_roles cr ON ((cr.id = ur.role_id)))
@@ -16339,6 +16360,7 @@ CREATE POLICY "Admins read purge batches" ON public.purge_batches FOR SELECT TO 
 -- Name: invoices Authenticated can delete invoices; Type: POLICY; Schema: public; Owner: -
 --
 
+DROP POLICY IF EXISTS "Authenticated can delete invoices" ON public.invoices;
 CREATE POLICY "Authenticated can delete invoices" ON public.invoices FOR DELETE TO authenticated USING (true);
 
 
@@ -16346,6 +16368,7 @@ CREATE POLICY "Authenticated can delete invoices" ON public.invoices FOR DELETE 
 -- Name: invoices Authenticated can insert invoices; Type: POLICY; Schema: public; Owner: -
 --
 
+DROP POLICY IF EXISTS "Authenticated can insert invoices" ON public.invoices;
 CREATE POLICY "Authenticated can insert invoices" ON public.invoices FOR INSERT TO authenticated WITH CHECK (true);
 
 
@@ -16353,6 +16376,7 @@ CREATE POLICY "Authenticated can insert invoices" ON public.invoices FOR INSERT 
 -- Name: invoices Authenticated can select invoices; Type: POLICY; Schema: public; Owner: -
 --
 
+DROP POLICY IF EXISTS "Authenticated can select invoices" ON public.invoices;
 CREATE POLICY "Authenticated can select invoices" ON public.invoices FOR SELECT TO authenticated USING (true);
 
 
@@ -16360,6 +16384,7 @@ CREATE POLICY "Authenticated can select invoices" ON public.invoices FOR SELECT 
 -- Name: invoices Authenticated can update invoices (non-void); Type: POLICY; Schema: public; Owner: -
 --
 
+DROP POLICY IF EXISTS "Authenticated can update invoices (non-void)" ON public.invoices;
 CREATE POLICY "Authenticated can update invoices (non-void)" ON public.invoices FOR UPDATE TO authenticated USING ((status IS DISTINCT FROM 'void'::public.invoice_status)) WITH CHECK ((status IS DISTINCT FROM 'void'::public.invoice_status));
 
 
@@ -16367,6 +16392,7 @@ CREATE POLICY "Authenticated can update invoices (non-void)" ON public.invoices 
 -- Name: call_records Authenticated read call records; Type: POLICY; Schema: public; Owner: -
 --
 
+DROP POLICY IF EXISTS "Authenticated read call records" ON public.call_records;
 CREATE POLICY "Authenticated read call records" ON public.call_records FOR SELECT TO authenticated USING (true);
 
 
@@ -16374,6 +16400,7 @@ CREATE POLICY "Authenticated read call records" ON public.call_records FOR SELEC
 -- Name: service_brands Authenticated read service_brands; Type: POLICY; Schema: public; Owner: -
 --
 
+DROP POLICY IF EXISTS "Authenticated read service_brands" ON public.service_brands;
 CREATE POLICY "Authenticated read service_brands" ON public.service_brands FOR SELECT TO authenticated USING (true);
 
 
@@ -16381,6 +16408,7 @@ CREATE POLICY "Authenticated read service_brands" ON public.service_brands FOR S
 -- Name: traccar_geofences Authenticated users can delete geofences; Type: POLICY; Schema: public; Owner: -
 --
 
+DROP POLICY IF EXISTS "Authenticated users can delete geofences" ON public.traccar_geofences;
 CREATE POLICY "Authenticated users can delete geofences" ON public.traccar_geofences FOR DELETE USING ((auth.role() = 'authenticated'::text));
 
 
@@ -16388,6 +16416,7 @@ CREATE POLICY "Authenticated users can delete geofences" ON public.traccar_geofe
 -- Name: warehouse_reorder_points Authenticated users can delete warehouse_reorder_points; Type: POLICY; Schema: public; Owner: -
 --
 
+DROP POLICY IF EXISTS "Authenticated users can delete warehouse_reorder_points" ON public.warehouse_reorder_points;
 CREATE POLICY "Authenticated users can delete warehouse_reorder_points" ON public.warehouse_reorder_points FOR DELETE TO authenticated USING (true);
 
 
@@ -16395,6 +16424,7 @@ CREATE POLICY "Authenticated users can delete warehouse_reorder_points" ON publi
 -- Name: tl_payment_batch_items Authenticated users can insert batch items; Type: POLICY; Schema: public; Owner: -
 --
 
+DROP POLICY IF EXISTS "Authenticated users can insert batch items" ON public.tl_payment_batch_items;
 CREATE POLICY "Authenticated users can insert batch items" ON public.tl_payment_batch_items FOR INSERT TO authenticated WITH CHECK (true);
 
 
@@ -16402,6 +16432,7 @@ CREATE POLICY "Authenticated users can insert batch items" ON public.tl_payment_
 -- Name: currencies Authenticated users can insert currencies; Type: POLICY; Schema: public; Owner: -
 --
 
+DROP POLICY IF EXISTS "Authenticated users can insert currencies" ON public.currencies;
 CREATE POLICY "Authenticated users can insert currencies" ON public.currencies FOR INSERT TO authenticated WITH CHECK (true);
 
 
@@ -16409,6 +16440,7 @@ CREATE POLICY "Authenticated users can insert currencies" ON public.currencies F
 -- Name: traccar_geofences Authenticated users can insert geofences; Type: POLICY; Schema: public; Owner: -
 --
 
+DROP POLICY IF EXISTS "Authenticated users can insert geofences" ON public.traccar_geofences;
 CREATE POLICY "Authenticated users can insert geofences" ON public.traccar_geofences FOR INSERT WITH CHECK ((auth.role() = 'authenticated'::text));
 
 
@@ -16416,6 +16448,7 @@ CREATE POLICY "Authenticated users can insert geofences" ON public.traccar_geofe
 -- Name: tl_payment_batches Authenticated users can insert payment batches; Type: POLICY; Schema: public; Owner: -
 --
 
+DROP POLICY IF EXISTS "Authenticated users can insert payment batches" ON public.tl_payment_batches;
 CREATE POLICY "Authenticated users can insert payment batches" ON public.tl_payment_batches FOR INSERT TO authenticated WITH CHECK (true);
 
 
@@ -16423,6 +16456,7 @@ CREATE POLICY "Authenticated users can insert payment batches" ON public.tl_paym
 -- Name: payment_methods Authenticated users can insert payment_methods; Type: POLICY; Schema: public; Owner: -
 --
 
+DROP POLICY IF EXISTS "Authenticated users can insert payment_methods" ON public.payment_methods;
 CREATE POLICY "Authenticated users can insert payment_methods" ON public.payment_methods FOR INSERT TO authenticated WITH CHECK (true);
 
 
@@ -16430,6 +16464,7 @@ CREATE POLICY "Authenticated users can insert payment_methods" ON public.payment
 -- Name: tl_invoices Authenticated users can insert tl_invoices; Type: POLICY; Schema: public; Owner: -
 --
 
+DROP POLICY IF EXISTS "Authenticated users can insert tl_invoices" ON public.tl_invoices;
 CREATE POLICY "Authenticated users can insert tl_invoices" ON public.tl_invoices FOR INSERT TO authenticated WITH CHECK (true);
 
 
@@ -16437,6 +16472,7 @@ CREATE POLICY "Authenticated users can insert tl_invoices" ON public.tl_invoices
 -- Name: warehouse_reorder_points Authenticated users can insert warehouse_reorder_points; Type: POLICY; Schema: public; Owner: -
 --
 
+DROP POLICY IF EXISTS "Authenticated users can insert warehouse_reorder_points" ON public.warehouse_reorder_points;
 CREATE POLICY "Authenticated users can insert warehouse_reorder_points" ON public.warehouse_reorder_points FOR INSERT TO authenticated WITH CHECK (true);
 
 
@@ -16444,6 +16480,7 @@ CREATE POLICY "Authenticated users can insert warehouse_reorder_points" ON publi
 -- Name: employee_services Authenticated users can manage employee_services; Type: POLICY; Schema: public; Owner: -
 --
 
+DROP POLICY IF EXISTS "Authenticated users can manage employee_services" ON public.employee_services;
 CREATE POLICY "Authenticated users can manage employee_services" ON public.employee_services TO authenticated USING (true) WITH CHECK (true);
 
 
@@ -16451,6 +16488,7 @@ CREATE POLICY "Authenticated users can manage employee_services" ON public.emplo
 -- Name: installed_products Authenticated users can manage installed_products; Type: POLICY; Schema: public; Owner: -
 --
 
+DROP POLICY IF EXISTS "Authenticated users can manage installed_products" ON public.installed_products;
 CREATE POLICY "Authenticated users can manage installed_products" ON public.installed_products TO authenticated USING (true) WITH CHECK (true);
 
 
@@ -16458,6 +16496,7 @@ CREATE POLICY "Authenticated users can manage installed_products" ON public.inst
 -- Name: tool_assignments Authenticated users can manage tool_assignments; Type: POLICY; Schema: public; Owner: -
 --
 
+DROP POLICY IF EXISTS "Authenticated users can manage tool_assignments" ON public.tool_assignments;
 CREATE POLICY "Authenticated users can manage tool_assignments" ON public.tool_assignments TO authenticated USING (true) WITH CHECK (true);
 
 
@@ -16465,6 +16504,7 @@ CREATE POLICY "Authenticated users can manage tool_assignments" ON public.tool_a
 -- Name: country_codes Authenticated users can read country codes; Type: POLICY; Schema: public; Owner: -
 --
 
+DROP POLICY IF EXISTS "Authenticated users can read country codes" ON public.country_codes;
 CREATE POLICY "Authenticated users can read country codes" ON public.country_codes FOR SELECT TO authenticated USING (true);
 
 
@@ -16472,6 +16512,7 @@ CREATE POLICY "Authenticated users can read country codes" ON public.country_cod
 -- Name: employee_services Authenticated users can read employee_services; Type: POLICY; Schema: public; Owner: -
 --
 
+DROP POLICY IF EXISTS "Authenticated users can read employee_services" ON public.employee_services;
 CREATE POLICY "Authenticated users can read employee_services" ON public.employee_services FOR SELECT TO authenticated USING (true);
 
 
@@ -16479,6 +16520,7 @@ CREATE POLICY "Authenticated users can read employee_services" ON public.employe
 -- Name: traccar_geofences Authenticated users can read geofences; Type: POLICY; Schema: public; Owner: -
 --
 
+DROP POLICY IF EXISTS "Authenticated users can read geofences" ON public.traccar_geofences;
 CREATE POLICY "Authenticated users can read geofences" ON public.traccar_geofences FOR SELECT USING ((auth.role() = 'authenticated'::text));
 
 
@@ -16486,6 +16528,7 @@ CREATE POLICY "Authenticated users can read geofences" ON public.traccar_geofenc
 -- Name: installed_products Authenticated users can read installed_products; Type: POLICY; Schema: public; Owner: -
 --
 
+DROP POLICY IF EXISTS "Authenticated users can read installed_products" ON public.installed_products;
 CREATE POLICY "Authenticated users can read installed_products" ON public.installed_products FOR SELECT TO authenticated USING (true);
 
 
@@ -16493,6 +16536,7 @@ CREATE POLICY "Authenticated users can read installed_products" ON public.instal
 -- Name: payment_methods Authenticated users can read payment_methods; Type: POLICY; Schema: public; Owner: -
 --
 
+DROP POLICY IF EXISTS "Authenticated users can read payment_methods" ON public.payment_methods;
 CREATE POLICY "Authenticated users can read payment_methods" ON public.payment_methods FOR SELECT TO authenticated USING (true);
 
 
@@ -16500,6 +16544,7 @@ CREATE POLICY "Authenticated users can read payment_methods" ON public.payment_m
 -- Name: tl_invoices Authenticated users can read tl_invoices; Type: POLICY; Schema: public; Owner: -
 --
 
+DROP POLICY IF EXISTS "Authenticated users can read tl_invoices" ON public.tl_invoices;
 CREATE POLICY "Authenticated users can read tl_invoices" ON public.tl_invoices FOR SELECT TO authenticated USING (true);
 
 
@@ -16507,6 +16552,7 @@ CREATE POLICY "Authenticated users can read tl_invoices" ON public.tl_invoices F
 -- Name: tool_assignments Authenticated users can read tool_assignments; Type: POLICY; Schema: public; Owner: -
 --
 
+DROP POLICY IF EXISTS "Authenticated users can read tool_assignments" ON public.tool_assignments;
 CREATE POLICY "Authenticated users can read tool_assignments" ON public.tool_assignments FOR SELECT TO authenticated USING (true);
 
 
@@ -16514,6 +16560,7 @@ CREATE POLICY "Authenticated users can read tool_assignments" ON public.tool_ass
 -- Name: warehouse_field_rps Authenticated users can read warehouse_field_rps; Type: POLICY; Schema: public; Owner: -
 --
 
+DROP POLICY IF EXISTS "Authenticated users can read warehouse_field_rps" ON public.warehouse_field_rps;
 CREATE POLICY "Authenticated users can read warehouse_field_rps" ON public.warehouse_field_rps FOR SELECT TO authenticated USING (true);
 
 
@@ -16521,6 +16568,7 @@ CREATE POLICY "Authenticated users can read warehouse_field_rps" ON public.wareh
 -- Name: warehouse_reorder_points Authenticated users can read warehouse_reorder_points; Type: POLICY; Schema: public; Owner: -
 --
 
+DROP POLICY IF EXISTS "Authenticated users can read warehouse_reorder_points" ON public.warehouse_reorder_points;
 CREATE POLICY "Authenticated users can read warehouse_reorder_points" ON public.warehouse_reorder_points FOR SELECT TO authenticated USING (true);
 
 
@@ -16528,6 +16576,7 @@ CREATE POLICY "Authenticated users can read warehouse_reorder_points" ON public.
 -- Name: warehouse_stock_allocations Authenticated users can read warehouse_stock_allocations; Type: POLICY; Schema: public; Owner: -
 --
 
+DROP POLICY IF EXISTS "Authenticated users can read warehouse_stock_allocations" ON public.warehouse_stock_allocations;
 CREATE POLICY "Authenticated users can read warehouse_stock_allocations" ON public.warehouse_stock_allocations FOR SELECT TO authenticated USING (true);
 
 
@@ -16535,6 +16584,7 @@ CREATE POLICY "Authenticated users can read warehouse_stock_allocations" ON publ
 -- Name: warehouse_transfer_items Authenticated users can read warehouse_transfer_items; Type: POLICY; Schema: public; Owner: -
 --
 
+DROP POLICY IF EXISTS "Authenticated users can read warehouse_transfer_items" ON public.warehouse_transfer_items;
 CREATE POLICY "Authenticated users can read warehouse_transfer_items" ON public.warehouse_transfer_items FOR SELECT TO authenticated USING (true);
 
 
@@ -16542,6 +16592,7 @@ CREATE POLICY "Authenticated users can read warehouse_transfer_items" ON public.
 -- Name: currencies Authenticated users can update currencies; Type: POLICY; Schema: public; Owner: -
 --
 
+DROP POLICY IF EXISTS "Authenticated users can update currencies" ON public.currencies;
 CREATE POLICY "Authenticated users can update currencies" ON public.currencies FOR UPDATE TO authenticated USING (true);
 
 
@@ -16549,6 +16600,7 @@ CREATE POLICY "Authenticated users can update currencies" ON public.currencies F
 -- Name: traccar_geofences Authenticated users can update geofences; Type: POLICY; Schema: public; Owner: -
 --
 
+DROP POLICY IF EXISTS "Authenticated users can update geofences" ON public.traccar_geofences;
 CREATE POLICY "Authenticated users can update geofences" ON public.traccar_geofences FOR UPDATE USING ((auth.role() = 'authenticated'::text));
 
 
@@ -16556,6 +16608,7 @@ CREATE POLICY "Authenticated users can update geofences" ON public.traccar_geofe
 -- Name: tl_payment_batches Authenticated users can update payment batches; Type: POLICY; Schema: public; Owner: -
 --
 
+DROP POLICY IF EXISTS "Authenticated users can update payment batches" ON public.tl_payment_batches;
 CREATE POLICY "Authenticated users can update payment batches" ON public.tl_payment_batches FOR UPDATE TO authenticated USING (true);
 
 
@@ -16563,6 +16616,7 @@ CREATE POLICY "Authenticated users can update payment batches" ON public.tl_paym
 -- Name: payment_methods Authenticated users can update payment_methods; Type: POLICY; Schema: public; Owner: -
 --
 
+DROP POLICY IF EXISTS "Authenticated users can update payment_methods" ON public.payment_methods;
 CREATE POLICY "Authenticated users can update payment_methods" ON public.payment_methods FOR UPDATE TO authenticated USING (true);
 
 
@@ -16570,6 +16624,7 @@ CREATE POLICY "Authenticated users can update payment_methods" ON public.payment
 -- Name: tl_invoices Authenticated users can update tl_invoices; Type: POLICY; Schema: public; Owner: -
 --
 
+DROP POLICY IF EXISTS "Authenticated users can update tl_invoices" ON public.tl_invoices;
 CREATE POLICY "Authenticated users can update tl_invoices" ON public.tl_invoices FOR UPDATE TO authenticated USING (true);
 
 
@@ -16577,6 +16632,7 @@ CREATE POLICY "Authenticated users can update tl_invoices" ON public.tl_invoices
 -- Name: warehouse_reorder_points Authenticated users can update warehouse_reorder_points; Type: POLICY; Schema: public; Owner: -
 --
 
+DROP POLICY IF EXISTS "Authenticated users can update warehouse_reorder_points" ON public.warehouse_reorder_points;
 CREATE POLICY "Authenticated users can update warehouse_reorder_points" ON public.warehouse_reorder_points FOR UPDATE TO authenticated USING (true);
 
 
@@ -16584,6 +16640,7 @@ CREATE POLICY "Authenticated users can update warehouse_reorder_points" ON publi
 -- Name: tl_payment_batch_items Authenticated users can view batch items; Type: POLICY; Schema: public; Owner: -
 --
 
+DROP POLICY IF EXISTS "Authenticated users can view batch items" ON public.tl_payment_batch_items;
 CREATE POLICY "Authenticated users can view batch items" ON public.tl_payment_batch_items FOR SELECT TO authenticated USING (true);
 
 
@@ -16591,6 +16648,7 @@ CREATE POLICY "Authenticated users can view batch items" ON public.tl_payment_ba
 -- Name: currencies Authenticated users can view currencies; Type: POLICY; Schema: public; Owner: -
 --
 
+DROP POLICY IF EXISTS "Authenticated users can view currencies" ON public.currencies;
 CREATE POLICY "Authenticated users can view currencies" ON public.currencies FOR SELECT TO authenticated USING (true);
 
 
@@ -16598,6 +16656,7 @@ CREATE POLICY "Authenticated users can view currencies" ON public.currencies FOR
 -- Name: tl_payment_batches Authenticated users can view payment batches; Type: POLICY; Schema: public; Owner: -
 --
 
+DROP POLICY IF EXISTS "Authenticated users can view payment batches" ON public.tl_payment_batches;
 CREATE POLICY "Authenticated users can view payment batches" ON public.tl_payment_batches FOR SELECT TO authenticated USING (true);
 
 
@@ -16605,6 +16664,7 @@ CREATE POLICY "Authenticated users can view payment batches" ON public.tl_paymen
 -- Name: approval_requests Internal can insert approval_requests; Type: POLICY; Schema: public; Owner: -
 --
 
+DROP POLICY IF EXISTS "Internal can insert approval_requests" ON public.approval_requests;
 CREATE POLICY "Internal can insert approval_requests" ON public.approval_requests FOR INSERT TO authenticated WITH CHECK (true);
 
 
@@ -16612,6 +16672,7 @@ CREATE POLICY "Internal can insert approval_requests" ON public.approval_request
 -- Name: notification_trail Internal can insert notification_trail; Type: POLICY; Schema: public; Owner: -
 --
 
+DROP POLICY IF EXISTS "Internal can insert notification_trail" ON public.notification_trail;
 CREATE POLICY "Internal can insert notification_trail" ON public.notification_trail FOR INSERT TO authenticated WITH CHECK (true);
 
 
@@ -16619,6 +16680,7 @@ CREATE POLICY "Internal can insert notification_trail" ON public.notification_tr
 -- Name: returns Internal can insert returns; Type: POLICY; Schema: public; Owner: -
 --
 
+DROP POLICY IF EXISTS "Internal can insert returns" ON public.returns;
 CREATE POLICY "Internal can insert returns" ON public.returns FOR INSERT TO authenticated WITH CHECK (true);
 
 
@@ -16626,6 +16688,7 @@ CREATE POLICY "Internal can insert returns" ON public.returns FOR INSERT TO auth
 -- Name: sale_deliveries Internal can insert sale_deliveries; Type: POLICY; Schema: public; Owner: -
 --
 
+DROP POLICY IF EXISTS "Internal can insert sale_deliveries" ON public.sale_deliveries;
 CREATE POLICY "Internal can insert sale_deliveries" ON public.sale_deliveries FOR INSERT TO authenticated WITH CHECK (true);
 
 
@@ -16633,6 +16696,7 @@ CREATE POLICY "Internal can insert sale_deliveries" ON public.sale_deliveries FO
 -- Name: sale_order_lines Internal can insert sale_order_lines; Type: POLICY; Schema: public; Owner: -
 --
 
+DROP POLICY IF EXISTS "Internal can insert sale_order_lines" ON public.sale_order_lines;
 CREATE POLICY "Internal can insert sale_order_lines" ON public.sale_order_lines FOR INSERT TO authenticated WITH CHECK (true);
 
 
@@ -16640,6 +16704,7 @@ CREATE POLICY "Internal can insert sale_order_lines" ON public.sale_order_lines 
 -- Name: service_inventory Internal can manage service_inventory; Type: POLICY; Schema: public; Owner: -
 --
 
+DROP POLICY IF EXISTS "Internal can manage service_inventory" ON public.service_inventory;
 CREATE POLICY "Internal can manage service_inventory" ON public.service_inventory TO authenticated USING (true) WITH CHECK (true);
 
 
@@ -16647,6 +16712,7 @@ CREATE POLICY "Internal can manage service_inventory" ON public.service_inventor
 -- Name: cogs_entries Internal can read cogs_entries; Type: POLICY; Schema: public; Owner: -
 --
 
+DROP POLICY IF EXISTS "Internal can read cogs_entries" ON public.cogs_entries;
 CREATE POLICY "Internal can read cogs_entries" ON public.cogs_entries FOR SELECT TO authenticated USING (true);
 
 
@@ -16654,6 +16720,7 @@ CREATE POLICY "Internal can read cogs_entries" ON public.cogs_entries FOR SELECT
 -- Name: inventory_stock_movements Internal can read stock_movements; Type: POLICY; Schema: public; Owner: -
 --
 
+DROP POLICY IF EXISTS "Internal can read stock_movements" ON public.inventory_stock_movements;
 CREATE POLICY "Internal can read stock_movements" ON public.inventory_stock_movements FOR SELECT TO authenticated USING (true);
 
 
@@ -16661,6 +16728,7 @@ CREATE POLICY "Internal can read stock_movements" ON public.inventory_stock_move
 -- Name: approval_requests Internal can select approval_requests; Type: POLICY; Schema: public; Owner: -
 --
 
+DROP POLICY IF EXISTS "Internal can select approval_requests" ON public.approval_requests;
 CREATE POLICY "Internal can select approval_requests" ON public.approval_requests FOR SELECT TO authenticated USING (true);
 
 
@@ -16668,6 +16736,7 @@ CREATE POLICY "Internal can select approval_requests" ON public.approval_request
 -- Name: credit_notes Internal can select credit_notes; Type: POLICY; Schema: public; Owner: -
 --
 
+DROP POLICY IF EXISTS "Internal can select credit_notes" ON public.credit_notes;
 CREATE POLICY "Internal can select credit_notes" ON public.credit_notes FOR SELECT TO authenticated USING (true);
 
 
@@ -16675,6 +16744,7 @@ CREATE POLICY "Internal can select credit_notes" ON public.credit_notes FOR SELE
 -- Name: notification_trail Internal can select notification_trail; Type: POLICY; Schema: public; Owner: -
 --
 
+DROP POLICY IF EXISTS "Internal can select notification_trail" ON public.notification_trail;
 CREATE POLICY "Internal can select notification_trail" ON public.notification_trail FOR SELECT TO authenticated USING (true);
 
 
@@ -16682,6 +16752,7 @@ CREATE POLICY "Internal can select notification_trail" ON public.notification_tr
 -- Name: returns Internal can select returns; Type: POLICY; Schema: public; Owner: -
 --
 
+DROP POLICY IF EXISTS "Internal can select returns" ON public.returns;
 CREATE POLICY "Internal can select returns" ON public.returns FOR SELECT TO authenticated USING (true);
 
 
@@ -16689,6 +16760,7 @@ CREATE POLICY "Internal can select returns" ON public.returns FOR SELECT TO auth
 -- Name: sale_deliveries Internal can select sale_deliveries; Type: POLICY; Schema: public; Owner: -
 --
 
+DROP POLICY IF EXISTS "Internal can select sale_deliveries" ON public.sale_deliveries;
 CREATE POLICY "Internal can select sale_deliveries" ON public.sale_deliveries FOR SELECT TO authenticated USING (true);
 
 
@@ -16696,6 +16768,7 @@ CREATE POLICY "Internal can select sale_deliveries" ON public.sale_deliveries FO
 -- Name: sale_order_lines Internal can select sale_order_lines; Type: POLICY; Schema: public; Owner: -
 --
 
+DROP POLICY IF EXISTS "Internal can select sale_order_lines" ON public.sale_order_lines;
 CREATE POLICY "Internal can select sale_order_lines" ON public.sale_order_lines FOR SELECT TO authenticated USING (true);
 
 
@@ -16703,6 +16776,7 @@ CREATE POLICY "Internal can select sale_order_lines" ON public.sale_order_lines 
 -- Name: approval_requests Internal can update approval_requests; Type: POLICY; Schema: public; Owner: -
 --
 
+DROP POLICY IF EXISTS "Internal can update approval_requests" ON public.approval_requests;
 CREATE POLICY "Internal can update approval_requests" ON public.approval_requests FOR UPDATE TO authenticated USING (true);
 
 
@@ -16710,6 +16784,7 @@ CREATE POLICY "Internal can update approval_requests" ON public.approval_request
 -- Name: credit_notes Internal can update credit_notes; Type: POLICY; Schema: public; Owner: -
 --
 
+DROP POLICY IF EXISTS "Internal can update credit_notes" ON public.credit_notes;
 CREATE POLICY "Internal can update credit_notes" ON public.credit_notes FOR UPDATE TO authenticated USING (true);
 
 
@@ -16717,6 +16792,7 @@ CREATE POLICY "Internal can update credit_notes" ON public.credit_notes FOR UPDA
 -- Name: returns Internal can update returns; Type: POLICY; Schema: public; Owner: -
 --
 
+DROP POLICY IF EXISTS "Internal can update returns" ON public.returns;
 CREATE POLICY "Internal can update returns" ON public.returns FOR UPDATE TO authenticated USING (true);
 
 
@@ -16724,6 +16800,7 @@ CREATE POLICY "Internal can update returns" ON public.returns FOR UPDATE TO auth
 -- Name: sale_deliveries Internal can update sale_deliveries; Type: POLICY; Schema: public; Owner: -
 --
 
+DROP POLICY IF EXISTS "Internal can update sale_deliveries" ON public.sale_deliveries;
 CREATE POLICY "Internal can update sale_deliveries" ON public.sale_deliveries FOR UPDATE TO authenticated USING (true);
 
 
@@ -16731,6 +16808,7 @@ CREATE POLICY "Internal can update sale_deliveries" ON public.sale_deliveries FO
 -- Name: sale_order_lines Internal can update sale_order_lines; Type: POLICY; Schema: public; Owner: -
 --
 
+DROP POLICY IF EXISTS "Internal can update sale_order_lines" ON public.sale_order_lines;
 CREATE POLICY "Internal can update sale_order_lines" ON public.sale_order_lines FOR UPDATE TO authenticated USING (true);
 
 
@@ -16738,6 +16816,7 @@ CREATE POLICY "Internal can update sale_order_lines" ON public.sale_order_lines 
 -- Name: stock_adjustments Internal users can create adjustments; Type: POLICY; Schema: public; Owner: -
 --
 
+DROP POLICY IF EXISTS "Internal users can create adjustments" ON public.stock_adjustments;
 CREATE POLICY "Internal users can create adjustments" ON public.stock_adjustments FOR INSERT TO authenticated WITH CHECK (true);
 
 
@@ -16745,6 +16824,7 @@ CREATE POLICY "Internal users can create adjustments" ON public.stock_adjustment
 -- Name: brand_group_members Internal users can delete brand group members; Type: POLICY; Schema: public; Owner: -
 --
 
+DROP POLICY IF EXISTS "Internal users can delete brand group members" ON public.brand_group_members;
 CREATE POLICY "Internal users can delete brand group members" ON public.brand_group_members FOR DELETE TO authenticated USING (true);
 
 
@@ -16752,6 +16832,7 @@ CREATE POLICY "Internal users can delete brand group members" ON public.brand_gr
 -- Name: brand_groups Internal users can delete brand groups; Type: POLICY; Schema: public; Owner: -
 --
 
+DROP POLICY IF EXISTS "Internal users can delete brand groups" ON public.brand_groups;
 CREATE POLICY "Internal users can delete brand groups" ON public.brand_groups FOR DELETE TO authenticated USING (true);
 
 
@@ -16759,6 +16840,7 @@ CREATE POLICY "Internal users can delete brand groups" ON public.brand_groups FO
 -- Name: brands Internal users can delete brands; Type: POLICY; Schema: public; Owner: -
 --
 
+DROP POLICY IF EXISTS "Internal users can delete brands" ON public.brands;
 CREATE POLICY "Internal users can delete brands" ON public.brands FOR DELETE TO authenticated USING (true);
 
 
@@ -16766,6 +16848,7 @@ CREATE POLICY "Internal users can delete brands" ON public.brands FOR DELETE TO 
 -- Name: pricing_factors Internal users can delete pricing_factors; Type: POLICY; Schema: public; Owner: -
 --
 
+DROP POLICY IF EXISTS "Internal users can delete pricing_factors" ON public.pricing_factors;
 CREATE POLICY "Internal users can delete pricing_factors" ON public.pricing_factors FOR DELETE TO authenticated USING (true);
 
 
@@ -16773,6 +16856,7 @@ CREATE POLICY "Internal users can delete pricing_factors" ON public.pricing_fact
 -- Name: warehouses Internal users can delete warehouses; Type: POLICY; Schema: public; Owner: -
 --
 
+DROP POLICY IF EXISTS "Internal users can delete warehouses" ON public.warehouses;
 CREATE POLICY "Internal users can delete warehouses" ON public.warehouses FOR DELETE TO authenticated USING (true);
 
 
@@ -16780,6 +16864,7 @@ CREATE POLICY "Internal users can delete warehouses" ON public.warehouses FOR DE
 -- Name: brand_group_members Internal users can insert brand group members; Type: POLICY; Schema: public; Owner: -
 --
 
+DROP POLICY IF EXISTS "Internal users can insert brand group members" ON public.brand_group_members;
 CREATE POLICY "Internal users can insert brand group members" ON public.brand_group_members FOR INSERT TO authenticated WITH CHECK (true);
 
 
@@ -16787,6 +16872,7 @@ CREATE POLICY "Internal users can insert brand group members" ON public.brand_gr
 -- Name: brand_groups Internal users can insert brand groups; Type: POLICY; Schema: public; Owner: -
 --
 
+DROP POLICY IF EXISTS "Internal users can insert brand groups" ON public.brand_groups;
 CREATE POLICY "Internal users can insert brand groups" ON public.brand_groups FOR INSERT TO authenticated WITH CHECK (true);
 
 
@@ -16794,6 +16880,7 @@ CREATE POLICY "Internal users can insert brand groups" ON public.brand_groups FO
 -- Name: brands Internal users can insert brands; Type: POLICY; Schema: public; Owner: -
 --
 
+DROP POLICY IF EXISTS "Internal users can insert brands" ON public.brands;
 CREATE POLICY "Internal users can insert brands" ON public.brands FOR INSERT TO authenticated WITH CHECK (true);
 
 
@@ -16801,6 +16888,7 @@ CREATE POLICY "Internal users can insert brands" ON public.brands FOR INSERT TO 
 -- Name: pricing_factors Internal users can insert pricing_factors; Type: POLICY; Schema: public; Owner: -
 --
 
+DROP POLICY IF EXISTS "Internal users can insert pricing_factors" ON public.pricing_factors;
 CREATE POLICY "Internal users can insert pricing_factors" ON public.pricing_factors FOR INSERT TO authenticated WITH CHECK (true);
 
 
@@ -16808,6 +16896,7 @@ CREATE POLICY "Internal users can insert pricing_factors" ON public.pricing_fact
 -- Name: suppliers Internal users can insert suppliers; Type: POLICY; Schema: public; Owner: -
 --
 
+DROP POLICY IF EXISTS "Internal users can insert suppliers" ON public.suppliers;
 CREATE POLICY "Internal users can insert suppliers" ON public.suppliers FOR INSERT TO authenticated WITH CHECK (true);
 
 
@@ -16815,6 +16904,7 @@ CREATE POLICY "Internal users can insert suppliers" ON public.suppliers FOR INSE
 -- Name: warehouse_manager_log Internal users can insert warehouse manager log; Type: POLICY; Schema: public; Owner: -
 --
 
+DROP POLICY IF EXISTS "Internal users can insert warehouse manager log" ON public.warehouse_manager_log;
 CREATE POLICY "Internal users can insert warehouse manager log" ON public.warehouse_manager_log FOR INSERT TO authenticated WITH CHECK (true);
 
 
@@ -16822,6 +16912,7 @@ CREATE POLICY "Internal users can insert warehouse manager log" ON public.wareho
 -- Name: warehouses Internal users can insert warehouses; Type: POLICY; Schema: public; Owner: -
 --
 
+DROP POLICY IF EXISTS "Internal users can insert warehouses" ON public.warehouses;
 CREATE POLICY "Internal users can insert warehouses" ON public.warehouses FOR INSERT TO authenticated WITH CHECK (true);
 
 
@@ -16829,6 +16920,7 @@ CREATE POLICY "Internal users can insert warehouses" ON public.warehouses FOR IN
 -- Name: activity_log Internal users can manage activity_log; Type: POLICY; Schema: public; Owner: -
 --
 
+DROP POLICY IF EXISTS "Internal users can manage activity_log" ON public.activity_log;
 CREATE POLICY "Internal users can manage activity_log" ON public.activity_log TO authenticated USING (true) WITH CHECK (true);
 
 
@@ -16836,6 +16928,7 @@ CREATE POLICY "Internal users can manage activity_log" ON public.activity_log TO
 -- Name: chat_conversations Internal users can manage chat_conversations; Type: POLICY; Schema: public; Owner: -
 --
 
+DROP POLICY IF EXISTS "Internal users can manage chat_conversations" ON public.chat_conversations;
 CREATE POLICY "Internal users can manage chat_conversations" ON public.chat_conversations TO authenticated USING (true) WITH CHECK (true);
 
 
@@ -16843,6 +16936,7 @@ CREATE POLICY "Internal users can manage chat_conversations" ON public.chat_conv
 -- Name: contract_payments Internal users can manage contract_payments; Type: POLICY; Schema: public; Owner: -
 --
 
+DROP POLICY IF EXISTS "Internal users can manage contract_payments" ON public.contract_payments;
 CREATE POLICY "Internal users can manage contract_payments" ON public.contract_payments TO authenticated USING (true) WITH CHECK (true);
 
 
@@ -16850,6 +16944,7 @@ CREATE POLICY "Internal users can manage contract_payments" ON public.contract_p
 -- Name: contract_visits Internal users can manage contract_visits; Type: POLICY; Schema: public; Owner: -
 --
 
+DROP POLICY IF EXISTS "Internal users can manage contract_visits" ON public.contract_visits;
 CREATE POLICY "Internal users can manage contract_visits" ON public.contract_visits TO authenticated USING (true) WITH CHECK (true);
 
 
@@ -16857,6 +16952,7 @@ CREATE POLICY "Internal users can manage contract_visits" ON public.contract_vis
 -- Name: contracts Internal users can manage contracts; Type: POLICY; Schema: public; Owner: -
 --
 
+DROP POLICY IF EXISTS "Internal users can manage contracts" ON public.contracts;
 CREATE POLICY "Internal users can manage contracts" ON public.contracts TO authenticated USING (true) WITH CHECK (true);
 
 
@@ -16864,6 +16960,7 @@ CREATE POLICY "Internal users can manage contracts" ON public.contracts TO authe
 -- Name: credit_note_lines Internal users can manage credit_note_lines; Type: POLICY; Schema: public; Owner: -
 --
 
+DROP POLICY IF EXISTS "Internal users can manage credit_note_lines" ON public.credit_note_lines;
 CREATE POLICY "Internal users can manage credit_note_lines" ON public.credit_note_lines TO authenticated USING (true) WITH CHECK (true);
 
 
@@ -16871,6 +16968,7 @@ CREATE POLICY "Internal users can manage credit_note_lines" ON public.credit_not
 -- Name: customer_addresses Internal users can manage customer_addresses; Type: POLICY; Schema: public; Owner: -
 --
 
+DROP POLICY IF EXISTS "Internal users can manage customer_addresses" ON public.customer_addresses;
 CREATE POLICY "Internal users can manage customer_addresses" ON public.customer_addresses TO authenticated USING (true) WITH CHECK (true);
 
 
@@ -16878,6 +16976,7 @@ CREATE POLICY "Internal users can manage customer_addresses" ON public.customer_
 -- Name: customer_phones Internal users can manage customer_phones; Type: POLICY; Schema: public; Owner: -
 --
 
+DROP POLICY IF EXISTS "Internal users can manage customer_phones" ON public.customer_phones;
 CREATE POLICY "Internal users can manage customer_phones" ON public.customer_phones TO authenticated USING (true) WITH CHECK (true);
 
 
@@ -16885,6 +16984,7 @@ CREATE POLICY "Internal users can manage customer_phones" ON public.customer_pho
 -- Name: customers Internal users can manage customers; Type: POLICY; Schema: public; Owner: -
 --
 
+DROP POLICY IF EXISTS "Internal users can manage customers" ON public.customers;
 CREATE POLICY "Internal users can manage customers" ON public.customers TO authenticated USING (true) WITH CHECK (true);
 
 
@@ -16892,6 +16992,7 @@ CREATE POLICY "Internal users can manage customers" ON public.customers TO authe
 -- Name: employees Internal users can manage employees; Type: POLICY; Schema: public; Owner: -
 --
 
+DROP POLICY IF EXISTS "Internal users can manage employees" ON public.employees;
 CREATE POLICY "Internal users can manage employees" ON public.employees TO authenticated USING (true) WITH CHECK (true);
 
 
@@ -16899,6 +17000,7 @@ CREATE POLICY "Internal users can manage employees" ON public.employees TO authe
 -- Name: fifo_cost_layers Internal users can manage fifo_cost_layers; Type: POLICY; Schema: public; Owner: -
 --
 
+DROP POLICY IF EXISTS "Internal users can manage fifo_cost_layers" ON public.fifo_cost_layers;
 CREATE POLICY "Internal users can manage fifo_cost_layers" ON public.fifo_cost_layers TO authenticated USING (true) WITH CHECK (true);
 
 
@@ -16906,6 +17008,7 @@ CREATE POLICY "Internal users can manage fifo_cost_layers" ON public.fifo_cost_l
 -- Name: instructions Internal users can manage instructions; Type: POLICY; Schema: public; Owner: -
 --
 
+DROP POLICY IF EXISTS "Internal users can manage instructions" ON public.instructions;
 CREATE POLICY "Internal users can manage instructions" ON public.instructions TO authenticated USING (true) WITH CHECK (true);
 
 
@@ -16913,6 +17016,7 @@ CREATE POLICY "Internal users can manage instructions" ON public.instructions TO
 -- Name: inventory_brand_variants Internal users can manage inventory_brand_variants; Type: POLICY; Schema: public; Owner: -
 --
 
+DROP POLICY IF EXISTS "Internal users can manage inventory_brand_variants" ON public.inventory_brand_variants;
 CREATE POLICY "Internal users can manage inventory_brand_variants" ON public.inventory_brand_variants TO authenticated USING (true) WITH CHECK (true);
 
 
@@ -16920,6 +17024,7 @@ CREATE POLICY "Internal users can manage inventory_brand_variants" ON public.inv
 -- Name: inventory_categories Internal users can manage inventory_categories; Type: POLICY; Schema: public; Owner: -
 --
 
+DROP POLICY IF EXISTS "Internal users can manage inventory_categories" ON public.inventory_categories;
 CREATE POLICY "Internal users can manage inventory_categories" ON public.inventory_categories TO authenticated USING (true) WITH CHECK (true);
 
 
@@ -16927,6 +17032,7 @@ CREATE POLICY "Internal users can manage inventory_categories" ON public.invento
 -- Name: inventory_check_items Internal users can manage inventory_check_items; Type: POLICY; Schema: public; Owner: -
 --
 
+DROP POLICY IF EXISTS "Internal users can manage inventory_check_items" ON public.inventory_check_items;
 CREATE POLICY "Internal users can manage inventory_check_items" ON public.inventory_check_items TO authenticated USING (true) WITH CHECK (true);
 
 
@@ -16934,6 +17040,7 @@ CREATE POLICY "Internal users can manage inventory_check_items" ON public.invent
 -- Name: inventory_checks Internal users can manage inventory_checks; Type: POLICY; Schema: public; Owner: -
 --
 
+DROP POLICY IF EXISTS "Internal users can manage inventory_checks" ON public.inventory_checks;
 CREATE POLICY "Internal users can manage inventory_checks" ON public.inventory_checks TO authenticated USING (true) WITH CHECK (true);
 
 
@@ -16941,6 +17048,7 @@ CREATE POLICY "Internal users can manage inventory_checks" ON public.inventory_c
 -- Name: inventory_groups Internal users can manage inventory_groups; Type: POLICY; Schema: public; Owner: -
 --
 
+DROP POLICY IF EXISTS "Internal users can manage inventory_groups" ON public.inventory_groups;
 CREATE POLICY "Internal users can manage inventory_groups" ON public.inventory_groups TO authenticated USING (true) WITH CHECK (true);
 
 
@@ -16948,6 +17056,7 @@ CREATE POLICY "Internal users can manage inventory_groups" ON public.inventory_g
 -- Name: inventory_items Internal users can manage inventory_items; Type: POLICY; Schema: public; Owner: -
 --
 
+DROP POLICY IF EXISTS "Internal users can manage inventory_items" ON public.inventory_items;
 CREATE POLICY "Internal users can manage inventory_items" ON public.inventory_items TO authenticated USING (true) WITH CHECK (true);
 
 
@@ -16955,6 +17064,7 @@ CREATE POLICY "Internal users can manage inventory_items" ON public.inventory_it
 -- Name: invoice_line_items Internal users can manage invoice_line_items; Type: POLICY; Schema: public; Owner: -
 --
 
+DROP POLICY IF EXISTS "Internal users can manage invoice_line_items" ON public.invoice_line_items;
 CREATE POLICY "Internal users can manage invoice_line_items" ON public.invoice_line_items TO authenticated USING (true) WITH CHECK (true);
 
 
@@ -16962,6 +17072,7 @@ CREATE POLICY "Internal users can manage invoice_line_items" ON public.invoice_l
 -- Name: landed_costs Internal users can manage landed_costs; Type: POLICY; Schema: public; Owner: -
 --
 
+DROP POLICY IF EXISTS "Internal users can manage landed_costs" ON public.landed_costs;
 CREATE POLICY "Internal users can manage landed_costs" ON public.landed_costs TO authenticated USING (true) WITH CHECK (true);
 
 
@@ -16969,6 +17080,7 @@ CREATE POLICY "Internal users can manage landed_costs" ON public.landed_costs TO
 -- Name: order_log Internal users can manage order_log; Type: POLICY; Schema: public; Owner: -
 --
 
+DROP POLICY IF EXISTS "Internal users can manage order_log" ON public.order_log;
 CREATE POLICY "Internal users can manage order_log" ON public.order_log TO authenticated USING (true) WITH CHECK (true);
 
 
@@ -16976,6 +17088,7 @@ CREATE POLICY "Internal users can manage order_log" ON public.order_log TO authe
 -- Name: order_services Internal users can manage order_services; Type: POLICY; Schema: public; Owner: -
 --
 
+DROP POLICY IF EXISTS "Internal users can manage order_services" ON public.order_services;
 CREATE POLICY "Internal users can manage order_services" ON public.order_services TO authenticated USING (true) WITH CHECK (true);
 
 
@@ -16983,6 +17096,7 @@ CREATE POLICY "Internal users can manage order_services" ON public.order_service
 -- Name: order_team_assignments Internal users can manage order_team_assignments; Type: POLICY; Schema: public; Owner: -
 --
 
+DROP POLICY IF EXISTS "Internal users can manage order_team_assignments" ON public.order_team_assignments;
 CREATE POLICY "Internal users can manage order_team_assignments" ON public.order_team_assignments TO authenticated USING (true) WITH CHECK (true);
 
 
@@ -16990,6 +17104,7 @@ CREATE POLICY "Internal users can manage order_team_assignments" ON public.order
 -- Name: orders Internal users can manage orders; Type: POLICY; Schema: public; Owner: -
 --
 
+DROP POLICY IF EXISTS "Internal users can manage orders" ON public.orders;
 CREATE POLICY "Internal users can manage orders" ON public.orders TO authenticated USING (true) WITH CHECK (true);
 
 
@@ -16997,6 +17112,7 @@ CREATE POLICY "Internal users can manage orders" ON public.orders TO authenticat
 -- Name: payment_sessions Internal users can manage payment sessions; Type: POLICY; Schema: public; Owner: -
 --
 
+DROP POLICY IF EXISTS "Internal users can manage payment sessions" ON public.payment_sessions;
 CREATE POLICY "Internal users can manage payment sessions" ON public.payment_sessions TO authenticated USING (true) WITH CHECK (true);
 
 
@@ -17004,6 +17120,7 @@ CREATE POLICY "Internal users can manage payment sessions" ON public.payment_ses
 -- Name: payment_bill_allocations Internal users can manage payment_bill_allocations; Type: POLICY; Schema: public; Owner: -
 --
 
+DROP POLICY IF EXISTS "Internal users can manage payment_bill_allocations" ON public.payment_bill_allocations;
 CREATE POLICY "Internal users can manage payment_bill_allocations" ON public.payment_bill_allocations TO authenticated USING (true) WITH CHECK (true);
 
 
@@ -17011,6 +17128,7 @@ CREATE POLICY "Internal users can manage payment_bill_allocations" ON public.pay
 -- Name: payment_installments Internal users can manage payment_installments; Type: POLICY; Schema: public; Owner: -
 --
 
+DROP POLICY IF EXISTS "Internal users can manage payment_installments" ON public.payment_installments;
 CREATE POLICY "Internal users can manage payment_installments" ON public.payment_installments TO authenticated USING (true) WITH CHECK (true);
 
 
@@ -17018,6 +17136,7 @@ CREATE POLICY "Internal users can manage payment_installments" ON public.payment
 -- Name: payment_plans Internal users can manage payment_plans; Type: POLICY; Schema: public; Owner: -
 --
 
+DROP POLICY IF EXISTS "Internal users can manage payment_plans" ON public.payment_plans;
 CREATE POLICY "Internal users can manage payment_plans" ON public.payment_plans TO authenticated USING (true) WITH CHECK (true);
 
 
@@ -17025,6 +17144,7 @@ CREATE POLICY "Internal users can manage payment_plans" ON public.payment_plans 
 -- Name: payments Internal users can manage payments; Type: POLICY; Schema: public; Owner: -
 --
 
+DROP POLICY IF EXISTS "Internal users can manage payments" ON public.payments;
 CREATE POLICY "Internal users can manage payments" ON public.payments TO authenticated USING (true) WITH CHECK (true);
 
 
@@ -17032,6 +17152,7 @@ CREATE POLICY "Internal users can manage payments" ON public.payments TO authent
 -- Name: po_approvals Internal users can manage po_approvals; Type: POLICY; Schema: public; Owner: -
 --
 
+DROP POLICY IF EXISTS "Internal users can manage po_approvals" ON public.po_approvals;
 CREATE POLICY "Internal users can manage po_approvals" ON public.po_approvals TO authenticated USING (true) WITH CHECK (true);
 
 
@@ -17039,6 +17160,7 @@ CREATE POLICY "Internal users can manage po_approvals" ON public.po_approvals TO
 -- Name: po_line_items Internal users can manage po_line_items; Type: POLICY; Schema: public; Owner: -
 --
 
+DROP POLICY IF EXISTS "Internal users can manage po_line_items" ON public.po_line_items;
 CREATE POLICY "Internal users can manage po_line_items" ON public.po_line_items TO authenticated USING (true) WITH CHECK (true);
 
 
@@ -17046,6 +17168,7 @@ CREATE POLICY "Internal users can manage po_line_items" ON public.po_line_items 
 -- Name: po_versions Internal users can manage po_versions; Type: POLICY; Schema: public; Owner: -
 --
 
+DROP POLICY IF EXISTS "Internal users can manage po_versions" ON public.po_versions;
 CREATE POLICY "Internal users can manage po_versions" ON public.po_versions TO authenticated USING (true) WITH CHECK (true);
 
 
@@ -17053,6 +17176,7 @@ CREATE POLICY "Internal users can manage po_versions" ON public.po_versions TO a
 -- Name: promotion_campaigns Internal users can manage promotion_campaigns; Type: POLICY; Schema: public; Owner: -
 --
 
+DROP POLICY IF EXISTS "Internal users can manage promotion_campaigns" ON public.promotion_campaigns;
 CREATE POLICY "Internal users can manage promotion_campaigns" ON public.promotion_campaigns TO authenticated USING (true) WITH CHECK (true);
 
 
@@ -17060,6 +17184,7 @@ CREATE POLICY "Internal users can manage promotion_campaigns" ON public.promotio
 -- Name: promotion_rules Internal users can manage promotion_rules; Type: POLICY; Schema: public; Owner: -
 --
 
+DROP POLICY IF EXISTS "Internal users can manage promotion_rules" ON public.promotion_rules;
 CREATE POLICY "Internal users can manage promotion_rules" ON public.promotion_rules TO authenticated USING (true) WITH CHECK (true);
 
 
@@ -17067,6 +17192,7 @@ CREATE POLICY "Internal users can manage promotion_rules" ON public.promotion_ru
 -- Name: qc_checklists Internal users can manage qc_checklists; Type: POLICY; Schema: public; Owner: -
 --
 
+DROP POLICY IF EXISTS "Internal users can manage qc_checklists" ON public.qc_checklists;
 CREATE POLICY "Internal users can manage qc_checklists" ON public.qc_checklists TO authenticated USING (true) WITH CHECK (true);
 
 
@@ -17074,6 +17200,7 @@ CREATE POLICY "Internal users can manage qc_checklists" ON public.qc_checklists 
 -- Name: qc_inspection_results Internal users can manage qc_inspection_results; Type: POLICY; Schema: public; Owner: -
 --
 
+DROP POLICY IF EXISTS "Internal users can manage qc_inspection_results" ON public.qc_inspection_results;
 CREATE POLICY "Internal users can manage qc_inspection_results" ON public.qc_inspection_results TO authenticated USING (true) WITH CHECK (true);
 
 
@@ -17081,6 +17208,7 @@ CREATE POLICY "Internal users can manage qc_inspection_results" ON public.qc_ins
 -- Name: qc_schedule Internal users can manage qc_schedule; Type: POLICY; Schema: public; Owner: -
 --
 
+DROP POLICY IF EXISTS "Internal users can manage qc_schedule" ON public.qc_schedule;
 CREATE POLICY "Internal users can manage qc_schedule" ON public.qc_schedule TO authenticated USING (true) WITH CHECK (true);
 
 
@@ -17088,6 +17216,7 @@ CREATE POLICY "Internal users can manage qc_schedule" ON public.qc_schedule TO a
 -- Name: qc_team_scores Internal users can manage qc_team_scores; Type: POLICY; Schema: public; Owner: -
 --
 
+DROP POLICY IF EXISTS "Internal users can manage qc_team_scores" ON public.qc_team_scores;
 CREATE POLICY "Internal users can manage qc_team_scores" ON public.qc_team_scores TO authenticated USING (true) WITH CHECK (true);
 
 
@@ -17095,6 +17224,7 @@ CREATE POLICY "Internal users can manage qc_team_scores" ON public.qc_team_score
 -- Name: quotation_log Internal users can manage quotation_log; Type: POLICY; Schema: public; Owner: -
 --
 
+DROP POLICY IF EXISTS "Internal users can manage quotation_log" ON public.quotation_log;
 CREATE POLICY "Internal users can manage quotation_log" ON public.quotation_log TO authenticated USING (true) WITH CHECK (true);
 
 
@@ -17102,6 +17232,7 @@ CREATE POLICY "Internal users can manage quotation_log" ON public.quotation_log 
 -- Name: quotations Internal users can manage quotations; Type: POLICY; Schema: public; Owner: -
 --
 
+DROP POLICY IF EXISTS "Internal users can manage quotations" ON public.quotations;
 CREATE POLICY "Internal users can manage quotations" ON public.quotations TO authenticated USING (true) WITH CHECK (true);
 
 
@@ -17109,6 +17240,7 @@ CREATE POLICY "Internal users can manage quotations" ON public.quotations TO aut
 -- Name: receival_items Internal users can manage receival_items; Type: POLICY; Schema: public; Owner: -
 --
 
+DROP POLICY IF EXISTS "Internal users can manage receival_items" ON public.receival_items;
 CREATE POLICY "Internal users can manage receival_items" ON public.receival_items TO authenticated USING (true) WITH CHECK (true);
 
 
@@ -17116,6 +17248,7 @@ CREATE POLICY "Internal users can manage receival_items" ON public.receival_item
 -- Name: receivals Internal users can manage receivals; Type: POLICY; Schema: public; Owner: -
 --
 
+DROP POLICY IF EXISTS "Internal users can manage receivals" ON public.receivals;
 CREATE POLICY "Internal users can manage receivals" ON public.receivals TO authenticated USING (true) WITH CHECK (true);
 
 
@@ -17123,6 +17256,7 @@ CREATE POLICY "Internal users can manage receivals" ON public.receivals TO authe
 -- Name: reminder_categories Internal users can manage reminder_categories; Type: POLICY; Schema: public; Owner: -
 --
 
+DROP POLICY IF EXISTS "Internal users can manage reminder_categories" ON public.reminder_categories;
 CREATE POLICY "Internal users can manage reminder_categories" ON public.reminder_categories TO authenticated USING (true) WITH CHECK (true);
 
 
@@ -17130,6 +17264,7 @@ CREATE POLICY "Internal users can manage reminder_categories" ON public.reminder
 -- Name: reminders Internal users can manage reminders; Type: POLICY; Schema: public; Owner: -
 --
 
+DROP POLICY IF EXISTS "Internal users can manage reminders" ON public.reminders;
 CREATE POLICY "Internal users can manage reminders" ON public.reminders TO authenticated USING (true) WITH CHECK (true);
 
 
@@ -17137,6 +17272,7 @@ CREATE POLICY "Internal users can manage reminders" ON public.reminders TO authe
 -- Name: rfq_line_items Internal users can manage rfq_line_items; Type: POLICY; Schema: public; Owner: -
 --
 
+DROP POLICY IF EXISTS "Internal users can manage rfq_line_items" ON public.rfq_line_items;
 CREATE POLICY "Internal users can manage rfq_line_items" ON public.rfq_line_items TO authenticated USING (true) WITH CHECK (true);
 
 
@@ -17144,6 +17280,7 @@ CREATE POLICY "Internal users can manage rfq_line_items" ON public.rfq_line_item
 -- Name: rfq_quotes Internal users can manage rfq_quotes; Type: POLICY; Schema: public; Owner: -
 --
 
+DROP POLICY IF EXISTS "Internal users can manage rfq_quotes" ON public.rfq_quotes;
 CREATE POLICY "Internal users can manage rfq_quotes" ON public.rfq_quotes TO authenticated USING (true) WITH CHECK (true);
 
 
@@ -17151,6 +17288,7 @@ CREATE POLICY "Internal users can manage rfq_quotes" ON public.rfq_quotes TO aut
 -- Name: rfqs Internal users can manage rfqs; Type: POLICY; Schema: public; Owner: -
 --
 
+DROP POLICY IF EXISTS "Internal users can manage rfqs" ON public.rfqs;
 CREATE POLICY "Internal users can manage rfqs" ON public.rfqs TO authenticated USING (true) WITH CHECK (true);
 
 
@@ -17158,6 +17296,7 @@ CREATE POLICY "Internal users can manage rfqs" ON public.rfqs TO authenticated U
 -- Name: schedules Internal users can manage schedules; Type: POLICY; Schema: public; Owner: -
 --
 
+DROP POLICY IF EXISTS "Internal users can manage schedules" ON public.schedules;
 CREATE POLICY "Internal users can manage schedules" ON public.schedules TO authenticated USING (true) WITH CHECK (true);
 
 
@@ -17165,6 +17304,7 @@ CREATE POLICY "Internal users can manage schedules" ON public.schedules TO authe
 -- Name: services Internal users can manage services; Type: POLICY; Schema: public; Owner: -
 --
 
+DROP POLICY IF EXISTS "Internal users can manage services" ON public.services;
 CREATE POLICY "Internal users can manage services" ON public.services TO authenticated USING (true) WITH CHECK (true);
 
 
@@ -17172,6 +17312,7 @@ CREATE POLICY "Internal users can manage services" ON public.services TO authent
 -- Name: shipments Internal users can manage shipments; Type: POLICY; Schema: public; Owner: -
 --
 
+DROP POLICY IF EXISTS "Internal users can manage shipments" ON public.shipments;
 CREATE POLICY "Internal users can manage shipments" ON public.shipments TO authenticated USING (true) WITH CHECK (true);
 
 
@@ -17179,6 +17320,7 @@ CREATE POLICY "Internal users can manage shipments" ON public.shipments TO authe
 -- Name: sync_state Internal users can manage sync_state; Type: POLICY; Schema: public; Owner: -
 --
 
+DROP POLICY IF EXISTS "Internal users can manage sync_state" ON public.sync_state;
 CREATE POLICY "Internal users can manage sync_state" ON public.sync_state TO authenticated USING (true) WITH CHECK (true);
 
 
@@ -17186,6 +17328,7 @@ CREATE POLICY "Internal users can manage sync_state" ON public.sync_state TO aut
 -- Name: team_schedule_assignments Internal users can manage team_schedule_assignments; Type: POLICY; Schema: public; Owner: -
 --
 
+DROP POLICY IF EXISTS "Internal users can manage team_schedule_assignments" ON public.team_schedule_assignments;
 CREATE POLICY "Internal users can manage team_schedule_assignments" ON public.team_schedule_assignments TO authenticated USING (true) WITH CHECK (true);
 
 
@@ -17193,6 +17336,7 @@ CREATE POLICY "Internal users can manage team_schedule_assignments" ON public.te
 -- Name: teams Internal users can manage teams; Type: POLICY; Schema: public; Owner: -
 --
 
+DROP POLICY IF EXISTS "Internal users can manage teams" ON public.teams;
 CREATE POLICY "Internal users can manage teams" ON public.teams TO authenticated USING (true) WITH CHECK (true);
 
 
@@ -17200,6 +17344,7 @@ CREATE POLICY "Internal users can manage teams" ON public.teams TO authenticated
 -- Name: tool_asset_items Internal users can manage tool_asset_items; Type: POLICY; Schema: public; Owner: -
 --
 
+DROP POLICY IF EXISTS "Internal users can manage tool_asset_items" ON public.tool_asset_items;
 CREATE POLICY "Internal users can manage tool_asset_items" ON public.tool_asset_items TO authenticated USING (true) WITH CHECK (true);
 
 
@@ -17207,6 +17352,7 @@ CREATE POLICY "Internal users can manage tool_asset_items" ON public.tool_asset_
 -- Name: tool_asset_units Internal users can manage tool_asset_units; Type: POLICY; Schema: public; Owner: -
 --
 
+DROP POLICY IF EXISTS "Internal users can manage tool_asset_units" ON public.tool_asset_units;
 CREATE POLICY "Internal users can manage tool_asset_units" ON public.tool_asset_units TO authenticated USING (true) WITH CHECK (true);
 
 
@@ -17214,6 +17360,7 @@ CREATE POLICY "Internal users can manage tool_asset_units" ON public.tool_asset_
 -- Name: vehicles Internal users can manage vehicles; Type: POLICY; Schema: public; Owner: -
 --
 
+DROP POLICY IF EXISTS "Internal users can manage vehicles" ON public.vehicles;
 CREATE POLICY "Internal users can manage vehicles" ON public.vehicles TO authenticated USING (true) WITH CHECK (true);
 
 
@@ -17221,6 +17368,7 @@ CREATE POLICY "Internal users can manage vehicles" ON public.vehicles TO authent
 -- Name: voucher_redemptions Internal users can manage voucher_redemptions; Type: POLICY; Schema: public; Owner: -
 --
 
+DROP POLICY IF EXISTS "Internal users can manage voucher_redemptions" ON public.voucher_redemptions;
 CREATE POLICY "Internal users can manage voucher_redemptions" ON public.voucher_redemptions TO authenticated USING (true) WITH CHECK (true);
 
 
@@ -17228,6 +17376,7 @@ CREATE POLICY "Internal users can manage voucher_redemptions" ON public.voucher_
 -- Name: vouchers Internal users can manage vouchers; Type: POLICY; Schema: public; Owner: -
 --
 
+DROP POLICY IF EXISTS "Internal users can manage vouchers" ON public.vouchers;
 CREATE POLICY "Internal users can manage vouchers" ON public.vouchers TO authenticated USING (true) WITH CHECK (true);
 
 
@@ -17235,6 +17384,7 @@ CREATE POLICY "Internal users can manage vouchers" ON public.vouchers TO authent
 -- Name: warehouse_transfers Internal users can manage warehouse_transfers; Type: POLICY; Schema: public; Owner: -
 --
 
+DROP POLICY IF EXISTS "Internal users can manage warehouse_transfers" ON public.warehouse_transfers;
 CREATE POLICY "Internal users can manage warehouse_transfers" ON public.warehouse_transfers TO authenticated USING (true) WITH CHECK (true);
 
 
@@ -17242,6 +17392,7 @@ CREATE POLICY "Internal users can manage warehouse_transfers" ON public.warehous
 -- Name: app_settings Internal users can read app_settings; Type: POLICY; Schema: public; Owner: -
 --
 
+DROP POLICY IF EXISTS "Internal users can read app_settings" ON public.app_settings;
 CREATE POLICY "Internal users can read app_settings" ON public.app_settings FOR SELECT TO authenticated USING (true);
 
 
@@ -17249,6 +17400,7 @@ CREATE POLICY "Internal users can read app_settings" ON public.app_settings FOR 
 -- Name: brands Internal users can read brands; Type: POLICY; Schema: public; Owner: -
 --
 
+DROP POLICY IF EXISTS "Internal users can read brands" ON public.brands;
 CREATE POLICY "Internal users can read brands" ON public.brands FOR SELECT TO authenticated USING (true);
 
 
@@ -17256,6 +17408,7 @@ CREATE POLICY "Internal users can read brands" ON public.brands FOR SELECT TO au
 -- Name: companies Internal users can read companies; Type: POLICY; Schema: public; Owner: -
 --
 
+DROP POLICY IF EXISTS "Internal users can read companies" ON public.companies;
 CREATE POLICY "Internal users can read companies" ON public.companies FOR SELECT TO authenticated USING (true);
 
 
@@ -17263,6 +17416,7 @@ CREATE POLICY "Internal users can read companies" ON public.companies FOR SELECT
 -- Name: divisions Internal users can read divisions; Type: POLICY; Schema: public; Owner: -
 --
 
+DROP POLICY IF EXISTS "Internal users can read divisions" ON public.divisions;
 CREATE POLICY "Internal users can read divisions" ON public.divisions FOR SELECT TO authenticated USING (true);
 
 
@@ -17270,6 +17424,7 @@ CREATE POLICY "Internal users can read divisions" ON public.divisions FOR SELECT
 -- Name: pricing_factors Internal users can read pricing_factors; Type: POLICY; Schema: public; Owner: -
 --
 
+DROP POLICY IF EXISTS "Internal users can read pricing_factors" ON public.pricing_factors;
 CREATE POLICY "Internal users can read pricing_factors" ON public.pricing_factors FOR SELECT TO authenticated USING (true);
 
 
@@ -17277,6 +17432,7 @@ CREATE POLICY "Internal users can read pricing_factors" ON public.pricing_factor
 -- Name: stock_adjustments Internal users can update adjustments; Type: POLICY; Schema: public; Owner: -
 --
 
+DROP POLICY IF EXISTS "Internal users can update adjustments" ON public.stock_adjustments;
 CREATE POLICY "Internal users can update adjustments" ON public.stock_adjustments FOR UPDATE TO authenticated USING (true);
 
 
@@ -17284,6 +17440,7 @@ CREATE POLICY "Internal users can update adjustments" ON public.stock_adjustment
 -- Name: brand_groups Internal users can update brand groups; Type: POLICY; Schema: public; Owner: -
 --
 
+DROP POLICY IF EXISTS "Internal users can update brand groups" ON public.brand_groups;
 CREATE POLICY "Internal users can update brand groups" ON public.brand_groups FOR UPDATE TO authenticated USING (true);
 
 
@@ -17291,6 +17448,7 @@ CREATE POLICY "Internal users can update brand groups" ON public.brand_groups FO
 -- Name: brands Internal users can update brands; Type: POLICY; Schema: public; Owner: -
 --
 
+DROP POLICY IF EXISTS "Internal users can update brands" ON public.brands;
 CREATE POLICY "Internal users can update brands" ON public.brands FOR UPDATE TO authenticated USING (true);
 
 
@@ -17298,6 +17456,7 @@ CREATE POLICY "Internal users can update brands" ON public.brands FOR UPDATE TO 
 -- Name: pricing_factors Internal users can update pricing_factors; Type: POLICY; Schema: public; Owner: -
 --
 
+DROP POLICY IF EXISTS "Internal users can update pricing_factors" ON public.pricing_factors;
 CREATE POLICY "Internal users can update pricing_factors" ON public.pricing_factors FOR UPDATE TO authenticated USING (true);
 
 
@@ -17305,6 +17464,7 @@ CREATE POLICY "Internal users can update pricing_factors" ON public.pricing_fact
 -- Name: suppliers Internal users can update suppliers; Type: POLICY; Schema: public; Owner: -
 --
 
+DROP POLICY IF EXISTS "Internal users can update suppliers" ON public.suppliers;
 CREATE POLICY "Internal users can update suppliers" ON public.suppliers FOR UPDATE TO authenticated USING (true);
 
 
@@ -17312,6 +17472,7 @@ CREATE POLICY "Internal users can update suppliers" ON public.suppliers FOR UPDA
 -- Name: warehouse_manager_log Internal users can update warehouse manager log; Type: POLICY; Schema: public; Owner: -
 --
 
+DROP POLICY IF EXISTS "Internal users can update warehouse manager log" ON public.warehouse_manager_log;
 CREATE POLICY "Internal users can update warehouse manager log" ON public.warehouse_manager_log FOR UPDATE TO authenticated USING (true);
 
 
@@ -17319,6 +17480,7 @@ CREATE POLICY "Internal users can update warehouse manager log" ON public.wareho
 -- Name: warehouses Internal users can update warehouses; Type: POLICY; Schema: public; Owner: -
 --
 
+DROP POLICY IF EXISTS "Internal users can update warehouses" ON public.warehouses;
 CREATE POLICY "Internal users can update warehouses" ON public.warehouses FOR UPDATE TO authenticated USING (true);
 
 
@@ -17326,6 +17488,7 @@ CREATE POLICY "Internal users can update warehouses" ON public.warehouses FOR UP
 -- Name: stock_adjustments Internal users can view adjustments; Type: POLICY; Schema: public; Owner: -
 --
 
+DROP POLICY IF EXISTS "Internal users can view adjustments" ON public.stock_adjustments;
 CREATE POLICY "Internal users can view adjustments" ON public.stock_adjustments FOR SELECT TO authenticated USING (true);
 
 
@@ -17333,6 +17496,7 @@ CREATE POLICY "Internal users can view adjustments" ON public.stock_adjustments 
 -- Name: brand_group_members Internal users can view brand group members; Type: POLICY; Schema: public; Owner: -
 --
 
+DROP POLICY IF EXISTS "Internal users can view brand group members" ON public.brand_group_members;
 CREATE POLICY "Internal users can view brand group members" ON public.brand_group_members FOR SELECT TO authenticated USING (true);
 
 
@@ -17340,6 +17504,7 @@ CREATE POLICY "Internal users can view brand group members" ON public.brand_grou
 -- Name: brand_groups Internal users can view brand groups; Type: POLICY; Schema: public; Owner: -
 --
 
+DROP POLICY IF EXISTS "Internal users can view brand groups" ON public.brand_groups;
 CREATE POLICY "Internal users can view brand groups" ON public.brand_groups FOR SELECT TO authenticated USING (true);
 
 
@@ -17347,6 +17512,7 @@ CREATE POLICY "Internal users can view brand groups" ON public.brand_groups FOR 
 -- Name: suppliers Internal users can view suppliers; Type: POLICY; Schema: public; Owner: -
 --
 
+DROP POLICY IF EXISTS "Internal users can view suppliers" ON public.suppliers;
 CREATE POLICY "Internal users can view suppliers" ON public.suppliers FOR SELECT TO authenticated USING (true);
 
 
@@ -17354,6 +17520,7 @@ CREATE POLICY "Internal users can view suppliers" ON public.suppliers FOR SELECT
 -- Name: warehouse_manager_log Internal users can view warehouse manager log; Type: POLICY; Schema: public; Owner: -
 --
 
+DROP POLICY IF EXISTS "Internal users can view warehouse manager log" ON public.warehouse_manager_log;
 CREATE POLICY "Internal users can view warehouse manager log" ON public.warehouse_manager_log FOR SELECT TO authenticated USING (true);
 
 
@@ -17361,6 +17528,7 @@ CREATE POLICY "Internal users can view warehouse manager log" ON public.warehous
 -- Name: warehouses Internal users can view warehouses; Type: POLICY; Schema: public; Owner: -
 --
 
+DROP POLICY IF EXISTS "Internal users can view warehouses" ON public.warehouses;
 CREATE POLICY "Internal users can view warehouses" ON public.warehouses FOR SELECT TO authenticated USING (true);
 
 
@@ -17368,6 +17536,7 @@ CREATE POLICY "Internal users can view warehouses" ON public.warehouses FOR SELE
 -- Name: service_brands Manage services write service_brands; Type: POLICY; Schema: public; Owner: -
 --
 
+DROP POLICY IF EXISTS "Manage services write service_brands" ON public.service_brands;
 CREATE POLICY "Manage services write service_brands" ON public.service_brands TO authenticated USING ((EXISTS ( SELECT 1
    FROM ((public.profiles p
      JOIN public.user_custom_roles ucr ON ((ucr.profile_id = p.id)))
@@ -17383,6 +17552,7 @@ CREATE POLICY "Manage services write service_brands" ON public.service_brands TO
 -- Name: media_download_jobs Service role only on media jobs; Type: POLICY; Schema: public; Owner: -
 --
 
+DROP POLICY IF EXISTS "Service role only on media jobs" ON public.media_download_jobs;
 CREATE POLICY "Service role only on media jobs" ON public.media_download_jobs TO service_role USING (true) WITH CHECK (true);
 
 
@@ -17390,6 +17560,7 @@ CREATE POLICY "Service role only on media jobs" ON public.media_download_jobs TO
 -- Name: call_records Service role write call records; Type: POLICY; Schema: public; Owner: -
 --
 
+DROP POLICY IF EXISTS "Service role write call records" ON public.call_records;
 CREATE POLICY "Service role write call records" ON public.call_records TO service_role USING (true) WITH CHECK (true);
 
 
@@ -17397,6 +17568,7 @@ CREATE POLICY "Service role write call records" ON public.call_records TO servic
 -- Name: purge_batches Service role writes purge batches; Type: POLICY; Schema: public; Owner: -
 --
 
+DROP POLICY IF EXISTS "Service role writes purge batches" ON public.purge_batches;
 CREATE POLICY "Service role writes purge batches" ON public.purge_batches TO service_role USING (true) WITH CHECK (true);
 
 
@@ -17410,6 +17582,7 @@ ALTER TABLE public.activity_log ENABLE ROW LEVEL SECURITY;
 -- Name: approval_chain_tiers allow_all_approval_chain_tiers; Type: POLICY; Schema: public; Owner: -
 --
 
+DROP POLICY IF EXISTS "allow_all_approval_chain_tiers" ON public.approval_chain_tiers;
 CREATE POLICY allow_all_approval_chain_tiers ON public.approval_chain_tiers TO authenticated USING (true) WITH CHECK (true);
 
 
@@ -17417,6 +17590,7 @@ CREATE POLICY allow_all_approval_chain_tiers ON public.approval_chain_tiers TO a
 -- Name: approval_chains allow_all_approval_chains; Type: POLICY; Schema: public; Owner: -
 --
 
+DROP POLICY IF EXISTS "allow_all_approval_chains" ON public.approval_chains;
 CREATE POLICY allow_all_approval_chains ON public.approval_chains TO authenticated USING (true) WITH CHECK (true);
 
 
@@ -17424,6 +17598,7 @@ CREATE POLICY allow_all_approval_chains ON public.approval_chains TO authenticat
 -- Name: notifications allow_all_notifications; Type: POLICY; Schema: public; Owner: -
 --
 
+DROP POLICY IF EXISTS "allow_all_notifications" ON public.notifications;
 CREATE POLICY allow_all_notifications ON public.notifications USING (true) WITH CHECK (true);
 
 
@@ -17431,6 +17606,7 @@ CREATE POLICY allow_all_notifications ON public.notifications USING (true) WITH 
 -- Name: app_settings anon read; Type: POLICY; Schema: public; Owner: -
 --
 
+DROP POLICY IF EXISTS "anon read" ON public.app_settings;
 CREATE POLICY "anon read" ON public.app_settings FOR SELECT TO anon USING (true);
 
 
@@ -17462,6 +17638,7 @@ ALTER TABLE public.approval_requests ENABLE ROW LEVEL SECURITY;
 -- Name: credit_groups authenticated can delete credit_groups; Type: POLICY; Schema: public; Owner: -
 --
 
+DROP POLICY IF EXISTS "authenticated can delete credit_groups" ON public.credit_groups;
 CREATE POLICY "authenticated can delete credit_groups" ON public.credit_groups FOR DELETE TO authenticated USING (true);
 
 
@@ -17469,6 +17646,7 @@ CREATE POLICY "authenticated can delete credit_groups" ON public.credit_groups F
 -- Name: credit_groups authenticated can insert credit_groups; Type: POLICY; Schema: public; Owner: -
 --
 
+DROP POLICY IF EXISTS "authenticated can insert credit_groups" ON public.credit_groups;
 CREATE POLICY "authenticated can insert credit_groups" ON public.credit_groups FOR INSERT TO authenticated WITH CHECK (true);
 
 
@@ -17476,6 +17654,7 @@ CREATE POLICY "authenticated can insert credit_groups" ON public.credit_groups F
 -- Name: inventory_check_approvals authenticated can manage inventory_check_approvals; Type: POLICY; Schema: public; Owner: -
 --
 
+DROP POLICY IF EXISTS "authenticated can manage inventory_check_approvals" ON public.inventory_check_approvals;
 CREATE POLICY "authenticated can manage inventory_check_approvals" ON public.inventory_check_approvals TO authenticated USING (true) WITH CHECK (true);
 
 
@@ -17483,6 +17662,7 @@ CREATE POLICY "authenticated can manage inventory_check_approvals" ON public.inv
 -- Name: inventory_check_assignments authenticated can manage inventory_check_assignments; Type: POLICY; Schema: public; Owner: -
 --
 
+DROP POLICY IF EXISTS "authenticated can manage inventory_check_assignments" ON public.inventory_check_assignments;
 CREATE POLICY "authenticated can manage inventory_check_assignments" ON public.inventory_check_assignments TO authenticated USING (true) WITH CHECK (true);
 
 
@@ -17490,6 +17670,7 @@ CREATE POLICY "authenticated can manage inventory_check_assignments" ON public.i
 -- Name: inventory_check_log authenticated can manage inventory_check_log; Type: POLICY; Schema: public; Owner: -
 --
 
+DROP POLICY IF EXISTS "authenticated can manage inventory_check_log" ON public.inventory_check_log;
 CREATE POLICY "authenticated can manage inventory_check_log" ON public.inventory_check_log TO authenticated USING (true) WITH CHECK (true);
 
 
@@ -17497,6 +17678,7 @@ CREATE POLICY "authenticated can manage inventory_check_log" ON public.inventory
 -- Name: receival_edit_requests authenticated can manage receival_edit_requests; Type: POLICY; Schema: public; Owner: -
 --
 
+DROP POLICY IF EXISTS "authenticated can manage receival_edit_requests" ON public.receival_edit_requests;
 CREATE POLICY "authenticated can manage receival_edit_requests" ON public.receival_edit_requests TO authenticated USING (true) WITH CHECK (true);
 
 
@@ -17504,6 +17686,7 @@ CREATE POLICY "authenticated can manage receival_edit_requests" ON public.receiv
 -- Name: stock_adjustment_approvals authenticated can manage stock_adjustment_approvals; Type: POLICY; Schema: public; Owner: -
 --
 
+DROP POLICY IF EXISTS "authenticated can manage stock_adjustment_approvals" ON public.stock_adjustment_approvals;
 CREATE POLICY "authenticated can manage stock_adjustment_approvals" ON public.stock_adjustment_approvals TO authenticated USING (true) WITH CHECK (true);
 
 
@@ -17511,6 +17694,7 @@ CREATE POLICY "authenticated can manage stock_adjustment_approvals" ON public.st
 -- Name: credit_groups authenticated can read credit_groups; Type: POLICY; Schema: public; Owner: -
 --
 
+DROP POLICY IF EXISTS "authenticated can read credit_groups" ON public.credit_groups;
 CREATE POLICY "authenticated can read credit_groups" ON public.credit_groups FOR SELECT TO authenticated USING (true);
 
 
@@ -17518,6 +17702,7 @@ CREATE POLICY "authenticated can read credit_groups" ON public.credit_groups FOR
 -- Name: credit_groups authenticated can update credit_groups; Type: POLICY; Schema: public; Owner: -
 --
 
+DROP POLICY IF EXISTS "authenticated can update credit_groups" ON public.credit_groups;
 CREATE POLICY "authenticated can update credit_groups" ON public.credit_groups FOR UPDATE TO authenticated USING (true);
 
 
@@ -17525,6 +17710,7 @@ CREATE POLICY "authenticated can update credit_groups" ON public.credit_groups F
 -- Name: quotation_line_items authenticated_full_access; Type: POLICY; Schema: public; Owner: -
 --
 
+DROP POLICY IF EXISTS "authenticated_full_access" ON public.quotation_line_items;
 CREATE POLICY authenticated_full_access ON public.quotation_line_items TO authenticated USING (true) WITH CHECK (true);
 
 
@@ -17532,6 +17718,7 @@ CREATE POLICY authenticated_full_access ON public.quotation_line_items TO authen
 -- Name: site_visit_dates authenticated_full_access; Type: POLICY; Schema: public; Owner: -
 --
 
+DROP POLICY IF EXISTS "authenticated_full_access" ON public.site_visit_dates;
 CREATE POLICY authenticated_full_access ON public.site_visit_dates TO authenticated USING (true) WITH CHECK (true);
 
 
@@ -17539,6 +17726,7 @@ CREATE POLICY authenticated_full_access ON public.site_visit_dates TO authentica
 -- Name: site_visit_team_assignments authenticated_full_access; Type: POLICY; Schema: public; Owner: -
 --
 
+DROP POLICY IF EXISTS "authenticated_full_access" ON public.site_visit_team_assignments;
 CREATE POLICY authenticated_full_access ON public.site_visit_team_assignments TO authenticated USING (true) WITH CHECK (true);
 
 
@@ -17546,6 +17734,7 @@ CREATE POLICY authenticated_full_access ON public.site_visit_team_assignments TO
 -- Name: site_visits authenticated_full_access; Type: POLICY; Schema: public; Owner: -
 --
 
+DROP POLICY IF EXISTS "authenticated_full_access" ON public.site_visits;
 CREATE POLICY authenticated_full_access ON public.site_visits TO authenticated USING (true) WITH CHECK (true);
 
 
@@ -17553,6 +17742,7 @@ CREATE POLICY authenticated_full_access ON public.site_visits TO authenticated U
 -- Name: team_activity_log authenticated_manage_activity_log; Type: POLICY; Schema: public; Owner: -
 --
 
+DROP POLICY IF EXISTS "authenticated_manage_activity_log" ON public.team_activity_log;
 CREATE POLICY authenticated_manage_activity_log ON public.team_activity_log TO authenticated USING (true) WITH CHECK (true);
 
 
@@ -17560,6 +17750,7 @@ CREATE POLICY authenticated_manage_activity_log ON public.team_activity_log TO a
 -- Name: order_visit_dates authenticated_manage_order_visit_dates; Type: POLICY; Schema: public; Owner: -
 --
 
+DROP POLICY IF EXISTS "authenticated_manage_order_visit_dates" ON public.order_visit_dates;
 CREATE POLICY authenticated_manage_order_visit_dates ON public.order_visit_dates TO authenticated USING (true) WITH CHECK (true);
 
 
@@ -17567,6 +17758,7 @@ CREATE POLICY authenticated_manage_order_visit_dates ON public.order_visit_dates
 -- Name: customer_subscriptions authenticated_read; Type: POLICY; Schema: public; Owner: -
 --
 
+DROP POLICY IF EXISTS "authenticated_read" ON public.customer_subscriptions;
 CREATE POLICY authenticated_read ON public.customer_subscriptions FOR SELECT TO authenticated USING (true);
 
 
@@ -17574,6 +17766,7 @@ CREATE POLICY authenticated_read ON public.customer_subscriptions FOR SELECT TO 
 -- Name: subscription_package_services authenticated_read; Type: POLICY; Schema: public; Owner: -
 --
 
+DROP POLICY IF EXISTS "authenticated_read" ON public.subscription_package_services;
 CREATE POLICY authenticated_read ON public.subscription_package_services FOR SELECT TO authenticated USING (true);
 
 
@@ -17581,6 +17774,7 @@ CREATE POLICY authenticated_read ON public.subscription_package_services FOR SEL
 -- Name: subscription_packages authenticated_read; Type: POLICY; Schema: public; Owner: -
 --
 
+DROP POLICY IF EXISTS "authenticated_read" ON public.subscription_packages;
 CREATE POLICY authenticated_read ON public.subscription_packages FOR SELECT TO authenticated USING (true);
 
 
@@ -17588,6 +17782,7 @@ CREATE POLICY authenticated_read ON public.subscription_packages FOR SELECT TO a
 -- Name: subscription_usage_log authenticated_read; Type: POLICY; Schema: public; Owner: -
 --
 
+DROP POLICY IF EXISTS "authenticated_read" ON public.subscription_usage_log;
 CREATE POLICY authenticated_read ON public.subscription_usage_log FOR SELECT TO authenticated USING (true);
 
 
@@ -17619,6 +17814,7 @@ ALTER TABLE public.call_records ENABLE ROW LEVEL SECURITY;
 -- Name: customer_blocks cc_blocks_insert; Type: POLICY; Schema: public; Owner: -
 --
 
+DROP POLICY IF EXISTS "cc_blocks_insert" ON public.customer_blocks;
 CREATE POLICY cc_blocks_insert ON public.customer_blocks FOR INSERT TO authenticated WITH CHECK (true);
 
 
@@ -17626,6 +17822,7 @@ CREATE POLICY cc_blocks_insert ON public.customer_blocks FOR INSERT TO authentic
 -- Name: customer_blocks cc_blocks_select; Type: POLICY; Schema: public; Owner: -
 --
 
+DROP POLICY IF EXISTS "cc_blocks_select" ON public.customer_blocks;
 CREATE POLICY cc_blocks_select ON public.customer_blocks FOR SELECT TO authenticated USING (true);
 
 
@@ -17633,6 +17830,7 @@ CREATE POLICY cc_blocks_select ON public.customer_blocks FOR SELECT TO authentic
 -- Name: chat_messages cc_messages_select; Type: POLICY; Schema: public; Owner: -
 --
 
+DROP POLICY IF EXISTS "cc_messages_select" ON public.chat_messages;
 CREATE POLICY cc_messages_select ON public.chat_messages FOR SELECT TO authenticated USING (true);
 
 
@@ -17640,6 +17838,7 @@ CREATE POLICY cc_messages_select ON public.chat_messages FOR SELECT TO authentic
 -- Name: chat_messages cc_messages_update; Type: POLICY; Schema: public; Owner: -
 --
 
+DROP POLICY IF EXISTS "cc_messages_update" ON public.chat_messages;
 CREATE POLICY cc_messages_update ON public.chat_messages FOR UPDATE TO authenticated USING (true) WITH CHECK (true);
 
 
@@ -17659,6 +17858,7 @@ ALTER TABLE public.chat_messages ENABLE ROW LEVEL SECURITY;
 -- Name: chat_messages chat_messages_insert_strict; Type: POLICY; Schema: public; Owner: -
 --
 
+DROP POLICY IF EXISTS "chat_messages_insert_strict" ON public.chat_messages;
 CREATE POLICY chat_messages_insert_strict ON public.chat_messages FOR INSERT TO authenticated WITH CHECK (((EXISTS ( SELECT 1
    FROM public.chat_conversations cc
   WHERE (cc.id = chat_messages.conversation_id))) AND (EXISTS ( SELECT 1
@@ -17690,6 +17890,7 @@ ALTER TABLE public.contract_milestones ENABLE ROW LEVEL SECURITY;
 -- Name: contract_milestones contract_milestones_delete; Type: POLICY; Schema: public; Owner: -
 --
 
+DROP POLICY IF EXISTS "contract_milestones_delete" ON public.contract_milestones;
 CREATE POLICY contract_milestones_delete ON public.contract_milestones FOR DELETE TO authenticated USING (public.is_contract_visible(contract_id));
 
 
@@ -17697,6 +17898,7 @@ CREATE POLICY contract_milestones_delete ON public.contract_milestones FOR DELET
 -- Name: contract_milestones contract_milestones_insert; Type: POLICY; Schema: public; Owner: -
 --
 
+DROP POLICY IF EXISTS "contract_milestones_insert" ON public.contract_milestones;
 CREATE POLICY contract_milestones_insert ON public.contract_milestones FOR INSERT TO authenticated WITH CHECK (public.is_contract_visible(contract_id));
 
 
@@ -17704,6 +17906,7 @@ CREATE POLICY contract_milestones_insert ON public.contract_milestones FOR INSER
 -- Name: contract_milestones contract_milestones_select; Type: POLICY; Schema: public; Owner: -
 --
 
+DROP POLICY IF EXISTS "contract_milestones_select" ON public.contract_milestones;
 CREATE POLICY contract_milestones_select ON public.contract_milestones FOR SELECT TO authenticated USING (public.is_contract_visible(contract_id));
 
 
@@ -17711,6 +17914,7 @@ CREATE POLICY contract_milestones_select ON public.contract_milestones FOR SELEC
 -- Name: contract_milestones contract_milestones_update; Type: POLICY; Schema: public; Owner: -
 --
 
+DROP POLICY IF EXISTS "contract_milestones_update" ON public.contract_milestones;
 CREATE POLICY contract_milestones_update ON public.contract_milestones FOR UPDATE TO authenticated USING (public.is_contract_visible(contract_id)) WITH CHECK (public.is_contract_visible(contract_id));
 
 
@@ -17730,6 +17934,7 @@ ALTER TABLE public.contract_services ENABLE ROW LEVEL SECURITY;
 -- Name: contract_services contract_services_delete; Type: POLICY; Schema: public; Owner: -
 --
 
+DROP POLICY IF EXISTS "contract_services_delete" ON public.contract_services;
 CREATE POLICY contract_services_delete ON public.contract_services FOR DELETE TO authenticated USING (public.is_contract_visible(contract_id));
 
 
@@ -17737,6 +17942,7 @@ CREATE POLICY contract_services_delete ON public.contract_services FOR DELETE TO
 -- Name: contract_services contract_services_insert; Type: POLICY; Schema: public; Owner: -
 --
 
+DROP POLICY IF EXISTS "contract_services_insert" ON public.contract_services;
 CREATE POLICY contract_services_insert ON public.contract_services FOR INSERT TO authenticated WITH CHECK (public.is_contract_visible(contract_id));
 
 
@@ -17744,6 +17950,7 @@ CREATE POLICY contract_services_insert ON public.contract_services FOR INSERT TO
 -- Name: contract_services contract_services_select; Type: POLICY; Schema: public; Owner: -
 --
 
+DROP POLICY IF EXISTS "contract_services_select" ON public.contract_services;
 CREATE POLICY contract_services_select ON public.contract_services FOR SELECT TO authenticated USING (public.is_contract_visible(contract_id));
 
 
@@ -17751,6 +17958,7 @@ CREATE POLICY contract_services_select ON public.contract_services FOR SELECT TO
 -- Name: contract_services contract_services_update; Type: POLICY; Schema: public; Owner: -
 --
 
+DROP POLICY IF EXISTS "contract_services_update" ON public.contract_services;
 CREATE POLICY contract_services_update ON public.contract_services FOR UPDATE TO authenticated USING (public.is_contract_visible(contract_id)) WITH CHECK (public.is_contract_visible(contract_id));
 
 
@@ -17836,6 +18044,7 @@ ALTER TABLE public.customers ENABLE ROW LEVEL SECURITY;
 -- Name: purchase_orders division_scope_delete; Type: POLICY; Schema: public; Owner: -
 --
 
+DROP POLICY IF EXISTS "division_scope_delete" ON public.purchase_orders;
 CREATE POLICY division_scope_delete ON public.purchase_orders FOR DELETE USING (public.is_division_visible(division_id));
 
 
@@ -17843,6 +18052,7 @@ CREATE POLICY division_scope_delete ON public.purchase_orders FOR DELETE USING (
 -- Name: sale_orders division_scope_delete; Type: POLICY; Schema: public; Owner: -
 --
 
+DROP POLICY IF EXISTS "division_scope_delete" ON public.sale_orders;
 CREATE POLICY division_scope_delete ON public.sale_orders FOR DELETE USING (public.is_division_visible(division_id));
 
 
@@ -17850,6 +18060,7 @@ CREATE POLICY division_scope_delete ON public.sale_orders FOR DELETE USING (publ
 -- Name: purchase_orders division_scope_insert; Type: POLICY; Schema: public; Owner: -
 --
 
+DROP POLICY IF EXISTS "division_scope_insert" ON public.purchase_orders;
 CREATE POLICY division_scope_insert ON public.purchase_orders FOR INSERT WITH CHECK (public.is_division_visible(division_id));
 
 
@@ -17857,6 +18068,7 @@ CREATE POLICY division_scope_insert ON public.purchase_orders FOR INSERT WITH CH
 -- Name: sale_orders division_scope_insert; Type: POLICY; Schema: public; Owner: -
 --
 
+DROP POLICY IF EXISTS "division_scope_insert" ON public.sale_orders;
 CREATE POLICY division_scope_insert ON public.sale_orders FOR INSERT WITH CHECK (public.is_division_visible(division_id));
 
 
@@ -17864,6 +18076,7 @@ CREATE POLICY division_scope_insert ON public.sale_orders FOR INSERT WITH CHECK 
 -- Name: purchase_orders division_scope_select; Type: POLICY; Schema: public; Owner: -
 --
 
+DROP POLICY IF EXISTS "division_scope_select" ON public.purchase_orders;
 CREATE POLICY division_scope_select ON public.purchase_orders FOR SELECT USING (public.is_division_visible(division_id));
 
 
@@ -17871,6 +18084,7 @@ CREATE POLICY division_scope_select ON public.purchase_orders FOR SELECT USING (
 -- Name: sale_orders division_scope_select; Type: POLICY; Schema: public; Owner: -
 --
 
+DROP POLICY IF EXISTS "division_scope_select" ON public.sale_orders;
 CREATE POLICY division_scope_select ON public.sale_orders FOR SELECT USING (public.is_division_visible(division_id));
 
 
@@ -17878,6 +18092,7 @@ CREATE POLICY division_scope_select ON public.sale_orders FOR SELECT USING (publ
 -- Name: purchase_orders division_scope_update; Type: POLICY; Schema: public; Owner: -
 --
 
+DROP POLICY IF EXISTS "division_scope_update" ON public.purchase_orders;
 CREATE POLICY division_scope_update ON public.purchase_orders FOR UPDATE USING (public.is_division_visible(division_id));
 
 
@@ -17885,6 +18100,7 @@ CREATE POLICY division_scope_update ON public.purchase_orders FOR UPDATE USING (
 -- Name: sale_orders division_scope_update; Type: POLICY; Schema: public; Owner: -
 --
 
+DROP POLICY IF EXISTS "division_scope_update" ON public.sale_orders;
 CREATE POLICY division_scope_update ON public.sale_orders FOR UPDATE USING (public.is_division_visible(division_id));
 
 
@@ -17928,6 +18144,7 @@ ALTER TABLE public.follow_up_requests ENABLE ROW LEVEL SECURITY;
 -- Name: follow_up_requests fur_insert; Type: POLICY; Schema: public; Owner: -
 --
 
+DROP POLICY IF EXISTS "fur_insert" ON public.follow_up_requests;
 CREATE POLICY fur_insert ON public.follow_up_requests FOR INSERT TO authenticated WITH CHECK ((requested_by_user_id = auth.uid()));
 
 
@@ -17935,6 +18152,7 @@ CREATE POLICY fur_insert ON public.follow_up_requests FOR INSERT TO authenticate
 -- Name: follow_up_requests fur_select; Type: POLICY; Schema: public; Owner: -
 --
 
+DROP POLICY IF EXISTS "fur_select" ON public.follow_up_requests;
 CREATE POLICY fur_select ON public.follow_up_requests FOR SELECT TO authenticated USING (true);
 
 
@@ -17942,6 +18160,7 @@ CREATE POLICY fur_select ON public.follow_up_requests FOR SELECT TO authenticate
 -- Name: follow_up_requests fur_update; Type: POLICY; Schema: public; Owner: -
 --
 
+DROP POLICY IF EXISTS "fur_update" ON public.follow_up_requests;
 CREATE POLICY fur_update ON public.follow_up_requests FOR UPDATE TO authenticated USING (true);
 
 
@@ -17961,6 +18180,7 @@ ALTER TABLE public.instructions ENABLE ROW LEVEL SECURITY;
 -- Name: service_customer_addresses internal_select_service_customer_addresses; Type: POLICY; Schema: public; Owner: -
 --
 
+DROP POLICY IF EXISTS "internal_select_service_customer_addresses" ON public.service_customer_addresses;
 CREATE POLICY internal_select_service_customer_addresses ON public.service_customer_addresses FOR SELECT TO authenticated USING (true);
 
 
@@ -17968,6 +18188,7 @@ CREATE POLICY internal_select_service_customer_addresses ON public.service_custo
 -- Name: service_customer_phones internal_select_service_customer_phones; Type: POLICY; Schema: public; Owner: -
 --
 
+DROP POLICY IF EXISTS "internal_select_service_customer_phones" ON public.service_customer_phones;
 CREATE POLICY internal_select_service_customer_phones ON public.service_customer_phones FOR SELECT TO authenticated USING (true);
 
 
@@ -17975,6 +18196,7 @@ CREATE POLICY internal_select_service_customer_phones ON public.service_customer
 -- Name: service_customers internal_select_service_customers; Type: POLICY; Schema: public; Owner: -
 --
 
+DROP POLICY IF EXISTS "internal_select_service_customers" ON public.service_customers;
 CREATE POLICY internal_select_service_customers ON public.service_customers FOR SELECT TO authenticated USING (true);
 
 
@@ -17982,6 +18204,7 @@ CREATE POLICY internal_select_service_customers ON public.service_customers FOR 
 -- Name: service_customer_addresses internal_write_service_customer_addresses; Type: POLICY; Schema: public; Owner: -
 --
 
+DROP POLICY IF EXISTS "internal_write_service_customer_addresses" ON public.service_customer_addresses;
 CREATE POLICY internal_write_service_customer_addresses ON public.service_customer_addresses TO authenticated USING (true) WITH CHECK (true);
 
 
@@ -17989,6 +18212,7 @@ CREATE POLICY internal_write_service_customer_addresses ON public.service_custom
 -- Name: service_customer_phones internal_write_service_customer_phones; Type: POLICY; Schema: public; Owner: -
 --
 
+DROP POLICY IF EXISTS "internal_write_service_customer_phones" ON public.service_customer_phones;
 CREATE POLICY internal_write_service_customer_phones ON public.service_customer_phones TO authenticated USING (true) WITH CHECK (true);
 
 
@@ -17996,6 +18220,7 @@ CREATE POLICY internal_write_service_customer_phones ON public.service_customer_
 -- Name: service_customers internal_write_service_customers; Type: POLICY; Schema: public; Owner: -
 --
 
+DROP POLICY IF EXISTS "internal_write_service_customers" ON public.service_customers;
 CREATE POLICY internal_write_service_customers ON public.service_customers TO authenticated USING (true) WITH CHECK (true);
 
 
@@ -18207,6 +18432,7 @@ ALTER TABLE public.profiles ENABLE ROW LEVEL SECURITY;
 -- Name: profiles profiles_delete_admin; Type: POLICY; Schema: public; Owner: -
 --
 
+DROP POLICY IF EXISTS "profiles_delete_admin" ON public.profiles;
 CREATE POLICY profiles_delete_admin ON public.profiles FOR DELETE TO authenticated USING (public.has_admin_permission());
 
 
@@ -18214,6 +18440,7 @@ CREATE POLICY profiles_delete_admin ON public.profiles FOR DELETE TO authenticat
 -- Name: profiles profiles_insert_own; Type: POLICY; Schema: public; Owner: -
 --
 
+DROP POLICY IF EXISTS "profiles_insert_own" ON public.profiles;
 CREATE POLICY profiles_insert_own ON public.profiles FOR INSERT TO authenticated WITH CHECK ((auth_user_id = ( SELECT auth.uid() AS uid)));
 
 
@@ -18221,6 +18448,7 @@ CREATE POLICY profiles_insert_own ON public.profiles FOR INSERT TO authenticated
 -- Name: profiles profiles_select_all; Type: POLICY; Schema: public; Owner: -
 --
 
+DROP POLICY IF EXISTS "profiles_select_all" ON public.profiles;
 CREATE POLICY profiles_select_all ON public.profiles FOR SELECT TO authenticated USING (true);
 
 
@@ -18228,6 +18456,7 @@ CREATE POLICY profiles_select_all ON public.profiles FOR SELECT TO authenticated
 -- Name: profiles profiles_update; Type: POLICY; Schema: public; Owner: -
 --
 
+DROP POLICY IF EXISTS "profiles_update" ON public.profiles;
 CREATE POLICY profiles_update ON public.profiles FOR UPDATE TO authenticated USING (((auth_user_id = ( SELECT auth.uid() AS uid)) OR public.has_admin_permission())) WITH CHECK (((auth_user_id = ( SELECT auth.uid() AS uid)) OR public.has_admin_permission()));
 
 
@@ -18403,6 +18632,7 @@ ALTER TABLE public.schedules ENABLE ROW LEVEL SECURITY;
 -- Name: service_change_requests scr_no_direct_delete; Type: POLICY; Schema: public; Owner: -
 --
 
+DROP POLICY IF EXISTS "scr_no_direct_delete" ON public.service_change_requests;
 CREATE POLICY scr_no_direct_delete ON public.service_change_requests FOR DELETE TO authenticated USING (false);
 
 
@@ -18410,6 +18640,7 @@ CREATE POLICY scr_no_direct_delete ON public.service_change_requests FOR DELETE 
 -- Name: service_change_requests scr_no_direct_insert; Type: POLICY; Schema: public; Owner: -
 --
 
+DROP POLICY IF EXISTS "scr_no_direct_insert" ON public.service_change_requests;
 CREATE POLICY scr_no_direct_insert ON public.service_change_requests FOR INSERT TO authenticated WITH CHECK (false);
 
 
@@ -18417,6 +18648,7 @@ CREATE POLICY scr_no_direct_insert ON public.service_change_requests FOR INSERT 
 -- Name: service_change_requests scr_no_direct_update; Type: POLICY; Schema: public; Owner: -
 --
 
+DROP POLICY IF EXISTS "scr_no_direct_update" ON public.service_change_requests;
 CREATE POLICY scr_no_direct_update ON public.service_change_requests FOR UPDATE TO authenticated USING (false);
 
 
@@ -18424,6 +18656,7 @@ CREATE POLICY scr_no_direct_update ON public.service_change_requests FOR UPDATE 
 -- Name: service_change_requests scr_select; Type: POLICY; Schema: public; Owner: -
 --
 
+DROP POLICY IF EXISTS "scr_select" ON public.service_change_requests;
 CREATE POLICY scr_select ON public.service_change_requests FOR SELECT TO authenticated USING (((requested_by = ( SELECT profiles.id
    FROM public.profiles
   WHERE (profiles.auth_user_id = auth.uid()))) OR (EXISTS ( SELECT 1
@@ -18474,6 +18707,7 @@ ALTER TABLE public.service_instructions ENABLE ROW LEVEL SECURITY;
 -- Name: service_instructions service_instructions_read; Type: POLICY; Schema: public; Owner: -
 --
 
+DROP POLICY IF EXISTS "service_instructions_read" ON public.service_instructions;
 CREATE POLICY service_instructions_read ON public.service_instructions FOR SELECT TO authenticated USING (true);
 
 
@@ -18481,6 +18715,7 @@ CREATE POLICY service_instructions_read ON public.service_instructions FOR SELEC
 -- Name: service_instructions service_instructions_write; Type: POLICY; Schema: public; Owner: -
 --
 
+DROP POLICY IF EXISTS "service_instructions_write" ON public.service_instructions;
 CREATE POLICY service_instructions_write ON public.service_instructions TO authenticated USING (true) WITH CHECK (true);
 
 
@@ -18494,6 +18729,7 @@ ALTER TABLE public.service_inventory ENABLE ROW LEVEL SECURITY;
 -- Name: customer_subscriptions service_role_all; Type: POLICY; Schema: public; Owner: -
 --
 
+DROP POLICY IF EXISTS "service_role_all" ON public.customer_subscriptions;
 CREATE POLICY service_role_all ON public.customer_subscriptions TO service_role USING (true) WITH CHECK (true);
 
 
@@ -18501,6 +18737,7 @@ CREATE POLICY service_role_all ON public.customer_subscriptions TO service_role 
 -- Name: subscription_package_services service_role_all; Type: POLICY; Schema: public; Owner: -
 --
 
+DROP POLICY IF EXISTS "service_role_all" ON public.subscription_package_services;
 CREATE POLICY service_role_all ON public.subscription_package_services TO service_role USING (true) WITH CHECK (true);
 
 
@@ -18508,6 +18745,7 @@ CREATE POLICY service_role_all ON public.subscription_package_services TO servic
 -- Name: subscription_packages service_role_all; Type: POLICY; Schema: public; Owner: -
 --
 
+DROP POLICY IF EXISTS "service_role_all" ON public.subscription_packages;
 CREATE POLICY service_role_all ON public.subscription_packages TO service_role USING (true) WITH CHECK (true);
 
 
@@ -18515,6 +18753,7 @@ CREATE POLICY service_role_all ON public.subscription_packages TO service_role U
 -- Name: subscription_usage_log service_role_all; Type: POLICY; Schema: public; Owner: -
 --
 
+DROP POLICY IF EXISTS "service_role_all" ON public.subscription_usage_log;
 CREATE POLICY service_role_all ON public.subscription_usage_log TO service_role USING (true) WITH CHECK (true);
 
 
@@ -18636,6 +18875,7 @@ ALTER TABLE public.tl_payment_batches ENABLE ROW LEVEL SECURITY;
 -- Name: team_live_locations tll_insert; Type: POLICY; Schema: public; Owner: -
 --
 
+DROP POLICY IF EXISTS "tll_insert" ON public.team_live_locations;
 CREATE POLICY tll_insert ON public.team_live_locations FOR INSERT TO authenticated WITH CHECK ((team_id = ( SELECT t.id
    FROM ((public.teams t
      JOIN public.employees e ON ((e.id = t.leader_id)))
@@ -18647,6 +18887,7 @@ CREATE POLICY tll_insert ON public.team_live_locations FOR INSERT TO authenticat
 -- Name: team_live_locations tll_read; Type: POLICY; Schema: public; Owner: -
 --
 
+DROP POLICY IF EXISTS "tll_read" ON public.team_live_locations;
 CREATE POLICY tll_read ON public.team_live_locations FOR SELECT TO authenticated USING (true);
 
 
@@ -18654,6 +18895,7 @@ CREATE POLICY tll_read ON public.team_live_locations FOR SELECT TO authenticated
 -- Name: team_live_locations tll_update; Type: POLICY; Schema: public; Owner: -
 --
 
+DROP POLICY IF EXISTS "tll_update" ON public.team_live_locations;
 CREATE POLICY tll_update ON public.team_live_locations FOR UPDATE TO authenticated USING ((team_id = ( SELECT t.id
    FROM ((public.teams t
      JOIN public.employees e ON ((e.id = t.leader_id)))
@@ -18711,6 +18953,7 @@ ALTER TABLE public.user_ui_preferences ENABLE ROW LEVEL SECURITY;
 -- Name: user_ui_preferences user_ui_preferences_self_select; Type: POLICY; Schema: public; Owner: -
 --
 
+DROP POLICY IF EXISTS "user_ui_preferences_self_select" ON public.user_ui_preferences;
 CREATE POLICY user_ui_preferences_self_select ON public.user_ui_preferences FOR SELECT USING ((user_id = auth.uid()));
 
 
@@ -18718,6 +18961,7 @@ CREATE POLICY user_ui_preferences_self_select ON public.user_ui_preferences FOR 
 -- Name: user_ui_preferences user_ui_preferences_self_update; Type: POLICY; Schema: public; Owner: -
 --
 
+DROP POLICY IF EXISTS "user_ui_preferences_self_update" ON public.user_ui_preferences;
 CREATE POLICY user_ui_preferences_self_update ON public.user_ui_preferences FOR UPDATE USING ((user_id = auth.uid())) WITH CHECK ((user_id = auth.uid()));
 
 
@@ -18725,6 +18969,7 @@ CREATE POLICY user_ui_preferences_self_update ON public.user_ui_preferences FOR 
 -- Name: user_ui_preferences user_ui_preferences_self_upsert; Type: POLICY; Schema: public; Owner: -
 --
 
+DROP POLICY IF EXISTS "user_ui_preferences_self_upsert" ON public.user_ui_preferences;
 CREATE POLICY user_ui_preferences_self_upsert ON public.user_ui_preferences FOR INSERT WITH CHECK ((user_id = auth.uid()));
 
 
@@ -18804,6 +19049,7 @@ ALTER TABLE public.workflow_approval_steps ENABLE ROW LEVEL SECURITY;
 -- Name: workflow_approval_steps workflow_steps_select; Type: POLICY; Schema: public; Owner: -
 --
 
+DROP POLICY IF EXISTS "workflow_steps_select" ON public.workflow_approval_steps;
 CREATE POLICY workflow_steps_select ON public.workflow_approval_steps FOR SELECT TO authenticated USING (true);
 
 
@@ -19207,9 +19453,11 @@ WHERE  deleted_at IS NULL
 -- (matches the policy pattern already used for currencies and payment_methods).
 -- The admin UI relies on these to add new countries and toggle is_active.
 
+DROP POLICY IF EXISTS "Authenticated users can insert country codes" ON public.country_codes;
 CREATE POLICY "Authenticated users can insert country codes"
   ON public.country_codes FOR INSERT TO authenticated WITH CHECK (true);
 
+DROP POLICY IF EXISTS "Authenticated users can update country codes" ON public.country_codes;
 CREATE POLICY "Authenticated users can update country codes"
   ON public.country_codes FOR UPDATE TO authenticated USING (true);
 
@@ -19831,7 +20079,8 @@ BEGIN
     WHERE schemaname = 'storage' AND tablename = 'objects'
       AND policyname = 'booking_confirmations_public_read'
   ) THEN
-    CREATE POLICY "booking_confirmations_public_read"
+    DROP POLICY IF EXISTS "booking_confirmations_public_read" ON storage.objects;
+CREATE POLICY "booking_confirmations_public_read"
       ON storage.objects FOR SELECT
       USING (bucket_id = 'booking-confirmations');
   END IF;
@@ -19842,7 +20091,8 @@ BEGIN
     WHERE schemaname = 'storage' AND tablename = 'objects'
       AND policyname = 'booking_confirmations_service_write'
   ) THEN
-    CREATE POLICY "booking_confirmations_service_write"
+    DROP POLICY IF EXISTS "booking_confirmations_service_write" ON storage.objects;
+CREATE POLICY "booking_confirmations_service_write"
       ON storage.objects FOR INSERT
       TO service_role
       WITH CHECK (bucket_id = 'booking-confirmations');
@@ -19854,7 +20104,8 @@ BEGIN
     WHERE schemaname = 'storage' AND tablename = 'objects'
       AND policyname = 'booking_confirmations_service_update'
   ) THEN
-    CREATE POLICY "booking_confirmations_service_update"
+    DROP POLICY IF EXISTS "booking_confirmations_service_update" ON storage.objects;
+CREATE POLICY "booking_confirmations_service_update"
       ON storage.objects FOR UPDATE
       TO service_role
       USING (bucket_id = 'booking-confirmations')
@@ -20449,6 +20700,7 @@ DROP INDEX IF EXISTS public.idx_tsa_team;
 ------------------------------------------------------------------------------
 DROP POLICY IF EXISTS "Manage services write service_brands" ON public.service_brands;
 
+DROP POLICY IF EXISTS "Manage services write service_brands" ON public.service_brands;
 CREATE POLICY "Manage services write service_brands"
   ON public.service_brands FOR ALL TO authenticated
   USING (
@@ -20478,18 +20730,22 @@ DROP POLICY IF EXISTS "Authenticated users can insert geofences" ON public.tracc
 DROP POLICY IF EXISTS "Authenticated users can update geofences" ON public.traccar_geofences;
 DROP POLICY IF EXISTS "Authenticated users can delete geofences" ON public.traccar_geofences;
 
+DROP POLICY IF EXISTS "Authenticated users can read geofences" ON public.traccar_geofences;
 CREATE POLICY "Authenticated users can read geofences"
   ON public.traccar_geofences FOR SELECT
   USING ((SELECT auth.role()) = 'authenticated');
 
+DROP POLICY IF EXISTS "Authenticated users can insert geofences" ON public.traccar_geofences;
 CREATE POLICY "Authenticated users can insert geofences"
   ON public.traccar_geofences FOR INSERT
   WITH CHECK ((SELECT auth.role()) = 'authenticated');
 
+DROP POLICY IF EXISTS "Authenticated users can update geofences" ON public.traccar_geofences;
 CREATE POLICY "Authenticated users can update geofences"
   ON public.traccar_geofences FOR UPDATE
   USING ((SELECT auth.role()) = 'authenticated');
 
+DROP POLICY IF EXISTS "Authenticated users can delete geofences" ON public.traccar_geofences;
 CREATE POLICY "Authenticated users can delete geofences"
   ON public.traccar_geofences FOR DELETE
   USING ((SELECT auth.role()) = 'authenticated');
@@ -20501,14 +20757,17 @@ DROP POLICY IF EXISTS user_ui_preferences_self_select ON public.user_ui_preferen
 DROP POLICY IF EXISTS user_ui_preferences_self_upsert ON public.user_ui_preferences;
 DROP POLICY IF EXISTS user_ui_preferences_self_update ON public.user_ui_preferences;
 
+DROP POLICY IF EXISTS "user_ui_preferences_self_select" ON public.user_ui_preferences;
 CREATE POLICY user_ui_preferences_self_select
   ON public.user_ui_preferences FOR SELECT
   USING (user_id = (SELECT auth.uid()));
 
+DROP POLICY IF EXISTS "user_ui_preferences_self_upsert" ON public.user_ui_preferences;
 CREATE POLICY user_ui_preferences_self_upsert
   ON public.user_ui_preferences FOR INSERT
   WITH CHECK (user_id = (SELECT auth.uid()));
 
+DROP POLICY IF EXISTS "user_ui_preferences_self_update" ON public.user_ui_preferences;
 CREATE POLICY user_ui_preferences_self_update
   ON public.user_ui_preferences FOR UPDATE
   USING (user_id = (SELECT auth.uid()))
@@ -20519,6 +20778,7 @@ CREATE POLICY user_ui_preferences_self_update
 ------------------------------------------------------------------------------
 DROP POLICY IF EXISTS scr_select ON public.service_change_requests;
 
+DROP POLICY IF EXISTS "scr_select" ON public.service_change_requests;
 CREATE POLICY scr_select
   ON public.service_change_requests FOR SELECT TO authenticated
   USING (
@@ -20537,6 +20797,7 @@ CREATE POLICY scr_select
 ------------------------------------------------------------------------------
 DROP POLICY IF EXISTS "Admins read purge batches" ON public.purge_batches;
 
+DROP POLICY IF EXISTS "Admins read purge batches" ON public.purge_batches;
 CREATE POLICY "Admins read purge batches"
   ON public.purge_batches FOR SELECT TO authenticated
   USING (
@@ -20554,6 +20815,7 @@ CREATE POLICY "Admins read purge batches"
 DROP POLICY IF EXISTS tll_insert ON public.team_live_locations;
 DROP POLICY IF EXISTS tll_update ON public.team_live_locations;
 
+DROP POLICY IF EXISTS "tll_insert" ON public.team_live_locations;
 CREATE POLICY tll_insert
   ON public.team_live_locations FOR INSERT TO authenticated
   WITH CHECK (
@@ -20565,6 +20827,7 @@ CREATE POLICY tll_insert
     )
   );
 
+DROP POLICY IF EXISTS "tll_update" ON public.team_live_locations;
 CREATE POLICY tll_update
   ON public.team_live_locations FOR UPDATE TO authenticated
   USING (
@@ -20589,6 +20852,7 @@ CREATE POLICY tll_update
 ------------------------------------------------------------------------------
 DROP POLICY IF EXISTS chat_messages_insert_strict ON public.chat_messages;
 
+DROP POLICY IF EXISTS "chat_messages_insert_strict" ON public.chat_messages;
 CREATE POLICY chat_messages_insert_strict
   ON public.chat_messages FOR INSERT TO authenticated
   WITH CHECK (
@@ -20610,6 +20874,7 @@ CREATE POLICY chat_messages_insert_strict
 ------------------------------------------------------------------------------
 DROP POLICY IF EXISTS fur_insert ON public.follow_up_requests;
 
+DROP POLICY IF EXISTS "fur_insert" ON public.follow_up_requests;
 CREATE POLICY fur_insert
   ON public.follow_up_requests FOR INSERT TO authenticated
   WITH CHECK (requested_by_user_id = (SELECT auth.uid()));
@@ -20676,6 +20941,7 @@ DROP POLICY IF EXISTS service_instructions_read                         ON publi
 ------------------------------------------------------------------------------
 DROP POLICY IF EXISTS "Manage services write service_brands" ON public.service_brands;
 
+DROP POLICY IF EXISTS "Manage services insert service_brands" ON public.service_brands;
 CREATE POLICY "Manage services insert service_brands"
   ON public.service_brands FOR INSERT TO authenticated
   WITH CHECK (
@@ -20688,6 +20954,7 @@ CREATE POLICY "Manage services insert service_brands"
     )
   );
 
+DROP POLICY IF EXISTS "Manage services update service_brands" ON public.service_brands;
 CREATE POLICY "Manage services update service_brands"
   ON public.service_brands FOR UPDATE TO authenticated
   USING (
@@ -20709,6 +20976,7 @@ CREATE POLICY "Manage services update service_brands"
     )
   );
 
+DROP POLICY IF EXISTS "Manage services delete service_brands" ON public.service_brands;
 CREATE POLICY "Manage services delete service_brands"
   ON public.service_brands FOR DELETE TO authenticated
   USING (
@@ -20731,6 +20999,7 @@ CREATE POLICY "Manage services delete service_brands"
 DROP POLICY IF EXISTS "Accounting/admin can void invoices"        ON public.invoices;
 DROP POLICY IF EXISTS "Authenticated can update invoices (non-void)" ON public.invoices;
 
+DROP POLICY IF EXISTS "Authenticated can update invoices" ON public.invoices;
 CREATE POLICY "Authenticated can update invoices"
   ON public.invoices FOR UPDATE TO authenticated
   USING (true)
@@ -20793,15 +21062,18 @@ CREATE UNIQUE INDEX po_edit_requests_one_approved_per_po
 
 ALTER TABLE public.po_edit_requests ENABLE ROW LEVEL SECURITY;
 
+DROP POLICY IF EXISTS "po_edit_requests_select" ON public.po_edit_requests;
 CREATE POLICY po_edit_requests_select
   ON public.po_edit_requests FOR SELECT TO authenticated USING (true);
 
+DROP POLICY IF EXISTS "po_edit_requests_insert" ON public.po_edit_requests;
 CREATE POLICY po_edit_requests_insert
   ON public.po_edit_requests FOR INSERT TO authenticated
   WITH CHECK (
     requested_by = (SELECT id FROM public.profiles WHERE auth_user_id = (SELECT auth.uid()))
   );
 
+DROP POLICY IF EXISTS "po_edit_requests_update" ON public.po_edit_requests;
 CREATE POLICY po_edit_requests_update
   ON public.po_edit_requests FOR UPDATE TO authenticated
   USING (
@@ -20922,19 +21194,23 @@ AS $$
 $$;
 
 -- Read: any authenticated user (downloads still require a signed URL)
+DROP POLICY IF EXISTS "customer_credit_docs_select" ON storage.objects;
 CREATE POLICY "customer_credit_docs_select"
   ON storage.objects FOR SELECT TO authenticated
   USING (bucket_id = 'customer-credit-docs');
 
+DROP POLICY IF EXISTS "customer_credit_docs_insert" ON storage.objects;
 CREATE POLICY "customer_credit_docs_insert"
   ON storage.objects FOR INSERT TO authenticated
   WITH CHECK (bucket_id = 'customer-credit-docs' AND storage_customer_credit_docs_write_allowed());
 
+DROP POLICY IF EXISTS "customer_credit_docs_update" ON storage.objects;
 CREATE POLICY "customer_credit_docs_update"
   ON storage.objects FOR UPDATE TO authenticated
   USING      (bucket_id = 'customer-credit-docs' AND storage_customer_credit_docs_write_allowed())
   WITH CHECK (bucket_id = 'customer-credit-docs' AND storage_customer_credit_docs_write_allowed());
 
+DROP POLICY IF EXISTS "customer_credit_docs_delete" ON storage.objects;
 CREATE POLICY "customer_credit_docs_delete"
   ON storage.objects FOR DELETE TO authenticated
   USING (bucket_id = 'customer-credit-docs' AND storage_customer_credit_docs_write_allowed());
@@ -25740,9 +26016,11 @@ COMMENT ON TABLE public.reason_list_categories IS
 
 ALTER TABLE public.reason_list_categories ENABLE ROW LEVEL SECURITY;
 
+DROP POLICY IF EXISTS "Authenticated can read reason_list_categories" ON public.reason_list_categories;
 CREATE POLICY "Authenticated can read reason_list_categories"
   ON public.reason_list_categories FOR SELECT TO authenticated USING (true);
 
+DROP POLICY IF EXISTS "Admins can manage reason_list_categories" ON public.reason_list_categories;
 CREATE POLICY "Admins can manage reason_list_categories"
   ON public.reason_list_categories FOR ALL TO authenticated
   USING (true) WITH CHECK (true);
@@ -25864,6 +26142,7 @@ CREATE INDEX IF NOT EXISTS ccgr_customer_pending_idx
 
 ALTER TABLE public.customer_credit_group_requests ENABLE ROW LEVEL SECURITY;
 
+DROP POLICY IF EXISTS "Authenticated can read credit-group requests" ON public.customer_credit_group_requests;
 CREATE POLICY "Authenticated can read credit-group requests"
   ON public.customer_credit_group_requests FOR SELECT TO authenticated USING (true);
 
@@ -25898,6 +26177,7 @@ CREATE INDEX IF NOT EXISTS ccga_pending_idx
 
 ALTER TABLE public.customer_credit_group_approvals ENABLE ROW LEVEL SECURITY;
 
+DROP POLICY IF EXISTS "Authenticated can read credit-group approval slips" ON public.customer_credit_group_approvals;
 CREATE POLICY "Authenticated can read credit-group approval slips"
   ON public.customer_credit_group_approvals FOR SELECT TO authenticated USING (true);
 
@@ -27115,9 +27395,11 @@ CREATE TABLE IF NOT EXISTS credit_group_payment_methods (
 -- 2. RLS
 ALTER TABLE credit_group_payment_methods ENABLE ROW LEVEL SECURITY;
 
+DROP POLICY IF EXISTS "Authenticated users can read" ON credit_group_payment_methods;
 CREATE POLICY "Authenticated users can read"
   ON credit_group_payment_methods FOR SELECT TO authenticated USING (true);
 
+DROP POLICY IF EXISTS "Authenticated users can manage" ON credit_group_payment_methods;
 CREATE POLICY "Authenticated users can manage"
   ON credit_group_payment_methods FOR ALL TO authenticated USING (true) WITH CHECK (true);
 
@@ -27192,15 +27474,19 @@ CREATE TABLE IF NOT EXISTS public.approval_workflow_groups (
 
 ALTER TABLE public.approval_workflow_groups ENABLE ROW LEVEL SECURITY;
 
+DROP POLICY IF EXISTS "Authenticated can read workflow groups" ON public.approval_workflow_groups;
 CREATE POLICY "Authenticated can read workflow groups"
   ON public.approval_workflow_groups FOR SELECT TO authenticated USING (true);
 
+DROP POLICY IF EXISTS "Authenticated can insert workflow groups" ON public.approval_workflow_groups;
 CREATE POLICY "Authenticated can insert workflow groups"
   ON public.approval_workflow_groups FOR INSERT TO authenticated WITH CHECK (true);
 
+DROP POLICY IF EXISTS "Authenticated can update workflow groups" ON public.approval_workflow_groups;
 CREATE POLICY "Authenticated can update workflow groups"
   ON public.approval_workflow_groups FOR UPDATE TO authenticated USING (true) WITH CHECK (true);
 
+DROP POLICY IF EXISTS "Authenticated can delete workflow groups" ON public.approval_workflow_groups;
 CREATE POLICY "Authenticated can delete workflow groups"
   ON public.approval_workflow_groups FOR DELETE TO authenticated USING (true);
 
@@ -28944,18 +29230,22 @@ CREATE INDEX IF NOT EXISTS po_rfq_quote_items_quote_idx
 
 ALTER TABLE public.po_rfq_quotes ENABLE ROW LEVEL SECURITY;
 
+DROP POLICY IF EXISTS "po_rfq_quotes_select" ON public.po_rfq_quotes;
 CREATE POLICY po_rfq_quotes_select
   ON public.po_rfq_quotes FOR SELECT TO authenticated
   USING (true);
 
+DROP POLICY IF EXISTS "po_rfq_quotes_insert" ON public.po_rfq_quotes;
 CREATE POLICY po_rfq_quotes_insert
   ON public.po_rfq_quotes FOR INSERT TO authenticated
   WITH CHECK (true);
 
+DROP POLICY IF EXISTS "po_rfq_quotes_update" ON public.po_rfq_quotes;
 CREATE POLICY po_rfq_quotes_update
   ON public.po_rfq_quotes FOR UPDATE TO authenticated
   USING (true);
 
+DROP POLICY IF EXISTS "po_rfq_quotes_delete" ON public.po_rfq_quotes;
 CREATE POLICY po_rfq_quotes_delete
   ON public.po_rfq_quotes FOR DELETE TO authenticated
   USING (true);
@@ -28964,18 +29254,22 @@ CREATE POLICY po_rfq_quotes_delete
 
 ALTER TABLE public.po_rfq_quote_items ENABLE ROW LEVEL SECURITY;
 
+DROP POLICY IF EXISTS "po_rfq_quote_items_select" ON public.po_rfq_quote_items;
 CREATE POLICY po_rfq_quote_items_select
   ON public.po_rfq_quote_items FOR SELECT TO authenticated
   USING (true);
 
+DROP POLICY IF EXISTS "po_rfq_quote_items_insert" ON public.po_rfq_quote_items;
 CREATE POLICY po_rfq_quote_items_insert
   ON public.po_rfq_quote_items FOR INSERT TO authenticated
   WITH CHECK (true);
 
+DROP POLICY IF EXISTS "po_rfq_quote_items_update" ON public.po_rfq_quote_items;
 CREATE POLICY po_rfq_quote_items_update
   ON public.po_rfq_quote_items FOR UPDATE TO authenticated
   USING (true);
 
+DROP POLICY IF EXISTS "po_rfq_quote_items_delete" ON public.po_rfq_quote_items;
 CREATE POLICY po_rfq_quote_items_delete
   ON public.po_rfq_quote_items FOR DELETE TO authenticated
   USING (true);
@@ -29112,15 +29406,18 @@ VALUES ('receival-receipt-pdfs', 'receival-receipt-pdfs', true, 10485760, '{appl
 ON CONFLICT (id) DO NOTHING;
 
 -- Public read policy
+DROP POLICY IF EXISTS "receival_receipt_pdfs_public_read" ON storage.objects;
 CREATE POLICY "receival_receipt_pdfs_public_read"
   ON storage.objects FOR SELECT
   USING (bucket_id = 'receival-receipt-pdfs');
 
 -- Authenticated upload/update policy
+DROP POLICY IF EXISTS "receival_receipt_pdfs_auth_write" ON storage.objects;
 CREATE POLICY "receival_receipt_pdfs_auth_write"
   ON storage.objects FOR INSERT
   WITH CHECK (bucket_id = 'receival-receipt-pdfs');
 
+DROP POLICY IF EXISTS "receival_receipt_pdfs_auth_update" ON storage.objects;
 CREATE POLICY "receival_receipt_pdfs_auth_update"
   ON storage.objects FOR UPDATE
   USING (bucket_id = 'receival-receipt-pdfs');
@@ -29138,15 +29435,18 @@ VALUES ('delivery-note-pdfs', 'delivery-note-pdfs', true, 10485760, '{applicatio
 ON CONFLICT (id) DO NOTHING;
 
 -- Public read policy
+DROP POLICY IF EXISTS "delivery_note_pdfs_public_read" ON storage.objects;
 CREATE POLICY "delivery_note_pdfs_public_read"
   ON storage.objects FOR SELECT
   USING (bucket_id = 'delivery-note-pdfs');
 
 -- Authenticated upload/update policy
+DROP POLICY IF EXISTS "delivery_note_pdfs_auth_write" ON storage.objects;
 CREATE POLICY "delivery_note_pdfs_auth_write"
   ON storage.objects FOR INSERT
   WITH CHECK (bucket_id = 'delivery-note-pdfs');
 
+DROP POLICY IF EXISTS "delivery_note_pdfs_auth_update" ON storage.objects;
 CREATE POLICY "delivery_note_pdfs_auth_update"
   ON storage.objects FOR UPDATE
   USING (bucket_id = 'delivery-note-pdfs');
@@ -29197,14 +29497,17 @@ INSERT INTO storage.buckets (id, name, public, file_size_limit, allowed_mime_typ
 VALUES ('return-pdfs', 'return-pdfs', true, 10485760, '{application/pdf}')
 ON CONFLICT (id) DO NOTHING;
 
+DROP POLICY IF EXISTS "return_pdfs_public_read" ON storage.objects;
 CREATE POLICY "return_pdfs_public_read"
   ON storage.objects FOR SELECT
   USING (bucket_id = 'return-pdfs');
 
+DROP POLICY IF EXISTS "return_pdfs_auth_write" ON storage.objects;
 CREATE POLICY "return_pdfs_auth_write"
   ON storage.objects FOR INSERT
   WITH CHECK (bucket_id = 'return-pdfs');
 
+DROP POLICY IF EXISTS "return_pdfs_auth_update" ON storage.objects;
 CREATE POLICY "return_pdfs_auth_update"
   ON storage.objects FOR UPDATE
   USING (bucket_id = 'return-pdfs');
@@ -31409,6 +31712,36 @@ FROM public.payment_methods pm
 WHERE pm.slug IN ('cash', 'pos')
 ON CONFLICT DO NOTHING;
 -- (COMMIT removed — outer transaction)
+-- === Additional RLS policies from database/RLS.sql ===
+-- Allow authenticated users to read all profiles
+DROP POLICY IF EXISTS "Profiles are viewable by authenticated users" ON profiles;
+CREATE POLICY "Profiles are viewable by authenticated users"
+  ON profiles FOR SELECT
+  TO authenticated
+  USING (true);
+
+-- Allow users to insert their own profile
+DROP POLICY IF EXISTS "Users can insert their own profile" ON profiles;
+CREATE POLICY "Users can insert their own profile"
+  ON profiles FOR INSERT
+  TO authenticated
+  WITH CHECK (auth_user_id = auth.uid());
+
+-- Allow users to update their own profile
+DROP POLICY IF EXISTS "Users can update their own profile" ON profiles;
+CREATE POLICY "Users can update their own profile"
+  ON profiles FOR UPDATE
+  TO authenticated
+  USING (auth_user_id = auth.uid());
+
+-- Allow service_role full access (used by API routes)
+DROP POLICY IF EXISTS "Service role has full access to profiles" ON profiles;
+CREATE POLICY "Service role has full access to profiles"
+  ON profiles FOR ALL
+  TO service_role
+  USING (true)
+  WITH CHECK (true);
+
 -- === BACKFILLED GRANTS (functions that were missing GRANT EXECUTE) ===
 -- 149 functions backfilled
 

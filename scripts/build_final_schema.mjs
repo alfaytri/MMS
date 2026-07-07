@@ -8,7 +8,7 @@
 // Scans all migrations for CREATE FUNCTION and GRANT EXECUTE statements,
 // then prints the set of functions that were created but never granted.
 
-import { readdirSync, readFileSync, writeFileSync, mkdirSync } from 'node:fs';
+import { readdirSync, readFileSync, writeFileSync, mkdirSync, existsSync } from 'node:fs';
 import { join } from 'node:path';
 
 const DIR = 'supabase/migrations';
@@ -151,7 +151,29 @@ if (process.argv.includes('--build')) {
     'CREATE OR REPLACE TRIGGER'
   );
 
-  // 3e. Emit GRANT EXECUTE for every function that lacks one
+  // 3e. Fold in database/RLS.sql (profiles-related policies) so they are
+  //     included in the merged output and get the idempotent treatment below.
+  const rlsPath = 'database/RLS.sql';
+  if (existsSync(rlsPath)) {
+    const rlsContent = readFileSync(rlsPath, 'utf8');
+    merged +=
+      '\n-- === Additional RLS policies from database/RLS.sql ===\n' +
+      rlsContent +
+      '\n';
+  }
+
+  // 3f. Patch: prefix every CREATE POLICY with DROP POLICY IF EXISTS
+  //     so the file is re-runnable without "policy already exists" errors.
+  //     Handles both quoted ("My Policy") and unquoted (my_policy) names.
+  merged = merged.replace(
+    /CREATE\s+POLICY\s+("([^"]+)"|(\w+))\s+ON\s+([\w.]+)/gi,
+    (whole, _nameToken, quotedName, unquotedName, tableName) => {
+      const name = quotedName || unquotedName;
+      return `DROP POLICY IF EXISTS "${name}" ON ${tableName};\n${whole}`;
+    }
+  );
+
+  // 3g. Emit GRANT EXECUTE for every function that lacks one
   const createdFunctions = extractFunctionNames(merged);
   const grantedFunctions = extractGrantedFunctions(merged);
 
