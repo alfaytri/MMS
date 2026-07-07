@@ -173,7 +173,96 @@ if (process.argv.includes('--build')) {
     }
   );
 
-  // 3g. Emit GRANT EXECUTE for every function that lacks one
+  // 3h. Make seed INSERTs idempotent: add ON CONFLICT DO NOTHING
+  //     to every INSERT … VALUES … that doesn't already have an ON CONFLICT
+  //     clause.  Skips INSERT … SELECT (no static seed data) and statements
+  //     inside dollar-quoted blocks ($$ / $body$ / …) which are PL/pgSQL
+  //     function bodies — touching those is harmless but unnecessary.
+  {
+    const srcLines = merged.split('\n');
+    const outLines = [];
+    let inDollar = false;          // inside a $tag$ … $tag$ block
+    let dollarTag = '';            // the opening tag, e.g. '$$', '$body$'
+    let insideInsert = false;      // tracking a multi-line INSERT block
+    let insertBlock = [];          // accumulated lines of the current INSERT
+
+    const dollarRe = /\$[\w]*\$/g; // matches $$, $body$, $do$, $do_type$, etc.
+
+    for (let i = 0; i < srcLines.length; i++) {
+      const line = srcLines[i];
+
+      // --- Track dollar-quoting depth (toggle on each match) ---
+      let m;
+      const localRe = new RegExp(dollarRe.source, 'g');
+      while ((m = localRe.exec(line)) !== null) {
+        if (!inDollar) {
+          inDollar = true;
+          dollarTag = m[0];
+        } else if (m[0] === dollarTag) {
+          inDollar = false;
+          dollarTag = '';
+        }
+      }
+
+      // --- If inside a dollar-quoted block, pass through untouched ---
+      if (inDollar) {
+        if (insideInsert) {
+          // The INSERT we were tracking entered a $$ block (shouldn't happen
+          // for top-level seed INSERTs, but flush safely).
+          outLines.push(...insertBlock);
+          insideInsert = false;
+          insertBlock = [];
+        }
+        outLines.push(line);
+        continue;
+      }
+
+      // --- Detect start of an INSERT block ---
+      if (!insideInsert && /^\s*INSERT\s+INTO\b/i.test(line)) {
+        insideInsert = true;
+        insertBlock = [line];
+
+        // Single-line INSERT (contains the terminating semicolon)
+        if (/;\s*$/.test(line)) {
+          const block = insertBlock.join('\n');
+          if (!/ON\s+CONFLICT/i.test(block) && !/\bSELECT\b/i.test(block)) {
+            outLines.push(block.replace(/;\s*$/, ' ON CONFLICT DO NOTHING;'));
+          } else {
+            outLines.push(block);
+          }
+          insideInsert = false;
+          insertBlock = [];
+        }
+        continue;
+      }
+
+      // --- Accumulate lines inside a multi-line INSERT ---
+      if (insideInsert) {
+        insertBlock.push(line);
+
+        if (/;\s*$/.test(line)) {
+          const block = insertBlock.join('\n');
+          if (!/ON\s+CONFLICT/i.test(block) && !/\bSELECT\b/i.test(block)) {
+            outLines.push(block.replace(/;\s*$/, ' ON CONFLICT DO NOTHING;'));
+          } else {
+            outLines.push(block);
+          }
+          insideInsert = false;
+          insertBlock = [];
+        }
+        continue;
+      }
+
+      outLines.push(line);
+    }
+
+    // Flush any unterminated INSERT block (shouldn't happen in valid SQL)
+    if (insertBlock.length > 0) outLines.push(...insertBlock);
+
+    merged = outLines.join('\n');
+  }
+
+  // 3i. Emit GRANT EXECUTE for every function that lacks one
   const createdFunctions = extractFunctionNames(merged);
   const grantedFunctions = extractGrantedFunctions(merged);
 

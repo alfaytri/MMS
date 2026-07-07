@@ -1,7 +1,7 @@
 -- ==========================================================================
 -- AUTO-GENERATED: database/final_schema.sql
 -- Source: supabase/migrations/*.sql (concatenated + patched)
--- Generated: 2026-07-07T09:11:37.862Z
+-- Generated: 2026-07-07T09:16:27.123Z
 -- Safe to re-run: uses IF NOT EXISTS / CREATE OR REPLACE / DROP … IF EXISTS
 -- ==========================================================================
 

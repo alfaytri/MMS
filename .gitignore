@@ -64,7 +64,7 @@ DEMO-PREP.md
 /docs/Meeting_Script_IT_Company.md
 
 # One-time / maintenance scripts (not application code)
-/scripts/
+/scripts/*
 !/scripts/build_final_schema.mjs
 !/scripts/build_test_workbook.mjs
 !/scripts/test-cases/
