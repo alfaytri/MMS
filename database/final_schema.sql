@@ -1,7 +1,7 @@
 -- ==========================================================================
 -- AUTO-GENERATED: database/final_schema.sql
 -- Source: supabase/migrations/*.sql (concatenated + patched)
--- Generated: 2026-07-07T09:16:27.123Z
+-- Generated: 2026-07-07T10:04:57.665Z
 -- Safe to re-run: uses IF NOT EXISTS / CREATE OR REPLACE / DROP … IF EXISTS
 -- ==========================================================================
 
@@ -31712,6 +31712,42 @@ FROM public.payment_methods pm
 WHERE pm.slug IN ('cash', 'pos')
 ON CONFLICT DO NOTHING;
 -- (COMMIT removed — outer transaction)
+-- ============================================
+-- Source: 20260707120000_perf_indexes.sql
+-- ============================================
+-- Performance indexes identified by the 2026-07-07 response-time audit.
+-- All CREATE INDEX IF NOT EXISTS — safe to re-run.
+
+-- C11: useInventoryCheckAssignments queries by check_id + ordered by created_at
+CREATE INDEX IF NOT EXISTS idx_inventory_check_assignments_check_id
+  ON inventory_check_assignments(check_id, created_at);
+
+-- C4: useWarehouseTransfers ordered by created_at DESC
+CREATE INDEX IF NOT EXISTS idx_warehouse_transfers_created_at
+  ON warehouse_transfers(created_at DESC);
+
+-- C5: useStockAdjustments ordered by created_at DESC
+CREATE INDEX IF NOT EXISTS idx_stock_adjustments_created_at
+  ON stock_adjustments(created_at DESC);
+
+-- C6: useInventoryChecks ordered by created_at DESC
+CREATE INDEX IF NOT EXISTS idx_inventory_checks_created_at
+  ON inventory_checks(created_at DESC);
+
+-- C2: useLandedCosts ordered by date DESC
+CREATE INDEX IF NOT EXISTS idx_landed_costs_date
+  ON landed_costs(date DESC);
+
+-- M2: useReceivalsForLcSelector joins on po_id
+CREATE INDEX IF NOT EXISTS idx_receivals_po_id
+  ON receivals(po_id);
+
+-- M3: useReceivalItemsBatch .in('receival_id', ids)
+CREATE INDEX IF NOT EXISTS idx_receival_items_receival_id
+  ON receival_items(receival_id);
+
+
+
 -- === Additional RLS policies from database/RLS.sql ===
 -- Allow authenticated users to read all profiles
 DROP POLICY IF EXISTS "Profiles are viewable by authenticated users" ON profiles;

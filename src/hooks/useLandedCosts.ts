@@ -69,7 +69,7 @@ export function useLandedCosts({ search = '' }: { search?: string } = {}) {
       if (search) {
         q = q.or(`lc_number.ilike.%${search}%,description.ilike.%${search}%`)
       }
-      const { data, error } = await q
+      const { data, error } = await q.limit(100)
       if (error) throw error
       return (data ?? []) as LandedCost[]
     },

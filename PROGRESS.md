@@ -242,7 +242,7 @@ Purchase & Sales▾:
 
 ## 🔄 In Progress
 
-(none)
+🚀 Starting: **Final Schema + Tests + Perf Audit — Task 16: Post-fix remeasure**
 
 
 
@@ -260,6 +260,9 @@ Purchase & Sales▾:
 
 ## ✅ Completed
 
+- [2026-07-07] **Final Schema + Tests + Perf Audit Task 12-15: Response-Time Audit + Fixes** — `docs/response-time-audit-2026-07-07.md`, `supabase/migrations/20260707120000_perf_indexes.sql`, `src/hooks/usePurchaseOrders.ts`, `src/hooks/useLandedCosts.ts`, `src/hooks/useWarehouseOperations.ts`, `src/hooks/useReceivals.ts` — Added .limit() to 13 unbounded list queries, refetchIntervalInBackground:false to 2 polling hooks, 7 performance indexes on hot tables, regenerated database/final_schema.sql (31,938 lines)
+- [2026-07-07] **Final Schema + Tests + Perf Audit Task 10-11: Test Case Excel Workbook** — `scripts/test-cases/purchase_warehouse_spec.json`, `scripts/build_test_workbook.mjs`, `docs/test-cases/Purchase_Warehouse_Tests.xlsx` — 77 test cases across 17 sheets covering all Purchase + Warehouse screens with concrete input values
+- [2026-07-07] **Final Schema + Tests + Perf Audit Task 1-9: Consolidated Final Schema** — `database/final_schema.sql`, `scripts/build_final_schema.mjs`, `database/README.md` — One idempotent SQL file (31K+ lines) covering 152 tables, 254 functions, 307 RLS policies, 164 grants, 52 enums, seed data. Regeneratable via `node scripts/build_final_schema.mjs --build`
 - [2026-07-06] **Audit Trail — feature complete** — `src/lib/logActivity.ts` (old/new data support), `src/lib/utils/computeFieldDiff.ts`, `src/lib/utils/auditPermissionMap.ts`, `src/hooks/useAuditEntityNames.ts`, `src/hooks/useActivityLog.ts` (module filtering + date range), audit logging added to 11 hooks (inventory, suppliers, warehouses, companies, currencies, profiles, roles, sale orders, supplier bills, credit notes), tree UI (`src/components/audit-trail/` — SectionNode, EntityNode, ChangeEntry, FilterBar, AuditTree), audit trail page rewritten with side-by-side Group→Module dropdowns, search, date range. Merged to develop.
 - [2026-07-03] **Debit & Credit Notes Split — feature complete** — 10 tasks: DB migration (`20260703120000_debit_credit_notes_split.sql`), hooks (`useCreditNotes.ts`, `useReceivals.ts`, `usePurchaseReturns.ts`, `useSaleDeliveries.ts`), nav + route perms, dedicated Debit Notes page (`/purchase/debit-notes/page.tsx`), resolution UI in `CreditDebitNoteDetailDialog.tsx`, `ReplacementReceivalDialog.tsx`, simplified credit-only Sales page, `ReplacementDeliveryDialog.tsx` with gift items via `CascadeInventorySelector`, replacement/gift badges in `ReceivalDetailDialog` + `DeliveryDetailDialog`. Security audit passed.
 - [2026-07-02] **Receival Check PDF Task 6: Dialog integration** — `src/components/purchase/PoDetailDialog.tsx` — top toolbar for blank sheet; per-receival Print button on each card

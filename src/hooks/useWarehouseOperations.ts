@@ -272,7 +272,7 @@ export function useWarehouseStock(warehouseId?: string) {
         .select('warehouse_id, brand_variant_id, item_name, brand, sku, unit, qty, avg_cost, total_value, category_name, subcategory_name, item_type, allocated_qty, available_qty')
         .order('item_name', { ascending: true })
       if (warehouseId) q = q.eq('warehouse_id', warehouseId)
-      const { data, error } = await q
+      const { data, error } = await q.limit(500)
       if (error) throw error
       return (data ?? []) as WarehouseStockItem[]
     },
@@ -320,7 +320,7 @@ export function useWarehouseTransfers({ status }: { status?: TransferStatus } = 
 `)
         .order('created_at', { ascending: false })
       if (status) q = q.eq('status', status)
-      const { data, error } = await q
+      const { data, error } = await q.limit(50)
       if (error) throw error
       return (data ?? []) as unknown as WarehouseTransfer[]
     },
@@ -470,7 +470,7 @@ export function useStockAdjustments({ warehouseId }: { warehouseId?: string } = 
         `)
         .order('created_at', { ascending: false })
       if (warehouseId) q = q.eq('warehouse_id', warehouseId)
-      const { data, error } = await q
+      const { data, error } = await q.limit(100)
       if (error) throw error
       return (data ?? []) as StockAdjustment[]
     },
@@ -607,7 +607,7 @@ export function useInventoryChecks({ warehouseId }: { warehouseId?: string } = {
         .select('id, check_number, warehouse_id, warehouse_name, status, submitted_by_name, submitted_at, reviewed_by_name, reviewed_at, review_notes, notes, created_at, initiated_by_profile_id, initiated_by_name, started_at')
         .order('created_at', { ascending: false })
       if (warehouseId) q = q.eq('warehouse_id', warehouseId)
-      const { data, error } = await q
+      const { data, error } = await q.limit(100)
       if (error) throw error
       return (data ?? []) as InventoryCheck[]
     },

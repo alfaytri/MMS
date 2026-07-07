@@ -97,6 +97,7 @@ export function useReceivals(filters?: { status?: ReceivalStatus | '' }) {
     },
     staleTime: 30 * 1000,
     refetchInterval: 60_000,
+    refetchIntervalInBackground: false,
   })
 }
 
@@ -209,6 +210,7 @@ export function useReceivalEditRequests(receival_id: string | null) {
         .select('*')
         .eq('receival_id', receival_id!)
         .order('created_at', { ascending: false })
+        .limit(50)
       if (error) throw error
       return (data ?? []) as ReceivalEditRequest[]
     },
@@ -429,6 +431,7 @@ export function useReceivalsForLcSelector({ search = '' }: { search?: string } =
         .from('receivals')
         .select('id, receival_number, po_id, date, status, purchase_orders!receivals_po_id_fkey(po_number, supplier_name)')
         .order('date', { ascending: false })
+        .limit(500)
       const { data, error } = await q
       if (error) throw error
       // Match on receival_number, po_number, or supplier_name. We filter
@@ -483,7 +486,8 @@ export function useReceivalItemsBatch(receivalIds: string[] | null) {
           .from('receival_items')
           .select('id, receival_id, item_name, sku, qty_received, unit_cost, brand_variant_id')
           .in('receival_id', ids)
-          .eq('is_free', false),
+          .eq('is_free', false)
+          .limit(1000),
         supabase
           .from('fifo_cost_layers')
           .select('brand_variant_id, receival_id, remaining_qty')
@@ -558,6 +562,7 @@ export function useLcLockedReceivalIds() {
         .select('attached_receival_ids')
         .not('applied_at', 'is', null)
         .is('voided_at', null)
+        .limit(500)
       if (error) throw error
       const ids = new Set<string>()
       for (const lc of data ?? []) {

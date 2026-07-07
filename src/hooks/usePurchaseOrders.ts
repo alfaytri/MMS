@@ -279,12 +279,13 @@ export function usePurchaseOrders(filters: POFilters = {}) {
         query = query.in('division_id', filters.divisionIds)
       }
 
-      const { data, error } = await query
+      const { data, error } = await query.limit(50)
       if (error) throw error
       return data as PurchaseOrder[]
     },
     staleTime: 30 * 1000,
     refetchInterval: 60_000,
+    refetchIntervalInBackground: false,
   })
 }
 
@@ -376,6 +377,7 @@ export function usePOPayments(poId: string | null) {
         .eq('source_id', poId!)
         .is('deleted_at', null)
         .order('date', { ascending: false })
+        .limit(200)
       if (error) return [] as POPayment[] // columns may not exist until migration 20260422000002 is applied
       return data as POPayment[]
     },
