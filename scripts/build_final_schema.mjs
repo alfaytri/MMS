@@ -139,6 +139,18 @@ if (process.argv.includes('--build')) {
     }
   );
 
+  // 3c. Patch: CREATE FUNCTION → CREATE OR REPLACE FUNCTION
+  merged = merged.replace(
+    /CREATE\s+FUNCTION(?!\s+OR\s+REPLACE)/gi,
+    'CREATE OR REPLACE FUNCTION'
+  );
+
+  // 3d. Patch: CREATE TRIGGER → CREATE OR REPLACE TRIGGER
+  merged = merged.replace(
+    /CREATE\s+TRIGGER(?!\s+OR\s+REPLACE)/gi,
+    'CREATE OR REPLACE TRIGGER'
+  );
+
   // 4. Assemble preamble + extensions + merged SQL + epilogue
   const timestamp = new Date().toISOString();
   const extLines = [...extensions]

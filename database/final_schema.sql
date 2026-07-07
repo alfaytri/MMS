@@ -1,7 +1,7 @@
 -- ==========================================================================
 -- AUTO-GENERATED: database/final_schema.sql
 -- Source: supabase/migrations/*.sql (concatenated + patched)
--- Generated: 2026-07-07T09:03:17.457Z
+-- Generated: 2026-07-07T09:06:07.149Z
 -- Safe to re-run: uses IF NOT EXISTS / CREATE OR REPLACE / DROP … IF EXISTS
 -- ==========================================================================
 
@@ -885,7 +885,7 @@ END $do_type$;
 -- Name: _set_lc_number(); Type: FUNCTION; Schema: public; Owner: -
 --
 
-CREATE FUNCTION public._set_lc_number() RETURNS trigger
+CREATE OR REPLACE FUNCTION public._set_lc_number() RETURNS trigger
     LANGUAGE plpgsql
     SET search_path TO 'public'
     AS $$
@@ -903,7 +903,7 @@ $$;
 -- Name: _user_has_permission(uuid, text); Type: FUNCTION; Schema: public; Owner: -
 --
 
-CREATE FUNCTION public._user_has_permission(p_profile_id uuid, p_permission text) RETURNS boolean
+CREATE OR REPLACE FUNCTION public._user_has_permission(p_profile_id uuid, p_permission text) RETURNS boolean
     LANGUAGE sql STABLE SECURITY DEFINER
     SET search_path TO 'public'
     AS $$
@@ -920,7 +920,7 @@ $$;
 -- Name: action_stock_adjustment_step(uuid, text, uuid, text, text); Type: FUNCTION; Schema: public; Owner: -
 --
 
-CREATE FUNCTION public.action_stock_adjustment_step(p_step_id uuid, p_action text, p_profile_id uuid, p_profile_name text, p_notes text) RETURNS text
+CREATE OR REPLACE FUNCTION public.action_stock_adjustment_step(p_step_id uuid, p_action text, p_profile_id uuid, p_profile_name text, p_notes text) RETURNS text
     LANGUAGE plpgsql SECURITY DEFINER
     SET search_path TO 'public'
     AS $$
@@ -1014,7 +1014,7 @@ $$;
 -- Name: add_workflow_step(text, text, text, boolean, text[]); Type: FUNCTION; Schema: public; Owner: -
 --
 
-CREATE FUNCTION public.add_workflow_step(p_workflow text, p_role_name text, p_role_desc text DEFAULT ''::text, p_is_conditional boolean DEFAULT false, p_condition_types text[] DEFAULT '{}'::text[]) RETURNS jsonb
+CREATE OR REPLACE FUNCTION public.add_workflow_step(p_workflow text, p_role_name text, p_role_desc text DEFAULT ''::text, p_is_conditional boolean DEFAULT false, p_condition_types text[] DEFAULT '{}'::text[]) RETURNS jsonb
     LANGUAGE plpgsql SECURITY DEFINER
     SET search_path TO 'public'
     AS $$
@@ -1070,7 +1070,7 @@ $$;
 -- Name: add_workflow_step_for_role(text, uuid, boolean, text[]); Type: FUNCTION; Schema: public; Owner: -
 --
 
-CREATE FUNCTION public.add_workflow_step_for_role(p_workflow text, p_role_id uuid, p_is_conditional boolean DEFAULT false, p_condition_types text[] DEFAULT '{}'::text[]) RETURNS jsonb
+CREATE OR REPLACE FUNCTION public.add_workflow_step_for_role(p_workflow text, p_role_id uuid, p_is_conditional boolean DEFAULT false, p_condition_types text[] DEFAULT '{}'::text[]) RETURNS jsonb
     LANGUAGE plpgsql SECURITY DEFINER
     SET search_path TO 'public'
     AS $$
@@ -1136,7 +1136,7 @@ $$;
 -- Name: advance_po_approval_tier(uuid); Type: FUNCTION; Schema: public; Owner: -
 --
 
-CREATE FUNCTION public.advance_po_approval_tier(p_po_id uuid) RETURNS void
+CREATE OR REPLACE FUNCTION public.advance_po_approval_tier(p_po_id uuid) RETURNS void
     LANGUAGE plpgsql SECURITY DEFINER
     SET search_path TO 'public'
     AS $$
@@ -1200,7 +1200,7 @@ $$;
 -- Name: allocate_landed_cost(uuid); Type: FUNCTION; Schema: public; Owner: -
 --
 
-CREATE FUNCTION public.allocate_landed_cost(p_lc_id uuid) RETURNS jsonb
+CREATE OR REPLACE FUNCTION public.allocate_landed_cost(p_lc_id uuid) RETURNS jsonb
     LANGUAGE plpgsql SECURITY DEFINER
     SET search_path TO 'public'
     AS $$
@@ -1379,7 +1379,7 @@ $$;
 -- Name: allocate_payment_to_bill(uuid, uuid, numeric); Type: FUNCTION; Schema: public; Owner: -
 --
 
-CREATE FUNCTION public.allocate_payment_to_bill(p_payment_id uuid, p_bill_id uuid, p_amount numeric) RETURNS void
+CREATE OR REPLACE FUNCTION public.allocate_payment_to_bill(p_payment_id uuid, p_bill_id uuid, p_amount numeric) RETURNS void
     LANGUAGE plpgsql SECURITY DEFINER
     SET search_path TO 'public'
     AS $$
@@ -1456,7 +1456,7 @@ $$;
 -- Name: allocate_warehouse_stock(uuid, uuid, integer, numeric); Type: FUNCTION; Schema: public; Owner: -
 --
 
-CREATE FUNCTION public.allocate_warehouse_stock(p_brand_variant_id uuid, p_warehouse_id uuid, p_target_qty integer, p_unit_cost numeric) RETURNS void
+CREATE OR REPLACE FUNCTION public.allocate_warehouse_stock(p_brand_variant_id uuid, p_warehouse_id uuid, p_target_qty integer, p_unit_cost numeric) RETURNS void
     LANGUAGE plpgsql SECURITY DEFINER
     AS $$
 DECLARE
@@ -1653,7 +1653,7 @@ $$;
 -- Name: append_shipment_events(uuid, jsonb, jsonb); Type: FUNCTION; Schema: public; Owner: -
 --
 
-CREATE FUNCTION public.append_shipment_events(p_shipment_id uuid, p_events jsonb, p_status_map jsonb) RETURNS void
+CREATE OR REPLACE FUNCTION public.append_shipment_events(p_shipment_id uuid, p_events jsonb, p_status_map jsonb) RETURNS void
     LANGUAGE plpgsql SECURITY DEFINER
     SET search_path TO 'public'
     AS $$
@@ -1767,7 +1767,7 @@ $$;
 -- Name: apply_inventory_check_adjustments(uuid); Type: FUNCTION; Schema: public; Owner: -
 --
 
-CREATE FUNCTION public.apply_inventory_check_adjustments(p_check_id uuid) RETURNS void
+CREATE OR REPLACE FUNCTION public.apply_inventory_check_adjustments(p_check_id uuid) RETURNS void
     LANGUAGE plpgsql SECURITY DEFINER
     SET search_path TO 'public'
     AS $$
@@ -1862,7 +1862,7 @@ $$;
 -- Name: apply_receival_edit(uuid, jsonb); Type: FUNCTION; Schema: public; Owner: -
 --
 
-CREATE FUNCTION public.apply_receival_edit(p_edit_request_id uuid, p_items jsonb) RETURNS jsonb
+CREATE OR REPLACE FUNCTION public.apply_receival_edit(p_edit_request_id uuid, p_items jsonb) RETURNS jsonb
     LANGUAGE plpgsql SECURITY DEFINER
     SET search_path TO 'public'
     AS $$
@@ -2097,7 +2097,7 @@ $$;
 -- Name: approve_receival_inventory(uuid, text); Type: FUNCTION; Schema: public; Owner: -
 --
 
-CREATE FUNCTION public.approve_receival_inventory(p_receival_id uuid, p_action text) RETURNS uuid
+CREATE OR REPLACE FUNCTION public.approve_receival_inventory(p_receival_id uuid, p_action text) RETURNS uuid
     LANGUAGE plpgsql SECURITY DEFINER
     SET search_path TO 'public'
     AS $$
@@ -2182,7 +2182,7 @@ $$;
 -- Name: approve_service_change(uuid); Type: FUNCTION; Schema: public; Owner: -
 --
 
-CREATE FUNCTION public.approve_service_change(p_request_id uuid) RETURNS jsonb
+CREATE OR REPLACE FUNCTION public.approve_service_change(p_request_id uuid) RETURNS jsonb
     LANGUAGE plpgsql SECURITY DEFINER
     SET search_path TO 'public'
     AS $_$
@@ -2317,7 +2317,7 @@ $_$;
 -- Name: approve_stock_adjustment_inventory(uuid, text); Type: FUNCTION; Schema: public; Owner: -
 --
 
-CREATE FUNCTION public.approve_stock_adjustment_inventory(p_adjustment_id uuid, p_approved_by text) RETURNS void
+CREATE OR REPLACE FUNCTION public.approve_stock_adjustment_inventory(p_adjustment_id uuid, p_approved_by text) RETURNS void
     LANGUAGE plpgsql SECURITY DEFINER
     AS $$
 DECLARE
@@ -2403,7 +2403,7 @@ $$;
 -- Name: approve_warehouse_transfer_inventory(uuid, text); Type: FUNCTION; Schema: public; Owner: -
 --
 
-CREATE FUNCTION public.approve_warehouse_transfer_inventory(p_transfer_id uuid, p_approved_by text) RETURNS void
+CREATE OR REPLACE FUNCTION public.approve_warehouse_transfer_inventory(p_transfer_id uuid, p_approved_by text) RETURNS void
     LANGUAGE plpgsql SECURITY DEFINER
     AS $$
 DECLARE
@@ -2479,7 +2479,7 @@ $$;
 -- Name: archive_workflow_step(uuid, uuid); Type: FUNCTION; Schema: public; Owner: -
 --
 
-CREATE FUNCTION public.archive_workflow_step(p_step_id uuid, p_profile_id uuid) RETURNS void
+CREATE OR REPLACE FUNCTION public.archive_workflow_step(p_step_id uuid, p_profile_id uuid) RETURNS void
     LANGUAGE plpgsql SECURITY DEFINER
     SET search_path TO 'public'
     AS $$
@@ -2515,7 +2515,7 @@ $$;
 -- Name: assign_team_leader(uuid, uuid); Type: FUNCTION; Schema: public; Owner: -
 --
 
-CREATE FUNCTION public.assign_team_leader(p_team_id uuid, p_employee_id uuid) RETURNS void
+CREATE OR REPLACE FUNCTION public.assign_team_leader(p_team_id uuid, p_employee_id uuid) RETURNS void
     LANGUAGE plpgsql
     AS $$
 BEGIN
@@ -2537,7 +2537,7 @@ $$;
 -- Name: attach_payment_to_bill(uuid, uuid); Type: FUNCTION; Schema: public; Owner: -
 --
 
-CREATE FUNCTION public.attach_payment_to_bill(p_payment_id uuid, p_bill_id uuid) RETURNS void
+CREATE OR REPLACE FUNCTION public.attach_payment_to_bill(p_payment_id uuid, p_bill_id uuid) RETURNS void
     LANGUAGE plpgsql SECURITY DEFINER
     SET search_path TO 'public'
     AS $$
@@ -2560,7 +2560,7 @@ $$;
 -- Name: attach_payment_to_invoice(uuid, uuid); Type: FUNCTION; Schema: public; Owner: -
 --
 
-CREATE FUNCTION public.attach_payment_to_invoice(p_payment_id uuid, p_invoice_id uuid) RETURNS void
+CREATE OR REPLACE FUNCTION public.attach_payment_to_invoice(p_payment_id uuid, p_invoice_id uuid) RETURNS void
     LANGUAGE plpgsql
     SET search_path TO 'public'
     AS $$
@@ -2609,7 +2609,7 @@ $$;
 -- Name: auto_reject_pending_on_service_delete(); Type: FUNCTION; Schema: public; Owner: -
 --
 
-CREATE FUNCTION public.auto_reject_pending_on_service_delete() RETURNS trigger
+CREATE OR REPLACE FUNCTION public.auto_reject_pending_on_service_delete() RETURNS trigger
     LANGUAGE plpgsql
     AS $$
 BEGIN
@@ -2630,7 +2630,7 @@ $$;
 -- Name: backfill_conversation_last_messages(); Type: FUNCTION; Schema: public; Owner: -
 --
 
-CREATE FUNCTION public.backfill_conversation_last_messages() RETURNS integer
+CREATE OR REPLACE FUNCTION public.backfill_conversation_last_messages() RETURNS integer
     LANGUAGE plpgsql SECURITY DEFINER
     SET search_path TO 'public'
     AS $$
@@ -2672,7 +2672,7 @@ $$;
 -- Name: batch_increment_received_qty(jsonb); Type: FUNCTION; Schema: public; Owner: -
 --
 
-CREATE FUNCTION public.batch_increment_received_qty(p_updates jsonb) RETURNS void
+CREATE OR REPLACE FUNCTION public.batch_increment_received_qty(p_updates jsonb) RETURNS void
     LANGUAGE plpgsql SECURITY DEFINER
     SET search_path TO 'public'
     AS $$
@@ -2693,7 +2693,7 @@ $$;
 -- Name: batch_update_reserved_qty(jsonb); Type: FUNCTION; Schema: public; Owner: -
 --
 
-CREATE FUNCTION public.batch_update_reserved_qty(p_updates jsonb) RETURNS void
+CREATE OR REPLACE FUNCTION public.batch_update_reserved_qty(p_updates jsonb) RETURNS void
     LANGUAGE plpgsql SECURITY DEFINER
     SET search_path TO 'public'
     AS $$
@@ -2715,7 +2715,7 @@ $$;
 -- Name: batch_update_variant_prices(jsonb); Type: FUNCTION; Schema: public; Owner: -
 --
 
-CREATE FUNCTION public.batch_update_variant_prices(p_updates jsonb) RETURNS void
+CREATE OR REPLACE FUNCTION public.batch_update_variant_prices(p_updates jsonb) RETURNS void
     LANGUAGE plpgsql SECURITY DEFINER
     SET search_path TO 'public'
     AS $$
@@ -2736,7 +2736,7 @@ $$;
 -- Name: build_inv_check_approval_chain(boolean, boolean); Type: FUNCTION; Schema: public; Owner: -
 --
 
-CREATE FUNCTION public.build_inv_check_approval_chain(p_has_damage_or_writeoff boolean DEFAULT false, p_has_variance boolean DEFAULT true) RETURNS jsonb
+CREATE OR REPLACE FUNCTION public.build_inv_check_approval_chain(p_has_damage_or_writeoff boolean DEFAULT false, p_has_variance boolean DEFAULT true) RETURNS jsonb
     LANGUAGE plpgsql STABLE SECURITY DEFINER
     SET search_path TO 'public'
     AS $$
@@ -2789,7 +2789,7 @@ $$;
 -- Name: cancel_delivery_inventory(uuid, uuid); Type: FUNCTION; Schema: public; Owner: -
 --
 
-CREATE FUNCTION public.cancel_delivery_inventory(p_delivery_id uuid, p_so_id uuid) RETURNS void
+CREATE OR REPLACE FUNCTION public.cancel_delivery_inventory(p_delivery_id uuid, p_so_id uuid) RETURNS void
     LANGUAGE plpgsql SECURITY DEFINER
     SET search_path TO 'public'
     AS $$
@@ -2923,7 +2923,7 @@ $$;
 -- Name: cancel_transfer(uuid, uuid, text); Type: FUNCTION; Schema: public; Owner: -
 --
 
-CREATE FUNCTION public.cancel_transfer(p_transfer_id uuid, p_cancelled_by_profile_id uuid, p_cancelled_by_name text) RETURNS void
+CREATE OR REPLACE FUNCTION public.cancel_transfer(p_transfer_id uuid, p_cancelled_by_profile_id uuid, p_cancelled_by_name text) RETURNS void
     LANGUAGE plpgsql SECURITY DEFINER
     AS $$
 DECLARE
@@ -3015,7 +3015,7 @@ $$;
 -- Name: check_is_division_manager(uuid); Type: FUNCTION; Schema: public; Owner: -
 --
 
-CREATE FUNCTION public.check_is_division_manager(p_profile_id uuid) RETURNS boolean
+CREATE OR REPLACE FUNCTION public.check_is_division_manager(p_profile_id uuid) RETURNS boolean
     LANGUAGE sql STABLE SECURITY DEFINER
     AS $$
   SELECT COALESCE(is_division_manager, false) FROM public.profiles WHERE id = p_profile_id;
@@ -3026,7 +3026,7 @@ $$;
 -- Name: check_low_stock_and_notify(); Type: FUNCTION; Schema: public; Owner: -
 --
 
-CREATE FUNCTION public.check_low_stock_and_notify() RETURNS trigger
+CREATE OR REPLACE FUNCTION public.check_low_stock_and_notify() RETURNS trigger
     LANGUAGE plpgsql SECURITY DEFINER
     AS $$
 DECLARE
@@ -3123,7 +3123,7 @@ $$;
 -- Name: claim_media_jobs(integer); Type: FUNCTION; Schema: public; Owner: -
 --
 
-CREATE FUNCTION public.claim_media_jobs(p_limit integer) RETURNS TABLE(id uuid, message_id uuid, attachment_index integer, attempts integer)
+CREATE OR REPLACE FUNCTION public.claim_media_jobs(p_limit integer) RETURNS TABLE(id uuid, message_id uuid, attachment_index integer, attempts integer)
     LANGUAGE sql SECURITY DEFINER
     SET search_path TO 'public'
     AS $$
@@ -3150,7 +3150,7 @@ $$;
 -- Name: complete_delivery_inventory(uuid, uuid); Type: FUNCTION; Schema: public; Owner: -
 --
 
-CREATE FUNCTION public.complete_delivery_inventory(p_delivery_id uuid, p_so_id uuid) RETURNS void
+CREATE OR REPLACE FUNCTION public.complete_delivery_inventory(p_delivery_id uuid, p_so_id uuid) RETURNS void
     LANGUAGE plpgsql SECURITY DEFINER
     SET search_path TO 'public'
     AS $$
@@ -3226,7 +3226,7 @@ $$;
 -- Name: compute_warranty_expires_at(); Type: FUNCTION; Schema: public; Owner: -
 --
 
-CREATE FUNCTION public.compute_warranty_expires_at() RETURNS trigger
+CREATE OR REPLACE FUNCTION public.compute_warranty_expires_at() RETURNS trigger
     LANGUAGE plpgsql IMMUTABLE
     AS $$
 BEGIN
@@ -3244,7 +3244,7 @@ $$;
 -- Name: create_and_approve_receival(uuid, uuid, date, text, text, text, jsonb); Type: FUNCTION; Schema: public; Owner: -
 --
 
-CREATE FUNCTION public.create_and_approve_receival(p_po_id uuid, p_warehouse_id uuid, p_date date, p_received_by_name text, p_receival_number text, p_notes text, p_items jsonb) RETURNS jsonb
+CREATE OR REPLACE FUNCTION public.create_and_approve_receival(p_po_id uuid, p_warehouse_id uuid, p_date date, p_received_by_name text, p_receival_number text, p_notes text, p_items jsonb) RETURNS jsonb
     LANGUAGE plpgsql SECURITY DEFINER
     SET search_path TO 'public'
     AS $$
@@ -3339,7 +3339,7 @@ $$;
 -- Name: create_and_confirm_delivery(uuid, uuid, text, date, jsonb); Type: FUNCTION; Schema: public; Owner: -
 --
 
-CREATE FUNCTION public.create_and_confirm_delivery(p_so_id uuid, p_warehouse_id uuid, p_warehouse_name text, p_date date, p_items jsonb) RETURNS TABLE(id uuid, delivery_number text)
+CREATE OR REPLACE FUNCTION public.create_and_confirm_delivery(p_so_id uuid, p_warehouse_id uuid, p_warehouse_name text, p_date date, p_items jsonb) RETURNS TABLE(id uuid, delivery_number text)
     LANGUAGE plpgsql SECURITY DEFINER
     SET search_path TO 'public'
     AS $$
@@ -3370,7 +3370,7 @@ $$;
 -- Name: create_customer_with_phone(text, text, text); Type: FUNCTION; Schema: public; Owner: -
 --
 
-CREATE FUNCTION public.create_customer_with_phone(p_name text, p_phone text, p_link_phone text DEFAULT NULL::text) RETURNS jsonb
+CREATE OR REPLACE FUNCTION public.create_customer_with_phone(p_name text, p_phone text, p_link_phone text DEFAULT NULL::text) RETURNS jsonb
     LANGUAGE plpgsql SECURITY DEFINER
     AS $$
 DECLARE
@@ -3423,7 +3423,7 @@ $$;
 -- Name: create_landed_cost(text, date, text, jsonb, uuid[], uuid[]); Type: FUNCTION; Schema: public; Owner: -
 --
 
-CREATE FUNCTION public.create_landed_cost(p_description text, p_date date, p_currency text, p_lines jsonb, p_attached_receival_ids uuid[], p_attached_po_ids uuid[]) RETURNS jsonb
+CREATE OR REPLACE FUNCTION public.create_landed_cost(p_description text, p_date date, p_currency text, p_lines jsonb, p_attached_receival_ids uuid[], p_attached_po_ids uuid[]) RETURNS jsonb
     LANGUAGE plpgsql SECURITY DEFINER
     SET search_path TO 'public'
     AS $$
@@ -3461,7 +3461,7 @@ $$;
 -- Name: create_order_with_dates(text, uuid, text, text, text, date, numeric, text, text, text, jsonb, jsonb, jsonb, jsonb, uuid); Type: FUNCTION; Schema: public; Owner: -
 --
 
-CREATE FUNCTION public.create_order_with_dates(p_order_id text, p_service_customer_id uuid, p_type text, p_division text, p_status text, p_scheduled_date date, p_total_amount numeric, p_address text, p_notes text, p_arrival_phone text, p_attachments jsonb, p_services jsonb, p_visit_dates jsonb, p_assignments jsonb, p_address_id uuid DEFAULT NULL::uuid) RETURNS uuid
+CREATE OR REPLACE FUNCTION public.create_order_with_dates(p_order_id text, p_service_customer_id uuid, p_type text, p_division text, p_status text, p_scheduled_date date, p_total_amount numeric, p_address text, p_notes text, p_arrival_phone text, p_attachments jsonb, p_services jsonb, p_visit_dates jsonb, p_assignments jsonb, p_address_id uuid DEFAULT NULL::uuid) RETURNS uuid
     LANGUAGE plpgsql SECURITY DEFINER
     AS $$
 DECLARE
@@ -3567,7 +3567,7 @@ $$;
 -- Name: create_sale_order(uuid, text, text, numeric, date, text, text, jsonb, text, text, text, integer, numeric, text, text, jsonb); Type: FUNCTION; Schema: public; Owner: -
 --
 
-CREATE FUNCTION public.create_sale_order(p_customer_id uuid, p_intent text, p_currency text, p_exchange_rate numeric, p_expected_delivery date, p_payment_terms text, p_payment_terms_notes text, p_payment_milestones jsonb, p_delivery_terms text, p_delivery_terms_notes text, p_customer_notes text, p_validity_days integer, p_discount_amount numeric, p_discount_label text, p_discount_type text, p_line_items jsonb) RETURNS jsonb
+CREATE OR REPLACE FUNCTION public.create_sale_order(p_customer_id uuid, p_intent text, p_currency text, p_exchange_rate numeric, p_expected_delivery date, p_payment_terms text, p_payment_terms_notes text, p_payment_milestones jsonb, p_delivery_terms text, p_delivery_terms_notes text, p_customer_notes text, p_validity_days integer, p_discount_amount numeric, p_discount_label text, p_discount_type text, p_line_items jsonb) RETURNS jsonb
     LANGUAGE plpgsql SECURITY DEFINER
     SET search_path TO 'public'
     AS $$
@@ -3739,7 +3739,7 @@ $$;
 -- Name: create_sale_order(uuid, text, text, numeric, date, text, text, jsonb, text, text, text, integer, numeric, text, text, jsonb, uuid); Type: FUNCTION; Schema: public; Owner: -
 --
 
-CREATE FUNCTION public.create_sale_order(p_customer_id uuid, p_intent text, p_currency text, p_exchange_rate numeric, p_expected_delivery date, p_payment_terms text, p_payment_terms_notes text, p_payment_milestones jsonb, p_delivery_terms text, p_delivery_terms_notes text, p_customer_notes text, p_validity_days integer, p_discount_amount numeric, p_discount_label text, p_discount_type text, p_line_items jsonb, p_division_id uuid DEFAULT NULL::uuid) RETURNS jsonb
+CREATE OR REPLACE FUNCTION public.create_sale_order(p_customer_id uuid, p_intent text, p_currency text, p_exchange_rate numeric, p_expected_delivery date, p_payment_terms text, p_payment_terms_notes text, p_payment_milestones jsonb, p_delivery_terms text, p_delivery_terms_notes text, p_customer_notes text, p_validity_days integer, p_discount_amount numeric, p_discount_label text, p_discount_type text, p_line_items jsonb, p_division_id uuid DEFAULT NULL::uuid) RETURNS jsonb
     LANGUAGE plpgsql SECURITY DEFINER
     SET search_path TO 'public'
     AS $$
@@ -3911,7 +3911,7 @@ $$;
 -- Name: create_service_customer(text, text, text); Type: FUNCTION; Schema: public; Owner: -
 --
 
-CREATE FUNCTION public.create_service_customer(p_name text, p_phone text, p_link_phone text DEFAULT NULL::text) RETURNS jsonb
+CREATE OR REPLACE FUNCTION public.create_service_customer(p_name text, p_phone text, p_link_phone text DEFAULT NULL::text) RETURNS jsonb
     LANGUAGE plpgsql SECURITY DEFINER
     AS $$
 DECLARE
@@ -3962,7 +3962,7 @@ $$;
 -- Name: create_site_visit(text, uuid, text, text, date, text, text, text, jsonb, jsonb, jsonb); Type: FUNCTION; Schema: public; Owner: -
 --
 
-CREATE FUNCTION public.create_site_visit(p_visit_id text, p_service_customer_id uuid, p_status text, p_mode text, p_scheduled_date date, p_address text, p_notes text, p_arrival_phone text, p_attachments jsonb, p_visit_dates jsonb, p_assignments jsonb) RETURNS uuid
+CREATE OR REPLACE FUNCTION public.create_site_visit(p_visit_id text, p_service_customer_id uuid, p_status text, p_mode text, p_scheduled_date date, p_address text, p_notes text, p_arrival_phone text, p_attachments jsonb, p_visit_dates jsonb, p_assignments jsonb) RETURNS uuid
     LANGUAGE plpgsql SECURITY DEFINER
     AS $$
 DECLARE
@@ -4017,7 +4017,7 @@ $$;
 -- Name: create_stock_adjustment_v2(uuid, uuid, text, numeric, text, text, text[], uuid, text); Type: FUNCTION; Schema: public; Owner: -
 --
 
-CREATE FUNCTION public.create_stock_adjustment_v2(p_warehouse_id uuid, p_brand_variant_id uuid, p_adjustment_type text, p_qty numeric, p_reason text, p_notes text, p_photo_urls text[], p_requested_by uuid, p_requested_by_name text) RETURNS uuid
+CREATE OR REPLACE FUNCTION public.create_stock_adjustment_v2(p_warehouse_id uuid, p_brand_variant_id uuid, p_adjustment_type text, p_qty numeric, p_reason text, p_notes text, p_photo_urls text[], p_requested_by uuid, p_requested_by_name text) RETURNS uuid
     LANGUAGE plpgsql SECURITY DEFINER
     SET search_path TO 'public'
     AS $$
@@ -4075,7 +4075,7 @@ $$;
 -- Name: create_transfer_v2(uuid, uuid, date, jsonb, text, uuid, text); Type: FUNCTION; Schema: public; Owner: -
 --
 
-CREATE FUNCTION public.create_transfer_v2(p_from_warehouse_id uuid, p_to_warehouse_id uuid, p_date date, p_items jsonb, p_notes text DEFAULT NULL::text, p_created_by_profile_id uuid DEFAULT NULL::uuid, p_created_by_name text DEFAULT NULL::text) RETURNS uuid
+CREATE OR REPLACE FUNCTION public.create_transfer_v2(p_from_warehouse_id uuid, p_to_warehouse_id uuid, p_date date, p_items jsonb, p_notes text DEFAULT NULL::text, p_created_by_profile_id uuid DEFAULT NULL::uuid, p_created_by_name text DEFAULT NULL::text) RETURNS uuid
     LANGUAGE plpgsql SECURITY DEFINER
     AS $$
 DECLARE
@@ -4159,7 +4159,7 @@ $$;
 -- Name: custom_access_token_hook(jsonb); Type: FUNCTION; Schema: public; Owner: -
 --
 
-CREATE FUNCTION public.custom_access_token_hook(event jsonb) RETURNS jsonb
+CREATE OR REPLACE FUNCTION public.custom_access_token_hook(event jsonb) RETURNS jsonb
     LANGUAGE plpgsql STABLE SECURITY DEFINER
     SET search_path TO 'public'
     AS $$
@@ -4200,7 +4200,7 @@ $$;
 -- Name: deduct_fifo_layers(uuid, uuid, integer, boolean); Type: FUNCTION; Schema: public; Owner: -
 --
 
-CREATE FUNCTION public.deduct_fifo_layers(p_bv_id uuid, p_wh_id uuid, p_qty integer, p_is_transfer boolean DEFAULT false) RETURNS TABLE(total_cost numeric, weighted_unit_cost numeric)
+CREATE OR REPLACE FUNCTION public.deduct_fifo_layers(p_bv_id uuid, p_wh_id uuid, p_qty integer, p_is_transfer boolean DEFAULT false) RETURNS TABLE(total_cost numeric, weighted_unit_cost numeric)
     LANGUAGE plpgsql SECURITY DEFINER
     SET search_path TO 'public'
     AS $$
@@ -4265,7 +4265,7 @@ $$;
 -- Name: detach_payment_from_invoice(uuid, uuid); Type: FUNCTION; Schema: public; Owner: -
 --
 
-CREATE FUNCTION public.detach_payment_from_invoice(p_payment_id uuid, p_invoice_id uuid) RETURNS void
+CREATE OR REPLACE FUNCTION public.detach_payment_from_invoice(p_payment_id uuid, p_invoice_id uuid) RETURNS void
     LANGUAGE plpgsql
     SET search_path TO 'public'
     AS $$
@@ -4313,7 +4313,7 @@ $$;
 -- Name: dispatch_transfer(uuid, uuid, text); Type: FUNCTION; Schema: public; Owner: -
 --
 
-CREATE FUNCTION public.dispatch_transfer(p_transfer_id uuid, p_dispatched_by_profile_id uuid, p_dispatched_by_name text) RETURNS void
+CREATE OR REPLACE FUNCTION public.dispatch_transfer(p_transfer_id uuid, p_dispatched_by_profile_id uuid, p_dispatched_by_name text) RETURNS void
     LANGUAGE plpgsql SECURITY DEFINER
     AS $$
 DECLARE
@@ -4392,7 +4392,7 @@ $$;
 -- Name: fn_refresh_incoming_qty(uuid); Type: FUNCTION; Schema: public; Owner: -
 --
 
-CREATE FUNCTION public.fn_refresh_incoming_qty(p_bv_id uuid) RETURNS void
+CREATE OR REPLACE FUNCTION public.fn_refresh_incoming_qty(p_bv_id uuid) RETURNS void
     LANGUAGE plpgsql SECURITY DEFINER
     SET search_path TO 'public'
     AS $$
@@ -4419,7 +4419,7 @@ $$;
 -- Name: fn_refresh_reserved_qty(uuid); Type: FUNCTION; Schema: public; Owner: -
 --
 
-CREATE FUNCTION public.fn_refresh_reserved_qty(p_bv_id uuid) RETURNS void
+CREATE OR REPLACE FUNCTION public.fn_refresh_reserved_qty(p_bv_id uuid) RETURNS void
     LANGUAGE plpgsql SECURITY DEFINER
     SET search_path TO 'public'
     AS $$
@@ -4443,7 +4443,7 @@ $$;
 -- Name: fn_refresh_warehouse_stats(); Type: FUNCTION; Schema: public; Owner: -
 --
 
-CREATE FUNCTION public.fn_refresh_warehouse_stats() RETURNS trigger
+CREATE OR REPLACE FUNCTION public.fn_refresh_warehouse_stats() RETURNS trigger
     LANGUAGE plpgsql SECURITY DEFINER
     AS $$
 DECLARE
@@ -4493,7 +4493,7 @@ $$;
 -- Name: fn_update_linked_services_count(); Type: FUNCTION; Schema: public; Owner: -
 --
 
-CREATE FUNCTION public.fn_update_linked_services_count() RETURNS trigger
+CREATE OR REPLACE FUNCTION public.fn_update_linked_services_count() RETURNS trigger
     LANGUAGE plpgsql
     SET search_path TO 'public'
     AS $$
@@ -4516,7 +4516,7 @@ $$;
 -- Name: generate_check_number(); Type: FUNCTION; Schema: public; Owner: -
 --
 
-CREATE FUNCTION public.generate_check_number() RETURNS text
+CREATE OR REPLACE FUNCTION public.generate_check_number() RETURNS text
     LANGUAGE sql
     AS $$
   SELECT 'IC-' || TO_CHAR(NOW(), 'YYYY') || '-' || LPAD(NEXTVAL('inventory_check_seq')::TEXT, 5, '0')
@@ -4527,7 +4527,7 @@ $$;
 -- Name: generate_contract_id(); Type: FUNCTION; Schema: public; Owner: -
 --
 
-CREATE FUNCTION public.generate_contract_id() RETURNS text
+CREATE OR REPLACE FUNCTION public.generate_contract_id() RETURNS text
     LANGUAGE plpgsql SECURITY DEFINER
     AS $$
 DECLARE
@@ -4555,7 +4555,7 @@ $$;
 -- Name: generate_invoice_from_so(uuid); Type: FUNCTION; Schema: public; Owner: -
 --
 
-CREATE FUNCTION public.generate_invoice_from_so(p_so_id uuid) RETURNS jsonb
+CREATE OR REPLACE FUNCTION public.generate_invoice_from_so(p_so_id uuid) RETURNS jsonb
     LANGUAGE plpgsql SECURITY DEFINER
     SET search_path TO 'public'
     AS $$
@@ -4679,7 +4679,7 @@ $$;
 -- Name: generate_quotation_id(); Type: FUNCTION; Schema: public; Owner: -
 --
 
-CREATE FUNCTION public.generate_quotation_id() RETURNS text
+CREATE OR REPLACE FUNCTION public.generate_quotation_id() RETURNS text
     LANGUAGE plpgsql
     AS $$
 DECLARE
@@ -4696,7 +4696,7 @@ $$;
 -- Name: generate_quotation_number(); Type: FUNCTION; Schema: public; Owner: -
 --
 
-CREATE FUNCTION public.generate_quotation_number() RETURNS text
+CREATE OR REPLACE FUNCTION public.generate_quotation_number() RETURNS text
     LANGUAGE plpgsql SECURITY DEFINER
     AS $$
 DECLARE
@@ -4723,7 +4723,7 @@ $$;
 -- Name: generate_service_code(); Type: FUNCTION; Schema: public; Owner: -
 --
 
-CREATE FUNCTION public.generate_service_code() RETURNS trigger
+CREATE OR REPLACE FUNCTION public.generate_service_code() RETURNS trigger
     LANGUAGE plpgsql
     AS $$
 DECLARE
@@ -4783,7 +4783,7 @@ $$;
 -- Name: generate_tl_invoice_number(); Type: FUNCTION; Schema: public; Owner: -
 --
 
-CREATE FUNCTION public.generate_tl_invoice_number() RETURNS trigger
+CREATE OR REPLACE FUNCTION public.generate_tl_invoice_number() RETURNS trigger
     LANGUAGE plpgsql
     AS $$
 BEGIN
@@ -4799,7 +4799,7 @@ $$;
 -- Name: generate_transfer_number(); Type: FUNCTION; Schema: public; Owner: -
 --
 
-CREATE FUNCTION public.generate_transfer_number() RETURNS text
+CREATE OR REPLACE FUNCTION public.generate_transfer_number() RETURNS text
     LANGUAGE sql
     AS $$
   SELECT 'WT-' || TO_CHAR(NOW(), 'YYYY') || '-' || LPAD(NEXTVAL('warehouse_transfer_seq')::TEXT, 5, '0')
@@ -4810,7 +4810,7 @@ $$;
 -- Name: get_cogs_breakdown(uuid); Type: FUNCTION; Schema: public; Owner: -
 --
 
-CREATE FUNCTION public.get_cogs_breakdown(p_brand_variant_id uuid) RETURNS jsonb
+CREATE OR REPLACE FUNCTION public.get_cogs_breakdown(p_brand_variant_id uuid) RETURNS jsonb
     LANGUAGE plpgsql STABLE SECURITY DEFINER
     SET search_path TO 'public'
     AS $$
@@ -4868,7 +4868,7 @@ $$;
 -- Name: get_customer_pending_balances(); Type: FUNCTION; Schema: public; Owner: -
 --
 
-CREATE FUNCTION public.get_customer_pending_balances() RETURNS jsonb
+CREATE OR REPLACE FUNCTION public.get_customer_pending_balances() RETURNS jsonb
     LANGUAGE plpgsql STABLE SECURITY DEFINER
     SET search_path TO 'public'
     AS $$
@@ -4948,7 +4948,7 @@ $$;
 -- Name: get_date_team_availability(date[], time without time zone, time without time zone); Type: FUNCTION; Schema: public; Owner: -
 --
 
-CREATE FUNCTION public.get_date_team_availability(p_dates date[], p_from_time time without time zone, p_to_time time without time zone) RETURNS TABLE(visit_date date, available_teams_count integer)
+CREATE OR REPLACE FUNCTION public.get_date_team_availability(p_dates date[], p_from_time time without time zone, p_to_time time without time zone) RETURNS TABLE(visit_date date, available_teams_count integer)
     LANGUAGE sql STABLE SECURITY DEFINER
     AS $$
   WITH total_teams AS (
@@ -4986,7 +4986,7 @@ $$;
 -- Name: get_dead_stock_report(); Type: FUNCTION; Schema: public; Owner: -
 --
 
-CREATE FUNCTION public.get_dead_stock_report() RETURNS TABLE(brand_variant_id uuid, item_name text, category_name text, brand text, sku text, stock_level numeric, average_cost numeric, total_value numeric, last_movement_date timestamp with time zone, last_movement_source text, days_idle integer, status text)
+CREATE OR REPLACE FUNCTION public.get_dead_stock_report() RETURNS TABLE(brand_variant_id uuid, item_name text, category_name text, brand text, sku text, stock_level numeric, average_cost numeric, total_value numeric, last_movement_date timestamp with time zone, last_movement_source text, days_idle integer, status text)
     LANGUAGE sql STABLE SECURITY DEFINER
     SET search_path TO 'public'
     AS $$
@@ -5061,7 +5061,7 @@ $$;
 -- Name: get_invoice_summary(); Type: FUNCTION; Schema: public; Owner: -
 --
 
-CREATE FUNCTION public.get_invoice_summary() RETURNS jsonb
+CREATE OR REPLACE FUNCTION public.get_invoice_summary() RETURNS jsonb
     LANGUAGE sql STABLE SECURITY DEFINER
     SET search_path TO 'public'
     AS $$
@@ -5091,7 +5091,7 @@ $$;
 -- Name: get_payment_summary(); Type: FUNCTION; Schema: public; Owner: -
 --
 
-CREATE FUNCTION public.get_payment_summary() RETURNS jsonb
+CREATE OR REPLACE FUNCTION public.get_payment_summary() RETURNS jsonb
     LANGUAGE sql STABLE SECURITY DEFINER
     SET search_path TO 'public'
     AS $$
@@ -5127,7 +5127,7 @@ $$;
 -- Name: get_stock_value_cogs_summary(uuid[]); Type: FUNCTION; Schema: public; Owner: -
 --
 
-CREATE FUNCTION public.get_stock_value_cogs_summary(p_brand_variant_ids uuid[] DEFAULT NULL::uuid[]) RETURNS TABLE(brand_variant_id uuid, sold_at_sale_total numeric, lc_adjustments_total numeric, lc_adjustment_count integer)
+CREATE OR REPLACE FUNCTION public.get_stock_value_cogs_summary(p_brand_variant_ids uuid[] DEFAULT NULL::uuid[]) RETURNS TABLE(brand_variant_id uuid, sold_at_sale_total numeric, lc_adjustments_total numeric, lc_adjustment_count integer)
     LANGUAGE sql STABLE SECURITY DEFINER
     SET search_path TO 'public'
     AS $$
@@ -5179,7 +5179,7 @@ $$;
 -- Name: get_team_leader_visits(uuid, date); Type: FUNCTION; Schema: public; Owner: -
 --
 
-CREATE FUNCTION public.get_team_leader_visits(p_team_id uuid, p_from_date date DEFAULT CURRENT_DATE) RETURNS TABLE(id uuid, date date, scheduled_time text, status text, type text, source_id uuid, source_type text, team_id uuid, customer_name text, customer_phone text, address text, waze_link text, services_json jsonb, team_ids uuid[], order_id text)
+CREATE OR REPLACE FUNCTION public.get_team_leader_visits(p_team_id uuid, p_from_date date DEFAULT CURRENT_DATE) RETURNS TABLE(id uuid, date date, scheduled_time text, status text, type text, source_id uuid, source_type text, team_id uuid, customer_name text, customer_phone text, address text, waze_link text, services_json jsonb, team_ids uuid[], order_id text)
     LANGUAGE plpgsql STABLE SECURITY DEFINER
     SET search_path TO 'public'
     AS $$
@@ -5286,7 +5286,7 @@ $$;
 -- Name: has_admin_permission(); Type: FUNCTION; Schema: public; Owner: -
 --
 
-CREATE FUNCTION public.has_admin_permission() RETURNS boolean
+CREATE OR REPLACE FUNCTION public.has_admin_permission() RETURNS boolean
     LANGUAGE sql STABLE SECURITY DEFINER
     SET search_path TO ''
     AS $$
@@ -5308,7 +5308,7 @@ $$;
 -- Name: has_inventory_manager_role(uuid); Type: FUNCTION; Schema: public; Owner: -
 --
 
-CREATE FUNCTION public.has_inventory_manager_role(p_profile_id uuid) RETURNS boolean
+CREATE OR REPLACE FUNCTION public.has_inventory_manager_role(p_profile_id uuid) RETURNS boolean
     LANGUAGE sql STABLE SECURITY DEFINER
     AS $$
   SELECT EXISTS (
@@ -5326,7 +5326,7 @@ $$;
 -- Name: is_contract_visible(uuid); Type: FUNCTION; Schema: public; Owner: -
 --
 
-CREATE FUNCTION public.is_contract_visible(p_contract_id uuid) RETURNS boolean
+CREATE OR REPLACE FUNCTION public.is_contract_visible(p_contract_id uuid) RETURNS boolean
     LANGUAGE sql STABLE SECURITY DEFINER
     SET search_path TO 'public'
     AS $$
@@ -5384,7 +5384,7 @@ $$;
 -- Name: is_division_visible(uuid); Type: FUNCTION; Schema: public; Owner: -
 --
 
-CREATE FUNCTION public.is_division_visible(row_division_id uuid) RETURNS boolean
+CREATE OR REPLACE FUNCTION public.is_division_visible(row_division_id uuid) RETURNS boolean
     LANGUAGE sql STABLE SECURITY DEFINER
     SET search_path TO 'public'
     AS $$
@@ -5404,7 +5404,7 @@ $$;
 -- Name: is_field_rp_of(uuid, uuid); Type: FUNCTION; Schema: public; Owner: -
 --
 
-CREATE FUNCTION public.is_field_rp_of(p_profile_id uuid, p_warehouse_id uuid) RETURNS boolean
+CREATE OR REPLACE FUNCTION public.is_field_rp_of(p_profile_id uuid, p_warehouse_id uuid) RETURNS boolean
     LANGUAGE sql STABLE SECURITY DEFINER
     AS $$
   SELECT EXISTS (
@@ -5418,7 +5418,7 @@ $$;
 -- Name: mark_overdue_invoices(); Type: FUNCTION; Schema: public; Owner: -
 --
 
-CREATE FUNCTION public.mark_overdue_invoices() RETURNS void
+CREATE OR REPLACE FUNCTION public.mark_overdue_invoices() RETURNS void
     LANGUAGE plpgsql SECURITY DEFINER
     SET search_path TO 'public'
     AS $$
@@ -5437,7 +5437,7 @@ $$;
 -- Name: next_follow_up_order_id(); Type: FUNCTION; Schema: public; Owner: -
 --
 
-CREATE FUNCTION public.next_follow_up_order_id() RETURNS text
+CREATE OR REPLACE FUNCTION public.next_follow_up_order_id() RETURNS text
     LANGUAGE plpgsql SECURITY DEFINER
     SET search_path TO 'public', 'pg_catalog'
     AS $$
@@ -5458,7 +5458,7 @@ $$;
 -- Name: next_follow_up_request_number(); Type: FUNCTION; Schema: public; Owner: -
 --
 
-CREATE FUNCTION public.next_follow_up_request_number() RETURNS text
+CREATE OR REPLACE FUNCTION public.next_follow_up_request_number() RETURNS text
     LANGUAGE plpgsql SECURITY DEFINER
     SET search_path TO 'public', 'pg_catalog'
     AS $$
@@ -5478,7 +5478,7 @@ $$;
 -- Name: notify_approvers_on_service_change(); Type: FUNCTION; Schema: public; Owner: -
 --
 
-CREATE FUNCTION public.notify_approvers_on_service_change() RETURNS trigger
+CREATE OR REPLACE FUNCTION public.notify_approvers_on_service_change() RETURNS trigger
     LANGUAGE plpgsql SECURITY DEFINER
     SET search_path TO 'public'
     AS $$
@@ -5532,7 +5532,7 @@ $$;
 -- Name: recalc_average_cost(uuid); Type: FUNCTION; Schema: public; Owner: -
 --
 
-CREATE FUNCTION public.recalc_average_cost(p_bv_id uuid) RETURNS void
+CREATE OR REPLACE FUNCTION public.recalc_average_cost(p_bv_id uuid) RETURNS void
     LANGUAGE plpgsql SECURITY DEFINER
     SET search_path TO 'public'
     AS $$
@@ -5562,7 +5562,7 @@ $$;
 -- Name: recalculate_ar_invoice_payment_status(uuid); Type: FUNCTION; Schema: public; Owner: -
 --
 
-CREATE FUNCTION public.recalculate_ar_invoice_payment_status(p_invoice_id uuid) RETURNS void
+CREATE OR REPLACE FUNCTION public.recalculate_ar_invoice_payment_status(p_invoice_id uuid) RETURNS void
     LANGUAGE plpgsql
     SET search_path TO 'public'
     AS $$
@@ -5602,7 +5602,7 @@ $$;
 -- Name: receive_transfer(uuid, uuid, text, jsonb); Type: FUNCTION; Schema: public; Owner: -
 --
 
-CREATE FUNCTION public.receive_transfer(p_transfer_id uuid, p_received_by_profile_id uuid, p_received_by_name text, p_received_items jsonb) RETURNS void
+CREATE OR REPLACE FUNCTION public.receive_transfer(p_transfer_id uuid, p_received_by_profile_id uuid, p_received_by_name text, p_received_items jsonb) RETURNS void
     LANGUAGE plpgsql SECURITY DEFINER
     AS $$
 DECLARE
@@ -5725,7 +5725,7 @@ $$;
 -- Name: refresh_po_status(uuid); Type: FUNCTION; Schema: public; Owner: -
 --
 
-CREATE FUNCTION public.refresh_po_status(p_po_id uuid) RETURNS void
+CREATE OR REPLACE FUNCTION public.refresh_po_status(p_po_id uuid) RETURNS void
     LANGUAGE plpgsql SECURITY DEFINER
     SET search_path TO 'public'
     AS $$
@@ -5800,7 +5800,7 @@ $$;
 -- Name: reject_service_change(uuid, text); Type: FUNCTION; Schema: public; Owner: -
 --
 
-CREATE FUNCTION public.reject_service_change(p_request_id uuid, p_reason text) RETURNS jsonb
+CREATE OR REPLACE FUNCTION public.reject_service_change(p_request_id uuid, p_reason text) RETURNS jsonb
     LANGUAGE plpgsql SECURITY DEFINER
     SET search_path TO 'public'
     AS $$
@@ -5843,7 +5843,7 @@ $$;
 -- Name: reject_transfer_v2(uuid, uuid, text); Type: FUNCTION; Schema: public; Owner: -
 --
 
-CREATE FUNCTION public.reject_transfer_v2(p_transfer_id uuid, p_rejected_by_profile_id uuid, p_rejected_by_name text) RETURNS void
+CREATE OR REPLACE FUNCTION public.reject_transfer_v2(p_transfer_id uuid, p_rejected_by_profile_id uuid, p_rejected_by_name text) RETURNS void
     LANGUAGE plpgsql SECURITY DEFINER
     AS $$
 DECLARE
@@ -5924,7 +5924,7 @@ $$;
 -- Name: replace_user_custom_roles(uuid, uuid[]); Type: FUNCTION; Schema: public; Owner: -
 --
 
-CREATE FUNCTION public.replace_user_custom_roles(p_user_id uuid, p_role_ids uuid[]) RETURNS void
+CREATE OR REPLACE FUNCTION public.replace_user_custom_roles(p_user_id uuid, p_role_ids uuid[]) RETURNS void
     LANGUAGE plpgsql SECURITY DEFINER
     SET search_path TO 'public'
     AS $$
@@ -5942,7 +5942,7 @@ $$;
 -- Name: replace_user_custom_roles_v2(uuid, jsonb); Type: FUNCTION; Schema: public; Owner: -
 --
 
-CREATE FUNCTION public.replace_user_custom_roles_v2(p_user_id uuid, p_assignments jsonb) RETURNS void
+CREATE OR REPLACE FUNCTION public.replace_user_custom_roles_v2(p_user_id uuid, p_assignments jsonb) RETURNS void
     LANGUAGE plpgsql SECURITY DEFINER
     SET search_path TO 'public'
     AS $$
@@ -5971,7 +5971,7 @@ $$;
 -- Name: replace_warehouse_field_rps(uuid, uuid[]); Type: FUNCTION; Schema: public; Owner: -
 --
 
-CREATE FUNCTION public.replace_warehouse_field_rps(p_warehouse_id uuid, p_profile_ids uuid[]) RETURNS void
+CREATE OR REPLACE FUNCTION public.replace_warehouse_field_rps(p_warehouse_id uuid, p_profile_ids uuid[]) RETURNS void
     LANGUAGE plpgsql SECURITY DEFINER
     AS $$
 BEGIN
@@ -5988,7 +5988,7 @@ $$;
 -- Name: revert_landed_cost(uuid); Type: FUNCTION; Schema: public; Owner: -
 --
 
-CREATE FUNCTION public.revert_landed_cost(p_lc_id uuid) RETURNS void
+CREATE OR REPLACE FUNCTION public.revert_landed_cost(p_lc_id uuid) RETURNS void
     LANGUAGE plpgsql SECURITY DEFINER
     SET search_path TO 'public'
     AS $$
@@ -6050,7 +6050,7 @@ $$;
 -- Name: revert_landed_cost(uuid, text); Type: FUNCTION; Schema: public; Owner: -
 --
 
-CREATE FUNCTION public.revert_landed_cost(p_lc_id uuid, p_performer_name text DEFAULT 'System'::text) RETURNS void
+CREATE OR REPLACE FUNCTION public.revert_landed_cost(p_lc_id uuid, p_performer_name text DEFAULT 'System'::text) RETURNS void
     LANGUAGE plpgsql SECURITY DEFINER
     SET search_path TO 'public'
     AS $$
@@ -6131,7 +6131,7 @@ $$;
 -- Name: rpc_cancel_po_return_dispatch(uuid); Type: FUNCTION; Schema: public; Owner: -
 --
 
-CREATE FUNCTION public.rpc_cancel_po_return_dispatch(p_return_id uuid) RETURNS void
+CREATE OR REPLACE FUNCTION public.rpc_cancel_po_return_dispatch(p_return_id uuid) RETURNS void
     LANGUAGE plpgsql SECURITY DEFINER
     SET search_path TO 'public'
     AS $$
@@ -6194,7 +6194,7 @@ $$;
 -- Name: rpc_process_po_return_dispatch(uuid); Type: FUNCTION; Schema: public; Owner: -
 --
 
-CREATE FUNCTION public.rpc_process_po_return_dispatch(p_return_id uuid) RETURNS void
+CREATE OR REPLACE FUNCTION public.rpc_process_po_return_dispatch(p_return_id uuid) RETURNS void
     LANGUAGE plpgsql SECURITY DEFINER
     SET search_path TO 'public'
     AS $$
@@ -6273,7 +6273,7 @@ $$;
 -- Name: rpc_process_return_restock(uuid); Type: FUNCTION; Schema: public; Owner: -
 --
 
-CREATE FUNCTION public.rpc_process_return_restock(p_return_id uuid) RETURNS void
+CREATE OR REPLACE FUNCTION public.rpc_process_return_restock(p_return_id uuid) RETURNS void
     LANGUAGE plpgsql SECURITY DEFINER
     SET search_path TO 'public'
     AS $$
@@ -6394,7 +6394,7 @@ CREATE TABLE IF NOT EXISTS public.employees (
 -- Name: save_employee(uuid, text, text, text, date, text, text, uuid[]); Type: FUNCTION; Schema: public; Owner: -
 --
 
-CREATE FUNCTION public.save_employee(p_employee_id uuid, p_name text, p_phone text, p_nationality text, p_join_date date, p_status text, p_avatar_url text, p_service_ids uuid[]) RETURNS public.employees
+CREATE OR REPLACE FUNCTION public.save_employee(p_employee_id uuid, p_name text, p_phone text, p_nationality text, p_join_date date, p_status text, p_avatar_url text, p_service_ids uuid[]) RETURNS public.employees
     LANGUAGE plpgsql SECURITY DEFINER
     AS $$
 DECLARE
@@ -6425,7 +6425,7 @@ $$;
 -- Name: save_employee(uuid, text, text, text, date, text, text, uuid[], uuid); Type: FUNCTION; Schema: public; Owner: -
 --
 
-CREATE FUNCTION public.save_employee(p_employee_id uuid, p_name text, p_phone text, p_nationality text, p_join_date date, p_status text, p_avatar_url text, p_service_ids uuid[], p_division_id uuid DEFAULT NULL::uuid) RETURNS public.employees
+CREATE OR REPLACE FUNCTION public.save_employee(p_employee_id uuid, p_name text, p_phone text, p_nationality text, p_join_date date, p_status text, p_avatar_url text, p_service_ids uuid[], p_division_id uuid DEFAULT NULL::uuid) RETURNS public.employees
     LANGUAGE plpgsql SECURITY DEFINER
     AS $$
 DECLARE
@@ -6457,7 +6457,7 @@ $$;
 -- Name: save_employee(uuid, text, text, text, date, text, boolean, boolean, text, uuid[]); Type: FUNCTION; Schema: public; Owner: -
 --
 
-CREATE FUNCTION public.save_employee(p_employee_id uuid, p_name text, p_phone text, p_nationality text, p_join_date date, p_status text, p_site_visit_order boolean, p_site_visit_quotation boolean, p_avatar_url text, p_service_ids uuid[]) RETURNS public.employees
+CREATE OR REPLACE FUNCTION public.save_employee(p_employee_id uuid, p_name text, p_phone text, p_nationality text, p_join_date date, p_status text, p_site_visit_order boolean, p_site_visit_quotation boolean, p_avatar_url text, p_service_ids uuid[]) RETURNS public.employees
     LANGUAGE plpgsql
     AS $$
 DECLARE
@@ -6490,7 +6490,7 @@ $$;
 -- Name: save_inventory_check_item_count(uuid, numeric, text); Type: FUNCTION; Schema: public; Owner: -
 --
 
-CREATE FUNCTION public.save_inventory_check_item_count(p_item_id uuid, p_counted_qty numeric, p_variance_type text) RETURNS void
+CREATE OR REPLACE FUNCTION public.save_inventory_check_item_count(p_item_id uuid, p_counted_qty numeric, p_variance_type text) RETURNS void
     LANGUAGE plpgsql SECURITY DEFINER
     AS $$
 BEGIN
@@ -6509,7 +6509,7 @@ $$;
 -- Name: save_quotation(text, uuid, text, text, numeric, text, date, timestamp with time zone, jsonb, text, numeric); Type: FUNCTION; Schema: public; Owner: -
 --
 
-CREATE FUNCTION public.save_quotation(p_quotation_id text, p_service_customer_id uuid, p_division text, p_status text, p_total_amount numeric, p_notes text, p_expiry_date date, p_sent_date timestamp with time zone, p_line_items jsonb, p_discount_type text DEFAULT 'flat'::text, p_discount_value numeric DEFAULT 0) RETURNS uuid
+CREATE OR REPLACE FUNCTION public.save_quotation(p_quotation_id text, p_service_customer_id uuid, p_division text, p_status text, p_total_amount numeric, p_notes text, p_expiry_date date, p_sent_date timestamp with time zone, p_line_items jsonb, p_discount_type text DEFAULT 'flat'::text, p_discount_value numeric DEFAULT 0) RETURNS uuid
     LANGUAGE plpgsql SECURITY DEFINER
     AS $$
 DECLARE
@@ -6569,7 +6569,7 @@ $$;
 -- Name: schedule_day_end(jsonb); Type: FUNCTION; Schema: public; Owner: -
 --
 
-CREATE FUNCTION public.schedule_day_end(days jsonb) RETURNS integer
+CREATE OR REPLACE FUNCTION public.schedule_day_end(days jsonb) RETURNS integer
     LANGUAGE sql IMMUTABLE
     AS $$
   SELECT COALESCE(
@@ -6592,7 +6592,7 @@ $$;
 -- Name: schedule_day_start(jsonb); Type: FUNCTION; Schema: public; Owner: -
 --
 
-CREATE FUNCTION public.schedule_day_start(days jsonb) RETURNS integer
+CREATE OR REPLACE FUNCTION public.schedule_day_start(days jsonb) RETURNS integer
     LANGUAGE sql IMMUTABLE
     AS $$
   SELECT COALESCE(
@@ -6609,7 +6609,7 @@ $$;
 -- Name: service_inventory_bulk_upsert(uuid[], uuid, text, numeric, integer); Type: FUNCTION; Schema: public; Owner: -
 --
 
-CREATE FUNCTION public.service_inventory_bulk_upsert(p_service_ids uuid[], p_brand_variant_id uuid, p_link_type text DEFAULT 'supply'::text, p_quantity numeric DEFAULT 1, p_warranty_months integer DEFAULT 0) RETURNS void
+CREATE OR REPLACE FUNCTION public.service_inventory_bulk_upsert(p_service_ids uuid[], p_brand_variant_id uuid, p_link_type text DEFAULT 'supply'::text, p_quantity numeric DEFAULT 1, p_warranty_months integer DEFAULT 0) RETURNS void
     LANGUAGE plpgsql SECURITY DEFINER
     SET search_path TO 'public'
     AS $$
@@ -6635,7 +6635,7 @@ $$;
 -- Name: set_service_customers_updated_at(); Type: FUNCTION; Schema: public; Owner: -
 --
 
-CREATE FUNCTION public.set_service_customers_updated_at() RETURNS trigger
+CREATE OR REPLACE FUNCTION public.set_service_customers_updated_at() RETURNS trigger
     LANGUAGE plpgsql
     AS $$
 BEGIN NEW.updated_at = now(); RETURN NEW; END;
@@ -6646,7 +6646,7 @@ $$;
 -- Name: set_updated_at(); Type: FUNCTION; Schema: public; Owner: -
 --
 
-CREATE FUNCTION public.set_updated_at() RETURNS trigger
+CREATE OR REPLACE FUNCTION public.set_updated_at() RETURNS trigger
     LANGUAGE plpgsql
     AS $$
 BEGIN
@@ -6660,7 +6660,7 @@ $$;
 -- Name: snapshot_inventory_check_system_qty(uuid); Type: FUNCTION; Schema: public; Owner: -
 --
 
-CREATE FUNCTION public.snapshot_inventory_check_system_qty(p_check_id uuid) RETURNS void
+CREATE OR REPLACE FUNCTION public.snapshot_inventory_check_system_qty(p_check_id uuid) RETURNS void
     LANGUAGE plpgsql SECURITY DEFINER
     SET search_path TO 'public'
     AS $$
@@ -6699,7 +6699,7 @@ $$;
 -- Name: storage_lc_bills_write_allowed(); Type: FUNCTION; Schema: public; Owner: -
 --
 
-CREATE FUNCTION public.storage_lc_bills_write_allowed() RETURNS boolean
+CREATE OR REPLACE FUNCTION public.storage_lc_bills_write_allowed() RETURNS boolean
     LANGUAGE sql SECURITY DEFINER
     SET search_path TO 'public', 'auth'
     AS $$
@@ -6723,7 +6723,7 @@ $$;
 -- Name: submit_service_change(jsonb); Type: FUNCTION; Schema: public; Owner: -
 --
 
-CREATE FUNCTION public.submit_service_change(p_payload jsonb) RETURNS jsonb
+CREATE OR REPLACE FUNCTION public.submit_service_change(p_payload jsonb) RETURNS jsonb
     LANGUAGE plpgsql SECURITY DEFINER
     SET search_path TO 'public'
     AS $$
@@ -6917,7 +6917,7 @@ $$;
 -- Name: swap_visit_team(uuid, uuid); Type: FUNCTION; Schema: public; Owner: -
 --
 
-CREATE FUNCTION public.swap_visit_team(p_assignment_id uuid, p_new_team_id uuid) RETURNS jsonb
+CREATE OR REPLACE FUNCTION public.swap_visit_team(p_assignment_id uuid, p_new_team_id uuid) RETURNS jsonb
     LANGUAGE plpgsql SECURITY DEFINER
     AS $_$
 DECLARE
@@ -7003,7 +7003,7 @@ COMMENT ON FUNCTION public.swap_visit_team(p_assignment_id uuid, p_new_team_id u
 -- Name: sync_service_pending_lock(); Type: FUNCTION; Schema: public; Owner: -
 --
 
-CREATE FUNCTION public.sync_service_pending_lock() RETURNS trigger
+CREATE OR REPLACE FUNCTION public.sync_service_pending_lock() RETURNS trigger
     LANGUAGE plpgsql
     AS $$
 DECLARE
@@ -7028,7 +7028,7 @@ $$;
 -- Name: sync_team_active_schedule(uuid); Type: FUNCTION; Schema: public; Owner: -
 --
 
-CREATE FUNCTION public.sync_team_active_schedule(p_team_id uuid) RETURNS void
+CREATE OR REPLACE FUNCTION public.sync_team_active_schedule(p_team_id uuid) RETURNS void
     LANGUAGE plpgsql
     AS $$
 DECLARE
@@ -7053,7 +7053,7 @@ $$;
 -- Name: toggle_workflow_step(uuid, boolean); Type: FUNCTION; Schema: public; Owner: -
 --
 
-CREATE FUNCTION public.toggle_workflow_step(p_step_id uuid, p_active boolean) RETURNS void
+CREATE OR REPLACE FUNCTION public.toggle_workflow_step(p_step_id uuid, p_active boolean) RETURNS void
     LANGUAGE plpgsql SECURITY DEFINER
     SET search_path TO 'public'
     AS $$
@@ -7073,7 +7073,7 @@ $$;
 -- Name: trg_fn_po_line_items_incoming(); Type: FUNCTION; Schema: public; Owner: -
 --
 
-CREATE FUNCTION public.trg_fn_po_line_items_incoming() RETURNS trigger
+CREATE OR REPLACE FUNCTION public.trg_fn_po_line_items_incoming() RETURNS trigger
     LANGUAGE plpgsql SECURITY DEFINER
     SET search_path TO 'public'
     AS $$
@@ -7106,7 +7106,7 @@ $$;
 -- Name: trg_fn_purchase_orders_incoming(); Type: FUNCTION; Schema: public; Owner: -
 --
 
-CREATE FUNCTION public.trg_fn_purchase_orders_incoming() RETURNS trigger
+CREATE OR REPLACE FUNCTION public.trg_fn_purchase_orders_incoming() RETURNS trigger
     LANGUAGE plpgsql SECURITY DEFINER
     SET search_path TO 'public'
     AS $$
@@ -7126,7 +7126,7 @@ $$;
 -- Name: trg_fn_so_reserved_qty(); Type: FUNCTION; Schema: public; Owner: -
 --
 
-CREATE FUNCTION public.trg_fn_so_reserved_qty() RETURNS trigger
+CREATE OR REPLACE FUNCTION public.trg_fn_so_reserved_qty() RETURNS trigger
     LANGUAGE plpgsql SECURITY DEFINER
     SET search_path TO 'public'
     AS $$
@@ -7146,7 +7146,7 @@ $$;
 -- Name: trg_fn_sol_reserved_qty(); Type: FUNCTION; Schema: public; Owner: -
 --
 
-CREATE FUNCTION public.trg_fn_sol_reserved_qty() RETURNS trigger
+CREATE OR REPLACE FUNCTION public.trg_fn_sol_reserved_qty() RETURNS trigger
     LANGUAGE plpgsql SECURITY DEFINER
     SET search_path TO 'public'
     AS $$
@@ -7179,7 +7179,7 @@ $$;
 -- Name: trg_recalc_ar_payment_status(); Type: FUNCTION; Schema: public; Owner: -
 --
 
-CREATE FUNCTION public.trg_recalc_ar_payment_status() RETURNS trigger
+CREATE OR REPLACE FUNCTION public.trg_recalc_ar_payment_status() RETURNS trigger
     LANGUAGE plpgsql
     SET search_path TO 'public'
     AS $$
@@ -7211,7 +7211,7 @@ $$;
 -- Name: update_pending_service_change(uuid, jsonb); Type: FUNCTION; Schema: public; Owner: -
 --
 
-CREATE FUNCTION public.update_pending_service_change(p_request_id uuid, p_new_changes jsonb) RETURNS jsonb
+CREATE OR REPLACE FUNCTION public.update_pending_service_change(p_request_id uuid, p_new_changes jsonb) RETURNS jsonb
     LANGUAGE plpgsql SECURITY DEFINER
     SET search_path TO 'public'
     AS $$
@@ -7247,7 +7247,7 @@ $$;
 -- Name: update_reserved_qty(uuid, integer); Type: FUNCTION; Schema: public; Owner: -
 --
 
-CREATE FUNCTION public.update_reserved_qty(p_bv_id uuid, p_delta integer) RETURNS void
+CREATE OR REPLACE FUNCTION public.update_reserved_qty(p_bv_id uuid, p_delta integer) RETURNS void
     LANGUAGE plpgsql SECURITY DEFINER
     SET search_path TO 'public'
     AS $$
@@ -7264,7 +7264,7 @@ $$;
 -- Name: update_tl_payment_batches_updated_at(); Type: FUNCTION; Schema: public; Owner: -
 --
 
-CREATE FUNCTION public.update_tl_payment_batches_updated_at() RETURNS trigger
+CREATE OR REPLACE FUNCTION public.update_tl_payment_batches_updated_at() RETURNS trigger
     LANGUAGE plpgsql
     AS $$
 BEGIN
@@ -7278,7 +7278,7 @@ $$;
 -- Name: update_workflow_step_role(uuid, uuid); Type: FUNCTION; Schema: public; Owner: -
 --
 
-CREATE FUNCTION public.update_workflow_step_role(p_step_id uuid, p_role_id uuid) RETURNS void
+CREATE OR REPLACE FUNCTION public.update_workflow_step_role(p_step_id uuid, p_role_id uuid) RETURNS void
     LANGUAGE plpgsql SECURITY DEFINER
     SET search_path TO 'public'
     AS $$
@@ -7312,7 +7312,7 @@ $$;
 -- Name: upsert_employee_services(uuid, uuid[]); Type: FUNCTION; Schema: public; Owner: -
 --
 
-CREATE FUNCTION public.upsert_employee_services(p_employee_id uuid, p_service_ids uuid[]) RETURNS void
+CREATE OR REPLACE FUNCTION public.upsert_employee_services(p_employee_id uuid, p_service_ids uuid[]) RETURNS void
     LANGUAGE plpgsql SECURITY DEFINER
     AS $$
 BEGIN
@@ -7329,7 +7329,7 @@ $$;
 -- Name: upsert_package_with_services(jsonb, jsonb); Type: FUNCTION; Schema: public; Owner: -
 --
 
-CREATE FUNCTION public.upsert_package_with_services(p_package jsonb, p_services jsonb) RETURNS uuid
+CREATE OR REPLACE FUNCTION public.upsert_package_with_services(p_package jsonb, p_services jsonb) RETURNS uuid
     LANGUAGE plpgsql SECURITY DEFINER
     SET search_path TO 'public'
     AS $$
@@ -7401,7 +7401,7 @@ $$;
 -- Name: user_can_action_adjustment_step(uuid, text, uuid); Type: FUNCTION; Schema: public; Owner: -
 --
 
-CREATE FUNCTION public.user_can_action_adjustment_step(p_profile_id uuid, p_step_role text, p_warehouse_id uuid) RETURNS boolean
+CREATE OR REPLACE FUNCTION public.user_can_action_adjustment_step(p_profile_id uuid, p_step_role text, p_warehouse_id uuid) RETURNS boolean
     LANGUAGE sql STABLE SECURITY DEFINER
     SET search_path TO 'public'
     AS $$
@@ -7444,7 +7444,7 @@ $$;
 -- Name: user_has_approval_role_in_scope(uuid, text[], text); Type: FUNCTION; Schema: public; Owner: -
 --
 
-CREATE FUNCTION public.user_has_approval_role_in_scope(p_profile_id uuid, p_role_names text[], p_scope text) RETURNS boolean
+CREATE OR REPLACE FUNCTION public.user_has_approval_role_in_scope(p_profile_id uuid, p_role_names text[], p_scope text) RETURNS boolean
     LANGUAGE sql STABLE SECURITY DEFINER
     SET search_path TO 'public'
     AS $$
@@ -7465,7 +7465,7 @@ $$;
 -- Name: validate_lc_allocation(uuid); Type: FUNCTION; Schema: public; Owner: -
 --
 
-CREATE FUNCTION public.validate_lc_allocation(p_lc_id uuid) RETURNS jsonb
+CREATE OR REPLACE FUNCTION public.validate_lc_allocation(p_lc_id uuid) RETURNS jsonb
     LANGUAGE plpgsql SECURITY DEFINER
     SET search_path TO 'public'
     AS $$
@@ -7523,7 +7523,7 @@ $$;
 -- Name: withdraw_service_change(uuid); Type: FUNCTION; Schema: public; Owner: -
 --
 
-CREATE FUNCTION public.withdraw_service_change(p_request_id uuid) RETURNS jsonb
+CREATE OR REPLACE FUNCTION public.withdraw_service_change(p_request_id uuid) RETURNS jsonb
     LANGUAGE plpgsql SECURITY DEFINER
     SET search_path TO 'public'
     AS $$
@@ -13692,329 +13692,329 @@ CREATE UNIQUE INDEX returns_return_number_unique ON public.returns USING btree (
 -- Name: payments payments_recalc_ar_status; Type: TRIGGER; Schema: public; Owner: -
 --
 
-CREATE TRIGGER payments_recalc_ar_status AFTER INSERT OR DELETE OR UPDATE OF amount, invoice_id, deleted_at ON public.payments FOR EACH ROW EXECUTE FUNCTION public.trg_recalc_ar_payment_status();
+CREATE OR REPLACE TRIGGER payments_recalc_ar_status AFTER INSERT OR DELETE OR UPDATE OF amount, invoice_id, deleted_at ON public.payments FOR EACH ROW EXECUTE FUNCTION public.trg_recalc_ar_payment_status();
 
 
 --
 -- Name: brand_groups set_brand_groups_updated_at; Type: TRIGGER; Schema: public; Owner: -
 --
 
-CREATE TRIGGER set_brand_groups_updated_at BEFORE UPDATE ON public.brand_groups FOR EACH ROW EXECUTE FUNCTION public.set_updated_at();
+CREATE OR REPLACE TRIGGER set_brand_groups_updated_at BEFORE UPDATE ON public.brand_groups FOR EACH ROW EXECUTE FUNCTION public.set_updated_at();
 
 
 --
 -- Name: brands set_brands_updated_at; Type: TRIGGER; Schema: public; Owner: -
 --
 
-CREATE TRIGGER set_brands_updated_at BEFORE UPDATE ON public.brands FOR EACH ROW EXECUTE FUNCTION public.set_updated_at();
+CREATE OR REPLACE TRIGGER set_brands_updated_at BEFORE UPDATE ON public.brands FOR EACH ROW EXECUTE FUNCTION public.set_updated_at();
 
 
 --
 -- Name: custom_roles set_custom_roles_updated_at; Type: TRIGGER; Schema: public; Owner: -
 --
 
-CREATE TRIGGER set_custom_roles_updated_at BEFORE UPDATE ON public.custom_roles FOR EACH ROW EXECUTE FUNCTION public.set_updated_at();
+CREATE OR REPLACE TRIGGER set_custom_roles_updated_at BEFORE UPDATE ON public.custom_roles FOR EACH ROW EXECUTE FUNCTION public.set_updated_at();
 
 
 --
 -- Name: inventory_check_items set_inventory_check_items_updated_at; Type: TRIGGER; Schema: public; Owner: -
 --
 
-CREATE TRIGGER set_inventory_check_items_updated_at BEFORE UPDATE ON public.inventory_check_items FOR EACH ROW EXECUTE FUNCTION public.set_updated_at();
+CREATE OR REPLACE TRIGGER set_inventory_check_items_updated_at BEFORE UPDATE ON public.inventory_check_items FOR EACH ROW EXECUTE FUNCTION public.set_updated_at();
 
 
 --
 -- Name: inventory_checks set_inventory_checks_updated_at; Type: TRIGGER; Schema: public; Owner: -
 --
 
-CREATE TRIGGER set_inventory_checks_updated_at BEFORE UPDATE ON public.inventory_checks FOR EACH ROW EXECUTE FUNCTION public.set_updated_at();
+CREATE OR REPLACE TRIGGER set_inventory_checks_updated_at BEFORE UPDATE ON public.inventory_checks FOR EACH ROW EXECUTE FUNCTION public.set_updated_at();
 
 
 --
 -- Name: payment_sessions set_payment_sessions_updated_at; Type: TRIGGER; Schema: public; Owner: -
 --
 
-CREATE TRIGGER set_payment_sessions_updated_at BEFORE UPDATE ON public.payment_sessions FOR EACH ROW EXECUTE FUNCTION public.set_updated_at();
+CREATE OR REPLACE TRIGGER set_payment_sessions_updated_at BEFORE UPDATE ON public.payment_sessions FOR EACH ROW EXECUTE FUNCTION public.set_updated_at();
 
 
 --
 -- Name: pricing_factors set_pricing_factors_updated_at; Type: TRIGGER; Schema: public; Owner: -
 --
 
-CREATE TRIGGER set_pricing_factors_updated_at BEFORE UPDATE ON public.pricing_factors FOR EACH ROW EXECUTE FUNCTION public.set_updated_at();
+CREATE OR REPLACE TRIGGER set_pricing_factors_updated_at BEFORE UPDATE ON public.pricing_factors FOR EACH ROW EXECUTE FUNCTION public.set_updated_at();
 
 
 --
 -- Name: stock_adjustments set_stock_adjustments_updated_at; Type: TRIGGER; Schema: public; Owner: -
 --
 
-CREATE TRIGGER set_stock_adjustments_updated_at BEFORE UPDATE ON public.stock_adjustments FOR EACH ROW EXECUTE FUNCTION public.set_updated_at();
+CREATE OR REPLACE TRIGGER set_stock_adjustments_updated_at BEFORE UPDATE ON public.stock_adjustments FOR EACH ROW EXECUTE FUNCTION public.set_updated_at();
 
 
 --
 -- Name: credit_groups set_updated_at_credit_groups; Type: TRIGGER; Schema: public; Owner: -
 --
 
-CREATE TRIGGER set_updated_at_credit_groups BEFORE UPDATE ON public.credit_groups FOR EACH ROW EXECUTE FUNCTION public.set_updated_at();
+CREATE OR REPLACE TRIGGER set_updated_at_credit_groups BEFORE UPDATE ON public.credit_groups FOR EACH ROW EXECUTE FUNCTION public.set_updated_at();
 
 
 --
 -- Name: sale_deliveries set_updated_at_sale_deliveries; Type: TRIGGER; Schema: public; Owner: -
 --
 
-CREATE TRIGGER set_updated_at_sale_deliveries BEFORE UPDATE ON public.sale_deliveries FOR EACH ROW EXECUTE FUNCTION public.set_updated_at();
+CREATE OR REPLACE TRIGGER set_updated_at_sale_deliveries BEFORE UPDATE ON public.sale_deliveries FOR EACH ROW EXECUTE FUNCTION public.set_updated_at();
 
 
 --
 -- Name: sale_orders set_updated_at_sale_orders; Type: TRIGGER; Schema: public; Owner: -
 --
 
-CREATE TRIGGER set_updated_at_sale_orders BEFORE UPDATE ON public.sale_orders FOR EACH ROW EXECUTE FUNCTION public.set_updated_at();
+CREATE OR REPLACE TRIGGER set_updated_at_sale_orders BEFORE UPDATE ON public.sale_orders FOR EACH ROW EXECUTE FUNCTION public.set_updated_at();
 
 
 --
 -- Name: warehouse_manager_log set_warehouse_manager_log_updated_at; Type: TRIGGER; Schema: public; Owner: -
 --
 
-CREATE TRIGGER set_warehouse_manager_log_updated_at BEFORE UPDATE ON public.warehouse_manager_log FOR EACH ROW EXECUTE FUNCTION public.set_updated_at();
+CREATE OR REPLACE TRIGGER set_warehouse_manager_log_updated_at BEFORE UPDATE ON public.warehouse_manager_log FOR EACH ROW EXECUTE FUNCTION public.set_updated_at();
 
 
 --
 -- Name: tl_invoices tl_invoice_number_trigger; Type: TRIGGER; Schema: public; Owner: -
 --
 
-CREATE TRIGGER tl_invoice_number_trigger BEFORE INSERT ON public.tl_invoices FOR EACH ROW EXECUTE FUNCTION public.generate_tl_invoice_number();
+CREATE OR REPLACE TRIGGER tl_invoice_number_trigger BEFORE INSERT ON public.tl_invoices FOR EACH ROW EXECUTE FUNCTION public.generate_tl_invoice_number();
 
 
 --
 -- Name: tl_invoices tl_invoices_set_updated_at; Type: TRIGGER; Schema: public; Owner: -
 --
 
-CREATE TRIGGER tl_invoices_set_updated_at BEFORE UPDATE ON public.tl_invoices FOR EACH ROW EXECUTE FUNCTION public.set_updated_at();
+CREATE OR REPLACE TRIGGER tl_invoices_set_updated_at BEFORE UPDATE ON public.tl_invoices FOR EACH ROW EXECUTE FUNCTION public.set_updated_at();
 
 
 --
 -- Name: tl_payment_batches tl_payment_batches_updated_at; Type: TRIGGER; Schema: public; Owner: -
 --
 
-CREATE TRIGGER tl_payment_batches_updated_at BEFORE UPDATE ON public.tl_payment_batches FOR EACH ROW EXECUTE FUNCTION public.update_tl_payment_batches_updated_at();
+CREATE OR REPLACE TRIGGER tl_payment_batches_updated_at BEFORE UPDATE ON public.tl_payment_batches FOR EACH ROW EXECUTE FUNCTION public.update_tl_payment_batches_updated_at();
 
 
 --
 -- Name: approval_requests trg_approval_requests_updated_at; Type: TRIGGER; Schema: public; Owner: -
 --
 
-CREATE TRIGGER trg_approval_requests_updated_at BEFORE UPDATE ON public.approval_requests FOR EACH ROW EXECUTE FUNCTION public.set_updated_at();
+CREATE OR REPLACE TRIGGER trg_approval_requests_updated_at BEFORE UPDATE ON public.approval_requests FOR EACH ROW EXECUTE FUNCTION public.set_updated_at();
 
 
 --
 -- Name: services trg_auto_reject_on_service_delete; Type: TRIGGER; Schema: public; Owner: -
 --
 
-CREATE TRIGGER trg_auto_reject_on_service_delete AFTER UPDATE OF deleted_at ON public.services FOR EACH ROW EXECUTE FUNCTION public.auto_reject_pending_on_service_delete();
+CREATE OR REPLACE TRIGGER trg_auto_reject_on_service_delete AFTER UPDATE OF deleted_at ON public.services FOR EACH ROW EXECUTE FUNCTION public.auto_reject_pending_on_service_delete();
 
 
 --
 -- Name: services trg_auto_service_code; Type: TRIGGER; Schema: public; Owner: -
 --
 
-CREATE TRIGGER trg_auto_service_code BEFORE INSERT ON public.services FOR EACH ROW EXECUTE FUNCTION public.generate_service_code();
+CREATE OR REPLACE TRIGGER trg_auto_service_code BEFORE INSERT ON public.services FOR EACH ROW EXECUTE FUNCTION public.generate_service_code();
 
 
 --
 -- Name: companies trg_companies_updated_at; Type: TRIGGER; Schema: public; Owner: -
 --
 
-CREATE TRIGGER trg_companies_updated_at BEFORE UPDATE ON public.companies FOR EACH ROW EXECUTE FUNCTION public.set_updated_at();
+CREATE OR REPLACE TRIGGER trg_companies_updated_at BEFORE UPDATE ON public.companies FOR EACH ROW EXECUTE FUNCTION public.set_updated_at();
 
 
 --
 -- Name: credit_notes trg_credit_notes_updated_at; Type: TRIGGER; Schema: public; Owner: -
 --
 
-CREATE TRIGGER trg_credit_notes_updated_at BEFORE UPDATE ON public.credit_notes FOR EACH ROW EXECUTE FUNCTION public.set_updated_at();
+CREATE OR REPLACE TRIGGER trg_credit_notes_updated_at BEFORE UPDATE ON public.credit_notes FOR EACH ROW EXECUTE FUNCTION public.set_updated_at();
 
 
 --
 -- Name: currencies trg_currencies_updated_at; Type: TRIGGER; Schema: public; Owner: -
 --
 
-CREATE TRIGGER trg_currencies_updated_at BEFORE UPDATE ON public.currencies FOR EACH ROW EXECUTE FUNCTION public.set_updated_at();
+CREATE OR REPLACE TRIGGER trg_currencies_updated_at BEFORE UPDATE ON public.currencies FOR EACH ROW EXECUTE FUNCTION public.set_updated_at();
 
 
 --
 -- Name: customer_subscriptions trg_customer_subscriptions_updated_at; Type: TRIGGER; Schema: public; Owner: -
 --
 
-CREATE TRIGGER trg_customer_subscriptions_updated_at BEFORE UPDATE ON public.customer_subscriptions FOR EACH ROW EXECUTE FUNCTION public.set_updated_at();
+CREATE OR REPLACE TRIGGER trg_customer_subscriptions_updated_at BEFORE UPDATE ON public.customer_subscriptions FOR EACH ROW EXECUTE FUNCTION public.set_updated_at();
 
 
 --
 -- Name: divisions trg_divisions_updated_at; Type: TRIGGER; Schema: public; Owner: -
 --
 
-CREATE TRIGGER trg_divisions_updated_at BEFORE UPDATE ON public.divisions FOR EACH ROW EXECUTE FUNCTION public.set_updated_at();
+CREATE OR REPLACE TRIGGER trg_divisions_updated_at BEFORE UPDATE ON public.divisions FOR EACH ROW EXECUTE FUNCTION public.set_updated_at();
 
 
 --
 -- Name: document_terms trg_document_terms_updated_at; Type: TRIGGER; Schema: public; Owner: -
 --
 
-CREATE TRIGGER trg_document_terms_updated_at BEFORE UPDATE ON public.document_terms FOR EACH ROW EXECUTE FUNCTION public.set_updated_at();
+CREATE OR REPLACE TRIGGER trg_document_terms_updated_at BEFORE UPDATE ON public.document_terms FOR EACH ROW EXECUTE FUNCTION public.set_updated_at();
 
 
 --
 -- Name: inventory_stock_movements trg_low_stock_notify; Type: TRIGGER; Schema: public; Owner: -
 --
 
-CREATE TRIGGER trg_low_stock_notify AFTER INSERT ON public.inventory_stock_movements FOR EACH ROW EXECUTE FUNCTION public.check_low_stock_and_notify();
+CREATE OR REPLACE TRIGGER trg_low_stock_notify AFTER INSERT ON public.inventory_stock_movements FOR EACH ROW EXECUTE FUNCTION public.check_low_stock_and_notify();
 
 
 --
 -- Name: notification_config trg_notification_config_updated_at; Type: TRIGGER; Schema: public; Owner: -
 --
 
-CREATE TRIGGER trg_notification_config_updated_at BEFORE UPDATE ON public.notification_config FOR EACH ROW EXECUTE FUNCTION public.set_updated_at();
+CREATE OR REPLACE TRIGGER trg_notification_config_updated_at BEFORE UPDATE ON public.notification_config FOR EACH ROW EXECUTE FUNCTION public.set_updated_at();
 
 
 --
 -- Name: notification_templates trg_notification_templates_updated_at; Type: TRIGGER; Schema: public; Owner: -
 --
 
-CREATE TRIGGER trg_notification_templates_updated_at BEFORE UPDATE ON public.notification_templates FOR EACH ROW EXECUTE FUNCTION public.set_updated_at();
+CREATE OR REPLACE TRIGGER trg_notification_templates_updated_at BEFORE UPDATE ON public.notification_templates FOR EACH ROW EXECUTE FUNCTION public.set_updated_at();
 
 
 --
 -- Name: service_change_requests trg_notify_approvers_on_service_change; Type: TRIGGER; Schema: public; Owner: -
 --
 
-CREATE TRIGGER trg_notify_approvers_on_service_change AFTER INSERT ON public.service_change_requests FOR EACH ROW EXECUTE FUNCTION public.notify_approvers_on_service_change();
+CREATE OR REPLACE TRIGGER trg_notify_approvers_on_service_change AFTER INSERT ON public.service_change_requests FOR EACH ROW EXECUTE FUNCTION public.notify_approvers_on_service_change();
 
 
 --
 -- Name: po_line_items trg_po_line_items_incoming; Type: TRIGGER; Schema: public; Owner: -
 --
 
-CREATE TRIGGER trg_po_line_items_incoming AFTER INSERT OR DELETE OR UPDATE ON public.po_line_items FOR EACH ROW EXECUTE FUNCTION public.trg_fn_po_line_items_incoming();
+CREATE OR REPLACE TRIGGER trg_po_line_items_incoming AFTER INSERT OR DELETE OR UPDATE ON public.po_line_items FOR EACH ROW EXECUTE FUNCTION public.trg_fn_po_line_items_incoming();
 
 
 --
 -- Name: profiles trg_profiles_updated_at; Type: TRIGGER; Schema: public; Owner: -
 --
 
-CREATE TRIGGER trg_profiles_updated_at BEFORE UPDATE ON public.profiles FOR EACH ROW EXECUTE FUNCTION public.set_updated_at();
+CREATE OR REPLACE TRIGGER trg_profiles_updated_at BEFORE UPDATE ON public.profiles FOR EACH ROW EXECUTE FUNCTION public.set_updated_at();
 
 
 --
 -- Name: purchase_orders trg_purchase_orders_incoming; Type: TRIGGER; Schema: public; Owner: -
 --
 
-CREATE TRIGGER trg_purchase_orders_incoming AFTER UPDATE OF status ON public.purchase_orders FOR EACH ROW EXECUTE FUNCTION public.trg_fn_purchase_orders_incoming();
+CREATE OR REPLACE TRIGGER trg_purchase_orders_incoming AFTER UPDATE OF status ON public.purchase_orders FOR EACH ROW EXECUTE FUNCTION public.trg_fn_purchase_orders_incoming();
 
 
 --
 -- Name: qb_division_mappings trg_qb_division_mappings_updated_at; Type: TRIGGER; Schema: public; Owner: -
 --
 
-CREATE TRIGGER trg_qb_division_mappings_updated_at BEFORE UPDATE ON public.qb_division_mappings FOR EACH ROW EXECUTE FUNCTION public.set_updated_at();
+CREATE OR REPLACE TRIGGER trg_qb_division_mappings_updated_at BEFORE UPDATE ON public.qb_division_mappings FOR EACH ROW EXECUTE FUNCTION public.set_updated_at();
 
 
 --
 -- Name: reason_lists trg_reason_lists_updated_at; Type: TRIGGER; Schema: public; Owner: -
 --
 
-CREATE TRIGGER trg_reason_lists_updated_at BEFORE UPDATE ON public.reason_lists FOR EACH ROW EXECUTE FUNCTION public.set_updated_at();
+CREATE OR REPLACE TRIGGER trg_reason_lists_updated_at BEFORE UPDATE ON public.reason_lists FOR EACH ROW EXECUTE FUNCTION public.set_updated_at();
 
 
 --
 -- Name: returns trg_returns_updated_at; Type: TRIGGER; Schema: public; Owner: -
 --
 
-CREATE TRIGGER trg_returns_updated_at BEFORE UPDATE ON public.returns FOR EACH ROW EXECUTE FUNCTION public.set_updated_at();
+CREATE OR REPLACE TRIGGER trg_returns_updated_at BEFORE UPDATE ON public.returns FOR EACH ROW EXECUTE FUNCTION public.set_updated_at();
 
 
 --
 -- Name: service_change_requests trg_scr_updated_at; Type: TRIGGER; Schema: public; Owner: -
 --
 
-CREATE TRIGGER trg_scr_updated_at BEFORE UPDATE ON public.service_change_requests FOR EACH ROW EXECUTE FUNCTION public.set_updated_at();
+CREATE OR REPLACE TRIGGER trg_scr_updated_at BEFORE UPDATE ON public.service_change_requests FOR EACH ROW EXECUTE FUNCTION public.set_updated_at();
 
 
 --
 -- Name: service_customers trg_service_customers_updated_at; Type: TRIGGER; Schema: public; Owner: -
 --
 
-CREATE TRIGGER trg_service_customers_updated_at BEFORE UPDATE ON public.service_customers FOR EACH ROW EXECUTE FUNCTION public.set_service_customers_updated_at();
+CREATE OR REPLACE TRIGGER trg_service_customers_updated_at BEFORE UPDATE ON public.service_customers FOR EACH ROW EXECUTE FUNCTION public.set_service_customers_updated_at();
 
 
 --
 -- Name: landed_costs trg_set_lc_number; Type: TRIGGER; Schema: public; Owner: -
 --
 
-CREATE TRIGGER trg_set_lc_number BEFORE INSERT ON public.landed_costs FOR EACH ROW EXECUTE FUNCTION public._set_lc_number();
+CREATE OR REPLACE TRIGGER trg_set_lc_number BEFORE INSERT ON public.landed_costs FOR EACH ROW EXECUTE FUNCTION public._set_lc_number();
 
 
 --
 -- Name: sale_orders trg_so_reserved_qty; Type: TRIGGER; Schema: public; Owner: -
 --
 
-CREATE TRIGGER trg_so_reserved_qty AFTER UPDATE OF status ON public.sale_orders FOR EACH ROW EXECUTE FUNCTION public.trg_fn_so_reserved_qty();
+CREATE OR REPLACE TRIGGER trg_so_reserved_qty AFTER UPDATE OF status ON public.sale_orders FOR EACH ROW EXECUTE FUNCTION public.trg_fn_so_reserved_qty();
 
 
 --
 -- Name: sale_order_lines trg_sol_reserved_qty; Type: TRIGGER; Schema: public; Owner: -
 --
 
-CREATE TRIGGER trg_sol_reserved_qty AFTER INSERT OR DELETE OR UPDATE ON public.sale_order_lines FOR EACH ROW EXECUTE FUNCTION public.trg_fn_sol_reserved_qty();
+CREATE OR REPLACE TRIGGER trg_sol_reserved_qty AFTER INSERT OR DELETE OR UPDATE ON public.sale_order_lines FOR EACH ROW EXECUTE FUNCTION public.trg_fn_sol_reserved_qty();
 
 
 --
 -- Name: subscription_packages trg_subscription_packages_updated_at; Type: TRIGGER; Schema: public; Owner: -
 --
 
-CREATE TRIGGER trg_subscription_packages_updated_at BEFORE UPDATE ON public.subscription_packages FOR EACH ROW EXECUTE FUNCTION public.set_updated_at();
+CREATE OR REPLACE TRIGGER trg_subscription_packages_updated_at BEFORE UPDATE ON public.subscription_packages FOR EACH ROW EXECUTE FUNCTION public.set_updated_at();
 
 
 --
 -- Name: suppliers trg_suppliers_updated_at; Type: TRIGGER; Schema: public; Owner: -
 --
 
-CREATE TRIGGER trg_suppliers_updated_at BEFORE UPDATE ON public.suppliers FOR EACH ROW EXECUTE FUNCTION public.set_updated_at();
+CREATE OR REPLACE TRIGGER trg_suppliers_updated_at BEFORE UPDATE ON public.suppliers FOR EACH ROW EXECUTE FUNCTION public.set_updated_at();
 
 
 --
 -- Name: service_change_requests trg_sync_service_pending; Type: TRIGGER; Schema: public; Owner: -
 --
 
-CREATE TRIGGER trg_sync_service_pending AFTER INSERT OR DELETE OR UPDATE OF status ON public.service_change_requests FOR EACH ROW EXECUTE FUNCTION public.sync_service_pending_lock();
+CREATE OR REPLACE TRIGGER trg_sync_service_pending AFTER INSERT OR DELETE OR UPDATE OF status ON public.service_change_requests FOR EACH ROW EXECUTE FUNCTION public.sync_service_pending_lock();
 
 
 --
 -- Name: sync_state trg_sync_state_updated_at; Type: TRIGGER; Schema: public; Owner: -
 --
 
-CREATE TRIGGER trg_sync_state_updated_at BEFORE UPDATE ON public.sync_state FOR EACH ROW EXECUTE FUNCTION public.set_updated_at();
+CREATE OR REPLACE TRIGGER trg_sync_state_updated_at BEFORE UPDATE ON public.sync_state FOR EACH ROW EXECUTE FUNCTION public.set_updated_at();
 
 
 --
 -- Name: service_inventory trg_update_linked_services_count; Type: TRIGGER; Schema: public; Owner: -
 --
 
-CREATE TRIGGER trg_update_linked_services_count AFTER INSERT OR DELETE ON public.service_inventory FOR EACH ROW EXECUTE FUNCTION public.fn_update_linked_services_count();
+CREATE OR REPLACE TRIGGER trg_update_linked_services_count AFTER INSERT OR DELETE ON public.service_inventory FOR EACH ROW EXECUTE FUNCTION public.fn_update_linked_services_count();
 
 
 --
 -- Name: fifo_cost_layers trg_warehouse_stats; Type: TRIGGER; Schema: public; Owner: -
 --
 
-CREATE TRIGGER trg_warehouse_stats AFTER INSERT OR DELETE OR UPDATE ON public.fifo_cost_layers FOR EACH ROW EXECUTE FUNCTION public.fn_refresh_warehouse_stats();
+CREATE OR REPLACE TRIGGER trg_warehouse_stats AFTER INSERT OR DELETE OR UPDATE ON public.fifo_cost_layers FOR EACH ROW EXECUTE FUNCTION public.fn_refresh_warehouse_stats();
 
 
 --
 -- Name: installed_products trigger_compute_warranty_expires_at; Type: TRIGGER; Schema: public; Owner: -
 --
 
-CREATE TRIGGER trigger_compute_warranty_expires_at BEFORE INSERT OR UPDATE ON public.installed_products FOR EACH ROW EXECUTE FUNCTION public.compute_warranty_expires_at();
+CREATE OR REPLACE TRIGGER trigger_compute_warranty_expires_at BEFORE INSERT OR UPDATE ON public.installed_products FOR EACH ROW EXECUTE FUNCTION public.compute_warranty_expires_at();
 
 
 --
@@ -19893,7 +19893,7 @@ DROP FUNCTION IF EXISTS public.create_order_with_dates(
   jsonb, jsonb, jsonb, jsonb, uuid
 );
 
-CREATE FUNCTION public.create_order_with_dates(
+CREATE OR REPLACE FUNCTION public.create_order_with_dates(
   p_order_id text,
   p_service_customer_id uuid,
   p_type text,
@@ -20015,7 +20015,7 @@ DROP FUNCTION IF EXISTS public.create_site_visit(
   text, uuid, text, text, date, text, text, text, jsonb, jsonb, jsonb
 );
 
-CREATE FUNCTION public.create_site_visit(
+CREATE OR REPLACE FUNCTION public.create_site_visit(
   p_visit_id text,
   p_service_customer_id uuid,
   p_status text,
@@ -20290,8 +20290,8 @@ ALTER POLICY "Internal users can manage quotations"
   ON public.order_quotations
   RENAME TO "Internal users can manage order_quotations";
 
--- ── Recreate functions against the new names ──────────────────────────────
-CREATE FUNCTION public.generate_order_quotation_id() RETURNS text
+-- ── ReCREATE OR REPLACE FUNCTIONs against the new names ──────────────────────────────
+CREATE OR REPLACE FUNCTION public.generate_order_quotation_id() RETURNS text
   LANGUAGE plpgsql
   AS $$
 DECLARE
@@ -20303,7 +20303,7 @@ BEGIN
 END;
 $$;
 
-CREATE FUNCTION public.save_order_quotation(
+CREATE OR REPLACE FUNCTION public.save_order_quotation(
   p_quotation_id        text,
   p_service_customer_id uuid,
   p_division            text,
@@ -21005,7 +21005,7 @@ END;
 $$;
 
 DROP TRIGGER IF EXISTS trg_approval_requests_decided_at ON public.approval_requests;
-CREATE TRIGGER trg_approval_requests_decided_at
+CREATE OR REPLACE TRIGGER trg_approval_requests_decided_at
   BEFORE UPDATE ON public.approval_requests
   FOR EACH ROW EXECUTE FUNCTION public.set_approval_request_decided_at();
 
@@ -21030,7 +21030,7 @@ CREATE INDEX IF NOT EXISTS approval_requests_source_idx
 -- (BEGIN removed — outer transaction)
 DROP FUNCTION IF EXISTS public.create_sale_order(uuid, text, text, numeric, date, text, text, jsonb, text, text, text, integer, numeric, text, text, jsonb, uuid);
 
-CREATE FUNCTION public.create_sale_order(
+CREATE OR REPLACE FUNCTION public.create_sale_order(
   p_customer_id          uuid,
   p_intent               text,
   p_currency             text,
@@ -22528,31 +22528,31 @@ $$;
 -- ── 4. Triggers ─────────────────────────────────────────────────────────────
 
 DROP TRIGGER IF EXISTS sale_orders_invalidate_pdf_cache  ON public.sale_orders;
-CREATE TRIGGER       sale_orders_invalidate_pdf_cache
+CREATE OR REPLACE TRIGGER       sale_orders_invalidate_pdf_cache
   BEFORE UPDATE ON public.sale_orders
   FOR EACH ROW
   EXECUTE FUNCTION public.sale_orders_invalidate_pdf_cache_fn();
 
 DROP TRIGGER IF EXISTS invoices_invalidate_pdf_cache  ON public.invoices;
-CREATE TRIGGER       invoices_invalidate_pdf_cache
+CREATE OR REPLACE TRIGGER       invoices_invalidate_pdf_cache
   BEFORE UPDATE ON public.invoices
   FOR EACH ROW
   EXECUTE FUNCTION public.invoices_invalidate_pdf_cache_fn();
 
 DROP TRIGGER IF EXISTS credit_notes_invalidate_pdf_cache  ON public.credit_notes;
-CREATE TRIGGER       credit_notes_invalidate_pdf_cache
+CREATE OR REPLACE TRIGGER       credit_notes_invalidate_pdf_cache
   BEFORE UPDATE ON public.credit_notes
   FOR EACH ROW
   EXECUTE FUNCTION public.credit_notes_invalidate_pdf_cache_fn();
 
 DROP TRIGGER IF EXISTS sale_order_lines_cascade_pdf_invalidation  ON public.sale_order_lines;
-CREATE TRIGGER       sale_order_lines_cascade_pdf_invalidation
+CREATE OR REPLACE TRIGGER       sale_order_lines_cascade_pdf_invalidation
   AFTER INSERT OR UPDATE OR DELETE ON public.sale_order_lines
   FOR EACH ROW
   EXECUTE FUNCTION public.sale_order_lines_invalidate_parent_pdf_fn();
 
 DROP TRIGGER IF EXISTS invoice_line_items_cascade_pdf_invalidation  ON public.invoice_line_items;
-CREATE TRIGGER       invoice_line_items_cascade_pdf_invalidation
+CREATE OR REPLACE TRIGGER       invoice_line_items_cascade_pdf_invalidation
   AFTER INSERT OR UPDATE OR DELETE ON public.invoice_line_items
   FOR EACH ROW
   EXECUTE FUNCTION public.invoice_line_items_invalidate_parent_pdf_fn();
@@ -23050,7 +23050,7 @@ END;
 $$;
 
 DROP TRIGGER IF EXISTS trg_log_sales_approval_decision ON public.approval_requests;
-CREATE TRIGGER       trg_log_sales_approval_decision
+CREATE OR REPLACE TRIGGER       trg_log_sales_approval_decision
   AFTER UPDATE ON public.approval_requests
   FOR EACH ROW
   EXECUTE FUNCTION public.log_sales_approval_decision();
@@ -23336,7 +23336,7 @@ END;
 $$;
 
 DROP TRIGGER IF EXISTS trg_payments_redirect_to_invoice ON public.payments;
-CREATE TRIGGER       trg_payments_redirect_to_invoice
+CREATE OR REPLACE TRIGGER       trg_payments_redirect_to_invoice
   BEFORE INSERT ON public.payments
   FOR EACH ROW
   EXECUTE FUNCTION public.payments_redirect_to_invoice_fn();
@@ -23404,7 +23404,7 @@ END;
 $$;
 
 DROP TRIGGER IF EXISTS trg_invoice_recompute_paid ON public.payments;
-CREATE TRIGGER       trg_invoice_recompute_paid
+CREATE OR REPLACE TRIGGER       trg_invoice_recompute_paid
   AFTER INSERT OR UPDATE OR DELETE ON public.payments
   FOR EACH ROW
   EXECUTE FUNCTION public.invoice_recompute_paid_fn();
@@ -23498,7 +23498,7 @@ END;
 $$;
 
 DROP TRIGGER IF EXISTS trg_payments_sync_invoice_id ON public.payments;
-CREATE TRIGGER       trg_payments_sync_invoice_id
+CREATE OR REPLACE TRIGGER       trg_payments_sync_invoice_id
   BEFORE INSERT OR UPDATE ON public.payments
   FOR EACH ROW
   EXECUTE FUNCTION public.payments_sync_invoice_id_fn();
@@ -24018,7 +24018,7 @@ $$;
 
 -- Trigger definition unchanged; re-pointing to the updated function is enough.
 DROP TRIGGER IF EXISTS trg_invoice_recompute_paid ON public.payments;
-CREATE TRIGGER       trg_invoice_recompute_paid
+CREATE OR REPLACE TRIGGER       trg_invoice_recompute_paid
   AFTER INSERT OR UPDATE OR DELETE ON public.payments
   FOR EACH ROW
   EXECUTE FUNCTION public.invoice_recompute_paid_fn();
@@ -24192,13 +24192,13 @@ END;
 $$;
 
 DROP TRIGGER IF EXISTS trg_approval_requests_decided_at ON public.sale_order_approvals;
-CREATE TRIGGER trg_approval_requests_decided_at
+CREATE OR REPLACE TRIGGER trg_approval_requests_decided_at
   BEFORE UPDATE ON public.sale_order_approvals
   FOR EACH ROW EXECUTE FUNCTION public.set_approval_request_decided_at();
 
 -- The generic updated_at trigger was attached to the old name; reattach.
 DROP TRIGGER IF EXISTS trg_approval_requests_updated_at ON public.sale_order_approvals;
-CREATE TRIGGER trg_approval_requests_updated_at
+CREATE OR REPLACE TRIGGER trg_approval_requests_updated_at
   BEFORE UPDATE ON public.sale_order_approvals
   FOR EACH ROW EXECUTE FUNCTION public.set_updated_at();
 
@@ -24558,7 +24558,7 @@ END;
 $$;
 
 DROP TRIGGER IF EXISTS trg_log_sales_approval_decision ON public.sale_order_approvals;
-CREATE TRIGGER trg_log_sales_approval_decision
+CREATE OR REPLACE TRIGGER trg_log_sales_approval_decision
   AFTER UPDATE ON public.sale_order_approvals
   FOR EACH ROW
   EXECUTE FUNCTION public.log_sales_approval_decision();
@@ -25781,7 +25781,7 @@ END;
 $$;
 
 DROP TRIGGER IF EXISTS trg_reason_lists_category_must_exist ON public.reason_lists;
-CREATE TRIGGER trg_reason_lists_category_must_exist
+CREATE OR REPLACE TRIGGER trg_reason_lists_category_must_exist
   BEFORE INSERT OR UPDATE OF category ON public.reason_lists
   FOR EACH ROW
   EXECUTE FUNCTION public.reason_lists_category_must_exist();
@@ -25811,7 +25811,7 @@ END;
 $$;
 
 DROP TRIGGER IF EXISTS trg_reason_list_categories_no_orphan_delete ON public.reason_list_categories;
-CREATE TRIGGER trg_reason_list_categories_no_orphan_delete
+CREATE OR REPLACE TRIGGER trg_reason_list_categories_no_orphan_delete
   BEFORE DELETE ON public.reason_list_categories
   FOR EACH ROW
   EXECUTE FUNCTION public.reason_list_categories_no_orphan_delete();
@@ -25870,7 +25870,7 @@ CREATE POLICY "Authenticated can read credit-group requests"
 GRANT SELECT ON public.customer_credit_group_requests TO authenticated, service_role;
 
 DROP TRIGGER IF EXISTS trg_ccgr_updated_at ON public.customer_credit_group_requests;
-CREATE TRIGGER trg_ccgr_updated_at
+CREATE OR REPLACE TRIGGER trg_ccgr_updated_at
   BEFORE UPDATE ON public.customer_credit_group_requests
   FOR EACH ROW EXECUTE FUNCTION public.set_updated_at();
 
@@ -28575,7 +28575,7 @@ END;
 $$;
 
 DROP TRIGGER IF EXISTS purchase_orders_invalidate_pdf_cache ON public.purchase_orders;
-CREATE TRIGGER purchase_orders_invalidate_pdf_cache
+CREATE OR REPLACE TRIGGER purchase_orders_invalidate_pdf_cache
   BEFORE UPDATE ON public.purchase_orders
   FOR EACH ROW
   EXECUTE FUNCTION public.purchase_orders_invalidate_pdf_cache_fn();
@@ -28600,7 +28600,7 @@ END;
 $$;
 
 DROP TRIGGER IF EXISTS po_line_items_cascade_pdf_invalidation ON public.po_line_items;
-CREATE TRIGGER po_line_items_cascade_pdf_invalidation
+CREATE OR REPLACE TRIGGER po_line_items_cascade_pdf_invalidation
   AFTER INSERT OR UPDATE OR DELETE ON public.po_line_items
   FOR EACH ROW
   EXECUTE FUNCTION public.po_line_items_invalidate_parent_pdf_fn();
@@ -28805,7 +28805,7 @@ END;
 $$;
 
 DROP TRIGGER IF EXISTS receivals_invalidate_check_pdf ON public.receivals;
-CREATE TRIGGER receivals_invalidate_check_pdf
+CREATE OR REPLACE TRIGGER receivals_invalidate_check_pdf
   BEFORE UPDATE ON public.receivals
   FOR EACH ROW EXECUTE FUNCTION public.receivals_invalidate_check_pdf_fn();
 
@@ -28825,7 +28825,7 @@ END;
 $$;
 
 DROP TRIGGER IF EXISTS receival_items_cascade_check_pdf_invalidation ON public.receival_items;
-CREATE TRIGGER receival_items_cascade_check_pdf_invalidation
+CREATE OR REPLACE TRIGGER receival_items_cascade_check_pdf_invalidation
   AFTER INSERT OR UPDATE OR DELETE ON public.receival_items
   FOR EACH ROW EXECUTE FUNCTION public.receival_items_invalidate_parent_pdf_fn();
 
@@ -29038,7 +29038,7 @@ END;
 $$;
 
 -- 3. Trigger on INSERT and UPDATE
-CREATE TRIGGER trg_auto_brand_variant_sku
+CREATE OR REPLACE TRIGGER trg_auto_brand_variant_sku
   BEFORE INSERT OR UPDATE ON public.inventory_brand_variants
   FOR EACH ROW
   EXECUTE FUNCTION public.generate_brand_variant_sku();
@@ -31373,7 +31373,7 @@ REVOKE ALL ON FUNCTION public.bootstrap_first_user() FROM PUBLIC;
 -- Drop any prior version of the trigger before recreating.
 DROP TRIGGER IF EXISTS bootstrap_first_user_trg ON auth.users;
 
-CREATE TRIGGER bootstrap_first_user_trg
+CREATE OR REPLACE TRIGGER bootstrap_first_user_trg
 AFTER INSERT ON auth.users
 FOR EACH ROW
 EXECUTE FUNCTION public.bootstrap_first_user();
