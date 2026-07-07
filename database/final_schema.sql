@@ -1,7 +1,7 @@
 -- ==========================================================================
 -- AUTO-GENERATED: database/final_schema.sql
 -- Source: supabase/migrations/*.sql (concatenated + patched)
--- Generated: 2026-07-07T09:06:07.149Z
+-- Generated: 2026-07-07T09:08:23.151Z
 -- Safe to re-run: uses IF NOT EXISTS / CREATE OR REPLACE / DROP … IF EXISTS
 -- ==========================================================================
 
@@ -31409,4 +31409,160 @@ FROM public.payment_methods pm
 WHERE pm.slug IN ('cash', 'pos')
 ON CONFLICT DO NOTHING;
 -- (COMMIT removed — outer transaction)
+-- === BACKFILLED GRANTS (functions that were missing GRANT EXECUTE) ===
+-- 149 functions backfilled
+
+GRANT EXECUTE ON FUNCTION public._set_lc_number TO authenticated;
+GRANT EXECUTE ON FUNCTION public._user_has_permission TO authenticated;
+GRANT EXECUTE ON FUNCTION public.action_stock_adjustment_step TO authenticated;
+GRANT EXECUTE ON FUNCTION public.add_workflow_step TO authenticated;
+GRANT EXECUTE ON FUNCTION public.add_workflow_step_for_role TO authenticated;
+GRANT EXECUTE ON FUNCTION public.advance_po_approval_tier TO authenticated;
+GRANT EXECUTE ON FUNCTION public.advance_sales_approval TO authenticated;
+GRANT EXECUTE ON FUNCTION public.allocate_landed_cost TO authenticated;
+GRANT EXECUTE ON FUNCTION public.allocate_payment_to_bill TO authenticated;
+GRANT EXECUTE ON FUNCTION public.allocate_warehouse_stock TO authenticated;
+GRANT EXECUTE ON FUNCTION public.append_shipment_events TO authenticated;
+GRANT EXECUTE ON FUNCTION public.apply_inventory_check_adjustments TO authenticated;
+GRANT EXECUTE ON FUNCTION public.apply_receival_edit TO authenticated;
+GRANT EXECUTE ON FUNCTION public.approve_receival_inventory TO authenticated;
+GRANT EXECUTE ON FUNCTION public.approve_sales_request TO authenticated;
+GRANT EXECUTE ON FUNCTION public.approve_service_change TO authenticated;
+GRANT EXECUTE ON FUNCTION public.approve_stock_adjustment_inventory TO authenticated;
+GRANT EXECUTE ON FUNCTION public.approve_warehouse_transfer_inventory TO authenticated;
+GRANT EXECUTE ON FUNCTION public.archive_workflow_step TO authenticated;
+GRANT EXECUTE ON FUNCTION public.assign_team_leader TO authenticated;
+GRANT EXECUTE ON FUNCTION public.attach_payment_to_bill TO authenticated;
+GRANT EXECUTE ON FUNCTION public.attach_payment_to_invoice TO authenticated;
+GRANT EXECUTE ON FUNCTION public.auto_reject_pending_on_service_delete TO authenticated;
+GRANT EXECUTE ON FUNCTION public.backfill_conversation_last_messages TO authenticated;
+GRANT EXECUTE ON FUNCTION public.batch_increment_received_qty TO authenticated;
+GRANT EXECUTE ON FUNCTION public.batch_update_reserved_qty TO authenticated;
+GRANT EXECUTE ON FUNCTION public.batch_update_variant_prices TO authenticated;
+GRANT EXECUTE ON FUNCTION public.bootstrap_first_user TO authenticated;
+GRANT EXECUTE ON FUNCTION public.build_inv_check_approval_chain TO authenticated;
+GRANT EXECUTE ON FUNCTION public.build_sales_approval_chain TO authenticated;
+GRANT EXECUTE ON FUNCTION public.cancel_delivery_inventory TO authenticated;
+GRANT EXECUTE ON FUNCTION public.cancel_transfer TO authenticated;
+GRANT EXECUTE ON FUNCTION public.check_is_division_manager TO authenticated;
+GRANT EXECUTE ON FUNCTION public.check_low_stock_and_notify TO authenticated;
+GRANT EXECUTE ON FUNCTION public.claim_media_jobs TO authenticated;
+GRANT EXECUTE ON FUNCTION public.compute_warranty_expires_at TO authenticated;
+GRANT EXECUTE ON FUNCTION public.create_and_approve_receival TO authenticated;
+GRANT EXECUTE ON FUNCTION public.create_and_confirm_delivery TO authenticated;
+GRANT EXECUTE ON FUNCTION public.create_customer_with_phone TO authenticated;
+GRANT EXECUTE ON FUNCTION public.create_landed_cost TO authenticated;
+GRANT EXECUTE ON FUNCTION public.create_order_with_dates TO authenticated;
+GRANT EXECUTE ON FUNCTION public.create_sale_order TO authenticated;
+GRANT EXECUTE ON FUNCTION public.create_service_customer TO authenticated;
+GRANT EXECUTE ON FUNCTION public.create_site_visit TO authenticated;
+GRANT EXECUTE ON FUNCTION public.create_stock_adjustment_v2 TO authenticated;
+GRANT EXECUTE ON FUNCTION public.create_transfer_v2 TO authenticated;
+GRANT EXECUTE ON FUNCTION public.credit_notes_invalidate_pdf_cache_fn TO authenticated;
+GRANT EXECUTE ON FUNCTION public.custom_access_token_hook TO authenticated;
+GRANT EXECUTE ON FUNCTION public.deduct_fifo_layers TO authenticated;
+GRANT EXECUTE ON FUNCTION public.detach_payment_from_invoice TO authenticated;
+GRANT EXECUTE ON FUNCTION public.dispatch_transfer TO authenticated;
+GRANT EXECUTE ON FUNCTION public.fn_refresh_incoming_qty TO authenticated;
+GRANT EXECUTE ON FUNCTION public.fn_refresh_reserved_qty TO authenticated;
+GRANT EXECUTE ON FUNCTION public.fn_refresh_warehouse_stats TO authenticated;
+GRANT EXECUTE ON FUNCTION public.fn_update_linked_services_count TO authenticated;
+GRANT EXECUTE ON FUNCTION public.generate_brand_variant_sku TO authenticated;
+GRANT EXECUTE ON FUNCTION public.generate_check_number TO authenticated;
+GRANT EXECUTE ON FUNCTION public.generate_contract_id TO authenticated;
+GRANT EXECUTE ON FUNCTION public.generate_invoice_from_so TO authenticated;
+GRANT EXECUTE ON FUNCTION public.generate_order_quotation_id TO authenticated;
+GRANT EXECUTE ON FUNCTION public.generate_quotation_id TO authenticated;
+GRANT EXECUTE ON FUNCTION public.generate_quotation_number TO authenticated;
+GRANT EXECUTE ON FUNCTION public.generate_service_code TO authenticated;
+GRANT EXECUTE ON FUNCTION public.generate_tl_invoice_number TO authenticated;
+GRANT EXECUTE ON FUNCTION public.generate_transfer_number TO authenticated;
+GRANT EXECUTE ON FUNCTION public.get_cogs_breakdown TO authenticated;
+GRANT EXECUTE ON FUNCTION public.get_customer_pending_balances TO authenticated;
+GRANT EXECUTE ON FUNCTION public.get_date_team_availability TO authenticated;
+GRANT EXECUTE ON FUNCTION public.get_dead_stock_report TO authenticated;
+GRANT EXECUTE ON FUNCTION public.get_invoice_summary TO authenticated;
+GRANT EXECUTE ON FUNCTION public.get_payment_summary TO authenticated;
+GRANT EXECUTE ON FUNCTION public.get_stock_value_cogs_summary TO authenticated;
+GRANT EXECUTE ON FUNCTION public.get_team_leader_visits TO authenticated;
+GRANT EXECUTE ON FUNCTION public.has_admin_permission TO authenticated;
+GRANT EXECUTE ON FUNCTION public.has_inventory_manager_role TO authenticated;
+GRANT EXECUTE ON FUNCTION public.increment_credit_balance TO authenticated;
+GRANT EXECUTE ON FUNCTION public.invoice_line_items_invalidate_parent_pdf_fn TO authenticated;
+GRANT EXECUTE ON FUNCTION public.invoice_recompute_paid_fn TO authenticated;
+GRANT EXECUTE ON FUNCTION public.invoices_invalidate_pdf_cache_fn TO authenticated;
+GRANT EXECUTE ON FUNCTION public.is_contract_visible TO authenticated;
+GRANT EXECUTE ON FUNCTION public.is_division_visible TO authenticated;
+GRANT EXECUTE ON FUNCTION public.is_field_rp_of TO authenticated;
+GRANT EXECUTE ON FUNCTION public.log_sales_approval_decision TO authenticated;
+GRANT EXECUTE ON FUNCTION public.mark_overdue_invoices TO authenticated;
+GRANT EXECUTE ON FUNCTION public.next_follow_up_order_id TO authenticated;
+GRANT EXECUTE ON FUNCTION public.next_follow_up_request_number TO authenticated;
+GRANT EXECUTE ON FUNCTION public.notify_approvers_on_service_change TO authenticated;
+GRANT EXECUTE ON FUNCTION public.payments_redirect_to_invoice_fn TO authenticated;
+GRANT EXECUTE ON FUNCTION public.payments_sync_invoice_id_fn TO authenticated;
+GRANT EXECUTE ON FUNCTION public.po_line_items_invalidate_parent_pdf_fn TO authenticated;
+GRANT EXECUTE ON FUNCTION public.purchase_orders_invalidate_pdf_cache_fn TO authenticated;
+GRANT EXECUTE ON FUNCTION public.reason_list_categories_no_orphan_delete TO authenticated;
+GRANT EXECUTE ON FUNCTION public.reason_lists_category_must_exist TO authenticated;
+GRANT EXECUTE ON FUNCTION public.recalc_average_cost TO authenticated;
+GRANT EXECUTE ON FUNCTION public.recalculate_ar_invoice_payment_status TO authenticated;
+GRANT EXECUTE ON FUNCTION public.receival_items_invalidate_parent_pdf_fn TO authenticated;
+GRANT EXECUTE ON FUNCTION public.receivals_invalidate_check_pdf_fn TO authenticated;
+GRANT EXECUTE ON FUNCTION public.receive_transfer TO authenticated;
+GRANT EXECUTE ON FUNCTION public.refresh_po_status TO authenticated;
+GRANT EXECUTE ON FUNCTION public.reject_sales_request TO authenticated;
+GRANT EXECUTE ON FUNCTION public.reject_service_change TO authenticated;
+GRANT EXECUTE ON FUNCTION public.reject_transfer_v2 TO authenticated;
+GRANT EXECUTE ON FUNCTION public.rename_payment_method TO authenticated;
+GRANT EXECUTE ON FUNCTION public.replace_user_custom_roles TO authenticated;
+GRANT EXECUTE ON FUNCTION public.replace_warehouse_field_rps TO authenticated;
+GRANT EXECUTE ON FUNCTION public.resubmit_sale_order TO authenticated;
+GRANT EXECUTE ON FUNCTION public.revert_landed_cost TO authenticated;
+GRANT EXECUTE ON FUNCTION public.rpc_cancel_po_return_dispatch TO authenticated;
+GRANT EXECUTE ON FUNCTION public.rpc_customer_statement TO authenticated;
+GRANT EXECUTE ON FUNCTION public.rpc_customer_statement_v2 TO authenticated;
+GRANT EXECUTE ON FUNCTION public.rpc_financial_dashboard TO authenticated;
+GRANT EXECUTE ON FUNCTION public.rpc_purchase_aging_report TO authenticated;
+GRANT EXECUTE ON FUNCTION public.rpc_sales_aging_report TO authenticated;
+GRANT EXECUTE ON FUNCTION public.sale_order_lines_invalidate_parent_pdf_fn TO authenticated;
+GRANT EXECUTE ON FUNCTION public.sale_orders_invalidate_pdf_cache_fn TO authenticated;
+GRANT EXECUTE ON FUNCTION public.save_employee TO authenticated;
+GRANT EXECUTE ON FUNCTION public.save_inventory_check_item_count TO authenticated;
+GRANT EXECUTE ON FUNCTION public.save_order_quotation TO authenticated;
+GRANT EXECUTE ON FUNCTION public.save_quotation TO authenticated;
+GRANT EXECUTE ON FUNCTION public.schedule_day_end TO authenticated;
+GRANT EXECUTE ON FUNCTION public.schedule_day_start TO authenticated;
+GRANT EXECUTE ON FUNCTION public.service_inventory_bulk_upsert TO authenticated;
+GRANT EXECUTE ON FUNCTION public.set_approval_request_decided_at TO authenticated;
+GRANT EXECUTE ON FUNCTION public.set_service_customers_updated_at TO authenticated;
+GRANT EXECUTE ON FUNCTION public.set_updated_at TO authenticated;
+GRANT EXECUTE ON FUNCTION public.sku_abbreviation TO authenticated;
+GRANT EXECUTE ON FUNCTION public.snapshot_inventory_check_system_qty TO authenticated;
+GRANT EXECUTE ON FUNCTION public.storage_customer_credit_docs_write_allowed TO authenticated;
+GRANT EXECUTE ON FUNCTION public.storage_lc_bills_write_allowed TO authenticated;
+GRANT EXECUTE ON FUNCTION public.submit_service_change TO authenticated;
+GRANT EXECUTE ON FUNCTION public.swap_visit_team TO authenticated;
+GRANT EXECUTE ON FUNCTION public.sync_service_pending_lock TO authenticated;
+GRANT EXECUTE ON FUNCTION public.sync_team_active_schedule TO authenticated;
+GRANT EXECUTE ON FUNCTION public.toggle_workflow_step TO authenticated;
+GRANT EXECUTE ON FUNCTION public.trg_fn_po_line_items_incoming TO authenticated;
+GRANT EXECUTE ON FUNCTION public.trg_fn_purchase_orders_incoming TO authenticated;
+GRANT EXECUTE ON FUNCTION public.trg_fn_so_reserved_qty TO authenticated;
+GRANT EXECUTE ON FUNCTION public.trg_fn_sol_reserved_qty TO authenticated;
+GRANT EXECUTE ON FUNCTION public.trg_recalc_ar_payment_status TO authenticated;
+GRANT EXECUTE ON FUNCTION public.update_pending_service_change TO authenticated;
+GRANT EXECUTE ON FUNCTION public.update_reserved_qty TO authenticated;
+GRANT EXECUTE ON FUNCTION public.update_tl_payment_batches_updated_at TO authenticated;
+GRANT EXECUTE ON FUNCTION public.update_workflow_step_role TO authenticated;
+GRANT EXECUTE ON FUNCTION public.upsert_employee_services TO authenticated;
+GRANT EXECUTE ON FUNCTION public.upsert_package_with_services TO authenticated;
+GRANT EXECUTE ON FUNCTION public.user_can_action_adjustment_step TO authenticated;
+GRANT EXECUTE ON FUNCTION public.user_has_approval_role_in_scope TO authenticated;
+GRANT EXECUTE ON FUNCTION public.validate_lc_allocation TO authenticated;
+GRANT EXECUTE ON FUNCTION public.withdraw_service_change TO authenticated;
+
+-- Safety net: grant all functions in public schema
+GRANT EXECUTE ON ALL FUNCTIONS IN SCHEMA public TO authenticated;
+
 COMMIT;

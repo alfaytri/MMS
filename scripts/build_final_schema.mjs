@@ -151,6 +151,30 @@ if (process.argv.includes('--build')) {
     'CREATE OR REPLACE TRIGGER'
   );
 
+  // 3e. Emit GRANT EXECUTE for every function that lacks one
+  const createdFunctions = extractFunctionNames(merged);
+  const grantedFunctions = extractGrantedFunctions(merged);
+
+  const ungranted = [...createdFunctions]
+    .filter(name => !grantedFunctions.has(name))
+    .sort();
+
+  let grantsBlock = '';
+  if (ungranted.length > 0) {
+    grantsBlock =
+      '\n-- === BACKFILLED GRANTS (functions that were missing GRANT EXECUTE) ===\n' +
+      `-- ${ungranted.length} functions backfilled\n\n`;
+
+    for (const name of ungranted) {
+      grantsBlock += `GRANT EXECUTE ON FUNCTION public.${name} TO authenticated;\n`;
+    }
+
+    // Catch-all: ensure no function is accidentally left ungrantable.
+    // Individual grants above are for documentation; this is the safety net.
+    grantsBlock += '\n-- Safety net: grant all functions in public schema\n';
+    grantsBlock += 'GRANT EXECUTE ON ALL FUNCTIONS IN SCHEMA public TO authenticated;\n';
+  }
+
   // 4. Assemble preamble + extensions + merged SQL + epilogue
   const timestamp = new Date().toISOString();
   const extLines = [...extensions]
@@ -173,6 +197,7 @@ if (process.argv.includes('--build')) {
     `${extLines}\n\n` +
     `-- === MIGRATIONS (concatenated) ===\n` +
     merged +
+    grantsBlock +
     `\nCOMMIT;\n`;
 
   // 5. Write output
@@ -182,6 +207,7 @@ if (process.argv.includes('--build')) {
   const lines = output.split('\n').length;
   const bytes = Buffer.byteLength(output, 'utf8');
   console.log(`Wrote ${OUT_FILE} (${bytes} bytes, ${lines} lines)`);
+  console.log(`Backfilled ${ungranted.length} missing GRANT EXECUTE statements`);
   process.exit(0);
 }
 
