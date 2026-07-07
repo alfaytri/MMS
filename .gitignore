@@ -65,6 +65,9 @@ DEMO-PREP.md
 
 # One-time / maintenance scripts (not application code)
 /scripts/
+!/scripts/build_final_schema.mjs
+!/scripts/build_test_workbook.mjs
+!/scripts/test-cases/
 temp_*.sql
 
 # Dev tooling
