@@ -57,6 +57,7 @@ supabase/.temp/
 /Ideas/
 /Old Schema/
 *.xlsx
+!/docs/test-cases/*.xlsx
 *.docx
 *.pdf
 DEMO-PREP.md
