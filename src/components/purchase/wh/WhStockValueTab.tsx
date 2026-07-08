@@ -479,7 +479,7 @@ export const WhStockValueTab = React.memo(function WhStockValueTab({ warehouses 
             <SelectTrigger className="w-[180px] h-8 text-xs">
               <SelectValue placeholder="All Warehouses" />
             </SelectTrigger>
-            <SelectContent>
+            <SelectContent className="max-h-60 overflow-y-auto">
               <SelectItem value="__all__" className="text-xs">All Warehouses</SelectItem>
               {warehouses.map((wh) => (
                 <SelectItem key={wh.id} value={wh.id} className="text-xs">

@@ -665,6 +665,26 @@ export function useToolAssetItems(search = '') {
   })
 }
 
+export function useToolAssetItemsByCategory(categoryId: string | null) {
+  return useQuery({
+    queryKey: queryKeys.inventory.toolAssetItemsByCategory(categoryId),
+    enabled: !!categoryId,
+    queryFn: async () => {
+      const supabase = createClient()
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const { data, error } = await supabase
+        .from('tool_asset_items')
+        .select('*')
+        .eq('category_id', categoryId!)
+        .order('name_en', { ascending: true })
+        .limit(500)
+      if (error) throw error
+      return (data ?? []) as ToolAssetItem[]
+    },
+    staleTime: 5 * 60 * 1000,
+  })
+}
+
 export function useToolAssetUnits(itemId: string | null) {
   return useQuery({
     queryKey: queryKeys.inventory.toolAssetUnits(itemId),
@@ -688,7 +708,7 @@ export function useToolAssetUnits(itemId: string | null) {
 export function useCreateToolAssetItem() {
   const qc = useQueryClient()
   return useMutation({
-    mutationFn: async (payload: { name_en: string; name_ar?: string | null }) => {
+    mutationFn: async (payload: { name_en: string; name_ar?: string | null; category_id?: string | null }) => {
       const supabase = createClient()
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       const { data, error } = await supabase
@@ -706,14 +726,17 @@ export function useCreateToolAssetItem() {
       })
       return data as ToolAssetItem
     },
-    onSuccess: () => qc.invalidateQueries({ queryKey: queryKeys.inventory.toolAssetItems }),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: queryKeys.inventory.toolAssetItems })
+      qc.invalidateQueries({ queryKey: ['tool-asset-items-by-category'] })
+    },
   })
 }
 
 export function useUpdateToolAssetItem() {
   const qc = useQueryClient()
   return useMutation({
-    mutationFn: async ({ id, ...payload }: { id: string; name_en?: string; name_ar?: string | null }) => {
+    mutationFn: async ({ id, ...payload }: { id: string; name_en?: string; name_ar?: string | null; category_id?: string | null }) => {
       const supabase = createClient()
       const { data: old } = await supabase
         .from('tool_asset_items')
@@ -738,7 +761,10 @@ export function useUpdateToolAssetItem() {
       })
       return data as ToolAssetItem
     },
-    onSuccess: () => qc.invalidateQueries({ queryKey: queryKeys.inventory.toolAssetItems }),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: queryKeys.inventory.toolAssetItems })
+      qc.invalidateQueries({ queryKey: ['tool-asset-items-by-category'] })
+    },
   })
 }
 

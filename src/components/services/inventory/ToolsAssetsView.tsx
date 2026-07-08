@@ -1,143 +1,109 @@
 'use client'
 
-import { useState } from 'react'
-import { ChevronRight, ChevronDown, Plus, Pencil } from 'lucide-react'
+import { useState, useMemo } from 'react'
+import { Plus } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
+import { Switch } from '@/components/ui/switch'
+import { Label } from '@/components/ui/label'
 import { Skeleton } from '@/components/ui/skeleton'
-import { ToolAssetItemEditDialog, ToolAssetUnitEditDialog } from './ToolAssetEditDialog'
-import { useToolAssetItems, useToolAssetUnits, type ToolAssetItem, type ToolAssetUnit } from '@/hooks/useInventory'
-import { formatDate } from '@/lib/utils/formatters'
+import { ToolCategoryRow } from './ToolCategoryRow'
+import { CategoryEditDialog } from './CategoryEditDialog'
+import { useUpdateSortOrders } from '@/hooks/useInventory'
+import { useInventoryTree, type InventoryTreeNode } from '@/hooks/useInventoryTree'
 
-function ToolUnitRows({ itemId }: { itemId: string }) {
-  const { data: units = [], isLoading } = useToolAssetUnits(itemId)
-  const [editUnit, setEditUnit] = useState<ToolAssetUnit | null>(null)
-  const [addUnitOpen, setAddUnitOpen] = useState(false)
-
-  const statusColor: Record<string, string> = {
-    available: 'bg-green-100 text-green-700',
-    assigned: 'bg-blue-100 text-blue-700',
-    maintenance: 'bg-amber-100 text-amber-700',
-    retired: 'bg-muted text-muted-foreground',
-  }
-
-  return (
-    <>
-      <tr className="bg-muted/50">
-        <td colSpan={6} className="py-2 pl-12 pr-4">
-          <div className="rounded border border-border overflow-x-auto">
-            <table className="w-full text-xs">
-              <thead>
-                <tr className="bg-muted">
-                  <th className="text-left text-[10px] font-semibold py-1.5 px-2">SERIAL #</th>
-                  <th className="text-left text-[10px] font-semibold py-1.5 px-2">BRAND</th>
-                  <th className="text-left text-[10px] font-semibold py-1.5 px-2">CONDITION</th>
-                  <th className="text-left text-[10px] font-semibold py-1.5 px-2">STATUS</th>
-                  <th className="text-left text-[10px] font-semibold py-1.5 px-2">EXPIRY</th>
-                  <th className="text-right text-[10px] font-semibold py-1.5 px-2" />
-                </tr>
-              </thead>
-              <tbody>
-                {isLoading && <tr><td colSpan={6}><Skeleton className="h-6 w-full m-2" /></td></tr>}
-                {!isLoading && units.length === 0 && (
-                  <tr><td colSpan={6} className="text-center text-[11px] text-muted-foreground py-3">No units added yet</td></tr>
-                )}
-                {units.map((unit) => (
-                  <tr key={unit.id} className="border-t border-border">
-                    <td className="py-1.5 px-2 font-mono">{unit.serial_number}</td>
-                    <td className="py-1.5 px-2">{unit.brand}</td>
-                    <td className="py-1.5 px-2">{unit.condition}</td>
-                    <td className="py-1.5 px-2">
-                      <span className={`rounded-full px-2 py-0.5 text-[10px] font-medium ${statusColor[unit.status] ?? 'bg-muted text-muted-foreground'}`}>
-                        {unit.status}
-                      </span>
-                    </td>
-                    <td className="py-1.5 px-2">{unit.expiry ? formatDate(unit.expiry) : '—'}</td>
-                    <td className="py-1.5 px-2 text-right">
-                      <Button variant="ghost" size="icon" className="h-5 w-5" onClick={() => setEditUnit(unit)}>
-                        <Pencil className="h-2.5 w-2.5" />
-                      </Button>
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-          <button className="mt-2 text-xs text-blue-600 hover:underline flex items-center gap-1" onClick={() => setAddUnitOpen(true)}>
-            <Plus className="h-3 w-3" /> Add Unit
-          </button>
-        </td>
-      </tr>
-      <ToolAssetUnitEditDialog open={addUnitOpen} onOpenChange={setAddUnitOpen} itemId={itemId} />
-      {editUnit && (
-        <ToolAssetUnitEditDialog open={!!editUnit} onOpenChange={(v) => { if (!v) setEditUnit(null) }} itemId={itemId} unit={editUnit} />
-      )}
-    </>
-  )
-}
-
-function ToolItemRow({ item }: { item: ToolAssetItem }) {
-  const [expanded, setExpanded] = useState(false)
-  const [editOpen, setEditOpen] = useState(false)
-
-  return (
-    <>
-      <tr className="border-b border-border hover:bg-muted/20 cursor-pointer" onClick={() => setExpanded((v) => !v)}>
-        <td className="py-2.5 pl-3 pr-2">
-          <div className="flex items-center gap-2">
-            {expanded ? <ChevronDown className="h-3.5 w-3.5 text-muted-foreground" /> : <ChevronRight className="h-3.5 w-3.5 text-muted-foreground" />}
-            <span className="text-sm font-medium">{item.name_en}</span>
-            {item.name_ar && <span className="text-[10px] text-muted-foreground" dir="rtl">{item.name_ar}</span>}
-          </div>
-        </td>
-        <td className="py-2.5 px-2 text-right">
-          <div className="flex items-center justify-end gap-1" onClick={(e) => e.stopPropagation()}>
-            <Button variant="ghost" size="icon" className="h-6 w-6" onClick={() => setEditOpen(true)}>
-              <Pencil className="h-3 w-3" />
-            </Button>
-          </div>
-        </td>
-      </tr>
-      {expanded && <ToolUnitRows itemId={item.id} />}
-      <ToolAssetItemEditDialog open={editOpen} onOpenChange={setEditOpen} item={item} />
-    </>
-  )
+function filterTree(nodes: InventoryTreeNode[], search: string): InventoryTreeNode[] {
+  if (!search) return nodes
+  const lower = search.toLowerCase()
+  return nodes.reduce<InventoryTreeNode[]>((acc, node) => {
+    const nameMatch =
+      node.name_en.toLowerCase().includes(lower) ||
+      (node.name_ar ?? '').toLowerCase().includes(lower)
+    const filteredChildren = filterTree(node.children, search)
+    if (nameMatch || filteredChildren.length > 0) {
+      acc.push({ ...node, children: nameMatch ? node.children : filteredChildren })
+    }
+    return acc
+  }, [])
 }
 
 export function ToolsAssetsView({ enabled }: { enabled: boolean }) {
   const [search, setSearch] = useState('')
-  const [createOpen, setCreateOpen] = useState(false)
-  const { data: items = [], isLoading } = useToolAssetItems(search)
+  const [showArchived, setShowArchived] = useState(false)
+  const [createCategoryOpen, setCreateCategoryOpen] = useState(false)
+
+  const { tree, isLoading } = useInventoryTree('tools', showArchived)
+  const updateCategoryOrder = useUpdateSortOrders('inventory_categories')
+
+  const filtered = useMemo(() => filterTree(tree, search), [tree, search])
+
+  function handleCategoryMove(idx: number, direction: 'up' | 'down') {
+    const targetIdx = direction === 'up' ? idx - 1 : idx + 1
+    const a = filtered[idx]
+    const b = filtered[targetIdx]
+    updateCategoryOrder.mutate([
+      { id: a.id, sort_order: a.sort_order ?? idx },
+      { id: b.id, sort_order: b.sort_order ?? targetIdx },
+    ])
+  }
 
   return (
     <div className="flex flex-col h-full">
-      <div className="flex items-center gap-3 px-4 py-2 border-b border-border">
-        <Input placeholder="Search tools & assets…" value={search} onChange={(e) => setSearch(e.target.value)} className="h-7 text-xs w-64" />
-        <Button size="sm" className="ml-auto h-7 text-xs" onClick={() => setCreateOpen(true)}>
-          <Plus className="h-3 w-3 mr-1" /> Add Tool/Asset
+      <div className="flex items-center gap-3 px-4 py-2 border-b border-border flex-wrap">
+        <Input
+          placeholder="Search tools & assets…"
+          value={search}
+          onChange={(e) => setSearch(e.target.value)}
+          className="h-7 text-xs w-full max-w-64"
+        />
+        <div className="flex items-center gap-2">
+          <Switch checked={showArchived} onCheckedChange={setShowArchived} />
+          <Label className="text-xs cursor-pointer" onClick={() => setShowArchived((v) => !v)}>Show archived</Label>
+        </div>
+        <Button size="sm" className="ml-auto h-7 text-xs" onClick={() => setCreateCategoryOpen(true)}>
+          <Plus className="h-3 w-3 mr-1" /> New Category
         </Button>
       </div>
+
       <div className="flex-1 overflow-auto">
         {isLoading ? (
-          <div className="p-4 space-y-2">{[0, 1, 2].map((i) => <Skeleton key={i} className="h-10 w-full" />)}</div>
+          <div className="p-4 space-y-2">
+            {[0, 1, 2].map((i) => <Skeleton key={i} className="h-10 w-full rounded" />)}
+          </div>
         ) : (
-          <table className="w-full">
+          <table className="w-full text-sm">
             <thead>
               <tr className="border-b border-border bg-muted/40">
-                <th className="text-left text-[11px] font-semibold py-2 pl-3 pr-2">TOOL / ASSET</th>
+                <th className="text-left text-[11px] font-semibold py-2 pl-3 pr-2 w-1/2">TOOL / ASSET</th>
+                <th className="text-left text-[11px] font-semibold py-2 px-2">INFO</th>
                 <th className="text-right text-[11px] font-semibold py-2 px-2">ACTIONS</th>
               </tr>
             </thead>
             <tbody>
-              {items.length === 0 && (
-                <tr><td colSpan={2} className="text-center text-xs text-muted-foreground py-12">No tools or assets yet</td></tr>
+              {filtered.length === 0 && (
+                <tr>
+                  <td colSpan={3} className="text-center text-xs text-muted-foreground py-12">
+                    {search ? 'No categories match your search' : 'No tools & assets categories yet'}
+                  </td>
+                </tr>
               )}
-              {items.map((item) => <ToolItemRow key={item.id} item={item} />)}
+              {filtered.map((node, idx) => (
+                <ToolCategoryRow
+                  key={node.id}
+                  node={node}
+                  showArchived={showArchived}
+                  canMoveUp={idx > 0}
+                  canMoveDown={idx < filtered.length - 1}
+                  onMoveUp={() => handleCategoryMove(idx, 'up')}
+                  onMoveDown={() => handleCategoryMove(idx, 'down')}
+                />
+              ))}
             </tbody>
           </table>
         )}
       </div>
-      <ToolAssetItemEditDialog open={createOpen} onOpenChange={setCreateOpen} />
+
+      <CategoryEditDialog open={createCategoryOpen} onOpenChange={setCreateCategoryOpen} categoryType="tools" />
     </div>
   )
 }

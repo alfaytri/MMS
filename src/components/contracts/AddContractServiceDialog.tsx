@@ -314,7 +314,7 @@ export function AddContractServiceDialog({
                         <SelectTrigger id={`svc-level-${depth}`} className={`w-full min-h-[2.5rem] h-auto whitespace-normal text-left [&>span]:line-clamp-2 ${!hasItems ? 'opacity-50' : ''}`}>
                           <SelectValue placeholder={`Select ${labels[depth].toLowerCase()}`} />
                         </SelectTrigger>
-                        <SelectContent>
+                        <SelectContent className="max-h-60 overflow-y-auto">
                           {items.map((node: ServiceNode) => (
                             <SelectItem key={node.id} value={node.id}>
                               <span className="whitespace-normal">{node.name_en}</span>
@@ -351,7 +351,7 @@ export function AddContractServiceDialog({
                       <SelectTrigger id="svc-level-4" className="w-full min-h-[2.5rem] h-auto whitespace-normal text-left [&>span]:line-clamp-2">
                         <SelectValue placeholder="Select option" />
                       </SelectTrigger>
-                      <SelectContent>
+                      <SelectContent className="max-h-60 overflow-y-auto">
                         {items.map((node: ServiceNode) => (
                           <SelectItem key={node.id} value={node.id}>
                             <span className="whitespace-normal">{node.name_en}</span>
@@ -385,7 +385,7 @@ export function AddContractServiceDialog({
                     <SelectTrigger id="svc-frequency">
                       <SelectValue />
                     </SelectTrigger>
-                    <SelectContent>
+                    <SelectContent className="max-h-60 overflow-y-auto">
                       {FREQUENCIES.map((f) => (
                         <SelectItem key={f.value} value={f.value}>{f.label}</SelectItem>
                       ))}
@@ -402,7 +402,7 @@ export function AddContractServiceDialog({
                     <SelectTrigger id="svc-brand">
                       <SelectValue placeholder="No brand" />
                     </SelectTrigger>
-                    <SelectContent>
+                    <SelectContent className="max-h-60 overflow-y-auto">
                       <SelectItem value="none">No brand</SelectItem>
                       {(brands || []).map((b) => (
                         <SelectItem key={b.brand_id} value={b.brand_id}>
@@ -422,7 +422,7 @@ export function AddContractServiceDialog({
                     <SelectTrigger id="svc-condition">
                       <SelectValue placeholder="No condition" />
                     </SelectTrigger>
-                    <SelectContent>
+                    <SelectContent className="max-h-60 overflow-y-auto">
                       <SelectItem value="none">No condition</SelectItem>
                       {CONDITIONS.map((c) => (
                         <SelectItem key={c.value} value={c.value}>

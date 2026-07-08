@@ -43,7 +43,7 @@ export function DivisionFilter({ value, onChange }: Props) {
         <SelectTrigger className="w-44 h-9">
           <SelectValue placeholder="All Companies" />
         </SelectTrigger>
-        <SelectContent>
+        <SelectContent className="max-h-60 overflow-y-auto">
           <SelectItem value="__all__">All Companies</SelectItem>
           {companies.map((c) => (
             <SelectItem key={c.id} value={c.id}>{c.name_en}</SelectItem>
@@ -58,7 +58,7 @@ export function DivisionFilter({ value, onChange }: Props) {
         <SelectTrigger className="w-44 h-9">
           <SelectValue placeholder="All Divisions" />
         </SelectTrigger>
-        <SelectContent>
+        <SelectContent className="max-h-60 overflow-y-auto">
           <SelectItem value="__all__">All Divisions</SelectItem>
           {filteredDivisions.map((d) => (
             <SelectItem key={d.id} value={d.id}>{d.name}</SelectItem>

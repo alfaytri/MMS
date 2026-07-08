@@ -125,7 +125,7 @@ export function ReplacementReceivalDialog({ open, onOpenChange, debitNote, onSuc
               <SelectTrigger id="repl-warehouse">
                 <SelectValue placeholder="Select warehouse" />
               </SelectTrigger>
-              <SelectContent>
+              <SelectContent className="max-h-60 overflow-y-auto">
                 {warehouses.map((w) => (
                   <SelectItem key={w.id} value={w.id}>{w.name}</SelectItem>
                 ))}

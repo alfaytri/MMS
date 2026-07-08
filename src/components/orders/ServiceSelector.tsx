@@ -105,7 +105,7 @@ export function ServiceSelector({ onAdd, divisionFilters = [], treeType = 'norma
                 <SelectTrigger className="h-9 w-full overflow-hidden">
                   <SelectValue placeholder={PLACEHOLDERS[i]} />
                 </SelectTrigger>
-                <SelectContent>
+                <SelectContent className="max-h-60 overflow-y-auto">
                   {options.map((opt) => (
                     <SelectItem key={opt.id} value={opt.id as string}>
                       {opt.name_en}
@@ -127,7 +127,7 @@ export function ServiceSelector({ onAdd, divisionFilters = [], treeType = 'norma
           <SelectTrigger className="h-9">
             <SelectValue placeholder={PLACEHOLDERS[4]} />
           </SelectTrigger>
-          <SelectContent>
+          <SelectContent className="max-h-60 overflow-y-auto">
             {level4Options.map((opt) => (
               <SelectItem key={opt.id} value={opt.id as string}>
                 {opt.name_en}

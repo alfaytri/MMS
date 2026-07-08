@@ -278,7 +278,7 @@ export function TeamEditDialog() {
                               <SelectValue placeholder="Select company" />
                             </SelectTrigger>
                           </FormControl>
-                          <SelectContent>
+                          <SelectContent className="max-h-60 overflow-y-auto">
                             {companies.map(c => (
                               <SelectItem key={c.id} value={c.id}>{c.name_en}</SelectItem>
                             ))}
@@ -306,7 +306,7 @@ export function TeamEditDialog() {
                               <SelectValue placeholder={selectedCompanyId ? 'Select division' : 'Pick company first'} />
                             </SelectTrigger>
                           </FormControl>
-                          <SelectContent>
+                          <SelectContent className="max-h-60 overflow-y-auto">
                             {divisionsForCompany.map(d => (
                               <SelectItem key={d.id} value={d.id}>{d.name}</SelectItem>
                             ))}

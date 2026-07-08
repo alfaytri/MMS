@@ -388,7 +388,7 @@ export function EditUserDialog({ open, onOpenChange, profile }: Props) {
                       <SelectTrigger id="edit-user-linked-employee" className="h-9">
                         <SelectValue placeholder="Select team leader employee…" />
                       </SelectTrigger>
-                      <SelectContent>
+                      <SelectContent className="max-h-60 overflow-y-auto">
                         {tlEmployees.map((e) => (
                           <SelectItem key={e.id} value={e.id}>
                             {e.name} — {e.teams?.name ?? 'Unknown Team'}
@@ -546,7 +546,7 @@ export function EditUserDialog({ open, onOpenChange, profile }: Props) {
                         <UserPlus2 className="h-3.5 w-3.5 text-muted-foreground mr-1" />
                         <SelectValue placeholder="Add role…" />
                       </SelectTrigger>
-                      <SelectContent>
+                      <SelectContent className="max-h-60 overflow-y-auto">
                         {approvalRoles.length > 0 && (
                           <SelectGroup>
                             <SelectLabel className="flex items-center gap-1.5 text-[10px] uppercase tracking-wider text-muted-foreground">
@@ -640,7 +640,7 @@ export function EditUserDialog({ open, onOpenChange, profile }: Props) {
                     <Building2 className="h-3.5 w-3.5 text-muted-foreground mr-1" />
                     <SelectValue placeholder="Add division…" />
                   </SelectTrigger>
-                  <SelectContent>
+                  <SelectContent className="max-h-60 overflow-y-auto">
                     {companiesWithUnassigned.map((group) => (
                       <SelectGroup key={group.companyName}>
                         <SelectLabel className="flex items-center gap-1.5 text-[10px] uppercase tracking-wider text-muted-foreground">

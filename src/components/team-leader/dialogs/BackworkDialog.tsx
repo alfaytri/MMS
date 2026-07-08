@@ -87,7 +87,7 @@ export function BackworkDialog({ visit, profileId, onComplete, onClose }: Props)
                 <SelectTrigger className="h-11">
                   <SelectValue placeholder="Select reason..." />
                 </SelectTrigger>
-                <SelectContent>
+                <SelectContent className="max-h-60 overflow-y-auto">
                   {BACKWORK_REASONS.map((r) => (
                     <SelectItem key={r.value} value={r.value}>{r.label}</SelectItem>
                   ))}

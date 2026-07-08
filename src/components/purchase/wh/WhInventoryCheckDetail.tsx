@@ -160,7 +160,7 @@ function ItemCountRow({
           <SelectTrigger className="h-7 text-[10px]">
             <SelectValue placeholder="Type…" />
           </SelectTrigger>
-          <SelectContent>
+          <SelectContent className="max-h-60 overflow-y-auto">
             <SelectItem value="increase"  className="text-[10px]">Increase</SelectItem>
             <SelectItem value="decrease"  className="text-[10px]">Decrease</SelectItem>
             <SelectItem value="damage"    className="text-[10px]">Damage</SelectItem>

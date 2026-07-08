@@ -74,7 +74,7 @@ export function SupplierPaymentDialog({ open, onOpenChange, bill, onSetUpPlan }:
             <Label htmlFor="supp-pay-method">Method *</Label>
             <Select value={method} onValueChange={(v) => setMethod(v as typeof method)}>
               <SelectTrigger id="supp-pay-method"><SelectValue /></SelectTrigger>
-              <SelectContent>
+              <SelectContent className="max-h-60 overflow-y-auto">
                 <SelectItem value="bank_transfer">Bank Transfer</SelectItem>
                 <SelectItem value="cash">Cash</SelectItem>
                 <SelectItem value="cheque">Cheque</SelectItem>

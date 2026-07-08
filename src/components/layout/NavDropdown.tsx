@@ -180,7 +180,7 @@ export function NavDropdown({ entry }: NavDropdownProps) {
         <ChevronDown className="h-3 w-3 opacity-50" />
       </DropdownMenuTrigger>
 
-      <DropdownMenuContent align="start" className="w-52">
+      <DropdownMenuContent align="start" className="w-52 max-h-[calc(100vh-4rem)] overflow-y-auto">
         {entry.comingSoon ? (
           <DropdownMenuItem disabled className="flex items-center gap-2 text-muted-foreground">
             <Lock className="h-3.5 w-3.5" />

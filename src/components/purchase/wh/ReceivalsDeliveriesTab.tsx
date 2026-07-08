@@ -64,7 +64,7 @@ export const ReceivalsDeliveriesTab = React.memo(function ReceivalsDeliveriesTab
           <SelectTrigger className="w-[150px] h-8 text-xs">
             <SelectValue />
           </SelectTrigger>
-          <SelectContent>
+          <SelectContent className="max-h-60 overflow-y-auto">
             <SelectItem value="all" className="text-xs">All ({allItems.length})</SelectItem>
             <SelectItem value="inbound" className="text-xs">Inbound ({inboundCount})</SelectItem>
             <SelectItem value="outbound" className="text-xs">Outbound ({outboundCount})</SelectItem>
@@ -74,7 +74,7 @@ export const ReceivalsDeliveriesTab = React.memo(function ReceivalsDeliveriesTab
           <SelectTrigger className="w-[160px] h-8 text-xs">
             <SelectValue placeholder="All Warehouses" />
           </SelectTrigger>
-          <SelectContent>
+          <SelectContent className="max-h-60 overflow-y-auto">
             <SelectItem value="all" className="text-xs">All Warehouses</SelectItem>
             {warehouses.map(wh => (
               <SelectItem key={wh.id} value={wh.id} className="text-xs">{wh.name}</SelectItem>

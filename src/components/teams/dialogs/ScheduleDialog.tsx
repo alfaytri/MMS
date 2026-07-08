@@ -371,7 +371,7 @@ export function ScheduleDialog() {
                               <SelectTrigger className="h-7 w-44 text-xs">
                                 <SelectValue placeholder="Add division…" />
                               </SelectTrigger>
-                              <SelectContent>
+                              <SelectContent className="max-h-60 overflow-y-auto">
                                 {unassignedDivisions.map(d => (
                                   <SelectItem key={d.id} value={d.id} className="text-xs">
                                     {d.short_name ?? d.name}
@@ -416,7 +416,7 @@ export function ScheduleDialog() {
                       <SelectTrigger>
                         <SelectValue placeholder="Select..." />
                       </SelectTrigger>
-                      <SelectContent>
+                      <SelectContent className="max-h-60 overflow-y-auto">
                         {schedules.map(s => (
                           <SelectItem key={s.id} value={s.id}>
                             {s.name}

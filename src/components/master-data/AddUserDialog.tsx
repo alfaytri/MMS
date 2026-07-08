@@ -198,7 +198,7 @@ export function AddUserDialog({ open, onOpenChange }: Props) {
                       <SelectTrigger id="add-user-linked-employee" className="h-9">
                         <SelectValue placeholder="Select team leader employee…" />
                       </SelectTrigger>
-                      <SelectContent>
+                      <SelectContent className="max-h-60 overflow-y-auto">
                         {tlEmployees.map((e) => (
                           <SelectItem key={e.id} value={e.id}>
                             {e.name} — {e.teams?.name ?? 'Unknown Team'}

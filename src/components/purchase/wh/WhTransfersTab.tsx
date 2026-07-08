@@ -607,7 +607,7 @@ function ReceivalSubForm({
                       <SelectTrigger className="h-7 w-36 text-[10px]">
                         <SelectValue />
                       </SelectTrigger>
-                      <SelectContent>
+                      <SelectContent className="max-h-60 overflow-y-auto">
                         {SHRINKAGE_REASONS.map((r) => (
                           <SelectItem key={r.value} value={r.value} className="text-xs">
                             {r.label}

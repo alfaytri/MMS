@@ -116,7 +116,7 @@ export function ReminderEditDialog({
                       return cat ? cat.name : (categories.length > 0 ? String(v) : undefined)
                     }}
                   </SelectValue></SelectTrigger></FormControl>
-                  <SelectContent>
+                  <SelectContent className="max-h-60 overflow-y-auto">
                     {categories.map((c: ReminderCategory) => (
                       <SelectItem key={c.id} value={c.id}>{c.name}</SelectItem>
                     ))}
@@ -148,7 +148,7 @@ export function ReminderEditDialog({
                   <FormLabel>Channel</FormLabel>
                   <Select onValueChange={field.onChange} value={field.value}>
                     <FormControl><SelectTrigger><SelectValue /></SelectTrigger></FormControl>
-                    <SelectContent>
+                    <SelectContent className="max-h-60 overflow-y-auto">
                       <SelectItem value="Email">Email</SelectItem>
                       <SelectItem value="SMS">SMS</SelectItem>
                       <SelectItem value="WhatsApp">WhatsApp</SelectItem>
@@ -161,7 +161,7 @@ export function ReminderEditDialog({
                   <FormLabel>Status</FormLabel>
                   <Select onValueChange={field.onChange} value={field.value}>
                     <FormControl><SelectTrigger><SelectValue /></SelectTrigger></FormControl>
-                    <SelectContent>
+                    <SelectContent className="max-h-60 overflow-y-auto">
                       <SelectItem value="active">Active</SelectItem>
                       <SelectItem value="inactive">Inactive</SelectItem>
                     </SelectContent>

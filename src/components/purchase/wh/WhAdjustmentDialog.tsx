@@ -144,7 +144,7 @@ export function WhAdjustmentDialog({ warehouses, currentProfile, children }: Pro
                 <SelectTrigger className="h-9 text-xs">
                   <SelectValue placeholder="Select warehouse..." />
                 </SelectTrigger>
-                <SelectContent>
+                <SelectContent className="max-h-60 overflow-y-auto">
                   {warehouses.map(wh => (
                     <SelectItem key={wh.id} value={wh.id} className="text-xs">{wh.name}</SelectItem>
                   ))}
@@ -230,7 +230,7 @@ export function WhAdjustmentDialog({ warehouses, currentProfile, children }: Pro
                   <SelectTrigger className="h-9 text-xs">
                     <SelectValue placeholder="Select type..." />
                   </SelectTrigger>
-                  <SelectContent>
+                  <SelectContent className="max-h-60 overflow-y-auto">
                     {ADJUSTMENT_TYPES.map(t => (
                       <SelectItem key={t.value} value={t.value} className="text-xs">{t.label}</SelectItem>
                     ))}

@@ -259,7 +259,7 @@ function AddStepRow({ workflow, groupId, availableRoles, onDone }: AddStepRowPro
               : 'Select an approval-slot role…'
           } />
         </SelectTrigger>
-        <SelectContent>
+        <SelectContent className="max-h-60 overflow-y-auto">
           {availableRoles.map((r) => (
             <SelectItem key={r.id} value={r.id} className="text-xs">
               <span className="flex items-center gap-2">
@@ -339,7 +339,7 @@ function StepRow({ step, index, isOwner, profileId, approvalRoles }: StepRowProp
             <SelectTrigger className="h-7 text-xs w-44 min-w-0">
               <SelectValue>{displayName}</SelectValue>
             </SelectTrigger>
-            <SelectContent>
+            <SelectContent className="max-h-60 overflow-y-auto">
               {approvalRoles.map((r) => (
                 <SelectItem key={r.id} value={r.id} className="text-xs">
                   {r.name}
@@ -486,7 +486,7 @@ function GroupSection({ group, steps, allWorkflowSteps, isOwner, profileId, appr
             <SelectTrigger className="h-6 text-[10px] w-auto min-w-[130px] gap-1 border-dashed">
               <SelectValue />
             </SelectTrigger>
-            <SelectContent>
+            <SelectContent className="max-h-60 overflow-y-auto">
               <SelectItem value="any_one" className="text-xs">Any one approves</SelectItem>
               <SelectItem value="all_must" className="text-xs">All must approve</SelectItem>
             </SelectContent>

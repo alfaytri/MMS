@@ -416,7 +416,7 @@ export function CustomerDialog({
                 <SelectTrigger id="cust-entity-type" className="w-full">
                   <SelectValue />
                 </SelectTrigger>
-                <SelectContent>
+                <SelectContent className="max-h-60 overflow-y-auto">
                   <SelectItem value="individual">Individual</SelectItem>
                   <SelectItem value="business">Business</SelectItem>
                 </SelectContent>
@@ -435,7 +435,7 @@ export function CustomerDialog({
                 <SelectTrigger id="cust-customer-type" className="w-full">
                   <SelectValue />
                 </SelectTrigger>
-                <SelectContent>
+                <SelectContent className="max-h-60 overflow-y-auto">
                   <SelectItem value="credit">Credit</SelectItem>
                   <SelectItem value="cash">Cash</SelectItem>
                 </SelectContent>
@@ -457,7 +457,7 @@ export function CustomerDialog({
                 <SelectTrigger id="cust-credit-group" className="w-full">
                   <SelectValue placeholder="Select group…" />
                 </SelectTrigger>
-                <SelectContent>
+                <SelectContent className="max-h-60 overflow-y-auto">
                   {groups.map((g) => {
                     const isCashGroup = g.name === 'Cash Customers'
                     return (

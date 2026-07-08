@@ -38,7 +38,7 @@ export const NAV_ITEMS: NavEntry[] = [
     ],
   },
   {
-    label: 'Finance',
+    label: 'Reports',
     icon: 'BarChart3',
     permission: 'invoices.access',
     groups: [

@@ -567,7 +567,7 @@ export function EmployeeEditDialog() {
                               <SelectValue placeholder="Select division…" />
                             </SelectTrigger>
                           </FormControl>
-                          <SelectContent>
+                          <SelectContent className="max-h-60 overflow-y-auto">
                             <SelectItem value="">No division</SelectItem>
                             {divisions.map(d => (
                               <SelectItem key={d.id} value={d.id}>
@@ -601,7 +601,7 @@ export function EmployeeEditDialog() {
                       <SelectTrigger className="h-9 text-sm">
                         <SelectValue placeholder="All divisions" />
                       </SelectTrigger>
-                      <SelectContent>
+                      <SelectContent className="max-h-60 overflow-y-auto">
                         <SelectItem value="">All divisions</SelectItem>
                         {divisions.map(d => (
                           <SelectItem key={d.id} value={d.slug ?? d.id}>

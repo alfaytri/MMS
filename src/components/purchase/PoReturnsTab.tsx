@@ -243,7 +243,7 @@ export function PoReturnsTab({ po, poReturns, receivals }: PoReturnsTabProps) {
                   <SelectTrigger id="por-warehouse">
                     <SelectValue placeholder="Select warehouse…" />
                   </SelectTrigger>
-                  <SelectContent>
+                  <SelectContent className="max-h-60 overflow-y-auto">
                     {warehouses.map((w) => (
                       <SelectItem key={w.id} value={w.id}>{w.name}</SelectItem>
                     ))}

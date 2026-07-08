@@ -291,7 +291,7 @@ export function CreditDebitNoteDetailDialog({ note, referenceNumber, open, onOpe
                     <label className="text-xs text-muted-foreground">Method *</label>
                     <Select value={refundMethod} onValueChange={(v) => setRefundMethod(v ?? '')}>
                       <SelectTrigger><SelectValue placeholder="Select method" /></SelectTrigger>
-                      <SelectContent>
+                      <SelectContent className="max-h-60 overflow-y-auto">
                         {dbMethods.map((m) => (
                           <SelectItem key={m.id} value={m.slug}>{m.name}</SelectItem>
                         ))}

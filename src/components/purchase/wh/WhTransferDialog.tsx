@@ -287,7 +287,7 @@ export function WhTransferDialog({ warehouses, currentProfile, children }: Props
                   <SelectTrigger className="h-9 text-xs">
                     <SelectValue placeholder="Source warehouse" />
                   </SelectTrigger>
-                  <SelectContent>
+                  <SelectContent className="max-h-60 overflow-y-auto">
                     {warehouses.filter((w) => w.id !== toId).map((wh) => (
                       <SelectItem key={wh.id} value={wh.id} className="text-xs">{wh.name}</SelectItem>
                     ))}
@@ -303,7 +303,7 @@ export function WhTransferDialog({ warehouses, currentProfile, children }: Props
                   <SelectTrigger className="h-9 text-xs">
                     <SelectValue placeholder="Destination warehouse" />
                   </SelectTrigger>
-                  <SelectContent>
+                  <SelectContent className="max-h-60 overflow-y-auto">
                     {warehouses.filter((w) => w.id !== fromId).map((wh) => (
                       <SelectItem key={wh.id} value={wh.id} className="text-xs">{wh.name}</SelectItem>
                     ))}

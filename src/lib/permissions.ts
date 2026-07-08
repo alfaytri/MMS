@@ -512,9 +512,10 @@ function getEnabledModules(): Set<string> | null {
   return new Set(raw.split(',').map((s) => s.trim()))
 }
 
+const BRANCH_ENABLED_MODULES = new Set(['master_data', 'purchase_sales', 'warehouse'])
+
 export const ACTIVE_PERMISSION_GROUPS: PermissionGroup[] = (() => {
-  const enabled = getEnabledModules()
-  if (!enabled) return PERMISSION_GROUPS
+  const enabled = getEnabledModules() ?? BRANCH_ENABLED_MODULES
   return PERMISSION_GROUPS.filter((g) => {
     const key = MODULE_KEY_MAP[g.module]
     return key ? enabled.has(key) : true

@@ -282,7 +282,7 @@ export function TlInvoiceDialog({ visit, data, profileId, onDone, onClose }: Pro
                 <SelectTrigger id="payment-method-select" className="h-11">
                   <SelectValue placeholder="Select payment method…" />
                 </SelectTrigger>
-                <SelectContent>
+                <SelectContent className="max-h-60 overflow-y-auto">
                   {paymentMethods.length === 0 && (
                     <SelectItem value="__none" disabled>No active payment methods</SelectItem>
                   )}

@@ -153,7 +153,7 @@ export const WhMovementsTab = React.memo(function WhMovementsTab({ warehouses }:
           <SelectTrigger className="w-[160px] h-8 text-xs">
             <SelectValue placeholder="All Warehouses" />
           </SelectTrigger>
-          <SelectContent>
+          <SelectContent className="max-h-60 overflow-y-auto">
             <SelectItem value="all" className="text-xs">All Warehouses</SelectItem>
             {warehouses.map(wh => (
               <SelectItem key={wh.id} value={wh.id} className="text-xs">{wh.name}</SelectItem>
@@ -164,7 +164,7 @@ export const WhMovementsTab = React.memo(function WhMovementsTab({ warehouses }:
           <SelectTrigger className="w-[160px] h-8 text-xs">
             <SelectValue placeholder="All Types" />
           </SelectTrigger>
-          <SelectContent>
+          <SelectContent className="max-h-60 overflow-y-auto">
             <SelectItem value="all" className="text-xs">All Types</SelectItem>
             {MOVEMENT_TYPES.map(t => (
               <SelectItem key={t} value={t} className="text-xs">{MOVEMENT_LABELS[t]}</SelectItem>

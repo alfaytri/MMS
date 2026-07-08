@@ -32,13 +32,13 @@ export async function TopNav() {
           <span className="text-sm">Alfaytri</span>
         </Link>
 
-        <nav className="hidden lg:flex items-center gap-1 flex-1 overflow-x-auto">
+        <nav className="hidden md:flex items-center gap-1 flex-1 overflow-x-auto">
           {NAV_ITEMS.map((entry) => (
             <NavDropdown key={entry.label} entry={entry} />
           ))}
         </nav>
 
-        <div className="flex-1 lg:hidden" />
+        <div className="flex-1 md:hidden" />
 
         {user && <NotificationBell />}
         {user && (

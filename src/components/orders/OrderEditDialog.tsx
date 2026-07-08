@@ -159,7 +159,7 @@ export function OrderEditDialog({ open, onOpenChange, order }: Props) {
                 <SelectTrigger className="w-28 shrink-0 rounded-r-none border-0 shadow-none focus:ring-0 h-full bg-muted text-xs font-medium">
                   <SelectValue />
                 </SelectTrigger>
-                <SelectContent>
+                <SelectContent className="max-h-60 overflow-y-auto">
                   {COUNTRY_CODES.map((c) => (
                     <SelectItem key={c.code} value={c.code}>{c.label}</SelectItem>
                   ))}
@@ -208,7 +208,7 @@ export function OrderEditDialog({ open, onOpenChange, order }: Props) {
                         <SelectTrigger id={`order-edit-assign-time-${a.id}`} className="h-8 text-sm">
                           <SelectValue placeholder="Select…" />
                         </SelectTrigger>
-                        <SelectContent>
+                        <SelectContent className="max-h-60 overflow-y-auto">
                           {HOURS.map((h) => (
                             <SelectItem key={h} value={h}>{h}</SelectItem>
                           ))}

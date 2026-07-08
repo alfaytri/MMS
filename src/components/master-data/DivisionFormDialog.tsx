@@ -249,7 +249,7 @@ export function DivisionFormDialog({
                           </SelectValue>
                         </SelectTrigger>
                       </FormControl>
-                      <SelectContent>
+                      <SelectContent className="max-h-60 overflow-y-auto">
                         {companies.map((c) => (
                           <SelectItem key={c.id} value={c.id}>
                             {c.name_en}

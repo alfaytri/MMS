@@ -424,7 +424,7 @@ export function ApprovalChainsTab() {
               <SelectTrigger className="w-48">
                 <SelectValue placeholder="Select division…" />
               </SelectTrigger>
-              <SelectContent>
+              <SelectContent className="max-h-60 overflow-y-auto">
                 {availableDivisions.map((d) => (
                   <SelectItem key={d.id} value={d.id}>{d.short_name ?? d.name}</SelectItem>
                 ))}

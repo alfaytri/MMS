@@ -308,7 +308,7 @@ export function ServicePickerTree({
             <SelectTrigger className="h-7 text-xs">
               <SelectValue placeholder="All divisions" />
             </SelectTrigger>
-            <SelectContent>
+            <SelectContent className="max-h-60 overflow-y-auto">
               <SelectItem value="__all__" className="text-xs">All divisions</SelectItem>
               {allDivisions.map((d) => (
                 <SelectItem key={d} value={d} className="text-xs">{d}</SelectItem>

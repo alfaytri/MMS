@@ -191,7 +191,7 @@ export function SupplierFormDialog({ open, onOpenChange, supplier }: SupplierFor
                           <SelectValue placeholder="Select type…" />
                         </SelectTrigger>
                       </FormControl>
-                      <SelectContent>
+                      <SelectContent className="max-h-60 overflow-y-auto">
                         <SelectItem value="local">Local</SelectItem>
                         <SelectItem value="international">International</SelectItem>
                       </SelectContent>
@@ -216,7 +216,7 @@ export function SupplierFormDialog({ open, onOpenChange, supplier }: SupplierFor
                           <SelectValue placeholder="Select country…" />
                         </SelectTrigger>
                       </FormControl>
-                      <SelectContent>
+                      <SelectContent className="max-h-60 overflow-y-auto">
                         {countryCodes.map((cc) => (
                           <SelectItem key={cc.id} value={cc.name}>
                             {cc.flag} {cc.name}
@@ -244,7 +244,7 @@ export function SupplierFormDialog({ open, onOpenChange, supplier }: SupplierFor
                           <SelectValue placeholder="Select currency…" />
                         </SelectTrigger>
                       </FormControl>
-                      <SelectContent>
+                      <SelectContent className="max-h-60 overflow-y-auto">
                         {currencies.map((c) => (
                           <SelectItem key={c.id} value={c.id}>
                             {c.code} — {c.name}
