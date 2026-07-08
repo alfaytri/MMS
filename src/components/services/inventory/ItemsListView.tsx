@@ -1,7 +1,7 @@
 'use client'
 
 import { useState, useMemo } from 'react'
-import { Plus } from 'lucide-react'
+import { Plus, Upload } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Switch } from '@/components/ui/switch'
@@ -9,6 +9,7 @@ import { Label } from '@/components/ui/label'
 import { Skeleton } from '@/components/ui/skeleton'
 import { CategoryRow } from './CategoryRow'
 import { CategoryEditDialog } from './CategoryEditDialog'
+import { InventoryImportDialog } from './InventoryImportDialog'
 import { useUpdateSortOrders, useCategoryStockAggregates, type CategoryStockAggregate } from '@/hooks/useInventory'
 import { useInventoryTree, type InventoryTreeNode } from '@/hooks/useInventoryTree'
 
@@ -44,6 +45,7 @@ export function ItemsListView({ type, enabled }: Props) {
   const [search, setSearch] = useState('')
   const [showArchived, setShowArchived] = useState(false)
   const [createCategoryOpen, setCreateCategoryOpen] = useState(false)
+  const [importOpen, setImportOpen] = useState(false)
 
   const { tree, isLoading } = useInventoryTree(type, showArchived)
   const { data: stockAggregates } = useCategoryStockAggregates(type)
@@ -75,9 +77,14 @@ export function ItemsListView({ type, enabled }: Props) {
           <Switch checked={showArchived} onCheckedChange={setShowArchived} />
           <Label className="text-xs cursor-pointer" onClick={() => setShowArchived((v) => !v)}>Show archived</Label>
         </div>
-        <Button size="sm" className="ml-auto h-7 text-xs" onClick={() => setCreateCategoryOpen(true)}>
-          <Plus className="h-3 w-3 mr-1" /> New Category
-        </Button>
+        <div className="flex items-center gap-2 ml-auto">
+          <Button size="sm" variant="outline" className="h-7 text-xs" onClick={() => setImportOpen(true)}>
+            <Upload className="h-3 w-3 mr-1" /> Import
+          </Button>
+          <Button size="sm" className="h-7 text-xs" onClick={() => setCreateCategoryOpen(true)}>
+            <Plus className="h-3 w-3 mr-1" /> New Category
+          </Button>
+        </div>
       </div>
 
       {/* Table */}
@@ -125,6 +132,7 @@ export function ItemsListView({ type, enabled }: Props) {
       </div>
 
       <CategoryEditDialog open={createCategoryOpen} onOpenChange={setCreateCategoryOpen} categoryType={type} />
+      <InventoryImportDialog open={importOpen} onOpenChange={setImportOpen} />
     </div>
   )
 }
