@@ -19,7 +19,6 @@ export type BrandVariantInsert = {
   selling_price?: number | null
   average_cost?: number | null
   reorder_point?: number
-  margin_percent?: number | null
   stock_level?: number | null
 }
 export type BrandVariantUpdate = Partial<Omit<BrandVariantInsert, 'item_id'>> & { id?: string }
@@ -48,7 +47,7 @@ export function useInventoryItems(categoryType?: string) {
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       let query = supabase
         .from('inventory_items')
-        .select('id, category_id, name_en, name_ar, sku, unit, cost_price, markup_percent, sort_order, status, total_stock, linked_services_count, inventory_categories!inner(type, name_en)')
+        .select('id, category_id, name_en, name_ar, sku, unit, cost_price, sort_order, status, total_stock, linked_services_count, inventory_categories!inner(type, name_en)')
         .eq('status', 'active')
         .order('name_en')
 
@@ -1036,7 +1035,6 @@ export function useStaffProfiles() {
 export type BrandVariantPriceSummary = {
   id: string
   selling_price: number | null
-  margin_percent: number | null
   average_cost: number | null
 }
 
@@ -1049,7 +1047,7 @@ export function useBrandVariantsByIds(ids: string[]) {
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       const { data, error } = await supabase
         .from('inventory_brand_variants')
-        .select('id, selling_price, margin_percent, average_cost')
+        .select('id, selling_price, average_cost')
         .in('id', ids)
       if (error) throw error
       return (data ?? []) as BrandVariantPriceSummary[]
@@ -1061,7 +1059,6 @@ export function useBrandVariantsByIds(ids: string[]) {
 export type SellingPriceUpdate = {
   id: string
   selling_price: number
-  margin_percent: number
 }
 
 export function useBatchUpdateSellingPrices() {

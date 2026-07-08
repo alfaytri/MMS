@@ -2569,7 +2569,6 @@ export type Database = {
           incoming_eta: string | null
           item_id: string
           linked_services_count: number
-          margin_percent: number
           reorder_point: number
           reserved_qty: number
           selling_price: number | null
@@ -2590,7 +2589,6 @@ export type Database = {
           incoming_eta?: string | null
           item_id: string
           linked_services_count?: number
-          margin_percent?: number
           reorder_point?: number
           reserved_qty?: number
           selling_price?: number | null
@@ -2611,7 +2609,6 @@ export type Database = {
           incoming_eta?: string | null
           item_id?: string
           linked_services_count?: number
-          margin_percent?: number
           reorder_point?: number
           reserved_qty?: number
           selling_price?: number | null
@@ -3064,7 +3061,6 @@ export type Database = {
           created_at: string | null
           id: string
           linked_services_count: number | null
-          markup_percent: number | null
           name_ar: string | null
           name_en: string
           sku: string
@@ -3080,7 +3076,6 @@ export type Database = {
           created_at?: string | null
           id?: string
           linked_services_count?: number | null
-          markup_percent?: number | null
           name_ar?: string | null
           name_en: string
           sku: string
@@ -3096,7 +3091,6 @@ export type Database = {
           created_at?: string | null
           id?: string
           linked_services_count?: number | null
-          markup_percent?: number | null
           name_ar?: string | null
           name_en?: string
           sku?: string
