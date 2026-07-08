@@ -211,27 +211,17 @@ export function PoLineItemsEditor({ value, onChange, currency, readOnly = false,
               </div>
             </div>
 
-            {/* Column headers */}
-            <div className="grid grid-cols-[minmax(0,1.2fr)_minmax(0,0.8fr)_65px_60px_85px_minmax(110px,auto)] gap-2 px-3 py-1.5 bg-muted/30 text-[10px] font-medium text-muted-foreground uppercase tracking-wider">
-              <span>Vendor Item Name</span>
-              <span>SKU</span>
-              <span>Qty *</span>
-              <span>Unit</span>
-              <span>Unit Price *</span>
-              <span className="text-right">Total</span>
-            </div>
-
             {/* Rows */}
             <div className="divide-y">
               {rows.map((row) => {
                 const isInventory = lineType !== 'tools'
                 return (
-                  <div key={row._key} className="px-3 py-2 space-y-1.5">
-                    {/* Row A: lookup + delete */}
-                    <div className="flex items-center gap-2">
-                      <div className="flex-1">
+                  <div key={row._key} className="px-3 py-2.5 space-y-2">
+                    {/* Row 1: item picker + delete */}
+                    <div className="flex items-start gap-2">
+                      <div className="flex-1 min-w-0">
                         {readOnly ? (
-                          <div className="h-8 px-2 flex items-center rounded-md border bg-muted/30 text-sm font-medium truncate">
+                          <div className="h-9 px-2 flex items-center rounded-md border bg-muted/30 text-sm font-medium truncate">
                             {row.item_name || '—'}
                           </div>
                         ) : isInventory ? (
@@ -275,53 +265,75 @@ export function PoLineItemsEditor({ value, onChange, currency, readOnly = false,
                           type="button"
                           variant="ghost"
                           size="icon"
-                          className="h-7 w-7 text-destructive/60 hover:text-destructive shrink-0"
+                          className="h-9 w-9 text-destructive/60 hover:text-destructive shrink-0"
                           onClick={() => removeRow(row._key)}
+                          aria-label="Remove line"
                         >
-                          <Trash2 className="h-3.5 w-3.5" />
+                          <Trash2 className="h-4 w-4" />
                         </Button>
                       )}
                     </div>
 
-                    {/* Row B: editable fields */}
-                    <div className="grid grid-cols-[minmax(0,1.2fr)_minmax(0,0.8fr)_65px_60px_85px_minmax(110px,auto)] gap-2 items-center">
-                      <Input
-                        className="h-7 text-xs"
-                        placeholder="Vendor item name (optional)"
-                        value={row.item_name}
-                        onChange={(e) => updateRow(row._key, { item_name: e.target.value })}
-                      />
-                      <Input
-                        className="h-7 text-xs"
-                        placeholder="SKU"
-                        value={row.sku ?? ''}
-                        onChange={(e) => updateRow(row._key, { sku: e.target.value })}
-                        readOnly={readOnly}
-                      />
-                      <Input
-                        type="number"
-                        min="0.001"
-                        step="any"
-                        className="h-7 text-xs"
-                        value={row.qty}
-                        onChange={(e) => updateRow(row._key, { qty: Math.max(0.001, Number(e.target.value)) })}
-                      />
-                      <span className="h-7 px-2 flex items-center rounded-md bg-muted/40 border text-xs text-muted-foreground">
-                        {row.unit || '—'}
-                      </span>
-                      <Input
-                        type="number"
-                        min="0"
-                        step="0.01"
-                        className="h-7 text-xs"
-                        value={row.unit_price}
-                        onChange={(e) => updateRow(row._key, { unit_price: Number(e.target.value) })}
-                      />
-                      <span className="text-xs font-medium text-right whitespace-nowrap tabular-nums">
-                        {row.qty > 0 && row.unit_price > 0
-                          ? formatCurrency(row.total_price, currency)
-                          : '—'}
-                      </span>
+                    {/* Row 2: field grid */}
+                    <div className="flex flex-wrap gap-3 pl-1">
+                      <div className="space-y-0.5 w-[300px]">
+                        <label className="text-[10px] font-medium text-muted-foreground uppercase tracking-wider">Vendor Item Name</label>
+                        <Input
+                          className="h-9 text-sm"
+                          placeholder="Vendor item name (optional)"
+                          value={row.item_name}
+                          readOnly={readOnly}
+                          onChange={(e) => updateRow(row._key, { item_name: e.target.value })}
+                        />
+                      </div>
+                      <div className="space-y-0.5 w-[110px]">
+                        <label className="text-[10px] font-medium text-muted-foreground uppercase tracking-wider">SKU</label>
+                        <Input
+                          className="h-9 text-sm"
+                          placeholder="SKU"
+                          value={row.sku ?? ''}
+                          readOnly={readOnly}
+                          onChange={(e) => updateRow(row._key, { sku: e.target.value })}
+                        />
+                      </div>
+                      <div className="space-y-0.5 w-[70px]">
+                        <label className="text-[10px] font-medium text-muted-foreground uppercase tracking-wider">Qty *</label>
+                        <Input
+                          type="number"
+                          min={0.001}
+                          step="any"
+                          className="h-9 text-sm text-right tabular-nums"
+                          value={row.qty}
+                          readOnly={readOnly}
+                          onChange={(e) => updateRow(row._key, { qty: Math.max(0.001, Number(e.target.value)) })}
+                        />
+                      </div>
+                      <div className="space-y-0.5 w-[70px]">
+                        <label className="text-[10px] font-medium text-muted-foreground uppercase tracking-wider">Unit</label>
+                        <div className="h-9 px-3 flex items-center rounded-md border bg-muted/30 text-sm text-muted-foreground">
+                          {row.unit || '—'}
+                        </div>
+                      </div>
+                      <div className="space-y-0.5 w-[115px]">
+                        <label className="text-[10px] font-medium text-muted-foreground uppercase tracking-wider">Unit Price *</label>
+                        <Input
+                          type="number"
+                          min={0}
+                          step="0.01"
+                          className="h-9 text-sm text-right tabular-nums"
+                          value={row.unit_price}
+                          readOnly={readOnly}
+                          onChange={(e) => updateRow(row._key, { unit_price: Number(e.target.value) })}
+                        />
+                      </div>
+                      <div className="space-y-0.5 w-[130px]">
+                        <label className="text-[10px] font-medium text-muted-foreground uppercase tracking-wider">Total</label>
+                        <div className="h-9 px-3 flex items-center justify-end rounded-md border bg-muted/30 text-sm font-semibold tabular-nums">
+                          {row.qty > 0 && row.unit_price > 0
+                            ? formatCurrency(row.total_price, currency)
+                            : '—'}
+                        </div>
+                      </div>
                     </div>
                   </div>
                 )
