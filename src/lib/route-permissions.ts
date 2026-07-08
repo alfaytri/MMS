@@ -43,9 +43,6 @@ export const ROUTE_PERMISSIONS: RoutePermission[] = [
   { pathPrefix: '/contracts/quotations',       permission: 'contracts.quotations.view' },
   { pathPrefix: '/contracts',                  permission: ['contracts.live.view', 'contracts.quotations.view'] },
 
-  // ── Finance ────────────────────────────────────────────────────────────
-  { pathPrefix: '/finance', permission: 'invoices.access' },
-
   // ── Invoices & Payments ────────────────────────────────────────────────
   { pathPrefix: '/invoices/pending-payments', permission: 'payments.view' },
   { pathPrefix: '/invoices/payments',         permission: 'payments.view' },

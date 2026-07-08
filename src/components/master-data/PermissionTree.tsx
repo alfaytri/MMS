@@ -13,9 +13,9 @@ import {
 } from 'lucide-react'
 import { Badge } from '@/components/ui/badge'
 
-type PermEntry = { key: string; label: string; description: string }
+export type PermEntry = { key: string; label: string; description: string }
 
-type TreeNode = {
+export type TreeNode = {
   id: string
   label: string
   icon?: React.ComponentType<{ className?: string }>
@@ -24,7 +24,7 @@ type TreeNode = {
   children?: TreeNode[]
 }
 
-const NAV_TREE: TreeNode[] = [
+export const NAV_TREE: TreeNode[] = [
   {
     id: 'master-data',
     label: 'Master Data',
@@ -447,7 +447,7 @@ const NAV_TREE: TreeNode[] = [
   },
 ]
 
-function countPerms(node: TreeNode): number {
+export function countPerms(node: TreeNode): number {
   let c = node.permissions?.length ?? 0
   for (const child of node.children ?? []) c += countPerms(child)
   return c
@@ -576,6 +576,16 @@ function TreeNodeRow({
       )}
     </>
   )
+}
+
+export function collectPermKeys(nodes: TreeNode[]): string[] {
+  const keys: string[] = []
+  function walk(n: TreeNode) {
+    for (const p of n.permissions ?? []) keys.push(p.key)
+    for (const c of n.children ?? []) walk(c)
+  }
+  for (const n of nodes) walk(n)
+  return keys
 }
 
 export const TOTAL_TREE_PERMISSIONS = NAV_TREE.reduce((n, node) => n + countPerms(node), 0)

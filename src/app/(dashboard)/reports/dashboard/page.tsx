@@ -1,5 +1,6 @@
 'use client'
 
+import { useEffect, useState } from 'react'
 import Link from 'next/link'
 import { PageHeader } from '@/components/shared/PageHeader'
 import { PageWrapper } from '@/components/shared/PageWrapper'
@@ -38,50 +39,64 @@ function TrendChart({ data }: { data: MonthlyTrend[] }) {
   const max = Math.max(...data.flatMap((d) => [d.invoiced, d.billed]), 1)
   const allZero = data.every((d) => d.invoiced === 0 && d.billed === 0)
 
+  // Grow bars from 0 → target on mount for a smooth entrance
+  const [grown, setGrown] = useState(false)
+  useEffect(() => {
+    const t = setTimeout(() => setGrown(true), 60)
+    return () => clearTimeout(t)
+  }, [])
+
   return (
     <div className="space-y-3">
-      {/* Bars */}
       <div className="flex items-end gap-3 sm:gap-6 h-48">
-        {data.map((d) => {
+        {data.map((d, i) => {
           const salesPct = (d.invoiced / max) * 100
           const purchPct = (d.billed / max) * 100
-          const isCurrent = d === data[data.length - 1]
+          const isCurrent = i === data.length - 1
           return (
             <div key={d.label} className="flex-1 flex flex-col items-center gap-2 min-w-0">
               {/* Numbers on top */}
               <div className="flex items-end gap-1 sm:gap-2 w-full justify-center min-h-[28px]">
                 <span className={cn(
-                  'text-[10px] sm:text-xs font-medium tabular-nums',
-                  d.invoiced > 0 ? 'text-emerald-700' : 'text-muted-foreground/40',
+                  'text-[10px] sm:text-xs font-medium tabular-nums transition-opacity duration-500',
+                  d.invoiced > 0 ? 'text-emerald-700 opacity-100' : 'text-muted-foreground/40',
+                  !grown && 'opacity-0',
                 )}>
                   {d.invoiced > 0 ? compactMoney(d.invoiced) : '—'}
                 </span>
                 <span className={cn(
-                  'text-[10px] sm:text-xs font-medium tabular-nums',
-                  d.billed > 0 ? 'text-red-700' : 'text-muted-foreground/40',
+                  'text-[10px] sm:text-xs font-medium tabular-nums transition-opacity duration-500',
+                  d.billed > 0 ? 'text-red-700 opacity-100' : 'text-muted-foreground/40',
+                  !grown && 'opacity-0',
                 )}>
                   {d.billed > 0 ? compactMoney(d.billed) : '—'}
                 </span>
               </div>
               {/* Bar pair */}
               <div className="flex items-end justify-center gap-1 sm:gap-1.5 w-full h-32 border-b border-border/40">
-                <div className="flex-1 max-w-[24px] relative flex items-end">
+                <div className="flex-1 max-w-[24px] h-full flex items-end">
                   <div
-                    className="w-full bg-emerald-400 hover:bg-emerald-500 rounded-t-sm transition-all"
-                    style={{ height: `${Math.max(salesPct, d.invoiced > 0 ? 2 : 0)}%` }}
+                    className="w-full bg-gradient-to-t from-emerald-500 to-emerald-400 hover:from-emerald-600 hover:to-emerald-500 rounded-t-sm shadow-sm transition-[height,background-color] duration-700 ease-out"
+                    style={{
+                      height: grown ? `${Math.max(salesPct, d.invoiced > 0 ? 2 : 0)}%` : '0%',
+                      transitionDelay: `${i * 60}ms`,
+                    }}
                     title={`Sales: ${formatCurrency(d.invoiced, 'QAR')}`}
                   />
                 </div>
-                <div className="flex-1 max-w-[24px] relative flex items-end">
+                <div className="flex-1 max-w-[24px] h-full flex items-end">
                   <div
-                    className="w-full bg-red-400 hover:bg-red-500 rounded-t-sm transition-all"
-                    style={{ height: `${Math.max(purchPct, d.billed > 0 ? 2 : 0)}%` }}
+                    className="w-full bg-gradient-to-t from-red-500 to-red-400 hover:from-red-600 hover:to-red-500 rounded-t-sm shadow-sm transition-[height,background-color] duration-700 ease-out"
+                    style={{
+                      height: grown ? `${Math.max(purchPct, d.billed > 0 ? 2 : 0)}%` : '0%',
+                      transitionDelay: `${i * 60 + 80}ms`,
+                    }}
                     title={`Purchase: ${formatCurrency(d.billed, 'QAR')}`}
                   />
                 </div>
               </div>
               <span className={cn(
-                'text-[10px] sm:text-xs',
+                'text-[10px] sm:text-xs transition-colors',
                 isCurrent ? 'font-semibold text-foreground' : 'text-muted-foreground',
               )}>
                 {d.label}
@@ -110,6 +125,7 @@ function KpiCard({
   value,
   valueClass,
   footer,
+  delay = 0,
 }: {
   href?: string
   icon: React.ReactNode
@@ -118,12 +134,19 @@ function KpiCard({
   value: string
   valueClass?: string
   footer?: React.ReactNode
+  delay?: number
 }) {
   const inner = (
-    <Card className={cn('h-full transition-all', href && 'hover:shadow-md hover:border-primary/30 cursor-pointer')}>
+    <Card
+      className={cn(
+        'h-full transition-all duration-300 animate-in fade-in slide-in-from-bottom-2 fill-mode-both',
+        href && 'hover:shadow-lg hover:-translate-y-0.5 hover:border-primary/30 cursor-pointer',
+      )}
+      style={{ animationDelay: `${delay}ms`, animationDuration: '500ms' }}
+    >
       <CardContent className="pt-1 h-full flex flex-col">
         <div className="flex items-start gap-3">
-          <div className={cn('flex h-10 w-10 shrink-0 items-center justify-center rounded-lg', iconBg)}>
+          <div className={cn('flex h-10 w-10 shrink-0 items-center justify-center rounded-lg transition-transform', iconBg)}>
             {icon}
           </div>
           <div className="min-w-0 flex-1">
@@ -136,7 +159,7 @@ function KpiCard({
             </p>
           </div>
         </div>
-        {footer && <div className="mt-3 pt-3 border-t border-border/50">{footer}</div>}
+        {footer && <div className="mt-3 pt-3 border-t border-border/50 min-h-[28px]">{footer}</div>}
       </CardContent>
     </Card>
   )
@@ -149,7 +172,7 @@ function LoadingSkeleton() {
   return (
     <div className="space-y-6">
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-        {Array.from({ length: 4 }).map((_, i) => <Skeleton key={i} className="h-32 w-full rounded-xl" />)}
+        {Array.from({ length: 4 }).map((_, i) => <Skeleton key={i} className="h-28 w-full rounded-xl" />)}
       </div>
       <Skeleton className="h-80 w-full rounded-xl" />
       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -168,7 +191,7 @@ export default function FinancialDashboardPage() {
   if (isLoading || !data) {
     return (
       <PageWrapper>
-        <PageHeader title="Financial Dashboard" description="Money owed to you, money you owe, and cash movement this month" />
+        <PageHeader title="Financial Dashboard" description="Receivables, payables and cash movement" />
         <LoadingSkeleton />
       </PageWrapper>
     )
@@ -177,19 +200,24 @@ export default function FinancialDashboardPage() {
   const { receivables, payables, cash_this_month, monthly_trend, top_overdue_customers, top_overdue_suppliers } = data
   const cashInPct  = pctChange(cash_this_month.in,  cash_this_month.in_prev)
   const cashOutPct = pctChange(cash_this_month.out, cash_this_month.out_prev)
-  const netCash    = cash_this_month.net
 
   return (
     <PageWrapper>
-      <PageHeader
-        title="Financial Dashboard"
-        description="Money owed to you, money you owe, and cash movement this month"
-      />
+      <PageHeader title="Financial Dashboard" description="Receivables, payables and cash movement" />
+
+      {/* ── Cross-report link ─────────────────────────────────────── */}
+      <Link
+        href="/reports/product-profitability"
+        className="group inline-flex items-center gap-1.5 text-xs text-primary hover:underline transition-transform hover:translate-x-0.5 self-start"
+      >
+        <span>View product-level profit &amp; COGS report</span>
+        <ArrowRight className="h-3 w-3 transition-transform group-hover:translate-x-0.5" />
+      </Link>
 
       {/* ── KPI Row ────────────────────────────────────────────────── */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-        {/* Receivables */}
         <KpiCard
+          delay={0}
           href="/sales/aging-report"
           icon={<ArrowDownLeft className="h-5 w-5 text-emerald-600" />}
           iconBg="bg-emerald-100"
@@ -200,19 +228,19 @@ export default function FinancialDashboardPage() {
             receivables.overdue > 0 ? (
               <div className="flex items-center gap-1.5 text-xs text-red-600">
                 <AlertTriangle className="h-3 w-3" />
-                <span>{formatCurrency(receivables.overdue, 'QAR')} overdue ({receivables.overdue_count})</span>
+                <span className="truncate">{formatCurrency(receivables.overdue, 'QAR')} overdue ({receivables.overdue_count})</span>
               </div>
             ) : (
               <div className="flex items-center gap-1.5 text-xs text-emerald-600">
                 <span className="h-1.5 w-1.5 rounded-full bg-emerald-500" />
-                <span>No overdue invoices</span>
+                <span>All invoices up to date</span>
               </div>
             )
           }
         />
 
-        {/* Payables */}
         <KpiCard
+          delay={80}
           href="/purchase/aging-report"
           icon={<ArrowUpRight className="h-5 w-5 text-red-600" />}
           iconBg="bg-red-100"
@@ -223,119 +251,64 @@ export default function FinancialDashboardPage() {
             payables.overdue > 0 ? (
               <div className="flex items-center gap-1.5 text-xs text-red-600">
                 <AlertTriangle className="h-3 w-3" />
-                <span>{formatCurrency(payables.overdue, 'QAR')} overdue ({payables.overdue_count})</span>
+                <span className="truncate">{formatCurrency(payables.overdue, 'QAR')} overdue ({payables.overdue_count})</span>
               </div>
             ) : (
               <div className="flex items-center gap-1.5 text-xs text-emerald-600">
                 <span className="h-1.5 w-1.5 rounded-full bg-emerald-500" />
-                <span>No overdue bills</span>
+                <span>All bills up to date</span>
               </div>
             )
           }
         />
 
-        {/* Cash In This Month */}
         <KpiCard
+          delay={160}
           icon={<Wallet className="h-5 w-5 text-emerald-600" />}
           iconBg="bg-emerald-100"
           label="Cash In (This Month)"
           value={formatCurrency(cash_this_month.in, 'QAR')}
           valueClass="text-emerald-700"
           footer={
-            <div className="flex items-center justify-between text-xs">
-              <span className="text-muted-foreground">
-                Invoiced: <span className="font-medium text-foreground tabular-nums">{formatCurrency(cash_this_month.invoiced, 'QAR')}</span>
-              </span>
-              {cashInPct !== null && cashInPct !== 0 && (
-                <span className={cn(
-                  'inline-flex items-center gap-0.5 font-medium',
-                  cashInPct > 0 ? 'text-emerald-600' : 'text-red-600',
-                )}>
-                  {cashInPct > 0 ? <TrendingUp className="h-3 w-3" /> : <TrendingDown className="h-3 w-3" />}
-                  {Math.abs(cashInPct).toFixed(0)}%
-                </span>
-              )}
-            </div>
+            cashInPct !== null && cashInPct !== 0 ? (
+              <div className={cn(
+                'inline-flex items-center gap-1 text-xs font-medium',
+                cashInPct > 0 ? 'text-emerald-600' : 'text-red-600',
+              )}>
+                {cashInPct > 0 ? <TrendingUp className="h-3 w-3" /> : <TrendingDown className="h-3 w-3" />}
+                <span>{Math.abs(cashInPct).toFixed(0)}% vs last month</span>
+              </div>
+            ) : (
+              <span className="text-xs text-muted-foreground">No change vs last month</span>
+            )
           }
         />
 
-        {/* Cash Out This Month */}
         <KpiCard
+          delay={240}
           icon={<CircleDollarSign className="h-5 w-5 text-red-600" />}
           iconBg="bg-red-100"
           label="Cash Out (This Month)"
           value={formatCurrency(cash_this_month.out, 'QAR')}
           valueClass="text-red-700"
           footer={
-            <div className="flex items-center justify-between text-xs">
-              <span className="text-muted-foreground">
-                Billed: <span className="font-medium text-foreground tabular-nums">{formatCurrency(cash_this_month.billed, 'QAR')}</span>
-              </span>
-              {cashOutPct !== null && cashOutPct !== 0 && (
-                <span className={cn(
-                  'inline-flex items-center gap-0.5 font-medium',
-                  cashOutPct > 0 ? 'text-red-600' : 'text-emerald-600',
-                )}>
-                  {cashOutPct > 0 ? <TrendingUp className="h-3 w-3" /> : <TrendingDown className="h-3 w-3" />}
-                  {Math.abs(cashOutPct).toFixed(0)}%
-                </span>
-              )}
-            </div>
+            cashOutPct !== null && cashOutPct !== 0 ? (
+              <div className={cn(
+                'inline-flex items-center gap-1 text-xs font-medium',
+                cashOutPct > 0 ? 'text-red-600' : 'text-emerald-600',
+              )}>
+                {cashOutPct > 0 ? <TrendingUp className="h-3 w-3" /> : <TrendingDown className="h-3 w-3" />}
+                <span>{Math.abs(cashOutPct).toFixed(0)}% vs last month</span>
+              </div>
+            ) : (
+              <span className="text-xs text-muted-foreground">No change vs last month</span>
+            )
           }
         />
       </div>
 
-      {/* ── Net Cash Flow strip ───────────────────────────────────── */}
-      <Card>
-        <CardContent className="pt-1">
-          <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 items-center">
-            <div className="text-center sm:text-left">
-              <p className="text-xs text-muted-foreground">Net Cash Flow (This Month)</p>
-              <p className={cn(
-                'text-2xl font-bold tabular-nums mt-1',
-                netCash >= 0 ? 'text-emerald-700' : 'text-red-700',
-              )}>
-                {netCash >= 0 ? '+' : ''}{formatCurrency(netCash, 'QAR')}
-              </p>
-              <p className="text-xs text-muted-foreground mt-0.5">
-                {netCash >= 0 ? 'More cash in than out' : 'More cash out than in'}
-              </p>
-            </div>
-
-            {/* In vs Out bar */}
-            <div className="sm:col-span-2">
-              {cash_this_month.in + cash_this_month.out === 0 ? (
-                <div className="flex items-center justify-center py-4">
-                  <p className="text-sm text-muted-foreground italic">No payments recorded this month yet</p>
-                </div>
-              ) : (
-                <div className="space-y-2">
-                  <div className="flex items-center justify-between text-xs">
-                    <span className="text-emerald-700 font-medium">In · {formatCurrency(cash_this_month.in, 'QAR')}</span>
-                    <span className="text-red-700 font-medium">Out · {formatCurrency(cash_this_month.out, 'QAR')}</span>
-                  </div>
-                  <div className="h-3 w-full rounded-full bg-muted overflow-hidden flex">
-                    {(() => {
-                      const total = cash_this_month.in + cash_this_month.out
-                      const inPct  = (cash_this_month.in  / total) * 100
-                      const outPct = (cash_this_month.out / total) * 100
-                      return (
-                        <>
-                          <div className="h-full bg-emerald-400" style={{ width: `${inPct}%` }} />
-                          <div className="h-full bg-red-400" style={{ width: `${outPct}%` }} />
-                        </>
-                      )
-                    })()}
-                  </div>
-                </div>
-              )}
-            </div>
-          </div>
-        </CardContent>
-      </Card>
-
       {/* ── Monthly Trend chart ───────────────────────────────────── */}
-      <Card>
+      <Card className="animate-in fade-in slide-in-from-bottom-2 fill-mode-both" style={{ animationDelay: '320ms', animationDuration: '500ms' }}>
         <CardContent className="pt-1">
           <div className="flex flex-wrap items-center justify-between gap-2 mb-4">
             <div>
@@ -359,15 +332,14 @@ export default function FinancialDashboardPage() {
 
       {/* ── Top Overdue tables ────────────────────────────────────── */}
       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-        {/* Customers */}
-        <Card>
+        <Card className="animate-in fade-in slide-in-from-bottom-2 fill-mode-both" style={{ animationDelay: '400ms', animationDuration: '500ms' }}>
           <CardContent className="pt-1">
             <div className="flex items-center justify-between mb-3">
               <div>
                 <h3 className="text-base font-semibold">Customers Overdue</h3>
                 <p className="text-xs text-muted-foreground">People who owe you money past due</p>
               </div>
-              <Link href="/sales/aging-report" className="text-xs text-primary hover:underline inline-flex items-center gap-1">
+              <Link href="/sales/aging-report" className="text-xs text-primary hover:underline inline-flex items-center gap-1 transition-transform hover:translate-x-0.5">
                 View all <ArrowRight className="h-3 w-3" />
               </Link>
             </div>
@@ -389,8 +361,12 @@ export default function FinancialDashboardPage() {
                     </TableRow>
                   </TableHeader>
                   <TableBody>
-                    {top_overdue_customers.map((c) => (
-                      <TableRow key={c.id}>
+                    {top_overdue_customers.map((c, i) => (
+                      <TableRow
+                        key={c.id}
+                        className="animate-in fade-in slide-in-from-left-1 fill-mode-both transition-colors"
+                        style={{ animationDelay: `${480 + i * 60}ms`, animationDuration: '400ms' }}
+                      >
                         <TableCell>
                           <div className="font-medium">{c.name}</div>
                           <div className="text-xs text-muted-foreground">
@@ -418,15 +394,14 @@ export default function FinancialDashboardPage() {
           </CardContent>
         </Card>
 
-        {/* Suppliers */}
-        <Card>
+        <Card className="animate-in fade-in slide-in-from-bottom-2 fill-mode-both" style={{ animationDelay: '480ms', animationDuration: '500ms' }}>
           <CardContent className="pt-1">
             <div className="flex items-center justify-between mb-3">
               <div>
                 <h3 className="text-base font-semibold">Suppliers Overdue</h3>
                 <p className="text-xs text-muted-foreground">Vendors you owe money to past due</p>
               </div>
-              <Link href="/purchase/aging-report" className="text-xs text-primary hover:underline inline-flex items-center gap-1">
+              <Link href="/purchase/aging-report" className="text-xs text-primary hover:underline inline-flex items-center gap-1 transition-transform hover:translate-x-0.5">
                 View all <ArrowRight className="h-3 w-3" />
               </Link>
             </div>
@@ -448,8 +423,12 @@ export default function FinancialDashboardPage() {
                     </TableRow>
                   </TableHeader>
                   <TableBody>
-                    {top_overdue_suppliers.map((s) => (
-                      <TableRow key={s.id}>
+                    {top_overdue_suppliers.map((s, i) => (
+                      <TableRow
+                        key={s.id}
+                        className="animate-in fade-in slide-in-from-left-1 fill-mode-both transition-colors"
+                        style={{ animationDelay: `${560 + i * 60}ms`, animationDuration: '400ms' }}
+                      >
                         <TableCell>
                           <div className="font-medium">{s.name}</div>
                           <div className="text-xs text-muted-foreground">

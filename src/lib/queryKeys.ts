@@ -185,6 +185,8 @@ export const queryKeys = {
     salesAging: ['sales-aging-report'] as const,
     customerStatement: (customerId: Nullable, dateFrom: Nullable, dateTo: Nullable) =>
       ['customer-statement', customerId, dateFrom, dateTo] as const,
+    productProfitability: (from: string, to: string) =>
+      ['product-profitability', from, to] as const,
   },
 
   /* ── Divisions ────────────────────────────────────────── */

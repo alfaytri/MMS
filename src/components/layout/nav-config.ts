@@ -40,11 +40,12 @@ export const NAV_ITEMS: NavEntry[] = [
   {
     label: 'Reports',
     icon: 'BarChart3',
-    permission: 'invoices.access',
+    permission: 'reports.access',
     groups: [
       {
         items: [
-          { label: 'Financial Dashboard', href: '/finance/dashboard', icon: 'LayoutDashboard', permission: 'invoices.access' },
+          { label: 'Financial Dashboard',   href: '/reports/dashboard',              icon: 'LayoutDashboard', permission: 'reports.view' },
+          { label: 'Product Profitability', href: '/reports/product-profitability',  icon: 'TrendingUp',      permission: 'reports.view' },
         ],
       },
     ],
