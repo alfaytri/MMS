@@ -75,7 +75,7 @@ export function BrandVariantEditDialog({ open, onOpenChange, itemId, variant }: 
       setSellingPrice(variant?.selling_price != null ? String(variant.selling_price) : '')
       setMarginPercent(variant?.margin_percent != null ? String(variant.margin_percent) : '0')
       setReorderPoint(variant ? String(variant.reorder_point ?? 0) : '0')
-      setAvgCost(variant?.average_cost != null ? String(variant.average_cost) : '')
+      setAvgCost(variant?.average_cost != null ? String(Math.round(variant.average_cost * 100) / 100) : '')
     }
   }, [open, variant])
 
@@ -250,7 +250,7 @@ export function BrandVariantEditDialog({ open, onOpenChange, itemId, variant }: 
               {avgCostLocked ? (
                 <div className="space-y-1">
                   <Input
-                    value={avgCost}
+                    value={avgCost ? Number(avgCost).toLocaleString('en-QA', { minimumFractionDigits: 2, maximumFractionDigits: 2 }) : ''}
                     readOnly
                     className="bg-muted text-muted-foreground cursor-not-allowed"
                   />
