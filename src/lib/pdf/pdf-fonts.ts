@@ -93,8 +93,8 @@ export function brandHeaderHtml(logoDataUrlOrBrand: string | BrandHeaderInput): 
         logoDataUrl:   logoDataUrlOrBrand,
         companyNameEn: 'ALFAYTRI',
         companyNameAr: 'الفيتري',
-        addressEn:     'Office 18, Building 19, Street 185, Zone 55\nDoha, Qatar | P.O. Box 45069\nTrading: 44214420 | Maintenance: 44190600\ninfo@alfaytri.com | www.alfaytri.com',
-        addressAr:     'مكتب ١٨ ، مبنى ١٩ ، شارع ١٨٥ ، منطقة ٥٥\nالدوحة ، قطر | ص.ب ٤٥٠٦٩\nالتداول: ٤٤٢١٤٤٢٠ | الصيانة: ٤٤١٩٠٦٠٠\ninfo@alfaytri.com | www.alfaytri.com',
+        addressEn:     'Trading and Building Maintenance\nOffice 18, Building 19, Street 185, Zone 55\nDoha, Qatar | P.O. Box 45069\nTrading: 44214420 | Maintenance: 44190600\ninfo@alfaytri.com | www.alfaytri.com',
+        addressAr:     'لتجارة وصيانة المباني\nمكتب ١٨ ، مبنى ١٩ ، شارع ١٨٥ ، منطقة ٥٥\nالدوحة ، قطر | ص.ب ٤٥٠٦٩\nالتداول: ٤٤٢١٤٤٢٠ | الصيانة: ٤٤١٩٠٦٠٠\ninfo@alfaytri.com | www.alfaytri.com',
       }
     : logoDataUrlOrBrand
 

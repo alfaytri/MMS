@@ -22,6 +22,7 @@ import {
   FormMessage,
 } from '@/components/ui/form'
 import { Input } from '@/components/ui/input'
+import { Textarea } from '@/components/ui/textarea'
 import { Button } from '@/components/ui/button'
 import { createClient } from '@/lib/supabase/client'
 import { useCreateCompany, useUpdateCompany, type Company } from '@/hooks/useCompanies'
@@ -35,7 +36,6 @@ const companySchema = z.object({
   default_tax_rate: z.string(),
   address_en: z.string().optional(),
   address_ar: z.string().optional(),
-  footer_motto: z.string().max(120, 'Max 120 characters').optional(),
   logo_url: z.string().url().optional().or(z.literal('')),
   stamp_url: z.string().url().optional().or(z.literal('')),
 })
@@ -68,7 +68,6 @@ export function CompanyFormDialog({ open, onOpenChange, company }: CompanyFormDi
       default_tax_rate: '0',
       address_en: '',
       address_ar: '',
-      footer_motto: '',
       logo_url: '',
       stamp_url: '',
     },
@@ -88,7 +87,6 @@ export function CompanyFormDialog({ open, onOpenChange, company }: CompanyFormDi
         default_tax_rate: String(company.default_tax_rate),
         address_en: company.address_en ?? '',
         address_ar: company.address_ar ?? '',
-        footer_motto: company.footer_motto ?? '',
         logo_url: company.logo_url ?? '',
         stamp_url: company.stamp_url ?? '',
       })
@@ -130,7 +128,6 @@ export function CompanyFormDialog({ open, onOpenChange, company }: CompanyFormDi
       vat_id: values.vat_id || null,
       address_en: values.address_en || null,
       address_ar: values.address_ar || null,
-      footer_motto: values.footer_motto || null,
       logo_url: values.logo_url || null,
       stamp_url: values.stamp_url || null,
     }
@@ -158,14 +155,17 @@ export function CompanyFormDialog({ open, onOpenChange, company }: CompanyFormDi
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="w-full md:max-w-xl max-h-[90vh] overflow-y-auto">
-        <DialogHeader>
-          <DialogTitle>{isEditing ? 'Edit' : 'Add'} Company</DialogTitle>
-        </DialogHeader>
+      <DialogContent className="w-full max-w-full rounded-none sm:max-w-2xl sm:rounded-lg p-0 flex flex-col max-h-[90vh] overflow-hidden">
+        <div className="px-6 pt-6 flex-shrink-0">
+          <DialogHeader>
+            <DialogTitle className="text-lg">{isEditing ? 'Edit' : 'Add'} Company</DialogTitle>
+          </DialogHeader>
+        </div>
         <Form {...form}>
-          <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
+          <form onSubmit={form.handleSubmit(onSubmit)} className="flex flex-col min-h-0 flex-1">
+            <div className="px-6 pb-4 space-y-5 overflow-y-auto flex-1 min-h-0">
             {/* ── Name EN + AR ─────────────────────────────────────── */}
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-x-6 gap-y-5">
               <FormField
                 control={form.control}
                 name="name_en"
@@ -195,7 +195,7 @@ export function CompanyFormDialog({ open, onOpenChange, company }: CompanyFormDi
             </div>
 
             {/* ── CR + VAT ────────────────────────────────────────── */}
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-x-6 gap-y-5">
               <FormField
                 control={form.control}
                 name="cr_number"
@@ -225,7 +225,7 @@ export function CompanyFormDialog({ open, onOpenChange, company }: CompanyFormDi
             </div>
 
             {/* ── Currency + Tax Rate ─────────────────────────────── */}
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-x-6 gap-y-5">
               <FormField
                 control={form.control}
                 name="default_currency"
@@ -255,7 +255,7 @@ export function CompanyFormDialog({ open, onOpenChange, company }: CompanyFormDi
             </div>
 
             {/* ── Address EN + AR ─────────────────────────────────── */}
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-x-6 gap-y-5">
               <FormField
                 control={form.control}
                 name="address_en"
@@ -263,7 +263,12 @@ export function CompanyFormDialog({ open, onOpenChange, company }: CompanyFormDi
                   <FormItem>
                     <FormLabel>Address (EN)</FormLabel>
                     <FormControl>
-                      <Input {...field} />
+                      <Textarea
+                        rows={3}
+                        placeholder="Company address in English"
+                        className="resize-none"
+                        {...field}
+                      />
                     </FormControl>
                     <FormMessage />
                   </FormItem>
@@ -276,7 +281,13 @@ export function CompanyFormDialog({ open, onOpenChange, company }: CompanyFormDi
                   <FormItem>
                     <FormLabel>Address (AR)</FormLabel>
                     <FormControl>
-                      <Input dir="rtl" {...field} />
+                      <Textarea
+                        rows={3}
+                        dir="rtl"
+                        placeholder="عنوان الشركة بالعربية"
+                        className="resize-none"
+                        {...field}
+                      />
                     </FormControl>
                     <FormMessage />
                   </FormItem>
@@ -284,26 +295,8 @@ export function CompanyFormDialog({ open, onOpenChange, company }: CompanyFormDi
               />
             </div>
 
-            {/* ── Footer Motto ────────────────────────────────────── */}
-            <FormField
-              control={form.control}
-              name="footer_motto"
-              render={({ field }) => (
-                <FormItem>
-                  <FormLabel>Footer Motto</FormLabel>
-                  <FormControl>
-                    <Input
-                      placeholder="e.g. Quality Service Since 2010"
-                      {...field}
-                    />
-                  </FormControl>
-                  <FormMessage />
-                </FormItem>
-              )}
-            />
-
             {/* ── Logo + Stamp upload ─────────────────────────────── */}
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-x-6 gap-y-5">
               {/* Logo */}
               <div className="flex flex-col gap-1">
                 <span className="text-sm font-medium leading-none">Logo</span>
@@ -387,7 +380,9 @@ export function CompanyFormDialog({ open, onOpenChange, company }: CompanyFormDi
               </div>
             </div>
 
-            <DialogFooter className="sticky bottom-0 bg-background pt-4 border-t">
+            </div>
+
+            <DialogFooter className="flex-shrink-0 border-t bg-background px-6 py-4">
               <Button
                 type="button"
                 variant="outline"
@@ -397,7 +392,7 @@ export function CompanyFormDialog({ open, onOpenChange, company }: CompanyFormDi
                 Cancel
               </Button>
               <Button type="submit" disabled={isPending || isUploadingLogo || isUploadingStamp}>
-                {isPending ? 'Saving…' : isEditing ? 'Update' : 'Create'}
+                {isPending ? 'Saving...' : isEditing ? 'Update' : 'Create'}
               </Button>
             </DialogFooter>
           </form>

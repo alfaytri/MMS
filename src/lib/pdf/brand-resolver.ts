@@ -50,8 +50,8 @@ async function urlToDataUrl(url: string): Promise<string | null> {
   }
 }
 
-const FALLBACK_ADDR_EN = 'Office 18, Building 19, Street 185, Zone 55\nDoha, Qatar | P.O. Box 45069'
-const FALLBACK_ADDR_AR = 'مكتب ١٨ ، مبنى ١٩ ، شارع ١٨٥ ، منطقة ٥٥\nالدوحة ، قطر | ص.ب ٤٥٠٦٩'
+const FALLBACK_ADDR_EN = 'Trading and Building Maintenance\nOffice 18, Building 19, Street 185, Zone 55\nDoha, Qatar | P.O. Box 45069\nTrading: 44214420 | Maintenance: 44190600\ninfo@alfaytri.com | www.alfaytri.com'
+const FALLBACK_ADDR_AR = 'لتجارة وصيانة المباني\nمكتب ١٨ ، مبنى ١٩ ، شارع ١٨٥ ، منطقة ٥٥\nالدوحة ، قطر | ص.ب ٤٥٠٦٩\nالتداول: ٤٤٢١٤٤٢٠ | الصيانة: ٤٤١٩٠٦٠٠\ninfo@alfaytri.com | www.alfaytri.com'
 
 export async function resolveBrand(
   divisionId: string | null | undefined,
