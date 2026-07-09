@@ -26,7 +26,7 @@ export function useWarehouses() {
       const supabase = createClient()
       const { data, error } = await supabase
         .from('warehouses')
-        .select('*, warehouse_field_rps(profile_id, profiles(full_name, division_id, company_divisions(id, name)))')
+        .select('*, warehouse_field_rps(profile_id, profiles(full_name, division_id, company_divisions!profiles_division_id_fkey(id, name)))')
         .order('name')
       if (error) throw error
       return (data ?? []).map((row) => {
