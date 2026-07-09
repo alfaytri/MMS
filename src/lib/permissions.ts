@@ -287,7 +287,7 @@ export const PERMISSION_GROUPS: PermissionGroup[] = [
         label: 'Warehouses Tab',
         permissions: [
           { key: 'warehouse.warehouses.view', label: 'View Warehouses Tab',  description: 'See the Warehouses tab listing physical warehouses' },
-          { key: 'warehouse.settings.manage', label: 'Manage WH Settings',   description: 'Edit warehouses, assign Field RPs, configure reorder points' },
+          { key: 'warehouse.settings.manage', label: 'Manage WH Settings',   description: 'Edit warehouses, assign Warehouse RPs, configure reorder points' },
         ],
       },
       {
@@ -301,8 +301,8 @@ export const PERMISSION_GROUPS: PermissionGroup[] = [
         permissions: [
           { key: 'warehouse.transfers.view',    label: 'View Transfers',     description: 'See the Transfers tab and transfer history' },
           { key: 'warehouse.transfer.create',   label: 'Create Transfers',   description: 'Initiate stock transfers between warehouses' },
-          { key: 'warehouse.transfer.dispatch', label: 'Dispatch Transfers', description: 'Approve items leaving a warehouse (Field RP only)' },
-          { key: 'warehouse.transfer.receive',  label: 'Receive Transfers',  description: 'Confirm items arriving at a warehouse (Field RP only)' },
+          { key: 'warehouse.transfer.dispatch', label: 'Dispatch Transfers', description: 'Approve items leaving a warehouse (Warehouse RP only)' },
+          { key: 'warehouse.transfer.receive',  label: 'Receive Transfers',  description: 'Confirm items arriving at a warehouse (Warehouse RP only)' },
           { key: 'warehouse.transfer.approve',  label: 'Override Transfers', description: 'Override/approve any transfer step (Inventory Manager)' },
         ],
       },

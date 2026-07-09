@@ -312,10 +312,10 @@ export function RoleFormDialog({ open, onOpenChange, role }: RoleFormDialogProps
                 render={({ field }) => (
                   <FormItem className="flex items-center justify-between rounded-md border border-border p-3 bg-card">
                     <div className="space-y-0.5 pr-3">
-                      <FormLabel className="text-sm">Field Responsible Person (RP)</FormLabel>
+                      <FormLabel className="text-sm">Warehouse Responsible Person (RP)</FormLabel>
                       <p className="text-xs text-muted-foreground">
-                        Mark this role as a Field RP so users holding it appear as
-                        candidates in the Warehouse dialog&apos;s Field RPs picker.
+                        Mark this role as a Warehouse RP so users holding it appear as
+                        candidates in the Warehouse dialog&apos;s Warehouse RPs picker.
                       </p>
                     </div>
                     <FormControl>

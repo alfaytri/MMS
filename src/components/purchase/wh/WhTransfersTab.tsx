@@ -293,7 +293,7 @@ export const WhTransfersTab = React.memo(function WhTransfersTab({ warehouses, c
           toast.success('Transfer cancelled')
           setCancelTarget(null)
 
-          // Notify Field RPs of both warehouses
+          // Notify Warehouse RPs of both warehouses
           const [srcRPs, destRPs] = await Promise.all([
             getFieldRPProfileIds(t.from_warehouse_id),
             getFieldRPProfileIds(t.to_warehouse_id),

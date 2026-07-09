@@ -71,7 +71,7 @@ export function WarehouseFormDialog({ open, onOpenChange, warehouse }: Warehouse
     setSelectedRPIds([])
   }, [open, warehouse?.id, form])
 
-  // Pre-fill Field RPs once loaded for the current warehouse
+  // Pre-fill Warehouse RPs once loaded for the current warehouse
   useEffect(() => {
     if (open && warehouse && currentRPs.length > 0) {
       setSelectedRPIds(currentRPs.map((rp) => rp.profile_id))
@@ -88,7 +88,7 @@ export function WarehouseFormDialog({ open, onOpenChange, warehouse }: Warehouse
         const created = await create.mutateAsync({ name: values.name, location: values.location || null })
         whId = created.id
       }
-      // Save Field RP assignments
+      // Save Warehouse RP assignments
       await replaceRPs.mutateAsync({ warehouseId: whId, profileIds: selectedRPIds })
       toast.success(warehouse ? 'Warehouse updated' : 'Warehouse created')
       onOpenChange(false)
@@ -131,10 +131,10 @@ export function WarehouseFormDialog({ open, onOpenChange, warehouse }: Warehouse
                 </FormItem>
               )}
             />
-            {/* ── Field RPs multi-select dropdown ── */}
+            {/* ── Warehouse RPs multi-select dropdown ── */}
             <div className="space-y-2">
               <Label className="text-xs font-medium flex items-center gap-1.5">
-                Field RPs
+                Warehouse RPs
                 <TooltipProvider delayDuration={200}>
                   <Tooltip>
                     <TooltipTrigger asChild>
@@ -145,14 +145,14 @@ export function WarehouseFormDialog({ open, onOpenChange, warehouse }: Warehouse
                 </TooltipProvider>
               </Label>
               {rpCandidates.length === 0 ? (
-                <p className="text-xs text-muted-foreground border rounded-md py-3 text-center">No users with Field RP role found. Assign the role in User Management first.</p>
+                <p className="text-xs text-muted-foreground border rounded-md py-3 text-center">No users with Warehouse RP role found. Assign the role in User Management first.</p>
               ) : (
                 <>
                   <Popover open={rpPopoverOpen} onOpenChange={setRpPopoverOpen}>
                     <PopoverTrigger className="flex h-9 w-full items-center justify-between rounded-md border border-input bg-background px-3 py-2 text-xs ring-offset-background hover:bg-accent/50 cursor-pointer">
                       <span className="text-muted-foreground truncate">
                         {selectedRPIds.length === 0
-                          ? 'Select Field RPs...'
+                          ? 'Select Warehouse RPs...'
                           : `${selectedRPIds.length} selected`}
                       </span>
                       <ChevronsUpDown className="h-3.5 w-3.5 shrink-0 opacity-50" />

@@ -69,9 +69,9 @@ export const WhWarehousesTab = React.memo(function WhWarehousesTab({ warehouses,
                 <TooltipProvider delayDuration={200}>
                   <Tooltip>
                     <TooltipTrigger asChild>
-                      <span className="text-muted-foreground cursor-help border-b border-dashed border-muted-foreground/40">Field RPs:</span>
+                      <span className="text-muted-foreground cursor-help border-b border-dashed border-muted-foreground/40">Warehouse RPs:</span>
                     </TooltipTrigger>
-                    <TooltipContent side="top"><p className="text-xs">Field Responsible Persons</p></TooltipContent>
+                    <TooltipContent side="top"><p className="text-xs">Warehouse Responsible Persons</p></TooltipContent>
                   </Tooltip>
                 </TooltipProvider>
                 <span className="font-medium text-foreground truncate">

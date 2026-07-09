@@ -13,7 +13,7 @@ export type FieldRPRow = {
 }
 
 /**
- * Fetch all Field RP assignments for a warehouse.
+ * Fetch all Warehouse RP assignments for a warehouse.
  */
 export function useWarehouseFieldRPs(warehouseId: string | null) {
   return useQuery({
@@ -41,7 +41,7 @@ export function useWarehouseFieldRPs(warehouseId: string | null) {
  *
  * Previously this queried by role NAME ('field_rp'). Now it queries by the
  * `custom_roles.is_field_rp` toggle added in migration 20260627117000, so
- * any role can be flagged as a Field RP source (multiple flagged roles =
+ * any role can be flagged as a Warehouse RP source (multiple flagged roles =
  * dedupe by profile_id).
  */
 export function useFieldRPCandidates() {
@@ -73,7 +73,7 @@ export function useFieldRPCandidates() {
 }
 
 /**
- * Replace all Field RP assignments for a warehouse atomically.
+ * Replace all Warehouse RP assignments for a warehouse atomically.
  * Uses a SECURITY DEFINER RPC to bypass RLS (no INSERT/DELETE policies on the table).
  */
 export function useReplaceWarehouseFieldRPs() {
