@@ -39,11 +39,12 @@ for (const root of NAV_TREE) {
 }
 
 const roleSchema = z.object({
-  name:             z.string().min(1, 'Name is required'),
-  description:      z.string().optional().default(''),
-  permissions:      z.array(z.string()).default([]),
-  is_approval_slot: z.boolean().default(false),
-  is_field_rp:      z.boolean().default(false),
+  name:                   z.string().min(1, 'Name is required'),
+  description:            z.string().optional().default(''),
+  permissions:            z.array(z.string()).default([]),
+  is_approval_slot:       z.boolean().default(false),
+  is_field_rp:            z.boolean().default(false),
+  is_inventory_receiver:  z.boolean().default(false),
 })
 
 type RoleFormValues = z.infer<typeof roleSchema>
@@ -195,7 +196,7 @@ export function RoleFormDialog({ open, onOpenChange, role }: RoleFormDialogProps
 
   const form = useForm<RoleFormValues>({
     resolver: zodResolver(roleSchema) as never,
-    defaultValues: { name: '', description: '', permissions: [], is_approval_slot: false, is_field_rp: false },
+    defaultValues: { name: '', description: '', permissions: [], is_approval_slot: false, is_field_rp: false, is_inventory_receiver: false },
   })
 
   useEffect(() => {
@@ -204,8 +205,9 @@ export function RoleFormDialog({ open, onOpenChange, role }: RoleFormDialogProps
         name: role.name,
         description: role.description ?? '',
         permissions: (role.permissions as string[]) ?? [],
-        is_approval_slot: Boolean((role as CustomRole & { is_approval_slot?: boolean }).is_approval_slot),
-        is_field_rp:      Boolean((role as CustomRole & { is_field_rp?: boolean }).is_field_rp),
+        is_approval_slot:      Boolean((role as CustomRole & { is_approval_slot?: boolean }).is_approval_slot),
+        is_field_rp:           Boolean((role as CustomRole & { is_field_rp?: boolean }).is_field_rp),
+        is_inventory_receiver: Boolean((role as CustomRole & { is_inventory_receiver?: boolean }).is_inventory_receiver),
       })
       setExpandedIds(new Set())
     } else if (open) {
@@ -316,6 +318,25 @@ export function RoleFormDialog({ open, onOpenChange, role }: RoleFormDialogProps
                       <p className="text-xs text-muted-foreground">
                         Mark this role as a Warehouse RP so users holding it appear as
                         candidates in the Warehouse dialog&apos;s Warehouse RPs picker.
+                      </p>
+                    </div>
+                    <FormControl>
+                      <Switch checked={field.value} onCheckedChange={field.onChange} />
+                    </FormControl>
+                  </FormItem>
+                )}
+              />
+
+              <FormField
+                control={form.control}
+                name="is_inventory_receiver"
+                render={({ field }) => (
+                  <FormItem className="flex items-center justify-between rounded-md border border-border p-3 bg-card">
+                    <div className="space-y-0.5 pr-3">
+                      <FormLabel className="text-sm">Can Create Inventory Receivals</FormLabel>
+                      <p className="text-xs text-muted-foreground">
+                        Users holding this role can create receivals directly from
+                        existing inventory stock (independent of Purchase Orders).
                       </p>
                     </div>
                     <FormControl>
