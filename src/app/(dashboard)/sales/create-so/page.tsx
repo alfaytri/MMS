@@ -11,13 +11,13 @@ import { Separator } from '@/components/ui/separator'
 import { Badge } from '@/components/ui/badge'
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover'
 import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from '@/components/ui/command'
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog'
+import { CustomerDialog } from '@/components/master-data/CustomerDialog'
 import { SoLineItemsEditor, type SoLineItemRow } from '@/components/sales/SoLineItemsEditor'
 import { SoTermsSection, DEFAULT_TERMS, PAYMENT_PRESETS, type SoTermsValues } from '@/components/sales/SoTermsSection'
 import { useCustomerCredit } from '@/hooks/useCustomerCredit'
 import { CreditUtilizationBar } from '@/components/shared/CreditUtilizationBar'
 import {
-  useCreateSO, useCustomers, useCreateCustomer,
+  useCreateSO, useCustomers,
   calcSOSubtotal, calcSOTotal, hasNegativeMargin,
 } from '@/hooks/useSaleOrders'
 import { useCreditGroups } from '@/hooks/useCreditGroups'
@@ -39,8 +39,6 @@ function fmtAmt(amount: number, currency: string) {
 export default function CreateSOPage() {
   const router     = useRouter()
   const createSO   = useCreateSO()
-  const createCust = useCreateCustomer()
-
   const [customerSearch, setCustomerSearch]                   = useState('')
   const [customerId, setCustomerId]                           = useState('')
   const [customerName, setCustomerName]                       = useState('')
@@ -50,11 +48,6 @@ export default function CreateSOPage() {
   const [customerType, setCustomerType]                       = useState<'cash' | 'credit' | null>(null)
   const [customerOpen, setCustomerOpen]                       = useState(false)
   const [addOpen, setAddOpen]                                 = useState(false)
-  const [newName, setNewName]                                 = useState('')
-  const [newPhone, setNewPhone]                               = useState('')
-  const [newEmail, setNewEmail]                               = useState('')
-  const [newCreditGroupId, setNewCreditGroupId]               = useState('')
-  const [newCustomerType, setNewCustomerType]                 = useState<'cash' | 'credit'>('credit')
 
   const { data: creditGroups = [] } = useCreditGroups()
 
@@ -142,30 +135,17 @@ export default function CreateSOPage() {
     }
   }
 
-  function handleAddCustomer() {
-    if (!newName.trim() || !newPhone.trim()) { toast.error('Name and phone are required'); return }
-    if (newCustomerType === 'credit' && !newCreditGroupId) { toast.error('Please select a credit group'); return }
-    const groupId = newCustomerType === 'credit' ? (newCreditGroupId || null) : null
-    createCust.mutate(
-      { name: newName.trim(), phone: newPhone.trim(), email: newEmail || null, credit_group_id: groupId, customer_type: newCustomerType },
-      {
-        onSuccess: (data: any) => {
-          toast.success('Customer added')
-          const group = creditGroups.find((g) => g.id === groupId)
-          handleSelectCustomer({
-            id:                         data.id,
-            name:                       data.name,
-            credit_group_id:            groupId,
-            credit_group_name:          group?.name  ?? null,
-            credit_group_limit:         group?.credit_limit ?? null,
-            credit_group_default_terms: group?.default_payment_terms ?? null,
-            customer_type:              newCustomerType,
-          })
-          setAddOpen(false); setNewName(''); setNewPhone(''); setNewEmail(''); setNewCreditGroupId(''); setNewCustomerType('credit')
-        },
-        onError: (err) => toast.error(err.message),
-      }
-    )
+  function handleCustomerCreated(created: { id: string; name: string; credit_group_id: string | null; customer_type: string }) {
+    const group = creditGroups.find((g) => g.id === created.credit_group_id)
+    handleSelectCustomer({
+      id:                         created.id,
+      name:                       created.name,
+      credit_group_id:            created.credit_group_id,
+      credit_group_name:          group?.name ?? null,
+      credit_group_limit:         group?.credit_limit ?? null,
+      credit_group_default_terms: group?.default_payment_terms ?? null,
+      customer_type:              created.customer_type as 'cash' | 'credit',
+    })
   }
 
   function validate() {
@@ -465,59 +445,14 @@ export default function CreateSOPage() {
 
       </div>
 
-      {/* Add Customer Dialog */}
-      <Dialog open={addOpen} onOpenChange={setAddOpen}>
-        <DialogContent className="w-full max-w-full rounded-none sm:max-w-md sm:rounded-lg">
-          <DialogHeader><DialogTitle>Add Customer</DialogTitle></DialogHeader>
-          <div className="space-y-3">
-            {/* Customer type */}
-            <div className="space-y-1">
-              <label className="text-xs font-medium">Customer Type *</label>
-              <div className="flex gap-2">
-                {(['credit', 'cash'] as const).map((t) => (
-                  <button
-                    key={t}
-                    type="button"
-                    onClick={() => { setNewCustomerType(t); if (t === 'cash') setNewCreditGroupId('') }}
-                    className={`flex-1 rounded-md border px-3 py-2 text-sm font-medium transition-colors ${
-                      newCustomerType === t
-                        ? 'bg-primary text-primary-foreground border-primary'
-                        : 'hover:bg-muted'
-                    }`}
-                  >
-                    {t === 'credit' ? 'Credit' : 'Cash'}
-                  </button>
-                ))}
-              </div>
-              {newCustomerType === 'cash' && (
-                <p className="text-[10px] text-muted-foreground">Cash customers pay on delivery. No credit limit applies.</p>
-              )}
-            </div>
-            <div className="space-y-1"><label className="text-xs font-medium">Name *</label><Input value={newName} onChange={(e) => setNewName(e.target.value)} placeholder="Customer name" /></div>
-            <div className="space-y-1"><label className="text-xs font-medium">Phone *</label><Input value={newPhone} onChange={(e) => setNewPhone(e.target.value)} placeholder="+974 XXXX XXXX" /></div>
-            <div className="space-y-1"><label className="text-xs font-medium">Email</label><Input type="email" value={newEmail} onChange={(e) => setNewEmail(e.target.value)} placeholder="optional" /></div>
-            {newCustomerType === 'credit' && (
-              <div className="space-y-1">
-                <label className="text-xs font-medium">Credit Group *</label>
-                <select
-                  value={newCreditGroupId}
-                  onChange={(e) => setNewCreditGroupId(e.target.value)}
-                  className="flex h-9 w-full rounded-md border border-input bg-background px-3 py-1 text-sm focus:outline-none focus:ring-1 focus:ring-ring"
-                >
-                  <option value="">Select a credit group…</option>
-                  {creditGroups.map((g) => (
-                    <option key={g.id} value={g.id}>{g.name}</option>
-                  ))}
-                </select>
-              </div>
-            )}
-          </div>
-          <DialogFooter>
-            <Button variant="outline" onClick={() => setAddOpen(false)}>Cancel</Button>
-            <Button onClick={handleAddCustomer} disabled={createCust.isPending}>{createCust.isPending ? 'Adding…' : 'Add Customer'}</Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
+      {/* Add Customer Dialog — reuses the full CustomerDialog */}
+      <CustomerDialog
+        mode="create"
+        open={addOpen}
+        onOpenChange={setAddOpen}
+        groups={creditGroups}
+        onCreated={handleCustomerCreated}
+      />
     </div>
   )
 }

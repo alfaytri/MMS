@@ -23,9 +23,6 @@ const BUCKET = 'customer-credit-docs'
 type UploadedDoc = { path: string; name: string }
 type Slot = 'cr' | 'establishment' | 'signed'
 
-// credit_limit is needed so the dialog can decide whether the chosen group
-// triggers the PM → AM → Owner approval chain (non-zero limit) or is a
-// direct assignment (zero-limit / cash group).
 type GroupOption = { id: string; name: string; credit_limit?: number }
 
 interface CustomerDialogProps {
@@ -35,6 +32,7 @@ interface CustomerDialogProps {
   groups:       GroupOption[]
   // Required only in edit mode
   customer?:    Customer | null
+  onCreated?:   (customer: { id: string; name: string; credit_group_id: string | null; customer_type: string }) => void
 }
 
 /** Strip the `<timestamp>-<slot>-` prefix from a storage path to get a friendly display name. */
@@ -44,7 +42,7 @@ function displayNameFromPath(path: string, slot: Slot): string {
 }
 
 export function CustomerDialog({
-  mode, open, onOpenChange, groups, customer,
+  mode, open, onOpenChange, groups, customer, onCreated,
 }: CustomerDialogProps) {
   const isEdit = mode === 'edit'
   const canChangeType        = useHasPermission('master_data.customers.change_type')
@@ -96,8 +94,7 @@ export function CustomerDialog({
   }, [open, isEdit, customer])
 
   const selectedGroup    = groups.find((g) => g.id === groupId) ?? null
-  const isCashGroupPick  = selectedGroup?.name === 'Cash Customers'
-  const docsRequired     = customerType === 'credit' && !!groupId && !isCashGroupPick
+  const docsRequired     = customerType === 'credit' && !!groupId
   const businessDocsReq  = docsRequired && entityType === 'business'
 
   // In edit mode, a "promotion" means an existing classification that escalated:
@@ -146,10 +143,6 @@ export function CustomerDialog({
     }
     if (customerType === 'credit' && !groupId) {
       toast.error('Select a credit group for credit customers')
-      return
-    }
-    if (customerType === 'credit' && isCashGroupPick) {
-      toast.error('Pick a real credit group — "Cash Customers" is for cash-type customers only')
       return
     }
     if (docsRequired && !signedFormDoc) {
@@ -282,8 +275,15 @@ export function CustomerDialog({
       },
       {
         onSuccess: (created: { id: string }) => {
+          const createdInfo = {
+            id: created.id,
+            name: name.trim(),
+            credit_group_id: customerType === 'credit' ? groupId || null : null,
+            customer_type: newGroupNeedsApproval ? 'cash' : customerType,
+          }
           if (!newGroupNeedsApproval) {
             toast.success('Customer created')
+            onCreated?.(createdInfo)
             onOpenChange(false)
             return
           }
@@ -296,10 +296,12 @@ export function CustomerDialog({
                 } else {
                   toast.success(`Customer created; credit group sent for approval`)
                 }
+                onCreated?.(createdInfo)
                 onOpenChange(false)
               },
               onError: (err) => {
                 toast.error(`Customer created, but credit group not sent: ${err.message}`)
+                onCreated?.(createdInfo)
                 onOpenChange(false)
               },
             },
@@ -458,26 +460,15 @@ export function CustomerDialog({
                   <SelectValue placeholder="Select group…" />
                 </SelectTrigger>
                 <SelectContent className="max-h-60 overflow-y-auto">
-                  {groups.map((g) => {
-                    const isCashGroup = g.name === 'Cash Customers'
-                    return (
+                  {groups
+                    .filter((g) => (g.credit_limit ?? 0) > 0)
+                    .map((g) => (
                       <SelectItem key={g.id} value={g.id}>
                         {g.name}
-                        {isCashGroup && (
-                          <span className="ml-1 text-[10px] text-muted-foreground">
-                            (cash-type customers only)
-                          </span>
-                        )}
                       </SelectItem>
-                    )
-                  })}
+                    ))}
                 </SelectContent>
               </Select>
-              {isCashGroupPick && (
-                <p className="text-[10px] text-amber-600">
-                  This customer is in the &quot;Cash Customers&quot; group but is set to Credit type. Pick a real credit group before saving.
-                </p>
-              )}
             </div>
           )}
 
