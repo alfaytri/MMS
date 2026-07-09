@@ -79,10 +79,12 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
   const supabase = createClient(SUPA_URL, SUPA_KEY)
 
   try {
+    const divisionId = req.nextUrl.searchParams.get('divisionId') ?? undefined
     const result = await generatePoPdf(id, supabase, {
       variant:         parsed.variant,
       force:           parsed.force,
       snapshotVersion: parsed.snapshotVersion,
+      divisionId,
     })
 
     if (result.kind === 'snapshot') {
@@ -119,10 +121,12 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ id: 
   const supabase = createClient(SUPA_URL, SUPA_KEY)
 
   try {
+    const divisionId = req.nextUrl.searchParams.get('divisionId') ?? undefined
     const result = await generatePoPdf(id, supabase, {
       variant:         parsed.variant,
       force:           parsed.force,
       snapshotVersion: parsed.snapshotVersion,
+      divisionId,
     })
 
     if (result.kind === 'snapshot') {

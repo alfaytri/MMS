@@ -47,10 +47,11 @@ export async function POST(
 
   // ── Generate ──────────────────────────────────────────────────────────
   const force = req.nextUrl.searchParams.get('force') === 'true'
+  const divisionId = req.nextUrl.searchParams.get('divisionId') ?? undefined
   const supabase = createClient(SUPA_URL, SUPA_KEY)
 
   try {
-    const result = await generateOrderConfirmationPdf(orderUuid, supabase, { force })
+    const result = await generateOrderConfirmationPdf(orderUuid, supabase, { force, divisionId })
     return NextResponse.json(result)
   } catch (err) {
     const msg   = err instanceof Error ? err.message : String(err)

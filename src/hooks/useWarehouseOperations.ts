@@ -272,7 +272,7 @@ export function useWarehouseStock(warehouseId?: string) {
         .select('warehouse_id, brand_variant_id, item_name, brand, sku, unit, qty, avg_cost, total_value, category_name, subcategory_name, item_type, allocated_qty, available_qty')
         .order('item_name', { ascending: true })
       if (warehouseId) q = q.eq('warehouse_id', warehouseId)
-      const { data, error } = await q.limit(500)
+      const { data, error } = await q.limit(warehouseId ? 1500 : 5000)
       if (error) throw error
       return (data ?? []) as WarehouseStockItem[]
     },

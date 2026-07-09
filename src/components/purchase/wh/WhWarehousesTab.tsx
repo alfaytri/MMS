@@ -4,7 +4,7 @@ import React, { useMemo, useState } from 'react'
 import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip'
-import { WarehouseIcon, MapPin, User, Package, DollarSign, ArrowRight, ChevronDown, ChevronUp } from 'lucide-react'
+import { WarehouseIcon, MapPin, User, Package, DollarSign, ArrowRight, ChevronDown, ChevronUp, Building2 } from 'lucide-react'
 import { Warehouse } from '@/hooks/useWarehouses'
 import { WarehouseStockTree } from '@/components/purchase/wh/WarehouseStockTree'
 
@@ -60,6 +60,12 @@ export const WhWarehousesTab = React.memo(function WhWarehousesTab({ warehouses,
               </CardTitle>
             </CardHeader>
             <CardContent className="space-y-2">
+              {wh.division_name && (
+                <div className="flex items-center gap-1.5 text-xs">
+                  <Building2 className="h-3 w-3 flex-shrink-0 text-muted-foreground" />
+                  <span className="font-medium text-foreground">{wh.division_name}</span>
+                </div>
+              )}
               <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
                 <MapPin className="h-3 w-3 flex-shrink-0" />
                 {wh.location ?? 'No location set'}

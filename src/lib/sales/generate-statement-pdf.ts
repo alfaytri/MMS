@@ -11,7 +11,8 @@
 
 import type { SupabaseClient } from '@supabase/supabase-js'
 import { buildStatementHtml, type StatementOrderRow } from '@/lib/sales/statement-pdf-html'
-import { loadPdfFonts, loadPdfAssets } from '@/lib/pdf/pdf-fonts'
+import { loadPdfFonts } from '@/lib/pdf/pdf-fonts'
+import { resolveBrand, brandDataToAssets } from '@/lib/pdf/brand-resolver'
 import { htmlToPdfBuffer } from '@/lib/pdf/html-to-pdf'
 
 export interface GenerateStatementPdfInput {
@@ -44,6 +45,7 @@ function sanitizeFilename(s: string): string {
 export async function generateStatementPdf(
   input: GenerateStatementPdfInput,
   supabase: SupabaseClient,
+  opts?: { divisionId?: string },
 ): Promise<GenerateStatementPdfResult> {
 
   const openOnly = input.openOnly ?? true
@@ -78,7 +80,11 @@ export async function generateStatementPdf(
   const totalOutstanding = openOnly ? rows.reduce((s, o) => s + o.outstanding, 0) : Number(statement.totals.total_outstanding)
 
   // ── 3. HTML + PDF ────────────────────────────────────────────────────
-  const [assets, fonts] = await Promise.all([loadPdfAssets(), loadPdfFonts()])
+  const [brand, fonts] = await Promise.all([
+    resolveBrand(opts?.divisionId ?? null, supabase),
+    loadPdfFonts(),
+  ])
+  const { assets } = brandDataToAssets(brand)
 
   const html = buildStatementHtml({
     customer_name:      statement.customer.name ?? '',

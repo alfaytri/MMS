@@ -7,10 +7,14 @@ import { queryKeys } from '@/lib/queryKeys'
 export type WarehouseFieldRP = {
   profile_id: string
   full_name: string | null
+  division_id: string | null
+  division_name: string | null
 }
 
 export type Warehouse = DBTable<'warehouses'> & {
   field_rps: WarehouseFieldRP[]
+  division_id: string | null
+  division_name: string | null
 }
 export type WarehouseInsert = DBInsert<'warehouses'>
 export type WarehouseUpdate = DBUpdate<'warehouses'>
@@ -22,19 +26,32 @@ export function useWarehouses() {
       const supabase = createClient()
       const { data, error } = await supabase
         .from('warehouses')
-        .select('*, warehouse_field_rps(profile_id, profiles(full_name))')
+        .select('*, warehouse_field_rps(profile_id, profiles(full_name, division_id, company_divisions(id, name)))')
         .order('name')
       if (error) throw error
       return (data ?? []).map((row) => {
         const { warehouse_field_rps, ...rest } = row as typeof row & {
-          warehouse_field_rps: Array<{ profile_id: string; profiles: { full_name: string | null } | null }>
+          warehouse_field_rps: Array<{
+            profile_id: string
+            profiles: {
+              full_name: string | null
+              division_id: string | null
+              company_divisions: { id: string; name: string } | null
+            } | null
+          }>
         }
+        const rps = (warehouse_field_rps ?? []).map((rp) => ({
+          profile_id: rp.profile_id,
+          full_name: rp.profiles?.full_name ?? null,
+          division_id: rp.profiles?.division_id ?? null,
+          division_name: rp.profiles?.company_divisions?.name ?? null,
+        }))
+        const firstWithDiv = rps.find((rp) => rp.division_id)
         return {
           ...rest,
-          field_rps: (warehouse_field_rps ?? []).map((rp) => ({
-            profile_id: rp.profile_id,
-            full_name: rp.profiles?.full_name ?? null,
-          })),
+          field_rps: rps,
+          division_id: firstWithDiv?.division_id ?? null,
+          division_name: firstWithDiv?.division_name ?? null,
         }
       }) as Warehouse[]
     },

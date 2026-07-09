@@ -13,6 +13,7 @@ import {
   brandHeaderHtml,
   contactStripHtml,
   footerHtml,
+  stampSectionHtml,
   BASE_CSS,
 } from '@/lib/pdf/pdf-fonts'
 
@@ -184,7 +185,7 @@ export function buildInvoiceHtml(input: BuildInvoiceHtmlInput): string {
 
   ${paidStampHtml}
 
-  ${brandHeaderHtml(input.assets.logo)}
+  ${brandHeaderHtml(input.assets.brandHeader ?? input.assets.logo)}
 
   <div class="midbar">
     ${contactStripHtml()}
@@ -312,6 +313,8 @@ export function buildInvoiceHtml(input: BuildInvoiceHtmlInput): string {
   </div>
 
   ${notesHtml}
+
+  ${stampSectionHtml(input.assets.stamp)}
 
   ${footerHtml(input.assets.footer)}
 

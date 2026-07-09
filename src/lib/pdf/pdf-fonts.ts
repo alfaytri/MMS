@@ -12,8 +12,10 @@ export interface PdfFonts {
 }
 
 export interface PdfAssets {
-  logo:   string
-  footer: string
+  logo:         string
+  footer:       string
+  stamp:        string | null
+  brandHeader?: BrandHeaderInput
 }
 
 const BRAND_DIR = path.join(process.cwd(), 'public', 'brand')
@@ -60,6 +62,7 @@ export async function loadPdfAssets(): Promise<PdfAssets> {
   cachedAssets = {
     logo:   `data:image/png;base64,${logoB64}`,
     footer: `data:image/png;base64,${footerB64}`,
+    stamp:  null,
   }
   return cachedAssets
 }
@@ -76,26 +79,47 @@ export function fontFacesCss(fonts: PdfFonts): string {
   `
 }
 
-export function brandHeaderHtml(logoDataUrl: string): string {
+export interface BrandHeaderInput {
+  logoDataUrl:   string
+  companyNameEn: string
+  companyNameAr: string
+  addressEn:     string
+  addressAr:     string
+}
+
+export function brandHeaderHtml(logoDataUrlOrBrand: string | BrandHeaderInput): string {
+  const brand: BrandHeaderInput = typeof logoDataUrlOrBrand === 'string'
+    ? {
+        logoDataUrl:   logoDataUrlOrBrand,
+        companyNameEn: 'ALFAYTRI',
+        companyNameAr: 'الفيتري',
+        addressEn:     'Office 18, Building 19, Street 185, Zone 55\nDoha, Qatar | P.O. Box 45069\nTrading: 44214420 | Maintenance: 44190600\ninfo@alfaytri.com | www.alfaytri.com',
+        addressAr:     'مكتب ١٨ ، مبنى ١٩ ، شارع ١٨٥ ، منطقة ٥٥\nالدوحة ، قطر | ص.ب ٤٥٠٦٩\nالتداول: ٤٤٢١٤٤٢٠ | الصيانة: ٤٤١٩٠٦٠٠\ninfo@alfaytri.com | www.alfaytri.com',
+      }
+    : logoDataUrlOrBrand
+
+  const addrEnLines = brand.addressEn.split('\n').map(l => `<div>${l}</div>`).join('')
+  const addrArLines = brand.addressAr.split('\n').map(l => `<div>${l}</div>`).join('')
+
   return `
   <div class="top-row">
     <div class="addr-en">
-      <div class="brand">ALFAYTRI</div>
-      <div class="tagline">Trading and Building Maintenance</div>
-      <div>Office 18, Building 19, Street 185, Zone 55</div>
-      <div>Doha, Qatar | P.O. Box 45069</div>
-      <div>Trading: 44214420 | Maintenance: 44190600</div>
-      <div>info@alfaytri.com | www.alfaytri.com</div>
+      <div class="brand">${brand.companyNameEn}</div>
+      ${addrEnLines}
     </div>
-    <img class="logo" src="${logoDataUrl}" alt="Al Faytri">
+    <img class="logo" src="${brand.logoDataUrl}" alt="${brand.companyNameEn}">
     <div class="addr-ar">
-      <div class="brand">الفيتري</div>
-      <div class="tagline">للتجارة وصيانة المباني</div>
-      <div>مكتب ١٨ ، مبنى ١٩ ، شارع ١٨٥ ، منطقة ٥٥</div>
-      <div>الدوحة ، قطر | ص.ب ٤٥٠٦٩</div>
-      <div>التداول: ٤٤٢١٤٤٢٠ | الصيانة: ٤٤١٩٠٦٠٠</div>
-      <div>info@alfaytri.com | www.alfaytri.com</div>
+      <div class="brand">${brand.companyNameAr}</div>
+      ${addrArLines}
     </div>
+  </div>`
+}
+
+export function stampSectionHtml(stampDataUrl: string | null): string {
+  if (!stampDataUrl) return ''
+  return `
+  <div class="stamp-section">
+    <img class="stamp-img" src="${stampDataUrl}" alt="Company Stamp">
   </div>`
 }
 
@@ -216,6 +240,9 @@ export const BASE_CSS = `
   .summary-row.s-grand { background: rgba(237, 124, 44, 0.12); }
   .summary-row.s-grand .s-amount { font-size: 10px; }
   .summary-row.s-bill-total { background: rgba(47, 47, 51, 0.08); }
+
+  .stamp-section { text-align: right; padding: 3mm 14mm 0; }
+  .stamp-img { height: 70px; width: auto; opacity: 0.85; }
 
   .footer { position: absolute; bottom: 10mm; left: 0; right: 0; text-align: center; }
   .footer img { height: 45px; width: auto; }

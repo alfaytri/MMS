@@ -1,5 +1,6 @@
 import type { SupabaseClient } from '@supabase/supabase-js'
-import { loadPdfFonts, loadPdfAssets } from '@/lib/pdf/pdf-fonts'
+import { loadPdfFonts } from '@/lib/pdf/pdf-fonts'
+import { resolveBrand, brandDataToAssets } from '@/lib/pdf/brand-resolver'
 import { htmlToPdfBuffer } from '@/lib/pdf/html-to-pdf'
 import { buildBillHtml, type BillPaymentRow } from '@/lib/purchase/bill-pdf-html'
 
@@ -17,6 +18,7 @@ function safeKey(name: string): string {
 export async function generateBillPdf(
   billUuid: string,
   supabase:  SupabaseClient,
+  opts?: { divisionId?: string },
 ): Promise<GenerateBillPdfResult> {
   const { data: bill, error: billErr } = await supabase
     .from('invoices')
@@ -27,7 +29,7 @@ export async function generateBillPdf(
       issued_date, due_date, notes,
       invoice_line_items(id, description, qty, unit_price, total),
       suppliers(name, contact_name, phone, email, address),
-      purchase_orders(po_number, created_date, currency)
+      purchase_orders(po_number, created_date, currency, division_id)
     `)
     .eq('id', billUuid)
     .eq('direction', 'ap')
@@ -49,7 +51,7 @@ export async function generateBillPdf(
   }
 
   const supplier = (bill as any).suppliers as { name: string; contact_name: string | null; phone: string | null; email: string | null; address: string | null } | null
-  const po = (bill as any).purchase_orders as { po_number: string; created_date: string; currency: string } | null
+  const po = (bill as any).purchase_orders as { po_number: string; created_date: string; currency: string; division_id: string | null } | null
   const lineItems = ((bill as any).invoice_line_items ?? []) as { description: string; qty: number | null; unit_price: number; total: number }[]
   const currency = po?.currency ?? 'QAR'
 
@@ -65,7 +67,11 @@ export async function generateBillPdf(
   const outstanding = Math.max(0, totalAmount - amountPaid)
   const isPaid = outstanding <= 0
 
-  const [fonts, assets] = await Promise.all([loadPdfFonts(), loadPdfAssets()])
+  const [brand, fonts] = await Promise.all([
+    resolveBrand(opts?.divisionId ?? po?.division_id, supabase),
+    loadPdfFonts(),
+  ])
+  const { assets } = brandDataToAssets(brand)
 
   const html = buildBillHtml({
     billId:          (bill as any).invoice_id,

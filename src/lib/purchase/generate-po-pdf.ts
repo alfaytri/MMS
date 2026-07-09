@@ -14,7 +14,8 @@ import {
   type PoPayment,
   type PoPdfVariant,
 } from '@/lib/purchase/po-pdf-html'
-import { loadPdfFonts, loadPdfAssets } from '@/lib/pdf/pdf-fonts'
+import { loadPdfFonts } from '@/lib/pdf/pdf-fonts'
+import { resolveBrand, brandDataToAssets } from '@/lib/pdf/brand-resolver'
 import { htmlToPdfBuffer } from '@/lib/pdf/html-to-pdf'
 
 export type { PoPdfVariant } from '@/lib/purchase/po-pdf-html'
@@ -46,6 +47,7 @@ interface PoRow {
   expected_delivery: string | null
   supplier_name:     string
   supplier_id:       string | null
+  division_id:       string | null
   payment_terms:     string | null
   delivery_terms:    string | null
   rfq_id:            string | null
@@ -85,13 +87,14 @@ export async function generatePoPdf(
     variant:          PoPdfVariant
     force?:           boolean
     snapshotVersion?: number
+    divisionId?:      string
   },
 ): Promise<GeneratePoPdfResult> {
-  const { variant, force, snapshotVersion } = opts
+  const { variant, force, snapshotVersion, divisionId: divisionIdOverride } = opts
 
   // ── SNAPSHOT PATH: render on-demand from po_versions, no cache ──────
   if (snapshotVersion !== undefined) {
-    return await renderSnapshotPdf(poUuid, supabase, variant, snapshotVersion)
+    return await renderSnapshotPdf(poUuid, supabase, variant, snapshotVersion, divisionIdOverride)
   }
 
   // ── LIVE PATH: fetch PO with line items ────────────────────────────
@@ -100,7 +103,7 @@ export async function generatePoPdf(
     .select(`
       id, po_number, status, currency, subtotal, total_qar,
       discount_amount, created_date, expected_delivery,
-      supplier_name, supplier_id, payment_terms, delivery_terms,
+      supplier_name, supplier_id, division_id, payment_terms, delivery_terms,
       rfq_id,
       pdf_rfq_url, pdf_draft_url, pdf_po_url, pdf_confirmed_url, pdf_payment_hash,
       po_line_items(item_name, sku, qty, unit, unit_price, total_price)
@@ -192,7 +195,11 @@ export async function generatePoPdf(
   const outstanding = Math.max(0, totalQar - amountPaid)
 
   // ── Build HTML ──────────────────────────────────────────────────────
-  const [fonts, assets] = await Promise.all([loadPdfFonts(), loadPdfAssets()])
+  const [brand, fonts] = await Promise.all([
+    resolveBrand(divisionIdOverride ?? po.division_id, supabase),
+    loadPdfFonts(),
+  ])
+  const { assets } = brandDataToAssets(brand)
 
   const html = buildPurchaseOrderHtml({
     po_number:         po.po_number,
@@ -289,11 +296,12 @@ async function renderSnapshotPdf(
 ): Promise<GeneratePoPdfSnapshotResult> {
   const { data: po, error: poErr } = await supabase
     .from('purchase_orders')
-    .select('id, po_number, status, created_date, supplier_id, rfq_id')
+    .select('id, po_number, status, created_date, supplier_id, rfq_id, division_id')
     .eq('id', poUuid)
     .single<{
       id: string; po_number: string; status: string;
       created_date: string; supplier_id: string | null; rfq_id: string | null;
+      division_id: string | null;
     }>()
   if (poErr || !po) {
     throw new Error(`Purchase Order not found: ${poUuid} (${poErr?.message ?? 'no row'})`)
@@ -338,7 +346,11 @@ async function renderSnapshotPdf(
   const discountAmount  = Number(snap.discount_amount ?? 0)
   const totalQar        = Math.max(0, subtotal - discountAmount)
 
-  const [fonts, assets] = await Promise.all([loadPdfFonts(), loadPdfAssets()])
+  const [brand, fonts] = await Promise.all([
+    resolveBrand(po.division_id, supabase),
+    loadPdfFonts(),
+  ])
+  const { assets } = brandDataToAssets(brand)
 
   const html = buildPurchaseOrderHtml({
     po_number:         po.po_number,

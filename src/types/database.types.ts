@@ -659,11 +659,13 @@ export type Database = {
           created_by: string | null
           default_currency: string
           default_tax_rate: number
+          footer_motto: string | null
           id: string
           is_active: boolean
           logo_url: string | null
           name_ar: string | null
           name_en: string
+          stamp_url: string | null
           updated_at: string
           vat_id: string | null
         }
@@ -675,11 +677,13 @@ export type Database = {
           created_by?: string | null
           default_currency?: string
           default_tax_rate?: number
+          footer_motto?: string | null
           id?: string
           is_active?: boolean
           logo_url?: string | null
           name_ar?: string | null
           name_en: string
+          stamp_url?: string | null
           updated_at?: string
           vat_id?: string | null
         }
@@ -691,11 +695,13 @@ export type Database = {
           created_by?: string | null
           default_currency?: string
           default_tax_rate?: number
+          footer_motto?: string | null
           id?: string
           is_active?: boolean
           logo_url?: string | null
           name_ar?: string | null
           name_en?: string
+          stamp_url?: string | null
           updated_at?: string
           vat_id?: string | null
         }

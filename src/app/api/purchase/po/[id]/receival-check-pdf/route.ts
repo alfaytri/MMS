@@ -81,10 +81,12 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
   const supabase = createClient(SUPA_URL, SUPA_KEY)
 
   try {
+    const divisionId = req.nextUrl.searchParams.get('divisionId') ?? undefined
     const result = await generateReceivalCheckPdf(id, supabase, {
       mode:       parsed.mode,
       receivalId: parsed.receivalId,
       force:      parsed.force,
+      divisionId,
     })
     return NextResponse.json(result)
   } catch (err) {
@@ -107,10 +109,12 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ id: 
   const supabase = createClient(SUPA_URL, SUPA_KEY)
 
   try {
+    const divisionId = req.nextUrl.searchParams.get('divisionId') ?? undefined
     const result = await generateReceivalCheckPdf(id, supabase, {
       mode:       parsed.mode,
       receivalId: parsed.receivalId,
       force:      parsed.force,
+      divisionId,
     })
     return NextResponse.redirect(result.url, 302)
   } catch (err) {

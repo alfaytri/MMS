@@ -12,6 +12,7 @@ import {
   brandHeaderHtml,
   contactStripHtml,
   footerHtml,
+  stampSectionHtml,
   BASE_CSS,
 } from '@/lib/pdf/pdf-fonts'
 
@@ -155,7 +156,7 @@ export function buildCreditDebitNoteHtml(input: BuildCreditDebitNoteHtmlInput): 
 </head>
 <body>
 
-  ${brandHeaderHtml(input.assets.logo)}
+  ${brandHeaderHtml(input.assets.brandHeader ?? input.assets.logo)}
 
   <div class="midbar">
     ${contactStripHtml()}
@@ -246,6 +247,8 @@ export function buildCreditDebitNoteHtml(input: BuildCreditDebitNoteHtmlInput): 
     <div class="reason-title">${escapeHtml(reasonTitleEn)}</div>
     <div class="reason-text">${escapeHtml(input.reason)}</div>
   </div>` : ''}
+
+  ${stampSectionHtml(input.assets.stamp)}
 
   ${footerHtml(input.assets.footer)}
 

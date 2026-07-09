@@ -18,6 +18,7 @@ import {
   brandHeaderHtml,
   contactStripHtml,
   footerHtml,
+  stampSectionHtml,
 } from '@/lib/pdf/pdf-fonts'
 
 export interface QuotationLineItem {
@@ -135,7 +136,7 @@ export function buildQuotationHtml(input: BuildQuotationHtmlInput): string {
 <body>
 
   <!-- ─────────── Top: company logo + bilingual addresses ─────────── -->
-  ${brandHeaderHtml(input.assets.logo)}
+  ${brandHeaderHtml(input.assets.brandHeader ?? input.assets.logo)}
 
   <!-- ─────────── Mid bar: contact strip + dark strip + orange ribbon ─────────── -->
   <div class="midbar">
@@ -224,6 +225,8 @@ export function buildQuotationHtml(input: BuildQuotationHtmlInput): string {
   </div>
 
   <!-- ─────────── Footer ─────────── -->
+  ${stampSectionHtml(input.assets.stamp)}
+
   ${footerHtml(input.assets.footer)}
 
 </body>

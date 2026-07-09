@@ -1,5 +1,5 @@
 import type { PdfFonts, PdfAssets } from '@/lib/pdf/pdf-fonts'
-import { fontFacesCss, brandHeaderHtml, footerHtml } from '@/lib/pdf/pdf-fonts'
+import { fontFacesCss, brandHeaderHtml, footerHtml, stampSectionHtml } from '@/lib/pdf/pdf-fonts'
 
 // ─── HTML helpers ────────────────────────────────────────────────────────────
 
@@ -145,7 +145,7 @@ ${REPORT_CSS}
 </style>
 </head>
 <body>
-  ${brandHeaderHtml(opts.assets.logo)}
+  ${brandHeaderHtml(opts.assets.brandHeader ?? opts.assets.logo)}
 
   <div class="report-title-bar">
     <div class="en">${esc(opts.titleEn)}</div>
@@ -161,6 +161,7 @@ ${REPORT_CSS}
 
   ${bodyHtml}
 
+  ${stampSectionHtml(opts.assets.stamp)}
   ${footerHtml(opts.assets.footer)}
 </body>
 </html>`

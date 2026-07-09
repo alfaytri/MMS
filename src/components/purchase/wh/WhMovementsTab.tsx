@@ -1,8 +1,9 @@
 'use client'
 
-import React, { useState, useMemo } from 'react'
-import { Search } from 'lucide-react'
+import React, { useState, useMemo, useEffect } from 'react'
+import { Search, ChevronLeft, ChevronRight as ChevronRightIcon } from 'lucide-react'
 import { Badge } from '@/components/ui/badge'
+import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table'
@@ -136,6 +137,15 @@ export const WhMovementsTab = React.memo(function WhMovementsTab({ warehouses }:
     })
   }, [movements, search, warehouseFilter, typeFilter])
 
+  const [page, setPage] = useState(1)
+  const PAGE_SIZE = 25
+  const totalPages = Math.max(1, Math.ceil(filtered.length / PAGE_SIZE))
+  useEffect(() => { setPage(1) }, [search, warehouseFilter, typeFilter])
+  const paged = useMemo(() => {
+    const start = (page - 1) * PAGE_SIZE
+    return filtered.slice(start, start + PAGE_SIZE)
+  }, [filtered, page])
+
   return (
     <div className="p-4 md:p-6 space-y-4">
       {/* Filters */}
@@ -199,7 +209,7 @@ export const WhMovementsTab = React.memo(function WhMovementsTab({ warehouses }:
                 </TableCell>
               </TableRow>
             ) : (
-              filtered.map((m: StockMovement) => {
+              paged.map((m: StockMovement) => {
                 const meta = variantMeta.get(m.brand_variant_id)
                 const stockInfo = variantStockBreakdown.get(m.brand_variant_id)
                 const refCfg = REF_CONFIG[m.reference_type ?? '']
@@ -310,6 +320,23 @@ export const WhMovementsTab = React.memo(function WhMovementsTab({ warehouses }:
           </TableBody>
         </Table>
       </div>
+
+      {filtered.length > 0 && (
+        <div className="flex items-center justify-between text-xs text-muted-foreground px-1">
+          <span>{filtered.length} movement{filtered.length !== 1 ? 's' : ''}</span>
+          {totalPages > 1 && (
+            <div className="flex items-center gap-1.5">
+              <Button variant="outline" size="sm" className="h-7 w-7 p-0" disabled={page <= 1} onClick={() => setPage((p) => Math.max(1, p - 1))} aria-label="Previous page">
+                <ChevronLeft className="h-3.5 w-3.5" />
+              </Button>
+              <span className="tabular-nums min-w-[80px] text-center">Page {page} of {totalPages}</span>
+              <Button variant="outline" size="sm" className="h-7 w-7 p-0" disabled={page >= totalPages} onClick={() => setPage((p) => Math.min(totalPages, p + 1))} aria-label="Next page">
+                <ChevronRightIcon className="h-3.5 w-3.5" />
+              </Button>
+            </div>
+          )}
+        </div>
+      )}
 
       {/* Reference detail dialog */}
       {refDialog && (

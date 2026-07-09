@@ -15,7 +15,8 @@
  */
 
 import type { SupabaseClient } from '@supabase/supabase-js'
-import { loadPdfFonts, loadPdfAssets } from '@/lib/pdf/pdf-fonts'
+import { loadPdfFonts } from '@/lib/pdf/pdf-fonts'
+import { resolveBrand, brandDataToAssets } from '@/lib/pdf/brand-resolver'
 import { htmlToPdfBuffer } from '@/lib/pdf/html-to-pdf'
 import {
   buildConfirmationHtml,
@@ -64,6 +65,7 @@ export interface GenerateOrderConfirmationPdfResult {
 interface OrderRow {
   id:                   string
   order_id:             string
+  division:             string | null
   scheduled_date:       string
   total_amount:         number
   confirmation_pdf_url: string | null
@@ -88,7 +90,7 @@ interface OrderRow {
 export async function generateOrderConfirmationPdf(
   orderUuid: string,
   supabase:  SupabaseClient,
-  opts?:     { force?: boolean },
+  opts?:     { force?: boolean; divisionId?: string },
 ): Promise<GenerateOrderConfirmationPdfResult> {
 
   // -- 1. Fetch order ---------------------------------------------------------
@@ -97,6 +99,7 @@ export async function generateOrderConfirmationPdf(
     .select(`
       id,
       order_id,
+      division,
       scheduled_date,
       total_amount,
       confirmation_pdf_url,
@@ -151,7 +154,22 @@ export async function generateOrderConfirmationPdf(
 
   const todayIso = new Date().toISOString().split('T')[0]
 
-  const [assets, fonts] = await Promise.all([loadPdfAssets(), loadPdfFonts()])
+  // Resolve division UUID: override > slug lookup > null
+  let divisionId: string | null = opts?.divisionId ?? null
+  if (!divisionId && order.division) {
+    const { data: divRow } = await supabase
+      .from('company_divisions')
+      .select('id')
+      .eq('slug', order.division)
+      .maybeSingle()
+    divisionId = divRow?.id ?? null
+  }
+
+  const [brand, fonts] = await Promise.all([
+    resolveBrand(divisionId, supabase),
+    loadPdfFonts(),
+  ])
+  const { assets } = brandDataToAssets(brand)
 
   const html = buildConfirmationHtml({
     orderNumber:   order.order_id,

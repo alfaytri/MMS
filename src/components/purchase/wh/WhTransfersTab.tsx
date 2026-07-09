@@ -1,7 +1,7 @@
 'use client'
 
-import React, { useMemo, useState, useCallback } from 'react'
-import { ArrowRight, CheckCircle2, XCircle, Truck, PackageCheck, Ban } from 'lucide-react'
+import React, { useMemo, useState, useCallback, useEffect } from 'react'
+import { ArrowRight, CheckCircle2, XCircle, Truck, PackageCheck, Ban, ChevronLeft, ChevronRight as ChevronRightIcon } from 'lucide-react'
 import { WarehouseReportButton } from './WarehouseReportButton'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
@@ -315,6 +315,15 @@ export const WhTransfersTab = React.memo(function WhTransfersTab({ warehouses, c
     )
   }
 
+  const [page, setPage] = useState(1)
+  const PAGE_SIZE = 25
+  const totalPages = Math.max(1, Math.ceil(transfers.length / PAGE_SIZE))
+  useEffect(() => { setPage(1) }, [transfers.length])
+  const paged = useMemo(() => {
+    const start = (page - 1) * PAGE_SIZE
+    return transfers.slice(start, start + PAGE_SIZE)
+  }, [transfers, page])
+
   /* ── Empty state ───────────────────────────────────────────────────────── */
 
   if (transfers.length === 0) {
@@ -334,7 +343,7 @@ export const WhTransfersTab = React.memo(function WhTransfersTab({ warehouses, c
           <h3 className="text-sm font-semibold">Transfers</h3>
           <WarehouseReportButton reportType="transfers" label="Report" />
         </div>
-        {transfers.map((t) => {
+        {paged.map((t) => {
           const showDispatch = canDispatch(t)
           const showReceive  = canReceive(t)
           const showCancel   = canCancel(t)
@@ -497,6 +506,20 @@ export const WhTransfersTab = React.memo(function WhTransfersTab({ warehouses, c
             </div>
           )
         })}
+        {transfers.length > 0 && totalPages > 1 && (
+          <div className="flex items-center justify-between text-xs text-muted-foreground px-1">
+            <span>{transfers.length} transfer{transfers.length !== 1 ? 's' : ''}</span>
+            <div className="flex items-center gap-1.5">
+              <Button variant="outline" size="sm" className="h-7 w-7 p-0" disabled={page <= 1} onClick={() => setPage((p) => Math.max(1, p - 1))} aria-label="Previous page">
+                <ChevronLeft className="h-3.5 w-3.5" />
+              </Button>
+              <span className="tabular-nums min-w-[80px] text-center">Page {page} of {totalPages}</span>
+              <Button variant="outline" size="sm" className="h-7 w-7 p-0" disabled={page >= totalPages} onClick={() => setPage((p) => Math.min(totalPages, p + 1))} aria-label="Next page">
+                <ChevronRightIcon className="h-3.5 w-3.5" />
+              </Button>
+            </div>
+          </div>
+        )}
       </div>
 
       {/* ── Cancel confirmation AlertDialog ── */}

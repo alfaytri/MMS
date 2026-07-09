@@ -1,5 +1,6 @@
 import type { SupabaseClient } from '@supabase/supabase-js'
-import { loadPdfFonts, loadPdfAssets } from '@/lib/pdf/pdf-fonts'
+import { loadPdfFonts } from '@/lib/pdf/pdf-fonts'
+import { resolveBrand, brandDataToAssets } from '@/lib/pdf/brand-resolver'
 import { htmlToPdfBuffer } from '@/lib/pdf/html-to-pdf'
 import {
   buildReturnPdfHtml,
@@ -21,6 +22,7 @@ function safeKey(name: string): string {
 interface ReturnRow {
   id: string
   return_number: string
+  division_id: string | null
   source_type: 'sale_order' | 'purchase_order'
   source_id: string
   date: string
@@ -42,7 +44,7 @@ interface ReturnRow {
 export async function generateReturnPdf(
   returnId: string,
   supabase: SupabaseClient,
-  opts?: { force?: boolean },
+  opts?: { force?: boolean; divisionId?: string },
 ): Promise<GenerateReturnPdfResult> {
   const force = opts?.force ?? false
 
@@ -120,7 +122,11 @@ export async function generateReturnPdf(
     }
   })
 
-  const [fonts, assets] = await Promise.all([loadPdfFonts(), loadPdfAssets()])
+  const [brand, fonts] = await Promise.all([
+    resolveBrand(opts?.divisionId ?? ret.division_id, supabase),
+    loadPdfFonts(),
+  ])
+  const { assets } = brandDataToAssets(brand)
 
   const html = buildReturnPdfHtml({
     returnNumber: ret.return_number,

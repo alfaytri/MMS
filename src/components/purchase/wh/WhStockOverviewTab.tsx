@@ -1,7 +1,7 @@
 'use client'
 
 import React, { useState, useMemo, useEffect, useCallback } from 'react'
-import { Layers, Package, DollarSign, Search, X, ChevronRight, ChevronDown } from 'lucide-react'
+import { Layers, Package, DollarSign, Search, X, ChevronRight, ChevronDown, ChevronLeft } from 'lucide-react'
 import { WarehouseReportButton } from './WarehouseReportButton'
 import { Input } from '@/components/ui/input'
 import { Button } from '@/components/ui/button'
@@ -179,6 +179,7 @@ export const WhStockOverviewTab = React.memo(function WhStockOverviewTab({
   )
   const [activeType, setActiveType] = useState<ItemTypeValue>('__all__')
   const [expanded, setExpanded] = useState<Set<string>>(new Set())
+  const [page, setPage] = useState(1)
 
   useEffect(() => {
     setSelectedWarehouseId(initialWarehouseId)
@@ -275,6 +276,16 @@ export const WhStockOverviewTab = React.memo(function WhStockOverviewTab({
   }, [tree])
   const totalQty   = useMemo(() => tree.reduce((s, c) => s + c.totalQty, 0), [tree])
   const totalValue = useMemo(() => tree.reduce((s, c) => s + c.totalValue, 0), [tree])
+
+  const PAGE_SIZE = 25
+  const totalPages = Math.max(1, Math.ceil(tree.length / PAGE_SIZE))
+
+  useEffect(() => { setPage(1) }, [search, selectedWarehouseId, activeType])
+
+  const pagedTree = useMemo(() => {
+    const start = (page - 1) * PAGE_SIZE
+    return tree.slice(start, start + PAGE_SIZE)
+  }, [tree, page])
 
   useEffect(() => {
     if (!search) return
@@ -477,7 +488,7 @@ export const WhStockOverviewTab = React.memo(function WhStockOverviewTab({
                   </TableCell>
                 </TableRow>
               ) : (
-                tree.map((cat) => {
+                pagedTree.map((cat) => {
                   const catExpanded = expanded.has(cat.categoryName)
                   const childCount = cat.subcategories.length + cat.directItems.length
                   const tooltipRows = [
@@ -573,6 +584,44 @@ export const WhStockOverviewTab = React.memo(function WhStockOverviewTab({
             </TableBody>
           </Table>
         </div>
+
+        {tree.length > 0 && (
+          <div className="flex items-center justify-between text-xs text-muted-foreground px-1">
+            <span>{tree.length} categor{tree.length !== 1 ? 'ies' : 'y'}</span>
+
+            {totalPages > 1 && (
+              <div className="flex items-center gap-1.5">
+                <Button
+                  variant="outline"
+                  size="sm"
+                  className="h-7 w-7 p-0"
+                  disabled={page <= 1}
+                  onClick={() => setPage((p) => Math.max(1, p - 1))}
+                  aria-label="Previous page"
+                >
+                  <ChevronLeft className="h-3.5 w-3.5" />
+                </Button>
+                <span className="tabular-nums min-w-[80px] text-center">
+                  Page {page} of {totalPages}
+                </span>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  className="h-7 w-7 p-0"
+                  disabled={page >= totalPages}
+                  onClick={() => setPage((p) => Math.min(totalPages, p + 1))}
+                  aria-label="Next page"
+                >
+                  <ChevronRight className="h-3.5 w-3.5" />
+                </Button>
+              </div>
+            )}
+
+            <span className="font-semibold text-foreground">
+              Total: QR {fmtVal(totalValue)}
+            </span>
+          </div>
+        )}
       </TooltipProvider>
     </div>
   )

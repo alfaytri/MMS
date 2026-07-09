@@ -1,7 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@supabase/supabase-js'
 import { htmlToPdfBuffer } from '@/lib/pdf/html-to-pdf'
-import { loadPdfFonts, loadPdfAssets } from '@/lib/pdf/pdf-fonts'
+import { loadPdfFonts } from '@/lib/pdf/pdf-fonts'
+import { resolveBrand, brandDataToAssets } from '@/lib/pdf/brand-resolver'
 import {
   buildStockOverviewReportHtml,
   buildTransfersReportHtml,
@@ -79,7 +80,7 @@ async function fetchStockOverview(supabase: SupaClient, warehouseId?: string) {
     .order('subcategory_name', { ascending: true })
     .order('item_name', { ascending: true })
   if (warehouseId) q = q.eq('warehouse_id', warehouseId)
-  const { data, error } = await q
+  const { data, error } = await q.limit(5000)
   if (error) throw error
 
   let warehouseName = 'All Warehouses'
@@ -171,6 +172,7 @@ async function fetchStockValue(supabase: SupaClient) {
     .select('warehouse_id, item_name, brand, sku, qty, avg_cost, total_value, category_name, subcategory_name, item_type')
     .order('category_name', { ascending: true })
     .order('item_name', { ascending: true })
+    .limit(5000)
   if (error) throw error
 
   const { data: warehouses } = await supabase.from('warehouses').select('id, name')
@@ -290,6 +292,7 @@ export async function POST(req: NextRequest) {
   const body = await req.json().catch(() => ({}))
   const type = body.type as ReportType | undefined
   const warehouseId = body.warehouseId as string | undefined
+  const divisionId = body.divisionId as string | undefined
   const fromDate = periodToFromDate(body.period as string | undefined)
 
   if (!type || !REPORT_TYPES.includes(type)) {
@@ -300,7 +303,22 @@ export async function POST(req: NextRequest) {
   }
 
   const supabase = createClient(SUPA_URL, SUPA_KEY)
-  const [fonts, assets] = await Promise.all([loadPdfFonts(), loadPdfAssets()])
+
+  let resolvedDivisionId: string | null = divisionId ?? null
+  if (!resolvedDivisionId && warehouseId) {
+    const { data: rpRows } = await supabase
+      .from('warehouse_field_rps')
+      .select('profiles(division_id)')
+      .eq('warehouse_id', warehouseId)
+      .limit(10)
+    const firstDiv = (rpRows ?? []).find(
+      (r: any) => r.profiles?.division_id,
+    )
+    resolvedDivisionId = (firstDiv as any)?.profiles?.division_id ?? null
+  }
+
+  const [fonts, brand] = await Promise.all([loadPdfFonts(), resolveBrand(resolvedDivisionId, supabase)])
+  const { assets } = brandDataToAssets(brand)
 
   try {
     let html: string

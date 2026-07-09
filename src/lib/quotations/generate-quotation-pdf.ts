@@ -22,6 +22,7 @@ import {
   type QuotationLineItem,
 } from '@/lib/quotations/quotation-pdf-html'
 import { loadPdfFonts, loadPdfAssets } from '@/lib/pdf/pdf-fonts'
+import { resolveBrand, brandDataToAssets } from '@/lib/pdf/brand-resolver'
 import { htmlToPdfBuffer } from '@/lib/pdf/html-to-pdf'
 
 // ── Compat re-exports for preview-html route ────────────────────────────────
@@ -50,6 +51,7 @@ function storageKeyFor(quotationId: string): string {
 interface QuotationRow {
   id:                  string
   quotation_id:        string
+  division:            string | null
   total_amount:        number
   discount_type:       string
   discount_value:      number
@@ -81,13 +83,14 @@ export interface GenerateQuotationPdfResult {
 export async function generateQuotationPdf(
   quotationUuid: string,
   supabase:      SupabaseClient,
+  opts?: { divisionId?: string },
 ): Promise<GenerateQuotationPdfResult> {
 
   // ── 1. Fetch quotation ──────────────────────────────────────────────────
   const { data: q, error: fetchErr } = await supabase
     .from('order_quotations')
     .select(`
-      id, quotation_id, total_amount, discount_type, discount_value, notes,
+      id, quotation_id, division, total_amount, discount_type, discount_value, notes,
       created_date, expiry_date, service_customer_id,
       service_customers(
         name,
@@ -131,7 +134,22 @@ export async function generateQuotationPdf(
   const issuingDate = formatDate(q.created_date)
   const validUntil  = q.expiry_date ? formatDate(q.expiry_date) : ''
 
-  const [assets, fonts] = await Promise.all([loadPdfAssets(), loadPdfFonts()])
+  // Resolve division UUID: override > slug lookup > null
+  let divisionId: string | null = opts?.divisionId ?? null
+  if (!divisionId && q.division) {
+    const { data: divRow } = await supabase
+      .from('company_divisions')
+      .select('id')
+      .eq('slug', q.division)
+      .maybeSingle()
+    divisionId = divRow?.id ?? null
+  }
+
+  const [brand, fonts] = await Promise.all([
+    resolveBrand(divisionId, supabase),
+    loadPdfFonts(),
+  ])
+  const { assets } = brandDataToAssets(brand)
 
   const html = buildQuotationHtml({
     quotationNumber: q.quotation_id,

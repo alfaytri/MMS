@@ -1,10 +1,11 @@
 'use client'
 
-import { useEffect } from 'react'
-import { useForm } from 'react-hook-form'
+import { useEffect, useState } from 'react'
+import { useForm, useWatch } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { z } from 'zod'
 import { toast } from 'sonner'
+import { ImageIcon, Loader2, X } from 'lucide-react'
 import {
   Dialog,
   DialogContent,
@@ -22,6 +23,7 @@ import {
 } from '@/components/ui/form'
 import { Input } from '@/components/ui/input'
 import { Button } from '@/components/ui/button'
+import { createClient } from '@/lib/supabase/client'
 import { useCreateCompany, useUpdateCompany, type Company } from '@/hooks/useCompanies'
 
 const companySchema = z.object({
@@ -33,6 +35,9 @@ const companySchema = z.object({
   default_tax_rate: z.string(),
   address_en: z.string().optional(),
   address_ar: z.string().optional(),
+  footer_motto: z.string().max(120, 'Max 120 characters').optional(),
+  logo_url: z.string().url().optional().or(z.literal('')),
+  stamp_url: z.string().url().optional().or(z.literal('')),
 })
 
 type CompanyFormValues = z.infer<typeof companySchema>
@@ -49,8 +54,11 @@ export function CompanyFormDialog({ open, onOpenChange, company }: CompanyFormDi
   const update = useUpdateCompany()
   const isPending = create.isPending || update.isPending
 
+  const [isUploadingLogo, setIsUploadingLogo] = useState(false)
+  const [isUploadingStamp, setIsUploadingStamp] = useState(false)
+
   const form = useForm<CompanyFormValues>({
-    resolver: zodResolver(companySchema),
+    resolver: zodResolver(companySchema) as never,
     defaultValues: {
       name_en: '',
       name_ar: '',
@@ -60,8 +68,14 @@ export function CompanyFormDialog({ open, onOpenChange, company }: CompanyFormDi
       default_tax_rate: '0',
       address_en: '',
       address_ar: '',
+      footer_motto: '',
+      logo_url: '',
+      stamp_url: '',
     },
   })
+
+  const logoUrl = useWatch({ control: form.control, name: 'logo_url' })
+  const stampUrl = useWatch({ control: form.control, name: 'stamp_url' })
 
   useEffect(() => {
     if (open && company) {
@@ -74,11 +88,38 @@ export function CompanyFormDialog({ open, onOpenChange, company }: CompanyFormDi
         default_tax_rate: String(company.default_tax_rate),
         address_en: company.address_en ?? '',
         address_ar: company.address_ar ?? '',
+        footer_motto: company.footer_motto ?? '',
+        logo_url: company.logo_url ?? '',
+        stamp_url: company.stamp_url ?? '',
       })
     } else if (open) {
       form.reset()
     }
   }, [open, company, form])
+
+  async function handleUpload(
+    file: File,
+    field: 'logo_url' | 'stamp_url',
+    setUploading: (v: boolean) => void
+  ) {
+    setUploading(true)
+    try {
+      const supabase = createClient()
+      const safeName = `company-${crypto.randomUUID()}-${file.name.replace(/[^a-zA-Z0-9.]/g, '_')}`
+      const { error } = await supabase.storage
+        .from('division-assets')
+        .upload(safeName, file, { upsert: false })
+      if (error) throw error
+      const { data: { publicUrl } } = supabase.storage
+        .from('division-assets')
+        .getPublicUrl(safeName)
+      form.setValue(field, publicUrl, { shouldValidate: true })
+    } catch (err: unknown) {
+      toast.error(err instanceof Error ? err.message : 'Upload failed')
+    } finally {
+      setUploading(false)
+    }
+  }
 
   function onSubmit(values: CompanyFormValues) {
     const payload = {
@@ -89,6 +130,9 @@ export function CompanyFormDialog({ open, onOpenChange, company }: CompanyFormDi
       vat_id: values.vat_id || null,
       address_en: values.address_en || null,
       address_ar: values.address_ar || null,
+      footer_motto: values.footer_motto || null,
+      logo_url: values.logo_url || null,
+      stamp_url: values.stamp_url || null,
     }
     if (isEditing && company) {
       update.mutate(
@@ -114,12 +158,13 @@ export function CompanyFormDialog({ open, onOpenChange, company }: CompanyFormDi
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="w-full sm:max-w-lg">
+      <DialogContent className="w-full md:max-w-xl max-h-[90vh] overflow-y-auto">
         <DialogHeader>
           <DialogTitle>{isEditing ? 'Edit' : 'Add'} Company</DialogTitle>
         </DialogHeader>
         <Form {...form}>
           <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
+            {/* ── Name EN + AR ─────────────────────────────────────── */}
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
               <FormField
                 control={form.control}
@@ -148,6 +193,8 @@ export function CompanyFormDialog({ open, onOpenChange, company }: CompanyFormDi
                 )}
               />
             </div>
+
+            {/* ── CR + VAT ────────────────────────────────────────── */}
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
               <FormField
                 control={form.control}
@@ -176,6 +223,8 @@ export function CompanyFormDialog({ open, onOpenChange, company }: CompanyFormDi
                 )}
               />
             </div>
+
+            {/* ── Currency + Tax Rate ─────────────────────────────── */}
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
               <FormField
                 control={form.control}
@@ -204,42 +253,150 @@ export function CompanyFormDialog({ open, onOpenChange, company }: CompanyFormDi
                 )}
               />
             </div>
+
+            {/* ── Address EN + AR ─────────────────────────────────── */}
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+              <FormField
+                control={form.control}
+                name="address_en"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Address (EN)</FormLabel>
+                    <FormControl>
+                      <Input {...field} />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+              <FormField
+                control={form.control}
+                name="address_ar"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Address (AR)</FormLabel>
+                    <FormControl>
+                      <Input dir="rtl" {...field} />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+            </div>
+
+            {/* ── Footer Motto ────────────────────────────────────── */}
             <FormField
               control={form.control}
-              name="address_en"
+              name="footer_motto"
               render={({ field }) => (
                 <FormItem>
-                  <FormLabel>Address (English)</FormLabel>
+                  <FormLabel>Footer Motto</FormLabel>
                   <FormControl>
-                    <Input {...field} />
+                    <Input
+                      placeholder="e.g. Quality Service Since 2010"
+                      {...field}
+                    />
                   </FormControl>
                   <FormMessage />
                 </FormItem>
               )}
             />
-            <FormField
-              control={form.control}
-              name="address_ar"
-              render={({ field }) => (
-                <FormItem>
-                  <FormLabel>Address (Arabic)</FormLabel>
-                  <FormControl>
-                    <Input dir="rtl" {...field} />
-                  </FormControl>
-                  <FormMessage />
-                </FormItem>
-              )}
-            />
-            <DialogFooter>
+
+            {/* ── Logo + Stamp upload ─────────────────────────────── */}
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+              {/* Logo */}
+              <div className="flex flex-col gap-1">
+                <span className="text-sm font-medium leading-none">Logo</span>
+                <div className="relative">
+                  <label className="cursor-pointer block">
+                    <div className="border-2 border-dashed rounded-lg p-4 flex flex-col items-center justify-center gap-1 min-h-[100px] hover:bg-muted/30 transition-colors">
+                      {isUploadingLogo ? (
+                        <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
+                      ) : logoUrl ? (
+                        // eslint-disable-next-line @next/next/no-img-element
+                        <img src={logoUrl} alt="Logo preview" className="h-16 w-auto object-contain" />
+                      ) : (
+                        <>
+                          <ImageIcon className="h-6 w-6 text-muted-foreground" />
+                          <span className="text-xs text-muted-foreground">Upload Logo</span>
+                        </>
+                      )}
+                    </div>
+                    <input
+                      type="file"
+                      accept="image/*"
+                      className="hidden"
+                      disabled={isUploadingLogo}
+                      onChange={(e) => {
+                        const file = e.target.files?.[0]
+                        if (file) handleUpload(file, 'logo_url', setIsUploadingLogo)
+                      }}
+                    />
+                  </label>
+                  {logoUrl && !isUploadingLogo && (
+                    <button
+                      type="button"
+                      onClick={() => form.setValue('logo_url', '', { shouldValidate: true })}
+                      className="absolute top-1.5 right-1.5 h-5 w-5 rounded-full bg-background border border-border shadow flex items-center justify-center hover:bg-destructive hover:text-white hover:border-destructive transition-colors"
+                    >
+                      <X className="h-3 w-3" />
+                    </button>
+                  )}
+                </div>
+              </div>
+
+              {/* Stamp */}
+              <div className="flex flex-col gap-1">
+                <span className="text-sm font-medium leading-none">Stamp</span>
+                <div className="relative">
+                  <label className="cursor-pointer block">
+                    <div className="border-2 border-dashed rounded-lg p-4 flex flex-col items-center justify-center gap-1 min-h-[100px] hover:bg-muted/30 transition-colors">
+                      {isUploadingStamp ? (
+                        <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
+                      ) : stampUrl ? (
+                        // eslint-disable-next-line @next/next/no-img-element
+                        <img src={stampUrl} alt="Stamp preview" className="h-16 w-auto object-contain" />
+                      ) : (
+                        <>
+                          <ImageIcon className="h-6 w-6 text-muted-foreground" />
+                          <span className="text-xs text-muted-foreground">Upload Stamp</span>
+                        </>
+                      )}
+                    </div>
+                    <input
+                      type="file"
+                      accept="image/*"
+                      className="hidden"
+                      disabled={isUploadingStamp}
+                      onChange={(e) => {
+                        const file = e.target.files?.[0]
+                        if (file) handleUpload(file, 'stamp_url', setIsUploadingStamp)
+                      }}
+                    />
+                  </label>
+                  {stampUrl && !isUploadingStamp && (
+                    <button
+                      type="button"
+                      onClick={() => form.setValue('stamp_url', '', { shouldValidate: true })}
+                      className="absolute top-1.5 right-1.5 h-5 w-5 rounded-full bg-background border border-border shadow flex items-center justify-center hover:bg-destructive hover:text-white hover:border-destructive transition-colors"
+                    >
+                      <X className="h-3 w-3" />
+                    </button>
+                  )}
+                </div>
+              </div>
+            </div>
+
+            <DialogFooter className="sticky bottom-0 bg-background pt-4 border-t">
               <Button
                 type="button"
                 variant="outline"
                 onClick={() => onOpenChange(false)}
-                disabled={isPending}
+                disabled={isPending || isUploadingLogo || isUploadingStamp}
               >
                 Cancel
               </Button>
-              <Button type="submit" disabled={isPending}>
+              <Button type="submit" disabled={isPending || isUploadingLogo || isUploadingStamp}>
                 {isPending ? 'Saving…' : isEditing ? 'Update' : 'Create'}
               </Button>
             </DialogFooter>

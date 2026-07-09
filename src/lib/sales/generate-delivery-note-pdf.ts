@@ -1,5 +1,6 @@
 import type { SupabaseClient } from '@supabase/supabase-js'
-import { loadPdfFonts, loadPdfAssets } from '@/lib/pdf/pdf-fonts'
+import { loadPdfFonts } from '@/lib/pdf/pdf-fonts'
+import { resolveBrand, brandDataToAssets } from '@/lib/pdf/brand-resolver'
 import { htmlToPdfBuffer } from '@/lib/pdf/html-to-pdf'
 import {
   buildDeliveryNoteHtml,
@@ -33,13 +34,13 @@ interface DeliveryRow {
   created_by_name: string | null
   type:            'standard' | 'replacement'
   pdf_url:         string | null
-  sale_orders:     { so_number: string; customers: { name: string | null } | null } | null
+  sale_orders:     { so_number: string; division_id: string | null; customers: { name: string | null } | null } | null
 }
 
 export async function generateDeliveryNotePdf(
   deliveryId: string,
   supabase:   SupabaseClient,
-  opts?: { force?: boolean },
+  opts?: { force?: boolean; divisionId?: string },
 ): Promise<GenerateDeliveryNoteResult> {
   const force = opts?.force ?? false
 
@@ -48,7 +49,7 @@ export async function generateDeliveryNotePdf(
     .select(`
       id, delivery_number, sale_order_id, warehouse_name, date,
       items, status, created_by_name, type, pdf_url,
-      sale_orders(so_number, customers(name))
+      sale_orders(so_number, division_id, customers(name))
     `)
     .eq('id', deliveryId)
     .single<DeliveryRow>()
@@ -73,7 +74,11 @@ export async function generateDeliveryNotePdf(
     qtyDelivered: i.qty_delivered,
   }))
 
-  const [fonts, assets] = await Promise.all([loadPdfFonts(), loadPdfAssets()])
+  const [brand, fonts] = await Promise.all([
+    resolveBrand(opts?.divisionId ?? del.sale_orders?.division_id ?? null, supabase),
+    loadPdfFonts(),
+  ])
+  const { assets } = brandDataToAssets(brand)
 
   const html = buildDeliveryNoteHtml({
     deliveryNumber: del.delivery_number,

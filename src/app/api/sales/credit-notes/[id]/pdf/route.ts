@@ -30,9 +30,10 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
   if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
 
   const force    = req.nextUrl.searchParams.get('force') === 'true'
+  const divisionId = req.nextUrl.searchParams.get('divisionId') ?? undefined
   const supabase = createClient(SUPA_URL, SUPA_KEY)
   try {
-    const result = await generateCreditDebitNotePdf(id, supabase, { force })
+    const result = await generateCreditDebitNotePdf(id, supabase, { force, divisionId })
     return NextResponse.json(result)
   } catch (err) {
     const msg   = err instanceof Error ? err.message : String(err)
@@ -48,9 +49,10 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ id: 
   if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
 
   const force    = req.nextUrl.searchParams.get('force') === 'true'
+  const divisionId = req.nextUrl.searchParams.get('divisionId') ?? undefined
   const supabase = createClient(SUPA_URL, SUPA_KEY)
   try {
-    const { url } = await generateCreditDebitNotePdf(id, supabase, { force })
+    const { url } = await generateCreditDebitNotePdf(id, supabase, { force, divisionId })
     return NextResponse.redirect(url, 302)
   } catch (err) {
     const msg   = err instanceof Error ? err.message : String(err)

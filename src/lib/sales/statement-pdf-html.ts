@@ -11,6 +11,7 @@ import {
   brandHeaderHtml,
   contactStripHtml,
   footerHtml,
+  stampSectionHtml,
   BASE_CSS,
 } from '@/lib/pdf/pdf-fonts'
 
@@ -138,7 +139,7 @@ export function buildStatementHtml(input: BuildStatementHtmlInput): string {
 </head>
 <body>
 
-  ${brandHeaderHtml(input.assets.logo)}
+  ${brandHeaderHtml(input.assets.brandHeader ?? input.assets.logo)}
 
   <div class="midbar">
     ${contactStripHtml()}
@@ -232,6 +233,8 @@ export function buildStatementHtml(input: BuildStatementHtmlInput): string {
       </div>
     </div>
   </div>
+
+  ${stampSectionHtml(input.assets.stamp)}
 
   ${footerHtml(input.assets.footer)}
 
