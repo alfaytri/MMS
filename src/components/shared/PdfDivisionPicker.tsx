@@ -58,7 +58,7 @@ export function PdfDivisionPicker({
               Division: <span className="font-medium">{activeDivisions[0].name}</span>
             </p>
           ) : (
-            <Select value={autoSelected} onValueChange={setSelected}>
+            <Select value={autoSelected} onValueChange={(v) => setSelected(v ?? '')}>
               <SelectTrigger className="w-full">
                 <SelectValue placeholder="Select division…">
                   {autoSelected

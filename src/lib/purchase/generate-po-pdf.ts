@@ -293,6 +293,7 @@ async function renderSnapshotPdf(
   supabase:        SupabaseClient,
   variant:         PoPdfVariant,
   snapshotVersion: number,
+  divisionIdOverride?: string | null,
 ): Promise<GeneratePoPdfSnapshotResult> {
   const { data: po, error: poErr } = await supabase
     .from('purchase_orders')
@@ -347,7 +348,7 @@ async function renderSnapshotPdf(
   const totalQar        = Math.max(0, subtotal - discountAmount)
 
   const [brand, fonts] = await Promise.all([
-    resolveBrand(po.division_id, supabase),
+    resolveBrand(divisionIdOverride ?? po.division_id, supabase),
     loadPdfFonts(),
   ])
   const { assets } = brandDataToAssets(brand)

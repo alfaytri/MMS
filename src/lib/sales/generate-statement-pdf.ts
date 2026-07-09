@@ -18,6 +18,7 @@ import { htmlToPdfBuffer } from '@/lib/pdf/html-to-pdf'
 export interface GenerateStatementPdfInput {
   customerId:  string
   openOnly?:   boolean  // default true — mirror the mockup ("open and unpaid")
+  divisionId?: string
   notes?:      string | null
 }
 
@@ -45,7 +46,6 @@ function sanitizeFilename(s: string): string {
 export async function generateStatementPdf(
   input: GenerateStatementPdfInput,
   supabase: SupabaseClient,
-  opts?: { divisionId?: string },
 ): Promise<GenerateStatementPdfResult> {
 
   const openOnly = input.openOnly ?? true
@@ -81,7 +81,7 @@ export async function generateStatementPdf(
 
   // ── 3. HTML + PDF ────────────────────────────────────────────────────
   const [brand, fonts] = await Promise.all([
-    resolveBrand(opts?.divisionId ?? null, supabase),
+    resolveBrand(input.divisionId ?? null, supabase),
     loadPdfFonts(),
   ])
   const { assets } = brandDataToAssets(brand)
