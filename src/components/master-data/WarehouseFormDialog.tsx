@@ -112,7 +112,7 @@ export function WarehouseFormDialog({ open, onOpenChange, warehouse }: Warehouse
                 <FormItem>
                   <FormLabel>Name *</FormLabel>
                   <FormControl>
-                    <Input placeholder="Central Warehouse" {...field} />
+                    <Input placeholder="e.g. Main Warehouse" {...field} />
                   </FormControl>
                   <FormMessage />
                 </FormItem>
@@ -125,7 +125,7 @@ export function WarehouseFormDialog({ open, onOpenChange, warehouse }: Warehouse
                 <FormItem>
                   <FormLabel>Location</FormLabel>
                   <FormControl>
-                    <Input placeholder="Industrial Area, Doha" {...field} />
+                    <Input placeholder="Address or area" {...field} />
                   </FormControl>
                   <FormMessage />
                 </FormItem>
