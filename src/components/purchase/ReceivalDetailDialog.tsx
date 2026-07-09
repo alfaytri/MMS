@@ -94,10 +94,21 @@ export function ReceivalDetailDialog({ receival, onClose }: Props) {
                   {receival.is_replacement && (
                     <Badge className="text-xs bg-purple-100 text-purple-700">Replacement</Badge>
                   )}
+                  {receival.source_type === 'inventory' && (
+                    <Badge className="text-xs bg-purple-100 text-purple-700">Inventory Receival</Badge>
+                  )}
                 </div>
                 <p className="text-sm text-muted-foreground">
-                  {receival.po_number ?? '—'}
-                  {receival.supplier_name ? ` · ${receival.supplier_name}` : ''}
+                  {receival.source_type === 'inventory'
+                    ? receival.carved_from_layer_id
+                      ? 'Carved from existing stock'
+                      : 'New stock addition (no PO)'
+                    : (
+                      <>
+                        {receival.po_number ?? '—'}
+                        {receival.supplier_name ? ` · ${receival.supplier_name}` : ''}
+                      </>
+                    )}
                 </p>
               </div>
             </div>
@@ -125,7 +136,7 @@ export function ReceivalDetailDialog({ receival, onClose }: Props) {
             />
             <MetaCard
               icon={<User className="h-4 w-4 text-muted-foreground" />}
-              label="Received By"
+              label="Created By"
               value={receival.received_by_name ?? '—'}
             />
             <MetaCard
@@ -133,6 +144,20 @@ export function ReceivalDetailDialog({ receival, onClose }: Props) {
               label="Items"
               value={`${totalQty} unit${totalQty !== 1 ? 's' : ''} · ${items.length} line${items.length !== 1 ? 's' : ''}`}
             />
+            {receival.created_at && (
+              <MetaCard
+                icon={<Calendar className="h-4 w-4 text-muted-foreground" />}
+                label="Created At"
+                value={new Date(receival.created_at).toLocaleString()}
+              />
+            )}
+            {receival.source_type === 'inventory' && (
+              <MetaCard
+                icon={<Package className="h-4 w-4 text-muted-foreground" />}
+                label={receival.carved_from_layer_id ? 'Carved From' : 'Type'}
+                value={receival.carved_from_layer_id ? 'Existing stock layer' : 'New stock (no source)'}
+              />
+            )}
           </div>
 
           {/* Items table */}

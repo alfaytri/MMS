@@ -1,6 +1,7 @@
 'use client'
 
 import { useState, useMemo, useEffect } from 'react'
+import { useSearchParams } from 'next/navigation'
 import { type ColumnDef } from '@tanstack/react-table'
 import { Plus } from 'lucide-react'
 import { toast } from 'sonner'
@@ -290,14 +291,18 @@ function ReceivalEditDialog({
 // ─── Page ─────────────────────────────────────────────────────────────────────
 
 export default function ReceivalsPage() {
+  const searchParams = useSearchParams()
   const [statusFilter, setStatusFilter] = useState<ReceivalStatus | ''>('')
+  const [sourceFilter, setSourceFilter] = useState<'purchase' | 'inventory' | 'all'>(
+    (searchParams.get('source') as 'purchase' | 'inventory') ?? 'all',
+  )
   const [createOpen, setCreateOpen] = useState(false)
   const [requestEditTarget, setRequestEditTarget] = useState<Receival | null>(null)
   const [editTarget, setEditTarget] = useState<{ receival: Receival; request: ReceivalEditRequest } | null>(null)
   const [adminApproveTarget, setAdminApproveTarget] = useState<ReceivalEditRequest | null>(null)
   const [detailReceival, setDetailReceival] = useState<Receival | null>(null)
 
-  const { data: receivals, isLoading } = useReceivals({ status: statusFilter })
+  const { data: receivals, isLoading } = useReceivals({ status: statusFilter, source_type: sourceFilter })
   const { data: lcLockedIds } = useLcLockedReceivalIds()
   const { data: myRoles = [] } = useMyApprovalSlotRoles()
   const canApproveEdit = myRoles.some(
@@ -308,12 +313,35 @@ export default function ReceivalsPage() {
     {
       accessorKey: 'receival_number',
       header: ({ column }) => <DataTableColumnHeader column={column} title="Receival #" />,
-      cell: ({ row }) => <span className="font-mono text-sm font-medium">{row.getValue('receival_number')}</span>,
+      cell: ({ row }) => {
+        const num = row.getValue('receival_number') as string
+        const isInventory = row.original.source_type === 'inventory'
+        return (
+          <span
+            className={cn(
+              'font-mono text-sm font-medium',
+              isInventory && 'text-purple-700',
+            )}
+          >
+            {num}
+          </span>
+        )
+      },
     },
     {
-      id: 'po_number',
-      header: 'PO #',
-      cell: ({ row }) => row.original.po_number ?? '—',
+      id: 'source',
+      header: 'Source',
+      cell: ({ row }) => {
+        const r = row.original
+        if (r.source_type === 'inventory') {
+          return <Badge className="bg-purple-100 text-purple-700 hover:bg-purple-100">Inventory</Badge>
+        }
+        return r.po_number ? (
+          <span className="text-xs">{r.po_number}</span>
+        ) : (
+          <span className="text-xs text-muted-foreground">—</span>
+        )
+      },
     },
     {
       id: 'supplier',
@@ -366,21 +394,39 @@ export default function ReceivalsPage() {
         }
       />
 
-      <div className="flex flex-wrap gap-2">
-        {STATUSES.map((s) => (
-          <button
-            key={s.value}
-            onClick={() => setStatusFilter(s.value)}
-            className={cn(
-              'px-3 py-1 rounded-full text-sm border transition-colors',
-              statusFilter === s.value
-                ? 'bg-primary text-primary-foreground border-primary'
-                : 'border-border hover:bg-accent'
-            )}
-          >
-            {s.label}
-          </button>
-        ))}
+      <div className="flex flex-wrap items-center gap-4">
+        <div className="flex flex-wrap gap-2">
+          {STATUSES.map((s) => (
+            <button
+              key={s.value}
+              onClick={() => setStatusFilter(s.value)}
+              className={cn(
+                'px-3 py-1 rounded-full text-sm border transition-colors',
+                statusFilter === s.value
+                  ? 'bg-primary text-primary-foreground border-primary'
+                  : 'border-border hover:bg-accent'
+              )}
+            >
+              {s.label}
+            </button>
+          ))}
+        </div>
+        <div className="flex flex-wrap gap-2">
+          {(['all', 'purchase', 'inventory'] as const).map((v) => (
+            <button
+              key={v}
+              onClick={() => setSourceFilter(v)}
+              className={cn(
+                'px-3 py-1 rounded-full text-sm border transition-colors capitalize',
+                sourceFilter === v
+                  ? 'bg-primary text-primary-foreground border-primary'
+                  : 'border-border hover:bg-accent'
+              )}
+            >
+              {v === 'all' ? 'All Sources' : v}
+            </button>
+          ))}
+        </div>
       </div>
 
       <DataTable

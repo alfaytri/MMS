@@ -127,13 +127,19 @@ export function useReceival(id: string | null) {
         .eq('id', id!)
         .single()
       if (error) throw error
+      // Cast to any: source_type/carved_from_layer_id not yet in generated types.
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const row: any = data
       // Attach ordered_qty from PO line items
-      const poLines: any[] = data.purchase_orders?.po_line_items ?? []
-      const items = (data.receival_items ?? []).map((ri: any) => {
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const poLines: any[] = row.purchase_orders?.po_line_items ?? []
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const items = (row.receival_items ?? []).map((ri: any) => {
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
         const matched = poLines.find((pl: any) => pl.id === ri.po_line_item_id)
         return { ...ri, ordered_qty: matched?.qty ?? null }
       })
-      return { ...data, receival_items: items } as Receival
+      return { ...row, receival_items: items } as Receival
     },
   })
 }
