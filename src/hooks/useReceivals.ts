@@ -23,7 +23,7 @@ export type ReceivalItem = {
 export type Receival = {
   id: string
   receival_number: string
-  po_id: string
+  po_id: string | null
   warehouse_id: string
   date: string
   status: ReceivalStatus | null
@@ -33,9 +33,11 @@ export type Receival = {
   receival_items?: ReceivalItem[]
   is_replacement?: boolean
   source_debit_note_id?: string | null
+  source_type?: 'purchase' | 'inventory'
+  carved_from_layer_id?: string | null
   // joined
-  po_number?: string
-  supplier_name?: string
+  po_number?: string | null
+  supplier_name?: string | null
   warehouse_name?: string
 }
 
@@ -70,7 +72,10 @@ export type CreateReceivalPayload = {
 
 // ─── Queries ──────────────────────────────────────────────────────────────────
 
-export function useReceivals(filters?: { status?: ReceivalStatus | '' }) {
+export function useReceivals(filters?: {
+  status?: ReceivalStatus | ''
+  source_type?: 'purchase' | 'inventory' | 'all'
+}) {
   return useQuery({
     queryKey: queryKeys.receivals.list(filters),
     queryFn: async () => {
@@ -78,7 +83,7 @@ export function useReceivals(filters?: { status?: ReceivalStatus | '' }) {
       let q = supabase
         .from('receivals')
         .select(`
-          id,receival_number,po_id,warehouse_id,date,status,notes,received_by_name,created_at,is_replacement,source_debit_note_id,
+          id,receival_number,po_id,warehouse_id,date,status,notes,received_by_name,created_at,is_replacement,source_debit_note_id,source_type,carved_from_layer_id,
           receival_items(id,receival_id,po_line_item_id,item_name,sku,qty_received,unit_cost,is_free,brand_variant_id),
           purchase_orders!receivals_po_id_fkey(po_number,supplier_name),
           warehouses!receivals_warehouse_id_fkey(name)
@@ -86,6 +91,11 @@ export function useReceivals(filters?: { status?: ReceivalStatus | '' }) {
         .order('created_at', { ascending: false })
         .limit(200)
       if (filters?.status) q = q.eq('status', filters.status)
+      if (filters?.source_type && filters.source_type !== 'all') {
+        // source_type column not yet in generated types (added in migration 20260709192726)
+        q = (q as unknown as { eq: (col: string, val: string) => typeof q })
+          .eq('source_type', filters.source_type)
+      }
       const { data, error } = await q
       if (error) throw error
       return (data ?? []).map((r: any) => ({

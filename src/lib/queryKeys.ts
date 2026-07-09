@@ -403,6 +403,9 @@ export const queryKeys = {
       ['receivals-lc-selector', { search }] as const,
     itemsFifo: (receivalId: Nullable) =>
       ['receival-items-fifo', receivalId] as const,
+    inventoryReceivable: (brandVariantId: Nullable, warehouseId: Nullable) =>
+      ['fifo-layers-for-variant', brandVariantId, warehouseId] as const,
+    canCreateInventoryReceival: ['can-create-inventory-receival'] as const,
   },
 
   /* ── RFQs ─────────────────────────────────────────────── */

@@ -6,10 +6,12 @@ import { logActivity } from '@/lib/logActivity'
 
 // is_approval_slot was added in migration 20260615125619_unified_roles_columns.sql.
 // is_field_rp was added in migration 20260627117000_custom_roles_is_field_rp.sql.
+// is_inventory_receiver was added in migration 20260709192726_inventory_receivals.sql.
 // Widened manually until database.types.ts is regenerated.
 export type CustomRole = DBTable<'custom_roles'> & {
-  is_approval_slot?: boolean
-  is_field_rp?:      boolean
+  is_approval_slot?:      boolean
+  is_field_rp?:           boolean
+  is_inventory_receiver?: boolean
 }
 export type CustomRoleInsert = DBInsert<'custom_roles'>
 export type CustomRoleUpdate = DBUpdate<'custom_roles'>
