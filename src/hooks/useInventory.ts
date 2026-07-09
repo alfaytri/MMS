@@ -313,6 +313,7 @@ export type FifoLayer = {
   id: string
   brand_variant_id: string
   receival_number: string | null
+  receival_id: string | null
   source_type: string | null
   date: string
   qty: number
@@ -321,6 +322,8 @@ export type FifoLayer = {
   landed_cost_per_unit: number
   total_unit_cost: number
   created_at: string
+  warehouse_id: string | null
+  warehouse_name: string | null
 }
 
 export type ToolAssetItem = {
@@ -559,13 +562,46 @@ export function useFifoLayers(brandVariantId: string | null, enabled = true) {
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       const { data, error } = await supabase
         .from('fifo_cost_layers')
-        .select('id, brand_variant_id, receival_number, source_type, date, qty, remaining_qty, unit_cost, landed_cost_per_unit, total_unit_cost, created_at')
+        .select('id, brand_variant_id, receival_number, receival_id, source_type, date, qty, remaining_qty, unit_cost, landed_cost_per_unit, total_unit_cost, created_at, warehouse_id, warehouses!fifo_cost_layers_warehouse_id_fkey(name)')
         .eq('brand_variant_id', brandVariantId!)
         .order('date', { ascending: true })
         .order('receival_number', { ascending: true })
         .order('created_at', { ascending: true })
       if (error) throw error
-      return (data ?? []) as FifoLayer[]
+      return (data ?? []).map((r) => {
+        const row = r as unknown as {
+          id: string
+          brand_variant_id: string
+          receival_number: string | null
+          receival_id: string | null
+          source_type: string | null
+          date: string
+          qty: number
+          remaining_qty: number
+          unit_cost: number
+          landed_cost_per_unit: number
+          total_unit_cost: number
+          created_at: string
+          warehouse_id: string | null
+          warehouses: { name: string } | null
+        }
+        return {
+          id: row.id,
+          brand_variant_id: row.brand_variant_id,
+          receival_number: row.receival_number,
+          receival_id: row.receival_id,
+          source_type: row.source_type,
+          date: row.date,
+          qty: row.qty,
+          remaining_qty: row.remaining_qty,
+          unit_cost: row.unit_cost,
+          landed_cost_per_unit: row.landed_cost_per_unit,
+          total_unit_cost: row.total_unit_cost,
+          created_at: row.created_at,
+          warehouse_id: row.warehouse_id,
+          warehouse_name: row.warehouses?.name ?? null,
+        }
+      }) as FifoLayer[]
     },
     staleTime: 2 * 60 * 1000,
   })

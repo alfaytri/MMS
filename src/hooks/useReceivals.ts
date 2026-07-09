@@ -120,7 +120,7 @@ export function useReceival(id: string | null) {
       const { data, error } = await supabase
         .from('receivals')
         .select(`
-          id,receival_number,po_id,warehouse_id,date,status,notes,received_by_name,created_at,is_replacement,source_debit_note_id,
+          id,receival_number,po_id,warehouse_id,date,status,notes,received_by_name,created_at,is_replacement,source_debit_note_id,source_type,carved_from_layer_id,
           receival_items(id,receival_id,po_line_item_id,item_name,sku,qty_received,unit_cost,is_free,brand_variant_id),
           purchase_orders!receivals_po_id_fkey(po_number,supplier_name,po_line_items(id,qty))
         `)
