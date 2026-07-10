@@ -28,6 +28,25 @@ export function useRoles() {
   })
 }
 
+/**
+ * Invalidate every query whose result depends on custom_roles data.
+ * Includes downstream joins (user_custom_roles → custom_roles), permission
+ * checks, and profile lists that embed role info. Called after any role
+ * create / update / delete so downstream UI reflects the change immediately
+ * without requiring a manual user edit.
+ */
+function invalidateRoleDependentQueries(queryClient: ReturnType<typeof useQueryClient>) {
+  queryClient.invalidateQueries({ queryKey: queryKeys.roles.custom })
+  queryClient.invalidateQueries({ queryKey: queryKeys.roles.approvalCoverage })
+  queryClient.invalidateQueries({ queryKey: queryKeys.roles.myApprovalSlots })
+  // Prefix invalidations for ['user-roles', profileId] — hits every user
+  queryClient.invalidateQueries({ queryKey: ['user-roles'] })
+  // Permission checks that read is_inventory_receiver
+  queryClient.invalidateQueries({ queryKey: queryKeys.receivals.canCreateInventoryReceival })
+  // Profile lists that embed role data
+  queryClient.invalidateQueries({ queryKey: queryKeys.profiles.all })
+}
+
 export function useCreateRole() {
   const queryClient = useQueryClient()
   return useMutation({
@@ -44,7 +63,7 @@ export function useCreateRole() {
       })
       return data
     },
-    onSuccess: () => { queryClient.invalidateQueries({ queryKey: queryKeys.roles.custom }) },
+    onSuccess: () => { invalidateRoleDependentQueries(queryClient) },
   })
 }
 
@@ -66,10 +85,7 @@ export function useUpdateRole() {
       })
       return data
     },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: queryKeys.roles.custom })
-      queryClient.invalidateQueries({ queryKey: queryKeys.roles.approvalCoverage })
-    },
+    onSuccess: () => { invalidateRoleDependentQueries(queryClient) },
   })
 }
 
@@ -90,10 +106,7 @@ export function useDeleteRole() {
         old_data: old as unknown as Record<string, unknown> | null,
       })
     },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: queryKeys.roles.custom })
-      queryClient.invalidateQueries({ queryKey: queryKeys.roles.approvalCoverage })
-    },
+    onSuccess: () => { invalidateRoleDependentQueries(queryClient) },
   })
 }
 
