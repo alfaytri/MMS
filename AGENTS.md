@@ -15,6 +15,36 @@ At the start of every session, read the memory index at `C:\Users\IT\.claude\pro
 
 ---
 
+# Graphify — Codebase Knowledge Graph
+
+A pre-built knowledge graph exists at `graphify-out/graph.json` covering `src/` and `supabase/` (4543 nodes, 16651 edges, 171 communities). Use it to answer codebase questions instead of manually grepping and tracing imports.
+
+## When to use graphify
+
+| Situation | Command |
+|---|---|
+| Understanding a module before building a feature | `/graphify query "how does the orders module work?"` |
+| Checking what depends on something before refactoring | `/graphify query "what uses formatCurrency?"` |
+| Tracing data flow between two parts of the system | `/graphify path "SourceNode" "TargetNode"` |
+| Getting a plain-language explanation of a component | `/graphify explain "PaymentPlanDialog"` |
+| After merging a large feature branch (new files added) | `/graphify . --update` |
+
+## Mandatory triggers
+
+- **Before starting a new module or feature:** query the graph to understand what already exists and how it connects. This prevents duplicate code and missed dependencies.
+- **Before refactoring shared utilities** (e.g. `formatCurrency`, `queryKeys`, `createClient`, `cn`): query the graph to see the full blast radius. These are god nodes with 100+ edges.
+- **Before modifying DB schema or hooks:** query the graph to find all consumers of the affected table/hook.
+- **When debugging cross-module issues:** use `/graphify path` to trace the shortest connection between two nodes.
+
+## Rules
+
+- The graph is already built — do NOT rebuild unless the user asks or runs `--update`
+- Prefer `/graphify query` over manual file-by-file grepping for architectural questions
+- After a large feature merge, suggest running `/graphify . --update` to keep the graph current
+- The graph covers `src/` and `supabase/` only — files outside those folders are not indexed
+
+---
+
 <!-- BEGIN:nextjs-agent-rules -->
 # This is NOT the Next.js you know
 
