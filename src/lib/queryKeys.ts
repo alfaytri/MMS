@@ -179,6 +179,10 @@ export const queryKeys = {
   },
 
   /* ── Finance ─────────────────────────────────────────── */
+  dashboard: {
+    stats: ['dashboard-stats'] as const,
+  },
+
   finance: {
     dashboard: ['finance-dashboard'] as const,
     purchaseAging: ['purchase-aging-report'] as const,
