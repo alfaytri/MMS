@@ -10418,6 +10418,7 @@ export type Database = {
       next_delivery_number: { Args: never; Returns: string }
       next_follow_up_order_id: { Args: never; Returns: string }
       next_follow_up_request_number: { Args: never; Returns: string }
+      next_po_number: { Args: never; Returns: string }
       recalc_average_cost: { Args: { p_bv_id: string }; Returns: undefined }
       recalculate_ar_invoice_payment_status: {
         Args: { p_invoice_id: string }

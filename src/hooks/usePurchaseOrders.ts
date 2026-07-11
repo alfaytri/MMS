@@ -230,7 +230,6 @@ function getApprovalRoles(level: number): string[] {
 export type PaymentMethod = string
 
 async function generatePONumber(supabase: ReturnType<typeof createClient>): Promise<string> {
-  // @ts-expect-error next_po_number exists in DB but PostgREST schema cache hasn't refreshed; remove this line after next type regen
   const { data, error } = await supabase.rpc('next_po_number')
   if (error || !data) throw new Error('Failed to generate PO number')
   return data as string
