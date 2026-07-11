@@ -102,14 +102,17 @@ export function InventoryReceivalDialog({
 
   // Pre-fill unit cost when source layer selected
   useEffect(() => {
-    if (mode === 'carve' && sourceLayerId) {
-      const layer = layers.find((l) => l.id === sourceLayerId)
-      if (layer) form.setValue('unit_cost', Number(layer.unit_cost))
-    }
+    if (mode !== 'carve' || !sourceLayerId) return
+    const layer = layers.find((l) => l.id === sourceLayerId)
+    if (layer) form.setValue('unit_cost', Number(layer.unit_cost))
+  }, [sourceLayerId, mode, layers, form])
+
+  // Clear source layer when switching to new_stock
+  useEffect(() => {
     if (mode === 'new_stock') {
       form.setValue('source_layer_id', null)
     }
-  }, [sourceLayerId, mode, layers, form])
+  }, [mode, form])
 
   // Reset when dialog opens
   useEffect(() => {

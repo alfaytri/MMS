@@ -428,6 +428,7 @@ export type ReceivalForLcSelector = {
   po_id: string
   date: string
   status: string
+  source_type: string
   po_number: string | null
   supplier_name: string | null
 }
@@ -439,7 +440,7 @@ export function useReceivalsForLcSelector({ search = '' }: { search?: string } =
       const supabase = createClient()
       const q = supabase
         .from('receivals')
-        .select('id, receival_number, po_id, date, status, purchase_orders!receivals_po_id_fkey(po_number, supplier_name)')
+        .select('id, receival_number, po_id, date, status, source_type, purchase_orders!receivals_po_id_fkey(po_number, supplier_name)')
         .order('date', { ascending: false })
         .limit(500)
       const { data, error } = await q
@@ -447,15 +448,19 @@ export function useReceivalsForLcSelector({ search = '' }: { search?: string } =
       // Match on receival_number, po_number, or supplier_name. We filter
       // client-side because PostgREST .or() can't span a joined table without
       // a view/RPC, and this list is small (recent receivals only).
-      const rows = (data ?? []).map((r: any) => ({
-        id: r.id as string,
-        receival_number: r.receival_number as string,
-        po_id: r.po_id as string,
-        date: r.date as string,
-        status: r.status as string,
-        po_number: r.purchase_orders?.po_number ?? null,
-        supplier_name: r.purchase_orders?.supplier_name ?? null,
-      })) as ReceivalForLcSelector[]
+      const rows = (data ?? []).map((r: any) => {
+        const isInventory = r.source_type === 'inventory'
+        return {
+          id: r.id as string,
+          receival_number: r.receival_number as string,
+          po_id: r.po_id as string,
+          date: r.date as string,
+          status: r.status as string,
+          source_type: (r.source_type as string) ?? 'purchase',
+          po_number: r.purchase_orders?.po_number ?? null,
+          supplier_name: r.purchase_orders?.supplier_name ?? (isInventory ? 'Inventory Receival' : null),
+        }
+      }) as ReceivalForLcSelector[]
       const needle = search.trim().toLowerCase()
       if (!needle) return rows
       return rows.filter((r) =>

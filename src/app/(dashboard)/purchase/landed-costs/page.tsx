@@ -50,16 +50,19 @@ function useAttachedReceivals(receivalIds: string[]) {
       const supabase = createClient()
       const { data, error } = await supabase
         .from('receivals')
-        .select('id, receival_number, date, purchase_orders!receivals_po_id_fkey(supplier_name)')
+        .select('id, receival_number, date, source_type, purchase_orders!receivals_po_id_fkey(supplier_name)')
         .in('id', receivalIds)
         .order('date', { ascending: false })
       if (error) throw error
-      return (data ?? []).map((r: any) => ({
-        id: r.id as string,
-        receival_number: r.receival_number as string,
-        date: r.date as string,
-        supplier_name: (r.purchase_orders?.supplier_name ?? 'Unknown') as string,
-      }))
+      return (data ?? []).map((r: any) => {
+        const isInventory = r.source_type === 'inventory'
+        return {
+          id: r.id as string,
+          receival_number: r.receival_number as string,
+          date: r.date as string,
+          supplier_name: (r.purchase_orders?.supplier_name ?? (isInventory ? 'Inventory Receival' : 'Unknown')) as string,
+        }
+      })
     },
     staleTime: 2 * 60 * 1000,
   })
@@ -522,7 +525,7 @@ function LcDetailDialog({
                   </div>
                 ) : null}
               </div>
-              <DialogFooter className="px-6 pb-6 pt-2 border-t shrink-0">
+              <DialogFooter className="mx-0 mb-0 px-6 pb-6 pt-2 border-t shrink-0">
                 <Button variant="outline" onClick={() => setApplyOpen(false)}>Cancel</Button>
                 <Button
                   disabled={applyLc.isPending || validating}
@@ -655,12 +658,13 @@ function CreateLcDialog({ open, onOpenChange }: { open: boolean; onOpenChange: (
       receivals: NonNullable<typeof receivals>
     }>()
     for (const r of receivals ?? []) {
-      const key = r.po_id
+      const key = r.po_id ?? `__inv_${r.id}`
       if (!map.has(key)) {
+        const isInventory = !r.po_id || r.source_type === 'inventory'
         map.set(key, {
-          po_id: r.po_id,
-          po_number: r.po_number ?? '—',
-          supplier_name: r.supplier_name ?? 'Unknown',
+          po_id: key,
+          po_number: r.po_number ?? (isInventory ? 'INV' : '—'),
+          supplier_name: r.supplier_name ?? (isInventory ? 'Inventory Receival' : 'Unknown'),
           receivals: [],
         })
       }

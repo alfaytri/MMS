@@ -135,9 +135,11 @@ export function useCreateInventoryReceival() {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: queryKeys.receivals.all })
+      queryClient.invalidateQueries({ queryKey: queryKeys.inventory.fifoLayers })
+      queryClient.invalidateQueries({ queryKey: queryKeys.inventory.brandVariantsV2 })
+      queryClient.invalidateQueries({ queryKey: queryKeys.inventory.variantWarehouseStock })
+      queryClient.invalidateQueries({ queryKey: queryKeys.inventory.items })
       queryClient.invalidateQueries({ queryKey: ['fifo-layers-for-variant'] })
-      queryClient.invalidateQueries({ queryKey: ['inventory-variants'] })
-      queryClient.invalidateQueries({ queryKey: ['warehouse-stock'] })
     },
   })
 }
