@@ -20,7 +20,7 @@ import { useTeamsPage } from '../TeamsPageContext'
 import { queryKeys } from '@/lib/queryKeys'
 
 // ─── Service tree builder ─────────────────────────────────────────────────────
-interface ServiceNode extends Service {
+type ServiceNode = Service & {
   children: ServiceNode[]
 }
 
@@ -218,7 +218,7 @@ function ServiceNodeRow({
         )}
       </div>
 
-      {hasChildren && expanded && node.children.map(child => (
+      {hasChildren && expanded && node.children.map((child: ServiceNode) => (
         <ServiceNodeRow
           key={child.id}
           node={child}

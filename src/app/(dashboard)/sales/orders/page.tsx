@@ -142,6 +142,7 @@ function useSOPaymentTotals() {
       if (error) return {} as Record<string, number>
       const map: Record<string, number> = {}
       for (const p of data ?? []) {
+        if (!p.source_id) continue
         const amt = p.amount_qar ?? p.amount ?? 0
         map[p.source_id] = (map[p.source_id] ?? 0) + amt
       }

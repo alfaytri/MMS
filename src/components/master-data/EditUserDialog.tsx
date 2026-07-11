@@ -247,8 +247,8 @@ export function EditUserDialog({ open, onOpenChange, profile }: Props) {
 
   useEffect(() => {
     if (profile && open) {
-      const initialAssignments: RoleAssignment[] = (profile?.user_custom_roles ?? [])
-        .map((r) => ({
+      const initialAssignments: RoleAssignment[] = (profile.user_custom_roles ?? [])
+        .map((r: { role_id: string; approval_scopes?: string[] | null }) => ({
           role_id: r.role_id,
           approval_scopes: (r.approval_scopes ?? null) as ScopeValue[] | null,
         }))

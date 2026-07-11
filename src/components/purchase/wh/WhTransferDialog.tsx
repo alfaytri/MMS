@@ -232,7 +232,7 @@ export function WhTransferDialog({ warehouses, currentProfile, children }: Props
       if (transferId && sourceFieldRPs.length > 0) {
         const supabase = createClient()
         supabase.from('notifications').insert(
-          sourceFieldRPs.map((rp) => ({
+          sourceFieldRPs.map((rp: { profile_id: string; full_name: string | null }) => ({
             profile_id: rp.profile_id,
             type: 'transfer_pending',
             title: 'New Transfer Pending Dispatch',
@@ -317,7 +317,7 @@ export function WhTransferDialog({ warehouses, currentProfile, children }: Props
               <div className="flex items-center gap-2 px-2.5 py-2 rounded-md bg-primary/5 border border-primary/15 text-[11px]">
                 <Bell className="h-3 w-3 text-primary shrink-0" />
                 <span>
-                  <strong>{sourceFieldRPs.map((rp) => rp.full_name ?? 'Unknown').join(', ')}</strong>
+                  <strong>{sourceFieldRPs.map((rp: { full_name: string | null }) => rp.full_name ?? 'Unknown').join(', ')}</strong>
                   {' '}will be notified to dispatch.
                 </span>
               </div>

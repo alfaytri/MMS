@@ -320,7 +320,7 @@ export function useCreateInstruction() {
       const supabase = createClient()
       const { data, error } = await supabase
         .from('instructions')
-        .insert(values)
+        .insert(values as DBInsert<'instructions'>)
         .select('*')
         .single()
       if (error) throw error

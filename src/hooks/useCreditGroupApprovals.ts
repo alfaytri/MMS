@@ -179,7 +179,7 @@ export function useApproveCreditGroupChange() {
       const supabase = createClient()
       const { error } = await supabase.rpc('approve_credit_group_change', {
         p_approval_id: approvalId,
-        p_comment:     comment || null,
+        p_comment:     comment || undefined,
       })
       if (error) throw new Error(error.message)
     },
@@ -217,7 +217,7 @@ export function useForceApproveCreditGroupChange() {
       const supabase = createClient()
       const { data, error } = await supabase.rpc('force_approve_credit_group_change', {
         p_request_id: requestId,
-        p_comment:    comment?.trim() ? comment : null,
+        p_comment:    comment?.trim() ? comment : undefined,
       })
       if (error) throw new Error(error.message)
       return data

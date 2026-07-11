@@ -9,7 +9,16 @@ import { queryKeys } from '@/lib/queryKeys'
 type NotificationTemplate = DBTable<'notification_templates'>
 type ReminderCategory = DBTable<'reminder_categories'>
 type Reminder = DBTable<'reminders'>
-type ReminderInsert = Omit<DBInsert<'reminders'>, 'id' | 'created_at' | 'updated_at'>
+type ReminderInsert = {
+  category_id: string
+  name: string
+  channel?: DBTable<'reminders'>['channel']
+  description?: string | null
+  name_ar?: string | null
+  status?: DBTable<'reminders'>['status']
+  template?: string | null
+  timing?: string | null
+}
 type ReminderUpdate = Partial<ReminderInsert>
 
 export type { NotificationTemplate, ReminderCategory, Reminder }

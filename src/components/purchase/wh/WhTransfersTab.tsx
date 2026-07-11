@@ -111,7 +111,7 @@ export const WhTransfersTab = React.memo(function WhTransfersTab({ warehouses, c
 
   const isFieldRPOf = useCallback((warehouseId: string): boolean => {
     const wh = warehouses.find(w => w.id === warehouseId)
-    return wh?.field_rps.some(rp => rp.profile_id === currentProfile?.id) ?? false
+    return wh?.field_rps.some((rp: { profile_id: string }) => rp.profile_id === currentProfile?.id) ?? false
   }, [warehouses, currentProfile?.id])
 
   const canDispatch = useCallback((t: WarehouseTransfer): boolean => {

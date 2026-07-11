@@ -85,7 +85,7 @@ export default function WarehousesPage() {
           return (
             <span className="text-xs">
               {wh.field_rps.length > 0
-                ? wh.field_rps.map(rp => rp.full_name).filter(Boolean).join(', ')
+                ? wh.field_rps.map((rp: { full_name: string | null }) => rp.full_name).filter(Boolean).join(', ')
                 : <span className="text-muted-foreground">Unassigned</span>}
             </span>
           )

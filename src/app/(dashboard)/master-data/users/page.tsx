@@ -203,7 +203,7 @@ export default function UsersRolesPage() {
 
         return (
           <div className="flex gap-1 flex-wrap">
-            {userRoles.slice(0, 3).map((ur, i) => {
+            {userRoles.slice(0, 3).map((ur: { role_id: string; approval_scopes: string[] | null; custom_roles: { name: string; color: string | null; is_approval_slot: boolean } | null }, i: number) => {
               const cr = ur.custom_roles
               if (!cr) return null
               const isAS = cr.is_approval_slot

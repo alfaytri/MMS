@@ -72,7 +72,7 @@ export interface TeamDivision {
   company_name: string
 }
 
-interface TeamQueryResult extends TeamRaw {
+type TeamQueryResult = TeamRaw & {
   divisions: {
     id: string
     slug: string
@@ -83,7 +83,7 @@ interface TeamQueryResult extends TeamRaw {
   } | null
 }
 
-export interface TeamFull extends Omit<TeamRaw, 'division'> {
+export type TeamFull = Omit<TeamRaw, 'division'> & {
   leader:   Employee | null
   members:  Employee[]
   vehicles: Vehicle[]

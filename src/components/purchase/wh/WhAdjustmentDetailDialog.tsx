@@ -86,7 +86,7 @@ export function WhAdjustmentDetailDialog({ adjustment, currentProfile, warehouse
   const isFieldRpHere = useMemo(() => {
     if (!adjustment || !currentProfile) return false
     const wh = warehouses.find(w => w.id === adjustment.warehouse_id)
-    return !!wh?.field_rps.some(rp => rp.profile_id === currentProfile.id)
+    return !!wh?.field_rps.some((rp: { profile_id: string }) => rp.profile_id === currentProfile.id)
   }, [adjustment, currentProfile, warehouses])
 
   function canActOnStep(stepRole: string): boolean {
