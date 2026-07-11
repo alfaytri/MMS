@@ -38,10 +38,17 @@ export function useCanCreateInventoryReceivals() {
       const { data: userRes, error: userErr } = await supabase.auth.getUser()
       if (userErr || !userRes.user) return false
 
+      const { data: profile } = await supabase
+        .from('profiles')
+        .select('id')
+        .eq('auth_user_id', userRes.user.id)
+        .maybeSingle()
+      if (!profile) return false
+
       const { data, error } = await supabase
         .from('user_custom_roles')
         .select('custom_roles!inner(is_inventory_receiver, deleted_at)')
-        .eq('profile_id', userRes.user.id)
+        .eq('profile_id', profile.id)
 
       if (error) return false
       type Row = {
