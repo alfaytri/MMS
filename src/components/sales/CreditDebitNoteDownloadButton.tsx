@@ -5,7 +5,6 @@ import { Button } from '@/components/ui/button'
 import { Download, Eye, Loader2 } from 'lucide-react'
 import { createClient } from '@/lib/supabase/client'
 import { toast } from 'sonner'
-import { PdfDivisionPicker } from '@/components/shared/PdfDivisionPicker'
 import type { CreditNote } from '@/hooks/useCreditNotes'
 
 interface Props {
@@ -16,15 +15,13 @@ interface Props {
   returnNumber?: string
 }
 
-async function fetchPdfUrl(noteId: string, divisionId: string): Promise<{ url: string; noteId: string }> {
+async function fetchPdfUrl(noteId: string): Promise<{ url: string; noteId: string }> {
   const supabase = createClient()
   const { data: { session } } = await supabase.auth.getSession()
   if (!session?.access_token) {
     throw new Error('Not authenticated')
   }
-  const params = new URLSearchParams()
-  params.set('divisionId', divisionId)
-  const res = await fetch(`/api/sales/credit-notes/${noteId}/pdf?${params}`, {
+  const res = await fetch(`/api/sales/credit-notes/${noteId}/pdf`, {
     method:  'POST',
     headers: { Authorization: `Bearer ${session.access_token}` },
   })
@@ -38,19 +35,13 @@ async function fetchPdfUrl(noteId: string, divisionId: string): Promise<{ url: s
 export function CreditDebitNoteDownloadButton({ note }: Props) {
   const [busy, setBusy] = useState<'generate' | 'download' | null>(null)
   const [pdfUrl, setPdfUrl] = useState<string | null>(null)
-  const [pickerOpen, setPickerOpen] = useState(false)
   const prefix = note.note_type === 'credit' ? 'CreditNote' : 'DebitNote'
 
-  function handleGenerate() {
-    setPickerOpen(true)
-  }
-
-  async function handlePickerConfirm(divisionId: string) {
-    setPickerOpen(false)
+  async function handleGenerate() {
     if (busy) return
     setBusy('generate')
     try {
-      const { url } = await fetchPdfUrl(note.id, divisionId)
+      const { url } = await fetchPdfUrl(note.id)
       setPdfUrl(url)
       toast.success('PDF generated')
     } catch (err) {
@@ -88,20 +79,12 @@ export function CreditDebitNoteDownloadButton({ note }: Props) {
 
   if (!pdfUrl) {
     return (
-      <>
-        <Button variant="outline" size="sm" onClick={handleGenerate} disabled={busy !== null} className="gap-1.5">
-          {busy === 'generate'
-            ? <Loader2 className="h-3.5 w-3.5 animate-spin" />
-            : <Eye className="h-3.5 w-3.5" />}
-          {busy === 'generate' ? 'Generating...' : 'Generate PDF'}
-        </Button>
-        <PdfDivisionPicker
-          open={pickerOpen}
-          onOpenChange={setPickerOpen}
-          onConfirm={handlePickerConfirm}
-          loading={busy !== null}
-        />
-      </>
+      <Button variant="outline" size="sm" onClick={handleGenerate} disabled={busy !== null} className="gap-1.5">
+        {busy === 'generate'
+          ? <Loader2 className="h-3.5 w-3.5 animate-spin" />
+          : <Eye className="h-3.5 w-3.5" />}
+        {busy === 'generate' ? 'Generating...' : 'Generate PDF'}
+      </Button>
     )
   }
 

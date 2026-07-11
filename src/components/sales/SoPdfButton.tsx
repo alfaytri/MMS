@@ -1,22 +1,10 @@
 'use client'
 
-/**
- * SO Quotation PDF — View / Download buttons.
- *
- * Replaces the old @react-pdf/renderer-based PDFDownloadLink (which crashed on
- * Next 15's React 19-canary internals). Now hits the server route, which
- * generates the PDF via Puppeteer if needed and returns a cached URL.
- *
- * View    → opens the PDF in a new tab (storage URL is public).
- * Download → downloads the PDF as a blob with a clean filename.
- */
-
 import { useState } from 'react'
 import { Button } from '@/components/ui/button'
 import { Download, Eye, Loader2 } from 'lucide-react'
 import { createClient } from '@/lib/supabase/client'
 import { toast } from 'sonner'
-import { PdfDivisionPicker } from '@/components/shared/PdfDivisionPicker'
 import type { SaleOrder } from '@/hooks/useSaleOrders'
 
 interface SoPdfButtonProps {
@@ -29,15 +17,13 @@ interface PdfResult {
   soNumber:   string
 }
 
-async function fetchPdfUrl(soId: string, divisionId: string): Promise<PdfResult> {
+async function fetchPdfUrl(soId: string): Promise<PdfResult> {
   const supabase = createClient()
   const { data: { session } } = await supabase.auth.getSession()
   if (!session?.access_token) {
     throw new Error('Not authenticated')
   }
-  const params = new URLSearchParams()
-  params.set('divisionId', divisionId)
-  const res = await fetch(`/api/sales/so/${soId}/quotation-pdf?${params}`, {
+  const res = await fetch(`/api/sales/so/${soId}/quotation-pdf`, {
     method:  'POST',
     headers: { Authorization: `Bearer ${session.access_token}` },
   })
@@ -50,46 +36,38 @@ async function fetchPdfUrl(soId: string, divisionId: string): Promise<PdfResult>
 
 export function SoPdfButton({ so }: SoPdfButtonProps) {
   const [busy, setBusy] = useState<'view' | 'download' | null>(null)
-  const [pickerOpen, setPickerOpen] = useState(false)
-  const [pickerAction, setPickerAction] = useState<'view' | 'download' | null>(null)
 
-  function handleView() {
-    setPickerAction('view')
-    setPickerOpen(true)
-  }
-
-  function handleDownload() {
-    setPickerAction('download')
-    setPickerOpen(true)
-  }
-
-  async function handlePickerConfirm(divisionId: string) {
-    setPickerOpen(false)
-    const action = pickerAction
-    setPickerAction(null)
-    if (!action || busy) return
-
-    setBusy(action)
+  async function handleView() {
+    if (busy) return
+    setBusy('view')
     try {
-      if (action === 'view') {
-        const { url } = await fetchPdfUrl(so.id, divisionId)
-        window.open(url, '_blank', 'noopener,noreferrer')
-      } else {
-        const { url, soNumber } = await fetchPdfUrl(so.id, divisionId)
-        const pdfRes = await fetch(url)
-        if (!pdfRes.ok) throw new Error(`Failed to fetch PDF (${pdfRes.status})`)
-        const blob = await pdfRes.blob()
-        const objectUrl = URL.createObjectURL(blob)
-        const a = document.createElement('a')
-        a.href = objectUrl
-        a.download = `Quotation-${soNumber}.pdf`
-        document.body.appendChild(a)
-        a.click()
-        document.body.removeChild(a)
-        URL.revokeObjectURL(objectUrl)
-      }
+      const { url } = await fetchPdfUrl(so.id)
+      window.open(url, '_blank', 'noopener,noreferrer')
     } catch (err) {
-      toast.error(err instanceof Error ? err.message : action === 'view' ? 'Failed to open PDF' : 'Failed to download PDF')
+      toast.error(err instanceof Error ? err.message : 'Failed to open PDF')
+    } finally {
+      setBusy(null)
+    }
+  }
+
+  async function handleDownload() {
+    if (busy) return
+    setBusy('download')
+    try {
+      const { url, soNumber } = await fetchPdfUrl(so.id)
+      const pdfRes = await fetch(url)
+      if (!pdfRes.ok) throw new Error(`Failed to fetch PDF (${pdfRes.status})`)
+      const blob = await pdfRes.blob()
+      const objectUrl = URL.createObjectURL(blob)
+      const a = document.createElement('a')
+      a.href = objectUrl
+      a.download = `Quotation-${soNumber}.pdf`
+      document.body.appendChild(a)
+      a.click()
+      document.body.removeChild(a)
+      URL.revokeObjectURL(objectUrl)
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : 'Failed to download PDF')
     } finally {
       setBusy(null)
     }
@@ -109,12 +87,6 @@ export function SoPdfButton({ so }: SoPdfButtonProps) {
           : <Download className="h-3.5 w-3.5" />}
         <span className="ml-1.5">Download</span>
       </Button>
-      <PdfDivisionPicker
-        open={pickerOpen}
-        onOpenChange={setPickerOpen}
-        onConfirm={handlePickerConfirm}
-        loading={busy !== null}
-      />
     </>
   )
 }

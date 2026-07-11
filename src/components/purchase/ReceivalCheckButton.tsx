@@ -5,7 +5,6 @@ import { Button } from '@/components/ui/button'
 import { Printer, Loader2 } from 'lucide-react'
 import { createClient } from '@/lib/supabase/client'
 import { toast } from 'sonner'
-import { PdfDivisionPicker } from '@/components/shared/PdfDivisionPicker'
 
 interface Props {
   poId:            string
@@ -23,14 +22,8 @@ export function ReceivalCheckButton({
   label, size = 'sm', className,
 }: Props) {
   const [busy, setBusy] = useState(false)
-  const [pickerOpen, setPickerOpen] = useState(false)
 
-  function handleClick() {
-    setPickerOpen(true)
-  }
-
-  async function handlePickerConfirm(divisionId: string) {
-    setPickerOpen(false)
+  async function handleClick() {
     if (busy) return
     setBusy(true)
     try {
@@ -40,7 +33,6 @@ export function ReceivalCheckButton({
 
       const params = new URLSearchParams()
       params.set('mode', mode)
-      params.set('divisionId', divisionId)
       if (mode === 'per_receival') {
         if (!receivalId) throw new Error('receivalId is required for per_receival mode')
         params.set('receivalId', receivalId)
@@ -66,25 +58,17 @@ export function ReceivalCheckButton({
   const defaultLabel = mode === 'blank' ? 'Print Blank Check Sheet' : 'Print'
 
   return (
-    <>
-      <Button
-        variant="outline"
-        size={size}
-        onClick={handleClick}
-        disabled={busy}
-        className={className}
-      >
-        {busy
-          ? <Loader2 className="h-3.5 w-3.5 animate-spin mr-1.5" />
-          : <Printer className="h-3.5 w-3.5 mr-1.5" />}
-        {label ?? defaultLabel}
-      </Button>
-      <PdfDivisionPicker
-        open={pickerOpen}
-        onOpenChange={setPickerOpen}
-        onConfirm={handlePickerConfirm}
-        loading={busy}
-      />
-    </>
+    <Button
+      variant="outline"
+      size={size}
+      onClick={handleClick}
+      disabled={busy}
+      className={className}
+    >
+      {busy
+        ? <Loader2 className="h-3.5 w-3.5 animate-spin mr-1.5" />
+        : <Printer className="h-3.5 w-3.5 mr-1.5" />}
+      {label ?? defaultLabel}
+    </Button>
   )
 }
