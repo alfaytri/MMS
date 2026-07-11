@@ -2,6 +2,7 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { createClient } from '@/lib/supabase/client'
 import { logActivity } from '@/lib/logActivity'
 import { queryKeys } from '@/lib/queryKeys'
+import type { Database } from '@/types/database.types'
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -349,7 +350,7 @@ export function useUpdateCustomer() {
       const now = new Date().toISOString()
 
       // Stamp uploaded_at for any newly-uploaded doc (path changed AND non-null)
-      const update: Record<string, any> = { ...args.patch }
+      const update: Database['public']['Tables']['customers']['Update'] = { ...args.patch }
       if (args.patch.cr_url && args.patch.cr_url !== args.previous.cr_url) {
         update.cr_uploaded_at = now
       }
@@ -362,7 +363,7 @@ export function useUpdateCustomer() {
 
       const { data, error } = await supabase
         .from('customers')
-        .update(update as any)
+        .update(update)
         .eq('id', args.id)
         .select('id, name')
       if (error) throw error
@@ -513,7 +514,7 @@ export function useSaleOrder(id: string | null) {
 
       const catIds = new Set<string>()
       for (const li of data.sale_order_lines ?? []) {
-        const cat = (li as any).inventory_brand_variants?.inventory_items?.inventory_categories
+        const cat = li.inventory_brand_variants?.inventory_items?.inventory_categories
         if (cat?.id) catIds.add(cat.id)
         if (cat?.parent_id) catIds.add(cat.parent_id)
       }
@@ -526,8 +527,8 @@ export function useSaleOrder(id: string | null) {
           .in('id', [...catIds])
         if (cats) {
           const grandparentIds = cats
-            .filter((c: any) => c.parent_id && !catIds.has(c.parent_id))
-            .map((c: any) => c.parent_id as string)
+            .filter((c) => c.parent_id && !catIds.has(c.parent_id))
+            .map((c) => c.parent_id as string)
           if (grandparentIds.length > 0) {
             const { data: gps } = await supabase
               .from('inventory_categories')
@@ -535,7 +536,7 @@ export function useSaleOrder(id: string | null) {
               .in('id', grandparentIds)
             if (gps) cats.push(...gps)
           }
-          catMap = Object.fromEntries(cats.map((c: any) => [c.id, { name_en: c.name_en, parent_id: c.parent_id }]))
+          catMap = Object.fromEntries(cats.map((c) => [c.id, { name_en: c.name_en, parent_id: c.parent_id }]))
         }
       }
 
@@ -558,7 +559,7 @@ export function useSaleOrder(id: string | null) {
       for (const li of so.sale_order_lines ?? []) {
         const cat = li.inventory_brand_variants?.inventory_items?.inventory_categories
         if (cat?.id) {
-          (cat as any).ancestor_chain = getAncestorChain(cat.id)
+          cat.ancestor_chain = getAncestorChain(cat.id)
         }
       }
       return so
@@ -618,7 +619,7 @@ export function useCreateSO() {
         p_currency:             payload.currency,
         p_exchange_rate:        payload.exchange_rate,
         // The nullable fields below are accepted by the DB function even though
-        // the stale generated types declare them as non-nullable strings.
+        // the generated types declare them as non-nullable strings.
         p_expected_delivery:    payload.expected_delivery ?? '',
         p_payment_terms:        payload.payment_terms ?? '',
         p_payment_terms_notes:  payload.payment_terms_notes ?? '',
@@ -679,7 +680,8 @@ export function useUpdateSO() {
       if (soErr) throw soErr
 
       if (line_items) {
-        await supabase.from('sale_order_lines').delete().eq('sale_order_id', id)
+        const { error: delErr } = await supabase.from('sale_order_lines').delete().eq('sale_order_id', id)
+        if (delErr) throw delErr
         if (line_items.length > 0) {
           const { error: liErr } = await supabase
             .from('sale_order_lines')
@@ -787,7 +789,7 @@ export function useCreateSOPayment() {
         .is('deleted_at', null)
 
       const totalPaid = (existingPayments ?? []).reduce(
-        (s: number, p: any) => s + (p.amount_qar ?? p.amount ?? 0), 0
+        (s, p) => s + (p.amount_qar ?? p.amount ?? 0), 0
       )
       const outstanding = (soData?.total ?? 0) - totalPaid
       const paymentAmountQar = payment.amount * (payment.exchange_rate ?? 1)
@@ -796,8 +798,6 @@ export function useCreateSOPayment() {
         throw new Error(`Payment exceeds outstanding balance (QAR ${outstanding.toFixed(2)})`)
       }
 
-      // Cast needed: stale generated DB types for payments columns
-      // don't match the current schema; the values are valid at runtime.
       const { error } = await supabase.from('payments').insert({
         payment_id,
         source_type: 'sale_order',
@@ -890,8 +890,8 @@ export function useCancelSO() {
         .eq('sale_order_id', id)
 
       const releases = (lines ?? [])
-        .filter((l: any) => l.brand_variant_id && l.qty > 0)
-        .map((l: any) => ({ bv_id: l.brand_variant_id, delta: -l.qty }))
+        .filter((l) => l.brand_variant_id && l.qty > 0)
+        .map((l) => ({ bv_id: l.brand_variant_id!, delta: -l.qty }))
 
       if (releases.length > 0) {
         const { error: relErr } = await supabase.rpc('batch_update_reserved_qty', { p_updates: releases })

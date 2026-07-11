@@ -107,6 +107,7 @@ export type PurchaseOrder = {
   version_number: number
   po_type: POType
   rfq_id: string | null
+  rfq_supplier_ids: string[] | null
   // joined
   po_line_items?: POLineItem[]
   po_approvals?: POApprovalStep[]
@@ -228,16 +229,11 @@ function getApprovalRoles(level: number): string[] {
 
 export type PaymentMethod = string
 
-// NOTE: count+1 approach is race-prone under concurrent creates.
-// The DB has a UNIQUE constraint on po_number, so concurrent collisions
-// will produce a DB error rather than a silent duplicate.
-// TODO: replace with a server-side DB sequence when types are regenerated.
 async function generatePONumber(supabase: ReturnType<typeof createClient>): Promise<string> {
-  const { count } = await supabase
-    .from('purchase_orders')
-    .select('*', { count: 'exact', head: true })
-  const seq = String((count ?? 0) + 1).padStart(5, '0')
-  return `PO-${seq}`
+  // @ts-expect-error next_po_number exists in DB but PostgREST schema cache hasn't refreshed; remove this line after next type regen
+  const { data, error } = await supabase.rpc('next_po_number')
+  if (error || !data) throw new Error('Failed to generate PO number')
+  return data as string
 }
 
 // ─── Filters type ─────────────────────────────────────────────────────────────
@@ -316,7 +312,7 @@ export function usePurchaseOrder(id: string | null) {
 
       const catIds = new Set<string>()
       for (const li of data.po_line_items ?? []) {
-        const cat = (li as any).inventory_brand_variants?.inventory_items?.inventory_categories
+        const cat = li.inventory_brand_variants?.inventory_items?.inventory_categories
         if (cat?.id) catIds.add(cat.id)
         if (cat?.parent_id) catIds.add(cat.parent_id)
       }
@@ -329,8 +325,8 @@ export function usePurchaseOrder(id: string | null) {
           .in('id', [...catIds])
         if (cats) {
           const grandparentIds = cats
-            .filter((c: any) => c.parent_id && !catIds.has(c.parent_id))
-            .map((c: any) => c.parent_id as string)
+            .filter((c) => c.parent_id && !catIds.has(c.parent_id))
+            .map((c) => c.parent_id as string)
           if (grandparentIds.length > 0) {
             const { data: gps } = await supabase
               .from('inventory_categories')
@@ -338,7 +334,7 @@ export function usePurchaseOrder(id: string | null) {
               .in('id', grandparentIds)
             if (gps) cats.push(...gps)
           }
-          catMap = Object.fromEntries(cats.map((c: any) => [c.id, { name_en: c.name_en, parent_id: c.parent_id }]))
+          catMap = Object.fromEntries(cats.map((c) => [c.id, { name_en: c.name_en, parent_id: c.parent_id }]))
         }
       }
 
@@ -356,7 +352,7 @@ export function usePurchaseOrder(id: string | null) {
       for (const li of po.po_line_items ?? []) {
         const cat = li.inventory_brand_variants?.inventory_items?.inventory_categories
         if (cat?.id) {
-          (cat as any).ancestor_chain = getAncestorChain(cat.id)
+          ;(cat as typeof cat & { ancestor_chain: string[] }).ancestor_chain = getAncestorChain(cat.id)
         }
       }
       return po
@@ -740,7 +736,7 @@ export function useCreatePOPayment() {
         .is('deleted_at', null)
 
       const totalPaidQar = (existingPayments ?? []).reduce(
-        (s: number, p: any) => s + (p.amount_qar ?? p.amount ?? 0), 0
+        (s, p) => s + (p.amount_qar ?? p.amount ?? 0), 0 as number
       )
       const outstandingQar = (poData?.total_qar ?? 0) - totalPaidQar
       const paymentAmountQar = payment.amount * (payment.exchange_rate ?? 1)

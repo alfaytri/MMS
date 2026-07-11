@@ -390,9 +390,10 @@ export function useCreateOrder(options?: { kind?: 'order' | 'follow-up' }) {
                 },
                 body: JSON.stringify({ orderId: result.orderId }),
               })
-              const body = await res.json().catch(() => ({}))
-              if (!res.ok) console.warn('[booking-confirm] route error', res.status, body)
-              else console.log('[booking-confirm] sent', body)
+              if (!res.ok) {
+                const body = await res.json().catch(() => ({}))
+                console.error('[booking-confirm] route error', res.status, body)
+              }
             } catch (err) {
               console.error('[booking-confirm] fetch failed', err)
             }

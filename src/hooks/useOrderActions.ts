@@ -138,12 +138,7 @@ export function useOrderActions(orderId: string | null) {
             headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${session.access_token}` },
             body:    JSON.stringify({ orderId: variables.orderReadableId }),
           })
-            .then(async (res) => {
-              const body = await res.json().catch(() => ({}))
-              if (!res.ok) console.warn('[booking-confirm] resend failed', res.status, body)
-              else         console.log('[booking-confirm] resent after edit', body)
-            })
-            .catch((err) => console.error('[booking-confirm] resend fetch failed', err))
+            .catch(() => {})
         }
       }
     },

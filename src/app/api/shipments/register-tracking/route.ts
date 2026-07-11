@@ -16,7 +16,6 @@ async function storeEvents(
 ) {
   const rawEvents = info ? extractEvents(info) : []
   const carrierName = info ? extractCarrierName(info) : null
-  console.log(`[register-tracking] ${trackingNumber}: ${rawEvents.length} raw events, carrier=${carrierName ?? info?.carrier ?? 'none'}`)
   const events = mapRawEvents(rawEvents)
 
   if (events.length > 0) {
@@ -75,7 +74,6 @@ export async function POST(request: Request) {
     // Step 1: Try fetching events directly first (works if already registered via API)
     const existingInfo = await getTrackInfo(tracking_number, resolvedCarrierCode)
     if (existingInfo && extractEvents(existingInfo).length > 0) {
-      console.log(`[register-tracking] found existing data, skipping register`)
       const events = await storeEvents(supabase, shipment_id, tracking_number, existingInfo)
       await supabase
         .from('shipments')
@@ -86,11 +84,9 @@ export async function POST(request: Request) {
 
     // Step 2: Not yet registered or no events — register and wait for data
     const result = await registerTracking(tracking_number, resolvedCarrierCode)
-    console.log(`[register-tracking] register response:`, JSON.stringify(result))
     const rejected = result.rejected.find(r => r.number === tracking_number)
 
     if (rejected) {
-      console.log(`[register-tracking] rejected: code=${rejected.error.code} msg=${rejected.error.message}`)
       if (rejected.error.code === ERR_QUOTA_EXCEEDED) {
         await supabase
           .from('shipments')

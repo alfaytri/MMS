@@ -62,8 +62,7 @@ export function usePendingCreditGroupRequests() {
     queryKey: queryKeys.creditGroupApprovals.pending,
     queryFn: async (): Promise<CreditGroupRequest[]> => {
       const supabase = createClient()
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      const { data, error } = await (supabase as any)
+      const { data, error } = await supabase
         .from('customer_credit_group_requests')
         .select(`
           *,
@@ -76,8 +75,7 @@ export function usePendingCreditGroupRequests() {
         .order('created_at', { ascending: false })
         .limit(200)
       if (error) throw error
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      return (data ?? []).map((r: any) => ({
+      return (data ?? []).map((r) => ({
         ...r,
         customer_name:           r.customer?.name ?? null,
         customer_phone:          r.customer?.phone ?? null,
@@ -101,8 +99,7 @@ export function useCompletedCreditGroupRequests() {
     queryKey: queryKeys.creditGroupApprovals.completed,
     queryFn: async (): Promise<CreditGroupRequest[]> => {
       const supabase = createClient()
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      const { data, error } = await (supabase as any)
+      const { data, error } = await supabase
         .from('customer_credit_group_requests')
         .select(`
           *,
@@ -115,8 +112,7 @@ export function useCompletedCreditGroupRequests() {
         .order('decided_at', { ascending: false, nullsFirst: false })
         .limit(50)
       if (error) throw error
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      return (data ?? []).map((r: any) => ({
+      return (data ?? []).map((r) => ({
         ...r,
         customer_name:           r.customer?.name ?? null,
         customer_phone:          r.customer?.phone ?? null,
@@ -141,8 +137,7 @@ export function usePendingCreditGroupRequestForCustomer(customerId: string | nul
     enabled: !!customerId,
     queryFn: async (): Promise<CreditGroupRequest | null> => {
       const supabase = createClient()
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      const { data, error } = await (supabase as any)
+      const { data, error } = await supabase
         .from('customer_credit_group_requests')
         .select('*, requested_group:credit_groups!customer_credit_group_requests_requested_group_id_fkey(name)')
         .eq('customer_id', customerId!)
@@ -150,8 +145,7 @@ export function usePendingCreditGroupRequestForCustomer(customerId: string | nul
         .maybeSingle()
       if (error) throw error
       if (!data) return null
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      return { ...data, requested_group_name: (data as any).requested_group?.name ?? null } as CreditGroupRequest
+      return { ...data, requested_group_name: data.requested_group?.name ?? null } as CreditGroupRequest
     },
     staleTime: 30_000,
   })
@@ -162,8 +156,7 @@ export function useSubmitCreditGroupChange() {
   return useMutation({
     mutationFn: async ({ customerId, groupId }: { customerId: string; groupId: string }) => {
       const supabase = createClient()
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      const { data, error } = await (supabase as any).rpc('submit_credit_group_change', {
+      const { data, error } = await supabase.rpc('submit_credit_group_change', {
         p_customer_id:        customerId,
         p_requested_group_id: groupId,
       })
@@ -184,8 +177,7 @@ export function useApproveCreditGroupChange() {
   return useMutation({
     mutationFn: async ({ approvalId, comment }: { approvalId: string; comment: string }) => {
       const supabase = createClient()
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      const { error } = await (supabase as any).rpc('approve_credit_group_change', {
+      const { error } = await supabase.rpc('approve_credit_group_change', {
         p_approval_id: approvalId,
         p_comment:     comment || null,
       })
@@ -205,8 +197,7 @@ export function useRejectCreditGroupChange() {
   return useMutation({
     mutationFn: async ({ approvalId, reason }: { approvalId: string; reason: string }) => {
       const supabase = createClient()
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      const { error } = await (supabase as any).rpc('reject_credit_group_change', {
+      const { error } = await supabase.rpc('reject_credit_group_change', {
         p_approval_id: approvalId,
         p_reason:      reason,
       })
@@ -224,13 +215,12 @@ export function useForceApproveCreditGroupChange() {
   return useMutation({
     mutationFn: async ({ requestId, comment }: { requestId: string; comment?: string }) => {
       const supabase = createClient()
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      const { data, error } = await (supabase as any).rpc('force_approve_credit_group_change', {
+      const { data, error } = await supabase.rpc('force_approve_credit_group_change', {
         p_request_id: requestId,
         p_comment:    comment?.trim() ? comment : null,
       })
       if (error) throw new Error(error.message)
-      return data as number
+      return data
     },
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: queryKeys.creditGroupApprovals.all })

@@ -30,11 +30,7 @@ export function useAllCustomerCredit() {
     queryKey: ['customer-credit-summary', 'all'],
     queryFn: async () => {
       const supabase = createClient()
-      // The view isn't in the auto-generated database.types.ts yet, so we
-      // cast through `unknown` to avoid the "type instantiation is excessively
-      // deep" inference loop.
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      const { data, error } = await (supabase as any)
+      const { data, error } = await supabase
         .from('customer_credit_summary')
         .select('*')
         .order('customer_name')
@@ -55,8 +51,7 @@ export function useCustomerCredit(customerId: string | null | undefined) {
     enabled: !!customerId,
     queryFn: async () => {
       const supabase = createClient()
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      const { data, error } = await (supabase as any)
+      const { data, error } = await supabase
         .from('customer_credit_summary')
         .select('*')
         .eq('customer_id', customerId!)

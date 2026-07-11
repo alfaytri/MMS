@@ -1568,6 +1568,7 @@ export type Database = {
           id: string
           is_approval_slot: boolean
           is_field_rp: boolean
+          is_inventory_receiver: boolean
           is_system: boolean | null
           name: string
           permissions: string[]
@@ -1582,6 +1583,7 @@ export type Database = {
           id?: string
           is_approval_slot?: boolean
           is_field_rp?: boolean
+          is_inventory_receiver?: boolean
           is_system?: boolean | null
           name: string
           permissions?: string[]
@@ -1596,6 +1598,7 @@ export type Database = {
           id?: string
           is_approval_slot?: boolean
           is_field_rp?: boolean
+          is_inventory_receiver?: boolean
           is_system?: boolean | null
           name?: string
           permissions?: string[]
@@ -6181,6 +6184,7 @@ export type Database = {
       }
       receivals: {
         Row: {
+          carved_from_layer_id: string | null
           check_sheet_pdf_url: string | null
           created_at: string | null
           date: string
@@ -6188,17 +6192,19 @@ export type Database = {
           is_replacement: boolean
           landed_cost_id: string | null
           notes: string | null
-          po_id: string
+          po_id: string | null
           receipt_pdf_url: string | null
           receival_number: string
           received_by: string | null
           received_by_name: string | null
           source_debit_note_id: string | null
+          source_type: string
           status: Database["public"]["Enums"]["receival_status"] | null
           updated_at: string | null
           warehouse_id: string
         }
         Insert: {
+          carved_from_layer_id?: string | null
           check_sheet_pdf_url?: string | null
           created_at?: string | null
           date: string
@@ -6206,17 +6212,19 @@ export type Database = {
           is_replacement?: boolean
           landed_cost_id?: string | null
           notes?: string | null
-          po_id: string
+          po_id?: string | null
           receipt_pdf_url?: string | null
           receival_number: string
           received_by?: string | null
           received_by_name?: string | null
           source_debit_note_id?: string | null
+          source_type?: string
           status?: Database["public"]["Enums"]["receival_status"] | null
           updated_at?: string | null
           warehouse_id: string
         }
         Update: {
+          carved_from_layer_id?: string | null
           check_sheet_pdf_url?: string | null
           created_at?: string | null
           date?: string
@@ -6224,17 +6232,25 @@ export type Database = {
           is_replacement?: boolean
           landed_cost_id?: string | null
           notes?: string | null
-          po_id?: string
+          po_id?: string | null
           receipt_pdf_url?: string | null
           receival_number?: string
           received_by?: string | null
           received_by_name?: string | null
           source_debit_note_id?: string | null
+          source_type?: string
           status?: Database["public"]["Enums"]["receival_status"] | null
           updated_at?: string | null
           warehouse_id?: string
         }
         Relationships: [
+          {
+            foreignKeyName: "receivals_carved_from_layer_id_fkey"
+            columns: ["carved_from_layer_id"]
+            isOneToOne: false
+            referencedRelation: "fifo_cost_layers"
+            referencedColumns: ["id"]
+          },
           {
             foreignKeyName: "receivals_po_id_fkey"
             columns: ["po_id"]
@@ -10096,6 +10112,44 @@ export type Database = {
         Args: { p_link_phone?: string; p_name: string; p_phone: string }
         Returns: Json
       }
+      create_inventory_receival: {
+        Args: {
+          p_brand_variant_id: string
+          p_date: string
+          p_mode: string
+          p_notes: string
+          p_qty: number
+          p_source_layer_id: string
+          p_unit_cost: number
+          p_warehouse_id: string
+        }
+        Returns: {
+          carved_from_layer_id: string | null
+          check_sheet_pdf_url: string | null
+          created_at: string | null
+          date: string
+          id: string
+          is_replacement: boolean
+          landed_cost_id: string | null
+          notes: string | null
+          po_id: string | null
+          receipt_pdf_url: string | null
+          receival_number: string
+          received_by: string | null
+          received_by_name: string | null
+          source_debit_note_id: string | null
+          source_type: string
+          status: Database["public"]["Enums"]["receival_status"] | null
+          updated_at: string | null
+          warehouse_id: string
+        }
+        SetofOptions: {
+          from: "*"
+          to: "receivals"
+          isOneToOne: true
+          isSetofReturn: false
+        }
+      }
       create_landed_cost: {
         Args: {
           p_attached_po_ids: string[]
@@ -10453,6 +10507,10 @@ export type Database = {
       rpc_process_return_restock: {
         Args: { p_return_id: string }
         Returns: undefined
+      }
+      rpc_product_profitability: {
+        Args: { p_end_date: string; p_start_date: string }
+        Returns: Json
       }
       rpc_purchase_aging_report: {
         Args: never
@@ -11157,7 +11215,5 @@ export const Constants = {
     },
   },
 } as const
-
-export type DBTable<T extends keyof Database['public']['Tables']> = Database['public']['Tables'][T]['Row']
-export type DBInsert<T extends keyof Database['public']['Tables']> = Database['public']['Tables'][T]['Insert']
-export type DBUpdate<T extends keyof Database['public']['Tables']> = Database['public']['Tables'][T]['Update']
+A new version of Supabase CLI is available: v2.109.1 (currently installed v2.91.3)
+We recommend updating regularly for new features and bug fixes: https://supabase.com/docs/guides/cli/getting-started#updating-the-supabase-cli

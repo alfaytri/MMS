@@ -42,7 +42,7 @@ export function useProductProfitability(from: string, to: string) {
     queryFn: async () => {
       const supabase = createClient()
       const { data, error } = await supabase.rpc(
-        'rpc_product_profitability' as any,
+        'rpc_product_profitability',
         { p_start_date: from, p_end_date: to },
       )
       if (error) throw error

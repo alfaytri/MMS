@@ -666,7 +666,7 @@ export function useCategoryStockAggregates(categoryType: string) {
     queryKey: queryKeys.inventory.categoryStockAggregates(categoryType),
     queryFn: async () => {
       const supabase = createClient()
-      const { data, error } = await supabase.rpc('get_category_stock_aggregates' as any, { p_type: categoryType })
+      const { data, error } = await supabase.rpc('get_category_stock_aggregates', { p_type: categoryType })
       if (error) throw error
       const map = new Map<string, CategoryStockAggregate>()
       for (const row of (data ?? [])) {
@@ -685,7 +685,6 @@ export function useToolAssetItems(search = '') {
     queryKey: queryKeys.inventory.toolAssetItemsBySearch(search),
     queryFn: async () => {
       const supabase = createClient()
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
       let q = supabase
         .from('tool_asset_items')
         .select('*')
