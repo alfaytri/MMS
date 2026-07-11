@@ -46,15 +46,15 @@ export default function CreatePOPage() {
 
   const { userDivisionIds, divisions } = useUserDivisionScope()
   const { data: companies = [] } = useCompanies()
-  const isMultiDivision = userDivisionIds.length > 1
+  const isMultiDivision = divisions.length > 1
   const [divisionId, setDivisionId] = useState<string>('')
 
-  // Auto-select the only division once scope data loads
+  // Auto-select when only one division is visible
   useEffect(() => {
-    if (userDivisionIds.length === 1 && !divisionId) {
-      setDivisionId(userDivisionIds[0])
+    if (divisions.length === 1 && !divisionId) {
+      setDivisionId(divisions[0].id)
     }
-  }, [userDivisionIds, divisionId])
+  }, [divisions, divisionId])
 
   const [rfqMode, setRfqMode] = useState(false)
   const [rfqSupplierIds, setRfqSupplierIds] = useState<string[]>([])

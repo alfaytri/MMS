@@ -53,15 +53,15 @@ export default function CreateSOPage() {
 
   const { userDivisionIds, divisions } = useUserDivisionScope()
   const { data: companies = [] } = useCompanies()
-  const isMultiDivision = userDivisionIds.length > 1
+  const isMultiDivision = divisions.length > 1
   const [divisionId, setDivisionId] = useState<string>('')
 
-  // Auto-select the only division once JWT scope data loads
+  // Auto-select when only one division is visible
   useEffect(() => {
-    if (userDivisionIds.length === 1 && !divisionId) {
-      setDivisionId(userDivisionIds[0])
+    if (divisions.length === 1 && !divisionId) {
+      setDivisionId(divisions[0].id)
     }
-  }, [userDivisionIds, divisionId])
+  }, [divisions, divisionId])
 
   const companiesWithDivisions = useMemo(() => {
     const map = new Map<string, { companyName: string; items: typeof divisions }>()
@@ -255,28 +255,25 @@ export default function CreateSOPage() {
 
         {/* ① Division (multi-division users only) */}
         {isMultiDivision && (
-          <section className="space-y-3">
-            <h2 className="text-sm font-semibold">Division</h2>
-            <div className="space-y-1.5">
-              <label className="text-sm font-medium">
-                Division <span className="text-destructive">*</span>
-              </label>
-              <Select value={divisionId} onValueChange={(v) => v && setDivisionId(v)}>
-                <SelectTrigger className="h-9 w-full">
-                  <SelectValue placeholder="Select division…" />
-                </SelectTrigger>
-                <SelectContent>
-                  {companiesWithDivisions.map((group) => (
-                    <SelectGroup key={group.companyName}>
-                      <SelectLabel>{group.companyName}</SelectLabel>
-                      {group.items.map((d) => (
-                        <SelectItem key={d.id} value={d.id}>{d.name ?? d.id}</SelectItem>
-                      ))}
-                    </SelectGroup>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
+          <section className="space-y-1.5">
+            <label className="text-sm font-medium">
+              Division <span className="text-destructive">*</span>
+            </label>
+            <Select value={divisionId} onValueChange={(v) => v && setDivisionId(v)}>
+              <SelectTrigger className="h-9 w-full">
+                <SelectValue placeholder="Select division…" />
+              </SelectTrigger>
+              <SelectContent>
+                {companiesWithDivisions.map((group) => (
+                  <SelectGroup key={group.companyName}>
+                    <SelectLabel>{group.companyName}</SelectLabel>
+                    {group.items.map((d) => (
+                      <SelectItem key={d.id} value={d.id}>{d.name ?? d.id}</SelectItem>
+                    ))}
+                  </SelectGroup>
+                ))}
+              </SelectContent>
+            </Select>
             <Separator />
           </section>
         )}
