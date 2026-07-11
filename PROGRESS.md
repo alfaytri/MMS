@@ -243,7 +243,7 @@ Purchase & Sales▾:
 
 ## 🔄 In Progress
 
-🚀 Starting: **Inventory Excel Import — Testing & verification**
+(none)
 
 
 
@@ -261,6 +261,8 @@ Purchase & Sales▾:
 
 ## ✅ Completed
 
+- [2026-07-12] **Operational Dashboard** — `src/app/(dashboard)/page.tsx` (full rewrite), `src/hooks/useDashboardStats.ts` (new), `src/lib/queryKeys.ts` (dashboard key) — Operational KPI cards (Open POs, Open SOs, Pending Approvals, Receivals This Week, Upcoming Deliveries) for all users; financial section (Receivables, Payables, Cash In/Out, monthly trend chart, overdue tables) gated to Owner/Accountant roles via `isSuperViewer`.
+- [2026-07-11] **Inventory Receival Fixes** — `supabase/migrations/20260711250000_fix_inventory_receival_received_by.sql`, `src/hooks/useInventoryReceivals.ts`, `src/components/inventory/InventoryReceivalDialog.tsx`, `src/hooks/useReceivals.ts`, `src/app/(dashboard)/purchase/landed-costs/page.tsx` — Fixed 400/409 RPC error (received_by FK→employees), infinite render loop on new_stock mode, "Unknown" label in LC dialogs, DialogFooter bleed, query invalidation keys.
 - [2026-07-08] **Inventory Excel Import — feature complete** — `src/lib/inventory-import.ts` (template gen + parse + validate + preview), `src/hooks/useInventoryImport.ts` (4-step DB pipeline: categories → items → variants, type-scoped keys), `src/components/services/inventory/InventoryImportDialog.tsx` (2-step dialog: upload + preview), `src/components/services/inventory/ItemsListView.tsx` (Import button), `src/components/services/inventory/BrandVariantEditDialog.tsx` (avg cost ###,###.## format), `src/components/master-data/PermissionTree.tsx` (4-root nav-mirroring tree), `src/app/(dashboard)/master-data/warehouses/page.tsx` (moved from purchase), deleted old CSV import (`src/app/(dashboard)/master-data/import/page.tsx`, `src/lib/csv/config.ts`, `src/lib/csv/validate.ts`, `src/hooks/useCSVImport.ts`). Security audit passed.
 - [2026-07-07] **Final Schema + Tests + Perf Audit Task 12-15: Response-Time Audit + Fixes** — `docs/response-time-audit-2026-07-07.md`, `supabase/migrations/20260707120000_perf_indexes.sql`, `src/hooks/usePurchaseOrders.ts`, `src/hooks/useLandedCosts.ts`, `src/hooks/useWarehouseOperations.ts`, `src/hooks/useReceivals.ts` — Added .limit() to 13 unbounded list queries, refetchIntervalInBackground:false to 2 polling hooks, 7 performance indexes on hot tables, regenerated database/final_schema.sql (31,938 lines)
 - [2026-07-07] **Final Schema + Tests + Perf Audit Task 10-11: Test Case Excel Workbook** — `scripts/test-cases/purchase_warehouse_spec.json`, `scripts/build_test_workbook.mjs`, `docs/test-cases/Purchase_Warehouse_Tests.xlsx` — 77 test cases across 17 sheets covering all Purchase + Warehouse screens with concrete input values
