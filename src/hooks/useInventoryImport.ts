@@ -147,7 +147,7 @@ export function useInventoryImport() {
               catId = existing.id
               pathToId.set(typePathKey, catId)
             } else {
-              const { data: newCat, error: insErr } = await supabase
+              const insertResult = await supabase
                 .from('inventory_categories')
                 .insert({
                   name_en: capitalizeFirst(segment),
@@ -158,19 +158,32 @@ export function useInventoryImport() {
                 })
                 .select('id, name_en, parent_id, type')
                 .single()
+              const newCat = insertResult.data as CategoryRow | null
+              const insErr = insertResult.error
 
               if (insErr) {
                 if (isUniqueViolation(insErr)) {
                   // Already exists (race or retry) — find and use it
-                  const query = supabase
-                    .from('inventory_categories')
-                    .select('id, name_en, parent_id, type')
-                    .ilike('name_en', capitalizeFirst(segment))
-                    .eq('type', type)
-
-                  const { data: foundCat } = parentId
-                    ? await query.eq('parent_id', parentId).maybeSingle()
-                    : await query.is('parent_id', null).maybeSingle()
+                  let foundCat: CategoryRow | null = null
+                  if (parentId) {
+                    const { data } = await supabase
+                      .from('inventory_categories')
+                      .select('id, name_en, parent_id, type')
+                      .ilike('name_en', capitalizeFirst(segment))
+                      .eq('type', type as ImportType)
+                      .eq('parent_id', parentId)
+                      .maybeSingle()
+                    foundCat = data as CategoryRow | null
+                  } else {
+                    const { data } = await supabase
+                      .from('inventory_categories')
+                      .select('id, name_en, parent_id, type')
+                      .ilike('name_en', capitalizeFirst(segment))
+                      .eq('type', type as ImportType)
+                      .is('parent_id', null)
+                      .maybeSingle()
+                    foundCat = data as CategoryRow | null
+                  }
 
                   if (foundCat) {
                     catId = foundCat.id
