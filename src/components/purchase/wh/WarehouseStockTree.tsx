@@ -241,31 +241,42 @@ export function WarehouseStockTree({ warehouseId, warehouses }: Props) {
     return items.map((item) => {
       const itemKey = `${parentKey}__${item.itemName}`
       const itemExpanded = expanded.has(itemKey)
+      const hasMultipleBrands = item.brands.length > 1
       return (
         <React.Fragment key={itemKey}>
           <div
-            className={`grid grid-cols-[1fr_auto_auto] gap-2 ${indentPl} pr-3 py-1.5 hover:bg-muted/20 cursor-pointer border-b items-center`}
-            onClick={() => toggle(itemKey)}
+            className={`grid grid-cols-[1fr_auto_auto] gap-2 ${indentPl} pr-3 py-1.5 hover:bg-muted/20 border-b items-center ${hasMultipleBrands ? 'cursor-pointer' : ''}`}
+            onClick={hasMultipleBrands ? () => toggle(itemKey) : undefined}
           >
             <div className="flex items-center gap-1.5 font-medium">
-              {itemExpanded
-                ? <ChevronDown  className="h-2.5 w-2.5 text-muted-foreground shrink-0" />
-                : <ChevronRight className="h-2.5 w-2.5 text-muted-foreground shrink-0" />}
+              {hasMultipleBrands
+                ? (itemExpanded
+                    ? <ChevronDown  className="h-2.5 w-2.5 text-muted-foreground shrink-0" />
+                    : <ChevronRight className="h-2.5 w-2.5 text-muted-foreground shrink-0" />)
+                : <span className="inline-block w-2.5 shrink-0" />}
               <span>{item.itemName}</span>
-              {item.brands.length > 1 && (
+              {item.brands.length === 1 && item.brands[0].brand && (
+                <span className="text-[9px] text-muted-foreground">— {item.brands[0].brand}</span>
+              )}
+              {item.brands.length === 1 && item.brands[0].sku && (
+                <span className="text-[9px] text-primary">{item.brands[0].sku}</span>
+              )}
+              {hasMultipleBrands && (
                 <span className="text-[9px] text-muted-foreground italic">{item.brands.length} brands</span>
               )}
             </div>
             <div className="text-right w-12 font-medium">
               <StockTooltip
                 qty={item.totalQty}
-                title="Stock by Brand"
-                rows={item.brands.map((b) => ({ label: b.brand ?? '—', qty: b.qty }))}
+                title={hasMultipleBrands ? 'Stock by Brand' : 'Stock by Warehouse'}
+                rows={hasMultipleBrands
+                  ? item.brands.map((b) => ({ label: b.brand ?? '—', qty: b.qty }))
+                  : (warehouseBreakdown.get(item.brands[0]?.brand_variant_id) ?? [])}
               />
             </div>
             <div className="text-right w-20">{fmtVal(item.totalValue)}</div>
           </div>
-          {itemExpanded && renderBrandRows(item.brands, brandIndentPl)}
+          {hasMultipleBrands && itemExpanded && renderBrandRows(item.brands, brandIndentPl)}
         </React.Fragment>
       )
     })

@@ -11,6 +11,7 @@ import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/comp
 import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { useWarehouseStock } from '@/hooks/useWarehouseOperations'
 import { Warehouse } from '@/hooks/useWarehouses'
+import { cn } from '@/lib/utils'
 
 const fmtVal = (n: number) => n.toLocaleString('en-QA', { minimumFractionDigits: 2, maximumFractionDigits: 2 })
 
@@ -339,17 +340,20 @@ export const WhStockOverviewTab = React.memo(function WhStockOverviewTab({
     return items.map((item) => {
       const itemKey = `${parentKey}__${item.itemName}`
       const itemExpanded = expanded.has(itemKey)
+      const hasMultipleBrands = item.brands.length > 1
       return (
         <React.Fragment key={itemKey}>
           <TableRow
-            className="cursor-pointer bg-background hover:bg-muted/20"
-            onClick={() => toggle(itemKey)}
+            className={cn(hasMultipleBrands ? 'cursor-pointer' : '', 'bg-background hover:bg-muted/20')}
+            onClick={hasMultipleBrands ? () => toggle(itemKey) : undefined}
           >
             <TableCell className={`text-xs font-semibold py-2 ${indentClass}`}>
               <div className="flex items-center gap-1.5">
-                {itemExpanded
-                  ? <ChevronDown  className="h-3 w-3 text-muted-foreground shrink-0" />
-                  : <ChevronRight className="h-3 w-3 text-muted-foreground shrink-0" />}
+                {hasMultipleBrands
+                  ? (itemExpanded
+                      ? <ChevronDown  className="h-3 w-3 text-muted-foreground shrink-0" />
+                      : <ChevronRight className="h-3 w-3 text-muted-foreground shrink-0" />)
+                  : <span className="inline-block w-3 shrink-0" />}
                 {item.itemName}
               </div>
             </TableCell>
@@ -364,16 +368,20 @@ export const WhStockOverviewTab = React.memo(function WhStockOverviewTab({
             <TableCell className="text-xs text-right font-semibold py-2">
               <StockTooltip
                 qty={item.totalQty}
-                title="Stock by Brand"
-                rows={item.brands.map((b) => ({ label: b.brand ?? '—', qty: b.qty }))}
+                title={hasMultipleBrands ? 'Stock by Brand' : 'Stock by Warehouse'}
+                rows={hasMultipleBrands
+                  ? item.brands.map((b) => ({ label: b.brand ?? '—', qty: b.qty }))
+                  : (warehouseBreakdown.get(item.brands[0]?.brand_variant_id) ?? [])}
               />
             </TableCell>
-            <TableCell className="py-2 text-xs text-right text-muted-foreground">—</TableCell>
+            <TableCell className="py-2 text-xs text-right text-muted-foreground">
+              {item.brands.length === 1 ? fmtVal(item.brands[0].avgCost) : '—'}
+            </TableCell>
             <TableCell className="text-xs text-right py-2 font-medium">
               {fmtVal(item.totalValue)}
             </TableCell>
           </TableRow>
-          {itemExpanded && renderBrandRows(item.brands, brandIndentClass)}
+          {hasMultipleBrands && itemExpanded && renderBrandRows(item.brands, brandIndentClass)}
         </React.Fragment>
       )
     })
@@ -439,17 +447,15 @@ export const WhStockOverviewTab = React.memo(function WhStockOverviewTab({
         </Select>
 
         {selectedWarehouse && (
-          <div className="flex items-center gap-1 px-2 py-0.5 rounded-full bg-primary/10 text-primary text-xs border border-primary/20">
-            <span>Viewing: {selectedWarehouse.name}</span>
-            <Button
-              variant="ghost" size="sm"
-              className="h-4 w-4 p-0 text-primary hover:bg-transparent"
-              onClick={() => setSelectedWarehouseId(undefined)}
-              aria-label="Clear warehouse filter"
-            >
-              <X className="h-3 w-3" />
-            </Button>
-          </div>
+          <Button
+            variant="ghost" size="sm"
+            className="h-7 px-2 text-xs text-muted-foreground"
+            onClick={() => setSelectedWarehouseId(undefined)}
+            aria-label="Clear warehouse filter"
+          >
+            <X className="h-3 w-3 mr-1" />
+            Clear filter
+          </Button>
         )}
 
         <div className="flex items-center gap-1.5 ml-auto">
