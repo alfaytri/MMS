@@ -41,31 +41,16 @@ async function requireUser(req: NextRequest) {
   return user
 }
 
-// ─── Period → date range ─────────────────────────────────────────────────────
+// ─── Date helpers ───────────────────────────────────────────────────────────
 
-type Period = 'this-month' | 'last-month' | 'last-3-months' | 'last-6-months'
+function toIsoStart(dateStr?: string): string | undefined {
+  if (!dateStr) return undefined
+  return `${dateStr}T00:00:00.000Z`
+}
 
-function periodToFromDate(period?: string): string | undefined {
-  if (!period) return undefined
-  const now = new Date()
-  let from: Date
-  switch (period as Period) {
-    case 'this-month':
-      from = new Date(now.getFullYear(), now.getMonth(), 1)
-      break
-    case 'last-month':
-      from = new Date(now.getFullYear(), now.getMonth() - 1, 1)
-      break
-    case 'last-3-months':
-      from = new Date(now.getFullYear(), now.getMonth() - 3, 1)
-      break
-    case 'last-6-months':
-      from = new Date(now.getFullYear(), now.getMonth() - 6, 1)
-      break
-    default:
-      return undefined
-  }
-  return from.toISOString()
+function toIsoEnd(dateStr?: string): string | undefined {
+  if (!dateStr) return undefined
+  return `${dateStr}T23:59:59.999Z`
 }
 
 // ─── Data fetchers ───────────────────────────────────────────────────────────
@@ -95,7 +80,7 @@ async function fetchStockOverview(supabase: SupaClient, warehouseId?: string) {
   }
 }
 
-async function fetchTransfers(supabase: SupaClient, fromDate?: string) {
+async function fetchTransfers(supabase: SupaClient, fromDate?: string, toDate?: string) {
   let q = supabase
     .from('warehouse_transfers')
     .select(`*, from_warehouse:from_warehouse_id(name), to_warehouse:to_warehouse_id(name),
@@ -103,6 +88,7 @@ async function fetchTransfers(supabase: SupaClient, fromDate?: string) {
     .order('created_at', { ascending: false })
     .limit(2000)
   if (fromDate) q = q.gte('created_at', fromDate)
+  if (toDate) q = q.lte('created_at', toDate)
   const { data, error } = await q
   if (error) throw error
 
@@ -125,7 +111,7 @@ async function fetchTransfers(supabase: SupaClient, fromDate?: string) {
   return { rows }
 }
 
-async function fetchAdjustments(supabase: SupaClient, fromDate?: string) {
+async function fetchAdjustments(supabase: SupaClient, fromDate?: string, toDate?: string) {
   let q = supabase
     .from('stock_adjustments')
     .select(`*, warehouses(name),
@@ -133,6 +119,7 @@ async function fetchAdjustments(supabase: SupaClient, fromDate?: string) {
     .order('created_at', { ascending: false })
     .limit(2000)
   if (fromDate) q = q.gte('created_at', fromDate)
+  if (toDate) q = q.lte('created_at', toDate)
   const { data, error } = await q
   if (error) throw error
 
@@ -154,13 +141,14 @@ async function fetchAdjustments(supabase: SupaClient, fromDate?: string) {
   return { rows }
 }
 
-async function fetchInventoryChecks(supabase: SupaClient, fromDate?: string) {
+async function fetchInventoryChecks(supabase: SupaClient, fromDate?: string, toDate?: string) {
   let q = supabase
     .from('inventory_checks')
     .select('check_number, warehouse_name, status, started_at, initiated_by_name, submitted_by_name, submitted_at, reviewed_by_name, reviewed_at, notes')
     .order('created_at', { ascending: false })
     .limit(2000)
   if (fromDate) q = q.gte('created_at', fromDate)
+  if (toDate) q = q.lte('created_at', toDate)
   const { data, error } = await q
   if (error) throw error
   return { rows: (data ?? []) as InventoryCheckReportRow[] }
@@ -193,7 +181,7 @@ async function fetchStockValue(supabase: SupaClient) {
   return { rows }
 }
 
-async function fetchMovements(supabase: SupaClient, warehouseId?: string, fromDate?: string) {
+async function fetchMovements(supabase: SupaClient, warehouseId?: string, fromDate?: string, toDate?: string) {
   let q = supabase
     .from('inventory_stock_movements')
     .select('id, warehouse_id, item_name, sku, movement_type, qty, unit_cost, reference_type, notes, created_at')
@@ -201,6 +189,7 @@ async function fetchMovements(supabase: SupaClient, warehouseId?: string, fromDa
     .limit(2000)
   if (warehouseId) q = q.eq('warehouse_id', warehouseId)
   if (fromDate) q = q.gte('created_at', fromDate)
+  if (toDate) q = q.lte('created_at', toDate)
   const { data, error } = await q
   if (error) throw error
 
@@ -224,7 +213,7 @@ async function fetchMovements(supabase: SupaClient, warehouseId?: string, fromDa
   return { warehouseName, rows }
 }
 
-async function fetchReceivalsDeliveries(supabase: SupaClient, fromDate?: string) {
+async function fetchReceivalsDeliveries(supabase: SupaClient, fromDate?: string, toDate?: string) {
   let recQ = supabase
     .from('receivals')
     .select('id, receival_number, date, status, received_by_name, purchase_orders(po_number, supplier_name), warehouses(name), receival_items(id)')
@@ -238,6 +227,10 @@ async function fetchReceivalsDeliveries(supabase: SupaClient, fromDate?: string)
   if (fromDate) {
     recQ = recQ.gte('date', fromDate)
     delQ = delQ.gte('date', fromDate)
+  }
+  if (toDate) {
+    recQ = recQ.lte('date', toDate)
+    delQ = delQ.lte('date', toDate)
   }
   const [receivalsRes, deliveriesRes] = await Promise.all([recQ, delQ])
 
@@ -293,7 +286,8 @@ export async function POST(req: NextRequest) {
   const type = body.type as ReportType | undefined
   const warehouseId = body.warehouseId as string | undefined
   const divisionId = body.divisionId as string | undefined
-  const fromDate = periodToFromDate(body.period as string | undefined)
+  const fromDate = toIsoStart(body.fromDate as string | undefined)
+  const toDate = toIsoEnd(body.toDate as string | undefined)
 
   if (!type || !REPORT_TYPES.includes(type)) {
     return NextResponse.json(
@@ -330,17 +324,17 @@ export async function POST(req: NextRequest) {
         break
       }
       case 'transfers': {
-        const data = await fetchTransfers(supabase, fromDate)
+        const data = await fetchTransfers(supabase, fromDate, toDate)
         html = buildTransfersReportHtml({ ...data, fonts, assets })
         break
       }
       case 'adjustments': {
-        const data = await fetchAdjustments(supabase, fromDate)
+        const data = await fetchAdjustments(supabase, fromDate, toDate)
         html = buildAdjustmentsReportHtml({ ...data, fonts, assets })
         break
       }
       case 'inventory-checks': {
-        const data = await fetchInventoryChecks(supabase, fromDate)
+        const data = await fetchInventoryChecks(supabase, fromDate, toDate)
         html = buildInventoryChecksReportHtml({ ...data, fonts, assets })
         break
       }
@@ -350,12 +344,12 @@ export async function POST(req: NextRequest) {
         break
       }
       case 'movements': {
-        const data = await fetchMovements(supabase, warehouseId, fromDate)
+        const data = await fetchMovements(supabase, warehouseId, fromDate, toDate)
         html = buildMovementsReportHtml({ ...data, fonts, assets })
         break
       }
       case 'receivals-deliveries': {
-        const data = await fetchReceivalsDeliveries(supabase, fromDate)
+        const data = await fetchReceivalsDeliveries(supabase, fromDate, toDate)
         html = buildReceivalsDeliveriesReportHtml({ ...data, fonts, assets })
         break
       }
