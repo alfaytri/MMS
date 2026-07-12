@@ -22,7 +22,7 @@ import {
 import { useDashboardStats } from '@/hooks/useDashboardStats'
 import { usePendingApprovals } from '@/hooks/usePOApprovals'
 import { usePendingSalesApprovals } from '@/hooks/useSalesApprovals'
-import { useHasPermission } from '@/hooks/usePermissions'
+import { usePermissions } from '@/hooks/usePermissions'
 import { useFinancialDashboard, type MonthlyTrend } from '@/hooks/useFinancialDashboard'
 
 // ─── KPI Card ────────────────────────────────────────────────────────────
@@ -188,7 +188,8 @@ export default function DashboardPage() {
   const { data: stats, isLoading: loadingStats } = useDashboardStats()
   const { data: pendingPOs } = usePendingApprovals()
   const { data: pendingSOs } = usePendingSalesApprovals()
-  const canSeeFinance = useHasPermission('reports.dashboard_finance')
+  const { data: permData } = usePermissions()
+  const canSeeFinance = permData?.permissions.includes('reports.dashboard_finance') ?? false
   const { data: finance, isLoading: loadingFinance } = useFinancialDashboard()
 
   const approvalCount = (pendingPOs?.length ?? 0) + (pendingSOs?.length ?? 0)
