@@ -25,6 +25,7 @@ import {
 import {
   Popover, PopoverContent, PopoverTrigger,
 } from '@/components/ui/popover'
+import { PhoneInputWithCode, splitPhone } from '@/components/shared/PhoneInputWithCode'
 import {
   useUpdateUser, useUserDivisions, useAssignDivision, useRemoveDivision, type Profile,
 } from '@/hooks/useProfiles'
@@ -159,6 +160,8 @@ export function EditUserDialog({ open, onOpenChange, profile }: Props) {
   const [hasCcAccess, setHasCcAccess] = useState(false)
   const [extension, setExtension] = useState('')
   const [extensionError, setExtensionError] = useState<string | null>(null)
+  const [phoneCountryCode, setPhoneCountryCode] = useState('+974')
+  const [phoneDigits, setPhoneDigits] = useState('')
 
   useEffect(() => {
     setIsTl(profile?.user_type === 'team-leader')
@@ -167,6 +170,9 @@ export function EditUserDialog({ open, onOpenChange, profile }: Props) {
     setExtension(profile?.threecx_extension ?? '')
     setExtensionError(null)
     setLinkedEmployeeId(null)
+    const { code, digits } = splitPhone(profile?.phone)
+    setPhoneCountryCode(code)
+    setPhoneDigits(digits)
   }, [profile])
 
   const { data: currentEmployee } = useQuery({
@@ -296,6 +302,7 @@ export function EditUserDialog({ open, onOpenChange, profile }: Props) {
         has_contact_centre_access: hasCcAccess,
         // Keep the extension stored even when access is OFF so re-enabling preserves it.
         threecx_extension: extension.trim() === '' ? null : extension.trim(),
+        phone: phoneDigits ? `${phoneCountryCode}${phoneDigits}` : null,
       },
       {
         onSuccess: () => {
@@ -344,6 +351,18 @@ export function EditUserDialog({ open, onOpenChange, profile }: Props) {
               />
               <span className="text-sm">Active</span>
             </label>
+
+            <div>
+              <Label>Phone Number</Label>
+              <div className="mt-1.5">
+                <PhoneInputWithCode
+                  value={phoneDigits}
+                  onChange={setPhoneDigits}
+                  countryCode={phoneCountryCode}
+                  onCountryCodeChange={setPhoneCountryCode}
+                />
+              </div>
+            </div>
 
             {/* ─── Teams Operation Control (hidden until teams module is active) ─── */}
             {SHOW_TEAMS_CONTROL && (

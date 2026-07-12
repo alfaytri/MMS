@@ -228,6 +228,14 @@ export default function UsersRolesPage() {
       },
     },
     {
+      accessorKey: 'phone',
+      header: 'Phone',
+      cell: ({ row }) => {
+        const phone = row.getValue('phone') as string | null
+        return phone ? <span className="text-sm">{phone}</span> : <span className="text-muted-foreground">—</span>
+      },
+    },
+    {
       accessorKey: 'is_active',
       header: 'Status',
       cell: ({ row }) => (

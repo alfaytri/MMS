@@ -167,6 +167,7 @@ export function useCreateUser() {
       is_division_manager?: boolean
       has_contact_centre_access?: boolean
       threecx_extension?: string
+      phone?: string
     }) => {
       const res = await fetch('/api/users/create', {
         method: 'POST',
@@ -209,6 +210,7 @@ export function useUpdateUser() {
       is_division_manager?: boolean
       has_contact_centre_access?: boolean
       threecx_extension?: string | null
+      phone?: string | null
     }) => {
       const { auth_user_id, ...body } = payload
       const res = await fetch(`/api/users/${auth_user_id}`, {

@@ -7,6 +7,7 @@ import { logUserEvent } from '@/lib/auth/audit'
 import { passwordSchema } from '@/lib/auth/password-policy'
 
 const bodySchema = z.object({
+  current_password: z.string().optional(),
   new_password: passwordSchema,
 })
 
@@ -22,18 +23,28 @@ export async function POST(request: Request) {
   if (!parsed.success) {
     return NextResponse.json({ error: parsed.error.issues[0]?.message ?? 'Invalid body' }, { status: 400 })
   }
-  const { new_password } = parsed.data
+  const { current_password, new_password } = parsed.data
 
-  // User's OWN session — not admin client — so Supabase enforces they can
-  // only change their own password.
   const supabase = await createServerClient()
+
+  // If current_password is provided, verify it before proceeding.
+  // The forced-change flow (admin reset) skips this check.
+  if (current_password) {
+    const { error: signInErr } = await supabase.auth.signInWithPassword({
+      email: gate.email,
+      password: current_password,
+    })
+    if (signInErr) {
+      return NextResponse.json({ error: 'Current password is incorrect' }, { status: 400 })
+    }
+  }
+
   const { error: updErr } = await supabase.auth.updateUser({
     password: new_password,
     data: { must_change_password: false },
   })
   if (updErr) return NextResponse.json({ error: `Password update failed: ${updErr.message}` }, { status: 400 })
 
-  // Mirror to profiles (via admin client so RLS doesn't bite).
   const admin = createAdminClient()
   await admin.from('profiles')
     .update({ must_change_password: false })

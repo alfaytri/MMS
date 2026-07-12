@@ -18,6 +18,7 @@ const bodySchema = z.object({
   is_division_manager: z.boolean().default(false),
   has_contact_centre_access: z.boolean().default(false),
   threecx_extension: z.string().trim().regex(/^\d{2,8}$|^$/, 'Extension must be 2-8 digits').optional(),
+  phone: z.string().trim().optional(),
 })
 
 export async function POST(request: Request) {
@@ -36,7 +37,7 @@ export async function POST(request: Request) {
   }
   const {
     full_name, username, password, role_ids, is_team_leader, employee_id,
-    is_division_manager, has_contact_centre_access, threecx_extension,
+    is_division_manager, has_contact_centre_access, threecx_extension, phone,
   } = parsed.data
   const email = `${username}@mms.local`
 
@@ -78,6 +79,7 @@ export async function POST(request: Request) {
       is_division_manager,
       has_contact_centre_access,
       threecx_extension: threecx_extension && threecx_extension.length > 0 ? threecx_extension : null,
+      phone: phone && phone.length > 0 ? phone : null,
     })
     .select('id')
     .single()

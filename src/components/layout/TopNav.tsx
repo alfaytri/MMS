@@ -14,7 +14,7 @@ export async function TopNav() {
   const { data: profile } = user
     ? await supabase
         .from('profiles')
-        .select('full_name')
+        .select('full_name, avatar_url')
         .eq('auth_user_id', user.id)
         .single()
     : { data: null }
@@ -47,6 +47,7 @@ export async function TopNav() {
           <UserMenu
             email={user.email ?? ''}
             name={profile?.full_name ?? undefined}
+            avatarUrl={profile?.avatar_url ?? undefined}
           />
         )}
       </div>

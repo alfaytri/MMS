@@ -22,6 +22,7 @@ import {
   Form, FormControl, FormField, FormItem, FormLabel, FormMessage,
 } from '@/components/ui/form'
 import { passwordSchema } from '@/lib/auth/password-policy'
+import { PhoneInputWithCode } from '@/components/shared/PhoneInputWithCode'
 import { useCreateUser } from '@/hooks/useProfiles'
 import { useRoles } from '@/hooks/useRoles'
 import { useAllDivisions } from '@/hooks/useDivisions'
@@ -59,6 +60,8 @@ export function AddUserDialog({ open, onOpenChange }: Props) {
   const [extensionError, setExtensionError] = useState<string | null>(null)
   const [linkedEmployeeId, setLinkedEmployeeId] = useState<string | null>(null)
   const [selectedDivisionIds, setSelectedDivisionIds] = useState<string[]>([])
+  const [phoneCountryCode, setPhoneCountryCode] = useState('+974')
+  const [phoneDigits, setPhoneDigits] = useState('')
 
   const { data: allDivisions = [] } = useAllDivisions()
   const { data: companies = [] } = useCompanies()
@@ -117,6 +120,8 @@ export function AddUserDialog({ open, onOpenChange }: Props) {
       setExtensionError(null)
       setLinkedEmployeeId(null)
       setSelectedDivisionIds([])
+      setPhoneCountryCode('+974')
+      setPhoneDigits('')
     }
     onOpenChange(v)
   }
@@ -149,6 +154,7 @@ export function AddUserDialog({ open, onOpenChange }: Props) {
         is_division_manager: isDivMgr,
         has_contact_centre_access: hasCcAccess,
         threecx_extension: extension.trim() === '' ? undefined : extension.trim(),
+        phone: phoneDigits ? `${phoneCountryCode}${phoneDigits}` : undefined,
       },
       {
         onSuccess: async (res) => {
@@ -215,6 +221,18 @@ export function AddUserDialog({ open, onOpenChange }: Props) {
                 </FormItem>
               )}
             />
+
+            <div>
+              <Label>Phone Number</Label>
+              <div className="mt-1.5">
+                <PhoneInputWithCode
+                  value={phoneDigits}
+                  onChange={setPhoneDigits}
+                  countryCode={phoneCountryCode}
+                  onCountryCodeChange={setPhoneCountryCode}
+                />
+              </div>
+            </div>
 
             {/* ─── Teams Operation Control (hidden until teams module is active) ─── */}
             {SHOW_TEAMS_CONTROL && (
