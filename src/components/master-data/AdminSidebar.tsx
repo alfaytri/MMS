@@ -62,10 +62,8 @@ const ADMIN_SECTIONS: SidebarSection[] = [
 function canAccess(
   permission: string | string[] | undefined,
   userPerms: string[],
-  isSystemAdmin: boolean,
 ): boolean {
   if (!permission) return true
-  if (isSystemAdmin) return true
   const required = Array.isArray(permission) ? permission : [permission]
   return required.some((p) => userPerms.includes(p))
 }
@@ -74,13 +72,12 @@ export function AdminSidebar() {
   const pathname = usePathname()
   const { data: permData } = usePermissions()
   const userPerms = permData?.permissions ?? []
-  const isSystemAdmin = permData?.isSystemAdmin ?? false
 
   const visibleSections = ADMIN_SECTIONS
     .map((section) => ({
       ...section,
       items: section.items.filter(
-        (item) => item.comingSoon || canAccess(item.permission, userPerms, isSystemAdmin)
+        (item) => item.comingSoon || canAccess(item.permission, userPerms)
       ),
     }))
     .filter((section) => section.items.length > 0)

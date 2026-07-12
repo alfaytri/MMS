@@ -98,7 +98,7 @@ function StockTooltip({
             {title}
           </p>
         </div>
-        <div className="px-3 py-2 space-y-1.5">
+        <div className="px-3 py-2 space-y-1.5 max-h-[300px] overflow-y-auto">
           {rows.map((r) => (
             <div key={r.label} className="flex items-center justify-between gap-6 text-xs">
               <span className="text-muted-foreground">{r.label}</span>

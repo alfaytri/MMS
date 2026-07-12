@@ -25,10 +25,8 @@ import { WhAdjustmentDialog } from '@/components/purchase/wh/WhAdjustmentDialog'
 import { WhTransferDialog } from '@/components/purchase/wh/WhTransferDialog'
 
 // Per-tab permission keys. ANY-of semantics: if the user holds any one of
-// the listed perms, the tab is shown. System admins always see every tab.
-// Each tab is gated by its own *.view key (declared in lib/permissions.ts
-// Warehouse module) — action keys (create/dispatch/etc.) imply view via the
-// migration that seeds the view-key alongside any action key.
+// the listed perms, the tab is shown. No system-admin bypass — every role
+// must hold the explicit permission key for the tab to appear.
 const TAB_PERMISSIONS: Record<string, string[]> = {
   warehouses:    ['warehouse.warehouses.view', 'warehouse.settings.manage'],
   stock:         ['warehouse.stock.view'],
@@ -60,12 +58,10 @@ function WarehousesPageInner() {
   const { data: permData } = usePermissions()
 
   const visibleTabs = useMemo(() => {
-    const isSystemAdmin = permData?.isSystemAdmin ?? false
     const userPerms = permData?.permissions ?? []
     const order = ['warehouses', 'stock', 'transfers', 'adjustments', 'checks', 'stock-value', 'movements', 'receivals']
     return new Set(
       order.filter((key) => {
-        if (isSystemAdmin) return true
         const required = TAB_PERMISSIONS[key] ?? []
         return required.length === 0 || required.some((p) => userPerms.includes(p))
       })
