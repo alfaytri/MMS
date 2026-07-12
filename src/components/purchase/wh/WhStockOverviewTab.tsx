@@ -433,7 +433,7 @@ export const WhStockOverviewTab = React.memo(function WhStockOverviewTab({
           value={selectedWarehouseId ?? '__all__'}
           onValueChange={(v) => setSelectedWarehouseId(v === '__all__' ? undefined : (v ?? undefined))}
         >
-          <SelectTrigger className="w-[180px] h-8 text-xs">
+          <SelectTrigger className="min-w-[140px] max-w-[220px] h-8 text-xs truncate">
             <SelectValue placeholder="All Warehouses" />
           </SelectTrigger>
           <SelectContent className="max-h-60 overflow-y-auto">
