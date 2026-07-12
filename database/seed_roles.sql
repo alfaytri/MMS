@@ -118,7 +118,7 @@ VALUES (
     'teams.team_leader.view','teams.team_leader.manage',
     'teams.map.view','teams.map.manage',
     'calendar.view','calendar.manage',
-    'reports.access','reports.view','reports.manage',
+    'reports.access','reports.view','reports.manage','reports.dashboard_finance',
     'system.admin','system.import','system.export',
     'contact_centre.view'
   ],
@@ -192,7 +192,7 @@ VALUES (
     'teams.team_leader.view','teams.team_leader.manage',
     'teams.map.view','teams.map.manage',
     'calendar.view','calendar.manage',
-    'reports.access','reports.view','reports.manage',
+    'reports.access','reports.view','reports.manage','reports.dashboard_finance',
     'system.import','system.export',
     'contact_centre.view'
   ],
@@ -395,7 +395,7 @@ VALUES (
   'Accountant',
   'Approval slot — Accountant',
   'bg-amber-500/15 text-amber-700 border-amber-500/30',
-  ARRAY[]::text[],
+  ARRAY['reports.access','reports.view','reports.dashboard_finance'],
   false, true, false, false,
   '2026-06-15T12:58:13.101483+00:00', now()
 )

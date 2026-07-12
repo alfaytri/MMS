@@ -22,7 +22,7 @@ import {
 import { useDashboardStats } from '@/hooks/useDashboardStats'
 import { usePendingApprovals } from '@/hooks/usePOApprovals'
 import { usePendingSalesApprovals } from '@/hooks/useSalesApprovals'
-import { useUserDivisionScope } from '@/hooks/useUserDivisionScope'
+import { useHasPermission } from '@/hooks/usePermissions'
 import { useFinancialDashboard, type MonthlyTrend } from '@/hooks/useFinancialDashboard'
 
 // ─── KPI Card ────────────────────────────────────────────────────────────
@@ -188,7 +188,7 @@ export default function DashboardPage() {
   const { data: stats, isLoading: loadingStats } = useDashboardStats()
   const { data: pendingPOs } = usePendingApprovals()
   const { data: pendingSOs } = usePendingSalesApprovals()
-  const { isSuperViewer } = useUserDivisionScope()
+  const canSeeFinance = useHasPermission('reports.dashboard_finance')
   const { data: finance, isLoading: loadingFinance } = useFinancialDashboard()
 
   const approvalCount = (pendingPOs?.length ?? 0) + (pendingSOs?.length ?? 0)
@@ -287,12 +287,12 @@ export default function DashboardPage() {
         </div>
       )}
 
-      {/* ── Financial Section (Owner / Accountant only) ──────── */}
-      {isSuperViewer && (
+      {/* ── Financial Section (permission-gated) ──────── */}
+      {canSeeFinance && (
         <>
           <div className="flex items-center gap-2 mt-6 mb-2">
             <h2 className="text-lg font-semibold">Financial Overview</h2>
-            <Badge variant="outline" className="text-[10px]">Owner / Accountant</Badge>
+            <Badge variant="outline" className="text-[10px]">Restricted</Badge>
           </div>
 
           {loadingFinance || !finance ? (

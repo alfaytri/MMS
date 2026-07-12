@@ -217,6 +217,7 @@ export const NAV_TREE: TreeNode[] = [
       {
         id: 'ps-vendors',
         label: 'Vendors & Clients',
+        icon: Building2,
         isGroupHeader: true,
         children: [
           {
@@ -244,6 +245,7 @@ export const NAV_TREE: TreeNode[] = [
       {
         id: 'ps-purchase',
         label: 'Purchase',
+        icon: Download,
         isGroupHeader: true,
         children: [
           {
@@ -323,6 +325,7 @@ export const NAV_TREE: TreeNode[] = [
       {
         id: 'ps-sales',
         label: 'Sales',
+        icon: Upload,
         isGroupHeader: true,
         children: [
           {
@@ -384,6 +387,7 @@ export const NAV_TREE: TreeNode[] = [
       {
         id: 'ps-logistics',
         label: 'Logistics & Reports',
+        icon: Ship,
         isGroupHeader: true,
         children: [
           {
@@ -431,6 +435,7 @@ export const NAV_TREE: TreeNode[] = [
         permissions: [
           { key: 'reports.view', label: 'View Reports', description: 'Access all report pages' },
           { key: 'reports.manage', label: 'Manage Reports', description: 'Export report data to CSV or PDF' },
+          { key: 'reports.dashboard_finance', label: 'View Financial Dashboard', description: 'See Receivables, Payables, Cash In/Out, trend chart and overdue tables on the home dashboard' },
         ],
       },
     ],
