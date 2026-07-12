@@ -9,6 +9,9 @@ import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Badge } from '@/components/ui/badge'
+import {
+  Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter,
+} from '@/components/ui/dialog'
 import { Loader2, Plus } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { queryKeys } from '@/lib/queryKeys'
@@ -33,6 +36,7 @@ export function CountryCodesAdmin() {
   const supabase = createClient()
   const qc = useQueryClient()
 
+  const [addOpen, setAddOpen] = useState(false)
   const [newName, setNewName] = useState('')
   const [newCode, setNewCode] = useState('')
   const [newIso, setNewIso] = useState('')
@@ -90,16 +94,21 @@ export function CountryCodesAdmin() {
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: adminKey })
       qc.invalidateQueries({ queryKey: queryKeys.countryCodes.all })
-      setNewName('')
-      setNewCode('')
-      setNewIso('')
-      setNewFlag('')
+      resetForm()
+      setAddOpen(false)
       toast.success('Country code added')
     },
     onError: (err) => {
       toast.error(err instanceof Error ? err.message : 'Failed to add country code')
     },
   })
+
+  function resetForm() {
+    setNewName('')
+    setNewCode('')
+    setNewIso('')
+    setNewFlag('')
+  }
 
   function handleAdd() {
     const name = newName.trim()
@@ -140,8 +149,14 @@ export function CountryCodesAdmin() {
   }
 
   return (
-    <div className="space-y-6 max-w-lg">
-      {/* List */}
+    <div className="space-y-4 max-w-lg">
+      <div className="flex items-center justify-between">
+        <h2 className="text-lg font-semibold">Country Codes</h2>
+        <Button size="sm" className="gap-1.5" onClick={() => setAddOpen(true)}>
+          <Plus className="h-3.5 w-3.5" /> Add Country
+        </Button>
+      </div>
+
       <div className="rounded-lg border divide-y">
         {rows.map((r) => (
           <div
@@ -177,69 +192,75 @@ export function CountryCodesAdmin() {
         )}
       </div>
 
-      {/* Add form */}
-      <div className="rounded-lg border p-4 space-y-3">
-        <p className="text-sm font-semibold">Add Country Code</p>
-        <div className="grid grid-cols-1 sm:grid-cols-4 gap-3">
-          <div className="space-y-1.5 sm:col-span-2">
-            <Label htmlFor="cc-name">Name</Label>
-            <Input
-              id="cc-name"
-              placeholder="e.g. Turkey"
-              value={newName}
-              onChange={(e) => setNewName(e.target.value)}
-            />
+      <Dialog open={addOpen} onOpenChange={(o) => { setAddOpen(o); if (!o) resetForm() }}>
+        <DialogContent className="w-full max-w-full rounded-none sm:max-w-sm sm:rounded-lg">
+          <DialogHeader>
+            <DialogTitle>Add Country Code</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-3 py-2">
+            <div className="space-y-1.5">
+              <Label htmlFor="cc-name">Name</Label>
+              <Input
+                id="cc-name"
+                placeholder="e.g. Turkey"
+                value={newName}
+                onChange={(e) => setNewName(e.target.value)}
+              />
+            </div>
+            <div className="grid grid-cols-2 gap-3">
+              <div className="space-y-1.5">
+                <Label htmlFor="cc-code">Dial Code</Label>
+                <Input
+                  id="cc-code"
+                  placeholder="+90"
+                  value={newCode}
+                  onChange={(e) => setNewCode(e.target.value)}
+                />
+              </div>
+              <div className="space-y-1.5">
+                <Label htmlFor="cc-iso">ISO</Label>
+                <Input
+                  id="cc-iso"
+                  placeholder="TR"
+                  maxLength={2}
+                  value={newIso}
+                  onChange={(e) => setNewIso(e.target.value.toUpperCase())}
+                />
+              </div>
+            </div>
+            <div className="space-y-1.5">
+              <Label htmlFor="cc-flag">Flag emoji</Label>
+              <Input
+                id="cc-flag"
+                placeholder="🇹🇷"
+                maxLength={4}
+                value={newFlag}
+                onChange={(e) => setNewFlag(e.target.value)}
+              />
+            </div>
           </div>
-          <div className="space-y-1.5">
-            <Label htmlFor="cc-code">Dial Code</Label>
-            <Input
-              id="cc-code"
-              placeholder="+90"
-              value={newCode}
-              onChange={(e) => setNewCode(e.target.value)}
-            />
-          </div>
-          <div className="space-y-1.5">
-            <Label htmlFor="cc-iso">ISO</Label>
-            <Input
-              id="cc-iso"
-              placeholder="TR"
-              maxLength={2}
-              value={newIso}
-              onChange={(e) => setNewIso(e.target.value.toUpperCase())}
-            />
-          </div>
-          <div className="space-y-1.5 sm:col-span-4">
-            <Label htmlFor="cc-flag">Flag emoji</Label>
-            <Input
-              id="cc-flag"
-              placeholder="🇹🇷"
-              maxLength={4}
-              value={newFlag}
-              onChange={(e) => setNewFlag(e.target.value)}
-            />
-          </div>
-        </div>
-        <Button
-          size="sm"
-          className="gap-1.5"
-          onClick={handleAdd}
-          disabled={
-            !newName.trim() ||
-            !newCode.trim() ||
-            !newIso.trim() ||
-            !newFlag.trim() ||
-            addMutation.isPending
-          }
-        >
-          {addMutation.isPending ? (
-            <Loader2 className="h-3.5 w-3.5 animate-spin" />
-          ) : (
-            <Plus className="h-3.5 w-3.5" />
-          )}
-          Add Country
-        </Button>
-      </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => { setAddOpen(false); resetForm() }}>Cancel</Button>
+            <Button
+              onClick={handleAdd}
+              disabled={
+                !newName.trim() ||
+                !newCode.trim() ||
+                !newIso.trim() ||
+                !newFlag.trim() ||
+                addMutation.isPending
+              }
+            >
+              {addMutation.isPending ? (
+                <Loader2 className="h-3.5 w-3.5 animate-spin" />
+              ) : (
+                <Plus className="h-3.5 w-3.5" />
+              )}
+              Add Country
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   )
 }

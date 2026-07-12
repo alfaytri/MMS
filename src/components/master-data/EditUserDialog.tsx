@@ -34,6 +34,8 @@ import { useCompanies } from '@/hooks/useCompanies'
 import { createClient } from '@/lib/supabase/client'
 import { queryKeys } from '@/lib/queryKeys'
 
+const SHOW_TEAMS_CONTROL = false
+
 const SCOPE_VALUES = ['po', 'inv_check', 'stock_adj', 'sales_margin', 'sales_credit'] as const
 type ScopeValue = typeof SCOPE_VALUES[number]
 
@@ -179,7 +181,7 @@ export function EditUserDialog({ open, onOpenChange, profile }: Props) {
         .maybeSingle()
       return data ?? null
     },
-    enabled: !!profile?.id && currentlyTl,
+    enabled: !!profile?.id && currentlyTl && SHOW_TEAMS_CONTROL,
   })
 
   const { data: tlEmployees = [] } = useQuery({
@@ -195,7 +197,7 @@ export function EditUserDialog({ open, onOpenChange, profile }: Props) {
         .order('name')
       return (data ?? []) as { id: string; name: string; team_id: string; teams: { id: string; name: string } }[]
     },
-    enabled: isTl,
+    enabled: isTl && SHOW_TEAMS_CONTROL,
   })
 
   const companiesWithUnassigned = useMemo(() => {
@@ -279,18 +281,18 @@ export function EditUserDialog({ open, onOpenChange, profile }: Props) {
         full_name: values.full_name,
         email,
         is_active: values.is_active,
-        role_assignments: isTl
+        role_assignments: (SHOW_TEAMS_CONTROL && isTl)
           ? []
           : values.role_assignments.map((a) => ({
               role_id: a.role_id,
               approval_scopes: a.approval_scopes ?? null,
             })),
-        is_team_leader: isTl,
-        employee_id: linkedEmployeeId && linkedEmployeeId !== '__change__'
+        is_team_leader: SHOW_TEAMS_CONTROL ? isTl : undefined,
+        employee_id: SHOW_TEAMS_CONTROL && linkedEmployeeId && linkedEmployeeId !== '__change__'
           ? linkedEmployeeId
           : undefined,
-        demote_team_leader: !isTl && currentlyTl,
-        is_division_manager: isDivMgr,
+        demote_team_leader: SHOW_TEAMS_CONTROL ? (!isTl && currentlyTl) : undefined,
+        is_division_manager: SHOW_TEAMS_CONTROL ? isDivMgr : undefined,
         has_contact_centre_access: hasCcAccess,
         // Keep the extension stored even when access is OFF so re-enabling preserves it.
         threecx_extension: extension.trim() === '' ? null : extension.trim(),
@@ -343,81 +345,81 @@ export function EditUserDialog({ open, onOpenChange, profile }: Props) {
               <span className="text-sm">Active</span>
             </label>
 
-            {/* ─── Teams Operation Control ────────────────────────────── */}
-            <section className="rounded-xl border bg-card overflow-hidden shadow-sm">
-              <header className="flex items-center gap-2 px-3.5 py-2 border-b bg-muted/40">
-                <Users2 className="h-3.5 w-3.5 text-muted-foreground" />
-                <span className="text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">
-                  Teams Operation Control
-                </span>
-              </header>
-              <div className="divide-y divide-border">
-                <div className="flex items-center justify-between px-3.5 py-3 gap-3">
-                  <div className="min-w-0">
-                    <Label htmlFor="edit-user-is-tl" className="text-sm font-medium">Team Leader Account</Label>
-                    <p className="text-xs text-muted-foreground mt-0.5">
-                      Links this account to a team leader employee
-                    </p>
+            {/* ─── Teams Operation Control (hidden until teams module is active) ─── */}
+            {SHOW_TEAMS_CONTROL && (
+              <section className="rounded-xl border bg-card overflow-hidden shadow-sm">
+                <header className="flex items-center gap-2 px-3.5 py-2 border-b bg-muted/40">
+                  <Users2 className="h-3.5 w-3.5 text-muted-foreground" />
+                  <span className="text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">
+                    Teams Operation Control
+                  </span>
+                </header>
+                <div className="divide-y divide-border">
+                  <div className="flex items-center justify-between px-3.5 py-3 gap-3">
+                    <div className="min-w-0">
+                      <Label htmlFor="edit-user-is-tl" className="text-sm font-medium">Team Leader Account</Label>
+                      <p className="text-xs text-muted-foreground mt-0.5">
+                        Links this account to a team leader employee
+                      </p>
+                    </div>
+                    <Switch id="edit-user-is-tl" checked={isTl} onCheckedChange={setIsTl} />
                   </div>
-                  <Switch id="edit-user-is-tl" checked={isTl} onCheckedChange={setIsTl} />
+
+                  {isTl && currentEmployee && !linkedEmployeeId && (
+                    <div className="px-3.5 py-2.5 bg-muted/30 text-sm">
+                      <p className="font-medium">{currentEmployee.name}</p>
+                      <p className="text-xs text-muted-foreground">
+                        {currentEmployee.teams?.name ?? 'Unknown Team'}
+                      </p>
+                      <button
+                        type="button"
+                        className="text-xs text-primary mt-1 underline"
+                        onClick={() => setLinkedEmployeeId('__change__')}
+                      >
+                        Change employee
+                      </button>
+                    </div>
+                  )}
+
+                  {isTl && (!currentEmployee || linkedEmployeeId) && (
+                    <div className="px-3.5 py-2.5 space-y-1.5 bg-muted/30">
+                      <Label htmlFor="edit-user-linked-employee" className="text-xs">Linked Employee *</Label>
+                      <Select
+                        value={linkedEmployeeId && linkedEmployeeId !== '__change__' ? linkedEmployeeId : ''}
+                        onValueChange={setLinkedEmployeeId}
+                      >
+                        <SelectTrigger id="edit-user-linked-employee" className="h-9">
+                          <SelectValue placeholder="Select team leader employee…" />
+                        </SelectTrigger>
+                        <SelectContent className="max-h-60 overflow-y-auto">
+                          {tlEmployees.map((e) => (
+                            <SelectItem key={e.id} value={e.id}>
+                              {e.name} — {e.teams?.name ?? 'Unknown Team'}
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                      {tlEmployees.length === 0 && (
+                        <p className="text-xs text-muted-foreground">No unlinked team leaders found.</p>
+                      )}
+                    </div>
+                  )}
+
+                  <div className="flex items-center justify-between px-3.5 py-3 gap-3">
+                    <div className="min-w-0">
+                      <Label htmlFor="edit-user-is-div-mgr" className="text-sm font-medium">Division Manager</Label>
+                      <p className="text-xs text-muted-foreground mt-0.5">
+                        Can access the Team Leader page for all teams in their assigned divisions
+                      </p>
+                    </div>
+                    <Switch id="edit-user-is-div-mgr" checked={isDivMgr} onCheckedChange={setIsDivMgr} />
+                  </div>
                 </div>
+              </section>
+            )}
 
-                {isTl && currentEmployee && !linkedEmployeeId && (
-                  <div className="px-3.5 py-2.5 bg-muted/30 text-sm">
-                    <p className="font-medium">{currentEmployee.name}</p>
-                    <p className="text-xs text-muted-foreground">
-                      {currentEmployee.teams?.name ?? 'Unknown Team'}
-                    </p>
-                    <button
-                      type="button"
-                      className="text-xs text-primary mt-1 underline"
-                      onClick={() => setLinkedEmployeeId('__change__')}
-                    >
-                      Change employee
-                    </button>
-                  </div>
-                )}
-
-                {isTl && (!currentEmployee || linkedEmployeeId) && (
-                  <div className="px-3.5 py-2.5 space-y-1.5 bg-muted/30">
-                    <Label htmlFor="edit-user-linked-employee" className="text-xs">Linked Employee *</Label>
-                    <Select
-                      value={linkedEmployeeId && linkedEmployeeId !== '__change__' ? linkedEmployeeId : ''}
-                      onValueChange={setLinkedEmployeeId}
-                    >
-                      <SelectTrigger id="edit-user-linked-employee" className="h-9">
-                        <SelectValue placeholder="Select team leader employee…" />
-                      </SelectTrigger>
-                      <SelectContent className="max-h-60 overflow-y-auto">
-                        {tlEmployees.map((e) => (
-                          <SelectItem key={e.id} value={e.id}>
-                            {e.name} — {e.teams?.name ?? 'Unknown Team'}
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
-                    {tlEmployees.length === 0 && (
-                      <p className="text-xs text-muted-foreground">No unlinked team leaders found.</p>
-                    )}
-                  </div>
-                )}
-
-                <div className="flex items-center justify-between px-3.5 py-3 gap-3">
-                  <div className="min-w-0">
-                    <Label htmlFor="edit-user-is-div-mgr" className="text-sm font-medium">Division Manager</Label>
-                    <p className="text-xs text-muted-foreground mt-0.5">
-                      Can access the Team Leader page for all teams in their assigned divisions
-                    </p>
-                  </div>
-                  <Switch id="edit-user-is-div-mgr" checked={isDivMgr} onCheckedChange={setIsDivMgr} />
-                </div>
-              </div>
-            </section>
-
-            {/* Contact Centre section hidden — module not yet launched */}
-
-            {!isTl && (
-              <div className="space-y-2.5">
+            {(!SHOW_TEAMS_CONTROL || !isTl) && (
+            <div className="space-y-2.5">
                 <div className="space-y-0.5">
                   <Label className="text-sm font-medium">Roles</Label>
                   <p className="text-xs text-muted-foreground">

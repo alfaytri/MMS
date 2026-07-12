@@ -260,8 +260,8 @@ export default function UsersRolesPage() {
   ], [])
 
   const permCount   = TOTAL_TREE_PERMISSIONS
-  const rolesCount  = roles?.length ?? 0
-  const usersCount  = (profiles as Profile[] | undefined)?.length ?? 0
+  const rolesCount  = loadingRoles ? '…' : (roles?.length ?? 0)
+  const usersCount  = loadingProfiles ? '…' : ((profiles as Profile[] | undefined)?.length ?? 0)
 
   return (
     <PermissionGate permission={['master_data.users.view', 'master_data.roles.view']}>
