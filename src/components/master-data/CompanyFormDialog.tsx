@@ -91,7 +91,7 @@ export function CompanyFormDialog({ open, onOpenChange, company }: CompanyFormDi
         stamp_url: company.stamp_url ?? '',
       })
     } else if (open) {
-      form.reset()
+      form.reset({ name_en: '', name_ar: '', cr_number: '', vat_id: '', default_currency: 'QAR', default_tax_rate: '0', address_en: '', address_ar: '', logo_url: '', stamp_url: '' })
     }
   }, [open, company, form])
 

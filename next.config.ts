@@ -28,10 +28,6 @@ const nextConfig: NextConfig = {
     ],
   },
 
-  // Skip ESLint during next build (we run lint separately). Saves ~5–15s per build.
-  eslint: {
-    ignoreDuringBuilds: true,
-  },
 };
 
 export default nextConfig;

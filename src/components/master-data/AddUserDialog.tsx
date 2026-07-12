@@ -6,7 +6,7 @@ import { zodResolver } from '@hookform/resolvers/zod'
 import { z } from 'zod'
 import { toast } from 'sonner'
 import { useQuery } from '@tanstack/react-query'
-import { Users2, Headphones } from 'lucide-react'
+import { Users2 } from 'lucide-react'
 import {
   Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter,
 } from '@/components/ui/dialog'
@@ -223,48 +223,7 @@ export function AddUserDialog({ open, onOpenChange }: Props) {
               </div>
             </section>
 
-            {/* ─── Contact Centre ─────────────────────────────────────── */}
-            <section className="rounded-xl border bg-card overflow-hidden shadow-sm">
-              <header className="flex items-center gap-2 px-3.5 py-2 border-b bg-muted/40">
-                <Headphones className="h-3.5 w-3.5 text-muted-foreground" />
-                <span className="text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">
-                  Contact Centre
-                </span>
-              </header>
-              <div className="divide-y divide-border">
-                <div className="flex items-center justify-between px-3.5 py-3 gap-3">
-                  <div className="min-w-0">
-                    <Label htmlFor="add-user-cc-access" className="text-sm font-medium">Contact Centre Access</Label>
-                    <p className="text-xs text-muted-foreground mt-0.5">
-                      Grants access to WhatsApp inbox + live 3CX call panel
-                    </p>
-                  </div>
-                  <Switch id="add-user-cc-access" checked={hasCcAccess} onCheckedChange={setHasCcAccess} />
-                </div>
-                {hasCcAccess && (
-                  <div className="px-3.5 py-3 bg-muted/30 space-y-1.5">
-                    <Label htmlFor="add-user-extension" className="text-xs">3CX Extension</Label>
-                    <Input
-                      id="add-user-extension"
-                      value={extension}
-                      onChange={(e) => {
-                        setExtension(e.target.value)
-                        if (extensionError) setExtensionError(null)
-                      }}
-                      placeholder="e.g. 101"
-                      inputMode="numeric"
-                      maxLength={8}
-                      className="h-9 max-w-[200px] font-mono tabular-nums"
-                    />
-                    {extensionError ? (
-                      <p className="text-xs text-destructive">{extensionError}</p>
-                    ) : (
-                      <p className="text-xs text-muted-foreground">2–8 digits. Must be unique across users.</p>
-                    )}
-                  </div>
-                )}
-              </div>
-            </section>
+            {/* Contact Centre section hidden — module not yet launched */}
 
             {!isTl && (
             <div>

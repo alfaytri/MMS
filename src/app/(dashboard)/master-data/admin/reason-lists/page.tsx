@@ -133,7 +133,7 @@ export default function ReasonListsPage() {
         active: editing.active ?? true,
       })
     } else if (dialogOpen) {
-      form.reset()
+      form.reset({ category: '', label: '', sort_order: 0, active: true })
     }
   }, [dialogOpen, editing, form])
 

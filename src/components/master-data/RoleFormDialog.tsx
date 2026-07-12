@@ -211,7 +211,7 @@ export function RoleFormDialog({ open, onOpenChange, role }: RoleFormDialogProps
       })
       setExpandedIds(new Set())
     } else if (open) {
-      form.reset()
+      form.reset({ name: '', description: '', permissions: [], is_approval_slot: false, is_field_rp: false, is_inventory_receiver: false })
       setExpandedIds(new Set())
     }
   }, [open, role, form])

@@ -114,7 +114,7 @@ export function SupplierFormDialog({ open, onOpenChange, supplier }: SupplierFor
       })
     } else if (open) {
       setCountryCode('+974')
-      form.reset()
+      form.reset({ name: '', category: '', supplier_type: 'local' as const, currency_id: '', country: '', contact_name: '', phone: '', email: '', address: '', notes: '' })
     }
   }, [open, supplier, form])
 
