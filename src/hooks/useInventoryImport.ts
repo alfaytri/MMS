@@ -7,13 +7,17 @@
 // Hierarchy: Category Path > Item Name > Brand (variant). Two rows sharing
 // Category Path + Item Name but a different Brand are two brand-variants of
 // the same item.
+//
+// Safety: All three inventory tables have unique expression indexes
+// (lower(trim(...))) so duplicates are impossible at the DB level. The
+// pipeline uses insert + 23505 conflict detection → select fallback, making
+// retries completely safe.
 
 import { useMutation, useQueryClient } from '@tanstack/react-query'
 import { createClient } from '@/lib/supabase/client'
 import { queryKeys } from '@/lib/queryKeys'
 import type { ValidatedRow, ImportType } from '@/lib/inventory-import'
 import { getCategoryPathSegments, buildItemKey, buildVariantKey } from '@/lib/inventory-import'
-import type { DBInsert } from '@/types/database.types'
 
 // ─── Types ──────────────────────────────────────────────────────────────────
 
@@ -40,29 +44,30 @@ type CategoryRow = {
 
 // ─── Shared helpers ─────────────────────────────────────────────────────────
 
-/** Capitalizes only the first character; leaves the rest of the string untouched. */
 function capitalizeFirst(name: string): string {
   const trimmed = name.trim()
   if (!trimmed) return trimmed
   return trimmed.charAt(0).toUpperCase() + trimmed.slice(1)
 }
 
-/**
- * Walks the parent_id chain for a category and returns its full path in
- * original casing, e.g. "Electrical > Switches". Guards against cycles.
- */
 function buildCategoryPath(categoryId: string, catById: Map<string, CategoryRow>): string {
   const segments: string[] = []
   const seen = new Set<string>()
   let current = catById.get(categoryId)
   while (current) {
-    if (seen.has(current.id)) break // cycle guard — should never happen, but never trust prod data
+    if (seen.has(current.id)) break
     seen.add(current.id)
     segments.unshift(current.name_en)
     current = current.parent_id ? catById.get(current.parent_id) : undefined
   }
   return segments.join(' > ')
 }
+
+function isUniqueViolation(error: { code?: string; message?: string } | null): boolean {
+  return error?.code === '23505'
+}
+
+const BATCH_SIZE = 50
 
 // ─── useInventoryImport — runs the actual import ───────────────────────────
 
@@ -98,16 +103,13 @@ export function useInventoryImport() {
         childrenByParent.get(key)!.push(c)
       }
 
-      // type-scoped lowercase path -> category id (e.g. "products::electrical > switches")
       const pathToId = new Map<string, string>()
       for (const c of catById.values()) {
         const path = buildCategoryPath(c.id, catById).toLowerCase()
         pathToId.set(`${c.type.toLowerCase()}::${path}`, c.id)
       }
 
-      // ─── Step 2: Resolve/create categories ──────────────────────────────
-      // One entry per unique category path (preserve original casing + the
-      // row it first appeared on, for error reporting, + its declared type).
+      // ─── Step 2: Resolve/create categories (sequential — parent→child) ──
       const uniquePaths = new Map<string, { originalPath: string; type: string; firstRow: number }>()
       for (const row of validRows) {
         const key = `${row.type.toLowerCase()}::${row.categoryPath.trim().toLowerCase()}`
@@ -116,7 +118,6 @@ export function useInventoryImport() {
         }
       }
 
-      // type-scoped full path (lowercase) -> leaf category id, used by Step 3
       const resolvedPathToId = new Map<string, string>()
 
       for (const [fullPathKey, { originalPath, type, firstRow }] of uniquePaths) {
@@ -137,8 +138,6 @@ export function useInventoryImport() {
           let catId: string | undefined = pathToId.get(typePathKey)
 
           if (!catId) {
-            // Not seen at this exact path yet — check for a same-named sibling
-            // under the same parent (case-insensitive) before creating new.
             const siblings: CategoryRow[] = childrenByParent.get(parentId ?? '__root__') ?? []
             const existing: CategoryRow | undefined = siblings.find(
               (s: CategoryRow) => s.name_en.trim().toLowerCase() === segment.toLowerCase() && s.type.toLowerCase() === typeLower
@@ -148,37 +147,60 @@ export function useInventoryImport() {
               catId = existing.id
               pathToId.set(typePathKey, catId)
             } else {
-              const insertPayload: DBInsert<'inventory_categories'> = {
-                name_en: capitalizeFirst(segment),
-                type: type as ImportType,
-                parent_id: parentId,
-                status: 'active',
-                sort_order: 0,
-              }
               const { data: newCat, error: insErr } = await supabase
                 .from('inventory_categories')
-                .insert(insertPayload)
+                .insert({
+                  name_en: capitalizeFirst(segment),
+                  type: type as ImportType,
+                  parent_id: parentId,
+                  status: 'active',
+                  sort_order: 0,
+                })
                 .select('id, name_en, parent_id, type')
                 .single()
 
-              if (insErr || !newCat) {
-                errors.push({
-                  row: firstRow,
-                  message: `Failed to create category "${originalPath}": ${insErr?.message ?? 'unknown error'}`,
-                })
-                failed = true
-                break
+              if (insErr) {
+                if (isUniqueViolation(insErr)) {
+                  // Already exists (race or retry) — find and use it
+                  const query = supabase
+                    .from('inventory_categories')
+                    .select('id, name_en, parent_id, type')
+                    .ilike('name_en', capitalizeFirst(segment))
+                    .eq('type', type)
+
+                  const { data: foundCat } = parentId
+                    ? await query.eq('parent_id', parentId).maybeSingle()
+                    : await query.is('parent_id', null).maybeSingle()
+
+                  if (foundCat) {
+                    catId = foundCat.id
+                    const catRow = foundCat as CategoryRow
+                    catById.set(catRow.id, catRow)
+                    const pKey = parentId ?? '__root__'
+                    if (!childrenByParent.has(pKey)) childrenByParent.set(pKey, [])
+                    childrenByParent.get(pKey)!.push(catRow)
+                    pathToId.set(typePathKey, catId)
+                  } else {
+                    errors.push({ row: firstRow, message: `Category "${originalPath}" conflict but could not find existing row.` })
+                    failed = true
+                    break
+                  }
+                } else {
+                  errors.push({ row: firstRow, message: `Failed to create category "${originalPath}": ${insErr.message}` })
+                  failed = true
+                  break
+                }
+              } else if (newCat) {
+                catId = newCat.id
+                categoriesCreated++
+
+                const newCatRow: CategoryRow = newCat as CategoryRow
+                catById.set(newCatRow.id, newCatRow)
+                const pKey = parentId ?? '__root__'
+                if (!childrenByParent.has(pKey)) childrenByParent.set(pKey, [])
+                childrenByParent.get(pKey)!.push(newCatRow)
+                pathToId.set(typePathKey, catId)
               }
-
-              catId = newCat.id
-              categoriesCreated++
-
-              const newCatRow: CategoryRow = newCat as CategoryRow
-              catById.set(newCatRow.id, newCatRow)
-              const key = parentId ?? '__root__'
-              if (!childrenByParent.has(key)) childrenByParent.set(key, [])
-              childrenByParent.get(key)!.push(newCatRow)
-              pathToId.set(typePathKey, catId)
             }
           }
 
@@ -196,13 +218,11 @@ export function useInventoryImport() {
         .select('id, name_en, category_id')
       if (itemFetchErr) throw itemFetchErr
 
-      // `${categoryId}||${itemNameLower}` -> item id
       const itemMap = new Map<string, string>()
       for (const it of (existingItems ?? []) as { id: string; name_en: string; category_id: string }[]) {
         itemMap.set(`${it.category_id}||${it.name_en.trim().toLowerCase()}`, it.id)
       }
 
-      // One entry per unique (categoryPath, itemName) combo.
       type ItemGroupInfo = { type: string; categoryPath: string; itemName: string; itemNameAr: string; unit: string; rowIndex: number }
       const itemGroups = new Map<string, ItemGroupInfo>()
       for (const row of validRows) {
@@ -219,8 +239,11 @@ export function useInventoryImport() {
         }
       }
 
-      // buildItemKey(...) -> resolved item id (only for groups that resolved successfully)
       const resolvedItemId = new Map<string, string>()
+
+      // Separate already-existing items from pending ones
+      type PendingItem = { itemKey: string; info: ItemGroupInfo; categoryId: string }
+      const pendingItems: PendingItem[] = []
 
       for (const [itemKey, info] of itemGroups) {
         const categoryId = resolvedPathToId.get(`${info.type.toLowerCase()}::${info.categoryPath.trim().toLowerCase()}`)
@@ -233,57 +256,121 @@ export function useInventoryImport() {
         }
 
         const itemMapKey = `${categoryId}||${info.itemName.trim().toLowerCase()}`
-        let itemId = itemMap.get(itemMapKey)
+        const existingId = itemMap.get(itemMapKey)
 
-        if (!itemId) {
-          const insertPayload: DBInsert<'inventory_items'> = {
-            name_en: info.itemName,
-            name_ar: info.itemNameAr || null,
-            sku: info.itemName,
-            unit: info.unit,
-            category_id: categoryId,
-            status: 'active',
-            sort_order: 0,
-          }
-          const { data: newItem, error: itemErr } = await supabase
-            .from('inventory_items')
-            .insert(insertPayload)
-            .select('id')
-            .single()
-
-          if (itemErr || !newItem) {
-            errors.push({
-              row: info.rowIndex,
-              message: `Failed to create item "${info.itemName}": ${itemErr?.message ?? 'unknown error'}`,
-            })
-            continue
-          }
-
-          itemId = newItem.id
-          itemsCreated++
-          itemMap.set(itemMapKey, itemId)
+        if (existingId) {
+          resolvedItemId.set(itemKey, existingId)
+        } else {
+          pendingItems.push({ itemKey, info, categoryId })
         }
-
-        resolvedItemId.set(itemKey, itemId)
       }
 
-      // ─── Step 4: Create brand variants ──────────────────────────────────
+      // Batch insert items — on unique violation, fall back to row-by-row
+      for (let i = 0; i < pendingItems.length; i += BATCH_SIZE) {
+        const batch = pendingItems.slice(i, i + BATCH_SIZE)
+        const payloads = batch.map((p) => ({
+          name_en: p.info.itemName,
+          name_ar: p.info.itemNameAr || null,
+          sku: p.info.itemName,
+          unit: p.info.unit,
+          category_id: p.categoryId,
+          status: 'active' as const,
+          sort_order: 0,
+        }))
+
+        const { data: inserted, error: batchErr } = await supabase
+          .from('inventory_items')
+          .insert(payloads)
+          .select('id, name_en, category_id')
+
+        if (batchErr) {
+          if (isUniqueViolation(batchErr)) {
+            // Batch had a conflict — process one-by-one
+            for (const p of batch) {
+              const mapKey = `${p.categoryId}||${p.info.itemName.trim().toLowerCase()}`
+              if (itemMap.has(mapKey)) {
+                resolvedItemId.set(p.itemKey, itemMap.get(mapKey)!)
+                continue
+              }
+
+              const { data: single, error: singleErr } = await supabase
+                .from('inventory_items')
+                .insert({
+                  name_en: p.info.itemName,
+                  name_ar: p.info.itemNameAr || null,
+                  sku: p.info.itemName,
+                  unit: p.info.unit,
+                  category_id: p.categoryId,
+                  status: 'active',
+                  sort_order: 0,
+                })
+                .select('id')
+                .single()
+
+              if (singleErr && isUniqueViolation(singleErr)) {
+                const { data: found } = await supabase
+                  .from('inventory_items')
+                  .select('id')
+                  .eq('category_id', p.categoryId)
+                  .ilike('name_en', p.info.itemName)
+                  .maybeSingle()
+                if (found) {
+                  itemMap.set(mapKey, found.id)
+                  resolvedItemId.set(p.itemKey, found.id)
+                } else {
+                  errors.push({ row: p.info.rowIndex, message: `Item "${p.info.itemName}" conflict but could not find existing row.` })
+                }
+              } else if (singleErr) {
+                errors.push({ row: p.info.rowIndex, message: `Failed to create item "${p.info.itemName}": ${singleErr.message}` })
+              } else if (single) {
+                itemMap.set(mapKey, single.id)
+                resolvedItemId.set(p.itemKey, single.id)
+                itemsCreated++
+              }
+            }
+          } else {
+            for (const p of batch) {
+              errors.push({ row: p.info.rowIndex, message: `Failed to create item "${p.info.itemName}": ${batchErr.message}` })
+            }
+          }
+          continue
+        }
+
+        // Batch succeeded — map all returned rows
+        for (const row of (inserted ?? []) as { id: string; name_en: string; category_id: string }[]) {
+          const mapKey = `${row.category_id}||${row.name_en.trim().toLowerCase()}`
+          itemMap.set(mapKey, row.id)
+        }
+        for (const p of batch) {
+          const mapKey = `${p.categoryId}||${p.info.itemName.trim().toLowerCase()}`
+          const itemId = itemMap.get(mapKey)
+          if (itemId) {
+            resolvedItemId.set(p.itemKey, itemId)
+            itemsCreated++
+          } else {
+            errors.push({ row: p.info.rowIndex, message: `Item "${p.info.itemName}" was not returned after insert.` })
+          }
+        }
+      }
+
+      // ─── Step 4: Create brand variants (batched) ────────────────────────
       const { data: existingVariants, error: variantFetchErr } = await supabase
         .from('inventory_brand_variants')
         .select('id, item_id, brand')
       if (variantFetchErr) throw variantFetchErr
 
-      // `${itemId}||${brandLower}`
       const variantSet = new Set<string>()
       for (const v of (existingVariants ?? []) as { id: string; item_id: string; brand: string }[]) {
         variantSet.add(`${v.item_id}||${v.brand.trim().toLowerCase()}`)
       }
 
+      type PendingVariant = { row: ValidatedRow; itemId: string }
+      const pendingVariants: PendingVariant[] = []
+
       for (const row of validRows) {
         const itemKey = buildItemKey(row.type, row.categoryPath, row.itemName)
         const itemId = resolvedItemId.get(itemKey)
         if (!itemId) {
-          // Category/item resolution already failed and was reported above.
           skipped++
           continue
         }
@@ -294,34 +381,73 @@ export function useInventoryImport() {
           continue
         }
 
-        const insertPayload: DBInsert<'inventory_brand_variants'> = {
-          item_id: itemId,
-          brand: row.brand,
-          cost_price: row.costPrice,
-          selling_price: row.sellingPrice,
-          average_cost: row.costPrice,
-          stock_level: 0,
-          status: 'active',
-          sort_order: 0,
-        }
-        const { error: variantErr } = await supabase.from('inventory_brand_variants').insert(insertPayload)
+        variantSet.add(variantMapKey)
+        pendingVariants.push({ row, itemId })
+      }
 
-        if (variantErr) {
-          errors.push({
-            row: row.rowIndex,
-            message: `Failed to create brand variant "${row.brand}": ${variantErr.message}`,
-          })
+      // Batch insert variants — on unique violation, fall back to row-by-row
+      for (let i = 0; i < pendingVariants.length; i += BATCH_SIZE) {
+        const batch = pendingVariants.slice(i, i + BATCH_SIZE)
+        const payloads = batch.map((p) => ({
+          item_id: p.itemId,
+          brand: p.row.brand,
+          cost_price: p.row.costPrice,
+          selling_price: p.row.sellingPrice,
+          average_cost: p.row.costPrice,
+          stock_level: 0,
+          status: 'active' as const,
+          sort_order: 0,
+        }))
+
+        const { data: inserted, error: batchErr } = await supabase
+          .from('inventory_brand_variants')
+          .insert(payloads)
+          .select('id')
+
+        if (batchErr) {
+          if (isUniqueViolation(batchErr)) {
+            for (const p of batch) {
+              const vKey = `${p.itemId}||${p.row.brand.trim().toLowerCase()}`
+              if (variantSet.has(vKey)) {
+                skipped++
+                continue
+              }
+
+              const { error: singleErr } = await supabase
+                .from('inventory_brand_variants')
+                .insert({
+                  item_id: p.itemId,
+                  brand: p.row.brand,
+                  cost_price: p.row.costPrice,
+                  selling_price: p.row.sellingPrice,
+                  average_cost: p.row.costPrice,
+                  stock_level: 0,
+                  status: 'active',
+                  sort_order: 0,
+                })
+
+              if (singleErr && isUniqueViolation(singleErr)) {
+                skipped++
+              } else if (singleErr) {
+                errors.push({ row: p.row.rowIndex, message: `Failed to create variant "${p.row.brand}": ${singleErr.message}` })
+              } else {
+                variantsCreated++
+              }
+            }
+          } else {
+            for (const p of batch) {
+              errors.push({ row: p.row.rowIndex, message: `Failed to create variant "${p.row.brand}": ${batchErr.message}` })
+            }
+          }
           continue
         }
 
-        variantSet.add(variantMapKey)
-        variantsCreated++
+        variantsCreated += (inserted ?? []).length
       }
 
       return { categoriesCreated, itemsCreated, variantsCreated, skipped, errors }
     },
     onSuccess: () => {
-      // Bulk import touches all three inventory tables — invalidate broadly
       queryClient.invalidateQueries({ queryKey: queryKeys.inventory.categories })
       queryClient.invalidateQueries({ queryKey: queryKeys.inventory.categoriesTree })
       queryClient.invalidateQueries({ queryKey: queryKeys.inventory.categoriesAllFlat })
@@ -340,14 +466,6 @@ export function useInventoryImport() {
 
 // ─── useExistingInventoryLookup — data for buildPreview() ──────────────────
 
-/**
- * Fetches existing categories/items/brand-variants and returns them as Sets
- * keyed exactly like buildPreview() (from inventory-import.ts) expects, so
- * the preview diff counts match what useInventoryImport() will actually do.
- *
- * Exposed as a mutation (rather than a query) because it's triggered on
- * demand right before showing the preview, not kept live in the cache.
- */
 export function useExistingInventoryLookup() {
   return useMutation<ExistingInventoryLookup, Error, void>({
     mutationFn: async () => {
