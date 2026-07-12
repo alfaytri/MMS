@@ -19,8 +19,8 @@ import {
   useProfiles, useCurrentUserProfile, useCreateMyProfile, type Profile,
 } from '@/hooks/useProfiles'
 
-import { ACTIVE_PERMISSION_GROUPS as PERMISSION_GROUPS, ALL_PERMISSIONS, groupKeys, roleColor } from '@/lib/permissions'
-import { PermissionTree, TOTAL_TREE_PERMISSIONS } from '@/components/master-data/PermissionTree'
+import { roleColor } from '@/lib/permissions'
+import { PermissionTree, NAV_TREE, TOTAL_TREE_PERMISSIONS, countPerms, collectPermKeys } from '@/components/master-data/PermissionTree'
 import { PermissionGate } from '@/components/shared/PermissionGate'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { Badge } from '@/components/ui/badge'
@@ -51,12 +51,12 @@ function RoleCard({ role, onEdit, onDelete }: { role: CustomRole; onEdit: () => 
   const colorClass = ROLE_COLOR_CLASSES[color] ?? ROLE_COLOR_CLASSES.blue
 
   const coverageChips = useMemo(() =>
-    PERMISSION_GROUPS
-      .map((g) => {
-        const all = groupKeys(g)
+    NAV_TREE
+      .map((node) => {
+        const all = collectPermKeys([node])
         const assigned = all.filter((k) => permissions.includes(k)).length
         if (assigned === 0) return null
-        return { module: g.module, assigned, total: all.length }
+        return { module: node.label, assigned, total: countPerms(node) }
       })
       .filter(Boolean) as Array<{ module: string; assigned: number; total: number }>,
     [permissions]
@@ -105,7 +105,7 @@ function RoleCard({ role, onEdit, onDelete }: { role: CustomRole; onEdit: () => 
 
       {/* Total count */}
       <p className="text-xs text-muted-foreground mt-auto">
-        {permissions.length} / {ALL_PERMISSIONS.length} permissions
+        {permissions.length} / {TOTAL_TREE_PERMISSIONS} permissions
       </p>
 
       {/* Capability badges row */}
