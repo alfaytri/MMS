@@ -1,8 +1,4 @@
-# See https://help.github.com/articles/ignoring-files/ for more about ignoring files.
-
-# Local issue tracking
-/Issues/
-# dependencies
+# ── Dependencies ──────────────────────────────────────────
 /node_modules
 /.pnp
 .pnp.*
@@ -12,69 +8,66 @@
 !.yarn/releases
 !.yarn/versions
 
-# testing
-/coverage
-
-# next.js
+# ── Build & output ───────────────────────────────────────
 /.next/
 /out/
-
-# production
 /build
+*.tsbuildinfo
+next-env.d.ts
 
-# misc
-.DS_Store
+# ── Environment & secrets ────────────────────────────────
+.env*
 *.pem
 
-# debug
+# ── Testing ──────────────────────────────────────────────
+/coverage
+
+# ── Debug logs ───────────────────────────────────────────
 npm-debug.log*
 yarn-debug.log*
 yarn-error.log*
 .pnpm-debug.log*
 
-# env files (can opt-in for committing if needed)
-.env*
+# ── OS / editor ──────────────────────────────────────────
+.DS_Store
 
-# vercel
+# ── Vercel ───────────────────────────────────────────────
 .vercel
 
-# typescript
-*.tsbuildinfo
-next-env.d.ts
+# ── Supabase CLI ─────────────────────────────────────────
+supabase/.temp/
 
-# git worktrees
+# ── Dev tooling & AI artifacts ───────────────────────────
+/.agents/
+/skills-lock.json
 .claude/worktrees/
 .claude/settings.local.json
-
-# Supabase CLI
-supabase/.temp/
 .playwright-mcp/
-
-# AI planning artifacts (plans, specs, notes generated during development)
 /docs/superpowers/
 
-# Local planning & reference docs (not application code)
+# ── Local data & generated caches ────────────────────────
+/graphify-out/
+/inventory-warehouse-wise/
+
+# ── Local docs & planning (not app code) ─────────────────
+/Issues/
 /Ideas/
+/EOD
 /Old Schema/
+/docs/Design
+/docs/Specification and Tables/
+/docs/Meeting_Script_IT_Company.md
+DEMO-PREP.md
+
+# ── Office files (except test-case workbooks) ────────────
 *.xlsx
 !/docs/test-cases/*.xlsx
 *.docx
 *.pdf
-DEMO-PREP.md
-/docs/Specification and Tables/
-/docs/Meeting_Script_IT_Company.md
 
-# One-time / maintenance scripts (not application code)
+# ── One-time / maintenance scripts ───────────────────────
 /scripts/*
 !/scripts/build_final_schema.mjs
 !/scripts/build_test_workbook.mjs
 !/scripts/test-cases/
 temp_*.sql
-
-# Dev tooling
-/.agents/
-/skills-lock.json
-
-/EOD
-
-/docs/Design
