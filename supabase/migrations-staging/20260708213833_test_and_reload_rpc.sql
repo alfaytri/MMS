@@ -1,0 +1,1 @@
+-- Neutralized: test scaffolding removed.

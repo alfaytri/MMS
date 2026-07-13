@@ -1,0 +1,3 @@
+-- Neutralized: "Cash Customers" group is no longer used.
+-- Cash/credit is driven by customer_type column, not a credit group.
+-- See 20260709120000_remove_cash_customers_group.sql.
