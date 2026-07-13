@@ -299,7 +299,7 @@ export default function UsersRolesPage() {
               className="gap-2 px-4 py-1.5 data-active:bg-primary data-active:text-primary-foreground data-active:shadow-sm"
             >
               Permissions
-              <span className="inline-flex h-4 min-w-5 items-center justify-center rounded-full border border-border bg-white px-1.5 text-[10px] font-semibold text-foreground tabular-nums">
+              <span className="inline-flex h-4 min-w-5 items-center justify-center rounded-full border border-border bg-white px-1.5 text-[10px] font-semibold text-gray-900 tabular-nums">
                 {permCount}
               </span>
             </TabsTrigger>
@@ -308,7 +308,7 @@ export default function UsersRolesPage() {
               className="gap-2 px-4 py-1.5 data-active:bg-primary data-active:text-primary-foreground data-active:shadow-sm"
             >
               Roles
-              <span className="inline-flex h-4 min-w-5 items-center justify-center rounded-full border border-border bg-white px-1.5 text-[10px] font-semibold text-foreground tabular-nums">
+              <span className="inline-flex h-4 min-w-5 items-center justify-center rounded-full border border-border bg-white px-1.5 text-[10px] font-semibold text-gray-900 tabular-nums">
                 {rolesCount}
               </span>
             </TabsTrigger>
@@ -317,7 +317,7 @@ export default function UsersRolesPage() {
               className="gap-2 px-4 py-1.5 data-active:bg-primary data-active:text-primary-foreground data-active:shadow-sm"
             >
               Users
-              <span className="inline-flex h-4 min-w-5 items-center justify-center rounded-full border border-border bg-white px-1.5 text-[10px] font-semibold text-foreground tabular-nums">
+              <span className="inline-flex h-4 min-w-5 items-center justify-center rounded-full border border-border bg-white px-1.5 text-[10px] font-semibold text-gray-900 tabular-nums">
                 {usersCount}
               </span>
             </TabsTrigger>

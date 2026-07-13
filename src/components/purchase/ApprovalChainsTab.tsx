@@ -35,6 +35,18 @@ const EMPTY_FORM: TierForm = { rank: '', min_amount: '', max_amount: '', roles: 
 
 const FALLBACK_ROLE_COLOR = 'bg-muted text-muted-foreground border-border'
 
+function formatAmountDisplay(raw: string): string {
+  const digits = raw.replace(/[^0-9.]/g, '')
+  if (!digits) return ''
+  const [whole, dec] = digits.split('.')
+  const formatted = Number(whole).toLocaleString('en-US')
+  return dec !== undefined ? `${formatted}.${dec}` : formatted
+}
+
+function stripCommas(v: string): string {
+  return v.replace(/,/g, '')
+}
+
 export function ApprovalChainsTab() {
   const { data: chains = [], isLoading } = useApprovalChains()
   const { data: isAdmin } = useIsAdmin()
@@ -300,16 +312,18 @@ export function ApprovalChainsTab() {
                           <TableCell>
                             <Input
                               className="h-8 w-28 text-xs"
-                              value={editingTier!.form.min_amount}
-                              onChange={(e) => setEditingTier((s) => s ? { ...s, form: { ...s.form, min_amount: e.target.value } } : s)}
+                              inputMode="decimal"
+                              value={formatAmountDisplay(editingTier!.form.min_amount)}
+                              onChange={(e) => setEditingTier((s) => s ? { ...s, form: { ...s.form, min_amount: stripCommas(e.target.value) } } : s)}
                             />
                           </TableCell>
                           <TableCell>
                             <Input
                               className="h-8 w-28 text-xs"
+                              inputMode="decimal"
                               placeholder="∞"
-                              value={editingTier!.form.max_amount}
-                              onChange={(e) => setEditingTier((s) => s ? { ...s, form: { ...s.form, max_amount: e.target.value } } : s)}
+                              value={formatAmountDisplay(editingTier!.form.max_amount)}
+                              onChange={(e) => setEditingTier((s) => s ? { ...s, form: { ...s.form, max_amount: stripCommas(e.target.value) } } : s)}
                             />
                           </TableCell>
                           <TableCell>
@@ -596,6 +610,7 @@ function NewTierCard({
           placeholder="0"
           value={form.min_amount}
           onChange={(v) => patch('min_amount', v)}
+          formatCommas
         />
         <FieldWithIcon
           id="tier-max"
@@ -604,6 +619,7 @@ function NewTierCard({
           placeholder="Leave empty for ∞"
           value={form.max_amount}
           onChange={(v) => patch('max_amount', v)}
+          formatCommas
         />
       </div>
 
@@ -639,7 +655,7 @@ function NewTierCard({
 }
 
 function FieldWithIcon({
-  id, label, icon, placeholder, value, onChange,
+  id, label, icon, placeholder, value, onChange, formatCommas,
 }: {
   id: string
   label: string
@@ -647,6 +663,7 @@ function FieldWithIcon({
   placeholder: string
   value: string
   onChange: (v: string) => void
+  formatCommas?: boolean
 }) {
   return (
     <div className="space-y-1">
@@ -661,8 +678,8 @@ function FieldWithIcon({
         id={id}
         inputMode="decimal"
         placeholder={placeholder}
-        value={value}
-        onChange={(e) => onChange(e.target.value)}
+        value={formatCommas ? formatAmountDisplay(value) : value}
+        onChange={(e) => onChange(formatCommas ? stripCommas(e.target.value) : e.target.value)}
         className="h-9"
       />
     </div>
