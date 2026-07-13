@@ -30,6 +30,7 @@ export async function POST(request: Request) {
   // If current_password is provided, verify it before proceeding.
   // The forced-change flow (admin reset) skips this check.
   if (current_password) {
+    if (!gate.email) return NextResponse.json({ error: 'Cannot verify password — no email on account' }, { status: 400 })
     const { error: signInErr } = await supabase.auth.signInWithPassword({
       email: gate.email,
       password: current_password,

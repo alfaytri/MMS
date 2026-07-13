@@ -521,6 +521,9 @@ export const queryKeys = {
 
   /* ── Supplier Payments ────────────────────────────────── */
   supplierPayments: {
+    all: ['supplier-payments'] as const,
+    available: (supplierId: Nullable) =>
+      ['supplier-payments-available', supplierId] as const,
     unlinkedOutgoing: (supplierId?: Nullable) =>
       ['unlinked-outgoing-payments', supplierId ?? null] as const,
   },

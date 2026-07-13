@@ -7,6 +7,7 @@ import { queryKeys } from '@/lib/queryKeys'
 type PermissionsResult = {
   permissions: string[]
   isSystemAdmin: boolean
+  roles: string[]
 }
 
 export function usePermissions() {
@@ -16,7 +17,7 @@ export function usePermissions() {
     queryFn: async () => {
       const supabase = createClient()
       const { data: { user } } = await supabase.auth.getUser()
-      if (!user) return { permissions: [], isSystemAdmin: false }
+      if (!user) return { permissions: [], isSystemAdmin: false, roles: [] }
 
       const bootstrapEmail = process.env.NEXT_PUBLIC_ADMIN_BOOTSTRAP_EMAIL?.trim().toLowerCase()
       const callerEmail = user.email?.trim().toLowerCase() ?? null
@@ -25,13 +26,13 @@ export function usePermissions() {
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       const { data: profile } = await supabase
         .from('profiles')
-        .select('user_custom_roles!user_custom_roles_profile_id_fkey(custom_roles(is_system, permissions))')
+        .select('user_custom_roles!user_custom_roles_profile_id_fkey(custom_roles(name, is_system, permissions))')
         .eq('auth_user_id', user.id)
         .maybeSingle()
-      if (!profile) return { permissions: [], isSystemAdmin: isBootstrap }
+      if (!profile) return { permissions: [], isSystemAdmin: isBootstrap, roles: [] }
 
       const roles = (profile.user_custom_roles ?? []) as Array<{
-        custom_roles: { is_system: boolean; permissions: string[] } | null
+        custom_roles: { name: string; is_system: boolean; permissions: string[] } | null
       }>
 
       const permissions = roles.flatMap((r) => r.custom_roles?.permissions ?? [])
@@ -42,7 +43,9 @@ export function usePermissions() {
         roles.some((r) => r.custom_roles?.is_system === true) ||
         permissions.includes('system.admin')
 
-      return { permissions, isSystemAdmin }
+      const roleNames = roles.map((r) => r.custom_roles?.name).filter(Boolean) as string[]
+
+      return { permissions, isSystemAdmin, roles: roleNames }
     },
   })
 }
