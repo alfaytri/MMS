@@ -247,14 +247,15 @@ export function useRequestReceivalEdit() {
       const { data: admins } = await supabase
         .from('profiles').select('id').eq('user_type', 'internal')
       const notifications = (admins ?? []).map((a: { id: string }) => ({
-        user_id: a.id,
+        profile_id: a.id,
         title: 'Receival Edit Requested',
         body: `A receival edit was requested: ${reason}`,
         type: 'receival_edit_request',
-        reference_id: data.id,
+        related_id: data.id,
+        related_type: 'receival_edit_request',
       }))
       if (notifications.length > 0) {
-        await supabase.from('notifications').insert(notifications as unknown as import('@/types/database.types').DBInsert<'notifications'>[])
+        await supabase.from('notifications').insert(notifications)
       }
 
       return data as ReceivalEditRequest
@@ -299,14 +300,15 @@ export function useApproveReceivalEdit() {
       // Notify the requestor (requested_by comes from the update select above)
       if (data?.requested_by) {
         await supabase.from('notifications').insert({
-          user_id: data.requested_by,
+          profile_id: data.requested_by,
           title: action === 'approved' ? 'Edit Request Approved' : 'Edit Request Rejected',
           body: action === 'approved'
             ? 'Your receival edit was approved. You have 48 hours to save your changes.'
             : `Your receival edit was rejected. ${rejection_note ?? ''}`,
           type: 'receival_edit_response',
-          reference_id: request_id,
-        } as unknown as import('@/types/database.types').DBInsert<'notifications'>)
+          related_id: request_id,
+          related_type: 'receival_edit_request',
+        })
       }
 
       return data as ReceivalEditRequest

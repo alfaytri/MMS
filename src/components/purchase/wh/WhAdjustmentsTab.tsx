@@ -112,8 +112,23 @@ export const WhAdjustmentsTab = React.memo(function WhAdjustmentsTab({ warehouse
       const supabase = createClient()
       const { error } = await supabase.from('stock_adjustments').update({ status: 'rejected' }).eq('id', id)
       if (error) throw error
+      return id
     },
-    onSuccess: () => qc.invalidateQueries({ queryKey: queryKeys.warehouseOps.stockAdjustments }),
+    onSuccess: async (id) => {
+      qc.invalidateQueries({ queryKey: queryKeys.warehouseOps.stockAdjustments })
+      const supabase = createClient()
+      const { data: adj } = await supabase.from('stock_adjustments').select('requested_by').eq('id', id).single()
+      if (adj?.requested_by) {
+        await supabase.from('notifications').insert({
+          profile_id: adj.requested_by,
+          type: 'stock_adj_rejected',
+          title: 'Stock adjustment has been rejected',
+          related_id: id,
+          related_type: 'stock_adjustment',
+        })
+        qc.invalidateQueries({ queryKey: queryKeys.notifications.all })
+      }
+    },
   })
 
   function canApprove(adj: StockAdjustmentRow) {

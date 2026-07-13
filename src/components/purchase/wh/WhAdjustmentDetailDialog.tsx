@@ -120,6 +120,7 @@ export function WhAdjustmentDetailDialog({ adjustment, currentProfile, warehouse
     try {
       await action.mutateAsync({
         stepId,
+        adjustmentId: adjustment!.id,
         action: verdict,
         profileId: currentProfile.id,
         profileName: currentProfile.full_name ?? 'Reviewer',

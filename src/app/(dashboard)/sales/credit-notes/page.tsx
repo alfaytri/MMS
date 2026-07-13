@@ -113,7 +113,7 @@ export default function CreditNotesPage() {
                 returnNumber={note.return_number ?? '—'}
               />
             )}
-            {(note.status === 'issued' || note.status === 'approved') && (
+            {(note.status === 'issued' || note.status === 'approved') && !note.resolution_type && (
               <Button variant="outline" size="sm" onClick={() => setApplyTarget(note)}>
                 Apply
               </Button>

@@ -22,7 +22,6 @@ const NOTIFICATION_ROUTES: Record<string, NotificationMeta> = {
   po_edit_request_declined: { route: '/purchase/approvals', actionable: false, icon: 'po' },
 
   // ── Sales Approvals ──────────────────────────────────────────
-  so_approval_requested:    { route: '/sales/approvals', actionable: true, icon: 'so' },
   so_approved:              { route: '/sales/approvals', actionable: false, icon: 'so' },
   so_rejected:              { route: '/sales/approvals', actionable: false, icon: 'so' },
 

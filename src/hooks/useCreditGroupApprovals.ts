@@ -13,6 +13,7 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { createClient } from '@/lib/supabase/client'
 import { queryKeys } from '@/lib/queryKeys'
+import { sendNotifications, getApprovalScopeRecipients } from '@/lib/notify'
 
 export type CreditGroupApprovalRow = {
   id:              string
@@ -163,11 +164,25 @@ export function useSubmitCreditGroupChange() {
       if (error) throw new Error(error.message)
       return data as { request_id: string; step_count: number; status: 'pending' | 'approved' }
     },
-    onSuccess: (_data, variables) => {
+    onSuccess: async (data, variables) => {
       qc.invalidateQueries({ queryKey: queryKeys.creditGroupApprovals.pending })
       qc.invalidateQueries({ queryKey: queryKeys.creditGroupApprovals.byCustomer(variables.customerId) })
       qc.invalidateQueries({ queryKey: ['customer-credit-summary'] })
       qc.invalidateQueries({ queryKey: ['customers'] })
+
+      if (data.status === 'pending') {
+        const recipients = await getApprovalScopeRecipients('credit_group')
+        if (recipients.length > 0) {
+          await sendNotifications(recipients.map(pid => ({
+            profile_id: pid,
+            type: 'credit_group_pending',
+            title: 'Credit group change requires approval',
+            related_id: data.request_id,
+            related_type: 'credit_group_request',
+          })))
+          qc.invalidateQueries({ queryKey: queryKeys.notifications.all })
+        }
+      }
     },
   })
 }
@@ -175,19 +190,37 @@ export function useSubmitCreditGroupChange() {
 export function useApproveCreditGroupChange() {
   const qc = useQueryClient()
   return useMutation({
-    mutationFn: async ({ approvalId, comment }: { approvalId: string; comment: string }) => {
+    mutationFn: async ({ approvalId, requestId, comment }: { approvalId: string; requestId: string; comment: string }) => {
       const supabase = createClient()
       const { error } = await supabase.rpc('approve_credit_group_change', {
         p_approval_id: approvalId,
         p_comment:     comment || undefined,
       })
       if (error) throw new Error(error.message)
+      return requestId
     },
-    onSuccess: () => {
+    onSuccess: async (requestId) => {
       qc.invalidateQueries({ queryKey: queryKeys.creditGroupApprovals.all })
       qc.invalidateQueries({ queryKey: queryKeys.creditGroupApprovals.byCustomerAll })
       qc.invalidateQueries({ queryKey: ['customer-credit-summary'] })
       qc.invalidateQueries({ queryKey: ['customers'] })
+
+      const supabase = createClient()
+      const { data: req } = await supabase
+        .from('customer_credit_group_requests')
+        .select('status, requested_by')
+        .eq('id', requestId)
+        .single()
+      if (req?.status === 'approved' && req.requested_by) {
+        await sendNotifications([{
+          profile_id: req.requested_by,
+          type: 'credit_group_approved',
+          title: 'Credit group change has been approved',
+          related_id: requestId,
+          related_type: 'credit_group_request',
+        }])
+        qc.invalidateQueries({ queryKey: queryKeys.notifications.all })
+      }
     },
   })
 }
@@ -195,17 +228,35 @@ export function useApproveCreditGroupChange() {
 export function useRejectCreditGroupChange() {
   const qc = useQueryClient()
   return useMutation({
-    mutationFn: async ({ approvalId, reason }: { approvalId: string; reason: string }) => {
+    mutationFn: async ({ approvalId, requestId, reason }: { approvalId: string; requestId: string; reason: string }) => {
       const supabase = createClient()
       const { error } = await supabase.rpc('reject_credit_group_change', {
         p_approval_id: approvalId,
         p_reason:      reason,
       })
       if (error) throw new Error(error.message)
+      return requestId
     },
-    onSuccess: () => {
+    onSuccess: async (requestId) => {
       qc.invalidateQueries({ queryKey: queryKeys.creditGroupApprovals.all })
       qc.invalidateQueries({ queryKey: queryKeys.creditGroupApprovals.byCustomerAll })
+
+      const supabase = createClient()
+      const { data: req } = await supabase
+        .from('customer_credit_group_requests')
+        .select('requested_by')
+        .eq('id', requestId)
+        .single()
+      if (req?.requested_by) {
+        await sendNotifications([{
+          profile_id: req.requested_by,
+          type: 'credit_group_rejected',
+          title: 'Credit group change has been rejected',
+          related_id: requestId,
+          related_type: 'credit_group_request',
+        }])
+        qc.invalidateQueries({ queryKey: queryKeys.notifications.all })
+      }
     },
   })
 }
@@ -220,13 +271,30 @@ export function useForceApproveCreditGroupChange() {
         p_comment:    comment?.trim() ? comment : undefined,
       })
       if (error) throw new Error(error.message)
-      return data
+      return { data, requestId }
     },
-    onSuccess: () => {
+    onSuccess: async ({ requestId }) => {
       qc.invalidateQueries({ queryKey: queryKeys.creditGroupApprovals.all })
       qc.invalidateQueries({ queryKey: queryKeys.creditGroupApprovals.byCustomerAll })
       qc.invalidateQueries({ queryKey: ['customer-credit-summary'] })
       qc.invalidateQueries({ queryKey: ['customers'] })
+
+      const supabase = createClient()
+      const { data: req } = await supabase
+        .from('customer_credit_group_requests')
+        .select('requested_by')
+        .eq('id', requestId)
+        .single()
+      if (req?.requested_by) {
+        await sendNotifications([{
+          profile_id: req.requested_by,
+          type: 'credit_group_approved',
+          title: 'Credit group change has been force-approved',
+          related_id: requestId,
+          related_type: 'credit_group_request',
+        }])
+        qc.invalidateQueries({ queryKey: queryKeys.notifications.all })
+      }
     },
   })
 }

@@ -193,13 +193,6 @@ export const PERMISSION_GROUPS: PermissionGroup[] = [
         ],
       },
       {
-        label: 'RFQ',
-        permissions: [
-          { key: 'purchase.rfq.view',   label: 'View RFQs',   description: 'Access request for quotation records' },
-          { key: 'purchase.rfq.manage', label: 'Manage RFQs', description: 'Create and manage requests for quotations' },
-        ],
-      },
-      {
         label: 'Dead Stock Report',
         permissions: [
           { key: 'purchase.dead_stock.view', label: 'View Dead Stock Report', description: 'Access the dead stock and slow-moving inventory report' },
@@ -216,13 +209,6 @@ export const PERMISSION_GROUPS: PermissionGroup[] = [
         label: 'Debit Notes',
         permissions: [
           { key: 'purchase.debit_notes.view', label: 'View Debit Notes', description: 'Access the purchase debit notes page' },
-        ],
-      },
-      {
-        label: 'Supplier Payments',
-        permissions: [
-          { key: 'purchase.payments.view',   label: 'View Purchase Payments',   description: 'Access purchase payment records' },
-          { key: 'purchase.payments.manage', label: 'Manage Purchase Payments', description: 'Create and manage purchase payment transactions' },
         ],
       },
       {

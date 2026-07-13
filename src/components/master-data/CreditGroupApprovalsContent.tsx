@@ -121,7 +121,7 @@ export function CreditGroupApprovalsContent() {
   function handleApprove() {
     if (!dialogState) return
     approve.mutate(
-      { approvalId: dialogState.step.id, comment },
+      { approvalId: dialogState.step.id, requestId: dialogState.request.id, comment },
       {
         onSuccess: () => { toast.success('Step approved'); setDialogState(null) },
         onError:   (e) => toast.error(e.message),
@@ -133,7 +133,7 @@ export function CreditGroupApprovalsContent() {
     if (!dialogState) return
     if (!comment.trim()) { toast.error('A reason is required to reject'); return }
     reject.mutate(
-      { approvalId: dialogState.step.id, reason: comment },
+      { approvalId: dialogState.step.id, requestId: dialogState.request.id, reason: comment },
       {
         onSuccess: () => {
           toast.success('Request rejected — customer keeps previous group')
@@ -148,7 +148,7 @@ export function CreditGroupApprovalsContent() {
     forceApprove.mutate(
       { requestId: request.id },
       {
-        onSuccess: (count) => {
+        onSuccess: ({ data: count }) => {
           toast.success(
             count > 1
               ? `Force-approved ${count} remaining steps`

@@ -309,7 +309,10 @@ export const queryKeys = {
     reminderCategories: ['reminder_categories'] as const,
     reminders: ['reminders'] as const,
     unreadCount: ['notifications', 'unread-count'] as const,
+    pendingCount: ['notifications', 'pending-count'] as const,
     recent: ['notifications', 'recent'] as const,
+    pending: ['notifications', 'pending'] as const,
+    completed: ['notifications', 'completed'] as const,
   },
 
   /* ── Orders ───────────────────────────────────────────── */
@@ -412,12 +415,6 @@ export const queryKeys = {
     canCreateInventoryReceival: ['can-create-inventory-receival'] as const,
   },
 
-  /* ── RFQs ─────────────────────────────────────────────── */
-  rfqs: {
-    all: ['rfqs'] as const,
-    list: (filters: unknown) => ['rfqs', filters] as const,
-    detail: (id: Nullable) => ['rfq', id] as const,
-  },
 
   /* ── Roles ────────────────────────────────────────────── */
   roles: {
@@ -524,10 +521,6 @@ export const queryKeys = {
 
   /* ── Supplier Payments ────────────────────────────────── */
   supplierPayments: {
-    all: ['supplier-payments'] as const,
-    byBill: (billId?: Nullable) => ['supplier-payments', billId] as const,
-    available: (supplierId: Nullable) =>
-      ['supplier-payments-available', supplierId] as const,
     unlinkedOutgoing: (supplierId?: Nullable) =>
       ['unlinked-outgoing-payments', supplierId ?? null] as const,
   },

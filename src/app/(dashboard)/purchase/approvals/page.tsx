@@ -2,7 +2,7 @@
 
 import { useState } from 'react'
 import { toast } from 'sonner'
-import { ShieldAlert } from 'lucide-react'
+import { ShieldAlert, Eye } from 'lucide-react'
 import { PageHeader } from '@/components/shared/PageHeader'
 import { PageWrapper } from '@/components/shared/PageWrapper'
 import { PoStatusBadge } from '@/components/purchase/PoStatusBadge'
@@ -59,6 +59,7 @@ export default function ApprovalsPage() {
   const [rejectMode, setRejectMode] = useState<'full_rejection' | 'send_back_to_draft'>('full_rejection')
   const [showRejectOptions, setShowRejectOptions] = useState(false)
   const [showPrevIterations, setShowPrevIterations] = useState<Record<string, boolean>>({})
+  const [viewPO, setViewPO] = useState<PurchaseOrder | null>(null)
 
   const { data: pending, isLoading: pendingLoading } = usePendingApprovals()
   const { data: completed, isLoading: completedLoading } = useCompletedApprovals()
@@ -238,11 +239,12 @@ export default function ApprovalsPage() {
                   <TableHead>Status</TableHead>
                   <TableHead className="text-right">Total</TableHead>
                   <TableHead className="hidden sm:table-cell">Approvals</TableHead>
+                  <TableHead className="w-[70px]" />
                 </TableRow>
               </TableHeader>
               <TableBody>
                 {(completed ?? []).length === 0 ? (
-                  <TableRow><TableCell colSpan={5} className="p-0"><EmptyState title="No pending approvals" /></TableCell></TableRow>
+                  <TableRow><TableCell colSpan={6} className="p-0"><EmptyState title="No completed approvals" /></TableCell></TableRow>
                 ) : (
                   (completed ?? []).map((po) => {
                     const allSteps = po.po_approvals ?? []
@@ -255,6 +257,11 @@ export default function ApprovalsPage() {
                         <TableCell className="text-right font-medium">{formatCurrency(po.total_qar, 'QAR')}</TableCell>
                         <TableCell className="hidden sm:table-cell">
                           <PoApprovalChain steps={allSteps} showIteration={maxIteration} />
+                        </TableCell>
+                        <TableCell>
+                          <Button size="sm" variant="ghost" className="h-8 gap-1 px-2" onClick={() => setViewPO(po)}>
+                            <Eye className="h-3.5 w-3.5" /> View
+                          </Button>
                         </TableCell>
                       </TableRow>
                     )
@@ -414,6 +421,144 @@ export default function ApprovalsPage() {
               </DialogFooter>
             </>
           )}
+        </DialogContent>
+      </Dialog>
+
+      {/* View completed PO approval details */}
+      <Dialog open={!!viewPO} onOpenChange={(o) => { if (!o) setViewPO(null) }}>
+        <DialogContent className="w-full max-w-full h-full sm:h-auto sm:max-h-[90vh] rounded-none sm:max-w-2xl sm:rounded-lg flex flex-col p-0">
+          {viewPO && (() => {
+            const allSteps = viewPO.po_approvals ?? []
+            const maxIteration = Math.max(...allSteps.map((s: any) => s.iteration ?? 1), 1)
+            const currentSteps = [...(allSteps as any[])].filter((s) => (s.iteration ?? 1) === maxIteration)
+              .sort((a, b) => (a.tier_rank ?? 0) - (b.tier_rank ?? 0))
+            const anyRejected = currentSteps.some((s: any) => s.status === 'rejected')
+
+            return (
+              <>
+                <DialogHeader className="px-6 pt-6 pb-2 shrink-0">
+                  <DialogTitle>Approval Details · {viewPO.po_number}</DialogTitle>
+                </DialogHeader>
+                <div className="space-y-4 px-6 pb-2 overflow-y-auto flex-1">
+                  <div className="rounded-md border bg-muted/30 p-3 space-y-2 text-sm">
+                    <div className="flex justify-between">
+                      <span className="text-muted-foreground">Supplier</span>
+                      <span className="font-medium">{viewPO.supplier_name}</span>
+                    </div>
+                    <div className="flex justify-between">
+                      <span className="text-muted-foreground">Total (QAR)</span>
+                      <span className="font-semibold">{formatCurrency(viewPO.total_qar, 'QAR')}</span>
+                    </div>
+                    <div className="flex justify-between">
+                      <span className="text-muted-foreground">Status</span>
+                      <PoStatusBadge status={viewPO.status} />
+                    </div>
+                  </div>
+
+                  {(viewPO.po_line_items ?? []).length > 0 && (
+                    <div className="rounded-md border overflow-x-auto">
+                      <Table>
+                        <TableHeader>
+                          <TableRow>
+                            <TableHead>Item</TableHead>
+                            <TableHead className="text-right">Qty</TableHead>
+                            <TableHead className="text-right">Total</TableHead>
+                          </TableRow>
+                        </TableHeader>
+                        <TableBody>
+                          {(viewPO.po_line_items ?? []).map((li: any) => (
+                            <TableRow key={li.id}>
+                              <TableCell className="text-sm">{li.item_name}</TableCell>
+                              <TableCell className="text-right text-sm">{li.qty}</TableCell>
+                              <TableCell className="text-right text-sm font-medium">{formatCurrency(li.total_price, viewPO.currency)}</TableCell>
+                            </TableRow>
+                          ))}
+                        </TableBody>
+                      </Table>
+                    </div>
+                  )}
+
+                  <div className="flex items-center gap-2">
+                    <span className="text-sm text-muted-foreground">Chain:</span>
+                    <PoApprovalChain steps={allSteps} showIteration={maxIteration} />
+                  </div>
+
+                  <div className="space-y-1">
+                    <div className="text-xs font-medium mb-2">Approval Timeline</div>
+                    {currentSteps.map((step: any) => {
+                      const wasActuallyDecided = !!step.approved_by
+                      const isRejected = step.status === 'rejected' && wasActuallyDecided
+                      const isApproved = step.status === 'approved'
+                      const isNotReached = !isRejected && !isApproved
+                      return (
+                        <div key={step.id} className={`flex items-start gap-3 rounded-md border p-2.5 ${isNotReached ? 'opacity-60' : ''}`}>
+                          <div className={`mt-0.5 flex h-6 w-6 shrink-0 items-center justify-center rounded-full text-xs font-bold ${
+                            isApproved ? 'bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400' :
+                            isRejected ? 'bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400' :
+                            'bg-muted text-muted-foreground'
+                          }`}>
+                            {isApproved ? '✓' : isRejected ? '✕' : '—'}
+                          </div>
+                          <div className="min-w-0 flex-1 space-y-0.5">
+                            <div className="flex items-center justify-between gap-2">
+                              <span className="text-sm font-medium">
+                                {ROLE_LABELS[step.role] ?? step.role}
+                                {step.force_approved && (
+                                  <span className="ml-1.5 text-[10px] text-amber-600 font-normal">(Force)</span>
+                                )}
+                              </span>
+                              <Badge variant="outline" className={`text-[10px] ${
+                                isApproved ? 'border-green-300 text-green-700 dark:text-green-400' :
+                                isRejected ? 'border-red-300 text-red-700 dark:text-red-400' :
+                                ''
+                              }`}>
+                                {isApproved ? 'Approved' : isRejected ? 'Rejected' : 'Not reached'}
+                              </Badge>
+                            </div>
+                            {isRejected && step.approved_by && (
+                              <p className="text-xs text-muted-foreground">
+                                Rejected by {step.approved_by}
+                                {step.date && <> · {formatDate(step.date)}</>}
+                              </p>
+                            )}
+                            {isApproved && step.approved_by && (
+                              <p className="text-xs text-muted-foreground">
+                                Approved by {step.approved_by}
+                                {step.date && <> · {formatDate(step.date)}</>}
+                              </p>
+                            )}
+                            {isNotReached && (
+                              <p className="text-xs text-muted-foreground">
+                                Skipped — chain ended before this step
+                              </p>
+                            )}
+                            {step.comment && wasActuallyDecided && (
+                              <div className={`mt-1 rounded px-2 py-1 text-xs italic ${
+                                isRejected
+                                  ? 'bg-red-50 text-red-800 dark:bg-red-900/20 dark:text-red-300'
+                                  : 'bg-muted text-muted-foreground'
+                              }`}>
+                                &ldquo;{step.comment}&rdquo;
+                              </div>
+                            )}
+                            {step.force_comment && (
+                              <div className="mt-1 rounded px-2 py-1 text-xs italic bg-amber-50 text-amber-800 dark:bg-amber-900/20 dark:text-amber-300">
+                                Force reason: &ldquo;{step.force_comment}&rdquo;
+                              </div>
+                            )}
+                          </div>
+                        </div>
+                      )
+                    })}
+                  </div>
+                </div>
+
+                <DialogFooter className="px-6 pb-6 pt-2 border-t shrink-0">
+                  <Button variant="outline" onClick={() => setViewPO(null)}>Close</Button>
+                </DialogFooter>
+              </>
+            )
+          })()}
         </DialogContent>
       </Dialog>
     </PageWrapper>

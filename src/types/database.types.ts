@@ -3734,6 +3734,7 @@ export type Database = {
       }
       notifications: {
         Row: {
+          actioned_at: string | null
           body: string | null
           created_at: string | null
           id: string
@@ -3745,6 +3746,7 @@ export type Database = {
           type: string
         }
         Insert: {
+          actioned_at?: string | null
           body?: string | null
           created_at?: string | null
           id?: string
@@ -3756,6 +3758,7 @@ export type Database = {
           type: string
         }
         Update: {
+          actioned_at?: string | null
           body?: string | null
           created_at?: string | null
           id?: string
