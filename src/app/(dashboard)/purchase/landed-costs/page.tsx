@@ -32,7 +32,7 @@ import { formatCurrency, formatDate } from '@/lib/utils/formatters'
 import {
   useLandedCosts, useCreateLandedCost, useVoidLandedCost, useApplyLandedCost,
   useRevertLandedCost, useValidateLcAllocation, useBillSignedUrls, useLcUsedReceivalMap,
-  type LandedCost, type LandedCostLine,
+  type LandedCost, type LandedCostLineInput,
 } from '@/hooks/useLandedCosts'
 import {
   useReceivalsForLcSelector, useReceivalItemsWithFifo, useReceivalItemsBatch,
@@ -636,7 +636,7 @@ function CreateLcDialog({ open, onOpenChange }: { open: boolean; onOpenChange: (
   const [description, setDescription] = useState('')
   const [date, setDate] = useState('')
   const [currency, setCurrency] = useState('QAR')
-  const [lines, setLines] = useState<LandedCostLine[]>([{ description: '', amount: 0, currency: 'QAR', exchange_rate: 1 }])
+  const [lines, setLines] = useState<LandedCostLineInput[]>([{ description: '', amount: 0, currency: 'QAR', exchange_rate: 1 }])
   const [selectedReceivalIds, setSelectedReceivalIds] = useState<string[]>([])
   const [receivalSearch, setReceivalSearch] = useState('')
   const [expandedReceivalId, setExpandedReceivalId] = useState<string | null>(null)
@@ -675,7 +675,7 @@ function CreateLcDialog({ open, onOpenChange }: { open: boolean; onOpenChange: (
 
   function addLine() { setLines((l) => [...l, { description: '', amount: 0, currency: 'QAR', exchange_rate: 1 }]) }
   function removeLine(i: number) { setLines((l) => l.filter((_, idx) => idx !== i)) }
-  function updateLine(i: number, k: keyof LandedCostLine, v: string | number) {
+  function updateLine(i: number, k: keyof LandedCostLineInput, v: string | number) {
     setLines((l) => l.map((line, idx) => {
       if (idx !== i) return line
       const updated = { ...line, [k]: v }

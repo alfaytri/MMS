@@ -4,26 +4,36 @@ import { queryKeys } from '@/lib/queryKeys'
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
-export type LandedCostLine = {
+export type LandedCostLineInput = {
   description: string
   amount: number
   currency: string
-  exchange_rate: number   // default 1; used for non-QAR lines
+  exchange_rate: number
   bill_path?: string | null
 }
 
+export type LandedCostLine = LandedCostLineInput & {
+  id: string
+  landed_cost_id: string
+  created_at: string | null
+}
+
 export type LandedCostItemAllocation = {
-  brand_variant_id: string
+  id: string
+  landed_cost_id: string
+  brand_variant_id: string | null
   item_name: string
   sku: string | null
   qty_received: number
   qty_remaining_at_lc: number
+  sold_qty: number
   original_unit_cost: number
   lc_per_unit: number
   allocated_lc_total: number
-  // Legacy alias returned by RPC (allocated LC per received unit)
-  allocated_cost: number
+  inventory_portion: number
+  cogs_portion: number
   updated_unit_cost: number
+  created_at: string | null
 }
 
 export type LandedCost = {
@@ -50,7 +60,7 @@ export type CreateLandedCostPayload = {
   description?: string | null
   date: string
   currency: string
-  lines: LandedCostLine[]
+  lines: LandedCostLineInput[]
   attached_receival_ids: string[]
   attached_po_ids: string[]
 }

@@ -59,7 +59,7 @@ export default function SaleReturnsPage() {
   const [customReason, setCustomReason] = useState('')
   const [notes, setNotes] = useState('')
   const [warehouseId, setWarehouseId] = useState('')
-  const [items, setItems] = useState<(NonNullable<SaleReturn['return_lines']>[number] & { delivered_qty?: number })[]>([])
+  const [items, setItems] = useState<{ item_name: string; sku: string | null; qty: number; condition: 'good' | 'damaged'; brand_variant_id: string | null; condition_notes?: string | null; delivered_qty?: number }[]>([])
 
   const { data: returns, isLoading } = useSaleReturns({ search, status: statusFilter || undefined })
   const { data: saleOrders } = useSaleOrders({ statuses: ['delivered', 'partial_delivery'] })
