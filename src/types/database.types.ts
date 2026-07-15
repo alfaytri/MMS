@@ -2714,7 +2714,7 @@ export type Database = {
           notes: string | null
           profile_id: string | null
           profile_name: string | null
-          status: string
+          status: "pending" | "approved" | "rejected"
           step_label: string
           step_order: number
           step_role: string
@@ -2727,7 +2727,7 @@ export type Database = {
           notes?: string | null
           profile_id?: string | null
           profile_name?: string | null
-          status?: string
+          status?: "pending" | "approved" | "rejected"
           step_label: string
           step_order: number
           step_role: string
@@ -2740,7 +2740,7 @@ export type Database = {
           notes?: string | null
           profile_id?: string | null
           profile_name?: string | null
-          status?: string
+          status?: "pending" | "approved" | "rejected"
           step_label?: string
           step_order?: number
           step_role?: string
@@ -2772,7 +2772,7 @@ export type Database = {
           profile_id: string
           profile_name: string
           started_at: string | null
-          status: string
+          status: "pending" | "in_progress" | "completed"
           updated_at: string
         }
         Insert: {
@@ -2784,7 +2784,7 @@ export type Database = {
           profile_id: string
           profile_name: string
           started_at?: string | null
-          status?: string
+          status?: "pending" | "in_progress" | "completed"
           updated_at?: string
         }
         Update: {
@@ -2796,7 +2796,7 @@ export type Database = {
           profile_id?: string
           profile_name?: string
           started_at?: string | null
-          status?: string
+          status?: "pending" | "in_progress" | "completed"
           updated_at?: string
         }
         Relationships: [
@@ -2970,7 +2970,7 @@ export type Database = {
           reviewed_by: string | null
           reviewed_by_name: string | null
           started_at: string | null
-          status: string
+          status: "draft" | "in_progress" | "submitted" | "reviewed" | "pending_approval" | "approved" | "rejected" | "completed"
           submitted_at: string | null
           submitted_by: string | null
           submitted_by_name: string | null
@@ -2991,7 +2991,7 @@ export type Database = {
           reviewed_by?: string | null
           reviewed_by_name?: string | null
           started_at?: string | null
-          status?: string
+          status?: "draft" | "in_progress" | "submitted" | "reviewed" | "pending_approval" | "approved" | "rejected" | "completed"
           submitted_at?: string | null
           submitted_by?: string | null
           submitted_by_name?: string | null
@@ -3012,7 +3012,7 @@ export type Database = {
           reviewed_by?: string | null
           reviewed_by_name?: string | null
           started_at?: string | null
-          status?: string
+          status?: "draft" | "in_progress" | "submitted" | "reviewed" | "pending_approval" | "approved" | "rejected" | "completed"
           submitted_at?: string | null
           submitted_by?: string | null
           submitted_by_name?: string | null
@@ -8105,7 +8105,7 @@ export type Database = {
           reason: string
           requested_by: string | null
           requested_by_name: string | null
-          status: string
+          status: "pending_approval" | "approved" | "rejected"
           updated_at: string
           warehouse_id: string
         }
@@ -8125,7 +8125,7 @@ export type Database = {
           reason: string
           requested_by?: string | null
           requested_by_name?: string | null
-          status?: string
+          status?: "pending_approval" | "approved" | "rejected"
           updated_at?: string
           warehouse_id: string
         }
@@ -8145,7 +8145,7 @@ export type Database = {
           reason?: string
           requested_by?: string | null
           requested_by_name?: string | null
-          status?: string
+          status?: "pending_approval" | "approved" | "rejected"
           updated_at?: string
           warehouse_id?: string
         }
