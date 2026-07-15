@@ -247,6 +247,7 @@ Purchase & Sales▾:
 
 
 
+
 ## 🔋 Quota Watch
 
 > Track Supabase Realtime + Egress monthly usage after each remediation phase.
@@ -261,6 +262,7 @@ Purchase & Sales▾:
 
 ## ✅ Completed
 
+- [2026-07-15] **CHECK Constraints on Status Columns** — 3 migrations (`20260715230000_add_status_check_constraints.sql`, `20260715231000_fix_inventory_checks_status_add_submitted.sql`, `20260715232000_fix_status_checks_complete_values.sql`), `src/types/database.types.ts` — Added CHECK constraints to 8 text status columns (inventory_brand_variants, inventory_categories, inventory_items, inventory_checks, inventory_check_approvals, inventory_check_assignments, stock_adjustments, payment_sessions). Updated TypeScript union types to match. Applied to both production and staging.
 - [2026-07-15] **DB Schema Audit & Fix** — 4 migrations (`20260715180000_fix_create_confirm_delivery_rpc.sql`, `20260715190000_add_missing_fk_indexes.sql`, `20260715200000_add_fk_constraints_and_cleanup.sql`, `20260715220000_invoice_type_direction_enums.sql`), 5 app code fixes (`useSaleOrders.ts`, `SoDetailDialog.tsx`, `sales/returns/page.tsx`, `WhMovementRefDialog.tsx`, `database.types.ts`), `docs/db-schema-issues.json` — Fixed critical stale RPC (create_and_confirm_delivery), 4 stale app code refs, added 13 FK indexes, 6 FK constraints, dropped orphan column, converted invoice_type+direction to enums. 25 issues resolved total (FIXED-016 through FIXED-025).
 - [2026-07-15] **Schema Normalization** — 2 migrations (`20260715160000_normalize_remaining_json_columns.sql`, `20260715170000_update_rpcs_for_normalized_tables.sql`) — Normalized 5 remaining JSONB columns (returns.items, sale_deliveries.items, tl_invoices.items, landed_costs.lines/item_allocations) into proper line-item tables. Updated 8 RPCs, dropped 1 dead RPC.
 - [2026-07-12] **Operational Dashboard** — `src/app/(dashboard)/page.tsx` (full rewrite), `src/hooks/useDashboardStats.ts` (new), `src/lib/queryKeys.ts` (dashboard key) — Operational KPI cards (Open POs, Open SOs, Pending Approvals, Receivals This Week, Upcoming Deliveries) for all users; financial section (Receivables, Payables, Cash In/Out, monthly trend chart, overdue tables) gated to Owner/Accountant roles via `isSuperViewer`.
