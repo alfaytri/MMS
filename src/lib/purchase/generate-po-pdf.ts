@@ -268,6 +268,20 @@ export async function generatePoPdf(
 
 // ── Snapshot renderer ─────────────────────────────────────────────────────
 
+interface PoVersionLineRow {
+  item_name:          string
+  sku:                string | null
+  qty:                number
+  received_qty:       number
+  unit:               string
+  unit_price:         number
+  total_price:        number
+  brand_variant_id:   string | null
+  tool_asset_item_id: string | null
+  free_qty:           number
+  brand_id:           string | null
+}
+
 interface PoVersionRow {
   supplier_id:          string | null
   supplier_name:        string
@@ -277,7 +291,7 @@ interface PoVersionRow {
   payment_terms:        string | null
   delivery_terms:       string | null
   expected_delivery:    string | null
-  line_items:           PoLineItem[] | null
+  po_version_lines:     PoVersionLineRow[]
   stage:                'rfq' | 'draft' | 'po'
   version_number:       number
 }
@@ -313,7 +327,7 @@ async function renderSnapshotPdf(
     .from('po_versions')
     .select(`
       supplier_id, supplier_name, currency, subtotal, discount_amount,
-      payment_terms, delivery_terms, expected_delivery, line_items, stage, version_number
+      payment_terms, delivery_terms, expected_delivery, po_version_lines(*), stage, version_number
     `)
     .eq('po_id', poUuid)
     .eq('stage', stage)
@@ -342,7 +356,19 @@ async function renderSnapshotPdf(
     rfqNumber = rfq?.rfq_number ?? null
   }
 
-  const lines = snap.line_items ?? []
+  const lines: PoLineItem[] = (snap.po_version_lines ?? []).map((l) => ({
+    item_name:          l.item_name,
+    sku:                l.sku,
+    qty:                l.qty,
+    received_qty:       l.received_qty,
+    unit:               l.unit,
+    unit_price:         l.unit_price,
+    total_price:        l.total_price,
+    brand_variant_id:   l.brand_variant_id,
+    tool_asset_item_id: l.tool_asset_item_id,
+    free_qty:           l.free_qty,
+    brand_id:           l.brand_id,
+  }))
   const subtotal        = Number(snap.subtotal        ?? 0)
   const discountAmount  = Number(snap.discount_amount ?? 0)
   const totalQar        = Math.max(0, subtotal - discountAmount)

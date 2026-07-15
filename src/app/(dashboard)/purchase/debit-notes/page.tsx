@@ -105,7 +105,7 @@ export default function DebitNotesPage() {
       id: 'actions',
       cell: ({ row }) => {
         const note = row.original
-        if (!note.line_items) return null
+        if (!note.credit_note_lines?.length) return null
         return (
           <CreditDebitNoteDownloadButton
             note={note}

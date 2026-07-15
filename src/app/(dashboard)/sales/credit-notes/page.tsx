@@ -106,7 +106,7 @@ export default function CreditNotesPage() {
         const note = row.original
         return (
           <div className="flex items-center gap-2">
-            {note.line_items && (
+            {(note.credit_note_lines?.length ?? 0) > 0 && (
               <CreditDebitNoteDownloadButton
                 note={note}
                 referenceNumber={note.invoice_display ?? note.invoice_id ?? '—'}

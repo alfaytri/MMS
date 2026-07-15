@@ -185,7 +185,6 @@ async function createCreditNoteForReturn(
   const newTotal = originalTotal - cnTotal
 
   const credit_note_id = await nextNoteId('credit')
-  const pdfData = { original_lines: originalLines, returned_lines: returnedLines }
 
   const { data: cn, error: cnErr } = await supabase
     .from('credit_notes')
@@ -201,11 +200,35 @@ async function createCreditNoteForReturn(
       total_amount:     cnTotal,
       original_total:   originalTotal,
       new_total:        newTotal,
-      line_items:       pdfData,
     })
     .select('id')
     .single()
   if (cnErr) throw cnErr
+
+  const lineRows = [
+    ...originalLines.map((l) => ({
+      credit_note_id: cn.id,
+      description:    l.item_name,
+      sku:            l.sku ?? null,
+      qty:            l.qty,
+      unit_price:     l.unit_price,
+      line_type:      'original' as const,
+    })),
+    ...returnedLines.map((l) => ({
+      credit_note_id: cn.id,
+      description:    l.item_name,
+      sku:            l.sku ?? null,
+      qty:            l.qty,
+      unit_price:     l.unit_price,
+      line_type:      'returned' as const,
+    })),
+  ]
+  if (lineRows.length > 0) {
+    const { error: linesErr } = await supabase
+      .from('credit_note_lines' as any)
+      .insert(lineRows)
+    if (linesErr) throw linesErr
+  }
 
   // 6. Link return → credit note
   await supabase

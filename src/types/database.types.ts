@@ -604,6 +604,7 @@ export type Database = {
           qty: number
           sale_delivery_id: string | null
           sale_order_id: string | null
+          source_type: string
           total_cost: number
           unit_cost: number
         }
@@ -617,6 +618,7 @@ export type Database = {
           qty: number
           sale_delivery_id?: string | null
           sale_order_id?: string | null
+          source_type?: string
           total_cost: number
           unit_cost: number
         }
@@ -630,6 +632,7 @@ export type Database = {
           qty?: number
           sale_delivery_id?: string | null
           sale_order_id?: string | null
+          source_type?: string
           total_cost?: number
           unit_cost?: number
         }
@@ -1352,32 +1355,44 @@ export type Database = {
       }
       credit_note_lines: {
         Row: {
+          condition: string | null
+          condition_notes: string | null
           created_at: string | null
           credit_note_id: string
-          description: string
+          description: string | null
           id: string
           invoice_line_id: string | null
+          line_type: string
           qty: number
+          sku: string | null
           total: number | null
           unit_price: number
         }
         Insert: {
+          condition?: string | null
+          condition_notes?: string | null
           created_at?: string | null
           credit_note_id: string
-          description: string
+          description?: string | null
           id?: string
           invoice_line_id?: string | null
+          line_type?: string
           qty: number
+          sku?: string | null
           total?: number | null
           unit_price: number
         }
         Update: {
+          condition?: string | null
+          condition_notes?: string | null
           created_at?: string | null
           credit_note_id?: string
-          description?: string
+          description?: string | null
           id?: string
           invoice_line_id?: string | null
+          line_type?: string
           qty?: number
+          sku?: string | null
           total?: number | null
           unit_price?: number
         }
@@ -1407,7 +1422,6 @@ export type Database = {
           customer_name: string | null
           id: string
           invoice_id: string | null
-          line_items: Json | null
           new_total: number | null
           note_type: string
           notes: string | null
@@ -1434,7 +1448,6 @@ export type Database = {
           customer_name?: string | null
           id?: string
           invoice_id?: string | null
-          line_items?: Json | null
           new_total?: number | null
           note_type?: string
           notes?: string | null
@@ -1461,7 +1474,6 @@ export type Database = {
           customer_name?: string | null
           id?: string
           invoice_id?: string | null
-          line_items?: Json | null
           new_total?: number | null
           note_type?: string
           notes?: string | null
@@ -2324,6 +2336,13 @@ export type Database = {
             columns: ["brand_variant_id"]
             isOneToOne: false
             referencedRelation: "inventory_brand_variants"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "fifo_cost_layers_receival_id_fkey"
+            columns: ["receival_id"]
+            isOneToOne: false
+            referencedRelation: "receivals"
             referencedColumns: ["id"]
           },
           {
@@ -3251,7 +3270,7 @@ export type Database = {
           discount_amount: number
           discount_label: string | null
           division: string | null
-          doc_status: string
+          doc_status: Database["public"]["Enums"]["invoice_doc_status"]
           due_date: string
           id: string
           invoice_id: string
@@ -3261,7 +3280,7 @@ export type Database = {
           needs_refresh: boolean
           notes: string | null
           paid_amount: number | null
-          payment_status: string
+          payment_status: Database["public"]["Enums"]["invoice_payment_status"]
           pdf_url: string | null
           phone_id: string | null
           purchase_order_id: string | null
@@ -3289,7 +3308,7 @@ export type Database = {
           discount_amount?: number
           discount_label?: string | null
           division?: string | null
-          doc_status?: string
+          doc_status?: Database["public"]["Enums"]["invoice_doc_status"]
           due_date: string
           id?: string
           invoice_id: string
@@ -3299,7 +3318,7 @@ export type Database = {
           needs_refresh?: boolean
           notes?: string | null
           paid_amount?: number | null
-          payment_status?: string
+          payment_status?: Database["public"]["Enums"]["invoice_payment_status"]
           pdf_url?: string | null
           phone_id?: string | null
           purchase_order_id?: string | null
@@ -3327,7 +3346,7 @@ export type Database = {
           discount_amount?: number
           discount_label?: string | null
           division?: string | null
-          doc_status?: string
+          doc_status?: Database["public"]["Enums"]["invoice_doc_status"]
           due_date?: string
           id?: string
           invoice_id?: string
@@ -3337,7 +3356,7 @@ export type Database = {
           needs_refresh?: boolean
           notes?: string | null
           paid_amount?: number | null
-          payment_status?: string
+          payment_status?: Database["public"]["Enums"]["invoice_payment_status"]
           pdf_url?: string | null
           phone_id?: string | null
           purchase_order_id?: string | null
@@ -5084,6 +5103,65 @@ export type Database = {
           },
         ]
       }
+      po_version_lines: {
+        Row: {
+          brand_id: string | null
+          brand_variant_id: string | null
+          created_at: string | null
+          free_qty: number
+          id: string
+          item_name: string
+          po_version_id: string
+          qty: number
+          received_qty: number | null
+          sku: string | null
+          tool_asset_item_id: string | null
+          total_price: number
+          unit: string
+          unit_price: number
+        }
+        Insert: {
+          brand_id?: string | null
+          brand_variant_id?: string | null
+          created_at?: string | null
+          free_qty?: number
+          id?: string
+          item_name: string
+          po_version_id: string
+          qty?: number
+          received_qty?: number | null
+          sku?: string | null
+          tool_asset_item_id?: string | null
+          total_price?: number
+          unit?: string
+          unit_price?: number
+        }
+        Update: {
+          brand_id?: string | null
+          brand_variant_id?: string | null
+          created_at?: string | null
+          free_qty?: number
+          id?: string
+          item_name?: string
+          po_version_id?: string
+          qty?: number
+          received_qty?: number | null
+          sku?: string | null
+          tool_asset_item_id?: string | null
+          total_price?: number
+          unit?: string
+          unit_price?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "po_version_lines_po_version_id_fkey"
+            columns: ["po_version_id"]
+            isOneToOne: false
+            referencedRelation: "po_versions"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       po_versions: {
         Row: {
           currency: string
@@ -5094,7 +5172,6 @@ export type Database = {
           exchange_rate: number
           expected_delivery: string | null
           id: string
-          line_items: Json
           payment_milestones: Json | null
           payment_terms: string | null
           payment_terms_notes: string | null
@@ -5104,7 +5181,7 @@ export type Database = {
           submitted_at: string
           submitted_by: string | null
           subtotal: number
-          supplier_id: string
+          supplier_id: string | null
           supplier_name: string
           vendor_notes: string | null
           version_number: number
@@ -5118,7 +5195,6 @@ export type Database = {
           exchange_rate: number
           expected_delivery?: string | null
           id?: string
-          line_items: Json
           payment_milestones?: Json | null
           payment_terms?: string | null
           payment_terms_notes?: string | null
@@ -5128,7 +5204,7 @@ export type Database = {
           submitted_at?: string
           submitted_by?: string | null
           subtotal: number
-          supplier_id: string
+          supplier_id?: string | null
           supplier_name: string
           vendor_notes?: string | null
           version_number: number
@@ -5142,7 +5218,6 @@ export type Database = {
           exchange_rate?: number
           expected_delivery?: string | null
           id?: string
-          line_items?: Json
           payment_milestones?: Json | null
           payment_terms?: string | null
           payment_terms_notes?: string | null
@@ -5152,7 +5227,7 @@ export type Database = {
           submitted_at?: string
           submitted_by?: string | null
           subtotal?: number
-          supplier_id?: string
+          supplier_id?: string | null
           supplier_name?: string
           vendor_notes?: string | null
           version_number?: number
@@ -5163,6 +5238,13 @@ export type Database = {
             columns: ["po_id"]
             isOneToOne: false
             referencedRelation: "purchase_orders"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "po_versions_supplier_id_fkey"
+            columns: ["supplier_id"]
+            isOneToOne: false
+            referencedRelation: "suppliers"
             referencedColumns: ["id"]
           },
         ]
@@ -5434,7 +5516,7 @@ export type Database = {
           rfq_supplier_ids: string[] | null
           status: Database["public"]["Enums"]["po_status"] | null
           subtotal: number | null
-          supplier_id: string
+          supplier_id: string | null
           supplier_name: string
           total_qar: number | null
           updated_at: string | null
@@ -5471,7 +5553,7 @@ export type Database = {
           rfq_supplier_ids?: string[] | null
           status?: Database["public"]["Enums"]["po_status"] | null
           subtotal?: number | null
-          supplier_id: string
+          supplier_id?: string | null
           supplier_name: string
           total_qar?: number | null
           updated_at?: string | null
@@ -5508,7 +5590,7 @@ export type Database = {
           rfq_supplier_ids?: string[] | null
           status?: Database["public"]["Enums"]["po_status"] | null
           subtotal?: number | null
-          supplier_id?: string
+          supplier_id?: string | null
           supplier_name?: string
           total_qar?: number | null
           updated_at?: string | null
@@ -5543,6 +5625,13 @@ export type Database = {
             columns: ["rfq_id"]
             isOneToOne: false
             referencedRelation: "rfqs"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "purchase_orders_supplier_id_fkey"
+            columns: ["supplier_id"]
+            isOneToOne: false
+            referencedRelation: "suppliers"
             referencedColumns: ["id"]
           },
           {
@@ -9236,7 +9325,6 @@ export type Database = {
           dispatched_by_profile_id: string | null
           from_warehouse_id: string
           id: string
-          items: Json | null
           notes: string | null
           received_at: string | null
           received_by_name: string | null
@@ -9263,7 +9351,6 @@ export type Database = {
           dispatched_by_profile_id?: string | null
           from_warehouse_id: string
           id?: string
-          items?: Json | null
           notes?: string | null
           received_at?: string | null
           received_by_name?: string | null
@@ -9290,7 +9377,6 @@ export type Database = {
           dispatched_by_profile_id?: string | null
           from_warehouse_id?: string
           id?: string
-          items?: Json | null
           notes?: string | null
           received_at?: string | null
           received_by_name?: string | null
@@ -9492,7 +9578,7 @@ export type Database = {
           discount_amount: number | null
           discount_label: string | null
           division: string | null
-          doc_status: string | null
+          doc_status: Database["public"]["Enums"]["invoice_doc_status"] | null
           due_date: string | null
           id: string | null
           invoice_id: string | null
@@ -9502,7 +9588,9 @@ export type Database = {
           needs_refresh: boolean | null
           notes: string | null
           paid_amount: number | null
-          payment_status: string | null
+          payment_status:
+            | Database["public"]["Enums"]["invoice_payment_status"]
+            | null
           purchase_order_id: string | null
           qb_synced: boolean | null
           receival_id: string | null
@@ -9526,7 +9614,7 @@ export type Database = {
           discount_amount?: number | null
           discount_label?: string | null
           division?: string | null
-          doc_status?: string | null
+          doc_status?: Database["public"]["Enums"]["invoice_doc_status"] | null
           due_date?: string | null
           id?: string | null
           invoice_id?: string | null
@@ -9536,7 +9624,9 @@ export type Database = {
           needs_refresh?: boolean | null
           notes?: string | null
           paid_amount?: number | null
-          payment_status?: string | null
+          payment_status?:
+            | Database["public"]["Enums"]["invoice_payment_status"]
+            | null
           purchase_order_id?: string | null
           qb_synced?: boolean | null
           receival_id?: string | null
@@ -9560,7 +9650,7 @@ export type Database = {
           discount_amount?: number | null
           discount_label?: string | null
           division?: string | null
-          doc_status?: string | null
+          doc_status?: Database["public"]["Enums"]["invoice_doc_status"] | null
           due_date?: string | null
           id?: string | null
           invoice_id?: string | null
@@ -9570,7 +9660,9 @@ export type Database = {
           needs_refresh?: boolean | null
           notes?: string | null
           paid_amount?: number | null
-          payment_status?: string | null
+          payment_status?:
+            | Database["public"]["Enums"]["invoice_payment_status"]
+            | null
           purchase_order_id?: string | null
           qb_synced?: boolean | null
           receival_id?: string | null
@@ -9682,7 +9774,7 @@ export type Database = {
           discount_amount: number | null
           discount_label: string | null
           division: string | null
-          doc_status: string | null
+          doc_status: Database["public"]["Enums"]["invoice_doc_status"] | null
           due_date: string | null
           id: string | null
           invoice_id: string | null
@@ -9692,7 +9784,9 @@ export type Database = {
           needs_refresh: boolean | null
           notes: string | null
           paid_amount: number | null
-          payment_status: string | null
+          payment_status:
+            | Database["public"]["Enums"]["invoice_payment_status"]
+            | null
           purchase_order_id: string | null
           qb_synced: boolean | null
           receival_id: string | null
@@ -9716,7 +9810,7 @@ export type Database = {
           discount_amount?: number | null
           discount_label?: string | null
           division?: string | null
-          doc_status?: string | null
+          doc_status?: Database["public"]["Enums"]["invoice_doc_status"] | null
           due_date?: string | null
           id?: string | null
           invoice_id?: string | null
@@ -9726,7 +9820,9 @@ export type Database = {
           needs_refresh?: boolean | null
           notes?: string | null
           paid_amount?: number | null
-          payment_status?: string | null
+          payment_status?:
+            | Database["public"]["Enums"]["invoice_payment_status"]
+            | null
           purchase_order_id?: string | null
           qb_synced?: boolean | null
           receival_id?: string | null
@@ -9750,7 +9846,7 @@ export type Database = {
           discount_amount?: number | null
           discount_label?: string | null
           division?: string | null
-          doc_status?: string | null
+          doc_status?: Database["public"]["Enums"]["invoice_doc_status"] | null
           due_date?: string | null
           id?: string | null
           invoice_id?: string | null
@@ -9760,7 +9856,9 @@ export type Database = {
           needs_refresh?: boolean | null
           notes?: string | null
           paid_amount?: number | null
-          payment_status?: string | null
+          payment_status?:
+            | Database["public"]["Enums"]["invoice_payment_status"]
+            | null
           purchase_order_id?: string | null
           qb_synced?: boolean | null
           receival_id?: string | null
@@ -10082,6 +10180,7 @@ export type Database = {
           message_id: string
         }[]
       }
+      cleanup_old_notifications: { Args: never; Returns: number }
       complete_delivery_inventory: {
         Args: { p_delivery_id: string; p_so_id: string }
         Returns: undefined
@@ -10474,12 +10573,10 @@ export type Database = {
         Returns: undefined
       }
       resubmit_sale_order: { Args: { p_so_id: string }; Returns: Json }
-      revert_landed_cost:
-        | { Args: { p_lc_id: string }; Returns: undefined }
-        | {
-            Args: { p_lc_id: string; p_performer_name?: string }
-            Returns: undefined
-          }
+      revert_landed_cost: {
+        Args: { p_lc_id: string; p_performer_name?: string }
+        Returns: undefined
+      }
       rpc_cancel_po_return_dispatch: {
         Args: { p_return_id: string }
         Returns: undefined
@@ -10758,6 +10855,14 @@ export type Database = {
       instruction_content_type: "text" | "pdf"
       instruction_type: "pre-service" | "post-service"
       inventory_type: "products" | "spare-parts" | "consumables" | "tools"
+      invoice_doc_status:
+        | "draft"
+        | "ready_to_send"
+        | "sent"
+        | "pending_approval"
+        | "approved"
+        | "rejected"
+      invoice_payment_status: "unpaid" | "partially_paid" | "paid" | "overdue"
       invoice_source: "order" | "contract" | "quotation"
       invoice_status:
         | "draft"
@@ -11065,6 +11170,15 @@ export const Constants = {
       instruction_content_type: ["text", "pdf"],
       instruction_type: ["pre-service", "post-service"],
       inventory_type: ["products", "spare-parts", "consumables", "tools"],
+      invoice_doc_status: [
+        "draft",
+        "ready_to_send",
+        "sent",
+        "pending_approval",
+        "approved",
+        "rejected",
+      ],
+      invoice_payment_status: ["unpaid", "partially_paid", "paid", "overdue"],
       invoice_source: ["order", "contract", "quotation"],
       invoice_status: [
         "draft",

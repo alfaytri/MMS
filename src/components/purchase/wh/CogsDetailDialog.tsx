@@ -20,6 +20,7 @@ interface CogsEntry {
   total_cost: number
   date: string
   notes: string | null
+  source_type: 'sale' | 'landed_cost' | 'landed_cost_reversal'
   sale_delivery_id: string | null
   sale_order_id: string | null
   landed_cost_id: string | null
@@ -50,7 +51,7 @@ function useCogsDetail(brandVariantId: string, enabled: boolean) {
       const { data: raw, error } = await supabase
         .from('cogs_entries')
         .select(`
-          id, qty, unit_cost, total_cost, date, notes,
+          id, qty, unit_cost, total_cost, date, notes, source_type,
           sale_delivery_id, sale_order_id, landed_cost_id,
           landed_costs(lc_number, applied_at)
         `)
@@ -106,6 +107,7 @@ function useCogsDetail(brandVariantId: string, enabled: boolean) {
           total_cost: r.total_cost as number,
           date: r.date as string,
           notes: r.notes as string | null,
+          source_type: (r.source_type as CogsEntry['source_type']) ?? 'sale',
           sale_delivery_id: r.sale_delivery_id as string | null,
           sale_order_id: r.sale_order_id as string | null,
           landed_cost_id: r.landed_cost_id as string | null,
@@ -124,12 +126,14 @@ function useCogsDetail(brandVariantId: string, enabled: boolean) {
 export function CogsDetailDialog({ open, onClose, brandVariantId, itemName, brand, sku }: Props) {
   const { data: entries = [], isLoading } = useCogsDetail(brandVariantId, open)
 
-  const saleEntries = entries.filter((e) => e.landed_cost_id === null)
-  const lcEntries = entries.filter((e) => e.landed_cost_id !== null)
+  const saleEntries = entries.filter((e) => e.source_type === 'sale')
+  const lcEntries = entries.filter((e) => e.source_type === 'landed_cost')
+  const lcReversalEntries = entries.filter((e) => e.source_type === 'landed_cost_reversal')
 
   const saleCostTotal = saleEntries.reduce((s, e) => s + e.total_cost, 0)
   const lcCostTotal = lcEntries.reduce((s, e) => s + e.total_cost, 0)
-  const grandTotal = saleCostTotal + lcCostTotal
+  const lcReversalTotal = lcReversalEntries.reduce((s, e) => s + e.total_cost, 0)
+  const grandTotal = saleCostTotal + lcCostTotal + lcReversalTotal
 
   return (
     <Dialog open={open} onOpenChange={(v) => { if (!v) onClose() }}>
@@ -160,15 +164,21 @@ export function CogsDetailDialog({ open, onClose, brandVariantId, itemName, bran
           ) : (
             <>
               {/* Summary cards */}
-              <div className="grid grid-cols-3 gap-3">
+              <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
                 <div className="rounded-lg border px-4 py-3 text-center">
                   <p className="text-[10px] text-muted-foreground uppercase tracking-wide font-semibold">Sale COGS</p>
                   <p className="text-base font-bold tabular-nums mt-1 text-destructive">{fmtVal(saleCostTotal)}</p>
                 </div>
                 <div className="rounded-lg border px-4 py-3 text-center">
                   <p className="text-[10px] text-muted-foreground uppercase tracking-wide font-semibold">LC Adjustments</p>
-                  <p className="text-base font-bold tabular-nums mt-1">{fmtVal(lcCostTotal)}</p>
+                  <p className="text-base font-bold tabular-nums mt-1 text-orange-600 dark:text-orange-400">{fmtVal(lcCostTotal)}</p>
                 </div>
+                {lcReversalEntries.length > 0 && (
+                  <div className="rounded-lg border px-4 py-3 text-center">
+                    <p className="text-[10px] text-muted-foreground uppercase tracking-wide font-semibold">LC Reversals</p>
+                    <p className="text-base font-bold tabular-nums mt-1 text-green-600 dark:text-green-400">{fmtVal(lcReversalTotal)}</p>
+                  </div>
+                )}
                 <div className="rounded-lg border px-4 py-3 text-center bg-muted/30">
                   <p className="text-[10px] text-muted-foreground uppercase tracking-wide font-semibold">Total COGS</p>
                   <p className="text-base font-bold tabular-nums mt-1 text-destructive">{fmtVal(grandTotal)}</p>
@@ -244,7 +254,7 @@ export function CogsDetailDialog({ open, onClose, brandVariantId, itemName, bran
               {lcEntries.length > 0 && (
                 <div>
                   <div className="flex items-center gap-2 mb-2">
-                    <Badge variant="outline" className="text-[9px] font-normal">LC</Badge>
+                    <Badge variant="outline" className="text-[9px] font-normal border-orange-300 text-orange-600 dark:text-orange-400">LC</Badge>
                     <p className="text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">
                       Landed Cost Adjustments ({lcEntries.length})
                     </p>
@@ -279,8 +289,8 @@ export function CogsDetailDialog({ open, onClose, brandVariantId, itemName, bran
                             </TableCell>
                             <TableCell className="text-[11px] text-right py-1.5 tabular-nums">{e.qty}</TableCell>
                             <TableCell className="text-[11px] text-right py-1.5 tabular-nums">{fmtVal(e.unit_cost)}</TableCell>
-                            <TableCell className="text-[11px] text-right py-1.5 tabular-nums font-medium">
-                              {e.total_cost >= 0 ? '+' : ''}{fmtVal(e.total_cost)}
+                            <TableCell className="text-[11px] text-right py-1.5 tabular-nums font-medium text-orange-600 dark:text-orange-400">
+                              +{fmtVal(e.total_cost)}
                             </TableCell>
                           </TableRow>
                         ))}
@@ -291,8 +301,66 @@ export function CogsDetailDialog({ open, onClose, brandVariantId, itemName, bran
                               {lcEntries.reduce((s, e) => s + e.qty, 0)}
                             </TableCell>
                             <TableCell className="text-[11px] py-1.5" />
+                            <TableCell className="text-[11px] text-right py-1.5 tabular-nums text-orange-600 dark:text-orange-400">
+                              +{fmtVal(lcCostTotal)}
+                            </TableCell>
+                          </TableRow>
+                        )}
+                      </TableBody>
+                    </Table>
+                  </div>
+                </div>
+              )}
+
+              {/* LC reversal entries */}
+              {lcReversalEntries.length > 0 && (
+                <div>
+                  <div className="flex items-center gap-2 mb-2">
+                    <Badge variant="outline" className="text-[9px] font-normal border-green-300 text-green-600 dark:text-green-400">REV</Badge>
+                    <p className="text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">
+                      LC Reversals ({lcReversalEntries.length})
+                    </p>
+                  </div>
+                  <div className="rounded-md border overflow-hidden">
+                    <Table>
+                      <TableHeader>
+                        <TableRow className="bg-muted/40">
+                          <TableHead className="text-[10px] py-1.5">Date</TableHead>
+                          <TableHead className="text-[10px] py-1.5">LC #</TableHead>
+                          <TableHead className="text-[10px] py-1.5">Notes</TableHead>
+                          <TableHead className="text-[10px] text-right py-1.5">Qty</TableHead>
+                          <TableHead className="text-[10px] text-right py-1.5">Unit Cost</TableHead>
+                          <TableHead className="text-[10px] text-right py-1.5">Total Cost</TableHead>
+                        </TableRow>
+                      </TableHeader>
+                      <TableBody>
+                        {lcReversalEntries.map((e) => (
+                          <TableRow key={e.id} className="hover:bg-muted/10">
+                            <TableCell className="text-[11px] py-1.5">
+                              {format(new Date(e.date), 'dd MMM yy')}
+                            </TableCell>
+                            <TableCell className="text-[11px] py-1.5 font-medium text-primary">
+                              {e.lc_number ?? '—'}
+                            </TableCell>
+                            <TableCell className="text-[11px] py-1.5 max-w-[200px] truncate text-muted-foreground">
+                              {e.notes ?? '—'}
+                            </TableCell>
+                            <TableCell className="text-[11px] text-right py-1.5 tabular-nums">{e.qty}</TableCell>
+                            <TableCell className="text-[11px] text-right py-1.5 tabular-nums">{fmtVal(e.unit_cost)}</TableCell>
+                            <TableCell className="text-[11px] text-right py-1.5 tabular-nums font-medium text-green-600 dark:text-green-400">
+                              {fmtVal(e.total_cost)}
+                            </TableCell>
+                          </TableRow>
+                        ))}
+                        {lcReversalEntries.length > 1 && (
+                          <TableRow className="bg-muted/30 font-semibold">
+                            <TableCell colSpan={3} className="text-[11px] py-1.5">Total</TableCell>
                             <TableCell className="text-[11px] text-right py-1.5 tabular-nums">
-                              {lcCostTotal >= 0 ? '+' : ''}{fmtVal(lcCostTotal)}
+                              {lcReversalEntries.reduce((s, e) => s + e.qty, 0)}
+                            </TableCell>
+                            <TableCell className="text-[11px] py-1.5" />
+                            <TableCell className="text-[11px] text-right py-1.5 tabular-nums text-green-600 dark:text-green-400">
+                              {fmtVal(lcReversalTotal)}
                             </TableCell>
                           </TableRow>
                         )}

@@ -58,7 +58,10 @@ supabase/.temp/
 /docs/Specification and Tables/
 /docs/Meeting_Script_IT_Company.md
 DEMO-PREP.md
-
+odoo_data_export/
+odoo_data_excel/
+odoo_organized/
+odoo_viewers/
 # ── Office files (except test-case workbooks) ────────────
 *.xlsx
 !/docs/test-cases/*.xlsx

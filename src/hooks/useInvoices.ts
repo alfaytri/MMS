@@ -55,7 +55,7 @@ export function useInvoices(filters: InvoiceFilters = {}) {
         .range(pageParam * PAGE_SIZE, (pageParam + 1) * PAGE_SIZE - 1)
 
       // Status filter
-      if (filters.status) q = q.eq('payment_status', filters.status)
+      if (filters.status) q = q.eq('payment_status', filters.status as any)
 
       // Date filters
       if (filters.issuedFrom) q = q.gte('issued_date', filters.issuedFrom)

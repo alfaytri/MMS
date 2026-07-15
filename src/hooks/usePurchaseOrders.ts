@@ -208,7 +208,7 @@ export type PoVersion = {
   delivery_terms_notes: string | null
   expected_delivery: string | null
   vendor_notes: string | null
-  line_items: POLineItemDraft[]
+  po_version_lines: POLineItemDraft[]
 }
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
@@ -896,7 +896,7 @@ export function usePoVersions(poId: string | null) {
       const supabase = createClient()
       const { data, error } = await supabase
         .from('po_versions')
-        .select('*')
+        .select('*, po_version_lines(*)')
         .eq('po_id', poId!)
         .order('version_number', { ascending: true })
         .limit(100)

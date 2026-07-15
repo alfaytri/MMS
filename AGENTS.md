@@ -1,3 +1,33 @@
+# Session-Start Skills — Mandatory Activation
+
+At the start of every task-oriented session — any interaction where you will use tools and produce deliverables — invoke these skills before beginning work:
+
+1. **task-observer** — Invoke the `task-observer` skill to capture skill improvement opportunities throughout the session. When loading any skill, check the observation log for OPEN observations tagged to that skill and apply their insights to the current work.
+
+2. **impeccable** — For any task involving UI, frontend, or design work, invoke the `impeccable` skill. This provides design fluency, anti-pattern detection, and 23 slash commands (`/impeccable polish`, `/impeccable audit`, `/impeccable critique`, etc.) for frontend quality assurance.
+
+## Contextual Skills — Invoke When Relevant
+
+These skills are NOT invoked at session start. Instead, invoke them via the `Skill` tool when their specific trigger condition is met:
+
+| Skill | Plugin | When to invoke |
+|---|---|---|
+| `supabase:supabase` | supabase@claude-plugins-official | Writing migrations, RLS policies, DB queries, or Supabase functions |
+| `supabase:supabase-postgres-best-practices` | supabase@claude-plugins-official | Designing schema, writing complex SQL, or optimizing queries |
+| `docs:changelog` | docs@easier-life-skills | User asks to generate or update CHANGELOG.md |
+| `docs:document-project` | docs@easier-life-skills | User asks to generate or update project documentation |
+| `code-audit:find-dead-code` | code-audit@easier-life-skills | Refactoring, cleanup, or when user asks to find unused code |
+| `code-audit:find-breaking-rest-api` | code-audit@easier-life-skills | Modifying API routes — check for breaking changes |
+| `code-audit:improve-logging` | code-audit@easier-life-skills | Auditing logging quality or adding structured logging |
+| `security-review:security-review` | security-review@easier-life-skills | After completing a module (part of the security checklist), or on user request |
+| `dependency-audit:dependency-audit` | dependency-audit@easier-life-skills | User asks to check for outdated/vulnerable packages |
+| `claude-md-management:claude-md-improver` | claude-md-management@claude-plugins-official | User asks to audit or improve CLAUDE.md / AGENTS.md quality |
+| `impeccable:impeccable` | impeccable@impeccable | Any task involving UI, frontend, or design work |
+
+All skills are invoked via the `Skill` tool, not by reading their files directly. They complement superpowers (which auto-activates via hooks) and claude-mem (which auto-activates via its own hooks).
+
+---
+
 # Project Memory — Mandatory Rule
 
 At the start of every session, read the memory index at `C:\Users\IT\.claude\projects\D--MMS\memory\MEMORY.md`. This file contains pointers to saved memories about user preferences, feedback, project context, and reference links. Before starting any work, read the index and then read any memory files relevant to the current task.

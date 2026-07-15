@@ -197,7 +197,6 @@ async function createDebitNoteForReturn(
   const newTotal = originalTotal - dnTotal
 
   const credit_note_id = await nextNoteId('debit')
-  const pdfData = { original_lines: originalLines, returned_lines: returnedLines }
 
   const { data: dn, error: dnErr } = await supabase
     .from('credit_notes')
@@ -215,11 +214,37 @@ async function createDebitNoteForReturn(
       total_amount:     dnTotal,
       original_total:   originalTotal,
       new_total:        newTotal,
-      line_items:       pdfData,
     })
     .select('id')
     .single()
   if (dnErr) throw dnErr
+
+  const lineRows = [
+    ...originalLines.map((l) => ({
+      credit_note_id: dn.id,
+      description:    l.item_name,
+      sku:            l.sku ?? null,
+      qty:            l.qty,
+      unit_price:     l.unit_price,
+      line_type:      'original' as const,
+    })),
+    ...returnedLines.map((l) => ({
+      credit_note_id: dn.id,
+      description:    l.item_name,
+      sku:            l.sku ?? null,
+      qty:            l.qty,
+      unit_price:     l.unit_price,
+      line_type:      'returned' as const,
+      condition:      l.condition ?? null,
+      condition_notes: l.condition_notes ?? null,
+    })),
+  ]
+  if (lineRows.length > 0) {
+    const { error: linesErr } = await supabase
+      .from('credit_note_lines' as any)
+      .insert(lineRows)
+    if (linesErr) throw linesErr
+  }
 
   // 4. Link return → debit note
   await supabase

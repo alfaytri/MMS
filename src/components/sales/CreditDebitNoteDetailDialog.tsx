@@ -63,7 +63,29 @@ export function CreditDebitNoteDetailDialog({ note, referenceNumber, open, onOpe
   const isDebit = note.note_type === 'debit'
   const isDebitUnresolved = isDebit && note.status === 'issued' && !note.resolution_type
 
-  const pdfData = note.line_items ?? { original_lines: [], returned_lines: [] }
+  const allLines = note.credit_note_lines ?? []
+  const pdfData = {
+    original_lines: allLines
+      .filter((l: any) => l.line_type === 'original')
+      .map((l: any) => ({
+        item_name:  l.description ?? 'Item',
+        sku:        l.sku ?? null,
+        qty:        l.qty,
+        unit_price: l.unit_price,
+        total:      l.total ?? l.qty * l.unit_price,
+      })) as NoteLineItem[],
+    returned_lines: allLines
+      .filter((l: any) => l.line_type === 'returned')
+      .map((l: any) => ({
+        item_name:       l.description ?? 'Item',
+        sku:             l.sku ?? null,
+        qty:             l.qty,
+        unit_price:      l.unit_price,
+        total:           l.total ?? l.qty * l.unit_price,
+        condition:       l.condition ?? undefined,
+        condition_notes: l.condition_notes ?? undefined,
+      })) as NoteDebitLineItem[],
+  }
   const status = (note.status ?? 'draft') as CreditNoteStatus
   const cfg = STATUS_CONFIG[status] ?? STATUS_CONFIG.draft
   const partyLabel = isDebit ? 'Supplier' : 'Customer'
@@ -213,7 +235,7 @@ export function CreditDebitNoteDetailDialog({ note, referenceNumber, open, onOpe
         </div>
 
         {/* ── Download ── */}
-        {note.line_items && (
+        {(note.credit_note_lines?.length ?? 0) > 0 && (
           <div className="flex justify-end pt-1">
             <CreditDebitNoteDownloadButton
               note={note}

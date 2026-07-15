@@ -68,12 +68,12 @@ export async function savePoSnapshot(
       .maybeSingle()
     const nextVersion = (latest?.version_number ?? 0) + 1
 
-    await supabase.from('po_versions').insert({
+    const { data: version } = await supabase.from('po_versions').insert({
       po_id: poId,
       version_number: nextVersion,
       stage,
       snapshot_label: stage,
-      supplier_id: po.supplier_id ?? po.supplier_name,
+      supplier_id: po.supplier_id ?? null,
       supplier_name: po.supplier_name,
       currency: po.currency,
       exchange_rate: po.exchange_rate,
@@ -87,8 +87,27 @@ export async function savePoSnapshot(
       delivery_terms_notes: po.delivery_terms_notes ?? null,
       expected_delivery: po.expected_delivery ?? null,
       vendor_notes: po.vendor_notes ?? null,
-      line_items: po.po_line_items ?? [],
-    } as unknown as import('@/types/database.types').DBInsert<'po_versions'>)
+    } as unknown as import('@/types/database.types').DBInsert<'po_versions'>).select('id').single()
+
+    const lineItems = (po.po_line_items ?? []) as POLineItemDraft[]
+    if (version && lineItems.length > 0) {
+      await supabase.from('po_version_lines' as any).insert(
+        lineItems.map((li: any) => ({
+          po_version_id: version.id,
+          item_name:          li.item_name ?? 'Item',
+          sku:                li.sku ?? null,
+          qty:                li.qty ?? 0,
+          received_qty:       li.received_qty ?? 0,
+          unit:               li.unit ?? 'pcs',
+          unit_price:         li.unit_price ?? 0,
+          total_price:        li.total_price ?? 0,
+          brand_variant_id:   li.brand_variant_id ?? null,
+          tool_asset_item_id: li.tool_asset_item_id ?? null,
+          free_qty:           li.free_qty ?? 0,
+          brand_id:           li.brand_id ?? null,
+        }))
+      )
+    }
   } catch {
     // Non-critical — snapshot failure must never block the main operation
   }

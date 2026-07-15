@@ -174,7 +174,7 @@ export async function POST(request: Request) {
           .from('invoices')
           .update({
             paid_amount: newPaidAmount,
-            payment_status: fullyPaid ? 'paid' : 'partial',
+            payment_status: fullyPaid ? 'paid' : 'partially_paid',
             manually_paid: true,
             updated_at: new Date().toISOString(),
           })
