@@ -14,7 +14,8 @@ import {
 } from '@/components/reports/DateRangePicker'
 import { ProductProfitabilityChart } from '@/components/reports/ProductProfitabilityChart'
 import { ProductProfitabilityTable } from '@/components/reports/ProductProfitabilityTable'
-import { useProductProfitability } from '@/hooks/useProductProfitability'
+import { useProductProfitability, useProfitabilityDrilldown } from '@/hooks/useProductProfitability'
+import { ProfitabilityDrilldownDialog, type DrilldownMode } from '@/components/reports/ProfitabilityDrilldownDialog'
 import {
   TrendingUp, TrendingDown, DollarSign, ShoppingCart, Wallet, Percent,
 } from 'lucide-react'
@@ -25,7 +26,7 @@ function pctDelta(curr: number, prev: number): number | null {
 }
 
 function KpiCard({
-  icon, iconBg, label, value, valueClass, delta, deltaGoodDirection = 'up', delay = 0,
+  icon, iconBg, label, value, valueClass, delta, deltaGoodDirection = 'up', delay = 0, onClick,
 }: {
   icon: React.ReactNode
   iconBg: string
@@ -35,6 +36,7 @@ function KpiCard({
   delta: number | null
   deltaGoodDirection?: 'up' | 'down'
   delay?: number
+  onClick?: () => void
 }) {
   const hasDelta = delta !== null && delta !== 0
   const isGood = delta !== null && (
@@ -42,8 +44,12 @@ function KpiCard({
   )
   return (
     <Card
-      className="h-full transition-all animate-in fade-in slide-in-from-bottom-2 fill-mode-both hover:shadow-lg hover:-translate-y-0.5 duration-300"
+      className={cn(
+        'h-full transition-all animate-in fade-in slide-in-from-bottom-2 fill-mode-both hover:shadow-lg hover:-translate-y-0.5 duration-300',
+        onClick && 'cursor-pointer',
+      )}
       style={{ animationDelay: `${delay}ms`, animationDuration: '500ms' }}
+      onClick={onClick}
     >
       <CardContent className="pt-1 h-full flex flex-col">
         <div className="flex items-start gap-3">
@@ -86,6 +92,8 @@ function LoadingSkeleton() {
 export default function ProductProfitabilityPage() {
   const [range, setRange] = useState<DateRange>(() => presetRange('this-month'))
   const { data, isLoading, error } = useProductProfitability(range.start, range.end)
+  const [drilldownMode, setDrilldownMode] = useState<DrilldownMode | null>(null)
+  const drilldown = useProfitabilityDrilldown(range.start, range.end, drilldownMode !== null)
 
   return (
     <PageWrapper>
@@ -126,6 +134,7 @@ export default function ProductProfitabilityPage() {
               valueClass="text-emerald-700"
               delta={pctDelta(data.summary.revenue, data.summary.prev_revenue)}
               deltaGoodDirection="up"
+              onClick={() => setDrilldownMode('revenue')}
             />
             <KpiCard
               delay={80}
@@ -136,6 +145,7 @@ export default function ProductProfitabilityPage() {
               valueClass="text-red-700"
               delta={pctDelta(data.summary.cogs, data.summary.prev_cogs)}
               deltaGoodDirection="down"
+              onClick={() => setDrilldownMode('cogs')}
             />
             <KpiCard
               delay={160}
@@ -146,6 +156,7 @@ export default function ProductProfitabilityPage() {
               valueClass={data.summary.gross_profit >= 0 ? 'text-emerald-700' : 'text-red-700'}
               delta={pctDelta(data.summary.gross_profit, data.summary.prev_gross_profit)}
               deltaGoodDirection="up"
+              onClick={() => setDrilldownMode('profit')}
             />
             <KpiCard
               delay={240}
@@ -192,6 +203,16 @@ export default function ProductProfitabilityPage() {
             </CardContent>
           </Card>
         </>
+      )}
+      {drilldownMode && (
+        <ProfitabilityDrilldownDialog
+          open={!!drilldownMode}
+          onOpenChange={(open) => { if (!open) setDrilldownMode(null) }}
+          mode={drilldownMode}
+          data={drilldown.data}
+          isLoading={drilldown.isLoading}
+          rangeLabel={`${range.start}_to_${range.end}`}
+        />
       )}
     </PageWrapper>
   )

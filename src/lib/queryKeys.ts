@@ -191,6 +191,8 @@ export const queryKeys = {
       ['customer-statement', customerId, dateFrom, dateTo] as const,
     productProfitability: (from: string, to: string) =>
       ['product-profitability', from, to] as const,
+    profitabilityDrilldown: (from: string, to: string) =>
+      ['profitability-drilldown', from, to] as const,
   },
 
   /* ── Divisions ────────────────────────────────────────── */
