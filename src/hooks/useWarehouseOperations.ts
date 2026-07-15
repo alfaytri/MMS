@@ -781,7 +781,7 @@ export function useReceivalsAndDeliveries() {
           .order('date', { ascending: false }),
         supabase
           .from('sale_deliveries')
-          .select('id, delivery_number, sale_order_id, warehouse_id, warehouse_name, date, items, status, sale_orders(so_number, customers(name))')
+          .select('id, delivery_number, sale_order_id, warehouse_id, warehouse_name, date, status, sale_delivery_lines(item_name, sku, qty_delivered, brand_variant_id), sale_orders(so_number, customers(name))')
           .order('date', { ascending: false }),
       ])
 
@@ -813,8 +813,8 @@ export function useReceivalsAndDeliveries() {
         warehouseName: d.warehouse_name ?? '',
         counterparty: d.sale_orders?.customers?.name ?? '',
         date: d.date ?? '',
-        items: Array.isArray(d.items) ? d.items.map((di: any) => ({ name: di.item_name ?? '', sku: di.sku ?? '', qty: di.qty_delivered ?? 0, brand_variant_id: di.brand_variant_id ?? null })) : [],
-        itemCount: Array.isArray(d.items) ? d.items.length : 0,
+        items: Array.isArray(d.sale_delivery_lines) ? d.sale_delivery_lines.map((di: any) => ({ name: di.item_name ?? '', sku: di.sku ?? '', qty: di.qty_delivered ?? 0, brand_variant_id: di.brand_variant_id ?? null })) : [],
+        itemCount: Array.isArray(d.sale_delivery_lines) ? d.sale_delivery_lines.length : 0,
         status: d.status ?? 'pending',
       }))
 

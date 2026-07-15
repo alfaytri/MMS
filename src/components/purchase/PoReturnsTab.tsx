@@ -172,7 +172,7 @@ export function PoReturnsTab({ po, poReturns, receivals }: PoReturnsTabProps) {
                 </div>
               </div>
               <div className="text-xs text-muted-foreground">
-                {ret.date} · {ret.items.length} item(s) · {ret.reason}
+                {ret.date} · {(ret.return_lines ?? []).length} item(s) · {ret.reason}
               </div>
               {ret.debit_note ? (
                 <div className="flex items-center gap-2 pt-1">
@@ -210,7 +210,7 @@ export function PoReturnsTab({ po, poReturns, receivals }: PoReturnsTabProps) {
                       </TableRow>
                     </TableHeader>
                     <TableBody>
-                      {ret.items.map((item, idx) => (
+                      {(ret.return_lines ?? []).map((item, idx) => (
                         <TableRow key={idx}>
                           <TableCell className="text-xs">{item.item_name}{item.sku ? ` · ${item.sku}` : ''}</TableCell>
                           <TableCell className="text-xs text-right">{item.qty}</TableCell>

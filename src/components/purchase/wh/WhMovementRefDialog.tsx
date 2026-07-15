@@ -44,7 +44,7 @@ function useRefDetail(referenceType: string, referenceId: string, enabled: boole
         case 'sale_delivery': {
           const { data, error } = await supabase
             .from('sale_deliveries')
-            .select('id, delivery_number, sale_order_id, warehouse_id, warehouse_name, date, items, status, sale_orders(so_number, customers(name))')
+            .select('id, delivery_number, sale_order_id, warehouse_id, warehouse_name, date, status, sale_delivery_lines(item_name, sku, qty_delivered, brand_variant_id), sale_orders(so_number, customers(name))')
             .eq('id', referenceId)
             .maybeSingle()
           if (error) throw error
@@ -85,12 +85,13 @@ function useRefDetail(referenceType: string, referenceId: string, enabled: boole
         case 'landed_cost': {
           const { data, error } = await supabase
             .from('landed_costs')
-            .select('id, lc_number, status, vendor_invoice_no, total_landed_cost, created_at, suppliers(company_name)')
+            .select('id, lc_number, total_amount, description, currency, applied_at, voided_at, date, created_at')
             .eq('id', referenceId)
             .maybeSingle()
           if (error) throw error
           if (!data) return null
-          return { type: 'landed_cost' as const, data }
+          const status = data.voided_at ? 'voided' : data.applied_at ? 'applied' : 'draft'
+          return { type: 'landed_cost' as const, data: { ...data, status } }
         }
         case 'inventory_check': {
           const { data, error } = await supabase
@@ -175,7 +176,7 @@ export function WhMovementRefDialog({ referenceType, referenceId, open, onClose 
 // ─── Sale Delivery ──────────────────────────────────────────────────────────
 
 function SaleDeliveryView({ data }: { data: any }) {
-  const items: any[] = Array.isArray(data.items) ? data.items : []
+  const items: any[] = Array.isArray(data.sale_delivery_lines) ? data.sale_delivery_lines : []
   const customer = data.sale_orders?.customers?.name ?? '—'
   const soNumber = data.sale_orders?.so_number ?? '—'
 
@@ -480,12 +481,11 @@ function LandedCostView({ data }: { data: any }) {
       <Separator />
 
       <div className="grid grid-cols-2 gap-4">
-        <MetaRow icon={<User className="h-3.5 w-3.5 text-muted-foreground" />} label="Supplier" value={data.suppliers?.company_name ?? '—'} />
-        <MetaRow icon={<Receipt className="h-3.5 w-3.5 text-muted-foreground" />} label="Vendor Invoice" value={data.vendor_invoice_no ?? '—'} />
-        <MetaRow icon={<Calendar className="h-3.5 w-3.5 text-muted-foreground" />} label="Date" value={data.created_at ? format(new Date(data.created_at), 'dd MMM yyyy') : '—'} />
-        <div className="rounded-lg border px-3 py-2.5 text-center">
-          <p className="text-[10px] text-muted-foreground uppercase tracking-wide mb-0.5">Total Landed Cost</p>
-          <p className="text-lg font-bold tabular-nums">{data.total_landed_cost != null ? Number(data.total_landed_cost).toLocaleString('en-QA', { minimumFractionDigits: 2, maximumFractionDigits: 2 }) : '—'}</p>
+        <MetaRow icon={<Receipt className="h-3.5 w-3.5 text-muted-foreground" />} label="Description" value={data.description ?? '—'} />
+        <MetaRow icon={<Calendar className="h-3.5 w-3.5 text-muted-foreground" />} label="Date" value={data.date ? format(new Date(data.date), 'dd MMM yyyy') : data.created_at ? format(new Date(data.created_at), 'dd MMM yyyy') : '—'} />
+        <div className="rounded-lg border px-3 py-2.5 text-center col-span-2">
+          <p className="text-[10px] text-muted-foreground uppercase tracking-wide mb-0.5">Total Amount ({data.currency ?? 'QAR'})</p>
+          <p className="text-lg font-bold tabular-nums">{data.total_amount != null ? Number(data.total_amount).toLocaleString('en-QA', { minimumFractionDigits: 2, maximumFractionDigits: 2 }) : '—'}</p>
         </div>
       </div>
     </div>

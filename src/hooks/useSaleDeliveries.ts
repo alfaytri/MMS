@@ -21,7 +21,7 @@ export type SaleDelivery = {
   warehouse_id: string | null
   warehouse_name: string | null
   date: string
-  items: DeliveryItem[]
+  sale_delivery_lines?: DeliveryItem[]
   status: DeliveryStatus | null
   created_by_name: string | null
   created_at: string
@@ -40,7 +40,7 @@ export function useSaleDeliveries(filters?: { status?: DeliveryStatus | '' }) {
       const supabase = createClient()
       let q = supabase
         .from('sale_deliveries')
-        .select('*, sale_orders(so_number, customers(name))')
+        .select('*, sale_delivery_lines(*), sale_orders(so_number, customers(name))')
         .order('created_at', { ascending: false })
       if (filters?.status) q = q.eq('status', filters.status)
       const { data, error } = await q
@@ -59,6 +59,7 @@ export function useUpdateDelivery() {
   return useMutation({
     mutationFn: async ({
       id,
+      items: lineItems,
       ...updates
     }: {
       id: string
@@ -74,6 +75,27 @@ export function useUpdateDelivery() {
         .update(updates)
         .eq('id', id)
       if (error) throw error
+
+      // If line items were provided, replace them in sale_delivery_lines
+      if (lineItems) {
+        const { error: delErr } = await supabase
+          .from('sale_delivery_lines')
+          .delete()
+          .eq('sale_delivery_id', id)
+        if (delErr) throw delErr
+        if (lineItems.length > 0) {
+          const { error: insErr } = await supabase
+            .from('sale_delivery_lines')
+            .insert(lineItems.map((li) => ({
+              sale_delivery_id: id,
+              brand_variant_id: li.brand_variant_id,
+              item_name: li.item_name,
+              sku: li.sku,
+              qty_delivered: li.qty_delivered,
+            })))
+          if (insErr) throw insErr
+        }
+      }
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: queryKeys.saleDeliveries.all })
@@ -128,14 +150,26 @@ export function useCompleteDelivery() {
         if (orig) {
           const { data: seqRow } = await supabase.rpc('next_delivery_number')
           const delivery_number = (seqRow as unknown as string) ?? `DEL-${Date.now()}`
-          await supabase.from('sale_deliveries').insert({
+          const { data: newDel, error: newDelErr } = await supabase.from('sale_deliveries').insert({
             delivery_number,
             sale_order_id: orig.sale_order_id,
             warehouse_id: null,
             date: new Date().toISOString().split('T')[0],
-            items: remainingItems,
             status: 'pending',
-          })
+          }).select('id').single()
+          if (newDelErr) throw newDelErr
+          if (newDel && remainingItems.length > 0) {
+            const { error: linesErr } = await supabase.from('sale_delivery_lines').insert(
+              remainingItems.map((li) => ({
+                sale_delivery_id: newDel.id,
+                brand_variant_id: li.brand_variant_id,
+                item_name: li.item_name,
+                sku: li.sku,
+                qty_delivered: li.qty_delivered,
+              }))
+            )
+            if (linesErr) throw linesErr
+          }
         }
       }
     },
@@ -192,13 +226,13 @@ export function useCreateReplacementDelivery() {
       soId: string
       warehouseId: string
       warehouseName: string
-      returnData: { items: { item_name: string; sku: string | null; qty: number; brand_variant_id: string | null }[] }
+      returnData: { return_lines?: { item_name: string; sku: string | null; qty: number; brand_variant_id: string | null }[] }
       returnId: string
       creditNoteId: string
       giftItems?: { item_name: string; sku: string | null; qty: number; brand_variant_id: string | null }[]
     }) => {
       const items: DeliveryItem[] = [
-        ...input.returnData.items.map((item) => ({
+        ...(input.returnData.return_lines ?? []).map((item) => ({
           item_name: item.item_name,
           sku: item.sku,
           qty_delivered: item.qty,
@@ -229,7 +263,6 @@ export function useCreateReplacementDelivery() {
           warehouse_id: input.warehouseId,
           warehouse_name: input.warehouseName,
           date: today,
-          items,
           status: 'pending',
           type: 'replacement',
           return_id: input.returnId,
@@ -239,6 +272,20 @@ export function useCreateReplacementDelivery() {
         .single()
 
       if (error) throw error
+
+      // Insert delivery line items
+      if (items.length > 0) {
+        const { error: linesErr } = await supabase
+          .from('sale_delivery_lines')
+          .insert(items.map((li) => ({
+            sale_delivery_id: data.id,
+            brand_variant_id: li.brand_variant_id,
+            item_name: li.item_name,
+            sku: li.sku,
+            qty_delivered: li.qty_delivered,
+          })))
+        if (linesErr) throw linesErr
+      }
 
       // Mark credit note as resolved
       const { error: cnErr } = await supabase

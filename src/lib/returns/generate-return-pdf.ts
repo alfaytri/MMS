@@ -19,6 +19,14 @@ function safeKey(name: string): string {
   return name.replace(/[^A-Za-z0-9._-]/g, '_')
 }
 
+interface ReturnLineRow {
+  item_name: string
+  sku: string | null
+  qty: number
+  condition: string
+  brand_variant_id: string | null
+}
+
 interface ReturnRow {
   id: string
   return_number: string
@@ -27,13 +35,7 @@ interface ReturnRow {
   source_id: string
   date: string
   reason: string
-  items: Array<{
-    item_name: string
-    sku: string | null
-    qty: number
-    condition: string
-    brand_variant_id: string | null
-  }> | null
+  return_lines?: ReturnLineRow[] | null
   restock_warehouse_id: string | null
   notes: string | null
   status: string | null
@@ -50,7 +52,7 @@ export async function generateReturnPdf(
 
   const { data: ret, error: retErr } = await supabase
     .from('returns')
-    .select('*')
+    .select('*, return_lines(*)')
     .eq('id', returnId)
     .single<ReturnRow>()
 
@@ -111,7 +113,7 @@ export async function generateReturnPdf(
     warehouseName = wh?.name ?? null
   }
 
-  const items: ReturnPdfItem[] = (ret.items ?? []).map(i => {
+  const items: ReturnPdfItem[] = (ret.return_lines ?? []).map(i => {
     const key = i.brand_variant_id ?? i.sku ?? i.item_name
     return {
       itemName: i.item_name,

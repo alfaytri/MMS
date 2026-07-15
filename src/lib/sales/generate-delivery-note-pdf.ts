@@ -25,7 +25,7 @@ interface DeliveryRow {
   sale_order_id:   string
   warehouse_name:  string | null
   date:            string
-  items:           Array<{
+  sale_delivery_lines: Array<{
     item_name:     string
     sku:           string | null
     qty_delivered: number
@@ -48,7 +48,8 @@ export async function generateDeliveryNotePdf(
     .from('sale_deliveries')
     .select(`
       id, delivery_number, sale_order_id, warehouse_name, date,
-      items, status, created_by_name, type, pdf_url,
+      status, created_by_name, type, pdf_url,
+      sale_delivery_lines(item_name, sku, qty_delivered),
       sale_orders(so_number, division_id, customers(name))
     `)
     .eq('id', deliveryId)
@@ -68,7 +69,7 @@ export async function generateDeliveryNotePdf(
     }
   }
 
-  const items: DeliveryNoteItem[] = (del.items ?? []).map(i => ({
+  const items: DeliveryNoteItem[] = (del.sale_delivery_lines ?? []).map(i => ({
     itemName:     i.item_name,
     sku:          i.sku,
     qtyDelivered: i.qty_delivered,

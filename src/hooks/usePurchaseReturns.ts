@@ -22,7 +22,7 @@ export type POReturn = {
   source_id: string
   date: string
   reason: string
-  items: POReturnItem[]
+  return_lines?: POReturnItem[]
   restock_warehouse_id: string | null
   notes: string | null
   status: POReturnStatus
@@ -42,7 +42,7 @@ export function usePurchaseReturnsByPO(poId: string | null) {
       const supabase = createClient()
       const { data, error } = await supabase
         .from('returns')
-        .select('*')
+        .select('*, return_lines(*)')
         .eq('source_type', 'purchase_order')
         .eq('source_id', poId!)
         .is('deleted_at', null)
@@ -79,7 +79,7 @@ export function usePurchaseReturns(filters: { search?: string; status?: string }
       const supabase = createClient()
       let q = supabase
         .from('returns')
-        .select('*')
+        .select('*, return_lines(*)')
         .eq('source_type', 'purchase_order')
         .is('deleted_at', null)
         .order('created_at', { ascending: false })
@@ -122,7 +122,6 @@ export function useCreatePurchaseReturn() {
           source_id: payload.source_id,
           date: payload.date,
           reason: payload.reason,
-          items: payload.items,
           restock_warehouse_id: payload.restock_warehouse_id,
           notes: payload.notes,
           status: 'pending',
@@ -130,13 +129,29 @@ export function useCreatePurchaseReturn() {
         .select()
         .single()
       if (error) throw error
-      return data as unknown as POReturn
+
+      if (payload.items.length > 0) {
+        const { error: linesErr } = await supabase
+          .from('return_lines')
+          .insert(payload.items.map((item) => ({
+            return_id: data.id,
+            item_name: item.item_name,
+            sku: item.sku,
+            qty: item.qty,
+            condition: item.condition,
+            brand_variant_id: item.brand_variant_id,
+            condition_notes: item.condition_notes ?? null,
+          })))
+        if (linesErr) throw linesErr
+      }
+
+      return { ...data, return_lines: payload.items } as unknown as POReturn
     },
     onSuccess: (data) => {
       queryClient.invalidateQueries({ queryKey: queryKeys.purchaseReturns.all })
       queryClient.invalidateQueries({ queryKey: queryKeys.purchaseReturns.byPo })
       queryClient.invalidateQueries({ queryKey: queryKeys.activityLog.all })
-      const totalQty = data.items.reduce((s, i) => s + i.qty, 0)
+      const totalQty = (data.return_lines ?? []).reduce((s, i) => s + i.qty, 0)
       logActivity({
         action:    'PO Return Created',
         module:    'purchase_orders',
@@ -151,7 +166,7 @@ export function useCreatePurchaseReturn() {
 async function createDebitNoteForReturn(
   supabase: ReturnType<typeof createClient>,
   returnId: string,
-  ret: { source_id: string; return_number: string; items: POReturnItem[]; reason: string }
+  ret: { source_id: string; return_number: string; return_lines: POReturnItem[]; reason: string }
 ) {
   // 1. Fetch PO details with line items
   const { data: po } = await supabase
@@ -163,7 +178,7 @@ async function createDebitNoteForReturn(
   const poLineArr = (po?.po_line_items ?? []) as PoLineRow[]
 
   // 2. Build returned lines — resolve unit price from PO line items
-  const returnedLines = ret.items.map((item: POReturnItem) => {
+  const returnedLines = ret.return_lines.map((item: POReturnItem) => {
     const poLine = poLineArr.find(
       (l) =>
         (item.brand_variant_id && l.brand_variant_id === item.brand_variant_id) ||
@@ -269,7 +284,7 @@ export function useUpdatePOReturnStatus() {
 
       const { data: ret, error: fetchErr } = await supabase
         .from('returns')
-        .select('return_number, dispatched_at, source_id, items, reason')
+        .select('return_number, dispatched_at, source_id, reason, return_lines(*)')
         .eq('id', id)
         .single()
       if (fetchErr) throw fetchErr
@@ -293,7 +308,7 @@ export function useUpdatePOReturnStatus() {
         await createDebitNoteForReturn(supabase, id, {
           source_id:     ret.source_id,
           return_number: ret.return_number,
-          items:         ret.items as POReturnItem[],
+          return_lines:  (ret as any).return_lines ?? [],
           reason:        ret.reason,
         })
       } else if (status === 'cancelled' && ret.dispatched_at) {
@@ -353,7 +368,7 @@ export function useCreateDebitNoteForReturn() {
       await createDebitNoteForReturn(supabase, ret.id, {
         source_id:     ret.source_id,
         return_number: ret.return_number,
-        items:         ret.items,
+        return_lines:  ret.return_lines ?? [],
         reason:        ret.reason,
       })
     },

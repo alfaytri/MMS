@@ -53,11 +53,14 @@ export type SaleDelivery = {
   warehouse_id: string
   warehouse_name: string | null
   date: string
-  items: {
+  sale_delivery_lines: {
+    id: string
+    sale_delivery_id: string
     item_name: string
     sku: string | null
     qty_delivered: number
     brand_variant_id: string | null
+    created_at: string
   }[]
   status: string
   created_by_name: string | null
@@ -451,7 +454,7 @@ export function useSaleOrders(filters: SOFilters = {}) {
       const supabase = createClient()
       let q = supabase
         .from('sale_orders')
-        .select('*, sale_order_lines(*), sale_deliveries(*), customers!inner(name)')
+        .select('*, sale_order_lines(*), sale_deliveries(*, sale_delivery_lines(*)), customers!inner(name)')
         .is('deleted_at', null)
         .order('created_at', { ascending: false })
 
@@ -505,7 +508,7 @@ export function useSaleOrder(id: string | null) {
               )
             )
           ),
-          sale_deliveries(*),
+          sale_deliveries(*, sale_delivery_lines(*)),
           customers(name, phone, email)
         `)
         .eq('id', id!)
@@ -723,20 +726,26 @@ export function useConfirmSO() {
       // 3. Create stub delivery (warehouse_id nullable after migration)
       const { data: seqRow } = await supabase.rpc('next_delivery_number')
       const delivery_number = (seqRow as unknown as string) ?? `DEL-${Date.now()}`
-      const { error: delErr } = await supabase.from('sale_deliveries').insert({
+      const { data: newDel, error: delErr } = await supabase.from('sale_deliveries').insert({
         delivery_number,
         sale_order_id: id,
         warehouse_id: null,
         date: new Date().toISOString().split('T')[0],
-        items: lineItems.map((l) => ({
-          item_name: l.item_name,
-          sku: l.sku,
-          qty_delivered: l.qty,
-          brand_variant_id: l.brand_variant_id,
-        })),
         status: 'pending',
-      })
+      }).select('id').single()
       if (delErr) throw delErr
+      if (newDel && lineItems.length > 0) {
+        const { error: linesErr } = await supabase.from('sale_delivery_lines').insert(
+          lineItems.map((l) => ({
+            sale_delivery_id: newDel.id,
+            brand_variant_id: l.brand_variant_id,
+            item_name: l.item_name,
+            sku: l.sku,
+            qty_delivered: l.qty,
+          }))
+        )
+        if (linesErr) throw linesErr
+      }
 
       // 4. Create draft AR invoice via syncInvoiceToSalesOrder
       const { syncInvoiceToSalesOrder } = await import('@/lib/invoiceSync')

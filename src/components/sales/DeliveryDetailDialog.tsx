@@ -45,7 +45,7 @@ export function DeliveryDetailDialog({ delivery, onClose }: Props) {
 
   if (!delivery) return null
 
-  const items = delivery.items ?? []
+  const items = delivery.sale_delivery_lines ?? []
   const totalQty = items.reduce((sum, i) => sum + i.qty_delivered, 0)
   const statusCfg = STATUS_CONFIG[delivery.status ?? ''] ?? STATUS_CONFIG.pending
 

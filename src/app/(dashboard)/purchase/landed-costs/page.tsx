@@ -102,7 +102,7 @@ function LcDetailDialog({
   const [voidReason, setVoidReason] = useState('')
   const [revertOpen, setRevertOpen] = useState(false)
   const [revertConfirmText, setRevertConfirmText] = useState('')
-  const billPaths = (lc?.lines ?? []).map((l) => l.bill_path)
+  const billPaths = (lc?.landed_cost_lines ?? []).map((l) => l.bill_path)
   const { data: signedUrls } = useBillSignedUrls(billPaths)
 
   const { data: attachedReceivals, isLoading: loadingReceivals } = useAttachedReceivals(
@@ -236,7 +236,7 @@ function LcDetailDialog({
                     </TableRow>
                   </TableHeader>
                   <TableBody>
-                    {(lc.lines ?? []).map((line, i) => (
+                    {(lc.landed_cost_lines ?? []).map((line, i) => (
                       <TableRow key={i}>
                         <TableCell className="text-sm">{line.description}</TableCell>
                         <TableCell className="text-right text-sm font-medium">
@@ -376,7 +376,7 @@ function LcDetailDialog({
             )}
 
             {/* Item Allocations */}
-            {(lc.item_allocations ?? []).length > 0 && (
+            {(lc.landed_cost_item_allocations ?? []).length > 0 && (
               <div>
                 <h3 className="text-sm font-semibold mb-2">Item Allocations</h3>
                 <div className="rounded-md border overflow-x-auto">
@@ -393,7 +393,7 @@ function LcDetailDialog({
                       </TableRow>
                     </TableHeader>
                     <TableBody>
-                      {(lc.item_allocations ?? []).map((alloc, i) => (
+                      {(lc.landed_cost_item_allocations ?? []).map((alloc, i) => (
                         <TableRow key={i}>
                           <TableCell className="text-sm">{alloc.item_name}</TableCell>
                           <TableCell className="text-sm font-mono">{alloc.sku ?? '—'}</TableCell>
@@ -416,7 +416,7 @@ function LcDetailDialog({
 
                 {/* COGS Posted (LC-after-sale adjustments) */}
                 <LcCogsPostedPanel
-                  allocations={lc.item_allocations as never}
+                  allocations={lc.landed_cost_item_allocations as never}
                   currency={lc.currency}
                   appliedAt={lc.applied_at}
                 />

@@ -11,12 +11,16 @@ export type SaleReturn = {
   source_id: string
   date: string
   reason: string
-  items: {
+  return_lines?: {
+    id: string
+    return_id: string
+    brand_variant_id: string | null
     item_name: string
     sku: string | null
     qty: number
     condition: 'good' | 'damaged'
-    brand_variant_id: string | null
+    condition_notes: string | null
+    created_at: string
   }[]
   restock_warehouse_id: string | null
   notes: string | null
@@ -35,7 +39,7 @@ export function useSaleReturns(filters: { search?: string; status?: string } = {
       const supabase = createClient()
       let q = supabase
         .from('returns')
-        .select('*')
+        .select('*, return_lines(*)')
         .eq('source_type', 'sale_order')
         .is('deleted_at', null)
         .order('created_at', { ascending: false })
@@ -61,7 +65,14 @@ export function useCreateSaleReturn() {
       source_id: string
       date: string
       reason: string
-      items: SaleReturn['items']
+      items: {
+        item_name: string
+        sku: string | null
+        qty: number
+        condition: 'good' | 'damaged'
+        brand_variant_id: string | null
+        condition_notes?: string | null
+      }[]
       restock_warehouse_id: string | null
       notes: string | null
     }) => {
@@ -93,7 +104,6 @@ export function useCreateSaleReturn() {
           source_id: payload.source_id,
           date: payload.date,
           reason: payload.reason,
-          items: payload.items,
           restock_warehouse_id: payload.restock_warehouse_id,
           notes: payload.notes,
           status: 'pending',
@@ -103,14 +113,32 @@ export function useCreateSaleReturn() {
         .select()
         .single()
       if (error) throw error
-      return data as unknown as SaleReturn
+
+      // Insert return lines into the separate table
+      if (payload.items.length > 0) {
+        const { error: linesErr } = await supabase
+          .from('return_lines')
+          .insert(payload.items.map((item) => ({
+            return_id: data.id,
+            item_name: item.item_name,
+            sku: item.sku,
+            qty: item.qty,
+            condition: item.condition,
+            brand_variant_id: item.brand_variant_id,
+            condition_notes: item.condition_notes ?? null,
+          })))
+        if (linesErr) throw linesErr
+      }
+
+      return { ...data, return_lines: payload.items } as unknown as SaleReturn
     },
     onSuccess: (data) => {
       queryClient.invalidateQueries({ queryKey: queryKeys.saleReturns.all })
       queryClient.invalidateQueries({ queryKey: queryKeys.saleReturns.bySo })
       queryClient.invalidateQueries({ queryKey: queryKeys.activityLog.all })
-      const damagedCount = data.items.filter((i) => i.condition === 'damaged').reduce((s, i) => s + i.qty, 0)
-      const goodCount    = data.items.filter((i) => i.condition === 'good').reduce((s, i) => s + i.qty, 0)
+      const lines = data.return_lines ?? []
+      const damagedCount = lines.filter((i) => i.condition === 'damaged').reduce((s, i) => s + i.qty, 0)
+      const goodCount    = lines.filter((i) => i.condition === 'good').reduce((s, i) => s + i.qty, 0)
       const parts = []
       if (goodCount > 0)    parts.push(`${goodCount} good`)
       if (damagedCount > 0) parts.push(`${damagedCount} damaged`)
@@ -128,7 +156,7 @@ export function useCreateSaleReturn() {
 async function createCreditNoteForReturn(
   supabase: ReturnType<typeof createClient>,
   returnId: string,
-  ret: { source_id: string; return_number: string; items: SaleReturn['items']; reason: string }
+  ret: { source_id: string; return_number: string; return_lines: NonNullable<SaleReturn['return_lines']>; reason: string }
 ) {
   // 1. Fetch SO lines for unit price lookup
   const { data: soLines } = await supabase
@@ -154,7 +182,7 @@ async function createCreditNoteForReturn(
   const customerName: string = (soData?.customers as { name?: string } | null)?.name ?? 'Unknown'
 
   // 4. Build returned lines — resolve unit price from SO lines
-  const returnedLines = ret.items.map((item) => {
+  const returnedLines = ret.return_lines.map((item) => {
     const soLine = soLineArr.find(
       (l) =>
         (item.brand_variant_id && l.brand_variant_id === item.brand_variant_id) ||
@@ -245,7 +273,7 @@ export function useUpdateReturnStatus() {
 
       const { data: ret, error: fetchErr } = await supabase
         .from('returns')
-        .select('source_id, return_number, items, reason')
+        .select('source_id, return_number, reason, return_lines(*)')
         .eq('id', id)
         .single()
       if (fetchErr) throw fetchErr
@@ -262,11 +290,10 @@ export function useUpdateReturnStatus() {
         if (rpcError) throw rpcError
 
         // Auto-create credit note
-        // ret.items is typed as Json by Supabase but is an array at runtime
-        await createCreditNoteForReturn(supabase, id, { ...ret, items: ret.items as SaleReturn['items'] })
+        await createCreditNoteForReturn(supabase, id, { ...ret, return_lines: (ret as any).return_lines ?? [] })
       }
 
-      return ret as { source_id: string; return_number: string; items: SaleReturn['items']; reason: string }
+      return ret as { source_id: string; return_number: string; return_lines: NonNullable<SaleReturn['return_lines']>; reason: string }
     },
     onSuccess: (ret, variables) => {
       queryClient.invalidateQueries({ queryKey: queryKeys.saleReturns.all })
@@ -301,7 +328,7 @@ export function useReturnsBySO(soId: string | null) {
       const supabase = createClient()
       const { data, error } = await supabase
         .from('returns')
-        .select('*')
+        .select('*, return_lines(*)')
         .eq('source_type', 'sale_order')
         .eq('source_id', soId!)
         .is('deleted_at', null)
@@ -339,7 +366,7 @@ export function useCreateCreditNoteForReturn() {
       await createCreditNoteForReturn(supabase, ret.id, {
         source_id:     ret.source_id,
         return_number: ret.return_number,
-        items:         ret.items,
+        return_lines:  ret.return_lines ?? [],
         reason:        ret.reason,
       })
     },
@@ -364,7 +391,7 @@ export function useAssignWarehouseAndRestock() {
 
       const { data: ret, error: fetchErr } = await supabase
         .from('returns')
-        .select('source_id, return_number, items, reason')
+        .select('source_id, return_number, reason, return_lines(*)')
         .eq('id', id)
         .single()
       if (fetchErr) throw fetchErr
@@ -379,9 +406,9 @@ export function useAssignWarehouseAndRestock() {
         .rpc('rpc_process_return_restock', { p_return_id: id })
       if (rpcError) throw rpcError
 
-      await createCreditNoteForReturn(supabase, id, { ...ret, items: ret.items as SaleReturn['items'] })
+      await createCreditNoteForReturn(supabase, id, { ...ret, return_lines: (ret as any).return_lines ?? [] })
 
-      return ret as { source_id: string; return_number: string; items: SaleReturn['items']; reason: string }
+      return ret as { source_id: string; return_number: string; return_lines: NonNullable<SaleReturn['return_lines']>; reason: string }
     },
     onSuccess: (ret) => {
       queryClient.invalidateQueries({ queryKey: queryKeys.saleReturns.all })
@@ -409,7 +436,7 @@ export function useUnresolvedReturns(soId: string | null) {
     queryFn: async () => {
       const { data, error } = await supabase
         .from('returns')
-        .select('*, credit_notes!returns_credit_note_id_fkey(id, resolution_type)')
+        .select('*, return_lines(*), credit_notes!returns_credit_note_id_fkey(id, resolution_type)')
         .eq('source_type', 'sale_order')
         .eq('source_id', soId!)
         .eq('status', 'restocked')

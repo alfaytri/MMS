@@ -138,7 +138,6 @@ export function TlInvoiceDialog({ visit, data, profileId, onDone, onClose }: Pro
           order_id:          visit.order_id ?? null,
           customer_name:     visit.customer_name,
           customer_phone:    visit.customer_phone ?? null,
-          items:             allItems.map(({ name, qty, unit_price, total }) => ({ name, qty, unit_price, total })) as import('@/types/database.types').Json,
           subtotal,
           discount_amount:   discount,
           total_amount:      totalAmount,
@@ -154,6 +153,25 @@ export function TlInvoiceDialog({ visit, data, profileId, onDone, onClose }: Pro
       if (invErr) throw invErr
       const invoiceId     = (invoice as { id: string; invoice_number: string }).id
       const invoiceNumber = (invoice as { id: string; invoice_number: string }).invoice_number
+
+      // 2b. Insert line items into tl_invoice_lines
+      if (allItems.length > 0) {
+        const { error: linesErr } = await supabase
+          .from('tl_invoice_lines')
+          .insert(
+            allItems.map(({ name, qty, unit_price, total }) => ({
+              tl_invoice_id: invoiceId,
+              name,
+              qty,
+              unit_price,
+              total,
+            })),
+          )
+        if (linesErr) {
+          console.error('[TlInvoiceDialog] insert invoice lines failed:', linesErr)
+          // Non-blocking: the invoice itself was created successfully
+        }
+      }
 
       // 3a. Cash, zero-amount, or non-link method — mark paid and done
       if (effectivePaid || !requiresPaymentLink) {

@@ -34,7 +34,7 @@ export function DeliveryFormDialog({ open, onOpenChange, delivery }: Props) {
   const linkedInvoice = (invoices ?? []).find((inv) => inv.sale_order_id === delivery.sale_order_id)
 
   useEffect(() => {
-    const items = (delivery.items as DeliveryItem[]) ?? []
+    const items = (delivery.sale_delivery_lines as DeliveryItem[]) ?? []
     setLines(
       items.map((item) => {
         const soLine = (so?.sale_order_lines ?? []).find(

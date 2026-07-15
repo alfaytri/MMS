@@ -3266,7 +3266,7 @@ export type Database = {
           customer_id: string | null
           dibsy_checkout_url: string | null
           dibsy_payment_id: string | null
-          direction: string
+          direction: Database["public"]["Enums"]["invoice_direction"]
           discount_amount: number
           discount_label: string | null
           division: string | null
@@ -3274,7 +3274,7 @@ export type Database = {
           due_date: string
           id: string
           invoice_id: string
-          invoice_type: string
+          invoice_type: Database["public"]["Enums"]["invoice_type"]
           issued_date: string
           manually_paid: boolean
           needs_refresh: boolean
@@ -3304,7 +3304,7 @@ export type Database = {
           customer_id?: string | null
           dibsy_checkout_url?: string | null
           dibsy_payment_id?: string | null
-          direction?: string
+          direction?: Database["public"]["Enums"]["invoice_direction"]
           discount_amount?: number
           discount_label?: string | null
           division?: string | null
@@ -3312,7 +3312,7 @@ export type Database = {
           due_date: string
           id?: string
           invoice_id: string
-          invoice_type?: string
+          invoice_type?: Database["public"]["Enums"]["invoice_type"]
           issued_date: string
           manually_paid?: boolean
           needs_refresh?: boolean
@@ -3342,7 +3342,7 @@ export type Database = {
           customer_id?: string | null
           dibsy_checkout_url?: string | null
           dibsy_payment_id?: string | null
-          direction?: string
+          direction?: Database["public"]["Enums"]["invoice_direction"]
           discount_amount?: number
           discount_label?: string | null
           division?: string | null
@@ -3350,7 +3350,7 @@ export type Database = {
           due_date?: string
           id?: string
           invoice_id?: string
-          invoice_type?: string
+          invoice_type?: Database["public"]["Enums"]["invoice_type"]
           issued_date?: string
           manually_paid?: boolean
           needs_refresh?: boolean
@@ -3433,6 +3433,109 @@ export type Database = {
           },
         ]
       }
+      landed_cost_item_allocations: {
+        Row: {
+          id: string
+          landed_cost_id: string
+          brand_variant_id: string | null
+          item_name: string
+          sku: string | null
+          qty_received: number
+          qty_remaining_at_lc: number
+          sold_qty: number
+          original_unit_cost: number
+          lc_per_unit: number
+          updated_unit_cost: number
+          allocated_lc_total: number
+          inventory_portion: number
+          cogs_portion: number
+          created_at: string | null
+        }
+        Insert: {
+          id?: string
+          landed_cost_id: string
+          brand_variant_id?: string | null
+          item_name: string
+          sku?: string | null
+          qty_received: number
+          qty_remaining_at_lc: number
+          sold_qty: number
+          original_unit_cost: number
+          lc_per_unit: number
+          updated_unit_cost: number
+          allocated_lc_total: number
+          inventory_portion: number
+          cogs_portion: number
+          created_at?: string | null
+        }
+        Update: {
+          id?: string
+          landed_cost_id?: string
+          brand_variant_id?: string | null
+          item_name?: string
+          sku?: string | null
+          qty_received?: number
+          qty_remaining_at_lc?: number
+          sold_qty?: number
+          original_unit_cost?: number
+          lc_per_unit?: number
+          updated_unit_cost?: number
+          allocated_lc_total?: number
+          inventory_portion?: number
+          cogs_portion?: number
+          created_at?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "landed_cost_item_allocations_landed_cost_id_fkey"
+            columns: ["landed_cost_id"]
+            isOneToOne: false
+            referencedRelation: "landed_costs"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      landed_cost_lines: {
+        Row: {
+          id: string
+          landed_cost_id: string
+          description: string
+          amount: number
+          currency: string
+          exchange_rate: number
+          bill_path: string | null
+          created_at: string | null
+        }
+        Insert: {
+          id?: string
+          landed_cost_id: string
+          description: string
+          amount: number
+          currency: string
+          exchange_rate: number
+          bill_path?: string | null
+          created_at?: string | null
+        }
+        Update: {
+          id?: string
+          landed_cost_id?: string
+          description?: string
+          amount?: number
+          currency?: string
+          exchange_rate?: number
+          bill_path?: string | null
+          created_at?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "landed_cost_lines_landed_cost_id_fkey"
+            columns: ["landed_cost_id"]
+            isOneToOne: false
+            referencedRelation: "landed_costs"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       landed_costs: {
         Row: {
           all_items_sold: boolean | null
@@ -3444,9 +3547,7 @@ export type Database = {
           date: string
           description: string | null
           id: string
-          item_allocations: Json | null
           lc_number: string
-          lines: Json | null
           revert_snapshot: Json | null
           total_amount: number | null
           updated_at: string | null
@@ -3463,9 +3564,7 @@ export type Database = {
           date: string
           description?: string | null
           id?: string
-          item_allocations?: Json | null
           lc_number: string
-          lines?: Json | null
           revert_snapshot?: Json | null
           total_amount?: number | null
           updated_at?: string | null
@@ -3482,9 +3581,7 @@ export type Database = {
           date?: string
           description?: string | null
           id?: string
-          item_allocations?: Json | null
           lc_number?: string
-          lines?: Json | null
           revert_snapshot?: Json | null
           total_amount?: number | null
           updated_at?: string | null
@@ -6447,6 +6544,50 @@ export type Database = {
           },
         ]
       }
+      return_lines: {
+        Row: {
+          id: string
+          return_id: string
+          brand_variant_id: string | null
+          item_name: string
+          sku: string | null
+          qty: number
+          condition: string | null
+          condition_notes: string | null
+          created_at: string | null
+        }
+        Insert: {
+          id?: string
+          return_id: string
+          brand_variant_id?: string | null
+          item_name: string
+          sku?: string | null
+          qty: number
+          condition?: string | null
+          condition_notes?: string | null
+          created_at?: string | null
+        }
+        Update: {
+          id?: string
+          return_id?: string
+          brand_variant_id?: string | null
+          item_name?: string
+          sku?: string | null
+          qty?: number
+          condition?: string | null
+          condition_notes?: string | null
+          created_at?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "return_lines_return_id_fkey"
+            columns: ["return_id"]
+            isOneToOne: false
+            referencedRelation: "returns"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       returns: {
         Row: {
           created_at: string
@@ -6458,7 +6599,6 @@ export type Database = {
           dispatched_at: string | null
           division_id: string | null
           id: string
-          items: Json
           notes: string | null
           pdf_url: string | null
           reason: string
@@ -6480,7 +6620,6 @@ export type Database = {
           dispatched_at?: string | null
           division_id?: string | null
           id?: string
-          items?: Json
           notes?: string | null
           pdf_url?: string | null
           reason?: string
@@ -6502,7 +6641,6 @@ export type Database = {
           dispatched_at?: string | null
           division_id?: string | null
           id?: string
-          items?: Json
           notes?: string | null
           pdf_url?: string | null
           reason?: string
@@ -6673,6 +6811,44 @@ export type Database = {
         }
         Relationships: []
       }
+      sale_delivery_lines: {
+        Row: {
+          id: string
+          sale_delivery_id: string
+          brand_variant_id: string | null
+          item_name: string
+          sku: string | null
+          qty_delivered: number
+          created_at: string | null
+        }
+        Insert: {
+          id?: string
+          sale_delivery_id: string
+          brand_variant_id?: string | null
+          item_name: string
+          sku?: string | null
+          qty_delivered: number
+          created_at?: string | null
+        }
+        Update: {
+          id?: string
+          sale_delivery_id?: string
+          brand_variant_id?: string | null
+          item_name?: string
+          sku?: string | null
+          qty_delivered?: number
+          created_at?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "sale_delivery_lines_sale_delivery_id_fkey"
+            columns: ["sale_delivery_id"]
+            isOneToOne: false
+            referencedRelation: "sale_deliveries"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       sale_deliveries: {
         Row: {
           created_at: string
@@ -6681,7 +6857,6 @@ export type Database = {
           date: string
           delivery_number: string
           id: string
-          items: Json
           pdf_url: string | null
           return_id: string | null
           sale_order_id: string
@@ -6699,7 +6874,6 @@ export type Database = {
           date: string
           delivery_number: string
           id?: string
-          items?: Json
           pdf_url?: string | null
           return_id?: string | null
           sale_order_id: string
@@ -6717,7 +6891,6 @@ export type Database = {
           date?: string
           delivery_number?: string
           id?: string
-          items?: Json
           pdf_url?: string | null
           return_id?: string | null
           sale_order_id?: string
@@ -6855,7 +7028,6 @@ export type Database = {
           created_by: string | null
           delivered_qty: number | null
           id: string
-          item_id: string | null
           item_name: string
           line_type: string
           qty: number
@@ -6873,7 +7045,6 @@ export type Database = {
           created_by?: string | null
           delivered_qty?: number | null
           id?: string
-          item_id?: string | null
           item_name: string
           line_type?: string
           qty?: number
@@ -6891,7 +7062,6 @@ export type Database = {
           created_by?: string | null
           delivered_qty?: number | null
           id?: string
-          item_id?: string | null
           item_name?: string
           line_type?: string
           qty?: number
@@ -8485,6 +8655,44 @@ export type Database = {
           },
         ]
       }
+      tl_invoice_lines: {
+        Row: {
+          id: string
+          tl_invoice_id: string
+          name: string
+          qty: number
+          unit_price: number
+          total: number
+          created_at: string | null
+        }
+        Insert: {
+          id?: string
+          tl_invoice_id: string
+          name: string
+          qty: number
+          unit_price: number
+          total: number
+          created_at?: string | null
+        }
+        Update: {
+          id?: string
+          tl_invoice_id?: string
+          name?: string
+          qty?: number
+          unit_price?: number
+          total?: number
+          created_at?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "tl_invoice_lines_tl_invoice_id_fkey"
+            columns: ["tl_invoice_id"]
+            isOneToOne: false
+            referencedRelation: "tl_invoices"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       tl_invoices: {
         Row: {
           created_at: string | null
@@ -8496,7 +8704,6 @@ export type Database = {
           discount_amount: number
           id: string
           invoice_number: string
-          items: Json
           notes: string | null
           order_id: string | null
           payment_method_id: string | null
@@ -8516,7 +8723,6 @@ export type Database = {
           discount_amount?: number
           id?: string
           invoice_number: string
-          items?: Json
           notes?: string | null
           order_id?: string | null
           payment_method_id?: string | null
@@ -8536,7 +8742,6 @@ export type Database = {
           discount_amount?: number
           id?: string
           invoice_number?: string
-          items?: Json
           notes?: string | null
           order_id?: string | null
           payment_method_id?: string | null
@@ -9574,7 +9779,7 @@ export type Database = {
           agent_name: string | null
           created_at: string | null
           customer_id: string | null
-          direction: string | null
+          direction: Database["public"]["Enums"]["invoice_direction"] | null
           discount_amount: number | null
           discount_label: string | null
           division: string | null
@@ -9582,7 +9787,7 @@ export type Database = {
           due_date: string | null
           id: string | null
           invoice_id: string | null
-          invoice_type: string | null
+          invoice_type: Database["public"]["Enums"]["invoice_type"] | null
           issued_date: string | null
           manually_paid: boolean | null
           needs_refresh: boolean | null
@@ -9610,7 +9815,7 @@ export type Database = {
           agent_name?: string | null
           created_at?: string | null
           customer_id?: string | null
-          direction?: string | null
+          direction?: Database["public"]["Enums"]["invoice_direction"] | null
           discount_amount?: number | null
           discount_label?: string | null
           division?: string | null
@@ -9618,7 +9823,7 @@ export type Database = {
           due_date?: string | null
           id?: string | null
           invoice_id?: string | null
-          invoice_type?: string | null
+          invoice_type?: Database["public"]["Enums"]["invoice_type"] | null
           issued_date?: string | null
           manually_paid?: boolean | null
           needs_refresh?: boolean | null
@@ -9646,7 +9851,7 @@ export type Database = {
           agent_name?: string | null
           created_at?: string | null
           customer_id?: string | null
-          direction?: string | null
+          direction?: Database["public"]["Enums"]["invoice_direction"] | null
           discount_amount?: number | null
           discount_label?: string | null
           division?: string | null
@@ -9654,7 +9859,7 @@ export type Database = {
           due_date?: string | null
           id?: string | null
           invoice_id?: string | null
-          invoice_type?: string | null
+          invoice_type?: Database["public"]["Enums"]["invoice_type"] | null
           issued_date?: string | null
           manually_paid?: boolean | null
           needs_refresh?: boolean | null
@@ -9770,7 +9975,7 @@ export type Database = {
           agent_name: string | null
           created_at: string | null
           customer_id: string | null
-          direction: string | null
+          direction: Database["public"]["Enums"]["invoice_direction"] | null
           discount_amount: number | null
           discount_label: string | null
           division: string | null
@@ -9778,7 +9983,7 @@ export type Database = {
           due_date: string | null
           id: string | null
           invoice_id: string | null
-          invoice_type: string | null
+          invoice_type: Database["public"]["Enums"]["invoice_type"] | null
           issued_date: string | null
           manually_paid: boolean | null
           needs_refresh: boolean | null
@@ -9806,7 +10011,7 @@ export type Database = {
           agent_name?: string | null
           created_at?: string | null
           customer_id?: string | null
-          direction?: string | null
+          direction?: Database["public"]["Enums"]["invoice_direction"] | null
           discount_amount?: number | null
           discount_label?: string | null
           division?: string | null
@@ -9814,7 +10019,7 @@ export type Database = {
           due_date?: string | null
           id?: string | null
           invoice_id?: string | null
-          invoice_type?: string | null
+          invoice_type?: Database["public"]["Enums"]["invoice_type"] | null
           issued_date?: string | null
           manually_paid?: boolean | null
           needs_refresh?: boolean | null
@@ -9842,7 +10047,7 @@ export type Database = {
           agent_name?: string | null
           created_at?: string | null
           customer_id?: string | null
-          direction?: string | null
+          direction?: Database["public"]["Enums"]["invoice_direction"] | null
           discount_amount?: number | null
           discount_label?: string | null
           division?: string | null
@@ -9850,7 +10055,7 @@ export type Database = {
           due_date?: string | null
           id?: string | null
           invoice_id?: string | null
-          invoice_type?: string | null
+          invoice_type?: Database["public"]["Enums"]["invoice_type"] | null
           issued_date?: string | null
           manually_paid?: boolean | null
           needs_refresh?: boolean | null
@@ -10855,6 +11060,7 @@ export type Database = {
       instruction_content_type: "text" | "pdf"
       instruction_type: "pre-service" | "post-service"
       inventory_type: "products" | "spare-parts" | "consumables" | "tools"
+      invoice_direction: "ar" | "ap"
       invoice_doc_status:
         | "draft"
         | "ready_to_send"
@@ -10864,6 +11070,7 @@ export type Database = {
         | "rejected"
       invoice_payment_status: "unpaid" | "partially_paid" | "paid" | "overdue"
       invoice_source: "order" | "contract" | "quotation"
+      invoice_type: "cash" | "credit"
       invoice_status:
         | "draft"
         | "sent"
@@ -11170,6 +11377,7 @@ export const Constants = {
       instruction_content_type: ["text", "pdf"],
       instruction_type: ["pre-service", "post-service"],
       inventory_type: ["products", "spare-parts", "consumables", "tools"],
+      invoice_direction: ["ar", "ap"],
       invoice_doc_status: [
         "draft",
         "ready_to_send",
@@ -11180,6 +11388,7 @@ export const Constants = {
       ],
       invoice_payment_status: ["unpaid", "partially_paid", "paid", "overdue"],
       invoice_source: ["order", "contract", "quotation"],
+      invoice_type: ["cash", "credit"],
       invoice_status: [
         "draft",
         "sent",

@@ -110,7 +110,7 @@ export function ReplacementDeliveryDialog({
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {returnData.items.map((item, i) => (
+                {(returnData.return_lines ?? []).map((item, i) => (
                   <TableRow key={i}>
                     <TableCell>
                       <div className="text-sm">{item.item_name}</div>

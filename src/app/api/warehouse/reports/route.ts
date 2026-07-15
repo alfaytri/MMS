@@ -221,7 +221,7 @@ async function fetchReceivalsDeliveries(supabase: SupaClient, fromDate?: string,
     .limit(2000)
   let delQ = supabase
     .from('sale_deliveries')
-    .select('id, delivery_number, date, items, status, warehouse_name, sale_orders(so_number, customers(name))')
+    .select('id, delivery_number, date, status, warehouse_name, sale_delivery_lines(id), sale_orders(so_number, customers(name))')
     .order('date', { ascending: false })
     .limit(2000)
   if (fromDate) {
@@ -258,7 +258,7 @@ async function fetchReceivalsDeliveries(supabase: SupaClient, fromDate?: string,
 
   for (const d of (deliveriesRes.data ?? []) as any[]) {
     const so = d.sale_orders as { so_number: string; customers: { name: string } | null } | null
-    const deliveryItems = (d.items ?? []) as unknown[]
+    const deliveryItems = (d.sale_delivery_lines ?? []) as unknown[]
     rows.push({
       direction: 'outbound',
       doc_number: d.delivery_number ?? '—',

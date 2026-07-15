@@ -32,12 +32,12 @@ export type LandedCost = {
   description: string | null
   total_amount: number
   currency: string
-  lines: LandedCostLine[]
+  landed_cost_lines: LandedCostLine[]
   attached_receival_ids: string[]
   attached_po_ids: string[]
   all_items_sold: boolean
   date: string
-  item_allocations: LandedCostItemAllocation[] | null
+  landed_cost_item_allocations: LandedCostItemAllocation[] | null
   voided_at: string | null
   voided_reason: string | null
   applied_at: string | null
@@ -64,7 +64,7 @@ export function useLandedCosts({ search = '' }: { search?: string } = {}) {
       const supabase = createClient()
       let q = supabase
         .from('landed_costs')
-        .select('*')
+        .select('*, landed_cost_lines(*), landed_cost_item_allocations(*)')
         .order('date', { ascending: false })
       if (search) {
         q = q.or(`lc_number.ilike.%${search}%,description.ilike.%${search}%`)
@@ -112,7 +112,7 @@ export function useLandedCost(id: string) {
       const supabase = createClient()
       const { data, error } = await supabase
         .from('landed_costs')
-        .select('*')
+        .select('*, landed_cost_lines(*), landed_cost_item_allocations(*)')
         .eq('id', id)
         .single()
       if (error) throw error

@@ -334,7 +334,7 @@ export function SoDetailDialog({ open, onOpenChange, so, onEdit, onConfirm }: So
                       <div className="text-xs text-muted-foreground">
                         {formatDate(d.date)} · {d.warehouse_name ?? 'Unknown warehouse'}
                       </div>
-                      {d.items && d.items.length > 0 && (
+                      {d.sale_delivery_lines && d.sale_delivery_lines.length > 0 && (
                         <div className="rounded border overflow-x-auto">
                           <Table>
                             <TableHeader>
@@ -344,7 +344,7 @@ export function SoDetailDialog({ open, onOpenChange, so, onEdit, onConfirm }: So
                               </TableRow>
                             </TableHeader>
                             <TableBody>
-                              {d.items.map((item, idx) => {
+                              {d.sale_delivery_lines.map((item, idx) => {
                                 const info = item.brand_variant_id ? bvInfoMap.get(item.brand_variant_id) : null
                                 const typeBadge = info?.type ? inventoryTypeBadge[info.type] : null
                                 return (
@@ -520,7 +520,7 @@ export function SoDetailDialog({ open, onOpenChange, so, onEdit, onConfirm }: So
                 const soLines = fullSO?.sale_order_lines ?? []
                 const remaining = soLines
                   .map((li) => {
-                    const delItem = del.items.find((di) => di.brand_variant_id === li.brand_variant_id)
+                    const delItem = (del.sale_delivery_lines ?? []).find((di) => di.brand_variant_id === li.brand_variant_id)
                     const thisQty = delItem?.qty_delivered ?? 0
                     const leftover = Math.max(0, li.qty - li.delivered_qty - thisQty)
                     return leftover > 0 ? { item_name: li.item_name, sku: li.sku ?? null, qty_delivered: leftover, brand_variant_id: li.brand_variant_id ?? null } : null
@@ -624,7 +624,7 @@ function EditDeliveryDialog({
 }) {
   const [warehouseId, setWarehouseId] = useState(delivery.warehouse_id ?? '')
   const [date, setDate] = useState(delivery.date ?? new Date().toISOString().split('T')[0])
-  const [items, setItems] = useState(delivery.items.map((i) => ({ ...i })))
+  const [items, setItems] = useState((delivery.sale_delivery_lines ?? []).map((i) => ({ ...i })))
 
   return (
     <Dialog open onOpenChange={(o) => { if (!o) onClose() }}>

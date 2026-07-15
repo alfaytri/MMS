@@ -1,0 +1,801 @@
+{
+  "generated": "2026-07-15",
+  "last_updated": "2026-07-15T19:00:00Z",
+  "description": "MMS database schema issues — tracking normalization, FK integrity, indexes, and consistency gaps",
+  "databases": {
+    "production": "wkmvjxxmzstsvahuiwsz",
+    "staging": "mwvblpgbgxipvrevkeff"
+  },
+
+  "staging_inventory_po_so_tables": {
+    "description": "All inventory, PO, and SO related tables present in staging after migrations through 20260715170000",
+    "inventory": {
+      "tables": [
+        "fifo_cost_layers",
+        "cogs_entries",
+        "inventory_brand_variants",
+        "inventory_categories",
+        "inventory_check_approvals",
+        "inventory_check_assignments",
+        "inventory_check_items",
+        "inventory_check_log",
+        "inventory_checks",
+        "inventory_groups",
+        "inventory_items",
+        "inventory_stock_movements",
+        "stock_adjustment_approvals",
+        "stock_adjustments",
+        "warehouse_field_rps",
+        "warehouse_manager_log",
+        "warehouse_reorder_points",
+        "warehouse_stock_allocations",
+        "warehouse_transfer_items",
+        "warehouse_transfers",
+        "warehouses"
+      ],
+      "count": 21,
+      "rls_enabled": "all",
+      "notes": "warehouse_transfers.items JSONB column was dropped (migrated to warehouse_transfer_items table). fifo_cost_layers.receival_id converted from text to uuid FK. cogs_entries and fifo_cost_layers both have source_type column added."
+    },
+    "purchase_orders": {
+      "tables": [
+        "purchase_orders",
+        "po_approvals",
+        "po_line_items",
+        "po_versions",
+        "po_version_lines",
+        "po_edit_requests",
+        "po_rfq_quotes",
+        "po_rfq_quote_items",
+        "receival_edit_requests",
+        "receival_items",
+        "receivals",
+        "suppliers",
+        "shipments",
+        "landed_costs",
+        "landed_cost_lines",
+        "landed_cost_item_allocations"
+      ],
+      "count": 16,
+      "rls_enabled": "all",
+      "notes": "po_versions.line_items JSONB dropped → po_version_lines table. purchase_orders.supplier_id and po_versions.supplier_id converted from text to uuid FKs. landed_costs.lines and .item_allocations JSONB dropped → landed_cost_lines and landed_cost_item_allocations tables. po_rfq_quotes replaces old rfq_quotes with proper uuid FKs."
+    },
+    "sale_orders": {
+      "tables": [
+        "sale_orders",
+        "sale_order_lines",
+        "sale_deliveries",
+        "sale_delivery_lines",
+        "invoices",
+        "invoice_line_items",
+        "credit_notes",
+        "credit_note_lines",
+        "returns",
+        "return_lines",
+        "payments"
+      ],
+      "count": 11,
+      "rls_enabled": "all",
+      "notes": "sale_deliveries.items JSONB dropped → sale_delivery_lines table. returns.items JSONB dropped → return_lines table. credit_notes.line_items JSONB dropped → credit_note_lines table (expanded with sku, line_type, condition, condition_notes). invoices.doc_status and .payment_status converted to enums."
+    },
+    "verification": {
+      "types_file_matches": true,
+      "normalized_tables_in_types": ["return_lines", "sale_delivery_lines", "tl_invoice_lines", "landed_cost_lines", "landed_cost_item_allocations", "po_version_lines"],
+      "dropped_columns_removed_from_types": true,
+      "app_code_stale_refs": "none_found",
+      "rpc_updates_applied": "complete_delivery_inventory, cancel_delivery_inventory, create_landed_cost, allocate_landed_cost, revert_landed_cost, rpc_process_po_return_dispatch, rpc_cancel_po_return_dispatch, rpc_process_return_restock (20260715170000), create_and_confirm_delivery (20260715180000)",
+      "dead_rpc_dropped": "approve_warehouse_transfer_inventory — dropped (referenced old warehouse_transfers.items)",
+      "indexes_added": "13 FK indexes via 20260715190000",
+      "fk_constraints_added": "return_lines, sale_delivery_lines, landed_cost_item_allocations brand_variant_id + warehouse_stock_allocations FKs via 20260715200000",
+      "orphan_columns_dropped": "sale_order_lines.item_id via 20260715200000"
+    }
+  },
+
+  "completed": [
+    {
+      "id": "FIXED-001",
+      "category": "text_to_fk",
+      "table": "purchase_orders",
+      "column": "supplier_id",
+      "was": "text NOT NULL",
+      "now": "uuid NOT NULL REFERENCES suppliers(id)",
+      "migration": "20260715100000_normalize_schema.sql",
+      "applied_to": ["production", "staging"]
+    },
+    {
+      "id": "FIXED-002",
+      "category": "text_to_fk",
+      "table": "po_versions",
+      "column": "supplier_id",
+      "was": "text NOT NULL",
+      "now": "uuid NOT NULL REFERENCES suppliers(id)",
+      "migration": "20260715100000_normalize_schema.sql",
+      "applied_to": ["production", "staging"]
+    },
+    {
+      "id": "FIXED-003",
+      "category": "text_to_fk",
+      "table": "fifo_cost_layers",
+      "column": "receival_id",
+      "was": "text (nullable)",
+      "now": "uuid REFERENCES receivals(id)",
+      "migration": "20260715100000_normalize_schema.sql",
+      "applied_to": ["production", "staging"]
+    },
+    {
+      "id": "FIXED-004",
+      "category": "json_normalization",
+      "table": "credit_notes",
+      "column": "line_items",
+      "was": "jsonb (returned_lines + original_lines arrays)",
+      "now": "DROPPED — data in credit_note_lines table with line_type column",
+      "migration": "20260715100000_normalize_schema.sql",
+      "applied_to": ["production", "staging"]
+    },
+    {
+      "id": "FIXED-005",
+      "category": "json_normalization",
+      "table": "po_versions",
+      "column": "line_items",
+      "was": "jsonb (PO version snapshot line items)",
+      "now": "DROPPED — data in po_version_lines table",
+      "migration": "20260715100000_normalize_schema.sql",
+      "applied_to": ["production", "staging"]
+    },
+    {
+      "id": "FIXED-006",
+      "category": "json_normalization",
+      "table": "warehouse_transfers",
+      "column": "items",
+      "was": "jsonb (redundant — warehouse_transfer_items table already existed)",
+      "now": "DROPPED — orphaned data migrated to warehouse_transfer_items",
+      "migration": "20260715140000_drop_warehouse_transfers_items_json.sql",
+      "applied_to": ["production", "staging"]
+    },
+    {
+      "id": "FIXED-007",
+      "category": "text_to_enum",
+      "table": "invoices",
+      "column": "doc_status",
+      "was": "text with CHECK ('draft','ready_to_send','sent','pending_approval','approved','rejected')",
+      "now": "invoice_doc_status enum",
+      "migration": "20260715120000_invoice_text_to_enum.sql",
+      "applied_to": ["production", "staging"]
+    },
+    {
+      "id": "FIXED-008",
+      "category": "text_to_enum",
+      "table": "invoices",
+      "column": "payment_status",
+      "was": "text with CHECK ('unpaid','partially_paid','paid','overdue')",
+      "now": "invoice_payment_status enum",
+      "migration": "20260715120000_invoice_text_to_enum.sql",
+      "applied_to": ["production", "staging"]
+    },
+    {
+      "id": "FIXED-009",
+      "category": "json_normalization",
+      "table": "returns",
+      "column": "items",
+      "was": "jsonb (return line items)",
+      "now": "DROPPED — data in return_lines table",
+      "migration": "20260715160000_normalize_remaining_json_columns.sql",
+      "applied_to": ["production", "staging"]
+    },
+    {
+      "id": "FIXED-010",
+      "category": "json_normalization",
+      "table": "sale_deliveries",
+      "column": "items",
+      "was": "jsonb (delivery line items)",
+      "now": "DROPPED — data in sale_delivery_lines table",
+      "migration": "20260715160000_normalize_remaining_json_columns.sql",
+      "applied_to": ["production", "staging"]
+    },
+    {
+      "id": "FIXED-011",
+      "category": "json_normalization",
+      "table": "tl_invoices",
+      "column": "items",
+      "was": "jsonb (TL invoice line items)",
+      "now": "DROPPED — data in tl_invoice_lines table",
+      "migration": "20260715160000_normalize_remaining_json_columns.sql",
+      "applied_to": ["production", "staging"]
+    },
+    {
+      "id": "FIXED-012",
+      "category": "json_normalization",
+      "table": "landed_costs",
+      "column": "lines",
+      "was": "jsonb (landed cost line items)",
+      "now": "DROPPED — data in landed_cost_lines table",
+      "migration": "20260715160000_normalize_remaining_json_columns.sql",
+      "applied_to": ["production", "staging"]
+    },
+    {
+      "id": "FIXED-013",
+      "category": "json_normalization",
+      "table": "landed_costs",
+      "column": "item_allocations",
+      "was": "jsonb (allocation breakdown per item)",
+      "now": "DROPPED — data in landed_cost_item_allocations table",
+      "migration": "20260715160000_normalize_remaining_json_columns.sql",
+      "applied_to": ["production", "staging"]
+    },
+    {
+      "id": "FIXED-014",
+      "category": "rpc_update",
+      "table": "multiple",
+      "column": "multiple",
+      "was": "8 RPCs referencing dropped JSONB columns (returns.items, sale_deliveries.items, landed_costs.lines/item_allocations)",
+      "now": "All 8 RPCs updated to use normalized line-item tables; 1 dead RPC dropped (approve_warehouse_transfer_inventory)",
+      "migration": "20260715170000_update_rpcs_for_normalized_tables.sql",
+      "applied_to": ["production", "staging"]
+    },
+    {
+      "id": "FIXED-015",
+      "category": "security",
+      "table": "warehouse_stock_view",
+      "column": "security_invoker",
+      "was": "VIEW without security_invoker (runs as owner, bypasses RLS)",
+      "now": "VIEW with security_invoker = true",
+      "migration": "20260713170000_fix_views_security_invoker.sql",
+      "applied_to": ["production", "staging"]
+    },
+    {
+      "id": "FIXED-016",
+      "category": "stale_rpc",
+      "table": "sale_deliveries",
+      "column": "items (DROPPED)",
+      "was": "create_and_confirm_delivery RPC still inserted into dropped sale_deliveries.items column",
+      "now": "RPC rewritten to INSERT into sale_delivery_lines table; loops p_items JSONB and creates individual line rows",
+      "migration": "20260715180000_fix_create_confirm_delivery_rpc.sql",
+      "applied_to": ["production", "staging"],
+      "resolved_issue": "ISSUE-031"
+    },
+    {
+      "id": "FIXED-017",
+      "category": "missing_index",
+      "table": "multiple (13 indexes)",
+      "column": "FK columns",
+      "was": "13 FK columns across 8 tables had no indexes",
+      "now": "Indexes added: sale_order_lines(sale_order_id, brand_variant_id), po_line_items(po_id, brand_variant_id), invoice_line_items(invoice_id), warehouse_transfer_items(transfer_id, brand_variant_id), receival_items(brand_variant_id, po_line_item_id), po_version_lines(brand_variant_id), return_lines(brand_variant_id), sale_delivery_lines(brand_variant_id), landed_cost_item_allocations(brand_variant_id)",
+      "migration": "20260715190000_add_missing_fk_indexes.sql",
+      "applied_to": ["production", "staging"],
+      "resolved_issues": ["ISSUE-018", "ISSUE-019", "ISSUE-020", "ISSUE-021", "ISSUE-022", "ISSUE-023", "ISSUE-024", "ISSUE-025", "ISSUE-026"]
+    },
+    {
+      "id": "FIXED-018",
+      "category": "missing_fk_constraint",
+      "table": "return_lines, sale_delivery_lines, landed_cost_item_allocations",
+      "column": "brand_variant_id",
+      "was": "uuid columns without FK constraints to inventory_brand_variants",
+      "now": "FK constraints added: return_lines_brand_variant_id_fkey, sale_delivery_lines_brand_variant_id_fkey, landed_cost_item_alloc_brand_variant_id_fkey",
+      "migration": "20260715200000_add_fk_constraints_and_cleanup.sql",
+      "applied_to": ["production", "staging"],
+      "resolved_issues": ["ISSUE-027", "ISSUE-028", "ISSUE-029"]
+    },
+    {
+      "id": "FIXED-019",
+      "category": "orphan_column",
+      "table": "sale_order_lines",
+      "column": "item_id",
+      "was": "text column, no FK constraint, zero app code references",
+      "now": "DROPPED — brand_variant_id is the canonical FK",
+      "migration": "20260715200000_add_fk_constraints_and_cleanup.sql",
+      "applied_to": ["production", "staging"],
+      "resolved_issue": "ISSUE-017"
+    },
+    {
+      "id": "FIXED-020",
+      "category": "missing_fk_constraint",
+      "table": "warehouse_stock_allocations",
+      "column": "warehouse_id, brand_variant_id",
+      "was": "No FK constraints on warehouse_id or brand_variant_id (table already had PK)",
+      "now": "FK constraints added conditionally: warehouse_stock_alloc_warehouse_id_fkey, warehouse_stock_alloc_brand_variant_id_fkey",
+      "migration": "20260715200000_add_fk_constraints_and_cleanup.sql",
+      "applied_to": ["production", "staging"],
+      "resolved_issue": "ISSUE-030 (partial — PK already existed, FK constraints added)"
+    },
+    {
+      "id": "FIXED-021",
+      "category": "stale_app_code",
+      "table": "sale_deliveries",
+      "column": "items → sale_delivery_lines",
+      "was": "SaleDelivery type declared 'items' property; SoDetailDialog used del.items.find()",
+      "now": "Type renamed to sale_delivery_lines with proper shape; SoDetailDialog uses (del.sale_delivery_lines ?? []).find()",
+      "files": ["src/hooks/useSaleOrders.ts", "src/components/sales/SoDetailDialog.tsx"],
+      "resolved_issue": "ISSUE-032"
+    },
+    {
+      "id": "FIXED-022",
+      "category": "stale_app_code",
+      "table": "returns",
+      "column": "items → return_lines",
+      "was": "SaleReturn['items'] invalid type index",
+      "now": "NonNullable<SaleReturn['return_lines']>[number]",
+      "files": ["src/app/(dashboard)/sales/returns/page.tsx"],
+      "resolved_issue": "ISSUE-033"
+    },
+    {
+      "id": "FIXED-023",
+      "category": "stale_app_code",
+      "table": "landed_costs",
+      "column": "multiple non-existent columns",
+      "was": "WhMovementRefDialog queried status, vendor_invoice_no, total_landed_cost, suppliers(company_name)",
+      "now": "Queries actual columns: total_amount, description, currency, applied_at, voided_at, date; derives status from applied_at/voided_at",
+      "files": ["src/components/purchase/wh/WhMovementRefDialog.tsx"],
+      "resolved_issue": "ISSUE-034"
+    },
+    {
+      "id": "FIXED-024",
+      "category": "type_sync",
+      "table": "sale_order_lines",
+      "column": "item_id",
+      "was": "item_id still in database.types.ts Row/Insert/Update sections after column drop",
+      "now": "Removed from all three type sections in database.types.ts",
+      "files": ["src/types/database.types.ts"],
+      "resolved_issue": "ISSUE-017 (type cleanup)"
+    },
+    {
+      "id": "FIXED-025",
+      "category": "text_to_enum",
+      "table": "invoices",
+      "column": "invoice_type, direction",
+      "was": "text with CHECK constraints",
+      "now": "invoice_type enum ('cash','credit'), invoice_direction enum ('ar','ap'). Views customer_invoices and supplier_bills recreated with security_invoker. Partial indexes recreated with enum-typed WHERE clauses.",
+      "migration": "20260715220000_invoice_type_direction_enums.sql",
+      "applied_to": ["production", "staging"],
+      "resolved_issues": ["ISSUE-007", "ISSUE-008"]
+    }
+  ],
+
+  "outstanding": [
+    {
+      "id": "ISSUE-001",
+      "category": "text_to_fk",
+      "priority": "high",
+      "table": "rfq_quotes",
+      "column": "supplier_id",
+      "current": "text NOT NULL",
+      "target": "uuid NOT NULL REFERENCES suppliers(id)",
+      "notes": "Original rfq_quotes table was not touched by the normalize_schema migration. The newer po_rfq_quotes table (20260702120000) correctly uses uuid FK. rfq_quotes table is DROPPED in staging cleanup but still exists in production.",
+      "affects": "production_only"
+    },
+    {
+      "id": "ISSUE-002",
+      "category": "text_to_fk",
+      "priority": "medium",
+      "table": "rfqs",
+      "column": "suppliers",
+      "current": "text[] DEFAULT '{}'",
+      "target": "uuid[] (array of supplier UUIDs stored as text strings)",
+      "notes": "Stores supplier IDs as text strings in an array. rfqs table is DROPPED in staging cleanup but still exists in production.",
+      "affects": "production_only"
+    },
+    {
+      "id": "ISSUE-003",
+      "category": "json_normalization",
+      "priority": "high",
+      "table": "rfq_quotes",
+      "column": "items",
+      "current": "jsonb NOT NULL (line items with item_name, qty, price)",
+      "target": "Normalize to rfq_quote_items table",
+      "notes": "Classic line-items pattern. The newer po_rfq_quote_items table was created properly (20260702120000). rfq_quotes is DROPPED in staging but still in production.",
+      "affects": "production_only"
+    },
+    {
+      "id": "ISSUE-004",
+      "category": "json_normalization",
+      "priority": "no_action",
+      "table": "inventory_groups",
+      "column": "items",
+      "current": "jsonb DEFAULT '[]' (group membership list)",
+      "target": "Normalize to inventory_group_items junction table",
+      "notes": "VERIFIED UNUSED: Zero references in app code (hooks, components, API routes). The entire inventory_groups table appears to be unused/placeholder. No normalization needed until the feature is built.",
+      "affects": "both"
+    },
+    {
+      "id": "ISSUE-005",
+      "category": "json_normalization",
+      "priority": "medium",
+      "table": "services",
+      "column": "inventory_items",
+      "current": "jsonb (linked inventory items)",
+      "target": "Normalize to service_inventory_items junction table",
+      "notes": "Services table is DROPPED in staging cleanup. Only affects production. Links services to inventory brand variants.",
+      "affects": "production_only"
+    },
+    {
+      "id": "ISSUE-006",
+      "category": "json_normalization",
+      "priority": "medium",
+      "table": "services",
+      "column": "components",
+      "current": "jsonb (sub-components tree)",
+      "target": "Normalize to service_components table",
+      "notes": "Services table is DROPPED in staging cleanup. Only affects production.",
+      "affects": "production_only"
+    },
+    {
+      "id": "ISSUE-007",
+      "category": "text_to_enum",
+      "priority": "resolved",
+      "table": "invoices",
+      "column": "invoice_type",
+      "status": "FIXED — see FIXED-025",
+      "affects": "both"
+    },
+    {
+      "id": "ISSUE-008",
+      "category": "text_to_enum",
+      "priority": "resolved",
+      "table": "invoices",
+      "column": "direction",
+      "status": "FIXED — see FIXED-025",
+      "affects": "both"
+    },
+    {
+      "id": "ISSUE-009",
+      "category": "json_metadata",
+      "priority": "low",
+      "table": "po_line_items",
+      "column": "fifo_layers",
+      "current": "jsonb (FIFO layer snapshot at PO level)",
+      "target": "Keep as JSON — intentional frozen snapshot, not mutable line items",
+      "notes": "Stores a frozen snapshot of FIFO cost layers when the PO was created. Only referenced in usePurchaseOrders.ts. Should remain as JSON since it's a point-in-time record.",
+      "affects": "both"
+    },
+    {
+      "id": "ISSUE-010",
+      "category": "json_metadata",
+      "priority": "low",
+      "table": "purchase_orders",
+      "column": "payment_milestones",
+      "current": "jsonb (payment milestone schedule)",
+      "target": "Could normalize to po_payment_milestones table",
+      "notes": "Also exists on po_versions and sale_orders. Referenced by 11 files in app code. Low urgency — more config/schedule data than classic line items.",
+      "affects": "both"
+    },
+    {
+      "id": "ISSUE-011",
+      "category": "json_metadata",
+      "priority": "low",
+      "table": "po_versions",
+      "column": "payment_milestones",
+      "current": "jsonb (payment milestone schedule snapshot)",
+      "target": "Keep as JSON — frozen snapshot for immutability",
+      "notes": "Frozen snapshot of milestones at version time. Should stay JSON for immutability.",
+      "affects": "both"
+    },
+    {
+      "id": "ISSUE-012",
+      "category": "json_metadata",
+      "priority": "low",
+      "table": "sale_orders",
+      "column": "payment_milestones",
+      "current": "jsonb (payment milestone schedule)",
+      "target": "Could normalize to so_payment_milestones table",
+      "notes": "Same pattern as PO milestones. Low urgency.",
+      "affects": "both"
+    },
+    {
+      "id": "ISSUE-013",
+      "category": "json_metadata",
+      "priority": "none",
+      "table": "landed_costs",
+      "column": "revert_snapshot",
+      "current": "jsonb (snapshot of state before revert)",
+      "target": "Keep as JSON — intentional opaque snapshot for undo",
+      "notes": "Used by the revert_landed_cost RPC to restore state. By design an opaque blob.",
+      "affects": "both"
+    },
+    {
+      "id": "ISSUE-014",
+      "category": "json_metadata",
+      "priority": "none",
+      "table": "shipments",
+      "column": "events",
+      "current": "jsonb DEFAULT '[]' (tracking event log from 17track)",
+      "target": "Keep as JSON — append-only external event log",
+      "notes": "Tracking events from external 17track API. Append-only, not queried relationally.",
+      "affects": "both"
+    },
+    {
+      "id": "ISSUE-015",
+      "category": "json_metadata",
+      "priority": "none",
+      "table": "payments",
+      "column": "dibsy_response",
+      "current": "jsonb (external Dibsy API response)",
+      "target": "Keep as JSON — opaque external API response",
+      "notes": "Raw response from Dibsy payment gateway. Should remain opaque.",
+      "affects": "both"
+    },
+    {
+      "id": "ISSUE-016",
+      "category": "json_normalization",
+      "priority": "no_action",
+      "table": "payment_sessions",
+      "column": "invoice_allocations",
+      "current": "jsonb DEFAULT '[]' (invoice split allocation)",
+      "target": "Normalize when payment_sessions feature is built",
+      "notes": "VERIFIED UNUSED: Column is on payment_sessions table (not payments as originally noted). The entire payment_sessions table has zero app code references — it's part of unbuilt Dibsy online payment flow. No normalization needed until feature is built.",
+      "affects": "both"
+    },
+    {
+      "id": "ISSUE-017",
+      "category": "orphan_column",
+      "priority": "resolved",
+      "table": "sale_order_lines",
+      "column": "item_id",
+      "status": "FIXED — see FIXED-019, FIXED-024",
+      "affects": "both"
+    },
+    {
+      "id": "ISSUE-030",
+      "category": "missing_pk",
+      "priority": "resolved_partial",
+      "table": "warehouse_stock_allocations",
+      "column": "(warehouse_id, brand_variant_id)",
+      "current": "PK already existed; FK constraints added",
+      "status": "FIXED (partial) — see FIXED-020. Table already had a PK; FK constraints to warehouses and inventory_brand_variants added.",
+      "affects": "both"
+    }
+  ],
+
+  "scan_checklist": {
+    "description": "Categories of issues to scan for when auditing any Supabase/Postgres schema. Use these as a recurring audit framework.",
+    "categories": [
+      {
+        "id": "SCAN-001",
+        "name": "Text columns that should be UUID FKs",
+        "description": "Find columns named *_id that are text type instead of uuid with REFERENCES constraint",
+        "query": "SELECT table_name, column_name, data_type FROM information_schema.columns WHERE column_name LIKE '%_id' AND data_type = 'text' AND table_schema = 'public'",
+        "severity": "high",
+        "risk": "No referential integrity — can store IDs pointing to non-existent rows",
+        "status": "mostly_resolved",
+        "notes": "purchase_orders.supplier_id, po_versions.supplier_id, fifo_cost_layers.receival_id all fixed. Remaining: rfq_quotes.supplier_id (production only)."
+      },
+      {
+        "id": "SCAN-002",
+        "name": "JSONB columns containing line items",
+        "description": "Find JSONB columns that store arrays of structured objects (items, lines, allocations) — candidates for normalization into child tables",
+        "query": "SELECT table_name, column_name FROM information_schema.columns WHERE data_type = 'jsonb' AND table_schema = 'public' ORDER BY table_name",
+        "severity": "high",
+        "risk": "Cannot enforce constraints, cannot index individual fields, cannot join efficiently",
+        "status": "mostly_resolved",
+        "notes": "7 JSONB columns normalized into tables (FIXED-004 through FIXED-013). Remaining: inventory_groups.items (ISSUE-004), payment_milestones on PO/SO/po_versions (intentional schedule data), po_line_items.fifo_layers (intentional snapshot)."
+      },
+      {
+        "id": "SCAN-003",
+        "name": "Text columns with CHECK constraints (should be enums)",
+        "description": "Find text columns that have CHECK constraints limiting to a fixed set of values — candidates for enum types",
+        "query": "SELECT tc.table_name, tc.constraint_name, cc.check_clause FROM information_schema.table_constraints tc JOIN information_schema.check_constraints cc ON tc.constraint_name = cc.constraint_name WHERE tc.constraint_type = 'CHECK' AND tc.table_schema = 'public'",
+        "severity": "low",
+        "risk": "Inconsistency — some status columns use enums, others use text+CHECK. Enum gives type safety at the Postgres level",
+        "status": "resolved",
+        "notes": "All invoice text+CHECK columns converted to enums: doc_status (20260715120000), payment_status (20260715120000), invoice_type and direction (20260715220000). Dependent views, indexes, and CHECK constraints handled in migration."
+      },
+      {
+        "id": "SCAN-004",
+        "name": "Tables without RLS enabled",
+        "description": "Find tables that do not have row-level security enabled — security risk with Supabase anon key",
+        "query": "SELECT tablename FROM pg_tables WHERE schemaname = 'public' AND tablename NOT IN (SELECT tablename FROM pg_tables WHERE schemaname = 'public' AND rowsecurity = true)",
+        "severity": "critical",
+        "risk": "Anyone with the anon key can read/write the entire table",
+        "status": "resolved",
+        "notes": "All 144 baseline tables + all new tables have RLS enabled. Verified in audit."
+      },
+      {
+        "id": "SCAN-005",
+        "name": "Tables with RLS enabled but no policies",
+        "description": "Find tables that have RLS enabled but zero policies — effectively locked out for everyone including the app",
+        "query": "SELECT schemaname, tablename FROM pg_tables WHERE schemaname = 'public' AND rowsecurity = true AND tablename NOT IN (SELECT tablename FROM pg_policies WHERE schemaname = 'public')",
+        "severity": "high",
+        "risk": "RLS is on but no policy exists — table is inaccessible, or falls back to service_role only",
+        "status": "resolved",
+        "notes": "All new normalized tables have RLS policies. No tables found with RLS but zero policies."
+      },
+      {
+        "id": "SCAN-006",
+        "name": "Missing indexes on foreign key columns",
+        "description": "FK columns without indexes cause slow JOINs and slow CASCADE deletes",
+        "query": "Look for FK columns that have no corresponding index. Every *_id column that REFERENCES another table should have an index.",
+        "severity": "high",
+        "risk": "Slow queries on JOIN and ON DELETE CASCADE operations",
+        "status": "resolved",
+        "notes": "All 13 missing FK indexes added in migration 20260715190000. Covers sale_order_lines, po_line_items, invoice_line_items, warehouse_transfer_items, receival_items, po_version_lines, return_lines, sale_delivery_lines, landed_cost_item_allocations."
+      },
+      {
+        "id": "SCAN-007",
+        "name": "Orphan/legacy columns",
+        "description": "Columns that appear unused — no app code references them, or a newer replacement column exists on the same table",
+        "query": "Cross-reference column names against src/ codebase usage. Flag columns with zero grep hits.",
+        "severity": "low",
+        "risk": "Dead schema weight — confuses developers, wastes storage",
+        "status": "resolved",
+        "notes": "sale_order_lines.item_id dropped in migration 20260715200000. Confirmed zero app code references before drop."
+      },
+      {
+        "id": "SCAN-008",
+        "name": "Redundant parent+child patterns",
+        "description": "Tables that have BOTH a JSONB column AND a child line-item table for the same data",
+        "query": "For each table with a JSONB column, check if a corresponding *_lines or *_items table exists with overlapping fields",
+        "severity": "high",
+        "risk": "Data duplication — writes must update both, reads may return stale data from one",
+        "status": "resolved",
+        "notes": "All 7 redundant JSONB+table pairs resolved. JSONB columns dropped, data migrated to normalized tables."
+      },
+      {
+        "id": "SCAN-009",
+        "name": "Nullable FKs that should be NOT NULL",
+        "description": "Foreign key columns that are nullable but logically should always have a value (e.g., every line item should have a parent)",
+        "query": "SELECT table_name, column_name, is_nullable FROM information_schema.columns WHERE column_name LIKE '%_id' AND is_nullable = 'YES' AND table_schema = 'public'",
+        "severity": "medium",
+        "risk": "Orphaned rows — line items without a parent, movements without a warehouse",
+        "status": "needs_review",
+        "notes": "Some nullable FKs are intentional (e.g., receival_items.po_line_item_id is nullable for manual receivals). Needs per-column evaluation."
+      },
+      {
+        "id": "SCAN-010",
+        "name": "Missing ON DELETE behavior on FKs",
+        "description": "Foreign keys without explicit ON DELETE (defaults to NO ACTION) — can cause failed deletes or orphaned data",
+        "query": "SELECT tc.table_name, kcu.column_name, rc.delete_rule FROM information_schema.referential_constraints rc JOIN information_schema.table_constraints tc ON rc.constraint_name = tc.constraint_name JOIN information_schema.key_column_usage kcu ON tc.constraint_name = kcu.constraint_name WHERE tc.table_schema = 'public' AND rc.delete_rule = 'NO ACTION'",
+        "severity": "medium",
+        "risk": "Deleting a parent row fails silently or leaves orphaned children depending on usage",
+        "status": "acceptable",
+        "notes": "New line-item tables all use ON DELETE CASCADE. Parent FKs (supplier_id, receival_id) intentionally use NO ACTION — you shouldn't delete a supplier or receival that has dependent records."
+      },
+      {
+        "id": "SCAN-011",
+        "name": "Inconsistent naming conventions",
+        "description": "Tables/columns that don't follow the project's naming pattern (snake_case, consistent FK naming, consistent _id suffix)",
+        "query": "Manual review of column names for inconsistencies: e.g., some use created_by (uuid FK to profiles), others use created_by_name (denormalized text)",
+        "severity": "low",
+        "risk": "Developer confusion, incorrect assumptions about data relationships",
+        "status": "needs_review"
+      },
+      {
+        "id": "SCAN-012",
+        "name": "Denormalized name columns without FK",
+        "description": "Columns like supplier_name, warehouse_name, customer_name that store a copy of the name instead of (or alongside) a FK",
+        "query": "SELECT table_name, column_name FROM information_schema.columns WHERE column_name LIKE '%_name' AND table_schema = 'public' AND column_name NOT IN ('item_name', 'name')",
+        "severity": "low",
+        "risk": "Stale data — if the source entity's name changes, copies become outdated",
+        "status": "accepted_pattern",
+        "notes": "Denormalized name columns are intentional in this project for audit trail and display performance. Examples: po_versions.supplier_name, warehouse_transfers.created_by_name, sale_deliveries.warehouse_name."
+      },
+      {
+        "id": "SCAN-013",
+        "name": "Views without SECURITY INVOKER",
+        "description": "Views that don't use security_invoker = true run as the view creator, bypassing the caller's RLS policies",
+        "query": "Check all CREATE VIEW / CREATE OR REPLACE VIEW statements for WITH (security_invoker = true)",
+        "severity": "high",
+        "risk": "RLS bypass — the view runs with the owner's permissions, not the calling user's",
+        "status": "resolved",
+        "notes": "All active views have security_invoker = true. warehouse_stock_view was the last one fixed (20260713170000). customer_credit_summary fixed in 20260713165620. Compat views were dropped."
+      },
+      {
+        "id": "SCAN-014",
+        "name": "RPCs referencing dropped columns",
+        "description": "Stored functions that SELECT, INSERT, or UPDATE columns that no longer exist after schema changes",
+        "query": "Cross-reference all CREATE FUNCTION bodies against dropped columns from normalization migrations",
+        "severity": "critical",
+        "risk": "Runtime errors — RPC call will fail with 'column does not exist'",
+        "status": "resolved",
+        "notes": "All RPCs updated. create_and_confirm_delivery was the last one — fixed in 20260715180000 to use sale_delivery_lines instead of dropped sale_deliveries.items column. Other 8 RPCs were fixed in 20260715170000."
+      },
+      {
+        "id": "SCAN-015",
+        "name": "Triggers on tables that were renamed or dropped",
+        "description": "Triggers that reference old table names after renames (e.g., divisions -> company_divisions)",
+        "query": "SELECT trigger_name, event_object_table FROM information_schema.triggers WHERE trigger_schema = 'public'",
+        "severity": "high",
+        "risk": "Trigger silently stops firing if the table was renamed and the trigger wasn't updated",
+        "status": "needs_review",
+        "notes": "Tables renamed: divisions→company_divisions, user_divisions→user_company_divisions, plus 5 approval tables. Need to verify no triggers reference old names."
+      },
+      {
+        "id": "SCAN-016",
+        "name": "Missing FK constraints on line-item brand_variant_id columns",
+        "description": "Normalized line-item tables that store brand_variant_id as a plain uuid without a REFERENCES constraint to inventory_brand_variants",
+        "query": "Check return_lines, sale_delivery_lines, landed_cost_item_allocations for FK constraints on brand_variant_id",
+        "severity": "medium",
+        "risk": "Can store brand_variant_id values that don't match any existing inventory_brand_variants row — no referential integrity",
+        "status": "resolved",
+        "notes": "All three FK constraints added in migration 20260715200000: return_lines, sale_delivery_lines, landed_cost_item_allocations all now have FK to inventory_brand_variants(id)."
+      },
+      {
+        "id": "SCAN-017",
+        "name": "Composite key tables without PK or UNIQUE constraints",
+        "description": "Tables using composite natural keys (e.g., warehouse_id + brand_variant_id) without a PRIMARY KEY or UNIQUE constraint",
+        "query": "SELECT tablename FROM pg_tables WHERE schemaname = 'public' AND tablename NOT IN (SELECT tablename FROM pg_indexes WHERE schemaname = 'public' AND indexdef LIKE '%PRIMARY KEY%')",
+        "severity": "low",
+        "risk": "Duplicate rows possible, no guaranteed uniqueness",
+        "status": "resolved_partial",
+        "notes": "warehouse_stock_allocations already had a PK. FK constraints added in 20260715200000. ISSUE-030 partially resolved."
+      },
+      {
+        "id": "SCAN-018",
+        "name": "App code referencing dropped/renamed table or column names",
+        "description": "TypeScript hooks, components, or API routes that use old table names (divisions, approval_chains) or dropped column names (returns.items, sale_deliveries.items)",
+        "query": "grep -rE 'from\\([\"'\\'](divisions|approval_chains|approval_chain_tiers|approval_requests|workflow_approval_steps)' src/ --include='*.ts' --include='*.tsx'",
+        "severity": "critical",
+        "risk": "Runtime query errors — Supabase returns 404 for unknown tables or columns",
+        "status": "resolved",
+        "notes": "All stale app code refs fixed: (1) useSaleOrders.ts SaleDelivery type renamed items→sale_delivery_lines (FIXED-021), (2) SoDetailDialog.tsx del.items→del.sale_delivery_lines (FIXED-021), (3) sales/returns/page.tsx SaleReturn['items']→NonNullable<SaleReturn['return_lines']> (FIXED-022), (4) WhMovementRefDialog.tsx non-existent columns replaced with actual schema (FIXED-023)."
+      }
+    ]
+  },
+
+  "staging_vs_production_delta": {
+    "description": "Tables present in production but dropped in staging (via 20260713200000_staging_cleanup)",
+    "dropped_modules": {
+      "services_orders": [
+        "orders", "order_services", "order_team_assignments", "order_visit_dates",
+        "order_log", "site_visits", "site_visit_dates", "site_visit_team_assignments",
+        "installed_products", "instructions", "service_brands", "service_customer_addresses",
+        "service_customer_phones", "service_customers", "service_edit_requests",
+        "service_instructions", "service_inventory", "services"
+      ],
+      "contracts": [
+        "contracts", "contract_visits", "contract_milestones",
+        "contract_payments", "contract_services"
+      ],
+      "subscriptions": [
+        "subscription_packages", "subscription_package_services",
+        "customer_subscriptions", "subscription_usage_log"
+      ],
+      "contact_centre": [
+        "chat_conversations", "chat_messages", "call_records", "follow_up_requests"
+      ],
+      "teams_employees": [
+        "teams", "team_schedule_assignments", "team_activity_log",
+        "team_live_locations", "employees", "employee_services",
+        "vehicles", "schedules"
+      ],
+      "promotions": [
+        "vouchers", "voucher_redemptions", "promotion_campaigns", "promotion_rules"
+      ],
+      "qc": [
+        "qc_checklists", "qc_inspection_results", "qc_schedule", "qc_team_scores"
+      ],
+      "quickbooks": [
+        "qb_accounts", "qb_division_mappings", "qb_items", "sync_state"
+      ],
+      "standalone_rfq": [
+        "rfqs", "rfq_quotes", "rfq_line_items"
+      ],
+      "other": [
+        "reminders", "reminder_categories", "traccar_geofences",
+        "tool_assignments", "tool_asset_units", "tool_asset_items",
+        "media_download_jobs", "purge_batches"
+      ]
+    },
+    "staging_only_tables": [
+      "po_edit_requests",
+      "po_rfq_quotes",
+      "po_rfq_quote_items",
+      "po_version_lines",
+      "reason_list_categories",
+      "customer_credit_group_requests",
+      "customer_credit_group_approvals",
+      "approval_workflow_groups",
+      "return_lines",
+      "sale_delivery_lines",
+      "tl_invoice_lines",
+      "landed_cost_lines",
+      "landed_cost_item_allocations"
+    ],
+    "renamed_tables": {
+      "approval_chains": "po_approval_chains",
+      "approval_chain_tiers": "po_approval_chain_tiers",
+      "approval_requests": "sale_order_approvals",
+      "workflow_approval_steps": "approval_workflow_steps",
+      "service_change_requests": "service_edit_requests",
+      "divisions": "company_divisions",
+      "user_divisions": "user_company_divisions"
+    }
+  }
+}

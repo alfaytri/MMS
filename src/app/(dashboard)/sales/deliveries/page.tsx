@@ -61,7 +61,7 @@ export default function DeliveriesPage() {
       id: 'items',
       header: 'Items',
       cell: ({ row }) => {
-        const items = row.original.items ?? []
+        const items = row.original.sale_delivery_lines ?? []
         return `${items.length} lines`
       },
     },
