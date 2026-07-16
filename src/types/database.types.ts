@@ -11692,3 +11692,8 @@ export const Constants = {
     },
   },
 } as const
+
+export type AllTables = Database['public']['Tables']
+export type DBTable<T extends keyof AllTables> = AllTables[T]['Row']
+export type DBInsert<T extends keyof AllTables> = AllTables[T]['Insert']
+export type DBUpdate<T extends keyof AllTables> = AllTables[T]['Update']
