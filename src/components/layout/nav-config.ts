@@ -29,7 +29,7 @@ export const NAV_ITEMS: NavEntry[] = [
       {
         items: [
           { label: 'Inventory',     href: '/master-data/inventory',  icon: 'Package',     permission: 'master_data.inventory.view' },
-          { label: 'Warehouses',    href: '/purchase/warehouses',    icon: 'Warehouse',   permission: 'warehouse.access' },
+          { label: 'Warehouses',    href: '/master-data/warehouses', icon: 'Warehouse',   permission: 'warehouse.access' },
           { label: 'Users & Roles', href: '/master-data/users',     icon: 'UserCog',     permission: ['master_data.users.view', 'master_data.roles.view'] },
           { label: 'Audit Trail',  href: '/master-data/audit-trail', icon: 'ScrollText',  permission: 'master_data.audit.view' },
           { label: 'Admin',        href: '/master-data/admin',      icon: 'Settings',    permission: 'master_data.admin.view' },
@@ -68,17 +68,11 @@ export const NAV_ITEMS: NavEntry[] = [
     ],
   },
   {
-    label: 'Finance',
-    icon: 'BarChart3',
+    label: 'Invoices',
+    icon: 'FileText',
     permission: 'invoices.access',
     groups: [
       {
-        items: [
-          { label: 'Financial Dashboard', href: '/finance/dashboard', icon: 'LayoutDashboard', permission: 'invoices.access' },
-        ],
-      },
-      {
-        label: 'ORDERS & CONTRACTS',
         items: [
           { label: 'View Invoices',     href: '/invoices',                  icon: 'FileText',    permission: 'invoices.view' },
           { label: 'Pending Payments',  href: '/invoices/pending-payments', icon: 'Clock',       permission: 'payments.view' },
@@ -168,6 +162,8 @@ export const NAV_ITEMS: NavEntry[] = [
     groups: [
       {
         items: [
+          { label: 'Financial Dashboard',   href: '/reports/dashboard',              icon: 'LayoutDashboard', permission: 'reports.view' },
+          { label: 'Product Profitability', href: '/reports/product-profitability',  icon: 'TrendingUp',      permission: 'reports.view' },
           { label: 'Overtime', href: '/reports/overtime', icon: 'Clock', permission: 'reports.view' },
         ],
       },

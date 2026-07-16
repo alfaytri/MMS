@@ -20,8 +20,10 @@ import { cn } from '@/lib/utils'
 function canAccess(
   permission: string | string[] | undefined,
   userPerms: string[],
+  isSystemAdmin: boolean,
 ): boolean {
   if (!permission) return true
+  if (isSystemAdmin) return true
   const required = Array.isArray(permission) ? permission : [permission]
   return required.some((p) => userPerms.includes(p))
 }
@@ -32,16 +34,17 @@ export function MobileNavDrawer() {
   const pathname = usePathname()
   const { data: permData } = usePermissions()
   const userPerms = permData?.permissions ?? []
+  const isSystemAdmin = permData?.isSystemAdmin ?? false
 
   const visibleEntries = NAV_ITEMS.map((entry) => {
     const filteredGroups = entry.groups
-      .map((g) => ({ ...g, items: g.items.filter((i) => canAccess(i.permission, userPerms)) }))
+      .map((g) => ({ ...g, items: g.items.filter((i) => canAccess(i.permission, userPerms, isSystemAdmin)) }))
       .filter((g) => g.items.length > 0)
     return { ...entry, filteredGroups }
   }).filter(
     (e) =>
       e.comingSoon ||
-      (canAccess(e.permission, userPerms) && e.filteredGroups.length > 0),
+      (canAccess(e.permission, userPerms, isSystemAdmin) && e.filteredGroups.length > 0),
   )
 
   const toggle = (label: string) => setExpanded((prev) => (prev === label ? null : label))

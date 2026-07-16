@@ -54,7 +54,7 @@ const ADMIN_SECTIONS: SidebarSection[] = [
       { label: 'Brand Groups',     href: '/master-data/admin/brand-groups',    icon: Tag,        permission: 'master_data.admin.view' },
       { label: 'Pricing Factors',  href: '/master-data/admin/pricing-factors', icon: Percent,    comingSoon: true },
       { label: 'Credit Groups',    href: '/master-data/admin/credit-groups',   icon: CreditCard, permission: 'master_data.admin.view' },
-      { label: 'Credit Group Approvals', href: '/master-data/credit-group-approvals', icon: CheckSquare, permission: 'master_data.customers.view' },
+      { label: 'Credit Group Approvals', href: '/master-data/admin/credit-group-approvals', icon: CheckSquare, permission: 'master_data.customers.view' },
     ],
   },
   {
@@ -64,7 +64,7 @@ const ADMIN_SECTIONS: SidebarSection[] = [
       { label: 'Payment Methods',    href: '/master-data/admin/payment-methods',    icon: Banknote,    permission: 'master_data.admin.view' },
       { label: 'Currencies',         href: '/master-data/admin/currencies',         icon: Coins,       permission: 'master_data.admin.view' },
       { label: 'Country Codes',      href: '/master-data/admin/country-codes',      icon: Globe,       permission: 'master_data.admin.view' },
-      { label: 'PO Approval Chains', href: '/master-data/admin/approval-settings',  icon: CheckSquare, permission: 'purchase.approvals.chain.manage' },
+      { label: 'PO Approval Bands', href: '/master-data/admin/approval-settings',  icon: CheckSquare, permission: 'purchase.approvals.chain.manage' },
       { label: 'Approval Workflows', href: '/master-data/admin/approval-workflows', icon: Workflow,    permission: 'master_data.admin.view' },
       { label: 'Order Quotation',    href: '/master-data/admin/order-quotation',    icon: Receipt,     permission: 'master_data.admin.view' },
       { label: 'Document T&C',       href: '/master-data/admin/document-terms',     icon: FileText,    comingSoon: true },

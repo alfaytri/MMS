@@ -64,7 +64,7 @@ export const ROUTE_PERMISSIONS: RoutePermission[] = [
   { pathPrefix: '/purchase/dead-stock',        permission: 'purchase.dead_stock.view' },
   { pathPrefix: '/purchase/payments',          permission: 'purchase.payments.view' },
   { pathPrefix: '/purchase/aging-report',      permission: 'purchase.bills.view' },
-  { pathPrefix: '/purchase/warehouses',        permission: 'warehouse.access' },
+  { pathPrefix: '/master-data/warehouses',     permission: 'warehouse.access' },
   { pathPrefix: '/purchase/edit-po',           permission: 'purchase.orders.manage' },
   { pathPrefix: '/purchase/create-po',         permission: 'purchase.orders.manage' },
   { pathPrefix: '/purchase/orders',            permission: 'purchase.orders.view' },

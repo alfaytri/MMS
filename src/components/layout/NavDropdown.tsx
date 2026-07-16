@@ -114,8 +114,10 @@ const ICON_MAP: Record<string, LucideIcon> = {
 function canAccess(
   permission: string | string[] | undefined,
   userPerms: string[],
+  isSystemAdmin: boolean,
 ): boolean {
   if (!permission) return true
+  if (isSystemAdmin) return true
   const required = Array.isArray(permission) ? permission : [permission]
   return required.some((p) => userPerms.includes(p))
 }
@@ -179,6 +181,7 @@ export function NavDropdown({ entry }: NavDropdownProps) {
   const pathname = usePathname()
   const { data: permData } = usePermissions()
   const userPerms = permData?.permissions ?? []
+  const isSystemAdmin = permData?.isSystemAdmin ?? false
   const Icon = ICON_MAP[entry.icon]
   const ctx = useContext(NavDropdownContext)
   const id = entry.label
@@ -201,14 +204,14 @@ export function NavDropdown({ entry }: NavDropdownProps) {
       .map((group) => ({
         ...group,
         items: group.items.filter((item) =>
-          canAccess(item.permission, userPerms)
+          canAccess(item.permission, userPerms, isSystemAdmin)
         ),
       }))
       .filter((group) => group.items.length > 0)
   }, [entry.groups, userPerms])
 
   if (!entry.comingSoon) {
-    if (!canAccess(entry.permission, userPerms)) return null
+    if (!canAccess(entry.permission, userPerms, isSystemAdmin)) return null
     if (filteredGroups.length === 0) return null
   }
 
