@@ -5,7 +5,7 @@ import { useState, useMemo } from 'react'
 import { toast } from 'sonner'
 import {
   Plus, Trash2, Pencil, Check, X, AlertTriangle, Archive,
-  Hash, Wallet, Infinity as InfinityIcon, ShieldCheck, Users2,
+  Wallet, Infinity as InfinityIcon, ShieldCheck, Users2,
 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -30,8 +30,8 @@ import { useDivisions } from '@/hooks/useDivisions'
 import { useRoles, useApprovalRoleCoverage } from '@/hooks/useRoles'
 import { useWorkflowSteps } from '@/hooks/useWorkflowSteps'
 
-type TierForm = { rank: string; min_amount: string; max_amount: string; roles: string[] }
-const EMPTY_FORM: TierForm = { rank: '', min_amount: '', max_amount: '', roles: [] }
+type TierForm = { min_amount: string; max_amount: string; roles: string[] }
+const EMPTY_FORM: TierForm = { min_amount: '', max_amount: '', roles: [] }
 
 const FALLBACK_ROLE_COLOR = 'bg-muted text-muted-foreground border-border'
 
@@ -106,10 +106,15 @@ export function ApprovalChainsTab() {
 
   function parseTierForm(form: TierForm) {
     return {
-      rank: parseInt(form.rank),
       min_amount: parseFloat(form.min_amount),
       max_amount: form.max_amount ? parseFloat(form.max_amount) : null,
     }
+  }
+
+  function nextRank(chainId: string): number {
+    const chain = chains.find((c) => c.id === chainId)
+    const tiers = (chain?.approval_chain_tiers ?? []).filter((t: any) => !t.deleted_at)
+    return tiers.length + 1
   }
 
   function toggleRoleIn(roles: string[], roleName: string): string[] {
@@ -135,13 +140,13 @@ export function ApprovalChainsTab() {
   }
 
   function handleAddTier(chainId: string) {
-    const { rank, min_amount } = parseTierForm(tierForm)
-    if (isNaN(rank) || isNaN(min_amount) || tierForm.roles.length === 0) {
-      toast.error('Fill rank, min amount, and select at least one role')
+    const { min_amount } = parseTierForm(tierForm)
+    if (isNaN(min_amount) || tierForm.roles.length === 0) {
+      toast.error('Fill min amount and select at least one role')
       return
     }
     upsertTier.mutate(
-      { chain_id: chainId, rank, min_amount, max_amount: parseTierForm(tierForm).max_amount, required_roles: tierForm.roles },
+      { chain_id: chainId, rank: nextRank(chainId), min_amount, max_amount: parseTierForm(tierForm).max_amount, required_roles: tierForm.roles },
       {
         onSuccess: () => { setAddingTierFor(null); setTierForm(EMPTY_FORM); toast.success('Tier added') },
         onError: (e) => toast.error(e.message),
@@ -154,7 +159,6 @@ export function ApprovalChainsTab() {
       tierId: tier.id,
       chainId,
       form: {
-        rank: String(tier.rank),
         min_amount: String(tier.min_amount),
         max_amount: tier.max_amount ? String(tier.max_amount) : '',
         roles: tier.required_roles as string[],
@@ -164,16 +168,19 @@ export function ApprovalChainsTab() {
 
   function handleSaveEdit() {
     if (!editingTier) return
-    const { rank, min_amount } = parseTierForm(editingTier.form)
-    if (isNaN(rank) || isNaN(min_amount) || editingTier.form.roles.length === 0) {
-      toast.error('Fill rank, min amount, and select at least one role')
+    const { min_amount } = parseTierForm(editingTier.form)
+    if (isNaN(min_amount) || editingTier.form.roles.length === 0) {
+      toast.error('Fill min amount and select at least one role')
       return
     }
+    const chain = chains.find((c) => c.id === editingTier.chainId)
+    const tiers = (chain?.approval_chain_tiers ?? []).filter((t: any) => !t.deleted_at)
+    const existingTier = tiers.find((t: any) => t.id === editingTier.tierId)
     upsertTier.mutate(
       {
         id: editingTier.tierId,
         chain_id: editingTier.chainId,
-        rank,
+        rank: existingTier?.rank ?? 1,
         min_amount,
         max_amount: parseTierForm(editingTier.form).max_amount,
         required_roles: editingTier.form.roles,
@@ -280,7 +287,7 @@ export function ApprovalChainsTab() {
             <Table>
               <TableHeader>
                 <TableRow>
-                  <TableHead className="w-16">Rank</TableHead>
+                  <TableHead className="w-12">#</TableHead>
                   <TableHead>Min Amount (QAR)</TableHead>
                   <TableHead>Max Amount</TableHead>
                   <TableHead>Required Roles</TableHead>
@@ -295,20 +302,14 @@ export function ApprovalChainsTab() {
                     </TableCell>
                   </TableRow>
                 ) : (
-                  tiers.map((tier: any) => {
+                  tiers.map((tier: any, idx: number) => {
                     const isEditing = editingTier?.tierId === tier.id
                     const missing = missingAssigneeRoles(tier.required_roles as string[])
 
                     if (isEditing) {
                       return (
                         <TableRow key={tier.id} className="bg-muted/30">
-                          <TableCell>
-                            <Input
-                              className="h-8 w-16 text-xs"
-                              value={editingTier!.form.rank}
-                              onChange={(e) => setEditingTier((s) => s ? { ...s, form: { ...s.form, rank: e.target.value } } : s)}
-                            />
-                          </TableCell>
+                          <TableCell className="font-mono text-muted-foreground">{idx + 1}</TableCell>
                           <TableCell>
                             <Input
                               className="h-8 w-28 text-xs"
@@ -354,7 +355,7 @@ export function ApprovalChainsTab() {
 
                     return (
                       <TableRow key={tier.id}>
-                        <TableCell className="font-mono">{tier.rank}</TableCell>
+                        <TableCell className="font-mono text-muted-foreground">{idx + 1}</TableCell>
                         <TableCell>{Number(tier.min_amount).toLocaleString('en-QA')}</TableCell>
                         <TableCell>
                           {tier.max_amount ? (
@@ -564,7 +565,6 @@ function NewTierCard({
   }
 
   const canSave =
-    form.rank.trim() !== '' &&
     form.min_amount.trim() !== '' &&
     form.roles.length > 0 &&
     !saving
@@ -594,15 +594,7 @@ function NewTierCard({
         </Button>
       </div>
 
-      <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
-        <FieldWithIcon
-          id="tier-rank"
-          label="Rank"
-          icon={<Hash className="h-3.5 w-3.5" />}
-          placeholder="1"
-          value={form.rank}
-          onChange={(v) => patch('rank', v)}
-        />
+      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
         <FieldWithIcon
           id="tier-min"
           label="Min Amount (QAR)"
