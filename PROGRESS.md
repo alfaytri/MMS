@@ -243,7 +243,7 @@ Purchase & Sales▾:
 
 ## 🔄 In Progress
 
-🚀 Starting: **Orders Invoices Task 1: DB migration**
+🚀 Starting: **Orders Invoices Task 2: Cleanup wrong-table wiring in src/components/invoices + useInvoices**
 
 
 
@@ -262,6 +262,7 @@ Purchase & Sales▾:
 
 ## ✅ Completed
 
+- [2026-07-16] **Orders Invoices Task 1: DB migration** — `supabase/migrations/20260716130000_tl_invoice_payments.sql`, `src/types/database.types.ts` — New `tl_invoice_payments` table (amount, payment_method_id, method_slug, paid_at, registered_by, registered_by_name, notes) with RLS (authenticated read + insert); `tl_invoices.paid_amount` column added; `payment_status` CHECK widened to `unpaid|partial|paid`; `tl_invoice_payments_sync` AFTER trigger keeps `tl_invoices.paid_amount`/`payment_status` in sync on INSERT/UPDATE/DELETE. Verified via `npx supabase db query --linked`: column + trigger + check constraint + RLS policies confirmed present; functional smoke test (insert 50% payment on a real invoice → `partial`, delete → back to `unpaid`) passed; test row cleaned up (table left at 0 rows).
 - [2026-07-15] **Profitability Drill-down Dialog** — `src/components/reports/ProfitabilityDrilldownDialog.tsx` (new), `src/hooks/useProductProfitability.ts`, `src/lib/queryKeys.ts`, `src/app/(dashboard)/reports/product-profitability/page.tsx`, `supabase/migrations/20260716100000_rpc_profitability_drilldown.sql` — Clickable KPI cards (Revenue/COGS/Profit) open SO-level drill-down with nested line items. Per-mode column visibility (Revenue→Revenue only, COGS→COGS only, Profit→all). Search, product/customer filters, sortable columns, expandable rows, totals, Excel export. New RPC uses ce.qty to avoid FIFO overcounting.
 - [2026-07-15] **CHECK Constraints on Status Columns** — 3 migrations (`20260715230000_add_status_check_constraints.sql`, `20260715231000_fix_inventory_checks_status_add_submitted.sql`, `20260715232000_fix_status_checks_complete_values.sql`), `src/types/database.types.ts` — Added CHECK constraints to 8 text status columns (inventory_brand_variants, inventory_categories, inventory_items, inventory_checks, inventory_check_approvals, inventory_check_assignments, stock_adjustments, payment_sessions). Updated TypeScript union types to match. Applied to both production and staging.
 - [2026-07-15] **DB Schema Audit & Fix** — 4 migrations (`20260715180000_fix_create_confirm_delivery_rpc.sql`, `20260715190000_add_missing_fk_indexes.sql`, `20260715200000_add_fk_constraints_and_cleanup.sql`, `20260715220000_invoice_type_direction_enums.sql`), 5 app code fixes (`useSaleOrders.ts`, `SoDetailDialog.tsx`, `sales/returns/page.tsx`, `WhMovementRefDialog.tsx`, `database.types.ts`), `docs/db-schema-issues.json` — Fixed critical stale RPC (create_and_confirm_delivery), 4 stale app code refs, added 13 FK indexes, 6 FK constraints, dropped orphan column, converted invoice_type+direction to enums. 25 issues resolved total (FIXED-016 through FIXED-025).
