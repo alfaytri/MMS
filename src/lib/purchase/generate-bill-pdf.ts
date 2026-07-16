@@ -1,7 +1,9 @@
 import type { SupabaseClient } from '@supabase/supabase-js'
-import { loadPdfFonts, loadPdfAssets } from '@/lib/pdf/pdf-fonts'
+import type { Database } from '@/types/database.types'
+import { loadPdfFonts } from '@/lib/pdf/pdf-fonts'
+import { resolveBrand, brandDataToAssets } from '@/lib/pdf/brand-resolver'
 import { htmlToPdfBuffer } from '@/lib/pdf/html-to-pdf'
-import { buildBillHtml, type BillPaymentRow } from '@/lib/purchase/bill-pdf-html'
+import { buildBillHtml, type BillLineItem, type BillPaymentRow } from '@/lib/purchase/bill-pdf-html'
 
 export interface GenerateBillPdfResult {
   url:         string
@@ -16,7 +18,8 @@ function safeKey(name: string): string {
 
 export async function generateBillPdf(
   billUuid: string,
-  supabase:  SupabaseClient,
+  supabase:  SupabaseClient<Database>,
+  opts?: { divisionId?: string },
 ): Promise<GenerateBillPdfResult> {
   const { data: bill, error: billErr } = await supabase
     .from('invoices')
@@ -27,7 +30,7 @@ export async function generateBillPdf(
       issued_date, due_date, notes,
       invoice_line_items(id, description, qty, unit_price, total),
       suppliers(name, contact_name, phone, email, address),
-      purchase_orders(po_number, created_date, currency)
+      purchase_orders(po_number, created_date, currency, division_id)
     `)
     .eq('id', billUuid)
     .eq('direction', 'ap')
@@ -48,12 +51,12 @@ export async function generateBillPdf(
     throw new Error(`Failed to fetch payment allocations: ${allocErr.message}`)
   }
 
-  const supplier = (bill as any).suppliers as { name: string; contact_name: string | null; phone: string | null; email: string | null; address: string | null } | null
-  const po = (bill as any).purchase_orders as { po_number: string; created_date: string; currency: string } | null
-  const lineItems = ((bill as any).invoice_line_items ?? []) as { description: string; qty: number | null; unit_price: number; total: number }[]
+  const supplier = bill.suppliers
+  const po = bill.purchase_orders
+  const lineItems = (bill.invoice_line_items ?? []) as BillLineItem[]
   const currency = po?.currency ?? 'QAR'
 
-  const payments: BillPaymentRow[] = (allocations ?? []).map((a: any) => ({
+  const payments: BillPaymentRow[] = (allocations ?? []).map((a) => ({
     date:      a.payments?.date ?? '',
     amount:    a.amount,
     method:    a.payments?.method ?? '',
@@ -61,40 +64,44 @@ export async function generateBillPdf(
   }))
 
   const amountPaid = payments.reduce((s, p) => s + p.amount, 0)
-  const totalAmount = (bill as any).total_amount ?? 0
+  const totalAmount = bill.total_amount ?? 0
   const outstanding = Math.max(0, totalAmount - amountPaid)
   const isPaid = outstanding <= 0
 
-  const [fonts, assets] = await Promise.all([loadPdfFonts(), loadPdfAssets()])
+  const [brand, fonts] = await Promise.all([
+    resolveBrand(opts?.divisionId ?? po?.division_id, supabase),
+    loadPdfFonts(),
+  ])
+  const { assets } = brandDataToAssets(brand)
 
   const html = buildBillHtml({
-    billId:          (bill as any).invoice_id,
+    billId:          bill.invoice_id,
     poNumber:        po?.po_number ?? null,
     poDate:          po?.created_date ?? null,
     supplierName:    supplier?.name ?? '—',
     supplierPhone:   supplier?.phone ?? null,
     supplierEmail:   supplier?.email ?? null,
     supplierAddress: supplier?.address ?? null,
-    supplierRef:     (bill as any).source_label ?? null,
-    dueDate:         (bill as any).due_date,
+    supplierRef:     bill.source_label ?? null,
+    dueDate:         bill.due_date,
     lines:           lineItems,
-    subtotal:        (bill as any).subtotal ?? totalAmount,
-    discountAmount:  (bill as any).discount_amount ?? 0,
-    discountLabel:   (bill as any).discount_label ?? null,
+    subtotal:        bill.subtotal ?? totalAmount,
+    discountAmount:  bill.discount_amount ?? 0,
+    discountLabel:   bill.discount_label ?? null,
     totalAmount,
     currency,
     payments,
     amountPaid,
     outstanding,
     isPaid,
-    notes:           (bill as any).notes ?? null,
+    notes:           bill.notes ?? null,
     assets,
     fonts,
   })
 
   const buffer = await htmlToPdfBuffer(html)
 
-  const storageKey = `${safeKey((bill as any).invoice_id)}.pdf`
+  const storageKey = `${safeKey(bill.invoice_id)}.pdf`
 
   const { error: uploadErr } = await supabase.storage
     .from('bill-pdfs')
@@ -115,7 +122,7 @@ export async function generateBillPdf(
   return {
     url:        publicUrl,
     storageKey,
-    filename:   `Bill-${(bill as any).invoice_id}.pdf`,
+    filename:   `Bill-${bill.invoice_id}.pdf`,
     bytes:      buffer.length,
   }
 }

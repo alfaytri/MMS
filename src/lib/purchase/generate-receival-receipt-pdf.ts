@@ -1,5 +1,6 @@
 import type { SupabaseClient } from '@supabase/supabase-js'
-import { loadPdfFonts, loadPdfAssets } from '@/lib/pdf/pdf-fonts'
+import { loadPdfFonts } from '@/lib/pdf/pdf-fonts'
+import { resolveBrand, brandDataToAssets } from '@/lib/pdf/brand-resolver'
 import { htmlToPdfBuffer } from '@/lib/pdf/html-to-pdf'
 import {
   buildReceivalReceiptHtml,
@@ -35,14 +36,14 @@ interface ReceivalRow {
     unit_cost:       number
     is_free:         boolean | null
   }> | null
-  purchase_orders:  { po_number: string; supplier_name: string } | null
+  purchase_orders:  { po_number: string; supplier_name: string; division_id: string | null } | null
   warehouses:       { name: string } | null
 }
 
 export async function generateReceivalReceiptPdf(
   receivalId: string,
   supabase:   SupabaseClient,
-  opts?: { force?: boolean },
+  opts?: { force?: boolean; divisionId?: string },
 ): Promise<GenerateReceivalReceiptResult> {
   const force = opts?.force ?? false
 
@@ -52,7 +53,7 @@ export async function generateReceivalReceiptPdf(
       id, receival_number, po_id, warehouse_id, date, notes, received_by_name,
       receipt_pdf_url,
       receival_items(id, item_name, sku, qty_received, unit_cost, is_free),
-      purchase_orders!receivals_po_id_fkey(po_number, supplier_name),
+      purchase_orders!receivals_po_id_fkey(po_number, supplier_name, division_id),
       warehouses!receivals_warehouse_id_fkey(name)
     `)
     .eq('id', receivalId)
@@ -80,7 +81,11 @@ export async function generateReceivalReceiptPdf(
     isFree:      ri.is_free === true,
   }))
 
-  const [fonts, assets] = await Promise.all([loadPdfFonts(), loadPdfAssets()])
+  const [brand, fonts] = await Promise.all([
+    resolveBrand(opts?.divisionId ?? rcv.purchase_orders?.division_id, supabase),
+    loadPdfFonts(),
+  ])
+  const { assets } = brandDataToAssets(brand)
 
   const html = buildReceivalReceiptHtml({
     receivalNumber: rcv.receival_number,

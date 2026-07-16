@@ -26,7 +26,6 @@ const itemSchema = z.object({
   sku: z.string().min(1, 'SKU is required'),
   unit: z.string().min(1, 'Unit is required'),
   cost_price: z.coerce.number().min(0).default(0),
-  markup_percent: z.coerce.number().min(0).optional(),
   warranty_months: z.coerce.number().int().min(0).optional(),
   sort_order: z.coerce.number().int().default(0),
 })
@@ -58,7 +57,7 @@ export function InventoryItemFormDialog({ open, onOpenChange, item, defaultCateg
     resolver: zodResolver(itemSchema) as never,
     defaultValues: {
       category_id: defaultCategoryId ?? '', name_en: '', name_ar: '', sku: '', unit: 'pcs',
-      cost_price: 0, markup_percent: undefined, warranty_months: undefined, sort_order: 0,
+      cost_price: 0, warranty_months: undefined, sort_order: 0,
     },
   })
 
@@ -67,11 +66,10 @@ export function InventoryItemFormDialog({ open, onOpenChange, item, defaultCateg
       form.reset({
         category_id: item.category_id, name_en: item.name_en, name_ar: item.name_ar ?? '',
         sku: item.sku, unit: item.unit, cost_price: Number(item.cost_price ?? 0),
-        markup_percent: item.markup_percent ? Number(item.markup_percent) : undefined,
         warranty_months: (item as unknown as { warranty_months?: number | null }).warranty_months ?? undefined, sort_order: item.sort_order,
       })
     } else if (open) {
-      form.reset({ category_id: defaultCategoryId ?? '', name_en: '', name_ar: '', sku: '', unit: 'pcs', cost_price: 0, markup_percent: undefined, warranty_months: undefined, sort_order: 0 })
+      form.reset({ category_id: defaultCategoryId ?? '', name_en: '', name_ar: '', sku: '', unit: 'pcs', cost_price: 0, warranty_months: undefined, sort_order: 0 })
     }
   }, [open, item, defaultCategoryId, form])
 
@@ -79,7 +77,6 @@ export function InventoryItemFormDialog({ open, onOpenChange, item, defaultCateg
     const payload = {
       ...values,
       name_ar: values.name_ar || null,
-      markup_percent: values.markup_percent ?? null,
       warranty_months: values.warranty_months ?? null,
     }
     const mutation = isEditing
@@ -126,14 +123,9 @@ export function InventoryItemFormDialog({ open, onOpenChange, item, defaultCateg
                 <FormItem><FormLabel>Cost Price</FormLabel><FormControl><Input type="number" step="0.01" {...field} /></FormControl><FormMessage /></FormItem>
               )} />
             </div>
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-              <FormField control={form.control} name="markup_percent" render={({ field }) => (
-                <FormItem><FormLabel>Markup %</FormLabel><FormControl><Input type="number" step="0.1" {...field} value={field.value ?? ''} /></FormControl><FormMessage /></FormItem>
-              )} />
-              <FormField control={form.control} name="warranty_months" render={({ field }) => (
-                <FormItem><FormLabel>Warranty (months)</FormLabel><FormControl><Input type="number" {...field} value={field.value ?? ''} /></FormControl><FormMessage /></FormItem>
-              )} />
-            </div>
+            <FormField control={form.control} name="warranty_months" render={({ field }) => (
+              <FormItem><FormLabel>Warranty (months)</FormLabel><FormControl><Input type="number" {...field} value={field.value ?? ''} /></FormControl><FormMessage /></FormItem>
+            )} />
             <DialogFooter>
               <Button type="button" variant="outline" onClick={() => onOpenChange(false)} disabled={isPending}>Cancel</Button>
               <Button type="submit" disabled={isPending}>{isPending ? 'Saving…' : isEditing ? 'Update' : 'Create'}</Button>

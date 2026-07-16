@@ -179,12 +179,20 @@ export const queryKeys = {
   },
 
   /* ── Finance ─────────────────────────────────────────── */
+  dashboard: {
+    stats: ['dashboard-stats'] as const,
+  },
+
   finance: {
     dashboard: ['finance-dashboard'] as const,
     purchaseAging: ['purchase-aging-report'] as const,
     salesAging: ['sales-aging-report'] as const,
     customerStatement: (customerId: Nullable, dateFrom: Nullable, dateTo: Nullable) =>
       ['customer-statement', customerId, dateFrom, dateTo] as const,
+    productProfitability: (from: string, to: string) =>
+      ['product-profitability', from, to] as const,
+    profitabilityDrilldown: (from: string, to: string) =>
+      ['profitability-drilldown', from, to] as const,
   },
 
   /* ── Divisions ────────────────────────────────────────── */
@@ -263,6 +271,8 @@ export const queryKeys = {
     toolAssetItems: ['tool-asset-items'] as const,
     toolAssetItemsBySearch: (search: string) =>
       ['tool-asset-items', search] as const,
+    toolAssetItemsByCategory: (categoryId: Nullable) =>
+      ['tool-asset-items-by-category', categoryId] as const,
     toolAssetUnits: (itemId: Nullable) =>
       ['tool-asset-units', itemId] as const,
     categoryStockAggregates: (type: string) =>
@@ -301,7 +311,10 @@ export const queryKeys = {
     reminderCategories: ['reminder_categories'] as const,
     reminders: ['reminders'] as const,
     unreadCount: ['notifications', 'unread-count'] as const,
+    pendingCount: ['notifications', 'pending-count'] as const,
     recent: ['notifications', 'recent'] as const,
+    pending: ['notifications', 'pending'] as const,
+    completed: ['notifications', 'completed'] as const,
   },
 
   /* ── Orders ───────────────────────────────────────────── */
@@ -399,14 +412,11 @@ export const queryKeys = {
       ['receivals-lc-selector', { search }] as const,
     itemsFifo: (receivalId: Nullable) =>
       ['receival-items-fifo', receivalId] as const,
+    inventoryReceivable: (brandVariantId: Nullable, warehouseId: Nullable) =>
+      ['fifo-layers-for-variant', brandVariantId, warehouseId] as const,
+    canCreateInventoryReceival: ['can-create-inventory-receival'] as const,
   },
 
-  /* ── RFQs ─────────────────────────────────────────────── */
-  rfqs: {
-    all: ['rfqs'] as const,
-    list: (filters: unknown) => ['rfqs', filters] as const,
-    detail: (id: Nullable) => ['rfq', id] as const,
-  },
 
   /* ── Roles ────────────────────────────────────────────── */
   roles: {
@@ -514,7 +524,6 @@ export const queryKeys = {
   /* ── Supplier Payments ────────────────────────────────── */
   supplierPayments: {
     all: ['supplier-payments'] as const,
-    byBill: (billId?: Nullable) => ['supplier-payments', billId] as const,
     available: (supplierId: Nullable) =>
       ['supplier-payments-available', supplierId] as const,
     unlinkedOutgoing: (supplierId?: Nullable) =>

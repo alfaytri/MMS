@@ -1,7 +1,7 @@
 'use client'
 
 import React, { useState, useMemo, useEffect, useCallback } from 'react'
-import { Layers, Package, DollarSign, Search, X, ChevronRight, ChevronDown } from 'lucide-react'
+import { Layers, Package, DollarSign, Search, X, ChevronRight, ChevronDown, ChevronLeft } from 'lucide-react'
 import { WarehouseReportButton } from './WarehouseReportButton'
 import { Input } from '@/components/ui/input'
 import { Button } from '@/components/ui/button'
@@ -11,6 +11,7 @@ import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/comp
 import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { useWarehouseStock } from '@/hooks/useWarehouseOperations'
 import { Warehouse } from '@/hooks/useWarehouses'
+import { cn } from '@/lib/utils'
 
 const fmtVal = (n: number) => n.toLocaleString('en-QA', { minimumFractionDigits: 2, maximumFractionDigits: 2 })
 
@@ -98,7 +99,7 @@ function StockTooltip({
             {title}
           </p>
         </div>
-        <div className="px-3 py-2 space-y-1.5">
+        <div className="px-3 py-2 space-y-1.5 max-h-[300px] overflow-y-auto">
           {rows.map((r) => (
             <div key={r.label} className="flex items-center justify-between gap-6 text-xs">
               <span className="text-muted-foreground">{r.label}</span>
@@ -179,6 +180,7 @@ export const WhStockOverviewTab = React.memo(function WhStockOverviewTab({
   )
   const [activeType, setActiveType] = useState<ItemTypeValue>('__all__')
   const [expanded, setExpanded] = useState<Set<string>>(new Set())
+  const [page, setPage] = useState(1)
 
   useEffect(() => {
     setSelectedWarehouseId(initialWarehouseId)
@@ -276,6 +278,16 @@ export const WhStockOverviewTab = React.memo(function WhStockOverviewTab({
   const totalQty   = useMemo(() => tree.reduce((s, c) => s + c.totalQty, 0), [tree])
   const totalValue = useMemo(() => tree.reduce((s, c) => s + c.totalValue, 0), [tree])
 
+  const PAGE_SIZE = 25
+  const totalPages = Math.max(1, Math.ceil(tree.length / PAGE_SIZE))
+
+  useEffect(() => { setPage(1) }, [search, selectedWarehouseId, activeType])
+
+  const pagedTree = useMemo(() => {
+    const start = (page - 1) * PAGE_SIZE
+    return tree.slice(start, start + PAGE_SIZE)
+  }, [tree, page])
+
   useEffect(() => {
     if (!search) return
     const keys = collectAllKeys(tree)
@@ -328,17 +340,20 @@ export const WhStockOverviewTab = React.memo(function WhStockOverviewTab({
     return items.map((item) => {
       const itemKey = `${parentKey}__${item.itemName}`
       const itemExpanded = expanded.has(itemKey)
+      const hasMultipleBrands = item.brands.length > 1
       return (
         <React.Fragment key={itemKey}>
           <TableRow
-            className="cursor-pointer bg-background hover:bg-muted/20"
-            onClick={() => toggle(itemKey)}
+            className={cn(hasMultipleBrands ? 'cursor-pointer' : '', 'bg-background hover:bg-muted/20')}
+            onClick={hasMultipleBrands ? () => toggle(itemKey) : undefined}
           >
             <TableCell className={`text-xs font-semibold py-2 ${indentClass}`}>
               <div className="flex items-center gap-1.5">
-                {itemExpanded
-                  ? <ChevronDown  className="h-3 w-3 text-muted-foreground shrink-0" />
-                  : <ChevronRight className="h-3 w-3 text-muted-foreground shrink-0" />}
+                {hasMultipleBrands
+                  ? (itemExpanded
+                      ? <ChevronDown  className="h-3 w-3 text-muted-foreground shrink-0" />
+                      : <ChevronRight className="h-3 w-3 text-muted-foreground shrink-0" />)
+                  : <span className="inline-block w-3 shrink-0" />}
                 {item.itemName}
               </div>
             </TableCell>
@@ -353,16 +368,20 @@ export const WhStockOverviewTab = React.memo(function WhStockOverviewTab({
             <TableCell className="text-xs text-right font-semibold py-2">
               <StockTooltip
                 qty={item.totalQty}
-                title="Stock by Brand"
-                rows={item.brands.map((b) => ({ label: b.brand ?? '—', qty: b.qty }))}
+                title={hasMultipleBrands ? 'Stock by Brand' : 'Stock by Warehouse'}
+                rows={hasMultipleBrands
+                  ? item.brands.map((b) => ({ label: b.brand ?? '—', qty: b.qty }))
+                  : (warehouseBreakdown.get(item.brands[0]?.brand_variant_id) ?? [])}
               />
             </TableCell>
-            <TableCell className="py-2 text-xs text-right text-muted-foreground">—</TableCell>
+            <TableCell className="py-2 text-xs text-right text-muted-foreground">
+              {item.brands.length === 1 ? fmtVal(item.brands[0].avgCost) : '—'}
+            </TableCell>
             <TableCell className="text-xs text-right py-2 font-medium">
               {fmtVal(item.totalValue)}
             </TableCell>
           </TableRow>
-          {itemExpanded && renderBrandRows(item.brands, brandIndentClass)}
+          {hasMultipleBrands && itemExpanded && renderBrandRows(item.brands, brandIndentClass)}
         </React.Fragment>
       )
     })
@@ -414,10 +433,10 @@ export const WhStockOverviewTab = React.memo(function WhStockOverviewTab({
           value={selectedWarehouseId ?? '__all__'}
           onValueChange={(v) => setSelectedWarehouseId(v === '__all__' ? undefined : (v ?? undefined))}
         >
-          <SelectTrigger className="w-[180px] h-8 text-xs">
+          <SelectTrigger className="min-w-[140px] max-w-[220px] h-8 text-xs truncate">
             <SelectValue placeholder="All Warehouses" />
           </SelectTrigger>
-          <SelectContent>
+          <SelectContent className="max-h-60 overflow-y-auto">
             <SelectItem value="__all__" className="text-xs">All Warehouses</SelectItem>
             {warehouses.map((wh) => (
               <SelectItem key={wh.id} value={wh.id} className="text-xs">
@@ -428,17 +447,15 @@ export const WhStockOverviewTab = React.memo(function WhStockOverviewTab({
         </Select>
 
         {selectedWarehouse && (
-          <div className="flex items-center gap-1 px-2 py-0.5 rounded-full bg-primary/10 text-primary text-xs border border-primary/20">
-            <span>Viewing: {selectedWarehouse.name}</span>
-            <Button
-              variant="ghost" size="sm"
-              className="h-4 w-4 p-0 text-primary hover:bg-transparent"
-              onClick={() => setSelectedWarehouseId(undefined)}
-              aria-label="Clear warehouse filter"
-            >
-              <X className="h-3 w-3" />
-            </Button>
-          </div>
+          <Button
+            variant="ghost" size="sm"
+            className="h-7 px-2 text-xs text-muted-foreground"
+            onClick={() => setSelectedWarehouseId(undefined)}
+            aria-label="Clear warehouse filter"
+          >
+            <X className="h-3 w-3 mr-1" />
+            Clear filter
+          </Button>
         )}
 
         <div className="flex items-center gap-1.5 ml-auto">
@@ -477,7 +494,7 @@ export const WhStockOverviewTab = React.memo(function WhStockOverviewTab({
                   </TableCell>
                 </TableRow>
               ) : (
-                tree.map((cat) => {
+                pagedTree.map((cat) => {
                   const catExpanded = expanded.has(cat.categoryName)
                   const childCount = cat.subcategories.length + cat.directItems.length
                   const tooltipRows = [
@@ -573,6 +590,44 @@ export const WhStockOverviewTab = React.memo(function WhStockOverviewTab({
             </TableBody>
           </Table>
         </div>
+
+        {tree.length > 0 && (
+          <div className="flex items-center justify-between text-xs text-muted-foreground px-1">
+            <span>{tree.length} categor{tree.length !== 1 ? 'ies' : 'y'}</span>
+
+            {totalPages > 1 && (
+              <div className="flex items-center gap-1.5">
+                <Button
+                  variant="outline"
+                  size="sm"
+                  className="h-7 w-7 p-0"
+                  disabled={page <= 1}
+                  onClick={() => setPage((p) => Math.max(1, p - 1))}
+                  aria-label="Previous page"
+                >
+                  <ChevronLeft className="h-3.5 w-3.5" />
+                </Button>
+                <span className="tabular-nums min-w-[80px] text-center">
+                  Page {page} of {totalPages}
+                </span>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  className="h-7 w-7 p-0"
+                  disabled={page >= totalPages}
+                  onClick={() => setPage((p) => Math.min(totalPages, p + 1))}
+                  aria-label="Next page"
+                >
+                  <ChevronRight className="h-3.5 w-3.5" />
+                </Button>
+              </div>
+            )}
+
+            <span className="font-semibold text-foreground">
+              Total: QR {fmtVal(totalValue)}
+            </span>
+          </div>
+        )}
       </TooltipProvider>
     </div>
   )

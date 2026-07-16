@@ -89,7 +89,7 @@ export function FollowUpDialog({ visit, profileId, onComplete, onClose }: Props)
                 <SelectTrigger className="h-11">
                   <SelectValue placeholder="Select status..." />
                 </SelectTrigger>
-                <SelectContent>
+                <SelectContent className="max-h-60 overflow-y-auto">
                   {FOLLOWUP_STATUSES.map((s) => (
                     <SelectItem key={s.value} value={s.value}>{s.label}</SelectItem>
                   ))}

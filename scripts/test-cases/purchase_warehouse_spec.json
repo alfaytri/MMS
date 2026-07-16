@@ -1,0 +1,762 @@
+{
+  "workbookTitle": "Purchase + Warehouse Test Cases",
+  "generated": "2026-07-07",
+  "sheets": [
+    {
+      "name": "Summary",
+      "type": "summary"
+    },
+    {
+      "name": "PO_Create",
+      "route": "/purchase/create-po",
+      "coverageNotes": "Create PO form — single/multi line, multi-currency, RFQ, discount, validation",
+      "columns": ["Test ID", "Scenario", "Preconditions", "Steps", "Input values", "Expected result", "Actual", "Pass/Fail", "Notes"],
+      "rows": [
+        {
+          "id": "PO-C-01",
+          "scenario": "Create a single-line PO for an existing supplier",
+          "preconditions": "Supplier 'ACME Qatar Trading' exists. Item 'Water Filter Cartridge' (SKU: WFC-001, UoM: PCS) exists. Warehouse 'WH-DOHA' exists. User has PO create permission.",
+          "steps": "1. Navigate to /purchase/create-po.\n2. Select division (if multi-division).\n3. Select supplier 'ACME Qatar Trading'.\n4. Currency auto-fills to QAR.\n5. Add line item: search 'Water Filter', select 'Water Filter Cartridge'.\n6. Set Qty = 10, Unit Price = 50.00.\n7. Leave discount blank.\n8. Click 'Save as Draft'.",
+          "input": "Supplier=ACME Qatar Trading, Currency=QAR, Item=Water Filter Cartridge (WFC-001), Qty=10, Unit Price=50.00, Discount=0",
+          "expected": "PO created with status Draft. Subtotal = 500.00 QAR. Tax = 0. Total = 500.00 QAR. Redirects to /purchase/orders showing the new PO with a generated PO number. Audit trail entry created."
+        },
+        {
+          "id": "PO-C-02",
+          "scenario": "Create a multi-line PO with 3 different items",
+          "preconditions": "Supplier 'Gulf Industrial Supplies' exists. Items exist: 'Pipe Fitting 2in' (PF-002, PCS), 'Copper Wire 1.5mm' (CW-015, MTR), 'Safety Goggles' (SG-100, PCS). Warehouse 'WH-DOHA'.",
+          "steps": "1. Navigate to /purchase/create-po.\n2. Select supplier 'Gulf Industrial Supplies'.\n3. Add line 1: Pipe Fitting 2in, Qty=100, Price=12.50.\n4. Add line 2: Copper Wire 1.5mm, Qty=500, Price=3.00.\n5. Add line 3: Safety Goggles, Qty=25, Price=45.00.\n6. Click 'Save as Draft'.",
+          "input": "Supplier=Gulf Industrial Supplies, Line1=(PF-002, 100, 12.50), Line2=(CW-015, 500, 3.00), Line3=(SG-100, 25, 45.00)",
+          "expected": "PO created with 3 line items. Subtotal = 1,250 + 1,500 + 1,125 = 3,875.00 QAR. All lines show green 'valid' badge (brand_variant_id linked)."
+        },
+        {
+          "id": "PO-C-03",
+          "scenario": "Create a PO in USD with exchange rate",
+          "preconditions": "Supplier 'Shanghai Electric Co.' exists with default currency USD. USD currency record exists with rate ~3.65.",
+          "steps": "1. Navigate to /purchase/create-po.\n2. Select supplier 'Shanghai Electric Co.'.\n3. Currency auto-fills to USD. Exchange rate field appears.\n4. Set exchange rate = 3.6500.\n5. Add line: 'Generator Unit 50kW' (GEN-050), Qty=2, Price=12,000.00 USD.\n6. Click 'Save as Draft'.",
+          "input": "Supplier=Shanghai Electric Co., Currency=USD, ExRate=3.6500, Item=GEN-050, Qty=2, Price=12000.00",
+          "expected": "PO created. Line total = 24,000 USD. QAR equivalent = 24,000 x 3.65 = 87,600.00 QAR shown in header. Exchange rate stored with PO."
+        },
+        {
+          "id": "PO-C-04",
+          "scenario": "Create a PO with discount",
+          "preconditions": "Supplier 'ACME Qatar Trading' exists. Item 'Water Filter Cartridge' (WFC-001) exists.",
+          "steps": "1. Navigate to /purchase/create-po.\n2. Select supplier 'ACME Qatar Trading'.\n3. Add line: WFC-001, Qty=20, Price=50.00.\n4. Set Discount Label = 'Bulk discount', Discount Amount = 100.00.\n5. Click 'Save as Draft'.",
+          "input": "Supplier=ACME Qatar Trading, Item=WFC-001, Qty=20, Price=50.00, DiscountLabel='Bulk discount', DiscountAmt=100.00",
+          "expected": "PO created. Subtotal = 1,000.00. Discount = 100.00. Total = 900.00 QAR. Discount label shown on PO detail."
+        },
+        {
+          "id": "PO-C-05",
+          "scenario": "Reject: discount exceeds subtotal",
+          "preconditions": "Supplier 'ACME Qatar Trading' exists. Item 'Water Filter Cartridge' (WFC-001) exists.",
+          "steps": "1. Navigate to /purchase/create-po.\n2. Select supplier 'ACME Qatar Trading'.\n3. Add line: WFC-001, Qty=1, Price=50.00.\n4. Set Discount Amount = 100.00 (exceeds subtotal of 50.00).\n5. Click 'Save as Draft'.",
+          "input": "Supplier=ACME Qatar Trading, Item=WFC-001, Qty=1, Price=50.00, DiscountAmt=100.00",
+          "expected": "Validation error: 'Discount cannot exceed subtotal'. Save button disabled or toast error shown. PO is NOT created."
+        },
+        {
+          "id": "PO-C-06",
+          "scenario": "Reject: no line items",
+          "preconditions": "Supplier 'ACME Qatar Trading' exists.",
+          "steps": "1. Navigate to /purchase/create-po.\n2. Select supplier 'ACME Qatar Trading'.\n3. Do NOT add any line items.\n4. Click 'Save as Draft'.",
+          "input": "Supplier=ACME Qatar Trading, Lines=none",
+          "expected": "Validation error: 'At least one line item required'. PO is NOT created."
+        },
+        {
+          "id": "PO-C-07",
+          "scenario": "Create PO and submit for approval",
+          "preconditions": "Supplier 'ACME Qatar Trading' exists. Item WFC-001 exists. Approval workflow configured with at least 1 tier.",
+          "steps": "1. Navigate to /purchase/create-po.\n2. Select supplier 'ACME Qatar Trading'.\n3. Add line: WFC-001, Qty=10, Price=50.00.\n4. Click 'Submit for Approval' (instead of Save as Draft).",
+          "input": "Supplier=ACME Qatar Trading, Item=WFC-001, Qty=10, Price=50.00",
+          "expected": "PO created with status 'Pending Approval'. Approval chain created with steps matching the configured tiers. PO appears in /purchase/approvals for the appropriate approvers."
+        },
+        {
+          "id": "PO-C-08",
+          "scenario": "Create RFQ with multiple suppliers",
+          "preconditions": "Suppliers 'ACME Qatar Trading', 'Gulf Industrial Supplies', 'National Hardware' exist. Item WFC-001 exists.",
+          "steps": "1. Navigate to /purchase/create-po.\n2. Switch to RFQ mode (toggle or tab).\n3. Select multiple suppliers: ACME, Gulf Industrial, National Hardware.\n4. Add line: WFC-001, Qty=50, Price=0 (to be quoted).\n5. Click 'Save as RFQ'.",
+          "input": "Mode=RFQ, Suppliers=[ACME Qatar Trading, Gulf Industrial Supplies, National Hardware], Item=WFC-001, Qty=50",
+          "expected": "RFQ created with po_type = 'rfq'. Three supplier entries linked. Status = Draft. Appears in /purchase/orders under RFQ tab."
+        }
+      ]
+    },
+    {
+      "name": "PO_Edit",
+      "route": "/purchase/edit-po/[id]",
+      "coverageNotes": "Edit PO — modify lines, add/remove items, amendment workflow, version history",
+      "columns": ["Test ID", "Scenario", "Preconditions", "Steps", "Input values", "Expected result", "Actual", "Pass/Fail", "Notes"],
+      "rows": [
+        {
+          "id": "PO-E-01",
+          "scenario": "Edit a Draft PO — change line item quantity",
+          "preconditions": "Draft PO exists (PO-C-01 from PO_Create tests). PO has WFC-001 x 10 @ 50.00.",
+          "steps": "1. Navigate to /purchase/orders.\n2. Click Edit on the draft PO.\n3. Change WFC-001 qty from 10 to 25.\n4. Click 'Save as Draft'.",
+          "input": "PO=<from PO-C-01>, Item=WFC-001, NewQty=25",
+          "expected": "PO updated. New subtotal = 25 x 50 = 1,250.00 QAR. PO remains in Draft status. No new version created (drafts edit in place)."
+        },
+        {
+          "id": "PO-E-02",
+          "scenario": "Edit a Draft PO — delete a line item",
+          "preconditions": "Draft PO exists with 3 line items (PO-C-02 from PO_Create tests).",
+          "steps": "1. Navigate to /purchase/edit-po/[id].\n2. Click delete icon on line 2 (Copper Wire).\n3. Click 'Save as Draft'.",
+          "input": "PO=<from PO-C-02>, DeleteLine=CW-015",
+          "expected": "PO updated with 2 line items. Subtotal recalculated: 1,250 + 1,125 = 2,375.00 QAR. Copper Wire line removed."
+        },
+        {
+          "id": "PO-E-03",
+          "scenario": "Edit a Draft PO — add a new line item",
+          "preconditions": "Draft PO exists with 1 line item. Additional item 'Teflon Tape Roll' (TT-010, PCS) exists.",
+          "steps": "1. Navigate to /purchase/edit-po/[id].\n2. Click 'Add line'.\n3. Search 'Teflon', select 'Teflon Tape Roll'.\n4. Set Qty=200, Price=2.00.\n5. Click 'Save as Draft'.",
+          "input": "PO=<existing>, NewItem=TT-010, Qty=200, Price=2.00",
+          "expected": "PO updated with 2 line items. New line total = 400.00. Overall subtotal recalculated correctly."
+        },
+        {
+          "id": "PO-E-04",
+          "scenario": "Amend an Approved PO — triggers new version",
+          "preconditions": "Approved PO exists (approval chain completed). Item WFC-001 x 10 @ 50.00.",
+          "steps": "1. Navigate to /purchase/edit-po/[id].\n2. Amendment warning displayed ('This PO is approved. Editing will create a new version and reset the approval chain.').\n3. Change qty to 15.\n4. Click 'Submit for Approval'.",
+          "input": "PO=<approved PO>, Item=WFC-001, NewQty=15",
+          "expected": "New version created (version_number incremented). Old version preserved in version history. New version status = 'Pending Approval'. New approval chain started. Version tab shows both versions."
+        }
+      ]
+    },
+    {
+      "name": "PO_Approvals",
+      "route": "/purchase/approvals",
+      "coverageNotes": "Approval workflow — approve, reject, force approve, multi-role",
+      "columns": ["Test ID", "Scenario", "Preconditions", "Steps", "Input values", "Expected result", "Actual", "Pass/Fail", "Notes"],
+      "rows": [
+        {
+          "id": "PO-A-01",
+          "scenario": "Approve a PO at the first tier",
+          "preconditions": "PO in 'Pending Approval' status. Current user has the Tier 1 approval role. Approval chain has 2 tiers.",
+          "steps": "1. Navigate to /purchase/approvals.\n2. Locate the pending PO in the list.\n3. Click 'Approve'.\n4. Optionally add a comment: 'Pricing verified'.\n5. Click Confirm.",
+          "input": "PO=<pending PO>, Action=Approve, Comment='Pricing verified'",
+          "expected": "Tier 1 step marked as approved. PO remains 'Pending Approval' (Tier 2 still pending). Approval chain shows Tier 1 green checkmark. PO moves to Tier 2 approver's queue."
+        },
+        {
+          "id": "PO-A-02",
+          "scenario": "Approve the final tier — PO becomes Approved",
+          "preconditions": "PO has Tier 1 approved. Current user has Tier 2 role. This is the last tier.",
+          "steps": "1. Navigate to /purchase/approvals.\n2. Click 'Approve' on the PO.\n3. Add comment: 'Final approval'.\n4. Click Confirm.",
+          "input": "PO=<tier-1-approved PO>, Action=Approve, Comment='Final approval'",
+          "expected": "All tiers approved. PO status changes to 'Approved'. PO disappears from pending list, appears in completed list. Toast: 'PO approved successfully'."
+        },
+        {
+          "id": "PO-A-03",
+          "scenario": "Reject a PO with full rejection",
+          "preconditions": "PO in 'Pending Approval' status. Current user is an approver.",
+          "steps": "1. Navigate to /purchase/approvals.\n2. Click 'Reject' on the PO.\n3. Select 'Full Rejection'.\n4. Enter reason: 'Supplier pricing too high, renegotiate'.\n5. Click Confirm.",
+          "input": "PO=<pending PO>, Action=Reject, Mode=full_rejection, Reason='Supplier pricing too high, renegotiate'",
+          "expected": "PO status changes to 'Cancelled'. Rejection reason stored. PO moves to completed list with 'Rejected' badge. Cannot be edited further."
+        },
+        {
+          "id": "PO-A-04",
+          "scenario": "Force approve (Owner bypasses remaining tiers)",
+          "preconditions": "PO in 'Pending Approval' with Tier 1 still pending. Current user is the company Owner.",
+          "steps": "1. Navigate to /purchase/approvals.\n2. Click 'Force Approve' on the PO.\n3. Confirm the action.",
+          "input": "PO=<pending PO>, Action=ForceApprove",
+          "expected": "All remaining tiers marked as force-approved. PO status changes to 'Approved'. Approval chain shows force-approve badge on skipped tiers."
+        }
+      ]
+    },
+    {
+      "name": "Approval_Settings",
+      "route": "/purchase/approval-settings",
+      "coverageNotes": "Configure approval tiers and thresholds",
+      "columns": ["Test ID", "Scenario", "Preconditions", "Steps", "Input values", "Expected result", "Actual", "Pass/Fail", "Notes"],
+      "rows": [
+        {
+          "id": "AS-01",
+          "scenario": "Add a new approval tier",
+          "preconditions": "User has admin/owner role. Approval settings page accessible.",
+          "steps": "1. Navigate to /purchase/approval-settings.\n2. Click 'Add Tier' or equivalent.\n3. Set Tier Name = 'Finance Manager'.\n4. Set Min Amount Threshold = 5000.\n5. Assign role = 'Finance Manager'.\n6. Save.",
+          "input": "TierName=Finance Manager, Threshold=5000, Role=Finance Manager",
+          "expected": "New tier appears in the approval chain list. POs >= 5,000 QAR will now require Finance Manager approval in addition to existing tiers."
+        },
+        {
+          "id": "AS-02",
+          "scenario": "Change an existing tier's threshold",
+          "preconditions": "At least one approval tier exists (e.g., 'Finance Manager' from AS-01).",
+          "steps": "1. Navigate to /purchase/approval-settings.\n2. Click Edit on the 'Finance Manager' tier.\n3. Change threshold from 5000 to 10000.\n4. Save.",
+          "input": "Tier=Finance Manager, NewThreshold=10000",
+          "expected": "Tier updated. POs between 5,000-9,999 QAR no longer require this tier. Existing pending POs are NOT affected (only new submissions)."
+        },
+        {
+          "id": "AS-03",
+          "scenario": "Remove an approval tier",
+          "preconditions": "Tier 'Finance Manager' exists. No POs currently pending at this tier.",
+          "steps": "1. Navigate to /purchase/approval-settings.\n2. Click Delete/Archive on the 'Finance Manager' tier.\n3. Confirm deletion.",
+          "input": "Tier=Finance Manager, Action=Delete",
+          "expected": "Tier removed from the approval chain. Future POs will skip this tier. Confirmation dialog warns about the impact."
+        }
+      ]
+    },
+    {
+      "name": "Receivals",
+      "route": "/purchase/receivals",
+      "coverageNotes": "Create receivals, partial/full receive, edit requests, condition tracking",
+      "columns": ["Test ID", "Scenario", "Preconditions", "Steps", "Input values", "Expected result", "Actual", "Pass/Fail", "Notes"],
+      "rows": [
+        {
+          "id": "RCV-01",
+          "scenario": "Full receival — receive all items from a PO",
+          "preconditions": "Approved PO exists for 'ACME Qatar Trading' with WFC-001 x 10. No prior receivals against this PO.",
+          "steps": "1. Navigate to /purchase/receivals.\n2. Click 'Create Receival'.\n3. Select the PO from dropdown.\n4. Select Warehouse = 'WH-DOHA'.\n5. Set Date = today.\n6. For WFC-001: set Received Qty = 10, Condition = 'new'.\n7. Click Submit.",
+          "input": "PO=<approved PO>, Warehouse=WH-DOHA, Date=today, Item=WFC-001, RecvQty=10, Condition=new",
+          "expected": "Receival created with status 'Approved'. PO receival progress shows 10/10 (100%). PO status changes to 'Received'. Stock level in WH-DOHA increases by 10 for WFC-001. FIFO cost layer created at unit cost 50.00."
+        },
+        {
+          "id": "RCV-02",
+          "scenario": "Partial receival — receive 6 of 10 items",
+          "preconditions": "Approved PO with WFC-001 x 10. No prior receivals.",
+          "steps": "1. Click 'Create Receival'.\n2. Select the PO.\n3. Warehouse = 'WH-DOHA', Date = today.\n4. WFC-001: Received Qty = 6, Condition = 'new'.\n5. Submit.",
+          "input": "PO=<approved PO>, Warehouse=WH-DOHA, Item=WFC-001, RecvQty=6, Condition=new",
+          "expected": "Receival created. PO progress shows 6/10 (60%). PO status changes to 'Partially Received'. Stock increases by 6. Remaining 4 available for future receival."
+        },
+        {
+          "id": "RCV-03",
+          "scenario": "Second partial receival completes the PO",
+          "preconditions": "PO has prior receival of 6/10. 4 items remaining.",
+          "steps": "1. Click 'Create Receival'.\n2. Select same PO.\n3. WFC-001: Received Qty = 4.\n4. Submit.",
+          "input": "PO=<partially received PO>, Item=WFC-001, RecvQty=4",
+          "expected": "Receival created. PO progress shows 10/10 (100%). PO status changes to 'Received'. Total stock = 6 + 4 = 10."
+        },
+        {
+          "id": "RCV-04",
+          "scenario": "Reject: receive more than PO quantity",
+          "preconditions": "Approved PO with WFC-001 x 10. No prior receivals.",
+          "steps": "1. Click 'Create Receival'.\n2. Select the PO.\n3. WFC-001: attempt to set Received Qty = 15 (exceeds 10).\n4. Attempt to submit.",
+          "input": "PO=<approved PO>, Item=WFC-001, RecvQty=15",
+          "expected": "Validation error: qty exceeds PO line qty. Input capped at max 10, or error toast shown. Receival NOT created."
+        },
+        {
+          "id": "RCV-05",
+          "scenario": "Receive with damaged condition",
+          "preconditions": "Approved PO with WFC-001 x 10.",
+          "steps": "1. Create Receival.\n2. Select PO.\n3. WFC-001: Qty = 10, Condition = 'damaged'.\n4. Add condition notes: '3 units have cracked housings'.\n5. Submit.",
+          "input": "PO=<approved PO>, Item=WFC-001, RecvQty=10, Condition=damaged, Notes='3 units have cracked housings'",
+          "expected": "Receival created. Items marked as damaged in the receival record. Condition notes stored. damaged_qty on the brand variant increases by 10 (or the appropriate qty based on warehouse logic)."
+        },
+        {
+          "id": "RCV-06",
+          "scenario": "Request edit on a completed receival (non-admin)",
+          "preconditions": "Receival RCV-01 exists (approved). Current user is NOT admin. Edit request feature enabled.",
+          "steps": "1. Navigate to /purchase/receivals.\n2. Find receival from RCV-01.\n3. Click 'Request Edit'.\n4. Enter reason: 'Miscounted — actual received was 8, not 10'.\n5. Submit.",
+          "input": "Receival=<from RCV-01>, Reason='Miscounted - actual received was 8, not 10'",
+          "expected": "Edit request created with status 'Pending'. Admin receives notification. Receival shows 'Edit Requested' badge. 48-hour approval window applies once admin approves."
+        }
+      ]
+    },
+    {
+      "name": "Bills",
+      "route": "/purchase/bills",
+      "coverageNotes": "Create bills from POs, mark paid/unpaid, PDF generation",
+      "columns": ["Test ID", "Scenario", "Preconditions", "Steps", "Input values", "Expected result", "Actual", "Pass/Fail", "Notes"],
+      "rows": [
+        {
+          "id": "BIL-01",
+          "scenario": "Create a bill from a received PO",
+          "preconditions": "PO fully received (RCV-01). No bill exists for this PO yet.",
+          "steps": "1. Navigate to /purchase/orders.\n2. Click dropdown on the received PO.\n3. Select 'Create Bill'.\n4. Bill form dialog opens with PO data pre-filled.\n5. Verify amounts match PO total (500.00 QAR).\n6. Click 'Create Bill'.",
+          "input": "PO=<received PO>, Amount=500.00",
+          "expected": "Bill created with generated bill number. Amount = 500.00 QAR. Payment status = 'Unpaid'. Bill linked to the PO. Appears in /purchase/bills list."
+        },
+        {
+          "id": "BIL-02",
+          "scenario": "View bill detail and PDF",
+          "preconditions": "Bill from BIL-01 exists.",
+          "steps": "1. Navigate to /purchase/bills.\n2. Click on the bill row.\n3. Bill detail page opens (/purchase/bills/[id]).\n4. Click 'Open PDF'.",
+          "input": "Bill=<from BIL-01>",
+          "expected": "Bill detail page loads showing: bill number, supplier, PO reference, amount, payment status. PDF renders in iframe or opens in new tab. PDF contains bill header, line items, totals."
+        },
+        {
+          "id": "BIL-03",
+          "scenario": "Mark bill as paid",
+          "preconditions": "Bill from BIL-01 exists with status 'Unpaid'.",
+          "steps": "1. Navigate to /purchase/bills/[id].\n2. Click 'Mark as Paid'.\n3. Confirm action.",
+          "input": "Bill=<from BIL-01>, Action=MarkPaid",
+          "expected": "Bill payment status changes to 'Paid'. Badge updates from red 'Unpaid' to green 'Paid'. Toast: 'Bill marked as paid'."
+        },
+        {
+          "id": "BIL-04",
+          "scenario": "Mark paid bill back to unpaid",
+          "preconditions": "Bill from BIL-03 exists with status 'Paid'.",
+          "steps": "1. Navigate to /purchase/bills/[id].\n2. Click 'Mark as Unpaid'.\n3. Confirm action.",
+          "input": "Bill=<from BIL-03>, Action=MarkUnpaid",
+          "expected": "Bill payment status reverts to 'Unpaid'. Badge changes back to red. This is for corrections only."
+        },
+        {
+          "id": "BIL-05",
+          "scenario": "Search bills by supplier name",
+          "preconditions": "Multiple bills exist for different suppliers.",
+          "steps": "1. Navigate to /purchase/bills.\n2. Type 'ACME' in the search box.\n3. Observe filtered results.",
+          "input": "Search='ACME'",
+          "expected": "Only bills for 'ACME Qatar Trading' shown. Other suppliers' bills hidden. Search is case-insensitive."
+        },
+        {
+          "id": "BIL-06",
+          "scenario": "Bill PDF refresh after data change",
+          "preconditions": "Bill exists. PDF was previously generated.",
+          "steps": "1. Navigate to /purchase/bills/[id].\n2. Click 'Refresh PDF'.\n3. Wait for regeneration.\n4. Click 'Open PDF'.",
+          "input": "Bill=<existing>, Action=RefreshPDF",
+          "expected": "PDF regenerated with latest data. New PDF URL stored. 'Open PDF' shows updated document."
+        }
+      ]
+    },
+    {
+      "name": "Payments",
+      "route": "/purchase/payments",
+      "coverageNotes": "Supplier payments — list, filter, attach to bills",
+      "columns": ["Test ID", "Scenario", "Preconditions", "Steps", "Input values", "Expected result", "Actual", "Pass/Fail", "Notes"],
+      "rows": [
+        {
+          "id": "PAY-01",
+          "scenario": "View all supplier payments",
+          "preconditions": "At least 3 supplier payments exist with different methods (cash, bank transfer, cheque).",
+          "steps": "1. Navigate to /purchase/payments.\n2. Observe the full list without filters.",
+          "input": "Filters=none",
+          "expected": "All payments listed showing: Payment #, Supplier, PO #, Bill #, Amount (QAR), Method badge, Date. Sorted by date descending."
+        },
+        {
+          "id": "PAY-02",
+          "scenario": "Filter payments by date range",
+          "preconditions": "Payments exist across June and July 2026.",
+          "steps": "1. Navigate to /purchase/payments.\n2. Click filter toggle.\n3. Set Date From = 2026-07-01, Date To = 2026-07-07.\n4. Observe results.",
+          "input": "DateFrom=2026-07-01, DateTo=2026-07-07",
+          "expected": "Only payments within July 1-7 shown. Filter badge shows '1 active filter'. Reset button clears the filter."
+        },
+        {
+          "id": "PAY-03",
+          "scenario": "Filter payments by payment method",
+          "preconditions": "Payments exist with method 'bank_transfer'.",
+          "steps": "1. Click filter toggle.\n2. Select Payment Method = 'Bank Transfer'.\n3. Observe results.",
+          "input": "Method=bank_transfer",
+          "expected": "Only bank transfer payments shown. Method badge column all show 'Bank Transfer'."
+        },
+        {
+          "id": "PAY-04",
+          "scenario": "Attach a bill to an unlinked payment",
+          "preconditions": "A payment exists without a bill linked. An unpaid bill exists for the same supplier.",
+          "steps": "1. Find the payment without a bill.\n2. Click the paperclip (Attach Bill) icon.\n3. Select the matching bill from the dialog.\n4. Confirm.",
+          "input": "Payment=<unlinked payment>, Bill=<matching unpaid bill>",
+          "expected": "Payment now linked to the bill. Bill # column updates. Bill payment status may update depending on the payment amount coverage."
+        },
+        {
+          "id": "PAY-05",
+          "scenario": "View PO from payment row",
+          "preconditions": "Payment exists linked to a PO.",
+          "steps": "1. Find a payment with a PO #.\n2. Click the eye icon (View PO).\n3. PO detail dialog opens.",
+          "input": "Payment=<with PO link>",
+          "expected": "PoDetailDialog opens showing the full PO details: supplier, line items, totals, approval status, receival progress."
+        }
+      ]
+    },
+    {
+      "name": "Debit_Notes",
+      "route": "/purchase/debit-notes",
+      "coverageNotes": "Debit notes generated from returns — view, download, resolution tracking",
+      "columns": ["Test ID", "Scenario", "Preconditions", "Steps", "Input values", "Expected result", "Actual", "Pass/Fail", "Notes"],
+      "rows": [
+        {
+          "id": "DN-01",
+          "scenario": "View debit note from a supplier return",
+          "preconditions": "A purchase return exists with status 'Confirmed'. Debit note auto-generated.",
+          "steps": "1. Navigate to /purchase/debit-notes.\n2. Locate the debit note linked to the return.\n3. Click the row to open detail dialog.",
+          "input": "DN=<auto-generated from return>",
+          "expected": "Detail dialog shows: DN number, Supplier, PO #, Return #, Debit Amount (red), New PO Total after debit, Resolution status, Created date."
+        },
+        {
+          "id": "DN-02",
+          "scenario": "Download debit note PDF",
+          "preconditions": "Debit note from DN-01 exists.",
+          "steps": "1. Navigate to /purchase/debit-notes.\n2. Click the Download button on the debit note row.",
+          "input": "DN=<from DN-01>, Action=Download",
+          "expected": "PDF downloaded with debit note details: supplier info, return reference, itemized debit amounts, total debit. File named with DN number."
+        },
+        {
+          "id": "DN-03",
+          "scenario": "Check debit note resolution status — Supplier Credit",
+          "preconditions": "Debit note exists with resolution = 'Supplier Credit'.",
+          "steps": "1. Navigate to /purchase/debit-notes.\n2. Find the DN with 'Supplier Credit' resolution badge.\n3. Verify badge color and text.",
+          "input": "DN=<with Supplier Credit resolution>",
+          "expected": "Resolution column shows 'Supplier Credit' badge. Status shows 'Redeemed' or 'Issued' depending on whether credit was applied."
+        },
+        {
+          "id": "DN-04",
+          "scenario": "Check debit note with Unresolved status",
+          "preconditions": "Debit note exists with resolution = 'Unresolved'.",
+          "steps": "1. Navigate to /purchase/debit-notes.\n2. Find the DN with 'Unresolved' resolution badge.",
+          "input": "DN=<with Unresolved resolution>",
+          "expected": "Resolution column shows 'Unresolved' badge (yellow/amber). DN awaiting supplier response or manual resolution."
+        }
+      ]
+    },
+    {
+      "name": "Returns",
+      "route": "/purchase/returns",
+      "coverageNotes": "Create returns, dispatch, confirm, close, cancel",
+      "columns": ["Test ID", "Scenario", "Preconditions", "Steps", "Input values", "Expected result", "Actual", "Pass/Fail", "Notes"],
+      "rows": [
+        {
+          "id": "RET-01",
+          "scenario": "Create a return for received items",
+          "preconditions": "PO fully received (10x WFC-001 in WH-DOHA). Return reasons configured.",
+          "steps": "1. Navigate to /purchase/returns.\n2. Click 'Create Return'.\n3. Select PO from dropdown (only POs with received items shown).\n4. Set Return Date = today.\n5. Select Dispatch From = 'WH-DOHA'.\n6. Select Reason = 'Defective'.\n7. Set WFC-001 Return Qty = 3.\n8. Click Submit.",
+          "input": "PO=<received PO>, Date=today, Warehouse=WH-DOHA, Reason=Defective, Item=WFC-001, ReturnQty=3",
+          "expected": "Return created with status 'Pending'. Return number generated. 3 items flagged for return. Stock NOT yet decremented (happens on dispatch)."
+        },
+        {
+          "id": "RET-02",
+          "scenario": "Dispatch a return to supplier",
+          "preconditions": "Return RET-01 exists with status 'Pending'.",
+          "steps": "1. Navigate to /purchase/returns.\n2. Filter by status = 'Pending'.\n3. Click 'Mark Dispatched' on the return.\n4. Confirm.",
+          "input": "Return=<from RET-01>, Action=MarkDispatched",
+          "expected": "Return status changes to 'Dispatched'. Stock in WH-DOHA decreases by 3 for WFC-001. FIFO layers adjusted (RPC: rpc_process_po_return_dispatch)."
+        },
+        {
+          "id": "RET-03",
+          "scenario": "Confirm supplier received the return",
+          "preconditions": "Return dispatched (RET-02).",
+          "steps": "1. Filter by status = 'Dispatched'.\n2. Click 'Confirm Supplier Receipt'.\n3. Confirm.",
+          "input": "Return=<from RET-02>, Action=ConfirmReceipt",
+          "expected": "Return status changes to 'Supplier Confirmed'. Debit note auto-generated for the returned items. DN appears in /purchase/debit-notes."
+        },
+        {
+          "id": "RET-04",
+          "scenario": "Close a confirmed return",
+          "preconditions": "Return confirmed (RET-03).",
+          "steps": "1. Filter by status = 'Confirmed'.\n2. Click 'Close Return'.\n3. Confirm.",
+          "input": "Return=<from RET-03>, Action=Close",
+          "expected": "Return status changes to 'Closed'. Return is now read-only. No further actions available."
+        },
+        {
+          "id": "RET-05",
+          "scenario": "Cancel a pending return",
+          "preconditions": "Return exists with status 'Pending' (not yet dispatched).",
+          "steps": "1. Filter by status = 'Pending'.\n2. Click 'Cancel'.\n3. Confirm cancellation.",
+          "input": "Return=<pending return>, Action=Cancel",
+          "expected": "Return status changes to 'Cancelled'. No stock changes (items were not dispatched). Return moves to cancelled filter view."
+        }
+      ]
+    },
+    {
+      "name": "Shipments",
+      "route": "/purchase/shipments",
+      "coverageNotes": "Create shipments, tracking, carrier sync, manual events",
+      "columns": ["Test ID", "Scenario", "Preconditions", "Steps", "Input values", "Expected result", "Actual", "Pass/Fail", "Notes"],
+      "rows": [
+        {
+          "id": "SHP-01",
+          "scenario": "Create a shipment with sea freight tracking",
+          "preconditions": "Approved PO exists. 17track API configured.",
+          "steps": "1. Navigate to /purchase/shipments.\n2. Click 'Create Shipment'.\n3. Select PO.\n4. Set Mode = 'Sea'.\n5. Enter Tracking # = 'MEDU1234567'.\n6. Click Submit.",
+          "input": "PO=<approved PO>, Mode=sea, Tracking=MEDU1234567",
+          "expected": "Shipment created with status 'Booked'. Tracking number registered with 17track API. Shipment appears in active list."
+        },
+        {
+          "id": "SHP-02",
+          "scenario": "Add a manual tracking event",
+          "preconditions": "Shipment SHP-01 exists.",
+          "steps": "1. Click on shipment SHP-01.\n2. Detail dialog opens.\n3. Click 'Add Event'.\n4. Date = 2026-07-05, Location = 'Jebel Ali Port', Status = 'Arrived at port', Notes = 'Awaiting customs clearance'.\n5. Submit.",
+          "input": "Shipment=<SHP-01>, EventDate=2026-07-05, Location=Jebel Ali Port, Status=Arrived at port, Notes=Awaiting customs clearance",
+          "expected": "Event added to shipment timeline. Event count increments. Timeline shows the new event with date, location, and notes."
+        },
+        {
+          "id": "SHP-03",
+          "scenario": "Sync tracking status from 17track",
+          "preconditions": "Shipment with valid tracking number registered on 17track. At least 1 auto-detected event exists.",
+          "steps": "1. Open shipment detail dialog.\n2. Click 'Sync Now'.\n3. Wait for API response.",
+          "input": "Shipment=<with valid tracking>, Action=SyncNow",
+          "expected": "Events from 17track synced into the shipment timeline. New events appear. If carrier was ambiguous, carrier picker dialog shows for selection."
+        },
+        {
+          "id": "SHP-04",
+          "scenario": "Archive a delivered shipment",
+          "preconditions": "Shipment with status 'Delivered'.",
+          "steps": "1. Open shipment detail.\n2. Click 'Archive'.\n3. Confirm.\n4. Toggle view to 'Archived'.",
+          "input": "Shipment=<delivered>, Action=Archive",
+          "expected": "Shipment moves from Active to Archived list. Tracking deregistered from 17track. Archived view shows the shipment."
+        }
+      ]
+    },
+    {
+      "name": "Landed_Costs",
+      "route": "/purchase/landed-costs",
+      "coverageNotes": "Create LC, allocate to receivals, apply to inventory, void, revert",
+      "columns": ["Test ID", "Scenario", "Preconditions", "Steps", "Input values", "Expected result", "Actual", "Pass/Fail", "Notes"],
+      "rows": [
+        {
+          "id": "LC-01",
+          "scenario": "Create a landed cost with 2 cost lines and attach receivals",
+          "preconditions": "At least 1 receival exists (from RCV-01). No prior LC for this receival.",
+          "steps": "1. Navigate to /purchase/landed-costs.\n2. Click 'Create Landed Cost'.\n3. Set Description = 'Jul 2026 Shipping Batch'.\n4. Set Date = 2026-07-07.\n5. Add Cost Line 1: Description='Freight charges', Amount=500, Currency=QAR.\n6. Add Cost Line 2: Description='Customs duty', Amount=200, Currency=QAR.\n7. In Receival section, expand the PO and check the receival.\n8. Click 'Create'.",
+          "input": "Description='Jul 2026 Shipping Batch', Date=2026-07-07, CostLine1=(Freight charges, 500, QAR), CostLine2=(Customs duty, 200, QAR), Receival=<from RCV-01>",
+          "expected": "LC created with status 'Active'. Total = 700 QAR. 2 cost lines stored. 1 receival attached. LC number generated. Appears in LC list."
+        },
+        {
+          "id": "LC-02",
+          "scenario": "Apply landed cost to inventory (updates FIFO layers)",
+          "preconditions": "LC from LC-01 exists with status 'Active'. Receivals attached.",
+          "steps": "1. Open LC detail.\n2. Click 'Apply to Inventory'.\n3. Preview dialog shows allocation per item.\n4. Verify allocation looks correct.\n5. Click 'Apply'.",
+          "input": "LC=<from LC-01>, Action=ApplyToInventory",
+          "expected": "LC status changes to 'Applied'. FIFO cost layers updated: each item's unit cost increases by the allocated LC amount per unit. Stock Value tab reflects the new costs. Allocation details stored."
+        },
+        {
+          "id": "LC-03",
+          "scenario": "Revert an applied landed cost",
+          "preconditions": "LC from LC-02 is 'Applied'.",
+          "steps": "1. Open LC detail.\n2. Click 'Revert Apply'.\n3. Confirmation dialog: type 'revert' to confirm.\n4. Type 'revert' and click Confirm.",
+          "input": "LC=<from LC-02>, Action=Revert, Confirmation='revert'",
+          "expected": "LC status reverts to 'Active'. FIFO layers restored to pre-LC values. Unit costs return to original receival costs. 'revert' confirmation prevents accidental clicks."
+        },
+        {
+          "id": "LC-04",
+          "scenario": "Void a landed cost",
+          "preconditions": "LC exists with status 'Active' (not applied).",
+          "steps": "1. Open LC detail.\n2. Click 'Void'.\n3. Enter reason: 'Duplicate entry'.\n4. Click Confirm.",
+          "input": "LC=<active LC>, Action=Void, Reason='Duplicate entry'",
+          "expected": "LC status changes to 'Voided'. Reason stored. LC cannot be edited or applied. Receivals released for use in other LCs."
+        }
+      ]
+    },
+    {
+      "name": "Dead_Stock",
+      "route": "/purchase/dead-stock",
+      "coverageNotes": "Dead stock report — idle items, filtering, status classification",
+      "columns": ["Test ID", "Scenario", "Preconditions", "Steps", "Input values", "Expected result", "Actual", "Pass/Fail", "Notes"],
+      "rows": [
+        {
+          "id": "DS-01",
+          "scenario": "View dead stock report — default view",
+          "preconditions": "Inventory has items with varying last-movement dates: some moved today, some 30 days ago, some 90+ days ago.",
+          "steps": "1. Navigate to /purchase/dead-stock.\n2. Observe the default view (all items).",
+          "input": "Filters=none",
+          "expected": "Report shows all items with stock. Columns: Item, Brand, SKU, Stock, Total Value (QAR), Last Movement Date, Days Idle, Status badge. Status badges: Active (<30d), Slow Moving (30-59d), At Risk (60-89d), Dead Stock (90+d)."
+        },
+        {
+          "id": "DS-02",
+          "scenario": "Filter by Dead Stock status only",
+          "preconditions": "At least 1 item has not moved in 90+ days.",
+          "steps": "1. Navigate to /purchase/dead-stock.\n2. Click the 'Dead Stock' status card (or select from dropdown).\n3. Observe filtered results.",
+          "input": "StatusFilter=Dead Stock",
+          "expected": "Only items with 90+ days idle shown. All rows have red 'Dead Stock' badge. Card count matches row count."
+        },
+        {
+          "id": "DS-03",
+          "scenario": "Search dead stock by item name",
+          "preconditions": "Multiple items in the report.",
+          "steps": "1. Navigate to /purchase/dead-stock.\n2. Type 'Water Filter' in search box.\n3. Observe filtered results.",
+          "input": "Search='Water Filter'",
+          "expected": "Only items matching 'Water Filter' in name, SKU, or brand shown. Search is case-insensitive and matches partial strings."
+        }
+      ]
+    },
+    {
+      "name": "Aging_Report",
+      "route": "/purchase/aging-report",
+      "coverageNotes": "Purchase aging — outstanding bills by supplier, bucket drill-down",
+      "columns": ["Test ID", "Scenario", "Preconditions", "Steps", "Input values", "Expected result", "Actual", "Pass/Fail", "Notes"],
+      "rows": [
+        {
+          "id": "AGE-01",
+          "scenario": "View full aging report — all suppliers",
+          "preconditions": "Multiple suppliers have outstanding (unpaid) bills at various ages.",
+          "steps": "1. Navigate to /purchase/aging-report.\n2. Ensure 'All Suppliers' is selected.\n3. Observe the report.",
+          "input": "SupplierFilter=All",
+          "expected": "Table shows one row per supplier with outstanding bills. Columns: Supplier, Bill Count, Current, 1-30 days, 31-60 days, 61-90 days, 90+ days, Total. Amounts in QAR. Totals row at bottom."
+        },
+        {
+          "id": "AGE-02",
+          "scenario": "Filter aging report by single supplier",
+          "preconditions": "Supplier 'ACME Qatar Trading' has at least 1 outstanding bill.",
+          "steps": "1. Navigate to /purchase/aging-report.\n2. Select 'ACME Qatar Trading' from supplier filter.\n3. Observe filtered result.",
+          "input": "SupplierFilter=ACME Qatar Trading",
+          "expected": "Only ACME's row shown. All aging buckets reflect ACME's bills only. Clear filter button appears."
+        },
+        {
+          "id": "AGE-03",
+          "scenario": "Drill down into an aging bucket",
+          "preconditions": "A supplier has a non-zero amount in the '31-60 days' bucket.",
+          "steps": "1. Navigate to /purchase/aging-report.\n2. Click on the '31-60 days' amount cell for that supplier.\n3. Drill-down dialog opens.",
+          "input": "Supplier=<with 31-60d balance>, Bucket=31-60 days",
+          "expected": "AgingDrillDownDialog opens showing individual bills in that bucket: Bill #, Date, Amount, Days outstanding. Sum matches the bucket total."
+        }
+      ]
+    },
+    {
+      "name": "Warehouses_Admin",
+      "route": "/master-data/admin/warehouses",
+      "coverageNotes": "CRUD warehouses, field RP assignment",
+      "columns": ["Test ID", "Scenario", "Preconditions", "Steps", "Input values", "Expected result", "Actual", "Pass/Fail", "Notes"],
+      "rows": [
+        {
+          "id": "WH-01",
+          "scenario": "Create a new warehouse",
+          "preconditions": "User has admin role. At least 1 profile with Field RP role exists.",
+          "steps": "1. Navigate to /master-data/admin/warehouses.\n2. Click 'Add Warehouse'.\n3. Enter Name = 'WH-LUSAIL'.\n4. Enter Location = 'Lusail City, Zone 62'.\n5. Select Field RPs: choose 1-2 users from the list.\n6. Click 'Create'.",
+          "input": "Name=WH-LUSAIL, Location=Lusail City Zone 62, FieldRPs=[User A, User B]",
+          "expected": "Warehouse created. Appears in the list with name, location, and assigned Field RPs. Item count starts at 0."
+        },
+        {
+          "id": "WH-02",
+          "scenario": "Edit warehouse — change name and add Field RP",
+          "preconditions": "Warehouse 'WH-LUSAIL' exists from WH-01.",
+          "steps": "1. Click Edit dropdown on 'WH-LUSAIL'.\n2. Change Name to 'WH-LUSAIL-MAIN'.\n3. Add an additional Field RP.\n4. Click 'Update'.",
+          "input": "Warehouse=WH-LUSAIL, NewName=WH-LUSAIL-MAIN, AddFieldRP=User C",
+          "expected": "Warehouse updated. Name changed in the list. Field RPs now show 3 users. Toast: 'Warehouse updated'."
+        },
+        {
+          "id": "WH-03",
+          "scenario": "Delete an empty warehouse",
+          "preconditions": "Warehouse 'WH-LUSAIL-MAIN' exists with 0 items (no stock).",
+          "steps": "1. Click Delete from the dropdown menu.\n2. Confirmation dialog appears: 'Are you sure you want to delete WH-LUSAIL-MAIN?'.\n3. Confirm deletion.",
+          "input": "Warehouse=WH-LUSAIL-MAIN, Action=Delete",
+          "expected": "Warehouse deleted. Removed from the list. Toast: 'Warehouse deleted'. If warehouse has stock, deletion should be blocked with an error."
+        },
+        {
+          "id": "WH-04",
+          "scenario": "Reject: delete warehouse with existing stock",
+          "preconditions": "Warehouse 'WH-DOHA' has items in stock (stock_level > 0).",
+          "steps": "1. Click Delete on 'WH-DOHA'.\n2. Confirm deletion.",
+          "input": "Warehouse=WH-DOHA (has stock), Action=Delete",
+          "expected": "Error: 'Cannot delete warehouse with existing stock'. Warehouse remains in the list. User must transfer or adjust stock to zero first."
+        }
+      ]
+    },
+    {
+      "name": "Stock_Adjustments",
+      "route": "/purchase/warehouses (Adjustments tab)",
+      "coverageNotes": "Create adjustments, multi-step approval, approve/reject",
+      "columns": ["Test ID", "Scenario", "Preconditions", "Steps", "Input values", "Expected result", "Actual", "Pass/Fail", "Notes"],
+      "rows": [
+        {
+          "id": "ADJ-01",
+          "scenario": "Create a stock increase adjustment",
+          "preconditions": "Warehouse 'WH-DOHA' exists. Item 'Water Filter Cartridge' (WFC-001) has stock = 10.",
+          "steps": "1. Navigate to /purchase/warehouses, Adjustments tab.\n2. Click 'Stock Adjustment'.\n3. Select Warehouse = 'WH-DOHA'.\n4. Search and select Item = 'Water Filter Cartridge'.\n5. Type = 'Increase'.\n6. Qty = 5.\n7. Reason = 'Found uncounted stock during check'.\n8. Click 'Submit for Approval'.",
+          "input": "Warehouse=WH-DOHA, Item=WFC-001, Type=increase, Qty=5, Reason='Found uncounted stock during check'",
+          "expected": "Adjustment created with status 'Pending Approval'. Stock NOT yet changed (awaiting approval). Adjustment appears in list with yellow 'Pending' badge."
+        },
+        {
+          "id": "ADJ-02",
+          "scenario": "Approve a stock adjustment",
+          "preconditions": "Adjustment ADJ-01 exists with status 'Pending'. Current user is warehouse Field RP or has approval permission.",
+          "steps": "1. Find adjustment in the list.\n2. Click 'Approve'.\n3. Confirm.",
+          "input": "Adjustment=<from ADJ-01>, Action=Approve",
+          "expected": "Adjustment status changes to 'Approved'. Stock for WFC-001 in WH-DOHA increases from 10 to 15. Stock movement record created (type='adjustment'). Badge turns green."
+        },
+        {
+          "id": "ADJ-03",
+          "scenario": "Create a stock decrease (write-off) adjustment",
+          "preconditions": "WFC-001 has stock = 15 in WH-DOHA.",
+          "steps": "1. Click 'Stock Adjustment'.\n2. Warehouse = 'WH-DOHA'.\n3. Item = WFC-001.\n4. Type = 'Write Off'.\n5. Qty = 2.\n6. Reason = 'Expired items — disposal'.\n7. Attach 1 photo of the expired items.\n8. Submit.",
+          "input": "Warehouse=WH-DOHA, Item=WFC-001, Type=write_off, Qty=2, Reason='Expired items - disposal', Photos=1",
+          "expected": "Adjustment created with 'Pending Approval'. Photo uploaded to storage. Photo count badge shows '1'. Upon approval, stock decreases from 15 to 13."
+        },
+        {
+          "id": "ADJ-04",
+          "scenario": "Reject a stock adjustment",
+          "preconditions": "A pending adjustment exists. Current user has approve permission.",
+          "steps": "1. Find the pending adjustment.\n2. Click 'Reject'.\n3. Confirm rejection.",
+          "input": "Adjustment=<pending>, Action=Reject",
+          "expected": "Adjustment status changes to 'Rejected'. Badge turns red. Stock is NOT changed. Adjustment is read-only."
+        },
+        {
+          "id": "ADJ-05",
+          "scenario": "Create damage adjustment with photo evidence",
+          "preconditions": "Item 'Safety Goggles' (SG-100) has stock in WH-DOHA.",
+          "steps": "1. Click 'Stock Adjustment'.\n2. Warehouse = 'WH-DOHA', Item = SG-100.\n3. Type = 'Damage'.\n4. Qty = 3.\n5. Reason = 'Dropped during shelf reorganization'.\n6. Upload 2 photos.\n7. Submit.",
+          "input": "Warehouse=WH-DOHA, Item=SG-100, Type=damage, Qty=3, Reason='Dropped during shelf reorganization', Photos=2",
+          "expected": "Adjustment created. Photo count = 2. Type badge shows 'Damage'. Upon approval, damaged_qty increases by 3 for SG-100."
+        }
+      ]
+    },
+    {
+      "name": "Transfers",
+      "route": "/purchase/warehouses (Transfers tab)",
+      "coverageNotes": "Create transfers, dispatch, receive, reject, cancel, shrinkage",
+      "columns": ["Test ID", "Scenario", "Preconditions", "Steps", "Input values", "Expected result", "Actual", "Pass/Fail", "Notes"],
+      "rows": [
+        {
+          "id": "TRF-01",
+          "scenario": "Create a stock transfer between warehouses",
+          "preconditions": "WH-DOHA has WFC-001 stock = 13. WH-LUSAIL exists (empty or low stock).",
+          "steps": "1. Navigate to /purchase/warehouses, Transfers tab.\n2. Click 'Transfer Stock'.\n3. From = 'WH-DOHA'.\n4. To = 'WH-LUSAIL'.\n5. Search and add Item = WFC-001.\n6. Qty = 5.\n7. Notes = 'Restocking Lusail branch'.\n8. Click 'Create Transfer'.",
+          "input": "From=WH-DOHA, To=WH-LUSAIL, Item=WFC-001, Qty=5, Notes='Restocking Lusail branch'",
+          "expected": "Transfer created with status 'Pending'. Transfer number generated. Stock NOT yet moved. Source warehouse Field RPs notified. Item shown with stock tags (e.g., 'New' tag at destination if item didn't exist there)."
+        },
+        {
+          "id": "TRF-02",
+          "scenario": "Dispatch a pending transfer",
+          "preconditions": "Transfer TRF-01 exists with status 'Pending'. Current user is source warehouse Field RP.",
+          "steps": "1. Find transfer in list.\n2. Click 'Dispatch'.\n3. Confirm.",
+          "input": "Transfer=<from TRF-01>, Action=Dispatch",
+          "expected": "Transfer status changes to 'In Transit'. Stock at WH-DOHA decreases by 5 for WFC-001 (from 13 to 8). Timeline shows dispatched event with user name and timestamp."
+        },
+        {
+          "id": "TRF-03",
+          "scenario": "Receive a transfer — full quantity",
+          "preconditions": "Transfer in 'In Transit' (TRF-02). Current user is destination warehouse Field RP.",
+          "steps": "1. Find the in-transit transfer.\n2. Click 'Receive'.\n3. Inline receival form expands.\n4. Set Received Qty = 5 (full amount).\n5. Click 'Confirm Receival'.",
+          "input": "Transfer=<from TRF-02>, ReceivedQty=5",
+          "expected": "Transfer status changes to 'Received'. Stock at WH-LUSAIL increases by 5 for WFC-001. No shrinkage recorded. Timeline shows received event."
+        },
+        {
+          "id": "TRF-04",
+          "scenario": "Receive with shrinkage (less than dispatched)",
+          "preconditions": "New transfer: WH-DOHA to WH-LUSAIL, 10x PF-002, dispatched.",
+          "steps": "1. Find the in-transit transfer.\n2. Click 'Receive'.\n3. Set Received Qty = 8 (2 short).\n4. Shrinkage reason appears: enter 'Items damaged in transit'.\n5. Confirm.",
+          "input": "Transfer=<dispatched>, ReceivedQty=8, ShrinkageReason='Items damaged in transit'",
+          "expected": "Transfer received with shrinkage of 2 units. Destination gets 8 units. Shrinkage noted in transfer record. Shrinkage reason stored. Stock movement shows both the receipt and the shrinkage."
+        },
+        {
+          "id": "TRF-05",
+          "scenario": "Reject a pending transfer",
+          "preconditions": "Transfer with status 'Pending'. Current user is source warehouse Field RP.",
+          "steps": "1. Find the pending transfer.\n2. Click 'Reject'.\n3. Confirm.",
+          "input": "Transfer=<pending>, Action=Reject",
+          "expected": "Transfer status changes to 'Rejected'. No stock changes. Transfer is read-only. Cannot be re-dispatched."
+        }
+      ]
+    },
+    {
+      "name": "Inventory_Check",
+      "route": "/purchase/warehouses (Inventory Checks tab)",
+      "coverageNotes": "Start check, assign counters, count items, apply adjustments",
+      "columns": ["Test ID", "Scenario", "Preconditions", "Steps", "Input values", "Expected result", "Actual", "Pass/Fail", "Notes"],
+      "rows": [
+        {
+          "id": "IC-01",
+          "scenario": "Start a new inventory check",
+          "preconditions": "Warehouse 'WH-DOHA' has items in stock. At least 2 active users exist for counter assignment.",
+          "steps": "1. Navigate to /purchase/warehouses, Inventory Checks tab.\n2. Click 'New Check'.\n3. Select Warehouse = 'WH-DOHA'.\n4. Select counters: User A, User B.\n5. Notes = 'Monthly cycle count - July 2026'.\n6. Click 'Review'.\n7. Review distribution preview (categories split between counters).\n8. Click 'Start Check'.",
+          "input": "Warehouse=WH-DOHA, Counters=[User A, User B], Notes='Monthly cycle count - July 2026'",
+          "expected": "Inventory check created with status 'In Progress'. System qty snapshot taken (snapshot_inventory_check_system_qty RPC). Categories distributed evenly between counters. Check appears in list with 'In Progress' badge."
+        },
+        {
+          "id": "IC-02",
+          "scenario": "Count items during an active check",
+          "preconditions": "Inventory check IC-01 is 'In Progress'. Current user is assigned as a counter.",
+          "steps": "1. Open the active check detail.\n2. Find WFC-001 in the item list.\n3. System Qty shows 13 (from snapshot).\n4. Enter Counted Qty = 12.\n5. Save count.",
+          "input": "Check=<from IC-01>, Item=WFC-001, CountedQty=12",
+          "expected": "Count saved (save_inventory_check_item_count RPC). Variance = -1 shown. Item row updates to show counted vs system. Progress indicator updates."
+        },
+        {
+          "id": "IC-03",
+          "scenario": "Submit completed check for approval",
+          "preconditions": "All items in IC-01 have been counted.",
+          "steps": "1. Open check detail.\n2. All items show counted qty.\n3. Click 'Submit for Approval'.\n4. Confirm.",
+          "input": "Check=<from IC-01>, Action=Submit",
+          "expected": "Check status changes to 'Submitted'. Check becomes read-only for counters. Approvers can now review. Variance summary shown."
+        },
+        {
+          "id": "IC-04",
+          "scenario": "Apply adjustments from approved check",
+          "preconditions": "Inventory check approved. Variance exists (WFC-001: system=13, counted=12, variance=-1).",
+          "steps": "1. Open the approved check.\n2. Click 'Apply Adjustments'.\n3. Review the adjustments that will be made.\n4. Confirm.",
+          "input": "Check=<approved>, Action=ApplyAdjustments",
+          "expected": "Adjustments applied (apply_inventory_check_adjustments RPC). WFC-001 stock changes from 13 to 12 in WH-DOHA. Stock movement records created (type='inventory_check'). Check status changes to 'Approved' (completed)."
+        }
+      ]
+    }
+  ]
+}

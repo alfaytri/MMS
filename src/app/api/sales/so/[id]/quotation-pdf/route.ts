@@ -46,10 +46,11 @@ export async function POST(
   }
 
   const force = req.nextUrl.searchParams.get('force') === 'true'
+  const divisionId = req.nextUrl.searchParams.get('divisionId') ?? undefined
   const supabase = createClient(SUPA_URL, SUPA_KEY)
 
   try {
-    const result = await generateQuotationPdf(soId, supabase, { force })
+    const result = await generateQuotationPdf(soId, supabase, { force, divisionId })
     return NextResponse.json(result)
   } catch (err) {
     const msg   = err instanceof Error ? err.message : String(err)
@@ -71,10 +72,11 @@ export async function GET(
   }
 
   const force = req.nextUrl.searchParams.get('force') === 'true'
+  const divisionId = req.nextUrl.searchParams.get('divisionId') ?? undefined
   const supabase = createClient(SUPA_URL, SUPA_KEY)
 
   try {
-    const { url } = await generateQuotationPdf(soId, supabase, { force })
+    const { url } = await generateQuotationPdf(soId, supabase, { force, divisionId })
     return NextResponse.redirect(url, 302)
   } catch (err) {
     const msg   = err instanceof Error ? err.message : String(err)

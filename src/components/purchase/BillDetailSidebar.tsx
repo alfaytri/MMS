@@ -64,7 +64,7 @@ export function BillDetailSidebar({
           <SelectTrigger>
             <SelectValue placeholder="— Select —" />
           </SelectTrigger>
-          <SelectContent>
+          <SelectContent className="max-h-60 overflow-y-auto">
             {companies.map((c) => (
               <SelectItem key={c.id} value={c.id}>{c.name_en}</SelectItem>
             ))}
@@ -83,7 +83,7 @@ export function BillDetailSidebar({
           <SelectTrigger>
             <SelectValue placeholder={selectedCompanyId ? '— Select —' : 'Select company first…'} />
           </SelectTrigger>
-          <SelectContent>
+          <SelectContent className="max-h-60 overflow-y-auto">
             {divisions.map((d) => (
               <SelectItem key={d.id} value={d.id}>{d.name}</SelectItem>
             ))}

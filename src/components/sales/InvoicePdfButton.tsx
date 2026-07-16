@@ -1,10 +1,5 @@
 'use client'
 
-/**
- * AR Invoice PDF — View / Download buttons.
- * Replaces the @react-pdf/renderer button — see SoPdfButton.tsx for context.
- */
-
 import { useState } from 'react'
 import { Button } from '@/components/ui/button'
 import { Download, Eye, Loader2 } from 'lucide-react'
@@ -14,10 +9,6 @@ import type { ArInvoice } from '@/types/invoice'
 
 interface Props {
   invoice: ArInvoice
-  // amountPaid / outstanding are computed server-side now, kept in the prop
-  // signature so existing call sites don't need to change.
-  amountPaid?:  number
-  outstanding?: number
 }
 
 async function fetchPdfUrl(invoiceId: string): Promise<{ url: string; invoiceId: string }> {

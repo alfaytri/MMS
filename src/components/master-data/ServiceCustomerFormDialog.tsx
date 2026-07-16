@@ -303,7 +303,7 @@ export function ServiceCustomerFormDialog({
                             <SelectValue placeholder="Select source…" />
                           </SelectTrigger>
                         </FormControl>
-                        <SelectContent>
+                        <SelectContent className="max-h-60 overflow-y-auto">
                           {REFERRAL_OPTIONS.map((o) => (
                             <SelectItem key={o.value} value={o.value}>{o.label}</SelectItem>
                           ))}
@@ -357,7 +357,7 @@ export function ServiceCustomerFormDialog({
                                 <SelectValue />
                               </SelectTrigger>
                             </FormControl>
-                            <SelectContent>
+                            <SelectContent className="max-h-60 overflow-y-auto">
                               {PHONE_LABELS.map((l) => (
                                 <SelectItem key={l} value={l} className="capitalize">{l}</SelectItem>
                               ))}
@@ -635,7 +635,7 @@ export function ServiceCustomerFormDialog({
                                 <SelectValue />
                               </SelectTrigger>
                             </FormControl>
-                            <SelectContent>
+                            <SelectContent className="max-h-60 overflow-y-auto">
                               <SelectItem value="__none__">No specific phone</SelectItem>
                               {watchedPhones.map((p, pi) => (
                                 <SelectItem key={pi} value={String(pi)}>

@@ -1,7 +1,7 @@
 'use client'
 
 import { useState } from 'react'
-import { ArrowDown, ArrowUp, ChevronRight, ChevronDown, Pencil, Archive } from 'lucide-react'
+import { ArrowDown, ArrowUp, ChevronRight, ChevronDown, Pencil, Archive, PackagePlus } from 'lucide-react'
 import { toast } from 'sonner'
 import { Button } from '@/components/ui/button'
 import { TableCell, TableRow } from '@/components/ui/table'
@@ -9,8 +9,10 @@ import { ConfirmDialog } from '@/components/shared/ConfirmDialog'
 import { FifoLayersTable } from './FifoLayersTable'
 import { BrandVariantEditDialog } from './BrandVariantEditDialog'
 import { ReservedOrdersDialog } from './ReservedOrdersDialog'
+import { InventoryReceivalDialog } from '@/components/inventory/InventoryReceivalDialog'
 import { useArchiveInventoryBrandVariant, useVariantWarehouseStock, type BrandVariant } from '@/hooks/useInventory'
 import { useWarehouses } from '@/hooks/useWarehouses'
+import { useCanCreateInventoryReceivals } from '@/hooks/useInventoryReceivals'
 import { Tooltip, TooltipTrigger, TooltipContent, TooltipProvider } from '@/components/ui/tooltip'
 import { formatCurrency } from '@/lib/utils/formatters'
 
@@ -114,7 +116,9 @@ export function BrandVariantRow({ variant, itemId, itemName, canMoveUp, canMoveD
   const [editOpen, setEditOpen] = useState(false)
   const [archiveOpen, setArchiveOpen] = useState(false)
   const [reservedOpen, setReservedOpen] = useState(false)
+  const [invReceivalOpen, setInvReceivalOpen] = useState(false)
   const archive = useArchiveInventoryBrandVariant()
+  const { data: canCreateInvRcv = false } = useCanCreateInventoryReceivals()
 
   const stockLevel = variant.stock_level ?? 0
   const reservedQty = variant.reserved_qty ?? 0
@@ -180,6 +184,24 @@ export function BrandVariantRow({ variant, itemId, itemName, canMoveUp, canMoveD
         </TableCell>
         <TableCell className="text-right">
           <div className="flex items-center justify-end gap-1" onClick={(e) => e.stopPropagation()}>
+            {canCreateInvRcv && (
+              <TooltipProvider delayDuration={200}>
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <Button
+                      variant="ghost"
+                      size="icon"
+                      className="h-6 w-6"
+                      onClick={() => setInvReceivalOpen(true)}
+                      aria-label="Create Inventory Receival"
+                    >
+                      <PackagePlus className="h-3 w-3" />
+                    </Button>
+                  </TooltipTrigger>
+                  <TooltipContent>Create Inventory Receival</TooltipContent>
+                </Tooltip>
+              </TooltipProvider>
+            )}
             <Button variant="ghost" size="icon" className="h-6 w-6" disabled={!canMoveUp} onClick={() => onMoveUp()}>
               <ArrowUp className="h-3 w-3" />
             </Button>
@@ -205,6 +227,14 @@ export function BrandVariantRow({ variant, itemId, itemName, canMoveUp, canMoveD
       )}
 
       <BrandVariantEditDialog open={editOpen} onOpenChange={setEditOpen} itemId={itemId} variant={variant} />
+
+      <InventoryReceivalDialog
+        open={invReceivalOpen}
+        onOpenChange={setInvReceivalOpen}
+        brandVariantId={variant.id}
+        variantLabel={displayBrand}
+        variantCode={variant.code ?? '—'}
+      />
 
       <ReservedOrdersDialog
         open={reservedOpen}

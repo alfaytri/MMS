@@ -1,7 +1,7 @@
 'use client'
 
-import React, { useState } from 'react'
-import { ClipboardCheck, Users, CheckCircle2, Clock, XCircle, Eye } from 'lucide-react'
+import React, { useState, useMemo, useEffect } from 'react'
+import { ClipboardCheck, Users, CheckCircle2, Clock, XCircle, Eye, ChevronLeft, ChevronRight } from 'lucide-react'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { useInventoryChecks } from '@/hooks/useWarehouseOperations'
@@ -32,6 +32,14 @@ interface Props {
 export const WhInventoryChecksTab = React.memo(function WhInventoryChecksTab({ warehouses, currentProfile }: Props) {
   const { data: checks = [] } = useInventoryChecks()
   const [selectedCheck, setSelectedCheck] = useState<InventoryCheck | null>(null)
+  const [page, setPage] = useState(1)
+  const PAGE_SIZE = 25
+  const totalPages = Math.max(1, Math.ceil(checks.length / PAGE_SIZE))
+  useEffect(() => { setPage(1) }, [checks.length])
+  const paged = useMemo(() => {
+    const start = (page - 1) * PAGE_SIZE
+    return checks.slice(start, start + PAGE_SIZE)
+  }, [checks, page])
 
   return (
     <div className="p-4 md:p-6 space-y-4">
@@ -68,7 +76,7 @@ export const WhInventoryChecksTab = React.memo(function WhInventoryChecksTab({ w
         </div>
       ) : (
         <div className="space-y-1.5">
-          {checks.map((c) => {
+          {paged.map((c) => {
             const cfg = STATUS_CONFIG[c.status] ?? STATUS_CONFIG.draft
             const isActive = c.status === 'in_progress' || c.status === 'pending_approval'
             return (
@@ -119,6 +127,21 @@ export const WhInventoryChecksTab = React.memo(function WhInventoryChecksTab({ w
               </div>
             )
           })}
+        </div>
+      )}
+
+      {checks.length > 0 && totalPages > 1 && (
+        <div className="flex items-center justify-between text-xs text-muted-foreground px-1">
+          <span>{checks.length} check{checks.length !== 1 ? 's' : ''}</span>
+          <div className="flex items-center gap-1.5">
+            <Button variant="outline" size="sm" className="h-7 w-7 p-0" disabled={page <= 1} onClick={() => setPage((p) => Math.max(1, p - 1))} aria-label="Previous page">
+              <ChevronLeft className="h-3.5 w-3.5" />
+            </Button>
+            <span className="tabular-nums min-w-[80px] text-center">Page {page} of {totalPages}</span>
+            <Button variant="outline" size="sm" className="h-7 w-7 p-0" disabled={page >= totalPages} onClick={() => setPage((p) => Math.min(totalPages, p + 1))} aria-label="Next page">
+              <ChevronRight className="h-3.5 w-3.5" />
+            </Button>
+          </div>
         </div>
       )}
 

@@ -74,9 +74,9 @@ export default function WarehousesPage() {
           <TooltipProvider delayDuration={200}>
             <Tooltip>
               <TooltipTrigger asChild>
-                <span className="cursor-help border-b border-dashed border-muted-foreground/40">Field RPs</span>
+                <span className="cursor-help border-b border-dashed border-muted-foreground/40">Warehouse RPs</span>
               </TooltipTrigger>
-              <TooltipContent side="top"><p className="text-xs">Field Responsible Persons</p></TooltipContent>
+              <TooltipContent side="top"><p className="text-xs">Warehouse Responsible Persons</p></TooltipContent>
             </Tooltip>
           </TooltipProvider>
         ),
@@ -85,7 +85,7 @@ export default function WarehousesPage() {
           return (
             <span className="text-xs">
               {wh.field_rps.length > 0
-                ? wh.field_rps.map(rp => rp.full_name).filter(Boolean).join(', ')
+                ? wh.field_rps.map((rp: { full_name: string | null }) => rp.full_name).filter(Boolean).join(', ')
                 : <span className="text-muted-foreground">Unassigned</span>}
             </span>
           )

@@ -156,7 +156,7 @@ export function WhInventoryCheckStartDialog({ warehouses, currentProfile, childr
                     <SelectTrigger className="h-8 text-xs">
                       <SelectValue placeholder="Select warehouse…" />
                     </SelectTrigger>
-                    <SelectContent>
+                    <SelectContent className="max-h-60 overflow-y-auto">
                       {warehouses.map((wh) => (
                         <SelectItem key={wh.id} value={wh.id} className="text-xs">{wh.name}</SelectItem>
                       ))}

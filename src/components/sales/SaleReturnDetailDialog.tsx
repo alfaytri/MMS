@@ -48,7 +48,7 @@ export function SaleReturnDetailDialog({ ret, onClose }: Props) {
 
   if (!ret) return null
 
-  const items = ret.items ?? []
+  const items = ret.return_lines ?? []
   const goodItems = items.filter(i => i.condition === 'good')
   const damagedItems = items.filter(i => i.condition === 'damaged')
   const totalQty = items.reduce((sum, i) => sum + i.qty, 0)

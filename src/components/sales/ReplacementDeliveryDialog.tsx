@@ -110,7 +110,7 @@ export function ReplacementDeliveryDialog({
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {returnData.items.map((item, i) => (
+                {(returnData.return_lines ?? []).map((item, i) => (
                   <TableRow key={i}>
                     <TableCell>
                       <div className="text-sm">{item.item_name}</div>
@@ -222,7 +222,7 @@ export function ReplacementDeliveryDialog({
               <SelectTrigger className="mt-1 w-full">
                 <SelectValue placeholder="Select warehouse" />
               </SelectTrigger>
-              <SelectContent>
+              <SelectContent className="max-h-60 overflow-y-auto">
                 {warehouses.map((w) => (
                   <SelectItem key={w.id} value={w.id}>{w.name}</SelectItem>
                 ))}

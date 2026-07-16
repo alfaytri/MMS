@@ -84,14 +84,12 @@ export function SupplierFormDialog({ open, onOpenChange, supplier }: SupplierFor
 
   const supplierType = form.watch('supplier_type')
 
-  // Auto-set QAR for local suppliers — also fires when currencies finish loading
   useEffect(() => {
     if (supplierType === 'local' && qarCurrency) {
       form.setValue('currency_id', qarCurrency.id)
     }
   }, [supplierType, qarCurrency, form])
 
-  // Auto-set country to Qatar for local suppliers
   useEffect(() => {
     if (supplierType === 'local') {
       form.setValue('country', 'Qatar')
@@ -116,7 +114,7 @@ export function SupplierFormDialog({ open, onOpenChange, supplier }: SupplierFor
       })
     } else if (open) {
       setCountryCode('+974')
-      form.reset()
+      form.reset({ name: '', category: '', supplier_type: 'local' as const, currency_id: '', country: '', contact_name: '', phone: '', email: '', address: '', notes: '' })
     }
   }, [open, supplier, form])
 
@@ -159,201 +157,214 @@ export function SupplierFormDialog({ open, onOpenChange, supplier }: SupplierFor
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="w-full sm:max-w-lg md:max-w-xl">
-        <DialogHeader>
-          <DialogTitle>{isEditing ? 'Edit' : 'Add'} Supplier</DialogTitle>
-        </DialogHeader>
+      <DialogContent className="w-full max-w-full rounded-none sm:max-w-2xl sm:rounded-lg p-0 flex flex-col max-h-[90vh] overflow-hidden">
+        <div className="px-6 pt-6 flex-shrink-0">
+          <DialogHeader>
+            <DialogTitle className="text-lg">{isEditing ? 'Edit' : 'Add'} Supplier</DialogTitle>
+          </DialogHeader>
+        </div>
+
         <Form {...form}>
-          <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
-            <FormField
-              control={form.control}
-              name="name"
-              render={({ field }) => (
-                <FormItem>
-                  <FormLabel>Name *</FormLabel>
-                  <FormControl>
-                    <Input placeholder="Supplier name" {...field} />
-                  </FormControl>
-                  <FormMessage />
-                </FormItem>
-              )}
-            />
-            <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-              <FormField
-                control={form.control}
-                name="supplier_type"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>Supplier Type</FormLabel>
-                    <Select value={field.value} onValueChange={field.onChange}>
+          <form onSubmit={form.handleSubmit(onSubmit)} className="flex flex-col min-h-0 flex-1">
+            <div className="px-6 pb-4 space-y-5 overflow-y-auto flex-1 min-h-0">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-x-6 gap-y-5">
+                <FormField
+                  control={form.control}
+                  name="name"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Name *</FormLabel>
                       <FormControl>
-                        <SelectTrigger>
-                          <SelectValue placeholder="Select type…" />
-                        </SelectTrigger>
+                        <Input placeholder="Supplier name" {...field} />
                       </FormControl>
-                      <SelectContent>
-                        <SelectItem value="local">Local</SelectItem>
-                        <SelectItem value="international">International</SelectItem>
-                      </SelectContent>
-                    </Select>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
-              <FormField
-                control={form.control}
-                name="country"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>Country</FormLabel>
-                    <Select
-                      value={field.value ?? ''}
-                      onValueChange={field.onChange}
-                      disabled={supplierType === 'local'}
-                    >
-                      <FormControl>
-                        <SelectTrigger>
-                          <SelectValue placeholder="Select country…" />
-                        </SelectTrigger>
-                      </FormControl>
-                      <SelectContent>
-                        {countryCodes.map((cc) => (
-                          <SelectItem key={cc.id} value={cc.name}>
-                            {cc.flag} {cc.name}
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
-              <FormField
-                control={form.control}
-                name="currency_id"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>Currency</FormLabel>
-                    <Select
-                      value={field.value ?? ''}
-                      onValueChange={field.onChange}
-                      disabled={supplierType === 'local'}
-                    >
-                      <FormControl>
-                        <SelectTrigger>
-                          <SelectValue placeholder="Select currency…" />
-                        </SelectTrigger>
-                      </FormControl>
-                      <SelectContent>
-                        {currencies.map((c) => (
-                          <SelectItem key={c.id} value={c.id}>
-                            {c.code} — {c.name}
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
-            </div>
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-              <FormField
-                control={form.control}
-                name="category"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>Category</FormLabel>
-                    <FormControl>
-                      <Input placeholder="e.g. Cleaning supplies" {...field} />
-                    </FormControl>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
-              <FormField
-                control={form.control}
-                name="contact_name"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>Contact Person</FormLabel>
-                    <FormControl>
-                      <Input placeholder="Contact name" {...field} />
-                    </FormControl>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
-            </div>
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-              <FormField
-                control={form.control}
-                name="phone"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>Phone</FormLabel>
-                    <FormControl>
-                      <PhoneInputWithCode
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+                <FormField
+                  control={form.control}
+                  name="supplier_type"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Supplier Type</FormLabel>
+                      <Select value={field.value} onValueChange={field.onChange}>
+                        <FormControl>
+                          <SelectTrigger className="w-full">
+                            <SelectValue placeholder="Select type..." />
+                          </SelectTrigger>
+                        </FormControl>
+                        <SelectContent className="max-h-60 overflow-y-auto">
+                          <SelectItem value="local">Local</SelectItem>
+                          <SelectItem value="international">International</SelectItem>
+                        </SelectContent>
+                      </Select>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+              </div>
+
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-x-6 gap-y-5">
+                <FormField
+                  control={form.control}
+                  name="country"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Country</FormLabel>
+                      <Select
                         value={field.value ?? ''}
-                        onChange={field.onChange}
-                        countryCode={countryCode}
-                        onCountryCodeChange={setCountryCode}
-                      />
+                        onValueChange={field.onChange}
+                        disabled={supplierType === 'local'}
+                      >
+                        <FormControl>
+                          <SelectTrigger className="w-full">
+                            <SelectValue placeholder="Select country..." />
+                          </SelectTrigger>
+                        </FormControl>
+                        <SelectContent className="max-h-60 overflow-y-auto">
+                          {countryCodes.map((cc) => (
+                            <SelectItem key={cc.id} value={cc.name}>
+                              {cc.flag} {cc.name}
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+                <FormField
+                  control={form.control}
+                  name="currency_id"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Currency</FormLabel>
+                      <Select
+                        value={field.value ?? ''}
+                        onValueChange={field.onChange}
+                        disabled={supplierType === 'local'}
+                      >
+                        <FormControl>
+                          <SelectTrigger className="w-full">
+                            <SelectValue placeholder="Select currency..." />
+                          </SelectTrigger>
+                        </FormControl>
+                        <SelectContent className="max-h-60 overflow-y-auto">
+                          {currencies.map((c) => (
+                            <SelectItem key={c.id} value={c.id}>
+                              {c.code} — {c.name}
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+              </div>
+
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-x-6 gap-y-5">
+                <FormField
+                  control={form.control}
+                  name="category"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Category</FormLabel>
+                      <FormControl>
+                        <Input placeholder="e.g. Cleaning supplies" {...field} />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+                <FormField
+                  control={form.control}
+                  name="contact_name"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Contact Person</FormLabel>
+                      <FormControl>
+                        <Input placeholder="Contact name" {...field} />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+              </div>
+
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-x-6 gap-y-5">
+                <FormField
+                  control={form.control}
+                  name="phone"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Phone</FormLabel>
+                      <FormControl>
+                        <PhoneInputWithCode
+                          value={field.value ?? ''}
+                          onChange={field.onChange}
+                          countryCode={countryCode}
+                          onCountryCodeChange={setCountryCode}
+                        />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+                <FormField
+                  control={form.control}
+                  name="email"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Email</FormLabel>
+                      <FormControl>
+                        <Input type="email" placeholder="supplier@example.com" {...field} />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+              </div>
+
+              <FormField
+                control={form.control}
+                name="address"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>
+                      Address <span className="text-muted-foreground font-normal">(Optional)</span>
+                    </FormLabel>
+                    <FormControl>
+                      <Input placeholder="Street address" {...field} />
                     </FormControl>
                     <FormMessage />
                   </FormItem>
                 )}
               />
+
               <FormField
                 control={form.control}
-                name="email"
+                name="notes"
                 render={({ field }) => (
                   <FormItem>
-                    <FormLabel>Email</FormLabel>
+                    <FormLabel>
+                      Notes <span className="text-muted-foreground font-normal">(Optional)</span>
+                    </FormLabel>
                     <FormControl>
-                      <Input type="email" placeholder="supplier@example.com" {...field} />
+                      <Textarea placeholder="Internal notes..." rows={3} {...field} />
                     </FormControl>
                     <FormMessage />
                   </FormItem>
                 )}
               />
             </div>
-            <FormField
-              control={form.control}
-              name="address"
-              render={({ field }) => (
-                <FormItem>
-                  <FormLabel>
-                    Address <span className="text-muted-foreground font-normal">(Optional)</span>
-                  </FormLabel>
-                  <FormControl>
-                    <Input placeholder="Street address" {...field} />
-                  </FormControl>
-                  <FormMessage />
-                </FormItem>
-              )}
-            />
-            <FormField
-              control={form.control}
-              name="notes"
-              render={({ field }) => (
-                <FormItem>
-                  <FormLabel>
-                    Notes <span className="text-muted-foreground font-normal">(Optional)</span>
-                  </FormLabel>
-                  <FormControl>
-                    <Textarea placeholder="Internal notes…" rows={3} {...field} />
-                  </FormControl>
-                  <FormMessage />
-                </FormItem>
-              )}
-            />
-            <DialogFooter>
+
+            <DialogFooter className="flex-shrink-0 border-t bg-background px-6 py-4">
               <Button type="button" variant="outline" onClick={() => onOpenChange(false)} disabled={isPending}>
                 Cancel
               </Button>
               <Button type="submit" disabled={isPending}>
-                {isPending ? 'Saving…' : isEditing ? 'Update' : 'Create'}
+                {isPending ? 'Saving...' : isEditing ? 'Update' : 'Create'}
               </Button>
             </DialogFooter>
           </form>

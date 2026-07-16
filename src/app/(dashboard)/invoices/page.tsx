@@ -70,7 +70,7 @@ const STATUS_CHIPS = [
 
 export default function ViewInvoicesPage() {
   // ── Filter state ────────────────────────────────────────────────────
-  const [activeStatus, setActiveStatus] = useState<string | undefined>()
+  const [activeStatus, setActiveStatus] = useState<typeof STATUS_CHIPS[number]['key'] | undefined>()
   const [filtersOpen, setFiltersOpen] = useState(false)
   const [issuedFrom, setIssuedFrom] = useState('')
   const [issuedTo, setIssuedTo] = useState('')

@@ -81,7 +81,7 @@ export function CustomerPaymentDialog({ open, onOpenChange, invoice, alreadyPaid
             <Label htmlFor="cust-pay-method">Method *</Label>
             <Select value={method} onValueChange={(v) => setMethod(v as typeof method)}>
               <SelectTrigger id="cust-pay-method"><SelectValue /></SelectTrigger>
-              <SelectContent>
+              <SelectContent className="max-h-60 overflow-y-auto">
                 <SelectItem value="bank_transfer">Bank Transfer</SelectItem>
                 <SelectItem value="cash">Cash</SelectItem>
                 <SelectItem value="cheque">Cheque</SelectItem>

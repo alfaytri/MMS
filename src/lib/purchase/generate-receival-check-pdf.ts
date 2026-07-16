@@ -7,7 +7,8 @@
  */
 
 import type { SupabaseClient } from '@supabase/supabase-js'
-import { loadPdfFonts, loadPdfAssets } from '@/lib/pdf/pdf-fonts'
+import { loadPdfFonts } from '@/lib/pdf/pdf-fonts'
+import { resolveBrand, brandDataToAssets } from '@/lib/pdf/brand-resolver'
 import { htmlToPdfBuffer } from '@/lib/pdf/html-to-pdf'
 import {
   buildReceivalCheckHtml,
@@ -37,6 +38,7 @@ interface PoRow {
   id:            string
   po_number:     string
   supplier_name: string
+  division_id:   string | null
 }
 
 interface PoLineItemRow {
@@ -76,6 +78,7 @@ export async function generateReceivalCheckPdf(
     mode:        ReceivalCheckMode
     receivalId?: string
     force?:      boolean
+    divisionId?: string
   },
 ): Promise<GenerateReceivalCheckResult> {
   const { mode, receivalId, force } = opts
@@ -87,7 +90,7 @@ export async function generateReceivalCheckPdf(
   // ── Fetch PO ─────────────────────────────────────────────────────────
   const { data: po, error: poErr } = await supabase
     .from('purchase_orders')
-    .select('id, po_number, supplier_name')
+    .select('id, po_number, supplier_name, division_id')
     .eq('id', poUuid)
     .single<PoRow>()
   if (poErr || !po) {
@@ -219,7 +222,11 @@ export async function generateReceivalCheckPdf(
   }
 
   // ── Build HTML ─────────────────────────────────────────────────────
-  const [fonts, assets] = await Promise.all([loadPdfFonts(), loadPdfAssets()])
+  const [brand, fonts] = await Promise.all([
+    resolveBrand(opts.divisionId ?? po.division_id, supabase),
+    loadPdfFonts(),
+  ])
+  const { assets } = brandDataToAssets(brand)
 
   const docNo = mode === 'per_receival' && targetReceival
     ? `RCV-${targetReceival.receival_number}`

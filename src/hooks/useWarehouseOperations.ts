@@ -2,6 +2,7 @@ import { useMemo } from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { createClient } from '@/lib/supabase/client'
 import { queryKeys } from '@/lib/queryKeys'
+import { sendNotifications, getApprovalScopeRecipients } from '@/lib/notify'
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -272,7 +273,7 @@ export function useWarehouseStock(warehouseId?: string) {
         .select('warehouse_id, brand_variant_id, item_name, brand, sku, unit, qty, avg_cost, total_value, category_name, subcategory_name, item_type, allocated_qty, available_qty')
         .order('item_name', { ascending: true })
       if (warehouseId) q = q.eq('warehouse_id', warehouseId)
-      const { data, error } = await q
+      const { data, error } = await q.limit(warehouseId ? 1500 : 5000)
       if (error) throw error
       return (data ?? []) as WarehouseStockItem[]
     },
@@ -320,7 +321,7 @@ export function useWarehouseTransfers({ status }: { status?: TransferStatus } = 
 `)
         .order('created_at', { ascending: false })
       if (status) q = q.eq('status', status)
-      const { data, error } = await q
+      const { data, error } = await q.limit(50)
       if (error) throw error
       return (data ?? []) as unknown as WarehouseTransfer[]
     },
@@ -470,7 +471,7 @@ export function useStockAdjustments({ warehouseId }: { warehouseId?: string } = 
         `)
         .order('created_at', { ascending: false })
       if (warehouseId) q = q.eq('warehouse_id', warehouseId)
-      const { data, error } = await q
+      const { data, error } = await q.limit(100)
       if (error) throw error
       return (data ?? []) as StockAdjustment[]
     },
@@ -529,7 +530,21 @@ export function useCreateStockAdjustmentV2() {
       }
       return data as string
     },
-    onSuccess: () => qc.invalidateQueries({ queryKey: queryKeys.warehouseOps.stockAdjustments }),
+    onSuccess: async (adjustmentId) => {
+      qc.invalidateQueries({ queryKey: queryKeys.warehouseOps.stockAdjustments })
+
+      const recipients = await getApprovalScopeRecipients('stock_adj')
+      if (recipients.length > 0) {
+        await sendNotifications(recipients.map(pid => ({
+          profile_id: pid,
+          type: 'stock_adj_pending',
+          title: 'Stock adjustment requires approval',
+          related_id: adjustmentId,
+          related_type: 'stock_adjustment',
+        })))
+        qc.invalidateQueries({ queryKey: queryKeys.notifications.all })
+      }
+    },
   })
 }
 
@@ -561,9 +576,10 @@ export function useActionStockAdjustmentStep() {
   const qc = useQueryClient()
   return useMutation({
     mutationFn: async ({
-      stepId, action, profileId, profileName, notes,
+      stepId, adjustmentId, action, profileId, profileName, notes,
     }: {
       stepId: string
+      adjustmentId: string
       action: 'approved' | 'rejected'
       profileId: string | null
       profileName: string
@@ -581,17 +597,38 @@ export function useActionStockAdjustmentStep() {
         const cleanMessage = error.message.replace(/^P\d{4}:\s*/, '')
         throw new Error(cleanMessage)
       }
-      return data as string
+      return { result: data as string, adjustmentId, action }
     },
-    onSuccess: (result) => {
+    onSuccess: async ({ result, adjustmentId, action }) => {
       qc.invalidateQueries({ queryKey: queryKeys.warehouseOps.stockAdjustments })
-      // Only invalidate heavy inventory caches when the chain actually completed
-      // (i.e. the last step was approved and stock movement was committed)
       if (result === 'chain_completed') {
         qc.invalidateQueries({ queryKey: queryKeys.warehouseOps.warehouseStockAll })
         qc.invalidateQueries({ queryKey: queryKeys.inventory.stockMovements })
         qc.invalidateQueries({ queryKey: queryKeys.inventory.fifoLayers })
         qc.invalidateQueries({ queryKey: queryKeys.inventory.brandVariantsV2 })
+      }
+
+      const supabase = createClient()
+      const { data: adj } = await supabase
+        .from('stock_adjustments')
+        .select('requested_by')
+        .eq('id', adjustmentId)
+        .single()
+      if (adj?.requested_by) {
+        const type = action === 'rejected' ? 'stock_adj_rejected'
+          : result === 'chain_completed' ? 'stock_adj_approved' : null
+        if (type) {
+          await sendNotifications([{
+            profile_id: adj.requested_by,
+            type,
+            title: type === 'stock_adj_approved'
+              ? 'Stock adjustment has been approved'
+              : 'Stock adjustment has been rejected',
+            related_id: adjustmentId,
+            related_type: 'stock_adjustment',
+          }])
+          qc.invalidateQueries({ queryKey: queryKeys.notifications.all })
+        }
       }
     },
   })
@@ -607,7 +644,7 @@ export function useInventoryChecks({ warehouseId }: { warehouseId?: string } = {
         .select('id, check_number, warehouse_id, warehouse_name, status, submitted_by_name, submitted_at, reviewed_by_name, reviewed_at, review_notes, notes, created_at, initiated_by_profile_id, initiated_by_name, started_at')
         .order('created_at', { ascending: false })
       if (warehouseId) q = q.eq('warehouse_id', warehouseId)
-      const { data, error } = await q
+      const { data, error } = await q.limit(100)
       if (error) throw error
       return (data ?? []) as InventoryCheck[]
     },
@@ -744,7 +781,7 @@ export function useReceivalsAndDeliveries() {
           .order('date', { ascending: false }),
         supabase
           .from('sale_deliveries')
-          .select('id, delivery_number, sale_order_id, warehouse_id, warehouse_name, date, items, status, sale_orders(so_number, customers(name))')
+          .select('id, delivery_number, sale_order_id, warehouse_id, warehouse_name, date, status, sale_delivery_lines(item_name, sku, qty_delivered, brand_variant_id), sale_orders(so_number, customers(name))')
           .order('date', { ascending: false }),
       ])
 
@@ -776,8 +813,8 @@ export function useReceivalsAndDeliveries() {
         warehouseName: d.warehouse_name ?? '',
         counterparty: d.sale_orders?.customers?.name ?? '',
         date: d.date ?? '',
-        items: Array.isArray(d.items) ? d.items.map((di: any) => ({ name: di.item_name ?? '', sku: di.sku ?? '', qty: di.qty_delivered ?? 0, brand_variant_id: di.brand_variant_id ?? null })) : [],
-        itemCount: Array.isArray(d.items) ? d.items.length : 0,
+        items: Array.isArray(d.sale_delivery_lines) ? d.sale_delivery_lines.map((di: any) => ({ name: di.item_name ?? '', sku: di.sku ?? '', qty: di.qty_delivered ?? 0, brand_variant_id: di.brand_variant_id ?? null })) : [],
+        itemCount: Array.isArray(d.sale_delivery_lines) ? d.sale_delivery_lines.length : 0,
         status: d.status ?? 'pending',
       }))
 
@@ -1038,6 +1075,17 @@ export function useCompleteAssignment() {
           event_type: 'all_counted',
           profile_name: 'System',
         })
+
+        const recipients = await getApprovalScopeRecipients('inv_check')
+        if (recipients.length > 0) {
+          await sendNotifications(recipients.map(pid => ({
+            profile_id: pid,
+            type: 'inv_check_pending',
+            title: 'Inventory check requires approval',
+            related_id: checkId,
+            related_type: 'inventory_check',
+          })))
+        }
       }
     },
     onSuccess: (_data, vars) => {
@@ -1084,11 +1132,14 @@ export function useApproveCheckStep() {
         meta: { action },
       })
 
+      let outcome: 'rejected' | 'approved' | 'step_approved' = 'step_approved'
+
       if (action === 'rejected') {
         await supabase.from('inventory_checks').update({ status: 'rejected', reviewed_at: now, reviewed_by_name: profileName }).eq('id', checkId)
         await supabase.from('inventory_check_log').insert({ check_id: checkId, event_type: 'rejected', profile_id: profileId, profile_name: profileName })
         const { error: snapErr } = await supabase.rpc('snapshot_inventory_check_system_qty', { p_check_id: checkId })
         if (snapErr) throw snapErr
+        outcome = 'rejected'
       } else {
         const { data: allSteps } = await supabase
           .from('inventory_check_approvals').select('status').eq('check_id', checkId)
@@ -1098,10 +1149,13 @@ export function useApproveCheckStep() {
 
           const { error: adjErr } = await supabase.rpc('apply_inventory_check_adjustments', { p_check_id: checkId })
           if (adjErr) throw adjErr
+          outcome = 'approved'
         }
       }
+
+      return outcome
     },
-    onSuccess: (_data, vars) => {
+    onSuccess: async (outcome, vars) => {
       qc.invalidateQueries({ queryKey: queryKeys.warehouseOps.inventoryChecks })
       qc.invalidateQueries({ queryKey: queryKeys.warehouseOps.inventoryCheckApprovals(vars.checkId) })
       qc.invalidateQueries({ queryKey: queryKeys.warehouseOps.inventoryCheckLog(vars.checkId) })
@@ -1110,6 +1164,28 @@ export function useApproveCheckStep() {
       qc.invalidateQueries({ queryKey: queryKeys.inventory.fifoLayers })
       qc.invalidateQueries({ queryKey: queryKeys.inventory.brandVariantsV2 })
       qc.invalidateQueries({ queryKey: queryKeys.warehouseOps.warehouseStockAll })
+
+      if (outcome === 'approved' || outcome === 'rejected') {
+        const supabase = createClient()
+        const { data: check } = await supabase
+          .from('inventory_checks')
+          .select('initiated_by_profile_id')
+          .eq('id', vars.checkId)
+          .single()
+        if (check?.initiated_by_profile_id) {
+          const type = outcome === 'approved' ? 'inv_check_approved' : 'inv_check_rejected'
+          await sendNotifications([{
+            profile_id: check.initiated_by_profile_id,
+            type,
+            title: outcome === 'approved'
+              ? 'Inventory check has been approved'
+              : 'Inventory check has been rejected',
+            related_id: vars.checkId,
+            related_type: 'inventory_check',
+          }])
+          qc.invalidateQueries({ queryKey: queryKeys.notifications.all })
+        }
+      }
     },
   })
 }

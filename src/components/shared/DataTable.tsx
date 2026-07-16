@@ -39,6 +39,7 @@ interface DataTableProps<TData, TValue> {
   globalFilter?: string
   pageSize?: number
   onRowClick?: (row: TData) => void
+  rowClassName?: (row: TData) => string | undefined
   manualPagination?: ManualPaginationProps
   emptyState?: {
     title?: string
@@ -55,6 +56,7 @@ export function DataTable<TData, TValue>({
   globalFilter = '',
   pageSize = 20,
   onRowClick,
+  rowClassName,
   manualPagination,
   emptyState,
 }: DataTableProps<TData, TValue>) {
@@ -148,7 +150,7 @@ export function DataTable<TData, TValue>({
                 <TableRow
                   key={row.id}
                   onClick={onRowClick ? () => onRowClick(row.original) : undefined}
-                  className={cn(onRowClick ? 'cursor-pointer' : '')}
+                  className={cn(onRowClick ? 'cursor-pointer' : '', rowClassName?.(row.original))}
                 >
                   {row.getVisibleCells().map((cell) => (
                     <TableCell key={cell.id}>

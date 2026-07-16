@@ -72,7 +72,7 @@ export function PhoneInputWithCode({
         <SelectTrigger className="w-[100px] shrink-0 rounded-r-none border-r-0 focus:z-10 h-9 text-sm">
           <SelectValue>{triggerLabel}</SelectValue>
         </SelectTrigger>
-        <SelectContent alignItemWithTrigger={false}>
+        <SelectContent alignItemWithTrigger={false} className="max-h-60 overflow-y-auto">
           {codes.map((c) => (
             <SelectItem key={c.code} value={c.code}>
               <span className="flex items-center gap-1.5">

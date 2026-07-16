@@ -163,6 +163,13 @@ export function PaymentMethodsAdmin() {
 
   return (
     <div className="space-y-4 max-w-lg">
+      <div className="flex items-center justify-between">
+        <h2 className="text-lg font-semibold">Payment Methods</h2>
+        <Button size="sm" className="gap-1.5" onClick={() => setAddOpen(true)}>
+          <Plus className="h-3.5 w-3.5" /> Add Payment Method
+        </Button>
+      </div>
+
       <div className="rounded-lg border divide-y">
         {methods.map((m) => (
           <div
@@ -243,10 +250,6 @@ export function PaymentMethodsAdmin() {
           </p>
         )}
       </div>
-
-      <Button variant="outline" size="sm" className="gap-1.5" onClick={() => setAddOpen(true)}>
-        <Plus className="h-4 w-4" /> Add Payment Method
-      </Button>
 
       <Dialog open={addOpen} onOpenChange={(o) => { setAddOpen(o); if (!o) setNewName('') }}>
         <DialogContent className="w-full max-w-full rounded-none sm:max-w-sm sm:rounded-lg">

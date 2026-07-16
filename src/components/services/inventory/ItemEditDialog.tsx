@@ -122,7 +122,7 @@ export function ItemEditDialog({ open, onOpenChange, categoryId, categoryType, i
               <Label htmlFor="item-unit">Unit</Label>
               <Select value={unit} onValueChange={(v) => { if (v !== null) setUnit(v) }}>
                 <SelectTrigger id="item-unit"><SelectValue /></SelectTrigger>
-                <SelectContent>
+                <SelectContent className="max-h-60 overflow-y-auto">
                   {UNITS.map((u) => <SelectItem key={u} value={u}>{u}</SelectItem>)}
                 </SelectContent>
               </Select>

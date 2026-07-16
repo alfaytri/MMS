@@ -6,10 +6,12 @@ import { logActivity } from '@/lib/logActivity'
 
 // is_approval_slot was added in migration 20260615125619_unified_roles_columns.sql.
 // is_field_rp was added in migration 20260627117000_custom_roles_is_field_rp.sql.
+// is_inventory_receiver was added in migration 20260709192726_inventory_receivals.sql.
 // Widened manually until database.types.ts is regenerated.
 export type CustomRole = DBTable<'custom_roles'> & {
-  is_approval_slot?: boolean
-  is_field_rp?:      boolean
+  is_approval_slot?:      boolean
+  is_field_rp?:           boolean
+  is_inventory_receiver?: boolean
 }
 export type CustomRoleInsert = DBInsert<'custom_roles'>
 export type CustomRoleUpdate = DBUpdate<'custom_roles'>
@@ -24,6 +26,25 @@ export function useRoles() {
       return data as CustomRole[]
     },
   })
+}
+
+/**
+ * Invalidate every query whose result depends on custom_roles data.
+ * Includes downstream joins (user_custom_roles → custom_roles), permission
+ * checks, and profile lists that embed role info. Called after any role
+ * create / update / delete so downstream UI reflects the change immediately
+ * without requiring a manual user edit.
+ */
+function invalidateRoleDependentQueries(queryClient: ReturnType<typeof useQueryClient>) {
+  queryClient.invalidateQueries({ queryKey: queryKeys.roles.custom })
+  queryClient.invalidateQueries({ queryKey: queryKeys.roles.approvalCoverage })
+  queryClient.invalidateQueries({ queryKey: queryKeys.roles.myApprovalSlots })
+  // Prefix invalidations for ['user-roles', profileId] — hits every user
+  queryClient.invalidateQueries({ queryKey: ['user-roles'] })
+  // Permission checks that read is_inventory_receiver
+  queryClient.invalidateQueries({ queryKey: queryKeys.receivals.canCreateInventoryReceival })
+  // Profile lists that embed role data
+  queryClient.invalidateQueries({ queryKey: queryKeys.profiles.all })
 }
 
 export function useCreateRole() {
@@ -42,7 +63,7 @@ export function useCreateRole() {
       })
       return data
     },
-    onSuccess: () => { queryClient.invalidateQueries({ queryKey: queryKeys.roles.custom }) },
+    onSuccess: () => { invalidateRoleDependentQueries(queryClient) },
   })
 }
 
@@ -64,10 +85,7 @@ export function useUpdateRole() {
       })
       return data
     },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: queryKeys.roles.custom })
-      queryClient.invalidateQueries({ queryKey: queryKeys.roles.approvalCoverage })
-    },
+    onSuccess: () => { invalidateRoleDependentQueries(queryClient) },
   })
 }
 
@@ -88,10 +106,7 @@ export function useDeleteRole() {
         old_data: old as unknown as Record<string, unknown> | null,
       })
     },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: queryKeys.roles.custom })
-      queryClient.invalidateQueries({ queryKey: queryKeys.roles.approvalCoverage })
-    },
+    onSuccess: () => { invalidateRoleDependentQueries(queryClient) },
   })
 }
 

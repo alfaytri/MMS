@@ -96,7 +96,7 @@ export function CreditNoteFormDialog({ open, onOpenChange }: Props) {
             <Label htmlFor="cn-form-invoice">Original Invoice *</Label>
             <Select value={selectedInvoiceId} onValueChange={(v) => setSelectedInvoiceId(v ?? '')}>
               <SelectTrigger id="cn-form-invoice"><SelectValue placeholder="Select invoice" /></SelectTrigger>
-              <SelectContent>
+              <SelectContent className="max-h-60 overflow-y-auto">
                 {eligibleInvoices.map((inv) => (
                   <SelectItem key={inv.id} value={inv.id}>
                     {inv.invoice_id} — {inv.customer_name} — {formatCurrency(inv.total_amount ?? 0, 'QAR')}

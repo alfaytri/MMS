@@ -130,7 +130,7 @@ export function InstructionEditDialog({
                   <FormLabel>Type</FormLabel>
                   <Select onValueChange={field.onChange} value={field.value}>
                     <FormControl><SelectTrigger><SelectValue /></SelectTrigger></FormControl>
-                    <SelectContent>
+                    <SelectContent className="max-h-60 overflow-y-auto">
                       <SelectItem value="pre-service">Pre-service</SelectItem>
                       <SelectItem value="post-service">Post-service</SelectItem>
                     </SelectContent>
@@ -142,7 +142,7 @@ export function InstructionEditDialog({
                   <FormLabel>Content Type</FormLabel>
                   <Select onValueChange={field.onChange} value={field.value}>
                     <FormControl><SelectTrigger><SelectValue /></SelectTrigger></FormControl>
-                    <SelectContent>
+                    <SelectContent className="max-h-60 overflow-y-auto">
                       <SelectItem value="text">Text</SelectItem>
                       <SelectItem value="pdf">PDF</SelectItem>
                     </SelectContent>
@@ -182,7 +182,7 @@ export function InstructionEditDialog({
                 <FormLabel>Status</FormLabel>
                 <Select onValueChange={field.onChange} value={field.value}>
                   <FormControl><SelectTrigger><SelectValue /></SelectTrigger></FormControl>
-                  <SelectContent>
+                  <SelectContent className="max-h-60 overflow-y-auto">
                     <SelectItem value="active">Active</SelectItem>
                     <SelectItem value="inactive">Inactive</SelectItem>
                   </SelectContent>

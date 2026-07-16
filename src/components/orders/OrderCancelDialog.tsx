@@ -64,7 +64,7 @@ export function OrderCancelDialog({
               <SelectTrigger className="min-h-11 w-full">
                 <SelectValue placeholder="Select reason…" />
               </SelectTrigger>
-              <SelectContent>
+              <SelectContent className="max-h-60 overflow-y-auto">
                 {reasons.map((r) => (
                   <SelectItem key={r.id} value={r.label}>
                     {r.label}

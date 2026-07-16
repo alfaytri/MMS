@@ -63,8 +63,7 @@ function useReasonCategories() {
     queryKey: ['reason_list_categories', 'all'],
     queryFn: async () => {
       const supabase = createClient()
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      const { data, error } = await (supabase as any)
+      const { data, error } = await supabase
         .from('reason_list_categories')
         .select('*')
         .is('deleted_at', null)
@@ -134,7 +133,7 @@ export default function ReasonListsPage() {
         active: editing.active ?? true,
       })
     } else if (dialogOpen) {
-      form.reset()
+      form.reset({ category: '', label: '', sort_order: 0, active: true })
     }
   }, [dialogOpen, editing, form])
 
@@ -284,15 +283,13 @@ function ManageCategoriesDialog({ open, onOpenChange, categories }: ManageCatego
     mutationFn: async (values: z.infer<typeof categorySchema>) => {
       const supabase = createClient()
       if (editing) {
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        const { error } = await (supabase as any)
+        const { error } = await supabase
           .from('reason_list_categories')
           .update({ label: values.label, sort_order: values.sort_order, active: values.active })
           .eq('id', editing.id)
         if (error) throw error
       } else {
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        const { error } = await (supabase as any)
+        const { error } = await supabase
           .from('reason_list_categories')
           .insert({ slug: values.slug, label: values.label, sort_order: values.sort_order, active: values.active })
         if (error) throw error
@@ -310,8 +307,7 @@ function ManageCategoriesDialog({ open, onOpenChange, categories }: ManageCatego
   const softDelete = useMutation({
     mutationFn: async (id: string) => {
       const supabase = createClient()
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      const { error } = await (supabase as any)
+      const { error } = await supabase
         .from('reason_list_categories')
         .update({ deleted_at: new Date().toISOString(), active: false })
         .eq('id', id)

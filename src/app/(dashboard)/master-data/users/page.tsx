@@ -2,7 +2,7 @@
 
 import { useState, useMemo } from 'react'
 import { type ColumnDef } from '@tanstack/react-table'
-import { ChevronDown, ChevronRight, Lock, MoreHorizontal, Shield, UserPlus, AlertCircle, Pencil, Trash2 } from 'lucide-react'
+import { MoreHorizontal, Shield, UserPlus, AlertCircle, Pencil, Trash2 } from 'lucide-react'
 import { toast } from 'sonner'
 import { SearchInput } from '@/components/shared/SearchInput'
 import { PageWrapper } from '@/components/shared/PageWrapper'
@@ -19,7 +19,8 @@ import {
   useProfiles, useCurrentUserProfile, useCreateMyProfile, type Profile,
 } from '@/hooks/useProfiles'
 
-import { PERMISSION_GROUPS, ALL_PERMISSIONS, groupKeys, groupEntries, roleColor } from '@/lib/permissions'
+import { roleColor } from '@/lib/permissions'
+import { PermissionTree, NAV_TREE, TOTAL_TREE_PERMISSIONS, countPerms, collectPermKeys } from '@/components/master-data/PermissionTree'
 import { PermissionGate } from '@/components/shared/PermissionGate'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { Badge } from '@/components/ui/badge'
@@ -50,12 +51,12 @@ function RoleCard({ role, onEdit, onDelete }: { role: CustomRole; onEdit: () => 
   const colorClass = ROLE_COLOR_CLASSES[color] ?? ROLE_COLOR_CLASSES.blue
 
   const coverageChips = useMemo(() =>
-    PERMISSION_GROUPS
-      .map((g) => {
-        const all = groupKeys(g)
+    NAV_TREE
+      .map((node) => {
+        const all = collectPermKeys([node])
         const assigned = all.filter((k) => permissions.includes(k)).length
         if (assigned === 0) return null
-        return { module: g.module, assigned, total: all.length }
+        return { module: node.label, assigned, total: countPerms(node) }
       })
       .filter(Boolean) as Array<{ module: string; assigned: number; total: number }>,
     [permissions]
@@ -104,7 +105,7 @@ function RoleCard({ role, onEdit, onDelete }: { role: CustomRole; onEdit: () => 
 
       {/* Total count */}
       <p className="text-xs text-muted-foreground mt-auto">
-        {permissions.length} / {ALL_PERMISSIONS.length} permissions
+        {permissions.length} / {TOTAL_TREE_PERMISSIONS} permissions
       </p>
 
       {/* Capability badges row */}
@@ -130,7 +131,6 @@ export default function UsersRolesPage() {
   const [activeTab, setActiveTab] = useState('permissions')
   const [roleSearch, setRoleSearch] = useState('')
   const [userSearch, setUserSearch] = useState('')
-  const [expandedModules, setExpandedModules] = useState<Set<string>>(new Set())
   const [roleDialog, setRoleDialog] = useState<{ open: boolean; role: CustomRole | null }>({ open: false, role: null })
   const [deleteRoleTarget, setDeleteRoleTarget] = useState<CustomRole | null>(null)
   const [addOpen, setAddOpen] = useState(false)
@@ -154,14 +154,6 @@ export default function UsersRolesPage() {
         onError: (err) => toast.error(err.message),
       }
     )
-  }
-
-  function toggleModule(module: string) {
-    setExpandedModules((prev) => {
-      const next = new Set(prev)
-      if (next.has(module)) next.delete(module); else next.add(module)
-      return next
-    })
   }
 
   // Role search filter
@@ -211,7 +203,7 @@ export default function UsersRolesPage() {
 
         return (
           <div className="flex gap-1 flex-wrap">
-            {userRoles.slice(0, 3).map((ur, i) => {
+            {userRoles.slice(0, 3).map((ur: { role_id: string; approval_scopes: string[] | null; custom_roles: { name: string; color: string | null; is_approval_slot: boolean } | null }, i: number) => {
               const cr = ur.custom_roles
               if (!cr) return null
               const isAS = cr.is_approval_slot
@@ -233,6 +225,14 @@ export default function UsersRolesPage() {
             {userRoles.length > 3 && <Badge variant="outline" className="text-xs">+{userRoles.length - 3}</Badge>}
           </div>
         )
+      },
+    },
+    {
+      accessorKey: 'phone',
+      header: 'Phone',
+      cell: ({ row }) => {
+        const phone = row.getValue('phone') as string | null
+        return phone ? <span className="text-sm">{phone}</span> : <span className="text-muted-foreground">—</span>
       },
     },
     {
@@ -267,10 +267,9 @@ export default function UsersRolesPage() {
     },
   ], [])
 
-  const moduleCount = PERMISSION_GROUPS.length
-  const permCount   = ALL_PERMISSIONS.length
-  const rolesCount  = roles?.length ?? 0
-  const usersCount  = (profiles as Profile[] | undefined)?.length ?? 0
+  const permCount   = TOTAL_TREE_PERMISSIONS
+  const rolesCount  = loadingRoles ? '…' : (roles?.length ?? 0)
+  const usersCount  = loadingProfiles ? '…' : ((profiles as Profile[] | undefined)?.length ?? 0)
 
   return (
     <PermissionGate permission={['master_data.users.view', 'master_data.roles.view']}>
@@ -300,7 +299,7 @@ export default function UsersRolesPage() {
               className="gap-2 px-4 py-1.5 data-active:bg-primary data-active:text-primary-foreground data-active:shadow-sm"
             >
               Permissions
-              <span className="inline-flex h-4 min-w-5 items-center justify-center rounded-full border border-border bg-white px-1.5 text-[10px] font-semibold text-foreground tabular-nums">
+              <span className="inline-flex h-4 min-w-5 items-center justify-center rounded-full border border-border bg-white px-1.5 text-[10px] font-semibold text-gray-900 tabular-nums">
                 {permCount}
               </span>
             </TabsTrigger>
@@ -309,7 +308,7 @@ export default function UsersRolesPage() {
               className="gap-2 px-4 py-1.5 data-active:bg-primary data-active:text-primary-foreground data-active:shadow-sm"
             >
               Roles
-              <span className="inline-flex h-4 min-w-5 items-center justify-center rounded-full border border-border bg-white px-1.5 text-[10px] font-semibold text-foreground tabular-nums">
+              <span className="inline-flex h-4 min-w-5 items-center justify-center rounded-full border border-border bg-white px-1.5 text-[10px] font-semibold text-gray-900 tabular-nums">
                 {rolesCount}
               </span>
             </TabsTrigger>
@@ -318,7 +317,7 @@ export default function UsersRolesPage() {
               className="gap-2 px-4 py-1.5 data-active:bg-primary data-active:text-primary-foreground data-active:shadow-sm"
             >
               Users
-              <span className="inline-flex h-4 min-w-5 items-center justify-center rounded-full border border-border bg-white px-1.5 text-[10px] font-semibold text-foreground tabular-nums">
+              <span className="inline-flex h-4 min-w-5 items-center justify-center rounded-full border border-border bg-white px-1.5 text-[10px] font-semibold text-gray-900 tabular-nums">
                 {usersCount}
               </span>
             </TabsTrigger>
@@ -327,105 +326,7 @@ export default function UsersRolesPage() {
 
         {/* ── Permissions tab ── */}
         <TabsContent value="permissions">
-          <div className="space-y-3">
-            <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
-              <p className="text-sm text-muted-foreground">
-                {permCount} permissions across {moduleCount} modules. Permissions are assigned to roles, not directly to users.
-              </p>
-              <div className="flex gap-3 shrink-0">
-                <button
-                  type="button"
-                  className="text-xs text-primary hover:underline"
-                  onClick={() => setExpandedModules(new Set(PERMISSION_GROUPS.map((g) => g.module)))}
-                >
-                  Expand All
-                </button>
-                <button
-                  type="button"
-                  className="text-xs text-primary hover:underline"
-                  onClick={() => setExpandedModules(new Set())}
-                >
-                  Collapse All
-                </button>
-              </div>
-            </div>
-
-            <div className="border rounded-md divide-y divide-border">
-              {PERMISSION_GROUPS.map((group) => {
-                const isExpanded = expandedModules.has(group.module)
-                const Icon = group.icon
-                const allEntries = groupEntries(group)
-                const matchesSearch = (label: string, key: string) =>
-                  !permSearch ||
-                  label.toLowerCase().includes(permSearch.toLowerCase()) ||
-                  key.toLowerCase().includes(permSearch.toLowerCase())
-                const filteredFlat = group.permissions.filter((p) => matchesSearch(p.label, p.key))
-                const filteredSections = (group.sections ?? []).map((s) => ({
-                  label: s.label,
-                  permissions: s.permissions.filter((p) => matchesSearch(p.label, p.key)),
-                })).filter((s) => s.permissions.length > 0)
-
-                const totalVisible = filteredFlat.length + filteredSections.reduce((n, s) => n + s.permissions.length, 0)
-                if (permSearch && totalVisible === 0) return null
-
-                return (
-                  <div key={group.module}>
-                    <button
-                      type="button"
-                      className="w-full flex items-center gap-2.5 px-4 py-3 hover:bg-muted/40 text-left"
-                      onClick={() => toggleModule(group.module)}
-                    >
-                      {isExpanded
-                        ? <ChevronDown className="h-4 w-4 text-muted-foreground shrink-0" />
-                        : <ChevronRight className="h-4 w-4 text-muted-foreground shrink-0" />
-                      }
-                      <Icon className="h-4 w-4 text-primary shrink-0" />
-                      <span className="font-semibold text-sm flex-1">{group.module}</span>
-                      <Badge variant="outline" className="text-xs tabular-nums">{allEntries.length}</Badge>
-                    </button>
-
-                    {isExpanded && (
-                      <div className="divide-y divide-border/50 bg-muted/10">
-                        {filteredFlat.map((perm) => (
-                          <div key={perm.key} className="flex items-start gap-3 px-6 py-2.5">
-                            <Lock className="h-3.5 w-3.5 text-muted-foreground mt-0.5 shrink-0" />
-                            <div className="flex-1 min-w-0">
-                              <span className="text-sm font-medium text-primary block">{perm.label}</span>
-                              <span className="text-xs text-muted-foreground">{perm.description}</span>
-                            </div>
-                            <code className="text-xs text-muted-foreground font-mono shrink-0 hidden sm:block">
-                              {perm.key}
-                            </code>
-                          </div>
-                        ))}
-                        {filteredSections.map((section) => (
-                          <div key={section.label}>
-                            <div className="px-6 py-1.5 bg-muted/40 border-y border-border/40">
-                              <span className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">
-                                {section.label}
-                              </span>
-                            </div>
-                            {section.permissions.map((perm) => (
-                              <div key={perm.key} className="flex items-start gap-3 px-6 py-2.5">
-                                <Lock className="h-3.5 w-3.5 text-muted-foreground mt-0.5 shrink-0" />
-                                <div className="flex-1 min-w-0">
-                                  <span className="text-sm font-medium text-primary block">{perm.label}</span>
-                                  <span className="text-xs text-muted-foreground">{perm.description}</span>
-                                </div>
-                                <code className="text-xs text-muted-foreground font-mono shrink-0 hidden sm:block">
-                                  {perm.key}
-                                </code>
-                              </div>
-                            ))}
-                          </div>
-                        ))}
-                      </div>
-                    )}
-                  </div>
-                )
-              })}
-            </div>
-          </div>
+          <PermissionTree search={permSearch} />
         </TabsContent>
 
         {/* ── Roles tab ── */}

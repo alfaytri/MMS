@@ -1,7 +1,7 @@
 'use client'
 
-import React, { useState, useMemo } from 'react'
-import { Eye } from 'lucide-react'
+import React, { useState, useMemo, useEffect } from 'react'
+import { Eye, ChevronLeft, ChevronRight } from 'lucide-react'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog'
@@ -98,19 +98,43 @@ export const WhAdjustmentsTab = React.memo(function WhAdjustmentsTab({ warehouse
     return typedAdjustments.filter(a => a.status === statusFilter)
   }, [typedAdjustments, statusFilter])
 
+  const [page, setPage] = useState(1)
+  const PAGE_SIZE = 25
+  const totalPages = Math.max(1, Math.ceil(filteredAdjustments.length / PAGE_SIZE))
+  useEffect(() => { setPage(1) }, [statusFilter])
+  const paged = useMemo(() => {
+    const start = (page - 1) * PAGE_SIZE
+    return filteredAdjustments.slice(start, start + PAGE_SIZE)
+  }, [filteredAdjustments, page])
+
   const reject = useMutation({
     mutationFn: async (id: string) => {
       const supabase = createClient()
       const { error } = await supabase.from('stock_adjustments').update({ status: 'rejected' }).eq('id', id)
       if (error) throw error
+      return id
     },
-    onSuccess: () => qc.invalidateQueries({ queryKey: queryKeys.warehouseOps.stockAdjustments }),
+    onSuccess: async (id) => {
+      qc.invalidateQueries({ queryKey: queryKeys.warehouseOps.stockAdjustments })
+      const supabase = createClient()
+      const { data: adj } = await supabase.from('stock_adjustments').select('requested_by').eq('id', id).single()
+      if (adj?.requested_by) {
+        await supabase.from('notifications').insert({
+          profile_id: adj.requested_by,
+          type: 'stock_adj_rejected',
+          title: 'Stock adjustment has been rejected',
+          related_id: id,
+          related_type: 'stock_adjustment',
+        })
+        qc.invalidateQueries({ queryKey: queryKeys.notifications.all })
+      }
+    },
   })
 
   function canApprove(adj: StockAdjustmentRow) {
     const wh = warehouses.find(w => w.id === adj.warehouse_id)
     if (!wh || wh.field_rps.length === 0) return true
-    return wh.field_rps.some(rp => rp.profile_id === currentProfile?.id)
+    return wh.field_rps.some((rp: { profile_id: string }) => rp.profile_id === currentProfile?.id)
   }
 
   const FILTER_TABS: Array<{ value: StatusFilter; label: string; count: number }> = [
@@ -175,7 +199,7 @@ export const WhAdjustmentsTab = React.memo(function WhAdjustmentsTab({ warehouse
                   />
                 </TableCell>
               </TableRow>
-            ) : filteredAdjustments.map((adj) => {
+            ) : paged.map((adj) => {
               const item     = adj.inventory_brand_variants?.inventory_items
               const itemName = item?.name_en ?? '—'
               const brand    = adj.inventory_brand_variants?.brand ?? null
@@ -286,6 +310,23 @@ export const WhAdjustmentsTab = React.memo(function WhAdjustmentsTab({ warehouse
           </TableBody>
         </Table>
       </div>
+
+      {filteredAdjustments.length > 0 && (
+        <div className="flex items-center justify-between text-xs text-muted-foreground px-1">
+          <span>{filteredAdjustments.length} adjustment{filteredAdjustments.length !== 1 ? 's' : ''}</span>
+          {totalPages > 1 && (
+            <div className="flex items-center gap-1.5">
+              <Button variant="outline" size="sm" className="h-7 w-7 p-0" disabled={page <= 1} onClick={() => setPage((p) => Math.max(1, p - 1))} aria-label="Previous page">
+                <ChevronLeft className="h-3.5 w-3.5" />
+              </Button>
+              <span className="tabular-nums min-w-[80px] text-center">Page {page} of {totalPages}</span>
+              <Button variant="outline" size="sm" className="h-7 w-7 p-0" disabled={page >= totalPages} onClick={() => setPage((p) => Math.min(totalPages, p + 1))} aria-label="Next page">
+                <ChevronRight className="h-3.5 w-3.5" />
+              </Button>
+            </div>
+          )}
+        </div>
+      )}
 
       <WhAdjustmentDetailDialog
         adjustment={detailRow}

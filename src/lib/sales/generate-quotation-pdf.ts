@@ -21,7 +21,8 @@ import {
   buildQuotationHtml,
   type QuotationLineItem,
 } from '@/lib/sales/quotation-pdf-html'
-import { loadPdfFonts, loadPdfAssets } from '@/lib/pdf/pdf-fonts'
+import { loadPdfFonts } from '@/lib/pdf/pdf-fonts'
+import { resolveBrand, brandDataToAssets } from '@/lib/pdf/brand-resolver'
 import { htmlToPdfBuffer } from '@/lib/pdf/html-to-pdf'
 
 // SO numbers like "SO-00088" don't contain slashes, but normalise anyway.
@@ -32,6 +33,7 @@ function storageKeyFor(soNumber: string): string {
 interface SaleOrderRow {
   id:                       string
   so_number:                string
+  division_id:              string | null
   subtotal:                 number
   total:                    number
   discount_amount_resolved: number
@@ -60,14 +62,14 @@ export interface GenerateQuotationPdfResult {
 export async function generateQuotationPdf(
   saleOrderId: string,
   supabase:    SupabaseClient,
-  opts?:       { force?: boolean },
+  opts?:       { force?: boolean; divisionId?: string },
 ): Promise<GenerateQuotationPdfResult> {
 
   // ── 1. Fetch SO ────────────────────────────────────────────────────────
   const { data: so, error: fetchErr } = await supabase
     .from('sale_orders')
     .select(`
-      id, so_number, subtotal, total, discount_amount_resolved, discount_label,
+      id, so_number, division_id, subtotal, total, discount_amount_resolved, discount_label,
       currency, validity_days,
       payment_terms, payment_terms_notes,
       delivery_terms, delivery_terms_notes,
@@ -93,7 +95,11 @@ export async function generateQuotationPdf(
   }
 
   // ── 2. Build HTML ──────────────────────────────────────────────────────
-  const [assets, fonts] = await Promise.all([loadPdfAssets(), loadPdfFonts()])
+  const [brand, fonts] = await Promise.all([
+    resolveBrand(opts?.divisionId ?? so.division_id, supabase),
+    loadPdfFonts(),
+  ])
+  const { assets } = brandDataToAssets(brand)
 
   const html = buildQuotationHtml({
     so_number:                so.so_number,

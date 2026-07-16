@@ -21,6 +21,7 @@ const bodySchema = z.object({
   has_contact_centre_access: z.boolean().optional(),
   // 3CX extension: empty string clears it. 2–8 digits when set.
   threecx_extension: z.string().trim().regex(/^\d{2,8}$|^$/, 'Extension must be 2-8 digits').nullable().optional(),
+  phone: z.string().trim().nullable().optional(),
 })
 
 export async function PATCH(
@@ -136,6 +137,7 @@ export async function PATCH(
   if (changes.is_active !== undefined) profileUpdates.is_active = changes.is_active
   if (changes.is_division_manager !== undefined) profileUpdates.is_division_manager = changes.is_division_manager
   if (changes.has_contact_centre_access !== undefined) profileUpdates.has_contact_centre_access = changes.has_contact_centre_access
+  if (changes.phone !== undefined) profileUpdates.phone = changes.phone && changes.phone.length > 0 ? changes.phone : null
   if (changes.threecx_extension !== undefined) {
     // Empty string ↔ null in storage — keeps the unique-index check happy.
     profileUpdates.threecx_extension = changes.threecx_extension && changes.threecx_extension.length > 0

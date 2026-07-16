@@ -333,7 +333,7 @@ export function CrmSection({ customerData, onCustomerResolved, pendingPhone }: P
           <SelectTrigger id="crm-edit-type" className="h-8 text-xs">
             <SelectValue />
           </SelectTrigger>
-          <SelectContent>
+          <SelectContent className="max-h-60 overflow-y-auto">
             <SelectItem value="individual">Individual</SelectItem>
             <SelectItem value="business">Business</SelectItem>
           </SelectContent>

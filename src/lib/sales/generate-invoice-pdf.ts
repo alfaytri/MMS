@@ -14,7 +14,8 @@ import {
   type InvoiceLineItem,
   type InvoicePayment,
 } from '@/lib/sales/invoice-pdf-html'
-import { loadPdfFonts, loadPdfAssets } from '@/lib/pdf/pdf-fonts'
+import { loadPdfFonts } from '@/lib/pdf/pdf-fonts'
+import { resolveBrand, brandDataToAssets } from '@/lib/pdf/brand-resolver'
 import { htmlToPdfBuffer } from '@/lib/pdf/html-to-pdf'
 
 function storageKeyFor(invoiceDisplayId: string): string {
@@ -37,7 +38,7 @@ interface InvoiceRow {
   sale_order_id:   string | null
   customers:       { name: string | null; phone: string | null } | null
   invoice_line_items: InvoiceLineItem[] | null
-  sale_orders:     { so_number: string; payment_terms: string | null } | null
+  sale_orders:     { so_number: string; payment_terms: string | null; division_id: string | null } | null
 }
 
 export interface GenerateInvoicePdfResult {
@@ -51,7 +52,7 @@ export interface GenerateInvoicePdfResult {
 export async function generateInvoicePdf(
   invoiceUuid: string,
   supabase:    SupabaseClient,
-  opts?:       { force?: boolean },
+  opts?:       { force?: boolean; divisionId?: string },
 ): Promise<GenerateInvoicePdfResult> {
 
   // ── 1. Fetch invoice ─────────────────────────────────────────────────
@@ -63,7 +64,7 @@ export async function generateInvoicePdf(
       notes, pdf_url, sale_order_id,
       customers(name, phone),
       invoice_line_items(description, qty, unit_price, total),
-      sale_orders(so_number, payment_terms)
+      sale_orders(so_number, payment_terms, division_id)
     `)
     .eq('id', invoiceUuid)
     .eq('direction', 'ar')
@@ -84,7 +85,11 @@ export async function generateInvoicePdf(
   }
 
   // ── 2. HTML + PDF ────────────────────────────────────────────────────
-  const [assets, fonts] = await Promise.all([loadPdfAssets(), loadPdfFonts()])
+  const [brand, fonts] = await Promise.all([
+    resolveBrand(opts?.divisionId ?? inv.sale_orders?.division_id ?? null, supabase),
+    loadPdfFonts(),
+  ])
+  const { assets } = brandDataToAssets(brand)
 
   const subtotal    = Number(inv.subtotal        ?? 0)
   const discount    = Number(inv.discount_amount ?? 0)

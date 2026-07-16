@@ -23,7 +23,7 @@ export type ReceivalItem = {
 export type Receival = {
   id: string
   receival_number: string
-  po_id: string
+  po_id: string | null
   warehouse_id: string
   date: string
   status: ReceivalStatus | null
@@ -33,9 +33,11 @@ export type Receival = {
   receival_items?: ReceivalItem[]
   is_replacement?: boolean
   source_debit_note_id?: string | null
+  source_type?: 'purchase' | 'inventory'
+  carved_from_layer_id?: string | null
   // joined
-  po_number?: string
-  supplier_name?: string
+  po_number?: string | null
+  supplier_name?: string | null
   warehouse_name?: string
 }
 
@@ -70,7 +72,10 @@ export type CreateReceivalPayload = {
 
 // ─── Queries ──────────────────────────────────────────────────────────────────
 
-export function useReceivals(filters?: { status?: ReceivalStatus | '' }) {
+export function useReceivals(filters?: {
+  status?: ReceivalStatus | ''
+  source_type?: 'purchase' | 'inventory' | 'all'
+}) {
   return useQuery({
     queryKey: queryKeys.receivals.list(filters),
     queryFn: async () => {
@@ -78,7 +83,7 @@ export function useReceivals(filters?: { status?: ReceivalStatus | '' }) {
       let q = supabase
         .from('receivals')
         .select(`
-          id,receival_number,po_id,warehouse_id,date,status,notes,received_by_name,created_at,is_replacement,source_debit_note_id,
+          id,receival_number,po_id,warehouse_id,date,status,notes,received_by_name,created_at,is_replacement,source_debit_note_id,source_type,carved_from_layer_id,
           receival_items(id,receival_id,po_line_item_id,item_name,sku,qty_received,unit_cost,is_free,brand_variant_id),
           purchase_orders!receivals_po_id_fkey(po_number,supplier_name),
           warehouses!receivals_warehouse_id_fkey(name)
@@ -86,6 +91,11 @@ export function useReceivals(filters?: { status?: ReceivalStatus | '' }) {
         .order('created_at', { ascending: false })
         .limit(200)
       if (filters?.status) q = q.eq('status', filters.status)
+      if (filters?.source_type && filters.source_type !== 'all') {
+        // source_type column not yet in generated types (added in migration 20260709192726)
+        q = (q as unknown as { eq: (col: string, val: string) => typeof q })
+          .eq('source_type', filters.source_type)
+      }
       const { data, error } = await q
       if (error) throw error
       return (data ?? []).map((r: any) => ({
@@ -97,6 +107,7 @@ export function useReceivals(filters?: { status?: ReceivalStatus | '' }) {
     },
     staleTime: 30 * 1000,
     refetchInterval: 60_000,
+    refetchIntervalInBackground: false,
   })
 }
 
@@ -109,7 +120,7 @@ export function useReceival(id: string | null) {
       const { data, error } = await supabase
         .from('receivals')
         .select(`
-          id,receival_number,po_id,warehouse_id,date,status,notes,received_by_name,created_at,is_replacement,source_debit_note_id,
+          id,receival_number,po_id,warehouse_id,date,status,notes,received_by_name,created_at,is_replacement,source_debit_note_id,source_type,carved_from_layer_id,
           receival_items(id,receival_id,po_line_item_id,item_name,sku,qty_received,unit_cost,is_free,brand_variant_id),
           purchase_orders!receivals_po_id_fkey(po_number,supplier_name,po_line_items(id,qty))
         `)
@@ -117,9 +128,9 @@ export function useReceival(id: string | null) {
         .single()
       if (error) throw error
       // Attach ordered_qty from PO line items
-      const poLines: any[] = data.purchase_orders?.po_line_items ?? []
-      const items = (data.receival_items ?? []).map((ri: any) => {
-        const matched = poLines.find((pl: any) => pl.id === ri.po_line_item_id)
+      const poLines = data.purchase_orders?.po_line_items ?? []
+      const items = (data.receival_items ?? []).map((ri) => {
+        const matched = poLines.find((pl) => pl.id === ri.po_line_item_id)
         return { ...ri, ordered_qty: matched?.qty ?? null }
       })
       return { ...data, receival_items: items } as Receival
@@ -209,6 +220,7 @@ export function useReceivalEditRequests(receival_id: string | null) {
         .select('*')
         .eq('receival_id', receival_id!)
         .order('created_at', { ascending: false })
+        .limit(50)
       if (error) throw error
       return (data ?? []) as ReceivalEditRequest[]
     },
@@ -235,14 +247,15 @@ export function useRequestReceivalEdit() {
       const { data: admins } = await supabase
         .from('profiles').select('id').eq('user_type', 'internal')
       const notifications = (admins ?? []).map((a: { id: string }) => ({
-        user_id: a.id,
+        profile_id: a.id,
         title: 'Receival Edit Requested',
         body: `A receival edit was requested: ${reason}`,
         type: 'receival_edit_request',
-        reference_id: data.id,
+        related_id: data.id,
+        related_type: 'receival_edit_request',
       }))
       if (notifications.length > 0) {
-        await supabase.from('notifications').insert(notifications as unknown as import('@/types/database.types').DBInsert<'notifications'>[])
+        await supabase.from('notifications').insert(notifications)
       }
 
       return data as ReceivalEditRequest
@@ -287,14 +300,15 @@ export function useApproveReceivalEdit() {
       // Notify the requestor (requested_by comes from the update select above)
       if (data?.requested_by) {
         await supabase.from('notifications').insert({
-          user_id: data.requested_by,
+          profile_id: data.requested_by,
           title: action === 'approved' ? 'Edit Request Approved' : 'Edit Request Rejected',
           body: action === 'approved'
             ? 'Your receival edit was approved. You have 48 hours to save your changes.'
             : `Your receival edit was rejected. ${rejection_note ?? ''}`,
           type: 'receival_edit_response',
-          reference_id: request_id,
-        } as unknown as import('@/types/database.types').DBInsert<'notifications'>)
+          related_id: request_id,
+          related_type: 'receival_edit_request',
+        })
       }
 
       return data as ReceivalEditRequest
@@ -416,6 +430,7 @@ export type ReceivalForLcSelector = {
   po_id: string
   date: string
   status: string
+  source_type: string
   po_number: string | null
   supplier_name: string | null
 }
@@ -427,22 +442,27 @@ export function useReceivalsForLcSelector({ search = '' }: { search?: string } =
       const supabase = createClient()
       const q = supabase
         .from('receivals')
-        .select('id, receival_number, po_id, date, status, purchase_orders!receivals_po_id_fkey(po_number, supplier_name)')
+        .select('id, receival_number, po_id, date, status, source_type, purchase_orders!receivals_po_id_fkey(po_number, supplier_name)')
         .order('date', { ascending: false })
+        .limit(500)
       const { data, error } = await q
       if (error) throw error
       // Match on receival_number, po_number, or supplier_name. We filter
       // client-side because PostgREST .or() can't span a joined table without
       // a view/RPC, and this list is small (recent receivals only).
-      const rows = (data ?? []).map((r: any) => ({
-        id: r.id as string,
-        receival_number: r.receival_number as string,
-        po_id: r.po_id as string,
-        date: r.date as string,
-        status: r.status as string,
-        po_number: r.purchase_orders?.po_number ?? null,
-        supplier_name: r.purchase_orders?.supplier_name ?? null,
-      })) as ReceivalForLcSelector[]
+      const rows = (data ?? []).map((r: any) => {
+        const isInventory = r.source_type === 'inventory'
+        return {
+          id: r.id as string,
+          receival_number: r.receival_number as string,
+          po_id: r.po_id as string,
+          date: r.date as string,
+          status: r.status as string,
+          source_type: (r.source_type as string) ?? 'purchase',
+          po_number: r.purchase_orders?.po_number ?? null,
+          supplier_name: r.purchase_orders?.supplier_name ?? (isInventory ? 'Inventory Receival' : null),
+        }
+      }) as ReceivalForLcSelector[]
       const needle = search.trim().toLowerCase()
       if (!needle) return rows
       return rows.filter((r) =>
@@ -483,7 +503,8 @@ export function useReceivalItemsBatch(receivalIds: string[] | null) {
           .from('receival_items')
           .select('id, receival_id, item_name, sku, qty_received, unit_cost, brand_variant_id')
           .in('receival_id', ids)
-          .eq('is_free', false),
+          .eq('is_free', false)
+          .limit(1000),
         supabase
           .from('fifo_cost_layers')
           .select('brand_variant_id, receival_id, remaining_qty')
@@ -558,6 +579,7 @@ export function useLcLockedReceivalIds() {
         .select('attached_receival_ids')
         .not('applied_at', 'is', null)
         .is('voided_at', null)
+        .limit(500)
       if (error) throw error
       const ids = new Set<string>()
       for (const lc of data ?? []) {

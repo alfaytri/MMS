@@ -40,7 +40,18 @@ export function ReplacementReceivalDialog({ open, onOpenChange, debitNote, onSuc
   const { data: warehouses = [] } = useWarehouses()
   const createReplacement = useCreateReplacementReceival()
 
-  const returnedLines = (debitNote.line_items?.returned_lines ?? []) as NoteDebitLineItem[]
+  const returnedLines = (debitNote.credit_note_lines ?? [])
+    .filter((l) => l.line_type === 'returned')
+    .map((l) => ({
+      item_name:       l.description ?? 'Item',
+      sku:             l.sku ?? null,
+      qty:             l.qty,
+      unit_price:      l.unit_price,
+      total:           l.total ?? l.qty * l.unit_price,
+      brand_variant_id: null,
+      condition:       l.condition as NoteDebitLineItem['condition'],
+      condition_notes: l.condition_notes,
+    })) as NoteDebitLineItem[]
   const [items, setItems] = useState<DraftItem[]>(() =>
     returnedLines.map((line) => ({
       item_name: line.item_name,
@@ -125,7 +136,7 @@ export function ReplacementReceivalDialog({ open, onOpenChange, debitNote, onSuc
               <SelectTrigger id="repl-warehouse">
                 <SelectValue placeholder="Select warehouse" />
               </SelectTrigger>
-              <SelectContent>
+              <SelectContent className="max-h-60 overflow-y-auto">
                 {warehouses.map((w) => (
                   <SelectItem key={w.id} value={w.id}>{w.name}</SelectItem>
                 ))}

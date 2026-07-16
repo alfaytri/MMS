@@ -55,7 +55,7 @@ export function BuildingNodeDialog({ open, onOpenChange, parentType, onAdd }: Pr
               <SelectTrigger id="bnode-type">
                 <SelectValue placeholder="Select type" />
               </SelectTrigger>
-              <SelectContent>
+              <SelectContent className="max-h-60 overflow-y-auto">
                 {allowedTypes.map((t) => (
                   <SelectItem key={t} value={t}>
                     {t.charAt(0).toUpperCase() + t.slice(1)}

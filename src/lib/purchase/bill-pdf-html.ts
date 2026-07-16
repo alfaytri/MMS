@@ -4,6 +4,7 @@ import {
   brandHeaderHtml,
   contactStripHtml,
   footerHtml,
+  stampSectionHtml,
   BASE_CSS,
 } from '@/lib/pdf/pdf-fonts'
 
@@ -202,7 +203,7 @@ export function buildBillHtml(input: BuildBillHtmlInput): string {
 
   ${paidStampHtml}
 
-  ${brandHeaderHtml(assets.logo)}
+  ${brandHeaderHtml(assets.brandHeader ?? assets.logo)}
 
   <div class="midbar">
     ${contactStripHtml()}
@@ -287,6 +288,8 @@ export function buildBillHtml(input: BuildBillHtmlInput): string {
   </div>
 
   ${notesHtml}
+
+  ${stampSectionHtml(assets.stamp)}
 
   ${footerHtml(assets.footer)}
 

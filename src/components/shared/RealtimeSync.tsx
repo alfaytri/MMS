@@ -8,7 +8,7 @@
 // Replaced with refetchInterval on the relevant React Query hooks:
 //   • usePurchaseOrders  → 30s refetchInterval
 //   • useReceivals       → 30s refetchInterval
-//   • useUnreadNotificationCount → already had 60s refetchInterval
+//   • usePendingNotificationCount → 60s refetchInterval
 //
 // This component is now a no-op stub kept so the layout import doesn't break.
 

@@ -112,7 +112,7 @@ export function ReceivalFormDialog({ open, onOpenChange }: Props) {
                 <SelectTrigger id="recv-po">
                   <SelectValue placeholder="Select PO" />
                 </SelectTrigger>
-                <SelectContent>
+                <SelectContent className="max-h-60 overflow-y-auto">
                   {approvablePOs.map((po) => (
                     <SelectItem key={po.id} value={po.id}>
                       {po.po_number} — {po.supplier_name ?? ''}
@@ -127,7 +127,7 @@ export function ReceivalFormDialog({ open, onOpenChange }: Props) {
                 <SelectTrigger id="recv-warehouse">
                   <SelectValue placeholder="Select warehouse" />
                 </SelectTrigger>
-                <SelectContent>
+                <SelectContent className="max-h-60 overflow-y-auto">
                   {(warehouses ?? []).map((w) => (
                     <SelectItem key={w.id} value={w.id}>{w.name}</SelectItem>
                   ))}

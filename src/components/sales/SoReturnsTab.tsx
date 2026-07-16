@@ -134,7 +134,7 @@ export function SoReturnsTab({ so, fullSO, soReturns, invoiceId, onSendReplaceme
                     </TableRow>
                   </TableHeader>
                   <TableBody>
-                    {ret.items.map((item, i) => (
+                    {(ret.return_lines ?? []).map((item, i) => (
                       <TableRow key={i}>
                         <TableCell className="text-xs">{item.item_name}</TableCell>
                         <TableCell className="text-xs text-right">{item.qty}</TableCell>

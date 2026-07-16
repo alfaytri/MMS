@@ -4,6 +4,7 @@ import {
   brandHeaderHtml,
   contactStripHtml,
   footerHtml,
+  stampSectionHtml,
   BASE_CSS,
 } from '@/lib/pdf/pdf-fonts'
 
@@ -121,7 +122,7 @@ export function buildDeliveryNoteHtml(input: BuildDeliveryNoteHtmlInput): string
 </head>
 <body>
 
-  ${brandHeaderHtml(assets.logo)}
+  ${brandHeaderHtml(assets.brandHeader ?? assets.logo)}
 
   <div class="midbar">
     ${contactStripHtml()}
@@ -176,6 +177,8 @@ export function buildDeliveryNoteHtml(input: BuildDeliveryNoteHtmlInput): string
       <div class="signature-label">Received by (Name &amp; Signature)</div>
     </div>
   </div>
+
+  ${stampSectionHtml(assets.stamp)}
 
   ${footerHtml(assets.footer)}
 

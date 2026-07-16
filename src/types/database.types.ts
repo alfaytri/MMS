@@ -604,6 +604,7 @@ export type Database = {
           qty: number
           sale_delivery_id: string | null
           sale_order_id: string | null
+          source_type: string
           total_cost: number
           unit_cost: number
         }
@@ -617,6 +618,7 @@ export type Database = {
           qty: number
           sale_delivery_id?: string | null
           sale_order_id?: string | null
+          source_type?: string
           total_cost: number
           unit_cost: number
         }
@@ -630,6 +632,7 @@ export type Database = {
           qty?: number
           sale_delivery_id?: string | null
           sale_order_id?: string | null
+          source_type?: string
           total_cost?: number
           unit_cost?: number
         }
@@ -659,11 +662,13 @@ export type Database = {
           created_by: string | null
           default_currency: string
           default_tax_rate: number
+          footer_motto: string | null
           id: string
           is_active: boolean
           logo_url: string | null
           name_ar: string | null
           name_en: string
+          stamp_url: string | null
           updated_at: string
           vat_id: string | null
         }
@@ -675,11 +680,13 @@ export type Database = {
           created_by?: string | null
           default_currency?: string
           default_tax_rate?: number
+          footer_motto?: string | null
           id?: string
           is_active?: boolean
           logo_url?: string | null
           name_ar?: string | null
           name_en: string
+          stamp_url?: string | null
           updated_at?: string
           vat_id?: string | null
         }
@@ -691,11 +698,13 @@ export type Database = {
           created_by?: string | null
           default_currency?: string
           default_tax_rate?: number
+          footer_motto?: string | null
           id?: string
           is_active?: boolean
           logo_url?: string | null
           name_ar?: string | null
           name_en?: string
+          stamp_url?: string | null
           updated_at?: string
           vat_id?: string | null
         }
@@ -1346,32 +1355,44 @@ export type Database = {
       }
       credit_note_lines: {
         Row: {
+          condition: string | null
+          condition_notes: string | null
           created_at: string | null
           credit_note_id: string
-          description: string
+          description: string | null
           id: string
           invoice_line_id: string | null
+          line_type: string
           qty: number
+          sku: string | null
           total: number | null
           unit_price: number
         }
         Insert: {
+          condition?: string | null
+          condition_notes?: string | null
           created_at?: string | null
           credit_note_id: string
-          description: string
+          description?: string | null
           id?: string
           invoice_line_id?: string | null
+          line_type?: string
           qty: number
+          sku?: string | null
           total?: number | null
           unit_price: number
         }
         Update: {
+          condition?: string | null
+          condition_notes?: string | null
           created_at?: string | null
           credit_note_id?: string
-          description?: string
+          description?: string | null
           id?: string
           invoice_line_id?: string | null
+          line_type?: string
           qty?: number
+          sku?: string | null
           total?: number | null
           unit_price?: number
         }
@@ -1401,7 +1422,6 @@ export type Database = {
           customer_name: string | null
           id: string
           invoice_id: string | null
-          line_items: Json | null
           new_total: number | null
           note_type: string
           notes: string | null
@@ -1428,7 +1448,6 @@ export type Database = {
           customer_name?: string | null
           id?: string
           invoice_id?: string | null
-          line_items?: Json | null
           new_total?: number | null
           note_type?: string
           notes?: string | null
@@ -1455,7 +1474,6 @@ export type Database = {
           customer_name?: string | null
           id?: string
           invoice_id?: string | null
-          line_items?: Json | null
           new_total?: number | null
           note_type?: string
           notes?: string | null
@@ -1562,6 +1580,7 @@ export type Database = {
           id: string
           is_approval_slot: boolean
           is_field_rp: boolean
+          is_inventory_receiver: boolean
           is_system: boolean | null
           name: string
           permissions: string[]
@@ -1576,6 +1595,7 @@ export type Database = {
           id?: string
           is_approval_slot?: boolean
           is_field_rp?: boolean
+          is_inventory_receiver?: boolean
           is_system?: boolean | null
           name: string
           permissions?: string[]
@@ -1590,6 +1610,7 @@ export type Database = {
           id?: string
           is_approval_slot?: boolean
           is_field_rp?: boolean
+          is_inventory_receiver?: boolean
           is_system?: boolean | null
           name?: string
           permissions?: string[]
@@ -2318,6 +2339,13 @@ export type Database = {
             referencedColumns: ["id"]
           },
           {
+            foreignKeyName: "fifo_cost_layers_receival_id_fkey"
+            columns: ["receival_id"]
+            isOneToOne: false
+            referencedRelation: "receivals"
+            referencedColumns: ["id"]
+          },
+          {
             foreignKeyName: "fifo_cost_layers_warehouse_id_fkey"
             columns: ["warehouse_id"]
             isOneToOne: false
@@ -2569,7 +2597,6 @@ export type Database = {
           incoming_eta: string | null
           item_id: string
           linked_services_count: number
-          margin_percent: number
           reorder_point: number
           reserved_qty: number
           selling_price: number | null
@@ -2590,7 +2617,6 @@ export type Database = {
           incoming_eta?: string | null
           item_id: string
           linked_services_count?: number
-          margin_percent?: number
           reorder_point?: number
           reserved_qty?: number
           selling_price?: number | null
@@ -2611,7 +2637,6 @@ export type Database = {
           incoming_eta?: string | null
           item_id?: string
           linked_services_count?: number
-          margin_percent?: number
           reorder_point?: number
           reserved_qty?: number
           selling_price?: number | null
@@ -2689,7 +2714,7 @@ export type Database = {
           notes: string | null
           profile_id: string | null
           profile_name: string | null
-          status: string
+          status: "pending" | "approved" | "rejected"
           step_label: string
           step_order: number
           step_role: string
@@ -2702,7 +2727,7 @@ export type Database = {
           notes?: string | null
           profile_id?: string | null
           profile_name?: string | null
-          status?: string
+          status?: "pending" | "approved" | "rejected"
           step_label: string
           step_order: number
           step_role: string
@@ -2715,7 +2740,7 @@ export type Database = {
           notes?: string | null
           profile_id?: string | null
           profile_name?: string | null
-          status?: string
+          status?: "pending" | "approved" | "rejected"
           step_label?: string
           step_order?: number
           step_role?: string
@@ -2747,7 +2772,7 @@ export type Database = {
           profile_id: string
           profile_name: string
           started_at: string | null
-          status: string
+          status: "pending" | "in_progress" | "completed"
           updated_at: string
         }
         Insert: {
@@ -2759,7 +2784,7 @@ export type Database = {
           profile_id: string
           profile_name: string
           started_at?: string | null
-          status?: string
+          status?: "pending" | "in_progress" | "completed"
           updated_at?: string
         }
         Update: {
@@ -2771,7 +2796,7 @@ export type Database = {
           profile_id?: string
           profile_name?: string
           started_at?: string | null
-          status?: string
+          status?: "pending" | "in_progress" | "completed"
           updated_at?: string
         }
         Relationships: [
@@ -2945,7 +2970,7 @@ export type Database = {
           reviewed_by: string | null
           reviewed_by_name: string | null
           started_at: string | null
-          status: string
+          status: "draft" | "in_progress" | "submitted" | "reviewed" | "pending_approval" | "approved" | "rejected" | "completed"
           submitted_at: string | null
           submitted_by: string | null
           submitted_by_name: string | null
@@ -2966,7 +2991,7 @@ export type Database = {
           reviewed_by?: string | null
           reviewed_by_name?: string | null
           started_at?: string | null
-          status?: string
+          status?: "draft" | "in_progress" | "submitted" | "reviewed" | "pending_approval" | "approved" | "rejected" | "completed"
           submitted_at?: string | null
           submitted_by?: string | null
           submitted_by_name?: string | null
@@ -2987,7 +3012,7 @@ export type Database = {
           reviewed_by?: string | null
           reviewed_by_name?: string | null
           started_at?: string | null
-          status?: string
+          status?: "draft" | "in_progress" | "submitted" | "reviewed" | "pending_approval" | "approved" | "rejected" | "completed"
           submitted_at?: string | null
           submitted_by?: string | null
           submitted_by_name?: string | null
@@ -3064,7 +3089,6 @@ export type Database = {
           created_at: string | null
           id: string
           linked_services_count: number | null
-          markup_percent: number | null
           name_ar: string | null
           name_en: string
           sku: string
@@ -3080,7 +3104,6 @@ export type Database = {
           created_at?: string | null
           id?: string
           linked_services_count?: number | null
-          markup_percent?: number | null
           name_ar?: string | null
           name_en: string
           sku: string
@@ -3096,7 +3119,6 @@ export type Database = {
           created_at?: string | null
           id?: string
           linked_services_count?: number | null
-          markup_percent?: number | null
           name_ar?: string | null
           name_en?: string
           sku?: string
@@ -3244,21 +3266,21 @@ export type Database = {
           customer_id: string | null
           dibsy_checkout_url: string | null
           dibsy_payment_id: string | null
-          direction: string
+          direction: Database["public"]["Enums"]["invoice_direction"]
           discount_amount: number
           discount_label: string | null
           division: string | null
-          doc_status: string
+          doc_status: Database["public"]["Enums"]["invoice_doc_status"]
           due_date: string
           id: string
           invoice_id: string
-          invoice_type: string
+          invoice_type: Database["public"]["Enums"]["invoice_type"]
           issued_date: string
           manually_paid: boolean
           needs_refresh: boolean
           notes: string | null
           paid_amount: number | null
-          payment_status: string
+          payment_status: Database["public"]["Enums"]["invoice_payment_status"]
           pdf_url: string | null
           phone_id: string | null
           purchase_order_id: string | null
@@ -3282,21 +3304,21 @@ export type Database = {
           customer_id?: string | null
           dibsy_checkout_url?: string | null
           dibsy_payment_id?: string | null
-          direction?: string
+          direction?: Database["public"]["Enums"]["invoice_direction"]
           discount_amount?: number
           discount_label?: string | null
           division?: string | null
-          doc_status?: string
+          doc_status?: Database["public"]["Enums"]["invoice_doc_status"]
           due_date: string
           id?: string
           invoice_id: string
-          invoice_type?: string
+          invoice_type?: Database["public"]["Enums"]["invoice_type"]
           issued_date: string
           manually_paid?: boolean
           needs_refresh?: boolean
           notes?: string | null
           paid_amount?: number | null
-          payment_status?: string
+          payment_status?: Database["public"]["Enums"]["invoice_payment_status"]
           pdf_url?: string | null
           phone_id?: string | null
           purchase_order_id?: string | null
@@ -3320,21 +3342,21 @@ export type Database = {
           customer_id?: string | null
           dibsy_checkout_url?: string | null
           dibsy_payment_id?: string | null
-          direction?: string
+          direction?: Database["public"]["Enums"]["invoice_direction"]
           discount_amount?: number
           discount_label?: string | null
           division?: string | null
-          doc_status?: string
+          doc_status?: Database["public"]["Enums"]["invoice_doc_status"]
           due_date?: string
           id?: string
           invoice_id?: string
-          invoice_type?: string
+          invoice_type?: Database["public"]["Enums"]["invoice_type"]
           issued_date?: string
           manually_paid?: boolean
           needs_refresh?: boolean
           notes?: string | null
           paid_amount?: number | null
-          payment_status?: string
+          payment_status?: Database["public"]["Enums"]["invoice_payment_status"]
           pdf_url?: string | null
           phone_id?: string | null
           purchase_order_id?: string | null
@@ -3411,6 +3433,109 @@ export type Database = {
           },
         ]
       }
+      landed_cost_item_allocations: {
+        Row: {
+          id: string
+          landed_cost_id: string
+          brand_variant_id: string | null
+          item_name: string
+          sku: string | null
+          qty_received: number
+          qty_remaining_at_lc: number
+          sold_qty: number
+          original_unit_cost: number
+          lc_per_unit: number
+          updated_unit_cost: number
+          allocated_lc_total: number
+          inventory_portion: number
+          cogs_portion: number
+          created_at: string | null
+        }
+        Insert: {
+          id?: string
+          landed_cost_id: string
+          brand_variant_id?: string | null
+          item_name: string
+          sku?: string | null
+          qty_received: number
+          qty_remaining_at_lc: number
+          sold_qty: number
+          original_unit_cost: number
+          lc_per_unit: number
+          updated_unit_cost: number
+          allocated_lc_total: number
+          inventory_portion: number
+          cogs_portion: number
+          created_at?: string | null
+        }
+        Update: {
+          id?: string
+          landed_cost_id?: string
+          brand_variant_id?: string | null
+          item_name?: string
+          sku?: string | null
+          qty_received?: number
+          qty_remaining_at_lc?: number
+          sold_qty?: number
+          original_unit_cost?: number
+          lc_per_unit?: number
+          updated_unit_cost?: number
+          allocated_lc_total?: number
+          inventory_portion?: number
+          cogs_portion?: number
+          created_at?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "landed_cost_item_allocations_landed_cost_id_fkey"
+            columns: ["landed_cost_id"]
+            isOneToOne: false
+            referencedRelation: "landed_costs"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      landed_cost_lines: {
+        Row: {
+          id: string
+          landed_cost_id: string
+          description: string
+          amount: number
+          currency: string
+          exchange_rate: number
+          bill_path: string | null
+          created_at: string | null
+        }
+        Insert: {
+          id?: string
+          landed_cost_id: string
+          description: string
+          amount: number
+          currency: string
+          exchange_rate: number
+          bill_path?: string | null
+          created_at?: string | null
+        }
+        Update: {
+          id?: string
+          landed_cost_id?: string
+          description?: string
+          amount?: number
+          currency?: string
+          exchange_rate?: number
+          bill_path?: string | null
+          created_at?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "landed_cost_lines_landed_cost_id_fkey"
+            columns: ["landed_cost_id"]
+            isOneToOne: false
+            referencedRelation: "landed_costs"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       landed_costs: {
         Row: {
           all_items_sold: boolean | null
@@ -3422,9 +3547,7 @@ export type Database = {
           date: string
           description: string | null
           id: string
-          item_allocations: Json | null
           lc_number: string
-          lines: Json | null
           revert_snapshot: Json | null
           total_amount: number | null
           updated_at: string | null
@@ -3441,9 +3564,7 @@ export type Database = {
           date: string
           description?: string | null
           id?: string
-          item_allocations?: Json | null
           lc_number: string
-          lines?: Json | null
           revert_snapshot?: Json | null
           total_amount?: number | null
           updated_at?: string | null
@@ -3460,9 +3581,7 @@ export type Database = {
           date?: string
           description?: string | null
           id?: string
-          item_allocations?: Json | null
           lc_number?: string
-          lines?: Json | null
           revert_snapshot?: Json | null
           total_amount?: number | null
           updated_at?: string | null
@@ -3731,6 +3850,7 @@ export type Database = {
       }
       notifications: {
         Row: {
+          actioned_at: string | null
           body: string | null
           created_at: string | null
           id: string
@@ -3742,6 +3862,7 @@ export type Database = {
           type: string
         }
         Insert: {
+          actioned_at?: string | null
           body?: string | null
           created_at?: string | null
           id?: string
@@ -3753,6 +3874,7 @@ export type Database = {
           type: string
         }
         Update: {
+          actioned_at?: string | null
           body?: string | null
           created_at?: string | null
           id?: string
@@ -5078,6 +5200,65 @@ export type Database = {
           },
         ]
       }
+      po_version_lines: {
+        Row: {
+          brand_id: string | null
+          brand_variant_id: string | null
+          created_at: string | null
+          free_qty: number
+          id: string
+          item_name: string
+          po_version_id: string
+          qty: number
+          received_qty: number | null
+          sku: string | null
+          tool_asset_item_id: string | null
+          total_price: number
+          unit: string
+          unit_price: number
+        }
+        Insert: {
+          brand_id?: string | null
+          brand_variant_id?: string | null
+          created_at?: string | null
+          free_qty?: number
+          id?: string
+          item_name: string
+          po_version_id: string
+          qty?: number
+          received_qty?: number | null
+          sku?: string | null
+          tool_asset_item_id?: string | null
+          total_price?: number
+          unit?: string
+          unit_price?: number
+        }
+        Update: {
+          brand_id?: string | null
+          brand_variant_id?: string | null
+          created_at?: string | null
+          free_qty?: number
+          id?: string
+          item_name?: string
+          po_version_id?: string
+          qty?: number
+          received_qty?: number | null
+          sku?: string | null
+          tool_asset_item_id?: string | null
+          total_price?: number
+          unit?: string
+          unit_price?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "po_version_lines_po_version_id_fkey"
+            columns: ["po_version_id"]
+            isOneToOne: false
+            referencedRelation: "po_versions"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       po_versions: {
         Row: {
           currency: string
@@ -5088,7 +5269,6 @@ export type Database = {
           exchange_rate: number
           expected_delivery: string | null
           id: string
-          line_items: Json
           payment_milestones: Json | null
           payment_terms: string | null
           payment_terms_notes: string | null
@@ -5098,7 +5278,7 @@ export type Database = {
           submitted_at: string
           submitted_by: string | null
           subtotal: number
-          supplier_id: string
+          supplier_id: string | null
           supplier_name: string
           vendor_notes: string | null
           version_number: number
@@ -5112,7 +5292,6 @@ export type Database = {
           exchange_rate: number
           expected_delivery?: string | null
           id?: string
-          line_items: Json
           payment_milestones?: Json | null
           payment_terms?: string | null
           payment_terms_notes?: string | null
@@ -5122,7 +5301,7 @@ export type Database = {
           submitted_at?: string
           submitted_by?: string | null
           subtotal: number
-          supplier_id: string
+          supplier_id?: string | null
           supplier_name: string
           vendor_notes?: string | null
           version_number: number
@@ -5136,7 +5315,6 @@ export type Database = {
           exchange_rate?: number
           expected_delivery?: string | null
           id?: string
-          line_items?: Json
           payment_milestones?: Json | null
           payment_terms?: string | null
           payment_terms_notes?: string | null
@@ -5146,7 +5324,7 @@ export type Database = {
           submitted_at?: string
           submitted_by?: string | null
           subtotal?: number
-          supplier_id?: string
+          supplier_id?: string | null
           supplier_name?: string
           vendor_notes?: string | null
           version_number?: number
@@ -5157,6 +5335,13 @@ export type Database = {
             columns: ["po_id"]
             isOneToOne: false
             referencedRelation: "purchase_orders"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "po_versions_supplier_id_fkey"
+            columns: ["supplier_id"]
+            isOneToOne: false
+            referencedRelation: "suppliers"
             referencedColumns: ["id"]
           },
         ]
@@ -5428,7 +5613,7 @@ export type Database = {
           rfq_supplier_ids: string[] | null
           status: Database["public"]["Enums"]["po_status"] | null
           subtotal: number | null
-          supplier_id: string
+          supplier_id: string | null
           supplier_name: string
           total_qar: number | null
           updated_at: string | null
@@ -5465,7 +5650,7 @@ export type Database = {
           rfq_supplier_ids?: string[] | null
           status?: Database["public"]["Enums"]["po_status"] | null
           subtotal?: number | null
-          supplier_id: string
+          supplier_id?: string | null
           supplier_name: string
           total_qar?: number | null
           updated_at?: string | null
@@ -5502,7 +5687,7 @@ export type Database = {
           rfq_supplier_ids?: string[] | null
           status?: Database["public"]["Enums"]["po_status"] | null
           subtotal?: number | null
-          supplier_id?: string
+          supplier_id?: string | null
           supplier_name?: string
           total_qar?: number | null
           updated_at?: string | null
@@ -5537,6 +5722,13 @@ export type Database = {
             columns: ["rfq_id"]
             isOneToOne: false
             referencedRelation: "rfqs"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "purchase_orders_supplier_id_fkey"
+            columns: ["supplier_id"]
+            isOneToOne: false
+            referencedRelation: "suppliers"
             referencedColumns: ["id"]
           },
           {
@@ -6181,6 +6373,7 @@ export type Database = {
       }
       receivals: {
         Row: {
+          carved_from_layer_id: string | null
           check_sheet_pdf_url: string | null
           created_at: string | null
           date: string
@@ -6188,17 +6381,19 @@ export type Database = {
           is_replacement: boolean
           landed_cost_id: string | null
           notes: string | null
-          po_id: string
+          po_id: string | null
           receipt_pdf_url: string | null
           receival_number: string
           received_by: string | null
           received_by_name: string | null
           source_debit_note_id: string | null
+          source_type: string
           status: Database["public"]["Enums"]["receival_status"] | null
           updated_at: string | null
           warehouse_id: string
         }
         Insert: {
+          carved_from_layer_id?: string | null
           check_sheet_pdf_url?: string | null
           created_at?: string | null
           date: string
@@ -6206,17 +6401,19 @@ export type Database = {
           is_replacement?: boolean
           landed_cost_id?: string | null
           notes?: string | null
-          po_id: string
+          po_id?: string | null
           receipt_pdf_url?: string | null
           receival_number: string
           received_by?: string | null
           received_by_name?: string | null
           source_debit_note_id?: string | null
+          source_type?: string
           status?: Database["public"]["Enums"]["receival_status"] | null
           updated_at?: string | null
           warehouse_id: string
         }
         Update: {
+          carved_from_layer_id?: string | null
           check_sheet_pdf_url?: string | null
           created_at?: string | null
           date?: string
@@ -6224,17 +6421,25 @@ export type Database = {
           is_replacement?: boolean
           landed_cost_id?: string | null
           notes?: string | null
-          po_id?: string
+          po_id?: string | null
           receipt_pdf_url?: string | null
           receival_number?: string
           received_by?: string | null
           received_by_name?: string | null
           source_debit_note_id?: string | null
+          source_type?: string
           status?: Database["public"]["Enums"]["receival_status"] | null
           updated_at?: string | null
           warehouse_id?: string
         }
         Relationships: [
+          {
+            foreignKeyName: "receivals_carved_from_layer_id_fkey"
+            columns: ["carved_from_layer_id"]
+            isOneToOne: false
+            referencedRelation: "fifo_cost_layers"
+            referencedColumns: ["id"]
+          },
           {
             foreignKeyName: "receivals_po_id_fkey"
             columns: ["po_id"]
@@ -6339,6 +6544,50 @@ export type Database = {
           },
         ]
       }
+      return_lines: {
+        Row: {
+          id: string
+          return_id: string
+          brand_variant_id: string | null
+          item_name: string
+          sku: string | null
+          qty: number
+          condition: string | null
+          condition_notes: string | null
+          created_at: string | null
+        }
+        Insert: {
+          id?: string
+          return_id: string
+          brand_variant_id?: string | null
+          item_name: string
+          sku?: string | null
+          qty: number
+          condition?: string | null
+          condition_notes?: string | null
+          created_at?: string | null
+        }
+        Update: {
+          id?: string
+          return_id?: string
+          brand_variant_id?: string | null
+          item_name?: string
+          sku?: string | null
+          qty?: number
+          condition?: string | null
+          condition_notes?: string | null
+          created_at?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "return_lines_return_id_fkey"
+            columns: ["return_id"]
+            isOneToOne: false
+            referencedRelation: "returns"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       returns: {
         Row: {
           created_at: string
@@ -6350,7 +6599,6 @@ export type Database = {
           dispatched_at: string | null
           division_id: string | null
           id: string
-          items: Json
           notes: string | null
           pdf_url: string | null
           reason: string
@@ -6372,7 +6620,6 @@ export type Database = {
           dispatched_at?: string | null
           division_id?: string | null
           id?: string
-          items?: Json
           notes?: string | null
           pdf_url?: string | null
           reason?: string
@@ -6394,7 +6641,6 @@ export type Database = {
           dispatched_at?: string | null
           division_id?: string | null
           id?: string
-          items?: Json
           notes?: string | null
           pdf_url?: string | null
           reason?: string
@@ -6565,6 +6811,44 @@ export type Database = {
         }
         Relationships: []
       }
+      sale_delivery_lines: {
+        Row: {
+          id: string
+          sale_delivery_id: string
+          brand_variant_id: string | null
+          item_name: string
+          sku: string | null
+          qty_delivered: number
+          created_at: string | null
+        }
+        Insert: {
+          id?: string
+          sale_delivery_id: string
+          brand_variant_id?: string | null
+          item_name: string
+          sku?: string | null
+          qty_delivered: number
+          created_at?: string | null
+        }
+        Update: {
+          id?: string
+          sale_delivery_id?: string
+          brand_variant_id?: string | null
+          item_name?: string
+          sku?: string | null
+          qty_delivered?: number
+          created_at?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "sale_delivery_lines_sale_delivery_id_fkey"
+            columns: ["sale_delivery_id"]
+            isOneToOne: false
+            referencedRelation: "sale_deliveries"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       sale_deliveries: {
         Row: {
           created_at: string
@@ -6573,7 +6857,6 @@ export type Database = {
           date: string
           delivery_number: string
           id: string
-          items: Json
           pdf_url: string | null
           return_id: string | null
           sale_order_id: string
@@ -6591,7 +6874,6 @@ export type Database = {
           date: string
           delivery_number: string
           id?: string
-          items?: Json
           pdf_url?: string | null
           return_id?: string | null
           sale_order_id: string
@@ -6609,7 +6891,6 @@ export type Database = {
           date?: string
           delivery_number?: string
           id?: string
-          items?: Json
           pdf_url?: string | null
           return_id?: string | null
           sale_order_id?: string
@@ -6747,7 +7028,6 @@ export type Database = {
           created_by: string | null
           delivered_qty: number | null
           id: string
-          item_id: string | null
           item_name: string
           line_type: string
           qty: number
@@ -6765,7 +7045,6 @@ export type Database = {
           created_by?: string | null
           delivered_qty?: number | null
           id?: string
-          item_id?: string | null
           item_name: string
           line_type?: string
           qty?: number
@@ -6783,7 +7062,6 @@ export type Database = {
           created_by?: string | null
           delivered_qty?: number | null
           id?: string
-          item_id?: string | null
           item_name?: string
           line_type?: string
           qty?: number
@@ -7827,7 +8105,7 @@ export type Database = {
           reason: string
           requested_by: string | null
           requested_by_name: string | null
-          status: string
+          status: "pending_approval" | "approved" | "rejected"
           updated_at: string
           warehouse_id: string
         }
@@ -7847,7 +8125,7 @@ export type Database = {
           reason: string
           requested_by?: string | null
           requested_by_name?: string | null
-          status?: string
+          status?: "pending_approval" | "approved" | "rejected"
           updated_at?: string
           warehouse_id: string
         }
@@ -7867,7 +8145,7 @@ export type Database = {
           reason?: string
           requested_by?: string | null
           requested_by_name?: string | null
-          status?: string
+          status?: "pending_approval" | "approved" | "rejected"
           updated_at?: string
           warehouse_id?: string
         }
@@ -8377,6 +8655,44 @@ export type Database = {
           },
         ]
       }
+      tl_invoice_lines: {
+        Row: {
+          id: string
+          tl_invoice_id: string
+          name: string
+          qty: number
+          unit_price: number
+          total: number
+          created_at: string | null
+        }
+        Insert: {
+          id?: string
+          tl_invoice_id: string
+          name: string
+          qty: number
+          unit_price: number
+          total: number
+          created_at?: string | null
+        }
+        Update: {
+          id?: string
+          tl_invoice_id?: string
+          name?: string
+          qty?: number
+          unit_price?: number
+          total?: number
+          created_at?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "tl_invoice_lines_tl_invoice_id_fkey"
+            columns: ["tl_invoice_id"]
+            isOneToOne: false
+            referencedRelation: "tl_invoices"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       tl_invoices: {
         Row: {
           created_at: string | null
@@ -8388,7 +8704,6 @@ export type Database = {
           discount_amount: number
           id: string
           invoice_number: string
-          items: Json
           notes: string | null
           order_id: string | null
           payment_method_id: string | null
@@ -8408,7 +8723,6 @@ export type Database = {
           discount_amount?: number
           id?: string
           invoice_number: string
-          items?: Json
           notes?: string | null
           order_id?: string | null
           payment_method_id?: string | null
@@ -8428,7 +8742,6 @@ export type Database = {
           discount_amount?: number
           id?: string
           invoice_number?: string
-          items?: Json
           notes?: string | null
           order_id?: string | null
           payment_method_id?: string | null
@@ -9217,7 +9530,6 @@ export type Database = {
           dispatched_by_profile_id: string | null
           from_warehouse_id: string
           id: string
-          items: Json | null
           notes: string | null
           received_at: string | null
           received_by_name: string | null
@@ -9244,7 +9556,6 @@ export type Database = {
           dispatched_by_profile_id?: string | null
           from_warehouse_id: string
           id?: string
-          items?: Json | null
           notes?: string | null
           received_at?: string | null
           received_by_name?: string | null
@@ -9271,7 +9582,6 @@ export type Database = {
           dispatched_by_profile_id?: string | null
           from_warehouse_id?: string
           id?: string
-          items?: Json | null
           notes?: string | null
           received_at?: string | null
           received_by_name?: string | null
@@ -9469,21 +9779,23 @@ export type Database = {
           agent_name: string | null
           created_at: string | null
           customer_id: string | null
-          direction: string | null
+          direction: Database["public"]["Enums"]["invoice_direction"] | null
           discount_amount: number | null
           discount_label: string | null
           division: string | null
-          doc_status: string | null
+          doc_status: Database["public"]["Enums"]["invoice_doc_status"] | null
           due_date: string | null
           id: string | null
           invoice_id: string | null
-          invoice_type: string | null
+          invoice_type: Database["public"]["Enums"]["invoice_type"] | null
           issued_date: string | null
           manually_paid: boolean | null
           needs_refresh: boolean | null
           notes: string | null
           paid_amount: number | null
-          payment_status: string | null
+          payment_status:
+            | Database["public"]["Enums"]["invoice_payment_status"]
+            | null
           purchase_order_id: string | null
           qb_synced: boolean | null
           receival_id: string | null
@@ -9503,21 +9815,23 @@ export type Database = {
           agent_name?: string | null
           created_at?: string | null
           customer_id?: string | null
-          direction?: string | null
+          direction?: Database["public"]["Enums"]["invoice_direction"] | null
           discount_amount?: number | null
           discount_label?: string | null
           division?: string | null
-          doc_status?: string | null
+          doc_status?: Database["public"]["Enums"]["invoice_doc_status"] | null
           due_date?: string | null
           id?: string | null
           invoice_id?: string | null
-          invoice_type?: string | null
+          invoice_type?: Database["public"]["Enums"]["invoice_type"] | null
           issued_date?: string | null
           manually_paid?: boolean | null
           needs_refresh?: boolean | null
           notes?: string | null
           paid_amount?: number | null
-          payment_status?: string | null
+          payment_status?:
+            | Database["public"]["Enums"]["invoice_payment_status"]
+            | null
           purchase_order_id?: string | null
           qb_synced?: boolean | null
           receival_id?: string | null
@@ -9537,21 +9851,23 @@ export type Database = {
           agent_name?: string | null
           created_at?: string | null
           customer_id?: string | null
-          direction?: string | null
+          direction?: Database["public"]["Enums"]["invoice_direction"] | null
           discount_amount?: number | null
           discount_label?: string | null
           division?: string | null
-          doc_status?: string | null
+          doc_status?: Database["public"]["Enums"]["invoice_doc_status"] | null
           due_date?: string | null
           id?: string | null
           invoice_id?: string | null
-          invoice_type?: string | null
+          invoice_type?: Database["public"]["Enums"]["invoice_type"] | null
           issued_date?: string | null
           manually_paid?: boolean | null
           needs_refresh?: boolean | null
           notes?: string | null
           paid_amount?: number | null
-          payment_status?: string | null
+          payment_status?:
+            | Database["public"]["Enums"]["invoice_payment_status"]
+            | null
           purchase_order_id?: string | null
           qb_synced?: boolean | null
           receival_id?: string | null
@@ -9659,21 +9975,23 @@ export type Database = {
           agent_name: string | null
           created_at: string | null
           customer_id: string | null
-          direction: string | null
+          direction: Database["public"]["Enums"]["invoice_direction"] | null
           discount_amount: number | null
           discount_label: string | null
           division: string | null
-          doc_status: string | null
+          doc_status: Database["public"]["Enums"]["invoice_doc_status"] | null
           due_date: string | null
           id: string | null
           invoice_id: string | null
-          invoice_type: string | null
+          invoice_type: Database["public"]["Enums"]["invoice_type"] | null
           issued_date: string | null
           manually_paid: boolean | null
           needs_refresh: boolean | null
           notes: string | null
           paid_amount: number | null
-          payment_status: string | null
+          payment_status:
+            | Database["public"]["Enums"]["invoice_payment_status"]
+            | null
           purchase_order_id: string | null
           qb_synced: boolean | null
           receival_id: string | null
@@ -9693,21 +10011,23 @@ export type Database = {
           agent_name?: string | null
           created_at?: string | null
           customer_id?: string | null
-          direction?: string | null
+          direction?: Database["public"]["Enums"]["invoice_direction"] | null
           discount_amount?: number | null
           discount_label?: string | null
           division?: string | null
-          doc_status?: string | null
+          doc_status?: Database["public"]["Enums"]["invoice_doc_status"] | null
           due_date?: string | null
           id?: string | null
           invoice_id?: string | null
-          invoice_type?: string | null
+          invoice_type?: Database["public"]["Enums"]["invoice_type"] | null
           issued_date?: string | null
           manually_paid?: boolean | null
           needs_refresh?: boolean | null
           notes?: string | null
           paid_amount?: number | null
-          payment_status?: string | null
+          payment_status?:
+            | Database["public"]["Enums"]["invoice_payment_status"]
+            | null
           purchase_order_id?: string | null
           qb_synced?: boolean | null
           receival_id?: string | null
@@ -9727,21 +10047,23 @@ export type Database = {
           agent_name?: string | null
           created_at?: string | null
           customer_id?: string | null
-          direction?: string | null
+          direction?: Database["public"]["Enums"]["invoice_direction"] | null
           discount_amount?: number | null
           discount_label?: string | null
           division?: string | null
-          doc_status?: string | null
+          doc_status?: Database["public"]["Enums"]["invoice_doc_status"] | null
           due_date?: string | null
           id?: string | null
           invoice_id?: string | null
-          invoice_type?: string | null
+          invoice_type?: Database["public"]["Enums"]["invoice_type"] | null
           issued_date?: string | null
           manually_paid?: boolean | null
           needs_refresh?: boolean | null
           notes?: string | null
           paid_amount?: number | null
-          payment_status?: string | null
+          payment_status?:
+            | Database["public"]["Enums"]["invoice_payment_status"]
+            | null
           purchase_order_id?: string | null
           qb_synced?: boolean | null
           receival_id?: string | null
@@ -10063,6 +10385,7 @@ export type Database = {
           message_id: string
         }[]
       }
+      cleanup_old_notifications: { Args: never; Returns: number }
       complete_delivery_inventory: {
         Args: { p_delivery_id: string; p_so_id: string }
         Returns: undefined
@@ -10095,6 +10418,44 @@ export type Database = {
       create_customer_with_phone: {
         Args: { p_link_phone?: string; p_name: string; p_phone: string }
         Returns: Json
+      }
+      create_inventory_receival: {
+        Args: {
+          p_brand_variant_id: string
+          p_date: string
+          p_mode: string
+          p_notes: string
+          p_qty: number
+          p_source_layer_id: string
+          p_unit_cost: number
+          p_warehouse_id: string
+        }
+        Returns: {
+          carved_from_layer_id: string | null
+          check_sheet_pdf_url: string | null
+          created_at: string | null
+          date: string
+          id: string
+          is_replacement: boolean
+          landed_cost_id: string | null
+          notes: string | null
+          po_id: string | null
+          receipt_pdf_url: string | null
+          receival_number: string
+          received_by: string | null
+          received_by_name: string | null
+          source_debit_note_id: string | null
+          source_type: string
+          status: Database["public"]["Enums"]["receival_status"] | null
+          updated_at: string | null
+          warehouse_id: string
+        }
+        SetofOptions: {
+          from: "*"
+          to: "receivals"
+          isOneToOne: true
+          isSetofReturn: false
+        }
       }
       create_landed_cost: {
         Args: {
@@ -10364,6 +10725,7 @@ export type Database = {
       next_delivery_number: { Args: never; Returns: string }
       next_follow_up_order_id: { Args: never; Returns: string }
       next_follow_up_request_number: { Args: never; Returns: string }
+      next_po_number: { Args: never; Returns: string }
       recalc_average_cost: { Args: { p_bv_id: string }; Returns: undefined }
       recalculate_ar_invoice_payment_status: {
         Args: { p_invoice_id: string }
@@ -10416,12 +10778,10 @@ export type Database = {
         Returns: undefined
       }
       resubmit_sale_order: { Args: { p_so_id: string }; Returns: Json }
-      revert_landed_cost:
-        | { Args: { p_lc_id: string }; Returns: undefined }
-        | {
-            Args: { p_lc_id: string; p_performer_name?: string }
-            Returns: undefined
-          }
+      revert_landed_cost: {
+        Args: { p_lc_id: string; p_performer_name?: string }
+        Returns: undefined
+      }
       rpc_cancel_po_return_dispatch: {
         Args: { p_return_id: string }
         Returns: undefined
@@ -10453,6 +10813,10 @@ export type Database = {
       rpc_process_return_restock: {
         Args: { p_return_id: string }
         Returns: undefined
+      }
+      rpc_product_profitability: {
+        Args: { p_end_date: string; p_start_date: string }
+        Returns: Json
       }
       rpc_purchase_aging_report: {
         Args: never
@@ -10696,7 +11060,17 @@ export type Database = {
       instruction_content_type: "text" | "pdf"
       instruction_type: "pre-service" | "post-service"
       inventory_type: "products" | "spare-parts" | "consumables" | "tools"
+      invoice_direction: "ar" | "ap"
+      invoice_doc_status:
+        | "draft"
+        | "ready_to_send"
+        | "sent"
+        | "pending_approval"
+        | "approved"
+        | "rejected"
+      invoice_payment_status: "unpaid" | "partially_paid" | "paid" | "overdue"
       invoice_source: "order" | "contract" | "quotation"
+      invoice_type: "cash" | "credit"
       invoice_status:
         | "draft"
         | "sent"
@@ -11003,7 +11377,18 @@ export const Constants = {
       instruction_content_type: ["text", "pdf"],
       instruction_type: ["pre-service", "post-service"],
       inventory_type: ["products", "spare-parts", "consumables", "tools"],
+      invoice_direction: ["ar", "ap"],
+      invoice_doc_status: [
+        "draft",
+        "ready_to_send",
+        "sent",
+        "pending_approval",
+        "approved",
+        "rejected",
+      ],
+      invoice_payment_status: ["unpaid", "partially_paid", "paid", "overdue"],
       invoice_source: ["order", "contract", "quotation"],
+      invoice_type: ["cash", "credit"],
       invoice_status: [
         "draft",
         "sent",
@@ -11158,6 +11543,7 @@ export const Constants = {
   },
 } as const
 
-export type DBTable<T extends keyof Database['public']['Tables']> = Database['public']['Tables'][T]['Row']
-export type DBInsert<T extends keyof Database['public']['Tables']> = Database['public']['Tables'][T]['Insert']
-export type DBUpdate<T extends keyof Database['public']['Tables']> = Database['public']['Tables'][T]['Update']
+export type AllTables = Database['public']['Tables']
+export type DBTable<T extends keyof AllTables> = AllTables[T]['Row']
+export type DBInsert<T extends keyof AllTables> = AllTables[T]['Insert']
+export type DBUpdate<T extends keyof AllTables> = AllTables[T]['Update']

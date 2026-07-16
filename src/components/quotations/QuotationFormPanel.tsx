@@ -137,7 +137,7 @@ export function QuotationFormPanel({
               <SelectTrigger id="quot-form-division" className="h-9 w-full text-sm min-h-[44px] sm:min-h-0">
                 <SelectValue placeholder="Select division…" />
               </SelectTrigger>
-              <SelectContent alignItemWithTrigger={false}>
+              <SelectContent alignItemWithTrigger={false} className="max-h-60 overflow-y-auto">
                 {divisions.length === 0 ? (
                   <div className="px-3 py-2 text-sm text-muted-foreground">No divisions found</div>
                 ) : (

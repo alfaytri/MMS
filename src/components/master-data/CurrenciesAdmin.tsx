@@ -7,11 +7,15 @@ import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Badge } from '@/components/ui/badge'
+import {
+  Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter,
+} from '@/components/ui/dialog'
 import { Loader2, Plus } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { useCurrencies, useToggleCurrency, useAddCurrency } from '@/hooks/useCurrencies'
 
 export function CurrenciesAdmin() {
+  const [addOpen, setAddOpen] = useState(false)
   const [newCode, setNewCode] = useState('')
   const [newName, setNewName] = useState('')
   const [newSymbol, setNewSymbol] = useState('')
@@ -19,6 +23,12 @@ export function CurrenciesAdmin() {
   const { data: currencies = [], isLoading, isError } = useCurrencies(false)
   const toggleMutation = useToggleCurrency()
   const addMutation = useAddCurrency()
+
+  function resetForm() {
+    setNewCode('')
+    setNewName('')
+    setNewSymbol('')
+  }
 
   function handleAdd() {
     const code = newCode.trim().toUpperCase()
@@ -38,9 +48,8 @@ export function CurrenciesAdmin() {
       { code, name, symbol },
       {
         onSuccess: () => {
-          setNewCode('')
-          setNewName('')
-          setNewSymbol('')
+          resetForm()
+          setAddOpen(false)
           toast.success('Currency added')
         },
         onError: (err) =>
@@ -66,8 +75,14 @@ export function CurrenciesAdmin() {
   }
 
   return (
-    <div className="space-y-6 max-w-lg">
-      {/* List */}
+    <div className="space-y-4 max-w-lg">
+      <div className="flex items-center justify-between">
+        <h2 className="text-lg font-semibold">Currencies</h2>
+        <Button size="sm" className="gap-1.5" onClick={() => setAddOpen(true)}>
+          <Plus className="h-3.5 w-3.5" /> Add Currency
+        </Button>
+      </div>
+
       <div className="rounded-lg border divide-y">
         {currencies.map((c) => (
           <div
@@ -103,54 +118,58 @@ export function CurrenciesAdmin() {
         )}
       </div>
 
-      {/* Add form */}
-      <div className="rounded-lg border p-4 space-y-3">
-        <p className="text-sm font-semibold">Add Currency</p>
-        <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
-          <div className="space-y-1.5">
-            <Label htmlFor="cur-code">Code</Label>
-            <Input
-              id="cur-code"
-              placeholder="e.g. TRY"
-              value={newCode}
-              maxLength={4}
-              onChange={(e) => setNewCode(e.target.value.toUpperCase())}
-            />
+      <Dialog open={addOpen} onOpenChange={(o) => { setAddOpen(o); if (!o) resetForm() }}>
+        <DialogContent className="w-full max-w-full rounded-none sm:max-w-sm sm:rounded-lg">
+          <DialogHeader>
+            <DialogTitle>Add Currency</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-3 py-2">
+            <div className="space-y-1.5">
+              <Label htmlFor="cur-code">Code</Label>
+              <Input
+                id="cur-code"
+                placeholder="e.g. TRY"
+                value={newCode}
+                maxLength={4}
+                onChange={(e) => setNewCode(e.target.value.toUpperCase())}
+              />
+            </div>
+            <div className="space-y-1.5">
+              <Label htmlFor="cur-name">Name</Label>
+              <Input
+                id="cur-name"
+                placeholder="e.g. Turkish Lira"
+                value={newName}
+                onChange={(e) => setNewName(e.target.value)}
+              />
+            </div>
+            <div className="space-y-1.5">
+              <Label htmlFor="cur-symbol">Symbol</Label>
+              <Input
+                id="cur-symbol"
+                placeholder="e.g. ₺"
+                value={newSymbol}
+                maxLength={5}
+                onChange={(e) => setNewSymbol(e.target.value)}
+              />
+            </div>
           </div>
-          <div className="space-y-1.5">
-            <Label htmlFor="cur-name">Name</Label>
-            <Input
-              id="cur-name"
-              placeholder="e.g. Turkish Lira"
-              value={newName}
-              onChange={(e) => setNewName(e.target.value)}
-            />
-          </div>
-          <div className="space-y-1.5">
-            <Label htmlFor="cur-symbol">Symbol</Label>
-            <Input
-              id="cur-symbol"
-              placeholder="e.g. ₺"
-              value={newSymbol}
-              maxLength={5}
-              onChange={(e) => setNewSymbol(e.target.value)}
-            />
-          </div>
-        </div>
-        <Button
-          size="sm"
-          className="gap-1.5"
-          onClick={handleAdd}
-          disabled={!newCode.trim() || !newName.trim() || !newSymbol.trim() || addMutation.isPending}
-        >
-          {addMutation.isPending ? (
-            <Loader2 className="h-3.5 w-3.5 animate-spin" />
-          ) : (
-            <Plus className="h-3.5 w-3.5" />
-          )}
-          Add Currency
-        </Button>
-      </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => { setAddOpen(false); resetForm() }}>Cancel</Button>
+            <Button
+              onClick={handleAdd}
+              disabled={!newCode.trim() || !newName.trim() || !newSymbol.trim() || addMutation.isPending}
+            >
+              {addMutation.isPending ? (
+                <Loader2 className="h-3.5 w-3.5 animate-spin" />
+              ) : (
+                <Plus className="h-3.5 w-3.5" />
+              )}
+              Add Currency
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   )
 }

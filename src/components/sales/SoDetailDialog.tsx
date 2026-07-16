@@ -23,6 +23,7 @@ import { SoApprovalBanner } from '@/components/sales/SoApprovalBanner'
 import {
   useSaleOrder,
   useSOPayments,
+  useCancelSO,
   type SaleOrder,
   type SaleDelivery,
 } from '@/hooks/useSaleOrders'
@@ -69,6 +70,8 @@ export function SoDetailDialog({ open, onOpenChange, so, onEdit, onConfirm }: So
   const [confirmDeliveryId, setConfirmDeliveryId] = useState<string | null>(null)
   const [editDeliveryId, setEditDeliveryId] = useState<string | null>(null)
 
+  const cancelSO = useCancelSO()
+  const [cancelSOOpen, setCancelSOOpen] = useState(false)
   const cancelDelivery = useCancelDelivery()
   const completeDelivery = useCompleteDelivery()
   const updateDelivery = useUpdateDelivery()
@@ -107,6 +110,7 @@ export function SoDetailDialog({ open, onOpenChange, so, onEdit, onConfirm }: So
   const canDeliver = current && ['confirmed', 'partial_delivery'].includes(current.status)
   const canConfirm = current?.status === 'quotation'
   const canEdit = current?.status === 'quotation'
+  const canCancel = current && ['quotation', 'confirmed'].includes(current.status)
 
   const totalPaid = (payments ?? []).reduce((s, p) => s + (p.amount_qar ?? p.amount), 0)
   const paymentStatus: 'paid' | 'partial' | 'unpaid' =
@@ -330,7 +334,7 @@ export function SoDetailDialog({ open, onOpenChange, so, onEdit, onConfirm }: So
                       <div className="text-xs text-muted-foreground">
                         {formatDate(d.date)} · {d.warehouse_name ?? 'Unknown warehouse'}
                       </div>
-                      {d.items && d.items.length > 0 && (
+                      {d.sale_delivery_lines && d.sale_delivery_lines.length > 0 && (
                         <div className="rounded border overflow-x-auto">
                           <Table>
                             <TableHeader>
@@ -340,7 +344,7 @@ export function SoDetailDialog({ open, onOpenChange, so, onEdit, onConfirm }: So
                               </TableRow>
                             </TableHeader>
                             <TableBody>
-                              {d.items.map((item, idx) => {
+                              {d.sale_delivery_lines.map((item, idx) => {
                                 const info = item.brand_variant_id ? bvInfoMap.get(item.brand_variant_id) : null
                                 const typeBadge = info?.type ? inventoryTypeBadge[info.type] : null
                                 return (
@@ -419,6 +423,17 @@ export function SoDetailDialog({ open, onOpenChange, so, onEdit, onConfirm }: So
           {/* Action buttons */}
           {current && !isLoading && (
             <div className="shrink-0 flex flex-wrap gap-2 pt-2 border-t justify-end">
+              {canCancel && (
+                <Button
+                  variant="outline"
+                  size="sm"
+                  className="text-destructive hover:text-destructive hover:bg-destructive/10"
+                  disabled={cancelSO.isPending}
+                  onClick={() => setCancelSOOpen(true)}
+                >
+                  {cancelSO.isPending ? 'Cancelling…' : 'Cancel SO'}
+                </Button>
+              )}
               {canConfirm && onConfirm && (
                 <Button size="sm" onClick={() => { onConfirm(current); onOpenChange(false) }}>
                   Confirm Order
@@ -505,7 +520,7 @@ export function SoDetailDialog({ open, onOpenChange, so, onEdit, onConfirm }: So
                 const soLines = fullSO?.sale_order_lines ?? []
                 const remaining = soLines
                   .map((li) => {
-                    const delItem = del.items.find((di) => di.brand_variant_id === li.brand_variant_id)
+                    const delItem = (del.sale_delivery_lines ?? []).find((di) => di.brand_variant_id === li.brand_variant_id)
                     const thisQty = delItem?.qty_delivered ?? 0
                     const leftover = Math.max(0, li.qty - li.delivered_qty - thisQty)
                     return leftover > 0 ? { item_name: li.item_name, sku: li.sku ?? null, qty_delivered: leftover, brand_variant_id: li.brand_variant_id ?? null } : null
@@ -527,6 +542,39 @@ export function SoDetailDialog({ open, onOpenChange, so, onEdit, onConfirm }: So
               }}
             >
               {completeDelivery.isPending ? 'Processing…' : 'Yes, Mark Delivered'}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
+      {/* Cancel SO confirmation */}
+      <AlertDialog open={cancelSOOpen} onOpenChange={setCancelSOOpen}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Cancel Sale Order</AlertDialogTitle>
+            <AlertDialogDescription>
+              This will cancel <span className="font-semibold text-foreground">{current?.so_number}</span> and release any reserved stock.
+              This action cannot be undone.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Keep Order</AlertDialogCancel>
+            <AlertDialogAction
+              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+              disabled={cancelSO.isPending}
+              onClick={() => {
+                if (!current) return
+                cancelSO.mutate(current.id, {
+                  onSuccess: () => {
+                    toast.success('Sale order cancelled')
+                    setCancelSOOpen(false)
+                    onOpenChange(false)
+                  },
+                  onError: (err) => toast.error((err as Error).message),
+                })
+              }}
+            >
+              {cancelSO.isPending ? 'Cancelling…' : 'Yes, Cancel Order'}
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
@@ -576,7 +624,7 @@ function EditDeliveryDialog({
 }) {
   const [warehouseId, setWarehouseId] = useState(delivery.warehouse_id ?? '')
   const [date, setDate] = useState(delivery.date ?? new Date().toISOString().split('T')[0])
-  const [items, setItems] = useState(delivery.items.map((i) => ({ ...i })))
+  const [items, setItems] = useState((delivery.sale_delivery_lines ?? []).map((i) => ({ ...i })))
 
   return (
     <Dialog open onOpenChange={(o) => { if (!o) onClose() }}>

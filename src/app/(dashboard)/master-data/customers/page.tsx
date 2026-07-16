@@ -193,9 +193,11 @@ export default function CustomersPage() {
                             </span>
                           </SelectTrigger>
                           <SelectContent>
-                            {groups.map((g) => (
-                              <SelectItem key={g.id} value={g.id}>{g.name}</SelectItem>
-                            ))}
+                            {groups
+                              .filter((g) => (g.credit_limit ?? 0) > 0)
+                              .map((g) => (
+                                <SelectItem key={g.id} value={g.id}>{g.name}</SelectItem>
+                              ))}
                           </SelectContent>
                         </Select>
                       ) : (

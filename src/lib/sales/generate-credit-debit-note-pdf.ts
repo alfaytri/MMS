@@ -11,11 +11,23 @@ import {
   type NoteOriginalLine,
   type NoteReturnedLine,
 } from '@/lib/sales/credit-debit-note-pdf-html'
-import { loadPdfFonts, loadPdfAssets } from '@/lib/pdf/pdf-fonts'
+import { loadPdfFonts } from '@/lib/pdf/pdf-fonts'
+import { resolveBrand, brandDataToAssets } from '@/lib/pdf/brand-resolver'
 import { htmlToPdfBuffer } from '@/lib/pdf/html-to-pdf'
 
 function storageKeyFor(noteDisplayId: string): string {
   return `${noteDisplayId.replace(/[^A-Za-z0-9._-]/g, '_')}.pdf`
+}
+
+interface CreditNoteLineRow {
+  description:      string | null
+  sku:              string | null
+  qty:              number
+  unit_price:       number
+  total:            number
+  line_type:        string
+  condition:        string | null
+  condition_notes:  string | null
 }
 
 interface CreditNoteRow {
@@ -30,7 +42,7 @@ interface CreditNoteRow {
   created_at:       string
   original_total:   number | null
   new_total:        number | null
-  line_items:       { original_lines?: NoteOriginalLine[]; returned_lines?: NoteReturnedLine[] } | null
+  credit_note_lines: CreditNoteLineRow[]
   source_return_id: string | null
   pdf_url:          string | null
 }
@@ -46,7 +58,7 @@ export interface GenerateCreditDebitNotePdfResult {
 export async function generateCreditDebitNotePdf(
   noteUuid:  string,
   supabase:  SupabaseClient,
-  opts?:     { force?: boolean },
+  opts?:     { force?: boolean; divisionId?: string },
 ): Promise<GenerateCreditDebitNotePdfResult> {
 
   // ── 1. Fetch note row ────────────────────────────────────────────────
@@ -55,7 +67,7 @@ export async function generateCreditDebitNotePdf(
     .select(`
       id, credit_note_id, note_type, invoice_id,
       customer_name, supplier_name, phone, reason, created_at,
-      original_total, new_total, line_items, source_return_id, pdf_url
+      original_total, new_total, credit_note_lines(*), source_return_id, pdf_url
     `)
     .eq('id', noteUuid)
     .single<CreditNoteRow>()
@@ -78,6 +90,7 @@ export async function generateCreditDebitNotePdf(
   let referenceNumber = '—'
   let returnNumber    = '—'
   let partyPhone      = note.phone ?? null
+  let divisionId: string | null = null
 
   // Return number: join the linked returns row
   if (note.source_return_id) {
@@ -93,10 +106,11 @@ export async function generateCreditDebitNotePdf(
       if (note.note_type === 'debit' && ret.source_type === 'purchase' && ret.source_id) {
         const { data: po } = await supabase
           .from('purchase_orders')
-          .select('po_number, supplier_id')
+          .select('po_number, supplier_id, division_id')
           .eq('id', ret.source_id)
-          .maybeSingle<{ po_number: string; supplier_id: string | null }>()
+          .maybeSingle<{ po_number: string; supplier_id: string | null; division_id: string | null }>()
         if (po?.po_number) referenceNumber = po.po_number
+        if (po?.division_id) divisionId = po.division_id
         // supplier_id is stored as text (UUID) without FK — separate lookup
         if (!partyPhone && po?.supplier_id) {
           const { data: sup } = await supabase
@@ -115,22 +129,38 @@ export async function generateCreditDebitNotePdf(
   if (note.note_type === 'credit' && note.invoice_id) {
     const { data: inv } = await supabase
       .from('invoices')
-      .select('invoice_id, customers(phone)')
+      .select('invoice_id, customers(phone), sale_orders(division_id)')
       .eq('id', note.invoice_id)
-      .maybeSingle<{ invoice_id: string; customers: { phone: string | null } | null }>()
+      .maybeSingle<{ invoice_id: string; customers: { phone: string | null } | null; sale_orders: { division_id: string | null } | null }>()
     if (inv?.invoice_id) referenceNumber = inv.invoice_id
+    if (inv?.sale_orders?.division_id) divisionId = inv.sale_orders.division_id
     if (!partyPhone && inv?.customers?.phone) partyPhone = inv.customers.phone
   }
 
-  // ── 3. Branding (shared loaders) ─────────────────────────────────────
-  const [assets, fonts] = await Promise.all([loadPdfAssets(), loadPdfFonts()])
+  // ── 3. Branding (dynamic brand resolution) ──────────────────────────
+  const [brand, fonts] = await Promise.all([
+    resolveBrand(opts?.divisionId ?? divisionId, supabase),
+    loadPdfFonts(),
+  ])
+  const { assets } = brandDataToAssets(brand)
 
   const partyName = note.note_type === 'credit'
     ? (note.customer_name ?? '—')
     : (note.supplier_name ?? '—')
 
-  const pdfData = note.line_items ?? { original_lines: [], returned_lines: [] }
-  const returnedLines = pdfData.returned_lines ?? []
+  const allLines = note.credit_note_lines ?? []
+  const returnedLines: NoteReturnedLine[] = allLines
+    .filter((l) => l.line_type === 'returned')
+    .map((l) => ({
+      item_name:       l.description ?? 'Item',
+      item_name_ar:    '',
+      sku:             l.sku ?? '',
+      qty:             l.qty,
+      unit_price:      l.unit_price,
+      total:           l.total ?? l.qty * l.unit_price,
+      condition:       (l.condition as NoteReturnedLine['condition']) ?? undefined,
+      condition_notes: l.condition_notes ?? undefined,
+    }))
   const creditDebitTotal = returnedLines.reduce((acc, l) => acc + l.total, 0)
 
   // ── 4. Build & render ────────────────────────────────────────────────

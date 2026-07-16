@@ -53,7 +53,7 @@ export function useFinancialDashboard() {
     queryKey: queryKeys.finance.dashboard,
     queryFn: async () => {
       const supabase = createClient()
-      const { data, error } = await supabase.rpc('rpc_financial_dashboard' as any)
+      const { data, error } = await supabase.rpc('rpc_financial_dashboard')
       if (error) throw error
       return data as FinancialDashboardData
     },

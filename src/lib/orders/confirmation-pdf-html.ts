@@ -20,6 +20,7 @@ import {
   brandHeaderHtml,
   contactStripHtml,
   footerHtml,
+  stampSectionHtml,
   BASE_CSS,
 } from '@/lib/pdf/pdf-fonts'
 
@@ -98,7 +99,7 @@ export function buildConfirmationHtml(input: BuildConfirmationHtmlInput): string
 <body>
 
   <!-- Header: company logo + addresses -->
-  ${brandHeaderHtml(input.assets.logo)}
+  ${brandHeaderHtml(input.assets.brandHeader ?? input.assets.logo)}
 
   <!-- Mid bar: contact strip + dark strip + ribbon -->
   <div class="midbar">
@@ -185,6 +186,8 @@ export function buildConfirmationHtml(input: BuildConfirmationHtmlInput): string
   </div>
 
   <!-- Footer -->
+  ${stampSectionHtml(input.assets.stamp)}
+
   ${footerHtml(input.assets.footer)}
 
 </body>

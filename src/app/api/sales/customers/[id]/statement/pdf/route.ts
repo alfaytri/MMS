@@ -33,11 +33,12 @@ export async function GET(
 
   const openParam = req.nextUrl.searchParams.get('open')
   const openOnly = openParam === null ? true : openParam !== 'false'
+  const divisionId = req.nextUrl.searchParams.get('divisionId') ?? undefined
 
   const supabase = createClient(SUPA_URL, SUPA_KEY)
   try {
     const { buffer, filename } = await generateStatementPdf(
-      { customerId: id, openOnly },
+      { customerId: id, openOnly, divisionId },
       supabase,
     )
 

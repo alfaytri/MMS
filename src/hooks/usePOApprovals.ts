@@ -79,7 +79,7 @@ export function useCompletedApprovals() {
       const supabase = createClient()
       const { data, error } = await supabase
         .from('purchase_orders')
-        .select('*, po_approvals(*)')
+        .select('*, po_approvals(*), po_line_items(*)')
         .in('status', ['approved', 'partially_received', 'received', 'cancelled'])
         .is('deleted_at', null)
         .order('updated_at', { ascending: false })

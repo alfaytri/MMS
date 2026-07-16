@@ -18,9 +18,10 @@ type ItemProps = {
   open: boolean
   onOpenChange: (v: boolean) => void
   item?: ToolAssetItem | null
+  categoryId?: string | null
 }
 
-export function ToolAssetItemEditDialog({ open, onOpenChange, item }: ItemProps) {
+export function ToolAssetItemEditDialog({ open, onOpenChange, item, categoryId }: ItemProps) {
   const isEdit = !!item
   const create = useCreateToolAssetItem()
   const update = useUpdateToolAssetItem()
@@ -41,7 +42,7 @@ export function ToolAssetItemEditDialog({ open, onOpenChange, item }: ItemProps)
         onError: (err) => toast.error(err.message),
       })
     } else {
-      create.mutate(payload, {
+      create.mutate({ ...payload, category_id: categoryId ?? null }, {
         onSuccess: () => { toast.success('Tool created'); onOpenChange(false) },
         onError: (err) => toast.error(err.message),
       })
@@ -50,18 +51,20 @@ export function ToolAssetItemEditDialog({ open, onOpenChange, item }: ItemProps)
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="w-full h-full rounded-none sm:h-auto sm:max-w-md sm:rounded-lg">
+      <DialogContent className="w-full h-full rounded-none sm:h-auto sm:max-w-md sm:rounded-lg flex flex-col max-h-[90vh]">
         <DialogHeader><DialogTitle>{isEdit ? 'Edit Tool/Asset' : 'New Tool/Asset'}</DialogTitle></DialogHeader>
-        <form onSubmit={handleSave} className="space-y-4">
-          <div className="space-y-1">
-            <Label htmlFor="tool-name-en">Name (English) *</Label>
-            <Input id="tool-name-en" value={nameEn} onChange={(e) => setNameEn(e.target.value)} placeholder="e.g. Power Drill" />
+        <form onSubmit={handleSave} className="flex flex-col flex-1 min-h-0">
+          <div className="flex-1 overflow-y-auto space-y-4 pr-1">
+            <div className="space-y-1">
+              <Label htmlFor="tool-name-en">Name (English) *</Label>
+              <Input id="tool-name-en" value={nameEn} onChange={(e) => setNameEn(e.target.value)} placeholder="e.g. Power Drill" className="h-10" />
+            </div>
+            <div className="space-y-1">
+              <Label htmlFor="tool-name-ar">Name (Arabic)</Label>
+              <Input id="tool-name-ar" value={nameAr} onChange={(e) => setNameAr(e.target.value)} dir="rtl" className="h-10" />
+            </div>
           </div>
-          <div className="space-y-1">
-            <Label htmlFor="tool-name-ar">Name (Arabic)</Label>
-            <Input id="tool-name-ar" value={nameAr} onChange={(e) => setNameAr(e.target.value)} dir="rtl" />
-          </div>
-          <DialogFooter>
+          <DialogFooter className="pt-4 mt-4 border-t border-border">
             <Button type="button" variant="outline" onClick={() => onOpenChange(false)}>Cancel</Button>
             <Button type="submit" disabled={create.isPending || update.isPending}>
               {create.isPending || update.isPending ? 'Saving…' : isEdit ? 'Save Changes' : 'Create'}
@@ -133,63 +136,65 @@ export function ToolAssetUnitEditDialog({ open, onOpenChange, itemId, unit }: Un
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="w-full h-full rounded-none sm:h-auto sm:max-w-md sm:rounded-lg">
+      <DialogContent className="w-full h-full rounded-none sm:h-auto sm:max-w-md sm:rounded-lg flex flex-col max-h-[90vh]">
         <DialogHeader><DialogTitle>{isEdit ? 'Edit Unit' : 'Add Unit'}</DialogTitle></DialogHeader>
-        <form onSubmit={handleSave} className="space-y-4">
-          <div className="space-y-1">
-            <Label htmlFor="tool-serial">Serial Number *</Label>
-            <Input id="tool-serial" value={serial} onChange={(e) => setSerial(e.target.value)} className="font-mono" />
-          </div>
-          <div className="space-y-1">
-            <Label htmlFor="tool-brand">Brand *</Label>
-            <Input id="tool-brand" value={brand} onChange={(e) => setBrand(e.target.value)} />
-          </div>
-          <div className="grid grid-cols-2 gap-3">
+        <form onSubmit={handleSave} className="flex flex-col flex-1 min-h-0">
+          <div className="flex-1 overflow-y-auto space-y-4 pr-1">
             <div className="space-y-1">
-              <Label htmlFor="tool-condition">Condition</Label>
-              <Select value={condition} onValueChange={(v) => { if (v !== null) setCondition(v) }}>
-                <SelectTrigger id="tool-condition"><SelectValue /></SelectTrigger>
-                <SelectContent>{CONDITIONS.map((c) => <SelectItem key={c} value={c}>{c}</SelectItem>)}</SelectContent>
-              </Select>
+              <Label htmlFor="tool-serial">Serial Number *</Label>
+              <Input id="tool-serial" value={serial} onChange={(e) => setSerial(e.target.value)} className="font-mono h-10" />
             </div>
             <div className="space-y-1">
-              <Label htmlFor="tool-status">Status</Label>
-              <Select value={status} onValueChange={(v) => { if (v !== null) { setStatus(v); if (v !== 'assigned') setAssignedTo('') } }}>
-                <SelectTrigger id="tool-status"><SelectValue /></SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="available">Available</SelectItem>
-                  <SelectItem value="assigned">Assigned</SelectItem>
-                  <SelectItem value="maintenance">Maintenance</SelectItem>
-                  <SelectItem value="retired">Retired</SelectItem>
-                </SelectContent>
-              </Select>
+              <Label htmlFor="tool-brand">Brand *</Label>
+              <Input id="tool-brand" value={brand} onChange={(e) => setBrand(e.target.value)} className="h-10" />
             </div>
-          </div>
-          {status === 'assigned' && (
+            <div className="grid grid-cols-2 gap-3">
+              <div className="space-y-1">
+                <Label htmlFor="tool-condition">Condition</Label>
+                <Select value={condition} onValueChange={(v) => { if (v !== null) setCondition(v) }}>
+                  <SelectTrigger id="tool-condition" className="h-10 w-full min-w-0"><SelectValue /></SelectTrigger>
+                  <SelectContent className="max-h-60 overflow-y-auto">{CONDITIONS.map((c) => <SelectItem key={c} value={c}>{c}</SelectItem>)}</SelectContent>
+                </Select>
+              </div>
+              <div className="space-y-1">
+                <Label htmlFor="tool-status">Status</Label>
+                <Select value={status} onValueChange={(v) => { if (v !== null) { setStatus(v); if (v !== 'assigned') setAssignedTo('') } }}>
+                  <SelectTrigger id="tool-status" className="h-10 w-full min-w-0"><SelectValue /></SelectTrigger>
+                  <SelectContent className="max-h-60 overflow-y-auto">
+                    <SelectItem value="available">Available</SelectItem>
+                    <SelectItem value="assigned">Assigned</SelectItem>
+                    <SelectItem value="maintenance">Maintenance</SelectItem>
+                    <SelectItem value="retired">Retired</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+            </div>
+            {status === 'assigned' && (
+              <div className="space-y-1">
+                <Label htmlFor="tool-assigned-to">Assigned To *</Label>
+                <Select value={assignedTo} onValueChange={(v) => { if (v !== null) setAssignedTo(v) }}>
+                  <SelectTrigger id="tool-assigned-to" className="h-10 w-full min-w-0">
+                    <span className="truncate">
+                      {staffProfiles.find((p) => p.id === assignedTo)?.full_name ?? 'Select staff member…'}
+                    </span>
+                  </SelectTrigger>
+                  <SelectContent className="max-h-60 overflow-y-auto">
+                    {staffProfiles.length === 0 && (
+                      <SelectItem value="_none" disabled>No staff profiles found</SelectItem>
+                    )}
+                    {staffProfiles.map((p) => (
+                      <SelectItem key={p.id} value={p.id}>{p.full_name}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+            )}
             <div className="space-y-1">
-              <Label htmlFor="tool-assigned-to">Assigned To *</Label>
-              <Select value={assignedTo} onValueChange={(v) => { if (v !== null) setAssignedTo(v) }}>
-                <SelectTrigger id="tool-assigned-to">
-                  <SelectValue placeholder="Select staff member…">
-                    {staffProfiles.find((p) => p.id === assignedTo)?.full_name ?? 'Select staff member…'}
-                  </SelectValue>
-                </SelectTrigger>
-                <SelectContent>
-                  {staffProfiles.length === 0 && (
-                    <SelectItem value="_none" disabled>No staff profiles found</SelectItem>
-                  )}
-                  {staffProfiles.map((p) => (
-                    <SelectItem key={p.id} value={p.id}>{p.full_name}</SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
+              <Label htmlFor="tool-expiry">Expiry Date</Label>
+              <Input id="tool-expiry" type="date" value={expiry} onChange={(e) => setExpiry(e.target.value)} className="h-10" />
             </div>
-          )}
-          <div className="space-y-1">
-            <Label htmlFor="tool-expiry">Expiry Date</Label>
-            <Input id="tool-expiry" type="date" value={expiry} onChange={(e) => setExpiry(e.target.value)} />
           </div>
-          <DialogFooter>
+          <DialogFooter className="pt-4 mt-4 border-t border-border">
             <Button type="button" variant="outline" onClick={() => onOpenChange(false)}>Cancel</Button>
             <Button type="submit" disabled={create.isPending || update.isPending}>
               {create.isPending || update.isPending ? 'Saving…' : isEdit ? 'Save' : 'Add Unit'}

@@ -10,10 +10,14 @@ export type CreditNoteLine = {
   id: string
   credit_note_id: string
   invoice_line_id: string | null
-  description: string
+  description: string | null
+  sku: string | null
   qty: number
   unit_price: number
   total: number
+  line_type: 'original' | 'returned'
+  condition: string | null
+  condition_notes: string | null
   created_at: string
 }
 
@@ -54,10 +58,9 @@ export type CreditNote = {
   resolution_type: 'refund' | 'replacement' | 'store_credit' | 'supplier_credit' | null
   refund_method: string | null
   refund_reference: string | null
-  line_items: NotePdfData | null
+  credit_note_lines?: CreditNoteLine[]
   created_at: string
   updated_at: string
-  credit_note_lines?: CreditNoteLine[]
   // joined
   invoice_display?: string | null
   return_number?: string | null
@@ -122,7 +125,7 @@ export function useDebitNotes() {
       const supabase = createClient()
       const { data, error } = await supabase
         .from('credit_notes')
-        .select('*, returns!source_return_id(return_number), purchase_orders!credit_notes_purchase_order_id_fkey(po_number)')
+        .select('*, credit_note_lines(*), returns!source_return_id(return_number), purchase_orders!credit_notes_purchase_order_id_fkey(po_number)')
         .eq('note_type', 'debit')
         .order('created_at', { ascending: false })
         .limit(200)

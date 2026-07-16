@@ -142,7 +142,7 @@ export function BillFormDialog({ open, onOpenChange, initialPoId }: Props) {
                   onValueChange={(v) => setSelectedPoId(v === 'none' || v === null ? '' : v)}
                 >
                   <SelectTrigger id="bill-po"><SelectValue placeholder="Select PO…" /></SelectTrigger>
-                  <SelectContent>
+                  <SelectContent className="max-h-60 overflow-y-auto">
                     {(orders ?? [])
                       .filter((o) => !['draft', 'cancelled'].includes(o.status))
                       .map((po) => (

@@ -1,12 +1,17 @@
 'use client'
 
-import { useState, useMemo, useRef } from 'react'
+import { useState, useMemo } from 'react'
 import { useRouter } from 'next/navigation'
+import { useQuery } from '@tanstack/react-query'
 import { type ColumnDef } from '@tanstack/react-table'
 import { toast } from 'sonner'
+import {
+  Search, X, ChevronDown, MoreVertical,
+  ShoppingCart, DollarSign, Clock, AlertTriangle,
+  Truck, CheckCircle,
+} from 'lucide-react'
 import { PageHeader } from '@/components/shared/PageHeader'
 import { PageWrapper } from '@/components/shared/PageWrapper'
-import { SearchInput } from '@/components/shared/SearchInput'
 import { DataTable } from '@/components/shared/DataTable'
 import { DataTableColumnHeader } from '@/components/shared/DataTableColumnHeader'
 import { SoStatusBadge } from '@/components/sales/SoStatusBadge'
@@ -14,16 +19,32 @@ import { SoDetailDialog } from '@/components/sales/SoDetailDialog'
 import {
   useSaleOrders,
   useConfirmSO,
+  useCancelSO,
+  useCustomers,
   type SaleOrder,
   type SOStatus,
 } from '@/hooks/useSaleOrders'
+import { createClient } from '@/lib/supabase/client'
+import { queryKeys } from '@/lib/queryKeys'
 import { formatCurrency, formatDate } from '@/lib/utils/formatters'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { Progress } from '@/components/ui/progress'
+import { Input } from '@/components/ui/input'
+import { Card, CardContent } from '@/components/ui/card'
+import {
+  Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
+} from '@/components/ui/select'
+import {
+  DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger,
+  DropdownMenuCheckboxItem, DropdownMenuSeparator,
+} from '@/components/ui/dropdown-menu'
+import { DatePicker } from '@/components/ui/date-picker'
 import { cn } from '@/lib/utils'
 import { DivisionFilter, type DivisionFilterValue } from '@/components/shared/DivisionFilter'
 import { useUserDivisionScope } from '@/hooks/useUserDivisionScope'
+
+// ─── Helpers ───────────────────────────────────────────────────────────────────
 
 function getDeliveryPct(so: SaleOrder): number {
   const lines = so.sale_order_lines ?? []
@@ -40,8 +61,38 @@ function getDeliveryText(so: SaleOrder): string {
   return `${totalDelivered}/${totalOrdered}`
 }
 
-const STATUSES: { value: SOStatus | ''; label: string }[] = [
-  { value: '', label: 'All' },
+function getDeliveryStatus(so: SaleOrder): 'not_delivered' | 'partial' | 'fully_delivered' {
+  const lines = so.sale_order_lines ?? []
+  if (lines.length === 0) return 'not_delivered'
+  const totalOrdered = lines.reduce((s, l) => s + l.qty, 0)
+  const totalDelivered = lines.reduce((s, l) => s + l.delivered_qty, 0)
+  if (totalDelivered === 0) return 'not_delivered'
+  if (totalDelivered >= totalOrdered) return 'fully_delivered'
+  return 'partial'
+}
+
+function getDaysSince(dateStr: string): number {
+  const created = new Date(dateStr)
+  const now = new Date()
+  return Math.floor((now.getTime() - created.getTime()) / (1000 * 60 * 60 * 24))
+}
+
+function isOverdue(so: SaleOrder): boolean {
+  if (!so.expected_delivery) return false
+  if (['delivered', 'invoiced', 'closed', 'cancelled'].includes(so.status)) return false
+  return new Date(so.expected_delivery) < new Date()
+}
+
+function getProgressColor(pct: number): string {
+  if (pct === 0) return ''
+  if (pct < 50) return '[&>div]:bg-orange-500'
+  if (pct < 100) return '[&>div]:bg-blue-500'
+  return '[&>div]:bg-emerald-500'
+}
+
+// ─── Constants ─────────────────────────────────────────────────────────────────
+
+const STATUS_OPTIONS: { value: SOStatus; label: string }[] = [
   { value: 'quotation', label: 'Quotation' },
   { value: 'pending_approval', label: 'Pending Approval' },
   { value: 'confirmed', label: 'Confirmed' },
@@ -52,35 +103,107 @@ const STATUSES: { value: SOStatus | ''; label: string }[] = [
   { value: 'cancelled', label: 'Cancelled' },
 ]
 
+const STATUS_COLORS: Record<SOStatus, string> = {
+  quotation:        'bg-muted text-foreground',
+  pending_approval: 'bg-amber-100 text-amber-700',
+  confirmed:        'bg-blue-100 text-blue-700',
+  partial_delivery: 'bg-orange-100 text-orange-700',
+  delivered:        'bg-green-100 text-green-700',
+  invoiced:         'bg-emerald-100 text-emerald-700',
+  closed:           'bg-muted text-muted-foreground',
+  cancelled:        'bg-red-100 text-red-700',
+}
+
+const ROW_TINTS: Partial<Record<string, string>> = {
+  pending_approval: 'bg-amber-50/60 dark:bg-amber-950/20',
+  overdue:          'bg-red-50/60 dark:bg-red-950/20',
+}
+
+const DELIVERY_STATUS_OPTIONS = [
+  { value: '', label: 'All Delivery' },
+  { value: 'not_delivered', label: 'Not Delivered' },
+  { value: 'partial', label: 'Partial' },
+  { value: 'fully_delivered', label: 'Fully Delivered' },
+]
+
+// ─── Payment totals hook (list-level summary) ──────────────────────────────────
+
+function useSOPaymentTotals() {
+  return useQuery({
+    queryKey: [...queryKeys.payments.all, 'so-totals'],
+    queryFn: async () => {
+      const supabase = createClient()
+      const { data, error } = await supabase
+        .from('payments')
+        .select('source_id, amount_qar, amount')
+        .eq('source_type', 'sale_order')
+        .eq('direction', 'incoming')
+        .is('deleted_at', null)
+      if (error) return {} as Record<string, number>
+      const map: Record<string, number> = {}
+      for (const p of data ?? []) {
+        if (!p.source_id) continue
+        const amt = p.amount_qar ?? p.amount ?? 0
+        map[p.source_id] = (map[p.source_id] ?? 0) + amt
+      }
+      return map
+    },
+    staleTime: 30 * 1000,
+  })
+}
+
+function getPaymentStatus(so: SaleOrder, paidMap: Record<string, number>): 'paid' | 'partial' | 'unpaid' {
+  const paid = paidMap[so.id] ?? 0
+  if (paid >= so.total) return 'paid'
+  if (paid > 0) return 'partial'
+  return 'unpaid'
+}
+
+const PAYMENT_BADGE: Record<string, { label: string; className: string }> = {
+  paid:    { label: 'Paid',     className: 'border-emerald-500 text-emerald-600 bg-emerald-50 dark:bg-emerald-950/30' },
+  partial: { label: 'Partial',  className: 'border-amber-500 text-amber-600 bg-amber-50 dark:bg-amber-950/30' },
+  unpaid:  { label: 'Unpaid',   className: 'border-muted-foreground/40 text-muted-foreground' },
+}
+
+// ─── Page ──────────────────────────────────────────────────────────────────────
+
 export default function SaleOrdersPage() {
   const router = useRouter()
   const [search, setSearch] = useState('')
-  const [debouncedSearch, setDebouncedSearch] = useState('')
-  const [statusFilter, setStatusFilter] = useState<SOStatus | ''>('')
+  const [statusFilter, setStatusFilter] = useState<Set<SOStatus>>(new Set())
+  const [customerFilter, setCustomerFilter] = useState('')
   const [dateFrom, setDateFrom] = useState('')
   const [dateTo, setDateTo] = useState('')
+  const [deliveryFilter, setDeliveryFilter] = useState('')
   const [detailSO, setDetailSO] = useState<SaleOrder | null>(null)
   const [divisionFilter, setDivisionFilter] = useState<DivisionFilterValue>({ companyId: null, divisionId: null })
 
   const { isSuperViewer, divisions } = useUserDivisionScope()
+  const { data: customers } = useCustomers()
 
   const confirmSO = useConfirmSO()
+  const cancelSO = useCancelSO()
+  const { data: paidMap } = useSOPaymentTotals()
 
-  const searchRef = useRef<ReturnType<typeof setTimeout> | null>(null)
-  function handleSearch(val: string) {
-    setSearch(val)
-    if (searchRef.current) clearTimeout(searchRef.current)
-    searchRef.current = setTimeout(() => setDebouncedSearch(val), 300)
-  }
+  const hasActiveFilters = !!(search || statusFilter.size > 0 || customerFilter || dateFrom || dateTo || deliveryFilter || divisionFilter.companyId || divisionFilter.divisionId)
 
-  const hasActiveFilters = !!(statusFilter || dateFrom || dateTo || divisionFilter.companyId || divisionFilter.divisionId)
   function clearFilters() {
     setSearch('')
-    setDebouncedSearch('')
-    setStatusFilter('')
+    setStatusFilter(new Set())
+    setCustomerFilter('')
     setDateFrom('')
     setDateTo('')
+    setDeliveryFilter('')
     setDivisionFilter({ companyId: null, divisionId: null })
+  }
+
+  function toggleStatus(s: SOStatus) {
+    setStatusFilter((prev) => {
+      const next = new Set(prev)
+      if (next.has(s)) next.delete(s)
+      else next.add(s)
+      return next
+    })
   }
 
   const divisionQueryProps = useMemo(() => {
@@ -97,19 +220,29 @@ export default function SaleOrdersPage() {
   }, [isSuperViewer, divisionFilter, divisions])
 
   const { data: orders, isLoading } = useSaleOrders({
-    search: debouncedSearch,
-    status: statusFilter,
+    search,
+    statuses: statusFilter.size > 0 ? Array.from(statusFilter) : undefined,
     dateFrom: dateFrom || undefined,
     dateTo: dateTo || undefined,
     ...divisionQueryProps,
   })
 
-  const statusCounts = useMemo(() => {
-    const counts: Partial<Record<SOStatus, number>> = {}
-    ;(orders ?? []).forEach((o) => {
-      counts[o.status] = (counts[o.status] ?? 0) + 1
-    })
-    return counts
+  const filtered = useMemo(() => {
+    let result = orders ?? []
+    if (customerFilter) result = result.filter((o) => o.customer_id === customerFilter)
+    if (deliveryFilter) result = result.filter((o) => getDeliveryStatus(o) === deliveryFilter)
+    return result
+  }, [orders, customerFilter, deliveryFilter])
+
+  // ── KPI stats ─────────────────────────────────────────────────────────────
+  const stats = useMemo(() => {
+    const all = orders ?? []
+    return {
+      total: all.length,
+      totalValue: all.reduce((s, o) => s + o.total, 0),
+      pendingApproval: all.filter((o) => o.status === 'pending_approval').length,
+      overdueDeliveries: all.filter((o) => isOverdue(o)).length,
+    }
   }, [orders])
 
   function handleConfirm(so: SaleOrder) {
@@ -120,6 +253,14 @@ export default function SaleOrdersPage() {
         onError: (err) => toast.error(err.message),
       }
     )
+  }
+
+  function handleCancel(so: SaleOrder) {
+    if (!confirm(`Cancel ${so.so_number}? The SO will remain visible with Cancelled status.`)) return
+    cancelSO.mutate(so.id, {
+      onSuccess: () => toast.success(`${so.so_number} cancelled`),
+      onError: (e) => toast.error(e.message),
+    })
   }
 
   const columns = useMemo<ColumnDef<SaleOrder>[]>(() => [
@@ -149,27 +290,58 @@ export default function SaleOrdersPage() {
       },
     },
     {
-      accessorKey: 'subtotal',
-      header: ({ column }) => <DataTableColumnHeader column={column} title="Subtotal" />,
-      cell: ({ row }) => <span className="text-sm">{formatCurrency(row.getValue('subtotal'), 'QAR')}</span>,
-    },
-    {
       accessorKey: 'total',
       header: ({ column }) => <DataTableColumnHeader column={column} title="Total (QAR)" />,
-      cell: ({ row }) => <span className="font-medium">{formatCurrency(row.getValue('total'), 'QAR')}</span>,
+      cell: ({ row }) => <span className="font-medium tabular-nums">{formatCurrency(row.getValue('total'), 'QAR')}</span>,
+    },
+    {
+      id: 'payment',
+      header: 'Payment',
+      cell: ({ row }) => {
+        const ps = getPaymentStatus(row.original, paidMap ?? {})
+        const cfg = PAYMENT_BADGE[ps]
+        return <Badge variant="outline" className={cn('text-[11px]', cfg.className)}>{cfg.label}</Badge>
+      },
     },
     {
       id: 'delivery',
       header: 'Delivery',
-      size: 110,
+      size: 140,
       cell: ({ row }) => {
         const pct = getDeliveryPct(row.original)
         const text = getDeliveryText(row.original)
         return (
-          <div className="space-y-1 w-[90px]">
-            <Progress value={pct} className="h-1.5" />
-            <p className="text-xs text-muted-foreground text-center tabular-nums">{text}</p>
+          <div className="space-y-1 w-[120px]">
+            <div className="flex items-center justify-between text-xs tabular-nums">
+              <span className="text-muted-foreground">{text}</span>
+              <span className="font-medium">{pct}%</span>
+            </div>
+            <Progress value={pct} className={cn('h-2', getProgressColor(pct))} />
           </div>
+        )
+      },
+    },
+    {
+      accessorKey: 'created_by_name',
+      header: 'Created by',
+      cell: ({ row }) => (
+        <span className="text-sm text-muted-foreground truncate max-w-[120px] block">
+          {row.getValue('created_by_name') ?? '—'}
+        </span>
+      ),
+    },
+    {
+      id: 'age',
+      header: 'Age',
+      cell: ({ row }) => {
+        const days = getDaysSince(row.original.created_at)
+        return (
+          <span className={cn(
+            'text-sm tabular-nums',
+            days > 30 ? 'text-destructive font-medium' : days > 14 ? 'text-amber-600' : 'text-muted-foreground'
+          )}>
+            {days}d
+          </span>
         )
       },
     },
@@ -180,7 +352,58 @@ export default function SaleOrdersPage() {
         <span className="text-sm text-muted-foreground">{formatDate(row.getValue('created_at'))}</span>
       ),
     },
-  ], [])
+    {
+      id: 'actions',
+      size: 50,
+      cell: ({ row }) => {
+        const so = row.original
+        const canConfirm = so.status === 'pending_approval'
+        const canCreateDelivery = ['confirmed', 'partial_delivery'].includes(so.status)
+        const canCancel = !['cancelled', 'closed'].includes(so.status)
+        const canEdit = !['cancelled', 'closed'].includes(so.status)
+        return (
+          <div onClick={(e) => e.stopPropagation()}>
+            <DropdownMenu>
+              <DropdownMenuTrigger className="inline-flex h-8 w-8 items-center justify-center rounded-md hover:bg-accent" aria-label="Row actions">
+                <MoreVertical className="h-4 w-4" />
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="end">
+                <DropdownMenuItem onClick={() => setDetailSO(so)}>View</DropdownMenuItem>
+                {canEdit && (
+                  <DropdownMenuItem onClick={() => router.push(`/sales/edit-so/${so.id}`)}>Edit</DropdownMenuItem>
+                )}
+                {canConfirm && (
+                  <DropdownMenuItem onClick={() => handleConfirm(so)}>
+                    <CheckCircle className="h-4 w-4 mr-2 text-blue-500" />
+                    Confirm
+                  </DropdownMenuItem>
+                )}
+                {canCreateDelivery && (
+                  <DropdownMenuItem onClick={() => {
+                    setDetailSO(so)
+                  }}>
+                    <Truck className="h-4 w-4 mr-2 text-emerald-500" />
+                    Create Delivery
+                  </DropdownMenuItem>
+                )}
+                {canCancel && (
+                  <>
+                    <DropdownMenuSeparator />
+                    <DropdownMenuItem
+                      className="text-destructive focus:text-destructive"
+                      onClick={() => handleCancel(so)}
+                    >
+                      Cancel SO
+                    </DropdownMenuItem>
+                  </>
+                )}
+              </DropdownMenuContent>
+            </DropdownMenu>
+          </div>
+        )
+      },
+    },
+  ], [paidMap, confirmSO, cancelSO, router])
 
   return (
     <PageWrapper>
@@ -194,60 +417,176 @@ export default function SaleOrdersPage() {
         }
       />
 
-      {/* Status chips */}
-      <div className="flex flex-wrap gap-2">
-        {STATUSES.map((s) => (
-          <button
-            key={s.value}
-            onClick={() => setStatusFilter(s.value)}
-            className={cn(
-              'inline-flex items-center gap-1.5 rounded-full border px-3 py-1 text-xs font-medium transition-colors',
-              statusFilter === s.value
-                ? 'bg-primary text-primary-foreground border-primary'
-                : 'bg-background hover:bg-muted'
-            )}
-          >
-            {s.label}
-            {s.value && statusCounts[s.value] !== undefined && (
-              <span className={cn(
-                'inline-flex h-4 min-w-[1rem] items-center justify-center rounded-full px-1 text-[10px]',
-                statusFilter === s.value ? 'bg-primary-foreground/20' : 'bg-muted-foreground/20'
-              )}>
-                {statusCounts[s.value]}
-              </span>
-            )}
-          </button>
-        ))}
+      {/* ── KPI Cards ──────────────────────────────────────────────── */}
+      <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
+        <Card>
+          <CardContent className="p-4 flex items-center gap-3">
+            <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-blue-100 dark:bg-blue-950/40">
+              <ShoppingCart className="h-5 w-5 text-blue-600" />
+            </div>
+            <div className="min-w-0">
+              <p className="text-sm text-muted-foreground">Total Orders</p>
+              <p className="text-2xl font-bold tabular-nums">{stats.total}</p>
+            </div>
+          </CardContent>
+        </Card>
+        <Card>
+          <CardContent className="p-4 flex items-center gap-3">
+            <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-emerald-100 dark:bg-emerald-950/40">
+              <DollarSign className="h-5 w-5 text-emerald-600" />
+            </div>
+            <div className="min-w-0">
+              <p className="text-sm text-muted-foreground">Total Value</p>
+              <p className="text-2xl font-bold tabular-nums">{formatCurrency(stats.totalValue, 'QAR')}</p>
+            </div>
+          </CardContent>
+        </Card>
+        <Card>
+          <CardContent className="p-4 flex items-center gap-3">
+            <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-amber-100 dark:bg-amber-950/40">
+              <Clock className="h-5 w-5 text-amber-600" />
+            </div>
+            <div className="min-w-0">
+              <p className="text-sm text-muted-foreground">Pending Approval</p>
+              <p className="text-2xl font-bold tabular-nums">{stats.pendingApproval}</p>
+            </div>
+          </CardContent>
+        </Card>
+        <Card>
+          <CardContent className="p-4 flex items-center gap-3">
+            <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-red-100 dark:bg-red-950/40">
+              <AlertTriangle className="h-5 w-5 text-red-600" />
+            </div>
+            <div className="min-w-0">
+              <p className="text-sm text-muted-foreground">Overdue Deliveries</p>
+              <p className="text-2xl font-bold tabular-nums">{stats.overdueDeliveries}</p>
+            </div>
+          </CardContent>
+        </Card>
       </div>
 
-      {/* Filters */}
-      <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:flex-wrap">
-        <SearchInput value={search} onChange={handleSearch} placeholder="Search SO number or customer…" />
-        <div className="flex gap-2 flex-wrap">
-          <input
-            type="date"
-            value={dateFrom}
-            onChange={(e) => setDateFrom(e.target.value)}
-            className="h-9 rounded-md border border-input bg-background px-3 text-sm w-36"
-            aria-label="From date"
-          />
-          <input
-            type="date"
-            value={dateTo}
-            onChange={(e) => setDateTo(e.target.value)}
-            className="h-9 rounded-md border border-input bg-background px-3 text-sm w-36"
-            aria-label="To date"
-          />
-          {hasActiveFilters && (
-            <Button variant="ghost" size="sm" onClick={clearFilters}>
-              Clear filters
-            </Button>
-          )}
-        </div>
-        <DivisionFilter value={divisionFilter} onChange={setDivisionFilter} />
-      </div>
+      {/* ── Filters Bar ──────────────────────────────────────────────── */}
+      <Card>
+        <CardContent className="p-4">
+          <div className="flex flex-wrap items-center gap-3">
+            <div className="relative flex-1 min-w-[240px]">
+              <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+              <Input
+                value={search}
+                onChange={(e) => setSearch(e.target.value)}
+                placeholder="Search by SO number or customer…"
+                className="pl-9"
+              />
+            </div>
 
-      <DataTable columns={columns} data={orders ?? []} isLoading={isLoading} onRowClick={(row) => setDetailSO(row)} />
+            {/* Status multi-select */}
+            <DropdownMenu>
+              <DropdownMenuTrigger className="inline-flex h-9 items-center justify-between gap-1.5 rounded-md border border-input bg-background px-3 text-sm min-w-[140px] hover:bg-accent hover:text-accent-foreground">
+                <span className="truncate">
+                  {statusFilter.size === 0
+                    ? 'All Statuses'
+                    : statusFilter.size === 1
+                      ? (STATUS_OPTIONS.find((s) => statusFilter.has(s.value))?.label ?? 'Status')
+                      : `${statusFilter.size} statuses`}
+                </span>
+                <ChevronDown className="h-3.5 w-3.5 shrink-0 opacity-60" />
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="start" className="w-[190px]">
+                {STATUS_OPTIONS.map((s) => (
+                  <DropdownMenuCheckboxItem
+                    key={s.value}
+                    checked={statusFilter.has(s.value)}
+                    onCheckedChange={() => toggleStatus(s.value)}
+                  >
+                    <span className={cn(
+                      'inline-flex items-center px-1.5 py-0.5 rounded text-xs font-medium mr-1',
+                      STATUS_COLORS[s.value] ?? ''
+                    )}>
+                      {s.label}
+                    </span>
+                  </DropdownMenuCheckboxItem>
+                ))}
+                {statusFilter.size > 0 && (
+                  <>
+                    <DropdownMenuSeparator />
+                    <DropdownMenuItem
+                      className="text-xs text-muted-foreground justify-center"
+                      onClick={() => setStatusFilter(new Set())}
+                    >
+                      Clear selection
+                    </DropdownMenuItem>
+                  </>
+                )}
+              </DropdownMenuContent>
+            </DropdownMenu>
+
+            {/* Customer filter */}
+            <Select value={customerFilter || 'all'} onValueChange={(v) => setCustomerFilter(!v || v === 'all' ? '' : v)}>
+              <SelectTrigger className="w-[180px]">
+                <SelectValue>
+                  {(v: string) => v === 'all' ? 'All Customers' : ((customers ?? []).find((c) => c.id === v)?.name ?? v)}
+                </SelectValue>
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">All Customers</SelectItem>
+                {(customers ?? []).map((c) => (
+                  <SelectItem key={c.id} value={c.id}>{c.name}</SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+
+            {/* Date range with proper pickers */}
+            <DatePicker
+              value={dateFrom}
+              onChange={setDateFrom}
+              placeholder="From date"
+              className="w-[150px]"
+            />
+            <DatePicker
+              value={dateTo}
+              onChange={setDateTo}
+              placeholder="To date"
+              className="w-[150px]"
+            />
+
+            {/* Delivery status */}
+            <Select value={deliveryFilter || 'all'} onValueChange={(v) => setDeliveryFilter(!v || v === 'all' ? '' : v)}>
+              <SelectTrigger className="w-[160px]">
+                <SelectValue>
+                  {(v: string) => DELIVERY_STATUS_OPTIONS.find((s) => (s.value || 'all') === v)?.label ?? 'All Delivery'}
+                </SelectValue>
+              </SelectTrigger>
+              <SelectContent>
+                {DELIVERY_STATUS_OPTIONS.map((s) => (
+                  <SelectItem key={s.value || 'all'} value={s.value || 'all'}>{s.label}</SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+
+            {/* Division filter (super viewers only) */}
+            <DivisionFilter value={divisionFilter} onChange={setDivisionFilter} />
+
+            {hasActiveFilters && (
+              <Button variant="ghost" size="sm" onClick={clearFilters}>
+                <X className="h-4 w-4 mr-1" />
+                Clear
+              </Button>
+            )}
+          </div>
+        </CardContent>
+      </Card>
+
+      <DataTable
+        columns={columns}
+        data={filtered}
+        isLoading={isLoading}
+        onRowClick={(row) => setDetailSO(row)}
+        rowClassName={(row) => {
+          if (row.status === 'pending_approval') return ROW_TINTS.pending_approval
+          if (isOverdue(row)) return ROW_TINTS.overdue
+          return undefined
+        }}
+      />
 
       <SoDetailDialog
         open={!!detailSO}

@@ -24,7 +24,7 @@ export function usePurchaseAgingReport() {
     queryKey: queryKeys.finance.purchaseAging,
     queryFn: async () => {
       const supabase = createClient()
-      const { data, error } = await supabase.rpc('rpc_purchase_aging_report' as any)
+      const { data, error } = await supabase.rpc('rpc_purchase_aging_report')
       if (error) throw error
       return (data ?? []) as AgingRow[]
     },
@@ -37,7 +37,7 @@ export function useSalesAgingReport() {
     queryKey: queryKeys.finance.salesAging,
     queryFn: async () => {
       const supabase = createClient()
-      const { data, error } = await supabase.rpc('rpc_sales_aging_report' as any)
+      const { data, error } = await supabase.rpc('rpc_sales_aging_report')
       if (error) throw error
       return (data ?? []) as AgingRow[]
     },

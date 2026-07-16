@@ -86,7 +86,7 @@ export function CreditNoteDialog({ open, onOpenChange, invoice }: Props) {
             <Label htmlFor="cn-reason">Reason *</Label>
             <Select value={reason} onValueChange={(v) => setReason(v ?? '')} disabled={loadingReasons}>
               <SelectTrigger id="cn-reason"><SelectValue placeholder="Select reason..." /></SelectTrigger>
-              <SelectContent>
+              <SelectContent className="max-h-60 overflow-y-auto">
                 {reasons.map((r) => (<SelectItem key={r.id} value={r.label}>{r.label}</SelectItem>))}
               </SelectContent>
             </Select>

@@ -136,7 +136,7 @@ export function TeamToolsSheet() {
             <SelectTrigger className="h-9">
               <SelectValue placeholder="Select tool type…" />
             </SelectTrigger>
-            <SelectContent>
+            <SelectContent className="max-h-60 overflow-y-auto">
               {toolItems.map(item => (
                 <SelectItem key={item.id} value={item.id}>
                   {item.name_en}
@@ -160,7 +160,7 @@ export function TeamToolsSheet() {
                   : 'Select unit…'
               } />
             </SelectTrigger>
-            <SelectContent>
+            <SelectContent className="max-h-60 overflow-y-auto">
               {availableUnits.map(u => u && (
                 <SelectItem key={u.id} value={u.id}>
                   {u.serial_number}

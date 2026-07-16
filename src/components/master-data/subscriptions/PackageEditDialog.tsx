@@ -243,7 +243,7 @@ export function PackageEditDialog({
                 <SelectTrigger id="pkg-priority-response" className="h-8 text-xs">
                   <SelectValue />
                 </SelectTrigger>
-                <SelectContent>
+                <SelectContent className="max-h-60 overflow-y-auto">
                   <SelectItem value="none" className="text-xs">None</SelectItem>
                   <SelectItem value="24_48hr" className="text-xs">24–48 HR</SelectItem>
                   <SelectItem value="under_24hr" className="text-xs">{'< 24 HR'}</SelectItem>

@@ -1,14 +1,5 @@
 'use client'
 
-/**
- * Credit / Debit Note PDF — View / Download buttons.
- * Replaces the @react-pdf/renderer button — see SoPdfButton.tsx for context.
- *
- * `referenceNumber` and `returnNumber` are now resolved server-side from the
- * note's joins, so these props are kept for backward compatibility with the
- * existing call sites but are no longer used.
- */
-
 import { useState } from 'react'
 import { Button } from '@/components/ui/button'
 import { Download, Eye, Loader2 } from 'lucide-react'
@@ -92,7 +83,7 @@ export function CreditDebitNoteDownloadButton({ note }: Props) {
         {busy === 'generate'
           ? <Loader2 className="h-3.5 w-3.5 animate-spin" />
           : <Eye className="h-3.5 w-3.5" />}
-        {busy === 'generate' ? 'Generating…' : 'Generate PDF'}
+        {busy === 'generate' ? 'Generating...' : 'Generate PDF'}
       </Button>
     )
   }

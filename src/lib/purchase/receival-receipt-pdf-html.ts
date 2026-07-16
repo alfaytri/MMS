@@ -4,6 +4,7 @@ import {
   brandHeaderHtml,
   contactStripHtml,
   footerHtml,
+  stampSectionHtml,
   BASE_CSS,
 } from '@/lib/pdf/pdf-fonts'
 
@@ -134,7 +135,7 @@ export function buildReceivalReceiptHtml(input: BuildReceivalReceiptHtmlInput): 
 </head>
 <body>
 
-  ${brandHeaderHtml(assets.logo)}
+  ${brandHeaderHtml(assets.brandHeader ?? assets.logo)}
 
   <div class="midbar">
     ${contactStripHtml()}
@@ -214,6 +215,8 @@ export function buildReceivalReceiptHtml(input: BuildReceivalReceiptHtmlInput): 
       <div class="signature-label">Verified by (Name &amp; Signature)</div>
     </div>
   </div>
+
+  ${stampSectionHtml(assets.stamp)}
 
   ${footerHtml(assets.footer)}
 

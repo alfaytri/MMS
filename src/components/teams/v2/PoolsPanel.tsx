@@ -183,7 +183,7 @@ function PoolEmployeeRow({ employee }: { employee: Employee }) {
     id: `pool-emp-${employee.id}`,
     data: { type: 'employee', employeeId: employee.id, fromTeamId: employee.team_id ?? null } satisfies DragData,
   })
-  const initials = employee.name?.split(' ').map(w => w[0]).join('').slice(0, 2).toUpperCase() ?? '?'
+  const initials = employee.name?.split(' ').map((w: string) => w[0]).join('').slice(0, 2).toUpperCase() ?? '?'
 
   return (
     <div

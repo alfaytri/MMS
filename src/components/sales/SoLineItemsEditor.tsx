@@ -240,7 +240,7 @@ export function SoLineItemsEditor({
                       )}
                     </div>
 
-                    {/* Row 2: field grid — responsive flex-wrap, generous gap, fixed widths */}
+                    {/* Row 2: field grid */}
                     <div className="flex flex-wrap gap-3 pl-1">
                       <div className="space-y-0.5 w-[110px]">
                         <label className="text-[10px] font-medium text-muted-foreground uppercase tracking-wider">SKU</label>
@@ -273,8 +273,6 @@ export function SoLineItemsEditor({
                           onChange={(e) => updateRow(row._key, { unit: e.target.value })}
                         />
                       </div>
-                      {/* Unit Cost — sourced from inventory avg_cost, never editable.
-                          Drives the margin gate in approval chains. */}
                       <div className="space-y-0.5 w-[115px]">
                         <label className="text-[10px] font-medium text-muted-foreground uppercase tracking-wider flex items-center gap-1">
                           Unit Cost <span aria-hidden className="text-muted-foreground/60">🔒</span>

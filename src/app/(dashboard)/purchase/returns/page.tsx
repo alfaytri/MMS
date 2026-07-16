@@ -153,7 +153,7 @@ export default function PurchaseReturnsPage() {
             const cfg  = STATUS_CONFIG[ret.status] ?? STATUS_CONFIG.pending
             const next = STATUS_NEXT[ret.status]
             const canCancel = ret.status === 'pending' || ret.status === 'dispatched'
-            const totalQty = ret.items.reduce((s, i) => s + i.qty, 0)
+            const totalQty = (ret.return_lines ?? []).reduce((s, i) => s + i.qty, 0)
             return (
               <div
                 key={ret.id}
@@ -188,7 +188,7 @@ export default function PurchaseReturnsPage() {
                   </div>
                   <div className="flex flex-wrap items-center gap-x-4 gap-y-1 text-xs text-muted-foreground">
                     <span className="flex items-center gap-1"><Calendar className="h-3 w-3" />{formatDate(ret.date)}</span>
-                    <span className="flex items-center gap-1"><Package className="h-3 w-3" />{totalQty} unit{totalQty !== 1 ? 's' : ''} · {ret.items.length} line{ret.items.length !== 1 ? 's' : ''}</span>
+                    <span className="flex items-center gap-1"><Package className="h-3 w-3" />{totalQty} unit{totalQty !== 1 ? 's' : ''} · {(ret.return_lines ?? []).length} line{(ret.return_lines ?? []).length !== 1 ? 's' : ''}</span>
                     <span className="truncate max-w-[200px]">{ret.reason}</span>
                   </div>
                 </div>

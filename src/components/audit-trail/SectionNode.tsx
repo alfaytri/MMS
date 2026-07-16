@@ -39,7 +39,7 @@ function extractName(data: Record<string, unknown> | null): string | null {
 }
 
 function resolveEntityType(entry: ActivityLog): string {
-  return entry.entity_type?.replace(/_/g, ' ').replace(/\b\w/g, (c) => c.toUpperCase()) ?? '—'
+  return entry.entity_type?.replace(/_/g, ' ').replace(/\b\w/g, (c: string) => c.toUpperCase()) ?? '—'
 }
 
 export function groupByEntity(

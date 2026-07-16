@@ -205,7 +205,7 @@ export default function EditPOPage() {
       delivery_terms_notes: po.delivery_terms_notes ?? null,
       expected_delivery: po.expected_delivery ?? null,
       vendor_notes: po.vendor_notes ?? null,
-      line_items: (po.po_line_items ?? []).map((li) => ({
+      po_version_lines: (po.po_line_items ?? []).map((li) => ({
         item_name: li.item_name,
         sku: li.sku ?? '',
         qty: li.qty,
@@ -274,7 +274,7 @@ export default function EditPOPage() {
       expected_delivery: version.expected_delivery ?? '',
       vendor_notes: version.vendor_notes ?? '',
     })
-    setLineItems(draftToLineItemRows(version.line_items))
+    setLineItems(draftToLineItemRows(version.po_version_lines))
     setActiveStage(liveStage)
     setActiveVersionNumber(null)
     toast.success(`Restored V${version.version_number} values — review and submit`)
@@ -325,7 +325,7 @@ export default function EditPOPage() {
 
   // ── Read-only form for old version tabs ────────────────────────────────────
   function renderReadOnlyForm(version: PoVersion) {
-    const vLines = draftToLineItemRows(version.line_items)
+    const vLines = draftToLineItemRows(version.po_version_lines)
     const vSubtotal = vLines.reduce((s, li) => s + li.total_price, 0)
     const vGrandTotal = vSubtotal - version.discount_amount
     const vTerms: PoTermsValues = {

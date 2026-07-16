@@ -60,7 +60,7 @@ export function PoShipmentDialog({ open, onOpenChange, poId }: Props) {
             <Label htmlFor="pos-mode">Mode *</Label>
             <Select value={mode} onValueChange={(v) => setMode((v ?? 'air') as ShipmentMode)}>
               <SelectTrigger id="pos-mode"><SelectValue /></SelectTrigger>
-              <SelectContent>
+              <SelectContent className="max-h-60 overflow-y-auto">
                 <SelectItem value="air">Air</SelectItem>
                 <SelectItem value="sea">Sea</SelectItem>
                 <SelectItem value="land">Land</SelectItem>

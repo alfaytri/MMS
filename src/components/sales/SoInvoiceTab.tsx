@@ -185,8 +185,6 @@ export function SoInvoiceTab({ so }: SoInvoiceTabProps) {
       <div className="flex flex-wrap gap-2">
         <InvoicePdfButton
           invoice={soInvoice}
-          amountPaid={totalInvoicePaid}
-          outstanding={invoiceOutstanding}
         />
         {soInvoice.doc_status === 'ready_to_send' && (
           <Button

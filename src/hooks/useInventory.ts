@@ -19,7 +19,6 @@ export type BrandVariantInsert = {
   selling_price?: number | null
   average_cost?: number | null
   reorder_point?: number
-  margin_percent?: number | null
   stock_level?: number | null
 }
 export type BrandVariantUpdate = Partial<Omit<BrandVariantInsert, 'item_id'>> & { id?: string }
@@ -48,7 +47,7 @@ export function useInventoryItems(categoryType?: string) {
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       let query = supabase
         .from('inventory_items')
-        .select('id, category_id, name_en, name_ar, sku, unit, cost_price, markup_percent, sort_order, status, total_stock, linked_services_count, inventory_categories!inner(type, name_en)')
+        .select('id, category_id, name_en, name_ar, sku, unit, cost_price, sort_order, status, total_stock, linked_services_count, inventory_categories!inner(type, name_en)')
         .eq('status', 'active')
         .order('name_en')
 
@@ -314,6 +313,7 @@ export type FifoLayer = {
   id: string
   brand_variant_id: string
   receival_number: string | null
+  receival_id: string | null
   source_type: string | null
   date: string
   qty: number
@@ -322,6 +322,8 @@ export type FifoLayer = {
   landed_cost_per_unit: number
   total_unit_cost: number
   created_at: string
+  warehouse_id: string | null
+  warehouse_name: string | null
 }
 
 export type ToolAssetItem = {
@@ -560,13 +562,46 @@ export function useFifoLayers(brandVariantId: string | null, enabled = true) {
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       const { data, error } = await supabase
         .from('fifo_cost_layers')
-        .select('id, brand_variant_id, receival_number, source_type, date, qty, remaining_qty, unit_cost, landed_cost_per_unit, total_unit_cost, created_at')
+        .select('id, brand_variant_id, receival_number, receival_id, source_type, date, qty, remaining_qty, unit_cost, landed_cost_per_unit, total_unit_cost, created_at, warehouse_id, warehouses!fifo_cost_layers_warehouse_id_fkey(name)')
         .eq('brand_variant_id', brandVariantId!)
         .order('date', { ascending: true })
         .order('receival_number', { ascending: true })
         .order('created_at', { ascending: true })
       if (error) throw error
-      return (data ?? []) as FifoLayer[]
+      return (data ?? []).map((r) => {
+        const row = r as unknown as {
+          id: string
+          brand_variant_id: string
+          receival_number: string | null
+          receival_id: string | null
+          source_type: string | null
+          date: string
+          qty: number
+          remaining_qty: number
+          unit_cost: number
+          landed_cost_per_unit: number
+          total_unit_cost: number
+          created_at: string
+          warehouse_id: string | null
+          warehouses: { name: string } | null
+        }
+        return {
+          id: row.id,
+          brand_variant_id: row.brand_variant_id,
+          receival_number: row.receival_number,
+          receival_id: row.receival_id,
+          source_type: row.source_type,
+          date: row.date,
+          qty: row.qty,
+          remaining_qty: row.remaining_qty,
+          unit_cost: row.unit_cost,
+          landed_cost_per_unit: row.landed_cost_per_unit,
+          total_unit_cost: row.total_unit_cost,
+          created_at: row.created_at,
+          warehouse_id: row.warehouse_id,
+          warehouse_name: row.warehouses?.name ?? null,
+        }
+      }) as FifoLayer[]
     },
     staleTime: 2 * 60 * 1000,
   })
@@ -631,7 +666,7 @@ export function useCategoryStockAggregates(categoryType: string) {
     queryKey: queryKeys.inventory.categoryStockAggregates(categoryType),
     queryFn: async () => {
       const supabase = createClient()
-      const { data, error } = await supabase.rpc('get_category_stock_aggregates' as any, { p_type: categoryType })
+      const { data, error } = await supabase.rpc('get_category_stock_aggregates', { p_type: categoryType })
       if (error) throw error
       const map = new Map<string, CategoryStockAggregate>()
       for (const row of (data ?? [])) {
@@ -650,7 +685,6 @@ export function useToolAssetItems(search = '') {
     queryKey: queryKeys.inventory.toolAssetItemsBySearch(search),
     queryFn: async () => {
       const supabase = createClient()
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
       let q = supabase
         .from('tool_asset_items')
         .select('*')
@@ -658,6 +692,26 @@ export function useToolAssetItems(search = '') {
         .limit(1000)
       if (search) q = q.ilike('name_en', `%${search}%`)
       const { data, error } = await q
+      if (error) throw error
+      return (data ?? []) as ToolAssetItem[]
+    },
+    staleTime: 5 * 60 * 1000,
+  })
+}
+
+export function useToolAssetItemsByCategory(categoryId: string | null) {
+  return useQuery({
+    queryKey: queryKeys.inventory.toolAssetItemsByCategory(categoryId),
+    enabled: !!categoryId,
+    queryFn: async () => {
+      const supabase = createClient()
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const { data, error } = await supabase
+        .from('tool_asset_items')
+        .select('*')
+        .eq('category_id', categoryId!)
+        .order('name_en', { ascending: true })
+        .limit(500)
       if (error) throw error
       return (data ?? []) as ToolAssetItem[]
     },
@@ -688,7 +742,7 @@ export function useToolAssetUnits(itemId: string | null) {
 export function useCreateToolAssetItem() {
   const qc = useQueryClient()
   return useMutation({
-    mutationFn: async (payload: { name_en: string; name_ar?: string | null }) => {
+    mutationFn: async (payload: { name_en: string; name_ar?: string | null; category_id?: string | null }) => {
       const supabase = createClient()
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       const { data, error } = await supabase
@@ -706,14 +760,17 @@ export function useCreateToolAssetItem() {
       })
       return data as ToolAssetItem
     },
-    onSuccess: () => qc.invalidateQueries({ queryKey: queryKeys.inventory.toolAssetItems }),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: queryKeys.inventory.toolAssetItems })
+      qc.invalidateQueries({ queryKey: ['tool-asset-items-by-category'] })
+    },
   })
 }
 
 export function useUpdateToolAssetItem() {
   const qc = useQueryClient()
   return useMutation({
-    mutationFn: async ({ id, ...payload }: { id: string; name_en?: string; name_ar?: string | null }) => {
+    mutationFn: async ({ id, ...payload }: { id: string; name_en?: string; name_ar?: string | null; category_id?: string | null }) => {
       const supabase = createClient()
       const { data: old } = await supabase
         .from('tool_asset_items')
@@ -738,7 +795,10 @@ export function useUpdateToolAssetItem() {
       })
       return data as ToolAssetItem
     },
-    onSuccess: () => qc.invalidateQueries({ queryKey: queryKeys.inventory.toolAssetItems }),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: queryKeys.inventory.toolAssetItems })
+      qc.invalidateQueries({ queryKey: ['tool-asset-items-by-category'] })
+    },
   })
 }
 
@@ -1010,7 +1070,6 @@ export function useStaffProfiles() {
 export type BrandVariantPriceSummary = {
   id: string
   selling_price: number | null
-  margin_percent: number | null
   average_cost: number | null
 }
 
@@ -1023,7 +1082,7 @@ export function useBrandVariantsByIds(ids: string[]) {
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       const { data, error } = await supabase
         .from('inventory_brand_variants')
-        .select('id, selling_price, margin_percent, average_cost')
+        .select('id, selling_price, average_cost')
         .in('id', ids)
       if (error) throw error
       return (data ?? []) as BrandVariantPriceSummary[]
@@ -1035,7 +1094,6 @@ export function useBrandVariantsByIds(ids: string[]) {
 export type SellingPriceUpdate = {
   id: string
   selling_price: number
-  margin_percent: number
 }
 
 export function useBatchUpdateSellingPrices() {

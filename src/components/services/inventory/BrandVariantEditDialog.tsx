@@ -29,7 +29,6 @@ export function BrandVariantEditDialog({ open, onOpenChange, itemId, variant }: 
   const [brand, setBrand] = useState('')
   const [code, setCode] = useState('')
   const [sellingPrice, setSellingPrice] = useState('')
-  const [marginPercent, setMarginPercent] = useState('0')
   const [reorderPoint, setReorderPoint] = useState('0')
   const [avgCost, setAvgCost] = useState('')
 
@@ -73,9 +72,8 @@ export function BrandVariantEditDialog({ open, onOpenChange, itemId, variant }: 
       setBrand(variant?.brand ?? '')
       setCode(variant?.code ?? '')
       setSellingPrice(variant?.selling_price != null ? String(variant.selling_price) : '')
-      setMarginPercent(variant?.margin_percent != null ? String(variant.margin_percent) : '0')
       setReorderPoint(variant ? String(variant.reorder_point ?? 0) : '0')
-      setAvgCost(variant?.average_cost != null ? String(variant.average_cost) : '')
+      setAvgCost(variant?.average_cost != null ? String(Math.round(variant.average_cost * 100) / 100) : '')
     }
   }, [open, variant])
 
@@ -151,7 +149,6 @@ export function BrandVariantEditDialog({ open, onOpenChange, itemId, variant }: 
       brand: brand.trim(),
       code: code.trim() || null,
       selling_price: sellingPrice ? Number(sellingPrice) : 0,
-      margin_percent: Number(marginPercent) || 0,
       reorder_point: Number(reorderPoint),
       stock_level: computedStockLevel,
       ...(!avgCostLocked && { average_cost: avgCost !== '' ? Number(avgCost) : null }),
@@ -221,28 +218,15 @@ export function BrandVariantEditDialog({ open, onOpenChange, itemId, variant }: 
               className="font-mono"
             />
           </div>
-          <div className="grid grid-cols-2 gap-3">
-            <div className="space-y-1">
-              <Label htmlFor="bv-selling-price">Selling Price (QAR)</Label>
-              <Input
-                id="bv-selling-price"
-                type="number" min="0" step="0.01"
-                value={sellingPrice}
-                onChange={(e) => setSellingPrice(e.target.value)}
-                placeholder="0.00"
-              />
-            </div>
-            <div className="space-y-1">
-              <Label htmlFor="bv-markup">Markup %</Label>
-              <Input
-                id="bv-markup"
-                type="number" min="0" step="0.01"
-                value={marginPercent}
-                onChange={(e) => setMarginPercent(e.target.value)}
-                placeholder="0"
-              />
-              <p className="text-xs text-muted-foreground">Used by LC price review: price = avg_cost × (1 + markup%)</p>
-            </div>
+          <div className="space-y-1">
+            <Label htmlFor="bv-selling-price">Selling Price (QAR)</Label>
+            <Input
+              id="bv-selling-price"
+              type="number" min="0" step="0.01"
+              value={sellingPrice}
+              onChange={(e) => setSellingPrice(e.target.value)}
+              placeholder="0.00"
+            />
           </div>
           <div className="grid grid-cols-2 gap-3">
             <div className="space-y-1">
@@ -250,7 +234,7 @@ export function BrandVariantEditDialog({ open, onOpenChange, itemId, variant }: 
               {avgCostLocked ? (
                 <div className="space-y-1">
                   <Input
-                    value={avgCost}
+                    value={avgCost ? Number(avgCost).toLocaleString('en-QA', { minimumFractionDigits: 2, maximumFractionDigits: 2 }) : ''}
                     readOnly
                     className="bg-muted text-muted-foreground cursor-not-allowed"
                   />

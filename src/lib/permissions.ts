@@ -193,13 +193,6 @@ export const PERMISSION_GROUPS: PermissionGroup[] = [
         ],
       },
       {
-        label: 'RFQ',
-        permissions: [
-          { key: 'purchase.rfq.view',   label: 'View RFQs',   description: 'Access request for quotation records' },
-          { key: 'purchase.rfq.manage', label: 'Manage RFQs', description: 'Create and manage requests for quotations' },
-        ],
-      },
-      {
         label: 'Dead Stock Report',
         permissions: [
           { key: 'purchase.dead_stock.view', label: 'View Dead Stock Report', description: 'Access the dead stock and slow-moving inventory report' },
@@ -216,13 +209,6 @@ export const PERMISSION_GROUPS: PermissionGroup[] = [
         label: 'Debit Notes',
         permissions: [
           { key: 'purchase.debit_notes.view', label: 'View Debit Notes', description: 'Access the purchase debit notes page' },
-        ],
-      },
-      {
-        label: 'Supplier Payments',
-        permissions: [
-          { key: 'purchase.payments.view',   label: 'View Purchase Payments',   description: 'Access purchase payment records' },
-          { key: 'purchase.payments.manage', label: 'Manage Purchase Payments', description: 'Create and manage purchase payment transactions' },
         ],
       },
       {
@@ -287,7 +273,7 @@ export const PERMISSION_GROUPS: PermissionGroup[] = [
         label: 'Warehouses Tab',
         permissions: [
           { key: 'warehouse.warehouses.view', label: 'View Warehouses Tab',  description: 'See the Warehouses tab listing physical warehouses' },
-          { key: 'warehouse.settings.manage', label: 'Manage WH Settings',   description: 'Edit warehouses, assign Field RPs, configure reorder points' },
+          { key: 'warehouse.settings.manage', label: 'Manage WH Settings',   description: 'Edit warehouses, assign Warehouse RPs, configure reorder points' },
         ],
       },
       {
@@ -301,8 +287,8 @@ export const PERMISSION_GROUPS: PermissionGroup[] = [
         permissions: [
           { key: 'warehouse.transfers.view',    label: 'View Transfers',     description: 'See the Transfers tab and transfer history' },
           { key: 'warehouse.transfer.create',   label: 'Create Transfers',   description: 'Initiate stock transfers between warehouses' },
-          { key: 'warehouse.transfer.dispatch', label: 'Dispatch Transfers', description: 'Approve items leaving a warehouse (Field RP only)' },
-          { key: 'warehouse.transfer.receive',  label: 'Receive Transfers',  description: 'Confirm items arriving at a warehouse (Field RP only)' },
+          { key: 'warehouse.transfer.dispatch', label: 'Dispatch Transfers', description: 'Approve items leaving a warehouse (Warehouse RP only)' },
+          { key: 'warehouse.transfer.receive',  label: 'Receive Transfers',  description: 'Confirm items arriving at a warehouse (Warehouse RP only)' },
           { key: 'warehouse.transfer.approve',  label: 'Override Transfers', description: 'Override/approve any transfer step (Inventory Manager)' },
         ],
       },
@@ -493,7 +479,36 @@ export const PERMISSION_GROUPS: PermissionGroup[] = [
   },
 ]
 
-export const ALL_PERMISSIONS = PERMISSION_GROUPS.flatMap(groupKeys)
+const MODULE_KEY_MAP: Record<string, string> = {
+  'Master Data':          'master_data',
+  'Purchase & Sales':     'purchase_sales',
+  'Warehouse':            'warehouse',
+  'Orders':               'orders',
+  'Contracts':            'contracts',
+  'Invoices & Payments':  'finance',
+  'Teams':                'teams',
+  'Reports':              'reports',
+  'System':               'system',
+  'Contact Centre':       'contact_centre',
+}
+
+function getEnabledModules(): Set<string> | null {
+  const raw = process.env.NEXT_PUBLIC_ENABLED_MODULES?.trim()
+  if (!raw) return null
+  return new Set(raw.split(',').map((s) => s.trim()))
+}
+
+const BRANCH_ENABLED_MODULES = new Set(['master_data', 'purchase_sales', 'warehouse'])
+
+export const ACTIVE_PERMISSION_GROUPS: PermissionGroup[] = (() => {
+  const enabled = getEnabledModules() ?? BRANCH_ENABLED_MODULES
+  return PERMISSION_GROUPS.filter((g) => {
+    const key = MODULE_KEY_MAP[g.module]
+    return key ? enabled.has(key) : true
+  })
+})()
+
+export const ALL_PERMISSIONS = ACTIVE_PERMISSION_GROUPS.flatMap(groupKeys)
 
 export const ROLE_COLORS = ['blue', 'green', 'orange', 'purple', 'teal', 'rose', 'amber', 'indigo'] as const
 export type RoleColor = (typeof ROLE_COLORS)[number]

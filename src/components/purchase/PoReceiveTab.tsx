@@ -170,7 +170,7 @@ export function PoReceiveTab({ po }: { po: PurchaseOrder }) {
           <Label htmlFor="po-receive-warehouse">Warehouse *</Label>
           <Select value={warehouseId} onValueChange={(v) => setWarehouseId(v ?? '')}>
             <SelectTrigger id="po-receive-warehouse"><SelectValue placeholder="Select warehouse…" /></SelectTrigger>
-            <SelectContent>
+            <SelectContent className="max-h-60 overflow-y-auto">
               {(warehouses ?? []).map((w) => (
                 <SelectItem key={w.id} value={w.id}>{w.name}</SelectItem>
               ))}
@@ -348,7 +348,7 @@ export function PoReceiveTab({ po }: { po: PurchaseOrder }) {
                 <SelectTrigger className="h-9">
                   <SelectValue />
                 </SelectTrigger>
-                <SelectContent>
+                <SelectContent className="max-h-60 overflow-y-auto">
                   <SelectItem value="products">Products</SelectItem>
                   <SelectItem value="spare-parts">Spare Parts</SelectItem>
                   <SelectItem value="consumables">Consumables</SelectItem>

@@ -1,7 +1,7 @@
 'use client'
 
-import React, { useState, useMemo, useCallback } from 'react'
-import { Search, X, RefreshCw, TrendingUp, ChevronRight, ChevronDown, ArrowUpDown } from 'lucide-react'
+import React, { useState, useMemo, useCallback, useEffect } from 'react'
+import { Search, X, RefreshCw, TrendingUp, ChevronRight, ChevronDown, ChevronLeft, ArrowUpDown } from 'lucide-react'
 import { Input } from '@/components/ui/input'
 import { Button } from '@/components/ui/button'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
@@ -228,6 +228,7 @@ export const WhStockValueTab = React.memo(function WhStockValueTab({ warehouses 
   const [sortField, setSortField] = useState<SortField>('latest_receival')
   const [sortDir, setSortDir] = useState<SortDir>('desc')
   const [expandedRows, setExpandedRows] = useState<Set<string>>(new Set())
+  const [page, setPage] = useState(1)
   const [cogsDialog, setCogsDialog] = useState<{
     brandVariantId: string; itemName: string; brand: string | null; sku: string | null
   } | null>(null)
@@ -391,6 +392,18 @@ export const WhStockValueTab = React.memo(function WhStockValueTab({ warehouses 
     return rows
   }, [merged, sortField, sortDir])
 
+  // ── Pagination ─────────────────────────────────────────────────────────────
+
+  const PAGE_SIZE = 25
+  const totalPages = Math.max(1, Math.ceil(sorted.length / PAGE_SIZE))
+
+  useEffect(() => { setPage(1) }, [search, selectedWarehouseId, activeType, sortField, sortDir])
+
+  const paged = useMemo(() => {
+    const start = (page - 1) * PAGE_SIZE
+    return sorted.slice(start, start + PAGE_SIZE)
+  }, [sorted, page])
+
   // ── Summary ────────────────────────────────────────────────────────────────
 
   const totalQty = useMemo(() => sorted.reduce((s, r) => s + r.totalQty, 0), [sorted])
@@ -479,7 +492,7 @@ export const WhStockValueTab = React.memo(function WhStockValueTab({ warehouses 
             <SelectTrigger className="w-[180px] h-8 text-xs">
               <SelectValue placeholder="All Warehouses" />
             </SelectTrigger>
-            <SelectContent>
+            <SelectContent className="max-h-60 overflow-y-auto">
               <SelectItem value="__all__" className="text-xs">All Warehouses</SelectItem>
               {warehouses.map((wh) => (
                 <SelectItem key={wh.id} value={wh.id} className="text-xs">
@@ -570,14 +583,14 @@ export const WhStockValueTab = React.memo(function WhStockValueTab({ warehouses 
                     Loading stock data…
                   </TableCell>
                 </TableRow>
-              ) : sorted.length === 0 ? (
+              ) : paged.length === 0 ? (
                 <TableRow>
                   <TableCell colSpan={9} className="text-center text-xs text-muted-foreground py-8">
                     {search ? 'No items match your search' : 'No stock data'}
                   </TableCell>
                 </TableRow>
               ) : (
-                sorted.map((row) => {
+                paged.map((row) => {
                   const isExpanded = expandedRows.has(row.brand_variant_id)
                   return (
                     <React.Fragment key={row.brand_variant_id}>
@@ -728,10 +741,39 @@ export const WhStockValueTab = React.memo(function WhStockValueTab({ warehouses 
           </Table>
         </div>
 
-        {/* Footer total */}
+        {/* Footer: pagination + totals */}
         {sorted.length > 0 && (
           <div className="flex items-center justify-between text-xs text-muted-foreground px-1">
             <span>{sorted.length} item{sorted.length !== 1 ? 's' : ''}</span>
+
+            {totalPages > 1 && (
+              <div className="flex items-center gap-1.5">
+                <Button
+                  variant="outline"
+                  size="sm"
+                  className="h-7 w-7 p-0"
+                  disabled={page <= 1}
+                  onClick={() => setPage((p) => Math.max(1, p - 1))}
+                  aria-label="Previous page"
+                >
+                  <ChevronLeft className="h-3.5 w-3.5" />
+                </Button>
+                <span className="tabular-nums min-w-[80px] text-center">
+                  Page {page} of {totalPages}
+                </span>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  className="h-7 w-7 p-0"
+                  disabled={page >= totalPages}
+                  onClick={() => setPage((p) => Math.min(totalPages, p + 1))}
+                  aria-label="Next page"
+                >
+                  <ChevronRight className="h-3.5 w-3.5" />
+                </Button>
+              </div>
+            )}
+
             <span className="font-semibold text-foreground">
               Total: QR {formatCurrency(totalValue)}
             </span>

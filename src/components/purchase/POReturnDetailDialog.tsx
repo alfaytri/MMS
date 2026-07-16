@@ -52,12 +52,12 @@ interface Props {
 export function POReturnDetailDialog({ ret, onClose }: Props) {
   const [pdfBusy, setPdfBusy] = useState(false)
   const { data: warehouses = [] } = useWarehouses()
-  const bvIds = useMemo(() => (ret?.items ?? []).map((i) => i.brand_variant_id).filter(Boolean) as string[], [ret?.items])
+  const bvIds = useMemo(() => (ret?.return_lines ?? []).map((i) => i.brand_variant_id).filter(Boolean) as string[], [ret?.return_lines])
   const { data: whStockMap } = useWarehouseStockByItems(bvIds)
 
   if (!ret) return null
 
-  const items = ret.items ?? []
+  const items = ret.return_lines ?? []
   const totalQty = items.reduce((sum, i) => sum + i.qty, 0)
   const statusCfg = STATUS_CONFIG[ret.status] ?? STATUS_CONFIG.pending
 

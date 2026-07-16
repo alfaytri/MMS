@@ -2,8 +2,7 @@
  * Builds the self-contained HTML for a Credit Note / Debit Note PDF.
  * Uses the shared IBM Plex Sans font stack and compact bilingual template.
  *
- * Credit notes: red (#dc2626) ribbon + table headers.
- * Debit notes:  orange (#ED7C2C) ribbon + table headers.
+ * Both credit and debit notes use orange (#ED7C2C) ribbon + table headers.
  */
 
 import type { PdfFonts, PdfAssets } from '@/lib/pdf/pdf-fonts'
@@ -12,6 +11,7 @@ import {
   brandHeaderHtml,
   contactStripHtml,
   footerHtml,
+  stampSectionHtml,
   BASE_CSS,
 } from '@/lib/pdf/pdf-fonts'
 
@@ -77,7 +77,7 @@ export function buildCreditDebitNoteHtml(input: BuildCreditDebitNoteHtmlInput): 
   const isCredit = input.noteType === 'credit'
 
   /* ── ribbon / header colour ────────────────────────────────────── */
-  const accentColor = isCredit ? '#dc2626' : 'var(--orange)'
+  const accentColor = 'var(--orange)'
 
   /* ── bilingual labels ──────────────────────────────────────────── */
   const ribbonAr  = isCredit ? 'إشعار دائن' : 'إشعار مدين'
@@ -111,24 +111,17 @@ export function buildCreditDebitNoteHtml(input: BuildCreditDebitNoteHtmlInput): 
         </tr>`).join('')
 
   /* ── reason section ────────────────────────────────────────────── */
-  const reasonCss = isCredit
-    ? `background: #fef2f2; border: 0.7px solid #fecaca;`
-    : `background: rgba(237, 124, 44, 0.06); border: 0.7px solid rgba(237, 124, 44, 0.3);`
-  const reasonTitleColor = isCredit ? 'color: #dc2626;' : 'color: var(--orange);'
+  const reasonCss = `background: rgba(237, 124, 44, 0.06); border: 0.7px solid rgba(237, 124, 44, 0.3);`
+  const reasonTitleColor = 'color: var(--orange);'
 
   /* ── summary grand row styles ──────────────────────────────────── */
-  const grandBg = isCredit
-    ? 'background: rgba(220, 38, 38, 0.08);'
-    : 'background: rgba(237, 124, 44, 0.08);'
-  const grandAmountStyle = isCredit
-    ? 'font-size: 10px; color: #dc2626;'
-    : 'font-size: 10px; color: var(--orange);'
+  const grandBg = 'background: rgba(237, 124, 44, 0.08);'
+  const grandAmountStyle = 'font-size: 10px; color: var(--orange);'
 
   /* ── document-specific CSS overrides ───────────────────────────── */
   const docCss = `
     .ribbon { background: ${accentColor}; }
-    table.lines th { background: ${accentColor}; }
-    ${!isCredit ? `table.lines th { border-right-color: rgba(237,124,44,0.5); }` : ''}
+    table.lines th { background: ${accentColor}; border-right-color: rgba(237,124,44,0.5); }
 
     .reason { padding: 3mm 4mm; ${reasonCss} font-size: 9px; line-height: 1.5; }
     .reason-title-ar { font-family: 'IBMPlexAr', sans-serif; font-size: ${isCredit ? '10px' : '9px'}; font-weight: 700; direction: rtl; text-align: right; ${reasonTitleColor} ${!isCredit ? 'margin-bottom: 1mm;' : ''} }
@@ -155,7 +148,7 @@ export function buildCreditDebitNoteHtml(input: BuildCreditDebitNoteHtmlInput): 
 </head>
 <body>
 
-  ${brandHeaderHtml(input.assets.logo)}
+  ${brandHeaderHtml(input.assets.brandHeader ?? input.assets.logo)}
 
   <div class="midbar">
     ${contactStripHtml()}
@@ -246,6 +239,8 @@ export function buildCreditDebitNoteHtml(input: BuildCreditDebitNoteHtmlInput): 
     <div class="reason-title">${escapeHtml(reasonTitleEn)}</div>
     <div class="reason-text">${escapeHtml(input.reason)}</div>
   </div>` : ''}
+
+  ${stampSectionHtml(input.assets.stamp)}
 
   ${footerHtml(input.assets.footer)}
 

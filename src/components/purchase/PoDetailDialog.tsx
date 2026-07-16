@@ -374,7 +374,7 @@ export function PoDetailDialog({ open, onOpenChange, po, poId, onEdit }: Props) 
                           </TableRow>
                         </TableHeader>
                         <TableBody>
-                          {snapshotVersion.line_items.map((li, idx) => (
+                          {(snapshotVersion.po_version_lines ?? []).map((li, idx) => (
                             <TableRow key={idx}>
                               <TableCell className="font-medium">{li.item_name}</TableCell>
                               <TableCell className="hidden sm:table-cell text-muted-foreground text-xs">{li.sku || '—'}</TableCell>

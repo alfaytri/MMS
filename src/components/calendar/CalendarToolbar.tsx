@@ -125,7 +125,7 @@ export function CalendarToolbar({
             <SelectTrigger className="h-7 w-36 text-xs gap-1">
               <SelectValue placeholder="All divisions" />
             </SelectTrigger>
-            <SelectContent>
+            <SelectContent className="max-h-60 overflow-y-auto">
               <SelectItem value="__all__" className="text-xs font-medium">
                 All
               </SelectItem>

@@ -1,6 +1,6 @@
 import Link from 'next/link'
 import { createClient } from '@/lib/supabase/server'
-import { NavDropdown } from './NavDropdown'
+import { NavDropdown, NavDropdownGroup } from './NavDropdown'
 import { UserMenu } from './UserMenu'
 import { NotificationBell } from './NotificationBell'
 import { MobileNavDrawer } from './MobileNavDrawer'
@@ -14,7 +14,7 @@ export async function TopNav() {
   const { data: profile } = user
     ? await supabase
         .from('profiles')
-        .select('full_name')
+        .select('full_name, avatar_url')
         .eq('auth_user_id', user.id)
         .single()
     : { data: null }
@@ -32,19 +32,22 @@ export async function TopNav() {
           <span className="text-sm">Alfaytri</span>
         </Link>
 
-        <nav className="hidden lg:flex items-center gap-1 flex-1 overflow-x-auto">
-          {NAV_ITEMS.map((entry) => (
-            <NavDropdown key={entry.label} entry={entry} />
-          ))}
+        <nav className="hidden md:flex items-center gap-1 flex-1 overflow-x-auto">
+          <NavDropdownGroup>
+            {NAV_ITEMS.map((entry) => (
+              <NavDropdown key={entry.label} entry={entry} />
+            ))}
+          </NavDropdownGroup>
         </nav>
 
-        <div className="flex-1 lg:hidden" />
+        <div className="flex-1 md:hidden" />
 
         {user && <NotificationBell />}
         {user && (
           <UserMenu
             email={user.email ?? ''}
             name={profile?.full_name ?? undefined}
+            avatarUrl={profile?.avatar_url ?? undefined}
           />
         )}
       </div>

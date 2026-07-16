@@ -1,8 +1,9 @@
 'use client'
 
-import React, { useState, useMemo } from 'react'
-import { Search, Package, Truck } from 'lucide-react'
+import React, { useState, useMemo, useEffect } from 'react'
+import { Search, Package, Truck, ChevronLeft, ChevronRight } from 'lucide-react'
 import { Badge } from '@/components/ui/badge'
+import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table'
@@ -45,6 +46,15 @@ export const ReceivalsDeliveriesTab = React.memo(function ReceivalsDeliveriesTab
     })
   }, [allItems, search, direction, warehouseFilter])
 
+  const [page, setPage] = useState(1)
+  const PAGE_SIZE = 25
+  const totalPages = Math.max(1, Math.ceil(filtered.length / PAGE_SIZE))
+  useEffect(() => { setPage(1) }, [search, direction, warehouseFilter])
+  const paged = useMemo(() => {
+    const start = (page - 1) * PAGE_SIZE
+    return filtered.slice(start, start + PAGE_SIZE)
+  }, [filtered, page])
+
   const inboundCount = allItems.filter(i => i.direction === 'inbound').length
   const outboundCount = allItems.filter(i => i.direction === 'outbound').length
 
@@ -64,7 +74,7 @@ export const ReceivalsDeliveriesTab = React.memo(function ReceivalsDeliveriesTab
           <SelectTrigger className="w-[150px] h-8 text-xs">
             <SelectValue />
           </SelectTrigger>
-          <SelectContent>
+          <SelectContent className="max-h-60 overflow-y-auto">
             <SelectItem value="all" className="text-xs">All ({allItems.length})</SelectItem>
             <SelectItem value="inbound" className="text-xs">Inbound ({inboundCount})</SelectItem>
             <SelectItem value="outbound" className="text-xs">Outbound ({outboundCount})</SelectItem>
@@ -74,7 +84,7 @@ export const ReceivalsDeliveriesTab = React.memo(function ReceivalsDeliveriesTab
           <SelectTrigger className="w-[160px] h-8 text-xs">
             <SelectValue placeholder="All Warehouses" />
           </SelectTrigger>
-          <SelectContent>
+          <SelectContent className="max-h-60 overflow-y-auto">
             <SelectItem value="all" className="text-xs">All Warehouses</SelectItem>
             {warehouses.map(wh => (
               <SelectItem key={wh.id} value={wh.id} className="text-xs">{wh.name}</SelectItem>
@@ -106,7 +116,7 @@ export const ReceivalsDeliveriesTab = React.memo(function ReceivalsDeliveriesTab
                 </TableCell>
               </TableRow>
             ) : (
-              filtered.map((item) => (
+              paged.map((item) => (
                 <TableRow
                   key={`${item.direction}-${item.id}`}
                   className="cursor-pointer hover:bg-muted/30"
@@ -138,6 +148,21 @@ export const ReceivalsDeliveriesTab = React.memo(function ReceivalsDeliveriesTab
           </TableBody>
         </Table>
       </div>
+
+      {filtered.length > 0 && totalPages > 1 && (
+        <div className="flex items-center justify-between text-xs text-muted-foreground px-1">
+          <span>{filtered.length} item{filtered.length !== 1 ? 's' : ''}</span>
+          <div className="flex items-center gap-1.5">
+            <Button variant="outline" size="sm" className="h-7 w-7 p-0" disabled={page <= 1} onClick={() => setPage((p) => Math.max(1, p - 1))} aria-label="Previous page">
+              <ChevronLeft className="h-3.5 w-3.5" />
+            </Button>
+            <span className="tabular-nums min-w-[80px] text-center">Page {page} of {totalPages}</span>
+            <Button variant="outline" size="sm" className="h-7 w-7 p-0" disabled={page >= totalPages} onClick={() => setPage((p) => Math.min(totalPages, p + 1))} aria-label="Next page">
+              <ChevronRight className="h-3.5 w-3.5" />
+            </Button>
+          </div>
+        </div>
+      )}
 
       <WhReceivalDetailDialog item={selected} onClose={() => setSelected(null)} />
     </div>

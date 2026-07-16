@@ -4,6 +4,7 @@ import {
   brandHeaderHtml,
   contactStripHtml,
   footerHtml,
+  stampSectionHtml,
   BASE_CSS,
 } from '@/lib/pdf/pdf-fonts'
 
@@ -160,7 +161,7 @@ export function buildReturnPdfHtml(input: BuildReturnPdfHtmlInput): string {
 </head>
 <body>
 
-  ${brandHeaderHtml(assets.logo)}
+  ${brandHeaderHtml(assets.brandHeader ?? assets.logo)}
 
   <div class="midbar">
     ${contactStripHtml()}
@@ -226,6 +227,8 @@ export function buildReturnPdfHtml(input: BuildReturnPdfHtmlInput): string {
       <div class="signature-label">${isSale ? 'Received by (Warehouse)' : 'Authorized by (Name & Signature)'}</div>
     </div>
   </div>
+
+  ${stampSectionHtml(assets.stamp)}
 
   ${footerHtml(assets.footer)}
 

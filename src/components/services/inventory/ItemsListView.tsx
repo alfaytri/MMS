@@ -1,7 +1,7 @@
 'use client'
 
-import { useState, useMemo } from 'react'
-import { Plus } from 'lucide-react'
+import { useState, useMemo, useEffect } from 'react'
+import { Plus, Upload, ChevronLeft, ChevronRight } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Switch } from '@/components/ui/switch'
@@ -9,6 +9,7 @@ import { Label } from '@/components/ui/label'
 import { Skeleton } from '@/components/ui/skeleton'
 import { CategoryRow } from './CategoryRow'
 import { CategoryEditDialog } from './CategoryEditDialog'
+import { InventoryImportDialog } from './InventoryImportDialog'
 import { useUpdateSortOrders, useCategoryStockAggregates, type CategoryStockAggregate } from '@/hooks/useInventory'
 import { useInventoryTree, type InventoryTreeNode } from '@/hooks/useInventoryTree'
 
@@ -44,12 +45,23 @@ export function ItemsListView({ type, enabled }: Props) {
   const [search, setSearch] = useState('')
   const [showArchived, setShowArchived] = useState(false)
   const [createCategoryOpen, setCreateCategoryOpen] = useState(false)
+  const [importOpen, setImportOpen] = useState(false)
 
   const { tree, isLoading } = useInventoryTree(type, showArchived)
   const { data: stockAggregates } = useCategoryStockAggregates(type)
   const updateCategoryOrder = useUpdateSortOrders('inventory_categories')
 
   const filtered = useMemo(() => filterTree(tree, search), [tree, search])
+
+  const [page, setPage] = useState(1)
+  const PAGE_SIZE = 25
+  const totalPages = Math.max(1, Math.ceil(filtered.length / PAGE_SIZE))
+  useEffect(() => { setPage(1) }, [search, showArchived, type])
+  const paged = useMemo(() => {
+    const start = (page - 1) * PAGE_SIZE
+    return filtered.slice(start, start + PAGE_SIZE)
+  }, [filtered, page])
+  const pageOffset = (page - 1) * PAGE_SIZE
 
   function handleCategoryMove(idx: number, direction: 'up' | 'down') {
     const targetIdx = direction === 'up' ? idx - 1 : idx + 1
@@ -75,9 +87,14 @@ export function ItemsListView({ type, enabled }: Props) {
           <Switch checked={showArchived} onCheckedChange={setShowArchived} />
           <Label className="text-xs cursor-pointer" onClick={() => setShowArchived((v) => !v)}>Show archived</Label>
         </div>
-        <Button size="sm" className="ml-auto h-7 text-xs" onClick={() => setCreateCategoryOpen(true)}>
-          <Plus className="h-3 w-3 mr-1" /> New Category
-        </Button>
+        <div className="flex items-center gap-2 ml-auto">
+          <Button size="sm" variant="outline" className="h-7 text-xs" onClick={() => setImportOpen(true)}>
+            <Upload className="h-3 w-3 mr-1" /> Import
+          </Button>
+          <Button size="sm" className="h-7 text-xs" onClick={() => setCreateCategoryOpen(true)}>
+            <Plus className="h-3 w-3 mr-1" /> New Category
+          </Button>
+        </div>
       </div>
 
       {/* Table */}
@@ -106,25 +123,44 @@ export function ItemsListView({ type, enabled }: Props) {
                   </td>
                 </tr>
               )}
-              {filtered.map((node, idx) => (
-                <CategoryRow
-                  key={node.id}
-                  node={node}
-                  categoryType={type}
-                  showArchived={showArchived}
-                  canMoveUp={idx > 0}
-                  canMoveDown={idx < filtered.length - 1}
-                  onMoveUp={() => handleCategoryMove(idx, 'up')}
-                  onMoveDown={() => handleCategoryMove(idx, 'down')}
-                  stockAggregates={stockAggregates}
-                />
-              ))}
+              {paged.map((node, localIdx) => {
+                const globalIdx = pageOffset + localIdx
+                return (
+                  <CategoryRow
+                    key={node.id}
+                    node={node}
+                    categoryType={type}
+                    showArchived={showArchived}
+                    canMoveUp={globalIdx > 0}
+                    canMoveDown={globalIdx < filtered.length - 1}
+                    onMoveUp={() => handleCategoryMove(globalIdx, 'up')}
+                    onMoveDown={() => handleCategoryMove(globalIdx, 'down')}
+                    stockAggregates={stockAggregates}
+                  />
+                )
+              })}
             </tbody>
           </table>
         )}
       </div>
 
+      {filtered.length > 0 && totalPages > 1 && (
+        <div className="flex items-center justify-between text-xs text-muted-foreground px-4 py-2 border-t border-border">
+          <span>{filtered.length} categor{filtered.length !== 1 ? 'ies' : 'y'}</span>
+          <div className="flex items-center gap-1.5">
+            <Button variant="outline" size="sm" className="h-7 w-7 p-0" disabled={page <= 1} onClick={() => setPage((p) => Math.max(1, p - 1))} aria-label="Previous page">
+              <ChevronLeft className="h-3.5 w-3.5" />
+            </Button>
+            <span className="tabular-nums min-w-[80px] text-center">Page {page} of {totalPages}</span>
+            <Button variant="outline" size="sm" className="h-7 w-7 p-0" disabled={page >= totalPages} onClick={() => setPage((p) => Math.min(totalPages, p + 1))} aria-label="Next page">
+              <ChevronRight className="h-3.5 w-3.5" />
+            </Button>
+          </div>
+        </div>
+      )}
+
       <CategoryEditDialog open={createCategoryOpen} onOpenChange={setCreateCategoryOpen} categoryType={type} />
+      <InventoryImportDialog open={importOpen} onOpenChange={setImportOpen} />
     </div>
   )
 }

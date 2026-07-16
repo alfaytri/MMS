@@ -30,6 +30,7 @@ import {
   SelectValue,
 } from '@/components/ui/select'
 import { Input } from '@/components/ui/input'
+import { Textarea } from '@/components/ui/textarea'
 import { Button } from '@/components/ui/button'
 import { createClient } from '@/lib/supabase/client'
 import { useCreateDivision, useUpdateDivision, type Division } from '@/hooks/useDivisions'
@@ -54,7 +55,6 @@ const divisionSchema = z.object({
   color:            z.string().regex(/^#[0-9a-fA-F]{6}$/, 'Must be a valid hex color'),
   address_en:       z.string().optional(),
   address_ar:       z.string().optional(),
-  footer_motto:     z.string().max(120, 'Max 120 characters').optional(),
   logo_url:         z.string().url().optional().or(z.literal('')),
   stamp_url:        z.string().url().optional().or(z.literal('')),
   default_currency: z.string().min(1),
@@ -104,7 +104,6 @@ export function DivisionFormDialog({
       color:            '#2563eb',
       address_en:       '',
       address_ar:       '',
-      footer_motto:     '',
       logo_url:         '',
       stamp_url:        '',
       default_currency: 'QAR',
@@ -128,7 +127,6 @@ export function DivisionFormDialog({
         color:            division.color,
         address_en:       division.address_en ?? '',
         address_ar:       division.address_ar ?? '',
-        footer_motto:     division.footer_motto ?? '',
         logo_url:         division.logo_url ?? '',
         stamp_url:        division.stamp_url ?? '',
         default_currency: division.default_currency,
@@ -145,8 +143,7 @@ export function DivisionFormDialog({
         color:            '#2563eb',
         address_en:       '',
         address_ar:       '',
-        footer_motto:     '',
-        logo_url:         '',
+          logo_url:         '',
         stamp_url:        '',
         default_currency: 'QAR',
         default_tax_rate: '0',
@@ -191,7 +188,6 @@ export function DivisionFormDialog({
       address_ar:       values.address_ar || null,
       logo_url:         values.logo_url || null,
       stamp_url:        values.stamp_url || null,
-      footer_motto:     values.footer_motto || null,
     }
 
     if (isEditing && division) {
@@ -249,7 +245,7 @@ export function DivisionFormDialog({
                           </SelectValue>
                         </SelectTrigger>
                       </FormControl>
-                      <SelectContent>
+                      <SelectContent className="max-h-60 overflow-y-auto">
                         {companies.map((c) => (
                           <SelectItem key={c.id} value={c.id}>
                             {c.name_en}
@@ -396,7 +392,12 @@ export function DivisionFormDialog({
                   <FormItem>
                     <FormLabel>Address (EN)</FormLabel>
                     <FormControl>
-                      <Input {...field} />
+                      <Textarea
+                        rows={3}
+                        placeholder="Division address in English"
+                        className="resize-none"
+                        {...field}
+                      />
                     </FormControl>
                     <FormMessage />
                   </FormItem>
@@ -409,7 +410,13 @@ export function DivisionFormDialog({
                   <FormItem>
                     <FormLabel>Address (AR)</FormLabel>
                     <FormControl>
-                      <Input dir="rtl" {...field} />
+                      <Textarea
+                        rows={3}
+                        dir="rtl"
+                        placeholder="عنوان القسم بالعربية"
+                        className="resize-none"
+                        {...field}
+                      />
                     </FormControl>
                     <FormMessage />
                   </FormItem>
@@ -417,25 +424,7 @@ export function DivisionFormDialog({
               />
             </div>
 
-            {/* ── 6. Footer Motto ──────────────────────────────────────── */}
-            <FormField
-              control={form.control}
-              name="footer_motto"
-              render={({ field }) => (
-                <FormItem>
-                  <FormLabel>Footer Motto</FormLabel>
-                  <FormControl>
-                    <Input
-                      placeholder="e.g. Quality Service Since 2010"
-                      {...field}
-                    />
-                  </FormControl>
-                  <FormMessage />
-                </FormItem>
-              )}
-            />
-
-            {/* ── 7. Logo + Stamp upload ───────────────────────────────── */}
+            {/* ── 6. Logo + Stamp upload ───────────────────────────────── */}
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
               {/* Logo */}
               <div className="flex flex-col gap-1">

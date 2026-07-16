@@ -1,16 +1,5 @@
 'use client'
 
-/**
- * SO Quotation PDF — View / Download buttons.
- *
- * Replaces the old @react-pdf/renderer-based PDFDownloadLink (which crashed on
- * Next 15's React 19-canary internals). Now hits the server route, which
- * generates the PDF via Puppeteer if needed and returns a cached URL.
- *
- * View    → opens the PDF in a new tab (storage URL is public).
- * Download → downloads the PDF as a blob with a clean filename.
- */
-
 import { useState } from 'react'
 import { Button } from '@/components/ui/button'
 import { Download, Eye, Loader2 } from 'lucide-react'
