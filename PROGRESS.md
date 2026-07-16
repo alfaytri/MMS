@@ -243,7 +243,7 @@ Purchase & Sales▾:
 
 ## 🔄 In Progress
 
-🚀 Starting: **Orders Invoices Task 3: useTlInvoices hook family + unit test**
+🚀 Starting: **Orders Invoices Task 4: UI components**
 
 
 
@@ -262,6 +262,7 @@ Purchase & Sales▾:
 
 ## ✅ Completed
 
+- [2026-07-16] **Orders Invoices Task 3: useTlInvoices hook family** — `src/hooks/useTlInvoices.ts`, `src/hooks/__tests__/useTlInvoices.test.ts`, `src/lib/queryKeys.ts` — Hook family with infinite list (status/search/dates/agent filters), summary aggregation (status counts + outstanding), payment mutation with server-side overpayment guard (0.005 QAR tolerance), and 4 Vitest unit tests for validateTlPaymentAmount
 - [2026-07-16] **Orders Invoices Task 2: Cleanup wrong-table wiring** — Deleted `src/components/invoices/InvoiceCard.tsx`, `RegisterPaymentDialog.tsx`, `ViewPaymentsDialog.tsx` (only consumer was `/invoices/page.tsx` itself — confirmed via `git grep` before deletion); reverted `src/hooks/useInvoices.ts` to drop `useRegisterInvoicePayment`, the `agent_name`/`created_at` payment-select fields, and the matching `FinanceInvoice.payments` type fields (this file previously carried uncommitted additions from a session that wired `/invoices` against `public.invoices` instead of `public.tl_invoices`); stubbed `src/app/(dashboard)/invoices/page.tsx` to a placeholder ("Orders invoices — under construction.") so the route stays buildable until Task 6's rewrite. Targeted `tsc --noEmit` grep for the affected files returned zero lines.
 - [2026-07-16] **Orders Invoices Task 1: DB migration** — `supabase/migrations/20260716130000_tl_invoice_payments.sql`, `src/types/database.types.ts` — New `tl_invoice_payments` table (amount, payment_method_id, method_slug, paid_at, registered_by, registered_by_name, notes) with RLS (authenticated read + insert); `tl_invoices.paid_amount` column added; `payment_status` CHECK widened to `unpaid|partial|paid`; `tl_invoice_payments_sync` AFTER trigger keeps `tl_invoices.paid_amount`/`payment_status` in sync on INSERT/UPDATE/DELETE. Verified via `npx supabase db query --linked`: column + trigger + check constraint + RLS policies confirmed present; functional smoke test (insert 50% payment on a real invoice → `partial`, delete → back to `unpaid`) passed; test row cleaned up (table left at 0 rows).
 - [2026-07-15] **Profitability Drill-down Dialog** — `src/components/reports/ProfitabilityDrilldownDialog.tsx` (new), `src/hooks/useProductProfitability.ts`, `src/lib/queryKeys.ts`, `src/app/(dashboard)/reports/product-profitability/page.tsx`, `supabase/migrations/20260716100000_rpc_profitability_drilldown.sql` — Clickable KPI cards (Revenue/COGS/Profit) open SO-level drill-down with nested line items. Per-mode column visibility (Revenue→Revenue only, COGS→COGS only, Profit→all). Search, product/customer filters, sortable columns, expandable rows, totals, Excel export. New RPC uses ce.qty to avoid FIFO overcounting.
