@@ -286,6 +286,13 @@ export const queryKeys = {
     summary: ['invoice-summary'] as const,
   },
 
+  /* ── TL Invoices (Orders module) ───────────────────────── */
+  tlInvoices: {
+    all: ['tl-invoices'] as const,
+    list: (filters: unknown) => ['tl-invoices', filters] as const,
+    summary: ['tl-invoices', 'summary'] as const,
+  },
+
   /* ── Landed Costs ─────────────────────────────────────── */
   landedCosts: {
     all: ['landed_costs'] as const,
