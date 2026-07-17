@@ -1,15 +1,10 @@
 'use client'
 import { CreditCard, Receipt } from 'lucide-react'
-import { AlertDialog, AlertDialogCancel, AlertDialogContent,
-         AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from '@/components/ui/alert-dialog'
+import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog'
+import { Button } from '@/components/ui/button'
 import { cn } from '@/lib/utils'
 import { formatCurrency, formatDate } from '@/lib/utils/formatters'
 import type { TlInvoice } from '@/hooks/useTlInvoices'
-
-const METHOD_LABELS: Record<string, string> = {
-  cash: 'Cash', bank_transfer: 'Bank Transfer', pdc: 'PDC', cdc: 'CDC',
-  online: 'Online', fawran: 'Fawran', pos: 'POS', pay_later: 'Pay Later',
-}
 
 interface Props {
   open: boolean
@@ -24,14 +19,14 @@ export function ViewTlPaymentsDialog({ open, onOpenChange, invoice }: Props) {
   const remaining = Math.max(0, total - paid)
 
   return (
-    <AlertDialog open={open} onOpenChange={onOpenChange}>
-      <AlertDialogContent className="max-w-lg max-h-[85vh] flex flex-col">
-        <AlertDialogHeader>
-          <AlertDialogTitle className="flex items-center gap-2">
+    <Dialog open={open} onOpenChange={onOpenChange}>
+      <DialogContent className="max-w-lg max-h-[85vh] flex flex-col">
+        <DialogHeader>
+          <DialogTitle className="flex items-center gap-2">
             <Receipt className="h-5 w-5 text-primary" />
             Payment History — {invoice?.invoice_number}
-          </AlertDialogTitle>
-        </AlertDialogHeader>
+          </DialogTitle>
+        </DialogHeader>
 
         <div className="flex-1 overflow-y-auto space-y-3 py-2">
           <div className="rounded-lg border bg-muted/30 p-3 space-y-1">
@@ -59,7 +54,7 @@ export function ViewTlPaymentsDialog({ open, onOpenChange, invoice }: Props) {
           ) : (
             <div className="space-y-2">
               {payments.map((p) => {
-                const methodLabel = p.method_slug ? METHOD_LABELS[p.method_slug] ?? p.method_slug : '—'
+                const methodLabel = p.method_name ?? p.method_slug ?? '—'
                 const time = new Date(p.paid_at).toLocaleTimeString('en-US', {
                   hour: '2-digit', minute: '2-digit', hour12: true,
                 })
@@ -83,10 +78,10 @@ export function ViewTlPaymentsDialog({ open, onOpenChange, invoice }: Props) {
           )}
         </div>
 
-        <AlertDialogFooter>
-          <AlertDialogCancel>Close</AlertDialogCancel>
-        </AlertDialogFooter>
-      </AlertDialogContent>
-    </AlertDialog>
+        <DialogFooter>
+          <Button variant="outline" onClick={() => onOpenChange(false)}>Close</Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
   )
 }

@@ -1,8 +1,8 @@
 'use client'
 import { useEffect, useState } from 'react'
 import { CreditCard } from 'lucide-react'
-import { AlertDialog, AlertDialogCancel, AlertDialogContent, AlertDialogDescription,
-         AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from '@/components/ui/alert-dialog'
+import { Dialog, DialogContent, DialogDescription, DialogFooter,
+         DialogHeader, DialogTitle } from '@/components/ui/dialog'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
@@ -75,16 +75,16 @@ export function RegisterTlPaymentDialog({ open, onOpenChange, invoice }: Props) 
   }
 
   return (
-    <AlertDialog open={open} onOpenChange={onOpenChange}>
-      <AlertDialogContent className="max-w-md">
-        <AlertDialogHeader>
-          <AlertDialogTitle className="flex items-center gap-2">
+    <Dialog open={open} onOpenChange={onOpenChange}>
+      <DialogContent className="max-w-md">
+        <DialogHeader>
+          <DialogTitle className="flex items-center gap-2">
             <CreditCard className="h-5 w-5 text-primary" /> Register Payment
-          </AlertDialogTitle>
-          <AlertDialogDescription>
+          </DialogTitle>
+          <DialogDescription>
             For invoice <span className="font-semibold">{invoice?.invoice_number}</span>
-          </AlertDialogDescription>
-        </AlertDialogHeader>
+          </DialogDescription>
+        </DialogHeader>
 
         <div className="space-y-4 py-2">
           <div className="rounded-lg border bg-muted/30 p-3 space-y-1">
@@ -123,13 +123,19 @@ export function RegisterTlPaymentDialog({ open, onOpenChange, invoice }: Props) 
           </div>
 
           <div className="space-y-1.5">
-            <Label>Payment Method</Label>
-            <Select value={methodId} onValueChange={(v) => setMethodId(v ?? '')}>
-              <SelectTrigger className="h-10"><SelectValue placeholder="Select method" /></SelectTrigger>
+            <Label htmlFor="tl-pay-method">Payment Method</Label>
+            <Select value={methodId} onValueChange={(v) => { if (v) setMethodId(v) }}>
+              <SelectTrigger id="tl-pay-method" className="h-10 w-full">
+                <SelectValue placeholder="Select method" />
+              </SelectTrigger>
               <SelectContent>
-                {methods.map((m) => (
-                  <SelectItem key={m.id} value={m.id}>{m.name}</SelectItem>
-                ))}
+                {methods.length === 0 ? (
+                  <SelectItem value="__none" disabled>No active payment methods</SelectItem>
+                ) : (
+                  methods.map((m) => (
+                    <SelectItem key={m.id} value={m.id}>{m.name}</SelectItem>
+                  ))
+                )}
               </SelectContent>
             </Select>
           </div>
@@ -146,16 +152,16 @@ export function RegisterTlPaymentDialog({ open, onOpenChange, invoice }: Props) 
           </div>
         </div>
 
-        <AlertDialogFooter>
-          <AlertDialogCancel>Cancel</AlertDialogCancel>
+        <DialogFooter>
+          <Button variant="outline" onClick={() => onOpenChange(false)}>Cancel</Button>
           <Button
             onClick={handleSubmit}
             disabled={registerMutation.isPending || parsedAmount <= 0 || !methodId || clientError !== null}
           >
             {registerMutation.isPending ? 'Registering…' : 'Register Payment'}
           </Button>
-        </AlertDialogFooter>
-      </AlertDialogContent>
-    </AlertDialog>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
   )
 }

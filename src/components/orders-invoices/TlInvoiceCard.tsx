@@ -85,9 +85,12 @@ export function TlInvoiceCard({ invoice, onViewPayments, onRegisterPayment }: Pr
       </div>
 
       {expanded && (
-        <div className="border-t px-4 py-4 grid grid-cols-1 md:grid-cols-3 gap-4">
-          <div>
-            <h4 className="text-xs font-semibold text-muted-foreground mb-2">Line Items</h4>
+        <div className="border-t bg-muted/20 px-4 py-4 grid grid-cols-1 md:grid-cols-3 gap-3">
+          <section className="rounded-md border bg-card p-3">
+            <div className="flex items-center gap-1.5 mb-2 pb-2 border-b">
+              <FileText className="h-3.5 w-3.5 text-primary" />
+              <h4 className="text-[11px] font-semibold uppercase tracking-wider text-foreground">Line Items</h4>
+            </div>
             <div className="space-y-1">
               {invoice.lines.map((li) => (
                 <div key={li.id} className="flex justify-between text-xs">
@@ -105,20 +108,24 @@ export function TlInvoiceCard({ invoice, onViewPayments, onRegisterPayment }: Pr
                 <span>Total</span><span>{formatCurrency(total)}</span>
               </div>
             </div>
-          </div>
-          <div>
-            <h4 className="text-xs font-semibold text-muted-foreground mb-2">Payment History</h4>
+          </section>
+
+          <section className="rounded-md border bg-card p-3">
+            <div className="flex items-center gap-1.5 mb-2 pb-2 border-b">
+              <CreditCard className="h-3.5 w-3.5 text-primary" />
+              <h4 className="text-[11px] font-semibold uppercase tracking-wider text-foreground">Payment History</h4>
+            </div>
             {invoice.payments.length === 0 ? (
               <p className="text-xs text-muted-foreground">No payments recorded</p>
             ) : (
               <div className="space-y-1.5">
                 {invoice.payments.map((p) => (
                   <div key={p.id} className="flex justify-between text-xs">
-                    <div className="flex items-center gap-1.5">
-                      <Badge variant="outline" className="text-[10px] px-1">{formatDate(p.paid_at)}</Badge>
-                      <span className="text-muted-foreground">{p.method_slug ?? '—'}</span>
+                    <div className="flex items-center gap-1.5 min-w-0">
+                      <Badge variant="outline" className="text-[10px] px-1 shrink-0">{formatDate(p.paid_at)}</Badge>
+                      <span className="text-muted-foreground truncate">{p.method_name ?? p.method_slug ?? '—'}</span>
                     </div>
-                    <span className="font-mono">{formatCurrency(p.amount)}</span>
+                    <span className="font-mono shrink-0">{formatCurrency(p.amount)}</span>
                   </div>
                 ))}
               </div>
@@ -128,19 +135,25 @@ export function TlInvoiceCard({ invoice, onViewPayments, onRegisterPayment }: Pr
                 Balance: {formatCurrency(remaining)}
               </div>
             )}
-          </div>
-          <div>
-            <h4 className="text-xs font-semibold text-muted-foreground mb-2">Details</h4>
-            {invoice.created_by_name && (
-              <p className="text-xs"><span className="text-muted-foreground">Created by:</span> {invoice.created_by_name}</p>
-            )}
-            {invoice.payment_method_name && (
-              <p className="text-xs"><span className="text-muted-foreground">Method:</span> {invoice.payment_method_name}</p>
-            )}
-            {invoice.notes && (
-              <div className="mt-1 rounded bg-muted/50 px-2 py-1.5 text-xs text-muted-foreground">{invoice.notes}</div>
-            )}
-          </div>
+          </section>
+
+          <section className="rounded-md border bg-card p-3">
+            <div className="flex items-center gap-1.5 mb-2 pb-2 border-b">
+              <User className="h-3.5 w-3.5 text-primary" />
+              <h4 className="text-[11px] font-semibold uppercase tracking-wider text-foreground">Details</h4>
+            </div>
+            <div className="space-y-1">
+              {invoice.created_by_name && (
+                <p className="text-xs"><span className="text-muted-foreground">Created by:</span> {invoice.created_by_name}</p>
+              )}
+              {invoice.payment_method_name && (
+                <p className="text-xs"><span className="text-muted-foreground">Method:</span> {invoice.payment_method_name}</p>
+              )}
+              {invoice.notes && (
+                <div className="mt-1 rounded bg-muted/50 px-2 py-1.5 text-xs text-muted-foreground">{invoice.notes}</div>
+              )}
+            </div>
+          </section>
         </div>
       )}
     </div>

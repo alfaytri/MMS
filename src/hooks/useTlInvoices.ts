@@ -48,6 +48,7 @@ export type TlInvoice = {
     id: string
     amount: number
     method_slug: string | null
+    method_name: string | null
     paid_at: string
     registered_by_name: string | null
     notes: string | null
@@ -88,7 +89,8 @@ export function useTlInvoices(filters: TlInvoiceFilters = {}) {
           payment_methods:payment_method_id(name),
           profiles:created_by(full_name),
           tl_invoice_lines(id, name, qty, unit_price, total),
-          tl_invoice_payments(id, amount, method_slug, paid_at, registered_by_name, notes)
+          tl_invoice_payments(id, amount, method_slug, paid_at, registered_by_name, notes,
+                              payment_methods:payment_method_id(name))
         `)
         .order(filters.sortField ?? 'created_at', { ascending: filters.sortAsc ?? false })
         .range(pageParam * PAGE_SIZE, (pageParam + 1) * PAGE_SIZE - 1)
@@ -135,6 +137,7 @@ export function useTlInvoices(filters: TlInvoiceFilters = {}) {
         })),
         payments:            (row.tl_invoice_payments ?? []).map((p: any) => ({
           id: p.id, amount: Number(p.amount), method_slug: p.method_slug,
+          method_name: p.payment_methods?.name ?? null,
           paid_at: p.paid_at, registered_by_name: p.registered_by_name, notes: p.notes,
         })),
       }))
