@@ -243,7 +243,7 @@ Purchase & Sales▾:
 
 ## 🔄 In Progress
 
-🚀 Starting: **Orders Invoices Task 5: Rewrite /invoices/page.tsx**
+🚀 Starting: **Orders Invoices Task 6: PDF endpoint + HTML builder**
 
 
 
@@ -262,6 +262,7 @@ Purchase & Sales▾:
 
 ## ✅ Completed
 
+- [2026-07-17] **Orders Invoices Task 5: /invoices page rewrite** — `src/app/(dashboard)/invoices/page.tsx`, `src/hooks/useTlInvoices.ts`, `src/components/orders-invoices/*`, `supabase/migrations/20260717100000_tl_invoice_number_format.sql`, `20260717100100_tl_invoice_number_sinv_prefix.sql` — Page queries `tl_invoices` with status chips (Unpaid/Partial/Paid), filters, infinite scroll, outstanding aggregate. Register/View dialogs swapped from AlertDialog to Dialog so Base UI Select popup accepts clicks. useTlInvoices joins payment_methods on payments so history shows the method name (not slug). Expanded card sections now visually separated (bordered subcards with icon headers). DB trigger switched to SINV/YYYY/MM/NNNN format.
 - [2026-07-16] **Orders Invoices Task 4: UI components** — `src/components/orders-invoices/TlInvoiceCard.tsx`, `RegisterTlPaymentDialog.tsx`, `ViewTlPaymentsDialog.tsx` — Expandable invoice card with View PDF / View Payments / Register Payment actions, payment registration dialog with overpayment guard + method dropdown, payment history dialog with chronological list
 - [2026-07-16] **Orders Invoices Task 3: useTlInvoices hook family** — `src/hooks/useTlInvoices.ts`, `src/hooks/__tests__/useTlInvoices.test.ts`, `src/lib/queryKeys.ts` — Hook family with infinite list (status/search/dates/agent filters), summary aggregation (status counts + outstanding), payment mutation with server-side overpayment guard (0.005 QAR tolerance), and 4 Vitest unit tests for validateTlPaymentAmount
 - [2026-07-16] **Orders Invoices Task 2: Cleanup wrong-table wiring** — Deleted `src/components/invoices/InvoiceCard.tsx`, `RegisterPaymentDialog.tsx`, `ViewPaymentsDialog.tsx` (only consumer was `/invoices/page.tsx` itself — confirmed via `git grep` before deletion); reverted `src/hooks/useInvoices.ts` to drop `useRegisterInvoicePayment`, the `agent_name`/`created_at` payment-select fields, and the matching `FinanceInvoice.payments` type fields (this file previously carried uncommitted additions from a session that wired `/invoices` against `public.invoices` instead of `public.tl_invoices`); stubbed `src/app/(dashboard)/invoices/page.tsx` to a placeholder ("Orders invoices — under construction.") so the route stays buildable until Task 6's rewrite. Targeted `tsc --noEmit` grep for the affected files returned zero lines.
