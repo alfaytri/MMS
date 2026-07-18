@@ -152,22 +152,28 @@ export function DataTable<TData, TValue>({
           />
         ) : mobileCardRender ? (
           <div className="space-y-2">
-            {rows.map((row) => (
-              <button
-                key={row.id}
-                type="button"
-                onClick={onRowClick ? () => onRowClick(row.original) : undefined}
-                disabled={!onRowClick}
-                className={cn(
-                  'w-full text-left bg-card border rounded-md p-3 min-h-11',
-                  onRowClick && 'hover:bg-accent active:bg-accent transition-colors',
-                  !onRowClick && 'cursor-default',
-                  rowClassName?.(row.original),
-                )}
-              >
-                {mobileCardRender(row.original)}
-              </button>
-            ))}
+            {rows.map((row) => {
+              const cls = cn(
+                'w-full text-left bg-card border rounded-md p-3 min-h-11',
+                onRowClick && 'hover:bg-accent active:bg-accent transition-colors',
+                !onRowClick && 'cursor-default',
+                rowClassName?.(row.original),
+              )
+              return onRowClick ? (
+                <button
+                  key={row.id}
+                  type="button"
+                  onClick={() => onRowClick(row.original)}
+                  className={cls}
+                >
+                  {mobileCardRender(row.original)}
+                </button>
+              ) : (
+                <div key={row.id} className={cls}>
+                  {mobileCardRender(row.original)}
+                </div>
+              )
+            })}
           </div>
         ) : (
           <div className="overflow-x-auto relative rounded-md border">

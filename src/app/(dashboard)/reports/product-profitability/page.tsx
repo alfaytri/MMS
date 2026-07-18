@@ -124,7 +124,7 @@ export default function ProductProfitabilityPage() {
         </Card>
       ) : (
         <>
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+          <div className="grid grid-cols-2 sm:grid-cols-2 lg:grid-cols-4 gap-4">
             <KpiCard
               delay={0}
               icon={<DollarSign className="h-5 w-5 text-emerald-600" />}

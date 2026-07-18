@@ -293,7 +293,7 @@ export default function UsersRolesPage() {
 
       <Tabs value={activeTab} onValueChange={setActiveTab} className="flex flex-col gap-6">
         <div className="flex justify-center">
-          <TabsList className="h-10 bg-muted p-1 gap-1">
+          <TabsList className="h-10 min-h-11 md:min-h-0 bg-muted p-1 gap-1 max-w-full overflow-x-auto whitespace-nowrap">
             <TabsTrigger
               value="permissions"
               className="gap-2 px-4 py-1.5 data-active:bg-primary data-active:text-primary-foreground data-active:shadow-sm"
@@ -333,7 +333,7 @@ export default function UsersRolesPage() {
         <TabsContent value="roles">
           <div className="space-y-4">
             <div className="flex justify-end">
-              <Button onClick={() => setRoleDialog({ open: true, role: null })}>
+              <Button className="min-h-11 md:min-h-0" onClick={() => setRoleDialog({ open: true, role: null })}>
                 + New Role
               </Button>
             </div>
@@ -385,7 +385,7 @@ export default function UsersRolesPage() {
 
             <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
               <SearchInput value={userSearch} onChange={setUserSearch} placeholder="Search users…" />
-              <Button onClick={() => setAddOpen(true)}>
+              <Button className="min-h-11 md:min-h-0" onClick={() => setAddOpen(true)}>
                 <UserPlus className="h-4 w-4 mr-2" />Add User
               </Button>
             </div>
@@ -395,6 +395,64 @@ export default function UsersRolesPage() {
               data={(profiles as Profile[] | undefined) ?? []}
               isLoading={loadingProfiles}
               globalFilter={userSearch}
+              mobileCardRender={(profile) => {
+                const ur = (profile as Profile & {
+                  user_custom_roles?: Array<{
+                    role_id: string
+                    approval_scopes: string[] | null
+                    custom_roles: { name: string; color: string | null; is_approval_slot: boolean } | null
+                  }>
+                }).user_custom_roles
+                const email = profile.email
+                const username = email ? email.replace(/@mms\.local$/, '') : '—'
+
+                return (
+                  <div className="flex items-start justify-between gap-3">
+                    <div className="min-w-0 flex-1 space-y-1.5">
+                      <p className="font-medium text-sm truncate">{profile.full_name}</p>
+                      <p className="text-xs text-muted-foreground truncate">{username}</p>
+                      {ur && ur.length > 0 && (
+                        <div className="flex flex-wrap gap-1">
+                          {ur.slice(0, 3).map((r, i) => {
+                            const cr = r.custom_roles
+                            if (!cr) return null
+                            return (
+                              <Badge
+                                key={i}
+                                variant="outline"
+                                className={`text-[10px] ${cr.is_approval_slot ? 'border-primary/40 bg-primary/5 text-primary' : ''}`}
+                              >
+                                {cr.name}
+                              </Badge>
+                            )
+                          })}
+                          {ur.length > 3 && <Badge variant="outline" className="text-[10px]">+{ur.length - 3}</Badge>}
+                        </div>
+                      )}
+                    </div>
+                    <div className="flex items-center gap-2 shrink-0">
+                      <StatusBadge variant={profile.is_active ? 'active' : 'inactive'}>
+                        {profile.is_active ? 'Active' : 'Inactive'}
+                      </StatusBadge>
+                      <DropdownMenu>
+                        <DropdownMenuTrigger className="inline-flex h-8 w-8 min-h-11 min-w-11 items-center justify-center rounded-md hover:bg-accent">
+                          <MoreHorizontal className="h-4 w-4" />
+                        </DropdownMenuTrigger>
+                        <DropdownMenuContent align="end">
+                          <DropdownMenuGroup>
+                            <DropdownMenuItem onClick={() => setEditDialog({ open: true, profile })}>
+                              <Pencil className="h-4 w-4 mr-2" />Edit User
+                            </DropdownMenuItem>
+                            <DropdownMenuItem onClick={() => setResetDialog({ open: true, profile })}>
+                              <Shield className="h-4 w-4 mr-2" />Reset Password
+                            </DropdownMenuItem>
+                          </DropdownMenuGroup>
+                        </DropdownMenuContent>
+                      </DropdownMenu>
+                    </div>
+                  </div>
+                )
+              }}
             />
           </div>
         </TabsContent>

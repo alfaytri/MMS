@@ -94,15 +94,63 @@ export const ReceivalsDeliveriesTab = React.memo(function ReceivalsDeliveriesTab
         <WarehouseReportButton reportType="receivals-deliveries" label="Report" />
       </div>
 
-      <div className="rounded-md border overflow-x-auto">
+      {/* ── Mobile card list (< md) ─────────────────────────────────── */}
+      <div className="md:hidden space-y-2">
+        {filtered.length === 0 ? (
+          <p className="text-center text-xs text-muted-foreground py-8">
+            No receivals or deliveries found
+          </p>
+        ) : paged.map((item) => (
+          <button
+            key={`${item.direction}-${item.id}`}
+            type="button"
+            className="w-full text-left bg-card border rounded-md p-3 min-h-11 active:bg-muted/30 transition-colors"
+            onClick={() => setSelected(item)}
+          >
+            <div className="flex items-start justify-between gap-3">
+              <div className="min-w-0 flex-1 space-y-1">
+                <p className="text-xs font-semibold truncate">{item.docNumber}</p>
+                {item.counterparty && (
+                  <p className="text-[11px] text-muted-foreground truncate">{item.counterparty}</p>
+                )}
+                {item.reference && (
+                  <p className="text-[10px] text-primary truncate">{item.reference}</p>
+                )}
+              </div>
+              <div className="flex flex-col items-end gap-0.5 shrink-0">
+                <span className="text-sm font-bold tabular-nums">{item.itemCount} <span className="text-[10px] font-normal text-muted-foreground">items</span></span>
+                <span className="text-[10px] text-muted-foreground">
+                  {item.date ? format(new Date(item.date), 'dd MMM') : '—'}
+                </span>
+              </div>
+            </div>
+            <div className="flex items-center gap-1.5 mt-2">
+              <Badge className={`text-[10px] px-1.5 py-0 flex items-center gap-1 w-fit ${item.direction === 'inbound' ? 'bg-success/10 text-success' : 'bg-primary/10 text-primary'}`}>
+                {item.direction === 'inbound'
+                  ? <><Package className="h-2.5 w-2.5" /> Receival</>
+                  : <><Truck className="h-2.5 w-2.5" /> Delivery</>}
+              </Badge>
+              <Badge className={`text-[10px] px-1.5 py-0 ${STATUS_STYLE[item.status] ?? 'bg-muted text-muted-foreground'}`}>
+                {item.status.replace(/_/g, ' ')}
+              </Badge>
+              {item.warehouseName && (
+                <span className="text-[10px] text-muted-foreground ml-auto truncate max-w-[120px]">{item.warehouseName}</span>
+              )}
+            </div>
+          </button>
+        ))}
+      </div>
+
+      {/* ── Desktop table (md+) ───────────────────────────────────── */}
+      <div className="rounded-md border overflow-x-auto hidden md:block">
         <Table>
           <TableHeader>
             <TableRow>
               <TableHead className="text-xs">Direction</TableHead>
               <TableHead className="text-xs">Doc #</TableHead>
-              <TableHead className="text-xs hidden sm:table-cell">Reference</TableHead>
-              <TableHead className="text-xs hidden md:table-cell">Warehouse</TableHead>
-              <TableHead className="text-xs hidden md:table-cell">Counterparty</TableHead>
+              <TableHead className="text-xs">Reference</TableHead>
+              <TableHead className="text-xs hidden lg:table-cell">Warehouse</TableHead>
+              <TableHead className="text-xs hidden lg:table-cell">Counterparty</TableHead>
               <TableHead className="text-xs">Date</TableHead>
               <TableHead className="text-xs text-right">Items</TableHead>
               <TableHead className="text-xs">Status</TableHead>
@@ -130,9 +178,9 @@ export const ReceivalsDeliveriesTab = React.memo(function ReceivalsDeliveriesTab
                     </Badge>
                   </TableCell>
                   <TableCell className="text-xs font-medium">{item.docNumber}</TableCell>
-                  <TableCell className="text-xs font-medium text-primary hidden sm:table-cell">{item.reference || '—'}</TableCell>
-                  <TableCell className="text-xs hidden md:table-cell">{item.warehouseName}</TableCell>
-                  <TableCell className="text-xs hidden md:table-cell">{item.counterparty}</TableCell>
+                  <TableCell className="text-xs font-medium text-primary">{item.reference || '—'}</TableCell>
+                  <TableCell className="text-xs hidden lg:table-cell">{item.warehouseName}</TableCell>
+                  <TableCell className="text-xs hidden lg:table-cell">{item.counterparty}</TableCell>
                   <TableCell className="text-xs whitespace-nowrap">
                     {item.date ? format(new Date(item.date), 'dd MMM yyyy') : '—'}
                   </TableCell>

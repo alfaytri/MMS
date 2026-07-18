@@ -184,8 +184,57 @@ export const WhMovementsTab = React.memo(function WhMovementsTab({ warehouses }:
         <WarehouseReportButton reportType="movements" warehouseId={warehouseFilter === 'all' ? undefined : warehouseFilter} label="Report" />
       </div>
 
-      {/* Table */}
-      <div className="rounded-md border overflow-x-auto">
+      {/* ── Mobile card list (< md) ─────────────────────────────────── */}
+      <div className="md:hidden space-y-2">
+        {filtered.length === 0 ? (
+          <EmptyState title="No movements found" />
+        ) : paged.map((m: StockMovement) => {
+          const meta = variantMeta.get(m.brand_variant_id)
+          const refCfg = REF_CONFIG[m.reference_type ?? '']
+          return (
+            <div
+              key={m.id}
+              className="bg-card border rounded-md p-3 min-h-11"
+            >
+              <div className="flex items-start justify-between gap-3">
+                <div className="min-w-0 flex-1">
+                  <ItemTreeCell
+                    category={meta?.categoryName}
+                    subcategory={meta?.subcategoryName}
+                    itemType={meta?.itemType}
+                    itemName={meta?.itemName ?? m.item_name}
+                    brand={meta?.brand}
+                    sku={m.sku}
+                    showSku
+                  />
+                </div>
+                <span className="text-lg font-bold tabular-nums shrink-0 leading-none pt-0.5">{m.qty}</span>
+              </div>
+              <div className="flex items-center gap-1.5 mt-2 flex-wrap">
+                <Badge className={`text-[10px] px-1.5 py-0 ${MOVEMENT_STYLES[m.movement_type] ?? 'bg-muted text-muted-foreground'}`}>
+                  {MOVEMENT_LABELS[m.movement_type] ?? m.movement_type?.replace(/_/g, ' ')}
+                </Badge>
+                {refCfg && m.reference_id ? (
+                  <span
+                    className="text-[10px] text-primary hover:underline cursor-pointer"
+                    onClick={() => setRefDialog({ type: m.reference_type!, id: m.reference_id! })}
+                  >
+                    {refCfg.label}
+                  </span>
+                ) : refCfg ? (
+                  <span className="text-[10px] text-muted-foreground">{refCfg.label}</span>
+                ) : null}
+                <span className="text-[10px] text-muted-foreground ml-auto">
+                  {m.created_at ? format(new Date(m.created_at), 'dd MMM yy') : '—'}
+                </span>
+              </div>
+            </div>
+          )
+        })}
+      </div>
+
+      {/* ── Desktop table (md+) ───────────────────────────────────── */}
+      <div className="rounded-md border overflow-x-auto hidden md:block">
         <Table>
           <TableHeader>
             <TableRow>
@@ -193,11 +242,11 @@ export const WhMovementsTab = React.memo(function WhMovementsTab({ warehouses }:
               <TableHead className="text-xs w-[22%]">Item</TableHead>
               <TableHead className="text-xs">Type</TableHead>
               <TableHead className="text-xs text-right">Qty</TableHead>
-              <TableHead className="text-xs text-right hidden md:table-cell">Unit Cost</TableHead>
-              <TableHead className="text-xs text-right hidden sm:table-cell">Total</TableHead>
-              <TableHead className="text-xs text-right hidden sm:table-cell">Stock</TableHead>
-              <TableHead className="text-xs text-right hidden md:table-cell">Stock Value</TableHead>
-              <TableHead className="text-xs hidden md:table-cell">Warehouse</TableHead>
+              <TableHead className="text-xs text-right">Unit Cost</TableHead>
+              <TableHead className="text-xs text-right">Total</TableHead>
+              <TableHead className="text-xs text-right">Stock</TableHead>
+              <TableHead className="text-xs text-right hidden lg:table-cell">Stock Value</TableHead>
+              <TableHead className="text-xs hidden lg:table-cell">Warehouse</TableHead>
               <TableHead className="text-xs">Ref</TableHead>
             </TableRow>
           </TableHeader>
@@ -235,20 +284,12 @@ export const WhMovementsTab = React.memo(function WhMovementsTab({ warehouses }:
                         {MOVEMENT_LABELS[m.movement_type] ?? m.movement_type?.replace(/_/g, ' ')}
                       </Badge>
                     </TableCell>
-
-                    {/* Movement Qty */}
                     <TableCell className="text-xs text-right tabular-nums">{m.qty}</TableCell>
-
-                    {/* Unit Cost */}
-                    <TableCell className="text-xs text-right tabular-nums hidden md:table-cell">{m.unit_cost != null ? fmtVal(m.unit_cost) : '—'}</TableCell>
-
-                    {/* Movement Total */}
-                    <TableCell className="text-xs text-right tabular-nums hidden sm:table-cell">
+                    <TableCell className="text-xs text-right tabular-nums">{m.unit_cost != null ? fmtVal(m.unit_cost) : '—'}</TableCell>
+                    <TableCell className="text-xs text-right tabular-nums">
                       {m.unit_cost != null && m.qty != null ? fmtVal(m.unit_cost * m.qty) : '—'}
                     </TableCell>
-
-                    {/* Stock Qty — clickable to open stock detail dialog */}
-                    <TableCell className="text-xs text-right tabular-nums hidden sm:table-cell">
+                    <TableCell className="text-xs text-right tabular-nums">
                       {stockInfo ? (
                         <span
                           className="cursor-pointer underline decoration-dashed underline-offset-2 hover:text-primary"
@@ -269,9 +310,7 @@ export const WhMovementsTab = React.memo(function WhMovementsTab({ warehouses }:
                         <span>—</span>
                       )}
                     </TableCell>
-
-                    {/* Stock Value — clickable to open stock detail dialog */}
-                    <TableCell className="text-xs text-right tabular-nums hidden md:table-cell">
+                    <TableCell className="text-xs text-right tabular-nums hidden lg:table-cell">
                       {stockInfo ? (
                         <span
                           className="cursor-pointer underline decoration-dashed underline-offset-2 hover:text-primary"
@@ -292,11 +331,7 @@ export const WhMovementsTab = React.memo(function WhMovementsTab({ warehouses }:
                         <span>—</span>
                       )}
                     </TableCell>
-
-                    {/* Warehouse */}
-                    <TableCell className="text-xs hidden md:table-cell">{warehouseMap.get(m.warehouse_id) ?? '—'}</TableCell>
-
-                    {/* Ref — clickable to open detail dialog */}
+                    <TableCell className="text-xs hidden lg:table-cell">{warehouseMap.get(m.warehouse_id) ?? '—'}</TableCell>
                     <TableCell className="text-xs">
                       {refCfg ? (
                         m.reference_id ? (

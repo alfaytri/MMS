@@ -604,10 +604,10 @@ export function PermissionTree({ search }: { search: string }) {
           Permissions are assigned to roles, not directly to users.
         </p>
         <div className="flex gap-3 shrink-0">
-          <button type="button" className="text-xs text-primary hover:underline" onClick={expandAll}>
+          <button type="button" className="text-xs text-primary hover:underline min-h-11 md:min-h-0" onClick={expandAll}>
             Expand All
           </button>
-          <button type="button" className="text-xs text-primary hover:underline" onClick={collapseAll}>
+          <button type="button" className="text-xs text-primary hover:underline min-h-11 md:min-h-0" onClick={collapseAll}>
             Collapse All
           </button>
         </div>

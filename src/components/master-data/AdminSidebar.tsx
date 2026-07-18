@@ -1,9 +1,14 @@
 'use client'
 
+import { useState } from 'react'
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
 import { cn } from '@/lib/utils'
 import { Badge } from '@/components/ui/badge'
+import { Button } from '@/components/ui/button'
+import {
+  Sheet, SheetContent, SheetHeader, SheetTitle,
+} from '@/components/ui/sheet'
 import { usePermissions } from '@/hooks/usePermissions'
 import {
   Settings2,
@@ -16,6 +21,7 @@ import {
   Workflow,
   Coins,
   Globe,
+  Menu,
 } from 'lucide-react'
 
 type SidebarItem = {
@@ -68,10 +74,73 @@ function canAccess(
   return required.some((p) => userPerms.includes(p))
 }
 
+function activeLabel(pathname: string): string {
+  for (const section of ADMIN_SECTIONS) {
+    for (const item of section.items) {
+      if (pathname === item.href || pathname.startsWith(item.href + '/')) {
+        return item.label
+      }
+    }
+  }
+  return 'Admin Settings'
+}
+
+function SidebarNav({
+  visibleSections,
+  pathname,
+  onNavigate,
+}: {
+  visibleSections: SidebarSection[]
+  pathname: string
+  onNavigate?: () => void
+}) {
+  return (
+    <div className="space-y-4">
+      {visibleSections.map((section) => (
+        <div key={section.label}>
+          <h3 className="text-[10px] font-semibold text-muted-foreground uppercase tracking-widest px-2 mb-1">
+            {section.label}
+          </h3>
+          <div className="space-y-0.5">
+            {section.items.map((item) =>
+              item.comingSoon ? (
+                <div
+                  key={item.href}
+                  className="flex items-center gap-2.5 px-2 py-1.5 text-sm text-muted-foreground/50 cursor-not-allowed select-none"
+                >
+                  <item.icon className="h-4 w-4 shrink-0" />
+                  <span>{item.label}</span>
+                  <Badge variant="outline" className="text-[9px] h-4 px-1 ml-auto">Soon</Badge>
+                </div>
+              ) : (
+                <Link
+                  key={item.href}
+                  href={item.href}
+                  onClick={onNavigate}
+                  className={cn(
+                    'flex items-center gap-2.5 px-2 py-2.5 lg:py-1.5 text-sm rounded-md transition-colors min-h-11 lg:min-h-0',
+                    pathname === item.href || pathname.startsWith(item.href + '/')
+                      ? 'bg-primary/10 text-primary font-medium'
+                      : 'text-foreground hover:bg-muted'
+                  )}
+                >
+                  <item.icon className="h-4 w-4 shrink-0" />
+                  <span>{item.label}</span>
+                </Link>
+              )
+            )}
+          </div>
+        </div>
+      ))}
+    </div>
+  )
+}
+
 export function AdminSidebar() {
   const pathname = usePathname()
   const { data: permData } = usePermissions()
   const userPerms = permData?.permissions ?? []
+  const [open, setOpen] = useState(false)
 
   const visibleSections = ADMIN_SECTIONS
     .map((section) => ({
@@ -83,50 +152,48 @@ export function AdminSidebar() {
     .filter((section) => section.items.length > 0)
 
   return (
-    <nav className="w-full lg:w-56 shrink-0 outline-none">
-      {/* Title */}
-      <div className="flex items-center gap-2 px-2 pb-4 mb-1 border-b border-border">
-        <Settings2 className="h-5 w-5 text-primary" />
-        <span className="font-semibold text-base text-foreground">Admin Settings</span>
+    <>
+      {/* Mobile: toggle bar */}
+      <div className="lg:hidden">
+        <Button
+          variant="outline"
+          className="w-full justify-start gap-2 min-h-11"
+          onClick={() => setOpen(true)}
+        >
+          <Menu className="h-4 w-4" />
+          <Settings2 className="h-4 w-4 text-primary" />
+          <span className="font-medium truncate">{activeLabel(pathname)}</span>
+        </Button>
+
+        <Sheet open={open} onOpenChange={setOpen}>
+          <SheetContent side="left" className="w-72 p-0">
+            <SheetHeader className="border-b border-border px-4 py-3">
+              <SheetTitle className="flex items-center gap-2">
+                <Settings2 className="h-5 w-5 text-primary" />
+                Admin Settings
+              </SheetTitle>
+            </SheetHeader>
+            <div className="overflow-y-auto p-3">
+              <SidebarNav
+                visibleSections={visibleSections}
+                pathname={pathname}
+                onNavigate={() => setOpen(false)}
+              />
+            </div>
+          </SheetContent>
+        </Sheet>
       </div>
 
-      <div className="space-y-4 pt-3">
-        {visibleSections.map((section) => (
-          <div key={section.label}>
-            <h3 className="text-[10px] font-semibold text-muted-foreground uppercase tracking-widest px-2 mb-1">
-              {section.label}
-            </h3>
-            <div className="space-y-0.5">
-              {section.items.map((item) =>
-                item.comingSoon ? (
-                  <div
-                    key={item.href}
-                    className="flex items-center gap-2.5 px-2 py-1.5 text-sm text-muted-foreground/50 cursor-not-allowed select-none"
-                  >
-                    <item.icon className="h-4 w-4 shrink-0" />
-                    <span>{item.label}</span>
-                    <Badge variant="outline" className="text-[9px] h-4 px-1 ml-auto">Soon</Badge>
-                  </div>
-                ) : (
-                  <Link
-                    key={item.href}
-                    href={item.href}
-                    className={cn(
-                      'flex items-center gap-2.5 px-2 py-1.5 text-sm rounded-md transition-colors',
-                      pathname === item.href || pathname.startsWith(item.href + '/')
-                        ? 'bg-primary/10 text-primary font-medium'
-                        : 'text-foreground hover:bg-muted'
-                    )}
-                  >
-                    <item.icon className="h-4 w-4 shrink-0" />
-                    <span>{item.label}</span>
-                  </Link>
-                )
-              )}
-            </div>
-          </div>
-        ))}
-      </div>
-    </nav>
+      {/* Desktop: static sidebar */}
+      <nav className="hidden lg:block w-56 shrink-0 outline-none">
+        <div className="flex items-center gap-2 px-2 pb-4 mb-1 border-b border-border">
+          <Settings2 className="h-5 w-5 text-primary" />
+          <span className="font-semibold text-base text-foreground">Admin Settings</span>
+        </div>
+        <div className="pt-3">
+          <SidebarNav visibleSections={visibleSections} pathname={pathname} />
+        </div>
+      </nav>
+    </>
   )
 }

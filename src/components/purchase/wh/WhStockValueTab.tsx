@@ -60,11 +60,11 @@ type FifoLayerRow = {
 }
 
 const ITEM_TYPE_TABS = [
-  { value: '__all__', label: 'All' },
-  { value: 'products', label: 'Products' },
-  { value: 'spare-parts', label: 'Spare Parts' },
-  { value: 'consumables', label: 'Consumables' },
-  { value: 'tools', label: 'Tools & Assets' },
+  { value: '__all__',      label: 'All',            short: 'All'    },
+  { value: 'products',     label: 'Products',       short: 'Prod'   },
+  { value: 'spare-parts',  label: 'Spare Parts',    short: 'Spare'  },
+  { value: 'consumables',  label: 'Consumables',    short: 'Cons'   },
+  { value: 'tools',        label: 'Tools & Assets',  short: 'Tools'  },
 ] as const
 
 type ItemTypeValue = typeof ITEM_TYPE_TABS[number]['value']
@@ -466,8 +466,9 @@ export const WhStockValueTab = React.memo(function WhStockValueTab({ warehouses 
         <Tabs value={activeType} onValueChange={(v) => setActiveType(v as ItemTypeValue)}>
           <TabsList className="h-8 min-h-11 md:min-h-0 text-xs max-w-full overflow-x-auto whitespace-nowrap">
             {ITEM_TYPE_TABS.map((tab) => (
-              <TabsTrigger key={tab.value} value={tab.value} className="text-xs px-3 h-7">
-                {tab.label}
+              <TabsTrigger key={tab.value} value={tab.value} className="text-xs px-3 h-7 min-h-9 md:min-h-0">
+                <span className="md:hidden">{tab.short}</span>
+                <span className="hidden md:inline">{tab.label}</span>
               </TabsTrigger>
             ))}
           </TabsList>
@@ -519,7 +520,7 @@ export const WhStockValueTab = React.memo(function WhStockValueTab({ warehouses 
           <WarehouseReportButton reportType="stock-value" label="Report" />
 
           {/* Sort toggle: newest receival (default) vs A–Z by category */}
-          <div className="ml-auto flex items-center gap-1">
+          <div className="ml-auto hidden md:flex items-center gap-1">
             <button
               type="button"
               onClick={() => { setSortField('latest_receival'); setSortDir('desc') }}
@@ -546,8 +547,79 @@ export const WhStockValueTab = React.memo(function WhStockValueTab({ warehouses 
           </div>
         </div>
 
-        {/* Data table */}
-        <div className="rounded-md border overflow-x-auto">
+        {/* ── Mobile card list (< md) ─────────────────────────────────── */}
+        <div className="md:hidden space-y-2">
+          {isLoading ? (
+            <div className="space-y-2">
+              {Array.from({ length: 4 }).map((_, i) => (
+                <div key={i} className="h-20 bg-muted/40 rounded-md animate-pulse" />
+              ))}
+            </div>
+          ) : paged.length === 0 ? (
+            <p className="text-center text-xs text-muted-foreground py-8">
+              {search ? 'No items match your search' : 'No stock data'}
+            </p>
+          ) : paged.map((row) => (
+            <button
+              key={row.brand_variant_id}
+              type="button"
+              className="w-full text-left bg-card border rounded-md p-3 min-h-11 active:bg-muted/30 transition-colors"
+              onClick={() => toggleRow(row.brand_variant_id)}
+            >
+              <div className="flex items-start justify-between gap-3">
+                <div className="min-w-0 flex-1">
+                  {row.category_name && (
+                    <p className="text-[10px] text-muted-foreground truncate">
+                      {row.subcategory_name
+                        ? `${row.category_name} / ${row.subcategory_name}`
+                        : row.category_name}
+                    </p>
+                  )}
+                  <p className="text-xs font-semibold truncate">{row.item_name}</p>
+                  {row.brand && (
+                    <p className="text-[10px] text-primary truncate">{row.brand}{row.sku ? ` · ${row.sku}` : ''}</p>
+                  )}
+                </div>
+                <div className="flex flex-col items-end gap-0.5 shrink-0">
+                  <span className="text-sm font-bold tabular-nums">{row.totalQty}</span>
+                  <span className="text-[11px] font-semibold tabular-nums text-primary">{formatCurrency(row.totalValue)}</span>
+                </div>
+              </div>
+              {expandedRows.has(row.brand_variant_id) && (
+                <div className="mt-2 pt-2 border-t space-y-1 text-[11px]">
+                  <div className="flex justify-between">
+                    <span className="text-muted-foreground">Avg Unit Cost</span>
+                    <span className="tabular-nums font-medium">{formatCurrency(row.avgCost)}</span>
+                  </div>
+                  {row.cogsTotalCost > 0 && (
+                    <div className="flex justify-between">
+                      <span className="text-muted-foreground">COGS</span>
+                      <span className="tabular-nums font-medium text-destructive">{formatCurrency(row.cogsTotalCost)}</span>
+                    </div>
+                  )}
+                  {row.warehouses.length > 1 && (
+                    <div className="flex flex-wrap gap-1 pt-1">
+                      {row.warehouses.map((wh) => (
+                        <Badge key={wh.warehouseId} variant="outline" className="text-[9px] font-normal">
+                          {wh.warehouseName}: {wh.qty}
+                        </Badge>
+                      ))}
+                    </div>
+                  )}
+                  {row.latestReceivalAt && (
+                    <div className="flex justify-between">
+                      <span className="text-muted-foreground">Latest receival</span>
+                      <span className="tabular-nums">{formatDate(row.latestReceivalAt)}</span>
+                    </div>
+                  )}
+                </div>
+              )}
+            </button>
+          ))}
+        </div>
+
+        {/* ── Desktop table (md+) ─────────────────────────────────────── */}
+        <div className="rounded-md border overflow-x-auto hidden md:block">
           <Table>
             <TableHeader>
               <TableRow>
