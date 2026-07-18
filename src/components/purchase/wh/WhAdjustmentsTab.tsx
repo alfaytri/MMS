@@ -148,7 +148,7 @@ export const WhAdjustmentsTab = React.memo(function WhAdjustmentsTab({ warehouse
     <div className="p-4 md:p-6 space-y-3">
       <div className="flex items-center justify-between gap-2">
         <Tabs value={statusFilter} onValueChange={(v) => setStatusFilter(v as StatusFilter)}>
-          <TabsList className="h-8 text-xs">
+          <TabsList className="h-8 min-h-11 md:min-h-0 text-xs max-w-full overflow-x-auto whitespace-nowrap">
             {FILTER_TABS.map((t) => (
               <TabsTrigger key={t.value} value={t.value} className="text-xs px-3 h-7 gap-1">
                 {t.label}
@@ -175,14 +175,14 @@ export const WhAdjustmentsTab = React.memo(function WhAdjustmentsTab({ warehouse
           <TableHeader>
             <TableRow>
               <TableHead className="text-xs w-[22%]">Item</TableHead>
-              <TableHead className="text-xs">Date</TableHead>
-              <TableHead className="text-xs">Warehouse</TableHead>
+              <TableHead className="text-xs hidden sm:table-cell">Date</TableHead>
+              <TableHead className="text-xs hidden md:table-cell">Warehouse</TableHead>
               <TableHead className="text-xs">Type</TableHead>
               <TableHead className="text-xs text-right">Qty</TableHead>
-              <TableHead className="text-xs">Reason</TableHead>
-              <TableHead className="text-xs">Requested By</TableHead>
+              <TableHead className="text-xs hidden lg:table-cell">Reason</TableHead>
+              <TableHead className="text-xs hidden md:table-cell">Requested By</TableHead>
               <TableHead className="text-xs">Status</TableHead>
-              <TableHead className="text-xs">Photos</TableHead>
+              <TableHead className="text-xs hidden sm:table-cell">Photos</TableHead>
               <TableHead className="text-xs text-right">Actions</TableHead>
             </TableRow>
           </TableHeader>
@@ -234,24 +234,24 @@ export const WhAdjustmentsTab = React.memo(function WhAdjustmentsTab({ warehouse
                     />
                   </TableCell>
 
-                  <TableCell className="text-xs whitespace-nowrap py-2.5">
+                  <TableCell className="text-xs whitespace-nowrap py-2.5 hidden sm:table-cell">
                     {adj.created_at ? format(new Date(adj.created_at), 'dd MMM') : '—'}
                   </TableCell>
-                  <TableCell className="text-xs py-2.5">{adj.warehouses?.name ?? '—'}</TableCell>
+                  <TableCell className="text-xs py-2.5 hidden md:table-cell">{adj.warehouses?.name ?? '—'}</TableCell>
                   <TableCell className="py-2.5">
                     <Badge className={`text-[10px] px-1.5 py-0 capitalize ${TYPE_STYLES[adj.adjustment_type] ?? ''}`}>
                       {adj.adjustment_type?.replace(/_/g, ' ')}
                     </Badge>
                   </TableCell>
                   <TableCell className="text-xs text-right py-2.5">{adj.qty}</TableCell>
-                  <TableCell className="text-xs max-w-[120px] truncate py-2.5">{adj.reason}</TableCell>
-                  <TableCell className="text-xs py-2.5">{adj.requested_by_name ?? '—'}</TableCell>
+                  <TableCell className="text-xs max-w-[120px] truncate py-2.5 hidden lg:table-cell">{adj.reason}</TableCell>
+                  <TableCell className="text-xs py-2.5 hidden md:table-cell">{adj.requested_by_name ?? '—'}</TableCell>
                   <TableCell className="py-2.5">
                     <Badge className={`text-[10px] px-1.5 py-0 ${STATUS_STYLES[adj.status] ?? 'bg-muted text-muted-foreground'}`}>
                       {adj.status?.replace(/_/g, ' ')}{stepCounter}
                     </Badge>
                   </TableCell>
-                  <TableCell className="py-2.5" onClick={(e) => e.stopPropagation()}>
+                  <TableCell className="py-2.5 hidden sm:table-cell" onClick={(e) => e.stopPropagation()}>
                     {(adj.photo_urls?.length ?? 0) > 0 && (
                       <Button
                         variant="ghost" size="sm"
@@ -267,7 +267,7 @@ export const WhAdjustmentsTab = React.memo(function WhAdjustmentsTab({ warehouse
                     {hasChain ? (
                       <Button
                         size="sm" variant="ghost"
-                        className="h-6 px-1.5 gap-1 text-[10px]"
+                        className="h-6 min-h-11 md:min-h-0 px-1.5 gap-1 text-[10px]"
                         onClick={() => setDetailId(adj.id)}
                       >
                         <Eye className="h-3 w-3" />
@@ -277,7 +277,7 @@ export const WhAdjustmentsTab = React.memo(function WhAdjustmentsTab({ warehouse
                       <div className="flex items-center justify-end gap-1">
                         <Button
                           size="sm" variant="outline"
-                          className="h-6 text-[10px] text-success border-success/30 hover:bg-success/10"
+                          className="h-6 min-h-11 md:min-h-0 text-[10px] text-success border-success/30 hover:bg-success/10"
                           onClick={() => approve.mutate(
                             { id: adj.id, approvedByName: currentProfile?.full_name ?? 'Manager' },
                             { onSuccess: () => toast.success('Approved'), onError: (e) => toast.error(e.message) },
@@ -288,7 +288,7 @@ export const WhAdjustmentsTab = React.memo(function WhAdjustmentsTab({ warehouse
                         </Button>
                         <Button
                           size="sm" variant="outline"
-                          className="h-6 text-[10px] text-destructive border-destructive/30 hover:bg-destructive/10"
+                          className="h-6 min-h-11 md:min-h-0 text-[10px] text-destructive border-destructive/30 hover:bg-destructive/10"
                           onClick={() => reject.mutate(adj.id, {
                             onSuccess: () => toast.success('Rejected'),
                             onError:  (e) => toast.error(e.message),
@@ -316,11 +316,11 @@ export const WhAdjustmentsTab = React.memo(function WhAdjustmentsTab({ warehouse
           <span>{filteredAdjustments.length} adjustment{filteredAdjustments.length !== 1 ? 's' : ''}</span>
           {totalPages > 1 && (
             <div className="flex items-center gap-1.5">
-              <Button variant="outline" size="sm" className="h-7 w-7 p-0" disabled={page <= 1} onClick={() => setPage((p) => Math.max(1, p - 1))} aria-label="Previous page">
+              <Button variant="outline" size="sm" className="h-7 w-7 p-0 min-h-11 min-w-11 md:min-h-0 md:min-w-0" disabled={page <= 1} onClick={() => setPage((p) => Math.max(1, p - 1))} aria-label="Previous page">
                 <ChevronLeft className="h-3.5 w-3.5" />
               </Button>
               <span className="tabular-nums min-w-[80px] text-center">Page {page} of {totalPages}</span>
-              <Button variant="outline" size="sm" className="h-7 w-7 p-0" disabled={page >= totalPages} onClick={() => setPage((p) => Math.min(totalPages, p + 1))} aria-label="Next page">
+              <Button variant="outline" size="sm" className="h-7 w-7 p-0 min-h-11 min-w-11 md:min-h-0 md:min-w-0" disabled={page >= totalPages} onClick={() => setPage((p) => Math.min(totalPages, p + 1))} aria-label="Next page">
                 <ChevronRight className="h-3.5 w-3.5" />
               </Button>
             </div>

@@ -153,7 +153,7 @@ export const WhMovementsTab = React.memo(function WhMovementsTab({ warehouses }:
         <div className="relative max-w-xs">
           <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-muted-foreground" />
           <Input
-            className="h-8 text-xs pl-8"
+            className="h-8 min-h-11 md:min-h-0 text-xs pl-8"
             placeholder="Search item / SKU…"
             value={search}
             onChange={e => setSearch(e.target.value)}
@@ -193,11 +193,11 @@ export const WhMovementsTab = React.memo(function WhMovementsTab({ warehouses }:
               <TableHead className="text-xs w-[22%]">Item</TableHead>
               <TableHead className="text-xs">Type</TableHead>
               <TableHead className="text-xs text-right">Qty</TableHead>
-              <TableHead className="text-xs text-right">Unit Cost</TableHead>
-              <TableHead className="text-xs text-right">Total</TableHead>
-              <TableHead className="text-xs text-right">Stock</TableHead>
-              <TableHead className="text-xs text-right">Stock Value</TableHead>
-              <TableHead className="text-xs">Warehouse</TableHead>
+              <TableHead className="text-xs text-right hidden md:table-cell">Unit Cost</TableHead>
+              <TableHead className="text-xs text-right hidden sm:table-cell">Total</TableHead>
+              <TableHead className="text-xs text-right hidden sm:table-cell">Stock</TableHead>
+              <TableHead className="text-xs text-right hidden md:table-cell">Stock Value</TableHead>
+              <TableHead className="text-xs hidden md:table-cell">Warehouse</TableHead>
               <TableHead className="text-xs">Ref</TableHead>
             </TableRow>
           </TableHeader>
@@ -240,15 +240,15 @@ export const WhMovementsTab = React.memo(function WhMovementsTab({ warehouses }:
                     <TableCell className="text-xs text-right tabular-nums">{m.qty}</TableCell>
 
                     {/* Unit Cost */}
-                    <TableCell className="text-xs text-right tabular-nums">{m.unit_cost != null ? fmtVal(m.unit_cost) : '—'}</TableCell>
+                    <TableCell className="text-xs text-right tabular-nums hidden md:table-cell">{m.unit_cost != null ? fmtVal(m.unit_cost) : '—'}</TableCell>
 
                     {/* Movement Total */}
-                    <TableCell className="text-xs text-right tabular-nums">
+                    <TableCell className="text-xs text-right tabular-nums hidden sm:table-cell">
                       {m.unit_cost != null && m.qty != null ? fmtVal(m.unit_cost * m.qty) : '—'}
                     </TableCell>
 
                     {/* Stock Qty — clickable to open stock detail dialog */}
-                    <TableCell className="text-xs text-right tabular-nums">
+                    <TableCell className="text-xs text-right tabular-nums hidden sm:table-cell">
                       {stockInfo ? (
                         <span
                           className="cursor-pointer underline decoration-dashed underline-offset-2 hover:text-primary"
@@ -271,7 +271,7 @@ export const WhMovementsTab = React.memo(function WhMovementsTab({ warehouses }:
                     </TableCell>
 
                     {/* Stock Value — clickable to open stock detail dialog */}
-                    <TableCell className="text-xs text-right tabular-nums">
+                    <TableCell className="text-xs text-right tabular-nums hidden md:table-cell">
                       {stockInfo ? (
                         <span
                           className="cursor-pointer underline decoration-dashed underline-offset-2 hover:text-primary"
@@ -294,7 +294,7 @@ export const WhMovementsTab = React.memo(function WhMovementsTab({ warehouses }:
                     </TableCell>
 
                     {/* Warehouse */}
-                    <TableCell className="text-xs">{warehouseMap.get(m.warehouse_id) ?? '—'}</TableCell>
+                    <TableCell className="text-xs hidden md:table-cell">{warehouseMap.get(m.warehouse_id) ?? '—'}</TableCell>
 
                     {/* Ref — clickable to open detail dialog */}
                     <TableCell className="text-xs">
@@ -326,11 +326,11 @@ export const WhMovementsTab = React.memo(function WhMovementsTab({ warehouses }:
           <span>{filtered.length} movement{filtered.length !== 1 ? 's' : ''}</span>
           {totalPages > 1 && (
             <div className="flex items-center gap-1.5">
-              <Button variant="outline" size="sm" className="h-7 w-7 p-0" disabled={page <= 1} onClick={() => setPage((p) => Math.max(1, p - 1))} aria-label="Previous page">
+              <Button variant="outline" size="sm" className="h-7 w-7 p-0 min-h-11 min-w-11 md:min-h-0 md:min-w-0" disabled={page <= 1} onClick={() => setPage((p) => Math.max(1, p - 1))} aria-label="Previous page">
                 <ChevronLeft className="h-3.5 w-3.5" />
               </Button>
               <span className="tabular-nums min-w-[80px] text-center">Page {page} of {totalPages}</span>
-              <Button variant="outline" size="sm" className="h-7 w-7 p-0" disabled={page >= totalPages} onClick={() => setPage((p) => Math.min(totalPages, p + 1))} aria-label="Next page">
+              <Button variant="outline" size="sm" className="h-7 w-7 p-0 min-h-11 min-w-11 md:min-h-0 md:min-w-0" disabled={page >= totalPages} onClick={() => setPage((p) => Math.min(totalPages, p + 1))} aria-label="Next page">
                 <ChevronRightIcon className="h-3.5 w-3.5" />
               </Button>
             </div>

@@ -64,7 +64,7 @@ export const ReceivalsDeliveriesTab = React.memo(function ReceivalsDeliveriesTab
         <div className="relative max-w-xs">
           <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-muted-foreground" />
           <Input
-            className="h-8 text-xs pl-8"
+            className="h-8 min-h-11 md:min-h-0 text-xs pl-8"
             placeholder="Search doc# / ref / party…"
             value={search}
             onChange={e => setSearch(e.target.value)}
@@ -94,15 +94,15 @@ export const ReceivalsDeliveriesTab = React.memo(function ReceivalsDeliveriesTab
         <WarehouseReportButton reportType="receivals-deliveries" label="Report" />
       </div>
 
-      <div className="rounded-md border">
+      <div className="rounded-md border overflow-x-auto">
         <Table>
           <TableHeader>
             <TableRow>
               <TableHead className="text-xs">Direction</TableHead>
               <TableHead className="text-xs">Doc #</TableHead>
-              <TableHead className="text-xs">Reference</TableHead>
-              <TableHead className="text-xs">Warehouse</TableHead>
-              <TableHead className="text-xs">Counterparty</TableHead>
+              <TableHead className="text-xs hidden sm:table-cell">Reference</TableHead>
+              <TableHead className="text-xs hidden md:table-cell">Warehouse</TableHead>
+              <TableHead className="text-xs hidden md:table-cell">Counterparty</TableHead>
               <TableHead className="text-xs">Date</TableHead>
               <TableHead className="text-xs text-right">Items</TableHead>
               <TableHead className="text-xs">Status</TableHead>
@@ -130,9 +130,9 @@ export const ReceivalsDeliveriesTab = React.memo(function ReceivalsDeliveriesTab
                     </Badge>
                   </TableCell>
                   <TableCell className="text-xs font-medium">{item.docNumber}</TableCell>
-                  <TableCell className="text-xs font-medium text-primary">{item.reference || '—'}</TableCell>
-                  <TableCell className="text-xs">{item.warehouseName}</TableCell>
-                  <TableCell className="text-xs">{item.counterparty}</TableCell>
+                  <TableCell className="text-xs font-medium text-primary hidden sm:table-cell">{item.reference || '—'}</TableCell>
+                  <TableCell className="text-xs hidden md:table-cell">{item.warehouseName}</TableCell>
+                  <TableCell className="text-xs hidden md:table-cell">{item.counterparty}</TableCell>
                   <TableCell className="text-xs whitespace-nowrap">
                     {item.date ? format(new Date(item.date), 'dd MMM yyyy') : '—'}
                   </TableCell>
@@ -153,11 +153,11 @@ export const ReceivalsDeliveriesTab = React.memo(function ReceivalsDeliveriesTab
         <div className="flex items-center justify-between text-xs text-muted-foreground px-1">
           <span>{filtered.length} item{filtered.length !== 1 ? 's' : ''}</span>
           <div className="flex items-center gap-1.5">
-            <Button variant="outline" size="sm" className="h-7 w-7 p-0" disabled={page <= 1} onClick={() => setPage((p) => Math.max(1, p - 1))} aria-label="Previous page">
+            <Button variant="outline" size="sm" className="h-7 w-7 p-0 min-h-11 min-w-11 md:min-h-0 md:min-w-0" disabled={page <= 1} onClick={() => setPage((p) => Math.max(1, p - 1))} aria-label="Previous page">
               <ChevronLeft className="h-3.5 w-3.5" />
             </Button>
             <span className="tabular-nums min-w-[80px] text-center">Page {page} of {totalPages}</span>
-            <Button variant="outline" size="sm" className="h-7 w-7 p-0" disabled={page >= totalPages} onClick={() => setPage((p) => Math.min(totalPages, p + 1))} aria-label="Next page">
+            <Button variant="outline" size="sm" className="h-7 w-7 p-0 min-h-11 min-w-11 md:min-h-0 md:min-w-0" disabled={page >= totalPages} onClick={() => setPage((p) => Math.min(totalPages, p + 1))} aria-label="Next page">
               <ChevronRight className="h-3.5 w-3.5" />
             </Button>
           </div>

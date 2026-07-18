@@ -321,8 +321,8 @@ export const WhStockOverviewTab = React.memo(function WhStockOverviewTab({
     return brands.map((b) => (
       <TableRow key={b.brand_variant_id} className="bg-muted/5 hover:bg-muted/10">
         <TableCell className={`py-1.5 ${indentClass} text-xs text-muted-foreground`} />
-        <TableCell className="text-xs py-1.5 font-medium">{b.brand ?? '—'}</TableCell>
-        <TableCell className="text-xs py-1.5 text-primary">{b.sku ?? '—'}</TableCell>
+        <TableCell className="text-xs py-1.5 font-medium hidden sm:table-cell">{b.brand ?? '—'}</TableCell>
+        <TableCell className="text-xs py-1.5 text-primary hidden sm:table-cell">{b.sku ?? '—'}</TableCell>
         <TableCell className="text-xs text-right py-1.5 font-medium">
           <StockTooltip
             qty={b.qty}
@@ -330,7 +330,7 @@ export const WhStockOverviewTab = React.memo(function WhStockOverviewTab({
             rows={warehouseBreakdown.get(b.brand_variant_id) ?? []}
           />
         </TableCell>
-        <TableCell className="text-xs text-right py-1.5">{fmtVal(b.avgCost)}</TableCell>
+        <TableCell className="text-xs text-right py-1.5 hidden md:table-cell">{fmtVal(b.avgCost)}</TableCell>
         <TableCell className="text-xs text-right py-1.5">{fmtVal(b.totalValue)}</TableCell>
       </TableRow>
     ))
@@ -357,12 +357,12 @@ export const WhStockOverviewTab = React.memo(function WhStockOverviewTab({
                 {item.itemName}
               </div>
             </TableCell>
-            <TableCell className="text-xs text-muted-foreground py-2">
+            <TableCell className="text-xs text-muted-foreground py-2 hidden sm:table-cell">
               {item.brands.length === 1
                 ? (item.brands[0].brand ?? '—')
                 : <span className="text-[10px] italic">{item.brands.length} brands</span>}
             </TableCell>
-            <TableCell className="text-xs text-primary py-2">
+            <TableCell className="text-xs text-primary py-2 hidden sm:table-cell">
               {item.brands.length === 1 ? (item.brands[0].sku ?? '—') : '—'}
             </TableCell>
             <TableCell className="text-xs text-right font-semibold py-2">
@@ -374,7 +374,7 @@ export const WhStockOverviewTab = React.memo(function WhStockOverviewTab({
                   : (warehouseBreakdown.get(item.brands[0]?.brand_variant_id) ?? [])}
               />
             </TableCell>
-            <TableCell className="py-2 text-xs text-right text-muted-foreground">
+            <TableCell className="py-2 text-xs text-right text-muted-foreground hidden md:table-cell">
               {item.brands.length === 1 ? fmtVal(item.brands[0].avgCost) : '—'}
             </TableCell>
             <TableCell className="text-xs text-right py-2 font-medium">
@@ -390,7 +390,7 @@ export const WhStockOverviewTab = React.memo(function WhStockOverviewTab({
   return (
     <div className="p-4 md:p-6 space-y-4">
       {/* Summary mini-cards */}
-      <div className="grid grid-cols-3 gap-3">
+      <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
         {[
           { icon: <Layers   className="h-4 w-4 text-primary" />, label: 'Total Items', value: totalItemCount.toLocaleString('en-QA') },
           { icon: <Package  className="h-4 w-4 text-primary" />, label: 'Total Qty',   value: totalQty.toLocaleString('en-QA')   },
@@ -422,7 +422,7 @@ export const WhStockOverviewTab = React.memo(function WhStockOverviewTab({
         <div className="relative max-w-xs flex-1">
           <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-muted-foreground" />
           <Input
-            className="h-8 text-xs pl-8"
+            className="h-8 min-h-11 md:min-h-0 text-xs pl-8"
             placeholder="Search by item, category, brand or SKU…"
             value={search}
             onChange={(e) => setSearch(e.target.value)}
@@ -449,7 +449,7 @@ export const WhStockOverviewTab = React.memo(function WhStockOverviewTab({
         {selectedWarehouse && (
           <Button
             variant="ghost" size="sm"
-            className="h-7 px-2 text-xs text-muted-foreground"
+            className="h-7 min-h-11 md:min-h-0 px-2 text-xs text-muted-foreground"
             onClick={() => setSelectedWarehouseId(undefined)}
             aria-label="Clear warehouse filter"
           >
@@ -462,7 +462,7 @@ export const WhStockOverviewTab = React.memo(function WhStockOverviewTab({
           {tree.length > 0 && (
             <Button
               variant="ghost" size="sm"
-              className="h-7 px-2 text-xs text-muted-foreground"
+              className="h-7 min-h-11 md:min-h-0 px-2 text-xs text-muted-foreground"
               onClick={allExpanded ? collapseAll : expandAll}
             >
               {allExpanded ? 'Collapse all' : 'Expand all'}
@@ -479,10 +479,10 @@ export const WhStockOverviewTab = React.memo(function WhStockOverviewTab({
             <TableHeader>
               <TableRow>
                 <TableHead className="text-xs w-[38%]">Item</TableHead>
-                <TableHead className="text-xs">Brand</TableHead>
-                <TableHead className="text-xs">SKU</TableHead>
+                <TableHead className="text-xs hidden sm:table-cell">Brand</TableHead>
+                <TableHead className="text-xs hidden sm:table-cell">SKU</TableHead>
                 <TableHead className="text-xs text-right">Stock</TableHead>
-                <TableHead className="text-xs text-right">Avg Cost</TableHead>
+                <TableHead className="text-xs text-right hidden md:table-cell">Avg Cost</TableHead>
                 <TableHead className="text-xs text-right">Value (QR)</TableHead>
               </TableRow>
             </TableHeader>
@@ -521,16 +521,16 @@ export const WhStockOverviewTab = React.memo(function WhStockOverviewTab({
                             )}
                           </div>
                         </TableCell>
-                        <TableCell className="text-xs text-muted-foreground py-2.5">
+                        <TableCell className="text-xs text-muted-foreground py-2.5 hidden sm:table-cell">
                           <span className="text-[10px] italic">
                             {childCount} {cat.subcategories.length > 0 ? 'sub' : 'item'}{childCount !== 1 ? 's' : ''}
                           </span>
                         </TableCell>
-                        <TableCell className="py-2.5" />
+                        <TableCell className="py-2.5 hidden sm:table-cell" />
                         <TableCell className="text-xs text-right font-bold py-2.5">
                           <StockTooltip qty={cat.totalQty} title="Stock Breakdown" rows={tooltipRows} />
                         </TableCell>
-                        <TableCell className="py-2.5 text-xs text-right text-muted-foreground">—</TableCell>
+                        <TableCell className="py-2.5 text-xs text-right text-muted-foreground hidden md:table-cell">—</TableCell>
                         <TableCell className="text-xs text-right font-bold py-2.5">
                           {fmtVal(cat.totalValue)}
                         </TableCell>
@@ -556,12 +556,12 @@ export const WhStockOverviewTab = React.memo(function WhStockOverviewTab({
                                       {sc.subcategoryName}
                                     </div>
                                   </TableCell>
-                                  <TableCell className="text-xs text-muted-foreground py-2">
+                                  <TableCell className="text-xs text-muted-foreground py-2 hidden sm:table-cell">
                                     <span className="text-[10px] italic">
                                       {sc.items.length} item{sc.items.length !== 1 ? 's' : ''}
                                     </span>
                                   </TableCell>
-                                  <TableCell className="py-2" />
+                                  <TableCell className="py-2 hidden sm:table-cell" />
                                   <TableCell className="text-xs text-right font-semibold py-2">
                                     <StockTooltip
                                       qty={sc.totalQty}
@@ -569,7 +569,7 @@ export const WhStockOverviewTab = React.memo(function WhStockOverviewTab({
                                       rows={sc.items.map((i) => ({ label: i.itemName, qty: i.totalQty }))}
                                     />
                                   </TableCell>
-                                  <TableCell className="py-2 text-xs text-right text-muted-foreground">—</TableCell>
+                                  <TableCell className="py-2 text-xs text-right text-muted-foreground hidden md:table-cell">—</TableCell>
                                   <TableCell className="text-xs text-right font-semibold py-2">
                                     {fmtVal(sc.totalValue)}
                                   </TableCell>
@@ -600,7 +600,7 @@ export const WhStockOverviewTab = React.memo(function WhStockOverviewTab({
                 <Button
                   variant="outline"
                   size="sm"
-                  className="h-7 w-7 p-0"
+                  className="h-7 w-7 p-0 min-h-11 min-w-11 md:min-h-0 md:min-w-0"
                   disabled={page <= 1}
                   onClick={() => setPage((p) => Math.max(1, p - 1))}
                   aria-label="Previous page"
@@ -613,7 +613,7 @@ export const WhStockOverviewTab = React.memo(function WhStockOverviewTab({
                 <Button
                   variant="outline"
                   size="sm"
-                  className="h-7 w-7 p-0"
+                  className="h-7 w-7 p-0 min-h-11 min-w-11 md:min-h-0 md:min-w-0"
                   disabled={page >= totalPages}
                   onClick={() => setPage((p) => Math.min(totalPages, p + 1))}
                   aria-label="Next page"
