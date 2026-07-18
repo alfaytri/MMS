@@ -244,7 +244,7 @@ Purchase & Sales▾:
 
 ## 🔄 In Progress
 
-_(Orders Invoices module complete — awaiting next task)_
+🚀 Starting: **TL Card Detail Task 1: Extend get_team_leader_visits RPC**
 
 
 
