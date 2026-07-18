@@ -243,7 +243,7 @@ Purchase & Sales▾:
 
 ## 🔄 In Progress
 
-None
+🚀 Starting: **Responsive UI Work-up Task 3.2: Warehouses (multi-tab hub)**
 
 
 
@@ -262,6 +262,10 @@ None
 
 ## ✅ Completed
 
+- [2026-07-18] **Responsive UI Work-up Phase 3.1: Inventory page** — `src/components/services/InventoryTab.tsx`, `src/components/services/inventory/ItemsListView.tsx`, `src/components/services/inventory/CategoryRow.tsx`, `src/components/services/inventory/ItemRow.tsx`, `src/components/services/inventory/BrandVariantRow.tsx`, `src/components/services/inventory/ToolsAssetsView.tsx`, `src/components/services/inventory/ToolCategoryRow.tsx` — Tab touch targets, toolbar full-width on mobile, overflow-x-auto tables, progressive column hiding (SKU/CODE/PRICING/INCOMING), reorder buttons hidden on mobile, touch targets on all action buttons
+- [2026-07-18] **Responsive UI Work-up Phase 2.C: Vendors & logistics list pages** — `suppliers/page.tsx`, `customers/page.tsx`, `shipments/page.tsx`, `landed-costs/page.tsx`, `dead-stock/page.tsx` — mobileCardRender on DataTable pages, toolbar responsive, progressive column hiding, touch targets
+- [2026-07-18] **Responsive UI Work-up Phase 2.B: Sales list pages** — 8 pages (sale-orders, deliveries, invoices, payments, credit-notes, returns, quotations, pending-payments) — mobileCardRender, toolbar responsive, column hiding, touch targets
+- [2026-07-18] **Responsive UI Work-up Phase 2.A: Purchase list pages** — 7 pages (purchase-orders, receivals, payments, approvals, rfq, returns, debit-notes) — mobileCardRender, toolbar responsive, column hiding, touch targets
 - [2026-07-15] **Profitability Drill-down Dialog** — `src/components/reports/ProfitabilityDrilldownDialog.tsx` (new), `src/hooks/useProductProfitability.ts`, `src/lib/queryKeys.ts`, `src/app/(dashboard)/reports/product-profitability/page.tsx`, `supabase/migrations/20260716100000_rpc_profitability_drilldown.sql` — Clickable KPI cards (Revenue/COGS/Profit) open SO-level drill-down with nested line items. Per-mode column visibility (Revenue→Revenue only, COGS→COGS only, Profit→all). Search, product/customer filters, sortable columns, expandable rows, totals, Excel export. New RPC uses ce.qty to avoid FIFO overcounting.
 - [2026-07-15] **CHECK Constraints on Status Columns** — 3 migrations (`20260715230000_add_status_check_constraints.sql`, `20260715231000_fix_inventory_checks_status_add_submitted.sql`, `20260715232000_fix_status_checks_complete_values.sql`), `src/types/database.types.ts` — Added CHECK constraints to 8 text status columns (inventory_brand_variants, inventory_categories, inventory_items, inventory_checks, inventory_check_approvals, inventory_check_assignments, stock_adjustments, payment_sessions). Updated TypeScript union types to match. Applied to both production and staging.
 - [2026-07-15] **DB Schema Audit & Fix** — 4 migrations (`20260715180000_fix_create_confirm_delivery_rpc.sql`, `20260715190000_add_missing_fk_indexes.sql`, `20260715200000_add_fk_constraints_and_cleanup.sql`, `20260715220000_invoice_type_direction_enums.sql`), 5 app code fixes (`useSaleOrders.ts`, `SoDetailDialog.tsx`, `sales/returns/page.tsx`, `WhMovementRefDialog.tsx`, `database.types.ts`), `docs/db-schema-issues.json` — Fixed critical stale RPC (create_and_confirm_delivery), 4 stale app code refs, added 13 FK indexes, 6 FK constraints, dropped orphan column, converted invoice_type+direction to enums. 25 issues resolved total (FIXED-016 through FIXED-025).
