@@ -77,6 +77,21 @@ export default function BillsPage() {
         data={bills ?? []}
         isLoading={isLoading}
         onRowClick={(row: ApInvoice) => router.push(`/purchase/bills/${row.id}`)}
+        mobileCardRender={(bill: ApInvoice) => (
+          <div className="space-y-1">
+            <div className="flex items-center justify-between gap-2">
+              <span className="font-mono text-sm font-medium">{bill.invoice_id}</span>
+              <Badge className={cn('text-xs', PAY_STATUS_CONFIG[bill.payment_status ?? ''] ?? '')}>
+                {(bill.payment_status ?? '').replace('_', ' ')}
+              </Badge>
+            </div>
+            <p className="text-sm text-muted-foreground">{bill.supplier_name ?? '—'}</p>
+            <div className="flex items-center justify-between text-xs text-muted-foreground">
+              <span>PO: {bill.po_number ?? '—'}</span>
+              <span className="font-medium text-foreground">{formatCurrency(bill.total_amount ?? 0, 'QAR')}</span>
+            </div>
+          </div>
+        )}
       />
       <BillFormDialog open={createOpen} onOpenChange={setCreateOpen} />
     </PageWrapper>

@@ -401,7 +401,7 @@ export default function ReceivalsPage() {
               key={s.value}
               onClick={() => setStatusFilter(s.value)}
               className={cn(
-                'px-3 py-1 rounded-full text-sm border transition-colors',
+                'px-3 py-1 min-h-11 md:min-h-0 rounded-full text-sm border transition-colors',
                 statusFilter === s.value
                   ? 'bg-primary text-primary-foreground border-primary'
                   : 'border-border hover:bg-accent'
@@ -417,7 +417,7 @@ export default function ReceivalsPage() {
               key={v}
               onClick={() => setSourceFilter(v)}
               className={cn(
-                'px-3 py-1 rounded-full text-sm border transition-colors capitalize',
+                'px-3 py-1 min-h-11 md:min-h-0 rounded-full text-sm border transition-colors capitalize',
                 sourceFilter === v
                   ? 'bg-primary text-primary-foreground border-primary'
                   : 'border-border hover:bg-accent'
@@ -434,6 +434,28 @@ export default function ReceivalsPage() {
         data={receivals ?? []}
         isLoading={isLoading}
         onRowClick={(row) => setDetailReceival(row)}
+        mobileCardRender={(r: Receival) => {
+          const s = r.status as string
+          const cfg = STATUS_CONFIG[s] ?? { label: s ?? 'Unknown', className: 'bg-gray-100 text-gray-700' }
+          return (
+            <div className="space-y-1">
+              <div className="flex items-center justify-between gap-2">
+                <span className={cn('font-mono text-sm font-medium', r.source_type === 'inventory' && 'text-purple-700')}>
+                  {r.receival_number}
+                </span>
+                <Badge className={cn('text-xs', cfg.className)}>{cfg.label}</Badge>
+              </div>
+              <div className="flex items-center justify-between text-sm">
+                <span className="text-muted-foreground">{r.supplier_name ?? '—'}</span>
+                <span className="text-xs text-muted-foreground">{formatDate(r.date)}</span>
+              </div>
+              <div className="flex items-center justify-between text-xs text-muted-foreground">
+                <span>{r.source_type === 'inventory' ? 'Inventory' : r.po_number ?? '—'}</span>
+                <span>{r.receival_items?.length ?? 0} lines</span>
+              </div>
+            </div>
+          )
+        }}
       />
 
       <ReceivalFormDialog open={createOpen} onOpenChange={setCreateOpen} />
