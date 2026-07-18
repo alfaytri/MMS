@@ -3,7 +3,7 @@
 import { useContactCenterContext } from '@/contexts/ContactCenterContext'
 
 // Sidebar widths: collapsed = w-10 (40px), expanded = w-80 (320px)
-// Add a small visible gap so the navbar doesn't butt up against the sidebar edge.
+// Nav bar shifts right by the sidebar's width so nothing hides behind it.
 export function TopNavV2Offset({ children }: { children: React.ReactNode }) {
   const { ccSidebar } = useContactCenterContext()
 
