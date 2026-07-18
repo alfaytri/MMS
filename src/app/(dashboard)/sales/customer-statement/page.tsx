@@ -197,7 +197,7 @@ export default function CustomerStatementPage() {
                 size="sm"
                 onClick={handleViewPdf}
                 disabled={!customerId || filteredOrders.length === 0 || pdfBusy !== null}
-                className="gap-1.5"
+                className="gap-1.5 min-h-11 md:min-h-0"
               >
                 {pdfBusy === 'view'
                   ? <Loader2 className="h-4 w-4 animate-spin" />
@@ -208,7 +208,7 @@ export default function CustomerStatementPage() {
                 size="sm"
                 onClick={handleDownloadPdf}
                 disabled={!customerId || filteredOrders.length === 0 || pdfBusy !== null}
-                className="gap-1.5"
+                className="gap-1.5 min-h-11 md:min-h-0"
               >
                 {pdfBusy === 'download'
                   ? <Loader2 className="h-4 w-4 animate-spin" />

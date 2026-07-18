@@ -424,11 +424,12 @@ function LcDetailDialog({
 
           {!isVoided && !isApplied && (
             <DialogFooter className="gap-2">
-              <Button variant="destructive" size="sm" onClick={() => setVoidOpen(true)}>
+              <Button variant="destructive" size="sm" className="min-h-11 md:min-h-0" onClick={() => setVoidOpen(true)}>
                 Void LC
               </Button>
               <Button
                 size="sm"
+                className="min-h-11 md:min-h-0"
                 onClick={() => setApplyOpen(true)}
                 disabled={lc.attached_receival_ids.length === 0}
               >
@@ -441,7 +442,7 @@ function LcDetailDialog({
               <Button
                 variant="outline"
                 size="sm"
-                className="text-destructive border-destructive hover:bg-destructive/10"
+                className="min-h-11 md:min-h-0 text-destructive border-destructive hover:bg-destructive/10"
                 onClick={() => { setRevertConfirmText(''); setRevertOpen(true) }}
               >
                 Revert Apply
@@ -856,7 +857,7 @@ function CreateLcDialog({ open, onOpenChange }: { open: boolean; onOpenChange: (
                     disabled={uploadingLines.has(i)}
                     onClick={() => fileInputRefs.current[i]?.click()}
                     className={cn(
-                      'flex items-center justify-center h-8 w-8 rounded border text-sm transition-colors shrink-0',
+                      'flex items-center justify-center h-8 w-8 min-h-11 md:min-h-0 min-w-11 md:min-w-0 rounded border text-sm transition-colors shrink-0',
                       line.bill_path
                         ? 'border-green-400 text-success bg-success/10 hover:bg-green-100'
                         : 'border-input text-muted-foreground hover:text-foreground hover:bg-accent',
@@ -874,7 +875,7 @@ function CreateLcDialog({ open, onOpenChange }: { open: boolean; onOpenChange: (
                   )}
                   <Button
                     type="button" variant="ghost" size="icon"
-                    className="h-8 w-8 text-muted-foreground hover:text-destructive shrink-0"
+                    className="h-8 w-8 min-h-11 md:min-h-0 min-w-11 md:min-w-0 text-muted-foreground hover:text-destructive shrink-0"
                     onClick={() => removeLine(i)}
                     disabled={lines.length === 1}
                     aria-label="Remove line"
@@ -885,7 +886,7 @@ function CreateLcDialog({ open, onOpenChange }: { open: boolean; onOpenChange: (
               </div>
             ))}
             <div className="flex items-center justify-between">
-              <Button type="button" variant="outline" size="sm" onClick={addLine}>
+              <Button type="button" variant="outline" size="sm" className="min-h-11 md:min-h-0" onClick={addLine}>
                 <Plus className="h-4 w-4 mr-1" /> Add Cost Line
               </Button>
               <p className="text-sm font-semibold">Total (QAR): {formatCurrency(total, 'QAR')}</p>
@@ -1114,7 +1115,7 @@ export default function LandedCostsPage() {
       id: 'actions',
       header: '',
       cell: ({ row }) => (
-        <Button variant="ghost" size="icon" className="h-8 w-8" aria-label="View landed cost" onClick={() => setSelected(row.original)}>
+        <Button variant="ghost" size="icon" className="h-8 w-8 min-h-11 md:min-h-0 min-w-11 md:min-w-0" aria-label="View landed cost" onClick={() => setSelected(row.original)}>
           <Eye className="h-4 w-4" />
         </Button>
       ),

@@ -163,7 +163,7 @@ export default function ApprovalsPage() {
                     </div>
                   )}
                   <div className="flex gap-2 flex-wrap">
-                    <Button size="sm" onClick={() => openDialog(po)}>Review</Button>
+                    <Button size="sm" className="min-h-11 md:min-h-0" onClick={() => openDialog(po)}>Review</Button>
                     {myRoles.includes('Owner') && pendingSteps.length > 0 && (
                       <AlertDialog>
                         <AlertDialogTrigger asChild>
@@ -171,7 +171,7 @@ export default function ApprovalsPage() {
                             size="sm"
                             variant="outline"
                             disabled={forceApprove.isPending}
-                            className="gap-1 text-amber-600 border-amber-300 hover:bg-amber-50 hover:text-amber-700"
+                            className="gap-1 min-h-11 md:min-h-0 text-amber-600 border-amber-300 hover:bg-amber-50 hover:text-amber-700"
                           >
                             <ShieldAlert className="h-3.5 w-3.5" /> Force Approve
                           </Button>
@@ -259,7 +259,7 @@ export default function ApprovalsPage() {
                           <PoApprovalChain steps={allSteps} showIteration={maxIteration} />
                         </TableCell>
                         <TableCell>
-                          <Button size="sm" variant="ghost" className="h-8 gap-1 px-2" onClick={() => setViewPO(po)}>
+                          <Button size="sm" variant="ghost" className="h-8 min-h-11 md:min-h-0 gap-1 px-2" onClick={() => setViewPO(po)}>
                             <Eye className="h-3.5 w-3.5" /> View
                           </Button>
                         </TableCell>

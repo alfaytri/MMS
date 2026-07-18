@@ -155,7 +155,7 @@ export default function SaleReturnsPage() {
                     </div>
                     <div className="flex items-center gap-2" onClick={(e) => e.stopPropagation()}>
                       {next && (
-                        <Button size="sm" variant="outline" className="h-7 text-xs" disabled={updateStatus.isPending}
+                        <Button size="sm" variant="outline" className="h-7 min-h-11 md:min-h-0 text-xs" disabled={updateStatus.isPending}
                           onClick={() => updateStatus.mutate({ id: ret.id, status: next },
                             { onSuccess: () => toast.success(`Marked as ${STATUS_CONFIG[next].label}`), onError: (e) => toast.error(e.message) }
                           )}>

@@ -114,7 +114,7 @@ export default function CreditNotesPage() {
               />
             )}
             {(note.status === 'issued' || note.status === 'approved') && !note.resolution_type && (
-              <Button variant="outline" size="sm" onClick={() => setApplyTarget(note)}>
+              <Button variant="outline" size="sm" className="min-h-11 md:min-h-0" onClick={() => setApplyTarget(note)}>
                 Apply
               </Button>
             )}

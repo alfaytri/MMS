@@ -68,7 +68,7 @@ function ReceivalRowActions({
 
   if (active?.status === 'pending' && isAdmin) {
     return (
-      <Button size="sm" variant="outline" className="text-amber-600 border-amber-300 hover:bg-amber-50"
+      <Button size="sm" variant="outline" className="min-h-11 md:min-h-0 text-amber-600 border-amber-300 hover:bg-amber-50"
         onClick={(e) => { e.stopPropagation(); onAdminApprove(active) }}>
         Review Edit
       </Button>
@@ -76,12 +76,12 @@ function ReceivalRowActions({
   }
 
   if (active?.status === 'pending') {
-    return <Button size="sm" variant="outline" disabled>Edit Pending…</Button>
+    return <Button size="sm" variant="outline" className="min-h-11 md:min-h-0" disabled>Edit Pending…</Button>
   }
 
   if (active?.status === 'approved') {
     return (
-      <Button size="sm" variant="outline" className="text-green-600 border-green-300 hover:bg-green-50"
+      <Button size="sm" variant="outline" className="min-h-11 md:min-h-0 text-green-600 border-green-300 hover:bg-green-50"
         onClick={(e) => { e.stopPropagation(); onEditApproved({ receival, request: active }) }}>
         Edit Now
       </Button>
@@ -90,14 +90,14 @@ function ReceivalRowActions({
 
   if (lcLocked) {
     return (
-      <Button size="sm" variant="outline" disabled className="opacity-50" title="Landed Cost applied — edit not available">
+      <Button size="sm" variant="outline" disabled className="min-h-11 md:min-h-0 opacity-50" title="Landed Cost applied — edit not available">
         LC Applied
       </Button>
     )
   }
 
   return (
-    <Button size="sm" variant="outline"
+    <Button size="sm" variant="outline" className="min-h-11 md:min-h-0"
       onClick={(e) => { e.stopPropagation(); onRequestEdit(receival) }}>
       Request Edit
     </Button>

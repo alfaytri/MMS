@@ -107,7 +107,7 @@ export default function CustomersPage() {
           onChange={(e) => handleSearch(e.target.value)}
           className="max-w-sm"
         />
-        <Button size="sm" className="gap-1.5 shrink-0" onClick={() => setCreateOpen(true)}>
+        <Button size="sm" className="gap-1.5 shrink-0 min-h-11 md:min-h-0" onClick={() => setCreateOpen(true)}>
           <Plus className="h-4 w-4" />
           New Customer
         </Button>
@@ -187,7 +187,7 @@ export default function CustomersPage() {
                           onValueChange={(val) => { if (val) handleAssign(c.id, val, c.credit_group_id ?? null, c.credit_group_name ?? null) }}
                           disabled={assignGroup.isPending || submitGroupChange.isPending}
                         >
-                          <SelectTrigger className="h-8 w-44 text-xs">
+                          <SelectTrigger className="h-8 min-h-11 md:min-h-0 w-44 text-xs">
                             <span className={c.credit_group_name ? '' : 'text-muted-foreground'}>
                               {c.credit_group_name ?? 'Assign group…'}
                             </span>
@@ -225,7 +225,7 @@ export default function CustomersPage() {
                         <Button
                           variant="ghost"
                           size="icon"
-                          className="h-7 w-7"
+                          className="h-7 w-7 min-h-11 md:min-h-0 min-w-11 md:min-w-0"
                           onClick={() => setEditing(c)}
                           title="Edit customer"
                         >
@@ -244,10 +244,10 @@ export default function CustomersPage() {
         <div className="flex items-center justify-between text-sm text-muted-foreground">
           <span>{total} customers · page {page + 1} of {totalPages}</span>
           <div className="flex gap-2">
-            <Button variant="outline" size="sm" disabled={page === 0} onClick={() => setPage((p) => p - 1)}>
+            <Button variant="outline" size="sm" className="min-h-11 min-w-11 md:min-h-0 md:min-w-0" disabled={page === 0} onClick={() => setPage((p) => p - 1)}>
               <ChevronLeft className="h-4 w-4" />
             </Button>
-            <Button variant="outline" size="sm" disabled={page >= totalPages - 1} onClick={() => setPage((p) => p + 1)}>
+            <Button variant="outline" size="sm" className="min-h-11 min-w-11 md:min-h-0 md:min-w-0" disabled={page >= totalPages - 1} onClick={() => setPage((p) => p + 1)}>
               <ChevronRight className="h-4 w-4" />
             </Button>
           </div>

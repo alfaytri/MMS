@@ -75,10 +75,10 @@ function RoleCard({ role, onEdit, onDelete }: { role: CustomRole; onEdit: () => 
           )}
         </div>
         <div className="flex items-center gap-0.5 shrink-0">
-          <Button variant="ghost" size="icon" className="h-7 w-7" onClick={onEdit}>
+          <Button variant="ghost" size="icon" className="h-7 w-7 min-h-11 md:min-h-0 min-w-11 md:min-w-0" onClick={onEdit}>
             <Pencil className="h-3.5 w-3.5" />
           </Button>
-          <Button variant="ghost" size="icon" className="h-7 w-7 text-destructive hover:text-destructive" onClick={onDelete}>
+          <Button variant="ghost" size="icon" className="h-7 w-7 min-h-11 md:min-h-0 min-w-11 md:min-w-0 text-destructive hover:text-destructive" onClick={onDelete}>
             <Trash2 className="h-3.5 w-3.5" />
           </Button>
         </div>
@@ -248,7 +248,7 @@ export default function UsersRolesPage() {
       id: 'actions',
       cell: ({ row }) => (
         <DropdownMenu>
-          <DropdownMenuTrigger className="inline-flex h-8 w-8 items-center justify-center rounded-md hover:bg-accent">
+          <DropdownMenuTrigger className="inline-flex h-8 w-8 min-h-11 md:min-h-0 min-w-11 md:min-w-0 items-center justify-center rounded-md hover:bg-accent">
             <MoreHorizontal className="h-4 w-4" />
             <span className="sr-only">Actions</span>
           </DropdownMenuTrigger>

@@ -11,7 +11,7 @@ export function PageContainer({ children, compact = false, className }: PageCont
     <div
       className={cn(
         'w-full',
-        !compact && 'px-4 sm:px-6 lg:px-8 py-4 lg:py-6 space-y-6',
+        !compact && 'px-3 sm:px-4 lg:px-6 2xl:px-10 py-3 sm:py-4 lg:py-6 space-y-6 max-w-screen-2xl mx-auto',
         className
       )}
     >

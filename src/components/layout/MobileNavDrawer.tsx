@@ -54,7 +54,7 @@ export function MobileNavDrawer() {
             variant="ghost"
             size="icon"
             aria-label="Open navigation"
-            className="md:hidden h-10 w-10"
+            className="lg:hidden h-10 w-10"
           >
             <Menu className="h-5 w-5" />
           </Button>

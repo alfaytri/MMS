@@ -265,7 +265,7 @@ export default function PurchaseOrdersPage() {
             variant={poTypeFilter === tab.value ? 'default' : 'outline'}
             size="sm"
             className={cn(
-              'min-w-[80px]',
+              'min-w-[80px] min-h-11 md:min-h-0',
               poTypeFilter !== tab.value && tab.color,
             )}
             onClick={() => setPoTypeFilter(tab.value as POType | '')}
@@ -289,7 +289,7 @@ export default function PurchaseOrdersPage() {
               />
             </div>
             <DropdownMenu>
-              <DropdownMenuTrigger className="inline-flex h-9 items-center justify-between gap-1.5 rounded-md border border-input bg-background px-3 text-sm min-w-[140px] hover:bg-accent hover:text-accent-foreground">
+              <DropdownMenuTrigger className="inline-flex h-9 min-h-11 md:min-h-0 items-center justify-between gap-1.5 rounded-md border border-input bg-background px-3 text-sm min-w-[140px] hover:bg-accent hover:text-accent-foreground">
                 <span className="truncate">
                   {statusFilter.size === 0
                     ? 'All Statuses'
@@ -380,7 +380,7 @@ export default function PurchaseOrdersPage() {
             </Select>
             <DivisionFilter value={divisionFilter} onChange={setDivisionFilter} />
             {hasActiveFilters && (
-              <Button variant="ghost" size="sm" onClick={clearFilters}>
+              <Button variant="ghost" size="sm" className="min-h-11 md:min-h-0" onClick={clearFilters}>
                 <X className="h-4 w-4 mr-1" />
                 Clear
               </Button>
@@ -430,7 +430,7 @@ export default function PurchaseOrdersPage() {
                       title="No purchase orders found"
                       icon={<FileText className="h-6 w-6 text-muted-foreground" />}
                       action={
-                        <Button variant="outline" size="sm" onClick={() => router.push('/purchase/create-po')}>
+                        <Button variant="outline" size="sm" className="min-h-11 md:min-h-0" onClick={() => router.push('/purchase/create-po')}>
                           Create your first PO
                         </Button>
                       }
@@ -495,7 +495,7 @@ export default function PurchaseOrdersPage() {
                       </TableCell>
                       <TableCell className="text-right" onClick={(e) => e.stopPropagation()}>
                         <DropdownMenu>
-                          <DropdownMenuTrigger className="inline-flex h-8 w-8 items-center justify-center rounded-md hover:bg-accent" aria-label="Row actions">
+                          <DropdownMenuTrigger className="inline-flex h-8 w-8 min-h-11 md:min-h-0 min-w-11 md:min-w-0 items-center justify-center rounded-md hover:bg-accent" aria-label="Row actions">
                             <MoreVertical className="h-4 w-4" />
                           </DropdownMenuTrigger>
                           <DropdownMenuContent align="end">

@@ -364,7 +364,7 @@ export default function SaleOrdersPage() {
         return (
           <div onClick={(e) => e.stopPropagation()}>
             <DropdownMenu>
-              <DropdownMenuTrigger className="inline-flex h-8 w-8 items-center justify-center rounded-md hover:bg-accent" aria-label="Row actions">
+              <DropdownMenuTrigger className="inline-flex h-8 w-8 min-h-11 md:min-h-0 min-w-11 md:min-w-0 items-center justify-center rounded-md hover:bg-accent" aria-label="Row actions">
                 <MoreVertical className="h-4 w-4" />
               </DropdownMenuTrigger>
               <DropdownMenuContent align="end">
@@ -567,7 +567,7 @@ export default function SaleOrdersPage() {
             <DivisionFilter value={divisionFilter} onChange={setDivisionFilter} />
 
             {hasActiveFilters && (
-              <Button variant="ghost" size="sm" onClick={clearFilters}>
+              <Button variant="ghost" size="sm" className="min-h-11 md:min-h-0" onClick={clearFilters}>
                 <X className="h-4 w-4 mr-1" />
                 Clear
               </Button>
