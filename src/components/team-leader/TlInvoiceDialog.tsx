@@ -173,6 +173,23 @@ export function TlInvoiceDialog({ visit, data, profileId, onDone, onClose }: Pro
         }
       }
 
+      // 2c. Warm the invoice PDF in the background so /invoices → View PDF
+      // opens instantly. Fire-and-forget: failure only logs, never blocks
+      // visit completion.
+      void (async () => {
+        try {
+          const { data: sess } = await supabase.auth.getSession()
+          const token = sess.session?.access_token
+          if (!token) return
+          await fetch(`/api/orders/invoices/${invoiceId}/pdf`, {
+            method:  'POST',
+            headers: { Authorization: `Bearer ${token}` },
+          })
+        } catch (e) {
+          console.warn('[TlInvoiceDialog] pdf warm-up failed', e)
+        }
+      })()
+
       // 3a. Cash, zero-amount, or non-link method — mark paid and done
       if (effectivePaid || !requiresPaymentLink) {
         const msg = effectivePaid
