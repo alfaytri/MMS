@@ -42,6 +42,9 @@ export interface TlVisit {
   customer_phone: string | null
   location_phone: string | null
   team_ids: string[]   // all team IDs sharing this visit (for Multi-Team badge)
+  other_teams_names: string[]  // names of the other teams (excludes current team)
+  notes: string | null
+  has_invoice: boolean          // tl_invoices row already exists for this visit
   // Type-specific context (only present when relevant)
   backwork_context?: { customer_reason: string | null; note: string | null }
   followup_context?: { previous_visit_id: string | null; agent_note: string | null }

@@ -45,8 +45,11 @@ export function useTeamLeaderOrders(teamId: string | null | undefined) {
           waze_link: row.waze_link ?? null,
           services,
           customer_phone: row.customer_phone ?? null,
-          location_phone: null,
+          location_phone: row.location_phone ?? null,
           team_ids: row.team_ids ?? [row.team_id],
+          other_teams_names: row.other_teams_names ?? [],
+          notes: row.notes ?? null,
+          has_invoice: row.has_invoice === true,
         }
       })
     },
