@@ -120,7 +120,7 @@ export default function CustomerInvoicesPage() {
             key={s.value}
             onClick={() => setDocFilter(s.value)}
             className={cn(
-              'px-3 py-1 rounded-full text-sm border transition-colors min-h-11 md:min-h-9',
+              'px-3 py-1 rounded-full text-sm border transition-colors min-h-11 md:min-h-0',
               docFilter === s.value
                 ? 'bg-primary text-primary-foreground border-primary'
                 : 'border-border hover:bg-accent'
@@ -137,6 +137,25 @@ export default function CustomerInvoicesPage() {
         data={invoices ?? []}
         isLoading={isLoading}
         onRowClick={(row) => router.push(`/sales/invoices/${row.id}`)}
+        mobileCardRender={(inv: ArInvoice) => {
+          const payS = inv.payment_status as string
+          return (
+            <div className="space-y-1">
+              <div className="flex items-center justify-between gap-2">
+                <div className="flex items-center gap-1">
+                  <span className="font-mono text-sm font-medium">{inv.invoice_id}</span>
+                  {inv.needs_refresh && <AlertTriangle className="w-3 h-3 text-amber-500" />}
+                </div>
+                <Badge className={cn('text-xs', PAY_STATUS_CONFIG[payS] ?? '')}>{formatEnumLabel(payS)}</Badge>
+              </div>
+              <p className="text-sm text-muted-foreground truncate">{inv.customer_name ?? '—'}</p>
+              <div className="flex items-center justify-between text-xs text-muted-foreground">
+                <span>Due: {formatDate(inv.due_date)}</span>
+                <span className="font-medium text-foreground">{formatCurrency(inv.total_amount ?? 0, 'QAR')}</span>
+              </div>
+            </div>
+          )
+        }}
       />
     </PageWrapper>
   )

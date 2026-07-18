@@ -140,6 +140,24 @@ export default function CreditNotesPage() {
         columns={creditColumns}
         data={creditNotes}
         isLoading={cnLoading}
+        onRowClick={(note: CreditNote) => setDetailNote(note)}
+        mobileCardRender={(note: CreditNote) => {
+          const s = (note.status ?? 'draft') as CreditNoteStatus
+          const cfg = STATUS_CONFIG[s] ?? STATUS_CONFIG.draft
+          return (
+            <div className="space-y-1">
+              <div className="flex items-center justify-between gap-2">
+                <span className="font-mono text-sm font-medium">{note.credit_note_id}</span>
+                <Badge className={cn('text-xs', cfg.className)}>{cfg.label}</Badge>
+              </div>
+              <p className="text-sm text-muted-foreground truncate">{note.customer_name ?? '—'}</p>
+              <div className="flex items-center justify-between text-xs text-muted-foreground">
+                <span>Inv: {note.invoice_display ?? '—'}</span>
+                <span className="font-medium text-foreground">{formatCurrency(note.total_amount, 'QAR')}</span>
+              </div>
+            </div>
+          )
+        }}
       />
 
       <CreditNoteFormDialog open={createOpen} onOpenChange={setCreateOpen} />

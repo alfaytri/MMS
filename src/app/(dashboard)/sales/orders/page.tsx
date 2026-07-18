@@ -469,7 +469,7 @@ export default function SaleOrdersPage() {
       <Card>
         <CardContent className="p-4">
           <div className="flex flex-wrap items-center gap-3">
-            <div className="relative flex-1 min-w-[240px]">
+            <div className="relative flex-1 min-w-0 sm:min-w-[240px]">
               <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
               <Input
                 value={search}
@@ -481,7 +481,7 @@ export default function SaleOrdersPage() {
 
             {/* Status multi-select */}
             <DropdownMenu>
-              <DropdownMenuTrigger className="inline-flex h-9 items-center justify-between gap-1.5 rounded-md border border-input bg-background px-3 text-sm min-w-[140px] hover:bg-accent hover:text-accent-foreground">
+              <DropdownMenuTrigger className="inline-flex h-9 min-h-11 md:min-h-0 items-center justify-between gap-1.5 rounded-md border border-input bg-background px-3 text-sm w-full sm:w-auto sm:min-w-[140px] hover:bg-accent hover:text-accent-foreground">
                 <span className="truncate">
                   {statusFilter.size === 0
                     ? 'All Statuses'
@@ -522,7 +522,7 @@ export default function SaleOrdersPage() {
 
             {/* Customer filter */}
             <Select value={customerFilter || 'all'} onValueChange={(v) => setCustomerFilter(!v || v === 'all' ? '' : v)}>
-              <SelectTrigger className="w-[180px]">
+              <SelectTrigger className="w-full sm:w-[180px]">
                 <SelectValue>
                   {(v: string) => v === 'all' ? 'All Customers' : ((customers ?? []).find((c) => c.id === v)?.name ?? v)}
                 </SelectValue>
@@ -540,18 +540,18 @@ export default function SaleOrdersPage() {
               value={dateFrom}
               onChange={setDateFrom}
               placeholder="From date"
-              className="w-[150px]"
+              className="w-full sm:w-[150px]"
             />
             <DatePicker
               value={dateTo}
               onChange={setDateTo}
               placeholder="To date"
-              className="w-[150px]"
+              className="w-full sm:w-[150px]"
             />
 
             {/* Delivery status */}
             <Select value={deliveryFilter || 'all'} onValueChange={(v) => setDeliveryFilter(!v || v === 'all' ? '' : v)}>
-              <SelectTrigger className="w-[160px]">
+              <SelectTrigger className="w-full sm:w-[160px]">
                 <SelectValue>
                   {(v: string) => DELIVERY_STATUS_OPTIONS.find((s) => (s.value || 'all') === v)?.label ?? 'All Delivery'}
                 </SelectValue>
@@ -585,6 +585,29 @@ export default function SaleOrdersPage() {
           if (row.status === 'pending_approval') return ROW_TINTS.pending_approval
           if (isOverdue(row)) return ROW_TINTS.overdue
           return undefined
+        }}
+        mobileCardRender={(so: SaleOrder) => {
+          const ps = getPaymentStatus(so, paidMap ?? {})
+          const pCfg = PAYMENT_BADGE[ps]
+          const delPct = getDeliveryPct(so)
+          return (
+            <div className="space-y-1.5">
+              <div className="flex items-center justify-between gap-2">
+                <span className="font-mono text-sm font-medium">{so.so_number}</span>
+                <SoStatusBadge status={so.status} />
+              </div>
+              <p className="text-sm text-muted-foreground truncate">{so.customer_name ?? '—'}</p>
+              <div className="flex items-center justify-between text-xs text-muted-foreground">
+                <span>{formatDate(so.created_at)}</span>
+                <span className="font-medium text-foreground tabular-nums">{formatCurrency(so.total, 'QAR')}</span>
+              </div>
+              <div className="flex items-center gap-2">
+                <Badge variant="outline" className={cn('text-[10px]', pCfg.className)}>{pCfg.label}</Badge>
+                <span className="text-[10px] text-muted-foreground">{delPct}% delivered</span>
+                {isOverdue(so) && <Badge variant="destructive" className="text-[10px]">Overdue</Badge>}
+              </div>
+            </div>
+          )
         }}
       />
 

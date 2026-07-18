@@ -85,7 +85,7 @@ export default function DeliveriesPage() {
             key={s.value}
             onClick={() => setStatusFilter(s.value)}
             className={cn(
-              'px-3 py-1 rounded-full text-sm border transition-colors',
+              'px-3 py-1 rounded-full text-sm border transition-colors min-h-11 md:min-h-0',
               statusFilter === s.value
                 ? 'bg-primary text-primary-foreground border-primary'
                 : 'border-border hover:bg-accent'
@@ -100,6 +100,24 @@ export default function DeliveriesPage() {
         data={deliveries ?? []}
         isLoading={isLoading}
         onRowClick={(row) => setDetailDelivery(row)}
+        mobileCardRender={(del: SaleDelivery) => {
+          const s = (del.status ?? 'pending') as DeliveryStatus
+          const cfg = STATUS_CONFIG[s] ?? STATUS_CONFIG.pending
+          const lineCount = (del.sale_delivery_lines ?? []).length
+          return (
+            <div className="space-y-1">
+              <div className="flex items-center justify-between gap-2">
+                <span className="font-mono text-sm font-medium">{del.delivery_number}</span>
+                <Badge className={cn('text-xs', cfg.className)}>{cfg.label}</Badge>
+              </div>
+              <p className="text-sm text-muted-foreground truncate">{del.customer_name ?? '—'}</p>
+              <div className="flex items-center justify-between text-xs text-muted-foreground">
+                <span>SO: {del.so_number ?? '—'}</span>
+                <span>{lineCount} line{lineCount !== 1 ? 's' : ''} · {del.date ? formatDate(del.date) : '—'}</span>
+              </div>
+            </div>
+          )
+        }}
       />
 
       <DeliveryDetailDialog
