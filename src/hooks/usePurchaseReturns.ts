@@ -88,7 +88,7 @@ export function usePurchaseReturns(filters: { search?: string; status?: string }
         const safe = filters.search.replace(/%/g, '\\%')
         q = q.ilike('return_number', `%${safe}%`)
       }
-      const { data, error } = await q
+      const { data, error } = await q.limit(500)
       if (error) throw error
       return (data ?? []) as unknown as POReturn[]
     },
