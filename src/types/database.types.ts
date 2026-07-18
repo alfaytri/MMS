@@ -8837,6 +8837,7 @@ export type Database = {
           paid_amount: number
           payment_method_id: string | null
           payment_status: string
+          pdf_url: string | null
           subtotal: number
           total_amount: number
           updated_at: string | null
@@ -8857,6 +8858,7 @@ export type Database = {
           paid_amount?: number
           payment_method_id?: string | null
           payment_status?: string
+          pdf_url?: string | null
           subtotal?: number
           total_amount?: number
           updated_at?: string | null
@@ -8877,6 +8879,7 @@ export type Database = {
           paid_amount?: number
           payment_method_id?: string | null
           payment_status?: string
+          pdf_url?: string | null
           subtotal?: number
           total_amount?: number
           updated_at?: string | null
