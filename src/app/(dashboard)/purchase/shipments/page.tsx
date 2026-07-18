@@ -640,7 +640,34 @@ export default function ShipmentsPage() {
       {isLoading ? (
         <div className="space-y-3">{Array.from({ length: 4 }).map((_, i) => <Skeleton key={i} className="h-14 w-full rounded-lg" />)}</div>
       ) : (
-        <DataTable columns={columns} data={shipments ?? []} />
+        <DataTable
+          columns={columns}
+          data={shipments ?? []}
+          onRowClick={(shipment) => setSelected(shipment)}
+          mobileCardRender={(shipment: Shipment) => {
+            const modeMeta = MODE_META[shipment.mode]
+            const ModeIcon = modeMeta.icon
+            return (
+              <div className="space-y-1">
+                <div className="flex items-center justify-between gap-2">
+                  <span className="font-mono text-sm font-semibold">{shipment.tracking_number}</span>
+                  <StatusBadge status={shipment.status} />
+                </div>
+                <div className="flex items-center gap-2 text-xs text-muted-foreground">
+                  <span className={cn('inline-flex items-center gap-1', modeMeta.color)}>
+                    <ModeIcon className="h-3.5 w-3.5" />
+                    {modeMeta.label}
+                  </span>
+                  <span className="truncate">{shipment.purchase_orders?.po_number ?? '—'}</span>
+                </div>
+                <div className="flex items-center justify-between text-xs text-muted-foreground">
+                  <span className="truncate">{shipment.purchase_orders?.supplier_name ?? ''}</span>
+                  <span>{(shipment.events?.length ?? 0)} event{(shipment.events?.length ?? 0) !== 1 ? 's' : ''}</span>
+                </div>
+              </div>
+            )
+          }}
+        />
       )}
 
       <CreateShipmentDialog open={createOpen} onOpenChange={setCreateOpen} />

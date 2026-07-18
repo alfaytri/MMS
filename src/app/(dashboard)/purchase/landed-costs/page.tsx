@@ -1224,7 +1224,32 @@ export default function LandedCostsPage() {
       {isLoading ? (
         <div className="space-y-3">{Array.from({ length: 3 }).map((_, i) => <Skeleton key={i} className="h-12 w-full rounded-md" />)}</div>
       ) : (
-        <DataTable columns={columns} data={landedCosts ?? []} emptyState={{ title: 'No landed costs found', description: 'Create a landed cost to allocate freight, customs and other costs to received goods' }} />
+        <DataTable
+          columns={columns}
+          data={landedCosts ?? []}
+          emptyState={{ title: 'No landed costs found', description: 'Create a landed cost to allocate freight, customs and other costs to received goods' }}
+          onRowClick={(lc) => setSelected(lc)}
+          mobileCardRender={(lc: LandedCost) => {
+            const statusBadge = lc.voided_at
+              ? <Badge variant="destructive">Voided</Badge>
+              : lc.applied_at
+                ? <Badge className="bg-green-100 text-green-800 border-green-200">Applied</Badge>
+                : <Badge variant="outline">Active</Badge>
+            return (
+              <div className="space-y-1">
+                <div className="flex items-center justify-between gap-2">
+                  <span className="font-mono text-sm font-medium">{lc.lc_number}</span>
+                  {statusBadge}
+                </div>
+                <p className="text-sm text-muted-foreground truncate">{lc.description ?? '—'}</p>
+                <div className="flex items-center justify-between text-xs text-muted-foreground">
+                  <span>{formatDate(lc.date)} · {lc.attached_receival_ids?.length ?? 0} receivals</span>
+                  <span className="font-medium text-foreground">{formatCurrency(lc.total_amount, lc.currency)}</span>
+                </div>
+              </div>
+            )
+          }}
+        />
       )}
 
       <CreateLcDialog open={createOpen} onOpenChange={setCreateOpen} />

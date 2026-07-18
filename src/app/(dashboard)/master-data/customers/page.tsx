@@ -100,12 +100,12 @@ export default function CustomersPage() {
         description="Assign credit groups — required before creating a sales order"
       />
 
-      <div className="flex items-center gap-3">
+      <div className="flex flex-col sm:flex-row sm:items-center gap-3">
         <Input
           placeholder="Search by name or phone…"
           value={search}
           onChange={(e) => handleSearch(e.target.value)}
-          className="max-w-sm"
+          className="w-full sm:max-w-sm"
         />
         <Button size="sm" className="gap-1.5 shrink-0 min-h-11 md:min-h-0" onClick={() => setCreateOpen(true)}>
           <Plus className="h-4 w-4" />
