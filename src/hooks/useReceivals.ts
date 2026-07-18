@@ -98,7 +98,7 @@ export function useReceivals(filters?: {
       }
       const { data, error } = await q
       if (error) throw error
-      return (data ?? []).map((r: any) => ({
+      return (data ?? []).map((r) => ({
         ...r,
         po_number: r.purchase_orders?.po_number ?? null,
         supplier_name: r.purchase_orders?.supplier_name ?? null,
@@ -146,27 +146,22 @@ export function useCreateReceival() {
     mutationFn: async (payload: CreateReceivalPayload) => {
       const supabase = createClient()
 
-      // Resolve user display name and count in parallel (count has no user dependency)
-      const [{ data: { user } }, { data: lastRcv }] = await Promise.all([
-        supabase.auth.getUser(),
-        supabase.from('receivals').select('receival_number').ilike('receival_number', 'RCV-%').order('receival_number', { ascending: false }).limit(1).maybeSingle(),
-      ])
+      // Resolve user display name
+      const { data: { user } } = await supabase.auth.getUser()
       let receivedByName: string | null = null
       if (user) {
         const { data: profile } = await supabase
           .from('profiles').select('full_name').eq('auth_user_id', user.id).maybeSingle()
         receivedByName = profile?.full_name ?? user.email ?? null
       }
-      const lastNum = lastRcv?.receival_number ? parseInt((lastRcv.receival_number as string).replace('RCV-', ''), 10) : 0
-      const receival_number = `RCV-${String(lastNum + 1).padStart(5, '0')}`
 
-      // Single atomic RPC — insert + FIFO + stock_level all in one transaction
+      // Single atomic RPC — number generation + insert + FIFO + stock_level all in one transaction
       const { data, error } = await supabase.rpc('create_and_approve_receival', {
         p_po_id:            payload.po_id,
         p_warehouse_id:     payload.warehouse_id,
         p_date:             payload.date,
         p_received_by_name: receivedByName ?? '',
-        p_receival_number:  receival_number,
+        p_receival_number:  '',
         p_notes:            payload.notes || '',
         p_items:            payload.items.map(it => ({
           po_line_item_id:  it.po_line_item_id,
@@ -179,6 +174,7 @@ export function useCreateReceival() {
         })),
       })
       if (error) throw error
+      const result = data as { receival_id: string; receival_number: string }
 
       const regularCount = payload.items.filter(i => !i.is_free).length
       const freeCount    = payload.items.filter(i => i.is_free).length
@@ -186,7 +182,7 @@ export function useCreateReceival() {
         poId: payload.po_id,
         action: 'Receival Recorded',
         details: [
-          receival_number,
+          result.receival_number,
           regularCount > 0 ? `${regularCount} item(s) received` : null,
           freeCount > 0 ? `${freeCount} free item(s)` : null,
           payload.notes ? `Note: ${payload.notes}` : null,
@@ -194,7 +190,7 @@ export function useCreateReceival() {
         performerName: receivedByName,
       })
 
-      return data as { receival_id: string; receival_number: string }
+      return result
     },
     onSuccess: (_data, variables) => {
       queryClient.invalidateQueries({ queryKey: queryKeys.receivals.all })
@@ -367,18 +363,13 @@ export function useCreateReplacementReceival() {
     }) => {
       const supabase = createClient()
 
-      const [{ data: { user } }, { data: lastRcv }] = await Promise.all([
-        supabase.auth.getUser(),
-        supabase.from('receivals').select('receival_number').ilike('receival_number', 'RCV-%').order('receival_number', { ascending: false }).limit(1).maybeSingle(),
-      ])
+      const { data: { user } } = await supabase.auth.getUser()
       let receivedByName: string | null = null
       if (user) {
         const { data: profile } = await supabase
           .from('profiles').select('full_name').eq('auth_user_id', user.id).maybeSingle()
         receivedByName = profile?.full_name ?? user.email ?? null
       }
-      const lastNum = lastRcv?.receival_number ? parseInt((lastRcv.receival_number as string).replace('RCV-', ''), 10) : 0
-      const receival_number = `RCV-${String(lastNum + 1).padStart(5, '0')}`
       const today = new Date().toISOString().split('T')[0]
 
       const { data, error } = await supabase.rpc('create_and_approve_receival', {
@@ -386,7 +377,7 @@ export function useCreateReplacementReceival() {
         p_warehouse_id:     payload.warehouse_id,
         p_date:             today,
         p_received_by_name: receivedByName ?? '',
-        p_receival_number:  receival_number,
+        p_receival_number:  '',
         p_notes:            'Replacement receival',
         p_items:            payload.items.map(it => ({
           po_line_item_id:  null,
@@ -401,14 +392,14 @@ export function useCreateReplacementReceival() {
       if (error) throw error
 
       // Mark receival as replacement
-      const receivalId = (data as { receival_id: string }).receival_id
+      const result = data as { receival_id: string; receival_number: string }
       const { error: flagErr } = await supabase
         .from('receivals')
         .update({ is_replacement: true, source_debit_note_id: payload.debit_note_id })
-        .eq('id', receivalId)
+        .eq('id', result.receival_id)
       if (flagErr) throw flagErr
 
-      return { receival_id: receivalId, receival_number }
+      return { receival_id: result.receival_id, receival_number: result.receival_number }
     },
     onSuccess: (_data, variables) => {
       queryClient.invalidateQueries({ queryKey: queryKeys.receivals.all })
@@ -450,7 +441,7 @@ export function useReceivalsForLcSelector({ search = '' }: { search?: string } =
       // Match on receival_number, po_number, or supplier_name. We filter
       // client-side because PostgREST .or() can't span a joined table without
       // a view/RPC, and this list is small (recent receivals only).
-      const rows = (data ?? []).map((r: any) => {
+      const rows = (data ?? []).map((r) => {
         const isInventory = r.source_type === 'inventory'
         return {
           id: r.id as string,
@@ -520,7 +511,7 @@ export function useReceivalItemsBatch(receivalIds: string[] | null) {
         const k = `${l.receival_id}|${l.brand_variant_id}`
         remainingMap.set(k, (remainingMap.get(k) ?? 0) + l.remaining_qty)
       }
-      return (items ?? []).map((item: any) => ({
+      return (items ?? []).map((item) => ({
         id: item.id as string,
         receival_id: item.receival_id as string,
         item_name: item.item_name as string,
@@ -560,9 +551,9 @@ export function useReceivalItemsWithFifo(receivalId: string | null) {
         if (!l.brand_variant_id) continue
         remainingMap.set(l.brand_variant_id, (remainingMap.get(l.brand_variant_id) ?? 0) + l.remaining_qty)
       }
-      return (items ?? []).map((item: any) => ({
+      return (items ?? []).map((item) => ({
         ...item,
-        remaining_qty: remainingMap.get(item.brand_variant_id) ?? 0,
+        remaining_qty: (item.brand_variant_id ? remainingMap.get(item.brand_variant_id) : 0) ?? 0,
       })) as ReceivalItemWithFifo[]
     },
     staleTime: 2 * 60 * 1000,

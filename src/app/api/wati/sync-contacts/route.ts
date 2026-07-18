@@ -1,6 +1,7 @@
 import { type NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@supabase/supabase-js'
 import type { Database } from '@/types/database.types'
+import type { WatiContact, WatiMessageItem } from '@/types/wati'
 
 const WATI_URL   = (process.env.WATI_API_URL ?? '').replace(/\/$/, '')
 const WATI_TOKEN = (process.env.WATI_API_TOKEN ?? '').replace(/^Bearer\s+/i, '')
@@ -29,7 +30,7 @@ function normalisePhone(raw: string): string | null {
   return null
 }
 
-function contactName(c: any): string | null {
+function contactName(c: WatiContact): string | null {
   const full = [c.firstName, c.lastName].filter(Boolean).join(' ').trim()
   return full || c.fullName || c.name || null
 }
@@ -50,7 +51,7 @@ async function safeWrite(writer: WritableStreamDefaultWriter, data: Uint8Array) 
   }
 }
 
-async function watiGet(path: string, retries = 3): Promise<{ ok: true; data: any } | { ok: false; status: number; text: string }> {
+async function watiGet(path: string, retries = 3): Promise<{ ok: true; data: unknown } | { ok: false; status: number; text: string }> {
   for (let attempt = 0; attempt < retries; attempt++) {
     const res = await fetch(`${WATI_URL}${path}`, {
       headers: { Authorization: `Bearer ${WATI_TOKEN}` },
@@ -66,8 +67,8 @@ async function watiGet(path: string, retries = 3): Promise<{ ok: true; data: any
   return { ok: false, status: 429, text: 'Rate limit — retries exhausted' }
 }
 
-async function upsertContacts(allContacts: any[], supabase: ReturnType<typeof createClient<Database>>) {
-  const phoneMap = new Map<string, any>()
+async function upsertContacts(allContacts: WatiContact[], supabase: ReturnType<typeof createClient<Database>>) {
+  const phoneMap = new Map<string, WatiContact>()
   for (const contact of allContacts) {
     const raw: string = contact.phone ?? contact.wAid ?? ''
     if (!raw) continue
@@ -99,9 +100,9 @@ async function upsertContacts(allContacts: any[], supabase: ReturnType<typeof cr
   //   rowsWithDateAndMsg  — have a date AND a lastMessage → write both fields
   //   rowsWithDateNoMsg   — have a date but no lastMessage → write only last_message_at
   //   rowsNoDate          — no date at all → insert-only (ignoreDuplicates:true)
-  const rowsWithDateAndMsg: any[] = []
-  const rowsWithDateNoMsg:  any[] = []
-  const rowsNoDate:         any[] = []
+  const rowsWithDateAndMsg: Record<string, unknown>[] = []
+  const rowsWithDateNoMsg:  Record<string, unknown>[] = []
+  const rowsNoDate:         Record<string, unknown>[] = []
 
   for (const phone of phones) {
     const c    = phoneMap.get(phone)!
@@ -113,8 +114,9 @@ async function upsertContacts(allContacts: any[], supabase: ReturnType<typeof cr
       : null
 
     // Wati returns the assigned operator as assignedTo.name or assignedTo (string)
+    const at = c.assignedTo
     const assignedAgent: string | null =
-      c.assignedTo?.name ?? c.assignedTo?.fullName ?? (typeof c.assignedTo === 'string' ? c.assignedTo : null) ??
+      (typeof at === 'object' ? (at?.name ?? at?.fullName ?? null) : null) ?? (typeof at === 'string' ? at : null) ??
       c.operatorName ?? c.agentName ?? null
 
     const base = {
@@ -205,7 +207,7 @@ export async function GET(req: NextRequest) {
   ;(async () => {
     try {
       let pageNumber = 1
-      const allContacts: any[] = []
+      const allContacts: WatiContact[] = []
 
       // Default mode caps pages for a fast ~10 s manual sync.
       // Full mode scans everything (used by the silent background sync).
@@ -223,7 +225,7 @@ export async function GET(req: NextRequest) {
           return
         }
 
-        const contacts: any[] = result.data?.contact_list ?? []
+        const contacts: WatiContact[] = (result.data as Record<string, unknown>)?.contact_list as WatiContact[] ?? []
         if (contacts.length === 0) break
 
         if (cutoff) {
@@ -267,9 +269,9 @@ export async function GET(req: NextRequest) {
         const phone = convo.wati_phone.replace(/^\+/, '')
         const result = await watiGet(`/api/v1/getMessages/${encodeURIComponent(phone)}?pageSize=5&pageNumber=1`)
         if (!result.ok) continue
-        const items: any[] = result.data?.messages?.items ?? []
+        const items: WatiMessageItem[] = ((result.data as Record<string, unknown>)?.messages as Record<string, unknown>)?.items as WatiMessageItem[] ?? []
         // Skip ticket/note/activity system events — find the first real message
-        const msgItem = items.find((item: any) => {
+        const msgItem = items.find((item: WatiMessageItem) => {
           const t = String(item.type ?? '').toLowerCase()
           return item.eventType !== 'ticket' && t !== 'note' && t !== 'activity' && t !== 'reaction'
         })
@@ -283,9 +285,9 @@ export async function GET(req: NextRequest) {
       }
 
       await safeWrite(writer, encode({ done: true, synced, full }))
-    } catch (err: any) {
+    } catch (err: unknown) {
       console.error('[sync-contacts] error', err)
-      await safeWrite(writer, encode({ error: err.message ?? 'Unknown error' }))
+      await safeWrite(writer, encode({ error: err instanceof Error ? err.message : 'Unknown error' }))
     } finally {
       try { await writer.close() } catch { /* already closed by client disconnect */ }
     }

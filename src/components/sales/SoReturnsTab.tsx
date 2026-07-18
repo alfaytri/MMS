@@ -212,7 +212,7 @@ export function SoReturnsTab({ so, fullSO, soReturns, invoiceId, onSendReplaceme
             </DialogHeader>
             <div className="space-y-3 py-2">
               <p className="text-sm text-muted-foreground">
-                This return was created with "Inspect first". Select a warehouse to restock the items into.
+                This return was created with &quot;Inspect first&quot;. Select a warehouse to restock the items into.
               </p>
               <div className="space-y-1">
                 <label className="text-xs font-medium text-muted-foreground uppercase tracking-wider">Restock Warehouse <span className="text-destructive">*</span></label>
@@ -222,7 +222,7 @@ export function SoReturnsTab({ so, fullSO, soReturns, invoiceId, onSendReplaceme
                   onChange={(e) => setRestockWarehouseId(e.target.value)}
                 >
                   <option value="">Select warehouse…</option>
-                  {warehouses.map((w: any) => <option key={w.id} value={w.id}>{w.name}</option>)}
+                  {warehouses.map((w) => <option key={w.id} value={w.id}>{w.name}</option>)}
                 </select>
               </div>
             </div>
@@ -275,7 +275,7 @@ export function SoReturnsTab({ so, fullSO, soReturns, invoiceId, onSendReplaceme
                     onChange={(e) => setReturnWarehouseId(e.target.value)}
                   >
                     <option value="">None / Inspect first</option>
-                    {warehouses.map((w: any) => <option key={w.id} value={w.id}>{w.name}</option>)}
+                    {warehouses.map((w) => <option key={w.id} value={w.id}>{w.name}</option>)}
                   </select>
                 </div>
               </div>

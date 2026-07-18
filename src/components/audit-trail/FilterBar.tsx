@@ -91,7 +91,7 @@ export function FilterBar({
 
       <div className="flex gap-2 items-center">
         <Select value={activeGroup || 'all'} onValueChange={handleGroupChange}>
-          <SelectTrigger className="w-full sm:w-40 h-9">
+          <SelectTrigger className="w-full sm:w-40 h-9 min-h-11 md:min-h-0">
             <SelectValue placeholder="All Groups" />
           </SelectTrigger>
           <SelectContent className="max-h-72 overflow-y-auto overflow-x-hidden">
@@ -107,7 +107,7 @@ export function FilterBar({
           onValueChange={handleModuleChange}
           disabled={!activeGroup}
         >
-          <SelectTrigger className="w-full sm:w-48 h-9">
+          <SelectTrigger className="w-full sm:w-48 h-9 min-h-11 md:min-h-0">
             <SelectValue placeholder={activeGroup ? 'All Modules' : 'Pick a group…'} />
           </SelectTrigger>
           <SelectContent className="max-h-72 overflow-y-auto overflow-x-hidden">
@@ -123,7 +123,7 @@ export function FilterBar({
         <Button
           variant="ghost"
           size="sm"
-          className="h-9 px-2 text-muted-foreground"
+          className="h-9 min-h-11 md:min-h-0 px-2 text-muted-foreground"
           onClick={() => {
             onSearchChange('')
             onDateFromChange('')

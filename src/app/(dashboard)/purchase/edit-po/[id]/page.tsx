@@ -504,7 +504,7 @@ export default function EditPOPage() {
                       </span>
                       <ChevronsUpDown className="h-4 w-4 opacity-50" />
                     </PopoverTrigger>
-                    <PopoverContent className="w-[400px] p-0">
+                    <PopoverContent className="w-[400px] max-w-[92vw] p-0">
                       <Command>
                         <CommandInput placeholder="Search suppliers..." />
                         <CommandList>

@@ -68,7 +68,7 @@ function ReceivalRowActions({
 
   if (active?.status === 'pending' && isAdmin) {
     return (
-      <Button size="sm" variant="outline" className="text-amber-600 border-amber-300 hover:bg-amber-50"
+      <Button size="sm" variant="outline" className="min-h-11 md:min-h-0 text-amber-600 border-amber-300 hover:bg-amber-50"
         onClick={(e) => { e.stopPropagation(); onAdminApprove(active) }}>
         Review Edit
       </Button>
@@ -76,12 +76,12 @@ function ReceivalRowActions({
   }
 
   if (active?.status === 'pending') {
-    return <Button size="sm" variant="outline" disabled>Edit Pending…</Button>
+    return <Button size="sm" variant="outline" className="min-h-11 md:min-h-0" disabled>Edit Pending…</Button>
   }
 
   if (active?.status === 'approved') {
     return (
-      <Button size="sm" variant="outline" className="text-green-600 border-green-300 hover:bg-green-50"
+      <Button size="sm" variant="outline" className="min-h-11 md:min-h-0 text-green-600 border-green-300 hover:bg-green-50"
         onClick={(e) => { e.stopPropagation(); onEditApproved({ receival, request: active }) }}>
         Edit Now
       </Button>
@@ -90,14 +90,14 @@ function ReceivalRowActions({
 
   if (lcLocked) {
     return (
-      <Button size="sm" variant="outline" disabled className="opacity-50" title="Landed Cost applied — edit not available">
+      <Button size="sm" variant="outline" disabled className="min-h-11 md:min-h-0 opacity-50" title="Landed Cost applied — edit not available">
         LC Applied
       </Button>
     )
   }
 
   return (
-    <Button size="sm" variant="outline"
+    <Button size="sm" variant="outline" className="min-h-11 md:min-h-0"
       onClick={(e) => { e.stopPropagation(); onRequestEdit(receival) }}>
       Request Edit
     </Button>
@@ -401,7 +401,7 @@ export default function ReceivalsPage() {
               key={s.value}
               onClick={() => setStatusFilter(s.value)}
               className={cn(
-                'px-3 py-1 rounded-full text-sm border transition-colors',
+                'px-3 py-1 min-h-11 md:min-h-0 rounded-full text-sm border transition-colors',
                 statusFilter === s.value
                   ? 'bg-primary text-primary-foreground border-primary'
                   : 'border-border hover:bg-accent'
@@ -417,7 +417,7 @@ export default function ReceivalsPage() {
               key={v}
               onClick={() => setSourceFilter(v)}
               className={cn(
-                'px-3 py-1 rounded-full text-sm border transition-colors capitalize',
+                'px-3 py-1 min-h-11 md:min-h-0 rounded-full text-sm border transition-colors capitalize',
                 sourceFilter === v
                   ? 'bg-primary text-primary-foreground border-primary'
                   : 'border-border hover:bg-accent'
@@ -434,6 +434,28 @@ export default function ReceivalsPage() {
         data={receivals ?? []}
         isLoading={isLoading}
         onRowClick={(row) => setDetailReceival(row)}
+        mobileCardRender={(r: Receival) => {
+          const s = r.status as string
+          const cfg = STATUS_CONFIG[s] ?? { label: s ?? 'Unknown', className: 'bg-gray-100 text-gray-700' }
+          return (
+            <div className="space-y-1">
+              <div className="flex items-center justify-between gap-2">
+                <span className={cn('font-mono text-sm font-medium', r.source_type === 'inventory' && 'text-purple-700')}>
+                  {r.receival_number}
+                </span>
+                <Badge className={cn('text-xs', cfg.className)}>{cfg.label}</Badge>
+              </div>
+              <div className="flex items-center justify-between text-sm">
+                <span className="text-muted-foreground">{r.supplier_name ?? '—'}</span>
+                <span className="text-xs text-muted-foreground">{formatDate(r.date)}</span>
+              </div>
+              <div className="flex items-center justify-between text-xs text-muted-foreground">
+                <span>{r.source_type === 'inventory' ? 'Inventory' : r.po_number ?? '—'}</span>
+                <span>{r.receival_items?.length ?? 0} lines</span>
+              </div>
+            </div>
+          )
+        }}
       />
 
       <ReceivalFormDialog open={createOpen} onOpenChange={setCreateOpen} />

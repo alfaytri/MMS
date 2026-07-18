@@ -52,7 +52,7 @@ export function usePurchaseReturnsByPO(poId: string | null) {
       // (both returns.credit_note_id→credit_notes and credit_notes.source_return_id→returns exist)
       const rows = data ?? []
       const noteIds = rows.map((r) => (r as Record<string, unknown>).credit_note_id as string | null).filter(Boolean) as string[]
-      let noteMap: Record<string, Record<string, unknown>> = {}
+      const noteMap: Record<string, Record<string, unknown>> = {}
       if (noteIds.length > 0) {
         const { data: notes } = await supabase
           .from('credit_notes')
@@ -88,7 +88,7 @@ export function usePurchaseReturns(filters: { search?: string; status?: string }
         const safe = filters.search.replace(/%/g, '\\%')
         q = q.ilike('return_number', `%${safe}%`)
       }
-      const { data, error } = await q
+      const { data, error } = await q.limit(500)
       if (error) throw error
       return (data ?? []) as unknown as POReturn[]
     },
@@ -256,7 +256,7 @@ async function createDebitNoteForReturn(
   ]
   if (lineRows.length > 0) {
     const { error: linesErr } = await supabase
-      .from('credit_note_lines' as any)
+      .from('credit_note_lines')
       .insert(lineRows)
     if (linesErr) throw linesErr
   }
@@ -308,7 +308,7 @@ export function useUpdatePOReturnStatus() {
         await createDebitNoteForReturn(supabase, id, {
           source_id:     ret.source_id,
           return_number: ret.return_number,
-          return_lines:  (ret as any).return_lines ?? [],
+          return_lines:  (ret.return_lines ?? []) as POReturnItem[],
           reason:        ret.reason,
         })
       } else if (status === 'cancelled' && ret.dispatched_at) {

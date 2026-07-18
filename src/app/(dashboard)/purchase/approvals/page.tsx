@@ -71,8 +71,8 @@ export default function ApprovalsPage() {
 
   function openDialog(po: PurchaseOrder) {
     const allSteps = po.po_approvals ?? []
-    const maxIteration = Math.max(...allSteps.map((s: any) => s.iteration ?? 1), 1)
-    const activePending = (s: any) => s.status === 'pending' && s.is_active && (s.iteration ?? 1) === maxIteration
+    const maxIteration = Math.max(...allSteps.map((s) => s.iteration ?? 1), 1)
+    const activePending = (s: POApprovalStep) => s.status === 'pending' && s.is_active && (s.iteration ?? 1) === maxIteration
     const matchingSteps = (allSteps as POApprovalStep[])
       .filter((s) => activePending(s) && myRoles.includes(s.role))
     // No matching role: fall back to the first pending step so an Owner viewing
@@ -137,9 +137,9 @@ export default function ApprovalsPage() {
           <div className="space-y-3">
             {(pending ?? []).map((po) => {
               const allSteps = po.po_approvals ?? []
-              const maxIteration = Math.max(...allSteps.map((s: any) => s.iteration ?? 1), 1)
-              const currentSteps = allSteps.filter((s: any) => (s.iteration ?? 1) === maxIteration)
-              const pendingSteps = currentSteps.filter((s: any) => s.status === 'pending' && s.is_active)
+              const maxIteration = Math.max(...allSteps.map((s) => s.iteration ?? 1), 1)
+              const currentSteps = allSteps.filter((s) => (s.iteration ?? 1) === maxIteration)
+              const pendingSteps = currentSteps.filter((s) => s.status === 'pending' && s.is_active)
               const showPrev = showPrevIterations[po.id]
               return (
                 <div key={po.id} className="rounded-lg border p-4 space-y-3">
@@ -159,11 +159,11 @@ export default function ApprovalsPage() {
                   </div>
                   {pendingSteps.length > 0 && (
                     <div className="text-xs text-muted-foreground">
-                      Waiting for: <span className="font-medium text-foreground">{pendingSteps.map((s: any) => ROLE_LABELS[s.role] ?? s.role).join(', ')}</span>
+                      Waiting for: <span className="font-medium text-foreground">{pendingSteps.map((s) => ROLE_LABELS[s.role] ?? s.role).join(', ')}</span>
                     </div>
                   )}
                   <div className="flex gap-2 flex-wrap">
-                    <Button size="sm" onClick={() => openDialog(po)}>Review</Button>
+                    <Button size="sm" className="min-h-11 md:min-h-0" onClick={() => openDialog(po)}>Review</Button>
                     {myRoles.includes('Owner') && pendingSteps.length > 0 && (
                       <AlertDialog>
                         <AlertDialogTrigger asChild>
@@ -171,7 +171,7 @@ export default function ApprovalsPage() {
                             size="sm"
                             variant="outline"
                             disabled={forceApprove.isPending}
-                            className="gap-1 text-amber-600 border-amber-300 hover:bg-amber-50 hover:text-amber-700"
+                            className="gap-1 min-h-11 md:min-h-0 text-amber-600 border-amber-300 hover:bg-amber-50 hover:text-amber-700"
                           >
                             <ShieldAlert className="h-3.5 w-3.5" /> Force Approve
                           </Button>
@@ -182,7 +182,7 @@ export default function ApprovalsPage() {
                               Force-approve {pendingSteps.length} remaining {pendingSteps.length === 1 ? 'step' : 'steps'}?
                             </AlertDialogTitle>
                             <AlertDialogDescription>
-                              This will approve {pendingSteps.map((s: any) => ROLE_LABELS[s.role] ?? s.role).join(', ')} on PO{' '}
+                              This will approve {pendingSteps.map((s) => ROLE_LABELS[s.role] ?? s.role).join(', ')} on PO{' '}
                               <span className="font-mono font-medium">{po.po_number}</span>. The activity log will show each role separately, marked as Force Approved.
                             </AlertDialogDescription>
                           </AlertDialogHeader>
@@ -248,7 +248,7 @@ export default function ApprovalsPage() {
                 ) : (
                   (completed ?? []).map((po) => {
                     const allSteps = po.po_approvals ?? []
-                    const maxIteration = Math.max(...allSteps.map((s: any) => s.iteration ?? 1), 1)
+                    const maxIteration = Math.max(...allSteps.map((s) => s.iteration ?? 1), 1)
                     return (
                       <TableRow key={po.id}>
                         <TableCell className="font-mono text-sm font-medium">{po.po_number}</TableCell>
@@ -259,7 +259,7 @@ export default function ApprovalsPage() {
                           <PoApprovalChain steps={allSteps} showIteration={maxIteration} />
                         </TableCell>
                         <TableCell>
-                          <Button size="sm" variant="ghost" className="h-8 gap-1 px-2" onClick={() => setViewPO(po)}>
+                          <Button size="sm" variant="ghost" className="h-8 min-h-11 md:min-h-0 gap-1 px-2" onClick={() => setViewPO(po)}>
                             <Eye className="h-3.5 w-3.5" /> View
                           </Button>
                         </TableCell>
@@ -429,10 +429,10 @@ export default function ApprovalsPage() {
         <DialogContent className="w-full max-w-full h-full sm:h-auto sm:max-h-[90vh] rounded-none sm:max-w-2xl sm:rounded-lg flex flex-col p-0">
           {viewPO && (() => {
             const allSteps = viewPO.po_approvals ?? []
-            const maxIteration = Math.max(...allSteps.map((s: any) => s.iteration ?? 1), 1)
-            const currentSteps = [...(allSteps as any[])].filter((s) => (s.iteration ?? 1) === maxIteration)
+            const maxIteration = Math.max(...allSteps.map((s) => s.iteration ?? 1), 1)
+            const currentSteps = [...allSteps].filter((s) => (s.iteration ?? 1) === maxIteration)
               .sort((a, b) => (a.tier_rank ?? 0) - (b.tier_rank ?? 0))
-            const anyRejected = currentSteps.some((s: any) => s.status === 'rejected')
+            const anyRejected = currentSteps.some((s) => s.status === 'rejected')
 
             return (
               <>
@@ -466,7 +466,7 @@ export default function ApprovalsPage() {
                           </TableRow>
                         </TableHeader>
                         <TableBody>
-                          {(viewPO.po_line_items ?? []).map((li: any) => (
+                          {(viewPO.po_line_items ?? []).map((li) => (
                             <TableRow key={li.id}>
                               <TableCell className="text-sm">{li.item_name}</TableCell>
                               <TableCell className="text-right text-sm">{li.qty}</TableCell>
@@ -485,7 +485,7 @@ export default function ApprovalsPage() {
 
                   <div className="space-y-1">
                     <div className="text-xs font-medium mb-2">Approval Timeline</div>
-                    {currentSteps.map((step: any) => {
+                    {currentSteps.map((step) => {
                       const wasActuallyDecided = !!step.approved_by
                       const isRejected = step.status === 'rejected' && wasActuallyDecided
                       const isApproved = step.status === 'approved'

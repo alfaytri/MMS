@@ -60,7 +60,7 @@ export function useSiteVisitDetail(visitId: string | null) {
         address: data.address ?? null,
         notes: data.notes ?? null,
         created_at: data.created_at ?? '',
-        assignments: (data.site_visit_team_assignments ?? []).map((a: any) => ({
+        assignments: (data.site_visit_team_assignments ?? []).map((a) => ({
           id: a.id,
           team_name: a.teams?.name_en ?? a.teams?.name ?? '—',
           scheduled_date: a.scheduled_date,

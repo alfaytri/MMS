@@ -103,7 +103,7 @@ export const WhWarehousesTab = React.memo(function WhWarehousesTab({ warehouses,
                   <Button
                     variant="ghost"
                     size="sm"
-                    className="h-7 text-xs w-full justify-between gap-1 text-muted-foreground hover:text-foreground"
+                    className="h-7 min-h-11 md:min-h-0 text-xs w-full justify-between gap-1 text-muted-foreground hover:text-foreground"
                     onClick={() => toggleExpand(wh.id)}
                   >
                     <span>{isExpanded ? 'Hide items' : 'Show items'}</span>
@@ -123,7 +123,7 @@ export const WhWarehousesTab = React.memo(function WhWarehousesTab({ warehouses,
                 <Button
                   variant="ghost"
                   size="sm"
-                  className="h-7 text-xs w-full justify-end gap-1 text-muted-foreground hover:text-foreground"
+                  className="h-7 min-h-11 md:min-h-0 text-xs w-full justify-end gap-1 text-muted-foreground hover:text-foreground"
                   onClick={() => viewStock(wh.id)}
                 >
                   View in Stock Overview

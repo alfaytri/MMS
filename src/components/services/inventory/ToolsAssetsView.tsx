@@ -64,13 +64,13 @@ export function ToolsAssetsView({ enabled }: { enabled: boolean }) {
           placeholder="Search tools & assets…"
           value={search}
           onChange={(e) => setSearch(e.target.value)}
-          className="h-7 text-xs w-full max-w-64"
+          className="h-7 min-h-11 md:min-h-0 text-xs w-full sm:w-64"
         />
         <div className="flex items-center gap-2">
           <Switch checked={showArchived} onCheckedChange={setShowArchived} />
           <Label className="text-xs cursor-pointer" onClick={() => setShowArchived((v) => !v)}>Show archived</Label>
         </div>
-        <Button size="sm" className="ml-auto h-7 text-xs" onClick={() => setCreateCategoryOpen(true)}>
+        <Button size="sm" className="ml-auto h-7 min-h-11 md:min-h-0 text-xs" onClick={() => setCreateCategoryOpen(true)}>
           <Plus className="h-3 w-3 mr-1" /> New Category
         </Button>
       </div>
@@ -81,7 +81,8 @@ export function ToolsAssetsView({ enabled }: { enabled: boolean }) {
             {[0, 1, 2].map((i) => <Skeleton key={i} className="h-10 w-full rounded" />)}
           </div>
         ) : (
-          <table className="w-full text-sm">
+          <div className="overflow-x-auto">
+          <table className="w-full text-sm min-w-[500px]">
             <thead>
               <tr className="border-b border-border bg-muted/40">
                 <th className="text-left text-[11px] font-semibold py-2 pl-3 pr-2 w-1/2">TOOL / ASSET</th>
@@ -113,6 +114,7 @@ export function ToolsAssetsView({ enabled }: { enabled: boolean }) {
               })}
             </tbody>
           </table>
+          </div>
         )}
       </div>
 
@@ -120,11 +122,11 @@ export function ToolsAssetsView({ enabled }: { enabled: boolean }) {
         <div className="flex items-center justify-between text-xs text-muted-foreground px-4 py-2 border-t border-border">
           <span>{filtered.length} categor{filtered.length !== 1 ? 'ies' : 'y'}</span>
           <div className="flex items-center gap-1.5">
-            <Button variant="outline" size="sm" className="h-7 w-7 p-0" disabled={page <= 1} onClick={() => setPage((p) => Math.max(1, p - 1))} aria-label="Previous page">
+            <Button variant="outline" size="sm" className="h-7 w-7 p-0 min-h-11 min-w-11 md:min-h-0 md:min-w-0" disabled={page <= 1} onClick={() => setPage((p) => Math.max(1, p - 1))} aria-label="Previous page">
               <ChevronLeft className="h-3.5 w-3.5" />
             </Button>
             <span className="tabular-nums min-w-[80px] text-center">Page {page} of {totalPages}</span>
-            <Button variant="outline" size="sm" className="h-7 w-7 p-0" disabled={page >= totalPages} onClick={() => setPage((p) => Math.min(totalPages, p + 1))} aria-label="Next page">
+            <Button variant="outline" size="sm" className="h-7 w-7 p-0 min-h-11 min-w-11 md:min-h-0 md:min-w-0" disabled={page >= totalPages} onClick={() => setPage((p) => Math.min(totalPages, p + 1))} aria-label="Next page">
               <ChevronRight className="h-3.5 w-3.5" />
             </Button>
           </div>

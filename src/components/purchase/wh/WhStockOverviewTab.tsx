@@ -55,11 +55,11 @@ interface CategoryGroup {
 // ─── Item-type tab config (mirrors Master Data tabs) ─────────────────────────
 
 const ITEM_TYPE_TABS = [
-  { value: '__all__',      label: 'All'                      },
-  { value: 'products',     label: 'Products (Installation)'  },
-  { value: 'spare-parts',  label: 'Spare Parts (Sales)'      },
-  { value: 'consumables',  label: 'Consumables (Internal)'   },
-  { value: 'tools',        label: 'Tools & Assets'           },
+  { value: '__all__',      label: 'All',                      short: 'All'         },
+  { value: 'products',     label: 'Products (Installation)',   short: 'Products'    },
+  { value: 'spare-parts',  label: 'Spare Parts (Sales)',       short: 'Spare Parts' },
+  { value: 'consumables',  label: 'Consumables (Internal)',    short: 'Consumables' },
+  { value: 'tools',        label: 'Tools & Assets',            short: 'Tools'       },
 ] as const
 
 const TYPE_SHORT_LABEL: Record<string, string> = {
@@ -321,8 +321,8 @@ export const WhStockOverviewTab = React.memo(function WhStockOverviewTab({
     return brands.map((b) => (
       <TableRow key={b.brand_variant_id} className="bg-muted/5 hover:bg-muted/10">
         <TableCell className={`py-1.5 ${indentClass} text-xs text-muted-foreground`} />
-        <TableCell className="text-xs py-1.5 font-medium">{b.brand ?? '—'}</TableCell>
-        <TableCell className="text-xs py-1.5 text-primary">{b.sku ?? '—'}</TableCell>
+        <TableCell className="text-xs py-1.5 font-medium hidden sm:table-cell">{b.brand ?? '—'}</TableCell>
+        <TableCell className="text-xs py-1.5 text-primary hidden sm:table-cell">{b.sku ?? '—'}</TableCell>
         <TableCell className="text-xs text-right py-1.5 font-medium">
           <StockTooltip
             qty={b.qty}
@@ -330,7 +330,7 @@ export const WhStockOverviewTab = React.memo(function WhStockOverviewTab({
             rows={warehouseBreakdown.get(b.brand_variant_id) ?? []}
           />
         </TableCell>
-        <TableCell className="text-xs text-right py-1.5">{fmtVal(b.avgCost)}</TableCell>
+        <TableCell className="text-xs text-right py-1.5 hidden md:table-cell">{fmtVal(b.avgCost)}</TableCell>
         <TableCell className="text-xs text-right py-1.5">{fmtVal(b.totalValue)}</TableCell>
       </TableRow>
     ))
@@ -357,12 +357,12 @@ export const WhStockOverviewTab = React.memo(function WhStockOverviewTab({
                 {item.itemName}
               </div>
             </TableCell>
-            <TableCell className="text-xs text-muted-foreground py-2">
+            <TableCell className="text-xs text-muted-foreground py-2 hidden sm:table-cell">
               {item.brands.length === 1
                 ? (item.brands[0].brand ?? '—')
                 : <span className="text-[10px] italic">{item.brands.length} brands</span>}
             </TableCell>
-            <TableCell className="text-xs text-primary py-2">
+            <TableCell className="text-xs text-primary py-2 hidden sm:table-cell">
               {item.brands.length === 1 ? (item.brands[0].sku ?? '—') : '—'}
             </TableCell>
             <TableCell className="text-xs text-right font-semibold py-2">
@@ -374,7 +374,7 @@ export const WhStockOverviewTab = React.memo(function WhStockOverviewTab({
                   : (warehouseBreakdown.get(item.brands[0]?.brand_variant_id) ?? [])}
               />
             </TableCell>
-            <TableCell className="py-2 text-xs text-right text-muted-foreground">
+            <TableCell className="py-2 text-xs text-right text-muted-foreground hidden md:table-cell">
               {item.brands.length === 1 ? fmtVal(item.brands[0].avgCost) : '—'}
             </TableCell>
             <TableCell className="text-xs text-right py-2 font-medium">
@@ -390,7 +390,7 @@ export const WhStockOverviewTab = React.memo(function WhStockOverviewTab({
   return (
     <div className="p-4 md:p-6 space-y-4">
       {/* Summary mini-cards */}
-      <div className="grid grid-cols-3 gap-3">
+      <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
         {[
           { icon: <Layers   className="h-4 w-4 text-primary" />, label: 'Total Items', value: totalItemCount.toLocaleString('en-QA') },
           { icon: <Package  className="h-4 w-4 text-primary" />, label: 'Total Qty',   value: totalQty.toLocaleString('en-QA')   },
@@ -408,10 +408,11 @@ export const WhStockOverviewTab = React.memo(function WhStockOverviewTab({
 
       {/* Item-type tabs */}
       <Tabs value={activeType} onValueChange={(v) => setActiveType(v as ItemTypeValue)}>
-        <TabsList className="h-8 text-xs max-w-full overflow-x-auto whitespace-nowrap scroll-x-fade">
+        <TabsList className="h-8 min-h-11 md:min-h-0 text-xs max-w-full overflow-x-auto whitespace-nowrap">
           {ITEM_TYPE_TABS.map((tab) => (
-            <TabsTrigger key={tab.value} value={tab.value} className="text-xs px-3 h-7">
-              {tab.label}
+            <TabsTrigger key={tab.value} value={tab.value} className="text-xs px-3 h-7 min-h-9 md:min-h-0">
+              <span className="md:hidden">{tab.short}</span>
+              <span className="hidden md:inline">{tab.label}</span>
             </TabsTrigger>
           ))}
         </TabsList>
@@ -422,7 +423,7 @@ export const WhStockOverviewTab = React.memo(function WhStockOverviewTab({
         <div className="relative max-w-xs flex-1">
           <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-muted-foreground" />
           <Input
-            className="h-8 text-xs pl-8"
+            className="h-8 min-h-11 md:min-h-0 text-xs pl-8"
             placeholder="Search by item, category, brand or SKU…"
             value={search}
             onChange={(e) => setSearch(e.target.value)}
@@ -449,7 +450,7 @@ export const WhStockOverviewTab = React.memo(function WhStockOverviewTab({
         {selectedWarehouse && (
           <Button
             variant="ghost" size="sm"
-            className="h-7 px-2 text-xs text-muted-foreground"
+            className="h-7 min-h-11 md:min-h-0 px-2 text-xs text-muted-foreground"
             onClick={() => setSelectedWarehouseId(undefined)}
             aria-label="Clear warehouse filter"
           >
@@ -462,7 +463,7 @@ export const WhStockOverviewTab = React.memo(function WhStockOverviewTab({
           {tree.length > 0 && (
             <Button
               variant="ghost" size="sm"
-              className="h-7 px-2 text-xs text-muted-foreground"
+              className="h-7 min-h-11 md:min-h-0 px-2 text-xs text-muted-foreground"
               onClick={allExpanded ? collapseAll : expandAll}
             >
               {allExpanded ? 'Collapse all' : 'Expand all'}
@@ -472,17 +473,141 @@ export const WhStockOverviewTab = React.memo(function WhStockOverviewTab({
         </div>
       </div>
 
-      {/* 4-level stock tree: category → subcategory → item → brand */}
+      {/* ── Mobile card tree (< md) ────────────────────────────────────── */}
+      <div className="md:hidden space-y-1.5">
+        {tree.length === 0 ? (
+          <p className="text-center text-xs text-muted-foreground py-8">
+            {selectedWarehouse ? `No stock in ${selectedWarehouse.name}` : 'No stock data'}
+          </p>
+        ) : pagedTree.map((cat) => {
+          const catExpanded = expanded.has(cat.categoryName)
+          return (
+            <div key={cat.categoryName} className="rounded-md border overflow-hidden">
+              <button
+                type="button"
+                className="w-full flex items-center gap-2 px-3 py-2.5 bg-muted/30 active:bg-muted/50 min-h-11"
+                onClick={() => toggle(cat.categoryName)}
+              >
+                {catExpanded
+                  ? <ChevronDown className="h-4 w-4 text-muted-foreground shrink-0" />
+                  : <ChevronRight className="h-4 w-4 text-muted-foreground shrink-0" />}
+                <span className="font-semibold text-sm truncate flex-1 text-left">{cat.categoryName}</span>
+                {activeType === '__all__' && cat.itemType && TYPE_SHORT_LABEL[cat.itemType] && (
+                  <span className="text-[10px] text-muted-foreground border border-border rounded px-1 py-0.5 shrink-0">
+                    {TYPE_SHORT_LABEL[cat.itemType]}
+                  </span>
+                )}
+                <div className="flex items-center gap-3 shrink-0 ml-1">
+                  <span className="text-xs font-bold tabular-nums">{cat.totalQty}</span>
+                  <span className="text-xs font-semibold tabular-nums text-muted-foreground">{fmtVal(cat.totalValue)}</span>
+                </div>
+              </button>
+
+              {catExpanded && (
+                <div className="border-t divide-y">
+                  {cat.subcategories.map((sc) => {
+                    const scKey = `${cat.categoryName}__sub__${sc.subcategoryName}`
+                    const scExpanded = expanded.has(scKey)
+                    return (
+                      <div key={scKey}>
+                        <button
+                          type="button"
+                          className="w-full flex items-center gap-2 pl-7 pr-3 py-2 bg-blue-50/50 dark:bg-blue-950/20 active:bg-blue-50/80 min-h-11"
+                          onClick={() => toggle(scKey)}
+                        >
+                          {scExpanded
+                            ? <ChevronDown className="h-3.5 w-3.5 text-blue-600 shrink-0" />
+                            : <ChevronRight className="h-3.5 w-3.5 text-blue-600 shrink-0" />}
+                          <span className="text-xs font-semibold text-blue-700 dark:text-blue-400 truncate flex-1 text-left">{sc.subcategoryName}</span>
+                          <div className="flex items-center gap-3 shrink-0 ml-1">
+                            <span className="text-xs font-semibold tabular-nums">{sc.totalQty}</span>
+                            <span className="text-xs tabular-nums text-muted-foreground">{fmtVal(sc.totalValue)}</span>
+                          </div>
+                        </button>
+                        {scExpanded && sc.items.map((item) => {
+                          const itemKey = `${scKey}__${item.itemName}`
+                          const itemExpanded = expanded.has(itemKey)
+                          const multi = item.brands.length > 1
+                          return (
+                            <div key={itemKey}>
+                              <button
+                                type="button"
+                                className={cn('w-full flex items-center gap-2 pl-12 pr-3 py-2 min-h-11', multi ? 'active:bg-muted/20' : 'cursor-default')}
+                                onClick={multi ? () => toggle(itemKey) : undefined}
+                                disabled={!multi}
+                              >
+                                {multi
+                                  ? (itemExpanded ? <ChevronDown className="h-3 w-3 text-muted-foreground shrink-0" /> : <ChevronRight className="h-3 w-3 text-muted-foreground shrink-0" />)
+                                  : <span className="w-3 shrink-0" />}
+                                <span className="text-xs font-medium truncate flex-1 text-left">{item.itemName}</span>
+                                <div className="flex items-center gap-3 shrink-0 ml-1">
+                                  <span className="text-xs font-semibold tabular-nums">{item.totalQty}</span>
+                                  <span className="text-xs tabular-nums text-muted-foreground">{fmtVal(item.totalValue)}</span>
+                                </div>
+                              </button>
+                              {multi && itemExpanded && item.brands.map((b) => (
+                                <div key={b.brand_variant_id} className="flex items-center gap-2 pl-16 pr-3 py-1.5 bg-muted/5 border-t border-dashed">
+                                  <span className="text-[11px] text-muted-foreground truncate flex-1">{b.brand ?? '—'}</span>
+                                  <span className="text-[11px] font-medium tabular-nums shrink-0">{b.qty}</span>
+                                  <span className="text-[11px] tabular-nums text-muted-foreground shrink-0">{fmtVal(b.totalValue)}</span>
+                                </div>
+                              ))}
+                            </div>
+                          )
+                        })}
+                      </div>
+                    )
+                  })}
+
+                  {cat.directItems.map((item) => {
+                    const itemKey = `${cat.categoryName}__${item.itemName}`
+                    const itemExpanded = expanded.has(itemKey)
+                    const multi = item.brands.length > 1
+                    return (
+                      <div key={itemKey}>
+                        <button
+                          type="button"
+                          className={cn('w-full flex items-center gap-2 pl-7 pr-3 py-2 min-h-11', multi ? 'active:bg-muted/20' : 'cursor-default')}
+                          onClick={multi ? () => toggle(itemKey) : undefined}
+                          disabled={!multi}
+                        >
+                          {multi
+                            ? (itemExpanded ? <ChevronDown className="h-3 w-3 text-muted-foreground shrink-0" /> : <ChevronRight className="h-3 w-3 text-muted-foreground shrink-0" />)
+                            : <span className="w-3 shrink-0" />}
+                          <span className="text-xs font-medium truncate flex-1 text-left">{item.itemName}</span>
+                          <div className="flex items-center gap-3 shrink-0 ml-1">
+                            <span className="text-xs font-semibold tabular-nums">{item.totalQty}</span>
+                            <span className="text-xs tabular-nums text-muted-foreground">{fmtVal(item.totalValue)}</span>
+                          </div>
+                        </button>
+                        {multi && itemExpanded && item.brands.map((b) => (
+                          <div key={b.brand_variant_id} className="flex items-center gap-2 pl-12 pr-3 py-1.5 bg-muted/5 border-t border-dashed">
+                            <span className="text-[11px] text-muted-foreground truncate flex-1">{b.brand ?? '—'}</span>
+                            <span className="text-[11px] font-medium tabular-nums shrink-0">{b.qty}</span>
+                            <span className="text-[11px] tabular-nums text-muted-foreground shrink-0">{fmtVal(b.totalValue)}</span>
+                          </div>
+                        ))}
+                      </div>
+                    )
+                  })}
+                </div>
+              )}
+            </div>
+          )
+        })}
+      </div>
+
+      {/* ── Desktop table tree (md+) ──────────────────────────────────── */}
       <TooltipProvider delayDuration={150}>
-        <div className="rounded-md border overflow-x-auto">
+        <div className="rounded-md border overflow-x-auto hidden md:block">
           <Table>
             <TableHeader>
               <TableRow>
                 <TableHead className="text-xs w-[38%]">Item</TableHead>
-                <TableHead className="text-xs">Brand</TableHead>
-                <TableHead className="text-xs">SKU</TableHead>
+                <TableHead className="text-xs hidden sm:table-cell">Brand</TableHead>
+                <TableHead className="text-xs hidden sm:table-cell">SKU</TableHead>
                 <TableHead className="text-xs text-right">Stock</TableHead>
-                <TableHead className="text-xs text-right">Avg Cost</TableHead>
+                <TableHead className="text-xs text-right hidden md:table-cell">Avg Cost</TableHead>
                 <TableHead className="text-xs text-right">Value (QR)</TableHead>
               </TableRow>
             </TableHeader>
@@ -521,16 +646,16 @@ export const WhStockOverviewTab = React.memo(function WhStockOverviewTab({
                             )}
                           </div>
                         </TableCell>
-                        <TableCell className="text-xs text-muted-foreground py-2.5">
+                        <TableCell className="text-xs text-muted-foreground py-2.5 hidden sm:table-cell">
                           <span className="text-[10px] italic">
                             {childCount} {cat.subcategories.length > 0 ? 'sub' : 'item'}{childCount !== 1 ? 's' : ''}
                           </span>
                         </TableCell>
-                        <TableCell className="py-2.5" />
+                        <TableCell className="py-2.5 hidden sm:table-cell" />
                         <TableCell className="text-xs text-right font-bold py-2.5">
                           <StockTooltip qty={cat.totalQty} title="Stock Breakdown" rows={tooltipRows} />
                         </TableCell>
-                        <TableCell className="py-2.5 text-xs text-right text-muted-foreground">—</TableCell>
+                        <TableCell className="py-2.5 text-xs text-right text-muted-foreground hidden md:table-cell">—</TableCell>
                         <TableCell className="text-xs text-right font-bold py-2.5">
                           {fmtVal(cat.totalValue)}
                         </TableCell>
@@ -556,12 +681,12 @@ export const WhStockOverviewTab = React.memo(function WhStockOverviewTab({
                                       {sc.subcategoryName}
                                     </div>
                                   </TableCell>
-                                  <TableCell className="text-xs text-muted-foreground py-2">
+                                  <TableCell className="text-xs text-muted-foreground py-2 hidden sm:table-cell">
                                     <span className="text-[10px] italic">
                                       {sc.items.length} item{sc.items.length !== 1 ? 's' : ''}
                                     </span>
                                   </TableCell>
-                                  <TableCell className="py-2" />
+                                  <TableCell className="py-2 hidden sm:table-cell" />
                                   <TableCell className="text-xs text-right font-semibold py-2">
                                     <StockTooltip
                                       qty={sc.totalQty}
@@ -569,7 +694,7 @@ export const WhStockOverviewTab = React.memo(function WhStockOverviewTab({
                                       rows={sc.items.map((i) => ({ label: i.itemName, qty: i.totalQty }))}
                                     />
                                   </TableCell>
-                                  <TableCell className="py-2 text-xs text-right text-muted-foreground">—</TableCell>
+                                  <TableCell className="py-2 text-xs text-right text-muted-foreground hidden md:table-cell">—</TableCell>
                                   <TableCell className="text-xs text-right font-semibold py-2">
                                     {fmtVal(sc.totalValue)}
                                   </TableCell>
@@ -600,7 +725,7 @@ export const WhStockOverviewTab = React.memo(function WhStockOverviewTab({
                 <Button
                   variant="outline"
                   size="sm"
-                  className="h-7 w-7 p-0"
+                  className="h-7 w-7 p-0 min-h-11 min-w-11 md:min-h-0 md:min-w-0"
                   disabled={page <= 1}
                   onClick={() => setPage((p) => Math.max(1, p - 1))}
                   aria-label="Previous page"
@@ -613,7 +738,7 @@ export const WhStockOverviewTab = React.memo(function WhStockOverviewTab({
                 <Button
                   variant="outline"
                   size="sm"
-                  className="h-7 w-7 p-0"
+                  className="h-7 w-7 p-0 min-h-11 min-w-11 md:min-h-0 md:min-w-0"
                   disabled={page >= totalPages}
                   onClick={() => setPage((p) => Math.min(totalPages, p + 1))}
                   aria-label="Next page"

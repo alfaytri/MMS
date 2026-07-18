@@ -74,8 +74,8 @@ export async function generateReturnPdf(
 
   let sourceNumber: string | null = null
   let counterpartyName: string | null = null
-  let counterpartyLabel = isSale ? 'Customer' : 'Supplier'
-  let unitPriceMap: Record<string, number> = {}
+  const counterpartyLabel = isSale ? 'Customer' : 'Supplier'
+  const unitPriceMap: Record<string, number> = {}
 
   if (isSale) {
     const { data: so } = await supabase

@@ -110,13 +110,13 @@ export function ProductProfitabilityTable({ rows, rangeLabel }: Props) {
           <Search className="h-4 w-4 absolute left-2.5 top-1/2 -translate-y-1/2 text-muted-foreground" />
           <Input
             placeholder="Search product or SKU…"
-            className="pl-8 h-9"
+            className="pl-8 h-9 min-h-11 md:min-h-0"
             value={search}
             onChange={(e) => setSearch(e.target.value)}
           />
         </div>
         <Select value={brand} onValueChange={(v) => setBrand(v ?? '__all__')}>
-          <SelectTrigger className="h-9 w-[180px]">
+          <SelectTrigger className="h-9 min-h-11 md:min-h-0 w-[180px]">
             <SelectValue placeholder="All brands" />
           </SelectTrigger>
           <SelectContent>
@@ -126,7 +126,7 @@ export function ProductProfitabilityTable({ rows, rangeLabel }: Props) {
             ))}
           </SelectContent>
         </Select>
-        <Button variant="outline" size="sm" className="h-9" onClick={handleExport} disabled={sorted.length === 0}>
+        <Button variant="outline" size="sm" className="h-9 min-h-11 md:min-h-0" onClick={handleExport} disabled={sorted.length === 0}>
           <Download className="h-4 w-4 mr-1.5" />
           Export
         </Button>

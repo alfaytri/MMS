@@ -16,12 +16,12 @@ export async function POST(req: NextRequest) {
   const gate = await requireAuth()
   if (!gate.ok) return NextResponse.json({ error: gate.message }, { status: gate.status })
 
-  let body: any
+  let body: Record<string, unknown>
   try { body = await req.json() } catch {
     return NextResponse.json({ error: 'Invalid JSON' }, { status: 400 })
   }
 
-  const messageId: string | undefined = body?.messageId
+  const messageId = body?.messageId as string | undefined
   // Emoji is intentionally optional — empty string means "remove reaction".
   const emoji: string = typeof body?.emoji === 'string' ? body.emoji : ''
 
@@ -49,9 +49,9 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ ok: false, error: `WHAPI ${res.status}: ${responseText.slice(0, 300)}` }, { status: res.status })
     }
     console.log('[whapi/send-reaction] ← ok:', responseText.slice(0, 200))
-  } catch (err: any) {
+  } catch (err: unknown) {
     console.error('[whapi/send-reaction] threw:', err)
-    return NextResponse.json({ ok: false, error: err.message ?? 'Network error' }, { status: 500 })
+    return NextResponse.json({ ok: false, error: err instanceof Error ? err.message : String(err) }, { status: 500 })
   }
 
   // Mirror the change locally so the chat UI stays in sync even if the realtime

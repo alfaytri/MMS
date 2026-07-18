@@ -245,7 +245,7 @@ Purchase & Sales▾:
 
 ## 🔄 In Progress
 
-_(TL Card Detail module complete — awaiting next task)_
+No active tasks.
 
 
 
@@ -264,6 +264,14 @@ _(TL Card Detail module complete — awaiting next task)_
 
 ## ✅ Completed
 
+- [2026-07-18] **ESLint 9 Upgrade + Build Fixes** — ESLint 8→9 with FlatCompat config, ~15 TypeScript type fixes across hooks, conditional useMemo fix in PermissionTree, unescaped JSX entities in 6 components, let→const lint fixes. 77 files, zero build errors.
+- [2026-07-18] **Architecture Audit Fixes (Tier 1 + Tier 2)** — `src/lib/webhooks/verify.ts` (fail-closed), `src/hooks/useReceivals.ts` (DB sequence for receival numbers), `src/hooks/usePOApprovals.ts` (atomic `po_approval_action` RPC), `src/hooks/useSaleDeliveries.ts` + `src/hooks/usePurchaseReturns.ts` (.limit(500)), 3 migrations: receival_number_seq, po_approval_action RPC, 17 FK indexes. Applied to both staging and main DBs.
+- [2026-07-18] **Responsive UI Work-up Task 4: Verify + close-out** — Removed `scroll-x-fade` from 6 tab strips (PoDetailDialog, SoDetailDialog, OrderDetailDialog, SiteVisitDetailSheet, warehouses/page, services/page), added `max-w-[92vw]` viewport clamps to 5 popovers (create-po, edit-po, ServiceEditDialog, WhAdjustmentDialog, WhTransferDialog). Audit identified 50+ dialogs needing full mobile treatment as future work.
+- [2026-07-18] **Responsive UI Work-up Phase 3.2–3.7 + Mobile Card Views** — `WhStockOverviewTab.tsx`, `WhStockValueTab.tsx`, `WhAdjustmentsTab.tsx`, `WhMovementsTab.tsx`, `ReceivalsDeliveriesTab.tsx`, `WhWarehousesTab.tsx`, `AdminSidebar.tsx`, `admin/layout.tsx`, `users/page.tsx`, `DataTable.tsx`, `SearchInput.tsx`, `FilterBar.tsx`, `PermissionTree.tsx`, `dashboard/page.tsx`, `ProductProfitabilityTable.tsx` — Mobile card views for 6 warehouse tabs (tree cards for stock overview, expandable details for stock value, clean badge layouts for adjustments/movements/receivals), collapsible Sheet sidebar for admin settings, short tab labels to fix cut-off strips, touch targets (min-h-11), DataTable div/button fix for nested button hydration error, KPI grid 2-col on mobile
+- [2026-07-18] **Responsive UI Work-up Phase 3.1: Inventory page** — `src/components/services/InventoryTab.tsx`, `src/components/services/inventory/ItemsListView.tsx`, `src/components/services/inventory/CategoryRow.tsx`, `src/components/services/inventory/ItemRow.tsx`, `src/components/services/inventory/BrandVariantRow.tsx`, `src/components/services/inventory/ToolsAssetsView.tsx`, `src/components/services/inventory/ToolCategoryRow.tsx` — Tab touch targets, toolbar full-width on mobile, overflow-x-auto tables, progressive column hiding (SKU/CODE/PRICING/INCOMING), reorder buttons hidden on mobile, touch targets on all action buttons
+- [2026-07-18] **Responsive UI Work-up Phase 2.C: Vendors & logistics list pages** — `suppliers/page.tsx`, `customers/page.tsx`, `shipments/page.tsx`, `landed-costs/page.tsx`, `dead-stock/page.tsx` — mobileCardRender on DataTable pages, toolbar responsive, progressive column hiding, touch targets
+- [2026-07-18] **Responsive UI Work-up Phase 2.B: Sales list pages** — 8 pages (sale-orders, deliveries, invoices, payments, credit-notes, returns, quotations, pending-payments) — mobileCardRender, toolbar responsive, column hiding, touch targets
+- [2026-07-18] **Responsive UI Work-up Phase 2.A: Purchase list pages** — 7 pages (purchase-orders, receivals, payments, approvals, rfq, returns, debit-notes) — mobileCardRender, toolbar responsive, column hiding, touch targets
 - [2026-07-18] **TL Card Detail Module — complete** — 5 tasks. Every team-leader card now shows full order details always (no expand/collapse). Completed cards get a Review Work read-only dialog with invoice details + PDF link; Edit Work re-opens the completion dialog when no invoice exists yet. Security audit clean (see Security Audit Log 2026-07-18 row).
 - [2026-07-18] **TL Card Detail Task 5: Edit Work gating** — `src/components/team-leader/TlOrderCard.tsx` — Button gate `canEditWork = isCompleted && !visit.has_invoice`; when shown, re-opens the completion dialog via onTapCard. Landed as part of Task 3 (same file).
 - [2026-07-18] **TL Card Detail Task 4: Review Work dialog** — `src/components/team-leader/ReviewWorkDialog.tsx`, `src/hooks/useTlInvoices.ts`, `src/app/(dashboard)/team-leader/page.tsx` — Read-only dialog wired to the completed-card Review Work button. Shows visit summary, invoice header (number + status), services table, totals, payment method, payment history, and a View Invoice PDF button. Non-order visits render a "no invoice" fallback with the delivered services list. Added `useTlInvoiceByVisit(visitId)` single-invoice hook. Dialog is max-w-3xl w-[95vw] with roomy padding.

@@ -5,6 +5,7 @@ import { createClient } from '@/lib/supabase/client'
 import { queryKeys } from '@/lib/queryKeys'
 import type {
   ContractQuotationSummary,
+  ContractQuotationStatus,
   QuotationFilters,
 } from '@/types/contracts'
 
@@ -44,10 +45,10 @@ export function useContractQuotations(filters?: QuotationFilters) {
       if (error) throw error
 
       const quotations: ContractQuotationSummary[] = (data || []).map(
-        (c: any) => ({
+        (c) => ({
           id: c.id,
           quotation_number: c.quotation_number || '',
-          status: c.status,
+          status: (c.status ?? 'draft') as ContractQuotationStatus,
           customer_name: c.customer_name || '',
           site_name: c.site_name || '',
           phone: c.phone || '',

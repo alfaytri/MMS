@@ -2,7 +2,7 @@
 
 import { useInfiniteQuery } from '@tanstack/react-query'
 import { createClient } from '@/lib/supabase/client'
-import type { LiveContractSummary, ContractFilters } from '@/types/contracts'
+import type { LiveContractSummary, ContractFilters, ContractLiveStatus } from '@/types/contracts'
 import { queryKeys } from '@/lib/queryKeys'
 
 const PAGE_SIZE = 50
@@ -47,32 +47,32 @@ export function useContracts(filters?: ContractFilters) {
 
       const today = new Date().toISOString().split('T')[0]
 
-      let contracts: LiveContractSummary[] = (data || []).map((c: any) => {
+      const contracts: LiveContractSummary[] = (data || []).map((c) => {
         const visits = c.contract_visits || []
         const payments = c.contract_payments || []
-        const completedVisits = visits.filter((v: any) => v.completed).length
+        const completedVisits = visits.filter((v) => v.completed).length
         const futureVisits = visits
-          .filter((v: any) => !v.completed && v.scheduled_date >= today)
-          .sort((a: any, b: any) => a.scheduled_date.localeCompare(b.scheduled_date))
+          .filter((v) => !v.completed && v.scheduled_date >= today)
+          .sort((a, b) => a.scheduled_date.localeCompare(b.scheduled_date))
           .slice(0, 6)
-          .map((v: any) => ({
+          .map((v) => ({
             date: v.scheduled_date,
             service_name: v.service_name,
             team_name: v.teams?.name_en,
           }))
 
         const paidAmount = payments
-          .filter((p: any) => p.status === 'paid')
-          .reduce((sum: number, p: any) => sum + (p.amount || 0), 0)
+          .filter((p) => p.status === 'paid')
+          .reduce((sum: number, p) => sum + (p.amount || 0), 0)
         const totalPayments = payments.reduce(
-          (sum: number, p: any) => sum + (p.amount || 0),
+          (sum: number, p) => sum + (p.amount || 0),
           0,
         )
 
         return {
           id: c.id,
           contract_id: c.contract_id || '',
-          status: c.status,
+          status: (c.status ?? 'active') as ContractLiveStatus,
           customer_name: c.customer_name || '',
           site_name: c.site_name || '',
           phone: c.phone || '',
@@ -88,12 +88,12 @@ export function useContracts(filters?: ContractFilters) {
           upcoming_visits: futureVisits,
           total_payments: totalPayments,
           paid_amount: paidAmount,
-          payments: payments.map((p: any) => ({
+          payments: payments.map((p) => ({
             id: p.id,
             contract_id: c.id,
             due_date: p.due_date,
             amount: p.amount,
-            status: p.status || 'pending',
+            status: (p.status || 'pending') as 'pending' | 'paid' | 'overdue',
           })),
           payment_schedule: c.payment_schedule || c.payment_frequency || '',
           has_signed_doc: c.has_signed_doc || false,

@@ -23,7 +23,7 @@ import { PoLineItemsEditor, type LineItemRow } from '@/components/purchase/PoLin
 import { PoTermsSection, DEFAULT_TERMS, type PoTermsValues } from '@/components/purchase/PoTermsSection'
 import { AddSupplierDialog } from '@/components/purchase/AddSupplierDialog'
 import { SupplierMultiSelect } from '@/components/purchase/SupplierMultiSelect'
-import { useCreatePO, useSubmitPOForApproval } from '@/hooks/usePurchaseOrders'
+import { useCreatePO, useSubmitPOForApproval, type CreatePOPayload } from '@/hooks/usePurchaseOrders'
 import { useSuppliers, type SupplierWithCurrency } from '@/hooks/useSuppliers'
 import { useCurrencies } from '@/hooks/useCurrencies'
 import { useUserDivisionScope } from '@/hooks/useUserDivisionScope'
@@ -139,13 +139,11 @@ export default function CreatePOPage() {
 
   function saveAsType(poType: 'draft' | 'rfq') {
     if (!validate()) return
-    const payload = buildPayload()
-    if (poType === 'rfq' && rfqMode) {
-      payload.supplier_id = rfqSupplierIds[0] ?? ''
-      payload.supplier_name = ''
-      ;(payload as any).rfq_supplier_ids = rfqSupplierIds
-    }
-    createPO.mutate({ ...payload, po_type: poType }, {
+    const base = buildPayload()
+    const payload: CreatePOPayload = (poType === 'rfq' && rfqMode)
+      ? { ...base, supplier_id: rfqSupplierIds[0] ?? '', supplier_name: '', rfq_supplier_ids: rfqSupplierIds, po_type: poType }
+      : { ...base, po_type: poType }
+    createPO.mutate(payload, {
       onSuccess: () => { toast.success(poType === 'rfq' ? 'Saved as RFQ' : 'Saved as Draft'); router.push('/purchase/orders') },
       onError: (err) => toast.error(err.message),
     })
@@ -275,7 +273,7 @@ export default function CreatePOPage() {
                       </span>
                       <ChevronsUpDown className="h-4 w-4 opacity-50" />
                     </PopoverTrigger>
-                    <PopoverContent className="w-[400px] p-0">
+                    <PopoverContent className="w-[400px] max-w-[92vw] p-0">
                       <Command>
                         <CommandInput placeholder="Search suppliers..." />
                         <CommandList>

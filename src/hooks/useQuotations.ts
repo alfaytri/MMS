@@ -43,20 +43,20 @@ export function useQuotations(filter: QuotationsFilter = DEFAULT_FILTER) {
       let rows = data ?? []
       if (filter.customerPhone) {
         const ph = filter.customerPhone.replace(/\s+/g, '').toLowerCase()
-        rows = rows.filter((r: any) =>
-          (r.service_customers?.service_customer_phones ?? []).some((cp: any) =>
+        rows = rows.filter((r) =>
+          (r.service_customers?.service_customer_phones ?? []).some((cp) =>
             (cp.phone ?? '').replace(/\s+/g, '').toLowerCase().includes(ph)
           )
         )
       }
 
-      const items: QuotationListItem[] = rows.map((r: any) => ({
+      const items: QuotationListItem[] = rows.map((r) => ({
         id:             r.id,
         quotation_id:   r.quotation_id,
         customer_name:  r.service_customers?.name ?? '—',
         customer_phone: r.service_customers?.service_customer_phones?.[0]?.phone ?? '—',
         division:       r.division ?? '—',
-        status:         r.status,
+        status:         (r.status ?? 'draft') as QuotationListItem['status'],
         total_amount:   r.total_amount ?? 0,
         created_date:   r.created_date ?? '',
       }))

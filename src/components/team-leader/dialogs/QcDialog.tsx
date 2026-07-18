@@ -56,7 +56,7 @@ export function QcDialog({ visit, profileId, onComplete, onClose }: Props) {
             {/* Requested Services — VIEW ONLY */}
             <div className="rounded-lg border bg-muted/30 p-4 space-y-2">
               <p className="text-xs font-semibold uppercase text-muted-foreground tracking-wide">Requested Services</p>
-              <p className="text-[11px] text-muted-foreground">QC assessment of another team's work</p>
+              <p className="text-[11px] text-muted-foreground">QC assessment of another team&apos;s work</p>
               {visit.services.map((s) => (
                 <div key={s.id} className="flex items-center justify-between text-sm py-1">
                   <span>{s.name}</span>

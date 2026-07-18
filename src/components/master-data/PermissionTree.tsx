@@ -471,6 +471,14 @@ function TreeNodeRow({
   onToggle: (id: string) => void
   search: string
 }) {
+  const filteredPerms = useMemo(() => {
+    if (!search) return node.permissions ?? []
+    const s = search.toLowerCase()
+    return (node.permissions ?? []).filter(
+      p => p.label.toLowerCase().includes(s) || p.key.toLowerCase().includes(s),
+    )
+  }, [node.permissions, search])
+
   if (search && !nodeHasMatch(node, search)) return null
 
   const isExpanded = expandedIds.has(node.id)
@@ -479,14 +487,6 @@ function TreeNodeRow({
   const isExpandable = hasChildren || hasPerms
   const total = countPerms(node)
   const Icon = node.icon
-
-  const filteredPerms = useMemo(() => {
-    if (!search) return node.permissions ?? []
-    const s = search.toLowerCase()
-    return (node.permissions ?? []).filter(
-      p => p.label.toLowerCase().includes(s) || p.key.toLowerCase().includes(s),
-    )
-  }, [node.permissions, search])
 
   const showExpanded = isExpanded || !!search
 
@@ -604,10 +604,10 @@ export function PermissionTree({ search }: { search: string }) {
           Permissions are assigned to roles, not directly to users.
         </p>
         <div className="flex gap-3 shrink-0">
-          <button type="button" className="text-xs text-primary hover:underline" onClick={expandAll}>
+          <button type="button" className="text-xs text-primary hover:underline min-h-11 md:min-h-0" onClick={expandAll}>
             Expand All
           </button>
-          <button type="button" className="text-xs text-primary hover:underline" onClick={collapseAll}>
+          <button type="button" className="text-xs text-primary hover:underline min-h-11 md:min-h-0" onClick={collapseAll}>
             Collapse All
           </button>
         </div>

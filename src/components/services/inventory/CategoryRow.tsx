@@ -91,23 +91,23 @@ export function CategoryRow({ node, categoryType, showArchived, canMoveUp, canMo
             </div>
           </div>
         </td>
-        <td className="py-2.5 px-2 text-[11px] font-mono text-muted-foreground">{node.sku ?? '---'}</td>
+        <td className="py-2.5 px-2 text-[11px] font-mono text-muted-foreground hidden sm:table-cell">{node.sku ?? '---'}</td>
         {(() => {
           const agg = stockAggregates?.get(node.id)
           if (!agg || agg.variant_count === 0) return (
             <>
-              <td className="py-2.5 px-2 text-[11px] text-muted-foreground">---</td>
-              <td className="py-2.5 px-2 text-[11px] text-muted-foreground">---</td>
+              <td className="py-2.5 px-2 text-[11px] text-muted-foreground hidden md:table-cell">---</td>
+              <td className="py-2.5 px-2 text-[11px] text-muted-foreground hidden md:table-cell">---</td>
               <td className="py-2.5 px-2 text-[11px] text-muted-foreground">---</td>
             </>
           )
           const available = Number(agg.total_stock) - Number(agg.total_reserved)
           return (
             <>
-              <td className="py-2.5 px-2 text-[11px] text-muted-foreground">
+              <td className="py-2.5 px-2 text-[11px] text-muted-foreground hidden md:table-cell">
                 {agg.variant_count} variant{Number(agg.variant_count) !== 1 ? 's' : ''}
               </td>
-              <td className="py-2.5 px-2 text-[11px] text-muted-foreground">
+              <td className="py-2.5 px-2 text-[11px] text-muted-foreground hidden md:table-cell">
                 {formatCurrency(Number(agg.avg_cost), 'QAR')}
               </td>
               <td className="py-2.5 px-2 text-[11px]">
@@ -123,24 +123,24 @@ export function CategoryRow({ node, categoryType, showArchived, canMoveUp, canMo
         })()}
         <td className="py-2.5 px-2 text-right">
           <div className="flex items-center justify-end gap-1" onClick={(e) => e.stopPropagation()}>
-            <Button variant="ghost" size="icon" className="h-6 w-6" disabled={!canMoveUp} onClick={() => onMoveUp()}>
+            <Button variant="ghost" size="icon" className="h-6 w-6 hidden sm:inline-flex" disabled={!canMoveUp} onClick={() => onMoveUp()}>
               <ArrowUp className="h-3 w-3" />
             </Button>
-            <Button variant="ghost" size="icon" className="h-6 w-6" disabled={!canMoveDown} onClick={() => onMoveDown()}>
+            <Button variant="ghost" size="icon" className="h-6 w-6 hidden sm:inline-flex" disabled={!canMoveDown} onClick={() => onMoveDown()}>
               <ArrowDown className="h-3 w-3" />
             </Button>
-            <Button variant="ghost" size="icon" className="h-6 w-6" title="Add Subcategory" onClick={() => setAddSubcategoryOpen(true)}>
+            <Button variant="ghost" size="icon" className="h-6 w-6 hidden sm:inline-flex" title="Add Subcategory" onClick={() => setAddSubcategoryOpen(true)}>
               <FolderPlus className="h-3 w-3" />
             </Button>
             {isLeaf && (
-              <Button variant="ghost" size="icon" className="h-6 w-6" title="Add Item" onClick={() => setAddItemOpen(true)}>
+              <Button variant="ghost" size="icon" className="h-6 w-6 min-h-11 min-w-11 md:min-h-0 md:min-w-0" title="Add Item" onClick={() => setAddItemOpen(true)}>
                 <Plus className="h-3 w-3" />
               </Button>
             )}
-            <Button variant="ghost" size="icon" className="h-6 w-6" onClick={() => setEditOpen(true)}>
+            <Button variant="ghost" size="icon" className="h-6 w-6 min-h-11 min-w-11 md:min-h-0 md:min-w-0" onClick={() => setEditOpen(true)}>
               <Pencil className="h-3 w-3" />
             </Button>
-            <Button variant="ghost" size="icon" className="h-6 w-6 text-muted-foreground hover:text-destructive" onClick={() => setArchiveOpen(true)}>
+            <Button variant="ghost" size="icon" className="h-6 w-6 min-h-11 min-w-11 md:min-h-0 md:min-w-0 text-muted-foreground hover:text-destructive" onClick={() => setArchiveOpen(true)}>
               <Archive className="h-3 w-3" />
             </Button>
           </div>

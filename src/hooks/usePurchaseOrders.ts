@@ -162,6 +162,8 @@ export type POLineItemDraft = {
   brand_variant_id: string | null
   tool_asset_item_id: string | null
   free_qty: number
+  received_qty?: number
+  brand_id?: string | null
 }
 
 export type CreatePOPayload = {

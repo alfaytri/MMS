@@ -108,7 +108,7 @@ export function useCreditNotes() {
         .order('created_at', { ascending: false })
         .limit(200)
       if (error) throw error
-      return (data ?? []).map((cn: any) => ({
+      return (data ?? []).map((cn) => ({
         ...cn,
         invoice_display: cn.invoices?.invoice_id ?? null,
         return_number: cn.returns?.return_number ?? null,
@@ -130,7 +130,7 @@ export function useDebitNotes() {
         .order('created_at', { ascending: false })
         .limit(200)
       if (error) throw error
-      return (data ?? []).map((cn: any) => ({
+      return (data ?? []).map((cn) => ({
         ...cn,
         return_number: cn.returns?.return_number ?? null,
         po_number: cn.purchase_orders?.po_number ?? null,
@@ -207,7 +207,7 @@ export function useApplyCreditNote() {
         .select('amount')
         .eq('invoice_id', invoiceId)
         .eq('direction', 'incoming')
-      const alreadyPaid = (payments ?? []).reduce((s: number, p: any) => s + p.amount, 0)
+      const alreadyPaid = (payments ?? []).reduce((s: number, p) => s + p.amount, 0)
 
       const { data: inv } = await supabase
         .from('invoices')

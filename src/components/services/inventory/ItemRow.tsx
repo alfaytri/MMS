@@ -80,9 +80,9 @@ export function ItemRow({ item, categoryType, showArchived, canMoveUp, canMoveDo
             </div>
           </div>
         </td>
-        <td className="py-2 px-2 text-[11px] font-mono text-muted-foreground">{item.sku}</td>
-        <td className="py-2 px-2 text-[11px]">{item.unit}</td>
-        <td className="py-2 px-2 text-[11px]">
+        <td className="py-2 px-2 text-[11px] font-mono text-muted-foreground hidden sm:table-cell">{item.sku}</td>
+        <td className="py-2 px-2 text-[11px] hidden md:table-cell">{item.unit}</td>
+        <td className="py-2 px-2 text-[11px] hidden md:table-cell">
           {item.cost_price != null ? (
             <span className="text-muted-foreground">Avg: {formatCurrency(item.cost_price, 'QAR')}</span>
           ) : '—'}
@@ -107,16 +107,16 @@ export function ItemRow({ item, categoryType, showArchived, canMoveUp, canMoveDo
         </td>
         <td className="py-2 px-2 text-right">
           <div className="flex items-center justify-end gap-1" onClick={(e) => e.stopPropagation()}>
-            <Button variant="ghost" size="icon" className="h-6 w-6" disabled={!canMoveUp} onClick={() => onMoveUp()}>
+            <Button variant="ghost" size="icon" className="h-6 w-6 hidden sm:inline-flex" disabled={!canMoveUp} onClick={() => onMoveUp()}>
               <ArrowUp className="h-3 w-3" />
             </Button>
-            <Button variant="ghost" size="icon" className="h-6 w-6" disabled={!canMoveDown} onClick={() => onMoveDown()}>
+            <Button variant="ghost" size="icon" className="h-6 w-6 hidden sm:inline-flex" disabled={!canMoveDown} onClick={() => onMoveDown()}>
               <ArrowDown className="h-3 w-3" />
             </Button>
-            <Button variant="ghost" size="icon" className="h-6 w-6" onClick={() => setEditOpen(true)}>
+            <Button variant="ghost" size="icon" className="h-6 w-6 min-h-11 min-w-11 md:min-h-0 md:min-w-0" onClick={() => setEditOpen(true)}>
               <Pencil className="h-3 w-3" />
             </Button>
-            <Button variant="ghost" size="icon" className="h-6 w-6 text-muted-foreground hover:text-destructive" onClick={() => setArchiveOpen(true)}>
+            <Button variant="ghost" size="icon" className="h-6 w-6 min-h-11 min-w-11 md:min-h-0 md:min-w-0 text-muted-foreground hover:text-destructive" onClick={() => setArchiveOpen(true)}>
               <Archive className="h-3 w-3" />
             </Button>
           </div>
@@ -132,12 +132,12 @@ export function ItemRow({ item, categoryType, showArchived, canMoveUp, canMoveDo
                 <TableHeader>
                   <TableRow className="bg-muted/50">
                     <TableHead className="text-[10px] h-7 font-semibold">BRAND</TableHead>
-                    <TableHead className="text-[10px] h-7 font-semibold">CODE</TableHead>
-                    <TableHead className="text-[10px] h-7 font-semibold text-right">AVG COST</TableHead>
-                    <TableHead className="text-[10px] h-7 font-semibold text-right">SELLING PRICE</TableHead>
+                    <TableHead className="text-[10px] h-7 font-semibold hidden sm:table-cell">CODE</TableHead>
+                    <TableHead className="text-[10px] h-7 font-semibold text-right hidden md:table-cell">AVG COST</TableHead>
+                    <TableHead className="text-[10px] h-7 font-semibold text-right hidden md:table-cell">SELLING PRICE</TableHead>
                     <TableHead className="text-[10px] h-7 font-semibold text-right">RESERVED</TableHead>
                     <TableHead className="text-[10px] h-7 font-semibold text-right">AVAILABLE</TableHead>
-                    <TableHead className="text-[10px] h-7 font-semibold text-right">INCOMING</TableHead>
+                    <TableHead className="text-[10px] h-7 font-semibold text-right hidden sm:table-cell">INCOMING</TableHead>
                     <TableHead className="text-[10px] h-7" />
                   </TableRow>
                 </TableHeader>

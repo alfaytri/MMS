@@ -23,7 +23,19 @@ async function safeWrite(writer: WritableStreamDefaultWriter, data: Uint8Array) 
   try { await writer.write(data) } catch { /* client disconnected */ }
 }
 
-async function whapiGet(path: string): Promise<{ ok: true; data: any } | { ok: false; status: number; text: string }> {
+interface WhapiChat {
+  id: string
+  name?: string
+  type?: string
+  last_message?: {
+    timestamp?: number
+    text?: { body?: string }
+    type?: string
+  }
+  [key: string]: unknown
+}
+
+async function whapiGet(path: string): Promise<{ ok: true; data: unknown } | { ok: false; status: number; text: string }> {
   const res = await fetch(`${WHAPI_URL}${path}`, {
     headers: { Authorization: `Bearer ${WHAPI_TOKEN}` },
   })
@@ -43,7 +55,7 @@ export async function GET(req: NextRequest) {
     try {
       // ── 1. Fetch all chats (paginated) ───────────────────────────────────────
       let offset = 0
-      const allChats: any[] = []
+      const allChats: WhapiChat[] = []
 
       while (true) {
         if (req.signal.aborted) break
@@ -55,9 +67,9 @@ export async function GET(req: NextRequest) {
           return
         }
 
-        const chats: any[] = result.data?.chats ?? []
+        const chats: WhapiChat[] = ((result.data as Record<string, unknown>)?.chats ?? []) as WhapiChat[]
         // Filter to individual (non-group) chats only
-        const individual = chats.filter((c: any) => c.id?.endsWith('@s.whatsapp.net'))
+        const individual = chats.filter((c: WhapiChat) => c.id?.endsWith('@s.whatsapp.net'))
         allChats.push(...individual)
 
         if (chats.length < PAGE_SIZE) break
@@ -68,7 +80,7 @@ export async function GET(req: NextRequest) {
 
       // ── 2. Resolve phone → customer_id ──────────────────────────────────────
       const phones = allChats
-        .map((c: any) => normalisePhone(c.id))
+        .map((c: WhapiChat) => normalisePhone(c.id))
         .filter((p): p is string => p !== null)
 
       const { data: phoneLookups } = await supabase
@@ -95,7 +107,7 @@ export async function GET(req: NextRequest) {
         const lastMsgAt = chat.last_message?.timestamp
           ? new Date(chat.last_message.timestamp * 1000).toISOString()
           : null
-        const lastMsgText: string = chat.last_message?.text?.body?.trim()
+        const lastMsgText: string | null = chat.last_message?.text?.body?.trim()
           || (chat.last_message?.type ? `[${chat.last_message.type}]` : null)
           || null
 
@@ -118,9 +130,9 @@ export async function GET(req: NextRequest) {
       }
 
       await safeWrite(writer, encode({ done: true, synced }))
-    } catch (err: any) {
+    } catch (err: unknown) {
       console.error('[whapi/sync-chats] error', err)
-      await safeWrite(writer, encode({ error: err.message ?? 'Unknown error' }))
+      await safeWrite(writer, encode({ error: err instanceof Error ? err.message : String(err) }))
     } finally {
       try { await writer.close() } catch { /* already closed */ }
     }

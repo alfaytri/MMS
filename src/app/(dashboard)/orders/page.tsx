@@ -686,7 +686,7 @@ export default function OrdersPage() {
             | { kind: 'order'; item: typeof orders[0] }
             | { kind: 'visit'; item: typeof siteVisits[0] }
 
-          let rows: Row[] = []
+          const rows: Row[] = []
           if (!isSiteVisitOnly) rows.push(...orders.map((o) => ({ kind: 'order' as const, item: o })))
           if (!isOrderOnly)     rows.push(...siteVisits.map((v) => ({ kind: 'visit' as const, item: v })))
 

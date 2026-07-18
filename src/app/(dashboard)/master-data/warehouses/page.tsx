@@ -94,7 +94,7 @@ function WarehousesPageInner() {
           <>
             {visibleTabs.has('adjustments') && (
               <WhAdjustmentDialog warehouses={warehouses} currentProfile={currentProfile ?? null}>
-                <Button size="sm" variant="outline" className="gap-1.5">
+                <Button size="sm" variant="outline" className="gap-1.5 min-h-11 md:min-h-0">
                   <ClipboardList className="h-3.5 w-3.5" />
                   <span className="hidden sm:inline">Stock Adjustment</span>
                   <span className="sm:hidden">Adjust</span>
@@ -103,7 +103,7 @@ function WarehousesPageInner() {
             )}
             {visibleTabs.has('transfers') && (
               <WhTransferDialog warehouses={warehouses} currentProfile={currentProfile ?? null}>
-                <Button size="sm" variant="outline" className="gap-1.5">
+                <Button size="sm" variant="outline" className="gap-1.5 min-h-11 md:min-h-0">
                   <ArrowRightLeft className="h-3.5 w-3.5" />
                   <span className="hidden sm:inline">Transfer Stock</span>
                   <span className="sm:hidden">Transfer</span>
@@ -116,7 +116,7 @@ function WarehousesPageInner() {
 
       {/* Tabs */}
       <Tabs value={activeTab} onValueChange={setActiveTab} className="flex flex-col flex-1 min-h-0">
-        <TabsList className="h-8 max-w-full overflow-x-auto whitespace-nowrap px-4 md:px-6 border-b rounded-none justify-start bg-background flex-shrink-0 scroll-x-fade">
+        <TabsList className="h-8 min-h-11 md:min-h-0 max-w-full overflow-x-auto whitespace-nowrap px-4 md:px-6 border-b rounded-none justify-start bg-background flex-shrink-0">
           {visibleTabs.has('warehouses') && (
             <TabsTrigger value="warehouses" className="text-xs gap-1">
               <WarehouseIcon className="h-3 w-3" />

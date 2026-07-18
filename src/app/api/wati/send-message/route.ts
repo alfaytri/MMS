@@ -1,6 +1,7 @@
 import { type NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@supabase/supabase-js'
-import type { Database } from '@/types/database.types'
+import type { Database, DBInsert } from '@/types/database.types'
+import type { WatiSendResponse } from '@/types/wati'
 
 const SUPA_URL    = process.env.NEXT_PUBLIC_SUPABASE_URL!
 const SUPA_KEY    = process.env.SUPABASE_SERVICE_ROLE_KEY!
@@ -33,7 +34,7 @@ function normalisePhone(raw: string): string {
  *   skipWatiSend?  boolean  — if true, skip the Wati API call and only save to DB
  */
 export async function POST(req: NextRequest) {
-  let body: any
+  let body: Record<string, unknown>
   try { body = await req.json() } catch { return NextResponse.json({ error: 'Invalid JSON' }, { status: 400 }) }
 
   const {
@@ -46,13 +47,14 @@ export async function POST(req: NextRequest) {
     imageUrl,
     senderName,
     skipWatiSend = false,
-  } = body
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  } = body as any
 
   if (!rawPhone || !text) {
     return NextResponse.json({ error: 'phone and text are required' }, { status: 400 })
   }
 
-  const phone = normalisePhone(rawPhone)
+  const phone = normalisePhone(rawPhone as string)
   const watiPhone = phone.replace(/^\+/, '')
 
   // ── 1. Send via api-wati Edge Function ──────────────────────────────────────
@@ -88,7 +90,7 @@ export async function POST(req: NextRequest) {
       })
 
       const rawText = await res.text()
-      let data: any
+      let data: WatiSendResponse
       try { data = JSON.parse(rawText) } catch { data = { raw: rawText } }
 
       if (!res.ok || data?.error) {
@@ -160,7 +162,7 @@ export async function POST(req: NextRequest) {
     conversationId = created.id
   }
 
-  const insertPayload: any = {
+  const insertPayload: DBInsert<'chat_messages'> = {
     conversation_id:  conversationId,
     from_type:        'agent',
     source:           'whatsapp_api',

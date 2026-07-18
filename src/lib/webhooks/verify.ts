@@ -2,14 +2,14 @@ import { createHmac, timingSafeEqual } from 'crypto'
 
 /**
  * Verify a webhook signature using HMAC-SHA256.
- * Returns true if the signature matches, or if no secret is configured (skip validation).
+ * Fails closed: returns false if no secret is configured.
  */
 export function verifyHmacSignature(
   rawBody: string,
   signatureHeader: string | null,
   secret: string | undefined
 ): boolean {
-  if (!secret) return true
+  if (!secret) return false
   if (!signatureHeader) return false
   const expected = createHmac('sha256', secret).update(rawBody).digest('hex')
   try {
@@ -24,13 +24,13 @@ export function verifyHmacSignature(
 
 /**
  * Timing-safe string comparison for shared secrets.
- * Returns true if both strings match, or if no secret is configured.
+ * Fails closed: returns false if no secret is configured.
  */
 export function verifySharedSecret(
   provided: string | null,
   secret: string | undefined
 ): boolean {
-  if (!secret) return true
+  if (!secret) return false
   if (!provided) return false
   if (provided.length !== secret.length) return false
   try {

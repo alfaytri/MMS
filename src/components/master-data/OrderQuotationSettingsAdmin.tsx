@@ -98,7 +98,7 @@ export function OrderQuotationSettingsAdmin() {
         </div>
         <p className="text-xs text-muted-foreground">
           How many days an order quotation stays valid from its issue date. The
-          PDF's &ldquo;Valid Until&rdquo; date and the stored expiry are derived
+          PDF&apos;s &ldquo;Valid Until&rdquo; date and the stored expiry are derived
           from this value. Allowed range: 1&ndash;365 days.
         </p>
       </div>

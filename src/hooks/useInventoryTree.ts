@@ -43,7 +43,7 @@ export function ancestors(
 ): InventoryCategory[] {
   const map = new Map(flat.map((c) => [c.id, c]))
   const chain: InventoryCategory[] = []
-  let current = map.get(id)
+  const current = map.get(id)
   if (!current) return chain
 
   let parentId: string | null = current.parent_id ?? null

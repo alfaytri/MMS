@@ -95,8 +95,8 @@ export function ServiceScheduleSection({ contractId, divisions }: Props) {
 
   const divisionTeams = useMemo(() => {
     if (!teams || !Array.isArray(teams)) return []
-    return teams.filter((t: any) =>
-      divisions.some((d) => t.divisions?.slug === d || t.division_slug === d),
+    return teams.filter((t) =>
+      divisions.some((d) => t.division?.slug === d),
     )
   }, [teams, divisions])
 
@@ -111,7 +111,7 @@ export function ServiceScheduleSection({ contractId, divisions }: Props) {
       { visitId, teamId: dropData.teamId },
       {
         onSuccess: () => toast.success('Team assigned'),
-        onError: (err: any) => toast.error(err.message),
+        onError: (err: unknown) => toast.error(err instanceof Error ? err.message : String(err)),
       },
     )
   }
@@ -121,7 +121,7 @@ export function ServiceScheduleSection({ contractId, divisions }: Props) {
       { visitId, teamId },
       {
         onSuccess: () => toast.success('Team assigned'),
-        onError: (err: any) => toast.error(err.message),
+        onError: (err: unknown) => toast.error(err instanceof Error ? err.message : String(err)),
       },
     )
   }
@@ -232,7 +232,7 @@ export function ServiceScheduleSection({ contractId, divisions }: Props) {
                   {/* Mobile: tap-to-assign buttons */}
                   <div className="lg:hidden space-y-2 pt-2 border-t">
                     <p className="text-xs text-muted-foreground">Tap a team to assign:</p>
-                    {divisionTeams.map((team: any) => (
+                    {divisionTeams.map((team) => (
                       <Button
                         key={team.id}
                         variant="outline"
@@ -263,7 +263,7 @@ export function ServiceScheduleSection({ contractId, divisions }: Props) {
                     </tr>
                   </thead>
                   <tbody>
-                    {divisionTeams.map((team: any) => (
+                    {divisionTeams.map((team) => (
                       <tr key={team.id}>
                         <td className="border p-2 font-medium">{team.name_en}</td>
                         {HOURS.map((h) => {

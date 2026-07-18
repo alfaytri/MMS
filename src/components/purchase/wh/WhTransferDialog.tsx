@@ -368,7 +368,7 @@ export function WhTransferDialog({ warehouses, currentProfile, children }: Props
                             )}
                             <ChevronsUpDown className="h-3 w-3 shrink-0 opacity-50 ml-1.5" />
                           </PopoverTrigger>
-                          <PopoverContent className="w-[400px] p-0" align="start">
+                          <PopoverContent className="w-[400px] max-w-[92vw] p-0" align="start">
                             <Command
                               filter={(value, search) => {
                                 const item = sourceStock.find((s) => s.brand_variant_id === value)

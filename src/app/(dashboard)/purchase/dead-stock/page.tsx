@@ -112,7 +112,7 @@ export default function DeadStockPage() {
       <div className="flex flex-col sm:flex-row gap-3 items-start sm:items-center">
         <SearchInput value={search} onChange={setSearch} placeholder="Search item, SKU, brand…" />
         <Select value={statusFilter} onValueChange={(v) => setStatusFilter(v as DeadStockStatus | '')}>
-          <SelectTrigger className="w-40">
+          <SelectTrigger className="w-full sm:w-40">
             <SelectValue placeholder="All Statuses" />
           </SelectTrigger>
           <SelectContent>

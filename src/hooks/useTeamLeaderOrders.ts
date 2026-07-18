@@ -20,14 +20,17 @@ export function useTeamLeaderOrders(teamId: string | null | undefined) {
 
       if (error) throw error
 
-      return (data ?? []).map((row: any): TlVisit => {
+      return (data ?? []).map((row): TlVisit => {
         const services: TlService[] = Array.isArray(row.services_json)
-          ? row.services_json.map((s: any) => ({
-              id: s.id,
-              name: s.name ?? 'Service',
-              unit_price: s.unit_price ?? 0,
-              qty: s.qty ?? 1,
-            }))
+          ? row.services_json.filter(Boolean).map((_s) => {
+              const s = _s as Record<string, unknown>
+              return {
+                id: s.id as string,
+                name: (s.name as string) ?? 'Service',
+                unit_price: (s.unit_price as number) ?? 0,
+                qty: (s.qty as number) ?? 1,
+              }
+            })
           : []
 
         return {

@@ -61,7 +61,7 @@ export function usePayments(filters: PaymentFilters = {}) {
         .from('payments')
         .select(`
           *,
-          invoices(invoice_id, total_amount, paid_amount, source_type, customer_id),
+          invoices(invoice_id, total_amount, paid_amount, source, customer_id),
           customers!payments_customer_id_fkey(name, customer_phones(phone, is_primary))
         `)
         .eq('direction', 'incoming')
@@ -98,27 +98,28 @@ export function usePayments(filters: PaymentFilters = {}) {
       const payments = rawPayments ?? []
 
       // 2. Map joined data to FinancePayment — no batch lookups needed
-      const mapped: FinancePayment[] = payments.map((p: any) => {
+      const mapped = payments.map((p) => {
         const inv = p.invoices
         const cust = p.customers
         const primaryPhone = cust?.customer_phones?.find(
-          (ph: any) => ph.is_primary
+          (ph) => ph.is_primary
         )
         return {
           ...p,
+          direction: 'incoming' as const,
           invoices: undefined, // remove nested join objects
           customers: undefined,
           invoice_display: inv?.invoice_id ?? null,
           invoice_total: inv?.total_amount ?? null,
           invoice_paid: inv?.paid_amount ?? null,
-          invoice_source_type: inv?.source_type ?? null,
+          invoice_source_type: inv?.source ?? null,
           customer_name: cust?.name ?? null,
           phone: primaryPhone?.phone ?? null,
         }
       })
 
       return {
-        items: mapped,
+        items: mapped as unknown as FinancePayment[],
         nextPage: mapped.length === PAGE_SIZE ? pageParam + 1 : undefined,
       }
     },

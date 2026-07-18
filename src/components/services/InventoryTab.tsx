@@ -30,7 +30,7 @@ export function InventoryTab({ enabled }: InventoryTabProps) {
               key={tab.key}
               onClick={() => setTab(tab.key)}
               className={[
-                'text-xs px-0 py-1.5 border-b-2 whitespace-nowrap transition-colors',
+                'text-xs px-0 py-1.5 min-h-11 md:min-h-0 border-b-2 whitespace-nowrap transition-colors',
                 activeTab === tab.key
                   ? 'border-blue-500 text-blue-600 font-medium'
                   : 'border-transparent text-muted-foreground hover:text-foreground',

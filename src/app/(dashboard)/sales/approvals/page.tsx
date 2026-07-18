@@ -157,7 +157,7 @@ export default function SalesApprovalsPage() {
                   )}
 
                   <div className="flex gap-2 flex-wrap">
-                    <Button size="sm" onClick={() => setSelected(slip)}>
+                    <Button size="sm" className="min-h-11 md:min-h-0" onClick={() => setSelected(slip)}>
                       Review {chainLabel(slip.approval_type)}
                     </Button>
                     {isOwner && pendingRoles.length > 0 && (
@@ -167,7 +167,7 @@ export default function SalesApprovalsPage() {
                             size="sm"
                             variant="outline"
                             disabled={forceApprove.isPending}
-                            className="gap-1 text-amber-600 border-amber-300 hover:bg-amber-50 hover:text-amber-700"
+                            className="gap-1 min-h-11 md:min-h-0 text-amber-600 border-amber-300 hover:bg-amber-50 hover:text-amber-700"
                           >
                             <ShieldAlert className="h-3.5 w-3.5" /> Force Approve
                           </Button>
@@ -261,7 +261,7 @@ export default function SalesApprovalsPage() {
                           <SoApprovalChain rows={slip.rows} />
                         </TableCell>
                         <TableCell>
-                          <Button size="sm" variant="ghost" className="h-8 gap-1 px-2" onClick={() => setViewSlip(slip)}>
+                          <Button size="sm" variant="ghost" className="h-8 min-h-11 md:min-h-0 gap-1 px-2" onClick={() => setViewSlip(slip)}>
                             <Eye className="h-3.5 w-3.5" /> View
                           </Button>
                         </TableCell>
@@ -282,7 +282,7 @@ export default function SalesApprovalsPage() {
 
       {/* View completed approval details */}
       <Dialog open={!!viewSlip} onOpenChange={(o) => { if (!o) setViewSlip(null) }}>
-        <DialogContent className="sm:max-w-lg">
+        <DialogContent className="w-full max-w-full h-full sm:h-auto sm:max-h-[90vh] rounded-none sm:max-w-lg sm:rounded-lg flex flex-col">
           {viewSlip && (() => {
             const anyRejected = viewSlip.rows.some((r) => r.status === 'rejected')
             const payload: { available?: number; overage?: number; lines?: Array<{ item_name?: string; unit_price?: number; avg_cost?: number }> } = (() => {

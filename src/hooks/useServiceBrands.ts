@@ -18,7 +18,7 @@ export function useServiceBrands(serviceId: string | null) {
         .eq('service_id', serviceId)
 
       if (error) throw error
-      return (data || []).map((sb: any) => ({
+      return (data || []).map((sb) => ({
         id: sb.id,
         service_id: sb.service_id,
         brand_id: sb.brand_id,

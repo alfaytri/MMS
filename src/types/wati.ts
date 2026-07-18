@@ -11,7 +11,7 @@ export interface WatiMessageItem {
   note?: string
   created?: string
   timestamp?: number
-  owner?: boolean
+  owner?: boolean | string
   eventType?: string
   eventDescription?: string
   statusString?: string
@@ -29,6 +29,8 @@ export interface WatiMessageItem {
   reactionDetails?: Array<{ emoji?: string; text?: string; reactionText?: string; owner?: boolean; senderType?: string }>
   reactionMessage?: { key?: { id?: string }; text?: string }
   reaction?: { messageId?: string; emoji?: string }
+  emoji?: string
+  reactionEmoji?: string
   referredMessageId?: string
   targetMessageId?: string
   messageId?: string

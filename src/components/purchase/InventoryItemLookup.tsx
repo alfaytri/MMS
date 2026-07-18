@@ -38,7 +38,7 @@ export function InventoryItemLookup({ value, onChange, placeholder = 'Search inv
         .limit(20)
 
       setResults(
-        (data ?? []).map((r: any) => ({
+        (data ?? []).map((r) => ({
           brand_variant_id: r.id,
           item_name: r.inventory_items.name_en,
           item_name_ar: r.inventory_items.name_ar,

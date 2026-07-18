@@ -18,7 +18,7 @@ export function PoPaymentDialog({ open, onOpenChange, po }: PoPaymentDialogProps
 
   const methods = dbMethods.map((m) => ({ value: m.slug, label: m.name }))
 
-  const totalPaidQar = payments.reduce((s, p) => s + ((p as any).amount_qar ?? p.amount), 0)
+  const totalPaidQar = payments.reduce((s, p) => s + (p.amount_qar ?? p.amount), 0)
   const showExchangeRate = po.currency !== 'QAR'
 
   const totalInCurrency = showExchangeRate && po.exchange_rate > 0

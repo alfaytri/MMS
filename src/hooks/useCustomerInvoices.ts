@@ -26,7 +26,7 @@ export function useCustomerInvoices(filters?: ArFilters) {
       if (filters?.search) q = q.ilike('invoice_id', `%${filters.search}%`)
       const { data, error } = await q
       if (error) throw error
-      return (data ?? []).map((inv: any) => ({
+      return (data ?? []).map((inv) => ({
         ...inv,
         customer_name: inv.customers?.name ?? null,
         so_number: inv.sale_orders?.so_number ?? null,
