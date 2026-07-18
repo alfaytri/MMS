@@ -116,7 +116,7 @@ function WarehousesPageInner() {
 
       {/* Tabs */}
       <Tabs value={activeTab} onValueChange={setActiveTab} className="flex flex-col flex-1 min-h-0">
-        <TabsList className="h-8 min-h-11 md:min-h-0 max-w-full overflow-x-auto whitespace-nowrap px-4 md:px-6 border-b rounded-none justify-start bg-background flex-shrink-0 scroll-x-fade">
+        <TabsList className="h-8 min-h-11 md:min-h-0 max-w-full overflow-x-auto whitespace-nowrap px-4 md:px-6 border-b rounded-none justify-start bg-background flex-shrink-0">
           {visibleTabs.has('warehouses') && (
             <TabsTrigger value="warehouses" className="text-xs gap-1">
               <WarehouseIcon className="h-3 w-3" />

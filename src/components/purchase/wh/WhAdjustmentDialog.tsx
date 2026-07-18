@@ -169,7 +169,7 @@ export function WhAdjustmentDialog({ warehouses, currentProfile, children }: Pro
                   )}
                   <ChevronsUpDown className="h-3 w-3 shrink-0 opacity-50 ml-1.5" />
                 </PopoverTrigger>
-                <PopoverContent className="w-[420px] p-0" align="start">
+                <PopoverContent className="w-[420px] max-w-[92vw] p-0" align="start">
                   <Command
                     filter={(value, search) => {
                       const item = allVariants.find((v) => v.variantId === value)
