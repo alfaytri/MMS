@@ -12,6 +12,7 @@ import { TlHeader } from '@/components/team-leader/TlHeader'
 import { TlVisitList } from '@/components/team-leader/TlVisitList'
 import { OrderDetailDispatch } from '@/components/team-leader/OrderDetailDispatch'
 import { TlInvoiceDialog } from '@/components/team-leader/TlInvoiceDialog'
+import { ReviewWorkDialog } from '@/components/team-leader/ReviewWorkDialog'
 import {
   Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription,
 } from '@/components/ui/dialog'
@@ -39,6 +40,7 @@ export default function TeamLeaderPage() {
   const [startedVisits, setStartedVisits]       = useState<Set<string>>(new Set())
   const [completedVisits, setCompletedVisits]   = useState<Set<string>>(new Set())
   const [activeVisit, setActiveVisit]           = useState<TlVisit | null>(null)
+  const [reviewVisit, setReviewVisit]           = useState<TlVisit | null>(null)
   const [invoiceVisit, setInvoiceVisit]         = useState<{ visit: TlVisit; data: OrderCompletionData } | null>(null)
   const [teamPickerOpen, setTeamPickerOpen]     = useState(false)
   const [pendingDivision, setPendingDivision]   = useState<string | null>(null)
@@ -207,7 +209,7 @@ export default function TeamLeaderPage() {
           completedVisits={completedVisits}
           onStart={handleStart}
           onTapCard={setActiveVisit}
-          onReviewWork={(v) => toast.info(`Review Work for ${v.customer_name} — coming in Task 4`)}
+          onReviewWork={setReviewVisit}
         />
       )}
 
@@ -220,6 +222,13 @@ export default function TeamLeaderPage() {
           onClose={() => setActiveVisit(null)}
         />
       )}
+
+      {/* Review Work dialog (read-only) */}
+      <ReviewWorkDialog
+        visit={reviewVisit}
+        open={!!reviewVisit}
+        onOpenChange={(v) => !v && setReviewVisit(null)}
+      />
 
       {/* Invoice dialog */}
       {invoiceVisit && identity && (

@@ -73,6 +73,71 @@ export function validateTlPaymentAmount(args: {
   return null
 }
 
+/**
+ * Fetch the single TL invoice attached to a visit (if any). Used by the
+ * team-leader "Review Work" dialog. Returns null when no invoice exists
+ * — non-order visit types (contract, site-visit, QC) never create one.
+ */
+export function useTlInvoiceByVisit(visitId: string | null | undefined) {
+  return useQuery({
+    queryKey: ['tl-invoices', 'by-visit', visitId ?? null],
+    enabled: !!visitId,
+    staleTime: 30_000,
+    queryFn: async (): Promise<TlInvoice | null> => {
+      if (!visitId) return null
+      const supabase = createClient()
+      const { data, error } = await supabase
+        .from('tl_invoices')
+        .select(`
+          id, invoice_number, order_id, visit_id,
+          customer_name, customer_phone,
+          subtotal, discount_amount, total_amount, paid_amount,
+          payment_status, payment_method_id, notes,
+          created_by, created_at,
+          payment_methods:payment_method_id(name),
+          profiles:created_by(full_name),
+          tl_invoice_lines(id, name, qty, unit_price, total),
+          tl_invoice_payments(id, amount, method_slug, paid_at, registered_by_name, notes,
+                              payment_methods:payment_method_id(name))
+        `)
+        .eq('visit_id', visitId)
+        .maybeSingle()
+      if (error) throw error
+      if (!data) return null
+
+      const row = data as any
+      return {
+        id:                  row.id,
+        invoice_number:      row.invoice_number,
+        order_id:            row.order_id,
+        visit_id:            row.visit_id,
+        customer_name:       row.customer_name,
+        customer_phone:      row.customer_phone,
+        subtotal:            Number(row.subtotal ?? 0),
+        discount_amount:     Number(row.discount_amount ?? 0),
+        total_amount:        Number(row.total_amount ?? 0),
+        paid_amount:         Number(row.paid_amount ?? 0),
+        payment_status:      row.payment_status,
+        payment_method_id:   row.payment_method_id,
+        payment_method_name: row.payment_methods?.name ?? null,
+        notes:               row.notes,
+        created_by:          row.created_by,
+        created_by_name:     row.profiles?.full_name ?? null,
+        created_at:          row.created_at,
+        lines: (row.tl_invoice_lines ?? []).map((l: any) => ({
+          id: l.id, name: l.name, qty: Number(l.qty),
+          unit_price: Number(l.unit_price), total: Number(l.total),
+        })),
+        payments: (row.tl_invoice_payments ?? []).map((p: any) => ({
+          id: p.id, amount: Number(p.amount), method_slug: p.method_slug,
+          method_name: p.payment_methods?.name ?? null,
+          paid_at: p.paid_at, registered_by_name: p.registered_by_name, notes: p.notes,
+        })),
+      }
+    },
+  })
+}
+
 export function useTlInvoices(filters: TlInvoiceFilters = {}) {
   return useInfiniteQuery({
     queryKey: queryKeys.tlInvoices.list(filters),
