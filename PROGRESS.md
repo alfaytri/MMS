@@ -243,7 +243,7 @@ Purchase & Sales▾:
 
 ## 🔄 In Progress
 
-🚀 Starting: **Orders Invoices Task 6: PDF endpoint + HTML builder**
+🚀 Starting: **Orders Invoices Task 7: Auto-warm invoice PDF in TlInvoiceDialog**
 
 
 
@@ -262,6 +262,7 @@ Purchase & Sales▾:
 
 ## ✅ Completed
 
+- [2026-07-17] **Orders Invoices Task 6: Invoice PDF endpoint** — `supabase/migrations/20260717110000_tl_invoices_pdf_url.sql`, `src/lib/orders/tl-invoice-pdf-html.ts`, `src/lib/orders/generate-tl-invoice-pdf.ts`, `src/app/api/orders/invoices/[id]/pdf/route.ts` — Added `pdf_url` cache column + public `tl-invoice-pdfs` bucket. Bilingual PDF (LTR line table with centered Service column showing English + Arabic from services.invoice_text_ar; bilingual Unit column from services.price_unit; horizontal 6-column totals bar matching legacy format; compact payments table). Route serves cached URL on GET, forces regen on POST with `?force=true`.
 - [2026-07-17] **Orders Invoices Task 5: /invoices page rewrite** — `src/app/(dashboard)/invoices/page.tsx`, `src/hooks/useTlInvoices.ts`, `src/components/orders-invoices/*`, `supabase/migrations/20260717100000_tl_invoice_number_format.sql`, `20260717100100_tl_invoice_number_sinv_prefix.sql` — Page queries `tl_invoices` with status chips (Unpaid/Partial/Paid), filters, infinite scroll, outstanding aggregate. Register/View dialogs swapped from AlertDialog to Dialog so Base UI Select popup accepts clicks. useTlInvoices joins payment_methods on payments so history shows the method name (not slug). Expanded card sections now visually separated (bordered subcards with icon headers). DB trigger switched to SINV/YYYY/MM/NNNN format.
 - [2026-07-16] **Orders Invoices Task 4: UI components** — `src/components/orders-invoices/TlInvoiceCard.tsx`, `RegisterTlPaymentDialog.tsx`, `ViewTlPaymentsDialog.tsx` — Expandable invoice card with View PDF / View Payments / Register Payment actions, payment registration dialog with overpayment guard + method dropdown, payment history dialog with chronological list
 - [2026-07-16] **Orders Invoices Task 3: useTlInvoices hook family** — `src/hooks/useTlInvoices.ts`, `src/hooks/__tests__/useTlInvoices.test.ts`, `src/lib/queryKeys.ts` — Hook family with infinite list (status/search/dates/agent filters), summary aggregation (status counts + outstanding), payment mutation with server-side overpayment guard (0.005 QAR tolerance), and 4 Vitest unit tests for validateTlPaymentAmount
