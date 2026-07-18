@@ -79,8 +79,8 @@ export default function ServiceApprovalsPage() {
       })
       toast.success('Change approved')
       setApproveTarget(null)
-    } catch (err: any) {
-      toast.error(err?.message || String(err) || 'Failed to approve')
+    } catch (err: unknown) {
+      toast.error(err instanceof Error ? err.message : 'Failed to approve')
     }
   }
 
@@ -100,8 +100,8 @@ export default function ServiceApprovalsPage() {
       toast.success('Change rejected')
       setRejectTarget(null)
       setRejectReason('')
-    } catch (err: any) {
-      toast.error(err?.message || String(err) || 'Failed to reject')
+    } catch (err: unknown) {
+      toast.error(err instanceof Error ? err.message : 'Failed to reject')
     }
   }
 

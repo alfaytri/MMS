@@ -788,7 +788,7 @@ export function useReceivalsAndDeliveries() {
       if (receivalsRes.error) throw receivalsRes.error
       if (deliveriesRes.error) throw deliveriesRes.error
 
-      const inbound: ReceivalDelivery[] = (receivalsRes.data ?? []).map((r: any) => ({
+      const inbound: ReceivalDelivery[] = (receivalsRes.data ?? []).map((r) => ({
         id: r.id,
         direction: 'inbound' as const,
         docNumber: r.receival_number ?? '',
@@ -798,13 +798,13 @@ export function useReceivalsAndDeliveries() {
         counterparty: r.purchase_orders?.supplier_name ?? '',
         date: r.date ?? '',
         items: Array.isArray(r.receival_items)
-          ? r.receival_items.map((ri: any) => ({ name: ri.item_name ?? '', sku: ri.sku ?? '', qty: ri.qty_received ?? 0, brand_variant_id: ri.brand_variant_id ?? null }))
+          ? r.receival_items.map((ri) => ({ name: ri.item_name ?? '', sku: ri.sku ?? '', qty: ri.qty_received ?? 0, brand_variant_id: ri.brand_variant_id ?? null }))
           : [],
         itemCount: Array.isArray(r.receival_items) ? r.receival_items.length : 0,
         status: r.status ?? 'pending',
       }))
 
-      const outbound: ReceivalDelivery[] = (deliveriesRes.data ?? []).map((d: any) => ({
+      const outbound: ReceivalDelivery[] = (deliveriesRes.data ?? []).map((d) => ({
         id: d.id,
         direction: 'outbound' as const,
         docNumber: d.delivery_number ?? '',
@@ -813,7 +813,7 @@ export function useReceivalsAndDeliveries() {
         warehouseName: d.warehouse_name ?? '',
         counterparty: d.sale_orders?.customers?.name ?? '',
         date: d.date ?? '',
-        items: Array.isArray(d.sale_delivery_lines) ? d.sale_delivery_lines.map((di: any) => ({ name: di.item_name ?? '', sku: di.sku ?? '', qty: di.qty_delivered ?? 0, brand_variant_id: di.brand_variant_id ?? null })) : [],
+        items: Array.isArray(d.sale_delivery_lines) ? d.sale_delivery_lines.map((di) => ({ name: di.item_name ?? '', sku: di.sku ?? '', qty: di.qty_delivered ?? 0, brand_variant_id: di.brand_variant_id ?? null })) : [],
         itemCount: Array.isArray(d.sale_delivery_lines) ? d.sale_delivery_lines.length : 0,
         status: d.status ?? 'pending',
       }))

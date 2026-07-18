@@ -334,7 +334,7 @@ export function PoDetailDialog({ open, onOpenChange, po, poId, onEdit }: Props) 
             <div className="p-4 text-sm text-destructive">Failed to load purchase order details.</div>
           ) : (
             <Tabs defaultValue="items" className="flex-1 overflow-hidden flex flex-col min-h-0">
-              <TabsList className="shrink-0 mx-0 max-w-full overflow-x-auto whitespace-nowrap scroll-x-fade">
+              <TabsList className="shrink-0 mx-0 max-w-full overflow-x-auto whitespace-nowrap">
                 <TabsTrigger value="items">Line Items</TabsTrigger>
                 {!isViewingSnapshot && <TabsTrigger value="receivals">Receivals</TabsTrigger>}
                 {!isViewingSnapshot && current && ['approved', 'partially_received'].includes(current.status) && (
@@ -667,7 +667,7 @@ export function PoDetailDialog({ open, onOpenChange, po, poId, onEdit }: Props) 
                     poId={current.id}
                     poNumber={current.po_number}
                     currency={current.currency ?? 'QAR'}
-                    lineItems={(fullPO?.po_line_items ?? []).map((li: any) => ({
+                    lineItems={(fullPO?.po_line_items ?? []).map((li) => ({
                       id: li.id,
                       item_name: li.item_name,
                       qty: li.qty,

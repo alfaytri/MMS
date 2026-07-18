@@ -49,7 +49,8 @@ export async function POST(req: NextRequest) {
     return new Response('Unauthorized', { status: 401 })
   }
 
-  let body: any
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any -- WHAPI webhook payloads have deeply nested, variable shapes
+  let body: Record<string, any>
   try { body = await req.json() } catch { return new Response('Bad JSON', { status: 400 }) }
 
   const supabase = createAdminClient()

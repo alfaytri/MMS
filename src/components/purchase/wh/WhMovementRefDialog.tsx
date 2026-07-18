@@ -21,6 +21,72 @@ interface Props {
   onClose: () => void
 }
 
+// ─── Sub-view data types ───────────────────────────────────────────────────
+
+type VariantMeta = { categoryName: string | null; subcategoryName: string | null; itemType: string | null; itemName: string; brand: string | null }
+
+interface SaleDeliveryData {
+  delivery_number: string
+  status: string | null
+  warehouse_name: string | null
+  date: string | null
+  sale_delivery_lines: Array<{ item_name: string; sku?: string | null; qty_delivered: number; brand_variant_id?: string | null }> | null
+  sale_orders: { so_number: string; customers: { name: string } | null } | null
+}
+
+interface ReceivalData {
+  receival_number: string
+  status: string | null
+  date: string | null
+  received_by_name: string | null
+  purchase_orders: { po_number: string; supplier_name: string } | null
+  warehouses: { name: string } | null
+  receival_items: Array<{ id: string; item_name: string; sku: string | null; qty_received: number; brand_variant_id: string | null }> | null
+}
+
+interface TransferData {
+  transfer_number: string
+  status: string | null
+  date: string | null
+  dispatched_by_name: string | null
+  received_by_name: string | null
+  from_warehouse: { name: string } | null
+  to_warehouse: { name: string } | null
+  transfer_items: Array<{ id: string; item_name: string; requested_qty: number; dispatched_qty: number | null; received_qty: number | null }> | null
+}
+
+interface AdjustmentData {
+  brand_variant_id: string | null
+  status: string
+  adjustment_type: string
+  qty: number
+  created_at: string | null
+  reason: string | null
+  notes: string | null
+  requested_by_name: string | null
+  approved_by_name: string | null
+  warehouses: { name: string } | null
+  inventory_brand_variants: { brand: string | null; inventory_items: { name_en: string; sku: string | null } | null } | null
+}
+
+interface LandedCostData {
+  lc_number: string
+  status: string
+  total_amount: number | null
+  description: string | null
+  currency: string | null
+  date: string | null
+  created_at: string | null
+}
+
+interface InventoryCheckData {
+  check_number: string
+  warehouse_name: string | null
+  status: string
+  started_at: string | null
+  reviewed_at: string | null
+}
+
 const STATUS_STYLES: Record<string, string> = {
   pending:           'bg-warning/10 text-warning border-warning/20',
   pending_approval:  'bg-warning/10 text-warning border-warning/20',
@@ -70,7 +136,7 @@ function useRefDetail(referenceType: string, referenceId: string, enabled: boole
             .maybeSingle()
           if (error) throw error
           if (!data) return null
-          return { type: 'transfer' as const, data }
+          return { type: 'transfer' as const, data: data as unknown as TransferData }
         }
         case 'adjustment': {
           const { data, error } = await supabase
@@ -135,7 +201,7 @@ export function WhMovementRefDialog({ referenceType, referenceId, open, onClose 
   const { data: fullStock = [] } = useWarehouseStock()
 
   const variantMeta = useMemo(() => {
-    const map = new Map<string, { categoryName: string | null; subcategoryName: string | null; itemType: string | null; itemName: string; brand: string | null }>()
+    const map = new Map<string, VariantMeta>()
     for (const s of fullStock) {
       if (!map.has(s.brand_variant_id)) {
         map.set(s.brand_variant_id, { categoryName: s.category_name ?? null, subcategoryName: s.subcategory_name ?? null, itemType: s.item_type ?? null, itemName: s.item_name, brand: s.brand ?? null })
@@ -175,8 +241,8 @@ export function WhMovementRefDialog({ referenceType, referenceId, open, onClose 
 
 // ─── Sale Delivery ──────────────────────────────────────────────────────────
 
-function SaleDeliveryView({ data }: { data: any }) {
-  const items: any[] = Array.isArray(data.sale_delivery_lines) ? data.sale_delivery_lines : []
+function SaleDeliveryView({ data }: { data: SaleDeliveryData }) {
+  const items = Array.isArray(data.sale_delivery_lines) ? data.sale_delivery_lines : []
   const customer = data.sale_orders?.customers?.name ?? '—'
   const soNumber = data.sale_orders?.so_number ?? '—'
 
@@ -190,7 +256,7 @@ function SaleDeliveryView({ data }: { data: any }) {
           <div className="min-w-0 flex-1">
             <div className="flex items-center gap-2">
               <h3 className="text-base font-semibold">{data.delivery_number}</h3>
-              <Badge className={`text-[10px] px-2 py-0.5 capitalize ${STATUS_STYLES[data.status] ?? 'bg-muted text-muted-foreground'}`}>
+              <Badge className={`text-[10px] px-2 py-0.5 capitalize ${STATUS_STYLES[data.status ?? ''] ?? 'bg-muted text-muted-foreground'}`}>
                 {data.status?.replace(/_/g, ' ')}
               </Badge>
             </div>
@@ -217,10 +283,10 @@ function SaleDeliveryView({ data }: { data: any }) {
               <span className="text-right">Qty</span>
             </div>
             <div className="max-h-[220px] overflow-y-auto divide-y">
-              {items.map((i: any, idx: number) => (
+              {items.map((i, idx) => (
                 <div key={idx} className="grid grid-cols-[1fr_80px] gap-2 px-4 py-2.5 items-center">
-                  <span className="text-sm">{i.item_name ?? i.name ?? '—'}</span>
-                  <span className="text-sm text-right tabular-nums font-medium">{i.qty_delivered ?? i.qty ?? 0}</span>
+                  <span className="text-sm">{i.item_name ?? '—'}</span>
+                  <span className="text-sm text-right tabular-nums font-medium">{i.qty_delivered ?? 0}</span>
                 </div>
               ))}
             </div>
@@ -233,8 +299,8 @@ function SaleDeliveryView({ data }: { data: any }) {
 
 // ─── Receival ───────────────────────────────────────────────────────────────
 
-function ReceivalView({ data, variantMeta, isFree }: { data: any; variantMeta: Map<string, any>; isFree: boolean }) {
-  const items: any[] = Array.isArray(data.receival_items) ? data.receival_items : []
+function ReceivalView({ data, variantMeta, isFree }: { data: ReceivalData; variantMeta: Map<string, VariantMeta>; isFree: boolean }) {
+  const items = Array.isArray(data.receival_items) ? data.receival_items : []
   const supplier = data.purchase_orders?.supplier_name ?? '—'
   const poNumber = data.purchase_orders?.po_number ?? '—'
 
@@ -248,7 +314,7 @@ function ReceivalView({ data, variantMeta, isFree }: { data: any; variantMeta: M
           <div className="min-w-0 flex-1">
             <div className="flex items-center gap-2">
               <h3 className="text-base font-semibold">{data.receival_number}</h3>
-              <Badge className={`text-[10px] px-2 py-0.5 capitalize ${STATUS_STYLES[data.status] ?? 'bg-muted text-muted-foreground'}`}>
+              <Badge className={`text-[10px] px-2 py-0.5 capitalize ${STATUS_STYLES[data.status ?? ''] ?? 'bg-muted text-muted-foreground'}`}>
                 {data.status?.replace(/_/g, ' ')}
               </Badge>
               {isFree && <Badge className="text-[10px] px-2 py-0.5 bg-primary/10 text-primary">Free</Badge>}
@@ -276,7 +342,7 @@ function ReceivalView({ data, variantMeta, isFree }: { data: any; variantMeta: M
               <span className="text-right">Qty</span>
             </div>
             <div className="max-h-[220px] overflow-y-auto divide-y">
-              {items.map((i: any) => {
+              {items.map((i) => {
                 const meta = i.brand_variant_id ? variantMeta.get(i.brand_variant_id) : null
                 return (
                   <div key={i.id} className="grid grid-cols-[1fr_80px] gap-2 px-4 py-2.5 items-center">
@@ -303,8 +369,8 @@ function ReceivalView({ data, variantMeta, isFree }: { data: any; variantMeta: M
 
 // ─── Transfer ───────────────────────────────────────────────────────────────
 
-function TransferView({ data }: { data: any }) {
-  const items: any[] = Array.isArray(data.transfer_items) ? data.transfer_items : []
+function TransferView({ data }: { data: TransferData }) {
+  const items = Array.isArray(data.transfer_items) ? data.transfer_items : []
 
   return (
     <>
@@ -316,7 +382,7 @@ function TransferView({ data }: { data: any }) {
           <div className="min-w-0 flex-1">
             <div className="flex items-center gap-2">
               <h3 className="text-base font-semibold">{data.transfer_number}</h3>
-              <Badge className={`text-[10px] px-2 py-0.5 capitalize ${STATUS_STYLES[data.status] ?? 'bg-muted text-muted-foreground'}`}>
+              <Badge className={`text-[10px] px-2 py-0.5 capitalize ${STATUS_STYLES[data.status ?? ''] ?? 'bg-muted text-muted-foreground'}`}>
                 {data.status?.replace(/_/g, ' ')}
               </Badge>
             </div>
@@ -361,7 +427,7 @@ function TransferView({ data }: { data: any }) {
               <span className="text-right">Recv</span>
             </div>
             <div className="max-h-[220px] overflow-y-auto divide-y">
-              {items.map((i: any) => (
+              {items.map((i) => (
                 <div key={i.id} className="grid grid-cols-[1fr_60px_60px_60px] gap-2 px-4 py-2.5 items-center">
                   <span className="text-sm">{i.item_name ?? '—'}</span>
                   <span className="text-sm text-right tabular-nums">{i.requested_qty}</span>
@@ -379,7 +445,7 @@ function TransferView({ data }: { data: any }) {
 
 // ─── Adjustment ─────────────────────────────────────────────────────────────
 
-function AdjustmentView({ data, variantMeta }: { data: any; variantMeta: Map<string, any> }) {
+function AdjustmentView({ data, variantMeta }: { data: AdjustmentData; variantMeta: Map<string, VariantMeta> }) {
   const meta = data.brand_variant_id ? variantMeta.get(data.brand_variant_id) : null
   const itemName = data.inventory_brand_variants?.inventory_items?.name_en ?? meta?.itemName ?? '—'
   const brand = data.inventory_brand_variants?.brand ?? meta?.brand
@@ -401,7 +467,7 @@ function AdjustmentView({ data, variantMeta }: { data: any; variantMeta: Map<str
           <div className="min-w-0 flex-1">
             <div className="flex items-center gap-2">
               <h3 className="text-base font-semibold">Stock Adjustment</h3>
-              <Badge className={`text-[10px] px-2 py-0.5 capitalize ${STATUS_STYLES[data.status] ?? 'bg-muted text-muted-foreground'}`}>
+              <Badge className={`text-[10px] px-2 py-0.5 capitalize ${STATUS_STYLES[data.status ?? ''] ?? 'bg-muted text-muted-foreground'}`}>
                 {data.status?.replace(/_/g, ' ')}
               </Badge>
             </div>
@@ -460,7 +526,7 @@ function AdjustmentView({ data, variantMeta }: { data: any; variantMeta: Map<str
 
 // ─── Landed Cost ────────────────────────────────────────────────────────────
 
-function LandedCostView({ data }: { data: any }) {
+function LandedCostView({ data }: { data: LandedCostData }) {
   return (
     <div className="px-6 pt-6 pb-4 space-y-4">
       <div className="flex items-center gap-3">
@@ -470,7 +536,7 @@ function LandedCostView({ data }: { data: any }) {
         <div className="min-w-0 flex-1">
           <div className="flex items-center gap-2">
             <h3 className="text-base font-semibold">{data.lc_number}</h3>
-            <Badge className={`text-[10px] px-2 py-0.5 capitalize ${STATUS_STYLES[data.status] ?? 'bg-muted text-muted-foreground'}`}>
+            <Badge className={`text-[10px] px-2 py-0.5 capitalize ${STATUS_STYLES[data.status ?? ''] ?? 'bg-muted text-muted-foreground'}`}>
               {data.status?.replace(/_/g, ' ')}
             </Badge>
           </div>
@@ -494,7 +560,7 @@ function LandedCostView({ data }: { data: any }) {
 
 // ─── Inventory Check ────────────────────────────────────────────────────────
 
-function InventoryCheckView({ data }: { data: any }) {
+function InventoryCheckView({ data }: { data: InventoryCheckData }) {
   return (
     <div className="px-6 pt-6 pb-4 space-y-4">
       <div className="flex items-center gap-3">
@@ -504,7 +570,7 @@ function InventoryCheckView({ data }: { data: any }) {
         <div className="min-w-0 flex-1">
           <div className="flex items-center gap-2">
             <h3 className="text-base font-semibold">{data.check_number}</h3>
-            <Badge className={`text-[10px] px-2 py-0.5 capitalize ${STATUS_STYLES[data.status] ?? 'bg-muted text-muted-foreground'}`}>
+            <Badge className={`text-[10px] px-2 py-0.5 capitalize ${STATUS_STYLES[data.status ?? ''] ?? 'bg-muted text-muted-foreground'}`}>
               {data.status?.replace(/_/g, ' ')}
             </Badge>
           </div>

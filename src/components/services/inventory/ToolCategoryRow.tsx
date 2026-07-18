@@ -56,7 +56,7 @@ function ToolUnitRows({ itemId }: { itemId: string }) {
                     </td>
                     <td className="py-1.5 px-2">{unit.expiry ? formatDate(unit.expiry) : '—'}</td>
                     <td className="py-1.5 px-2 text-right">
-                      <Button variant="ghost" size="icon" className="h-5 w-5" onClick={() => setEditUnit(unit)}>
+                      <Button variant="ghost" size="icon" className="h-5 w-5 min-h-11 min-w-11 md:min-h-0 md:min-w-0" onClick={() => setEditUnit(unit)}>
                         <Pencil className="h-2.5 w-2.5" />
                       </Button>
                     </td>
@@ -97,7 +97,7 @@ function ToolItemRow({ item, depth }: { item: ToolAssetItem; depth: number }) {
         <td className="py-2.5 px-2 text-[11px] text-muted-foreground" />
         <td className="py-2.5 px-2 text-right">
           <div className="flex items-center justify-end gap-1" onClick={(e) => e.stopPropagation()}>
-            <Button variant="ghost" size="icon" className="h-6 w-6" onClick={() => setEditOpen(true)}>
+            <Button variant="ghost" size="icon" className="h-6 w-6 min-h-11 min-w-11 md:min-h-0 md:min-w-0" onClick={() => setEditOpen(true)}>
               <Pencil className="h-3 w-3" />
             </Button>
           </div>
@@ -156,7 +156,7 @@ export function ToolCategoryRow({ node, showArchived, canMoveUp, canMoveDown, on
       >
         <td className="py-2.5 pr-2 w-1/2" style={{ paddingLeft: indent }}>
           <div className="flex items-center gap-1">
-            <div className="flex items-center gap-0 mr-1" onClick={(e) => e.stopPropagation()}>
+            <div className="hidden sm:flex items-center gap-0 mr-1" onClick={(e) => e.stopPropagation()}>
               <Button variant="ghost" size="icon" className="h-6 w-6" disabled={!canMoveUp} onClick={() => onMoveUp()}>
                 <ArrowUp className="h-3 w-3" />
               </Button>
@@ -189,18 +189,18 @@ export function ToolCategoryRow({ node, showArchived, canMoveUp, canMoveDown, on
         </td>
         <td className="py-2.5 px-2 text-right">
           <div className="flex items-center justify-end gap-1" onClick={(e) => e.stopPropagation()}>
-            <Button variant="ghost" size="icon" className="h-6 w-6" title="Add Subcategory" onClick={() => setAddSubcategoryOpen(true)}>
+            <Button variant="ghost" size="icon" className="h-6 w-6 hidden sm:inline-flex" title="Add Subcategory" onClick={() => setAddSubcategoryOpen(true)}>
               <FolderPlus className="h-3 w-3" />
             </Button>
             {isLeaf && (
-              <Button variant="ghost" size="icon" className="h-6 w-6" title="Add Tool/Asset" onClick={() => setAddItemOpen(true)}>
+              <Button variant="ghost" size="icon" className="h-6 w-6 min-h-11 min-w-11 md:min-h-0 md:min-w-0" title="Add Tool/Asset" onClick={() => setAddItemOpen(true)}>
                 <Plus className="h-3 w-3" />
               </Button>
             )}
-            <Button variant="ghost" size="icon" className="h-6 w-6" onClick={() => setEditOpen(true)}>
+            <Button variant="ghost" size="icon" className="h-6 w-6 min-h-11 min-w-11 md:min-h-0 md:min-w-0" onClick={() => setEditOpen(true)}>
               <Pencil className="h-3 w-3" />
             </Button>
-            <Button variant="ghost" size="icon" className="h-6 w-6 text-muted-foreground hover:text-destructive" onClick={() => setArchiveOpen(true)}>
+            <Button variant="ghost" size="icon" className="h-6 w-6 min-h-11 min-w-11 md:min-h-0 md:min-w-0 text-muted-foreground hover:text-destructive" onClick={() => setArchiveOpen(true)}>
               <Archive className="h-3 w-3" />
             </Button>
           </div>

@@ -21,7 +21,7 @@ export async function TopNav() {
 
   return (
     <header className="sticky top-0 z-50 h-14 bg-background border-b border-border">
-      <div className="h-full w-full flex items-center px-4 sm:px-6 lg:px-8 gap-2">
+      <div className="h-full w-full max-w-screen-2xl mx-auto flex items-center px-3 sm:px-4 lg:px-6 2xl:px-10 gap-2">
         <MobileNavDrawer />
 
         <Link
@@ -32,7 +32,7 @@ export async function TopNav() {
           <span className="text-sm">Alfaytri</span>
         </Link>
 
-        <nav className="hidden md:flex items-center gap-1 flex-1 overflow-x-auto">
+        <nav className="hidden lg:flex items-center gap-1 flex-1 overflow-x-auto">
           <NavDropdownGroup>
             {NAV_ITEMS.map((entry) => (
               <NavDropdown key={entry.label} entry={entry} />
@@ -40,7 +40,7 @@ export async function TopNav() {
           </NavDropdownGroup>
         </nav>
 
-        <div className="flex-1 md:hidden" />
+        <div className="flex-1 lg:hidden" />
 
         {user && <NotificationBell />}
         {user && (

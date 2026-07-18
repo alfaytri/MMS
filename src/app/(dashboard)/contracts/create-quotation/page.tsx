@@ -239,8 +239,8 @@ export default function CreateContractQuotationPage() {
       const contract = await createQuotation.mutateAsync(formData)
       toast.success('Quotation created successfully')
       router.push(`/contracts/detail/${contract.id}`)
-    } catch (err: any) {
-      toast.error(err.message || 'Failed to create quotation')
+    } catch (err: unknown) {
+      toast.error(err instanceof Error ? err.message : 'Failed to create quotation')
     }
   }
 

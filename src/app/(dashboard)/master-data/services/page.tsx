@@ -122,7 +122,7 @@ export default function ServicesPage() {
       {/* TAB BAR */}
       <div className="px-4 pt-2 border-b border-border bg-card">
         <Tabs value={activeTab} onValueChange={handleTabChange}>
-          <TabsList className="h-9 w-full max-w-full justify-start bg-transparent p-0 gap-0 overflow-x-auto whitespace-nowrap flex-nowrap scroll-x-fade">
+          <TabsList className="h-9 w-full max-w-full justify-start bg-transparent p-0 gap-0 overflow-x-auto whitespace-nowrap flex-nowrap">
             {TABS.map(({ key, label, icon: Icon }) => (
               <TabsTrigger
                 key={key}

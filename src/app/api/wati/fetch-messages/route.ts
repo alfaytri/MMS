@@ -1,6 +1,7 @@
 import { type NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@supabase/supabase-js'
 import type { Database, DBInsert, Json } from '@/types/database.types'
+import type { WatiMessageItem, WatiTemplateComponent, WatiGetMessagesResponse } from '@/types/wati'
 
 // Staging row type — concrete non-null fields matching what messageItems.map builds,
 // plus the temporary _isBroadcast marker stripped before DB upsert.
@@ -44,7 +45,7 @@ function sleep(ms: number) {
   return new Promise<void>((r) => setTimeout(r, ms))
 }
 
-async function watiGet(path: string): Promise<any> {
+async function watiGet(path: string): Promise<WatiGetMessagesResponse> {
   for (let attempt = 0; attempt < 3; attempt++) {
     const res = await fetch(`${WATI_URL}${path}`, {
       headers: { Authorization: `Bearer ${WATI_TOKEN}` },
@@ -69,7 +70,7 @@ const FETCH_MEDIA_TYPES = new Set(['image', 'document', 'video', 'audio', 'voice
 
 // Returns a placeholder attachment for broadcast messages that reference a document in their text
 // but have no URL (Wati doesn't return document URLs for broadcast history items).
-function broadcastDocumentPlaceholder(item: any): Attachment[] {
+function broadcastDocumentPlaceholder(item: WatiMessageItem): Attachment[] {
   if (item.eventType !== 'broadcastMessage') return []
   const text = String(item.finalText ?? '')
   if (/المستند المرفق|مرفق لكم فاتورة|المرفق|الوثيقة المرفقة/i.test(text)) {
@@ -78,7 +79,7 @@ function broadcastDocumentPlaceholder(item: any): Attachment[] {
   return []
 }
 
-function extractAttachments(item: any): Attachment[] {
+function extractAttachments(item: WatiMessageItem): Attachment[] {
   const msgType: string = String(item.type ?? '')
   const rawData = item.data ?? {}
 
@@ -86,7 +87,8 @@ function extractAttachments(item: any): Attachment[] {
   // (e.g. "data/images/uuid.jpg", "data/documents/uuid.pdf") instead of an object.
   // WATI requires Bearer auth to fetch these, so route through our proxy which
   // adds the token server-side, allowing <img src> and fetch() to work without credentials.
-  let data: any = rawData
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any -- Wati data is polymorphic (string paths, nested objects, primitives)
+  let data = rawData as Record<string, any>
   let dataUrl: string | null = null
   if (typeof rawData === 'string' && rawData) {
     dataUrl = `/api/wati/media?path=${encodeURIComponent(rawData)}`
@@ -129,23 +131,24 @@ function extractAttachments(item: any): Attachment[] {
   // Template / HSM messages — header may contain a document or image
   if (msgType === 'template' || msgType === 'hsm') {
     // Components array path: data.template.components[].type === 'header'
-    const components: any[] = data.template?.components ?? data.components ?? []
+    const components: WatiTemplateComponent[] = (data.template as Record<string, unknown>)?.components as WatiTemplateComponent[] ?? data.components as WatiTemplateComponent[] ?? []
     const header = components.find(
-      (c: any) => (c.type ?? '').toLowerCase() === 'header'
+      (c: WatiTemplateComponent) => (c.type ?? '').toLowerCase() === 'header'
     )
 
     // Direct header sub-objects from different Wati API shapes
-    const headerDoc =
+    type MediaRef = { url?: string; link?: string; filename?: string; fileName?: string } | null
+    const headerDoc: MediaRef =
       header?.document ??
-      data.template?.header?.document ??
+      ((data.template as Record<string, unknown>)?.header as Record<string, unknown>)?.document as MediaRef ??
       item.templateHeader?.document ??
-      data.templateHeader?.document ?? null
+      (data.templateHeader as Record<string, unknown>)?.document as MediaRef ?? null
 
-    const headerImg =
+    const headerImg: MediaRef =
       header?.image ??
-      data.template?.header?.image ??
+      ((data.template as Record<string, unknown>)?.header as Record<string, unknown>)?.image as MediaRef ??
       item.templateHeader?.image ??
-      data.templateHeader?.image ?? null
+      (data.templateHeader as Record<string, unknown>)?.image as MediaRef ?? null
 
     if (headerDoc) {
       const url = headerDoc.url ?? headerDoc.link ?? mediaUrl ?? null
@@ -159,7 +162,7 @@ function extractAttachments(item: any): Attachment[] {
       if (url) return [{ url, type: 'image/jpeg', name: 'image' }]
     }
     // Fallback: if the header format field tells us the type but url is elsewhere
-    const headerFormat = (header?.format ?? data.template?.header?.format ?? '').toLowerCase()
+    const headerFormat = String(header?.format ?? ((data.template as Record<string, unknown>)?.header as Record<string, unknown>)?.format ?? '').toLowerCase()
     if (headerFormat === 'document' && mediaUrl) {
       const name = data.fileName ?? data.filename ?? item.media?.fileName ?? 'document'
       return [{ url: mediaUrl, type: 'application/octet-stream', name }]
@@ -175,14 +178,18 @@ function extractAttachments(item: any): Attachment[] {
 // Extract the actual message content.
 // item.finalText holds the rendered body for broadcastMessage events.
 // item.eventDescription is always Wati platform metadata — never message content.
-function extractText(item: any, msgType: string): string {
+function extractText(item: WatiMessageItem, msgType: string): string {
+  // Narrow item.data once — it can be a string path or an object
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const itemData: Record<string, any> | null = typeof item.data === 'object' && item.data ? item.data as Record<string, any> : null
+
   // finalText — Wati's rendered template body for broadcastMessage items
   const finalText = item.finalText?.trim() ?? ''
   if (finalText) return finalText
 
   // For media messages item.text contains the filename — use caption only
   if (FETCH_MEDIA_TYPES.has(msgType.toLowerCase())) {
-    return item.caption?.trim() ?? item.data?.caption?.trim() ?? ''
+    return item.caption?.trim() ?? itemData?.caption?.trim() ?? ''
   }
 
   // Direct text field
@@ -190,21 +197,21 @@ function extractText(item: any, msgType: string): string {
   if (direct) return direct
 
   // Caption (document/image with caption)
-  const caption = item.caption?.trim() ?? item.data?.caption?.trim() ?? ''
+  const caption = item.caption?.trim() ?? itemData?.caption?.trim() ?? ''
   if (caption) return caption
 
   // data.body / data.text
-  const dataBody = item.data?.body?.trim() ?? item.data?.text?.trim() ?? ''
+  const dataBody = itemData?.body?.trim() ?? itemData?.text?.trim() ?? ''
   if (dataBody) return dataBody
 
   // Template / HSM — body from components
   const t = msgType.toLowerCase()
   if (t === 'template' || t === 'hsm') {
-    const components: any[] = item.data?.template?.components ?? item.data?.components ?? []
-    const bodyComp = components.find((c: any) => (c.type ?? '').toLowerCase() === 'body')
+    const components: WatiTemplateComponent[] = itemData?.template?.components as WatiTemplateComponent[] ?? itemData?.components as WatiTemplateComponent[] ?? []
+    const bodyComp = components.find((c: WatiTemplateComponent) => (c.type ?? '').toLowerCase() === 'body')
     const bodyText = bodyComp?.text?.trim() ?? ''
     if (bodyText) return bodyText
-    const directBody = item.data?.template?.body?.trim() ?? ''
+    const directBody = itemData?.template?.body?.trim() ?? ''
     if (directBody) return directBody
   }
 
@@ -239,21 +246,22 @@ export async function GET(req: NextRequest) {
 
   let pageNumber = 1
   const pageSize = 100
-  const allItems: any[] = []
+  const allItems: WatiMessageItem[] = []
   let reachedCutoff = false
 
   while (!reachedCutoff) {
-    let data: any
+    let data: WatiGetMessagesResponse
     try {
       data = await watiGet(
         `/api/v1/getMessages/${encodeURIComponent(watiPhone)}?pageSize=${pageSize}&pageNumber=${pageNumber}`
       )
-    } catch (err: any) {
-      console.error('[fetch-messages] WATI error', err.message)
-      return NextResponse.json({ error: err.message }, { status: 502 })
+    } catch (err: unknown) {
+      const errMsg = err instanceof Error ? err.message : String(err)
+      console.error('[fetch-messages] WATI error', errMsg)
+      return NextResponse.json({ error: errMsg }, { status: 502 })
     }
 
-    const items: any[] = data?.messages?.items ?? []
+    const items: WatiMessageItem[] = data?.messages?.items ?? []
     if (items.length === 0) break
 
     for (const item of items) {
@@ -281,14 +289,14 @@ export async function GET(req: NextRequest) {
   // they only arrive via the Wati webhook (push). The filter and Strategy B
   // (embedded reactions) below are kept as a safety net in case Wati changes
   // their API to include them.
-  const reactionItems = allItems.filter((item: any) =>
+  const reactionItems = allItems.filter((item: WatiMessageItem) =>
     String(item.type ?? '').toLowerCase() === 'reaction'
   )
-  const messageItems  = allItems.filter((item: any) => String(item.type ?? '').toLowerCase() !== 'reaction' && item.id)
+  const messageItems  = allItems.filter((item: WatiMessageItem) => String(item.type ?? '').toLowerCase() !== 'reaction' && item.id)
 
   // Wati ticket events (eventType='ticket') cover all platform system events:
   //   type 0 = chat initialized, type 1 = assigned, type 2 = closed, type 5 = status change
-  function isWatiSystemEvent(item: any): boolean {
+  function isWatiSystemEvent(item: WatiMessageItem): boolean {
     if (item.eventType === 'ticket') return true
     const t = String(item.type ?? '').toLowerCase()
     return t === 'note' || t === 'activity'
@@ -317,7 +325,7 @@ export async function GET(req: NextRequest) {
     'templateMessageSent',
     'newSessionMessage',
   ])
-  function itemIsAgent(item: any): boolean {
+  function itemIsAgent(item: WatiMessageItem): boolean {
     if (item.owner === true) return true
     if (typeof item.owner === 'string' && item.owner.toLowerCase() === 'true') return true
     if (item.eventType && AGENT_EVENT_TYPES.has(String(item.eventType))) return true
@@ -798,7 +806,7 @@ export async function GET(req: NextRequest) {
   // Wati getMessages sometimes includes a `reactions` array on the message itself
   // rather than returning a separate reaction item.
   for (const item of allItems) {
-    const embedded: any[] = item.reactions ?? item.reactionDetails ?? []
+    const embedded: Array<{ emoji?: string; text?: string; reactionText?: string; owner?: boolean; senderType?: string }> = item.reactions ?? item.reactionDetails ?? []
     if (!Array.isArray(embedded) || embedded.length === 0) continue
     const messageExternalId = item.whatsappMessageId ?? String(item.id)
     const list = reactionsByTarget.get(messageExternalId) ?? []

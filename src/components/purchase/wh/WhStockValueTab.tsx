@@ -60,11 +60,11 @@ type FifoLayerRow = {
 }
 
 const ITEM_TYPE_TABS = [
-  { value: '__all__', label: 'All' },
-  { value: 'products', label: 'Products' },
-  { value: 'spare-parts', label: 'Spare Parts' },
-  { value: 'consumables', label: 'Consumables' },
-  { value: 'tools', label: 'Tools & Assets' },
+  { value: '__all__',      label: 'All',            short: 'All'    },
+  { value: 'products',     label: 'Products',       short: 'Prod'   },
+  { value: 'spare-parts',  label: 'Spare Parts',    short: 'Spare'  },
+  { value: 'consumables',  label: 'Consumables',    short: 'Cons'   },
+  { value: 'tools',        label: 'Tools & Assets',  short: 'Tools'  },
 ] as const
 
 type ItemTypeValue = typeof ITEM_TYPE_TABS[number]['value']
@@ -432,7 +432,7 @@ export const WhStockValueTab = React.memo(function WhStockValueTab({ warehouses 
       <div className="p-4 md:p-6 space-y-4">
         {/* Summary cards + refresh */}
         <div className="flex items-center justify-between gap-3">
-          <div className="grid grid-cols-3 gap-3 flex-1">
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 flex-1">
             {[
               { label: 'Unique Items', value: sorted.length.toLocaleString('en-QA') },
               { label: 'Total Qty', value: totalQty.toLocaleString('en-QA') },
@@ -450,7 +450,7 @@ export const WhStockValueTab = React.memo(function WhStockValueTab({ warehouses 
           <Button
             variant="outline"
             size="sm"
-            className="gap-1 text-[10px] h-7 shrink-0"
+            className="gap-1 text-[10px] h-7 min-h-11 md:min-h-0 shrink-0"
             onClick={() => {
               queryClient.invalidateQueries({ queryKey: queryKeys.warehouseOps.warehouseStockAll })
               queryClient.invalidateQueries({ queryKey: queryKeys.inventory.fifoLayers })
@@ -464,10 +464,11 @@ export const WhStockValueTab = React.memo(function WhStockValueTab({ warehouses 
 
         {/* Item type tabs */}
         <Tabs value={activeType} onValueChange={(v) => setActiveType(v as ItemTypeValue)}>
-          <TabsList className="h-8 text-xs">
+          <TabsList className="h-8 min-h-11 md:min-h-0 text-xs max-w-full overflow-x-auto whitespace-nowrap">
             {ITEM_TYPE_TABS.map((tab) => (
-              <TabsTrigger key={tab.value} value={tab.value} className="text-xs px-3 h-7">
-                {tab.label}
+              <TabsTrigger key={tab.value} value={tab.value} className="text-xs px-3 h-7 min-h-9 md:min-h-0">
+                <span className="md:hidden">{tab.short}</span>
+                <span className="hidden md:inline">{tab.label}</span>
               </TabsTrigger>
             ))}
           </TabsList>
@@ -478,7 +479,7 @@ export const WhStockValueTab = React.memo(function WhStockValueTab({ warehouses 
           <div className="relative max-w-xs flex-1">
             <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-muted-foreground" />
             <Input
-              className="h-8 text-xs pl-8"
+              className="h-8 min-h-11 md:min-h-0 text-xs pl-8"
               placeholder="Search item, brand, SKU, warehouse…"
               value={search}
               onChange={(e) => setSearch(e.target.value)}
@@ -519,11 +520,11 @@ export const WhStockValueTab = React.memo(function WhStockValueTab({ warehouses 
           <WarehouseReportButton reportType="stock-value" label="Report" />
 
           {/* Sort toggle: newest receival (default) vs A–Z by category */}
-          <div className="ml-auto flex items-center gap-1">
+          <div className="ml-auto hidden md:flex items-center gap-1">
             <button
               type="button"
               onClick={() => { setSortField('latest_receival'); setSortDir('desc') }}
-              className={`inline-flex items-center gap-1 h-7 px-2 rounded-md border text-[11px] transition-colors ${
+              className={`inline-flex items-center gap-1 h-7 min-h-11 md:min-h-0 px-2 rounded-md border text-[11px] transition-colors ${
                 sortField === 'latest_receival'
                   ? 'bg-primary text-primary-foreground border-primary'
                   : 'bg-background hover:bg-muted'
@@ -535,7 +536,7 @@ export const WhStockValueTab = React.memo(function WhStockValueTab({ warehouses 
             <button
               type="button"
               onClick={() => { setSortField('category_name'); setSortDir('asc') }}
-              className={`inline-flex items-center gap-1 h-7 px-2 rounded-md border text-[11px] transition-colors ${
+              className={`inline-flex items-center gap-1 h-7 min-h-11 md:min-h-0 px-2 rounded-md border text-[11px] transition-colors ${
                 sortField === 'category_name'
                   ? 'bg-primary text-primary-foreground border-primary'
                   : 'bg-background hover:bg-muted'
@@ -546,34 +547,105 @@ export const WhStockValueTab = React.memo(function WhStockValueTab({ warehouses 
           </div>
         </div>
 
-        {/* Data table */}
-        <div className="rounded-md border overflow-x-auto">
+        {/* ── Mobile card list (< md) ─────────────────────────────────── */}
+        <div className="md:hidden space-y-2">
+          {isLoading ? (
+            <div className="space-y-2">
+              {Array.from({ length: 4 }).map((_, i) => (
+                <div key={i} className="h-20 bg-muted/40 rounded-md animate-pulse" />
+              ))}
+            </div>
+          ) : paged.length === 0 ? (
+            <p className="text-center text-xs text-muted-foreground py-8">
+              {search ? 'No items match your search' : 'No stock data'}
+            </p>
+          ) : paged.map((row) => (
+            <button
+              key={row.brand_variant_id}
+              type="button"
+              className="w-full text-left bg-card border rounded-md p-3 min-h-11 active:bg-muted/30 transition-colors"
+              onClick={() => toggleRow(row.brand_variant_id)}
+            >
+              <div className="flex items-start justify-between gap-3">
+                <div className="min-w-0 flex-1">
+                  {row.category_name && (
+                    <p className="text-[10px] text-muted-foreground truncate">
+                      {row.subcategory_name
+                        ? `${row.category_name} / ${row.subcategory_name}`
+                        : row.category_name}
+                    </p>
+                  )}
+                  <p className="text-xs font-semibold truncate">{row.item_name}</p>
+                  {row.brand && (
+                    <p className="text-[10px] text-primary truncate">{row.brand}{row.sku ? ` · ${row.sku}` : ''}</p>
+                  )}
+                </div>
+                <div className="flex flex-col items-end gap-0.5 shrink-0">
+                  <span className="text-sm font-bold tabular-nums">{row.totalQty}</span>
+                  <span className="text-[11px] font-semibold tabular-nums text-primary">{formatCurrency(row.totalValue)}</span>
+                </div>
+              </div>
+              {expandedRows.has(row.brand_variant_id) && (
+                <div className="mt-2 pt-2 border-t space-y-1 text-[11px]">
+                  <div className="flex justify-between">
+                    <span className="text-muted-foreground">Avg Unit Cost</span>
+                    <span className="tabular-nums font-medium">{formatCurrency(row.avgCost)}</span>
+                  </div>
+                  {row.cogsTotalCost > 0 && (
+                    <div className="flex justify-between">
+                      <span className="text-muted-foreground">COGS</span>
+                      <span className="tabular-nums font-medium text-destructive">{formatCurrency(row.cogsTotalCost)}</span>
+                    </div>
+                  )}
+                  {row.warehouses.length > 1 && (
+                    <div className="flex flex-wrap gap-1 pt-1">
+                      {row.warehouses.map((wh) => (
+                        <Badge key={wh.warehouseId} variant="outline" className="text-[9px] font-normal">
+                          {wh.warehouseName}: {wh.qty}
+                        </Badge>
+                      ))}
+                    </div>
+                  )}
+                  {row.latestReceivalAt && (
+                    <div className="flex justify-between">
+                      <span className="text-muted-foreground">Latest receival</span>
+                      <span className="tabular-nums">{formatDate(row.latestReceivalAt)}</span>
+                    </div>
+                  )}
+                </div>
+              )}
+            </button>
+          ))}
+        </div>
+
+        {/* ── Desktop table (md+) ─────────────────────────────────────── */}
+        <div className="rounded-md border overflow-x-auto hidden md:block">
           <Table>
             <TableHeader>
               <TableRow>
                 <TableHead className="text-xs w-[28px]" />
-                <TableHead className="text-xs cursor-pointer select-none" onClick={() => handleSort('category_name')}>
+                <TableHead className="text-xs cursor-pointer select-none hidden sm:table-cell" onClick={() => handleSort('category_name')}>
                   Category <SortIndicator field="category_name" />
                 </TableHead>
                 <TableHead className="text-xs cursor-pointer select-none" onClick={() => handleSort('item_name')}>
                   Item <SortIndicator field="item_name" />
                 </TableHead>
-                <TableHead className="text-xs cursor-pointer select-none" onClick={() => handleSort('brand')}>
+                <TableHead className="text-xs cursor-pointer select-none hidden sm:table-cell" onClick={() => handleSort('brand')}>
                   Brand / SKU <SortIndicator field="brand" />
                 </TableHead>
                 <TableHead className="text-xs text-right cursor-pointer select-none" onClick={() => handleSort('qty')}>
                   Stock <SortIndicator field="qty" />
                 </TableHead>
-                <TableHead className="text-xs text-right cursor-pointer select-none" onClick={() => handleSort('avg_cost')}>
+                <TableHead className="text-xs text-right cursor-pointer select-none hidden md:table-cell" onClick={() => handleSort('avg_cost')}>
                   Unit Cost <SortIndicator field="avg_cost" />
                 </TableHead>
                 <TableHead className="text-xs text-right cursor-pointer select-none" onClick={() => handleSort('total_value')}>
                   Stock Value <SortIndicator field="total_value" />
                 </TableHead>
-                <TableHead className="text-xs text-right cursor-pointer select-none" onClick={() => handleSort('cogs')}>
+                <TableHead className="text-xs text-right cursor-pointer select-none hidden md:table-cell" onClick={() => handleSort('cogs')}>
                   COGS <SortIndicator field="cogs" />
                 </TableHead>
-                <TableHead className="text-xs">Warehouse</TableHead>
+                <TableHead className="text-xs hidden lg:table-cell">Warehouse</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
@@ -606,7 +678,7 @@ export const WhStockValueTab = React.memo(function WhStockValueTab({ warehouses 
                         </TableCell>
 
                         {/* Category */}
-                        <TableCell className="text-xs text-muted-foreground py-2">
+                        <TableCell className="text-xs text-muted-foreground py-2 hidden sm:table-cell">
                           {row.subcategory_name
                             ? `${row.category_name} / ${row.subcategory_name}`
                             : row.category_name ?? '—'}
@@ -616,7 +688,7 @@ export const WhStockValueTab = React.memo(function WhStockValueTab({ warehouses 
                         <TableCell className="text-xs font-medium py-2">{row.item_name}</TableCell>
 
                         {/* Brand / SKU */}
-                        <TableCell className="text-xs py-2">
+                        <TableCell className="text-xs py-2 hidden sm:table-cell">
                           <div>{row.brand ?? '—'}</div>
                           {row.sku && <div className="text-[10px] text-primary">{row.sku}</div>}
                         </TableCell>
@@ -655,7 +727,7 @@ export const WhStockValueTab = React.memo(function WhStockValueTab({ warehouses 
                         </TableCell>
 
                         {/* Unit Cost */}
-                        <TableCell className="text-xs text-right py-2 tabular-nums">
+                        <TableCell className="text-xs text-right py-2 tabular-nums hidden md:table-cell">
                           {formatCurrency(row.avgCost)}
                         </TableCell>
 
@@ -693,7 +765,7 @@ export const WhStockValueTab = React.memo(function WhStockValueTab({ warehouses 
                         </TableCell>
 
                         {/* COGS */}
-                        <TableCell className="text-xs text-right py-2 tabular-nums">
+                        <TableCell className="text-xs text-right py-2 tabular-nums hidden md:table-cell">
                           {row.cogsTotalCost > 0 ? (
                             <span
                               className="cursor-pointer underline decoration-dashed underline-offset-2 text-destructive font-medium hover:text-destructive/80"
@@ -715,7 +787,7 @@ export const WhStockValueTab = React.memo(function WhStockValueTab({ warehouses 
                         </TableCell>
 
                         {/* Warehouse badges */}
-                        <TableCell className="text-xs py-2">
+                        <TableCell className="text-xs py-2 hidden lg:table-cell">
                           <div className="flex flex-wrap gap-1">
                             {row.warehouses.map((wh) => (
                               <Badge key={wh.warehouseId} variant="outline" className="text-[10px] font-normal">
@@ -751,7 +823,7 @@ export const WhStockValueTab = React.memo(function WhStockValueTab({ warehouses 
                 <Button
                   variant="outline"
                   size="sm"
-                  className="h-7 w-7 p-0"
+                  className="h-7 w-7 p-0 min-h-11 min-w-11 md:min-h-0 md:min-w-0"
                   disabled={page <= 1}
                   onClick={() => setPage((p) => Math.max(1, p - 1))}
                   aria-label="Previous page"
@@ -764,7 +836,7 @@ export const WhStockValueTab = React.memo(function WhStockValueTab({ warehouses 
                 <Button
                   variant="outline"
                   size="sm"
-                  className="h-7 w-7 p-0"
+                  className="h-7 w-7 p-0 min-h-11 min-w-11 md:min-h-0 md:min-w-0"
                   disabled={page >= totalPages}
                   onClick={() => setPage((p) => Math.min(totalPages, p + 1))}
                   aria-label="Next page"

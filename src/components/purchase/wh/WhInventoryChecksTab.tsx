@@ -54,7 +54,7 @@ export const WhInventoryChecksTab = React.memo(function WhInventoryChecksTab({ w
         <div className="flex items-center gap-2">
           <WarehouseReportButton reportType="inventory-checks" label="Report" />
           <WhInventoryCheckStartDialog warehouses={warehouses} currentProfile={currentProfile}>
-            <Button size="sm" variant="outline" className="gap-1.5 h-8 text-xs">
+            <Button size="sm" variant="outline" className="gap-1.5 h-8 min-h-11 md:min-h-0 text-xs">
               <ClipboardCheck className="h-3.5 w-3.5" />
               New Check
             </Button>
@@ -68,7 +68,7 @@ export const WhInventoryChecksTab = React.memo(function WhInventoryChecksTab({ w
           <ClipboardCheck className="h-10 w-10 text-muted-foreground/30" />
           <p className="text-xs text-muted-foreground">No inventory checks yet.</p>
           <WhInventoryCheckStartDialog warehouses={warehouses} currentProfile={currentProfile}>
-            <Button size="sm" variant="outline" className="gap-1.5 text-xs mt-1">
+            <Button size="sm" variant="outline" className="gap-1.5 min-h-11 md:min-h-0 text-xs mt-1">
               <ClipboardCheck className="h-3.5 w-3.5" />
               Start first check
             </Button>
@@ -134,11 +134,11 @@ export const WhInventoryChecksTab = React.memo(function WhInventoryChecksTab({ w
         <div className="flex items-center justify-between text-xs text-muted-foreground px-1">
           <span>{checks.length} check{checks.length !== 1 ? 's' : ''}</span>
           <div className="flex items-center gap-1.5">
-            <Button variant="outline" size="sm" className="h-7 w-7 p-0" disabled={page <= 1} onClick={() => setPage((p) => Math.max(1, p - 1))} aria-label="Previous page">
+            <Button variant="outline" size="sm" className="h-7 w-7 p-0 min-h-11 min-w-11 md:min-h-0 md:min-w-0" disabled={page <= 1} onClick={() => setPage((p) => Math.max(1, p - 1))} aria-label="Previous page">
               <ChevronLeft className="h-3.5 w-3.5" />
             </Button>
             <span className="tabular-nums min-w-[80px] text-center">Page {page} of {totalPages}</span>
-            <Button variant="outline" size="sm" className="h-7 w-7 p-0" disabled={page >= totalPages} onClick={() => setPage((p) => Math.min(totalPages, p + 1))} aria-label="Next page">
+            <Button variant="outline" size="sm" className="h-7 w-7 p-0 min-h-11 min-w-11 md:min-h-0 md:min-w-0" disabled={page >= totalPages} onClick={() => setPage((p) => Math.min(totalPages, p + 1))} aria-label="Next page">
               <ChevronRight className="h-3.5 w-3.5" />
             </Button>
           </div>

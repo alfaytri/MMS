@@ -113,7 +113,7 @@ export function ApprovalChainsTab() {
 
   function nextRank(chainId: string): number {
     const chain = chains.find((c) => c.id === chainId)
-    const tiers = (chain?.approval_chain_tiers ?? []).filter((t: any) => !t.deleted_at)
+    const tiers = (chain?.approval_chain_tiers ?? []).filter((t) => !t.deleted_at)
     return tiers.length + 1
   }
 
@@ -154,7 +154,7 @@ export function ApprovalChainsTab() {
     )
   }
 
-  function startEditTier(tier: any, chainId: string) {
+  function startEditTier(tier: NonNullable<(typeof chains)[number]['approval_chain_tiers']>[number], chainId: string) {
     setEditingTier({
       tierId: tier.id,
       chainId,
@@ -174,8 +174,8 @@ export function ApprovalChainsTab() {
       return
     }
     const chain = chains.find((c) => c.id === editingTier.chainId)
-    const tiers = (chain?.approval_chain_tiers ?? []).filter((t: any) => !t.deleted_at)
-    const existingTier = tiers.find((t: any) => t.id === editingTier.tierId)
+    const tiers = (chain?.approval_chain_tiers ?? []).filter((t) => !t.deleted_at)
+    const existingTier = tiers.find((t) => t.id === editingTier.tierId)
     upsertTier.mutate(
       {
         id: editingTier.tierId,
@@ -222,8 +222,8 @@ export function ApprovalChainsTab() {
 
       {chains.map((chain) => {
         const tiers = (chain.approval_chain_tiers ?? [])
-          .filter((t: any) => !t.deleted_at)
-          .sort((a: any, b: any) => a.rank - b.rank)
+          .filter((t) => !t.deleted_at)
+          .sort((a, b) => a.rank - b.rank)
         const divName = getDivisionName(chain)
         const isGlobal = !chain.division_id
         const isActive = chain.is_active
@@ -302,7 +302,7 @@ export function ApprovalChainsTab() {
                     </TableCell>
                   </TableRow>
                 ) : (
-                  tiers.map((tier: any, idx: number) => {
+                  tiers.map((tier, idx) => {
                     const isEditing = editingTier?.tierId === tier.id
                     const missing = missingAssigneeRoles(tier.required_roles as string[])
 

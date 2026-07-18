@@ -182,8 +182,8 @@ export default function ContractDetailPage() {
     try {
       await saveContractFull(contractId, formData, sessionId.current)
       toast.success('Saved')
-    } catch (err: any) {
-      toast.error(err.message || 'Save failed')
+    } catch (err: unknown) {
+      toast.error(err instanceof Error ? err.message : 'Save failed')
     } finally {
       setSaving(false)
     }
@@ -203,8 +203,8 @@ export default function ContractDetailPage() {
         },
       })
       toast.success(`Status updated to ${STATUS_CONFIG[newStatus]?.label || newStatus}`)
-    } catch (err: any) {
-      toast.error(err.message || 'Transition failed')
+    } catch (err: unknown) {
+      toast.error(err instanceof Error ? err.message : 'Transition failed')
     }
   }
 
@@ -218,8 +218,8 @@ export default function ContractDetailPage() {
     try {
       await createTentativeVisits.mutateAsync(pendingVisits)
       toast.success(`${pendingVisits.length} visits generated`)
-    } catch (err: any) {
-      toast.error(err.message || 'Failed to generate visits')
+    } catch (err: unknown) {
+      toast.error(err instanceof Error ? err.message : 'Failed to generate visits')
     }
   }
 

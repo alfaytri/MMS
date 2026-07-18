@@ -290,7 +290,7 @@ export function ServiceEditDialog({
                         {parentComboItems.find((i) => i.id === form.watch('parent_id'))?.name_en ?? 'None (root level)'}
                         <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
                       </PopoverTrigger>
-                      <PopoverContent className="w-[420px] p-0" align="start">
+                      <PopoverContent className="w-[420px] max-w-[92vw] p-0" align="start">
                         <Command>
                           <CommandInput placeholder="Search services…" />
                           <CommandList className="max-h-60">

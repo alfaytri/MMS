@@ -1,6 +1,7 @@
 import { type NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@supabase/supabase-js'
 import type { Database } from '@/types/database.types'
+import type { WatiContact } from '@/types/wati'
 
 const WATI_URL   = (process.env.WATI_API_URL ?? '').replace(/\/$/, '')
 const WATI_TOKEN = (process.env.WATI_API_TOKEN ?? '').replace(/^Bearer\s+/i, '')
@@ -21,7 +22,7 @@ function normalisePhone(raw: string): string | null {
   return null
 }
 
-function contactName(c: any): string | null {
+function contactName(c: WatiContact): string | null {
   const full = [c.firstName, c.lastName].filter(Boolean).join(' ').trim()
   return full || c.fullName || c.name || null
 }
@@ -68,7 +69,7 @@ export async function GET(req: NextRequest) {
     ? new Date(contact.lastReceivedMessageDate).toISOString()
     : null
 
-  const row: Record<string, any> = {
+  const row: Record<string, unknown> = {
     wati_phone:        phone,
     wati_contact_name: contactName(contact),
     customer_id:       phoneLookup?.customer_id ?? null,

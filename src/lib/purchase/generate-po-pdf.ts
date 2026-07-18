@@ -168,9 +168,9 @@ export async function generatePoPdf(
       .is('deleted_at', null)
       .order('date', { ascending: true })
 
-    payments = (paymentRows ?? []).map((p: any) => ({
+    payments = (paymentRows ?? []).map((p: { date: string; amount: number | null; amount_qar: number | null; method: string; reference: string | null }) => ({
       date:      p.date,
-      amount:    p.amount_qar ?? p.amount,
+      amount:    p.amount_qar ?? p.amount ?? 0,
       method:    p.method,
       reference: p.reference,
     }))

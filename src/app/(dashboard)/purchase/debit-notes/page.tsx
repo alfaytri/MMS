@@ -128,6 +128,29 @@ export default function DebitNotesPage() {
         columns={columns}
         data={debitNotes}
         isLoading={isLoading}
+        onRowClick={(note: CreditNote) => setDetailNote(note)}
+        mobileCardRender={(note: CreditNote) => {
+          const s = (note.status ?? 'issued') as CreditNoteStatus
+          const cfg = STATUS_CONFIG[s] ?? STATUS_CONFIG.issued
+          return (
+            <div className="space-y-1">
+              <div className="flex items-center justify-between gap-2">
+                <span className="font-mono text-sm font-medium">{note.credit_note_id}</span>
+                <Badge className={cn('text-xs', cfg.className)}>{cfg.label}</Badge>
+              </div>
+              <p className="text-sm text-muted-foreground">{note.supplier_name ?? '—'}</p>
+              <div className="flex items-center justify-between text-xs text-muted-foreground">
+                <span>PO: {note.po_number ?? '—'}</span>
+                <span className="font-medium text-destructive">{formatCurrency(note.total_amount, 'QAR')}</span>
+              </div>
+              {note.resolution_type && (
+                <Badge className={cn('text-xs', note.resolution_type === 'supplier_credit' ? 'bg-blue-100 text-blue-700' : 'bg-green-100 text-green-700')}>
+                  {note.resolution_type === 'supplier_credit' ? 'Supplier Credit' : 'Replacement'}
+                </Badge>
+              )}
+            </div>
+          )
+        }}
       />
 
       <CreditDebitNoteDetailDialog

@@ -148,7 +148,7 @@ export const WhAdjustmentsTab = React.memo(function WhAdjustmentsTab({ warehouse
     <div className="p-4 md:p-6 space-y-3">
       <div className="flex items-center justify-between gap-2">
         <Tabs value={statusFilter} onValueChange={(v) => setStatusFilter(v as StatusFilter)}>
-          <TabsList className="h-8 text-xs">
+          <TabsList className="h-8 min-h-11 md:min-h-0 text-xs max-w-full overflow-x-auto whitespace-nowrap">
             {FILTER_TABS.map((t) => (
               <TabsTrigger key={t.value} value={t.value} className="text-xs px-3 h-7 gap-1">
                 {t.label}
@@ -170,17 +170,84 @@ export const WhAdjustmentsTab = React.memo(function WhAdjustmentsTab({ warehouse
         <WarehouseReportButton reportType="adjustments" label="Report" />
       </div>
 
-      <div className="rounded-md border overflow-x-auto">
+      {/* ── Mobile card list (< md) ─────────────────────────────────── */}
+      <div className="md:hidden space-y-2">
+        {filteredAdjustments.length === 0 ? (
+          <EmptyState
+            title={
+              statusFilter === 'all'
+                ? 'No adjustments found'
+                : `No ${statusFilter === 'pending_approval' ? 'pending' : statusFilter} adjustments`
+            }
+          />
+        ) : paged.map((adj) => {
+          const item     = adj.inventory_brand_variants?.inventory_items
+          const itemName = item?.name_en ?? '—'
+          const brand    = adj.inventory_brand_variants?.brand ?? null
+          const categoryId = item?.inventory_categories?.id ?? null
+          const itemType   = item?.inventory_categories?.type ?? null
+          const category   = categoryId && categoriesFlat.length
+            ? categoryBreadcrumb(categoryId, categoriesFlat)
+            : item?.inventory_categories?.name_en ?? null
+
+          const chainSteps = [...(adj.stock_adjustment_approvals ?? [])]
+            .sort((a, b) => a.step_order - b.step_order)
+          const hasChain      = chainSteps.length > 0
+          const totalSteps    = chainSteps.length
+          const approvedSteps = chainSteps.filter(s => s.status === 'approved').length
+          const stepCounter   =
+            hasChain && adj.status === 'pending_approval'
+              ? ` · ${approvedSteps}/${totalSteps}`
+              : ''
+
+          return (
+            <button
+              key={adj.id}
+              type="button"
+              className="w-full text-left bg-card border rounded-md p-3 min-h-11 active:bg-muted/40 transition-colors"
+              onClick={() => setDetailId(adj.id)}
+            >
+              <div className="flex items-start justify-between gap-3">
+                <div className="min-w-0 flex-1">
+                  <ItemTreeCell
+                    category={category}
+                    itemType={itemType}
+                    itemName={itemName}
+                    brand={brand}
+                  />
+                </div>
+                <span className="text-lg font-bold tabular-nums shrink-0 leading-none pt-0.5">{adj.qty}</span>
+              </div>
+              <div className="flex items-center gap-1.5 mt-2">
+                <Badge className={`text-[10px] px-1.5 py-0 capitalize ${TYPE_STYLES[adj.adjustment_type] ?? ''}`}>
+                  {adj.adjustment_type?.replace(/_/g, ' ')}
+                </Badge>
+                <Badge className={`text-[10px] px-1.5 py-0 ${STATUS_STYLES[adj.status] ?? 'bg-muted text-muted-foreground'}`}>
+                  {adj.status?.replace(/_/g, ' ')}{stepCounter}
+                </Badge>
+                {adj.created_at && (
+                  <span className="text-[10px] text-muted-foreground ml-auto">
+                    {format(new Date(adj.created_at), 'dd MMM yyyy')}
+                  </span>
+                )}
+              </div>
+            </button>
+          )
+        })}
+      </div>
+
+      {/* ── Desktop table (md+) ───────────────────────────────────── */}
+      <div className="rounded-md border overflow-x-auto hidden md:block">
         <Table>
           <TableHeader>
             <TableRow>
               <TableHead className="text-xs w-[22%]">Item</TableHead>
               <TableHead className="text-xs">Date</TableHead>
-              <TableHead className="text-xs">Warehouse</TableHead>
+              <TableHead className="text-xs hidden lg:table-cell">Warehouse</TableHead>
               <TableHead className="text-xs">Type</TableHead>
               <TableHead className="text-xs text-right">Qty</TableHead>
-              <TableHead className="text-xs">Reason</TableHead>
-              <TableHead className="text-xs">Requested By</TableHead>
+              <TableHead className="text-xs hidden lg:table-cell">Reason</TableHead>
+              <TableHead className="text-xs hidden lg:table-cell">Requested By</TableHead>
               <TableHead className="text-xs">Status</TableHead>
               <TableHead className="text-xs">Photos</TableHead>
               <TableHead className="text-xs text-right">Actions</TableHead>
@@ -237,15 +304,15 @@ export const WhAdjustmentsTab = React.memo(function WhAdjustmentsTab({ warehouse
                   <TableCell className="text-xs whitespace-nowrap py-2.5">
                     {adj.created_at ? format(new Date(adj.created_at), 'dd MMM') : '—'}
                   </TableCell>
-                  <TableCell className="text-xs py-2.5">{adj.warehouses?.name ?? '—'}</TableCell>
+                  <TableCell className="text-xs py-2.5 hidden lg:table-cell">{adj.warehouses?.name ?? '—'}</TableCell>
                   <TableCell className="py-2.5">
                     <Badge className={`text-[10px] px-1.5 py-0 capitalize ${TYPE_STYLES[adj.adjustment_type] ?? ''}`}>
                       {adj.adjustment_type?.replace(/_/g, ' ')}
                     </Badge>
                   </TableCell>
                   <TableCell className="text-xs text-right py-2.5">{adj.qty}</TableCell>
-                  <TableCell className="text-xs max-w-[120px] truncate py-2.5">{adj.reason}</TableCell>
-                  <TableCell className="text-xs py-2.5">{adj.requested_by_name ?? '—'}</TableCell>
+                  <TableCell className="text-xs max-w-[120px] truncate py-2.5 hidden lg:table-cell">{adj.reason}</TableCell>
+                  <TableCell className="text-xs py-2.5 hidden lg:table-cell">{adj.requested_by_name ?? '—'}</TableCell>
                   <TableCell className="py-2.5">
                     <Badge className={`text-[10px] px-1.5 py-0 ${STATUS_STYLES[adj.status] ?? 'bg-muted text-muted-foreground'}`}>
                       {adj.status?.replace(/_/g, ' ')}{stepCounter}
@@ -316,11 +383,11 @@ export const WhAdjustmentsTab = React.memo(function WhAdjustmentsTab({ warehouse
           <span>{filteredAdjustments.length} adjustment{filteredAdjustments.length !== 1 ? 's' : ''}</span>
           {totalPages > 1 && (
             <div className="flex items-center gap-1.5">
-              <Button variant="outline" size="sm" className="h-7 w-7 p-0" disabled={page <= 1} onClick={() => setPage((p) => Math.max(1, p - 1))} aria-label="Previous page">
+              <Button variant="outline" size="sm" className="h-7 w-7 p-0 min-h-11 min-w-11 md:min-h-0 md:min-w-0" disabled={page <= 1} onClick={() => setPage((p) => Math.max(1, p - 1))} aria-label="Previous page">
                 <ChevronLeft className="h-3.5 w-3.5" />
               </Button>
               <span className="tabular-nums min-w-[80px] text-center">Page {page} of {totalPages}</span>
-              <Button variant="outline" size="sm" className="h-7 w-7 p-0" disabled={page >= totalPages} onClick={() => setPage((p) => Math.min(totalPages, p + 1))} aria-label="Next page">
+              <Button variant="outline" size="sm" className="h-7 w-7 p-0 min-h-11 min-w-11 md:min-h-0 md:min-w-0" disabled={page >= totalPages} onClick={() => setPage((p) => Math.min(totalPages, p + 1))} aria-label="Next page">
                 <ChevronRight className="h-3.5 w-3.5" />
               </Button>
             </div>

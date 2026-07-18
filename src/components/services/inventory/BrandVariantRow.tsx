@@ -146,11 +146,11 @@ export function BrandVariantRow({ variant, itemId, itemName, canMoveUp, canMoveD
             </button>
           </div>
         </TableCell>
-        <TableCell className="font-mono text-[11px]">{variant.code ?? '—'}</TableCell>
-        <TableCell className="text-right">
+        <TableCell className="font-mono text-[11px] hidden sm:table-cell">{variant.code ?? '—'}</TableCell>
+        <TableCell className="text-right hidden md:table-cell">
           {variant.average_cost != null ? formatCurrency(variant.average_cost, 'QAR') : '—'}
         </TableCell>
-        <TableCell className="text-right">
+        <TableCell className="text-right hidden md:table-cell">
           {variant.selling_price != null ? formatCurrency(variant.selling_price, 'QAR') : '—'}
         </TableCell>
         <TableCell className="text-right">
@@ -179,7 +179,7 @@ export function BrandVariantRow({ variant, itemId, itemName, canMoveUp, canMoveD
             </span>
           </div>
         </TableCell>
-        <TableCell className="text-right text-[11px]">
+        <TableCell className="text-right text-[11px] hidden sm:table-cell">
           {incoming > 0 ? <span className="text-blue-600 font-medium">+{incoming}</span> : '—'}
         </TableCell>
         <TableCell className="text-right">
@@ -191,7 +191,7 @@ export function BrandVariantRow({ variant, itemId, itemName, canMoveUp, canMoveD
                     <Button
                       variant="ghost"
                       size="icon"
-                      className="h-6 w-6"
+                      className="h-6 w-6 min-h-11 min-w-11 md:min-h-0 md:min-w-0"
                       onClick={() => setInvReceivalOpen(true)}
                       aria-label="Create Inventory Receival"
                     >
@@ -202,16 +202,16 @@ export function BrandVariantRow({ variant, itemId, itemName, canMoveUp, canMoveD
                 </Tooltip>
               </TooltipProvider>
             )}
-            <Button variant="ghost" size="icon" className="h-6 w-6" disabled={!canMoveUp} onClick={() => onMoveUp()}>
+            <Button variant="ghost" size="icon" className="h-6 w-6 hidden sm:inline-flex" disabled={!canMoveUp} onClick={() => onMoveUp()}>
               <ArrowUp className="h-3 w-3" />
             </Button>
-            <Button variant="ghost" size="icon" className="h-6 w-6" disabled={!canMoveDown} onClick={() => onMoveDown()}>
+            <Button variant="ghost" size="icon" className="h-6 w-6 hidden sm:inline-flex" disabled={!canMoveDown} onClick={() => onMoveDown()}>
               <ArrowDown className="h-3 w-3" />
             </Button>
-            <Button variant="ghost" size="icon" className="h-6 w-6" onClick={() => setEditOpen(true)}>
+            <Button variant="ghost" size="icon" className="h-6 w-6 min-h-11 min-w-11 md:min-h-0 md:min-w-0" onClick={() => setEditOpen(true)}>
               <Pencil className="h-3 w-3" />
             </Button>
-            <Button variant="ghost" size="icon" className="h-6 w-6 text-muted-foreground hover:text-destructive" onClick={() => setArchiveOpen(true)}>
+            <Button variant="ghost" size="icon" className="h-6 w-6 min-h-11 min-w-11 md:min-h-0 md:min-w-0 text-muted-foreground hover:text-destructive" onClick={() => setArchiveOpen(true)}>
               <Archive className="h-3 w-3" />
             </Button>
           </div>

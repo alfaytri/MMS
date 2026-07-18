@@ -373,7 +373,7 @@ function ManageCategoriesDialog({ open, onOpenChange, categories }: ManageCatego
                   <FormItem>
                     <FormLabel>Slug *</FormLabel>
                     <FormControl><Input placeholder="e.g. delivery_issue" disabled={!!editing} {...field} /></FormControl>
-                    <p className="text-[10px] text-muted-foreground">Used in code; can't change after creation.</p>
+                    <p className="text-[10px] text-muted-foreground">Used in code; can&apos;t change after creation.</p>
                     <FormMessage />
                   </FormItem>
                 )} />

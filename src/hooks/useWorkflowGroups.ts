@@ -1,6 +1,7 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { createClient } from '@/lib/supabase/client'
 import { queryKeys } from '@/lib/queryKeys'
+import type { DBUpdate } from '@/types/database.types'
 
 export type WorkflowGroup = {
   id: string
@@ -81,7 +82,7 @@ export function useUpdateWorkflowGroup() {
 
       const { error } = await supabase
         .from('approval_workflow_groups')
-        .update(patch as any)
+        .update(patch as DBUpdate<'approval_workflow_groups'>)
         .eq('id', args.id)
       if (error) throw error
     },

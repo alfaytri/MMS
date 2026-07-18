@@ -36,7 +36,7 @@ export async function GET(req: NextRequest) {
     }
     if (contentDisposition) headers['Content-Disposition'] = contentDisposition
     return new Response(upstream.body, { status: 200, headers })
-  } catch (err: any) {
-    return NextResponse.json({ error: err.message ?? 'Proxy error' }, { status: 500 })
+  } catch (err: unknown) {
+    return NextResponse.json({ error: err instanceof Error ? err.message : String(err) }, { status: 500 })
   }
 }

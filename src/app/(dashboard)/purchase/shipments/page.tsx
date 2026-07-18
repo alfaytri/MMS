@@ -350,6 +350,7 @@ function ShipmentDetailDialog({
                 </select>
                 <Button
                   size="sm"
+                  className="min-h-11 md:min-h-0"
                   disabled={selectedCarrierCode === '' || isSyncing}
                   onClick={() => {
                     if (selectedCarrierCode !== '') handleSyncNow(selectedCarrierCode as number)
@@ -457,8 +458,8 @@ function ShipmentDetailDialog({
                 <Textarea id="ev-notes" value={eventForm.notes} onChange={(e) => setEventForm((f) => ({ ...f, notes: e.target.value }))} rows={2} />
               </div>
               <div className="flex gap-2 justify-end">
-                <Button type="button" variant="outline" size="sm" onClick={() => setShowEventForm(false)}>Cancel</Button>
-                <Button type="submit" size="sm" disabled={addEvent.isPending}>Add Event</Button>
+                <Button type="button" variant="outline" size="sm" className="min-h-11 md:min-h-0" onClick={() => setShowEventForm(false)}>Cancel</Button>
+                <Button type="submit" size="sm" className="min-h-11 md:min-h-0" disabled={addEvent.isPending}>Add Event</Button>
               </div>
             </form>
           )}
@@ -469,12 +470,12 @@ function ShipmentDetailDialog({
         <div className="px-6 py-3 flex items-center justify-between gap-2 flex-wrap">
           <div className="flex items-center gap-2">
             {!showEventForm && (
-              <Button variant="outline" size="sm" onClick={() => setShowEventForm(true)}>
+              <Button variant="outline" size="sm" className="min-h-11 md:min-h-0" onClick={() => setShowEventForm(true)}>
                 <Plus className="h-3.5 w-3.5 mr-1.5" /> Add Event
               </Button>
             )}
             <DropdownMenu>
-              <DropdownMenuTrigger className="inline-flex items-center justify-center gap-2 whitespace-nowrap text-sm font-medium rounded-md border border-input bg-background shadow-xs hover:bg-accent hover:text-accent-foreground h-8 px-3 cursor-default">
+              <DropdownMenuTrigger className="inline-flex items-center justify-center gap-2 whitespace-nowrap text-sm font-medium rounded-md border border-input bg-background shadow-xs hover:bg-accent hover:text-accent-foreground h-8 min-h-11 md:min-h-0 px-3 cursor-default">
                 Update Status
               </DropdownMenuTrigger>
               <DropdownMenuContent align="start">
@@ -503,7 +504,7 @@ function ShipmentDetailDialog({
             <Button
               variant="ghost"
               size="sm"
-              className="text-muted-foreground hover:text-destructive"
+              className="min-h-11 md:min-h-0 text-muted-foreground hover:text-destructive"
               onClick={() => archiveShipment.mutate(
                 shipment.id,
                 {
@@ -600,7 +601,7 @@ export default function ShipmentsPage() {
       id: 'actions',
       header: '',
       cell: ({ row }) => (
-        <Button variant="ghost" size="icon" className="h-8 w-8" aria-label="View shipment" onClick={() => setSelected(row.original)}>
+        <Button variant="ghost" size="icon" className="h-8 w-8 min-h-11 md:min-h-0 min-w-11 md:min-w-0" aria-label="View shipment" onClick={() => setSelected(row.original)}>
           <Eye className="h-4 w-4" />
         </Button>
       ),
@@ -639,7 +640,34 @@ export default function ShipmentsPage() {
       {isLoading ? (
         <div className="space-y-3">{Array.from({ length: 4 }).map((_, i) => <Skeleton key={i} className="h-14 w-full rounded-lg" />)}</div>
       ) : (
-        <DataTable columns={columns} data={shipments ?? []} />
+        <DataTable
+          columns={columns}
+          data={shipments ?? []}
+          onRowClick={(shipment) => setSelected(shipment)}
+          mobileCardRender={(shipment: Shipment) => {
+            const modeMeta = MODE_META[shipment.mode]
+            const ModeIcon = modeMeta.icon
+            return (
+              <div className="space-y-1">
+                <div className="flex items-center justify-between gap-2">
+                  <span className="font-mono text-sm font-semibold">{shipment.tracking_number}</span>
+                  <StatusBadge status={shipment.status} />
+                </div>
+                <div className="flex items-center gap-2 text-xs text-muted-foreground">
+                  <span className={cn('inline-flex items-center gap-1', modeMeta.color)}>
+                    <ModeIcon className="h-3.5 w-3.5" />
+                    {modeMeta.label}
+                  </span>
+                  <span className="truncate">{shipment.purchase_orders?.po_number ?? '—'}</span>
+                </div>
+                <div className="flex items-center justify-between text-xs text-muted-foreground">
+                  <span className="truncate">{shipment.purchase_orders?.supplier_name ?? ''}</span>
+                  <span>{(shipment.events?.length ?? 0)} event{(shipment.events?.length ?? 0) !== 1 ? 's' : ''}</span>
+                </div>
+              </div>
+            )
+          }}
+        />
       )}
 
       <CreateShipmentDialog open={createOpen} onOpenChange={setCreateOpen} />

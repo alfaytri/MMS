@@ -106,7 +106,7 @@ export default function SuppliersPage() {
         cell: ({ row }) => (
           <DropdownMenu>
             <DropdownMenuTrigger
-              render={<Button variant="ghost" size="icon" className="h-8 w-8" aria-label="Open actions" />}
+              render={<Button variant="ghost" size="icon" className="h-8 w-8 min-h-11 md:min-h-0 min-w-11 md:min-w-0" aria-label="Open actions" />}
             >
               <MoreHorizontal className="h-4 w-4" />
             </DropdownMenuTrigger>
@@ -147,6 +147,34 @@ export default function SuppliersPage() {
         data={suppliers ?? []}
         isLoading={isLoading}
         globalFilter={search}
+        onRowClick={(supplier) => {
+          setEditing(supplier)
+          setDialogOpen(true)
+        }}
+        mobileCardRender={(supplier: SupplierWithCurrency) => (
+          <div className="space-y-1">
+            <div className="flex items-center justify-between gap-2">
+              <span className="text-sm font-medium truncate">{supplier.name}</span>
+              <StatusBadge variant={supplier.is_active ? 'active' : 'inactive'}>
+                {supplier.is_active ? 'Active' : 'Inactive'}
+              </StatusBadge>
+            </div>
+            <div className="flex items-center gap-2 flex-wrap text-xs text-muted-foreground">
+              {supplier.supplier_type && (
+                <Badge variant={supplier.supplier_type === 'international' ? 'secondary' : 'outline'} className="text-[10px] capitalize">
+                  {supplier.supplier_type}
+                </Badge>
+              )}
+              {supplier.country && <span>{supplier.country}</span>}
+              {supplier.currencies?.code && (
+                <Badge variant="outline" className="text-[10px] font-mono">{supplier.currencies.code}</Badge>
+              )}
+            </div>
+            {supplier.contact_name && (
+              <p className="text-xs text-muted-foreground truncate">{supplier.contact_name}</p>
+            )}
+          </div>
+        )}
       />
 
       <SupplierFormDialog

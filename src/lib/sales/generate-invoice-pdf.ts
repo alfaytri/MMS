@@ -104,7 +104,7 @@ export async function generateInvoicePdf(
     .eq('direction', 'incoming')
     .order('date', { ascending: true })
 
-  const payments: InvoicePayment[] = (payRows ?? []).map((p: any) => ({
+  const payments: InvoicePayment[] = (payRows ?? []).map((p: { date: string; amount: number | null; method: string | null; reference: string | null }) => ({
     date:      p.date,
     amount:    Number(p.amount ?? 0),
     method:    p.method ?? '—',

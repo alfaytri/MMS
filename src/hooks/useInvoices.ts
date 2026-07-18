@@ -4,11 +4,12 @@ import { createClient } from '@/lib/supabase/client'
 import { logActivity } from '@/lib/logActivity'
 import type { ArInvoice, InvoiceLineItem } from '@/types/invoice'
 import { queryKeys } from '@/lib/queryKeys'
+import type { Database } from '@/types/database.types'
 
 const PAGE_SIZE = 50
 
 export type InvoiceFilters = {
-  status?: string
+  status?: Database['public']['Enums']['invoice_payment_status'] | 'sent' | 'draft'
   invoiceSearch?: string
   customerSearch?: string
   issuedFrom?: string
@@ -55,7 +56,13 @@ export function useInvoices(filters: InvoiceFilters = {}) {
         .range(pageParam * PAGE_SIZE, (pageParam + 1) * PAGE_SIZE - 1)
 
       // Status filter
-      if (filters.status) q = q.eq('payment_status', filters.status as any)
+      if (filters.status) {
+        if (filters.status === 'draft' || filters.status === 'sent') {
+          q = q.eq('status', filters.status)
+        } else {
+          q = q.eq('payment_status', filters.status)
+        }
+      }
 
       // Date filters
       if (filters.issuedFrom) q = q.gte('issued_date', filters.issuedFrom)
@@ -82,9 +89,9 @@ export function useInvoices(filters: InvoiceFilters = {}) {
       const { data, error } = await q
       if (error) throw error
 
-      const mapped = (data ?? []).map((inv: any) => {
+      const mapped = (data ?? []).map((inv) => {
         const primaryPhone = inv.customers?.customer_phones?.find(
-          (p: any) => p.is_primary
+          (p) => p.is_primary
         )
         // Normalize payment_status: lifecycle states (void/cancelled) override payment tracking
         const effectivePaymentStatus =
@@ -97,7 +104,7 @@ export function useInvoices(filters: InvoiceFilters = {}) {
           customer_name: inv.customers?.name ?? null,
           phone: primaryPhone?.phone ?? null,
           payments: (inv.payments ?? []).filter(
-            (p: any) => p.deleted_at == null
+            (p) => p.deleted_at == null
           ),
           invoice_line_items: inv.invoice_line_items ?? [],
         } as FinanceInvoice

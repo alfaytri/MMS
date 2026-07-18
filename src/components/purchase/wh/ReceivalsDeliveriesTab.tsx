@@ -11,6 +11,7 @@ import { useReceivalsAndDeliveries, ReceivalDelivery } from '@/hooks/useWarehous
 import { WhReceivalDetailDialog } from './WhReceivalDetailDialog'
 import { WarehouseReportButton } from './WarehouseReportButton'
 import { Warehouse } from '@/hooks/useWarehouses'
+import { Profile } from '@/hooks/useProfiles'
 import { format } from 'date-fns'
 
 const STATUS_STYLE: Record<string, string> = {
@@ -23,7 +24,7 @@ const STATUS_STYLE: Record<string, string> = {
 
 interface Props {
   warehouses: Warehouse[]
-  currentProfile: any
+  currentProfile: Profile | null
 }
 
 export const ReceivalsDeliveriesTab = React.memo(function ReceivalsDeliveriesTab({ warehouses }: Props) {
@@ -64,7 +65,7 @@ export const ReceivalsDeliveriesTab = React.memo(function ReceivalsDeliveriesTab
         <div className="relative max-w-xs">
           <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-muted-foreground" />
           <Input
-            className="h-8 text-xs pl-8"
+            className="h-8 min-h-11 md:min-h-0 text-xs pl-8"
             placeholder="Search doc# / ref / party…"
             value={search}
             onChange={e => setSearch(e.target.value)}
@@ -94,15 +95,63 @@ export const ReceivalsDeliveriesTab = React.memo(function ReceivalsDeliveriesTab
         <WarehouseReportButton reportType="receivals-deliveries" label="Report" />
       </div>
 
-      <div className="rounded-md border">
+      {/* ── Mobile card list (< md) ─────────────────────────────────── */}
+      <div className="md:hidden space-y-2">
+        {filtered.length === 0 ? (
+          <p className="text-center text-xs text-muted-foreground py-8">
+            No receivals or deliveries found
+          </p>
+        ) : paged.map((item) => (
+          <button
+            key={`${item.direction}-${item.id}`}
+            type="button"
+            className="w-full text-left bg-card border rounded-md p-3 min-h-11 active:bg-muted/30 transition-colors"
+            onClick={() => setSelected(item)}
+          >
+            <div className="flex items-start justify-between gap-3">
+              <div className="min-w-0 flex-1 space-y-1">
+                <p className="text-xs font-semibold truncate">{item.docNumber}</p>
+                {item.counterparty && (
+                  <p className="text-[11px] text-muted-foreground truncate">{item.counterparty}</p>
+                )}
+                {item.reference && (
+                  <p className="text-[10px] text-primary truncate">{item.reference}</p>
+                )}
+              </div>
+              <div className="flex flex-col items-end gap-0.5 shrink-0">
+                <span className="text-sm font-bold tabular-nums">{item.itemCount} <span className="text-[10px] font-normal text-muted-foreground">items</span></span>
+                <span className="text-[10px] text-muted-foreground">
+                  {item.date ? format(new Date(item.date), 'dd MMM') : '—'}
+                </span>
+              </div>
+            </div>
+            <div className="flex items-center gap-1.5 mt-2">
+              <Badge className={`text-[10px] px-1.5 py-0 flex items-center gap-1 w-fit ${item.direction === 'inbound' ? 'bg-success/10 text-success' : 'bg-primary/10 text-primary'}`}>
+                {item.direction === 'inbound'
+                  ? <><Package className="h-2.5 w-2.5" /> Receival</>
+                  : <><Truck className="h-2.5 w-2.5" /> Delivery</>}
+              </Badge>
+              <Badge className={`text-[10px] px-1.5 py-0 ${STATUS_STYLE[item.status] ?? 'bg-muted text-muted-foreground'}`}>
+                {item.status.replace(/_/g, ' ')}
+              </Badge>
+              {item.warehouseName && (
+                <span className="text-[10px] text-muted-foreground ml-auto truncate max-w-[120px]">{item.warehouseName}</span>
+              )}
+            </div>
+          </button>
+        ))}
+      </div>
+
+      {/* ── Desktop table (md+) ───────────────────────────────────── */}
+      <div className="rounded-md border overflow-x-auto hidden md:block">
         <Table>
           <TableHeader>
             <TableRow>
               <TableHead className="text-xs">Direction</TableHead>
               <TableHead className="text-xs">Doc #</TableHead>
               <TableHead className="text-xs">Reference</TableHead>
-              <TableHead className="text-xs">Warehouse</TableHead>
-              <TableHead className="text-xs">Counterparty</TableHead>
+              <TableHead className="text-xs hidden lg:table-cell">Warehouse</TableHead>
+              <TableHead className="text-xs hidden lg:table-cell">Counterparty</TableHead>
               <TableHead className="text-xs">Date</TableHead>
               <TableHead className="text-xs text-right">Items</TableHead>
               <TableHead className="text-xs">Status</TableHead>
@@ -131,8 +180,8 @@ export const ReceivalsDeliveriesTab = React.memo(function ReceivalsDeliveriesTab
                   </TableCell>
                   <TableCell className="text-xs font-medium">{item.docNumber}</TableCell>
                   <TableCell className="text-xs font-medium text-primary">{item.reference || '—'}</TableCell>
-                  <TableCell className="text-xs">{item.warehouseName}</TableCell>
-                  <TableCell className="text-xs">{item.counterparty}</TableCell>
+                  <TableCell className="text-xs hidden lg:table-cell">{item.warehouseName}</TableCell>
+                  <TableCell className="text-xs hidden lg:table-cell">{item.counterparty}</TableCell>
                   <TableCell className="text-xs whitespace-nowrap">
                     {item.date ? format(new Date(item.date), 'dd MMM yyyy') : '—'}
                   </TableCell>
@@ -153,11 +202,11 @@ export const ReceivalsDeliveriesTab = React.memo(function ReceivalsDeliveriesTab
         <div className="flex items-center justify-between text-xs text-muted-foreground px-1">
           <span>{filtered.length} item{filtered.length !== 1 ? 's' : ''}</span>
           <div className="flex items-center gap-1.5">
-            <Button variant="outline" size="sm" className="h-7 w-7 p-0" disabled={page <= 1} onClick={() => setPage((p) => Math.max(1, p - 1))} aria-label="Previous page">
+            <Button variant="outline" size="sm" className="h-7 w-7 p-0 min-h-11 min-w-11 md:min-h-0 md:min-w-0" disabled={page <= 1} onClick={() => setPage((p) => Math.max(1, p - 1))} aria-label="Previous page">
               <ChevronLeft className="h-3.5 w-3.5" />
             </Button>
             <span className="tabular-nums min-w-[80px] text-center">Page {page} of {totalPages}</span>
-            <Button variant="outline" size="sm" className="h-7 w-7 p-0" disabled={page >= totalPages} onClick={() => setPage((p) => Math.min(totalPages, p + 1))} aria-label="Next page">
+            <Button variant="outline" size="sm" className="h-7 w-7 p-0 min-h-11 min-w-11 md:min-h-0 md:min-w-0" disabled={page >= totalPages} onClick={() => setPage((p) => Math.min(totalPages, p + 1))} aria-label="Next page">
               <ChevronRight className="h-3.5 w-3.5" />
             </Button>
           </div>

@@ -265,7 +265,7 @@ export default function PurchaseOrdersPage() {
             variant={poTypeFilter === tab.value ? 'default' : 'outline'}
             size="sm"
             className={cn(
-              'min-w-[80px]',
+              'min-w-[80px] min-h-11 md:min-h-0',
               poTypeFilter !== tab.value && tab.color,
             )}
             onClick={() => setPoTypeFilter(tab.value as POType | '')}
@@ -279,7 +279,7 @@ export default function PurchaseOrdersPage() {
       <Card>
         <CardContent className="p-4">
           <div className="flex flex-wrap items-center gap-3">
-            <div className="relative flex-1 min-w-[240px]">
+            <div className="relative flex-1 min-w-0 sm:min-w-[240px]">
               <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
               <Input
                 value={search}
@@ -289,7 +289,7 @@ export default function PurchaseOrdersPage() {
               />
             </div>
             <DropdownMenu>
-              <DropdownMenuTrigger className="inline-flex h-9 items-center justify-between gap-1.5 rounded-md border border-input bg-background px-3 text-sm min-w-[140px] hover:bg-accent hover:text-accent-foreground">
+              <DropdownMenuTrigger className="inline-flex h-9 min-h-11 md:min-h-0 items-center justify-between gap-1.5 rounded-md border border-input bg-background px-3 text-sm w-full sm:w-auto sm:min-w-[140px] hover:bg-accent hover:text-accent-foreground">
                 <span className="truncate">
                   {statusFilter.size === 0
                     ? 'All Statuses'
@@ -328,7 +328,7 @@ export default function PurchaseOrdersPage() {
               </DropdownMenuContent>
             </DropdownMenu>
             <Select value={supplierFilter || 'all'} onValueChange={(v) => setSupplierFilter(!v || v === 'all' ? '' : v)}>
-              <SelectTrigger className="w-[180px]">
+              <SelectTrigger className="w-full sm:w-[180px]">
                 <SelectValue>
                   {(v: string) => v === 'all' ? 'All Suppliers' : ((suppliers ?? []).find((s) => s.id === v)?.name ?? v)}
                 </SelectValue>
@@ -344,18 +344,18 @@ export default function PurchaseOrdersPage() {
               type="date"
               value={dateFrom}
               onChange={(e) => setDateFrom(e.target.value)}
-              className="h-9 w-[140px] rounded-md border border-input bg-background px-3 text-sm"
+              className="h-9 w-full sm:w-[140px] rounded-md border border-input bg-background px-3 text-sm"
               aria-label="From date"
             />
             <input
               type="date"
               value={dateTo}
               onChange={(e) => setDateTo(e.target.value)}
-              className="h-9 w-[140px] rounded-md border border-input bg-background px-3 text-sm"
+              className="h-9 w-full sm:w-[140px] rounded-md border border-input bg-background px-3 text-sm"
               aria-label="To date"
             />
             <Select value={receivalFilter || 'all'} onValueChange={(v) => setReceivalFilter(!v || v === 'all' ? '' : v)}>
-              <SelectTrigger className="w-[160px]">
+              <SelectTrigger className="w-full sm:w-[160px]">
                 <SelectValue>
                   {(v: string) => RECEIVAL_STATUS_OPTIONS.find((s) => (s.value || 'all') === v)?.label ?? 'All Receival'}
                 </SelectValue>
@@ -367,7 +367,7 @@ export default function PurchaseOrdersPage() {
               </SelectContent>
             </Select>
             <Select value={paymentFilter || 'all'} onValueChange={(v) => setPaymentFilter(!v || v === 'all' ? '' : v)}>
-              <SelectTrigger className="w-[160px]">
+              <SelectTrigger className="w-full sm:w-[160px]">
                 <SelectValue>
                   {(v: string) => PAYMENT_STATUS_OPTIONS.find((s) => (s.value || 'all') === v)?.label ?? 'All Payment'}
                 </SelectValue>
@@ -380,7 +380,7 @@ export default function PurchaseOrdersPage() {
             </Select>
             <DivisionFilter value={divisionFilter} onChange={setDivisionFilter} />
             {hasActiveFilters && (
-              <Button variant="ghost" size="sm" onClick={clearFilters}>
+              <Button variant="ghost" size="sm" className="min-h-11 md:min-h-0" onClick={clearFilters}>
                 <X className="h-4 w-4 mr-1" />
                 Clear
               </Button>
@@ -430,7 +430,7 @@ export default function PurchaseOrdersPage() {
                       title="No purchase orders found"
                       icon={<FileText className="h-6 w-6 text-muted-foreground" />}
                       action={
-                        <Button variant="outline" size="sm" onClick={() => router.push('/purchase/create-po')}>
+                        <Button variant="outline" size="sm" className="min-h-11 md:min-h-0" onClick={() => router.push('/purchase/create-po')}>
                           Create your first PO
                         </Button>
                       }
@@ -495,7 +495,7 @@ export default function PurchaseOrdersPage() {
                       </TableCell>
                       <TableCell className="text-right" onClick={(e) => e.stopPropagation()}>
                         <DropdownMenu>
-                          <DropdownMenuTrigger className="inline-flex h-8 w-8 items-center justify-center rounded-md hover:bg-accent" aria-label="Row actions">
+                          <DropdownMenuTrigger className="inline-flex h-8 w-8 min-h-11 md:min-h-0 min-w-11 md:min-w-0 items-center justify-center rounded-md hover:bg-accent" aria-label="Row actions">
                             <MoreVertical className="h-4 w-4" />
                           </DropdownMenuTrigger>
                           <DropdownMenuContent align="end">

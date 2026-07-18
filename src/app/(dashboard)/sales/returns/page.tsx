@@ -115,7 +115,7 @@ export default function SaleReturnsPage() {
         <div className="flex flex-wrap gap-1.5">
           {(['', 'pending', 'received', 'restocked', 'closed', 'cancelled'] as const).map((s) => (
             <button key={s} onClick={() => setStatusFilter(s)}
-              className={cn('rounded-full border px-3 py-1 text-xs font-medium transition-colors min-h-9 sm:min-h-8',
+              className={cn('rounded-full border px-3 py-1 text-xs font-medium transition-colors min-h-11 md:min-h-0',
                 statusFilter === s ? 'bg-primary text-primary-foreground border-primary' : 'bg-background hover:bg-muted'
               )}>
               {s ? STATUS_CONFIG[s].label : 'All'}
@@ -155,7 +155,7 @@ export default function SaleReturnsPage() {
                     </div>
                     <div className="flex items-center gap-2" onClick={(e) => e.stopPropagation()}>
                       {next && (
-                        <Button size="sm" variant="outline" className="h-7 text-xs" disabled={updateStatus.isPending}
+                        <Button size="sm" variant="outline" className="h-7 min-h-11 md:min-h-0 text-xs" disabled={updateStatus.isPending}
                           onClick={() => updateStatus.mutate({ id: ret.id, status: next },
                             { onSuccess: () => toast.success(`Marked as ${STATUS_CONFIG[next].label}`), onError: (e) => toast.error(e.message) }
                           )}>
@@ -163,7 +163,7 @@ export default function SaleReturnsPage() {
                         </Button>
                       )}
                       {canCancel && (
-                        <Button size="sm" variant="ghost" className="h-7 text-xs text-destructive hover:text-destructive" disabled={updateStatus.isPending}
+                        <Button size="sm" variant="ghost" className="h-7 min-h-11 md:min-h-0 text-xs text-destructive hover:text-destructive" disabled={updateStatus.isPending}
                           onClick={() => updateStatus.mutate({ id: ret.id, status: 'cancelled' },
                             { onSuccess: () => toast.success('Return cancelled'), onError: (e) => toast.error(e.message) }
                           )}>

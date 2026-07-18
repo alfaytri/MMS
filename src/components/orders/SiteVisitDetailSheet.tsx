@@ -207,7 +207,7 @@ export function SiteVisitDetailSheet({ visitId, open, onOpenChange }: Props) {
 
               {/* Tabs */}
               <Tabs defaultValue="services" className="flex flex-1 flex-col overflow-hidden mt-3">
-                <TabsList className="mx-5 w-auto justify-start rounded-none border-b bg-transparent p-0 overflow-x-auto whitespace-nowrap scroll-x-fade gap-1">
+                <TabsList className="mx-5 w-auto justify-start rounded-none border-b bg-transparent p-0 overflow-x-auto whitespace-nowrap gap-1">
                   <TabsTrigger
                     value="services"
                     className="rounded-none border-b-2 border-transparent data-[state=active]:border-orange-500 data-[state=active]:text-foreground text-muted-foreground px-3 py-1.5 text-sm font-medium"

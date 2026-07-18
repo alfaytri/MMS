@@ -81,17 +81,17 @@ export function ItemsListView({ type, enabled }: Props) {
           placeholder={`Search ${LABEL_MAP[type].toLowerCase()}...`}
           value={search}
           onChange={(e) => setSearch(e.target.value)}
-          className="h-7 text-xs w-64"
+          className="h-7 min-h-11 md:min-h-0 text-xs w-full sm:w-64"
         />
         <div className="flex items-center gap-2">
           <Switch checked={showArchived} onCheckedChange={setShowArchived} />
           <Label className="text-xs cursor-pointer" onClick={() => setShowArchived((v) => !v)}>Show archived</Label>
         </div>
         <div className="flex items-center gap-2 ml-auto">
-          <Button size="sm" variant="outline" className="h-7 text-xs" onClick={() => setImportOpen(true)}>
+          <Button size="sm" variant="outline" className="h-7 min-h-11 md:min-h-0 text-xs" onClick={() => setImportOpen(true)}>
             <Upload className="h-3 w-3 mr-1" /> Import
           </Button>
-          <Button size="sm" className="h-7 text-xs" onClick={() => setCreateCategoryOpen(true)}>
+          <Button size="sm" className="h-7 min-h-11 md:min-h-0 text-xs" onClick={() => setCreateCategoryOpen(true)}>
             <Plus className="h-3 w-3 mr-1" /> New Category
           </Button>
         </div>
@@ -104,13 +104,14 @@ export function ItemsListView({ type, enabled }: Props) {
             {[0, 1, 2].map((i) => <Skeleton key={i} className="h-10 w-full rounded" />)}
           </div>
         ) : (
-          <table className="w-full text-sm">
+          <div className="overflow-x-auto">
+          <table className="w-full text-sm min-w-[600px]">
             <thead>
               <tr className="border-b border-border bg-muted/40">
                 <th className="text-left text-[11px] font-semibold py-2 pl-3 pr-2 w-1/2">ITEM</th>
-                <th className="text-left text-[11px] font-semibold py-2 px-2">SKU</th>
-                <th className="text-left text-[11px] font-semibold py-2 px-2">UNIT</th>
-                <th className="text-left text-[11px] font-semibold py-2 px-2">PRICING</th>
+                <th className="text-left text-[11px] font-semibold py-2 px-2 hidden sm:table-cell">SKU</th>
+                <th className="text-left text-[11px] font-semibold py-2 px-2 hidden md:table-cell">UNIT</th>
+                <th className="text-left text-[11px] font-semibold py-2 px-2 hidden md:table-cell">PRICING</th>
                 <th className="text-left text-[11px] font-semibold py-2 px-2">STOCK / SERVICES</th>
                 <th className="text-right text-[11px] font-semibold py-2 px-2">ACTIONS</th>
               </tr>
@@ -141,6 +142,7 @@ export function ItemsListView({ type, enabled }: Props) {
               })}
             </tbody>
           </table>
+          </div>
         )}
       </div>
 
@@ -148,11 +150,11 @@ export function ItemsListView({ type, enabled }: Props) {
         <div className="flex items-center justify-between text-xs text-muted-foreground px-4 py-2 border-t border-border">
           <span>{filtered.length} categor{filtered.length !== 1 ? 'ies' : 'y'}</span>
           <div className="flex items-center gap-1.5">
-            <Button variant="outline" size="sm" className="h-7 w-7 p-0" disabled={page <= 1} onClick={() => setPage((p) => Math.max(1, p - 1))} aria-label="Previous page">
+            <Button variant="outline" size="sm" className="h-7 w-7 p-0 min-h-11 min-w-11 md:min-h-0 md:min-w-0" disabled={page <= 1} onClick={() => setPage((p) => Math.max(1, p - 1))} aria-label="Previous page">
               <ChevronLeft className="h-3.5 w-3.5" />
             </Button>
             <span className="tabular-nums min-w-[80px] text-center">Page {page} of {totalPages}</span>
-            <Button variant="outline" size="sm" className="h-7 w-7 p-0" disabled={page >= totalPages} onClick={() => setPage((p) => Math.min(totalPages, p + 1))} aria-label="Next page">
+            <Button variant="outline" size="sm" className="h-7 w-7 p-0 min-h-11 min-w-11 md:min-h-0 md:min-w-0" disabled={page >= totalPages} onClick={() => setPage((p) => Math.min(totalPages, p + 1))} aria-label="Next page">
               <ChevronRight className="h-3.5 w-3.5" />
             </Button>
           </div>
