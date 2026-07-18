@@ -49,7 +49,7 @@ export function ToolAssetLookup({
         return
       }
       setResults(
-        (data ?? []).map((r: any) => ({
+        (data ?? []).map((r) => ({
           tool_asset_item_id: r.id,
           item_name: r.name_en,
           item_name_ar: r.name_ar ?? null,

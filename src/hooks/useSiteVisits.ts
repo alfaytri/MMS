@@ -7,7 +7,7 @@ const PAGE_SIZE = 50
 export interface SiteVisitListItem {
   id: string
   visit_id: string
-  customer_id: string
+  customer_id: string | null
   customer_name: string
   customer_phone: string
   arrival_phone: string | null
@@ -16,7 +16,7 @@ export interface SiteVisitListItem {
   scheduled_date: string | null
   address: string | null
   notes: string | null
-  created_at: string
+  created_at: string | null
 }
 
 export interface SiteVisitsFilter {
@@ -44,11 +44,11 @@ export function useSiteVisits(filter: SiteVisitsFilter = {}) {
           customers(name, customer_phones(phone))
         `)
         .order('scheduled_date', { ascending: false })
-        .range(from, to) as { data: any[] | null; error: any }
+        .range(from, to)
 
       if (error) throw error
 
-      const items = (data ?? []).map((v: any) => ({
+      const items = (data ?? []).map((v) => ({
         id: v.id,
         visit_id: v.visit_id,
         customer_id: v.customer_id,

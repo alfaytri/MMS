@@ -29,7 +29,7 @@ import {
 } from '@/hooks/useSaleOrders'
 import { useCancelDelivery, useCompleteDelivery, useUpdateDelivery, useCreateReplacementDelivery } from '@/hooks/useSaleDeliveries'
 import { useInvoicesBySO } from '@/hooks/useCustomerInvoices'
-import { useReturnsBySO, useUnresolvedReturns } from '@/hooks/useSaleReturns'
+import { useReturnsBySO, useUnresolvedReturns, type SaleReturn } from '@/hooks/useSaleReturns'
 import { useActivityLog } from '@/hooks/useActivityLog'
 import { cn } from '@/lib/utils'
 import { formatCurrency, formatDate } from '@/lib/utils/formatters'
@@ -85,7 +85,7 @@ export function SoDetailDialog({ open, onOpenChange, so, onEdit, onConfirm }: So
   const { data: warehouses = [] } = useWarehouses()
 
   const [replacementOpen, setReplacementOpen] = useState(false)
-  const [selectedReturn, setSelectedReturn] = useState<any>(null)
+  const [selectedReturn, setSelectedReturn] = useState<SaleReturn | null>(null)
   const { data: unresolvedReturns = [] } = useUnresolvedReturns(open ? (so?.id ?? null) : null)
   const createReplacement = useCreateReplacementDelivery()
 
@@ -267,7 +267,7 @@ export function SoDetailDialog({ open, onOpenChange, so, onEdit, onConfirm }: So
                 {/* Send Replacement for unresolved returns */}
                 {unresolvedReturns.length > 0 && (
                   <div className="space-y-2">
-                    {unresolvedReturns.map((ret: any) => (
+                    {unresolvedReturns.map((ret) => (
                       <div key={ret.id} className="flex items-center justify-between rounded-md border border-amber-200 bg-amber-50 px-3 py-2">
                         <span className="text-sm">
                           Return <span className="font-medium">{ret.return_number}</span> needs resolution
@@ -478,7 +478,7 @@ export function SoDetailDialog({ open, onOpenChange, so, onEdit, onConfirm }: So
                   warehouseName,
                   returnData: selectedReturn,
                   returnId: selectedReturn.id,
-                  creditNoteId: selectedReturn.credit_notes?.id ?? selectedReturn.credit_note_id,
+                  creditNoteId: selectedReturn.credit_note?.id ?? selectedReturn.credit_note_id ?? '',
                   giftItems: giftItems.map((g) => ({
                     item_name: g.item_name,
                     sku: g.sku,

@@ -11,6 +11,7 @@ import { useReceivalsAndDeliveries, ReceivalDelivery } from '@/hooks/useWarehous
 import { WhReceivalDetailDialog } from './WhReceivalDetailDialog'
 import { WarehouseReportButton } from './WarehouseReportButton'
 import { Warehouse } from '@/hooks/useWarehouses'
+import { Profile } from '@/hooks/useProfiles'
 import { format } from 'date-fns'
 
 const STATUS_STYLE: Record<string, string> = {
@@ -23,7 +24,7 @@ const STATUS_STYLE: Record<string, string> = {
 
 interface Props {
   warehouses: Warehouse[]
-  currentProfile: any
+  currentProfile: Profile | null
 }
 
 export const ReceivalsDeliveriesTab = React.memo(function ReceivalsDeliveriesTab({ warehouses }: Props) {

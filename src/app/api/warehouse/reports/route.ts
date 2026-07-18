@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@supabase/supabase-js'
+import type { Database } from '@/types/database.types'
 import { htmlToPdfBuffer } from '@/lib/pdf/html-to-pdf'
 import { loadPdfFonts } from '@/lib/pdf/pdf-fonts'
 import { resolveBrand, brandDataToAssets } from '@/lib/pdf/brand-resolver'
@@ -55,7 +56,7 @@ function toIsoEnd(dateStr?: string): string | undefined {
 
 // ─── Data fetchers ───────────────────────────────────────────────────────────
 
-type SupaClient = ReturnType<typeof createClient<any>>
+type SupaClient = ReturnType<typeof createClient<Database>>
 
 async function fetchStockOverview(supabase: SupaClient, warehouseId?: string) {
   let q = supabase
@@ -239,7 +240,7 @@ async function fetchReceivalsDeliveries(supabase: SupaClient, fromDate?: string,
 
   const rows: ReceivalDeliveryReportRow[] = []
 
-  for (const r of (receivalsRes.data ?? []) as any[]) {
+  for (const r of receivalsRes.data ?? []) {
     const po = r.purchase_orders as { po_number: string; supplier_name: string } | null
     const wh = r.warehouses as { name: string } | null
     const items = (r.receival_items ?? []) as { id: string }[]
@@ -249,14 +250,14 @@ async function fetchReceivalsDeliveries(supabase: SupaClient, fromDate?: string,
       reference_number: po?.po_number ?? '—',
       warehouse_name: wh?.name ?? '—',
       counterparty: po?.supplier_name ?? '—',
-      date: r.date,
+      date: r.date ?? '',
       item_count: items.length,
-      status: r.status,
-      responsible_name: r.received_by_name,
+      status: r.status ?? '',
+      responsible_name: r.received_by_name ?? null,
     })
   }
 
-  for (const d of (deliveriesRes.data ?? []) as any[]) {
+  for (const d of deliveriesRes.data ?? []) {
     const so = d.sale_orders as { so_number: string; customers: { name: string } | null } | null
     const deliveryItems = (d.sale_delivery_lines ?? []) as unknown[]
     rows.push({
@@ -265,9 +266,9 @@ async function fetchReceivalsDeliveries(supabase: SupaClient, fromDate?: string,
       reference_number: so?.so_number ?? '—',
       warehouse_name: d.warehouse_name ?? '—',
       counterparty: so?.customers?.name ?? '—',
-      date: d.date,
+      date: d.date ?? '',
       item_count: deliveryItems.length,
-      status: d.status,
+      status: d.status ?? '',
       responsible_name: null,
     })
   }
@@ -306,9 +307,13 @@ export async function POST(req: NextRequest) {
       .eq('warehouse_id', warehouseId)
       .limit(10)
     const firstDiv = (rpRows ?? []).find(
-      (r: any) => r.profiles?.division_id,
+      (r) => {
+        const p = r.profiles as unknown as { division_id: string | null } | null
+        return p?.division_id
+      },
     )
-    resolvedDivisionId = (firstDiv as any)?.profiles?.division_id ?? null
+    const p = firstDiv?.profiles as unknown as { division_id: string | null } | null
+    resolvedDivisionId = p?.division_id ?? null
   }
 
   const [fonts, brand] = await Promise.all([loadPdfFonts(), resolveBrand(resolvedDivisionId, supabase)])

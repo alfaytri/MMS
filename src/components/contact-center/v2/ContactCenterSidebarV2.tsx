@@ -142,8 +142,8 @@ export function ContactCenterSidebarV2() {
       })
       setShowAttach(false)
       toast.success('File queued for send')
-    } catch (e: any) {
-      toast.error(e?.message ?? 'Failed to queue file')
+    } catch (e: unknown) {
+      toast.error(e instanceof Error ? e.message : 'Failed to queue file')
     }
   }
 

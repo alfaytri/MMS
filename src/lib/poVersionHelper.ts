@@ -91,8 +91,8 @@ export async function savePoSnapshot(
 
     const lineItems = (po.po_line_items ?? []) as POLineItemDraft[]
     if (version && lineItems.length > 0) {
-      await supabase.from('po_version_lines' as any).insert(
-        lineItems.map((li: any) => ({
+      await supabase.from('po_version_lines').insert(
+        lineItems.map((li: POLineItemDraft) => ({
           po_version_id: version.id,
           item_name:          li.item_name ?? 'Item',
           sku:                li.sku ?? null,

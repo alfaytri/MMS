@@ -119,7 +119,7 @@ export function useSettleInstallment() {
         .from('payment_installments')
         .select('status')
         .eq('plan_id', payload.plan_id)
-      const allPaid = (installments ?? []).every((i: any) => i.status === 'paid')
+      const allPaid = (installments ?? []).every((i) => i.status === 'paid')
       if (allPaid) {
         await supabase
           .from('payment_plans')

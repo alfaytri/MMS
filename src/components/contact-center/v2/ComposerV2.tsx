@@ -104,8 +104,8 @@ export function ComposerV2({
         try {
           await onVoiceNote(file)
           toast.success('Voice note sent')
-        } catch (e: any) {
-          toast.error(e?.message ?? 'Failed to send voice note')
+        } catch (e: unknown) {
+          toast.error(e instanceof Error ? e.message : 'Failed to send voice note')
         }
       }
 

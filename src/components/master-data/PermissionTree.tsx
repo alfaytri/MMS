@@ -471,6 +471,14 @@ function TreeNodeRow({
   onToggle: (id: string) => void
   search: string
 }) {
+  const filteredPerms = useMemo(() => {
+    if (!search) return node.permissions ?? []
+    const s = search.toLowerCase()
+    return (node.permissions ?? []).filter(
+      p => p.label.toLowerCase().includes(s) || p.key.toLowerCase().includes(s),
+    )
+  }, [node.permissions, search])
+
   if (search && !nodeHasMatch(node, search)) return null
 
   const isExpanded = expandedIds.has(node.id)
@@ -479,14 +487,6 @@ function TreeNodeRow({
   const isExpandable = hasChildren || hasPerms
   const total = countPerms(node)
   const Icon = node.icon
-
-  const filteredPerms = useMemo(() => {
-    if (!search) return node.permissions ?? []
-    const s = search.toLowerCase()
-    return (node.permissions ?? []).filter(
-      p => p.label.toLowerCase().includes(s) || p.key.toLowerCase().includes(s),
-    )
-  }, [node.permissions, search])
 
   const showExpanded = isExpanded || !!search
 

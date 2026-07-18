@@ -37,7 +37,7 @@ export function useSupplierBills(filters?: BillFilters, options?: { enabled?: bo
       if (filters?.supplier_id) q = q.eq('supplier_id', filters.supplier_id)
       const { data, error } = await q
       if (error) throw error
-      return (data ?? []).map((b: any) => ({
+      return (data ?? []).map((b) => ({
         ...b,
         supplier_name: b.suppliers?.name ?? null,
         po_number: b.purchase_orders?.po_number ?? null,

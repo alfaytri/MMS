@@ -82,6 +82,8 @@ export function useProfitabilityDrilldown(from: string, to: string, enabled: boo
     queryKey: queryKeys.finance.profitabilityDrilldown(from, to),
     queryFn: async () => {
       const supabase = createClient()
+      // TODO: add rpc_profitability_drilldown to database.types.ts
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
       const { data, error } = await supabase.rpc(
         'rpc_profitability_drilldown' as any,
         { p_start_date: from, p_end_date: to },

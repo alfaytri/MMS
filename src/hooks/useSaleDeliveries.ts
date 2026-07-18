@@ -45,7 +45,7 @@ export function useSaleDeliveries(filters?: { status?: DeliveryStatus | '' }) {
       if (filters?.status) q = q.eq('status', filters.status)
       const { data, error } = await q.limit(500)
       if (error) throw error
-      return (data ?? []).map((d: any) => ({
+      return (data ?? []).map((d) => ({
         ...d,
         so_number: d.sale_orders?.so_number ?? null,
         customer_name: d.sale_orders?.customers?.name ?? null,

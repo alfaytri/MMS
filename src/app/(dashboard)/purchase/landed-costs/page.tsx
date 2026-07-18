@@ -54,7 +54,7 @@ function useAttachedReceivals(receivalIds: string[]) {
         .in('id', receivalIds)
         .order('date', { ascending: false })
       if (error) throw error
-      return (data ?? []).map((r: any) => {
+      return (data ?? []).map((r) => {
         const isInventory = r.source_type === 'inventory'
         return {
           id: r.id as string,

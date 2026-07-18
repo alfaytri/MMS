@@ -51,7 +51,7 @@ export async function generateStatementPdf(
   const openOnly = input.openOnly ?? true
 
   // ── 1. Fetch statement data ──────────────────────────────────────────
-  const { data, error } = await supabase.rpc('rpc_customer_statement_v2' as any, {
+  const { data, error } = await supabase.rpc('rpc_customer_statement_v2', {
     p_customer_id: input.customerId,
   })
   if (error || !data) {

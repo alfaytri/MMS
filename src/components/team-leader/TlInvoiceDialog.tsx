@@ -11,6 +11,7 @@ import { ScrollArea } from '@/components/ui/scroll-area'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { toast } from 'sonner'
 import { useQueryClient } from '@tanstack/react-query'
+import type { PostgrestError } from '@supabase/supabase-js'
 import { createClient } from '@/lib/supabase/client'
 import { queryKeys } from '@/lib/queryKeys'
 import type { TlVisit, OrderCompletionData, AddedBillableService } from '@/types/team-leader'
@@ -94,8 +95,8 @@ export function TlInvoiceDialog({ visit, data, profileId, onDone, onClose }: Pro
     try {
       // 1. Optimistic-lock: mark the source record completed
       const now = new Date().toISOString()
-      let updated: any[] | null = null
-      let visitErr: any = null
+      let updated: { id: string }[] | null = null
+      let visitErr: PostgrestError | null = null
 
       if (visit.source_type === 'order') {
         const res = await supabase

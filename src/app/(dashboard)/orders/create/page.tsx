@@ -102,7 +102,7 @@ export default function CreateOrderPage() {
       .select('id, name, customer_phones(id, phone)')
       .eq('id', prefilledCustomerId)
       .single()
-      .then(({ data, error }: { data: any; error: any }) => {
+      .then(({ data, error }) => {
         if (error || !data) return
         const phones: Array<{ id: string; phone: string }> = data.customer_phones ?? []
         const phone = prefilledPhoneId

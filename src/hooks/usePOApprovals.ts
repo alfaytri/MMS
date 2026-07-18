@@ -58,9 +58,9 @@ export function usePendingApprovals() {
       // Others see only POs where they have an active pending step in their role
       return pos.filter((po) => {
         const steps = po.po_approvals ?? []
-        const maxIteration = Math.max(...steps.map((s: any) => s.iteration ?? 1), 1)
+        const maxIteration = Math.max(...steps.map((s) => s.iteration ?? 1), 1)
         return steps.some(
-          (s: any) =>
+          (s) =>
             s.status === 'pending' &&
             s.is_active === true &&
             s.iteration === maxIteration &&

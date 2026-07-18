@@ -667,7 +667,7 @@ export function PoDetailDialog({ open, onOpenChange, po, poId, onEdit }: Props) 
                     poId={current.id}
                     poNumber={current.po_number}
                     currency={current.currency ?? 'QAR'}
-                    lineItems={(fullPO?.po_line_items ?? []).map((li: any) => ({
+                    lineItems={(fullPO?.po_line_items ?? []).map((li) => ({
                       id: li.id,
                       item_name: li.item_name,
                       qty: li.qty,

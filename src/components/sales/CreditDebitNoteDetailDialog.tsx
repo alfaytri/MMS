@@ -66,8 +66,8 @@ export function CreditDebitNoteDetailDialog({ note, referenceNumber, open, onOpe
   const allLines = note.credit_note_lines ?? []
   const pdfData = {
     original_lines: allLines
-      .filter((l: any) => l.line_type === 'original')
-      .map((l: any) => ({
+      .filter((l) => l.line_type === 'original')
+      .map((l) => ({
         item_name:  l.description ?? 'Item',
         sku:        l.sku ?? null,
         qty:        l.qty,
@@ -75,8 +75,8 @@ export function CreditDebitNoteDetailDialog({ note, referenceNumber, open, onOpe
         total:      l.total ?? l.qty * l.unit_price,
       })) as NoteLineItem[],
     returned_lines: allLines
-      .filter((l: any) => l.line_type === 'returned')
-      .map((l: any) => ({
+      .filter((l) => l.line_type === 'returned')
+      .map((l) => ({
         item_name:       l.description ?? 'Item',
         sku:             l.sku ?? null,
         qty:             l.qty,

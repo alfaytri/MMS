@@ -48,14 +48,25 @@ export async function GET(req: NextRequest) {
     return NextResponse.json({ error: `WHAPI ${res.status}: ${text}` }, { status: res.status })
   }
 
+  interface WhapiMessage {
+    id: string
+    type?: string
+    from_me?: boolean
+    timestamp?: number
+    text?: { body?: string }
+    caption?: string
+    status?: string
+    [key: string]: unknown
+  }
+
   const data    = await res.json()
-  const msgs: any[] = data?.messages ?? []
+  const msgs: WhapiMessage[] = (data?.messages ?? []) as WhapiMessage[]
   const supabase = createClient(SUPA_URL, SUPA_KEY)
   const mirrorJobs: MirrorJob[] = []
 
   const toInsert = msgs
-    .filter((m: any) => m.type !== 'reaction' && m.id)
-    .map((m: any) => {
+    .filter((m: WhapiMessage) => m.type !== 'reaction' && m.id)
+    .map((m: WhapiMessage) => {
       const ts      = m.timestamp ? new Date(m.timestamp * 1000).toISOString() : new Date().toISOString()
       const msgType = (m.type ?? 'text').toLowerCase()
       const text    = m.text?.body?.trim() || m.caption?.trim() || null
@@ -68,7 +79,7 @@ export async function GET(req: NextRequest) {
         const skeleton = buildAttachmentSkeleton(media, key)
         if (!skeleton) continue
         attachments.push(skeleton)
-        mirrorJobs.push({ externalId: m.id, phone, mediaKey: key, media })
+        mirrorJobs.push({ externalId: m.id, phone, mediaKey: key, media: media as Record<string, unknown> })
       }
 
       return {

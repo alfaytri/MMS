@@ -18,7 +18,7 @@ export function SoPaymentDialog({ open, onOpenChange, so }: SoPaymentDialogProps
 
   const methods = dbMethods.map((m) => ({ value: m.slug, label: m.name }))
 
-  const totalPaid = payments.reduce((s, p) => s + ((p as any).amount_qar ?? p.amount), 0)
+  const totalPaid = payments.reduce((s, p) => s + (p.amount_qar ?? p.amount), 0)
 
   function handleSubmit(values: PaymentFormValues) {
     createPayment.mutate(

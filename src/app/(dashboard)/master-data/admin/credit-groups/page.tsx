@@ -124,7 +124,7 @@ export default function CreditGroupsPage() {
       <AlertDialog open={!!deleteTarget} onOpenChange={(o) => !o && setDeleteTarget(null)}>
         <AlertDialogContent>
           <AlertDialogHeader>
-            <AlertDialogTitle>Delete "{deleteTarget?.name}"?</AlertDialogTitle>
+            <AlertDialogTitle>Delete &quot;{deleteTarget?.name}&quot;?</AlertDialogTitle>
             <AlertDialogDescription>This cannot be undone. The group must have zero customers assigned.</AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>

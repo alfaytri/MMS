@@ -32,7 +32,7 @@ export function useCustomerHistory(
       if (error) throw error
       return {
         data: (data ?? []).map(
-          (o: any) =>
+          (o) =>
             ({
               id: o.id,
               order_id: o.order_id,
@@ -41,7 +41,7 @@ export function useCustomerHistory(
               has_invoice: o.has_invoice ?? false,
               invoice_number: o.invoice_number,
               total_amount: Number(o.total_amount ?? 0),
-              services: (o.order_services ?? []).map((s: any): CustomerHistoryOrderService => ({
+              services: (o.order_services ?? []).map((s): CustomerHistoryOrderService => ({
                 name: s.name,
                 qty: s.qty ?? 1,
                 price: Number(s.price ?? 0),

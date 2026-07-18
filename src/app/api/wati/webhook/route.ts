@@ -1,6 +1,7 @@
 import { type NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@supabase/supabase-js'
 import type { Database } from '@/types/database.types'
+import type { WatiMessageItem, WatiTemplateComponent } from '@/types/wati'
 import { verifySharedSecret } from '@/lib/webhooks/verify'
 
 const SUPA_URL        = process.env.NEXT_PUBLIC_SUPABASE_URL!
@@ -46,7 +47,7 @@ async function resolveWamidViaWati(phone: string, targetWamid: string): Promise<
     )
     if (!res.ok) return null
     const data = await res.json()
-    const items: any[] = data?.messages?.items ?? []
+    const items: WatiMessageItem[] = data?.messages?.items ?? []
     for (const item of items) {
       // getMessages returns the wamid in whatsappMessageId
       if (item.whatsappMessageId === targetWamid) {
@@ -75,7 +76,7 @@ function toProxyUrl(url: string | null): string | null {
   return url  // external/CDN/Supabase URL — use as-is
 }
 
-function extractAttachments(body: any, mappedMsgType?: string): Attachment[] {
+function extractAttachments(body: WatiMessageItem, mappedMsgType?: string): Attachment[] {
   const WEBHOOK_TYPE_MAP: Record<string, string> = {
     '0': 'text', '1': 'image', '2': 'video', '3': 'audio',
     '4': 'document', '5': 'sticker', '6': 'location', '7': 'contacts',
@@ -85,7 +86,8 @@ function extractAttachments(body: any, mappedMsgType?: string): Attachment[] {
   const rawData = body.data ?? {}
 
   // body.data can be a relative file path string (e.g. "data/images/uuid.jpg")
-  let data: any = rawData
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any -- Wati data is polymorphic (string paths, nested objects, primitives)
+  let data = rawData as Record<string, any>
   let dataUrl: string | null = null
   if (typeof rawData === 'string' && rawData) {
     dataUrl = `${WATI_URL_WEBHOOK}/${rawData}`
@@ -128,20 +130,23 @@ function extractAttachments(body: any, mappedMsgType?: string): Attachment[] {
 
   // Template / HSM messages with document or image header
   if (msgType === 'template' || msgType === 'hsm') {
-    const components: any[] = data.template?.components ?? data.components ?? []
-    const header = components.find((c: any) => (c.type ?? '').toLowerCase() === 'header')
+    const components: WatiTemplateComponent[] = (data.template as Record<string, unknown>)?.components as WatiTemplateComponent[] ?? data.components as WatiTemplateComponent[] ?? []
+    const header = components.find((c: WatiTemplateComponent) => (c.type ?? '').toLowerCase() === 'header')
 
-    const headerDoc =
+    type MediaRef = { url?: string; link?: string; filename?: string; fileName?: string } | null
+    const tplHeader = (data.template as Record<string, unknown>)?.header as Record<string, unknown> | undefined
+    const dtHeader = data.templateHeader as Record<string, unknown> | undefined
+    const headerDoc: MediaRef =
       header?.document ??
-      data.template?.header?.document ??
+      tplHeader?.document as MediaRef ??
       body.templateHeader?.document ??
-      data.templateHeader?.document ?? null
+      dtHeader?.document as MediaRef ?? null
 
-    const headerImg =
+    const headerImg: MediaRef =
       header?.image ??
-      data.template?.header?.image ??
+      tplHeader?.image as MediaRef ??
       body.templateHeader?.image ??
-      data.templateHeader?.image ?? null
+      dtHeader?.image as MediaRef ?? null
 
     if (headerDoc) {
       const url = toProxyUrl(headerDoc.url ?? headerDoc.link ?? mediaUrl ?? null)
@@ -151,8 +156,8 @@ function extractAttachments(body: any, mappedMsgType?: string): Attachment[] {
       const url = toProxyUrl(headerImg.url ?? headerImg.link ?? mediaUrl ?? null)
       if (url) return [{ url, type: 'image/jpeg', name: 'image' }]
     }
-    const headerFormat = (header?.format ?? data.template?.header?.format ?? '').toLowerCase()
-    if (headerFormat === 'document' && mediaUrl) return [{ url: toProxyUrl(mediaUrl) ?? mediaUrl, type: 'application/octet-stream', name: data.fileName ?? 'document' }]
+    const headerFormat = String(header?.format ?? tplHeader?.format ?? '').toLowerCase()
+    if (headerFormat === 'document' && mediaUrl) return [{ url: toProxyUrl(mediaUrl) ?? mediaUrl, type: 'application/octet-stream', name: (data.fileName as string) ?? 'document' }]
     if (headerFormat === 'image' && mediaUrl) return [{ url: toProxyUrl(mediaUrl) ?? mediaUrl, type: 'image/jpeg', name: 'image' }]
   }
 
@@ -163,13 +168,16 @@ function extractAttachments(body: any, mappedMsgType?: string): Attachment[] {
 const MEDIA_TYPES = new Set(['image', 'document', 'video', 'audio', 'voice', 'sticker'])
 
 // Extract the best available text from any Wati message type
-function extractWebhookText(body: any, msgType: string): string {
+function extractWebhookText(body: WatiMessageItem, msgType: string): string {
   const t = msgType.toLowerCase()
+  // Narrow body.data once — can be a string path or an object
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const bd: Record<string, any> | null = typeof body.data === 'object' && body.data ? body.data as Record<string, any> : null
 
   // For media messages WATI puts the filename in body.text — skip it and only
   // use the actual user caption so we don't render filenames as chat text.
   if (MEDIA_TYPES.has(t)) {
-    return body.caption?.trim() ?? body.data?.caption?.trim() ?? ''
+    return body.caption?.trim() ?? bd?.caption?.trim() ?? ''
   }
 
   // finalText — rendered template body on broadcastMessage webhook events
@@ -177,18 +185,18 @@ function extractWebhookText(body: any, msgType: string): string {
   if (finalText) return finalText
   const direct = body.text?.trim() ?? ''
   if (direct) return direct
-  const caption = body.caption?.trim() ?? body.data?.caption?.trim() ?? ''
+  const caption = body.caption?.trim() ?? bd?.caption?.trim() ?? ''
   if (caption) return caption
-  const dataBody = body.data?.body?.trim() ?? body.data?.text?.trim() ?? ''
+  const dataBody = bd?.body?.trim() ?? bd?.text?.trim() ?? ''
   if (dataBody) return dataBody
   if (t === 'template' || t === 'hsm') {
-    const components: any[] = body.data?.template?.components ?? body.data?.components ?? body.templateComponents ?? []
-    const comp = components.find((c: any) => (c.type ?? '').toLowerCase() === 'body')
+    const components: WatiTemplateComponent[] = bd?.template?.components as WatiTemplateComponent[] ?? bd?.components as WatiTemplateComponent[] ?? body.templateComponents as WatiTemplateComponent[] ?? []
+    const comp = components.find((c: WatiTemplateComponent) => (c.type ?? '').toLowerCase() === 'body')
     if (comp?.text?.trim()) return comp.text.trim()
-    const directBody = body.data?.template?.body?.trim() ?? body.templateBody?.trim() ?? ''
+    const directBody = bd?.template?.body?.trim() ?? body.templateBody?.trim() ?? ''
     if (directBody) return directBody
     // Fall back to template name so message never shows as blank
-    const tplName = body.data?.template?.name ?? body.templateName ?? body.elementName ?? ''
+    const tplName = bd?.template?.name ?? body.templateName ?? body.elementName ?? ''
     if (tplName) return `[Template: ${tplName}]`
   }
   if (msgType === 'contacts' && Array.isArray(body.contacts) && body.contacts.length > 0) {
@@ -217,7 +225,9 @@ export async function POST(req: NextRequest) {
     return new Response('Unauthorized', { status: 401 })
   }
 
-  let body: any
+  // Webhook payload is a superset of WatiMessageItem with extra delivery/status fields
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any -- Wati webhook payloads vary widely by event type
+  let body: WatiMessageItem & Record<string, any>
   try { body = await req.json() } catch { return new Response('Bad JSON', { status: 400 }) }
 
   const supabase = createClient<Database>(SUPA_URL, SUPA_KEY)
@@ -248,7 +258,7 @@ export async function POST(req: NextRequest) {
         eventType === 'sentMessageDELIVERED_v2' ? 'delivered'
         : eventType === 'sentMessageREAD_v2'    ? 'read'
         : eventType === 'templateMessageFailed' ? 'failed'
-        : normaliseStatus(body.statusString ?? body.status)
+        : normaliseStatus(body.statusString ?? body.status as string)
       // If the delivery status ID is a wamid, backfill the wamid column
       const statusWamid = String(externalId).startsWith('wamid.') ? String(externalId) : null
 
@@ -492,9 +502,9 @@ export async function POST(req: NextRequest) {
     if (rawWaId) {
       const phone = normalisePhone(rawWaId)
       const isResolved = eventType.includes('resolve')
+      const at = body.assignedTo
       const assignedAgent: string | null =
-        body.assignedTo?.name ?? body.assignedTo?.fullName ??
-        (typeof body.assignedTo === 'string' ? body.assignedTo : null) ??
+        (typeof at === 'object' ? (at?.name ?? at?.fullName ?? null) : null) ?? (typeof at === 'string' ? at : null) ??
         body.operatorName ?? null
 
       await supabase.from('chat_conversations')
@@ -543,9 +553,9 @@ export async function POST(req: NextRequest) {
   const attachments = isMsgEvent ? [] : extractAttachments(body, msgType)
 
   // Extract assigned agent from message payload (Wati sometimes includes it)
+  const at2 = body.assignedTo
   const assignedAgentInMsg: string | null =
-    body.assignedTo?.name ?? body.assignedTo?.fullName ??
-    (typeof body.assignedTo === 'string' ? body.assignedTo : null) ??
+    (typeof at2 === 'object' ? (at2?.name ?? at2?.fullName ?? null) : null) ?? (typeof at2 === 'string' ? at2 : null) ??
     body.operatorName ?? null
 
   const rawText = extractWebhookText(body, msgType)
@@ -555,7 +565,7 @@ export async function POST(req: NextRequest) {
 
   // Prefer WhatsApp's own message ID (wamid.xxx) over Wati's internal id.
   // This is critical for reaction lookups: body.reaction.messageId is always the wamid.
-  const externalId: string | null = body.whatsappMessageId ?? body.id ?? null
+  const externalId: string | null = body.whatsappMessageId ?? (body.id != null ? String(body.id) : null)
 
   // Extract the WhatsApp wamid if available in the payload.
   // Wati inconsistently places this in different fields depending on API version.

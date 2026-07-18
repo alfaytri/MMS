@@ -98,7 +98,7 @@ export function useReceivals(filters?: {
       }
       const { data, error } = await q
       if (error) throw error
-      return (data ?? []).map((r: any) => ({
+      return (data ?? []).map((r) => ({
         ...r,
         po_number: r.purchase_orders?.po_number ?? null,
         supplier_name: r.purchase_orders?.supplier_name ?? null,
@@ -441,7 +441,7 @@ export function useReceivalsForLcSelector({ search = '' }: { search?: string } =
       // Match on receival_number, po_number, or supplier_name. We filter
       // client-side because PostgREST .or() can't span a joined table without
       // a view/RPC, and this list is small (recent receivals only).
-      const rows = (data ?? []).map((r: any) => {
+      const rows = (data ?? []).map((r) => {
         const isInventory = r.source_type === 'inventory'
         return {
           id: r.id as string,
@@ -511,7 +511,7 @@ export function useReceivalItemsBatch(receivalIds: string[] | null) {
         const k = `${l.receival_id}|${l.brand_variant_id}`
         remainingMap.set(k, (remainingMap.get(k) ?? 0) + l.remaining_qty)
       }
-      return (items ?? []).map((item: any) => ({
+      return (items ?? []).map((item) => ({
         id: item.id as string,
         receival_id: item.receival_id as string,
         item_name: item.item_name as string,
@@ -551,9 +551,9 @@ export function useReceivalItemsWithFifo(receivalId: string | null) {
         if (!l.brand_variant_id) continue
         remainingMap.set(l.brand_variant_id, (remainingMap.get(l.brand_variant_id) ?? 0) + l.remaining_qty)
       }
-      return (items ?? []).map((item: any) => ({
+      return (items ?? []).map((item) => ({
         ...item,
-        remaining_qty: remainingMap.get(item.brand_variant_id) ?? 0,
+        remaining_qty: (item.brand_variant_id ? remainingMap.get(item.brand_variant_id) : 0) ?? 0,
       })) as ReceivalItemWithFifo[]
     },
     staleTime: 2 * 60 * 1000,

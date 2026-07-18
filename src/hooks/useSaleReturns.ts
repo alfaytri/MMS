@@ -253,7 +253,7 @@ async function createCreditNoteForReturn(
   ]
   if (lineRows.length > 0) {
     const { error: linesErr } = await supabase
-      .from('credit_note_lines' as any)
+      .from('credit_note_lines')
       .insert(lineRows)
     if (linesErr) throw linesErr
   }
@@ -290,7 +290,7 @@ export function useUpdateReturnStatus() {
         if (rpcError) throw rpcError
 
         // Auto-create credit note
-        await createCreditNoteForReturn(supabase, id, { ...ret, return_lines: (ret as any).return_lines ?? [] })
+        await createCreditNoteForReturn(supabase, id, { ...ret, return_lines: (ret.return_lines ?? []) as NonNullable<SaleReturn['return_lines']> })
       }
 
       return ret as { source_id: string; return_number: string; return_lines: NonNullable<SaleReturn['return_lines']>; reason: string }
@@ -337,7 +337,7 @@ export function useReturnsBySO(soId: string | null) {
       const rows = data ?? []
       // Batch-fetch full credit note objects so the dialog can open inline
       const noteIds = rows.map((r) => (r as Record<string, unknown>).credit_note_id as string | null).filter(Boolean) as string[]
-      let noteMap: Record<string, Record<string, unknown>> = {}
+      const noteMap: Record<string, Record<string, unknown>> = {}
       if (noteIds.length > 0) {
         const { data: notes } = await supabase
           .from('credit_notes')
@@ -406,7 +406,7 @@ export function useAssignWarehouseAndRestock() {
         .rpc('rpc_process_return_restock', { p_return_id: id })
       if (rpcError) throw rpcError
 
-      await createCreditNoteForReturn(supabase, id, { ...ret, return_lines: (ret as any).return_lines ?? [] })
+      await createCreditNoteForReturn(supabase, id, { ...ret, return_lines: (ret.return_lines ?? []) as NonNullable<SaleReturn['return_lines']> })
 
       return ret as { source_id: string; return_number: string; return_lines: NonNullable<SaleReturn['return_lines']>; reason: string }
     },

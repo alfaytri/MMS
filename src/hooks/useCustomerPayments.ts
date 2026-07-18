@@ -40,8 +40,8 @@ export function useCustomerPayments(invoiceId?: string) {
 
       // Batch-fetch SO details for payments linked to a sale_order
       const soIds: string[] = (data ?? [])
-        .filter((p: any) => p.source_type === 'sale_order' && p.source_id)
-        .map((p: any) => p.source_id as string)
+        .filter((p) => p.source_type === 'sale_order' && p.source_id)
+        .map((p) => p.source_id as string)
 
       const soMap: Record<string, { so_number: string; customer_name: string | null }> = {}
       if (soIds.length > 0) {
@@ -57,7 +57,7 @@ export function useCustomerPayments(invoiceId?: string) {
         }
       }
 
-      return (data ?? []).map((p: any) => {
+      return (data ?? []).map((p) => {
         const soInfo = p.source_type === 'sale_order' && p.source_id ? soMap[p.source_id] : null
         return {
           ...p,
@@ -119,7 +119,7 @@ export function useCreateCustomerPayment() {
         .select('amount')
         .eq('invoice_id', payload.invoice_id)
         .eq('direction', 'incoming')
-      const totalPaid = (allPayments ?? []).reduce((s: number, p: any) => s + p.amount, 0)
+      const totalPaid = (allPayments ?? []).reduce((s: number, p) => s + p.amount, 0)
 
       const { data: inv } = await supabase
         .from('invoices')
