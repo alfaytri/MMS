@@ -10834,8 +10834,12 @@ export type Database = {
           customer_name: string
           customer_phone: string
           date: string
+          has_invoice: boolean
           id: string
+          location_phone: string
+          notes: string
           order_id: string
+          other_teams_names: string[]
           scheduled_time: string
           services_json: Json
           source_id: string
