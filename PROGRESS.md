@@ -243,7 +243,7 @@ Purchase & Sales▾:
 
 ## 🔄 In Progress
 
-🚀 Starting: **Responsive UI Work-up Task 3.2: Warehouses (multi-tab hub)**
+🚀 Starting: **Responsive UI Work-up Task 4: Verify + close-out**
 
 
 
@@ -262,6 +262,7 @@ Purchase & Sales▾:
 
 ## ✅ Completed
 
+- [2026-07-18] **Responsive UI Work-up Phase 3.2–3.7 + Mobile Card Views** — `WhStockOverviewTab.tsx`, `WhStockValueTab.tsx`, `WhAdjustmentsTab.tsx`, `WhMovementsTab.tsx`, `ReceivalsDeliveriesTab.tsx`, `WhWarehousesTab.tsx`, `AdminSidebar.tsx`, `admin/layout.tsx`, `users/page.tsx`, `DataTable.tsx`, `SearchInput.tsx`, `FilterBar.tsx`, `PermissionTree.tsx`, `dashboard/page.tsx`, `ProductProfitabilityTable.tsx` — Mobile card views for 6 warehouse tabs (tree cards for stock overview, expandable details for stock value, clean badge layouts for adjustments/movements/receivals), collapsible Sheet sidebar for admin settings, short tab labels to fix cut-off strips, touch targets (min-h-11), DataTable div/button fix for nested button hydration error, KPI grid 2-col on mobile
 - [2026-07-18] **Responsive UI Work-up Phase 3.1: Inventory page** — `src/components/services/InventoryTab.tsx`, `src/components/services/inventory/ItemsListView.tsx`, `src/components/services/inventory/CategoryRow.tsx`, `src/components/services/inventory/ItemRow.tsx`, `src/components/services/inventory/BrandVariantRow.tsx`, `src/components/services/inventory/ToolsAssetsView.tsx`, `src/components/services/inventory/ToolCategoryRow.tsx` — Tab touch targets, toolbar full-width on mobile, overflow-x-auto tables, progressive column hiding (SKU/CODE/PRICING/INCOMING), reorder buttons hidden on mobile, touch targets on all action buttons
 - [2026-07-18] **Responsive UI Work-up Phase 2.C: Vendors & logistics list pages** — `suppliers/page.tsx`, `customers/page.tsx`, `shipments/page.tsx`, `landed-costs/page.tsx`, `dead-stock/page.tsx` — mobileCardRender on DataTable pages, toolbar responsive, progressive column hiding, touch targets
 - [2026-07-18] **Responsive UI Work-up Phase 2.B: Sales list pages** — 8 pages (sale-orders, deliveries, invoices, payments, credit-notes, returns, quotations, pending-payments) — mobileCardRender, toolbar responsive, column hiding, touch targets
