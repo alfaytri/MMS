@@ -207,6 +207,7 @@ export default function TeamLeaderPage() {
           completedVisits={completedVisits}
           onStart={handleStart}
           onTapCard={setActiveVisit}
+          onReviewWork={(v) => toast.info(`Review Work for ${v.customer_name} — coming in Task 4`)}
         />
       )}
 

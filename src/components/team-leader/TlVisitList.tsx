@@ -13,6 +13,7 @@ interface Props {
   completedVisits: Set<string>
   onStart: (visitId: string) => void
   onTapCard: (visit: TlVisit) => void
+  onReviewWork?: (visit: TlVisit) => void
 }
 
 function dateLabel(dateStr: string): string {
@@ -23,7 +24,7 @@ function dateLabel(dateStr: string): string {
 }
 
 export function TlVisitList({
-  visits, teamId, startedVisits, completedVisits, onStart, onTapCard,
+  visits, teamId, startedVisits, completedVisits, onStart, onTapCard, onReviewWork,
 }: Props) {
   if (visits.length === 0) {
     return (
@@ -66,6 +67,7 @@ export function TlVisitList({
                   isCompleted={visit.status === 'completed' || completedVisits.has(visit.id)}
                   onStart={onStart}
                   onTapCard={onTapCard}
+                  onReviewWork={onReviewWork}
                 />
               ))}
             </div>
