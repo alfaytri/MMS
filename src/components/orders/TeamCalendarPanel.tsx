@@ -79,8 +79,6 @@ export function TeamCalendarPanel({
   const { data: teamsRaw } = useTeams(
     divisionSlugs && divisionSlugs.length > 0 ? { divisionIds: divisionSlugs } : undefined
   )
-  const teams = (teamsRaw ?? []) as TeamFull[]
-
   const { data: teamSkillsMap = new Map<string, string[]>() } = useTeamSkills(null)
   const { data: serviceTreeAll } = useServiceTree('normal', [], draftServices.length > 0)
 

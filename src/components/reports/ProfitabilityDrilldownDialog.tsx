@@ -63,7 +63,6 @@ export function ProfitabilityDrilldownDialog({
   open, onOpenChange, mode, data, isLoading, rangeLabel,
 }: Props) {
   const cfg = MODE_CONFIG[mode]
-  const rows = data ?? []
   const showAll = mode === 'profit'
 
   const [search, setSearch]           = useState('')

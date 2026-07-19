@@ -76,7 +76,6 @@ function DroppableCell({ teamId, hour, children }: {
 export function ServiceScheduleSection({ contractId, divisions }: Props) {
   const { scheduleDates, isLoading, assignTeam } = useContractSchedule(contractId)
   const { data: teamsData } = useTeams()
-  const teams = teamsData ?? []
 
   const [selectedDateIdx, setSelectedDateIdx] = useState(0)
   const [_calendarMonth, _setCalendarMonth] = useState(() => {
