@@ -18,7 +18,7 @@ interface ResponsivePageHeaderProps {
  * On tablet+ (sm:+): title on the left, actions cluster on the right.
  *
  * Pair with PageContainer so the title and actions land inside the
- * max-w-screen-2xl rail on 4K TVs.
+ * full-width rail with responsive padding.
  */
 export function ResponsivePageHeader({
   title,

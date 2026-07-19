@@ -5,7 +5,7 @@ export const metadata = { title: 'Overtime Report' }
 
 export default function OvertimeReportPage() {
   return (
-    <div className="p-4 sm:p-6 lg:p-8 max-w-screen-2xl mx-auto">
+    <div className="p-4 sm:p-6 lg:p-8">
       <div className="mb-6">
         <h1 className="text-xl sm:text-2xl 2xl:text-3xl font-bold text-foreground">Overtime Report</h1>
         <p className="text-sm 2xl:text-base text-muted-foreground mt-1">
