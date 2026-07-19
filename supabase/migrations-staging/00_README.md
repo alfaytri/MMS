@@ -22,4 +22,4 @@ npx supabase link --project-ref <dev-ref>   # relink back to dev
 ```
 
 ## Last rebuilt
-2026-07-13
+2026-07-19 — added architecture audit migrations (receival sequence, atomic PO approval RPC, FK indexes)
