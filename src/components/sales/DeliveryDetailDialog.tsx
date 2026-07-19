@@ -12,7 +12,7 @@ import { Separator } from '@/components/ui/separator'
 import { createClient } from '@/lib/supabase/client'
 import { formatDate } from '@/lib/utils/formatters'
 import { cn } from '@/lib/utils'
-import type { SaleDelivery, DeliveryStatus } from '@/hooks/useSaleDeliveries'
+import type { SaleDelivery } from '@/hooks/useSaleDeliveries'
 
 const STATUS_CONFIG: Record<string, { label: string; color: string; bg: string }> = {
   pending:     { label: 'Pending',     color: 'text-slate-700',  bg: 'bg-slate-50 border-slate-200' },

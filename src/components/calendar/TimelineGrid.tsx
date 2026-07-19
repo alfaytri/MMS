@@ -117,7 +117,7 @@ export function TimelineGrid({
 
   const sidebarWidth = 192
   const scrollable   = !fitMode || forceScroll
-  const totalWidth   = slots.length * cellWidth
+  const _totalWidth  = slots.length * cellWidth
 
   // Group teams by division, preserving their original order
   const divisionGroups = useMemo(() => {

@@ -11,7 +11,7 @@ import {
   DialogTitle,
 } from '@/components/ui/dialog'
 import { Input } from '@/components/ui/input'
-import { useAllBrandVariantsGrouped, type BrandVariantGrouped } from '@/hooks/useInventory'
+import { type BrandVariantGrouped } from '@/hooks/useInventory'
 
 export type { BrandVariantGrouped }
 

@@ -25,7 +25,6 @@ export default function CreateOrderPage() {
   const prefilledDate = searchParams.get('date')
   const prefilledTeamId = searchParams.get('teamId')
   const prefilledHour = searchParams.get('hour') ? parseInt(searchParams.get('hour')!) : undefined
-  const prefilledMinute = searchParams.get('minute') ? parseInt(searchParams.get('minute')!) : 0
 
   // If we arrived from a site visit, skip the lookup modal
   const [lookupOpen, setLookupOpen] = useState(!prefilledCustomerId)

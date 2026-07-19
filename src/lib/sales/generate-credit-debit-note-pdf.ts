@@ -8,7 +8,6 @@
 import type { SupabaseClient } from '@supabase/supabase-js'
 import {
   buildCreditDebitNoteHtml,
-  type NoteOriginalLine,
   type NoteReturnedLine,
 } from '@/lib/sales/credit-debit-note-pdf-html'
 import { loadPdfFonts } from '@/lib/pdf/pdf-fonts'

@@ -197,15 +197,16 @@ export function NavDropdown({ entry }: NavDropdownProps) {
   }, [isOpen, ctx, id])
 
   const filteredGroups = useMemo(() => {
+    const perms = permData?.permissions ?? []
     return entry.groups
       .map((group) => ({
         ...group,
         items: group.items.filter((item) =>
-          canAccess(item.permission, userPerms)
+          canAccess(item.permission, perms)
         ),
       }))
       .filter((group) => group.items.length > 0)
-  }, [entry.groups, userPerms])
+  }, [entry.groups, permData?.permissions])
 
   if (!entry.comingSoon) {
     if (!canAccess(entry.permission, userPerms)) return null

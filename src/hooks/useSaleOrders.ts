@@ -688,7 +688,7 @@ export function useUpdateSO() {
         if (line_items.length > 0) {
           const { error: liErr } = await supabase
             .from('sale_order_lines')
-            .insert(line_items.map(({ avg_cost: _unused, ...li }) => ({ ...li, sale_order_id: id })))
+            .insert(line_items.map(({ avg_cost: _, ...li }) => ({ ...li, sale_order_id: id })))
           if (liErr) throw liErr
         }
       }

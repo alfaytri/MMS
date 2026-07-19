@@ -15,7 +15,7 @@ interface Props {
   onClose: () => void
 }
 
-export function ContractVisitDialog({ visit, profileId, onComplete, onClose }: Props) {
+export function ContractVisitDialog({ visit, profileId: _profileId, onComplete, onClose }: Props) {
   const [openFloors, setOpenFloors] = useState<Set<string>>(new Set())
   const [statuses, setStatuses] = useState<Record<string, 'done' | 'skipped' | 'issue'>>({})
   const [photos, setPhotos] = useState<Blob[]>([])
@@ -33,7 +33,7 @@ export function ContractVisitDialog({ visit, profileId, onComplete, onClose }: P
   function toggleFloor(floorName: string) {
     setOpenFloors((prev) => {
       const next = new Set(prev)
-      next.has(floorName) ? next.delete(floorName) : next.add(floorName)
+      if (next.has(floorName)) { next.delete(floorName) } else { next.add(floorName) }
       return next
     })
   }

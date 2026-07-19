@@ -23,6 +23,7 @@ export function GeofenceLayer({ map, geofences, visible, onSelectGeofence }: Geo
       layer.remove()
       layerRef.current = null
     }
+  // eslint-disable-next-line react-hooks/exhaustive-deps -- layer-init effect; visibility toggling handled by a separate effect
   }, [map])
 
   useEffect(() => {

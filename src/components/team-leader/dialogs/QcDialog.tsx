@@ -18,7 +18,7 @@ interface Props {
   onClose: () => void
 }
 
-export function QcDialog({ visit, profileId, onComplete, onClose }: Props) {
+export function QcDialog({ visit, profileId: _profileId, onComplete, onClose }: Props) {
   const items = visit.qc_items ?? visit.services.map((s) => ({
     serviceId: s.id, serviceName: s.name, maxScore: 10,
   }))

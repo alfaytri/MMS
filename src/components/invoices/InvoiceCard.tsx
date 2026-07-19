@@ -3,9 +3,9 @@
 
 import { useState } from 'react'
 import {
-  AlertTriangle, Ban, BookOpen, CheckCircle2,
+  AlertTriangle, Ban, CheckCircle2,
   ChevronDown, CreditCard, FileText, Phone,
-  Receipt, Send, Undo2, User, XCircle,
+  Send, Undo2, User, XCircle,
 } from 'lucide-react'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
@@ -44,7 +44,7 @@ interface Props {
 export function InvoiceCard({ invoice, selected, onSelect, onVoid, onCreditNote }: Props) {
   const [expanded, setExpanded] = useState(false)
   const status = STATUS_CONFIG[invoice.payment_status] ?? STATUS_CONFIG.draft
-  const StatusIcon = status.icon
+  const _StatusIcon = status.icon
   const total = invoice.total_amount ?? 0
   const paid = (invoice.payments ?? [])
     .filter((p) => p.status !== 'failed')

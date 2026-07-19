@@ -1,7 +1,7 @@
 // src/hooks/useOrders.ts
 import { useInfiniteQuery, useQuery } from '@tanstack/react-query'
 import { createClient } from '@/lib/supabase/client'
-import type { OrderListItem, OrdersFilter } from '@/types/orders'
+import type { OrdersFilter } from '@/types/orders'
 import { queryKeys } from '@/lib/queryKeys'
 
 const PAGE_SIZE = 50

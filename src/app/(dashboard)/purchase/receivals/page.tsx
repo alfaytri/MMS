@@ -380,7 +380,7 @@ export default function ReceivalsPage() {
         />
       ),
     },
-  ], [canApproveEdit])
+  ], [canApproveEdit, lcLockedIds])
 
   return (
     <PageWrapper>

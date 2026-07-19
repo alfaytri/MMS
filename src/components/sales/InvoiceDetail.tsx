@@ -62,8 +62,6 @@ export function InvoiceDetail({ open, onOpenChange, invoice }: Props) {
   const outstanding = (invoice.total_amount ?? 0) - totalPaid
   const docCfg = DOC_STATUS_CONFIG[invoice.doc_status] ?? DOC_STATUS_CONFIG.draft
   const payCfg = PAY_STATUS_CONFIG[invoice.payment_status] ?? PAY_STATUS_CONFIG.unpaid
-  const hasActivePlan = (plans ?? []).some((p) => p.status === 'active')
-
   return (
     <>
       <Dialog open={open} onOpenChange={onOpenChange}>

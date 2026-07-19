@@ -62,6 +62,7 @@ export function SubscriptionsPage({ currentProfile }: Props) {
     if (editTarget && existingServices.length > 0) {
       setEditServices(existingServices)
     }
+  // eslint-disable-next-line react-hooks/exhaustive-deps -- keyed on identity (id), not object reference
   }, [editTarget?.id, existingServices])
 
   const filtered = useMemo(() => {

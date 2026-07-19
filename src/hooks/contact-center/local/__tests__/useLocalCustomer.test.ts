@@ -4,6 +4,7 @@ import 'fake-indexeddb/auto'
 import { getDb, resetDb } from '@/lib/contact-center/local/db'
 import { useLocalCustomer } from '../useLocalCustomer'
 
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
 function chainStub(): any {
   const handler: ProxyHandler<object> = {
     get: (_t, prop) => {

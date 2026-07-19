@@ -46,7 +46,7 @@ const ROLE_COLOR_CLASSES: Record<string, string> = {
 // ─── Role card ────────────────────────────────────────────────────────────────
 
 function RoleCard({ role, onEdit, onDelete }: { role: CustomRole; onEdit: () => void; onDelete: () => void }) {
-  const permissions = (role.permissions as string[]) ?? []
+  const permissions = useMemo(() => (role.permissions as string[]) ?? [], [role.permissions])
   const color = role.is_system ? 'blue' : roleColor(role.name)
   const colorClass = ROLE_COLOR_CLASSES[color] ?? ROLE_COLOR_CLASSES.blue
 

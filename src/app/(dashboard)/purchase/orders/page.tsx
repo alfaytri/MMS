@@ -2,7 +2,7 @@
 
 import { useState, useMemo } from 'react'
 import { useRouter } from 'next/navigation'
-import { Plus, FileText, Clock, Package, DollarSign, Search, X, MoreVertical, ChevronDown, Check } from 'lucide-react'
+import { Plus, FileText, Clock, Package, DollarSign, Search, X, MoreVertical, ChevronDown } from 'lucide-react'
 import { Card, CardContent } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'

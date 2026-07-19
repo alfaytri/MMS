@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { filterEligibleTeams, type TeamEligibility } from './SwapTeamDialog'
+import { filterEligibleTeams } from './SwapTeamDialog'
 import type { TeamFull } from '@/hooks/useTeams'
 import type { CalendarVisit } from '@/hooks/useCalendarVisits'
 

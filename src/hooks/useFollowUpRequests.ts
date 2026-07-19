@@ -10,7 +10,7 @@ export function useFollowUpRequests(status: string = 'pending') {
       const data = await res.json()
       return data.rows as FollowUpRequestWithContext[]
     },
-    refetchInterval: (query) => {
+    refetchInterval: () => {
       if (typeof document !== 'undefined' && document.hidden) return false
       return 60_000
     },

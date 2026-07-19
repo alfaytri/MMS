@@ -34,7 +34,7 @@ import { POReturnDetailDialog } from '@/components/purchase/POReturnDetailDialog
 import { formatDate } from '@/lib/utils/formatters'
 import { cn } from '@/lib/utils'
 import {
-  RotateCcw, Calendar, Package, ChevronRight,
+  Calendar, Package, ChevronRight,
 } from 'lucide-react'
 
 const STATUS_CONFIG: Record<POReturnStatus, { label: string; color: string; bg: string }> = {

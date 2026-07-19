@@ -14,7 +14,6 @@ import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Checkbox } from '@/components/ui/checkbox'
-import { Badge } from '@/components/ui/badge'
 import { Switch } from '@/components/ui/switch'
 import {
   Form, FormControl, FormField, FormItem, FormLabel, FormMessage,
@@ -159,7 +158,7 @@ export function EditUserDialog({ open, onOpenChange, profile }: Props) {
   // ── Contact Centre access toggle + 3CX extension ───────────────────
   const [hasCcAccess, setHasCcAccess] = useState(false)
   const [extension, setExtension] = useState('')
-  const [extensionError, setExtensionError] = useState<string | null>(null)
+  const [_extensionError, setExtensionError] = useState<string | null>(null)
   const [phoneCountryCode, setPhoneCountryCode] = useState('+974')
   const [phoneDigits, setPhoneDigits] = useState('')
 

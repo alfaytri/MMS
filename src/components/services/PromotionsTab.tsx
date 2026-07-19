@@ -9,7 +9,7 @@ import { Badge } from '@/components/ui/badge'
 import {
   Table, TableBody, TableCell, TableHead, TableHeader, TableRow,
 } from '@/components/ui/table'
-import { usePromotionCampaigns, useVouchers, type CampaignWithRules, type VoucherWithCampaign, type PromotionRule } from '@/hooks/usePromotions'
+import { usePromotionCampaigns, useVouchers, type PromotionRule } from '@/hooks/usePromotions'
 
 const CAMPAIGN_STATUS_COLOR: Record<string, string> = {
   active: 'bg-green-100 text-green-700',

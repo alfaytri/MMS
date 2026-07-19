@@ -1,6 +1,7 @@
 import { describe, it, expect } from 'vitest'
 import { ensureTeamConversation } from '../ensure-team-conversation'
 
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
 function supabaseStub(seq: Array<any>) {
   let i = 0
   const pop = () => seq[i++]
@@ -23,6 +24,7 @@ function supabaseStub(seq: Array<any>) {
 describe('ensureTeamConversation', () => {
   it('returns existing conversation id when one is found', async () => {
     const supa = supabaseStub([{ data: { id: 'existing-id' }, error: null }])
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const id = await ensureTeamConversation(supa as any, {
       phone:    '+97455551234',
       teamName: 'Team A',
@@ -35,6 +37,7 @@ describe('ensureTeamConversation', () => {
       { data: null, error: null },
       { data: { id: 'new-id' }, error: null },
     ])
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const id = await ensureTeamConversation(supa as any, {
       phone:    '+97455551234',
       teamName: 'Team A',
@@ -48,6 +51,7 @@ describe('ensureTeamConversation', () => {
       { data: null, error: { code: '23505', message: 'dup' } },
       { data: { id: 'raced-id' }, error: null },
     ])
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const id = await ensureTeamConversation(supa as any, {
       phone:    '+97455551234',
       teamName: 'Team A',
@@ -61,6 +65,7 @@ describe('ensureTeamConversation', () => {
       { data: null, error: { code: '42P01', message: 'no table' } },
     ])
     await expect(
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
       ensureTeamConversation(supa as any, { phone: '+97455551234', teamName: 'Team A' }),
     ).rejects.toThrow('no table')
   })

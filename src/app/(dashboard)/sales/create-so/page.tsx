@@ -42,7 +42,7 @@ export default function CreateSOPage() {
   const [customerSearch, setCustomerSearch]                   = useState('')
   const [customerId, setCustomerId]                           = useState('')
   const [customerName, setCustomerName]                       = useState('')
-  const [customerCreditGroupId, setCustomerCreditGroupId]     = useState<string | null>(null)
+  const [_customerCreditGroupId, setCustomerCreditGroupId]     = useState<string | null>(null)
   const [customerCreditGroupName, setCustomerCreditGroupName] = useState<string | null>(null)
   const [customerCreditLimit, setCustomerCreditLimit]         = useState<number | null>(null)
   const [customerType, setCustomerType]                       = useState<'cash' | 'credit' | null>(null)
@@ -51,7 +51,7 @@ export default function CreateSOPage() {
 
   const { data: creditGroups = [] } = useCreditGroups()
 
-  const { userDivisionIds, divisions } = useUserDivisionScope()
+  const { divisions } = useUserDivisionScope()
   const { data: companies = [] } = useCompanies()
   const isMultiDivision = divisions.length > 1
   const [divisionId, setDivisionId] = useState<string>('')

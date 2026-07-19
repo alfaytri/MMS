@@ -39,7 +39,7 @@ import {
   type PoVersion,
   type POLineItemDraft,
 } from '@/hooks/usePurchaseOrders'
-import { useSuppliers, type SupplierWithCurrency } from '@/hooks/useSuppliers'
+import { useSuppliers } from '@/hooks/useSuppliers'
 import { useCurrencies } from '@/hooks/useCurrencies'
 import { useIsAdmin } from '@/hooks/useProfiles'
 

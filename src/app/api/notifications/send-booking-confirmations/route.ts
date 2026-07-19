@@ -165,7 +165,7 @@ export async function POST(req: NextRequest) {
         .select('name')
         .eq('id', order.service_customer_id)
         .maybeSingle()
-      const customerName: string = customerRow?.name ?? ''
+      const _customerName: string = customerRow?.name ?? ''
 
       const watiPhone = normalisePhone(phoneRow.phone)
 

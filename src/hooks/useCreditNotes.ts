@@ -216,7 +216,6 @@ export function useApplyCreditNote() {
         .single()
       const outstanding = (inv?.total_amount ?? 0) - alreadyPaid
       const cnTotal = cn?.total_amount ?? 0
-      const excess = Math.max(0, cnTotal - outstanding)
 
       const { data: cpayMax } = await supabase
         .from('payments')

@@ -1,7 +1,7 @@
 'use client'
 
 import { useState, useMemo } from 'react'
-import { ArrowRight, Bell, Plus, Trash2, Package, ChevronsUpDown, Check } from 'lucide-react'
+import { ArrowRight, Bell, Plus, Trash2, Package, ChevronsUpDown } from 'lucide-react'
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog'
 import {
   AlertDialog,

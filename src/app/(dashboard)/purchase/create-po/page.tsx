@@ -24,7 +24,7 @@ import { PoTermsSection, DEFAULT_TERMS, type PoTermsValues } from '@/components/
 import { AddSupplierDialog } from '@/components/purchase/AddSupplierDialog'
 import { SupplierMultiSelect } from '@/components/purchase/SupplierMultiSelect'
 import { useCreatePO, useSubmitPOForApproval, type CreatePOPayload } from '@/hooks/usePurchaseOrders'
-import { useSuppliers, type SupplierWithCurrency } from '@/hooks/useSuppliers'
+import { useSuppliers } from '@/hooks/useSuppliers'
 import { useCurrencies } from '@/hooks/useCurrencies'
 import { useUserDivisionScope } from '@/hooks/useUserDivisionScope'
 import { useCompanies } from '@/hooks/useCompanies'
@@ -44,7 +44,7 @@ export default function CreatePOPage() {
   const { data: suppliers } = useSuppliers()
   const { data: currencies = [] } = useCurrencies()
 
-  const { userDivisionIds, divisions } = useUserDivisionScope()
+  const { divisions } = useUserDivisionScope()
   const { data: companies = [] } = useCompanies()
   const isMultiDivision = divisions.length > 1
   const [divisionId, setDivisionId] = useState<string>('')

@@ -267,7 +267,6 @@ export function useWarehouseStock(warehouseId?: string) {
     queryKey: queryKeys.warehouseOps.warehouseStock(warehouseId),
     queryFn: async () => {
       const supabase = createClient()
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
       let q = supabase
         .from('warehouse_stock_view')
         .select('warehouse_id, brand_variant_id, item_name, brand, sku, unit, qty, avg_cost, total_value, category_name, subcategory_name, item_type, allocated_qty, available_qty')
@@ -683,7 +682,6 @@ export function useCreateInventoryCheck() {
       notes?: string | null
     }) => {
       const supabase = createClient()
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
       const { data: checkNumber, error: seqErr } = await supabase.rpc('generate_check_number')
       if (seqErr) throw seqErr
       const { data, error } = await supabase
@@ -1195,7 +1193,7 @@ export function useSaveItemCount() {
   return useMutation({
     mutationFn: async ({
       itemId,
-      checkId,
+      checkId: _checkId,
       countedQty,
       varianceType,
     }: {

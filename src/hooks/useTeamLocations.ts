@@ -48,7 +48,6 @@ export function useTeamLocations() {
   return useQuery({
     queryKey: queryKeys.teams.locations,
     queryFn: async (): Promise<TeamLocation[]> => {
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
       const supabase = createClient()
 
       // Parallel fetch: teams (with leader + vehicles) and live locations

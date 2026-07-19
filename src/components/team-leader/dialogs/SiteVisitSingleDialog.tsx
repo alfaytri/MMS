@@ -18,7 +18,7 @@ interface Props {
   onClose: () => void
 }
 
-export function SiteVisitSingleDialog({ visit, profileId, onComplete, onClose }: Props) {
+export function SiteVisitSingleDialog({ visit, profileId: _profileId, onComplete, onClose }: Props) {
   const [photos, setPhotos] = useState<Blob[]>([])
   const [quotationServices, setQuotationServices] = useState<AddedBillableService[]>([])
   const [customRequest, setCustomRequest] = useState('')

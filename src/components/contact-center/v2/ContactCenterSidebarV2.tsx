@@ -276,7 +276,7 @@ export function ContactCenterSidebarV2() {
   const displayName = customer?.name ?? activePhone ?? 'Unknown'
   const phones = local.phones
   const primaryPhone = phones.find((p) => p.is_primary) ?? phones[0]
-  const secondaryPhones = phones.filter((p) => p.id !== primaryPhone?.id)
+  const _secondaryPhones = phones.filter((p) => p.id !== primaryPhone?.id)
   const addresses = local.addresses
   const headerPhone = primaryPhone?.phone ?? activePhone
   function flagFor(phone: string | null | undefined): string | null {

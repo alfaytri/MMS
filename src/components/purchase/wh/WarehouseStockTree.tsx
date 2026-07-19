@@ -187,7 +187,7 @@ export function WarehouseStockTree({ warehouseId, warehouses }: Props) {
   const [expanded, setExpanded] = useState<Set<string>>(new Set())
 
   const toggle = useCallback((key: string) => {
-    setExpanded((prev) => { const n = new Set(prev); n.has(key) ? n.delete(key) : n.add(key); return n })
+    setExpanded((prev) => { const n = new Set(prev); if (n.has(key)) { n.delete(key) } else { n.add(key) } return n })
   }, [])
 
   if (isLoading) return <p className="text-xs text-muted-foreground py-2 text-center">Loading…</p>

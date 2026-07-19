@@ -93,7 +93,7 @@ function eventLabel(type: string, meta?: Record<string, unknown> | null) {
 
 function ItemCountRow({
   item,
-  checkId,
+  checkId: _checkId,
   readOnly,
   countMap,
   varianceTypeMap,
@@ -296,7 +296,7 @@ function CountingPanel({
                 className="flex items-center gap-2 px-3 py-1.5 bg-muted/20 cursor-pointer hover:bg-muted/40 border-b text-xs font-semibold"
                 onClick={() => setExpandedCats((prev) => {
                   const n = new Set(prev)
-                  n.has(cat) ? n.delete(cat) : n.add(cat)
+                  if (n.has(cat)) { n.delete(cat) } else { n.add(cat) }
                   return n
                 })}
               >
@@ -428,17 +428,17 @@ export function WhInventoryCheckDetail({ check, open, onClose, currentProfile }:
   // Group items by assignment for manager view
   // Primary: match by assignment_id. Fallback: match by assigned_profile_id.
   const byAssignment = useMemo(() => {
+    const itms = detail?.items ?? []
     const map = new Map<string, InventoryCheckItem[]>()
     for (const a of assignments) { map.set(a.id, []) }
     const unmatched: InventoryCheckItem[] = []
-    for (const item of items) {
+    for (const item of itms) {
       if (item.assignment_id && map.has(item.assignment_id)) {
         map.get(item.assignment_id)!.push(item)
       } else {
         unmatched.push(item)
       }
     }
-    // Fallback: match unmatched items by assigned_profile_id → assignment.profile_id
     for (const item of unmatched) {
       const match = assignments.find((a) => a.profile_id === item.assigned_profile_id)
       if (match) {
@@ -446,7 +446,7 @@ export function WhInventoryCheckDetail({ check, open, onClose, currentProfile }:
       }
     }
     return map
-  }, [items, assignments])
+  }, [detail?.items, assignments])
 
   const activeApprovalStep = approvals.find((s) => s.status === 'pending')
 

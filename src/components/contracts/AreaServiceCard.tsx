@@ -14,7 +14,7 @@ interface Props {
   onViewMedia?: () => void
 }
 
-export function AreaServiceCard({ service, editable, onEdit, onRemove, onViewMedia }: Props) {
+export function AreaServiceCard({ service, editable, onEdit, onRemove, onViewMedia: _onViewMedia }: Props) {
   const conditionColors: Record<string, string> = {
     good: 'bg-green-100 text-green-700',
     fair: 'bg-yellow-100 text-yellow-700',

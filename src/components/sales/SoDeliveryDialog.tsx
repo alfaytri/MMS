@@ -31,7 +31,10 @@ export function SoDeliveryDialog({ open, onOpenChange, so }: SoDeliveryDialogPro
   const createDelivery = useCreateDelivery()
   const { data: warehouses } = useWarehouses()
   const lines = so.sale_order_lines ?? []
-  const bvIds = useMemo(() => lines.map((l) => l.brand_variant_id).filter(Boolean) as string[], [lines])
+  const bvIds = useMemo(
+    () => (so.sale_order_lines ?? []).map((l) => l.brand_variant_id).filter(Boolean) as string[],
+    [so.sale_order_lines],
+  )
   const { data: whStockMap } = useWarehouseStockByItems(bvIds)
 
   const [warehouseId, setWarehouseId] = useState('')

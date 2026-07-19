@@ -5,7 +5,7 @@ import { useState } from 'react'
 import type { ElementType } from 'react'
 import {
   Banknote, Building2, CheckCircle2, ChevronDown,
-  Clock, CreditCard, FileText, Phone, QrCode,
+  Clock, CreditCard, FileText, QrCode,
   Receipt, Smartphone, User, XCircle,
 } from 'lucide-react'
 import { Badge } from '@/components/ui/badge'
@@ -61,7 +61,7 @@ interface Props {
 export function PaymentCard({ payment, selected, onSelect }: Props) {
   const [expanded, setExpanded] = useState(false)
   const status = PAYMENT_STATUS_CONFIG[payment.status ?? ''] ?? PAYMENT_STATUS_CONFIG.pending
-  const StatusIcon = status.icon
+  const _StatusIcon = status.icon
   const method = METHOD_CONFIG[payment.method] ?? METHOD_CONFIG.cash
   const MethodIcon = method.icon
   const isFailed = payment.status === 'failed'

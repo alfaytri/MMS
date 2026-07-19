@@ -6,7 +6,6 @@ import { MapPin, Phone, Bell, Play, Users, AlertTriangle, Clock } from 'lucide-r
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { cn } from '@/lib/utils'
-import { toast } from 'sonner'
 import type { TlVisit, VisitType } from '@/types/team-leader'
 import { CustomerUnavailableDialog } from './CustomerUnavailableDialog'
 

@@ -2,11 +2,11 @@
 
 import { useState, useMemo } from 'react'
 import {
-  DndContext, DragEndEvent, DragOverlay, useDraggable, useDroppable,
+  DndContext, DragEndEvent, useDraggable, useDroppable,
   PointerSensor, useSensor, useSensors,
 } from '@dnd-kit/core'
 import {
-  ChevronLeft, ChevronRight, Calendar as CalendarIcon, Upload, Loader2,
+  Upload, Loader2,
 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
@@ -19,7 +19,7 @@ import { useContractSchedule } from '@/hooks/useContractSchedule'
 import { useTeams } from '@/hooks/useTeams'
 import { logActivity } from '@/lib/logActivity'
 import { toast } from 'sonner'
-import type { ScheduleDate, ScheduleService } from '@/types/contracts'
+import type { ScheduleService } from '@/types/contracts'
 
 interface Props {
   contractId: string
@@ -74,12 +74,12 @@ function DroppableCell({ teamId, hour, children }: {
 }
 
 export function ServiceScheduleSection({ contractId, divisions }: Props) {
-  const { scheduleDates, isLoading, assignTeam, unassignTeam } = useContractSchedule(contractId)
+  const { scheduleDates, isLoading, assignTeam } = useContractSchedule(contractId)
   const { data: teamsData } = useTeams()
   const teams = teamsData ?? []
 
   const [selectedDateIdx, setSelectedDateIdx] = useState(0)
-  const [calendarMonth, setCalendarMonth] = useState(() => {
+  const [_calendarMonth, _setCalendarMonth] = useState(() => {
     const now = new Date()
     return { year: now.getFullYear(), month: now.getMonth() }
   })
@@ -94,11 +94,12 @@ export function ServiceScheduleSection({ contractId, divisions }: Props) {
   const totalCount = selectedDate?.services.length || 0
 
   const divisionTeams = useMemo(() => {
-    if (!teams || !Array.isArray(teams)) return []
-    return teams.filter((t) =>
-      divisions.some((d) => t.division?.slug === d),
+    const t = teamsData ?? []
+    if (!t || !Array.isArray(t)) return []
+    return t.filter((tm) =>
+      divisions.some((d) => tm.division?.slug === d),
     )
-  }, [teams, divisions])
+  }, [teamsData, divisions])
 
   function handleDragEnd(event: DragEndEvent) {
     const { active, over } = event

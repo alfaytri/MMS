@@ -31,7 +31,7 @@ import {
   useRecallPOToDraft,
   type PurchaseOrder,
 } from '@/hooks/usePurchaseOrders'
-import { useBillsByPO, type POBillRow } from '@/hooks/useSupplierBills'
+import { useBillsByPO } from '@/hooks/useSupplierBills'
 import { usePurchaseReturnsByPO } from '@/hooks/usePurchaseReturns'
 import { useActivityLog } from '@/hooks/useActivityLog'
 import { useMyApprovalRoles } from '@/hooks/usePOApprovals'

@@ -11,7 +11,6 @@ import {
   usePendingApprovals, useCompletedApprovals,
   useApproveStep, useRejectPO, useForceApproveAllSteps, useMyApprovalRoles,
 } from '@/hooks/usePOApprovals'
-import { useIsAdmin } from '@/hooks/useProfiles'
 import { type PurchaseOrder, type POApprovalStep } from '@/hooks/usePurchaseOrders'
 import { formatCurrency, formatDate } from '@/lib/utils/formatters'
 import { Badge } from '@/components/ui/badge'
@@ -63,7 +62,6 @@ export default function ApprovalsPage() {
 
   const { data: pending, isLoading: pendingLoading } = usePendingApprovals()
   const { data: completed, isLoading: completedLoading } = useCompletedApprovals()
-  const { data: isAdmin } = useIsAdmin()
   const { data: myRoles = [] } = useMyApprovalRoles()
   const approveStep = useApproveStep()
   const rejectPO = useRejectPO()
@@ -432,7 +430,6 @@ export default function ApprovalsPage() {
             const maxIteration = Math.max(...allSteps.map((s) => s.iteration ?? 1), 1)
             const currentSteps = [...allSteps].filter((s) => (s.iteration ?? 1) === maxIteration)
               .sort((a, b) => (a.tier_rank ?? 0) - (b.tier_rank ?? 0))
-            const anyRejected = currentSteps.some((s) => s.status === 'rejected')
 
             return (
               <>

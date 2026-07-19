@@ -1,6 +1,6 @@
 import { type NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@supabase/supabase-js'
-import type { Database, DBInsert, Json } from '@/types/database.types'
+import type { Database, Json } from '@/types/database.types'
 import type { WatiMessageItem, WatiTemplateComponent, WatiGetMessagesResponse } from '@/types/wati'
 
 // Staging row type — concrete non-null fields matching what messageItems.map builds,
@@ -699,7 +699,7 @@ export async function GET(req: NextRequest) {
   const noAttachments:   UpsertRow[] = []
 
   for (const row of rows) {
-    const isBroadcast = row._isBroadcast === true
+    const _isBroadcast = row._isBroadcast === true
     if (row.from_type === 'agent') {
       const isNew = !existingAgentRows.has(row.external_id)
       // Existing MMS-sent rows: SKIP ENTIRELY. The row already has the canonical

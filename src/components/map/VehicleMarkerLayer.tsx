@@ -36,12 +36,13 @@ export function VehicleMarkerLayer({
   // Initialise layer group
   useEffect(() => {
     if (!map) return
+    const markerMap = markerMapRef.current
     const layer = L.layerGroup().addTo(map)
     layerRef.current = layer
     return () => {
       layer.remove()
       layerRef.current = null
-      markerMapRef.current.clear()
+      markerMap.clear()
     }
   }, [map])
 

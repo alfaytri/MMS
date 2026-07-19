@@ -10,7 +10,7 @@ import { Skeleton } from '@/components/ui/skeleton'
 import { CategoryRow } from './CategoryRow'
 import { CategoryEditDialog } from './CategoryEditDialog'
 import { InventoryImportDialog } from './InventoryImportDialog'
-import { useUpdateSortOrders, useCategoryStockAggregates, type CategoryStockAggregate } from '@/hooks/useInventory'
+import { useUpdateSortOrders, useCategoryStockAggregates } from '@/hooks/useInventory'
 import { useInventoryTree, type InventoryTreeNode } from '@/hooks/useInventoryTree'
 
 type InventorySubType = 'products' | 'spare-parts' | 'consumables'
@@ -41,7 +41,7 @@ type Props = {
   enabled: boolean
 }
 
-export function ItemsListView({ type, enabled }: Props) {
+export function ItemsListView({ type, enabled: _enabled }: Props) {
   const [search, setSearch] = useState('')
   const [showArchived, setShowArchived] = useState(false)
   const [createCategoryOpen, setCreateCategoryOpen] = useState(false)

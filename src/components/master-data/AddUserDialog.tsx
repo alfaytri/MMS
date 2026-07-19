@@ -57,7 +57,7 @@ export function AddUserDialog({ open, onOpenChange }: Props) {
   const [isDivMgr, setIsDivMgr] = useState(false)
   const [hasCcAccess, setHasCcAccess] = useState(false)
   const [extension, setExtension] = useState('')
-  const [extensionError, setExtensionError] = useState<string | null>(null)
+  const [_extensionError, setExtensionError] = useState<string | null>(null)
   const [linkedEmployeeId, setLinkedEmployeeId] = useState<string | null>(null)
   const [selectedDivisionIds, setSelectedDivisionIds] = useState<string[]>([])
   const [phoneCountryCode, setPhoneCountryCode] = useState('+974')

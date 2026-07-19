@@ -32,7 +32,6 @@ interface Props {
 export function OrderCancelDialog({
   open,
   onOpenChange,
-  orderId: _orderId,
   orderDisplayId,
   customerName,
   onConfirm,

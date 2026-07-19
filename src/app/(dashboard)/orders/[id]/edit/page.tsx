@@ -30,7 +30,6 @@ export default function EditOrderPage() {
     pendingFiles,
     setPendingFiles,
     isLoading,
-    setCustomer,
     setAddress,
     addService,
     removeService,

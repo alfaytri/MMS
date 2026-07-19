@@ -133,7 +133,6 @@ export function useDivisionsWithSchedule() {
     queryKey: queryKeys.divisions.withSchedule,
     queryFn: async (): Promise<DivisionWithSchedule[]> => {
       const supabase = createClient()
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
       const { data, error } = await supabase
         .from('company_divisions')
         .select('id, slug, name, short_name, calendar_schedule_id')
@@ -158,7 +157,6 @@ export function useAssignDivisionSchedule() {
       scheduleId: string | null
     }) => {
       const supabase = createClient()
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
       const { error } = await supabase
         .from('company_divisions')
         .update({ calendar_schedule_id: scheduleId })

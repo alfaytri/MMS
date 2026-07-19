@@ -31,7 +31,7 @@ interface Props {
   onClose: () => void
 }
 
-export function FollowUpDialog({ visit, profileId, onComplete, onClose }: Props) {
+export function FollowUpDialog({ visit, profileId: _profileId, onComplete, onClose }: Props) {
   const [serviceStatuses, setServiceStatuses] = useState<Record<string, FollowUpStatus>>({})
   const [serviceNotes, setServiceNotes] = useState<Record<string, string>>({})
   const [photos, setPhotos] = useState<Blob[]>([])

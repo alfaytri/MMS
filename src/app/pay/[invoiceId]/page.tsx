@@ -120,7 +120,7 @@ export default async function PayPage({ params, searchParams }: Props) {
   const clickedPhoneKey = phoneLast8(clickedPhone) || 'unknown'
   const phoneGroups: PhoneGroup[] = []
 
-  for (const [key, group] of phoneMap) {
+  for (const [_key, group] of phoneMap) {
     phoneGroups.push({
       phone: group.phone,
       invoices: group.invoices.map((inv) => ({

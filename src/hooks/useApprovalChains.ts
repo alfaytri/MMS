@@ -164,7 +164,7 @@ export function useArchiveApprovalChain() {
 export function useSoftDeleteApprovalChainTier() {
   const qc = useQueryClient()
   return useMutation({
-    mutationFn: async ({ tierId, chainId }: { tierId: string; chainId: string }) => {
+    mutationFn: async ({ tierId, chainId: _chainId }: { tierId: string; chainId: string }) => {
       const supabase = createClient()
       // Block if any POs in flight reference this chain
       const { count } = await supabase

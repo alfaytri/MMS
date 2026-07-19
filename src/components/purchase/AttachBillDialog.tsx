@@ -46,7 +46,7 @@ export function AttachBillDialog({ open, onOpenChange, mode, paymentId, billId, 
   )
 
   // link-payment mode: fetch unlinked outgoing payments for this supplier (kept for fallback)
-  const { data: _payments = [], isLoading: loadingPayments } = useUnlinkedOutgoingPayments(
+  const { isLoading: loadingPayments } = useUnlinkedOutgoingPayments(
     mode === 'link-payment' ? supplierId : undefined
   )
 

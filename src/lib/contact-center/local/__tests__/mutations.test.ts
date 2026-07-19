@@ -1,4 +1,4 @@
-import { describe, it, expect, beforeEach } from 'vitest'
+import { it, expect, beforeEach } from 'vitest'
 import 'fake-indexeddb/auto'
 import { getDb, resetDb } from '../db'
 import { sendMessageLocal, sendFileLocal, sendTemplateLocal, reactLocal, updateCustomerLocal, addAddressLocal, updateAddressLocal, addPhoneLocal, removePhoneLocal, markReadLocal, markOpenedLocal } from '../mutations'
@@ -53,7 +53,9 @@ it('writes a sending template message + pending_write', async () => {
   expect(msg?.delivery_status).toBe('sending')
   const pw = await getDb('u').pendingWrites.where('kind').equals('send_template').toArray()
   expect(pw.length).toBe(1)
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   expect((pw[0].payload as any).templateName).toBe('booking_confirm')
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   expect((pw[0].payload as any).parameters).toEqual(['42', 'June 10'])
 })
 
@@ -73,6 +75,7 @@ it('reactLocal toggles agent reaction and enqueues with empty emoji on removal',
   expect(msg?.reactions).toEqual([{ emoji: '👍', from_type: 'agent' }])
   let pw = await db.pendingWrites.where('kind').equals('react').toArray()
   expect(pw.length).toBe(1)
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   expect((pw[0].payload as any).emoji).toBe('👍')
 
   // Second click — toggle off. Upstream payload must carry empty emoji so the
@@ -82,6 +85,7 @@ it('reactLocal toggles agent reaction and enqueues with empty emoji on removal',
   expect(msg?.reactions).toEqual([])
   pw = await db.pendingWrites.where('kind').equals('react').toArray()
   expect(pw.length).toBe(2)
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   expect((pw[1].payload as any).emoji).toBe('')
 })
 
@@ -106,7 +110,9 @@ it('reactLocal replaces the agent reaction when picking a different emoji (no st
 
   const pw = await db.pendingWrites.where('kind').equals('react').toArray()
   expect(pw.length).toBe(2)
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   expect((pw[0].payload as any).emoji).toBe('👍')
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   expect((pw[1].payload as any).emoji).toBe('❤️')   // NEW emoji, not '' (not a removal)
 })
 
@@ -125,7 +131,9 @@ it('reactLocal enqueues for wati provider with the same empty-emoji removal cont
   await reactLocal(db, { messageId: 'm2', emoji: '❤️', phone: '+x', provider: 'wati' })
   let pw = await db.pendingWrites.where('kind').equals('react').toArray()
   expect(pw.length).toBe(1)
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   expect((pw[0].payload as any).provider).toBe('wati')
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   expect((pw[0].payload as any).emoji).toBe('❤️')
 
   await reactLocal(db, { messageId: 'm2', emoji: '❤️', phone: '+x', provider: 'wati' })
@@ -133,6 +141,7 @@ it('reactLocal enqueues for wati provider with the same empty-emoji removal cont
   expect(msg?.reactions).toEqual([])
   pw = await db.pendingWrites.where('kind').equals('react').toArray()
   expect(pw.length).toBe(2)
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   expect((pw[1].payload as any).emoji).toBe('')
 })
 
@@ -148,6 +157,7 @@ it('updateCustomerLocal patches Dexie and enqueues update_customer', async () =>
   expect(cust?.name).toBe('New Name')
   const pw = await db.pendingWrites.where('kind').equals('update_customer').toArray()
   expect(pw.length).toBeGreaterThanOrEqual(1)
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   expect((pw[pw.length - 1].payload as any).customerId).toBe('cust-1')
 })
 

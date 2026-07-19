@@ -318,7 +318,7 @@ export function useChatMessages(
     }
   }, [templates.length, supabase])
 
-  const reactToMessage = useCallback(async (messageId: string, emoji: string, phone?: string) => {
+  const reactToMessage = useCallback(async (messageId: string, emoji: string, _phone?: string) => {
     const { data: row } = await supabase
       .from('chat_messages').select('reactions, external_id').eq('id', messageId).maybeSingle()
     const existing: { emoji: string; from_type: string }[] = (row?.reactions as unknown as { emoji: string; from_type: string }[]) ?? []

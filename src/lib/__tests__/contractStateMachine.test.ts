@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { isValidTransition, VALID_TRANSITIONS } from '../contractStateMachine'
+import { isValidTransition } from '../contractStateMachine'
 
 describe('isValidTransition', () => {
   it('allows draft → manager_review', () => {

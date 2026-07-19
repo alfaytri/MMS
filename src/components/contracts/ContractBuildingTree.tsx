@@ -2,12 +2,12 @@
 
 import { useState, useCallback } from 'react'
 import { nanoid } from 'nanoid'
-import { Building2, Layers, MapPinned, ChevronRight, ChevronDown, Plus, Trash2, MoreHorizontal } from 'lucide-react'
+import { Building2, Layers, MapPinned, ChevronRight, ChevronDown, Plus, MoreHorizontal } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu'
 import { cn } from '@/lib/utils'
-import { NODE_TYPE_CONFIG, NODE_TYPE_CHILDREN, validateTreeIntegrity, rebuildServicePaths, getNodeAndDescendantIds } from '@/lib/contractUtils'
+import { NODE_TYPE_CONFIG, NODE_TYPE_CHILDREN, rebuildServicePaths, getNodeAndDescendantIds } from '@/lib/contractUtils'
 import { BuildingNodeDialog } from './BuildingNodeDialog'
 import type { BuildingTree, BuildingNode, ContractService } from '@/types/contracts'
 
@@ -20,8 +20,8 @@ interface Props {
   onTreeChange: (tree: BuildingTree) => void
   onServicesChange: (services: ContractService[]) => void
   onAddService: (nodeId: string) => void
-  onEditService: (serviceId: string) => void
-  onRemoveService: (serviceId: string) => void
+  onEditService?: (serviceId: string) => void
+  onRemoveService?: (serviceId: string) => void
   renderServiceCard: (service: ContractService) => React.ReactNode
 }
 
@@ -32,8 +32,8 @@ export function ContractBuildingTree({
   onTreeChange,
   onServicesChange,
   onAddService,
-  onEditService,
-  onRemoveService,
+  onEditService: _onEditService,
+  onRemoveService: _onRemoveService,
   renderServiceCard,
 }: Props) {
   const [expandedNodes, setExpandedNodes] = useState<Set<string>>(new Set())
@@ -46,7 +46,7 @@ export function ContractBuildingTree({
   const toggleExpand = (nodeId: string) => {
     setExpandedNodes((prev) => {
       const next = new Set(prev)
-      next.has(nodeId) ? next.delete(nodeId) : next.add(nodeId)
+      if (next.has(nodeId)) next.delete(nodeId); else next.add(nodeId)
       return next
     })
   }

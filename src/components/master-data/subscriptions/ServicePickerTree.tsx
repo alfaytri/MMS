@@ -177,10 +177,6 @@ export function ServicePickerTree({
     onChange([...next])
   }
 
-  function clearAll() {
-    onChange([])
-  }
-
   // -------------------------------------------------------------------------
   // Collapse / expand all parent nodes
   // -------------------------------------------------------------------------
@@ -210,7 +206,7 @@ export function ServicePickerTree({
       e.preventDefault()
       setCollapsed((prev) => {
         const next = new Set(prev)
-        next.has(service.id) ? next.delete(service.id) : next.add(service.id)
+        if (next.has(service.id)) { next.delete(service.id) } else { next.add(service.id) }
         return next
       })
     }

@@ -4,6 +4,8 @@ import { createClient } from '@/lib/supabase/client'
 import type { InventoryCategory } from '@/hooks/useInventory'
 import { queryKeys } from '@/lib/queryKeys'
 
+const EMPTY_CATEGORIES: InventoryCategory[] = []
+
 // ─── Types ────────────────────────────────────────────────────────────────────
 
 export type InventoryTreeNode = InventoryCategory & {
@@ -101,7 +103,6 @@ export function useInventoryTree(type: string, showArchived = false) {
     queryKey: queryKeys.inventory.categoriesTreeByType(type, showArchived),
     queryFn: async () => {
       const supabase = createClient()
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
       let q = supabase
         .from('inventory_categories')
         .select('*')
@@ -116,7 +117,7 @@ export function useInventoryTree(type: string, showArchived = false) {
     staleTime: 5 * 60 * 1000,
   })
 
-  const flat = query.data ?? []
+  const flat = query.data ?? EMPTY_CATEGORIES
   const tree = useMemo(() => buildTree(flat, null), [flat])
 
   return {
@@ -138,7 +139,6 @@ export function useAllCategoriesFlat() {
     queryKey: queryKeys.inventory.categoriesAllFlat,
     queryFn: async () => {
       const supabase = createClient()
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
       const { data, error } = await supabase
         .from('inventory_categories')
         .select('*')

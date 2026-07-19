@@ -135,7 +135,7 @@ export function useEditOrder(orderId: string) {
       siteVisitFromTime: null,
       siteVisitToTime: null,
     })
-  }, [order])  // eslint-disable-line react-hooks/exhaustive-deps
+  }, [order])
 
   function setCustomer(result: CustomerLookupResult) {
     setDraft((d) => d ? ({

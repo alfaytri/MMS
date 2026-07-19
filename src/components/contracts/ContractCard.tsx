@@ -3,8 +3,8 @@
 import { useState } from 'react'
 import { useRouter } from 'next/navigation'
 import {
-  ChevronDown, ChevronRight, User, MapPin, Calendar,
-  CheckCircle, Clock, CreditCard, ExternalLink,
+  ChevronDown, ChevronRight, User, MapPin,
+  CheckCircle, Clock, ExternalLink,
 } from 'lucide-react'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
