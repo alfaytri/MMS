@@ -196,6 +196,7 @@ function PoolEmployeeRow({ employee }: { employee: Employee }) {
       )}
     >
       {employee.avatar_url
+        // eslint-disable-next-line @next/next/no-img-element
         ? <img src={employee.avatar_url} alt="" className="h-7 w-7 rounded-full object-cover shrink-0" />
         : <div className="h-7 w-7 rounded-full bg-muted flex items-center justify-center text-[10px] font-semibold shrink-0">{initials}</div>
       }

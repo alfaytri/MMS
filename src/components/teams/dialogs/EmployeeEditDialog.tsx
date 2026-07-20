@@ -474,6 +474,7 @@ export function EmployeeEditDialog() {
                       aria-label="Upload photo"
                     >
                       {displayAvatar ? (
+                        /* eslint-disable-next-line @next/next/no-img-element */
                         <img src={displayAvatar} alt="avatar" className="h-full w-full object-cover" />
                       ) : (
                         <>

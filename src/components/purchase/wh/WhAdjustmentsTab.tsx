@@ -411,6 +411,7 @@ export const WhAdjustmentsTab = React.memo(function WhAdjustmentsTab({ warehouse
           </DialogHeader>
           <div className="grid grid-cols-2 gap-2">
             {(photoUrls ?? []).map((url, i) => (
+              // eslint-disable-next-line @next/next/no-img-element
               <img key={i} src={url} alt={`Evidence ${i + 1}`} className="aspect-square w-full object-cover rounded-md border" />
             ))}
           </div>

@@ -196,6 +196,7 @@ export function WhAdjustmentDetailDialog({ adjustment, currentProfile, warehouse
               <div className="grid grid-cols-3 gap-2">
                 {(adjustment.photo_urls ?? []).map((url, i) => (
                   <a key={i} href={url} target="_blank" rel="noopener noreferrer">
+                    {/* eslint-disable-next-line @next/next/no-img-element */}
                     <img
                       src={url}
                       alt={`Evidence ${i + 1}`}

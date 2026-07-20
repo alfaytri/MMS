@@ -2,7 +2,7 @@
 
 import { useState, useCallback } from 'react'
 import { nanoid } from 'nanoid'
-import { Building2, Layers, MapPinned, ChevronRight, ChevronDown, Plus, MoreHorizontal } from 'lucide-react'
+import { Building2, Layers, MapPinned, ChevronRight, ChevronDown, Plus, MoreHorizontal, type LucideIcon } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu'
@@ -11,7 +11,7 @@ import { NODE_TYPE_CONFIG, NODE_TYPE_CHILDREN, rebuildServicePaths, getNodeAndDe
 import { BuildingNodeDialog } from './BuildingNodeDialog'
 import type { BuildingTree, BuildingNode, ContractService } from '@/types/contracts'
 
-const ICONS: Record<string, any> = { Building2, Layers, MapPinned }
+const ICONS: Record<string, LucideIcon> = { Building2, Layers, MapPinned }
 
 interface Props {
   buildingTree: BuildingTree

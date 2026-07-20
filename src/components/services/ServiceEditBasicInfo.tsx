@@ -91,6 +91,7 @@ export function CatalogImageSection({ pendingFile, currentUrl, onFileChange }: C
       </Label>
       {thumbSrc ? (
         <div className="flex items-center gap-3">
+          {/* eslint-disable-next-line @next/next/no-img-element */}
           <img src={thumbSrc} alt="Service" className="h-16 w-16 rounded border object-cover" />
           <Button
             type="button"

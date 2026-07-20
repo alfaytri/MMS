@@ -65,7 +65,8 @@ function DragOverlayContent({ item }: { item: DragData }) {
     return (
       <div className="flex items-center gap-2 px-3 py-1.5 rounded-full bg-background border border-border/60 shadow-sm ring-1 ring-black/5 text-sm pointer-events-none">
         {emp?.avatar_url
-          ? <img src={emp.avatar_url} alt="" className="h-5 w-5 rounded-full object-cover" />
+          ? // eslint-disable-next-line @next/next/no-img-element
+            <img src={emp.avatar_url} alt="" className="h-5 w-5 rounded-full object-cover" />
           : <div className="h-5 w-5 rounded-full bg-muted flex items-center justify-center text-[10px] font-semibold">{initials}</div>
         }
         <span>{emp?.name ?? 'Employee'}</span>
