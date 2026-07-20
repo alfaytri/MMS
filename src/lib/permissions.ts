@@ -15,8 +15,11 @@ export type PermissionEntry = {
 // Wrap forwardRef icons in plain function components so typeof icon === 'function'
 type IconFC = (props: LucideProps) => React.ReactElement | null
 
-const asFC = (Icon: React.ElementType): IconFC =>
-  (props: LucideProps) => React.createElement(Icon, props)
+const asFC = (Icon: React.ElementType): IconFC => {
+  const WrappedIcon = (props: LucideProps) => React.createElement(Icon, props)
+  WrappedIcon.displayName = (Icon as { displayName?: string }).displayName ?? 'Icon'
+  return WrappedIcon
+}
 
 export type PermissionSection = {
   /** Sub-header label rendered above the section's permissions. */

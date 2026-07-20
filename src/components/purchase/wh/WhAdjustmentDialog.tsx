@@ -245,6 +245,7 @@ export function WhAdjustmentDialog({ warehouses, currentProfile, children }: Pro
               <div className="flex flex-wrap gap-1.5">
                 {previews.map((url, idx) => (
                   <div key={idx} className="relative h-12 w-12">
+                    {/* eslint-disable-next-line @next/next/no-img-element */}
                     <img src={url} className="h-12 w-12 object-cover rounded border" alt="" />
                     <button
                       type="button"

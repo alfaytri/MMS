@@ -45,6 +45,7 @@ export function EmployeeRow({ employee }: { employee: Employee }) {
       </div>
       {employee.avatar_url
         ? (
+          // eslint-disable-next-line @next/next/no-img-element
           <img
             src={employee.avatar_url}
             alt={employee.name ?? ''}

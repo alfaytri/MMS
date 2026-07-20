@@ -71,6 +71,7 @@ function MemberTile({ employee, teamId, hasTools }: {
     >
       <div className="relative">
         {avatarUrl
+          // eslint-disable-next-line @next/next/no-img-element
           ? <img src={avatarUrl} alt={employee.name ?? ''} className="h-10 w-10 rounded-full object-cover ring-2 ring-background" />
           : (
             <div className="h-10 w-10 rounded-full bg-background border border-border flex items-center justify-center text-xs font-semibold">

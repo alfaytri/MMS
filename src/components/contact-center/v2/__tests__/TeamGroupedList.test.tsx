@@ -11,7 +11,7 @@ const teams = [
   { id: 't2', name_en: 'Team 2', name_ar: null, phone: '+97422222222', division_id: 'd1' },
   { id: 't3', name_en: 'Team 3', name_ar: null, phone: '+97433333333', division_id: 'd2' },
 ]
-const conversations = new Map<string, any>([
+const conversations = new Map<string, { id: string; last_message: string }>([
   ['+97411111111', { id: 'c1', last_message: 'Hello' }],
 ])
 

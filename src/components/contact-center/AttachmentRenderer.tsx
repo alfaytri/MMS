@@ -70,6 +70,7 @@ function ImageAttachment({ url, name, isAgent }: { url: string; name: string | n
   return (
     <div className="relative group mt-1 inline-block">
       <a href={url} target="_blank" rel="noopener noreferrer">
+        {/* eslint-disable-next-line @next/next/no-img-element */}
         <img
           src={url}
           alt={name ?? 'image'}

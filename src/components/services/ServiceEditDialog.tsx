@@ -285,7 +285,7 @@ export function ServiceEditDialog({
                     <Popover open={parentOpen} onOpenChange={setParentOpen}>
                       <PopoverTrigger
                         className="w-full justify-between font-normal h-9 text-sm mt-1.5 inline-flex items-center rounded-md border border-input bg-background px-3 shadow-xs hover:bg-accent hover:text-accent-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
-                        render={(props) => <button type="button" role="combobox" {...props} />}
+                        render={(props) => <button type="button" role="combobox" aria-controls="parent-service-listbox" aria-expanded={parentOpen} {...props} />}
                       >
                         {parentComboItems.find((i) => i.id === form.watch('parent_id'))?.name_en ?? 'None (root level)'}
                         <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
@@ -293,7 +293,7 @@ export function ServiceEditDialog({
                       <PopoverContent className="w-[420px] max-w-[92vw] p-0" align="start">
                         <Command>
                           <CommandInput placeholder="Search services…" />
-                          <CommandList className="max-h-60">
+                          <CommandList id="parent-service-listbox" className="max-h-60">
                             <CommandEmpty>No services found.</CommandEmpty>
                             <CommandGroup>
                               <CommandItem

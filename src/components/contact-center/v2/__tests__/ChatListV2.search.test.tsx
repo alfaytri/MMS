@@ -10,7 +10,7 @@ vi.mock('@/hooks/useCountryCodes', () => ({
 beforeEach(() => localStorage.clear())
 
 const teamPhones = { teams: [], byPhone: new Map(), isLoading: false }
-const divisions  = [] as any[]
+const divisions  = [] as { id: string; name: string }[]
 
 const conv: ChatConversation = {
   id: 'c1', customer_id: null, conversation_type: null,

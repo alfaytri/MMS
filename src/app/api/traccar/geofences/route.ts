@@ -27,7 +27,7 @@ export async function GET() {
 
     if (localRes.error) throw localRes.error
 
-    const localMap = new Map<number, any>()
+    const localMap = new Map<number, (typeof localRes.data)[number]>()
     for (const local of (localRes.data ?? [])) {
       localMap.set(local.traccar_geofence_id, local)
     }

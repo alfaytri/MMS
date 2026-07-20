@@ -39,6 +39,7 @@ export function LeaderSlot({ team }: { team: TeamFull }) {
       )}
     >
       {avatarUrl
+        // eslint-disable-next-line @next/next/no-img-element
         ? <img src={avatarUrl} alt={leader.name ?? ''} className="h-10 w-10 rounded-full object-cover" />
         : (
           <div className="h-10 w-10 rounded-full bg-muted flex items-center justify-center text-xs font-semibold">

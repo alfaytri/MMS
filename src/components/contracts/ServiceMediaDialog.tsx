@@ -140,6 +140,7 @@ export function ServiceMediaDialog({ open, onOpenChange, serviceId, serviceName 
                 <p className="text-sm text-muted-foreground">Select a file to preview</p>
               )}
               {selected?.type === 'image' && (
+                // eslint-disable-next-line @next/next/no-img-element
                 <img
                   src={selected.url}
                   alt={selected.name}

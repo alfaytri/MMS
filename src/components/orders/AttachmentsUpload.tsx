@@ -90,7 +90,7 @@ export function AttachmentsUpload({ attachments, onChange, disabled }: Props) {
           {attachments.map((item) => (
             <div key={item.id} className="group relative rounded-md border border-border bg-muted overflow-hidden">
               {item.previewUrl ? (
-                // Image preview
+                // eslint-disable-next-line @next/next/no-img-element
                 <img
                   src={item.previewUrl}
                   alt={item.file.name}
